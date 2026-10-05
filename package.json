@@ -1,0 +1,22 @@
+{
+  "name": "sakura-sentinels",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sakura Sentinels — anime chibi tower defense with gacha, gear and a bestiary.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node e2e/smoke.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
