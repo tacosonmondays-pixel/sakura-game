@@ -494,6 +494,18 @@ export function shopTabs(profile)                      // -> [{ id, name, curren
 export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewards }
 ```
 
+## 5b. Balance anchors (shared by units, world, sim)
+
+* Tile = 1 world unit. Ranges: melee 1.6–2.2, normal ranged 2.8–3.6, sniper 8–12.
+* Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
+* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000 (Bloons-like).
+* Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
+* Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
+  ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
+* hpScale: 1-1 = 1.0 rising smoothly to ≈ 6.5 at 8-5; resource arenas tier 1/2/3 ≈ 1.5/3/5; boss arenas ≈ 5–7.
+* Start cash: 1-1 650; later stages 700–900. Wave clear bonus = (80 + 6 × wave) × cashMul. Waves: 12 early → 30 late.
+* Difficulty should feel harder than the old version: Normal should require using upgrades and the right counters.
+
 ## 6. Simulation — `src/sim/**` (owner: sim)
 
 Pure JS. World units = tiles; tile (tx,ty) covers [tx,tx+1)×[ty,ty+1); centre = (tx+0.5, ty+0.5).
@@ -508,6 +520,7 @@ const sim = new Sim({
   hero: { unitId, stats } | null,
   seed,               // number
   options: { endless: false, autoStart: false },
+  data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
 sim.startNextWave()   // only in 'prep'/'between'
