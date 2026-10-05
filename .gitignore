@@ -6,3 +6,4 @@ e2e/out/
 .vite/
 # third-party reference assets are kept locally, not shipped
 docs/reference/thirdparty/
+.claude/worktrees/
