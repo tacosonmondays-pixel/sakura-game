@@ -22,6 +22,7 @@ registerRoute('rewards', () => import('./ui/screens/rewards.js'));
 registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
+registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] mission hub (Campaign button)
 
 store.load();
 try {
@@ -33,6 +34,9 @@ try {
 
 document.querySelector('.boot')?.remove();
 startRouter(document.getElementById('app'));
+
+// [ui-v2] landscape-first: rotate prompt on touch portrait + orientation lock in fullscreen/PWA.
+import('./ui/orientation.js').then((o) => { o.initOrientation(); window.__sakura.orientation = o; }).catch((e) => console.warn('[main] orientation helper failed', e));
 
 // Warm up the chibi base mesh in the background once the first screen is up, so the
 // first 3D girl (lobby secretary, battle) uses the real body instead of the fallback.

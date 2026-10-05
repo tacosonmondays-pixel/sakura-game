@@ -2,7 +2,7 @@
 // motion), audio, battle defaults (ranges, auto start, default speed) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
-import { h, clear, screen, button, toast } from '../components.js';
+import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -22,12 +22,19 @@ function save(reason = 'settings') {
   store.commit(reason);
 }
 
-export function render(root) {
+export function render(root, params = {}) {
   const { el, body } = screen('Settings', { cls: 'ma-settings-screen' });
   root.appendChild(el);
   const draw = () => {
     clear(body);
     body.appendChild(build(draw));
+    if (params.section) {
+      const target = body.querySelector(`[data-section="${params.section}"]`);
+      if (target) {
+        requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: store.profile.settings?.reduceMotion ? 'auto' : 'smooth' }));
+        target.classList.add('ma-pop');
+      }
+    }
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
@@ -38,13 +45,15 @@ function build(redraw) {
   const s = settings();
   const wrap = h('div.ma-wrap.ma-settings');
 
-  wrap.appendChild(h('section.panel',
+  wrap.appendChild(displaySection());
+
+  wrap.appendChild(h('section.panel', { 'data-section': 'graphics' },
     h('h3.panel-title', 'Graphics'),
     row('Quality', 'High: shadows, bloom and outlines. Medium: lighter models. Low: best for older phones.',
       segmented(['high', 'medium', 'low'], s.quality, (v) => { s.quality = v; save(); redraw(); }, { high: 'High', medium: 'Medium', low: 'Low' }, 'quality')),
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
-    row('Reduce motion', 'Tones down screen shake, flashes and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); }, 'reduceMotion')),
+    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); }, 'reduceMotion')),
   ));
 
   const preview = h('div.ma-light-preview', { html: themeBackdropSVG('sakura'), title: 'Preview' });
@@ -87,6 +96,52 @@ function build(redraw) {
 
 function row(label, desc, control) {
   return h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', label), desc ? h('div.ma-set-desc', desc) : null), h('div.ma-set-control', control));
+}
+
+/** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint. */
+function displaySection() {
+  const fsBtn = button('Fullscreen', { kind: 'primary', small: true, icon: 'fullscreen', testid: 'set-fullscreen' });
+  const fsDesc = h('div.ma-set-desc', 'Hides the browser bars and locks landscape where the device allows it.');
+  let orientation = null;
+  const paint = () => {
+    const on = orientation?.isFullscreen() || false;
+    fsBtn.querySelector('.btn-label').textContent = on ? 'Exit fullscreen' : 'Fullscreen';
+    fsBtn.querySelector('.btn-icon').innerHTML = glyph(on ? 'exitFullscreen' : 'fullscreen');
+  };
+  import('../orientation.js').then((o) => {
+    orientation = o;
+    if (!o.canFullscreen()) {
+      fsBtn.disabled = true;
+      fsDesc.textContent = o.isStandalone() ? 'Installed as an app — already fullscreen.' : 'Not available in this browser. On iPhone use Share → Add to Home Screen.';
+    }
+    paint();
+    document.addEventListener('fullscreenchange', paint);
+  }).catch(() => {});
+  fsBtn.addEventListener('click', async () => {
+    if (!orientation) return;
+    await orientation.toggleFullscreen();
+    paint();
+    toast(orientation.isFullscreen() ? 'Fullscreen on — landscape locked when supported' : 'Fullscreen off', 'info');
+  });
+  const rotate = button('Show again', {
+    kind: 'ghost', small: true, icon: 'rotate', testid: 'set-rotate',
+    onClick: async () => {
+      try {
+        sessionStorage.removeItem('sakura-ui-rotate-dismissed');
+        const o = await import('../orientation.js');
+        o.update?.();
+        toast('The rotate reminder will show again in portrait', 'good');
+      } catch {
+        toast('Could not reset the reminder', 'bad');
+      }
+    },
+  });
+  return h('section.panel', { 'data-section': 'display' },
+    h('h3.panel-title', 'Display'),
+    h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', 'Fullscreen'), fsDesc), h('div.ma-set-control', fsBtn)),
+    row('Landscape mode', 'Sakura Sentinels is designed for phones held sideways. On touch devices a reminder appears in portrait; you can dismiss it outside battles.', rotate),
+    row('Install', 'Add the game to your home screen for an app-like, full-screen launch (Android: browser menu → Install app; iPhone: Share → Add to Home Screen).', null),
+  );
 }
 
 function toggle(value, onChange, id, disabled = false) {
@@ -207,7 +262,7 @@ function saveSection(redraw) {
     navigate('lobby');
   };
 
-  return h('section.panel',
+  return h('section.panel', { 'data-section': 'save' },
     h('h3.panel-title', 'Save data'),
     h('p.muted', 'Your progress is saved on this device automatically. Export a save code to back it up or move it to another device.'),
     h('div.ma-save-block',

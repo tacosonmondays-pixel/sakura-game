@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>UI V2 preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Nunito:ital,wght@0,700;0,900;1,800;1,900&display=swap" rel="stylesheet" />
+    <style>
+      .pv-bar { position: fixed; left: 8px; top: 8px; z-index: 500; display: flex; gap: 6px; flex-wrap: wrap; }
+      .pv-bar a { background: rgba(255,255,255,0.9); border-radius: 6px; padding: 3px 8px; font: 700 12px system-ui; color: #22385c; text-decoration: none; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+      body[data-s='backdrop'] .pv-bar { display: none; }
+    </style>
+  </head>
+  <body>
+    <nav class="pv-bar">
+      <a href="?s=backdrop">backdrop</a>
+      <a href="?s=components">components</a>
+      <a href="?s=rotate">rotate overlay</a>
+      <a href="?s=menu">menu tab</a>
+    </nav>
+    <div id="app"></div>
+    <script type="module" src="./ui-v2.js"></script>
+  </body>
+</html>

@@ -87,67 +87,121 @@ function svg(w, h, body, label) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${label}">${body}</svg>`;
 }
 
-/** Lobby backdrop: a bright seaside classroom — big windows over the sea, curtains, petals. */
+/**
+ * Lobby backdrop (V2): a bright seaside classroom with depth — a wall of tall windows over
+ * a sunlit sea, airy curtains, light rays slanting across the room, soft-focus desks in the
+ * foreground and sakura petals drifting in. Designed for 16:9 but safe to crop to ~2.2:1
+ * (everything important sits between y = 80 and y = 820).
+ */
 export function lobbyBackdropSVG() {
   const W = 1600;
   const H = 900;
-  const rnd = seeded('lobby');
+  const rnd = seeded('lobby-v2');
   let s = '<defs>' +
-    linGrad('lb-sky', [[0, '#7cc4ff'], [0.55, '#bfe3ff'], [1, '#f2fbff']]) +
-    linGrad('lb-sea', [[0, '#4cb4f0'], [1, '#1d78c9']]) +
-    radGrad('lb-sun', [[0, '#ffffff', 1], [0.3, '#fff6d6', 0.8], [1, '#fff6d6', 0]]) +
-    linGrad('lb-wall', [[0, '#fdfbf6'], [1, '#e8eef6']]) +
-    linGrad('lb-floor', [[0, '#e9d3b4'], [1, '#c9a57c']]) +
-    linGrad('lb-curtain', [[0, '#ffffff', 0.95], [1, '#dcefff', 0.9]], { x2: 1, y2: 0 }) +
-    linGrad('lb-beam', [[0, '#ffffff', 0.55], [1, '#ffffff', 0]]) +
+    linGrad('lb-sky', [[0, '#5fb6ff'], [0.45, '#a9dcff'], [1, '#eef9ff']]) +
+    linGrad('lb-sea', [[0, '#7fd4ff'], [0.35, '#3fa9f0'], [1, '#1d78c9']]) +
+    radGrad('lb-sun', [[0, '#ffffff', 1], [0.25, '#fffbe6', 0.9], [1, '#fff6d6', 0]]) +
+    linGrad('lb-wall', [[0, '#ffffff'], [1, '#e9f1fa']]) +
+    linGrad('lb-wall-side', [[0, '#dfe9f4'], [1, '#c9d8e8']], { x2: 1, y2: 0 }) +
+    linGrad('lb-floor', [[0, '#eef4fb'], [0.5, '#dfe8f3'], [1, '#c7d6e6']]) +
+    linGrad('lb-curtain', [[0, '#ffffff', 0.97], [1, '#e4f1ff', 0.92]], { x2: 1, y2: 0 }) +
+    linGrad('lb-beam', [[0, '#ffffff', 0.85], [0.55, '#ffffff', 0.3], [1, '#ffffff', 0]]) +
+    linGrad('lb-desk', [[0, '#f7ecd9'], [1, '#dcc3a0']]) +
+    radGrad('lb-haze', [[0, '#ffffff', 0], [0.7, '#ffffff', 0], [1, '#ffffff', 0.55]]) +
+    linGrad('lb-fog', [[0, '#ffffff', 0], [1, '#ffffff', 0.75]]) +
+    '<filter id="lb-blur-far" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
+    '<filter id="lb-blur-near" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="4.5"/></filter>' +
+    '<filter id="lb-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="14"/></filter>' +
     '</defs>';
-  // outside view
+
+  // ---- outside: sky, sun, clouds, islands, sea --------------------------------------
   s += `<rect width="${W}" height="${H}" fill="url(#lb-sky)"/>`;
-  s += `<circle cx="1150" cy="190" r="220" fill="url(#lb-sun)"/>`;
-  s += cloud(320, 220, 1.6) + cloud(760, 140, 1.1, '#ffffff', 0.85) + cloud(1380, 300, 1.4) + cloud(980, 360, 0.8, '#ffffff', 0.8);
-  // distant islands + sea
-  s += hills(rnd, W, 470, 50, 520, '#8ec5a8', 7);
-  s += `<rect y="480" width="${W}" height="${H - 480}" fill="url(#lb-sea)"/>`;
+  s += '<circle cx="1210" cy="150" r="260" fill="url(#lb-sun)"/>';
+  s += `<g filter="url(#lb-blur-far)">${cloud(300, 210, 1.7)}${cloud(720, 120, 1.2, '#ffffff', 0.9)}${cloud(1420, 250, 1.5)}${cloud(1000, 330, 0.9, '#ffffff', 0.8)}${cloud(520, 360, 0.7, '#ffffff', 0.7)}</g>`;
+  s += `<g filter="url(#lb-blur-far)" opacity="0.9">${hills(rnd, W, 468, 44, 500, '#9fd1c3', 7)}${hills(rnd, W, 482, 26, 500, '#7fbfa8', 9)}</g>`;
+  s += `<rect y="486" width="${W}" height="${H - 486}" fill="url(#lb-sea)"/>`;
   let glints = '';
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < 70; i++) {
     const x = rnd() * W;
-    const y = 500 + rnd() * 220;
-    glints += `M${n(x)} ${n(y)}h${n(10 + rnd() * 30)}`;
+    const y = 496 + rnd() * 230;
+    glints += `M${n(x)} ${n(y)}h${n(8 + rnd() * 34)}`;
   }
-  s += `<path d="${glints}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>`;
-  s += `<path d="M1080 486l18-60 10 60z" fill="#ffffff"/><path d="M1060 486h60l-8 10h-44z" fill="#ff7aa8"/>`;
-  // classroom wall with three big windows (cut-outs via evenodd)
-  const win = [[120, 110, 400, 520], [600, 110, 400, 520], [1080, 110, 400, 520]];
+  s += `<path d="${glints}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.55"/>`;
+  s += '<path d="M1090 492l20-66 12 66z" fill="#ffffff"/><path d="M1068 492h66l-9 11h-48z" fill="#ff7aa8"/>';
+  s += '<path d="M330 500l14-44 8 44z" fill="#ffffff" opacity="0.9"/>';
+
+  // ---- classroom wall with four tall windows ------------------------------------------
+  const win = [[70, 70, 330, 560], [450, 70, 330, 560], [830, 70, 330, 560], [1210, 70, 330, 560]];
   let holes = '';
   for (const [x, y, w, h] of win) holes += `M${x} ${y}h${w}v${h}h${-w}z`;
   s += `<path d="M0 0H${W}V${H}H0ZM${holes.slice(1)}" fill="url(#lb-wall)" fill-rule="evenodd"/>`;
+  // window frames (white with a cool shadow line), mullions and glass highlights
   for (const [x, y, w, h] of win) {
-    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#c9b28f" stroke-width="16"/>`;
-    s += `<path d="M${x + w / 2} ${y}v${h}M${x} ${y + h * 0.42}h${w}" stroke="#d8c3a1" stroke-width="10"/>`;
-    s += `<path d="M${x + 30} ${y + 40}l80-30M${x + 30} ${y + 80}l40-15" stroke="#ffffff" stroke-width="6" opacity="0.5" stroke-linecap="round"/>`;
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#b9cde3" stroke-width="22"/>`;
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#ffffff" stroke-width="14"/>`;
+    s += `<path d="M${x + w / 2} ${y}v${h}M${x} ${y + h * 0.36}h${w}M${x} ${y + h * 0.7}h${w}" stroke="#ffffff" stroke-width="10"/>`;
+    s += `<path d="M${x + w / 2} ${y}v${h}M${x} ${y + h * 0.36}h${w}M${x} ${y + h * 0.7}h${w}" stroke="#c9dbee" stroke-width="3"/>`;
+    s += `<path d="M${x + 28} ${y + 48}l92-34M${x + 28} ${y + 96}l48-18" stroke="#ffffff" stroke-width="7" opacity="0.55" stroke-linecap="round"/>`;
+    s += `<rect x="${x + 8}" y="${y + 8}" width="${w - 16}" height="${h - 16}" fill="url(#lb-haze)" opacity="0.5"/>`;
   }
-  // light beams across the room
-  s += '<path d="M120 630L520 630 760 900 260 900Z" fill="url(#lb-beam)" opacity="0.5"/><path d="M600 630L1000 630 1240 900 740 900Z" fill="url(#lb-beam)" opacity="0.5"/><path d="M1080 630L1480 630 1600 820 1600 900 1220 900Z" fill="url(#lb-beam)" opacity="0.5"/>';
-  // floor + chalk rail
-  s += `<rect y="690" width="${W}" height="${H - 690}" fill="url(#lb-floor)"/>`;
-  s += `<path d="M0 690H${W}" stroke="#a88a64" stroke-width="6"/>`;
-  let boards = '';
-  for (let i = 1; i < 8; i++) boards += `M0 ${690 + i * 30}H${W}`;
-  s += `<path d="${boards}" stroke="#b8956a" stroke-width="2" opacity="0.5"/>`;
-  // desks (soft silhouettes)
-  for (const x of [180, 560, 940, 1320]) {
-    s += `<rect x="${x}" y="740" width="200" height="22" rx="6" fill="#d8b98f" stroke="#a5835a" stroke-width="3"/><rect x="${x + 16}" y="762" width="10" height="120" fill="#8d99ae"/><rect x="${x + 174}" y="762" width="10" height="120" fill="#8d99ae"/><rect x="${x + 70}" y="722" width="56" height="18" rx="3" fill="#ffffff" stroke="#c9d6e8" stroke-width="2"/>`;
+  // wall trims: top cornice + window sill + skirting
+  s += `<rect x="0" y="28" width="${W}" height="30" fill="#d9e6f3"/><rect x="0" y="52" width="${W}" height="8" fill="#ffffff"/>`;
+  s += `<rect x="0" y="636" width="${W}" height="22" rx="4" fill="#ffffff"/><rect x="0" y="656" width="${W}" height="10" fill="#c4d5e6"/>`;
+
+  // ---- floor with perspective tiles -----------------------------------------------------
+  s += `<rect y="666" width="${W}" height="${H - 666}" fill="url(#lb-floor)"/>`;
+  let tiles = '';
+  for (let i = 0; i <= 12; i++) {
+    const x = (W / 12) * i;
+    tiles += `M${n(x)} 666L${n(800 + (x - 800) * 1.9)} ${H}`;
   }
-  // curtains
-  s += '<path d="M0 60H110C96 250 140 470 92 680H0Z" fill="url(#lb-curtain)" stroke="#c9dcef" stroke-width="3"/><path d="M30 80C40 260 20 460 40 660M66 80C80 280 70 480 76 670" stroke="#c9dcef" stroke-width="3" fill="none"/>';
-  s += `<path d="M${W} 60H${W - 110}C${W - 90} 260 ${W - 150} 470 ${W - 96} 680H${W}Z" fill="url(#lb-curtain)" stroke="#c9dcef" stroke-width="3"/>`;
-  s += `<rect x="0" y="40" width="${W}" height="20" fill="#c9b28f"/>`;
-  // sakura branch in the top-left corner + petals drifting in
-  s += '<path d="M-20 20C120 60 220 40 340 110M140 52c20-30 60-40 90-36M240 70c30 10 50 40 54 66" stroke="#7a4b3a" stroke-width="12" fill="none" stroke-linecap="round"/>';
-  const bl = [[110, 50], [190, 30], [260, 60], [330, 110], [230, 20], [300, 140], [160, 80], [60, 40]];
-  for (const [x, y] of bl) s += blossom(x, y, 16, '#ffc4d6', '#ff7aa8');
-  s += petals(rnd, W, H, 26, 0.9);
-  for (let i = 0; i < 10; i++) s += `<path d="${sparklePath(rnd() * W, 120 + rnd() * 500, 6 + rnd() * 8)}" fill="#ffffff" opacity="0.8"/>`;
+  for (const y of [700, 745, 800, 865]) tiles += `M0 ${y}H${W}`;
+  s += `<path d="${tiles}" stroke="#b8c9dc" stroke-width="2" opacity="0.55" fill="none"/>`;
+  s += `<rect y="666" width="${W}" height="${H - 666}" fill="url(#lb-fog)" opacity="0.35"/>`;
+
+  // ---- mid-ground: teacher's desk + chairs (slightly soft) ---------------------------------
+  s += '<g filter="url(#lb-blur-far)" opacity="0.95">';
+  for (const [x, sc] of [[250, 0.78], [620, 0.78], [990, 0.78], [1360, 0.78]]) {
+    const w = 190 * sc;
+    const y = 668;
+    s += `<rect x="${n(x)}" y="${y}" width="${n(w)}" height="${n(16 * sc)}" rx="5" fill="url(#lb-desk)" stroke="#c7ab84" stroke-width="2.5"/>`;
+    s += `<rect x="${n(x + 10 * sc)}" y="${n(y + 16 * sc)}" width="${n(7 * sc)}" height="${n(74 * sc)}" fill="#8d99ae"/><rect x="${n(x + w - 17 * sc)}" y="${n(y + 16 * sc)}" width="${n(7 * sc)}" height="${n(74 * sc)}" fill="#8d99ae"/>`;
+    s += `<rect x="${n(x + w * 0.3)}" y="${n(y - 12 * sc)}" width="${n(w * 0.4)}" height="${n(13 * sc)}" rx="3" fill="#ffffff" stroke="#c9d6e8" stroke-width="2"/>`;
+    s += `<rect x="${n(x + w * 0.5 - 22 * sc)}" y="${n(y + 16 * sc)}" width="${n(44 * sc)}" height="${n(40 * sc)}" rx="6" fill="#5c7cfa" opacity="0.85"/>`;
+  }
+  s += '</g>';
+  // potted plant on the right windowsill + a stack of books
+  s += '<g filter="url(#lb-blur-far)"><rect x="1478" y="600" width="44" height="40" rx="6" fill="#d8b98f"/><path d="M1500 604q-30-40-14-80M1500 604q30-40 16-82M1500 604q-6-50 6-90" stroke="#3f9a63" stroke-width="10" stroke-linecap="round" fill="none"/><circle cx="1484" cy="528" r="14" fill="#6cc48a"/><circle cx="1518" cy="524" r="13" fill="#6cc48a"/><circle cx="1506" cy="512" r="12" fill="#8ad39f"/></g>';
+  s += '<g filter="url(#lb-blur-far)"><rect x="96" y="622" width="78" height="10" rx="2" fill="#ff7aa8"/><rect x="104" y="612" width="70" height="10" rx="2" fill="#4cc9f0"/><rect x="100" y="602" width="66" height="10" rx="2" fill="#ffd166"/></g>';
+
+  // ---- light rays slanting in from the top right ------------------------------------------
+  s += '<g opacity="0.95" filter="url(#lb-soft)">';
+  s += `<path d="M1180 -40L1320 -40 520 ${H} 300 ${H}Z" fill="url(#lb-beam)"/>`;
+  s += `<path d="M1400 -40L1480 -40 760 ${H} 640 ${H}Z" fill="url(#lb-beam)"/>`;
+  s += `<path d="M1560 20L1600 20 1040 ${H} 960 ${H}Z" fill="url(#lb-beam)" opacity="0.7"/>`;
+  s += '</g>';
+
+  // ---- curtains (airy, translucent) -----------------------------------------------------
+  s += '<path d="M0 40H150C132 240 176 470 120 680H0Z" fill="url(#lb-curtain)" stroke="#cfe0f2" stroke-width="3"/><path d="M40 60C52 260 30 460 54 660M86 60C100 280 92 480 98 670M124 60C132 240 150 440 110 660" stroke="#cfe0f2" stroke-width="3" fill="none"/>';
+  s += `<path d="M${W} 40H${W - 150}C${W - 132} 240 ${W - 176} 470 ${W - 120} 680H${W}Z" fill="url(#lb-curtain)" stroke="#cfe0f2" stroke-width="3"/><path d="M${W - 40} 60C${W - 52} 260 ${W - 30} 460 ${W - 54} 660M${W - 86} 60C${W - 100} 280 ${W - 92} 480 ${W - 98} 670" stroke="#cfe0f2" stroke-width="3" fill="none"/>`;
+  s += `<rect x="0" y="34" width="${W}" height="14" rx="4" fill="#c9d9ea"/>`;
+
+  // ---- foreground: soft-focus desk edge (bottom-left) and chair back (bottom-right) --------
+  s += '<g filter="url(#lb-blur-near)" opacity="0.92">';
+  s += `<path d="M-40 ${H - 120}Q260 ${H - 170} 560 ${H - 110}L560 ${H}L-40 ${H}Z" fill="url(#lb-desk)"/><path d="M-40 ${H - 120}Q260 ${H - 170} 560 ${H - 110}" stroke="#c7ab84" stroke-width="5" fill="none"/>`;
+  s += `<rect x="60" y="${H - 162}" width="150" height="34" rx="5" fill="#ffffff" stroke="#c9d6e8" stroke-width="3" transform="rotate(-6 135 ${H - 145})"/><rect x="250" y="${H - 150}" width="60" height="12" rx="3" fill="#ffd166" transform="rotate(-6 280 ${H - 144})"/>`;
+  s += `<path d="M1360 ${H}V${H - 150}q0-26 26-26h130q26 0 26 26V${H}" fill="#6f8fc9" opacity="0.85"/><path d="M1386 ${H - 128}h130" stroke="#ffffff" stroke-width="4" opacity="0.5"/>`;
+  s += '</g>';
+
+  // ---- sakura branch top-left + drifting petals ---------------------------------------------
+  s += '<path d="M-30 30C110 70 230 50 360 120M150 64c20-32 62-44 96-38M258 86c32 8 56 42 60 72M60 40c30-20 70-20 100-6" stroke="#7a4b3a" stroke-width="13" fill="none" stroke-linecap="round"/>';
+  const bl = [[112, 52], [196, 30], [268, 66], [344, 118], [236, 20], [318, 150], [160, 92], [66, 44], [290, 42], [150, 30]];
+  for (const [x, y] of bl) s += blossom(x, y, 17, '#ffc4d6', '#ff7aa8');
+  for (const [x, y] of bl) s += blossom(x + 6, y + 8, 9, '#ffe0ec', '#ffd166');
+  s += petals(rnd, W, H, 34, 0.9);
+  for (let i = 0; i < 14; i++) s += `<path d="${sparklePath(rnd() * W, 100 + rnd() * 560, 6 + rnd() * 9)}" fill="#ffffff" opacity="0.85"/>`;
+  // vignette-ish lift at the top so the HUD reads
+  s += `<rect width="${W}" height="140" fill="url(#lb-fog)" opacity="0.25" transform="rotate(180 800 70)"/>`;
   return svg(W, H, s, 'Seaside classroom');
 }
 
