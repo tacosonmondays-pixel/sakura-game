@@ -6,7 +6,9 @@
 //
 //   npx vitest run tests/integration/balance.test.js                  # Easy gate (fast-ish)
 //   BALANCE=full npx vitest run tests/integration/balance.test.js     # full table, all difficulties
+//   BALANCE_OUT=/tmp/table.md also writes the table to a file (vitest hides console of passing tests)
 import { describe, test, expect } from 'vitest';
+import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
@@ -62,6 +64,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
       if (!r.won) lost.push(s.id);
     }
     console.log(`[balance] easy sweep:\n${rows.join('\n')}`);
+    if (process.env.BALANCE_OUT && !FULL) writeFileSync(process.env.BALANCE_OUT, rows.join('\n') + '\n');
     expect(lost).toEqual([]);
   }, 600000);
 
@@ -85,6 +88,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     }
     rows.push(`| **wins** | | ${diffs.map((k) => `${wins[k]}/${campaign.length}`).join(' | ')} | |`);
     console.log(`[balance] full table:\n${rows.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, rows.join('\n') + '\n');
     expect(wins.easy).toBe(campaign.length);
     expect(wins.normal).toBeGreaterThanOrEqual(Math.ceil(campaign.length * 0.6));
     expect(wins.nightmare).toBeLessThanOrEqual(Math.floor(campaign.length * 0.35));
