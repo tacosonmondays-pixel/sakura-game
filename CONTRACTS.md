@@ -708,3 +708,50 @@ rarity sort, item detail with sources + teleport, gear tab), bestiary (families,
 viewer, black silhouettes until discovered, traits/counters/lore), wiki (articles: getting
 started, type chart, roles, traits, statuses, items & rarities, gear & rerolls, awakening,
 gacha rates & pity, medals & difficulty, maps, economy, controls; searchable).
+
+## 12. Owner's V2 directives (latest feedback — these override earlier wording where they conflict)
+
+The owner reviewed the previous version and asked for a **quality overhaul, not just more content**.
+"A feature is not complete because its button, asset, or code exists. Completion requires a working
+in-game result, relevant tests, and evidence against the original request."
+
+* **Enemies must be readable (world, sim, UI).** Ordinary enemies have exactly ONE immediately
+  understandable rule (one trait, or none for plain fodder), shown by a clear icon + one-line text.
+  Elites may combine two familiar rules. Minibosses/bosses get clearly telegraphed phases with an
+  announcement. Core roles players should recognise at a glance: Runner (fast, fragile), Swarm (many
+  weak), Armored (visible protection), Support (helps nearby enemies: fields, siphon, guardian). Slime
+  mimics each copy ONE rule from another family. Depth comes from combining simple roles inside waves,
+  not from stacking exceptions on one enemy. Every essential counter must be available from free units.
+* **Difficulty:** Bloons TD6 / Battle Cats level. Easy forgiving but not passive; Normal rewards
+  understanding (upgrades + right counters); Hard demands good decisions, never a specific gacha pull.
+* **Pre-wave warnings and defeat debriefs (sim + battle-ui):** before a wave, warn about new or dangerous
+  roles ("Armored orcs incoming — bring armor break"). On defeat, explain from recorded events, e.g.
+  "Most leaks were Runners on wave 12" (sim should record leaks per enemy id/trait and wave).
+* **Backpack by item CATEGORY, not rarity (meta-b, systems):** tabs Enhancement (books, materials),
+  Awakening (crowns, star fragments), Equipment (gear, dice, pins), Tickets, Tokens & Currency. Rarity is
+  a sort/filter only. Every item has ONE consistent identity everywhere (same icon + name). Every
+  upgrade requirement shows: [icon] Name — owned / required — where to obtain (Teleport). Add a test
+  that every item id has a dedicated icon (no fallback) and a category.
+* **UI motion system (meta-a, meta-b, battle-ui):** Blue Archive feel. Press feedback 80–120 ms, small
+  panel/tab changes 180–260 ms, screen transitions 300–450 ms; consistent easing; designed empty /
+  locked / insufficient-materials states (never a plain alert). Character detail keeps the character
+  presentation stable while tabs change. Gacha reveal: anticipation → reveal → readable results;
+  skippable; results never lost or double-charged.
+* **Chibis v2 (models):** Hikari is the approval character — get her excellent first (front, side, 3/4,
+  in-game distance), then apply the method to everyone. Judge by construction: head depth & cheeks,
+  coherent neck/shoulder/torso, shaped hands/feet, clean face placement, broad deliberately curved hair
+  sections (not many thin jagged pieces), recognizable costume silhouettes. Animations need personality:
+  idle that says something about her, attack with anticipation → strike → recovery, victory pose.
+  Owner's primary style reference is a cute dinosaur-hoodie chibi character-modeling time-lapse
+  (soft rounded forms, big head, clean toon shading).
+* **Maps v2 (renderer, world):** vibrant and alive like Bloons TD6 but with strong composition — "five
+  beautifully composed features beat fifty random props" (creek banks, bridges/boardwalks, clustered
+  vegetation, lanterns, flowing water, gentle foliage motion). Path, buildable tiles and warnings must
+  stay instantly readable. Mark entrances/exits with cute animated arrows.
+* **Drag-and-drop placement must actually place** (battle-ui): dragging a card onto a valid tile and
+  releasing places the girl; tap-to-select then tap-tile also works.
+* Planned for the NEXT phase (do not build now unless your area already covers it): kawaii tutorial with
+  Hikari guiding in a text box, city hub where unlocked girls walk around, original soundtrack (WebAudio,
+  recurring sakura melody in different arrangements), commander tool per mission, Link Arts team
+  combos, interactive map mechanisms, mission contracts, tactical lab, roguelite expeditions, events
+  with visual-novel mini stories, dev clan `Rosie777` supply bot, anti-tamper saves, PWA install.
