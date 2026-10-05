@@ -4,15 +4,23 @@ import * as THREE from 'three';
 
 let gradient3 = null;
 let gradient2 = null;
+let gradientSoft = null;
 const toonCache = new Map();
 const outlineCache = new Map();
 const basicCache = new Map();
 
-/** 3-step toon ramp (shadow / mid / lit) shared by every toon material. */
+/**
+ * Toon ramps shared by every toon material: 3 = shadow / mid / lit (bodies), 2 = hard
+ * two-tone, 'soft' = a barely-there shadow step used on faces so the painted eyes stay bright.
+ */
 export function gradientMap(steps = 3) {
   if (steps === 2) {
     if (!gradient2) gradient2 = makeRamp([150, 255]);
     return gradient2;
+  }
+  if (steps === 'soft') {
+    if (!gradientSoft) gradientSoft = makeRamp([214, 255]);
+    return gradientSoft;
   }
   if (!gradient3) gradient3 = makeRamp([168, 222, 255]);
   return gradient3;
