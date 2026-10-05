@@ -54,7 +54,8 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       });
       sim.cash = 1e7;
       const water = def.placement === 'water';
-      const t = sim.placeTower(id, water ? 5 : 6, water ? 2 : 5);
+      // free placement: heroes (footprint 0.5) need 1.05 tiles of clearance from the path centre line
+      const t = water ? sim.placeTower(id, 5.5, 2.5) : sim.placeTower(id, isHero ? 8.5 : 6.5, isHero ? 5.6 : 5.5);
       expect(t, `${id} placed`).toBeTruthy();
       for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p);
       sim.upgradeTower(t.uid, (p + 1) % 3);
