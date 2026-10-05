@@ -606,6 +606,14 @@ fails to load (tests, offline), build an all-procedural chibi. Toon shading + in
 outlines. Keep per-character draw calls modest (merge where possible) — 30 girls + 150
 enemies must hold 60 fps on a mid phone at quality 'medium'.
 
+**Blender is installed** (headless, as the Python module `bpy` 4.2 — run scripts with `python3 script.py`,
+`import bpy`). Models may be authored offline in Blender Python (subdivision surfaces, smooth shading,
+real armatures with weights, baked idle/attack/victory actions) and exported to `public/models/*.glb`
+with the exporter (`bpy.ops.export_scene.gltf`); commit the generator scripts under `tools/blender/`
+(owned by models) so models can be regenerated. Keep each character GLB small (< 400 KB, compressed
+attributes ok) and load them with GLTFLoader + SkeletonUtils.clone. Real skeletons enable the character
+acting the owner asked for. If you go this route, still keep a procedural fallback for node tests.
+
 ## 8. Art — `src/art/**` (owner: art)
 
 All functions return **SVG markup strings** (no DOM), deterministic for the same input.
