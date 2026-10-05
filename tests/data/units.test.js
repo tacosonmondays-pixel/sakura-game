@@ -451,6 +451,12 @@ describe('design requirements', () => {
     expect(rei.paths.some((p) => p.tiers.some((t) => t.mods.behavior === 'duel'))).toBe(true);
   });
 
+  it('the free cleanse (vs sabotage) is reachable below tier 5', () => {
+    const hikari = getUnit('hikari');
+    const tierOf = hikari.paths.flatMap((p) => p.tiers.map((t, i) => (t.mods.aura?.cleanse ? i + 1 : 99)));
+    expect(Math.min(...tierOf)).toBeLessThanOrEqual(4);
+  });
+
   it('water units exist: two towers and a hero', () => {
     const water = UNITS.filter((u) => u.placement === 'water');
     expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'umeko']);
@@ -481,7 +487,7 @@ describe('design requirements', () => {
 
   it('every mechanic in the type chart has at least one free counter', () => {
     const freeIds = UNITS.filter((u) => u.acquisition.type !== 'gacha').map((u) => u.id);
-    for (const cap of ['detection', 'antiAir', 'armorPen', 'armorShred', 'barrierBreak', 'slow', 'stun', 'silence', 'antiHeal', 'reveal', 'buff', 'trap', 'water', 'multiHit', 'priority']) {
+    for (const cap of ['detection', 'antiAir', 'armorPen', 'armorShred', 'barrierBreak', 'slow', 'stun', 'silence', 'antiHeal', 'reveal', 'buff', 'trap', 'water', 'multiHit', 'priority', 'cleanse']) {
       const owners = unitsWithCapability(cap).map((u) => u.id).filter((id) => freeIds.includes(id));
       expect(owners.length, `free counter for ${cap}`).toBeGreaterThan(0);
     }

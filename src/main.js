@@ -34,5 +34,11 @@ try {
 document.querySelector('.boot')?.remove();
 startRouter(document.getElementById('app'));
 
+// Warm up the chibi base mesh in the background once the first screen is up, so the
+// first 3D girl (lobby secretary, battle) uses the real body instead of the fallback.
+const warmModels = () => import('./models/index.js').then((m) => m.preloadModels()).catch((e) => console.warn('[main] model preload failed', e));
+if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
+else setTimeout(warmModels, 1200);
+
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
 window.__sakura = { store };

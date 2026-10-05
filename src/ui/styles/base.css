@@ -78,6 +78,16 @@ p { margin: 0 0 8px; line-height: 1.45; }
   .topbar-title { font-size: 1.05rem; }
   .cur-pill { font-size: 0.8rem; }
 }
+@media (max-width: 440px) {
+  .topbar { gap: 5px; padding-left: 8px; padding-right: 6px; }
+  .topbar-title { min-width: 96px; flex: 1 1 auto; }
+  .topbar-spacer { display: none; }
+  .topbar-back { width: 34px; height: 34px; padding: 7px; }
+  .topbar-icon { width: 32px; height: 32px; padding: 5px; }
+  .cur-plus { display: none; }
+  .cur-pill { padding: 2px 7px 2px 3px; gap: 2px; font-size: 0.74rem; flex: none; }
+  .cur-pill .svg-icon { width: 18px; height: 18px; }
+}
 
 /* ---------- Panels ---------- */
 .panel {

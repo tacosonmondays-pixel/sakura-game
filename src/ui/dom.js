@@ -22,7 +22,13 @@ export function h(tag, props, ...children) {
   if (props) {
     for (const [k, v] of Object.entries(props)) {
       if (v == null || v === false) continue;
-      if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+      if (k === 'style' && typeof v === 'object') {
+        for (const [sk, sv] of Object.entries(v)) {
+          if (sv == null) continue;
+          if (sk.startsWith('--')) el.style.setProperty(sk, String(sv));
+          else el.style[sk] = sv;
+        }
+      }
       else if (k === 'dataset') Object.assign(el.dataset, v);
       else if (k === 'class' || k === 'className') el.className += ` ${v}`;
       else if (k === 'html') el.innerHTML = v;

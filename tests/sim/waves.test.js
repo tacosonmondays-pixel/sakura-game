@@ -109,3 +109,32 @@ describe('endless / challenge mode', () => {
     expect(sim.waveInfo(100).length).toBeGreaterThan(0);
   });
 });
+
+describe('integration additions', () => {
+  test('bosses and minibosses take the longest path unless a fixed path is given', () => {
+    const w = generateWave(STAGE_BIG, 10, lookup, { pathCount: 3, pathLengths: [27, 30, 14] });
+    const boss = w.spawns.find((s) => s.enemyId === 'boss');
+    expect(boss.pathIndex).toBe(1);
+    const pinned = { ...STAGE_BIG, waveGen: { ...STAGE_BIG.waveGen, fixed: [{ wave: 10, enemy: 'boss', count: 1, path: 2 }] } };
+    expect(generateWave(pinned, 10, lookup, { pathCount: 3, pathLengths: [27, 30, 14] }).spawns.find((s) => s.enemyId === 'boss').pathIndex).toBe(2);
+  });
+
+  test('stage cashScale multiplies kill bounties and the wave-clear bonus', () => {
+    const base = makeSim({ towers: [] });
+    const rich = makeSim({ towers: [], stage: { ...STAGE, cashScale: 2 } });
+    expect(rich.cashScale).toBe(2);
+    expect(base.cashScale).toBe(1);
+    for (const sim of [base, rich]) {
+      sim.startNextWave();
+      sim._spawnQueue = [];
+      sim._spawnIndex = 0;
+      const before = sim.cash;
+      run(sim, 0.5);
+      sim.enemies.length = 0;
+      run(sim, 1);
+      sim.gain = sim.cash - before;
+    }
+    expect(rich.gain).toBeCloseTo(base.gain * 2, 0);
+    expect(base.gain).toBeGreaterThan(0);
+  });
+});

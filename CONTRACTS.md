@@ -302,9 +302,11 @@ StageDef = {
     budget: { start, growth /*per wave multiplier*/ },
     spacing /*seconds between spawns*/,
     groups /*max groups per wave*/,
-    fixed: [{ wave, enemy, count, spacing?, delay? }],   // scripted additions (minibosses, intros)
+    fixed: [{ wave, enemy, count, spacing?, delay?, path? }],   // scripted additions (minibosses, intros);
+                                                          // bosses/minibosses default to the longest path
   },
   hpScale /*1.0 at 1-1 rising to ~6 at 8-5*/, startCash, lives /*base before difficulty override*/,
+  cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign = hpScale^0.6)*/,
   introduces: (enemyId|TraitKey)[],   // shown as "New!" on prep + reflected in scenery
   recommended: CapabilityKey[],        // drives the "add counters" shortcut
   unlocks: { units?: unitId[] },       // free recruits granted on first clear (any difficulty)
@@ -503,7 +505,8 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
 * hpScale: 1-1 = 1.0 rising smoothly to ≈ 6.5 at 8-5; resource arenas tier 1/2/3 ≈ 1.5/3/5; boss arenas ≈ 5–7.
-* Start cash: 1-1 650; later stages 700–900. Wave clear bonus = (80 + 6 × wave) × cashMul. Waves: 12 early → 30 late.
+* Start cash: 1-1 650; later stages 700–900. Wave clear bonus = (80 + 6 × wave) × cashMul × stage.cashScale
+  (kill bounties are × cashScale too). Waves: 12 early → 30 late.
 * Difficulty should feel harder than the old version: Normal should require using upgrades and the right counters.
 
 ## 6. Simulation — `src/sim/**` (owner: sim)

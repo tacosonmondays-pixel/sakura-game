@@ -46,7 +46,7 @@ Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 0
 
 | Girl | Path 1 → T5 | Path 2 → T5 | Path 3 → T5 |
 |---|---|---|---|
-| Hikari | Radiant Edge → *Noon Absolute* (huge cleave) | Sanctuary → *Dawn Sanctuary* (Veil Sight + silence + cleanse aura) | Lightbringer → *Celestial Choir* (anti-air light lances) |
+| Hikari | Radiant Edge → *Noon Absolute* (huge cleave) | Sanctuary → *Dawn Sanctuary* (Veil Sight + silence aura; cleanse from T4) | Lightbringer → *Celestial Choir* (anti-air light lances) |
 | Luna | Lunar Lances → *Lunatic Lance* (5 beams) | Night Gravity → *Event Horizon* (freeze, Brittle) | Astral Court → *Queen of the Night Sky* (team aura) |
 | Nami | Frostbrand → *Absolute Zero Tide* (freezes) | Undertow → *Leviathan's Wake* (push-back) | Harbor Watch → *Admiral of the Tides* (fleet aura, discounts) |
 | Aoi | Piercing Arrows → *Skyline Breaker* (armor pen, pierce 17) | Rapid Volley → *Thousand Feathers* (6 targets, Veil Sight) | Sky Hunter → *Apex Huntress* (mark, elite/boss hunter) |
@@ -111,7 +111,7 @@ Every capability the stage `recommended` list can ask for has at least one free 
 | **Blink** (ghoul stalkers) | slow, stun, silence | Yuki slow/freeze; Rei Counter (silence + stun); Nami slow | Hotaru silence; Raika shock/silence | Slows and stuns interrupt the blink. |
 | **Crystal shell** (crystal slimes, constructs) | multiHit | Aoi (fast arrows), Kage (2 shuriken × 2/s), Rei (multi-target sweeps) | Raika (chain hits), Chika drones | Many small hits beat the per-hit cap. |
 | **Barrier** (constructs, Iron Colossus) | barrierBreak | Sango (×1.25, Breaker 4 ×1.5 more); Suzu Blast Mines; Midori Universal Solvent | Akane Skybreaker Missile | Blast already deals +50 % to barriers. |
-| **Sabotage** (goblin sappers) | cleanse, trap | Suzu (5-5) traps catch sappers; Hikari Dawn Sanctuary (cleanse) | Chika Repair Bay 3 (cleanse), Miko Sacred Grounds 4, Hotaru Guiding Lights 4 | Traps near the entrance stop sappers before they reach girls. |
+| **Sabotage** (goblin sappers) | cleanse, trap | Suzu (5-5) traps catch sappers; Hikari Sanctuary 4 *Sanctified Banner* (cleanse aura) | Chika Repair Bay 3 (cleanse), Miko Sacred Grounds 4, Hotaru Guiding Lights 4 | Traps near the entrance stop sappers before they reach girls. |
 | **Field** (oni haste/shield/regen, Oni Champion) | silence, priority | Shiro (priority, kill the caster); silence paths (Hikari, Rei, Yuki, Umeko, Suzu) | Hotaru (base silence 1 s), Raika, Miko | Holy hits silence fields. |
 | **Decoy** (fae illusionists) | multiHit | Aoi Volley, Kage, Rei | Raika, Chika | Decoys soak single shots; multi-hit strips them. |
 | **Warded** (fae, oni) | non-mystic damage | Aoi/Kage/Shiro (pierce), Rei (slash), Sango/Suzu (blast), Hikari (holy ×1.25) | Hotaru/Miko (holy), Kaede, Akane | Mystic is halved — Luna, Yuki, Raika, Midori, Umeko suffer. |
@@ -137,8 +137,9 @@ Every capability the stage `recommended` list can ask for has at least one free 
 
 ## Future roster gaps
 
-1. **No free cleanse until Hikari's tier 5** — F2P players beat sabotage with Suzu's traps only.
-   A cheaper free cleanse (or a Chapter 6 free support) would make Foundry stages kinder.
+1. **Only one free cleanse, and it is on the hero** (Hikari Sanctuary 4, ≈4 700 coins in total).
+   Players who bring Nami or Luna rely on Suzu's traps; a cheaper free cleanse tower (or a Chapter 6
+   free support) would make Foundry stages kinder.
 2. **Only one anti-heal girl (Midori).** A second (gacha "curse" caster or anti-heal burns) would give
    Gloomfen/Lych teams options.
 3. **No amphibious unit** — `amphibious` placement exists but nobody uses it. Idea: a frog-hood

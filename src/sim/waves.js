@@ -46,10 +46,11 @@ export function waveHpRamp(stage, wave) {
  * @param {object} stage StageDef
  * @param {number} wave 1-based
  * @param {(id: string) => object|null} lookupEnemy
- * @param {{ pathCount?: number }} opts
+ * @param {{ pathCount?: number, pathLengths?: number[] }} opts  pathLengths lets bosses and
+ *   minibosses take the longest trail (a finale boss on a short side trail would leak at once).
  * @returns {WaveData}
  */
-export function generateWave(stage, wave, lookupEnemy, { pathCount = 1 } = {}) {
+export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLengths = null } = {}) {
   const rng = createRng(hashString(`${stage.id}|wave|${wave}`));
   const gen = stage.waveGen || {};
   const finite = Number.isFinite(stage.waves);
@@ -130,14 +131,21 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1 } = {}) {
     if (f.wave !== wave) continue;
     const def = lookupEnemy(f.enemy);
     if (!def) continue;
-    groups.push({ enemyId: f.enemy, def, count: Math.max(1, f.count ?? 1), spacing: f.spacing ?? baseSpacing * 2, start: f.delay ?? 2, fixed: true });
+    let path = null;
+    if (Number.isInteger(f.path)) path = f.path;
+    else if ((def.tier === 'boss' || def.tier === 'miniboss') && pathLengths?.length > 1) {
+      path = pathLengths.indexOf(Math.max(...pathLengths));
+    }
+    groups.push({ enemyId: f.enemy, def, count: Math.max(1, f.count ?? 1), spacing: f.spacing ?? baseSpacing * 2, start: f.delay ?? 2, fixed: true, path });
   }
 
   const spawns = [];
   let counter = 0;
   groups.forEach((g, gi) => {
     for (let k = 0; k < g.count; k++) {
-      spawns.push({ t: g.start + k * g.spacing, enemyId: g.enemyId, pathIndex: (gi + counter++) % Math.max(1, pathCount) });
+      const pathIndex = g.path != null ? g.path % Math.max(1, pathCount) : (gi + counter) % Math.max(1, pathCount);
+      counter++;
+      spawns.push({ t: g.start + k * g.spacing, enemyId: g.enemyId, pathIndex });
     }
   });
   spawns.sort((a, b) => a.t - b.t);

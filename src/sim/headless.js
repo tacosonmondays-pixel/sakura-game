@@ -176,10 +176,11 @@ function unitRole(stats) {
  * (BTD6 crosspath respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
- * @param {{ data?: object, maxCopies?: number }} opts
+ * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best
+ *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly.
  * @returns {PlanAction[]}
  */
-export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3 } = {}) {
+export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   const { stage, map } = ds;
   const tilesOnPath = pathTileSet(map);
@@ -293,6 +294,11 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3 } =
 
   const dpsRecs = () => placed.filter((p) => p.role === 'dps');
   for (const rec of dpsRecs()) upgrade(rec, rec.main, 2);
+  // Focus: like a real player, push one carry deep (tier 4) early instead of spreading every
+  // coin over tier-2 girls — boss and miniboss stages are unwinnable without a real damage dealer.
+  const carryScore = (rec) => pathScore(rec.def, rec.main, needs) * (1 + 0.3 * (rec.def.base?.bossMul || 1)) * (rec.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
+  const carry = focus ? dpsRecs().sort((a, b) => carryScore(b) - carryScore(a))[0] : null;
+  if (carry) upgrade(carry, carry.main, 4);
   for (const info of dps.slice(0, 2)) if (copies(info) < maxCopies) place(info);
   for (const rec of placed) {
     upgrade(rec, rec.main, 2);
@@ -305,6 +311,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3 } =
       if (rec) upgrade(rec, rec.main, 3);
     }
   }
+  if (carry) upgrade(carry, carry.main, 5);
   for (const rec of dpsRecs()) upgrade(rec, rec.main, 4);
   for (const rec of dpsRecs().slice(0, 2)) upgrade(rec, rec.main, 5);
   for (const rec of dpsRecs()) upgrade(rec, rec.main, 5);

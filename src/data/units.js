@@ -122,8 +122,8 @@ const HIKARI = {
       tier('Guiding Light', 140, 'Girls within 2.6 tiles gain +6% range.', { aura: { range: 2.6, rangeMul: 1.06 } }),
       tier('Shared Light', 300, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),
       tier('Blessed Ground', 1100, 'Aura shares Veil Sight and +10% damage; her hits silence fields and blinks for 0.6s.', { aura: { detection: true, dmgMul: 1.1 }, silence: 0.6 }),
-      tier('Sanctified Banner', 3200, 'Aura +15% attack speed and reaches 3.2 tiles; hits reveal veiled foes for 2s.', { aura: { rateMul: 1.15, range: 3.2 }, reveal: 2 }),
-      tier('Dawn Sanctuary', 11000, 'Aura +20% damage, cleanses sabotage and reaches 4 tiles; silence +0.8s.', { aura: { dmgMul: 1.2, range: 4, cleanse: true }, silence: 0.8 }),
+      tier('Sanctified Banner', 3200, 'Aura +15% attack speed, reaches 3.2 tiles and cleanses sabotage and stuns; hits reveal veiled foes for 2s.', { aura: { rateMul: 1.15, range: 3.2, cleanse: true }, reveal: 2 }),
+      tier('Dawn Sanctuary', 11000, 'Aura +20% damage and reaches 4 tiles; silence +0.8s.', { aura: { dmgMul: 1.2, range: 4 }, silence: 0.8 }),
     ]),
     path('lightbringer', 'Lightbringer', 'Reach, flyers and light lances', [
       tier('Bright Step', 120, '+0.3 range.', { range: 0.3 }),
@@ -840,7 +840,7 @@ const UMEKO = {
       tier('Beacon', 300, '+0.4 range; aura reaches 3.4 tiles.', { range: 0.4, aura: { range: 3.4 } }),
       tier('Revealing Tide', 950, 'Pulses reveal veiled foes for everyone for 3s; +2 damage.', { reveal: 3, damage: 2 }),
       tier('Moonlit Beacon', 3000, 'Aura reaches 4.5 tiles and gives +10% range; reveal +2s.', { aura: { range: 4.5, rangeMul: 1.1 }, reveal: 2 }),
-      tier('Sea of Lanterns', 9500, 'Aura reaches 6 tiles: +15% range, +10% damage; pulses silence for 0.8s.', { aura: { range: 6, rangeMul: 1.15, dmgMul: 1.1 }, reveal: 3, silence: 0.8 }),
+      tier('Sea of Lanterns', 9500, 'Aura reaches 6 tiles: +15% range, +10% damage; reveals last 3s longer and pulses silence for 0.8s.', { aura: { range: 6, rangeMul: 1.15, dmgMul: 1.1 }, reveal: 3, silence: 0.8 }),
     ]),
     path('plumrain', 'Plum Rain', 'Team buffs', [
       tier('Warm Current', 140, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),

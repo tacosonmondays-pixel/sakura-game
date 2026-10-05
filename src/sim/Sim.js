@@ -77,6 +77,9 @@ export class Sim {
     this.maxLives = this.diff.lives ?? this.stage.lives ?? 100;
     this.lives = this.maxLives;
     this.cash = Math.round(this.stage.startCash ?? 650);
+    // Stage economy scale (kill bounties + wave-clear bonus). Late stages pay more so tier 4–5
+    // upgrades (1.8k–16k coins) become reachable as enemy HP grows; tower income is unscaled.
+    this.cashScale = Number.isFinite(this.stage.cashScale) && this.stage.cashScale > 0 ? this.stage.cashScale : 1;
     this.state = 'prep';
     this.wave = 0;
     this.wavesCleared = 0;
@@ -262,7 +265,7 @@ export class Sim {
       dist: o.dist ?? 0,
       hpMul,
       speedMul: this.diff.speedMul ?? 1,
-      cashMul: this.diff.cashMul ?? 1,
+      cashMul: (this.diff.cashMul ?? 1) * this.cashScale,
       time: this.time,
       rng: this.rng,
       wave: this.wave,
@@ -417,7 +420,7 @@ export class Sim {
   _getWave(n) {
     let w = this._waveCache.get(n);
     if (!w) {
-      w = generateWave(this.stage, n, this.data.enemy, { pathCount: this.pathData.length });
+      w = generateWave(this.stage, n, this.data.enemy, { pathCount: this.pathData.length, pathLengths: this.pathData.map((p) => p.length) });
       this._waveCache.set(n, w);
     }
     return w;
@@ -444,7 +447,7 @@ export class Sim {
     if (this.state !== 'wave') return;
     if (this._spawnIndex < this._spawnQueue.length || this.enemies.length > 0) return;
     const cashMul = this.diff.cashMul ?? 1;
-    const bonus = this._gainCash((BATTLE.waveClearBonusBase + 6 * this.wave) * cashMul);
+    const bonus = this._gainCash((BATTLE.waveClearBonusBase + 6 * this.wave) * cashMul * this.cashScale);
     this._emit('cash', { amount: bonus, reason: 'waveBonus' });
     if (!this.diff.noIncome) {
       for (const t of this.towers) {

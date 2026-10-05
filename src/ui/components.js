@@ -123,14 +123,20 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
 
 export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel = 'Cancel' } = {}) {
   return new Promise((resolve) => {
+    let settled = false;
+    const settle = (v) => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+    };
     modal({
       title,
       body: text,
       actions: [
-        { label: cancel, kind: 'ghost', onClick: (c) => { c(); resolve(false); } },
-        { label: ok, kind: 'primary', testid: 'confirm-ok', onClick: (c) => { c(); resolve(true); } },
+        { label: cancel, kind: 'ghost', testid: 'confirm-cancel', onClick: (c) => { settle(false); c(); } },
+        { label: ok, kind: 'primary', testid: 'confirm-ok', onClick: (c) => { settle(true); c(); } },
       ],
-      onClose: () => resolve(false),
+      onClose: () => settle(false),
     });
   });
 }

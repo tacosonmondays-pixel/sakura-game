@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Models preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #cfe8ff; font-family: system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  nav { position: fixed; top: 8px; left: 8px; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; }
+  nav a { background: #fff; color: #1d2b55; font: italic 700 13px system-ui; padding: 6px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 1px 3px #0002; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="?view=lineup">Lineup</a>
+  <a href="?view=close&ids=hikari,aoi,yuki">Close-up</a>
+  <a href="?view=states&ids=hikari">States</a>
+  <a href="?view=enemies">Enemies</a>
+  <a href="?view=hooks">Enemy hooks</a>
+  <a href="?view=viewer">Viewer</a>
+  <a href="?view=lineup&quality=low">Low quality</a>
+</nav>
+<div id="app"></div>
+<script type="module" src="./models.js"></script>
+</body>
+</html>

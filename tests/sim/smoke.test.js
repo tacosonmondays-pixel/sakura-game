@@ -30,4 +30,31 @@ describe.skipIf(!ready)('real data smoke', () => {
     expect(r.wave).toBeGreaterThan(0);
     expect(r.result.encountered.length).toBeGreaterThan(0);
   });
+
+  // Balance report (CONTRACTS.md §6: autoPlan checks campaign stages with free units only).
+  // Informational: prints a table instead of failing, because balance belongs to world/units;
+  // it only asserts that every stage runs to a result without errors.
+  test('campaign sweep on Normal with free units (report)', () => {
+    const d = defaultData();
+    const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
+    const order = new Map(campaign.map((s, i) => [s.id, i]));
+    const rows = [];
+    for (const stage of campaign) {
+      const idx = order.get(stage.id);
+      const avail = Object.values(d.units).filter((u) => {
+        const a = u.acquisition || {};
+        if (a.type === 'starter') return true;
+        return a.type === 'free' && order.has(a.afterStage) && order.get(a.afterStage) < idx;
+      });
+      const recency = (u) => (u.acquisition?.type === 'free' ? order.get(u.acquisition.afterStage) : -1);
+      const towers = avail.filter((u) => u.kind === 'tower').sort((a, b) => recency(b) - recency(a)).slice(0, 8);
+      const hero = avail.filter((u) => u.kind === 'hero').sort((a, b) => recency(b) - recency(a))[0];
+      const ids = [...towers.map((u) => u.id), ...(hero ? [hero.id] : [])];
+      const plan = autoPlan(stage.id, ids);
+      const r = runHeadless({ stageId: stage.id, difficulty: 'normal', plan, seed: 1, maxTime: 7200 });
+      expect(r.wave).toBeGreaterThan(0);
+      rows.push(`${stage.id.padEnd(5)} ${r.won ? 'WON ' : 'LOST'} wave ${r.wave}/${r.sim.totalWaves} lives ${r.lives}/${r.maxLives} [${ids.join(',')}]`);
+    }
+    console.log(`[balance] campaign sweep (normal, free units, autoPlan):\n${rows.join('\n')}`);
+  }, 300000);
 });
