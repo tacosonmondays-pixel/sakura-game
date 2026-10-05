@@ -2,6 +2,7 @@
 // tier pips / next tier / crosspath locks / buy buttons, sell, close. Hero extras: level,
 // XP bar and ultimate. Landscape: right-side card; portrait: bottom sheet.
 import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
+import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
@@ -15,27 +16,6 @@ const MODE_HELP = {
   close: 'Nearest to her',
   elite: 'Casters, siphoners, elites, bosses first',
 };
-
-/** Human explanation for a crosspath lock. */
-export function crosspathReason(tiers, path, names) {
-  const others = [0, 1, 2].filter((p) => p !== path);
-  const cur = tiers[path] || 0;
-  if (cur === 0 && others.filter((p) => tiers[p] > 0).length >= 2) {
-    const used = others.map((p) => names[p]).join(' + ');
-    return `Two paths already in use (${used}). A girl can only train two paths.`;
-  }
-  const high = others.find((p) => tiers[p] > 2);
-  if (high != null) return `Only one path may pass tier 2 — ${names[high]} is at tier ${tiers[high]}.`;
-  return 'Locked by crosspathing.';
-}
-
-/** Highest tier this path can still reach given the other paths (for pip styling). */
-function pathCap(tiers, path) {
-  const others = [0, 1, 2].filter((p) => p !== path);
-  if ((tiers[path] || 0) === 0 && others.filter((p) => tiers[p] > 0).length >= 2) return 0;
-  if (others.some((p) => tiers[p] > 2)) return 2;
-  return 5;
-}
 
 function statusLabel(s) {
   const name = STATUSES[s.type]?.name || s.type;

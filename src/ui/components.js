@@ -9,7 +9,7 @@ import { cardArtSVG } from '../art/cardArt.js';
 import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES } from '../data/types.js';
-import { itemSources } from '../systems/inventory.js';
+import { itemSources, itemCount } from '../systems/inventory.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -181,7 +181,7 @@ export function itemTile(itemId, count = null, { onClick, size = 64, showName = 
 /** Item info modal with description, owned count and "where to get" teleports. */
 export function showItemInfo(itemId) {
   const item = getItem(itemId);
-  const owned = store.profile.items[itemId] || 0;
+  const owned = itemCount(store.profile, itemId);
   const sources = itemSources(itemId);
   const body = h(
     'div.item-info',

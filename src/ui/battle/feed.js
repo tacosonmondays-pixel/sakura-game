@@ -3,6 +3,8 @@
 import { h, createThrottle } from './util.js';
 
 const MAX_TOASTS = 4;
+// phones keep fewer toasts so the feed never hides much of the map
+const maxToasts = () => (typeof window !== 'undefined' && window.innerWidth < 600 ? 3 : MAX_TOASTS);
 
 export function createFeed(layer) {
   const list = h('div.bt-feed', { 'data-testid': 'battle-feed', 'aria-live': 'polite' });
@@ -40,7 +42,7 @@ export function createFeed(layer) {
     const t = h(`div.bt-toast.bt-toast-${kind}`, { 'data-key': o.key || null }, o.icon || null, h('span.bt-toast-text', content));
     t.dataset.until = String(performance.now() + ms);
     list.prepend(t);
-    while (list.children.length > MAX_TOASTS) list.lastElementChild.remove();
+    while (list.children.length > maxToasts()) list.lastElementChild.remove();
     const check = () => {
       if (!t.isConnected) return;
       const left = Number(t.dataset.until) - performance.now();
