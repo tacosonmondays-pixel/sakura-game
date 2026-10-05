@@ -304,7 +304,8 @@ export function mountBattle(root, params, hooks) {
             if (!knownEnemies.has(ev.id) && !announcedNew.has(ev.id) && def.leak !== 0) {
               announcedNew.add(ev.id);
               const traits = Object.keys(def.traits || {}).filter((k) => def.traits[k]);
-              const trait = def.armor > 0 ? 'armored' : traits[0];
+              // the enemy's defining rule: its first trait, else visible armour
+              const trait = traits.find((k) => TRAITS[k]) || (def.armor > 0 && TRAITS.armored ? 'armored' : null);
               feed.push([`New enemy: `, h('b', def.name), trait && TRAITS[trait] ? ` — ${TRAITS[trait].name}` : ''], 'new', { ms: 4200, icon: trait && TRAITS[trait] ? traitBadge(trait, 'bt-toast-ico') : null });
             }
             break;

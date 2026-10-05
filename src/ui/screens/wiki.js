@@ -38,7 +38,7 @@ function typeChartBlock() {
     h('div.mb-tc-h', ''),
     armors.map((a) => h('div.mb-tc-h', svgEl(armorClassIcon(a.id)), a.name)),
     Object.values(ATTACK_TYPES).map((t) => [
-      h('div.mb-tc-h.mb-tc-row', svgEl(attackTypeIcon(t.id)), t.name),
+      h('div.mb-tc-h.mb-tc-row', { title: t.name }, svgEl(attackTypeIcon(t.id)), h('span.mb-tc-label', t.name)),
       armors.map((a) => {
         const m = TYPE_CHART[t.id][a.id];
         return h(`div.mb-tc-cell.${multClass(m)}`, { title: `${t.name} vs ${a.name}: ${effectivenessLabel(m)}` }, `×${m}`);
@@ -108,7 +108,10 @@ export function render(root, params = {}) {
 
   function renderList() {
     clear(listEl);
-    const results = searchWiki(view.q).filter((r) => !view.cat || r.article.category === view.cat);
+    const catOrder = (id) => WIKI_CATEGORIES.findIndex((c) => c.id === id);
+    let results = searchWiki(view.q).filter((r) => !view.cat || r.article.category === view.cat);
+    // Without a query the list is grouped by category (stable within a category).
+    if (!view.q) results = results.map((r, i) => ({ r, i })).sort((a, b) => catOrder(a.r.article.category) - catOrder(b.r.article.category) || a.i - b.i).map((x) => x.r);
     if (!results.length) {
       listEl.appendChild(h('div.mb-empty', h('div.mb-empty-title', 'No articles found'), h('p.muted', `Nothing matches “${view.q}”. Try a shorter word.`)));
       return;

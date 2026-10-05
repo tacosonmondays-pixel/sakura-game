@@ -206,7 +206,17 @@ export function createTowerPanel(ctx) {
     const foot = h('div.bt-panel-foot', h('span.bt-spent', `Invested ${fmtCoins(t.spent)}`), sell);
 
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
-    const scroll = h('div.bt-panel-scroll', head, heroBlock, target, stats, caps, h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades'), paths);
+    const scroll = h(
+      'div.bt-panel-scroll',
+      head,
+      heroBlock,
+      target,
+      h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades'),
+      paths,
+      h('div.bt-section-label', icon('info', 'bt-ico-sm'), 'Stats'),
+      stats,
+      caps,
+    );
     el.replaceChildren(scroll, foot);
     if (prevScroll && el.dataset.uid === String(t.uid)) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);

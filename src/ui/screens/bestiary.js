@@ -276,7 +276,7 @@ export function render(root, params = {}) {
     const bodyEl = known
       ? h('div.mb-detail-body',
         h('div.mb-detail-name', e.name),
-        h('div.mb-detail-sub', h('span', { style: `color:${fam?.color}` }, fam?.name), TIER_LABEL[e.tier] ? h('span', `· ${TIER_LABEL[e.tier]}`) : null, h('span', `· defeated ${formatNumber(entry(e.id).kills || 0)}`)),
+        h('div.mb-detail-sub', h('span.mb-fam-pill', { style: cssVars({ '--fam': fam?.color }) }, fam?.name), TIER_LABEL[e.tier] ? h('span', `· ${TIER_LABEL[e.tier]}`) : null, h('span', `· defeated ${formatNumber(entry(e.id).kills || 0)}`)),
         h('div.mb-kv',
           h('div', h('span', 'HP'), h('b', formatNumber(e.hp))),
           h('div', h('span', 'Speed'), h('b', `${e.speed}`)),
@@ -294,7 +294,7 @@ export function render(root, params = {}) {
         firstSeen)
       : h('div.mb-detail-body',
         h('div.mb-unknown', h('div.mb-unknown-q', '???'), h('div', seen ? 'Seen in battle, but not yet defeated in a victory.' : 'Not discovered yet.')),
-        h('div.mb-detail-sub', h('span', { style: `color:${fam?.color}` }, fam?.name), TIER_LABEL[e.tier] ? h('span', `· ${TIER_LABEL[e.tier]}`) : null),
+        h('div.mb-detail-sub', h('span.mb-fam-pill', { style: cssVars({ '--fam': fam?.color }) }, fam?.name), TIER_LABEL[e.tier] ? h('span', `· ${TIER_LABEL[e.tier]}`) : null),
         h('p.muted', 'Win a battle on a stage that contains this enemy to reveal its model, stats, traits and counters.'),
         firstSeen);
     const panel = h('div.mb-detail-panel.mb-fade', viewerBox, bodyEl);

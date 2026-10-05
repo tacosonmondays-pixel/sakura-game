@@ -150,7 +150,7 @@
   box-shadow: 0 -3px 14px rgba(29,78,137,0.16);
   clip-path: polygon(0 10px, 24px 0, 100% 0, 100% 100%, 0 100%);
 }
-.bt-bar-scroll { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; justify-content: safe center; padding: 4px 2px 2px; touch-action: pan-x; }
+.bt-bar-scroll { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; justify-content: safe center; padding: 9px 6px 2px; margin-top: -5px; touch-action: pan-x; }
 .bt-bar-scroll::-webkit-scrollbar { display: none; }
 .bt-card {
   position: relative; flex: none; width: 76px; height: 90px; padding: 0; border: none; border-radius: 9px; overflow: hidden;
@@ -176,7 +176,7 @@
 .bt-card.bt-deployed .bt-card-cost { color: #9fb0c8; }
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-art, .bt-card.bt-poor:not(.bt-deployed) .bt-card-name { filter: grayscale(0.85) brightness(0.62); }
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-cost { color: #ff8a9b; }
-.bt-card.bt-active { transform: translateY(-8px); box-shadow: 0 0 0 3px var(--yellow), 0 8px 18px rgba(242,183,5,0.55); }
+.bt-card.bt-active { transform: translateY(-5px); box-shadow: 0 0 0 3px var(--yellow), 0 8px 18px rgba(242,183,5,0.55); }
 
 /* ---------- Placement hint ---------- */
 .bt-place-hint {
@@ -291,7 +291,7 @@
 /* ---------- Tower panel ---------- */
 .bt-panel {
   position: absolute; z-index: 6; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 10px); bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 10px);
-  width: 352px; display: flex; flex-direction: column; background: var(--bt-glass); backdrop-filter: blur(10px);
+  width: 352px; display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.97); backdrop-filter: blur(10px);
   border-radius: 14px; box-shadow: var(--shadow-strong); overflow: hidden; border: 1px solid #fff;
 }
 .bt-panel.bt-panel-in { animation: bt-panel-in 0.22s var(--bt-ease); }
@@ -541,6 +541,7 @@
 /* Landscape phones: compact everything vertically */
 @media (max-height: 500px) and (min-width: 701px) {
   .bt-root { --bt-hud-h: 46px; --bt-bar-h: 76px; }
+  .bt-bar { padding-top: 4px; padding-bottom: calc(4px + var(--safe-bottom)); }
   .bt-hud { padding-top: calc(3px + var(--safe-top)); padding-bottom: 3px; }
   .bt-round { width: 36px; height: 36px; padding: 8px; }
   .bt-stat { height: 30px; font-size: 0.9rem; }
@@ -550,7 +551,18 @@
   .bt-card-hero { width: 64px; }
   .bt-card-art { height: 48px; }
   .bt-card-name { display: none; }
-  .bt-panel { width: 320px; }
+  .bt-panel { width: 340px; bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); z-index: 8; }
+  .bt-has-panel .bt-wavectl { display: none; }
+  .bt-panel-scroll { padding: 8px 10px; }
+  .bt-panel-portrait { width: 46px; height: 46px; }
+  .bt-panel-name { font-size: 1.05rem; }
+  .bt-panel-head { margin-bottom: 4px; }
+  .bt-seg-btn { padding: 4px 7px; min-height: 26px; font-size: 0.7rem; }
+  .bt-section-label { margin: 5px 0 4px; }
+  .bt-path { padding: 5px 7px; }
+  .bt-buy { min-height: 34px; min-width: 70px; padding: 4px 10px; }
+  .bt-panel-foot { padding: 6px 10px calc(6px + var(--safe-bottom)); }
+  .bt-sell { padding: 6px 12px; }
   .bt-herow-portrait { width: 54px; height: 54px; }
   .bt-ult { width: 48px; height: 48px; }
   .bt-start-label { font-size: 1.15rem; }

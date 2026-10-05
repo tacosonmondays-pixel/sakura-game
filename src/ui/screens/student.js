@@ -10,10 +10,10 @@ import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT, UNIT_RARITIES,
-  STATUSES, GEAR_SLOTS, ITEM_RARITIES, ITEM_RARITY_ORDER, effectivenessLabel,
+  STATUSES, GEAR_SLOTS, ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
-import { ITEMS, bookId, getItem } from '../../data/items.js';
+import { ITEMS, bookId, getItem, materialId } from '../../data/items.js';
 import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
@@ -27,7 +27,7 @@ import { itemCount, hasItems } from '../../systems/inventory.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
-import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -315,7 +315,7 @@ function infoTab(unit) {
         chip(attackTypeIcon(unit.attackType), ATTACK_TYPES[unit.attackType]?.name, '.mb-type-chip'),
         unit.element ? chip(elementIcon(unit.element), ELEMENTS[unit.element]?.name) : null,
         chip(unit.placement === 'land' ? null : uiIcon('water'), `${PLACEMENT[unit.placement]?.name} placement`, unit.placement !== 'land' ? '.mb-water-chip' : ''),
-        chip(null, `Materials: ${unit.materialFamily}`))),
+        chip(itemIcon(materialId(unit.materialFamily, 'rare')), `${MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily} materials`))),
     section('Type effectiveness',
       h('p.muted', `${ATTACK_TYPES[unit.attackType]?.name} — ${ATTACK_TYPES[unit.attackType]?.desc}`),
       effectivenessRow(unit.attackType)),
@@ -450,7 +450,7 @@ function breakthroughPanel(unit, ctx, rerender) {
   return h(`section.mb-card.mb-bt${atCap ? '.ready' : ''}`,
     h('h3.mb-card-title', 'Breakthrough'),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(levelCap(st) + 10)), '. Uses ', h('b', unit.materialFamily), ' materials.'),
+    h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(levelCap(st) + 10)), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
     atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
     requirementList(cost),
     h('div.mb-actions',
@@ -537,35 +537,36 @@ function rerollModal(gear, kind, onDone) {
     clear(bodyEl);
     const g = profile.gear[gear.uid];
     const cost = kind === 'main' ? mainRerollCost(g) : rerollCost(g, { lockIndex });
+    const affordable = hasItems(profile, cost);
     put(bodyEl,
-      h('p.muted', kind === 'main'
+      h('p.muted.mb-reroll-desc', kind === 'main'
         ? 'Changes the main stat to another option for this slot. Substats stay (a clashing substat is rerolled).'
         : 'Rerolls every substat. Enhancement upgrades are kept and spread over the new substats. Lock one substat with a Lock Pin to keep it.'),
       kind === 'subs' && g.subs.length >= 2
         ? h('div.mb-lock-pick',
-          h('div.mb-sub-title', 'Lock a substat (optional)'),
+          h('div.mb-sub-title', 'Lock a substat (optional · costs a Lock Pin)'),
           h('div.mb-chips', [
             h(`button.mb-chip${lockIndex == null ? '.on' : ''}`, { onclick: () => { lockIndex = null; draw(); } }, 'No lock'),
-            ...g.subs.map((s, i) => h(`button.mb-chip${lockIndex === i ? '.on' : ''}`, { onclick: () => { lockIndex = i; draw(); } }, svgEl(uiIcon('lock'), 'mb-chip-icon'), describeStat(s.stat, s.value))),
+            ...g.subs.map((s, i) => h(`button.mb-chip${lockIndex === i ? '.on' : ''}`, { 'data-testid': `lock-${i}`, onclick: () => { lockIndex = i; draw(); } }, svgEl(uiIcon('lock'), 'mb-chip-icon'), describeStat(s.stat, s.value))),
           ]))
         : null,
       result
-        ? h('div.mb-compare',
+        ? h('div.mb-compare.mb-fade',
           h('div', h('div.mb-sub-title', 'Before'), gearCard(result.before, { compact: true })),
           h('div.mb-compare-arrow', '→'),
           h('div', h('div.mb-sub-title', 'After'), gearCard(result.after, { compact: true, highlightSubs: changedSubs(result.before, result.after) })))
         : gearCard(g, { highlightSubs: lockIndex != null ? [lockIndex] : [] }),
-      h('div.mb-sub-title', 'Cost per reroll'),
-      requirementList(cost),
-      h('div.mb-actions',
+      h('div.mb-reroll-foot',
+        h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost per reroll'), costChips(cost)),
         button(result ? 'Reroll again' : 'Reroll', {
-          kind: 'yellow', icon: 'dice', testid: 'do-reroll', disabled: !hasItems(profile, cost),
+          kind: 'yellow', icon: 'dice', testid: 'do-reroll', disabled: !affordable,
           onClick: () => {
             const res = kind === 'main' ? rerollMainStat(profile, g.uid, rng) : rerollSubstats(profile, g.uid, rng, { lockIndex });
             if (!res.ok) { toast(res.error === 'missing' ? 'Not enough dice or coins.' : 'Cannot reroll this gear.', 'bad'); return; }
             store.commit('gear-reroll');
             result = res;
             draw();
+            bodyEl.closest('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
             onDone();
           },
         })),
@@ -664,11 +665,23 @@ function treeTab(unit) {
         h('div.mb-tier-desc', t.desc),
         words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null);
     })));
+  const tree = h('div.mb-tree', cols);
+  // Phones show one path at a time (swipe); the switcher mirrors and drives the scroll position.
+  const switcher = h('div.mb-path-switch', unit.paths.map((p, pi) => h(`button.mb-path-pick.p${pi}${pi === 0 ? '.on' : ''}`, {
+    onclick: () => tree.scrollTo({ left: cols[pi].offsetLeft - tree.offsetLeft - (tree.clientWidth - cols[pi].offsetWidth) / 2, behavior: 'smooth' }),
+  }, h('span.mb-path-pick-num', String(pi + 1)), h('span', p.name))));
+  tree.addEventListener('scroll', () => {
+    const mid = tree.scrollLeft + tree.clientWidth / 2;
+    let best = 0;
+    cols.forEach((c, i) => { if (Math.abs(c.offsetLeft - tree.offsetLeft + c.offsetWidth / 2 - mid) < Math.abs(cols[best].offsetLeft - tree.offsetLeft + cols[best].offsetWidth / 2 - mid)) best = i; });
+    switcher.querySelectorAll('.mb-path-pick').forEach((b, i) => b.classList.toggle('on', i === best));
+  }, { passive: true });
   return h('div.mb-tab-body',
     section('How upgrades combine',
       h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone.'),
       crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
-    h('div.mb-tree', cols),
+    switcher,
+    tree,
     unit.hero ? heroSection(unit) : null);
 }
 

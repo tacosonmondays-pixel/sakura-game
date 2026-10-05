@@ -10,12 +10,12 @@ import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber } from '../../core/util.js';
-import { BACKPACK_TABS, ITEMS, getItem, compareItemsByRarity } from '../../data/items.js';
-import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS } from '../../data/types.js';
-import { UNIT_MAP } from '../../data/units.js';
+import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } from '../../data/items.js';
+import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
+import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL } from '../../systems/gear.js';
-import { gearIcon, uiIcon } from '../../art/icons.js';
+import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +67,21 @@ export function requirementRow({ id, count }) {
       h('div.mb-req-count', h('b', formatNumber(have)), ` / ${formatNumber(count)}`, ok ? h('span.mb-req-check', svgEl(uiIcon('check'))) : h('span.mb-req-need', ` need ${formatNumber(count - have)}`))),
     id === 'coins' && ok ? null : button(ok ? 'Where' : 'Get', { kind: ok ? 'ghost' : 'yellow', small: true, icon: 'teleport', onClick: () => showItemInfo(id) }),
   );
+}
+
+/**
+ * Compact cost line: [icon] have/need per item; tapping an item opens its sources (Teleport).
+ * @param {{id:string,count:number}[]} costs
+ */
+export function costChips(costs) {
+  const profile = store.profile;
+  return h('div.mb-cost-chips', costs.map(({ id, count }) => {
+    const have = itemCount(profile, id);
+    const ok = have >= count;
+    return h(`button.mb-cost-chip${ok ? '' : '.short'}`, { title: getItem(id)?.name || id, 'data-item': id, onclick: () => showItemInfo(id) },
+      svgEl(itemIcon(id), 'mb-cost-icon'),
+      h('span', h('b', formatNumber(have)), h('small', ` / ${formatNumber(count)}`)));
+  }));
 }
 
 /** Column of requirement rows. */
@@ -152,6 +167,39 @@ function sortItems(ids) {
     case 'name': return list.sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name));
     default: return list.sort(compareItemsByRarity);
   }
+}
+
+const CATEGORY_TITLES = {
+  book: 'Books', material: 'Materials', crown: 'Crowns', fragment: 'Star Fragments', dice: 'Reroll items',
+  gearbox: 'Gear boxes', ticket: 'Tickets', token: 'Tokens', currency: 'Currency',
+};
+
+/**
+ * Splits an already-sorted id list into display groups: one per category, and materials
+ * further split by family (with the girls who use that family).
+ * @param {string[]} ids
+ * @returns {{ key: string, title: string, ids: string[], color?: string, users?: string[] }[]}
+ */
+function groupItems(ids) {
+  const groups = new Map();
+  for (const id of ids) {
+    const it = ITEMS[id];
+    const fam = it.category === 'material' ? it.family : null;
+    const key = fam ? `material:${fam}` : it.category;
+    if (!groups.has(key)) {
+      const famDef = fam ? MATERIAL_FAMILIES[fam] : null;
+      groups.set(key, {
+        key,
+        title: famDef ? `${famDef.name}` : CATEGORY_TITLES[it.category] || it.category,
+        color: famDef?.color || null,
+        users: fam ? UNITS.filter((u) => u.materialFamily === fam).map((u) => u.id) : null,
+        order: (ITEM_CATEGORIES[it.category]?.order ?? 9) * 10 + (fam ? Object.keys(MATERIAL_FAMILIES).indexOf(fam) : 0),
+        ids: [],
+      });
+    }
+    groups.get(key).ids.push(id);
+  }
+  return [...groups.values()].sort((a, b) => a.order - b.order);
 }
 
 function chipRow(options, active, onPick, cls = '') {
@@ -262,9 +310,16 @@ export function render(root, params = {}) {
     content.classList.add('mb-fade');
     const ids = sortItems(ownedItems(state.tab)).filter((id) => state.tab !== 'equipment' || ITEMS[id].category !== 'gearbox');
     if (ids.length) {
-      content.appendChild(h('div.mb-item-grid', ids.map((id) => h('div.mb-item-cell',
-        rarityTile(id, itemCount(profile, id), { size: 72 }),
-        h('div.mb-item-name', { style: cssVars({ '--rarity': ITEM_RARITIES[ITEMS[id].rarity].color }) }, ITEMS[id].name)))));
+      for (const g of groupItems(ids)) {
+        content.appendChild(h('section.mb-item-group', { style: g.color ? cssVars({ '--grp': g.color }) : null },
+          h('div.mb-item-group-head',
+            h('h3.mb-h', g.title),
+            h('span.mb-item-group-count', String(g.ids.length)),
+            g.users?.length ? h('div.mb-item-group-users', h('span.muted', 'Used by'), g.users.map((id) => unitMini(id, { size: 24 }))) : null),
+          h('div.mb-item-grid', g.ids.map((id) => h('div.mb-item-cell',
+            rarityTile(id, itemCount(profile, id), { size: 72 }),
+            h('div.mb-item-name', { style: cssVars({ '--rarity': ITEM_RARITIES[ITEMS[id].rarity].color }) }, ITEMS[id].name))))));
+      }
     } else if (state.tab !== 'equipment') {
       content.appendChild(emptyState(state.rarity ? 'Nothing of that rarity' : 'Nothing here yet', state.tab === 'tickets' ? 'Recruit tickets come from the login calendar, weekly commissions and the Mall.' : 'Clear stages and Bounty arenas to fill your backpack.', button('Go to Mission', { kind: 'yellow', icon: 'map', onClick: () => navigate('campaign') })));
     }
