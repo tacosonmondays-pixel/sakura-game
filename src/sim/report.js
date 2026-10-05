@@ -4,6 +4,7 @@
 
 import { TRAITS, CAPABILITIES } from '../data/types.js';
 import { enemyTraitKeys } from './enemies.js';
+import { resolveStats } from './mods.js';
 
 function attacks(s) {
   return s.behavior !== 'none' && (s.damage > 0 || !!s.trap || !!s.turret);
@@ -36,15 +37,72 @@ const CAP_TESTS = {
   summon: (s) => (s.turret?.max || 0) > 0,
 };
 
+function statsCapabilities(s) {
+  const caps = new Set();
+  const st = statusTypes(s);
+  for (const [cap, test] of Object.entries(CAP_TESTS)) if (test(s, st)) caps.add(cap);
+  return caps;
+}
+
 /** Capability keys provided by the girls currently on the field. */
 export function fieldCapabilities(sim) {
   const caps = new Set();
-  for (const t of sim.towers) {
-    const s = t.eff;
-    const st = statusTypes(s);
-    for (const [cap, test] of Object.entries(CAP_TESTS)) if (test(s, st)) caps.add(cap);
-  }
+  for (const t of sim.towers) for (const c of statsCapabilities(t.eff)) caps.add(c);
   return caps;
+}
+
+/**
+ * How each formation unit can provide one of `capabilities`: innately (path null) or via the
+ * lowest upgrade tier that grants it. Sorted: innate first, then cheapest tier.
+ * @returns {{ unitId: string, path: number|null, tier: number, pathName?: string }[]}
+ */
+export function capabilitySources(sim, capabilities) {
+  const key = capabilities.join(',');
+  sim._capSources = sim._capSources || new Map();
+  if (sim._capSources.has(key)) return sim._capSources.get(key);
+  const ids = [...sim.loadout.keys()];
+  if (sim.heroConfig) ids.push(sim.heroConfig.unitId);
+  const out = [];
+  const grants = (s) => capabilities.some((c) => statsCapabilities(s).has(c));
+  for (const id of ids) {
+    const def = sim.data.unit(id);
+    if (!def) continue;
+    const heroLevel = def.kind === 'hero' ? 1 : 0;
+    if (grants(resolveStats(def, { heroLevel }))) {
+      out.push({ unitId: id, path: null, tier: 0 });
+      continue;
+    }
+    let best = null;
+    for (let p = 0; p < 3; p++) {
+      const n = def.paths?.[p]?.tiers?.length || 0;
+      for (let t = 1; t <= n; t++) {
+        const tiers = [0, 0, 0];
+        tiers[p] = t;
+        if (grants(resolveStats(def, { tiers, heroLevel }))) {
+          if (!best || t < best.tier) best = { unitId: id, path: p, tier: t, pathName: def.paths[p].name };
+          break;
+        }
+      }
+    }
+    if (best) out.push(best);
+  }
+  out.sort((a, b) => a.tier - b.tier);
+  sim._capSources.set(key, out);
+  return out;
+}
+
+/** "place Kage, or Aoi's Piercing path (tier 3)" — empty when nothing in the formation helps. */
+function helpText(sim, sources) {
+  const placed = new Set(sim.towers.map((t) => t.unitId));
+  const parts = [];
+  for (const src of sources) {
+    const name = sim.data.unit(src.unitId)?.name || src.unitId;
+    if (src.path == null) {
+      if (!placed.has(src.unitId)) parts.push(`place ${name}`);
+    } else parts.push(`${name}'s ${src.pathName} path (tier ${src.tier})`);
+    if (parts.length >= 2) break;
+  }
+  return parts.join(', or ');
 }
 
 /** Can the field already answer this trait? */
@@ -58,29 +116,10 @@ function traitAnswered(trait, caps, sim) {
 
 const SEVERE = { veiled: true, airborne: true, phasing: true };
 
-/** Formation units (not necessarily placed) that bring one of the capabilities. */
-function suggestUnits(sim, capabilities) {
-  const ids = [...sim.loadout.keys()];
-  if (sim.heroConfig) ids.push(sim.heroConfig.unitId);
-  const base = [];
-  const viaPath = [];
-  for (const id of ids) {
-    const def = sim.data.unit(id);
-    if (!def) continue;
-    if ((def.capabilities || []).some((c) => capabilities.includes(c))) base.push(id);
-    else if ((def.pathCapabilities || []).some((c) => capabilities.includes(c))) viaPath.push(id);
-  }
-  return [...base, ...viaPath];
-}
-
 function capList(caps) {
   const names = caps.map((c) => CAPABILITIES[c]?.name || c);
   if (names.length <= 1) return names.join('');
   return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
-}
-
-function unitNames(sim, ids) {
-  return ids.map((id) => sim.data.unit(id)?.name || id);
 }
 
 const SEVERITY_ORDER = { danger: 0, warn: 1, info: 2 };
@@ -121,16 +160,17 @@ export function buildWaveWarnings(sim, n) {
     const counters = TRAITS[trait]?.counters || [];
     if (!counters.length || traitAnswered(trait, caps, sim)) continue;
     const names = entries.map((e) => `${sim.data.enemy(e.enemyId)?.name || e.enemyId} ×${e.count}`).join(', ');
-    const suggest = suggestUnits(sim, counters);
-    const help = suggest.length ? ` ${unitNames(sim, suggest.slice(0, 3)).join(', ')} can help.` : '';
+    const sources = capabilitySources(sim, counters);
+    const help = helpText(sim, sources);
     out.push({
       kind: 'counter',
       severity: SEVERE[trait] ? 'danger' : 'warn',
       trait,
       enemyIds: entries.map((e) => e.enemyId),
       capabilities: counters,
-      suggest,
-      text: `${TRAITS[trait].name} enemies incoming (${names}) — bring ${capList(counters)}.${help}`,
+      suggest: [...new Set(sources.map((x) => x.unitId))],
+      sources,
+      text: `${TRAITS[trait].name} enemies incoming (${names}) — bring ${capList(counters)}.${help ? ` Try: ${help}.` : ''}`,
     });
   }
   out.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
@@ -189,16 +229,15 @@ export function buildDebrief(sim) {
       const tier = sim.data.enemy(l.enemyId)?.tier;
       return tier === 'boss' || tier === 'miniboss';
     });
-    if (bossLeak) lines.push(`${enemyName(bossLeak.enemyId)} broke through on wave ${bossLeak.wave}.`);
+    if (bossLeak && bossLeak.enemyId !== top.enemyId) lines.push(`${enemyName(bossLeak.enemyId)} broke through on wave ${bossLeak.wave}.`);
     const caps = fieldCapabilities(sim);
     const worst = traits.find((t) => (TRAITS[t.trait]?.counters || []).length);
     if (worst) {
       const pct = Math.round((worst.lives / st.leaks) * 100);
       const counters = TRAITS[worst.trait].counters;
       if (!traitAnswered(worst.trait, caps, sim)) {
-        const suggest = suggestUnits(sim, counters);
-        const help = suggest.length ? ` Try ${unitNames(sim, suggest.slice(0, 3)).join(', ')}.` : '';
-        lines.push(`${TRAITS[worst.trait].name} enemies caused ${pct}% of lost lives and none of your girls had ${capList(counters)}.${help}`);
+        const help = helpText(sim, capabilitySources(sim, counters));
+        lines.push(`${TRAITS[worst.trait].name} enemies caused ${pct}% of lost lives and none of your girls had ${capList(counters)}.${help ? ` Try: ${help}.` : ''}`);
       } else {
         lines.push(`${TRAITS[worst.trait].name} enemies caused ${pct}% of lost lives — place your ${capList(counters)} girls closer to their path or upgrade them.`);
       }

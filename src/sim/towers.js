@@ -629,7 +629,8 @@ export function updateTower(sim, t, dt) {
 function projectileStep(sim, p, dt) {
   const tgt = p.target;
   if (tgt) {
-    if (tgt.dead || p.hits.includes(tgt.uid)) p.target = null;
+    // Stop homing on targets that died, were already hit, or turned intangible/hidden mid-flight.
+    if (tgt.dead || p.hits.includes(tgt.uid) || !isEligible(tgt, p.spec)) p.target = null;
     else {
       p.tx = tgt.x;
       p.ty = tgt.y;

@@ -320,3 +320,24 @@ describe('towerStats', () => {
     expect(sim.towerStats(9999)).toBe(null);
   });
 });
+
+describe('projectile edge cases', () => {
+  test('a projectile whose target starts phasing flies on instead of circling it', () => {
+    const sim = makeSim();
+    startEmptyWave(sim);
+    const a = sim.placeTower('archer', 2, 3);
+    const g = park(sim, 'ghost', 6);
+    g.traits = { ...g.traits, phasing: { every: 999, duration: 5 } };
+    g.phaseTimer = 0;
+    run(sim, 1 / 60);
+    expect(sim.projectiles).toHaveLength(1);
+    const p = sim.projectiles[0];
+    g.phasing = true;
+    g.phaseLeft = 5;
+    run(sim, 1);
+    expect(p.target).toBe(null);
+    expect(p.dead).toBe(true);
+    expect(g.hp).toBe(g.maxHp);
+    expect(a.damageDealt).toBe(0);
+  });
+});

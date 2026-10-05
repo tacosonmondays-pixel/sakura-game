@@ -25,7 +25,9 @@ describe('pre-wave warnings', () => {
     expect(counter.severity).toBe('danger');
     expect(counter.capabilities).toEqual(['detection', 'reveal']);
     expect(counter.suggest).toContain('seer');
-    expect(counter.text).toMatch(/^Veiled enemies incoming \(veil ×4\) — bring Veil Sight or Reveal\. seer can help\.$/);
+    expect(counter.text).toBe("Veiled enemies incoming (veil ×4) — bring Veil Sight or Reveal. Try: place seer, or archer's sight path (tier 2).");
+    expect(counter.sources[0]).toEqual({ unitId: 'seer', path: null, tier: 0 });
+    expect(counter.sources).toContainEqual({ unitId: 'archer', path: 2, tier: 2, pathName: 'sight' });
     expect(w.find((x) => x.kind === 'new' && x.enemyId === 'veil')).toBeTruthy();
     expect(w[0].severity).toBe('danger');
 
@@ -55,7 +57,7 @@ describe('leak records and debrief', () => {
     expect(d.leaks.enemies[0]).toMatchObject({ enemyId: 'veil', count: 4, lives: 4 });
     expect(d.leaks.traits[0]).toMatchObject({ trait: 'veiled', lives: 4 });
     expect(d.lines[0]).toBe('Most leaks were veil on wave 1 (4 lives).');
-    expect(d.lines[1]).toMatch(/Veiled enemies caused 100% of lost lives and none of your girls had Veil Sight or Reveal\. Try seer\./);
+    expect(d.lines[1]).toBe("Veiled enemies caused 100% of lost lives and none of your girls had Veil Sight or Reveal. Try: place seer, or archer's sight path (tier 2).");
     const r = sim.result();
     expect(r.stats.leakLog).toHaveLength(4);
   });
