@@ -132,7 +132,7 @@ npm test           # vitest: data, systems, sim, renderer and integration tests
 npm run build      # production build into dist/
 npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chromium; see e2e/smoke.mjs)
-BALANCE=1 npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
+BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
 ```
 
 Dev preview pages for single parts live in `previews/` (for example `/previews/renderer.html?stage=1-5`,

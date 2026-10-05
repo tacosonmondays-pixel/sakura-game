@@ -348,6 +348,7 @@
 .ma-tile-sub { font-size: 0.76rem; color: var(--muted); font-weight: 800; margin-top: 2px; }
 .ma-tile-badge { position: absolute; top: 8px; right: 14px; z-index: 2; background: var(--yellow); color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 1px 8px; border-radius: 4px; }
 .ma-tile-lock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; transform: skewX(calc(var(--skew) * -1)); background: rgba(34,56,92,0.78); color: #fff; font-size: 0.7rem; font-weight: 800; padding: 3px 16px; display: flex; align-items: center; }
+.ma-tile.locked .ma-tile-inner { padding-bottom: 26px; }
 .ma-tile.locked .ma-tile-icon { background: linear-gradient(135deg, #b8c4d4, #8494aa); }
 .ma-tile.locked .ma-tile-title { color: #6b7a99; }
 .ma-tile .ma-dot { top: 8px; right: 12px; transform: skewX(calc(var(--skew) * -1)); }
@@ -409,6 +410,8 @@
   .ma-tile-sub { font-size: 0.68rem; }
   .ma-tile.pink .ma-tile-inner { padding-right: 34%; }
   .ma-tile.pink .ma-tile-art { width: 42%; }
+  .ma-tile.locked .ma-tile-inner { padding-bottom: 24px; }
+  .ma-tile.locked .ma-tile-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ma-dock { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 6px; }
   .ma-dock-btn { min-height: 50px; }
 }
