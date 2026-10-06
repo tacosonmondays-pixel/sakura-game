@@ -502,6 +502,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   // ----- entrance / exit arrows ---------------------------------------------------------
   function drawGates() {
+    if (ambient.drawsGates) return; // terrain-v2: the ambient layer draws gate arches, arrows and discs
     const R = atlas.regions;
     const gN = batches.groundN;
     const gA = batches.groundA;

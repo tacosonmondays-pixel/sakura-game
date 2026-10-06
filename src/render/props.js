@@ -16,8 +16,8 @@ const cache = new Map();
  * @param {number} variant small integer for variation
  * @returns {{ solid, foliage, glow, glows: object[], emitters: object[] }}
  */
-export function buildProp(type, look, variant = 0) {
-  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${variant}`;
+export function buildProp(type, look, variant = 0, lod = 'near') {
+  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${variant}|${lod}`;
   let p = cache.get(key);
   if (p) return p;
   const ctx = {
@@ -29,6 +29,8 @@ export function buildProp(type, look, variant = 0) {
     rand: makeRand(hash(type, look.theme, variant)),
     look,
     variant,
+    /** 'far' props (the skirt outside the board) use low-poly canopies. */
+    lod,
   };
   const fn = BUILDERS[type] || BUILDERS.rock;
   fn(ctx);
@@ -62,7 +64,7 @@ export function hasProp(type) {
 // ---------------------------------------------------------------------------
 
 function leaf(c, r, o) {
-  c.foliage.blob(r, { detail: 1, wobble: 0.22, jitter: 0.07, rand: c.rand, attrs: { sway: swayW }, ...o });
+  c.foliage.blob(r, { detail: c.lod === 'far' ? 0 : 1, wobble: 0.22, jitter: 0.07, rand: c.rand, attrs: { sway: swayW }, ...o });
 }
 
 function trunk(c, h, r, color, o = {}) {
@@ -105,25 +107,36 @@ function shrineRoof(B, w, d, y, color, trim) {
 const BUILDERS = {
   // ----- trees ---------------------------------------------------------------
   sakura(c) {
-    const { trunk: tc } = { trunk: '#7d5240' };
+    // full, rounded cherry canopy: a big heart blob ringed by six puffs, lighter puffs on top
+    const tc = '#7d5240';
     const s = 0.9 + c.rand() * 0.25;
-    trunk(c, 0.55 * s, 0.09 * s, tc);
-    c.solid.cyl(0.03, 0.05, 0.32 * s, 5, { x: 0.08, y: 0.4 * s, rz: -0.7, color: tc });
-    c.solid.cyl(0.03, 0.05, 0.3 * s, 5, { x: -0.06, y: 0.42 * s, rz: 0.8, color: tc });
-    const pinks = ['#ffc2d8', '#ffaecb', '#ff97bd', '#ffd6e6'];
-    const blobs = [[0, 0.82, 0, 0.36], [0.24, 0.72, 0.08, 0.27], [-0.24, 0.74, -0.04, 0.28], [0.06, 0.74, 0.24, 0.26], [-0.05, 0.7, -0.24, 0.25], [0.02, 1.02, 0.02, 0.24]];
-    blobs.forEach(([x, y, z, r], i) => leaf(c, r * s, { x: x * s, y: y * s, z: z * s, color: pinks[(i + c.variant) % pinks.length], sy: 0.85 }));
+    trunk(c, 0.52 * s, 0.1 * s, tc);
+    c.solid.cyl(0.045, 0.07, 0.36 * s, 5, { x: 0.06, y: 0.36 * s, rz: -0.55, color: tc });
+    c.solid.cyl(0.04, 0.06, 0.34 * s, 5, { x: -0.05, y: 0.4 * s, rz: 0.7, rx: 0.3, color: tc });
+    c.solid.cyl(0.03, 0.05, 0.3 * s, 5, { z: 0.05, y: 0.46 * s, rx: -0.6, color: tc });
+    const pinks = ['#ffc4d9', '#ffadc9', '#ff9ac0', '#ffd3e3'];
+    leaf(c, 0.4 * s, { y: 0.86 * s, sy: 0.82, color: pinks[c.variant % 4] });
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + c.variant * 0.7;
+      const r = 0.27 * s;
+      leaf(c, (0.24 + c.rand() * 0.06) * s, { x: Math.cos(a) * r, y: (0.76 + (i % 2) * 0.08) * s, z: Math.sin(a) * r, sy: 0.85, color: pinks[(i + c.variant + 1) % 4] });
+    }
+    leaf(c, 0.22 * s, { x: 0.05 * s, y: 1.1 * s, z: -0.02, sy: 0.8, color: '#ffe1ec' });
+    leaf(c, 0.16 * s, { x: -0.2 * s, y: 1.02 * s, z: 0.12 * s, color: pinks[(c.variant + 2) % 4] });
   },
   round(c) {
     const { leaf: l1, leaf2: l2, trunk: tc } = c.look.treeColors;
-    const L1 = c.look.theme === 'sakura' || c.look.theme === 'arena' ? '#72c45e' : l1;
-    const L2 = c.look.theme === 'sakura' || c.look.theme === 'arena' ? '#58ad4f' : l2;
+    const fresh = c.look.theme === 'sakura' || c.look.theme === 'arena' || c.look.theme === 'festival';
+    const L1 = fresh ? '#76c95f' : l1;
+    const L2 = fresh ? '#5bb04f' : l2;
     const s = 0.85 + c.rand() * 0.3;
-    trunk(c, 0.5 * s, 0.08 * s, c.look.theme === 'sakura' ? '#7a5236' : tc);
-    leaf(c, 0.38 * s, { y: 0.78 * s, color: L1 });
-    leaf(c, 0.26 * s, { x: 0.2 * s, y: 0.66 * s, z: 0.12 * s, color: L2 });
-    leaf(c, 0.25 * s, { x: -0.18 * s, y: 0.7 * s, z: -0.1 * s, color: L2 });
-    leaf(c, 0.22 * s, { x: 0.02, y: 1.02 * s, color: L1 });
+    trunk(c, 0.5 * s, 0.085 * s, fresh ? '#7a5236' : tc);
+    leaf(c, 0.38 * s, { y: 0.8 * s, color: L1 });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + c.variant;
+      leaf(c, (0.22 + c.rand() * 0.05) * s, { x: Math.cos(a) * 0.25 * s, y: (0.68 + (i % 2) * 0.06) * s, z: Math.sin(a) * 0.25 * s, color: i % 2 ? L2 : L1 });
+    }
+    leaf(c, 0.2 * s, { x: 0.04 * s, y: 1.06 * s, color: '#9adb7a' });
   },
   maple(c) {
     const s = 0.85 + c.rand() * 0.3;
@@ -571,9 +584,11 @@ const BUILDERS = {
     BUILDERS.reeds({ ...c, foliage: c.foliage });
   },
   shrineWall(c) {
-    c.solid.box(1.0, 0.5, 0.36, { color: '#f2ece0' });
-    c.solid.box(1.0, 0.08, 0.36, { color: '#9aa1ad' });
-    roofPrism(c.solid, 1.02, 0.5, 0.14, { y: 0.5, color: '#3d4a63' });
+    c.solid.box(1.0, 0.46, 0.3, { color: '#f4eee2' });
+    c.solid.box(1.0, 0.08, 0.32, { color: '#9aa1ad' });
+    c.solid.box(1.0, 0.03, 0.31, { y: 0.3, color: '#c4473e' });
+    roofPrism(c.solid, 1.02, 0.44, 0.12, { y: 0.46, color: '#5f6f8f' });
+    c.solid.box(1.02, 0.025, 0.06, { y: 0.58, color: '#3d4a63' });
   },
   stoneWall(c) {
     for (let i = 0; i < 3; i++) {
@@ -815,5 +830,176 @@ const BUILDERS = {
     c.solid.box(0.2, 0.2, 0.2, { color: '#a8584a' });
     c.solid.cyl(0.04, 0.04, 0.3, 6, { y: 0.2, rx: -0.2, color: '#3a3f4b' });
     c.emitters.push({ kind: 'firework', x: 0, y: 0.5, z: 0 });
+  },
+
+  // ----- map frame (ring around the board; one tile along x) ---------------------------
+  fence(c) {
+    const w = '#faf6ee';
+    const d = '#e6dfd0';
+    for (let i = 0; i < 5; i++) {
+      const x = -0.4 + i * 0.2;
+      const h = 0.34 + (i % 2) * 0.03;
+      c.solid.box(0.07, h, 0.04, { x, color: i % 2 ? w : d });
+      c.solid.cone(0.05, 0.06, 4, { x, y: h, ry: Math.PI / 4, color: w });
+    }
+    c.solid.box(1.0, 0.045, 0.03, { y: 0.11, z: 0.005, color: d });
+    c.solid.box(1.0, 0.045, 0.03, { y: 0.25, z: 0.005, color: d });
+    if (c.variant % 2 === 0) {
+      // a few blossoms peeking through
+      const cols = c.look.flowers;
+      for (let i = 0; i < 3; i++) {
+        const x = -0.3 + c.rand() * 0.6;
+        c.foliage.blob(0.045, { x, y: 0.12 + c.rand() * 0.08, z: 0.08, color: cols[i % cols.length], attrs: { sway: () => 0.2 } });
+      }
+    }
+  },
+  flowerBed(c) {
+    c.solid.box(0.96, 0.08, 0.52, { color: '#7a5a40', jitter: 0.05, rand: c.rand });
+    const cols = c.look.flowers;
+    for (let i = 0; i < 14; i++) {
+      const x = -0.42 + c.rand() * 0.84;
+      const z = -0.18 + c.rand() * 0.36;
+      c.foliage.blob(0.08 + c.rand() * 0.04, { x, y: 0.1, z, color: i % 3 === 0 ? '#5aa84f' : '#4f9a45', attrs: { sway: () => 0.15 } });
+      c.foliage.blob(0.05 + c.rand() * 0.03, { x, y: 0.2 + c.rand() * 0.06, z, color: cols[(i + c.variant) % cols.length], attrs: { sway: () => 0.3 } });
+    }
+  },
+  framePost(c) {
+    const stone = c.look.rock;
+    c.solid.box(0.2, 0.46, 0.2, { color: stone, jitter: 0.05, rand: c.rand });
+    c.solid.box(0.26, 0.06, 0.26, { y: 0.46, color: '#d9d4cb' });
+    const topiary = c.look.theme === 'sakura' || c.look.theme === 'festival' || c.look.theme === 'arena' || c.look.theme === 'lake';
+    if (topiary) c.foliage.blob(0.16, { y: 0.64, color: '#62b853', detail: 1, wobble: 0.15, rand: c.rand, attrs: { sway: () => 0.12 } });
+    else c.solid.rock(0.12, { y: 0.58, color: stone });
+  },
+  hazardRail(c) {
+    for (const x of [-0.42, 0.42]) c.solid.box(0.08, 0.42, 0.08, { x, color: '#5a606b' });
+    c.solid.box(1.0, 0.12, 0.05, { y: 0.3, color: '#ffcc33' });
+    for (let i = 0; i < 4; i++) c.solid.box(0.1, 0.12, 0.052, { x: -0.38 + i * 0.25, y: 0.3, color: '#2a2a30' });
+    c.solid.box(1.0, 0.04, 0.05, { y: 0.14, color: '#8a909b' });
+  },
+  snowFence(c) {
+    for (const x of [-0.42, 0.42]) c.solid.cyl(0.04, 0.05, 0.45, 5, { x, color: '#7a5a40' });
+    c.solid.box(1.0, 0.05, 0.05, { y: 0.36, color: '#8a6a4a' });
+    c.solid.box(1.0, 0.05, 0.05, { y: 0.18, color: '#8a6a4a' });
+    c.solid.box(1.0, 0.03, 0.08, { y: 0.41, color: '#f4f8fc' });
+  },
+  bunting(c) {
+    BUILDERS.pennants(c);
+    if (c.look.night || c.look.theme === 'festival') {
+      for (const x of [-0.2, 0.2]) {
+        c.glow.sphere(0.05, 8, 6, { x, y: 0.56, sy: 1.25, color: x < 0 ? '#ff6a55' : '#ffb347' });
+        glowPoint(c, x, 0.56, 0, '#ff9a6b', 0.4, 0.15);
+      }
+    }
+  },
+  stoneLanternPost(c) {
+    const sub = { ...c, solid: new GeoBuilder(), glow: new GeoBuilder(), foliage: new GeoBuilder({ extra: ['sway'] }), glows: [], emitters: [] };
+    BUILDERS.stoneLantern(sub);
+    const m = new THREE.Matrix4().makeScale(0.62, 0.62, 0.62);
+    c.solid.append(sub.solid, m);
+    c.glow.append(sub.glow, m);
+    for (const g of sub.glows) c.glows.push({ ...g, x: g.x * 0.62, y: g.y * 0.62, z: g.z * 0.62, size: g.size * 0.62 });
+    for (const x of [-0.36, 0.36]) c.foliage.box(0.28, 0.2, 0.28, { x, color: '#4f8f52', jitter: 0.05, rand: c.rand, attrs: { sway: () => 0.05 } });
+  },
+  pineSmall(c) {
+    const sub = { ...c, solid: new GeoBuilder(), glow: new GeoBuilder(), foliage: new GeoBuilder({ extra: ['sway'] }), glows: [], emitters: [] };
+    (c.look.theme === 'snow' ? BUILDERS.snowPine : BUILDERS.pine)(sub);
+    const m = new THREE.Matrix4().makeScale(0.66, 0.66, 0.66);
+    c.solid.append(sub.solid, m);
+    c.foliage.append(sub.foliage, m);
+  },
+
+  // ----- gates ------------------------------------------------------------------------------
+  spawnGate(c) {
+    const stone = '#5a5366';
+    const dark = '#3b3546';
+    const col = c.look.gate?.spawn || '#b56bff';
+    for (const x of [-0.5, 0.5]) {
+      c.solid.box(0.22, 0.95, 0.22, { x, color: stone, jitter: 0.06, rand: c.rand });
+      c.solid.box(0.3, 0.1, 0.3, { x, color: dark });
+      c.solid.box(0.28, 0.1, 0.28, { x, y: 0.9, color: dark });
+    }
+    c.solid.box(1.3, 0.18, 0.26, { y: 1.0, color: stone, jitter: 0.05, rand: c.rand });
+    c.solid.box(0.2, 0.18, 0.22, { y: 1.16, color: dark });
+    const crystal = (x, y, z, h, s = 1) => {
+      c.glow.add(new THREE.OctahedronGeometry(0.07 * s, 0), { x, y, z, sy: h * 5, color: col, color2: '#ffffff' });
+    };
+    crystal(0, 1.46, 0, 0.5);
+    crystal(-0.5, 1.1, 0, 0.3, 0.8);
+    crystal(0.5, 1.1, 0, 0.3, 0.8);
+    glowPoint(c, 0, 1.5, 0, col, 1.0, 0.2);
+    c.emitters.push({ kind: 'portal', x: 0, y: 0.05, z: 0, color: col });
+  },
+  toriiGate(c) {
+    BUILDERS.torii(c);
+    const col = c.look.gate?.spawn || '#b56bff';
+    c.glow.sphere(0.06, 8, 6, { y: 1.2, color: col });
+    glowPoint(c, 0, 1.2, 0, col, 0.8, 0.2);
+    c.emitters.push({ kind: 'portal', x: 0, y: 0.05, z: 0, color: col });
+  },
+  goalGate(c) {
+    const w = '#fbf6ee';
+    const pink = c.look.gate?.goal || '#ff7aa2';
+    for (const x of [-0.5, 0.5]) {
+      c.solid.box(0.12, 0.95, 0.12, { x, color: w });
+      c.solid.box(0.2, 0.08, 0.2, { x, color: '#e3dccd' });
+    }
+    c.solid.torus(0.5, 0.06, 6, 16, { y: 0.95, arc: Math.PI, color: w });
+    const cols = c.look.flowers;
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 8) * Math.PI;
+      const x = Math.cos(a) * 0.5;
+      const y = 0.95 + Math.sin(a) * 0.5;
+      c.foliage.blob(0.075, { x, y, z: 0.02, color: i % 2 ? '#5fae4f' : '#6cbc58', attrs: { sway: () => 0.12 } });
+      if (i % 2 === 0) c.foliage.blob(0.05, { x, y: y + 0.04, z: 0.08, color: cols[i % cols.length], attrs: { sway: () => 0.14 } });
+    }
+    // hanging heart sign
+    c.solid.box(0.02, 0.14, 0.02, { y: 1.3, color: '#c9b89a' });
+    c.glow.sphere(0.075, 8, 6, { x: -0.065, y: 1.28, color: pink });
+    c.glow.sphere(0.075, 8, 6, { x: 0.065, y: 1.28, color: pink });
+    c.glow.cone(0.125, 0.15, 4, { y: 1.26, rx: Math.PI, ry: Math.PI / 4, color: pink });
+    glowPoint(c, 0, 1.3, 0, pink, 0.6, 0.1);
+    c.emitters.push({ kind: 'goal', x: 0, y: 0.05, z: 0, color: pink });
+  },
+
+  // ----- industrial / mountain set dressing ----------------------------------------------
+  pipes(c) {
+    const steel = '#8a909b';
+    const dark = '#5a606b';
+    c.solid.cyl(0.09, 0.09, 1.0, 8, { x: 0.5, y: 0.3, rz: Math.PI / 2, color: steel });
+    c.solid.cyl(0.065, 0.065, 1.0, 8, { x: 0.5, y: 0.5, z: 0.14, rz: Math.PI / 2, color: '#b07a5a' });
+    for (const x of [-0.35, 0.35]) {
+      c.solid.box(0.12, 0.3, 0.12, { x, color: dark });
+      c.solid.cyl(0.11, 0.11, 0.07, 8, { x: x + 0.035, y: 0.3, rz: Math.PI / 2, color: dark });
+    }
+    c.solid.torus(0.1, 0.02, 5, 12, { x: 0.12, y: 0.3, z: 0.12, rx: Math.PI / 2, color: '#ffcc33' });
+    c.solid.cyl(0.05, 0.05, 0.28, 6, { x: -0.15, y: 0.36, color: steel });
+    c.solid.cyl(0.07, 0.07, 0.04, 6, { x: -0.15, y: 0.64, color: dark });
+    c.glow.box(0.1, 0.06, 0.02, { x: 0.35, y: 0.1, z: 0.07, color: '#ff9a3d' });
+    glowPoint(c, 0.35, 0.13, 0.08, '#ff8a3d', 0.35, 0.3);
+    c.emitters.push({ kind: 'steam', x: -0.15, y: 0.7, z: 0 });
+  },
+  cliff(c) {
+    // a crag: three tall, tilted rock crystals leaning together, capped with snow / moss
+    const col = c.look.rock;
+    const t = c.look.theme;
+    const cap = t === 'snow' || t === 'mountain' ? '#f4f8fc' : t === 'volcano' ? '#3a2e2e' : '#8fae6a';
+    const dark = `#${new THREE.Color(col).multiplyScalar(0.8).getHexString()}`;
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + c.rand() * 0.6;
+      const r = 0.2 + c.rand() * 0.1;
+      const h = (i === 0 ? 1.0 : 0.6) + c.rand() * 0.5;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      c.solid.rock(0.36, { x, y: h * 0.45, z, sy: h * 1.4, sx: 0.9, ry: c.rand() * 6, rx: (c.rand() - 0.5) * 0.25, rz: (c.rand() - 0.5) * 0.25, color: i % 2 ? dark : col, jitter: 0.08, rand: c.rand });
+      c.solid.rock(0.3, { x, y: h * 0.95, z, sy: 0.35, ry: c.rand() * 6, color: cap });
+    }
+    c.solid.rock(0.2, { x: 0.42, y: 0.1, z: 0.38, sy: 0.7, color: col, jitter: 0.1, rand: c.rand });
+    c.solid.rock(0.14, { x: -0.44, y: 0.08, z: -0.3, sy: 0.7, color: dark, jitter: 0.1, rand: c.rand });
+    if (t === 'volcano' && c.variant % 2) {
+      c.glow.box(0.04, 0.6, 0.02, { x: -0.1, y: 0.15, z: 0.45, rz: 0.2, color: '#ff7a33' });
+      glowPoint(c, -0.1, 0.45, 0.5, '#ff6a2a', 0.5, 0.3);
+    }
   },
 };
