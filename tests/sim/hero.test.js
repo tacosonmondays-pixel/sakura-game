@@ -21,7 +21,7 @@ describe('hero XP and levels', () => {
   test('damage dealt grants XP; milestones apply mods and emit heroLevel', () => {
     const sim = makeSim({ hero: 'heroine' });
     startEmptyWave(sim);
-    const h = sim.placeTower('heroine', 6, 5);
+    const h = sim.placeTower('heroine', 8.5, 5.6); // heroes (r 0.5) must stay 1.05 from the path centre line (and clear the rocks at 5-6,6)
     expect(h).toMatchObject({ isHero: true, level: 1, xp: 0 });
     expect(sim.hero).toBe(h);
     expect(h.eff.damage).toBe(10);
@@ -35,7 +35,7 @@ describe('hero XP and levels', () => {
 
   test('wave clears grant XP', () => {
     const sim = makeSim({ hero: 'heroine', stage: { ...makeSim().stage, waveGen: { pool: [], budget: { start: 1, growth: 1 } } } });
-    const h = sim.placeTower('heroine', 6, 5);
+    const h = sim.placeTower('heroine', 8.5, 5.6); // heroes (r 0.5) must stay 1.05 from the path centre line (and clear the rocks at 5-6,6)
     sim.startNextWave();
     run(sim, 0.1);
     expect(sim.state).toBe('between');

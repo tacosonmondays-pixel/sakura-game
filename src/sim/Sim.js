@@ -9,6 +9,7 @@ import {
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
+import { createPlacementRules, footprintRadius, footprintAt, isTileCall } from './placement.js';
 import { SpatialGrid } from './grid.js';
 import { crosspathBlock } from './mods.js';
 import {
@@ -59,6 +60,7 @@ export class Sim {
     if (!this.pathData.length) throw new Error(`[sim] map "${this.map.id}" has no paths`);
     this.paths = this.pathData.map((p) => p.points.map((pt) => [pt[0], pt[1]]));
     this.pathTiles = pathTileSet(this.map);
+    this.placement = createPlacementRules(this.map, this.pathData);
 
     this.loadout = new Map();
     this.heroConfig = null;
@@ -105,7 +107,6 @@ export class Sim {
     this._uid = 1;
     this._acc = 0;
     this._cashCarry = 0;
-    this._occupied = new Map();
     this._towerByUid = new Map();
     this._spawnQueue = [];
     this._spawnIndex = 0;
@@ -490,12 +491,22 @@ export class Sim {
     return this.loadout.get(unitId) || null;
   }
 
-  /** Placement cost of a unit (optionally at a tile, which applies cost-cut auras). */
-  placeCost(unitId, tx = null, ty = null) {
+  /**
+   * Placement cost of a unit, optionally at a world position (applies cost-cut auras there).
+   * Two integer arguments are read as a tile (legacy): its centre is used.
+   */
+  placeCost(unitId, x = null, y = null) {
     const def = this.data.unit(unitId);
     if (!def) return Infinity;
     const us = this._unitStats(unitId) || DEFAULT_UNIT_STATS;
-    const cut = tx == null ? 0 : costCutAt(this, tx + 0.5, ty + 0.5);
+    let cut = 0;
+    if (x != null && y != null) {
+      if (isTileCall(x, y)) {
+        x += 0.5;
+        y += 0.5;
+      }
+      cut = costCutAt(this, x, y);
+    }
     return roundCost(baseCost(def) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
   }
 
@@ -506,52 +517,87 @@ export class Sim {
     return row[tx];
   }
 
+  /** Footprint radius (tiles) a unit would occupy. */
+  footprintRadius(unitId) {
+    return footprintRadius(this.data.unit(unitId));
+  }
+
   /**
-   * @returns {{ ok: boolean, reason: null|'occupied'|'path'|'blocked'|'needsWater'|'needsLand'|'cash'|'heroPlaced'|'notInLoadout'|'outOfBounds', cost?: number }}
+   * Geometry-only placement verdict at a world position: ignores cash, loadout and the
+   * hero-already-placed rule. Used by the forbidden-zone overlay and autoPlan.
+   * @returns {null|'outOfBounds'|'occupied'|'path'|'blocked'|'needsWater'|'needsLand'}
    */
-  canPlace(unitId, tx, ty) {
-    if (!Number.isInteger(tx) || !Number.isInteger(ty) || tx < 0 || ty < 0 || tx >= this.map.width || ty >= this.map.height) {
+  placementReason(unitId, x, y) {
+    const def = this.data.unit(unitId);
+    if (!def) return 'outOfBounds';
+    if (isTileCall(x, y)) {
+      x += 0.5;
+      y += 0.5;
+    }
+    return this.placement.check(def, x, y, this.towers);
+  }
+
+  /**
+   * Can `unitId` stand with her footprint centred at world (x, y)? Free placement: any
+   * continuous point is a candidate. Two INTEGER arguments are read as a tile (tx, ty)
+   * and resolve to its centre (legacy wrapper; new code passes real coordinates).
+   * @returns {{ ok: boolean, reason: null|'occupied'|'path'|'blocked'|'needsWater'|'needsLand'|'cash'|'heroPlaced'|'notInLoadout'|'outOfBounds', cost?: number, x?: number, y?: number }}
+   */
+  canPlace(unitId, x, y) {
+    if (isTileCall(x, y)) {
+      x += 0.5;
+      y += 0.5;
+    }
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !this.placement.inBounds(x, y)) {
       return { ok: false, reason: 'outOfBounds' };
     }
     const def = this.data.unit(unitId);
     const isHero = !!this.heroConfig && unitId === this.heroConfig.unitId;
     if (!def || (!isHero && !this.loadout.has(unitId))) return { ok: false, reason: 'notInLoadout' };
     if (isHero && this.hero) return { ok: false, reason: 'heroPlaced' };
-    if (this._occupied.has(`${tx},${ty}`)) return { ok: false, reason: 'occupied' };
-    if (this.pathTiles.has(`${tx},${ty}`)) return { ok: false, reason: 'path' };
-    const ch = this.tileAt(tx, ty);
-    const water = ch === '~';
-    const land = ch === '.' || ch === ',';
-    if (!water && !land) return { ok: false, reason: 'blocked' };
-    const placement = def.placement || 'land';
-    if (placement === 'water' && !water) return { ok: false, reason: 'needsWater' };
-    if (placement === 'land' && !land) return { ok: false, reason: 'needsLand' };
-    const cost = this.placeCost(unitId, tx, ty);
-    if (this.cash < cost) return { ok: false, reason: 'cash', cost };
-    return { ok: true, reason: null, cost };
+    const geo = this.placement.check(def, x, y, this.towers);
+    if (geo) return { ok: false, reason: geo, x, y };
+    const cost = this.placeCost(unitId, x, y);
+    if (this.cash < cost) return { ok: false, reason: 'cash', cost, x, y };
+    return { ok: true, reason: null, cost, x, y };
   }
 
-  /** @returns {object|null} TowerRT */
-  placeTower(unitId, tx, ty) {
+  /** Legacy tile wrapper: canPlace at the centre of tile (tx, ty). */
+  canPlaceTile(unitId, tx, ty) {
+    return this.canPlace(unitId, Math.floor(tx) + 0.5, Math.floor(ty) + 0.5);
+  }
+
+  /**
+   * Places a girl with her footprint centred at world (x, y). Two integer arguments are a
+   * tile (legacy) and resolve to its centre.
+   * @returns {object|null} TowerRT
+   */
+  placeTower(unitId, x, y) {
     if (this.state === 'won' || this.state === 'lost') return null;
-    const chk = this.canPlace(unitId, tx, ty);
+    const chk = this.canPlace(unitId, x, y);
     if (!chk.ok) return null;
+    x = chk.x;
+    y = chk.y;
     const def = this.data.unit(unitId);
     const isHero = !!this.heroConfig && unitId === this.heroConfig.unitId;
     this._spend(chk.cost);
-    const t = createTower(def, { uid: this._nextUid(), tx, ty, isHero, unitStats: this._unitStats(unitId), cost: chk.cost });
+    const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost });
     if (isHero) initHero(t);
     refreshTowerStats(t, this.globalRateMul);
     this.towers.push(t);
-    this._occupied.set(`${tx},${ty}`, t);
     this._towerByUid.set(t.uid, t);
     if (isHero) this.hero = t;
     this._buffsDirty = true;
     recomputeBuffs(this);
     this.stats.towersPlaced++;
     this.stats.towerUnits[t.uid] = unitId;
-    this._emit('place', { towerUid: t.uid, unitId, tx, ty });
+    this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
     return t;
+  }
+
+  /** Legacy tile wrapper: placeTower at the centre of tile (tx, ty). */
+  placeTowerTile(unitId, tx, ty) {
+    return this.placeTower(unitId, Math.floor(tx) + 0.5, Math.floor(ty) + 0.5);
   }
 
   /** Re-resolves stats (upgrades / hero levels) and keeps buffs consistent. */
@@ -560,8 +606,19 @@ export class Sim {
     this._buffsDirty = true;
   }
 
-  towerAt(tx, ty) {
-    return this._occupied.get(`${tx},${ty}`) || null;
+  /**
+   * Nearest girl whose footprint contains world (x, y), or null. Two integer arguments are
+   * a tile (legacy): the tile centre is tested first, then any girl standing on that tile.
+   * @returns {object|null} TowerRT
+   */
+  towerAt(x, y) {
+    if (isTileCall(x, y)) {
+      const hit = footprintAt(this.towers, x + 0.5, y + 0.5);
+      if (hit) return hit;
+      for (const t of this.towers) if (t.tx === x && t.ty === y) return t;
+      return null;
+    }
+    return footprintAt(this.towers, x, y);
   }
 
   getTower(uid) {
@@ -623,7 +680,6 @@ export class Sim {
     this.cash += refund;
     t.removed = true;
     this.towers = this.towers.filter((x) => x !== t);
-    this._occupied.delete(`${t.tx},${t.ty}`);
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
     t.turrets = [];

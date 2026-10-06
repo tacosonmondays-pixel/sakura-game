@@ -9,6 +9,9 @@ export {
 export { applyStatus, statusElement, isImmobile, slowAmount } from './status.js';
 export { resolveStats, normalizeBase, applyModSet, collectModSets, mergeStatusList, crosspathBlock } from './mods.js';
 export { buildPath, buildPaths, pointAt, pathTileSet, samplePath } from './path.js';
+export {
+  createPlacementRules, footprintRadius, footprintAt, isTileCall, TOWER_RADIUS, HERO_RADIUS, PATH_HALF_WIDTH, TREE_RADIUS,
+} from './placement.js';
 export { enemyTraitKeys, createEnemy, leakAmount } from './enemies.js';
 export { projectileKind, targetScore } from './towers.js';
 export { xpToReach, levelForXp, ultCooldown } from './hero.js';

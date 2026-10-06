@@ -418,8 +418,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
         case 'place': {
           const t = sim.getTower ? sim.getTower(ev.towerUid) : null;
-          const x = t ? t.x : (ev.tx ?? 0) + 0.5;
-          const z = t ? t.y : (ev.ty ?? 0) + 0.5;
+          const x = t ? t.x : ev.x ?? (ev.tx ?? 0) + 0.5;
+          const z = t ? t.y : ev.y ?? (ev.ty ?? 0) + 0.5;
           fx.puff(x, 0.1, z, '#ffffff', 6, 0.5, 0.35);
           fx.ring(x, z, 0.15, 0.75, 0.4, '#ffffff', { additive: false, uv: 'ring', a0: 0.8 });
           overlays.refreshHints();
@@ -581,19 +581,34 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const hitP = new THREE.Vector3();
   const tmpV = new THREE.Vector3();
 
+  /**
+   * Screen → board. Returns the continuous world point under the pointer (`x`, `y`, free
+   * placement — nothing snaps), the tile under it (`tx`, `ty`, legacy), the girl whose
+   * footprint or body is there, and whether the point lies inside the map.
+   */
   function pick(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     const hit = raycaster.ray.intersectPlane(plane, hitP);
+    let x = null;
+    let y = null;
     let tx = -999;
     let ty = -999;
     if (hit) {
-      tx = Math.floor(hitP.x);
-      ty = Math.floor(hitP.z);
+      x = hitP.x;
+      y = hitP.z;
+      tx = Math.floor(x);
+      ty = Math.floor(y);
     }
-    const inBounds = tx >= 0 && ty >= 0 && tx < map.width && ty < map.height;
-    let towerUid = inBounds ? sim.towerAt(tx, ty)?.uid ?? null : null;
+    const inBounds = hit && x >= 0 && y >= 0 && x < map.width && y < map.height;
+    let towerUid = null;
+    if (hit) {
+      // exact integers would be read as a tile by the sim's legacy rule; nudge them
+      const px0 = Number.isInteger(x) ? x + 1e-6 : x;
+      const py0 = Number.isInteger(y) ? y + 1e-6 : y;
+      towerUid = sim.towerAt(px0, py0)?.uid ?? null;
+    }
     if (towerUid == null) {
       // tapping a girl's body (she stands up, so her head projects onto the tile behind)
       const px = clientX - rect.left;
@@ -609,7 +624,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
       }
     }
-    return { tx, ty, towerUid, inBounds, x: hit ? hitP.x : null, y: hit ? hitP.z : null };
+    return { x, y, tx, ty, towerUid, inBounds };
   }
 
   function projectPx(x, y, z, rect = canvas.getBoundingClientRect()) {
@@ -736,12 +751,22 @@ export function createBattleRenderer(container, sim, opts = {}) {
     resize,
     pick,
     worldToScreen,
-    setGhost(unitId, tx, ty, valid) {
-      overlays.setGhost(unitId || null, tx, ty, valid);
+    /** Placement preview at a continuous world point (two integers = a tile centre, legacy). */
+    setGhost(unitId, x, y, valid) {
+      if (Number.isInteger(x) && Number.isInteger(y)) {
+        x += 0.5;
+        y += 0.5;
+      }
+      overlays.setGhost(unitId || null, x, y, valid);
+    },
+    /** Extra: wobble the ghost (rejected drop feedback). */
+    shakeGhost() {
+      overlays.shakeGhost();
     },
     setSelected(uid) {
       overlays.setSelected(uid ?? null);
     },
+    /** Shades the FORBIDDEN zones for `unitId` (path band, obstacles, wrong terrain, other girls). */
     showTileHints(unitId) {
       overlays.showTileHints(unitId || null);
     },

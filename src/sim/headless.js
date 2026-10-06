@@ -1,33 +1,42 @@
 // Headless battles for tests and balance checks: runHeadless executes a scripted plan of
-// placements/upgrades; autoPlan builds such a plan greedily (tiles covering the most path
-// length within range, then upgrades along each unit's strongest path).
+// placements/upgrades; autoPlan builds such a plan greedily (continuous spots covering the
+// most path length within range, then upgrades along each unit's strongest path).
 
 import { Sim } from './Sim.js';
 import { createDataSource } from './data.js';
-import { buildPaths, pathTileSet, samplePath } from './path.js';
+import { buildPaths, samplePath } from './path.js';
+import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placement.js';
 import { resolveStats, crosspathBlock } from './mods.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
 
 /**
- * @typedef {{ at?: number, action: 'place'|'upgrade', unitId?: string, tx?: number, ty?: number,
- *   uid?: number, path?: number }} PlanAction
+ * A plan action. Positions are continuous world coordinates `x`/`y` (free placement);
+ * `tx`/`ty` (tile) are still accepted for old plans and resolve to the tile centre.
+ * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell', unitId?: string, x?: number, y?: number,
+ *   tx?: number, ty?: number, uid?: number, path?: number }} PlanAction
  */
 
+/** Position of a plan action as (x, y) arguments for the Sim (continuous wins over tile). */
+function spot(a) {
+  return a.x != null && a.y != null ? [a.x, a.y] : [a.tx, a.ty];
+}
+
 function executeAction(sim, a) {
+  const [x, y] = spot(a);
   if (a.action === 'place') {
-    const chk = sim.canPlace(a.unitId, a.tx, a.ty);
-    if (chk.ok) return sim.placeTower(a.unitId, a.tx, a.ty) ? 'done' : 'fail';
+    const chk = sim.canPlace(a.unitId, x, y);
+    if (chk.ok) return sim.placeTower(a.unitId, x, y) ? 'done' : 'fail';
     return chk.reason === 'cash' ? 'wait' : 'fail';
   }
   if (a.action === 'upgrade') {
-    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(a.tx, a.ty);
+    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
     if (!t) return 'fail';
     const st = sim.upgradeStatus(t.uid, a.path ?? 0);
     if (!st.locked) return sim.upgradeTower(t.uid, a.path ?? 0) ? 'done' : 'fail';
     return st.reason === 'cash' ? 'wait' : 'fail';
   }
   if (a.action === 'sell') {
-    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(a.tx, a.ty);
+    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
     if (!t) return 'fail';
     sim.sellTower(t.uid);
     return 'done';
@@ -171,47 +180,77 @@ function unitRole(stats) {
   return 'dps';
 }
 
+/** Candidate lattice step (tiles) and the deterministic jitter so spots never align with tile centres. */
+const LATTICE_STEP = 0.25;
+const LATTICE_JITTER = 0.04;
+
+/** Small deterministic hash → [-1, 1] (no Math.random in sim code). */
+function jitter(i, j, salt) {
+  let h = (i * 73856093) ^ (j * 19349663) ^ (salt * 83492791);
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  h ^= h >>> 15;
+  return ((h >>> 0) % 2001) / 1000 - 1;
+}
+
 /**
- * Greedy plan: best-covered tiles first, then upgrades on each unit's strongest path
+ * Greedy plan on a continuous candidate lattice (0.25-tile grid + jitter): best path
+ * coverage first, footprints never overlap, then upgrades on each unit's strongest path
  * (BTD6 crosspath respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
  * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best
  *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly.
- * @returns {PlanAction[]}
+ * @returns {PlanAction[]} place actions carry continuous `x`/`y` plus the tile `tx`/`ty` under them
  */
 export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   const { stage, map } = ds;
-  const tilesOnPath = pathTileSet(map);
-  const samples = buildPaths(map).flatMap((p) => samplePath(p, 0.25));
+  const paths = buildPaths(map);
+  const rules = createPlacementRules(map, paths);
+  const samples = paths.flatMap((p) => samplePath(p, 0.25));
   const needs = stageNeeds(stage, ds.enemy);
 
-  const cells = [];
-  for (let ty = 0; ty < map.height; ty++) {
-    const row = map.rows?.[ty] || '';
-    for (let tx = 0; tx < map.width; tx++) {
-      if (tilesOnPath.has(`${tx},${ty}`)) continue;
-      const ch = row[tx];
+  // Candidate spots: lattice points on buildable terrain with their clearance from the path
+  // band and obstacles (checked against each unit's radius when choosing).
+  const cands = [];
+  const nx = Math.ceil(map.width / LATTICE_STEP);
+  const ny = Math.ceil(map.height / LATTICE_STEP);
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x = (i + 0.5) * LATTICE_STEP + jitter(i, j, 1) * LATTICE_JITTER;
+      const y = (j + 0.5) * LATTICE_STEP + jitter(i, j, 2) * LATTICE_JITTER;
+      if (!rules.inBounds(x, y)) continue;
+      const ch = rules.terrainAt(x, y);
       const water = ch === '~';
       const land = ch === '.' || ch === ',';
-      if (water || land) cells.push({ tx, ty, water, land });
+      if (!water && !land) continue;
+      const pathClear = rules.pathDistance(x, y) - PATH_HALF_WIDTH;
+      const obstacleClear = rules.obstacleDistance(x, y);
+      if (Math.min(pathClear, obstacleClear) < 0.42 - 1e-9) continue; // useless for any girl
+      cands.push({ x, y, water, land, clear: Math.min(pathClear, obstacleClear), tx: Math.floor(x), ty: Math.floor(y) });
     }
   }
   const covCache = new Map();
   const coverage = (c, range) => {
-    const key = `${c.tx},${c.ty},${range.toFixed(2)}`;
-    let v = covCache.get(key);
-    if (v === undefined) {
-      const x = c.tx + 0.5;
-      const y = c.ty + 0.5;
+    const key = range.toFixed(2);
+    let arr = covCache.get(key);
+    if (!arr) {
+      arr = new Float32Array(cands.length);
       const r2 = range * range;
-      v = 0;
-      for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= r2) v += 0.25;
-      covCache.set(key, v);
+      for (let k = 0; k < cands.length; k++) {
+        const x = cands[k].x;
+        const y = cands[k].y;
+        let v = 0;
+        for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= r2) v += 0.25;
+        arr[k] = v;
+      }
+      covCache.set(key, arr);
     }
-    return v;
+    return arr[c.index];
   };
+  cands.forEach((c, k) => {
+    c.index = k;
+  });
 
   const defs = [...new Set(unitIds)].map((id) => ds.unit(id)).filter(Boolean);
   const heroDef = defs.find((d) => d.kind === 'hero') || null;
@@ -227,22 +266,30 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   const support = infos.filter((i) => i.role === 'support');
   const econ = infos.filter((i) => i.role === 'econ');
 
-  const used = new Set();
   const placed = [];
   const plan = [];
   const placement = (def) => def.placement || 'land';
   const fits = (def, c) => (placement(def) === 'water' ? c.water : placement(def) === 'land' ? c.land : true);
+  const free = (c, r) => {
+    if (c.clear < r - 1e-9) return false;
+    for (const p of placed) {
+      const rr = r + p.radius;
+      if ((p.x - c.x) ** 2 + (p.y - c.y) ** 2 < rr * rr) return false;
+    }
+    return true;
+  };
 
-  const bestTile = (info) => {
+  const bestSpot = (info) => {
+    const r = footprintRadius(info.def);
     let best = null;
     let bestS = -Infinity;
-    for (const c of cells) {
-      if (used.has(`${c.tx},${c.ty}`) || !fits(info.def, c)) continue;
+    for (const c of cands) {
+      if (!fits(info.def, c) || !free(c, r)) continue;
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {
-        const r = info.stats.aura?.range || 2;
-        s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.tx - c.tx, p.ty - c.ty) <= r).length * 100 + coverage(c, info.stats.range);
+        const ar = info.stats.aura?.range || 2;
+        s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
       } else s = coverage(c, info.stats.range);
       if (s > bestS) {
         bestS = s;
@@ -253,11 +300,13 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   };
 
   const place = (info) => {
-    const c = bestTile(info);
+    const c = bestSpot(info);
     if (!c) return null;
-    used.add(`${c.tx},${c.ty}`);
-    plan.push({ at: 1, action: 'place', unitId: info.def.id, tx: c.tx, ty: c.ty });
-    const rec = { info, def: info.def, role: info.role, tx: c.tx, ty: c.ty, tiers: [0, 0, 0], main: info.main, sub: info.sub };
+    plan.push({ at: 1, action: 'place', unitId: info.def.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty });
+    const rec = {
+      info, def: info.def, role: info.role, x: c.x, y: c.y, tx: c.tx, ty: c.ty, radius: footprintRadius(info.def),
+      tiers: [0, 0, 0], main: info.main, sub: info.sub,
+    };
     placed.push(rec);
     return rec;
   };
@@ -266,7 +315,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     while (rec.tiers[path] < Math.min(uptoTier, tiers.length)) {
       if (crosspathBlock(rec.tiers, path, tiers.length)) return;
       rec.tiers[path]++;
-      plan.push({ at: 1, action: 'upgrade', unitId: rec.def.id, tx: rec.tx, ty: rec.ty, path });
+      plan.push({ at: 1, action: 'upgrade', unitId: rec.def.id, x: rec.x, y: rec.y, tx: rec.tx, ty: rec.ty, path });
     }
   };
   const copies = (info) => placed.filter((p) => p.info === info).length;
@@ -274,10 +323,10 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   if (dps.length) place(dps[0]);
   if (heroDef) {
     const hInfo = { def: heroDef, stats: resolveStats(heroDef, { heroLevel: 1 }), role: 'dps' };
-    const c = bestTile(hInfo);
+    const c = bestSpot(hInfo);
     if (c) {
-      used.add(`${c.tx},${c.ty}`);
-      plan.push({ at: 1, action: 'place', unitId: heroDef.id, tx: c.tx, ty: c.ty });
+      plan.push({ at: 1, action: 'place', unitId: heroDef.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty });
+      placed.push({ info: hInfo, def: heroDef, role: 'hero', x: c.x, y: c.y, tx: c.tx, ty: c.ty, radius: footprintRadius(heroDef), tiers: [0, 0, 0], main: 0, sub: 1 });
     }
   }
   if (needs.veiled) {

@@ -281,7 +281,10 @@ MapDef = {
 ```
 
 Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
-outside the grid (spawn/exit off-screen).
+outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls
+stand at continuous positions, so `rows` only describes terrain and obstacles — the sim turns
+'T' into a blocking disc (r 0.45 at the tile centre), 'R' / 'H' / 'X' into blocking squares, and
+the path into a band 0.55 tiles either side of its centre line.
 
 ### `src/data/stages.js`
 
@@ -514,6 +517,16 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 Pure JS. World units = tiles; tile (tx,ty) covers [tx,tx+1)×[ty,ty+1); centre = (tx+0.5, ty+0.5).
 The 3D renderer maps sim (x, y) → three.js (x, 0, y) (y-down on the grid = +z in 3D).
 
+**Free placement (V2, Bloons-style — `src/sim/placement.js`, `docs/PLACEMENT.md`).** Girls stand
+at continuous (x, y) and own a circular footprint: towers r = 0.42, heroes r = 0.5 (`footprintRadius(def)`;
+a UnitDef may override with `footprint`). A spot is legal when the centre is inside the map, no other
+footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
+line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
+void = the tile square) and the terrain under the CENTRE matches her placement ('~' water, '.' / ','
+land; bridges are path). Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
+`towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
+`canPlaceTile` / `placeTowerTile` are the explicit forms).
+
 ```js
 import { Sim } from './sim/Sim.js';
 const sim = new Sim({
@@ -539,9 +552,13 @@ sim.encountered       // Set<enemyId> seen this battle
 sim.kills             // { enemyId: count }
 sim.stats             // { damageByTower: {uid: n}, leaks, cashEarned }
 
-sim.canPlace(unitId, tx, ty)        // -> { ok, reason } reasons: 'occupied'|'path'|'blocked'|'needsWater'|'needsLand'|'cash'|'heroPlaced'|'notInLoadout'|'outOfBounds'
-sim.placeTower(unitId, tx, ty)      // -> TowerRT | null
-sim.towerAt(tx, ty)                 // -> TowerRT | null
+sim.canPlace(unitId, x, y)          // continuous footprint centre -> { ok, reason, cost?, x, y }
+                                    // reasons: 'occupied'|'path'|'blocked'|'needsWater'|'needsLand'|'cash'|'heroPlaced'|'notInLoadout'|'outOfBounds'
+sim.placeTower(unitId, x, y)        // -> TowerRT | null (stands exactly at (x, y))
+sim.towerAt(x, y)                   // -> nearest TowerRT whose footprint contains the point | null
+sim.placementReason(unitId, x, y)   // geometry-only reason (ignores cash/loadout/hero) | null — forbidden-zone overlays
+sim.footprintRadius(unitId)         // 0.42 towers, 0.5 heroes
+sim.canPlaceTile(unitId, tx, ty) / sim.placeTowerTile(unitId, tx, ty)   // legacy: tile centre
 sim.upgradeStatus(uid, path)        // -> { tier /*current*/, next: TierDef|null, cost, locked, reason: 'max'|'crosspath'|'cash'|null }
 sim.upgradeTower(uid, path)         // -> boolean
 sim.sellTower(uid)                  // -> refund coins
@@ -558,7 +575,8 @@ sim.result()                        // -> battle result object for applyBattleRe
 EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*along path*/, pathIndex,
             hp, maxHp, barrier, maxBarrier, armor, speed, statuses: { [type]: { ...spec, left } },
             veiled, revealed, phasing /*intangible now*/, silenced, facing /*radians*/, tier, flash /*0-1 hit flash*/ }
-TowerRT = { uid, unitId, def, tx, ty, x, y, isHero, tiers: [a,b,c], targetMode, targetUid, facing,
+TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
+            isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
             spent /*coins invested*/, turrets: [{ uid, x, y, facing }] }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
@@ -568,15 +586,17 @@ SimEvent = { type, ...payload } with types:
   'beam' {from:[x,y], to:[x,y], width, color} 'pulse' {x,y,radius,element} 'status' {uid,status}
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
   'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
-  'place' {towerUid} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
+  'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
 ```
 
 Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `src/sim/headless.js`
-for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, tx, ty, uid?, path }`.
-And `autoPlan(stageId, unitIds)` that greedily places towers on the best-covered tiles (used
-to check that every campaign stage is beatable on Normal with free units only).
+for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, x, y, uid?, path }`
+(continuous `x`/`y`; old `tx`/`ty` tile actions still run). And `autoPlan(stageId, unitIds)` that
+greedily places girls on the best-covered spots of a 0.25-tile lattice (never overlapping, path band
+respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them) — used to check that every
+campaign stage is beatable on Normal with free units only.
 
 Damage pipeline (in order): veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
@@ -662,10 +682,13 @@ r.update(dt)                     // call every frame AFTER sim.update; consumes 
 r.resize()
 r.dispose()
 r.canvas                         // the WebGL canvas
-r.pick(clientX, clientY)         // -> { tx, ty, towerUid|null, inBounds }
-r.setGhost(unitId|null, tx, ty, valid)  // placement preview (model + range circle, red when invalid)
+r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
+r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + footprint disc +
+                                 //    range circle; red when invalid). Two integers = a tile centre (legacy).
+r.shakeGhost()                   // wobble the ghost for a moment (rejected drop feedback)
 r.setSelected(uid|null)          // selected tower: outline + range circle
-r.showTileHints(unitId|null)     // tint valid tiles (land vs water) while placing
+r.showTileHints(unitId|null)     // Bloons-style: shade the FORBIDDEN zones for that girl (path band, obstacles,
+                                 //    wrong terrain, other girls' footprints) with a soft red overlay; allowed ground stays clear
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
@@ -689,7 +712,10 @@ coin pops, ult cinematic flash.
 Route `#/battle?stage=1-1&difficulty=normal`. Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
-cost & affordability; drag or tap-then-tap to place; water units glow water tiles), selected
+cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
+(she stands exactly where the finger lets go — no snapping), or tap the card then tap the board;
+while a card is held the renderer shades the forbidden zones; an invalid spot shows a red ghost
+that shakes plus a one-line reason toast), selected
 tower panel (3 upgrade paths with tier pips + names + costs + crosspath locks, sell, target
 mode, stats, kills), hero portrait with level/XP + ult button, next-wave scout strip with
 trait icons + "New!" markers, boss HP bar + phase announcements, pause menu (resume, restart,

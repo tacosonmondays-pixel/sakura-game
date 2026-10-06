@@ -40,19 +40,24 @@ function emptyBuff() {
 }
 
 /**
- * Creates a TowerRT (contract fields + internals).
+ * Creates a TowerRT (contract fields + internals). Position is continuous world (x, y)
+ * (free placement); `tx`/`ty` = the tile under the footprint centre (legacy consumers).
+ * A caller that only passes `tx`/`ty` gets the tile centre.
  * @param {object} def UnitDef
- * @param {{ uid, tx, ty, isHero, unitStats, cost }} o
+ * @param {{ uid, x?, y?, tx?, ty?, radius?, isHero, unitStats, cost }} o
  */
 export function createTower(def, o) {
+  const x = o.x ?? (o.tx ?? 0) + 0.5;
+  const y = o.y ?? (o.ty ?? 0) + 0.5;
   const t = {
     uid: o.uid,
     unitId: def.id,
     def,
-    tx: o.tx,
-    ty: o.ty,
-    x: o.tx + 0.5,
-    y: o.ty + 0.5,
+    x,
+    y,
+    tx: Math.floor(x),
+    ty: Math.floor(y),
+    radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
     tiers: [0, 0, 0],
     targetMode: def.role === 'sniper' ? 'elite' : 'first',

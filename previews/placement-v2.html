@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Placement v2 Preview</title>
+<style>
+  :root { --navy: #1d2b4f; --yellow: #ffd84d; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #10182c; font: 13px/1.3 system-ui, sans-serif; color: var(--navy); overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #hud { position: fixed; left: 12px; top: 10px; right: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  .pill { pointer-events: auto; background: #fff; border-radius: 6px; padding: 5px 12px; transform: skewX(-10deg); box-shadow: 0 2px 6px #0003; font-weight: 700; font-style: italic; }
+  .pill > * { display: inline-block; transform: skewX(10deg); }
+  select, button { font: inherit; font-weight: 700; color: var(--navy); border: 0; background: transparent; cursor: pointer; }
+  button.on { background: var(--yellow); border-radius: 4px; padding: 0 6px; }
+  #rules { position: fixed; right: 12px; bottom: 12px; border-radius: 8px; box-shadow: 0 2px 10px #0006; background: #fff; image-rendering: pixelated; }
+  #legend { position: fixed; right: 12px; bottom: 12px; transform: translateY(-100%); margin-bottom: 4px; color: #fff; font: 11px ui-monospace, monospace; text-shadow: 0 1px 2px #000; text-align: right; pointer-events: none; }
+  #info { position: fixed; left: 12px; bottom: 10px; color: #fff; font: 11px ui-monospace, monospace; text-shadow: 0 1px 2px #000; pointer-events: none; white-space: pre; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hud">
+  <div class="pill"><span id="title">Loading…</span></div>
+  <div class="pill"><span><select id="stageSel"></select></span></div>
+  <div class="pill"><span>hold: <select id="unitSel"></select></span></div>
+  <div class="pill"><span><button id="modeBtn">tap to place</button></span></div>
+  <div class="pill"><span><button id="autoBtn">autoPlan</button></span></div>
+  <div class="pill"><span><button id="clearBtn">sell all</button></span></div>
+  <div class="pill"><span id="status"></span></div>
+</div>
+<div id="legend">rules map · red path band · grey obstacles · blue water · orange girls</div>
+<canvas id="rules"></canvas>
+<div id="info"></div>
+<script type="module" src="./placement-v2.js"></script>
+</body>
+</html>

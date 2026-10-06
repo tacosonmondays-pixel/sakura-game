@@ -1,12 +1,15 @@
-// Placement controller: tap-card-then-tap-tile, drag-from-card, ghost + tile hints.
+// Placement controller (free placement, Bloons-style): drag a card from the bar and release
+// ANYWHERE on the board to deploy, or tap a card then tap the board. Nothing snaps — the
+// girl stands exactly where the finger lets go. Invalid spots show a red ghost that shakes,
+// plus a one-line reason toast. The renderer shades the forbidden zones while a card is held.
 import { h, icon, fmtCoins } from './util.js';
 
 export const PLACE_REASONS = {
-  occupied: 'That tile is taken.',
-  path: 'Girls cannot stand on the path.',
-  blocked: 'Nothing can be placed there.',
-  needsWater: 'She can only stand on water tiles.',
-  needsLand: 'She needs solid ground.',
+  occupied: 'Too close to another girl.',
+  path: 'Too close to the path — give the enemies room.',
+  blocked: 'Something is in the way there.',
+  needsWater: 'She can only stand on water.',
+  needsLand: 'She needs solid ground, not water.',
   cash: 'Not enough coins.',
   heroPlaced: 'Your hero is already deployed.',
   notInLoadout: 'She is not in your formation.',
@@ -15,15 +18,26 @@ export const PLACE_REASONS = {
 
 /** Finger offset so a touch-dragged ghost is not hidden under the thumb. */
 const TOUCH_LIFT = 46;
+/** Ghost only re-evaluates after the pointer moved this far (tiles) — cheap, still fluid. */
+const MOVE_EPS = 0.015;
+/** How long a rejected drop keeps its red, shaking ghost on screen before the card returns. */
+const REJECT_MS = 520;
 
 export function createPlacement(ctx) {
   const { sim } = ctx;
   let unitId = null;
   let mode = null; // 'tap' | 'drag'
-  let last = null; // { tx, ty, ok }
+  let last = null; // { x, y, ok, reason }
+  let rejectTimer = 0;
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
+
+  function whereText(def) {
+    if (def.placement === 'water') return 'open water';
+    if (def.placement === 'amphibious') return 'open ground or water';
+    return 'open ground';
+  }
 
   function renderHint() {
     if (!unitId) {
@@ -32,13 +46,20 @@ export function createPlacement(ctx) {
     }
     const def = sim.data.unit(unitId);
     const cost = sim.placeCost(unitId);
-    const where = def.placement === 'water' ? 'a glowing water tile' : def.placement === 'amphibious' ? 'land or water' : 'a glowing tile';
+    const where = whereText(def);
     hint.hidden = false;
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
-      h('span.bt-place-text', mode === 'drag' ? `Release on ${where} to deploy ` : `Tap ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', ` · ${fmtCoins(cost)}`)),
+      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', ` · ${fmtCoins(cost)}`)),
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
+  }
+
+  function clearReject() {
+    if (rejectTimer) {
+      clearTimeout(rejectTimer);
+      rejectTimer = 0;
+    }
   }
 
   function begin(id, how) {
@@ -56,6 +77,7 @@ export function createPlacement(ctx) {
       ctx.bump?.('cash');
       return false;
     }
+    clearReject();
     ctx.select(null);
     unitId = id;
     mode = how;
@@ -66,6 +88,7 @@ export function createPlacement(ctx) {
   }
 
   function end() {
+    clearReject();
     unitId = null;
     mode = null;
     last = null;
@@ -78,22 +101,35 @@ export function createPlacement(ctx) {
     end();
   }
 
-  function ghostAt(tx, ty) {
-    const chk = sim.canPlace(unitId, tx, ty);
-    last = { tx, ty, ok: chk.ok, reason: chk.reason };
-    ctx.renderer.setGhost(unitId, tx, ty, chk.ok);
+  /** Moves the ghost to a world point and returns the sim's verdict. */
+  function ghostAt(x, y) {
+    const chk = sim.canPlace(unitId, x, y);
+    last = { x, y, ok: chk.ok, reason: chk.reason };
+    ctx.renderer.setGhost(unitId, x, y, chk.ok);
     return chk;
   }
 
-  /** Attempts to place the current unit at a tile; returns the tower or null. */
-  function tryPlace(tx, ty) {
+  /** Rejected spot: red ghost + shake + reason toast. */
+  function reject(x, y, reason) {
+    ghostAt(x, y);
+    ctx.renderer.shakeGhost?.();
+    navigator.vibrate?.([18, 40, 18]);
+    ctx.feed.push(PLACE_REASONS[reason] || 'Cannot place there.', 'warn', { key: `place-${reason}`, ms: 1600 });
+  }
+
+  /**
+   * Attempts to deploy the current unit with her footprint centred at world (x, y)
+   * (two integers are read as a tile centre, legacy). Returns the tower or null.
+   */
+  function tryPlace(x, y) {
     const id = unitId;
-    const chk = sim.canPlace(id, tx, ty);
+    if (!id) return null;
+    const chk = sim.canPlace(id, x, y);
     if (!chk.ok) {
-      ctx.feed.push(PLACE_REASONS[chk.reason] || 'Cannot place there.', 'warn', { key: `place-${chk.reason}`, ms: 1600 });
+      reject(chk.x ?? x, chk.y ?? y, chk.reason);
       return null;
     }
-    const t = sim.placeTower(id, tx, ty);
+    const t = sim.placeTower(id, x, y);
     if (t) {
       end();
       ctx.onPlaced(t);
@@ -108,9 +144,9 @@ export function createPlacement(ctx) {
       cancel();
       return true;
     }
-    const chk = sim.canPlace(unitId, p.tx, p.ty);
+    const chk = sim.canPlace(unitId, p.x, p.y);
     if (chk.ok) {
-      tryPlace(p.tx, p.ty);
+      tryPlace(p.x, p.y);
       return true;
     }
     if (chk.reason === 'occupied' && p.towerUid != null) {
@@ -119,22 +155,24 @@ export function createPlacement(ctx) {
       ctx.select(p.towerUid);
       return true;
     }
-    ghostAt(p.tx, p.ty);
-    ctx.feed.push(PLACE_REASONS[chk.reason] || 'Cannot place there.', 'warn', { key: `place-${chk.reason}`, ms: 1600 });
+    reject(p.x, p.y, chk.reason);
     return true;
+  }
+
+  function moved(x, y) {
+    return !last || Math.abs(last.x - x) > MOVE_EPS || Math.abs(last.y - y) > MOVE_EPS;
   }
 
   /** Mouse hover over the canvas while tap-placing: ghost follows the cursor. */
   function hover(clientX, clientY) {
-    if (!unitId || mode !== 'tap') return;
+    if (!unitId || mode !== 'tap' || rejectTimer) return;
     const p = ctx.renderer.pick(clientX, clientY);
     if (!p.inBounds) {
       ctx.renderer.setGhost(null);
       last = null;
       return;
     }
-    if (last && last.tx === p.tx && last.ty === p.ty) return;
-    ghostAt(p.tx, p.ty);
+    if (moved(p.x, p.y)) ghostAt(p.x, p.y);
   }
 
   function pickDrag(clientX, clientY, pointerType) {
@@ -160,7 +198,7 @@ export function createPlacement(ctx) {
     start: (id) => begin(id, 'tap'),
     beginDrag: (id) => begin(id, 'drag'),
     dragMove(clientX, clientY, pointerType) {
-      if (!unitId) return;
+      if (!unitId || mode !== 'drag') return;
       if (overBar(clientY)) {
         ctx.renderer.setGhost(null);
         last = null;
@@ -168,21 +206,32 @@ export function createPlacement(ctx) {
       }
       const p = pickDrag(clientX, clientY, pointerType);
       if (!p.inBounds) {
-        ctx.renderer.setGhost(null);
-        last = null;
+        // keep showing her (red) just outside the board so the drag never "loses" the girl
+        if (p.x != null && moved(p.x, p.y)) ghostAt(p.x, p.y);
         return;
       }
-      if (!last || last.tx !== p.tx || last.ty !== p.ty) ghostAt(p.tx, p.ty);
+      if (moved(p.x, p.y)) ghostAt(p.x, p.y);
     },
     dragEnd(clientX, clientY, pointerType) {
-      if (!unitId) return;
+      if (!unitId || mode !== 'drag') return;
       if (overBar(clientY)) {
         cancel();
         return;
       }
       const p = pickDrag(clientX, clientY, pointerType);
-      if (p.inBounds) tryPlace(p.tx, p.ty);
-      if (unitId) cancel();
+      if (!p.inBounds) {
+        cancel();
+        return;
+      }
+      const t = tryPlace(p.x, p.y);
+      if (!t && unitId) {
+        // let the red, shaking ghost be seen, then return the card to the bar
+        clearReject();
+        rejectTimer = setTimeout(() => {
+          rejectTimer = 0;
+          if (unitId && mode === 'drag') cancel();
+        }, REJECT_MS);
+      }
     },
     handleTap,
     hover,
@@ -190,6 +239,7 @@ export function createPlacement(ctx) {
     cancel,
     refresh: renderHint,
     destroy() {
+      clearReject();
       hint.remove();
     },
   };
