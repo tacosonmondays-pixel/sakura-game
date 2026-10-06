@@ -31,6 +31,10 @@ try {
   if (wait) await page.waitForSelector(wait, { timeout: 30000 });
   if (evalJs) await page.evaluate(evalJs);
   await page.waitForTimeout(delay);
+  // An idle headless page produces no frames, so a CSS entrance animation (or a per-frame HUD
+  // refresh) can still be pending at its first frame when the screenshot frame is drawn. Force
+  // two animation frames first, like a real browser's continuous frame loop would.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300)))));
   await page.screenshot({ path: out });
   console.log(`saved ${out}`);
 } catch (e) {
