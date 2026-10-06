@@ -1,0 +1,357 @@
+{
+ "beast": {
+  "file": "beast.glb",
+  "size": 210844,
+  "vertices": 4611,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "mane",
+   "moss",
+   "scarf",
+   "tail",
+   "tusks"
+  ],
+  "variants": [
+   "bear",
+   "boar",
+   "wolf"
+  ],
+  "height": 0.9,
+  "unitScale": 2.0
+ },
+ "construct": {
+  "file": "construct.glb",
+  "size": 202848,
+  "vertices": 4495,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "chimney",
+   "crystals",
+   "gears",
+   "helmet",
+   "shell",
+   "shield"
+  ],
+  "variants": [
+   "automaton",
+   "beetle",
+   "cogling",
+   "colossus",
+   "sentry",
+   "warden"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "dragon": {
+  "file": "dragon.glb",
+  "size": 201484,
+  "vertices": 4161,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special",
+   "walk"
+  ],
+  "props": [
+   "crown",
+   "ember",
+   "horns",
+   "tail",
+   "wings"
+  ],
+  "variants": [
+   "drake",
+   "matriarch",
+   "wyvern"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "fae": {
+  "file": "fae.glb",
+  "size": 169364,
+  "vertices": 3410,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "mirror",
+   "sparkle",
+   "tiara",
+   "wings"
+  ],
+  "variants": [
+   "illusionist",
+   "mirage",
+   "queen",
+   "sprite",
+   "sylph"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "ghost": {
+  "file": "ghost.glb",
+  "size": 156044,
+  "vertices": 3156,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "candle",
+   "chains",
+   "helmet",
+   "hood",
+   "lantern",
+   "mask",
+   "sword"
+  ],
+  "variants": [
+   "bearer",
+   "samurai",
+   "wisp",
+   "wraith"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "ghoul": {
+  "file": "ghoul.glb",
+  "size": 201512,
+  "vertices": 4249,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "bones",
+   "candle",
+   "cape",
+   "chains",
+   "crown",
+   "hood",
+   "moss",
+   "staff"
+  ],
+  "variants": [
+   "leech",
+   "lych",
+   "priest",
+   "shambler",
+   "skeleton",
+   "skulker"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "goblin": {
+  "file": "goblin.glb",
+  "size": 316108,
+  "vertices": 7177,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "backpack",
+   "bomb",
+   "cannon",
+   "chimney",
+   "club",
+   "crown",
+   "gears",
+   "glider",
+   "goggles",
+   "hood",
+   "scarf",
+   "smokePot",
+   "wrench"
+  ],
+  "variants": [
+   "chief",
+   "machine",
+   "scout",
+   "tinker"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "lizard": {
+  "file": "lizard.glb",
+  "size": 157268,
+  "vertices": 3188,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "crystals",
+   "shield",
+   "spear",
+   "tail"
+  ],
+  "variants": [
+   "basilisk",
+   "hunter",
+   "skink",
+   "warrior"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "oni": {
+  "file": "oni.glb",
+  "size": 227160,
+  "vertices": 4959,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "cape",
+   "club",
+   "drum",
+   "fan",
+   "flower",
+   "horns",
+   "mask"
+  ],
+  "variants": [
+   "brute",
+   "caster",
+   "champion",
+   "drummer"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "orc": {
+  "file": "orc.glb",
+  "size": 191720,
+  "vertices": 4075,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "axe",
+   "cape",
+   "club",
+   "helmet",
+   "mane",
+   "sword",
+   "towerShield"
+  ],
+  "variants": [
+   "berserker",
+   "general",
+   "grunt",
+   "soldier",
+   "warlord"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0
+ },
+ "plant": {
+  "file": "plant.glb",
+  "size": 254492,
+  "vertices": 5718,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "flower",
+   "leaves",
+   "moss",
+   "mushroom",
+   "thorns"
+  ],
+  "variants": [
+   "mossling",
+   "pod",
+   "root",
+   "sprout",
+   "treant"
+  ],
+  "height": 1.3,
+  "unitScale": 2.0
+ },
+ "slime": {
+  "file": "slime.glb",
+  "size": 235588,
+  "vertices": 5285,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "props": [
+   "bubble",
+   "cape",
+   "crown",
+   "crystals",
+   "ember",
+   "flower",
+   "helmet",
+   "pearl",
+   "shell",
+   "sparkle",
+   "spear"
+  ],
+  "variants": [
+   "bubble",
+   "chest",
+   "drop",
+   "droplet",
+   "knight",
+   "rainbow",
+   "royal"
+  ],
+  "height": 0.82,
+  "unitScale": 2.0
+ }
+}
