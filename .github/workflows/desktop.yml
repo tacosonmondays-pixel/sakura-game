@@ -1,0 +1,33 @@
+name: Desktop build (Windows exe)
+
+# Builds a single-file SakuraSentinels.exe (Node SEA, no installer).
+# Run it from the Actions tab (workflow_dispatch) or push a tag like v1.0.0.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node desktop/build.mjs --platform win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SakuraSentinels-windows
+          path: desktop/out/SakuraSentinels.exe
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desktop/out/SakuraSentinels.exe

@@ -7,3 +7,6 @@ e2e/out/
 # third-party reference assets are kept locally, not shipped
 docs/reference/thirdparty/
 .claude/worktrees/
+desktop/.cache/
+desktop/.work/
+desktop/out/

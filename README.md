@@ -251,3 +251,21 @@ CONTRACTS.md                module APIs and data schemas
   (Google Fonts).
 - All characters, art and names are original. The game is inspired by Bloons TD6, Blue Archive and
   Arknights, but uses none of their assets.
+
+## Desktop version (Windows .exe)
+
+A single-file desktop build — no installer, no Electron — made with Node's Single
+Executable Application feature. The exe embeds the whole web build, serves it on
+`http://127.0.0.1:47333/` and opens the game in an app window (Edge/Chrome `--app` mode when
+available, otherwise your default browser). Saves are kept in that window's profile between launches.
+
+```bash
+npm install
+node desktop/build.mjs                   # → desktop/out/SakuraSentinels.exe (downloads node.exe once)
+node desktop/build.mjs --platform linux  # → desktop/out/sakura-sentinels
+```
+
+Or on GitHub: **Actions → "Desktop build (Windows exe)" → Run workflow**, then download the
+`SakuraSentinels-windows` artifact. Pushing a tag like `v1.0.0` also attaches the exe to a release.
+
+The exe is unsigned, so Windows SmartScreen may ask once ("More info → Run anyway").
