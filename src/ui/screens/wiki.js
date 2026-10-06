@@ -78,12 +78,12 @@ export function render(root, params = {}) {
 
   const listEl = h('div.mb-wiki-list');
   const catsEl = h('div.mb-chips', { style: 'margin-bottom:8px' });
-  const input = h('input', { type: 'search', placeholder: 'Search the wiki (e.g. pity, veiled, armor)', value: view.q, 'aria-label': 'Search', 'data-testid': 'wiki-search' });
+  const input = h('input', { type: 'search', placeholder: 'Search the wiki…', value: view.q, 'aria-label': 'Search', 'data-testid': 'wiki-search' });
   const main = h('div.mb-wiki-main');
   const side = h('div.mb-wiki-side', h('label.mb-search', svgEl(uiIcon('eye')), input), catsEl, listEl);
   const wrap = h('div.mb-wiki', side, main);
   body.appendChild(wrap);
-  const wide = window.matchMedia('(min-width: 900px)');
+  const wide = window.matchMedia('(min-width: 700px)'); // landscape phones read side by side (meta-b.css)
 
   const syncHash = () => {
     const q = view.q ? `?q=${encodeURIComponent(view.q)}` : '';

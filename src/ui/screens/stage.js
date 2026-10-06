@@ -403,9 +403,12 @@ function buildPrep(stage, state, { endless, redraw }) {
   // ----- Left: map + info + enemies ------------------------------------------------
   const left = h('div.ma-prep-col.left');
   const tier = MAP_TIERS[stage.tier];
+  const thumb = h('div.ma-prep-thumb', { html: map ? stageThumbSVG(map, { width: 480, height: 300 }) : '' });
+  // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
+  thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   const hero = h(
     'div.ma-prep-map',
-    h('div.ma-prep-thumb', { html: map ? stageThumbSVG(map, { width: 480, height: 300 }) : '' }),
+    thumb,
     h('div.ma-prep-map-top',
       tier ? h('span.ma-tier-badge', { style: { background: tier.color } }, tier.name) : null,
       dropMul > 1 ? h('span.ma-event-badge', `${dropMul}× drops`) : null,

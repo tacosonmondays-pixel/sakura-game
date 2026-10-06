@@ -62,9 +62,19 @@
 /* ------------------------------------------------------------------ stage prep */
 .ma-prep { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; max-width: 1200px; margin: 0 auto; }
 .ma-prep-col { min-width: 0; }
-@media (max-width: 860px) { .ma-prep { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 699px) { .ma-prep { grid-template-columns: minmax(0, 1fr); } }
+/* Landscape phones and up: both columns scroll on their own; the Start bar stays pinned in the right one. */
+@media (min-width: 700px) {
+  .ma-stage-screen .screen-body { overflow: hidden; display: flex; flex-direction: column; padding-bottom: 8px; }
+  .ma-prep { flex: 1; min-height: 0; width: 100%; }
+  .ma-prep-col { overflow-y: auto; min-height: 0; padding: 3px 4px 4px 3px; overscroll-behavior: contain; }
+  .ma-prep-col.right { display: flex; flex-direction: column; }
+  .ma-prep-col.right .ma-prep-actions { margin-top: auto; }
+}
+@media (min-width: 700px) and (max-width: 999px) { .ma-prep { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 10px; } }
 .ma-prep-map { position: relative; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-strong); margin-bottom: 12px; background: #8fd16a; border: 3px solid #fff; animation: ma-rise var(--ma-small) var(--ma-ease) both; }
-.ma-prep-thumb { line-height: 0; }
+.ma-prep-thumb { line-height: 0; aspect-ratio: 16 / 10; max-height: 46vh; min-height: 120px; }
+.ma-prep-thumb svg { width: 100%; height: 100%; display: block; }
 .ma-prep-thumb svg { width: 100%; height: auto; display: block; }
 .ma-prep-map-top { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
 .ma-prep-name {
@@ -722,7 +732,8 @@
 .ma-cal-num { font-family: var(--font-head); font-weight: 900; font-style: italic; color: #fff; background: var(--blue-deep); padding: 1px 12px; border-radius: 4px; transform: skewX(var(--skew)); font-size: 0.8rem; }
 .ma-cal-day.big { background: linear-gradient(160deg, #fff6d6, #ffe0ec); }
 .ma-cal-day.big .ma-cal-num { background: linear-gradient(90deg, #ff7aa8, #ff4d6d); }
-.ma-cal-day.today { border-color: var(--yellow-deep); box-shadow: 0 0 0 4px rgba(255,221,74,0.4), var(--shadow); animation: ma-dot-pulse 2s ease-in-out infinite; }
+.ma-cal-day.today { border-color: var(--yellow-deep); box-shadow: 0 0 0 4px rgba(255,221,74,0.4), var(--shadow); animation: ma-glow-pulse 2s ease-in-out infinite; }
+@keyframes ma-glow-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(255,221,74,0.35), var(--shadow); } 50% { box-shadow: 0 0 0 6px rgba(255,221,74,0.6), var(--shadow-strong); } }
 .ma-cal-today { position: absolute; top: 6px; right: -22px; transform: rotate(35deg); background: var(--yellow); color: var(--navy); font-size: 0.6rem; font-weight: 900; padding: 1px 24px; }
 .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
 .ma-cal-stamp { position: absolute; inset: 32px 0 0; display: grid; place-items: center; color: var(--ma-ok); pointer-events: none; }
@@ -1136,3 +1147,116 @@
 .ma-display-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .ma-set-row.highlight { animation: ma-highlight 1.6s var(--ease); }
 @keyframes ma-highlight { 20% { background: #fff6d6; } }
+
+/* ------------------------------------------------------------------ landscape phones (844×390): meta-b polish pass */
+/* Stage prep: compact facts and a one-row difficulty picker; the map thumb keeps a capped height. */
+@media (min-width: 700px) and (max-height: 480px) {
+  .ma-prep-map { margin-bottom: 8px; border-width: 2px; }
+  .ma-prep-thumb { max-height: 42vh; }
+  .ma-prep-title { font-size: 1.05rem; }
+  .ma-prep-medals { padding: 3px 5px; }
+  .ma-prep-medals .ma-medal { width: 22px !important; height: 22px !important; }
+  .ma-stage-desc { font-size: 0.86rem; margin-bottom: 4px; }
+  .ma-facts { gap: 5px; margin: 6px 0; }
+  .ma-fact { padding: 4px 7px; }
+  .ma-fact-value { font-size: 0.9rem; }
+  .ma-diffs { gap: 6px; }
+  .ma-diff { grid-template-columns: 28px 1fr; padding: 4px 8px; min-height: 44px; column-gap: 6px; }
+  .ma-diff-medal { width: 28px; height: 28px; }
+  .ma-diff-name { font-size: 0.86rem; line-height: 1.15; }
+  .ma-diff-sub { font-size: 0.62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 30px; }
+  .ma-diff-gems, .ma-diff-check { top: 3px; }
+  .ma-counter-units { gap: 6px; }
+  .ma-formation-strip { gap: 4px; }
+  .ma-prep-actions { padding: 8px 10px; gap: 8px; }
+  .ma-start-btn { min-width: 170px; min-height: 46px; font-size: 1rem; }
+  .ma-sweep .btn { min-height: 40px; padding: 6px 12px; font-size: 0.85rem; }
+}
+
+/* Recruit: banner beside pity/spark, pull bar visible without scrolling. */
+@media (max-height: 480px) {
+  .ma-recruit { gap: 8px; }
+  .ma-banner { min-height: 0; border-width: 2px; }
+  .ma-banner-text { padding: 10px 12px; gap: 4px; max-width: 60%; }
+  .ma-banner-kicker { font-size: 0.68rem; }
+  .ma-banner-title { font-size: 1.25rem; margin: 2px 0; }
+  .ma-banner-desc { font-size: 0.7rem; padding: 4px 6px; }
+  .ma-banner-featured { display: none; }
+  .ma-banner-links { margin-top: auto; gap: 6px; }
+  .ma-banner-links .btn-small { min-height: 34px; padding: 4px 10px; font-size: 0.8rem; }
+  .ma-banner-cards { width: 50%; right: -4%; top: 8%; bottom: -16%; }
+  .ma-recruit-side { gap: 0; }
+  .ma-recruit-side .panel { padding: 8px 10px; margin-bottom: 8px; }
+  .ma-pity-head { margin-bottom: 4px; gap: 5px; }
+  .ma-pity-head .ma-sub { font-size: 0.68rem; margin-bottom: 0; }
+  .ma-pity-left { font-size: 1.4rem; }
+  .ma-pity-head .muted { font-size: 0.74rem; }
+  .ma-pity-foot { margin-top: 4px; font-size: 0.68rem; }
+  .ma-spark-row { margin-top: 4px; }
+  .ma-spark-row .muted { display: none; }
+  .ma-spark-row .btn-small { min-height: 34px; }
+  .ma-ticket-pill { font-size: 0.82rem; padding: 2px 10px 2px 2px; }
+  .ma-ticket-icon { width: 24px; height: 24px; }
+  .ma-pull-bar { gap: 10px; }
+  .ma-pull { min-height: 54px; flex-direction: row; gap: 14px; }
+  .ma-pull-label { font-size: 1.1rem; }
+  .ma-pull-note { font-size: 0.64rem; }
+  /* reveal: 2 rows of 5 smaller cards, one-line footer */
+  .ma-gacha-stage { padding: 8px 12px; gap: 8px; }
+  .ma-gacha-grid { grid-template-columns: repeat(5, minmax(0, 80px)); gap: 8px; }
+  .ma-gacha-grid.n1 { grid-template-columns: minmax(0, 150px); }
+  .ma-gacha-intro { padding: 10px; gap: 10px; }
+  .ma-gacha-halo { width: 150px; height: 150px; }
+  .ma-gacha-footer { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .ma-gacha-summary > span { padding: 3px 10px; font-size: 0.8rem; }
+  .ma-gacha-actions .btn { min-height: 40px; padding: 6px 14px; }
+  .ma-gacha-skip { padding: 6px 12px; font-size: 0.85rem; }
+  .ma-gc-name { font-size: 0.66rem; padding: 10px 4px 2px; }
+  .ma-gc-rarity { font-size: 0.74rem; }
+  .ma-showcase { gap: 16px; padding: 12px; }
+  .ma-showcase-card { height: 72vh; }
+  .ma-showcase-name { font-size: 2rem; }
+  .ma-showcase-title { font-size: 0.9rem; }
+  .ma-showcase-quote { margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; }
+  .ma-showcase-tap { margin-top: 6px; font-size: 0.8rem; }
+  /* mall: denser shelves */
+  .ma-tab-body { padding: 10px; }
+  .ma-mall-head { margin-bottom: 8px; gap: 8px; }
+  .ma-mall-desc .ma-section-title { font-size: 1rem; }
+  .ma-mall-desc p { font-size: 0.8rem; }
+  .ma-balance { padding: 4px 8px 4px 5px; }
+  .ma-balance-icon { width: 30px; height: 30px; }
+  .ma-balance-val { font-size: 1.05rem; }
+  .ma-offers { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+  .ma-offer { padding: 8px 8px 8px; gap: 3px; }
+  .ma-offer-art { height: 66px; }
+  .ma-offer-art .item-tile { width: 60px !important; }
+  .ma-offer-art .unit-card-square { width: 64px; }
+  .ma-offer-name { min-height: 2.3em; font-size: 0.78rem; }
+  .ma-offer-buy { min-height: 36px; margin-top: 2px; font-size: 0.9rem; }
+  /* commissions */
+  .ma-comm-head { margin-bottom: 8px; }
+  .ma-comm-head .ma-section-title { font-size: 1rem; }
+  .ma-mission { padding: 8px 10px; gap: 10px; }
+  .ma-mission-desc { font-size: 0.74rem; margin-bottom: 2px; }
+  .ma-calendar { gap: 6px; }
+  .ma-cal-day { padding: 6px 4px 8px; gap: 5px; }
+  .ma-cal-day .item-tile { width: 42px !important; }
+  .ma-cal-day.big .item-tile { width: 48px !important; }
+  /* events / rewards */
+  .ma-event { gap: 10px; margin-bottom: 12px; }
+  .ma-event-card { min-height: 0; }
+  .ma-event-body { padding: 10px 14px; gap: 5px; }
+  .ma-event-name { font-size: 1.5rem; }
+  .ma-event-desc { font-size: 0.86rem; }
+  .ma-event-mul b { font-size: 1.4rem; }
+  .ma-event-next { padding: 8px; gap: 6px; }
+  .ma-income-head { gap: 8px; margin: 8px 0; }
+  .ma-stat { padding: 8px 10px; }
+  .ma-stat-val { font-size: 1.2rem; }
+}
+
+/* Tap targets in the polished meta screens: chips and small buttons reach 36px+. */
+.ma-enemy { min-height: 36px; }
+.ma-balance-go { width: 36px; height: 36px; }
+.ma-recruit-screen .btn-small, .ma-mall-screen .btn-small, .ma-commissions-screen .btn-small, .ma-rewards-screen .btn-small, .ma-stage-screen .btn-small { min-height: 36px; }

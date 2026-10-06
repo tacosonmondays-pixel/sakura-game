@@ -224,8 +224,10 @@ function buildShowcase(unit, onCycle) {
       stageEl.appendChild(svgEl(cardArtSVG(unit, { variant: 'full', awaken: st?.awaken || 0 }), 'mb-show-card'));
     } else {
       const holder = h('div.mb-show-3d');
-      put(stageEl, holder, h('div.mb-show-hint', svgEl(uiIcon('refresh')), 'Drag to rotate · tap her to act'));
-      viewer = createModelViewer(holder, { background: null, autoRotate: true });
+      // The animation pills live inside the stage so the showcase keeps one height in both modes.
+      put(stageEl, holder, h('div.mb-show-hint', svgEl(uiIcon('refresh')), 'Drag to rotate · tap to act'), actRow);
+      // She faces the player (no auto-spin): the close-up is a portrait, dragging turns her.
+      viewer = createModelViewer(holder, { background: null, autoRotate: false });
       // close-up viewer: full-detail GLB regardless of the quality setting (chibis-v2)
       preloadModels([unit.id], { detail: 'full' }).then(() => {
         if (disposed || !viewer || view.mode !== '3d') return;
@@ -269,7 +271,6 @@ function buildShowcase(unit, onCycle) {
       toggle,
       h('button.mb-cycle', { title: 'Next', onclick: () => onCycle(1) }, '›')),
     stageEl,
-    actRow,
     info);
   renderStage();
   renderInfo();

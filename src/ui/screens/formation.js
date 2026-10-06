@@ -66,10 +66,11 @@ export function render(root, params = {}) {
 
   let f = formationOf(profile);
   let savedTimer = 0;
-  const squad = h('section.mb-card');
-  const recBox = h('section.mb-card');
-  const picker = h('section.mb-card');
-  body.appendChild(h('div.mb-formation', h('div', squad), h('div', recBox, picker)));
+  // Landscape and up (meta-b.css): the squad strip spans the top, recommendations sit beside the picker.
+  const squad = h('section.mb-card.mb-formation-squad');
+  const recBox = h('section.mb-card.mb-formation-rec');
+  const picker = h('section.mb-card.mb-formation-pick');
+  body.appendChild(h('div.mb-formation', squad, recBox, picker));
 
   const save = (flashId) => {
     profile.formation = { hero: f.hero, towers: f.towers.slice() };
@@ -156,14 +157,14 @@ export function render(root, params = {}) {
       let units;
       if (n.status === 'ok') {
         status = `Covered by ${n.inTeam.map((id) => UNIT_MAP[id].name).join(', ')}`;
-        units = n.inTeam.slice(0, 3).map((id) => unitMini(id, { size: 30 }));
+        units = n.inTeam.slice(0, 3).map((id) => unitMini(id, { size: 32 }));
       } else if (n.status === 'bench') {
         status = 'Owned but not in the squad — tap to add';
-        units = n.bench.slice(0, 3).map((id) => h('button.mb-rec-add', { title: `Add ${UNIT_MAP[id].name}`, onclick: () => toggle(id) }, unitMini(id, { size: 30 })));
+        units = n.bench.slice(0, 3).map((id) => h('button.mb-rec-add', { title: `Add ${UNIT_MAP[id].name}`, onclick: () => toggle(id) }, unitMini(id, { size: 34 })));
       } else {
         const who = n.could[0] ? UNIT_MAP[n.could[0]] : null;
         status = who ? `Missing — ${who.name}: ${howToGet(who).short}` : 'Missing';
-        units = n.could.slice(0, 2).map((id) => h('button.mb-rec-add', { title: UNIT_MAP[id].name, onclick: () => navigate('student', { id }) }, unitMini(id, { size: 30 })));
+        units = n.could.slice(0, 2).map((id) => h('button.mb-rec-add', { title: UNIT_MAP[id].name, onclick: () => navigate('student', { id }) }, unitMini(id, { size: 34 })));
       }
       return h(`div.mb-rec.${n.status}`,
         svgEl(capabilityIcon(n.cap), 'mb-rec-icon'),
@@ -179,11 +180,11 @@ export function render(root, params = {}) {
     const team = members(f);
     const list = owned.sort((a, b) => Number(team.includes(b.id)) - Number(team.includes(a.id)) || unitPower(profile, b.id) - unitPower(profile, a.id));
     put(picker,
+      h('h3.mb-card-title', 'Pick girls'),
       h('div.mb-section-head',
-        h('h3.mb-card-title', { style: 'margin:0' }, 'Pick girls'),
         h('div.mb-seg',
-          [['tower', 'Students'], ['hero', 'Heroes']].map(([k, label]) => h(`button.mb-seg-btn${pickState.kind === k ? '.on' : ''}`, { onclick: () => { pickState.kind = k; renderPicker(needs); } }, label)))),
-      missingCaps.length ? h('p.muted', 'Glowing girls cover a counter this stage still needs.') : null,
+          [['tower', 'Students'], ['hero', 'Heroes']].map(([k, label]) => h(`button.mb-seg-btn${pickState.kind === k ? '.on' : ''}`, { onclick: () => { pickState.kind = k; renderPicker(needs); } }, label))),
+        h('span.muted', missingCaps.length ? 'Glowing girls cover a counter this stage still needs.' : 'Tap a girl to add or remove her.')),
       list.length
         ? h('div.mb-pick-grid', list.map((u) => {
           const st = profile.units[u.id];

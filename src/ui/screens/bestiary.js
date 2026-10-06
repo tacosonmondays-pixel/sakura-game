@@ -185,7 +185,8 @@ export function render(root, params = {}) {
   el.classList.add('mb-screen', 'mb-bestiary-screen');
   root.appendChild(el);
 
-  const wide = window.matchMedia('(min-width: 900px)');
+  // Landscape phones and up: grid left, detail panel right (meta-b.css shares this breakpoint).
+  const wide = window.matchMedia('(min-width: 700px)');
   const thumbs = createThumbQueue();
   const tabsEl = h('nav.mb-tabs');
   const progress = h('div.mb-completion');
@@ -222,7 +223,7 @@ export function render(root, params = {}) {
     put(progress,
       h('div.mb-completion-pct', `${p}%`),
       h('div.mb-completion-bar',
-        h('div', { style: 'font-weight:900;color:var(--navy)' }, `${found} / ${all.length} discovered`),
+        h('div.mb-completion-count', `${found} / ${all.length} discovered`),
         h('div.mb-exp', h('div.mb-exp-fill', { style: { width: `${p}%` } })),
         h('div.muted', seen ? `${seen} more seen in battle — win a stage with them to discover them.` : 'Win a battle containing an enemy to discover it.')));
   }
@@ -236,7 +237,13 @@ export function render(root, params = {}) {
     for (const f of ['all', ...FAMILY_ORDER.filter((x) => FAMILIES[x])]) {
       tabsEl.appendChild(h(`button.mb-tab${view.family === f ? '.active' : ''}`, {
         'data-testid': `fam-${f}`,
-        onclick: () => { view.family = f; history.replaceState(null, '', `#/bestiary?family=${f}`); renderTabs(); renderGrid(); },
+        onclick: () => {
+          view.family = f;
+          history.replaceState(null, '', `#/bestiary?family=${f}`);
+          renderTabs();
+          renderGrid();
+          if (!view.selected || !detailHost.querySelector('.mb-detail-panel')) renderDetailPlaceholder();
+        },
       }, f === 'all' ? 'All' : FAMILIES[f].name, h('span.mb-tab-count', famStats(f))));
     }
     const active = tabsEl.querySelector('.mb-tab.active');
@@ -346,10 +353,17 @@ export function render(root, params = {}) {
     }
   }
 
+  /** Right column while nothing is selected: the family's description doubles as the hint. */
   function renderDetailPlaceholder() {
     clear(detailHost);
     if (!wide.matches) return;
-    detailHost.appendChild(h('div.mb-empty', h('div.mb-empty-art', svgEl(uiIcon('bestiary'))), h('div.mb-empty-title', 'Select an enemy'), h('p.muted', 'Discovered enemies show their 3D model, traits and counters. Black silhouettes are still a mystery.')));
+    const fam = view.family !== 'all' ? FAMILIES[view.family] : null;
+    detailHost.appendChild(h('div.mb-empty.mb-best-placeholder',
+      h('div.mb-empty-art', svgEl(uiIcon('bestiary'))),
+      fam ? h('span.mb-fam-pill', { style: cssVars({ '--fam': fam.color }) }, fam.name) : null,
+      h('div.mb-empty-title', fam ? `${fam.name}: pick one` : 'Select an enemy'),
+      h('p.muted', fam ? `${fam.desc} ${fam.behavior}` : 'Discovered enemies show their 3D model, traits and counters. Black silhouettes are still a mystery.'),
+      fam ? h('p.muted', 'Tap an enemy to see its model, traits and counters.') : null));
   }
 
   renderProgress();
