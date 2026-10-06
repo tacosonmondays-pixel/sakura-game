@@ -42,9 +42,14 @@ function baseUrl() {
   return base.replace(/\/?$/, '/');
 }
 
+/** Optional extra extension for every model asset URL (see glbChibi.assetExt). */
+function assetExt() {
+  return globalThis.__SAKURA_ASSET_EXT || '';
+}
+
 /** URL of a family GLB. */
 export function enemyUrl(family) {
-  return `${baseUrl()}models/enemies/${family}.glb`;
+  return `${baseUrl()}models/enemies/${family}.glb${assetExt()}`;
 }
 
 export function canLoadEnemies() {
@@ -60,7 +65,7 @@ export function getFamily(family) {
 export function loadEnemyManifest() {
   if (!manifestPromise) {
     manifestPromise = canLoadEnemies()
-      ? fetch(`${baseUrl()}models/enemies/manifest.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      ? fetch(`${baseUrl()}models/enemies/manifest.json${assetExt()}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
       : Promise.resolve(null);
     manifestPromise.then((m) => { manifestData = m; });
   }

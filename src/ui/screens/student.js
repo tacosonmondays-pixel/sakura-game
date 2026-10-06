@@ -226,9 +226,10 @@ function buildShowcase(unit, onCycle) {
       const holder = h('div.mb-show-3d');
       put(stageEl, holder, h('div.mb-show-hint', svgEl(uiIcon('refresh')), 'Drag to rotate · tap her to act'));
       viewer = createModelViewer(holder, { background: null, autoRotate: true });
-      preloadModels().then(() => {
+      // close-up viewer: full-detail GLB regardless of the quality setting (chibis-v2)
+      preloadModels([unit.id], { detail: 'full' }).then(() => {
         if (disposed || !viewer || view.mode !== '3d') return;
-        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high' });
+        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high', detail: 'full' });
         viewer.setObject(model);
       });
       for (const [state, label] of [['idle', 'Idle'], ['attack', 'Attack'], ['cheer', 'Cheer'], ['victory', 'Victory']]) {

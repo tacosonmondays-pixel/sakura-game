@@ -78,7 +78,7 @@
 .bt-diff { font-size: 0.68rem; font-weight: 900; padding: 1px 8px; border-radius: 999px; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
 .bt-diff-easy { background: #2bb673; } .bt-diff-normal { background: var(--blue); } .bt-diff-hard { background: #f2a100; } .bt-diff-nightmare { background: #c9184a; }
 .bt-practice { font-size: 0.62rem; font-weight: 800; color: var(--muted); }
-.bt-speed { background: #fff; color: var(--blue-deep); border: 2px solid var(--line); position: relative; width: 52px; border-radius: 22px; display: flex; gap: 2px; padding: 0 8px; }
+.bt-speed { background: #fff; color: var(--blue-deep); border: 2px solid var(--line); position: relative; width: auto; min-width: 52px; border-radius: 22px; display: flex; gap: 2px; padding: 0 10px 0 8px; box-sizing: border-box; } /* grows with its label: a fixed 52px clipped "1×" at the viewport edge on landscape phones */
 .bt-speed .bt-ico { width: 18px; height: 18px; }
 .bt-speed-x { font-weight: 900; font-style: italic; font-size: 0.9rem; }
 .bt-speed[data-speed="2"] { background: linear-gradient(180deg, #fff07a, var(--yellow)); border-color: var(--yellow-deep); color: var(--navy); }

@@ -14,10 +14,16 @@ import { FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, enemiesByFamily, enemyTrait
 import { STAGE_MAP } from '../../data/stages.js';
 import { discoverableEnemies, bestiaryPercent } from '../../systems/missions.js';
 import { traitIcon, armorClassIcon, uiIcon } from '../../art/icons.js';
-import { buildEnemy, makeSilhouette, createModelViewer, disposeObject } from '../../models/index.js';
+import { buildEnemy, preloadEnemies, makeSilhouette, createModelViewer, disposeObject } from '../../models/index.js';
 import { put, cssVars } from './backpack.js';
 
 const view = { family: 'all', selected: null };
+const FAMILY_LOAD_TIMEOUT_MS = 6000;
+
+/** Resolves after `promise` or `ms`, whichever comes first (never rejects). */
+function settle(promise, ms) {
+  return Promise.race([Promise.resolve(promise).catch(() => false), new Promise((r) => setTimeout(() => r(false), ms))]);
+}
 const TIER_LABEL = { normal: '', elite: 'Elite', miniboss: 'Miniboss', boss: 'Boss' };
 
 // ---------------------------------------------------------------------------
@@ -238,12 +244,22 @@ export function render(root, params = {}) {
     famDesc.textContent = view.family === 'all' ? 'Twelve families, from garden slimes to the dragons of Ashwing Peaks.' : `${FAMILIES[view.family].desc} ${FAMILIES[view.family].behavior}`;
   }
 
+  let gridToken = 0;
   function renderGrid() {
     clear(grid);
     grid.classList.remove('mb-fade');
     void grid.offsetWidth;
     grid.classList.add('mb-fade');
     const list = view.family === 'all' ? FAMILY_ORDER.flatMap((f) => enemiesByFamily(f)) : enemiesByFamily(view.family);
+    // enemies-v2: thumbnails are rendered once and cached, so wait for the family GLBs first
+    // (procedural fallback after the timeout / offline).
+    const token = ++gridToken;
+    const jobs = [];
+    const families = [...new Set(list.map((e) => e.model?.base || e.family))];
+    settle(preloadEnemies(families), FAMILY_LOAD_TIMEOUT_MS).then(() => {
+      if (token !== gridToken) return;
+      for (const j of jobs) thumbs.add(j.def, j.silhouette, j.img, j.holder);
+    });
     for (const e of list) {
       const known = !!entry(e.id).discovered;
       const holder = h('div.mb-beast-img', h('div.mb-spinner'));
@@ -259,7 +275,7 @@ export function render(root, params = {}) {
       known ? h('div.mb-beast-traits', keys.map((k) => svgEl(traitIcon(k)))) : entry(e.id).seen ? h('span.mb-beast-seen', 'SEEN') : null,
       h('div.mb-beast-name', known ? e.name : '???'));
       grid.appendChild(card);
-      thumbs.add(e, !known, img, holder);
+      jobs.push({ def: e, silhouette: !known, img, holder });
     }
   }
 

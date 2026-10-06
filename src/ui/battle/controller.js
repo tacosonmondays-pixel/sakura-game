@@ -4,9 +4,10 @@
 import { h } from '../dom.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
-import { preloadModels } from '../../models/index.js';
+import { preloadModels, preloadEnemies, detailFor } from '../../models/index.js';
 import { createBattleRenderer } from '../../render/BattleRenderer.js';
-import { STAGE_MAP } from '../../data/stages.js';
+import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
+import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
 import { createBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
 import { createHud } from './hud.js';
@@ -66,8 +67,22 @@ export function mountBattle(root, params, hooks) {
     return id;
   };
 
-  const { sim } = createBattleSim(profile, req);
+  const { sim, towers, hero } = createBattleSim(profile, req);
   const settings = profile.settings || {};
+
+  /** Enemy model families this stage can spawn (pool + fixed + split/brood/summon children). */
+  function stageFamilies() {
+    const fams = new Set();
+    try {
+      for (const x of stageEnemies(stage) || []) {
+        const def = typeof x === 'string' ? ENEMY_MAP[x] : x;
+        if (def) fams.add(def.model?.base || def.family);
+      }
+    } catch (e) {
+      console.warn('[battle] stage enemy list failed', e);
+    }
+    return [...fams].filter(Boolean);
+  }
   const knownEnemies = new Set(Object.entries(profile.bestiary || {}).filter(([, b]) => b?.seen || b?.discovered).map(([id]) => id));
 
   const ctx = {
@@ -87,7 +102,11 @@ export function mountBattle(root, params, hooks) {
   };
 
   const ready = (async () => {
-    await settle(preloadModels(), MODEL_TIMEOUT_MS);
+    // chibis-v2: only the formation (+ hero) at the detail this quality needs (phones get the
+    // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
+    const ids = [...towers, ...(hero ? [hero] : [])];
+    const detail = detailFor(settings.quality || 'high');
+    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
     build();
     loading.classList.add('out');

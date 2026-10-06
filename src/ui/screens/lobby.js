@@ -215,14 +215,15 @@ function mountSecretary(host, plate) {
     );
     try {
       models ||= await import('../../models/index.js');
-      await models.preloadModels();
+      // close-up: always the full-detail GLB of the secretary (chibis-v2)
+      await models.preloadModels([u.id], { detail: 'full' });
       if (disposed || my !== token) return;
       if (!viewer) {
         clear(stageEl);
         stageEl.classList.remove('art');
         viewer = models.createModelViewer(stageEl, { background: null, autoRotate: false });
       }
-      const next = models.buildChibi(u, { quality: profile.settings?.quality || 'medium' });
+      const next = models.buildChibi(u, { quality: profile.settings?.quality || 'medium', detail: 'full' });
       const old = model;
       viewer.setObject(next);
       viewer.setState('idle');

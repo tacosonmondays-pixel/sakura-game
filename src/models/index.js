@@ -13,10 +13,10 @@ import {
 } from './glbChibi.js';
 
 export { CHIBI_HEIGHT } from './chibi.js';
-export { buildEnemy } from './enemies.js';
+export { buildEnemy, preloadEnemies, enemyUrl } from './enemies.js';
 export { makeSilhouette, disposeObject } from './util.js';
 export { createModelViewer } from './viewer.js';
-export { characterUrl, FACE_CELLS } from './glbChibi.js';
+export { characterUrl, FACE_CELLS, detailFor } from './glbChibi.js';
 
 let preloaded = null;
 

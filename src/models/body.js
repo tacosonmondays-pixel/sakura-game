@@ -58,7 +58,7 @@ function baseUrl() {
   } catch {
     base = '/';
   }
-  return `${base.replace(/\/?$/, '/')}models/chibi_base.glb`;
+  return `${base.replace(/\/?$/, '/')}models/chibi_base.glb${globalThis.__SAKURA_ASSET_EXT || ''}`;
 }
 
 /**

@@ -57,6 +57,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=sw
 
 const ROUTES = [
   ['lobby', '#/lobby'],
+  ['missions', '#/missions'],
   ['campaign', '#/campaign'],
   ['stage 1-1', '#/stage/1-1'],
   ['students', '#/students'],
@@ -213,39 +214,43 @@ async function runViewport(vp) {
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
   await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 30000 });
   await page.waitForTimeout(800);
-  // helper installed in the page: place every not-yet-placed girl on her best tile
+  // helper installed in the page: place every not-yet-placed girl on her best spot. Placement
+  // is free (continuous, placement-v2): candidates are a 0.5-tile lattice of NON-integer points
+  // (two integers would be read as a legacy tile call), scored by path coverage.
   await page.evaluate(() => {
     window.__smokePlace = () => {
       const { sim, ui } = window.__battle;
       const ids = [...sim.loadout.keys(), ...(sim.heroConfig ? [sim.heroConfig.unitId] : [])];
       const placedIds = new Set(sim.towers.map((t) => t.unitId));
-      const score = (tx, ty) => {
+      const score = (x, y) => {
         let n = 0;
         for (const k of sim.pathTiles) {
-          const [x, y] = k.split(',').map(Number);
-          if (Math.hypot(x - tx, y - ty) <= 3.2) n++;
+          const [px, py] = k.split(',').map(Number);
+          if (Math.hypot(px + 0.5 - x, py + 0.5 - y) <= 3.2) n++;
         }
         return n;
       };
       for (const unitId of ids) {
         if (placedIds.has(unitId)) continue;
         let best = null;
-        for (let ty = 0; ty < sim.map.height; ty++) {
-          for (let tx = 0; tx < sim.map.width; tx++) {
-            if (!sim.canPlace(unitId, tx, ty).ok) continue;
-            const s = score(tx, ty);
-            if (!best || s > best.s) best = { tx, ty, s };
+        for (let y = 0.25; y < sim.map.height; y += 0.5) {
+          for (let x = 0.25; x < sim.map.width; x += 0.5) {
+            if (!sim.canPlace(unitId, x, y).ok) continue;
+            const s = score(x, y);
+            if (!best || s > best.s) best = { x, y, s };
           }
         }
         if (!best) continue;
         ui.placement.start(unitId);
-        if (!ui.placement.tryPlace(best.tx, best.ty)) ui.placement.cancel();
+        if (!ui.placement.tryPlace(best.x, best.y)) ui.placement.cancel();
       }
-      return { placed: sim.towers.map((t) => t.unitId), towers: sim.towers.length, cash: sim.cash };
+      return { placed: sim.towers.map((t) => t.unitId), towers: sim.towers.length, cash: sim.cash, spots: sim.towers.map((t) => [+t.x.toFixed(2), +t.y.toFixed(2)]) };
     };
   });
   const placed = await page.evaluate(() => window.__smokePlace());
-  check(placed.towers >= 1, `battle: placed ${placed.towers} girl(s) via placement (${placed.placed.join(', ')})`);
+  check(placed.towers >= 1, `battle: placed ${placed.towers} girl(s) via free placement (${placed.placed.join(', ')} at ${JSON.stringify(placed.spots)})`);
+  check(placed.spots.every(([x, y]) => !Number.isInteger(x) && !Number.isInteger(y)), 'battle: girls stand at continuous (non-tile) positions');
+  check(await page.evaluate(() => { const t = window.__battle.sim.towers[0]; return t && t.tx === Math.floor(t.x) && t.ty === Math.floor(t.y) && t.radius > 0; }), 'battle: TowerRT carries tx/ty under the footprint centre and a radius');
   await page.evaluate(() => { const { ui } = window.__battle; ui.setAutoStart(true); ui.startWave(); ui.speed = 3; });
   await page.waitForTimeout(2500);
   await shot('battle-midwave');

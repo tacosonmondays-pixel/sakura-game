@@ -38,8 +38,17 @@ export function detailFor(quality) {
   return quality === 'high' ? 'full' : 'lod';
 }
 
+/**
+ * Optional extra extension appended to every model asset URL (`.glb` → `.glb.wasm`,
+ * `manifest.json` → `manifest.json.wasm`) when `globalThis.__SAKURA_ASSET_EXT` is set — some
+ * static hosts refuse `.glb` but serve `.wasm` byte-exact. Default: unchanged.
+ */
+export function assetExt() {
+  return globalThis.__SAKURA_ASSET_EXT || '';
+}
+
 export function characterUrl(id, detail = 'full') {
-  return `${baseUrl()}models/characters/${id}${detail === 'lod' ? '.lod' : ''}.glb`;
+  return `${baseUrl()}models/characters/${id}${detail === 'lod' ? '.lod' : ''}.glb${assetExt()}`;
 }
 
 export function canLoadCharacters() {
@@ -55,7 +64,7 @@ export function getCharacter(id, detail = 'full') {
 export function loadManifest() {
   if (!manifestPromise) {
     manifestPromise = canLoadCharacters()
-      ? fetch(`${baseUrl()}models/characters/manifest.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      ? fetch(`${baseUrl()}models/characters/manifest.json${assetExt()}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
       : Promise.resolve(null);
     manifestPromise.then((m) => { manifestData = m; });
   }

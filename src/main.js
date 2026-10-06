@@ -38,9 +38,18 @@ startRouter(document.getElementById('app'));
 // [ui-v2] landscape-first: rotate prompt on touch portrait + orientation lock in fullscreen/PWA.
 import('./ui/orientation.js').then((o) => { o.initOrientation(); window.__sakura.orientation = o; }).catch((e) => console.warn('[main] orientation helper failed', e));
 
-// Warm up the chibi base mesh in the background once the first screen is up, so the
-// first 3D girl (lobby secretary, battle) uses the real body instead of the fallback.
-const warmModels = () => import('./models/index.js').then((m) => m.preloadModels()).catch((e) => console.warn('[main] model preload failed', e));
+// Warm up the character GLBs in the background once the first screen is up: the secretary at
+// full detail (lobby close-up), then the formation at the detail the quality setting needs
+// (chibis-v2: no-arg preloadModels() would fetch all 19 full models ≈ 7.7 MB).
+const warmModels = () => import('./models/index.js').then(async (m) => {
+  const p = store.profile || {};
+  const f = p.formation || {};
+  const detail = m.detailFor(p.settings?.quality || 'high');
+  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full' });
+  const ids = [f.hero, ...(f.towers || [])].filter(Boolean);
+  if (ids.length) await m.preloadModels(ids, { detail });
+  else await m.preloadModels([], { detail });
+}).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
 
