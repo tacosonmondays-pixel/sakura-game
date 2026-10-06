@@ -313,6 +313,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
         case 'death': {
           const p = actors.enemyPos(ev.uid) || { x: ev.x, y: 0, z: ev.y, size: 1, color: '#ffffff' };
+          actors.markDying(ev.uid);
           fx.death(p.x, p.y, p.z, p.size, p.color);
           if (ev.bounty > 0) fx.coin(p.x, p.y, p.z, ev.bounty);
           break;
@@ -346,6 +347,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
             fx.ring(p.x, p.z, 0.4, 3.2, 0.7, '#ff4d6d');
             fx.flash(p.x, p.y + 0.8, p.z, '#ffd0d8', 2.2, 0.35);
           }
+          actors.playSpecial(ev.uid);
           shake(0.1);
           screenFlash('#ff6b8b', 0.4, 2.2);
           bossVignette = 1.4;
@@ -370,6 +372,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'teleportWarn':
           actors.teleports.set(ev.uid, { x: ev.x, y: ev.y, t: 0 });
+          actors.playSpecial(ev.uid);
           break;
         case 'blinkInterrupted': {
           const w = actors.teleports.get(ev.uid);

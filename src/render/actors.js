@@ -93,6 +93,8 @@ export class Actors {
     this.terrain = terrain;
     this.towers = new Map(); // uid → view
     this.enemies = new Map();
+    this.dying = []; // enemy views playing their death clip (V2 GLB monsters) before disposal
+    this.casters = new Set(); // enemy uids projecting an oni field this frame
     this.root = new THREE.Group();
     this.root.name = 'actors';
     scene.add(this.root);
@@ -148,8 +150,10 @@ export class Actors {
     // rebuild every model at the new detail level
     for (const v of this.towers.values()) this._disposeView(v);
     for (const v of this.enemies.values()) this._disposeView(v);
+    for (const v of this.dying) this._disposeView(v);
     this.towers.clear();
     this.enemies.clear();
+    this.dying.length = 0;
   }
 
   setShadows(on) {
@@ -190,6 +194,8 @@ export class Actors {
       }
     }
     seen.clear();
+    this.casters.clear();
+    for (const f of sim.fields || []) if (!f.silenced) this.casters.add(f.uid);
     for (const e of sim.enemies) {
       if (e.dead) continue;
       seen.add(e.uid);
@@ -199,13 +205,57 @@ export class Actors {
     }
     for (const [uid, v] of this.enemies) {
       if (!seen.has(uid)) {
-        this._disposeView(v);
         this.enemies.delete(uid);
         this.teleports.delete(uid);
+        const ud = v.model.userData;
+        // killed V2 monsters act out their death clip (splat / topple / poof) before leaving
+        const len = v.dying && ud.playDeath ? ud.playDeath() : 0;
+        if (len > 0) {
+          v.deathLeft = Math.min(len, 1.2);
+          v.deathTotal = v.deathLeft;
+          v.casting = false;
+          ud.setCasting?.(false);
+          this.dying.push(v);
+        } else {
+          this._disposeView(v);
+        }
       }
     }
+    this._updateDying(dt);
     this._syncProjectiles(dt);
     this._syncDrones();
+  }
+
+  /** Plays out death clips: the body keeps animating, then shrinks into the ground. */
+  _updateDying(dt) {
+    for (let i = this.dying.length - 1; i >= 0; i--) {
+      const v = this.dying[i];
+      v.deathLeft -= dt;
+      if (v.deathLeft <= 0) {
+        this._disposeView(v);
+        this.dying.splice(i, 1);
+        continue;
+      }
+      const k = v.deathLeft / v.deathTotal;
+      const m = v.model;
+      if (k < 0.3) {
+        const f = Math.max(0.02, k / 0.3);
+        m.scale.setScalar(ENEMY_SCALE * f);
+        m.position.y -= dt * 0.25;
+      }
+      m.userData.animate?.(this.time, dt, { moving: false, speed: 1 });
+    }
+  }
+
+  /** Marks an enemy as killed (the 'death' sim event) so its removal plays the death clip. */
+  markDying(uid) {
+    const v = this.enemies.get(uid);
+    if (v) v.dying = true;
+  }
+
+  /** One-shot wind-up / roar / blink spin on a V2 monster. */
+  playSpecial(uid) {
+    this.enemies.get(uid)?.model.userData.playSpecial?.();
   }
 
   _createTower(t) {
@@ -314,6 +364,11 @@ export class Actors {
     if (key !== v.statusKey) {
       v.statusKey = key;
       ud.setStatus?.(e.statuses);
+    }
+    const casting = this.casters.has(e.uid);
+    if (casting !== !!v.casting) {
+      v.casting = casting;
+      ud.setCasting?.(casting);
     }
     const immobile = e.statuses.freeze || e.statuses.stun || e.statuses.shock;
     ud.animate?.(this.time, dt, { moving: !immobile, speed: e.speed || 1 });

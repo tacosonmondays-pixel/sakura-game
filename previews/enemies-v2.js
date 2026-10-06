@@ -1,11 +1,12 @@
 // Dev preview for the V2 GLB enemies (public src/models API).
-// ?view=lineup|family|turn|states|hooks|game|viewer  &fam=slime  &id=slime_green  &ids=a,b
+// ?view=sheet|lineup|family|turn|states|hooks|game|viewer  &fam=slime  &id=slime_green  &ids=a,b
 // &t=<seconds> freezes animation time (deterministic screenshots)  &quality=high|medium|low
-// &page=1|2 (lineup halves)  &labels=0  &proc=1 (force the procedural fallback)
+// &page=1..4 &per=3 &cols=8 (lineup pages; sheet = every family, cols=10)  &labels=0
+// &proc=1 (force the procedural fallback)
 import * as THREE from 'three';
 import { makeSilhouette, createModelViewer, buildChibi, preloadModels } from '../src/models/index.js';
 import { buildEnemy, preloadEnemies } from '../src/models/enemies.js';
-import { ENEMIES, FAMILY_ORDER } from '../src/data/enemies.js';
+import { ENEMIES, FAMILIES, FAMILY_ORDER } from '../src/data/enemies.js';
 
 const params = new URLSearchParams(location.search);
 const view = params.get('view') || 'lineup';
@@ -20,8 +21,12 @@ renderer.setPixelRatio(Math.min(2, devicePixelRatio));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = params.get('shadows') !== '0';
+renderer.shadowMap.type = THREE.PCFShadowMap;
+// &still=1 renders a handful of frames after the scene is ready and then stops the loop
+// (big contact sheets on a software GL would otherwise starve the screenshot capture)
+const still = params.get('still') === '1';
+let framesLeft = Infinity;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -65,13 +70,20 @@ function add(def, x, z, rot = 0, opts = {}) {
   scene.add(g);
   actors.push(g);
   if (showLabels && opts.tag !== false) {
-    const el = document.createElement('div');
-    el.className = 'tag';
-    el.textContent = opts.label || def.name;
-    app.appendChild(el);
-    tags.push({ el, g, h: (g.userData.height || 0.5) + 0.1 });
+    const h = (g.userData.height || 0.5) * g.scale.y + 0.1;
+    tag(opts.label || def.name, x, opts.tagY ?? h, z + (opts.tagZ ?? 0), 'tag', g);
   }
   return g;
+}
+
+/** A floating HTML label anchored to a world point (follows the actor's scale when given). */
+function tag(text, x, y, z, cls = 'tag', g = null) {
+  if (!showLabels) return;
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = text;
+  app.appendChild(el);
+  tags.push({ el, x, y, z, g });
 }
 
 async function main() {
@@ -164,32 +176,64 @@ async function main() {
     ortho.updateProjectionMatrix();
     camera = ortho;
   } else {
-    // lineup: family rows, three families per page so every face is readable
+    // sheet / lineup: a bestiary contact sheet. One grid cell per enemy (family rows, wrapped
+    // at `cols`), big models capped to one cell so every face reads; the orthographic camera
+    // is fitted to the grid. `sheet` = all 12 families (shoot it at ≥1600×1100);
+    // `lineup` = `per` families per `page` for 1280×720 checks.
+    const sheet = view === 'sheet';
     const page = Number(params.get('page') || 1);
-    const per = Number(params.get('per') || 3);
+    const per = Number(params.get('per') || (sheet ? 12 : 3));
+    const cols = Number(params.get('cols') || (sheet ? 10 : 8));
     const fams = FAMILY_ORDER.filter((_, i) => Math.floor(i / per) === page - 1);
-    const rowGap = 1.75;
+    const cellW = 1.0;
+    const rowGap = Number(params.get('gap') || 1.8);
+    const maxH = 0.98;
+    // rows run from the back (first family, top of the screen) to the front
+    const items = [];
     let row = 0;
-    let maxW = 0;
     for (const fam of fams) {
       const list = ENEMIES.filter((e) => e.family === fam);
-      const widths = list.map((d) => Math.min(2.4, 0.6 * (d.size || 1) * 1.15 + 0.38));
-      const total = widths.reduce((a, b) => a + b, 0);
-      maxW = Math.max(maxW, total);
-      let x = 0;
-      list.forEach((def, i) => {
-        add(def, x - total / 2 + widths[i] / 2, -row * rowGap, 0.22);
-        x += widths[i];
-      });
-      row++;
+      list.forEach((def, i) => items.push({ def, r: row + Math.floor(i / cols), c: i % cols, fam: i === 0 ? fam : null }));
+      row += Math.ceil(list.length / cols);
     }
-    const depth = (row - 1) * rowGap;
+    const rows = row;
+    for (const it of items) {
+      const x = (it.c - (cols - 1) / 2) * cellW;
+      const z = (it.r - (rows - 1)) * rowGap;
+      const g = add(it.def, x, z, 0.28, { label: it.def.name, tagY: -0.02, tagZ: 0.3 });
+      const h = 0.6 * (it.def.size || 1);
+      if (h > maxH) g.scale.setScalar(maxH / h);
+      if (it.fam) tag(FAMILIES[it.fam]?.name || it.fam, x - cellW * 0.95, 0.4, z, 'fam');
+    }
+    const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    const pitch = THREE.MathUtils.degToRad(Number(params.get('pitch') || 34));
+    const cz = -(rows - 1) * rowGap * 0.5;
+    ortho.position.set(0, 30 * Math.sin(pitch), cz + 30 * Math.cos(pitch));
+    ortho.lookAt(0, 0.3, cz);
+    ortho.updateMatrixWorld(true);
+    // fit the grid's bounding box (with a margin for the family labels) into the frustum
+    const inv = ortho.matrixWorldInverse;
+    const bx = [-(cols - 1) / 2 * cellW - 1.9, (cols - 1) / 2 * cellW + 0.7];
+    const bz = [-(rows - 1) * rowGap - 0.7, 0.7];
+    const by = [-0.05, maxH + 0.15];
+    const e = { l: Infinity, r: -Infinity, t: -Infinity, b: Infinity };
+    for (const x of bx) for (const y of by) for (const z of bz) {
+      const p = new THREE.Vector3(x, y, z).applyMatrix4(inv);
+      e.l = Math.min(e.l, p.x); e.r = Math.max(e.r, p.x); e.t = Math.max(e.t, p.y); e.b = Math.min(e.b, p.y);
+    }
     const aspect = innerWidth / innerHeight;
-    const d = Math.max(4, (maxW + 1.0) / (2 * Math.tan(THREE.MathUtils.degToRad(16)) * aspect));
-    frameCamera(32, [0, d * 0.7 + depth * 0.35, d * 0.75 + 1.2], [0, 0.25, -depth * 0.5]);
+    let w = e.r - e.l;
+    let hh = e.t - e.b;
+    if (w / hh < aspect) w = hh * aspect;
+    else hh = w / aspect;
+    const mx = (e.l + e.r) / 2;
+    const my = (e.t + e.b) / 2;
+    ortho.left = mx - w / 2; ortho.right = mx + w / 2; ortho.top = my + hh / 2; ortho.bottom = my - hh / 2;
+    ortho.updateProjectionMatrix();
+    camera = ortho;
   }
   label.textContent = `${view} · ${glb ? 'GLB enemies' : 'procedural fallback'} · quality ${quality}`;
-  document.body.dataset.ready = '1';
+  if (still) framesLeft = 4;
 }
 
 function actorsGlb() {
@@ -236,9 +280,18 @@ function frame() {
   }
   renderer.render(scene, camera);
   for (const tg of tags) {
-    tmpV.set(tg.g.position.x, tg.h, tg.g.position.z).project(camera);
+    tmpV.set(tg.x, tg.y, tg.z).project(camera);
     tg.el.style.left = `${(tmpV.x * 0.5 + 0.5) * innerWidth}px`;
     tg.el.style.top = `${(-tmpV.y * 0.5 + 0.5) * innerHeight}px`;
+  }
+  if (framesLeft !== Infinity) {
+    framesLeft--;
+    if (framesLeft <= 0) {
+      document.body.dataset.ready = '1';
+      return;
+    }
+  } else if (!document.body.dataset.ready && !still) {
+    document.body.dataset.ready = '1';
   }
   requestAnimationFrame(frame);
 }

@@ -140,6 +140,8 @@ function prepareAsset(family, gltf) {
     const info = parsePieceName(o.name);
     const material = o.material?.name === 'glow' ? 'glow' : (o.material?.name === 'body' ? 'body' : info.material);
     if (material === 'body' && o.material?.map && !faceTexture) faceTexture = o.material.map;
+    // the pack step leaves NORMAL out (smooth subsurf shells): rebuild it once per family
+    if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
     if (material === 'body' && !o.geometry.attributes.uv) {
       // faceless parts ship without UVs: park them on the transparent atlas corner
       const n = o.geometry.attributes.position.count;

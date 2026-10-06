@@ -38,16 +38,18 @@ def helmet(ctx, A):
     c, r = _head(A)
     b = A['bone_head']
     rr = r.x * 1.1
-    z0 = c.z + r.z * 0.12
-    cap = P.lathe('helmet', [(0.001, r.z * 1.05), (rr * 0.55, r.z * 0.96), (rr * 0.9, r.z * 0.62), (rr * 1.02, r.z * 0.2), (rr * 1.0, 0.0)],
+    # the rim sits above the eye line (eye_v ≈ 0.5-0.56 of the face box) so the painted
+    # eyes stay visible under the brim; the cap is squashed so it still hugs the cranium
+    z0 = c.z + r.z * 0.36
+    cap = P.lathe('helmet', [(0.001, r.z * 0.8), (rr * 0.55, r.z * 0.73), (rr * 0.9, r.z * 0.46), (rr * 1.02, r.z * 0.14), (rr * 1.0, 0.0)],
                   METAL, 'fixed', b, segments=12, center=(c.x, c.y, z0), levels=1, vis='prop:helmet', scale_xy=(1.0, r.y / r.x))
     rim = P.ring('helmet_rim', (c.x, c.y, z0 + 0.005), rr * 0.98, 0.022 * _s(A), METAL_DARK, 'fixed', b, segments=14, vis='prop:helmet')
     P.xform(rim, scale=(1.0, r.y / r.x, 1.0))
-    nose = P.box('helmet_nose', (c.x, c.y - r.y * 1.02, z0 - r.z * 0.15), (0.07 * _s(A), 0.04, r.z * 0.5), METAL_DARK, 'fixed', b, levels=1, crease=0.6, vis='prop:helmet')
+    nose = P.box('helmet_nose', (c.x, c.y - r.y * 1.0, z0 - r.z * 0.2), (0.06 * _s(A), 0.04, r.z * 0.46), METAL_DARK, 'fixed', b, levels=1, crease=0.6, vis='prop:helmet')
     out = [cap, rim, nose]
     if A.get('boss'):
         for s in (1, -1):
-            base = Vector((c.x + s * rr * 0.75, c.y, z0 + r.z * 0.6))
+            base = Vector((c.x + s * rr * 0.75, c.y, z0 + r.z * 0.45))
             out.append(P.tube('helmet_horn', [base, base + Vector((s * 0.09, 0, 0.08)), base + Vector((s * 0.15, -0.02, 0.2))], [0.045, 0.03, 0.001], BONE, 'fixed', b, sides=6, levels=1, tip_end=True, vis='prop:helmet'))
     return out
 

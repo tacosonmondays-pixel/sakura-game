@@ -1,7 +1,7 @@
 {
  "beast": {
   "file": "beast.glb",
-  "size": 210844,
+  "size": 189232,
   "vertices": 4611,
   "animations": [
    "death",
@@ -27,7 +27,7 @@
  },
  "construct": {
   "file": "construct.glb",
-  "size": 202848,
+  "size": 180564,
   "vertices": 4495,
   "animations": [
    "death",
@@ -57,7 +57,7 @@
  },
  "dragon": {
   "file": "dragon.glb",
-  "size": 201484,
+  "size": 181640,
   "vertices": 4161,
   "animations": [
    "death",
@@ -84,7 +84,7 @@
  },
  "fae": {
   "file": "fae.glb",
-  "size": 169364,
+  "size": 152416,
   "vertices": 3410,
   "animations": [
    "death",
@@ -111,7 +111,7 @@
  },
  "ghost": {
   "file": "ghost.glb",
-  "size": 156044,
+  "size": 140128,
   "vertices": 3156,
   "animations": [
    "death",
@@ -140,7 +140,7 @@
  },
  "ghoul": {
   "file": "ghoul.glb",
-  "size": 201512,
+  "size": 180768,
   "vertices": 4249,
   "animations": [
    "death",
@@ -172,7 +172,7 @@
  },
  "goblin": {
   "file": "goblin.glb",
-  "size": 316108,
+  "size": 282688,
   "vertices": 7177,
   "animations": [
    "death",
@@ -207,7 +207,7 @@
  },
  "lizard": {
   "file": "lizard.glb",
-  "size": 157268,
+  "size": 142268,
   "vertices": 3188,
   "animations": [
    "death",
@@ -233,7 +233,7 @@
  },
  "oni": {
   "file": "oni.glb",
-  "size": 227160,
+  "size": 204596,
   "vertices": 4959,
   "animations": [
    "death",
@@ -262,7 +262,7 @@
  },
  "orc": {
   "file": "orc.glb",
-  "size": 191720,
+  "size": 172428,
   "vertices": 4075,
   "animations": [
    "death",
@@ -292,7 +292,7 @@
  },
  "plant": {
   "file": "plant.glb",
-  "size": 254492,
+  "size": 229036,
   "vertices": 5718,
   "animations": [
    "death",
@@ -320,7 +320,7 @@
  },
  "slime": {
   "file": "slime.glb",
-  "size": 235588,
+  "size": 210224,
   "vertices": 5285,
   "animations": [
    "death",

@@ -76,3 +76,64 @@ Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head
 broad hair sections with pointed tips (never thin jagged strands), hair fully covering the cranium from
 every angle, nothing poking through, outline thin, halo readable on light backgrounds, poses without
 stretching (`view=states`).
+
+---
+
+# Enemy models V2 — one rigged GLB per family
+
+The 74 monsters of the bestiary (`src/data/enemies.js`, 12 families) share the chibi method
+(quad cages → Catmull-Clark subsurf, creased tips, painted faces, toon + inverted-hull outline) but
+ship as **one GLB per family** in `public/models/enemies/` (`tools/blender/enemies/`, same `bpy` 4.2):
+
+```
+python3 tools/blender/enemies/build_enemies.py              # all 12 families (~15 s)
+python3 tools/blender/enemies/build_enemies.py orc dragon   # just these
+python3 tools/blender/enemies/build_enemies.py slime --blend /tmp/slime.blend --no-anim
+```
+
+| file | content | budget |
+|---|---|---|
+| `<family>.glb` | the rigged base body + every prop / variant piece the family's defs use, clips `move idle hit death special` | ≤ 320 KB each, **≤ 2.5 MB for all 12** (currently ≈ 2.2 MB) |
+| `manifest.json` | `{ family: { file, size, vertices, animations, props, variants, height, unitScale } }` | |
+
+## Construction (`tools/blender/enemies/`)
+
+| module | content |
+|---|---|
+| `dump_enemies.mjs` | dumps `ENEMIES` / `FAMILIES` to JSON (node) so the build only generates the props and variants that are actually used |
+| `parts.py` | cage helpers on top of `lib/mesh.py` (`blob`, `box`, `tube`, `cone`, `lathe`, `plate`, `ring`, `gloss_on`, `head` with a planar face-UV window) and the **tint roles** painted into the vertex-colour alpha: `main` (× `def.color`), `accent` (× `def.accent`), `fixed` (literal colour: teeth, metal, gold) |
+| `bodies.py` | the chunky Nendoroid **biped** (head ≈ body, stubby limbs, mitten hands, big feet) and the **quadruped**, plus ears (pointy / round / tall), snout, tusks, hair tufts |
+| `props.py` | the whole `EnemyDef.model.props` vocabulary as separate cage parts tagged `prop:<name>` (helmet, hood, crown, tiara, horns, mask, goggles, scarf, cape, mane, shield, towerShield, club, axe, spear, sword, staff, lantern, bomb, smokePot, backpack, wrench, drum, fan, mirror, chains, candle, gears, chimney, cannon, crystals, leaves, flower, thorns, moss, mushroom, bubble, pearl, sparkle, ember, glider, bones…) placed on the family's anchors (head, top, back, hands, chest, neck); a family may build its own version and mark it `done` |
+| `families/<family>.py` | the family body + variants: slime (fat jelly drop; rainbow / chest-mimic / knight / royal), goblin (scrawny runner; machine = copper boiler mech with a pilot), orc (belly brute), ghost (lantern sheet), ghoul, oni (horned festival demon), lizardfolk, construct (automaton / cogling / beetle / colossus), beast (quadruped wolf / boar / bear), fae (winged sprite), plant (sprout / pod / thornroot / mossling / treant on root legs), dragon (winged quadruped, matriarch) |
+| `efaces.py` | PIL face **atlas** per family, 3×2 cells `idle blink hit angry dead cast` (glossy / sharp / angry / glow / visor / dot eyes, fangs, blush) |
+| `erig.py` | archetype armatures: blob `root body top`, biped `root hips chest head arm_L/R leg_L/R`, quad `root body head leg_FL/FR/BL/BR tail_n`, plus wing bones |
+| `eanim.py` | clips authored with the chibi `Poser`: move styles `hop waddle run stomp shamble float flutter gallop fly sway`, hits `squash recoil`, deaths `splat topple poof collapse wilt`, specials `cast siphon blink roar`; each family picks its set in `ctx['clips']` |
+| `pack.py` | KHR_mesh_quantization packing: int16 positions, uint8 RGBA colours (alpha = tint role), uint16 UVs (face parts only), byte joints / weights, 16-bit indices, **no normals** (the runtime recomputes them from the smooth shells), identical accessors shared, exporter float noise trimmed |
+
+Mesh objects are named `<vis>|<group>|<material>` (`base`, `prop-<name>`, `var-<variant>`; materials `body` / `glow`).
+Whole families are stored at **half scale** (`asset.extras.unitScale` = 2); `extras` also carry `height`,
+`faceCells`, `faceGrid`, `faceCorner`, `translucent` (slimes / ghosts) and the `variants` hide table
+(e.g. `machine` hides `head torso arms legs`).
+
+## Runtime (`src/models/glbEnemy.js`, `src/models/enemies.js`)
+
+* `preloadEnemies(families?)` loads family GLBs (4 at a time); `buildEnemy(def)` is synchronous: a loaded
+  family gives a GLB instance at once, otherwise the V1 procedural monster is returned as a placeholder and
+  upgraded in place when the file arrives (node / offline stay procedural).
+* An instance = the pieces `def.model` asks for (base groups minus the variant's hide list + `prop:*` +
+  `var:*`) merged into **one skinned mesh per material** (body, glow) + one outline, bound to a
+  `SkeletonUtils` clone of the family skeleton (merged geometry cached per family|variant|props). Tint
+  roles are resolved in the shader from `def.color` / `def.accent`; the face atlas is blended over the
+  tinted skin. Draw calls per monster: body + outline (+ glow).
+* CONTRACT §7 hooks keep working (`animate`, `hitFlash`, `setVeiled`, `setBarrier`, `setPhasing`,
+  `setStatus`) plus `playDeath()` → seconds, `playSpecial()`, `setCasting(bool)`, `setExpression(cell)`.
+  The battle renderer plays `death` before disposing a killed monster, loops `special` while an oni field
+  is projected, and fires `special` on blink wind-ups and boss phase changes.
+
+## Judging quality
+
+`/previews/enemies-v2.html` — `view=sheet` (every monster on one contact sheet; shoot it at ≥ 1600×1100
+with `&still=1&shadows=0`), `view=lineup&page=1..4` (three families per page at 1280×720), `family&fam=`,
+`turn&id=`, `states&id=` (idle / move / hit / death / special / cast), `hooks`, `game`, `viewer`.
+`npx vitest run tests/models` checks every family GLB (clips, rig, materials, atlas, piece names, size
+budget) and that every EnemyDef resolves to a built family with its variant and props.
