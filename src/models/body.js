@@ -6,6 +6,7 @@
 // transform applied (feet at y=0, head top ≈ 4.07, face towards +z). The finished model is
 // scaled down to ≈0.9 world units by the caller.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { smoothstep, sphere, ellipsoid, capsule, cyl, xform, clean, merge } from './geom.js';
 
 export const BONES = {
@@ -70,8 +71,7 @@ export function loadBaseBody() {
     loadPromise = Promise.resolve(false);
     return loadPromise;
   }
-  loadPromise = import('three/addons/loaders/GLTFLoader.js')
-    .then(({ GLTFLoader }) => new GLTFLoader().loadAsync(baseUrl()))
+  loadPromise = new GLTFLoader().loadAsync(baseUrl())
     .then((gltf) => {
       let mesh = null;
       gltf.scene.updateMatrixWorld(true);
