@@ -273,3 +273,18 @@ Useful design details from the old build to carry into phase 2 (do not copy code
 - Main chibi model target video: 【Blender】キャラクターモデリングタイムラプス ～恐竜パーカー～ by 夏森轄 (https://youtu.be/SA_wqmZoNps) — anime "mini" proportions (~4–5 heads), flat two-tone cel shading, thin dark outlines, big lash-heavy eyes, blunt bangs with sharp strands, oversized hoodie/sleeves, lots of small costume details.
 - Supporting: Blep35 — "I Made a 3D VTuber model for FREE in 2 weeks" (https://youtu.be/69SUwY7SCJk), "How I Made The CUTEST VTuber Model in 3D Software" (https://youtu.be/zSCHsJ7Bxok).
 - Engine: stay on the web (three.js) build; no Unity needed.
+
+## Merge direction — the "super game" (owner, 2026-10-07)
+Verbatim highlights: "get the characters in, keep the current ones as special skins… merge the two games and make a super game and then clean it from there, remember to look at my requests from codex and here!"
+- **Base = the current build.** The owner prefers its UI ("way way better, but still needs to improve"), maps ("look so much better"), inventory and item icons. Keep them.
+- **Characters = the old Codex build.** Its designs ("the designs were cute"), its 3D chibis and its illustrations become the main roster, plus the old expansion girls.
+- **Current Blender girls:** "I really like some of the girls… the ones that would look like skins be skins but if some others like nami I like that would be a cool unit save it as a future release character. I like rei, nami, your luna, kaede but like yuki, suzu for example could easily be skins."
+  - Future-release characters (own units later, new names where the id clashes): current-build **Rei, Nami, Luna, Kaede**.
+  - Special skins on the matching old character: the other current designs (e.g. **Yuki, Suzu**).
+- **Home menu:** no 3D girl and no SVG room ("looks ugly"). Use drawn art like Blue Archive: a wide, dynamic, landscape illustration per girl (memorial-lobby style) with breathing/tap reactions.
+- **Character art:** Azur Lane-style stands (the girl in a new dynamic pose on a themed diorama stage, transparent) and Bremerton-style info cards (big name, class, rarity, stat radar, expression strip). Redrawing poses is fine, but proportions must stay right ("the proportions get all weird, ew"). Dynamic compositions like the owner's references (slanted cut-in panels, dramatic angles, motion), without their body-focused framing.
+- **Process:** "I want an agent to go through and screenshot stuff and show it to you with recommendations, as long as it fits my view." Every art batch goes through a critic agent before the owner sees it.
+- **Tracks:** "the tracks are linear and repetitive." Make them Bloons-like: curves, loops, crossings, splits, tunnels.
+- **Placement:** remove the red forbidden-zone border. Use a small circle under the dragged girl: red where she can't stand, white where she can (done 2026-10-07).
+- **City:** "codex gave a small one that's just on a square, make it look more interesting." Port and expand the city hub.
+- **Meshy:** "don't forget you have meshy… I've seen people make chibi renders in meshy that look like what I want." Use Meshy (image → 3D → rig → animate) for the chibis, starting with one Hikari test and a credit report.
