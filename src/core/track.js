@@ -384,7 +384,8 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     const p = clean[clean.length - 1];
     if (Math.hypot(points[i][0] - p[0], points[i][1] - p[1]) > 1e-6) clean.push(points[i]);
   }
-  const cum = cumulative(clean);
+  const rounded = clean.map(([x, y]) => [r4(x), r4(y)]);
+  const cum = cumulative(rounded);
   const prefixLen = prefix.length ? cumulative([...prefix, mid[0]]).pop() : 0;
   const midLen = cumulative(mid).pop();
   const tunnels = [];
@@ -410,9 +411,9 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
   }
   tunnels.sort((p, q) => p[0] - q[0]);
   return {
-    points: clean.map(([x, y]) => [r4(x), r4(y)]),
-    cum: cum.map(r4),
-    length: r4(length),
+    points: rounded,
+    cum,
+    length,
     tunnels: tunnels.map(([a, b]) => [r4(a), r4(b)]),
     forkD: fork ? r4(prefixLen) : 0,
     joinD: join ? r4(prefixLen + midLen) : r4(length),

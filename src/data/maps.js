@@ -269,8 +269,8 @@ export const MAPS = [
       '~~~~TT~~~~~~TT~~~~~~',
     ],
     paths: [
-      [[3.5, -1], L, [3.5, 1.0], [2.6, 3.0], [2.4, 5.4], [3.4, 7.6], [5.6, 8.8], [7.6, 7.8], [8.6, 5.8], [10.2, 3.4], [12.6, 2.6], [15.0, 3.4], [16.4, 5.6], [17.0, 8.0], [18.0, 9.6], L, [21, 9.6]],
-      { fork: { path: 0, at: [7.0, 8.3] }, nodes: [[9.8, 8.9], [12.6, 9.3], [15.4, 8.9]], join: { path: 0, at: [17.5, 9.0] } },
+      [[9.5, -1], L, [9.5, 0.3], [8.0, 1.6], [5.4, 1.5], [3.2, 2.4], [2.4, 4.6], [3.4, 7.6], [5.6, 8.8], [7.6, 7.8], [8.6, 5.8], [10.2, 3.4], [12.6, 2.6], [15.0, 3.4], [16.4, 5.6], [17.0, 8.0], [18.0, 9.6], L, [21, 9.6]],
+      { fork: { path: 0, at: [7.0, 8.3] }, nodes: [[9.8, 9.5], [12.6, 10.1], [15.6, 10.1]], join: { path: 0, at: [19.0, 9.6] } },
     ],
     decor: [
       { type: 'boat', x: 7, y: 4 }, { type: 'lantern', x: 6, y: 5 }, { type: 'willow', x: 13, y: 0 },
@@ -465,7 +465,7 @@ export const MAPS = [
   }),
   defineMap({
     id: 'shrine_sanctum', name: 'Inner Sanctum', theme: 'shrine', tier: 'advanced',
-    desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors and pass beneath the sanctum itself.',
+    desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors, pass beneath the sanctum itself and wind down past the bell garden.',
     concept: 'Y + sanctum tunnel: two roads merge, then run under the sanctum',
     rows: [
       'TTTTT,TTTTTTTTT,TTTT',
@@ -482,12 +482,12 @@ export const MAPS = [
       'TTTTT,TTTTTTTTT,TTTT',
     ],
     paths: [
-      [[-1, 1.0], L, [1.0, 1.0], [4.6, 1.2], [7.8, 2.0], [9.2, 3.8], [9.6, 5.6], [10.8, 6.6], L, [11.6, 6.6], IN, L, [15.4, 6.6], OUT, L, [21, 6.6]],
-      { nodes: [[-1, 10.5], L, [1.0, 10.5], [3.6, 10.9], [7.6, 10.6], [9.6, 9.4], [10.2, 7.8]], join: { path: 0, at: [11.2, 6.6] } },
+      [[-1, 1.0], L, [0.6, 1.0], [2.3, 1.8], [3.0, 3.6], [4.3, 5.3], [6.4, 6.3], [8.0, 6.6], L, [12.3, 6.6], IN, L, [14.7, 6.6], OUT, L, [15.4, 6.6], [17.0, 7.3], [17.6, 8.9], [16.4, 10.1], [14.2, 9.8], [12.2, 9.7], [10.9, 10.4], [10.5, 11.6], L, [10.5, 13]],
+      { nodes: [[-1, 11.2], L, [0.6, 11.2], [2.3, 10.4], [3.0, 8.6], [4.3, 7.6], [6.4, 6.9]], join: { path: 0, at: [8.6, 6.6] } },
     ],
     decor: [
       { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
-      { type: 'stoneLantern', x: 6, y: 6 }, { type: 'sakura', x: 17, y: 9 },
+      { type: 'stoneLantern', x: 1, y: 5 }, { type: 'sakura', x: 18, y: 1 },
     ],
   }),
 
@@ -513,10 +513,10 @@ export const MAPS = [
       'RRRRRRR..RR~~RRRRRRR',
     ],
     paths: [
-      [[-1, 10.2], L, [5.0, 10.2], [7.2, 9.6], [7.8, 8.2], [6.6, 7.2], L, [4.4, 7.2], [2.6, 6.6], [2.2, 5.2], [3.2, 4.2], L, [5.4, 4.0], [9.0, 4.2], [12.0, 4.6], [14.6, 4.2], [15.8, 3.0], IN, [16.6, 1.6], [18.2, 1.4], [18.8, 3.0], OUT, [18.4, 5.0], [17.0, 7.4], [17.2, 9.4], [18.6, 10.4], L, [21, 10.4]],
+      [[-1, 10.2], L, [5.0, 10.2], [7.2, 9.6], [7.8, 8.2], [6.6, 7.2], L, [4.4, 7.2], [2.6, 6.6], [2.2, 5.2], [3.2, 4.2], L, [5.4, 4.0], [9.0, 4.2], [12.0, 4.6], [14.6, 4.2], [15.8, 3.0], IN, [16.6, 1.6], [18.2, 1.4], [18.8, 3.0], OUT, [18.4, 5.0], [16.6, 6.2], [14.6, 6.7], [13.8, 8.3], [15.0, 9.7], [17.4, 10.2], [18.8, 10.4], L, [21, 10.4]],
     ],
     decor: [
-      { type: 'pine', x: 5, y: 1 }, { type: 'banner', x: 4, y: 8 }, { type: 'flag', x: 15, y: 7 },
+      { type: 'pine', x: 5, y: 1 }, { type: 'banner', x: 4, y: 8 }, { type: 'flag', x: 16, y: 8 },
       { type: 'waterwheel', x: 12, y: 9 }, { type: 'campfire', x: 5, y: 5 },
     ],
   }),
@@ -539,10 +539,10 @@ export const MAPS = [
       'RRRRRRRR.~~~~.RRRRRRRR',
     ],
     paths: [
-      [[-1, 2.6], L, [1.4, 2.6], [4.2, 3.4], [6.0, 5.6], [6.4, 8.4], L, [6.6, 9.2], [8.0, 9.6], L, [14.2, 5.2], [16.0, 4.8], [18.2, 5.8], [19.8, 4.2], [21.0, 3.4], L, [23, 3.4]],
+      [[-1, 2.6], L, [1.4, 2.6], [4.2, 3.4], [6.0, 5.6], [6.4, 8.4], L, [6.6, 9.2], [8.0, 9.6], L, [14.2, 5.2], [16.0, 4.8], [17.6, 6.4], [18.2, 8.6], [19.6, 9.3], [20.6, 7.6], L, [20.6, 5.0], L, [20.6, -1]],
     ],
     decor: [
-      { type: 'pine', x: 2, y: 6 }, { type: 'pine', x: 19, y: 8 }, { type: 'flag', x: 4, y: 10 },
+      { type: 'pine', x: 2, y: 6 }, { type: 'pine', x: 16, y: 8 }, { type: 'flag', x: 4, y: 10 },
       { type: 'campfire', x: 17, y: 1 }, { type: 'statue', x: 3, y: 8 },
     ],
   }),
@@ -1086,7 +1086,7 @@ export const MAPS = [
       'RRRRTTR~~~~~RRRTTRRR',
     ],
     paths: [
-      [[-1, 10.0], L, [1.0, 10.0], [4.4, 9.8], [6.4, 8.4], [5.6, 6.6], [3.8, 4.8], [3.8, 2.6], [5.8, 1.2], [7.4, 0.9], IN, [8.4, 0.8], [11.8, 0.8], OUT, [12.6, 0.9], [14.4, 1.4], [16.2, 2.8], [16.2, 4.8], [14.4, 6.6], [13.6, 8.4], [15.0, 9.8], [17.8, 10.0], L, [21, 10.0]],
+      [[-1, 10.0], L, [1.0, 10.0], [4.4, 9.8], [6.4, 8.4], [5.6, 6.6], [3.8, 4.8], [3.8, 2.6], [5.8, 1.2], [7.4, 0.9], [8.6, 0.8], IN, L, [11.2, 0.8], OUT, [12.6, 0.9], [14.4, 1.4], [16.2, 2.8], [16.2, 4.8], [14.4, 6.6], [13.6, 8.4], [15.0, 9.8], [17.0, 9.5], [18.4, 8.4], [19.2, 6.9], [20.2, 6.2], L, [21.5, 6.2]],
     ],
     decor: [
       { type: 'pine', x: 2, y: 4 }, { type: 'pine', x: 17, y: 5 }, { type: 'nest', x: 18, y: 11 },
@@ -1121,7 +1121,7 @@ export const MAPS = [
   }),
   defineMap({
     id: 'peaks_ridge', name: 'Dragonback Ridge', theme: 'volcano', tier: 'expert',
-    desc: 'Two trails climb the dragon\'s spine: they swap sides on a stone bridge, swing wide past the smoking vents and merge on the ridge.',
+    desc: 'Two trails climb the dragon\'s spine: they swap sides on a stone bridge, swing wide past the smoking vents, merge on the ridge and drop down the dragon\'s tail.',
     concept: 'Dragon spine: two trails cross once on a bridge, swing apart and merge',
     rows: [
       'RRRRRRRR,RRRRRRR,RRRRR',
@@ -1138,12 +1138,12 @@ export const MAPS = [
       'RRRRRRRR~~~RRRRRRRRRRR',
     ],
     paths: [
-      [[-1, 2.4], L, [1.0, 2.4], [3.4, 2.8], [5.4, 4.6], [7.0, 7.4], [9.4, 9.4], [12.6, 9.6], [15.2, 8.4], [16.8, 6.6], [18.6, 6.0], L, [23, 6.0]],
+      [[-1, 2.4], L, [1.0, 2.4], [3.4, 2.8], [5.4, 4.6], [7.0, 7.4], [9.4, 9.4], [12.6, 9.6], [15.2, 8.4], [16.8, 6.6], [18.4, 6.1], [19.8, 7.3], [19.7, 9.2], [18.4, 10.3], L, [18.0, 13]],
       { nodes: [[-1, 9.6], L, [1.0, 9.6], [3.4, 9.2], [5.4, 7.4], [7.0, 4.6], [9.2, 2.4], [12.4, 2.0], [15.0, 2.8], [16.6, 4.4]], join: { path: 0, at: [18.4, 6.0] } },
     ],
     decor: [
       { type: 'vent', x: 12, y: 4 }, { type: 'nest', x: 19, y: 3 }, { type: 'bones', x: 2, y: 6 },
-      { type: 'crystal', x: 12, y: 6 }, { type: 'pine', x: 20, y: 9 },
+      { type: 'crystal', x: 12, y: 6 }, { type: 'pine', x: 15, y: 10 },
     ],
   }),
   defineMap({
