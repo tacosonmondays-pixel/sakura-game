@@ -1,6 +1,6 @@
 // Lobby V3 (owner: ui / meta-a). Blue Archive–style home screen, landscape-first:
 //   · a painted club office by the sea in three parallax layers (sky/sea · room · foreground)
-//   · the secretary as the hero: a large full-detail 3D chibi (~83% of the screen height) with
+//   · the secretary as the hero: a full-screen drawn illustration (BA memorial-lobby style; was a 3D chibi (~83% of the screen height) with
 //     idle + breathing, pointer follow, tap reactions and a speech bubble; ‹ › swap her
 //   · UI hugging the edges: level badge (top-left), dark slanted currency pills, a dark pill with
 //     Settings / Mail / Menu (top-right), ⤢ hide-UI, a 2×2 column of illustrated shortcuts
@@ -15,7 +15,7 @@ import { formatNumber } from '../../core/util.js';
 import { STAGE_MAP, CHAPTERS } from '../../data/stages.js';
 import { UNIT_MAP, getUnit } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
-import { lobbyRoomSVG, themeBackdropSVG } from '../../art/backdrops.js';
+import { themeBackdropSVG } from '../../art/backdrops.js';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
@@ -24,7 +24,7 @@ import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, 
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
 import { showRewardsModal, card, requirementText } from './stage.js';
-import { createSecretaryStage } from '../lobby/secretary.js';
+import { createArtStage } from '../lobby/artStage.js';
 import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_THEME, RECRUIT_FEATURED } from '../lobby/notice.js';
 
 /** Anything claimable in Commissions? */
@@ -72,21 +72,6 @@ export function secretaryCycle(profile, dir = 1) {
   return owned[(Math.max(0, i) + dir + owned.length) % owned.length];
 }
 
-// Room layers are generated once per session and kept as blob URLs (an <img> rasterises the
-// SVG once; cheap to move for parallax, no thousands of DOM nodes).
-const layerUrls = {};
-function roomLayerUrl(layer) {
-  if (!layerUrls[layer]) {
-    const svg = lobbyRoomSVG(layer);
-    try {
-      layerUrls[layer] = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    } catch {
-      layerUrls[layer] = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    }
-  }
-  return layerUrls[layer];
-}
-
 let iconSeq = 0;
 /** Illustrated lobby icon wrapped in a span (unique gradient ids per instance). */
 function icon(name, cls = 'lb-ico') {
@@ -107,29 +92,23 @@ export function render(root) {
   const el = h('div.screen.lb', { 'data-testid': 'lobby' });
 
   // ---- room (parallax layers) -------------------------------------------------------------
-  const room = h('div.lb-room', { 'aria-hidden': 'true' },
-    h('img.lb-layer.lb-far', { src: roomLayerUrl('far'), alt: '', draggable: false }),
-    h('img.lb-layer.lb-mid', { src: roomLayerUrl('mid'), alt: '', draggable: false }),
-    h('div.lb-shafts'),
-  );
+  const room = h('div.lb-room', { 'aria-hidden': 'true' });
   const stageHost = h('div.lb-stage');
-  const near = h('img.lb-layer.lb-near', { src: roomLayerUrl('near'), alt: '', draggable: false, 'aria-hidden': 'true' });
   const motes = h('div.lb-motes', { 'aria-hidden': 'true' },
     Array.from({ length: 12 }, (_, i) => h(`i.lb-petal.p${i}`)),
     Array.from({ length: 8 }, (_, i) => h(`i.lb-mote.m${i}`)));
   const hud = h('div.lb-hud');
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
-  el.append(room, stageHost, near, motes, nameplate, hud, restore);
+  el.append(room, stageHost, motes, nameplate, hud, restore);
   root.appendChild(el);
 
   // ---- secretary --------------------------------------------------------------------------
   let lineIndex = 0;
   let patIndex = 0;
   const lines = () => secretaryLines(store.profile);
-  const stage = createSecretaryStage(stageHost, {
+  const stage = createArtStage(stageHost, {
     reduceMotion,
-    quality: profile0.settings?.quality || 'medium',
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);

@@ -1459,3 +1459,28 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-enemy { min-height: 36px; }
 .ma-balance-go { width: 36px; height: 36px; }
 .ma-recruit-screen .btn-small, .ma-mall-screen .btn-small, .ma-commissions-screen .btn-small, .ma-rewards-screen .btn-small, .ma-stage-screen .btn-small { min-height: 36px; }
+
+/* ---- drawn lobby art (replaces the 3D secretary + SVG room; owner request) ---- */
+.lb-stage.lb-art-host { left: 0; right: 0; top: 0; bottom: 0; width: auto; transform: none; transition: none; z-index: 1; }
+.lb-art { position: absolute; inset: -2%; cursor: pointer; overflow: hidden;
+  transform: translate3d(calc(var(--ax, 0) * -10px), calc(var(--ay, 0) * -6px), 0); transition: transform 900ms var(--ease); }
+.lb-art-layer { position: absolute; inset: 0; transition: opacity 400ms var(--ease), transform 420ms var(--ease); }
+.lb-art-layer.enter-r { opacity: 0; transform: translateX(6%); }
+.lb-art-layer.enter-l { opacity: 0; transform: translateX(-6%); }
+.lb-art-layer.leaving { opacity: 0; }
+.lb-art-scene, .lb-art-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; user-select: none; }
+.lb-art-layer.scene .lb-art-scene { animation: lb-breathe 4.8s ease-in-out infinite; transform-origin: 60% 100%; }
+.lb-art-bg { filter: saturate(1.05) blur(1.5px) brightness(1.03); transform: scale(1.04); }
+.lb-art-girl { position: absolute; right: 12%; bottom: -6%; height: 104%; aspect-ratio: 3 / 4; animation: lb-breathe 4.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.lb-art-girl img { height: 100%; width: auto; display: block; margin-left: auto; filter: drop-shadow(0 10px 18px rgba(30, 50, 90, 0.28)); user-select: none; }
+.lb-art-girl.card { height: 86%; bottom: 6%; right: 14%; }
+.lb-art-girl.card svg { height: 100%; width: auto; border-radius: 18px; box-shadow: 0 14px 32px rgba(20, 40, 80, 0.3); }
+.lb-art .bounce, .lb-art-layer.scene.bounce { animation: lb-bounce 420ms var(--ease); }
+@keyframes lb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.012) translateY(-0.4%); } }
+@keyframes lb-bounce { 0% { transform: scale(1); } 35% { transform: scale(1.025, 0.985); } 70% { transform: scale(0.995, 1.01); } 100% { transform: scale(1); } }
+.lb-art-fx { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.lb-art-heart { position: absolute; color: #ff7aa8; font-style: normal; font-size: 28px; text-shadow: 0 2px 6px rgba(255, 255, 255, 0.8); animation: lb-heart 1.1s var(--ease) forwards; }
+@keyframes lb-heart { from { opacity: 0; transform: translateY(0) scale(0.6); } 20% { opacity: 1; } to { opacity: 0; transform: translateY(-60px) scale(1.2); } }
+.lb-art-host .lb-bubble { position: absolute; z-index: 4; }
+@media (max-width: 960px) and (orientation: landscape) { .lb-art-girl { right: 6%; } }
+@media (prefers-reduced-motion: reduce) { .lb-art-layer.scene .lb-art-scene, .lb-art-girl { animation: none; } .lb-art { transition: none; } }
