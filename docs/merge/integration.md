@@ -7,6 +7,14 @@ The old-model anatomy itself (Draco GLBs, face atlas, procedural acting/weapons,
 in the sibling report `scratchpad/merge/characters.md`
 §2 and §5; this report only repeats what the integration needs.
 
+**Re-verified 2026-10-07 (second pass):** no file under `src/`, `tests/`, `e2e/`, `index.html` or `vite.config.js` changed
+since the first pass; line references spot-checked again (models/index.js, glbChibi.js, actors L262, overlays L149,
+student L224/L232-234, secretary L312/L327-329, controller L109, main L62-70, save.js L11/L41/L136/L241/L345,
+units.test L221-225/L253-265/L559-576, gacha POOL L17-21, shop.js L40, consistency L80, balance L22-35, dump_units
+L9-13, blender-dump.test L31-37, OWNER_REQUESTS L281-283) and all still match. New since the first pass: an
+untracked, git-excluded third chibi format in `public/_meshy-test/` (see §2.6) — it changes one design detail of the
+source dispatcher.
+
 Scratch artefacts (all looked at): `merge/integ/new-student-card-844.png`, `new-student-3d-844.png` (where the skin
 picker goes), `illustrations-contact.jpg`, `illustrations-grid.png` (face focal points), `pair-portraits.jpg`,
 `summer-base-contact.jpg`, `roster-webp.jpg`, `sentinel-snapshot.json` (frozen palette/look of the 15 V2 designs that
@@ -23,7 +31,8 @@ scratch so the repo stays untouched).
    `profile.skins`), `SAVE_VERSION` 2 → 3.
 2. **Model choice today is hard-wired to unit id** in exactly 4 build sites and 5 preload sites (table §1.1). All of
    them go through `src/models/index.js`, so a `skin` option there plus a source dispatcher (`codex` | `blender` |
-   `procedural`, later `meshy`) covers everything.
+   `procedural`, later `cardface` for the chibi-v2/Meshy pilot format, §2.6) covers everything. The pilot GLB
+   cannot reuse `glbChibi.instantiateCharacter` as-is (it would strip the body texture).
 3. **Owner rule already recorded** (`docs/OWNER_REQUESTS.md` L281-283): V2 **Rei, Nami, Luna, Kaede** become future
    units (new ids/names), the other **15** V2 designs become "Sentinel Style" skins. Their GLBs stay in
    `public/models/characters/`; only the skin rows reference them.
@@ -339,6 +348,31 @@ New `tests/models/codex.test.js` (header-only via `tests/models/glbHeader.js`): 
 skin is `codex`; each file has `KHR_draco_mesh_compression`, one 27-joint skin incl. `head`, `hand.R`, a `FacePaint`
 material, size ≤ 300 KB; `marina*.glb`, `amane*.glb`, `*-beach.glb` are absent. Node cannot decode Draco, so runtime
 checks go into `e2e/smoke.mjs` (student 3D view → `userData.source === 'codex'`, battle towers built from codex).
+
+### 2.6 A third format is already in flight: `public/_meshy-test/hikari-v2.glb` (chibi-v2 pilot)
+
+Untracked (listed in `.git/info/exclude` L11), 794 KB, written 22:59-23:01 after the first pass. Header read with a
+GLB JSON dump: extensions `EXT_texture_webp` + `KHR_mesh_quantization` (no Draco), 4 meshes `char1` (material
+`BPY_BaseColorOnly`, a **webp base-colour texture**), `face_eyeL`, `face_eyeR`, `face_mouth` (one card each, own
+materials), one 24-joint skin, head bone named **`Head`** (capital H; secretary's `/^head$/i` still matches), clips
+`idle, attack, cheer, hurt` (no `walk/victory/pickup`). Expressions come from `public/_meshy-test/face-atlas.json`:
+512² atlas, 4×4 grid, cells 0-7 eyes / 8-15 mouths, `expressions.{idle,blink,attack,happy,hurt,dizzy,wink,shy,surprised}`
+→ `{ eyeR, eyeL, mouth }` (a superset of `FACE_CELLS`), `texture.offset = (col/4, row/4)`, left eye mirrored U.
+
+Consequences for the dispatcher (§1.6):
+- It **cannot** go through `glbChibi.instantiateCharacter` unchanged: that function replaces every non-`head`/`halo`
+  material with `toonMaterial({ vertexColors })` (glbChibi.js L206-218), which would drop `char1`'s texture map
+  (white/vertex-colour body), and its face logic expects ONE `head` material with a 3×3 grid (L143, L374-378).
+- Plan the source enum as `codex | blender | cardface` (name it by format, not by vendor): `cardface` = textured
+  body → `MeshToonMaterial({ map })` + outline, three face cards driven per expression from a JSON atlas map, clip
+  name map with fallbacks (`victory→cheer`, `walk→idle`, `pickup→cheer`) inside the same `GlbAnimator` (it already
+  falls back to `idle` for missing clips, `stateClip` L298-302). Loader = plain `GLTFLoader` (no Draco needed; webp is supported
+  by r186 `GLTFTextureWebPExtension`).
+- Keep `skin.model` open-ended: `{ source, asset, faceMap?: 'face-atlas.json' }`, so whichever pipeline the owner
+  finally approves (Codex default now; chibi-v2 cards later) is a data change in `skins.js`, not a code change.
+- Budget: 794 KB is ~1.7× a V2 full GLB and ~3× a codex GLB; 9 of them in a battle ≈ 7 MB, so this format would need
+  its own LOD before it can be the battle default. The judge verdict in `docs/merge/meshy-chibi-test.md` (Codex 6.5 vs
+  V2 5.0 vs Meshy 4.0-5.5 overall; "the old Codex chibis read best at battle scale") supports Codex as the first default.
 
 ---
 
