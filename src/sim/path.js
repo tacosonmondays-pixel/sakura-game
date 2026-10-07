@@ -1,27 +1,35 @@
-// Path geometry: MapDef waypoints (tile coords) → world polylines through tile centres,
-// distance → position lookups, path tile stamping and sampling helpers.
+// Path geometry for the sim: the map's canonical dense centrelines (MapDef.tracks, built once by
+// src/core/track.js — the same points the renderer draws) → PathData with distance lookups,
+// tunnels and overpass elevation; plus path tile stamping and sampling helpers.
+// Legacy MapDefs without `tracks` (old orthogonal tile waypoints in tests) still work.
+
+import { mapTracks, stampTracks, legacyTracks, inTunnel, elevationAt } from '../core/track.js';
 
 /**
  * @typedef {{ index: number, points: number[][], cum: number[], length: number,
- *   dirs: number[][], facings: number[] }} PathData
+ *   dirs: number[][], facings: number[], tunnels: number[][], elev: number[]|null,
+ *   track: object }} PathData
  */
 
 /**
- * Builds a polyline from tile waypoints. World point = tile centre (x + 0.5, y + 0.5).
- * @param {number[][]} waypoints [[x, y], ...]
+ * Wraps a track (dense world polyline) as PathData.
+ * @param {{ points: number[][], tunnels?: number[][], elev?: number[]|null }} track
  * @param {number} index
  * @returns {PathData}
  */
-export function buildPath(waypoints, index = 0) {
+export function pathFromTrack(track, index = 0) {
   const points = [];
-  for (const wp of waypoints || []) {
-    const x = wp[0] + 0.5;
-    const y = wp[1] + 0.5;
+  const keep = [];
+  (track.points || []).forEach((p, i) => {
     const last = points[points.length - 1];
-    if (last && last[0] === x && last[1] === y) continue;
-    points.push([x, y]);
+    if (last && last[0] === p[0] && last[1] === p[1]) return;
+    points.push([p[0], p[1]]);
+    keep.push(i);
+  });
+  if (points.length === 1) {
+    points.push([points[0][0] + 1, points[0][1]]);
+    keep.push(keep[0]);
   }
-  if (points.length === 1) points.push([points[0][0] + 1, points[0][1]]);
   const cum = [0];
   const dirs = [];
   const facings = [];
@@ -33,12 +41,24 @@ export function buildPath(waypoints, index = 0) {
     dirs.push([dx / len, dy / len]);
     facings.push(Math.atan2(dx, dy));
   }
-  return { index, points, cum, length: cum[cum.length - 1], dirs, facings };
+  const elev = track.elev ? keep.map((k) => track.elev[k] || 0) : null;
+  const tunnels = (track.tunnels || []).map(([a, b]) => [a, b]);
+  return { index, points, cum, length: cum[cum.length - 1], dirs, facings, tunnels, elev, track: { points, cum, tunnels, elev } };
 }
 
-/** @param {{ paths: number[][][] }} map @returns {PathData[]} */
+/**
+ * Builds a polyline from legacy tile waypoints. World point = tile centre (x + 0.5, y + 0.5).
+ * @param {number[][]} waypoints [[x, y], ...]
+ * @param {number} index
+ * @returns {PathData}
+ */
+export function buildPath(waypoints, index = 0) {
+  return pathFromTrack(legacyTracks([waypoints])[0], index);
+}
+
+/** @param {{ tracks?: object[], paths?: number[][][] }} map @returns {PathData[]} */
 export function buildPaths(map) {
-  return (map.paths || []).map((wps, i) => buildPath(wps, i));
+  return mapTracks(map).map((t, i) => pathFromTrack(t, i));
 }
 
 /**
@@ -49,6 +69,17 @@ export function segmentAt(path, d, hint = 0) {
   const { cum } = path;
   const last = cum.length - 2;
   let i = Math.max(0, Math.min(hint, last));
+  if (Math.abs(cum[i] - d) > 4) {
+    // far jump (knockback, blink, fresh spawn): binary search
+    let lo = 0;
+    let hi = last;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (cum[mid] <= d) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  }
   while (i < last && d > cum[i + 1]) i++;
   while (i > 0 && d < cum[i]) i--;
   return i;
@@ -72,41 +103,37 @@ export function pointAt(path, d, out = {}, hint = 0) {
   return out;
 }
 
-/**
- * Tiles covered by the paths, as a Set of "x,y" strings. Stamps every tile on each
- * segment between consecutive waypoints (including tiles just outside the grid, where
- * spawns/exits live). Non-orthogonal segments are stamped with a DDA walk.
- * @param {{ paths: number[][][] }} map
- * @returns {Set<string>}
- */
-export function pathTileSet(map) {
-  const set = new Set();
-  for (const wps of map.paths || []) {
-    for (let i = 0; i < wps.length; i++) {
-      const [x0, y0] = wps[i];
-      if (i === 0) set.add(`${x0},${y0}`);
-      if (i === 0) continue;
-      const [px, py] = wps[i - 1];
-      const steps = Math.max(Math.abs(x0 - px), Math.abs(y0 - py));
-      for (let s = 1; s <= steps; s++) {
-        const x = Math.round(px + ((x0 - px) * s) / steps);
-        const y = Math.round(py + ((y0 - py) * s) / steps);
-        set.add(`${x},${y}`);
-      }
-    }
-  }
-  return set;
+/** Is distance d inside one of the path's tunnels (enemies hidden + untargetable)? */
+export function pathInTunnel(path, d) {
+  return path.tunnels?.length ? inTunnel(path, d) : false;
+}
+
+/** Overpass elevation at distance d (0 on the ground). */
+export function pathElevation(path, d) {
+  return path.elev ? elevationAt(path.track, d) : 0;
 }
 
 /**
- * Samples a path every `step` tiles. @returns {{ x, y, d, pathIndex }[]}
+ * Tiles covered by the paths, as a Set of "x,y" strings: every tile whose square the road
+ * band touches (curves and diagonals rasterised exactly), including tiles just outside the
+ * grid where spawns/exits live. Same set as maps.js pathTiles().
+ * @param {{ tracks?: object[], paths?: number[][][] }} map
+ * @returns {Set<string>}
+ */
+export function pathTileSet(map) {
+  return stampTracks(mapTracks(map));
+}
+
+/**
+ * Samples a path every `step` tiles. @returns {{ x, y, d, pathIndex, hidden }[]}
+ * (`hidden` = inside a tunnel, where towers cannot see the enemies)
  */
 export function samplePath(path, step = 0.25) {
   const out = [];
   const tmp = {};
   for (let d = 0; d <= path.length; d += step) {
     pointAt(path, d, tmp);
-    out.push({ x: tmp.x, y: tmp.y, d, pathIndex: path.index });
+    out.push({ x: tmp.x, y: tmp.y, d, pathIndex: path.index, hidden: pathInTunnel(path, d) });
   }
   return out;
 }

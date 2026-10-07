@@ -509,6 +509,7 @@ function trapSpots(sim, t) {
   const spots = [];
   for (const path of sim.pathData) {
     for (const s of samplePath(path, 0.5)) {
+      if (s.hidden) continue; // no traps inside tunnels
       if (Math.hypot(s.x - t.x, s.y - t.y) <= range) spots.push({ x: s.x, y: s.y, remaining: path.length - s.d });
     }
   }

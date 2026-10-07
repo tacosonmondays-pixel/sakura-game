@@ -332,10 +332,14 @@ export class Actors {
       v.z += dz * k;
     }
     v.airborne = !!e.airborne;
-    // ground walkers stand on the raised path / bridge decks
+    // ground walkers stand on the raised path / bridge decks / overpasses
     const tx = Math.floor(v.x);
     const tz = Math.floor(v.z);
-    const ground = this.terrain.isPath(tx, tz) ? PATH_H : 0;
+    const ground = (this.terrain.isPath(tx, tz) ? PATH_H : 0) + (e.elev || 0);
+    v.ground = ground;
+    // inside a tunnel: out of sight (the sim also makes it untargetable)
+    v.hidden = !!e.hidden;
+    m.visible = !v.hidden;
     const alt = (e.alt || 0) + ground;
     v.y += (alt - v.y) * Math.min(1, dt * 8);
     const bob = v.airborne ? Math.sin(this.time * 3 + v.bob) * 0.07 : 0;
@@ -554,9 +558,11 @@ export class Actors {
     }
     // enemy shadows + boss aura
     for (const v of this.enemies.values()) {
+      if (v.hidden) continue;
       const s = 0.3 + 0.28 * v.size;
       const air = v.airborne;
-      gN.push(v.x, 0.06, v.z, air ? s * 0.8 : s, air ? s * 0.8 : s, R.shadow, 0.05, 0.04, 0.1, air ? 0.22 : 0.4);
+      const gy = Math.max(0.06, (v.ground || 0) + 0.015);
+      gN.push(v.x, gy, v.z, air ? s * 0.8 : s, air ? s * 0.8 : s, R.shadow, 0.05, 0.04, 0.1, air ? 0.22 : 0.4);
       if (v.boss) {
         const ph = (t * 0.8) % 1;
         gA.push(v.x, 0.07, v.z, s * (1.6 + ph), s * (1.6 + ph), R.ringSoft, 1, 0.25, 0.3, 0.6 * (1 - ph));
@@ -574,7 +580,7 @@ export class Actors {
     for (const e of this.sim.enemies) {
       if (e.dead) continue;
       const v = this.enemies.get(e.uid);
-      if (!v) continue;
+      if (!v || v.hidden) continue;
       const hpFrac = e.maxHp > 0 ? Math.max(0, e.hp / e.maxHp) : 0;
       const hasBarrier = e.maxBarrier > 0 && e.barrier > 0;
       let icons = 0;

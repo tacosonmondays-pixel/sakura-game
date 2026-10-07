@@ -1,5 +1,5 @@
 // Pure damage pipeline (CONTRACTS.md §6). Order:
-// eligibility (veil / phasing / air) → type multiplier → element ward (×0.5) → soak bonus →
+// eligibility (tunnel / veil / phasing / air) → type multiplier → element ward (×0.5) → soak bonus →
 // mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 // barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; min 1
 // except crystal) → hp. Burn/poison ticks skip crit, crystal and flat armor.
@@ -20,6 +20,7 @@ export const SHELL_BROKE = 2;
  */
 export function isEligible(enemy, src) {
   if (enemy.dead) return false;
+  if (enemy.hidden) return false; // inside a tunnel: nothing can see or reach it
   if (enemy.airborne && src.canHitAir === false) return false;
   if (enemy.veiled && !enemy.revealed && !src.detection) return false;
   if (enemy.phasing && src.attackType !== 'holy' && src.attackType !== 'mystic') return false;

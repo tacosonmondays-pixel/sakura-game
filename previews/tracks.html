@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracks v3</title>
+<style>
+  body { margin: 0; background: #cfe8ff; font: 12px/1.35 system-ui, sans-serif; color: #1d2b4f; }
+  h1 { font-style: italic; margin: 10px 12px 2px; font-size: 18px; }
+  nav { margin: 4px 12px 8px; } nav button { margin-right: 6px; padding: 4px 10px; border: 0; border-radius: 4px; background: #fff; cursor: pointer; }
+  nav button.on { background: #ffd84d; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 7), 1fr); gap: 6px; padding: 0 8px 8px; }
+  .card { background: #fff; border-radius: 6px; padding: 4px 4px 3px; box-shadow: 0 1px 4px #0002; overflow: hidden; }
+  .card svg { display: block; width: 100%; height: auto; border-radius: 4px; }
+  .card b { font-size: 11px; } .meta { color: #55607a; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tier { display: inline-block; padding: 0 5px; border-radius: 8px; color: #fff; font-size: 9px; }
+</style>
+</head>
+<body>
+<h1>Tracks v3 — every map's silhouette</h1>
+<nav id="nav"></nav>
+<div id="out"></div>
+<script type="module" src="./tracks.js"></script>
+</body>
+</html>

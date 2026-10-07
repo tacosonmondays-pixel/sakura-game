@@ -1,8 +1,10 @@
-// Node-side checks for the V2 terrain's pure parts: smooth roads, ribbon geometry, theme
+// Node-side checks for the V2 terrain's pure parts: the Tracks v3 road plan, ribbon geometry, theme
 // fields the painters rely on, scenery keywords → existing props, new prop builders.
 import { describe, it, expect } from 'vitest';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
-import { smoothRoad, buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
+import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
+import { planRoads, buildDecks, buildTunnels } from '../../src/render/trackMesh.js';
+import { pointAtDistance } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import { Noise2 } from '../../src/render/textures.js';
 import { MAPS } from '../../src/data/maps.js';
@@ -12,65 +14,82 @@ import { getEnemy } from '../../src/data/enemies.js';
 const HEX = /^#[0-9a-f]{6}$/i;
 const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal'];
 
-describe('smooth roads', () => {
-  const tiles = [[-3, 2], [-2, 2], [-1, 2], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4], [2, 5], [3, 5], [4, 5], [5, 5]];
+describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', () => {
+  const close = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 
-  it('runs through the first and last tile centres and resamples evenly', () => {
-    const pts = smoothRoad(tiles, { radius: 0.6, step: 0.2 });
-    expect(pts.length).toBeGreaterThan(20);
-    expect(pts[0]).toEqual([-2.5, 2.5]);
-    const last = pts[pts.length - 1];
-    expect(last[0]).toBeCloseTo(5.5, 5);
-    expect(last[1]).toBeCloseTo(5.5, 5);
-    for (let i = 1; i < pts.length - 1; i++) {
-      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      expect(d).toBeGreaterThan(0.05);
-      expect(d).toBeLessThanOrEqual(0.2001);
-    }
-  });
-
-  it('rounds corners inside the corner tile (never cuts across a neighbour)', () => {
-    const pts = smoothRoad(tiles, { radius: 0.6, step: 0.1 });
-    // the first corner is at tile (2,2): the curve must stay within x ∈ [1.9, 2.6], z ∈ [1.9, 2.6] near it
-    for (const [x, z] of pts) {
-      if (x > 1.9 && z > 1.9 && x < 2.6 && z < 2.6) {
-        expect(x).toBeLessThanOrEqual(2.5001);
-        expect(z).toBeGreaterThanOrEqual(1.8999);
-      }
-      expect(Number.isFinite(x) && Number.isFinite(z)).toBe(true);
-    }
-  });
-
-  it('handles degenerate paths', () => {
-    expect(smoothRoad([])).toEqual([]);
-    expect(smoothRoad([[3, 3]])).toEqual([[3.5, 3.5]]);
-    expect(smoothRoad([[0, 0], [1, 0]]).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('works for every map path without NaNs', () => {
+  it('every on-board road point lies exactly on the map track the sim walks (no re-smoothing)', () => {
     for (const map of MAPS) {
-      for (const wps of map.paths) {
-        const tiles = [];
-        for (let i = 0; i < wps.length; i++) {
-          const [x, y] = wps[i];
-          if (i === 0) { tiles.push([x, y]); continue; }
-          const [px, py] = wps[i - 1];
-          const dx = Math.sign(x - px);
-          const dy = Math.sign(y - py);
-          const steps = Math.max(Math.abs(x - px), Math.abs(y - py));
-          for (let s = 1; s <= steps; s++) tiles.push([px + dx * s, py + dy * s]);
-        }
-        const pts = smoothRoad(tiles);
-        expect(pts.length, map.id).toBeGreaterThan(tiles.length * 2);
-        for (const p of pts) expect(Number.isFinite(p[0]) && Number.isFinite(p[1]), map.id).toBe(true);
+      const plan = planRoads(map);
+      expect(plan.roads.length, map.id).toBe(map.tracks.length);
+      for (const r of plan.roads) {
+        const t = map.tracks[r.index];
+        const tmp = {};
+        r.d.forEach((d, i) => {
+          if (d < 0 || d > t.length) return;
+          pointAtDistance(t.points, t.cum, d, tmp);
+          expect(close(tmp.x, r.pts[i][0], 1e-9) && close(tmp.y, r.pts[i][1], 1e-9), `${map.id} road ${r.index} @${d.toFixed(2)}`).toBe(true);
+          expect(Number.isFinite(r.elev[i]), map.id).toBe(true);
+        });
       }
     }
+  });
+
+  it('runs real spawns / exits off the board and puts gates on the board edge', () => {
+    for (const map of MAPS) {
+      const plan = planRoads(map, { margin: 8 });
+      const roots = map.tracks.filter((t) => !t.fork).length;
+      expect(plan.entrances.length, map.id).toBe(roots);
+      for (const g of [...plan.entrances, ...plan.exits]) {
+        const onEdge = close(g.x, 0, 0.02) || close(g.z, 0, 0.02) || close(g.x, map.width, 0.02) || close(g.z, map.height, 0.02);
+        expect(onEdge, `${map.id} gate at ${g.x.toFixed(2)},${g.z.toFixed(2)}`).toBe(true);
+        expect(Math.hypot(g.dir[0], g.dir[1])).toBeCloseTo(1, 5);
+      }
+      for (const r of plan.roads) {
+        const t = map.tracks[r.index];
+        if (!t.fork) expect(r.d[0], map.id).toBeLessThan(-8);
+        if (!t.join) expect(r.d[r.d.length - 1], map.id).toBeGreaterThan(t.length + 8);
+      }
+    }
+  });
+
+  it('flat junctions lift the later pass and drop its bevels; overpasses and tunnels carry over', () => {
+    const square = MAPS.find((m) => m.id === 'festival_square');
+    const plan = planRoads(square);
+    const flat = square.crossings.filter((c) => c.mode === 'flat');
+    expect(flat.length).toBe(3);
+    for (const c of flat) {
+      const r = plan.roads[c.b.path];
+      const i = r.d.findIndex((d) => Math.abs(d - c.b.d) < 0.1);
+      expect(r.lift[i]).toBe(1);
+      expect(r.noSide[i]).toBe(true);
+    }
+    const loop = MAPS.find((m) => m.id === 'sakura_loop');
+    const lp = planRoads(loop);
+    expect(Math.max(...lp.roads[0].elev)).toBeGreaterThan(0.4);
+    const court = MAPS.find((m) => m.id === 'sakura_court');
+    const cp = planRoads(court);
+    expect(cp.roads[0].tunnel.some(Boolean)).toBe(true);
+  });
+
+  it('builds plank decks over water, overpass rails and tunnel portals', () => {
+    const look = resolveLook('lake');
+    const map = MAPS.find((m) => m.id === 'lake_reeds');
+    const isWaterAt = (x, z) => ['~', 'B'].includes(map.rows[Math.floor(z)]?.[Math.floor(x)]);
+    const plan = planRoads(map);
+    const decks = buildDecks(plan.roads, isWaterAt, look, { pathH: PATH_H, waterY: 0.012, crossings: map.crossings });
+    expect(decks.geometry).toBeTruthy();
+    expect(decks.waterSections.size).toBeGreaterThan(20);
+    const court = MAPS.find((m) => m.id === 'sakura_court');
+    const tun = buildTunnels(court, resolveLook('sakura'));
+    expect(tun.geometry).toBeTruthy();
+    expect(tun.portals.map((p) => p.end).sort()).toEqual(['in', 'out']);
   });
 });
 
 describe('road ribbon', () => {
   it('builds a raised slab with bevels, uvs along the road and skips water stretches', () => {
-    const pts = smoothRoad([[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]], { step: 0.25 });
+    const pts = [];
+    for (let x = 0.5; x <= 5.5 + 1e-9; x += 0.25) pts.push([x, 0.5]);
     const md = new MeshData(true);
     const white = { r: 1, g: 1, b: 1 };
     const grey = { r: 0.5, g: 0.5, b: 0.5 };

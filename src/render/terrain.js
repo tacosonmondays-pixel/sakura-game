@@ -1,9 +1,11 @@
 // Builds the battlefield terrain from a MapDef (V2 "lively maps"):
 //   • one hand-painted ground texture per map (colour mottling, clover, flower drifts, worn
 //     dirt and pebbles beside the road, wet sand around water) — no tile grid,
-//   • the road as a smooth ribbon built from the path polyline (rounded corners, softly wavy
-//     edges, bevelled sides, texture flowing along the road) instead of tile stamps,
-//   • animated water / lava surfaces, plank bridges, auto lily pads,
+//   • the road as a ribbon extruded along the map's canonical centreline (MapDef.tracks — the
+//     same points the sim walks; softly wavy edges, bevelled sides, texture flowing along the
+//     road), with flat junctions, raised overpasses, plank decks over water and buried tunnel
+//     sections with portal arches (trackMesh.js),
+//   • animated water / lava surfaces, auto lily pads,
 //   • the map's composed set pieces, theme props, stage scenery keywords, a framing ring
 //     (fences / hedges / flower beds / rocks) around the board with gaps for the road, and
 //     a spawn gate + goal gate at every entrance / exit.
@@ -14,6 +16,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildProp, hasProp } from './props.js';
 import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
+import { planRoads, buildDecks, buildTunnels } from './trackMesh.js';
+import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
 export const WATER_Y = 0.012;
@@ -175,97 +179,6 @@ export function resolveScenery(stage, familyOf = () => null) {
   return { keywords, fog, night: !!sc.night, weather: sc.weather };
 }
 
-// ---------------------------------------------------------------------------
-// Grid analysis
-// ---------------------------------------------------------------------------
-
-function stampPathTiles(paths) {
-  const set = new Set();
-  const ordered = [];
-  for (const wps of paths || []) {
-    const list = [];
-    for (let i = 0; i < wps.length; i++) {
-      const [x, y] = wps[i];
-      if (i === 0) {
-        list.push([x, y]);
-        continue;
-      }
-      const [px, py] = wps[i - 1];
-      const dx = Math.sign(x - px);
-      const dy = Math.sign(y - py);
-      const steps = Math.max(Math.abs(x - px), Math.abs(y - py));
-      for (let s = 1; s <= steps; s++) list.push([px + dx * s, py + dy * s]);
-    }
-    for (const [x, y] of list) set.add(`${x},${y}`);
-    ordered.push(list);
-  }
-  return { set, ordered };
-}
-
-/**
- * Turns an orthogonal tile path (consecutive tiles) into a smooth world-space centreline:
- * corners are rounded with arcs and the result is resampled at a fixed step.
- * @param {number[][]} tiles consecutive tile coords [[tx, ty], ...]
- * @param {{ radius?: number, step?: number }} [o] corner radius and sample spacing (tiles)
- * @returns {number[][]} points [[x, z], ...] through tile centres
- */
-export function smoothRoad(tiles, { radius = 0.62, step = 0.2 } = {}) {
-  if (!tiles || tiles.length === 0) return [];
-  // corners only (direction changes)
-  const corners = [tiles[0]];
-  for (let i = 1; i < tiles.length - 1; i++) {
-    const [ax, ay] = tiles[i - 1];
-    const [bx, by] = tiles[i];
-    const [cx, cy] = tiles[i + 1];
-    if (Math.sign(bx - ax) !== Math.sign(cx - bx) || Math.sign(by - ay) !== Math.sign(cy - by)) corners.push(tiles[i]);
-  }
-  if (tiles.length > 1) corners.push(tiles[tiles.length - 1]);
-  const pts = corners.map(([x, y]) => [x + 0.5, y + 0.5]);
-  if (pts.length === 1) return [pts[0]];
-  // rounded polyline
-  const poly = [pts[0]];
-  for (let i = 1; i < pts.length - 1; i++) {
-    const A = pts[i - 1];
-    const P = pts[i];
-    const B = pts[i + 1];
-    const d1 = Math.hypot(P[0] - A[0], P[1] - A[1]);
-    const d2 = Math.hypot(B[0] - P[0], B[1] - P[1]);
-    const r = Math.min(radius, d1 / 2, d2 / 2);
-    if (r < 1e-3) {
-      poly.push(P);
-      continue;
-    }
-    const s = [P[0] + ((A[0] - P[0]) / d1) * r, P[1] + ((A[1] - P[1]) / d1) * r];
-    const e = [P[0] + ((B[0] - P[0]) / d2) * r, P[1] + ((B[1] - P[1]) / d2) * r];
-    const n = 7;
-    for (let k = 0; k <= n; k++) {
-      const t = k / n;
-      const u = 1 - t;
-      poly.push([u * u * s[0] + 2 * u * t * P[0] + t * t * e[0], u * u * s[1] + 2 * u * t * P[1] + t * t * e[1]]);
-    }
-  }
-  poly.push(pts[pts.length - 1]);
-  // resample
-  const out = [poly[0]];
-  let carry = 0;
-  for (let i = 1; i < poly.length; i++) {
-    const a = poly[i - 1];
-    const b = poly[i];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (len < 1e-6) continue;
-    let d = carry;
-    while (d + step <= len) {
-      d += step;
-      out.push([a[0] + ((b[0] - a[0]) * d) / len, a[1] + ((b[1] - a[1]) * d) / len]);
-    }
-    carry = d - len;
-  }
-  const last = poly[poly.length - 1];
-  const prev = out[out.length - 1];
-  if (Math.hypot(last[0] - prev[0], last[1] - prev[1]) > step * 0.3) out.push(last);
-  return out;
-}
-
 /**
  * Builds the terrain.
  * @param {object} map MapDef
@@ -286,51 +199,24 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const ambient = new Set();
   const gates = [];
 
-  // ----- path tiles (inside + extended off-map) -----------------------------------
-  const { set: stamped, ordered } = stampPathTiles(map.paths);
-  const pathSet = new Set(stamped);
-  const entrances = [];
-  const exits = [];
+  // ----- roads: the canonical centrelines (MapDef.tracks), run out past the board ------
+  const plan = planRoads(map, { margin: MARGIN });
+  const pathSet = new Set([...stampTracks(mapTracks(map)), ...plan.extraTiles]);
+  const entrances = plan.entrances;
+  const exits = plan.exits;
   const inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
-  const extendedLists = [];
-  for (const list of ordered) {
-    if (list.length < 2) continue;
-    const ext = [...list];
-    const extend = (a, b, front) => {
-      const dx = Math.sign(a[0] - b[0]);
-      const dy = Math.sign(a[1] - b[1]);
-      let [x, y] = a;
-      for (let i = 0; i < MARGIN + 2; i++) {
-        x += dx;
-        y += dy;
-        pathSet.add(`${x},${y}`);
-        if (front) ext.unshift([x, y]);
-        else ext.push([x, y]);
-      }
-    };
-    extend(list[0], list[1], true);
-    extend(list[list.length - 1], list[list.length - 2], false);
-    extendedLists.push(ext);
-    const firstIn = list.findIndex(([x, y]) => inMap(x, y));
-    let lastIn = -1;
-    for (let i = list.length - 1; i >= 0; i--) if (inMap(list[i][0], list[i][1])) { lastIn = i; break; }
-    if (firstIn >= 0) {
-      const [x, y] = list[firstIn];
-      const nb = list[Math.min(list.length - 1, firstIn + 1)];
-      const dir = [Math.sign(nb[0] - x) || 0, Math.sign(nb[1] - y) || 0];
-      const prev = list[Math.max(0, firstIn - 1)];
-      const inDir = firstIn > 0 ? [x - prev[0], y - prev[1]] : dir;
-      entrances.push({ tx: x, ty: y, dir: inDir });
-    }
-    if (lastIn >= 0) {
-      const [x, y] = list[lastIn];
-      const nx = list[Math.min(list.length - 1, lastIn + 1)];
-      const pv = list[Math.max(0, lastIn - 1)];
-      const outDir = lastIn < list.length - 1 ? [nx[0] - x, nx[1] - y] : [x - pv[0], y - pv[1]];
-      if (!exits.some((e) => e.tx === x && e.ty === y)) exits.push({ tx: x, ty: y, dir: outDir });
-    }
+  // centreline pieces for the painter (buried tunnel sections excluded)
+  const roads = [];
+  for (const r of plan.roads) {
+    let cur = [];
+    r.pts.forEach((p, i) => {
+      if (r.tunnel[i]) {
+        if (cur.length > 1) roads.push(cur);
+        cur = [];
+      } else cur.push(p);
+    });
+    if (cur.length > 1) roads.push(cur);
   }
-  const roads = extendedLists.map((list) => smoothRoad(list));
 
   // ----- extended char grid ------------------------------------------------------
   const X0 = -MARGIN;
@@ -365,6 +251,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const cBg = new THREE.Color(look.bg);
   const cPath = new THREE.Color(look.path.color);
   const cPathSide = new THREE.Color(look.path.side);
+  const cBridgeSide = new THREE.Color(look.bridge.post);
   const tmp = new THREE.Color();
   /** Fades colours outside the playable rectangle toward the background (soft vignette). */
   const fade = (col, x, z) => {
@@ -421,14 +308,17 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   };
   addMesh(groundGeo, groundMat, { name: 'ground' });
 
-  // ----- road ribbon ----------------------------------------------------------------------
+  // ----- road ribbon + decks ---------------------------------------------------------------
+  const waterAt = (x, z) => isWater(Math.floor(x), Math.floor(z));
+  const decks = buildDecks(plan.roads, waterAt, look, { pathH: PATH_H, waterY: WATER_Y, crossings: plan.crossings });
   const road = new MeshData(true);
-  roads.forEach((pts, ri) => {
-    buildRibbon(road, pts, {
+  plan.roads.forEach((r, ri) => {
+    buildRibbon(road, r.pts, {
       half: ROAD_HALF, bevel: ROAD_BEVEL, h: PATH_H + ri * 0.004, seed: hash(map.id, 'road', ri),
-      skipAt: (x, z) => isWater(Math.floor(x), Math.floor(z)),
+      elev: r.elev, lift: r.lift, noSide: r.noSide,
+      skip: (i) => r.tunnel[i] || decks.waterSections.has(`${r.index}:${i}`),
       colorTop: (x, z, s) => fade(tmp.copy(cPath).multiplyScalar(0.97 + 0.03 * Math.sin(s * 1.3 + ri)).clone(), x, z),
-      colorSide: (x, z) => fade(tmp.copy(cPathSide).clone(), x, z),
+      colorSide: (x, z, e) => fade(tmp.copy(e > 0.05 ? cBridgeSide : cPathSide).clone(), x, z),
     });
   });
   addMesh(road.build(1), pathMat, { name: 'path' });
@@ -527,7 +417,6 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   const waterDecor = new Map(); // "x,y" → [objects]
   const treeTypes = look.trees;
-  const bridgeTiles = [];
 
   /** Yaw so a building's +z front faces the nearest path tile. */
   function facePath(x, y) {
@@ -553,10 +442,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       const h = hash(map.id, x, y);
       const r01 = (h % 1000) / 1000;
       const deco = decorAt.get(key);
-      if (isPath(x, y)) {
-        if (isWater(x, y)) bridgeTiles.push([x, y]);
-        continue;
-      }
+      if (isPath(x, y)) continue;
       if (deco) {
         if (c === '~' || c === 'B') {
           const list = [];
@@ -595,10 +481,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     }
   }
 
-  // ----- bridges -----------------------------------------------------------------------
-  const bridge = buildBridges(bridgeTiles, isPath, look);
-  if (bridge.solid) solidParts.push(bridge.solid);
-  for (const gl of bridge.glows) glows.push({ ...gl, color: new THREE.Color(gl.color), phase: rand() * 6 });
+  // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
+  if (decks.geometry) solidParts.push(decks.geometry);
+  for (const gl of decks.glows) glows.push({ ...gl, color: new THREE.Color(gl.color), phase: rand() * 6 });
+  const tunnels = buildTunnels(map, look);
+  if (tunnels.geometry) solidParts.push(tunnels.geometry);
 
   // ----- auto lily pads on pond shores (grass-family themes) --------------------------
   if (look.life.koi && waterTiles.length >= 4) {
@@ -648,11 +535,12 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- gates: where monsters come from, what we protect --------------------------------
   // The arch straddles the board edge (0.62 tiles out) so it stays inside the camera frame.
+  // Gates sit where the centreline crosses the board edge (curved tracks meet it at any angle).
   const gateInfo = (g, outward) => {
     const [dx, dy] = g.dir;
-    const k = outward ? 0.56 : -0.56;
-    const gx = g.tx + 0.5 + dx * k;
-    const gz = g.ty + 0.5 + dy * k;
+    const k = outward ? 0.06 : -0.06;
+    const gx = g.x + dx * k;
+    const gz = g.z + dy * k;
     return { x: gx, z: gz, dir: [dx, dy], ry: Math.atan2(dx, dy) };
   };
   for (const e of entrances) {
@@ -737,17 +625,37 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   function buildSlots() {
     const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [] };
-    // pathside: just beside the road, every few tiles
-    for (const list of ordered) {
-      list.forEach(([x, y], i) => {
-        if (!inMap(x, y) || isWater(x, y) || i % 3 !== 1) return;
-        for (const [dx, dy] of DIRS) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (isPath(nx, ny) || isWater(nx, ny) || isLava(nx, ny)) continue;
-          out.pathside.push({ x: x + 0.5 + dx * 0.56, z: y + 0.5 + dy * 0.56, y: 0, ry: Math.atan2(-dx, -dy) });
+    // pathside: just beside the road, every ~1.6 tiles along the centreline, both sides
+    for (const r of plan.roads) {
+      let acc = 0;
+      for (let i = 1; i < r.pts.length - 1; i++) {
+        const [x, z] = r.pts[i];
+        acc += Math.hypot(x - r.pts[i - 1][0], z - r.pts[i - 1][1]);
+        if (acc < 1.6) continue;
+        acc = 0;
+        if (r.tunnel[i] || r.elev[i] > 0.02 || !inMap(Math.floor(x), Math.floor(z))) continue;
+        const a = r.pts[i - 1];
+        const b = r.pts[i + 1];
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const nx = -(b[1] - a[1]) / l;
+        const nz = (b[0] - a[0]) / l;
+        for (const sd of [-1, 1]) {
+          const px = x + nx * sd * 0.66;
+          const pz = z + nz * sd * 0.66;
+          const tx = Math.floor(px);
+          const tz = Math.floor(pz);
+          if (!inMap(tx, tz) || isWater(tx, tz) || isLava(tx, tz)) continue;
+          // stay off every other road
+          let clear = true;
+          for (const o of plan.roads) {
+            for (let k = 0; k < o.pts.length && clear; k += 2) {
+              if (o === r && Math.abs(k - i) < 8) continue;
+              if (Math.hypot(o.pts[k][0] - px, o.pts[k][1] - pz) < 0.75) clear = false;
+            }
+          }
+          if (clear) out.pathside.push({ x: px, z: pz, y: 0, ry: Math.atan2(-nx * sd, -nz * sd) });
         }
-      });
+      }
     }
     for (let y = Y0; y < Y0 + EH; y++) {
       for (let x = X0; x < X0 + EW; x++) {
@@ -775,10 +683,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       }
     }
     for (const e of entrances) {
-      // torii two tiles out (the spawn gate sits one tile out)
-      const ox = e.tx - e.dir[0] * 2.5;
-      const oy = e.ty - e.dir[1] * 2.5;
-      out.entrance.push({ x: ox + 0.5, z: oy + 0.5, y: PATH_H, ry: Math.atan2(e.dir[0], e.dir[1]), s: 1 });
+      // torii two tiles out along the road (the spawn gate sits on the board edge)
+      out.entrance.push({ x: e.x - e.dir[0] * 2.0, z: e.z - e.dir[1] * 2.0, y: PATH_H, ry: Math.atan2(e.dir[0], e.dir[1]), s: 1 });
     }
     return out;
   }
@@ -831,8 +737,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     exits,
     /** Gate markers (1 tile outside the board): { kind: 'spawn'|'goal', x, z, dir, color }. */
     gates,
-    /** Smooth road centrelines in world coords (one per path, extended off-board). */
+    /** Road centreline pieces in world coords (the canonical tracks, run out past the board, tunnels cut out). */
     roads,
+    /** Drawing plan per track (points, elevation, tunnel flags) and tunnel portals. */
+    plan,
+    portals: tunnels.portals,
     waterDecor,
     waterTiles: waterTiles.filter(([x, y]) => inMap(x, y) && !isPath(x, y)),
     isWater: (x, y) => isWater(x, y),
@@ -875,7 +784,10 @@ function valueNoise(x, y, seed) {
  * Appends a road ribbon to `md`.
  * @param {MeshData} md accumulator (with uv)
  * @param {number[][]} pts centreline [[x, z], ...]
- * @param {object} o { half, bevel, h, seed, skipAt(x,z), colorTop(x,z,s), colorSide(x,z) }
+ * @param {object} o { half, bevel, h, seed, colorTop(x,z,s), colorSide(x,z,elev),
+ *   elev?: number[] (overpass height per point), lift?: number[] (flat-junction lift, 0/1),
+ *   noSide?: boolean[] (no bevels: the upper pass of a flat junction),
+ *   skip?(i) (section i-1→i not drawn: tunnels, plank decks), skipAt?(x,z) (legacy) }
  */
 export function buildRibbon(md, pts, o) {
   if (pts.length < 2) return;
@@ -897,21 +809,27 @@ export function buildRibbon(md, pts, o) {
     if (i > 0) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
     const nx = -tz;
     const nz = tx;
-    const hl = o.half + wob(s, 0);
-    const hr = o.half + wob(s, 1);
+    const e = o.elev ? o.elev[i] || 0 : 0;
+    const k = Math.min(1, e / 0.15); // 0 on the ground → 1 on a raised deck
+    const top = o.h + e + (o.lift ? o.lift[i] * 0.006 : 0);
+    const bevel = o.bevel * (1 - k) + 0.015 * k;
+    const bottom = -0.012 * (1 - k) + (top - 0.13) * k;
+    const hl = o.half + wob(s, 0) * (1 - k);
+    const hr = o.half + wob(s, 1) * (1 - k);
     const ct = o.colorTop(p[0], p[1], s);
-    const cs = o.colorSide(p[0], p[1]);
+    const cs = o.colorSide(p[0], p[1], e);
     // normals of the bevels (outward + up)
-    const bl = norm3([nx * o.h, o.bevel, nz * o.h]);
-    const br = norm3([-nx * o.h, o.bevel, -nz * o.h]);
+    const bl = norm3([nx * (top - bottom), bevel, nz * (top - bottom)]);
+    const br = norm3([-nx * (top - bottom), bevel, -nz * (top - bottom)]);
     sections.push({
       s,
       x: p[0], z: p[1],
+      noSide: !!(o.noSide && o.noSide[i]),
       v: [
-        { p: [p[0] + nx * (hl + o.bevel), -0.012, p[1] + nz * (hl + o.bevel)], c: cs, uv: [s, 1.1], n: bl },
-        { p: [p[0] + nx * hl, o.h, p[1] + nz * hl], c: ct, uv: [s, 1], n: up },
-        { p: [p[0] - nx * hr, o.h, p[1] - nz * hr], c: ct, uv: [s, 0], n: up },
-        { p: [p[0] - nx * (hr + o.bevel), -0.012, p[1] - nz * (hr + o.bevel)], c: cs, uv: [s, -0.1], n: br },
+        { p: [p[0] + nx * (hl + bevel), bottom, p[1] + nz * (hl + bevel)], c: cs, uv: [s, 1.1], n: bl },
+        { p: [p[0] + nx * hl, top, p[1] + nz * hl], c: ct, uv: [s, 1], n: up },
+        { p: [p[0] - nx * hr, top, p[1] - nz * hr], c: ct, uv: [s, 0], n: up },
+        { p: [p[0] - nx * (hr + bevel), bottom, p[1] - nz * (hr + bevel)], c: cs, uv: [s, -0.1], n: br },
       ],
       sideL: bl,
       sideR: br,
@@ -920,8 +838,10 @@ export function buildRibbon(md, pts, o) {
   for (let i = 1; i < sections.length; i++) {
     const A = sections[i - 1];
     const B = sections[i];
+    if (o.skip && o.skip(i)) continue;
     if (o.skipAt && (o.skipAt((A.x + B.x) / 2, (A.z + B.z) / 2))) continue;
     for (let k = 0; k < 3; k++) {
+      if (k !== 1 && (A.noSide || B.noSide)) continue;
       const a0 = A.v[k];
       const a1 = A.v[k + 1];
       const b0 = B.v[k];
@@ -936,77 +856,6 @@ export function buildRibbon(md, pts, o) {
 function norm3(v) {
   const l = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / l, v[1] / l, v[2] / l];
-}
-
-// ---------------------------------------------------------------------------
-// Bridges: plank decks with rails and posts, oriented along the path.
-// ---------------------------------------------------------------------------
-
-function buildBridges(tiles, isPath, look) {
-  const glows = [];
-  if (!tiles.length) return { solid: null, glows };
-  const parts = [];
-  const deck = new THREE.Color(look.bridge.deck);
-  const rail = new THREE.Color(look.bridge.rail);
-  const post = new THREE.Color(look.bridge.post);
-  const add = (geo, x, y, z, color, ry = 0) => {
-    const g = geo.index ? geo.toNonIndexed() : geo;
-    g.deleteAttribute('uv');
-    g.rotateY(ry);
-    g.translate(x, y, z);
-    g.computeVertexNormals();
-    const n = g.attributes.position.count;
-    const arr = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      arr[i * 3] = color.r;
-      arr[i * 3 + 1] = color.g;
-      arr[i * 3 + 2] = color.b;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
-    parts.push(g);
-  };
-  const c2 = new THREE.Color();
-  for (const [x, y] of tiles) {
-    const alongX = isPath(x - 1, y) || isPath(x + 1, y);
-    const alongZ = isPath(x, y - 1) || isPath(x, y + 1);
-    const runX = alongX && !alongZ ? true : !alongZ;
-    const cx = x + 0.5;
-    const cz = y + 0.5;
-    // planks across the walking direction (slightly wider than the road so the ribbon ends tuck under)
-    for (let i = 0; i < 5; i++) {
-      const off = -0.4 + i * 0.2;
-      c2.copy(deck).multiplyScalar(0.92 + ((x * 7 + y * 3 + i) % 4) * 0.04);
-      if (runX) add(new THREE.BoxGeometry(0.19, 0.06, 1.04), cx + off, PATH_H - 0.03, cz, c2);
-      else add(new THREE.BoxGeometry(1.04, 0.06, 0.19), cx, PATH_H - 0.03, cz + off, c2);
-    }
-    // beams under the deck
-    add(new THREE.BoxGeometry(runX ? 1 : 0.08, 0.08, runX ? 0.08 : 1), cx + (runX ? 0 : 0.42), PATH_H - 0.1, cz + (runX ? 0.42 : 0), post);
-    add(new THREE.BoxGeometry(runX ? 1 : 0.08, 0.08, runX ? 0.08 : 1), cx - (runX ? 0 : 0.42), PATH_H - 0.1, cz - (runX ? 0.42 : 0), post);
-    // rails on sides that face water (not path)
-    for (const [dx, dy] of DIRS) {
-      if (isPath(x + dx, y + dy)) continue;
-      const ex = cx + dx * 0.47;
-      const ez = cz + dy * 0.47;
-      const along = dx === 0; // rail runs along x
-      add(new THREE.BoxGeometry(along ? 1.0 : 0.06, 0.05, along ? 0.06 : 1.0), ex, PATH_H + 0.24, ez, rail);
-      add(new THREE.BoxGeometry(along ? 1.0 : 0.04, 0.03, along ? 0.04 : 1.0), ex, PATH_H + 0.12, ez, rail);
-      for (const t of [-0.47, 0.47]) {
-        const px = along ? cx + t : ex;
-        const pz = along ? ez : cz + t;
-        add(new THREE.BoxGeometry(0.07, 0.62, 0.07), px, PATH_H - 0.08, pz, post);
-      }
-      if (look.bridge.lacquer && (x + y) % 3 === 0) {
-        glows.push({ x: ex, y: PATH_H + 0.36, z: ez, color: '#ffcf6b', size: 0.5, flicker: 0.12 });
-        add(new THREE.BoxGeometry(0.09, 0.1, 0.09), ex, PATH_H + 0.3, ez, new THREE.Color('#ffd98a'));
-      }
-    }
-    // piles into the water
-    add(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), cx + (runX ? 0 : 0.42), WATER_Y - 0.25, cz + (runX ? 0.42 : 0), post);
-    add(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), cx - (runX ? 0 : 0.42), WATER_Y - 0.25, cz - (runX ? 0.42 : 0), post);
-  }
-  const solid = mergeGeometries(parts);
-  for (const p of parts) p.dispose();
-  return { solid, glows };
 }
 
 // ---------------------------------------------------------------------------

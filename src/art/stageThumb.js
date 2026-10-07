@@ -1,8 +1,10 @@
 // Top-down mini map for stage / map cards (CONTRACTS §8), Bloons-map-card style:
-// themed ground, light stone road with a border, water with shine, trees / rocks /
-// buildings as symbols, spawn and exit markers.
+// themed ground, light stone road with a border (traced along the map's canonical Tracks v3
+// centrelines: curves, overpasses drawn on top, buried tunnel sections dashed, plank decks
+// over water), water with shine, trees / rocks / buildings as symbols, spawn and exit markers.
 
 import { n, lighten, darken, seeded, blossom, slug } from './svgUtil.js';
+import { mapTracks, pointAtDistance } from '../core/track.js';
 
 /** Colour themes per map theme. */
 export const MAP_THEMES = {
@@ -132,21 +134,76 @@ export function stageThumbSVG(mapDef, { width = 320, height = 200 } = {}) {
     }
   }
   s += fl;
-  // paths: border pass, then fill pass so crossings merge into one road
-  const lines = (mapDef?.paths || []).map((wp) => wp.map(([x, y]) => `${n(X(x + 0.5))},${n(Y(y + 0.5))}`).join(' '));
-  for (const pl of lines) s += `<polyline points="${pl}" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="${n(t * 1.02)}" stroke-linejoin="round" transform="translate(0 ${n(t * 0.1)})"/>`;
-  for (const pl of lines) s += `<polyline points="${pl}" fill="none" stroke="${th.pathEdge}" stroke-width="${n(t * 0.98)}" stroke-linejoin="round"/>`;
-  for (const pl of lines) s += `<polyline points="${pl}" fill="none" stroke="${th.path}" stroke-width="${n(t * 0.74)}" stroke-linejoin="round"/>`;
-  for (const pl of lines) s += `<polyline points="${pl}" fill="none" stroke="${darken(th.path, 0.08)}" stroke-width="${n(t * 0.08)}" stroke-dasharray="${n(t * 0.25)} ${n(t * 0.45)}" stroke-linejoin="round"/>`;
-  // bridges over water
-  let planks = '';
-  for (let ty = 0; ty < H; ty++) {
-    for (let tx = 0; tx < W; tx++) {
-      if (cell(tx, ty) !== 'B') continue;
-      for (let k = 1; k < 4; k++) planks += `M${n(X(tx) + (t * k) / 4)} ${n(Y(ty) + t * 0.12)}v${n(t * 0.76)}M${n(X(tx) + t * 0.12)} ${n(Y(ty) + (t * k) / 4)}h${n(t * 0.76)}`;
+  // paths (Tracks v3: the map's canonical centrelines): border pass, then fill pass so flat
+  // crossings merge into one road; buried tunnel sections are dashed, plank decks are drawn
+  // where the road is over water, and the upper pass of every overpass is redrawn on top.
+  const tracks = mapTracks(mapDef);
+  const pl = (pts) => pts.map(([x, y]) => `${n(X(x))},${n(Y(y))}`).join(' ');
+  const pieces = [];
+  const buried = [];
+  const decks = [];
+  const wet = (x, y) => { const ch = cell(Math.floor(x), Math.floor(y)); return ch === '~' || ch === 'B'; };
+  for (const tr of tracks) {
+    const from = tr.fork ? tr.forkD - 0.2 : 0;
+    const to = tr.join ? tr.joinD + 0.2 : tr.length;
+    let cur = [];
+    let bur = [];
+    let dk = [];
+    tr.points.forEach((p, i) => {
+      const d = tr.cum[i];
+      if (d < from || d > to) return;
+      const hidden = (tr.tunnels || []).some(([a, b]) => d > a && d < b);
+      if (hidden) {
+        if (cur.length) cur.push(p);
+        if (cur.length > 1) pieces.push(cur);
+        cur = [];
+        bur.push(p);
+      } else {
+        if (bur.length > 1) buried.push([...bur, p]);
+        bur = [];
+        cur.push(p);
+      }
+      if (!hidden && wet(p[0], p[1])) dk.push(p);
+      else {
+        if (dk.length > 1) decks.push(dk);
+        dk = [];
+      }
+    });
+    if (cur.length > 1) pieces.push(cur);
+    if (bur.length > 1) buried.push(bur);
+    if (dk.length > 1) decks.push(dk);
+  }
+  const lines = pieces.map(pl);
+  for (const q of buried.map(pl)) s += `<polyline points="${q}" fill="none" stroke="${darken(th.ground, 0.22)}" stroke-width="${n(t * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${q}" fill="none" stroke="${th.path}" stroke-opacity="0.75" stroke-width="${n(t * 0.13)}" stroke-dasharray="${n(t * 0.22)} ${n(t * 0.22)}"/>`;
+  for (const q of lines) s += `<polyline points="${q}" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="${n(t * 1.02)}" stroke-linejoin="round" stroke-linecap="round" transform="translate(0 ${n(t * 0.1)})"/>`;
+  for (const q of lines) s += `<polyline points="${q}" fill="none" stroke="${th.pathEdge}" stroke-width="${n(t * 0.98)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  for (const q of lines) s += `<polyline points="${q}" fill="none" stroke="${th.path}" stroke-width="${n(t * 0.74)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  for (const q of lines) s += `<polyline points="${q}" fill="none" stroke="${darken(th.path, 0.08)}" stroke-width="${n(t * 0.08)}" stroke-dasharray="${n(t * 0.25)} ${n(t * 0.45)}" stroke-linejoin="round"/>`;
+  // plank decks over water
+  for (const q of decks.map(pl)) s += `<polyline points="${q}" fill="none" stroke="#a47148" stroke-width="${n(t * 0.62)}" stroke-dasharray="${n(t * 0.09)} ${n(t * 0.07)}" opacity="0.7"/>`;
+  // overpasses: the raised pass redrawn over the crossing, with a bridge outline
+  for (const c of mapDef?.crossings || []) {
+    if (c.mode !== 'bridge') continue;
+    const pass = c[c.over];
+    const tr = tracks[pass.path];
+    if (!tr) continue;
+    const seg = tr.points.filter((_, i) => Math.abs(tr.cum[i] - pass.d) < 1.0);
+    if (seg.length < 2) continue;
+    const q = pl(seg);
+    s += `<polyline points="${q}" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="${n(t * 1.2)}" transform="translate(0 ${n(t * 0.16)})"/>`;
+    s += `<polyline points="${q}" fill="none" stroke="#6b4428" stroke-width="${n(t * 1.12)}"/>`;
+    s += `<polyline points="${q}" fill="none" stroke="${th.path}" stroke-width="${n(t * 0.76)}"/>`;
+  }
+  // tunnel portals
+  const tmp = {};
+  for (const tr of tracks) {
+    for (const [a, b] of tr.tunnels || []) {
+      for (const d of [a, b]) {
+        pointAtDistance(tr.points, tr.cum, d, tmp);
+        s += `<circle cx="${n(X(tmp.x))}" cy="${n(Y(tmp.y))}" r="${n(t * 0.42)}" fill="#2a2230" stroke="${lighten(th.rock, 0.2)}" stroke-width="${n(t * 0.14)}"/>`;
+      }
     }
   }
-  if (planks) s += `<path d="${planks}" stroke="#a47148" stroke-width="${n(t * 0.06)}" opacity="0.55"/>`;
   // props
   let props = '';
   for (let ty = 0; ty < H; ty++) {
@@ -159,18 +216,25 @@ export function stageThumbSVG(mapDef, { width = 320, height = 200 } = {}) {
   }
   s += props;
   for (const d of mapDef?.decor || []) s += decorSym(d.type, X(d.x + 0.5), Y(d.y + 0.5), t);
-  // spawn / exit markers
-  for (const wp of mapDef?.paths || []) {
-    if (wp.length < 2) continue;
-    const [a, b] = [wp[0], wp[1]];
-    const [y1, z] = [wp[wp.length - 2], wp[wp.length - 1]];
-    const sx = Math.min(Math.max(a[0], 0), W - 1);
-    const sy = Math.min(Math.max(a[1], 0), H - 1);
-    s += arrow(X(sx + 0.5), Y(sy + 0.5), Math.sign(b[0] - a[0]), Math.sign(b[1] - a[1]), t, '#2bb673');
-    const ex = Math.min(Math.max(z[0], 0), W - 1);
-    const ey = Math.min(Math.max(z[1], 0), H - 1);
-    s += `<circle cx="${n(X(ex + 0.5))}" cy="${n(Y(ey + 0.5))}" r="${n(t * 0.38)}" fill="#ff4d6d" stroke="#fff" stroke-width="${n(t * 0.08)}"/>`;
-    s += arrow(X(ex + 0.5), Y(ey + 0.5), Math.sign(z[0] - y1[0]), Math.sign(z[1] - y1[1]), t * 0.6, '#fff');
+  // spawn / exit markers where each road crosses the board edge, pointing along the road
+  const onBoard = (x, y) => x >= 0 && y >= 0 && x <= W && y <= H;
+  for (const tr of tracks) {
+    if (!tr.fork) {
+      const i = Math.max(0, tr.points.findIndex(([x, y]) => onBoard(x, y)));
+      const [px, py] = tr.points[i];
+      const [x, y] = tr.points[Math.min(tr.points.length - 1, i + 6)];
+      s += arrow(X((px + x) / 2), Y((py + y) / 2), x - px, y - py, t, '#2bb673');
+    }
+    if (!tr.join) {
+      let i = tr.points.length - 1;
+      while (i > 0 && !onBoard(tr.points[i][0], tr.points[i][1])) i--;
+      const [x, y] = tr.points[i];
+      const [px, py] = tr.points[Math.max(0, i - 6)];
+      const ex = Math.min(Math.max(x, 0.45), W - 0.45);
+      const ey = Math.min(Math.max(y, 0.45), H - 0.45);
+      s += `<circle cx="${n(X(ex))}" cy="${n(Y(ey))}" r="${n(t * 0.38)}" fill="#ff4d6d" stroke="#fff" stroke-width="${n(t * 0.08)}"/>`;
+      s += arrow(X(ex), Y(ey), x - px, y - py, t * 0.6, '#fff');
+    }
   }
   const label = mapDef?.name ? ` role="img" aria-label="${String(mapDef.name).replace(/"/g, '')}"` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice"${label}>${s}</svg>`;
