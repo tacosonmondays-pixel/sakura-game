@@ -15,7 +15,7 @@ import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/type
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
 
-/** Item tile with the rarity frame applied (components' h() drops CSS variables). */
+/** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
   const wrap = itemTile(id, count, { size, showName: true });
   const tile = wrap.classList.contains('item-tile') ? wrap : wrap.querySelector('.item-tile');
@@ -55,6 +55,11 @@ function discoveredRow(ids) {
 
 function section(title, ...children) {
   return h('section.bt-rsec', h('div.bt-rsec-title', title), ...children);
+}
+
+/** Practice runs (a deep link to a stage still locked on the map) save nothing. */
+function practiceNote() {
+  return h('p.muted.bt-practice-note', { 'data-testid': 'practice-note' }, 'Practice run — this stage is still locked on your map, so nothing was saved: no clear, medal, drops or unlocks.');
 }
 
 /**
@@ -135,13 +140,17 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-win',
       h('div.bt-result-ribbon', 'VICTORY!'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
-      h(
-        'div.bt-medal-row',
-        h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
-        out.firstClear ? h('div.bt-first', 'FIRST CLEAR') : null,
-      ),
+      out.practice
+        ? practiceNote()
+        : h(
+          'div.bt-medal-row',
+          h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
+          out.firstClear ? h('div.bt-first', 'FIRST CLEAR') : null,
+        ),
       summary(),
-      h('div.bt-result-actions', h('button.bt-cta.bt-cta-big', { 'data-testid': 'view-rewards', onclick: () => showRewards() }, 'Rewards', icon('gift', 'bt-ico-sm'))),
+      out.practice
+        ? actions(true)
+        : h('div.bt-result-actions', h('button.bt-cta.bt-cta-big', { 'data-testid': 'view-rewards', onclick: () => showRewards() }, 'Rewards', icon('gift', 'bt-ico-sm'))),
     );
     open(card);
   }
@@ -160,6 +169,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-lose',
       h('div.bt-result-ribbon', 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
+      out.practice ? practiceNote() : null,
       summary(),
       h('div.bt-rsec-title', 'Debrief'),
       h('ul.bt-debrief', (d?.lines || ['The defence fell.']).map((l) => h('li', l))),
@@ -180,6 +190,7 @@ export function createResults(ctx) {
     const gems = out.rewards.filter((r) => r.id === 'gems');
     const others = out.rewards.filter((r) => r.id !== 'gems');
     const blocks = [];
+    if (out.practice) blocks.push(practiceNote());
     if (out.unlockedUnits.length) blocks.push(section('New student', h('div.bt-unlocks', out.unlockedUnits.map(unlockCard))));
     if (gems.length || out.firstClear) {
       blocks.push(section(
@@ -187,12 +198,14 @@ export function createResults(ctx) {
         h('div.bt-tiles', gems.map((r) => rewardTile(r.id, r.count, 64)), out.firstClear && !gems.length ? h('p.muted', 'First clear!') : null),
       ));
     }
-    blocks.push(section(
-      out.eventBonus ? 'Drops · event 2×' : 'Drops',
-      others.length || out.gear.length
-        ? h('div.bt-tiles', others.map((r) => rewardTile(r.id, r.count, 64)))
-        : h('p.muted.bt-empty', 'No drops this time — harder difficulties roll more items.'),
-    ));
+    if (!out.practice) {
+      blocks.push(section(
+        out.eventBonus ? 'Drops · event 2×' : 'Drops',
+        others.length || out.gear.length
+          ? h('div.bt-tiles', others.map((r) => rewardTile(r.id, r.count, 64)))
+          : h('p.muted.bt-empty', 'No drops this time — harder difficulties roll more items.'),
+      ));
+    }
     if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
     if (out.discovered.length) blocks.push(section('Bestiary updated', discoveredRow(out.discovered)));
     const m = mvp();
@@ -201,7 +214,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },
       h('div.bt-result-ribbon', 'REWARDS'),
-      h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
+      h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
       h('div.bt-rewards-body', blocks),
       actions(true),
     );

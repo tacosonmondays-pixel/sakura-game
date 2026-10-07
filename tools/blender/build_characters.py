@@ -11,6 +11,7 @@ per unit (face atlas embedded, everything else vertex-coloured).
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,13 +39,15 @@ DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit=
 
 
 def load_units(path=None):
+    # the dump is UTF-8 (names, titles); Windows would otherwise read it in the ANSI code page
     if path and os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
-    tmp = os.path.join(tempfile.gettempdir(), 'sakura_units.json')
-    subprocess.run(['node', os.path.join(HERE, 'dump_units.mjs'), tmp], check=True, cwd=ROOT)
-    with open(tmp) as f:
-        return json.load(f)
+    with tempfile.TemporaryDirectory(prefix='sakura_units_') as tmpdir:
+        tmp = os.path.join(tmpdir, 'units.json')
+        subprocess.run(['node', os.path.join(HERE, 'dump_units.mjs'), tmp], check=True, cwd=ROOT)
+        with open(tmp, encoding='utf-8') as f:
+            return json.load(f)
 
 
 def reset_scene():
@@ -57,6 +60,15 @@ def reset_scene():
 
 
 def build_unit(unit, out_dir, animations=True, keep_blend=None, lod=False):
+    # the face atlas PNGs live in a private temp folder that is removed once the GLB is written
+    tmpdir = tempfile.mkdtemp(prefix='sakura_face_')
+    try:
+        return _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     t0 = time.time()
     reset_scene()
     M.LEVEL_DROP[0] = 1 if lod else 0
@@ -69,7 +81,6 @@ def build_unit(unit, out_dir, animations=True, keep_blend=None, lod=False):
                weapon_kind=weapon.kind_of(look['weapon']))
 
     # --- face atlas ---
-    tmpdir = tempfile.mkdtemp(prefix='sakura_face_')
     atlas_path = os.path.join(tmpdir, f'{unit["id"]}_face.png')
     cell = 341 if adult else 256
     face.write_atlas({**unit, 'palette': pal, 'look': look, 'adult': adult}, atlas_path, cell_px=cell, eye_v=P['eye_v'])
@@ -128,6 +139,7 @@ def build_unit(unit, out_dir, animations=True, keep_blend=None, lod=False):
     optimize.optimize_glb(out)
     info = export.describe(out)
     if keep_blend:
+        export.pack_images()  # the atlas temp folder is deleted, so the .blend keeps its own copy
         bpy.ops.wm.save_as_mainfile(filepath=keep_blend)
     info['seconds'] = round(time.time() - t0, 1)
     print(f'[build] {unit["id"]}{" (lod)" if lod else ""}: {info["size"] // 1024} KB, {info["vertices"]} verts, {info["primitives"]} prims, bones {info["bones"]}, clips {info["animations"]}, {info["seconds"]}s')

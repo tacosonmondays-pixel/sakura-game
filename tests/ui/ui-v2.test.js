@@ -1,7 +1,10 @@
-// UI V2 pure helpers: account level, rotate-prompt decision, lobby backdrop, glyphs.
-import { describe, it, expect } from 'vitest';
+// UI V2 pure helpers: account level, rotate-prompt decision, hash parsing, lobby backdrop, glyphs.
+import { describe, it, expect, vi } from 'vitest';
 import { accountLevel, accountXpForLevel, ACCOUNT_MAX_LEVEL, glyph } from '../../src/ui/components.js';
-import { shouldPrompt, isLandscapeSize, LANDSCAPE_ONLY_ROUTES } from '../../src/ui/orientation.js';
+import {
+  shouldPrompt, isLandscapeSize, isHandheld, setDismissed, isDismissed, LANDSCAPE_PREFERRED_ROUTES, HANDHELD_MAX_SHORT_SIDE,
+} from '../../src/ui/orientation.js';
+import { parseHash, buildHash } from '../../src/ui/router.js';
 import { lobbyBackdropSVG, themeBackdropSVG } from '../../src/art/backdrops.js';
 import { createProfile } from '../../src/systems/save.js';
 import { UI_ICON_NAMES } from '../../src/art/icons.js';
@@ -37,18 +40,51 @@ describe('accountLevel', () => {
 });
 
 describe('rotate prompt decision', () => {
-  it('only prompts touch devices in portrait', () => {
+  it('only prompts phones / tablets in portrait', () => {
     expect(isLandscapeSize(844, 390)).toBe(true);
     expect(isLandscapeSize(390, 844)).toBe(false);
     expect(shouldPrompt({ touch: false, width: 390, height: 844, route: 'lobby', dismissed: false }).show).toBe(false);
     expect(shouldPrompt({ touch: true, width: 844, height: 390, route: 'lobby', dismissed: false }).show).toBe(false);
-    expect(shouldPrompt({ touch: true, width: 390, height: 844, route: 'lobby', dismissed: false })).toEqual({ show: true, dismissable: true });
+    expect(shouldPrompt({ touch: true, width: 390, height: 844, route: 'lobby', dismissed: false })).toEqual({ show: true, dismissable: true, dismissLabel: 'Continue in portrait' });
   });
-  it('respects dismissal outside battle but never in battle', () => {
+  it('can be dismissed everywhere, battle included ("portrait still works")', () => {
     expect(shouldPrompt({ touch: true, width: 390, height: 844, route: 'lobby', dismissed: true }).show).toBe(false);
-    for (const route of LANDSCAPE_ONLY_ROUTES) {
-      expect(shouldPrompt({ touch: true, width: 390, height: 844, route, dismissed: true })).toEqual({ show: true, dismissable: false });
+    for (const route of LANDSCAPE_PREFERRED_ROUTES) {
+      expect(shouldPrompt({ touch: true, width: 390, height: 844, route, dismissed: false })).toEqual({ show: true, dismissable: true, dismissLabel: 'Play in portrait anyway' });
+      expect(shouldPrompt({ touch: true, width: 390, height: 844, route, dismissed: true }).show).toBe(false);
     }
+  });
+  it('treats only coarse-pointer, phone/tablet-sized screens as handheld', () => {
+    expect(isHandheld({ coarse: true, screenWidth: 390, screenHeight: 844 })).toBe(true); // phone
+    expect(isHandheld({ coarse: true, screenWidth: 1366, screenHeight: 1024 })).toBe(true); // iPad Pro 12.9"
+    expect(isHandheld({ coarse: false, screenWidth: 1280, screenHeight: 800 })).toBe(false); // touchscreen laptop (fine pointer)
+    expect(isHandheld({ coarse: false, screenWidth: 390, screenHeight: 844 })).toBe(false);
+    expect(isHandheld({ coarse: true, screenWidth: 1920, screenHeight: 1080 })).toBe(false); // big touch monitor
+    expect(HANDHELD_MAX_SHORT_SIDE).toBe(1024);
+  });
+  it('setDismissed updates the live state and the session flag together (Settings → Show again)', () => {
+    const session = new Map();
+    vi.stubGlobal('sessionStorage', { getItem: (k) => session.get(k) ?? null, setItem: (k, v) => session.set(k, v), removeItem: (k) => session.delete(k) });
+    try {
+      setDismissed(true);
+      expect(isDismissed()).toBe(true);
+      expect(session.get('sakura-ui-rotate-dismissed')).toBe('1');
+      setDismissed(false);
+      expect(isDismissed()).toBe(false);
+      expect(session.has('sakura-ui-rotate-dismissed')).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('hash parsing', () => {
+  it('round-trips ids and never throws on malformed escapes', () => {
+    expect(parseHash(buildHash('student', { id: 'aoi x', tab: 'level' }))).toEqual({ name: 'student', params: { id: 'aoi x', tab: 'level' } });
+    expect(parseHash('#/student/%E0')).toEqual({ name: 'student', params: { id: '%E0' } });
+    expect(parseHash('#/stage/1-1?difficulty=%E0%A4')).toEqual({ name: 'stage', params: { id: '1-1', difficulty: expect.any(String) } });
+    expect(parseHash('')).toEqual({ name: 'lobby', params: {} });
+    expect(parseHash('#/')).toEqual({ name: 'lobby', params: {} });
   });
 });
 

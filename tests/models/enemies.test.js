@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENEMIES, FAMILIES, FAMILY_ORDER } from '../../src/data/enemies.js';
 import { parsePieceName, ENEMY_FACE_CELLS } from '../../src/models/glbEnemy.js';
-import { readGlbHeader } from './glb.test.js';
+import { readGlbHeader } from './glbHeader.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'models', 'enemies');

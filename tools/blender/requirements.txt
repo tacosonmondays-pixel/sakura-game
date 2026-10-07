@@ -1,0 +1,10 @@
+# Python packages for the Blender model generators (build_characters.py, enemies/build_enemies.py).
+# bpy 4.2 wheels exist only for CPython 3.11 (64-bit), so make the environment with Python 3.11:
+#   py -3.11 -m venv tools/blender/.venv        (Linux/macOS: python3.11 -m venv tools/blender/.venv)
+#   tools/blender/.venv/Scripts/pip install -r tools/blender/requirements.txt   (Linux/macOS: .venv/bin/pip)
+#   tools/blender/.venv/Scripts/python tools/blender/build_characters.py
+# The generators also run `node` (dump_units.mjs, enemies/dump_enemies.mjs), so Node must be on PATH.
+bpy==4.2.0
+# Blender 4.2 itself ships NumPy 1.26; stay on 1.x for its bundled glTF exporter.
+numpy<2
+Pillow

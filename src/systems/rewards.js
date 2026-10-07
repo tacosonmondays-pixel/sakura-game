@@ -7,7 +7,7 @@ import { getItem } from '../data/items.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../data/types.js';
 import { addItems, normalizeList } from './inventory.js';
 import { rollGear, addGear } from './gear.js';
-import { grantUnit, isOwned, stageMedals } from './unlocks.js';
+import { grantUnit, isOwned, stageMedals, isPracticeRun } from './unlocks.js';
 import { track, currentEvent } from './missions.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
@@ -74,16 +74,23 @@ function eventMul(stageId, now) {
  *   stage.firstClear on the very first clear, free unit unlocks, drop rolls
  * - loss: a small coin consolation (40 per wave cleared)
  * - stats, kills and mission tracking (battleWin/battleWinHard/kill/bossKill) are handled here
+ * - practice run (the stage is still locked on the map, see isPracticeRun): the profile is not
+ *   touched at all and the result comes back with `practice: true`
  * @param {object} profile
  * @param {{ stageId, difficulty, won, wave, wavesCleared?, livesLeft, encountered, kills, stats }} result
  * @param {object} rng
  * @param {{ now?: Date }} [opts]
- * @returns {{ firstClear: boolean, newMedal: boolean, medal: string|null, rewards: object[], gear: object[], unlockedUnits: string[], discovered: string[], gemsEarned: number, eventBonus: boolean }}
+ * @returns {{ firstClear: boolean, newMedal: boolean, medal: string|null, rewards: object[], gear: object[], unlockedUnits: string[], discovered: string[], gemsEarned: number, eventBonus: boolean, practice: boolean }}
  */
 export function applyBattleResult(profile, result, rng, { now = new Date() } = {}) {
   const stage = STAGE_MAP[result?.stageId];
-  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false };
+  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false };
   if (!stage) return out;
+  // Deep link to a locked stage: no clears, medals, gems, unlocks, drops, bestiary or missions.
+  if (isPracticeRun(profile, stage.id)) {
+    out.practice = true;
+    return out;
+  }
   const difficulty = DIFFICULTIES[result.difficulty] ? result.difficulty : 'normal';
   const won = !!result.won;
   const encountered = [...new Set([...(result.encountered || []), ...Object.keys(result.kills || {})])];

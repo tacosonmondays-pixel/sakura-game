@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createProfile, migrateProfile, serializeProfile, deserializeProfile, SAVE_VERSION, STARTER_UNITS } from '../../src/systems/save.js';
+import {
+  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
+} from '../../src/systems/save.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 
@@ -123,5 +125,76 @@ describe('serialize / deserialize', () => {
   it('throws Invalid save on garbage', () => {
     const bad = ['', '   ', 'hello world', '!!!!', btoa('not json'), btoa('{"a":1}'), btoa('[1,2]'), btoa('null'), null, 42];
     for (const b of bad) expect(() => deserializeProfile(b)).toThrow('Invalid save');
+  });
+
+  it('refuses a save code from a newer build instead of stripping it', () => {
+    const p = createProfile();
+    p.version = SAVE_VERSION + 1;
+    expect(() => deserializeProfile(serializeProfile(p))).toThrow('Newer save');
+  });
+});
+
+describe('loadSaveText (what store.load keeps a backup of)', () => {
+  it('nothing stored or a clean save: no backup', () => {
+    expect(loadSaveText(null)).toMatchObject({ backup: null, version: null });
+    expect(loadSaveText('').profile.units.hikari).toBeTruthy();
+    const p = createProfile();
+    p.units.yuki = { level: 4 };
+    p.items.mat_rime_common = 3;
+    addGear(p, rollGear(createRng(2), { slot: 'shoes', rarity: 'superRare' }));
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBeNull();
+    expect(r.version).toBe(SAVE_VERSION);
+    expect(r.profile.units.yuki.level).toBe(4);
+    expect(migrationDropsData(p)).toBe(false);
+  });
+
+  it('unreadable text loads fresh and asks for a backup', () => {
+    for (const text of ['{"version":2,"units":', 'not json', '42', 'null', '[1,2]']) {
+      const r = loadSaveText(text);
+      expect(r.backup, text).toBe('corrupt');
+      expect(r.profile.currencies.gems).toBe(2400);
+    }
+  });
+
+  it('a save from a newer build is never migrated: fresh profile + backup', () => {
+    const p = createProfile();
+    p.version = SAVE_VERSION + 1;
+    p.units.futureGirl = { level: 50 };
+    p.currencies.gems = 77;
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBe('newer');
+    expect(r.version).toBe(SAVE_VERSION + 1);
+    expect(r.profile.currencies.gems).toBe(2400);
+    expect(r.profile.units.futureGirl).toBeUndefined();
+  });
+
+  it('a lossy migration (unknown units, items or gear) keeps a backup', () => {
+    const withUnit = createProfile();
+    withUnit.units.futureGirl = { level: 3 };
+    const r = loadSaveText(JSON.stringify(withUnit));
+    expect(r.backup).toBe('lossy');
+    expect(r.profile.units.futureGirl).toBeUndefined();
+    expect(r.profile.units.hikari).toBeTruthy();
+
+    const withItem = createProfile();
+    withItem.items.mat_star_mythic = 2;
+    expect(loadSaveText(JSON.stringify(withItem)).backup).toBe('lossy');
+    withItem.items.mat_star_mythic = 0; // nothing of it to lose
+    expect(loadSaveText(JSON.stringify(withItem)).backup).toBeNull();
+
+    const withGear = createProfile();
+    withGear.gear.g9 = { uid: 'g9', slot: 'gloves', rarity: 'rare', main: { stat: 'atkPct', value: 3 } };
+    expect(loadSaveText(JSON.stringify(withGear)).backup).toBe('lossy');
+
+    expect(loadSaveText(JSON.stringify({ version: 1, currencies: { coins: 5, gems: 9 } })).backup).toBe('lossy'); // stub save
+    expect(loadSaveText('{}').backup).toBeNull();
+  });
+
+  it('notices say whether the backup was kept', () => {
+    for (const reason of ['corrupt', 'newer', 'lossy']) {
+      expect(backupNotice(reason)).toMatch(/kept as a backup/);
+      expect(backupNotice(reason, false)).toMatch(/no backup could be made/);
+    }
   });
 });

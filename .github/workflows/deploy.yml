@@ -10,13 +10,19 @@ permissions:
   pages: write
   id-token: write
 
+# Queue deploys instead of cancelling one that is already publishing (a cancelled Pages
+# deployment can leave the site half-updated).
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Shared runners are slow and noisy: tests read CI to relax wall-clock timing asserts
+      # (tests/sim/perf.test.js). GitHub sets it already; this keeps it explicit.
+      CI: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

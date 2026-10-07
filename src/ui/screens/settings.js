@@ -1,5 +1,5 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (ranges, auto start, default speed) and save data
+// motion), audio, battle defaults (forbidden zones, auto start, default speed) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
@@ -38,7 +38,11 @@ export function render(root, params = {}) {
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
-  return () => off();
+  return () => {
+    off();
+    stopFullscreenWatch?.();
+    stopFullscreenWatch = null;
+  };
 }
 
 function build(redraw) {
@@ -84,7 +88,7 @@ function build(redraw) {
 
   wrap.appendChild(h('section.panel',
     h('h3.panel-title', 'Battle'),
-    row('Show ranges', 'Range circles for every girl while placing and selecting.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
+    row('Show forbidden zones', 'While you place a girl, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
     row('Auto start waves', 'Next wave starts automatically after a short pause.', toggle(s.autoStart, (v) => { s.autoStart = v; save(); }, 'autoStart')),
     row('Default speed', 'Game speed when a battle starts.', segmented(BATTLE.speeds.map(String), String(s.defaultSpeed || 1), (v) => { s.defaultSpeed = Number(v); save(); redraw(); }, Object.fromEntries(BATTLE.speeds.map((x) => [String(x), `${x}×`])), 'speed')),
   ));
@@ -98,6 +102,9 @@ function row(label, desc, control) {
   return h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', label), desc ? h('div.ma-set-desc', desc) : null), h('div.ma-set-control', control));
 }
 
+/** Removes the fullscreen listener of the Display section currently on screen. */
+let stopFullscreenWatch = null;
+
 /** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint. */
 function displaySection() {
   const fsBtn = button('Fullscreen', { kind: 'primary', small: true, icon: 'fullscreen', testid: 'set-fullscreen' });
@@ -108,7 +115,15 @@ function displaySection() {
     fsBtn.querySelector('.btn-label').textContent = on ? 'Exit fullscreen' : 'Fullscreen';
     fsBtn.querySelector('.btn-icon').innerHTML = glyph(on ? 'exitFullscreen' : 'fullscreen');
   };
+  // one listener per screen: a rebuilt section (or leaving Settings) drops the previous one
+  stopFullscreenWatch?.();
+  let live = true;
+  stopFullscreenWatch = () => {
+    live = false;
+    document.removeEventListener('fullscreenchange', paint);
+  };
   import('../orientation.js').then((o) => {
+    if (!live) return;
     orientation = o;
     if (!o.canFullscreen()) {
       fsBtn.disabled = true;
@@ -127,9 +142,8 @@ function displaySection() {
     kind: 'ghost', small: true, icon: 'rotate', testid: 'set-rotate',
     onClick: async () => {
       try {
-        sessionStorage.removeItem('sakura-ui-rotate-dismissed');
         const o = await import('../orientation.js');
-        o.update?.();
+        o.setDismissed(false);
         toast('The rotate reminder will show again in portrait', 'good');
       } catch {
         toast('Could not reset the reminder', 'bad');
@@ -139,7 +153,7 @@ function displaySection() {
   return h('section.panel', { 'data-section': 'display' },
     h('h3.panel-title', 'Display'),
     h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', 'Fullscreen'), fsDesc), h('div.ma-set-control', fsBtn)),
-    row('Landscape mode', 'Sakura Sentinels is designed for phones held sideways. On touch devices a reminder appears in portrait; you can dismiss it outside battles.', rotate),
+    row('Landscape mode', 'Sakura Sentinels is designed for phones held sideways. On phones and tablets a reminder appears in portrait; dismiss it to keep playing in portrait.', rotate),
     row('Install', 'Add the game to your home screen for an app-like, full-screen launch (Android: browser menu → Install app; iPhone: Share → Add to Home Screen).', null),
   );
 }
@@ -219,9 +233,11 @@ function saveSection(redraw) {
     let preview;
     try {
       preview = deserializeProfile(text);
-    } catch {
+    } catch (e) {
       status.classList.add('bad');
-      status.textContent = 'That is not a valid Sakura Sentinels save code.';
+      status.textContent = e?.message === 'Newer save'
+        ? 'That save code comes from a newer version of Sakura Sentinels — update the game to import it.'
+        : 'That is not a valid Sakura Sentinels save code.';
       return;
     }
     const units = Object.keys(preview.units || {}).length;

@@ -1,15 +1,18 @@
-// Landscape-first helpers (owner: ui). On touch devices held in portrait we show a friendly
-// "Please rotate your device 🌸" overlay with an animated phone; non-battle screens can
-// dismiss it. In fullscreen / installed PWA mode we try screen.orientation.lock('landscape').
+// Landscape-first helpers (owner: ui). On phones and tablets held in portrait we show a friendly
+// "Please rotate your device 🌸" overlay with an animated phone. It can always be dismissed
+// (portrait still works, CONTRACTS §0); in battle the button reads "Play in portrait anyway".
+// In fullscreen / installed PWA mode we try screen.orientation.lock('landscape').
 // Also exposes the fullscreen toggle used by Settings and the Menu Tab.
 //
-// Pure helpers (shouldPrompt, isLandscapeSize) take plain values so they can be unit-tested
-// without a DOM.
+// Pure helpers (shouldPrompt, isLandscapeSize, isHandheld) take plain values so they can be
+// unit-tested without a DOM.
 import { h } from './dom.js';
 
 const DISMISS_KEY = 'sakura-ui-rotate-dismissed';
-/** Routes where the overlay cannot be dismissed (the battle really needs landscape). */
-export const LANDSCAPE_ONLY_ROUTES = ['battle'];
+/** Routes that really prefer landscape: the prompt's dismiss button is worded for battle there. */
+export const LANDSCAPE_PREFERRED_ROUTES = ['battle'];
+/** Largest short screen side (CSS px) still treated as a phone or tablet (iPad Pro 12.9" = 1024). */
+export const HANDHELD_MAX_SHORT_SIDE = 1024;
 
 /** True when width ≥ height (landscape) — also true for square-ish viewports. */
 export function isLandscapeSize(width, height) {
@@ -17,22 +20,31 @@ export function isLandscapeSize(width, height) {
 }
 
 /**
- * Decide whether the rotate prompt should show.
- * @param {{ touch: boolean, width: number, height: number, route: string|null, dismissed: boolean }} s
- * @returns {{ show: boolean, dismissable: boolean }}
+ * Phone / tablet test from plain values: a coarse primary pointer on a screen whose short side
+ * is at most HANDHELD_MAX_SHORT_SIDE. Touchscreen laptops (fine primary pointer) and big touch
+ * monitors do not count.
+ * @param {{ coarse: boolean, screenWidth: number, screenHeight: number }} s
  */
-export function shouldPrompt({ touch, width, height, route, dismissed }) {
-  const portrait = !isLandscapeSize(width, height);
-  const forced = LANDSCAPE_ONLY_ROUTES.includes(route || '');
-  if (!touch || !portrait) return { show: false, dismissable: !forced };
-  if (forced) return { show: true, dismissable: false };
-  return { show: !dismissed, dismissable: true };
+export function isHandheld({ coarse, screenWidth, screenHeight }) {
+  return !!coarse && Math.min(screenWidth, screenHeight) <= HANDHELD_MAX_SHORT_SIDE;
 }
 
-export function isTouchDevice() {
+/**
+ * Decide whether the rotate prompt should show. It is always dismissable.
+ * @param {{ touch: boolean, width: number, height: number, route: string|null, dismissed: boolean }} s
+ *   touch = a phone or tablet (isHandheld), width/height = the viewport
+ * @returns {{ show: boolean, dismissable: boolean, dismissLabel: string }}
+ */
+export function shouldPrompt({ touch, width, height, route, dismissed }) {
+  const battle = LANDSCAPE_PREFERRED_ROUTES.includes(route || '');
+  const portrait = !isLandscapeSize(width, height);
+  return { show: !!touch && portrait && !dismissed, dismissable: true, dismissLabel: battle ? 'Play in portrait anyway' : 'Continue in portrait' };
+}
+
+/** True on phones and tablets (see isHandheld). */
+export function isHandheldDevice() {
   try {
-    if (navigator.maxTouchPoints > 0) return true;
-    return !!window.matchMedia?.('(pointer: coarse)').matches;
+    return isHandheld({ coarse: !!window.matchMedia?.('(pointer: coarse)').matches, screenWidth: screen.width, screenHeight: screen.height });
   } catch {
     return false;
   }
@@ -146,8 +158,23 @@ function writeDismissed(v) {
   }
 }
 
+/**
+ * Dismiss (true) or bring back (false, Settings → "Show again") the rotate prompt for this
+ * session — memory and sessionStorage together — and re-evaluate it right away.
+ */
+export function setDismissed(v) {
+  writeDismissed(!!v);
+  update();
+}
+
+/** @returns {boolean} the prompt is dismissed for this session */
+export function isDismissed() {
+  return dismissed;
+}
+
 function buildOverlay() {
-  const dismissBtn = h('button.btn.btn-ghost', { onclick: () => { writeDismissed(true); update(); }, 'data-testid': 'rotate-dismiss' }, h('span.btn-label', 'Continue in portrait'));
+  const dismissLabel = h('span.btn-label', 'Continue in portrait');
+  const dismissBtn = h('button.btn.btn-ghost', { onclick: () => setDismissed(true), 'data-testid': 'rotate-dismiss' }, dismissLabel);
   const fsBtn = h('button.btn.btn-yellow', { onclick: async () => { await requestFullscreen(); update(); }, 'data-testid': 'rotate-fullscreen' }, h('span.btn-label', 'Go fullscreen'));
   const el = h(
     'div.rotate-overlay',
@@ -158,16 +185,19 @@ function buildOverlay() {
     h('div.row', canFullscreen() ? fsBtn : null, dismissBtn),
   );
   el.dismissBtn = dismissBtn;
+  el.dismissLabel = dismissLabel;
   return el;
 }
 
 /** Re-evaluate the prompt against the current viewport and route. */
 export function update() {
   if (!overlay) return;
-  const r = shouldPrompt({ touch: isTouchDevice() && !isAutomated(), width: window.innerWidth, height: window.innerHeight, route: currentRoute, dismissed });
+  const handheld = isHandheldDevice();
+  const r = shouldPrompt({ touch: handheld && !isAutomated(), width: window.innerWidth, height: window.innerHeight, route: currentRoute, dismissed });
   overlay.hidden = !r.show;
   overlay.dismissBtn.hidden = !r.dismissable;
-  document.documentElement.classList.toggle('portrait-touch', isTouchDevice() && !isLandscapeSize(window.innerWidth, window.innerHeight));
+  overlay.dismissLabel.textContent = r.dismissLabel;
+  document.documentElement.classList.toggle('portrait-touch', handheld && !isLandscapeSize(window.innerWidth, window.innerHeight));
   return r;
 }
 
@@ -184,8 +214,7 @@ export function initOrientation({ route = null } = {}) {
   const onResize = () => update();
   const onRoute = (e) => {
     currentRoute = e?.detail?.name || null;
-    // Entering battle re-arms the prompt (it cannot be dismissed there anyway).
-    update();
+    update(); // battle words the dismiss button "Play in portrait anyway"
   };
   const onFullscreen = () => {
     if (isFullscreen()) lockLandscape();

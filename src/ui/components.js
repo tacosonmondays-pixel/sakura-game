@@ -251,8 +251,11 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
   return { close, el: dialog };
 }
 
-/** Yes/no dialog. Resolves true on OK, false on cancel / backdrop tap. */
-export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel = 'Cancel', danger = false } = {}) {
+/**
+ * Yes/no dialog. Resolves true on OK, false on cancel / backdrop tap. `okKind` picks the OK
+ * button style (default 'primary'; `danger` wins).
+ */
+export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel = 'Cancel', danger = false, okKind = 'primary' } = {}) {
   return new Promise((resolve) => {
     let settled = false;
     const settle = (v) => {
@@ -265,7 +268,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
       body: text,
       actions: [
         { label: cancel, kind: 'ghost', testid: 'confirm-cancel', onClick: (c) => { settle(false); c(); } },
-        { label: ok, kind: danger ? 'danger' : 'primary', testid: 'confirm-ok', onClick: (c) => { settle(true); c(); } },
+        { label: ok, kind: danger ? 'danger' : okKind, testid: 'confirm-ok', onClick: (c) => { settle(true); c(); } },
       ],
       onClose: () => settle(false),
     });

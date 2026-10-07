@@ -28,12 +28,12 @@ export function put(el, ...kids) {
   return el;
 }
 
-/** CSS custom properties as an inline style string (h() style objects cannot set `--vars`). */
+/** CSS custom properties as an inline style string (null values skipped). */
 export function cssVars(obj) {
   return Object.entries(obj).filter(([, v]) => v != null).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
-/** itemTile() with its rarity colour applied (see INTEGRATION_NOTES: style objects drop `--vars`). */
+/** itemTile() with its rarity colour applied. */
 export function rarityTile(itemId, count = null, opts = {}) {
   const el = itemTile(itemId, count, opts);
   const color = ITEM_RARITIES[getItem(itemId)?.rarity]?.color;

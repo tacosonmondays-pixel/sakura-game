@@ -5,7 +5,7 @@ import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
 
-/** Sets a CSS custom property (h() ignores `--x` keys in style objects). */
+/** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
   if (el && value != null) el.style.setProperty(name, String(value));
   return el;

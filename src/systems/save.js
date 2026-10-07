@@ -9,6 +9,14 @@ import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
 export const SAVE_VERSION = 2;
+/**
+ * Where store.js keeps safety copies of stored saves it could not load as they were: a JSON
+ * list of `{ at, reason, version, raw }` (ISO time, loadSaveText's reason, the save's version,
+ * the untouched stored string).
+ */
+export const BACKUP_KEY = `${SAVE_KEY}.backup`;
+/** Safety copies kept (oldest dropped first). */
+export const MAX_BACKUPS = 3;
 
 export const STARTER_UNITS = ['hikari', 'aoi', 'rei'];
 const HISTORY_LIMIT = 100;
@@ -216,10 +224,17 @@ function cleanMissions(raw) {
   return m;
 }
 
+/** v0/v1 were pre-release stub saves without gacha/progress state: nothing worth keeping. */
+function isStubSave(raw, version) {
+  return version < 2 && !isObj(raw.gacha) && !isObj(raw.progress) && !(isObj(raw.units) && Object.keys(raw.units).length);
+}
+
 /**
  * Upgrade/repair any stored profile. Never throws: missing or corrupt fields are replaced
  * with defaults, unknown units/items are dropped, references (formation, gear owners,
- * secretary) are made consistent, and the starters are always owned.
+ * secretary) are made consistent, and the starters are always owned. It is lossy for saves
+ * from other builds: check `migrationDropsData` / a version above SAVE_VERSION first and keep
+ * the raw text (loadSaveText, deserializeProfile do).
  * @param {any} raw parsed JSON (or anything)
  * @returns {object} Profile
  */
@@ -227,8 +242,7 @@ export function migrateProfile(raw) {
   const fresh = createProfile();
   if (!isObj(raw)) return fresh;
   const version = int(raw.version, 0, 0);
-  // v0/v1 were pre-release stub saves without gacha/progress state: nothing worth keeping.
-  if (version < 2 && !isObj(raw.gacha) && !isObj(raw.progress) && !(isObj(raw.units) && Object.keys(raw.units).length)) return fresh;
+  if (isStubSave(raw, version)) return fresh;
 
   const now = Date.now();
   const p = fresh;
@@ -322,6 +336,65 @@ export function migrateProfile(raw) {
   return p;
 }
 
+/**
+ * True when migrateProfile would leave stored data out: students or items this build does
+ * not know, gear it cannot read, or a whole pre-release stub save.
+ * @param {any} raw parsed profile
+ * @returns {boolean}
+ */
+export function migrationDropsData(raw) {
+  if (!isObj(raw)) return false;
+  if (isStubSave(raw, int(raw.version, 0, 0))) return Object.keys(raw).some((k) => k !== 'version');
+  if (isObj(raw.units) && Object.keys(raw.units).some((id) => !UNIT_MAP[id])) return true;
+  if (isObj(raw.items) && Object.entries(raw.items).some(([id, n]) => !ITEMS[id] && int(n, 0, 0) > 0)) return true;
+  return isObj(raw.gear) && Object.entries(raw.gear).some(([uid, g]) => !cleanGear(g, uid));
+}
+
+/**
+ * Loads the stored save string (pure; store.js does the localStorage side) and says whether
+ * its raw text needs a safety copy (BACKUP_KEY) before the game writes over it. Never throws.
+ * - nothing stored → fresh profile, `backup: null`
+ * - unreadable (not JSON, not an object) → fresh profile, `backup: 'corrupt'`
+ * - written by a newer build (version > SAVE_VERSION) → fresh profile, `backup: 'newer'`
+ * - migration would leave data out (migrationDropsData) → migrated profile, `backup: 'lossy'`
+ * @param {string|null|undefined} text
+ * @returns {{ profile: object, backup: null|'corrupt'|'newer'|'lossy', version: number|null }}
+ */
+export function loadSaveText(text) {
+  if (typeof text !== 'string' || !text.trim()) return { profile: createProfile(), backup: null, version: null };
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { profile: createProfile(), backup: 'corrupt', version: null };
+  }
+  if (!isObj(raw)) return { profile: createProfile(), backup: 'corrupt', version: null };
+  const version = int(raw.version, 0, 0);
+  if (version > SAVE_VERSION) return { profile: createProfile(), backup: 'newer', version };
+  try {
+    return { profile: migrateProfile(raw), backup: migrationDropsData(raw) ? 'lossy' : null, version };
+  } catch {
+    return { profile: createProfile(), backup: 'corrupt', version };
+  }
+}
+
+/**
+ * Player-facing notice after loadSaveText asked for a backup.
+ * @param {'corrupt'|'newer'|'lossy'} reason
+ * @param {boolean} [kept] false when the copy could not be written (storage full)
+ * @returns {string}
+ */
+export function backupNotice(reason, kept = true) {
+  const what = {
+    corrupt: 'Your saved progress could not be read, so a new profile was started.',
+    newer: 'Your save comes from a newer version of Sakura Sentinels, so this version started a new profile instead of changing it.',
+    lossy: 'Your save has students or items this version does not know, so they were left out.',
+  }[reason] || 'Your save could not be loaded as it was.';
+  return kept
+    ? `${what} The original save was kept as a backup on this device.`
+    : `${what} The browser storage is full, so no backup could be made: this session will not be saved over the old data.`;
+}
+
 // ---------------------------------------------------------------------------
 // Import / export (base64 of UTF-8 JSON)
 // ---------------------------------------------------------------------------
@@ -353,7 +426,8 @@ export function serializeProfile(p) {
  * Parse an exported save. Accepts the base64 string (whitespace ignored) or raw JSON.
  * @param {string} text
  * @returns {object} migrated Profile
- * @throws {Error} 'Invalid save' on anything that is not a Sakura Sentinels profile
+ * @throws {Error} 'Invalid save' on anything that is not a Sakura Sentinels profile;
+ *   'Newer save' when a newer build exported it (importing would drop its newer data)
  */
 export function deserializeProfile(text) {
   if (typeof text !== 'string') throw new Error('Invalid save');
@@ -373,6 +447,7 @@ export function deserializeProfile(text) {
   }
   const looksLikeProfile = isObj(parsed) && typeof parsed.version === 'number' && isObj(parsed.units) && isObj(parsed.currencies);
   if (!looksLikeProfile) throw new Error('Invalid save');
+  if (parsed.version > SAVE_VERSION) throw new Error('Newer save');
   return migrateProfile(parsed);
 }
 

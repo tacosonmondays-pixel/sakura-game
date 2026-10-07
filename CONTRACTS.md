@@ -358,10 +358,14 @@ crowns `crown_slime` (rare, Slime Prince), `crown_iron` (superRare, Orc General 
 ```js
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 export const SAVE_VERSION;
+export const BACKUP_KEY = 'sakura-sentinels-save-v1.backup', MAX_BACKUPS = 3; // safety copies [{ at, reason, version, raw }]
 export function createProfile()           // fresh profile: starters owned, 2400 gems, 1 ticket_recruit10, formation set
-export function migrateProfile(raw)        // fills missing fields, upgrades old versions; never throws on partial data
+export function migrateProfile(raw)        // fills missing fields, upgrades old versions; never throws on partial data (lossy for other builds' saves)
+export function migrationDropsData(raw)    // true when migrateProfile would leave unknown units/items/gear (or a stub save) out
+export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version }; newer/corrupt load fresh
+export function backupNotice(reason, kept) // player-facing sentence for store.takeNotice()
 export function serializeProfile(p)        // compact string (base64 JSON) for export
-export function deserializeProfile(text)   // throws Error('Invalid save') on garbage
+export function deserializeProfile(text)   // throws Error('Invalid save') on garbage, Error('Newer save') for a newer build's save
 Profile = {
   version, createdAt,
   currencies: { coins, gems },
@@ -375,7 +379,7 @@ Profile = {
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
-  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
+  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*V2: shade forbidden zones while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
   secretary: unitId,
   stats: { battles, wins, kills, pulls, gemsEarned },
   seenIntro: string[],
@@ -454,7 +458,8 @@ export function expectedSSRRate()        // for the rates screen (includes pity)
 export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count}] (gear boxes resolved to gear)
 export function applyBattleResult(profile, result, rng)
   // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
-  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned }
+  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
+  // practice = the stage is still locked (isPracticeRun): nothing is recorded, the profile is untouched
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -466,6 +471,8 @@ export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
 export function grantUnit(profile, unitId)   // -> { isNew, fragments }
 export function isStageUnlocked(profile, stageId)
+export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
+export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
 export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightmare }
 export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
 export function nextStage(profile)           // first uncleared campaign stage
@@ -709,7 +716,8 @@ coin pops, ult cinematic flash.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal`. Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
+stage plays as a practice run that saves nothing). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy

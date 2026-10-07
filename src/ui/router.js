@@ -15,11 +15,21 @@ export function registerRoute(name, loader) {
   routes.set(name, loader);
 }
 
+/** decodeURIComponent that keeps the raw text for malformed escapes (e.g. "%E0"). */
+function safeDecode(s) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+/** Never throws: a malformed id stays as typed (the screen shows its "not found" state). */
 export function parseHash(hash = location.hash) {
-  const [path, query = ''] = hash.replace(/^#\/?/, '').split('?');
+  const [path, query = ''] = String(hash || '').replace(/^#\/?/, '').split('?');
   const [name = 'lobby', id] = path.split('/');
   const params = Object.fromEntries(new URLSearchParams(query));
-  if (id) params.id = decodeURIComponent(id);
+  if (id) params.id = safeDecode(id);
   return { name: name || 'lobby', params };
 }
 

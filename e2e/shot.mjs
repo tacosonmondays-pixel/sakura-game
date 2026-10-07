@@ -1,14 +1,17 @@
 // Screenshot helper for visual checks.
 //   node e2e/shot.mjs <path> <out.png> [--viewport 1280x720] [--wait <css selector>] [--delay ms] [--eval "<js>"]
 // Starts its own Vite dev server on a free port, so several people can use it at once.
+// Playwright and the browser are found by e2e/browser.mjs (PLAYWRIGHT_MODULE, CHROME_PATH, ...).
 // Examples:
 //   node e2e/shot.mjs /previews/models.html /tmp/models.png --delay 1500
-//   node e2e/shot.mjs "/#/students" /tmp/students.png --viewport 390x844
+//   node e2e/shot.mjs "/#/students" /tmp/students.png --viewport 844x390
 import { createServer } from 'vite';
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { launchChromium } from './browser.mjs';
 
 const args = process.argv.slice(2);
-const [path = '/', out = '/tmp/shot.png'] = args;
+const [path = '/', out = join(tmpdir(), 'shot.png')] = args;
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
@@ -21,7 +24,7 @@ const evalJs = opt('eval', null);
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const { port } = server.httpServer.address();
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const { browser } = await launchChromium();
 const page = await browser.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`); });

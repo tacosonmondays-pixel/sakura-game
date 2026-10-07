@@ -157,6 +157,7 @@ describe('battle loop end to end', () => {
 
   test('a loss marks enemies seen but not discovered and pays consolation coins', () => {
     const profile = createProfile();
+    profile.progress.stages['1-4'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 }; // 1-5 unlocked (not practice)
     const r = runHeadless({ stageId: '1-5', difficulty: 'nightmare', plan: [], seed: 1, maxTime: 600 });
     expect(r.lost).toBe(true);
     const out = applyBattleResult(profile, r.sim.result(), createRng(1));

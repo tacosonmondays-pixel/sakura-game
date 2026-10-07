@@ -7,7 +7,7 @@
 // (campaign, bounty, assault, challenge): medal rows, drop lists, enemy chips, the
 // rewards modal and the formation helpers.
 import '../styles/meta-a.css';
-import { h, clear, screen, panel, button, modal, toast, svgEl, itemTile, unitCard } from '../components.js';
+import { h, clear, screen, panel, button, modal, toast, svgEl, itemTile, unitCard, confirmDialog } from '../components.js';
 import { navigate, buildHash, currentRoute } from '../router.js';
 import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
@@ -22,7 +22,7 @@ import {
 } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon } from '../../art/icons.js';
-import { stageMedals, isStageUnlocked, recommendedFor, isOwned } from '../../systems/unlocks.js';
+import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
@@ -143,24 +143,11 @@ function showGearInfo(gear) {
 }
 
 /**
- * Confirmation popup that resolves true/false (the shared confirmDialog resolves false
- * first because its onClose fires before the button handler resolves).
+ * Confirmation popup for the meta-a screens: the shared confirmDialog with a yellow OK button.
  * @returns {Promise<boolean>}
  */
 export function ask(text, { title = 'Confirm', ok = 'Confirm', cancel = 'Cancel', danger = false } = {}) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (v) => { if (!done) { done = true; resolve(v); } };
-    modal({
-      title,
-      body: typeof text === 'string' ? h('p', text) : text,
-      actions: [
-        { label: cancel, kind: 'ghost', onClick: (c) => { finish(false); c(); } },
-        { label: ok, kind: danger ? 'danger' : 'yellow', testid: 'confirm-ok', onClick: (c) => { finish(true); c(); } },
-      ],
-      onClose: () => finish(false),
-    });
-  });
+  return confirmDialog(text, { title, ok, cancel, danger, okKind: 'yellow' });
 }
 
 /** Rewards popup used after sweeps, purchases, claims. */
@@ -356,7 +343,8 @@ export function render(root, params = {}) {
     root.appendChild(el);
     return;
   }
-  const endless = params.endless === '1' || params.endless === 1 || params.endless === true;
+  // endless on a map only where the Tactical Challenge screen offers it (cleared maps)
+  const endless = (params.endless === '1' || params.endless === 1 || params.endless === true) && canPlayEndless(store.profile, stage.id);
   const title = stage.kind === 'campaign' ? `${stage.id} ${stage.name}` : stage.name;
   const { el, body } = screen(endless ? `Endless · ${title}` : title, { cls: 'ma-stage-screen' });
   root.appendChild(el);

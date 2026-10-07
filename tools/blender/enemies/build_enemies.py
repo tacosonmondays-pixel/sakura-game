@@ -17,6 +17,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,13 +39,15 @@ import families  # noqa: E402
 
 
 def load_data(path=None):
+    # the dump is UTF-8 (names); Windows would otherwise read it in the ANSI code page
     if path and os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
-    tmp = os.path.join(tempfile.gettempdir(), 'sakura_enemies.json')
-    subprocess.run(['node', os.path.join(HERE, 'dump_enemies.mjs'), tmp], check=True, cwd=ROOT)
-    with open(tmp) as f:
-        return json.load(f)
+    with tempfile.TemporaryDirectory(prefix='sakura_enemies_') as tmpdir:
+        tmp = os.path.join(tmpdir, 'enemies.json')
+        subprocess.run(['node', os.path.join(HERE, 'dump_enemies.mjs'), tmp], check=True, cwd=ROOT)
+        with open(tmp, encoding='utf-8') as f:
+            return json.load(f)
 
 
 def reset_scene():
@@ -117,6 +120,15 @@ def max_extent(objs):
 
 
 def build_family(fam, data, out_dir, animations=True, keep_blend=None):
+    # the face atlas PNGs live in a private temp folder that is removed once the GLB is written
+    tmpdir = tempfile.mkdtemp(prefix='sakura_enemy_')
+    try:
+        return _build_family(fam, data, out_dir, tmpdir, animations, keep_blend)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _build_family(fam, data, out_dir, tmpdir, animations, keep_blend):
     t0 = time.time()
     reset_scene()
     defs = [e for e in data['enemies'] if e['model']['base'] == fam or e['family'] == fam]
@@ -133,7 +145,6 @@ def build_family(fam, data, out_dir, animations=True, keep_blend=None):
     if missing:
         print(f'[build] {fam}: props without geometry: {sorted(missing)}')
     # --- face atlas ---
-    tmpdir = tempfile.mkdtemp(prefix='sakura_enemy_')
     atlas_path = os.path.join(tmpdir, f'{fam}_face.png')
     efaces.write_atlas(fam, atlas_path, cell_px=ctx.get('face_px', 128), spec=ctx.get('face_spec'))
     opt_path = os.path.join(tmpdir, f'{fam}_face_opt.png')
@@ -170,6 +181,7 @@ def build_family(fam, data, out_dir, animations=True, keep_blend=None):
     info.update(vertices=stats['vertices'], roles=stats['alpha_roles'], props=sorted(ctx['props_used']), variants=sorted(variants_used),
                 height=ctx['height'], unitScale=1.0 / scale, seconds=round(time.time() - t0, 1), objects=[o.name for o in objs])
     if keep_blend:
+        export.pack_images()  # the atlas temp folder is deleted, so the .blend keeps its own copy
         bpy.ops.wm.save_as_mainfile(filepath=keep_blend)
     print(f"[build] {fam}: {info['size'] // 1024} KB, {info['vertices']} verts, {info['primitives']} prims, bones {info['bones']}, clips {info['animations']}, roles {info['roles']}, {info['seconds']}s")
     return info

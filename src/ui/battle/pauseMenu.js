@@ -1,37 +1,11 @@
-// Pause menu: resume, restart, quit and in-battle settings (quality, tile hints, auto-start,
-// default speed, reduce motion). Settings persist through store.commit().
+// Pause menu: resume, restart, quit and in-battle settings (quality, forbidden-zone shading,
+// auto-start, default speed, reduce motion). Settings persist through store.commit().
 import { h, icon } from './util.js';
-import { modal } from '../components.js';
+import { confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
 import { DIFFICULTIES } from '../../data/types.js';
 
 const QUALITIES = [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']];
-
-/**
- * Confirmation dialog. (components.confirmDialog resolves false on OK because its close()
- * fires onClose before the OK handler resolves — see docs/INTEGRATION_NOTES.md.)
- * @returns {Promise<boolean>}
- */
-export function ask(text, { title = 'Confirm', ok = 'Confirm', cancel = 'Cancel' } = {}) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (v) => {
-      if (!done) {
-        done = true;
-        resolve(v);
-      }
-    };
-    modal({
-      title,
-      body: text,
-      actions: [
-        { label: cancel, kind: 'ghost', testid: 'confirm-cancel', onClick: (c) => { finish(false); c(); } },
-        { label: ok, kind: 'primary', testid: 'confirm-ok', onClick: (c) => { finish(true); c(); } },
-      ],
-      onClose: () => finish(false),
-    });
-  });
-}
 
 export function createPauseMenu(ctx) {
   const el = h('div.bt-overlay.bt-pause-overlay', { 'data-testid': 'pause-menu' });
@@ -81,7 +55,7 @@ export function createPauseMenu(ctx) {
         ctx.renderer.setQuality(q);
       })),
       h('div.bt-set-row', h('span.bt-set-label', 'Default speed'), seg([[1, '1×'], [2, '2×'], [3, '3×']], s.defaultSpeed || 1, (v) => save({ defaultSpeed: Number(v) }))),
-      toggle('Placement hints', 'Glow valid tiles while deploying', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
+      toggle('Forbidden zones', 'Shade where girls cannot stand while deploying', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
       toggle('Auto-start waves', 'Next wave starts by itself', !!ctx.sim.options.autoStart, (v) => {
         ctx.setAutoStart(v);
         render();
@@ -90,7 +64,7 @@ export function createPauseMenu(ctx) {
       h('div.bt-sheet-section', 'Controls'),
       h(
         'ul.bt-help',
-        h('li', h('b', 'Deploy: '), 'drag a card onto the map, or tap a card and then a glowing tile.'),
+        h('li', h('b', 'Deploy: '), 'drag a card onto the map and let go, or tap a card and then the ground. Red shading marks where she cannot stand.'),
         h('li', h('b', 'Upgrade: '), 'tap a girl. Two paths max; only one may pass tier 2.'),
         h('li', h('b', 'Camera: '), 'drag to pan, pinch or scroll to zoom, double-tap to reset.'),
         h('li', h('b', 'Scout: '), 'tap the NEXT strip at the top to see the coming wave and its traits.'),
@@ -99,12 +73,12 @@ export function createPauseMenu(ctx) {
   }
 
   async function restart() {
-    if (!(await ask('Restart this stage from wave 1? Progress in this battle is lost.', { title: 'Restart', ok: 'Restart' }))) return;
+    if (!(await confirmDialog('Restart this stage from wave 1? Progress in this battle is lost.', { title: 'Restart', ok: 'Restart' }))) return;
     ctx.restart();
   }
 
   async function quit() {
-    if (!(await ask('Leave the battle? You will not receive rewards for this run.', { title: 'Quit battle', ok: 'Quit' }))) return;
+    if (!(await confirmDialog('Leave the battle? You will not receive rewards for this run.', { title: 'Quit battle', ok: 'Quit' }))) return;
     ctx.quit();
   }
 

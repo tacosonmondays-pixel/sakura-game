@@ -1,11 +1,12 @@
 // Writes the bestiary (id, family, tier, size, colours, model hints, trait keys) as JSON for
 // the Blender enemy pipeline. Usage: node tools/blender/enemies/dump_enemies.mjs <out.json>
 import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const { ENEMIES, FAMILY_ORDER } = await import(path.join(here, '..', '..', '..', 'src', 'data', 'enemies.js'));
+// import() needs a file:// URL: a plain Windows path (D:\...) is rejected as an unknown URL scheme
+const { ENEMIES, FAMILY_ORDER } = await import(pathToFileURL(path.join(here, '..', '..', '..', 'src', 'data', 'enemies.js')).href);
 const out = {
   families: FAMILY_ORDER,
   enemies: ENEMIES.map((e) => ({

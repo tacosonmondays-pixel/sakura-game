@@ -12,7 +12,7 @@ import { MAP_TIERS } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon } from '../../art/icons.js';
-import { isStageUnlocked, isStageCleared } from '../../systems/unlocks.js';
+import { isStageUnlocked, canPlayEndless } from '../../systems/unlocks.js';
 import { dropGrid, requirementText } from './stage.js';
 
 const CHALLENGE_ID = 'challenge';
@@ -87,7 +87,7 @@ function build() {
     for (const id of ch.stages) {
       const s = STAGE_MAP[id];
       if (!s) continue;
-      const cleared = isStageCleared(profile, id);
+      const cleared = canPlayEndless(profile, id); // = cleared on any difficulty (same rule as battle)
       any ||= cleared;
       const map = safeMap(s.mapId);
       const best = endlessBest(profile, s);

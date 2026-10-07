@@ -139,10 +139,10 @@ function controls() {
   return article('controls', 'Controls', 'basics', 'target', 'Touch and mouse controls for battles and menus.', ['controls', 'drag', 'tap', 'camera', 'zoom', 'speed', 'pause', 'keyboard'], [
     sec('Placing girls',
       list([
-        'Drag a card from the tower bar onto a glowing tile and release to place her.',
-        'Or tap a card, then tap a tile. Tap the card again to cancel.',
-        'Water girls (Sango, Umeko, Nami) light up water tiles instead of land.',
-        'Placement shows her range circle; red means the tile is invalid (path, blocked, wrong terrain or not enough coins).',
+        'Drag a card from the tower bar onto the map and release: she stands exactly where you let go (no grid).',
+        'Or tap a card, then tap the ground. Tap the card again to cancel.',
+        'While you hold a card, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red. Water girls (Sango, Umeko, Nami) stand on water instead of land.',
+        'Placement shows her range circle; a red, shaking ghost means the spot is invalid and a short message says why.',
       ])),
     sec('During a battle',
       table(['Action', 'Touch', 'Mouse'], [

@@ -3,7 +3,7 @@
 // Single Executable Application (SEA) feature. No Electron, no installer: one
 // .exe that embeds the whole web build and serves it on localhost.
 //
-//   node desktop/build.mjs                 # Windows x64 exe (downloads node.exe once)
+//   node desktop/build.mjs                 # Windows x64 exe (downloads node.exe once; build on Windows)
 //   node desktop/build.mjs --platform linux  # Linux binary using the local node
 //   node desktop/build.mjs --skip-web        # reuse the existing dist/
 //
@@ -64,19 +64,7 @@ fs.writeFileSync(assets['__manifest.json'], JSON.stringify({ files, builtAt: new
 const total = Object.values(files).reduce((a, b) => a + b, 0);
 log(`${Object.keys(files).length} files, ${(total / 1e6).toFixed(1)} MB embedded`);
 
-// 3. SEA blob -------------------------------------------------------------------
-const seaConfig = {
-  main: path.join(here, 'launcher.cjs'),
-  output: path.join(work, 'sea-prep.blob'),
-  disableExperimentalSEAWarning: true,
-  useCodeCache: false,
-  assets,
-};
-fs.writeFileSync(path.join(work, 'sea-config.json'), JSON.stringify(seaConfig, null, 2));
-log('generating SEA blob…');
-execFileSync(process.execPath, ['--experimental-sea-config', path.join(work, 'sea-config.json')], { stdio: 'inherit' });
-
-// 4. Runtime binary -------------------------------------------------------------
+// 3. Runtime binary -------------------------------------------------------------
 let binary;
 let target;
 if (platform === 'win') {
@@ -95,6 +83,29 @@ if (platform === 'win') {
   binary = process.execPath;
   target = path.join(out, 'sakura-sentinels');
 }
+
+// 4. SEA blob -------------------------------------------------------------------
+// The blob format is tied to the Node version, so it must be made by the very runtime it is
+// injected into: the pinned node.exe for Windows (it can only run on a Windows host), the
+// local node otherwise. A blob from another version makes the exe fail at start-up.
+const seaConfig = {
+  main: path.join(here, 'launcher.cjs'),
+  output: path.join(work, 'sea-prep.blob'),
+  disableExperimentalSEAWarning: true,
+  useCodeCache: false,
+  assets,
+};
+fs.writeFileSync(path.join(work, 'sea-config.json'), JSON.stringify(seaConfig, null, 2));
+let blobNode = binary;
+if (platform === 'win' && process.platform !== 'win32') {
+  if (process.version !== NODE_VERSION) {
+    throw new Error(`--platform win on ${process.platform} needs node ${NODE_VERSION} to make the SEA blob (this is ${process.version}); build on Windows, or run this script with node ${NODE_VERSION}`);
+  }
+  blobNode = process.execPath; // same version as the pinned node.exe
+}
+log(`generating SEA blob with ${blobNode === process.execPath ? `node ${process.version}` : path.basename(blobNode)}…`);
+execFileSync(blobNode, ['--experimental-sea-config', path.join(work, 'sea-config.json')], { stdio: 'inherit' });
+
 fs.copyFileSync(binary, target);
 fs.chmodSync(target, 0o755);
 

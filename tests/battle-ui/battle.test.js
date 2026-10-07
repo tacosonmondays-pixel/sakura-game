@@ -58,8 +58,22 @@ describe('battle setup', () => {
     const r = parseBattleParams({ stage: '1-1', difficulty: 'weird' }, profile);
     expect(r.error).toBeNull();
     expect(r.difficulty).toBe('normal');
-    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile).endless).toBe(true);
     expect(parseBattleParams({ stage: '3-1' }, profile).practice).toBe(true);
+    expect(parseBattleParams({ stage: '1-1' }, profile).practice).toBe(false);
+  });
+  it('only honours endless=1 where the Tactical Challenge screen offers it', () => {
+    const profile = createProfile();
+    // 1-1 is unlocked but not cleared yet; 8-5 is locked (practice) — no endless on either
+    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile).endless).toBe(false);
+    expect(parseBattleParams({ stage: '8-5', difficulty: 'easy', endless: '1' }, profile)).toMatchObject({ endless: false, practice: true });
+    profile.progress.stages['1-1'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
+    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile).endless).toBe(true);
+    expect(parseBattleParams({ stage: '1-1' }, profile).endless).toBe(false);
+    // the colosseum is endless by nature (a locked one is a practice run)
+    expect(parseBattleParams({ stage: 'challenge' }, profile)).toMatchObject({ endless: true, practice: true });
+    // the sim follows the request
+    const { sim } = createBattleSim(profile, parseBattleParams({ stage: '1-1', endless: '1' }, profile));
+    expect(sim.endless).toBe(true);
   });
   it('creates a playable sim with unitBattleStats', () => {
     const profile = createProfile();

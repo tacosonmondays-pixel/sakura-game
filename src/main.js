@@ -1,5 +1,5 @@
 import './ui/styles/base.css';
-import { registerRoute, startRouter } from './ui/router.js';
+import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 
@@ -25,6 +25,8 @@ registerRoute('settings', () => import('./ui/screens/settings.js'));
 registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] mission hub (Campaign button)
 
 store.load();
+// Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
+window.__sakura = { store };
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   store.commit('app-start');
@@ -33,10 +35,27 @@ try {
 }
 
 document.querySelector('.boot')?.remove();
-startRouter(document.getElementById('app'));
+try {
+  startRouter(document.getElementById('app'));
+} catch (e) {
+  // never leave a blank page: the hashchange listener is already up, so the lobby renders
+  console.error('[main] first route failed, opening the lobby', e);
+  location.replace('#/lobby');
+}
 
-// [ui-v2] landscape-first: rotate prompt on touch portrait + orientation lock in fullscreen/PWA.
-import('./ui/orientation.js').then((o) => { o.initOrientation(); window.__sakura.orientation = o; }).catch((e) => console.warn('[main] orientation helper failed', e));
+// A stored save that could not load as it was (unreadable, from a newer build, or with students /
+// items this build does not know) was copied to a backup key before anything saved over it.
+const saveNotice = store.takeNotice();
+if (saveNotice) {
+  import('./ui/components.js')
+    .then(({ modal }) => modal({ title: saveNotice.kept ? 'Save backup kept' : 'Saving paused', body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
+    .catch((e) => console.warn('[main] save notice failed', e));
+}
+
+// [ui-v2] landscape-first: rotate prompt on phone/tablet portrait + orientation lock in fullscreen/PWA.
+// The first route's 'screenchange' may fire before this import resolves: pass the route in, so a
+// cold load into battle still words the dismiss button for battle.
+import('./ui/orientation.js').then((o) => { o.initOrientation({ route: currentRoute().name }); window.__sakura.orientation = o; }).catch((e) => console.warn('[main] orientation helper failed', e));
 
 // Warm up the character GLBs in the background once the first screen is up: the secretary at
 // full detail (lobby close-up), then the formation at the detail the quality setting needs
@@ -52,6 +71,3 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
-
-// Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
-window.__sakura = { store };

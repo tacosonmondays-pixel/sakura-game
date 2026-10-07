@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
 import { rollStageDrops, applyBattleResult, sweep, canSweep } from '../../src/systems/rewards.js';
-import { ownedUnits, isStageUnlocked, stageMedals, chapterProgress, nextStage, recommendedFor, grantUnit } from '../../src/systems/unlocks.js';
+import { ownedUnits, isStageUnlocked, stageMedals, chapterProgress, nextStage, recommendedFor, grantUnit, isPracticeRun, canPlayEndless } from '../../src/systems/unlocks.js';
 import { createRng } from '../../src/core/rng.js';
 import { getStage, stageEnemies, STAGES } from '../../src/data/stages.js';
 import { DIFFICULTIES } from '../../src/data/types.js';
@@ -101,6 +101,7 @@ describe('applyBattleResult', () => {
 
   it('a loss only marks enemies as seen (no discovery, medals or unlocks)', () => {
     const p = createProfile();
+    p.progress.stages['1-1'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 }; // 1-2 unlocked
     const r = applyBattleResult(p, battle('1-2', 'normal', false), createRng(5));
     expect(r.firstClear).toBe(false);
     expect(r.medal).toBeNull();
@@ -117,13 +118,32 @@ describe('applyBattleResult', () => {
 
   it('boss kills are tracked for weekly commissions', () => {
     const p = createProfile();
+    p.progress.stages['1-4'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 }; // 1-5 unlocked
     applyBattleResult(p, { stageId: '1-5', difficulty: 'normal', won: true, wave: 12, encountered: ['slime_prince'], kills: { slime_prince: 1 }, stats: {} }, createRng(1));
     expect(p.missions.counters.bossKill).toBe(1);
     expect(ownedUnits(p)).toEqual(expect.arrayContaining(['nami', 'sango']));
   });
 
+  it('a practice run of a locked stage (deep link) records nothing', () => {
+    const p = createProfile();
+    expect(isPracticeRun(p, '8-5')).toBe(true);
+    expect(isPracticeRun(p, '1-1')).toBe(false);
+    const before = JSON.parse(JSON.stringify(p));
+    const win = applyBattleResult(p, battle('8-5', 'easy', true), createRng(1));
+    expect(win).toMatchObject({ practice: true, firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0 });
+    const loss = applyBattleResult(p, battle('1-5', 'normal', false), createRng(2));
+    expect(loss.practice).toBe(true);
+    expect(loss.rewards).toEqual([]);
+    // no clear, medal, stats, bestiary, missions, items or currencies: the profile is untouched
+    expect(p).toEqual(before);
+    expect(isStageUnlocked(p, '8-5')).toBe(false);
+    // the normal path still reports practice: false
+    expect(applyBattleResult(p, battle('1-1', 'easy', true), createRng(3)).practice).toBe(false);
+  });
+
   it('challenge stores best wave', () => {
     const p = createProfile();
+    p.progress.stages['2-5'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 }; // challenge unlocked
     applyBattleResult(p, { stageId: 'challenge', difficulty: 'normal', won: false, wave: 18, wavesCleared: 17, encountered: [], kills: {}, stats: {} }, createRng(1));
     applyBattleResult(p, { stageId: 'challenge', difficulty: 'normal', won: false, wave: 9, wavesCleared: 8, encountered: [], kills: {}, stats: {} }, createRng(1));
     expect(p.progress.stages.challenge.bestWave).toBe(17);
@@ -170,6 +190,20 @@ describe('unlocks', () => {
     expect(rec.needs).toEqual([...new Set(withRec.recommended)]);
     for (const cap of rec.needs) expect(Array.isArray(rec.ownedCounters[cap])).toBe(true);
     for (const cap of rec.missing) expect(rec.ownedCounters[cap]).toEqual([]);
+  });
+
+  it('endless runs follow the Tactical Challenge gate (cleared maps, unlocked colosseum)', () => {
+    const p = createProfile();
+    expect(canPlayEndless(p, '1-1')).toBe(false); // unlocked but not cleared
+    expect(canPlayEndless(p, 'challenge')).toBe(false); // needs 2-5
+    expect(canPlayEndless(p, 'nope')).toBe(false);
+    p.progress.stages['1-1'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
+    p.progress.stages['2-5'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+    expect(canPlayEndless(p, '1-1')).toBe(true);
+    expect(canPlayEndless(p, 'challenge')).toBe(true);
+    const res = STAGES.find((s) => s.kind === 'resource');
+    p.progress.stages[res.id] = { easy: true, normal: true, hard: true, nightmare: false, clears: 3 };
+    expect(canPlayEndless(p, res.id)).toBe(false); // bounty/assault arenas never run endless
   });
 
   it('grantUnit gives fragments for duplicates', () => {

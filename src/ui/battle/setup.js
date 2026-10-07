@@ -4,7 +4,7 @@ import { UNIT_MAP } from '../../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
-import { isOwned, isStageUnlocked } from '../../systems/unlocks.js';
+import { isOwned, isPracticeRun, canPlayEndless } from '../../systems/unlocks.js';
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -25,18 +25,21 @@ export function resolveFormation(profile) {
 }
 
 /**
- * Parses route params into a validated battle request.
- * @returns {{ stageId: string|null, difficulty: string, endless: boolean, error: string|null }}
+ * Parses route params into a validated battle request. With a profile, `endless=1` is only
+ * honoured where the Tactical Challenge screen offers it (systems `canPlayEndless`); without
+ * one the params are taken as they are.
+ * @returns {{ stageId: string|null, difficulty: string, endless: boolean, practice: boolean, error: string|null }}
  */
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
-  if (!stage) return { stageId, difficulty: 'normal', endless: false, error: `Unknown stage "${stageId ?? ''}".` };
+  if (!stage) return { stageId, difficulty: 'normal', endless: false, practice: false, error: `Unknown stage "${stageId ?? ''}".` };
   const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
-  const endless = stage.kind === 'challenge' || params.endless === '1' || params.endless === 1 || params.endless === 'true';
-  // Locked stages are gated by the stage-prep screen; a direct link still plays (marked as
-  // practice in the HUD) so deep links and tests keep working.
-  const practice = !!profile && !isStageUnlocked(profile, stageId);
+  const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
+  const endless = stage.kind === 'challenge' || (wantsEndless && (!profile || canPlayEndless(profile, stageId)));
+  // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
+  // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
+  const practice = !!profile && isPracticeRun(profile, stageId);
   return { stageId, difficulty, endless, practice, error: null };
 }
 

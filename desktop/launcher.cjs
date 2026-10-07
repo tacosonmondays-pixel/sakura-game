@@ -60,40 +60,70 @@ if (sea) {
   manifest = JSON.parse(Buffer.from(sea.getAsset('__manifest.json')).toString('utf8'));
 }
 
-function readAsset(rel) {
-  if (sea) {
-    if (!manifest.files[rel]) return null;
-    return Buffer.from(sea.getAsset(rel));
+/**
+ * Returns `readAsset(rel) -> Buffer | null` over the SEA assets listed in the build manifest,
+ * or over a folder on disk. Never throws: names the manifest does not own (including inherited
+ * keys such as 'constructor' or '__proto__') and paths outside the folder are just missing.
+ */
+function createAssetReader({ sea: seaApi = null, manifest: list = null, dir = distDir } = {}) {
+  if (seaApi) {
+    const files = (list && list.files) || {};
+    return (rel) => {
+      if (!Object.prototype.hasOwnProperty.call(files, rel)) return null;
+      try {
+        return Buffer.from(seaApi.getAsset(rel));
+      } catch {
+        return null;
+      }
+    };
   }
-  const full = path.join(distDir, rel);
-  if (!full.startsWith(distDir)) return null;
-  try {
-    return fs.readFileSync(full);
-  } catch {
-    return null;
-  }
+  const root = path.resolve(dir);
+  const inside = root.endsWith(path.sep) ? root : root + path.sep;
+  return (rel) => {
+    const full = path.resolve(root, rel);
+    // separator-aware, so '../dist-other/x' cannot pass as being inside 'dist'
+    if (!full.startsWith(inside)) return null;
+    try {
+      return fs.readFileSync(full);
+    } catch {
+      return null;
+    }
+  };
 }
 
 // ---------------------------------------------------------------------------
 // HTTP server
 // ---------------------------------------------------------------------------
-function handler(req, res) {
-  let url = decodeURIComponent((req.url || '/').split('?')[0]);
+function sendText(res, status, text) {
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' });
+  res.end(text);
+}
+
+function serve(req, res, readAsset) {
+  let url;
+  try {
+    url = decodeURIComponent((req.url || '/').split('?')[0]);
+  } catch {
+    sendText(res, 400, 'Bad request'); // malformed percent-encoding, e.g. '/%'
+    return;
+  }
   if (url === '/__sakura') {
-    res.writeHead(200, { 'content-type': 'text/plain' });
-    res.end(MARKER);
+    sendText(res, 200, MARKER);
     return;
   }
   if (url.endsWith('/')) url += 'index.html';
-  const rel = url.replace(/^\/+/, '').replace(/\\/g, '/');
+  const rel = url.replace(/\\/g, '/').replace(/^\/+/, '');
+  let served = rel;
   let body = readAsset(rel);
-  if (!body && !path.extname(rel)) body = readAsset('index.html'); // SPA-style fallback
+  if (!body && !path.extname(rel)) {
+    served = 'index.html'; // SPA-style fallback
+    body = readAsset(served);
+  }
   if (!body) {
-    res.writeHead(404, { 'content-type': 'text/plain' });
-    res.end('Not found: ' + rel);
+    sendText(res, 404, 'Not found: ' + rel);
     return;
   }
-  const ext = path.extname(rel).toLowerCase();
+  const ext = path.extname(served).toLowerCase(); // the fallback is HTML, not octet-stream
   res.writeHead(200, {
     'content-type': MIME[ext] || 'application/octet-stream',
     'content-length': body.length,
@@ -101,6 +131,21 @@ function handler(req, res) {
   });
   res.end(body);
 }
+
+/** Request handler over `readAsset`; a bad request gets an error status, never a crash. */
+function createHandler(readAsset) {
+  return function handler(req, res) {
+    try {
+      serve(req, res, readAsset);
+    } catch (e) {
+      console.error('[launcher] request failed:', req.url, e && e.message);
+      if (res.headersSent) res.destroy();
+      else sendText(res, 500, 'Internal error');
+    }
+  };
+}
+
+const handler = createHandler(createAssetReader({ sea, manifest }));
 
 function probe(port) {
   return new Promise((resolve) => {
@@ -117,9 +162,9 @@ function probe(port) {
   });
 }
 
-function listen(port) {
+function listen(port, onRequest = handler) {
   return new Promise((resolve, reject) => {
-    const server = http.createServer(handler);
+    const server = http.createServer(onRequest);
     server.once('error', reject);
     server.listen(port, HOST, () => resolve(server));
   });
@@ -199,7 +244,13 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error('Failed to start Sakura Sentinels:', e);
-  process.exitCode = 1;
-});
+// Exported for tests/desktop/launcher.test.js. Inside the exe `require.main` is not set, so the
+// SEA check is what starts the game there; `node desktop/launcher.cjs` starts it via require.main.
+module.exports = { createAssetReader, createHandler, listen, MARKER, PORT };
+
+if (sea || require.main === module) {
+  main().catch((e) => {
+    console.error('Failed to start Sakura Sentinels:', e);
+    process.exitCode = 1;
+  });
+}

@@ -59,6 +59,27 @@ export function isStageUnlocked(profile, stageId) {
 }
 
 /**
+ * A battle on a stage that is still locked on the map (reached through a deep link) is a
+ * practice run: it plays, but `applyBattleResult` records nothing for it.
+ * @returns {boolean}
+ */
+export function isPracticeRun(profile, stageId) {
+  return !isStageUnlocked(profile, stageId);
+}
+
+/**
+ * Endless runs exist where the Tactical Challenge screen offers them: the challenge stage
+ * once it is unlocked, and campaign maps already cleared on any difficulty.
+ * @returns {boolean}
+ */
+export function canPlayEndless(profile, stageId) {
+  const stage = STAGE_MAP[stageId];
+  if (!stage) return false;
+  if (stage.kind === 'challenge') return isStageUnlocked(profile, stageId);
+  return stage.kind === 'campaign' && isStageCleared(profile, stageId);
+}
+
+/**
  * @returns {{ cleared: number, total: number, medals: { easy: number, normal: number, hard: number, nightmare: number } }}
  */
 export function chapterProgress(profile, chapterId) {

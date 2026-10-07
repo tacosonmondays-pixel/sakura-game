@@ -1,22 +1,27 @@
 // End-to-end smoke test: boots the real game in Chromium (SwiftShader WebGL), visits every
-// route with a fresh save, does a 10-pull, plays stage 1-1 on Easy to victory and checks
-// that rewards, medals and bestiary discoveries were saved. Runs at 1280×720 and 390×844.
+// route with a fresh save, does a 10-pull, drags a girl from the tower bar onto the board
+// (real pointer events), plays stage 1-1 on Easy to victory and checks that rewards, medals
+// and bestiary discoveries were saved. Runs at 1280×720 (mouse), 844×390 (landscape phone,
+// touch) and 390×844 (portrait phone, touch).
 //
-//   node e2e/smoke.mjs                 # both viewports
-//   node e2e/smoke.mjs --viewport 390x844 --shots /tmp/smoke   # one viewport + screenshots
+//   node e2e/smoke.mjs                 # all three viewports
+//   node e2e/smoke.mjs --viewport 844x390 --shots /tmp/smoke   # one viewport + screenshots
 //   node e2e/smoke.mjs --prod          # test the production build in dist/ (run `npm run build` first)
 //
-// Exit code 1 if any check fails. Starts its own Vite dev server (like e2e/shot.mjs).
+// Playwright and the browser are found by e2e/browser.mjs: set PLAYWRIGHT_MODULE (or NODE_PATH)
+// when Playwright is not in node_modules, CHROME_PATH / PLAYWRIGHT_CHANNEL to pick the browser
+// (the system Chrome or Edge is used when Playwright's own Chromium is not installed).
+// Exit code 1 if any check fails. Starts its own Vite dev server on a free port (like e2e/shot.mjs).
 import { createServer, preview } from 'vite';
 import { mkdirSync } from 'node:fs';
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { launchChromium } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 };
-const viewports = opt('viewport', null) ? [opt('viewport')] : ['1280x720', '390x844'];
+const viewports = opt('viewport', null) ? [opt('viewport')] : ['1280x720', '844x390', '390x844'];
 const shotsDir = opt('shots', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 
@@ -53,7 +58,15 @@ if (prod) {
 }
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+let browser;
+try {
+  const launched = await launchChromium();
+  browser = launched.browser;
+  log(`browser: ${launched.label}`);
+} catch (e) {
+  await (server.close ? server.close() : new Promise((r) => server.httpServer.close(r)));
+  throw e;
+}
 
 const ROUTES = [
   ['lobby', '#/lobby'],
@@ -86,7 +99,9 @@ const ROUTES = [
 async function runViewport(vp) {
   const [w, hgt] = vp.split('x').map(Number);
   log(`\n=== viewport ${vp} ===`);
-  const context = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 1, hasTouch: w < 600 });
+  // phones are touch devices in either orientation (844×390 is the landscape-first target)
+  const touch = Math.min(w, hgt) < 600;
+  const context = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 1, hasTouch: touch });
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => {
@@ -214,6 +229,97 @@ async function runViewport(vp) {
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
   await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 30000 });
   await page.waitForTimeout(800);
+
+  // Real drag-and-release placement ("release does nothing" was the owner's original bug):
+  // press a tower-bar card, drag it onto open ground and let go → she stands where the pointer
+  // let go. Mouse on desktop, touch on phones. A touch drag aims 46 px above the finger
+  // (TOUCH_LIFT in src/ui/battle/placement.js), so the finger is released that far below the spot.
+  const lift = touch ? 46 : 0;
+  // the battle screen slides in (slow under SwiftShader): aim only once the board stopped moving
+  await page.waitForFunction(() => {
+    for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
+      if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
+    }
+    return true;
+  }, null, { timeout: 15000 }).catch(() => null);
+  const drag = await page.evaluate((liftPx) => {
+    const { sim, renderer, ui } = window.__battle;
+    const unitId = [...sim.loadout.keys()].find((id) => sim.data.unit(id)?.placement === 'land' && sim.cash >= sim.placeCost(id));
+    if (!unitId) return null;
+    const canvas = renderer.canvas;
+    const barTop = ui.bar.el.getBoundingClientRect().top;
+    const rect = canvas.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    const midY = (rect.top + Math.min(rect.bottom, barTop)) / 2;
+    const roomy = (x, y) => [[0, 0], [0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]].every(([dx, dy]) => sim.canPlace(unitId, x + dx, y + dy).ok);
+    let best = null;
+    for (let y = 0.3; y < sim.map.height; y += 0.5) {
+      for (let x = 0.3; x < sim.map.width; x += 0.5) {
+        if (!roomy(x, y)) continue;
+        const s = renderer.worldToScreen(x, y, 0);
+        const rx = s.clientX;
+        const ry = s.clientY + liftPx; // where the pointer is released
+        if (!s.visible || rx < 8 || rx > innerWidth - 8 || s.clientY < 8 || ry > barTop - 8) continue;
+        if (document.elementFromPoint(s.clientX, s.clientY) !== canvas) continue; // not under the HUD
+        const p = renderer.pick(s.clientX, s.clientY);
+        if (!p.inBounds || Math.hypot(p.x - x, p.y - y) > 0.05) continue;
+        const d = Math.hypot(s.clientX - midX, s.clientY - midY);
+        if (!best || d < best.d) best = { x, y, rx, ry, d };
+      }
+    }
+    return best && { unitId, ...best, towers: sim.towers.length };
+  }, lift);
+  if (check(!!drag, 'drag: found open ground on screen for a tower-bar girl')) {
+    const card = page.locator(`[data-testid="card-${drag.unitId}"]`);
+    await card.scrollIntoViewIfNeeded();
+    const box = await card.boundingBox();
+    const sx = box.x + box.width / 2;
+    const sy = box.y + box.height / 2;
+    // up out of the bar first (the bar starts a drag on an upward move), then glide to the spot
+    const route = [1, 2, 3].map((i) => [sx, sy - 10 * i]);
+    for (let i = 1; i <= 15; i++) route.push([sx + ((drag.rx - sx) * i) / 15, sy - 30 + ((drag.ry - (sy - 30)) * i) / 15]);
+    const holding = async () => {
+      // pointermove is dispatched once per animation frame (slow under SwiftShader): let the
+      // ghost catch up with the last move before reading it
+      await page.waitForFunction(([x, y]) => {
+        const l = window.__battle.ui.placement.last;
+        return !!l && Math.hypot(l.x - x, l.y - y) < 0.1;
+      }, [drag.x, drag.y], { timeout: 5000 }).catch(() => null);
+      return page.evaluate(() => {
+        const pl = window.__battle.ui.placement;
+        return { unitId: pl.unitId, mode: pl.mode, ok: pl.last?.ok ?? null, at: pl.last ? [+pl.last.x.toFixed(2), +pl.last.y.toFixed(2)] : null };
+      });
+    };
+    let mid;
+    if (touch) {
+      const cdp = await context.newCDPSession(page);
+      const touchEvent = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
+      await touchEvent('touchStart', sx, sy);
+      for (const [x, y] of route) await touchEvent('touchMove', x, y);
+      mid = await holding();
+      await touchEvent('touchEnd');
+      await cdp.detach();
+    } else {
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      for (const [x, y] of route) await page.mouse.move(x, y);
+      mid = await holding();
+      await page.mouse.up();
+    }
+    await page.waitForTimeout(300);
+    const res = await page.evaluate((id) => {
+      const { sim, ui } = window.__battle;
+      const t = sim.towers.filter((tw) => tw.unitId === id).pop();
+      return { towers: sim.towers.length, at: t ? [+t.x.toFixed(2), +t.y.toFixed(2)] : null, placing: ui.placement.unitId };
+    }, drag.unitId);
+    const how = touch ? 'touch' : 'mouse';
+    check(mid.mode === 'drag' && mid.unitId === drag.unitId && mid.ok === true, `drag (${how}): holding ${drag.unitId}'s card over open ground shows a valid ghost (${JSON.stringify(mid)})`);
+    check(res.towers === drag.towers + 1 && !!res.at && Math.hypot(res.at[0] - drag.x, res.at[1] - drag.y) < 0.25, `drag (${how}): releasing places ${drag.unitId} where the pointer let go (aimed [${drag.x}, ${drag.y}] → ${JSON.stringify(res.at)})`);
+    check(res.placing === null, `drag (${how}): placement ends after the drop`);
+    await shot('battle-drag-placed');
+  }
+  check(!takeErrors().length, 'drag placement: no errors');
+
   // helper installed in the page: place every not-yet-placed girl on her best spot. Placement
   // is free (continuous, placement-v2): candidates are a 0.5-tile lattice of NON-integer points
   // (two integers would be read as a legacy tile call), scored by path coverage.

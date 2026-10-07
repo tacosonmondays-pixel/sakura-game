@@ -36,8 +36,6 @@ export class AmbientSystem {
     this.flocks = [];
     this.glows = terrain.glows;
     this.gates = terrain.gates || [];
-    /** BattleRenderer skips its legacy chevrons when the ambient layer draws the gates. */
-    this.drawsGates = true;
     this.emitters = terrain.emitters.map((e) => ({ ...e, timer: this.rand() * 2 }));
     this.waterTiles = terrain.waterTiles || [];
     if (!terrain.waterTiles) {

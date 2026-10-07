@@ -16,7 +16,7 @@ import { FxSystem } from './fx.js';
 import { AmbientSystem } from './ambient.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
-import { buildTerrain, resolveScenery, PATH_H } from './terrain.js';
+import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 
@@ -168,7 +168,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let insets = { top: 0, right: 0, bottom: 0, left: 0, ...(opts.insets || {}) };
   let flash = { a: 0, decay: 3 };
   let bossVignette = 0;
-  let waveGlow = 1;
   let disposed = false;
   const tapCbs = [];
   const longCbs = [];
@@ -478,9 +477,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
           }
           break;
         }
-        case 'waveStart':
-          waveGlow = 2.2;
-          break;
         case 'won': {
           actors.victory = true;
           const cols = ['#ff6b8b', '#ffd43b', '#4cc9f0', '#b197fc', '#7bd389', '#ffffff'];
@@ -503,47 +499,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   }
 
-  // ----- entrance / exit arrows ---------------------------------------------------------
-  function drawGates() {
-    if (ambient.drawsGates) return; // terrain-v2: the ambient layer draws gate arches, arrows and discs
-    const R = atlas.regions;
-    const gN = batches.groundN;
-    const gA = batches.groundA;
-    const prep = sim.state === 'prep' || sim.state === 'between';
-    const boost = Math.min(1.6, (prep ? 1.25 : 0.8) * (waveGlow > 1 ? waveGlow : 1));
-    const draw = (gate, color, outward) => {
-      const [dx, dz] = gate.dir;
-      const cx = gate.tx + 0.5;
-      const cz = gate.ty + 0.5;
-      const rot = Math.atan2(-dz, dx);
-      for (let k = 0; k < 3; k++) {
-        const f = (time * 0.7 + k / 3) % 1;
-        const off = outward ? f * 1.6 - 0.2 : -1.8 + f * 1.6;
-        const a = Math.sin(f * Math.PI) * 0.95 * boost;
-        gA.push(cx + dx * off, PATH_H + 0.02, cz + dz * off, 0.72, 0.72, R.chevron, color.r, color.g, color.b, Math.min(1, a), rot);
-      }
-      // marker one tile outside the board: a swirling portal for spawns, a bobbing heart for exits
-      const ox = cx + (outward ? dx : -dx) * 1.15;
-      const oz = cz + (outward ? dz : -dz) * 1.15;
-      if (outward) {
-        gN.push(ox, PATH_H + 0.015, oz, 0.95, 0.95, R.disc, color.r, color.g, color.b, 0.35);
-        batches.bbN.push(ox, 0.62 + Math.sin(time * 3) * 0.06, oz, 0.42, 0.42, R.heart, 1, 0.55, 0.68, 1);
-      } else {
-        gN.push(ox, PATH_H + 0.015, oz, 1.0, 1.0, R.disc, 0.35, 0.12, 0.45, 0.55);
-        gA.push(ox, PATH_H + 0.02, oz, 0.95, 0.95, R.rune, 0.85, 0.4, 1, 0.75 * Math.min(1, boost), time * 1.4);
-        gA.push(ox, PATH_H + 0.025, oz, 0.6, 0.6, R.ringThick, color.r, color.g, color.b, 0.5, -time * 2);
-        if (Math.random() < 0.12 * fx.density) {
-          fx.spawn({ batch: 'bbA', uv: R.glow, x: ox + (Math.random() - 0.5) * 0.6, y: 0.1, z: oz + (Math.random() - 0.5) * 0.6, vy: 0.6, s0: 0.14, s1: 0.03, life: 0.9, color: '#c48cff' });
-        }
-      }
-    };
-    const red = new THREE.Color('#ff5d73');
-    const blue = new THREE.Color('#4cc9f0');
-    for (const g of terrain.entrances) draw(g, red, false);
-    for (const g of terrain.exits) draw(g, blue, true);
-  }
-
   // ----- frame ----------------------------------------------------------------------------
+  // (entrance / exit markers are drawn by the ambient layer, AmbientSystem.drawGates)
   function update(dt) {
     if (disposed) return [];
     const d = Math.min(0.1, Math.max(0, dt || 0));
@@ -554,7 +511,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
     for (const b of Object.values(batches)) b.begin();
     terrain.update(time);
     actors.drawGround(d);
-    drawGates();
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -564,7 +520,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.update(d);
     for (const b of Object.values(batches)) b.end();
 
-    waveGlow = Math.max(1, waveGlow - d * 0.8);
     flash.a = Math.max(0, flash.a - d * flash.decay);
     flashEl.style.opacity = flash.a.toFixed(3);
     const bossAlive = sim.enemies.some((e) => e.tier === 'boss' || e.tier === 'miniboss');

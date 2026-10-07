@@ -13,11 +13,18 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      # Shared runners are slow and noisy: tests read CI to relax wall-clock timing asserts
+      # (tests/sim/perf.test.js). GitHub sets it already; this keeps it explicit.
+      CI: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Same version as the node.exe that desktop/build.mjs embeds (NODE_VERSION there).
+          # build.mjs makes the SEA blob with that node.exe itself; this pin keeps the rest of
+          # the toolchain on the same version too.
+          node-version: 22.12.0
           cache: npm
       - run: npm ci
       - run: npm test

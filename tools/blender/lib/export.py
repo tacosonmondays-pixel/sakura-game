@@ -44,6 +44,17 @@ def make_materials(atlas_path, halo_color, halo_emit=2.0):
     return mats
 
 
+def pack_images():
+    """Embeds file-backed images in the open .blend (the face atlases are temp files that are
+    deleted after the build), so a saved --blend still shows its textures."""
+    for img in bpy.data.images:
+        if img.filepath and not img.packed_file:
+            try:
+                img.pack()
+            except RuntimeError as e:
+                print(f'[export] could not pack {img.name}: {e}')
+
+
 def assign_material(obj, mat):
     me = obj.data
     me.materials.clear()

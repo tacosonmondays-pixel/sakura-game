@@ -413,7 +413,7 @@ export function mountBattle(root, params, hooks) {
 
     // first-wave scouting + practice notice
     later(() => warnFor(1), 600);
-    if (req.practice) feed.push('Practice run: this stage is not unlocked on your map yet.', 'info', { ms: 3600 });
+    if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
 
     ctx.modules = modules;
     ctx.results = results;
