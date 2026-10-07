@@ -1,0 +1,334 @@
+SAKURA SENTINELS — COMPLETE AVAILABLE PROJECT HANDOFF
+Export date: October 7, 2026
+Game snapshot: Alpha 1.3.1
+Canonical source commit: fb6e923a08c7ad29ae5005b6d3c29c471a767ae9
+Published game: https://sakura-sentinels.tacosonmondays.chatgpt.site
+
+WHAT THIS PACKAGE CONTAINS
+
+The complete recovered editable source at the recorded commit, its 17-commit
+Git history, game-ready assets, generated build output, the original model
+builders, documentation, tests, offline pose reviews, 39 recovered project
+reference attachments, all 99 visible captured chat messages (indices 127–225),
+the preceding truncated fragment, earlier project summaries, and the V2 roadmap.
+It also contains a portable Windows launcher, a local save/database adapter,
+and 35 uncompressed GLB exports for editing or engine migration.
+
+CHAT COVERAGE
+
+history/available-chat-log.json and .md preserve the 99 available messages from
+the supplied capture. Line wrapping was normalized during transcription.
+history/truncated-opening-fragment.txt preserves the visible predecessor.
+history/earlier-context-summary.txt is retrieved context, not verbatim history.
+The original conversation before index 127 and historical tool-call transcripts
+were not accessible. A complete ChatGPT account/conversation export was not
+available. The package therefore contains the complete AVAILABLE history;
+it must not be described as the entire original chat.
+
+The [ImageDisplayed] marker is retained where the capture supplied an image
+placeholder. Reference files are retained under their recovered original names.
+The exact one-to-one association of every historical image to a message cannot
+be certified. Missing attachments, if any, cannot be inferred from a truncated
+chat; the recovered attachments and their provenance are listed separately.
+Unrelated personal conversations and profile information are excluded.
+
+CURRENT CONTENT VERIFIED FROM SOURCE
+
+32 characters: 25 towers and 7 heroes, including Marina and Amane.
+35 rigged character models: the 32 characters plus 3 beach outfit variants.
+27 joints in each current model, with actual skin weights.
+80 enemy definitions with bestiary illustrations.
+37 map definitions: 22 campaign, 5 resource, 3 boss, 1 tutorial, 6 event.
+The event's 6 maps comprise 5 operations and the expert Leviathan encounter.
+10 beach visual-novel chapters, 3 affection outfits, 32 item definitions,
+11 recruitment banner definitions, 7 elemental damage types.
+
+handoff/current-content-catalog.json is a direct snapshot of the game's real
+exports, including complete unit, enemy, map, item, banner and summer catalogs.
+It supplies exact identifiers, values, descriptions and stage data. It is more
+authoritative for this release than old numerical descriptions in README.md.
+
+WHAT WAS IMPLEMENTED
+
+1. Original tower-defense foundation
+   Original anime characters, 3D chibi defenders and enemies, placement/range,
+   path movement, wave controls, battle cash, upgrading/selling, one deployed
+   hero, signature abilities, cinematics, terrain/water restrictions, enemy
+   trait/element matchups, campaign records, and a living 3D city.
+   The earliest requested scope was one hero, ten towers, one ability.
+
+2. Collection and long-term growth
+   Persistent recruits/copies, training levels, rarity/awakening, talent nodes,
+   knowledge bonuses, equipment crafting/equipping/upgrading/rerolling,
+   materials, inventory, saved teams, wish history, wallet/ledger, recruitment
+   banners/rates/guarantees, daily rotations and limited shop stock.
+   verity777 grants 999,999 Starlight once to the redeeming collection.
+
+3. Alpha 1.1 expansion
+   Twelve enemy families and 80 variants; separate armor, barriers, crystal
+   shells, veil, air, healing, phasing, children/summons and disruption rules.
+   Added fencer, trapper, engineer, familiar keeper, wind dancer, falcon ranger,
+   prism beam, mortar, cleanser, mirror and curse specialists; new heroes with
+   their own signatures. Three battle upgrade branches with a main commitment,
+   a limited secondary branch and a blocked third branch; manual mortar/mirror
+   controls, improved role/counter presentation, free campaign counter unlocks,
+   and bestiary discovery that records spawned enemies.
+
+4. Alpha 1.2 onboarding and reward verification
+   Hikari guides First Bloom Courtyard. A fresh collection has Hikari and Aoi;
+   completing the three-wave tutorial recruits Yuki. Campaign recruits and
+   access appear gradually. The campaign grew to 22 distinct maps, including
+   loops, crossings, shore placement, alternating routes and multiple entrances.
+   Server reward verification replays battle actions and rejects forged clears,
+   invalid placements/cash, out-of-order claims and duplicate payouts.
+   PWA manifest/icons, installation guidance, update activation and save recovery
+   are included. This remains a browser-rendered game.
+
+5. Reset and Safari recovery fixes
+   reset 67 resets only the redeeming collection, returns to the main menu and
+   restarts the tutorial. It resets recruits, growth, inventory, currency and
+   stage records, invalidates old runs and preserves the save identity. Device
+   graphics/audio settings remain separate. Retrying the same reset receipt
+   cannot erase progress earned later.
+   /api/browser-repair refreshes game caches without clearing save identity.
+   Service-worker rules prevent redirected sign-in/navigation responses from
+   poisoning Safari's offline cache. Historical publishing connection failures
+   were resolved in the earlier conversation; the recovered source includes
+   both the reset and recovery changes.
+
+6. Alpha 1.3 progression, deployment and summer event
+   Animated ENTRY/EXIT indicators follow actual routes, including reversed and
+   alternating lanes. Dragging cards or a selected defender onto valid terrain
+   deploys exactly once; camera drags, canceled gestures, pinch and off-board
+   releases do not place. City residents follow the unlocked collection.
+   A free Academy ten-pull after 3 distinct campaign clears introduces upgrading.
+   Replayable Captain's Journal lessons teach the growing collection systems.
+   Resource access starts after 5 chapters; equipment and the event after 6;
+   sandbox after 7; bosses at 8/14/20; awakening after 10. Resource families and
+   higher tiers have their own chapter milestones. See feature-progress.js.
+   Login gifts form a repeating seven-step track, claimed once per Chicago
+   7 PM cycle. Missing days does not reset the track.
+
+   The Beach Day That Got Away has 10 original story chapters, five operations,
+   a temporary event currency/shop, equipment, gifts, affection conversations,
+   and permanent Marina/Amane/Nami beach outfits. Marina comes from story 1.
+   Seaglass Leviathan is a 12-wave expert encounter requiring 20 campaign clears
+   and event completion; its first clear recruits Amane and grants major loot.
+   Server transactions validate story order, energy, purchases, gifts and rewards.
+   Event characters are separate from ordinary recruitment pools.
+   The source sets an event start of 2026-10-03T05:00:00Z, end of
+   2026-11-03T01:00:00Z, and shop end of 2026-11-10T01:00:00Z. These are finite
+   dates, not a permanently active event; the desktop snapshot preserves them.
+
+   A reproducible developed F2P strategy clears the expert encounter at level
+   28, awakening 1, one copy per girl, craftable Rare tier-2 gear, with 45/75
+   hearts. Its level-20 version fails on wave 4. This proves an automated clear,
+   not a player-percentile win rate. Source and strategy records are included.
+
+7. Alpha 1.3.1 character refinement and acting
+   Rebuilt proportions, facial atlas, curved hair masses, clothes and silhouettes.
+   Expanded rigs add spine/chest/neck, clavicles, feet and toes to the original
+   body, head, hair, limbs, hands and weapon joints. Corrections addressed wrist
+   pivots, stray torso weights and stretched underarms in larger gestures.
+   Acting coordinates head, torso, arms, weight shift and legs. Eight viewer
+   poses include walking, pickup/wriggle, shy and curious performances.
+   The runtime animates instances independently and preserves rest rotations,
+   Reduced Motion and combat timing. Actual pose reviews and an acting GIF are
+   preserved in source/docs/model-review/.
+   These improvements do not certify that the user's preferred third-video
+   appearance has been achieved. That next visual standard remains pending.
+
+GRAPHICS, MODELS AND SOUND
+
+The runtime is vanilla HTML/CSS/JavaScript with bundled Three.js r180, Draco
+decoding, Lucide, fonts and licenses. Procedural scene geometry provides city,
+enemies, weapons, scenery, routes, battle effects and hero sequences. Mesh
+characters are GLBs under source/dist/assets/models/; rigs and meshes are real.
+The game-ready files use Draco compression. models-uncompressed/ contains
+decoded copies for authoring, with exact geometry/weight comparisons recorded.
+The face atlas is assigned/switched by the runtime. Character acting is code
+in chibi-acting.js and related modules; it is not exported animation clips.
+No authored .blend project was recovered. Blender Python construction/refinement
+scripts and the supplied base GLB are included to reproduce/edit the pipeline.
+
+Lighting/post processing includes bloom, grading, fog, tone mapping and quality
+settings. Actual-device iPhone frame rates and Windows GPU appearance were not
+measured during packaging. Existing offline image reviews are preserved as
+offline evidence. They are not live device screenshots.
+
+Music and effects currently come from Web Audio synthesis in source/dist/audio.js.
+No completed V2 orchestral soundtrack or recorded WAV/MP3 album was recovered.
+Preserve the audio source; the requested new soundtrack is part of future work.
+
+IMPORTANT REFERENCE DIRECTION
+
+Primary chibi appearance target:
+https://www.youtube.com/watch?v=SA_wqmZoNps
+Supporting references:
+https://www.youtube.com/watch?v=69SUwY7SCJk
+https://www.youtube.com/watch?v=zSCHsJ7Bxok
+
+The saved note says the links had not been watched/verified in that session.
+The later V2 audit recovered titles/descriptions but did not complete playback
+or frame-by-frame analysis. Do not invent tutorial timestamps or claim that
+their modeling techniques have been followed. Apply the next pass to Hikari
+and inspect front/profile/three-quarter, gameplay scale and expressive poses
+before spreading it across the roster. Keep the original characters.
+
+Earlier UniMate and Comfy links were visual references, not imported dependencies:
+https://github.com/Friedrich-M/UniMate
+https://comfy.org/workflows/920c795f693a-920c795f693a/
+
+FUTURE WORK — V2 REQUESTS
+
+references/Sakura_Sentinels_V2_Roadmap_and_Audit.md is a proposal and partial
+evidence audit; it did not modify the game. Preserve its full acceptance matrix.
+Requested next work includes a Blue Archive-inspired full interface/motion
+overhaul, icons for all resources, category-first backpack organization,
+Hikari matching the third video, better map art/shaders/animation, difficulty
+and economy diagnosis, new cute/orchestral music, and improved connected systems.
+Accounts, transfer-code policy, global/clan chat, moderation and the Rosie777
+developer-clan material bot remain roadmap items, not certified live features.
+The suggested developer-sandbox separation is a design recommendation in the
+audit; it was not an implemented change or an additional user approval here.
+Use source inspection and actual interaction evidence to mark each request done.
+Do not replace the existing game with a prototype or treat a button as completion.
+
+WINDOWS LOCAL PLAY MODE ADDED IN THIS EXPORT
+
+Run SakuraSentinels.exe after extracting the package. It launches a bundled
+Windows Node runtime, adapts the unchanged Cloudflare Worker API to local SQLite,
+and opens the game using Edge or Chrome's app window. A default browser is used
+when those browsers are unavailable. The launcher control window must stay open
+while playing; Stop and close shuts down the local service.
+The game assets and local reward verification work without the hosted website.
+This is a packaged web-rendered snapshot, not a Unity/Godot conversion.
+
+Local server address: http://127.0.0.1:43187
+Save and browser profile: %LOCALAPPDATA%\SakuraSentinels\DesktopAlpha1.3.1\
+Database: collection.sqlite (plus SQLite WAL files while open)
+Logs: server-output.log and server-errors.log
+The launcher and local service use a private shutdown token. The service listens
+only on loopback, validates Host/Origin and keeps files/API data scoped.
+The local save starts fresh and is separate from the existing online collection.
+This bundle does not import live player records or recovery keys. Locally owned
+files are editable by the PC owner; the desktop save is not a tamper-proof cloud
+economy. Local changes do not synchronize to production.
+Published website updates do not automatically replace this desktop snapshot.
+Use the online game for the latest deployment, or rebuild/export a new snapshot.
+
+The outer EXE is a self-extracting archive. It asks for an output folder, checks
+its embedded ZIP checksum, unpacks into a new directory and offers local play.
+Existing folders are not overwritten. The matching ZIP contains the same files
+and can be inspected/extracted without running the EXE.
+The native launchers are unsigned x64 PE executables with an asInvoker manifest.
+They use system Windows PowerShell to run the included, auditable scripts.
+Windows 10/11 x64 is the target. Browser installation is not included.
+The bundled official Node v22.16.0 executable was matched to its published
+SHA-256. Its license and release checksums are included in runtime/.
+
+DEVELOPMENT AND HANDOFF
+
+Start by reading this guide, the catalog and the V2 roadmap. source/ is the full
+editable project. Most first-party web modules live directly in source/dist/;
+dist/client and dist/server are generated build output. Preserve .openai/hosting.json
+when continuing the same hosted project. The database schema/migrations are
+included; hosted D1 data and authentication/hosting secrets are not exported.
+
+For normal source development, install an appropriate Node runtime and Git.
+From source/: npm ci; npm test; npm run check; npm run build.
+The included Windows node.exe alone does not include npm; obtain npm with the
+developer's Node installation for source dependency installation/building.
+Optional model reconstruction requires Blender plus the documented script tools.
+Do not assume Blender material nodes will automatically reproduce in the runtime.
+
+To restore the complete recovered Git history:
+git clone history/sakura-sentinels.git.bundle sakura-sentinels
+The bundle contains main and HEAD and verifies as a complete history of the
+recovered source repository. No GitHub repository was created or pushed in this
+export. The earlier GitHub lookup returned no accessible repository; the captured
+context did not establish a successful GitHub handoff.
+If moving to Claude, give it source/, handoff/, history/, and the relevant
+references. This package is an editable-source handoff, not only a playable URL.
+
+KEY FILE MAP
+
+source/dist/data.js                  Shared character/enemy/map/type definitions
+source/dist/engine.js                Combat simulation
+source/dist/combat-expansion.js      Trait interactions and specialist attacks
+source/dist/expansion-enemies.js     Enemy families and extra mechanics
+source/dist/expansion-roster.js      New units, upgrade branches and grants
+source/dist/campaign*.js             Campaign rules, gates, intelligence
+source/dist/adventure-expansion.js   Additional chapter layouts/progression
+source/dist/map-layouts.js           Legal terrain, lanes and placement layout
+source/dist/battle-modes.js          Optional battle modifiers
+source/dist/deployment-input.js      Placement/camera gesture separation
+source/dist/route-markers.js         Entry/exit markers
+source/dist/app.js                   Main UI and navigation
+source/dist/feature-progress.js      Milestone locks and lessons
+source/dist/gacha.js                 Collection state, wishes, rewards/migration
+source/dist/growth.js                Training, gear, awakening, teams
+source/dist/items.js                 Material/equipment catalog and drops
+source/dist/live-ops.js              Energy, rotations and resource operations
+source/dist/summer-content.js        Event data, story, maps, skins, shop
+source/dist/summer-event.js          Event transactions/progression
+source/dist/season-ui.js             Summer/login/journal presentation
+source/dist/village.js               Living city behavior
+source/dist/city-scene.js            City geometry/presentation
+source/dist/chibi-assets.js          GLB loading/cloning
+source/dist/chibi-acting.js          Coordinated rig animation
+source/dist/chibi-materials.js       Character materials/expressions
+source/dist/chibi-weapons.js         Weapon geometry
+source/dist/enemies.js               Enemy models and animation
+source/dist/postfx.js                Bloom/post-processing
+source/dist/audio.js                 Synthesized soundtrack/effects
+source/dist/reset-code.js            Reset-code matching
+source/dist/pwa.js, sw.js             Install/update/cache behavior
+source/server/index.js              Authoritative collection API
+source/server/battle-verification.js Reward replay verification
+source/server/browser-repair.js      Safari/cache recovery endpoint
+source/drizzle/                     SQLite/D1 migrations
+source/scripts/art/                 Blender builders/refinement/rigging
+source/scripts/qa/                  Pose and balance tools
+source/docs/                        Release notes, art prompts and manifests
+source/tests/                       Regression suites
+source/dist/assets/                 Illustrations, models, atlas, stage art, fonts
+source/dist/vendor/                 Bundled libraries, Draco runtime and licenses
+models-uncompressed/                Editing-friendly copies of 35 real models
+references/                         39 recovered original reference attachments
+history/                            Captured chat, summaries and Git bundle
+handoff/                            This guide, provenance and catalog
+desktop/                            Portable local server adapter
+packaging-source/                   EXE bootstrap, extraction, launcher and checks
+verification/                       Actual packaging-time validation evidence
+
+VALIDATION AND EVIDENCE LIMITS
+
+Game: 152 tests pass; first-party JavaScript syntax checks pass; build completes.
+The dependency-free initial test attempt lacked Draco. After dependency install,
+the complete suite passed. Final passing logs are under verification/.
+Desktop adapter: assets/WASM/GLBs, migrations, fresh tutorial, identities,
+idempotent currency code, reset, restart persistence, Host/Origin restrictions,
+protected shutdown and path restrictions were checked against the real API.
+Models: all 35 raw exports are compared with shipped Draco-decoded geometry,
+including normals, UVs, joint indices, skin weights and 27-joint skeleton names.
+Windows bootstraps: PE structure/imports/resources and x64 calls are checked;
+machine-code emulation exercises normal launch and failure handling.
+Archive integrity and complete file counts/checksums are recorded separately.
+
+These checks ran in Linux. Real Windows PowerShell/GUI launching and GPU output
+were not tested here. The official Linux Node v22.16.0 verification binary
+could not execute in this environment; desktop API checks used the available
+Node v24.19.0 runtime. Windows Node's binary authenticity was verified, but
+its actual Windows execution remains a target-device check.
+
+PRESERVATION NOTES
+
+Historical documentation is retained unchanged even when superseded. Older
+manifests have older bone lists; chibi-refinement-manifest.json is the current
+rig-v4 inventory. This guide/catalog and the recorded commit identify the snapshot.
+Third-party uploads are archived reference material, not evidence of shipping
+permissions. Existing original assets and bundled library licenses are retained.
+Video URLs are saved references; the videos themselves were not downloaded.
+No production account data, session tokens, source access tokens or hosted
+environment secrets are intentionally included. The online site was not modified.

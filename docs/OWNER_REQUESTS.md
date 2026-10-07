@@ -254,3 +254,14 @@ Recommendations from that chat worth building (owner asked "any other mechanics?
 - Hero ult cutscene; "effective unit" indicator on stage cards; Bloons-like game modes / contracts; sandbox.
 - Chibis v2 with real skeletons (SkinnedMesh) for expressive acting; map interactions; Link Arts; commander tools.
 - Online features (global chat, clans, transfer codes) need a backend server — plan separately.
+
+## Notes from the Codex Alpha 1.3.1 handoff (docs/codex-handoff/)
+Useful design details from the old build to carry into phase 2 (do not copy code; the package itself was not provided):
+- Tutorial: Hikari guides a 3-wave "First Bloom Courtyard"; fresh save starts with Hikari + Aoi; clearing the tutorial recruits Yuki; recruits unlock gradually.
+- Free Academy 10-pull after 3 distinct campaign clears (introduces upgrading); replayable "Captain's Journal" lessons per system.
+- Feature gates: resource stages after chapter 5, equipment + events after 6, sandbox after 7, bosses at 8/14/20, awakening after 10.
+- Login gifts: repeating 7-step track, one claim per Chicago 7 PM cycle; missing days does NOT reset the track.
+- Codes: verity777 grants 999,999 summon currency once per save; "reset 67" resets the save (recruits, growth, items, currency, records) back to the main menu + tutorial, keeps device settings.
+- Animated ENTRY/EXIT markers follow the real routes (incl. reversed/alternating lanes); drag-to-deploy places exactly once; camera drags / pinch / off-board releases never place.
+- City residents follow the unlocked roster.
+- Summer event "The Beach Day That Got Away": 10 story chapters, 5 operations, temporary currency + shop, gifts/affection talks, Seaglass Leviathan 12-wave expert boss (needs 20 clears), event-only characters Marina/Amane (keep event outfits within the content rule).
