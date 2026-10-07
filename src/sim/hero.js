@@ -148,7 +148,7 @@ export function activateUlt(sim) {
   const effect = ult.effect || { type: 'nova', damage: 0, radius: 0 };
   const scale = ultDamageScale(h);
   const ctx = { rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType, sourceUid: h.uid };
-  const victims = sim.enemies.filter((e) => !e.dead);
+  const victims = sim.enemies.filter((e) => !e.dead && !e.hidden); // tunnels shelter enemies from ults too
 
   if (effect.type === 'nova') {
     const r = effect.radius || 0;

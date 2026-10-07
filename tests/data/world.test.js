@@ -4,6 +4,7 @@ import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
 import { MAPS, getMap, pathTiles, buildableTiles } from '../../src/data/maps.js';
+import { TRACK_STEP } from '../../src/core/track.js';
 import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
 } from '../../src/data/stages.js';
@@ -22,8 +23,8 @@ const ENEMY_KEYS = [
   'size', 'color', 'accent', 'model', 'traits', 'lore', 'counters', 'introducedIn',
 ];
 const ENEMY_OPTIONAL = ['phases'];
-const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths'];
-const MAP_OPTIONAL = ['decor', 'desc'];
+const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
+const MAP_OPTIONAL = ['decor', 'desc', 'concept'];
 const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
@@ -54,32 +55,8 @@ function contractItemIds() {
 const ITEM_IDS = contractItemIds();
 
 const stageOrder = [...CAMPAIGN_IDS, ...stagesOfKind('resource').map((s) => s.id), ...stagesOfKind('boss').map((s) => s.id), 'challenge'];
-const isCrossing = (map) => {
-  const seen = new Map();
-  let crossings = 0;
-  map.paths.forEach((p, pi) => {
-    const tiles = pathTiles({ paths: [p] });
-    for (const t of tiles) {
-      if (seen.has(t) && seen.get(t) !== pi) crossings++;
-      seen.set(t, pi);
-    }
-  });
-  // self-crossings: the same tile visited twice along one path
-  for (const p of map.paths) {
-    const visits = new Map();
-    for (let i = 1; i < p.length; i++) {
-      const [ax, ay] = p[i - 1];
-      const [bx, by] = p[i];
-      const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay));
-      for (let s = i === 1 ? 0 : 1; s <= n; s++) {
-        const k = `${ax + Math.sign(bx - ax) * s},${ay + Math.sign(by - ay) * s}`;
-        visits.set(k, (visits.get(k) || 0) + 1);
-      }
-    }
-    for (const v of visits.values()) if (v > 1) crossings++;
-  }
-  return crossings;
-};
+/** Crossings of a map's paths (self-crossings and between paths), as resolved by defineMap. */
+const isCrossing = (map) => (map.crossings || []).length;
 
 // ---------------------------------------------------------------------------
 // Enemies
@@ -305,26 +282,72 @@ describe('maps', () => {
     }
   });
 
-  it('waypoints are orthogonal, in bounds (±1) and start/end on the edge', () => {
+  it('tracks are smooth dense curves, in bounds (±1.5), entering and leaving across the board edge', () => {
     for (const m of MAPS) {
-      expect(m.paths.length, m.id).toBeGreaterThanOrEqual(1);
-      for (const p of m.paths) {
-        expect(p.length, m.id).toBeGreaterThanOrEqual(2);
+      expect(m.tracks.length, m.id).toBeGreaterThanOrEqual(1);
+      expect(m.paths.length, m.id).toBe(m.tracks.length);
+      const offOrOnEdge = ([x, y]) => x <= 0 || y <= 0 || x >= m.width || y >= m.height;
+      m.tracks.forEach((t, ti) => {
+        const p = t.points;
+        expect(p.length, m.id).toBeGreaterThan(20);
+        expect(t.cum.length, m.id).toBe(p.length);
+        expect(t.length, m.id).toBeCloseTo(t.cum[t.cum.length - 1], 3);
         for (const [x, y] of p) {
-          expect(Number.isInteger(x) && Number.isInteger(y), m.id).toBe(true);
-          expect(x >= -1 && x <= m.width && y >= -1 && y <= m.height, `${m.id} waypoint ${x},${y}`).toBe(true);
+          expect(Number.isFinite(x) && Number.isFinite(y), m.id).toBe(true);
+          expect(x >= -1.5 && x <= m.width + 1.5 && y >= -1.5 && y <= m.height + 1.5, `${m.id} point ${x},${y}`).toBe(true);
         }
+        // densely sampled, and smooth: no corner sharper than a gentle bend between samples
+        let worst = 0;
         for (let i = 1; i < p.length; i++) {
-          const [ax, ay] = p[i - 1];
-          const [bx, by] = p[i];
-          expect(ax === bx || ay === by, `${m.id} diagonal ${ax},${ay}->${bx},${by}`).toBe(true);
-          expect(ax === bx && ay === by, `${m.id} repeated point`).toBe(false);
+          const seg = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+          expect(seg, `${m.id} sample spacing`).toBeLessThanOrEqual(TRACK_STEP * 1.25);
+          expect(seg, `${m.id} repeated point`).toBeGreaterThan(1e-4);
+          if (i < p.length - 1) {
+            const a = Math.atan2(p[i][1] - p[i - 1][1], p[i][0] - p[i - 1][0]);
+            const b = Math.atan2(p[i + 1][1] - p[i][1], p[i + 1][0] - p[i][0]);
+            let d = Math.abs(b - a);
+            if (d > Math.PI) d = 2 * Math.PI - d;
+            worst = Math.max(worst, d);
+          }
         }
-        const onEdge = ([x, y]) => x <= 0 || y <= 0 || x >= m.width - 1 || y >= m.height - 1;
-        expect(onEdge(p[0]), `${m.id} spawn on edge`).toBe(true);
-        expect(onEdge(p[p.length - 1]), `${m.id} exit on edge`).toBe(true);
+        expect(worst * 180 / Math.PI, `${m.id} path ${ti} sharpest bend`).toBeLessThan(14);
+        // spawn / exit off the board (or on its edge) unless the path forks off / joins another one
+        if (!t.fork) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
+        if (!t.join) expect(offOrOnEdge(p[p.length - 1]), `${m.id} path ${ti} exit on the edge`).toBe(true);
+        // tunnels sit inside the path, in order, at least a tile long
+        let prev = 0;
+        for (const [a, b] of t.tunnels) {
+          expect(a >= prev - 1e-6 && b > a + 1 && b <= t.length + 1e-6, `${m.id} tunnel ${a}-${b}`).toBe(true);
+          prev = b;
+        }
+        // overpass profile only where a bridge crossing put it, never negative
+        if (t.elev) for (const e of t.elev) expect(e >= 0 && e <= 0.5, m.id).toBe(true);
+        // the legacy tile-coordinate view is the same curve
+        expect(m.paths[ti].length, m.id).toBe(p.length);
+        expect(m.paths[ti][5][0] + 0.5).toBeCloseTo(p[5][0], 3);
+      });
+    }
+  });
+
+  it('crossings are resolved: bridges keep the lower pass on the ground, tunnels pass underneath', () => {
+    for (const m of MAPS) {
+      for (const c of m.crossings) {
+        expect(['flat', 'bridge', 'tunnel'], m.id).toContain(c.mode);
+        if (c.mode === 'bridge') {
+          const over = m.tracks[c[c.over].path];
+          const under = m.tracks[c[c.over === 'a' ? 'b' : 'a'].path];
+          const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
+          expect(elevAt(over, c[c.over].d), `${m.id} overpass height`).toBeGreaterThan(0.3);
+          expect(elevAt(under, c[c.over === 'a' ? 'b' : 'a'].d), `${m.id} lower pass`).toBeLessThan(0.05);
+        }
       }
     }
+  });
+
+  it('every map has its own silhouette concept', () => {
+    const concepts = MAPS.map((m) => m.concept);
+    for (const [i, c] of concepts.entries()) expect(c.length, MAPS[i].id).toBeGreaterThan(8);
+    expect(new Set(concepts).size).toBe(MAPS.length);
   });
 
   it('paths never run through water (only bridges), blocked tiles or void', () => {

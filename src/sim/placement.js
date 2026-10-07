@@ -7,18 +7,20 @@
 //   * no other girl's footprint overlaps: dist >= r + r2          (else 'occupied')
 //   * the footprint stays off the path band: dist(path) >= PATH_HALF_WIDTH + r   (else 'path')
 //   * it clears map obstacles: trees (discs), rocks / buildings / void (tile squares)  (else 'blocked')
-//   * the terrain under the CENTRE matches her placement type ('~' water, '.' / ',' land)
+//   * the terrain under the CENTRE matches her placement type ('~' / 'B' water, '.' / ',' land)
 //     (else 'needsWater' / 'needsLand'; amphibious girls take either)
-// Bridges are path tiles, so the path band already excludes them.
+// Bridges are path tiles: the band excludes the road itself, and the open water of a 'B' tile
+// the curved road only grazes still takes water girls.
 
 import { segDistSq } from './path.js';
+import { BAND_HALF_WIDTH } from '../core/track.js';
 
 /** Footprint radius (tiles) of an ordinary tower. */
 export const TOWER_RADIUS = 0.42;
 /** Footprint radius (tiles) of a hero (bigger model). */
 export const HERO_RADIUS = 0.5;
 /** Half-width of the forbidden band around every path centre line (tiles). */
-export const PATH_HALF_WIDTH = 0.55;
+export const PATH_HALF_WIDTH = BAND_HALF_WIDTH; // 0.55
 /** Trees block a disc of this radius around their tile centre. */
 export const TREE_RADIUS = 0.45;
 
@@ -62,9 +64,38 @@ export function createPlacementRules(map, pathData) {
     return row[tx];
   };
 
+  // Dense curved centrelines have hundreds of short segments: bucket them in 1-tile cells
+  // (each segment registered in every cell its bbox ± REACH touches). A query only scans its
+  // own cell; a hit closer than REACH is exact, otherwise it falls back to the full scan.
+  const REACH = 2.5;
+  const buckets = new Map();
+  segs.forEach((s, i) => {
+    const x0 = Math.floor(Math.min(s[0], s[2]) - REACH);
+    const x1 = Math.floor(Math.max(s[0], s[2]) + REACH);
+    const y0 = Math.floor(Math.min(s[1], s[3]) - REACH);
+    const y1 = Math.floor(Math.max(s[1], s[3]) + REACH);
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const key = cx * 8192 + cy;
+        let list = buckets.get(key);
+        if (!list) buckets.set(key, (list = []));
+        list.push(i);
+      }
+    }
+  });
+
   /** Distance from a point to the nearest path centre line. */
   const pathDistance = (x, y) => {
     let best = Infinity;
+    const list = buckets.get(Math.floor(x) * 8192 + Math.floor(y));
+    if (list) {
+      for (let k = 0; k < list.length; k++) {
+        const s = segs[list[k]];
+        const d = segDistSq(x, y, s[0], s[1], s[2], s[3]);
+        if (d < best) best = d;
+      }
+      if (best <= REACH * REACH) return Math.sqrt(best);
+    }
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       const d = segDistSq(x, y, s[0], s[1], s[2], s[3]);
@@ -122,7 +153,8 @@ export function createPlacementRules(map, pathData) {
     if (pathDistance(x, y) < PATH_HALF_WIDTH + r - 1e-9) return 'path';
     if (obstacleDistance(x, y) < r - 1e-9) return 'blocked';
     const ch = terrainAt(x, y);
-    const water = ch === '~';
+    // 'B' = a water tile the road crosses or grazes: off the band it is still open water
+    const water = ch === '~' || ch === 'B';
     const land = ch === '.' || ch === ',';
     if (!water && !land) return 'blocked';
     const placement = def?.placement || 'land';

@@ -207,7 +207,8 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   const { stage, map } = ds;
   const paths = buildPaths(map);
   const rules = createPlacementRules(map, paths);
-  const samples = paths.flatMap((p) => samplePath(p, 0.25));
+  // tunnel sections are invisible to towers: they add no coverage
+  const samples = paths.flatMap((p) => samplePath(p, 0.25)).filter((s) => !s.hidden);
   const needs = stageNeeds(stage, ds.enemy);
 
   // Candidate spots: lattice points on buildable terrain with their clearance from the path
@@ -221,7 +222,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       const y = (j + 0.5) * LATTICE_STEP + jitter(i, j, 2) * LATTICE_JITTER;
       if (!rules.inBounds(x, y)) continue;
       const ch = rules.terrainAt(x, y);
-      const water = ch === '~';
+      const water = ch === '~' || ch === 'B';
       const land = ch === '.' || ch === ',';
       if (!water && !land) continue;
       const pathClear = rules.pathDistance(x, y) - PATH_HALF_WIDTH;

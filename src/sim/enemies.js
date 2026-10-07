@@ -10,7 +10,7 @@
 import {
   AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK,
 } from './constants.js';
-import { pointAt } from './path.js';
+import { pointAt, pathInTunnel, pathElevation } from './path.js';
 import {
   tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
@@ -70,6 +70,8 @@ export function createEnemy(def, o) {
     pathIndex: o.pathIndex || 0,
     remaining: 0,
     seg: 0,
+    hidden: false, // inside a tunnel: invisible and untargetable
+    elev: 0, // overpass deck height under the enemy (renderer)
     hp: maxHp,
     maxHp,
     barrier: 0,
@@ -151,7 +153,7 @@ export function initTraitState(e) {
   if (!t.blink) e.blinkWarned = false;
 }
 
-/** Places the enemy at its current path distance. */
+/** Places the enemy at its current path distance (position, facing, tunnel + overpass state). */
 export function placeOnPath(e, path) {
   const p = pointAt(path, e.dist, e._pt || (e._pt = {}), e.seg);
   e.x = p.x;
@@ -159,6 +161,8 @@ export function placeOnPath(e, path) {
   e.facing = p.facing;
   e.seg = p.seg;
   e.remaining = path.length - e.dist;
+  e.hidden = path.tunnels?.length ? pathInTunnel(path, e.dist) : false;
+  e.elev = path.elev ? pathElevation(path, e.dist) : 0;
 }
 
 /** Boss phases: applies every phase whose hp threshold has been crossed. */
@@ -363,7 +367,7 @@ function updateAbilities(sim, e, path, dt) {
     }
   }
 
-  if (t.sabotage) {
+  if (t.sabotage && !e.hidden) {
     if (e.sabotageCd > 0) e.sabotageCd -= dt;
     else if (!blocked) {
       const r = t.sabotage.radius ?? 1.5;
