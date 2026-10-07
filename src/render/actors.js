@@ -337,8 +337,9 @@ export class Actors {
     const tz = Math.floor(v.z);
     const ground = (this.terrain.isPath(tx, tz) ? PATH_H : 0) + (e.elev || 0);
     v.ground = ground;
-    // inside a tunnel: out of sight (the sim also makes it untargetable)
-    v.hidden = !!e.hidden;
+    // inside a tunnel: out of sight (the sim also makes it untargetable); under an overpass
+    // deck: ground walkers pass out of sight beneath it (still targetable, like BTD6)
+    v.hidden = !!e.hidden || (!!e.underDeck && !v.airborne && !(e.alt > 0.3));
     m.visible = !v.hidden;
     const alt = (e.alt || 0) + ground;
     v.y += (alt - v.y) * Math.min(1, dt * 8);

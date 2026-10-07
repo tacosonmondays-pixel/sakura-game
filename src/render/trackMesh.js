@@ -9,7 +9,7 @@
 //     are hidden by the sim and the renderer).
 // `planRoads` is pure (testable in Node); the mesh builders return BufferGeometries.
 import * as THREE from 'three';
-import { mapTracks, pointAtDistance, elevationAt, inTunnel, stampBand } from '../core/track.js';
+import { mapTracks, pointAtDistance, elevationAt, inTunnel, stampBand, DECK_HALF } from '../core/track.js';
 
 /** Half-length (along the upper pass) of a flat junction's lifted, bevel-less zone. */
 export const JUNCTION_HALF = 0.8;
@@ -35,6 +35,7 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
   const entrances = [];
   const exits = [];
   const extraTiles = new Set();
+  const links = [];
   const tmp = {};
   tracks.forEach((t, ti) => {
     const L = t.length;
@@ -92,6 +93,15 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
     if (head.length) stampBand([...head, [s0.x, s0.y]], 0.5, extraTiles);
     if (tail.length) stampBand([[s1.x, s1.y], ...tail], 0.5, extraTiles);
     roads.push({ index: ti, pts, d: ds, elev, tunnel, lift, noSide });
+    // where lanes fork off / merge in (no rails or posts across the seam)
+    if (t.fork) {
+      pointAtDistance(t.points, t.cum, t.forkD, tmp);
+      links.push({ x: tmp.x, y: tmp.y });
+    }
+    if (t.join) {
+      pointAtDistance(t.points, t.cum, t.joinD, tmp);
+      links.push({ x: tmp.x, y: tmp.y });
+    }
     // entrance: where the centreline first enters the board; exit: where it last leaves
     if (!t.fork) {
       const i = t.points.findIndex(([x, y]) => inside(x, y));
@@ -106,7 +116,7 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
       }
     }
   });
-  return { roads, entrances, exits, extraTiles, crossings };
+  return { roads, entrances, exits, extraTiles, crossings, links };
 }
 
 /** Board-edge crossing near point i (entering: between i-1 and i; leaving: between i and i+1). */
@@ -243,19 +253,24 @@ const tangentAt = (pts, i) => {
  * @returns {{ geometry: THREE.BufferGeometry|null, glows: object[], waterSections: Set<string> }}
  *   waterSections: "road:index" keys of sections drawn as decks (the ribbon skips them)
  */
-export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = [] }) {
+export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = [], links = [] }) {
   const acc = new Acc();
   const glows = [];
   const deck = new THREE.Color(look.bridge.deck);
   const rail = new THREE.Color(look.bridge.rail);
   const post = new THREE.Color(look.bridge.post);
   const plank = new THREE.Color();
+  // land overpass decks: the theme's overpass colour (or its bridge deck), girders a shade of the posts
+  const over = new THREE.Color(look.bridge.overpass || look.bridge.deck);
+  const girder = new THREE.Color(look.bridge.girder || look.bridge.post);
   const waterSections = new Set();
-  const nearCrossing = (x, z) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < CROSS_CLEAR);
+  const nearCrossing = (x, z, r = CROSS_CLEAR) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < r);
+  const nearLink = (x, z) => links.some((c) => Math.hypot(c.x - x, c.y - z) < 1.3);
   for (const r of roads) {
     const { pts, elev, tunnel } = r;
     let railAcc = 0;
     let pileAcc = 0;
+    let slabPrev = null;
     for (let i = 0; i < pts.length; i++) {
       if (tunnel[i]) continue;
       const [x, z] = pts[i];
@@ -268,8 +283,9 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       const segLen = i > 0 ? Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]) : 0;
       if (water) {
         waterSections.add(`${r.index}:${i}`);
+        // planks butt together (no dark gaps that read as stair treads on a curve)
         plank.copy(deck).multiplyScalar(0.9 + (((i * 7) % 5) / 5) * 0.14);
-        acc.box(x, y - 0.03, z, 0.085, 0.03, 0.54, dx, dz, plank);
+        acc.box(x, y - 0.03, z, Math.max(0.085, segLen / 2 + 0.012), 0.03, 0.54, dx, dz, plank);
         // stringers under the planks
         if (i > 0) {
           const [px, pz] = pts[i - 1];
@@ -278,16 +294,36 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           for (const s of [-0.38, 0.38]) acc.box(mx + nx * s, y - 0.09, mz + nz * s, segLen / 2 + 0.02, 0.025, 0.035, dx, dz, post);
         }
         pileAcc += segLen;
-        if (pileAcc > 1.1) {
+        if (pileAcc > 1.1 && !nearLink(x, z)) {
           pileAcc = 0;
           for (const s of [-0.44, 0.44]) acc.post(x + nx * s, waterY - 0.3, y - 0.05, z + nz * s, 0.05, post);
         }
       }
+      // land overpass: its own deck slab (plank / slab colour, visible thickness, girder
+      // fascia) built as a continuous strip that follows the ramp, so it reads as a raised
+      // bridge — not as fence rails across the lower road
+      if (!water && e > 0.015) {
+        const W = DECK_HALF;
+        const fd = Math.min(0.2, 0.04 + e * 0.3); // fascia depth grows with height
+        const sec = {
+          tl: [x + nx * W, y + 0.016, z + nz * W], tr: [x - nx * W, y + 0.016, z - nz * W],
+          bl: [x + nx * W, y - fd, z + nz * W], br: [x - nx * W, y - fd, z - nz * W],
+        };
+        if (slabPrev && slabPrev.i === i - 1) {
+          const P = slabPrev;
+          plank.copy(over).multiplyScalar(0.9 + (((i * 7) % 5) / 5) * 0.16);
+          acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
+          acc.quad(P.tl, P.bl, sec.bl, sec.tl, girder);
+          acc.quad(P.tr, sec.tr, sec.br, P.br, girder);
+          acc.quad(P.bl, P.br, sec.br, sec.bl, girder);
+        }
+        slabPrev = { ...sec, i };
+      } else slabPrev = null;
       // rails on decks over water and on raised overpasses
-      const railed = water || e > 0.14;
+      const railed = (water || e > 0.14) && !nearLink(x, z);
       if (railed) {
         railAcc += segLen;
-        const prevRailed = i > 0 && !tunnel[i - 1] && (isWaterAt(pts[i - 1][0], pts[i - 1][1]) || elev[i - 1] > 0.14);
+        const prevRailed = i > 0 && !tunnel[i - 1] && (isWaterAt(pts[i - 1][0], pts[i - 1][1]) || elev[i - 1] > 0.14) && !nearLink(pts[i - 1][0], pts[i - 1][1]);
         if (prevRailed) {
           const [px, pz] = pts[i - 1];
           const py = pathH + elev[i - 1];
@@ -309,20 +345,46 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           }
         }
       } else railAcc = 0;
-      // overpass pillars (never on the lower road)
-      if (!water && e > 0.3 && i % 5 === 0 && !nearCrossing(x, z)) {
-        for (const s of [-0.36, 0.36]) acc.box(x + nx * s, (y - 0.05) / 2, z + nz * s, 0.07, (y - 0.05) / 2, 0.07, dx, dz, post);
+      // overpass piers (never on the lower road): stout pairs with a cap beam
+      if (!water && e > 0.3 && i % 5 === 0 && !nearCrossing(x, z, 1.25)) {
+        const top = y - 0.2;
+        for (const s of [-0.42, 0.42]) acc.box(x + nx * s, top / 2, z + nz * s, 0.09, top / 2, 0.09, dx, dz, girder);
+        acc.box(x, top - 0.03, z, 0.1, 0.04, 0.52, dx, dz, girder);
       }
     }
   }
-  return { geometry: acc.build(), glows, waterSections };
+  // soft shadow band where each overpass deck spans the lower road
+  const sh = new Acc();
+  const black = new THREE.Color(0, 0, 0);
+  for (const c of crossings) {
+    if (c.mode !== 'bridge') continue;
+    const pass = c[c.over];
+    const r = roads.find((o) => o.index === pass.path);
+    if (!r) continue;
+    let k = 0;
+    for (let i = 1; i < r.d.length; i++) if (Math.abs(r.d[i] - pass.d) < Math.abs(r.d[k] - pass.d)) k = i;
+    const [ux, uz] = tangentAt(r.pts, k);
+    const vx = -uz;
+    const vz = ux;
+    const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
+    const along = Math.min(1.5, 0.66 / sin);
+    const across = DECK_HALF + 0.06;
+    // light comes from the upper left: nudge the shadow a little toward +x/+z
+    const cx = c.x + 0.06;
+    const cz = c.y + 0.1;
+    const y = pathH + 0.03;
+    const P = (a, b) => [cx + ux * a + vx * b, y, cz + uz * a + vz * b];
+    sh.quad(P(-along, -across), P(-along, across), P(along, across), P(along, -across), black);
+  }
+  return { geometry: acc.build(), glows, waterSections, shadow: sh.build() };
 }
 
 /**
  * Tunnel mounds and portal arches.
  * @param {object} map MapDef
  * @param {object} look theme look (look.tunnel colours)
- * @returns {{ geometry: THREE.BufferGeometry|null, portals: { x, z, dir: [dx, dz], end: 'in'|'out' }[] }}
+ * @returns {{ geometry: THREE.BufferGeometry|null, portals: { x, z, dir: [dx, dz], end: 'in'|'out' }[], hallTiles: Set<string> }}
+ *   hallTiles: building tiles replaced by a tunnel's composed hall / gatehouse (skip their generic props)
  */
 export function buildTunnels(map, look) {
   const acc = new Acc();
@@ -339,10 +401,55 @@ export function buildTunnels(map, look) {
   const RX = 0.8;
   const RY = 0.55;
   const SEG = 8;
+  const rows = map.rows || [];
+  const isH = (x, y) => rows[y]?.[x] === 'H' && x > 0 && y > 0 && x < (map.width || 0) - 1 && y < (map.height || 0) - 1;
+  const hallTiles = new Set();
+  const cWall = new THREE.Color(tl.hall || tl.portal || '#cfc6b8');
+  const cRoof = new THREE.Color(tl.roof || '#8a4b3c');
   tracks.forEach((t) => {
     for (const [d0, d1] of t.tunnels || []) {
+      // A tunnel under buildings ('H' tiles beside it) becomes ONE composed hall / gatehouse set
+      // piece over the buried road (instead of a mound hidden among generic building props).
+      const near = new Set();
+      for (let d = d0; d <= d1; d += 0.25) {
+        pointAtDistance(t.points, t.cum, d, tmp);
+        for (let y = Math.floor(tmp.y - 1.8); y <= Math.floor(tmp.y + 1.8); y++) {
+          for (let x = Math.floor(tmp.x - 1.8); x <= Math.floor(tmp.x + 1.8); x++) {
+            if (isH(x, y) && Math.hypot(x + 0.5 - tmp.x, y + 0.5 - tmp.y) < 1.75) near.add(`${x},${y}`);
+          }
+        }
+      }
+      if (near.size >= 2) {
+        for (const k of near) hallTiles.add(k);
+        const a = d0 + 0.3;
+        const b = d1 - 0.3;
+        const m = Math.max(2, Math.round((b - a) / 0.25));
+        const P = [];
+        for (let k = 0; k <= m; k++) {
+          pointAtDistance(t.points, t.cum, a + ((b - a) * k) / m, tmp);
+          P.push([tmp.x, tmp.y, tmp.dx, tmp.dy]);
+        }
+        for (let k = 1; k < P.length; k++) {
+          const [x0, z0] = P[k - 1];
+          const [x1, z1, dx, dz] = P[k];
+          const mx = (x0 + x1) / 2;
+          const mz = (z0 + z1) / 2;
+          const half = Math.hypot(x1 - x0, z1 - z0) / 2 + 0.02;
+          c.copy(cWall).multiplyScalar(0.93 + 0.07 * ((k % 3) / 2));
+          acc.box(mx, 0.42, mz, half, 0.42, 0.98, dx, dz, c);
+          acc.box(mx, 0.9, mz, half, 0.07, 1.14, dx, dz, cRoof);
+          c.copy(cRoof).multiplyScalar(0.8);
+          acc.box(mx, 1.02, mz, half, 0.06, 0.62, dx, dz, c);
+          acc.box(mx, 1.12, mz, half, 0.05, 0.22, dx, dz, c);
+          // pilasters every ~0.75 along the walls
+          if (k % 3 === 0) for (const s of [-1, 1]) acc.box(mx - dz * s * 1.0, 0.42, mz + dx * s * 1.0, 0.06, 0.43, 0.05, dx, dz, cPortal);
+        }
+        // ridge finials at both gable ends
+        for (const [x, z, dx, dz] of [P[0], P[P.length - 1]]) acc.box(x, 1.22, z, 0.08, 0.08, 0.08, dx, dz, cRoof);
+      }
+      const hall = near.size >= 2;
       // mound: arch cross-sections every 0.2 along the buried section (gaps where a road crosses over)
-      const n = Math.max(2, Math.round((d1 - d0) / 0.2));
+      const n = hall ? 0 : Math.max(2, Math.round((d1 - d0) / 0.2));
       let prev = null;
       for (let k = 0; k <= n; k++) {
         const d = d0 + ((d1 - d0) * k) / n;
@@ -408,5 +515,5 @@ export function buildTunnels(map, look) {
       }
     }
   });
-  return { geometry: acc.build(), portals };
+  return { geometry: acc.build(), portals, hallTiles };
 }

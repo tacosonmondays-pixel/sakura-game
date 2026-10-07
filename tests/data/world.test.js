@@ -4,7 +4,7 @@ import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
 import { MAPS, getMap, pathTiles, buildableTiles } from '../../src/data/maps.js';
-import { TRACK_STEP } from '../../src/core/track.js';
+import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
 import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
 } from '../../src/data/stages.js';
@@ -321,7 +321,7 @@ describe('maps', () => {
           prev = b;
         }
         // overpass profile only where a bridge crossing put it, never negative
-        if (t.elev) for (const e of t.elev) expect(e >= 0 && e <= 0.5, m.id).toBe(true);
+        if (t.elev) for (const e of t.elev) expect(e >= 0 && e <= BRIDGE_HEIGHT + 1e-9, m.id).toBe(true);
         // the legacy tile-coordinate view is the same curve
         expect(m.paths[ti].length, m.id).toBe(p.length);
         expect(m.paths[ti][5][0] + 0.5).toBeCloseTo(p[5][0], 3);
@@ -339,6 +339,62 @@ describe('maps', () => {
           const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
           expect(elevAt(over, c[c.over].d), `${m.id} overpass height`).toBeGreaterThan(0.3);
           expect(elevAt(under, c[c.over === 'a' ? 'b' : 'a'].d), `${m.id} lower pass`).toBeLessThan(0.05);
+        }
+      }
+    }
+  });
+
+  it('no hairpin pinches the road: centreline radius >= 1.4 tiles over any 1-tile window', () => {
+    // radius = arc length / turned angle between the tangents 0.5 tiles before and after each
+    // sample (road half-width 0.5, so the inner edge keeps a radius of at least 0.9)
+    const K = Math.round(0.5 / TRACK_STEP);
+    for (const m of MAPS) {
+      m.tracks.forEach((t, ti) => {
+        const p = t.points;
+        let worst = Infinity;
+        let at = null;
+        for (let i = K; i < p.length - K; i++) {
+          const a = Math.atan2(p[i][1] - p[i - K][1], p[i][0] - p[i - K][0]);
+          const b = Math.atan2(p[i + K][1] - p[i][1], p[i + K][0] - p[i][0]);
+          let d = Math.abs(b - a);
+          if (d > Math.PI) d = 2 * Math.PI - d;
+          const r = d > 1e-9 ? (t.cum[i + K] - t.cum[i - K]) / d : Infinity;
+          if (r < worst) [worst, at] = [r, p[i]];
+        }
+        expect(worst, `${m.id} path ${ti} tightest bend at ${at?.map((v) => v.toFixed(1))}`).toBeGreaterThanOrEqual(1.4);
+      });
+    }
+  });
+
+  it('silhouettes differ: no two maps share a track shape (coarse 10x6 raster IoU < 0.8)', () => {
+    const raster = (m) => {
+      const g = new Set();
+      for (const t of m.tracks) {
+        for (const [x, y] of t.points) {
+          const gx = Math.floor(Math.min(0.999, Math.max(0, x / m.width)) * 10);
+          const gy = Math.floor(Math.min(0.999, Math.max(0, y / m.height)) * 6);
+          g.add(gx * 10 + gy);
+        }
+      }
+      return g;
+    };
+    const R = MAPS.map(raster);
+    for (let i = 0; i < MAPS.length; i++) {
+      for (let j = i + 1; j < MAPS.length; j++) {
+        let inter = 0;
+        for (const k of R[i]) if (R[j].has(k)) inter++;
+        const iou = inter / (R[i].size + R[j].size - inter);
+        expect(iou, `${MAPS[i].id} vs ${MAPS[j].id}`).toBeLessThan(0.8);
+      }
+    }
+  });
+
+  it('flat junctions are readable: at least 2 tiles apart', () => {
+    for (const m of MAPS) {
+      const flat = m.crossings.filter((c) => c.mode === 'flat');
+      for (let i = 0; i < flat.length; i++) {
+        for (let j = i + 1; j < flat.length; j++) {
+          expect(Math.hypot(flat[i].x - flat[j].x, flat[i].y - flat[j].y), `${m.id} junctions`).toBeGreaterThanOrEqual(2);
         }
       }
     }

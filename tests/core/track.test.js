@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildTrack, buildTracks, buildMapTracks, findCrossings, applyCrossings, stampBand, sampleSpline, arc, spiral, curve,
   loopNodes, elevationAt, inTunnel, nearestOnPolyline, pointAtDistance, cumulative, legacyTracks, mapTracks,
-  LINE, TUNNEL_IN, TUNNEL_OUT, TRACK_STEP, BRIDGE_HEIGHT,
+  LINE, TUNNEL_IN, TUNNEL_OUT, TRACK_STEP, BRIDGE_HEIGHT, underDeck, DECK_HALF
 } from '../../src/core/track.js';
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -118,6 +118,24 @@ describe('crossings and overpasses', () => {
     expect(elevationAt(tracks[1], cr[0].b.d)).toBeCloseTo(BRIDGE_HEIGHT, 5);
     expect(elevationAt(tracks[0], cr[0].a.d)).toBe(0);
     expect(elevationAt(tracks[1], 1)).toBe(0); // ramps back down to the ground
+  });
+
+  it('the lower pass is "under the deck" for the deck width (visual only), nowhere else', () => {
+    const tracks = buildTracks(X);
+    const cr = applyCrossings(tracks, findCrossings(tracks), 'bridge');
+    const low = tracks[0];
+    expect(low.under.length).toBe(1);
+    const [a, b] = low.under[0];
+    expect(a).toBeLessThan(cr[0].a.d);
+    expect(b).toBeGreaterThan(cr[0].a.d);
+    expect(b - a).toBeGreaterThan(2 * DECK_HALF - 1e-6);
+    expect(b - a).toBeLessThan(3.3);
+    expect(underDeck(low, cr[0].a.d)).toBe(true);
+    expect(underDeck(low, 1)).toBe(false);
+    expect(tracks[1].under).toEqual([]); // the upper pass is never under itself
+    const flat = buildTracks(X);
+    applyCrossings(flat, findCrossings(flat), 'flat');
+    expect(flat[0].under).toEqual([]);
   });
 
   it('flat junctions keep both passes on the ground; tunnel passes run underneath', () => {
