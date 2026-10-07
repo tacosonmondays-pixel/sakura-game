@@ -4,6 +4,8 @@
 import { n, darken, linGrad, radGrad, seeded, petalPath, blossom, sparklePath } from './svgUtil.js';
 import { gearPath } from './icons/glyphs.js';
 
+export { lobbyRoomSVG, ROOM_VP, ROOM_FLOOR_Y } from './lobbyRoom.js';
+
 /** Wavy hill silhouette across the width (filled down to `bottom`). */
 function hills(rnd, w, baseY, amp, bottom, fill, steps = 8, extra = '') {
   let d = `M0 ${bottom}L0 ${n(baseY)}`;

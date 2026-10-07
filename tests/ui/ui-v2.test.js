@@ -114,3 +114,48 @@ describe('glyph', () => {
     expect(glyph('does-not-exist')).toContain('<svg');
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Lobby V3: illustrated icons, the painted room layers, secretary helpers
+// ---------------------------------------------------------------------------------------------
+import { lobbyIcon, LOBBY_ICON_NAMES, campaignFolderSVG } from '../../src/art/lobbyIcons.js';
+import { lobbyRoomSVG } from '../../src/art/backdrops.js';
+
+describe('lobby v3 art', () => {
+  it('draws every illustrated lobby icon: glossy gradients, white outline, drop shadow, unique ids', () => {
+    for (const name of ['students', 'formation', 'backpack', 'bestiary', 'wiki', 'commissions', 'mall', 'recruit', 'notice', 'tasks', 'gift', 'gems', 'assault', 'options', 'account', 'equipment', 'items', 'secretary', 'fullscreen', 'close', 'mail', 'chest', 'calendar']) {
+      expect(LOBBY_ICON_NAMES).toContain(name);
+      const a = lobbyIcon(name, { uid: 'a' });
+      expect(a.startsWith('<svg')).toBe(true);
+      expect(a).toContain('viewBox="0 0 64 64"');
+      expect(a).toContain('linearGradient');
+      expect(a).toContain('stroke="#ffffff" stroke-width="6"');
+      expect(a).toContain('feGaussianBlur');
+      expect(a).not.toMatch(/NaN|undefined|CLIP/);
+      expect(lobbyIcon(name, { uid: 'a' })).toBe(a);
+      // a second instance must not share gradient ids with the first
+      const ids = (s) => [...s.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
+      const b = lobbyIcon(name, { uid: 'b' });
+      for (const id of ids(b)) expect(ids(a)).not.toContain(id);
+    }
+    expect(lobbyIcon('nope', { uid: 'x' })).toContain('<svg');
+  });
+  it('campaign folder embeds the chapter scene', () => {
+    const s = campaignFolderSVG({ uid: 't', art: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>' });
+    expect(s).toContain('viewBox="0 0 120 100"');
+    expect(s).toContain('<svg x="33" y="6"');
+    expect(s).not.toMatch(/NaN|undefined/);
+  });
+  it('the painted room has three deterministic depth layers sharing one 1600×900 frame', () => {
+    for (const layer of ['far', 'mid', 'near', 'all']) {
+      const s = lobbyRoomSVG(layer);
+      expect(s.startsWith('<svg')).toBe(true);
+      expect(s).toContain('viewBox="0 0 1600 900"');
+      expect(s).not.toMatch(/NaN|undefined/);
+      expect(lobbyRoomSVG(layer)).toBe(s);
+      expect(s.length).toBeLessThan(200000);
+    }
+    // the room cuts window holes so the sea layer shows through
+    expect(lobbyRoomSVG('mid')).toContain('fill-rule="evenodd"');
+  });
+});
