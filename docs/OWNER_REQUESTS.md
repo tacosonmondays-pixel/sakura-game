@@ -265,3 +265,11 @@ Useful design details from the old build to carry into phase 2 (do not copy code
 - Animated ENTRY/EXIT markers follow the real routes (incl. reversed/alternating lanes); drag-to-deploy places exactly once; camera drags / pinch / off-board releases never place.
 - City residents follow the unlocked roster.
 - Summer event "The Beach Day That Got Away": 10 story chapters, 5 operations, temporary currency + shop, gifts/affection talks, Seaglass Leviathan 12-wave expert boss (needs 20 clears), event-only characters Marina/Amane (keep event outfits within the content rule).
+
+## Reference games (owner, 2026-10-07)
+- **Blue Archive** — menus/UI layout and motion, and the chibi/character look.
+- **Genshin Impact** — the gacha: wish flow, anticipation → meteor/star colour reveal by rarity (blue / purple / gold), skippable, readable results.
+- **Bloons TD6** — environmental aesthetics of the battle maps.
+- Main chibi model target video: 【Blender】キャラクターモデリングタイムラプス ～恐竜パーカー～ by 夏森轄 (https://youtu.be/SA_wqmZoNps) — anime "mini" proportions (~4–5 heads), flat two-tone cel shading, thin dark outlines, big lash-heavy eyes, blunt bangs with sharp strands, oversized hoodie/sleeves, lots of small costume details.
+- Supporting: Blep35 — "I Made a 3D VTuber model for FREE in 2 weeks" (https://youtu.be/69SUwY7SCJk), "How I Made The CUTEST VTuber Model in 3D Software" (https://youtu.be/zSCHsJ7Bxok).
+- Engine: stay on the web (three.js) build; no Unity needed.
