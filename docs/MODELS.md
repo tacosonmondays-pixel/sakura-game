@@ -2,7 +2,8 @@
 
 The academy girls are built by a programmatic Blender pipeline (`tools/blender/`, Blender 4.2 as the
 `bpy` python module) and shipped as one GLB per unit in `public/models/characters/`. The method is the
-one from the jaeysart "sitting chibi" tutorial (see `docs/reference/jaeysart-*.png`): a handful of
+one from the jaeysart "sitting chibi" tutorial (its example images are third-party, so they stay
+on the owner's PC in the git-ignored `docs/reference/thirdparty/`): a handful of
 quad **cages** that get a Catmull-Clark **Subdivision Surface**, creased edges where tips must stay
 sharp, and a **painted face texture** instead of face geometry.
 

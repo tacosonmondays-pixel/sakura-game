@@ -11,6 +11,9 @@ have not been watched yet — next session: get a screenshot or the video title/
 Idea from the owner: try a few different chibi styles following what these videos do, and pick the best.
 
 ## Other references the owner shared (screenshots, described)
+The images themselves are other people's work (game screenshots, tutorial files), so they are kept only
+locally in the git-ignored `docs/reference/thirdparty/` and must never be committed. The repo is public.
+
 - Megumin chibi figure (Messias 3D Figure): big glossy eyes, clean chunky hair shapes, crisp saturated colours, black disc base.
 - Blue Archive menus: lobby tiles, Student detail (Basic Info / Level Up / Unlock Mystic), Unit Formation.
 - Bloons TD6: Dartling Gunner upgrade tree, map picker with medals on each card and Beginner→Expert tiers.
