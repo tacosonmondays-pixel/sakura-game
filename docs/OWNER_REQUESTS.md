@@ -287,4 +287,5 @@ Verbatim highlights: "get the characters in, keep the current ones as special sk
 - **Tracks:** "the tracks are linear and repetitive." Make them Bloons-like: curves, loops, crossings, splits, tunnels.
 - **Placement:** remove the red forbidden-zone border. Use a small circle under the dragged girl: red where she can't stand, white where she can (done 2026-10-07).
 - **City:** "codex gave a small one that's just on a square, make it look more interesting." Port and expand the city hub.
+- **Chibi look APPROVED (2026-10-07):** the Meshy-generated Hikari chibi turnaround in `docs/art/approved/` — owner: "THATS LITERALLY PERFECT". It is the target for every girl's 3D battle chibi and 2D chibi art.
 - **Meshy:** "don't forget you have meshy… I've seen people make chibi renders in meshy that look like what I want." Use Meshy (image → 3D → rig → animate) for the chibis, starting with one Hikari test and a credit report.
