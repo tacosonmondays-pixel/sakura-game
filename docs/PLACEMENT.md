@@ -76,16 +76,14 @@ with it.
 * `r.pick(clientX, clientY)` → `{ x, y, tx, ty, towerUid, inBounds }`: `x, y` is the continuous
   board point under the pointer; `towerUid` is the girl whose footprint contains it (or whose
   body projects there — she stands up, so her head is on the "tile behind").
-* `r.setGhost(unitId, x, y, valid)`: translucent chibi standing exactly at `(x, y)`, a footprint
-  disc of her radius, her range circle; green when valid, **red** when not. `r.shakeGhost()`
-  wobbles her sideways for ~0.4 s (rejected drop).
-* `r.showTileHints(unitId)` — the Bloons look: while a card is held, the **forbidden** zones for
-  that girl (path band, obstacles, wrong terrain, other girls' footprints and 1 tile outside the
-  board) are shaded with a soft red overlay with a light rim and faint drifting stripes; allowed
-  ground stays completely clear. It is a `DataTexture` mask (8 texels per tile) rasterised from
-  `sim.placementReason`, drawn on a plane just above the path with bilinear filtering for soft
-  edges, and refreshed on `place` / `sell`. Holding a water girl therefore shades every bit of
-  land; holding a land girl shades the ponds.
+* `r.setGhost(unitId, x, y, valid)`: translucent chibi standing exactly at `(x, y)` with a small
+  circle (her footprint) under her — **white** where she can stand, **red** where she can't — and
+  a neutral white range circle (owner request, BTD6 style: no zone shading, no red range blob).
+  `r.setPlacementRange(on)` toggles the range circle (settings.showRanges). `r.shakeGhost()`
+  still exists (wobble) but the battle UI no longer uses it.
+* `r.showTileHints(unitId)` — legacy no-op. The old red forbidden-zone overlay was removed at the
+  owner's request ("there is a gross red border… just don't let something be placed there like
+  in Bloons").
 
 ## 3. Interaction (battle UI)
 
@@ -103,7 +101,7 @@ with it.
 ## 4. Preview
 
 `node e2e/shot.mjs "/previews/placement-v2.html?stage=2-1&hold=sango&auto=1" out.png` —
-`hold` picks the girl (forbidden zones shaded, ghost follows the mouse, click places), `ghost=rei,7.3,4.1`
+`hold` picks the girl (ghost follows the mouse: white circle = ok, red = no; click places), `ghost=rei,7.3,4.1`
 parks a ghost, `place=aoi:6.3:1.7,...` places girls at continuous points, `auto=1` runs `autoPlan`.
 The small canvas in the corner rasterises `sim.placementReason` in 2D (red band, grey obstacles, blue
 water, orange girls) so the geometry can be judged independently of the 3D overlay.

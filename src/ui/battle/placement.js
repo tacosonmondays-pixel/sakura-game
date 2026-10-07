@@ -1,7 +1,9 @@
 // Placement controller (free placement, Bloons-style): drag a card from the bar and release
 // ANYWHERE on the board to deploy, or tap a card then tap the board. Nothing snaps — the
-// girl stands exactly where the finger lets go. Invalid spots show a red ghost that shakes,
-// plus a one-line reason toast. The renderer shades the forbidden zones while a card is held.
+// girl stands exactly where the finger lets go. Like BTD6 there is no zone shading: a small
+// circle under the dragged girl is white where she can stand and red where she can't, and
+// releasing on a red spot simply returns her to the bar (a short toast only explains
+// non-obvious reasons such as water-only girls or missing coins).
 import { h, icon, fmtCoins } from './util.js';
 
 export const PLACE_REASONS = {
@@ -20,15 +22,14 @@ export const PLACE_REASONS = {
 const TOUCH_LIFT = 46;
 /** Ghost only re-evaluates after the pointer moved this far (tiles) — cheap, still fluid. */
 const MOVE_EPS = 0.015;
-/** How long a rejected drop keeps its red, shaking ghost on screen before the card returns. */
-const REJECT_MS = 520;
+/** Reasons the red circle alone already explains (no toast, BTD6-style). */
+const SILENT_REASONS = new Set(['occupied', 'path', 'blocked', 'outOfBounds']);
 
 export function createPlacement(ctx) {
   const { sim } = ctx;
   let unitId = null;
   let mode = null; // 'tap' | 'drag'
   let last = null; // { x, y, ok, reason }
-  let rejectTimer = 0;
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -55,13 +56,6 @@ export function createPlacement(ctx) {
     ].filter(Boolean));
   }
 
-  function clearReject() {
-    if (rejectTimer) {
-      clearTimeout(rejectTimer);
-      rejectTimer = 0;
-    }
-  }
-
   function begin(id, how) {
     if (sim.state === 'won' || sim.state === 'lost') return false;
     const def = sim.data.unit(id);
@@ -77,23 +71,20 @@ export function createPlacement(ctx) {
       ctx.bump?.('cash');
       return false;
     }
-    clearReject();
     ctx.select(null);
     unitId = id;
     mode = how;
     last = null;
-    if (ctx.settings.showRanges !== false) ctx.renderer.showTileHints(id);
+    ctx.renderer.setPlacementRange?.(ctx.settings.showRanges !== false);
     renderHint();
     return true;
   }
 
   function end() {
-    clearReject();
     unitId = null;
     mode = null;
     last = null;
     ctx.renderer.setGhost(null);
-    ctx.renderer.showTileHints(null);
     renderHint();
   }
 
@@ -109,12 +100,10 @@ export function createPlacement(ctx) {
     return chk;
   }
 
-  /** Rejected spot: red ghost + shake + reason toast. */
+  /** Rejected spot: the red circle says it all; only non-obvious reasons get a short toast. */
   function reject(x, y, reason) {
     ghostAt(x, y);
-    ctx.renderer.shakeGhost?.();
-    navigator.vibrate?.([18, 40, 18]);
-    ctx.feed.push(PLACE_REASONS[reason] || 'Cannot place there.', 'warn', { key: `place-${reason}`, ms: 1600 });
+    if (!SILENT_REASONS.has(reason)) ctx.feed.push(PLACE_REASONS[reason] || 'Cannot place there.', 'warn', { key: `place-${reason}`, ms: 1600 });
   }
 
   /**
@@ -165,7 +154,7 @@ export function createPlacement(ctx) {
 
   /** Mouse hover over the canvas while tap-placing: ghost follows the cursor. */
   function hover(clientX, clientY) {
-    if (!unitId || mode !== 'tap' || rejectTimer) return;
+    if (!unitId || mode !== 'tap') return;
     const p = ctx.renderer.pick(clientX, clientY);
     if (!p.inBounds) {
       ctx.renderer.setGhost(null);
@@ -224,14 +213,8 @@ export function createPlacement(ctx) {
         return;
       }
       const t = tryPlace(p.x, p.y);
-      if (!t && unitId) {
-        // let the red, shaking ghost be seen, then return the card to the bar
-        clearReject();
-        rejectTimer = setTimeout(() => {
-          rejectTimer = 0;
-          if (unitId && mode === 'drag') cancel();
-        }, REJECT_MS);
-      }
+      // released on a red spot: she just goes back to the bar (BTD6)
+      if (!t && unitId) cancel();
     },
     handleTap,
     hover,
@@ -239,7 +222,6 @@ export function createPlacement(ctx) {
     cancel,
     refresh: renderHint,
     destroy() {
-      clearReject();
       hint.remove();
     },
   };

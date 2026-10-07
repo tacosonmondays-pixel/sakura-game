@@ -379,7 +379,7 @@ Profile = {
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
-  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*V2: shade forbidden zones while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
+  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
   secretary: unitId,
   stats: { battles, wins, kills, pulls, gemsEarned },
   seenIntro: string[],
@@ -563,7 +563,7 @@ sim.canPlace(unitId, x, y)          // continuous footprint centre -> { ok, reas
                                     // reasons: 'occupied'|'path'|'blocked'|'needsWater'|'needsLand'|'cash'|'heroPlaced'|'notInLoadout'|'outOfBounds'
 sim.placeTower(unitId, x, y)        // -> TowerRT | null (stands exactly at (x, y))
 sim.towerAt(x, y)                   // -> nearest TowerRT whose footprint contains the point | null
-sim.placementReason(unitId, x, y)   // geometry-only reason (ignores cash/loadout/hero) | null — forbidden-zone overlays
+sim.placementReason(unitId, x, y)   // geometry-only reason (ignores cash/loadout/hero) | null — autoPlan, tests
 sim.footprintRadius(unitId)         // 0.42 towers, 0.5 heroes
 sim.canPlaceTile(unitId, tx, ty) / sim.placeTowerTile(unitId, tx, ty)   // legacy: tile centre
 sim.upgradeStatus(uid, path)        // -> { tier /*current*/, next: TierDef|null, cost, locked, reason: 'max'|'crosspath'|'cash'|null }
@@ -690,12 +690,12 @@ r.resize()
 r.dispose()
 r.canvas                         // the WebGL canvas
 r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
-r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + footprint disc +
-                                 //    range circle; red when invalid). Two integers = a tile centre (legacy).
+r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + small footprint
+                                 //    circle: white = valid, red = invalid; neutral white range circle). Two integers = a tile centre (legacy).
+r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)
 r.shakeGhost()                   // wobble the ghost for a moment (rejected drop feedback)
 r.setSelected(uid|null)          // selected tower: outline + range circle
-r.showTileHints(unitId|null)     // Bloons-style: shade the FORBIDDEN zones for that girl (path band, obstacles,
-                                 //    wrong terrain, other girls' footprints) with a soft red overlay; allowed ground stays clear
+r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the owner's request — BTD6 shows none)
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
@@ -722,8 +722,9 @@ stage plays as a practice run that saves nothing). Builds the Sim from the profi
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
 (she stands exactly where the finger lets go — no snapping), or tap the card then tap the board;
-while a card is held the renderer shades the forbidden zones; an invalid spot shows a red ghost
-that shakes plus a one-line reason toast), selected
+the small circle under the dragged girl is white where she can stand and red where she can't;
+releasing on a red spot returns her to the bar, with a short toast only for non-obvious reasons
+such as water-only girls or missing coins), selected
 tower panel (3 upgrade paths with tier pips + names + costs + crosspath locks, sell, target
 mode, stats, kills), hero portrait with level/XP + ult button, next-wave scout strip with
 trait icons + "New!" markers, boss HP bar + phase announcements, pause menu (resume, restart,

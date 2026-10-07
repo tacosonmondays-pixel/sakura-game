@@ -1,6 +1,6 @@
 // Dev preview for free (Bloons-style) placement: real renderer + real sim on a real stage.
 //   ?stage=1-1 &quality=high|medium|low &seed=1
-//   &hold=aoi          pick a girl → forbidden zones shaded, ghost follows the mouse, tap/click places
+//   &hold=aoi          pick a girl → ghost follows the mouse (white circle = ok, red = no), tap/click places
 //   &ghost=rei,7.3,4.1 put a ghost at a continuous point (red when invalid)
 //   &place=aoi:6.3:1.7,rei:9.4:5.2   place girls at continuous points (x:y)
 //   &auto=1            run autoPlan (continuous lattice) for the default team

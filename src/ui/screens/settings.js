@@ -1,5 +1,5 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (forbidden zones, auto start, default speed) and save data
+// motion), audio, battle defaults (placement range, auto start, default speed) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
@@ -88,7 +88,7 @@ function build(redraw) {
 
   wrap.appendChild(h('section.panel',
     h('h3.panel-title', 'Battle'),
-    row('Show forbidden zones', 'While you place a girl, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
+    row('Show range while placing', 'While you drag a girl onto the field, her attack range is shown around her. The small circle under her stays white where she can stand and turns red where she can’t.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
     row('Auto start waves', 'Next wave starts automatically after a short pause.', toggle(s.autoStart, (v) => { s.autoStart = v; save(); }, 'autoStart')),
     row('Default speed', 'Game speed when a battle starts.', segmented(BATTLE.speeds.map(String), String(s.defaultSpeed || 1), (v) => { s.defaultSpeed = Number(v); save(); redraw(); }, Object.fromEntries(BATTLE.speeds.map((x) => [String(x), `${x}×`])), 'speed')),
   ));

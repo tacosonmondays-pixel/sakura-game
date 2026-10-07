@@ -1,4 +1,4 @@
-// Pause menu: resume, restart, quit and in-battle settings (quality, forbidden-zone shading,
+// Pause menu: resume, restart, quit and in-battle settings (quality, placement range,
 // auto-start, default speed, reduce motion). Settings persist through store.commit().
 import { h, icon } from './util.js';
 import { confirmDialog } from '../components.js';
@@ -55,7 +55,7 @@ export function createPauseMenu(ctx) {
         ctx.renderer.setQuality(q);
       })),
       h('div.bt-set-row', h('span.bt-set-label', 'Default speed'), seg([[1, '1×'], [2, '2×'], [3, '3×']], s.defaultSpeed || 1, (v) => save({ defaultSpeed: Number(v) }))),
-      toggle('Forbidden zones', 'Shade where girls cannot stand while deploying', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
+      toggle('Placement range', 'Show her attack range while you drag a girl onto the field', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
       toggle('Auto-start waves', 'Next wave starts by itself', !!ctx.sim.options.autoStart, (v) => {
         ctx.setAutoStart(v);
         render();

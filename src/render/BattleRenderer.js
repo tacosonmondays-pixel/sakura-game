@@ -724,9 +724,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setSelected(uid) {
       overlays.setSelected(uid ?? null);
     },
-    /** Shades the FORBIDDEN zones for `unitId` (path band, obstacles, wrong terrain, other girls). */
-    showTileHints(unitId) {
-      overlays.showTileHints(unitId || null);
+    /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
+    showTileHints() {},
+    /** Extra: show the range circle around the placement ghost (settings.showRanges). */
+    setPlacementRange(on) {
+      overlays.showGhostRange = on !== false;
     },
     setQuality(q) {
       if (QUALITY[q] && q !== quality) applyQuality(q);

@@ -1,8 +1,6 @@
 // Placement & selection overlays (free placement, Bloons-style): range circles, the
-// placement ghost (translucent girl + footprint disc at a continuous position, red + shake
-// when invalid), the forbidden-zone shading while a card is picked (path band, obstacles,
-// wrong terrain and other girls' footprints tinted soft red; allowed ground stays clear) and
-// the selected-tower highlight.
+// placement ghost (translucent girl with a small circle under her — white where she can
+// stand, red where she can't; no zone shading, like BTD6) and the selected-tower highlight.
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../models/index.js';
 import { footprintRadius } from '../sim/placement.js';
@@ -36,41 +34,6 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-// Forbidden-zone mask: R = 1 where the picked girl cannot stand. Sampled with bilinear
-// filtering so the edge of the band is soft; a brighter rim marks the boundary.
-const ZONE_VERT = /* glsl */`
-varying vec2 vWorld;
-void main() {
-  vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWorld = wp.xz;
-  gl_Position = projectionMatrix * viewMatrix * wp;
-}`;
-
-const ZONE_FRAG = /* glsl */`
-uniform sampler2D uMask;
-uniform vec4 uRect;   // x0 y0 w h (world)
-uniform vec3 uColor;
-uniform vec3 uRim;
-uniform float uAlpha;
-uniform float uTime;
-varying vec2 vWorld;
-void main() {
-  vec2 uv = (vWorld - uRect.xy) / uRect.zw;
-  float m = texture2D(uMask, uv).r;
-  float fill = smoothstep(0.38, 0.62, m);
-  float rim = 1.0 - smoothstep(0.0, 0.13, abs(m - 0.5));
-  // slow drifting diagonal stripes inside the forbidden zone (reads as "no-go" at a glance)
-  float stripe = 0.5 + 0.5 * sin((vWorld.x - vWorld.y) * 9.0 + uTime * 1.2);
-  float a = fill * (0.36 + 0.07 * stripe) + rim * 0.5;
-  vec3 col = mix(uColor, uRim, rim * 0.85);
-  gl_FragColor = vec4(col, a * uAlpha);
-  #include <colorspace_fragment>
-}`;
-
-/** Texels per tile of the forbidden-zone mask. */
-const MASK_PX = 8;
-/** Tiles of margin shaded around the board (out of bounds). */
-const MASK_MARGIN = 1;
 /** Ghost shake duration (s) and amplitude (tiles). */
 const SHAKE_T = 0.42;
 const SHAKE_AMP = 0.085;
@@ -114,48 +77,8 @@ export class Overlays {
     this._hlModel = null;
     this.ghost = null; // { unitId, model, mats, def, x, y, valid, radius }
     this.ghostShake = 0;
-    this.hintUnit = null;
+    this.showGhostRange = true;
     this.time = 0;
-
-    // forbidden-zone plane (map + margin)
-    const W = sim.map.width;
-    const H = sim.map.height;
-    const mw = (W + MASK_MARGIN * 2) * MASK_PX;
-    const mh = (H + MASK_MARGIN * 2) * MASK_PX;
-    this.maskW = mw;
-    this.maskH = mh;
-    this.maskData = new Uint8Array(mw * mh * 4);
-    this.maskTex = new THREE.DataTexture(this.maskData, mw, mh, THREE.RGBAFormat);
-    this.maskTex.magFilter = THREE.LinearFilter;
-    this.maskTex.minFilter = THREE.LinearFilter;
-    this.maskTex.wrapS = THREE.ClampToEdgeWrapping;
-    this.maskTex.wrapT = THREE.ClampToEdgeWrapping;
-    this.maskTex.needsUpdate = true;
-    const rect = new THREE.Vector4(-MASK_MARGIN, -MASK_MARGIN, W + MASK_MARGIN * 2, H + MASK_MARGIN * 2);
-    this.zoneMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uMask: { value: this.maskTex },
-        uRect: { value: rect },
-        uColor: { value: new THREE.Color('#ff2a4f') },
-        uRim: { value: new THREE.Color('#ffc4cf') },
-        uAlpha: { value: 1 },
-        uTime: { value: 0 },
-      },
-      vertexShader: ZONE_VERT,
-      fragmentShader: ZONE_FRAG,
-      transparent: true,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    const zoneGeo = new THREE.PlaneGeometry(rect.z, rect.w);
-    zoneGeo.rotateX(-Math.PI / 2);
-    zoneGeo.translate(rect.x + rect.z / 2, 0, rect.y + rect.w / 2);
-    this.zone = new THREE.Mesh(zoneGeo, this.zoneMat);
-    this.zone.position.y = PATH_H + 0.012;
-    this.zone.renderOrder = 4;
-    this.zone.visible = false;
-    this.zone.frustumCulled = false;
-    this.root.add(this.zone);
   }
 
   setQuality(q) {
@@ -252,14 +175,14 @@ export class Overlays {
     if (g.model) {
       g.model.visible = inMap;
       if (inMap) g.model.position.set(x, (water ? WATER_Y : 0) + 0.12, y);
-      for (const m of g.mats) m.color?.set(g.valid ? '#ffffff' : '#ff8a8a');
     }
     const range = g.def ? this._baseRange(g.def) : 0;
-    this.ghostRange.visible = inMap && range > 0;
+    this.ghostRange.visible = inMap && range > 0 && this.showGhostRange;
     if (inMap) this.ghostRange.position.set(x, (water ? WATER_Y : PATH_H) + 0.03, y);
     this.ghostRange.scale.setScalar(range);
     this.ghostRange.material.uniforms.uRadius.value = range;
-    this.ghostRange.material.uniforms.uColor.value.set(g.valid ? '#ffffff' : '#ff4d6d');
+    // the range stays neutral; only the small circle under her turns red (owner request)
+    this.ghostRange.material.uniforms.uColor.value.set('#ffffff');
   }
 
   /** Wobbles the ghost sideways for a moment (rejected drop). */
@@ -272,44 +195,14 @@ export class Overlays {
     return (def.base?.range || 0) * (stats.rangeMul || 1);
   }
 
-  /** Shades everywhere `unitId` could NOT stand (ignores cash); null clears. */
-  showTileHints(unitId) {
-    this.hintUnit = unitId || null;
-    this.refreshHints();
-  }
+  /** Kept for API compatibility: BTD6-style placement shows no zone shading (owner request). */
+  showTileHints() {}
 
-  refreshHints() {
-    const unitId = this.hintUnit;
-    if (!unitId || typeof this.sim.placementReason !== 'function') {
-      this.zone.visible = false;
-      return;
-    }
-    const sim = this.sim;
-    const data = this.maskData;
-    const w = this.maskW;
-    const h = this.maskH;
-    for (let j = 0; j < h; j++) {
-      const y = (j + 0.5) / MASK_PX - MASK_MARGIN;
-      for (let i = 0; i < w; i++) {
-        const x = (i + 0.5) / MASK_PX - MASK_MARGIN;
-        const reason = sim.placementReason(unitId, x, y);
-        const v = reason ? 255 : 0;
-        const k = (j * w + i) * 4;
-        data[k] = v;
-        data[k + 1] = v;
-        data[k + 2] = v;
-        data[k + 3] = 255;
-      }
-    }
-    this.maskTex.needsUpdate = true;
-    this.zone.visible = true;
-  }
+  refreshHints() {}
 
   update(dt) {
     this.time += dt;
     const t = this.time;
-    this.zoneMat.uniforms.uTime.value = t;
-    this.zoneMat.uniforms.uAlpha.value = 0.86 + 0.14 * Math.sin(t * 2.2);
     // selected tower
     const uid = this.selectedUid;
     const tower = uid != null ? (this.sim.getTower ? this.sim.getTower(uid) : this.sim.towers.find((x) => x.uid === uid)) : null;
@@ -343,16 +236,12 @@ export class Overlays {
       }
       const water = this._waterAt(g.x, g.y);
       const y = (water ? WATER_Y : PATH_H) + 0.035;
-      const c = g.valid ? [0.55, 1, 0.65] : [1, 0.3, 0.38];
+      // small circle under her: white = can stand here, red = can't (BTD6)
+      const c = g.valid ? [1, 1, 1] : [1, 0.08, 0.16];
       const d = g.radius * 2;
       const px = g.x + sx;
-      this.b.groundN.push(px, y, g.y, d, d, this.R.disc, c[0], c[1], c[2], 0.42 + 0.1 * Math.sin(t * 6));
-      this.b.groundA.push(px, y + 0.005, g.y, d * 1.1, d * 1.1, this.R.ring, c[0], c[1], c[2], 0.9);
-      if (!g.valid) {
-        // crossed-out feel: a second thin ring pulsing outward
-        const ph = (t * 1.6) % 1;
-        this.b.groundA.push(px, y + 0.006, g.y, d * (1.1 + ph * 0.5), d * (1.1 + ph * 0.5), this.R.ring, 1, 0.3, 0.38, 0.6 * (1 - ph));
-      }
+      this.b.groundN.push(px, y, g.y, d, d, this.R.disc, c[0], c[1], c[2], g.valid ? 0.32 : 0.62);
+      this.b.groundA.push(px, y + 0.005, g.y, d * 1.08, d * 1.08, this.R.ring, c[0], c[1], c[2], 0.95);
       if (g.model) {
         g.model.position.x = px;
         g.model.position.y = (water ? WATER_Y : 0) + 0.12 + Math.sin(t * 5) * 0.04;
@@ -368,9 +257,6 @@ export class Overlays {
       r.geometry.dispose();
       r.material.dispose();
     }
-    this.zone.geometry.dispose();
-    this.zoneMat.dispose();
-    this.maskTex.dispose();
     this.scene.remove(this.root);
   }
 }
