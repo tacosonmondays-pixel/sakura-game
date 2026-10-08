@@ -488,6 +488,7 @@ export function mountBattle(root, params, hooks) {
   let coopHud = null;
   const pendingUpg = new Set();
   if (ls) {
+    ls.note('mount');
     const mySlot = ls.mySlot;
     ctx.coop = {
       session,

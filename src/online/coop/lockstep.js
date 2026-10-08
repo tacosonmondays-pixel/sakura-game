@@ -81,6 +81,8 @@ export class Lockstep {
     this.epoch = 0; // timeline id: bumped by the host each time it re-admits a dropped guest
     this.markSeq = 0;
     this.running = false; // advance() was called at least once (the battle screen is up)
+    /** Last connection events (drop, rejoin, resync…) for the debug HUD and the e2e test. */
+    this.trace = [];
     this.peers = new Map();
     for (const p of start.players) {
       if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, rejoinAfter: 0, failedOffers: 0, goneAt: 0 });
@@ -89,6 +91,12 @@ export class Lockstep {
 
   get sim() {
     return this.coop.sim;
+  }
+
+  /** Records a connection event (kept short: the last 40). */
+  note(ev, extra = {}) {
+    this.trace.push({ at: Math.round(this.now()), tick: this.tick, ep: this.epoch, ev, ...extra });
+    if (this.trace.length > 40) this.trace.shift();
   }
 
   get tick() {
@@ -204,6 +212,7 @@ export class Lockstep {
       // 'timeout' = "I stopped hearing you" (from this timeline only): both play on, and the host
       // re-admits the guest as soon as packets flow again. Any other goodbye (Leave, closing the
       // tab) is final, whatever the timeline.
+      this.note('bye', { why: msg.why || null, ep });
       if (msg.why === 'timeout') {
         if (ep === this.epoch) this.dropPeer(peer, 'lost');
       } else if (peer.gone) peer.why = 'left';
@@ -297,6 +306,7 @@ export class Lockstep {
 
   /** Guest: rebuild the CoopSim from the host's log and fast-forward to the host's tick. */
   applyResync(msg) {
+    this.note('resync', { T: msg.T });
     const keepMine = this.log.filter((c) => c.p === this.mySlot && c.s >= 0);
     this.rebuild(msg.start, [...(msg.cmds || []), ...keepMine], msg.T);
     this.resyncPending = 0;
@@ -319,6 +329,7 @@ export class Lockstep {
   /** Host: take a dropped (but alive) guest back into this timeline from the current tick. */
   rejoin(peer) {
     this.epoch++;
+    this.note('rejoin', { slot: peer.slot });
     peer.gone = false;
     peer.why = null;
     // the guest rebuilds its battle screen from my log: give it the loading allowance again
@@ -348,6 +359,7 @@ export class Lockstep {
    */
   applyRejoin(peer, msg) {
     const inPlace = this.catchUp(msg);
+    this.note('adopt', { ep: msg.ep, T: msg.T, inPlace });
     if (!inPlace) this.rebuild(msg.start, msg.cmds || [], msg.T);
     this.epoch = msg.ep;
     this.promised = this.tick - 1;
@@ -406,6 +418,7 @@ export class Lockstep {
     peer.gone = true;
     peer.why = reason;
     peer.goneAt = this.now();
+    this.note('drop', { slot: peer.slot, reason, silent: Math.round(this.now() - peer.lastHeard), ready: peer.ready });
     // an unanswered rejoin offer: wait a while before offering again (one-way links)
     if (peer.offer) {
       peer.failedOffers++;
@@ -463,6 +476,7 @@ export class Lockstep {
    * @returns {number} ticks executed
    */
   advance(dt) {
+    if (!this.running) this.note('live');
     this.running = true;
     const t = this.wake();
     for (const p of this.livePeers()) {

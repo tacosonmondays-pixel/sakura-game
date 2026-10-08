@@ -172,11 +172,17 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   taken back as soon as its packets arrive again; leaving on purpose is final.
   - The host offers its timeline: the start message plus its whole command log, in which the drop and
     the return are recorded as `gone` / `join` markers at exact ticks.
-  - The guest rebuilds the battle from that log (its battle screen reloads), fast-forwards to the
-    host's tick and both continue in lockstep. Orders the guest gave while it was cut off are lost.
+  - A guest that was only frozen (its battle never ran on alone: a long load, a phone switching
+    apps) is still on the host's timeline: it keeps its battle screen, takes the host's newer
+    commands and fast-forwards in place.
+  - A guest that played on alone meanwhile rebuilds the battle from that log (its battle screen
+    reloads), fast-forwards to the host's tick, and both continue in lockstep. Orders the guest gave
+    while it was cut off are lost.
   - Every packet carries the timeline's epoch, so stale packets from before the rejoin are ignored.
-  - An offer that is not taken within 3 s (a one-way link) is withdrawn and retried later with a
+  - An offer that is not taken within 6 s (a one-way link) is withdrawn and retried later with a
     doubling pause (8 s … 60 s), so the host never waits long.
+  - Each client keeps its last 40 connection events (`lockstep.trace`: mount, live, drop, bye,
+    rejoin, adopt, resync with tick and time) for debugging.
 - **Rewards.** Each player gets the stage drops on their own device. Medals stay solo.
 
 ## Tests

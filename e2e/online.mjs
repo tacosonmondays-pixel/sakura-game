@@ -251,13 +251,29 @@ try {
   await shot(A, 'coop-lobby');
   await shot(B, 'coop-lobby-guest');
   await tap(A, '[data-testid="coop-start"]');
-  const inBattle = async (p) => p.waitForFunction(() => window.__battle?.coop?.lockstep && window.__battle.ui?.placement, null, { timeout: 40000 }).then(() => true).catch(() => false);
+  // in the battle = the battle screen is built and this client's lockstep runs with its ally
+  // connected. On an overloaded machine (two software-WebGL pages) a battle screen can take longer
+  // to load than the ally's load allowance: the host then starts alone and re-admits the guest
+  // when it shows up (the rejoin path), which this wait covers too. The co-op waits below are
+  // long for the same reason: both pages share one software-GL GPU process, and on a busy
+  // machine one page can stall for over a minute (the lockstep then drops and re-admits it).
+  const inBattle = async (p) => p.waitForFunction(() => {
+    const ls = window.__battle?.coop?.lockstep;
+    return !!(ls && window.__battle.ui?.placement && ls.running && ls.tick > 0 && ls.livePeers().length === 1 && window.__coop?.lockstep === ls);
+  }, null, { timeout: 150000, polling: 250 }).then(() => true).catch(() => false);
   const battleInfo = (p) => p.evaluate(() => ({
     hash: location.hash, phase: window.__coop?.phase, ls: !!window.__coop?.lockstep, battle: !!window.__battle?.coop, error: document.querySelector('.bt-error')?.innerText || null,
     tick: window.__coop?.lockstep?.tick, peers: window.__coop?.lockstep ? [...window.__coop.lockstep.peers.values()].map((q) => ({ gone: q.gone, why: q.why, ready: q.ready })) : null, rejoins: window.__coop?.lockstep?.rejoins,
+    trace: window.__coop?.lockstep?.trace,
   })).catch((e) => ({ error: e.message }));
-  if (!check(await inBattle(A), 'co-op: host is in the battle')) log(`    host: ${JSON.stringify(await battleInfo(A))}`);
-  if (!check(await inBattle(B), 'co-op: guest is in the battle')) log(`    guest: ${JSON.stringify(await battleInfo(B))}`);
+  const [inA, inB] = await Promise.all([inBattle(A), inBattle(B)]);
+  if (!check(inA, 'co-op: host is in the battle') | !check(inB, 'co-op: guest is in the battle')) {
+    log(`    host: ${JSON.stringify(await battleInfo(A))}`);
+    log(`    guest: ${JSON.stringify(await battleInfo(B))}`);
+  } else {
+    const ev = (p) => p.evaluate(() => window.__coop.lockstep.trace.map((e) => `${e.ev}@${e.tick}`).join(' ')).catch(() => '?');
+    log(`    connection events — host: ${await ev(A)} | guest: ${await ev(B)}`);
+  }
   await Promise.all([A, B].map((p) => p.waitForFunction(() => {
     for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
       if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
@@ -339,13 +355,13 @@ try {
   const sb = await placeOne(B, sa ? [[sa.x, sa.y]] : []);
   check(!!sa && !!sb, `co-op: both players picked a card and a spot (${sa?.unitId}, ${sb?.unitId})`);
   await debugFor('dbg2');
-  const bothPlaced = async (p) => p.waitForFunction(() => window.__battle.sim.towers.length >= 2, null, { timeout: 45000 }).then(() => true).catch(() => false);
+  const bothPlaced = async (p) => p.waitForFunction(() => window.__battle.sim.towers.length >= 2, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await bothPlaced(A) && await bothPlaced(B), 'co-op: both girls stand on both screens')) await dump('lockstep state');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
   await A.evaluate(() => window.__battle.ui.startWave());
   // run until both clients compared at least 3 hash checkpoints (120 ticks each)
-  const synced = await A.waitForFunction(() => window.__battle.coop.hashes.filter((p) => p.t >= 360).length >= 1, null, { timeout: 90000 }).then(() => true).catch(() => false);
+  const synced = await A.waitForFunction(() => window.__battle.coop.hashes.filter((p) => p.t >= 360).length >= 1, null, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(synced, 'co-op: hash checkpoints exchanged during the wave')) await dump('lockstep state');
   const [ha, hb] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(ha.length > 0 && ha.every((p) => p.mine === p.theirs), `co-op: host's hashes match the guest's (${ha.length} checkpoints)`);
@@ -367,7 +383,7 @@ try {
     ls.sendRaw = () => {};
     ls.receive = () => {};
   });
-  const dropped = await A.waitForFunction(() => window.__battle.coop.lockstep.peers.get(1)?.gone, null, { timeout: 45000 }).then(() => true).catch(() => false);
+  const dropped = await A.waitForFunction(() => window.__battle.coop.lockstep.peers.get(1)?.gone, null, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
   check(dropped, 'co-op: a guest cut off for longer than the timeout is dropped (the host plays on)');
   await B.evaluate(() => {
     const ls = window.__coop.lockstep;
@@ -377,10 +393,10 @@ try {
   const back = await Promise.all([A, B].map((p) => p.waitForFunction(() => {
     const ls = window.__coop?.lockstep;
     return ls && ls.rejoins >= 1 && [...ls.peers.values()].every((q) => !q.gone) && window.__battle?.coop?.lockstep === ls;
-  }, null, { timeout: 45000 }).then(() => true).catch(() => false)));
+  }, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false)));
   if (!check(back.every(Boolean), 'co-op: when the link is back, the host re-admits the guest (rejoin)')) await dump('lockstep state');
   const rejoinTick = await A.evaluate(() => window.__battle.coop.tick);
-  const resynced = await A.waitForFunction((t0) => window.__battle.coop.hashes.some((p) => p.t > t0), rejoinTick, { timeout: 60000 }).then(() => true).catch(() => false);
+  const resynced = await A.waitForFunction((t0) => window.__battle.coop.hashes.some((p) => p.t > t0), rejoinTick, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   const [ra, rb] = await Promise.all([A, B].map((p) => p.evaluate((t0) => window.__battle.coop.hashes.filter((q) => q.t > t0), rejoinTick)));
   check(resynced && ra.length > 0 && ra.every((q) => q.mine === q.theirs) && rb.every((q) => q.mine === q.theirs),
     `co-op: after the rejoin both clients agree again (${ra.map((q) => q.t).join(', ')})`);
@@ -388,10 +404,10 @@ try {
 
   // the guest leaves: the host keeps playing
   await go(B, '#/lobby');
-  const left = await A.waitForFunction(() => window.__battle.coop.lockstep.livePeers().length === 0, null, { timeout: 10000 }).then(() => true).catch(() => false);
+  const left = await A.waitForFunction(() => window.__battle.coop.lockstep.livePeers().length === 0, null, { timeout: 20000, polling: 250 }).then(() => true).catch(() => false);
   check(left, 'co-op: when the guest leaves, the host continues solo');
   const t0 = await A.evaluate(() => window.__battle.coop.tick);
-  const ticking = await A.waitForFunction((t) => window.__battle.coop.tick > t + 30 && !window.__battle.coop.lockstep.stalled, t0, { timeout: 20000 }).then(() => true).catch(() => false);
+  const ticking = await A.waitForFunction((t) => window.__battle.coop.tick > t + 30 && !window.__battle.coop.lockstep.stalled, t0, { timeout: 40000, polling: 250 }).then(() => true).catch(() => false);
   check(ticking, 'co-op: the host\'s battle keeps ticking after the ally left');
   await shot(A, 'coop-ally-left');
 } catch (e) {
