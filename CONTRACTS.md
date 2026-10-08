@@ -273,12 +273,24 @@ MapDef = {
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
                         // ',' flowers/decor (buildable), 'X' void/blocked
-  paths: [[[x,y], ...], ...], // ≥1 path; waypoints are tile coords; consecutive points share
-                              // x or y (orthogonal segments). First point is on/outside the edge = spawn,
-                              // last point = exit. Paths may cross (crossing tiles stay path).
-  decor?: [{ type, x, y, rot? }],  // optional extra props for the renderer
+  // Tracks v3 (src/core/track.js): paths are authored as smooth curves in WORLD coords and
+  // sampled ONCE into dense centrelines that the sim walks, the renderer draws and the
+  // thumbnails trace (no re-smoothing downstream).
+  tracks: [{ points: [[x,y]...] /* every 0.1 tile */, cum, length,
+             tunnels: [[d0,d1]...],   // enemies inside are hidden AND untargetable
+             under: [[d0,d1]...],     // walking under an overpass deck (hidden by the renderer, still targetable)
+             elev: number[]|null,     // overpass deck height per point (0 on the ground, ≤ BRIDGE_HEIGHT)
+             fork?, join?, forkD, joinD }],
+  crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
+  paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
+  decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  concept: string,                 // the track's silhouette name (unique per map)
 }
 ```
+
+Track quality rules (tests/data/world.test.js): ≤ 14° turn per 0.1-tile sample, centreline radius
+≥ 1.4 tiles over any 1-tile window, flat junctions ≥ 2 tiles apart, spawns / exits on the board
+edge, no two maps with the same silhouette (coarse 10×6 raster IoU < 0.8).
 
 Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
 outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls

@@ -123,6 +123,11 @@ describe('overpasses', () => {
     expect(e.elev).toBeGreaterThan(0.3);
     const low = sim.spawnEnemy('tank', { dist: c[c.over === 'a' ? 'b' : 'a'].d });
     expect(low.elev).toBeLessThan(0.05);
+    // the lower pass walks under the deck: hidden by the renderer, still targetable (unlike tunnels)
+    expect(low.underDeck).toBe(true);
+    expect(low.hidden).toBe(false);
+    expect(isEligible(low)).toBe(true);
+    expect(e.underDeck).toBe(false);
   });
 });
 

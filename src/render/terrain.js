@@ -310,7 +310,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- road ribbon + decks ---------------------------------------------------------------
   const waterAt = (x, z) => isWater(Math.floor(x), Math.floor(z));
-  const decks = buildDecks(plan.roads, waterAt, look, { pathH: PATH_H, waterY: WATER_Y, crossings: plan.crossings });
+  const decks = buildDecks(plan.roads, waterAt, look, { pathH: PATH_H, waterY: WATER_Y, crossings: plan.crossings, links: plan.links });
   const road = new MeshData(true);
   plan.roads.forEach((r, ri) => {
     buildRibbon(road, r.pts, {
@@ -433,6 +433,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     return Math.atan2(best[0], best[1]);
   }
 
+  // tunnels first: a tunnel under buildings gets one composed hall, so skip those tiles' props
+  const tunnels = buildTunnels(map, look);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const c = rows[y][x];
@@ -465,6 +467,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         for (const [dx, dy] of DIRS) if (inMap(x + dx, y + dy) && rows[y + dy][x + dx] === 'R') n++;
         place(n >= 2 ? 'boulder' : 'rock', cx, 0, cz, r01 * 6.28, 1, h % 5);
         occupied.add(key);
+      } else if (c === 'H' && tunnels.hallTiles.has(key)) {
+        occupied.add(key);
       } else if (c === 'H') {
         const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
         if (border) {
@@ -483,8 +487,13 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
+  if (decks.shadow) {
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    disposables.push(shadowMat);
+    const m = addMesh(decks.shadow, shadowMat, { name: 'overpassShadow', receive: false });
+    m.renderOrder = 2;
+  }
   for (const gl of decks.glows) glows.push({ ...gl, color: new THREE.Color(gl.color), phase: rand() * 6 });
-  const tunnels = buildTunnels(map, look);
   if (tunnels.geometry) solidParts.push(tunnels.geometry);
 
   // ----- auto lily pads on pond shores (grass-family themes) --------------------------

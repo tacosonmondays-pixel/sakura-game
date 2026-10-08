@@ -33,9 +33,12 @@ export const BAND_HALF_WIDTH = 0.55;
 /** Half-width used to rasterise path TILES: every tile whose square the visible road (incl. bevel) touches. */
 export const STAMP_HALF_WIDTH = 0.5;
 /** Overpass deck height (world units) and its profile: flat top ± BRIDGE_FLAT, ramps of BRIDGE_RAMP. */
-export const BRIDGE_HEIGHT = 0.42;
+export const BRIDGE_HEIGHT = 0.62;
 export const BRIDGE_FLAT = 0.8;
 export const BRIDGE_RAMP = 1.3;
+
+/** Half-width of an overpass deck (world units): the lower pass is "under the deck" within it. */
+export const DECK_HALF = 0.62;
 
 /** Marker: the section to the next control point is an exact straight. */
 export const LINE = '-';
@@ -541,9 +544,17 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
     c.mode = m === 'flat' ? 'flat' : 'bridge';
     c.over = c.mode === 'flat' ? null : m === 'bridgeUnder' ? 'a' : 'b';
   });
-  for (const t of tracks) t.elev = null;
+  for (const t of tracks) {
+    t.elev = null;
+    t.under = [];
+  }
   for (const c of crossings) {
     if (c.mode !== 'bridge') continue;
+    // the lower pass is under the deck for the deck's width (measured along the lower road)
+    const low = c[c.over === 'a' ? 'b' : 'a'];
+    const sin = Math.max(0.35, Math.sin((c.angle || 90) * DEG));
+    const w = Math.min(1.6, DECK_HALF / sin);
+    tracks[low.path].under.push([r4(Math.max(0, low.d - w)), r4(low.d + w)]);
     const pass = c[c.over];
     const t = tracks[pass.path];
     if (!t.elev) t.elev = new Array(t.points.length).fill(0);
@@ -568,6 +579,15 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
       }
     }
   });
+  // … and the parent's under-deck spans
+  tracks.forEach((t) => {
+    if (t.fork) for (const [a, b] of tracks[t.fork.path].under) if (a < t.forkD) t.under.push([a, Math.min(b, t.forkD)]);
+    if (t.join) {
+      const shift = t.joinD - t.join.d;
+      for (const [a, b] of tracks[t.join.path].under) if (b > t.join.d) t.under.push([r4(Math.max(a, t.join.d) + shift), r4(b + shift)]);
+    }
+    t.under.sort((p, q) => p[0] - q[0]);
+  });
   for (const c of crossings) {
     if (c.mode !== 'bridge') continue;
     const under = c[c.over === 'a' ? 'b' : 'a'];
@@ -587,6 +607,12 @@ export function elevationAt(track, d) {
   const len = track.cum[j] - track.cum[i] || 1;
   const t = Math.max(0, Math.min(1, (d - track.cum[i]) / len));
   return e[i] + (e[j] - e[i]) * t;
+}
+
+/** Is distance d of this track under an overpass deck (drawn hidden by the renderer, still targetable)? */
+export function underDeck(track, d) {
+  for (const [a, b] of track.under || []) if (d >= a && d <= b) return true;
+  return false;
 }
 
 /** Is distance d inside one of the track's tunnels? */

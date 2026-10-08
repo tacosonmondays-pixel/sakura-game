@@ -10,7 +10,7 @@
 import {
   AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK,
 } from './constants.js';
-import { pointAt, pathInTunnel, pathElevation } from './path.js';
+import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import {
   tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
@@ -72,6 +72,7 @@ export function createEnemy(def, o) {
     seg: 0,
     hidden: false, // inside a tunnel: invisible and untargetable
     elev: 0, // overpass deck height under the enemy (renderer)
+    underDeck: false, // walking under an overpass deck (renderer hides ground walkers; still targetable)
     hp: maxHp,
     maxHp,
     barrier: 0,
@@ -163,6 +164,7 @@ export function placeOnPath(e, path) {
   e.remaining = path.length - e.dist;
   e.hidden = path.tunnels?.length ? pathInTunnel(path, e.dist) : false;
   e.elev = path.elev ? pathElevation(path, e.dist) : 0;
+  e.underDeck = path.under?.length ? pathUnderDeck(path, e.dist) : false;
 }
 
 /** Boss phases: applies every phase whose hp threshold has been crossed. */

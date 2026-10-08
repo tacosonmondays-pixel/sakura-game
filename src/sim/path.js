@@ -3,7 +3,7 @@
 // tunnels and overpass elevation; plus path tile stamping and sampling helpers.
 // Legacy MapDefs without `tracks` (old orthogonal tile waypoints in tests) still work.
 
-import { mapTracks, stampTracks, legacyTracks, inTunnel, elevationAt } from '../core/track.js';
+import { mapTracks, stampTracks, legacyTracks, inTunnel, elevationAt, underDeck } from '../core/track.js';
 
 /**
  * @typedef {{ index: number, points: number[][], cum: number[], length: number,
@@ -43,7 +43,8 @@ export function pathFromTrack(track, index = 0) {
   }
   const elev = track.elev ? keep.map((k) => track.elev[k] || 0) : null;
   const tunnels = (track.tunnels || []).map(([a, b]) => [a, b]);
-  return { index, points, cum, length: cum[cum.length - 1], dirs, facings, tunnels, elev, track: { points, cum, tunnels, elev } };
+  const under = (track.under || []).map(([a, b]) => [a, b]);
+  return { index, points, cum, length: cum[cum.length - 1], dirs, facings, tunnels, elev, under, track: { points, cum, tunnels, elev, under } };
 }
 
 /**
@@ -106,6 +107,11 @@ export function pointAt(path, d, out = {}, hint = 0) {
 /** Is distance d inside one of the path's tunnels (enemies hidden + untargetable)? */
 export function pathInTunnel(path, d) {
   return path.tunnels?.length ? inTunnel(path, d) : false;
+}
+
+/** Is distance d under an overpass deck? (visual only: the renderer hides ground walkers there; still targetable) */
+export function pathUnderDeck(path, d) {
+  return path.under?.length ? underDeck(path, d) : false;
 }
 
 /** Overpass elevation at distance d (0 on the ground). */

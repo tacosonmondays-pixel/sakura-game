@@ -2,6 +2,7 @@
 // it on map cards, or the debug drawing (path tiles, band, crossings, tunnels, decor).
 //   /previews/tracks.html            thumbnails
 //   /previews/tracks.html?debug=1    debug drawings      ?cols=N  grid columns
+//   ?only=id1,id2                    just these maps
 import { MAPS } from '../src/data/maps.js';
 import { MAP_TIERS } from '../src/data/types.js';
 import { stageThumbSVG } from '../src/art/stageThumb.js';
@@ -21,7 +22,9 @@ nav.addEventListener('click', (e) => {
 const grid = document.createElement('div');
 grid.className = 'grid';
 grid.style.setProperty('--cols', q.get('cols') || (debug ? 3 : 7));
+const only = (q.get('only') || '').split(',').filter(Boolean);
 for (const m of MAPS) {
+  if (only.length && !only.includes(m.id)) continue;
   const card = document.createElement('div');
   card.className = 'card';
   const total = m.tracks.reduce((a, t) => a + t.length, 0);
