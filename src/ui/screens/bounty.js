@@ -13,10 +13,9 @@ import { getMap } from '../../data/maps.js';
 import { CAPABILITIES, DIFFICULTIES, DIFFICULTY_ORDER, MAP_TIERS } from '../../data/types.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
-import { lobbyBackdropSVG } from '../../art/backdrops.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
 import { capabilityIcon, uiIcon, itemIcon, currencyIcon } from '../../art/icons.js';
-import { isStageUnlocked, stageMedals, ownedUnits } from '../../systems/unlocks.js';
+import { isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
@@ -24,11 +23,6 @@ import { medalRow, dropGrid, enemyChip, requirementText, showRewardsModal, uiRng
 
 const ARENA_ICON = { 'res-books': 'book_rare', 'res-coins': 'coins', 'res-gear': 'gearbox_superRare', 'res-mats-a': 'mat_feather_superRare', 'res-mats-b': 'mat_rune_superRare' };
 const ARENA_TAG = { 'res-books': 'Level-up books', 'res-coins': 'Coins', 'res-gear': 'Gear boxes · dice', 'res-mats-a': 'Feather · Blade · Ember · Rime', 'res-mats-b': 'Charm · Rune · Cog' };
-
-function secretary(profile) {
-  const id = profile.secretary && profile.units?.[profile.secretary] ? profile.secretary : profile.formation?.hero || ownedUnits(profile)[0] || 'hikari';
-  return UNIT_MAP[id] || UNIT_MAP.hikari;
-}
 
 /** Bounty Token yield of a stage ("×2–4") from its drop table. */
 function tokenYield(stage) {
@@ -41,9 +35,7 @@ function tokenYield(stage) {
 
 export function render(root, params = {}) {
   const { el, body } = screen('Bounty', { cls: 'ma-bounty-screen ma-char-screen' });
-  const bg = h('div.ma-hub-bg', { html: lobbyBackdropSVG(), 'aria-hidden': 'true' });
-  bg.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  el.insertBefore(bg, el.firstChild);
+  el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
   const arenas = bountyArenas();
@@ -58,10 +50,7 @@ export function render(root, params = {}) {
   };
   pickTier(arenas.find((a) => a.id === arenaId));
 
-  const u = secretary(profile);
-  const char = h('div.ma-hub-char', { 'aria-hidden': 'true', html: cardArtSVG(u, { variant: 'portrait' }) });
-  char.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMax meet');
-  char.appendChild(h('div.ma-hub-char-name', h('b', u.name), h('span', u.title)));
+  const char = hubStand(hubSecretary(profile), { cls: 'ma-hub-char' });
 
   const list = h('div.ma-loc-list');
   const tokens = h('span.ma-loc-balance-val', { 'data-testid': 'bounty-tokens' });

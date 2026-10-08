@@ -9,7 +9,7 @@ import { WIKI_CATEGORIES, wikiArticles, getArticle, searchWiki } from '../../dat
 import {
   attackTypeIcon, armorClassIcon, roleIcon, traitIcon, statusIcon, capabilityIcon, itemIcon, medalIcon, elementIcon, uiIcon,
 } from '../../art/icons.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { put, cssVars, rarityTile, unitMini, crosspathDiagram } from './backpack.js';
 
 const view = { q: '', cat: null, article: null };
@@ -19,7 +19,7 @@ const TIP_ICON = { info: 'info', warn: 'shield', good: 'sparkle' };
 const ICONS = {
   attack: attackTypeIcon, armor: armorClassIcon, role: roleIcon, trait: traitIcon, status: statusIcon, cap: capabilityIcon,
   item: itemIcon, medal: (d) => medalIcon(d), element: elementIcon,
-  unit: (id) => (UNIT_MAP[id] ? cardArtSVG(UNIT_MAP[id], { variant: 'thumb' }) : ''),
+  unit: (id) => (UNIT_MAP[id] ? portraitHTML(UNIT_MAP[id], 'thumb') : ''),
 };
 
 function cellNode(c) {

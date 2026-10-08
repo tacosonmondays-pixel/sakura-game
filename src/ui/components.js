@@ -6,6 +6,7 @@ import { navigate, back } from './router.js';
 import { formatNumber } from '../core/util.js';
 import { itemIcon, uiIcon, currencyIcon, UI_ICON_NAMES } from '../art/icons.js';
 import { cardArtSVG } from '../art/cardArt.js';
+import { portraitHTML } from '../art/portraits.js';
 import { lobbyIcon } from '../art/lobbyIcons.js';
 import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
@@ -17,6 +18,34 @@ export function svgEl(svg, cls = 'svg-icon') {
   const span = h(`span.${cls}`);
   span.innerHTML = svg;
   return span;
+}
+
+/**
+ * A girl's drawn portrait wrapped in a span (src/art/portraits.js): lazy <img>, SVG card art
+ * when she has no drawing or the file fails to load.
+ * @param {string|object} unit unit id or UnitDef
+ * @param {'full'|'card'|'bust'|'thumb'|'cut'|'cutS'} [kind]
+ * @param {string} [cls] wrapper class
+ */
+export function portrait(unit, kind = 'bust', cls = 'pt-wrap', opts = {}) {
+  const u = typeof unit === 'string' ? getUnit(unit) : unit;
+  return svgEl(portraitHTML(u, kind, opts), cls);
+}
+
+// A drawn portrait that fails to load (offline, missing file) becomes the SVG card art.
+if (typeof document !== 'undefined' && !globalThis.__sakuraPortraitFallback) {
+  globalThis.__sakuraPortraitFallback = true;
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains('pt-img') || !img.parentNode) return;
+    try {
+      const u = getUnit(img.dataset.unit);
+      const svg = fromHTML(cardArtSVG(u, { variant: img.dataset.svg || 'portrait' }));
+      if (svg) img.replaceWith(svg);
+    } catch {
+      img.remove();
+    }
+  }, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -383,7 +412,12 @@ export function showItemInfo(itemId) {
         )
       : h('p.muted', 'Not obtainable yet.'),
   );
-  const m = modal({ title: 'Item', body, actions: [{ label: 'Close', kind: 'ghost' }] });
+  const actions = [{ label: 'Close', kind: 'ghost' }];
+  // usable items (SSR Select Ticket): open their picker
+  if (item?.usable === 'ssrSelect' && owned > 0) {
+    actions.push({ label: 'Use', kind: 'yellow', testid: 'item-use', onClick: (close) => { close(); import('./selectTicket.js').then((mod) => mod.openSelectTicket()); } });
+  }
+  const m = modal({ title: 'Item', body, actions });
   return m;
 }
 
@@ -391,7 +425,7 @@ export function showItemInfo(itemId) {
 export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false } = {}) {
   const u = getUnit(unitId);
   const r = UNIT_RARITIES[u.rarity];
-  const art = svgEl(cardArtSVG(u, { variant: variant === 'tall' ? 'portrait' : 'thumb' }), 'unit-card-art');
+  const art = svgEl(portraitHTML(u, variant === 'tall' ? 'card' : 'thumb', { awaken }), 'unit-card-art');
   const el = h(
     `button.unit-card.unit-card-${variant}${owned ? '' : '.locked'}${selected ? '.selected' : ''}`,
     { onclick: onClick, 'data-unit': unitId, style: { '--rarity': r.color } },

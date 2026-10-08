@@ -7,7 +7,7 @@ import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { applyBattleResult } from '../../systems/rewards.js';
 import { describeStat } from '../../systems/gear.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, gearIcon, traitIcon } from '../../art/icons.js';
 import { getItem } from '../../data/items.js';
 import { getUnit } from '../../data/units.js';
@@ -40,7 +40,7 @@ function unlockCard(unitId) {
   return h(
     'div.bt-unlock',
     h('div.bt-unlock-rays'),
-    svgEl(cardArtSVG(u, { variant: 'full' }), 'bt-unlock-art'),
+    svgEl(portraitHTML(u, 'full', { eager: true }), 'bt-unlock-art'),
     h('div.bt-unlock-text', h('b', `${u.name} joined the academy!`), h('span', u.acquisition?.note || u.title || '')),
   );
 }
@@ -51,6 +51,40 @@ function discoveredRow(ids) {
     const fam = FAMILIES[e?.family];
     return h('div.bt-disc', enemyToken(id, { size: 40 }), h('div.bt-disc-name', e?.name || id), h('div.bt-disc-fam', fam?.name || ''));
   }));
+}
+
+const VICTORY_LINES = [
+  'We did it, Sensei! Did you see that?',
+  'Victory! Your plan was perfect, Sensei.',
+  'Hehe, not a single petal out of place!',
+  'Mission complete! Can we get crêpes now?',
+];
+
+/** The girl who celebrates on the victory sheet: top damage, else the hero, else the first tower. */
+function victoryGirl(ctx) {
+  let id = null;
+  try {
+    id = ctx.sim.debrief()?.damage?.[0]?.unitId || null;
+  } catch {
+    id = null;
+  }
+  const f = ctx.profile?.formation || {};
+  id ||= f.hero || f.towers?.[0] || null;
+  try {
+    return id ? getUnit(id) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Drawn stand of the MVP beside the victory sheet with a speech bubble (BA results style). */
+function victoryStand(ctx, seed = 0) {
+  const u = victoryGirl(ctx);
+  if (!u) return null;
+  return h('div.bt-win-girl', { 'aria-hidden': 'true', 'data-testid': 'victory-girl' },
+    svgEl(portraitHTML(u, 'cut', { eager: true }), 'bt-win-girl-art'),
+    h('div.bt-win-bubble', h('b', `MVP · ${u.name}`), h('span', VICTORY_LINES[Math.abs(seed) % VICTORY_LINES.length])),
+  );
 }
 
 function section(title, ...children) {
@@ -125,7 +159,7 @@ export function createResults(ctx) {
     return h('div.bt-mvp', top.map((row, i) => {
       let art = null;
       try {
-        art = svgEl(cardArtSVG(getUnit(row.unitId), { variant: 'thumb' }), 'bt-mvp-art');
+        art = svgEl(portraitHTML(getUnit(row.unitId), 'thumb'), 'bt-mvp-art');
       } catch {
         art = h('span.bt-mvp-art');
       }
@@ -152,7 +186,7 @@ export function createResults(ctx) {
         ? actions(true)
         : h('div.bt-result-actions', h('button.bt-cta.bt-cta-big', { 'data-testid': 'view-rewards', onclick: () => showRewards() }, 'Rewards', icon('gift', 'bt-ico-sm'))),
     );
-    open(card);
+    open(card, victoryStand(ctx, sim.wave || 0));
   }
 
   function showDefeat() {
@@ -221,8 +255,8 @@ export function createResults(ctx) {
     open(card);
   }
 
-  function open(card) {
-    el.replaceChildren(card);
+  function open(card, extra = null) {
+    el.replaceChildren(...[extra, card].filter(Boolean));
     el.hidden = false;
     el.classList.remove('bt-in');
     void el.offsetWidth;

@@ -16,7 +16,7 @@ import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 
 // ---------------------------------------------------------------------------
 // Shared pieces
@@ -46,7 +46,7 @@ export function rarityTile(itemId, count = null, opts = {}) {
 export function unitMini(unitId, { size = 28 } = {}) {
   const u = UNIT_MAP[unitId];
   if (!u) return null;
-  return h('span.mb-unit-mini', { style: { width: `${size}px`, height: `${size}px` }, title: u.name }, svgEl(cardArtSVG(u, { variant: 'thumb' }), 'mb-unit-mini-art'));
+  return h('span.mb-unit-mini', { style: { width: `${size}px`, height: `${size}px` }, title: u.name }, svgEl(portraitHTML(u, 'thumb'), 'mb-unit-mini-art'));
 }
 
 /**
@@ -318,7 +318,8 @@ export function render(root, params = {}) {
             g.users?.length ? h('div.mb-item-group-users', h('span.muted', 'Used by'), g.users.map((id) => unitMini(id, { size: 24 }))) : null),
           h('div.mb-item-grid', g.ids.map((id) => h('div.mb-item-cell',
             rarityTile(id, itemCount(profile, id), { size: 72 }),
-            h('div.mb-item-name', { style: cssVars({ '--rarity': ITEM_RARITIES[ITEMS[id].rarity].color }) }, ITEMS[id].name))))));
+            h('div.mb-item-name', { style: cssVars({ '--rarity': ITEM_RARITIES[ITEMS[id].rarity].color }) }, ITEMS[id].name),
+            ITEMS[id].usable === 'ssrSelect' ? button('Use', { kind: 'yellow', small: true, icon: 'sparkle', testid: `use-${id}`, onClick: () => import('../selectTicket.js').then((m) => m.openSelectTicket()) }) : null)))));
       }
     } else if (state.tab !== 'equipment') {
       content.appendChild(emptyState(state.rarity ? 'Nothing of that rarity' : 'Nothing here yet', state.tab === 'tickets' ? 'Recruit tickets come from the login calendar, weekly commissions and the Mall.' : 'Clear stages and Bounty arenas to fill your backpack.', button('Go to Mission', { kind: 'yellow', icon: 'map', onClick: () => navigate('campaign') })));

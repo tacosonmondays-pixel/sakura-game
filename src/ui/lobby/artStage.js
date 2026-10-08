@@ -1,30 +1,20 @@
 // Drawn lobby stage (Blue Archive "memorial lobby" style): the secretary is a full-screen
 // illustration instead of a 3D chibi (owner: "could it be a drawn background instead like blue
 // archive?"). Same API as the old createSecretaryStage so lobby.js barely changes:
-//   await stage.show(unitDef, { direction })   swap art (slide + fade)
+//   await stage.show(unitDef, { direction, background })   swap art (slide + fade)
 //   stage.react('head' | 'body', at)           tap bounce + hearts
 //   stage.say(text)                            speech bubble near her face
 //   stage.look(nx, ny)                         parallax (-1..1)
 //   stage.hideBubble(), stage.dispose()
-// Girls with a landscape scene fill the screen; girls with a cut-out illustration stand over the
-// painted academy; everyone else gets the academy with her card art until her drawing exists.
+// The picture is a lobby background (src/data/lobbyArt.js): a full landscape scene with her in
+// it, or her drawn stand over the painted academy in a day / sunset / night tint. Every girl has
+// drawn art (src/art/portraits.js); the SVG card stays only as a fallback for unknown ids.
 import { h } from '../dom.js';
 import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitUrl, portraitHTML } from '../../art/portraits.js';
+import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 
-const BASE = (import.meta.env?.BASE_URL || './') + 'art/lobby/';
-
-/** Per-girl lobby art. face = [x%, y%] of her face in the frame (bubble + head-tap zone). */
-export const LOBBY_ART = {
-  hikari: { scene: 'hikari.webp', face: [62, 26] },
-  sango: { scene: 'sango.webp', face: [57, 30] },
-  aoi: { scene: 'aoi.webp', face: [66, 30] },
-  luna: { cut: 'luna-cut.webp' },
-  nami: { cut: 'nami-cut.webp' },
-  hotaru: { cut: 'hotaru-cut.webp' },
-  umeko: { cut: 'umeko-cut.webp' },
-};
-
-/** Where the bubble/head zone sits for cut-outs and card fallbacks (art box on the right). */
+/** Where the bubble/head zone sits for stands (art box on the right). */
 const CUT_FACE = [60, 22];
 
 export function createArtStage(host, { reduceMotion = false, onTap = null } = {}) {
@@ -38,17 +28,18 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
   let disposed = false;
   let current = null;
 
-  function build(u) {
-    const art = LOBBY_ART[u.id];
-    const layer = h('div.lb-art-layer');
-    if (art?.scene) {
+  function build(u, bg) {
+    const layer = h('div.lb-art-layer', { dataset: { bg: bg?.id || '' } });
+    if (bg?.kind === 'scene') {
       layer.classList.add('scene');
-      layer.append(h('img.lb-art-scene', { src: BASE + art.scene, alt: `${u.name}`, draggable: false }));
-      face = art.face || CUT_FACE;
+      layer.append(h('img.lb-art-scene', { src: lobbyArtUrl(bg.file), alt: `${u.name}`, draggable: false, decoding: 'async' }));
+      face = bg.face || CUT_FACE;
     } else {
-      layer.append(h('img.lb-art-bg', { src: BASE + 'academy.webp', alt: '', draggable: false }));
+      layer.classList.add('stand', `tint-${bg?.tint || 'day'}`);
+      layer.append(h('img.lb-art-bg', { src: lobbyArtUrl(bg?.file || 'academy.webp'), alt: '', draggable: false, decoding: 'async' }), h('div.lb-art-tint'));
       const girl = h('div.lb-art-girl');
-      if (art?.cut) girl.append(h('img', { src: BASE + art.cut, alt: `${u.name}`, draggable: false }));
+      // her drawn stand (half-body stands fade where the frame cut them — portraits.js)
+      if (portraitUrl(u, 'cut')) girl.innerHTML = portraitHTML(u, 'cut', { eager: true });
       else {
         girl.classList.add('card');
         girl.innerHTML = cardArtSVG(u, { variant: 'full' });
@@ -59,12 +50,13 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     return layer;
   }
 
-  async function show(u, { direction = 0 } = {}) {
+  async function show(u, { direction = 0, background = null } = {}) {
     if (!u || disposed) return;
-    const next = build(u);
+    const bg = background || LOBBY_BG_MAP[defaultBackgroundFor(u.id)];
+    const next = build(u, bg);
     if (direction && !reduceMotion) next.classList.add(direction > 0 ? 'enter-r' : 'enter-l');
-    const img = next.querySelector('img');
-    if (img && !img.complete) await new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); });
+    const imgs = [...next.querySelectorAll('img')].filter((img) => !img.complete);
+    if (imgs.length) await Promise.all(imgs.map((img) => new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); })));
     if (disposed) return;
     const prev = current;
     frame.append(next);

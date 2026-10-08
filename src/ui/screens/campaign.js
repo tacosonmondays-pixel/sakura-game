@@ -14,7 +14,7 @@ import { MAP_TIERS, TRAITS, DIFFICULTY_ORDER } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon, traitIcon } from '../../art/icons.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
 import { medalRow, requirementText, cssVar, rememberParams } from './stage.js';
 
@@ -172,7 +172,7 @@ function stageCard(profile, stageId, { isNext }) {
       ),
       h('div.ma-sc-badges',
         mech ? h(`span.ma-sc-mech${mech.boss ? '.boss' : ''}`, mech.icon ? svgEl(mech.icon, 'ma-trait') : null, h('span', mech.enemy ? `New: ${mech.text}` : `New mechanic: ${mech.text}`)) : null,
-        unlocks.map((id) => h('span.ma-sc-unlock', { title: `${UNIT_MAP[id].name} joins on first clear` }, h('span.ma-sc-unlock-art', { html: cardArtSVG(UNIT_MAP[id], { variant: 'thumb' }) }), `+${UNIT_MAP[id].name}`)),
+        unlocks.map((id) => h('span.ma-sc-unlock', { title: `${UNIT_MAP[id].name} joins on first clear` }, h('span.ma-sc-unlock-art', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), `+${UNIT_MAP[id].name}`)),
       ),
     ),
     unlocked ? null : h('div.ma-sc-lock', svgEl(uiIcon('lock'), 'ma-sc-lock-icon'), h('span', requirementText(profile, stageId))),
