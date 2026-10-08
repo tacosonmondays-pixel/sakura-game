@@ -50,7 +50,10 @@ const base = `http://127.0.0.1:${port}/?online=local`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label} · viewport ${W}x${H}`);
 
-const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch });
+// reduced motion: no panel / modal entrance animations, so an element is "stable" for a click on
+// the first frame even when three pages share an overloaded software-GL GPU process (a page
+// that gets few frames otherwise keeps a 0.4 s slide-in "running" for seconds)
+const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, reducedMotion: 'reduce' });
 const errors = [];
 async function openPage(name) {
   const page = await context.newPage();
@@ -72,10 +75,20 @@ const shot = async (page, name) => {
   await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png` });
 };
 const go = (page, hash) => page.evaluate((h) => { location.hash = h; }, hash);
+// A normal tap/click waits for two animation frames with the element in the same place. On an
+// overloaded machine a page can get no frames for many seconds (three pages share one software-GL
+// GPU process): then tap the element where it is, without the frame-based stability wait (the
+// event still goes to whatever is on top at that point, so a covered button is not "pressed").
 const tap = async (page, sel) => {
   const el = page.locator(sel).first();
-  if (touch) await el.tap({ timeout: 15000 });
-  else await el.click({ timeout: 15000 });
+  const act = (opts) => (touch ? el.tap(opts) : el.click(opts));
+  try {
+    await act({ timeout: 20000 });
+  } catch (e) {
+    if (!/Timeout/.test(e.message)) throw e;
+    log(`    (no frames for 20 s: tapping ${sel} without the stability wait)`);
+    await act({ timeout: 20000, force: true });
+  }
 };
 
 async function setName(page, name) {
@@ -365,8 +378,15 @@ try {
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
   await A.evaluate(() => window.__battle.ui.startWave());
   // run until both clients compared at least 3 hash checkpoints (120 ticks each)
-  const synced = await A.waitForFunction(() => window.__battle.coop.hashes.filter((p) => p.t >= 360).length >= 1, null, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
-  if (!check(synced, 'co-op: hash checkpoints exchanged during the wave')) await dump('lockstep state');
+  // both sides compared a checkpoint at the same tick: the guest's newest compared tick (from
+  // tick 360 on), which the host compares too once the guest's hash reaches it (a guest whose
+  // battle was rebuilt by a rejoin starts its comparisons afresh, so wait on the guest first)
+  const tB = await B.waitForFunction(() => {
+    const ts = (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= 360);
+    return ts.length ? Math.max(...ts) : 0;
+  }, null, { timeout: 180000, polling: 250 }).then((hnd) => hnd.jsonValue()).catch(() => 0);
+  const synced = !!tB && await A.waitForFunction((t) => (window.__battle?.coop?.hashes || []).some((q) => q.t === t), tB, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
+  if (!check(synced, `co-op: hash checkpoints exchanged during the wave (both compared tick ${tB})`)) await dump('lockstep state');
   const [ha, hb] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(ha.length > 0 && ha.every((p) => p.mine === p.theirs), `co-op: host's hashes match the guest's (${ha.length} checkpoints)`);
   check(hb.length > 0 && hb.every((p) => p.mine === p.theirs), `co-op: guest's hashes match the host's (${hb.length} checkpoints)`);
