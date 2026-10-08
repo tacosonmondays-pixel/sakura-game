@@ -30,19 +30,21 @@ export const PORTRAIT_BASE = `${baseUrl()}art/portraits/`;
 
 /**
  * Girls with drawn art. face = her face centre in the full 3:4 illustration (% x, % y);
- * cut = width / height of her transparent stand.
+ * cut = width / height of her transparent stand; edges = sides where her half-body stand is cut
+ * by the original frame ('l' left, 'r' right, 'b' bottom) — they get a soft fade so a stand never
+ * shows a hard vertical line in the middle of a screen.
  */
 export const PORTRAIT_DATA = {
-  hikari: { face: [48, 20], cut: 0.766 },
+  hikari: { face: [48, 20], cut: 0.766, edges: 'lb' },
   luna: { face: [44, 22], cut: 0.672 },
-  nami: { face: [46, 20], cut: 0.75 },
+  nami: { face: [46, 20], cut: 0.75, edges: 'rb' },
   aoi: { face: [45, 15], cut: 0.754 },
   hotaru: { face: [42, 20], cut: 0.576 },
-  sango: { face: [49, 26], cut: 0.75 },
-  umeko: { face: [47, 24], cut: 0.77 },
-  kaede: { face: [59, 24], cut: 0.75 },
-  suzu: { face: [57, 26], cut: 0.75 },
-  chika: { face: [61, 24], cut: 0.766 },
+  sango: { face: [49, 26], cut: 0.75, edges: 'lrb' },
+  umeko: { face: [47, 24], cut: 0.77, edges: 'lrb' },
+  kaede: { face: [59, 24], cut: 0.75, edges: 'lrb' },
+  suzu: { face: [57, 26], cut: 0.75, edges: 'lb' },
+  chika: { face: [61, 24], cut: 0.766, edges: 'lb' },
   rei: { face: [49, 24], cut: 0.64 },
   yuki: { face: [45, 21], cut: 0.552 },
   akane: { face: [55, 30], cut: 0.693 },
@@ -84,6 +86,14 @@ export function portraitUrl(unitOrId, kind = 'bust') {
   return `${PORTRAIT_BASE}${id}-${k.suffix}.webp`;
 }
 
+/** Fade widths per cut edge (CSS custom properties read by .pt-edge in base.css). */
+const EDGE_FADE = { l: '--fl:12%', r: '--fr:12%', b: '--fb:10%' };
+
+/** @returns {string} the sides where her stand is cut by the frame ('' for full figures) */
+export function portraitEdges(unitOrId) {
+  return PORTRAIT_DATA[idOf(unitOrId)]?.edges || '';
+}
+
 /** Face position (% of the full illustration) for object-position / bubbles. */
 export function portraitFace(unitOrId) {
   return PORTRAIT_DATA[idOf(unitOrId)]?.face || [50, 22];
@@ -107,9 +117,14 @@ export function portraitHTML(unitDef, kind = 'bust', { eager = false, awaken = 0
   const id = idOf(unitDef);
   const face = portraitFace(id);
   // full illustrations crop around her face; busts/thumbs/cards are already framed on it
-  const pos = kind === 'full' ? ` style="object-position:${face[0]}% ${Math.max(0, face[1] - 12)}%"` : '';
+  const styles = [];
+  if (kind === 'full') styles.push(`object-position:${face[0]}% ${Math.max(0, face[1] - 12)}%`);
+  // half-body stands: fade the sides the original frame cut (no hard line mid-screen)
+  const edges = kind === 'cut' || kind === 'cutS' ? portraitEdges(id) : '';
+  for (const e of edges) styles.push(EDGE_FADE[e]);
+  const style = styles.length ? ` style="${styles.join(';')}"` : '';
   const size = k.w ? ` width="${k.w}" height="${k.h}"` : '';
-  return `<img class="pt-img pt-${kind}${cls ? ` ${esc(cls)}` : ''}" src="${url}" alt="${esc(alt ?? unitDef?.name ?? id)}"${size} loading="${eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" data-unit="${esc(id)}" data-svg="${k.svg}"${pos}>`;
+  return `<img class="pt-img pt-${kind}${edges ? ' pt-edge' : ''}${cls ? ` ${esc(cls)}` : ''}" src="${url}" alt="${esc(alt ?? unitDef?.name ?? id)}"${size} loading="${eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" data-unit="${esc(id)}" data-svg="${k.svg}"${style}>`;
 }
 
 /** Every portrait file URL for one girl (preloading, tests). */

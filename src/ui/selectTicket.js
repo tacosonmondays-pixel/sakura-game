@@ -74,7 +74,7 @@ function showJoined(u, r) {
       ),
     ),
     actions: [
-      { label: 'OK', kind: 'ghost' },
+      { label: 'OK', kind: 'ghost', testid: 'sst-ok' },
       { label: 'View student', kind: 'yellow', testid: 'sst-view', onClick: (c) => { c(); navigate('student', { id: u.id }); } },
     ],
   });

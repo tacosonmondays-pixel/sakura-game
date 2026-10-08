@@ -6,7 +6,6 @@ import { modal, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { BETA_DEADLINE } from '../../systems/mail.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
@@ -58,7 +57,7 @@ function articles() {
       body: [
         'Every account created on or before November 7 (CST) — and every save from before this update, including everyone who tried the original Codex version — gets a Beta Tester Thank-You package in the Mail.',
         'Inside: five 10× Recruit Tickets, an SSR Select Ticket (choose ANY SSR student), a big bundle of upgrade materials and books, 300,000 coins and 3,000 gems.',
-        `Open the Mail at the top right to claim it. New accounts after ${new Date(BETA_DEADLINE - 1).toLocaleDateString([], { month: 'long', day: 'numeric' })} no longer receive it.`,
+        'Open the Mail at the top right to claim it. Accounts created after November 7 (CST) no longer receive it.',
       ],
       cta: { label: 'Open Mail', go: () => import('./mailbox.js').then((m) => m.openMailbox()) },
     },

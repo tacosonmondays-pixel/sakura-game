@@ -78,7 +78,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
         },
       },
       thumbFor(bg, u),
-      ready ? null : h('div.bgp-lock', svgEl(glyph('lock'), 'bgp-lock-ico'), h('small', unlocked ? 'Coming soon' : unlockText(bg, p))),
+      ready ? null : h('div.bgp-lock', svgEl(glyph('lock'), 'bgp-lock-ico'), ...lockLines(bg, unlocked)),
       on ? h('span.bgp-check', svgEl(glyph('check'), 'bgp-check-ico')) : null,
       h('div.bgp-tile-name', h('b', bg.name), bg.kind === 'bond' ? h('span.bgp-tag', `Bond ${bg.unlock.level}`) : null),
       );
@@ -87,6 +87,13 @@ export function openBackgroundPicker({ girl = null } = {}) {
   };
   paint();
   return m;
+}
+
+/** Short lock caption for a tile (the full requirement is in its tooltip and toast). */
+function lockLines(bg, unlocked) {
+  if (unlocked) return [h('b', 'Coming soon')];
+  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Date her & give gifts in the City')];
+  return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`)];
 }
 
 /** Tile picture: the scene, the academy with her stand, or a soft silhouette for bond memories. */

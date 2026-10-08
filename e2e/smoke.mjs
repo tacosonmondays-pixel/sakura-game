@@ -118,15 +118,53 @@ async function runViewport(vp) {
   });
   const takeErrors = () => errors.splice(0);
   const shot = async (name) => {
-    if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name.replace(/[^\w-]+/g, '_')}.png` });
+    if (!shotsDir) return;
+    // screenshots are diagnostics: a slow frame on a loaded machine must not abort the run
+    await page.screenshot({ path: `${shotsDir}/${vp}-${name.replace(/[^\w-]+/g, '_')}.png` }).catch((e) => log(`  (screenshot ${name} skipped: ${e.message.split('\n')[0]})`));
   };
 
-  // fresh save
+  // fresh save, cold start (no route in the URL) → the title / load-up screen: it preloads what
+  // the lobby needs, then "TAP TO START" goes to the lobby
   await page.goto(base, { waitUntil: 'load' });
-  await page.evaluate(() => localStorage.clear());
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
+  check(await page.evaluate(() => location.hash === '#/title' && !!document.querySelector('[data-testid="title"]')), 'cold start opens the title screen');
+  const startBtn = await page.waitForSelector('[data-testid="title-start"]:not([disabled])', { timeout: 30000 }).catch(() => null);
+  check(!!startBtn, 'title: loading finishes and TAP TO START is enabled');
+  await shot('title');
+  if (startBtn) await startBtn.click();
+  await page.waitForFunction(() => location.hash.startsWith('#/lobby') && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 15000 }).catch(() => null);
+  check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'title: tap to start opens the lobby');
   check(await page.evaluate(() => !!window.__sakura.store.profile.units.aoi), 'fresh profile owns starter Aoi');
+
+  // Beta Tester Thank-You (accounts up to 2026-11-07): celebration modal → claim → SSR Select
+  // Ticket picker → choose an SSR she does not own yet
+  const giftBtn = await page.waitForSelector('[data-testid="beta-gift-claim"]', { timeout: 10000 }).catch(() => null);
+  const betaOpen = Date.now() < Date.UTC(2026, 10, 8, 6);
+  if (betaOpen) check(!!giftBtn, 'beta gift: celebration modal shows on a fresh account');
+  if (giftBtn) {
+    await shot('beta-gift');
+    const t0 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems }));
+    await giftBtn.click();
+    const t1 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems, sel: window.__sakura.store.profile.items.ticket_ssr_select || 0 }));
+    check(t1.t10 === t0.t10 + 5 && t1.gems === t0.gems + 3000 && t1.sel === 1, `beta gift: claimed 5× 10-pull tickets, 3,000 gems and an SSR Select Ticket (${JSON.stringify(t1)})`);
+    const choose = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
+    if (choose) await choose.click();
+    const pick = await page.evaluate(() => {
+      const { profile } = window.__sakura.store;
+      return [...document.querySelectorAll('[data-testid^="sst-"]')].map((el) => el.dataset.testid.slice(4)).find((id) => !profile.units[id]) || null;
+    });
+    check(!!pick, 'SSR Select Ticket: the picker lists an SSR the player does not own');
+    if (pick) {
+      await shot('ssr-select');
+      await page.click(`[data-testid="sst-${pick}"]`);
+      await page.click('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => {});
+      await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => null);
+      check(await page.evaluate((id) => !!window.__sakura.store.profile.units[id] && !window.__sakura.store.profile.items.ticket_ssr_select, pick), `SSR Select Ticket: ${pick} joined and the ticket was used`);
+      await page.click('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => {});
+    }
+  }
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  check(!takeErrors().length, 'title + beta gift: no errors');
 
   // ---- every route ----
   for (const [label, hash] of ROUTES) {

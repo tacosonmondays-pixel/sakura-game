@@ -101,7 +101,6 @@ export function render(root) {
     h('div.tt-girls', { 'aria-hidden': 'true' }, TRIO.filter((id) => UNIT_MAP[id]).map((id, i) => h(`div.tt-girl.g${i}`, { html: portraitHTML(UNIT_MAP[id], 'cut', { eager: true }) }))),
     reduce ? null : h('div.tt-petals', { 'aria-hidden': 'true' }, Array.from({ length: 14 }, (_, i) => h(`i.tt-petal.p${i}`))),
     h('div.tt-logo', { 'aria-label': 'Sakura Sentinels' },
-      h('span.tt-logo-halo', { 'aria-hidden': 'true' }),
       h('b.tt-logo-1', 'Sakura'),
       h('b.tt-logo-2', 'SENTINELS'),
       h('span.tt-logo-sub', 'Academy Tower Defense'),

@@ -24,6 +24,8 @@ import { commissionsNotice, campaignStatus } from './lobby.js';
 /** Drawn tile art: a landscape painting, or a girl's illustration cropped on her face. */
 const paint = (file) => ({ src: lobbyArtUrl(file), kind: 'paint' });
 const girl = (id) => ({ src: portraitUrl(id, 'card'), kind: 'girl' });
+/** Wide tiles: her 512 px bust (sharper than the narrow card when stretched across a wide tile). */
+const bust = (id) => ({ src: portraitUrl(id, 'bust'), kind: 'girl.bust' });
 
 export function render(root) {
   const { el, body } = screen('Missions', { cls: 'ma-hub-screen' });
@@ -66,7 +68,7 @@ function build() {
   const grid = h('div.ma-hub-grid',
     mission,
     tile({ id: 'bounty', title: 'Bounty', art: paint('thumbs/aoi.webp'), sub: `${event.arenaName} · ${event.dropMul}× this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
-    tile({ id: 'assault', title: 'Total Assault', art: paint('thumbs/hikari.webp'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
+    tile({ id: 'assault', title: 'Total Assault', art: bust('kaede'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: paint('thumbs/sango.webp'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     tile({ id: 'commissions', title: 'Commissions', art: girl('umeko'), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
     tile({ id: 'sweep', title: 'Sweep', art: girl('kage'), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard', onClick: () => openSweep() }),

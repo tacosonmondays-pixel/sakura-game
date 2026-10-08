@@ -11,7 +11,7 @@
 // drawn art (src/art/portraits.js); the SVG card stays only as a fallback for unknown ids.
 import { h } from '../dom.js';
 import { cardArtSVG } from '../../art/cardArt.js';
-import { portraitUrl } from '../../art/portraits.js';
+import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 
 /** Where the bubble/head zone sits for stands (art box on the right). */
@@ -38,8 +38,8 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
       layer.classList.add('stand', `tint-${bg?.tint || 'day'}`);
       layer.append(h('img.lb-art-bg', { src: lobbyArtUrl(bg?.file || 'academy.webp'), alt: '', draggable: false, decoding: 'async' }), h('div.lb-art-tint'));
       const girl = h('div.lb-art-girl');
-      const cut = portraitUrl(u, 'cut');
-      if (cut) girl.append(h('img', { src: cut, alt: `${u.name}`, draggable: false, decoding: 'async' }));
+      // her drawn stand (half-body stands fade where the frame cut them — portraits.js)
+      if (portraitUrl(u, 'cut')) girl.innerHTML = portraitHTML(u, 'cut', { eager: true });
       else {
         girl.classList.add('card');
         girl.innerHTML = cardArtSVG(u, { variant: 'full' });

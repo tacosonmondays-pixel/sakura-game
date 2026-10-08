@@ -601,6 +601,7 @@
   .bt-medal-row { margin-bottom: 6px; }
   .bt-medal-ico { width: 60px; height: 60px; }
   .bt-medal-row.small .bt-medal-ico { width: 30px; height: 30px; }
+  .bt-sheet.bt-rewards { width: min(700px, 100%); }
   .bt-rewards-body { display: flex; flex-wrap: wrap; gap: 0 22px; align-items: flex-start; }
   .bt-rewards-body > .bt-rsec { flex: 0 1 auto; min-width: 0; margin-bottom: 6px; }
   .bt-rewards-body > .bt-rsec:has(.bt-gears), .bt-rewards-body > .bt-rsec:has(.bt-mvp), .bt-rewards-body > .bt-rsec:has(.bt-discovered), .bt-rewards-body > .bt-rsec:has(.bt-unlocks) { flex-basis: 100%; }

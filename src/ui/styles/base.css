@@ -324,6 +324,12 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .pt-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0%; background: linear-gradient(160deg, #dbeeff, #b9d8f5); color: transparent; }
 .pt-img.pt-cut, .pt-img.pt-cutS { object-fit: contain; object-position: 50% 100%; background: none; }
 .pt-wrap { display: block; line-height: 0; }
+/* half-body stands: soft fade on the sides the original frame cut (portraitEdges) */
+.pt-img.pt-edge {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0%)), linear-gradient(to left, transparent 0, #000 var(--fr, 0%)), linear-gradient(to top, transparent 0, #000 var(--fb, 0%));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0%)), linear-gradient(to left, transparent 0, #000 var(--fr, 0%)), linear-gradient(to top, transparent 0, #000 var(--fb, 0%));
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
 .unit-card-art .pt-img { position: absolute; inset: 0; }
 .unit-card.locked .unit-card-art .pt-img { filter: none; }
 .unit-card-rarity { position: absolute; left: 6px; top: 4px; font-weight: 900; font-style: italic; color: var(--rarity); text-shadow: 0 1px 2px #000; font-size: 0.85rem; }
