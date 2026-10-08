@@ -11,33 +11,14 @@ import { describe, test, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
-import { unitBattleStats } from '../../src/systems/progression.js';
+import { EXPECTED_LEVEL, freeUnitsBefore, statsAtLevel } from '../../tools/balance/f2p.mjs';
+
+// The F2P roster (starters + free recruits from earlier stages) and the expected account level per
+// chapter live in tools/balance/f2p.mjs, shared with the balance probe (tools/balance/measure.mjs).
+export { EXPECTED_LEVEL };
 
 const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
-
-/** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
-export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
-
-function freeUnitsBefore(d, stageId) {
-  const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
-  const order = new Map(campaign.map((s, i) => [s.id, i]));
-  const idx = order.get(stageId);
-  const avail = Object.values(d.units).filter((u) => {
-    const a = u.acquisition || {};
-    if (a.type === 'starter') return true;
-    return a.type === 'free' && order.has(a.afterStage) && order.get(a.afterStage) < idx;
-  });
-  const recency = (u) => (u.acquisition?.type === 'free' ? order.get(u.acquisition.afterStage) : -1);
-  const towers = avail.filter((u) => u.kind === 'tower').sort((a, b) => recency(b) - recency(a)).slice(0, 8);
-  const hero = avail.filter((u) => u.kind === 'hero').sort((a, b) => recency(b) - recency(a))[0] || null;
-  return { towers: towers.map((u) => u.id), hero: hero?.id || null };
-}
-
-function statsAtLevel(unitId, level) {
-  const breakthrough = Math.max(0, Math.ceil((level - 10) / 10));
-  return unitBattleStats({ units: { [unitId]: { level, breakthrough, awaken: 0, gear: {} } }, gear: {} }, unitId);
-}
 
 /** Runs one stage with the F2P roster. */
 export function runStage(stageId, difficulty, level, seed = 1) {
