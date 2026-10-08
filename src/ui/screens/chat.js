@@ -5,6 +5,7 @@ import { createChatPanel } from '../online/chatPanel.js';
 import { ensureOnline, onlinePill, avatar, levelChip, askName, storedName, PEOPLE_GLYPH } from '../online/common.js';
 import { store } from '../../core/store.js';
 import { profileCard } from '../../online/identity.js';
+import { getBackend } from '../../online/backend.js';
 
 export function render(root, params = {}) {
   const { el, body } = screen('Chat', { cls: 'ol-screen' });
@@ -37,12 +38,14 @@ export function render(root, params = {}) {
 
   function paintSide(clan) {
     const card = profileCard(store.profile);
-    const nameEl = h('b.ol-me-name', storedName() || 'Sensei');
+    // no name chosen yet ("Not now"): the automatic one the server gave this account
+    const shownName = () => storedName() || getBackend().user?.name || 'Sensei';
+    const nameEl = h('b.ol-me-name', shownName());
     side.replaceChildren(
       h('section.panel.ol-me',
         h('div.ol-me-row', avatar(card.avatar, 56), h('div', nameEl, h('div', levelChip(card.level)))),
         onlinePill(),
-        button('Change name', { kind: 'ghost', small: true, testid: 'chat-rename', onClick: async () => { nameEl.textContent = await askName({ title: 'Change name', current: storedName() }); } })),
+        button('Change name', { kind: 'ghost', small: true, testid: 'chat-rename', onClick: async () => { await askName({ title: 'Change name', current: storedName() }); nameEl.textContent = shownName(); } })),
       h('section.panel.ol-side-links',
         h('button.ol-link', { onclick: () => navigate('clan'), 'data-testid': 'chat-to-clan' }, svgEl(PEOPLE_GLYPH, 'ol-link-ico'), h('span', clan ? `Clan · ${clan.name}` : 'Find a clan')),
         h('button.ol-link', { onclick: () => navigate('coop'), 'data-testid': 'chat-to-coop' }, svgEl(glyph('sword'), 'ol-link-ico'), h('span', 'Co-op battle'))),

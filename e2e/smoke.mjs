@@ -94,6 +94,11 @@ const ROUTES = [
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
   ['settings', '#/settings'],
+  // online screens without a server config: local mode + "Online features offline" pill (the
+  // first one asks for a name; leaving the screen closes that prompt)
+  ['chat', '#/chat'],
+  ['clan', '#/clan'],
+  ['co-op', '#/coop'],
 ];
 
 async function runViewport(vp) {

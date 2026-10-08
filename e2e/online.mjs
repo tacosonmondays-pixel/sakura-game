@@ -238,8 +238,12 @@ try {
   await A.waitForSelector('[data-testid="coop-room-code"]', { timeout: 10000 });
   const code = (await A.locator('[data-testid="coop-room-code"]').innerText()).trim();
   check(/^[A-Z0-9]{5}$/.test(code), `co-op: A hosts room ${code}`);
+  // the host invites the clan: the invite shows up in B's co-op hub (B then joins by code)
+  await tap(A, '[data-testid="coop-invite"]');
   await go(B, '#/coop');
   await B.waitForSelector('[data-testid="coop-code"]', { timeout: 10000 });
+  check(await B.waitForSelector(`[data-testid="coop-invites"] [data-room="${code}"] [data-testid="invite-row-join"]`, { timeout: 10000 }).then(() => true).catch(() => false),
+    'co-op: the host\'s clan invite is listed in the clanmate\'s co-op hub');
   await B.fill('[data-testid="coop-code"]', code.toLowerCase());
   await tap(B, '[data-testid="coop-join"]');
   await B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 10000 });

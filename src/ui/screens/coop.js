@@ -175,8 +175,8 @@ export function render(root, params = {}) {
         const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && Date.now() - m.createdAt < 15 * 60000).reverse();
         if (destroyed) return;
         invites.replaceChildren(...(msgs.length
-          ? msgs.slice(0, 4).map((m) => h('div.ol-invite-row', avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
-            button('Join', { kind: 'yellow', small: true, onClick: () => navigate('coop', { id: m.meta.room }) })))
+          ? msgs.slice(0, 4).map((m) => h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
+            button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })))
           : [h('p.muted', `No open invites from [${mine.clan.tag}] right now. Create a room and invite them!`)]));
       } catch {
         invites.replaceChildren(h('p.muted', 'Invites are unavailable right now.'));

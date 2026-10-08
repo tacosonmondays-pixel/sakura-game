@@ -27,6 +27,8 @@ let pending = null;
  * @param {{ ask?: boolean }} [opts] ask=false: never open the name prompt
  * @returns {Promise<object>} the backend
  */
+let askedName = false;
+
 export function ensureOnline({ ask = true } = {}) {
   if (pending) return pending;
   pending = (async () => {
@@ -34,7 +36,11 @@ export function ensureOnline({ ask = true } = {}) {
     const card = profileCard(store.profile);
     await backend.init({ ...card, name: storedName() || null });
     let name = storedName();
-    if (!name && ask) name = await askName();
+    // ask once per session: after "Not now" the automatic name is used until Settings → Online
+    if (!name && ask && !askedName) {
+      askedName = true;
+      name = await askName();
+    }
     if (name && (backend.user?.name !== name || backend.user?.level !== card.level || backend.user?.avatar !== card.avatar)) {
       await backend.updateProfile({ name, ...card });
     }
@@ -81,12 +87,22 @@ export function askName({ title = 'Choose your name', current = '' } = {}) {
         input,
         err,
         h('p.muted', '2–16 characters. You can change it later in Settings → Online.')),
-      actions: [{ label: 'Save', kind: 'yellow', testid: 'name-save', onClick: (close) => save(close) }],
+      // "Not now" keeps the automatic name (Sensei1234) for now; it can be set any time later
+      actions: [
+        { label: 'Not now', kind: 'ghost', testid: 'name-later', onClick: (close) => close() },
+        { label: 'Save', kind: 'yellow', testid: 'name-save', onClick: (close) => save(close) },
+      ],
       dismissable: false,
       onClose: () => {
+        window.removeEventListener('hashchange', onLeave);
         if (!done) resolve(storedName());
       },
     });
+    // leaving the screen (Back, Home) closes the prompt instead of carrying it to the next screen
+    function onLeave() {
+      m.close();
+    }
+    window.addEventListener('hashchange', onLeave);
     setTimeout(() => input.focus(), 50);
   });
 }

@@ -51,6 +51,8 @@
 .ol-spinner { width: 30px; height: 30px; border-radius: 50%; border: 4px solid var(--blue-soft); border-top-color: var(--blue); animation: ol-spin 0.8s linear infinite; display: inline-block; flex: none; }
 @keyframes ol-spin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) { .topbar .ol-pill span { display: none; } .topbar .ol-pill { padding: 6px; } }
+/* portrait phones: the top bar has no room left for the status dot (it would push Home off screen) */
+@media (max-width: 420px) { .topbar .ol-pill { display: none; } }
 
 /* ---------- Name prompt ---------- */
 .ol-name-body { display: flex; flex-direction: column; gap: 8px; }
@@ -334,7 +336,10 @@
 
 /* ---------- Co-op battle HUD ---------- */
 .ol-coop-hud {
+  /* max-content: an absolutely positioned box at left 50% would otherwise shrink to half the
+     screen and wrap its pills (CO-/OP) on phones */
   position: absolute; left: 50%; top: calc(54px + var(--safe-top)); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; z-index: 6;
+  width: max-content; max-width: calc(100vw - 24px); white-space: nowrap;
   padding: 3px 4px; border-radius: 9px; background: rgba(20,35,60,0.72); box-shadow: 0 3px 10px rgba(0,0,0,0.25); color: #fff; font-size: 0.74rem; font-weight: 800; pointer-events: none !important;
 }
 .ol-coop-room { display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: var(--yellow); color: var(--navy); font-style: italic; font-weight: 900; }
@@ -358,6 +363,10 @@
 .bt-panel-ally .bt-panel-foot button, .bt-panel-ally [data-testid^="buy-"] { filter: grayscale(0.8); opacity: 0.55; }
 .bt-coop-note { text-align: center; font-weight: 800; color: var(--blue-deep); background: var(--blue-soft); border-radius: 8px; padding: 6px 10px; margin: 6px auto; max-width: 520px; }
 @media (max-height: 480px) { .ol-coop-hud { top: calc(44px + var(--safe-top)); font-size: 0.66rem; } .ol-coop-name { max-width: 70px; } }
+/* narrow screens: the connection state ("Waiting for ally…", "Ally left…") hangs below the chip */
+@media (max-width: 900px) {
+  .ol-coop-state { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
+}
 
 /* ---------- Settings → Online ---------- */
 .ol-settings-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -374,7 +383,11 @@
   .ol-room-acts { flex-direction: row; }
 }
 @media (max-width: 560px) {
-  .ol-layout { grid-template-columns: minmax(0, 1fr); }
+  /* portrait: one scrolling column (a grid squeezed into the screen height let the clan list
+     run under the Create panel) */
+  .ol-layout { display: flex; flex-direction: column; flex: none; }
+  .ol-main { height: auto; }
+  .ol-main > .ol-chat { min-height: 320px; }
   .ol-sb-body { grid-template-columns: minmax(0, 1fr); }
   .ol-room-players { grid-template-columns: minmax(0, 1fr); }
   .ol-vs { display: none; }
