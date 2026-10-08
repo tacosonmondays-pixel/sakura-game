@@ -1,0 +1,852 @@
+{
+ "version": 1,
+ "rate": 32000,
+ "palette": "cleared",
+ "files": {
+  "opus": "sfx.webm",
+  "aac": "sfx.m4a"
+ },
+ "length": 1286466,
+ "sounds": {
+  "atk.beam": {
+   "start": 2400,
+   "length": 7660,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 90,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "atk.chain": {
+   "start": 12460,
+   "length": 2111,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 90,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "atk.pulse": {
+   "start": 16971,
+   "length": 15952,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 120,
+   "jitter": 0.02,
+   "priority": 0
+  },
+  "atk.slash": {
+   "start": 35323,
+   "length": 4137,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.04,
+   "priority": 0
+  },
+  "boom.big": {
+   "start": 41860,
+   "length": 26504,
+   "gain_db": -10,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 100,
+   "jitter": 0.04,
+   "priority": 2
+  },
+  "boom.small": {
+   "start": 70764,
+   "length": 9598,
+   "gain_db": -13,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.06,
+   "priority": 1
+  },
+  "boom.volatile": {
+   "start": 82762,
+   "length": 9598,
+   "gain_db": -11,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "break.barrier": {
+   "start": 94760,
+   "length": 11198,
+   "gain_db": -11,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "break.crystal": {
+   "start": 108358,
+   "length": 10880,
+   "gain_db": -11,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.deny": {
+   "start": 121638,
+   "length": 4160,
+   "gain_db": -10,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.leak": {
+   "start": 128198,
+   "length": 9598,
+   "gain_db": -9,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "bt.leakBig": {
+   "start": 140196,
+   "length": 13438,
+   "gain_db": -7,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "bt.lowLives": {
+   "start": 156034,
+   "length": 15039,
+   "gain_db": -9,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 2000,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "bt.pick": {
+   "start": 173473,
+   "length": 959,
+   "gain_db": -13,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 40,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.place": {
+   "start": 176832,
+   "length": 6399,
+   "gain_db": -9,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.placeHero": {
+   "start": 185631,
+   "length": 28329,
+   "gain_db": -6,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "bt.sell": {
+   "start": 216360,
+   "length": 11519,
+   "gain_db": -10,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.upgrade": {
+   "start": 230279,
+   "length": 14559,
+   "gain_db": -9,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.upgradeBig": {
+   "start": 247238,
+   "length": 21758,
+   "gain_db": -8,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "bt.upgradeMax": {
+   "start": 271396,
+   "length": 58614,
+   "gain_db": -6,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "bt.waveClear": {
+   "start": 332410,
+   "length": 24780,
+   "gain_db": -8,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "eco.breakthrough": {
+   "start": 359590,
+   "length": 40896,
+   "gain_db": -8,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "eco.claim": {
+   "start": 402886,
+   "length": 8639,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "eco.coins": {
+   "start": 413925,
+   "length": 11841,
+   "gain_db": -11,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "eco.gems": {
+   "start": 428166,
+   "length": 22300,
+   "gain_db": -11,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "eco.item": {
+   "start": 452866,
+   "length": 25048,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "eco.purchase": {
+   "start": 480314,
+   "length": 12479,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "eco.sweep": {
+   "start": 495193,
+   "length": 22065,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 300,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "en.blink": {
+   "start": 519658,
+   "length": 5721,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "en.blinkWarn": {
+   "start": 527779,
+   "length": 12800,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 300,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "en.bossDeath": {
+   "start": 542979,
+   "length": 57019,
+   "gain_db": -5,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 1000,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "en.bossPhase": {
+   "start": 602398,
+   "length": 50188,
+   "gain_db": -6,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 1000,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "en.death": {
+   "start": 654986,
+   "length": 5108,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 50,
+   "jitter": 0.07,
+   "priority": 0
+  },
+  "en.deathBig": {
+   "start": 662494,
+   "length": 9599,
+   "gain_db": -12,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.05,
+   "priority": 1
+  },
+  "en.new": {
+   "start": 674493,
+   "length": 7039,
+   "gain_db": -12,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 400,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "en.phase": {
+   "start": 683932,
+   "length": 8528,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "en.sabotage": {
+   "start": 694860,
+   "length": 12770,
+   "gain_db": -12,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 300,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "en.split": {
+   "start": 710030,
+   "length": 5118,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "fire.arrow": {
+   "start": 717548,
+   "length": 2560,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 45,
+   "jitter": 0.06,
+   "priority": 0
+  },
+  "fire.bullet": {
+   "start": 722508,
+   "length": 2559,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 45,
+   "jitter": 0.05,
+   "priority": 0
+  },
+  "fire.holy": {
+   "start": 727467,
+   "length": 4800,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 50,
+   "jitter": 0.03,
+   "priority": 0
+  },
+  "fire.magic": {
+   "start": 734667,
+   "length": 5120,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 50,
+   "jitter": 0.05,
+   "priority": 0
+  },
+  "fire.shell": {
+   "start": 742187,
+   "length": 4798,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 70,
+   "jitter": 0.05,
+   "priority": 0
+  },
+  "fire.shuriken": {
+   "start": 749385,
+   "length": 3830,
+   "gain_db": -16,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 45,
+   "jitter": 0.06,
+   "priority": 0
+  },
+  "fire.zap": {
+   "start": 755615,
+   "length": 2559,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 45,
+   "jitter": 0.05,
+   "priority": 0
+  },
+  "gacha.envelope": {
+   "start": 760574,
+   "length": 23647,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "gacha.flipR": {
+   "start": 786621,
+   "length": 8639,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "gacha.flipSR": {
+   "start": 797660,
+   "length": 21759,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "gacha.flipSSR": {
+   "start": 821819,
+   "length": 36399,
+   "gain_db": -7,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "gacha.open": {
+   "start": 860618,
+   "length": 16928,
+   "gain_db": -9,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "gacha.results": {
+   "start": 879946,
+   "length": 27916,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "gear.enhance": {
+   "start": 910262,
+   "length": 15999,
+   "gain_db": -10,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "gear.equip": {
+   "start": 928661,
+   "length": 2718,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "gear.reroll": {
+   "start": 933779,
+   "length": 16233,
+   "gain_db": -11,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "hero.level": {
+   "start": 952412,
+   "length": 21749,
+   "gain_db": -8,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 400,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "hero.ult": {
+   "start": 976561,
+   "length": 80941,
+   "gain_db": -5,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 1000,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "hit.crit": {
+   "start": 1059902,
+   "length": 3838,
+   "gain_db": -13,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.03,
+   "priority": 1
+  },
+  "hit.holy": {
+   "start": 1066140,
+   "length": 2560,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 40,
+   "jitter": 0.04,
+   "priority": 0
+  },
+  "hit.mystic": {
+   "start": 1071100,
+   "length": 2240,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 40,
+   "jitter": 0.06,
+   "priority": 0
+  },
+  "hit.pierce": {
+   "start": 1075740,
+   "length": 639,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 40,
+   "jitter": 0.08,
+   "priority": 0
+  },
+  "hit.resist": {
+   "start": 1078779,
+   "length": 2236,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 60,
+   "jitter": 0.05,
+   "priority": 0
+  },
+  "hit.slash": {
+   "start": 1083415,
+   "length": 1279,
+   "gain_db": -17,
+   "bus": "battle",
+   "voices": 3,
+   "gap_ms": 40,
+   "jitter": 0.08,
+   "priority": 0
+  },
+  "st.burn": {
+   "start": 1087094,
+   "length": 6340,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "st.debuff": {
+   "start": 1095834,
+   "length": 6381,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "st.freeze": {
+   "start": 1104615,
+   "length": 7177,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "st.poison": {
+   "start": 1114192,
+   "length": 6579,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "st.shock": {
+   "start": 1123171,
+   "length": 5760,
+   "gain_db": -15,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 120,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "trap.set": {
+   "start": 1131331,
+   "length": 4159,
+   "gain_db": -14,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 100,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "trap.trigger": {
+   "start": 1137890,
+   "length": 7359,
+   "gain_db": -12,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "turret.build": {
+   "start": 1147649,
+   "length": 6079,
+   "gain_db": -13,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.back": {
+   "start": 1156128,
+   "length": 3199,
+   "gain_db": -13,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 40,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "ui.chirp": {
+   "start": 1161727,
+   "length": 4000,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 300,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.click": {
+   "start": 1168127,
+   "length": 959,
+   "gain_db": -14,
+   "bus": "ui",
+   "voices": 3,
+   "gap_ms": 25,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.confirm": {
+   "start": 1171486,
+   "length": 12636,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 40,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "ui.deny": {
+   "start": 1186522,
+   "length": 4160,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 150,
+   "jitter": 0.0,
+   "priority": 2
+  },
+  "ui.modalClose": {
+   "start": 1193082,
+   "length": 3493,
+   "gain_db": -15,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.modalOpen": {
+   "start": 1198975,
+   "length": 7018,
+   "gain_db": -14,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 80,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.select": {
+   "start": 1208393,
+   "length": 2719,
+   "gain_db": -13,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 30,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.slot": {
+   "start": 1213512,
+   "length": 2880,
+   "gain_db": -12,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 40,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.start": {
+   "start": 1218792,
+   "length": 49950,
+   "gain_db": -6,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 500,
+   "jitter": 0.0,
+   "priority": 3
+  },
+  "ui.tab": {
+   "start": 1271142,
+   "length": 1439,
+   "gain_db": -13,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 30,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.tick": {
+   "start": 1274981,
+   "length": 447,
+   "gain_db": -18,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 60,
+   "jitter": 0.0,
+   "priority": 0
+  },
+  "ui.toast": {
+   "start": 1277828,
+   "length": 2239,
+   "gain_db": -15,
+   "bus": "ui",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 1
+  },
+  "ui.toggle": {
+   "start": 1282467,
+   "length": 1599,
+   "gain_db": -13,
+   "bus": "ui",
+   "voices": 2,
+   "gap_ms": 40,
+   "jitter": 0.0,
+   "priority": 1
+  }
+ }
+}

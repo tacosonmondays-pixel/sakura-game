@@ -10,6 +10,7 @@ import { BATTLE } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
+import { cue } from '../../audio/cue.js'; // [audio]
 
 function settings() {
   const p = store.profile;
@@ -82,8 +83,10 @@ function build(redraw) {
   wrap.appendChild(h('section.panel',
     h('h3.panel-title', 'Audio'),
     row('Music', 'Background music.', toggle(s.music, (v) => { s.music = v; save(); }, 'music')),
+    row('Music volume', null, slider(s.musicVolume ?? 0.7, 0, 1, 0.05, (v) => { s.musicVolume = v; cue('settings.audio'); }, () => save(), (v) => `${Math.round(v * 100)}%`, 'musicVolume')), // [audio]
     row('Sound effects', 'Attacks, hits and UI sounds.', toggle(s.sfx, (v) => { s.sfx = v; save(); }, 'sfx')),
-    row('Volume', 'Master volume.', slider(s.volume ?? 0.8, 0, 1, 0.05, (v) => { s.volume = v; }, () => save(), (v) => `${Math.round(v * 100)}%`, 'volume')),
+    row('Sound effects volume', null, slider(s.sfxVolume ?? 0.8, 0, 1, 0.05, (v) => { s.sfxVolume = v; cue('settings.audio'); }, () => { save(); cue('sfx.preview'); }, (v) => `${Math.round(v * 100)}%`, 'sfxVolume')), // [audio]
+    row('Master volume', 'Everything at once.', slider(s.volume ?? 0.8, 0, 1, 0.05, (v) => { s.volume = v; cue('settings.audio'); }, () => save(), (v) => `${Math.round(v * 100)}%`, 'volume')),
   ));
 
   wrap.appendChild(h('section.panel',

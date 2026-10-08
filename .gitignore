@@ -10,3 +10,14 @@ docs/reference/thirdparty/
 desktop/.cache/
 desktop/.work/
 desktop/out/
+# [audio] soundfont binaries and render output never enter git (docs/AUDIO.md §0.2)
+tools/audio/cache/
+tools/audio/build/
+tools/audio/private/
+tools/audio/.venv/
+*.sf2
+*.sf3
+*.dls
+__pycache__/
+tools/audio/cache/
+tools/audio/build/

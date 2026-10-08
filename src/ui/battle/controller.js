@@ -21,6 +21,7 @@ import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
+import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -401,6 +402,7 @@ export function mountBattle(root, params, hooks) {
       } catch (e) {
         console.error('[battle] render failed', e);
       }
+      ctx.audio?.events(events); // [audio]
       handle(events);
       hud.update();
       bar.update();
@@ -417,6 +419,7 @@ export function mountBattle(root, params, hooks) {
 
     ctx.modules = modules;
     ctx.results = results;
+    ctx.audio = attachBattleAudio(ctx); cleanups.push(() => ctx.audio.destroy()); // [audio]
     window.__battle = { sim, renderer, ui: ctx };
   }
 

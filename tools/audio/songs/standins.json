@@ -1,0 +1,9 @@
+{
+ "_doc": "Until the real soundtrack ships, these demo tracks stand in for the design's track ids (docs/AUDIO.md §4.4). The game uses a stand-in only when the real track is missing from the manifest; '*' globs are allowed. Stems the stand-in lacks are ignored.",
+ "title": "demo", "homeroom": "demo", "march": "demo", "wishing": "demo", "mall": "demo",
+ "results_win": "demo", "results_lose": "demo",
+ "battle_*": "demo_battle", "boss": "demo_battle", "final": "demo_battle",
+ "wave_*": "demo_sting", "final_wave": "demo_sting", "miniboss": "demo_sting", "boss_warning": "demo_sting",
+ "victory": "demo_victory", "levelup": "demo_victory", "awaken": "demo_victory", "new_student": "demo_victory",
+ "gacha_r": "demo_sting", "gacha_sr": "demo_victory", "gacha_ssr": "demo_victory"
+}

@@ -1,0 +1,540 @@
+{
+ "id": "chip",
+ "description": "All-NES joke mode: every melodic role on sakura-chip, every kit on the NES kit. Cheap to offer later as a Settings '8-bit mode'.",
+ "inherit": "cleared",
+ "quiet_inherit": true,
+ "mix": {
+  "echo": {
+   "delay_ms": 176,
+   "feedback": 0.38,
+   "volume": 0.26
+  },
+  "crush": {
+   "bits": 10,
+   "mix": 0.25,
+   "hold": 1
+  }
+ },
+ "roles": {
+  "piano": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "epiano": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "epiano_fm": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "harpsichord": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": 0.2,
+   "echo": 0.6
+  },
+  "celesta": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": 0.2,
+   "echo": 1.0
+  },
+  "glock": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": 0.15,
+   "echo": 1.0
+  },
+  "music_box": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 1.0
+  },
+  "vibes": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 1.0
+  },
+  "marimba": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": -0.15,
+   "echo": 1.0
+  },
+  "xylophone": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": 0.2,
+   "echo": 1.0
+  },
+  "tubular_bells": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 1.0
+  },
+  "organ_drawbar": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "organ": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "accordion": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": -0.2,
+   "echo": 0.6
+  },
+  "nylon_gtr": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": -0.2,
+   "echo": 0.8
+  },
+  "clean_gtr": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": 0.2,
+   "echo": 0.8
+  },
+  "overdrive_gtr": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": -0.25,
+   "echo": 0.6
+  },
+  "dist_gtr": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": -3,
+   "pan": 0.25,
+   "echo": 0.6
+  },
+  "upright_bass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "finger_bass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "pick_bass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "fretless": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "slap_bass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "synth_bass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "strings": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "strings_slow": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "tremolo": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "pizz": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": 0.15,
+   "echo": 0.8
+  },
+  "harp": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 1.0
+  },
+  "timpani": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "choir_ahh": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "choir_ooh": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "synth_voice": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "orch_hit": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "trumpet": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": 0.1,
+   "echo": 0.5
+  },
+  "trombone": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": -0.15,
+   "echo": 0.5
+  },
+  "tuba": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "muted_trumpet": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": 0.2,
+   "echo": 0.5
+  },
+  "horn": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": -0.2,
+   "echo": 0.5
+  },
+  "brass": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "brass_stab": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "alto_sax": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -4,
+   "pan": 0.15,
+   "echo": 0.5
+  },
+  "piccolo": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0.2,
+   "echo": 0.8
+  },
+  "flute": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.8
+  },
+  "recorder": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.8
+  },
+  "pan_flute": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 0.8
+  },
+  "shakuhachi": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.8
+  },
+  "whistle": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0.2,
+   "echo": 0.8
+  },
+  "ocarina": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.8
+  },
+  "pad_warm": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "pad_choir": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "pad_halo": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "shamisen": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": -0.2,
+   "echo": 0.8
+  },
+  "koto": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": 0.2,
+   "echo": 0.8
+  },
+  "kalimba": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 1.0
+  },
+  "steel_drum": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 1.0
+  },
+  "woodblock": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": 0.25,
+   "echo": 0.8
+  },
+  "taiko": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": 0,
+   "echo": 0.8
+  },
+  "melodic_tom": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -1,
+   "pan": -0.1,
+   "echo": 0.8
+  },
+  "rev_cymbal": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "drums": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_room": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_power": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_brush": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_orch": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  }
+ }
+}

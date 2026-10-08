@@ -1,0 +1,272 @@
+{
+ "version": 1,
+ "rate": 32000,
+ "palette": "cleared",
+ "tool": "studio 1",
+ "formats": [
+  {
+   "id": "opus",
+   "ext": "webm",
+   "mime": "audio/webm; codecs=opus"
+  },
+  {
+   "id": "aac",
+   "ext": "m4a",
+   "mime": "audio/mp4; codecs=mp4a.40.2"
+  }
+ ],
+ "probe": {
+  "file": "probe",
+  "clickSample": 3200
+ },
+ "tracks": {
+  "demo_battle": {
+   "title": "Roll Call (battle)",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 144.0144,
+   "bpmWritten": 144.0,
+   "beat": 13332.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "G",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 16
+   },
+   "introEnd": 106656,
+   "seam": 93324,
+   "guard": 4096,
+   "head": 199980,
+   "loopStart": 208172,
+   "loopEnd": 1061420,
+   "entry": 301496,
+   "length": 1065516,
+   "lufs": -16.0,
+   "truePeak": -2.9,
+   "gainDb": 9.0,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "B": 11
+   },
+   "stems": {
+    "base": {
+     "file": "demo_battle.base",
+     "bytes": {
+      "opus": 237676,
+      "aac": 275964
+     },
+     "lufs": -18.4
+    },
+    "intensity": {
+     "file": "demo_battle.intensity",
+     "bytes": {
+      "opus": 167939,
+      "aac": 190728
+     },
+     "lufs": -19.8
+    }
+   },
+   "checks": {
+    "wavSeamDb": -68.7,
+    "loopIdentityDb": -67.8,
+    "opus": {
+     "lag": 0,
+     "seamDb": -34.3,
+     "click": 1.07,
+     "codecNoiseDb": -34.2
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -30.9,
+     "click": 1.08,
+     "codecNoiseDb": -33.3
+    }
+   }
+  },
+  "demo": {
+   "title": "Roll Call",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 111.9925,
+   "bpmWritten": 112.0,
+   "beat": 17144.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "F",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 16
+   },
+   "introEnd": 137152,
+   "seam": 85720,
+   "guard": 4096,
+   "head": 222872,
+   "loopStart": 231064,
+   "loopEnd": 1328280,
+   "entry": 316784,
+   "length": 1332376,
+   "lufs": -16.0,
+   "truePeak": -2.4,
+   "gainDb": 11.9,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "B": 11
+   },
+   "stems": {
+    "melody": {
+     "file": "demo.melody",
+     "bytes": {
+      "opus": 354025,
+      "aac": 257381
+     },
+     "lufs": -18.9
+    },
+    "base": {
+     "file": "demo.base",
+     "bytes": {
+      "opus": 269340,
+      "aac": 344959
+     },
+     "lufs": -18.7
+    }
+   },
+   "checks": {
+    "wavSeamDb": -71.4,
+    "loopIdentityDb": -69.9,
+    "opus": {
+     "lag": 0,
+     "seamDb": -36.0,
+     "click": 1.0,
+     "codecNoiseDb": -37.5
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -34.5,
+     "click": 1.05,
+     "codecNoiseDb": -37.0
+    }
+   }
+  },
+  "demo_sting": {
+   "title": "Roll Call \u2014 wave sting",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 143.9999,
+   "bpmWritten": 144.0,
+   "beat": 13333.344,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "G",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 120000,
+   "lufs": -18.0,
+   "truePeak": -6.0,
+   "gainDb": 12.3,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "stems": {
+    "full": {
+     "file": "demo_sting.full",
+     "bytes": {
+      "opus": 23414,
+      "aac": 31756
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "demo_victory": {
+   "title": "Roll Call \u2014 victory",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 132.0001,
+   "bpmWritten": 132.0,
+   "beat": 14545.44,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "F",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 175743,
+   "lufs": -15.0,
+   "truePeak": -1.9,
+   "gainDb": 13.2,
+   "peakLimited": false,
+   "markers": {
+    "V": 1
+   },
+   "stems": {
+    "full": {
+     "file": "demo_victory.full",
+     "bytes": {
+      "opus": 42323,
+      "aac": 45751
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  }
+ },
+ "standIns": {
+  "title": "demo",
+  "homeroom": "demo",
+  "march": "demo",
+  "wishing": "demo",
+  "mall": "demo",
+  "results_win": "demo",
+  "results_lose": "demo",
+  "battle_*": "demo_battle",
+  "boss": "demo_battle",
+  "final": "demo_battle",
+  "wave_*": "demo_sting",
+  "final_wave": "demo_sting",
+  "miniboss": "demo_sting",
+  "boss_warning": "demo_sting",
+  "victory": "demo_victory",
+  "levelup": "demo_victory",
+  "awaken": "demo_victory",
+  "new_student": "demo_victory",
+  "gacha_r": "demo_sting",
+  "gacha_sr": "demo_victory",
+  "gacha_ssr": "demo_victory"
+ },
+ "bytes": {
+  "opus": 1094717,
+  "aac": 1146539
+ },
+ "built": "2026-10-08"
+}

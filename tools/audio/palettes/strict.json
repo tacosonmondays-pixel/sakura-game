@@ -1,0 +1,11 @@
+{
+ "id": "strict",
+ "description": "Fully license-documented build: the same roles on FluidR3_GM (MIT, Frank Wen) + sakura-chip (CC0) only.",
+ "inherit": "cleared",
+ "soundfonts": {
+  "gm": {
+   "path": "/usr/share/sounds/sf2/FluidR3_GM.sf2",
+   "license": "MIT"
+  }
+ }
+}

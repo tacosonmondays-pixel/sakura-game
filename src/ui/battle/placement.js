@@ -5,6 +5,7 @@
 // releasing on a red spot simply returns her to the bar (a short toast only explains
 // non-obvious reasons such as water-only girls or missing coins).
 import { h, icon, fmtCoins } from './util.js';
+import { cue } from '../../audio/cue.js'; // [audio]
 
 export const PLACE_REASONS = {
   occupied: 'Too close to another girl.',
@@ -103,6 +104,7 @@ export function createPlacement(ctx) {
   /** Rejected spot: the red circle says it all; only non-obvious reasons get a short toast. */
   function reject(x, y, reason) {
     ghostAt(x, y);
+    cue('battle.deny', { reason }); // [audio]
     if (!SILENT_REASONS.has(reason)) ctx.feed.push(PLACE_REASONS[reason] || 'Cannot place there.', 'warn', { key: `place-${reason}`, ms: 1600 });
   }
 

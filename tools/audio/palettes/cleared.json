@@ -1,0 +1,669 @@
+{
+ "id": "cleared",
+ "description": "Ships today: GeneralUser GS v2.0.3 (S. Christian Collins, GM/GS; falls back to the installed FluidR3_GM) + our CC0 sakura-chip.sf2. GM programs are 0-based.",
+ "inherit": null,
+ "soundfonts": {
+  "gm": {
+   "path": "cache/sf2/GeneralUser-GS.sf2",
+   "fallback": "/usr/share/sounds/sf2/FluidR3_GM.sf2",
+   "fetch": "generaluser",
+   "license": "GeneralUser GS License v2.0 (unrestricted music creation)"
+  },
+  "chip": {
+   "path": "cache/sf2/sakura-chip.sf2",
+   "build": "make_chip_sf2.py",
+   "license": "CC0 1.0"
+  }
+ },
+ "render": {
+  "rate": 32000,
+  "interp": 4,
+  "polyphony": 256,
+  "gain": 0.4
+ },
+ "mix": {
+  "echo": {
+   "delay_ms": 208,
+   "feedback": 0.42,
+   "volume": 0.3,
+   "fir": "soft",
+   "invert_right": false
+  },
+  "lowpass_hz": 14500,
+  "crush": {
+   "bits": 0,
+   "mix": 0.0,
+   "hold": 1
+  }
+ },
+ "kit_map": {
+  "k": 36,
+  "s": 38,
+  "rs": 37,
+  "cl": 39,
+  "h": 42,
+  "ph": 44,
+  "o": 46,
+  "c": 49,
+  "rd": 51,
+  "t1": 50,
+  "t2": 47,
+  "t3": 43,
+  "tb": 54,
+  "cb": 56,
+  "sh": 70,
+  "wb": 76,
+  "tri": 81,
+  "tk": 35
+ },
+ "roles": {
+  "chip_pulse12": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 0,
+   "gain_db": 2,
+   "pan": 0.15,
+   "echo": 0.8
+  },
+  "chip_pulse25": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 1,
+   "gain_db": 2,
+   "pan": -0.1,
+   "echo": 0.8
+  },
+  "chip_pulse50": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 2,
+   "gain_db": 1,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "chip_triangle": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 3,
+   "gain_db": 2,
+   "pan": 0,
+   "echo": 0
+  },
+  "chip_saw": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 4,
+   "gain_db": 1,
+   "pan": -0.15,
+   "echo": 0.6
+  },
+  "chip_pluck": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 5,
+   "gain_db": 3,
+   "pan": 0.2,
+   "echo": 0.8
+  },
+  "chip_bell": {
+   "sf": "chip",
+   "bank": 0,
+   "program": 6,
+   "gain_db": 3,
+   "pan": -0.2,
+   "echo": 1.0
+  },
+  "chip_kit": {
+   "sf": "chip",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "piano": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 0,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0.3
+  },
+  "epiano": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 4,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.4
+  },
+  "epiano_fm": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 5,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.4
+  },
+  "harpsichord": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 6,
+   "gain_db": -4,
+   "pan": 0.2,
+   "echo": 0.4
+  },
+  "celesta": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 8,
+   "gain_db": 1,
+   "pan": 0.2,
+   "echo": 0.9
+  },
+  "glock": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 9,
+   "gain_db": -6,
+   "pan": 0.15,
+   "echo": 0.8
+  },
+  "music_box": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 10,
+   "gain_db": 4,
+   "pan": 0.1,
+   "echo": 1.0
+  },
+  "vibes": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 11,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 0.7
+  },
+  "marimba": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 12,
+   "gain_db": -2,
+   "pan": -0.15,
+   "echo": 0.4
+  },
+  "xylophone": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 13,
+   "gain_db": -4,
+   "pan": 0.2,
+   "echo": 0.4
+  },
+  "tubular_bells": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 14,
+   "gain_db": -6,
+   "pan": -0.1,
+   "echo": 0.8
+  },
+  "organ_drawbar": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 16,
+   "gain_db": -6,
+   "pan": -0.1,
+   "echo": 0.3
+  },
+  "organ": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 17,
+   "gain_db": -6,
+   "pan": 0.1,
+   "echo": 0.3
+  },
+  "accordion": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 21,
+   "gain_db": -5,
+   "pan": -0.2,
+   "echo": 0.3
+  },
+  "nylon_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 24,
+   "gain_db": -2,
+   "pan": -0.2,
+   "echo": 0.3
+  },
+  "clean_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 27,
+   "gain_db": -4,
+   "pan": 0.2,
+   "echo": 0.3
+  },
+  "overdrive_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 29,
+   "gain_db": -9,
+   "pan": -0.25,
+   "echo": 0.2
+  },
+  "dist_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 30,
+   "gain_db": -10,
+   "pan": 0.25,
+   "echo": 0.2
+  },
+  "upright_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 32,
+   "gain_db": 0,
+   "pan": 0,
+   "echo": 0
+  },
+  "finger_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 33,
+   "gain_db": 0,
+   "pan": 0,
+   "echo": 0
+  },
+  "pick_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 34,
+   "gain_db": -1,
+   "pan": 0,
+   "echo": 0
+  },
+  "fretless": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 35,
+   "gain_db": -1,
+   "pan": 0,
+   "echo": 0
+  },
+  "slap_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 36,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "synth_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 38,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0
+  },
+  "strings": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 48,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0.4
+  },
+  "strings_slow": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 49,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "tremolo": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 44,
+   "gain_db": -6,
+   "pan": -0.1,
+   "echo": 0.3
+  },
+  "pizz": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 45,
+   "gain_db": -2,
+   "pan": 0.15,
+   "echo": 0.4
+  },
+  "harp": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 46,
+   "gain_db": -2,
+   "pan": -0.2,
+   "echo": 0.7
+  },
+  "timpani": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 47,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0.2
+  },
+  "choir_ahh": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 52,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "choir_ooh": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 53,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "synth_voice": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 54,
+   "gain_db": -6,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "orch_hit": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 55,
+   "gain_db": -6,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "trumpet": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 56,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.4
+  },
+  "trombone": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 57,
+   "gain_db": -3,
+   "pan": -0.15,
+   "echo": 0.3
+  },
+  "tuba": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 58,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0.1
+  },
+  "muted_trumpet": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 59,
+   "gain_db": -4,
+   "pan": 0.2,
+   "echo": 0.5
+  },
+  "horn": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 60,
+   "gain_db": -4,
+   "pan": -0.2,
+   "echo": 0.4
+  },
+  "brass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 61,
+   "gain_db": -5,
+   "pan": 0,
+   "echo": 0.3
+  },
+  "brass_stab": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 62,
+   "gain_db": -7,
+   "pan": 0,
+   "echo": 0.3
+  },
+  "alto_sax": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 65,
+   "gain_db": -4,
+   "pan": 0.15,
+   "echo": 0.4
+  },
+  "piccolo": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 72,
+   "gain_db": -6,
+   "pan": 0.2,
+   "echo": 0.7
+  },
+  "flute": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 73,
+   "gain_db": -2,
+   "pan": 0.1,
+   "echo": 0.7
+  },
+  "recorder": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 74,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "pan_flute": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 75,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 0.7
+  },
+  "shakuhachi": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 77,
+   "gain_db": -2,
+   "pan": 0.1,
+   "echo": 0.8
+  },
+  "whistle": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 78,
+   "gain_db": -6,
+   "pan": 0.2,
+   "echo": 0.7
+  },
+  "ocarina": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 79,
+   "gain_db": -3,
+   "pan": -0.1,
+   "echo": 0.7
+  },
+  "pad_warm": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 89,
+   "gain_db": -8,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "pad_choir": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 91,
+   "gain_db": -8,
+   "pan": 0,
+   "echo": 0.5
+  },
+  "pad_halo": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 94,
+   "gain_db": -9,
+   "pan": 0,
+   "echo": 0.6
+  },
+  "shamisen": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 106,
+   "gain_db": -3,
+   "pan": -0.2,
+   "echo": 0.4
+  },
+  "koto": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 107,
+   "gain_db": -2,
+   "pan": 0.2,
+   "echo": 0.6
+  },
+  "kalimba": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 108,
+   "gain_db": -2,
+   "pan": -0.2,
+   "echo": 0.7
+  },
+  "steel_drum": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 114,
+   "gain_db": -3,
+   "pan": 0.1,
+   "echo": 0.5
+  },
+  "woodblock": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 115,
+   "gain_db": -6,
+   "pan": 0.25,
+   "echo": 0.2
+  },
+  "taiko": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 116,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0.1
+  },
+  "melodic_tom": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 117,
+   "gain_db": -4,
+   "pan": -0.1,
+   "echo": 0.2
+  },
+  "rev_cymbal": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 119,
+   "gain_db": -6,
+   "pan": 0,
+   "echo": 0.2
+  },
+  "drums": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 0,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_room": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 8,
+   "gain_db": -3,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_power": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 16,
+   "gain_db": -4,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_brush": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 40,
+   "gain_db": -2,
+   "pan": 0,
+   "echo": 0
+  },
+  "drums_orch": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 48,
+   "gain_db": -4,
+   "pan": 0,
+   "echo": 0
+  },
+  "lead": {
+   "alias": "chip_pulse25"
+  },
+  "counter": {
+   "alias": "chip_pulse12"
+  },
+  "chip_bass": {
+   "alias": "chip_triangle"
+  },
+  "pad": {
+   "alias": "pad_warm"
+  },
+  "keys": {
+   "alias": "epiano"
+  },
+  "choir": {
+   "alias": "choir_ahh"
+  },
+  "bass": {
+   "alias": "finger_bass"
+  },
+  "koto_pluck": {
+   "alias": "koto"
+  }
+ }
+}
