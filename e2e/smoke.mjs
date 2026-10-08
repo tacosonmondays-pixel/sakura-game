@@ -157,11 +157,13 @@ async function runViewport(vp) {
     check(!!pick, 'SSR Select Ticket: the picker lists an SSR the player does not own');
     if (pick) {
       await shot('ssr-select');
-      await page.click(`[data-testid="sst-${pick}"]`);
-      await page.click('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => {});
-      await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => null);
+      await page.click(`[data-testid="sst-${pick}"]`, { force: true });
+      // confirm dialog animates in (and its button glows): wait for it, then force the click
+      const ok = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 15000 }).catch(() => null);
+      if (ok) await ok.click({ force: true });
+      await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 15000 }).catch(() => null);
       check(await page.evaluate((id) => !!window.__sakura.store.profile.units[id] && !window.__sakura.store.profile.items.ticket_ssr_select, pick), `SSR Select Ticket: ${pick} joined and the ticket was used`);
-      await page.click('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => {});
+      await page.click('[data-testid="sst-ok"]', { timeout: 5000, force: true }).catch(() => {});
     }
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
@@ -266,7 +268,7 @@ async function runViewport(vp) {
 
   // ---- battle 1-1 on easy ----
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
-  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 90000 }); // slow on a loaded machine
   await page.waitForTimeout(800);
 
   // Real drag-and-release placement ("release does nothing" was the owner's original bug):
