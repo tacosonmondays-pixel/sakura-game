@@ -5,6 +5,7 @@ import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
 import * as THREE from 'three';
 import { planRoads, buildDecks, buildTunnels, Acc } from '../../src/render/trackMesh.js';
+import { buildGroundFeatures, junctionChevrons } from '../../src/render/groundFeatures.js';
 import { pointAtDistance } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import { Noise2 } from '../../src/render/textures.js';
@@ -115,6 +116,57 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
       acc.box(2, 0.4, -1, 0.7, 0.4, 0.3, Math.cos(a), Math.sin(a), col);
       check(acc, [2, 0.4, -1], `yaw ${deg}`);
     }
+  });
+});
+
+describe('ground features + junction chevrons', () => {
+  const outward = (geo) => {
+    // every triangle's stored normal agrees with its winding (back faces are culled)
+    const P = geo.attributes.position.array;
+    const N = geo.attributes.normal.array;
+    let bad = 0;
+    for (let t = 0; t < P.length / 9; t++) {
+      const a = [P[t * 9], P[t * 9 + 1], P[t * 9 + 2]];
+      const u = [P[t * 9 + 3] - a[0], P[t * 9 + 4] - a[1], P[t * 9 + 5] - a[2]];
+      const v = [P[t * 9 + 6] - a[0], P[t * 9 + 7] - a[1], P[t * 9 + 8] - a[2]];
+      const w = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      if (w[0] * N[t * 9] + w[1] * N[t * 9 + 1] + w[2] * N[t * 9 + 2] <= 0) bad++;
+    }
+    return bad;
+  };
+
+  it('tanks get a rim and a square mask, icefalls hang icicles, rune rings become marks', () => {
+    const belt = MAPS.find((m) => m.id === 'foundry_belt');
+    const f = buildGroundFeatures(belt);
+    expect(f.sharp).toEqual([{ x: 4, y: 4, w: 4, h: 4, kind: 'water' }, { x: 13, y: 4, w: 4, h: 4, kind: 'lava' }]);
+    expect(f.geometry).toBeTruthy();
+    expect(outward(f.geometry)).toBe(0);
+    const glacier = MAPS.find((m) => m.id === 'peaks_glacier');
+    const ice = buildGroundFeatures(glacier);
+    expect(ice.geometry.attributes.position.count).toBeGreaterThan(200);
+    // icicles hang below the shelf top toward the water
+    const ys = ice.geometry.attributes.position.array.filter((_, i) => i % 3 === 1);
+    expect(Math.min(...ys)).toBeLessThan(0.05);
+    const rune = buildGroundFeatures(MAPS.find((m) => m.id === 'arena_runegarden')).marks.filter((m) => m.kind === 'rune');
+    expect(rune).toHaveLength(1);
+  });
+
+  it('every flat junction gets travel chevrons on both passes, pointing along the road', () => {
+    const maze = MAPS.find((m) => m.id === 'festival_maze');
+    const flats = maze.crossings.filter((c) => c.mode === 'flat');
+    expect(flats.length).toBe(2);
+    const marks = junctionChevrons(maze);
+    expect(marks.length).toBeGreaterThanOrEqual(flats.length * 3);
+    const t = maze.tracks[0];
+    const p = {};
+    for (const m of marks) {
+      pointAtDistance(t.points, t.cum, m.d, p);
+      // ground-quad yaw: texture +u lies along (cos rot, -sin rot) = the travel direction
+      expect(Math.cos(m.rot) * p.dx + -Math.sin(m.rot) * p.dy).toBeGreaterThan(0.99);
+      for (const c of flats) expect(Math.hypot(c.x - m.x, c.y - m.z)).toBeGreaterThan(0.9);
+    }
+    // no chevrons on maps without flat junctions
+    expect(junctionChevrons(MAPS.find((m) => m.id === 'sakura_terrace'))).toEqual([]);
   });
 });
 

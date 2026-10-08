@@ -284,6 +284,11 @@ MapDef = {
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
   decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
+                                   // grating overpass, conveyor-belt road, ice-cave tunnel)
+  ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
+          | { type: 'icefall', x0, x1, y }  // frozen falls over a river head
+          | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
 }
 ```
@@ -302,7 +307,12 @@ abutments on each bank), and only where the centreline itself crosses at least 0
 a road that merely grazes a pond corner or runs along a bank gets no deck; the water mask is carved
 back 0.74 tiles from every ground-level centreline instead, so it reads as a shore road. Overpass
 decks are exactly road + railings wide, with a girder fascia, mirrored pier pairs either side of the
-road they span, a drop shadow along the key light, and no railings on the lower pass under them.
+road they span, a drop shadow along the key light; the lower pass keeps its railings running on
+under the span (no posts beneath the deck). A raised span is ONE material end to end (chosen by the
+raised flag, not by what lies under it); boardwalk themes (marsh) build raised spans as stone
+causeway bridges so over / under never blur. Abutment sills sit only where a deck run starts or
+ends on a bank (short dry gaps are decked over). Every flat junction gets painted travel
+chevrons a tile before and after it on both passes (src/render/groundFeatures.js).
 
 Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
 outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls

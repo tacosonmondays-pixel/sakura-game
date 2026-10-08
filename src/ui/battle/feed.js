@@ -11,6 +11,27 @@ const maxToasts = () => (typeof window === 'undefined' ? MAX_TOASTS : shortScree
 
 export function createFeed(layer) {
   const list = h('div.bt-feed', { 'data-testid': 'battle-feed', 'aria-live': 'polite' });
+  // Spawn-aware docking: the feed sits top-left on desktop and top-right on landscape phones,
+  // but swaps to the other top corner whenever a spawn gate (or the first tiles of road after
+  // it) would sit under the toasts. Decided only while the feed is empty, so live toasts
+  // never jump. `avoid()` returns the points to keep clear, in layer CSS px.
+  let avoid = null;
+  const dock = () => {
+    if (!avoid || list.children.length) return;
+    const pts = avoid() || [];
+    const L = layer.getBoundingClientRect();
+    if (!pts.length || !L.width) return;
+    const w = Math.min(list.offsetWidth || 340, L.width * 0.5);
+    const top = list.offsetTop || 70;
+    const hgt = maxToasts() * (shortScreen() ? 26 : 40) + 16;
+    const hits = (x0) => pts.filter((p) => p.x > x0 - 24 && p.x < x0 + w + 24 && p.y > top - 16 && p.y < top + hgt).length;
+    const leftHits = hits(12);
+    const rightHits = hits(L.width - 12 - w);
+    const preferRight = shortScreen();
+    const right = preferRight ? rightHits <= leftHits : rightHits < leftHits;
+    list.classList.toggle('bt-feed-r', right);
+    list.classList.toggle('bt-feed-l', !right);
+  };
   const banner = h('div.bt-banner-host');
   layer.append(list, banner);
   const throttle = createThrottle();
@@ -42,6 +63,7 @@ export function createFeed(layer) {
         return live;
       }
     } else if (o.key && !throttle(o.key, ms * 0.6)) return null;
+    dock();
     const t = h(`div.bt-toast.bt-toast-${kind}`, { 'data-key': o.key || null }, o.icon || null, h('span.bt-toast-text', content));
     t.dataset.until = String(performance.now() + ms);
     list.prepend(t);
@@ -80,6 +102,11 @@ export function createFeed(layer) {
   return {
     push,
     announce,
+    /** @param {() => Array<{x:number,y:number}>} fn screen points (layer CSS px) the feed must not cover */
+    setAvoid(fn) {
+      avoid = fn;
+      dock();
+    },
     clear() {
       list.replaceChildren();
       banner.replaceChildren();

@@ -141,6 +141,19 @@ export function mountBattle(root, params, hooks) {
       return;
     }
     ctx.renderer = renderer;
+    // keep the toast feed off the spawn gates and the first tiles of road behind them
+    const spawnRuns = (sim.map?.tracks || []).filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
+    feed.setAvoid(() => {
+      const L = layer.getBoundingClientRect();
+      const out = [];
+      for (const run of spawnRuns) {
+        for (const [x, y] of run) {
+          const p = renderer.worldToScreen(x, y, 0);
+          out.push({ x: p.clientX - L.left, y: p.clientY - L.top });
+        }
+      }
+      return out;
+    });
 
     // ---- context actions -------------------------------------------------------------
     ctx.select = (uid) => {

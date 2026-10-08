@@ -203,6 +203,24 @@ export class Acc {
     this.tri(a, c, d, color);
   }
 
+  /** Triangle wound so its normal points away from `inside` (a front face seen from outside). */
+  triOut(a, b, c, inside, color) {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const g = [(a[0] + b[0] + c[0]) / 3 - inside[0], (a[1] + b[1] + c[1]) / 3 - inside[1], (a[2] + b[2] + c[2]) / 3 - inside[2]];
+    if (n[0] * g[0] + n[1] * g[1] + n[2] * g[2] >= 0) this.tri(a, b, c, color);
+    else this.tri(a, c, b, color);
+  }
+
+  /** Crystal spike: a four-sided pyramid from a base square (half width w) at y0 up to a tip leaning by (lx, lz). */
+  spike(x, y0, z, w, height, lx, lz, color) {
+    const tip = [x + lx, y0 + height, z + lz];
+    const q = [[x - w, y0, z - w], [x + w, y0, z - w], [x + w, y0, z + w], [x - w, y0, z + w]];
+    const inside = [x + lx * 0.3, y0 + height * 0.3, z + lz * 0.3];
+    for (let i = 0; i < 4; i++) this.triOut(q[i], q[(i + 1) % 4], tip, inside, color);
+  }
+
   /** Oriented box: centre, half sizes (along, up, across), yaw so +along = (cos, sin) in xz. */
   box(cx, cy, cz, hl, hh, hw, dirX, dirZ, color) {
     const ax = dirX;
@@ -640,6 +658,28 @@ export function buildTunnels(map, look) {
           }
         }
         prev = { ring, blocked };
+      }
+      // an ice cave: clusters of crystal spikes along the north flank of the mound
+      if (!hall && tl.crystals) {
+        const cA = new THREE.Color(tl.crystal || '#bfe8ff');
+        const cB = new THREE.Color(tl.crystal2 || '#86c8f0');
+        for (const f of [0.22, 0.5, 0.78]) {
+          const d = d0 + (d1 - d0) * f;
+          pointAtDistance(t.points, t.cum, d, tmp);
+          const { x, y, dx, dy } = tmp;
+          // on the north flank (−z, away from the camera) so the portals stay in view
+          const flip = dx > 0 ? -1 : 1;
+          const nx = -dy * flip;
+          const nz = dx * flip;
+          for (let k = 0; k < 3; k++) {
+            const off = 0.3 + k * 0.17;
+            const along = (k - 1) * 0.22;
+            const px = x + nx * off + dx * along;
+            const pz = y + nz * off + dy * along;
+            const hgt = 0.42 + ((k * 7 + Math.round(f * 10)) % 3) * 0.14;
+            acc.spike(px, 0.25, pz, 0.07 + k * 0.012, hgt, nx * 0.08, nz * 0.08 - 0.04, k % 2 ? cB : cA);
+          }
+        }
       }
       // portals at both mouths
       for (const [d, end] of [[d0, 'in'], [d1, 'out']]) {

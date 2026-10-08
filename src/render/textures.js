@@ -1256,6 +1256,37 @@ export function pathTexture(style = 'flagstone', seed = 3) {
         g.fill();
       }
     }
+  } else if (style === 'belt') {
+    // conveyor belt: rubber slats across the road on rollers, steel side rails along both edges
+    g.fillStyle = 'rgb(96,96,96)';
+    g.fillRect(0, 0, size, size);
+    const n = 8;
+    const pw = size / n;
+    for (let i = 0; i < n; i++) {
+      const x = i * pw;
+      const gr = g.createLinearGradient(x, 0, x + pw, 0);
+      gr.addColorStop(0, 'rgb(150,150,150)');
+      gr.addColorStop(0.35, 'rgb(205,205,205)');
+      gr.addColorStop(0.7, 'rgb(170,170,170)');
+      gr.addColorStop(1, 'rgb(120,120,120)');
+      g.fillStyle = gr;
+      g.fillRect(x + 3, 30, pw - 6, size - 60);
+      g.fillStyle = 'rgba(255,255,255,0.35)';
+      g.fillRect(x + 7, 34, 3, size - 68);
+    }
+    // side rails with bolts
+    for (const y of [0, size - 26]) {
+      g.fillStyle = 'rgb(225,225,225)';
+      g.fillRect(0, y, size, 26);
+      g.fillStyle = 'rgb(150,150,150)';
+      g.fillRect(0, y + (y ? 0 : 22), size, 4);
+      for (let x = 16; x < size; x += 32) {
+        g.fillStyle = 'rgb(120,120,120)';
+        g.beginPath();
+        g.arc(x, y + 13, 4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
   } else if (style === 'brick') {
     g.fillStyle = 'rgb(170,170,170)';
     g.fillRect(0, 0, size, size);
@@ -1326,7 +1357,7 @@ function finishTileTex(c) {
  * Soft mask texture from a predicate over a tile grid (1 = inside), blurred for smooth
  * shorelines. Covers [x0, x0+w) × [y0, y0+h) tiles.
  */
-export function maskTexture(w, h, inside, { px = 16, blur = 6, carve = null, carveHalf = 0 } = {}) {
+export function maskTexture(w, h, inside, { px = 16, blur = 6, carve = null, carveHalf = 0, sharp = null } = {}) {
   const c = canvas(w * px, h * px);
   const g = c.getContext('2d');
   g.fillStyle = '#000';
@@ -1349,6 +1380,15 @@ export function maskTexture(w, h, inside, { px = 16, blur = 6, carve = null, car
     }
   }
   const out = blurCanvas(c, blur);
+  // sharp: machined tanks ({ x, y, w, h } in mask-grid units) keep square edges — the blur is
+  // cleared from a one-tile margin round each and the tank itself is filled solid
+  if (sharp?.length) {
+    const og = out.getContext('2d');
+    og.fillStyle = '#000';
+    for (const r of sharp) og.fillRect((r.x - 1) * px, (r.y - 1) * px, (r.w + 2) * px, (r.h + 2) * px);
+    og.fillStyle = '#fff';
+    for (const r of sharp) og.fillRect(r.x * px, r.y * px, r.w * px, r.h * px);
+  }
   const t = new THREE.CanvasTexture(out);
   t.colorSpace = THREE.NoColorSpace;
   t.minFilter = THREE.LinearFilter;

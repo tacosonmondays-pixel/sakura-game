@@ -578,6 +578,16 @@
   .bt-start-label { font-size: 1.15rem; }
 }
 
+/* spawn-aware feed docking (feed.js): swap to the other top corner when a spawn gate sits under
+   the toasts (not on narrow portrait screens, where the feed is centred) */
+@media (min-width: 701px) {
+  .bt-feed.bt-feed-r { left: auto; right: 12px; }
+  .bt-feed.bt-feed-l { left: 12px; right: auto; }
+  .bt-feed.bt-feed-r .bt-toast { animation-name: bt-slide-r; }
+  .bt-feed.bt-feed-r .bt-toast.out { transform: translateX(12px); }
+}
+@keyframes bt-slide-r { from { opacity: 0; transform: translateX(14px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .bt-root *, .bt-root *::before, .bt-root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
