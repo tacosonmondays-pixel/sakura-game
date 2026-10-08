@@ -131,7 +131,8 @@ async function runViewport(vp) {
   const startBtn = await page.waitForSelector('[data-testid="title-start"]:not([disabled])', { timeout: 30000 }).catch(() => null);
   check(!!startBtn, 'title: loading finishes and TAP TO START is enabled');
   await shot('title');
-  if (startBtn) await startBtn.click();
+  // force: the button pulses forever, so it is never 'stable' for Playwright on a loaded machine
+  if (startBtn) await startBtn.click({ force: true });
   await page.waitForFunction(() => location.hash.startsWith('#/lobby') && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 15000 }).catch(() => null);
   check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'title: tap to start opens the lobby');
   check(await page.evaluate(() => !!window.__sakura.store.profile.units.aoi), 'fresh profile owns starter Aoi');
@@ -419,10 +420,10 @@ async function runViewport(vp) {
   }
   const summary = await page.evaluate(() => ({ state: window.__battle?.sim.state, wave: window.__battle?.sim.wave, lives: window.__battle?.sim.lives }));
   check(summary.state === 'won', `battle: stage 1-1 easy won (state=${summary.state}, wave ${summary.wave}, lives ${summary.lives})`);
-  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 15000 }).catch(() => null);
-  await page.waitForTimeout(1200);
+  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 30000 }).catch(() => null);
+  // the sheet animates in; on a loaded machine its buttons can take a few seconds to appear
+  const rewardsBtn = await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 20000 }).catch(() => null);
   await shot('battle-victory');
-  const rewardsBtn = await page.$('[data-testid="view-rewards"]');
   check(!!rewardsBtn, 'battle: victory sheet with Rewards button');
   if (rewardsBtn) {
     await rewardsBtn.click();
