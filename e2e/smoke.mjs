@@ -250,6 +250,15 @@ async function runViewport(vp) {
     check(await page.evaluate((g) => window.__sakura.store.profile.currencies.gems > g, gems0), 'commissions: claim paid gems');
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  // a redeemed code shows up in the tab's "Redeemed" list without leaving it
+  await page.evaluate(() => { location.hash = '#/commissions?tab=codes'; });
+  await page.waitForSelector('[data-testid="code-input"]', { timeout: 5000 });
+  await page.fill('[data-testid="code-input"]', 'SAKURA2026');
+  await page.click('[data-testid="code-redeem"]');
+  await page.waitForTimeout(600);
+  const codes = await page.evaluate(() => ({ shown: [...document.querySelectorAll('#app .ma-redeemed .chip')].map((c) => c.textContent.trim()), saved: window.__sakura.store.profile.redeemed || [] }));
+  check(codes.saved.includes('SAKURA2026') && JSON.stringify(codes.shown) === JSON.stringify(codes.saved), `commissions: redeemed code listed without leaving the tab (${JSON.stringify(codes.shown)} vs ${JSON.stringify(codes.saved)})`);
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   check(!takeErrors().length, 'UI flows: no errors');
 
   // ---- battle 1-1 on easy ----
