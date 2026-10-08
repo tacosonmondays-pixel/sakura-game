@@ -2,7 +2,7 @@
 // affordability). Tap a card to start tap-to-place; drag a card onto the map to place.
 import { h, setVar, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon, currencyIcon } from '../../art/icons.js';
 import { UNIT_RARITIES } from '../../data/types.js';
 
@@ -29,7 +29,7 @@ export function createTowerBar(ctx) {
     const card = h(
       `button.bt-card${isHero ? '.bt-card-hero' : ''}`,
       { 'data-unit': unitId, 'data-testid': `card-${unitId}`, title: `${def.name} — ${def.title || ''}` },
-      svgEl(cardArtSVG(def, { variant: 'thumb', awaken: ctx.profile.units?.[unitId]?.awaken || 0 }), 'bt-card-art'),
+      svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-card-art'),
       h('span.bt-card-role', svgEl(roleIcon(def.role), 'bt-card-role-ico')),
       def.placement === 'water' ? h('span.bt-card-water', { title: 'Water deploy: place on water tiles' }, svgEl(uiIcon('water'), 'bt-card-water-ico')) : null,
       def.placement === 'amphibious' ? h('span.bt-card-water.bt-amphi', { title: 'Amphibious: land or water' }, svgEl(uiIcon('water'), 'bt-card-water-ico')) : null,

@@ -123,6 +123,24 @@ export function spark(profile, unitId) {
   return { ok: true, unitId, ...grant };
 }
 
+/** Item that lets the player choose any SSR (Beta Tester Thank-You gift). */
+export const SSR_SELECT_TICKET = 'ticket_ssr_select';
+
+/**
+ * Redeem an SSR Select Ticket for the SSR of the player's choice. New girls join; owned girls
+ * convert into Star Fragments (like any duplicate).
+ * @returns {{ ok: boolean, error?: 'notSSR'|'noTicket', unitId?: string, isNew?: boolean, fragments?: number }}
+ */
+export function redeemSelectTicket(profile, unitId) {
+  if (!POOL.SSR.includes(unitId)) return { ok: false, error: 'notSSR' };
+  if (!consumeItems(profile, [{ id: SSR_SELECT_TICKET, count: 1 }])) return { ok: false, error: 'noTicket' };
+  const grant = grantUnit(profile, unitId);
+  const state = ensureState(profile.gacha ||= {});
+  state.history.push({ unitId, rarity: UNIT_MAP[unitId].rarity, at: Date.now(), select: true });
+  if (state.history.length > HISTORY_LIMIT) state.history.shift();
+  return { ok: true, unitId, ...grant };
+}
+
 /**
  * Consolidated SSR probability per pull including the 90-pull pity
  * (1 / expected pulls per SSR).

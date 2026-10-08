@@ -12,7 +12,8 @@ import { store } from '../../core/store.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML, portraitUrl } from '../../art/portraits.js';
+import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems/gacha.js';
 import { itemCount } from '../../systems/inventory.js';
@@ -124,9 +125,10 @@ function buildPage({ doPull, openSpark }) {
   // Banner
   const featured = FEATURED.map((id) => UNIT_MAP[id]).filter(Boolean);
   const banner = h('section.ma-banner',
-    h('div.ma-banner-bg'),
+    h('div.ma-banner-bg', h('img.ma-banner-paint', { src: lobbyArtUrl('academy.webp'), alt: '', loading: 'eager', decoding: 'async', draggable: false })),
     h('div.ma-banner-rays'),
-    h('div.ma-banner-cards', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-card.c${i}`, { html: cardArtSVG(u, { variant: 'portrait' }) }))),
+    // drawn key art: three featured girls' stands, the centre one in front (Genshin-style banner)
+    h('div.ma-banner-stands', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) }))),
     h('div.ma-banner-text',
       h('div.ma-banner-kicker', 'Standard Recruitment'),
       h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
@@ -319,9 +321,11 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     phase = 'showcase';
     const r = ssrs[i];
     const u = UNIT_MAP[r.unitId];
+    const full = portraitUrl(u, 'full');
     const sc = h('div.ma-showcase', { onclick: () => { sc.remove(); showcase(i + 1); } },
+      full ? h('div.ma-showcase-paint', { style: { backgroundImage: `url("${full}")` } }) : null,
       h('div.ma-showcase-rays'),
-      h('div.ma-showcase-card', { html: cardArtSVG(u, { variant: 'full' }) }),
+      h(`div.ma-showcase-card${full ? '.drawn' : ''}`, { html: portraitHTML(u, full ? 'cut' : 'full', { eager: true }) }),
       h('div.ma-showcase-text',
         h('div.ma-showcase-kicker', r.pity ? 'SSR · pity' : 'SSR'),
         h('div.ma-showcase-name', u.name),
@@ -391,7 +395,7 @@ function revealCard(r, i) {
     h('div.ma-gc-inner',
       h('div.ma-gc-back', h('div.ma-gc-emblem', svgEl(uiIcon('sparkle')))),
       h('div.ma-gc-front',
-        h('div.ma-gc-art', { html: cardArtSVG(u, { variant: 'portrait' }) }),
+        h('div.ma-gc-art', { html: portraitHTML(u, 'card', { eager: true }) }),
         h('span.ma-gc-rarity', r.rarity),
         h('span.ma-gc-name', u.name),
         r.isNew ? h('span.ma-gc-new', 'NEW') : h('span.ma-gc-frag', svgEl(itemIcon('star_fragment'), 'ma-gc-frag-icon'), `+${r.fragments}`),

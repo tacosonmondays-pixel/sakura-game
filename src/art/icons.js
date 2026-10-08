@@ -28,6 +28,7 @@ const SPECIAL_ITEMS = {
   star_fragment: starFragmentBody,
   ticket_recruit: () => ticketBody('ticket_recruit'),
   ticket_recruit10: () => ticketBody('ticket_recruit10'),
+  ticket_ssr_select: () => ticketBody('ticket_ssr_select'),
   token_boss: () => tokenBody('token_boss'),
   token_bounty: () => tokenBody('token_bounty'),
   coins: coinBody,

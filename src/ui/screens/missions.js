@@ -1,7 +1,9 @@
 // Missions hub (owner: ui). Route: #/missions — opened by the lobby's Campaign button.
-// Blue Archive mission-menu layout: the secretary on the left, a grid of slanted tiles on
-// the right: Mission (chapter · next stage, quick start), Story (coming soon), Bounty,
-// Total Assault, Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm).
+// Blue Archive mission-menu layout: the secretary's drawn stand bottom-left (bleeding off the
+// edge) over the painted academy (dimmed, blurred), and a grid of slanted tiles filled with
+// drawn art on the right: Mission (chapter · next stage, quick start), Bounty, Total Assault,
+// Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm) and a small Story
+// ("coming soon") tile. Locked tiles keep their colour and wear a small lock chip.
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, modal, toast, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
@@ -9,26 +11,23 @@ import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { STAGE_MAP, CHAPTERS, CAMPAIGN_IDS, bountyArenas, stagesOfKind } from '../../data/stages.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
-import { UNIT_MAP } from '../../data/units.js';
-import { lobbyBackdropSVG, themeBackdropSVG } from '../../art/backdrops.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitUrl } from '../../art/portraits.js';
+import { lobbyArtUrl } from '../../data/lobbyArt.js';
+import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
 import { uiIcon } from '../../art/icons.js';
-import { isStageUnlocked, stageMedals, ownedUnits } from '../../systems/unlocks.js';
+import { isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { requirementText, showRewardsModal, uiRng } from './stage.js';
 import { commissionsNotice, campaignStatus } from './lobby.js';
 
-function secretary(profile) {
-  const id = profile.secretary && profile.units?.[profile.secretary] ? profile.secretary : profile.formation?.hero || ownedUnits(profile)[0] || 'hikari';
-  return UNIT_MAP[id] || UNIT_MAP.hikari;
-}
+/** Drawn tile art: a landscape painting, or a girl's illustration cropped on her face. */
+const paint = (file) => ({ src: lobbyArtUrl(file), kind: 'paint' });
+const girl = (id) => ({ src: portraitUrl(id, 'card'), kind: 'girl' });
 
 export function render(root) {
   const { el, body } = screen('Missions', { cls: 'ma-hub-screen' });
-  const bg = h('div.ma-hub-bg', { html: lobbyBackdropSVG(), 'aria-hidden': 'true' });
-  bg.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  el.insertBefore(bg, el.firstChild);
+  el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
   const draw = () => {
@@ -42,7 +41,6 @@ export function render(root) {
 
 function build() {
   const profile = store.profile;
-  const u = secretary(profile);
   const { next, nextDef, chapter, prog, complete } = campaignStatus(profile);
   const notice = commissionsNotice(profile);
   const event = currentEvent();
@@ -50,15 +48,12 @@ function build() {
   const sweepable = CAMPAIGN_IDS.filter((id) => canSweep(profile, id)).length + bountyArenas().flatMap((a) => a.stages).filter((id) => canSweep(profile, id)).length;
 
   const wrap = h('div.ma-hub');
-  const char = h('div.ma-hub-char', { 'aria-hidden': 'true', html: cardArtSVG(u, { variant: 'portrait' }) });
-  char.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMax meet');
-  char.appendChild(h('div.ma-hub-char-name', h('b', u.name), h('span', u.title)));
-  wrap.appendChild(char);
+  wrap.appendChild(hubStand(hubSecretary(profile), { cls: 'ma-hub-char' }));
 
   const mission = tile({
     id: 'mission',
     title: 'Mission',
-    art: themeBackdropSVG(chapter?.theme || 'sakura'),
+    art: paint('academy.webp'),
     kicker: complete ? 'All chapters cleared' : `Chapter ${chapter?.id} · ${chapter?.name}`,
     sub: nextDef ? `Next: ${nextDef.id} ${nextDef.name}` : 'Chase Sakura medals',
     meta: prog ? `${prog.cleared}/${prog.total}` : null,
@@ -70,12 +65,12 @@ function build() {
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'story', title: 'Story', art: themeBackdropSVG('festival'), kicker: 'Coming soon', sub: 'Visual-novel episodes with the girls', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
-    tile({ id: 'bounty', title: 'Bounty', art: themeBackdropSVG('shrine'), sub: `${event.arenaName} · ${event.dropMul}× this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
-    tile({ id: 'assault', title: 'Total Assault', art: themeBackdropSVG('night'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
-    tile({ id: 'challenge', title: 'Tactical Challenge', art: themeBackdropSVG('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
-    tile({ id: 'commissions', title: 'Commissions', art: themeBackdropSVG('sakura'), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
-    tile({ id: 'sweep', title: 'Sweep', art: themeBackdropSVG('mountain'), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard first', onClick: () => openSweep() }),
+    tile({ id: 'bounty', title: 'Bounty', art: paint('thumbs/aoi.webp'), sub: `${event.arenaName} · ${event.dropMul}× this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
+    tile({ id: 'assault', title: 'Total Assault', art: paint('thumbs/hikari.webp'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
+    tile({ id: 'challenge', title: 'Tactical Challenge', art: paint('thumbs/sango.webp'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
+    tile({ id: 'commissions', title: 'Commissions', art: girl('umeko'), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
+    tile({ id: 'sweep', title: 'Sweep', art: girl('kage'), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard', onClick: () => openSweep() }),
+    tile({ id: 'story', title: 'Story', art: girl('hotaru'), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
   );
   wrap.appendChild(grid);
   return wrap;
@@ -91,7 +86,7 @@ function tile({ id, title, art, kicker = null, sub = null, meta = null, lockText
   const el = h(
     `button.ma-hub-tile.ma-hub-${id}${locked ? '.locked' : ''}${soon ? '.soon' : ''}`,
     { onclick: () => (locked ? toast(lockText, 'info') : onClick()), 'data-testid': `hub-${id}` },
-    h('div.ma-hub-art', { html: art }),
+    h(`div.ma-hub-art.${art?.kind || 'paint'}`, art?.src ? h('img', { src: art.src, alt: '', loading: 'lazy', decoding: 'async', draggable: false }) : null),
     h('div.ma-hub-shade'),
     h('div.ma-hub-text',
       kicker ? h('span.ma-hub-kicker', kicker) : null,
@@ -101,7 +96,7 @@ function tile({ id, title, art, kicker = null, sub = null, meta = null, lockText
     meta ? h('span.ma-hub-meta', meta) : null,
     ribbon ? h('span.tag-ribbon.ma-hub-ribbon', h('span', ribbon)) : null,
     dot ? h('span.notif-dot') : null,
-    locked ? h('div.ma-hub-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), lockText) : null,
+    locked ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
   );
   return el;
 }

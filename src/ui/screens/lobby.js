@@ -16,8 +16,12 @@ import { STAGE_MAP, CHAPTERS } from '../../data/stages.js';
 import { UNIT_MAP, getUnit } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
+import { openBackgroundPicker } from '../lobby/bgPicker.js';
+import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
+import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { ensureBetaGift, unclaimedMailCount } from '../../systems/mail.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
@@ -25,7 +29,8 @@ import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
-import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_THEME, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { secretaryOf } from '../lobby/secretaryOf.js';
+import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, RECRUIT_FEATURED } from '../lobby/notice.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -58,10 +63,7 @@ export function campaignStatus(profile) {
 
 /** The lobby secretary: profile.secretary when owned, else the hero, else the first girl. */
 export function secretaryId(profile) {
-  const id = profile.secretary;
-  if (id && UNIT_MAP[id] && profile.units?.[id]) return id;
-  if (profile.formation?.hero && profile.units?.[profile.formation.hero]) return profile.formation.hero;
-  return ownedUnits(profile)[0] || 'hikari';
+  return secretaryOf(profile);
 }
 
 /** Owned girls in a stable order (roster order of UNIT_MAP) for the ‹ › chevrons. */
@@ -71,6 +73,9 @@ export function secretaryCycle(profile, dir = 1) {
   const i = owned.indexOf(secretaryId(profile));
   return owned[(Math.max(0, i) + dir + owned.length) % owned.length];
 }
+
+/** Picture-frame glyph for the background picker button. */
+const BG_GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17.5l5-4.5 3.5 3 3-2.5 4.5 4"/></g></svg>';
 
 let iconSeq = 0;
 /** Illustrated lobby icon wrapped in a span (unique gradient ids per instance). */
@@ -120,15 +125,20 @@ export function render(root) {
     },
   });
   let currentSec = null;
+  let currentBg = null;
   const showSecretary = async (direction = 0) => {
     const p = store.profile;
     const id = secretaryId(p);
-    if (id === currentSec && !direction) return;
+    const bg = lobbyBackgroundFor(p, id);
+    if (id === currentSec && bg.id === currentBg && !direction) return;
+    const sameGirl = id === currentSec;
     currentSec = id;
+    currentBg = bg.id;
     const u = getUnit(id);
     stage.hideBubble();
-    await stage.show(u, { direction, awaken: p.units[id]?.awaken || 0 });
+    await stage.show(u, { direction, background: bg });
     if (currentSec !== id) return;
+    if (sameGirl && !direction) return; // a new background for the same girl: no greeting again
     lineIndex = 0;
     setTimeout(() => stage.say(lines()[0]), direction ? 120 : 650);
     if (direction) flashName(u);
@@ -153,6 +163,7 @@ export function render(root) {
   // ---- HUD --------------------------------------------------------------------------------
   const top = h('header.lb-top');
   const hideBtn = h('button.lb-hide', { title: 'Hide the menus', 'aria-label': 'Hide the menus', 'data-testid': 'lobby-hide', onclick: () => setHidden(true) }, svgEl(glyph('expand'), 'lb-glyph'));
+  const bgBtn = h('button.lb-hide.lb-bgbtn', { title: 'Lobby background', 'aria-label': 'Lobby background', 'data-testid': 'lobby-bg', onclick: () => openBackgroundPicker() }, svgEl(BG_GLYPH, 'lb-glyph'));
   const shortcuts = h('nav.lb-shortcuts', { 'aria-label': 'Shortcuts' });
   const chevL = h('button.lb-chev.lb-chev-l', { 'aria-label': 'Previous secretary', title: 'Previous secretary', 'data-testid': 'secretary-prev', onclick: () => swap(-1) }, svgEl(glyph('chevron'), 'lb-glyph'));
   const chevR = h('button.lb-chev.lb-chev-r', { 'aria-label': 'Next secretary', title: 'Next secretary', 'data-testid': 'secretary-next', onclick: () => swap(1) }, svgEl(glyph('chevron'), 'lb-glyph'));
@@ -160,7 +171,7 @@ export function render(root) {
   const eventHost = h('div.lb-eventcard-host');
   const rightHost = h('div.lb-br');
   const dock = h('nav.lb-dock', { 'aria-label': 'Main menu' });
-  hud.append(top, hideBtn, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock);
+  hud.append(top, hideBtn, bgBtn, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock);
 
   const carousel = buildCarousel(carouselHost, { reduceMotion });
   const draw = () => {
@@ -169,7 +180,7 @@ export function render(root) {
     clear(eventHost);
     clear(rightHost);
     clear(dock);
-    buildTop(top, { openSecretaryPicker });
+    buildTop(top, { openSecretaryPicker: () => openBackgroundPicker() });
     buildShortcuts(shortcuts);
     buildEventCard(eventHost);
     buildRight(rightHost);
@@ -233,28 +244,8 @@ export function render(root) {
     if (typeof window.DeviceOrientationEvent !== 'undefined' && matchMedia?.('(pointer: coarse)').matches) window.addEventListener('deviceorientation', onTilt);
   }
 
-  // ---- secretary picker (Menu Tab → Secretary) ---------------------------------------------------
-  function openSecretaryPicker() {
-    const profile = store.profile;
-    const grid = h('div.lb-sec-grid');
-    const m = modal({ title: 'Choose your secretary', body: h('div', h('p.muted', 'She greets you in the club office. Tap her for a line — or pat her head.'), grid), actions: [{ label: 'Close', kind: 'ghost' }], wide: true });
-    for (const id of ownedUnits(profile)) {
-      grid.appendChild(card(id, {
-        variant: 'tall',
-        level: profile.units[id]?.level,
-        selected: id === secretaryId(profile),
-        onClick: () => {
-          profile.secretary = id;
-          swapping = 1;
-          store.commit('secretary');
-          m.close();
-        },
-      }));
-    }
-  }
-
   const off = store.on('change', (e) => {
-    if (e?.reason === 'secretary' || e?.reason === 'replace') {
+    if (e?.reason === 'secretary' || e?.reason === 'replace' || e?.reason === 'lobby-bg') {
       const dir = swapping;
       swapping = 0;
       showSecretary(dir || 0);
@@ -265,7 +256,13 @@ export function render(root) {
 
   showSecretary(0);
 
+  // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
+  // and celebrated once per session until claimed.
+  if (ensureBetaGift(store.profile)) store.commit('mail');
+  const betaTimer = setTimeout(() => { if (el.isConnected) maybeShowBetaGift(); }, reduceMotion ? 50 : 700);
+
   return () => {
+    clearTimeout(betaTimer);
     off();
     clearTimeout(staticTimer);
     clearInterval(clockTimer);
@@ -322,7 +319,7 @@ function pill({ iconSvg, value, testid, title, onPlus = null, onClick = null }) 
 
 function buildTop(host, { openSecretaryPicker }) {
   const profile = store.profile;
-  const notice = commissionsNotice(profile);
+  const mailCount = unclaimedMailCount(profile);
   const tickets = itemCount(profile, 'ticket_recruit') + 10 * itemCount(profile, 'ticket_recruit10');
   const sep = () => h('i.lb-tr-sep');
   host.append(
@@ -335,10 +332,10 @@ function buildTop(host, { openSecretaryPicker }) {
     h('div.lb-tr',
       h('button.lb-tr-btn', { title: 'Settings', 'aria-label': 'Settings', 'data-testid': 'settings', onclick: () => navigate('settings') }, svgEl(glyph('settings'), 'lb-glyph')),
       sep(),
-      h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) },
-        svgEl(glyph('mail'), 'lb-glyph'), notice.count ? h('span.lb-badge', String(notice.count)) : null),
+      h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => openMailbox() },
+        svgEl(glyph('mail'), 'lb-glyph'), mailCount ? h('span.lb-badge', String(mailCount)) : null),
       sep(),
-      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [{ icon: 'secretary', label: 'Secretary', testid: 'menu-secretary', go: openSecretaryPicker }, { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal }] }) },
+      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [{ icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker }, { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox }, { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal }] }) },
         svgEl(glyph('menu'), 'lb-glyph')),
     ),
   );
@@ -387,6 +384,7 @@ function buildShortcuts(host) {
 function buildCarousel(host, { reduceMotion }) {
   let index = 0;
   let timer = 0;
+  let pillTimer = 0;
   let slides = [];
   const pillEl = h('div.lb-car-pill');
   const track = h('div.lb-car-track');
@@ -406,18 +404,18 @@ function buildCarousel(host, { reduceMotion }) {
     }
     const pity = Math.max(0, GACHA.pity - (profile.gacha?.pity || 0));
     const assaultLock = isStageUnlocked(profile, 'boss-lych') ? null : requirementText(profile, 'boss-lych');
+    // (the weekly event has its own card bottom-left, so it is not repeated here)
     slides = [
-      { id: 'event', pill: `${days} day${days === 1 ? '' : 's'} remaining`, kicker: 'EVENT', title: event.name, sub: `${event.dropMul}× ${event.arenaName}`, art: themeBackdropSVG(ARENA_THEME[event.arena] || 'sakura'), go: () => navigate('bounty', { arena: event.arena }) },
-      { id: 'recruit', pill: 'Pick-up recruitment', kicker: 'PICK UP', title: 'Recruit', sub: `SSR in ≤ ${pity}`, fan: RECRUIT_FEATURED, go: () => navigate('recruit') },
-      { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', art: themeBackdropSVG('festival'), go: () => navigate('rewards') },
-      { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'BOSS', title: 'Total Assault', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', art: themeBackdropSVG('night'), lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
+      { id: 'recruit', pill: 'Standard recruitment', kicker: 'RECRUIT', title: 'Open Enrollment', sub: `SSR in ≤ ${pity}`, fan: RECRUIT_FEATURED, paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
+      { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', paint: 'thumbs/sango.webp', go: () => navigate('rewards') },
+      { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'BOSS', title: 'Total Assault', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', paint: 'thumbs/hikari.webp', lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
     ];
     clear(track);
     clear(dots);
     slides.forEach((s, i) => {
       const slide = h(`button.lb-slide.lb-slide-${s.id}`, { onclick: s.go, 'data-testid': `banner-${s.id}`, title: s.title, tabindex: i === index ? 0 : -1 },
-        s.art ? h('div.lb-slide-art', { html: s.art }) : h('div.lb-slide-art.lb-slide-sky'),
-        s.fan ? h('div.lb-slide-fan', s.fan.map((id) => UNIT_MAP[id] ? h('div.lb-fan-card', { html: cardArtSVG(UNIT_MAP[id], { variant: 'portrait' }) }) : null)) : null,
+        s.paint ? h('div.lb-slide-art', h('img.lb-slide-paint', { src: lobbyArtUrl(s.paint), alt: '', loading: 'lazy', decoding: 'async', draggable: false })) : h('div.lb-slide-art.lb-slide-sky'),
+        s.fan ? h('div.lb-slide-fan', s.fan.map((id) => UNIT_MAP[id] ? h('div.lb-fan-card', { html: portraitHTML(UNIT_MAP[id], 'cutS') }) : null)) : null,
         s.iconName ? icon(s.iconName, 'lb-slide-ico') : null,
         h('div.lb-slide-text', h('span.lb-slide-kicker', s.kicker), h('b', s.title), h('small', s.sub)),
         s.lock ? h('span.lb-slide-lock', svgEl(glyph('lock'), 'lb-glyph')) : null,
@@ -433,7 +431,10 @@ function buildCarousel(host, { reduceMotion }) {
     track.style.transform = `translateX(${-index * 100}%)`;
     [...dots.children].forEach((d, k) => d.classList.toggle('on', k === index));
     [...track.children].forEach((s, k) => { s.tabIndex = k === index ? 0 : -1; });
-    pillEl.textContent = slides[index]?.pill || '';
+    // the caption changes with its slide (not ahead of the slide animation)
+    pillEl.classList.add('swap');
+    clearTimeout(pillTimer);
+    pillTimer = setTimeout(() => { pillEl.textContent = slides[index]?.pill || ''; pillEl.classList.remove('swap'); }, reduceMotion ? 0 : 200);
     if (user) restart();
   };
   const restart = () => {
@@ -463,7 +464,7 @@ function buildCarousel(host, { reduceMotion }) {
   host.addEventListener('pointerleave', restart);
   build();
   restart();
-  return { refresh: build, dispose: () => clearInterval(timer) };
+  return { refresh: build, dispose: () => { clearInterval(timer); clearTimeout(pillTimer); } };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -476,8 +477,8 @@ function buildEventCard(host) {
   const guest = UNIT_MAP[{ 'res-books': 'hotaru', 'res-coins': 'chika', 'res-gear': 'kaede', 'res-mats-a': 'luna', 'res-mats-b': 'miko' }[event.arena]] || UNIT_MAP.hikari;
   host.appendChild(h('button.lb-eventcard', { onclick: () => navigate('bounty', { arena: event.arena }), 'data-testid': 'event-strip', title: event.desc },
     h('div.lb-ev-clip',
-      h('div.lb-ev-art', { html: themeBackdropSVG(ARENA_THEME[event.arena] || 'sakura') }),
-      guest ? h('div.lb-ev-girl', { html: cardArtSVG(guest, { variant: 'portrait' }) }) : null,
+      h('div.lb-ev-art', h('img', { src: lobbyArtUrl(ARENA_ART[event.arena] || 'thumbs/academy.webp'), alt: '', loading: 'lazy', decoding: 'async', draggable: false })),
+      guest ? h('div.lb-ev-girl', { html: portraitHTML(guest, 'cutS') }) : null,
       h('div.lb-ev-shade'),
     ),
     h('span.lb-ev-kicker', 'EVENT!'),
@@ -498,11 +499,11 @@ function buildRight(host) {
     assaultLock ? h('span.lb-lock', svgEl(glyph('lock'), 'lb-glyph')) : null,
     h('span.lb-sc-label', 'Assault'),
   );
-  const campaign = h('button.lb-campaign', { onclick: () => navigate('missions'), 'data-testid': 'tile-mission', title: 'Campaign' },
+  const campaign = h('button.lb-campaign', { onclick: () => navigate('missions'), 'data-testid': 'tile-mission', title: complete ? 'Campaign' : `Campaign · Ch.${chapter?.id} ${chapter?.name}` },
     nextDef ? h('span.lb-tag.yellow.lb-camp-next', `Next ${nextDef.id}`) : h('span.lb-tag.yellow.lb-camp-next', 'All clear!'),
     h('div.lb-camp-folder', { html: campaignFolderSVG({ uid: `camp-${++iconSeq}`, art: themeBackdropSVG(chapter?.theme || 'sakura') }) }),
     h('span.lb-tag.pink.lb-camp-prog', complete ? 'Medals' : 'In Progress'),
-    h('div.lb-camp-label', h('b', 'Campaign'), h('small', complete ? 'Chase Sakura medals' : `Ch.${chapter?.id} ${chapter?.name}${prog ? ` · ${prog.cleared}/${prog.total}` : ''}`)),
+    h('div.lb-camp-label', h('b', 'Campaign'), h('small.lb-camp-sub', complete ? 'Chase Sakura medals' : h('span', h('span.lb-camp-ch', `Ch.${chapter?.id}`), h('span.lb-camp-name', ` ${chapter?.name}`), prog ? ` · ${prog.cleared}/${prog.total}` : ''))),
   );
   host.append(assault, campaign);
 }
@@ -522,7 +523,7 @@ function buildDock(host) {
     { id: 'wiki', label: 'Wiki', icon: 'wiki' },
     { id: 'commissions', label: 'Commissions', short: 'Tasks', icon: 'commissions', dot: notice.any },
     { id: 'mall', label: 'Mall', icon: 'mall' },
-    { id: 'recruit', label: 'Recruit', icon: 'recruit', dot: recruitNotice(profile), tag: 'Pick Up!' },
+    { id: 'recruit', label: 'Recruit', icon: 'recruit', dot: recruitNotice(profile), tag: itemCount(profile, 'ticket_recruit10') > 0 ? 'Free 10×!' : null },
   ];
   host.append(h('div.lb-dock-strip'));
   items.forEach((it, i) => {

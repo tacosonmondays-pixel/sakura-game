@@ -319,6 +319,13 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .unit-card-square { width: 84px; aspect-ratio: 1; }
 .unit-card-art { position: absolute; inset: 0; }
 .unit-card-art svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- Drawn portraits (src/art/portraits.js) ---------- */
+.pt-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0%; background: linear-gradient(160deg, #dbeeff, #b9d8f5); color: transparent; }
+.pt-img.pt-cut, .pt-img.pt-cutS { object-fit: contain; object-position: 50% 100%; background: none; }
+.pt-wrap { display: block; line-height: 0; }
+.unit-card-art .pt-img { position: absolute; inset: 0; }
+.unit-card.locked .unit-card-art .pt-img { filter: none; }
 .unit-card-rarity { position: absolute; left: 6px; top: 4px; font-weight: 900; font-style: italic; color: var(--rarity); text-shadow: 0 1px 2px #000; font-size: 0.85rem; }
 .unit-card-level { position: absolute; right: 6px; top: 4px; font-weight: 900; color: #fff; text-shadow: 0 1px 2px #000; font-size: 0.8rem; }
 .unit-card-stars { position: absolute; left: 6px; bottom: 26px; color: var(--yellow); font-size: 0.75rem; text-shadow: 0 1px 2px #000; }
@@ -345,7 +352,11 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .tag-kicker > span { display: inline-block; transform: skewX(calc(var(--skew) * -1)); }
 
 /* Boot splash */
-.boot { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--font-head); color: var(--navy); font-weight: 900; font-style: italic; font-size: 1.4rem; }
+.boot { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; font-family: var(--font-head); color: #fff; font-weight: 900; font-style: italic; font-size: 1.6rem; pointer-events: none; transition: opacity 0.3s; }
+.boot::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); background: rgba(207,232,255,0.25); }
+.boot > span { position: relative; animation: boot-pulse 1.4s ease-in-out infinite; }
+@keyframes boot-pulse { 50% { opacity: 0.55; } }
+.boot.boot-out { opacity: 0; }
 
 /* ---------- Reduced motion (system preference or the in-game setting) ---------- */
 @media (prefers-reduced-motion: reduce) {

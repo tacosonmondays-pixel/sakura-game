@@ -145,9 +145,10 @@
 /* ---------- Tower bar ---------- */
 .bt-bar {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding: 8px 10px calc(8px + var(--safe-bottom));
-  background: linear-gradient(0deg, rgba(255,255,255,0.97), rgba(240,248,255,0.9));
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 -3px 14px rgba(29,78,137,0.16);
+  /* first impressions: a translucent glass strip so the painted map stays visible behind the cards */
+  background: linear-gradient(0deg, rgba(18,36,70,0.62), rgba(18,36,70,0.28) 70%, rgba(18,36,70,0.08));
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  border-top: 1px solid rgba(255,255,255,0.45);
   clip-path: polygon(0 10px, 24px 0, 100% 0, 100% 100%, 0 100%);
 }
 .bt-bar-scroll { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; justify-content: safe center; padding: 9px 6px 2px; margin-top: -5px; touch-action: pan-x; }
@@ -464,6 +465,7 @@
 .bt-unlock-rays { position: absolute; inset: -20px; background: repeating-conic-gradient(from 0deg, rgba(255,221,74,0.35) 0 10deg, transparent 10deg 20deg); border-radius: 50%; animation: bt-spin 9s linear infinite; mask: radial-gradient(circle, #000 30%, transparent 70%); -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); }
 .bt-unlock-art { position: relative; width: 150px; line-height: 0; filter: drop-shadow(0 6px 14px rgba(29,78,137,0.35)); }
 .bt-unlock-art svg { width: 100%; height: auto; }
+.bt-unlock-art .pt-img { height: auto; aspect-ratio: 3 / 4; border-radius: 14px; border: 3px solid #fff; }
 .bt-unlock-text { position: relative; text-align: center; display: flex; flex-direction: column; font-size: 0.78rem; color: var(--muted); font-weight: 700; }
 .bt-unlock-text b { color: var(--navy); font-style: italic; font-size: 0.95rem; }
 @keyframes bt-unlock { from { opacity: 0; transform: scale(0.6) rotate(-6deg); } }
@@ -580,4 +582,26 @@
   margin: 10px -18px -16px; padding: 10px 12px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.85), #fff 30%);
   box-shadow: 0 -6px 14px rgba(29,78,137,0.10);
+}
+
+/* ---------- First impressions: victory stand + compact rewards on short screens ---------- */
+.bt-win-girl { position: absolute; left: max(-60px, calc(50% - 280px - 300px)); bottom: 0; height: min(96%, 640px); aspect-ratio: 0.7; z-index: 0; pointer-events: none; animation: bt-win-girl-in 0.55s var(--bt-ease) both; }
+.bt-win-girl-art { position: absolute; inset: 0; line-height: 0; filter: drop-shadow(0 10px 22px rgba(10,25,55,0.45)); }
+.bt-win-girl-art .pt-img, .bt-win-girl-art svg { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
+.bt-win-bubble { position: absolute; left: 52%; top: 8%; width: max-content; max-width: 200px; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: #fff; border-radius: 14px; box-shadow: 0 6px 16px rgba(10,25,55,0.3); font-size: 0.82rem; font-weight: 800; color: var(--navy); line-height: 1.3; animation: bt-win-bubble 0.4s 0.45s var(--bt-ease) both; }
+.bt-win-bubble b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: #c58a00; font-size: 0.78rem; }
+.bt-win-bubble::before { content: ''; position: absolute; left: 18px; bottom: -8px; border: 8px solid transparent; border-top-color: #fff; border-bottom: 0; }
+.bt-result-overlay > .bt-sheet { z-index: 1; }
+@keyframes bt-win-girl-in { from { opacity: 0; transform: translateX(-60px); } }
+@keyframes bt-win-bubble { from { opacity: 0; transform: scale(0.7); } }
+@media (max-width: 1000px) { .bt-win-girl { left: -70px; height: 92%; } .bt-win-bubble { left: 46%; top: 4%; max-width: 150px; font-size: 0.72rem; } }
+@media (max-width: 700px) { .bt-win-girl { display: none; } }
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-result-ribbon { font-size: 1.6rem; padding: 8px 0 7px; margin-bottom: 6px; }
+  .bt-medal-row { margin-bottom: 6px; }
+  .bt-medal-ico { width: 60px; height: 60px; }
+  .bt-medal-row.small .bt-medal-ico { width: 30px; height: 30px; }
+  .bt-rewards-body { display: flex; flex-wrap: wrap; gap: 0 22px; align-items: flex-start; }
+  .bt-rewards-body > .bt-rsec { flex: 0 1 auto; min-width: 0; margin-bottom: 6px; }
+  .bt-rewards-body > .bt-rsec:has(.bt-gears), .bt-rewards-body > .bt-rsec:has(.bt-mvp), .bt-rewards-body > .bt-rsec:has(.bt-discovered), .bt-rewards-body > .bt-rsec:has(.bt-unlocks) { flex-basis: 100%; }
 }
