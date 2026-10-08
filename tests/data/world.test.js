@@ -6,6 +6,9 @@ import {
 import { MAPS, getMap, pathTiles, buildableTiles } from '../../src/data/maps.js';
 import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
 import {
+  silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount,
+} from './trackShape.js';
+import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
 } from '../../src/data/stages.js';
 import { UNITS, freeUnlocksByStage } from '../../src/data/units.js';
@@ -366,27 +369,47 @@ describe('maps', () => {
     }
   });
 
-  it('silhouettes differ: no two maps share a track shape (coarse 10x6 raster IoU < 0.8)', () => {
-    const raster = (m) => {
-      const g = new Set();
-      for (const t of m.tracks) {
-        for (const [x, y] of t.points) {
-          const gx = Math.floor(Math.min(0.999, Math.max(0, x / m.width)) * 10);
-          const gy = Math.floor(Math.min(0.999, Math.max(0, y / m.height)) * 6);
-          g.add(gx * 10 + gy);
-        }
-      }
-      return g;
-    };
-    const R = MAPS.map(raster);
+  it('silhouettes differ: no two maps share a track shape (coarse 10x6 raster IoU < 0.65)', () => {
     for (let i = 0; i < MAPS.length; i++) {
       for (let j = i + 1; j < MAPS.length; j++) {
-        let inter = 0;
-        for (const k of R[i]) if (R[j].has(k)) inter++;
-        const iou = inter / (R[i].size + R[j].size - inter);
-        expect(iou, `${MAPS[i].id} vs ${MAPS[j].id}`).toBeLessThan(0.8);
+        expect(silhouetteIoU(MAPS[i], MAPS[j]), `${MAPS[i].id} vs ${MAPS[j].id}`).toBeLessThan(0.65);
       }
     }
+  });
+
+  it('turning signatures differ: no two maps bend the same way in the same place', () => {
+    // signature = the signed curvature lobes between inflections (mirrored / reversed variants
+    // count as the same); two maps with the same bend sequence must at least sit differently on
+    // the board, and a sequence of three or more lobes may not repeat on an overlapping layout
+    const sigs = MAPS.map((m) => turningSignature(m));
+    for (let i = 0; i < MAPS.length; i++) {
+      for (let j = i + 1; j < MAPS.length; j++) {
+        if (!signaturesMatch(sigs[i], sigs[j])) continue;
+        const iou = silhouetteIoU(MAPS[i], MAPS[j]);
+        const complex = Math.min(lobeCount(sigs[i]), lobeCount(sigs[j])) >= 3;
+        const what = `${MAPS[i].id} (${signatureText(sigs[i])}) vs ${MAPS[j].id} (${signatureText(sigs[j])}), IoU ${iou.toFixed(2)}`;
+        expect(iou, what).toBeLessThan(complex ? 0.45 : 0.5);
+      }
+    }
+  });
+
+  it('meanders are rare: at most two maps are U-bends marching across the board', () => {
+    const meanders = MAPS.filter((m) => isMeander(turningSignature(m))).map((m) => m.id);
+    expect(meanders.length, meanders.join(', ')).toBeLessThanOrEqual(2);
+  });
+
+  it('the turning signature tells shapes apart', () => {
+    const one = (pts) => ({ tracks: [{ points: pts, cum: pts.reduce((a, p, k) => (k ? [...a, a[k - 1] + Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1])] : [0]), []), length: 0, fork: null, join: null }] });
+    const sample = (fn, n = 400) => Array.from({ length: n + 1 }, (_, k) => fn(k / n));
+    // a sine meander with three full U-bends vs one round loop
+    const meander = one(sample((t) => [t * 20, 5 + 3 * Math.sin(t * Math.PI * 3.5)]));
+    const loop = one(sample((t) => [10 + 3 * Math.cos(t * Math.PI * 2), 5 + 3 * Math.sin(t * Math.PI * 2)]));
+    for (const m of [meander, loop]) m.tracks[0].length = m.tracks[0].cum.at(-1);
+    expect(isMeander(turningSignature(meander))).toBe(true);
+    expect(isMeander(turningSignature(loop))).toBe(false);
+    expect(turningSignature(loop)[0]).toHaveLength(1);
+    expect(Math.abs(turningSignature(loop)[0][0])).toBeGreaterThan(330);
+    expect(signaturesMatch(turningSignature(meander), turningSignature(loop))).toBe(false);
   });
 
   it('flat junctions are readable: at least 2 tiles apart', () => {

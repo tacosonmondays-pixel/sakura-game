@@ -488,7 +488,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
   if (decks.shadow) {
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     disposables.push(shadowMat);
     const m = addMesh(decks.shadow, shadowMat, { name: 'overpassShadow', receive: false });
     m.renderOrder = 2;
