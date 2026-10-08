@@ -16,7 +16,7 @@ import {
 } from '../../src/data/lobbyArt.js';
 import {
   BETA_DEADLINE, BETA_GIFT, BETA_GIFT_ID, ensureBetaGift, isBetaEligible, pendingBetaGift, deliverMail, mailList, claimMail, claimAllMail,
-  unclaimedMailCount, MAIL_LIMIT,
+  unclaimedMailCount, MAIL_LIMIT, betaNoticeState,
 } from '../../src/systems/mail.js';
 import { redeemSelectTicket, POOL, SSR_SELECT_TICKET } from '../../src/systems/gacha.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
@@ -66,12 +66,26 @@ describe('drawn portraits', () => {
     expect(fallback).toMatch(/<svg/);
   });
 
-  it('fades the frame-cut edges of half-body stands only', () => {
-    expect(portraitEdges('hikari')).toContain('l');
-    expect(portraitHTML(UNIT_MAP.hikari, 'cut')).toContain('pt-edge');
-    expect(portraitHTML(UNIT_MAP.hikari, 'cut')).toContain('--fl:');
-    expect(portraitHTML(UNIT_MAP.hikari, 'bust')).not.toContain('pt-edge');
-    expect(portraitHTML(UNIT_MAP.aoi, 'cut')).not.toContain('pt-edge');
+  it('gives every roster girl a full-figure stand (no frame-cut edges to fade)', () => {
+    for (const u of UNITS) {
+      expect(portraitEdges(u.id)).toBe('');
+      expect(portraitHTML(u, 'cut')).not.toContain('pt-edge');
+      expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.3);
+      expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
+    }
+  });
+
+  it('still fades the frame-cut edges of a half-body stand (future art)', () => {
+    PORTRAIT_DATA.__halfbody = { face: [50, 20], cut: 0.75, edges: 'lb' };
+    try {
+      const unit = { ...UNIT_MAP.rei, id: '__halfbody' };
+      expect(portraitEdges('__halfbody')).toBe('lb');
+      expect(portraitHTML(unit, 'cut')).toContain('pt-edge');
+      expect(portraitHTML(unit, 'cut')).toContain('--fl:');
+      expect(portraitHTML(unit, 'bust')).not.toContain('pt-edge');
+    } finally {
+      delete PORTRAIT_DATA.__halfbody;
+    }
     for (const d of Object.values(PORTRAIT_DATA)) expect(d.edges || '').toMatch(/^l?r?b?$/);
   });
 });
@@ -232,6 +246,21 @@ describe('Beta Tester Thank-You', () => {
     p.mail.letters = [];
     expect(ensureBetaGift(p, now)).toBeNull();
     expect(itemCount(p, 'ticket_recruit10')).toBe(t0 + 5);
+  });
+
+  it('the Notice article: "Until Nov 7" while open, then only while the letter is unclaimed', () => {
+    const before = BETA_DEADLINE - 1000;
+    const after = BETA_DEADLINE + 86_400_000;
+    const p = createProfile();
+    p.createdAt = Date.parse('2026-10-10T00:00:00Z');
+    expect(betaNoticeState(p, before)).toBe('active');
+    ensureBetaGift(p, before);
+    expect(betaNoticeState(p, after)).toBe('unclaimed');
+    claimMail(p, BETA_GIFT_ID, after);
+    expect(betaNoticeState(p, after)).toBe('ended');
+    const late = createProfile();
+    late.createdAt = after;
+    expect(betaNoticeState(late, after)).toBe('ended');
   });
 
   it('accounts created after the window get nothing', () => {

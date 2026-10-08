@@ -103,12 +103,17 @@ export function openMailbox() {
   return m;
 }
 
-/** Toast + SSR select nudge after a claim. */
+/**
+ * After a claim: a toast — or, when the gifts include an SSR Select Ticket, one dialog that says
+ * both ("Gifts received! … choose your SSR now?") so a toast never sits on top of its title.
+ */
 function afterClaim(rewards) {
-  toast(`Received ${rewards.length} kinds of gifts — check your Backpack!`, 'good', 2600);
+  const received = `Received ${rewards.length} kind${rewards.length === 1 ? '' : 's'} of gifts — check your Backpack!`;
   if (rewards.some((r) => r.id === 'ticket_ssr_select') && itemCount(store.profile, 'ticket_ssr_select') > 0) {
-    import('../selectTicket.js').then((mod) => mod.offerSelectTicket()).catch(() => {});
+    import('../selectTicket.js').then((mod) => mod.offerSelectTicket({ lead: received })).catch(() => toast(received, 'good', 2600));
+    return;
   }
+  toast(received, 'good', 2600);
 }
 
 /** Show the beta celebration once per session while its gift is unclaimed. */

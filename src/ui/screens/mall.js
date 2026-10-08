@@ -9,7 +9,8 @@ import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { getItem } from '../../data/items.js';
-import { ITEM_RARITIES } from '../../data/types.js';
+import { ITEM_RARITIES, UNIT_RARITIES } from '../../data/types.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { currencyIcon, uiIcon } from '../../art/icons.js';
 import { shopTabs, buyOffer, currencyBalance } from '../../systems/shop.js';
 import { tile, card, showRewardsModal, cssVar, rememberParams } from './stage.js';
@@ -78,7 +79,8 @@ function offerCard(o, redraw) {
     o.highlight ? h('span.ma-offer-ribbon', isUnit ? 'SSR' : 'Hot') : null,
     h('div.ma-offer-art',
       isUnit
-        ? card(o.unitId, { variant: 'square', owned: true, onClick: () => navigate('student', { id: o.unitId }) })
+        // her plain drawn bust (one SSR ribbon + one name on the offer — no card overlay doubling them)
+        ? h('button.ma-offer-portrait', { title: `${name} — view profile`, style: { '--rarity': UNIT_RARITIES[UNIT_MAP[o.unitId]?.rarity]?.color || '#ff7ad9' }, onclick: () => navigate('student', { id: o.unitId }), html: portraitHTML(UNIT_MAP[o.unitId], 'thumb') })
         : tile(o.item, o.count > 1 ? o.count : null, { size: 72 }),
     ),
     h('div.ma-offer-name', name),

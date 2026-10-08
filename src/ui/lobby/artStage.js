@@ -14,8 +14,8 @@ import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 
-/** Where the bubble/head zone sits for stands (art box on the right). */
-const CUT_FACE = [60, 22];
+/** Where the bubble/head zone sits for stands (her stand is centred at ~55%, head under the HUD). */
+const CUT_FACE = [55, 25];
 
 export function createArtStage(host, { reduceMotion = false, onTap = null } = {}) {
   host.classList.add('lb-art-host');
@@ -100,8 +100,9 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     bubble.classList.remove('show');
     void bubble.offsetWidth;
     span.textContent = text;
-    // bubble to the left of her face, kept on screen
-    bubble.style.left = `${Math.max(4, face[0] - 34)}%`;
+    // bubble to the left of her face (tail pointing at her), kept on screen
+    bubble.style.left = 'auto';
+    bubble.style.right = `${Math.min(70, 100 - face[0] + 9)}%`;
     bubble.style.top = `${Math.max(14, face[1] - 6)}%`;
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);

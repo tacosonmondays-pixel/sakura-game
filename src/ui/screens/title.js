@@ -1,7 +1,8 @@
 // Title / load-up screen (owner: "we need like a loadup menu where you click play and what
 // not"). Route: #/title — main.js opens it on a cold start (no route in the URL) once per
 // browser session; returning within the session goes straight to the lobby.
-//   · full-screen painted academy with three girls' drawn stands and drifting petals
+//   · full-screen painted academy with three girls' full-figure drawn stands and drifting petals
+//     (shown together once the painting has decoded; its small thumb is the placeholder)
 //   · the game logo, a loading bar that really preloads what the lobby needs (its module,
 //     the secretary's background art, fonts), then a pulsing "TAP TO START"
 //   · small buttons: Notice (patch notes), Settings, Account (save data), Code (redeem / reset)
@@ -11,7 +12,7 @@ import { h, svgEl, glyph, modal, toast, applyMotionPreference } from '../compone
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { portraitHTML, portraitUrl } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, BACKDROP } from '../../data/lobbyArt.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { redeemCode } from '../../systems/missions.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
@@ -95,10 +96,13 @@ export function render(root) {
     sideBtn('gift', 'Code', 'title-code', openCodeModal),
   );
 
+  // the painted academy: its small thumb (the boot splash picture) sits behind as a placeholder
+  const artImg = h('img.tt-art-img', { src: lobbyArtUrl('academy.webp'), alt: '', decoding: 'async', draggable: false, fetchpriority: 'high' });
+  const girls = h('div.tt-girls', { 'aria-hidden': 'true' }, TRIO.filter((id) => UNIT_MAP[id]).map((id, i) => h(`div.tt-girl.g${i}`, { html: portraitHTML(UNIT_MAP[id], 'cut', { eager: true }) })));
   const el = h(`div.screen.tt${reduce ? '.tt-still' : ''}`, { 'data-testid': 'title', onclick: () => go() },
-    h('div.tt-art', { 'aria-hidden': 'true' }, h('img.tt-art-img', { src: lobbyArtUrl('academy.webp'), alt: '', decoding: 'async', draggable: false })),
+    h('div.tt-art', { 'aria-hidden': 'true', style: { backgroundImage: `url("${lobbyArtUrl(BACKDROP.thumb)}")` } }, artImg),
     h('div.tt-glow', { 'aria-hidden': 'true' }),
-    h('div.tt-girls', { 'aria-hidden': 'true' }, TRIO.filter((id) => UNIT_MAP[id]).map((id, i) => h(`div.tt-girl.g${i}`, { html: portraitHTML(UNIT_MAP[id], 'cut', { eager: true }) }))),
+    girls,
     reduce ? null : h('div.tt-petals', { 'aria-hidden': 'true' }, Array.from({ length: 14 }, (_, i) => h(`i.tt-petal.p${i}`))),
     h('div.tt-logo', { 'aria-label': 'Sakura Sentinels' },
       h('b.tt-logo-1', 'Sakura'),
@@ -110,6 +114,16 @@ export function render(root) {
     h('div.tt-version', { 'data-testid': 'title-version' }, `Ver. ${APP_VERSION} · Open Beta`),
   );
   root.appendChild(el);
+
+  // girls, logo and buttons appear together once the painting (and the girls) have decoded,
+  // so the characters never pop in over an empty sky; 2.5 s cap on a slow connection.
+  const arrived = (img) => new Promise((resolve) => {
+    if (img.complete && img.naturalWidth) return resolve();
+    img.addEventListener('load', () => resolve(), { once: true });
+    img.addEventListener('error', () => resolve(), { once: true });
+  }).then(() => (img.decode ? img.decode().catch(() => {}) : null));
+  const showArt = () => el.classList.add('tt-art-in');
+  Promise.race([Promise.all([artImg, ...girls.querySelectorAll('img')].map(arrived)), new Promise((r) => setTimeout(r, 2500))]).then(showArt);
 
   function go() {
     if (!ready || leaving) return;
