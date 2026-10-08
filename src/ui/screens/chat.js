@@ -15,6 +15,10 @@ export function render(root, params = {}) {
   body.append(h('div.ol-layout', main, side));
   let panel = null;
   let destroyed = false;
+  // the layout is there at once (also behind the first-time name prompt); the chat fills in
+  // once the account is ready
+  main.append(h('section.panel.ol-chat-wait', h('div.ol-connecting', h('i.ol-spinner'), h('p.muted', 'Connecting to chat…'))));
+  paintSide(null);
 
   (async () => {
     let clan = null;
@@ -25,6 +29,7 @@ export function render(root, params = {}) {
       /* the panel shows the error */
     }
     if (destroyed) return;
+    main.replaceChildren();
     const tab = params.tab === 'clan' && clan ? 'clan' : 'global';
     const items = [{ id: 'global', label: 'Global' }];
     if (clan) items.push({ id: 'clan', label: `[${clan.tag}] ${clan.name}` });

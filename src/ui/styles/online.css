@@ -104,7 +104,8 @@
 
 /* Full chat screen */
 .ol-screen .tabs + .ol-chat { flex: 1; }
-.ol-main > .ol-chat { flex: 1; min-height: 240px; }
+.ol-main > .ol-chat, .ol-main > .ol-chat-wait { flex: 1; min-height: 240px; }
+.ol-chat-wait { display: flex; }
 .ol-me { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .ol-me-row { display: flex; gap: 10px; align-items: center; }
 .ol-me-name { display: block; font-size: 1.1rem; font-style: italic; color: var(--navy); margin-bottom: 3px; }

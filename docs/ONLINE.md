@@ -6,7 +6,7 @@ game itself never needs the server: saves stay on the device, and every screen w
 
 | Feature | Where | What it does |
 |---|---|---|
-| Online profile | first online action, Settings → Online | Anonymous account, a display name (2–16 characters), your account level, and your lobby secretary as avatar |
+| Online profile | first online action, Settings → Online | Anonymous account, a display name (2–16 characters; "Not now" keeps an automatic `Sensei1234` name until you pick one), your account level, and your lobby secretary as avatar |
 | Global chat | chat bubble at the top right of the lobby (slide-in drawer), or `#/chat` | Last 50 messages live, names, levels, avatars and times; "Slow down — 1.4 s" feedback |
 | Clans | Menu → Clan, or `#/clan` | Create (name, TAG, emblem, open / request / invite code), search, join or request, leave; leader / officer / member roles; member list with last active; clan chat; clan level from members' activity |
 | Clan boss | Clan → Clan Boss | Weekly boss with one shared HP pool. Every member's battle damage counts (3 attempts per 24 h). Damage ranking and claimable reward tiers S / A / B / C |
