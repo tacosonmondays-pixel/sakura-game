@@ -3,11 +3,13 @@
 // sessionStorage identity). Checks:
 //   1. both players pick a name
 //   2. a chat message from A appears live on B, and a burst shows rate-limit feedback
-//   3. A founds a clan, B finds and joins it, both member lists show 2; the clan boss tab loads
+//   3. A founds a clan, B finds and joins it, both member lists show 2; the clan boss tab loads,
+//      and one boss attempt through a real battle (Fight → battle → end) lands on the ranking
 //   4. a third tab joins the developer clan with Rosie777 and the Supply Bot grants items
 //   5. co-op: A hosts a room, B joins by code and readies, A starts; both place a girl through
 //      the real tower bar (tap card → tap ground), the wave runs and the lockstep state hashes
-//      of both clients match
+//      of both clients match; a cut link drops the guest, the host re-admits it when the link
+//      is back and the hashes agree again; finally the guest leaves and the host plays on
 //
 //   node e2e/online.mjs                              # 1280×720
 //   node e2e/online.mjs --viewport 844x390 --shots /tmp/online   # + screenshots
@@ -60,7 +62,11 @@ async function openPage(name) {
   page.on('pageerror', (e) => errors.push(`[${name} pageerror] ${e.message}`));
   return page;
 }
+// every checkpoint also scans the visible text for leaked "null" / "undefined" / "NaN"
+// (e.g. a null passed to replaceChildren() renders as the word "null")
 const shot = async (page, name) => {
+  const leaked = await page.evaluate(() => (document.body.innerText.match(/\b(null|undefined|NaN)\b/g) || []).join(', ')).catch(() => '');
+  check(!leaked, `${name}: no "null" / "undefined" / "NaN" on screen${leaked ? ` (${leaked})` : ''}`);
   if (!shotsDir) return;
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 250)))));
   await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png` });
@@ -90,7 +96,7 @@ try {
   // two WebGL battles side by side under SwiftShader: low quality keeps both pages responsive
   await A.evaluate(() => {
     const { store } = window.__sakura;
-    store.profile.settings.quality = 'low';
+    Object.assign(store.profile.settings, { quality: 'low', shadows: false, bloom: false });
     store.commit('settings');
     store.saveNow?.();
   });
@@ -122,6 +128,18 @@ try {
   const status = await A.waitForFunction(() => /slow down/i.test(document.querySelector('[data-testid="chat-status"]')?.innerText || ''), null, { timeout: 3000 }).then(() => A.locator('[data-testid="chat-status"]').innerText()).catch(() => '');
   check(/slow down.*\d/i.test(status), `chat: a burst shows rate-limit feedback ("${status}")`);
   await shot(A, 'chat-ratelimit');
+  // the lobby's chat bubble opens the slide-in drawer with the same global chat
+  await go(B, '#/lobby');
+  await B.waitForSelector('[data-testid="top-chat"]', { timeout: 45000 }).catch(async (e) => {
+    log(`    lobby: ${JSON.stringify(await B.evaluate(() => ({ hash: location.hash, text: document.body.innerText.slice(0, 300) })))}`);
+    if (shotsDir) await B.screenshot({ path: `${shotsDir}/${prefix}debug-lobby-${W}x${H}.png` });
+    throw e;
+  });
+  await tap(B, '[data-testid="top-chat"]');
+  const inDrawer = await B.waitForFunction(() => /Hello from Aiko!/.test(document.querySelector('[data-testid="chat-drawer"]')?.innerText || ''), null, { timeout: 10000 }).then(() => true).catch(() => false);
+  check(inDrawer, 'chat: the lobby chat bubble opens the drawer with the global chat');
+  await shot(B, 'lobby-chat-drawer');
+  await tap(B, '[data-testid="drawer-close"]');
 
   // ---- clans ----------------------------------------------------------------------------
   await go(A, '#/clan');
@@ -151,6 +169,41 @@ try {
   check(await A.waitForSelector('[data-testid="boss-panel"]', { timeout: 8000 }).then(() => true).catch(() => false), 'clan boss: panel with HP pool loads');
   check(/HP/.test(await A.locator('[data-testid="boss-hp"]').innerText()), 'clan boss: HP bar shown');
   await shot(A, 'clan-boss');
+
+  // one clan boss attempt through the real battle: Fight → battle (clanBoss=1) → a girl fights
+  // the first wave → the battle ends → its damage is submitted and shows on the ranking
+  await tap(A, '[data-testid="boss-fight"]');
+  const bossBattle = await A.waitForFunction(() => window.__battle?.ui?.placement && /clanBoss=1/.test(location.hash), null, { timeout: 40000 }).then(() => true).catch(() => false);
+  check(bossBattle, 'clan boss: Fight opens the boss battle');
+  if (bossBattle) {
+    await A.waitForTimeout(600);
+    const placed = await placeOne(A);
+    await A.evaluate(() => window.__battle.ui.startWave());
+    // let her fight for a while (any damage counts), then end the run
+    await A.waitForFunction(() => Object.values(window.__battle.sim.stats.damageByTower || {}).some((d) => d > 0), null, { timeout: 30000 }).catch(() => null);
+    // end the run quickly: one life left, then fast-forward the Sim (like e2e/smoke.mjs) until
+    // an enemy leaks; the battle screen picks up the 'lost' event on its next frame
+    await A.evaluate(() => {
+      const { sim } = window.__battle;
+      sim.lives = 1;
+      for (let k = 0; k < 2400 && sim.state !== 'won' && sim.state !== 'lost'; k++) {
+        if (sim.state === 'between') sim.startNextWave();
+        sim.update(0.25);
+      }
+    });
+    const submitted = await A.waitForFunction(() => window.__battle.ui.clanBossResult, null, { timeout: 20000 }).then(() => A.evaluate(() => {
+      const r = window.__battle.ui.clanBossResult;
+      return { dmg: window.__battle.ui.clanBossDamage, hp: r.hp, maxHp: r.maxHp, hits: r.myHitsToday, board: r.board?.length || 0, error: r.error ? String(r.error.message || r.error) : null };
+    })).catch(() => null);
+    check(!!submitted && !submitted.error && submitted.hits === 1 && submitted.board === 1 && submitted.hp === submitted.maxHp - submitted.dmg,
+      `clan boss: the battle's damage counts against the shared pool (${placed ? 'girl placed, ' : ''}${JSON.stringify(submitted)})`);
+    await A.waitForSelector('[data-testid="clan-back"]', { timeout: 15000 }).catch(() => null);
+    await tap(A, '[data-testid="clan-back"]');
+    const ranked = await A.waitForFunction(() => document.querySelectorAll('.ol-board-list li').length === 1 && /Aiko/.test(document.querySelector('.ol-board-list')?.innerText || ''), null, { timeout: 10000 }).then(() => true).catch(() => false);
+    check(ranked, 'clan boss: back in the clan, the ranking lists the attempt');
+    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').innerText().catch(() => '')), 'clan boss: one of three daily attempts used');
+    await shot(A, 'clan-boss-ranked');
+  }
 
   // ---- developer clan (third tab) -------------------------------------------------------
   const C = await openPage('C');
@@ -199,8 +252,12 @@ try {
   await shot(B, 'coop-lobby-guest');
   await tap(A, '[data-testid="coop-start"]');
   const inBattle = async (p) => p.waitForFunction(() => window.__battle?.coop?.lockstep && window.__battle.ui?.placement, null, { timeout: 40000 }).then(() => true).catch(() => false);
-  check(await inBattle(A), 'co-op: host is in the battle');
-  check(await inBattle(B), 'co-op: guest is in the battle');
+  const battleInfo = (p) => p.evaluate(() => ({
+    hash: location.hash, phase: window.__coop?.phase, ls: !!window.__coop?.lockstep, battle: !!window.__battle?.coop, error: document.querySelector('.bt-error')?.innerText || null,
+    tick: window.__coop?.lockstep?.tick, peers: window.__coop?.lockstep ? [...window.__coop.lockstep.peers.values()].map((q) => ({ gone: q.gone, why: q.why, ready: q.ready })) : null, rejoins: window.__coop?.lockstep?.rejoins,
+  })).catch((e) => ({ error: e.message }));
+  if (!check(await inBattle(A), 'co-op: host is in the battle')) log(`    host: ${JSON.stringify(await battleInfo(A))}`);
+  if (!check(await inBattle(B), 'co-op: guest is in the battle')) log(`    guest: ${JSON.stringify(await battleInfo(B))}`);
   await Promise.all([A, B].map((p) => p.waitForFunction(() => {
     for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
       if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
@@ -242,53 +299,54 @@ try {
     else await page.mouse.click(spot.cx, spot.cy);
     return spot;
   }
-  // OL_DEBUG=1: print both clients' lockstep state and main-thread freezes (slow machines)
-  if (process.env.OL_DEBUG) {
-    await Promise.all([A, B].map((p) => p.evaluate(() => {
-      window.__gaps = [];
-      let last = performance.now();
-      setInterval(() => {
-        const n = performance.now();
-        if (n - last > 400) window.__gaps.push([Math.round(last), Math.round(n - last)]);
-        last = n;
-      }, 50);
-      const ls = window.__battle.coop.lockstep;
-      const orig = ls.dropPeer.bind(ls);
-      ls.dropPeer = (peer, reason) => {
-        window.__drop = { reason, at: Math.round(performance.now()), heard: Math.round(ls.now() - peer.lastHeard), timeout: ls.timeoutFor(peer), jitter: peer.jitter };
-        orig(peer, reason);
-      };
-    })));
-    for (let i = 0; i < 8; i++) {
-      const st = await Promise.all([A, B].map((p) => p.evaluate(() => {
-        const ls = window.__battle.coop.lockstep;
-        return { gaps: window.__gaps.slice(-4), drop: window.__drop, tick: ls.tick, slot: ls.mySlot, stalled: ls.stalled, rp: ls.resyncPending, ds: ls.desynced, peers: [...ls.peers.values()].map((q) => ({ h: q.horizon, gone: q.gone })), towers: window.__battle.sim.towers.length, pend: [...ls.pending.keys()], hashes: ls.hashPairs(), state: window.__battle.sim.state, speed: ls.coop.speed, ended: window.__battle.ui.ended };
-      })));
-      console.log('    dbg', JSON.stringify(st));
+  // Lockstep diagnostics (printed when a co-op check fails, and every 0.5 s with OL_DEBUG=1):
+  // both clients' ticks, horizons, stalls, desync / resync state, why a peer was dropped, and
+  // main-thread freezes (a shared, overloaded machine can freeze a tab for many seconds)
+  await Promise.all([A, B].map((p) => p.evaluate(() => {
+    window.__gaps = [];
+    let last = performance.now();
+    setInterval(() => {
+      const n = performance.now();
+      if (n - last > 400) window.__gaps.push([Math.round(last), Math.round(n - last)]);
+      last = n;
+    }, 50);
+    const ls = window.__battle.coop.lockstep;
+    const orig = ls.dropPeer.bind(ls);
+    ls.dropPeer = (peer, reason) => {
+      if (!peer.gone) window.__drop = { reason, at: Math.round(performance.now()), tick: ls.tick, heard: Math.round(ls.now() - peer.lastHeard), timeout: ls.timeoutFor(peer), jitter: Math.round(peer.jitter) };
+      orig(peer, reason);
+    };
+  })));
+  const lsState = (p) => p.evaluate(() => {
+    const ls = window.__battle?.coop?.lockstep;
+    if (!ls) return null;
+    return {
+      vis: document.visibilityState, slot: ls.mySlot, tick: ls.tick, stalled: ls.stalled, delay: ls.delay, resyncs: ls.resyncs, rp: !!ls.resyncPending, desynced: ls.desynced,
+      peers: [...ls.peers.values()].map((q) => ({ h: q.horizon, gone: q.gone })), drop: window.__drop || null, gaps: window.__gaps.slice(-5),
+      towers: window.__battle.sim.towers.length, state: window.__battle.sim.state, wave: window.__battle.sim.wave, pend: [...ls.pending.keys()], hashes: ls.hashPairs().length,
+    };
+  }).catch((e) => ({ error: e.message }));
+  const dump = async (label) => log(`    ${label}: ${JSON.stringify(await Promise.all([A, B].map(lsState)))}`);
+  const debugFor = async (label, n = 8) => {
+    if (!process.env.OL_DEBUG) return;
+    for (let i = 0; i < n; i++) {
+      await dump(label);
       await A.waitForTimeout(500);
     }
-  }
+  };
+  await debugFor('dbg');
   const sa = await placeOne(A);
   const sb = await placeOne(B, sa ? [[sa.x, sa.y]] : []);
   check(!!sa && !!sb, `co-op: both players picked a card and a spot (${sa?.unitId}, ${sb?.unitId})`);
-  if (process.env.OL_DEBUG) {
-    for (let i = 0; i < 8; i++) {
-      const st = await Promise.all([A, B].map((p) => p.evaluate(() => {
-        const ls = window.__battle.coop.lockstep;
-        return { gaps: window.__gaps.slice(-4), drop: window.__drop, tick: ls.tick, stalled: ls.stalled, rp: ls.resyncPending, ds: ls.desynced, peers: [...ls.peers.values()].map((q) => ({ h: q.horizon, gone: q.gone })), towers: window.__battle.sim.towers.length, pend: [...ls.pending.keys()], log: ls.log.length, hashes: ls.hashPairs() };
-      })));
-      console.log('    dbg2', JSON.stringify(st));
-      await A.waitForTimeout(500);
-    }
-  }
+  await debugFor('dbg2');
   const bothPlaced = async (p) => p.waitForFunction(() => window.__battle.sim.towers.length >= 2, null, { timeout: 45000 }).then(() => true).catch(() => false);
-  check(await bothPlaced(A) && await bothPlaced(B), 'co-op: both girls stand on both screens');
+  if (!check(await bothPlaced(A) && await bothPlaced(B), 'co-op: both girls stand on both screens')) await dump('lockstep state');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
   await A.evaluate(() => window.__battle.ui.startWave());
   // run until both clients compared at least 3 hash checkpoints (120 ticks each)
   const synced = await A.waitForFunction(() => window.__battle.coop.hashes.filter((p) => p.t >= 360).length >= 1, null, { timeout: 90000 }).then(() => true).catch(() => false);
-  check(synced, 'co-op: hash checkpoints exchanged during the wave');
+  if (!check(synced, 'co-op: hash checkpoints exchanged during the wave')) await dump('lockstep state');
   const [ha, hb] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(ha.length > 0 && ha.every((p) => p.mine === p.theirs), `co-op: host's hashes match the guest's (${ha.length} checkpoints)`);
   check(hb.length > 0 && hb.every((p) => p.mine === p.theirs), `co-op: guest's hashes match the host's (${hb.length} checkpoints)`);
@@ -300,6 +358,33 @@ try {
   await A.waitForTimeout(600);
   await shot(A, 'coop-battle');
   await shot(B, 'coop-battle-guest');
+
+  // a network cut longer than the timeout: both play on alone; when the link is back the host
+  // re-admits the guest, whose battle screen rebuilds from the host's log, and the hashes agree
+  await B.evaluate(() => {
+    const ls = window.__coop.lockstep;
+    window.__cut = ls.sendRaw;
+    ls.sendRaw = () => {};
+    ls.receive = () => {};
+  });
+  const dropped = await A.waitForFunction(() => window.__battle.coop.lockstep.peers.get(1)?.gone, null, { timeout: 45000 }).then(() => true).catch(() => false);
+  check(dropped, 'co-op: a guest cut off for longer than the timeout is dropped (the host plays on)');
+  await B.evaluate(() => {
+    const ls = window.__coop.lockstep;
+    ls.sendRaw = window.__cut;
+    delete ls.receive;
+  });
+  const back = await Promise.all([A, B].map((p) => p.waitForFunction(() => {
+    const ls = window.__coop?.lockstep;
+    return ls && ls.rejoins >= 1 && [...ls.peers.values()].every((q) => !q.gone) && window.__battle?.coop?.lockstep === ls;
+  }, null, { timeout: 45000 }).then(() => true).catch(() => false)));
+  if (!check(back.every(Boolean), 'co-op: when the link is back, the host re-admits the guest (rejoin)')) await dump('lockstep state');
+  const rejoinTick = await A.evaluate(() => window.__battle.coop.tick);
+  const resynced = await A.waitForFunction((t0) => window.__battle.coop.hashes.some((p) => p.t > t0), rejoinTick, { timeout: 60000 }).then(() => true).catch(() => false);
+  const [ra, rb] = await Promise.all([A, B].map((p) => p.evaluate((t0) => window.__battle.coop.hashes.filter((q) => q.t > t0), rejoinTick)));
+  check(resynced && ra.length > 0 && ra.every((q) => q.mine === q.theirs) && rb.every((q) => q.mine === q.theirs),
+    `co-op: after the rejoin both clients agree again (${ra.map((q) => q.t).join(', ')})`);
+  await shot(B, 'coop-rejoined-guest');
 
   // the guest leaves: the host keeps playing
   await go(B, '#/lobby');

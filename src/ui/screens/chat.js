@@ -1,5 +1,5 @@
 // #/chat?tab=global|clan — full-screen chat with the player's online card on the side.
-import { h, screen, tabs as tabBar, svgEl, button } from '../components.js';
+import { h, screen, tabs as tabBar, svgEl, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { ensureOnline, onlinePill, avatar, levelChip, askName, storedName, PEOPLE_GLYPH } from '../online/common.js';
@@ -45,7 +45,7 @@ export function render(root, params = {}) {
         button('Change name', { kind: 'ghost', small: true, testid: 'chat-rename', onClick: async () => { nameEl.textContent = await askName({ title: 'Change name', current: storedName() }); } })),
       h('section.panel.ol-side-links',
         h('button.ol-link', { onclick: () => navigate('clan'), 'data-testid': 'chat-to-clan' }, svgEl(PEOPLE_GLYPH, 'ol-link-ico'), h('span', clan ? `Clan · ${clan.name}` : 'Find a clan')),
-        h('button.ol-link', { onclick: () => navigate('coop'), 'data-testid': 'chat-to-coop' }, svgEl(PEOPLE_GLYPH, 'ol-link-ico'), h('span', 'Co-op battle'))),
+        h('button.ol-link', { onclick: () => navigate('coop'), 'data-testid': 'chat-to-coop' }, svgEl(glyph('sword'), 'ol-link-ico'), h('span', 'Co-op battle'))),
       h('p.muted.ol-rules', 'Be kind. Chat is limited to one message every 2 seconds and 20 per minute.'),
     );
   }

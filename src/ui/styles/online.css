@@ -187,13 +187,17 @@
 .ol-pane[data-tab="chat"] { padding: 0; background: transparent; box-shadow: none; }
 .ol-pane[data-tab="chat"] .ol-chat { min-height: 260px; }
 
-.ol-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.ol-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 8px; align-content: start; }
 .ol-member {
-  display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: #fff; border: 1px solid #e0eaf6; box-shadow: 0 2px 0 #d7e2ef;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 7px 10px; border-radius: 10px; background: #fff; border: 1px solid #e0eaf6; box-shadow: 0 2px 0 #d7e2ef;
   animation: panel-in var(--t-panel) var(--ease) both;
 }
 .ol-member.me { background: linear-gradient(90deg, #fffbe0, #fff); border-color: #ffe68a; }
-.ol-member-info { flex: 1; min-width: 0; }
+/* name + status keep one line each; the buttons drop to their own row when the card is narrow */
+.ol-member-info { flex: 1 1 170px; min-width: 0; }
+.ol-member-info > small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-member-acts:empty { display: none; }
+.ol-member-acts { margin-left: auto; }
 .ol-member-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ol-member-name b { color: var(--navy); font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .ol-role-badge { font-size: 0.64rem; font-weight: 900; font-style: italic; border-radius: 4px; padding: 1px 7px; color: #fff; transform: skewX(var(--skew)); }

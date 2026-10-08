@@ -48,14 +48,24 @@ function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
   const clock = { t: 0 };
   const queue = [];
   const failed = [];
+  const events = [];
+  // link[from] = false cuts everything that client sends; frozen clients neither run nor read
+  // (their mail waits, like a page whose main thread is blocked)
+  const link = [true, true];
+  const frozen = new Set();
   let frame = 0;
   const mk = (slot) => new Lockstep({
     start: START,
     mySlot: slot,
     now: () => clock.t,
-    hooks: { onApplied: (c, r) => { if (!r.ok) failed.push({ slot, c, r: r.reason }); } },
+    hooks: {
+      onApplied: (c, r) => { if (!r.ok) failed.push({ slot, c, r: r.reason }); },
+      onPeerGone: (s, why) => events.push({ slot, ev: 'gone', why, frame }),
+      onPeerBack: () => events.push({ slot, ev: 'back', frame }),
+      onResync: () => events.push({ slot, ev: 'resync', frame }),
+    },
     send: (msg) => {
-      if (drop && rng.next() < drop) return;
+      if (!link[slot] || (drop && rng.next() < drop)) return;
       queue.push({ at: frame + Math.floor(rng.next() * (maxLag + 1)), to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) });
     },
   });
@@ -64,14 +74,14 @@ function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
     frame++;
     clock.t += 1000 / 60;
     for (let i = queue.length - 1; i >= 0; i--) {
-      if (queue[i].at <= frame) {
+      if (queue[i].at <= frame && !frozen.has(queue[i].to)) {
         const { to, msg } = queue.splice(i, 1)[0];
         clients[to].receive(msg);
       }
     }
-    for (const c of clients) c.advance(1 / 60);
+    clients.forEach((c, i) => { if (!frozen.has(i)) c.advance(1 / 60); });
   }
-  return { clients, stepFrame, clock, failed, get frame() { return frame; } };
+  return { clients, stepFrame, clock, failed, events, link, frozen, get frame() { return frame; } };
 }
 
 function script(h) {
@@ -277,5 +287,153 @@ describe('co-op lockstep: slow devices', () => {
     expect(A.timeoutFor(peer)).toBe(Math.min(COOP.maxTimeoutMs, 18000));
     peer.jitter = 10;
     expect(A.timeoutFor(peer)).toBe(COOP.timeoutMs);
+  });
+});
+
+describe('co-op lockstep: reconnecting', () => {
+  const run = (h, actions, n) => {
+    for (let f = 0; f < n; f++) {
+      actions?.[h.frame]?.();
+      h.stepFrame();
+    }
+  };
+  /** Both clients agree again: same tick-aligned hashes after `fromTick`, nobody gone. */
+  const inSync = (h, fromTick) => {
+    const [A, B] = h.clients;
+    const late = A.hashPairs().filter((p) => p.t > fromTick);
+    return late.length > 0 && late.every((p) => p.mine === p.theirs) && !A.peers.get(1).gone && !B.peers.get(0).gone;
+  };
+
+  it('a guest frozen longer than the timeout is re-admitted and both agree again', () => {
+    const h = harness({ seed: 31, maxLag: 3 });
+    const actions = script(h);
+    run(h, actions, 400);
+    const [A] = h.clients;
+    // B's tab stops dead (switched apps / huge GC): A drops it after the timeout and plays on
+    h.frozen.add(1);
+    run(h, null, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60)); // (a frozen B issues nothing)
+    expect(A.peers.get(1).gone).toBe(true);
+    const soloTick = A.tick;
+    // B wakes up: it reads A's "timeout" goodbye, keeps beating, A offers its timeline, B adopts it
+    h.frozen.delete(1);
+    run(h, actions, 60 * 6);
+    const B = h.clients[1];
+    expect(A.rejoins).toBe(1);
+    expect(B.rejoins).toBe(1);
+    expect(B.epoch).toBe(A.epoch);
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'resync')).toBe(true);
+    expect(h.events.some((e) => e.slot === 0 && e.ev === 'back')).toBe(true);
+    // the scripted commands after the return (B places, upgrades…) work on both again
+    run(h, actions, 2400);
+    expect(inSync(h, soloTick + 60)).toBe(true);
+    expect(A.sim.towers.length).toBe(B.sim.towers.length);
+    expect(A.sim.towers.filter((t) => A.coop.ownerOf(t.uid) === 1).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a network cut both ways: each plays solo, then the host re-admits the guest and income is shared again', () => {
+    const h = harness({ seed: 32, maxLag: 3 });
+    const actions = script(h);
+    run(h, actions, 400);
+    const [A, B] = h.clients;
+    h.link[0] = false;
+    h.link[1] = false;
+    run(h, null, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60));
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(B.peers.get(0).gone).toBe(true);
+    const w = A.coop.wallets;
+    run(h, null, 300);
+    expect(A.coop.wallets[1]).toBe(w[1]); // while apart, the host keeps all income
+    h.link[0] = true;
+    h.link[1] = true;
+    run(h, actions, 60 * 8);
+    expect(A.peers.get(1).gone).toBe(false);
+    expect(h.clients[1].peers.get(0).gone).toBe(false);
+    const cut = A.tick;
+    run(h, actions, 60 * 30);
+    expect(inSync(h, cut)).toBe(true);
+    expect(A.coop.wallets[1]).toBeGreaterThan(w[1]); // shared again
+  });
+
+  it('a one-way cut (the host cannot reach the guest) never freezes the host for long', () => {
+    const h = harness({ seed: 33, maxLag: 3 });
+    run(h, null, 300);
+    const [A, B] = h.clients;
+    h.link[0] = false; // A → B lost, B → A fine
+    // B stops hearing A (both stall: no promises from A reach B), drops it after the timeout and
+    // says so; A hears that, offers a rejoin that cannot arrive, withdraws it and plays on solo
+    let longest = 0;
+    let streak = 0;
+    let t0 = null;
+    for (let f = 0; f < 60 * 45; f++) {
+      h.stepFrame();
+      if (!B.peers.get(0).gone) continue;
+      t0 ??= A.tick;
+      streak = A.stalled ? streak + 1 : 0;
+      longest = Math.max(longest, streak);
+    }
+    expect(B.peers.get(0).gone).toBe(true);
+    expect(t0).not.toBe(null);
+    expect(longest).toBeLessThanOrEqual(60 * 7); // never more than the 6 s offer window (+ slack)
+    expect(A.tick - t0).toBeGreaterThan(60 * 15);
+    h.link[0] = true;
+    run(h, null, 60 * 70); // the next offer (after its doubling cool-down) gets through
+    const healed = A.tick;
+    run(h, null, 60 * 10);
+    expect(inSync(h, healed)).toBe(true);
+  });
+
+  it('a guest dropped while its battle was still loading catches up in place (no rebuild)', () => {
+    const h = harness({ seed: 36, maxLag: 3 });
+    const [A, B] = h.clients;
+    // B's battle screen takes longer than the load allowance: A gives up on it and starts alone
+    h.frozen.add(1);
+    run(h, null, Math.ceil((COOP.loadTimeoutMs / 1000 + 3) * 60));
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(B.tick).toBe(0);
+    h.frozen.delete(1);
+    run(h, null, 60 * 4);
+    expect(A.rejoins).toBe(1);
+    expect(B.rejoins).toBe(1);
+    // B never left A's timeline, so the same battle just fast-forwarded: no rebuild / reload
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'resync')).toBe(false);
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'back')).toBe(true);
+    const from = A.tick;
+    run(h, null, 60 * 8);
+    expect(inSync(h, from)).toBe(true);
+  });
+
+  it('leaving on purpose is final: no rejoin', () => {
+    const h = harness({ seed: 34, maxLag: 3 });
+    run(h, null, 200);
+    const [A, B] = h.clients;
+    B.leave(); // "bye" without a reason (Leave button, closing the tab)
+    run(h, null, 30);
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(A.peers.get(1).why).toBe('left');
+    // a stray late packet from B does not bring it back
+    for (let f = 0; f < 120; f++) {
+      B.beat(true);
+      h.stepFrame();
+    }
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(A.rejoins).toBe(0);
+  });
+
+  it('the drop and the return are markers in the host log, so a replay reproduces the wallets', () => {
+    const h = harness({ seed: 35, maxLag: 3 });
+    const actions = script(h);
+    run(h, actions, 400);
+    const [A] = h.clients;
+    h.frozen.add(1);
+    run(h, null, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60));
+    h.frozen.delete(1);
+    run(h, actions, 60 * 6);
+    const marks = A.log.filter((c) => c.k === 'gone' || c.k === 'join').map((c) => c.k);
+    expect(marks).toEqual(['gone', 'join']);
+    // replay the host's log headless: same wallets and hash at the same tick
+    const copy = new Lockstep({ start: START, mySlot: 0, send: () => {}, now: () => 0 });
+    copy.rebuild(START, A.log, A.tick);
+    expect(copy.coop.wallets).toEqual(A.coop.wallets);
+    expect(copy.coop.hash()).toBe(A.coop.hash());
   });
 });

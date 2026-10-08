@@ -83,13 +83,16 @@ export function onlineSection({ redraw, importText }) {
     }
   };
 
-  const local = backend.status.mode === 'local';
+  const { mode, reason } = backend.status;
+  const statusText = mode !== 'local'
+    ? 'Chat, clans and co-op use the game server. Your progress itself is always saved on this device.'
+    : reason === 'forced'
+      ? 'Local test mode (?online=local): chat, clans and co-op work between tabs of this browser. Your progress is always saved on this device.'
+      : 'The game server is not available in this build or right now: chat, clans and co-op only work between tabs of this browser. Your progress is always saved on this device.';
   return h('section.panel', { 'data-section': 'online' },
     h('h3.panel-title', 'Online'),
     h('div.ma-set-row',
-      h('div.ma-set-text', h('div.ma-set-label', 'Status'), h('div.ma-set-desc', local
-        ? 'No game server is configured for this build: chat, clans and co-op work between tabs of this browser (test mode). Your progress is always saved on this device.'
-        : 'Chat, clans and co-op use the game server. Your progress itself is always saved on this device.')),
+      h('div.ma-set-text', h('div.ma-set-label', 'Status'), h('div.ma-set-desc', statusText)),
       h('div.ma-set-control', onlinePill())),
     h('div.ma-set-row',
       h('div.ma-set-text', h('div.ma-set-label', 'Online name'), h('div.ma-set-desc', 'Shown in chat, clans and co-op.')),

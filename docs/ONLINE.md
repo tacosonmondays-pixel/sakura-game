@@ -164,10 +164,19 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   - On a mismatch the guest asks the host for its command log and replays it from the start.
   - A second mismatch within 30 s ends the link. Both players continue solo.
 - **Disconnect.** A peer is dropped when it says bye (Leave, closing the tab) or is silent for 12–20 s.
-  It gets longer while the ally's battle is still loading.
+  It gets longer (30 s) while the ally's battle is still loading.
   - The ally's girls stay on the map and keep fighting.
   - Their future income goes to the survivor.
   - The survivor's battle never stops.
+- **Reconnect.** A peer that was only *lost* (a phone switching apps, a long load, a network hiccup) is
+  taken back as soon as its packets arrive again; leaving on purpose is final.
+  - The host offers its timeline: the start message plus its whole command log, in which the drop and
+    the return are recorded as `gone` / `join` markers at exact ticks.
+  - The guest rebuilds the battle from that log (its battle screen reloads), fast-forwards to the
+    host's tick and both continue in lockstep. Orders the guest gave while it was cut off are lost.
+  - Every packet carries the timeline's epoch, so stale packets from before the rejoin are ignored.
+  - An offer that is not taken within 3 s (a one-way link) is withdrawn and retried later with a
+    doubling pause (8 s … 60 s), so the host never waits long.
 - **Rewards.** Each player gets the stage drops on their own device. Medals stay solo.
 
 ## Tests
@@ -185,7 +194,9 @@ The vitest suite covers:
   and finishing a co-op handshake and battle.
 - `clanRules.test.js`
 - `lockstep.test.js`: two clients with random latency stay identical through a whole battle. It also
-  covers loss, desync repair, a disconnect and slow devices.
+  covers loss, desync repair, a disconnect, slow devices and reconnecting (a frozen guest, a cut in
+  both directions, a one-way cut, a deliberate leave, and the replayed drop/return markers).
+- `battleRoute.test.js`: solo battle routes never pick up a co-op session.
 - `schema.test.js`:
   - lints the migration;
   - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema;
@@ -195,9 +206,9 @@ The vitest suite covers:
 
 The e2e test opens two pages of one browser in local mode. It checks:
 
-- chat delivery and rate-limit feedback;
+- chat delivery and rate-limit feedback, and the lobby's chat bubble drawer;
 - clan create and join;
-- the clan boss;
+- the clan boss, including one attempt through a real battle that lands on the damage ranking;
 - the Rosie777 Supply Bot;
 - a co-op battle where both players place a girl and the state hashes match.
 

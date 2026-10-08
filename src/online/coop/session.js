@@ -29,6 +29,18 @@ export function makeRoomCode(rand = Math.random) {
   return s;
 }
 
+/**
+ * The Lockstep a battle route should run: only for #/battle?coop=<CODE> while that room's
+ * session is in its battle. Solo battles (no coop param, no session) always get null.
+ * @param {{ coop?: string }} params route params
+ * @param {object|null} session getSession()
+ * @returns {import('./lockstep.js').Lockstep|null}
+ */
+export function battleLockstep(params, session) {
+  if (!params?.coop || !session || session.code !== params.coop) return null;
+  return session.lockstep || null;
+}
+
 export function normalizeCode(code) {
   return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 }
@@ -86,7 +98,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       if (!isHost) s.me.ready = false;
     } else if (s.lockstep) {
       const p = [...s.lockstep.peers.values()][0];
-      if (p) s.lockstep.dropPeer(p, 'left');
+      // leaving on purpose is final, even after a lost connection (no rejoin then)
+      if (p?.gone) p.why = 'left';
+      else if (p) s.lockstep.dropPeer(p, 'left');
     }
     changed();
   }
@@ -168,6 +182,11 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         onPeerGone: (slot, reason) => {
           s.peerGone = reason || true;
           emitter.emit('peerGone', reason);
+          changed();
+        },
+        onPeerBack: (slot) => {
+          s.peerGone = false;
+          emitter.emit('peerBack', slot);
           changed();
         },
         onDesync: (kind) => emitter.emit('desync', kind),

@@ -302,7 +302,7 @@ export function render(root, params = {}) {
           onClick: () => s.setReady(!s.me.ready),
         });
       }
-      view.replaceChildren(
+      view.replaceChildren(...[
         h('section.panel.ol-room-head',
           h('div.ol-room-code',
             h('small', 'ROOM CODE'),
@@ -328,7 +328,7 @@ export function render(root, params = {}) {
         h('div.ol-room-foot',
           h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — commands arrive a few frames later on both screens.' : 'Tap Ready when your girls are set. The host starts the battle.'),
           action),
-      );
+      ].filter(Boolean)); // replaceChildren(null) would print "null"
     }
 
     paint();

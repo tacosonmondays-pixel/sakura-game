@@ -180,10 +180,11 @@ export async function openChatDrawer() {
   }
   const panel = createChatPanel({ channel: 'global', compact: true });
   const tabs = h('div.ol-drawer-tabs');
-  const paintTabs = () => tabs.replaceChildren(
+  // (replaceChildren would print a null as the text "null": only pass real tabs)
+  const paintTabs = () => tabs.replaceChildren(...[
     h(`button.ol-drawer-tab${panel.channel === 'global' ? '.on' : ''}`, { 'data-testid': 'drawer-global', onclick: () => { panel.setChannel('global'); paintTabs(); } }, 'Global'),
     clan ? h(`button.ol-drawer-tab${panel.channel !== 'global' ? '.on' : ''}`, { 'data-testid': 'drawer-clan', onclick: () => { panel.setChannel(`clan:${clan.id}`); paintTabs(); } }, `[${clan.tag}] Clan`) : null,
-  );
+  ].filter(Boolean));
   paintTabs();
   const close = () => {
     overlay.classList.add('out');

@@ -31,10 +31,18 @@ export function compareCmds(a, b) {
   return a.t - b.t || a.p - b.p || a.s - b.s;
 }
 
-/** Validates the shape of a command from the network. */
-export function isValidCmd(c) {
+/** Lockstep markers (never sent by players): a player dropped out / came back at tick t. */
+export const MARKERS = ['gone', 'join'];
+
+/**
+ * Validates the shape of a command from the network. Markers are only accepted from a host's
+ * command log (resync / rejoin), never in a player's own command stream.
+ * @param {object} c
+ * @param {{ markers?: boolean }} [opts]
+ */
+export function isValidCmd(c, { markers = false } = {}) {
   return !!c && Number.isInteger(c.t) && c.t >= 0 && Number.isInteger(c.p) && c.p >= 0 && c.p < 2
-    && Number.isInteger(c.s) && KINDS.includes(c.k) && Array.isArray(c.a) && c.a.length <= 4;
+    && Number.isInteger(c.s) && (KINDS.includes(c.k) || (markers && MARKERS.includes(c.k))) && Array.isArray(c.a) && c.a.length <= 4;
 }
 
 /**
@@ -93,6 +101,11 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
   function apply(cmd) {
     const slot = cmd.p;
     if (!views[slot]) return { ok: false, reason: 'slot' };
+    if (cmd.k === 'gone' || cmd.k === 'join') {
+      if (cmd.k === 'gone') gone.add(slot);
+      else gone.delete(slot);
+      return { ok: true };
+    }
     view(slot);
     let res = { ok: false, reason: 'invalid' };
     try {
@@ -198,6 +211,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     /** Marks a player as disconnected: their towers stay, future income goes to the others. */
     markGone(slot) {
       gone.add(slot);
+    },
+    /** A disconnected player is back (lockstep rejoin): she shares the income again. */
+    markBack(slot) {
+      gone.delete(slot);
     },
     isGone: (slot) => gone.has(slot),
     hash: () => hashSim(sim, { tick, wallets }),

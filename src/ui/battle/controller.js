@@ -22,6 +22,7 @@ import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { quantize } from '../../online/coop/commands.js';
+import { battleLockstep } from '../../online/coop/session.js';
 import { applyCoopResult } from '../../online/coop/rewards.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { COOP } from '../../data/coop.js';
@@ -45,7 +46,7 @@ export function mountBattle(root, params, hooks) {
   const profile = store.profile;
   // Co-op: the Sim comes from the session's Lockstep (same start message on both clients)
   const session = params.coop ? hooks.coop || null : null;
-  const ls = session?.code === params.coop ? session.lockstep : null;
+  const ls = battleLockstep(params, session);
   const req = ls
     ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, practice: false, error: null }
     : params.coop
@@ -514,7 +515,14 @@ export function mountBattle(root, params, hooks) {
     ];
     const offs = [
       session.on('applied', ({ cmd, res }) => onApplied(cmd, res)),
-      session.on('peerGone', (reason) => ctx.feed?.push(reason === 'desync' ? 'Lost sync with your ally — you continue solo.' : `${session.player(1 - mySlot)?.name || 'Your ally'} left. Their girls stay and keep fighting; their income is yours now.`, 'warn', { ms: 5200 })),
+      session.on('peerGone', (reason) => {
+        const ally = session.player(1 - mySlot)?.name || 'Your ally';
+        const text = reason === 'desync' ? 'Lost sync with your ally — you continue solo.'
+          : reason === 'left' ? `${ally} left. Their girls stay and keep fighting; their income is yours now.`
+            : `Lost contact with ${ally}. Play on — their girls keep fighting, and they rejoin as soon as they are back.`;
+        ctx.feed?.push(text, 'warn', { ms: 5200 });
+      }),
+      session.on('peerBack', () => ctx.feed?.push(`${session.player(1 - mySlot)?.name || 'Your ally'} is back — defending together again.`, 'good', { ms: 3600 })),
       session.on('resync', () => hooks.restart()),
     ];
     cleanups.push(() => offs.forEach((off) => off()));

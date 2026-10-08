@@ -10,11 +10,19 @@
 //   { type: 'hash', from, t, h }               state hash after tick t (every COOP.hashEvery)
 //   { type: 'resync?', from }                  guest saw a hash mismatch: please send state
 //   { type: 'resync', from, start, T, cmds }   host: rebuild from start, replay cmds up to T
-//   { type: 'bye', from }                      leaving
+//   { type: 'bye', from, why? }                leaving (why 'timeout': "I lost you", rejoinable)
+//   { type: 'rejoin', from, ep, start, T, cmds }  host → a dropped guest that is alive again:
+//                                              adopt my timeline (rebuild, replay to T)
+// Every message carries `ep` (the timeline epoch, bumped by each rejoin) so packets from a
+// timeline that was abandoned are ignored; 'in' also lists the slots its sender lost (`gone`).
 // A client only runs tick T once every connected peer's horizon >= T; otherwise it stalls
 // ("Waiting for ally…") and raises its own input delay a little. A peer silent for
 // COOP.timeoutMs (COOP.loadTimeoutMs before its first packet: its battle screen is still
-// loading) is dropped: its towers stay, its income goes to the survivor.
+// loading) is dropped: its towers stay, its income goes to the survivor. If the dropped peer
+// was only frozen or cut off (a phone switching apps, a long load, a network hiccup) and its
+// packets arrive again, the host re-admits it: the guest rebuilds the battle from the host's
+// command log (which records the drop and the return as 'gone' / 'join' markers, so both
+// replay the same wallets) and both continue in lockstep. Leaving on purpose is final.
 import { COOP } from '../../data/coop.js';
 import { createCoopSim, compareCmds, isValidCmd } from './commands.js';
 
@@ -22,6 +30,21 @@ const MAX_CATCHUP = 12; // ticks per advance() call beyond the frame's own share
 const FATAL_WINDOW_MS = 30000;
 /** A gap this long between our own beats means THIS client was frozen (loading, GC, tab switch). */
 const FREEZE_MS = 1000;
+/** Host: re-send a rejoin offer this often while the guest still talks in the old timeline. */
+const REJOIN_RESEND_MS = 1500;
+/** Host: an offer nobody accepts within this long (one-way link) is withdrawn: play on solo… */
+const OFFER_TIMEOUT_MS = 6000;
+/** …and only offered again after this pause (doubling per failed offer, up to the max), so a
+ *  broken link never keeps the host waiting for long. */
+const REJOIN_COOLDOWN_MS = 8000;
+const REJOIN_COOLDOWN_MAX_MS = 60000;
+/** Guest told by a live host that it was dropped ('lost'): hold still this long for the host's
+ *  rejoin offer instead of playing on alone (no divergence → no battle-screen rebuild). */
+const REJOIN_WAIT_MS = 6000;
+/** Drop reasons after which the peer may come back (any other — 'left', 'desync' — is final). */
+const REJOINABLE = new Set(['timeout', 'lost']);
+/** Marker commands ('gone' / 'join') sort before the players' own commands of their tick. */
+const MARK_BASE = -1000000;
 
 export class Lockstep {
   /**
@@ -54,10 +77,13 @@ export class Lockstep {
     this.resyncPending = 0;
     this.desynced = false;
     this.resyncs = 0;
+    this.rejoins = 0;
+    this.epoch = 0; // timeline id: bumped by the host each time it re-admits a dropped guest
+    this.markSeq = 0;
     this.running = false; // advance() was called at least once (the battle screen is up)
     this.peers = new Map();
     for (const p of start.players) {
-      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, ready: false, jitter: 0 });
+      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, rejoinAfter: 0, failedOffers: 0, goneAt: 0 });
     }
   }
 
@@ -117,9 +143,14 @@ export class Lockstep {
     return true;
   }
 
+  /** Records a deterministic 'gone' / 'join' marker for `slot` at the current tick (in the log, so replays see it). */
+  mark(k, slot) {
+    this.accept({ t: this.tick, p: slot, s: MARK_BASE + ++this.markSeq, k, a: [] });
+  }
+
   send(msg) {
     try {
-      this.sendRaw({ ...msg, from: this.mySlot });
+      this.sendRaw({ ...msg, from: this.mySlot, ep: this.epoch });
     } catch (e) {
       // a dead transport is the same as a lossy one: heartbeats retry
       console.warn('[lockstep] send failed', e);
@@ -134,7 +165,12 @@ export class Lockstep {
   wake() {
     const t = this.now();
     if (this.lastRun != null && t - this.lastRun > FREEZE_MS) {
-      for (const p of this.peers.values()) p.lastHeard += t - this.lastRun;
+      const gap = t - this.lastRun;
+      for (const p of this.peers.values()) {
+        p.lastHeard += gap;
+        // a pending rejoin offer's clock stops too (its answer may be waiting in my mailbox)
+        if (p.offer) p.offerSince += gap;
+      }
     }
     this.lastRun = t;
     return t;
@@ -149,7 +185,8 @@ export class Lockstep {
     const floor = Number.isFinite(minAck) ? minAck : this.tick - 1;
     const cmds = this.log.filter((c) => c.p === this.mySlot && c.t > floor);
     // live: my battle screen is up and ticking (until then the ally allows the long load timeout)
-    this.send({ type: 'in', horizon: this.horizon(), ack: this.tick - 1, cmds, live: this.running });
+    const gone = [...this.peers.values()].filter((p) => p.gone).map((p) => p.slot);
+    this.send({ type: 'in', horizon: this.horizon(), ack: this.tick - 1, cmds, live: this.running, gone });
   }
 
   /** Handles one message from a peer. */
@@ -157,13 +194,50 @@ export class Lockstep {
     if (!msg || msg.from === this.mySlot) return;
     const peer = this.peers.get(msg.from);
     if (!peer) return;
-    if (peer.gone && msg.type !== 'bye') return;
+    const ep = Number.isInteger(msg.ep) ? msg.ep : 0;
+    // the host offers a dropped guest its timeline (a newer epoch than the guest's)
+    if (msg.type === 'rejoin') {
+      if (!this.isHost && ep > this.epoch && !this.desynced && (!peer.gone || REJOINABLE.has(peer.why))) this.applyRejoin(peer, msg);
+      return;
+    }
+    if (msg.type === 'bye') {
+      // 'timeout' = "I stopped hearing you" (from this timeline only): both play on, and the host
+      // re-admits the guest as soon as packets flow again. Any other goodbye (Leave, closing the
+      // tab) is final, whatever the timeline.
+      if (msg.why === 'timeout') {
+        if (ep === this.epoch) this.dropPeer(peer, 'lost');
+      } else if (peer.gone) peer.why = 'left';
+      else this.dropPeer(peer, 'left');
+      return;
+    }
+    if (peer.gone) {
+      // a dropped guest is talking again (it was frozen or cut off, not gone): re-admit it
+      if (msg.type === 'in' && this.isHost && REJOINABLE.has(peer.why) && !this.desynced && !this.finished && this.now() >= peer.rejoinAfter) this.rejoin(peer);
+      return;
+    }
     const t = this.now();
+    if (ep !== this.epoch) {
+      // a packet from an abandoned timeline (sent before the guest adopted my rejoin offer):
+      // its promises and commands mean nothing here (and it does not count as hearing the
+      // peer: an offer that never gets through is withdrawn after OFFER_TIMEOUT_MS)
+      if (this.isHost && peer.offer && ep < this.epoch && t - peer.offerAt > REJOIN_RESEND_MS) this.sendOffer(peer);
+      return;
+    }
     // slowly decaying worst gap between this peer's packets (adaptive timeout, like TCP's RTO)
     if (peer.ready) peer.jitter = Math.max(t - peer.lastHeard, peer.jitter * 0.995);
     peer.lastHeard = t;
     switch (msg.type) {
       case 'in':
+        if (Array.isArray(msg.gone) && msg.gone.includes(this.mySlot)) {
+          // it lost me (one-way silence) while I still heard it: split up, then the host re-admits
+          this.dropPeer(peer, 'lost');
+          if (this.isHost && !this.desynced && !this.finished) this.rejoin(peer);
+          break;
+        }
+        if (peer.offer) {
+          peer.offer = null; // the guest took my rejoin offer
+          peer.failedOffers = 0;
+        }
         for (const c of Array.isArray(msg.cmds) ? msg.cmds : []) {
           if (!isValidCmd(c) || c.p !== msg.from) continue;
           if (this.known.has(`${c.p}:${c.s}`)) continue;
@@ -190,9 +264,6 @@ export class Lockstep {
         break;
       case 'resync':
         if (!this.isHost && this.resyncPending) this.applyResync(msg);
-        break;
-      case 'bye':
-        this.dropPeer(peer, 'left');
         break;
       default:
         break;
@@ -226,35 +297,136 @@ export class Lockstep {
 
   /** Guest: rebuild the CoopSim from the host's log and fast-forward to the host's tick. */
   applyResync(msg) {
-    const keepMine = this.log.filter((c) => c.p === this.mySlot);
-    const gone = [...this.peers.values()].filter((p) => p.gone).map((p) => p.slot);
-    this.coop = createCoopSim(msg.start || this.start, { mySlot: this.mySlot });
-    for (const s of gone) this.coop.markGone(s);
-    this.pending = new Map();
-    this.known = new Set();
-    this.log = [];
-    for (const c of [...(msg.cmds || []), ...keepMine].filter(isValidCmd).sort(compareCmds)) this.accept(c);
-    this.hashes = new Map();
-    this.peerHashes = new Map();
-    while (this.tick < msg.T) this.runTick({ silent: true });
+    const keepMine = this.log.filter((c) => c.p === this.mySlot && c.s >= 0);
+    this.rebuild(msg.start, [...(msg.cmds || []), ...keepMine], msg.T);
     this.resyncPending = 0;
     this.resyncs++;
     this.hooks.onResync?.(this.coop);
   }
 
+  /** Rebuilds the CoopSim from a start message and a command log, then fast-forwards to tick T. */
+  rebuild(start, cmds, T) {
+    this.coop = createCoopSim(start || this.start, { mySlot: this.mySlot });
+    this.pending = new Map();
+    this.known = new Set();
+    this.log = [];
+    for (const c of cmds.filter((x) => isValidCmd(x, { markers: true })).sort(compareCmds)) this.accept(c);
+    this.hashes = new Map();
+    this.peerHashes = new Map();
+    while (this.tick < T) this.runTick({ silent: true });
+  }
+
+  /** Host: take a dropped (but alive) guest back into this timeline from the current tick. */
+  rejoin(peer) {
+    this.epoch++;
+    peer.gone = false;
+    peer.why = null;
+    // the guest rebuilds its battle screen from my log: give it the loading allowance again
+    // (COOP.loadTimeoutMs) until its packets say it is live
+    peer.ready = false;
+    peer.horizon = this.tick - 1; // nothing runs until the guest promises again in the new epoch
+    peer.ack = this.tick - 1;
+    peer.lastHeard = this.now();
+    peer.jitter = 0;
+    this.mark('join', peer.slot);
+    this.rejoins++;
+    peer.offerSince = this.now();
+    this.sendOffer(peer);
+    this.hooks.onPeerBack?.(peer.slot);
+  }
+
+  sendOffer(peer) {
+    peer.offer = true;
+    peer.offerAt = this.now();
+    this.send({ type: 'rejoin', start: this.start, T: this.tick, cmds: this.log });
+  }
+
+  /**
+   * Guest: adopt the host's timeline. Everything since the split is replaced by the host's
+   * log (my commands the host never received are dropped: they were made in a world that no
+   * longer exists), then both continue in lockstep from the host's tick.
+   */
+  applyRejoin(peer, msg) {
+    const inPlace = this.catchUp(msg);
+    if (!inPlace) this.rebuild(msg.start, msg.cmds || [], msg.T);
+    this.epoch = msg.ep;
+    this.promised = this.tick - 1;
+    peer.gone = false;
+    peer.why = null;
+    peer.ready = true;
+    peer.horizon = msg.T - 1;
+    peer.ack = msg.T - 1;
+    peer.lastHeard = this.now();
+    peer.jitter = 0;
+    this.mismatches = [];
+    this.resyncPending = 0;
+    this.rejoins++;
+    if (inPlace) {
+      // nothing had diverged (typically: dropped while my battle screen was still loading):
+      // the same battle simply fast-forwarded, no rebuild of the battle screen needed
+      this.beat(true);
+    } else {
+      this.running = false; // "live" again once the rebuilt battle screen runs (see rejoin())
+      this.beat(true);
+      this.hooks.onResync?.(this.coop);
+    }
+    this.hooks.onPeerBack?.(peer.slot);
+  }
+
+  /**
+   * Rejoin without a rebuild when my battle never left the host's timeline: every command (and
+   * marker) I executed is exactly what the host's log has before my tick, and the host is not
+   * behind me. Then I only drop my not-yet-executed orders the host never got, take its log and
+   * fast-forward this same CoopSim to its tick. @returns {boolean} done
+   */
+  catchUp(msg) {
+    const G = this.tick;
+    const host = (msg.cmds || []).filter((x) => isValidCmd(x, { markers: true }));
+    if (!Number.isInteger(msg.T) || msg.T < G) return false;
+    const key = (c) => `${c.t}|${c.p}|${c.k}|${c.s}|${JSON.stringify(c.a)}`;
+    const mine = this.log.filter((c) => c.t < G).map(key).sort();
+    const theirs = host.filter((c) => c.t < G).map(key).sort();
+    if (mine.length !== theirs.length || mine.some((k, i) => k !== theirs[i])) return false;
+    const hostKeys = new Set(host.map((c) => `${c.p}:${c.s}`));
+    // my queued orders (and markers) for ticks >= G that the host never received: void
+    for (const c of this.log.filter((x) => x.t >= G && !hostKeys.has(`${x.p}:${x.s}`))) {
+      this.known.delete(`${c.p}:${c.s}`);
+      const list = (this.pending.get(c.t) || []).filter((x) => x !== c);
+      if (list.length) this.pending.set(c.t, list);
+      else this.pending.delete(c.t);
+    }
+    this.log = this.log.filter((x) => x.t < G || hostKeys.has(`${x.p}:${x.s}`));
+    for (const c of host.sort(compareCmds)) if (c.t >= G) this.accept(c);
+    while (this.tick < msg.T) this.runTick({ silent: true });
+    return true;
+  }
+
   dropPeer(peer, reason) {
     if (peer.gone) return;
     peer.gone = true;
-    this.coop.markGone(peer.slot);
+    peer.why = reason;
+    peer.goneAt = this.now();
+    // an unanswered rejoin offer: wait a while before offering again (one-way links)
+    if (peer.offer) {
+      peer.failedOffers++;
+      peer.rejoinAfter = this.now() + Math.min(REJOIN_COOLDOWN_MAX_MS, REJOIN_COOLDOWN_MS * 2 ** (peer.failedOffers - 1));
+    } else peer.rejoinAfter = 0;
+    peer.offer = null;
+    // from the next tick on its income goes to the others (a marker, so a replay agrees)
+    this.mark('gone', peer.slot);
     // tell the ally (if it can still hear us) so both sides continue solo instead of one of
     // them waiting on commands that will never be applied
-    if (reason === 'timeout') this.send({ type: 'bye' });
+    if (reason === 'timeout') this.send({ type: 'bye', why: 'timeout' });
     this.hooks.onPeerGone?.(peer.slot, reason);
   }
 
   canRun(T) {
     if (this.resyncPending) return false;
-    for (const p of this.livePeers()) if (T > p.horizon) return false;
+    for (const p of this.peers.values()) {
+      if (!p.gone) {
+        if (T > p.horizon) return false;
+      } else if (!this.isHost && p.why === 'lost' && this.now() - p.goneAt < REJOIN_WAIT_MS) return false;
+    }
     return true;
   }
 
@@ -293,7 +465,10 @@ export class Lockstep {
   advance(dt) {
     this.running = true;
     const t = this.wake();
-    for (const p of this.livePeers()) if (t - p.lastHeard > this.timeoutFor(p)) this.dropPeer(p, 'timeout');
+    for (const p of this.livePeers()) {
+      if (p.offer && t - p.offerSince > OFFER_TIMEOUT_MS) this.dropPeer(p, 'lost'); // the guest never took the offer
+      else if (t - p.lastHeard > this.timeoutFor(p)) this.dropPeer(p, 'timeout');
+    }
     if (this.resyncPending && t - this.resyncPending > COOP.timeoutMs) {
       this.resyncPending = 0;
       this.flagMismatch(); // counts as the second strike
