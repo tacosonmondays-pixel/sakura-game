@@ -55,8 +55,13 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     const bg = background || LOBBY_BG_MAP[defaultBackgroundFor(u.id)];
     const next = build(u, bg);
     if (direction && !reduceMotion) next.classList.add(direction > 0 ? 'enter-r' : 'enter-l');
-    const imgs = [...next.querySelectorAll('img')].filter((img) => !img.complete);
-    if (imgs.length) await Promise.all(imgs.map((img) => new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); })));
+    // first picture: its small painted thumb sits behind at once, so the lobby never shows an
+    // empty backdrop while the full art (usually already preloaded by the title) decodes
+    if (!current && bg?.thumb) frame.style.backgroundImage = `url("${lobbyArtUrl(bg.thumb)}")`;
+    // wait for every picture to be fetched AND decoded (a preloaded URL decodes in a frame or two)
+    const arrived = (img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); }))
+      .then(() => (img.decode && img.naturalWidth ? Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 600))]) : null));
+    await Promise.all([...next.querySelectorAll('img')].map(arrived));
     if (disposed) return;
     const prev = current;
     frame.append(next);

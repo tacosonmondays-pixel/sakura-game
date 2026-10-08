@@ -69,11 +69,11 @@ function build() {
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'bounty', title: 'Bounty', art: artFor(sec.id, paint('thumbs/aoi.webp', 'aoi'), paint('thumbs/sango.webp', 'sango')), sub: `${event.arenaName} · ${event.dropMul}× this week`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
+    tile({ id: 'bounty', title: 'Bounty', art: artFor(sec.id, paint('thumbs/aoi.webp', 'aoi'), paint('thumbs/sango.webp', 'sango')), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
     tile({ id: 'assault', title: 'Total Assault', art: artFor(sec.id, bust('kaede'), bust('shiro')), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: artFor(sec.id, bust('raika'), bust('shiro')), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     tile({ id: 'commissions', title: 'Commissions', art: artFor(sec.id, bust('umeko'), bust('midori')), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, short: `${notice.dailyDone}/${notice.dailyTotal} done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
-    tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard', short: sweepable ? `${sweepable} ready` : 'Hard clears only', onClick: () => openSweep() }),
+    tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear Hard stages', short: sweepable ? `${sweepable} ready` : 'Hard clears only', onClick: () => openSweep() }),
     tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
   );
   wrap.appendChild(grid);

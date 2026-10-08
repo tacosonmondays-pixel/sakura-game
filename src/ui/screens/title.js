@@ -129,8 +129,21 @@ export function render(root) {
     if (!ready || leaving) return;
     leaving = true;
     markTitleSeen();
-    el.classList.add('tt-leave');
-    setTimeout(() => navigate('lobby', {}, { replace: true }), reduce ? 0 : 260);
+    // hand-off: the title lifts out of the screen root as a fixed overlay, the lobby renders
+    // underneath, and the title fades only once the lobby's art has decoded (no empty frame)
+    el.classList.add('tt-handoff');
+    document.body.appendChild(el);
+    let gone = false;
+    const fade = () => {
+      if (gone) return;
+      gone = true;
+      window.removeEventListener('lobby-stage-ready', fade);
+      el.classList.add('tt-leave');
+      setTimeout(() => el.remove(), reduce ? 0 : 300);
+    };
+    window.addEventListener('lobby-stage-ready', fade);
+    setTimeout(fade, 1800);
+    navigate('lobby', {}, { replace: true });
   }
 
   // ---- really preload what the lobby needs ------------------------------------------------

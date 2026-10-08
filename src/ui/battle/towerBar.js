@@ -121,6 +121,16 @@ export function createTowerBar(ctx) {
     el,
     update,
     cardFor: (unitId) => cards.get(unitId)?.card || null,
+    /** Brief glow on a girl's card (just deployed), so the card connects to her chibi on the map. */
+    flash(unitId) {
+      const card = cards.get(unitId)?.card;
+      if (!card) return;
+      card.classList.remove('bt-card-flash');
+      void card.offsetWidth;
+      card.classList.add('bt-card-flash');
+      clearTimeout(card._flashT);
+      card._flashT = setTimeout(() => card.classList.remove('bt-card-flash'), 1300);
+    },
     destroy() {},
   };
 }

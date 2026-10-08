@@ -240,10 +240,11 @@ export function createResults(ctx) {
           : h('p.muted.bt-empty', 'No drops this time — harder difficulties roll more items.'),
       ));
     }
-    if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
-    if (out.discovered.length) blocks.push(section('Bestiary updated', discoveredRow(out.discovered)));
+    // the drawn MVP busts come right after the drops, so a phone sees them without scrolling
     const m = mvp();
     if (m) blocks.push(section('Top damage', m));
+    if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
+    if (out.discovered.length) blocks.push(section('Bestiary updated', discoveredRow(out.discovered)));
     const card = h(
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },
@@ -257,6 +258,8 @@ export function createResults(ctx) {
 
   function open(card, extra = null) {
     el.replaceChildren(...[extra, card].filter(Boolean));
+    // a victory stand takes the left side: the sheet moves right so it never covers her or her bubble
+    el.classList.toggle('has-girl', !!extra?.classList?.contains('bt-win-girl'));
     el.hidden = false;
     el.classList.remove('bt-in');
     void el.offsetWidth;

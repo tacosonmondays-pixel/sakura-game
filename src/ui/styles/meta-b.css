@@ -713,3 +713,7 @@ button.mb-gear:active { transform: scale(0.98); }
   .mb-summary { margin: 2px 2px 8px; font-size: 0.8rem; }
   .mb-student-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 8px; }
 }
+
+/* first impressions r3: the backpack tab strip rests on whole tabs (no sliver of the previous one) */
+.mb-tabs { scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); }
+.mb-tab { scroll-snap-align: start; }

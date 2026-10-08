@@ -30,7 +30,7 @@ import { canSpark } from '../../systems/gacha.js';
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -254,7 +254,8 @@ export function render(root) {
     if (e?.reason === 'replace') carousel.refresh();
   });
 
-  showSecretary(0);
+  // the title screen (and the boot splash) stay over the lobby until her art has decoded
+  showSecretary(0).catch(() => {}).finally(() => window.dispatchEvent(new CustomEvent('lobby-stage-ready')));
 
   // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
   // and celebrated once per session until claimed.
@@ -406,9 +407,9 @@ function buildCarousel(host, { reduceMotion }) {
     const assaultLock = isStageUnlocked(profile, 'boss-lych') ? null : requirementText(profile, 'boss-lych');
     // (the weekly event has its own card bottom-left, so it is not repeated here)
     slides = [
-      { id: 'recruit', pill: 'Standard recruitment', kicker: 'RECRUIT', title: 'Open Enrollment', sub: `SSR in ≤ ${pity}`, fan: RECRUIT_FEATURED, paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
+      { id: 'recruit', pill: 'Standard recruitment', kicker: 'RECRUIT', title: 'Enrollment', sub: `SSR in ≤ ${pity}`, fan: RECRUIT_FEATURED, paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
       { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', paint: 'thumbs/sango.webp', go: () => navigate('rewards') },
-      { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'BOSS', title: 'Total Assault', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', paint: 'thumbs/hikari.webp', lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
+      { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'TOTAL ASSAULT', title: 'Boss Raid', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', paint: 'thumbs/hikari.webp', lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
     ];
     clear(track);
     clear(dots);
@@ -474,7 +475,7 @@ function buildCarousel(host, { reduceMotion }) {
 function buildEventCard(host) {
   const event = currentEvent();
   const days = eventDaysLeft();
-  const guest = UNIT_MAP[{ 'res-books': 'hotaru', 'res-coins': 'chika', 'res-gear': 'kaede', 'res-mats-a': 'luna', 'res-mats-b': 'miko' }[event.arena]] || UNIT_MAP.hikari;
+  const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;
   host.appendChild(h('button.lb-eventcard', { onclick: () => navigate('bounty', { arena: event.arena }), 'data-testid': 'event-strip', title: event.desc },
     h('div.lb-ev-clip',
       h('div.lb-ev-art', h('img', { src: lobbyArtUrl(ARENA_ART[event.arena] || 'thumbs/academy.webp'), alt: '', loading: 'lazy', decoding: 'async', draggable: false })),

@@ -42,6 +42,8 @@ export function eventDaysLeft(now = new Date()) {
 export const ARENA_THEME = { 'res-books': 'shrine', 'res-coins': 'festival', 'res-gear': 'foundry', 'res-mats-a': 'mountain', 'res-mats-b': 'night' };
 /** Drawn art per weekly-event arena (public/art/lobby/…). */
 export const ARENA_ART = { 'res-books': 'thumbs/academy.webp', 'res-coins': 'thumbs/sango.webp', 'res-gear': 'thumbs/hikari.webp', 'res-mats-a': 'thumbs/aoi.webp', 'res-mats-b': 'thumbs/academy.webp' };
+/** The student who hosts each weekly event (her drawn stand on the lobby EVENT card and Events screen). */
+export const ARENA_GUEST = { 'res-books': 'hotaru', 'res-coins': 'chika', 'res-gear': 'kaede', 'res-mats-a': 'luna', 'res-mats-b': 'miko' };
 
 function articles() {
   const event = currentEvent();

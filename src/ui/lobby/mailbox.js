@@ -14,6 +14,9 @@ import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { mailList, claimMail, claimAllMail, pendingBetaGift, BETA_GIFT_ID } from '../../systems/mail.js';
 import { itemCount } from '../../systems/inventory.js';
+// static (not lazy): right after "Claim gifts" the SSR picker offer must appear at once — a lazy
+// chunk on a slow connection made the tap look like it did nothing
+import { offerSelectTicket } from '../selectTicket.js';
 
 const SHOWN_KEY = 'sakura-beta-gift-shown';
 
@@ -110,7 +113,7 @@ export function openMailbox() {
 function afterClaim(rewards) {
   const received = `Received ${rewards.length} kind${rewards.length === 1 ? '' : 's'} of gifts — check your Backpack!`;
   if (rewards.some((r) => r.id === 'ticket_ssr_select') && itemCount(store.profile, 'ticket_ssr_select') > 0) {
-    import('../selectTicket.js').then((mod) => mod.offerSelectTicket({ lead: received })).catch(() => toast(received, 'good', 2600));
+    Promise.resolve(offerSelectTicket({ lead: received })).catch(() => toast(received, 'good', 2600));
     return;
   }
   toast(received, 'good', 2600);

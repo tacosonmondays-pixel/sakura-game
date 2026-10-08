@@ -293,7 +293,8 @@ export function render(root, params = {}) {
       tabsEl.appendChild(h(`button.mb-tab${t.id === state.tab ? '.active' : ''}`, { 'data-testid': `tab-${t.id}`, onclick: () => { state.tab = t.id; history.replaceState(null, '', `#/backpack?tab=${t.id}`); rerender(); } }, t.name, h('span.mb-tab-count', String(count))));
     }
     const activeTab = tabsEl.querySelector('.mb-tab.active');
-    requestAnimationFrame(() => activeTab?.scrollIntoView?.({ block: 'nearest', inline: 'center' }));
+    // bring the active tab into view by scrolling the strip only, resting on a whole tab (no sliver)
+    requestAnimationFrame(() => snapTabStrip(tabsEl, activeTab));
     clear(toolbar);
     const rarityOpts = [{ id: null, label: 'Any rarity' }, ...ITEM_RARITY_ORDER.map((r) => ({ id: r, label: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color }))];
     put(toolbar,
@@ -331,3 +332,17 @@ export function render(root, params = {}) {
   return () => off();
 }
 
+/** Scroll a horizontal tab strip so `active` is fully visible and the strip starts on a whole tab. */
+export function snapTabStrip(strip, active) {
+  if (!strip || !active || !strip.clientWidth) return;
+  const base = strip.getBoundingClientRect().left - strip.scrollLeft;
+  const left = (t) => t.getBoundingClientRect().left - base;
+  const pad = parseFloat(getComputedStyle(strip).paddingLeft) || 0;
+  const need = left(active) + active.offsetWidth + pad - strip.clientWidth;
+  if (need <= 0) {
+    strip.scrollLeft = 0;
+    return;
+  }
+  const first = [...strip.children].find((t) => left(t) - pad >= need);
+  strip.scrollLeft = first ? left(first) - pad : need;
+}

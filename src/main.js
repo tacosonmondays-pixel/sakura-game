@@ -55,7 +55,13 @@ if (boot) {
     boot.classList.add('boot-out');
     setTimeout(() => boot.remove(), 320);
   };
-  window.addEventListener('screenchange', () => requestAnimationFrame(dropBoot), { once: true });
+  // the lobby fades the splash once her art has decoded (lobby-stage-ready), other screens at once
+  window.addEventListener('screenchange', (e) => {
+    if (e.detail?.name === 'lobby') {
+      window.addEventListener('lobby-stage-ready', () => requestAnimationFrame(dropBoot), { once: true });
+      setTimeout(dropBoot, 2500);
+    } else requestAnimationFrame(dropBoot);
+  }, { once: true });
   setTimeout(dropBoot, 8000);
 }
 try {

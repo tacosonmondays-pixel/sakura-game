@@ -48,7 +48,14 @@ export function openBackgroundPicker({ girl = null } = {}) {
         onclick: () => { current = id; paint(); },
       }, h('span.bgp-girl-art', { html: portraitHTML(u, 'thumb') }), h('span.bgp-girl-name', u.name)));
     }
-    girls.querySelector('.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    // keep the chosen girl in view by scrolling the list itself (scrollIntoView would also
+    // scroll the dialog and push its header off screen)
+    const on = girls.querySelector('.on');
+    if (on && girls.clientHeight) {
+      const top = on.offsetTop - girls.offsetTop;
+      if (top < girls.scrollTop) girls.scrollTop = top - 4;
+      else if (top + on.offsetHeight > girls.scrollTop + girls.clientHeight) girls.scrollTop = top + on.offsetHeight - girls.clientHeight + 4;
+    }
   };
 
   const paint = () => {

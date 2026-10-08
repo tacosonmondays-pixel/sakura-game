@@ -1864,3 +1864,34 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-offer-portrait:active { transform: scale(0.96); }
 .ma-offer-portrait .pt-img, .ma-offer-portrait svg { width: 100%; height: 100%; object-fit: cover; display: block; }
 @media (max-height: 480px) { .ma-offer-portrait { width: 64px; height: 64px; border-radius: 11px; } }
+
+/* ==== first impressions r3 ==== */
+/* missions hub: small-tile titles break between words only ("Commissions" never splits) */
+.ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title { overflow-wrap: normal; word-break: keep-all; hyphens: none; }
+.ma-hub-commissions .ma-hub-title { white-space: nowrap; overflow: visible; letter-spacing: -0.02em; }
+@media (max-height: 480px) {
+  .ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title { font-size: clamp(0.74rem, 1.7vw, 0.88rem); }
+  .ma-hub-challenge .ma-hub-text, .ma-hub-commissions .ma-hub-text, .ma-hub-sweep .ma-hub-text { padding-left: 6px; padding-right: 6px; }
+}
+
+/* lobby background picker: the dialog keeps its size; the girls list and the tiles scroll inside */
+.bgp-modal .modal-body { overflow: hidden; display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.bgp { grid-template-rows: minmax(0, 1fr); height: min(62vh, 520px); max-height: none; flex: 1 1 auto; }
+.bgp-girls, .bgp-main { min-height: 0; }
+.bgp-girls { overflow-y: auto; overscroll-behavior: contain; }
+.bgp-grid { overscroll-behavior: contain; }
+@media (max-height: 480px) { .bgp { height: calc(100vh - 150px); max-height: none; } }
+
+/* lobby: the first picture's painted thumb sits behind while the full art decodes */
+.lb-art { background-size: cover; background-position: 60% 30%; background-repeat: no-repeat; }
+
+/* events screen: the painted arena art + the event's host girl (no procedural backdrop) */
+.ma-event-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; display: block; filter: saturate(1.05); }
+.ma-event-girl { position: absolute; right: 16%; top: 6%; height: 150%; width: 0; display: flex; justify-content: center; line-height: 0; pointer-events: none; filter: drop-shadow(0 8px 18px rgba(20,30,70,0.35)); }
+.ma-event-girl .pt-img, .ma-event-girl svg { flex: none; height: 100%; width: auto; max-width: none; object-fit: contain; object-position: 50% 0; }
+.ma-event-shade { background: linear-gradient(90deg, rgba(255,240,246,0.97) 0%, rgba(255,255,255,0.86) 46%, rgba(255,255,255,0.12) 70%, rgba(255,255,255,0) 100%); }
+.ma-next-thumb > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 820px) { .ma-event-girl { right: 12%; height: 170%; } }
+/* phone: wider thumbs so a girl with six backgrounds shows both rows whole */
+@media (max-height: 480px) { .bgp-thumb { aspect-ratio: 16 / 9; } .bgp-grid { gap: 6px; } }
+@media (max-height: 480px) and (min-width: 821px) { .ma-event-girl { right: 8%; height: 145%; } }

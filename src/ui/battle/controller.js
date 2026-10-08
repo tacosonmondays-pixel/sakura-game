@@ -21,6 +21,8 @@ import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
+import { svgEl } from '../components.js';
+import { portraitHTML } from '../../art/portraits.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -162,6 +164,23 @@ export function mountBattle(root, params, hooks) {
       navigator.vibrate?.(12);
       if (t.isHero) feed.push(`${t.def.name} takes the field! She levels up as she fights.`, 'good', { ms: 2400 });
       bar.update();
+      // connect the drawn card to her chibi: the card glows and a name tag with her drawn bust
+      // pops over the spot where she landed
+      bar.flash?.(t.def?.id);
+      deployTag(t);
+    };
+    const deployTag = (t) => {
+      try {
+        const p = ctx.renderer?.worldToScreen?.(t.x, t.y, 1.25);
+        if (!p?.visible || !t.def) return;
+        const lr = layer.getBoundingClientRect();
+        const tag = h('div.bt-deploy-tag', { 'aria-hidden': 'true', style: { left: `${Math.round(p.clientX - lr.left)}px`, top: `${Math.round(p.clientY - lr.top)}px` } },
+          svgEl(portraitHTML(t.def, 'thumb', { eager: true }), 'bt-deploy-art'), h('b', t.def.name));
+        layer.append(tag);
+        setTimeout(() => tag.remove(), 1800);
+      } catch (e) {
+        console.warn('[battle] deploy tag failed', e);
+      }
     };
     ctx.onUpgraded = (t, path) => {
       const tier = t.tiers[path];
