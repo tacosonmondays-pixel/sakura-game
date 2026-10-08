@@ -65,8 +65,11 @@ export const DEFAULT_SPACING = 0.8;
 /** Fraction of a group's duration after which the next group starts (overlap). */
 export const GROUP_OVERLAP = 0.55;
 
-/** Hero XP: per point of damage dealt and per cleared wave. */
-export const HERO_XP_PER_DAMAGE = 1;
+/**
+ * Hero XP: per point of damage dealt and per cleared wave. 0.4 per damage (was 1) so the hero
+ * no longer out-levels the girls the player pays for (she did 82–98 % of chapter-1 damage).
+ */
+export const HERO_XP_PER_DAMAGE = 0.4;
 export function heroWaveXp(wave) {
   return 30 + 10 * wave;
 }

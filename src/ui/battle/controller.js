@@ -333,7 +333,8 @@ export function mountBattle(root, params, hooks) {
             feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? 'Final wave!' : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
             break;
           case 'waveEnd':
-            feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            // Crowd bonus (bigger / more varied waves pay a little more) shown inside the total.
+            feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins${ev.crowd > 0 ? ` (+${fmtCoins(ev.crowd)} crowd)` : ''}`, 'good', { ms: 2200 });
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
             break;
           case 'bossPhase':

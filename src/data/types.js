@@ -175,11 +175,15 @@ export const TARGET_MODES = {
   elite: 'Priority', // casters / field oni / siphoners / elites first
 };
 
+// Difficulty modifiers (CONTRACTS §2). hpMul/speedMul scale enemies, cashMul scales kill bounties
+// and the wave-clear bonus, costMul scales placement and upgrade prices. startCashMul scales the
+// stage's start cash; incomeMul scales tower income (Momo) — legacy `noIncome: true` means 0.
+// Balance targets per difficulty (headroom bands) live in docs/BALANCE.md.
 export const DIFFICULTIES = {
-  easy: { id: 'easy', name: 'Easy', hpMul: 0.85, speedMul: 1.0, cashMul: 1.1, costMul: 0.9, lives: 150, medal: 'bronze', firstClearGems: 20 },
+  easy: { id: 'easy', name: 'Easy', hpMul: 0.6, speedMul: 1.0, cashMul: 1.1, costMul: 0.9, lives: 150, medal: 'bronze', firstClearGems: 20 },
   normal: { id: 'normal', name: 'Normal', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.0, lives: 100, medal: 'silver', firstClearGems: 40 },
-  hard: { id: 'hard', name: 'Hard', hpMul: 1.35, speedMul: 1.1, cashMul: 0.95, costMul: 1.08, lives: 50, medal: 'gold', firstClearGems: 60 },
-  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 1.75, speedMul: 1.15, cashMul: 0.9, costMul: 1.2, lives: 1, medal: 'sakura', firstClearGems: 100, noIncome: true },
+  hard: { id: 'hard', name: 'Hard', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.05, lives: 50, medal: 'gold', firstClearGems: 60 },
+  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 1.1, speedMul: 1.05, cashMul: 1.0, costMul: 1.1, lives: 1, medal: 'sakura', firstClearGems: 100, startCashMul: 1.5, incomeMul: 0.5 },
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'nightmare'];
 
@@ -273,7 +277,13 @@ export const GACHA = {
 export const BATTLE = {
   maxTowers: 8, // towers in formation (plus 1 hero)
   sellRefund: 0.7,
-  waveClearBonusBase: 80, // coins at end of each wave (+ wave index * 6)
+  // Wave-clear bonus = (waveClearBonusBase + waveClearBonusPerWave * wave + crowd) * cashMul * cashScale,
+  // paid at the end of every wave even when enemies leaked. The crowd bonus rewards bigger and more
+  // varied waves a little: perEnemy per scheduled spawn (up to maxEnemies) + perKind per distinct
+  // enemy type (src/sim/waves.js crowdBonus / waveClearBonus).
+  waveClearBonusBase: 100,
+  waveClearBonusPerWave: 7,
+  crowdBonus: { perEnemy: 1, maxEnemies: 30, perKind: 4 },
   maxHeroLevel: 10,
   speeds: [1, 2, 3],
 };

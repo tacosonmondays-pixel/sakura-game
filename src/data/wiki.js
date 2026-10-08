@@ -373,11 +373,12 @@ function gachaArticle() {
 function medalsArticle() {
   return article('medals', 'Medals & Difficulties', 'world', 'trophy', 'Easy to Nightmare: modifiers, medals and first-clear gems.', ['medal', 'difficulty', 'easy', 'normal', 'hard', 'nightmare', 'bronze', 'silver', 'gold', 'sakura', 'sweep', 'lives'], [
     sec('Difficulties',
-      table(['Difficulty', 'Medal', 'Enemy HP', 'Speed', 'Cash', 'Costs', 'Lives', 'First clear'], DIFFICULTY_ORDER.map((d) => {
+      table(['Difficulty', 'Medal', 'Enemy HP', 'Speed', 'Cash', 'Costs', 'Lives', 'Start cash', 'Income girls', 'First clear'], DIFFICULTY_ORDER.map((d) => {
         const x = DIFFICULTIES[d];
-        return [{ text: x.name, strong: true }, { text: x.medal[0].toUpperCase() + x.medal.slice(1), icon: `medal:${d}` }, `×${x.hpMul}`, `×${x.speedMul}`, `×${x.cashMul}`, `×${x.costMul}`, String(x.lives), `${x.firstClearGems} gems`];
+        const income = x.incomeMul ?? (x.noIncome ? 0 : 1);
+        return [{ text: x.name, strong: true }, { text: x.medal[0].toUpperCase() + x.medal.slice(1), icon: `medal:${d}` }, `×${x.hpMul}`, `×${x.speedMul}`, `×${x.cashMul}`, `×${x.costMul}`, String(x.lives), `×${x.startCashMul ?? 1}`, income === 0 ? 'Off' : `×${income}`, `${x.firstClearGems} gems`];
       })),
-      tip('Nightmare: one life and no income towers. One leak and it is over.', 'warn')),
+      tip(`Nightmare: one life — one leak and it is over. You start with ×${DIFFICULTIES.nightmare.startCashMul ?? 1} cash for a full opening, and income girls pay ×${DIFFICULTIES.nightmare.incomeMul ?? 0}.`, 'warn')),
     sec('Medals',
       list([
         'Each stage card shows four medal slots in the corner — one per difficulty.',
@@ -436,7 +437,7 @@ function economyArticle() {
         [{ text: itemName('token_bounty'), icon: 'item:token_bounty', strong: true }, 'Bounty arenas, Tactical Challenge, commissions', 'Bounty Exchange: gear boxes, dice, pins'],
       ])),
     sec('In-battle coins',
-      p(`Battle coins are separate from your wallet: you start each stage with its start cash, earn bounty per kill and a wave-clear bonus of ${BATTLE.waveClearBonusBase} + 6 × wave. Selling refunds ${pct(BATTLE.sellRefund, 0)} of what you spent on that girl.`)),
+      p(`Battle coins are separate from your wallet: you start each stage with its start cash, earn bounty per kill and a wave-clear bonus of ${BATTLE.waveClearBonusBase} + ${BATTLE.waveClearBonusPerWave} × wave, plus a small crowd bonus of ${BATTLE.crowdBonus.perEnemy} per enemy in the wave (up to ${BATTLE.crowdBonus.maxEnemies}) and ${BATTLE.crowdBonus.perKind} per enemy type. Later stages scale kill bounties and the wave-clear bonus up. Selling refunds ${pct(BATTLE.sellRefund, 0)} of what you spent on that girl.`)),
   ]);
 }
 

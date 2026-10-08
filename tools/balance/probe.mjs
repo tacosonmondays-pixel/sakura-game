@@ -14,7 +14,7 @@ import { Sim, roundCost } from '../../src/sim/Sim.js';
 import { defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { baseCost } from '../../src/sim/towers.js';
-import { generateWave } from '../../src/sim/waves.js';
+import { generateWave, waveClearBonus } from '../../src/sim/waves.js';
 import { buildPaths } from '../../src/sim/path.js';
 import { DIFFICULTIES } from '../../src/data/types.js';
 import { f2pSetup, statsAtLevel } from './f2p.mjs';
@@ -195,7 +195,8 @@ export function planFor(stageId, setup, planner = 'bot', { carry = null, difficu
     else {
       const costMul = DIFFICULTIES[difficulty]?.costMul ?? 1;
       const placeCost = (id) => roundCost(baseCost(DATA.units[id]) * costMul);
-      planCache.set(key, humanizePlan(base, { carry, startCash: DATA.stages[stageId].startCash ?? 650, placeCost }));
+      const startCash = Math.round((DATA.stages[stageId].startCash ?? 650) * (DIFFICULTIES[difficulty]?.startCashMul ?? 1));
+      planCache.set(key, humanizePlan(base, { carry, startCash, placeCost }));
     }
   }
   return planCache.get(key);
@@ -292,7 +293,11 @@ function makeRecorder({ detail, ult }) {
         const w = curWave(sim);
         w.cashAtStart = sim.cash;
         w.start = sim.time;
-      } else if (type === 'waveEnd') curWave(sim).end = sim.time;
+      } else if (type === 'waveEnd') {
+        const w = curWave(sim);
+        w.end = sim.time;
+        w.crowd = p.crowd || 0;
+      }
       else if (type === 'place') {
         towers.set(p.towerUid, { unitId: p.unitId, placedWave: sim.state === 'wave' ? sim.wave : sim.wave + 1, tiers: [0, 0, 0], tierWave: [[], [], []] });
       } else if (type === 'upgrade') {
@@ -354,7 +359,7 @@ export function runProbe({ stageId, difficulty = 'normal', seed = 1, hpMul = 1, 
   }
   const sim = r.sim;
   const diff = DIFFICULTIES[sim.difficulty];
-  const startCash = Math.round(sim.stage.startCash ?? 650);
+  const startCash = Math.round((sim.stage.startCash ?? 650) * (diff.startCashMul ?? 1));
   const out = {
     stageId, difficulty, seed, hpMul, planner, level: su.level, units: [...su.towers, ...(su.hero ? [su.hero] : [])],
     won: r.won, wave: r.wave, totalWaves: sim.totalWaves, lives: r.lives, maxLives: r.maxLives, time: r1(r.time),
@@ -376,7 +381,7 @@ export function runProbe({ stageId, difficulty = 'normal', seed = 1, hpMul = 1, 
     const earned = x.bounty + x.bonus + x.income;
     const availAtStart = cum;
     cum += earned;
-    econ.push({ wave: w, bounty: x.bounty, bonus: x.bonus, income: x.income, earned, availAtStart, cumulative: cum, spent: x.spent, cashAtStart: x.cashAtStart });
+    econ.push({ wave: w, bounty: x.bounty, bonus: x.bonus, crowd: x.crowd || 0, income: x.income, earned, availAtStart, cumulative: cum, spent: x.spent, cashAtStart: x.cashAtStart });
   }
   out.economy = econ;
   out.avgIdleCash = r1(quantile(econ.map((e) => e.cashAtStart).filter((v) => v != null), 0.5));
@@ -517,9 +522,10 @@ export function affordTimeline(unitId, economy, difficulty, startCash) {
 
 /**
  * Stage totals straight from the wave generator (no battle): per wave the coins a player earns
- * if every enemy dies (kill bounties incl. split/brood children, wave-clear bonus; summons and
- * tower income excluded), enemy count and total enemy HP, and the scripted bosses.
- * @returns {{ waves: {wave, bounty, bonus, coins, cumulative, enemies, hp}[], startCash, totalCoins, totalHp, bosses: object[] }}
+ * if every enemy dies (kill bounties incl. split/brood children, wave-clear bonus incl. the crowd
+ * bonus — the sim's own waveClearBonus — ; summons and tower income excluded), enemy count and
+ * total enemy HP, and the scripted bosses. `bonus` includes `crowd`.
+ * @returns {{ waves: {wave, bounty, bonus, crowd, coins, cumulative, enemies, hp}[], startCash, totalCoins, totalHp, bosses: object[] }}
  */
 export function stageEconomy(stageId, difficulty = 'normal') {
   const stage = DATA.stages[stageId];
@@ -545,7 +551,7 @@ export function stageEconomy(stageId, difficulty = 'normal') {
     return v;
   };
   const W = Number.isFinite(stage.waves) ? stage.waves : 30;
-  const startCash = Math.round(stage.startCash ?? 650);
+  const startCash = Math.round((stage.startCash ?? 650) * (diff.startCashMul ?? 1));
   let cum = startCash;
   let totalHp = 0;
   const waves = [];
@@ -563,10 +569,12 @@ export function stageEconomy(stageId, difficulty = 'normal') {
       const def = enemy(s.enemyId);
       if (def && (def.tier === 'boss' || def.tier === 'miniboss')) bosses.push({ id: def.id, tier: def.tier, wave: w, hp: Math.round(def.hp * hpBase * wd.hpMul), speed: def.speed, pathLen: r1(paths[s.pathIndex]?.length) });
     }
-    const bonus = (80 + 6 * w) * cashMul;
+    const wb = waveClearBonus(w, wd.spawns);
+    const bonus = wb.total * cashMul;
+    const crowd = wb.crowd * cashMul;
     cum += bounty + bonus;
     totalHp += hp;
-    waves.push({ wave: w, bounty: Math.round(bounty), bonus: Math.round(bonus), coins: Math.round(bounty + bonus), cumulative: Math.round(cum), enemies: n, hp: Math.round(hp) });
+    waves.push({ wave: w, bounty: Math.round(bounty), bonus: Math.round(bonus), crowd: Math.round(crowd), coins: Math.round(bounty + bonus), cumulative: Math.round(cum), enemies: n, hp: Math.round(hp) });
   }
   return {
     stageId, difficulty, startCash, waves, totalCoins: Math.round(cum), totalHp: Math.round(totalHp), bosses,

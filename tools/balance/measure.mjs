@@ -300,11 +300,12 @@ function buildMarkdown(ctx) {
   // ---- 2 difficulty gap
   L.push('## 2. Difficulty gap ("normal be very easy, nightmare be hell")');
   L.push('');
-  L.push('| Difficulty | HP | Speed | Coins | Costs | Lives | Income towers |');
-  L.push('|---|---:|---:|---:|---:|---:|---|');
+  L.push('| Difficulty | HP | Speed | Coins | Costs | Lives | Start cash | Income towers |');
+  L.push('|---|---:|---:|---:|---:|---:|---:|---|');
   for (const d of DIFFS) {
     const x = P.DIFFICULTIES[d];
-    L.push(`| ${x.name} | ×${x.hpMul} | ×${x.speedMul} | ×${x.cashMul} | ×${x.costMul} | ${x.lives} | ${x.noIncome ? 'off' : 'on'} |`);
+    const inc = x.incomeMul ?? (x.noIncome ? 0 : 1);
+    L.push(`| ${x.name} | ×${x.hpMul} | ×${x.speedMul} | ×${x.cashMul} | ×${x.costMul} | ${x.lives} | ×${x.startCashMul ?? 1} | ${inc === 0 ? 'off' : `×${inc}`} |`);
   }
   L.push('');
   L.push('Median headroom by chapter (sampled stages):');

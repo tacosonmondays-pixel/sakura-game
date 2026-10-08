@@ -232,13 +232,13 @@ const SLIMES = [
     introducedIn: '1-5',
   }),
   enemy({
-    id: 'slime_prince', name: 'Slime Prince', family: 'slime', tier: 'miniboss', hp: 2600, speed: 0.5,
+    id: 'slime_prince', name: 'Slime Prince', family: 'slime', tier: 'miniboss', hp: 250, speed: 0.5,
     armorClass: 'light', bounty: 280, leak: 25, threat: 120, size: 2.2, color: '#48cae4', accent: '#ffd166',
     variant: 'royal', props: ['crown', 'cape'],
     traits: { splitter: { spawn: 'slime_courtier', count: 3 } },
     phases: [
       { atHp: 0.66, announce: 'The Slime Prince wobbles with rage — Gold Slimes spill from his cape!', set: { traits: { summoner: { spawn: 'slime_gold', count: 2, every: 5 } } } },
-      { atHp: 0.33, announce: 'The Prince bounces into a royal sprint!', set: { speed: 0.7, traits: { hasty: { mul: 1.8, every: 5, duration: 1.5 } } } },
+      { atHp: 0.33, announce: 'The Prince bounces into a royal sprint!', set: { speed: 0.65, traits: { hasty: { mul: 1.5, every: 5, duration: 1.5 } } } },
     ],
     lore: 'Heir to the Jelly Throne of Sakura Gardens. He insists the garden is his by right of being very large.',
     counters: 'Pile damage on him early. When he pops he becomes three Royal Guards — keep a cleaver or splash near the exit.',
@@ -308,7 +308,7 @@ const GOBLINS = [
     introducedIn: '6-5',
   }),
   enemy({
-    id: 'goblin_machine', name: 'Goblin Machine', family: 'goblin', tier: 'miniboss', hp: 3000, speed: 0.5,
+    id: 'goblin_machine', name: 'Goblin Machine', family: 'goblin', tier: 'miniboss', hp: 1660, speed: 0.5,
     armorClass: 'heavy', armor: 4, bounty: 1300, leak: 25, threat: 150, size: 2.4, color: '#b08968', accent: '#ffd43b',
     variant: 'machine', props: ['gears', 'chimney', 'cannon'],
     traits: { barrier: { hp: 900, regenDelay: 6 }, summoner: { spawn: 'goblin_runner', count: 3, every: 6 } },
@@ -366,7 +366,7 @@ const ORCS = [
     introducedIn: '4-4',
   }),
   enemy({
-    id: 'orc_general', name: 'Orc General', family: 'orc', tier: 'miniboss', hp: 3400, speed: 0.45, armorClass: 'heavy', armor: 6,
+    id: 'orc_general', name: 'Orc General', family: 'orc', tier: 'miniboss', hp: 1550, speed: 0.45, armorClass: 'heavy', armor: 6,
     bounty: 840, leak: 25, threat: 160, size: 2.4, color: '#283618', accent: '#ffd166', variant: 'general', props: ['helmet', 'cape', 'sword', 'towerShield'],
     traits: { guardian: { radius: 2, reduction: 0.3 } },
     phases: [
@@ -469,7 +469,7 @@ const GHOULS = [
     introducedIn: '5-4',
   }),
   enemy({
-    id: 'grave_lych', name: 'Grave Lych', family: 'ghoul', tier: 'boss', hp: 12000, speed: 0.4, armorClass: 'spectral', armor: 3,
+    id: 'grave_lych', name: 'Grave Lych', family: 'ghoul', tier: 'boss', hp: 4000, speed: 0.4, armorClass: 'spectral', armor: 3,
     bounty: 2000, threat: 400, size: 2.8, color: '#3c096c', accent: '#80ffdb', variant: 'lych', props: ['crown', 'staff', 'cape', 'candle'],
     traits: { regen: { pct: 0.01, delay: 3 }, summoner: { spawn: 'ghoul_bonewalker', count: 3, every: 7 } },
     phases: [
@@ -528,7 +528,7 @@ const ONI = [
     introducedIn: '7-4',
   }),
   enemy({
-    id: 'oni_champion', name: 'Oni Champion', family: 'oni', tier: 'miniboss', hp: 3200, speed: 0.5, armorClass: 'warded', armor: 3,
+    id: 'oni_champion', name: 'Oni Champion', family: 'oni', tier: 'miniboss', hp: 2100, speed: 0.5, armorClass: 'warded', armor: 3,
     bounty: 1840, leak: 25, threat: 170, size: 2.5, color: '#d00000', accent: '#ffd60a', variant: 'champion', props: ['horns', 'mask', 'club', 'cape'],
     traits: { field: { kind: 'haste', radius: 2.8, amount: 0.3 } },
     phases: [
@@ -624,12 +624,12 @@ const CONSTRUCTS = [
     introducedIn: '6-4',
   }),
   enemy({
-    id: 'iron_colossus', name: 'Iron Colossus', family: 'construct', tier: 'boss', hp: 14000, speed: 0.35, armorClass: 'heavy', armor: 6,
+    id: 'iron_colossus', name: 'Iron Colossus', family: 'construct', tier: 'boss', hp: 4000, speed: 0.35, armorClass: 'heavy', armor: 6,
     bounty: 2500, threat: 420, size: 3, color: '#495057', accent: '#4cc9f0', variant: 'colossus', props: ['crystals', 'gears', 'chimney'],
-    traits: { crystal: { cap: 30, hits: 40 } },
+    traits: { crystal: { cap: 60, hits: 25 } },
     phases: [
-      { atHp: 0.7, announce: 'The Colossus grows a new crystal plate!', set: { traits: { crystal: { cap: 25, hits: 50 } } } },
-      { atHp: 0.4, announce: 'Furnace surge — thicker crystal and hardened plate!', set: { armor: 8, traits: { crystal: { cap: 20, hits: 60 } } } },
+      { atHp: 0.7, announce: 'The Colossus grows a new crystal plate!', set: { traits: { crystal: { cap: 50, hits: 30 } } } },
+      { atHp: 0.4, announce: 'Furnace surge — thicker crystal and hardened plate!', set: { armor: 8, traits: { crystal: { cap: 40, hits: 35 } } } },
       { atHp: 0.15, announce: 'The shell shatters — its core is exposed and it stomps forward!', set: { armor: 4, speed: 0.55, traits: { crystal: null } } },
     ],
     lore: 'The Foundry\'s masterpiece: a walking furnace sheathed in living crystal. It regrows its shell under pressure.',
@@ -796,7 +796,7 @@ const DRAGONS = [
     introducedIn: '8-4',
   }),
   enemy({
-    id: 'dragon_ashwing', name: 'Ashwing Matriarch', family: 'dragon', tier: 'boss', hp: 10000, speed: 0.4, armorClass: 'scaled', armor: 4,
+    id: 'dragon_ashwing', name: 'Ashwing Matriarch', family: 'dragon', tier: 'boss', hp: 8000, speed: 0.4, armorClass: 'scaled', armor: 4,
     bounty: 3000, threat: 450, size: 3, color: '#370617', accent: '#ffba08', variant: 'matriarch', props: ['wings', 'tail', 'horns', 'crown', 'ember'],
     traits: { ward: 'fire' },
     phases: [

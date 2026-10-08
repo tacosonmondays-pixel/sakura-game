@@ -29,10 +29,14 @@ export function levelCap(unitState) {
   return Math.min(MAX_LEVEL, 10 + 10 * (unitState?.breakthrough || 0));
 }
 
-/** EXP to go from `level` to `level + 1` (Infinity at max). */
+/**
+ * EXP to go from `level` to `level + 1` (Infinity at max). 30·L^1.7 + 50 since the "frisk1636"
+ * playtest (was 40·L^1.75 + 60): totals to Lv 10 / 20 / 30 / 40 ≈ 5.3k / 34.7k / 105k / 229k, so
+ * the free squad reaches the campaign's EXPECTED_LEVEL from first clears in chapters 1–3.
+ */
 export function expForLevel(level) {
   if (level >= MAX_LEVEL) return Infinity;
-  return Math.round((40 * level ** 1.75 + 60) / 10) * 10;
+  return Math.round((30 * level ** 1.7 + 50) / 10) * 10;
 }
 
 /** Total EXP from level 1 to `level`. */

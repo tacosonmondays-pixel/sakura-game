@@ -7,6 +7,35 @@ import {
   WAVE_HP_RAMP, ENDLESS_HP_GROWTH, MAX_SPAWNS_PER_WAVE, DEFAULT_SPACING, GROUP_OVERLAP,
 } from './constants.js';
 import { enemyTraitKeys } from './enemies.js';
+import { BATTLE } from '../data/types.js';
+
+/**
+ * Crowd bonus of a wave (playtest round "frisk1636": "a little more money per round based on how
+ * many enemies / enemy types"). Counts the wave's SCHEDULED spawns — pool groups and scripted
+ * `fixed` spawns, not split children or summons — so it is known at wave start.
+ * Unscaled: the sim multiplies it with the rest of the wave-clear bonus by cashMul × cashScale.
+ * @param {{ enemyId: string }[]} spawns WaveData.spawns
+ * @returns {{ enemies: number, kinds: number, coins: number }}
+ */
+export function crowdBonus(spawns) {
+  const cfg = BATTLE.crowdBonus || { perEnemy: 0, maxEnemies: 0, perKind: 0 };
+  const list = spawns || [];
+  const enemies = list.length;
+  const kinds = new Set(list.map((s) => s.enemyId)).size;
+  const coins = Math.min(cfg.maxEnemies ?? Infinity, enemies) * (cfg.perEnemy ?? 0) + (cfg.perKind ?? 0) * kinds;
+  return { enemies, kinds, coins };
+}
+
+/**
+ * Unscaled wave-clear bonus of wave `wave` with the given scheduled spawns:
+ * base + perWave × wave + crowd. Shared by the sim (Sim._checkWaveEnd) and the balance probe.
+ * @returns {{ base: number, crowd: number, enemies: number, kinds: number, total: number }}
+ */
+export function waveClearBonus(wave, spawns) {
+  const base = BATTLE.waveClearBonusBase + (BATTLE.waveClearBonusPerWave ?? 0) * wave;
+  const c = crowdBonus(spawns);
+  return { base, crowd: c.coins, enemies: c.enemies, kinds: c.kinds, total: base + c.coins };
+}
 
 /**
  * @typedef {{ t: number, enemyId: string, pathIndex: number }} Spawn

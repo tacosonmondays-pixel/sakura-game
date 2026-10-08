@@ -329,10 +329,10 @@ export function acquisitionHint(unit) {
 // ---------------------------------------------------------------------------
 
 const DIFF_SUMMARY = {
-  easy: 'Forgiving: −15% HP, +10% coins',
+  easy: 'Forgiving: −40% HP, +10% coins',
   normal: 'Upgrades + right counters',
-  hard: '+35% HP, faster, 50 lives',
-  nightmare: '+75% HP, 1 life, no income',
+  hard: '50 lives, +5% prices',
+  nightmare: '+10% HP, 1 life, ×1.5 start cash',
 };
 
 export function render(root, params = {}) {

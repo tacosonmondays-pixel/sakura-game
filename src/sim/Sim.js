@@ -27,7 +27,7 @@ import {
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo,
 } from './hero.js';
-import { generateWave, summarizeWave } from './waves.js';
+import { generateWave, summarizeWave, waveClearBonus } from './waves.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 
 const MAX_EVENT_BACKLOG = 20000;
@@ -78,7 +78,8 @@ export class Sim {
     this.totalWaves = this.endless ? Infinity : this.stage.waves ?? 10;
     this.maxLives = this.diff.lives ?? this.stage.lives ?? 100;
     this.lives = this.maxLives;
-    this.cash = Math.round(this.stage.startCash ?? 650);
+    // Difficulty startCashMul (Nightmare ×1.5 buys a full opening for its 1-life rule).
+    this.cash = Math.round((this.stage.startCash ?? 650) * (this.diff.startCashMul ?? 1));
     // Stage economy scale (kill bounties + wave-clear bonus). Late stages pay more so tier 4–5
     // upgrades (1.8k–16k coins) become reachable as enemy HP grows; tower income is unscaled.
     this.cashScale = Number.isFinite(this.stage.cashScale) && this.stage.cashScale > 0 ? this.stage.cashScale : 1;
@@ -448,20 +449,27 @@ export class Sim {
     if (this.state !== 'wave') return;
     if (this._spawnIndex < this._spawnQueue.length || this.enemies.length > 0) return;
     const cashMul = this.diff.cashMul ?? 1;
-    const bonus = this._gainCash((BATTLE.waveClearBonusBase + 6 * this.wave) * cashMul * this.cashScale);
+    // Wave-clear bonus incl. the crowd bonus (scheduled spawns of this wave: count + distinct
+    // types; BATTLE.crowdBonus). Fixed at wave start, paid even if enemies leaked.
+    const wb = waveClearBonus(this.wave, this._spawnQueue);
+    const scale = cashMul * this.cashScale;
+    const bonus = this._gainCash(wb.total * scale);
+    const crowd = Math.min(bonus, Math.round(wb.crowd * scale));
     this._emit('cash', { amount: bonus, reason: 'waveBonus' });
-    if (!this.diff.noIncome) {
+    // Tower income (Momo): difficulty incomeMul (Nightmare 0.5); legacy noIncome flag = 0.
+    const incomeMul = this.diff.incomeMul ?? (this.diff.noIncome ? 0 : 1);
+    if (incomeMul > 0) {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
         const interest = Math.min(150, (inc.interest || 0) * this.cash);
-        const amount = this._gainCash((inc.perWave || 0) * cashMul + interest);
+        const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
       }
     }
     if (this.hero && !this.hero.removed) gainHeroXp(this, this.hero, heroWaveXp(this.wave));
     this.wavesCleared = this.wave;
-    this._emit('waveEnd', { wave: this.wave, bonus });
+    this._emit('waveEnd', { wave: this.wave, bonus, crowd, enemies: wb.enemies, kinds: wb.kinds });
     if (!this.endless && this.wave >= this.totalWaves) {
       this.state = 'won';
       this._emit('won', {});

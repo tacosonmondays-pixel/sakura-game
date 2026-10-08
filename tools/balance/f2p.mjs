@@ -7,8 +7,11 @@
 
 import { unitBattleStats } from '../../src/systems/progression.js';
 
-/** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
-export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
+/**
+ * Expected F2P account level per chapter (books from first clears, bounty sweeps and
+ * commissions; docs/BALANCE.md §7). Every in-battle balance number is measured at these levels.
+ */
+export const EXPECTED_LEVEL = { 1: 1, 2: 5, 3: 10, 4: 15, 5: 20, 6: 24, 7: 28, 8: 32 };
 
 const campaignOrder = (d) => {
   const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
