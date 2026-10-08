@@ -321,8 +321,12 @@ describe('co-op lockstep: reconnecting', () => {
     expect(A.rejoins).toBe(1);
     expect(B.rejoins).toBe(1);
     expect(B.epoch).toBe(A.epoch);
-    expect(h.events.some((e) => e.slot === 1 && e.ev === 'resync')).toBe(true);
+    // a frozen B never ran a tick of its own while apart, so its battle is still a prefix of
+    // A's timeline: it fast-forwards in place (no battle-screen rebuild), like the loading case
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'resync')).toBe(false);
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'back')).toBe(true);
     expect(h.events.some((e) => e.slot === 0 && e.ev === 'back')).toBe(true);
+    expect(B.tick).toBeGreaterThan(soloTick);
     // the scripted commands after the return (B places, upgrades…) work on both again
     run(h, actions, 2400);
     expect(inSync(h, soloTick + 60)).toBe(true);
@@ -348,6 +352,8 @@ describe('co-op lockstep: reconnecting', () => {
     run(h, actions, 60 * 8);
     expect(A.peers.get(1).gone).toBe(false);
     expect(h.clients[1].peers.get(0).gone).toBe(false);
+    // B played on alone (its own timeline): it had to rebuild from A's log
+    expect(h.events.some((e) => e.slot === 1 && e.ev === 'resync')).toBe(true);
     const cut = A.tick;
     run(h, actions, 60 * 30);
     expect(inSync(h, cut)).toBe(true);
