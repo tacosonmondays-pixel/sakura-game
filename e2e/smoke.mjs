@@ -457,6 +457,13 @@ async function runViewport(vp) {
     await sw.click();
     await page.waitForTimeout(1200);
     check(await page.evaluate((c) => window.__sakura.store.profile.currencies.coins > c, coinsS), 'sweep: rewards granted');
+    // the Clears fact behind the rewards modal follows the sweep without leaving the stage
+    const clearsFact = await page.evaluate(() => {
+      const n = window.__sakura.store.profile.progress.stages['1-1'].clears;
+      const fact = [...document.querySelectorAll('#app .ma-facts > *')].find((f) => /clears/i.test(f.textContent))?.textContent || '';
+      return { ok: fact.replace(/\D/g, '') === String(n), text: `"${fact}" (profile: ${n} clears)` };
+    });
+    check(clearsFact.ok, `sweep: stage prep Clears count updated without leaving — ${clearsFact.text}`);
     await shot('sweep');
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
