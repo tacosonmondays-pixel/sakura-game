@@ -357,34 +357,41 @@ function bossTab(backend, clan, pane) {
       };
       paintReset();
       timer = setInterval(paintReset, 60000);
-      const fight = button(s.defeated ? 'Defeated!' : left > 0 ? `Fight (${left}/${BOSS_HITS_PER_DAY} today)` : 'No attempts left today', {
+      const fight = button(s.defeated ? 'Defeated!' : left > 0 ? `Fight (${left}/${BOSS_HITS_PER_DAY} left)` : 'Attempts recharge within 24 h', {
         kind: 'yellow', icon: 'sword', testid: 'boss-fight', disabled: s.defeated || left <= 0,
         onClick: () => navigate('battle', { stage: s.stageId, difficulty: 'normal', clanBoss: '1' }),
       });
       const canClaim = !s.claimed && s.tier && s.defeated;
       const claim = button(s.claimed ? 'Reward claimed' : canClaim ? `Claim tier ${s.tier}` : 'Rewards when the boss falls', {
         kind: canClaim ? 'pink' : 'ghost', icon: 'gift', testid: 'boss-claim', disabled: !canClaim,
-        onClick: async () => {
-          try {
-            const r = await backend.claimBossReward(s.week);
-            addItems(store.profile, r.rewards);
-            store.commit('clan-boss');
-            toast(`Tier ${r.tier} rewards claimed!`, 'good');
-            bossTab(backend, clan, pane);
-          } catch (e) {
-            showError(e);
-          }
-        },
+        onClick: () => claimWeek(s.week),
       });
+      async function claimWeek(week) {
+        try {
+          const r = await backend.claimBossReward(week);
+          addItems(store.profile, r.rewards);
+          store.commit('clan-boss');
+          toast(`Tier ${r.tier} rewards claimed!`, 'good');
+          if (alive) bossTab(backend, clan, pane);
+        } catch (e) {
+          showError(e);
+        }
+      }
       const myTier = s.tier || 'C';
-      pane.replaceChildren(h('div.ol-boss', { 'data-testid': 'boss-panel' },
+      // last week's boss: its reward stays claimable for the whole next week
+      const prev = s.prev && s.prev.tier && !s.prev.claimed
+        ? h('div.ol-prev-claim', { 'data-testid': 'boss-prev' },
+          h('span', `Last week (${s.prev.week.split('-W')[1]}): rank ${s.prev.rank} · ${formatNumber(s.prev.damage)} damage → tier ${s.prev.tier}`),
+          button(`Claim tier ${s.prev.tier}`, { kind: 'pink', small: true, icon: 'gift', testid: 'boss-prev-claim', onClick: () => claimWeek(s.prev.week) }))
+        : null;
+      pane.replaceChildren(h('div.ol-boss', { 'data-testid': 'boss-panel' }, prev,
         h('section.panel.ol-boss-card',
           h('div.ol-boss-art', enemyToken(s.enemyId, { size: 96 })),
           h('div.ol-boss-info',
             h('div.ol-boss-kicker', `Week ${s.week.split('-W')[1]} · Clan Boss`, reset),
             h('div.ol-boss-name', s.name),
             h('div.ol-hp', { 'data-testid': 'boss-hp' }, h('i', { style: { width: `${(pct * 100).toFixed(1)}%` } }), h('span', `${formatNumber(s.hp)} / ${formatNumber(s.maxHp)} HP`)),
-            h('p.muted', 'Every clan member\'s battle damage drains this shared HP pool (async co-op). Three attempts a day; the stage is a Total Assault arena.'),
+            h('p.muted', 'Every clan member\'s battle damage drains this shared HP pool. Three attempts per 24 hours on this week\'s Total Assault arena; the boss resets every Monday (UTC).'),
             h('div.ol-boss-acts', fight, claim)),
         ),
         h('div.ol-boss-cols',

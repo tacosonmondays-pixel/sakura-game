@@ -442,12 +442,15 @@ export function mountBattle(root, params, hooks) {
     let lastT = performance.now();
     function frame(now) {
       raf = requestAnimationFrame(frame);
+      const frameT = lastT;
       const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000));
       lastT = now;
       // co-op never pauses: both clients advance the shared Lockstep (its own speed + horizons)
       const running = ls ? !ctx.ended : !ctx.paused && !ctx.ended;
       if (ls) {
-        if (!ctx.ended) ls.advance(dt);
+        // real elapsed time (up to 0.25 s): a slow device keeps pace with its ally instead of
+        // running the shared battle in slow motion (Lockstep caps its own catch-up per frame)
+        if (!ctx.ended) ls.advance(Math.min(0.25, Math.max(0, (now - frameT) / 1000)));
         ctx.speed = ls.coop.speed;
         coopHud?.update();
       } else if (running) sim.update(dt * ctx.speed);

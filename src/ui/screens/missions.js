@@ -1,7 +1,7 @@
 // Missions hub (owner: ui). Route: #/missions — opened by the lobby's Campaign button.
 // Blue Archive mission-menu layout: the secretary on the left, a grid of slanted tiles on
 // the right: Mission (chapter · next stage, quick start), Story (coming soon), Bounty,
-// Total Assault, Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm).
+// Total Assault, Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm), Co-op.
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, modal, toast, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
@@ -76,6 +76,8 @@ function build() {
     tile({ id: 'challenge', title: 'Tactical Challenge', art: themeBackdropSVG('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     tile({ id: 'commissions', title: 'Commissions', art: themeBackdropSVG('sakura'), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
     tile({ id: 'sweep', title: 'Sweep', art: themeBackdropSVG('mountain'), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard first', onClick: () => openSweep() }),
+    // [online] 2-player real-time co-op on any unlocked campaign stage
+    tile({ id: 'coop', title: 'Co-op', art: themeBackdropSVG('festival'), sub: 'Defend a stage with a friend', ribbon: 'Online', onClick: () => navigate('coop') }),
   );
   wrap.appendChild(grid);
   return wrap;

@@ -23,6 +23,10 @@ registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
 registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] mission hub (Campaign button)
+// [online] global chat, clans (+ clan boss, dev Supply Bot), real-time co-op rooms
+registerRoute('chat', () => import('./ui/screens/chat.js'));
+registerRoute('clan', () => import('./ui/screens/clan.js'));
+registerRoute('coop', () => import('./ui/screens/coop.js'));
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.

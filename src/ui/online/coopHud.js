@@ -1,9 +1,13 @@
 // Co-op battle overlay: room chip with both players (colour, name, coins), the
-// "Waiting for ally…" / "Ally left" state, and a coloured ring under every girl showing who
-// owns her. Mounted by the battle controller only in co-op.
+// "Waiting for ally…" / "Ally left" state, and a small pin in the owner's colour above every
+// girl showing who placed her. Mounted by the battle controller only in co-op.
+import '../styles/online.css';
 import { h } from '../components.js';
 import { fmtCoins } from '../battle/util.js';
 import { COOP } from '../../data/coop.js';
+
+/** World height of the owner pin (just above a chibi's halo). */
+const PIN_HEIGHT = 1.55;
 
 export function createCoopHud(ctx) {
   const { coop, sim } = ctx;
@@ -48,9 +52,9 @@ export function createCoopHud(ctx) {
         rings.append(r);
         ringEls.set(t.uid, r);
       }
-      const p = ctx.renderer.worldToScreen(t.x, t.y, 0);
+      const p = ctx.renderer.worldToScreen(t.x, t.y, PIN_HEIGHT);
       r.hidden = !p.visible;
-      r.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+      r.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) rotate(-45deg)`;
     }
     for (const [uid, r] of ringEls) {
       if (!seen.has(uid)) {

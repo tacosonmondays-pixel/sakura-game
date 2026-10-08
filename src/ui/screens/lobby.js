@@ -9,6 +9,7 @@
 //     of illustrated icons (Students … Recruit) with the clock at its right end
 import '../styles/meta-a.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
+import { chatButton } from '../online/lobbyChat.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -354,12 +355,21 @@ function buildTop(host, { openSecretaryPicker }) {
       pill({ iconSvg: currencyIcon('gems'), value: formatNumber(profile.currencies.gems), testid: 'gems', title: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }) }),
     ),
     h('div.lb-tr',
+      chatButton(), // [online] global / clan chat drawer with an unread dot
+      sep(),
       h('button.lb-tr-btn', { title: 'Settings', 'aria-label': 'Settings', 'data-testid': 'settings', onclick: () => navigate('settings') }, svgEl(glyph('settings'), 'lb-glyph')),
       sep(),
       h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) },
         svgEl(glyph('mail'), 'lb-glyph'), notice.count ? h('span.lb-badge', String(notice.count)) : null),
       sep(),
-      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [{ icon: 'secretary', label: 'Secretary', testid: 'menu-secretary', go: openSecretaryPicker }, { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal }] }) },
+      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [
+        { icon: 'secretary', label: 'Secretary', testid: 'menu-secretary', go: openSecretaryPicker },
+        { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal },
+        // [online]
+        { icon: 'students', label: 'Clan', testid: 'menu-clan', go: () => navigate('clan') },
+        { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
+        { icon: 'mail', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
+      ] }) },
         svgEl(glyph('menu'), 'lb-glyph')),
     ),
   );

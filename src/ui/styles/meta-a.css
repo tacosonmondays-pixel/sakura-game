@@ -1154,8 +1154,9 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-hub-grid {
   grid-column: 2; display: grid; gap: 8px; min-height: 0; height: 100%; padding-bottom: 8px;
   grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(120px, 1.9fr) minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: 'mission mission mission story story story' 'bounty bounty assault assault challenge challenge' 'commissions commissions sweep sweep challenge challenge';
+  grid-template-areas: 'mission mission mission story story story' 'bounty bounty assault assault challenge challenge' 'commissions commissions sweep sweep coop coop';
 }
+.ma-hub-coop { grid-area: coop; } /* [online] real-time co-op */
 .ma-hub-mission { grid-area: mission; } .ma-hub-story { grid-area: story; } .ma-hub-bounty { grid-area: bounty; } .ma-hub-assault { grid-area: assault; }
 .ma-hub-challenge { grid-area: challenge; } .ma-hub-commissions { grid-area: commissions; } .ma-hub-sweep { grid-area: sweep; }
 .ma-hub-tile {
@@ -1165,7 +1166,7 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 }
 .ma-hub-tile > * { transform: skewX(calc(var(--skew) * -1)); }
 .ma-hub-tile:nth-child(2) { animation-delay: 50ms; } .ma-hub-tile:nth-child(3) { animation-delay: 100ms; } .ma-hub-tile:nth-child(4) { animation-delay: 150ms; }
-.ma-hub-tile:nth-child(5) { animation-delay: 200ms; } .ma-hub-tile:nth-child(6) { animation-delay: 250ms; } .ma-hub-tile:nth-child(7) { animation-delay: 300ms; }
+.ma-hub-tile:nth-child(5) { animation-delay: 200ms; } .ma-hub-tile:nth-child(6) { animation-delay: 250ms; } .ma-hub-tile:nth-child(7) { animation-delay: 300ms; } .ma-hub-tile:nth-child(8) { animation-delay: 350ms; }
 .ma-hub-tile:hover { background: #fff; box-shadow: 0 10px 26px rgba(10,30,60,0.3); }
 .ma-hub-tile:active { transform: skewX(var(--skew)) scale(0.97); }
 .ma-hub-art { position: absolute; inset: -4px -20px; line-height: 0; }

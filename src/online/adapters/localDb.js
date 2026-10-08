@@ -6,7 +6,7 @@ import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import {
   CLAN_MAX_MEMBERS, DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
-  bossFor, bossMaxHp, BOSS_HIT_CAP, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS,
+  bossFor, bossMaxHp, BOSS_HIT_CAP, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey,
 } from '../clanRules.js';
 
 const HISTORY_KEEP = 200;
@@ -80,10 +80,12 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
 
   function clanOut(state, c, uid = null) {
     const memberCount = Object.values(state.members).filter((m) => m.clanId === c.id).length;
-    const mine = uid && state.members[uid]?.clanId === c.id;
+    // invite codes: only this clan's leader and officers see them (SQL: clan_codes policy)
+    const m = uid && state.members[uid];
+    const officer = m && m.clanId === c.id && (m.role === 'leader' || m.role === 'officer');
     return {
       id: c.id, name: c.name, tag: c.tag, emblem: c.emblem, joinMode: c.joinMode, description: c.description,
-      joinCode: mine && !c.isDev ? c.joinCode || null : null,
+      joinCode: officer && !c.isDev ? c.joinCode || null : null,
       leaderId: c.leaderId, xp: c.xp, level: levelFromXp(c.xp).level, memberCount, maxMembers: c.maxMembers, isDev: !!c.isDev, createdAt: c.createdAt,
     };
   }
@@ -141,20 +143,30 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     return [...by.values()].sort((a, b2) => b2.damage - a.damage || a.userId.localeCompare(b2.userId));
   }
 
+  /** My standing on one week's boss row: rank, damage, reward tier, claimed. */
+  function standing(state, b, uid) {
+    const rows = board(state, b);
+    const rank = rows.findIndex((r) => r.userId === uid) + 1;
+    const damage = rows[rank - 1]?.damage || 0;
+    const defeated = b.hp <= 0;
+    return { rows, rank, damage, defeated, claimed: b.claims.includes(uid), tier: rewardTier(rank, damage, defeated) };
+  }
+
   function bossOut(state, b, uid) {
     const boss = bossFor(b.week);
-    const rows = board(state, b);
-    const dayStart = Math.floor(now() / 86400000) * 86400000;
-    const rank = rows.findIndex((r) => r.userId === uid) + 1;
-    const mine = rows[rank - 1];
-    const defeated = b.hp <= 0;
+    const me = standing(state, b, uid);
+    // attempts count over a rolling 24 h, exactly like the boss_hit rate limit
+    const since = now() - RULES.boss_hit.windowMs;
+    const prevRow = state.boss[`${b.clanId}|${prevWeekKey(now())}`];
+    const prev = prevRow ? standing(state, prevRow, uid) : null;
     return {
       clanId: b.clanId, week: b.week, bossId: b.bossId, name: boss.name, stageId: boss.stageId, enemyId: boss.enemyId,
-      maxHp: b.maxHp, hp: b.hp, defeated, board: rows,
-      myHitsToday: b.hits.filter((x) => x.userId === uid && x.at >= dayStart).length,
-      myDamage: mine?.damage || 0, myRank: rank,
-      claimed: b.claims.includes(uid),
-      tier: rewardTier(rank, mine?.damage || 0, defeated),
+      maxHp: b.maxHp, hp: b.hp, defeated: me.defeated, board: me.rows,
+      myHitsToday: b.hits.filter((x) => x.userId === uid && x.at > since).length,
+      myDamage: me.damage, myRank: me.rank,
+      claimed: me.claimed,
+      tier: me.tier,
+      prev: prev && prev.damage > 0 ? { week: prevRow.week, tier: prev.tier, claimed: prev.claimed, defeated: prev.defeated, damage: prev.damage, rank: prev.rank } : null,
     };
   }
 

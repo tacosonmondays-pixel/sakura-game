@@ -10,6 +10,7 @@ import { BATTLE } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
+import { onlineSection } from '../online/settingsOnline.js';
 
 function settings() {
   const p = store.profile;
@@ -93,6 +94,7 @@ function build(redraw) {
     row('Default speed', 'Game speed when a battle starts.', segmented(BATTLE.speeds.map(String), String(s.defaultSpeed || 1), (v) => { s.defaultSpeed = Number(v); save(); redraw(); }, Object.fromEntries(BATTLE.speeds.map((x) => [String(x), `${x}×`])), 'speed')),
   ));
 
+  wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes
   wrap.appendChild(saveSection(redraw));
   wrap.appendChild(h('p.muted.ma-version', `Sakura Sentinels · save v${SAVE_VERSION} · ${formatNumber(store.profile.stats?.battles || 0)} battles fought`));
   return wrap;
@@ -223,44 +225,7 @@ function saveSection(redraw) {
   };
 
   const doImport = async () => {
-    const text = importBox.value.trim();
-    status.className = 'ma-code-status';
-    if (!text) {
-      status.classList.add('bad');
-      status.textContent = 'Paste a save code first.';
-      return;
-    }
-    let preview;
-    try {
-      preview = deserializeProfile(text);
-    } catch (e) {
-      status.classList.add('bad');
-      status.textContent = e?.message === 'Newer save'
-        ? 'That save code comes from a newer version of Sakura Sentinels — update the game to import it.'
-        : 'That is not a valid Sakura Sentinels save code.';
-      return;
-    }
-    const units = Object.keys(preview.units || {}).length;
-    const cleared = Object.values(preview.progress?.stages || {}).filter((e) => e && (e.easy || e.normal || e.hard || e.nightmare)).length;
-    const ok = await ask(h('div',
-      h('p', 'Replace your current progress with this save?'),
-      h('ul.ma-import-summary',
-        h('li', `${units} students`),
-        h('li', `${cleared} stages cleared`),
-        h('li', `${formatNumber(preview.currencies?.gems || 0)} gems · ${formatNumber(preview.currencies?.coins || 0)} coins`),
-      ),
-      h('p.muted', 'Tip: export your current save first if you might want it back.'),
-    ), { title: 'Import save', ok: 'Import' });
-    if (!ok) return;
-    try {
-      store.importSave(text);
-      toast('Save imported', 'good');
-      importBox.value = '';
-      redraw();
-    } catch {
-      status.classList.add('bad');
-      status.textContent = 'Import failed — the save code is damaged.';
-    }
+    if (await importSaveText(importBox.value.trim(), status, redraw)) importBox.value = '';
   };
 
   const doReset = async () => {
@@ -302,3 +267,52 @@ function saveSection(redraw) {
     ),
   );
 }
+
+/**
+ * Previews a save code, asks for confirmation and replaces the local save (Settings → Import,
+ * and Settings → Online → Redeem transfer code). Resolves true when the save was imported.
+ * @param {string} text
+ * @param {HTMLElement} status error line
+ * @param {() => void} redraw
+ */
+export async function importSaveText(text, status, redraw) {
+  status.className = 'ma-code-status';
+  if (!text) {
+    status.classList.add('bad');
+    status.textContent = 'Paste a save code first.';
+    return false;
+  }
+  let preview;
+  try {
+    preview = deserializeProfile(text);
+  } catch (e) {
+    status.classList.add('bad');
+    status.textContent = e?.message === 'Newer save'
+      ? 'That save code comes from a newer version of Sakura Sentinels — update the game to import it.'
+      : 'That is not a valid Sakura Sentinels save code.';
+    return false;
+  }
+  const units = Object.keys(preview.units || {}).length;
+  const cleared = Object.values(preview.progress?.stages || {}).filter((e) => e && (e.easy || e.normal || e.hard || e.nightmare)).length;
+  const ok = await ask(h('div',
+    h('p', 'Replace your current progress with this save?'),
+    h('ul.ma-import-summary',
+      h('li', `${units} students`),
+      h('li', `${cleared} stages cleared`),
+      h('li', `${formatNumber(preview.currencies?.gems || 0)} gems · ${formatNumber(preview.currencies?.coins || 0)} coins`),
+    ),
+    h('p.muted', 'Tip: export your current save first if you might want it back.'),
+  ), { title: 'Import save', ok: 'Import' });
+  if (!ok) return false;
+  try {
+    store.importSave(text);
+    toast('Save imported', 'good');
+    redraw();
+    return true;
+  } catch {
+    status.classList.add('bad');
+    status.textContent = 'Import failed — the save code is damaged.';
+    return false;
+  }
+}
+

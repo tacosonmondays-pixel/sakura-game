@@ -183,7 +183,8 @@ describe('co-op lockstep', () => {
     // B vanishes: nothing more is delivered from it and it stops ticking
     h.clients[1] = { receive() {}, advance() {} };
     let stalledSeen = false;
-    for (let f = 0; f < 60 * 8; f++) {
+    // silence longer than the (adaptive) timeout: COOP.timeoutMs plus slack
+    for (let f = 0; f < Math.ceil((COOP.timeoutMs / 1000 + 3) * 60); f++) {
       h.stepFrame();
       if (A.stalled) stalledSeen = true;
     }
@@ -239,5 +240,42 @@ describe('co-op sim (wallets, HP scaling)', () => {
     expect(earned).toBeGreaterThan(0);
     expect(w[0] + w[1] - w0[0] - w0[1]).toBe(earned);
     expect(Math.abs((w[0] - w0[0]) - (w[1] - w0[1]))).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('co-op lockstep: slow devices', () => {
+  it('a long freeze of THIS client (loading, shader compile) never drops a healthy ally', () => {
+    const h = harness({ seed: 21, maxLag: 3 });
+    for (let f = 0; f < 200; f++) h.stepFrame();
+    const [A, B] = h.clients;
+    // A's page freezes for longer than the timeout: no frames, no messages handled
+    h.clock.t += COOP.timeoutMs + 4000;
+    for (let f = 0; f < 120; f++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(false);
+    expect(B.peers.get(0).gone).toBe(false);
+    expect(A.tick).toBeGreaterThan(250);
+  });
+
+  it('an ally whose battle is still loading gets the long load timeout', () => {
+    const h = harness({ seed: 22 });
+    const [A] = h.clients;
+    h.clients[1] = { receive() {}, advance() {} }; // B never sends its first packet
+    for (let f = 0; f < Math.ceil((COOP.timeoutMs / 1000 + 2) * 60); f++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(false);
+    expect(A.stalled).toBe(true);
+    for (let f = 0; f < Math.ceil((COOP.loadTimeoutMs / 1000) * 60); f++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(A.stalled).toBe(false);
+  });
+
+  it('the timeout adapts to a laggy ally (3× its worst recent packet gap)', () => {
+    const h = harness({ seed: 23 });
+    for (let f = 0; f < 60; f++) h.stepFrame();
+    const [A] = h.clients;
+    const peer = A.peers.get(1);
+    peer.jitter = 6000;
+    expect(A.timeoutFor(peer)).toBe(Math.min(COOP.maxTimeoutMs, 18000));
+    peer.jitter = 10;
+    expect(A.timeoutFor(peer)).toBe(COOP.timeoutMs);
   });
 });

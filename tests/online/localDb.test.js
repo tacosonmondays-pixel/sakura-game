@@ -155,4 +155,33 @@ describe('local adapter db', () => {
     clock.t += 25 * 3600 * 1000;
     expect((await code(() => db.redeemTransfer('B', t2.code))).code).toBe('expired');
   });
+
+  it('attempts recharge over a rolling 24 h; last week\'s survivor still pays tier C next week', async () => {
+    const c = db.createClan('A', { name: 'Slow Burners', tag: 'SB' });
+    db.submitBossDamage('A', 1000);
+    clock.t += 12 * 3600 * 1000;
+    db.submitBossDamage('A', 1000);
+    db.submitBossDamage('A', 1000);
+    expect(db.bossState('A', c.id).myHitsToday).toBe(3);
+    expect((await code(() => db.submitBossDamage('A', 1))).code).toBe('rate_limited');
+    clock.t += 12 * 3600 * 1000 + 1000; // the first attempt is now older than 24 h
+    expect(db.bossState('A', c.id).myHitsToday).toBe(2);
+    const week = db.bossState('A', c.id).week;
+    clock.t += 7 * 86400000; // next week: a fresh boss, last week's (alive) boss pays C
+    const s = db.bossState('A', c.id);
+    expect(s.week).not.toBe(week);
+    expect(s.hp).toBe(s.maxHp);
+    expect(s.prev).toMatchObject({ week, tier: 'C', claimed: false, defeated: false, rank: 1 });
+    expect(db.claimBossReward('A', week).tier).toBe('C');
+    expect(db.bossState('A', c.id).prev.claimed).toBe(true);
+  });
+
+  it('invite codes are shown to leaders and officers only', () => {
+    const c = db.createClan('A', { name: 'Code Club', tag: 'CC', joinMode: 'code' });
+    expect(c.joinCode).toMatch(/^[A-Z0-9]{6}$/);
+    db.joinByCode('B', c.joinCode);
+    expect(db.getClan('B', c.id).joinCode).toBe(null);
+    db.setRole('A', 'B', 'officer');
+    expect(db.getClan('B', c.id).joinCode).toBe(c.joinCode);
+  });
 });

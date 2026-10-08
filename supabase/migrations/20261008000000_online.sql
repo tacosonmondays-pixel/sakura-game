@@ -1,6 +1,9 @@
--- Sakura Sentinels — online backend for Supabase (free tier is enough).
--- Paste this whole file into Supabase → SQL Editor → Run. It is safe to run again after an
--- update (every statement is idempotent). See docs/ONLINE.md for the 5-minute setup.
+-- Sakura Sentinels — online backend for Supabase (the free plan is enough).
+--
+-- This is a Supabase CLI migration. With Supabase's GitHub integration connected to the repo
+-- it is applied automatically when it reaches main. Without the integration, paste the whole
+-- file into Supabase → SQL Editor → Run once; every statement is idempotent, so running it
+-- again is harmless. See docs/ONLINE.md for the 5-minute setup.
 --
 -- What it creates
 --   tables     profiles, clans, clan_codes, clan_members, clan_requests, messages,
@@ -12,18 +15,13 @@
 --                chat message        1 per 2 s, 20 per minute   (trigger on messages)
 --                create clan         1 per 10 min, 3 per day
 --                join/request/leave  10 per hour
---                clan boss attempt   3 per day
+--                clan boss attempt   3 per day (rolling 24 h)
 --                transfer code       5 per hour
 --   realtime   messages, clan_members and clan_boss are published for live updates.
 --              Co-op rooms use Realtime broadcast + presence channels 'coop:<CODE>' (no table).
 --   seed       the developer clan "Sakura Dev Lab" [DEV], join code Rosie777.
--- No profanity filter (not wanted for now). No keys or secrets live in this file.
-
-create extension if not exists pgcrypto;
-
--- ---------------------------------------------------------------------------------------------
--- Tables
--- ---------------------------------------------------------------------------------------------
+-- No profanity filter (not wanted for now). No keys or secrets live in this file: the game
+-- only ever uses the project's public anon key, and these policies are what protect the data.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -468,14 +466,29 @@ begin
   return b;
 end $$;
 
+-- My rank and damage on one week's boss (null when I did not hit it).
+create or replace function public.boss_standing(p_clan uuid, p_week text)
+returns table (rank bigint, damage numeric) language sql stable security definer set search_path = public as $$
+  select r.rank, r.damage from (
+    select user_id, sum(damage) as damage, rank() over (order by sum(damage) desc, user_id) as rank
+    from clan_boss_hits where clan_id = p_clan and week = p_week group by user_id
+  ) r where r.user_id = auth.uid()
+$$;
+
 create or replace function public.boss_state(p_clan uuid) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   b clan_boss%rowtype;
+  pb clan_boss%rowtype;
   v_week text := current_week();
+  v_prev text := to_char((now() - interval '7 days') at time zone 'utc', 'IYYY-"W"IW');
+  v_rank bigint;
+  v_damage numeric;
 begin
   if public.my_clan() is distinct from p_clan then raise exception 'not_member'; end if;
   b := ensure_boss(p_clan, v_week);
+  select * into pb from clan_boss where clan_id = p_clan and week = v_prev;
+  select s.rank, s.damage into v_rank, v_damage from boss_standing(p_clan, v_prev) s;
   return json_build_object(
     'clanId', b.clan_id, 'week', b.week, 'bossId', b.boss_id, 'maxHp', b.max_hp, 'hp', b.hp, 'defeated', b.hp <= 0,
     'board', coalesce((
@@ -484,9 +497,14 @@ begin
         from clan_boss_hits h join profiles p on p.id = h.user_id
         where h.clan_id = p_clan and h.week = v_week group by h.user_id, p.name
       ) r), '[]'::json),
-    'myHitsToday', (select count(*) from clan_boss_hits where clan_id = p_clan and week = v_week and user_id = auth.uid()
-                     and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc'),
-    'claimed', exists (select 1 from clan_boss_claims where clan_id = p_clan and week = v_week and user_id = auth.uid())
+    -- attempts count over a rolling 24 h, exactly like the boss_hit rate limit
+    'myHitsToday', (select count(*) from clan_boss_hits where clan_id = p_clan and user_id = auth.uid()
+                     and created_at > now() - interval '1 day'),
+    'claimed', exists (select 1 from clan_boss_claims where clan_id = p_clan and week = v_week and user_id = auth.uid()),
+    -- last week's standing: its reward stays claimable during the following week
+    'prev', case when pb.clan_id is null or v_damage is null then null else json_build_object(
+      'week', v_prev, 'defeated', pb.hp <= 0, 'damage', v_damage, 'rank', v_rank,
+      'claimed', exists (select 1 from clan_boss_claims where clan_id = p_clan and week = v_prev and user_id = auth.uid())) end
   );
 end $$;
 
@@ -513,19 +531,17 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_clan uuid := public.my_clan();
   b clan_boss%rowtype;
-  v_rank int;
-  v_damage bigint;
+  v_rank bigint;
+  v_damage numeric;
   v_tier text;
 begin
   if v_clan is null then raise exception 'not_member'; end if;
   select * into b from clan_boss where clan_id = v_clan and week = p_week;
   if not found then raise exception 'not_found: no boss that week'; end if;
   if b.hp > 0 and p_week = current_week() then raise exception 'forbidden: rewards open when the boss falls or the week ends'; end if;
-  select r.rank, r.damage into v_rank, v_damage from (
-    select user_id, sum(damage) as damage, rank() over (order by sum(damage) desc, user_id) as rank
-    from clan_boss_hits where clan_id = v_clan and week = p_week group by user_id
-  ) r where r.user_id = auth.uid();
+  select s.rank, s.damage into v_rank, v_damage from boss_standing(v_clan, p_week) s;
   if v_damage is null or v_damage <= 0 then raise exception 'forbidden: hit the boss first to earn a reward'; end if;
+  -- same tiers as src/online/clanRules.js rewardTier()
   v_tier := case when b.hp > 0 then 'C' when v_rank = 1 then 'S' when v_rank <= 3 then 'A' else 'B' end;
   insert into clan_boss_claims (clan_id, week, user_id, tier) values (v_clan, p_week, auth.uid(), v_tier)
     on conflict do nothing;
@@ -579,6 +595,7 @@ grant execute on function
   public.submit_boss_damage(bigint), public.claim_boss_reward(text), public.create_transfer(text),
   public.redeem_transfer(text), public.my_clan(), public.my_role(), public.clan_level(bigint), public.current_week()
   to authenticated;
+-- (boss_standing, ensure_boss, add_member, enforce_rate, system_message stay internal)
 
 -- ---------------------------------------------------------------------------------------------
 -- Realtime + seed

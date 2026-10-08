@@ -1,24 +1,18 @@
 // Supply Bot — the developer clan's sandbox (owner request: the Rosie777 clan's bot grants
 // materials in any quantity). Clearly labelled as a developer tool; grants go straight into the
 // local save (addItems + store.commit), like every other reward.
+import '../styles/online.css';
 import { h, button, itemTile, toast, svgEl } from '../components.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { BACKPACK_TABS, itemsByTab, getItem } from '../../data/items.js';
-import { addItems, itemCount } from '../../systems/inventory.js';
+import { itemCount } from '../../systems/inventory.js';
+import { supplyGrant, SUPPLY_MAX } from '../../online/supply.js';
 import { getBackend } from '../../online/backend.js';
 import { formatRetry } from '../../online/limits.js';
 
-export const SUPPLY_MAX = 1_000_000_000;
 const PRESETS = [1, 10, 100, 1000, 99999];
 const BOT_FACE = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="16" width="44" height="36" rx="12" fill="#e8f4ff" stroke="#22385c" stroke-width="3"/><path d="M32 6v10" stroke="#22385c" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="6" r="4" fill="#ff7aa8" stroke="#22385c" stroke-width="2"/><circle cx="24" cy="33" r="4.5" fill="#2b7fff"/><circle cx="40" cy="33" r="4.5" fill="#2b7fff"/><path d="M24 43q8 5 16 0" fill="none" stroke="#22385c" stroke-width="3" stroke-linecap="round"/><rect x="4" y="28" width="6" height="12" rx="3" fill="#ffdd4a" stroke="#22385c" stroke-width="2"/><rect x="54" y="28" width="6" height="12" rx="3" fill="#ffdd4a" stroke="#22385c" stroke-width="2"/></svg>';
-
-/** Grants `count` of an item (pure helper; the panel and tests use it). */
-export function supplyGrant(profile, id, count) {
-  const n = Math.floor(Number(count));
-  if (!getItem(id) || !(n >= 1)) return null;
-  return addItems(profile, [{ id, count: Math.min(n, SUPPLY_MAX) }]);
-}
 
 export function createSupplyBot() {
   let tab = BACKPACK_TABS[0].id;
@@ -35,11 +29,13 @@ export function createSupplyBot() {
   }
   function paintGrid() {
     const items = itemsByTab(tab);
-    grid.replaceChildren(...items.map((it) => {
-      const tile = itemTile(it.id, itemCount(store.profile, it.id), { size: 56 });
-      const b = h(`button.ol-sb-item${picked === it.id ? '.on' : ''}`, { type: 'button', title: it.name, 'data-item': it.id, onclick: () => { picked = it.id; paintGrid(); paintPicked(); } }, tile);
-      return b;
-    }));
+    const pick = (id) => {
+      picked = id;
+      paintGrid();
+      paintPicked();
+    };
+    grid.replaceChildren(...items.map((it) => h(`div.ol-sb-item${picked === it.id ? '.on' : ''}`, { title: it.name },
+      itemTile(it.id, itemCount(store.profile, it.id), { size: 56, onClick: pick }))));
   }
   function paintPicked() {
     const it = picked && getItem(picked);

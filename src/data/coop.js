@@ -15,8 +15,15 @@ export const COOP = Object.freeze({
   heartbeatMs: 50,
   /** State-hash exchange interval in ticks (2 s of game time at 1×). */
   hashEvery: 120,
-  /** A peer silent for this long counts as disconnected. */
-  timeoutMs: 5000,
+  /** A peer silent for this long counts as disconnected (grows to 3× the worst recent gap
+   *  between its packets on a laggy device, up to maxTimeoutMs). Leaving and closing the tab
+   *  say goodbye explicitly, so this only catches crashes and lost connections; it is longer
+   *  than the 5 s first planned because a phone compiling a new girl's shaders can freeze its
+   *  page for several seconds (measured up to ~8 s under software WebGL). */
+  timeoutMs: 12000,
+  maxTimeoutMs: 20000,
+  /** …except while the ally's battle screen is still loading (no lockstep packet yet). */
+  loadTimeoutMs: 30000,
   /** Towers per player (the host also brings the hero; the guest gets one more tower). */
   towersPerPlayer: 5,
   /** Player colours: slot 0 (host) and slot 1 (guest). */

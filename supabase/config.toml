@@ -1,0 +1,12 @@
+# Supabase CLI configuration for this repo (used by `supabase start` and preview branches).
+# The production project keeps its own Auth / API settings from the Supabase dashboard; the
+# GitHub integration only applies supabase/migrations/*.sql there. See docs/ONLINE.md.
+# No keys, passwords or secrets belong in this file.
+project_id = "sakura-sentinels"
+
+[auth]
+# players get an anonymous account the first time they open chat, clans or co-op
+enable_anonymous_sign_ins = true
+
+[realtime]
+enabled = true

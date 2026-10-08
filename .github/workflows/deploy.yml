@@ -31,7 +31,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Online features (chat, clans, co-op) talk to Supabase when these two repository secrets
+      # exist (Settings → Secrets and variables → Actions). Both are public by design: the URL
+      # and the anon/publishable key. Without them the build still succeeds and the game runs
+      # offline, showing "Online features offline". Never add a service-role key here.
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

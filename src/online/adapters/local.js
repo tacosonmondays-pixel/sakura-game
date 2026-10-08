@@ -238,6 +238,7 @@ export function createLocalAdapter(env = {}) {
         if (changed) emitPresence();
       }, PRESENCE_MS);
       return {
+        net: { heartbeatMs: 50, inputDelay: 6 },
         send(msg) {
           if (!closed) ch.postMessage({ t: 'msg', uid: self, msg });
         },

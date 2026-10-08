@@ -3,33 +3,40 @@
 // few frames in the future (input delay) and executed on every client at exactly that tick.
 //
 // Messages (any transport that delivers JSON objects; order and loss are tolerated):
-//   { type: 'in', from, horizon, ack, cmds }  every heartbeat and right after a command:
+//   { type: 'in', from, horizon, ack, cmds, live }  every heartbeat and right after a command:
 //        "I will send no more commands with t <= horizon; I executed every tick < ack + 1".
 //        cmds = my commands the peer has not executed yet (re-sent until acked → lossy links ok)
+//        live = my battle is running (before that the peer allows COOP.loadTimeoutMs of silence)
 //   { type: 'hash', from, t, h }               state hash after tick t (every COOP.hashEvery)
 //   { type: 'resync?', from }                  guest saw a hash mismatch: please send state
 //   { type: 'resync', from, start, T, cmds }   host: rebuild from start, replay cmds up to T
 //   { type: 'bye', from }                      leaving
 // A client only runs tick T once every connected peer's horizon >= T; otherwise it stalls
 // ("Waiting for ally…") and raises its own input delay a little. A peer silent for
-// COOP.timeoutMs is dropped: its towers stay, its income goes to the survivor.
+// COOP.timeoutMs (COOP.loadTimeoutMs before its first packet: its battle screen is still
+// loading) is dropped: its towers stay, its income goes to the survivor.
 import { COOP } from '../../data/coop.js';
 import { createCoopSim, compareCmds, isValidCmd } from './commands.js';
 
 const MAX_CATCHUP = 12; // ticks per advance() call beyond the frame's own share
 const FATAL_WINDOW_MS = 30000;
+/** A gap this long between our own beats means THIS client was frozen (loading, GC, tab switch). */
+const FREEZE_MS = 1000;
 
 export class Lockstep {
   /**
    * @param {{ start: object, mySlot: number, send: (msg: object) => void, now?: () => number,
-   *   delay?: number, hooks?: { onApplied?: Function, onResync?: Function, onDesync?: Function, onPeerGone?: Function } }} opts
+   *   delay?: number, heartbeatMs?: number,
+   *   hooks?: { onApplied?: Function, onResync?: Function, onDesync?: Function, onPeerGone?: Function } }} opts
+   *   delay / heartbeatMs: the transport's profile (local tabs 6 ticks / 50 ms, Supabase 12 / 100)
    */
-  constructor({ start, mySlot, send, now = () => Date.now(), delay = COOP.inputDelay, hooks = {} }) {
+  constructor({ start, mySlot, send, now = () => Date.now(), delay = COOP.inputDelay, heartbeatMs = COOP.heartbeatMs, hooks = {} }) {
     this.start = start;
     this.mySlot = mySlot;
     this.sendRaw = send;
     this.now = now;
     this.delay = delay;
+    this.heartbeatMs = heartbeatMs;
     this.hooks = hooks;
     this.coop = createCoopSim(start, { mySlot });
     this.seq = 0;
@@ -47,9 +54,10 @@ export class Lockstep {
     this.resyncPending = 0;
     this.desynced = false;
     this.resyncs = 0;
+    this.running = false; // advance() was called at least once (the battle screen is up)
     this.peers = new Map();
     for (const p of start.players) {
-      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false });
+      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, ready: false, jitter: 0 });
     }
   }
 
@@ -68,6 +76,12 @@ export class Lockstep {
   /** Effective delay in ticks (scaled by game speed so the felt lag stays ~0.1 s). */
   get delayTicks() {
     return this.delay * this.coop.speed;
+  }
+
+  /** How long `peer` may stay silent before it counts as gone. */
+  timeoutFor(peer) {
+    if (!peer.ready) return COOP.loadTimeoutMs;
+    return Math.min(COOP.maxTimeoutMs, Math.max(COOP.timeoutMs, 3 * peer.jitter));
   }
 
   livePeers() {
@@ -112,15 +126,30 @@ export class Lockstep {
     }
   }
 
+  /**
+   * Silence only counts while this client itself was running: after our own main thread was
+   * blocked (battle screen loading, a long GC, a hidden tab), the peers get that time back
+   * before the timeout check, so a slow load here never drops a healthy ally.
+   */
+  wake() {
+    const t = this.now();
+    if (this.lastRun != null && t - this.lastRun > FREEZE_MS) {
+      for (const p of this.peers.values()) p.lastHeard += t - this.lastRun;
+    }
+    this.lastRun = t;
+    return t;
+  }
+
   /** Heartbeat: horizon + my not-yet-acknowledged commands. */
   beat(force = false) {
-    const t = this.now();
-    if (!force && t - this.lastBeat < COOP.heartbeatMs) return;
+    const t = this.wake();
+    if (!force && t - this.lastBeat < this.heartbeatMs) return;
     this.lastBeat = t;
     const minAck = Math.min(...this.livePeers().map((p) => p.ack), Infinity);
     const floor = Number.isFinite(minAck) ? minAck : this.tick - 1;
     const cmds = this.log.filter((c) => c.p === this.mySlot && c.t > floor);
-    this.send({ type: 'in', horizon: this.horizon(), ack: this.tick - 1, cmds });
+    // live: my battle screen is up and ticking (until then the ally allows the long load timeout)
+    this.send({ type: 'in', horizon: this.horizon(), ack: this.tick - 1, cmds, live: this.running });
   }
 
   /** Handles one message from a peer. */
@@ -129,7 +158,10 @@ export class Lockstep {
     const peer = this.peers.get(msg.from);
     if (!peer) return;
     if (peer.gone && msg.type !== 'bye') return;
-    peer.lastHeard = this.now();
+    const t = this.now();
+    // slowly decaying worst gap between this peer's packets (adaptive timeout, like TCP's RTO)
+    if (peer.ready) peer.jitter = Math.max(t - peer.lastHeard, peer.jitter * 0.995);
+    peer.lastHeard = t;
     switch (msg.type) {
       case 'in':
         for (const c of Array.isArray(msg.cmds) ? msg.cmds : []) {
@@ -143,11 +175,14 @@ export class Lockstep {
           }
           this.accept(c);
         }
+        if (msg.live) peer.ready = true;
         if (Number.isInteger(msg.horizon)) peer.horizon = Math.max(peer.horizon, msg.horizon);
         if (Number.isInteger(msg.ack)) peer.ack = Math.max(peer.ack, msg.ack);
         break;
       case 'hash':
+        if (!Number.isInteger(msg.t)) break;
         this.peerHashes.set(msg.t, msg.h);
+        if (this.peerHashes.size > 64) this.peerHashes.delete(this.peerHashes.keys().next().value);
         this.compare(msg.t);
         break;
       case 'resync?':
@@ -211,6 +246,9 @@ export class Lockstep {
     if (peer.gone) return;
     peer.gone = true;
     this.coop.markGone(peer.slot);
+    // tell the ally (if it can still hear us) so both sides continue solo instead of one of
+    // them waiting on commands that will never be applied
+    if (reason === 'timeout') this.send({ type: 'bye' });
     this.hooks.onPeerGone?.(peer.slot, reason);
   }
 
@@ -253,8 +291,9 @@ export class Lockstep {
    * @returns {number} ticks executed
    */
   advance(dt) {
-    const t = this.now();
-    for (const p of this.livePeers()) if (t - p.lastHeard > COOP.timeoutMs) this.dropPeer(p, 'timeout');
+    this.running = true;
+    const t = this.wake();
+    for (const p of this.livePeers()) if (t - p.lastHeard > this.timeoutFor(p)) this.dropPeer(p, 'timeout');
     if (this.resyncPending && t - this.resyncPending > COOP.timeoutMs) {
       this.resyncPending = 0;
       this.flagMismatch(); // counts as the second strike

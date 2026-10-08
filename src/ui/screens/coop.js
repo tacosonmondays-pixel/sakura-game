@@ -1,0 +1,352 @@
+// #/coop — real-time 2-player co-op. Without a code: create a room (stage + difficulty) or join
+// one by code / from a clan invite. #/coop/<CODE>[?host=1] — the room lobby: both players with
+// their colour, level and girls, the stage, ready checks, Start (host). When the host starts,
+// both screens open #/battle?coop=<CODE>, which runs the room's lockstep battle.
+import { h, screen, button, svgEl, toast, modal } from '../components.js';
+import { navigate } from '../router.js';
+import { store } from '../../core/store.js';
+import { formatNumber } from '../../core/util.js';
+import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
+import { STAGE_MAP } from '../../data/stages.js';
+import { getMap } from '../../data/maps.js';
+import { UNIT_MAP } from '../../data/units.js';
+import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
+import { stageThumbSVG } from '../../art/stageThumb.js';
+import { isStageUnlocked } from '../../systems/unlocks.js';
+import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, PEOPLE_GLYPH } from '../online/common.js';
+import { profileCard } from '../../online/identity.js';
+import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { coopLoadout } from '../../online/coop/loadout.js';
+import { formatRetry } from '../../online/limits.js';
+import { toOnlineError } from '../../online/errors.js';
+
+const PREF_KEY = 'ss-coop-pref';
+
+function readPref() {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) || 'null') || {};
+  } catch {
+    return {};
+  }
+}
+function writePref(p) {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify({ ...readPref(), ...p }));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Stages the host may pick: every campaign stage unlocked on their own map. */
+function hostStages(profile) {
+  return coopStages((id) => isStageUnlocked(profile, id));
+}
+
+function defaultStage(profile) {
+  const list = hostStages(profile);
+  const pref = readPref().stageId;
+  if (pref && list.some((s) => s.id === pref)) return pref;
+  return list[0]?.id || '1-1';
+}
+
+function stageLabel(id) {
+  const s = STAGE_MAP[id];
+  return s ? `${s.id} · ${s.name}` : id;
+}
+
+function thumb(stageId, cls = 'ol-stage-thumb') {
+  const s = STAGE_MAP[stageId];
+  const map = s && getMap(s.mapId);
+  return h(`div.${cls}`, { html: map ? stageThumbSVG(map, { width: 320, height: 200 }) : '' });
+}
+
+function unitChip(unitId, { hero = false } = {}) {
+  const u = UNIT_MAP[unitId];
+  if (!u) return null;
+  return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: u.name }, avatar(unitId, 30), h('small', u.name));
+}
+
+/** Stage + difficulty picker modal. Resolves { stageId, difficulty } or null. */
+function pickStage(current, difficulty) {
+  return new Promise((resolve) => {
+    const profile = store.profile;
+    const stages = hostStages(profile);
+    let pick = current;
+    let diff = difficulty;
+    const list = h('div.ol-stage-grid');
+    const diffs = h('div.ol-seg');
+    const paint = () => {
+      list.replaceChildren(...stages.map((s) => h(`button.ol-stage-opt${s.id === pick ? '.on' : ''}`, { type: 'button', 'data-stage': s.id, onclick: () => { pick = s.id; paint(); } },
+        thumb(s.id, 'ol-stage-opt-thumb'), h('span', h('b', s.id), ` ${s.name}`))));
+      diffs.replaceChildren(...DIFFICULTY_ORDER.map((d) => h(`button.ol-seg-btn${d === diff ? '.on' : ''}`, { type: 'button', onclick: () => { diff = d; paint(); } }, DIFFICULTIES[d].name)));
+    };
+    paint();
+    let done = false;
+    modal({
+      title: 'Co-op stage',
+      wide: true,
+      body: h('div.ol-pick', h('p.muted', `Every campaign stage you unlocked. Enemies have ×${COOP.hpMul} HP; each player starts with ${Math.round(COOP.cashShare * 100)}% of the coins.`), diffs, list),
+      actions: [
+        { label: 'Cancel', kind: 'ghost' },
+        { label: 'Choose', kind: 'yellow', testid: 'coop-stage-ok', onClick: (close) => { done = true; close(); resolve({ stageId: pick, difficulty: diff }); } },
+      ],
+      onClose: () => {
+        if (!done) resolve(null);
+      },
+    });
+  });
+}
+
+export function render(root, params = {}) {
+  const code = normalizeCode(params.id || '');
+  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlinePill() });
+  root.append(el);
+  let destroyed = false;
+  let cleanup = () => {};
+  let keepSession = false;
+
+  if (code) connecting(body, () => room(code));
+  else connecting(body, () => hub());
+
+  // -------------------------------------------------------------------------------------
+  // Hub: create or join
+  // -------------------------------------------------------------------------------------
+  async function hub() {
+    const backend = await ensureOnline();
+    if (destroyed) return;
+    const profile = store.profile;
+    let stageId = defaultStage(profile);
+    let difficulty = DIFFICULTIES[readPref().difficulty] ? readPref().difficulty : 'normal';
+    const stagePane = h('div.ol-coop-stage');
+    const paintStage = () => {
+      const s = STAGE_MAP[stageId];
+      stagePane.replaceChildren(
+        thumb(stageId),
+        h('div.ol-coop-stage-info',
+          h('div.ol-coop-stage-name', h('b', stageLabel(stageId)), h('span.ol-chip-diff', DIFFICULTIES[difficulty].name)),
+          h('ul.ol-coop-facts',
+            h('li', `Enemy HP ×${COOP.hpMul}`),
+            h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
+            h('li', 'Coins earned are split between you')),
+          button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
+            const r = await pickStage(stageId, difficulty);
+            if (!r) return;
+            ({ stageId, difficulty } = r);
+            writePref(r);
+            paintStage();
+          } })),
+      );
+    };
+    paintStage();
+
+    const create = button('Create room', {
+      kind: 'yellow', icon: 'plus', testid: 'coop-create',
+      onClick: () => {
+        writePref({ stageId, difficulty });
+        navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty });
+      },
+    });
+
+    const codeInput = h('input.ol-input.ol-code-input', { type: 'text', maxlength: 8, placeholder: 'ROOM CODE', 'data-testid': 'coop-code', autocomplete: 'off', spellcheck: false });
+    codeInput.addEventListener('input', () => {
+      codeInput.value = normalizeCode(codeInput.value);
+    });
+    const join = () => {
+      const c = normalizeCode(codeInput.value);
+      if (c.length < COOP.codeLength) {
+        toast(`Room codes have ${COOP.codeLength} characters.`, 'info');
+        return;
+      }
+      navigate('coop', { id: c });
+    };
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') join();
+    });
+
+    const invites = h('div.ol-invites', { 'data-testid': 'coop-invites' }, h('p.muted', 'Loading invites…'));
+    (async () => {
+      try {
+        const mine = await backend.myClan();
+        if (destroyed) return;
+        if (!mine) {
+          invites.replaceChildren(h('p.muted', 'Join a clan to see your clanmates\' co-op invites here.'), button('Find a clan', { kind: 'ghost', small: true, onClick: () => navigate('clan') }));
+          return;
+        }
+        const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && Date.now() - m.createdAt < 15 * 60000).reverse();
+        if (destroyed) return;
+        invites.replaceChildren(...(msgs.length
+          ? msgs.slice(0, 4).map((m) => h('div.ol-invite-row', avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
+            button('Join', { kind: 'yellow', small: true, onClick: () => navigate('coop', { id: m.meta.room }) })))
+          : [h('p.muted', `No open invites from [${mine.clan.tag}] right now. Create a room and invite them!`)]));
+      } catch {
+        invites.replaceChildren(h('p.muted', 'Invites are unavailable right now.'));
+      }
+    })();
+
+    body.replaceChildren(h('div.ol-coop-hub',
+      h('section.panel.ol-coop-intro',
+        h('h3.panel-title', 'Defend together'),
+        h('div.ol-coop-intro-body',
+          svgEl(PEOPLE_GLYPH, 'ol-coop-big-ico'),
+          h('div',
+            h('p', 'Two senseis, one map. Each of you places your own girls with your own coins; enemies are tougher to match.'),
+            h('p.muted', `You bring your formation: the host brings the hero and ${COOP.towersPerPlayer} girls, the guest ${COOP.towersPerPlayer + 1} girls. Drops go to both; medals stay solo.`)))),
+      h('div.ol-coop-cols',
+        h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
+          h('h3.panel-title', 'Host a room'),
+          stagePane,
+          h('div.ol-row-end', create)),
+        h('div.ol-coop-right',
+          h('section.panel.ol-coop-join',
+            h('h3.panel-title', 'Join with a code'),
+            h('div.ol-form-row', codeInput, button('Join', { kind: 'primary', small: true, testid: 'coop-join', onClick: join }))),
+          h('section.panel.ol-coop-clan',
+            h('h3.panel-title', 'Clan invites'),
+            invites)))));
+  }
+
+  // -------------------------------------------------------------------------------------
+  // Room lobby
+  // -------------------------------------------------------------------------------------
+  async function room(roomCode) {
+    const backend = await ensureOnline();
+    if (destroyed) return;
+    const profile = store.profile;
+    let session = getSession();
+    if (session && session.code === roomCode && session.phase === 'battle') {
+      // came back from the battle screen with the battle still running
+      keepSession = true;
+      navigate('battle', { coop: roomCode }, { replace: true });
+      return;
+    }
+    if (!session || session.code !== roomCode || session.phase === 'closed') {
+      const isHost = params.host === '1';
+      const card = profileCard(profile);
+      const { loadout, hero } = coopLoadout(profile, isHost);
+      const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
+      const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+      try {
+        session = openSession({
+          code: roomCode, isHost, backend, stageId, difficulty,
+          me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
+        });
+      } catch (e) {
+        const err = toOnlineError(e);
+        if (err.code === 'rate_limited') throw new Error(`Too many rooms — try again in ${formatRetry(err.retryMs)}.`);
+        throw e;
+      }
+    }
+
+    const view = h('div.ol-room', { 'data-testid': 'coop-room' });
+    body.replaceChildren(view);
+
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(roomCode);
+        toast('Room code copied', 'good');
+      } catch {
+        toast(`Room code: ${roomCode}`, 'info');
+      }
+    };
+
+    async function inviteClan() {
+      try {
+        const mine = await backend.myClan();
+        if (!mine) {
+          toast('You are not in a clan yet — share the room code instead.', 'info');
+          return;
+        }
+        await backend.send(`clan:${mine.clan.id}`, `Co-op room ${roomCode}: ${stageLabel(session.stageId)} (${DIFFICULTIES[session.difficulty].name}). Join me!`, { kind: 'invite', meta: { room: roomCode, stage: session.stageId } });
+        toast(`Invite posted in [${mine.clan.tag}] chat`, 'good');
+      } catch (e) {
+        showError(e);
+      }
+    }
+
+    function playerCard(p, slot, me) {
+      if (!p) {
+        return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] } },
+          h('div.ol-pcard-wait', h('i.ol-spinner'), h('b', session.isHost ? 'Waiting for an ally…' : 'Looking for the host…'),
+            h('p.muted', session.isHost ? 'Share the code or invite your clan.' : 'The host may have closed this room. Check the code.')));
+      }
+      const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
+      const ready = slot === 0 ? true : !!p.ready;
+      return h(`section.ol-pcard${me ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] }, 'data-testid': `coop-player-${slot}` },
+        h('div.ol-pcard-head',
+          avatar(p.avatar, 52),
+          h('div.ol-pcard-id',
+            h('div', h('b.ol-pcard-name', p.name || 'Sensei'), me ? h('small.muted', ' (you)') : null),
+            h('div.ol-pcard-tags', levelChip(p.level), h('span.ol-pcard-role', slot === 0 ? 'Host' : 'Guest'))),
+          h(`span.ol-ready${ready ? '.on' : ''}`, { 'data-testid': `coop-ready-${slot}` }, slot === 0 ? 'HOST' : ready ? 'READY' : 'NOT READY')),
+        h('div.ol-pcard-units', units.length ? units : h('small.muted', 'No girls in formation')));
+    }
+
+    function paint() {
+      if (destroyed) return;
+      const s = session;
+      if (s.phase === 'closed') return;
+      const host = s.isHost ? s.me : s.peer;
+      const guest = s.isHost ? s.peer : s.me;
+      const st = STAGE_MAP[s.stageId];
+      let action;
+      if (s.isHost) {
+        action = button(s.canStart ? 'Start battle' : s.peer ? 'Waiting for ready…' : 'Waiting for ally…', {
+          kind: 'yellow', icon: 'play', testid: 'coop-start', disabled: !s.canStart,
+          onClick: () => {
+            if (!s.startBattle()) toast('Your ally is not ready yet.', 'info');
+          },
+        });
+      } else {
+        action = button(s.me.ready ? 'Ready ✓' : 'Ready', {
+          kind: s.me.ready ? 'primary' : 'yellow', icon: 'check', testid: 'coop-ready', disabled: !s.peer,
+          onClick: () => s.setReady(!s.me.ready),
+        });
+      }
+      view.replaceChildren(
+        h('section.panel.ol-room-head',
+          h('div.ol-room-code',
+            h('small', 'ROOM CODE'),
+            h('b', { 'data-testid': 'coop-room-code' }, roomCode),
+            h('button.ol-copy', { onclick: copy, title: 'Copy', 'aria-label': 'Copy the room code' }, 'Copy')),
+          h('div.ol-room-stage',
+            thumb(s.stageId, 'ol-room-thumb'),
+            h('div',
+              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || '')),
+              h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
+              s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
+                const r = await pickStage(s.stageId, s.difficulty);
+                if (r) {
+                  writePref(r);
+                  s.setStage(r.stageId, r.difficulty);
+                }
+              } }) : null)),
+          h('div.ol-room-acts',
+            button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
+            button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
+        s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
+        h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', 'VS', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
+        h('div.ol-room-foot',
+          h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — commands arrive a few frames later on both screens.' : 'Tap Ready when your girls are set. The host starts the battle.'),
+          action),
+      );
+    }
+
+    paint();
+    const offs = [
+      session.on('change', paint),
+      session.on('start', () => {
+        keepSession = true;
+        navigate('battle', { coop: roomCode });
+      }),
+    ];
+    cleanup = () => offs.forEach((off) => off());
+  }
+
+  return () => {
+    destroyed = true;
+    cleanup();
+    // leaving the lobby screen (not into the battle) leaves the room
+    const s = getSession();
+    if (s && s.code === code && !keepSession && s.phase === 'lobby') s.close();
+  };
+}

@@ -1,5 +1,6 @@
 // Normalized online errors. Both adapters throw OnlineError so the UI can show one message
 // per code (and a countdown for `rate_limited`).
+import { formatRetry } from './limits.js';
 
 export const ERROR_CODES = ['rate_limited', 'offline', 'not_member', 'name_taken', 'forbidden', 'invalid', 'not_found', 'full', 'already_member', 'expired'];
 

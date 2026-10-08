@@ -87,6 +87,12 @@ export function weekKey(date = new Date()) {
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
+/** Week key of the week before `date` (last week's boss rewards stay claimable). */
+export function prevWeekKey(date = Date.now()) {
+  const t = typeof date === 'number' ? date : date.getTime();
+  return weekKey(t - 7 * 86400000);
+}
+
 /** Milliseconds until the next Monday 00:00 UTC (boss reset). */
 export function msToWeekReset(now = Date.now()) {
   const d = new Date(now);

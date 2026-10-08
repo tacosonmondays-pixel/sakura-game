@@ -211,13 +211,21 @@ export function createSupabaseAdapter({ url, key }) {
       })).sort((a, b) => order[a.role] - order[b.role] || b.lastActive - a.lastActive);
     },
     subscribeClan(id, cb) {
+      // '_list' = the browse screen: clans are not in the realtime publication (their XP changes
+      // with every clan chat message), so browsing refreshes on demand instead
+      if (!/^[0-9a-f-]{36}$/i.test(String(id))) return () => {};
       let ch = null;
       let dead = false;
       sb().then((c) => {
         if (dead) return;
+        // joins, leaves, kicks and role changes all post a system notice into the clan channel,
+        // which (unlike DELETE events) can be filtered by clan; boss HP changes come as updates
         ch = c.channel(`clan:${id}:${Math.random().toString(36).slice(2, 8)}`)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'clan_members', filter: `clan_id=eq.${id}` }, () => cb())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'clan_boss', filter: `clan_id=eq.${id}` }, () => cb())
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel=eq.clan:${id}` }, (p) => {
+            if (p.new?.kind === 'system') cb();
+          })
           .subscribe();
       });
       return () => {
@@ -271,6 +279,9 @@ export function createSupabaseAdapter({ url, key }) {
           });
       });
       return {
+        // Realtime counts every message against the project's quota (free plan: 100/s), so
+        // rooms here beat half as often and promise a longer input delay than local rooms
+        net: { heartbeatMs: 100, inputDelay: 12 },
         send(msg) {
           if (closed) return;
           const payload = { uid: self, msg };
@@ -305,5 +316,9 @@ function decorateBoss(s, uid) {
     clanId: s.clanId, week: s.week, bossId: s.bossId, name: boss.name, stageId: boss.stageId, enemyId: boss.enemyId,
     maxHp: Number(s.maxHp), hp: Number(s.hp), defeated, board, myHitsToday: Number(s.myHitsToday) || 0,
     myDamage, myRank: rank, claimed: !!s.claimed, tier: rewardTier(rank, myDamage, defeated),
+    prev: s.prev && Number(s.prev.damage) > 0
+      ? { week: s.prev.week, defeated: !!s.prev.defeated, damage: Number(s.prev.damage), rank: Number(s.prev.rank), claimed: !!s.prev.claimed,
+        tier: rewardTier(Number(s.prev.rank), Number(s.prev.damage), !!s.prev.defeated) }
+      : null,
   };
 }

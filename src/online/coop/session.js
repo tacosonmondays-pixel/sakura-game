@@ -6,7 +6,9 @@
 //   { type: 'hello', player }        my name / level / avatar / loadout (sent on every new peer)
 //   { type: 'room', stageId, difficulty }   host's stage choice
 //   { type: 'ready', uid, ready }
-//   { type: 'start', start }         host → everyone: seed, stage, both players' loadouts
+//   { type: 'full', uid }            host → a third player: this room already has two
+//   { type: 'start', start }         host → guest: seed, stage, both players' loadouts
+//                                    (re-sent until the guest's first lockstep packet arrives)
 //   { type: 'ls', m }                lockstep traffic during the battle
 //   { type: 'leave', uid }
 import { createEmitter } from '../../core/events.js';
@@ -31,18 +33,25 @@ export function normalizeCode(code) {
   return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 }
 
+const LOBBY_BEACON_MS = 1500;
+const START_RESEND_MS = 700;
+
 /**
- * @param {{ code: string, isHost: boolean, backend: object, me: object, stageId?: string, difficulty?: string }} opts
+ * @param {{ code: string, isHost: boolean, backend: object, me: object, stageId?: string, difficulty?: string,
+ *   timers?: { setInterval: Function, clearInterval: Function }, now?: () => number }} opts
  *   me = { uid, name, level, avatar, loadout: [{unitId, stats}], hero: {unitId, stats}|null }
+ *   timers / now: injectable for tests (default: the real timers and Date.now)
+ *   exclusive: close the previous session first (one room at a time; tests open two)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal' }) {
-  if (current) current.close();
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', timers = globalThis, now = () => Date.now(), exclusive = true }) {
+  if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
     code,
     isHost,
     me: { ...me, ready: isHost },
     peer: null,
+    full: false,
     stageId,
     difficulty,
     phase: 'lobby',
@@ -54,27 +63,33 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     emit: emitter.emit,
   };
   const changed = () => emitter.emit('change', s);
+  let guestHeard = false;
 
   const hello = () => room.send({ type: 'hello', player: { ...s.me, host: isHost } });
   const room = backend.openRoom(code, {
     meta: { name: me.name, host: isHost },
     onMessage: (msg) => handle(msg),
     onPresence: (list) => {
-      const peer = list[0];
-      if (peer && (!s.peer || s.peer.uid !== peer.uid)) hello();
-      if (!peer && s.peer) {
-        if (s.phase === 'lobby') {
-          s.peer = null;
-          if (!isHost) s.me.ready = false;
-        } else if (s.lockstep && !s.peerGone) {
-          const p = [...s.lockstep.peers.values()][0];
-          if (p) s.lockstep.dropPeer(p, 'left');
-        }
-        changed();
-      }
+      // lobby only: in battle a presence blip (reconnecting socket) must not drop the ally;
+      // there the lockstep's 5 s silence timeout and the explicit 'leave' / 'bye' decide
+      if (s.phase !== 'lobby') return;
+      if (s.peer && !list.some((p) => p.uid === s.peer.uid)) peerLeft();
+      else if (!s.peer && list.length) hello();
     },
   });
+  const net = room.net || { heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay };
   hello();
+
+  function peerLeft() {
+    if (s.phase === 'lobby') {
+      s.peer = null;
+      if (!isHost) s.me.ready = false;
+    } else if (s.lockstep) {
+      const p = [...s.lockstep.peers.values()][0];
+      if (p) s.lockstep.dropPeer(p, 'left');
+    }
+    changed();
+  }
 
   function handle(msg) {
     if (!msg || typeof msg !== 'object') return;
@@ -82,7 +97,12 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       case 'hello': {
         const p = msg.player || {};
         if (!p.uid || p.uid === s.me.uid) return;
-        if (s.peer && s.peer.uid !== p.uid) return; // room is full (2 players)
+        if (s.peer && s.peer.uid !== p.uid) {
+          // a third player: rooms hold two
+          if (isHost) room.send({ type: 'full', uid: p.uid });
+          return;
+        }
+        if (!isHost && !p.host && !s.peer) return; // two guests never pair up
         const isNew = !s.peer;
         s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host };
         if (isNew) hello();
@@ -90,6 +110,12 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         changed();
         break;
       }
+      case 'full':
+        if (msg.uid === s.me.uid && !s.peer) {
+          s.full = true;
+          changed();
+        }
+        break;
       case 'room':
         if (isHost) return;
         s.stageId = msg.stageId;
@@ -104,25 +130,27 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         break;
       case 'start':
         if (isHost || s.phase !== 'lobby' || !msg.start) return;
+        if (!msg.start.players?.some((p) => p.uid === s.me.uid)) return;
         begin(msg.start);
         break;
       case 'ls':
+        if (isHost) guestHeard = true;
         s.lockstep?.receive(msg.m);
         break;
       case 'leave':
-        if (s.peer && msg.uid === s.peer.uid) {
-          if (s.phase === 'lobby') s.peer = null;
-          else if (s.lockstep) {
-            const p = [...s.lockstep.peers.values()][0];
-            if (p) s.lockstep.dropPeer(p, 'left');
-          }
-          changed();
-        }
+        if (s.peer && msg.uid === s.peer.uid) peerLeft();
         break;
       default:
         break;
     }
   }
+
+  // lobby beacon: a lost hello (lossy broadcast) is repeated until both sides see each other;
+  // the host also repeats the start message until the guest's first lockstep packet arrives
+  const beacon = timers.setInterval(() => {
+    if (s.phase === 'lobby' && !s.peer && !s.full) hello();
+    if (s.phase === 'battle' && isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone) room.send({ type: 'start', start: s.start });
+  }, isHost ? START_RESEND_MS : LOBBY_BEACON_MS);
 
   let pump = 0;
   function begin(start) {
@@ -132,6 +160,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     s.lockstep = new Lockstep({
       start,
       mySlot,
+      now,
+      delay: net.inputDelay,
+      heartbeatMs: net.heartbeatMs,
       send: (m) => room.send({ type: 'ls', m }),
       hooks: {
         onPeerGone: (slot, reason) => {
@@ -144,23 +175,26 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         onApplied: (cmd, res) => emitter.emit('applied', { cmd, res }),
       },
     });
-    // heartbeats keep flowing while the battle screen loads; a hidden tab keeps ticking slowly
-    let last = performance.now();
-    pump = setInterval(() => {
-      const now = performance.now();
+    // Heartbeats keep flowing while the battle screen loads. A hidden tab gets no animation
+    // frames, so this timer also advances the battle there (browsers slow it to ~1/s, which
+    // the ally sees as short "Waiting for ally…" pauses instead of a disconnect).
+    let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    pump = timers.setInterval(() => {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const dt = (now - last) / 1000;
       last = now;
       if (!s.lockstep) return;
       if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
       else s.lockstep.beat();
-    }, COOP.heartbeatMs);
+    }, net.heartbeatMs);
     emitter.emit('start', s);
     changed();
   }
 
   Object.assign(s, {
+    net,
     setStage(stage, diff) {
-      if (!isHost) return;
+      if (!isHost || s.phase !== 'lobby') return;
       s.stageId = stage;
       s.difficulty = diff;
       room.send({ type: 'room', stageId: stage, difficulty: diff });
@@ -170,9 +204,6 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       s.me.ready = !!ready;
       room.send({ type: 'ready', uid: s.me.uid, ready: s.me.ready });
       changed();
-    },
-    get canStart() {
-      return isHost && s.phase === 'lobby' && !!s.peer && s.peer.ready;
     },
     /** Host: send the start message and begin. */
     startBattle(seed = (Math.random() * 2 ** 31) >>> 0) {
@@ -195,7 +226,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       return s.start?.players.find((p) => p.slot === slot) || null;
     },
     close() {
-      clearInterval(pump);
+      if (s.phase === 'closed') return;
+      timers.clearInterval(pump);
+      timers.clearInterval(beacon);
       try {
         s.lockstep?.leave();
         room.send({ type: 'leave', uid: s.me.uid });
@@ -204,9 +237,25 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         console.warn('[coop] close failed', e);
       }
       s.phase = 'closed';
+      changed();
       if (current === s) current = null;
       if (typeof window !== 'undefined' && window.__coop === s) delete window.__coop;
     },
+  });
+
+  // closing or reloading the tab says goodbye right away (the ally does not wait for a timeout)
+  const onPageHide = () => s.close();
+  globalThis.addEventListener?.('pagehide', onPageHide);
+  const close0 = s.close;
+  s.close = () => {
+    globalThis.removeEventListener?.('pagehide', onPageHide);
+    close0();
+  };
+
+  // a live getter (Object.assign above would freeze a getter into its first value)
+  Object.defineProperty(s, 'canStart', {
+    get: () => isHost && s.phase === 'lobby' && !!s.peer && s.peer.ready,
+    enumerable: true,
   });
 
   current = s;
