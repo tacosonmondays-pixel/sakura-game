@@ -24,6 +24,92 @@ private "Toby" palette). It does not cover compositions: we never quote or parap
 
 ---
 
+## Status: pipeline + engine built (2026-10-08, `feature/audio`)
+
+Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **The soundtrack itself (A6, §4.4) is not
+composed yet.** One original demo tune, *Roll Call*, stands in for every track id until it is (§S.3).
+
+### S.1 What exists
+
+| Area | Files | Notes |
+|---|---|---|
+| Toolkit setup | `tools/audio/requirements.txt`, `setup_venv.sh`, `fetch_soundfonts.py`, `make_chip_sf2.py` | GeneralUser GS fetched by `git` at the pinned commit, size + SHA-256 checked, licence copied next to it; FluidR3 fallback; `sakura-chip.sf2` (CC0) is generated deterministically |
+| Song → MIDI | `sakura_audio/notation.py`, `theory.py`, `song.py`, `gen.py`, `midi.py`, `songs/motifs.py` | Python DSL or JSON (`Song.from_dict`), bar validator, chord-symbol generators, motif markers, tempo snap |
+| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 81 roles. `toby` points at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
+| Render + mix | `render.py`, `mix.py`, `encode.py`, `checks.py`, `pipeline.py` | FluidSynth jobs per (stem × font × echo send), cached by hash; SNES echo, lowpass, optional crush, one loudness gain for all stems, exact head + loop-body file, Opus + AAC, gates |
+| SFX | `sfx/synth.py`, `sfx/recipes.py` (84 ids), `sfx/sampled.py`, `sfx/sprite.py` | one mono sprite + `sprite.json` |
+| Review | `sakura_audio/review.py` | piano roll (motif boxes), waveform with loop points, seam plots (WAV + both decodes), spectrogram, gate report, SFX contact sheet, `index.html` |
+| CLI | `studio.py fetch / list / roles / presets / midi [--roll] / render / sfx / review / ship` | `ship` is the only command that writes `public/audio/`, and only when every gate passed |
+| Python tests | `tools/audio/tests/` (33 tests) | notation, loop layout + tempo snap, echo impulse response, SF2 round trip through FluidSynth (pitch per program, band-limiting, kit), palettes (inheritance, toby fallback, every role played by the demo), song model |
+| Engine | `src/audio/` `cue`, `index`, `engine`, `loader`, `music`, `sfx`, `limiter`, `loopMath`, `routes`, `cues`, `battle`, `economy`, `domSfx`, `soundTest` | as §3; battle stings, jingles and the boss track two waves ahead are preloaded; a sting that is still decoding 0.75 s after its moment is skipped instead of playing late |
+| Hooks | §1.9, all in place | plus `registerRoute('soundtest', …)` in `main.js` and a *Sound test* row in Settings → Audio |
+| JS tests | `tests/audio/` (7 files, 64 tests) | loop math, manifest + budgets + sprite ids, routes, battle state machine + SFX mapping, limiter, economy, director on a fake WebAudio graph, battle preloads |
+| Browser check | `e2e/audio.mjs` | unlock on first tap, lobby music, menu stem fade without restart, seams of the shipped Opus files measured in Chromium, battle switch + intensity on wave start + prompt sting, SFX, pause duck, Music off/on, memory, no console errors |
+
+Not built yet: `kai_import.py` (needs Kai's file format), `originality.py` (§6.5), and the real songs of §4.4.
+
+### S.2 Commands
+
+```
+sh tools/audio/setup_venv.sh                              # venv + pinned pip packages + soundfonts (AUDIO_VENV to relocate)
+PY=tools/audio/.venv/bin/python
+$PY tools/audio/studio.py list                            # songs, stems, durations, size estimate
+$PY tools/audio/studio.py roles --palette toby            # where every role comes from (+ fallback warnings)
+$PY tools/audio/studio.py presets eb --palette toby       # presets inside the private EarthBound font
+$PY tools/audio/studio.py midi demo --roll                # GM preview MIDI + piano roll
+$PY tools/audio/studio.py render all                      # every song: stems → mix → loop file → encode → gates
+$PY tools/audio/studio.py render all --palette toby       # same songs through the Toby fonts (build/toby/, not shipped)
+$PY tools/audio/studio.py sfx                             # SFX recipes → sprite (also copied to public/audio/sfx/)
+$PY tools/audio/studio.py review all                      # build/<palette>/review/index.html
+$PY tools/audio/studio.py ship                            # gates + budgets, then public/audio/music/ + manifest + probes
+$PY -m unittest discover -s tools/audio/tests -t tools/audio/tests
+npx vitest run tests/audio && node e2e/audio.mjs
+```
+
+### S.3 The demo tune and its measurements
+
+*Roll Call* (`tools/audio/songs/demo.py`, original): a melody passed around the band one bar at a time, so
+every one of the 81 palette roles plays at least once (a unit test checks this). It is rendered four ways:
+
+| Track | Layout | Length | Opus | AAC | Stands in for |
+|---|---|---|---|---|---|
+| `demo` (F, 112 swing) | loop, `base` + `melody` | 2 + 16 bars, file 41.6 s | 623,365 B | 602,340 B | title, homeroom, march, wishing, mall, results |
+| `demo_battle` (G, 144) | loop, `base` + `intensity` | 2 + 16 bars, file 33.3 s | 405,615 B | 466,692 B | `battle_*`, boss, final |
+| `demo_sting` | one-shot (stinger, −18 LUFS) | 3.8 s | 23,414 B | 31,756 B | wave stings, miniboss, boss warning, gacha R |
+| `demo_victory` | one-shot (jingle, −15 LUFS) | 5.5 s | 42,323 B | 45,751 B | victory, level-up, awaken, new student, gacha SR/SSR |
+
+Music total 1.09 MB Opus + 1.15 MB AAC; the SFX sprite (84 sounds, 40 s mono) is 193 KB Opus + 268 KB AAC.
+Loops: −16.0 LUFS, true peak −2.4 / −2.9 dBTP (no peak limiting needed). Every gate of §6.1 passes for all four
+renders (`review all`: 14/14 for the loops, 7/7 for the one-shots).
+
+SFX balance, measured by `review sfx` (momentary loudness compensated to each sound's length, plus its
+`gain_db`): the median UI blip is 1.7 LU *louder* than the median battle hit, not the 6 LU quieter that §6.1
+aimed for. That aim was a guess; hits fire many times a second, so they were left soft on purpose. It is a
+`gain_db` change in `sfx/recipes.py` once someone has listened on a phone (Sound Test pads).
+
+| Seam check | `demo` | `demo_battle` |
+|---|---|---|
+| Cycle 1 vs cycle 2 after the seam (render determinism) | −69.9 dB | −67.8 dB |
+| WAV loop wrap / entry vs the continuous render (1 s each side) | −82.9 / −71.4 dB, click ratio 1.00 / 1.05 | −70.5 / −68.7 dB, 1.00 / 1.00 |
+| ffmpeg-decoded Opus: alignment, wrap / entry (codec noise) | lag 0, −36.5 / −36.0 dB (noise −37.5) | lag 0, −34.3 / −35.5 dB (noise −34.2) |
+| ffmpeg-decoded AAC: alignment, wrap / entry (codec noise) | lag 0, −35.9 / −34.5 dB (noise −37.0) | lag 0, −33.7 / −30.9 dB (noise −33.3) |
+| Chromium `decodeAudioData` (Opus) + the engine's own head/loop schedule in an `OfflineAudioContext`, 32 and 48 kHz | decoded length = file length to the sample; no click at the entry or either wrap (click ratio ≤ 1.0); differences sit at the codec-noise level of the surrounding music | same, click ratio ≤ 1.07 |
+
+A "click ratio" is the 2nd-difference energy at the seam against the median of the surrounding audio,
+relative to what the continuous music does there (1.0 = no click; the gate is < 3). AAC on iPhone / Android
+cannot be measured here: open **Settings → Audio → Sound test** on the phone and use the *3 s before loop
+seam* / *3 s before entry* buttons; the page also shows which format the probe picked and its Δ.
+
+### S.4 Credits
+
+- **GeneralUser GS** v2.0.3 by S. Christian Collins (GeneralUser GS License v2.0), fetched from the
+  author's repository, never committed. Used by the `cleared` palette.
+- **FluidR3_GM** by Frank Wen (MIT), the installed fallback and the `strict` palette.
+- **sakura-chip.sf2**, the NES-style chip font, and every composition and SFX recipe: made for this game,
+  CC0 for the font. `public/audio/CREDITS.md` ships the same list.
+
+---
+
 ## 0. Ground rules, ownership, and getting Kai in
 
 ### 0.1 Files the audio area owns

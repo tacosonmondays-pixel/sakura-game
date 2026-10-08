@@ -102,7 +102,7 @@ export class MusicDirector {
     return srcs;
   }
 
-  _start(id, def, bufs, levels, at, fadeIn) {
+  _start(id, def, bufs, levels, at, fadeIn, from = 0) {
     const ctx = this.ctx;
     const tt = this.times(id);
     const out = ctx.createGain();
@@ -116,10 +116,10 @@ export class MusicDirector {
       const v = levels[name] ?? 0;
       g.gain.value = v;
       g.connect(out);
-      stems[name] = { gain: g, model: { from: v, to: v, t0: 0, t1: 0 }, srcs: bufs[name] ? this._schedule(bufs[name], tt, 0, at, g) : [] };
+      stems[name] = { gain: g, model: { from: v, to: v, t0: 0, t1: 0 }, srcs: bufs[name] ? this._schedule(bufs[name], tt, from, at, g) : [] };
     }
-    this._note(`start ${id} at ${at.toFixed(3)} ${JSON.stringify(levels)}`);
-    return { id, def, tt, t0: at, out, outModel, stems, stopping: false };
+    this._note(`start ${id} at ${at.toFixed(3)}${from ? ` from m=${from.toFixed(3)}` : ''} ${JSON.stringify(levels)}`);
+    return { id, def, tt, t0: at - from, out, outModel, stems, stopping: false };
   }
 
   _fadeOut(track, at, fade) {
@@ -150,10 +150,11 @@ export class MusicDirector {
   /**
    * Play a track (design id; stand-ins resolve through the manifest).
    * @param {string} reqId
-   * @param {{ stems?: object, transition?: 'bar'|'beat'|'now'|'cut', fade?: number, at?: number, restart?: boolean }} [opts]
+   * @param {{ stems?: object, transition?: 'bar'|'beat'|'now'|'cut', fade?: number, at?: number, restart?: boolean,
+   *           from?: number }} [opts] from = musical position (s) to start at (Sound Test seam jumps)
    */
   async play(reqId, opts = {}) {
-    this.wanted = { id: reqId, opts: { ...opts, at: undefined } };
+    this.wanted = { id: reqId, opts: { ...opts, at: undefined, from: undefined } };
     if (!this.enabled || !this.ready()) return null;
     const id = this.resolve(reqId);
     if (!id) {
@@ -163,7 +164,7 @@ export class MusicDirector {
     }
     const def = this.manifest.tracks[id];
     const levels = stemLevels(def.stems, opts.stems || {});
-    if (this.cur && this.cur.id === id && !this.cur.stopping && !opts.restart && opts.at == null) {
+    if (this.cur && this.cur.id === id && !this.cur.stopping && !opts.restart && opts.at == null && opts.from == null) {
       this.setStems(levels, { quantize: opts.transition === 'now' ? 'now' : 'beat', fadeBars: 1 });
       return id;
     }
@@ -195,7 +196,7 @@ export class MusicDirector {
       else at = now + 0.03;
     }
     if (old) this._fadeOut(old, transition === 'cut' ? now : transition === 'now' ? now + 0.02 : at, fade);
-    this.cur = this._start(id, def, bufs, levels, at, transition === 'now' && old ? fade : 0);
+    this.cur = this._start(id, def, bufs, levels, at, transition === 'now' && old ? fade : 0, Math.max(0, Number(opts.from) || 0));
     this.loader.setPinned(Object.values(this.loader.stemUrls(this.manifest, id)));
     return id;
   }
@@ -253,10 +254,11 @@ export class MusicDirector {
    * One-shot on the music bus over the playing track (wave/miniboss stings, fanfares).
    * @returns {Promise<number|null>} context time when it ends
    */
-  async stinger(reqId, { duck = -4, quantize = 'now', at = null } = {}) {
+  async stinger(reqId, { duck = -4, quantize = 'now', at = null, maxLate = null } = {}) {
     if (!this.enabled || !this.ready()) return null;
     const id = this.resolve(reqId);
     if (!id) return null;
+    const asked = this.ctx.currentTime;
     let bufs;
     try {
       bufs = await this.loader.loadTrack(this.manifest, id, { pin: false });
@@ -265,6 +267,11 @@ export class MusicDirector {
       return null;
     }
     if (!this.enabled) return null;
+    if (maxLate != null && at == null && this.ctx.currentTime - asked > maxLate) {
+      // still decoding when its moment passed (a wave sting 3 s after the wave started is worse than none)
+      this._note(`stinger ${reqId}→${id} skipped: ready ${(this.ctx.currentTime - asked).toFixed(2)} s late`);
+      return null;
+    }
     const when = at != null ? Math.max(at, this.ctx.currentTime + 0.02) : this.gridTime(this.cur, quantize === 'beat' && this.cur ? 'beat' : 'now');
     const end = this._oneshot(id, bufs, when, this.e.buses.stingers);
     if (duck) {
@@ -285,7 +292,9 @@ export class MusicDirector {
       if (then) this.wanted = { id: then, opts: { stems: thenStems || {} } };
       return null;
     }
-    const token = ++this.token;
+    // A jingle that stops the music supersedes pending track loads; one played over the music (level-up in a
+    // menu) must not cancel a track that is still loading, so it only checks that Music stayed on.
+    const token = stopMusic ? ++this.token : this.token;
     const now = this.ctx.currentTime;
     if (stopMusic && this.cur) {
       this._fadeOut(this.cur, now, 0.3);
@@ -302,7 +311,7 @@ export class MusicDirector {
     } catch {
       return null;
     }
-    if (token !== this.token || !this.enabled) return null;
+    if ((stopMusic && token !== this.token) || !this.enabled) return null;
     const at = Math.max(this.ctx.currentTime + 0.02, now + (stopMusic ? 0.3 : 0.02));
     const end = this._oneshot(id, bufs, at, this.e.buses.stingers);
     if (!stopMusic && duck) {

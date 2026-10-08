@@ -87,6 +87,7 @@ function build(redraw) {
     row('Sound effects', 'Attacks, hits and UI sounds.', toggle(s.sfx, (v) => { s.sfx = v; save(); }, 'sfx')),
     row('Sound effects volume', null, slider(s.sfxVolume ?? 0.8, 0, 1, 0.05, (v) => { s.sfxVolume = v; cue('settings.audio'); }, () => { save(); cue('sfx.preview'); }, (v) => `${Math.round(v * 100)}%`, 'sfxVolume')), // [audio]
     row('Master volume', 'Everything at once.', slider(s.volume ?? 0.8, 0, 1, 0.05, (v) => { s.volume = v; cue('settings.audio'); }, () => save(), (v) => `${Math.round(v * 100)}%`, 'volume')),
+    row('Sound test', 'Every track and sound effect.', button('Open', { kind: 'ghost', small: true, icon: 'play', onClick: () => navigate('soundtest'), testid: 'set-soundtest' })), // [audio]
   ));
 
   wrap.appendChild(h('section.panel',

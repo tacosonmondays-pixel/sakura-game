@@ -6,7 +6,7 @@
   "1. Copy the two files into tools/audio/private/ (gitignored) or set SAKURA_PRIVATE_SF2=/path/to/folder.",
   "2. If the file names differ, edit soundfonts.eb.path / soundfonts.sgm.path below.",
   "3. List the EarthBound presets: python tools/audio/studio.py presets eb --palette toby",
-  "4. Move roles onto EarthBound by editing their entry, e.g. \"music_box\": {\"sf\": \"eb\", \"bank\": 0, \"program\": <n>, ...}. When Kai's Toby palette arrives, paste its role -> preset table here (tools/audio/kai_import.py converts it).",
+  "4. Move roles onto EarthBound by editing their entry, e.g. \"music_box\": {\"sf\": \"eb\", \"bank\": 0, \"program\": <n>, ...}. When Kai's Toby palette arrives, paste its role -> preset table here (a converter, tools/audio/kai_import.py, gets written once Kai's file format is known).",
   "5. Re-render with python tools/audio/studio.py render all --palette toby (output stays in tools/audio/build/toby/; nothing ships unless you run ship --palette toby)."
  ],
  "_earthbound_candidates": [

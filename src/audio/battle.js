@@ -6,7 +6,7 @@
 // The deterministic sim is never touched: SFX come from the drained event array, music from a pure
 // state machine (battleMusicStep) fed with the same events plus the wrapped pause/speed actions.
 import { getAudio } from './cue.js';
-import { battleTrack, waveSting, bossTrackFor } from './routes.js';
+import { battleTrack, waveSting, bossTrackFor, battlePreloads } from './routes.js';
 import { capFrame } from './limiter.js';
 
 // ------------------------------------------------------------------------------------- SFX mapping
@@ -331,9 +331,38 @@ export function attachBattleAudio(ctx) {
   A()?.setBattlePaused?.(false);
   step({ type: 'mount' });
 
-  // 4 Hz poll: low lives warning
+  // Preloads (docs/AUDIO.md §3.4): this battle's stings and jingles now, a boss track two waves ahead.
+  // Audio may unlock after the mount, so the poll retries until the engine can take them.
+  let mountPreloaded = false;
+  let lookedAhead = -1;
+  const waveInfo = (n) => {
+    try {
+      return sim?.waveInfo?.(n) || [];
+    } catch {
+      return [];
+    }
+  };
+  function preloads() {
+    const audio = A();
+    if (!audio?.preloadTracks || !sim) return;
+    if (!mountPreloaded) mountPreloaded = audio.preloadTracks(battlePreloads(theme)) > 0;
+    if (!mountPreloaded || sim.wave === lookedAhead) return;
+    lookedAhead = sim.wave;
+    const ahead = [];
+    for (let n = sim.wave + 1; n <= sim.wave + 2; n++) {
+      for (const e of waveInfo(n)) {
+        if (e.tier === 'boss') ahead.push({ track: bossTrackFor(e.enemyId), decode: true }, { track: 'boss_warning', decode: true });
+        else if (e.tier === 'miniboss') ahead.push({ track: 'miniboss', decode: true });
+      }
+    }
+    if (ahead.length) audio.preloadTracks(ahead);
+  }
+  preloads();
+
+  // 4 Hz poll: preloads, low lives warning
   const poll = setInterval(() => {
     if (!sim || ms.ended) return;
+    preloads();
     if (!lowLivesPlayed && sim.maxLives > 0 && sim.lives > 0 && sim.lives <= sim.maxLives * 0.25) {
       lowLivesPlayed = true;
       A()?.sfx('bt.lowLives');

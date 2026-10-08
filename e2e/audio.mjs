@@ -179,11 +179,20 @@ try {
     window.__intenseAt ??= a.ctx.currentTime;
     return true;
   }, null, 20000);
-  const took = await A(() => (window.__intenseAt ?? NaN) - (window.__waveSeenAt ?? NaN));
   const b2 = await A(() => window.__sakura.audio.state());
-  const sting = await A(() => window.__sakura.audio.log().find((l) => l.includes('stinger wave_blossom')) || 'none');
-  log((await A(() => window.__sakura.audio.log())).slice(-14).map((l) => `      | ${l}`).join('\n'));
-  check(intenseOk && took <= 2 * barSec + 0.25, `wave start: intensity ${b2.stems.intensity?.value} ${took.toFixed(2)} s after the event (≤ 2 bars = ${(2 * barSec).toFixed(2)} s); sting: ${sting}`);
+  const musicLog = await A(() => window.__sakura.audio.log());
+  log(musicLog.slice(-14).map((l) => `      | ${l}`).join('\n'));
+  // The director logs '<ctx time> stems {"intensity":1} at <start> over <fade>' when the waveStart event
+  // reaches it, and '<ctx time> stinger wave_blossom→… at <when>' when the sting is scheduled. Timing from
+  // the log is exact AudioContext time, independent of how slowly SwiftShader draws frames here.
+  const fadeLine = musicLog.find((l) => /stems \{"intensity":1\} at/.test(l)) || '';
+  const fm = fadeLine.match(/^([\d.]+) stems .* at ([\d.]+) over ([\d.]+)/);
+  const took = fm ? Number(fm[2]) + Number(fm[3]) - Number(fm[1]) : NaN;
+  const stingLine = musicLog.find((l) => l.includes('stinger wave_blossom')) || '';
+  const sm = stingLine.match(/ at ([\d.]+) until/);
+  const stingLate = sm && fm ? Number(sm[1]) - Number(fm[1]) : NaN;
+  check(intenseOk && took <= 2 * barSec + 0.05, `wave start: intensity stem fully in ${took.toFixed(2)} s after the event (≤ 2 bars = ${(2 * barSec).toFixed(2)} s), now ${b2.stems.intensity?.value}`);
+  check(stingLate >= 0 && stingLate < 0.3, `wave start: sting ${stingLine ? `scheduled ${stingLate.toFixed(2)} s after the event (preloaded at mount)` : 'missing'}`);
   // a girl placed through the sim emits 'place' → bt.place via the event hook; a coin bump → bt.deny via the wrapped action
   const placed = await A(() => {
     const { sim, ui } = window.__battle;

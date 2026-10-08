@@ -51,6 +51,7 @@ export function initAudio({ store, base } = {}) {
     },
     setBattlePaused: (p) => engine.setBattlePaused(p),
     setVolumes: (v) => engine.setVolumes(v),
+    preloadTracks,
     level: (which) => engine.level(which),
     state() {
       return {
@@ -99,6 +100,19 @@ export function initAudio({ store, base } = {}) {
     }
   }
 
+  /** Fetch (and decode where asked) design track ids ahead of time; → how many resolved (0 = not ready yet). */
+  function preloadTracks(list) {
+    if (!manifest || !engine.unlocked || !engine.format || !music.enabled) return 0;
+    let n = 0;
+    for (const p of list || []) {
+      const id = resolveTrack(p.track, manifest);
+      if (!id) continue;
+      loader.preload(manifest, id, { decode: !!p.decode });
+      n++;
+    }
+    return n;
+  }
+
   function battleAction(act) {
     switch (act.do) {
       case 'play':
@@ -106,7 +120,7 @@ export function initAudio({ store, base } = {}) {
       case 'stems':
         return music.setStems(act.levels, { quantize: act.quantize, fadeBars: act.fadeBars });
       case 'stinger':
-        return music.stinger(act.id, { duck: act.duck, quantize: 'now' });
+        return music.stinger(act.id, { duck: act.duck, quantize: 'now', maxLate: act.maxLate ?? 0.75 });
       case 'boss':
         return music.bossTakeover(act.track);
       case 'jingle':

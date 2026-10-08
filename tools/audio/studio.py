@@ -161,12 +161,12 @@ def cmd_sfx(a):
 def cmd_review(a):
     from sakura_audio import review
     pal = load_palette(a.palette)
-    if a.songs == ['sfx']:
+    names = [n for n in a.songs if n != 'sfx']
+    if 'sfx' in a.songs or a.songs == ['all']:
         print(f'wrote {review.review_sfx(pal)}')
-        return
-    songs = pick_songs(discover(SONGS), a.songs)
-    for s in songs:
-        print(f'wrote {review.review_song(s, pal)}')
+    if names:
+        for s in pick_songs(discover(SONGS), names):
+            print(f'wrote {review.review_song(s, pal)}')
     print(f'index: {review.write_index(pal)}')
 
 

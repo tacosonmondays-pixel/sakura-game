@@ -19,5 +19,3 @@ tools/audio/.venv/
 *.sf3
 *.dls
 __pycache__/
-tools/audio/cache/
-tools/audio/build/
