@@ -22,6 +22,9 @@ const FACE_GRID = 3;
 const OUTLINE_WIDTH = 0.0048;
 const FADE = 0.18;
 const PRELOAD_CONCURRENCY = 6;
+/** Outline colour of textured (Meshy) figures: a deep plum that sits well on pink hair and white cloth. */
+const TEXTURED_LINE = '#4a2b3c';
+const CLIP_FALLBACK = { victory: 'cheer', pickup: 'cheer' };
 
 function baseUrl() {
   let base = '/';
@@ -132,18 +135,28 @@ function prepareAsset(id, detail, gltf) {
   const scene = gltf.scene;
   scene.updateMatrixWorld(true);
   let faceTexture = null;
+  let bodyMap = null;
   let haloColor = new THREE.Color('#ffffff');
   let height = 0.9;
   const extras = gltf.parser.json.asset?.extras || {};
   if (extras.height) height = extras.height;
+  // 'textured': an imported (Meshy) figure whose painted base colour carries the face and the
+  // outfit; its other meshes (the sword) use vertex colours like the Blender-built girls.
+  const textured = extras.style === 'textured';
   scene.traverse((o) => {
     if (!o.isMesh) return;
     o.frustumCulled = false;
     const m = o.material;
     if (m?.name === 'head' && m.map) faceTexture = m.map;
+    else if (textured && m?.map) bodyMap = m.map;
     if (m?.name === 'halo') haloColor = (m.emissive && m.emissive.getHex() ? m.emissive : m.color).clone();
     if (o.geometry) o.geometry.userData.shared = true;
   });
+  if (bodyMap) {
+    bodyMap.userData.shared = true;
+    bodyMap.colorSpace = THREE.SRGBColorSpace;
+    bodyMap.anisotropy = 4;
+  }
   const clips = {};
   for (const clip of gltf.animations) {
     clips[clip.name] = clip;
@@ -162,7 +175,28 @@ function prepareAsset(id, detail, gltf) {
   return {
     id, detail, scene, clips, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
     unitScale: extras.unitScale || 1, cells: extras.faceCells || FACE_CELLS, grid: extras.faceGrid || FACE_GRID,
+    textured, bodyMap, outlineTint: extras.outline || TEXTURED_LINE, materials: {},
   };
+}
+
+/**
+ * Soft figurine shading for textured (Meshy) bodies: the painted base colour under a gentle
+ * three-step toon ramp, plus the same colour as a mild emissive so the candy-pink hair and the
+ * white coat stay as bright as the owner's Meshy render instead of going muddy under the battle
+ * lights (PBR / plain toon darkened them). Shared by every instance of the asset.
+ */
+function texturedMaterial(asset, highlight = false) {
+  const key = highlight ? 'hl' : 'body';
+  if (!asset.materials[key]) {
+    const m = new THREE.MeshToonMaterial({
+      map: asset.bodyMap, gradientMap: gradientMap('figurine'), color: new THREE.Color(0.66, 0.66, 0.66),
+      emissiveMap: asset.bodyMap, emissive: highlight ? new THREE.Color('#9fb2ff') : new THREE.Color('#ffffff'),
+      emissiveIntensity: highlight ? 0.75 : 0.4,
+    });
+    m.userData.shared = true;
+    asset.materials[key] = m;
+  }
+  return asset.materials[key];
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +237,17 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     const hasColors = !!o.geometry.attributes.color;
     let tint = '#3a2e44';
     let lineColors = hasColors;
-    if (name === 'head') {
+    if (asset.textured && o.material?.map) {
+      o.material = texturedMaterial(asset);
+      o.name = 'body';
+      tint = asset.outlineTint;
+      lineColors = false;
+      bodyMesh = o;
+    } else if (asset.textured) {
+      // props of a textured figure (the sword): vertex colours, outline in a deep shade of them
+      o.material = toonMaterial({ vertexColors: hasColors });
+      o.name = 'weapon';
+    } else if (name === 'head') {
       o.material = new THREE.MeshToonMaterial({ map: faceTex, gradientMap: gradientMap('soft'), color: '#ffffff' });
       o.name = 'head';
       tint = '#4a3344';
@@ -244,6 +288,10 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   group.userData.setExpression = (name) => anim.setExpression(name);
   group.userData.setHighlight = (on) => {
     if (!bodyMesh) return;
+    if (asset.textured) {
+      bodyMesh.material = texturedMaterial(asset, on);
+      return;
+    }
     if (on) {
       if (!bodyMesh.userData.hl) {
         bodyMesh.userData.hl = new THREE.MeshToonMaterial({ vertexColors: !!bodyMesh.geometry.attributes.color, color: '#ffffff', emissive: '#4d6dff', emissiveIntensity: 0.35, gradientMap: gradientMap(3) });
@@ -297,7 +345,9 @@ class GlbAnimator {
 
   stateClip(state) {
     const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup' };
-    const name = map[state] || 'idle';
+    let name = map[state] || 'idle';
+    // imported figures ship a smaller clip set: celebrate with the cheer loop
+    if (!this.actions[name] && CLIP_FALLBACK[name] && this.actions[CLIP_FALLBACK[name]]) name = CLIP_FALLBACK[name];
     return this.actions[name] ? name : (this.actions.idle ? 'idle' : null);
   }
 

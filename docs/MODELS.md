@@ -71,6 +71,40 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
    register it in its dict (`STYLES`, `BANGS`, `OUTFITS`, `ACCESSORIES`, `WEAPONS`, `HALOS`).
 5. `npx vitest run tests/models` checks every GLB header (clips, bones, materials, atlas, size).
 
+## Imported Meshy figures (Hikari)
+
+Hikari's battle model is **the owner's own Meshy chibi** (big round head, painted anime face,
+white/gold/navy knight coat, teal bow and ribbons, braid crown with gold stars). It is brought in
+as-is, not restyled, by `tools/meshy/build_meshy_chibi.py` (bpy 4.2 + numpy + Pillow + `pip install xatlas`):
+
+```
+python3 tools/meshy/build_meshy_chibi.py --source <Meshy Character_output.glb> --clips <Meshy-library animated GLB>
+```
+
+The two inputs are not in the repo (43 MB + 5 MB): the owner's Meshy export (one skinned mesh,
+~93k tris, 58-bone Meshy SmartRig `Bone_000…`, 4k base colour / normal / metallic-roughness) and the
+Meshy animation-library GLB from the first Meshy test (Idle_9, Walking_Woman on the standard Meshy
+humanoid). One bpy session per detail level:
+
+| step | module | what |
+|---|---|---|
+| 1 | `lib/lowpoly.py` | weld the seam-split vertices (positions only differ by float noise), decimate a copy (face protected) to 20k tris (LOD 9k), smooth normals, **fresh xatlas UVs** with the face at 2× texel density. Meshy's own UVs are ~13k tiny islands that bleed into colour noise in the mip levels a battle-size figure samples |
+| 2 | `lib/bake.py` | bake the 4k Meshy base colour onto the new UVs (Cycles CPU emission, 2048² / LOD 1024²). Normal + metallic-roughness maps are dropped: the toon look does not need them |
+| 3 | `lib/rig_names.py`, `lib/retarget.py` | readable bone names (`root, hips, spine, chest, neck, head, upper_arm_R, …, hair_back1, coat_L1, bangs1`), then the library clips are retargeted by world-space rotation deltas from each rest pose (both rigs are Meshy A-poses) |
+| 4 | `lib/sword.py`, `lib/clips_hikari.py`, `lib/posekit.py` | the approved sheet's jewelled sword (crystal blade with white edges, gold star crossguard with a teal gem, magenta gem + grip, teal pommel; 794 tris, vertex colours) parented to `hand_R` with the fingers curled round the grip; clips `idle` 1.5 s (library idle + two knee bounces), `walk` 0.97 s (library walk), `attack_slash` 0.6 s, `cheer` 1.2 s (arms up + hop), `hurt` 0.4 s. The sword arm and the legs are 2-bone IK so the blade path is designed: wind-up beside her right shoulder, one diagonal cut across the front below the collar — it never crosses her face, from the front or from the battle camera. Every clip carries a small chin-up / lean back (neck −7°, spine −3°) so the eyes stay readable under her long bangs from the 48° battle camera |
+| 5 | `lib/pack.py` | phone packing: stored at half size (`extras.unitScale` brings her back to the battle size), int16 positions / int8 normals / uint16 UVs / uint8 joints+weights (KHR_mesh_quantization), animation channels that never leave rest dropped + redundant keys removed + int16 rotations, base colour as **WebP** (EXT_texture_webp). No Draco/meshopt/KTX2, so the runtime needs no decoders |
+
+Output: `hikari.glb` ≈ 1.1 MB (20.8k tris incl. sword, 2048² WebP) and `hikari.lod.glb` ≈ 0.55 MB
+(9.8k tris, 1024² WebP), manifest entries with `source: 'meshy'` — `tools/blender/build_characters.py`
+skips those units (pass `--force-procedural` to rebuild the cage girl instead).
+
+Runtime (`glbChibi.js`): `asset.extras.style === 'textured'` → the body keeps its painted map under a
+soft three-step toon ramp (`gradientMap('figurine')`) with the same map as a mild emissive, which kept
+her as bright as the Meshy render at battle size (plain toon / PBR went salmon and muddy); outline in
+`#4a2b3c`; props (the sword) use the vertex-colour toon material. No face atlas (the face is painted),
+so expressions/blinks are a no-op; `victory` and `pickup` fall back to `cheer`. Battle size: height
+1.53 (≈ 83 px at 1280×720 default zoom, the size the owner approved), versus 0.98 for the cage heroes.
+
 ## Judging quality
 
 Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head, big eyes placed low,

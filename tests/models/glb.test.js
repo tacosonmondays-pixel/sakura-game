@@ -19,6 +19,14 @@ const REQUIRED_BONES = [
 ];
 const MAX_FULL_BYTES = 480 * 1024;
 const MAX_LOD_BYTES = 240 * 1024;
+// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed
+const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
+const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
+const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
+const MESHY_BONES = [
+  'root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L', 'upper_arm_R', 'forearm_R', 'hand_R',
+  'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R',
+];
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
@@ -33,6 +41,56 @@ describe('character GLBs', () => {
   });
 
   for (const u of UNITS) {
+    if (manifest?.[u.id]?.source === 'meshy') {
+      for (const detail of ['full', 'lod']) {
+        it(`${u.id} ${detail}: imported Meshy figure with textured body, sword, rig and clips`, () => {
+          const file = path.join(dir, `${u.id}${detail === 'lod' ? '.lod' : ''}.glb`);
+          expect(existsSync(file), file).toBe(true);
+          expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
+          const { json, binLength } = readGlbHeader(file);
+          expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
+          const ex = json.asset.extras;
+          expect(ex.unit).toBe(u.id);
+          expect(ex.source).toBe('meshy');
+          expect(ex.style).toBe('textured');
+          expect(ex.lod).toBe(detail === 'lod');
+          expect(ex.height).toBeGreaterThan(1.2); // battle size the owner approved (~1.5x the cage girls)
+          expect(ex.unitScale).toBeGreaterThan(0);
+          const names = json.animations.map((a) => a.name);
+          for (const c of MESHY_CLIPS) expect(names, `${u.id} ${c}`).toContain(c);
+          expect(names.some((n) => n.startsWith('attack_')), `${u.id} attack clip`).toBe(true);
+          for (const a of json.animations) {
+            expect(a.channels.length).toBeGreaterThan(0);
+            const dur = Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
+            const cap = { idle: 1.6, cheer: 1.2, hurt: 0.4, walk: 1.2 }[a.name] ?? (a.name.startsWith('attack_') ? 0.6 : 2);
+            expect(dur, `${a.name} length`).toBeLessThanOrEqual(cap + 1e-3);
+          }
+          expect(json.skins).toHaveLength(1);
+          const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
+          for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
+          // the sword hangs off the right hand
+          const hand = json.nodes.findIndex((n) => n.name === 'hand_R');
+          const sword = json.nodes.findIndex((n) => n.name === 'sword');
+          expect(json.nodes[hand].children).toContain(sword);
+          const prims = json.meshes.flatMap((m) => m.primitives);
+          const textured = prims.filter((p) => json.materials[p.material].pbrMetallicRoughness?.baseColorTexture);
+          expect(textured).toHaveLength(1);
+          expect(textured[0].attributes.TEXCOORD_0).toBeDefined();
+          expect(textured[0].attributes.JOINTS_0).toBeDefined();
+          const swordPrim = json.meshes[json.nodes[sword].mesh].primitives[0];
+          expect(swordPrim.attributes.COLOR_0).toBeDefined();
+          for (const p of prims) {
+            const pos = json.accessors[p.attributes.POSITION];
+            expect(pos.componentType).toBe(5122);
+            expect(pos.normalized).toBe(true);
+          }
+          expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
+          expect(json.images).toHaveLength(1);
+          expect(json.images[0].mimeType).toBe('image/webp');
+        });
+      }
+      continue;
+    }
     for (const detail of ['full', 'lod']) {
       it(`${u.id} ${detail}: valid GLB with actions, rig, materials, face atlas`, () => {
         const file = path.join(dir, `${u.id}${detail === 'lod' ? '.lod' : ''}.glb`);
