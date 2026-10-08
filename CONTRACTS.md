@@ -290,7 +290,19 @@ MapDef = {
 
 Track quality rules (tests/data/world.test.js): ≤ 14° turn per 0.1-tile sample, centreline radius
 ≥ 1.4 tiles over any 1-tile window, flat junctions ≥ 2 tiles apart, spawns / exits on the board
-edge, no two maps with the same silhouette (coarse 10×6 raster IoU < 0.8).
+edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and two maps whose
+turning signatures match (the sequence of signed curvature lobes, mirrored / reversed variants
+included — tests/data/trackShape.js) must sit differently on the board (IoU < 0.5, < 0.45 for three
+or more lobes); at most two maps may be meanders (three or more alternating U-bends marching across
+the board).
+
+Rendering rules for the road (src/render/trackMesh.js, terrain.js): a road section over water is
+ONE continuous plank ribbon along the centreline over the whole wet span (short dry gaps bridged,
+abutments on each bank), and only where the centreline itself crosses at least 0.6 tiles of water —
+a road that merely grazes a pond corner or runs along a bank gets no deck; the water mask is carved
+back 0.74 tiles from every ground-level centreline instead, so it reads as a shore road. Overpass
+decks are exactly road + railings wide, with a girder fascia, mirrored pier pairs either side of the
+road they span, a drop shadow along the key light, and no railings on the lower pass under them.
 
 Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
 outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls

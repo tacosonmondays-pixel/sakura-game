@@ -555,6 +555,15 @@
   .bt-card-art { height: 48px; }
   .bt-card-name { display: none; }
   .bt-panel { width: 340px; bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); z-index: 8; }
+  /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
+  .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(300px, 40%); gap: 4px; align-items: stretch; }
+  .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
+  .bt-toast { padding: 4px 9px; font-size: 0.72rem; border-left-width: 3px; opacity: 0.92; }
+  .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .bt-toast-ico { width: 14px; height: 14px; }
+  .bt-banner { padding: 6px 44px 7px; }
+  .bt-banner-title { font-size: 1.35rem; }
+  .bt-banner-sub { font-size: 0.78rem; }
   .bt-has-panel .bt-wavectl { display: none; }
   .bt-panel-scroll { padding: 8px 10px; }
   .bt-panel-portrait { width: 46px; height: 46px; }
