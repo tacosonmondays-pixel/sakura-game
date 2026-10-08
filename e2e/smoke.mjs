@@ -145,11 +145,11 @@ async function runViewport(vp) {
   if (giftBtn) {
     await shot('beta-gift');
     const t0 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems }));
-    await giftBtn.click();
+    await giftBtn.click({ force: true }); // glowing CTA: never 'stable' on a loaded machine
     const t1 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems, sel: window.__sakura.store.profile.items.ticket_ssr_select || 0 }));
     check(t1.t10 === t0.t10 + 5 && t1.gems === t0.gems + 3000 && t1.sel === 1, `beta gift: claimed 5× 10-pull tickets, 3,000 gems and an SSR Select Ticket (${JSON.stringify(t1)})`);
     const choose = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
-    if (choose) await choose.click();
+    if (choose) await choose.click({ force: true });
     const pick = await page.evaluate(() => {
       const { profile } = window.__sakura.store;
       return [...document.querySelectorAll('[data-testid^="sst-"]')].map((el) => el.dataset.testid.slice(4)).find((id) => !profile.units[id]) || null;
