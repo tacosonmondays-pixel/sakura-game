@@ -131,10 +131,10 @@ def build() -> Song:
         .gen('B', 'pad:sustain', low=55, high=74, vel=52)
     s.part('choir', 'choir_ahh', 'full').gen('B', 'pad:sustain', low=60, high=76, vel=62) \
         .gen('A_ab', 'pad:sustain', low=60, high=76, vel=66)
-    s.part('koto', 'koto', 'full', vel=-14).at('intro', 2, 'r/2 c5/16 d5/16 f5/16 g5/16 a5/8 c6/8') \
-        .gen('B', 'arp:updown8', low=62, high=84, vel=64)
+    s.part('koto', 'koto', 'full', vel=0, gain=0).at('intro', 2, 'r/2 c5/16 d5/16 f5/16 g5/16 a5/8 c6/8') \
+        .gen('B', 'arp:updown8', low=62, high=84, vel=80)
     s.part('stabs', 'brass_stab', 'full', vel=6).gen('A_ab', 'comp:stabs', voicing='close', low=58, high=74)
-    s.part('arp_pad', 'chip_pulse12', 'full', vel=-34).gen('A_ab', 'chip:arp32', low=72, high=86)
+    s.part('arp_pad', 'chip_pulse12', 'full', vel=-18, gain=-2).gen('A_ab', 'chip:arp32', low=72, high=86)
     s.part('hit', 'orch_hit', 'full').at('A_ab', 1, '[ab3 c4 eb4 ab4]/4 r/2.').at('A_ab', 5, '[g3 c4 eb4 g4]/4@v80 r/2.').at('B', 1, '[db4 f4 ab4]/4@v70 r/2.')
 
     # ---- drums: tight, dry; chip-noise hats layered over the real kit from A′ on

@@ -78,7 +78,7 @@ every one of the 81 palette roles plays at least once (a unit test checks this).
 | `demo_sting` | one-shot (stinger, −18 LUFS) | 3.8 s | 23,414 B | 31,756 B | wave stings, miniboss, boss warning, gacha R |
 | `demo_victory` | one-shot (jingle, −15 LUFS) | 5.5 s | 42,323 B | 45,751 B | victory, level-up, awaken, new student, gacha SR/SSR |
 
-Music total 1.09 MB Opus + 1.15 MB AAC; the SFX sprite (84 sounds, 40 s mono) is 193 KB Opus + 268 KB AAC.
+Music total 1.09 MB Opus + 1.15 MB AAC; the SFX sprite (84 sounds, 39.8 s mono) is 187 KB Opus + 238 KB AAC.
 Loops: −16.0 LUFS, true peak −2.4 / −2.9 dBTP (no peak limiting needed). Every gate of §6.1 passes for all four
 renders (`review all`: 14/14 for the loops, 7/7 for the one-shots).
 
@@ -1021,9 +1021,19 @@ night. Boss arenas: night, foundry, volcano. Challenge: arena.
   | Explode | ≤ 2 |
   | Place, upgrade, sell, leak, wave, boss, hero | Always (high priority) |
 
-- **Speed profile.** At 2× / 3×, `gap_ms` of fire, hit and status sounds are multiplied by √speed, and the
-  battle bus gain drops (§3.3). A 3× late wave (≈ 180 attacks/s) settles at about 20 fire and hit sounds
-  per second.
+- **Speed profile.** At 2× / 3×, `gap_ms` of fire, hit, status and boom sounds are multiplied by √speed, and
+  the battle bus gain drops (§3.3).
+- **Spam budgets** (`limiter.js` `SPAM_BUDGET`, token buckets in real time, burst 3, whatever the game speed):
+  attacks (`fire.*` + `atk.*`) 12/s, hits 9/s, enemy deaths 6/s, statuses 3/s, booms 3/s. Per-sound gaps alone
+  were not enough: ten attack and hit kinds each at their own maximum added up to ~55 a second. UI, player
+  actions, leaks, wave flow, hero, boss and gacha sounds are never budgeted.
+- **Measured** (`node e2e/audio-dense.mjs`, 2026-10-08): stage 8-5 hard, wave 26, 19 girls, ~60 enemies, ×3:
+  the sim emits ~760 hits, ~200 statuses and ~57 attacks a second; 21 attack + hit sounds a second reach the
+  speakers (≈ 34 sounds/s in all), at most 11 battle voices (cap 28; 9 of 14 on a phone), output true peak
+  −7.4 dBTP at the default volumes and −2.6 dBTP with every slider at 100 % (with the hero ult, a boss-phase
+  roar and a leak on top); the safety compressor never engages; energy above 8 kHz 26 dB under the mix.
+- **Clean edges.** `synth.seq()` gives every layer a 3 ms raised-cosine release and `fmx()` a 4 ms one, so a
+  decaying blip or bell that stops at 8-30 % of its level no longer ends on a step (a click per hit).
 - **Positional pan.** `pan = clamp((x / map.width) * 2 − 1) × 0.5`. Hits use the enemy x, fires use the
   tower x.
 - **Determinism.** Jitter uses its own RNG and never touches the sim's seeded RNG.
@@ -1262,7 +1272,7 @@ P1 = first ship (60 ids), P2 = polish (24 ids). "Delegation" = `domSfx.js`. "Eco
 | `fire.holy` | 1 | `spark` | Bright bell ping (FM), 150 ms | 3, 50 ms |
 | `fire.zap` | 1 | `bolt` | Short zap (noise + pulse 12.5 % sweep), 110 ms | 3, 45 ms |
 | `atk.slash` | 1 | `slash` (duel; rate = 1 + 0.03 × ramp, so the swish climbs as she locks on) | Sword swish (band-passed noise sweep), 140 ms | 2, 60 ms |
-| `atk.pulse` | 1 | `pulse` | "Whum" ring (sine 220 Hz + chorus, echo), 300 ms | 2, 120 ms |
+| `atk.pulse` | 1 | `pulse` | "Whum" ring (sine 220 Hz + chorus, echo), 300 ms | 2, 200 ms |
 | `atk.beam` | 1 | `beam` | Laser hum zip (saw + vibrato, LPF sweep), 250 ms | 2, 90 ms |
 | `atk.chain` | 1 | `chain` (crackles = number of points, max 4) | Electric crackle (short-mode noise bursts), 80 ms each | 2, 90 ms |
 | `trap.set` | 2 | `trapPlaced` | Rune click + soft chime, 120 ms | 2, 100 ms |
@@ -1396,6 +1406,15 @@ Uses Playwright Chromium (Opus path) via `e2e/browser.mjs`, its own Vite server 
    battle bus profile switches.
 6. Force `sim.cash` / `sim.lives` for a quick win → victory jingle, then `results_win`.
 7. No console errors. Decoded bytes under budget.
+
+**Dense wave: `e2e/audio-dense.mjs [--out x.wav] [--phone] [--loud]`.** The real Sim (last campaign stage, hard,
+the whole tower roster placed and upgraded by `autoPlan`, a late wave kept at ~60 enemies) runs at ×3 on a
+60 Hz timer; its drained events go through the real `attachBattleAudio` → limiter → sprite voices → buses.
+An AudioWorklet records 10 s of the final output (after the safety compressor) and of the SFX bus. The hero
+ult, a boss-phase roar and a leak are added on top. Checks: sample and true peak ≤ −1 dBFS, no clipped
+samples, energy above 8 kHz ≥ 20 dB under the mix, battle voices ≤ cap, ≥ 8 attack + hit sounds a second
+(so it really is dense). Writes `x.wav`, `x.sfx.wav`, `x.png` (linear-frequency spectrogram) and `x.json`.
+`--phone` emulates a coarse pointer (14 voices), `--loud` sets all three sliders to 100 %.
 
 ### 6.5 Originality check (`studio.py originality`)
 

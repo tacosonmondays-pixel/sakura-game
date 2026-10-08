@@ -54,6 +54,7 @@ class Part:
     gate: float | None = None
     pan: float | None = None
     swing: float | None = None
+    gain: float = 0.0                               # dB on top of the palette role's gain_db (mix balance per part)
     bodies: dict = field(default_factory=dict)      # section → list[Note]
     doubles: list = field(default_factory=list)     # (other part, sections, octave, vel)
     markers: list = field(default_factory=list)     # (section, beat_in_section, text)
@@ -156,6 +157,7 @@ class TimelinePart:
     notes: list          # absolute Note objects (beats from render start), octave/vel applied
     gate: float | None
     pan: float | None
+    gain: float = 0.0
 
 
 @dataclass
@@ -282,7 +284,7 @@ class Song:
                     out.append(replace(n, start=st, dur=en - st, pitches=ps))
                 t += self.bpb * self.sections[s].bars
             out.sort(key=lambda n: (n.start, n.pitches))
-            parts.append(TimelinePart(name, p.role, p.stem, out, p.gate if p.gate is not None else self.gate, p.pan))
+            parts.append(TimelinePart(name, p.role, p.stem, out, p.gate if p.gate is not None else self.gate, p.pan, p.gain))
         markers, secs, chords = [], [], []
         t = Fr(0)
         for idx, s in enumerate(one_pass):
@@ -309,7 +311,7 @@ class Song:
             s.section(sec['name'], sec['bars'], sec.get('chords'))
         for pd in d.get('parts', []):
             p = s.part(pd['name'], pd['role'], pd.get('stem', 'full'),
-                       **{k: pd[k] for k in ('octave', 'vel', 'gate', 'pan') if k in pd})
+                       **{k: pd[k] for k in ('octave', 'vel', 'gate', 'pan', 'gain') if k in pd})
             for sec, text in (pd.get('notes') or {}).items():
                 p.notes(sec, text)
             for sec, text in (pd.get('pattern') or {}).items():

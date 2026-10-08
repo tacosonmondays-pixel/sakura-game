@@ -34,6 +34,25 @@
    "bits": 0,
    "mix": 0.0,
    "hold": 1
+  },
+  "_voices_doc": "Per voice group, before the echo: 'gm' = every sampled GeneralUser/FluidR3 instrument, 'kit' = drum kits (GM and chip), 'chip' = sakura-chip melodic voices. lowpass_hz = SNES-style band-limited sample playback (Gaussian interpolation, low sample rates); brr = block-adaptive 4-bit grit like BRR samples, blended at `mix`. Chip voices and drums keep their full bite.",
+  "voices": {
+   "gm": {
+    "lowpass_hz": 11500,
+    "brr": {
+     "bits": 4,
+     "block": 16,
+     "mix": 0.12
+    }
+   },
+   "kit": {
+    "brr": {
+     "bits": 4,
+     "block": 16,
+     "mix": 0.1
+    }
+   },
+   "chip": {}
   }
  },
  "kit_map": {

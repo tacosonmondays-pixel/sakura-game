@@ -105,7 +105,7 @@ def build() -> Song:
 
     shadow_d = SHADOW.question('Dm', 3) + ' r/8'                  # d3 e♭3 d3 a♭3 f3
     # ================================================================ base (phase 1)
-    s.part('lead', 'chip_pulse25', 'base', vel=12) \
+    s.part('lead', 'chip_pulse25', 'base', vel=12, gain=1) \
         .at('intro', 4, "r/2 a5/16 bb5/16 c#6/16 d6/16 e6/8' r/8") \
         .notes('A', bars(*FRANTIC), motifs={1: BELL, 3: BELL, 5: BELL}) \
         .notes('A2', bars(*FRANTIC[:4], *FRANTIC2_END), motifs={1: BELL, 3: BELL, 5: BELL}) \
@@ -151,7 +151,7 @@ def build() -> Song:
     s.part('chip_hats', 'chip_kit', 'base', vel=-30).pattern(['A', 'A2', 'C', 'D'], '(h/16 h? h h?)x4 |')
 
     # ================================================================ intensity (phase 2+)
-    s.part('horn', 'horn', 'intensity', vel=20) \
+    s.part('horn', 'horn', 'intensity', vel=20, gain=-2.5) \
         .at('A2', 1, HORN_BELL, motif=BELL) \
         .at('A2', 5, bars('f4/2 e4/2', 'd4/2 c#4/2', 'd5/2 c#5/2', 'd5/1')) \
         .double('lead', 'C', octave=-1)

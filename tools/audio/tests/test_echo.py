@@ -52,3 +52,28 @@ class EchoTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SnesVoiceTest(unittest.TestCase):
+    """Round 2: per-voice SNES treatment (BRR-style grit + band-limited sample playback)."""
+
+    def test_brr_grit_follows_the_signal_and_keeps_loops_identical(self):
+        from sakura_audio.mix import brr_crush, voice_fx
+        rate = 32000
+        t = np.arange(rate) / rate
+        x = np.stack([0.3 * np.sin(2 * np.pi * 440 * t)] * 2, axis=1)
+        x[rate // 2:] *= 0.01                                   # a loud half and a quiet half
+        y = brr_crush(x, bits=4, block=16, mix=1.0)
+        err = y - x
+        loud = np.sqrt(np.mean(err[:rate // 2] ** 2)) / np.sqrt(np.mean(x[:rate // 2] ** 2))
+        quiet = np.sqrt(np.mean(err[rate // 2:] ** 2)) / np.sqrt(np.mean(x[rate // 2:] ** 2))
+        self.assertGreater(loud, 0.005)                        # audible grain …
+        self.assertLess(loud, 0.15)
+        self.assertAlmostEqual(loud, quiet, delta=0.05)        # … relative to the signal, like BRR
+        self.assertTrue(np.allclose(brr_crush(x, mix=0.0), x))
+        P = 64 * 50                                            # loop periods are multiples of 64 samples
+        z = np.tile(x[:P], (3, 1))
+        w = brr_crush(z, mix=0.12)
+        self.assertTrue(np.array_equal(w[P:2 * P], w[2 * P:3 * P]))
+        lp = voice_fx(x, rate, {'lowpass_hz': 11500, 'brr': {'mix': 0.12}})
+        self.assertEqual(lp.shape, x.shape)

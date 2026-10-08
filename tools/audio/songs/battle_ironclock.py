@@ -95,7 +95,7 @@ def build() -> Song:
     s.section('D', 8, CH_D)
 
     # ================================================================ base
-    s.part('saw', 'chip_saw', 'base', vel=6) \
+    s.part('saw', 'chip_saw', 'base', vel=6, gain=1) \
         .notes('A', bars(*HOOK, *A_END)).notes('A2', bars(*HOOK, *A2_END)) \
         .notes('B', bars(*BELL_RIFF), motifs={1: BELL, 3: BELL, 5: BELL}) \
         .notes('C', bars(*C_SAW)).notes('D', bars(*D_HOOK))
@@ -120,7 +120,7 @@ def build() -> Song:
     s.part('anvil', 'drums', 'base', vel=-12).pattern(['intro', 'A', 'A2', 'B', 'C', 'D'], ANVIL)
 
     # ================================================================ intensity
-    s.part('counter', 'chip_pulse25', 'intensity', vel=10).notes('A2', bars(*COUNTER)) \
+    s.part('counter', 'chip_pulse25', 'intensity', vel=10, gain=-4.5).notes('A2', bars(*COUNTER)) \
         .notes('D', bars(*[tr(b, 3) for b in COUNTER[:7]], 'eb5/2 c5/4 a4/4'))
     s.part('tpt', 'trumpet', 'intensity', vel=10).double('saw', ['B', 'D'])
     s.part('bone', 'trombone', 'intensity', octave=-1, vel=2).double('saw', 'B')

@@ -94,7 +94,7 @@ describe('sfx sprite', () => {
       ...['pierce', 'slash', 'mystic', 'holy'].map((attackType) => ({ type: 'hit', attackType, amount: 5 })),
       { type: 'hit', attackType: 'pierce', crit: true }, { type: 'hit', attackType: 'slash', effective: 0.5 },
       { type: 'explode', radius: 1 }, { type: 'explode', radius: 2 }, { type: 'explode', radius: 1.5, volatile: true },
-      ...['freeze', 'burn', 'poison', 'shock', 'stun', 'slow', 'reveal', 'silence', 'mark', 'shred', 'soak'].map((status) => ({ type: 'status', status })),
+      ...['freeze', 'burn', 'poison', 'shock', 'stun', 'slow', 'reveal', 'silence', 'mark', 'vulnerable', 'shred', 'soak'].map((status) => ({ type: 'status', status })),
       { type: 'barrierBreak' }, { type: 'shellBreak' }, { type: 'death', id: 'a' }, { type: 'death', id: 'elite' }, { type: 'death', id: 'boss' },
       { type: 'split' }, { type: 'blink' }, { type: 'teleportWarn' }, { type: 'phase', on: true }, { type: 'sabotage' },
       { type: 'leak', id: 'a' }, { type: 'leak', id: 'elite' }, { type: 'place', towerUid: 1 }, { type: 'place', towerUid: 99 },

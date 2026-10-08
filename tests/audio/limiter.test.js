@@ -1,7 +1,7 @@
 // SFX voice limiter (src/audio/limiter.js): gaps, per-sound voices, global/UI caps, priority stealing,
 // game-speed scaling, per-frame aggregation.
 import { describe, test, expect } from 'vitest';
-import { createLimiter, capFrame } from '../../src/audio/limiter.js';
+import { createLimiter, capFrame, spamFamily, SPAM_BUDGET, BUDGET_BURST } from '../../src/audio/limiter.js';
 
 const def = (o = {}) => ({ bus: 'battle', priority: 1, voices: 2, gap_ms: 0, ...o });
 
@@ -63,7 +63,46 @@ describe('createLimiter', () => {
       for (const s of frame) if (L.admit(s.id, def({ gap_ms: 45, voices: 3, priority: 0 }), t, 0.1).ok) played++;
     }
     expect(played).toBeGreaterThan(10);
-    expect(played).toBeLessThan(80);
+    expect(played).toBeLessThanOrEqual(SPAM_BUDGET.attack + SPAM_BUDGET.hit + 2 * BUDGET_BURST);
+  });
+  test('spam budget: a family plays a burst, then SPAM_BUDGET per real second, at any game speed', () => {
+    for (const speed of [1, 3]) {
+      const L = createLimiter();
+      L.setSpeed(speed);
+      let n = 0;
+      // 300 hits of 50 different kinds offered over 2 s (distinct ids, so per-sound gaps never block)
+      for (let i = 0; i < 300; i++) if (L.admit(`hit.k${i % 50}`, def({ voices: 99, priority: 0 }), i / 150, 0.01).ok) n++;
+      expect(n).toBeGreaterThanOrEqual(2 * SPAM_BUDGET.hit);
+      expect(n).toBeLessThanOrEqual(2 * SPAM_BUDGET.hit + BUDGET_BURST + 1);
+    }
+  });
+  test('budgets are per family and leave UI, player actions and flow alone', () => {
+    expect(['fire.arrow', 'atk.beam', 'hit.crit', 'en.death', 'en.deathBig', 'st.burn', 'boom.big'].map(spamFamily))
+      .toEqual(['attack', 'attack', 'hit', 'death', 'death', 'status', 'boom']);
+    for (const id of ['ui.click', 'bt.place', 'bt.leak', 'en.bossDeath', 'en.bossPhase', 'hero.ult', 'gacha.flipSSR']) expect(spamFamily(id)).toBe(null);
+    const L = createLimiter({ cap: 99 });
+    let hits = 0;
+    let fires = 0;
+    let leaks = 0;
+    for (let i = 0; i < 60; i++) {
+      const t = i / 60;
+      if (L.admit(`hit.k${i}`, def({ voices: 99 }), t, 0.01).ok) hits++;
+      if (L.admit(`fire.k${i}`, def({ voices: 99 }), t, 0.01).ok) fires++;
+      if (L.admit(`bt.leak${i}`, def({ voices: 99 }), t, 0.01).ok) leaks++;
+    }
+    expect(hits).toBeLessThanOrEqual(SPAM_BUDGET.hit + BUDGET_BURST);
+    expect(fires).toBeLessThanOrEqual(SPAM_BUDGET.attack + BUDGET_BURST);
+    expect(fires).toBeGreaterThan(hits);                 // separate buckets
+    expect(leaks).toBe(60);
+  });
+  test('a refused sound spends no budget', () => {
+    const L = createLimiter({ cap: 1 });
+    const leak = L.admit('bt.leak', def({ priority: 3 }), 0, 10);
+    for (let i = 0; i < 10; i++) expect(L.admit(`hit.k${i}`, def({ priority: 0 }), 0, 0.1)).toMatchObject({ ok: false, reason: 'cap' });
+    L.release(leak.voice);
+    // voices last at least 5 ms, so 6 ms apart each one finds the single slot free again
+    for (let i = 0; i < BUDGET_BURST; i++) expect(L.admit(`hit.k${i}`, def({ priority: 0 }), 0.006 * (i + 1), 0.001).ok).toBe(true);
+    expect(L.admit('hit.more', def({ priority: 0 }), 0.006 * (BUDGET_BURST + 1), 0.001)).toMatchObject({ ok: false, reason: 'budget' });
   });
 });
 

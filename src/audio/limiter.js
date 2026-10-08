@@ -3,16 +3,43 @@
 // UI budget so battle spam never starves the menus. Time is in seconds (any monotonic clock).
 
 /** Sounds whose minimum gap stretches with game speed (they scale with the number of attacks). */
-export const SPAMMY = /^(fire|hit|atk|st|en\.death)\b/;
+export const SPAMMY = /^(fire|hit|atk|st|boom|en\.death)\b/;
 
 /**
- * @param {{ cap?: number, uiCap?: number }} [opts] cap = global (non-UI) voices; uiCap = UI voices
+ * Real-time budgets for the spammy families, in sounds per second (token bucket, burst BUDGET_BURST), whatever
+ * the game speed: a ×3 late wave is three times the events, not three times the noise. Per-sound gaps alone
+ * cannot do this (ten attack and hit kinds each at their own maximum add up to ~55 a second); with the budget a
+ * dense wave settles at ~20 attack + hit sounds a second (docs/AUDIO.md §3.8).
  */
-export function createLimiter({ cap = 28, uiCap = 6 } = {}) {
+export const SPAM_BUDGET = { attack: 12, hit: 9, death: 6, status: 3, boom: 3 };
+export const BUDGET_BURST = 3;
+
+/** Budget family of a sound id, or null for sounds that are never budgeted (UI, player actions, flow). */
+export function spamFamily(id) {
+  if (/^(fire|atk)\./.test(id)) return 'attack';
+  if (/^hit\./.test(id)) return 'hit';
+  if (/^en\.death/.test(id)) return 'death';
+  if (/^st\./.test(id)) return 'status';
+  if (/^boom\./.test(id)) return 'boom';
+  return null;
+}
+
+/**
+ * @param {{ cap?: number, uiCap?: number, budget?: Record<string, number>|null, burst?: number }} [opts]
+ *   cap = global (non-UI) voices; uiCap = UI voices; budget = sounds/s per spam family (null = off)
+ */
+export function createLimiter({ cap = 28, uiCap = 6, budget = SPAM_BUDGET, burst = BUDGET_BURST } = {}) {
   /** @type {{ id: string, bus: string, priority: number, start: number, end: number, handle?: any }[]} */
   let voices = [];
   const lastStart = new Map();
+  const buckets = new Map();          // family → { tokens, t }
   let speed = 1;
+
+  function tokens(fam, t) {
+    const b = buckets.get(fam);
+    if (!b) return burst;
+    return Math.min(burst, b.tokens + Math.max(0, t - b.t) * budget[fam]);
+  }
 
   function prune(t) {
     voices = voices.filter((v) => v.end > t);
@@ -59,6 +86,12 @@ export function createLimiter({ cap = 28, uiCap = 6 } = {}) {
           steal = lower.reduce((a, b) => (a.priority < b.priority || (a.priority === b.priority && a.start <= b.start) ? a : b));
         }
       }
+      const fam = budget ? spamFamily(id) : null;
+      if (fam && budget[fam]) {
+        const left = tokens(fam, t);
+        if (left < 1) return { ok: false, reason: 'budget' };
+        buckets.set(fam, { tokens: left - 1, t });
+      }
       if (steal) voices = voices.filter((v) => v !== steal);
       const voice = { id, bus, priority: prio, start: t, end: t + Math.max(0.005, dur) };
       voices.push(voice);
@@ -71,6 +104,7 @@ export function createLimiter({ cap = 28, uiCap = 6 } = {}) {
     reset() {
       voices = [];
       lastStart.clear();
+      buckets.clear();
     },
   };
 }

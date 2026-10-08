@@ -11,6 +11,7 @@ export const CLICK_TABLE = [
   ['.bt-card', 'bt.pick'],
   ['.btn-yellow, .btn-primary, .bt-cta, .bt-start, .bt-buy', 'ui.confirm'],
   ['.unit-card, .item-tile, .menu-tab-btn', 'ui.select'],
+  ['.lb-art, .lb-sec-art, .lb-sec-canvas', 'ui.chirp'],          // tapping the lobby secretary
   ['button, a[href], [role=button]', 'ui.click'],
 ];
 

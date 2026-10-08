@@ -2,9 +2,18 @@
 // transitions, stem fades, stingers, jingles that chain into the next track, boss takeover and ducking.
 // Every stem of a track starts with the same `when` and musical position, so stems stay sample-locked;
 // silent stems keep playing at gain 0, so bringing one in is a pure gain ramp.
-import { trackTimes, startPlan, nextGrid, stemLevels, resolveTrack } from './loopMath.js';
+import { trackTimes, startPlan, nextGrid, accentStart, stemLevels, resolveTrack } from './loopMath.js';
 
 const LOOKAHEAD = 0.05;
+const HOLD_DECIDE = 0.12;       // the boss track must be decoded this long before the warning ends, else the hold bar loops
+
+/** A timer that can be cancelled (no stray timeouts after a race is won). */
+function sleep(ms) {
+  let id;
+  const p = new Promise((r) => (id = setTimeout(() => r(false), Math.max(0, ms))));
+  p.cancel = () => clearTimeout(id);
+  return p;
+}
 
 /** JS-side model of a linear gain ramp, so a new ramp can start from the exact current value. */
 function rampTo(param, model, target, at, dur, now) {
@@ -250,8 +259,23 @@ export class MusicDirector {
     return at + tt.length;
   }
 
+  /** Context time to start a one-shot: 'accent' puts its accent (manifest `accent`, samples) on the playing loop's
+   *  next strong beat (half bar), 'beat' starts it on the next beat, 'now' right away. */
+  _oneshotTime(id, quantize) {
+    const c = this.cur;
+    const now = this.ctx.currentTime;
+    if (!c || c.stopping || c.tt.kind !== 'loop' || quantize === 'now') return now + LOOKAHEAD;
+    if (quantize === 'accent') {
+      const acc = (this.manifest.tracks[id]?.accent || 0) / (this.manifest.rate || 32000);
+      return c.t0 + accentStart(now - c.t0, c.tt, acc, 'half', LOOKAHEAD);
+    }
+    return this.gridTime(c, quantize === 'bar' ? 'bar' : 'beat');
+  }
+
   /**
    * One-shot on the music bus over the playing track (wave/miniboss stings, fanfares).
+   * @param {{ quantize?: 'now'|'beat'|'bar'|'accent' }} [o] 'accent': in time with the playing loop, the sting's
+   *   accent (its stab / crash) on the next strong beat
    * @returns {Promise<number|null>} context time when it ends
    */
   async stinger(reqId, { duck = -4, quantize = 'now', at = null, maxLate = null } = {}) {
@@ -272,7 +296,7 @@ export class MusicDirector {
       this._note(`stinger ${reqId}→${id} skipped: ready ${(this.ctx.currentTime - asked).toFixed(2)} s late`);
       return null;
     }
-    const when = at != null ? Math.max(at, this.ctx.currentTime + 0.02) : this.gridTime(this.cur, quantize === 'beat' && this.cur ? 'beat' : 'now');
+    const when = at != null ? Math.max(at, this.ctx.currentTime + 0.02) : this._oneshotTime(id, quantize);
     const end = this._oneshot(id, bufs, when, this.e.buses.stingers);
     if (duck) {
       const tag = `stinger${++this.stingerSeq}`;
@@ -329,17 +353,37 @@ export class MusicDirector {
     return end;
   }
 
-  /** Boss takeover: music stops (0.35 s), the warning sting plays, the boss track starts at its end. */
+  /**
+   * Boss takeover: music stops (0.35 s), the warning sting plays, the boss track starts at its end. When the
+   * boss track is still decoding by then, the warning's hold bar (manifest `hold`, a short loop) plays on
+   * from the warning's end and the boss track takes over at the hold's next bar line.
+   */
   async bossTakeover(trackId, warning = 'boss_warning') {
+    const stems = { base: 1, intensity: 0 };
     if (!this.enabled || !this.ready()) {
-      this.wanted = { id: trackId, opts: { stems: { base: 1, intensity: 0 } } };
+      this.wanted = { id: trackId, opts: { stems } };
       return;
     }
     const id = this.resolve(trackId);
-    if (id) this.loader.preload(this.manifest, id, { decode: true });
+    const ready = id ? this.loader.loadTrack(this.manifest, id).then(() => true, () => false) : Promise.resolve(false);
     this.stop({ fade: 0.35 });
     const end = await this.stinger(warning, { duck: 0, at: this.ctx.currentTime + 0.35 });
-    await this.play(trackId, { transition: 'cut', at: end ?? this.ctx.currentTime + 0.4, stems: { base: 1, intensity: 0 } });
+    const wid = this.resolve(warning);
+    const holdId = end != null && wid ? this.resolve(this.manifest.tracks[wid]?.hold) : null;
+    if (holdId) {
+      const t = sleep((end - HOLD_DECIDE - this.ctx.currentTime) * 1000);
+      const inTime = await Promise.race([ready, t]);
+      t.cancel();
+      if (!inTime) {
+        this._note(`boss ${trackId} not decoded by the warning's end: hold bar`);
+        await this.play(holdId, { transition: 'cut', at: end, fade: 0 });
+        const ok = await ready;
+        if (!ok || this.cur?.id !== holdId || !this.enabled) return;
+        await this.play(trackId, { transition: 'bar', fade: 0.05, stems });
+        return;
+      }
+    }
+    await this.play(trackId, { transition: 'cut', at: end ?? this.ctx.currentTime + 0.4, stems });
   }
 
   /** Fade the current track out and cancel pending loads (the last request is kept for re-enabling). */

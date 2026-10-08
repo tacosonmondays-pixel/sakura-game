@@ -19,7 +19,7 @@ const HIT = { pierce: 'hit.pierce', slash: 'hit.slash', mystic: 'hit.mystic', ho
 const STATUS = {
   freeze: ['st.freeze', 1], burn: ['st.burn', 1], poison: ['st.poison', 1], shock: ['st.shock', 1], stun: ['st.shock', 0.9],
   slow: ['st.debuff', 0.9], reveal: ['st.debuff', 1.2], silence: ['st.debuff', 0.8], mark: ['st.debuff', 1.1],
-  shred: ['st.debuff', 1.0], soak: ['st.debuff', 0.85],
+  vulnerable: ['st.debuff', 1.15], shred: ['st.debuff', 1.0], soak: ['st.debuff', 0.85],
 };
 
 /**

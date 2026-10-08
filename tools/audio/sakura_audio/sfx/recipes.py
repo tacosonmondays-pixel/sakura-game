@@ -3,7 +3,7 @@ harsh. Deterministic (every recipe gets its own seeded RNG through `r`).
 
     @sfx('ui.confirm', level=-29, voices=2, gap_ms=40, priority=2)
     def ui_confirm(r):
-        return echo(seq([(0, blip('c6', .045)), (.042, chime('g6', .2))]), 96, .25, .2, tail=.2)
+        return echo(seq([(0, blip('c6', .045)), (.042, chime('g6', .13))]), 80, .2, .18, tail=.08)
 
 House rules (what "clean" means here):
 - Phone speakers first: the body of every sound sits between ~200 Hz and 6 kHz. Thumps carry their 2nd harmonic
@@ -51,14 +51,15 @@ def _f(note):
 
 
 def blip(note, dur, duty=0.25, tau=None, amp=0.5, lp=6500, attack=0.0015):
-    """NES pulse blip (band-limited, then low-passed so it chirps instead of fizzing)."""
-    x = shape(pulse(_f(note), dur, duty, amp), env_exp(dur, tau or dur * 0.45, attack))
+    """NES pulse blip (band-limited, then low-passed so it chirps instead of fizzing; a 3 ms release so it never
+    stops on a step)."""
+    x = fade(shape(pulse(_f(note), dur, duty, amp), env_exp(dur, tau or dur * 0.45, attack)), 0, min(0.003, dur * 0.25))
     return lowpass(x, lp, 4) if lp else x
 
 
 def tblip(note, dur, tau=None, amp=0.6):
     """NES triangle blip: the soft, round chip voice."""
-    return shape(tri(_f(note), dur, amp), env_exp(dur, tau or dur * 0.4, 0.0015))
+    return fade(shape(tri(_f(note), dur, amp), env_exp(dur, tau or dur * 0.4, 0.0015)), 0, min(0.003, dur * 0.25))
 
 
 def chime(note, dur=0.3, amp=0.4, index=1.0, ratio=2.0, decay=None):
@@ -161,9 +162,9 @@ def ui_select(r):
 @sfx('ui.confirm', level=-29, voices=2, gap_ms=40, priority=2)
 def ui_confirm(r):
     """The 'ding': chip pickup into a bell, a breath of SNES echo."""
-    dry = seq([(0, blip('c6', 0.045, 0.25, 0.018, 0.4)), (0.042, blip('g6', 0.09, 0.25, 0.03, 0.3)),
-               (0.042, chime('g6', 0.2, 0.35, 0.8))])
-    return fade(echo(dry, 96, 0.25, 0.2, tail=0.2), fout=0.06)
+    dry = seq([(0, blip('c6', 0.045, 0.25, 0.018, 0.4)), (0.042, blip('g6', 0.08, 0.25, 0.03, 0.3)),
+               (0.042, chime('g6', 0.13, 0.35, 0.8))])
+    return fade(echo(dry, 80, 0.2, 0.18, tail=0.08), fout=0.05)        # ≈ 0.26 s: a chirp, not a chime
 
 
 @sfx('ui.back', level=-31, voices=2, gap_ms=40, priority=2)
@@ -431,12 +432,12 @@ def atk_slash(r):
     return seq([(0, swish(0.12, 700, 3200, r, 0.6, 1.8)), (0.04, fmx(2093, 0.06, 1.41, 0.6, 0.02, 0.08))])
 
 
-@sfx('atk.pulse', bus='battle', level=-33, voices=2, gap_ms=120, jitter=0.02, priority=0)
+@sfx('atk.pulse', bus='battle', level=-33, voices=2, gap_ms=200, jitter=0.02, priority=0)
 def atk_pulse(r):
-    """'Whum' ring: two beating sines and a fifth, swelling in."""
-    x = sine(220, 0.3, 0.5) + sine(223.5, 0.3, 0.4) + sine(330, 0.3, 0.15) + sine(440, 0.3, 0.08)
-    x = lowpass(x * env_rc(0.3, 0.02, 0.01) * env_exp(0.3, 0.1, 0.0), 2000)
-    return fade(echo(x, 80, 0.25, 0.2, tail=0.15), fout=0.05)
+    """'Whum' ring: two beating sines and a fifth, swelling in (short tail: pulse towers fire all wave long)."""
+    x = sine(220, 0.26, 0.5) + sine(223.5, 0.26, 0.4) + sine(330, 0.26, 0.15) + sine(440, 0.26, 0.1)
+    x = lowpass(x * env_rc(0.26, 0.02, 0.01) * env_exp(0.26, 0.08, 0.0), 2000)
+    return fade(echo(x, 80, 0.2, 0.18, tail=0.08), fout=0.05)
 
 
 @sfx('atk.beam', bus='battle', level=-33, voices=2, gap_ms=90, priority=0)
@@ -501,7 +502,7 @@ def hit_holy(r):
     return chime('d7', 0.08, 0.45, 0.7)
 
 
-@sfx('hit.crit', bus='battle', level=-30, voices=2, gap_ms=60, jitter=0.03, priority=1)
+@sfx('hit.crit', bus='battle', level=-30, voices=2, gap_ms=100, jitter=0.03, priority=1)
 def hit_crit(r):
     """'Kirin!': a rising chip zip into a high bell."""
     zip_ = blip(glide(1500, 3500, 0.035, 0.012), 0.035, 0.25, 0.02, 0.3, lp=6000)
@@ -514,19 +515,20 @@ def hit_resist(r):
     return seq([(0, lowpass(shape(tri(240, 0.06, 0.7), env_exp(0.06, 0.022)), 900)), (0, tok(420, 0.03, 0.35))])
 
 
-@sfx('boom.small', bus='battle', level=-31, voices=2, gap_ms=60, jitter=0.06, priority=1)
+@sfx('boom.small', bus='battle', level=-31, voices=2, gap_ms=80, jitter=0.06, priority=1)
 def boom_small(r):
     """Pop explosion."""
     pop = shape(sine(glide(700, 260, 0.03, 0.008), 0.03, 0.4), env_exp(0.03, 0.01, 0.0005))
     return seq([(0, puff(0.28, r, 2800, 400, 0.7)), (0, thump(250, 150, 0.12, 0.6)), (0, pop)])
 
 
-@sfx('boom.big', bus='battle', level=-28, voices=2, gap_ms=100, jitter=0.04, priority=2)
+@sfx('boom.big', bus='battle', level=-29, voices=2, gap_ms=220, jitter=0.04, priority=1)
 def boom_big(r):
-    """Boom + low thump + rubble + echo."""
-    rubble = crackle(0.35, r, 40, 0.3, 300, 2000)
-    dry = seq([(0, puff(0.55, r, 3000, 300, 0.8, 0.6)), (0, thump(210, 120, 0.3, 0.9)), (0.05, rubble)])
-    return fade(echo(dry, 128, 0.28, 0.2, tail=0.3), fout=0.12)
+    """Boom + low thump + rubble + a short echo. Mortars and big splashes repeat several times a second in a late
+    wave (it was half of a dense wave's SFX energy), so the tail stays short and the 100 Hz spam high-pass applies."""
+    rubble = crackle(0.3, r, 40, 0.3, 300, 2000)
+    dry = seq([(0, puff(0.45, r, 3000, 350, 0.8, 0.6)), (0, thump(220, 125, 0.24, 0.9)), (0.05, rubble)])
+    return fade(echo(dry, 112, 0.22, 0.18, tail=0.18), fout=0.1)
 
 
 @sfx('boom.volatile', bus='battle', level=-29, voices=1, gap_ms=100, priority=2)
@@ -551,34 +553,34 @@ def break_crystal(r):
     return seq([(0, tok(2000, 0.02, 0.5))] + cl)
 
 
-@sfx('st.freeze', bus='battle', level=-31, voices=1, gap_ms=120, priority=1)
+@sfx('st.freeze', bus='battle', level=-31, voices=1, gap_ms=200, priority=1)
 def st_freeze(r):
     """Icy crackle + a high glassy bell."""
     return seq([(0, crackle(0.2, r, 60, 0.35, 2000, 5500)), (0.03, chime('c8', 0.2, 0.25, 0.6)),
                 (0.03, shape(sine(glide(3000, 2200, 0.1, 0.03), 0.1, 0.12), env_exp(0.1, 0.04)))])
 
 
-@sfx('st.burn', bus='battle', level=-31, voices=1, gap_ms=120, priority=1)
+@sfx('st.burn', bus='battle', level=-31, voices=1, gap_ms=200, priority=1)
 def st_burn(r):
     """Whoosh + crackle."""
     return seq([(0, swish(0.2, 300, 2000, r, 0.55, 1.0)), (0.04, crackle(0.18, r, 50, 0.35, 1000, 4000))])
 
 
-@sfx('st.poison', bus='battle', level=-32, voices=1, gap_ms=150, priority=0)
+@sfx('st.poison', bus='battle', level=-32, voices=1, gap_ms=220, priority=0)
 def st_poison(r):
     """Little bubbles."""
     return seq([(t, fade(shape(sine(glide(f, f * 2.2, 0.045, 0.02), 0.045, 0.4), env_exp(0.045, 0.02)), 0.002, 0.008)) for t, f in
                 zip(np.sort(r.rng.uniform(0, 0.24, 5)), r.rng.uniform(300, 600, 5))])
 
 
-@sfx('st.shock', bus='battle', level=-32, voices=1, gap_ms=120, priority=1)
+@sfx('st.shock', bus='battle', level=-32, voices=1, gap_ms=200, priority=1)
 def st_shock(r):
     """Buzz zap: a thin pulse chopped by metallic noise, kept inside 300 Hz - 3.5 kHz."""
     x = pulse(147, 0.16, 0.25, 0.4) * (0.6 + 0.4 * noise(0.16, 4, True, 1.0))
     return seq([(0, bandpass(shape(x, env_nes(0.16, 8)), 300, 3500)), (0, blip(1800, 0.02, 0.25, 0.006, 0.2, lp=5000))])
 
 
-@sfx('st.debuff', bus='battle', level=-32, voices=1, gap_ms=120, priority=0)
+@sfx('st.debuff', bus='battle', level=-32, voices=1, gap_ms=220, priority=0)
 def st_debuff(r):
     """Soft descending 'wah' (rate per status: slow, reveal, silence, mark, shred, soak)."""
     x = pulse(glide(620, 300, 0.2, 0.08), 0.2, 0.25, 0.45)

@@ -112,6 +112,45 @@ def crush(x: np.ndarray, bits=0, mix=0.0, hold=1) -> np.ndarray:
     return (1 - mix) * x + mix * y
 
 
+def brr_crush(x: np.ndarray, bits=4, block=16, mix=0.12) -> np.ndarray:
+    """SNES BRR-style grit: block-adaptive quantisation, blended in parallel.
+
+    The S-DSP stored samples as BRR: blocks of 16 samples, each a 4-bit nibble times a power-of-two 'range'
+    chosen per block. Here every block of `block` samples (per channel) gets the smallest power-of-two step that
+    fits its peak into a signed `bits`-bit nibble, and is rounded to that step. The error therefore follows the
+    signal (grain on loud notes, nothing on silence), like real BRR samples. `mix` blends it in parallel:
+    the added noise is `mix` x the quantisation error (about 30 dB under the block peak for 4 bits).
+    Blocks are aligned to sample 0, so a loop period that is a multiple of `block` keeps cycles identical."""
+    if not mix or not bits:
+        return x
+    n = len(x)
+    nb = -(-n // block)
+    pad = nb * block - n
+    xp = np.concatenate([x, np.zeros((pad, x.shape[1]))]) if pad else x
+    b = xp.reshape(nb, block, x.shape[1])
+    peak = np.abs(b).max(axis=1, keepdims=True)
+    hi = 2 ** (bits - 1) - 1
+    with np.errstate(divide='ignore'):
+        shift = np.ceil(np.log2(np.maximum(peak, 1e-12) / hi))
+    step = 2.0 ** shift
+    q = np.clip(np.round(b / step), -hi - 1, hi) * step
+    q = np.where(peak > 1e-9, q, b).reshape(-1, x.shape[1])[:n]
+    return x + mix * (q - x)
+
+
+def voice_fx(x: np.ndarray, rate: int, cfg: dict | None) -> np.ndarray:
+    """Per-voice-group treatment before the echo (palette mix.voices[<sf key> | 'kit']): an extra lowpass
+    (SNES sample playback was band-limited: Gaussian interpolation + low sample rates) and BRR grit."""
+    if not cfg:
+        return x
+    if cfg.get('lowpass_hz'):
+        x = lowpass(x, rate, cfg['lowpass_hz'])
+    br = cfg.get('brr') or {}
+    if br.get('mix'):
+        x = brr_crush(x, br.get('bits', 4), br.get('block', 16), br['mix'])
+    return x
+
+
 def write_wav(path: Path, x: np.ndarray, rate: int):
     path.parent.mkdir(parents=True, exist_ok=True)
     wavfile.write(str(path), rate, np.asarray(x, dtype=np.float32))

@@ -120,7 +120,7 @@ export function initAudio({ store, base } = {}) {
       case 'stems':
         return music.setStems(act.levels, { quantize: act.quantize, fadeBars: act.fadeBars });
       case 'stinger':
-        return music.stinger(act.id, { duck: act.duck, quantize: 'now', maxLate: act.maxLate ?? 0.75 });
+        return music.stinger(act.id, { duck: act.duck, quantize: act.quantize || 'accent', maxLate: act.maxLate ?? 0.75 });
       case 'boss':
         return music.bossTakeover(act.track);
       case 'jingle':

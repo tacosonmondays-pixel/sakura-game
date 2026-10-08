@@ -75,7 +75,7 @@ def _part_events(tp, preset, ch, render_end_tick, tempo: Tempo):
         ev.append((0, 0, mido.Message('control_change', channel=ch, control=32, value=0)))
     ev.append((0, 1, mido.Message('program_change', channel=ch, program=int(preset['program']))))
     pan = tp.pan if tp.pan is not None else preset.get('pan', 0.0)
-    ev.append((0, 2, mido.Message('control_change', channel=ch, control=7, value=cc7_for(preset.get('gain_db', 0.0)))))
+    ev.append((0, 2, mido.Message('control_change', channel=ch, control=7, value=cc7_for(preset.get('gain_db', 0.0) + float(getattr(tp, 'gain', 0.0) or 0.0)))))
     ev.append((0, 2, mido.Message('control_change', channel=ch, control=10, value=max(0, min(127, int(round(64 + pan * 63)))))))
     ev.append((0, 2, mido.Message('control_change', channel=ch, control=11, value=127)))
     for c in (91, 93):   # no FluidSynth reverb/chorus sends: all space comes from our echo

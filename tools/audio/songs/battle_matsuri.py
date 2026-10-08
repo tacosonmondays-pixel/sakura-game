@@ -6,8 +6,9 @@ Stems: base (build phase) + intensity (wave active).
     A      8 bars  the matsuri hook (minor pentatonic): a dotted skip G-F-G up to C, a breath, B♭-G
                    (♪. ♬ ♪ ♪ 𝄾 ♪ ♩), call and response with taiko "don-don" in the gaps
     A2     8 bars  the hook with the fue an octave up, climbing through Fm to B♭7 …
-    B      8 bars  … the E♭ major chorus: BELL rings out triumphant (B♭–E♭–C–D, answered E♭), brass + choir
-                   in the intensity stem
+    B      8 bars  … the E♭ major chorus: BELL rings out broad and triumphant in long notes (B♭ E♭ C2 | D2. → E♭),
+                   then the festival skip climbs (♪. ♬ ♪ ♪~) to G and lands on E♭; brass + choir in the intensity stem
+                   (round 2: the old chorus opened like Moonlit's, BELL + answer in the same ♪ ♪ ♩ ♩. rhythm)
     C      8 bars  taiko break: the shamisen plays BELL in C minor (G–C–A♭–B), the fue answers it with C;
                    string runs and double taiko build
     B2     8 bars  the chorus again with a second chip voice a third below (and the fue an octave up),
@@ -49,25 +50,25 @@ A2_END = [
     'g5/4 ab5/8 g5/8 f5/4 d5/4',                     # 8 B♭7  → E♭
 ]
 CHORUS = [
-    'bb5/8 eb6/8 c6/4 d6/4. eb6/8~',                 # 1 E♭maj7  BELL, answered by the tied E♭
-    'eb6/2 g6/8 f6/8 eb6/8 c6/8',                    # 2 Cm7
-    'ab5/8 c6/8 eb6/4 g6/4. f6/8',                   # 3 A♭maj7
-    'eb6/4 f6/8 eb6/8 d6/4 bb5/4',                   # 4 B♭7sus4 B♭7
-    'bb5/8 d6/8 g6/4 f6/4. d6/8',                    # 5 Gm7
-    'eb6/2 g6/8 f6/8 eb6/8 c6/8',                    # 6 Cm7
-    'ab6/4. g6/8 f6/8 d6/8 bb5/8 ab5/8',             # 7 Fm7 B♭7
-    'g6/4 eb6/4 bb5/4 g5/4',                         # 8 E♭maj7
+    'bb5/4 eb6/4 c6/2',                              # 1 E♭maj7  BELL in long notes …
+    'd6/2. eb6/8. f6/16',                            # 2 Cm7     … held on D, answered E♭ with the festival skip
+    'g6/4. f6/8 eb6/8. f6/16 g6/8 c6/8',             # 3 A♭maj7
+    'eb6/4 d6/8. c6/16 bb5/2',                       # 4 B♭7sus4 B♭7
+    'bb5/8. c6/16 d6/8 f6/8~ f6/4 d6/8 bb5/8',       # 5 Gm7     the skip climbs …
+    'eb6/8. d6/16 eb6/8 g6/8~ g6/2',                 # 6 Cm7     … to G
+    'ab6/4 g6/8 f6/8 d6/4 f6/4',                     # 7 Fm7 B♭7
+    'eb6/2. r/4',                                    # 8 E♭maj7  home
 ]
-CHORUS2 = CHORUS[:7] + ['g6/4 eb6/8 d6/8 b5/4 g5/4']  # 8 E♭maj7 G7 → C minor
+CHORUS2 = CHORUS[:7] + ['eb6/2 d6/4 b5/4']           # 8 E♭maj7 G7 → C minor
 HARM_B2 = [   # second chip voice a third under the chorus reprise (the NES two-square sound)
-    'g5/8 c6/8 g5/4 bb5/4. c6/8~',
-    'c6/2 eb6/8 d6/8 c6/8 g5/8',
-    'f5/8 ab5/8 c6/4 eb6/4. d6/8',
-    'c6/4 d6/8 c6/8 bb5/4 f5/4',
-    'g5/8 bb5/8 d6/4 d6/4. bb5/8',
-    'c6/2 eb6/8 d6/8 c6/8 g5/8',
-    'f6/4. eb6/8 d6/8 bb5/8 f5/8 f5/8',
-    'eb6/4 bb5/8 b5/8 g5/4 d5/4',
+    'g5/4 bb5/4 g5/2',
+    'bb5/2. c6/8. d6/16',
+    'eb6/4. c6/8 c6/8. d6/16 eb6/8 ab5/8',
+    'c6/4 bb5/8. ab5/16 f5/2',
+    'g5/8. a5/16 bb5/8 d6/8~ d6/4 bb5/8 g5/8',
+    'c6/8. bb5/16 c6/8 eb6/8~ eb6/2',
+    'f6/4 eb6/8 c6/8 bb5/4 d6/4',
+    'g5/2 b5/4 g5/4',
 ]
 FUE_ANSWER = 'c6/4~ c6/8 bb5/16 c6/16 eb6/8 c6/8 bb5/8 g5/8'
 RUN_UP = 'r/2 bb4/16 c5/16 d5/16 eb5/16 f5/16 g5/16 ab5/16 bb5/16'
@@ -92,7 +93,7 @@ def build() -> Song:
     s.section('B2', 8, CH_B2)
 
     # ================================================================ base
-    s.part('lead', 'chip_pulse25', 'base', vel=8) \
+    s.part('lead', 'chip_pulse25', 'base', vel=8, gain=3.5) \
         .at('intro', 2, 'r/2 g5/8 f5/8 eb5/8 f5/8') \
         .notes('A', bars(*HOOK, *A_END)).notes('A2', bars(*HOOK, *A2_END)) \
         .notes('B', bars(*CHORUS), motifs={1: BELL}).notes('B2', bars(*CHORUS2), motifs={1: BELL})
@@ -100,14 +101,15 @@ def build() -> Song:
         .at('intro', 1, 'c6/4 r/8 bb5/16 c6/16 eb6/8 c6/8 r/4') \
         .at('C', 2, FUE_ANSWER).at('C', 6, FUE_ANSWER) \
         .at('C', 4, 'r/2 b5/8 c6/8 d6/8 f6/8').at('C', 8, 'r/2 d6/8 b5/8 g5/8 f5/8')
-    s.part('fue_hi', 'flute', 'base', octave=1, vel=-14).double('lead', ['A2', 'B2'])
+    s.part('fue_hi', 'flute', 'base', octave=1, vel=-12, gain=-4).double('lead', ['A', 'A2'])          # the hook doubled in A too
+    s.part('fue_ch', 'flute', 'base', vel=-16, gain=-3).double('lead', 'B2')
     s.part('harm', 'chip_pulse12', 'base', vel=-6).notes('B2', bars(*HARM_B2))
     s.part('shamisen', 'shamisen', 'base', vel=4) \
         .at('C', 1, BELL.question('Cm', 5) + ' r/8', motif=BELL).at('C', 5, BELL.question('Cm', 5) + ' r/8', motif=BELL) \
         .at('C', 3, "c5/8' c5/8' f5/8' ab5/8' c6/8' ab5/8' f5/8' c5/8'").at('C', 7, "eb5/8' eb5/8' ab5/8' c6/8' eb6/8' c6/8' gb5/8' eb5/8'")
-    s.part('sham_comp', 'shamisen', 'base', vel=-16).gen(['A', 'A2', 'B', 'B2'], 'comp:offbeat', voicing='triad', low=57, high=72)
-    s.part('koto', 'koto', 'base', vel=-12).gen(['B', 'B2'], 'arp:up16', voicing='triad', low=67, high=86)
-    s.part('bass', 'finger_bass', 'base', vel=6) \
+    s.part('sham_comp', 'shamisen', 'base', vel=-16, gain=4).gen(['A', 'A2', 'B', 'B2'], 'comp:offbeat', voicing='triad', low=57, high=72)
+    s.part('koto', 'koto', 'base', vel=-12, gain=5).gen(['B', 'B2'], 'arp:up16', voicing='triad', low=67, high=86)
+    s.part('bass', 'finger_bass', 'base', vel=6, gain=-2) \
         .notes('intro', "c2/8 c3/8 r/8 c2/8 g2/8 c3/8 bb2/8 b2/8 | g2/8 g3/8 r/8 g2/8 d3/8 g3/8 f3/8 b2/8") \
         .notes('A', walk(CH_A, SKIP, SKIP_H, low=36, nxt='Cm')) \
         .notes('A2', walk(CH_A2, SKIP, SKIP_H, low=36, nxt='Ebmaj7')) \
@@ -123,7 +125,7 @@ def build() -> Song:
         .pattern('C', 'k/4 cv/8 cv/8 k/8 cv/8 cv/8 cv/8 |', fills={1: 'k+c/4 cv/8 cv/8 k/8 cv/8 cv/8 cv/8 |'})
 
     # ================================================================ intensity
-    s.part('taiko2', 'taiko', 'intensity', vel=8) \
+    s.part('taiko2', 'taiko', 'intensity', vel=8, gain=-2.5) \
         .pattern(['A', 'A2', 'B', 'B2', 'C'], 'c3/4 r/8 c3/8 r/8 c3/8 c3/4 |')
     s.part('timp', 'timpani', 'intensity', vel=12) \
         .pattern(['A', 'A2'], 'c2/4 r/2. |', fills={4: 'bb1/4 r/2 bb1/8 bb1/8 |', 8: 'g1/4 r/2 g1/8 g1/8 |'}) \

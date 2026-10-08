@@ -10,8 +10,10 @@ BELL = Motif('BELL', major=(-5, 0, -3, -1), minor=(-5, 0, -4, -1), rhythm=('8', 
              answer_major=(0,), answer_minor=(0,), answer_rhythm=('2',),
              modes={'phrygian': ((-5, 0, -4, -2), (0,))})
 
-# SENTINEL CALL: +5, +5, −1, +1 brass call to action (dotted-8th, 16th, quarter, 8th, dotted quarter).
-SENTINEL = Motif('SENTINEL', major=(-5, 0, 5, 4, 5), minor=(-5, 0, 5, 3, 5), rhythm=('8.', '16', '4', '8', '4.'))
+# SENTINEL CALL: +5, +5, +2, −2 brass call to action (dotted-8th, 16th, quarter, 8th, dotted quarter): two rising
+# fourths, a flick up a tone and back onto the held sus4. (Round 2: the third interval was −1 — two stacked fourths
+# then a semitone dip is the gesture of a famous TV fanfare, so the flick now goes up.)
+SENTINEL = Motif('SENTINEL', major=(-5, 0, 5, 7, 5), minor=(-5, 0, 5, 7, 5), rhythm=('8.', '16', '4', '8', '4.'))
 
 # SHADOW (the monsters): +1, −1, +6, −3 — chromatic neighbour, then the tritone.
 SHADOW = Motif('SHADOW', major=(0, 1, 0, 6, 3), minor=(0, 1, 0, 6, 3), rhythm=('16', '16', '8', '4', '4.'))

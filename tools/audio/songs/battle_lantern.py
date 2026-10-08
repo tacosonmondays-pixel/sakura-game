@@ -77,16 +77,16 @@ def build() -> Song:
     s.section('C', 4, CH_C)
 
     # ================================================================ base
-    s.part('koto', 'koto', 'base', vel=16) \
+    s.part('koto', 'koto', 'base', vel=16, gain=2.5) \
         .notes('A', bars(*TIPTOE, *A_END)).notes('B', bars(*B_KOTO), motifs={1: BELL, 3: BELL}) \
         .notes('A2', bars(*TIPTOE, *A2_END))
     s.part('box', 'music_box', 'base', vel=-4) \
         .at('B', 2, GHOST, motif=BELL).at('B', 4, "b5/8* f5/8* a5/4* b5/4.* r/8") \
         .notes('C', bars(GHOST, 'r/1', BELL.question('E phrygian', 6) + ' r/8', 'r/1'))
     s.part('frog', 'chip_pluck', 'base', vel=-10).at(['A', 'A2'], 2, RIBBIT).at(['A', 'A2'], 4, RIBBIT)
-    s.part('shamisen', 'shamisen', 'base', vel=-14).gen(['A', 'B', 'A2'], 'comp:offbeat', voicing='triad', low=57, high=72)
+    s.part('shamisen', 'shamisen', 'base', vel=-14, gain=4).gen(['A', 'B', 'A2'], 'comp:offbeat', voicing='triad', low=57, high=72)
     s.part('choir', 'choir_ooh', 'base').gen(['intro', 'A', 'B', 'A2', 'C'], 'pad:sustain', voicing='triad', low=52, high=67, vel=50)
-    s.part('bass', 'upright_bass', 'base', vel=12) \
+    s.part('bass', 'upright_bass', 'base', vel=12, gain=-3) \
         .notes('intro', "e2/8' r/8 b2/8' r/8 e2/8' r/8 b2/8' r/8 | f2/8' r/8 c3/8' r/8 f2/8' r/8 e2/8' d#2/8'") \
         .notes('A', walk(CH_A, TIPTOE_BASS, HALF_BASS, low=40, nxt='Am7')) \
         .notes('B', walk(CH_B, TIPTOE_BASS, HALF_BASS, low=40, nxt='Em')) \

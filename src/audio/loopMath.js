@@ -73,12 +73,30 @@ export function startPlan(m, tt) {
   return [{ at: 0, offset: filePos(m, tt), loop }];
 }
 
-/** Musical time of the next beat/bar boundary at or after m + minAhead. */
+/** Grid step in seconds: 'beat', 'half' (half a bar in even meters, else the bar) or 'bar'. */
+export function gridStep(tt, unit = 'bar') {
+  if (unit === 'beat') return tt.beat;
+  if (unit === 'half') {
+    const beats = Math.round(tt.bar / tt.beat);
+    return beats % 2 === 0 ? tt.bar / 2 : tt.bar;
+  }
+  return tt.bar;
+}
+
+/** Musical time of the next beat/half-bar/bar boundary at or after m + minAhead. */
 export function nextGrid(m, tt, unit = 'bar', minAhead = 0.05) {
-  const step = unit === 'beat' ? tt.beat : tt.bar;
+  const step = gridStep(tt, unit);
   if (!(step > 0)) return m + minAhead;
   const target = m + minAhead;
   return Math.ceil(target / step - 1e-9) * step;
+}
+
+/**
+ * Where to start a one-shot so that its accent (seconds into the file) lands on the next strong beat
+ * ('half' bar by default) of the playing loop: → musical start time (m of the loop), ≥ m + minAhead.
+ */
+export function accentStart(m, tt, accent = 0, unit = 'half', minAhead = 0.05) {
+  return nextGrid(m + accent, tt, unit, minAhead) - accent;
 }
 
 /** Bars → seconds for a track. */

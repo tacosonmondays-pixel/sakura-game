@@ -6,7 +6,7 @@
   "opus": "sfx.webm",
   "aac": "sfx.m4a"
  },
- "length": 1282105,
+ "length": 1272874,
  "sounds": {
   "atk.beam": {
    "start": 2400,
@@ -21,8 +21,8 @@
   },
   "atk.chain": {
    "start": 11740,
-   "length": 1981,
-   "gain_db": -18.2,
+   "length": 1955,
+   "gain_db": -18.3,
    "bus": "battle",
    "voices": 2,
    "gap_ms": 90,
@@ -31,19 +31,19 @@
    "level": -33
   },
   "atk.pulse": {
-   "start": 16121,
-   "length": 13575,
-   "gain_db": -14.4,
+   "start": 16095,
+   "length": 10366,
+   "gain_db": -14.7,
    "bus": "battle",
    "voices": 2,
-   "gap_ms": 120,
+   "gap_ms": 200,
    "jitter": 0.02,
    "priority": 0,
    "level": -33
   },
   "atk.slash": {
-   "start": 32096,
-   "length": 3774,
+   "start": 28861,
+   "length": 3765,
    "gain_db": -18.8,
    "bus": "battle",
    "voices": 2,
@@ -53,29 +53,29 @@
    "level": -33
   },
   "boom.big": {
-   "start": 38270,
-   "length": 21535,
-   "gain_db": -10.0,
+   "start": 35026,
+   "length": 17073,
+   "gain_db": -8.7,
    "bus": "battle",
    "voices": 2,
-   "gap_ms": 100,
+   "gap_ms": 220,
    "jitter": 0.04,
-   "priority": 2,
-   "level": -28
+   "priority": 1,
+   "level": -29
   },
   "boom.small": {
-   "start": 62205,
-   "length": 8959,
-   "gain_db": -10.3,
+   "start": 54499,
+   "length": 8917,
+   "gain_db": -10.4,
    "bus": "battle",
    "voices": 2,
-   "gap_ms": 60,
+   "gap_ms": 80,
    "jitter": 0.06,
    "priority": 1,
    "level": -31
   },
   "boom.volatile": {
-   "start": 73564,
+   "start": 65816,
    "length": 8714,
    "gain_db": -7.6,
    "bus": "battle",
@@ -86,8 +86,8 @@
    "level": -29
   },
   "break.barrier": {
-   "start": 84678,
-   "length": 9957,
+   "start": 76930,
+   "length": 9918,
    "gain_db": -13.6,
    "bus": "battle",
    "voices": 1,
@@ -97,8 +97,8 @@
    "level": -28
   },
   "break.crystal": {
-   "start": 97035,
-   "length": 10879,
+   "start": 89248,
+   "length": 10836,
    "gain_db": -13.3,
    "bus": "battle",
    "voices": 1,
@@ -108,7 +108,7 @@
    "level": -28
   },
   "bt.deny": {
-   "start": 110314,
+   "start": 102484,
    "length": 4160,
    "gain_db": -12.0,
    "bus": "battle",
@@ -119,9 +119,9 @@
    "level": -28
   },
   "bt.leak": {
-   "start": 116874,
-   "length": 9599,
-   "gain_db": -8.8,
+   "start": 109044,
+   "length": 9582,
+   "gain_db": -8.9,
    "bus": "battle",
    "voices": 2,
    "gap_ms": 120,
@@ -130,7 +130,7 @@
    "level": -25
   },
   "bt.leakBig": {
-   "start": 128873,
+   "start": 121026,
    "length": 13438,
    "gain_db": -4.7,
    "bus": "battle",
@@ -141,9 +141,9 @@
    "level": -23
   },
   "bt.lowLives": {
-   "start": 144711,
-   "length": 15037,
-   "gain_db": -10.2,
+   "start": 136864,
+   "length": 15014,
+   "gain_db": -10.1,
    "bus": "battle",
    "voices": 1,
    "gap_ms": 2000,
@@ -152,8 +152,8 @@
    "level": -24
   },
   "bt.pick": {
-   "start": 162148,
-   "length": 1118,
+   "start": 154278,
+   "length": 1067,
    "gain_db": -12.9,
    "bus": "battle",
    "voices": 2,
@@ -163,8 +163,8 @@
    "level": -31
   },
   "bt.place": {
-   "start": 165666,
-   "length": 8320,
+   "start": 157745,
+   "length": 8302,
    "gain_db": -8.0,
    "bus": "battle",
    "voices": 2,
@@ -174,7 +174,7 @@
    "level": -26
   },
   "bt.placeHero": {
-   "start": 176386,
+   "start": 168447,
    "length": 28331,
    "gain_db": -4.1,
    "bus": "battle",
@@ -185,8 +185,8 @@
    "level": -24
   },
   "bt.sell": {
-   "start": 207117,
-   "length": 11170,
+   "start": 199178,
+   "length": 11073,
    "gain_db": -12.1,
    "bus": "battle",
    "voices": 1,
@@ -196,7 +196,7 @@
    "level": -27
   },
   "bt.upgrade": {
-   "start": 220687,
+   "start": 212651,
    "length": 14656,
    "gain_db": -10.4,
    "bus": "battle",
@@ -207,7 +207,7 @@
    "level": -27
   },
   "bt.upgradeBig": {
-   "start": 237743,
+   "start": 229707,
    "length": 24356,
    "gain_db": -8.9,
    "bus": "battle",
@@ -218,7 +218,7 @@
    "level": -25
   },
   "bt.upgradeMax": {
-   "start": 264499,
+   "start": 256463,
    "length": 58751,
    "gain_db": -7.9,
    "bus": "battle",
@@ -229,8 +229,8 @@
    "level": -22
   },
   "bt.waveClear": {
-   "start": 325650,
-   "length": 22524,
+   "start": 317614,
+   "length": 22448,
    "gain_db": -9.5,
    "bus": "battle",
    "voices": 1,
@@ -240,7 +240,7 @@
    "level": -23
   },
   "eco.breakthrough": {
-   "start": 350574,
+   "start": 342462,
    "length": 39140,
    "gain_db": -9.3,
    "bus": "ui",
@@ -251,8 +251,8 @@
    "level": -24
   },
   "eco.claim": {
-   "start": 392114,
-   "length": 9278,
+   "start": 384002,
+   "length": 9226,
    "gain_db": -10.8,
    "bus": "ui",
    "voices": 1,
@@ -262,7 +262,7 @@
    "level": -28
   },
   "eco.coins": {
-   "start": 403792,
+   "start": 395628,
    "length": 14340,
    "gain_db": -10.8,
    "bus": "ui",
@@ -273,7 +273,7 @@
    "level": -28
   },
   "eco.gems": {
-   "start": 420532,
+   "start": 412368,
    "length": 23132,
    "gain_db": -15.7,
    "bus": "ui",
@@ -284,9 +284,9 @@
    "level": -27
   },
   "eco.item": {
-   "start": 446064,
-   "length": 23954,
-   "gain_db": -12.1,
+   "start": 437900,
+   "length": 24015,
+   "gain_db": -12.9,
    "bus": "ui",
    "voices": 1,
    "gap_ms": 150,
@@ -295,8 +295,8 @@
    "level": -26
   },
   "eco.purchase": {
-   "start": 472418,
-   "length": 15815,
+   "start": 464315,
+   "length": 15723,
    "gain_db": -10.6,
    "bus": "ui",
    "voices": 1,
@@ -306,7 +306,7 @@
    "level": -27
   },
   "eco.sweep": {
-   "start": 490633,
+   "start": 482438,
    "length": 23896,
    "gain_db": -11.3,
    "bus": "ui",
@@ -317,8 +317,8 @@
    "level": -28
   },
   "en.blink": {
-   "start": 516929,
-   "length": 5365,
+   "start": 508734,
+   "length": 5363,
    "gain_db": -16.8,
    "bus": "battle",
    "voices": 1,
@@ -328,8 +328,8 @@
    "level": -30
   },
   "en.blinkWarn": {
-   "start": 524694,
-   "length": 12722,
+   "start": 516497,
+   "length": 12704,
    "gain_db": -21.0,
    "bus": "battle",
    "voices": 1,
@@ -339,8 +339,8 @@
    "level": -28
   },
   "en.bossDeath": {
-   "start": 539816,
-   "length": 47222,
+   "start": 531601,
+   "length": 47207,
    "gain_db": -5.6,
    "bus": "battle",
    "voices": 1,
@@ -350,7 +350,7 @@
    "level": -21
   },
   "en.bossPhase": {
-   "start": 589438,
+   "start": 581208,
    "length": 51774,
    "gain_db": -5.9,
    "bus": "battle",
@@ -361,8 +361,8 @@
    "level": -20
   },
   "en.death": {
-   "start": 643612,
-   "length": 4774,
+   "start": 635382,
+   "length": 4742,
    "gain_db": -13.4,
    "bus": "battle",
    "voices": 2,
@@ -372,7 +372,7 @@
    "level": -32
   },
   "en.deathBig": {
-   "start": 650786,
+   "start": 642524,
    "length": 8861,
    "gain_db": -11.7,
    "bus": "battle",
@@ -383,8 +383,8 @@
    "level": -30
   },
   "en.new": {
-   "start": 662047,
-   "length": 7038,
+   "start": 653785,
+   "length": 7010,
    "gain_db": -13.3,
    "bus": "battle",
    "voices": 1,
@@ -394,7 +394,7 @@
    "level": -28
   },
   "en.phase": {
-   "start": 671485,
+   "start": 663195,
    "length": 8547,
    "gain_db": -14.9,
    "bus": "battle",
@@ -405,7 +405,7 @@
    "level": -31
   },
   "en.sabotage": {
-   "start": 682432,
+   "start": 674142,
    "length": 12554,
    "gain_db": -16.4,
    "bus": "battle",
@@ -416,7 +416,7 @@
    "level": -29
   },
   "en.split": {
-   "start": 697386,
+   "start": 689096,
    "length": 5117,
    "gain_db": -16.8,
    "bus": "battle",
@@ -427,9 +427,9 @@
    "level": -31
   },
   "fire.arrow": {
-   "start": 704903,
-   "length": 2184,
-   "gain_db": -19.1,
+   "start": 696613,
+   "length": 2146,
+   "gain_db": -19.2,
    "bus": "battle",
    "voices": 3,
    "gap_ms": 45,
@@ -438,8 +438,8 @@
    "level": -33
   },
   "fire.bullet": {
-   "start": 709487,
-   "length": 2240,
+   "start": 701159,
+   "length": 2208,
    "gain_db": -17.7,
    "bus": "battle",
    "voices": 3,
@@ -449,8 +449,8 @@
    "level": -33
   },
   "fire.holy": {
-   "start": 714127,
-   "length": 4799,
+   "start": 705767,
+   "length": 4767,
    "gain_db": -20.4,
    "bus": "battle",
    "voices": 3,
@@ -460,8 +460,8 @@
    "level": -33
   },
   "fire.magic": {
-   "start": 721326,
-   "length": 4472,
+   "start": 712934,
+   "length": 4431,
    "gain_db": -18.2,
    "bus": "battle",
    "voices": 3,
@@ -471,7 +471,7 @@
    "level": -33
   },
   "fire.shell": {
-   "start": 728198,
+   "start": 719765,
    "length": 4159,
    "gain_db": -15.0,
    "bus": "battle",
@@ -482,8 +482,8 @@
    "level": -32
   },
   "fire.shuriken": {
-   "start": 734757,
-   "length": 3643,
+   "start": 726324,
+   "length": 3610,
    "gain_db": -20.4,
    "bus": "battle",
    "voices": 3,
@@ -493,8 +493,8 @@
    "level": -33
   },
   "fire.zap": {
-   "start": 740800,
-   "length": 2239,
+   "start": 732334,
+   "length": 2204,
    "gain_db": -20.1,
    "bus": "battle",
    "voices": 3,
@@ -504,7 +504,7 @@
    "level": -34
   },
   "gacha.envelope": {
-   "start": 745439,
+   "start": 736938,
    "length": 23224,
    "gain_db": -9.1,
    "bus": "ui",
@@ -515,8 +515,8 @@
    "level": -28
   },
   "gacha.flipR": {
-   "start": 771063,
-   "length": 8639,
+   "start": 762562,
+   "length": 8609,
    "gain_db": -13.5,
    "bus": "ui",
    "voices": 2,
@@ -526,7 +526,7 @@
    "level": -27
   },
   "gacha.flipSR": {
-   "start": 782102,
+   "start": 773571,
    "length": 20169,
    "gain_db": -12.6,
    "bus": "ui",
@@ -537,7 +537,7 @@
    "level": -25
   },
   "gacha.flipSSR": {
-   "start": 804671,
+   "start": 796140,
    "length": 50955,
    "gain_db": -4.1,
    "bus": "ui",
@@ -548,8 +548,8 @@
    "level": -20
   },
   "gacha.open": {
-   "start": 858026,
-   "length": 19198,
+   "start": 849495,
+   "length": 19165,
    "gain_db": -11.8,
    "bus": "ui",
    "voices": 1,
@@ -559,7 +559,7 @@
    "level": -26
   },
   "gacha.results": {
-   "start": 879624,
+   "start": 871060,
    "length": 26755,
    "gain_db": -10.7,
    "bus": "ui",
@@ -570,7 +570,7 @@
    "level": -25
   },
   "gear.enhance": {
-   "start": 908779,
+   "start": 900215,
    "length": 17314,
    "gain_db": -13.0,
    "bus": "ui",
@@ -581,9 +581,9 @@
    "level": -27
   },
   "gear.equip": {
-   "start": 928493,
-   "length": 3072,
-   "gain_db": -14.3,
+   "start": 919929,
+   "length": 3020,
+   "gain_db": -14.4,
    "bus": "ui",
    "voices": 2,
    "gap_ms": 60,
@@ -592,8 +592,8 @@
    "level": -29
   },
   "gear.reroll": {
-   "start": 933965,
-   "length": 16302,
+   "start": 925349,
+   "length": 16271,
    "gain_db": -13.6,
    "bus": "ui",
    "voices": 1,
@@ -603,7 +603,7 @@
    "level": -28
   },
   "hero.level": {
-   "start": 952667,
+   "start": 944020,
    "length": 21334,
    "gain_db": -10.4,
    "bus": "battle",
@@ -614,7 +614,7 @@
    "level": -24
   },
   "hero.ult": {
-   "start": 976401,
+   "start": 967754,
    "length": 71734,
    "gain_db": -2.8,
    "bus": "battle",
@@ -625,19 +625,19 @@
    "level": -21
   },
   "hit.crit": {
-   "start": 1050535,
-   "length": 4159,
+   "start": 1041888,
+   "length": 4121,
    "gain_db": -14.5,
    "bus": "battle",
    "voices": 2,
-   "gap_ms": 60,
+   "gap_ms": 100,
    "jitter": 0.03,
    "priority": 1,
    "level": -30
   },
   "hit.holy": {
-   "start": 1057094,
-   "length": 2558,
+   "start": 1048409,
+   "length": 2545,
    "gain_db": -23.4,
    "bus": "battle",
    "voices": 3,
@@ -647,9 +647,9 @@
    "level": -34
   },
   "hit.mystic": {
-   "start": 1062052,
-   "length": 1885,
-   "gain_db": -20.3,
+   "start": 1053354,
+   "length": 1868,
+   "gain_db": -20.4,
    "bus": "battle",
    "voices": 3,
    "gap_ms": 40,
@@ -658,8 +658,8 @@
    "level": -34
   },
   "hit.pierce": {
-   "start": 1066337,
-   "length": 1120,
+   "start": 1057622,
+   "length": 1101,
    "gain_db": -15.9,
    "bus": "battle",
    "voices": 3,
@@ -669,7 +669,7 @@
    "level": -34
   },
   "hit.resist": {
-   "start": 1069857,
+   "start": 1061123,
    "length": 1919,
    "gain_db": -19.4,
    "bus": "battle",
@@ -680,8 +680,8 @@
    "level": -35
   },
   "hit.slash": {
-   "start": 1074176,
-   "length": 960,
+   "start": 1065442,
+   "length": 935,
    "gain_db": -13.2,
    "bus": "battle",
    "voices": 3,
@@ -691,63 +691,63 @@
    "level": -34
   },
   "st.burn": {
-   "start": 1077536,
-   "length": 6286,
+   "start": 1068777,
+   "length": 6285,
    "gain_db": -15.6,
    "bus": "battle",
    "voices": 1,
-   "gap_ms": 120,
+   "gap_ms": 200,
    "jitter": 0.0,
    "priority": 1,
    "level": -31
   },
   "st.debuff": {
-   "start": 1086222,
+   "start": 1077462,
    "length": 6308,
    "gain_db": -21.0,
    "bus": "battle",
    "voices": 1,
-   "gap_ms": 120,
+   "gap_ms": 220,
    "jitter": 0.0,
    "priority": 0,
    "level": -32
   },
   "st.freeze": {
-   "start": 1094930,
-   "length": 7190,
+   "start": 1086170,
+   "length": 7158,
    "gain_db": -18.1,
    "bus": "battle",
    "voices": 1,
-   "gap_ms": 120,
+   "gap_ms": 200,
    "jitter": 0.0,
    "priority": 1,
    "level": -31
   },
   "st.poison": {
-   "start": 1104520,
-   "length": 6385,
+   "start": 1095728,
+   "length": 6367,
    "gain_db": -17.9,
    "bus": "battle",
    "voices": 1,
-   "gap_ms": 150,
+   "gap_ms": 220,
    "jitter": 0.0,
    "priority": 0,
    "level": -32
   },
   "st.shock": {
-   "start": 1113305,
+   "start": 1104495,
    "length": 5121,
    "gain_db": -14.5,
    "bus": "battle",
    "voices": 1,
-   "gap_ms": 120,
+   "gap_ms": 200,
    "jitter": 0.0,
    "priority": 1,
    "level": -32
   },
   "trap.set": {
-   "start": 1120826,
-   "length": 4799,
+   "start": 1112016,
+   "length": 4768,
    "gain_db": -14.8,
    "bus": "battle",
    "voices": 2,
@@ -757,7 +757,7 @@
    "level": -30
   },
   "trap.trigger": {
-   "start": 1128025,
+   "start": 1119184,
    "length": 7229,
    "gain_db": -10.9,
    "bus": "battle",
@@ -768,9 +768,9 @@
    "level": -30
   },
   "turret.build": {
-   "start": 1137654,
-   "length": 6079,
-   "gain_db": -11.9,
+   "start": 1128813,
+   "length": 6040,
+   "gain_db": -12.0,
    "bus": "battle",
    "voices": 1,
    "gap_ms": 200,
@@ -779,9 +779,9 @@
    "level": -30
   },
   "ui.back": {
-   "start": 1146133,
-   "length": 3584,
-   "gain_db": -15.0,
+   "start": 1137253,
+   "length": 3534,
+   "gain_db": -14.7,
    "bus": "ui",
    "voices": 2,
    "gap_ms": 40,
@@ -790,8 +790,8 @@
    "level": -31
   },
   "ui.chirp": {
-   "start": 1152117,
-   "length": 4807,
+   "start": 1143187,
+   "length": 4781,
    "gain_db": -17.8,
    "bus": "ui",
    "voices": 1,
@@ -801,8 +801,8 @@
    "level": -28
   },
   "ui.click": {
-   "start": 1159324,
-   "length": 960,
+   "start": 1150368,
+   "length": 924,
    "gain_db": -11.4,
    "bus": "ui",
    "voices": 3,
@@ -812,9 +812,9 @@
    "level": -31
   },
   "ui.confirm": {
-   "start": 1162684,
-   "length": 12947,
-   "gain_db": -10.4,
+   "start": 1153692,
+   "length": 12957,
+   "gain_db": -10.8,
    "bus": "ui",
    "voices": 2,
    "gap_ms": 40,
@@ -823,7 +823,7 @@
    "level": -29
   },
   "ui.deny": {
-   "start": 1178031,
+   "start": 1169049,
    "length": 4396,
    "gain_db": -15.6,
    "bus": "ui",
@@ -834,8 +834,8 @@
    "level": -30
   },
   "ui.modalClose": {
-   "start": 1184827,
-   "length": 3794,
+   "start": 1175845,
+   "length": 3752,
    "gain_db": -16.4,
    "bus": "ui",
    "voices": 1,
@@ -845,8 +845,8 @@
    "level": -32
   },
   "ui.modalOpen": {
-   "start": 1191021,
-   "length": 7891,
+   "start": 1181997,
+   "length": 7853,
    "gain_db": -14.8,
    "bus": "ui",
    "voices": 1,
@@ -856,8 +856,8 @@
    "level": -31
   },
   "ui.select": {
-   "start": 1201312,
-   "length": 3007,
+   "start": 1192250,
+   "length": 2972,
    "gain_db": -13.1,
    "bus": "ui",
    "voices": 2,
@@ -867,8 +867,8 @@
    "level": -30
   },
   "ui.slot": {
-   "start": 1206719,
-   "length": 2815,
+   "start": 1197622,
+   "length": 2800,
    "gain_db": -14.6,
    "bus": "ui",
    "voices": 2,
@@ -878,7 +878,7 @@
    "level": -30
   },
   "ui.start": {
-   "start": 1211934,
+   "start": 1202822,
    "length": 50653,
    "gain_db": -7.7,
    "bus": "ui",
@@ -889,8 +889,8 @@
    "level": -21
   },
   "ui.tab": {
-   "start": 1264987,
-   "length": 1440,
+   "start": 1255875,
+   "length": 1418,
    "gain_db": -14.3,
    "bus": "ui",
    "voices": 2,
@@ -900,8 +900,8 @@
    "level": -31
   },
   "ui.tick": {
-   "start": 1268827,
-   "length": 384,
+   "start": 1259693,
+   "length": 359,
    "gain_db": -13.5,
    "bus": "ui",
    "voices": 1,
@@ -911,9 +911,9 @@
    "level": -36
   },
   "ui.toast": {
-   "start": 1271611,
-   "length": 3839,
-   "gain_db": -15.2,
+   "start": 1262452,
+   "length": 3793,
+   "gain_db": -15.3,
    "bus": "ui",
    "voices": 1,
    "gap_ms": 200,
@@ -922,9 +922,9 @@
    "level": -31
   },
   "ui.toggle": {
-   "start": 1277850,
-   "length": 1855,
-   "gain_db": -19.4,
+   "start": 1268645,
+   "length": 1829,
+   "gain_db": -19.5,
    "bus": "ui",
    "voices": 2,
    "gap_ms": 40,

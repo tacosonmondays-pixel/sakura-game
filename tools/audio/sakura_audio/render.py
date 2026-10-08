@@ -32,6 +32,8 @@ class Job:
     sf_path: Path
     send: float
     index: int
+    sf_key: str = ''
+    kit: bool = False                                    # a kit-only job (drums get their own voice treatment)
     assignments: list = field(default_factory=list)     # (TimelinePart, preset, channel)
     midi: Path | None = None
     wav: Path | None = None
@@ -50,23 +52,21 @@ def plan_jobs(tl, palette, out_dir: Path) -> list:
             continue
         pre = palette.resolve(tp.role)
         send = round(float(pre.get('echo', 0.0)) * 4) / 4      # quarter steps keep the job count low
-        groups.setdefault((tp.stem, str(pre['sf_path']), send), []).append((tp, pre))
+        kit = pre.get('bank') == 128
+        groups.setdefault((tp.stem, str(pre['sf_path']), send, kit, pre.get('sf_key', '')), []).append((tp, pre))
     jobs = []
-    for (stem, sf, send), items in sorted(groups.items()):
-        mel = [x for x in items if x[1].get('bank') != 128]
-        kits = [x for x in items if x[1].get('bank') == 128]
-        chunks = [mel[i:i + len(MELODIC_CHANNELS)] for i in range(0, len(mel), len(MELODIC_CHANNELS))] or [[]]
-        kit_slots = [[] for _ in chunks]
-        for k, kit in enumerate(kits):
-            if k < len(chunks):
-                kit_slots[k].append(kit)
-            else:
-                chunks.append([])
-                kit_slots.append([kit])
+    for (stem, sf, send, kit, sf_key), items in sorted(groups.items()):
+        # kits render in jobs of their own (one kit per job, channel 10), so the mix can treat drums apart
+        # from the sampled melodic voices (palette mix.voices: 'kit' vs the soundfont key)
+        if kit:
+            chunks, kit_slots = [[] for _ in items], [[x] for x in items]
+        else:
+            chunks = [items[i:i + len(MELODIC_CHANNELS)] for i in range(0, len(items), len(MELODIC_CHANNELS))]
+            kit_slots = [[] for _ in chunks]
         for i, (ch_items, kit_items) in enumerate(zip(chunks, kit_slots)):
             if not ch_items and not kit_items:
                 continue
-            j = Job(tl.song.id, stem, Path(sf), send, len([x for x in jobs if x.stem == stem]))
+            j = Job(tl.song.id, stem, Path(sf), send, len([x for x in jobs if x.stem == stem]), sf_key=sf_key, kit=kit)
             for c, (tp, pre) in zip(MELODIC_CHANNELS, ch_items):
                 j.assignments.append((tp, pre, c))
             for tp, pre in kit_items:

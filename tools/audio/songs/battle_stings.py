@@ -19,7 +19,10 @@ from _battle_kit import roll, tr
 
 
 def _wave(id, title, bpm, key, parts, tail=0.7):
+    # accentBeat 2: the engine starts the sting so its stab lands on the family track's next strong beat
+    # (same tempo, so the roll and the arpeggio sit on the track's beats too)
     s = Song(id=id, title=title, bpm=bpm, meter=(3, 4), key=key, form=['S'], bus='stinger', tail=tail,
+             extra={'accentBeat': 2},
              description=f'Wave-start stinger ({title.split("—")[0].strip()}): roll, chip arpeggio, stab.')
     s.section('S', 1)
     for name, role, text, vel in parts:
@@ -85,6 +88,7 @@ def wave_matsuri():
 
 def final_wave():
     s = Song(id='final_wave', title='Final Wave', bpm=120, meter=(4, 4), key='C', form=['S'], bus='stinger', tail=1.4,
+             extra={'accentBeat': 3},
              description='Final-wave stinger: taiko + timpani roll, reverse cymbal into a crash, choir cluster, chip whoosh.')
     s.section('S', 1)
     s.part('taiko', 'taiko', 'full', vel=4).notes('S', roll('c3', '16', 12, 40, 120) + ' c3/4')
@@ -98,6 +102,7 @@ def final_wave():
 
 def miniboss():
     s = Song(id='miniboss', title='Miniboss!', bpm=140, meter=(6, 4), key='Dm', form=['S'], bus='stinger', tail=1.2,
+             extra={'accentBeat': 0},
              description='Miniboss stinger: SHADOW on trumpets and trombones over taiko hits, ending on a crash.')
     s.section('S', 1)
     shadow = SHADOW.question('Dm', 4)                                   # d4 e♭4 d4 a♭4 f4 (3.5 beats)
@@ -114,7 +119,7 @@ def boss_warning():
     """9 beats exactly (meter 9/4, no tail): beat 0 is a pickup, the musical bars fall on beats 1 and 5, the A7♭9
     orchestra hit on beat 8, and boss.py starts at the end of the file = beat 9, the next downbeat."""
     s = Song(id='boss_warning', title='Boss Warning', bpm=168, meter=(9, 4), key='Dm', form=['S'], bus='stinger',
-             tail=0.0, description='Boss warning: tritone chip siren, SHADOW twice in the low brass, taiko crescendo, '
+             tail=0.0, extra={'hold': 'boss_warning_hold'}, description='Boss warning: tritone chip siren, SHADOW twice in the low brass, taiko crescendo, '
                                    'A7b9 orchestra hit. Exactly 9 beats; boss.py starts on the next downbeat.')
     s.section('S', 1)
     shadow = SHADOW.question('Dm', 3)                                   # d3 e♭3 d3 a♭3 f3 (3.5 beats)
@@ -132,5 +137,22 @@ def boss_warning():
     return s
 
 
+def boss_warning_hold():
+    """The warning's hold bars: a 2-bar loop that keeps the alarm going (siren, taiko pulse, low D pedal) when the
+    boss track is still decoding at the warning's end; the boss track then takes over at the next bar line."""
+    s = Song(id='boss_warning_hold', title='Boss Warning (hold)', bpm=168, meter=(4, 4), key='Dm', form=['|:', 'H', ':|'],
+             lufs=-18.0, description='Boss warning hold loop: siren + taiko pulse + low D pedal, loops until the boss '
+                                     'track is decoded.')
+    s.section('H', 2)
+    s.part('siren', 'chip_pulse50', 'full', vel=-10).pattern('H', '(d6/8 ab6/8)x4 |')
+    s.part('taiko', 'taiko', 'full', vel=0).pattern('H', 'c3/4 r/8 c3/8 c3/4 c3/8 c3/8 | c3/4 r/8 c3/8 ' +
+                                                    roll('c3', '16', 8, 50, 104) + ' |')
+    s.part('tuba', 'tuba', 'full', vel=4).notes('H', 'd2/2. a1/4 | d2/2. eb2/4')
+    s.part('organ', 'organ_drawbar', 'full', vel=-10).notes('H', '[d3 a3]/1 | [d3 ab3]/2. [eb3 a3]/4')
+    s.part('timp', 'timpani', 'full', vel=-4).notes('H', 'd2/4 r/2. | d2/4 r/4 a1/8 a1/8 a1/4')
+    s.part('kit', 'drums_power', 'full', vel=-8).pattern('H', 'k/4 r/4 k/4 r/4 | k/4 r/4 k/4 s/16 s s s |')
+    return s
+
+
 songs = [wave_blossom(), wave_moonlit(), wave_lantern(), wave_ironclock(), wave_matsuri(), final_wave(), miniboss(),
-         boss_warning()]
+         boss_warning(), boss_warning_hold()]

@@ -246,8 +246,8 @@ def oversampled(fn, k=4) -> np.ndarray:
     return signal.resample_poly(y, 1, k)
 
 
-def fmx(freq, dur, ratio=2.0, index=1.2, decay=0.25, amp=0.5, index_decay=None, attack=0.0015) -> np.ndarray:
-    """Alias-free 2-op FM (rendered 4× oversampled) with a short attack ramp so bells never click."""
+def fmx(freq, dur, ratio=2.0, index=1.2, decay=0.25, amp=0.5, index_decay=None, attack=0.0015, release=0.004) -> np.ndarray:
+    """Alias-free 2-op FM (rendered 4× oversampled) with a short attack ramp and release so bells never click."""
     if isinstance(freq, np.ndarray):            # a frequency array made at RATE → a function of time
         arr, base = freq, RATE
         freq = lambda t: np.interp(t, np.arange(len(arr)) / base, arr)   # noqa: E731
@@ -255,7 +255,7 @@ def fmx(freq, dur, ratio=2.0, index=1.2, decay=0.25, amp=0.5, index_decay=None, 
     na = min(len(y), n_of(attack))
     if na > 1:
         y[:na] *= np.linspace(0, 1, na)
-    return y
+    return fade(y, 0, min(release, dur * 0.25)) if release else y
 
 
 def softclip(x, drive=1.5) -> np.ndarray:
@@ -336,11 +336,15 @@ def formant_morph(x, vowels=('a', 'o'), shift=1.0) -> np.ndarray:
 
 
 # ------------------------------------------------------------------------------------------- assembly
-def seq(items) -> np.ndarray:
-    """Layer [(t_seconds, array), …] into one array."""
+def seq(items, release=0.003) -> np.ndarray:
+    """Layer [(t_seconds, array), …] into one array. Every layer gets a short raised-cosine release: an
+    exponential note that stops while still at 8-30 % of its level (a 90 ms blip with a 35 ms decay) would
+    otherwise end on a step, a click on every hit."""
     end = max(n_of(t) + len(x) for t, x in items)
     out = np.zeros(end)
     for t, x in items:
+        if release and len(x) > 4:
+            x = fade(x, 0, min(release, len(x) / RATE * 0.25))
         i = n_of(t) if t > 0 else 0
         out[i:i + len(x)] += x
     return out

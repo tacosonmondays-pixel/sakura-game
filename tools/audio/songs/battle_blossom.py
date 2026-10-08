@@ -163,7 +163,7 @@ def build() -> Song:
         .pattern('B', 'h/16 h? o h? cl+h h? o h? h h? o h? cl+h h? o h? |') \
         .at('BR', 5, bars('k/4 r/4 cl/4 r/4', 'k/4 r/4 cl/4 r/8 k/8', 'k/4 k/8 k/8 cl/4 k/8 k/8', 'k/8 k k k cl/8 cl cl cl'))
     s.part('stabs', 'brass_stab', 'intensity', vel=16).gen(['A', 'A2', 'B2'], 'comp:stabs', voicing='close', low=58, high=76)
-    s.part('counter', 'chip_pulse12', 'intensity', vel=8).notes('A2', bars(*COUNTER_A2)) \
+    s.part('counter', 'chip_pulse12', 'intensity', vel=8, gain=-3).notes('A2', bars(*COUNTER_A2)) \
         .at('BR', 3, SENTINEL.question('D', 5), motif=SENTINEL).at('BR', 7, SENTINEL.question('D', 5), motif=SENTINEL)
     s.part('tpt', 'trumpet', 'intensity', vel=10).double('lead', 'B') \
         .at('BR', 3, SENTINEL.question('D', 5)).at('BR', 7, SENTINEL.question('D', 5))

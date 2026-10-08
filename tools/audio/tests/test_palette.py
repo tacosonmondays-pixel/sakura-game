@@ -56,7 +56,15 @@ class PaletteTest(unittest.TestCase):
             for r in ('music_box', 'slap_bass', 'drums', 'chip_pulse25'):
                 self.assertEqual(pal.resolve(r)['program'], cleared.resolve(r)['program'])
             self.assertTrue(any('falling back' in w for w in pal.unique_warnings()))
-            self.assertEqual(pal.mix['echo']['delay_ms'], 160)           # toby's own mix still applies
+            # toby's own mix still applies, relative to each song's echo (round 2: songs set their own echo)
+            from sakura_audio.pipeline import song_mix
+            from sakura_audio.song import Song
+            song = Song(id='t', mix={'echo': {'delay_ms': 200, 'feedback': 0.4, 'volume': 0.3, 'fir': 'soft'}})
+            mt, mc = song_mix(pal, song)['echo'], song_mix(cleared, song)['echo']
+            self.assertEqual((mc['delay_ms'], mc['fir']), (200, 'soft'))
+            self.assertAlmostEqual(mt['delay_ms'], 160)
+            self.assertEqual(mt['fir'], 'dark')
+            self.assertGreater(mt['feedback'], mc['feedback'])
         finally:
             if old is None:
                 os.environ.pop('SAKURA_PRIVATE_SF2', None)

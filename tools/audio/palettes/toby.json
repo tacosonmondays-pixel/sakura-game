@@ -38,16 +38,30 @@
   }
  },
  "mix": {
-  "echo": {
-   "delay_ms": 160,
-   "feedback": 0.45,
-   "volume": 0.32,
+  "crush": {
+   "bits": 0,
+   "mix": 0.0,
+   "hold": 1
+  },
+  "_echo_doc": "Songs set their own echo for the shipped palette; toby changes it relative to that: echo_override keys always win (EarthBound's darker echo filter), echo_scale multiplies the song's values (a shorter, slightly wetter echo).",
+  "echo_override": {
    "fir": "dark"
   },
-  "crush": {
-   "bits": 12,
-   "mix": 0.15,
-   "hold": 1
+  "echo_scale": {
+   "delay_ms": 0.8,
+   "feedback": 1.08,
+   "volume": 1.1
+  },
+  "voices": {
+   "eb": {},
+   "sgm": {
+    "lowpass_hz": 11000,
+    "brr": {
+     "bits": 4,
+     "block": 16,
+     "mix": 0.12
+    }
+   }
   }
  },
  "quiet_inherit": true,

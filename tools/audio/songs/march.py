@@ -24,17 +24,17 @@ from motifs import BELL, SENTINEL
 from _home import bars, afterbeats, oompah, crescendo
 
 CH_INTRO = 'Bb | C/Bb'
-CH_A = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 D7 | Gm7 Gm7/F | Ebmaj7 F7 | Bb'
-CH_A2 = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 D7 | Gm7 Gm7/F | Ebmaj7 F7 | Bb Ab7'
+CH_A = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 | Gm7 Gm7/F | Ebmaj7 F7 | Bb'
+CH_A2 = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 | Gm7 Gm7/F | Ebmaj7 F7 | Bb Ab7'
 CH_BR = 'Dbmaj7 | Bbm9 | Gbmaj7 | Ab7sus4 Ab7 | Dbmaj7 | Fm7 Bbm7 | Gbmaj7 | F7sus4 F7'
-CH_C = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 D7 | Gm7 Gm7/F | Cm7 F7 | Bb C/Bb'
+CH_C = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 | Gm7 Gm7/F | Cm7 F7 | Bb C/Bb'
 
 TUNE = [
-    'f4/8. bb4/16 eb5/4 d5/8 eb5/4.',        # 1 SENTINEL CALL from F (on F7sus4)
+    'f4/8. bb4/16 eb5/4 f5/8 eb5/4.',        # 1 SENTINEL CALL from F (on F7sus4)
     'd5/8 f5/8 bb5/4 a5/8 f5/8 d5/4',        # 2 response: the sus resolves, up the B♭ chord
-    'g4/8. c5/16 f5/4 e5/8 f5/4.',           # 3 the call a step higher, from G (C7sus4)
+    'g4/8. c5/16 f5/4 g5/8 f5/4.',           # 3 the call a step higher, from G (C7sus4)
     'e5/8 g5/8 c6/4 bb5/8 g5/8 e5/4',        # 4 response on the lydian C7 (E♮)
-    'a4/8. d5/16 g5/4 f#5/8 g5/4.',          # 5 the call from A (D7sus4 → D7)
+    'a4/8. d5/16 g5/4 a5/8 c6/4.',           # 5 the call from A overshoots to C6 (D7sus4): the third call breaks the sequence
     'bb5/8 a5/8 g5/4 d5/8 f5/8 g5/4',        # 6 response falls home to G minor
     'eb5/8 g5/8 bb5/4 c6/8 bb5/8 a5/4',      # 7 E♭maj7 → F7
     'bb5/2. r/4',                            # 8 B♭

@@ -83,7 +83,7 @@ def build() -> Song:
 
     tune_a = HOOK + FALL + [Q]
     tune_a2 = HOOK + FALL2 + [Q]
-    s.part('steel', 'steel_drum', 'full', vel=-2).notes('intro', 'r/2 d5/16 e5/16 f#5/8 a5/8 c6/8') \
+    s.part('steel', 'steel_drum', 'full', vel=-2, gain=2).notes('intro', 'r/2 d5/16 e5/16 f#5/8 a5/8 c6/8') \
         .notes('A', bars(*tune_a), motifs={8: BELL}).notes('A2', bars(*tune_a2), motifs={8: BELL})
     s.part('chip', 'chip_pulse50', 'full', vel=-26).double('steel', 'A2')
     s.part('chip_a', 'chip_pulse50', 'full', vel=-36).double('steel', 'A')
@@ -92,10 +92,10 @@ def build() -> Song:
     s.part('vibes', 'vibes', 'full', vel=-14).notes('B', bars(*BRIDGE))
     s.part('vibes_box', 'music_box', 'full', octave=1, vel=-20).double('vibes', 'B')
 
-    s.part('slap', 'slap_bass', 'full', vel=-24, octave=1).notes('intro', SLAP_A_TO_A) \
+    s.part('slap', 'slap_bass', 'full', vel=-24, octave=1, gain=2.5).notes('intro', SLAP_A_TO_A) \
         .notes('A', bars(*SLAP_A, SLAP_A_TO_B)).notes('A2', bars(*SLAP_A, SLAP_A_TO_A)) \
-        .gen('B', 'bass:sync', low=29, high=43)
-    s.part('ep', 'epiano', 'full', vel=-6).gen(['A', 'B', 'A2'], 'comp:bossa', voicing='rootless', low=55, high=72, vel=80)
+        .gen('B', 'bass:walking', low=29, high=43)
+    s.part('ep', 'epiano', 'full', vel=-6, gain=-2.5).gen(['A', 'B', 'A2'], 'comp:bossa', voicing='rootless', low=55, high=72, vel=80)
     s.part('organ', 'organ', 'full', vel=-10).gen('A2', 'comp:stabs', voicing='rootless', low=60, high=76, vel=70)
     s.part('pad', 'strings_slow', 'full').gen(['A', 'B', 'A2'], 'pad:sustain', low=55, high=70, vel=54)
 

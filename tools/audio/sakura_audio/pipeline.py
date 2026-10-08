@@ -22,7 +22,7 @@ from . import checks as C
 from .encode import encode, decode, FORMATS
 from .midi import snap_tempo, Tempo, write_preview
 from .mix import (snes_echo, lowpass, highpass, crush, loudness, loudness_gain, build_loop_file, trim_oneshot, write_wav,
-                  echo_decay_seconds, GUARD)
+                  echo_decay_seconds, voice_fx, GUARD)
 from .paths import BUILD
 from .render import plan_jobs, render_jobs, read_wav
 
@@ -41,6 +41,23 @@ def _merge(a: dict, b: dict) -> dict:
     return out
 
 
+def song_mix(palette, song) -> dict:
+    """The mix settings for one song: palette defaults, then the song's own `mix`, then the palette's
+    `echo_override` (keys that always win, e.g. toby's darker FIR) and `echo_scale` (factors applied to the
+    song's echo, e.g. a shorter EarthBound-style delay). So `--palette toby` changes the echo of every song
+    although each song sets its own echo for the shipped palette."""
+    mixp = _merge(palette.mix, song.mix)
+    echo = dict(mixp.get('echo') or {})
+    echo.update(palette.mix.get('echo_override') or {})
+    for k, f in (palette.mix.get('echo_scale') or {}).items():
+        if isinstance(echo.get(k), (int, float)):
+            echo[k] = echo[k] * f
+    if 'feedback' in echo:
+        echo['feedback'] = min(0.7, echo['feedback'])
+    mixp['echo'] = echo
+    return mixp
+
+
 def song_markers(song, tl, tempo):
     """Section start bars (1-based, from the song start) for quantised jumps."""
     bpb = song.bpb
@@ -56,7 +73,7 @@ def render_song(song, palette, build_root: Path = BUILD, encode_formats=('opus',
     loop = song.kind == 'loop'
     tempo = snap_tempo(song.bpm, tl.loop_beats, tl.intro_beats, rate) if loop else snap_tempo(song.bpm, 0, 0, rate)
     beat_s = tempo.tempo_us / 1e6
-    mixp = _merge(palette.mix, song.mix)
+    mixp = song_mix(palette, song)
     echo = mixp.get('echo', {})
     L0 = tempo.samples(tl.intro_beats)
     P = tempo.samples(tl.loop_beats) if loop else 0
@@ -89,8 +106,9 @@ def render_song(song, palette, build_root: Path = BUILD, encode_formats=('opus',
             continue
         dry = np.zeros((N, 2))
         wet = np.zeros((N, 2))
+        voices = mixp.get('voices') or {}
         for j in (j for j in jobs if j.stem == stem):
-            x = read_wav(j.wav, N)
+            x = voice_fx(read_wav(j.wav, N), rate, voices.get('kit' if j.kit else j.sf_key))
             dry += x
             if j.send > 0:
                 wet += x * j.send
@@ -145,6 +163,8 @@ def render_song(song, palette, build_root: Path = BUILD, encode_formats=('opus',
     entry['markers'] = song_markers(song, tl, tempo)
     if song.extra:
         entry.update(song.extra)
+    if 'accentBeat' in entry:      # one-shots: where the accent (stab, crash) sits, so the engine lands it on a strong beat
+        entry['accent'] = int(round(float(tempo.beats_to_samples(Fr(entry.pop('accentBeat')).limit_denominator(64)))))
 
     # ---- checks on the WAVs --------------------------------------------------------------------------------
     chk = {'levels': C.basic_levels(F_full)}

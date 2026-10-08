@@ -170,6 +170,30 @@ def cmd_review(a):
     print(f'index: {review.write_index(pal)}')
 
 
+def cmd_originality(a):
+    from sakura_audio.originality import check
+    pal = load_palette(a.palette)
+    songs = discover(SONGS)
+    if a.songs and a.songs != ['all']:
+        songs = {k: v for k, v in songs.items() if any(fnmatch.fnmatch(k, p) for p in a.songs)}
+    res = check(songs, pal, n=a.n)
+    out = BUILD / pal.id / 'review' / 'originality.json'
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(res, indent=1))
+    print(f'{len(songs)} song(s), n-grams of {a.n} intervals')
+    for h in res['blocklistHits']:
+        print(f'  FAIL {h["song"]}/{h["part"]} bar {h["bar"]}: {h["intervals"]} matches {h["hook"]}')
+    if not res['blocklistHits']:
+        print('  blocklist: no matches')
+    print(f'  shared undeclared phrases between songs: {len(res["shared"])} '
+          f'({sum(1 for x in res["shared"] if x["sameRhythm"])} with the same rhythm)')
+    for x in res['shared'][:a.show]:
+        where = ', '.join(f'{w["song"]}/{w["part"]}@{w["bar"]}' for w in x['where'])
+        print(f'    {"SAME RHYTHM " if x["sameRhythm"] else ""}{x["intervals"]}: {where}')
+    print(f'wrote {out}')
+    return 0 if res['ok'] else 1
+
+
 def cmd_ship(a):
     pal = load_palette(a.palette)
     src = BUILD / pal.id
@@ -270,6 +294,12 @@ def main(argv=None):
     p.add_argument('songs', nargs='*', default=['all'])
     p.add_argument('--palette', default='cleared')
     p.set_defaults(fn=cmd_review)
+    p = sub.add_parser('originality')
+    p.add_argument('songs', nargs='*', default=['all'])
+    p.add_argument('--palette', default='cleared')
+    p.add_argument('-n', type=int, default=7, help='n-gram length in intervals (default 7)')
+    p.add_argument('--show', type=int, default=40)
+    p.set_defaults(fn=cmd_originality)
     p = sub.add_parser('ship')
     p.add_argument('songs', nargs='*', default=['all'])
     p.add_argument('--palette', default='cleared')
