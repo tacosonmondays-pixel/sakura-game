@@ -22,8 +22,10 @@ describe('levels', () => {
     expect(expForLevel(60)).toBe(Infinity);
     expect(totalExpToLevel(1)).toBe(0);
     expect(totalExpToLevel(3)).toBe(expForLevel(1) + expForLevel(2));
-    // Reaching 60 needs a lot of books (roughly 35 Akashic Tomes).
-    expect(totalExpToLevel(60)).toBeGreaterThan(30 * 30000);
+    // Reaching 60 still needs a lot of books (≈ 23 Akashic Tomes since the "frisk1636" round made the
+    // curve 30–38 % cheaper; docs/ECONOMY.md §5): pin the published totals.
+    expect(totalExpToLevel(60)).toBeGreaterThan(20 * 30000);
+    expect([10, 20, 30, 40, 60].map(totalExpToLevel)).toEqual([5290, 34730, 104790, 229220, 689910]);
   });
 
   it('book exp uses item xp and ignores non-books', () => {

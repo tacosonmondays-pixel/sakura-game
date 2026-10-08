@@ -57,8 +57,9 @@ const BASE_REQUIRED = [
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse'];
 
-// Tier cost windows from CONTRACTS.md §5b.
-const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [7000, 16000]];
+// Tier cost windows from CONTRACTS.md §5b (in-battle coins; repriced for the "frisk1636" playtest:
+// tiers 1–3 ×0.75, tier 4 ×0.5, tier 5 ×0.9 — docs/BALANCE.md §2).
+const TIER_COST = [[50, 250], [120, 350], [400, 1100], [900, 2300], [6000, 14500]];
 
 // ---------------------------------------------------------------------------
 // Validators
@@ -323,7 +324,26 @@ describe('upgrade paths', () => {
         expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(TIER_COST[i][1]);
         if (i > 0) expect(costs[i], `${id}.${p.id} t${i + 1} increases`).toBeGreaterThan(costs[i - 1]);
       }
+      // Tier 4 is the mid-stage goal, tier 5 the long-stage goal (docs/BALANCE.md §2): the steps
+      // stay steep after the price cut, so tier 5 never arrives in chapters 1–3.
+      expect(costs[3], `${id}.${p.id} t4 >= 1.7 x t3`).toBeGreaterThanOrEqual(1.7 * costs[2]);
+      expect(costs[4], `${id}.${p.id} t5 >= 5 x t4`).toBeGreaterThanOrEqual(5 * costs[3]);
     }
+  });
+
+  it('in-battle prices answer the playtest ("to level 4 you need 2400 gold")', () => {
+    // Aoi, the chapter-1 carry: placement + tiers 1-4 of any path stays under ~2,100 coins
+    // (was 3,180–3,540, i.e. more than all of 1-1 paid), Arrow Storm (Rapid Volley T4) 2,400 → 1,200.
+    const aoi = getUnit('aoi');
+    for (let p = 0; p < 3; p++) expect(aoi.base.cost + pathCostTo('aoi', p, 4), `aoi path ${p + 1}`).toBeLessThanOrEqual(2100);
+    expect(tierCost('aoi', 1, 4)).toBe(1200);
+    // One multiplier per tier for every unit: existing price ties survive the rounding.
+    const place = (id) => getUnit(id).base.cost;
+    expect(place('umeko')).toBe(place('suzu'));
+    expect(place('shiro')).toBe(place('miko'));
+    expect(place('akane')).toBe(place('raika'));
+    // The free hero fits in the 1-1 start cash with room for a first girl.
+    expect(place('hikari') + place('aoi')).toBeLessThanOrEqual(650);
   });
 
   it('transformations (behavior/attackType/element) only appear at tier 4-5', () => {
@@ -464,24 +484,25 @@ describe('design requirements', () => {
 
   it('respects the balance anchors', () => {
     const aoi = getUnit('aoi').base;
-    expect([aoi.cost, aoi.damage, aoi.rate, aoi.range]).toEqual([200, 4, 1.4, 3.2]);
+    expect([aoi.cost, aoi.damage, aoi.rate, aoi.range]).toEqual([150, 4, 1.4, 3.2]);
     for (const u of towers()) {
       expect(u.base.cost, u.id).toBeGreaterThanOrEqual(150);
-      expect(u.base.cost, u.id).toBeLessThanOrEqual(900);
+      expect(u.base.cost, u.id).toBeLessThanOrEqual(700);
     }
     for (const u of heroes()) {
-      expect(u.base.cost, u.id).toBeGreaterThanOrEqual(450);
-      expect(u.base.cost, u.id).toBeLessThanOrEqual(650);
+      expect(u.base.cost, u.id).toBeGreaterThanOrEqual(330);
+      expect(u.base.cost, u.id).toBeLessThanOrEqual(500);
     }
     const shiro = getUnit('shiro').base.range;
     expect(shiro).toBeGreaterThanOrEqual(8);
     expect(shiro).toBeLessThanOrEqual(12);
-    // R towers ≈ 5–7 raw single-target DPS per 200 coins (attackers only).
+    // R towers ≈ 5–7 raw single-target DPS per R placement price (150 coins since the price cut;
+    // it was "per 200 coins" when Aoi cost 200 — the same value per coin band, rescaled).
     for (const id of ['aoi']) {
       const b = getUnit(id).base;
-      const dpsPer200 = (b.damage * b.rate * b.projectiles) / b.cost * 200;
-      expect(dpsPer200).toBeGreaterThanOrEqual(5);
-      expect(dpsPer200).toBeLessThanOrEqual(7);
+      const dpsPer150 = (b.damage * b.rate * b.projectiles) / b.cost * 150;
+      expect(dpsPer150).toBeGreaterThanOrEqual(5);
+      expect(dpsPer150).toBeLessThanOrEqual(7);
     }
   });
 
@@ -588,9 +609,9 @@ describe('helpers', () => {
   });
 
   it('tier cost helpers add up', () => {
-    expect(tierCost('aoi', 0, 1)).toBe(100);
+    expect(tierCost('aoi', 0, 1)).toBe(75);
     expect(pathCostTo('aoi', 0, 0)).toBe(0);
-    expect(pathCostTo('aoi', 0, 3)).toBe(100 + 220 + 650);
+    expect(pathCostTo('aoi', 0, 3)).toBe(75 + 170 + 490);
     expect(() => tierCost('aoi', 0, 6)).toThrow();
   });
 });

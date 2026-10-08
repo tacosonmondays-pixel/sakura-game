@@ -74,13 +74,22 @@ excluded from the chart.
 
 ### Levels (books + coins)
 
-`expForLevel(L) ≈ 40·L^1.75 + 60` (rounded to 10). Books: Doodle Notes 100 · Study Guide 500 ·
+`expForLevel(L) ≈ 30·L^1.7 + 50` (rounded to 10; was 40·L^1.75 + 60 before the "frisk1636"
+playtest round — 30–38 % cheaper). Books: Doodle Notes 100 · Study Guide 500 ·
 Academy Textbook 2,000 · Sage's Codex 8,000 · Akashic Tome 30,000 EXP. Coins: 0.4 per EXP applied
 (overflow past the cap is wasted and not charged).
 
 | Reach level | 10 | 20 | 30 | 40 | 50 | 60 |
 |---|---:|---:|---:|---:|---:|---:|
-| Total EXP | 7,610 | 52,410 | 161,900 | 359,830 | 667,950 | 1,106,630 |
+| Total EXP | 5,290 | 34,730 | 104,790 | 229,220 | 420,440 | 689,910 |
+| (before) | 7,610 | 52,410 | 161,900 | 359,830 | 667,950 | 1,106,630 |
+
+**Campaign first-clear books** (`campaignFirstClear` in `stages.js`, on top of coins and gems):
+ch1–2 4 Study Guides (2,000 EXP) · ch3–4 2 Academy Textbooks (4,000) · ch5–6 3 Textbooks (6,000) ·
+ch7–8 4 Textbooks (8,000) per stage (was 2–3 Study Guides). With the cheaper curve the free squad
+reaches the campaign's tuning level (`EXPECTED_LEVEL` in `tools/balance/f2p.mjs`: 1 / 5 / 10 / 15 /
+20 / 24 / 28 / 32 by chapter) from first clears alone in chapters 1–3; from chapter 4 on it takes
+Library Bounty sweeps (≈ 31 / 70 / 32 / 36 / 46 clears for chapters 4–8, `docs/BALANCE.md` §7).
 
 ### Breakthrough (cap 10 → 60 in steps of 10; unit's own material family)
 
@@ -145,3 +154,39 @@ cost cut ≤ 25%, ult haste ≤ 50%).
 
 A stage cleared on **Hard or Nightmare** can be swept up to 10× per tap at any difficulty already
 cleared: drops only (no medals, first clears or bestiary changes); sweeps count for "win" commissions.
+
+## 9. Battle coins (in-battle economy)
+
+Battle coins are separate from the wallet and reset every stage (`src/sim/Sim.js`). Tuned in the
+"frisk1636" playtest round; targets and measurements in `docs/BALANCE.md`.
+
+* **Start cash** `stage.startCash` (650 at 1-1, then 700 → 900) × difficulty `startCashMul`
+  (Nightmare ×1.5, everything else ×1).
+* **Kill bounty** = enemy `bounty` × difficulty `cashMul` × `stage.cashScale`.
+* **Wave-clear bonus** = (100 + 7 × wave + **crowd**) × `cashMul` × `stage.cashScale`, paid at the end
+  of every wave even when enemies leaked (`BATTLE.waveClearBonusBase / waveClearBonusPerWave`).
+* **Crowd bonus** (the "more money per round based on how many enemies / types" note) = 1 coin per
+  scheduled enemy of the wave (max 30) + 4 per distinct enemy type (`BATTLE.crowdBonus`; split
+  children and summons do not count). Known at wave start, deterministic. It adds 9–22 % to the
+  wave-clear bonus and 3–12 % of a stage's coins; the wave-clear toast shows it
+  ("Wave 6 cleared · +208 coins (+23 crowd)" on 1-1 Normal).
+* **cashScale** (campaign) = max(1.3, curve^0.45) where curve = 6.5^(index/39) is the smooth
+  campaign index curve: 1.3 for 1-1 … 3-3, then up to 2.32 at 8-5. Bounty tiers 1.2 / 1.64 / 2.06;
+  Total Assault 2.06 / 2.24 / 2.40; Tactical Challenge 1.
+* **Tower income** (Momo) = (perWave × cashMul + interest) × difficulty `incomeMul` (Nightmare ×0.5;
+  the legacy `noIncome: true` flag still means 0).
+* **Prices**: placement and tiers 1–3 were cut ×0.75, tier 4 ×0.5, tier 5 ×0.9 (one rule for every
+  unit, rounded to 5 / 10 / 50 / 250). Aoi 150 · Rei 180 · Hikari 390; Aoi's tier 4s 1,000–1,200
+  (place → T4 1,890–2,060 coins, was 3,180–3,540). Difficulty `costMul` multiplies every price.
+
+| Difficulty | Enemy HP | Speed | Coins | Prices | Lives | Start cash | Income girls |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Easy | ×0.6 | ×1 | ×1.1 | ×0.9 | 150 | ×1 | ×1 |
+| Normal | ×1 | ×1 | ×1 | ×1 | 100 | ×1 | ×1 |
+| Hard | ×1 | ×1 | ×1 | ×1.05 | 50 | ×1 | ×1 |
+| Nightmare | ×1.1 | ×1.05 | ×1 | ×1.1 | 1 | ×1.5 | ×0.5 |
+
+Coins per stage on Normal if every enemy dies (start + bounty + wave-clear incl. crowd): 1-1 3,570 ·
+1-5 7,255 · 2-5 9,992 · 3-5 9,843 · 4-5 14,339 · 5-5 31,354 · 6-5 32,954 · 7-5 27,090 · 8-5 37,744.
+A focused player (hero + Rei + Aoi to tier 4) can afford the tier 4 by wave 10 of 15–18 in chapter 1;
+tier 5 is a chapter-4+ goal (all-in Aoi tier 5 first fits at wave 22–24 of 24–26 in chapter 4).

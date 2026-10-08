@@ -121,9 +121,12 @@ describe('crosspath rules (BTD6)', () => {
   });
 
   test('difficulty and profile costMul scale tower and upgrade costs', () => {
-    const sim = makeSim({ difficulty: 'nightmare', stats: { archer: { costMul: 0.9 } } });
-    expect(sim.placeCost('archer')).toBe(215); // 200 × 1.2 × 0.9 = 216 → 215
+    // Nightmare costMul 1.1 × a profile costMul of 0.8 (gear / awakening discount).
+    const sim = makeSim({ difficulty: 'nightmare', stats: { archer: { costMul: 0.8 } } });
+    expect(sim.placeCost('archer')).toBe(175); // 200 × 1.1 × 0.8 = 176 → 175
     const t = sim.placeTower('archer', 3, 3);
-    expect(sim.upgradeStatus(t.uid, 0).cost).toBe(110); // 100 × 1.08 = 108 → 110
+    expect(sim.upgradeStatus(t.uid, 0).cost).toBe(90); // 100 × 1.1 × 0.8 = 88 → 90
+    const hard = makeSim({ difficulty: 'hard' });
+    expect(hard.placeCost('archer')).toBe(210); // 200 × 1.05
   });
 });

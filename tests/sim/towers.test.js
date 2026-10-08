@@ -68,7 +68,7 @@ describe('selling', () => {
 });
 
 describe('income', () => {
-  test('economy towers pay at wave end; nightmare has no income', () => {
+  test('economy towers pay at wave end; nightmare halves their income', () => {
     const stage = { ...STAGE, waveGen: { pool: [], budget: { start: 1, growth: 1 }, fixed: [] } };
     const sim = makeSim({ cash: 1000, stage });
     sim.placeTower('banker', 0, 0);
@@ -77,15 +77,17 @@ describe('income', () => {
     expect(sim.state).toBe('between');
     const ev = sim.drainEvents();
     expect(ev).toContainEqual(expect.objectContaining({ type: 'cash', reason: 'income', amount: 100 }));
-    expect(ev).toContainEqual(expect.objectContaining({ type: 'waveEnd', wave: 1, bonus: 86 }));
-    expect(sim.cash).toBe(1000 - 200 + 100 + 86);
+    // Empty wave: no crowd bonus, wave-clear bonus = 100 + 7 × wave (BATTLE.waveClearBonusBase/PerWave).
+    expect(ev).toContainEqual(expect.objectContaining({ type: 'waveEnd', wave: 1, bonus: 107, crowd: 0, enemies: 0, kinds: 0 }));
+    expect(sim.cash).toBe(1000 - 200 + 100 + 107);
 
     const nm = makeSim({ cash: 1000, difficulty: 'nightmare', stage });
-    nm.placeTower('banker', 0, 0);
+    nm.placeTower('banker', 0, 0); // 200 × 1.1 Nightmare prices = 220
     nm.startNextWave();
     run(nm, 0.1);
     expect(nm.state).toBe('between');
-    expect(nm.drainEvents().some((e) => e.reason === 'income')).toBe(false);
+    expect(nm.drainEvents()).toContainEqual(expect.objectContaining({ type: 'cash', reason: 'income', amount: 50 }));
+    expect(nm.cash).toBe(1000 - 220 + 50 + 107);
   });
 });
 

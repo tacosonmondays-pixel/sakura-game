@@ -157,6 +157,8 @@ npm run build      # production build into dist/
 npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chrome/Edge/Chromium; see e2e/smoke.mjs)
 BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
+npx vitest run tests/integration/balance-targets.test.js   # playtest balance targets: ch1 ramp, headroom bands, bosses, slimes, tier-4 timing
+node tools/balance/measure.mjs --stages ch1 --diffs normal   # balance probe report (headroom, economy, bosses); see docs/BALANCE.md
 ```
 
 Dev preview pages for single parts live in `previews/` (for example `/previews/renderer.html?stage=1-5`,
@@ -248,7 +250,7 @@ tools/blender/              Blender (bpy) generators: build_characters.py, lib/,
 tests/                      vitest suites per area + models (GLB checks) + integration (consistency, balance)
 e2e/                        Playwright smoke test and screenshot helper
 previews/                   dev pages for each area
-docs/                       roster, bestiary, campaign, economy, models, placement, integration notes, owner requests, reference stills
+docs/                       roster, bestiary, campaign, economy, balance targets, models, placement, integration notes, owner requests, reference stills
 CONTRACTS.md                module APIs and data schemas
 ```
 

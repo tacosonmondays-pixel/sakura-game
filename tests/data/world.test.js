@@ -195,15 +195,36 @@ describe('enemies', () => {
         expect(e.hp, e.id).toBeGreaterThanOrEqual(150);
         expect(e.hp, e.id).toBeLessThanOrEqual(400);
       }
+      // Boss HP is "HP at hpScale 1" since the per-stage hpScale calibration (docs/BALANCE.md §4):
+      // the debut stage multiplies it by 2.6–13 (Slime Prince ≈ 1.2k on 1-5 Normal, Ashwing ≈ 97k on 8-5).
       if (e.tier === 'miniboss') {
-        expect(e.hp, e.id).toBeGreaterThanOrEqual(2500);
-        expect(e.hp, e.id).toBeLessThanOrEqual(4000);
+        expect(e.hp, e.id).toBeGreaterThanOrEqual(200);
+        expect(e.hp, e.id).toBeLessThanOrEqual(2500);
       }
       if (e.tier === 'boss') {
-        expect(e.hp, e.id).toBeGreaterThanOrEqual(9000);
-        expect(e.hp, e.id).toBeLessThanOrEqual(20000);
+        expect(e.hp, e.id).toBeGreaterThanOrEqual(3000);
+        expect(e.hp, e.id).toBeLessThanOrEqual(10000);
       }
     }
+  });
+
+  it('scripted minibosses and bosses out-muscle the waves they finish (§5b)', () => {
+    // On every campaign / Total Assault stage a scripted boss has more HP than any elite of that
+    // stage's pool and at least 5× its strongest ordinary enemy (same stage hpScale for both).
+    let checked = 0;
+    for (const s of STAGES.filter((x) => x.kind === 'campaign' || x.kind === 'boss')) {
+      const pool = s.waveGen.pool.map((p) => getEnemy(p.enemy));
+      const maxElite = Math.max(0, ...pool.filter((x) => x.tier === 'elite').map((x) => x.hp));
+      const maxNormal = Math.max(0, ...pool.filter((x) => x.tier === 'normal').map((x) => x.hp));
+      for (const f of s.waveGen.fixed) {
+        const e = getEnemy(f.enemy);
+        if (e.tier !== 'boss' && e.tier !== 'miniboss') continue;
+        checked++;
+        expect(e.hp, `${s.id} ${e.id} vs elites`).toBeGreaterThan(maxElite);
+        expect(e.hp, `${s.id} ${e.id} vs ordinary`).toBeGreaterThanOrEqual(5 * maxNormal);
+      }
+    }
+    expect(checked).toBe(8); // 1-5, 4-5, 6-5, 7-5, 8-5 + the three Total Assault arenas
   });
 
   it('has the 4 minibosses and 3 bosses with announced phases', () => {
@@ -555,30 +576,59 @@ describe('stages', () => {
     }
   });
 
+  it('difficulty table keeps its order and the Nightmare opening rules (docs/BALANCE.md §5)', () => {
+    const { easy, normal, hard, nightmare } = DIFFICULTIES;
+    expect(easy.hpMul).toBeLessThan(normal.hpMul);
+    expect(normal.hpMul).toBeLessThanOrEqual(hard.hpMul);
+    expect(hard.hpMul).toBeLessThanOrEqual(nightmare.hpMul);
+    expect(easy.costMul).toBeLessThan(normal.costMul);
+    expect(normal.costMul).toBeLessThan(hard.costMul);
+    expect(hard.costMul).toBeLessThan(nightmare.costMul);
+    expect([easy.lives, normal.lives, hard.lives, nightmare.lives]).toEqual([150, 100, 50, 1]);
+    // Nightmare: one life, but a full opening (×1.5 start cash) and half tower income (not none).
+    expect(nightmare.startCashMul).toBe(1.5);
+    expect(nightmare.incomeMul).toBe(0.5);
+    expect(nightmare.noIncome).toBeUndefined();
+    for (const d of [easy, normal, hard]) {
+      expect(d.startCashMul ?? 1).toBe(1);
+      expect(d.incomeMul ?? 1).toBe(1);
+    }
+  });
+
   it('campaign requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
+    // hpScale is probe-calibrated per stage (docs/BALANCE.md §4.1): not monotone inside a chapter,
+    // but bounded, and the chapter mean never drops. Coins follow the smooth index curve instead.
+    const curve = (i) => Math.round(6.5 ** (i / 39) * 100) / 100;
     campaign.forEach((s, i) => {
       expect(s.requires).toBe(i === 0 ? null : campaign[i - 1].id);
+      expect(s.hpScale, s.id).toBeGreaterThanOrEqual(1.5);
+      expect(s.hpScale, s.id).toBeLessThanOrEqual(17);
+      expect(s.cashScale, `${s.id} cashScale`).toBe(Math.max(1.3, Math.round(curve(i) ** 0.45 * 100) / 100));
       if (i > 0) {
-        expect(s.hpScale, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale);
+        expect(s.cashScale, `${s.id} cashScale ramp`).toBeGreaterThanOrEqual(campaign[i - 1].cashScale);
         expect(s.waves, s.id).toBeGreaterThanOrEqual(campaign[i - 1].waves - 2);
         expect(s.startCash, s.id).toBeGreaterThanOrEqual(700);
         expect(s.startCash, s.id).toBeLessThanOrEqual(900);
       }
     });
-    expect(campaign[0].hpScale).toBe(1);
+    const chapterMean = CHAPTERS.map((c) => campaign.filter((s) => s.chapter === c.id).reduce((a, s) => a + s.hpScale, 0) / 5);
+    for (let c = 1; c < chapterMean.length; c++) expect(chapterMean[c], `chapter ${c + 1} mean hpScale`).toBeGreaterThanOrEqual(chapterMean[c - 1]);
+    expect(campaign[0].cashScale).toBe(1.3);
+    expect(campaign[39].cashScale).toBeCloseTo(2.32, 2);
     expect(campaign[0].startCash).toBe(650);
     expect(campaign[0].waves).toBe(12);
-    expect(campaign[39].hpScale).toBeGreaterThanOrEqual(6);
-    expect(campaign[39].hpScale).toBeLessThanOrEqual(7);
     expect(campaign[39].waves).toBe(30);
     const res = stagesOfKind('resource');
     for (const s of res) {
       const t = Number(s.id.slice(-1));
-      expect(s.hpScale).toBe([1.5, 3, 5][t - 1]);
+      expect(s.hpScale).toBe([3.68, 2.7, 4.5][t - 1]);
+      expect(s.cashScale).toBe([1.2, 1.64, 2.06][t - 1]);
     }
     for (const s of stagesOfKind('boss')) {
-      expect(s.hpScale).toBeGreaterThanOrEqual(5);
-      expect(s.hpScale).toBeLessThanOrEqual(7);
+      expect(s.hpScale).toBeGreaterThanOrEqual(3);
+      expect(s.hpScale).toBeLessThanOrEqual(6.5);
+      expect(s.cashScale).toBeGreaterThanOrEqual(2);
+      expect(s.cashScale).toBeLessThanOrEqual(2.5);
     }
   });
 

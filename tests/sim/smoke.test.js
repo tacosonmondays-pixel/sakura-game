@@ -56,5 +56,7 @@ describe.skipIf(!ready)('real data smoke', () => {
       rows.push(`${stage.id.padEnd(5)} ${r.won ? 'WON ' : 'LOST'} wave ${r.wave}/${r.sim.totalWaves} lives ${r.lives}/${r.maxLives} [${ids.join(',')}]`);
     }
     console.log(`[balance] campaign sweep (normal, free units, autoPlan):\n${rows.join('\n')}`);
-  }, 300000);
+    // ~80 s of CPU on an idle box (enemies live ~1.25× longer since the "frisk1636" HP retune, so
+    // battles run longer); the budget leaves room for a loaded shared machine.
+  }, 600000);
 });

@@ -1,6 +1,10 @@
 import { describe, test, expect } from 'vitest';
 import { makeSim, startEmptyWave, run, UNITS } from './fixtures.js';
 import { xpToReach, levelForXp } from '../../src/sim/hero.js';
+import { HERO_XP_PER_DAMAGE } from '../../src/sim/constants.js';
+
+/** Damage the hero must deal to earn `xp` (HERO_XP_PER_DAMAGE XP per point of damage). */
+const dmgFor = (xp) => xp / HERO_XP_PER_DAMAGE;
 
 function park(sim, id, dist) {
   const e = sim.spawnEnemy(id, { dist });
@@ -26,8 +30,9 @@ describe('hero XP and levels', () => {
     expect(sim.hero).toBe(h);
     expect(h.eff.damage).toBe(10);
     park(sim, 'tank', 7);
-    run(sim, 10.5);
+    run(sim, 0.5 + dmgFor(100) / 10); // 10 damage per hit, 1 hit per second until level 2
     expect(h.xp).toBeGreaterThanOrEqual(100);
+    expect(h.xp).toBeCloseTo(h.damageDealt * HERO_XP_PER_DAMAGE, 6);
     expect(h.level).toBeGreaterThanOrEqual(2);
     expect(h.eff.damage).toBe(15);
     expect(sim.drainEvents().some((e) => e.type === 'heroLevel' && e.level === 2)).toBe(true);
@@ -47,7 +52,7 @@ describe('hero XP and levels', () => {
     const h = sim.placeTower('heroine', 0, 0);
     expect(sim.heroUltStatus()).toMatchObject({ unlocked: false, ready: false });
     h.xp = 0;
-    sim._credit(h, 300);
+    sim._credit(h, dmgFor(300));
     expect(h.level).toBe(3);
     const st = sim.heroUltStatus();
     expect(st.unlocked).toBe(true);
@@ -115,7 +120,7 @@ describe('hero XP and levels', () => {
     const h = sim.placeTower('heroine', 0, 0);
     expect(sim.upgradeStatus(h.uid, 0)).toMatchObject({ tier: 0, locked: false, cost: 100 });
     expect(sim.upgradeTower(h.uid, 0)).toBe(true);
-    sim._credit(h, 100);
+    sim._credit(h, dmgFor(100));
     expect(h.level).toBe(2);
     expect(h.tiers).toEqual([1, 0, 0]);
     expect(h.eff.damage).toBe(15); // base 10 + level-2 milestone (+5); fixture tier mods are empty

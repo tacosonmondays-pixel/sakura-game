@@ -1,6 +1,6 @@
 # Bestiary
 
-> Generated from `src/data/enemies.js` (owner: world). Numbers are before stage `hpScale` and difficulty.
+> Generated from `src/data/enemies.js` (owner: world). Numbers are before stage `hpScale` and difficulty. Boss and miniboss HP is "HP at hpScale 1": the debut stage multiplies it by 3–13 (Slime Prince ≈ 1.2k on 1-5 Normal, Ashwing ≈ 97k on 8-5; `docs/BALANCE.md`).
 
 74 enemies in 12 families: 13 elites, 4 minibosses, 3 bosses.
 
@@ -59,7 +59,7 @@
 | **Glimmer Copy** `slime_glimmer` | normal | 6 | 1.2 | light | – | – | 0 | 7-3 |
 | **Bubble Slime** `slime_bubble` | normal | 16 | 1 | light | – | Airborne | 9 | 8-1 |
 | **Royal Guard Slime** `slime_courtier` | elite | 180 | 0.8 | light | 1 | Armored, Splitter | 18 | 1-5 |
-| **Slime Prince** `slime_prince` | miniboss | 2600 | 0.5 | light | – | Splitter, Summoner, Hasty | 280 | 1-5 |
+| **Slime Prince** `slime_prince` | miniboss | 250 | 0.5 | light | – | Splitter, Summoner, Hasty | 280 | 1-5 |
 
 **Green Slime** — The first thing every sentinel ever defeats. It mostly wants to be petted.
 *Counter:* Anything works. A single Aoi handles the early waves.
@@ -121,7 +121,7 @@
 | **Goblin Bomber** `goblin_bomber` | normal | 26 | 1.25 | light | – | Volatile | 9 | 6-4 |
 | **Goblin Glider** `goblin_glider` | normal | 20 | 1.5 | light | – | Airborne | 12 | 8-2 |
 | **Goblin Chieftain** `goblin_chief` | elite | 240 | 1.2 | light | – | Hasty, Summoner | 90 | 6-5 |
-| **Goblin Machine** `goblin_machine` | miniboss | 3000 | 0.5 | heavy | 4 | Armored, Barrier, Summoner | 1300 | 6-5 |
+| **Goblin Machine** `goblin_machine` | miniboss | 1660 | 0.5 | heavy | 4 | Armored, Barrier, Summoner | 1300 | 6-5 |
 
 **Goblin Runner** — Steals one sakura petal per run and is extremely proud of it.
 *Counter:* Runner: fast and fragile. Place shooters near the start and the end so none slip past.
@@ -160,7 +160,7 @@
 | **Orc Shieldbearer** `orc_shieldbearer` | normal | 75 | 0.65 | heavy | – | Guardian | 16 | 4-3 |
 | **Orc Berserker** `orc_berserker` | normal | 55 | 0.85 | heavy | – | Pack Fury | 12 | 4-2 |
 | **Orc Warlord** `orc_warlord` | elite | 380 | 0.6 | heavy | 5 | Armored, Guardian | 80 | 4-4 |
-| **Orc General** `orc_general` | miniboss | 3400 | 0.45 | heavy | 6 | Armored, Guardian, Hasty | 840 | 4-5 |
+| **Orc General** `orc_general` | miniboss | 1550 | 0.45 | heavy | 6 | Armored, Guardian, Hasty | 840 | 4-5 |
 
 **Orc Grunt** — A big, patient lump of muscle. Has no armor yet — just a lot of health.
 *Counter:* Plain tank: focus fire and upgrade damage. Blast and mystic hit heavy bodies hardest.
@@ -220,7 +220,7 @@
 | **Leech Ghoul** `ghoul_leech` | normal | 45 | 0.85 | spectral | – | Siphon | 13 | 5-1 |
 | **Fog Skulker** `ghoul_skulker` | normal | 35 | 0.9 | spectral | – | Blink | 10 | 5-2 |
 | **Grave Priest** `ghoul_gravepriest` | elite | 320 | 0.7 | spectral | – | Siphon, Summoner | 90 | 5-4 |
-| **Grave Lych** `grave_lych` | boss | 12000 | 0.4 | spectral | 3 | Armored, Regenerating, Summoner, Phasing | 2000 | boss-lych |
+| **Grave Lych** `grave_lych` | boss | 4000 | 0.4 | spectral | 3 | Armored, Regenerating, Summoner, Phasing | 2000 | boss-lych |
 
 **Bonewalker** — Rattles out of the bog whenever something important calls.
 *Counter:* Plain spectral fodder: mystic and holy hit it fully.
@@ -254,7 +254,7 @@
 | **Ward Oni** `oni_shield` | normal | 65 | 0.75 | warded | – | Field Caster | 30 | 7-2 |
 | **Bloom Oni** `oni_bloom` | normal | 60 | 0.8 | warded | – | Field Caster | 28 | 7-4 |
 | **Taiko Oni** `oni_taiko` | elite | 340 | 0.65 | warded | 2 | Armored, Field Caster | 160 | 7-4 |
-| **Oni Champion** `oni_champion` | miniboss | 3200 | 0.5 | warded | 3 | Armored, Field Caster | 1840 | 7-5 |
+| **Oni Champion** `oni_champion` | miniboss | 2100 | 0.5 | warded | 3 | Armored, Field Caster | 1840 | 7-5 |
 
 **Oni Brute** — Came for the festival food, stayed for the fighting.
 *Counter:* Warded: mystic does half. Pierce, slash, blast and holy all work.
@@ -311,7 +311,7 @@
 | **Aegis Automaton** `construct_aegis` | normal | 50 | 0.8 | heavy | – | Barrier | 18 | 6-2 |
 | **Iron Sentry** `construct_sentry` | normal | 70 | 0.7 | heavy | 4 | Armored | 25 | 6-3 |
 | **Prism Warden** `construct_warden` | elite | 300 | 0.6 | heavy | – | Barrier, Crystal Shell | 110 | 6-4 |
-| **Iron Colossus** `iron_colossus` | boss | 14000 | 0.35 | heavy | 6 | Armored, Crystal Shell | 2500 | boss-colossus |
+| **Iron Colossus** `iron_colossus` | boss | 4000 | 0.35 | heavy | 6 | Armored, Crystal Shell | 2500 | boss-colossus |
 
 **Cogling** — A wind-up helper that wandered off the assembly line.
 *Counter:* Heavy body: blast and mystic deal extra; slash bounces off.
@@ -420,7 +420,7 @@
 | **Ash Wyvern** `dragon_wyvern` | normal | 60 | 1.1 | scaled | – | Airborne | 35 | 8-1 |
 | **Ashdrake** `dragon_ashdrake` | normal | 90 | 0.8 | scaled | – | Elemental Ward | 50 | 8-3 |
 | **Cinder Wyvern** `dragon_cinder` | elite | 360 | 0.95 | scaled | – | Airborne, Elemental Ward | 210 | 8-4 |
-| **Ashwing Matriarch** `dragon_ashwing` | boss | 12000 | 0.4 | scaled | 4 | Armored, Elemental Ward, Airborne, Summoner | 3000 | 8-5 |
+| **Ashwing Matriarch** `dragon_ashwing` | boss | 8000 | 0.4 | scaled | 4 | Armored, Elemental Ward, Airborne, Summoner | 3000 | 8-5 |
 
 **Ash Wyvern** — A young wyvern circling the peaks, scouting for its Matriarch.
 *Counter:* Airborne: Rei, Akane and Sango can't reach it without upgrades. Aoi, Kage and Shiro's pierce hit scales ×1.5.

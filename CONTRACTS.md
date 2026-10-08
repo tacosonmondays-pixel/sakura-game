@@ -52,7 +52,10 @@ Attack types `blast|pierce|slash|mystic|holy`; armor classes `light|heavy|spectr
 `TYPE_CHART`, `typeMultiplier()`; elements `fire|frost|lightning|poison|water`; statuses
 (`STATUSES`); roles (`ROLES`); capabilities (`CAPABILITIES`); enemy traits (`TRAITS`);
 placement `land|water|amphibious`; target modes `first|last|strong|close|elite`;
-difficulties `easy|normal|hard|nightmare` (`DIFFICULTIES`, medals bronze/silver/gold/sakura);
+difficulties `easy|normal|hard|nightmare` (`DIFFICULTIES`, medals bronze/silver/gold/sakura;
+each `{ id, name, hpMul, speedMul, cashMul, costMul, lives, medal, firstClearGems, startCashMul?,
+incomeMul? }` — `startCashMul` (default 1) scales the stage start cash, `incomeMul` (default 1)
+scales tower income; the legacy `noIncome: true` still means income ×0);
 map tiers `beginner|intermediate|advanced|expert`; unit rarities `R|SR|SSR`; item rarities
 `common|rare|superRare|mythic|legendary`; material families `feather|blade|ember|rime|charm|rune|cog`;
 gear slots `charm|ribbon|shoes`; gear stats; `GACHA`; `BATTLE`.
@@ -320,8 +323,10 @@ StageDef = {
     fixed: [{ wave, enemy, count, spacing?, delay?, path? }],   // scripted additions (minibosses, intros);
                                                           // bosses/minibosses default to the longest path
   },
-  hpScale /*1.0 at 1-1 rising to ~6 at 8-5*/, startCash, lives /*base before difficulty override*/,
-  cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign = hpScale^0.6)*/,
+  hpScale /*enemy HP multiplier; campaign values are probe-calibrated per stage (docs/BALANCE.md), 1.5–17*/,
+  startCash, lives /*base before difficulty override*/,
+  cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign =
+              max(1.3, curve^0.45) of the smooth index curve 6.5^(i/39), NOT of the calibrated hpScale)*/,
   introduces: (enemyId|TraitKey)[],   // shown as "New!" on prep + reflected in scenery
   recommended: CapabilityKey[],        // drives the "add counters" shortcut
   unlocks: { units?: unitId[] },       // free recruits granted on first clear (any difficulty)
@@ -521,15 +526,21 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 ## 5b. Balance anchors (shared by units, world, sim)
 
 * Tile = 1 world unit. Ranges: melee 1.6–2.2, normal ranged 2.8–3.6, sniper 8–12.
-* Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
-* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000 (Bloons-like).
-* Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
+* Starter tower Aoi: cost 150, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 150 coins.
+* Upgrade costs (in-battle coins, "frisk1636" price cut — placement and tiers 1–3 ×0.75, tier 4 ×0.5,
+  tier 5 ×0.9 of the old prices): tier 1: 50–250, tier 2: 120–350, tier 3: 400–1100, tier 4: 900–2300,
+  tier 5: 6000–14500; tier 4 ≥ 1.7 × tier 3 and tier 5 ≥ 5 × tier 4 on every path. Towers cost 150–700.
+* Heroes: cost 330–500, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
-  ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
-* hpScale: 1-1 = 1.0 rising smoothly to ≈ 6.5 at 8-5; resource arenas tier 1/2/3 ≈ 1.5/3/5; boss arenas ≈ 5–7.
-* Start cash: 1-1 650; later stages 700–900. Wave clear bonus = (80 + 6 × wave) × cashMul × stage.cashScale
-  (kill bounties are × cashScale too). Waves: 12 early → 30 late.
-* Difficulty should feel harder than the old version: Normal should require using upgrades and the right counters.
+  ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 200–2500; bosses ≈ 3000–10000
+  ("HP at hpScale 1": a scripted boss has more HP than any elite of its stage and ≥ 5× its strongest ordinary enemy).
+* hpScale: probe-calibrated per campaign stage (1.5–17; chapter means non-decreasing; docs/BALANCE.md);
+  resource arenas tier 1/2/3 = 3.68 / 2.7 / 4.5; boss arenas 3 / 3 / 6; Tactical Challenge 3.75.
+* Start cash: 1-1 650; later stages 700–900 (× difficulty startCashMul). Wave clear bonus =
+  (100 + 7 × wave + crowd) × cashMul × stage.cashScale, crowd = min(30, enemies in the wave) × 1 + 4 × enemy
+  types (`BATTLE.crowdBonus`, scheduled spawns only); kill bounties are × cashMul × cashScale too. Waves: 12 early → 30 late.
+* Difficulty targets (headroom bands, docs/BALANCE.md): Easy ≥ ×2.2 on every stage; Normal ×1.3–1.6 median
+  (casual players win but lose some lives); Hard ×1.1–1.3; Nightmare = 1 life with a fair economy.
 
 ## 6. Simulation — `src/sim/**` (owner: sim)
 
@@ -606,8 +617,10 @@ SimEvent = { type, ...payload } with types:
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
   'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
-  'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
+  'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus,crowd,enemies,kinds}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
+  // waveEnd: bonus = wave-clear coins paid (incl. the crowd bonus), crowd = the crowd-bonus part of it
+  // (scaled), enemies / kinds = scheduled spawns of that wave and their distinct enemy ids.
 ```
 
 Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `src/sim/headless.js`

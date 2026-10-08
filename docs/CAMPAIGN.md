@@ -15,7 +15,11 @@ Source of truth: `src/data/stages.js` (stages), `src/data/maps.js` (49 maps), `s
   field oni while goblins slip through.
 * **Gentle openings, steep finishes.** Every stage starts with cheap fodder (wave budgets start at
   6–8 and big enemies are skipped until the budget can afford several), then ramps to the
-  chapter's showcase. `hpScale` rises smoothly from 1.0 (1-1) to 6.5 (8-5); waves grow from 12 to 30.
+  chapter's showcase. Waves grow from 12 to 30. `hpScale` is probe-calibrated per stage to the
+  headroom curve in `docs/BALANCE.md` (Normal: 1-1 ×2.0 … x-5 ×1.4): map length, enemy mix and fresh
+  recruits make stages differ by up to ×2, so HP is not monotone inside a chapter (chapter means
+  are: 2.81 · 3.11 · 3.81 · 3.83 · 7.08 · 8.26 · 10.50 · 12.16) — difficulty is what ramps. Coins
+  follow the smooth index curve instead (`cashScale` = max(1.3, curve^0.45), 1.3 at 1-1 … 2.32 at 8-5).
 * **Every family farmable.** Each campaign stage drops coins, books and two material families;
   across the campaign all seven families appear at common and rare (and better on later chapters /
   harder difficulties). Reroll dice drop occasionally from chapter 3 on.
@@ -99,7 +103,8 @@ Crowns have a base chance plus a second roll on Hard+. Minibosses cost 25 lives 
 ## Bounty (resource) arenas
 
 Five arenas × three tiers (`res-<arena>-<tier>`). Tier I unlocks after 1-5, II after 3-5,
-III after 5-5. hpScale 1.5 / 3 / 5, 12 / 15 / 18 waves. Every clear gives `token_bounty`.
+III after 5-5. hpScale 3.68 / 2.7 / 4.5 (probe-calibrated on the Library: Normal headroom ≈ ×1.6 /
+×1.7 / ×1.3), cashScale 1.2 / 1.64 / 2.06, 12 / 15 / 18 waves. Every clear gives `token_bounty`.
 
 | Arena | Map | Drops (best rarity rises with tier and difficulty) |
 |---|---|---|
@@ -113,7 +118,10 @@ Gear boxes use item ids `gearbox_<rarity>` (resolved to rolled gear by `rollStag
 
 ## Total Assault (boss arenas)
 
-15 waves of escorts with the boss scripted on wave 15. Expert tier, hpScale 5 / 6 / 7.
+15 waves of escorts with the boss scripted on wave 15. Expert tier, hpScale 3 / 3 / 6 (Lych /
+Colossus / Ashwing), cashScale 2.06 / 2.24 / 2.40. Before the "frisk1636" round the Lych (72.6k HP)
+and the Colossus (101.6k) were never killed by the free roster even at half HP; now both die after
+100–110 s on screen (Normal, bot) and the Matriarch after 34–69 s.
 
 | Stage | Boss | Unlock | Signature drops |
 |---|---|---|---|
@@ -129,18 +137,29 @@ All three also drop `token_boss`, mythic books or gear boxes, prism dice and sta
 families every few waves (`from`/`to`), elites appear from wave 20, and a miniboss or boss is
 scripted every 10 waves (Prince 10, General 20, Machine 30, Champion 40, Lych 50, Colossus 60,
 Ashwing 70). Rewards are bounty tokens and coins; the UI records the best wave per map.
+hpScale 3.75 (was 1.5, raised with the price cut so the free roster still reaches about wave 30
+(bot) / 40 (human-like) and leaderboard waves stay comparable); no cashScale (= 1).
 
 ## Balance notes
 
+The balance targets, the probe and the calibration loop live in **`docs/BALANCE.md`**; the numbers
+below are the current state (playtest round "frisk1636", 2026-10-08).
+
 * Bounty ≈ 1 coin per 10 *effective* HP in the chapter where an enemy debuts (late monsters carry
-  more loot), so the economy keeps pace with `hpScale` the way Bloons pays $1 per RBE. The green
-  slime keeps the §5b anchor (14 HP, 1 coin).
-* Wave budgets are tuned with the sim's `autoPlan` bot using free units only and modest expected
-  levels per chapter. The bot spreads its coins over many low-tier girls, so it is a
-  pessimistic stand-in for a player; minibosses and the 8-5 boss are deliberately beyond it and need
-  focused tier-4/5 builds (e.g. Kage's Storm of Steel, Shiro's Execution, Sango's Armor-Breaker Shells).
-* Tuning results (Normal, autoPlan, free units only): with expected levels per chapter
-  (1 / 8 / 14 / 20 / 25 / 30 / 35 / 40) every stage 1-1 … 8-4 is won, most with 40–100 lives; 8-5's
-  Matriarch is beyond the bot. With level-1 girls, chapters 1–3 are won and later chapters need
-  levelling — progression gates the campaign. On Hard the bot loses many mid/late stages, as intended.
-* Difficulty multipliers come from `DIFFICULTIES` in `types.js` (Hard: ×1.35 HP, ×1.1 speed, 50 lives).
+  more loot). The green slime keeps the §5b anchor (14 HP, 1 coin).
+* Battle coins: kill bounty × cashScale, plus a wave-clear bonus of (100 + 7 × wave + crowd) ×
+  cashMul × cashScale, where the **crowd bonus** = 1 per scheduled enemy (max 30) + 4 per enemy
+  type in that wave. In-battle prices were cut (placement and tiers 1–3 ×0.75, tier 4 ×0.5,
+  tier 5 ×0.9): Aoi 150, her Arrow Storm tier 4 1,200.
+* `hpScale` per stage is tuned with `tools/balance/measure.mjs` (autoPlan bot + a human-like
+  planner, free units only, `EXPECTED_LEVEL` 1 / 5 / 10 / 15 / 20 / 24 / 28 / 32 by chapter). Normal
+  median headroom is ×1.58 (bot and human-like) on the 22-stage sample; the bot wins 39/40 campaign
+  stages on Normal (8-5 lost: autoPlan banks coins for a tier 5 it never buys) and all 40 on Easy.
+* Bosses (Normal): the Slime Prince (250 base HP × 3.87) lives ~97–117 s and is killed at 76–90 %
+  of the path; Orc General 41–45 s; Goblin Machine and Oni Champion 28–43 s for a focused player
+  (the bot leaks them and still wins); Ashwing 45 s for the human-like planner. Base boss HP is
+  "HP at hpScale 1" — the debut stage multiplies it.
+* Difficulty multipliers come from `DIFFICULTIES` in `types.js`: Easy ×0.6 HP; Hard ×1.0 HP,
+  ×1.05 prices, 50 lives; Nightmare ×1.1 HP, ×1.05 speed, ×1.1 prices, 1 life, ×1.5 start cash,
+  income girls ×0.5. Normal itself got ≈40 % harder, so Hard's extra pressure is half the lives.
+* Re-probe after any map path change: path length moves headroom (1-1's short track especially).
