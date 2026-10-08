@@ -170,7 +170,7 @@ function edgePoint(t, i, entering, ti, W, H) {
 // Mesh accumulation (vertex colours, flat normals)
 // ---------------------------------------------------------------------------
 
-class Acc {
+export class Acc {
   constructor() {
     this.pos = [];
     this.nor = [];
@@ -214,11 +214,13 @@ class Acc {
     const top = color;
     const side = this._shade || (this._shade = new THREE.Color());
     side.copy(color).multiplyScalar(0.82);
+    // every face wound counter-clockwise seen from OUTSIDE the box (front faces; the solid
+    // material culls back faces, so an inward side would leave a hollow roof on stilts)
     this.quad(v[4], v[7], v[6], v[5], top);
-    this.quad(v[0], v[1], v[5], v[4], side);
-    this.quad(v[1], v[2], v[6], v[5], side);
-    this.quad(v[2], v[3], v[7], v[6], side);
-    this.quad(v[3], v[0], v[4], v[7], side);
+    this.quad(v[4], v[5], v[1], v[0], side);
+    this.quad(v[5], v[6], v[2], v[1], side);
+    this.quad(v[6], v[7], v[3], v[2], side);
+    this.quad(v[7], v[4], v[0], v[3], side);
   }
 
   /** Vertical cylinder-ish post (hexagonal prism). */
@@ -273,19 +275,22 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
   const rail = new THREE.Color(look.bridge.rail);
   const post = new THREE.Color(look.bridge.post);
   const plank = new THREE.Color();
+  const sill = new THREE.Color(look.bridge.deck).lerp(new THREE.Color(look.bridge.post), 0.45);
   // land overpass decks: the theme's overpass colour (or its bridge deck), girders a shade of the posts
   const over = new THREE.Color(look.bridge.overpass || look.bridge.deck);
   const girder = new THREE.Color(look.bridge.girder || look.bridge.post);
+  const overRail = new THREE.Color(look.bridge.overRail || look.bridge.rail);
   const waterSections = new Set();
   const nearCrossing = (x, z, r = CROSS_CLEAR) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < r);
   const nearLink = (x, z) => links.some((c) => Math.hypot(c.x - x, c.y - z) < 1.3);
-  // lower passes: no railings where an overpass deck spans them (they would cut across the deck)
+  // lower passes: the railings run on under an overpass deck (low enough to pass beneath it,
+  // so the boardwalk visibly continues under the span), but no posts stand under the deck
   const underSpans = new Map();
   for (const c of crossings) {
     if (c.mode !== 'bridge') continue;
     const low = c[c.over === 'a' ? 'b' : 'a'];
     const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
-    const w = Math.min(1.9, (DECK_HALF + 0.3) / sin);
+    const w = Math.min(1.7, (OVER_HALF + 0.06) / sin);
     if (!underSpans.has(low.path)) underSpans.set(low.path, []);
     underSpans.get(low.path).push([low.d - w, low.d + w]);
   }
@@ -373,7 +378,40 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       if (!deckOn[i]) continue;
       for (let k = Math.max(0, i - PAD); k <= Math.min(n - 1, i + PAD); k++) if (!tunnel[k]) padded[k] = true;
     }
+    // One deck per crossing of a wet area: a short dry patch between two deck runs is decked
+    // over too (a boardwalk theme keeps its boardwalk over longer soggy patches), so the road
+    // never shows deck → abutment → a few steps of road → abutment → deck.
+    const mergeGap = look.bridge.boardwalk ? 3.8 : 2.4;
+    for (let i = 0, lastEnd = -1; i < n; i++) {
+      if (!padded[i]) continue;
+      if (lastEnd >= 0 && i - lastEnd > 1 && r.d[i] - r.d[lastEnd] <= mergeGap) {
+        let clear = true;
+        for (let k = lastEnd + 1; k < i; k++) if (tunnel[k]) clear = false;
+        if (clear) for (let k = lastEnd + 1; k < i; k++) padded[k] = true;
+      }
+      while (i + 1 < n && padded[i + 1]) i++;
+      lastEnd = i;
+    }
     for (let i = 0; i < n; i++) if (padded[i]) waterSections.add(`${r.index}:${i}`);
+    // Deck material per run: a short deck run that carries an overpass (a bridge that lands on
+    // the water deck it continues as) is ONE bridge in the overpass material; on a long
+    // boardwalk only the raised span changes material (a distinct bridge over the boardwalk).
+    const overMat = new Array(n).fill(false);
+    for (let i = 0; i < n; i++) {
+      const slabAt = (k) => !tunnel[k] && (padded[k] || elev[k] > 0.015);
+      if (!slabAt(i)) continue;
+      let j = i;
+      while (j + 1 < n && slabAt(j + 1)) j++;
+      let up = 0;
+      let flat = 0;
+      for (let k = i + 1; k <= j; k++) {
+        if (elev[k] > 0.015) up += r.d[k] - r.d[k - 1];
+        else flat += r.d[k] - r.d[k - 1];
+      }
+      const whole = up > 0 && flat <= Math.max(6, up * 1.6);
+      for (let k = i; k <= j; k++) overMat[k] = whole || elev[k] > 0.015;
+      i = j;
+    }
     let railAcc = 0;
     let pileAcc = 0;
     let slabPrev = null;
@@ -405,18 +443,20 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         };
         if (slabPrev && slabPrev.i === i - 1) {
           const P = slabPrev;
-          const base = !raised ? deck : !onDeck ? over : look.bridge.lacquer ? deck : over;
-          plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
-          const side = raised ? girder : post;
+          const asOver = overMat[i] && !(onDeck && look.bridge.lacquer);
+          const base = asOver ? over : deck;
+          if (asOver && look.bridge.grating) plank.copy(base).multiplyScalar(i % 2 ? 0.8 : 1.02);
+          else plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
+          const side = asOver ? girder : post;
           acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
           acc.quad(P.tl, P.bl, sec.bl, sec.tl, side);
           acc.quad(P.tr, sec.tr, sec.br, P.br, side);
           acc.quad(P.bl, P.br, sec.br, sec.bl, side);
-        } else if (onDeck && !raised) {
-          // abutment sill where a deck starts on the bank
-          acc.box(x, pathH + 0.01, z, 0.07, 0.05, W + 0.05, dx, dz, post);
+        } else if (onDeck && !raised && i > 0 && !tunnel[i - 1] && !isWaterAt(x, z)) {
+          // abutment sill where a deck run starts on the bank (a low step in a shade of the deck)
+          acc.box(x, pathH - 0.005, z, 0.06, 0.035, W + 0.03, dx, dz, sill);
         }
-        if (onDeck && !raised && i + 1 < n && !padded[i + 1]) acc.box(x, pathH + 0.01, z, 0.07, 0.05, W + 0.05, dx, dz, post);
+        if (onDeck && !raised && i + 1 < n && !padded[i + 1] && !tunnel[i + 1] && !isWaterAt(x, z)) acc.box(x, pathH - 0.005, z, 0.06, 0.035, W + 0.03, dx, dz, sill);
         slabPrev = { ...sec, i };
       } else slabPrev = null;
       // piles under low water decks
@@ -428,8 +468,11 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         }
       } else if (!raised) pileAcc = 0;
       // rails on decks and on raised overpasses (never across a deck that spans this road)
-      const railedAt = (k) => !tunnel[k] && (padded[k] || elev[k] > 0.14) && !nearLink(pts[k][0], pts[k][1]) && !underAt(k);
+      const railedAt = (k) => !tunnel[k] && (padded[k] || elev[k] > 0.14) && !nearLink(pts[k][0], pts[k][1]);
       const RS = raised ? OVER_HALF - 0.04 : 0.53;
+      const stone = overMat[i] && look.bridge.overRail;
+      const railC = stone ? overRail : rail;
+      const postC = stone ? girder : post;
       if (railedAt(i)) {
         railAcc += segLen;
         const prevRailed = i > 0 && railedAt(i - 1);
@@ -442,14 +485,14 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
             const bx = x + nx * s;
             const bz = z + nz * s;
             const len = Math.hypot(bx - ax, bz - az) / 2;
-            acc.box((ax + bx) / 2, (py + y) / 2 + 0.24, (az + bz) / 2, len + 0.01, 0.025, 0.03, dx, dz, rail);
-            acc.box((ax + bx) / 2, (py + y) / 2 + 0.12, (az + bz) / 2, len + 0.01, 0.015, 0.02, dx, dz, rail);
+            acc.box((ax + bx) / 2, (py + y) / 2 + 0.24, (az + bz) / 2, len + 0.01, 0.025, 0.03, dx, dz, railC);
+            acc.box((ax + bx) / 2, (py + y) / 2 + 0.12, (az + bz) / 2, len + 0.01, 0.015, 0.02, dx, dz, railC);
           }
         }
-        if (railAcc > 0.55 || !prevRailed) {
+        if ((railAcc > 0.55 || !prevRailed) && !underAt(i)) {
           railAcc = 0;
           for (const s of [-RS, RS]) {
-            acc.post(x + nx * s, y - 0.04, y + 0.3, z + nz * s, 0.035, post);
+            acc.post(x + nx * s, y - 0.04, y + 0.3, z + nz * s, 0.035, postC);
             if (look.bridge.lacquer && ((i * 13) % 7) === 0) glows.push({ x: x + nx * s, y: y + 0.36, z: z + nz * s, color: '#ffcf6b', size: 0.5, flicker: 0.12 });
           }
         }

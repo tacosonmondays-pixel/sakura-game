@@ -3,7 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
-import { planRoads, buildDecks, buildTunnels } from '../../src/render/trackMesh.js';
+import * as THREE from 'three';
+import { planRoads, buildDecks, buildTunnels, Acc } from '../../src/render/trackMesh.js';
 import { pointAtDistance } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import { Noise2 } from '../../src/render/textures.js';
@@ -83,6 +84,37 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
     const tun = buildTunnels(court, resolveLook('sakura'));
     expect(tun.geometry).toBeTruthy();
     expect(tun.portals.map((p) => p.end).sort()).toEqual(['in', 'out']);
+  });
+
+  it('solid boxes (halls, piers, sills, voussoirs) face outward on every side and in every yaw', () => {
+    // the solid material culls back faces: an inward-wound wall vanishes and a hall reads as a
+    // hollow roof on stilts
+    const check = (acc, c, label) => {
+      const P = acc.pos;
+      const N = acc.nor;
+      expect(P.length, label).toBe(5 * 2 * 9);
+      for (let t = 0; t < P.length / 9; t++) {
+        const g = [0, 1, 2].map((k) => (P[t * 9 + k] + P[t * 9 + 3 + k] + P[t * 9 + 6 + k]) / 3);
+        const n = [N[t * 9], N[t * 9 + 1], N[t * 9 + 2]];
+        const out = (g[0] - c[0]) * n[0] + (g[1] - c[1]) * n[1] + (g[2] - c[2]) * n[2];
+        expect(out, `${label} tri ${t}`).toBeGreaterThan(0);
+        // the stored normal agrees with the winding (what back-face culling uses)
+        const a = [P[t * 9], P[t * 9 + 1], P[t * 9 + 2]];
+        const b = [P[t * 9 + 3], P[t * 9 + 4], P[t * 9 + 5]];
+        const d = [P[t * 9 + 6], P[t * 9 + 7], P[t * 9 + 8]];
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const v = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+        const w = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        expect(w[0] * n[0] + w[1] * n[1] + w[2] * n[2], `${label} tri ${t} winding`).toBeGreaterThan(0);
+      }
+    };
+    const col = new THREE.Color('#888888');
+    for (const deg of [0, 37, 90, 145, 180, 233, 270, 321]) {
+      const a = (deg * Math.PI) / 180;
+      const acc = new Acc();
+      acc.box(2, 0.4, -1, 0.7, 0.4, 0.3, Math.cos(a), Math.sin(a), col);
+      check(acc, [2, 0.4, -1], `yaw ${deg}`);
+    }
   });
 });
 

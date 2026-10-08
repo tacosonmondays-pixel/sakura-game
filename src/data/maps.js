@@ -84,6 +84,11 @@ function defineMap(o) {
     // older readers that add 0.5 still land on the canonical curve.
     paths: tracks.map((t) => t.points.map(([x, y]) => [Math.round((x - 0.5) * 1e4) / 1e4, Math.round((y - 0.5) * 1e4) / 1e4])),
     decor: o.decor || [],
+    // optional per-map look of the road's bridges (merged over the theme's look.bridge), e.g.
+    // { overpass, girder, grating: true } for a steel-grating overpass
+    ...(o.bridge ? { bridge: o.bridge } : {}),
+    // optional painted ground features: [{ type: 'plaza'|'runeRing'|'ice', x, y, r }]
+    ...(o.ground ? { ground: o.ground } : {}),
     desc: o.desc,
     concept: o.concept || '',
   };

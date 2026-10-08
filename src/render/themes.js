@@ -132,7 +132,9 @@ export const THEMES = {
     shore: '#6f5d45',
     path: { style: 'planks', color: '#bd9d74', curb: '#8a6e4c', side: '#755b3d' },
     tunnel: { top: '#7a5c3c', side: '#5e452c', portal: '#9c7a52', dark: '#16130f' },
-    bridge: { deck: '#9c7a52', rail: '#6d5236', post: '#574029', lacquer: false, overpass: '#b08a5c', girder: '#4a3826' },
+    // boardwalks run on over short soggy patches; raised spans are old stone causeway bridges
+    // (grey slabs, stone parapets, dark fascia) so over / under never blur into one tangle of planks
+    bridge: { deck: '#9c7a52', rail: '#6d5236', post: '#574029', lacquer: false, overpass: '#a3a69c', girder: '#4a4c47', overRail: '#c9cbc2', boardwalk: true, shadow: 0.5 },
     water: { deep: '#245a52', shallow: '#3f8a70', foam: '#9cc8a8', glow: 0, foamAmt: 0.45, caustic: 0.3 },
     trees: ['willow', 'dead', 'willow'],
     treeColors: { leaf: '#6f9a55', leaf2: '#557f45', trunk: '#5a4636' },

@@ -340,6 +340,8 @@ export class AmbientSystem {
         this._gateColors.set(g.color, col);
       }
       const [dx, dz] = g.dir;
+      // ground quads turn by rot about +y with the texture's +u (the arrow tip) along
+      // (cos rot, -sin rot) in xz: this points the tip along the road's travel direction
       const rot = Math.atan2(-dz, dx);
       const spawn = g.kind === 'spawn';
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + (spawn ? 0 : 1.5));
@@ -362,12 +364,12 @@ export class AmbientSystem {
       const fadeA = Math.sin(slide * Math.PI);
       const y = PATH_H + 0.12 + hop * 0.22;
       gN.push(ax, 0.045, az, 0.62, 0.62, R.shadow, 0.05, 0.05, 0.12, 0.3 * (1 - hop * 0.5) * fadeA);
-      gN.push(ax, y, az, 0.78, 0.78, R.arrow, col.r, col.g, col.b, fadeA);
+      gN.push(ax, y, az, 0.78, 0.78, R.arrow, col.r, col.g, col.b, fadeA, rot);
       // second, smaller arrow half a cycle behind
       const slide2 = ((t * 0.9 + 0.5) % 1);
       const along2 = spawn ? 0.9 + slide2 * 1.1 : 0.2 + slide2 * 1.1;
       const hop2 = Math.abs(Math.sin(t * 3.4 + 1.6 + (spawn ? 0 : 1)));
-      gN.push(g.x + dx * along2, PATH_H + 0.1 + hop2 * 0.18, g.z + dz * along2, 0.6, 0.6, R.arrow, col.r, col.g, col.b, Math.sin(slide2 * Math.PI) * 0.85);
+      gN.push(g.x + dx * along2, PATH_H + 0.1 + hop2 * 0.18, g.z + dz * along2, 0.6, 0.6, R.arrow, col.r, col.g, col.b, Math.sin(slide2 * Math.PI) * 0.85, rot);
     }
   }
 

@@ -187,6 +187,8 @@ export function resolveScenery(stage, familyOf = () => null) {
  * @param {{ quality?: string, shadows?: boolean }} opts
  */
 export function buildTerrain(map, look, scenery, { shadows = false, quality = 'high' } = {}) {
+  // a map may restyle its bridges (e.g. a steel-grating overpass on a timber-deck theme)
+  if (map.bridge) look = { ...look, bridge: { ...look.bridge, ...map.bridge } };
   const W = map.width;
   const H = map.height;
   const rows = map.rows;
@@ -501,7 +503,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
   if (decks.shadow) {
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: look.bridge.shadow ?? 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     disposables.push(shadowMat);
     const m = addMesh(decks.shadow, shadowMat, { name: 'overpassShadow', receive: false });
     m.renderOrder = 2;
