@@ -54,7 +54,8 @@ export function render(root) {
     store.commit('pull');
     store.saveNow();
     overlay = playReveal(r.results, {
-      onAgain: () => { overlay = null; busy = false; doPull(count); },
+      // redraw first: the follow-up can still be cancelled at the gem confirm or fail for gems
+      onAgain: () => { overlay = null; busy = false; draw(); doPull(count); },
       onClose: () => { overlay = null; busy = false; draw(); },
       againLabel: `Recruit ×${count} again`,
     });
@@ -354,7 +355,9 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
         h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
       ),
       h('div.ma-gacha-actions',
-        button('Close', { kind: 'ghost', testid: 'reveal-close', onClick: close }),
+        // not `onClick: close`: the click event would arrive as `silent` and skip onClose
+        // (page never redrawn, `busy` stuck so the pull buttons stop working)
+        button('Close', { kind: 'ghost', testid: 'reveal-close', onClick: () => close() }),
         onAgain ? button(againLabel, { kind: 'yellow', icon: 'gacha', testid: 'reveal-again', onClick: () => { close(true); onAgain(); } }) : null,
       ),
     );
