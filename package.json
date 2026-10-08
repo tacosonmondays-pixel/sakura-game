@@ -16,6 +16,7 @@
     "e2e": "node e2e/smoke.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "three": "^0.186.1"
   },
   "devDependencies": {

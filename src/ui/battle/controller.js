@@ -21,6 +21,10 @@ import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
+import { quantize } from '../../online/coop/commands.js';
+import { applyCoopResult } from '../../online/coop/rewards.js';
+import { createCoopHud } from '../online/coopHud.js';
+import { COOP } from '../../data/coop.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -33,18 +37,26 @@ function settle(promise, ms) {
 /**
  * Mounts a battle into `root`.
  * @param {HTMLElement} root
- * @param {object} params route params ({ stage, difficulty, endless? })
- * @param {{ restart(): void }} hooks
+ * @param {object} params route params ({ stage, difficulty, endless?, coop?, clanBoss? })
+ * @param {{ restart(): void, coop?: object|null }} hooks  coop = the co-op session (online/coop/session.js)
  * @returns {{ destroy(): void, ready: Promise<void> }}
  */
 export function mountBattle(root, params, hooks) {
   const profile = store.profile;
-  const req = parseBattleParams(params, profile);
+  // Co-op: the Sim comes from the session's Lockstep (same start message on both clients)
+  const session = params.coop ? hooks.coop || null : null;
+  const ls = session?.code === params.coop ? session.lockstep : null;
+  const req = ls
+    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, practice: false, error: null }
+    : params.coop
+      ? { error: 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
+      : parseBattleParams(params, profile);
   const shell = h('div.bt-root', { 'data-testid': 'battle' });
   root.append(shell);
 
   if (req.error) {
-    shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { onclick: () => navigate('campaign') }, 'Back to the map'))));
+    const back = params.coop ? () => navigate('coop') : () => navigate('campaign');
+    shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { onclick: back }, params.coop ? 'Back to co-op' : 'Back to the map'))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
   }
 
@@ -67,7 +79,13 @@ export function mountBattle(root, params, hooks) {
     return id;
   };
 
-  const { sim, towers, hero } = createBattleSim(profile, req);
+  const { sim, towers, hero } = ls
+    ? {
+      sim: ls.sim,
+      towers: [...new Set(ls.start.players.flatMap((p) => (p.loadout || []).map((e) => e.unitId)))],
+      hero: ls.start.players.find((p) => p.slot === 0)?.hero?.unitId || null,
+    }
+    : createBattleSim(profile, req);
   const settings = profile.settings || {};
 
   /** Enemy model families this stage can spawn (pool + fixed + split/brood/summon children). */
@@ -131,6 +149,10 @@ export function mountBattle(root, params, hooks) {
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
     const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed];
+    if (ls) {
+      coopHud = createCoopHud(ctx);
+      modules.push(coopHud);
+    }
 
     let renderer;
     try {
@@ -143,6 +165,14 @@ export function mountBattle(root, params, hooks) {
     ctx.renderer = renderer;
 
     // ---- context actions -------------------------------------------------------------
+    // ---- actions: direct Sim calls in solo, lockstep commands in co-op ----------------------
+    ctx.act = ls ? coopActions() : {
+      place: (id, x, y) => sim.placeTower(id, x, y),
+      upgrade: (uid, path) => sim.upgradeTower(uid, path),
+      sell: (uid) => sim.sellTower(uid),
+      target: (uid, mode) => sim.setTargetMode(uid, mode),
+    };
+
     ctx.select = (uid) => {
       if (ctx.ended && uid != null) return;
       if (uid != null && placement.unitId) placement.cancel();
@@ -171,17 +201,31 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.cycleSpeed = () => {
       const speeds = BATTLE.speeds || [1, 2, 3];
-      ctx.speed = speeds[(speeds.indexOf(ctx.speed) + 1) % speeds.length];
+      const next = speeds[(speeds.indexOf(ctx.speed) + 1) % speeds.length];
+      if (ls) ls.queue('speed', [next]); // shared: both players switch at the same tick
+      else ctx.speed = next;
     };
     ctx.setAutoStart = (v) => {
-      sim.options.autoStart = !!v;
       store.profile.settings.autoStart = !!v;
       store.commit('settings');
+      if (ls) {
+        ls.queue('auto', [!!v]);
+        return;
+      }
+      sim.options.autoStart = !!v;
       if (v && sim.state === 'between') ctx.startWave();
       wave.update();
     };
     ctx.startWave = () => {
       if (ctx.ended) return;
+      if (ls) {
+        if ((sim.state === 'prep' || sim.state === 'between') && !pendingWave) {
+          pendingWave = true;
+          ls.queue('wave', []);
+        }
+        if (ctx.paused) ctx.closePause();
+        return;
+      }
       if (sim.startNextWave()) {
         if (ctx.paused) ctx.closePause();
       }
@@ -196,6 +240,14 @@ export function mountBattle(root, params, hooks) {
       }
       if (!st.ready) {
         feed.push(sim.state === 'wave' ? `Recharging — ${Math.ceil(st.cooldownLeft)}s` : 'The ultimate only charges during waves.', 'warn', { key: 'ult-cd', ms: 1400 });
+        return;
+      }
+      if (ls) {
+        if (!sim.heroConfig) {
+          feed.push(`Only ${session.player(0)?.name || 'the host'} commands the hero.`, 'warn', { key: 'ult-ally', ms: 1600 });
+          return;
+        }
+        ls.queue('ult', []);
         return;
       }
       sim.activateUlt();
@@ -222,7 +274,7 @@ export function mountBattle(root, params, hooks) {
       lastT = performance.now();
     };
     ctx.restart = () => hooks.restart();
-    ctx.quit = () => navigate('stage', { id: stage.id });
+    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       const r = mapRouteFor(stage);
@@ -280,7 +332,7 @@ export function mountBattle(root, params, hooks) {
       if (document.hidden) {
         cancelAnimationFrame(raf);
         raf = 0;
-        if (sim.state === 'wave' && !ctx.ended && !ctx.paused) ctx.openPause();
+        if (sim.state === 'wave' && !ctx.ended && !ctx.paused && !ls) ctx.openPause();
       } else if (!raf && !destroyed) {
         lastT = performance.now();
         raf = requestAnimationFrame(frame);
@@ -382,6 +434,7 @@ export function mountBattle(root, params, hooks) {
       shell.classList.add('bt-ended');
       feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       results.apply();
+      if (params.clanBoss) submitClanBoss();
       later(() => (won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
     }
 
@@ -391,17 +444,23 @@ export function mountBattle(root, params, hooks) {
       raf = requestAnimationFrame(frame);
       const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000));
       lastT = now;
-      const running = !ctx.paused && !ctx.ended;
-      if (running) sim.update(dt * ctx.speed);
+      // co-op never pauses: both clients advance the shared Lockstep (its own speed + horizons)
+      const running = ls ? !ctx.ended : !ctx.paused && !ctx.ended;
+      if (ls) {
+        if (!ctx.ended) ls.advance(dt);
+        ctx.speed = ls.coop.speed;
+        coopHud?.update();
+      } else if (running) sim.update(dt * ctx.speed);
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
-      if (results.open || pause.open) return;
+      if (results.open || (pause.open && !ls)) return;
       try {
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
         console.error('[battle] render failed', e);
       }
       handle(events);
+      if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
       bar.update();
       panel.update();
@@ -417,7 +476,123 @@ export function mountBattle(root, params, hooks) {
 
     ctx.modules = modules;
     ctx.results = results;
-    window.__battle = { sim, renderer, ui: ctx };
+    window.__battle = { sim, renderer, ui: ctx, coop: ctx.coop || null };
+  }
+
+  // ---- co-op -----------------------------------------------------------------------------
+  let pendingWave = false;
+  let coopHud = null;
+  const pendingUpg = new Set();
+  if (ls) {
+    const mySlot = ls.mySlot;
+    ctx.coop = {
+      session,
+      lockstep: ls,
+      mySlot,
+      ownerOf: (uid) => ls.coop.ownerOf(uid),
+      isMine: (uid) => ls.coop.ownerOf(uid) === mySlot,
+      ownerName: (uid) => session.player(ls.coop.ownerOf(uid))?.name || 'Your ally',
+      colorOf: (uid) => COOP.colors[ls.coop.ownerOf(uid)] || '#fff',
+      get hashes() {
+        return ls.hashPairs();
+      },
+      get tick() {
+        return ls.tick;
+      },
+    };
+    ctx.applyResult = (p, result, rng) => {
+      const out = applyCoopResult(p, result, rng);
+      out.note = `Co-op with ${session.player(1 - mySlot)?.name || 'your ally'} — drops for both, medals stay solo.`;
+      return out;
+    };
+    ctx.extraActions = () => [
+      { label: 'Back to co-op', testid: 'coop-back', cta: true, icon: 'play', onClick: () => leaveCoop() },
+      { label: 'Home', testid: 'home', icon: 'home', onClick: () => { leaveCoop(false); navigate('lobby'); } },
+    ];
+    const offs = [
+      session.on('applied', ({ cmd, res }) => onApplied(cmd, res)),
+      session.on('peerGone', (reason) => ctx.feed?.push(reason === 'desync' ? 'Lost sync with your ally — you continue solo.' : `${session.player(1 - mySlot)?.name || 'Your ally'} left. Their girls stay and keep fighting; their income is yours now.`, 'warn', { ms: 5200 })),
+      session.on('resync', () => hooks.restart()),
+    ];
+    cleanups.push(() => offs.forEach((off) => off()));
+  }
+  if (params.clanBoss) {
+    ctx.extraActions = () => [
+      { label: 'Back to the clan', testid: 'clan-back', cta: true, icon: 'play', onClick: () => navigate('clan', { tab: 'boss' }) },
+      { label: 'Home', testid: 'home', icon: 'home', onClick: () => navigate('lobby') },
+    ];
+  }
+
+  function leaveCoop(go = true) {
+    session?.close();
+    if (go) navigate('coop');
+  }
+
+  function coopActions() {
+    const mine = (uid) => {
+      if (ls.coop.ownerOf(uid) === ls.mySlot) return true;
+      ctx.feed?.push(`That is ${ctx.coop.ownerName(uid)}'s girl.`, 'warn', { key: 'not-mine', ms: 1400 });
+      return false;
+    };
+    return {
+      place(id, x, y) {
+        const chk = sim.canPlace(id, x, y);
+        if (!chk.ok) return null;
+        ls.queue('place', [id, ...quantize(chk.x ?? x, chk.y ?? y)]);
+        return 'queued';
+      },
+      upgrade(uid, path) {
+        if (!mine(uid) || sim.upgradeStatus(uid, path).locked) return false;
+        const key = `${uid}:${path}`;
+        if (pendingUpg.has(key)) return 'queued';
+        pendingUpg.add(key);
+        ls.queue('upg', [uid, path]);
+        return 'queued';
+      },
+      sell(uid) {
+        if (!mine(uid)) return false;
+        const v = sim.sellValue(uid);
+        ls.queue('sell', [uid]);
+        return v;
+      },
+      target(uid, mode) {
+        if (!mine(uid)) return false;
+        ls.queue('tgt', [uid, mode]);
+        return true;
+      },
+    };
+  }
+
+  /** A lockstep command just ran on this client (mine or my ally's). */
+  function onApplied(cmd, res) {
+    if (destroyed || !ctx.feed) return;
+    const minePlayer = cmd.p === ls.mySlot;
+    if (cmd.k === 'upg') pendingUpg.delete(`${cmd.a[0]}:${cmd.a[1]}`);
+    if (cmd.k === 'place') {
+      if (res.ok && minePlayer) ctx.onPlaced(res.tower);
+      else if (res.ok) ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} deployed ${res.tower.def.name}`, 'info', { key: `ally-${res.tower.uid}`, ms: 1400 });
+      else if (minePlayer) ctx.feed.push(res.reason === 'occupied' ? 'Your ally got to that spot first.' : 'She could not deploy there any more.', 'warn', { key: 'place-late', ms: 1600 });
+    } else if (cmd.k === 'upg' && res.ok && minePlayer) {
+      const t = sim.getTower(cmd.a[0]);
+      if (t) ctx.onUpgraded(t, cmd.a[1]);
+    } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
+      ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
+    }
+  }
+
+  /** Clan boss: everything this battle dealt counts against the clan's shared HP pool. */
+  function submitClanBoss() {
+    const dmg = Math.round(Object.values(sim.stats.damageByTower || {}).reduce((a, b) => a + b, 0));
+    ctx.clanBossDamage = dmg;
+    import('../../online/backend.js').then(({ getBackend }) => getBackend().submitBossDamage(dmg))
+      .then((state) => {
+        ctx.clanBossResult = state;
+        ctx.feed?.push(`Clan boss: ${fmtCoins(dmg)} damage counted · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
+      })
+      .catch((e) => {
+        ctx.clanBossResult = { error: e };
+        ctx.feed?.push(`Clan boss damage was not saved: ${e.message || e}`, 'bad', { ms: 4200 });
+      });
   }
 
   return {
