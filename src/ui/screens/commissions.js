@@ -303,18 +303,25 @@ function codesView() {
       return;
     }
     store.commit('redeem');
+    paintRedeemed(); // the list stayed stale until the tab was re-entered
     input.value = '';
     status.classList.add('good');
     status.textContent = r.desc || 'Redeemed!';
     showRewardsModal({ title: 'Code redeemed', rewards: r.rewards, note: r.desc });
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-  const redeemed = store.profile.redeemed || [];
+  const redeemedHost = h('div');
+  const paintRedeemed = () => {
+    const redeemed = store.profile.redeemed || [];
+    clear(redeemedHost);
+    if (redeemed.length) redeemedHost.appendChild(h('div.ma-redeemed', h('div.ma-sub', 'Redeemed'), h('div.row', redeemed.map((c) => h('span.chip', svgEl(uiIcon('check'), 'ma-inline-icon'), c)))));
+  };
+  paintRedeemed();
   return h('div.ma-codes',
     h('h3.ma-section-title', 'Redemption codes'),
     h('p.muted', 'Codes are shared in update notes and events. Each code works once per account.'),
     h('div.ma-code-row', input, button('Redeem', { kind: 'yellow', icon: 'gift', testid: 'code-redeem', onClick: submit })),
     status,
-    redeemed.length ? h('div.ma-redeemed', h('div.ma-sub', 'Redeemed'), h('div.row', redeemed.map((c) => h('span.chip', svgEl(uiIcon('check'), 'ma-inline-icon'), c)))) : null,
+    redeemedHost,
   );
 }

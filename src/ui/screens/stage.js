@@ -360,7 +360,14 @@ export function render(root, params = {}) {
   };
   draw();
   const off = store.on('change', (e) => {
-    if (e?.reason === 'formation' || e?.reason === 'replace') draw();
+    // 'sweep' adds clears: without it the Clears fact stayed stale until the stage was re-entered.
+    // Redraw in place, keeping the page and column scroll (the Sweep bar is pinned at the bottom).
+    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace') {
+      const scrolled = () => [body, ...body.querySelectorAll('.ma-prep-col')];
+      const keep = scrolled().map((n) => n.scrollTop);
+      draw();
+      scrolled().forEach((n, i) => { n.scrollTop = keep[i] || 0; });
+    }
   });
   return () => off();
 }
