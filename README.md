@@ -110,6 +110,12 @@ the home screen as an app.
   - Sweeping after a Hard clear.
   - Auto-start for waves.
 - **Settings:** graphics quality, lighting, and save export/import.
+- **Online (Supabase, optional):** global chat (lobby chat bubble, `#/chat`), clans with roles, clan chat,
+  clan level and a weekly clan boss with one shared HP pool, the developer clan `Rosie777` with its Supply
+  Bot sandbox, 2-player real-time co-op (lockstep on the deterministic Sim, enemy HP ×1.6, separate
+  wallets) and one-time transfer codes. Client and server rate limits. Without a server configured, the
+  same features run between tabs of one browser and the pill says "Online features offline". Setup and
+  details: [docs/ONLINE.md](docs/ONLINE.md).
 
 ## Roster
 
@@ -156,6 +162,7 @@ npm test           # vitest: data, systems, sim, renderer and integration tests
 npm run build      # production build into dist/
 npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chrome/Edge/Chromium; see e2e/smoke.mjs)
+node e2e/online.mjs   # two browser tabs: chat, clans, clan boss, Supply Bot, co-op battle (local adapter)
 BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
 ```
 
@@ -207,6 +214,11 @@ by hand from the Actions tab), it installs dependencies, runs the tests, builds 
 The build uses relative paths (`base: './'` in `vite.config.js`), so it also works from any other folder
 or static host.
 
+Online features use the Supabase project in `.env.production` (public URL + publishable key; repository
+secrets `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` override it). Supabase's GitHub integration applies
+`supabase/migrations/` when they reach `main`. See [docs/ONLINE.md](docs/ONLINE.md); never commit a
+service-role / secret key or the database password.
+
 ## Screenshots
 
 Reviewed stills from the V2 build (`docs/reference/`, `V2final-<screen>-<viewport>.jpg`, each at 1280×720
@@ -239,7 +251,9 @@ src/systems/                save, progression, gear, inventory, gacha, rewards, 
 src/models/                 GLB runtime for girls (glbChibi) and monsters (glbEnemy), procedural fallbacks, viewer, silhouettes
 src/render/                 3D battle renderer: painted terrain, ribbon roads, props, ambient life, actors, effects, overlays, camera
 src/art/                    SVG card art, item/trait/UI icons, stage thumbnails, backdrops
-src/ui/                     router, DOM helpers, shared components, orientation (rotate / fullscreen), screens/, battle/, styles/
+src/ui/                     router, DOM helpers, shared components, orientation (rotate / fullscreen), screens/, battle/, online/, styles/
+src/online/                 online backend (Supabase or local two-tab adapter), rate limits, clan rules, co-op lockstep
+supabase/                   database migrations (tables, RLS, functions, rate limits) + CLI config
 public/models/characters/   19 girls as <id>.glb + <id>.lod.glb + manifest.json (generated)
 public/models/enemies/      12 monster families as <family>.glb + manifest.json (generated)
 public/models/chibi_base.glb  the owner's chibi base mesh (V1 fallback body)

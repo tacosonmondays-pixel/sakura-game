@@ -3,7 +3,7 @@
 // their colour, level and girls, the stage, ready checks, Start (host). When the host starts,
 // both screens open #/battle?coop=<CODE>, which runs the room's lockstep battle.
 import { h, screen, button, svgEl, toast, modal } from '../components.js';
-import { navigate } from '../router.js';
+import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
@@ -324,7 +324,7 @@ export function render(root, params = {}) {
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
         s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
-        h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', 'VS', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
+        h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
         h('div.ol-room-foot',
           h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — commands arrive a few frames later on both screens.' : 'Tap Ready when your girls are set. The host starts the battle.'),
           action),
@@ -332,6 +332,18 @@ export function render(root, params = {}) {
     }
 
     paint();
+    // "Co-op" next to a clanmate (#/coop/<CODE>?host=1&invite=clan): post the invite right away,
+    // once per room. The flag leaves the address bar without a hashchange (that would re-render
+    // this screen), so a reload does not post the invite twice.
+    if (session.isHost && params.invite === 'clan' && !session.invited) {
+      session.invited = true;
+      try {
+        history.replaceState(history.state, '', buildHash('coop', { id: roomCode, host: '1' }));
+      } catch {
+        /* ignore */
+      }
+      inviteClan();
+    }
     const offs = [
       session.on('change', paint),
       session.on('start', () => {

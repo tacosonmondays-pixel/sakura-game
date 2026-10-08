@@ -71,7 +71,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     onMessage: (msg) => handle(msg),
     onPresence: (list) => {
       // lobby only: in battle a presence blip (reconnecting socket) must not drop the ally;
-      // there the lockstep's 5 s silence timeout and the explicit 'leave' / 'bye' decide
+      // there the lockstep's silence timeout (COOP.timeoutMs) and the explicit 'leave' / 'bye' decide
       if (s.phase !== 'lobby') return;
       if (s.peer && !list.some((p) => p.uid === s.peer.uid)) peerLeft();
       else if (!s.peer && list.length) hello();

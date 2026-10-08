@@ -87,7 +87,8 @@ export function createSupabaseAdapter({ url, key }) {
       uid = user.id;
       const existing = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
       if (!existing) {
-        await q(c.from('profiles').insert({ id: uid, name: name || `Sensei${uid.slice(0, 4)}`, level, avatar }));
+        // two tabs signing in at once share one account: the second insert must not fail
+        await q(c.from('profiles').upsert({ id: uid, name: name || `Sensei${uid.slice(0, 4)}`, level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
       } else {
         await q(c.from('profiles').update({ level, avatar, last_active: new Date().toISOString() }).eq('id', uid));
       }

@@ -145,6 +145,9 @@ describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
     await refused(as(A, `insert into profiles (id, name) values ('55555555-5555-4555-8555-555555555555', 'Evil')`), /row-level security|foreign key/);
     await as(A, `update profiles set name = 'Hacked' where id = $1`, [B]);
     expect((await as(C, 'select name from profiles where id = $1', [B]))[0].name).toBe('Bea');
+    // the adapter's first sign-in (upsert, ignore duplicates): a second tab racing it is a no-op
+    await as(A, `insert into profiles (id, name) values ($1, 'Twice') on conflict (id) do nothing`, [A]);
+    expect((await as(B, 'select name from profiles where id = $1', [A]))[0].name).toBe('Aiko');
   });
 
   it('chat: post only as yourself, 1 message per 2 s (server side), clan chat for members only', async () => {

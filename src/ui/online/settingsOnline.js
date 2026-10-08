@@ -52,18 +52,31 @@ export function onlineSection({ redraw, importText }) {
     }
   };
 
+  let held = null;
   const redeem = async () => {
-    const code = redeemBox.value.trim();
+    const code = redeemBox.value.trim().toUpperCase();
     status.className = 'ma-code-status';
+    status.textContent = '';
     if (code.length < 8) {
       status.classList.add('bad');
       status.textContent = 'Enter the 8-character transfer code (XXXX-XXXX).';
       return;
     }
     try {
-      const b = await ensureOnline();
-      const text = await b.redeemTransfer(code);
-      if (await importText(text, status, redraw)) redeemBox.value = '';
+      // a code works once: if the player cancels the import confirmation, keep the fetched save
+      // so pressing Redeem again (same code) imports it without asking the server a second time
+      let text = held?.code === code ? held.text : null;
+      if (!text) {
+        const b = await ensureOnline();
+        text = await b.redeemTransfer(code);
+        held = { code, text };
+      }
+      if (await importText(text, status, redraw)) {
+        held = null;
+        redeemBox.value = '';
+      } else if (!status.textContent) {
+        status.textContent = 'Not imported. The code is used up, but this screen keeps the save: press Redeem again to import it.';
+      }
     } catch (e) {
       status.classList.add('bad');
       status.textContent = errorText(e);

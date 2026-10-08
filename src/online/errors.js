@@ -31,6 +31,8 @@ export function toOnlineError(e) {
     const detail = msg.replace(/^.*?\b(rate_limited|not_member|name_taken|forbidden|invalid|not_found|full|already_member|expired)(:\d+)?:?\s*/, '');
     return new OnlineError(m[1], detail || m[1], { retryMs: m[1] === 'rate_limited' ? Number(m[2]) || 2000 : 0 });
   }
+  // the project exists but supabase/migrations has not been applied yet (tables missing)
+  if (e?.code === 'PGRST205' || e?.code === '42P01' || /schema cache|relation .* does not exist/i.test(msg)) return new OnlineError('offline', 'The game server is not set up yet.');
   if (e?.code === '23505') return new OnlineError('name_taken', 'That name is already taken.');
   if (e?.code === '42501' || /row-level security|permission denied/i.test(msg)) return new OnlineError('forbidden', 'Not allowed.');
   if (/fetch|network|Failed to|timeout|offline|socket/i.test(msg)) return new OnlineError('offline', 'Cannot reach the server.');
