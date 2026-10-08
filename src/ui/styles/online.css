@@ -262,6 +262,8 @@
 .ol-sb-bot { display: flex; gap: 10px; align-items: center; }
 .ol-sb-bot b { font-family: var(--font-head); font-style: italic; color: var(--navy); font-size: 1.1rem; }
 .ol-sb-bot p { margin: 0; font-size: 0.76rem; }
+/* the sandbox label stays next to the bot on phones, where the banner scrolls away */
+.ol-sb-tag { display: inline-block; margin-left: 6px; vertical-align: 2px; background: #ffdd4a; color: #22385c; border-radius: 4px; padding: 1px 6px; font-size: 0.62rem; font-weight: 800; font-style: italic; letter-spacing: 0.06em; }
 .ol-sb-face { width: 56px; height: 56px; flex: none; animation: ol-bob 2.4s ease-in-out infinite; }
 @keyframes ol-bob { 50% { transform: translateY(-3px) rotate(-2deg); } }
 .ol-sb-picked { font-size: 0.86rem; min-height: 1.3em; }

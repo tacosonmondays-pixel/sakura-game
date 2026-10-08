@@ -77,7 +77,7 @@ export function createSupplyBot() {
     h('div.ol-sb-body',
       h('div.ol-sb-left', tabs, grid),
       h('div.ol-sb-right',
-        h('div.ol-sb-bot', svgEl(BOT_FACE, 'ol-sb-face'), h('div', h('b', 'Supply Bot'), h('p.muted', 'Beep! Any material, currency or ticket, any amount.'))),
+        h('div.ol-sb-bot', svgEl(BOT_FACE, 'ol-sb-face'), h('div', h('b', 'Supply Bot'), h('span.ol-sb-tag', 'DEV SANDBOX'), h('p.muted', 'Beep! Any material, currency or ticket, any amount.'))),
         pickedEl,
         h('label.ol-label', 'Quantity'), qty, presets,
         grant,
