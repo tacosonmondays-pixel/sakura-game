@@ -326,7 +326,8 @@ export function render(root, params = {}) {
     if (state.tab === 'equipment') renderGearSection(content, rerender);
   };
   rerender();
-  const off = store.on('change', (e) => { if (e?.reason === 'replace') rerender(); });
+  // 'select-ticket': using an SSR Select Ticket from here must drop its tile at once, not on re-entry
+  const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'select-ticket') rerender(); });
   return () => off();
 }
 
