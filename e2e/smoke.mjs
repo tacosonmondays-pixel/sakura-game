@@ -159,8 +159,10 @@ async function runViewport(vp) {
       await shot('ssr-select');
       await page.click(`[data-testid="sst-${pick}"]`, { force: true });
       // confirm dialog animates in (and its button glows): wait for it, then force the click
-      const ok = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 15000 }).catch(() => null);
-      if (ok) await ok.click({ force: true });
+      // the earlier "Choose now" dialog may still be fading out with its own confirm-ok, so wait for
+      // the new one and click the newest
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="confirm-ok"]')].some((b) => /Choose|Convert/.test(b.textContent) && !/now/.test(b.textContent)), null, { timeout: 15000 }).catch(() => null);
+      await page.locator('[data-testid="confirm-ok"]').last().click({ force: true, timeout: 5000 }).catch(() => {});
       await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 15000 }).catch(() => null);
       check(await page.evaluate((id) => !!window.__sakura.store.profile.units[id] && !window.__sakura.store.profile.items.ticket_ssr_select, pick), `SSR Select Ticket: ${pick} joined and the ticket was used`);
       await page.click('[data-testid="sst-ok"]', { timeout: 5000, force: true }).catch(() => {});
