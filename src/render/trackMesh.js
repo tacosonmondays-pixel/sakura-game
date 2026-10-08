@@ -19,6 +19,10 @@ const CROSS_CLEAR = 0.95;
 export const OVER_HALF = 0.56;
 /** Drawn half-width of a plank deck over water. */
 const WATER_DECK_HALF = 0.54;
+/** A wet run needs this much centreline over water (tiles) to become a deck; less is a graze. */
+const MIN_CROSS = 0.6;
+/** Water stays this far from the centreline of a road on the ground (road 0.46 + bevel + bank). */
+export const WATER_CLEAR = 0.74;
 /**
  * Where an overpass deck's shadow falls per unit of height (x, z): the key light sits up and to
  * the left of the board, toward the camera (BattleRenderer placeLights: offset (-6, 12, 7)).
@@ -326,6 +330,25 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       if (!wetRaw[i]) continue;
       if (last >= 0 && i - last > 1 && i - last <= GAP) for (let k = last + 1; k < i; k++) if (!tunnel[k]) deckOn[k] = true;
       last = i;
+    }
+    // A run is a real crossing only when the centreline itself is over water for a while; a
+    // road that merely grazes a pond corner or runs along a bank gets no deck — the terrain
+    // carves the water back from the road there instead (see waterCarve), so it reads as a
+    // shore road, never as a bridge over dry ground.
+    for (let i = 0; i < n; ) {
+      if (!deckOn[i]) {
+        i++;
+        continue;
+      }
+      let j = i;
+      let wet = 0;
+      while (j < n && deckOn[j]) {
+        if (j > i && isWaterAt(pts[j][0], pts[j][1])) wet += r.d[j] - r.d[j - 1];
+        j++;
+      }
+      const raisedRun = elev.slice(i, j).some((e) => e > 0.015);
+      if (wet < MIN_CROSS && !raisedRun) for (let k = i; k < j; k++) deckOn[k] = false;
+      i = j;
     }
     const PAD = 2; // abutment: the deck lands 0.4 tiles onto the bank
     const padded = deckOn.slice();

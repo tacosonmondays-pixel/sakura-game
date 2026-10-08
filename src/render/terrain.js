@@ -16,7 +16,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildProp, hasProp } from './props.js';
 import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
-import { planRoads, buildDecks, buildTunnels } from './trackMesh.js';
+import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
@@ -329,7 +329,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const waterTiles = [];
   for (let y = Y0; y < Y0 + EH; y++) for (let x = X0; x < X0 + EW; x++) if (isWater(x, y)) waterTiles.push([x, y]);
   if (waterTiles.length) {
-    const mask = maskTexture(EW, EH, (gx, gy) => isWater(gx + X0, gy + Y0), { px: 16, blur: 4 });
+    // the water keeps clear of every road on the ground (decks, overpasses and tunnels excepted),
+    // so a road that grazes a pond corner or runs along a bank reads as a shore road
+    const carve = [];
+    for (const r of plan.roads) {
+      let cur = [];
+      r.pts.forEach(([x, z], i) => {
+        if (r.tunnel[i] || r.elev[i] > 0.015 || decks.waterSections.has(`${r.index}:${i}`)) {
+          if (cur.length > 1) carve.push(cur);
+          cur = [];
+        } else cur.push([x - X0, z - Y0]);
+      });
+      if (cur.length > 1) carve.push(cur);
+    }
+    const mask = maskTexture(EW, EH, (gx, gy) => isWater(gx + X0, gy + Y0), { px: 16, blur: 4, carve, carveHalf: WATER_CLEAR });
     disposables.push(mask);
     waterMat = createWaterMaterial(mask, look, { x0: X0, y0: Y0, w: EW, h: EH });
     const geo = new THREE.PlaneGeometry(EW, EH, 1, 1);

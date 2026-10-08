@@ -401,8 +401,20 @@ describe('maps', () => {
   it('the turning signature tells shapes apart', () => {
     const one = (pts) => ({ tracks: [{ points: pts, cum: pts.reduce((a, p, k) => (k ? [...a, a[k - 1] + Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1])] : [0]), []), length: 0, fork: null, join: null }] });
     const sample = (fn, n = 400) => Array.from({ length: n + 1 }, (_, k) => fn(k / n));
-    // a sine meander with three full U-bends vs one round loop
-    const meander = one(sample((t) => [t * 20, 5 + 3 * Math.sin(t * Math.PI * 3.5)]));
+    // a column meander (vertical runs joined by round U-bends, alternating top / bottom, marching
+    // left to right like the old maps) vs one round loop
+    const columns = [];
+    const R = 1.5;
+    for (let k = 0, x0 = 1; k < 4; k++, x0 += 2 * R) {
+      const up = k % 2 === 0;
+      for (let s = 0; s < 60; s++) columns.push([x0, up ? 8 - s * 0.1 : 2 + s * 0.1]);
+      for (let s = 0; s < 47; s++) {
+        const a = Math.PI * (1 - s / 47);
+        columns.push([x0 + R + R * Math.cos(a), up ? 2 - R * Math.sin(a) : 8 + R * Math.sin(a)]);
+      }
+    }
+    for (let s = 1; s <= 30; s++) columns.push([13, 8 - s * 0.1]);
+    const meander = one(columns);
     const loop = one(sample((t) => [10 + 3 * Math.cos(t * Math.PI * 2), 5 + 3 * Math.sin(t * Math.PI * 2)]));
     for (const m of [meander, loop]) m.tracks[0].length = m.tracks[0].cum.at(-1);
     expect(isMeander(turningSignature(meander))).toBe(true);

@@ -115,7 +115,7 @@ export const MAPS = [
     ],
     decor: [
       { type: 'sakura', x: 17, y: 5 }, { type: 'bench', x: 17, y: 8 }, { type: 'stoneLantern', x: 9, y: 9 },
-      { type: 'signpost', x: 1, y: 1 }, { type: 'sakura', x: 3, y: 4 },
+      { type: 'signpost', x: 1, y: 4 }, { type: 'sakura', x: 3, y: 4 },
     ],
   }),
   defineMap({
@@ -338,8 +338,8 @@ export const MAPS = [
     rows: [
       'TTTT,,TTTTTTTT,,TTTT',
       '...................T',
-      'T..,..........,....T',
-      'T.....~~~~~~~~.....T',
+      'T..,.....~~~..,....T',
+      'T.....~~~~~~~~~....T',
       'T...~~~~~~~~~~~~...T',
       'T..~~~~~~~~~~~~~~..T',
       'T..~~~~~~~~~~~~~~..T',
@@ -623,8 +623,8 @@ export const MAPS = [
       [[14.0, 13], L, [14.0, 9.2], ...arc(12.2, 9.2, 1.8, 0, -90, 30), L, [9.8, 7.4], ...arc(9.8, 5.9, 1.5, 90, 270, 30), L, [13.6, 4.4], ...arc(13.6, 2.9, 1.5, 90, -90, 30), L, [3.8, 1.4], ...arc(3.8, 3.4, 2.0, -90, -180, 30), L, [1.8, 7.6], ...arc(3.8, 7.6, 2.0, 180, 90, 30), L, [19, 9.6]],
     ],
     decor: [
-      { type: 'banner', x: 11, y: 6 }, { type: 'flag', x: 16, y: 7 }, { type: 'campfire', x: 3, y: 6 },
-      { type: 'pine', x: 16, y: 1 }, { type: 'statue', x: 8, y: 4 },
+      { type: 'banner', x: 14, y: 6 }, { type: 'flag', x: 16, y: 7 }, { type: 'campfire', x: 3, y: 6 },
+      { type: 'pine', x: 16, y: 1 }, { type: 'statue', x: 3, y: 3 },
     ],
   }),
 
@@ -855,7 +855,7 @@ export const MAPS = [
     rows: [
       'HHHHHHRRHHHHHHRHHHHH',
       '.....HRH.....H,H....',
-      'H...,.~...,...~~..RH',
+      'H...,.~~..,...~~..RH',
       'H.....~~......~~...H',
       'H...,.~~..,...~~...H',
       'H.R...~~....R.~~...H',
@@ -993,9 +993,9 @@ export const MAPS = [
       'HHHH,HHH,HHH,HHHHH',
       '...H.H.....H.H...H',
       'H..,..,.~~,...,..H',
-      'H.,..........~~..H',
+      'H.,..........,...H',
       'H................H',
-      'H~~,...........,.H',
+      'H~~,..........~~.H',
       'H~~...........~~.H',
       'H.............~~.H',
       'H.,.........,....H',
@@ -1116,7 +1116,7 @@ export const MAPS = [
       [[12.5, -1], L, [12.5, 2.9], ...arc(11.0, 2.9, 1.5, 0, 90, 30), L, [6.4, 4.4], [3.6, 4.8], [2.3, 6.6], [3.2, 8.7], [5.8, 9.5], [7.4, 9.0], [8.4, 7.8], [9.5, 7.2], [10.6, 7.8], [11.6, 9.0], [13.2, 9.6], [15.8, 9.1], [17.3, 6.8], [17.0, 4.4], [15.6, 2.7], [13.8, 2.3], L, [10.8, 2.3], [9.2, 1.6], [8.6, 0.2], L, [8.6, -1]],
     ],
     decor: [
-      { type: 'vent', x: 10, y: 10 }, { type: 'vent', x: 14, y: 7 }, { type: 'crystal', x: 9, y: 7 },
+      { type: 'vent', x: 10, y: 10 }, { type: 'vent', x: 14, y: 7 }, { type: 'crystal', x: 10, y: 5 },
       { type: 'crystal', x: 18, y: 5 }, { type: 'nest', x: 17, y: 1 },
     ],
   }),
@@ -1254,7 +1254,7 @@ export const MAPS = [
     ],
     decor: [
       { type: 'gearTower', x: 7, y: 7 }, { type: 'crane', x: 18, y: 4 }, { type: 'chimney', x: 1, y: 3 },
-      { type: 'vent', x: 13, y: 4 }, { type: 'gearTower', x: 18, y: 8 },
+      { type: 'vent', x: 12, y: 4 }, { type: 'gearTower', x: 18, y: 8 },
     ],
   }),
   defineMap({
@@ -1278,7 +1278,7 @@ export const MAPS = [
       [[-1, 1.8], L, [1.0, 1.8], L, [11.4, 1.8], ...arc(11.4, 4.6, 2.8, -90, 90, 30), L, [6.4, 7.4], ...arc(6.4, 5.8, 1.6, 90, 270, 30), L, [8.4, 4.2], [10.2, 4.9], [11.2, 6.3], [11.6, 8.2], L, [11.6, 12]],
     ],
     decor: [
-      { type: 'pine', x: 1, y: 4 }, { type: 'flag', x: 7, y: 7 }, { type: 'campfire', x: 2, y: 8 },
+      { type: 'pine', x: 1, y: 4 }, { type: 'flag', x: 7, y: 5 }, { type: 'campfire', x: 2, y: 8 },
       { type: 'statue', x: 17, y: 3 }, { type: 'pine', x: 17, y: 9 },
     ],
   }),
@@ -1418,7 +1418,7 @@ export const MAPS = [
       [[-1, 4.4], L, [0.2, 4.4], ...loopNodes(4.4, 3.2, 2.0, 0), ...loopNodes(13.6, 3.0, 2.0, 0), [15.6, 5.2], ...loopNodes(16.6, 8.4, 1.7, 90, true), [16.4, 10.6], [13.2, 10.4], ...loopNodes(6.2, 8.8, 1.9, 180, true), [1.0, 10.8], L, [-1, 10.8]],
     ],
     decor: [
-      { type: 'flag', x: 8, y: 0 }, { type: 'sakura', x: 3, y: 3 }, { type: 'sakura', x: 19, y: 3 },
+      { type: 'flag', x: 8, y: 0 }, { type: 'sakura', x: 1, y: 6 }, { type: 'sakura', x: 19, y: 3 },
       { type: 'fountain', x: 8, y: 2 }, { type: 'banner', x: 10, y: 0 },
     ],
   }),
