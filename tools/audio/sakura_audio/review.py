@@ -548,10 +548,12 @@ def review_sfx(palette, build_root: Path = BUILD) -> Path:
             continue
         mm = momentary_max(x, rate)
         eff = mm + s['gain_db']
-        # a 400 ms momentary window dilutes short blips: compensate to the sound's own length (≥ 50 ms)
-        event = eff + 10 * math.log10(0.4 / max(0.05, len(x) / rate))
+        # a 400 ms momentary window dilutes short blips: compensate to the sound's own length (≥ 50 ms); sounds
+        # longer than the window are measured as they are (same rule as sfx/sprite.py event_loudness)
+        dur = len(x) / rate
+        event = eff + (10 * math.log10(0.4 / max(0.05, dur)) if dur <= 0.4 else 0.0)
         table[sid] = {'ms': round(len(x) / rate * 1000), 'peakDb': round(C.db(np.abs(x).max()), 1), 'momentaryMax': round(mm, 1),
-                      'effective': round(eff, 1), 'event': round(min(eff, event) if len(x) / rate > 0.4 else event, 1),
+                      'effective': round(eff, 1), 'event': round(event, 1), 'level': s.get('level'),
                       'gain_db': s['gain_db'], 'bus': s['bus'], 'voices': s['voices'],
                       'gap_ms': s['gap_ms'], 'priority': s['priority']}
         cx, cy = 5 + (i % cols) * tile_w, 30 + (i // cols) * tile_h

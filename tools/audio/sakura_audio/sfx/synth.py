@@ -232,6 +232,109 @@ def echo(x, delay_ms=112, feedback=0.35, volume=0.35, fir='soft', tail=0.6) -> n
     return y + e
 
 
+# ------------------------------------------------------------------------------------------- clean-sound helpers
+def oversampled(fn, k=4) -> np.ndarray:
+    """Run `fn()` with every primitive at k × RATE, then decimate with an anti-alias FIR. For FM bells and
+    sweeps up high, whose sidebands would otherwise fold back below 16 kHz as clangy inharmonic fizz."""
+    global RATE
+    old = RATE
+    RATE = old * k
+    try:
+        y = np.asarray(fn(), dtype=float)
+    finally:
+        RATE = old
+    return signal.resample_poly(y, 1, k)
+
+
+def fmx(freq, dur, ratio=2.0, index=1.2, decay=0.25, amp=0.5, index_decay=None, attack=0.0015) -> np.ndarray:
+    """Alias-free 2-op FM (rendered 4× oversampled) with a short attack ramp so bells never click."""
+    if isinstance(freq, np.ndarray):            # a frequency array made at RATE → a function of time
+        arr, base = freq, RATE
+        freq = lambda t: np.interp(t, np.arange(len(arr)) / base, arr)   # noqa: E731
+    y = oversampled(lambda: fm(freq, dur, ratio, index, decay, amp, index_decay))
+    na = min(len(y), n_of(attack))
+    if na > 1:
+        y[:na] *= np.linspace(0, 1, na)
+    return y
+
+
+def softclip(x, drive=1.5) -> np.ndarray:
+    return np.tanh(x * drive) / np.tanh(drive)
+
+
+def fade(x, fin=0.0, fout=0.0) -> np.ndarray:
+    """Raised-cosine fade in / out (seconds)."""
+    y = np.array(x, dtype=float)
+    a, b = min(len(y), n_of(fin)) if fin else 0, min(len(y), n_of(fout)) if fout else 0
+    if a > 1:
+        y[:a] *= 0.5 - 0.5 * np.cos(np.linspace(0, np.pi, a))
+    if b > 1:
+        y[-b:] *= 0.5 + 0.5 * np.cos(np.linspace(0, np.pi, b))
+    return y
+
+
+def tremolo(x, rate=12.0, depth=0.3, phase=0.0) -> np.ndarray:
+    t = np.arange(len(x)) / RATE
+    return x * (1 - depth * 0.5 * (1 - np.cos(2 * np.pi * rate * t + phase)))
+
+
+def glide(f0, f1, dur, tau) -> np.ndarray:
+    """Frequency array that starts at f0 and settles exponentially on f1 (time constant tau)."""
+    t = np.arange(n_of(dur)) / RATE
+    return f1 + (f0 - f1) * np.exp(-t / max(1e-4, tau))
+
+
+def env_rc(dur, attack=0.004, release=0.04) -> np.ndarray:
+    """Flat envelope with raised-cosine attack and release (for swells, buzzes, pads)."""
+    return fade(np.ones(n_of(dur)), attack, release)
+
+
+def filtered_noise(dur, rng, lo=None, hi=None, amp=0.5, order=2) -> np.ndarray:
+    """Seeded white noise, band-limited (lo / hi in Hz; either may be None)."""
+    x = rng.uniform(-1, 1, n_of(dur)) * amp
+    if lo and hi:
+        return bandpass(x, lo, hi, order)
+    if hi:
+        return lowpass(x, hi, order)
+    if lo:
+        return highpass(x, lo, order)
+    return x
+
+
+# vowel formants (Hz, relative gain, bandwidth Hz) for the roar and the cute chirps
+VOWELS = {
+    'a': ((730, 1.0, 90), (1090, 0.55, 110), (2440, 0.22, 160)),
+    'o': ((570, 1.0, 80), (840, 0.5, 100), (2410, 0.15, 160)),
+    'u': ((300, 1.0, 70), (870, 0.3, 100), (2240, 0.1, 160)),
+    'e': ((530, 1.0, 80), (1840, 0.5, 120), (2480, 0.25, 160)),
+    'i': ((270, 1.0, 60), (2290, 0.45, 120), (3010, 0.3, 180)),
+}
+
+
+def formant(x, vowel='a', shift=1.0) -> np.ndarray:
+    """Parallel resonant band-passes at a vowel's formants (shift < 1 = a bigger creature)."""
+    out = np.zeros(len(x))
+    for f, g, bw in VOWELS[vowel]:
+        fc = min(f * shift, RATE * 0.45)
+        b, a = signal.iirpeak(fc, max(1.0, fc / (bw * shift)), fs=RATE)
+        out += g * signal.lfilter(b, a, x)
+    return out
+
+
+def formant_morph(x, vowels=('a', 'o'), shift=1.0) -> np.ndarray:
+    """Glide through a list of vowels over the length of x (crossfaded formant banks)."""
+    n = len(x)
+    banks = [formant(x, v, shift) for v in vowels]
+    if len(banks) == 1:
+        return banks[0]
+    pos = np.linspace(0, len(banks) - 1, n)
+    out = np.zeros(n)
+    for i, y in enumerate(banks):
+        w = np.clip(1 - np.abs(pos - i), 0, 1)
+        out += w * y
+    return out
+
+
 # ------------------------------------------------------------------------------------------- assembly
 def seq(items) -> np.ndarray:
     """Layer [(t_seconds, array), …] into one array."""

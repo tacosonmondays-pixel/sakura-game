@@ -1,5 +1,9 @@
-"""SFX sprite: render every recipe → trim → peak −3 dBFS → 2 ms edge fades → pack with 75 ms gaps into one
-mono file (sfx.webm Opus 24k + sfx.m4a AAC 32k) + sprite.json with the per-sound runtime parameters.
+"""SFX sprite: render every recipe → house EQ → trim → peak −3 dBFS → 2 ms edge fades → pack with 75 ms gaps into
+one mono file (sfx.webm Opus 24k + sfx.m4a AAC 32k) + sprite.json with the per-sound runtime parameters.
+
+Balancing: a recipe declares its target `level` (event loudness, LUFS: momentary max over 400 ms, compensated
+to the sound's own length when it is shorter than that) and the builder derives the runtime `gain_db` from the
+measured loudness, so every sound lands where its category belongs whatever the recipe's raw level.
 
 Output goes to tools/audio/build/sfx/ (review) and, with ship=True, public/audio/sfx/.
 """
@@ -7,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -17,7 +22,7 @@ from ..mix import write_wav
 from ..paths import BUILD, PUBLIC_SFX
 from .recipes import REGISTRY
 from .sampled import sampled
-from .synth import RATE
+from .synth import RATE, highpass, lowpass
 
 GAP = 2400            # 75 ms of silence between sounds (more than any codec window: AAC 2048, Opus 20 ms + lookahead)
 PEAK = 10 ** (-3 / 20)
@@ -34,10 +39,28 @@ class Ctx:
         return sampled(self.palette, role, text, bpm, tail, vel)
 
 
+def high_pass_for(spec) -> float:
+    """Spammy battle sounds lose everything under 100 Hz (phones cannot play it, and twenty overlapping thumps
+    would only eat the mix's headroom); everything else keeps down to 40 Hz."""
+    if spec.get('hp'):
+        return spec['hp']
+    return 100.0 if spec['bus'] == 'battle' and spec['priority'] <= 1 else 40.0
+
+
+def event_loudness(x) -> float:
+    """Event loudness (LUFS) of a peak-normalised sound before its runtime gain (see the module docstring)."""
+    from ..review import momentary_max
+    d = len(x) / RATE
+    return momentary_max(x, RATE) + (10 * math.log10(0.4 / max(0.05, d)) if d <= 0.4 else 0.0)
+
+
 def render_one(sid, palette) -> np.ndarray:
     spec = REGISTRY[sid]
     x = np.asarray(spec['fn'](Ctx(sid, palette)), dtype=np.float64)
     x = np.nan_to_num(x)
+    # house EQ: no sub rumble phones cannot play (it only eats headroom when 20 sounds overlap), nothing above
+    # 12 kHz (the codecs drop it anyway and it is where chip fizz lives)
+    x = lowpass(highpass(x, high_pass_for(spec), 2), 12000, 4)
     # trim leading/trailing silence (−54 dB relative to the peak), keep at least 10 ms
     env = np.abs(x)
     thr = env.max() * 10 ** (-54 / 20)
@@ -63,8 +86,11 @@ def build_sprite(palette, only=None, ship: bool = True, out_dir: Path | None = N
     for sid in ids:
         x = render_one(sid, palette)
         spec = REGISTRY[sid]
-        sounds[sid] = {'start': pos, 'length': len(x), 'gain_db': spec['gain_db'], 'bus': spec['bus'], 'voices': spec['voices'],
+        g = spec['gain_db'] if spec.get('level') is None else round(spec['level'] - event_loudness(x), 1)
+        sounds[sid] = {'start': pos, 'length': len(x), 'gain_db': g, 'bus': spec['bus'], 'voices': spec['voices'],
                        'gap_ms': spec['gap_ms'], 'jitter': spec['jitter'], 'priority': spec['priority']}
+        if spec.get('level') is not None:
+            sounds[sid]['level'] = spec['level']
         write_wav(out_dir / 'wav' / f'{sid}.wav', x[:, None], RATE)
         chunks += [x, np.zeros(GAP)]
         pos += len(x) + GAP
