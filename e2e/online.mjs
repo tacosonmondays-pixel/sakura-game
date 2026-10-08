@@ -326,10 +326,28 @@ try {
       return best && { unitId, ...best };
     }, avoid);
     if (!spot) return null;
-    await tap(page, `[data-testid="card-${spot.unitId}"]`);
-    await page.waitForTimeout(150);
-    if (touch) await page.touchscreen.tap(spot.cx, spot.cy);
-    else await page.mouse.click(spot.cx, spot.cy);
+    // co-op: how many place orders this client has issued so far (its lockstep log)
+    const myPlaces = () => page.evaluate(() => {
+      const ls = window.__battle?.coop?.lockstep;
+      return ls ? ls.log.filter((c) => c.k === 'place' && c.p === ls.mySlot).length : -1;
+    });
+    const before = await myPlaces();
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await tap(page, `[data-testid="card-${spot.unitId}"]`);
+      await page.waitForTimeout(150);
+      if (touch) await page.touchscreen.tap(spot.cx, spot.cy);
+      else await page.mouse.click(spot.cx, spot.cy);
+      if (before < 0) break; // solo battle: the girl stands at once (checked by the caller)
+      // a page starved of frames can swallow the card / ground taps: then the order was never
+      // issued, so tap again (an order that WAS issued but never ran fails the checks below)
+      const issued = await page.waitForFunction((n) => {
+        const ls = window.__battle?.coop?.lockstep;
+        return !!ls && ls.log.filter((c) => c.k === 'place' && c.p === ls.mySlot).length > n;
+      }, before, { timeout: 30000, polling: 250 }).then(() => true).catch(() => false);
+      if (issued) break;
+      log(`    (attempt ${attempt}: no place order issued yet — tapping ${spot.unitId} again)`);
+      await page.evaluate(() => window.__battle?.ui?.placement?.cancel?.()).catch(() => null);
+    }
     return spot;
   }
   // Lockstep diagnostics (printed when a co-op check fails, and every 0.5 s with OL_DEBUG=1):
@@ -344,6 +362,11 @@ try {
       last = n;
     }, 50);
     const ls = window.__battle.coop.lockstep;
+    // every order as it runs on this client: kind, who, when, and why it failed
+    window.__applied = [];
+    window.__battle.coop.session.on('applied', ({ cmd, res }) => {
+      window.__applied.push(`${cmd.k}:${cmd.p}@${cmd.t}${res.ok ? '' : `!${res.reason || 'failed'}`}`);
+    });
     const orig = ls.dropPeer.bind(ls);
     ls.dropPeer = (peer, reason) => {
       if (!peer.gone) window.__drop = { reason, at: Math.round(performance.now()), tick: ls.tick, heard: Math.round(ls.now() - peer.lastHeard), timeout: ls.timeoutFor(peer), jitter: Math.round(peer.jitter) };
@@ -357,6 +380,7 @@ try {
       vis: document.visibilityState, slot: ls.mySlot, tick: ls.tick, stalled: ls.stalled, delay: ls.delay, resyncs: ls.resyncs, rp: !!ls.resyncPending, desynced: ls.desynced,
       peers: [...ls.peers.values()].map((q) => ({ h: q.horizon, gone: q.gone })), drop: window.__drop || null, gaps: window.__gaps.slice(-5),
       towers: window.__battle.sim.towers.length, state: window.__battle.sim.state, wave: window.__battle.sim.wave, pend: [...ls.pending.keys()], hashes: ls.hashPairs().length,
+      orders: ls.log.map((c) => `${c.k}:${c.p}@${c.t}`), applied: (window.__applied || []).slice(-30), trace: ls.trace.map((e) => `${e.ev}@${e.tick}`).join(' '),
     };
   }).catch((e) => ({ error: e.message }));
   const dump = async (label) => log(`    ${label}: ${JSON.stringify(await Promise.all([A, B].map(lsState)))}`);
@@ -376,7 +400,15 @@ try {
   if (!check(await bothPlaced(A) && await bothPlaced(B), 'co-op: both girls stand on both screens')) await dump('lockstep state');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
-  await A.evaluate(() => window.__battle.ui.startWave());
+  // the host starts the wave: one 'wave' order in its log, and it runs on both clients
+  const waveOrder = await A.evaluate(() => {
+    const ls = window.__battle.coop.lockstep;
+    const state = window.__battle.sim.state;
+    window.__battle.ui.startWave();
+    return { state, tick: ls.tick, orders: ls.log.filter((c) => c.k === 'wave').map((c) => `${c.p}@${c.t}`) };
+  });
+  const waveStarted = await Promise.all([A, B].map((p) => p.waitForFunction(() => window.__battle?.sim?.wave >= 1, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false)));
+  if (!check(waveStarted.every(Boolean), `co-op: the host's Start-wave order runs on both clients (${JSON.stringify(waveOrder)})`)) await dump('lockstep state');
   // run until both clients compared at least 3 hash checkpoints (120 ticks each)
   // both sides compared a checkpoint at the same tick: the guest's newest compared tick (from
   // tick 360 on), which the host compares too once the guest's hash reaches it (a guest whose
@@ -384,8 +416,10 @@ try {
   const tB = await B.waitForFunction(() => {
     const ts = (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= 360);
     return ts.length ? Math.max(...ts) : 0;
-  }, null, { timeout: 180000, polling: 250 }).then((hnd) => hnd.jsonValue()).catch(() => 0);
-  const synced = !!tB && await A.waitForFunction((t) => (window.__battle?.coop?.hashes || []).some((q) => q.t === t), tB, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
+  // (generous: on a shared, overloaded 4-core box a page has been seen getting no frames for
+  // 2.5 minutes, twice in a row — the lockstep drops and re-admits it, and this waits that out)
+  }, null, { timeout: 420000, polling: 250 }).then((hnd) => hnd.jsonValue()).catch(() => 0);
+  const synced = !!tB && await A.waitForFunction((t) => (window.__battle?.coop?.hashes || []).some((q) => q.t === t), tB, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(synced, `co-op: hash checkpoints exchanged during the wave (both compared tick ${tB})`)) await dump('lockstep state');
   const [ha, hb] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(ha.length > 0 && ha.every((p) => p.mine === p.theirs), `co-op: host's hashes match the guest's (${ha.length} checkpoints)`);

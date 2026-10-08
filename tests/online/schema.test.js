@@ -93,7 +93,11 @@ try {
   PGlite = null; // optional dev dependency missing: the lint above still runs
 }
 
-describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
+// Run twice: once with Supabase's classic default grants (every new table granted to anon /
+// authenticated, TRUNCATE included) and once with none at all, since newer projects may not grant
+// new tables by default: the migration's own grants must give the same result either way.
+for (const defaultGrants of [true, false])
+describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants ? 'with' : 'without'} default grants)`, () => {
   let db;
 
   /** Runs one statement as a signed-in player (own transaction, like one PostgREST request). */
@@ -129,10 +133,10 @@ describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
       grant usage on schema auth to anon, authenticated;
       grant execute on function auth.uid() to anon, authenticated;
-      grant usage on schema public to anon, authenticated;
+      ${defaultGrants ? `grant usage on schema public to anon, authenticated;
       alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
       alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-      alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+      alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;` : ''}
       create publication supabase_realtime;
     `);
     await db.exec(sql);
@@ -145,19 +149,29 @@ describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
     await refused(as(A, `insert into profiles (id, name) values ('55555555-5555-4555-8555-555555555555', 'Evil')`), /row-level security|foreign key/);
     await as(A, `update profiles set name = 'Hacked' where id = $1`, [B]);
     expect((await as(C, 'select name from profiles where id = $1', [B]))[0].name).toBe('Bea');
+    // only name / level / avatar / last_active are editable, and nothing is deletable
+    await refused(as(A, `update profiles set created_at = now() - interval '9 years' where id = $1`, [A]), /permission denied/);
+    await refused(as(A, 'delete from profiles where id = $1', [A]), /permission denied/);
+    await as(A, `update profiles set level = 7 where id = $1`, [A]);
+    expect((await as(B, 'select level from profiles where id = $1', [A]))[0].level).toBe(7);
     // the adapter's first sign-in (upsert, ignore duplicates): a second tab racing it is a no-op
     await as(A, `insert into profiles (id, name) values ($1, 'Twice') on conflict (id) do nothing`, [A]);
     expect((await as(B, 'select name from profiles where id = $1', [A]))[0].name).toBe('Aiko');
   });
 
   it('chat: post only as yourself, 1 message per 2 s (server side), clan chat for members only', async () => {
-    const [m] = await as(A, `insert into messages (channel, user_id, body, name) values ('global', $1, 'hello', 'Spoofed') returning name, level`, [A]);
-    expect(m.name).toBe('Aiko'); // the trigger stamps the real profile
+    // the author's name / level / avatar / time are not the client's to write …
+    await refused(as(A, `insert into messages (channel, user_id, body, name) values ('global', $1, 'spoof', 'Spoofed')`, [A]), /permission denied/);
+    const [m] = await as(A, `insert into messages (channel, user_id, body) values ('global', $1, 'hello') returning name, level`, [A]);
+    expect(m.name).toBe('Aiko'); // … the trigger stamps the real profile
     await refused(as(A, `insert into messages (channel, user_id, body) values ('global', $1, 'again')`, [A]), /^rate_limited:\d+$/);
     await refused(as(B, `insert into messages (channel, user_id, body) values ('global', $1, 'fake')`, [A]), /forbidden|row-level security/);
     await refused(as(B, `insert into messages (channel, user_id, body, kind) values ('global', $1, 'x', 'system')`, [B]), /row-level security/);
     await refused(as(B, `insert into messages (channel, user_id, body) values ('global', $1, '')`, [B]), /check constraint/);
-    await as(A, `update messages set body = 'edited'`); // no update policy: silently nothing
+    // chat history is append-only: no update, delete or truncate (RLS does not cover TRUNCATE)
+    await refused(as(A, `update messages set body = 'edited'`), /permission denied/);
+    await refused(as(A, 'delete from messages'), /permission denied/);
+    await refused(as(A, 'truncate messages'), /permission denied/);
     expect((await as(B, `select body from messages where channel = 'global'`)).map((r) => r.body)).toEqual(['hello']);
   });
 
@@ -167,7 +181,9 @@ describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
     clanId = clan.id;
     expect(clan.tag).toBe('PS');
     await refused(as(A, `select * from create_clan('Other', 'OT', 'gems', 'open', '')`), /already_member/);
-    await refused(as(B, `insert into clans (name, tag) values ('Sneaky', 'SN')`), /row-level security/);
+    await refused(as(B, `insert into clans (name, tag) values ('Sneaky', 'SN')`), /permission denied|row-level security/);
+    await refused(as(B, `update clans set xp = 999999 where id = $1`, [clanId]), /permission denied/);
+    await refused(as(B, `insert into clan_members (user_id, clan_id, role) values ($1, $2, 'leader')`, [B, clanId]), /permission denied|row-level security/);
     await as(B, 'select * from join_clan($1)', [clanId]);
     await as(B, `insert into messages (channel, user_id, body) values ($1, $2, 'clan hi')`, [`clan:${clanId}`, B]);
     expect(await as(C, 'select body from messages where channel = $1', [`clan:${clanId}`])).toEqual([]);
@@ -241,8 +257,9 @@ describe.skipIf(!PGlite)('supabase migrations (run on Postgres)', () => {
     expect(r.code).toMatch(/^[0-9A-F]{4}-[0-9A-F]{4}$/);
     expect((await as(B, 'select redeem_transfer($1) as r', [r.code.toLowerCase()]))[0].r).toBe('SAVE-DATA');
     await refused(as(C, 'select redeem_transfer($1)', [r.code]), /expired/);
-    expect(await as(C, 'select * from transfer_codes')).toEqual([]);
-    expect(await as(C, 'select * from rate_events')).toEqual([]);
+    await refused(as(C, 'select * from transfer_codes'), /permission denied/);
+    await refused(as(C, 'select * from rate_events'), /permission denied/);
+    await refused(as(C, 'delete from rate_events'), /permission denied/);
   });
 
   it('internal helpers cannot be called by players; realtime publishes the live tables', async () => {

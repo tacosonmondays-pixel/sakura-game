@@ -197,6 +197,22 @@ drop policy if exists clan_boss_claims_read on public.clan_boss_claims;
 create policy clan_boss_claims_read on public.clan_boss_claims for select to authenticated using (user_id = auth.uid());
 -- transfer_codes and rate_events: no policies at all (only the functions below touch them)
 
+-- Table privileges for the Data API. The policies above decide WHICH rows a player sees or
+-- writes; these decide which statements reach a table at all. Spelled out instead of relying on
+-- the project's default grants (newer projects may not grant new tables to anon / authenticated,
+-- and the old default included TRUNCATE, which Row Level Security does not cover). Players
+-- (anonymous accounts are 'authenticated') may only read, create and edit their own profile, and
+-- post chat messages; everything else goes through the functions further down.
+revoke all on public.profiles, public.clans, public.clan_codes, public.clan_members, public.clan_requests,
+  public.messages, public.clan_boss, public.clan_boss_hits, public.clan_boss_claims,
+  public.transfer_codes, public.rate_events from anon, authenticated;
+grant usage on schema public to anon, authenticated;
+grant select on public.profiles, public.clans, public.clan_codes, public.clan_members, public.clan_requests,
+  public.messages, public.clan_boss, public.clan_boss_hits, public.clan_boss_claims to authenticated;
+grant insert (id, name, level, avatar) on public.profiles to authenticated;
+grant update (name, level, avatar, last_active) on public.profiles to authenticated;
+grant insert (channel, user_id, body, kind, meta) on public.messages to authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- Rate limiting
 -- ---------------------------------------------------------------------------------------------

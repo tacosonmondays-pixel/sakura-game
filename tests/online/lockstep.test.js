@@ -408,6 +408,65 @@ describe('co-op lockstep: reconnecting', () => {
     expect(inSync(h, from)).toBe(true);
   });
 
+  it('orders given around a freeze (just before it, and while the host waits) still run on both after the rejoin', () => {
+    const h = harness({ seed: 37, maxLag: 3 });
+    const [A, B] = h.clients;
+    const reserved = taken.length;
+    const [pa1, pa2] = spots('aoi', 2);
+    const [pb] = spots('yuki', 1);
+    taken.length = reserved; // a harness of its own: the spots stay free for the other tests
+    run(h, null, 120);
+    // both deploy, then the guest's tab freezes before the orders have even crossed the wire
+    A.queue('place', ['aoi', ...quantize(...pa1)]);
+    B.queue('place', ['yuki', ...quantize(...pb)]);
+    h.frozen.add(1);
+    run(h, null, 20);
+    // the host, stalled on the frozen guest, deploys again while it waits
+    A.queue('place', ['rei', ...quantize(...pa2)]);
+    run(h, null, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60));
+    expect(A.peers.get(1).gone).toBe(true);
+    h.frozen.delete(1);
+    run(h, null, 60 * 8);
+    expect(A.rejoins).toBe(1);
+    expect(B.rejoins).toBe(1);
+    const owners = (c) => c.sim.towers.map((t) => c.coop.ownerOf(t.uid)).sort();
+    // queue() sends at once, so the guest's order reached the host before the freeze: all three
+    // girls stand, on both screens, and none of the host's orders failed
+    expect(owners(A)).toEqual([0, 0, 1]);
+    expect(owners(B)).toEqual(owners(A));
+    expect(h.failed.filter((f) => f.slot === 0)).toEqual([]);
+    const from = A.tick;
+    run(h, null, 60 * 6);
+    expect(inSync(h, from)).toBe(true);
+  });
+
+  it('after an in-place catch-up both players still deploy and start the wave together', () => {
+    const h = harness({ seed: 38, maxLag: 3 });
+    const [A, B] = h.clients;
+    const reserved = taken.length;
+    const [pa] = spots('aoi', 1);
+    const [pb] = spots('yuki', 1);
+    taken.length = reserved;
+    // the guest's battle screen loads too slowly: the host drops it, then takes it back
+    h.frozen.add(1);
+    run(h, null, Math.ceil((COOP.loadTimeoutMs / 1000 + 3) * 60));
+    h.frozen.delete(1);
+    run(h, null, 60 * 4);
+    expect(A.rejoins).toBe(1);
+    A.queue('place', ['aoi', ...quantize(...pa)]);
+    B.queue('place', ['yuki', ...quantize(...pb)]);
+    run(h, null, 60);
+    A.queue('wave');
+    run(h, null, 120);
+    for (const c of [A, B]) {
+      expect(c.sim.towers.map((t) => c.coop.ownerOf(t.uid)).sort()).toEqual([0, 1]);
+      expect(c.sim.state).toBe('wave');
+      expect(c.sim.wave).toBe(1);
+    }
+    expect(h.failed).toEqual([]);
+    expect(inSync(h, A.tick - 240)).toBe(true);
+  });
+
   it('leaving on purpose is final: no rejoin', () => {
     const h = harness({ seed: 34, maxLag: 3 });
     run(h, null, 200);

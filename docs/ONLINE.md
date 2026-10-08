@@ -77,6 +77,11 @@ and talks to the real project.
   - All other changes go through `SECURITY DEFINER` functions that check the caller (`auth.uid()`) and
     their clan role. These are joining, leaving, roles, kicks, boss damage, rewards and transfer codes.
   - Helper functions (`add_member`, `enforce_rate`, `system_message`, …) cannot be called by players.
+  - Table privileges are granted explicitly, not left to the project's defaults. Players may read the
+    game tables, insert or edit only `name`, `level`, `avatar` and `last_active` on their profile, and
+    insert only `channel`, `body`, `kind` and `meta` on a message (and `user_id`, which must be
+    themselves). Nothing can be updated, deleted or truncated directly. Transfer codes and rate-limit
+    records cannot be read at all.
 - **Rate limits.** The same numbers are in `src/online/limits.js` (client, for instant feedback) and in
   the SQL (server, authoritative).
 
@@ -205,10 +210,13 @@ The vitest suite covers:
 - `battleRoute.test.js`: solo battle routes never pick up a co-op session.
 - `schema.test.js`:
   - lints the migration;
-  - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema;
-  - exercises RLS, every function and the server rate limits as several players.
+  - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema, once with
+    Supabase's classic default table grants and once with none;
+  - exercises RLS, the table and column grants, every function and the server rate limits as
+    several players.
 - `supabaseAdapter.test.js`: runs the Supabase adapter against a recording fake of supabase-js. Every
-  table, column, function, parameter and realtime filter it uses must exist in the migration.
+  table, column, function, parameter and realtime filter it uses must exist in the migration, and
+  every column it writes must be granted to players.
 
 The e2e test opens two pages of one browser in local mode. It checks:
 

@@ -27,6 +27,12 @@ for (const m of sql.matchAll(/create or replace function public\.(\w+)\(([^)]*)\
 }
 const grant = sql.match(/grant execute on function([\s\S]*?)to authenticated;/)[1];
 const GRANTED = new Set([...grant.matchAll(/public\.(\w+)\(/g)].map((m) => m[1]));
+// table privileges: which tables players may read, and which columns they may insert / update
+const SELECTABLE = new Set([...sql.match(/grant select on ([\s\S]*?) to authenticated;/)[1].matchAll(/public\.(\w+)/g)].map((m) => m[1]));
+const WRITABLE = {};
+for (const m of sql.matchAll(/grant (insert|update) \(([^)]+)\) on public\.(\w+) to authenticated;/g)) {
+  WRITABLE[`${m[1]} ${m[3]}`] = new Set(m[2].split(',').map((c) => c.trim()));
+}
 const PUBLISHED = new Set(sql.match(/foreach t in array array\[([^\]]+)\]/)[1].split(',').map((s) => s.trim().replace(/'/g, '')));
 
 // ---- a recording stand-in for @supabase/supabase-js ----------------------------------------
@@ -240,10 +246,18 @@ describe('supabase adapter ↔ migration', () => {
     expect(rec.from.length).toBeGreaterThan(10);
     for (const call of rec.from) {
       const where = `${call.table} ${call.ops.map(([o]) => o).join('.')}`;
+      expect(SELECTABLE.has(call.table), `${where}: select on ${call.table} is granted`).toBe(true);
       for (const [op, ...args] of call.ops) {
         if (op === 'select' && args[0]) checkColumns(call.table, parseSelect(args[0]), where);
         if (op === 'eq' || op === 'order') checkColumns(call.table, [args[0]], where);
-        if (op === 'insert' || op === 'upsert' || op === 'update') checkColumns(call.table, Object.keys(args[0]), where);
+        if (op === 'insert' || op === 'upsert' || op === 'update') {
+          checkColumns(call.table, Object.keys(args[0]), where);
+          // column-level grants: a write naming any other column is refused by Postgres
+          const kind = op === 'update' ? 'update' : 'insert';
+          const granted = WRITABLE[`${kind} ${call.table}`];
+          expect(granted, `${where}: ${kind} on ${call.table} is granted`).toBeTruthy();
+          for (const col of Object.keys(args[0])) expect(granted.has(col), `${where}: ${kind} (${col}) is granted`).toBe(true);
+        }
         if (op === 'or') checkColumns(call.table, args[0].split(',').map((p) => p.split('.')[0]), where);
       }
     }
@@ -275,6 +289,7 @@ describe('supabase adapter ↔ migration', () => {
     expect(pg.length).toBeGreaterThanOrEqual(4);
     for (const l of pg) {
       expect(l.filter.schema).toBe('public');
+      expect(SELECTABLE.has(l.filter.table), `${l.filter.table}: realtime needs select`).toBe(true);
       expect(PUBLISHED.has(l.filter.table), `${l.filter.table} is in supabase_realtime`).toBe(true);
       const col = l.filter.filter.split('=')[0];
       expect(TABLES[l.filter.table][col], `${l.filter.table}.${col}`).toBeTruthy();

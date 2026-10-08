@@ -58,6 +58,9 @@ if (prod) {
 }
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
+// The production build carries the real Supabase project (.env.production): force the local
+// online adapter there, so a smoke run never signs anonymous test players into the live project.
+const entry = prod ? `${base}?online=local` : base;
 let browser;
 try {
   const launched = await launchChromium();
@@ -94,8 +97,8 @@ const ROUTES = [
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
   ['settings', '#/settings'],
-  // online screens without a server config: local mode + "Online features offline" pill (the
-  // first one asks for a name; leaving the screen closes that prompt)
+  // online screens without a server config: local mode + "Online features offline" pill (with
+  // --prod: forced local mode). The first one asks for a name; leaving the screen closes that prompt
   ['chat', '#/chat'],
   ['clan', '#/clan'],
   ['co-op', '#/coop'],
@@ -127,9 +130,9 @@ async function runViewport(vp) {
   };
 
   // fresh save
-  await page.goto(base, { waitUntil: 'load' });
+  await page.goto(entry, { waitUntil: 'load' });
   await page.evaluate(() => localStorage.clear());
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${entry}#/lobby`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   check(await page.evaluate(() => !!window.__sakura.store.profile.units.aoi), 'fresh profile owns starter Aoi');
 
