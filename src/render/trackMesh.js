@@ -311,6 +311,23 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
     const n = pts.length;
     const spans = underSpans.get(r.index) || [];
     const underAt = (i) => spans.some(([a, b]) => r.d[i] >= a && r.d[i] <= b);
+    // overpass piers stand in mirrored pairs either side of the road they span (just clear of
+    // it), then every ~2.2 tiles further out while the deck is still high: an overpass always
+    // reads as a symmetric bridge, never as a deck with one lone leg
+    const pierAt = new Set();
+    for (const c of crossings) {
+      if (c.mode !== 'bridge' || c[c.over]?.path !== r.index) continue;
+      const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
+      const s0 = Math.min(1.9, Math.max(1.05, 0.95 / sin));
+      for (let s = s0; s < 6; s += 2.2) {
+        for (const sign of [-1, 1]) {
+          const want = c[c.over].d + sign * s;
+          let k = -1;
+          for (let i = 0; i < n; i++) if (k < 0 || Math.abs(r.d[i] - want) < Math.abs(r.d[k] - want)) k = i;
+          if (k >= 0 && Math.abs(r.d[k] - want) < 0.15) pierAt.add(k);
+        }
+      }
+    }
     // Water decks are ONE continuous ribbon over the whole wet span: a section is wet when the
     // centreline OR either road edge is over water; short dry gaps are bridged and each run is
     // carried a little onto the bank (abutments), so a road clipping a pond corner never shows
@@ -439,19 +456,16 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       } else railAcc = 0;
       // overpass piers (on land or standing in the water, never on the lower road): stout
       // pairs flush with the deck edges — so their faces show below the deck — and a cap beam
-      if (e > 0.3 && i % 5 === 0 && !nearCrossing(x, z, 0.9) && !nearLink(x, z)) {
+      if (e > 0.3 && pierAt.has(i) && !nearCrossing(x, z, 0.9) && !nearLink(x, z)) {
         const foot = water ? waterY - 0.25 : 0;
         const topY = y - Math.min(0.2, e * 0.36);
         const hh = (topY - foot) / 2;
-        let legs = 0;
-        for (const s of [-(OVER_HALF - 0.07), OVER_HALF - 0.07]) {
-          const px = x + nx * s;
-          const pz = z + nz * s;
-          if (!pierClear(px, pz)) continue;
-          acc.box(px, foot + hh, pz, 0.08, hh, 0.07, dx, dz, girder);
-          legs++;
+        // both legs or none: a lone leg seen from above reads as a stray dark block
+        const legs = [-(OVER_HALF - 0.07), OVER_HALF - 0.07].map((s) => [x + nx * s, z + nz * s]);
+        if (legs.every(([px, pz]) => pierClear(px, pz))) {
+          for (const [px, pz] of legs) acc.box(px, foot + hh, pz, 0.08, hh, 0.07, dx, dz, girder);
+          acc.box(x, topY - 0.03, z, 0.09, 0.035, OVER_HALF - 0.02, dx, dz, girder);
         }
-        if (legs === 2) acc.box(x, topY - 0.03, z, 0.09, 0.035, OVER_HALF - 0.02, dx, dz, girder);
       }
     }
   }

@@ -1259,8 +1259,8 @@ export const MAPS = [
   }),
   defineMap({
     id: 'arena_meadow', name: 'Wildflower Meadow', theme: 'mountain', tier: 'intermediate',
-    desc: 'Bounty arena in a high meadow where feathers, blades, embers and rime crystals gather. The path folds like a paperclip, two hairpins nested inside each other, then escapes over its own bottom run.',
-    concept: 'Paperclip: two nested hairpins spiralling in, then out over the bottom run',
+    desc: 'Bounty arena in a high meadow where feathers, blades, embers and rime crystals gather. The path folds like a paperclip, two hairpins nested inside each other, then escapes over its own bottom run and strolls out along the southern edge of the meadow.',
+    concept: 'Paperclip: two nested hairpins spiralling in, then out over the bottom run and along the south edge',
     rows: [
       'TTTTTT,,TTTTT,,,TTTT',
       'T.,.......,.,....,.T',
@@ -1275,11 +1275,11 @@ export const MAPS = [
       'TTTTT,,TTTTTTT,,TTTT',
     ],
     paths: [
-      [[-1, 1.8], L, [1.0, 1.8], L, [11.4, 1.8], ...arc(11.4, 4.6, 2.8, -90, 90, 30), L, [6.4, 7.4], ...arc(6.4, 5.8, 1.6, 90, 270, 30), L, [8.4, 4.2], [10.2, 4.9], [11.2, 6.3], [11.6, 8.2], L, [11.6, 12]],
+      [[-1, 1.8], L, [1.0, 1.8], L, [11.4, 1.8], ...arc(11.4, 4.6, 2.8, -90, 90, 30), L, [6.4, 7.4], ...arc(6.4, 5.8, 1.6, 90, 270, 30), L, [8.4, 4.2], [10.2, 4.9], [11.2, 6.3], [11.6, 7.8], ...arc(13.2, 7.8, 1.6, 180, 90, 30), L, [21, 9.4]],
     ],
     decor: [
       { type: 'pine', x: 1, y: 4 }, { type: 'flag', x: 7, y: 5 }, { type: 'campfire', x: 2, y: 8 },
-      { type: 'statue', x: 17, y: 3 }, { type: 'pine', x: 17, y: 9 },
+      { type: 'statue', x: 17, y: 3 }, { type: 'pine', x: 4, y: 9 },
     ],
   }),
   defineMap({
