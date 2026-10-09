@@ -1,6 +1,6 @@
 # ROSTER_SPEC — build contract for the super-game roster merge
 
-Status: approved build contract (2026-10-09). Owner of this document: roster architect.
+Status: approved build contract (2026-10-09), spec-critic review applied the same day (§10). Owner of this document: roster architect.
 Branch: `feature/roster` (worktree `/home/user/wt-roster`, from main `05adb2a`).
 
 This is the single document the five roster builders work from. It turns the research in this folder
@@ -50,13 +50,13 @@ server running (`e2e/shot.mjs` and `e2e/smoke.mjs` start and stop their own Vite
 
 | Branch | Touches | Rule for us |
 |---|---|---|
-| `feature/balance-playtest` | `src/data/units.js` cost literals in every `tier(...)` line and every `base: stats({ cost` line (610 lines, via `tools/balance/reprice.mjs`), `stages.js` budgets/HP, `enemies.js`, `types.js` DIFFICULTIES/BATTLE, `wiki.js` medals/economy, balance tests | In `units.js` **never edit a `tier(...)` line or a `base: stats(...)` line** of the 19 existing units. New girls live in a new file (`src/data/unitsExpansion.js`). In `types.js` only add to STATUSES, ROLES, CAPABILITIES, TRAITS.airborne, TARGET_MODES. Write new costs at today's scale, relative to named peers (§3), and leave the rescale to the merge (§8). |
+| `feature/balance-playtest` | `src/data/units.js` cost literals in every `tier(...)` line and every `base: stats({ cost` line (610 lines, via `tools/balance/reprice.mjs`) **plus Momo's 4th tip** (the Nightmare-income line); `stages.js` comment header, a new `hpScale:` on **every campaign `waves: … budget:` line** (the line right under each `desc:`), first-clear books; `enemies.js`; `types.js` DIFFICULTIES/BATTLE; `wiki.js` medals/economy; **`src/sim/Sim.js`** (constructor start cash, `_checkWaveEnd` wave bonus + income, the `waves.js` import), **`src/sim/constants.js`** (`HERO_XP_PER_DAMAGE` 1 → 0.4), `src/sim/waves.js`; **`tests/data/units.test.js`** (`TIER_COST` windows → `[[50,250],[120,350],[400,1100],[900,2300],[6000,14500]]`, new T4 ≥ 1.7×T3 / T5 ≥ 5×T4 checks, a new "in-battle prices" test); balance tests | In `units.js` **never edit a `tier(...)` line or a `base: stats(...)` line** of the 19 existing units, and leave Momo's Nightmare tip as it is. New girls live in a new file (`src/data/unitsExpansion.js`). In `types.js` only add to STATUSES, ROLES, CAPABILITIES, TRAITS.airborne, TARGET_MODES. In `stages.js` **never edit a `desc:` line** (it sits directly above the repriced line, and git treats edits on adjacent lines as a conflict): only add `unlocks`/`recommended`. In `Sim.js` leave the constructor's cash lines and `_checkWaveEnd` alone; add new constants at the **end** of `constants.js`; in `units.test.js` do not touch `TIER_COST` or the cost-window test. Write new costs at today's scale, relative to named peers (§5), and leave the rescale to the merge (§9). Known unavoidable adjacent-line conflicts (trivial, keep both sides): Momo's tips 2-3 (next to the Nightmare tip) and Momo's three `path(...)` lines (each directly above a repriced `tier(...)` line). |
 | `feature/hikari-owner-chibi` | replaces `public/models/characters/hikari.glb` + `.lod.glb` and the manifest `hikari` entry with the owner's Meshy figure; `units.js` HIKARI palette (3 lines); `glbChibi.js`, `figurine.js`, `tests/models/glb.test.js`, `tools/blender/build_characters.py` (skips `source: 'meshy'` units) | **Never touch `hikari.glb`, `hikari.lod.glb`, the manifest `hikari` entry, `glbChibi.js` or `tests/models/glb.test.js`.** Copy (read) the V2 file to a new asset name for her Sentinel skin. Use the branch's HIKARI palette lines byte for byte (§2.2). |
 | `feature/luna-chibi` | Luna's 3D model (Meshy pipeline, in progress) | Our Luna stand-in is temporary; theirs wins on merge. |
 | `feature/tracks-v3` | `maps.js`, `src/core/track.js`, renderer track files | Use `samplePath`/`pointAt` from `src/sim/path.js` only; no map edits. |
 | `feature/online` | `src/online/**`, co-op lockstep, `ctx.act` command layer in the battle UI | New sim commands go through `ctx.act` when present (§4.1). Document the new `aim` command in INTEGRATION_NOTES. |
-| `feature/audio` | `src/audio/**`, one-line hooks | Emit sim events; the audio branch hooks them. |
-| `feature/story` | title/tutorial/journal/story scenes; adds profile fields **without** bumping the save version | **We own the save version bump (2 → 3).** |
+| `feature/audio` | `src/audio/**`, one-line hooks — **including** `src/ui/screens/recruit.js` (an `import { cue }` line right after the `./stage.js` import, just above `const FEATURED`, and one-line `cue(...)` calls inside `playReveal`/`revealCard`) and `src/systems/save.js` (`musicVolume`/`sfxVolume` in `DEFAULT_SETTINGS` and `cleanSettings`) | Emit sim events; the audio branch hooks them. In `recruit.js` do not restructure `playReveal`/`revealCard` (the reveal stays unchanged, §7.4) and add new imports after the `gacha.js` import, not after the `stage.js` one. In `save.js` do not touch the settings lines. |
+| `feature/story` | title/tutorial/journal/story scenes (`docs/STORY_SPEC.md` on that branch); adds `story` to `createProfile` (and removes the creation `ticket_recruit10`) and one `p.story = cleanStory(raw.story)` line in `migrateProfile`, **without** bumping the save version; its save test asserts the version is untouched | **We own the save version bump (2 → 3).** Keep our `save.js` diff compact (one `cleanSkins` helper + one call each in `createProfile`/`newUnitState`/`cleanUnit`/`migrateProfile`/`migrationDropsData`) so the story merge is a keep-both resolution. Its cast sheet and club list (`docs/story/BIBLE.md` §2.2, STORY_SPEC §4.3) are the voice reference for the 19 girls; §4.3 below is aligned with them. |
 
 ### 0.5 Determinism rules for `src/sim/**` (co-op lockstep depends on them)
 
@@ -113,8 +113,12 @@ server running (`e2e/shot.mjs` and `e2e/smoke.mjs` start and stop their own Vite
 9. **Stand-in chibis** for every changed or new girl are rebuilt with the existing Blender character
    library (`tools/blender/build_characters.py`), adding a few simple parts. No Meshy 3D work.
 10. **Push lock is a global fix**: any knockback/gather moves an enemy at most once per lock window
-    (1.0 s normal/elite, 2.0 s miniboss; bosses are immune as today). Without it a fast push girl stalls a
-    lane forever. It slightly weakens Nami's Undertow and Aoi's Pinning Gale: balance re-runs after merge.
+    (**1.5 s** normal/elite, **3.0 s** miniboss — the old game's values and `combat.md` §3.1; bosses are immune
+    as today). Without it a fast push girl stalls a lane forever. The window has to be this long: Fuu's
+    top-tier push is 1.25 tiles per hit, so a 1.0 s window would still push normal enemies (0.8-1.0 tiles/s)
+    backwards; at 1.5 s her ceiling is ≈ 0.83 tiles/s and stacking pushers cannot exceed it. It trims Nami's
+    Undertow T4-T5 sustained push-back noticeably (≈ 1.7 → 1.0 tiles/s at T5) and Aoi's Pinning Gale slightly:
+    balance re-runs after the merge (§9).
 
 ---
 
@@ -254,10 +258,11 @@ UI calls `setSkin` then `store.commit('skin')`.
 | `SAVE_VERSION = 3` | older builds then refuse a v3 save and keep a backup |
 | `newUnitState()` | adds `skin: null` (`null` = default) |
 | `createProfile()` | adds `skins: []` |
-| `cleanUnit(raw, now, unitId)` | keeps `skin` only if `SKIN_MAP[raw.skin]?.unitId === unitId`; otherwise `null` |
+| `cleanUnit(raw, now, unitId)` | keeps `skin` only if `SKIN_MAP[raw.skin]?.unitId === unitId` and it is not the default row (`'<id>_default'` is stored as `null`); otherwise `null`. Update the one call site (`cleanUnit(u, now, id)`). |
 | `migrateProfile` | `p.skins = strList(raw.skins).filter((id) => SKIN_MAP[id] && ['shop','event'].includes(SKIN_MAP[id].acquisition.type))`; then null every `units[id].skin` the player does not own (`ownsSkin`) |
 | v2 → v3 | nothing to gift (D1 = withUnit). Add `'outfits'` to the list of intro keys the UI may show once ("New: Sentinel Style outfits") — the UI marks it seen in `seenIntro`. |
 | `migrationDropsData` | also `true` when `raw.skins` has unknown ids or a `units[*].skin` names an unknown skin |
+| Stale old build (recommended) | A v2 build that loads a v3 save starts a **fresh** profile (`backup: 'newer'`) and autosaves it; the v3 save survives only in `BACKUP_KEY`, and nothing restores it. Add a pure `recoverableBackup(list, profile)` to `save.js` (newest backup entry with `reason: 'newer'`, `version === SAVE_VERSION`, readable, with more `stats.battles` than the current profile) and, at load, offer it once ("Restore your progress from before the update?") — the `store.js` wiring is one lead-owned call. Test it in `save.test.js`. |
 | CONTRACTS §5 Profile | add `units[id].skin`, `skins` |
 
 ### 3.5 Threading (owners in brackets)
@@ -266,8 +271,12 @@ UI calls `setSkin` then `store.commit('skin')`.
   `const s = resolveSkin(unitDef.id, opts.skin)`; GLB key = `s.asset` for `getCharacter/loadCharacter`;
   instantiate with `unitDef` (so `userData.unitId` stays the unit id); the procedural placeholder uses
   `{ ...unitDef, palette: s.palette ?? unitDef.palette, look: s.look ?? unitDef.look }`; set
-  `group.userData.skinId = s.id`. `preloadModels(ids, { detail, skins = {} })` maps ids → assets.
-  **Do not edit `glbChibi.js`** (hikari branch); it already works by key.
+  `group.userData.skinId = s.id` on both paths (the immediate GLB instance and the placeholder; `upgradeInPlace`
+  keeps it). `preloadModels(ids, { detail, skins = {} })` maps ids → assets. `preloadModels()` with no ids
+  must pass `UNIT_IDS` explicitly: `glbChibi.preloadCharacters(null)` loads **every manifest key**, which now
+  includes the 19 `sentinel-*`/`future-*` assets (~12 MB) — the dev previews call it that way.
+  **Do not edit `glbChibi.js`** (hikari branch); it already works by key (`characterUrl(key)` = `<key>.glb`,
+  so the copied files must be named exactly `sentinel-<id>.glb` / `.lod.glb`).
 - `src/render/BattleRenderer.js` + `actors.js` + `overlays.js` [renderer]: `createBattleRenderer(container, sim, { …, skins })`
   → `new Actors({ …, skins })`; `_createTower` and the drag ghost pass `skin: this.skins[t.unitId]`.
 - `src/ui/battle/controller.js` [battle-ui]: `const skins = formationSkins(profile, ids)`; pass to
@@ -320,15 +329,16 @@ Rules: future ids never appear in `UNITS`, saves, gacha or balance; `adult === (
 
 - `tests/data/skins.test.js` (new): every `UNITS` id has exactly one default row; Sentinel rows are exactly the 15
   ids; ids unique; `unitId` exists; every row's `asset` is in the character manifest; Sentinel palette/look use the
-  units-test enums and 9 palette keys; `resolveSkin` fallbacks; `FUTURE_UNITS` ids not in `UNIT_MAP`, adult iff hero,
-  asset in manifest.
+  units-test enums and 9 palette keys; every non-default row's `thumb` file and every `public/art/future/<id>.webp`
+  exists; `resolveSkin` fallbacks; `FUTURE_UNITS` ids not in `UNIT_MAP`, adult iff hero, asset in manifest.
 - `tests/models/skins.test.js` (new, **not** an edit of `glb.test.js`): header checks (reuse `glbHeader.js`) for every
   `sentinel-*`/`future-*` asset: file + lod exist, `extras.unit` = source id, sizes ≤ 480/240 KB, 3 primitives.
 - `tests/systems/skins.test.js` (new): `ownsSkin/setSkin/equippedSkinId/skinChoices/formationSkins` cases incl.
   unowned unit, wrong unit, unknown id, default stored as `null`.
 - `tests/systems/save.test.js`: v2 save → v3 (skins `[]`, unit skins `null`); a v3 save keeps a valid equipped
-  Sentinel skin; an unknown skin id is cleared and makes `migrationDropsData` true; idempotency with skins;
-  `SAVE_VERSION === 3`. (The exact `gacha` object pinned at L18 stays unchanged.)
+  Sentinel skin; `'aoi_default'` is stored as `null`; an unknown skin id is cleared and makes `migrationDropsData`
+  true; idempotency with skins; `SAVE_VERSION === 3`; `recoverableBackup` cases. (The exact `gacha` object pinned
+  at L18 stays unchanged.)
 - `tests/models/api.test.js`: `buildChibi(u, { skin })` for every skin row in node returns a group with
   `userData.unitId === unitId` and `userData.skinId === skin.id`.
 - e2e (`e2e/smoke.mjs`): open `#/student/aoi?tab=info`, open Outfit, Wear Sentinel Style, start 1-1 and check
@@ -389,28 +399,32 @@ and CONTRACTS §3): accessory **`cap`**; weapons **`mic`, `shield`, `mirror`, `s
 ### 4.3 Text
 
 `personality`/`quote` stay unless listed. Tips stay except where noted. All bios are rewritten to the old look.
+Clubs and voices follow the story branch's bible (`docs/story/BIBLE.md` §2.2 clubs, STORY_SPEC §4.3 cast sheet) so
+the student pages never contradict the scenes: archery (Aoi), tea and garden club (Rei), library committee (Yuki),
+pyrotechnics club (Akane), rifle team (Shiro), courier club (Kage), taiko and weather club (Raika), idol club (Momo),
+harbour cadets (Sango), fencing club (Kaede), bell club (Suzu), robotics club (Chika).
 
 | id | bio | personality / quote / tips changes |
 |---|---|---|
 | hikari | Captain of the Sentinel Guard and the academy's senior guardian. Long sakura-pink hair crowned with a braided circlet of little gold stars, a white-and-gold knight's coat over navy, a big teal bow and a jewelled star-guard sword that shines like sunrise. She walks the front line so her students never have to stand there alone. | keep |
 | luna | The academy's fox-eared oracle of the night courses and a gentle, mysterious guardian. Long lavender hair, tall fox ears and a huge fluffy tail, a midnight-navy gown with a lavender skirt and violet bow, and a staff crowned with a golden crescent around a glowing moon-orb. Three threads of moonlight answer every flick of her tail. | personality "Soft-spoken, playful and a little mischievous; reads fortunes in teacups and is never wrong about the weather." quote "Foxfire, rise. The night is on our side." Tip 3 → Builder 3 (ult rename). |
-| nami | A retired admiral who now commands the academy harbour. Long teal waves under a white captain's cap with a gold shell badge, a navy-and-gold admiral's coat over a crisp sailor blouse, and a gilded trident. When she raises it, the lake turns to ice around the enemy's feet. | personality "Booming laugh, sea-shanty voice and a soft spot for lost ducklings; her orders are short, loud and always right." quote "All hands! Raise the tide!" |
+| nami | A retired admiral who now commands the academy harbour and Hikari's oldest friend. Long teal waves under a white captain's cap with a gold shell badge, a navy-and-gold admiral's coat over a crisp sailor blouse, and a gilded trident. When she raises it, the lake turns to ice around the enemy's feet. | personality "Composed, dry-witted and fiercely protective of her crew; nobody gets left on the dock, and her orders are short and always right." quote "All hands! Raise the tide!" (Voice: STORY_SPEC §4.3 — composed, dry nautical wit; not a booming shanty-singer.) |
 | aoi | A first-year from the archery club and the academy's most dependable shot. A long green ponytail with a leaf clip, a green ranger tunic under a hooded cape, leather bracers and a wooden longbow she polishes every evening after practising until sunset. | keep |
-| rei | The calm, quiet captain of the kendo club. A neat navy-black bob with a small dark bow and a gold star pin, an indigo uniform jacket with a lilac ribbon, a pleated skirt and a katana with a pink silk bow on the hilt. She draws once — and everything in reach falls like petals. | personality "Calm, polite and unshakeable; practises her draw at dawn under the cherry trees and drinks her tea far too hot." quote "One breath. One cut. Next." |
-| yuki | A shy second-year from the frost seminar. A silver-white bob with a snowflake hairpin, a white fur-trimmed capelet over a pale-blue dress and a staff topped with an ice crystal. Wherever she walks the air turns crisp and enemies slow to a crawl. | keep |
-| momo | The academy's rising idol and the cheer squad's pride. Pink twin-tails tied with magenta bows, a frilly magenta-and-white idol dress, white gloves and a sparkly hand microphone. Every concert she gives between waves fills the battle treasury. | personality "Bubbly, tireless and always on stage; winks at everyone and remembers every fan's name." quote "Thank you, everyone! Encore~!" Tip 3 → "Her glow-stick toss is weak — never rely on her to hold a lane alone." |
-| akane | The academy's self-declared flame witch. Long orange-red hair under a huge plum witch's hat with a gold star, a red-and-plum dress with a gold bow, and a staff ringed in gold around a burning red crystal. Her fireballs burst like festival fireworks — and she signs every one with a heart. | keep |
-| sango | The harbour club's cannoneer. Coral-pink hair in a side braid under a navy beret with a shell badge, a white-and-pink sailor coat with navy trim, and a brass telescope-cannon she maintains like a family heirloom. Her shells crack plate and pop barriers. | keep |
-| kage | The fastest courier on campus and a ninja-club prodigy. A short purple bob under a plain dark cloth headband, a purple short-kimono jacket with silver embroidery and a lilac bow, a long dark scarf and a handful of silver shuriken. Nothing hides from her — not even veiled spirits. | keep |
+| rei | The tea-and-garden club's calm, quiet swordswoman, who practises her draw every dawn under the cherry trees. A neat navy-black bob with a small dark bow and a gold star pin, an indigo uniform jacket with a lilac ribbon, a pleated skirt and a katana with a pink silk bow on the hilt. She draws once — and everything in reach falls like petals. | personality "Calm, polite and unshakeable; tends the club's roses between waves and drinks her tea far too hot." quote "One breath. One cut. Next." |
+| yuki | A shy second-year from the library committee who studies frost magic between the shelves. A silver-white bob with a snowflake hairpin, a white fur-trimmed capelet over a pale-blue dress and a staff topped with an ice crystal. Wherever she walks the air turns crisp and enemies slow to a crawl. | keep |
+| momo | The academy's rising idol and the pride of the idol club. Pink twin-tails tied with magenta bows, a frilly magenta-and-white idol dress, white gloves and a sparkly hand microphone. Every concert she gives between waves fills the battle treasury. | personality "Bubbly, tireless and always on stage; winks at everyone and remembers every fan's name." quote "Thank you, everyone! Encore~!" Tip 2 → "Merch Table tier 3 makes upgrades cheaper for the girls around her." (the old text names the renamed Savings Pact). Tip 3 → "Her glow-stick toss is weak — never rely on her to hold a lane alone." Leave tip 4 (Nightmare income) to the balance branch. |
+| akane | The pyrotechnics club's self-declared flame witch. Long orange-red hair under a huge plum witch's hat with a gold star, a red-and-plum dress with a gold bow, and a staff ringed in gold around a burning red crystal. Her fireballs burst like festival fireworks — and she signs every one with a heart. | keep |
+| sango | The harbour cadets' cannoneer. Coral-pink hair in a side braid under a navy beret with a shell badge, a white-and-pink sailor coat with navy trim, and a brass telescope-cannon she maintains like a family heirloom. Her shells crack plate and pop barriers. | keep |
+| kage | The courier club's fastest runner and a ninja prodigy. A short purple bob under a dark headband marked with a silver crescent moon (as in her portrait; the 3D stand-in keeps a plain cloth band), a purple short-kimono jacket with silver embroidery and a lilac bow, a long dark scarf and a handful of silver shuriken. Nothing hides from her — not even veiled spirits. | keep |
 | umeko | The dreamy lookout of the sea shrine. Long white hair that fades to seafoam at the tips, a gold shell hairpin, a white-and-teal shrine robe and a shell-fan staff studded with pearls. She floats a lantern on the water at dusk, and nothing hidden escapes its light. | keep |
 | shiro | A quiet marksman from the rifle club. Short silver-white hair with long side locks, a navy beret, a navy-and-slate uniform with gold buttons and a dark scoped rifle that never leaves her side. From the bell tower she can see the whole map — and hit it. | keep |
 | midori | The alchemy club's cheerful menace. A mint-green bob with round gold goggles pushed up on her head, a green dress under a cream apron, a satchel of clinking flasks and a round green potion with a star stopper. Her brews melt armor and stop anything from healing. | keep |
-| suzu | A mischievous shrine-bell maker. Golden-blonde hair with a big looped side curl and teal ribbons, a white-and-teal kimono with golden bells on the obi, and a little bell rack she rings to set her traps. Enemies who step on her bells hear one last cheerful ring. | keep |
-| raika | A thunder-mage prodigy who treats every battle like a concert. Long golden hair with two curled ram-horn tufts, a periwinkle-and-indigo dress with a lilac bow, and a staff crowned with a big gold star that throws lightning from enemy to enemy. | keep |
+| suzu | The bell club's mischievous bell-maker. Golden-blonde hair with a big looped side curl and teal ribbons, a white-and-teal kimono with golden bells on the obi, and a little bell rack she rings to set her traps. Enemies who step on her bells hear one last cheerful ring. | keep |
+| raika | A thunder-mage prodigy from the taiko and weather club who treats every battle like a concert. Long golden hair with two curled ram-horn tufts, a periwinkle-and-indigo dress with a lilac bow, and a staff crowned with a big gold star that throws lightning from enemy to enemy. | keep |
 | miko | Keeper of the academy shrine. Long straight black hair with a big red bow, a white haori over red hakama and a gohei wand with white paper streamers. Her prayers make every girl nearby strike a little harder. | keep |
 | hotaru | A gentle exorcist-in-training who walks the shrine paths at night. A honey-orange bob under a teal beret with a gold star, a teal haori over a cream dress and a hooked staff with a glowing paper lantern. Fireflies follow her everywhere; veils and spirits melt in her light. | keep |
 | kaede | Captain of the fencing club. Long crimson hair with a maple-leaf ornament, a red-and-gold fencing coat over an ivory blouse, dark boots and a slender rapier with a gold basket guard. Every strike on the same opponent lands faster and harder than the last. | personality "Elegant, competitive and a little dramatic; salutes every opponent with a flourish." quote "En garde — and do try to keep up." |
-| chika | The engineering club's youngest genius. Short orange hair under teal goggles, a mustard shirt and navy overalls covered in pockets, a satchel of spare parts and a wrench almost as big as she is. She builds sentries faster than anyone can name them. | keep |
+| chika | The robotics club's youngest genius. Short orange hair under teal goggles, a mustard shirt and navy overalls covered in pockets, a satchel of spare parts and a wrench almost as big as she is. She builds sentries faster than anyone can name them. | keep |
 
 ### 4.4 Kit tweaks on shared ids
 
@@ -443,7 +457,11 @@ after the identity edits (the script dumps `UNITS`). **Never pass `hikari`.** Lu
 | `cards` weapon | `weapon.py` | fan of 4 thin card plates (`#2b1c2a` with a red edge) held between fingers; KIND `throw` | ena |
 | Per-unit extras | `build_characters.py` table `EXTRA_PARTS = { luna: ['foxTail'], hana: ['falcon', 'quiver'], ruri: ['foxFamiliar'], kanna: ['taikoDrum'], tsubaki: ['mortarTube'], kohaku: ['monocle'] }` and `HORN_SHAPE = { raika: 'curl', seiran: 'dragon' }` (tools-only, keyed by id — no schema change) | fox tail = tapered tube from the hips with a pale tip, weighted to `hips`; falcon = small white bird on the left shoulder; quiver on the back; fox familiar = tiny white fox on the right shoulder; taiko drum at the left hip; mortar tube diagonal on the back; monocle = gold ring over the right eye; curl horns = two spiral tubes; dragon horns = two swept-back tapered tubes | as listed |
 
-Skip any extra that fights the rig or the 480 KB budget (note it in the commit). Also: add the 7 weapons to
+Every extra and new weapon must be **joined into the vertex-coloured `body` mesh** (skinned to an existing bone):
+`tests/models/glb.test.js` (which this job may not edit) requires exactly 3 primitives (`head`, `body`, `halo`), one
+embedded PNG, int16-quantised positions and ≤ 480/240 KB per full/LOD file. Skip any extra that fights the rig or
+the budget (note it in the commit). Hair joints follow `look.hairStyle` automatically (`tail_L/R` for twintails,
+`hair_back` for long/hime/wavy/ponytail/braid) — the same test checks them. Also: add the 7 weapons to
 `WEAPON_KIND` in `src/sim/towers.js` (visual only: `mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt',
 mallet: 'shuriken', puppet: 'needle', cards: 'shuriken'`) and make `projectileKind` return `'fireball'` for
 `attackType === 'blast' && element === 'fire'` (Akane now holds a staff; arc is visual only). The procedural chibi
@@ -457,12 +475,12 @@ gracefully; optionally add a simple shape for each new value.
 ### 5.1 Files
 
 - `src/data/unitKit.js` (new): the builders `S` (all existing helpers + `S.ground(duration, chance)`,
-  `S.curse(burst, radius, duration)`, `S.mark(bonus, duration)`), `stats`, `tier`, `path`, `free`, `STARTER`,
+  `S.curse(burstMul, radius, duration)` (§6.7), `S.mark(bonus, duration)`), `stats`, `tier`, `path`, `free`, `STARTER`,
   `GACHA_ONLY` — copied from `units.js` (do not edit `units.js`'s own copies; a later cleanup may switch it over).
 - `src/data/unitsExpansion.js` (new): `export const EXPANSION_UNITS = [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, TSUBAKI, KOHAKU, IROHA, ENA];`
 - `src/data/units.js`: one import line and `...EXPANSION_UNITS` at the end of the `UNITS` array.
 - Costs are written at today's scale, relative to the named peer. After `feature/balance-playtest` merges, apply its
-  per-tier factors to this file only (§8).
+  per-tier factors to this file only (§9).
 
 ### 5.2 Kits
 
@@ -475,7 +493,7 @@ capabilities honest (verified for every kit below).
 - Look: twintails, swept, hairpin, kimono, fan, leaf, sparkle, cheerful. Palette #79c9b2 #4f9e88 #6ecebc #ffe8dc #eef6e8 #8fcfb0 #4f9e88 #c8ffe8 #e9d8a6.
 - Bio: "A first-year from the traditional dance club who learned her steps from the mountain wind. Long mint-green twin-tails with leaf-and-star pins, a flowing green-and-white hanfu-style dress with wide sleeves and a painted folding fan. One sweep of her fan and a whole column of goblins tumbles back down the path."
 - Personality "Breezy, carefree and impossible to pin down; hums while she fights and never walks when she can twirl." Quote "Back you go~ Again! And again!"
-- Tips: "Her fans push enemies back into your kill zone — each enemy can only be pushed once per second." · "Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls." · "Bosses barely move: pair her with damage, not instead of it."
+- Tips: "Her fans push enemies back into your kill zone — each enemy can only be pushed once every 1.5 seconds." · "Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls." · "Bosses barely move: pair her with damage, not instead of it."
 - Old → new: 8 dmg / 1.45 s / 4.2 → 2 / 0.7 per s / 3.0, 3 targets, knockback 0.45. Cost = Yuki + 40.
 ```js
 caps ['antiAir','multiHit'], pathCaps ['slow','stun','grounding','reveal']
@@ -506,7 +524,7 @@ awaken 'Keen Eyes' {range:.3, damageMul:1.08}
 - Look: braid, split, hairpin, robe, tome, star, round, shy. Palette #577cce #3a5aa6 #89c5fc #ffe8de #e7eef6 #9fb4d8 #f2d16b #cfe6ff #3a5aa6. Blender extra: fox familiar on the shoulder.
 - Bio: "A bookish summoning prodigy who never goes anywhere without her familiar grimoire. Long deep-blue hair with a side braid and a star clip, a white-and-blue scholar's robe, and Kon, a tiny white fox spirit who hops out of the pages to fight wherever she points."
 - Personality "Shy and polite with people, endlessly chatty with her fox; bookmarks every page with pressed flowers." Quote "Kon, go! ...Please be careful!"
-- Tips: "Her fox familiar fights from the edge of the nearest lane — Ruri can stand far back." · "The range ring is centred on the familiar, not on Ruri." · "Moonhound bites crack armor, Star Falcon hunts flyers, Tide Otter reaches further across water."
+- Tips: "Her fox familiar fights from the edge of the nearest lane — Ruri can stand far back." · "The range ring is centred on the familiar, not on Ruri." · "Moonhound bites crack armor, Star Falcon hits flyers harder (switch her to Air targeting), Tide Otter reaches further and soaks."
 - Old: 22 / 1.1 s, familiar range 3.3, reach 4.8 → 7 / 0.9, range 2.4 from the familiar, reach 3.5. Cost = Kage.
 ```js
 caps ['antiAir'], pathCaps ['armorShred','stun','detection','grounding','slow']
@@ -583,19 +601,20 @@ awaken 'Polished Silver' {pierce:1, damageMul:1.06}
 - Bio: "A mysterious fortune-teller from the occult literature club. Long rose-pink hair with a braid and a red rose ornament, a high-collared black-and-crimson kimono and a deck of curse cards tied with red threads. When a cursed enemy falls, the curse blooms onto its neighbours."
 - Personality "Teasing, dramatic and fond of ominous predictions — which are usually about lunch." Quote "Draw a card. Oh dear... that one's for you."
 - Tips: "Cursed enemies burst when they fall, hurting their neighbours and passing on a weaker curse." · "A curse spreads at most two more times — dense waves chain beautifully." · "Withering Script stops regeneration like poison."
-- Old: 15 / 1.15 s / 4.5, burst 80 %, 60 % decay, 2 generations → 5 / 0.8 / 3.2, curse burst 4 r1.1 4 s. Cost = Kaede − 20.
+- Old: 15 / 1.15 s / 4.5, burst 80 %, 60 % decay, 2 generations → 5 / 0.8 / 3.2, curse burst = 0.8 × the cursing hit (4 at base) r1.1 4 s. Cost = Kaede − 20.
+- The curse burst is a **multiple of the hit that applied it** (`burstMul`, §6.7), as in the old game, so it grows with her level, gear, awakening, auras and Luna's team buff like every other direct hit. The absolute bursts at level 1 below match the first draft (4 · 6 · 6 · 10 · 18 · ≈42).
 ```js
 caps ['antiAir'], pathCaps ['antiHeal','armorShred','silence','stun']
-base: stats({ cost: 580, damage: 5, rate: 0.8, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [S.curse(4, 1.1, 4)] })
-bloom 'Cursed Bloom' 'Bigger bursts': Deeper Ink 150 {status:[S.curse(6,1.1,4)]} · Wider Petals 340 {status:[S.curse(6,1.4,4)]} · Cursed Bloom 1100 {status:[S.curse(10,1.6,5)], splash:.4} · Red Spider Lily 3400 {status:[S.curse(18,1.9,5)], damage:4} · Garden of Calamity 12000 {status:[S.curse(40,2.3,6)], damage:10, rateMul:1.3}
+base: stats({ cost: 580, damage: 5, rate: 0.8, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [S.curse(0.8, 1.1, 4)] })
+bloom 'Cursed Bloom' 'Bigger bursts': Deeper Ink 150 {status:[S.curse(1.2,1.1,4)]} · Wider Petals 340 {status:[S.curse(1.2,1.4,4)]} · Cursed Bloom 1100 {status:[S.curse(2.0,1.6,5)], splash:.4} · Red Spider Lily 3400 {status:[S.curse(2.0,1.9,5)], damage:4} · Garden of Calamity 12000 {status:[S.curse(2.2,2.3,6)], damage:10, rateMul:1.3}
 withering 'Withering Script' 'Anti-heal and armor': Fine Brush 130 {damage:1} · Long Scroll 300 {range:.4} · Withering Script 1000 {status:[S.poison(1.5,4)]} · Black Ink Hex 3200 {status:[S.shred(2,4)], damage:5} · Unwritten Name 11500 {status:[S.poison(6,5)], damage:14, eliteMul:1.4}
 fate 'Shared Fate' 'Brittle and control': Quick Deal 140 {rateMul:1.12} · Lucky Card 320 {crit:{chance:.05, mul:1.5}} · Shared Fate 1050 {status:[S.vulnerable(.12,3)], silence:.5} · Red Threads 3500 {projectiles:1, status:[S.vulnerable(.18,3)], damage:3} · Threads of Destiny 12500 {projectiles:2, status:[S.vulnerable(.25,3), S.stun(.4,.15)], damage:12}
-awaken 'Lingering Hex' {status:[S.curse(5,1.2,5)]}
+awaken 'Lingering Hex' {status:[S.curse(1.0,1.2,5)]}
 ```
 
 #### Kanna — Oni Festival Champion (SSR **hero**, adult, `champion`, slash, land, blade, gacha)
-- Look: twintails, messy, horns, kimono, mallet, flame, sharp, cheerful. Palette #df6b82 #b04560 #efc562 #fbe0d0 #942e42 #2a1a22 #efc562 #ffcf73 #8a5a3a. Blender extra: taiko drum at the hip.
-- Bio: "Reigning champion of the city's summer festival and the academy's drum instructor, an adult guardian with coral-red twin-tails and buns ringed in gold, small golden oni horns, a red-and-black festival happi coat and a taiko drum at her hip. Every beat of her mallet cracks armor and staggers giants."
+- Look: twintails, messy, horns, kimono, mallet, flame, sharp, cheerful. Palette #df6b82 #b04560 #efc562 #fbe0d0 #942e42 #2a1a22 #f3e9d2 #ffcf73 #8a5a3a (accent = horn colour: ivory, as in her portrait). Blender extra: taiko drum at the hip.
+- Bio: "Reigning champion of the city's summer festival and the academy's drum instructor, an adult guardian with coral-red twin-tails and buns ringed in gold, small ivory oni horns, a red-and-black festival happi coat and a taiko drum at her hip. Every beat of her mallet cracks armor and staggers giants."
 - Personality "Loud, warm and impossible to out-cheer; treats every battle like the festival finale." Quote "Hey, hey! Feel the drums? This is the main event!"
 - Tips: "Her rhythm builds with every hit on the same enemy and cracks its armor for the team." · "Festival Drumfall hits the strongest enemy on the whole map — save it for an elite or a boss." · "Melee: she cannot hit flyers until Lion Dance."
 - Old: 20 / 1.15 s / 3.1, focus, shred, ground-only, detect → duel 7 / 1.0 / 2.0, ramp .08/.6, shred 1. Cost = Hikari + 40.
@@ -637,7 +656,7 @@ Level-10 DPS ≈ 10 × 1.15 × 1.07 ≈ 12.3 (single-target formula), inside the
 
 #### Seiran — Storm Rider (SSR **hero**, adult, `stormrider`, mystic/lightning, **amphibious**, feather, gacha)
 - Look: wavy, swept, horns, armor, spear, bolt, sharp, determined. Palette #80b9e4 #5791c0 #c0e9f2 #fbe6dc #f2f7f8 #3e8c9e #e9c46a #c0e9f2 #c9d6e3. Blender: dragon-horn shape.
-- Bio: "A storm-riding guardian who patrols the sky above the academy with her dragon companion. Long light-blue hair with golden dragon horns, a teal-and-ivory armoured dress with gold shoulder plates and a long storm spear. Her lightning hunts flyers first, and she fights from land or water alike."
+- Bio: "An adult guardian who rides the storms above the academy with her dragon companion. Long light-blue hair with golden dragon horns, a teal-and-ivory armoured dress with gold shoulder plates and a long storm spear. Her lightning hunts flyers first, and she fights from land or water alike."
 - Personality "Free-spirited and confident; laughs in thunderstorms and races her dragon at dawn." Quote "Ride the storm with me!"
 - Tips: "Deploys on land or water." · "Set her aim point: Dragonflight strikes there, grounds flyers for 5 s and marks everything it hits." · "Her chain lightning prefers flyers — perfect for the Ashwing Peaks."
 - Old: 12 / 1.2 s / 5.1, chain 3, air priority → chain 4 / 0.8 / 3.4, chain 3, airMul 1.25. Cost = Luna − 20. Default target mode `air`.
@@ -664,7 +683,7 @@ Six files per girl in `public/art/portraits/` exactly like the 19 (`src/art/port
 |---|---|
 | `<id>-full.webp` 768×1024 | the girl's half of the pair portrait (`$SCR/merge/portraits/<a>-<b>.webp`, 1536×1024: left half x 0–768 = first name, right half 768–1536 = second name) |
 | `<id>-card.webp` 300×500, `<id>-bust.webp` 512, `<id>-thumb.webp` 160 | crops of `full` with the first-impressions rule (`$SCR/first-imp/r1tools/build_portraits.py`: card = 3:5 window centred on the face, head top ≈ 8 %; bust/thumb face in the upper third); thumb < 20 KB, card < 80 KB |
-| `<id>-cut.webp` (1000 px tall, transparent) + `<id>-cut-s.webp` (360 px) | full-figure redraw (below) cut out with rembg `isnet-anime` (`$SCR/cutscripts/cut1.py`); fallback = cut-out of the half itself with `edges: 'b'` |
+| `<id>-cut.webp` (1000 px tall, transparent) + `<id>-cut-s.webp` (360 px) | full-figure redraw (below) cut out with rembg `isnet-anime` (`$SCR/cutscripts/cut1.py`); fallback = cut-out of the half itself with `edges: 'b'` **plus the split side when her figure reaches the pair's centre line** (`'r'` for a left-half girl, `'l'` for a right-half girl — the halves are cut there, e.g. Kanna's drum and Ena's threads) |
 
 Pairs: `chika-ruri` R → ruri · `fuu-hana` L → fuu, R → hana · `kohaku-tsubaki` L → kohaku, R → tsubaki ·
 `noa-iroha` L → noa, R → iroha · `ena-kanna` L → ena, R → kanna · `yoriko-seiran` L → yoriko, R → seiran.
@@ -678,18 +697,25 @@ Pairs: `chika-ruri` R → ruri · `fuu-hana` L → fuu, R → hana · `kohaku-ts
   lands in `$SCR/roster/credits.log`, which is where every call must be logged). Call:
   `python3 -I i2i.py <id> <outdir> 3:4 <prompt.txt> <girl-half.png> <style-ref-1> <style-ref-2>`.
   The API goes through the proxy with auth injected; never print or log keys.
-- References: **only** the girl's own half (first) plus two existing portraits for style (`kaede-full.webp`,
-  `suzu-full.webp` — same painter as the pair art). Nothing third-party.
+- References: **only** the girl's own half (first) plus at most **one** existing full-figure stand as a proportion and
+  framing guide (`kaede-cut.webp` or `suzu-cut.webp`, both round-2 redraws of the same painter's pair art). Composite
+  that stand on the flat grey-blue background first: `i2i.py` does `convert('RGB')`, which turns transparency black.
+  Add to the prompt: "The second image is only a guide for full-body proportions and framing: do not copy its
+  character, face, outfit or colours." (Two other girls as references invite identity bleed; round 2 used her half
+  alone.) Nothing third-party.
 - Prompt: the first-impressions r2 template (`$SCR/first-imp/r2meshy/kaede.json` "Redraw THIS exact character
   from the first reference image as a clean full-body standing character illustration … plain flat light
   grey-blue studio background …") with the girl's own description from §5.2, and the matching content clause:
   students — "Cute and wholesome school-age academy student: modest, fully clothed outfit with a high neckline,
   no cleavage, no bare midriff, no bare thighs (tights, stockings or long boots), not body-focused."; heroes —
-  "An elegant adult guardian in a fully covering outfit, confident pose, not body-focused, no cleavage."
+  "An elegant adult guardian: keep her outfit exactly as in the reference with no extra skin shown, confident pose,
+  not body-focused, no cleavage." (Do not ask for a "fully covering" outfit: Kanna's design has bare shoulders, which
+  is fine for an adult, and asking Meshy to cover them makes it redesign the outfit and fail the critic.)
 - Every result goes through a critic pass (proportions vs her half, outfit identical, modesty, hands, no text)
-  before it ships.
-- `PORTRAIT_DATA` gets an entry per girl: `face` (% of `full`), `cut` (aspect), `edges: 'b'` only for half-body
-  stands. `tests/systems/first-impressions.test.js` "gives every roster girl a full-figure stand" gets an explicit
+  before it ships. Students' crops are checked too: Iroha's half shows a layered kimono with a soft V (an inner layer
+  covers it — acceptable), so her `bust`/`card` crops stay face-centred, never chest-centred.
+- `PORTRAIT_DATA` gets an entry per girl: `face` (% of `full`), `cut` (aspect, must stay inside 0.3-0.8), `edges`
+  (`'b'`, plus `'l'`/`'r'` at the pair split, written in `l r b` order) only for half-body stands. `tests/systems/first-impressions.test.js` "gives every roster girl a full-figure stand" gets an explicit
   allow-list `HALF_BODY_STANDS = ['fuu','ruri','tsubaki', …fallbacks]`; everyone else must still have `edges === ''`.
 
 ### 5.4 Stand-in chibis for the new girls (Builder 4)
@@ -700,10 +726,13 @@ with the parts from §4.5. Heroes get hero proportions automatically (0.98 tall)
 
 ### 5.5 Stage data (owner: world; Builder 4)
 
-- `6-2`: `unlocks: ['noa']`; `6-3` desc mention: "Suzu's traps catch them first; Noa's sanctuary and Hikari's
-  banner cleanse."
-- `7-5`: `unlocks: ['hana']`; `8-1` `recommended` gains `'grounding'`; desc: "… Rei, Akane and Sango need Hana's
-  falcon or anti-air help."
+- `6-2`: `unlocks: ['noa']` (a new line before `fam:`).
+- `7-5`: `unlocks: ['hana']`; `8-1` `recommended` gains `'grounding'` (`tests/data/world.test.js` then requires a
+  grounding girl to be free before 8-1 — Hana is).
+- **Do not edit any stage `desc:`** (the balance branch rewrites the `waves:` line directly below every one; adjacent
+  edits conflict). The 6-3/8-1 hints live in Noa's/Hana's acquisition notes and tips instead; list the two desc
+  tweaks ("…Noa's sanctuary and Hikari's banner cleanse." / "…need Hana's falcon or anti-air help.") in
+  INTEGRATION_NOTES for after the balance merge.
 - `docs/CAMPAIGN.md` free-recruit list.
 
 ---
@@ -716,15 +745,18 @@ All features are data-driven. Unit tests use fixture units (`tests/sim/fixtures.
 
 ```js
 STATUSES.ground = { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' }
-STATUSES.curse  = { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take burst damage and catch a weaker curse (60%, at most two more times).' }
+STATUSES.curse  = { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' }
 CAPABILITIES.grounding = { name: 'Grounding', desc: 'Knocks flyers down so ground-only girls can hit them.' }
 TRAITS.airborne.counters = ['antiAir', 'grounding']
 TARGET_MODES.air = 'Air'   // flyers first, then first
-ROLES (append): displacement, falconer, summoner, purifier, mortar, prism, mirror, hexer (towers), champion, puppeteer, stormrider (heroes) — §6.9
+ROLES (append): displacement, falconer, summoner, purifier, mortar, prism, mirror, hexer (towers), champion, puppeteer, stormrider (heroes) — §6.10
 ```
 The wiki documents ROLES/STATUSES/CAPABILITIES/TARGET_MODES from these tables automatically; add matching
 `ROLE_SUBCLASS` rows in `src/data/wiki.js` and glyphs for `status:ground`, `status:curse`, `cap:grounding` and
 the new roles in `src/art/icons.js` (simple; `roleIcon` already falls back).
+Also `src/sim/report.js` `CAP_TESTS` (the pre-wave warnings and debrief decide whether the field answers a trait):
+add `grounding: (s, st) => st.has('ground') && attacks(s)` — without it every airborne wave keeps warning
+"bring Anti-Air or Grounding" even with Hana on the field (`statusTypes` already reads trap/turret statuses).
 
 ### 6.2 BaseStats / ModSet additions (`src/sim/mods.js`)
 
@@ -735,7 +767,7 @@ the new roles in `src/art/icons.js` (simple; `roleIcon` already falls back).
 | `relay` | null | `{ reach }` add (only if the base has a relay) | `{ kind: 'familiar'|'mirror', reach }`: attacks start from a relay point up to `reach` tiles from the girl; `range` is measured from the relay point |
 | behaviour `mortar` | | replace | aimed delayed shells (§6.4) |
 | status `ground` `{ duration, chance? }` | | in `status` lists | grounds flyers |
-| status `curse` `{ burst, radius, duration, chance? }` | | in `status` lists | curse spread (§6.7) |
+| status `curse` `{ burstMul, radius, duration, chance? }` | | in `status` lists | curse spread (§6.7); `burstMul` × the applying hit's damage |
 
 `normalizeBase`: `airMul: b.airMul ?? 1`, `gather: b.gather ?? 0`, `relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3 } : null`.
 `ADD_KEYS += 'gather'`, `MUL_KEYS += 'airMul'`, `applyModSet` handles `relay: { reach }`. `hitSpecFrom` passes
@@ -800,17 +832,22 @@ constants: MORTAR_DELAY = 1.0, MORTAR_AIM_SLACK = 0.5,
   `ROLE_TARGET_MODE = { sniper: 'elite', falconer: 'air', stormrider: 'air' }` (sim constants) used by `createTower`.
   The tower panel shows the Air button only when `eff.canHitAir`.
 - Push lock: EnemyRT `pushLock` (0 at spawn, decremented in `updateEnemy`). In `_onHitEffects` knockback applies only
-  when `pushLock <= 0`, then sets `pushLock = PUSH_LOCK[tier]` with `PUSH_LOCK = { normal: 1.0, elite: 1.0, miniboss: 2.0, boss: 2.0 }`.
-  Hero ult `tide` pushback is not locked.
-- Gather: in `_onHitEffects`, when `spec.gather > 0` and the target is not dead: for each `q` from
+  when `pushLock <= 0`, then sets `pushLock = PUSH_LOCK[tier]` with `PUSH_LOCK = { normal: 1.5, elite: 1.5, miniboss: 3.0, boss: 3.0 }`
+  (§1.2 item 10). Hero ult `tide` pushback is neither blocked by nor sets the lock.
+- Gather: in `_onHitEffects`, **after** the target's own knockback, when `spec.gather > 0` and the target is not dead: for each `q` from
   `grid.query(e.x, e.y, GATHER_RADIUS = 1.6)` in query order: skip `q === e`, dead, hidden, other `pathIndex`,
   tier miniboss/boss, `q.dist <= e.dist`, `q.pushLock > 0`; else `q.dist -= (q.dist − e.dist) × min(0.6, spec.gather)`,
   `placeOnPath(q, path)`, `q.pushLock = PUSH_LOCK[q.tier]`. (Only enemies ahead are pulled back: pure benefit.)
 
 ### 6.7 Curse spread (`status.js`, `Sim.js`)
 
-- `applyStatus` for `curse`: incoming `{ burst, radius, duration, depth: ctx.curseDepth ?? 0, sourceUid }`; on refresh keep
-  the larger `burst` (with its `sourceUid` and `depth`), the larger `radius`, the longer `left`.
+- Unit data carries `burstMul` (Ena base 0.8 = the old game's 80 %). `_onHitEffects` sets `ctx.hitDamage = spec.damage`
+  (the hit's damage after buffs, before crit/ramp) and resets `ctx.curseDepth = 0` on the shared `_statusCtx` every
+  call, so nothing leaks between hits. `applyStatus` for `curse`: incoming `{ burst: spec.burst ?? spec.burstMul ×
+  ctx.hitDamage, radius, duration, depth: ctx.curseDepth ?? 0, sourceUid }` (an absolute `burst` is only used by the
+  spread below); on refresh keep the larger `burst` (with its `sourceUid` and `depth`), the larger `radius`, the
+  longer `left`. Because the burst follows the hit, it scales with level, gear, awakening, auras and the team damage
+  buff like every direct hit (burn/poison dps stay absolute, as today).
 - `Sim._killEnemy`: after `onEnemyDeath`, if `e.statuses.curse` push `{ x, y, curse }` onto `sim._curseQueue`; if not
   already flushing, call `_flushCurses()`.
 - `_flushCurses()`: sets `_flushingCurses`, walks the queue by index (it may grow while walking), then clears it.
@@ -835,7 +872,7 @@ UltEffect += { type: 'strike', target: 'strongest'|'first', damage, armorPen?, s
           |  nova: { …, center?: 'hero'|'aim' }
           |  any type: { …, dmgBuff?: >1, dmgBuffDuration?: seconds }
 sim.addGlobalDamageBuff(mul, duration)   // strongest active wins; like addGlobalRateBuff
-sim.globalDmgMul                         // applied in refreshEffective: damage × buff.dmgMul × globalDmgMul
+sim.globalDmgMul                         // applied in refreshEffective: damage × buff.dmgMul × globalDmgMul (also trapSpec/turretSpec damage)
 ```
 - `strike`: pick from the non-hidden victims eligible for the ult spec (`detection: true`, `canHitAir: true`) the best by
   `targetScore('strong' | 'first')`. None → return false (cooldown not spent). `spec.armorPen = effect.armorPen ?? h.eff.armorPen`;
@@ -881,7 +918,11 @@ toast "Tap the map to aim", the next board tap (renderer `pick()` world x, y) ca
 **Clear** returns to automatic aim; the hero widget shows "Aim: auto / set" for Seiran. **Air** target mode
 button (help: "Flyers first"). Student screen (`student.js`): `BEHAVIOR_NAMES.mortar = 'Aimed shells'`;
 `describeMods` lines for `airMul` ("×N vs flyers"), `gather` ("pulls enemies ahead back"), `relay.reach`
-("familiar/mirror reach +N").
+("familiar/mirror reach +N"), curse ("curse bursts for N% of the hit").
+Range display: a `mortar` girl's range (30) is the whole map — the tower panel and the student page say "Whole map"
+instead of a number, and neither the selection ring nor the placement ghost draws a 30-tile circle (the ghost shows
+the splash radius instead). Relay girls: the placement ghost draws her ring at the would-be origin, using the same
+pure `relayOrigin` helper the sim uses (export it from `towers.js`).
 
 ### 6.12 Tests to write (Builder 3)
 
@@ -897,10 +938,12 @@ button (help: "Flyers first"). Student screen (`student.js`): `BEHAVIOR_NAMES.mo
   - grounding: a `canHitAir: false` tower cannot hit a flyer, can after a `ground` hit, cannot after it expires; `alt` is
     0 while grounded; boss duration × 0.25.
   - airMul doubles damage against flyers only; target mode `air` prefers flyers, falls back to first.
-  - push lock: a second knockback within 1.0 s does nothing; works again after; bosses never move.
+  - push lock: a second knockback within 1.5 s does nothing (3.0 s for a miniboss); works again after; bosses never move;
+    two pushers on the same enemy cannot exceed one push per window.
   - gather: pulls only enemies ahead on the same path, never minibosses/bosses, never past the target, respects push lock.
-  - curse: a cursed kill damages neighbours within the radius; second generation burst = 0.6×; no third spread beyond
-    depth 2; 100 cursed enemies dying together terminate and match a snapshot.
+  - curse: a cursed kill damages neighbours within the radius for `burstMul` × the cursing hit's damage; the burst
+    doubles when the curser's `unitStats.damageMul` doubles; second generation burst = 0.6×; no third spread beyond
+    depth 2; a stronger re-curse keeps depth 0; 100 cursed enemies dying together terminate and match a snapshot.
   - beam ramp builds on the same lead target and resets on switch.
   - ults: `strike` hits the strongest with armorPen 99, splashes 30 %, applies shred + stun (boss stun × 0.25), returns
     false with no enemy; aimed `nova` centres on the aim (and on the first enemy without aim); `dmgBuff` raises tower
@@ -912,8 +955,9 @@ button (help: "Flyers first"). Student screen (`student.js`): `BEHAVIOR_NAMES.mo
 - `tests/sim/hero.test.js`: strike/aim nova/dmgBuff via real `activateUlt`.
 - `tests/data/units.test.js` vocabulary: `BEHAVIORS += 'mortar'`, `BASE_OPTIONAL += 'airMul','gather','relay'`
   (validate `relay.kind ∈ {familiar, mirror}`, `relay.reach > 0`), ModSet `M.airMul` (> 0), `M.gather` (number),
-  `M.relay` (`{reach}` numbers); `STATUS_FIELDS.ground = ['duration']`, `STATUS_FIELDS.curse = ['burst','radius','duration']`;
-  `derivedCaps`: status `ground` → `grounding`; hero ult shape checks for `strike` (positive damage, target in
+  `M.relay` (`{reach}` numbers) and "relay mods need a relay unit" (like the trap/turret/income checks);
+  `STATUS_FIELDS.ground = ['duration']`, `STATUS_FIELDS.curse = ['burstMul','radius','duration']`;
+  `derivedCaps`: status `ground` → `grounding`; add `'champion'` to the melee roles of "melee girls cannot hit air at base"; hero ult shape checks for `strike` (positive damage, target in
   {strongest, first}, splash ≥ 0, 0 < splashMul ≤ 1, valid status), `nova.center ∈ {undefined,'hero','aim'}`,
   optional `dmgBuff > 1` with `dmgBuffDuration > 0`.
 
@@ -940,8 +984,10 @@ export const FEATURED_HERO_BANNERS = [
   { id: 'dawn',     kind: 'hero', featured: 'hikari', name: 'Promise of Daybreak' },
   { id: 'festival', kind: 'hero', featured: 'kanna',  name: 'Crimson Festival' },
   { id: 'theater',  kind: 'hero', featured: 'yoriko', name: 'Dreams Behind the Curtain' },
-  { id: 'tempest',  kind: 'hero', featured: 'seiran', name: 'Beyond the Storm' },
+  { id: 'tempest',  kind: 'hero', featured: 'seiran', name: 'Ride the Storm' },
 ];
+// Note: Hikari is a starter, so her spotlight day only yields duplicates (Star Fragments) until per-unit copy ranks
+// (requests.md R-17) exist. Kept because the old game featured her too ("Promise of Daybreak"); revisit with R-17.
 ```
 
 ### 7.2 System — `src/systems/banners.js` (pure; `now` is always a parameter)
@@ -967,11 +1013,15 @@ export function isBannerActive(bannerId, now)
   For a featured banner: if `!isBannerActive(bannerId, now)` or `cycle && cycle !== bannerRotation(now).cycle` →
   `{ ok: false, error: 'rotated', results: [], spent: empty }` **before** any payment.
 - `rollOnce(state, rng, { minRarity, bannerId })`: rarity exactly as today (shared pity, same rates). Standard: unit pick
-  exactly as today (`rng.pick(POOL[rarity])`, so seeded tests keep their results). Featured: SSR →
+  exactly as today (`rng.pick(POOL[rarity])`: the same two rng draws per roll, so the rarity/pity sequence of a seed is
+  unchanged; the *unit ids* of a seed do change because `POOL` grows from 19 to 30 — existing tests use
+  `POOL.X.indexOf(id)` and keep passing). Featured: SSR →
   `rng.next() < FEATURED_SSR_SHARE ? featured : rng.pick(other SSRs of the pool)`; R/SR → `rng.pick(bannerPool[rarity])`.
 - History entries may carry `banner` (save migration keeps only `unitId/rarity/at`; no save change).
 - `ratesTable(bannerId = 'standard')` returns per-unit rates for that banner (featured line "1.0%", other SSRs share 0.5 %).
-- Spark (`POOL.SSR`), SSR Select Ticket, recruit points, ten-pull SR guarantee: unchanged and shared.
+- Spark (`POOL.SSR`), SSR Select Ticket, recruit points, ten-pull SR guarantee: unchanged and shared. Their pickers
+  (`selectTicket.js`, the Mall spark offer, the recruit spark dialog) now list 11 SSRs instead of 5: check them at
+  844×390 (scrolling grid, no clipped names).
 
 ### 7.4 Recruit screen (owner: meta-a — `src/ui/screens/recruit.js`, `meta-a.css`)
 
@@ -1003,8 +1053,9 @@ export function isBannerActive(bannerId, now)
   `2026-07-02T00:00:00Z` → `2026-07-01`; winter: `2026-12-02T00:59:00Z` → `2026-11-30`, `2026-12-02T01:00:00Z` →
   `2026-12-01`; DST switch days `2026-03-08` and `2026-11-01`: `nextReset` lands on 19:00 Chicago local), consecutive days
   change both spotlights, every SSR tower/hero in the pool is featured exactly once in its list, pools exclude heroes from
-  tower banners and heroes from R, featured share ≈ 2/3 of SSRs over 300k seeded pulls (±2 %), standard results identical to
-  before for the same seed, stale banner → `'rotated'` with nothing spent, pity shared across banners.
+  tower banners and heroes from R, featured share ≈ 2/3 of SSRs over 300k seeded `rollOnce` calls (±2 %; `rollOnce`, not `pull()`, to keep the run
+  short), `rollOnce(…, { bannerId: 'standard' })` returns exactly what the plain call returns for 1,000 seeded rolls
+  (same rng consumption), stale banner → `'rotated'` with nothing spent, pity shared across banners.
 - `tests/systems/gacha.test.js`, `tests/integration/consistency.test.js`: pool = all 30 units (standard).
 
 ---
@@ -1055,7 +1106,8 @@ Scope: §6 complete, plus Luna's ult tweak (§4.4).
 Acceptance: `npx vitest run tests/sim tests/data` green incl. determinism; full suite + build green; a dev battle page
 (e.g. `previews/sim.html` or a test stage) screenshot at 844×390 showing a mortar warning ring, a familiar prop with its
 tether and a grounded flyer; existing balance Easy gate still green (`npx vitest run tests/integration/balance.test.js`);
-note in INTEGRATION_NOTES that push lock changes Nami/Aoi knockback slightly.
+note in INTEGRATION_NOTES that the 1.5 s push lock trims Nami's Undertow T4-T5 sustained push-back (≈ 1.7 → 1.0 tiles/s)
+and Aoi's Pinning Gale slightly; report the Easy-gate numbers before/after the lock.
 
 ### Builder 4 — The 11 new girls (data, portraits, stand-ins, stage unlocks)
 
@@ -1087,7 +1139,7 @@ Scope: §7 complete + docs + verification.
    `docs/OWNER_REQUESTS.md` statuses (R-02…R-05, G-04, G-05), `docs/INTEGRATION_NOTES.md` (§9 below).
 4. Verification: `npx vitest run` (full), `npx vite build`, `node e2e/smoke.mjs` (dev, all viewports) and `--prod`;
    screenshots at 844×390 and 1280×720: recruit (each banner), students, student Outfit, wiki Coming Soon, battle with the
-   new mechanics; critic pass; final commit.
+   new mechanics, the SSR Select Ticket / spark pickers with 11 SSRs; critic pass; final commit.
 
 Acceptance: everything above green; recruit rotation verified by a test with a fixed `now`; a short owner-facing summary
 with 6–8 screenshots in `$SCR/roster/final/`.
@@ -1107,6 +1159,7 @@ with 6–8 screenshots in `$SCR/roster/final/`.
 | `tests/tools/blender-dump.test.js` | dump = UNITS (auto) | B4 (run) |
 | `tests/sim/units-smoke.test.js` | every unit at every top tier incl. mortar/relay kits (auto) | B4 (run) |
 | `tests/integration/balance.test.js` | F2P bot team changes after 6-2/7-5; run the Easy gate | B3, B4 |
+| `tests/data/world.test.js` | free recruits ↔ stage `unlocks` (auto from `freeUnlocksByStage`); FREE-COUNTER RULE: 8-1 `recommended: 'grounding'` needs Hana free before it (she is, 7-5) | B4 (run) |
 | `tests/systems/save.test.js` | v3 cases | B1 |
 | new: `tests/data/skins.test.js`, `tests/models/skins.test.js`, `tests/systems/skins.test.js`, `tests/sim/mechanics-merge.test.js`, `tests/systems/banners.test.js` | | B1, B3, B5 |
 | `e2e/smoke.mjs` | skin equip check; still 1-1 win; recruit tabs | B1, B5 |
@@ -1119,8 +1172,11 @@ with 6–8 screenshots in `$SCR/roster/final/`.
    branch merges, give `tools/balance/reprice.mjs` a `--file` option and run it once on `src/data/unitsExpansion.js` with
    the same factors (placement 0.75, tiers 0.75/0.75/0.75/0.5/0.9); every new ladder satisfies T4 ≥ 2.6 × T3 and
    T5 ≥ 3.2 × T4 before scaling, so the post-balance T4 ≥ 1.7 × T3 and T5 ≥ 5 × T4 checks hold. Then rerun
-   `BALANCE=full` (Noa/Hana change the F2P bot team after 6-2/7-5; push lock trims Nami/Aoi knockback). Rename Momo's
-   tier names after the merge (§4.4).
+   `BALANCE=full` (Noa/Hana change the F2P bot team after 6-2/7-5; the 1.5 s push lock noticeably trims Nami's Undertow
+   T4-T5 and slightly Aoi's Pinning Gale). After the merge also: rename Momo's tier names (§4.4) and apply the two stage
+   `desc` tweaks (§5.5). Expected trivial conflicts: Momo's tips 2-3 and her three `path(...)` lines (keep ours) next to
+   repriced lines (keep theirs); `tests/data/units.test.js` (keep both: their `TIER_COST`/price tests, our roster and
+   vocabulary).
 2. **Online** (`feature/online`): add co-op command `aim [uid, qx, qy]` (`[uid, null]` clears) validated like `place`
    coordinates (1/1024 grid) and expose `ctx.act.aim`; `ult` stays argument-free (it uses the hero's aim). Optionally hash
    `sim.shells.length` and tower `aim` in `hashSim`. New sim code only uses functions `withDetMath()` swaps. Skins are
@@ -1131,8 +1187,48 @@ with 6–8 screenshots in `$SCR/roster/final/`.
 4. **Luna model** (`feature/luna-chibi`): take theirs for `luna*.glb` and the manifest `luna` entry; adjust LUNA palette to
    the figure if needed.
 5. **Story** (`feature/story`): `SAVE_VERSION` is 3 here; add their profile fields to `migrateProfile` without another
-   bump. Fuu is the suggested Journal reward.
+   bump, and their "SAVE_VERSION is untouched by this branch" test must accept 3 after the merge. Fuu is the suggested
+   Journal reward. Two bible nits for that branch: Yuki has no hood any more (capelet; the hood was her V2 look) and
+   Akane's portrait and stand-in show no safety goggles (the bible says she always wears them) — either drop the line
+   or ask for goggles on her next art pass. The student bios here use the bible's clubs and Nami's composed voice.
 6. **Audio** (`feature/audio`): hooks for `mortarWarn`, `shellLand`, `curseBurst`, `ult` with `effect: 'strike'`.
 7. **Tracks** (`feature/tracks-v3`): relay origins use `samplePath` and skip hidden (tunnel) samples; mortar lead uses
    `pointAt`.
 8. **Models later**: stand-ins are temporary; when Meshy chibis replace them, the asset key stays `<id>` (or a new skin row).
+
+---
+
+## 10. Review fixes (spec critic, 2026-10-09)
+
+Checked against the research docs, `docs/merge/requests.md`, `docs/OWNER_REQUESTS.md`, the code (`units.js` +
+`tests/data/units.test.js`, `src/sim/**`, `gacha.js`, `save.js`, `models/index.js`, `glbChibi.js`, `portraits.js`,
+`report.js`, `stages.js`, `tests/data/world.test.js`, `tests/models/glb.test.js`) and the live diffs of the other
+branches. All 11 kits were transcribed and resolved through the real `resolveStats`: every tier window, increasing
+cost, tier-3+ rule, transformation rule, "objects arrive complete", honest capabilities, unique hair colour /
+hairStyle+accessory, hero DPS window (Kanna 19.0, Yoriko 12.3, Seiran 11.7 vs 7.3-27.3) and the post-balance
+T4/T3 ≥ 2.6, T5/T4 ≥ 3.2 margins hold. What changed:
+
+1. **Merge hotspots (§0.4, §5.5, §9):** the balance branch also edits `Sim.js`, `constants.js`, `waves.js`,
+   `tests/data/units.test.js` and Momo's Nightmare tip, and rewrites the line under every stage `desc:`; the audio
+   branch edits `recruit.js` and `save.js`; the story branch edits `save.js`. Stage `desc` edits are dropped (moved to
+   post-merge notes); rules added for the other files.
+2. **Push lock 1.0/2.0 s → 1.5/3.0 s** (§1.2, §6.6, §6.12): with 1.0 s, Fuu's 1.25-tile top push still drove normal
+   enemies backwards, the stall the lock exists to prevent. These are the old game's and `combat.md`'s values.
+3. **Curse burst = `burstMul` × the cursing hit** (§5.2 Ena, §6.2, §6.7, units-test fields): the absolute burst never
+   grew with level, gear, auras or Luna's buff. Level-1 numbers are unchanged.
+4. **`report.js` `CAP_TESTS.grounding`** (§6.1): without it airborne warnings ignore Grounding.
+5. **Models (§3.5, §4.5):** no-arg `preloadModels()` would fetch the 19 skin/future GLBs; extras must be joined into the
+   body mesh because `glb.test.js` demands exactly 3 primitives.
+6. **Save (§3.4, §3.9):** default skin id stored as `null`; a recommended restore path for a v3 save that a stale v2 tab
+   replaced with a fresh profile.
+7. **Portraits (§5.3):** one full-figure guide ref (composited, not transparent) instead of two other girls; no "fully
+   covering" demand for heroes (Kanna's bare shoulders are fine for an adult and the demand forces a redesign); fade the
+   pair-split edge too; Iroha's bust crop note.
+8. **Text (§4.3, §5.2):** bios use the story bible's clubs and Nami's composed voice; Momo tip 2 no longer names the
+   renamed "Savings Pact"; Kage's headband matches her portrait (crescent); Kanna's horns are ivory as drawn; Seiran's bio
+   says adult; Ruri's tip no longer promises automatic flyer targeting; Fuu's tip says 1.5 s.
+9. **UI and tests:** mortar range shown as "Whole map" with no 30-tile ring; relay ghost ring at the would-be origin;
+   trap/turret damage gets the team damage buff; SSR pickers with 11 SSRs checked at 844×390; banner statistics via
+   `rollOnce`; "standard results identical" clarified (same rng draws, unit ids change with the pool); `world.test.js`
+   row; relay-mod and `champion` melee checks; tempest banner renamed "Ride the Storm" (two "Beyond the …" titles).
+
