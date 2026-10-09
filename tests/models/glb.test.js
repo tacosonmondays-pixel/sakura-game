@@ -85,8 +85,13 @@ describe('character GLBs', () => {
             expect(pos.normalized).toBe(true);
           }
           expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
-          expect(json.images).toHaveLength(1);
-          expect(json.images[0].mimeType).toBe('image/webp');
+          // base colour + metal/roughness (gold catches the env map); normals on the full model only
+          const body = json.materials[textured[0].material];
+          expect(body.pbrMetallicRoughness.metallicRoughnessTexture).toBeDefined();
+          expect(body.pbrMetallicRoughness.metallicFactor).toBe(1);
+          expect(!!body.normalTexture).toBe(detail === 'full');
+          expect(json.images).toHaveLength(detail === 'full' ? 3 : 2);
+          for (const im of json.images) expect(im.mimeType).toBe('image/webp');
         });
       }
       continue;

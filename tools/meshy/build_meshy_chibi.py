@@ -6,7 +6,8 @@ painted face, white/gold/navy knight coat, teal bow, braid crown with gold stars
 
 Steps (one bpy session per detail level):
   1. import + weld, decimate a copy (face protected) to --tris, fresh xatlas UVs   (lib/lowpoly.py)
-  2. bake the 4k Meshy base colour onto the new UVs at --tex                       (lib/bake.py)
+  2. bake the 4k Meshy base colour, metal/roughness and (full detail) normals
+     onto the new UVs                                                              (lib/bake.py)
   3. readable bone names, retarget the Meshy-library idle + walk                    (lib/retarget.py)
   4. sword on hand_R + idle / walk / attack_slash / cheer / hurt                    (lib/clips_hikari.py)
   5. GLB export, then phone packing: int16/int8 attributes, WebP texture,
@@ -48,8 +49,8 @@ def build(args, detail):
     src_height = max((hi.matrix_world @ v.co).z for v in hi.data.vertices)
     lo = lowpoly.make_lowpoly(hi, tris)
     uvinfo = lowpoly.unwrap_xatlas(lo, face_scale=2.0, resolution=tex)
-    png = os.path.join(tmp, 'base.png')
-    bake.bake_base(hi, lo, tex, png)
+    bake.bake_maps(hi, lo, tmp, tex, mr_res=args.mr_tex if full else args.lod_mr_tex,
+                   normal_res=args.normal_tex if full else 0)
     bpy.data.objects.remove(hi)
     arm.name = f'{args.id}_rig'
     lo.name = lo.data.name = args.id
@@ -75,13 +76,17 @@ def build(args, detail):
         export_skins=True, export_all_influences=False, export_morph=False, export_normals=True,
         export_tangents=False, export_texcoords=True, export_image_format='AUTO', export_yup=True,
         export_apply=False, export_extras=False, export_def_bones=False, export_current_frame=False)
+    if args.raw_dir:  # keep the unpacked export (re-pack with other texture sizes without a rebuild)
+        import shutil
+        shutil.copy(raw, os.path.join(args.raw_dir, f'{args.id}{"" if full else ".lod"}.raw.glb'))
     out = os.path.join(args.out, f'{args.id}{"" if full else ".lod"}.glb')
     stored_height = src_height * STORE_SCALE
     extras = dict(
         unit=args.id, source='meshy', style='textured', height=GAME_HEIGHT,
         unitScale=round(GAME_HEIGHT / stored_height, 5), weaponKind='slash', lod=not full,
         generator='tools/meshy/build_meshy_chibi.py')
-    stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality)
+    stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality,
+                      tex_size=args.ship_tex if full else args.lod_ship_tex)
     js, _ = pack.read_glb(out)
     verts = sum(js['accessors'][p['attributes']['POSITION']]['count'] for m in js['meshes'] for p in m['primitives'])
     tri = sum(js['accessors'][p['indices']]['count'] // 3 for m in js['meshes'] for p in m['primitives'])
@@ -100,11 +105,18 @@ def main():
     ap.add_argument('--id', default='hikari')
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'characters'))
     ap.add_argument('--tris', type=int, default=20000)
-    ap.add_argument('--tex', type=int, default=2048)
+    ap.add_argument('--tex', type=int, default=2048, help='bake size of the base colour (also the UV packing grid)')
+    ap.add_argument('--ship-tex', type=int, default=1024,
+                    help='base colour size in the shipped GLB (baked at --tex, then downsampled: cleaner edges than a direct bake)')
     ap.add_argument('--lod-tris', type=int, default=9000)
     ap.add_argument('--lod-tex', type=int, default=1024)
+    ap.add_argument('--lod-ship-tex', type=int, default=1024)
+    ap.add_argument('--mr-tex', type=int, default=1024, help='metal/roughness map size (0 = none)')
+    ap.add_argument('--lod-mr-tex', type=int, default=512)
+    ap.add_argument('--normal-tex', type=int, default=1024, help='normal map size of the full model (0 = none)')
     ap.add_argument('--webp-quality', type=int, default=90)
     ap.add_argument('--no-lod', action='store_true')
+    ap.add_argument('--raw-dir', default=None, help='also keep the unpacked Blender exports here')
     ap.add_argument('--blend', default=None, help='also save the full-detail scene as a .blend')
     args = ap.parse_args(argv)
     full = build(args, 'full')

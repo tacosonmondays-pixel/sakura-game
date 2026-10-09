@@ -5,7 +5,6 @@ import * as THREE from 'three';
 let gradient3 = null;
 let gradient2 = null;
 let gradientSoft = null;
-let gradientFigurine = null;
 const toonCache = new Map();
 const outlineCache = new Map();
 const basicCache = new Map();
@@ -22,12 +21,6 @@ export function gradientMap(steps = 3) {
   if (steps === 'soft') {
     if (!gradientSoft) gradientSoft = makeRamp([214, 255]);
     return gradientSoft;
-  }
-  if (steps === 'figurine') {
-    // painted (Meshy) figures: the texture already carries soft shading, so the light only
-    // adds a gentle shade step and a bright vinyl top
-    if (!gradientFigurine) gradientFigurine = makeRamp([190, 228, 255]);
-    return gradientFigurine;
   }
   if (!gradient3) gradient3 = makeRamp([168, 222, 255]);
   return gradient3;

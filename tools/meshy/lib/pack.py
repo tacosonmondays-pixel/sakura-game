@@ -7,7 +7,8 @@
 * animation: channels that never leave the rest pose in any clip are dropped (all clips agree, so
   crossfades cannot leave a bone stranded), redundant linear keys removed, rotations stored as
   normalised int16
-* base colour re-encoded as WebP (EXT_texture_webp, read natively by three.js)"""
+* textures (base colour, metal/roughness, normals) re-encoded as WebP (EXT_texture_webp, read
+  natively by three.js)"""
 import io
 import json
 import struct
@@ -233,10 +234,11 @@ def pack(src, dst, scale, extras, webp_quality=90, tex_size=None, rot_tol=0.0012
         bv = js['bufferViews'][img['bufferView']]
         raw = binc[bv.get('byteOffset', 0):bv.get('byteOffset', 0) + bv['byteLength']]
         im = Image.open(io.BytesIO(raw)).convert('RGB')
-        if tex_size and im.size[0] != tex_size:
+        if tex_size and img.get('name') == 'base' and im.size[0] != tex_size:
             im = im.resize((tex_size, tex_size), Image.LANCZOS)
         b = io.BytesIO()
-        im.save(b, 'WEBP', quality=webp_quality, method=6)
+        # normals: higher quality, lossy blocks show as facets under the key light
+        im.save(b, 'WEBP', quality=max(webp_quality, 94) if img.get('name') == 'normal' else webp_quality, method=6)
         img['bufferView'] = W.view(b.getvalue())
         img['mimeType'] = 'image/webp'
         img.pop('uri', None)
@@ -245,7 +247,8 @@ def pack(src, dst, scale, extras, webp_quality=90, tex_size=None, rot_tol=0.0012
             tex['extensions'] = {'EXT_texture_webp': {'source': tex.pop('source')}}
     for m in mats:
         pbr = m.setdefault('pbrMetallicRoughness', {})
-        pbr['metallicFactor'] = 0.0
+        # a metal/roughness map carries the real values; otherwise a plain matte surface
+        pbr['metallicFactor'] = 1.0 if pbr.get('metallicRoughnessTexture') else 0.0
         pbr['roughnessFactor'] = 1.0
         m.pop('extras', None)
     js['accessors'] = W.accessors
