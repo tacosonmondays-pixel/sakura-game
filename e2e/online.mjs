@@ -409,18 +409,24 @@ try {
   });
   const waveStarted = await Promise.all([A, B].map((p) => p.waitForFunction(() => window.__battle?.sim?.wave >= 1, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false)));
   if (!check(waveStarted.every(Boolean), `co-op: the host's Start-wave order runs on both clients (${JSON.stringify(waveOrder)})`)) await dump('lockstep state');
-  // run until both clients compared at least 3 hash checkpoints (120 ticks each)
-  // both sides compared a checkpoint at the same tick: the guest's newest compared tick (from
-  // tick 360 on), which the host compares too once the guest's hash reaches it (a guest whose
-  // battle was rebuilt by a rejoin starts its comparisons afresh, so wait on the guest first)
-  const tB = await B.waitForFunction(() => {
-    const ts = (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= 360);
-    return ts.length ? Math.max(...ts) : 0;
+  // run until both clients compared a hash checkpoint at the same tick (from tick 360 on, i.e.
+  // after at least 3 checkpoints of 120 ticks). Poll BOTH pages together: a checkpoint one side
+  // compared can belong to a timeline the other side then dropped (on an overloaded machine a
+  // page can get no frames for a minute or more; the lockstep drops it and re-admits it, and a
+  // rebuilt guest starts its comparisons afresh), so wait for a tick that both really compared.
   // (generous: on a shared, overloaded 4-core box a page has been seen getting no frames for
-  // 2.5 minutes, twice in a row — the lockstep drops and re-admits it, and this waits that out)
-  }, null, { timeout: 420000, polling: 250 }).then((hnd) => hnd.jsonValue()).catch(() => 0);
-  const synced = !!tB && await A.waitForFunction((t) => (window.__battle?.coop?.hashes || []).some((q) => q.t === t), tB, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
-  if (!check(synced, `co-op: hash checkpoints exchanged during the wave (both compared tick ${tB})`)) await dump('lockstep state');
+  // 2.5 minutes, twice in a row; this waits that out)
+  const comparedTicks = (p) => Promise.race([
+    p.evaluate(() => (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= 360)).catch(() => []),
+    new Promise((r) => setTimeout(() => r([]), 30000).unref()), // a frozen page answers nothing
+  ]);
+  let tB = 0;
+  for (const until = Date.now() + 600000; !tB && Date.now() < until;) {
+    const [ta, tb] = await Promise.all([A, B].map(comparedTicks));
+    tB = Math.max(0, ...tb.filter((t) => ta.includes(t)));
+    if (!tB) await A.waitForTimeout(500);
+  }
+  if (!check(!!tB, `co-op: hash checkpoints exchanged during the wave (both compared tick ${tB})`)) await dump('lockstep state');
   const [ha, hb] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(ha.length > 0 && ha.every((p) => p.mine === p.theirs), `co-op: host's hashes match the guest's (${ha.length} checkpoints)`);
   check(hb.length > 0 && hb.every((p) => p.mine === p.theirs), `co-op: guest's hashes match the host's (${hb.length} checkpoints)`);
@@ -454,10 +460,11 @@ try {
   }, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false)));
   if (!check(back.every(Boolean), 'co-op: when the link is back, the host re-admits the guest (rejoin)')) await dump('lockstep state');
   const rejoinTick = await A.evaluate(() => window.__battle.coop.tick);
-  const resynced = await A.waitForFunction((t0) => window.__battle.coop.hashes.some((p) => p.t > t0), rejoinTick, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
+  // (the guest's battle screen is rebuilt from the host's log first: slow on a loaded machine)
+  const resynced = await A.waitForFunction((t0) => window.__battle.coop.hashes.some((p) => p.t > t0), rejoinTick, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
   const [ra, rb] = await Promise.all([A, B].map((p) => p.evaluate((t0) => window.__battle.coop.hashes.filter((q) => q.t > t0), rejoinTick)));
-  check(resynced && ra.length > 0 && ra.every((q) => q.mine === q.theirs) && rb.every((q) => q.mine === q.theirs),
-    `co-op: after the rejoin both clients agree again (${ra.map((q) => q.t).join(', ')})`);
+  if (!check(resynced && ra.length > 0 && ra.every((q) => q.mine === q.theirs) && rb.every((q) => q.mine === q.theirs),
+    `co-op: after the rejoin both clients agree again (${ra.map((q) => q.t).join(', ')})`)) await dump('lockstep state');
   await shot(B, 'coop-rejoined-guest');
 
   // the guest leaves: the host keeps playing

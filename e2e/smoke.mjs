@@ -235,7 +235,7 @@ async function runViewport(vp) {
 
   // ---- battle 1-1 on easy ----
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
-  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 90000 }); // slow on a loaded machine
   await page.waitForTimeout(800);
 
   // Real drag-and-release placement ("release does nothing" was the owner's original bug):
@@ -389,10 +389,10 @@ async function runViewport(vp) {
   }
   const summary = await page.evaluate(() => ({ state: window.__battle?.sim.state, wave: window.__battle?.sim.wave, lives: window.__battle?.sim.lives }));
   check(summary.state === 'won', `battle: stage 1-1 easy won (state=${summary.state}, wave ${summary.wave}, lives ${summary.lives})`);
-  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 15000 }).catch(() => null);
-  await page.waitForTimeout(1200);
+  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 30000 }).catch(() => null);
+  // the sheet animates in; on a loaded machine its buttons can take a few seconds to appear
+  const rewardsBtn = await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 20000 }).catch(() => null);
   await shot('battle-victory');
-  const rewardsBtn = await page.$('[data-testid="view-rewards"]');
   check(!!rewardsBtn, 'battle: victory sheet with Rewards button');
   if (rewardsBtn) {
     await rewardsBtn.click();

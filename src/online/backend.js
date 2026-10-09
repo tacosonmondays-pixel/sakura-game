@@ -9,7 +9,11 @@ import { createLimiter } from './limits.js';
 import { OnlineError, toOnlineError } from './errors.js';
 import { createEmitter } from '../core/events.js';
 
-/** Reads the build-time config (never stored in the repo: GitHub secrets feed the build). */
+/**
+ * Reads the build-time config: the public project URL + publishable (anon) key, from
+ * .env.production or the repository secrets of the same names (see vite.config.js). Never a
+ * secret / service-role key: Row Level Security protects the data.
+ */
 export function onlineConfig(env = import.meta.env || {}, search = globalThis.location?.search || '') {
   const url = String(env.VITE_SUPABASE_URL || '').trim();
   const key = String(env.VITE_SUPABASE_ANON_KEY || '').trim();
