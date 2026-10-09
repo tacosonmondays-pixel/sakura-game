@@ -5,11 +5,11 @@ audio r3.
 Lane: HARDTEK. 174 bpm straight, B minor (the dominant of `final`'s E minor, so the Ashwing boss takes over well).
 A driven 909 kick on every beat with a long tail, a saw bass rolling on the e-&-a between the kicks (pumped by the
 kick), offbeat supersaw chords, 808 claves on a 3-3-2, snare-roll builds and a kick-drop breakdown. Cute but intense:
-a bouncy chip + glockenspiel hook with octave-leap pickups, and every held hook note is answered by a chopped saw
+a bouncy chip + glockenspiel hook that rockets up a 16th arpeggio, and every held hook note is answered by a chopped saw
 stab with a "hey!" on beat 3 (an orchestra hit lands on the next downbeat in the intensity stem).
 Stems: base (build phase) + intensity (wave active).
     intro  2 bars  kick + rolling bass + claves, a chip arp spin-up
-    A      8 bars  the hook (2-bar cells: two 16ths, an octave leap, a 16th run, then a held note → STAB + HEY)
+    A      8 bars  the hook (2-bar cells: a 16th arpeggio rocket, a skipping 16th run, then a held note → STAB + HEY)
     B      8 bars  SHADOW (B–C–B–F–D, the monsters) as an acid riff with a 303 squelch, one bar each, answered by
                    the chip + glock in the next bar; the acid filter opens over the section; C major (♭II) colour
     BR     8 bars  breakdown: the kick drops out, beat-pumped supersaw, the music box rings BELL in B minor
@@ -45,11 +45,11 @@ CH_D = 'Bm | Gmaj7 | Em7 | F#7sus4 F#7 | Bm | Gmaj7 | Em7 F#m7 | Gmaj7 A7'
 CH_H = 'Dmaj7 | Dmaj7 | Bm7 A7 | Dmaj7 | Gmaj7 | F#m7 Bm7 | Em7 A7 | F#7sus4 F#7'
 
 HOOK = [
-    'b4/16 b4/16 b5/8 r/16 a5/16 b5/16 d6/16 f#6/8 e6/8 r/8 d6/8',          # 1 Bm      two 16ths, the octave leap
+    'b4/16 d5/16 f#5/16 b5/16 r/16 a5/16 b5/16 d6/16 f#6/8 e6/8 r/8 d6/8',  # 1 Bm      the arpeggio rocket
     'b5/16 d6/16 e6/8 d6/8 b5/8~ b5/4 r/4',                                  # 2 Gmaj7   held … STAB + HEY on 3
-    'g4/16 g4/16 g5/8 r/16 f#5/16 g5/16 b5/16 e6/8 d6/8 r/8 b5/8',          # 3 Em7
+    'g4/16 b4/16 e5/16 g5/16 r/16 f#5/16 g5/16 b5/16 e6/8 d6/8 r/8 b5/8',   # 3 Em7
     'c#6/16 d6/16 c#6/8 b5/8 a#5/8~ a#5/4 r/4',                              # 4 F♯7sus4 F♯7
-    'b4/16 b4/16 b5/8 r/16 a5/16 b5/16 d6/16 f#6/8 e6/8 r/8 d6/8',          # 5 Bm
+    'b4/16 d5/16 f#5/16 b5/16 r/16 a5/16 b5/16 d6/16 f#6/8 e6/8 r/8 d6/8',  # 5 Bm
     'b5/16 d6/16 e6/8 f#6/8 g6/8~ g6/4 r/4',                                 # 6 Gmaj7
 ]
 A_END = [
@@ -76,7 +76,7 @@ H_LEAD = [
     'r/1', 'r/1',                                                            # 1-2 the bass feature
     BELL.question('D', 6) + ' r/8',                                          # 3 Bm7 A7   a5 d6 b5 c♯6 …
     BELL.answer('D', 6) + ' r/2',                                            # 4 Dmaj7    … answered: d6
-    'd5/16 d5/16 d6/8 r/16 c#6/16 d6/16 f#6/16 a6/8 g6/8 r/8 f#6/8',        # 5 Gmaj7    the hook, major + lydian
+    'd5/16 f#5/16 a5/16 d6/16 r/16 c#6/16 d6/16 f#6/16 a6/8 g6/8 r/8 f#6/8', # 5 Gmaj7    the hook, major + lydian
     'c#6/16 e6/16 f#6/8 e6/8 d6/8~ d6/4 r/4',                                # 6 F♯m7 Bm7
     'g6/16 f#6/16 e6/8 b5/8 e6/8 c#6/16 d6/16 e6/8 g6/8 e6/8',              # 7 Em7 A7
     'f#6/8 e6/8 a#5/8~ a#5/8 r/2',                                           # 8 F♯7sus4 F♯7 → B minor
@@ -134,7 +134,7 @@ def build() -> Song:
     s.section('H', 8, CH_H)
 
     # ================================================================ base
-    s.part('kick', 'kick_hard', 'base', vel=6) \
+    s.part('kick', 'kick_hard', 'base', vel=6, gain=-0.5) \
         .pattern(['intro', 'B'], KICK) \
         .pattern(['A', 'D'], KICK, fills={8: KICK_8}) \
         .pattern('H', KICK, fills={8: 'k/4 k/4 k/16 k/16 k/16 k/16 k/16 k/16 k/16 k/16 |'}) \
@@ -153,10 +153,10 @@ def build() -> Song:
                           roll('s', '16', 16, 40, 96), roll('s', '32', 16, 70, 112) + ' r/2')) \
         .notes('H', bars('r/1', 'r/2 r/4 s/16 s/16 s/16 s/16', CLAP[:-2], CLAP_F4[:-2], CLAP[:-2], CLAP[:-2],
                          CLAP[:-2], CLAP_F8[:-2]))
-    s.part('claves', 'drums_909', 'base', vel=-12).pattern(['intro', 'A', 'B', 'BR', 'D', 'H'], CLAVES)
+    s.part('claves', 'drums_909', 'base', vel=-12, gain=1).pattern(['intro', 'A', 'B', 'BR', 'D', 'H'], CLAVES)
 
     pump = {'pump': {'key': 'kick', 'notes': ['k'], 'depth_db': 7, 'release_beats': 0.35}}
-    s.part('bass', 'saw_bass', 'base', vel=0, gain=-2, fx=pump) \
+    s.part('bass', 'saw_bass', 'base', vel=0, gain=-0.5, fx=pump) \
         .notes('intro', line(CH_INTRO, Q2, QH, low=38, nxt='Bm')) \
         .notes('A', line(CH_A, [Q2, Q3, Q1, Q1, Q2, Q3, Q1, Q1], QH, low=38, nxt='Bm')) \
         .notes('B', line(CH_B, [Q2, Q3, Q2, Q1, Q2, Q3, Q3, Q1], QH, low=38, nxt='Bm')) \
@@ -182,7 +182,7 @@ def build() -> Song:
         .notes('D', hits(CH_D, [], 55, 72, per_bar={2: CHOP, 4: CHOP, 6: CHOP, 8: CHOP8})) \
         .notes('B', hits(CH_B, [], 55, 72, per_bar={8: CHOP8})) \
         .notes('H', hits(CH_H, [], 55, 72, per_bar={4: CHOP, 6: CHOP, 8: CHOP8}))
-    s.part('hey', 'vox_chop', 'base', vel=4) \
+    s.part('hey', 'vox_chop', 'base', vel=4, gain=5) \
         .at(['A', 'D'], 2, "r/2 b4/8' r/8 r/4").at(['A', 'D'], 4, "r/2 f#4/8' r/8 r/4") \
         .at(['A', 'D'], 6, "r/2 b4/8' r/8 r/4").at('A', 8, "r/2 f#4/8' f#4/8' r/4").at('D', 8, "r/2 a4/8' a4/8' r/4") \
         .at('B', 8, "r/2 f#4/8' f#4/8' r/4").at('H', 4, "r/2 a4/8' r/8 r/4").at('H', 8, "r/2 f#4/8' f#4/8' r/4")
@@ -194,8 +194,8 @@ def build() -> Song:
         .notes('BR', bars('r/1', 'r/1', 'b5/4. a5/8 g5/4 f#5/4', 'e5/1', 'r/1', 'r/1', 'r/1', 'r/1'), vel=-16) \
         .notes('D', bars(*HOOK, *D_END)) \
         .notes('H', bars(*H_LEAD), motifs={3: BELL})
-    s.part('glock', 'glock', 'base', octave=1, vel=-14, gain=-2).double('lead', ['A', 'B', 'D', 'H'])
-    s.part('counter', 'chip_saw', 'base', vel=-6, gain=-5).notes('D', bars(*COUNTER_D))
+    s.part('glock', 'glock', 'base', octave=1, vel=-14, gain=4.5).double('lead', ['A', 'B', 'D', 'H'])
+    s.part('counter', 'chip_saw', 'base', vel=-6, gain=-3).notes('D', bars(*COUNTER_D))
     s.part('saw_bell', 'supersaw', 'base', vel=-6, gain=-4) \
         .at('H', 3, BELL.question('D', 5) + ' r/8 | ' + BELL.answer('D', 5) + ' r/2', motif=BELL)
 
@@ -212,27 +212,27 @@ def build() -> Song:
     s.part('rev', 'rev_cymbal', 'base', vel=-6).notes('BR', bars(rest(7), 'r/2 c4/2'))
 
     # ================================================================ intensity
-    s.part('brass', 'brass_stab', 'intensity', vel=0, gain=0).double('stab')
-    s.part('syn_brass', 'synth_brass', 'intensity', vel=4, gain=2.5) \
+    s.part('brass', 'brass_stab', 'intensity', vel=0, gain=3).double('stab')
+    s.part('syn_brass', 'synth_brass', 'intensity', vel=4, gain=5.5) \
         .notes('D', bars(SENTINEL.question('Bm', 4), 'd4/2 f#4/2', 'g4/2 e4/2', 'f#4/2 a#4/2',
                          SENTINEL.question('Bm', 4), 'd4/2 b3/2', 'e4/2 f#4/2', 'g4/2 a4/2'),
                motifs={1: SENTINEL, 5: SENTINEL}) \
         .notes('H', bars('r/1', 'r/1', 'f#4/2 e4/2', 'f#4/1', SENTINEL.question('D', 4), 'a4/2 f#4/2',
                          SENTINEL.question('D', 4), 'f#4/2 a#4/2'), motifs={5: SENTINEL, 7: SENTINEL})
-    s.part('chiparp', 'chip_pulse12', 'intensity', vel=-14, gain=-1) \
-        .gen(['A', 'D'], 'arp:up16', voicing='close', low=64, high=79) \
+    s.part('chiparp', 'chip_pulse12', 'intensity', vel=-14, gain=4) \
+        .gen(['A', 'B', 'D'], 'arp:up16', voicing='close', low=64, high=79) \
         .gen('H', 'arp:up16', voicing='close', low=64, high=79, bars=(3, 8))
-    s.part('acid_d', 'acid_bass', 'intensity', vel=0, gain=-2,
+    s.part('acid_d', 'acid_bass', 'intensity', vel=0, gain=1,
            fx={'filter': {'auto': hold(['D', 1, 300], ['D', 9, 3000])}}) \
         .notes('D', line(CH_D, ACID_P, ACID_PH, low=47, nxt='Dmaj7'))
-    s.part('ride', 'drums_909', 'intensity', vel=-16).pattern(['D', 'H'], '(rd/8 r/8)x4 |')
-    s.part('clap_roll', 'drums_909', 'intensity', vel=-10) \
+    s.part('ride', 'drums_909', 'intensity', vel=-16, gain=3).pattern(['D', 'H'], '(rd/8 r/8)x4 |')
+    s.part('clap_roll', 'drums_909', 'intensity', vel=-10, gain=3) \
         .pattern(['A', 'B', 'D', 'H'], 'r/2. r/8 r/16 cl/16 |',
                  fills={4: 'r/2 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 |',
                         8: 'r/2 ' + roll('cl', '16', 8, 60, 110) + ' |'})
-    s.part('noise', 'chip_kit', 'intensity', vel=-26).pattern(['A', 'B', 'D', 'H'], '(h/16 h?/16 h/16 h?/16)x4 |')
+    s.part('noise', 'chip_kit', 'intensity', vel=-26, gain=4).pattern(['A', 'B', 'D', 'H'], '(h/16 h?/16 h/16 h?/16)x4 |')
     s.part('sweep', 'rev_cymbal', 'intensity', vel=-10).at(['A', 'D', 'H'], 8, 'r/2 c4/2')
-    s.part('hits', 'orch_hit', 'intensity', vel=2) \
+    s.part('hits', 'orch_hit', 'intensity', vel=2, gain=1.5) \
         .at(['A', 'D'], 3, '[e4 g4 b4]/4 r/2.').at(['A', 'D'], 5, '[d4 f#4 b4]/4 r/2.') \
         .at(['A', 'D'], 7, '[e4 g4 b4]/4 r/2.').at(['A', 'D', 'B'], 1, '[d4 f#4 b4]/4 r/2.') \
         .at('H', 1, '[d4 f#4 a4]/4 r/2.').at('H', 5, '[d4 g4 b4]/4 r/2.').at('H', 7, '[e4 g4 b4]/4 r/2.')

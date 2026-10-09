@@ -22,8 +22,8 @@ Form: intro |: A B BR D :|  — 2 + 32 bars (59.1 s loop).
 Bass (the star): `techno_bass` 16ths on e-&-a (the kick has every downbeat to itself), octave pops, ♭7 dips, the ♭2 G♭
 on the tonic and a semitone approach into every bar line; pumped by the kick. Stab bed: `saw_stab` 1 / 2& / 4&
 (BAM accents on 3& and 4& under every held hook note). Machine ostinato: 808 rim + cowbell on a 3-3-2 grid.
-Intensity: brass stabs doubling the saw stabs, a synth-brass counter-line (A) and SENTINEL rally (D), a chip-saw
-counter-arp, a chip-triangle bass double (phones), ride, clap rolls, chip-noise 16ths, orchestra hits, acid squelch.
+Intensity: brass stabs doubling the saw stabs, a synth-brass counter-line (A) and SENTINEL rally (D), a chip-saw 3-3-2
+'gear' counter (B, D), a chip-triangle bass double (phones), ride, clap rolls, chip-noise 16ths, orchestra hits, acid squelch.
 
 Leitmotifs: BELL is the conveyor itself (5-1-♭6-♭7 every beat, the true 5-1-♭6-7 on every dominant), the B-section
 question, the BR half-speed question (unanswered) and the D answer in G minor; SENTINEL CALL in the synth brass (D)
@@ -94,6 +94,9 @@ P2 = 'r/16 R/16 8/16 R/16 r/16 5/16 8/16 7/16 r/16 R/16 8/16 5/16 r/16 7v/16 5v/
 P3 = 'r/16 R/16 8/16 R/16 r/16 b2/16 R/16 8/16 r/16 R/16 b7/16 8/16 r/16 5/16 b3^/16 ap/16'      # tonic: the ♭2 rub
 PH = 'r/16 R/16 8/16 R/16 r/16 5/16 8/16 ap/16'
 P_HALF = 'R/8. R/16 r/4 8/8 r/8 R/16 5/16 7/16 ap/16'                                         # BR 3-4, half-time
+# chip-saw counter (intensity): 3-3-2 dotted-8th 'gear' figure in octave 4, against the 16th conveyor above it
+GEAR = '8/8. 5/8. 3/8 R/8. 5/8. 7/8'
+GEAR_H = '8/8. 5/8. 3/8'
 
 # kit (drums_909: k 909 kick, s 909 snare, cl clap, h/o 808 hats, rs rim, cb cowbell, t1-t3 808 toms, c cymbal)
 KICK = 'k/4 k/4 k/4 k/4 |'
@@ -122,6 +125,8 @@ def build() -> Song:
     s = Song(id='battle_foundry', title='Neon Conveyor', bpm=130, meter=(4, 4), key='Fm',
              form=['intro', '|:', 'A', 'B', 'BR', 'D', ':|'],
              mix={'echo': {'delay_ms': 224, 'feedback': 0.38, 'volume': 0.26, 'fir': 'soft'}, 'highpass_hz': 32},
+             seam_beats=8,   # a few gated saw-stab / chip-bell notes in A bars 1-2 render ≈ −57 dB apart in FluidSynth
+                             # cycles 1 and 2 (same MIDI); a 2-bar seam puts the entry splice past them (WAV −91 dB)
              description='Battle (foundry, night): techno — 909 four-on-the-floor, rolling 16th bass, BELL conveyor arp, '
                          'filter build, kick-drop breakdown, G-minor drop with an acid solo.')
     s.busy = BUSY
@@ -147,7 +152,7 @@ def build() -> Song:
         .pattern('D', CLAP, fills={2: 'r/4 cl/4 r/4 cl/8 cl/16 cl/16 |', 4: CLAP_F4, 8: CLAP_F8}) \
         .notes('BR', bars('r/1', 'r/1', 'r/1', 'r/2 r/4 cl/16 cl/16 cl/16 cl/16', 'r/4 cl/4 r/4 cl/4',
                           'r/4 cl/4 r/4 cl/4', roll('s', '16', 16, 40, 92), roll('s', '32', 32, 70, 124)))
-    s.part('machine', 'drums_909', 'base', vel=-14) \
+    s.part('machine', 'drums_909', 'base', vel=-14, gain=3) \
         .pattern(['intro', 'A', 'BR', 'D'], MACHINE).pattern('B', MACHINE_B)
 
     # --- bass (the star) + its phone-speaker octave pops live in the line itself (F3/E♭3 every beat)
@@ -165,7 +170,7 @@ def build() -> Song:
         .notes('D', bars(ACID_SOLO, rest(6)))
 
     # --- the conveyor: BELL as a 16th sequencer arp (filter: open, then behind a wall in BR, opening into the drop)
-    s.part('conveyor', 'synth_chime', 'base', vel=-6, gain=2,
+    s.part('conveyor', 'synth_chime', 'base', vel=-6, gain=3.5,
            fx={'filter': {'type': 'lp', 'q': 1.4, 'auto': hold(['BR', 1, 9000], ['BR', 2.5, 800], ['BR', 6, 800],
                                                                  ['BR', 9, 9000])}}) \
         .notes('intro', conveyor(CH_INTRO, F, 5, DOMS, v_hi=78, v_lo=58)) \
@@ -214,26 +219,27 @@ def build() -> Song:
     s.part('rev', 'rev_cymbal', 'base', vel=-6).notes('BR', bars(rest(7), 'r/2 c4/2'))
 
     # ================================================================ intensity
-    s.part('brass', 'brass_stab', 'intensity', vel=-2, gain=0).double('stab', ['B', 'D'])
-    s.part('syn_brass', 'synth_brass', 'intensity', vel=4, gain=2.5) \
+    s.part('brass', 'brass_stab', 'intensity', vel=-2, gain=1.5).double('stab', ['B', 'D'])
+    s.part('syn_brass', 'synth_brass', 'intensity', vel=4, gain=3.5) \
         .notes('A', bars('ab4/2 g4/2', 'f4/2. eb4/4', 'g4/2 bb4/2', 'c5/2 db5/4 c5/4',
                          'ab4/2 c5/2', 'db5/2. c5/4', 'bb4/2 g4/2', 'f4/2 e4/2')) \
         .notes('D', bars(SENTINEL.question('Gm', 4), 'bb4/2 a4/2', 'g4/2 f#4/2', 'g4/1',
                          SENTINEL.question('Gm', 4), 'bb4/2. g4/4', 'a4/2 c5/2', 'bb4/2 g4/2'),
                motifs={1: SENTINEL, 5: SENTINEL})
     s.part('saw_arp', 'chip_saw', 'intensity', vel=-12, gain=1) \
-        .gen(['B', 'D'], 'arp:updown8', voicing='close', low=60, high=79)
-    s.part('tri_bass', 'chip_triangle', 'intensity', octave=1, vel=-20, gain=-3.5).double('bass', ['A', 'B', 'D'])
-    s.part('acid_hi', 'acid_bass', 'intensity', vel=-4, gain=-3,
+        .notes('B', line(CH_B, GEAR, GEAR_H, low=53, nxt='Fm9')) \
+        .notes('D', bars(rest(2), line('Cm9 D7 | Gm9 | Gm9 | Ebmaj7 | F6 F/A | Eb6 C7', GEAR, GEAR_H, low=53, nxt='Fm9')))
+    s.part('tri_bass', 'chip_triangle', 'intensity', octave=1, vel=-20, gain=-2.5).double('bass', ['A', 'B', 'D'])
+    s.part('acid_hi', 'acid_bass', 'intensity', vel=-4, gain=0,
            fx={'filter': {'auto': hold(['D', 5, 500], ['D', 9, 3600])}}) \
         .notes('D', bars(rest(4), ACID_HI))
-    s.part('ride', 'drums_909', 'intensity', vel=-16).pattern(['B', 'D'], '(r/8 rd/8)x4 |')
-    s.part('clap_roll', 'drums_909', 'intensity', vel=-10) \
+    s.part('ride', 'drums_909', 'intensity', vel=-16, gain=3).pattern(['B', 'D'], '(r/8 rd/8)x4 |')
+    s.part('clap_roll', 'drums_909', 'intensity', vel=-10, gain=2) \
         .pattern(['A', 'B', 'D'], 'r/2. r/8 r/16 cl/16 |',
                  fills={4: 'r/2 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 cl/16 |',
                         8: 'r/2 ' + roll('cl', '16', 8, 60, 110) + ' |'})
-    s.part('noise', 'chip_kit', 'intensity', vel=-26).pattern(['A', 'B', 'D'], '(h/16 h?/16 h/16 h?/16)x4 |')
-    s.part('hits', 'orch_hit', 'intensity', vel=2) \
+    s.part('noise', 'chip_kit', 'intensity', vel=-26, gain=4).pattern(['A', 'B', 'D'], '(h/16 h?/16 h/16 h?/16)x4 |')
+    s.part('hits', 'orch_hit', 'intensity', vel=-3) \
         .at('A', 8, 'r/2 [c4 e4 g4 bb4]/4 r/4').at('B', 8, 'r/2 [c4 e4 g4 bb4 db5]/4 r/4') \
         .at('D', 1, '[g3 bb3 d4 g4]/4 r/2.').at('D', 4, 'r/2 [g3 bb3 d4 g4]/4 r/4') \
         .at('D', 8, 'r/2 [c4 e4 g4 bb4]/4 r/4').at('BR', 8, 'r/2. [d4 f#4 a4 c5]/4')
