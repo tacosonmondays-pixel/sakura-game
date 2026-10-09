@@ -5,7 +5,9 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   addOutlineNormals, studioEnvironment, figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, OUTLINE_MIN_PX,
+  FIGURINE_ENV, FIGURINE_EXPOSURE, EYE_MODES, eyeUniforms,
 } from '../../src/models/figurine.js';
+import { estimateFigurine, lightRigs, luma, srgb } from './figurineLight.js';
 
 function fakeShader(material) {
   const lib = material.isMeshStandardMaterial ? THREE.ShaderLib.standard : THREE.ShaderLib.basic;
@@ -71,5 +73,49 @@ describe('figurine shading', () => {
     outlineBeforeRender(renderer, null, null, null, a);
     expect(a.userData.uniforms.outlineViewH.value).toBe(780);
     expect(a.userData.uniforms.outlineMinPx.value).toBeCloseTo(OUTLINE_MIN_PX * 2, 6);
+  });
+
+  it('closes the painted eyes in the shader: one material per eye state, one shared program', () => {
+    const map = new THREE.Texture();
+    const eyes = { centers: [[-0.084, 0.58, 0.16], [0.083, 0.58, 0.16]], radii: [[0.048, 0.043], [0.048, 0.043]], depth: 0.025, skin: '#fde9d6', skinLow: '#fcdecc', lash: '#190a0a', roughness: 0.4 };
+    const open = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.open });
+    const blink = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.blink });
+    const hurt = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.hurt, highlight: true });
+    expect(open.customProgramCacheKey()).toBe(blink.customProgramCacheKey());
+    expect(hurt.customProgramCacheKey()).toBe(blink.customProgramCacheKey());
+    const sh = fakeShader(blink);
+    expect(sh.fragmentShader).toContain('figCloseEyes( diffuseColor.rgb, sampledDiffuseColor.rgb )');
+    expect(sh.fragmentShader).toContain('roughnessFactor = mix( roughnessFactor, figEyeRough, figEyeM )');
+    expect(sh.vertexShader).toContain('vFigPos = vec3( position )');
+    expect(sh.uniforms.figEyeMode.value).toBe(EYE_MODES.blink);
+    expect(fakeShader(open).uniforms.figEyeMode.value).toBe(0);
+    // eye boxes / colours are shared by all eye states of the asset
+    expect(sh.uniforms.figEyeC).toBe(eyeUniforms(eyes).figEyeC);
+    expect(sh.uniforms.figEyeC.value[0].x).toBeCloseTo(-0.084, 6);
+    expect(sh.uniforms.figEyeRough.value).toBe(0.4);
+    // a figure without measured eyes gets no eye code at all
+    const plain = fakeShader(figurineMaterial({ map }));
+    expect(plain.fragmentShader).not.toContain('figCloseEyes');
+    expect(plain.vertexShader).not.toContain('vFigPos');
+  });
+
+  // Regression guard for "she renders darker than her own model": the estimated on-screen colour
+  // of her hair and skin albedo must stay within a few % of the albedo under both the student
+  // viewer's studio and the battle lights (r1 shipped env 0.55 / exposure 0.92: 12-18 % darker).
+  it('keeps her hair and skin about as bright as the painted albedo (viewer and battle lights)', () => {
+    expect(FIGURINE_ENV).toBeGreaterThanOrEqual(0.9);
+    expect(FIGURINE_EXPOSURE).toBeGreaterThanOrEqual(0.95);
+    const rigs = lightRigs('sakura');
+    for (const [name, hex] of [['hair', '#fc99b1'], ['skin', '#fdead7']]) {
+      const albedo = luma(srgb(hex));
+      for (const [rigName, rig] of Object.entries(rigs)) {
+        const ratio = luma(estimateFigurine(hex, rig)) / albedo;
+        expect(ratio, `${name} under ${rigName} lights`).toBeGreaterThan(0.92);
+        expect(ratio, `${name} under ${rigName} lights (washed out)`).toBeLessThan(1.03);
+        // and the check would have caught round 1's settings
+        const r1 = luma(estimateFigurine(hex, rig, { env: 0.55, exposure: 0.92 })) / albedo;
+        expect(r1, `${name} ${rigName} r1`).toBeLessThan(0.92);
+      }
+    }
   });
 });

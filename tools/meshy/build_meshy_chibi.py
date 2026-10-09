@@ -7,7 +7,8 @@ painted face, white/gold/navy knight coat, teal bow, braid crown with gold stars
 Steps (one bpy session per detail level):
   1. import + weld, decimate a copy (face protected) to --tris, fresh xatlas UVs   (lib/lowpoly.py)
   2. bake the 4k Meshy base colour, metal/roughness and (full detail) normals
-     onto the new UVs                                                              (lib/bake.py)
+     onto the new UVs, normals flat over her skin and painted face                 (lib/bake.py)
+     and measure the painted eyes so the game can close them                       (lib/eyes.py)
   3. readable bone names, retarget the Meshy-library idle + walk                    (lib/retarget.py)
   4. sword on hand_R + idle / walk / attack_slash / cheer / hurt                    (lib/clips_hikari.py)
   5. GLB export, then phone packing: int16/int8 attributes, WebP texture,
@@ -30,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from lib import lowpoly, bake, retarget, clips_hikari, pack  # noqa: E402
+from lib import lowpoly, bake, eyes, retarget, clips_hikari, pack  # noqa: E402
 from lib.rig_names import RENAME, RETARGET  # noqa: E402
 
 # Battle size the owner approved for the Meshy Hikari tests: ~1.5x the old chibi (0.98 -> 1.53
@@ -49,9 +50,10 @@ def build(args, detail):
     src_height = max((hi.matrix_world @ v.co).z for v in hi.data.vertices)
     lo = lowpoly.make_lowpoly(hi, tris)
     uvinfo = lowpoly.unwrap_xatlas(lo, face_scale=2.0, resolution=tex)
-    bake.bake_maps(hi, lo, tmp, tex, mr_res=args.mr_tex if full else args.lod_mr_tex,
-                   normal_res=args.normal_tex if full else 0)
+    imgs = bake.bake_maps(hi, lo, tmp, tex, mr_res=args.mr_tex if full else args.lod_mr_tex,
+                          normal_res=args.normal_tex if full else 0)
     bpy.data.objects.remove(hi)
+    eye_info = eyes.find_eyes(lo, imgs['base'], imgs.get('mr'), STORE_SCALE)  # in the stored (packed) space
     arm.name = f'{args.id}_rig'
     lo.name = lo.data.name = args.id
     for b in arm.data.bones:
@@ -85,6 +87,8 @@ def build(args, detail):
         unit=args.id, source='meshy', style='textured', height=GAME_HEIGHT,
         unitScale=round(GAME_HEIGHT / stored_height, 5), weaponKind='slash', lod=not full,
         generator='tools/meshy/build_meshy_chibi.py')
+    if eye_info:
+        extras['eyes'] = eye_info
     stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality,
                       tex_size=args.ship_tex if full else args.lod_ship_tex)
     js, _ = pack.read_glb(out)

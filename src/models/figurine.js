@@ -3,15 +3,20 @@
 // figurine (PBR with her own metal / roughness, gold stays metallic), lit by the scene plus a
 // small studio environment map, with less green ground bounce and a gentle neutral tone curve,
 // and a bold inverted-hull outline tinted from her own texture (deep plum on hair and white
-// cloth, brown on gold, near-black on navy).
+// cloth, brown on gold, near-black on navy). Her painted eyes can close (blink, ^ ^, > <): the
+// shader paints eyelids over the measured eye boxes (asset.extras.eyes).
 //
 // Everything is cached per asset / texture, so every instance of her shares two programs.
 import * as THREE from 'three';
 
-/** Environment strength on her material (the study used 0.4 to 0.6). */
-export const FIGURINE_ENV = 0.55;
+/**
+ * Environment strength on her material. 1.0 with exposure 1.0 keeps hair and skin within a few %
+ * of her painted albedo under both the viewer and the battle lights (0.55 / 0.92 rendered her
+ * 7-12 % darker); tests/models/figurine.test.js guards it.
+ */
+export const FIGURINE_ENV = 1.0;
 /** Exposure of her own neutral tone curve (applied only when the renderer does no tone mapping). */
-export const FIGURINE_EXPOSURE = 0.92;
+export const FIGURINE_EXPOSURE = 1.0;
 /** How much of the hemisphere light's colour she keeps (0 = grey bounce, 1 = the green ground as is). */
 export const FIGURINE_HEMI_SAT = 0.3;
 
@@ -107,11 +112,75 @@ vec3 figNeutral( vec3 color ) {
 
 const HEMI_CALL = 'irradiance += getHemisphereLightIrradiance( hemisphereLights[ i ], geometryNormal );';
 
+/** Eye states of a painted face: open (as painted), blink, happy (^ ^) and hurt (> <). */
+export const EYE_MODES = { open: 0, blink: 1, happy: 2, hurt: 3 };
+
+// Closed eyes drawn over the painted ones: inside each eye (a rounded box in the bind-pose
+// position space, front surface only, never on hair-pink texels such as bangs crossing the eye)
+// the texture becomes her eyelid skin with a dark lid line on top.
+const EYES = /* glsl */ `
+uniform float figEyeMode;
+uniform vec3 figEyeC[ 2 ];
+uniform vec2 figEyeR[ 2 ];
+uniform float figEyeDepth;
+uniform vec3 figSkinHi;
+uniform vec3 figSkinLo;
+uniform vec3 figLash;
+uniform float figEyeRough;
+varying vec3 vFigPos;
+float figEyeM = 0.0;
+float figSeg( vec2 p, vec2 a, vec2 b ) {
+  vec2 pa = p - a, ba = b - a;
+  return length( pa - ba * clamp( dot( pa, ba ) / dot( ba, ba ), 0.0, 1.0 ) );
+}
+// distance to a lid curve y = y0 + k x^2 over |x| < 0.9 (rounded ends), in the eye's local units
+float figCurve( vec2 l, float y0, float k ) {
+  float x = clamp( l.x, -0.9, 0.9 );
+  float dy = ( l.y - ( y0 + k * x * x ) ) / sqrt( 1.0 + 4.0 * k * k * x * x );
+  return length( vec2( l.x - x, dy ) );
+}
+// coverage of the lid line; l = (outward, up), both -1..1 across the eye
+float figLid( vec2 l, float aa ) {
+  float d, th;
+  if ( figEyeMode < 1.5 ) { d = figCurve( l, -0.28, 0.26 ); th = 0.08 * ( 1.0 - 0.5 * l.x * l.x ); }
+  else if ( figEyeMode < 2.5 ) { d = figCurve( l, 0.12, -0.36 ); th = 0.09 * ( 1.0 - 0.45 * l.x * l.x ); }
+  else { d = min( figSeg( l, vec2( -0.45, -0.04 ), vec2( 0.62, 0.34 ) ), figSeg( l, vec2( -0.45, -0.04 ), vec2( 0.62, -0.40 ) ) ); th = 0.075; }
+  return 1.0 - smoothstep( th - aa, th + aa, d );
+}
+void figEye( inout vec3 col, vec2 l, float dz, float aa ) {
+  if ( dz < - figEyeDepth ) return; // the back of the head
+  vec2 a = abs( l );
+  float sq = sqrt( sqrt( a.x * a.x * a.x * a.x + a.y * a.y * a.y * a.y ) );
+  float m = 1.0 - smoothstep( 0.9 - aa, 1.0 + aa, sq );
+  if ( m <= 0.0 ) return;
+  vec3 lid = mix( figSkinLo, figSkinHi, smoothstep( -1.0, 0.6, l.y ) );
+  lid = mix( lid, figLash, figLid( l, aa ) );
+  col = mix( col, lid, m );
+  figEyeM = max( figEyeM, m );
+}
+void figCloseEyes( inout vec3 col, vec3 tex ) {
+  // eye-local coordinates and their screen derivatives first, in uniform control flow
+  vec3 d0 = vFigPos - figEyeC[ 0 ];
+  vec3 d1 = vFigPos - figEyeC[ 1 ];
+  vec2 l0 = vec2( d0.x * sign( figEyeC[ 0 ].x ), d0.y ) / figEyeR[ 0 ];
+  vec2 l1 = vec2( d1.x * sign( figEyeC[ 1 ].x ), d1.y ) / figEyeR[ 1 ];
+  float aa0 = max( length( fwidth( l0 ) ) * 0.7, 0.01 );
+  float aa1 = max( length( fwidth( l1 ) ) * 0.7, 0.01 );
+  if ( figEyeMode < 0.5 ) return;
+  // bangs and other hair-pink texels stay as painted
+  if ( tex.r - tex.g > 0.35 && tex.b > tex.g ) return;
+  figEye( col, l0, d0.z, aa0 );
+  figEye( col, l1, d1.z, aa1 );
+}
+`;
+
 /**
  * Her body material (shared per asset). `maps` = { map, mrMap?, normalMap? } from the GLB.
- * Without a metal/roughness map she is a plain satin dielectric.
+ * Without a metal/roughness map she is a plain satin dielectric. `eyes` (asset extras, see
+ * eyeUniforms) lets the painted eyes close: `eyeMode` is one of EYE_MODES (one material each,
+ * all sharing one program).
  */
-export function figurineMaterial(maps, { highlight = false } = {}) {
+export function figurineMaterial(maps, { highlight = false, eyes = null, eyeMode = 0 } = {}) {
   const { map, mrMap = null, normalMap = null, normalScale = null } = maps;
   const m = new THREE.MeshStandardMaterial({
     map,
@@ -128,17 +197,54 @@ export function figurineMaterial(maps, { highlight = false } = {}) {
   // GLTFLoader flips normalScale.y for meshes without tangents (derivative tangent frames)
   if (normalMap && normalScale) m.normalScale.copy(normalScale);
   const lights = THREE.ShaderChunk.lights_fragment_begin.replace(HEMI_CALL, HEMI_CALL.replace('+= ', '+= figHemi( ').replace(';', ' );'));
+  const eyeU = eyes ? eyeUniforms(eyes) : null;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.figExposure = { value: FIGURINE_EXPOSURE };
     shader.uniforms.figHemiSat = { value: FIGURINE_HEMI_SAT };
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\n${NEUTRAL}`)
+      .replace('#include <common>', `#include <common>\n${NEUTRAL}${eyeU ? EYES : ''}`)
       .replace('#include <lights_fragment_begin>', lights)
       .replace('#include <tonemapping_fragment>', '#include <tonemapping_fragment>\n#ifndef TONE_MAPPING\n\tgl_FragColor.rgb = figNeutral( gl_FragColor.rgb );\n#endif');
+    if (eyeU) {
+      Object.assign(shader.uniforms, eyeU, { figEyeMode: { value: eyeMode } });
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <map_fragment>', '#include <map_fragment>\n#ifdef USE_MAP\n\tfigCloseEyes( diffuseColor.rgb, sampledDiffuseColor.rgb );\n#endif')
+        // a closed eye is matte skin, not the glossy painted eye
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n\troughnessFactor = mix( roughnessFactor, figEyeRough, figEyeM );\n\tmetalnessFactor *= 1.0 - figEyeM;');
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vFigPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvFigPos = vec3( position );');
+    }
   };
-  m.customProgramCacheKey = () => `figurine|${!!mrMap}|${!!normalMap}`;
+  m.customProgramCacheKey = () => `figurine|${!!mrMap}|${!!normalMap}|${!!eyeU}`;
   m.userData.shared = true;
+  m.userData.eyeMode = eyeMode;
   return m;
+}
+
+const eyeCache = new WeakMap();
+
+/**
+ * Uniforms of a figure's painted eyes, from the GLB's asset.extras.eyes (written by
+ * tools/meshy/lib/eyes.py, in the mesh's position-attribute space):
+ * { centers: [[x, y, z] x2], radii: [[rx, ry] x2], depth, skin, skinLow, lash, roughness }.
+ * Shared by every eye-mode material of the asset.
+ */
+export function eyeUniforms(eyes) {
+  let u = eyeCache.get(eyes);
+  if (u) return u;
+  const color = (c, d) => new THREE.Color(c || d);
+  u = {
+    figEyeC: { value: eyes.centers.map((c) => new THREE.Vector3(...c)) },
+    figEyeR: { value: eyes.radii.map((r) => new THREE.Vector2(...r)) },
+    figEyeDepth: { value: eyes.depth ?? 0.02 },
+    figSkinHi: { value: color(eyes.skin, '#fdead7') },
+    figSkinLo: { value: color(eyes.skinLow || eyes.skin, '#fcdac9') },
+    figLash: { value: color(eyes.lash, '#2b1d24') },
+    figEyeRough: { value: eyes.roughness ?? 0.6 },
+  };
+  eyeCache.set(eyes, u);
+  return u;
 }
 
 const hullCache = new Map();

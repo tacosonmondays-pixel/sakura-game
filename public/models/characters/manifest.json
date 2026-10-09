@@ -52,7 +52,7 @@
  },
  "hikari": {
   "file": "hikari.glb",
-  "size": 1335188,
+  "size": 1312464,
   "animations": [
    "attack_slash",
    "cheer",
@@ -64,7 +64,7 @@
   "triangles": 20791,
   "source": "meshy",
   "lod": "hikari.lod.glb",
-  "lodSize": 598712,
+  "lodSize": 599012,
   "lodVertices": 9255,
   "lodTriangles": 9791
  },

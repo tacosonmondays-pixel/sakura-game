@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
-import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION } from './figurine.js';
+import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -24,6 +24,8 @@ const OUTLINE_WIDTH = 0.0048;
 const FADE = 0.18;
 const PRELOAD_CONCURRENCY = 6;
 const CLIP_FALLBACK = { victory: 'cheer', pickup: 'cheer' };
+// face cells -> eye states of a painted (textured) face; other cells keep the painted open eyes
+const CELL_EYES = { blink: EYE_MODES.blink, wink: EYE_MODES.blink, happy: EYE_MODES.happy, hurt: EYE_MODES.hurt, dizzy: EYE_MODES.hurt };
 
 function baseUrl() {
   let base = '/';
@@ -182,13 +184,15 @@ function prepareAsset(id, detail, gltf) {
     id, detail, scene, clips, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
     unitScale: extras.unitScale || 1, cells: extras.faceCells || FACE_CELLS, grid: extras.faceGrid || FACE_GRID,
     textured, bodyMaps, outlineTint: extras.outline || undefined, materials: {},
+    eyes: textured && extras.eyes?.centers?.length === 2 ? extras.eyes : null,
   };
 }
 
-/** Figurine body material of a textured asset (shared by its instances). */
-function texturedMaterial(asset, highlight = false) {
-  const key = highlight ? 'hl' : 'body';
-  if (!asset.materials[key]) asset.materials[key] = figurineMaterial(asset.bodyMaps, { highlight });
+/** Figurine body material of a textured asset (shared by its instances, one per eye state). */
+function texturedMaterial(asset, highlight = false, eyeMode = 0) {
+  const mode = asset.eyes ? eyeMode : 0;
+  const key = `${highlight ? 'hl' : 'body'}|${mode}`;
+  if (!asset.materials[key]) asset.materials[key] = figurineMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode });
   return asset.materials[key];
 }
 
@@ -273,7 +277,14 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     }
   }
   group.add(root);
-  const anim = new GlbAnimator(root, asset, faceTex, unit);
+  // painted face: blink / happy / hurt swap the body to that eye state's material
+  const look = { hl: false, eyes: 0 };
+  const onEyes = asset.textured && asset.eyes && bodyMesh ? (mode) => {
+    if (mode === look.eyes) return;
+    look.eyes = mode;
+    bodyMesh.material = texturedMaterial(asset, look.hl, mode);
+  } : null;
+  const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes);
   group.userData.unitId = unit.id;
   group.userData.kind = 'chibi';
   group.userData.glb = true;
@@ -286,7 +297,8 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   group.userData.setHighlight = (on) => {
     if (!bodyMesh) return;
     if (asset.textured) {
-      bodyMesh.material = texturedMaterial(asset, on);
+      look.hl = !!on;
+      bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes);
       return;
     }
     if (on) {
@@ -312,10 +324,11 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
 
 /** Drives the mixer: state crossfades, one-shot attacks, blinking and expressions. */
 class GlbAnimator {
-  constructor(root, asset, faceTex, unit) {
+  constructor(root, asset, faceTex, unit, onEyes = null) {
     this.mixer = new THREE.AnimationMixer(root);
     this.asset = asset;
     this.faceTex = faceTex;
+    this.onEyes = onEyes;
     this.actions = {};
     for (const [name, clip] of Object.entries(asset.clips)) {
       const a = this.mixer.clipAction(clip);
@@ -399,7 +412,7 @@ class GlbAnimator {
   }
 
   updateFace(time, dt, state) {
-    if (!this.faceTex) return;
+    if (!this.faceTex && !this.onEyes) return;
     let cell = this.expression || 'idle';
     if (!this.expression) {
       if (state === 'disabled' || state === 'hurt') cell = 'dizzy';
@@ -417,6 +430,10 @@ class GlbAnimator {
           }
         }
       }
+    }
+    if (this.onEyes) {
+      this.onEyes(CELL_EYES[cell] || 0);
+      return;
     }
     const idx = Math.max(0, this.asset.cells.indexOf(cell));
     if (idx !== this.cell) {

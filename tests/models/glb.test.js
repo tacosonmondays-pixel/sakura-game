@@ -92,6 +92,28 @@ describe('character GLBs', () => {
           expect(!!body.normalTexture).toBe(detail === 'full');
           expect(json.images).toHaveLength(detail === 'full' ? 3 : 2);
           for (const im of json.images) expect(im.mimeType).toBe('image/webp');
+          // her painted eyes, measured at build time so the shader can close them (blink, ^ ^, > <):
+          // two mirrored boxes on the front of the head, in the stored position space
+          const eyes = ex.eyes;
+          expect(eyes?.centers).toHaveLength(2);
+          const top = json.accessors[textured[0].attributes.POSITION].max[1] / 32767;
+          const [er, el] = eyes.centers;
+          expect(er[0]).toBeLessThan(0);
+          expect(el[0]).toBeGreaterThan(0);
+          expect(Math.abs(er[0] + el[0])).toBeLessThan(0.01);
+          expect(Math.abs(er[1] - el[1])).toBeLessThan(0.01);
+          for (const c of eyes.centers) {
+            expect(c[1]).toBeGreaterThan(top * 0.55); // in the big chibi head
+            expect(c[1]).toBeLessThan(top * 0.85);
+            expect(c[2]).toBeGreaterThan(0); // on the face side (glTF +Z is her front)
+          }
+          for (const r of eyes.radii) {
+            expect(r[0]).toBeGreaterThan(top * 0.02);
+            expect(r[0]).toBeLessThan(top * 0.1);
+            expect(r[1]).toBeGreaterThan(top * 0.02);
+            expect(r[1]).toBeLessThan(top * 0.1);
+          }
+          for (const k of ['skin', 'skinLow', 'lash']) expect(eyes[k]).toMatch(/^#[0-9a-f]{6}$/);
         });
       }
       continue;
