@@ -1398,6 +1398,8 @@ export const MAPS = [
     paths: [
       [[3.0, -1], L, [3.0, 0.6], [4.4, 1.8], [8.0, 2.4], [12.0, 2.6], [14.6, 3.0], [16.2, 4.4], [15.6, 6.0], [13.0, 6.5], [9.6, 6.5], [7.2, 6.8], [5.4, 7.4], [3.6, 8.0], [2.2, 7.2], [2.0, 5.6], [3.2, 4.6], [4.8, 4.9], [5.6, 6.4], [5.8, 8.2], [7.0, 9.4], [9.0, 9.7], [13.6, 9.6], [17.4, 9.2], [18.6, 8.6], L, [21, 8.6]],
     ],
+    // a pale basalt slab with ember-red parapets, so the curl's bridge stands out on the dark ash
+    bridge: { overpass: '#bba899', girder: '#2b2020', overRail: '#e0703a' },
     decor: [
       { type: 'nest', x: 17, y: 2 }, { type: 'vent', x: 8, y: 8 }, { type: 'bones', x: 3, y: 6 },
       { type: 'crystal', x: 16, y: 7 }, { type: 'vent', x: 9, y: 4 },

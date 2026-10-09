@@ -141,15 +141,20 @@ export function mountBattle(root, params, hooks) {
       return;
     }
     ctx.renderer = renderer;
-    // keep the toast feed off the spawn gates and the first tiles of road behind them
-    const spawnRuns = (sim.map?.tracks || []).filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
+    // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
+    // as a tie-break, off the exit gates and the last tiles of road before them)
+    const tracks = sim.map?.tracks || [];
+    const spawnRuns = tracks.filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
+    const exitRuns = tracks.filter((t) => !t.join).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] >= t.length - 3.5));
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
-      for (const run of spawnRuns) {
-        for (const [x, y] of run) {
-          const p = renderer.worldToScreen(x, y, 0);
-          out.push({ x: p.clientX - L.left, y: p.clientY - L.top });
+      for (const [runs, w] of [[spawnRuns, 1], [exitRuns, 0.2]]) {
+        for (const run of runs) {
+          for (const [x, y] of run) {
+            const p = renderer.worldToScreen(x, y, 0);
+            out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w });
+          }
         }
       }
       return out;
