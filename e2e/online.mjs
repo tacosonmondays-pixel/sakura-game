@@ -124,6 +124,9 @@ try {
   // ---- chat -----------------------------------------------------------------------------
   await A.waitForSelector('[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
   await B.waitForSelector('[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
+  // local mode says plainly that messages stay in this browser
+  check(/other tabs of this browser/i.test(await A.locator('[data-testid="chat-panel"] [data-testid="local-note"]').innerText().catch(() => '')),
+    'chat: the local-mode banner says messages only reach other tabs of this browser');
   await A.fill('[data-testid="chat-input"]', 'Hello from Aiko!');
   await A.press('[data-testid="chat-input"]', 'Enter');
   const delivered = await B.waitForFunction(() => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => m.innerText.includes('Hello from Aiko!')), null, { timeout: 8000 }).then(() => true).catch(() => false);
@@ -181,12 +184,16 @@ try {
   await tap(A, '[data-testid="tab-boss"]');
   check(await A.waitForSelector('[data-testid="boss-panel"]', { timeout: 8000 }).then(() => true).catch(() => false), 'clan boss: panel with HP pool loads');
   check(/HP/.test(await A.locator('[data-testid="boss-hp"]').innerText()), 'clan boss: HP bar shown');
+  // the boss's own 3D model as a portrait (rendered lazily; the token stands in until then)
+  check(await A.waitForSelector('[data-testid="boss-art"] .ol-boss-img', { timeout: 45000 }).then(() => true).catch(() => false), 'clan boss: the boss portrait (a still of its 3D model) is drawn');
   await shot(A, 'clan-boss');
 
-  // one clan boss attempt through the real battle: Fight → battle (clanBoss=1) → a girl fights
-  // the first wave → the battle ends → its damage is submitted and shows on the ranking
+  // one clan boss attempt through the real battle: Fight (start_boss_attempt) → battle
+  // (clanBoss=<attempt id>) → a girl fights the first wave → the battle ends → its damage is
+  // submitted against that attempt and shows on the ranking
   await tap(A, '[data-testid="boss-fight"]');
-  const bossBattle = await A.waitForFunction(() => window.__battle?.ui?.placement && /clanBoss=1/.test(location.hash), null, { timeout: 40000 }).then(() => true).catch(() => false);
+  const fightAt = Date.now();
+  const bossBattle = await A.waitForFunction(() => window.__battle?.ui?.placement && /clanBoss=[\w-]{8,}/.test(location.hash), null, { timeout: 40000 }).then(() => true).catch(() => false);
   check(bossBattle, 'clan boss: Fight opens the boss battle');
   if (bossBattle) {
     await A.waitForTimeout(600);
@@ -194,6 +201,8 @@ try {
     await A.evaluate(() => window.__battle.ui.startWave());
     // let her fight for a while (any damage counts), then end the run
     await A.waitForFunction(() => Object.values(window.__battle.sim.stats.damageByTower || {}).some((d) => d > 0), null, { timeout: 30000 }).catch(() => null);
+    // the server counts nothing from a battle shorter than 10 s (clanRules BOSS_MIN_SECONDS)
+    await A.waitForTimeout(Math.max(0, fightAt + 12000 - Date.now()));
     // end the run quickly: one life left, then fast-forward the Sim (like e2e/smoke.mjs) until
     // an enemy leaks; the battle screen picks up the 'lost' event on its next frame
     await A.evaluate(() => {
@@ -241,6 +250,25 @@ try {
     check(gems1 === gems0 + 12345, `dev clan: Supply Bot granted 12,345 gems (${gems0} → ${gems1})`);
   } else check(false, 'dev clan: gems tile in the Supply Bot');
   await shot(C, 'supply-bot');
+
+  // transfer codes (Settings → Online): a one-time 12-character code; a wrong code is refused
+  // (and counted), the right one offers its save for import — cancelled here, because every tab of
+  // this browser shares one save
+  await go(C, '#/settings');
+  await C.waitForSelector('[data-testid="transfer-create"]', { timeout: 20000 });
+  await tap(C, '[data-testid="transfer-create"]');
+  const tcode = await C.waitForSelector('[data-testid="transfer-created"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  check(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(tcode), `transfer: Create gives a 12-character one-time code (${tcode})`);
+  await C.fill('[data-testid="transfer-code"]', 'AAAA-BBBB-CCCC');
+  await tap(C, '[data-testid="transfer-redeem"]');
+  const wrongText = await C.waitForFunction(() => document.querySelector('.ma-code-status.bad')?.innerText, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => '');
+  check(/unknown transfer code/i.test(wrongText), `transfer: a wrong code is refused ("${wrongText}")`);
+  await C.fill('[data-testid="transfer-code"]', tcode.toLowerCase());
+  await tap(C, '[data-testid="transfer-redeem"]');
+  const offered = await C.waitForFunction(() => /Replace your current progress/.test(document.body.innerText), null, { timeout: 8000 }).then(() => true).catch(() => false);
+  check(offered, 'transfer: the right code (any case) offers its save for import');
+  await shot(C, 'transfer-import');
+  if (offered) await C.getByRole('button', { name: 'Cancel' }).last().click();
   await C.close();
 
   // ---- co-op ----------------------------------------------------------------------------

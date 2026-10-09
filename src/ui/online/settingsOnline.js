@@ -16,7 +16,8 @@ export function onlineSection({ redraw, importText }) {
   const nameEl = h('b', { 'data-testid': 'online-name' }, storedName() || 'Not set');
   const codeOut = h('div.ol-settings-row', { 'data-testid': 'transfer-out' });
   const status = h('div.ma-code-status');
-  const redeemBox = h('input.ma-input', { placeholder: 'XXXX-XXXX', maxlength: 9, 'data-testid': 'transfer-code', autocomplete: 'off', spellcheck: false });
+  // codes are 12 characters (60 random bits), shown as XXXX-XXXX-XXXX; dashes are optional
+  const redeemBox = h('input.ma-input', { placeholder: 'XXXX-XXXX-XXXX', maxlength: 16, 'data-testid': 'transfer-code', autocomplete: 'off', spellcheck: false });
   redeemBox.addEventListener('input', () => {
     redeemBox.value = redeemBox.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
   });
@@ -54,12 +55,12 @@ export function onlineSection({ redraw, importText }) {
 
   let held = null;
   const redeem = async () => {
-    const code = redeemBox.value.trim().toUpperCase();
+    const code = redeemBox.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     status.className = 'ma-code-status';
     status.textContent = '';
-    if (code.length < 8) {
+    if (code.length !== 12) {
       status.classList.add('bad');
-      status.textContent = 'Enter the 8-character transfer code (XXXX-XXXX).';
+      status.textContent = 'Enter the 12-character transfer code (XXXX-XXXX-XXXX).';
       return;
     }
     try {

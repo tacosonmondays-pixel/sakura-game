@@ -22,8 +22,9 @@ export const RULES = Object.freeze({
   boss_start: { gapMs: 0, max: 20, windowMs: HOUR, label: 'clan boss battle' },
   // creating AND redeeming codes; a wrong code counts too (brute force), see redeem_transfer
   transfer: { gapMs: 0, max: 5, windowMs: HOUR, label: 'transfer code' },
-  // client-only: the Supply Bot and co-op room creation never reach a rate table
+  // client-only: the Supply Bot only changes the local save and never reaches a rate table
   dev_grant: { gapMs: 300, max: 60, windowMs: MIN, label: 'supply request' },
+  // opening or joining a co-op room (open_room / join_room; a wrong code counts too)
   room: { gapMs: 1 * SEC, max: 20, windowMs: HOUR, label: 'co-op room' },
 });
 

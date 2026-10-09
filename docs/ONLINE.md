@@ -12,16 +12,42 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Clan boss | Clan → Clan Boss | Weekly boss with one shared HP pool. Every member's battle damage counts (3 attempts per 24 h). Damage ranking and claimable reward tiers S / A / B / C |
 | Developer clan | Clan → Join with a code → `Rosie777` | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
-| Transfer codes | Settings → Online | Copy your save to another device with a one-time code (XXXX-XXXX) that expires after 24 h |
+| Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
 
 No profanity filter for now (owner's decision). Client **and** server rate limits are always on.
 
 ## Setup (about 5 minutes)
 
-**Already done for this repository.** The owner created the project and connected Supabase's GitHub
-integration. Anonymous sign-ins are on. `.env.production` holds the project URL and the publishable key.
-**What is left:** merge to `main`. The integration then applies the migration, and the Pages workflow
-builds the game against the project. Use the steps below for a fresh project, or to check settings.
+**The schema is one file:** `supabase/migrations/20261008000000_online.sql`. It is the brief's
+`schema.sql`, kept in the Supabase CLI layout so that Supabase's GitHub integration can apply it. Paste
+that file into the SQL Editor if you set the database up by hand.
+
+### Status for this repository (checklist)
+
+The owner created the project and sent its URL and publishable key; anonymous sign-ins are on (checked
+on the live project). Nothing on record confirms that the GitHub integration is connected, so check that
+first.
+
+- [x] Supabase project created (free plan).
+- [x] **Allow anonymous sign-ins** is on.
+- [x] The game knows the project: `.env.production` holds the public URL and publishable key (see
+      step 4 below for the alternative, repository secrets).
+- [ ] **GitHub integration connected?** Supabase dashboard → Project Settings → Integrations → GitHub:
+      this repository, Supabase directory `supabase`, production branch `main`, "Deploy to production"
+      on. If it is not connected, either connect it now or plan to paste the migration by hand (step 2).
+- [ ] **Merge to `main`.** The integration applies the migration (its log is under Integrations →
+      GitHub), and the Pages workflow builds and deploys the game.
+- [ ] **Verify on the live site (2 minutes, after the Pages workflow is green):**
+  1. Open the game, then the chat bubble in the lobby (or `#/chat`), and pick a name.
+  2. The pill at the top right must read **Online**, and the chat must show no yellow "Local test
+     mode" / "Online features are offline" banner.
+  3. Send a message, then open the game on a phone (or a private window) and see it arrive.
+  4. If the chat says **"The game server is not set up yet"**, the migration has not run: open
+     Supabase → SQL Editor → New query, paste all of `supabase/migrations/20261008000000_online.sql`,
+     and Run. Reload the game.
+  5. Optional: Clan → Join with a code → `Rosie777` opens the developer clan and its Supply Bot.
+
+### Fresh project (or checking the settings)
 
 1. **Create a project** at <https://supabase.com/dashboard> (the free plan is enough). Pick the region
    closest to most players: co-op latency depends on it.
@@ -31,8 +57,8 @@ builds the game against the project. Use the steps below for a fresh project, or
      and turn on deploying to production. Every migration in `supabase/migrations/` is then applied
      when it reaches `main`.
    - **By hand.** Open SQL Editor → New query, paste all of
-     `supabase/migrations/20261008000000_online.sql`, then Run. The file is idempotent, so running it
-     again is harmless.
+     `supabase/migrations/20261008000000_online.sql`, then Run. The file is idempotent: running it
+     again, or running a newer version of it over an older one, is safe.
 3. **Allow anonymous sign-ins.** Go to Authentication → Sign In / Providers and switch on **Allow
    anonymous sign-ins**. Players never type an e-mail; the game makes an anonymous account the first
    time they open chat, a clan or co-op.
@@ -42,20 +68,24 @@ builds the game against the project. Use the steps below for a fresh project, or
 
    Then do one of these:
    - Put them in `.env.production` as `VITE_SUPABASE_URL=` and `VITE_SUPABASE_ANON_KEY=`. This is what
-     the repository does now. Both values are public by design: they end up in every player's browser,
-     and Row Level Security is what protects the data.
+     the repository does now, because the owner supplied them. Both values are public by design: they
+     end up in every player's browser, and Row Level Security is what protects the data.
+     **Side effect:** every production build made from a clone (`npm run build`, `npm run preview`)
+     talks to the live project. To build without a server, run `npx vite build --mode offline` (any
+     mode other than `production` skips `.env.production`); for local testing use `npm run dev`
+     (local mode).
    - Or add them as **repository secrets** with the same two names, under GitHub → Settings → Secrets
-     and variables → Actions. `.github/workflows/deploy.yml` passes them into the build, and they
-     override `.env.production`. If a secret is empty or missing, it is ignored (see `vite.config.js`).
+     and variables → Actions, and delete `.env.production`. `.github/workflows/deploy.yml` passes them
+     into the build, and they override `.env.production`. If a secret is empty or missing, it is
+     ignored (see `vite.config.js`). Which of the two to keep is the owner's call.
 
    **Never** put the `service_role` / `sb_secret_…` key or the database password anywhere in the
    repository, the workflow or the game. The game does not need them.
-5. **Deploy.** Push to `main`. When the Pages workflow finishes, open the game, then Chat, and pick a
-   name. The pill at the top right reads **Online**. Open the game on a second device to see messages
-   arrive live.
+5. **Deploy.** Push to `main`, then run the verification in the checklist above.
 
-If no URL or key is configured, the build still succeeds. The game then runs in local mode, and the
-pill reads **Online features offline**.
+If no URL or key is configured, the build still succeeds. The game then runs in local mode, the pill
+reads **Online features offline**, and chat, clans and co-op say in a yellow banner that they only reach
+other tabs of the same browser.
 
 ## Modes
 
@@ -66,33 +96,62 @@ pill reads **Online features offline**.
 | Online features offline | no config in the build, or the server cannot be reached | Same as local test mode, with a grey pill. Nothing leaves the device |
 
 `npm run dev` and the e2e tests use `?online=local`. A local `npm run build` picks up `.env.production`
-and talks to the real project.
+and talks to the real project (see step 4 above). In both local modes a yellow banner in chat, clans
+and co-op says that messages, clans and rooms only reach other tabs of this browser.
 
 ## Security and limits
 
 - **Row Level Security on every table.**
-  - Players can read profiles, but can only write their own.
+  - Players can read profiles, but can only write their own name, level and avatar. The server stamps
+    `last_active` and `created_at` itself.
   - Global chat is readable by every signed-in player. Clan chat is readable only by members of that clan.
   - Messages are posted as yourself only. A trigger stamps your real name, level and avatar on each one.
   - All other changes go through `SECURITY DEFINER` functions that check the caller (`auth.uid()`) and
-    their clan role. These are joining, leaving, roles, kicks, boss damage, rewards and transfer codes.
-  - Helper functions (`add_member`, `enforce_rate`, `system_message`, …) cannot be called by players.
+    their clan role. These are joining, leaving, roles, kicks, the clan boss, rewards, co-op rooms and
+    transfer codes.
+  - Helper functions (`add_member`, `enforce_rate`, `rate_retry_ms`, `random_code`, `system_message`, …)
+    cannot be called by players.
   - Table privileges are granted explicitly, not left to the project's defaults. Players may read the
-    game tables, insert or edit only `name`, `level`, `avatar` and `last_active` on their profile, and
-    insert only `channel`, `body`, `kind` and `meta` on a message (and `user_id`, which must be
-    themselves). Nothing can be updated, deleted or truncated directly. Transfer codes and rate-limit
-    records cannot be read at all.
+    game tables, insert or edit only `name`, `level` and `avatar` on their profile, and insert only
+    `channel`, `body`, `kind` and `meta` on a message (and `user_id`, which must be themselves).
+    Nothing can be updated, deleted or truncated directly. Transfer codes, co-op rooms, open boss
+    battles and rate-limit records cannot be read at all.
+- **What a row may hold** (table constraints, mirrored in `src/online/clanRules.js` and the local
+  adapter):
+  - Chat body: 1–200 characters. `meta` must be empty on a text message; on a co-op invite it may only be
+    `{ room: 5 letters/digits, stage?: ≤ 16 characters }` and at most 256 bytes. (Without this, one
+    player could post megabytes per message into the column every chat reader downloads.)
+  - Display names: 2–16 characters, no `<` `>`, no invisible or control characters (Unicode Cf / Cc:
+    bidi overrides, zero-width joiners, …), and none of the reserved names that would pass for a system
+    notice, the Supply Bot or staff (`System`, `Supply Bot`, `Admin`, `Moderator`, `Developer`, …).
+- **Codes are unguessable and guessing is limited.**
+  - Transfer codes are 12 characters from a 32-letter alphabet (60 random bits from the server's
+    cryptographic random source); invite codes are 8 such characters (40 bits).
+  - A wrong code is *counted*: the functions return the miss instead of raising it, so the rate-limit
+    row commits. After 5 transfer tries an hour (or 10 clan joins / code tries) even the right code is
+    refused until the window passes.
+- **Clan boss damage is checked against time.** "Fight" calls `start_boss_attempt()`, which records when
+  the battle began. `submit_boss_damage(attempt, damage)` only counts what a battle of that length
+  could deal: nothing under 10 s, then up to the boss's per-battle cap × (seconds ÷ 50), and never more
+  than the cap itself (175,000 – 230,000 depending on the boss, a maxed team's full clear
+  plus ~15%). A submit with nothing to count uses no attempt. The weekly HP pool scales with the clan:
+  cap × 3 attempts × members (at least 2) × +20% per clan level. The damage number still comes from the
+  client, so a cheater can at most score one perfect battle per attempt.
+- **Co-op rooms are private.** `open_room()` registers the room code for the host, `join_room()` gives the
+  one free seat to the first guest, and only those two receive the room secret. The Realtime channel is
+  `coop:<CODE>:<secret>`, so knowing the 5-letter code is not enough to listen to or write into a room.
 - **Rate limits.** The same numbers are in `src/online/limits.js` (client, for instant feedback) and in
-  the SQL (server, authoritative).
+  the SQL (server, authoritative). A test checks they match.
 
   | Action | Limit |
   |---|---|
   | Chat message | 1 per 2 s, 20 per minute |
   | Create clan | 1 per 10 min, 3 per day |
-  | Join / request / leave | 10 per hour |
-  | Clan boss attempt | 3 per rolling 24 h; damage capped at 200,000 per attempt |
-  | Transfer code (create or redeem) | 5 per hour |
-  | Co-op room (client only) | 1 per second, 20 per hour |
+  | Join / request / leave / invite-code try (a wrong code too) | 10 per hour |
+  | Clan boss attempt (a scored battle) | 3 per rolling 24 h |
+  | Clan boss battle start | 20 per hour |
+  | Transfer code (create or redeem, a wrong code too) | 5 per hour |
+  | Co-op room (open or join, a wrong code too) | 1 per second, 20 per hour |
 
 - **Developer clan.** It is invisible when browsing, and only the code joins it. The code `Rosie777` is
   in this public repository, so treat the dev clan as a toy. The Supply Bot only changes the player's own
@@ -104,20 +163,26 @@ and talks to the real project.
   ```
 
   Then change `DEV_CODE` in `src/online/clanRules.js` too, for local mode.
-- **Transfer codes** work like a password for your save. Each code works once and expires after 24 h.
-  The payload is a copy of the save; the original stays on the device.
+- **Transfer codes** work like a password for your save. Each code works once and expires after 24 h,
+  and creating a new one deletes your previous unused one. The payload is a copy of the save; the
+  original stays on the device.
 - **Housekeeping.** Chat older than 14 days and rate-limit records older than 25 hours are deleted as
   new rows arrive. There is no cron job.
 
 **Free plan quotas.** These are the ones that matter, as of 2026; check the Supabase pricing page.
 
-- **Realtime:** 200 concurrent connections, 100 messages per second, 2 million messages per month.
+- **Realtime:** 200 concurrent connections, 100 messages per second for the whole project, 2 million
+  messages per month.
   - Chat and clan updates use very little.
-  - A co-op battle sends about 10 lockstep packets per second per player. Realtime counts messages both
-    sent and received, so that is roughly 40 per second for the room, or about 15,000 for a 6-minute
-    battle. That allows roughly 130 co-op battles per month before the monthly quota.
-  - To spend less, raise `heartbeatMs` and `inputDelay` in `openRoom()` in
-    `src/online/adapters/supabase.js`. That trades messages for command lag.
+  - Co-op on Supabase sends one lockstep packet when a player gives an order and otherwise about 4 a
+    second per player while the battle runs (1 a second when nothing changes). State hashes ride on
+    those packets. Counting each packet once sent and once received, a room uses about 16 messages a
+    second, or about 6,000 for a 6-minute battle: roughly **330 co-op battles a month**, and about
+    **6 rooms at the same moment** before the 100-per-second cap starts throttling (which would also slow
+    chat). The local transport keeps the faster 20-a-second profile.
+  - The knobs are `net` in `openRoom()` in `src/online/adapters/supabase.js` (`heartbeatMs` 250,
+    `inputDelay` 30 ticks, `keepaliveMs` 1000). If co-op ever outgrows this, the next step is a WebRTC
+    DataChannel between the two players, with Supabase broadcast used only to set it up.
 - **Inactive projects are paused** after a week without traffic. Restore the project in the dashboard;
   until then the online screens show "Online features are offline right now".
 - **Anonymous sign-ins** are limited to 30 per hour per IP by default (Authentication → Rate Limits).
@@ -150,14 +215,33 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 
   Both clients build the same seeded Sim from it, with enemy HP ×1.6 through the stage's `hpScale`.
   `src/sim` is unchanged.
+- **Same version on both clients.** The game is a PWA, so after a deploy a cached older client can meet
+  an updated one, and that pair would desync every time. `hello` and `start` carry
+  `coopVersion()` (`src/online/coop/version.js`): the protocol number, the build's git commit
+  (`__BUILD_ID__`, set in `vite.config.js`) and a hash of the battle data. When they differ the lobby
+  refuses to pair and says "… runs a different version of the game — both of you reload".
+- **Same math on every engine.** JavaScript does not require `Math.sin`, `cos`, `atan2`, `hypot`, … to
+  be correctly rounded, and the engines really differ in the last bit (`node e2e/engines.mjs` shows it:
+  V8, JavaScriptCore and SpiderMonkey all disagree on `Math.sin`, and even Node 22 and Chromium 141
+  do). Over a long battle such a bit can flip a range check, so an iPhone and an Android phone would
+  drift apart. Every co-op Sim call therefore runs inside `withDetMath()`
+  (`src/online/coop/detMath.js`), which swaps those functions for ports of FreeBSD's msun built only
+  from + − × ÷ and `Math.sqrt` (which IEEE-754 fixes to the bit). `e2e/engines.mjs` runs one whole
+  scripted co-op battle in Node, Chromium, Bun, WebKit and Firefox and requires identical hashes.
+  Single-player battles keep the native functions.
 - **Only commands travel.** These are place, upgrade, sell, target, ult, wave, auto-start and speed.
-  - Each command is stamped with a tick a few frames ahead: 6 ticks on local tabs, 12 on Supabase,
-    multiplied by the game speed.
+  - Each command is stamped with a tick a little ahead: 6 ticks (0.1 s) on local tabs, 30 ticks
+    (0.5 s) on Supabase, multiplied by the game speed. Tower defense hardly notices half a second.
   - Both clients execute it at exactly that tick.
   - Commands that land on the same tick run in player, then sequence order.
+  - A command from the ally is checked again on arrival: a girl id that is not hers, an unknown
+    targeting mode or upgrade path, or coordinates that are not on the 1/1024 grid do nothing.
 - **Promises.**
   - Every heartbeat says "I will send nothing more up to tick N". A client only runs tick T when its ally
-    has promised T. Otherwise it shows **Waiting for ally…** and raises its input delay a little.
+    has promised T. Otherwise it shows **Waiting for ally…** and raises its input delay (up to 3×).
+  - A heartbeat goes out at once when the player gives an order; otherwise only when the promise has
+    moved on by half an input delay (local: every 50 ms; Supabase: at most every 250 ms) or, when
+    nothing changes, as a keepalive (Supabase: once a second).
   - Unacknowledged commands are re-sent with every heartbeat, so a lossy link is fine.
 - **Wallets.**
   - Each player starts with 60% of the stage's coins.
@@ -165,7 +249,8 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
     "only your own girls".
   - Coins earned are split evenly, with the odd coin alternating.
   - Only a girl's owner can upgrade, retarget or sell her.
-- **Desync check.** Both clients exchange a state hash every 120 ticks.
+- **Desync check.** Both clients compute a state hash every 120 ticks; the last two ride along on every
+  heartbeat.
   - On a mismatch the guest asks the host for its command log and replays it from the start.
   - A second mismatch within 30 s ends the link. Both players continue solo.
 - **Disconnect.** A peer is dropped when it says bye (Leave, closing the tab) or is silent for 12–20 s.
@@ -196,42 +281,61 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 npx vitest run tests/online
 node e2e/online.mjs
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
+node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
 ```
 
 The vitest suite covers:
 
 - `limits.test.js`: rate limiter.
 - `localDb.test.js` and `localAdapter.test.js`: the local server, and two tabs chatting, joining clans
-  and finishing a co-op handshake and battle.
-- `clanRules.test.js`
+  and finishing a co-op handshake and battle; meta and name checks, counted wrong codes, timed boss
+  attempts, private rooms, and a client of another build refused in the co-op lobby.
+- `clanRules.test.js` and `clanBoss.test.js`: roles, levels, names, invite meta, boss caps against
+  real Total Assault clears.
 - `lockstep.test.js`: two clients with random latency stay identical through a whole battle. It also
   covers loss, desync repair, a disconnect, slow devices and reconnecting (a frozen guest, a cut in
-  both directions, a one-way cut, a deliberate leave, and the replayed drop/return markers).
+  both directions, a one-way cut, a deliberate leave, and the replayed drop/return markers), the
+  Supabase message budget (about 4 packets a second, hashes folded in), forged or junk commands.
+- `detMath.test.js`: the deterministic sin / cos / atan2 / hypot / … stay within 2 ulp of the engine's own,
+  are swapped in only while a co-op call runs, and keep a battle bit-identical when Math is perturbed.
+- `engines.test.js`: keeps the cross-engine battle (`e2e/engines/scriptedBattle.js`) finishing in sync
+  with every scripted order accepted.
 - `battleRoute.test.js`: solo battle routes never pick up a co-op session.
 - `schema.test.js`:
   - lints the migration;
   - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema, once with
     Supabase's classic default table grants and once with none;
   - exercises RLS, the table and column grants, every function and the server rate limits as
-    several players.
+    several players, including a 2 MB `meta` (refused), the 6th wrong transfer code in an hour
+    (refused, then even the right one), wrong invite codes, boss damage against the battle's length,
+    and room secrets.
 - `supabaseAdapter.test.js`: runs the Supabase adapter against a recording fake of supabase-js. Every
   table, column, function, parameter and realtime filter it uses must exist in the migration, and
   every column it writes must be granted to players.
 
 The e2e test opens two pages of one browser in local mode. It checks:
 
-- chat delivery and rate-limit feedback, and the lobby's chat bubble drawer;
+- chat delivery and rate-limit feedback, the local-mode banner, and the lobby's chat bubble drawer;
 - clan create and join;
 - the clan boss, including one attempt through a real battle that lands on the damage ranking;
 - the Rosie777 Supply Bot;
-- a co-op battle where both players place a girl and the state hashes match.
+- a co-op battle where both players place a girl and the state hashes match, a dropped and re-admitted
+  guest, and the host playing on alone.
+
+`e2e/engines.mjs` bundles `e2e/engines/scriptedBattle.js` once and runs it in Node, Bun, and Playwright's
+Chromium, Firefox and WebKit (whichever are installed; at least two engines must run, `--require-all`
+needs all). Install the extra browsers with `npx playwright install --with-deps firefox webkit`.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | Pill says **Online features offline** on the live site | The build had no URL or key. Check `.env.production`, or the repository secrets, and redeploy |
-| "The game server is not set up yet" / "Online features are offline right now" | The migration has not run. Check the GitHub integration's log in Supabase, or paste the migration into the SQL editor. If the project was paused, restore it |
+| "The game server is not set up yet" | The migration has not run. Check the GitHub integration's log in Supabase, or paste `supabase/migrations/20261008000000_online.sql` into the SQL editor |
+| "Online features are offline right now" | The project cannot be reached: it may be paused (restore it in the dashboard) or down |
 | "Anonymous sign-ins are disabled" | Authentication → Sign In / Providers → Allow anonymous sign-ins |
-| Co-op shows **Waiting for ally…** often | High latency between the players. The input delay adapts up to 18 ticks; a closer Supabase region helps |
+| Co-op lobby says the ally **runs a different version** | One of you has an older cached copy of the game. Both reload the page (close and reopen the app on a phone) |
+| Co-op shows **Waiting for ally…** often | High latency between the players. The input delay adapts up to 3× (1.5 s on Supabase); a closer Supabase region helps |
+| Co-op says "No room uses that code" | The host closed the room, or the code is older than a day. Ask for a new one |
 | Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
+| A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |
