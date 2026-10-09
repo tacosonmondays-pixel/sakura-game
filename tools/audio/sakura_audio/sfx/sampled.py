@@ -7,6 +7,7 @@ from fractions import Fraction as Fr
 
 import numpy as np
 
+from ..fx import part_fx, FxContext
 from ..midi import snap_tempo
 from ..notation import bars_of
 from ..paths import BUILD
@@ -27,5 +28,7 @@ def sampled(palette, role: str, text: str, bpm: float = 120, tail: float = 1.2, 
     out_dir = BUILD / palette.id / 'sfx_raw' / key
     jobs = plan_jobs(tl, palette, out_dir)
     render_jobs(jobs, tempo, end, palette.render, out_dir, workers=1, log=lambda *a: None)
-    x = sum(read_wav(j.wav, n) for j in jobs)
+    rate = int(palette.render['rate'])
+    x = sum(part_fx(read_wav(j.wav, n), j.fx, FxContext(rate, tempo, s, tl, [nt for a in j.assignments for nt in a[0].notes], n))
+            if j.fx else read_wav(j.wav, n) for j in jobs)     # a role's own fx (e.g. kick_hard's drive) applies here too
     return x.mean(axis=1)

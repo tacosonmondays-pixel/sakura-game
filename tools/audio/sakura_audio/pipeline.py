@@ -20,6 +20,7 @@ import numpy as np
 
 from . import checks as C
 from .encode import encode, decode, FORMATS
+from .fx import part_fx, FxContext
 from .midi import snap_tempo, Tempo, write_preview
 from .mix import (snes_echo, lowpass, highpass, crush, loudness, loudness_gain, build_loop_file, trim_oneshot, write_wav,
                   echo_decay_seconds, voice_fx, GUARD)
@@ -109,6 +110,9 @@ def render_song(song, palette, build_root: Path = BUILD, encode_formats=('opus',
         voices = mixp.get('voices') or {}
         for j in (j for j in jobs if j.stem == stem):
             x = voice_fx(read_wav(j.wav, N), rate, voices.get('kit' if j.kit else j.sf_key))
+            if j.fx:      # per-part effects (filter → drive → pump), on the continuous render, before the echo send
+                x = part_fx(x, j.fx, FxContext(rate, tempo, song, tl, [n for a in j.assignments for n in a[0].notes], N,
+                                               (L0, P) if loop else None))
             dry += x
             if j.send > 0:
                 wet += x * j.send

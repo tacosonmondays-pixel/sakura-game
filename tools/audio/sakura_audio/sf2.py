@@ -190,3 +190,63 @@ def read_presets(path: Path) -> list:
                 sub += 8 + ssize + (ssize & 1)
         pos += 8 + size + (size & 1)
     raise ValueError(f'{path}: no phdr chunk')
+
+
+def _pdta_chunks(data: bytes) -> dict:
+    """{chunk id: (offset, size)} of the pdta sub-chunks."""
+    pos = 12
+    while pos < len(data):
+        cid, size = data[pos:pos + 4], struct.unpack('<I', data[pos + 4:pos + 8])[0]
+        if cid == b'LIST' and data[pos + 8:pos + 12] == b'pdta':
+            out = {}
+            sub, end = pos + 12, pos + 8 + size
+            while sub < end:
+                scid, ssize = data[sub:sub + 4], struct.unpack('<I', data[sub + 4:sub + 8])[0]
+                out[scid.decode('ascii', 'replace')] = (sub + 8, ssize)
+                sub += 8 + ssize + (ssize & 1)
+            return out
+        pos += 8 + size + (size & 1)
+    raise ValueError('no pdta chunk')
+
+
+def preset_keys(path: Path) -> dict:
+    """{(bank, program): set of MIDI keys that sound} for every preset of a .sf2 file: the keys where a preset
+    zone's key range meets one of its instrument's sample zones. Used to check that every drum name of a kit
+    role (after its kit_map) lands on a sample, e.g. that a kit has no finger snap on key 26."""
+    data = Path(path).read_bytes()
+    if data[:4] != b'RIFF' or data[8:12] != b'sfbk':
+        raise ValueError(f'{path} is not a SoundFont 2 file')
+    c = _pdta_chunks(data)
+
+    def recs(name, size):
+        off, n = c[name]
+        return [data[off + i * size: off + (i + 1) * size] for i in range(n // size)]
+    phdr = [struct.unpack('<HHH', r[20:26]) for r in recs('phdr', 38)]          # (program, bank, bag index)
+    pbag = [struct.unpack('<HH', r) for r in recs('pbag', 4)]
+    pgen = [struct.unpack('<HH', r) for r in recs('pgen', 4)]
+    inst = [struct.unpack('<H', r[20:22])[0] for r in recs('inst', 22)]
+    ibag = [struct.unpack('<HH', r) for r in recs('ibag', 4)]
+    igen = [struct.unpack('<HH', r) for r in recs('igen', 4)]
+
+    def gens(table, lo, hi):
+        return {op: amt for op, amt in table[lo:hi]}
+    out = {}
+    for i in range(len(phdr) - 1):
+        prog, bank, bag = phdr[i]
+        keys = set()
+        for z in range(bag, phdr[i + 1][2]):
+            g = gens(pgen, pbag[z][0], pbag[z + 1][0])
+            if GEN['instrument'] not in g:
+                continue
+            kr = g.get(GEN['keyRange'], 0x7f00)
+            plo, phi = kr & 0xff, kr >> 8
+            ins = g[GEN['instrument']]
+            for iz in range(inst[ins], inst[ins + 1]):
+                ig = gens(igen, ibag[iz][0], ibag[iz + 1][0])
+                if GEN['sampleID'] not in ig:
+                    continue
+                ikr = ig.get(GEN['keyRange'], 0x7f00)
+                lo, hi = max(ikr & 0xff, plo), min(ikr >> 8, phi)
+                keys.update(range(lo, hi + 1))
+        out[(bank, prog)] = keys
+    return out

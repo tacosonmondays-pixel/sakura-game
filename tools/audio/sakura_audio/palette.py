@@ -14,10 +14,11 @@ import os
 import re
 from pathlib import Path
 
+from .fx import validate_fx, FxError
 from .paths import TOOLS, CACHE, PALETTES, PRIVATE
 
 ROLE_FIELDS = {'sf', 'bank', 'program', 'gain_db', 'pan', 'echo', 'transpose', 'vel_curve', 'kit_map', 'alias',
-               'note', 'gm_preview'}
+               'note', 'gm_preview', 'fx'}
 
 
 class PaletteError(ValueError):
@@ -43,6 +44,10 @@ class Palette:
             unknown = set(role) - ROLE_FIELDS
             if unknown:
                 raise PaletteError(f'palette {self.id}: role {k} has unknown fields {sorted(unknown)}')
+            try:
+                validate_fx(role.get('fx'), f'palette {self.id}: role {k}: ')
+            except FxError as e:
+                raise PaletteError(str(e)) from None
 
     # ---- soundfonts ------------------------------------------------------------------------------
     def soundfont(self, key: str) -> Path | None:

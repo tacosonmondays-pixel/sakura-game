@@ -9,10 +9,12 @@
     ^          slide in from −2 semitones (pitch bend)   *  vibrato (mod wheel)
     |          bar line: every bar must add up to the meter, or parsing fails
     %          repeat the previous bar        ( … )x2  repeat a group
-    drums      k s rs cl h ph o c rd t1 t2 t3 tb cb sh wb tri tk cg bg ag cv c2 sp ch
+    drums      k s rs cl h ph o c rd t1 t2 t3 tb cb sh wb tri tk cg bg ag cv c2 sp ch fs sr st
                (kick, snare, rimshot, clap, closed/pedal/open hat, crash, ride, toms, tambourine,
                cowbell, shaker, woodblock, triangle, taiko, conga, bongo, agogo, claves, crash 2,
-               splash, china); k+c/4 = simultaneous; r is a rest in drum parts too.
+               splash, china, finger snap, snare roll, sticks); k+c/4 = simultaneous; r is a rest in drum
+               parts too. Names map to GS drum notes; a kit role's `kit_map` re-points a name its soundfont
+               lacks (GeneralUser and FluidR3 have no finger snap 26 or snare roll 25, see the palettes).
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ DRUM_NAMES = {
     'rd': 51, 'rb': 53, 'sp': 55, 'ch': 52, 't1': 50, 't2': 47, 't3': 43, 't4': 41, 'tb': 54, 'cb': 56,
     'sh': 70, 'wb': 76, 'wl': 77, 'tri': 81, 'trm': 80, 'cg': 63, 'cgl': 64, 'bg': 60, 'bgl': 61,
     'ag': 67, 'agl': 68, 'cv': 75, 'cs': 69, 'ws': 72, 'vs': 58, 'sd2': 40, 'k2': 35,
+    'fs': 26, 'sr': 25, 'st': 31,
 }
 
 TOKEN_RE = re.compile(r'\[[^\]]*\][^\s|()]*|\(|\)x\d+|\||[^\s|()]+')

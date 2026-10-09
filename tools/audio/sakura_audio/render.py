@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 
+from .fx import merge_fx, fx_key, needs_own_job
 from .midi import write_midi, MELODIC_CHANNELS, DRUM_CHANNEL, Tempo
 from .paths import FLUIDSYNTH
 
@@ -34,6 +35,7 @@ class Job:
     index: int
     sf_key: str = ''
     kit: bool = False                                    # a kit-only job (drums get their own voice treatment)
+    fx: dict = field(default_factory=dict)              # part effects run on this job's render (sakura_audio/fx.py)
     assignments: list = field(default_factory=list)     # (TimelinePart, preset, channel)
     midi: Path | None = None
     wav: Path | None = None
@@ -42,20 +44,27 @@ class Job:
     @property
     def label(self):
         roles = ','.join(sorted({a[0].role for a in self.assignments}))
-        return f'{self.stem}/{self.sf_path.stem}/send{self.send:g}#{self.index} [{roles}]'
+        fx = f' fx:{"+".join(k for k in ("filter", "drive", "pump") if k in self.fx)}' if self.fx else ''
+        return f'{self.stem}/{self.sf_path.stem}/send{self.send:g}#{self.index} [{roles}]{fx}'
 
 
 def plan_jobs(tl, palette, out_dir: Path) -> list:
     groups: dict = {}
+    fx_of: dict = {}
     for tp in tl.parts:
         if not tp.notes:
             continue
         pre = palette.resolve(tp.role)
         send = round(float(pre.get('echo', 0.0)) * 4) / 4      # quarter steps keep the job count low
         kit = pre.get('bank') == 128
-        groups.setdefault((tp.stem, str(pre['sf_path']), send, kit, pre.get('sf_key', '')), []).append((tp, pre))
+        # parts with effects render apart, grouped by their (merged role + part) fx; '' sorts first and keeps the
+        # job layout of songs without fx unchanged
+        fx = merge_fx(pre.get('fx'), getattr(tp, 'fx', None))
+        fk = fx_key(fx) + (f'#{tp.name}' if needs_own_job(fx) else '')
+        fx_of[fk] = fx
+        groups.setdefault((tp.stem, str(pre['sf_path']), send, kit, pre.get('sf_key', ''), fk), []).append((tp, pre))
     jobs = []
-    for (stem, sf, send, kit, sf_key), items in sorted(groups.items()):
+    for (stem, sf, send, kit, sf_key, fk), items in sorted(groups.items()):
         # kits render in jobs of their own (one kit per job, channel 10), so the mix can treat drums apart
         # from the sampled melodic voices (palette mix.voices: 'kit' vs the soundfont key)
         if kit:
@@ -66,7 +75,8 @@ def plan_jobs(tl, palette, out_dir: Path) -> list:
         for i, (ch_items, kit_items) in enumerate(zip(chunks, kit_slots)):
             if not ch_items and not kit_items:
                 continue
-            j = Job(tl.song.id, stem, Path(sf), send, len([x for x in jobs if x.stem == stem]), sf_key=sf_key, kit=kit)
+            j = Job(tl.song.id, stem, Path(sf), send, len([x for x in jobs if x.stem == stem]), sf_key=sf_key, kit=kit,
+                    fx=fx_of[fk])
             for c, (tp, pre) in zip(MELODIC_CHANNELS, ch_items):
                 j.assignments.append((tp, pre, c))
             for tp, pre in kit_items:

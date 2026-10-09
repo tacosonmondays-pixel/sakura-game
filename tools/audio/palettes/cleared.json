@@ -138,7 +138,12 @@
    "program": 0,
    "gain_db": -3,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 37,
+    "sr": 40,
+    "st": 75
+   }
   },
   "piano": {
    "sf": "gm",
@@ -626,7 +631,11 @@
    "program": 0,
    "gain_db": -3,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
   },
   "drums_room": {
    "sf": "gm",
@@ -634,7 +643,11 @@
    "program": 8,
    "gain_db": -3,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
   },
   "drums_power": {
    "sf": "gm",
@@ -642,7 +655,11 @@
    "program": 16,
    "gain_db": -4,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
   },
   "drums_brush": {
    "sf": "gm",
@@ -650,7 +667,11 @@
    "program": 40,
    "gain_db": -2,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
   },
   "drums_orch": {
    "sf": "gm",
@@ -658,7 +679,347 @@
    "program": 48,
    "gain_db": -4,
    "pan": 0,
-   "echo": 0
+   "echo": 0,
+   "kit_map": {
+    "fs": 31,
+    "sr": 40
+   }
+  },
+  "tenor_sax": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 66,
+   "gain_db": -2.5,
+   "pan": -0.15,
+   "echo": 0.4
+  },
+  "bari_sax": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 67,
+   "gain_db": -3.0,
+   "pan": 0.1,
+   "echo": 0.2
+  },
+  "clarinet": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 71,
+   "gain_db": -4.0,
+   "pan": -0.1,
+   "echo": 0.5
+  },
+  "harmonica": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 22,
+   "gain_db": 0.0,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "jazz_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 26,
+   "gain_db": -5.0,
+   "pan": 0.2,
+   "echo": 0.3
+  },
+  "muted_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 28,
+   "gain_db": -0.5,
+   "pan": -0.25,
+   "echo": 0.2
+  },
+  "funk_gtr": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 28,
+   "gain_db": -5.0,
+   "pan": 0.3,
+   "echo": 0.2
+  },
+  "surf_gtr": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 27,
+   "gain_db": 1.5,
+   "pan": -0.15,
+   "echo": 0.9
+  },
+  "ukulele": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 24,
+   "gain_db": -6.5,
+   "pan": 0.2,
+   "echo": 0.4
+  },
+  "mandolin": {
+   "sf": "gm",
+   "bank": 16,
+   "program": 25,
+   "gain_db": 4.5,
+   "pan": -0.2,
+   "echo": 0.4
+  },
+  "clavinet": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 7,
+   "gain_db": -4.0,
+   "pan": -0.2,
+   "echo": 0.2
+  },
+  "rhodes": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 4,
+   "gain_db": -5.5,
+   "pan": -0.1,
+   "echo": 0.4,
+   "fx": {
+    "drive": {
+     "pre_db": 9,
+     "hp_hz": 60,
+     "tone_hz": 4500,
+     "mix": 0.5
+    }
+   }
+  },
+  "vibes_dry": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 11,
+   "gain_db": -3.0,
+   "pan": 0.2,
+   "echo": 0.6
+  },
+  "combo_organ": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 16,
+   "gain_db": -5.5,
+   "pan": 0.15,
+   "echo": 0.3
+  },
+  "bell_piano": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 0,
+   "gain_db": 0.0,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "fiddle": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 110,
+   "gain_db": -3.0,
+   "pan": 0.2,
+   "echo": 0.5
+  },
+  "tin_whistle": {
+   "sf": "gm",
+   "bank": 24,
+   "program": 75,
+   "gain_db": -3.5,
+   "pan": -0.15,
+   "echo": 0.7
+  },
+  "tinkle_bells": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 8,
+   "gain_db": -1.0,
+   "pan": -0.2,
+   "echo": 0.9
+  },
+  "xmas_bells": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 10,
+   "gain_db": -2.5,
+   "pan": 0.25,
+   "echo": 0.9
+  },
+  "synth_chime": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 98,
+   "gain_db": -2.5,
+   "pan": 0.15,
+   "echo": 0.7
+  },
+  "techno_bass": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 38,
+   "gain_db": 2.0,
+   "pan": 0.0,
+   "echo": 0.0
+  },
+  "acid_bass": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 38,
+   "gain_db": -5.0,
+   "pan": 0.0,
+   "echo": 0.0,
+   "fx": {
+    "filter": {
+     "type": "lp",
+     "hz": 520,
+     "q": 5.5,
+     "accent": {
+      "depth_oct": 2.6,
+      "decay_ms": 170,
+      "vel_floor": 48
+     }
+    }
+   }
+  },
+  "saw_bass": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 38,
+   "gain_db": -3.0,
+   "pan": 0.0,
+   "echo": 0.0,
+   "fx": {
+    "drive": {
+     "pre_db": 7,
+     "hp_hz": 30,
+     "tone_hz": 5200,
+     "mix": 0.6
+    }
+   }
+  },
+  "square_lead": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 80,
+   "gain_db": -0.5,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "saw_lead": {
+   "sf": "gm",
+   "bank": 12,
+   "program": 81,
+   "gain_db": 2.0,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "saw_stab": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 81,
+   "gain_db": 0.0,
+   "pan": 0.0,
+   "echo": 0.4
+  },
+  "supersaw": {
+   "sf": "gm",
+   "bank": 11,
+   "program": 100,
+   "gain_db": -1.0,
+   "pan": 0.0,
+   "echo": 0.5
+  },
+  "sweep_pad": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 95,
+   "gain_db": -8.0,
+   "pan": 0.0,
+   "echo": 0.5
+  },
+  "synth_brass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 63,
+   "gain_db": -5.0,
+   "pan": -0.1,
+   "echo": 0.4
+  },
+  "synth_strings": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 50,
+   "gain_db": -8.0,
+   "pan": 0.0,
+   "echo": 0.5
+  },
+  "vox_chop": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 85,
+   "gain_db": -5.0,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "drums_jazz": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 32,
+   "gain_db": -2.0,
+   "pan": 0,
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
+  },
+  "drums_909": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 25,
+   "gain_db": -2.0,
+   "pan": 0,
+   "echo": 0,
+   "kit_map": {
+    "s": 40,
+    "sd2": 38,
+    "fs": 37,
+    "sr": 38
+   }
+  },
+  "drums_electro": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 24,
+   "gain_db": -4.0,
+   "pan": 0,
+   "echo": 0,
+   "kit_map": {
+    "fs": 28,
+    "sr": 40
+   }
+  },
+  "kick_hard": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 25,
+   "gain_db": -4.5,
+   "pan": 0,
+   "echo": 0,
+   "fx": {
+    "drive": {
+     "pre_db": 14,
+     "hp_hz": 35,
+     "tone_hz": 6000,
+     "mix": 1.0
+    }
+   },
+   "kit_map": {
+    "k": 36,
+    "tk": 35,
+    "fs": 37,
+    "sr": 38
+   }
   },
   "lead": {
    "alias": "chip_pulse25"

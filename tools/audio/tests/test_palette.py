@@ -20,6 +20,12 @@ DESIGN_ROLES = {
     'recorder', 'pan_flute', 'shakuhachi', 'whistle', 'ocarina', 'pad_warm', 'pad_choir', 'pad_halo', 'shamisen', 'koto',
     'kalimba', 'steel_drum', 'woodblock', 'taiko', 'melodic_tom', 'rev_cymbal', 'drums', 'drums_room', 'drums_power',
     'drums_brush', 'drums_orch', 'koto_pluck', 'choir',
+    # round 3 (genre lanes: jazz, ska, city pop, techno, hardtek, Celtic, surf, sweet)
+    'tenor_sax', 'bari_sax', 'clarinet', 'harmonica', 'jazz_gtr', 'muted_gtr', 'funk_gtr', 'surf_gtr', 'ukulele',
+    'mandolin', 'clavinet', 'rhodes', 'vibes_dry', 'combo_organ', 'bell_piano', 'fiddle', 'tin_whistle', 'tinkle_bells',
+    'xmas_bells', 'synth_chime', 'techno_bass', 'acid_bass', 'saw_bass', 'square_lead', 'saw_lead', 'saw_stab',
+    'supersaw', 'sweep_pad', 'synth_brass', 'synth_strings', 'vox_chop', 'drums_jazz', 'drums_909', 'drums_electro',
+    'kick_hard',
 }
 
 
@@ -31,7 +37,7 @@ class PaletteTest(unittest.TestCase):
         for r in pal.role_names():
             x = pal.resolve(r)
             self.assertTrue(Path(x['sf_path']).exists(), r)
-            self.assertIn(x['bank'], (0, 128))
+            self.assertTrue(0 <= x['bank'] <= 128)        # GS variation banks (8, 11, 12, 16, 24) since round 3
             self.assertTrue(0 <= x['program'] <= 127)
 
     def test_aliases(self):

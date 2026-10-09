@@ -36,12 +36,12 @@ Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **Round 2 (2026-
 |---|---|---|
 | Toolkit setup | `tools/audio/requirements.txt`, `setup_venv.sh`, `fetch_soundfonts.py`, `make_chip_sf2.py` | GeneralUser GS fetched by `git` at the pinned commit, size + SHA-256 checked, licence copied next to it; FluidR3 fallback; `sakura-chip.sf2` (CC0) is generated deterministically |
 | Song → MIDI | `sakura_audio/notation.py`, `theory.py`, `song.py`, `gen.py`, `midi.py`, `songs/motifs.py` | Python DSL or JSON (`Song.from_dict`), bar validator, chord-symbol generators, motif markers, tempo snap |
-| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 81 roles. `toby` points at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
-| Render + mix | `render.py`, `mix.py`, `encode.py`, `checks.py`, `pipeline.py` | FluidSynth jobs per (stem × font × echo send), cached by hash; SNES echo, lowpass, optional crush, one loudness gain for all stems, exact head + loop-body file, Opus + AAC, gates |
+| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 116 roles (81 + 35 genre roles in round 3, §2.4). `toby` points at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
+| Render + mix | `render.py`, `mix.py`, `fx.py`, `encode.py`, `checks.py`, `pipeline.py` | FluidSynth jobs per (stem × font × echo send × part fx), cached by hash; per-part filter / drive / sidechain pump (round 3, §2.4.2); SNES echo, lowpass, optional crush, one loudness gain for all stems, exact head + loop-body file, Opus + AAC, gates |
 | SFX | `sfx/synth.py`, `sfx/recipes.py` (84 ids), `sfx/sampled.py`, `sfx/sprite.py` | one mono sprite + `sprite.json` |
 | Review | `sakura_audio/review.py` | piano roll (motif boxes), waveform with loop points, seam plots (WAV + both decodes), spectrogram, gate report, SFX contact sheet, `index.html` |
 | CLI | `studio.py fetch / list / roles / presets / midi [--roll] / render / sfx / review / ship` | `ship` is the only command that writes `public/audio/`, and only when every gate passed |
-| Python tests | `tools/audio/tests/` (33 tests) | notation, loop layout + tempo snap, echo impulse response, SF2 round trip through FluidSynth (pitch per program, band-limiting, kit), palettes (inheritance, toby fallback, every role played by the demo), song model |
+| Python tests | `tools/audio/tests/` (60 tests) | notation, loop layout + tempo snap, echo impulse response, SF2 round trip through FluidSynth (pitch per program, band-limiting, kit), palettes (inheritance, toby fallback, every role played by the demo, every preset and drum name exists in its font), song model, swing options, part effects (`test_fx.py`: SVF vs a per-sample reference, drive, pump, periodic curves, a FluidSynth render with all three effects passing the seam gates) |
 | Engine | `src/audio/` `cue`, `index`, `engine`, `loader`, `music`, `sfx`, `limiter`, `loopMath`, `routes`, `cues`, `battle`, `economy`, `domSfx`, `soundTest` | as §3; battle stings, jingles and the boss track two waves ahead are preloaded; a sting that is still decoding 0.75 s after its moment is skipped instead of playing late |
 | Hooks | §1.9, all in place | plus `registerRoute('soundtest', …)` in `main.js` and a *Sound test* row in Settings → Audio |
 | JS tests | `tests/audio/` (7 files, 64 tests) | loop math, manifest + budgets + sprite ids, routes, battle state machine + SFX mapping, limiter, economy, director on a fake WebAudio graph, battle preloads |
@@ -72,7 +72,8 @@ npx vitest run tests/audio && node e2e/audio.mjs
 ### S.3 The demo tune and its measurements
 
 *Roll Call* (`tools/audio/songs/demo.py`, original): a melody passed around the band one bar at a time, so
-every one of the 81 palette roles plays at least once (a unit test checks this). It is rendered four ways:
+every one of the 81 round-2 palette roles plays at least once (a unit test checks this; round 3 adds
+`demo_genres`, which plays the 35 genre roles and the part effects, §2.4.2). It is rendered four ways:
 
 | Track | Layout | Length | Opus | AAC | Stands in for |
 |---|---|---|---|---|---|
@@ -549,6 +550,13 @@ song.part('box', role='music_box', stem='full').notes('intro', BELL.question(key
                                                        + BELL.answer(key='F', octave=6) + ' r/2 | r/1 | r/1')  # f6/2
 ```
 
+**Swing quantise** (no audio stretching; round 3). `Song(swing=0.64)` moves every offbeat 8th to 64 % of the
+beat and stretches the notes in between proportionally. Options: `Song(swing_unit=0.5)` swings 16ths instead of
+8ths; `Song(swing_triplets='keep')` leaves notes on a triplet grid where they are (jazz triplet skips stay triplets,
+while duple 8ths swing); `song.section('Br', 8, chords, swing=0)` overrides the amount for one section (a straight
+bossa bridge in a swing tune); `song.part(..., swing=0.66)` overrides it for one part (it wins over the section).
+The defaults (`swing_unit=1`, `'warp'`) are the round-2 formula, so older songs render bit-identically.
+
 Generators (`gen.py`) are deterministic. They take the chord grid, the key and the style:
 
 | Family | Generators |
@@ -593,7 +601,8 @@ A song file declares `stems`, the parts in each stem, and per-part `role`. Every
 
 Role fields: `sf`, `bank`, `program` (0-based), `gain_db`, `pan` (−1…1), `echo` (0…1 send; on SNES this
 was a per-voice on/off bit, so we render a wet group and a dry group), `transpose`, `vel_curve`, `kit_map`
-(drums), `alias` (`"lead": {"alias": "chip_pulse25"}`).
+(drums: drum name → MIDI key, for names a kit lacks), `alias` (`"lead": {"alias": "chip_pulse25"}`), `fx` (part
+effects, §2.4.2; round 3).
 
 **Role list** (songs may only use these; the validator rejects unknown roles). `cleared` defaults below,
 GM programs 0-based:
@@ -613,6 +622,7 @@ GM programs 0-based:
 | Pads | `pad_warm` 89, `pad_choir` 91, `pad_halo` 94 |
 | Japanese and world | `shamisen` 106, `koto` 107, `kalimba` 108, `steel_drum` 114, `woodblock` 115, `taiko` 116, `melodic_tom` 117, `rev_cymbal` 119 |
 | Kits | `drums` 128/0 (Standard), `drums_room` 128/8, `drums_power` 128/16, `drums_brush` 128/40, `drums_orch` 128/48 |
+| Round 3 | 35 genre roles, see §2.4.1 |
 
 **Palettes shipped in git** (JSON only):
 
@@ -622,6 +632,104 @@ GM programs 0-based:
 | `strict` | Same roles on FluidR3 GM (MIT) + `sakura-chip` (CC0) only, for a fully license-documented build |
 | `chip` | `inherit: cleared`, but every melodic role maps to `sakura-chip` and drums to the NES kit. A full NES mode, cheap to offer later as a Settings "8-bit mode" |
 | `toby` | `inherit: cleared` (any role it does not map falls back, with a warning). Soundfonts point at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` and `${SAKURA_PRIVATE_SF2}/sgm.sf2` (file names confirmed when Kai's ledger or palette arrives). Role entries are filled from Kai's Toby palette. It can also set its own `mix` (EarthBound-style shorter echo, crunchier). Nothing in any song changes: `studio.py render all --palette toby` re-renders everything |
+
+#### 2.4.1 Round-3 genre roles (jazz, ska, city pop, techno, hardtek, Celtic, surf, sweet)
+
+Added for the round-3 genre lanes (plan: `r3/plan.md` §4.1). `cleared` uses GeneralUser GS's GS variation banks
+where they sound better than the plain GM program. FluidR3 (`strict`) only has banks 0, 8, 16 and 128, so
+`strict.json` now carries explicit overrides (`quiet_inherit`, round-3 roles only) with the closest FluidR3
+preset. `toby.json` maps every new role to the GM program in `sgm` (and falls back to `cleared`, fx included,
+without the private fonts). `chip.json` maps them to `sakura-chip`, like every other role.
+
+**Levels.** Every new role was rendered solo through the real chain (voice treatment, part fx, echo; no loudness
+normalisation) playing a 4-bar audition phrase of its kind (lead, bass, comp, strum, stab, pad, bell, 16th arp,
+kit, kick), next to reference roles that were balanced in round 2 (`partloud`). `gain_db` was set so a new
+role lands within about 1 dB of its family: leads ≈ `alto_sax` / `chip_pulse25` / `trumpet` (−33.5 LUFS solo),
+comping ≈ `epiano` (−32.5), stabs ≈ `brass_stab` (−36), pads ≈ `pad_warm` (−35.5), bells ≈ `celesta` level minus
+4 LU (answers sit under the tune, −37), basses −31.5…−33 (`techno_bass` and `saw_bass` are the stars of their
+lanes), kits ≈ `drums` (−36.5), `kick_hard` −32 (quarter kicks alone; keep it 2-3 dB under bass + lead in the
+mix). FluidR3 runs 1-5 dB hotter than GeneralUser and its synth / 808 presets up to 9 dB hotter, so `strict`
+re-measures the overridden roles against FluidR3's own references. The auditions (WAV + spectrogram per role,
+8-bar effect demos, contact sheets) were made with a scratch script around `render.plan_jobs` / `mix.voice_fx` /
+`fx.part_fx` / `mix.loudness`; they are not in the repo.
+
+| Role | `cleared` (bank/prog, gain dB) | `strict` (FluidR3) | `toby` (sgm) | Notes |
+|---|---|---|---|---|
+| `tenor_sax` | 0/66 Tenor Sax, −2.5 | = | 0/66 | jazz section, ska head, surf honk |
+| `bari_sax` | 0/67 Baritone Sax, −3 | = | 0/67 | ska blat, jazz bottom |
+| `clarinet` | 0/71 Clarinet, −4 | = | 0/71 | jazz counter-line |
+| `harmonica` | 0/22 Harmonica, 0 | = | 0/22 | ska dub breakdown |
+| `jazz_gtr` | 0/26 Jazz Guitar, −5 | = | 0/26 | four-to-the-bar comping |
+| `muted_gtr` | 0/28 Muted Guitar, −0.5 | = | 0/28 | ska skank |
+| `funk_gtr` | 8/28 Funk Guitar, −5 | 8/28, −7.5 | 0/28 | city-pop 16th scratch |
+| `surf_gtr` | 12/27 Clean Guitar 2, +1.5, echo 0.9 | 0/27, −0.5 | 0/27 | tremolo-picked surf lead |
+| `ukulele` | 8/24 Ukulele, −6.5 | 8/24, −9 | 0/24 | sweet strum |
+| `mandolin` | 16/25 Mandolin, +4.5 | 16/25, +2.5 | 0/25 | Celtic chops (the sample is quiet) |
+| `clavinet` | 0/7 Clavinet, −4 | = | 0/7 | city-pop stabs |
+| `rhodes` | 8/4 Chorused Tine EP, −5.5, `fx.drive` (pre 9 dB, mix 0.5, tone 4.5 kHz) | = (8/4 Detuned EP 1) | 0/4 (+ same fx) | FluidSynth's chorus is off, so 8/4 alone = `epiano`; the light drive gives the tine bark that tells them apart |
+| `vibes_dry` | 11/11 Vibraphone No Trem., −3 | 0/11 | 0/11 | jazz head (no tremolo) |
+| `combo_organ` | 8/16 Detuned Tonewheel, −5.5 | 8/16 Detuned Organ 1, −2 | 0/17 | surf / ska organ |
+| `bell_piano` | 12/0 Bell Piano (DX7 strike + grand), 0 | 0/5 FM EP | 0/8 | sweet tune |
+| `fiddle` | 0/110 Fiddle, −3 | = | 0/110 | Celtic lead / double-stops |
+| `tin_whistle` | 24/75 Tin Whistle, −3.5 | 0/74 Recorder, −10 | 0/78 | Celtic lead (GM 78 "Whistle" is a human whistle; the recorder is the closest fipple flute in FluidR3) |
+| `tinkle_bells` | 11/8 Tinkling Bells, −1 | 0/112 Tinker Bell, +0.5 | 0/112 | sweet answers |
+| `xmas_bells` | 12/10 Christmas Bells (glass + triangle), −2.5 | 0/98 Crystal, 0 | 0/10 | sweet answers |
+| `synth_chime` | 11/98 Synth Chime, −2.5 | 0/98 Crystal, −4.5 | 0/98 | techno "conveyor" 16th arp |
+| `techno_bass` | 11/38 Techno Bass, +2 | 8/39 Synth Bass 4, −3 | 0/38 | short plucky 16ths; pump it (§2.4.2) |
+| `acid_bass` | 8/38 Acid Bass, −5, `fx.filter` LP 520 Hz, Q 5.5, accent 2.6 oct / 170 ms | 8/39, −7 (+ same fx) | 0/38 (+ same fx) | add `auto` on the part for the sweep |
+| `saw_bass` | 12/38 Mean Saw Bass, −3, `fx.drive` (pre 7 dB, mix 0.6, tone 5.2 kHz) | 0/38 Synth Bass 1, −4.5 | 0/39 (+ same fx) | hardtek rolling bass |
+| `square_lead` | 12/80 Square Lead 2, −0.5 | 0/80, −5 | 0/80 | techno / city-pop hook |
+| `saw_lead` | 12/81 Saw Lead 2, +2 | 0/81, −3 | 0/81 | electronic lead (optional) |
+| `saw_stab` | 11/81 Sawtooth Stab, 0 | 0/81 Saw Wave, −5.5 | 0/63 | rave / techno BAM |
+| `supersaw` | 11/100 Bright Saw Stack, −1 | 0/50 Synth Strings 1, −10 (the GU stack is built on that sample) | 0/90 | pumped pads; the stack decays to a sustain, so retrigger it |
+| `sweep_pad` | 0/95 Sweep Pad, −8 | = | 0/95 | risers |
+| `synth_brass` | 0/63 Synth Brass 2, −5 | = | 0/63 | city pop, techno, hardtek rallies (slow attack: lines, not stabs; stabs = `brass_stab`) |
+| `synth_strings` | 0/50 Synth Strings 1, −8 | = | 0/50 | pad (optional) |
+| `vox_chop` | 0/85 Solo Vox, −5 | = | 0/85 | hardtek "hey": write it staccato (`a4/8'`) |
+| `drums_jazz` | 128/32 Jazz kit, −2 | = | 128/32 | ride spang-a-lang, brushed snare on 40 |
+| `drums_909` | 128/25 808/909 kit, −2; `s` → 40 (909 snare), `sd2` → 38 (808 snare) | 128/25 TR-808, −11.5 | 128/25 | `k` 36 = 909 kick, `tk` 35 = 808 kick; hats, clap, cymbal, cowbell are 808 |
+| `drums_electro` | 128/24 Electronic kit, −4 | = | 128/24 | optional |
+| `kick_hard` | 128/25, −4.5, `fx.drive` (pre 14 dB, HP 35 Hz, tone 6 kHz); `k` → 36 (909), `tk` → 35 (808, longer) | 128/25, −11 | 128/25 (+ same fx) | write only kicks on it: the drive treats the whole part |
+
+**Kit names** (`notation.DRUM_NAMES`, round 3): `fs` finger snap (GS 26), `sr` snare roll (GS 25), `st` sticks (31).
+Neither GeneralUser GS nor FluidR3 has a sample on 25 or 26 in any kit (checked zone by zone with
+`sf2.preset_keys`), so every kit role carries a `kit_map`: `fs` → 28 (the Slap, a short dry crack) on the GM kits,
+31 (sticks) on the orchestral kit and 37 (rim click) on the 808/909 and chip kits; `sr` → 40 (the kit's second
+snare: brush swirl on the brush kit, 909 snare on the 808/909 kit; write real rolls as `(s?/32)x8`); `st` → 75
+(claves) on the chip kit. A test checks that every drum name the round-3 briefs use lands on a sample in every kit
+of `cleared`, `strict` and `chip`. Note: on the brush kit `cl` (39) is a brush slap, not a clap.
+`kick_hard` and the other kit roles that do not start with `drums` are recognised as kits from the shipped palette,
+so their parts take drum names before a palette is chosen.
+
+#### 2.4.2 Part effects (`fx`, `sakura_audio/fx.py`)
+
+An `fx` dict can sit on a role (sound design: the hardtek kick's drive) and on a part (`s.part(..., fx={...})`,
+musical automation). The part's dict updates the role's effect by effect; `{'drive': None}` on a part removes the
+role's drive. Unknown effects or fields are errors.
+
+| Effect | Fields (defaults) | What it does |
+|---|---|---|
+| `filter` | `type` lp / bp / hp, `hz` (static) or `auto: [[section, bar, hz], …]`, `q` 0.707, `accent: {depth_oct 2, decay_ms 180, vel_floor 48}`, `mix` 1, `block` 32 | TPT state-variable filter (stable under fast modulation). `auto` points are placed on every pass of the section (bar is 1-based and may be fractional; bar `bars+1` is the section's end) and interpolated in log-frequency; before the first point / after the last the value holds. `accent`: each note restarts a cutoff blip of `depth_oct · (vel − vel_floor)/(127 − vel_floor)` octaves decaying over `decay_ms` (303-style squelch: write accents with `!`). `bp` has unity gain at the centre. A filter with `accent` renders in a job of its own |
+| `drive` | `pre_db` 12, `hp_hz` 35, `tone_hz` 6000, `mix` 1, `out_db` 0, `ref` 'peak', `os` 2 | `ref · tanh(g·HP(x)/ref)/tanh(g)` then a `tone_hz` low-pass, blended at `mix`. With `ref='peak'` the loudest hit keeps its peak and everything `pre_db` below it saturates: the character does not depend on the role or part gain (scale-invariant), and the quiet tail comes up (the long hardtek kick). The shaper runs 2× oversampled. It makes a part louder overall: set `gain_db` after it |
+| `pump` | `key` 'beat' or a part name (or list), `notes` (drum names or MIDI keys of the key part, e.g. `['k']`), `depth_db` 6, `attack_ms` 3, `hold_ms` 0, `release_beats` 0.4, `every` 1 / `offset` 0 (beat mode) | Sidechain gain built from the key's onsets in the song timeline: down by `depth_db` within `attack_ms`, back to 0 dB along a raised cosine over `release_beats`; overlaps keep the deepest dip. When the kick drops out (breakdown), the pumping stops with it |
+
+Order: filter → drive → pump. Effects run in `pipeline.render_song` on each FluidSynth job's continuous render,
+after the palette's voice treatment and before the echo send and the stem sum, so stems still add up to the full
+mix (SFX rendered through the palette, `sfx/sampled.py`, get their role's fx too). Parts with effects render in
+jobs grouped by their merged fx (`render.plan_jobs`); songs without fx keep
+their job layout, MIDI and cache keys (verified: `results_win`, `wave_ironclock`, `battle_ironclock`, `homeroom`,
+`boss` and `demo_battle` render bit-identically to round 2). The loop seam stays exact: automation points and
+key/accent onsets are laid out over every pass plus one virtual pass after cycle 2, and the render past the end of
+cycle 2 is replaced by the start of cycle 2 before the effects run (only `R[0 : L0+2P]` reaches the loop file), so
+the drive's ±10-sample oversampling filter sees what really follows the loop end.
+
+Cost (measured on this shared machine at load ≈ 17): the filter takes about 5-7 s for 130 s of stereo (exact
+SVF, block-parallel: zero-state responses of all 32-sample blocks at once plus a 2×2 recurrence over the block
+states), the drive about 5 s.
+
+**Demo:** `demo_genres` in `songs/demo.py` (*Roll Call: genre bus*, 128 bpm, 1 + 16 bars, base + intensity, not
+shipped) plays every round-3 role and all three effects, two bars per lane, with section swing in the jazz bars.
+Gates: loop identity −65.8 dB, WAV seams −67.9 / −74.0 dB, Opus / AAC seams at codec-noise level, Σ stems = full mix.
 
 ### 2.5 Stems
 
@@ -678,6 +786,8 @@ Per song:
    - Output is float32. Measured: two notes 1.000 s apart render exactly 32000 samples apart. The
      start offset is constant (the preset's own attack).
 3. **Mix** (`mix.py`, numpy/scipy, float64):
+   - **Voice treatment** per job (palette `mix.voices`, round 2), then **part effects** per job (`fx`: filter →
+     drive → pump, §2.4.2, round 3).
    - **Sum** sub-renders per stem: a dry bus and a wet bus.
    - **SNES echo** on each stem's wet bus:
      - Delay `d` = 16 ms × EDL (1-15).
@@ -1457,6 +1567,14 @@ stay quieter than battle hits by about 6 LU.
 - SF2 writer round-trip through FluidSynth.
 - Palette inheritance and role validation.
 - Manifest schema.
+- Round 3 (`test_fx.py`, `test_r3_palette.py`): the block SVF equals a per-sample reference filter; drive is
+  deterministic and scale-invariant; pump envelope shape and overlaps; automation, accent and pump curves repeat
+  exactly over the loop (a filtered + driven + pumped signal is periodic to < −150 dB, the last samples before the
+  wrap included); fx dict merge / validation; a FluidSynth render with all three effects keeps loop identity, the
+  WAV seam gates and Σ stems = full mix; every role of `cleared` / `strict` / `chip` is a real preset of its font
+  and every drum name used by the briefs lands on a sample in every kit; toby maps every GM role and keeps the role
+  fx; kit roles are recognised without a palette; section / part swing, triplets kept, 16th swing, and the round-2
+  swing formula unchanged.
 
 ### 6.3 Vitest (`npx vitest run tests/audio`, Node, no browser)
 

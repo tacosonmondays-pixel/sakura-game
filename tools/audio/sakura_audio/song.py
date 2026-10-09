@@ -11,6 +11,13 @@ note data works too. Songs only name *roles*; the palette decides which sound pl
     song.part('bass', role='finger_bass', stem='base').gen('A', 'bass:sync')
     song.part('drums', role='drums', stem='base').pattern('A', 'k/8 h s/8 h k h s h |', fills={8: '…'})
     song.part('glock', role='glock', stem='melody', octave=1, vel=-18).double('lead', 'A')
+
+Round 3 additions (docs/AUDIO.md §2.4):
+    song.part('bass', role='acid_bass', fx={'filter': {'type': 'lp', 'q': 5, 'auto': [['A', 1, 300], ['A', 9, 3000]]}})
+    song.section('Br', bars=8, chords='…', swing=0)     # per-section swing (a straight bossa bridge in a swing tune)
+    song.part('ride', role='drums_jazz', swing=0.66)    # per-part swing (wins over the section and the song)
+    Song(..., swing=0.64, swing_triplets='keep')         # 8th-triplets stay triplets while duple 8ths swing
+    Song(..., swing=0.56, swing_unit=0.5)                # swing the 16ths instead of the 8ths
 """
 from __future__ import annotations
 
@@ -22,17 +29,27 @@ from fractions import Fraction as Fr
 from pathlib import Path
 
 from . import gen as G
+from .fx import validate_fx
 from .notation import parse, Note, NotationError
 from .theory import parse_key, parse_grid, Motif
 
 KIT_ROLES_PREFIX = ('drums', 'chip_kit')
+_DEFAULT_PALETTE = []
 
 
 def is_kit_role(role: str, palette=None) -> bool:
+    """Does `role` play a drum kit (drum names instead of pitches)? Songs are built before a palette is chosen, so
+    without one the shipped palette decides (kit roles that do not start with 'drums', e.g. 'kick_hard')."""
     if palette is not None:
         r = palette.resolve(role)
         return r.get('bank') == 128
-    return role.startswith(KIT_ROLES_PREFIX)
+    if role.startswith(KIT_ROLES_PREFIX):
+        return True
+    if not _DEFAULT_PALETTE:
+        from .palette import load_palette
+        _DEFAULT_PALETTE.append(load_palette('cleared'))
+    pal = _DEFAULT_PALETTE[0]
+    return pal.has_role(role) and pal.resolve(role).get('bank') == 128
 
 
 @dataclass
@@ -41,6 +58,7 @@ class Section:
     bars: int
     chords: str | None = None
     grid: list | None = None
+    swing: float | None = None                     # overrides the song's swing amount in this section
 
 
 @dataclass
@@ -53,8 +71,9 @@ class Part:
     vel: int = 0
     gate: float | None = None
     pan: float | None = None
-    swing: float | None = None
+    swing: float | None = None                      # overrides the section's / song's swing amount for this part
     gain: float = 0.0                               # dB on top of the palette role's gain_db (mix balance per part)
+    fx: dict | None = None                          # per-part effects, merged over the role's fx (sakura_audio/fx.py)
     bodies: dict = field(default_factory=dict)      # section → list[Note]
     doubles: list = field(default_factory=list)     # (other part, sections, octave, vel)
     markers: list = field(default_factory=list)     # (section, beat_in_section, text)
@@ -158,6 +177,7 @@ class TimelinePart:
     gate: float | None
     pan: float | None
     gain: float = 0.0
+    fx: dict | None = None
 
 
 @dataclass
@@ -177,7 +197,8 @@ class Song:
     def __init__(self, id: str, title: str = '', bpm: float = 120, meter=(4, 4), key: str = 'C',
                  form=None, kind: str | None = None, swing: float = 0.0, mix: dict | None = None,
                  seam_beats: float | None = None, tail: float = 2.5, bus: str = 'music', lufs: float | None = None,
-                 description: str = '', gate: float = 0.94, extra: dict | None = None, transpose: int = 0):
+                 description: str = '', gate: float = 0.94, extra: dict | None = None, transpose: int = 0,
+                 swing_unit: float = 1, swing_triplets: str = 'warp'):
         self.id = id
         self.title = title or id
         self.bpm = float(bpm)
@@ -185,6 +206,10 @@ class Song:
         self.key = key
         self.form = list(form or [])
         self.swing = swing
+        self.swing_unit = Fr(swing_unit).limit_denominator(64)   # swung cell in beats: 1 = 8th swing, 1/2 = 16th swing
+        if swing_triplets not in ('warp', 'keep'):
+            raise ValueError(f"{id}: swing_triplets must be 'warp' or 'keep'")
+        self.swing_triplets = swing_triplets                     # 'keep': notes on a triplet grid are not moved
         self.mix = mix or {}
         self.seam_beats = seam_beats
         self.tail = tail
@@ -207,14 +232,15 @@ class Song:
         num, den = self.meter
         return Fr(num * 4, den)
 
-    def section(self, name: str, bars: int, chords: str | None = None):
+    def section(self, name: str, bars: int, chords: str | None = None, swing: float | None = None):
         grid = parse_grid(chords, bars, self.bpb) if chords else None
-        self.sections[name] = Section(name, bars, chords, grid)
+        self.sections[name] = Section(name, bars, chords, grid, swing)
         return self.sections[name]
 
     def part(self, name: str, role: str, stem: str = 'full', **kw) -> Part:
         if name in self.parts:
             raise ValueError(f'{self.id}: part {name!r} defined twice')
+        validate_fx(kw.get('fx'), f'{self.id}/{name}: ')
         p = Part(self, name, role, stem, **kw)
         self.parts[name] = p
         return p
@@ -240,15 +266,24 @@ class Song:
     def _sec_beats(self, names):
         return sum((self.bpb * self.sections[n].bars for n in names), Fr(0))
 
-    def _swing(self, t: Fr) -> Fr:
-        if not self.swing:
+    def _swing(self, t: Fr, amount=None) -> Fr:
+        """Swing quantise (no audio stretching): inside each cell of `swing_unit` beats the first half is
+        stretched to `amount` of the cell and the second half squeezed into the rest, so the offbeat 8th (or
+        16th) lands at `amount` (0.5 = straight, 0.667 = triplet swing). Positions in between move
+        proportionally ('warp'), except that with swing_triplets='keep' notes on a triplet grid stay put."""
+        amount = self.swing if amount is None else amount
+        if not amount:
             return t
-        s = Fr(self.swing).limit_denominator(100)
-        beat = t.numerator // t.denominator if t >= 0 else -((-t.numerator) // t.denominator) - 1
-        f = t - beat
+        s = Fr(amount).limit_denominator(100)
+        u = self.swing_unit
+        q = t / u
+        cell = q.numerator // q.denominator if q >= 0 else -((-q.numerator) // q.denominator) - 1
+        f = q - cell
+        if self.swing_triplets == 'keep' and f and f.denominator % 3 == 0:
+            return t
         if f <= Fr(1, 2):
-            return beat + f * 2 * s
-        return beat + s + (f - Fr(1, 2)) * 2 * (1 - s)
+            return (cell + f * 2 * s) * u
+        return (cell + s + (f - Fr(1, 2)) * 2 * (1 - s)) * u
 
     def timeline(self, passes: int | None = None) -> Timeline:
         intro, loop, outro = self.structure()
@@ -277,14 +312,17 @@ class Song:
             out = []
             t = Fr(0)
             for s in order:
+                sec = self.sections[s]
+                amount = p.swing if p.swing is not None else (sec.swing if sec.swing is not None else self.swing)
                 for n in bodies[name].get(s, []):
-                    st = self._swing(t + n.start)
-                    en = self._swing(t + n.start + n.dur)
+                    st = self._swing(t + n.start, amount)
+                    en = self._swing(t + n.start + n.dur, amount)
                     ps = tuple(x + 12 * p.octave + self.transpose for x in n.pitches) if not p.drums else n.pitches
                     out.append(replace(n, start=st, dur=en - st, pitches=ps))
-                t += self.bpb * self.sections[s].bars
+                t += self.bpb * sec.bars
             out.sort(key=lambda n: (n.start, n.pitches))
-            parts.append(TimelinePart(name, p.role, p.stem, out, p.gate if p.gate is not None else self.gate, p.pan, p.gain))
+            parts.append(TimelinePart(name, p.role, p.stem, out, p.gate if p.gate is not None else self.gate, p.pan, p.gain,
+                                      p.fx or None))
         markers, secs, chords = [], [], []
         t = Fr(0)
         for idx, s in enumerate(one_pass):
@@ -306,12 +344,13 @@ class Song:
     @classmethod
     def from_dict(cls, d: dict) -> 'Song':
         s = cls(**{k: d[k] for k in ('id', 'title', 'bpm', 'meter', 'key', 'form', 'kind', 'swing', 'mix',
-                                     'seam_beats', 'tail', 'bus', 'lufs', 'description', 'gate', 'transpose') if k in d})
+                                     'seam_beats', 'tail', 'bus', 'lufs', 'description', 'gate', 'transpose',
+                                     'swing_unit', 'swing_triplets') if k in d})
         for sec in d.get('sections', []):
-            s.section(sec['name'], sec['bars'], sec.get('chords'))
+            s.section(sec['name'], sec['bars'], sec.get('chords'), sec.get('swing'))
         for pd in d.get('parts', []):
             p = s.part(pd['name'], pd['role'], pd.get('stem', 'full'),
-                       **{k: pd[k] for k in ('octave', 'vel', 'gate', 'pan', 'gain') if k in pd})
+                       **{k: pd[k] for k in ('octave', 'vel', 'gate', 'pan', 'gain', 'swing', 'fx') if k in pd})
             for sec, text in (pd.get('notes') or {}).items():
                 p.notes(sec, text)
             for sec, text in (pd.get('pattern') or {}).items():

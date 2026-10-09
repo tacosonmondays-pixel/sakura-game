@@ -151,4 +151,102 @@ def victory() -> Song:
     return s
 
 
-songs = [build('lobby'), build('battle'), sting(), victory()]
+def genres() -> Song:
+    """'Roll Call: genre bus' (round 3): two bars per lane, so every round-3 role and effect is heard once in one listen.
+
+    J jazz (section swing 0.64, triplet skips kept) · K ska · C city pop · T techno (909, pumped bass and
+    supersaw keyed to the kick) · H hardtek (driven kick, pumped saw bass, acid line with a filter sweep) ·
+    E Celtic jig (8th-triplets) · S surf · W sweet. ORIGINAL two-bar sketches, no leitmotifs, no quotes."""
+    s = Song(id='demo_genres', title='Roll Call (genres)', bpm=128, meter=(4, 4), key='C', swing_triplets='keep',
+             form=['I', '|:', 'J', 'K', 'C', 'T', 'H', 'E', 'S', 'W', ':|'],
+             description='Toolkit demo: every round-3 role, the part effects (filter, drive, pump) and section swing.')
+    s.section('I', 1, 'C')
+    s.section('J', 2, 'Dm9 G13 | Cmaj9 A7#9', swing=0.64)
+    s.section('K', 2, 'C | G7')
+    s.section('C', 2, 'Am7 | G6 A7')
+    s.section('T', 2, 'Fm | Dbmaj7')
+    s.section('H', 2, 'Bm | G A')
+    s.section('E', 2, 'Am | G')
+    s.section('S', 2, 'Em | C B7')
+    s.section('W', 2, 'Cmaj7 | Fmaj7 G7')
+
+    s.part('intro_sweep', 'sweep_pad', 'base').notes('I', '[c4 g4 c5]/1')
+    # J — jazz: ride spang-a-lang, walking bass with a triplet skip, Rhodes + guitar comping, vibes head, horn shout
+    s.part('jazz_kit', 'drums_jazz', 'base').notes('J', 'rd/4 rd+ph/8 rd/8 rd/4 rd+ph/8 rd/8 | rd/4 rd+ph/8 rd/8 st/8 st/8 k+sr/8 fs/8')
+    s.part('jazz_bass', 'upright_bass', 'base').notes('J', 'd2/4 f2/4 g2/4 b1/8t c2/8t c#2/8t | c2/4 e2/4 a1/4 bb1/4')
+    s.part('jazz_rhodes', 'rhodes', 'base').notes('J', 'r/8 [f3 a3 c4 e4]/8 r/4 r/8 [f3 b3 e4]/8 r/4 | [e3 g3 b3 d4]/4. [e3 g3 c#4 g4]/8 r/2')
+    s.part('jazz_gtr', 'jazz_gtr', 'base').notes('J', '[d3 c4 f4]/4 [d3 c4 f4]/4 [g2 f3 b3]/4 [g2 f3 b3]/4 | '
+                                                       '[c3 b3 e4]/4 [c3 b3 e4]/4 [a2 g3 c#4]/4 [a2 g3 c#4]/4')
+    s.part('jazz_vibes', 'vibes_dry', 'base').notes('J', 'a4/8 c5/8 e5/8 d5/8 r/8 c5/8 a4/4 | b4/4 r/8 g4/8 e4/4 r/4')
+    for name, role, p in (('shout_tpt', 'muted_trumpet', 'a4'), ('shout_alto', 'alto_sax', 'e4'),
+                          ('shout_tenor', 'tenor_sax', 'c#4'), ('shout_bone', 'trombone', 'g3')):
+        s.part(name, role, 'base').notes('J', f'r/1 | r/2 {p}/8. {p}/16 r/4')
+    s.part('jazz_clar', 'clarinet', 'intensity').notes('J', 'f4/2 e4/4. d4/8 | e4/2. r/4')
+    # K — ska: skank on every 'and', walking 8ths, harmonica head, bari + trombone blat in the hole
+    s.part('ska_kit', 'drums', 'base').notes('K', 'k/8 h/8 rs/8 o/8 k/8 h/8 rs/8 o/8 | k/8 h/8 rs/8 o/8 k/8 k/8 rs/8 c/8')
+    s.part('ska_bass', 'finger_bass', 'base').notes('K', 'c2/8 c3/8 e2/8 g2/8 a2/8 g2/8 e2/8 eb2/8 | d2/8 d3/8 f2/8 g2/8 b1/8 d2/8 g1/8 b1/8')
+    s.part('ska_skank', 'muted_gtr', 'base').notes('K', '(r/8 [e4 g4 c5]/8)x4 | (r/8 [d4 f4 b4]/8)x4')
+    s.part('ska_harp', 'harmonica', 'base').notes('K', 'e5/4 g5/8 a5/8 g5/4 e5/4 | d5/4. f5/8 g5/4 r/4')
+    s.part('ska_bari', 'bari_sax', 'intensity').notes('K', 'r/1 | r/2. g2/8 r/8')
+    s.part('ska_bone', 'trombone', 'intensity').notes('K', 'r/1 | r/2. b2/8 r/8')
+    # C — city pop: four-on-the-floor, slap octaves, 16th scratch, clav stabs, square hook, synth-brass answer
+    s.part('pop_kit', 'drums_electro', 'base').notes('C', '(k/8 o/8 k+cl/8 o/8)x2 | (k/8 o/8 k+cl/8 o/8)x2')
+    s.part('pop_bass', 'slap_bass', 'base').notes('C', 'a1/16 a2/16 r/16 a1/16 a2/8 e2/8 a1/16 a2/16 r/8 g2/8 g#2/8 | '
+                                                       'g1/16 g2/16 r/16 g1/16 g2/8 d2/8 a1/16 a2/16 r/8 c#3/8 e2/8')
+    s.part('pop_funk', 'funk_gtr', 'base').notes('C', '(r/16 [a3 c4 e4]/16 r/16 [a3 c4 e4]/16)x4 | (r/16 [g3 b3 e4]/16 r/16 [g3 c#4 e4]/16)x4')
+    s.part('pop_clav', 'clavinet', 'base').notes('C', 'r/4 r/8 [a3 c4 e4]/8 r/4 r/8 [a3 c4 e4]/8 | r/4 r/8 [g3 b3 e4]/8 r/4 r/8 [g3 c#4 e4]/8')
+    s.part('pop_lead', 'square_lead', 'base').notes('C', 'c5/8 a4/8 c5/8 e5/8 r/8 d5/8 c5/4 | b4/8 a4/8 g4/8 a4/8 r/2')
+    s.part('pop_brass', 'synth_brass', 'intensity').notes('C', 'r/1 | r/2 [e4 g4 c5]/8 r/8 [e4 g4 c#5]/8 r/8')
+    # T — techno: 909 grid, 16th bass rolling between the kicks and a pumped supersaw (sidechain keyed to the kick)
+    s.part('tek_kit', 'drums_909', 'base').notes('T', '(k/16 h/16 o/16 h/16 k+cl/16 h/16 o/16 h/16)x2 | '
+                                                      'k/16 h/16 o/16 h/16 k+cl/16 h/16 o/16 h/16 k/16 h/16 o/16 h/16 k+s/16 s/16 s/16 s/16')
+    s.part('tek_bass', 'techno_bass', 'base', fx={'pump': {'key': 'tek_kit', 'notes': ['k'], 'depth_db': 6,
+                                                           'release_beats': 0.4}}).notes(
+        'T', '(r/16 f2/16 f2/16 ab2/16)x4 | (r/16 db2/16 db2/16 f2/16)x4')
+    s.part('tek_chime', 'synth_chime', 'base').notes('T', '(f5/16 c6/16 ab5/16 c6/16)x4 | (f5/16 db6/16 ab5/16 db6/16)x4')
+    s.part('tek_stab', 'saw_stab', 'intensity').notes('T', 'r/4 r/8 [f4 ab4 c5]/8 r/4 r/8 [f4 ab4 c5]/8 | '
+                                                           'r/4 r/8 [f4 ab4 db5]/8 r/4 r/8 [f4 ab4 db5]/8')
+    s.part('tek_pad', 'supersaw', 'intensity', fx={'pump': {'key': 'tek_kit', 'notes': ['k'], 'depth_db': 8,
+                                                            'release_beats': 0.5}}).notes('T', '[f3 c4 ab4]/1 | [db3 f4 ab4 c5]/1')
+    # H — hardtek: driven kick (role fx), rolling saw bass pumped by it, acid line opening over the two bars, 'hey' chops
+    s.part('hard_kick', 'kick_hard', 'base').notes('H', 'k/4 k/4 k/4 k/4 | k/4 k/4 k/4 k/16 k/16 k/16 k/16')
+    s.part('hard_hats', 'drums_909', 'intensity').notes('H', '(r/8 o/8)x4 | (r/8 o/8)x3 h/16 h/16 h/16 h/16')
+    s.part('hard_bass', 'saw_bass', 'base', fx={'pump': {'key': 'hard_kick', 'depth_db': 7, 'release_beats': 0.35}}).notes(
+        'H', '(r/16 b1/16 b2/16 b1/16)x4 | (r/16 g1/16 g2/16 g1/16)x2 (r/16 a1/16 a2/16 a1/16)x2')
+    s.part('hard_acid', 'acid_bass', 'intensity', octave=1, fx={'filter': {'auto': [['H', 1, 260], ['H', 3, 3200]]}}).notes(
+        'H', 'b2/16! b2/16 d3/16 b2/16 f#3/16! b2/16 a2/16 b2/16 c#3/16 b2/16 e3/16! b2/16 d3/16 b2/16 c#3/16 a2/16 | '
+             'g2/16! g2/16 b2/16 g2/16 d3/16! g2/16 f#2/16 g2/16 a2/16! a2/16 c#3/16 a2/16 e3/16! a2/16 c#3/16 a2/16')
+    s.part('hard_lead', 'saw_lead', 'base').notes('H', 'f#5/8 f#5/16 a5/16 b5/8 a5/8 f#5/8 e5/8 d5/4 | '
+                                                       'e5/8 e5/16 f#5/16 g5/8 f#5/8 e5/8 c#5/8 a4/4')
+    s.part('hard_hey', 'vox_chop', 'intensity').notes('H', "r/2 f#4/8' r/8 r/4 | r/2 f#4/8' r/8 a4/8' r/8")
+    s.part('hard_rise', 'sweep_pad', 'intensity').notes('H', 'r/1 | [b3 f#4 b4]/1')
+    # E — Celtic jig in 8th-triplets: bodhran-ish kit, jig pump bass, fiddle tune, whistle answer, mandolin chops
+    s.part('jig_kit', 'drums_room', 'base').notes('E', '(k/4 s?/8t s?/8t k/8t s/4 s?/8t s?/8t k/8t |)x2')
+    s.part('jig_bass', 'pick_bass', 'base').notes('E', 'a1/8t r/8t a2/8t e2/8t r/8t e2/8t a1/8t r/8t a2/8t c2/8t d2/8t e2/8t | '
+                                                       'g1/8t r/8t g2/8t d2/8t r/8t d2/8t g1/8t r/8t g2/8t b1/8t a1/8t g1/8t')
+    s.part('jig_fiddle', 'fiddle', 'base').notes('E', '(a4/8t b4/8t c5/8t e5/8t d5/8t c5/8t)x2 | b4/8t g4/8t b4/8t d5/8t b4/8t g4/8t a4/4 r/4')
+    s.part('jig_whistle', 'tin_whistle', 'base').notes('E', 'r/1 | r/2 e6/8t d6/8t b5/8t a5/4')
+    s.part('jig_mando', 'mandolin', 'intensity').notes('E', '(r/8t [a3 e4 a4]/8t r/8t)x4 | (r/8t [g3 d4 g4]/8t r/8t)x4')
+    # S — surf: tom-heavy beat, tremolo-picked lead through a big echo send, combo organ, tenor honk, synth-string bed
+    s.part('surf_kit', 'drums', 'base').notes('S', 'k/8 t3/16 t3/16 s/8 t3/8 k/8 k/8 s/8 t3/16 t3/16 | '
+                                                   'k/8 t3/16 t3/16 s/8 t3/8 k/8 k/8 s/16 t2/16 t2/16 t3/16')
+    s.part('surf_bass', 'pick_bass', 'base').notes('S', 'e2/8 e2/8 e3/8 e2/8 g2/8 e2/8 b2/8 e2/8 | c2/8 c2/8 c3/8 c2/8 b1/8 b1/8 b2/8 b1/8')
+    s.part('surf_gtr', 'surf_gtr', 'base').notes('S', '(e5/16)x8 (g5/16)x4 (f#5/16)x4 | (e5/16)x4 (c5/16)x4 (b4/16)x8')
+    s.part('surf_organ', 'combo_organ', 'base').notes('S', '[e4 g4 b4]/8 r/8 r/8 [e4 g4 b4]/8 r/4 r/8 [e4 g4 b4]/8 | '
+                                                           '[c4 e4 g4]/8 r/8 r/8 [c4 e4 g4]/8 r/4 r/8 [d#4 f#4 b4]/8')
+    s.part('surf_honk', 'tenor_sax', 'intensity').notes('S', 'r/2. e3/8 r/8 | r/2. b2/8 r/8')
+    s.part('surf_pad', 'synth_strings', 'intensity').notes('S', '[e3 b3 g4]/1 | [c3 g3 e4]/2 [b2 f#3 d#4]/2')
+    # W — sweet: brushes + finger snaps + shaker, ukulele strum, bell-piano tune, tinkle / Christmas bell answers
+    s.part('sweet_kit', 'drums_brush', 'base').notes('W', 'k/8 sh/16 sh/16 fs/8 sh/16 sh/16 k/8 sh/16 sh/16 fs/8 tri/8 | '
+                                                          'k/8 sh/16 sh/16 fs/8 sh/16 sh/16 k/8 sh/16 sh/16 fs/8 sh/16 sh/16')
+    s.part('sweet_bass', 'fretless', 'base').notes('W', 'c3/4 e3/8 g3/8 b2/4 g2/4 | f2/4 a2/8 c3/8 g2/4 b2/4')
+    s.part('sweet_uke', 'ukulele', 'base').notes('W', '[c4 e4 g4 c5]/8 [c4 e4 g4 c5]/16 [c4 e4 g4 c5]/16 r/8 [c4 e4 g4 b4]/8 '
+                                                      '[c4 e4 g4 b4]/4 [c4 e4 g4 b4]/4 | [c4 f4 a4 c5]/8 [c4 f4 a4 c5]/16 '
+                                                      '[c4 f4 a4 c5]/16 r/8 [c4 f4 a4]/8 [b3 d4 f4 g4]/4 [b3 d4 f4 g4]/4')
+    s.part('sweet_tune', 'bell_piano', 'base').notes('W', 'e5/4 g5/8 c6/8 b5/4 g5/4 | a5/8 g5/8 f5/8 a5/8 g5/2')
+    s.part('sweet_tinkle', 'tinkle_bells', 'intensity').notes('W', 'r/2. g6/16 e6/16 c6/8 | r/1')
+    s.part('sweet_xmas', 'xmas_bells', 'intensity').notes('W', 'r/1 | r/2. f6/16 d6/16 b5/8')
+    return s
+
+
+songs = [build('lobby'), build('battle'), sting(), victory(), genres()]
