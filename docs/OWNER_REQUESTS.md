@@ -281,7 +281,7 @@ Verbatim highlights: "get the characters in, keep the current ones as special sk
 - **Current Blender girls:** "I really like some of the girls… the ones that would look like skins be skins but if some others like nami I like that would be a cool unit save it as a future release character. I like rei, nami, your luna, kaede but like yuki, suzu for example could easily be skins."
   - Future-release characters (own units later, new names where the id clashes): current-build **Rei, Nami, Luna, Kaede**.
   - Special skins on the matching old character: the other current designs (e.g. **Yuki, Suzu**).
-- **Home menu:** no 3D girl and no SVG room ("looks ugly"). Use drawn art like Blue Archive: a wide, dynamic, landscape illustration per girl (memorial-lobby style) with breathing/tap reactions.
+- **Home menu:** no 3D girl and no SVG room ("looks ugly"). Use drawn art like Blue Archive: a wide, dynamic, landscape illustration per girl (memorial-lobby style) with breathing/tap reactions. **Done** (drawn lobby approved; see First impressions below).
 - **Character art:** Azur Lane-style stands (the girl in a new dynamic pose on a themed diorama stage, transparent) and Bremerton-style info cards (big name, class, rarity, stat radar, expression strip). Redrawing poses is fine, but proportions must stay right ("the proportions get all weird, ew"). Dynamic compositions like the owner's references (slanted cut-in panels, dramatic angles, motion), without their body-focused framing.
 - **Process:** "I want an agent to go through and screenshot stuff and show it to you with recommendations, as long as it fits my view." Every art batch goes through a critic agent before the owner sees it.
 - **Tracks:** "the tracks are linear and repetitive." Make them Bloons-like: curves, loops, crossings, splits, tunnels.
@@ -289,3 +289,22 @@ Verbatim highlights: "get the characters in, keep the current ones as special sk
 - **City:** "codex gave a small one that's just on a square, make it look more interesting." Port and expand the city hub.
 - **Chibi look APPROVED (2026-10-07):** the Meshy-generated Hikari chibi turnaround in `docs/art/approved/` — owner: "THATS LITERALLY PERFECT". It is the target for every girl's 3D battle chibi and 2D chibi art.
 - **Meshy:** "don't forget you have meshy… I've seen people make chibi renders in meshy that look like what I want." Use Meshy (image → 3D → rig → animate) for the chibis, starting with one Hikari test and a credit report.
+
+## First impressions (owner, 2026-10-08) — branch `feature/first-impressions`
+Owner: "Can we do some of the small stuff quickly like redoing assets and changing ui elements? people
+won't even bother giving the game a shot if it looks ugly right away." The owner dislikes the procedural
+SVG / 3D look on menus and loves drawn art (the drawn lobby in `src/ui/lobby/artStage.js` +
+`public/art/lobby/*.webp` is approved). Contracts: CONTRACTS.md §11a.
+
+| Request (verbatim) | Status |
+|---|---|
+| "redoing assets and changing ui elements" | **Done** (3 rounds + critic). Menus use drawn art only (the SVG doll is a fallback). UI sweep: campaign lock chips, folded student filters, recruit fills the screen, wider rewards sheet, drawn sealed-letter recruit reveal with a rarity-tinted seal, softer SSR splash, solid stage-prep Start bar, backpack tabs snap, compact phone rewards, MVP stand beside the victory sheet, deploy name tag in battle. |
+| "missions need to get updated! it's still using old ugly assets, especially the character art in the bottom left" | **Done.** Missions hub and Bounty: painted academy backdrop, painted tiles with name plates in full colour, the secretary as a drawn full-figure stand (bottom left), titles never split mid-word. Events: painted hero + host girl. |
+| "Can you edit the portraits please" | **Done.** All 19 girls have a drawn full illustration, card, bust, thumb and transparent full-figure stand (`public/art/portraits/`). The 7 half-body girls (Hikari, Kaede, Suzu, Chika, Umeko, Sango, Nami) got a full-figure redraw of the same design so no stand is cut by a frame. One card crop rule for everyone. Hikari's bust-focused old illustration is not used. |
+| "make it so you can select which backgrounds you want, eventually when you date a girl and gift her stuff in the city like in blue archive you'll get a more intimate background" | **Done (picker + bond model); bond art is future work.** Lobby Background picker (Menu Tab + picture button): her painted scene (Hikari, Aoi, Sango), her stand over the academy by day / sunset / night, and two bond memories per girl (café date, festival night, sunset walk, study session, picnic, stargazing, aquarium) locked at bond 5 and 10. `profile.bond` exists (0 for everyone); the City dating / gift system only has to raise it and paint the bond scenes. Content rule: wholesome date moments, fully clothed, never suggestive. |
+| "we need like a loadup menu where you click play and what not" | **Done.** `#/title`: painted academy + three drawn girls, logo, a loading bar that really preloads the lobby, TAP TO START, Notice / Settings / Account / Code, version. Once per browser session on a cold start; no blink into the lobby. |
+| "push out some rewards for beta players that tried the codex version… all new accounts until november 7th get a few free multis, a select ticket for an SSR, some materials, money and gems, the usual stuff" | **Done.** Mailbox + Beta Tester Thank-You: five 10× Recruit Tickets, one SSR Select Ticket (any SSR), materials of every family + books, 300,000 coins, 3,000 gems. Every save from before the mailbox (Codex-era / beta players) and every account created up to 2026-11-07 23:59 America/Chicago; delivered once, ever. Notice article "Until Nov 7", then only while unclaimed. Note: a browser game cannot see saves from the separate Codex build; players who played it on another site get the gift by starting an account here before the deadline. |
+
+Still open after this pass: the bond-memory illustrations themselves (need the City dating system),
+landscape scenes for the other 16 girls (they use their stand over the academy), a single art style
+pass so the old-game illustrations and the expansion illustrations match more closely.
