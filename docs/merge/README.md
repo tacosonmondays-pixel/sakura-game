@@ -6,5 +6,7 @@ These reports come from the read-only mapping agents (2026-10-07). They compare 
 - `combat.md`: old and new battle mechanics, the 7 old kits that need new sim features, battle modes, map rules, sandbox, a mapping of every old enemy id onto the new families, and battle UX ideas.
 - `integration.md`: how to add the skin system, a second model source for the old models, about 11 new units, illustrations as card art, and the size and performance risks.
 - `meshy-chibi-test.md`: the Meshy 3D Hikari test, with the judge's scores, rig and performance findings, and the cost per girl.
+- `ROSTER_SPEC.md` (2026-10-09): the build contract for the roster merge — decisions D1-D5, skins, the 19 shared ids,
+  the 11 new girls (full kits), the new sim mechanics, banners, and the five-builder build order.
 
 Paths starting with `scratchpad/` point to the session's working files. They are not part of the repo.
