@@ -131,7 +131,8 @@ async function runViewport(vp) {
   const startBtn = await page.waitForSelector('[data-testid="title-start"]:not([disabled])', { timeout: 30000 }).catch(() => null);
   check(!!startBtn, 'title: loading finishes and TAP TO START is enabled');
   await shot('title');
-  if (startBtn) await startBtn.click();
+  // force: the button pulses forever, so it is never 'stable' for Playwright on a loaded machine
+  if (startBtn) await startBtn.click({ force: true });
   await page.waitForFunction(() => location.hash.startsWith('#/lobby') && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 15000 }).catch(() => null);
   check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'title: tap to start opens the lobby');
   check(await page.evaluate(() => !!window.__sakura.store.profile.units.aoi), 'fresh profile owns starter Aoi');
@@ -144,11 +145,11 @@ async function runViewport(vp) {
   if (giftBtn) {
     await shot('beta-gift');
     const t0 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems }));
-    await giftBtn.click();
+    await giftBtn.click({ force: true }); // glowing CTA: never 'stable' on a loaded machine
     const t1 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems, sel: window.__sakura.store.profile.items.ticket_ssr_select || 0 }));
     check(t1.t10 === t0.t10 + 5 && t1.gems === t0.gems + 3000 && t1.sel === 1, `beta gift: claimed 5× 10-pull tickets, 3,000 gems and an SSR Select Ticket (${JSON.stringify(t1)})`);
     const choose = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
-    if (choose) await choose.click();
+    if (choose) await choose.click({ force: true });
     const pick = await page.evaluate(() => {
       const { profile } = window.__sakura.store;
       return [...document.querySelectorAll('[data-testid^="sst-"]')].map((el) => el.dataset.testid.slice(4)).find((id) => !profile.units[id]) || null;
@@ -156,11 +157,15 @@ async function runViewport(vp) {
     check(!!pick, 'SSR Select Ticket: the picker lists an SSR the player does not own');
     if (pick) {
       await shot('ssr-select');
-      await page.click(`[data-testid="sst-${pick}"]`);
-      await page.click('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => {});
-      await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => null);
+      await page.click(`[data-testid="sst-${pick}"]`, { force: true });
+      // confirm dialog animates in (and its button glows): wait for it, then force the click
+      // the earlier "Choose now" dialog may still be fading out with its own confirm-ok, so wait for
+      // the new one and click the newest
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="confirm-ok"]')].some((b) => /Choose|Convert/.test(b.textContent) && !/now/.test(b.textContent)), null, { timeout: 15000 }).catch(() => null);
+      await page.locator('[data-testid="confirm-ok"]').last().click({ force: true, timeout: 5000 }).catch(() => {});
+      await page.waitForSelector('[data-testid="sst-ok"]', { timeout: 15000 }).catch(() => null);
       check(await page.evaluate((id) => !!window.__sakura.store.profile.units[id] && !window.__sakura.store.profile.items.ticket_ssr_select, pick), `SSR Select Ticket: ${pick} joined and the ticket was used`);
-      await page.click('[data-testid="sst-ok"]', { timeout: 5000 }).catch(() => {});
+      await page.click('[data-testid="sst-ok"]', { timeout: 5000, force: true }).catch(() => {});
     }
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
@@ -212,6 +217,33 @@ async function runViewport(vp) {
   const close = await page.$('[data-testid="reveal-close"]');
   if (close) await close.click();
   await page.waitForTimeout(400);
+  // Tracking stays live on the screen (playtester: it only updated after leaving and coming back):
+  // the pity line and gem pill must match the profile after Close, and after "Recruit again" is
+  // cancelled at the gem confirm.
+  const recruitLive = () => page.evaluate(() => {
+    const g = window.__sakura.store.profile.gacha;
+    const foot = document.querySelector('#app .ma-pity-foot')?.textContent || '';
+    const gemsPill = Number((document.querySelector('#app .ma-tickets .ma-ticket-pill:last-child b')?.textContent || '').replace(/\D/g, ''));
+    const ok = foot.startsWith(`${g.pity}/`) && foot.includes(`· ${g.totalPulls.toLocaleString('en-US')} recruits`) && gemsPill === window.__sakura.store.profile.currencies.gems;
+    return { ok, text: `"${foot}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
+  });
+  let live = await recruitLive();
+  check(live.ok, `recruit: page updated after Close without leaving — ${live.text}`);
+  await page.click('[data-testid="pull-1"]');
+  const confirm1 = await page.waitForSelector('[data-testid="confirm-pull"]', { timeout: 3000 }).catch(() => null);
+  if (check(!!confirm1, 'recruit: ×1 button still works after a reveal (gem confirm shown)')) {
+    await confirm1.click();
+    await page.click('[data-testid="reveal-skip"]', { timeout: 5000 }).catch(() => {});
+    const again = await page.waitForSelector('[data-testid="reveal-again"]', { timeout: 15000 }).catch(() => null);
+    if (again) await again.click();
+    const confirm2 = await page.waitForSelector('[data-testid="confirm-pull"]', { timeout: 3000 }).catch(() => null);
+    if (check(!!confirm2, 'recruit: "Recruit ×1 again" asks to confirm gems')) {
+      await page.click('.modal-actions .btn:has-text("Cancel")');
+      await page.waitForTimeout(400);
+      live = await recruitLive();
+      check(live.ok, `recruit: page updated after "again" was cancelled — ${live.text}`);
+    }
+  }
   check(!takeErrors().length, 'recruit: no errors');
 
   // ---- UI flows: teleport, mall purchase, commission claim ----
@@ -261,11 +293,20 @@ async function runViewport(vp) {
     check(await page.evaluate((g) => window.__sakura.store.profile.currencies.gems > g, gems0), 'commissions: claim paid gems');
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  // a redeemed code shows up in the tab's "Redeemed" list without leaving it
+  await page.evaluate(() => { location.hash = '#/commissions?tab=codes'; });
+  await page.waitForSelector('[data-testid="code-input"]', { timeout: 5000 });
+  await page.fill('[data-testid="code-input"]', 'SAKURA2026');
+  await page.click('[data-testid="code-redeem"]');
+  await page.waitForTimeout(600);
+  const codes = await page.evaluate(() => ({ shown: [...document.querySelectorAll('#app .ma-redeemed .chip')].map((c) => c.textContent.trim()), saved: window.__sakura.store.profile.redeemed || [] }));
+  check(codes.saved.includes('SAKURA2026') && JSON.stringify(codes.shown) === JSON.stringify(codes.saved), `commissions: redeemed code listed without leaving the tab (${JSON.stringify(codes.shown)} vs ${JSON.stringify(codes.saved)})`);
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   check(!takeErrors().length, 'UI flows: no errors');
 
   // ---- battle 1-1 on easy ----
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
-  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__battle?.ui?.placement, null, { timeout: 90000 }); // slow on a loaded machine
   await page.waitForTimeout(800);
 
   // Real drag-and-release placement ("release does nothing" was the owner's original bug):
@@ -419,10 +460,10 @@ async function runViewport(vp) {
   }
   const summary = await page.evaluate(() => ({ state: window.__battle?.sim.state, wave: window.__battle?.sim.wave, lives: window.__battle?.sim.lives }));
   check(summary.state === 'won', `battle: stage 1-1 easy won (state=${summary.state}, wave ${summary.wave}, lives ${summary.lives})`);
-  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 15000 }).catch(() => null);
-  await page.waitForTimeout(1200);
+  await page.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 30000 }).catch(() => null);
+  // the sheet animates in; on a loaded machine its buttons can take a few seconds to appear
+  const rewardsBtn = await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 20000 }).catch(() => null);
   await shot('battle-victory');
-  const rewardsBtn = await page.$('[data-testid="view-rewards"]');
   check(!!rewardsBtn, 'battle: victory sheet with Rewards button');
   if (rewardsBtn) {
     await rewardsBtn.click();
@@ -468,6 +509,13 @@ async function runViewport(vp) {
     await sw.click();
     await page.waitForTimeout(1200);
     check(await page.evaluate((c) => window.__sakura.store.profile.currencies.coins > c, coinsS), 'sweep: rewards granted');
+    // the Clears fact behind the rewards modal follows the sweep without leaving the stage
+    const clearsFact = await page.evaluate(() => {
+      const n = window.__sakura.store.profile.progress.stages['1-1'].clears;
+      const fact = [...document.querySelectorAll('#app .ma-facts > *')].find((f) => /clears/i.test(f.textContent))?.textContent || '';
+      return { ok: fact.replace(/\D/g, '') === String(n), text: `"${fact}" (profile: ${n} clears)` };
+    });
+    check(clearsFact.ok, `sweep: stage prep Clears count updated without leaving — ${clearsFact.text}`);
     await shot('sweep');
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
