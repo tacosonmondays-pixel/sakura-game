@@ -11,10 +11,14 @@ import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
 
-/** After a claim: "Choose your SSR now?" */
-export async function offerSelectTicket() {
+/**
+ * After a claim: "Choose your SSR now?"
+ * @param {{ lead?: string }} [opts] lead: first line (e.g. "Received 35 kinds of gifts…")
+ */
+export async function offerSelectTicket({ lead = '' } = {}) {
   if (itemCount(store.profile, SSR_SELECT_TICKET) <= 0) return;
-  const ok = await confirmDialog('You received an SSR Select Ticket! Choose any SSR student you like — you can also do it later from the Backpack.', { title: 'SSR Select Ticket', ok: 'Choose now', cancel: 'Later', okKind: 'yellow' });
+  const text = `${lead ? `${lead} ` : ''}Your gifts include an SSR Select Ticket: choose any SSR student you like — now, or later from the Backpack.`;
+  const ok = await confirmDialog(text, { title: lead ? 'Gifts received!' : 'SSR Select Ticket', ok: 'Choose now', cancel: 'Later', okKind: 'yellow' });
   if (ok) openSelectTicket();
 }
 

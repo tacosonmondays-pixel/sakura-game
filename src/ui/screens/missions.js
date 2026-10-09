@@ -3,7 +3,8 @@
 // edge) over the painted academy (dimmed, blurred), and a grid of slanted tiles filled with
 // drawn art on the right: Mission (chapter · next stage, quick start), Bounty, Total Assault,
 // Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm) and a small Story
-// ("coming soon") tile. Locked tiles keep their colour and wear a small lock chip.
+// ("coming soon") tile. Locked tiles keep their colour and wear a small lock chip (big tiles) or a
+// lock line in their name plate (small tiles). Tile art never repeats the secretary.
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, modal, toast, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
@@ -21,11 +22,11 @@ import { currentEvent } from '../../systems/missions.js';
 import { requirementText, showRewardsModal, uiRng } from './stage.js';
 import { commissionsNotice, campaignStatus } from './lobby.js';
 
-/** Drawn tile art: a landscape painting, or a girl's illustration cropped on her face. */
-const paint = (file) => ({ src: lobbyArtUrl(file), kind: 'paint' });
-const girl = (id) => ({ src: portraitUrl(id, 'card'), kind: 'girl' });
-/** Wide tiles: her 512 px bust (sharper than the narrow card when stretched across a wide tile). */
-const bust = (id) => ({ src: portraitUrl(id, 'bust'), kind: 'girl.bust' });
+/** Drawn tile art: a landscape painting (with the girl in it), or a girl's 512 px bust. */
+const paint = (file, who = null) => ({ src: lobbyArtUrl(file), kind: 'paint', who });
+const bust = (id) => ({ src: portraitUrl(id, 'bust'), kind: 'girl.bust', who: id });
+/** The first candidate that does not show the secretary (she already stands on the left). */
+const artFor = (sec, ...candidates) => candidates.find((a) => a.src && a.who !== sec) || candidates[candidates.length - 1];
 
 export function render(root) {
   const { el, body } = screen('Missions', { cls: 'ma-hub-screen' });
@@ -50,7 +51,8 @@ function build() {
   const sweepable = CAMPAIGN_IDS.filter((id) => canSweep(profile, id)).length + bountyArenas().flatMap((a) => a.stages).filter((id) => canSweep(profile, id)).length;
 
   const wrap = h('div.ma-hub');
-  wrap.appendChild(hubStand(hubSecretary(profile), { cls: 'ma-hub-char' }));
+  const sec = hubSecretary(profile);
+  wrap.appendChild(hubStand(sec, { cls: 'ma-hub-char' }));
 
   const mission = tile({
     id: 'mission',
@@ -67,12 +69,12 @@ function build() {
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'bounty', title: 'Bounty', art: paint('thumbs/aoi.webp'), sub: `${event.arenaName} · ${event.dropMul}× this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
-    tile({ id: 'assault', title: 'Total Assault', art: bust('kaede'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
-    tile({ id: 'challenge', title: 'Tactical Challenge', art: paint('thumbs/sango.webp'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
-    tile({ id: 'commissions', title: 'Commissions', art: girl('umeko'), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
-    tile({ id: 'sweep', title: 'Sweep', art: girl('kage'), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear a stage on Hard', onClick: () => openSweep() }),
-    tile({ id: 'story', title: 'Story', art: girl('hotaru'), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
+    tile({ id: 'bounty', title: 'Bounty', art: artFor(sec.id, paint('thumbs/aoi.webp', 'aoi'), paint('thumbs/sango.webp', 'sango')), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
+    tile({ id: 'assault', title: 'Total Assault', art: artFor(sec.id, bust('kaede'), bust('shiro')), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
+    tile({ id: 'challenge', title: 'Tactical Challenge', art: artFor(sec.id, bust('raika'), bust('shiro')), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
+    tile({ id: 'commissions', title: 'Commissions', art: artFor(sec.id, bust('umeko'), bust('midori')), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, short: `${notice.dailyDone}/${notice.dailyTotal} done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
+    tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear Hard stages', short: sweepable ? `${sweepable} ready` : 'Hard clears only', onClick: () => openSweep() }),
+    tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
   );
   wrap.appendChild(grid);
   return wrap;
@@ -83,8 +85,19 @@ function bestWaveLine(profile) {
   return best ? `Best wave ${formatNumber(best)}` : 'Endless waves';
 }
 
-function tile({ id, title, art, kicker = null, sub = null, meta = null, lockText = null, ribbon = null, dot = false, soon = false, onClick }) {
+/** Bottom-row tiles: full-colour bust art with a name plate at the bottom. */
+const SMALL_TILES = new Set(['challenge', 'commissions', 'sweep', 'story']);
+
+/**
+ * One slanted hub tile. sub/short: the subtitle, and a shorter one for phone widths (CSS picks).
+ * Small tiles show a locked state as a lock line in their name plate; big tiles as a chip.
+ */
+function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, ribbon = null, dot = false, soon = false, onClick }) {
   const locked = !!lockText;
+  const small = SMALL_TILES.has(id);
+  let subEl = sub ? h('span.ma-hub-sub', short ? [h('span.ma-sub-long', sub), h('span.ma-sub-short', short)] : sub) : null;
+  // small tiles: the lock is a line in the name plate (no chip over her face)
+  if (locked && small) subEl = h('span.ma-hub-sub.ma-hub-lockline', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText));
   const el = h(
     `button.ma-hub-tile.ma-hub-${id}${locked ? '.locked' : ''}${soon ? '.soon' : ''}`,
     { onclick: () => (locked ? toast(lockText, 'info') : onClick()), 'data-testid': `hub-${id}` },
@@ -93,12 +106,12 @@ function tile({ id, title, art, kicker = null, sub = null, meta = null, lockText
     h('div.ma-hub-text',
       kicker ? h('span.ma-hub-kicker', kicker) : null,
       h('span.ma-hub-title', title),
-      sub ? h('span.ma-hub-sub', sub) : null,
+      subEl,
     ),
     meta ? h('span.ma-hub-meta', meta) : null,
     ribbon ? h('span.tag-ribbon.ma-hub-ribbon', h('span', ribbon)) : null,
     dot ? h('span.notif-dot') : null,
-    locked ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
+    locked && !small ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
   );
   return el;
 }

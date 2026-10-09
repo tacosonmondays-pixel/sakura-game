@@ -4,10 +4,11 @@
 //
 // Files live in public/art/portraits/ (copied from the art producer's set, all .webp):
 //   <id>-full.webp   768×1024  3:4 illustration (student detail, SSR splash, join splash)
-//   <id>-card.webp   300×500   tall card crop centred on her face (student / recruit cards)
+//   <id>-card.webp   300×500   tall card crop, one framing rule for all: head top ~8%, card
+//                              bottom at the hips (student / recruit cards)
 //   <id>-bust.webp   512×512   head and shoulders, face in the upper third (big busts)
 //   <id>-thumb.webp  160×160   small bust (square cards, tower bar, chips)
-//   <id>-cut.webp    transparent stand, 1000 px tall (lobby, missions hub)
+//   <id>-cut.webp    transparent full-figure stand, 1000 px tall (lobby, title, missions hub)
 //   <id>-cut-s.webp  the same stand 360 px tall (kind 'cutS': small stands such as the MVP)
 //
 // URLs are base-path safe (Vite BASE_URL: '/' in dev, './' in the GitHub Pages build).
@@ -28,23 +29,30 @@ function baseUrl() {
 /** Folder of the portrait files (with the deploy base). */
 export const PORTRAIT_BASE = `${baseUrl()}art/portraits/`;
 
+/** @returns {string} base-path-safe URL of a drawn UI file in public/art/ (e.g. 'ui/envelope.webp') */
+export function artUrl(path) {
+  return `${baseUrl()}art/${path}`;
+}
+
 /**
  * Girls with drawn art. face = her face centre in the full 3:4 illustration (% x, % y);
- * cut = width / height of her transparent stand; edges = sides where her half-body stand is cut
- * by the original frame ('l' left, 'r' right, 'b' bottom) — they get a soft fade so a stand never
- * shows a hard vertical line in the middle of a screen.
+ * cut = width / height of her transparent stand. Every stand is a full figure (head to shoes):
+ * the seven girls whose illustration is half-body (hikari, kaede, suzu, chika, umeko, sango,
+ * nami) got a full-figure redraw of the same design for their stand (round 2), so no stand is
+ * cut by a picture frame. edges (optional, 'l' 'r' 'b') still marks a stand that IS cut by its
+ * frame — portraitHTML fades those sides — for any future half-body art.
  */
 export const PORTRAIT_DATA = {
-  hikari: { face: [48, 20], cut: 0.766, edges: 'lb' },
+  hikari: { face: [48, 20], cut: 0.564 },
   luna: { face: [44, 22], cut: 0.672 },
-  nami: { face: [46, 20], cut: 0.75, edges: 'rb' },
+  nami: { face: [46, 20], cut: 0.543 },
   aoi: { face: [45, 15], cut: 0.754 },
   hotaru: { face: [42, 20], cut: 0.576 },
-  sango: { face: [49, 26], cut: 0.75, edges: 'lrb' },
-  umeko: { face: [47, 24], cut: 0.77, edges: 'lrb' },
-  kaede: { face: [59, 24], cut: 0.75, edges: 'lrb' },
-  suzu: { face: [57, 26], cut: 0.75, edges: 'lb' },
-  chika: { face: [61, 24], cut: 0.766, edges: 'lb' },
+  sango: { face: [49, 26], cut: 0.713 },
+  umeko: { face: [47, 24], cut: 0.549 },
+  kaede: { face: [59, 24], cut: 0.508 },
+  suzu: { face: [57, 26], cut: 0.618 },
+  chika: { face: [61, 24], cut: 0.406 },
   rei: { face: [49, 24], cut: 0.64 },
   yuki: { face: [45, 21], cut: 0.552 },
   akane: { face: [55, 30], cut: 0.693 },

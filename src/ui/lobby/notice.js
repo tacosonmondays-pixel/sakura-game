@@ -9,6 +9,8 @@ import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
+import { betaNoticeState } from '../../systems/mail.js';
+import { store } from '../../core/store.js';
 
 /** Bump when the notice list gains a new article (shows the red dot again). */
 export const NOTICE_VERSION = 'first-impressions-1';
@@ -40,6 +42,8 @@ export function eventDaysLeft(now = new Date()) {
 export const ARENA_THEME = { 'res-books': 'shrine', 'res-coins': 'festival', 'res-gear': 'foundry', 'res-mats-a': 'mountain', 'res-mats-b': 'night' };
 /** Drawn art per weekly-event arena (public/art/lobby/…). */
 export const ARENA_ART = { 'res-books': 'thumbs/academy.webp', 'res-coins': 'thumbs/sango.webp', 'res-gear': 'thumbs/hikari.webp', 'res-mats-a': 'thumbs/aoi.webp', 'res-mats-b': 'thumbs/academy.webp' };
+/** The student who hosts each weekly event (her drawn stand on the lobby EVENT card and Events screen). */
+export const ARENA_GUEST = { 'res-books': 'hotaru', 'res-coins': 'chika', 'res-gear': 'kaede', 'res-mats-a': 'luna', 'res-mats-b': 'miko' };
 
 function articles() {
   const event = currentEvent();
@@ -51,9 +55,12 @@ function articles() {
     f2p = null;
   }
   const featured = RECRUIT_FEATURED.map((id) => UNIT_MAP[id]?.name).filter(Boolean);
+  // the beta gift article: "Until Nov 7" while new accounts qualify; afterwards only for a player
+  // whose letter is still unclaimed; hidden once the window closed and nothing waits in the Mail
+  const beta = betaNoticeState(store.profile);
   return [
-    {
-      id: 'beta', tag: 'Gift', icon: 'gift', title: 'Thank you, beta Sensei!', date: 'Until Nov 7', paint: 'thumbs/academy.webp',
+    beta === 'ended' ? null : {
+      id: 'beta', tag: 'Gift', icon: 'gift', title: 'Thank you, beta Sensei!', date: beta === 'active' ? 'Until Nov 7' : 'In your Mail', paint: 'thumbs/academy.webp',
       body: [
         'Every account created on or before November 7 (CST) — and every save from before this update, including everyone who tried the original Codex version — gets a Beta Tester Thank-You package in the Mail.',
         'Inside: five 10× Recruit Tickets, an SSR Select Ticket (choose ANY SSR student), a big bundle of upgrade materials and books, 300,000 coins and 3,000 gems.',
@@ -100,7 +107,7 @@ function articles() {
       ],
       cta: { label: 'Open the Wiki', go: () => navigate('wiki') },
     },
-  ];
+  ].filter(Boolean);
 }
 
 export function showNoticeModal() {

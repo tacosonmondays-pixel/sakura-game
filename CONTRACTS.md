@@ -43,7 +43,8 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
 | art | `src/art/**` |
 | renderer | `src/render/**` |
 | battle-ui | `src/ui/battle/**`, `src/ui/screens/battle.js`, `src/ui/styles/battle.css` |
-| meta-a | `src/ui/screens/{lobby,campaign,stage,recruit,mall,commissions,rewards,bounty,assault,challenge,settings}.js`, `src/ui/styles/meta-a.css` |
+| meta-a | `src/ui/screens/{lobby,campaign,stage,recruit,mall,commissions,rewards,bounty,assault,challenge,settings,missions,title}.js`, `src/ui/lobby/**`, `src/ui/{hubArt,selectTicket}.js`, `src/data/lobbyArt.js`, `src/ui/styles/{meta-a,title}.css`, `public/art/{lobby,ui}/**` |
+| art (drawn) | `src/art/portraits.js`, `public/art/portraits/**` (6 files per girl, see §11a) |
 | meta-b | `src/ui/screens/{students,student,formation,backpack,bestiary,wiki}.js`, `src/data/wiki.js`, `src/ui/styles/meta-b.css` |
 
 ## 2. Vocabulary — `src/data/types.js` (exists, read it)
@@ -786,7 +787,7 @@ Tracks missions (`track`). Must be fully usable on a phone.
 
 ## 11. Meta screens
 
-meta-a: lobby (secretary chibi/card art + big slanted tiles: Mission, Bounty, Total Assault,
+meta-a: lobby (drawn secretary background — see 11a — + big slanted tiles: Mission, Bounty, Total Assault,
 Tactical Challenge, Recruit, Students, Formation, Backpack, Mall, Commissions, Bestiary, Wiki,
 Events/rewards), campaign (Bloons-style map picker: chapter tabs, map cards with
 `stageThumbSVG`, medals row in the corner, tier badges), stage prep (map preview, enemies
@@ -795,14 +796,6 @@ medals, drops with item tiles, Start / Sweep), recruit (banner, rates, pity coun
 reveal animation, spark), mall, commissions (daily/weekly/login/achievements/codes), rewards
 (F2P income overview table), bounty, assault, challenge (endless, best wave per map), settings
 (quality, lighting, audio, export/import save, reset).
-
-first impressions (meta-a): title / load-up screen `#/title` (cold start once per browser session:
-painted academy + drawn stands, logo, loading bar that preloads the lobby, TAP TO START, Notice /
-Settings / Account / Code, version), Mail modal (`src/ui/lobby/mailbox.js`, Blue Archive style, Claim
-all, expiry) with the Beta Tester celebration, Lobby Background picker (`src/ui/lobby/bgPicker.js`,
-Menu Tab + picture button), SSR Select Ticket picker (`src/ui/selectTicket.js`), drawn hub backdrop +
-secretary stand for missions / bounty (`src/ui/hubArt.js`). Every girl's picture comes from
-`src/art/portraits.js`.
 
 meta-b: students (Arknights-style tall portrait cards; filter by role/type/rarity/owned; sort by
 level/rarity/power), student detail (left: card art ⇄ 3D chibi viewer toggle; right tabs:
@@ -814,6 +807,81 @@ rarity sort, item detail with sources + teleport, gear tab), bestiary (families,
 viewer, black silhouettes until discovered, traits/counters/lore), wiki (articles: getting
 started, type chart, roles, traits, statuses, items & rarities, gear & rerolls, awakening,
 gacha rates & pity, medals & difficulty, maps, economy, controls; searchable).
+
+### 11a. First impressions — drawn art, title, lobby backgrounds, beta gift (meta-a)
+
+Owner: "people won't even bother giving the game a shot if it looks ugly right away". Menus use
+**drawn art only** — the owner hates the procedural SVG / 3D look on menus. The SVG doll
+(`cardArtSVG`) and the old SVG room are fallbacks for an id with no files, never the normal path.
+
+**Portraits — `src/art/portraits.js`** (pure, strings only). Every roster girl (all 19) has six files in
+`public/art/portraits/`: `<id>-full.webp` 768×1024 3:4 illustration, `<id>-card.webp` 300×500 tall card
+(head top ~8 %, bottom at the hips — one framing rule for every girl), `<id>-bust.webp` 512², `<id>-thumb.webp`
+160², `<id>-cut.webp` transparent **full-figure** stand 1000 px tall, `<id>-cut-s.webp` the same at 360 px.
+```js
+export const PORTRAIT_BASE, PORTRAIT_DATA /* { [id]: { face:[x%,y%], cut: w/h, edges?: 'lrb' } } */, PORTRAIT_KINDS
+export function hasPortrait(unitOrId), portraitUrl(unitOrId, kind = 'bust') /* null → caller falls back */
+export function portraitHTML(unitDef, kind, { eager, awaken, cls, alt }) // <img class="pt-img pt-<kind>" data-unit data-svg …> or the SVG
+export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFiles(unitOrId), artUrl(path) // public/art/<path>
+```
+Rules: every girl picture in the UI goes through `portraitHTML`/`portraitUrl` (student list/detail,
+formation, recruit banner/results/SSR splash, SSR Select picker, missions hub, lobby, title, battle
+bar + deploy name tag, victory MVP, mall exchange, wiki). URLs are `BASE_URL`-relative (Pages-safe).
+A broken `<img>` is swapped for its SVG by the UI (`data-svg`). Stands are full figures (head to shoes);
+the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a full-figure
+redraw of the same design for their stand. `edges` fades a frame-cut side only for future half-body art.
+Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has all files).
+
+**Title / load-up screen — `src/ui/screens/title.js`, route `#/title`.** `main.js` opens it on a cold
+start (no route in the URL) once per browser session (`sessionStorage['sakura-title-seen']`,
+`markTitleSeen()` / `titleSeen()`). Painted academy + three drawn stands (aoi, hikari, luna; shown
+together once the painting has decoded, its thumb is the placeholder), logo, a loading bar driven by
+`lobbyPreloadSteps(profile)` (lobby module, the secretary's background art, the trio's stands, fonts —
+each step times out after 6 s and never rejects), then a pulsing TAP TO START that hands off to the
+lobby without a blink (frozen entrance animations, `lobby-stage-ready` fade). Small buttons: Notice,
+Settings, Account (save export/import), Code (redeem); `APP_VERSION` from package.json. reduceMotion:
+no zoom / pulse / petals.
+
+**Lobby art + bond model — `src/data/lobbyArt.js` (pure) + `src/ui/lobby/artStage.js` + `src/ui/lobby/bgPicker.js`.**
+Blue Archive "memorial lobby": every background belongs to one girl; choosing it makes her the
+secretary. Kinds: `scene` (full landscape illustration with her in it, `public/art/lobby/<id>.webp`:
+hikari, aoi, sango), `stand` (her drawn stand over the painted academy, tint `day`/`sunset`/`night`,
+one each per girl), `bond` (two wholesome date memories per girl — café, festival night, sunset walk,
+study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**).
+```js
+export const BOND_MAX = 10, BOND_LEVELS = [5, 10], BACKDROP, TINTS, BOND_THEMES, LOBBY_BACKGROUNDS, LOBBY_BG_MAP
+export function lobbyBackgrounds(girlId)              // scene, 3 stands, 2 bond memories
+export function bondLevel(profile, girlId)            // profile.bond[id] clamped 0..BOND_MAX (0 until the City exists)
+export function isBackgroundUnlocked(profile, bg)     // owned girl (+ bond level for bond memories)
+export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories have no file yet → shown locked
+export function unlockText(bg, profile?)              // "Recruit X to unlock" / "Bond Lv 5 with X (now 0) — date her and give gifts in the City to unlock"
+export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
+export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
+// src/ui/lobby/artStage.js
+export function createArtStage(host, { reduceMotion, onTap }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+// src/ui/lobby/bgPicker.js
+export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button
+```
+Profile: `lobbyBg: { [girlId]: bgId }`, `bond: { [girlId]: 0..10 }` (save.js migrates both). **The future
+City dating / gift system only has to raise `profile.bond[id]` and paint the bond files** — add `file`
+/`thumb` to the bond entries and they become selectable; nothing else changes. Content rule: the
+academy girls are students; bond scenes are cosy date moments, fully clothed, never suggestive.
+
+**Hub art — `src/ui/hubArt.js`:** `hubBackdrop()` (dimmed painted academy) and `hubSecretary(profile)`
+/ `hubStand(u)` (drawn stand) for the missions hub and Bounty; the missions hub tiles are painted
+thumbnails with bottom name plates (never the secretary herself); Events uses a painted hero + host girl.
+
+**Beta rewards — `src/systems/mail.js`** (API in §5) + `src/ui/lobby/mailbox.js` (`openMailbox()`,
+`maybeShowBetaGift()`, `showBetaGiftModal()`) + `src/ui/selectTicket.js` (`offerSelectTicket()`,
+`openSelectTicket()`). `ensureBetaGift` runs on app start: saves from before the mailbox
+(`mail.legacy`, i.e. Codex/beta players) and every account created before `BETA_DEADLINE`
+(2026-11-07 23:59 CST = 2026-11-08 06:00 UTC) get the letter **once, ever** (`mail.delivered`). Gift:
+5× `ticket_recruit10`, 1× `ticket_ssr_select`, 3,000 gems, 300,000 coins, 30/15/6/2 of every material
+family (common/rare/SR/mythic) + 30/10/3 books. First lobby: the Beta Tester celebration (Claim) →
+one "Gifts received!" dialog (Choose now / Later, never a toast on top) → the SSR Select picker (any
+SSR; a duplicate converts to 40 Star Fragments; the ticket also works later from the Backpack).
+Notice board article per `betaNoticeState()`: `active` until the deadline, `unclaimed` while this
+player's letter waits, then hidden.
 
 ## 12. Owner's V2 directives (latest feedback — these override earlier wording where they conflict)
 

@@ -6,11 +6,11 @@ import { h, screen, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { bountyArenas } from '../../data/stages.js';
-import { getMap } from '../../data/maps.js';
 import { GACHA } from '../../data/types.js';
-import { stageThumbSVG } from '../../art/stageThumb.js';
-import { themeBackdropSVG } from '../../art/backdrops.js';
+import { UNIT_MAP } from '../../data/units.js';
+import { lobbyArtUrl } from '../../data/lobbyArt.js';
+import { portraitHTML } from '../../art/portraits.js';
+import { ARENA_ART, ARENA_GUEST } from '../lobby/notice.js';
 import { currencyIcon, itemIcon, uiIcon } from '../../art/icons.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { expectedSSRRate } from '../../systems/gacha.js';
@@ -38,22 +38,15 @@ export function render(root) {
   body.appendChild(wrap);
 }
 
-function arenaThumb(arenaId) {
-  const arena = bountyArenas().find((a) => a.id === arenaId);
-  try {
-    return arena ? stageThumbSVG(getMap(arena.mapId), { width: 480, height: 300 }) : '';
-  } catch {
-    return '';
-  }
+/** Painted art of a weekly-event arena (the same pictures as the lobby EVENT card and Notice). */
+function arenaPaint(arenaId, cls = '') {
+  return h(`img${cls}`, { src: lobbyArtUrl(ARENA_ART[arenaId] || 'thumbs/academy.webp'), alt: '', loading: 'lazy', decoding: 'async', draggable: false });
 }
 
-function arenaBackdrop(arenaId) {
-  const arena = bountyArenas().find((a) => a.id === arenaId);
-  try {
-    return themeBackdropSVG(arena ? getMap(arena.mapId).theme : 'sakura');
-  } catch {
-    return themeBackdropSVG('sakura');
-  }
+/** The event's host girl: her drawn stand on the right of the hero card. */
+function arenaGuest(arenaId) {
+  const u = UNIT_MAP[ARENA_GUEST[arenaId]];
+  return u ? h('div.ma-event-girl', { 'aria-hidden': 'true', html: portraitHTML(u, 'cutS') }) : null;
 }
 
 function eventSection() {
@@ -62,7 +55,8 @@ function eventSection() {
   const after = currentEvent(new Date(Date.now() + 14 * 86400000));
   return h('section.ma-event',
     h('div.ma-event-card',
-      h('div.ma-event-art', { html: arenaBackdrop(ev.arena) }),
+      h('div.ma-event-art', arenaPaint(ev.arena)),
+      arenaGuest(ev.arena),
       h('div.ma-event-shade'),
       h('div.ma-event-body',
         h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), h('span.ma-event-time', svgEl(uiIcon('calendar'), 'ma-inline-icon'), fmtLeft(msToWeekEnd()))),
@@ -75,7 +69,7 @@ function eventSection() {
     h('div.ma-event-next',
       h('div.ma-sub', 'Coming up'),
       [next, after].map((e, i) => h('div.ma-next-row',
-        h('div.ma-next-thumb', { html: arenaThumb(e.arena) }),
+        h('div.ma-next-thumb', arenaPaint(e.arena)),
         h('div', h('b', e.name), h('div.muted', `${i === 0 ? 'Next week' : 'In two weeks'} · ${e.arenaName}`)),
       )),
       h('p.muted.ma-hint', 'Events rotate every Monday. Plan your Bounty farming around the double-drop arena.'),

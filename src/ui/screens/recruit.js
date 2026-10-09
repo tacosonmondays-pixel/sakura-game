@@ -12,7 +12,7 @@ import { store } from '../../core/store.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
-import { portraitHTML, portraitUrl } from '../../art/portraits.js';
+import { portraitHTML, portraitUrl, artUrl } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems/gacha.js';
@@ -294,17 +294,28 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
   overlay.append(h('div.ma-gacha-sky'), stageEl, skip);
   document.body.appendChild(overlay);
 
-  // --- intro ---
-  const intro = h('div.ma-gacha-intro',
-    h('div.ma-gacha-halo', h('div.ma-halo-ring.r1'), h('div.ma-halo-ring.r2'), h('div.ma-halo-core')),
-    h('div.ma-gacha-hint', 'Tap to open the envelope'),
+  // --- intro: a sealed academy letter (drawn) glowing in the best rarity's colour; its wax
+  // seal is tinted blue / gold / pink. Tap (or wait) → it pops open in a flash of light.
+  const intro = h('div.ma-gacha-intro', { 'data-testid': 'reveal-letter' },
+    h('div.ma-gacha-halo',
+      h('div.ma-env-glow'), h('div.ma-halo-ring.r1'), h('div.ma-halo-ring.r2'),
+      h('div.ma-env', h('img.ma-env-img', { src: artUrl('ui/envelope.webp'), alt: 'Sealed recruitment letter', draggable: false, decoding: 'async' }), h('i.ma-env-seal')),
+      h('i.ma-env-burst')),
+    h('div.ma-gacha-hint', 'Tap to open the letter'),
   );
   const cards = results.map((r, i) => revealCard(r, i));
   const grid = h(`div.ma-gacha-grid.n${results.length}`, cards.map((c) => c.el));
   const footer = h('div.ma-gacha-footer');
 
-  const showGrid = () => {
+  // the letter opens (scale + white burst) before the cards are dealt
+  const openLetter = () => {
     if (phase !== 'intro') return;
+    phase = 'opening';
+    intro.classList.add('opening');
+    later(showGrid, 420);
+  };
+  const showGrid = () => {
+    if (phase !== 'intro' && phase !== 'opening') return;
     phase = 'flip';
     clear(stageEl);
     stageEl.appendChild(grid);
@@ -384,8 +395,8 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     later(showGrid, 200);
   } else {
     stageEl.appendChild(intro);
-    intro.addEventListener('click', showGrid);
-    later(showGrid, 1700);
+    intro.addEventListener('click', openLetter);
+    later(openLetter, 1900);
   }
   return overlay;
 }

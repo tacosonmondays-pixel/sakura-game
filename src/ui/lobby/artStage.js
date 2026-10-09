@@ -14,8 +14,8 @@ import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 
-/** Where the bubble/head zone sits for stands (art box on the right). */
-const CUT_FACE = [60, 22];
+/** Where the bubble/head zone sits for stands (her stand is centred at ~55%, head under the HUD). */
+const CUT_FACE = [55, 25];
 
 export function createArtStage(host, { reduceMotion = false, onTap = null } = {}) {
   host.classList.add('lb-art-host');
@@ -55,8 +55,13 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     const bg = background || LOBBY_BG_MAP[defaultBackgroundFor(u.id)];
     const next = build(u, bg);
     if (direction && !reduceMotion) next.classList.add(direction > 0 ? 'enter-r' : 'enter-l');
-    const imgs = [...next.querySelectorAll('img')].filter((img) => !img.complete);
-    if (imgs.length) await Promise.all(imgs.map((img) => new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); })));
+    // first picture: its small painted thumb sits behind at once, so the lobby never shows an
+    // empty backdrop while the full art (usually already preloaded by the title) decodes
+    if (!current && bg?.thumb) frame.style.backgroundImage = `url("${lobbyArtUrl(bg.thumb)}")`;
+    // wait for every picture to be fetched AND decoded (a preloaded URL decodes in a frame or two)
+    const arrived = (img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); }))
+      .then(() => (img.decode && img.naturalWidth ? Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 600))]) : null));
+    await Promise.all([...next.querySelectorAll('img')].map(arrived));
     if (disposed) return;
     const prev = current;
     frame.append(next);
@@ -100,8 +105,9 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     bubble.classList.remove('show');
     void bubble.offsetWidth;
     span.textContent = text;
-    // bubble to the left of her face, kept on screen
-    bubble.style.left = `${Math.max(4, face[0] - 34)}%`;
+    // bubble to the left of her face (tail pointing at her), kept on screen
+    bubble.style.left = 'auto';
+    bubble.style.right = `${Math.min(70, 100 - face[0] + 9)}%`;
     bubble.style.top = `${Math.max(14, face[1] - 6)}%`;
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);

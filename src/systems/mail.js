@@ -175,3 +175,14 @@ export function ensureBetaGift(profile, now = Date.now()) {
 export function pendingBetaGift(profile, now = Date.now()) {
   return mailList(profile, now).find((l) => l.id === BETA_GIFT_ID && l.claimable) || null;
 }
+
+/**
+ * How the Notice board shows the beta gift: 'active' (new accounts still qualify — "Until Nov 7"),
+ * 'unclaimed' (the window closed but this player's letter still waits in the Mail) or 'ended'
+ * (window closed, nothing to claim: the article is hidden).
+ * @returns {'active'|'unclaimed'|'ended'}
+ */
+export function betaNoticeState(profile, now = Date.now()) {
+  if (ms(now) < BETA_DEADLINE) return 'active';
+  return pendingBetaGift(profile, now) ? 'unclaimed' : 'ended';
+}
