@@ -2,6 +2,13 @@
 // gradient or transparent background, drag/touch to rotate, wheel/pinch to zoom.
 import * as THREE from 'three';
 
+/** The viewer's studio lights (also read by the figurine brightness test). */
+export const VIEWER_LIGHTS = {
+  hemi: { sky: '#ffffff', ground: '#c9d3ea', intensity: 1.25 },
+  key: { color: '#fff4e6', intensity: 1.6, position: [2.2, 3.5, 3.2] },
+  rim: { color: '#cfe6ff', intensity: 0.9, position: [-2.5, 2, -3] },
+};
+
 /**
  * @param {HTMLElement} container element to fill (its size drives the canvas)
  * @param {{background?: null|string|[string,string], autoRotate?: boolean, state?: string}} [opts]
@@ -30,13 +37,13 @@ export function createModelViewer(container, { background = null, autoRotate = t
   }
 
   // Studio lighting: soft sky fill, warm key, cool rim.
-  scene.add(new THREE.HemisphereLight('#ffffff', '#c9d3ea', 1.25));
-  const key = new THREE.DirectionalLight('#fff4e6', 1.6);
-  key.position.set(2.2, 3.5, 3.2);
-  scene.add(key);
-  const rim = new THREE.DirectionalLight('#cfe6ff', 0.9);
-  rim.position.set(-2.5, 2, -3);
-  scene.add(rim);
+  const L = VIEWER_LIGHTS;
+  scene.add(new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.intensity));
+  for (const d of [L.key, L.rim]) {
+    const light = new THREE.DirectionalLight(d.color, d.intensity);
+    light.position.set(...d.position);
+    scene.add(light);
+  }
 
   // Soft contact shadow disc.
   const shadowTex = radialTexture();

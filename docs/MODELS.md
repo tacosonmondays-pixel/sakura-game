@@ -71,6 +71,72 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
    register it in its dict (`STYLES`, `BANGS`, `OUTFITS`, `ACCESSORIES`, `WEAPONS`, `HALOS`).
 5. `npx vitest run tests/models` checks every GLB header (clips, bones, materials, atlas, size).
 
+## Imported Meshy figures (Hikari)
+
+Hikari's battle model is **the owner's own Meshy chibi** (big round head, painted anime face,
+white/gold/navy knight coat, teal bow and ribbons, braid crown with gold stars). It is brought in
+as-is, not restyled, by `tools/meshy/build_meshy_chibi.py` (bpy 4.2 + numpy + Pillow + `pip install xatlas`):
+
+```
+python3 tools/meshy/build_meshy_chibi.py --source <Meshy Character_output.glb> --clips <Meshy-library animated GLB>
+```
+
+The two inputs are not in the repo (43 MB + 5 MB): the owner's Meshy export (one skinned mesh,
+~93k tris, 58-bone Meshy SmartRig `Bone_000…`, 4k base colour / normal / metallic-roughness) and the
+Meshy animation-library GLB from the first Meshy test (Idle_9, Walking_Woman on the standard Meshy
+humanoid). One bpy session per detail level:
+
+| step | module | what |
+|---|---|---|
+| 1 | `lib/lowpoly.py` | weld the seam-split vertices (positions only differ by float noise), decimate a copy (face protected) to 20k tris (LOD 9k), smooth normals, **fresh xatlas UVs** with the face at 2× texel density. Meshy's own UVs are ~13k tiny islands that bleed into colour noise in the mip levels a battle-size figure samples |
+| 2 | `lib/bake.py` | Cycles CPU selected-to-active bakes onto the new UVs: base colour (baked at 2048², shipped at 1024²: the downsample gives cleaner edges than a direct 1024 bake, and the 2× face density keeps the eyes crisp in the student close-up), metal/roughness (1024², LOD 512²: the gold trims, stars and buttons are metallic and catch the environment map; without it the gold reads brown) and, full detail only, tangent-space normals from the 93k surface + Meshy's own normal map (1024²: keeps the braid, bang strands and coat embossing that decimation flattens; the LOD skips it, invisible at battle size). The normals are then **flattened to (128, 128, 255) over her skin and painted face** (`flat_skin_normals`: skin-coloured texel patches anywhere + every non-hair texel of the face charts, grown 2 px and feathered): the sculpt's creases under the eyes and on the cheeks read as dirt on a Nendoroid face, while hair, braid and coat keep their relief |
+| 2b | `lib/eyes.py` | measures her **painted eyes** for the runtime blink: every face-chart texel is mapped back to 3D, the teal iris texels give the two eyes, iris + lashes + eye white + dark non-skin texels round them give each eye's box; eyelid colours from the skin just above / below the eye, the lash colour, the skin roughness. Stored as `asset.extras.eyes` in the packed position space |
+| 3 | `lib/rig_names.py`, `lib/retarget.py` | readable bone names (`root, hips, spine, chest, neck, head, upper_arm_R, …, hair_back1, coat_L1, bangs1`), then the library clips are retargeted by world-space rotation deltas from each rest pose (both rigs are Meshy A-poses) |
+| 4 | `lib/sword.py`, `lib/clips_hikari.py`, `lib/posekit.py` | the approved sheet's jewelled sword (crystal blade with white edges, gold star crossguard with a teal gem, magenta gem + grip, teal pommel; 794 tris, vertex colours) parented to `hand_R` with the fingers curled round the grip; clips `idle` 1.5 s (library idle + two knee bounces), `walk` 0.97 s (library walk), `attack_slash` 0.6 s, `cheer` 1.2 s (arms up + hop), `hurt` 0.4 s. The sword arm and the legs are 2-bone IK so the blade path is designed: the wind-up takes the hand out to her right and **back** (blade up behind the line of her face), then a wide descending sweep round her right side, across the front below the chin and out to her left (tip travel ≈ 75 px wide at battle size, torso twist −18° → +24°). Checked numerically over yaw −180…180° and pitch 0/24/48°: the blade never passes in front of her face except seen from behind her right shoulder (yaw ≥ 105° back, where only the jaw edge is visible). Every clip carries a small chin-up / lean back (neck −7°, spine −3°) so the eyes stay readable under her long bangs from the 48° battle camera |
+| 5 | `lib/pack.py` | phone packing: stored at half size (`extras.unitScale` brings her back to the battle size), int16 positions / int8 normals / uint16 UVs / uint8 joints+weights (KHR_mesh_quantization), animation channels that never leave rest dropped + redundant keys removed + int16 rotations, textures as **WebP** (EXT_texture_webp). No Draco/meshopt/KTX2, so the runtime needs no decoders |
+
+Output: `hikari.glb` ≈ 1.3 MB (20.8k tris incl. sword; base + metal/roughness + normal, 1024² WebP)
+and `hikari.lod.glb` ≈ 0.6 MB (9.8k tris; base 1024² + metal/roughness 512²), manifest entries with
+`source: 'meshy'` — `tools/blender/build_characters.py` skips those units (pass `--force-procedural`
+to rebuild the cage girl instead). The whole build takes under a minute (`--raw-dir` keeps the
+unpacked exports so `lib/pack.py` can re-pack other texture sizes without a rebuild).
+
+Runtime (`glbChibi.js` + `figurine.js`): `asset.extras.style === 'textured'` → **look B** of the
+owner's lighting study:
+
+- body: `MeshStandardMaterial` with her painted map, metal/roughness and normal maps, plus a tiny
+  CPU-built equirectangular studio environment (`studioEnvironment()`, PMREM'd per renderer by
+  three.js, intensity `FIGURINE_ENV` 1.0) on her material only. The shader is patched so the hemisphere
+  light's green ground bounce reaches her mostly grey (30 % of its colour), and her own
+  Khronos-neutral tone curve (`FIGURINE_EXPOSURE` 1.0) runs when the renderer does no tone mapping
+  (battle, student viewer). Under the plain battle lights she went grey-green (face, white coat),
+  muddy (hair) and brown (gold); at env 0.55 / exposure 0.92 (round 1) she rendered 7–12 % darker
+  than her own albedo on hair and skin. Now hair / skin render at ≈ 97 % of the albedo under the
+  viewer lights and ≈ 95 % under battle lights (measured: hair 244,151,173 and 241,148,168 vs the
+  albedo 252,153,177), without washing out; navy is at or above its albedo. At quality high the
+  UnrealBloom threshold (0.95) does not catch her white coat: the neutral curve keeps it ≈ 0.9.
+  `tests/models/figurine.test.js` guards this with a CPU estimate of the shading
+  (`tests/models/figurineLight.js`) against the albedo under both light rigs.
+- outline: inverted hull tinted by her own texture × `#5b3a55` (deep plum on hair and white cloth,
+  brown on gold, near-black on navy), pushed along `outlineNormal` (normals averaged over UV-seam
+  copies, so the hull never cracks), 0.94 % of her height (1.6 cm on the 1.7 m figure) but at least
+  1.7 screen px (× pixel ratio) and at most 2.5× — ≈ 2 px at battle size, ≈ 8 px in the close-up —
+  and pushed back 11.8 % of her height in depth (less near the feet so the ground keeps the boots'
+  line), so it shows at real silhouette edges instead of leaking through coat, thighs and braid.
+- eyes: the face is painted (no face atlas), so the animator's face cells drive **closed-eye states
+  drawn in the shader** (`EYE_MODES`): inside each measured eye box (front surface only, never on
+  hair-pink texels such as bangs crossing the eye) the texture becomes matte eyelid skin with a
+  dark lid line — `blink` (relaxed ‿, on the usual 0.12 s blink timer; also `wink`), `happy` (^ ^, for
+  cheer / victory) and `hurt` (> <, for hurt / disabled / dizzy). Each state is its own material
+  sharing one program; the instance swaps its body material, like the highlight.
+- props (the sword) use the vertex-colour toon material with a thinner plain outline. `victory` and
+  `pickup` fall back to `cheer`. Battle size: height 1.53 (≈ 83 px at 1280×720 default zoom, the size
+  the owner approved), versus 0.98 for the cage heroes.
+- cost: 20.8k / 9.8k tris and 4 draw calls per instance, ≈ 0.7 s to load. Fine for one hero; with
+  ~3× the screen area of a cage girl plus PBR + environment map, 20 instances cost ≈ 3.6× (full) /
+  2.7× (LOD) the frame time of 20 Aoi in SwiftShader. Before moving more of the roster to this
+  pipeline, consider medium (LOD, no normal map) as the default on touch devices or a DPR cap.
+
 ## Judging quality
 
 Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head, big eyes placed low,
