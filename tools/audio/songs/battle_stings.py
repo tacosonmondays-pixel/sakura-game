@@ -138,18 +138,21 @@ def boss_warning():
 
 
 def boss_warning_hold():
-    """The warning's hold bars: a 2-bar loop that keeps the alarm going (siren, taiko pulse, low D pedal) when the
-    boss track is still decoding at the warning's end; the boss track then takes over at the next bar line."""
+    """The warning's hold bars: a 4-bar loop that keeps the alarm going (siren, taiko pulse, low D pedal) when the
+    boss track is still decoding at the warning's end; the boss track then takes over at the next bar line.
+    (Round 2: 4 bars, not 2 — a 2.9 s loop was shorter than the echo + taiko tails, so cycles never matched.)"""
     s = Song(id='boss_warning_hold', title='Boss Warning (hold)', bpm=168, meter=(4, 4), key='Dm', form=['|:', 'H', ':|'],
              lufs=-18.0, description='Boss warning hold loop: siren + taiko pulse + low D pedal, loops until the boss '
                                      'track is decoded.')
-    s.section('H', 2)
+    s.section('H', 4)
     s.part('siren', 'chip_pulse50', 'full', vel=-10).pattern('H', '(d6/8 ab6/8)x4 |')
     s.part('taiko', 'taiko', 'full', vel=0).pattern('H', 'c3/4 r/8 c3/8 c3/4 c3/8 c3/8 | c3/4 r/8 c3/8 ' +
                                                     roll('c3', '16', 8, 50, 104) + ' |')
-    s.part('tuba', 'tuba', 'full', vel=4).notes('H', 'd2/2. a1/4 | d2/2. eb2/4')
-    s.part('organ', 'organ_drawbar', 'full', vel=-10).notes('H', '[d3 a3]/1 | [d3 ab3]/2. [eb3 a3]/4')
-    s.part('timp', 'timpani', 'full', vel=-4).notes('H', 'd2/4 r/2. | d2/4 r/4 a1/8 a1/8 a1/4')
+    s.part('tuba', 'tuba', 'full', vel=4).notes('H', 'd2/2. a1/4 | d2/2. eb2/4 | d2/2. a1/4 | d2/2 eb2/4 a1/4')
+    s.part('organ', 'organ_drawbar', 'full', vel=-10).notes('H', '[d3 a3]/1 | [d3 ab3]/2. [eb3 a3]/4 | [d3 a3]/1 | '
+                                                                 '[d3 ab3]/2 [eb3 a3]/2')
+    s.part('timp', 'timpani', 'full', vel=-4).notes('H', 'd2/4 r/2. | d2/4 r/4 a1/8 a1/8 a1/4 | d2/4 r/2. | '
+                                                         'd2/4 r/4 a1/8 a1/8 a1/8 a1/8')
     s.part('kit', 'drums_power', 'full', vel=-8).pattern('H', 'k/4 r/4 k/4 r/4 | k/4 r/4 k/4 s/16 s s s |')
     return s
 

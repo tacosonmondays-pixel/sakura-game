@@ -6,7 +6,7 @@
   "opus": "sfx.webm",
   "aac": "sfx.m4a"
  },
- "length": 1272874,
+ "length": 1267427,
  "sounds": {
   "atk.beam": {
    "start": 2400,
@@ -813,8 +813,8 @@
   },
   "ui.confirm": {
    "start": 1153692,
-   "length": 12957,
-   "gain_db": -10.8,
+   "length": 7510,
+   "gain_db": -12.1,
    "bus": "ui",
    "voices": 2,
    "gap_ms": 40,
@@ -823,7 +823,7 @@
    "level": -29
   },
   "ui.deny": {
-   "start": 1169049,
+   "start": 1163602,
    "length": 4396,
    "gain_db": -15.6,
    "bus": "ui",
@@ -834,7 +834,7 @@
    "level": -30
   },
   "ui.modalClose": {
-   "start": 1175845,
+   "start": 1170398,
    "length": 3752,
    "gain_db": -16.4,
    "bus": "ui",
@@ -845,7 +845,7 @@
    "level": -32
   },
   "ui.modalOpen": {
-   "start": 1181997,
+   "start": 1176550,
    "length": 7853,
    "gain_db": -14.8,
    "bus": "ui",
@@ -856,7 +856,7 @@
    "level": -31
   },
   "ui.select": {
-   "start": 1192250,
+   "start": 1186803,
    "length": 2972,
    "gain_db": -13.1,
    "bus": "ui",
@@ -867,7 +867,7 @@
    "level": -30
   },
   "ui.slot": {
-   "start": 1197622,
+   "start": 1192175,
    "length": 2800,
    "gain_db": -14.6,
    "bus": "ui",
@@ -878,7 +878,7 @@
    "level": -30
   },
   "ui.start": {
-   "start": 1202822,
+   "start": 1197375,
    "length": 50653,
    "gain_db": -7.7,
    "bus": "ui",
@@ -889,7 +889,7 @@
    "level": -21
   },
   "ui.tab": {
-   "start": 1255875,
+   "start": 1250428,
    "length": 1418,
    "gain_db": -14.3,
    "bus": "ui",
@@ -900,7 +900,7 @@
    "level": -31
   },
   "ui.tick": {
-   "start": 1259693,
+   "start": 1254246,
    "length": 359,
    "gain_db": -13.5,
    "bus": "ui",
@@ -911,7 +911,7 @@
    "level": -36
   },
   "ui.toast": {
-   "start": 1262452,
+   "start": 1257005,
    "length": 3793,
    "gain_db": -15.3,
    "bus": "ui",
@@ -922,7 +922,7 @@
    "level": -31
   },
   "ui.toggle": {
-   "start": 1268645,
+   "start": 1263198,
    "length": 1829,
    "gain_db": -19.5,
    "bus": "ui",

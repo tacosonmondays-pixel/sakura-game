@@ -1,7 +1,7 @@
 // Loop / scheduling math (src/audio/loopMath.js) against synthetic and real manifest entries.
 import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { trackTimes, filePos, startPlan, nextGrid, stemLevels, resolveTrack, mod } from '../../src/audio/loopMath.js';
+import { trackTimes, filePos, startPlan, nextGrid, gridStep, accentStart, stemLevels, resolveTrack, mod } from '../../src/audio/loopMath.js';
 
 const RATE = 32000;
 // intro 2 bars at 120 bpm (4 s = 128000), seam 2.5 s (80000), guard 4096, loop 8 bars (16 s = 512000)
@@ -78,6 +78,18 @@ describe('grid and helpers', () => {
     expect(nextGrid(1.99, tt, 'bar', 0.05)).toBe(4);
     expect(nextGrid(1.2, tt, 'beat', 0.05)).toBe(1.5);
     expect(nextGrid(3.96, tt, 'beat', 0.05)).toBe(4.5);
+  });
+  test('half-bar grid (even meters) and accent starts: the accent lands on the grid, the start is ahead of now', () => {
+    expect(gridStep(tt, 'half')).toBeCloseTo(tt.bar / 2, 12);
+    expect(gridStep({ ...tt, bar: tt.beat * 3 }, 'half')).toBeCloseTo(tt.beat * 3, 12);      // 3/4: whole bar
+    for (const m of [0, 0.3, 0.97, 1.5, 2.2]) {
+      const acc = 0.75;
+      const st = accentStart(m, tt, acc, 'half', 0.05);
+      expect(st).toBeGreaterThanOrEqual(m + 0.05 - 1e-12);
+      const k = (st + acc) / gridStep(tt, 'half');
+      expect(Math.abs(k - Math.round(k))).toBeLessThan(1e-9);
+      expect(st - m).toBeLessThanOrEqual(gridStep(tt, 'half') + 0.05 + 1e-9);
+    }
   });
   test('mod is positive', () => {
     expect(mod(-1, 16)).toBe(15);

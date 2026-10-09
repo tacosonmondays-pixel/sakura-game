@@ -119,7 +119,7 @@ export function render(root) {
     sprite = sp;
     clear(tracksBox);
     for (const [id, t] of Object.entries(m.tracks)) tracksBox.appendChild(trackRow(id, t));
-    if (m.standIns) {
+    if (Object.keys(m.standIns || {}).length) {
       tracksBox.appendChild(h('p.snd-sub', `Stand-ins until the full soundtrack ships: ${Object.entries(m.standIns).map(([k, v]) => `${k} → ${v}`).join(', ')}`));
     }
     clear(padsBox);

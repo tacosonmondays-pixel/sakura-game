@@ -128,7 +128,7 @@ export class MusicDirector {
       stems[name] = { gain: g, model: { from: v, to: v, t0: 0, t1: 0 }, srcs: bufs[name] ? this._schedule(bufs[name], tt, from, at, g) : [] };
     }
     this._note(`start ${id} at ${at.toFixed(3)}${from ? ` from m=${from.toFixed(3)}` : ''} ${JSON.stringify(levels)}`);
-    return { id, def, tt, t0: at - from, out, outModel, stems, stopping: false };
+    return { id, def, tt, t0: at - from, start: at, out, outModel, stems, stopping: false };
   }
 
   _fadeOut(track, at, fade) {
@@ -180,8 +180,9 @@ export class MusicDirector {
     const token = ++this.token;
     this.pending = id;
     let bufs;
+    let late = null;
     try {
-      bufs = await this.loader.loadTrack(this.manifest, id);
+      ({ bufs, late } = await this._loadForStart(id, levels, !(this.cur && !this.cur.stopping)));
     } catch (e) {
       console.warn(`[audio] could not load ${id}`, e);
       if (token === this.token) this.pending = null;
@@ -205,9 +206,40 @@ export class MusicDirector {
       else at = now + 0.03;
     }
     if (old) this._fadeOut(old, transition === 'cut' ? now : transition === 'now' ? now + 0.02 : at, fade);
-    this.cur = this._start(id, def, bufs, levels, at, transition === 'now' && old ? fade : 0, Math.max(0, Number(opts.from) || 0));
+    const track = this._start(id, def, bufs, levels, at, transition === 'now' && old ? fade : 0, Math.max(0, Number(opts.from) || 0));
+    this.cur = track;
+    for (const [name, p] of Object.entries(late || {})) {
+      p.then((buf) => this._attachLate(track, name, buf), (e) => console.warn(`[audio] could not load ${id}.${name}`, e));
+    }
     this.loader.setPinned(Object.values(this.loader.stemUrls(this.manifest, id)));
     return id;
+  }
+
+  /**
+   * Buffers to start a track with. With a progressive loader (loadStems) the track starts as soon as its first
+   * stem (base / full) is decoded; the other stems join sample-locked when ready (`late`) if they start silent
+   * (intensity, riser, prep at 0) or if nothing is playing yet (the first music after the unlocking tap: sound
+   * first — homeroom's melody stem only enters after its 2-bar intro anyway). Under a playing track every audible
+   * stem is awaited, so a crossfade never arrives without its tune.
+   */
+  async _loadForStart(id, levels, fromSilence) {
+    if (!this.loader.loadStems) return { bufs: await this.loader.loadTrack(this.manifest, id), late: null };
+    const proms = this.loader.loadStems(this.manifest, id);
+    const names = Object.keys(proms);
+    const lazy = names.slice(1).filter((n) => fromSilence || !(levels[n] > 0));
+    const now = names.filter((n) => !lazy.includes(n));
+    for (const n of lazy) proms[n].catch(() => {});      // handled where it is used; never an unhandled rejection
+    const got = await Promise.all(now.map((n) => proms[n]));
+    return { bufs: Object.fromEntries(now.map((n, i) => [n, got[i]])), late: Object.fromEntries(lazy.map((n) => [n, proms[n]])) };
+  }
+
+  /** A stem decoded after its track started: schedule it at the track's current musical position. */
+  _attachLate(track, name, buf) {
+    const st = track.stems[name];
+    if (this.cur !== track || track.stopping || !st || st.srcs.length || !this.ctx) return;
+    const at = Math.max(this.ctx.currentTime + LOOKAHEAD, track.start);
+    st.srcs = this._schedule(buf, track.tt, at - track.t0, at, st.gain);
+    this._note(`late stem ${track.id}.${name} at m=${(at - track.t0).toFixed(3)}`);
   }
 
   /** Re-issue the last request (after unlock, or when Music is switched back on). */

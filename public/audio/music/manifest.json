@@ -20,83 +20,149 @@
   "clickSample": 3200
  },
  "tracks": {
-  "demo_battle": {
-   "title": "Roll Call (battle)",
+  "title": {
+   "title": "Sakura Sentinels",
    "kind": "loop",
    "bus": "music",
-   "bpm": 144.0144,
-   "bpmWritten": 144.0,
-   "beat": 13332.0,
+   "bpm": 132.0132,
+   "bpmWritten": 132.0,
+   "beat": 14544.0,
    "meter": [
     4,
     4
    ],
-   "key": "G",
+   "key": "F",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 4,
+    "loop": 24
+   },
+   "introEnd": 232704,
+   "seam": 87264,
+   "guard": 4096,
+   "head": 319968,
+   "loopStart": 328160,
+   "loopEnd": 1724384,
+   "entry": 415424,
+   "length": 1728480,
+   "lufs": -16.0,
+   "truePeak": -1.8,
+   "gainDb": 12.0,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 5,
+    "B": 13,
+    "A_ab": 21
+   },
+   "stems": {
+    "full": {
+     "file": "title.full",
+     "bytes": {
+      "opus": 390545,
+      "aac": 447299
+     },
+     "lufs": -16.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -66.4,
+    "loopIdentityDb": -68.7,
+    "opus": {
+     "lag": 0,
+     "seamDb": -33.8,
+     "click": 1.0,
+     "codecNoiseDb": -34.6
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -32.7,
+     "click": 1.42,
+     "codecNoiseDb": -33.0
+    }
+   }
+  },
+  "battle_blossom": {
+   "title": "Blossom Brigade",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 150.0,
+   "bpmWritten": 150.0,
+   "beat": 12800.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "D",
    "palette": "cleared",
    "rate": 32000,
    "bars": {
     "intro": 2,
-    "loop": 16
+    "loop": 40
    },
-   "introEnd": 106656,
-   "seam": 93324,
+   "introEnd": 102400,
+   "seam": 89600,
    "guard": 4096,
-   "head": 199980,
-   "loopStart": 208172,
-   "loopEnd": 1061420,
-   "entry": 301496,
-   "length": 1065516,
-   "lufs": -16.0,
-   "truePeak": -2.9,
-   "gainDb": 9.0,
-   "peakLimited": false,
+   "head": 192000,
+   "loopStart": 200192,
+   "loopEnd": 2248192,
+   "entry": 289792,
+   "length": 2252288,
+   "lufs": -16.1,
+   "truePeak": -1.0,
+   "gainDb": 10.8,
+   "peakLimited": true,
    "markers": {
     "intro": 1,
     "A": 3,
-    "B": 11
+    "A2": 11,
+    "B": 19,
+    "B2": 27,
+    "BR": 35
    },
    "stems": {
     "base": {
-     "file": "demo_battle.base",
+     "file": "battle_blossom.base",
      "bytes": {
-      "opus": 237676,
-      "aac": 275964
+      "opus": 553670,
+      "aac": 586389
      },
-     "lufs": -18.4
+     "lufs": -17.4
     },
     "intensity": {
-     "file": "demo_battle.intensity",
+     "file": "battle_blossom.intensity",
      "bytes": {
-      "opus": 167939,
-      "aac": 190728
+      "opus": 406906,
+      "aac": 444286
      },
-     "lufs": -19.8
+     "lufs": -21.1
     }
    },
    "checks": {
-    "wavSeamDb": -68.7,
-    "loopIdentityDb": -67.8,
+    "wavSeamDb": -73.9,
+    "loopIdentityDb": -73.6,
     "opus": {
      "lag": 0,
-     "seamDb": -34.3,
-     "click": 1.07,
-     "codecNoiseDb": -34.2
+     "seamDb": -35.7,
+     "click": 1.14,
+     "codecNoiseDb": -34.7
     },
     "aac": {
      "lag": 0,
-     "seamDb": -30.9,
-     "click": 1.08,
-     "codecNoiseDb": -33.3
+     "seamDb": -33.4,
+     "click": 1.26,
+     "codecNoiseDb": -32.7
     }
    }
   },
-  "demo": {
-   "title": "Roll Call",
+  "homeroom": {
+   "title": "Homeroom",
    "kind": "loop",
    "bus": "music",
-   "bpm": 111.9925,
-   "bpmWritten": 112.0,
-   "beat": 17144.0,
+   "bpm": 96.0,
+   "bpmWritten": 96.0,
+   "beat": 20000.0,
    "meter": [
     4,
     4
@@ -106,19 +172,306 @@
    "rate": 32000,
    "bars": {
     "intro": 2,
-    "loop": 16
+    "loop": 24
+   },
+   "introEnd": 160000,
+   "seam": 100000,
+   "guard": 4096,
+   "head": 260000,
+   "loopStart": 268192,
+   "loopEnd": 2188192,
+   "entry": 368192,
+   "length": 2192288,
+   "lufs": -16.0,
+   "truePeak": -1.3,
+   "gainDb": 14.9,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "H": 3,
+    "Br": 11,
+    "A": 19
+   },
+   "stems": {
+    "base": {
+     "file": "homeroom.base",
+     "bytes": {
+      "opus": 483183,
+      "aac": 562156
+     },
+     "lufs": -19.3
+    },
+    "melody": {
+     "file": "homeroom.melody",
+     "bytes": {
+      "opus": 526248,
+      "aac": 396366
+     },
+     "lufs": -18.6
+    }
+   },
+   "checks": {
+    "wavSeamDb": -76.6,
+    "loopIdentityDb": -72.9,
+    "opus": {
+     "lag": 0,
+     "seamDb": -40.4,
+     "click": 1.13,
+     "codecNoiseDb": -39.5
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -38.1,
+     "click": 1.17,
+     "codecNoiseDb": -39.3
+    }
+   }
+  },
+  "march": {
+   "title": "Sentinel March",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Bb",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 32
+   },
+   "introEnd": 128000,
+   "seam": 80000,
+   "guard": 4096,
+   "head": 208000,
+   "loopStart": 216192,
+   "loopEnd": 2264192,
+   "entry": 296192,
+   "length": 2268288,
+   "lufs": -16.0,
+   "truePeak": -2.0,
+   "gainDb": 11.9,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "A2": 11,
+    "Br": 19,
+    "C": 27
+   },
+   "stems": {
+    "base": {
+     "file": "march.base",
+     "bytes": {
+      "opus": 517718,
+      "aac": 585113
+     },
+     "lufs": -17.4
+    },
+    "prep": {
+     "file": "march.prep",
+     "bytes": {
+      "opus": 377947,
+      "aac": 441403
+     },
+     "lufs": -22.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -67.3,
+    "loopIdentityDb": -71.9,
+    "opus": {
+     "lag": 0,
+     "seamDb": -34.3,
+     "click": 1.02,
+     "codecNoiseDb": -35.5
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -32.2,
+     "click": 0.99,
+     "codecNoiseDb": -34.0
+    }
+   }
+  },
+  "battle_moonlit": {
+   "title": "Moonlit Ripples",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 125.9843,
+   "bpmWritten": 126.0,
+   "beat": 15240.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Am",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 32
+   },
+   "introEnd": 121920,
+   "seam": 106680,
+   "guard": 4096,
+   "head": 228600,
+   "loopStart": 236792,
+   "loopEnd": 2187512,
+   "entry": 343472,
+   "length": 2191608,
+   "lufs": -16.0,
+   "truePeak": -2.3,
+   "gainDb": 7.2,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "A2": 11,
+    "Br": 19,
+    "B": 27
+   },
+   "stems": {
+    "base": {
+     "file": "battle_moonlit.base",
+     "bytes": {
+      "opus": 545132,
+      "aac": 561696
+     },
+     "lufs": -17.8
+    },
+    "intensity": {
+     "file": "battle_moonlit.intensity",
+     "bytes": {
+      "opus": 401918,
+      "aac": 411789
+     },
+     "lufs": -19.6
+    }
+   },
+   "checks": {
+    "wavSeamDb": -67.6,
+    "loopIdentityDb": -73.7,
+    "opus": {
+     "lag": 0,
+     "seamDb": -35.6,
+     "click": 1.06,
+     "codecNoiseDb": -37.7
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -34.6,
+     "click": 1.78,
+     "codecNoiseDb": -37.0
+    }
+   }
+  },
+  "battle_lantern": {
+   "title": "Lantern Hush",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 111.9925,
+   "bpmWritten": 112.0,
+   "beat": 17144.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "E phrygian",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 28
    },
    "introEnd": 137152,
-   "seam": 85720,
+   "seam": 120008,
    "guard": 4096,
-   "head": 222872,
-   "loopStart": 231064,
-   "loopEnd": 1328280,
-   "entry": 316784,
-   "length": 1332376,
+   "head": 257160,
+   "loopStart": 265352,
+   "loopEnd": 2185480,
+   "entry": 385360,
+   "length": 2189576,
+   "lufs": -16.2,
+   "truePeak": -1.0,
+   "gainDb": 11.0,
+   "peakLimited": true,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "B": 11,
+    "A2": 19,
+    "C": 27
+   },
+   "stems": {
+    "base": {
+     "file": "battle_lantern.base",
+     "bytes": {
+      "opus": 512547,
+      "aac": 572783
+     },
+     "lufs": -19.3
+    },
+    "intensity": {
+     "file": "battle_lantern.intensity",
+     "bytes": {
+      "opus": 328604,
+      "aac": 407523
+     },
+     "lufs": -19.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -70.2,
+    "loopIdentityDb": -71.8,
+    "opus": {
+     "lag": 0,
+     "seamDb": -35.5,
+     "click": 0.93,
+     "codecNoiseDb": -34.6
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -34.8,
+     "click": 0.93,
+     "codecNoiseDb": -34.0
+    }
+   }
+  },
+  "wishing": {
+   "title": "Wishing Envelope",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 84.0042,
+   "bpmWritten": 84.0,
+   "beat": 22856.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "E",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 16
+   },
+   "introEnd": 182848,
+   "seam": 114280,
+   "guard": 4096,
+   "head": 297128,
+   "loopStart": 305320,
+   "loopEnd": 1768104,
+   "entry": 419600,
+   "length": 1772200,
    "lufs": -16.0,
-   "truePeak": -2.4,
-   "gainDb": 11.9,
+   "truePeak": -1.0,
+   "gainDb": 14.2,
    "peakLimited": false,
    "markers": {
     "intro": 1,
@@ -126,47 +479,47 @@
     "B": 11
    },
    "stems": {
-    "melody": {
-     "file": "demo.melody",
-     "bytes": {
-      "opus": 354025,
-      "aac": 257381
-     },
-     "lufs": -18.9
-    },
     "base": {
-     "file": "demo.base",
+     "file": "wishing.base",
      "bytes": {
-      "opus": 269340,
-      "aac": 344959
+      "opus": 418591,
+      "aac": 453660
      },
-     "lufs": -18.7
+     "lufs": -18.0
+    },
+    "riser": {
+     "file": "wishing.riser",
+     "bytes": {
+      "opus": 260222,
+      "aac": 309662
+     },
+     "lufs": -20.5
     }
    },
    "checks": {
-    "wavSeamDb": -71.4,
-    "loopIdentityDb": -69.9,
+    "wavSeamDb": -72.9,
+    "loopIdentityDb": -70.7,
     "opus": {
      "lag": 0,
-     "seamDb": -36.0,
-     "click": 1.0,
+     "seamDb": -35.6,
+     "click": 0.97,
      "codecNoiseDb": -37.5
     },
     "aac": {
      "lag": 0,
-     "seamDb": -34.5,
-     "click": 1.05,
-     "codecNoiseDb": -37.0
+     "seamDb": -34.8,
+     "click": 1.11,
+     "codecNoiseDb": -37.8
     }
    }
   },
-  "demo_sting": {
-   "title": "Roll Call \u2014 wave sting",
-   "kind": "oneshot",
-   "bus": "stinger",
-   "bpm": 143.9999,
-   "bpmWritten": 144.0,
-   "beat": 13333.344,
+  "mall": {
+   "title": "Sakura Mall",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 108.0108,
+   "bpmWritten": 108.0,
+   "beat": 17776.0,
    "meter": [
     4,
     4
@@ -174,34 +527,203 @@
    "key": "G",
    "palette": "cleared",
    "rate": 32000,
-   "length": 120000,
-   "lufs": -18.0,
-   "truePeak": -6.0,
-   "gainDb": 12.3,
-   "peakLimited": false,
+   "bars": {
+    "intro": 1,
+    "loop": 24
+   },
+   "introEnd": 71104,
+   "seam": 88880,
+   "guard": 4096,
+   "head": 159984,
+   "loopStart": 168176,
+   "loopEnd": 1874672,
+   "entry": 257056,
+   "length": 1878768,
+   "lufs": -16.3,
+   "truePeak": -1.0,
+   "gainDb": 14.9,
+   "peakLimited": true,
    "markers": {
-    "S": 1
+    "intro": 1,
+    "A": 2,
+    "B": 10,
+    "A2": 18
    },
    "stems": {
     "full": {
-     "file": "demo_sting.full",
+     "file": "mall.full",
      "bytes": {
-      "opus": 23414,
-      "aac": 31756
-     }
+      "opus": 401440,
+      "aac": 483047
+     },
+     "lufs": -16.3
     }
    },
    "checks": {
+    "wavSeamDb": -63.2,
+    "loopIdentityDb": -71.5,
     "opus": {
-     "lag": 0
+     "lag": 0,
+     "seamDb": -37.0,
+     "click": 1.02,
+     "codecNoiseDb": -35.9
     },
     "aac": {
-     "lag": 0
+     "lag": 0,
+     "seamDb": -31.2,
+     "click": 1.33,
+     "codecNoiseDb": -33.2
     }
    }
   },
-  "demo_victory": {
-   "title": "Roll Call \u2014 victory",
+  "battle_ironclock": {
+   "title": "Ironclock Overdrive",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 151.9949,
+   "bpmWritten": 152.0,
+   "beat": 12632.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "G dorian",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 40
+   },
+   "introEnd": 101056,
+   "seam": 88424,
+   "guard": 4096,
+   "head": 189480,
+   "loopStart": 197672,
+   "loopEnd": 2218792,
+   "entry": 286096,
+   "length": 2222888,
+   "lufs": -16.0,
+   "truePeak": -2.0,
+   "gainDb": 9.8,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "A2": 11,
+    "B": 19,
+    "C": 27,
+    "D": 35
+   },
+   "stems": {
+    "base": {
+     "file": "battle_ironclock.base",
+     "bytes": {
+      "opus": 514024,
+      "aac": 583948
+     },
+     "lufs": -17.4
+    },
+    "intensity": {
+     "file": "battle_ironclock.intensity",
+     "bytes": {
+      "opus": 409532,
+      "aac": 430676
+     },
+     "lufs": -21.2
+    }
+   },
+   "checks": {
+    "wavSeamDb": -71.6,
+    "loopIdentityDb": -68.5,
+    "opus": {
+     "lag": 0,
+     "seamDb": -35.3,
+     "click": 1.03,
+     "codecNoiseDb": -34.5
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -30.7,
+     "click": 1.29,
+     "codecNoiseDb": -32.4
+    }
+   }
+  },
+  "battle_matsuri": {
+   "title": "Oni Matsuri",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 160.0,
+   "bpmWritten": 160.0,
+   "beat": 12000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Cm",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 2,
+    "loop": 40
+   },
+   "introEnd": 96000,
+   "seam": 96000,
+   "guard": 4096,
+   "head": 192000,
+   "loopStart": 200192,
+   "loopEnd": 2120192,
+   "entry": 296192,
+   "length": 2124288,
+   "lufs": -16.0,
+   "truePeak": -3.3,
+   "gainDb": 6.1,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 3,
+    "A2": 11,
+    "B": 19,
+    "C": 27,
+    "B2": 35
+   },
+   "stems": {
+    "base": {
+     "file": "battle_matsuri.base",
+     "bytes": {
+      "opus": 551374,
+      "aac": 552611
+     },
+     "lufs": -17.7
+    },
+    "intensity": {
+     "file": "battle_matsuri.intensity",
+     "bytes": {
+      "opus": 335402,
+      "aac": 406499
+     },
+     "lufs": -22.8
+    }
+   },
+   "checks": {
+    "wavSeamDb": -70.2,
+    "loopIdentityDb": -75.6,
+    "opus": {
+     "lag": 0,
+     "seamDb": -36.3,
+     "click": 1.09,
+     "codecNoiseDb": -36.0
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -33.7,
+     "click": 1.07,
+     "codecNoiseDb": -35.5
+    }
+   }
+  },
+  "victory": {
+   "title": "Victory!",
    "kind": "oneshot",
    "bus": "jingle",
    "bpm": 132.0001,
@@ -214,20 +736,20 @@
    "key": "F",
    "palette": "cleared",
    "rate": 32000,
-   "length": 175743,
+   "length": 179142,
    "lufs": -15.0,
-   "truePeak": -1.9,
-   "gainDb": 13.2,
+   "truePeak": -2.6,
+   "gainDb": 11.3,
    "peakLimited": false,
    "markers": {
     "V": 1
    },
    "stems": {
     "full": {
-     "file": "demo_victory.full",
+     "file": "victory.full",
      "bytes": {
-      "opus": 42323,
-      "aac": 45751
+      "opus": 41310,
+      "aac": 46540
      }
     }
    },
@@ -239,34 +761,947 @@
      "lag": 0
     }
    }
+  },
+  "defeat": {
+   "title": "Petals Fall",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 107.9999,
+   "bpmWritten": 108.0,
+   "beat": 17777.792,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Fm",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 255023,
+   "lufs": -15.0,
+   "truePeak": -4.3,
+   "gainDb": 13.6,
+   "peakLimited": false,
+   "markers": {
+    "D": 1
+   },
+   "stems": {
+    "full": {
+     "file": "defeat.full",
+     "bytes": {
+      "opus": 49644,
+      "aac": 66072
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "levelup": {
+   "title": "Level Up!",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 150.0,
+   "bpmWritten": 150.0,
+   "beat": 12800.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Ab",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 89594,
+   "lufs": -15.0,
+   "truePeak": -3.3,
+   "gainDb": 14.1,
+   "peakLimited": false,
+   "markers": {
+    "L": 1
+   },
+   "stems": {
+    "full": {
+     "file": "levelup.full",
+     "bytes": {
+      "opus": 26174,
+      "aac": 23724
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "gacha_r": {
+   "title": "Gacha \u2014 R",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "E",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 95884,
+   "lufs": -18.0,
+   "truePeak": -2.6,
+   "gainDb": 16.6,
+   "peakLimited": false,
+   "markers": {
+    "R": 1
+   },
+   "stems": {
+    "full": {
+     "file": "gacha_r.full",
+     "bytes": {
+      "opus": 24499,
+      "aac": 26926
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "gacha_sr": {
+   "title": "Gacha \u2014 SR",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "E",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 147011,
+   "lufs": -15.0,
+   "truePeak": -2.7,
+   "gainDb": 14.0,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "stems": {
+    "full": {
+     "file": "gacha_sr.full",
+     "bytes": {
+      "opus": 37745,
+      "aac": 38326
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "gacha_ssr": {
+   "title": "Gacha \u2014 SSR",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "G",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 248161,
+   "lufs": -15.0,
+   "truePeak": -2.0,
+   "gainDb": 11.8,
+   "peakLimited": false,
+   "markers": {
+    "X": 1
+   },
+   "stems": {
+    "full": {
+     "file": "gacha_ssr.full",
+     "bytes": {
+      "opus": 53090,
+      "aac": 64159
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "boss": {
+   "title": "Hold the Line!",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 168.0084,
+   "bpmWritten": 168.0,
+   "beat": 11428.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Dm",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 4,
+    "loop": 44
+   },
+   "introEnd": 182848,
+   "seam": 91424,
+   "guard": 4096,
+   "head": 274272,
+   "loopStart": 282464,
+   "loopEnd": 2293792,
+   "entry": 373888,
+   "length": 2297888,
+   "lufs": -16.0,
+   "truePeak": -3.3,
+   "gainDb": 8.5,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 5,
+    "A2": 13,
+    "B": 21,
+    "C": 29,
+    "D": 37,
+    "T": 45
+   },
+   "stems": {
+    "base": {
+     "file": "boss.base",
+     "bytes": {
+      "opus": 530720,
+      "aac": 598950
+     },
+     "lufs": -17.6
+    },
+    "intensity": {
+     "file": "boss.intensity",
+     "bytes": {
+      "opus": 373260,
+      "aac": 446792
+     },
+     "lufs": -21.3
+    }
+   },
+   "checks": {
+    "wavSeamDb": -72.5,
+    "loopIdentityDb": -74.4,
+    "opus": {
+     "lag": 0,
+     "seamDb": -32.6,
+     "click": 0.99,
+     "codecNoiseDb": -34.2
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -31.2,
+     "click": 1.0,
+     "codecNoiseDb": -32.8
+    }
+   }
+  },
+  "wave_blossom": {
+   "title": "Blossom Brigade \u2014 wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 150.0,
+   "bpmWritten": 150.0,
+   "beat": 12800.0,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "D",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 64000,
+   "lufs": -18.0,
+   "truePeak": -5.8,
+   "gainDb": 10.0,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 25600,
+   "stems": {
+    "full": {
+     "file": "wave_blossom.full",
+     "bytes": {
+      "opus": 15265,
+      "aac": 17549
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "wave_moonlit": {
+   "title": "Moonlit Ripples \u2014 wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 126.0001,
+   "bpmWritten": 126.0,
+   "beat": 15238.08,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "Am",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 91428,
+   "lufs": -18.0,
+   "truePeak": -6.1,
+   "gainDb": 7.0,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 30476,
+   "stems": {
+    "full": {
+     "file": "wave_moonlit.full",
+     "bytes": {
+      "opus": 20312,
+      "aac": 24362
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "wave_lantern": {
+   "title": "Lantern Hush \u2014 wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 112.0001,
+   "bpmWritten": 112.0,
+   "beat": 17142.848,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "E phrygian",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 85714,
+   "lufs": -18.0,
+   "truePeak": -4.8,
+   "gainDb": 11.1,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 34286,
+   "stems": {
+    "full": {
+     "file": "wave_lantern.full",
+     "bytes": {
+      "opus": 19070,
+      "aac": 22433
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "wave_ironclock": {
+   "title": "Ironclock Overdrive \u2014 wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 151.9999,
+   "bpmWritten": 152.0,
+   "beat": 12631.584,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "G dorian",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 63158,
+   "lufs": -18.0,
+   "truePeak": -5.2,
+   "gainDb": 9.5,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 25263,
+   "stems": {
+    "full": {
+     "file": "wave_ironclock.full",
+     "bytes": {
+      "opus": 12682,
+      "aac": 16879
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "wave_matsuri": {
+   "title": "Oni Matsuri \u2014 wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 160.0,
+   "bpmWritten": 160.0,
+   "beat": 12000.0,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "Cm",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 60000,
+   "lufs": -18.0,
+   "truePeak": -7.1,
+   "gainDb": 9.5,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 24000,
+   "stems": {
+    "full": {
+     "file": "wave_matsuri.full",
+     "bytes": {
+      "opus": 12886,
+      "aac": 16428
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "final_wave": {
+   "title": "Final Wave",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "C",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 112000,
+   "lufs": -18.0,
+   "truePeak": -4.7,
+   "gainDb": 10.2,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 48000,
+   "stems": {
+    "full": {
+     "file": "final_wave.full",
+     "bytes": {
+      "opus": 22188,
+      "aac": 29854
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "miniboss": {
+   "title": "Miniboss!",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 140.0001,
+   "bpmWritten": 140.0,
+   "beat": 13714.272,
+   "meter": [
+    6,
+    4
+   ],
+   "key": "Dm",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 123428,
+   "lufs": -18.0,
+   "truePeak": -4.2,
+   "gainDb": 9.5,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "accent": 0,
+   "stems": {
+    "full": {
+     "file": "miniboss.full",
+     "bytes": {
+      "opus": 26705,
+      "aac": 32494
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "boss_warning": {
+   "title": "Boss Warning",
+   "kind": "oneshot",
+   "bus": "stinger",
+   "bpm": 167.9999,
+   "bpmWritten": 168.0,
+   "beat": 11428.576,
+   "meter": [
+    9,
+    4
+   ],
+   "key": "Dm",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 102857,
+   "lufs": -18.0,
+   "truePeak": -3.9,
+   "gainDb": 8.9,
+   "peakLimited": false,
+   "markers": {
+    "S": 1
+   },
+   "hold": "boss_warning_hold",
+   "stems": {
+    "full": {
+     "file": "boss_warning.full",
+     "bytes": {
+      "opus": 28659,
+      "aac": 27261
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "final": {
+   "title": "Ashwing Matriarch",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 176.0176,
+   "bpmWritten": 176.0,
+   "beat": 10908.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Em",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 4,
+    "loop": 40
+   },
+   "introEnd": 174528,
+   "seam": 87264,
+   "guard": 4096,
+   "head": 261792,
+   "loopStart": 269984,
+   "loopEnd": 2015264,
+   "entry": 357248,
+   "length": 2019360,
+   "lufs": -16.0,
+   "truePeak": -2.2,
+   "gainDb": 8.4,
+   "peakLimited": false,
+   "markers": {
+    "intro": 1,
+    "A": 5,
+    "A2": 13,
+    "B": 21,
+    "C": 29,
+    "D": 37
+   },
+   "stems": {
+    "base": {
+     "file": "final.base",
+     "bytes": {
+      "opus": 477403,
+      "aac": 525746
+     },
+     "lufs": -17.3
+    },
+    "intensity": {
+     "file": "final.intensity",
+     "bytes": {
+      "opus": 324672,
+      "aac": 392423
+     },
+     "lufs": -21.5
+    }
+   },
+   "checks": {
+    "wavSeamDb": -68.8,
+    "loopIdentityDb": -74.3,
+    "opus": {
+     "lag": 0,
+     "seamDb": -33.8,
+     "click": 1.02,
+     "codecNoiseDb": -34.1
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -29.7,
+     "click": 1.0,
+     "codecNoiseDb": -32.6
+    }
+   }
+  },
+  "results_win": {
+   "title": "After School",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 96.0,
+   "bpmWritten": 96.0,
+   "beat": 20000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "F",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 0,
+    "loop": 8
+   },
+   "introEnd": 0,
+   "seam": 100000,
+   "guard": 4096,
+   "head": 100000,
+   "loopStart": 108192,
+   "loopEnd": 748192,
+   "entry": 208192,
+   "length": 752288,
+   "lufs": -16.0,
+   "truePeak": -1.6,
+   "gainDb": 14.5,
+   "peakLimited": false,
+   "markers": {
+    "W": 1
+   },
+   "stems": {
+    "full": {
+     "file": "results_win.full",
+     "bytes": {
+      "opus": 171681,
+      "aac": 192851
+     },
+     "lufs": -16.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -77.6,
+    "loopIdentityDb": -67.8,
+    "opus": {
+     "lag": 0,
+     "seamDb": -37.4,
+     "click": 1.0,
+     "codecNoiseDb": -36.9
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -32.6,
+     "click": 1.0,
+     "codecNoiseDb": -36.7
+    }
+   }
+  },
+  "results_lose": {
+   "title": "Petals on the Path",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 84.0042,
+   "bpmWritten": 84.0,
+   "beat": 22856.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Dm",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 0,
+    "loop": 8
+   },
+   "introEnd": 0,
+   "seam": 114280,
+   "guard": 4096,
+   "head": 114280,
+   "loopStart": 122472,
+   "loopEnd": 853864,
+   "entry": 236752,
+   "length": 857960,
+   "lufs": -16.0,
+   "truePeak": -2.5,
+   "gainDb": 14.6,
+   "peakLimited": false,
+   "markers": {
+    "L": 1
+   },
+   "stems": {
+    "full": {
+     "file": "results_lose.full",
+     "bytes": {
+      "opus": 184251,
+      "aac": 219031
+     },
+     "lufs": -16.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -67.7,
+    "loopIdentityDb": -71.4,
+    "opus": {
+     "lag": 0,
+     "seamDb": -38.4,
+     "click": 1.27,
+     "codecNoiseDb": -39.5
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -43.3,
+     "click": 1.19,
+     "codecNoiseDb": -42.5
+    }
+   }
+  },
+  "awaken": {
+   "title": "Awakening",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 120.0,
+   "bpmWritten": 120.0,
+   "beat": 16000.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Ab",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 187252,
+   "lufs": -15.0,
+   "truePeak": -1.9,
+   "gainDb": 13.6,
+   "peakLimited": false,
+   "markers": {
+    "W": 1
+   },
+   "stems": {
+    "full": {
+     "file": "awaken.full",
+     "bytes": {
+      "opus": 39068,
+      "aac": 48799
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "new_student": {
+   "title": "New Student!",
+   "kind": "oneshot",
+   "bus": "jingle",
+   "bpm": 150.0,
+   "bpmWritten": 150.0,
+   "beat": 12800.0,
+   "meter": [
+    3,
+    4
+   ],
+   "key": "E",
+   "palette": "cleared",
+   "rate": 32000,
+   "length": 126110,
+   "lufs": -17.0,
+   "truePeak": -5.7,
+   "gainDb": 10.0,
+   "peakLimited": false,
+   "markers": {
+    "N": 1
+   },
+   "stems": {
+    "full": {
+     "file": "new_student.full",
+     "bytes": {
+      "opus": 29763,
+      "aac": 32864
+     }
+    }
+   },
+   "checks": {
+    "opus": {
+     "lag": 0
+    },
+    "aac": {
+     "lag": 0
+    }
+   }
+  },
+  "boss_warning_hold": {
+   "title": "Boss Warning (hold)",
+   "kind": "loop",
+   "bus": "music",
+   "bpm": 168.0084,
+   "bpmWritten": 168.0,
+   "beat": 11428.0,
+   "meter": [
+    4,
+    4
+   ],
+   "key": "Dm",
+   "palette": "cleared",
+   "rate": 32000,
+   "bars": {
+    "intro": 0,
+    "loop": 4
+   },
+   "introEnd": 0,
+   "seam": 91424,
+   "guard": 4096,
+   "head": 91424,
+   "loopStart": 99616,
+   "loopEnd": 282464,
+   "entry": 191040,
+   "length": 286560,
+   "lufs": -18.0,
+   "truePeak": -4.8,
+   "gainDb": 9.9,
+   "peakLimited": false,
+   "markers": {
+    "H": 1
+   },
+   "stems": {
+    "full": {
+     "file": "boss_warning_hold.full",
+     "bytes": {
+      "opus": 86013,
+      "aac": 75019
+     },
+     "lufs": -18.0
+    }
+   },
+   "checks": {
+    "wavSeamDb": -66.9,
+    "loopIdentityDb": -67.8,
+    "opus": {
+     "lag": 0,
+     "seamDb": -34.5,
+     "click": 0.99,
+     "codecNoiseDb": -36.8
+    },
+    "aac": {
+     "lag": 0,
+     "seamDb": -35.4,
+     "click": 1.15,
+     "codecNoiseDb": -38.1
+    }
+   }
   }
  },
- "standIns": {
-  "title": "demo",
-  "homeroom": "demo",
-  "march": "demo",
-  "wishing": "demo",
-  "mall": "demo",
-  "results_win": "demo",
-  "results_lose": "demo",
-  "battle_*": "demo_battle",
-  "boss": "demo_battle",
-  "final": "demo_battle",
-  "wave_*": "demo_sting",
-  "final_wave": "demo_sting",
-  "miniboss": "demo_sting",
-  "boss_warning": "demo_sting",
-  "victory": "demo_victory",
-  "levelup": "demo_victory",
-  "awaken": "demo_victory",
-  "new_student": "demo_victory",
-  "gacha_r": "demo_sting",
-  "gacha_sr": "demo_victory",
-  "gacha_ssr": "demo_victory"
- },
+ "standIns": {},
  "bytes": {
-  "opus": 1094717,
-  "aac": 1146539
+  "opus": 10542063,
+  "aac": 11622388
  },
- "built": "2026-10-08"
+ "built": "2026-10-09"
 }

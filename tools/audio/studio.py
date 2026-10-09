@@ -32,6 +32,7 @@ from sakura_audio.palette import load_palette  # noqa: E402
 from sakura_audio.song import discover  # noqa: E402
 
 BUDGET = {'opus': 11_000_000, 'aac': 13_000_000, 'total': 25_000_000, 'sprite': 300_000}
+TEST_SONGS = ('demo*',)     # the 'Roll Call' palette audition: rendered for palette checks, never shipped by `ship all`
 
 
 def pick_songs(all_songs: dict, names: list) -> list:
@@ -201,7 +202,9 @@ def cmd_ship(a):
     if not man_path.exists():
         raise SystemExit(f'nothing rendered for palette {pal.id} (run: studio.py render all --palette {pal.id})')
     built = json.loads(man_path.read_text())['tracks']
-    names = list(built) if not a.songs or a.songs == ['all'] else [n for n in built if any(fnmatch.fnmatch(n, p) for p in a.songs)]
+    ship_all = not a.songs or a.songs == ['all']
+    shippable = [n for n in built if not any(fnmatch.fnmatch(n, p) for p in TEST_SONGS)]
+    names = shippable if ship_all else [n for n in built if any(fnmatch.fnmatch(n, p) for p in a.songs)]
     failed = [n for n in names if not built[n].get('ok')]
     if failed and not a.force:
         raise SystemExit(f'refusing to ship, checks failed for: {", ".join(failed)} (see studio.py render output / review)')
@@ -216,6 +219,14 @@ def cmd_ship(a):
                 'formats': [{'id': k, **v} for k, v in FORMATS.items()],
                 'probe': {'file': 'probe', 'clickSample': 3200}})
     pub.setdefault('tracks', {})
+    if ship_all and not a.keep_stale:
+        # drop tracks that are no longer part of the soundtrack (palette tests, renamed or deleted songs)
+        for n in [k for k in pub['tracks'] if k not in shippable]:
+            for stem in pub['tracks'][n].get('stems', {}).values():
+                for ext in ('webm', 'm4a'):
+                    (PUBLIC_MUSIC / f'{stem["file"]}.{ext}').unlink(missing_ok=True)
+            del pub['tracks'][n]
+            print(f'pruned {n} from {PUBLIC_MUSIC}')
     for n in names:
         e = dict(built[n])
         for stem in e['stems'].values():
@@ -305,6 +316,7 @@ def main(argv=None):
     p.add_argument('--palette', default='cleared')
     p.add_argument('--force', action='store_true', help='ship even when checks failed (never for releases)')
     p.add_argument('--yes-private', action='store_true', help='allow shipping a non-default palette (e.g. toby)')
+    p.add_argument('--keep-stale', action='store_true', help='with "all": keep public tracks that are not rendered songs')
     p.set_defaults(fn=cmd_ship)
     a = ap.parse_args(argv)
     return a.fn(a) or 0

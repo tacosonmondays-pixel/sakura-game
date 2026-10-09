@@ -257,6 +257,28 @@ export function createEngine({ base = './audio/' } = {}) {
     return null;
   }
 
+  /**
+   * The format the probe will most likely pick, known before any AudioContext exists: this browser's cached probe
+   * result, else the first format it says it 'probably' plays. Only used to fetch the first track's bytes before
+   * the unlocking tap; decoding still waits for the real probe.
+   */
+  function guessFormat(formats) {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    try {
+      const cached = JSON.parse(safeGet(PROBE_KEY) || 'null');
+      const f = cached && cached.ua === ua && formats.find((x) => x.id === cached.format);
+      if (f) return f;
+    } catch {
+      /* ignore */
+    }
+    try {
+      const a = typeof document !== 'undefined' ? document.createElement('audio') : null;
+      return (a && formats.find((f) => f.mime && a.canPlayType(f.mime) === 'probably')) || null;
+    } catch {
+      return null;
+    }
+  }
+
   function setVolumes(v) {
     vols = { ...vols, ...v };
     if (!buses) return;
@@ -324,6 +346,7 @@ export function createEngine({ base = './audio/' } = {}) {
       return () => unlockListeners.delete(fn);
     },
     probe,
+    guessFormat,
     setVolumes,
     level,
     setBattleSpeed(speed) {

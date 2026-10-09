@@ -78,12 +78,29 @@ export function createLoader(engine) {
     return p;
   }
 
-  function stemUrls(manifest, id) {
+  function stemUrls(manifest, id, f = engine.format) {
     const t = manifest?.tracks?.[id];
-    const f = engine.format;
     if (!t || !f) return {};
     const out = {};
     for (const [name, st] of Object.entries(t.stems || {})) out[name] = `${engine.base}music/${st.file}.${f.ext}`;
+    return out;
+  }
+
+  /**
+   * Decode a track's stems in order → { stem: Promise<AudioBuffer> }: all bytes are fetched at once, the first
+   * stem (base / full) is decoded first and the others after it, so a track can start on its first stem while
+   * the rest are still decoding (MusicDirector joins them sample-locked). Throws when nothing can load.
+   */
+  function loadStems(manifest, id, { pin = true } = {}) {
+    const urls = stemUrls(manifest, id);
+    const names = Object.keys(urls);
+    if (!names.length) throw new Error(`track ${id}: nothing to load (format ${engine.format?.id || 'none'})`);
+    if (pin) names.forEach((n) => pinned.add(urls[n]));
+    for (const n of names) bytes(urls[n]).catch(() => {});
+    const first = decode(urls[names[0]]);
+    const after = first.catch(() => null);
+    const out = { [names[0]]: first };
+    for (const n of names.slice(1)) out[n] = after.then(() => decode(urls[n]));
     return out;
   }
 
@@ -91,20 +108,33 @@ export function createLoader(engine) {
     bytes,
     decode,
     stemUrls,
+    loadStems,
     /** Decode every stem of a track → { stem: AudioBuffer } (pins them while `pin` is true). */
     async loadTrack(manifest, id, { pin = true } = {}) {
-      const urls = stemUrls(manifest, id);
-      const names = Object.keys(urls);
-      if (!names.length) throw new Error(`track ${id}: nothing to load (format ${engine.format?.id || 'none'})`);
-      if (pin) names.forEach((n) => pinned.add(urls[n]));
-      const bufs = await Promise.all(names.map((n) => decode(urls[n])));
+      const proms = loadStems(manifest, id, { pin });
+      const names = Object.keys(proms);
+      const bufs = await Promise.all(names.map((n) => proms[n]));
       return Object.fromEntries(names.map((n, i) => [n, bufs[i]]));
     },
-    /** Fetch (and optionally decode) a track in the background; failures are silent. */
+    /** Fetch (and optionally decode, first stem first) a track in the background; failures are silent. */
     preload(manifest, id, { decode: dec = false } = {}) {
       if (saveData) return;
-      const urls = Object.values(stemUrls(manifest, id));
-      for (const u of urls) (dec ? decode(u) : bytes(u)).catch(() => {});
+      if (dec) {
+        try {
+          for (const p of Object.values(loadStems(manifest, id, { pin: false }))) p.catch(() => {});
+        } catch {
+          /* nothing to load */
+        }
+        return;
+      }
+      for (const u of Object.values(stemUrls(manifest, id))) bytes(u).catch(() => {});
+    },
+    /** Fetch a track's bytes in a given format before the probe has run (no decode; failures are silent). */
+    prefetch(manifest, id, fmt) {
+      if (saveData || !fmt) return 0;
+      const urls = Object.values(stemUrls(manifest, id, fmt));
+      for (const u of urls) bytes(u).catch(() => {});
+      return urls.length;
     },
     setPinned(urls) {
       pinned.clear();

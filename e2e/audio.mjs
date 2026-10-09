@@ -1,10 +1,13 @@
 // Audio end-to-end check (docs/AUDIO.md §6.4) in Playwright Chromium (Opus path):
-//   1. nothing plays before a gesture; the first tap unlocks (context running, Opus chosen, probe Δ = 0)
-//   2. lobby music starts (signal on the music bus); a menu keeps the same track, melody stem fades out
+//   1. nothing plays before a gesture (but the lobby track's bytes are prefetched); the first tap unlocks
+//      (context running, Opus chosen, probe Δ = 0)
+//   2. lobby music (the real homeroom) starts soon after the tap (signal on the music bus); a menu keeps the
+//      same track, melody stem fades out
 //   3. gapless loop: the shipped Opus stems, decoded by Chromium and scheduled with the engine's own
 //      head+loop math in an OfflineAudioContext (32 kHz and 48 kHz), are compared sample by sample with
 //      the continuous audio around the entry seam and two loop wraps (no click, no gap)
-//   4. battle switches track; starting a wave fades the intensity stem in (≤ 2 bars)
+//   4. battle switches track; starting a wave fades the intensity stem in (≤ 2 bars) and the wave sting's stab
+//      lands on the battle loop's strong-beat grid
 //   5. SFX play (sprite voices) and Music off (the real Settings toggle) silences the music bus
 //   6. no console errors, no failed requests
 //
@@ -62,9 +65,12 @@ try {
   await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
   await waitFor(() => window.__sakura?.audio && document.querySelector('#app')?.children.length > 0, null, 30000);
   await page.waitForTimeout(800);
+  await waitFor(() => window.__sakura.audio.state().rawBytes > 300_000, null, 15000);
   const before = await A(() => window.__sakura.audio.state());
   check(!before.unlocked && before.track === null, `before any gesture: silent (ctx ${before.ctx}, unlocked ${before.unlocked}, wanted ${before.requested})`);
+  check(before.rawBytes > 300_000, `before the tap: the lobby track's bytes are already fetched (${(before.rawBytes / 1e6).toFixed(2)} MB, format guessed without a context)`);
   await A(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  const tTap = Date.now();
   await page.mouse.click(5, 360);                                  // a neutral spot: no button
   const unlocked = await waitFor(() => window.__sakura.audio.state().unlocked && window.__sakura.audio.state().format);
   const s1 = await A(() => window.__sakura.audio.state());
@@ -72,12 +78,15 @@ try {
   check(s1.format === 'opus' && s1.delta === 0, 'Chromium decodes the Opus probe click sample-exact (Δ = 0)');
 
   // ---- 2. lobby music ---------------------------------------------------------------------------------
-  const lobbyOk = await waitFor(() => {
+  const soundOk = await waitFor(() => window.__sakura.audio.state().track === 'homeroom' && window.__sakura.audio.state().m > 0, null, 30000);
+  const tSound = Date.now() - tTap;
+  const lobbyOk = soundOk && await waitFor(() => {
     const s = window.__sakura.audio.state();
     return s.track && s.m > 1.0 && s.stems.melody?.value > 0.9;
   });
   const s2 = await A(() => ({ ...window.__sakura.audio.state(), level: window.__sakura.audio.level('music') }));
-  check(lobbyOk && s2.track === 'demo' && s2.requested === 'homeroom', `lobby: homeroom (stand-in ${s2.track}) playing at m=${s2.m}s, stems ${JSON.stringify(s2.stems)}`);
+  check(lobbyOk && s2.track === 'homeroom' && s2.requested === 'homeroom', `lobby: homeroom playing at m=${s2.m}s, stems ${JSON.stringify(s2.stems)}`);
+  check(soundOk && tSound < 8000, `lobby music started ${tSound} ms after the tap (bytes prefetched, decode starts right after the probe)`);
   check(s2.level > -50, `lobby: signal on the music bus (${s2.level.toFixed(1)} dBFS RMS)`);
   await A(() => { location.hash = '#/students'; });
   const menuOk = await waitFor(() => window.__sakura.audio.state().stems.melody?.value < 0.05, null, 15000);
@@ -108,7 +117,7 @@ try {
       const sorted = [...e].sort((a, b) => a - b);
       return local / (sorted[sorted.length >> 1] + 1e-20);
     };
-    for (const id of ['demo', 'demo_battle']) {
+    for (const id of ['homeroom', 'battle_blossom', 'boss_warning_hold']) {
       const t = man.tracks[id];
       for (const [stem, st] of Object.entries(t.stems)) {
         const bytes = await (await fetch(`/audio/music/${st.file}.webm`)).arrayBuffer();
@@ -156,9 +165,9 @@ try {
   // ---- 4. battle: track switch + intensity on wave start ---------------------------------------------------
   await A(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
   await waitFor(() => window.__battle?.ui?.audio, null, 60000);
-  const battleOk = await waitFor(() => window.__sakura.audio.state().track === 'demo_battle' && window.__sakura.audio.state().m > 0.5, null, 30000);
+  const battleOk = await waitFor(() => window.__sakura.audio.state().track === 'battle_blossom' && window.__sakura.audio.state().m > 0.5, null, 30000);
   const b1 = await A(() => window.__sakura.audio.state());
-  check(battleOk && b1.requested === 'battle_blossom', `battle: switched to battle_blossom (stand-in ${b1.track}), intensity ${JSON.stringify(b1.stems.intensity)}`);
+  check(battleOk && b1.requested === 'battle_blossom', `battle: switched to ${b1.track}, intensity ${JSON.stringify(b1.stems.intensity)}`);
   check(b1.stems.intensity?.target === 0, 'battle: build phase = base stem only');
   const barSec = await A(() => {
     const t = window.__sakura.audio.music.cur.tt;
@@ -191,8 +200,19 @@ try {
   const stingLine = musicLog.find((l) => l.includes('stinger wave_blossom')) || '';
   const sm = stingLine.match(/ at ([\d.]+) until/);
   const stingLate = sm && fm ? Number(sm[1]) - Number(fm[1]) : NaN;
+  // round 2: the sting is quantised so its stab (manifest `accent`) lands on the battle loop's next strong beat
+  const grid = sm ? await A(async (when) => {
+    const lm = await import('/src/audio/loopMath.js');
+    const a = window.__sakura.audio;
+    const c = a.music.cur;
+    const acc = a.music.manifest.tracks.wave_blossom.accent / a.music.manifest.rate;
+    const step = lm.gridStep(c.tt, 'half');
+    const k = (when + acc - c.t0) / step;
+    return { off: Math.abs(k - Math.round(k)) * step, step };
+  }, Number(sm[1])) : null;
   check(intenseOk && took <= 2 * barSec + 0.05, `wave start: intensity stem fully in ${took.toFixed(2)} s after the event (≤ 2 bars = ${(2 * barSec).toFixed(2)} s), now ${b2.stems.intensity?.value}`);
-  check(stingLate >= 0 && stingLate < 0.3, `wave start: sting ${stingLine ? `scheduled ${stingLate.toFixed(2)} s after the event (preloaded at mount)` : 'missing'}`);
+  check(stingLate >= 0 && grid && stingLate < grid.step + 0.1 && grid.off < 0.002,
+    `wave start: sting ${stingLine ? `scheduled ${stingLate.toFixed(2)} s after the event, its stab ${(grid?.off * 1000).toFixed(1)} ms off the loop's ${grid?.step.toFixed(2)} s grid (preloaded at mount)` : 'missing'}`);
   // a girl placed through the sim emits 'place' → bt.place via the event hook; a coin bump → bt.deny via the wrapped action
   const placed = await A(() => {
     const { sim, ui } = window.__battle;
@@ -223,7 +243,7 @@ try {
   await A(() => { location.hash = '#/settings'; });
   await page.waitForSelector('[data-testid=set-music]', { timeout: 20000 });
   const keep = await A(() => window.__sakura.audio.state().track);
-  check(keep === 'demo_battle', `settings keeps the current track (${keep})`);
+  check(keep === 'battle_blossom', `settings keeps the current track (${keep})`);
   await page.click('[data-testid=set-music]');
   const offOk = await waitFor(() => !window.__sakura.audio.state().enabled && window.__sakura.audio.state().track === null, null, 5000);
   await page.waitForTimeout(900);

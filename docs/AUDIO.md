@@ -26,8 +26,9 @@ private "Toby" palette). It does not cover compositions: we never quote or parap
 
 ## Status: pipeline + engine built (2026-10-08, `feature/audio`)
 
-Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **The soundtrack itself (A6, §4.4) is not
-composed yet.** One original demo tune, *Roll Call*, stands in for every track id until it is (§S.3).
+Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **Round 2 (2026-10-09): the whole soundtrack of
+§4.4 is composed, rendered with the `cleared` palette and shipped** — 31 tracks, no stand-ins (§S.5). *Roll Call*
+(§S.3) is now only the palette audition; `ship all` no longer publishes it.
 
 ### S.1 What exists
 
@@ -46,7 +47,7 @@ composed yet.** One original demo tune, *Roll Call*, stands in for every track i
 | JS tests | `tests/audio/` (7 files, 64 tests) | loop math, manifest + budgets + sprite ids, routes, battle state machine + SFX mapping, limiter, economy, director on a fake WebAudio graph, battle preloads |
 | Browser check | `e2e/audio.mjs` | unlock on first tap, lobby music, menu stem fade without restart, seams of the shipped Opus files measured in Chromium, battle switch + intensity on wave start + prompt sting, SFX, pause duck, Music off/on, memory, no console errors |
 
-Not built yet: `kai_import.py` (needs Kai's file format), `originality.py` (§6.5), and the real songs of §4.4.
+Not built yet: `kai_import.py` (needs Kai's file format). `originality.py` (§6.5) exists since round 2.
 
 ### S.2 Commands
 
@@ -61,7 +62,9 @@ $PY tools/audio/studio.py render all                      # every song: stems �
 $PY tools/audio/studio.py render all --palette toby       # same songs through the Toby fonts (build/toby/, not shipped)
 $PY tools/audio/studio.py sfx                             # SFX recipes → sprite (also copied to public/audio/sfx/)
 $PY tools/audio/studio.py review all                      # build/<palette>/review/index.html
+$PY tools/audio/studio.py originality                     # blocklist of famous hooks + shared-phrase scan (§6.5)
 $PY tools/audio/studio.py ship                            # gates + budgets, then public/audio/music/ + manifest + probes
+                                                          # ('all' skips the demo* auditions and prunes stale tracks)
 $PY -m unittest discover -s tools/audio/tests -t tools/audio/tests
 npx vitest run tests/audio && node e2e/audio.mjs
 ```
@@ -107,6 +110,61 @@ seam* / *3 s before entry* buttons; the page also shows which format the probe p
 - **FluidR3_GM** by Frank Wen (MIT), the installed fallback and the `strict` palette.
 - **sakura-chip.sf2**, the NES-style chip font, and every composition and SFX recipe: made for this game,
   CC0 for the font. `public/audio/CREDITS.md` ships the same list.
+
+### S.5 Round 2: the soundtrack ships (critic round 1 fixes)
+
+**Shipped** (`public/audio/music/manifest.json`, `cleared` palette, built 2026-10-09). LUFS / true peak after
+the mix; "seam" = worst Opus wrap/entry difference against the continuous render (codec noise level) and the
+click ratio (gate < 3). Every gate of §6.1 passes for every track.
+
+| Track | Kind | bpm / key | Intro + loop | LUFS | TP dBTP | Opus | AAC | Opus seam / click |
+|---|---|---|---|---|---|---|---|---|
+| `title` | loop | 132 / F | 7.3 + 43.6 s | -16.0 | -1.8 | 390,545 | 447,299 | -33.8 dB / 1.0 |
+| `battle_blossom` | loop (base, intensity) | 150 / D | 3.2 + 64.0 s | -16.1 | -1.0 | 960,576 | 1,030,675 | -35.7 dB / 1.14 |
+| `homeroom` | loop (base, melody) | 96 / F | 5.0 + 60.0 s | -16.0 | -1.3 | 1,009,431 | 958,522 | -40.4 dB / 1.13 |
+| `march` | loop (base, prep) | 120 / Bb | 4.0 + 64.0 s | -16.0 | -2.0 | 895,665 | 1,026,516 | -34.3 dB / 1.02 |
+| `battle_moonlit` | loop (base, intensity) | 126 / Am | 3.8 + 61.0 s | -16.0 | -2.3 | 947,050 | 973,485 | -35.6 dB / 1.06 |
+| `battle_lantern` | loop (base, intensity) | 112 / E phrygian | 4.3 + 60.0 s | -16.2 | -1.0 | 841,151 | 980,306 | -35.5 dB / 0.93 |
+| `wishing` | loop (base, riser) | 84 / E | 5.7 + 45.7 s | -16.0 | -1.0 | 678,813 | 763,322 | -35.6 dB / 0.97 |
+| `mall` | loop | 108 / G | 2.2 + 53.3 s | -16.3 | -1.0 | 401,440 | 483,047 | -37.0 dB / 1.02 |
+| `battle_ironclock` | loop (base, intensity) | 152 / G dorian | 3.2 + 63.2 s | -16.0 | -2.0 | 923,556 | 1,014,624 | -35.3 dB / 1.03 |
+| `battle_matsuri` | loop (base, intensity) | 160 / Cm | 3.0 + 60.0 s | -16.0 | -3.3 | 886,776 | 959,110 | -36.3 dB / 1.09 |
+| `victory` | oneshot | 132 / F | 5.6 s | -15.0 | -2.6 | 41,310 | 46,540 | — |
+| `defeat` | oneshot | 108 / Fm | 8.0 s | -15.0 | -4.3 | 49,644 | 66,072 | — |
+| `levelup` | oneshot | 150 / Ab | 2.8 s | -15.0 | -3.3 | 26,174 | 23,724 | — |
+| `gacha_r` | oneshot | 120 / E | 3.0 s | -18.0 | -2.6 | 24,499 | 26,926 | — |
+| `gacha_sr` | oneshot | 120 / E | 4.6 s | -15.0 | -2.7 | 37,745 | 38,326 | — |
+| `gacha_ssr` | oneshot | 120 / G | 7.8 s | -15.0 | -2.0 | 53,090 | 64,159 | — |
+| `boss` | loop (base, intensity) | 168 / Dm | 5.7 + 62.9 s | -16.0 | -3.3 | 903,980 | 1,045,742 | -32.6 dB / 0.99 |
+| `wave_blossom` | oneshot | 150 / D | 2.0 s | -18.0 | -5.8 | 15,265 | 17,549 | — |
+| `wave_moonlit` | oneshot | 126 / Am | 2.9 s | -18.0 | -6.1 | 20,312 | 24,362 | — |
+| `wave_lantern` | oneshot | 112 / E phrygian | 2.7 s | -18.0 | -4.8 | 19,070 | 22,433 | — |
+| `wave_ironclock` | oneshot | 152 / G dorian | 2.0 s | -18.0 | -5.2 | 12,682 | 16,879 | — |
+| `wave_matsuri` | oneshot | 160 / Cm | 1.9 s | -18.0 | -7.1 | 12,886 | 16,428 | — |
+| `final_wave` | oneshot | 120 / C | 3.5 s | -18.0 | -4.7 | 22,188 | 29,854 | — |
+| `miniboss` | oneshot | 140 / Dm | 3.9 s | -18.0 | -4.2 | 26,705 | 32,494 | — |
+| `boss_warning` | oneshot | 168 / Dm | 3.2 s | -18.0 | -3.9 | 28,659 | 27,261 | — |
+| `final` | loop (base, intensity) | 176 / Em | 5.5 + 54.5 s | -16.0 | -2.2 | 802,075 | 918,169 | -33.8 dB / 1.02 |
+| `results_win` | loop | 96 / F | 0.0 + 20.0 s | -16.0 | -1.6 | 171,681 | 192,851 | -37.4 dB / 1.0 |
+| `results_lose` | loop | 84 / Dm | 0.0 + 22.9 s | -16.0 | -2.5 | 184,251 | 219,031 | -38.4 dB / 1.27 |
+| `awaken` | oneshot | 120 / Ab | 5.9 s | -15.0 | -1.9 | 39,068 | 48,799 | — |
+| `new_student` | oneshot | 150 / E | 3.9 s | -17.0 | -5.7 | 29,763 | 32,864 | — |
+| `boss_warning_hold` | loop | 168 / Dm | 0.0 + 5.7 s | -18.0 | -4.8 | 86,013 | 75,019 | -34.5 dB / 0.99 |
+
+Total: Opus 10,542,063 B, AAC 11,622,388 B (budgets 11 / 13 / 25 MB). SFX sprite: 84 sounds, 192 KB Opus + 242 KB AAC.
+
+**What changed in round 2**
+
+| Area | Change |
+|---|---|
+| New songs | `final` (Ashwing Matriarch: own E-minor hook, 3+2+2 bridge where SHADOW and the SENTINEL CALL trade bars, main theme in G with the Bell **answered**, rising push), `results_win` (After School), `results_lose` (Petals on the Path: the Bell hangs twice in D minor, answered in F), `awaken`, `new_student` (the Wishing question answered at last), `boss_warning_hold` (4-bar alarm loop, see §3.5). `standins.json` is empty |
+| SNES character | `cleared` now treats the sampled GM voices like S-DSP samples: an 11.5 kHz band limit plus parallel BRR-style 4-bit block grit (mix 0.12; drums 0.10; chip voices untouched) — `mix.voices` in the palette, `mix.py brr_crush / voice_fx`. Kits render in jobs of their own so drums get their own treatment |
+| Palette echo | songs set their echo for the shipped palette; a palette now changes it *relative* to that (`echo_override`, `echo_scale`), so `--palette toby` (shorter, darker EarthBound-style echo) changes every song by editing only `toby.json` |
+| Melodies | `homeroom` got its own hook (section H; the main theme now plays once per loop: 2 + 24 bars, 60 s, 1.0 MB instead of 1.38 MB). `battle_matsuri` chorus rewritten (Bell in long notes, then the festival skip climbs) so it no longer opens like Moonlit's. SENTINEL CALL is now +5 +5 +2 −2 (the old +5 +5 −1 shared a famous TV fanfare's gesture). `march` bar 5 is D7sus4 only (no G over F♯ rub) and the third call overshoots to C6 |
+| Balance (solo-part loudness, `partloud.py`) | title koto −38.7 → −24.9 LUFS, chip arp pad −34.5 → −26.3; matsuri lead −24.5 → −21.1 (5 LU under the mix, fue doubles A too; bass/taiko2 −2 dB); lantern koto −21.7 over the upright bass −23.3; blossom counter 2.9 LU under the lead; ironclock counter 3.7 LU under the saw; boss horn 2.8 LU under the lead; mall steel drum 4.8 LU over the e-piano, slap bass +3 dB |
+| Engine | wave / miniboss stings are quantised so their stab (manifest `accent`) lands on the battle loop's next half bar (`loopMath.accentStart`, measured 0.0 ms off the grid in Chromium); `bossTakeover` plays `boss_warning`'s hold loop when the boss track is still decoding and hands over on its bar line; the first track's bytes are prefetched before the unlocking tap (format guessed from the cached probe / `canPlayType`), decoding starts right after the probe, and a track starting from silence plays as soon as its first stem is decoded (the others join sample-locked) — tap → lobby music 5.1 s → 2.5 s on this loaded machine (load average 19) |
+| SFX | `ui.confirm` 405 → 235 ms; spam budgets per family (§3.8) |
+| Tools | `studio.py originality` + `originality/blocklist.json` (+ `tests/test_originality.py`), `ship` skips `demo*` and prunes stale tracks |
 
 ---
 
@@ -876,6 +934,18 @@ sfx voices ─ voiceGain ─ panner ─ {uiBus, battleBus} ─ sfxBus ───�
   | `battle` | Results loops. **Decode** the boss track when `sim.wave ≥ bossWave − 2` (or immediately on boss arenas) |
   | `recruit` | Decode the R / SR / SSR fanfares and `gacha.newStudent` |
 
+- **Ordered decode** (round 2, `loader.loadStems`): all stem bytes are fetched at once, the first stem (`base` /
+  `full`) is decoded first and the others after it. `MusicDirector.play` starts a track as soon as its first
+  stem is decoded when the other stems start silent (intensity, riser, prep at 0) or when nothing is playing
+  yet; the others join sample-locked at the track's current musical position (`_attachLate`). Under a playing
+  track every audible stem is awaited, so a crossfade never arrives without its tune.
+- **Before the first tap** (round 2, `index.js prefetchFirst`): once the manifest is in, the bytes of the
+  screen's track (on `title`: the lobby's) are fetched in the format the probe will most likely pick
+  (`engine.guessFormat`: this browser's cached probe result, else the first `canPlayType() === 'probably'`). No
+  AudioContext is created, so no autoplay warning. After the tap the decode starts right after the probe,
+  before the 350 ms settle that waits for the tap's own navigation. Measured (`e2e/audio.mjs`, load average
+  19): tap → lobby music 2.5 s (round 1: 5.1 s).
+
 ### 3.5 Music director: scheduling math
 
 For one track: `t0` = context time when musical position 0 plays. `m` = musical seconds since song start
@@ -913,7 +983,12 @@ if (m < head) {
 ```js
 music.play(trackId, { stems: { base: 1, intensity: 0 }, transition: 'bar'|'beat'|'now'|'cut', fade: 1.2, from: 0 })
 music.setStems({ intensity: 1 }, { quantize: 'beat'|'bar', fade: bars(1) })
-music.stinger(id, { duck: -4, quantize: 'now'|'beat', then: () => … })   // one-shot on the music bus
+music.stinger(id, { duck: -4, quantize: 'accent'|'now'|'beat'|'bar' })   // one-shot on the music bus
+// 'accent' (battle default, round 2): the sting starts so that its stab — manifest `accent`, samples, from the
+// song's `extra={'accentBeat': n}` — lands on the playing loop's next half bar (whole bar in odd meters)
+music.bossTakeover('boss')   // stop 0.35 s → boss_warning → boss track at its end; if the boss track is not
+                             // decoded 0.12 s before that end, the warning's `hold` loop (boss_warning_hold) plays
+                             // on and the boss track enters on the hold's next bar line
 music.jingle(id, { stopMusic: true, then: 'results_win' })               // victory/defeat/levelup…
 music.duck(tag, dB, { lpf: 1200, attack: 0.2, release: 0.4 }); music.unduck(tag)
 music.stop({ fade: 0.3 })
@@ -1094,7 +1169,7 @@ Failure modes:
 | Motif | Definition | Character | Where |
 |---|---|---|---|
 | **BELL** "Sakura Bell", the music-box motif | Intervals **+5, −3, +2** (4 notes), rhythm ♪ ♪ ♩ ♩. ("question", ends on the leading tone). **Answer** = one more step up to the tonic. In F: **C–F–D–E (→ F)**. Minor form: −5, 0, −4, −1 from the tonic (A minor: E–A–F–G♯ → A) | Hopeful, a little wistful. The academy's heart | Every track, at least once. Its home timbre is the **music box** with SNES echo |
-| **SENTINEL CALL** | Intervals **+5, +5, −1, +1** (5 notes), rhythm ♪. ♬ ♩ ♪ ♩. (dotted-8th, 16th, quarter, 8th, dotted quarter). In B♭: F4–B♭4–E♭5–D5–E♭5 | Brass call to action, the girls rallying | march, battle intensity stems, final boss |
+| **SENTINEL CALL** | Intervals **+5, +5, +2, −2** (5 notes; round 1 had +5 +5 −1 +1), rhythm ♪. ♬ ♩ ♪ ♩. (dotted-8th, 16th, quarter, 8th, dotted quarter). In B♭: F4–B♭4–E♭5–F5–E♭5 | Brass call to action, the girls rallying | march, battle intensity stems, final boss |
 | **SHADOW** (enemies) | Intervals **+1, −1, +6, −3** (5 notes), rhythm ♬ ♪ ♩ ♩. (+♪ rest). In D: D–E♭–D–A♭–F | The monsters' unease: tritone, chromatic neighbour | miniboss and boss stingers, boss tracks, defeat |
 
 Motif transforms in `theory.py`:
@@ -1147,7 +1222,7 @@ Loop lengths = bars × 4 × 60 / BPM. File length = intro + seam (≈ 2.5 s) + l
 | ID | Title | Use | Tempo / key / meter | Mood | Intro + loop | Stems | Leitmotif use | Palette roles |
 |---|---|---|---|---|---|---|---|---|
 | `title` | **Sakura Sentinels** | Title screen (plays when audio is already unlocked; its music-box intro also opens `homeroom`) | 132, F → A♭ (last 8 bars), 4/4 | Bright, sweeping, "the adventure starts" | 4 + 24 bars (7.3 s + 43.6 s) | full | Full main theme (A A′ B), last 8 bars = A in A♭ (lift), back to F via E♭7 (backdoor) | music_box, harp, chip_pulse25 + glock (lead doubling), strings, brass, choir_ahh (B), timpani, orch_hit (A♭ downbeat), finger_bass, drums |
-| `homeroom` | **Homeroom** (+ "Study Hall" variant) | Lobby (full); students, formation, backpack, bestiary, wiki, commissions, rewards (melody stem off) | 96 swing (0.62), F major, bridge in B♭ | Cosy, after-school sunshine, lo-fi jazz | 2 + 32 bars (5 s + 80 s) | base, melody | Intro = music-box BELL (question → answer). A = main theme bars 1-8, re-harmonised (Fmaj9, Dm11, B♭maj9, C13sus4…). Bridge = a new after-school melody in B♭ with e-piano BELL answers. A″ = main theme B section, softened | base: epiano, finger_bass (walking), drums_brush, marimba comp, pad_warm. melody: vibes (lead), music_box, chip_triangle counter-line |
+| `homeroom` | **Homeroom** (+ "Study Hall" variant) | Lobby (full); students, formation, backpack, bestiary, wiki, commissions, rewards (melody stem off) | 96 swing (0.62), F major, bridge in B♭ | Cosy, after-school sunshine, lo-fi jazz | 2 + 24 bars (5 s + 60 s) | base, melody | Intro = music-box BELL (question → answer). H = Homeroom's own hook (vibes + ocarina; e-piano Bell in the gaps). Bridge = a new after-school melody in B♭ with e-piano BELL answers. A = main theme bars 1-8, re-harmonised (Fmaj9, Dm11, B♭maj9, C13sus4…) on music box + vibes | base: epiano, finger_bass (walking), drums_brush, marimba comp, pad_warm. melody: vibes (lead), music_box, chip_triangle counter-line |
 | `march` | **Sentinel March** | Campaign map, missions hub, bounty, assault, challenge (base). Stage prep (+prep) | 120, B♭ major, lydian E♮ colour, bridge to D♭, 4/4 | Adventurous overworld, determined but bouncy | 2 + 32 bars (4 s + 64 s) | base, prep | Melody = SENTINEL CALL (trumpet + chip_pulse12). Bridge: flute BELL in D♭ (A♭5–D♭6–B♭5–C6 → D♭6) | base: trumpet, chip_pulse12, strings, pizz, flute, finger_bass, glock, drums. prep: snare march ostinato (drums_orch), trombone/tuba, timpani |
 | `wishing` | **Wishing Envelope** | Recruit screen; reveal anticipation (+riser) | 84, E major, 4/4 | Dreamy, sparkling, held breath | 2 + 16 bars (5.7 s + 45.7 s) | base, riser | Celesta BELL **always left as the question** (B5–E6–C♯6–D♯6), never answered until a fanfare answers it | base: harp (arps on Emaj9 – C♯m9 – Amaj9 – B7sus4), celesta, pad_halo, music_box, soft kick. riser: tremolo strings crescendo, timpani heartbeat, rev_cymbal every 2 bars, choir_ooh |
 | `mall` | **Sakura Mall** | Mall / shop | 108, G major, bridge in B♭, 4/4 bossa-funk | Cheeky, window-shopping fun | 1 + 24 bars (2.2 s + 53.3 s) | full | Steel-drum BELL fill at bars 8 and 24 (D5–G5–E5–F♯5 → G5), and a "cha-ching" chip arp | steel_drum (lead), slap_bass, epiano, organ stabs, vibes, chip_pulse50 answers, drums (bossa + shaker/conga) |
@@ -1157,9 +1232,9 @@ Loop lengths = bars × 4 × 60 / BPM. File length = intro + seam (≈ 2.5 s) + l
 | `battle_ironclock` | **Ironclock Overdrive** | mountain, foundry | 152, G minor (dorian) with mixolydian riff, 4/4 | Mechanical, stomping, gears and armour | 2 + 40 bars (3.2 s + 63.2 s) | base, intensity | BELL as a syncopated brass riff in G minor (D–G–E♭–F♯ → G), bars 17-24. SENTINEL CALL in the guitar | base: slap_bass riff, organ (percussive), chip_pulse50 bass, cowbell/agogo "anvil", drums (crunchy). intensity: brass section, overdrive_gtr, orch_hit, tom fills, chip_pulse25 counter-lead |
 | `battle_matsuri` | **Oni Matsuri** | festival, volcano | 160, C minor → E♭ major chorus, 4/4 | Hot, festive, drums and fire | 2 + 40 bars (3 s + 60 s) | base, intensity | Shamisen BELL in C minor (G–C–A♭–B → C). Triumphant in the E♭ chorus (B♭–E♭–C–D → E♭) | base: taiko groove, shamisen, flute (festival fue), finger_bass, chip_pulse25 lead. intensity: double taiko + timpani, choir_ahh stabs, brass, orch_hit, string runs |
 | `boss` | **Hold the Line!** | Grave Lych, Iron Colossus, challenge bosses at waves 50 and 60 | 168, D minor → F major "hope" section, 4/4 | Frantic, driving, then defiant | 4 + 48 bars (5.7 s + 68.6 s) | base (phase 1), intensity (phase 2+) | Intro: SHADOW in low brass and organ (D–E♭–D–A♭–F). A: **frantic minor main theme** (A4–D5–B♭4–C♯5 → D5…) over 16th-note chip arps. B: SHADOW vs BELL counterpoint. C: **hope**: main theme bars 9-12 heroic in F (brass + choir), pivot back via A7(♭9) | base: organ, chip_pulse25 + chip_arp32, slap_bass, drums_power, low brass. intensity: choir_ahh, tremolo strings, timpani, orch_hit, horn counter-melody (BELL) |
-| `final` | **Ashwing Matriarch** | 8-5, `boss-ashwing`, challenge wave 70 | 176, E minor ↔ G major; 8-bar 7/8 bridge | Epic, desperate, then everyone together | 4 + 56 bars (5.5 s + ≈ 75 s) | base, intensity | All three motifs: SHADOW (dragon) in low strings and brass, SENTINEL CALL in trumpets, and in the last section the main theme bars 1-4 in G major with BELL answered (choir + full band) | base: strings, brass, koto runs, chip_pulse12/25 leads, slap_bass, drums, organ. intensity: choir_ahh, orch_hit, timpani, second drum layer, tremolo strings |
+| `final` | **Ashwing Matriarch** | 8-5, `boss-ashwing`, challenge wave 70 | 176, E minor ↔ G major; 8-bar 7/8 bridge | Epic, desperate, then everyone together | 4 + 40 bars (5.5 s + 54.5 s) | base, intensity | All three motifs: SHADOW (dragon) in low brass, SENTINEL CALL in trumpets (3+2+2 bridge, kept on the 4/4 grid), and in section C the main theme bars 1-4 in G major with BELL answered (choir + full band) | base: strings, brass, koto runs, chip_pulse12/25 leads, slap_bass, drums, organ. intensity: choir_ahh, orch_hit, timpani, second drum layer, tremolo strings |
 | `results_win` | **After School** | Results after victory (loop after the jingle) | 96, F major | Warm, satisfied | 0 + 8 bars (20 s) | full | BELL answered softly, music box | music_box, epiano, drums_brush, finger_bass |
-| `results_lose` | **Petals on the Path** | Results after defeat | 88, D minor → F | Gentle, encouraging | 0 + 8 bars (≈ 22 s) | full | BELL in D minor, answered in F major at the end (hope) | music_box, strings_slow, harp |
+| `results_lose` | **Petals on the Path** | Results after defeat | 84, D minor → F | Gentle, encouraging | 0 + 8 bars (≈ 22 s) | full | BELL in D minor, answered in F major at the end (hope) | music_box, strings_slow, harp |
 
 **Jingles and stingers** (one-shots, `jingles.py`):
 
@@ -1168,7 +1243,7 @@ Loop lengths = bars × 4 × 60 / BPM. File length = intro + seam (≈ 2.5 s) + l
 | `wave_blossom`, `wave_moonlit`, `wave_lantern`, `wave_ironclock`, `wave_matsuri` | 1.4 s each | music (stinger) | Snare roll, then a chip arpeggio up the family tonic triad, then a brass stab, in the family key |
 | `final_wave` | 2.2 s | music (stinger) | Unpitched, so safe over any key: taiko roll, gong-like crash (`rev_cymbal` into crash), choir cluster, whoosh |
 | `miniboss` | 2.6 s | music (stinger) | SHADOW on brass, taiko hits, crash |
-| `boss_warning` | 3.6 s + hold bar | music | Chip siren (alternating tritone), SHADOW in low brass, taiko crescendo, then an orchestra hit. The boss track starts on its decay |
+| `boss_warning` | 3.2 s (+ `boss_warning_hold`, a 4-bar loop) | music | Chip siren (alternating tritone), SHADOW in low brass, taiko crescendo, then an orchestra hit. The boss track starts on its decay; if it is still decoding, the hold loop keeps the alarm going and the boss enters on its next bar line |
 | `victory` | ≈ 5.2 s | music | 4-note sting (C F D F), then the bVI–bVII–I brass cadence to F(add9), a cymbal swell and a chip arp sparkle |
 | `defeat` | ≈ 5.5 s | music | F minor music box: C5–F5–D♭5–C5 (the question collapses), slowing down, Fm(add9) → D♭ → B♭m6 → Fm, then a soft low piano "pa-dum" |
 | `levelup` | 1.6 s | music (menus duck) | A♭ major 16ths: E♭6–A♭6–F6–G6 → A♭6, chip_pulse12 + glock trill |

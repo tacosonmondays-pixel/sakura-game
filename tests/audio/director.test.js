@@ -1,10 +1,10 @@
 // Music director (src/audio/music.js) on a fake WebAudio graph: sample-locked stems, head + loop scheduling,
 // bar-quantised transitions, stem fades, late stingers, jingle chaining, boss takeover, ducking, Music off.
 // Plus the battle adapter's preloads (mount + boss two waves ahead).
-import { describe, test, expect, afterEach } from 'vitest';
+import { describe, test, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { MusicDirector } from '../../src/audio/music.js';
-import { trackTimes } from '../../src/audio/loopMath.js';
+import { trackTimes, gridStep } from '../../src/audio/loopMath.js';
 import { attachBattleAudio } from '../../src/audio/battle.js';
 
 const manifest = JSON.parse(readFileSync(new URL('../../public/audio/music/manifest.json', import.meta.url), 'utf8'));
@@ -69,10 +69,10 @@ const srcsOf = (ctx, id) => ctx.sources.filter((s) => s.buffer?.id === id);
 describe('MusicDirector', () => {
   test('a loop track starts every stem with the same `when`: head once, then the loop body from `entry`', async () => {
     const { ctx, music } = setup();
-    await music.play('homeroom', { stems: { base: 1, melody: 1 } });           // stand-in → demo
-    expect(music.cur.id).toBe('demo');
-    const tt = trackTimes(manifest.tracks.demo, manifest.rate);
-    const srcs = srcsOf(ctx, 'demo');
+    await music.play('homeroom', { stems: { base: 1, melody: 1 } });
+    expect(music.cur.id).toBe('homeroom');
+    const tt = trackTimes(manifest.tracks.homeroom, manifest.rate);
+    const srcs = srcsOf(ctx, 'homeroom');
     expect(srcs).toHaveLength(4);                                                 // 2 stems × (head + loop)
     const whens = new Set(srcs.map((s) => s.starts[0].when));
     expect(whens.size).toBe(2);                                                   // head start, loop start
@@ -110,7 +110,7 @@ describe('MusicDirector', () => {
     const old = music.cur;
     ctx.currentTime += 5.1;
     await music.play('battle_blossom', { stems: { base: 1, intensity: 0 }, transition: 'bar' });
-    expect(music.cur.id).toBe('demo_battle');
+    expect(music.cur.id).toBe('battle_blossom');
     expect(old.stopping).toBe(true);
     const m = music.cur.t0 - old.t0;
     expect(Math.abs(m / old.tt.bar - Math.round(m / old.tt.bar))).toBeLessThan(1e-6);
@@ -141,7 +141,7 @@ describe('MusicDirector', () => {
     expect(await late).toBe(null);
     expect(music.log.some((l) => l.includes('skipped'))).toBe(true);
     const ok = await music.stinger('wave_blossom', { duck: -4, maxLate: 0.75 });
-    expect(ok).toBeCloseTo(ctx.currentTime + 0.05 + manifest.tracks.demo_sting.length / manifest.rate, 6);
+    expect(ok).toBeCloseTo(ctx.currentTime + 0.05 + manifest.tracks.wave_blossom.length / manifest.rate, 6);
   });
 
   test('victory jingle stops the music and chains into the results loop exactly at its end', async () => {
@@ -150,8 +150,8 @@ describe('MusicDirector', () => {
     const battle = music.cur;
     const end = await music.jingle('victory', { stopMusic: true, then: 'results_win' });
     expect(battle.stopping).toBe(true);
-    expect(end).toBeCloseTo(ctx.currentTime + 0.3 + manifest.tracks.demo_victory.length / manifest.rate, 6);
-    expect(music.cur.id).toBe('demo');                                            // results_win stand-in
+    expect(end).toBeCloseTo(ctx.currentTime + 0.3 + manifest.tracks.victory.length / manifest.rate, 6);
+    expect(music.cur.id).toBe('results_win');
     expect(music.cur.t0).toBeCloseTo(end, 9);
   });
 
@@ -163,7 +163,7 @@ describe('MusicDirector', () => {
     const jingle = music.jingle('levelup', { stopMusic: false, duck: -10 });
     release();
     await Promise.all([loading, jingle]);
-    expect(music.cur?.id).toBe('demo');
+    expect(music.cur?.id).toBe('homeroom');
     expect([...music.ducks.values()].map((d) => d.db)).toEqual([-10]);
   });
 
@@ -173,13 +173,108 @@ describe('MusicDirector', () => {
     const battle = music.cur;
     await music.bossTakeover('boss');
     expect(battle.stopping).toBe(true);
-    const sting = ctx.sources.filter((s) => s.buffer?.id === 'demo_sting').at(-1);
+    const sting = ctx.sources.filter((s) => s.buffer?.id === 'boss_warning').at(-1);
     const stingEnd = sting.starts[0].when + sting.starts[0].dur;
     expect(music.cur).not.toBe(battle);
     expect(music.cur.t0).toBeCloseTo(stingEnd, 9);
     expect(music.cur.stems.intensity.gain.gain.value).toBe(0);
     music.setStems({ intensity: 1 }, { quantize: 'bar', fadeBars: 1 });           // bossPhase
     expect(music.cur.stems.intensity.model.to).toBe(1);
+  });
+
+  test('a wave sting in accent mode lands its stab on the playing loop\'s next strong beat', async () => {
+    const { ctx, music } = setup();
+    await music.play('battle_blossom', { stems: { base: 1, intensity: 1 } });
+    const acc = manifest.tracks.wave_blossom.accent / manifest.rate;
+    expect(acc).toBeGreaterThan(0);
+    for (const dt of [1.234, 2.71, 0.05]) {
+      ctx.currentTime += dt;
+      await music.stinger('wave_blossom', { duck: 0, quantize: 'accent' });
+      const src = ctx.sources.filter((s) => s.buffer?.id === 'wave_blossom').at(-1);
+      const m = src.starts[0].when + acc - music.cur.t0;                          // musical time of the stab
+      const step = gridStep(music.cur.tt, 'half');
+      expect(Math.abs(m / step - Math.round(m / step))).toBeLessThan(1e-6);
+      expect(src.starts[0].when).toBeGreaterThanOrEqual(ctx.currentTime + 0.05 - 1e-9);
+      expect(src.starts[0].when - ctx.currentTime).toBeLessThanOrEqual(step + 0.05 + 1e-9);
+    }
+  });
+
+  test('boss takeover with the boss track still decoding: the warning\'s hold loop plays on, the boss enters on its bar line', async () => {
+    vi.useFakeTimers();
+    try {
+      let release;
+      const gate = new Promise((r) => (release = r));
+      const { ctx, music, loader } = setup();
+      const plain = loader.loadTrack;
+      loader.loadTrack = async (man, id) => {
+        if (id === 'boss') await gate;
+        return plain(man, id);
+      };
+      await music.play('battle_blossom', { stems: { base: 1, intensity: 1 } });
+      const holdId = manifest.tracks.boss_warning.hold;
+      expect(manifest.tracks[holdId]?.kind).toBe('loop');
+      const done = music.bossTakeover('boss');
+      await vi.advanceTimersByTimeAsync(6000);                                    // the warning ends, boss not decoded
+      const warn = ctx.sources.filter((s) => s.buffer?.id === 'boss_warning').at(-1);
+      const warnEnd = warn.starts[0].when + warn.starts[0].dur;
+      expect(music.cur.id).toBe(holdId);
+      expect(music.cur.t0).toBeCloseTo(warnEnd, 9);                               // no gap after the warning
+      const hold = music.cur;
+      ctx.currentTime = warnEnd + 1.0;
+      release();
+      await vi.advanceTimersByTimeAsync(10);
+      await done;
+      expect(music.cur.id).toBe('boss');
+      expect(hold.stopping).toBe(true);
+      const m = music.cur.t0 - hold.t0;
+      expect(Math.abs(m / hold.tt.bar - Math.round(m / hold.tt.bar))).toBeLessThan(1e-6);   // on the hold's bar line
+      expect(music.cur.stems.intensity.gain.gain.value).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('progressive start: from silence a track starts on its first stem, the others join sample-locked when decoded', async () => {
+    const { ctx, music, loader } = setup();
+    let release;
+    const gate = new Promise((r) => (release = r));
+    loader.loadStems = (man, id) => {
+      const names = Object.keys(man.tracks[id].stems);
+      return Object.fromEntries(names.map((n, i) => [n, i === 0 ? Promise.resolve({ id, stem: n }) : gate.then(() => ({ id, stem: n }))]));
+    };
+    await music.play('homeroom', { stems: { base: 1, melody: 1 } });
+    const track = music.cur;
+    expect(track.id).toBe('homeroom');
+    expect(track.stems.base.srcs.length).toBeGreaterThan(0);
+    expect(track.stems.melody.srcs).toHaveLength(0);                                // still decoding
+    ctx.currentTime += 3.7;
+    release();
+    await gate;
+    await new Promise((r) => setTimeout(r, 0));
+    const mel = track.stems.melody.srcs;
+    expect(mel.length).toBeGreaterThan(0);
+    const tt = track.tt;
+    const first = mel[0].starts[0];
+    const m = first.when - track.t0;                                                // musical position it joins at
+    expect(first.when).toBeGreaterThanOrEqual(ctx.currentTime);
+    expect(first.offset).toBeCloseTo(m < tt.head ? m : tt.loopStart + ((m - tt.introEnd) % tt.P), 9);
+    expect(mel[0].dest).toBe(track.stems.melody.gain);
+
+    // under a playing track, an audible stem is awaited (no crossfade without its tune); a silent one is lazy
+    let release2;
+    const gate2 = new Promise((r) => (release2 = r));
+    loader.loadStems = (man, id) => {
+      const names = Object.keys(man.tracks[id].stems);
+      return Object.fromEntries(names.map((n, i) => [n, i === 0 ? Promise.resolve({ id, stem: n }) : gate2.then(() => ({ id, stem: n }))]));
+    };
+    const p = music.play('battle_blossom', { stems: { base: 1, intensity: 0 }, transition: 'bar' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(music.cur.id).toBe('battle_blossom');                                    // intensity (0) did not hold it up
+    expect(music.cur.stems.intensity.srcs).toHaveLength(0);
+    release2();
+    await p;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(music.cur.stems.intensity.srcs.length).toBeGreaterThan(0);
   });
 
   test('ducks stack (deepest wins) and the pause lowpass follows', () => {
@@ -206,7 +301,7 @@ describe('MusicDirector', () => {
     expect(music.wanted.id).toBe('battle_blossom');
     music.setEnabled(true);
     await new Promise((r) => setTimeout(r, 0));
-    expect(music.cur.id).toBe('demo_battle');
+    expect(music.cur.id).toBe('battle_blossom');
   });
 });
 

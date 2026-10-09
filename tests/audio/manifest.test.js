@@ -37,7 +37,8 @@ describe('music manifest', () => {
     for (const [id, t] of Object.entries(man.tracks)) {
       expect(t.truePeak, id).toBeLessThanOrEqual(-0.95);
       if (t.kind === 'loop') {
-        expect(Math.abs(t.lufs + 16), id).toBeLessThanOrEqual(0.5);
+        const target = Object.values(man.tracks).some((x) => x.hold === id) ? -18 : -16;   // a sting's hold loop sits at sting level
+        expect(Math.abs(t.lufs - target), id).toBeLessThanOrEqual(0.5);
         expect(t.checks.wavSeamDb, id).toBeLessThan(-60);
         for (const f of ['opus', 'aac']) {
           expect(t.checks[f].lag, `${id} ${f}`).toBe(0);
@@ -53,6 +54,20 @@ describe('music manifest', () => {
   });
   test('stand-ins point at shipped tracks', () => {
     for (const [k, v] of Object.entries(man.standIns || {})) expect(man.tracks[v], k).toBeTruthy();
+  });
+  test('the whole soundtrack is shipped: every design id is a real track, no stand-ins, no palette demo', () => {
+    const ids = ['title', 'homeroom', 'march', 'wishing', 'mall', 'results_win', 'results_lose', 'boss', 'final',
+      ...['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'].flatMap((f) => [`battle_${f}`, `wave_${f}`]),
+      'final_wave', 'miniboss', 'boss_warning', 'victory', 'defeat', 'levelup', 'awaken', 'new_student', 'gacha_r', 'gacha_sr', 'gacha_ssr'];
+    for (const id of ids) expect(man.tracks[id], id).toBeTruthy();
+    expect(Object.keys(man.standIns || {})).toEqual([]);
+    expect(Object.keys(man.tracks).filter((k) => k.startsWith('demo'))).toEqual([]);
+    for (const f of ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri']) {
+      expect(man.tracks[`battle_${f}`].stems.intensity, f).toBeTruthy();
+      expect(man.tracks[`wave_${f}`].accent, `wave_${f} accent`).toBeGreaterThan(0);
+    }
+    expect(man.tracks.final.stems.intensity).toBeTruthy();
+    expect(man.tracks[man.tracks.boss_warning.hold]?.kind).toBe('loop');
   });
   test('probe files exist and are tiny', () => {
     for (const ext of ['webm', 'm4a']) {

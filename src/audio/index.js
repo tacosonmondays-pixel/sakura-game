@@ -15,6 +15,7 @@ import { handleCue } from './cues.js';
 import { resolveTrack } from './loopMath.js';
 
 const UNLOCK_SETTLE_MS = 350;     // TAP TO START also navigates (260 ms): start the music for where we land
+const TAP_LEAVES = ['title'];     // routes whose unlocking tap navigates away: warm up the next screen's track instead
 
 function routeName() {
   const h = String(location.hash || '').replace(/^#\/?/, '').split('?')[0].split('/')[0];
@@ -136,6 +137,23 @@ export function initAudio({ store, base } = {}) {
     }
   }
 
+  /** Tracks the first music after the unlocking tap will most likely need (design ids → shipped ids). */
+  function firstTracks() {
+    const r = musicForRoute(route);
+    const list = TAP_LEAVES.includes(route)
+      ? preloadFor(route).filter((p) => p.decode).map((p) => p.track)
+      : [r.track || r.fallback?.track];
+    return [...new Set(list.map((t) => t && resolveTrack(t, manifest)).filter(Boolean))];
+  }
+
+  /** Before the tap: fetch the first track's bytes in the format the probe will most likely pick, so after the
+   *  tap the lobby music only has to decode (round 2: it took ~5 s from tap to sound on a loaded machine). */
+  function prefetchFirst() {
+    if (engine.unlocked || !manifest || !music.enabled) return;
+    const fmt = engine.guessFormat(manifest.formats || []);
+    if (fmt) for (const id of firstTracks()) loader.prefetch(manifest, id, fmt);
+  }
+
   async function start() {
     if (started || !engine.unlocked) return;
     started = true;
@@ -147,6 +165,9 @@ export function initAudio({ store, base } = {}) {
         return;
       }
       applySettings();
+      // start decoding now: the settle delay below only decides where the tap went, and play() then joins
+      // this in-flight decode (the loader dedupes by url)
+      if (music.enabled) for (const id of firstTracks()) loader.preload(manifest, id, { decode: true });
       setTimeout(() => {
         // re-read the route: the unlocking tap may have navigated (title → lobby)
         if (routeName() !== route) onRoute(routeName());
@@ -171,6 +192,7 @@ export function initAudio({ store, base } = {}) {
     .then((m) => {
       manifest = m;
       onRoute(route);                                   // records the wanted track until unlock
+      prefetchFirst();
     })
     .catch((e) => console.warn('[audio] no music manifest', e));
   window.addEventListener('screenchange', (e) => onRoute(e.detail?.name || routeName()));
