@@ -1551,3 +1551,24 @@ Spoken lines: hikari ×5, aoi ×2, rei ×2 = 9, plus the cue. If the counter nee
 | §4.4 first appearances | Akane, Kaede, Raika, Miko and Momo say their club (or post) the first time they speak | Sensei meets every girl properly (§5) |
 | NPCs | Wobble speaks as `slime_droplet` with `name: 'Wobble'` | the id exists in `ENEMY_MAP` |
 | §3.3 / §3.5 UI strings | write Hikari's name as `{name:hikari}` in `featureLockText`, the journal toast and the legacy announce toast (e.g. "Equipment unlocks after {stage:2-1} — {name:hikari} will teach you!") | same rename safety as scenes; the strings resolve through the same token helper |
+
+### 10.1 Script pass (the shipped data in `src/data/story/`)
+
+The scripts above are now data. Where the shipped text differs from the drafts in §7–§8, the data wins:
+
+| Where | Change | Why |
+|---|---|---|
+| all scenes | ≤ 110 characters per line (raw and resolved), emotes on at most half the spoken lines; a `fx` motion without a `face` where only movement is wanted | phone readability; emotes stay meaningful |
+| `ch2.epi`, `ch4.epi`, `ch7.epi` | Hikari now says "First light." on screen in every epilogue; `ch4.epi`, `ch5.epi`, `ch6.epi` and `ch7.epi` open on the boss stage still and cut to the academy | the relighting beat lands in all eight chapters; more background variety |
+| `ch1.yuki` | opens on `cg:aoi-archery` (Aoi sees the goblins slide), then the library steps | uses the third CG |
+| `ch3.pro`, `ch3.umeko` | Kage speaks from off-stage (in the fog, in the rafters) | keeps three portraits on stage |
+| `ch6.pro` | Chika's crystal lines merged into one mechanic line before Raika's joke | ≤ 2 mechanic lines |
+| `ch6.epi` | Kage's door note moved to the foundry, before the flyer | the scene cuts to the academy afterwards |
+| `ch6.noa` (after 6-2), `ch7.hana` (after 7-5) | two scene-level `ifUnit` joins for the roster's new free girls (ROSTER_SPEC §5.2) | every free girl joins in the text; hidden until feature/roster lands |
+| cameos | Yoriko (`ch7.pro`), Kanna (`ch7.mid`) and Seiran (`ch8.pro`), one off-stage `ifUnit` line each | voices from ROSTER_SPEC §5.2 |
+| lesson scenes | `lesson.home`, `lesson.recruit`, `lesson.gear` written (§7.9); every girl introduces herself because lessons can unlock before her chapter | |
+| journal | lesson texts, toasts, lock texts and the welcome mail live in `lessons.js`; coach copy in `tutorial.js`; story sounds map to the audio branch's sprite ids in `music.js` (`STORY_SFX`) | one source of words for builders |
+
+Checks: `tests/story/content.test.js` (speakers, backgrounds, music, sounds, portraits, tokens, bare names, banned words,
+the mystery rule, clue lines, line counts, blocking, emotes), `tests/story/format.test.js` and
+`tests/story/journal-data.test.js`.
