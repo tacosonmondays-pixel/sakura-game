@@ -5,6 +5,8 @@
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
+import { emptyMail, MAIL_LIMIT } from './mail.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -88,6 +90,9 @@ export function createProfile() {
     redeemed: [],
     settings: structuredCloneSafe(DEFAULT_SETTINGS),
     secretary: 'hikari',
+    lobbyBg: {},
+    bond: Object.fromEntries(STARTER_UNITS.map((id) => [id, 0])),
+    mail: emptyMail(),
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
@@ -224,6 +229,52 @@ function cleanMissions(raw) {
   return m;
 }
 
+/** Lobby background choices: { girlId: bgId } for known backgrounds that belong to that girl. */
+function cleanLobbyBg(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const [girl, id] of Object.entries(raw)) if (UNIT_MAP[girl] && typeof id === 'string' && LOBBY_BG_MAP[id]?.girl === girl) out[girl] = id;
+  return out;
+}
+
+/** Bond levels 0..BOND_MAX for known girls; every owned girl has an entry. */
+function cleanBond(raw, units) {
+  const out = {};
+  if (isObj(raw)) for (const [id, v] of Object.entries(raw)) if (UNIT_MAP[id]) out[id] = int(v, 0, 0, BOND_MAX);
+  for (const id of Object.keys(units)) out[id] ??= 0;
+  return out;
+}
+
+const isRewardId = (id) => id === 'coins' || id === 'gems' || (ITEMS[id] && ITEMS[id].category !== 'currency');
+
+/** Mailbox. A save without one was made before the mailbox existed: it belongs to a beta player. */
+function cleanMail(raw) {
+  const m = emptyMail();
+  if (!isObj(raw)) {
+    m.legacy = true;
+    return m;
+  }
+  m.legacy = bool(raw.legacy);
+  m.delivered = strList(raw.delivered);
+  for (const l of Array.isArray(raw.letters) ? raw.letters : []) {
+    if (!isObj(l) || typeof l.id !== 'string') continue;
+    m.letters.push({
+      id: l.id,
+      from: str(l.from, 'Sakura Academy'),
+      title: str(l.title, 'Mail'),
+      body: str(l.body, ''),
+      rewards: (Array.isArray(l.rewards) ? l.rewards : []).filter((r) => isObj(r) && isRewardId(r.id) && int(r.count, 0, 0) > 0).map((r) => ({ id: r.id, count: int(r.count, 0, 0) })),
+      sentAt: num(l.sentAt, 0, 0),
+      expiresAt: l.expiresAt == null ? null : num(l.expiresAt, 0, 0),
+      claimed: bool(l.claimed),
+      ...(l.claimedAt != null ? { claimedAt: num(l.claimedAt, 0, 0) } : {}),
+    });
+    if (!m.delivered.includes(l.id)) m.delivered.push(l.id);
+  }
+  m.letters = m.letters.slice(0, MAIL_LIMIT);
+  return m;
+}
+
 /** v0/v1 were pre-release stub saves without gacha/progress state: nothing worth keeping. */
 function isStubSave(raw, version) {
   return version < 2 && !isObj(raw.gacha) && !isObj(raw.progress) && !(isObj(raw.units) && Object.keys(raw.units).length);
@@ -329,6 +380,9 @@ export function migrateProfile(raw) {
   p.redeemed = strList(raw.redeemed);
   p.settings = cleanSettings(raw.settings);
   p.secretary = str(raw.secretary) && p.units[raw.secretary] ? raw.secretary : 'hikari';
+  p.lobbyBg = cleanLobbyBg(raw.lobbyBg);
+  p.bond = cleanBond(raw.bond, p.units);
+  p.mail = cleanMail(raw.mail);
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);

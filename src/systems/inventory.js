@@ -168,6 +168,7 @@ function buildSourceIndex() {
   for (const r of Object.keys(ITEM_RARITIES)) {
     push(`gearbox_${r}`, { kind: 'other', label: 'Bounty · Gear arena', route: 'bounty', params: {}, note: 'Gear boxes open into real gear the moment they drop.' });
   }
+  push('ticket_ssr_select', { kind: 'other', label: 'Mail · Beta Tester Thank-You', route: 'lobby', params: {}, note: 'One per account created on or before Nov 7, 2026' });
   push('coins', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Salvaging gear refunds coins.' });
   push('dice_reroll', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Super Rare or better gear salvages into Fortune Dice.' });
 

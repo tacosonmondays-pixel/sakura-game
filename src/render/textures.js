@@ -1326,13 +1326,28 @@ function finishTileTex(c) {
  * Soft mask texture from a predicate over a tile grid (1 = inside), blurred for smooth
  * shorelines. Covers [x0, x0+w) × [y0, y0+h) tiles.
  */
-export function maskTexture(w, h, inside, { px = 16, blur = 6 } = {}) {
+export function maskTexture(w, h, inside, { px = 16, blur = 6, carve = null, carveHalf = 0 } = {}) {
   const c = canvas(w * px, h * px);
   const g = c.getContext('2d');
   g.fillStyle = '#000';
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#fff';
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inside(x, y)) g.fillRect(x * px, y * px, px, px);
+  // carve: polylines (mask-grid units) whose surroundings are cut out of the mask, e.g. the
+  // banks either side of a road that runs beside water
+  if (carve?.length && carveHalf > 0) {
+    g.strokeStyle = '#000';
+    g.lineWidth = carveHalf * 2 * px;
+    g.lineJoin = 'round';
+    g.lineCap = 'butt';
+    for (const line of carve) {
+      if (line.length < 2) continue;
+      g.beginPath();
+      g.moveTo(line[0][0] * px, line[0][1] * px);
+      for (let i = 1; i < line.length; i++) g.lineTo(line[i][0] * px, line[i][1] * px);
+      g.stroke();
+    }
+  }
   const out = blurCanvas(c, blur);
   const t = new THREE.CanvasTexture(out);
   t.colorSpace = THREE.NoColorSpace;

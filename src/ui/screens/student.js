@@ -24,7 +24,7 @@ import {
   salvageGear, salvageRewards, setGearLocked, gearStatTotals, describeStat, MAX_GEAR_LEVEL,
 } from '../../systems/gear.js';
 import { itemCount, hasItems } from '../../systems/inventory.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
@@ -221,7 +221,7 @@ function buildShowcase(unit, onCycle) {
     stageEl.classList.toggle('is-3d', view.mode === '3d');
     const st = store.profile.units[unit.id];
     if (view.mode === 'card') {
-      stageEl.appendChild(svgEl(cardArtSVG(unit, { variant: 'full', awaken: st?.awaken || 0 }), 'mb-show-card'));
+      stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'mb-show-card'));
     } else {
       const holder = h('div.mb-show-3d');
       // The animation pills live inside the stage so the showcase keeps one height in both modes.

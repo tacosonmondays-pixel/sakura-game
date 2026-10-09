@@ -2,7 +2,7 @@
 // the ultimate button with a conic cooldown ring.
 import { h, setVar, fmtTime } from './util.js';
 import { svgEl } from '../components.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 
 /**
  * Paints an ult button: conic ring progress (--p 0..1), state classes and label.
@@ -36,7 +36,7 @@ export function createHeroWidget(ctx) {
   const portrait = h(
     'button.bt-herow-portrait',
     { title: `${def.name} — tap for details`, onclick: () => sim.hero && ctx.select(sim.hero.uid) },
-    svgEl(cardArtSVG(def, { variant: 'thumb', awaken: ctx.profile.units?.[heroId]?.awaken || 0 }), 'bt-herow-art'),
+    svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-herow-art'),
     lv,
     h('span.bt-herow-xp', xpFill),
   );

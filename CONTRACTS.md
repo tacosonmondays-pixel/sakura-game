@@ -293,7 +293,19 @@ MapDef = {
 
 Track quality rules (tests/data/world.test.js): ≤ 14° turn per 0.1-tile sample, centreline radius
 ≥ 1.4 tiles over any 1-tile window, flat junctions ≥ 2 tiles apart, spawns / exits on the board
-edge, no two maps with the same silhouette (coarse 10×6 raster IoU < 0.8).
+edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and two maps whose
+turning signatures match (the sequence of signed curvature lobes, mirrored / reversed variants
+included — tests/data/trackShape.js) must sit differently on the board (IoU < 0.5, < 0.45 for three
+or more lobes); at most two maps may be meanders (three or more alternating U-bends marching across
+the board).
+
+Rendering rules for the road (src/render/trackMesh.js, terrain.js): a road section over water is
+ONE continuous plank ribbon along the centreline over the whole wet span (short dry gaps bridged,
+abutments on each bank), and only where the centreline itself crosses at least 0.6 tiles of water —
+a road that merely grazes a pond corner or runs along a bank gets no deck; the water mask is carved
+back 0.74 tiles from every ground-level centreline instead, so it reads as a shore road. Overpass
+decks are exactly road + railings wide, with a girder fascia, mirrored pier pairs either side of the
+road they span, a drop shadow along the key light, and no railings on the lower pass under them.
 
 Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
 outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls
@@ -367,7 +379,8 @@ crowns `crown_slime` (rare, Slime Prince), `crown_iron` (superRare, Orc General 
 `crown_cog` (superRare, Goblin Machine), `crown_oni` (mythic, Oni Champion / Grave Lych),
 `crown_dragon` (legendary, Ashwing Matriarch); dice `dice_reroll` (rare, reroll substats),
 `dice_prism` (mythic, reroll main stat), `lock_pin` (superRare, lock one substat during reroll);
-`star_fragment` (superRare); tickets `ticket_recruit`, `ticket_recruit10`; tokens `token_boss`,
+`star_fragment` (superRare); tickets `ticket_recruit`, `ticket_recruit10`, `ticket_ssr_select` (legendary,
+`usable: 'ssrSelect'` — choose any SSR from the Backpack; Beta Tester gift); tokens `token_boss`,
 `token_bounty`; currency pseudo-items `coins`, `gems` (so rewards lists can use them).
 
 ### `src/systems/save.js`
@@ -398,10 +411,29 @@ Profile = {
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
   secretary: unitId,
+  lobbyBg: { [girlId]: lobbyBgId },        // chosen lobby background per girl (src/data/lobbyArt.js)
+  bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
+  mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
   seenIntro: string[],
 }
 GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
+```
+
+### `src/systems/mail.js` (first impressions)
+
+```js
+export const BETA_DEADLINE   // 2026-11-08T06:00Z = end of 2026-11-07 America/Chicago (CST); accounts created before it are beta players
+export const BETA_GIFT, BETA_GIFT_ID, MAIL_LIMIT
+export function deliverMail(profile, { id, from?, title, body?, rewards?, expiresAt? }, now?) // once per id, ever
+export function mailList(profile, now?)          // newest first, with { expired, claimable }
+export function claimMail(profile, id, now?)     // -> { ok, error?: 'unknown'|'claimed'|'expired', rewards }
+export function claimAllMail(profile, now?), unclaimedMailCount(profile, now?)
+export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < BETA_DEADLINE
+export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
+export function pendingBetaGift(profile, now?)
+// src/systems/gacha.js
+export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments }
 ```
 
 ### `src/systems/progression.js`
@@ -692,6 +724,14 @@ export function uiIcon(name)  // back, home, settings, lock, star, heart, coin, 
                               // teleport, upgrade, info, close, check, plus, minus, refresh, dice, backpack, wiki,
                               // bestiary, gacha, formation, students, mission, bounty, assault, challenge, mall,
                               // gift, calendar, trophy, map, sword, shield, eye, water, sparkle, filter, sort
+// src/art/portraits.js (first impressions) — DRAWN art, preferred everywhere a girl's picture shows
+export function portraitUrl(unitOrId, kind = 'bust' /*'full' 768×1024 | 'card' 300×500 | 'bust' 512² | 'thumb' 160² | 'cut' transparent stand | 'cutS' small stand*/) // base-path safe URL in public/art/portraits/, or null
+export function portraitHTML(unitDef, kind, { eager, awaken, cls, alt }) // lazy async <img class="pt-img pt-<kind>">, or cardArtSVG when she has no drawing
+export function hasPortrait(id), portraitFace(id), portraitEdges(id), portraitFiles(id)
+// cardArtSVG is only the fallback (unknown ids, failed loads: components.js swaps a broken .pt-img for it)
+// src/data/lobbyArt.js — lobby backgrounds per girl: 'scene' (landscape art), 'stand' (her cut-out over the
+// painted academy, day/sunset/night), 'bond' (wholesome date memories, locked behind profile.bond level 5/10,
+// not painted yet); lobbyBackgroundFor(profile, girl), chooseBackground(profile, bgId), isBackgroundUnlocked, unlockText
 // src/art/stageThumb.js
 export function stageThumbSVG(mapDef, { width = 320, height = 200 } = {}) // top-down mini map: themed ground, path, water, props
 // src/art/backdrops.js
@@ -768,6 +808,14 @@ medals, drops with item tiles, Start / Sweep), recruit (banner, rates, pity coun
 reveal animation, spark), mall, commissions (daily/weekly/login/achievements/codes), rewards
 (F2P income overview table), bounty, assault, challenge (endless, best wave per map), settings
 (quality, lighting, audio, export/import save, reset).
+
+first impressions (meta-a): title / load-up screen `#/title` (cold start once per browser session:
+painted academy + drawn stands, logo, loading bar that preloads the lobby, TAP TO START, Notice /
+Settings / Account / Code, version), Mail modal (`src/ui/lobby/mailbox.js`, Blue Archive style, Claim
+all, expiry) with the Beta Tester celebration, Lobby Background picker (`src/ui/lobby/bgPicker.js`,
+Menu Tab + picture button), SSR Select Ticket picker (`src/ui/selectTicket.js`), drawn hub backdrop +
+secretary stand for missions / bounty (`src/ui/hubArt.js`). Every girl's picture comes from
+`src/art/portraits.js`.
 
 meta-b: students (Arknights-style tall portrait cards; filter by role/type/rarity/owned; sort by
 level/rarity/power), student detail (left: card art ⇄ 3D chibi viewer toggle; right tabs:

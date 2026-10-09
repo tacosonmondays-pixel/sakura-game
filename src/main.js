@@ -2,8 +2,12 @@ import './ui/styles/base.css';
 import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
+import { ensureBetaGift } from './systems/mail.js';
+
+const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
 // Every screen module exports render(root, params) => cleanup?
+registerRoute('title', () => import('./ui/screens/title.js')); // [first impressions] load-up / Tap to Start
 registerRoute('lobby', () => import('./ui/screens/lobby.js'));
 registerRoute('campaign', () => import('./ui/screens/campaign.js'));
 registerRoute('stage', () => import('./ui/screens/stage.js'));
@@ -29,12 +33,31 @@ store.load();
 window.__sakura = { store };
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
+  ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
 
-document.querySelector('.boot')?.remove();
+// Cold start (no route in the URL): the title / load-up screen, once per browser session.
+let titleSeen = false;
+try {
+  titleSeen = sessionStorage.getItem(TITLE_SEEN_KEY) === '1';
+} catch {
+  titleSeen = false;
+}
+if (!location.hash.replace(/^#\/?/, '') && !titleSeen) history.replaceState(null, '', '#/title');
+
+// The painted boot splash stays until the first screen has drawn, then fades (no blank frame).
+const boot = document.querySelector('.boot');
+if (boot) {
+  const dropBoot = () => {
+    boot.classList.add('boot-out');
+    setTimeout(() => boot.remove(), 320);
+  };
+  window.addEventListener('screenchange', () => requestAnimationFrame(dropBoot), { once: true });
+  setTimeout(dropBoot, 8000);
+}
 try {
   startRouter(document.getElementById('app'));
 } catch (e) {

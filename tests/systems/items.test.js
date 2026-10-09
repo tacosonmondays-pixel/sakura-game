@@ -9,7 +9,7 @@ import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS, REDEEM_CO
 
 describe('items data', () => {
   it('has every contract id with a category, rarity, name and backpack tab', () => {
-    const ids = ['dice_reroll', 'dice_prism', 'lock_pin', 'star_fragment', 'ticket_recruit', 'ticket_recruit10', 'token_boss', 'token_bounty', 'coins', 'gems',
+    const ids = ['dice_reroll', 'dice_prism', 'lock_pin', 'star_fragment', 'ticket_recruit', 'ticket_recruit10', 'ticket_ssr_select', 'token_boss', 'token_bounty', 'coins', 'gems',
       'crown_slime', 'crown_iron', 'crown_cog', 'crown_oni', 'crown_dragon'];
     for (const f of Object.keys(MATERIAL_FAMILIES)) for (const r of ITEM_RARITY_ORDER) ids.push(materialId(f, r));
     for (const r of ITEM_RARITY_ORDER) ids.push(bookId(r), `gearbox_${r}`);

@@ -311,7 +311,17 @@ function ticketShape(x, y, rot, fill, line) {
   return `<g transform="rotate(${rot} ${x} ${y})"><path d="M${x - 22} ${y - 13}h44v7a5 5 0 0 0 0 12v7h-44v-7a5 5 0 0 0 0-12z" fill="${fill}" stroke="${line}" stroke-width="2.4"/><path d="M${x + 10} ${y - 12}v24" stroke="${line}" stroke-width="1.4" stroke-dasharray="2.4 2.4"/>${blossom(x - 6, y, 7, '#fff', '#ffd166')}</g>`;
 }
 
+/** SSR Select Ticket: a golden ticket with a star and "SSR", rainbow legendary glow. */
+function ssrSelectBody() {
+  let s = rarityBack('it-ssr', 'legendary');
+  s += ticketShape(32, 34, -8, '#ffd23f', '#7a4a00');
+  s += `<path d="${sparklePath(46, 16, 7)}" fill="#fff" stroke="#ff7ad9" stroke-width="1"/>`;
+  s += '<rect x="12" y="42" width="30" height="15" rx="7.5" fill="#ff5c8a" stroke="#7a1f4a" stroke-width="2"/><text x="27" y="53.5" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="11" fill="#fff">SSR</text>';
+  return s + rarityFront('legendary');
+}
+
 export function ticketBody(itemId) {
+  if (itemId === 'ticket_ssr_select') return ssrSelectBody();
   const ten = itemId === 'ticket_recruit10';
   const r = ten ? 'mythic' : 'superRare';
   let s = rarityBack(`it-${ten ? 10 : 1}`, r);

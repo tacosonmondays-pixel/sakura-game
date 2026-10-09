@@ -4,7 +4,7 @@
 import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
 import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, UNIT_RARITIES, STATUSES } from '../../data/types.js';
 
@@ -71,7 +71,7 @@ export function createTowerPanel(ctx) {
     const role = ROLES[def.role];
     const pathNames = def.paths.map((p) => p.name);
     const rarity = UNIT_RARITIES[def.rarity];
-    const portrait = svgEl(cardArtSVG(def, { variant: 'thumb', awaken: ctx.profile.units?.[def.id]?.awaken || 0 }), 'bt-panel-portrait');
+    const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
     setVar(portrait, '--rarity', rarity?.color);
 
     const kills = h('b');

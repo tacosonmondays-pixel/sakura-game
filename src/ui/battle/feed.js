@@ -3,8 +3,11 @@
 import { h, createThrottle } from './util.js';
 
 const MAX_TOASTS = 4;
-// phones keep fewer toasts so the feed never hides much of the map
-const maxToasts = () => (typeof window !== 'undefined' && window.innerWidth < 600 ? 3 : MAX_TOASTS);
+/** Landscape phone (short viewport): the board is only ~260px tall, so the feed must stay tiny. */
+const shortScreen = () => typeof window !== 'undefined' && window.innerHeight <= 500;
+// phones keep fewer toasts so the feed never hides much of the map (landscape phones: two
+// one-line toasts docked top-right, see battle.css)
+const maxToasts = () => (typeof window === 'undefined' ? MAX_TOASTS : shortScreen() ? 2 : window.innerWidth < 600 ? 3 : MAX_TOASTS);
 
 export function createFeed(layer) {
   const list = h('div.bt-feed', { 'data-testid': 'battle-feed', 'aria-live': 'polite' });
@@ -27,7 +30,7 @@ export function createFeed(layer) {
    *   key: throttles duplicates (and with merge, bumps a ×N counter on the live toast)
    */
   function push(content, kind = 'info', o = {}) {
-    const ms = o.ms ?? 2600;
+    const ms = (o.ms ?? 2600) * (shortScreen() ? 0.8 : 1);
     if (o.key && o.merge) {
       const live = list.querySelector(`[data-key="${CSS.escape(o.key)}"]`);
       if (live) {
@@ -64,6 +67,8 @@ export function createFeed(layer) {
    * @param {'wave'|'boss'|'phase'|'good'|'bad'} [kind]
    */
   function announce(title, sub = '', kind = 'wave', ms = 2200) {
+    // on a landscape phone the ribbon covers a third of the board: routine wave banners leave fast
+    if (shortScreen() && kind === 'wave') ms = Math.min(ms, 800);
     banner.replaceChildren();
     const b = h(`div.bt-banner.bt-banner-${kind}`, h('div.bt-banner-title', title), sub ? h('div.bt-banner-sub', sub) : null);
     banner.append(b);

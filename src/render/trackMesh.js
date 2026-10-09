@@ -15,6 +15,19 @@ import { mapTracks, pointAtDistance, elevationAt, inTunnel, stampBand, DECK_HALF
 export const JUNCTION_HALF = 0.8;
 /** Keep pillars / tunnel mounds this far from any crossing point. */
 const CROSS_CLEAR = 0.95;
+/** Drawn half-width of a raised overpass deck: the road (0.46 + bevel) plus its railings, no wider. */
+export const OVER_HALF = 0.56;
+/** Drawn half-width of a plank deck over water. */
+const WATER_DECK_HALF = 0.54;
+/** A wet run needs this much centreline over water (tiles) to become a deck; less is a graze. */
+const MIN_CROSS = 0.6;
+/** Water stays this far from the centreline of a road on the ground (road 0.46 + bevel + bank). */
+export const WATER_CLEAR = 0.74;
+/**
+ * Where an overpass deck's shadow falls per unit of height (x, z): the key light sits up and to
+ * the left of the board, toward the camera (BattleRenderer placeLights: offset (-6, 12, 7)).
+ */
+const SHADOW_DIR = [0.5, -0.58];
 
 /**
  * Pure drawing plan for a map's roads.
@@ -266,14 +279,111 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
   const waterSections = new Set();
   const nearCrossing = (x, z, r = CROSS_CLEAR) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < r);
   const nearLink = (x, z) => links.some((c) => Math.hypot(c.x - x, c.y - z) < 1.3);
+  // lower passes: no railings where an overpass deck spans them (they would cut across the deck)
+  const underSpans = new Map();
+  for (const c of crossings) {
+    if (c.mode !== 'bridge') continue;
+    const low = c[c.over === 'a' ? 'b' : 'a'];
+    const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
+    const w = Math.min(1.9, (DECK_HALF + 0.3) / sin);
+    if (!underSpans.has(low.path)) underSpans.set(low.path, []);
+    underSpans.get(low.path).push([low.d - w, low.d + w]);
+  }
+  // the lower road at every overpass, as a local straight line: piers must stand clear of it
+  const lowLines = [];
+  for (const c of crossings) {
+    if (c.mode !== 'bridge') continue;
+    const low = c[c.over === 'a' ? 'b' : 'a'];
+    const r = roads.find((o) => o.index === low.path);
+    if (!r) continue;
+    let k = 0;
+    for (let i = 1; i < r.d.length; i++) if (Math.abs(r.d[i] - low.d) < Math.abs(r.d[k] - low.d)) k = i;
+    const [ux, uz] = tangentAt(r.pts, k);
+    lowLines.push({ x: c.x, z: c.y, ux, uz });
+  }
+  const pierClear = (px, pz) => lowLines.every((l) => {
+    const ax = px - l.x;
+    const az = pz - l.z;
+    return Math.abs(ax * l.ux + az * l.uz) > 2.6 || Math.abs(ax * l.uz - az * l.ux) > 0.66;
+  });
   for (const r of roads) {
     const { pts, elev, tunnel } = r;
+    const n = pts.length;
+    const spans = underSpans.get(r.index) || [];
+    const underAt = (i) => spans.some(([a, b]) => r.d[i] >= a && r.d[i] <= b);
+    // overpass piers stand in mirrored pairs either side of the road they span (just clear of
+    // it), then every ~2.2 tiles further out while the deck is still high: an overpass always
+    // reads as a symmetric bridge, never as a deck with one lone leg
+    const pierAt = new Set();
+    for (const c of crossings) {
+      if (c.mode !== 'bridge' || c[c.over]?.path !== r.index) continue;
+      const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
+      const s0 = Math.min(1.9, Math.max(1.05, 0.95 / sin));
+      for (let s = s0; s < 6; s += 2.2) {
+        for (const sign of [-1, 1]) {
+          const want = c[c.over].d + sign * s;
+          let k = -1;
+          for (let i = 0; i < n; i++) if (k < 0 || Math.abs(r.d[i] - want) < Math.abs(r.d[k] - want)) k = i;
+          if (k >= 0 && Math.abs(r.d[k] - want) < 0.15) pierAt.add(k);
+        }
+      }
+    }
+    // Water decks are ONE continuous ribbon over the whole wet span: a section is wet when the
+    // centreline OR either road edge is over water; short dry gaps are bridged and each run is
+    // carried a little onto the bank (abutments), so a road clipping a pond corner never shows
+    // disjoint plank boxes or water through a gap.
+    const wetRaw = new Array(n).fill(false);
+    for (let i = 0; i < n; i++) {
+      if (tunnel[i]) continue;
+      const [x, z] = pts[i];
+      const [dx, dz] = tangentAt(pts, i);
+      const e = 0.44;
+      wetRaw[i] = isWaterAt(x, z) || isWaterAt(x - dz * e, z + dx * e) || isWaterAt(x + dz * e, z - dx * e);
+    }
+    const deckOn = wetRaw.slice();
+    const GAP = 9; // ≤ 1.8 tiles of dry road between two wet runs → one deck
+    let last = -1;
+    for (let i = 0; i < n; i++) {
+      if (!wetRaw[i]) continue;
+      if (last >= 0 && i - last > 1 && i - last <= GAP) for (let k = last + 1; k < i; k++) if (!tunnel[k]) deckOn[k] = true;
+      last = i;
+    }
+    // A run is a real crossing only when the centreline itself is over water for a while; a
+    // road that merely grazes a pond corner or runs along a bank gets no deck — the terrain
+    // carves the water back from the road there instead (see waterCarve), so it reads as a
+    // shore road, never as a bridge over dry ground.
+    for (let i = 0; i < n; ) {
+      if (!deckOn[i]) {
+        i++;
+        continue;
+      }
+      let j = i;
+      let wet = 0;
+      while (j < n && deckOn[j]) {
+        if (j > i && isWaterAt(pts[j][0], pts[j][1])) wet += r.d[j] - r.d[j - 1];
+        j++;
+      }
+      const raisedRun = elev.slice(i, j).some((e) => e > 0.015);
+      if (wet < MIN_CROSS && !raisedRun) for (let k = i; k < j; k++) deckOn[k] = false;
+      i = j;
+    }
+    const PAD = 2; // abutment: the deck lands 0.4 tiles onto the bank
+    const padded = deckOn.slice();
+    for (let i = 0; i < n; i++) {
+      if (!deckOn[i]) continue;
+      for (let k = Math.max(0, i - PAD); k <= Math.min(n - 1, i + PAD); k++) if (!tunnel[k]) padded[k] = true;
+    }
+    for (let i = 0; i < n; i++) if (padded[i]) waterSections.add(`${r.index}:${i}`);
     let railAcc = 0;
     let pileAcc = 0;
     let slabPrev = null;
-    for (let i = 0; i < pts.length; i++) {
-      if (tunnel[i]) continue;
+    for (let i = 0; i < n; i++) {
+      if (tunnel[i]) {
+        slabPrev = null;
+        continue;
+      }
       const [x, z] = pts[i];
+      const onDeck = padded[i];
       const water = isWaterAt(x, z);
       const e = elev[i];
       const [dx, dz] = tangentAt(pts, i);
@@ -281,53 +391,52 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       const nz = dx;
       const y = pathH + e;
       const segLen = i > 0 ? Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]) : 0;
-      if (water) {
-        waterSections.add(`${r.index}:${i}`);
-        // planks butt together (no dark gaps that read as stair treads on a curve)
-        plank.copy(deck).multiplyScalar(0.9 + (((i * 7) % 5) / 5) * 0.14);
-        acc.box(x, y - 0.03, z, Math.max(0.085, segLen / 2 + 0.012), 0.03, 0.54, dx, dz, plank);
-        // stringers under the planks
-        if (i > 0) {
-          const [px, pz] = pts[i - 1];
-          const mx = (x + px) / 2;
-          const mz = (z + pz) / 2;
-          for (const s of [-0.38, 0.38]) acc.box(mx + nx * s, y - 0.09, mz + nz * s, segLen / 2 + 0.02, 0.025, 0.035, dx, dz, post);
-        }
-        pileAcc += segLen;
-        if (pileAcc > 1.1 && !nearLink(x, z)) {
-          pileAcc = 0;
-          for (const s of [-0.44, 0.44]) acc.post(x + nx * s, waterY - 0.3, y - 0.05, z + nz * s, 0.05, post);
-        }
-      }
-      // land overpass: its own deck slab (plank / slab colour, visible thickness, girder
-      // fascia) built as a continuous strip that follows the ramp, so it reads as a raised
-      // bridge — not as fence rails across the lower road
-      if (!water && e > 0.015) {
-        const W = DECK_HALF;
-        const fd = Math.min(0.2, 0.04 + e * 0.3); // fascia depth grows with height
+      const raised = e > 0.015;
+      if (onDeck || raised) {
+        // continuous deck strip (plank colour per section); a raised deck is exactly road +
+        // railings wide, with a dark girder fascia that deepens with its height (so it reads as
+        // lifted above whatever passes under it)
+        const W = raised ? OVER_HALF : WATER_DECK_HALF;
+        const fd = raised ? Math.max(0.03, Math.min(0.2, e * 0.36)) : 0.07;
+        const top = raised ? y + 0.016 : y - 0.004;
         const sec = {
-          tl: [x + nx * W, y + 0.016, z + nz * W], tr: [x - nx * W, y + 0.016, z - nz * W],
-          bl: [x + nx * W, y - fd, z + nz * W], br: [x - nx * W, y - fd, z - nz * W],
+          tl: [x + nx * W, top, z + nz * W], tr: [x - nx * W, top, z - nz * W],
+          bl: [x + nx * W, top - fd, z + nz * W], br: [x - nx * W, top - fd, z - nz * W],
         };
         if (slabPrev && slabPrev.i === i - 1) {
           const P = slabPrev;
-          plank.copy(over).multiplyScalar(0.9 + (((i * 7) % 5) / 5) * 0.16);
+          const base = !raised ? deck : !onDeck ? over : look.bridge.lacquer ? deck : over;
+          plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
+          const side = raised ? girder : post;
           acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
-          acc.quad(P.tl, P.bl, sec.bl, sec.tl, girder);
-          acc.quad(P.tr, sec.tr, sec.br, P.br, girder);
-          acc.quad(P.bl, P.br, sec.br, sec.bl, girder);
+          acc.quad(P.tl, P.bl, sec.bl, sec.tl, side);
+          acc.quad(P.tr, sec.tr, sec.br, P.br, side);
+          acc.quad(P.bl, P.br, sec.br, sec.bl, side);
+        } else if (onDeck && !raised) {
+          // abutment sill where a deck starts on the bank
+          acc.box(x, pathH + 0.01, z, 0.07, 0.05, W + 0.05, dx, dz, post);
         }
+        if (onDeck && !raised && i + 1 < n && !padded[i + 1]) acc.box(x, pathH + 0.01, z, 0.07, 0.05, W + 0.05, dx, dz, post);
         slabPrev = { ...sec, i };
       } else slabPrev = null;
-      // rails on decks over water and on raised overpasses
-      const railed = (water || e > 0.14) && !nearLink(x, z);
-      if (railed) {
+      // piles under low water decks
+      if (onDeck && water && !raised) {
+        pileAcc += segLen;
+        if (pileAcc > 1.1 && !nearLink(x, z) && !nearCrossing(x, z, 0)) {
+          pileAcc = 0;
+          for (const s of [-0.44, 0.44]) acc.post(x + nx * s, waterY - 0.3, y - 0.05, z + nz * s, 0.05, post);
+        }
+      } else if (!raised) pileAcc = 0;
+      // rails on decks and on raised overpasses (never across a deck that spans this road)
+      const railedAt = (k) => !tunnel[k] && (padded[k] || elev[k] > 0.14) && !nearLink(pts[k][0], pts[k][1]) && !underAt(k);
+      const RS = raised ? OVER_HALF - 0.04 : 0.53;
+      if (railedAt(i)) {
         railAcc += segLen;
-        const prevRailed = i > 0 && !tunnel[i - 1] && (isWaterAt(pts[i - 1][0], pts[i - 1][1]) || elev[i - 1] > 0.14) && !nearLink(pts[i - 1][0], pts[i - 1][1]);
+        const prevRailed = i > 0 && railedAt(i - 1);
         if (prevRailed) {
           const [px, pz] = pts[i - 1];
           const py = pathH + elev[i - 1];
-          for (const s of [-0.53, 0.53]) {
+          for (const s of [-RS, RS]) {
             const ax = px + nx * s;
             const az = pz + nz * s;
             const bx = x + nx * s;
@@ -339,42 +448,52 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         }
         if (railAcc > 0.55 || !prevRailed) {
           railAcc = 0;
-          for (const s of [-0.53, 0.53]) {
+          for (const s of [-RS, RS]) {
             acc.post(x + nx * s, y - 0.04, y + 0.3, z + nz * s, 0.035, post);
             if (look.bridge.lacquer && ((i * 13) % 7) === 0) glows.push({ x: x + nx * s, y: y + 0.36, z: z + nz * s, color: '#ffcf6b', size: 0.5, flicker: 0.12 });
           }
         }
       } else railAcc = 0;
-      // overpass piers (never on the lower road): stout pairs with a cap beam
-      if (!water && e > 0.3 && i % 5 === 0 && !nearCrossing(x, z, 1.25)) {
-        const top = y - 0.2;
-        for (const s of [-0.42, 0.42]) acc.box(x + nx * s, top / 2, z + nz * s, 0.09, top / 2, 0.09, dx, dz, girder);
-        acc.box(x, top - 0.03, z, 0.1, 0.04, 0.52, dx, dz, girder);
+      // overpass piers (on land or standing in the water, never on the lower road): stout
+      // pairs flush with the deck edges — so their faces show below the deck — and a cap beam
+      if (e > 0.3 && pierAt.has(i) && !nearCrossing(x, z, 0.9) && !nearLink(x, z)) {
+        const foot = water ? waterY - 0.25 : 0;
+        const topY = y - Math.min(0.2, e * 0.36);
+        const hh = (topY - foot) / 2;
+        // both legs or none: a lone leg seen from above reads as a stray dark block
+        const legs = [-(OVER_HALF - 0.07), OVER_HALF - 0.07].map((s) => [x + nx * s, z + nz * s]);
+        if (legs.every(([px, pz]) => pierClear(px, pz))) {
+          for (const [px, pz] of legs) acc.box(px, foot + hh, pz, 0.08, hh, 0.07, dx, dz, girder);
+          acc.box(x, topY - 0.03, z, 0.09, 0.035, OVER_HALF - 0.02, dx, dz, girder);
+        }
       }
     }
   }
-  // soft shadow band where each overpass deck spans the lower road
+  // Soft drop shadow of every raised deck, cast along the key light: the higher the deck the
+  // further its shadow falls from it, so an overpass visibly floats over the road / water /
+  // lower deck beneath it (one strip per raised run, tapered at the ramps).
   const sh = new Acc();
   const black = new THREE.Color(0, 0, 0);
-  for (const c of crossings) {
-    if (c.mode !== 'bridge') continue;
-    const pass = c[c.over];
-    const r = roads.find((o) => o.index === pass.path);
-    if (!r) continue;
-    let k = 0;
-    for (let i = 1; i < r.d.length; i++) if (Math.abs(r.d[i] - pass.d) < Math.abs(r.d[k] - pass.d)) k = i;
-    const [ux, uz] = tangentAt(r.pts, k);
-    const vx = -uz;
-    const vz = ux;
-    const sin = Math.max(0.35, Math.sin(((c.angle || 90) * Math.PI) / 180));
-    const along = Math.min(1.5, 0.66 / sin);
-    const across = DECK_HALF + 0.06;
-    // light comes from the upper left: nudge the shadow a little toward +x/+z
-    const cx = c.x + 0.06;
-    const cz = c.y + 0.1;
-    const y = pathH + 0.03;
-    const P = (a, b) => [cx + ux * a + vx * b, y, cz + uz * a + vz * b];
-    sh.quad(P(-along, -across), P(-along, across), P(along, across), P(along, -across), black);
+  const SHY = pathH + 0.022;
+  for (const r of roads) {
+    const { pts, elev, tunnel } = r;
+    let prev = null;
+    for (let i = 0; i < pts.length; i++) {
+      const e = elev[i];
+      if (tunnel[i] || e < 0.04) {
+        prev = null;
+        continue;
+      }
+      const [x, z] = pts[i];
+      const [dx, dz] = tangentAt(pts, i);
+      const w = OVER_HALF * Math.min(1, 0.35 + e / 0.4);
+      const cx = x + SHADOW_DIR[0] * e;
+      const cz = z + SHADOW_DIR[1] * e;
+      const L = [cx - dz * w, SHY, cz + dx * w];
+      const R = [cx + dz * w, SHY, cz - dx * w];
+      if (prev) sh.quad(prev.L, L, R, prev.R, black);
+      prev = { L, R };
+    }
   }
   return { geometry: acc.build(), glows, waterSections, shadow: sh.build() };
 }

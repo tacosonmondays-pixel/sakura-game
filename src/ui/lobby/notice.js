@@ -5,13 +5,13 @@ import { h, clear } from '../dom.js';
 import { modal, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
-import { themeBackdropSVG } from '../../art/backdrops.js';
+import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 
 /** Bump when the notice list gains a new article (shows the red dot again). */
-export const NOTICE_VERSION = 'lobby-v3-1';
+export const NOTICE_VERSION = 'first-impressions-1';
 const SEEN_KEY = 'sakura-lobby-notice-seen';
 export const RECRUIT_FEATURED = ['luna', 'hotaru', 'kaede'];
 
@@ -38,6 +38,8 @@ export function eventDaysLeft(now = new Date()) {
 }
 
 export const ARENA_THEME = { 'res-books': 'shrine', 'res-coins': 'festival', 'res-gear': 'foundry', 'res-mats-a': 'mountain', 'res-mats-b': 'night' };
+/** Drawn art per weekly-event arena (public/art/lobby/…). */
+export const ARENA_ART = { 'res-books': 'thumbs/academy.webp', 'res-coins': 'thumbs/sango.webp', 'res-gear': 'thumbs/hikari.webp', 'res-mats-a': 'thumbs/aoi.webp', 'res-mats-b': 'thumbs/academy.webp' };
 
 function articles() {
   const event = currentEvent();
@@ -51,22 +53,31 @@ function articles() {
   const featured = RECRUIT_FEATURED.map((id) => UNIT_MAP[id]?.name).filter(Boolean);
   return [
     {
-      id: 'renewal', tag: 'Update', icon: 'notice', title: 'The club office got a makeover!', date: 'New',
+      id: 'beta', tag: 'Gift', icon: 'gift', title: 'Thank you, beta Sensei!', date: 'Until Nov 7', paint: 'thumbs/academy.webp',
       body: [
-        'Welcome back, Sensei! The lobby is now our sunny club office by the sea.',
-        'Tap your secretary to chat — pat her head and she might get shy. Swap her with the ‹ › arrows; every girl you own can take the desk.',
-        'Want to admire the view? The ⤢ button at the top right hides the menus. Tap anywhere to bring them back.',
+        'Every account created on or before November 7 (CST) — and every save from before this update, including everyone who tried the original Codex version — gets a Beta Tester Thank-You package in the Mail.',
+        'Inside: five 10× Recruit Tickets, an SSR Select Ticket (choose ANY SSR student), a big bundle of upgrade materials and books, 300,000 coins and 3,000 gems.',
+        'Open the Mail at the top right to claim it. Accounts created after November 7 (CST) no longer receive it.',
+      ],
+      cta: { label: 'Open Mail', go: () => import('./mailbox.js').then((m) => m.openMailbox()) },
+    },
+    {
+      id: 'renewal', tag: 'Update', icon: 'notice', title: 'A brand-new look for the academy', date: 'New',
+      body: [
+        'Every student now has hand-drawn art — in the lobby, Students, Formation, Recruit, the missions hub and even the battle bar.',
+        'Choose your Lobby Background from the picture button next to ⤢ (or Menu → Lobby Background): her scene, the academy by day, at sunset or by night. Bond memories — a café date, festival night, a sunset walk — unlock later through dates and gifts in the City.',
+        'Tap your secretary to chat. The ⤢ button hides the menus so you can admire the view.',
       ],
     },
     {
-      id: 'event', tag: 'Event', icon: 'calendar', title: event.name, date: `${days} day${days === 1 ? '' : 's'} left`, art: themeBackdropSVG(ARENA_THEME[event.arena] || 'sakura'),
+      id: 'event', tag: 'Event', icon: 'calendar', title: event.name, date: `${days} day${days === 1 ? '' : 's'} left`, paint: ARENA_ART[event.arena] || 'thumbs/academy.webp',
       body: [event.desc, `Every ${event.arenaName} Bounty stage drops ×${event.dropMul} this week. The event rotates every Monday.`],
       cta: { label: 'Go to Bounty', go: () => navigate('bounty', { arena: event.arena }) },
     },
     {
-      id: 'recruit', tag: 'Recruit', icon: 'recruit', title: 'Pick-up recruitment', date: 'Now',
+      id: 'recruit', tag: 'Recruit', icon: 'recruit', title: 'Standard recruitment', date: 'Now',
       body: [
-        `Featured: ${featured.join(', ')}.`,
+        `Every student is in the pool — this banner's poster girls are ${featured.join(', ')}.`,
         `An SSR is guaranteed within ${GACHA.pity} recruits, and every recruit gives a Recruit Point — ${GACHA.sparkCost} points let you choose any SSR you like.`,
       ],
       cta: { label: 'Recruit', go: () => navigate('recruit') },
@@ -102,7 +113,7 @@ export function showNoticeModal() {
     for (const b of tabs.children) b.classList.toggle('active', b.dataset.id === a.id);
     clear(page);
     page.append(...[
-      a.art ? h('div.lb-notice-art', { html: a.art }) : null,
+      a.paint ? h('div.lb-notice-art', h('img', { src: lobbyArtUrl(a.paint), alt: '', loading: 'lazy', decoding: 'async' })) : null,
       h('div.lb-notice-head', h('span.lb-notice-tag', { dataset: { tag: a.tag } }, a.tag), h('h3', a.title)),
       ...a.body.map((p) => h('p', p)),
       a.cta ? h('div.lb-notice-cta', button(a.cta.label, { kind: 'yellow', small: true, onClick: () => { m.close(); a.cta.go(); } })) : null,

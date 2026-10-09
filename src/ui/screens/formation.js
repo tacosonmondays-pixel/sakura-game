@@ -14,7 +14,7 @@ import { getMap } from '../../data/maps.js';
 import { ownedUnits, nextStage, recommendedFor } from '../../systems/unlocks.js';
 import { unitPower } from '../../systems/progression.js';
 import { capabilityIcon, uiIcon } from '../../art/icons.js';
-import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { unitMini, howToGet, put, emptyState } from './backpack.js';
 
@@ -50,7 +50,7 @@ function slotTile(unitId, onRemove, needCaps) {
   const u = UNIT_MAP[unitId];
   const st = store.profile.units[unitId];
   return h('button.mb-fslot.filled', { title: `Remove ${u.name}`, onclick: onRemove, 'data-unit': unitId, style: `border-bottom: 3px solid ${UNIT_RARITIES[u.rarity].color}` },
-    svgEl(cardArtSVG(u, { variant: 'portrait', awaken: st?.awaken || 0 }), 'unit-card-art'),
+    svgEl(portraitHTML(u, 'card'), 'unit-card-art'),
     needCaps.length ? h('div.mb-fslot-caps', needCaps.map((c) => svgEl(capabilityIcon(c)))) : null,
     h('span.mb-fslot-x', '×'),
     h('div.mb-fslot-name', u.name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${st?.level || 1}`)));

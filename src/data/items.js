@@ -6,7 +6,7 @@
 //   crowns     crown_slime|iron|cog|oni|dragon (awakening, boss drops)
 //   dice       dice_reroll, dice_prism, lock_pin
 //   gear boxes gearbox_<rarity>        (resolved into real gear when opened / dropped)
-//   misc       star_fragment, ticket_recruit, ticket_recruit10, token_boss, token_bounty
+//   misc       star_fragment, ticket_recruit, ticket_recruit10, ticket_ssr_select, token_boss, token_bounty
 //   currency   coins, gems             (pseudo-items so reward lists can carry them)
 //
 // Every item carries ONE identity (name, icon key = id, category, rarity) and a backpack
@@ -179,6 +179,7 @@ function buildItems() {
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });
+  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she converts into 40 Star Fragments. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
 
   add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses and Total Assault bosses. Spend it in the Mall\'s Boss Exchange for crowns and dice.', sort: 7000 });
   add({ id: 'token_bounty', name: 'Bounty Token', category: 'token', rarity: 'common', desc: 'Earned in Bounty arenas and the Tactical Challenge. Spend it in the Mall\'s Bounty Exchange for gear boxes and dice.', sort: 7001 });

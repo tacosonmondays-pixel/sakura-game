@@ -1,0 +1,94 @@
+/* Title / load-up screen (src/ui/screens/title.js): painted academy, three drawn stands, logo,
+   loading bar → TAP TO START, small side buttons, version. Landscape first (844×390 and up). */
+
+.tt { overflow: hidden; background: #cfe8ff; cursor: pointer; color: #fff; }
+.tt-art { position: absolute; inset: 0; overflow: hidden; }
+.tt-art-img { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 45%; animation: tt-zoom 26s ease-in-out infinite alternate; }
+@keyframes tt-zoom { from { transform: scale(1); } to { transform: scale(1.07) translate(-1.2%, -0.8%); } }
+.tt-glow { position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 70% at 22% 40%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, rgba(255,214,234,0.1) 0%, rgba(255,255,255,0) 40%, rgba(22,44,90,0.15) 70%, rgba(14,28,60,0.62) 100%); }
+
+/* girls: Hikari in the centre front, Aoi and Luna behind her (own stacking layer, under the UI) */
+.tt-girls { position: absolute; right: 1%; bottom: 0; width: 58%; height: 96%; pointer-events: none; z-index: 1; }
+.tt-girl { position: absolute; bottom: -2%; height: 100%; line-height: 0; filter: drop-shadow(0 10px 24px rgba(20,30,70,0.35)); animation: tt-girl-in 0.9s var(--ease) both; }
+.tt-girl .pt-img, .tt-girl svg { height: 100%; width: auto; max-width: none; object-fit: contain; object-position: 50% 100%; }
+.tt-girl.g0 { right: 50%; height: 86%; animation-delay: 0.15s; filter: drop-shadow(0 10px 24px rgba(20,30,70,0.35)) brightness(0.97); }
+.tt-girl.g1 { right: 16%; height: 100%; z-index: 2; animation-delay: 0.05s; }
+.tt-girl.g2 { right: -10%; height: 90%; z-index: 1; animation-delay: 0.25s; filter: drop-shadow(0 10px 24px rgba(20,30,70,0.35)) brightness(0.97); }
+@keyframes tt-girl-in { from { opacity: 0; transform: translateY(24px); } }
+
+/* logo */
+.tt-logo { position: absolute; z-index: 2; left: calc(5% + var(--safe-left)); top: 13%; display: flex; flex-direction: column; align-items: flex-start; transform: rotate(-4deg); pointer-events: none; animation: tt-logo-in 0.8s var(--ease) both; }
+@keyframes tt-logo-in { from { opacity: 0; transform: rotate(-4deg) translateY(-18px) scale(0.94); } }
+.tt-logo-1 { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: clamp(3.2rem, 9.5vw, 6.8rem); line-height: 0.95; letter-spacing: -0.02em;
+  background: linear-gradient(180deg, #fff 0%, #ffd1e4 38%, #ff6fa5 72%, #e63e86 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 2px #fff; filter: drop-shadow(0 3px 0 #b8306a) drop-shadow(0 8px 16px rgba(120,20,70,0.35)); }
+.tt-logo-2 { margin: -0.1em 0 0 0.6em; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: clamp(1.6rem, 4.6vw, 3.3rem); letter-spacing: 0.18em; color: #fff;
+  background: var(--navy); padding: 0 0.45em 0.04em; transform: skewX(var(--skew)); border-radius: 6px; box-shadow: 0 6px 16px rgba(20,40,80,0.35), inset 0 -3px 0 rgba(0,0,0,0.25); }
+.tt-logo-sub { margin: 8px 0 0 1.4em; font-weight: 900; font-style: italic; font-size: clamp(0.72rem, 1.6vw, 1rem); color: var(--navy); background: var(--yellow); padding: 2px 12px; transform: skewX(var(--skew)); border-radius: 4px; letter-spacing: 0.06em; }
+
+/* loading bar → TAP TO START: under the logo in the open left half (never behind a girl) */
+.tt-bottom { position: absolute; z-index: 2; left: calc(4% + var(--safe-left)); width: min(46%, 520px); bottom: calc(12% + var(--safe-bottom)); display: grid; justify-items: center; pointer-events: none; }
+.tt-bottom::before { content: ''; position: absolute; left: -10%; right: -10%; top: -60%; bottom: -70%; z-index: -1; background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(14,28,60,0.5), rgba(14,28,60,0) 72%); pointer-events: none; }
+.tt-load { width: min(380px, 100%); display: flex; flex-direction: column; gap: 5px; transition: opacity var(--t-panel) var(--ease); }
+.tt-bar { height: 8px; border-radius: 6px; background: rgba(10,25,55,0.45); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6); overflow: hidden; }
+.tt-bar-fill { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #8fd3ff, #fff 60%, #ffd1e4); transition: width 0.35s var(--ease); box-shadow: 0 0 10px rgba(255,255,255,0.8); }
+.tt-load-row { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 800; text-shadow: 0 1px 3px rgba(10,25,55,0.8); }
+.tt-start { grid-area: 1 / 1; pointer-events: auto; border: 1px solid rgba(255,255,255,0.55); border-radius: 999px; padding: 6px 26px 7px; background: linear-gradient(180deg, rgba(20,40,84,0.66), rgba(20,40,84,0.5)); box-shadow: 0 8px 22px rgba(10,25,55,0.35); color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; transform: translateY(8px); transition: opacity var(--t-screen) var(--ease), transform var(--t-screen) var(--ease); }
+.tt-load { grid-area: 1 / 1; }
+.tt-start-text { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: clamp(1.5rem, 3.6vw, 2.3rem); letter-spacing: 0.12em; text-shadow: 0 0 14px rgba(255,190,220,0.95), 0 2px 0 #c2347a, 0 4px 14px rgba(10,25,55,0.6); }
+.tt-start-sub { font-size: 0.72rem; font-weight: 900; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.9; text-shadow: 0 1px 4px rgba(10,25,55,0.8); }
+.tt-start-sub::before, .tt-start-sub::after { content: '—'; margin: 0 8px; opacity: 0.7; }
+.tt-ready .tt-load { opacity: 0; }
+.tt-ready .tt-start { opacity: 1; transform: none; }
+.tt-ready .tt-start-text { animation: tt-pulse 1.6s ease-in-out infinite; }
+@keyframes tt-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.72; transform: scale(0.97); } }
+
+/* side buttons + version */
+.tt-side { position: absolute; top: calc(12px + var(--safe-top)); right: calc(12px + var(--safe-right)); display: flex; gap: 6px; z-index: 3; }
+.tt-side-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 54px; padding: 6px 6px 4px; border: 1px solid rgba(255,255,255,0.7); border-radius: 10px; background: rgba(20,40,80,0.55); color: #fff; font-size: 0.64rem; font-weight: 900; transition: transform var(--t-press) var(--ease), background var(--t-panel); }
+.tt-side-btn:hover { background: rgba(20,40,80,0.6); }
+.tt-side-btn:active { transform: scale(0.94); }
+.tt-side-ico { width: 20px; height: 20px; display: inline-flex; }
+.tt-side-ico svg { width: 100%; height: 100%; }
+.tt-version { position: absolute; z-index: 2; left: calc(12px + var(--safe-left)); bottom: calc(8px + var(--safe-bottom)); font-size: 0.68rem; font-weight: 800; color: rgba(255,255,255,0.92); text-shadow: 0 1px 3px rgba(10,25,55,0.9); letter-spacing: 0.04em; }
+
+/* petals */
+.tt-petals { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.tt-petal { position: absolute; top: -6%; width: 12px; height: 9px; border-radius: 80% 0 80% 0; background: linear-gradient(135deg, #fff, #ffb7d2); opacity: 0.85; animation: tt-fall 11s linear infinite; }
+.tt-petal.p0 { left: 6%; animation-delay: -1s; } .tt-petal.p1 { left: 14%; animation-delay: -6s; animation-duration: 13s; } .tt-petal.p2 { left: 23%; animation-delay: -3s; }
+.tt-petal.p3 { left: 31%; animation-delay: -9s; animation-duration: 14s; } .tt-petal.p4 { left: 40%; animation-delay: -4.5s; } .tt-petal.p5 { left: 48%; animation-delay: -10s; animation-duration: 12s; }
+.tt-petal.p6 { left: 57%; animation-delay: -2s; } .tt-petal.p7 { left: 64%; animation-delay: -7.5s; animation-duration: 15s; } .tt-petal.p8 { left: 72%; animation-delay: -5s; }
+.tt-petal.p9 { left: 80%; animation-delay: -8.5s; animation-duration: 13s; } .tt-petal.p10 { left: 88%; animation-delay: -0.5s; } .tt-petal.p11 { left: 95%; animation-delay: -6.5s; animation-duration: 12s; }
+.tt-petal.p12 { left: 36%; animation-delay: -11s; transform: scale(0.7); } .tt-petal.p13 { left: 68%; animation-delay: -3.5s; transform: scale(0.8); }
+@keyframes tt-fall { 0% { transform: translate(0, 0) rotate(0); } 50% { transform: translate(-40px, 55vh) rotate(200deg); } 100% { transform: translate(20px, 112vh) rotate(420deg); } }
+
+.tt-leave { animation: tt-out 0.28s var(--ease) forwards; }
+@keyframes tt-out { to { opacity: 0; transform: scale(1.03); } }
+
+.tt-code { display: flex; flex-direction: column; gap: 8px; min-width: min(360px, 70vw); }
+.tt-code-input { width: 100%; font-size: 1.05rem; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); text-transform: uppercase; }
+.tt-code-status.bad { color: var(--bad); font-weight: 800; }
+
+/* short landscape phones */
+@media (max-height: 480px) {
+  .tt-logo { top: 10%; }
+  .tt-side-btn { min-width: 46px; padding: 4px 5px 3px; font-size: 0.58rem; }
+  .tt-side-ico { width: 18px; height: 18px; }
+  .tt-bottom { bottom: calc(9% + var(--safe-bottom)); }
+  .tt-start { padding: 4px 22px 5px; }
+  .tt-start-text { font-size: 1.45rem; }
+  .tt-start-sub { font-size: 0.62rem; }
+}
+/* portrait: girls behind the logo, centred */
+@media (max-aspect-ratio: 1/1) {
+  .tt-girls { width: 100%; right: -10%; height: 70%; opacity: 0.95; }
+  .tt-logo { top: 8%; }
+  .tt-bottom { left: 0; width: 100%; bottom: calc(6% + var(--safe-bottom)); }
+}
+
+.tt-still .tt-art-img, .tt-still .tt-ready .tt-start-text, .tt-still .tt-start-text { animation: none !important; }
+html[data-reduce-motion] .tt-art-img, html[data-reduce-motion] .tt-start-text { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .tt-art-img, .tt-start-text, .tt-petal { animation: none !important; } }
