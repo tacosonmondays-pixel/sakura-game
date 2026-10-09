@@ -528,7 +528,7 @@ const ONI = [
     introducedIn: '7-4',
   }),
   enemy({
-    id: 'oni_champion', name: 'Oni Champion', family: 'oni', tier: 'miniboss', hp: 2100, speed: 0.5, armorClass: 'warded', armor: 3,
+    id: 'oni_champion', name: 'Oni Champion', family: 'oni', tier: 'miniboss', hp: 3600, speed: 0.5, armorClass: 'warded', armor: 3,
     bounty: 1840, leak: 25, threat: 170, size: 2.5, color: '#d00000', accent: '#ffd60a', variant: 'champion', props: ['horns', 'mask', 'club', 'cape'],
     traits: { field: { kind: 'haste', radius: 2.8, amount: 0.3 } },
     phases: [

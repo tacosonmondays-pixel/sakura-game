@@ -45,9 +45,9 @@ describe('win and lose', () => {
     expect(sim.placeTower('archer', 3, 3)).toBe(null);
   });
 
-  test('nightmare has 1 life', () => {
+  test('nightmare has 20 lives', () => {
     const sim = makeSim({ difficulty: 'nightmare' });
-    expect(sim.lives).toBe(1);
+    expect(sim.lives).toBe(20);
   });
 
   test('autoStart chains waves', () => {

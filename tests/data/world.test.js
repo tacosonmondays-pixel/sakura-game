@@ -200,9 +200,10 @@ describe('enemies', () => {
       }
       // Boss HP is "HP at hpScale 1" since the per-stage hpScale calibration (docs/BALANCE.md §4):
       // the debut stage multiplies it by 2.6–13 (Slime Prince ≈ 1.2k on 1-5 Normal, Ashwing ≈ 97k on 8-5).
+      // The Oni Champion is the heaviest miniboss (3,600: it must outlive 7-5's ordinary enemies ~2×).
       if (e.tier === 'miniboss') {
         expect(e.hp, e.id).toBeGreaterThanOrEqual(200);
-        expect(e.hp, e.id).toBeLessThanOrEqual(2500);
+        expect(e.hp, e.id).toBeLessThanOrEqual(4000);
       }
       if (e.tier === 'boss') {
         expect(e.hp, e.id).toBeGreaterThanOrEqual(3000);
@@ -619,8 +620,9 @@ describe('stages', () => {
     expect(easy.costMul).toBeLessThan(normal.costMul);
     expect(normal.costMul).toBeLessThan(hard.costMul);
     expect(hard.costMul).toBeLessThan(nightmare.costMul);
-    expect([easy.lives, normal.lives, hard.lives, nightmare.lives]).toEqual([150, 100, 50, 1]);
-    // Nightmare: one life, but a full opening (×1.5 start cash) and half tower income (not none).
+    // Lives carry most of the ladder; Nightmare keeps 20 (one miniboss leak = 25 still ends the run).
+    expect([easy.lives, normal.lives, hard.lives, nightmare.lives]).toEqual([150, 100, 50, 20]);
+    // Nightmare: a full opening (×1.5 start cash) and half tower income (not none).
     expect(nightmare.startCashMul).toBe(1.5);
     expect(nightmare.incomeMul).toBe(0.5);
     expect(nightmare.noIncome).toBeUndefined();
@@ -653,12 +655,16 @@ describe('stages', () => {
     expect(campaign[0].startCash).toBe(650);
     expect(campaign[0].waves).toBe(12);
     expect(campaign[39].waves).toBe(30);
+    // Bounty HP is calibrated per arena and tier (the five pools differ up to ×8 in difficulty at
+    // the same HP); coins are per tier.
     const res = stagesOfKind('resource');
     for (const s of res) {
       const t = Number(s.id.slice(-1));
-      expect(s.hpScale).toBe([3.68, 2.7, 4.5][t - 1]);
+      expect(s.hpScale, s.id).toBeGreaterThanOrEqual(0.5);
+      expect(s.hpScale, s.id).toBeLessThanOrEqual(8);
       expect(s.cashScale).toBe([1.2, 1.64, 2.06][t - 1]);
     }
+    expect(new Set(res.map((s) => s.hpScale)).size, 'per-arena calibration').toBeGreaterThan(5);
     for (const s of stagesOfKind('boss')) {
       expect(s.hpScale).toBeGreaterThanOrEqual(3);
       expect(s.hpScale).toBeLessThanOrEqual(6.5);

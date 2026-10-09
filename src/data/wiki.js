@@ -378,7 +378,7 @@ function medalsArticle() {
         const income = x.incomeMul ?? (x.noIncome ? 0 : 1);
         return [{ text: x.name, strong: true }, { text: x.medal[0].toUpperCase() + x.medal.slice(1), icon: `medal:${d}` }, `×${x.hpMul}`, `×${x.speedMul}`, `×${x.cashMul}`, `×${x.costMul}`, String(x.lives), `×${x.startCashMul ?? 1}`, income === 0 ? 'Off' : `×${income}`, `${x.firstClearGems} gems`];
       })),
-      tip(`Nightmare: one life — one leak and it is over. You start with ×${DIFFICULTIES.nightmare.startCashMul ?? 1} cash for a full opening, and income girls pay ×${DIFFICULTIES.nightmare.incomeMul ?? 0}.`, 'warn')),
+      tip(`Nightmare: only ${DIFFICULTIES.nightmare.lives} lives — a few stray slimes are survivable, but one leaked miniboss (25 lives) or boss ends the run. You start with ×${DIFFICULTIES.nightmare.startCashMul ?? 1} cash for a full opening, and income girls pay ×${DIFFICULTIES.nightmare.incomeMul ?? 0}.`, 'warn')),
     sec('Medals',
       list([
         'Each stage card shows four medal slots in the corner — one per difficulty.',

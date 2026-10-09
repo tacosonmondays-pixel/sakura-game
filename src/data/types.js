@@ -178,12 +178,15 @@ export const TARGET_MODES = {
 // Difficulty modifiers (CONTRACTS §2). hpMul/speedMul scale enemies, cashMul scales kill bounties
 // and the wave-clear bonus, costMul scales placement and upgrade prices. startCashMul scales the
 // stage's start cash; incomeMul scales tower income (Momo) — legacy `noIncome: true` means 0.
-// Balance targets per difficulty (headroom bands) live in docs/BALANCE.md.
+// Balance targets per difficulty (headroom bands) live in docs/BALANCE.md. The ladder is mostly
+// lives — 150 / 100 / 50 / 20 — plus prices: a Nightmare run survives a few small leaks but not a
+// miniboss (25) or a boss. (It had 1 life until the "frisk1636" playtest: one split droplet on
+// wave 1 ended the run at any level. A one-life challenge belongs in a separate mode.)
 export const DIFFICULTIES = {
   easy: { id: 'easy', name: 'Easy', hpMul: 0.6, speedMul: 1.0, cashMul: 1.1, costMul: 0.9, lives: 150, medal: 'bronze', firstClearGems: 20 },
   normal: { id: 'normal', name: 'Normal', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.0, lives: 100, medal: 'silver', firstClearGems: 40 },
   hard: { id: 'hard', name: 'Hard', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.05, lives: 50, medal: 'gold', firstClearGems: 60 },
-  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 1.1, speedMul: 1.05, cashMul: 1.0, costMul: 1.1, lives: 1, medal: 'sakura', firstClearGems: 100, startCashMul: 1.5, incomeMul: 0.5 },
+  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.1, lives: 20, medal: 'sakura', firstClearGems: 100, startCashMul: 1.5, incomeMul: 0.5 },
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'nightmare'];
 

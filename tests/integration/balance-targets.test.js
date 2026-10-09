@@ -16,6 +16,7 @@ import {
   runProbe, headroom, stageEconomy, affordTimeline, tierCosts, quantile,
 } from '../../tools/balance/probe.mjs';
 import { f2pSetup } from '../../tools/balance/f2p.mjs';
+import { DIFFICULTIES } from '../../src/data/types.js';
 
 const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
@@ -41,6 +42,16 @@ describe.skipIf(!ready)('balance targets (docs/BALANCE.md)', () => {
     expect(h11).toBeGreaterThanOrEqual(h12);
     expect(h12).toBeGreaterThanOrEqual(h13 / 1.04);
     expect(h12).toBeLessThanOrEqual(2.2);
+    // The feel, not only the headroom (round 2): at shipped HP 1-2 costs lives where 1-1 costs none,
+    // its opening walks enemies well down the lane, and Hikari alone no longer clears it untouched.
+    const d = defaultData();
+    const r11 = runProbe({ stageId: '1-1', difficulty: 'normal' });
+    const r12 = runProbe({ stageId: '1-2', difficulty: 'normal' });
+    expect(r12.won).toBe(true);
+    expect(r12.lives, '1-2 lives vs 1-1').toBeLessThan(r11.lives);
+    expect(r12.normalsEarly.pathP90, '1-2 waves 1-3 path walked (p90)').toBeGreaterThanOrEqual(0.5);
+    const solo = runProbe({ stageId: '1-2', difficulty: 'normal', detail: false, setup: { ...f2pSetup(d, '1-2'), towers: [] } });
+    expect(solo.lives, '1-2 Hikari alone').toBeLessThanOrEqual(95);
   }, 600000);
 
   test('Normal / Hard / Easy sit in their headroom bands', () => {
@@ -60,6 +71,21 @@ describe.skipIf(!ready)('balance targets (docs/BALANCE.md)', () => {
     const easy = runProbe({ stageId: '1-5', difficulty: 'easy', detail: false });
     expect(easy.won).toBe(true);
     expect(easy.lives).toBeGreaterThanOrEqual(130);
+  }, 600000);
+
+  test('Nightmare is hard but winnable at the expected level (20 lives)', () => {
+    expect(DIFFICULTIES.nightmare.lives).toBe(20);
+    for (const [stageId, planner] of [['1-1', 'bot'], ['2-2', 'bot'], ['2-5', 'human']]) {
+      const r = runProbe({ stageId, difficulty: 'nightmare', planner, detail: false });
+      expect(r.won, `${stageId} Nightmare (${planner})`).toBe(true);
+    }
+  }, 600000);
+
+  test('Bounty arenas: the Library I Hard medal (the key to sweeps) is reachable, Coins I is won', () => {
+    const lib = runProbe({ stageId: 'res-books-1', difficulty: 'hard', detail: false });
+    expect(lib.won, 'res-books-1 Hard (bot, Lv5)').toBe(true);
+    const coins = runProbe({ stageId: 'res-coins-1', difficulty: 'normal', detail: false });
+    expect(coins.won, 'res-coins-1 Normal (bot)').toBe(true);
   }, 600000);
 
   test('bosses are on screen long enough to be seen, and still die (Normal, bot)', () => {

@@ -225,7 +225,7 @@ const CAMPAIGN = [
   campaign({
     id: '1-1', name: 'First Petals', mapId: 'sakura_terrace', tier: 'beginner',
     desc: 'Green slimes ooze across the academy terrace. Place Aoi along the long straight and upgrade her.',
-    waves: 12, hpScale: 2.75, budget: [6, 45], groups: 1, spacing: 0.9,
+    waves: 12, hpScale: 3.4, budget: [6, 45], groups: 1, spacing: 0.9,
     pool: [P('slime_green', 1)],
     fixed: [F(12, 'slime_green', 8, 0.5)],
     introduces: ['slime_green'], recommended: [],
@@ -235,9 +235,11 @@ const CAMPAIGN = [
   campaign({
     id: '1-2', name: 'Petal Thieves', mapId: 'sakura_lane', tier: 'beginner',
     desc: 'Goblin runners dash for the gate. Fast and fragile — cover the start and the end of the lane.',
-    waves: 14, hpScale: 1.89, budget: [10, 80], groups: 2,
+    // A real opening (budget 18 from wave 1) and four runner rushes (waves 3/8/11/14) so the lane
+    // pressures the defense from the start — the "frisk1636" playtest found 1-2 easier than 1-1.
+    waves: 14, hpScale: 2.2, budget: [18, 62], groups: 2,
     pool: [P('slime_green', 5), P('goblin_runner', 4, 2)],
-    fixed: [F(8, 'goblin_runner', 6, 0.4), F(14, 'goblin_runner', 10, 0.35)],
+    fixed: [F(3, 'goblin_runner', 7, 0.3), F(8, 'goblin_runner', 6, 0.4), F(11, 'goblin_runner', 8, 0.35), F(14, 'goblin_runner', 10, 0.35)],
     introduces: ['goblin_runner'], recommended: ['multiHit'],
     unlocks: ['yuki'],
     fam: ['blade', 'charm'],
@@ -246,7 +248,7 @@ const CAMPAIGN = [
   campaign({
     id: '1-3', name: 'Sprinting Gold', mapId: 'sakura_loop', tier: 'beginner',
     desc: 'Dashers and gold slimes burst ahead every few seconds. Yuki\'s frost turns their sprint into a stroll.',
-    waves: 15, hpScale: 3.47, budget: [7, 120], groups: 2,
+    waves: 15, hpScale: 3.8, budget: [7, 120], groups: 2,
     pool: [P('slime_green', 4), P('goblin_runner', 3), P('goblin_dasher', 4, 3), P('slime_gold', 3, 5)],
     fixed: [F(3, 'goblin_dasher', 3, 0.8)],
     introduces: ['goblin_dasher', 'slime_gold', 'hasty'], recommended: ['slow'],
@@ -286,7 +288,7 @@ const CAMPAIGN = [
   campaign({
     id: '2-1', name: 'Moonlit Landing', mapId: 'lake_shore', tier: 'beginner',
     desc: 'Lizardfolk scouts wade ashore. Place Sango and Nami on the water — half this map is lake.',
-    waves: 18, hpScale: 2.1, budget: [7, 180], groups: 3,
+    waves: 18, hpScale: 2.35, budget: [7, 180], groups: 3,
     pool: [
       P('slime_green', 3), P('goblin_runner', 2), P('lizard_skink', 4), P('slime_pearl', 3, 4),
       P('goblin_dasher', 2, 6), P('orc_grunt', 2, 8),
@@ -324,7 +326,7 @@ const CAMPAIGN = [
   campaign({
     id: '2-4', name: 'Sunscale Ferry', mapId: 'lake_ferry', tier: 'intermediate',
     desc: 'Sunscale warriors laugh at fire. Two ferry lanes, one river — water girls in the middle cover both.',
-    waves: 22, hpScale: 3.16, budget: [7, 62], groups: 3,
+    waves: 22, hpScale: 3.6, budget: [7, 62], groups: 3,
     pool: [
       P('lizard_skink', 3), P('lizard_hunter', 3), P('lizard_sunscale', 4, 3), P('slime_prism', 2),
       P('slime_pearl', 2), P('goblin_runner', 2), P('beast_boar', 2), P('orc_grunt', 2, 10),
@@ -337,7 +339,7 @@ const CAMPAIGN = [
   campaign({
     id: '2-5', name: 'Basilisk Moon', mapId: 'lake_moonpier', tier: 'advanced',
     desc: 'The ancient Bog Basilisk surfaces under the full moon. Its scales regrow — keep it under constant fire.',
-    waves: 22, hpScale: 5.31, budget: [7, 294], groups: 3,
+    waves: 22, hpScale: 5.75, budget: [7, 294], groups: 3,
     pool: [
       P('lizard_skink', 3), P('lizard_hunter', 3), P('lizard_sunscale', 3), P('slime_prism', 2),
       P('slime_pearl', 2), P('goblin_dasher', 2), P('orc_grunt', 2), P('lizard_basilisk', 1, 12),
@@ -448,7 +450,7 @@ const CAMPAIGN = [
   campaign({
     id: '4-3', name: 'Shield Wall', mapId: 'mountain_bastion', tier: 'advanced',
     desc: 'Shieldbearers guard everyone around them — except from blast. Shell the formation or snipe the shield first.',
-    waves: 25, hpScale: 3.73, budget: [7, 525], groups: 3,
+    waves: 25, hpScale: 4.8, budget: [7, 525], groups: 3,
     pool: [
       P('orc_grunt', 2), P('orc_ironhide', 3), P('orc_shieldbearer', 4, 3), P('orc_berserker', 2),
       P('beast_wolf', 2), P('slime_iron', 2), P('goblin_runner', 2), P('ghost_phantom', 1, 10),
@@ -573,7 +575,7 @@ const CAMPAIGN = [
   campaign({
     id: '6-2', name: 'Barrier Line', mapId: 'foundry_belt', tier: 'intermediate',
     desc: 'Aegis Automatons project barriers that recharge if you stop hitting them. Blast deals +50% to barriers.',
-    waves: 27, hpScale: 6.79, budget: [6, 460], groups: 3,
+    waves: 27, hpScale: 7.6, budget: [6, 460], groups: 3,
     pool: [
       P('construct_cogling', 3), P('construct_shellback', 3), P('construct_aegis', 4, 3), P('slime_crystal', 2),
       P('goblin_dasher', 2), P('orc_shieldbearer', 2), P('beast_wolf', 2),
@@ -680,7 +682,7 @@ const CAMPAIGN = [
   campaign({
     id: '7-5', name: 'Champion of the Festival', mapId: 'festival_arena', tier: 'expert',
     desc: 'The Oni Champion changes stance at 75%, 50% and 25%: haste, shield, regen, then all of them at once.',
-    waves: 30, hpScale: 10.12, budget: [6, 65], groups: 4,
+    waves: 30, hpScale: 9.8, budget: [6, 65], groups: 4,
     pool: [
       P('oni_brute', 2), P('oni_haste', 2), P('oni_shield', 2), P('oni_bloom', 2),
       P('fae_sprite', 2), P('fae_illusionist', 2), P('slime_mimic', 2), P('oni_taiko', 1, 12), P('fae_queen', 1, 16),
@@ -722,7 +724,7 @@ const CAMPAIGN = [
   campaign({
     id: '8-3', name: 'Caldera Rim', mapId: 'peaks_caldera', tier: 'expert',
     desc: 'Ashdrakes wallow in lava and shrug off fire. Pierce, frost and mystic hit their scales fully.',
-    waves: 29, hpScale: 14.18, budget: [6, 520], groups: 4,
+    waves: 29, hpScale: 12.0, budget: [6, 520], groups: 4,
     pool: [
       P('dragon_wyvern', 3), P('dragon_ashdrake', 4, 3), P('goblin_glider', 2), P('fae_sylph', 2),
       P('slime_ember', 2), P('lizard_sunscale', 2), P('orc_shieldbearer', 2), P('construct_aegis', 2),
@@ -765,8 +767,11 @@ const CAMPAIGN = [
 // Bounty (resource) arenas — 5 arenas × tiers 1-3
 // ---------------------------------------------------------------------------
 
-// hpScale is probe-calibrated on the Library (Normal headroom ×1.58 / ×1.69 / ×1.34); cashScale
-// is explicit (it was hpScale^0.6 of the old 1.5 / 3 / 5).
+// cashScale is explicit (it was hpScale^0.6 of the old 1.5 / 3 / 5). Enemy HP is calibrated per
+// arena and tier (`hpScale` in BOUNTY_DEFS: the five pools differ by up to ×8 in how hard they are
+// at the same HP), so that every arena sits near Normal headroom ×1.7–1.9 and its Hard medal — the
+// key to sweeps — is won at the expected level (balance probe, docs/BALANCE.md). The tier value
+// below is only the fallback.
 const TIER_INFO = {
   1: { tierKey: 'intermediate', hpScale: 3.68, cashScale: 1.2, waves: 12, budget: [16, 1.12], requires: '1-5', cash: 750, label: 'I' },
   2: { tierKey: 'advanced', hpScale: 2.7, cashScale: 1.64, waves: 15, budget: [26, 1.11], requires: '3-5', cash: 800, label: 'II' },
@@ -786,7 +791,7 @@ function arenaMaterial(family, tier, perFamily) {
 
 const BOUNTY_DEFS = [
   {
-    id: 'res-books', name: 'Library Courtyard', mapId: 'arena_library', scenery: { props: ['bookshelves', 'fountain', 'sakuraTrees'], weather: 'petals' },
+    id: 'res-books', hpScale: [2.0, 1.7, 2.75], name: 'Library Courtyard', mapId: 'arena_library', scenery: { props: ['bookshelves', 'fountain', 'sakuraTrees'], weather: 'petals' },
     desc: 'Lost study books wash up in the courtyard fountain. Drops level-up books.',
     pools: [
       [P('slime_green', 3), P('slime_gold', 2), P('goblin_runner', 3), P('slime_prism', 2, 4), P('orc_grunt', 2, 6)],
@@ -800,7 +805,7 @@ const BOUNTY_DEFS = [
         : [D(book('superRare'), 1, 1, 3), D(book('mythic'), 0.3, 1, 1), D(book('legendary'), 0.05, 1, 1, 'nightmare'), D('token_bounty', 1, 3, 4)]),
   },
   {
-    id: 'res-coins', name: 'Market Canal', mapId: 'arena_market', scenery: { props: ['stalls', 'boats', 'coinChests', 'lanterns'] },
+    id: 'res-coins', hpScale: [1.15, 0.85, 0.8], name: 'Market Canal', mapId: 'arena_market', scenery: { props: ['stalls', 'boats', 'coinChests', 'lanterns'] },
     desc: 'Goblin thieves flee down the merchant canal with the academy\'s coin chests. Drops coins.',
     pools: [
       [P('goblin_runner', 4), P('goblin_dasher', 3), P('slime_gold', 3), P('beast_boar', 2, 5)],
@@ -814,7 +819,7 @@ const BOUNTY_DEFS = [
         : [D('coins', 1, 18000, 28000), D('coins', 0.3, 8000, 12000, 'hard'), D('token_bounty', 1, 3, 4)]),
   },
   {
-    id: 'res-gear', name: 'Workshop Yard', mapId: 'arena_workshop', scenery: { props: ['gears', 'cranes', 'crates', 'steamVents'], weather: 'embers' },
+    id: 'res-gear', hpScale: [6.25, 5.4, 5.2], name: 'Workshop Yard', mapId: 'arena_workshop', scenery: { props: ['gears', 'cranes', 'crates', 'steamVents'], weather: 'embers' },
     desc: 'The academy workshop\'s gear crates are under siege. Drops gear boxes and reroll dice.',
     pools: [
       [P('construct_cogling', 3), P('orc_grunt', 2), P('goblin_runner', 3), P('slime_iron', 2, 4)],
@@ -828,7 +833,7 @@ const BOUNTY_DEFS = [
         : [D(box('superRare'), 1, 1, 2), D(box('mythic'), 0.3, 1, 1), D(box('legendary'), 0.04, 1, 1, 'nightmare'), D('dice_reroll', 0.5, 1, 2), D('lock_pin', 0.12, 1, 1), D('dice_prism', 0.03, 1, 1, 'hard'), D('token_bounty', 1, 3, 4)]),
   },
   {
-    id: 'res-mats-a', name: 'Wildflower Meadow', mapId: 'arena_meadow', scenery: { props: ['wildflowers', 'pines', 'featherDrifts', 'campfire'], weather: 'petals' },
+    id: 'res-mats-a', hpScale: [3.8, 4.2, 7.1], name: 'Wildflower Meadow', mapId: 'arena_meadow', scenery: { props: ['wildflowers', 'pines', 'featherDrifts', 'campfire'], weather: 'petals' },
     desc: 'Feathers, blade shards, embers and rime crystals gather in the high meadow. Drops those four material families.',
     pools: [
       [P('beast_wolf', 3), P('beast_boar', 3), P('slime_green', 2), P('lizard_skink', 2, 3)],
@@ -841,7 +846,7 @@ const BOUNTY_DEFS = [
     ],
   },
   {
-    id: 'res-mats-b', name: 'Rune Garden', mapId: 'arena_runegarden', scenery: { props: ['runeStones', 'charms', 'cogs', 'stoneLanterns'], night: true },
+    id: 'res-mats-b', hpScale: [0.97, 0.8, 1.38], name: 'Rune Garden', mapId: 'arena_runegarden', scenery: { props: ['runeStones', 'charms', 'cogs', 'stoneLanterns'], night: true },
     desc: 'A moonlit garden of charms, runes and cogs. Drops those three material families.',
     pools: [
       [P('ghost_wisp', 3), P('slime_violet', 2), P('construct_cogling', 3), P('ghoul_bonewalker', 2, 3)],
@@ -871,7 +876,7 @@ const BOUNTY = BOUNTY_DEFS.flatMap((def) => [1, 2, 3].map((t) => {
       groups: 2 + t,
       fixed: [],
     },
-    hpScale: info.hpScale,
+    hpScale: def.hpScale?.[t - 1] ?? info.hpScale,
     cashScale: info.cashScale,
     startCash: info.cash,
     lives: 100,

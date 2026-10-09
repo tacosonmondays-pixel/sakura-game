@@ -332,7 +332,7 @@ const DIFF_SUMMARY = {
   easy: 'Forgiving: −40% HP, +10% coins',
   normal: 'Upgrades + right counters',
   hard: '50 lives, +5% prices',
-  nightmare: '+10% HP, 1 life, ×1.5 start cash',
+  nightmare: '20 lives, +10% prices, ×1.5 start cash',
 };
 
 export function render(root, params = {}) {
