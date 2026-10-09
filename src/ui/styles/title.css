@@ -112,3 +112,5 @@ html[data-reduce-motion] .tt-art-img, html[data-reduce-motion] .tt-start::before
    the lobby's art has decoded, then fades — no empty backdrop between the two screens */
 .tt.tt-handoff { position: fixed; inset: 0; z-index: 95; pointer-events: none; }
 .tt.tt-handoff .tt-start { animation: none; transform: scale(0.97); }
+.tt.tt-handoff .tt-girl, .tt.tt-handoff .tt-logo, .tt.tt-handoff .tt-start::before, .tt.tt-handoff .tt-start::after { animation: none !important; }
+.tt.tt-handoff .tt-petal { display: none; }

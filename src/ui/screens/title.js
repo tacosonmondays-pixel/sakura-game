@@ -131,6 +131,14 @@ export function render(root) {
     markTitleSeen();
     // hand-off: the title lifts out of the screen root as a fixed overlay, the lobby renders
     // underneath, and the title fades only once the lobby's art has decoded (no empty frame)
+    // Re-inserting a node restarts its CSS animations: freeze the slow art zoom where it is and
+    // (via .tt-handoff) skip the girls'/logo's entrance, or they would blink out during the hand-off.
+    const art = el.querySelector('.tt-art-img');
+    if (art) {
+      const tf = getComputedStyle(art).transform;
+      art.style.animation = 'none';
+      if (tf && tf !== 'none') art.style.transform = tf;
+    }
     el.classList.add('tt-handoff');
     document.body.appendChild(el);
     let gone = false;

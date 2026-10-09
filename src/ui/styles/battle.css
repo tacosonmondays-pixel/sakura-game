@@ -648,6 +648,14 @@
   .bt-disc > :first-child svg, .bt-disc > :first-child img { width: 28px; height: 28px; }
   .bt-disc-fam { display: none; }
   .bt-rewards-body .bt-tiles { gap: 8px; }
+  /* first clear + drops share one row: smaller tiles, Drops takes what is left and wraps inside
+     (so six or seven drops never push Top damage below the sticky buttons) */
+  .bt-rewards-body .item-tile { width: 54px !important; padding: 5px; border-radius: 9px; }
+  .bt-rewards-body .item-tile-wrap { width: 62px; gap: 2px; }
+  .bt-rewards-body .item-tile-name { font-size: 0.62rem; max-width: 62px; }
+  .bt-rewards-body .item-count { font-size: 0.66rem; }
+  .bt-rewards-body > .bt-rsec:has(.bt-tiles) + .bt-rsec:has(.bt-tiles) { flex: 1 1 0; min-width: 260px; }
+  .bt-rewards-body > .bt-rsec .bt-rsec-title { margin-bottom: 4px; font-size: 0.92rem; }
 }
 
 /* deploy: her card glows and a name tag with her drawn bust pops over the spot she landed on */
