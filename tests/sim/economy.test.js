@@ -17,11 +17,11 @@ function clearWave(sim, maxSeconds = 300) {
 describe('crowd bonus', () => {
   test('counts scheduled spawns (capped) and distinct enemy types', () => {
     const { perEnemy, maxEnemies, perKind } = BATTLE.crowdBonus;
-    expect([perEnemy, maxEnemies, perKind]).toEqual([1, 30, 4]);
+    expect([perEnemy, maxEnemies, perKind]).toEqual([1, 20, 4]);
     expect(crowdBonus([])).toEqual({ enemies: 0, kinds: 0, coins: 0 });
     expect(crowdBonus(spawns(['a', 'a', 'b']))).toEqual({ enemies: 3, kinds: 2, coins: 3 + 8 });
     const big = spawns([...Array(30).fill('a'), ...Array(10).fill('b'), ...Array(5).fill('c')]);
-    expect(crowdBonus(big)).toEqual({ enemies: 45, kinds: 3, coins: 30 + 12 }); // enemy part capped at 30
+    expect(crowdBonus(big)).toEqual({ enemies: 45, kinds: 3, coins: 20 + 12 }); // enemy part capped at 20
   });
 
   test('wave-clear bonus = base + perWave × wave + crowd (unscaled)', () => {
@@ -32,12 +32,12 @@ describe('crowd bonus', () => {
     expect(waveClearBonus(1, []).total).toBe(107);
   });
 
-  test('stays "a little": at most ~25 % of the base wave bonus on any campaign-sized wave', () => {
-    // Worst case: 30+ enemies of 4 types on wave 1 → 46 on top of 107.
-    expect(crowdBonus(spawns([...Array(40).fill('a'), 'b', 'c', 'd'])).coins).toBeLessThanOrEqual(0.45 * waveClearBonus(1, []).total);
-    // Late waves: 30 + 4 × 5 types on top of 100 + 7 × 30.
+  test('stays "a little": at most about a third of the base wave bonus on any campaign-sized wave', () => {
+    // Worst case: 20+ enemies of 4 types on wave 1 → 36 on top of 107 (was 46 with the cap of 30).
+    expect(crowdBonus(spawns([...Array(40).fill('a'), 'b', 'c', 'd'])).coins).toBeLessThanOrEqual(0.35 * waveClearBonus(1, []).total);
+    // Late waves: 20 + 4 × 5 types on top of 100 + 7 × 30.
     const late = crowdBonus(spawns([...Array(60).fill('a'), 'b', 'c', 'd', 'e'])).coins;
-    expect(late / waveClearBonus(30, []).total).toBeLessThanOrEqual(0.17);
+    expect(late / waveClearBonus(30, []).total).toBeLessThanOrEqual(0.13);
   });
 });
 

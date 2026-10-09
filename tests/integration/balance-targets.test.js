@@ -43,13 +43,16 @@ describe.skipIf(!ready)('balance targets (docs/BALANCE.md)', () => {
     expect(h12).toBeGreaterThanOrEqual(h13 / 1.04);
     expect(h12).toBeLessThanOrEqual(2.2);
     // The feel, not only the headroom (round 2): at shipped HP 1-2 costs lives where 1-1 costs none,
-    // its opening walks enemies well down the lane, and Hikari alone no longer clears it untouched.
+    // its opening (waves 1-3) presses hard enough to cost lives and walks enemies well down the lane
+    // (live build: 0 lives, p90 23 %), and Hikari alone no longer clears it untouched.
     const d = defaultData();
     const r11 = runProbe({ stageId: '1-1', difficulty: 'normal' });
     const r12 = runProbe({ stageId: '1-2', difficulty: 'normal' });
     expect(r12.won).toBe(true);
     expect(r12.lives, '1-2 lives vs 1-1').toBeLessThan(r11.lives);
-    expect(r12.normalsEarly.pathP90, '1-2 waves 1-3 path walked (p90)').toBeGreaterThanOrEqual(0.5);
+    const openingLeaks = [1, 2, 3].reduce((a, w) => a + (r12.leaksByWave[w] || 0), 0);
+    expect(openingLeaks, '1-2 lives lost in waves 1-3').toBeGreaterThanOrEqual(3);
+    expect(r12.normalsEarly.pathP90, '1-2 waves 1-3 path walked (p90)').toBeGreaterThanOrEqual(0.35);
     const solo = runProbe({ stageId: '1-2', difficulty: 'normal', detail: false, setup: { ...f2pSetup(d, '1-2'), towers: [] } });
     expect(solo.lives, '1-2 Hikari alone').toBeLessThanOrEqual(95);
   }, 600000);
@@ -73,12 +76,18 @@ describe.skipIf(!ready)('balance targets (docs/BALANCE.md)', () => {
     expect(easy.lives).toBeGreaterThanOrEqual(130);
   }, 600000);
 
-  test('Nightmare is hard but winnable at the expected level (20 lives)', () => {
+  test('Nightmare is hard but winnable at the expected level (20 lives), one step past Hard', () => {
     expect(DIFFICULTIES.nightmare.lives).toBe(20);
     for (const [stageId, planner] of [['1-1', 'bot'], ['2-2', 'bot'], ['2-5', 'human']]) {
       const r = runProbe({ stageId, difficulty: 'nightmare', planner, detail: false });
       expect(r.won, `${stageId} Nightmare (${planner})`).toBe(true);
     }
+    // The ladder Normal > Hard > Nightmare holds on a mid-chapter stage (was: Nightmare lost on
+    // wave 1 at any HP). [1-4: Normal ×1.68, Hard ×1.30, Nightmare ×1.14]
+    const n14 = hr('1-4', 'nightmare');
+    expect(n14, '1-4 Nightmare headroom').toBeGreaterThanOrEqual(1.0);
+    expect(n14, '1-4 Nightmare vs Hard').toBeLessThan(hr('1-4', 'hard'));
+    expect(hr('1-4', 'hard'), '1-4 Hard vs Normal').toBeLessThan(hr('1-4'));
   }, 600000);
 
   test('Bounty arenas: the Library I Hard medal (the key to sweeps) is reachable, Coins I is won', () => {
@@ -151,6 +160,16 @@ describe.skipIf(!ready)('balance targets (docs/BALANCE.md)', () => {
     // "Not a huge amount more, just a little": 4–12 % of everything the stage pays.
     expect(crowdTotal / econ.totalCoins).toBeGreaterThanOrEqual(0.04);
     expect(crowdTotal / econ.totalCoins).toBeLessThanOrEqual(0.12);
+    // …on every campaign stage (runner rushes on 1-2 are the most crowded: 10.5 %; 8-3 3.3 %), and
+    // never more than a fifth on top of the plain wave-clear bonus (1-2 18 %, 7-5 9 %).
+    for (const s of Object.values(d.stages).filter((x) => x.kind === 'campaign')) {
+      const e = stageEconomy(s.id, 'normal');
+      const crowd = e.waves.reduce((a, w) => a + w.crowd, 0);
+      const bonus = e.waves.reduce((a, w) => a + w.bonus, 0);
+      expect(crowd / e.totalCoins, `${s.id} crowd share of coins`).toBeGreaterThanOrEqual(0.02);
+      expect(crowd / e.totalCoins, `${s.id} crowd share of coins`).toBeLessThanOrEqual(0.12);
+      expect(crowd / (bonus - crowd), `${s.id} crowd on top of the wave-clear bonus`).toBeLessThanOrEqual(0.2);
+    }
   });
 
   test.runIf(FULL)('slow: Normal and Hard medians, every boss killed by a planner', () => {

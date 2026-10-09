@@ -369,6 +369,7 @@ export function runProbe({ stageId, difficulty = 'normal', seed = 1, hpMul = 1, 
     // runHeadless runs the plan in order, so the first pending action is the one it was saving for
     waitingOn: r.pendingLeft ? describeAction(sim, plan[plan.length - r.pendingLeft], diff) : null,
     leaksByEnemy: sim.stats.leaksByEnemy,
+    leaksByWave: sim.stats.leaksByWave,
   };
   if (!detail) return out;
 

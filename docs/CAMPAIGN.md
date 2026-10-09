@@ -103,8 +103,11 @@ Crowns have a base chance plus a second roll on Hard+. Minibosses cost 25 lives 
 ## Bounty (resource) arenas
 
 Five arenas × three tiers (`res-<arena>-<tier>`). Tier I unlocks after 1-5, II after 3-5,
-III after 5-5. hpScale 3.68 / 2.7 / 4.5 (probe-calibrated on the Library: Normal headroom ≈ ×1.6 /
-×1.7 / ×1.3), cashScale 1.2 / 1.64 / 2.06, 12 / 15 / 18 waves. Every clear gives `token_bounty`.
+III after 5-5. Enemy HP is calibrated per arena and tier (`hpScale` in `BOUNTY_DEFS`: Library
+2.0 / 1.7 / 2.75, Market 1.15 / 0.85 / 0.8, Workshop 6.25 / 5.4 / 5.2, Meadow 3.8 / 4.2 / 7.1, Rune
+Garden 0.97 / 0.8 / 1.38 — the pools differ up to ×8 at the same HP; Normal headroom ≈ ×1.7–2.0 and
+the Library I Hard medal won at Lv 5, docs/BALANCE.md), cashScale 1.2 / 1.64 / 2.06, 12 / 15 / 18
+waves. Every clear gives `token_bounty`.
 
 | Arena | Map | Drops (best rarity rises with tier and difficulty) |
 |---|---|---|
@@ -148,18 +151,25 @@ below are the current state (playtest round "frisk1636", 2026-10-08).
 * Bounty ≈ 1 coin per 10 *effective* HP in the chapter where an enemy debuts (late monsters carry
   more loot). The green slime keeps the §5b anchor (14 HP, 1 coin).
 * Battle coins: kill bounty × cashScale, plus a wave-clear bonus of (100 + 7 × wave + crowd) ×
-  cashMul × cashScale, where the **crowd bonus** = 1 per scheduled enemy (max 30) + 4 per enemy
+  cashMul × cashScale, where the **crowd bonus** = 1 per scheduled enemy (max 20) + 4 per enemy
   type in that wave. In-battle prices were cut (placement and tiers 1–3 ×0.75, tier 4 ×0.5,
   tier 5 ×0.9): Aoi 150, her Arrow Storm tier 4 1,200.
 * `hpScale` per stage is tuned with `tools/balance/measure.mjs` (autoPlan bot + a human-like
-  planner, free units only, `EXPECTED_LEVEL` 1 / 5 / 10 / 15 / 20 / 24 / 28 / 32 by chapter). Normal
-  median headroom is ×1.58 (bot and human-like) on the 22-stage sample; the bot wins 39/40 campaign
-  stages on Normal (8-5 lost: autoPlan banks coins for a tier 5 it never buys) and all 40 on Easy.
-* Bosses (Normal): the Slime Prince (250 base HP × 3.87) lives ~97–117 s and is killed at 76–90 %
-  of the path; Orc General 41–45 s; Goblin Machine and Oni Champion 28–43 s for a focused player
-  (the bot leaks them and still wins); Ashwing 45 s for the human-like planner. Base boss HP is
-  "HP at hpScale 1" — the debut stage multiplies it.
+  planner, free units only, `EXPECTED_LEVEL` 1 / 5 / 10 / 15 / 20 / 24 / 28 / 32 by chapter) on the
+  integration maps (tracks round 3). Normal median headroom is ×1.58 / ×1.53 (bot / human-like) on
+  the 22-stage sample, and the chapter-1 ramp (geo-mean) reads 2.04 ≥ 1.63 ≥ 1.58 ≥ 1.58 ≥ 1.43.
+  The bot loses only 8-5 on Normal (the Matriarch's flights need anti-air; autoPlan banks coins for
+  a tier 5 it never buys) and wins all 40 on Easy.
+* 1-2 "Petal Thieves" opens with a real wave 1 (budget 18) and four goblin-runner rushes (waves 3,
+  8, 11, 14): it costs a few lives where 1-1 costs none, as the "1.1 balanced, 1.2 too easy"
+  playtest asked.
+* Bosses (Normal): the Slime Prince (250 base HP × 3.87) lives ~99–118 s and is killed at 80–89 %
+  of the path; Orc General 41–45 s; Goblin Machine 37 s and Oni Champion (3,600 base) 42 s for a
+  focused player (the bot leaks them and still wins); Ashwing 56 s for the human-like planner. Base
+  boss HP is "HP at hpScale 1" — the debut stage multiplies it.
 * Difficulty multipliers come from `DIFFICULTIES` in `types.js`: Easy ×0.6 HP; Hard ×1.0 HP,
-  ×1.05 prices, 50 lives; Nightmare ×1.1 HP, ×1.05 speed, ×1.1 prices, 1 life, ×1.5 start cash,
-  income girls ×0.5. Normal itself got ≈40 % harder, so Hard's extra pressure is half the lives.
-* Re-probe after any map path change: path length moves headroom (1-1's short track especially).
+  ×1.05 prices, 50 lives; Nightmare ×1.0 HP, ×1.1 prices, **20 lives**, ×1.5 start cash, income
+  girls ×0.5. Normal itself got ≈40 % harder, so Hard's extra pressure is half the lives, and
+  Nightmare's is 20 lives (one leaked miniboss or boss ends the run) plus prices.
+* Re-probe after any map path change: path length moves headroom (docs/BALANCE.md §6 lists the
+  tracks round 4 drift).

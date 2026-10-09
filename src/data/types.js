@@ -283,10 +283,11 @@ export const BATTLE = {
   // Wave-clear bonus = (waveClearBonusBase + waveClearBonusPerWave * wave + crowd) * cashMul * cashScale,
   // paid at the end of every wave even when enemies leaked. The crowd bonus rewards bigger and more
   // varied waves a little: perEnemy per scheduled spawn (up to maxEnemies) + perKind per distinct
-  // enemy type (src/sim/waves.js crowdBonus / waveClearBonus).
+  // enemy type (src/sim/waves.js crowdBonus / waveClearBonus). The cap is 20 (was 30 in round 1):
+  // on runner-rush stages like 1-2 a cap of 30 made the "little" bonus 13 % of the stage's coins.
   waveClearBonusBase: 100,
   waveClearBonusPerWave: 7,
-  crowdBonus: { perEnemy: 1, maxEnemies: 30, perKind: 4 },
+  crowdBonus: { perEnemy: 1, maxEnemies: 20, perKind: 4 },
   maxHeroLevel: 10,
   speeds: [1, 2, 3],
 };

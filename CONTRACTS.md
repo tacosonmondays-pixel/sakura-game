@@ -567,12 +567,14 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 200–2500; bosses ≈ 3000–10000
   ("HP at hpScale 1": a scripted boss has more HP than any elite of its stage and ≥ 5× its strongest ordinary enemy).
 * hpScale: probe-calibrated per campaign stage (1.5–17; chapter means non-decreasing; docs/BALANCE.md);
-  resource arenas tier 1/2/3 = 3.68 / 2.7 / 4.5; boss arenas 3 / 3 / 6; Tactical Challenge 3.75.
+  resource arenas per arena and tier (`BOUNTY_DEFS[].hpScale`, 0.8–7.1; the tier value is only the
+  fallback); boss arenas 3 / 3 / 6; Tactical Challenge 3.75.
 * Start cash: 1-1 650; later stages 700–900 (× difficulty startCashMul). Wave clear bonus =
-  (100 + 7 × wave + crowd) × cashMul × stage.cashScale, crowd = min(30, enemies in the wave) × 1 + 4 × enemy
+  (100 + 7 × wave + crowd) × cashMul × stage.cashScale, crowd = min(20, enemies in the wave) × 1 + 4 × enemy
   types (`BATTLE.crowdBonus`, scheduled spawns only); kill bounties are × cashMul × cashScale too. Waves: 12 early → 30 late.
 * Difficulty targets (headroom bands, docs/BALANCE.md): Easy ≥ ×2.2 on every stage; Normal ×1.3–1.6 median
-  (casual players win but lose some lives); Hard ×1.1–1.3; Nightmare = 1 life with a fair economy.
+  (casual players win but lose some lives); Hard ×1.1–1.3; Nightmare ×1.0–1.1 with 20 lives (lives
+  150 / 100 / 50 / 20 for Easy / Normal / Hard / Nightmare).
 
 ## 6. Simulation — `src/sim/**` (owner: sim)
 

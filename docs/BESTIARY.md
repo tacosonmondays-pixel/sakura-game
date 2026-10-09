@@ -254,7 +254,7 @@
 | **Ward Oni** `oni_shield` | normal | 65 | 0.75 | warded | – | Field Caster | 30 | 7-2 |
 | **Bloom Oni** `oni_bloom` | normal | 60 | 0.8 | warded | – | Field Caster | 28 | 7-4 |
 | **Taiko Oni** `oni_taiko` | elite | 340 | 0.65 | warded | 2 | Armored, Field Caster | 160 | 7-4 |
-| **Oni Champion** `oni_champion` | miniboss | 2100 | 0.5 | warded | 3 | Armored, Field Caster | 1840 | 7-5 |
+| **Oni Champion** `oni_champion` | miniboss | 3600 | 0.5 | warded | 3 | Armored, Field Caster | 1840 | 7-5 |
 
 **Oni Brute** — Came for the festival food, stayed for the fighting.
 *Counter:* Warded: mystic does half. Pierce, slash, blast and holy all work.

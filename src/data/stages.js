@@ -237,7 +237,7 @@ const CAMPAIGN = [
     desc: 'Goblin runners dash for the gate. Fast and fragile — cover the start and the end of the lane.',
     // A real opening (budget 18 from wave 1) and four runner rushes (waves 3/8/11/14) so the lane
     // pressures the defense from the start — the "frisk1636" playtest found 1-2 easier than 1-1.
-    waves: 14, hpScale: 2.2, budget: [18, 62], groups: 2,
+    waves: 14, hpScale: 2.1, budget: [18, 62], groups: 2,
     pool: [P('slime_green', 5), P('goblin_runner', 4, 2)],
     fixed: [F(3, 'goblin_runner', 7, 0.3), F(8, 'goblin_runner', 6, 0.4), F(11, 'goblin_runner', 8, 0.35), F(14, 'goblin_runner', 10, 0.35)],
     introduces: ['goblin_runner'], recommended: ['multiHit'],
@@ -750,7 +750,7 @@ const CAMPAIGN = [
   campaign({
     id: '8-5', name: 'The Ashwing Matriarch', mapId: 'peaks_nest', tier: 'expert',
     desc: 'Three trails converge on the nest. The Matriarch flies at 75%, lands armored at 45% and takes her final flight at 20%.',
-    waves: 30, hpScale: 8.45, budget: [6, 112], groups: 4,
+    waves: 30, hpScale: 11.5, budget: [6, 112], groups: 4,
     pool: [
       P('dragon_wyvern', 3), P('dragon_ashdrake', 3), P('goblin_glider', 2), P('fae_sylph', 2),
       P('orc_warlord', 1, 6), P('oni_taiko', 1, 8), P('construct_warden', 1, 8), P('dragon_cinder', 1, 10), P('slime_bubble', 2),

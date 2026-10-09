@@ -166,9 +166,10 @@ Battle coins are separate from the wallet and reset every stage (`src/sim/Sim.js
 * **Wave-clear bonus** = (100 + 7 × wave + **crowd**) × `cashMul` × `stage.cashScale`, paid at the end
   of every wave even when enemies leaked (`BATTLE.waveClearBonusBase / waveClearBonusPerWave`).
 * **Crowd bonus** (the "more money per round based on how many enemies / types" note) = 1 coin per
-  scheduled enemy of the wave (max 30) + 4 per distinct enemy type (`BATTLE.crowdBonus`; split
-  children and summons do not count). Known at wave start, deterministic. It adds 9–22 % to the
-  wave-clear bonus and 3–12 % of a stage's coins; the wave-clear toast shows it
+  scheduled enemy of the wave (max 20) + 4 per distinct enemy type (`BATTLE.crowdBonus`; split
+  children and summons do not count). Known at wave start, deterministic. It adds 9–18 % to the
+  wave-clear bonus and 3–11 % of a campaign stage's coins (up to 11 % in Bounty); the wave-clear
+  toast shows it
   ("Wave 6 cleared · +208 coins (+23 crowd)" on 1-1 Normal).
 * **cashScale** (campaign) = max(1.3, curve^0.45) where curve = 6.5^(index/39) is the smooth
   campaign index curve: 1.3 for 1-1 … 3-3, then up to 2.32 at 8-5. Bounty tiers 1.2 / 1.64 / 2.06;
@@ -184,9 +185,9 @@ Battle coins are separate from the wallet and reset every stage (`src/sim/Sim.js
 | Easy | ×0.6 | ×1 | ×1.1 | ×0.9 | 150 | ×1 | ×1 |
 | Normal | ×1 | ×1 | ×1 | ×1 | 100 | ×1 | ×1 |
 | Hard | ×1 | ×1 | ×1 | ×1.05 | 50 | ×1 | ×1 |
-| Nightmare | ×1.1 | ×1.05 | ×1 | ×1.1 | 1 | ×1.5 | ×0.5 |
+| Nightmare | ×1 | ×1 | ×1 | ×1.1 | 20 | ×1.5 | ×0.5 |
 
-Coins per stage on Normal if every enemy dies (start + bounty + wave-clear incl. crowd): 1-1 3,570 ·
-1-5 7,255 · 2-5 9,992 · 3-5 9,843 · 4-5 14,339 · 5-5 31,354 · 6-5 32,954 · 7-5 27,090 · 8-5 37,744.
+Coins per stage on Normal if every enemy dies (start + bounty + wave-clear incl. crowd): 1-1 3,523 ·
+1-5 7,139 · 2-5 9,889 · 3-5 9,797 · 4-5 14,265 · 5-5 31,162 · 6-5 32,771 · 7-5 27,082 · 8-5 37,693.
 A focused player (hero + Rei + Aoi to tier 4) can afford the tier 4 by wave 10 of 15–18 in chapter 1;
 tier 5 is a chapter-4+ goal (all-in Aoi tier 5 first fits at wave 22–24 of 24–26 in chapter 4).
