@@ -7,13 +7,14 @@ export const COOP = Object.freeze({
   hpMul: 1.6,
   /** Each player's start cash = round(stage start cash × cashShare). */
   cashShare: 0.6,
-  /** Commands run this many ticks (× game speed) after they are issued. */
+  /** Commands run this many ticks (× game speed) after they are issued. The local transport's
+   *  value; the Supabase adapter asks for 30 ticks (src/online/adapters/supabase.js net). Stalls
+   *  raise it adaptively up to 3×. */
   inputDelay: 6,
-  /** Upper bound for the adaptive input delay after stalls. */
-  maxInputDelay: 18,
-  /** "I will send nothing more up to tick N" heartbeat interval. */
+  /** "I will send nothing more up to tick N" heartbeat interval (local transport; Supabase
+   *  beats at most every 250 ms and only when the ally needs it, see Lockstep.beat). */
   heartbeatMs: 50,
-  /** State-hash exchange interval in ticks (2 s of game time at 1×). */
+  /** State-hash interval in ticks (2 s of game time at 1×); hashes ride on the heartbeats. */
   hashEvery: 120,
   /** A peer silent for this long counts as disconnected (grows to 3× the worst recent gap
    *  between its packets on a laggy device, up to maxTimeoutMs). Leaving and closing the tab

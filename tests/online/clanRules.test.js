@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   levelFromXp, xpForLevel, weekKey, bossFor, rewardTier, can, validateClan, validateName, CLAN_BOSSES, DEV_CODE, msToWeekReset, agoText,
+  autoName, validMessageMeta, bossAllowance, bossMaxHp, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS,
 } from '../../src/online/clanRules.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
@@ -64,7 +65,38 @@ describe('clan rules', () => {
     expect(validateName('Mika')).toBe(null);
     expect(validateName('M')).toMatch(/2–16/);
     expect(validateName('<b>hey</b>')).toBeTruthy();
+    // no impersonation: reserved names (any case / spacing) and invisible or bidi characters
+    for (const bad of ['System', 'Supply Bot', 'supply-bot', 'ADMIN', 'Sakura Dev Lab', 'Aiko\u202Eevil', 'Ai\u200Bko', 'Ai\u00ADko']) {
+      expect(validateName(bad), bad).toBeTruthy();
+    }
+    expect(validateName('桜ミカ')).toBe(null);
+    expect(autoName('local-9f3ce79a')).toMatch(/^Sensei\d{4}$/);
+    expect(autoName('local-9f3ce79a')).toBe(autoName('local-9f3ce79a'));
+    expect(validateName(autoName('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'))).toBe(null);
     expect(DEV_CODE).toBe('Rosie777');
     expect(agoText(Date.now() - 3 * 3600 * 1000)).toBe('3 h ago');
+  });
+
+  it('bounds chat meta: nothing on text, a tiny room/stage object on invites', () => {
+    expect(validMessageMeta('text', null)).toBe(true);
+    expect(validMessageMeta('text', { room: 'ABCDE' })).toBe(false);
+    expect(validMessageMeta('invite', { room: 'ABCDE', stage: '1-1' })).toBe(true);
+    expect(validMessageMeta('invite', { room: 'ABCDE' })).toBe(true);
+    expect(validMessageMeta('invite', { room: 'ABCDE', pad: 'x' })).toBe(false);
+    expect(validMessageMeta('invite', { room: 'abcde' })).toBe(false);
+    expect(validMessageMeta('invite', { room: 'ABCDE', stage: 'x'.repeat(17) })).toBe(false);
+    expect(validMessageMeta('invite', null)).toBe(false);
+  });
+
+  it('clan boss: what one battle may count grows with its length, up to the boss cap', () => {
+    for (const b of CLAN_BOSSES) {
+      expect(bossAllowance(b.id, BOSS_MIN_SECONDS - 0.1)).toBe(0);
+      expect(bossAllowance(b.id, BOSS_FULL_RUN_SECONDS / 2)).toBe(Math.floor(b.hitCap / 2));
+      expect(bossAllowance(b.id, 3600)).toBe(b.hitCap);
+      // the weekly pool takes ~3 capped hits per member (at least 2 members' worth)
+      expect(bossMaxHp(1, 1, b.id)).toBe(b.hitCap * 6);
+      expect(bossMaxHp(1, 10, b.id)).toBe(b.hitCap * 30);
+      expect(bossMaxHp(2, 10, b.id)).toBe(Math.round(b.hitCap * 30 * 1.2));
+    }
   });
 });

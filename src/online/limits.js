@@ -15,8 +15,12 @@ const DAY = 24 * HOUR;
 export const RULES = Object.freeze({
   chat: { gapMs: 2 * SEC, max: 20, windowMs: MIN, label: 'chat message' },
   clan_create: { gapMs: 10 * MIN, max: 3, windowMs: DAY, label: 'new clan' },
+  // joins, requests, leaves and invite-code tries (a wrong code counts too: no brute force)
   clan_join: { gapMs: 0, max: 10, windowMs: HOUR, label: 'clan join / request / leave' },
   boss_hit: { gapMs: 0, max: 3, windowMs: DAY, label: 'clan boss attempt' },
+  // starting a clan boss battle uses no attempt; this only stops a script flooding the table
+  boss_start: { gapMs: 0, max: 20, windowMs: HOUR, label: 'clan boss battle' },
+  // creating AND redeeming codes; a wrong code counts too (brute force), see redeem_transfer
   transfer: { gapMs: 0, max: 5, windowMs: HOUR, label: 'transfer code' },
   // client-only: the Supply Bot and co-op room creation never reach a rate table
   dev_grant: { gapMs: 300, max: 60, windowMs: MIN, label: 'supply request' },

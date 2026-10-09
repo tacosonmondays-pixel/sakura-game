@@ -1,9 +1,9 @@
 // Supabase adapter: anonymous auth, Postgres tables behind Row Level Security, server
-// functions (supabase/schema.sql) for everything that needs a role check or a rate limit,
+// functions (supabase/migrations/*.sql) for everything that needs a role check or a rate limit,
 // Realtime postgres_changes for chat / clan updates and broadcast + presence channels for
 // co-op rooms. @supabase/supabase-js is imported on first use, so players who never open an
 // online screen never download it.
-import { BOSS_REWARDS, bossFor, rewardTier } from '../clanRules.js';
+import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
 import { OnlineError, toOnlineError } from '../errors.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
@@ -88,9 +88,10 @@ export function createSupabaseAdapter({ url, key }) {
       const existing = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
       if (!existing) {
         // two tabs signing in at once share one account: the second insert must not fail
-        await q(c.from('profiles').upsert({ id: uid, name: name || `Sensei${uid.slice(0, 4)}`, level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
+        await q(c.from('profiles').upsert({ id: uid, name: name || autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
       } else {
-        await q(c.from('profiles').update({ level, avatar, last_active: new Date().toISOString() }).eq('id', uid));
+        // the server stamps last_active on every profile write
+        await q(c.from('profiles').update({ level, avatar }).eq('id', uid));
       }
       return this.me();
     },
@@ -174,7 +175,9 @@ export function createSupabaseAdapter({ url, key }) {
       return this.getClan(r.id);
     },
     async joinByCode(code) {
+      // a wrong code comes back as { error } (raising would undo the counted try)
       const r = await rpc('join_clan_by_code', { p_code: code });
+      if (r?.error) throw new OnlineError(r.error, 'No clan uses that code.');
       return this.getClan(r.id);
     },
     async requestJoin(id) {
@@ -239,8 +242,12 @@ export function createSupabaseAdapter({ url, key }) {
     async bossState(clanId) {
       return decorateBoss(await rpc('boss_state', { p_clan: clanId }), uid);
     },
-    async submitBossDamage(damage) {
-      return decorateBoss(await rpc('submit_boss_damage', { p_damage: Math.floor(damage) }), uid);
+    async startBossAttempt() {
+      const r = await rpc('start_boss_attempt');
+      return { attemptId: r.attemptId, bossId: r.bossId, cap: Number(r.cap) || 0 };
+    },
+    async submitBossDamage(attemptId, damage) {
+      return decorateBoss(await rpc('submit_boss_damage', { p_attempt: attemptId, p_damage: Math.max(0, Math.floor(Number(damage) || 0)) }), uid);
     },
     async claimBossReward(week) {
       const r = await rpc('claim_boss_reward', { p_week: week });
@@ -253,23 +260,45 @@ export function createSupabaseAdapter({ url, key }) {
       return { code: r.code, expiresAt: ts(r.expiresAt) };
     },
     async redeemTransfer(code) {
-      return rpc('redeem_transfer', { p_code: code });
+      // a wrong / used code comes back as { error } (raising would undo the counted try)
+      const r = await rpc('redeem_transfer', { p_code: code });
+      if (r?.error) throw new OnlineError(r.error, r.error === 'expired' ? 'That code has expired or was already used.' : 'Unknown transfer code.');
+      return r.payload;
     },
 
-    // ---- co-op rooms (Realtime broadcast + presence, no table) -----------------------------
-    openRoom(code, { meta = {}, onMessage = () => {}, onPresence = () => {} } = {}) {
+    // ---- co-op rooms (Realtime broadcast + presence; open_room / join_room hand out the secret) --
+    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {} } = {}) {
       const self = need();
       let ch = null;
       let closed = false;
+      let seated = false;
       const outbox = [];
       const peers = () => {
         if (!ch) return [];
         const state = ch.presenceState();
         return Object.entries(state).filter(([k]) => k !== self).map(([k, list]) => ({ uid: k, ...(list[0] || {}) }));
       };
-      sb().then((c) => {
+      sb().then(async (c) => {
         if (closed) return;
-        ch = c.channel(`coop:${code}`, { config: { broadcast: { self: false, ack: false }, presence: { key: self } } });
+        // the host registers the code, a guest takes the one free seat; only they learn the
+        // secret that names the channel, so nobody else can listen to or write into this room
+        let seat;
+        try {
+          seat = await rpc(host ? 'open_room' : 'join_room', { p_code: code });
+        } catch (e) {
+          onError(toOnlineError(e));
+          return;
+        }
+        if (seat?.error) {
+          onError(new OnlineError(seat.error));
+          return;
+        }
+        seated = true;
+        if (closed) {
+          rpc('leave_room', { p_code: code }).catch(() => {});
+          return;
+        }
+        ch = c.channel(`coop:${code}:${seat.secret}`, { config: { broadcast: { self: false, ack: false }, presence: { key: self } } });
         ch.on('broadcast', { event: 'm' }, ({ payload }) => onMessage(payload?.msg, payload?.uid))
           .on('presence', { event: 'sync' }, () => onPresence(peers()))
           .subscribe(async (status) => {
@@ -280,9 +309,11 @@ export function createSupabaseAdapter({ url, key }) {
           });
       });
       return {
-        // Realtime counts every message against the project's quota (free plan: 100/s), so
-        // rooms here beat half as often and promise a longer input delay than local rooms
-        net: { heartbeatMs: 100, inputDelay: 12 },
+        // Realtime counts every message against the project's quota (free plan: 2M a month and
+        // 100 per second for the whole project), so rooms here talk ~4× a second instead of 20:
+        // a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is queued
+        // (src/online/coop/lockstep.js). Tower defense hardly notices half a second of lag.
+        net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 },
         send(msg) {
           if (closed) return;
           const payload = { uid: self, msg };
@@ -295,11 +326,13 @@ export function createSupabaseAdapter({ url, key }) {
           if (ch?.state === 'joined') ch.track({ ...meta });
         },
         close() {
+          if (closed) return;
           closed = true;
           if (ch) {
             ch.untrack?.();
             client?.removeChannel(ch);
           }
+          if (seated) rpc('leave_room', { p_code: code }).catch(() => {});
         },
       };
     },

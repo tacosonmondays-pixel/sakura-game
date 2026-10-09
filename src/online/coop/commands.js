@@ -8,15 +8,20 @@
 // it), and whatever the tick earned is split evenly between the players still connected
 // (odd coins take turns). At rest the Sim shows the local player's view
 // (their cash, their cards), so the single-player HUD, tower bar and panels work unchanged.
+// Every Sim call here runs inside withDetMath() (detMath.js): bit-identical trig and hypot on
+// every JS engine, so an iPhone and an Android phone stay in lockstep too.
 import { Sim } from '../../sim/Sim.js';
 import { STEP, DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
+import { withDetMath } from './detMath.js';
 
 /** Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]. */
 export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed'];
 const Q = 1024;
+/** Upgrade paths a tower has (Sim tiers[0..2]). */
+const UPGRADE_PATHS = [0, 1, 2];
 
 /** World coordinate → integer 1/1024 tile, never both whole tiles (a Sim tile call). */
 export function quantize(x, y) {
@@ -61,10 +66,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     seen.add(e.unitId);
     union.push(e);
   }
-  const sim = new Sim({
+  const sim = withDetMath(() => new Sim({
     stageId: stageDef.id, difficulty: start.difficulty, loadout: union, hero: host.hero || null, seed: start.seed >>> 0,
     options: { endless: false, autoStart: false }, data: { stage: stageDef },
-  });
+  }));
   const heroCfg = sim.heroConfig;
   const views = players.map((p) => {
     const lo = new Map();
@@ -99,6 +104,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
    * @returns {{ ok: boolean, reason?: string, tower?: object, refund?: number }}
    */
   function apply(cmd) {
+    return withDetMath(() => applyCmd(cmd));
+  }
+
+  function applyCmd(cmd) {
     const slot = cmd.p;
     if (!views[slot]) return { ok: false, reason: 'slot' };
     if (cmd.k === 'gone' || cmd.k === 'join') {
@@ -113,6 +122,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
       switch (cmd.k) {
         case 'place': {
           const [unitId, qx, qy] = a;
+          if (typeof unitId !== 'string' || !Number.isInteger(qx) || !Number.isInteger(qy)) break;
           const x = qx / Q;
           const y = qy / Q;
           const chk = sim.canPlace(unitId, x, y);
@@ -129,6 +139,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
         }
         case 'upg':
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
+          else if (!UPGRADE_PATHS.includes(a[1])) res = { ok: false, reason: 'invalid' };
           else res = sim.upgradeTower(a[0], a[1]) ? { ok: true } : { ok: false, reason: 'cash' };
           break;
         case 'sell':
@@ -140,7 +151,9 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           }
           break;
         case 'tgt':
-          if (!ownsTower(slot, a[0]) || !TARGET_MODES[a[1]]) res = { ok: false, reason: 'notYours' };
+          // own keys only: 'toString' / 'constructor' are not targeting modes
+          if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
+          else if (typeof a[1] !== 'string' || !Object.hasOwn(TARGET_MODES, a[1])) res = { ok: false, reason: 'invalid' };
           else res = { ok: sim.setTargetMode(a[0], a[1]) };
           break;
         case 'ult':
@@ -172,6 +185,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
 
   /** Advances the battle by one fixed 1/60 s step and splits the coins it earned. */
   function step() {
+    withDetMath(stepSim);
+  }
+
+  function stepSim() {
     let total = 0;
     for (const w of wallets) total += w;
     sim.cash = total;

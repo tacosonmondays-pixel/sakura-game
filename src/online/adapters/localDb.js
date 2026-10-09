@@ -1,18 +1,26 @@
 // The local adapter's "server": a pure state machine over one JSON document. It mirrors what
-// supabase/schema.sql enforces (membership checks, roles, rate limits, one-time codes), so the
-// game behaves the same against a real backend and two tabs of one browser. Storage, clock
-// and randomness are injected, so tests drive it directly in Node.
+// the Supabase migration (supabase/migrations/*.sql) enforces — membership checks, roles, rate
+// limits that also count wrong codes, one-time codes, message meta, timed clan boss attempts,
+// co-op room seats — so the game behaves the same against a real backend and two tabs of one
+// browser. Storage, clock and randomness are injected, so tests drive it directly in Node.
 import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import {
   CLAN_MAX_MEMBERS, DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
-  bossFor, bossMaxHp, BOSS_HIT_CAP, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey,
+  bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
+  bossHitCap, bossAllowance, BOSS_ATTEMPT_TTL_MS, MESSAGE_MAX,
 } from '../clanRules.js';
 
 const HISTORY_KEEP = 200;
 const TRANSFER_TTL = 24 * 3600 * 1000;
 const TRANSFER_MAX = 300 * 1024;
 const DEV_CLAN_ID = 'dev-lab';
+const ROOM_TTL = 24 * 3600 * 1000;
+const ROOM_TAKEN = 6 * 3600 * 1000;
+/** Code alphabet of the SQL random_code(): 32 letters/digits without 0/O and 1/I. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** A miss that must still save the state (its rate-limit hit counts): tx() saves, then throws. */
+const COMMIT_FAIL = Symbol('commitFail');
 
 function freshState() {
   return {
@@ -29,7 +37,9 @@ function freshState() {
     requests: [],
     messages: {},
     boss: {},
+    attempts: {},
     transfers: {},
+    rooms: {},
     rate: {},
   };
 }
@@ -44,17 +54,31 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     let state = read();
     if (!state || state.v !== 1) state = freshState();
     if (!state.clans[DEV_CLAN_ID]) state.clans[DEV_CLAN_ID] = freshState().clans[DEV_CLAN_ID];
+    state.attempts ||= {};
+    state.rooms ||= {};
     const topics = new Set();
     const out = fn(state, topics);
     if (save) write(state);
     for (const t of topics) emit(t);
+    if (out && out[COMMIT_FAIL]) throw out[COMMIT_FAIL];
     return out;
   }
 
   const fail = (code, msg, extra) => {
     throw new OnlineError(code, msg, extra);
   };
+  /** Return this from a tx to save the state (e.g. a counted wrong code) and then throw. */
+  const failSaved = (code, msg) => ({ [COMMIT_FAIL]: new OnlineError(code, msg) });
 
+  /** ms until `uid` may do `action` again (0 = now); records nothing. SQL: rate_retry_ms(). */
+  function retry(state, uid, action) {
+    const rule = RULES[action];
+    const t = now();
+    const hits = ((state.rate[uid] ||= {})[action] || []).filter((x) => t - x < rule.windowMs);
+    return verdict(rule, hits, t).retryMs;
+  }
+
+  /** SQL: enforce_rate(). */
   function rate(state, uid, action) {
     const rule = RULES[action];
     const t = now();
@@ -64,6 +88,13 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     if (!v.ok) fail('rate_limited', `Too many ${rule.label}s`, { retryMs: v.retryMs });
     hits.push(t);
     byUser[action] = hits;
+  }
+
+  /** SQL: random_code(). */
+  function code(n) {
+    let out = '';
+    for (let i = 0; i < n; i++) out += CODE_ALPHABET[Math.floor(rand() * 32) % 32];
+    return out;
   }
 
   function user(state, uid) {
@@ -120,14 +151,15 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     return m;
   }
 
+  /** SQL: ensure_boss(). The pool is sized when the week's boss first appears. */
   function bossRow(state, clanId, week = weekKey(now())) {
     const key = `${clanId}|${week}`;
     let b = state.boss[key];
     if (!b) {
       const clan = state.clans[clanId];
-      const boss = bossFor(week, levelFromXp(clan?.xp || 0).level);
-      b = state.boss[key] = { clanId, week, bossId: boss.id, maxHp: bossMaxHp(levelFromXp(clan?.xp || 0).level), hp: 0, hits: [], claims: [] };
-      b.hp = b.maxHp;
+      const members = Object.values(state.members).filter((m) => m.clanId === clanId).length;
+      const boss = bossFor(week, levelFromXp(clan?.xp || 0).level, members);
+      b = state.boss[key] = { clanId, week, bossId: boss.id, maxHp: boss.maxHp, hp: boss.maxHp, hits: [], claims: [] };
     }
     return b;
   }
@@ -175,7 +207,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {
       return tx((s) => {
-        const u = (s.users[uid] ||= { id: uid, name: name || `Sensei${uid.slice(-4)}`, level, avatar, clanId: null, lastActive: now() });
+        const u = (s.users[uid] ||= { id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar, clanId: null, lastActive: now() });
         u.lastActive = now();
         return { ...u };
       });
@@ -216,12 +248,14 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
       return tx((s, topics) => {
         const u = user(s, uid);
         const text = String(body ?? '').trim();
-        if (!text || text.length > 200) fail('invalid', 'Messages are 1–200 characters.');
+        if (!text || text.length > MESSAGE_MAX) fail('invalid', `Messages are 1–${MESSAGE_MAX} characters.`);
         if (!['text', 'invite'].includes(kind)) fail('invalid');
+        // SQL: valid_message_meta() — nothing on text, a tiny { room, stage } on invites
+        if (!validMessageMeta(kind, meta ?? null)) fail('invalid', 'That message carries data it may not.');
         if (channel !== 'global' && !channel.startsWith('clan:')) fail('invalid', 'Unknown channel.');
         if (channel.startsWith('clan:')) requireMember(s, uid, channel.slice(5));
         rate(s, uid, 'chat');
-        const msg = { id: s.seq++, channel, userId: uid, name: u.name, level: u.level, avatar: u.avatar, body: text, kind, meta: meta ? JSON.parse(JSON.stringify(meta)) : null, createdAt: now() };
+        const msg = { id: s.seq++, channel, userId: uid, name: u.name, level: u.level, avatar: u.avatar, body: text, kind, meta: meta ? { ...meta } : null, createdAt: now() };
         const list = (s.messages[channel] ||= []);
         list.push(msg);
         if (list.length > HISTORY_KEEP) list.splice(0, list.length - HISTORY_KEEP);
@@ -273,7 +307,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const joinMode = ['open', 'request', 'code'].includes(spec.joinMode) ? spec.joinMode : 'open';
         const c = {
           id: id('c'), name, tag: String(spec.tag).trim().toUpperCase(), emblem: EMBLEMS.includes(spec.emblem) ? spec.emblem : 'assault', joinMode,
-          joinCode: joinMode === 'code' ? id('').slice(0, 6).toUpperCase() : null,
+          joinCode: joinMode === 'code' ? code(8) : null,
           description: String(spec.description || '').slice(0, 140), leaderId: uid, xp: 0, maxMembers: CLAN_MAX_MEMBERS, isDev: false, createdAt: now(),
         };
         s.clans[c.id] = c;
@@ -293,14 +327,16 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         return clanOut(s, c, uid);
       });
     },
-    joinByCode(uid, code) {
+    joinByCode(uid, joinCode) {
       return tx((s, topics) => {
         user(s, uid);
         if (s.members[uid]) fail('already_member');
-        const want = String(code || '').trim().toLowerCase();
-        const c = Object.values(s.clans).find((x) => x.joinCode && x.joinCode.toLowerCase() === want);
-        if (!c) fail('not_found', 'No clan uses that code.');
+        // every try counts BEFORE the lookup, and a wrong one still saves that count (SQL: the
+        // function returns the miss instead of raising it): guessing codes stops at the join limit
         rate(s, uid, 'clan_join');
+        const want = String(joinCode || '').trim().toLowerCase();
+        const c = Object.values(s.clans).find((x) => x.joinCode && x.joinCode.toLowerCase() === want);
+        if (!c) return failSaved('not_found', 'No clan uses that code.');
         addMember(s, uid, c, 'member', topics);
         return clanOut(s, c, uid);
       });
@@ -413,11 +449,36 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         return bossOut(s, bossRow(s, clanId), uid);
       });
     },
-    submitBossDamage(uid, damage) {
+    /** SQL: start_boss_attempt(). Uses no attempt, but refuses when the day's 3 are spent. */
+    startBossAttempt(uid) {
+      return tx((s) => {
+        const m = requireMember(s, uid);
+        const b = bossRow(s, m.clanId);
+        if (b.hp <= 0) fail('invalid', 'This week\'s boss has already fallen.');
+        const wait = retry(s, uid, 'boss_hit');
+        if (wait > 0) fail('rate_limited', 'No attempts left today', { retryMs: wait });
+        rate(s, uid, 'boss_start');
+        for (const [k, a] of Object.entries(s.attempts)) if (a.userId === uid) delete s.attempts[k];
+        const attemptId = `a${code(12).toLowerCase()}`;
+        s.attempts[attemptId] = { id: attemptId, clanId: m.clanId, week: b.week, userId: uid, bossId: b.bossId, startedAt: now() };
+        return { attemptId, bossId: b.bossId, cap: bossHitCap(b.bossId) };
+      });
+    },
+    /**
+     * SQL: submit_boss_damage(). Counts at most what the started battle could have dealt in the
+     * time it ran (bossAllowance); nothing to score uses no attempt.
+     */
+    submitBossDamage(uid, attemptId, damage) {
       return tx((s, topics) => {
         const m = requireMember(s, uid);
-        const dmg = Math.max(0, Math.min(BOSS_HIT_CAP, Math.floor(Number(damage) || 0)));
+        const a = s.attempts[attemptId];
+        if (!a || a.userId !== uid) fail('invalid', 'That boss battle is over or was never started.');
+        delete s.attempts[attemptId];
+        if (a.clanId !== m.clanId || a.week !== weekKey(now())) fail('invalid', 'The clan boss changed during your battle.');
+        if (now() - a.startedAt > BOSS_ATTEMPT_TTL_MS) fail('invalid', 'That boss battle ran too long to count.');
+        const dmg = Math.max(0, Math.min(bossAllowance(a.bossId, (now() - a.startedAt) / 1000), Math.floor(Number(damage) || 0)));
         const b = bossRow(s, m.clanId);
+        if (dmg <= 0) return bossOut(s, b, uid);
         if (b.hp <= 0) fail('invalid', 'This week\'s boss has already fallen.');
         rate(s, uid, 'boss_hit');
         b.hp = Math.max(0, b.hp - dmg);
@@ -444,30 +505,80 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     },
 
     // ---- transfer codes -------------------------------------------------------------------
+    /** SQL: create_transfer(). 12 characters (60 bits), one live code per player. */
     createTransfer(uid, text) {
       return tx((s) => {
         user(s, uid);
         const payload = String(text || '');
         if (!payload || payload.length > TRANSFER_MAX) fail('invalid', 'That save is too large.');
         rate(s, uid, 'transfer');
-        let code;
-        do code = `${id('').slice(0, 4)}-${id('').slice(0, 4)}`.toUpperCase(); while (s.transfers[code]);
+        for (const [k, t] of Object.entries(s.transfers)) if (t.createdBy === uid && !t.usedAt) delete s.transfers[k];
+        let key;
+        do key = code(12); while (s.transfers[key]);
         const expiresAt = now() + TRANSFER_TTL;
-        s.transfers[code] = { payload, createdBy: uid, expiresAt, usedAt: null };
+        s.transfers[key] = { payload, createdBy: uid, expiresAt, usedAt: null };
         for (const [k, t] of Object.entries(s.transfers)) if (t.expiresAt < now() - TRANSFER_TTL) delete s.transfers[k];
-        return { code, expiresAt };
+        return { code: key.match(/.{4}/g).join('-'), expiresAt };
       });
     },
-    redeemTransfer(uid, code) {
+    /** SQL: redeem_transfer(). Every try counts, a wrong code too (saved, then thrown). */
+    redeemTransfer(uid, transferCode) {
       return tx((s) => {
         user(s, uid);
         rate(s, uid, 'transfer');
-        const t = s.transfers[String(code || '').trim().toUpperCase()];
-        if (!t) fail('not_found', 'Unknown transfer code.');
-        if (t.usedAt || t.expiresAt < now()) fail('expired');
+        const t = s.transfers[String(transferCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '')];
+        if (!t) return failSaved('not_found', 'Unknown transfer code.');
+        if (t.usedAt || t.expiresAt < now()) return failSaved('expired');
         t.usedAt = now();
         return t.payload;
       });
+    },
+
+    // ---- co-op rooms (SQL: open_room / join_room / leave_room) --------------------------------
+    /** The host registers a room code: { code, secret, host: true }. */
+    openRoom(uid, roomCode) {
+      return tx((s) => {
+        user(s, uid);
+        const c = String(roomCode || '').trim().toUpperCase();
+        if (!/^[A-Z0-9]{5}$/.test(c)) fail('invalid', 'Room codes are 5 letters or digits.');
+        const r = s.rooms[c];
+        if (r && r.hostId === uid) return { code: c, secret: r.secret, host: true };
+        rate(s, uid, 'room');
+        if (r && now() - r.createdAt < ROOM_TAKEN) return failSaved('name_taken', 'That room code is in use.');
+        for (const [k, x] of Object.entries(s.rooms)) if (x.hostId === uid || k === c || now() - x.createdAt > ROOM_TTL) delete s.rooms[k];
+        s.rooms[c] = { code: c, hostId: uid, guestId: null, secret: code(16), createdAt: now() };
+        return { code: c, secret: s.rooms[c].secret, host: true };
+      });
+    },
+    /** A guest takes the room's one free seat: { code, secret, host: false }. */
+    joinRoom(uid, roomCode) {
+      return tx((s) => {
+        user(s, uid);
+        rate(s, uid, 'room');
+        const c = String(roomCode || '').trim().toUpperCase();
+        const r = s.rooms[c];
+        if (!r || now() - r.createdAt > ROOM_TTL) return failSaved('not_found', 'No room uses that code.');
+        if (r.hostId === uid) return { code: c, secret: r.secret, host: true };
+        if (r.guestId && r.guestId !== uid) return failSaved('full', 'That room already has two players.');
+        r.guestId = uid;
+        return { code: c, secret: r.secret, host: false };
+      });
+    },
+    leaveRoom(uid, roomCode) {
+      return tx((s) => {
+        const c = String(roomCode || '').trim().toUpperCase();
+        const r = s.rooms[c];
+        if (r?.hostId === uid) delete s.rooms[c];
+        else if (r?.guestId === uid) r.guestId = null;
+        return true;
+      });
+    },
+    /** Who may talk in a room right now (the local transport drops everyone else's packets). */
+    roomMembers(roomCode) {
+      return tx((s) => {
+        const r = s.rooms[String(roomCode || '').toUpperCase()];
+        return r ? [r.hostId, r.guestId].filter(Boolean) : [];
+      }, { save: false });
     },
   };
 }

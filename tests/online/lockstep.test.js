@@ -43,7 +43,7 @@ function spots(unitId, n) {
  * Two lockstep clients over a fake network: each message is delivered after a random
  * 0–9 frame delay (out of order allowed), optionally dropped.
  */
-function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
+function harness({ seed = 7, drop = 0, maxLag = 9, net = null } = {}) {
   const rng = createRng(seed);
   const clock = { t: 0 };
   const queue = [];
@@ -54,10 +54,12 @@ function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
   const link = [true, true];
   const frozen = new Set();
   let frame = 0;
+  const sent = [[], []];
   const mk = (slot) => new Lockstep({
     start: START,
     mySlot: slot,
     now: () => clock.t,
+    ...(net ? { delay: net.inputDelay, heartbeatMs: net.heartbeatMs, keepaliveMs: net.keepaliveMs } : {}),
     hooks: {
       onApplied: (c, r) => { if (!r.ok) failed.push({ slot, c, r: r.reason }); },
       onPeerGone: (s, why) => events.push({ slot, ev: 'gone', why, frame }),
@@ -65,6 +67,7 @@ function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
       onResync: () => events.push({ slot, ev: 'resync', frame }),
     },
     send: (msg) => {
+      sent[slot].push({ frame, type: msg.type });
       if (!link[slot] || (drop && rng.next() < drop)) return;
       queue.push({ at: frame + Math.floor(rng.next() * (maxLag + 1)), to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) });
     },
@@ -81,7 +84,7 @@ function harness({ seed = 7, drop = 0, maxLag = 9 } = {}) {
     }
     clients.forEach((c, i) => { if (!frozen.has(i)) c.advance(1 / 60); });
   }
-  return { clients, stepFrame, clock, failed, events, link, frozen, get frame() { return frame; } };
+  return { clients, stepFrame, clock, failed, events, link, frozen, sent, get frame() { return frame; } };
 }
 
 function script(h) {
@@ -149,6 +152,46 @@ describe('co-op lockstep', () => {
     expect(A.coop.hash()).toBe(B.coop.hash());
     expect(A.coop.wallets).toEqual(B.coop.wallets);
   }, 60000);
+
+  it('Supabase profile: ~4 packets a second per player (not 20), hashes ride along, still in sync', () => {
+    // the Supabase adapter's net profile, ~150 ms one-way latency with jitter, 10% loss
+    const h = harness({ seed: 13, maxLag: 9, drop: 0.1, net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 } });
+    const mark = taken.length;
+    const actions = script(h);
+    taken.length = mark; // (the spots are only reserved across tests that share one board)
+    for (let f = 0; f < 2700; f++) {
+      actions[h.frame]?.();
+      h.stepFrame();
+    }
+    const [A, B] = h.clients;
+    expect(h.failed.filter((f) => f.c.k !== 'sell')).toEqual([]);
+    expect(A.sim.towers.length).toBe(4);
+    const pairs = A.hashPairs();
+    expect(pairs.length).toBeGreaterThan(8);
+    for (const p of pairs) expect(p.mine).toBe(p.theirs);
+    for (const p of B.hashPairs()) expect(p.mine).toBe(p.theirs);
+    expect(A.resyncs + B.resyncs).toBe(0);
+    // no packet types besides the heartbeat (hashes are folded into it)
+    for (const list of h.sent) expect(new Set(list.map((m) => m.type))).toEqual(new Set(['in']));
+    const seconds = 2700 / 60;
+    for (const list of h.sent) expect(list.length / seconds).toBeLessThan(5.5);
+    // and it barely stalled: lockstep kept up with real time
+    expect(A.tick).toBeGreaterThan(2700 * 0.9 + 600); // speed 2× from frame 2000 on
+  });
+
+  it('Supabase profile: a peer with nothing new to say only sends a keepalive a second', () => {
+    const h = harness({ seed: 14, maxLag: 2, net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 } });
+    for (let f = 0; f < 120; f++) h.stepFrame();
+    const [A] = h.clients;
+    // B stops running ticks (but still reads): A stalls on B's horizon and B stays quiet
+    const B = h.clients[1];
+    h.clients[1] = { receive: (m) => B.receive(m), advance: () => B.beat() };
+    const n0 = h.sent[1].length;
+    for (let f = 0; f < 600; f++) h.stepFrame();
+    expect(A.stalled).toBe(true);
+    expect(h.sent[1].length - n0).toBeLessThanOrEqual(11); // ~1 a second (keepalive)
+    expect(A.peers.get(1).gone).toBe(false);
+  });
 
   it('survives a lossy link (commands are re-sent until acknowledged)', () => {
     const h = harness({ seed: 11, drop: 0.25 });
@@ -222,6 +265,24 @@ describe('co-op sim (wallets, HP scaling)', () => {
     expect([...c.sim.loadout.keys()].sort()).toEqual(['rei', 'yuki']);
     expect(c.sim.heroConfig).toBe(null);
     expect(c.sim.loadout.get('rei').damageMul).toBe(1.2);
+  });
+
+  it('rejects junk from the network: prototype keys as target modes, unknown upgrade paths, bad shapes', () => {
+    const c = createCoopSim(START, { mySlot: 0 });
+    const mark = taken.length;
+    const [x, y] = spots('aoi', 1)[0];
+    taken.length = mark;
+    const r = c.apply({ t: 0, p: 0, s: 0, k: 'place', a: ['aoi', ...quantize(x, y)] });
+    const uid = r.tower.uid;
+    for (const mode of ['toString', 'constructor', '__proto__', 'hasOwnProperty', 7, null]) {
+      expect(c.apply({ t: 0, p: 0, s: 1, k: 'tgt', a: [uid, mode] }).ok, String(mode)).toBe(false);
+    }
+    expect(c.sim.getTower(uid).targetMode).not.toBe('toString');
+    expect(c.apply({ t: 0, p: 0, s: 2, k: 'tgt', a: [uid, 'strong'] }).ok).toBe(true);
+    const cash = c.wallets[0];
+    for (const path of [3, -1, '0', 0.5, null]) expect(c.apply({ t: 0, p: 0, s: 3, k: 'upg', a: [uid, path] }).ok, String(path)).toBe(false);
+    expect(c.wallets[0]).toBe(cash);
+    for (const a of [[{}, 1, 2], ['aoi', '512', 2048], ['aoi', 1.5, 2]]) expect(c.apply({ t: 0, p: 0, s: 4, k: 'place', a }).ok).toBe(false);
   });
 
   it('only lets players place their own girls and spend their own coins', () => {

@@ -182,8 +182,11 @@ export function createLocalAdapter(env = {}) {
     async bossState(clanId) {
       return db.bossState(me(), clanId);
     },
-    async submitBossDamage(damage) {
-      return db.submitBossDamage(me(), damage);
+    async startBossAttempt() {
+      return db.startBossAttempt(me());
+    },
+    async submitBossDamage(attemptId, damage) {
+      return db.submitBossDamage(me(), attemptId, damage);
     },
     async claimBossReward(week) {
       return db.claimBossReward(me(), week);
@@ -197,11 +200,20 @@ export function createLocalAdapter(env = {}) {
       return db.redeemTransfer(me(), code);
     },
 
-    // co-op rooms: one BroadcastChannel per room code, presence by heartbeat
-    openRoom(code, { meta = {}, onMessage = () => {}, onPresence = () => {} } = {}) {
+    // co-op rooms: the host registers the code and ONE guest takes the seat (db.openRoom /
+    // joinRoom, like the SQL functions); both get the room secret, and the BroadcastChannel is
+    // named after it, so nobody else hears or writes into the room. Presence by heartbeat.
+    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {} } = {}) {
       const self = me();
       if (!BC) throw Object.assign(new Error('offline: this browser cannot open local rooms'), { code: 'offline' });
-      const ch = new BC(`ss-coop-${code}`);
+      let seat = null;
+      try {
+        seat = host ? db.openRoom(self, code) : db.joinRoom(self, code);
+      } catch (e) {
+        setTimeout(() => onError(e), 0); // like the Supabase adapter: errors arrive after openRoom returns
+        return { net: { heartbeatMs: 50, inputDelay: 6 }, send() {}, peers: () => [], track() {}, close() {} };
+      }
+      const ch = new BC(`ss-coop-${code}-${seat.secret}`);
       const peers = new Map(); // uid -> { meta, seen }
       let closed = false;
       const emitPresence = () => onPresence([...peers.entries()].map(([id, p]) => ({ uid: id, ...p.meta })));
@@ -253,6 +265,7 @@ export function createLocalAdapter(env = {}) {
           clearInterval(timer);
           safe(() => ch.postMessage({ t: 'leave', uid: self }));
           ch.close();
+          safe(() => db.leaveRoom(self, code));
         },
       };
     },

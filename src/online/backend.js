@@ -23,7 +23,12 @@ export function onlineConfig(env = import.meta.env || {}, search = globalThis.lo
   return { mode: 'local', reason: 'no_config', url: null, key: null };
 }
 
-const LIMITED = { send: 'chat', createClan: 'clan_create', joinClan: 'clan_join', joinByCode: 'clan_join', requestJoin: 'clan_join', leaveClan: 'clan_join', createTransfer: 'transfer', redeemTransfer: 'transfer' };
+const LIMITED = {
+  send: 'chat', createClan: 'clan_create', joinClan: 'clan_join', joinByCode: 'clan_join', requestJoin: 'clan_join', leaveClan: 'clan_join',
+  startBossAttempt: 'boss_start', createTransfer: 'transfer', redeemTransfer: 'transfer',
+};
+// a wrong code is a counted try on the server too (not undone like other refusals)
+const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
 
 let instance = null;
 
@@ -80,6 +85,8 @@ export function getBackend() {
       return emitter.on('status', cb);
     },
     limiter,
+    /** The last clan boss state this tab fetched (or null). */
+    lastBoss: null,
     /** Loads the adapter and signs in anonymously (once). */
     async init(profile = {}) {
       if (!ready) {
@@ -126,17 +133,21 @@ export function getBackend() {
       if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs });
     }
     try {
-      return await adapter[name](...args);
+      const out = await adapter[name](...args);
+      // the clan boss battle compares against it to say how much of its damage counted
+      if (name === 'bossState' || name === 'submitBossDamage') api.lastBoss = out;
+      return out;
     } catch (e) {
       const err = toOnlineError(e);
       // the server refused it for another reason: do not count it against the client limit
-      if (action && err.code !== 'rate_limited') limiter.undo(action);
+      // (except a wrong code, which the server counts as a try as well)
+      if (action && err.code !== 'rate_limited' && !(COUNTED_MISSES.has(err.code) && (name === 'joinByCode' || name === 'redeemTransfer'))) limiter.undo(action);
       throw err;
     }
   }
 
   for (const name of ['me', 'touch', 'history', 'send', 'listClans', 'getClan', 'myClan', 'createClan', 'joinClan', 'joinByCode', 'requestJoin',
-    'listRequests', 'answerRequest', 'leaveClan', 'setRole', 'kick', 'members', 'bossState', 'submitBossDamage', 'claimBossReward',
+    'listRequests', 'answerRequest', 'leaveClan', 'setRole', 'kick', 'members', 'bossState', 'startBossAttempt', 'submitBossDamage', 'claimBossReward',
     'createTransfer', 'redeemTransfer']) {
     api[name] = (...args) => call(name, args);
   }

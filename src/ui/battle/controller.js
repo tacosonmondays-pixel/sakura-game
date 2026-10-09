@@ -592,14 +592,23 @@ export function mountBattle(root, params, hooks) {
     }
   }
 
-  /** Clan boss: everything this battle dealt counts against the clan's shared HP pool. */
+  /**
+   * Clan boss: everything this battle dealt counts against the clan's shared HP pool. The
+   * attempt id comes from start_boss_attempt (the clan screen starts it before opening this
+   * battle); the server caps what one battle of this length can count.
+   */
   function submitClanBoss() {
     const dmg = Math.round(Object.values(sim.stats.damageByTower || {}).reduce((a, b) => a + b, 0));
     ctx.clanBossDamage = dmg;
-    import('../../online/backend.js').then(({ getBackend }) => getBackend().submitBossDamage(dmg))
-      .then((state) => {
+    import('../../online/backend.js').then(({ getBackend }) => {
+      const backend = getBackend();
+      const before = backend.lastBoss?.myDamage || 0;
+      return backend.submitBossDamage(params.clanBoss, dmg).then((state) => ({ state, counted: Math.max(0, (state.myDamage || 0) - before) }));
+    })
+      .then(({ state, counted }) => {
         ctx.clanBossResult = state;
-        ctx.feed?.push(`Clan boss: ${fmtCoins(dmg)} damage counted · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
+        const text = counted >= dmg || !dmg ? `${fmtCoins(dmg)} damage counted` : `${fmtCoins(counted)} of ${fmtCoins(dmg)} damage counted`;
+        ctx.feed?.push(`Clan boss: ${text} · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
       })
       .catch((e) => {
         ctx.clanBossResult = { error: e };

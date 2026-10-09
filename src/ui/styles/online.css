@@ -35,6 +35,15 @@
 .ol-empty b { color: var(--navy); font-style: italic; font-size: 1.05rem; }
 .ol-banner { border-radius: 10px; padding: 8px 12px; font-weight: 800; margin-bottom: 10px; background: var(--blue-soft); color: var(--blue-deep); }
 .ol-banner.bad { background: #ffe3e8; color: #c22745; }
+.ol-banner-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+/* local / offline mode: "only other tabs of this browser" (chat, clans, co-op) */
+.ol-local-note {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 0 0 8px; border-radius: 9px; font-size: 0.78rem; font-weight: 700;
+  color: #7a5600; background: repeating-linear-gradient(115deg, #fff8d6 0 14px, #fff3c2 14px 28px); border: 1px solid #f5dc8a;
+}
+.ol-local-note b { font-style: italic; font-weight: 900; }
+.ol-local-note .ol-pill-dot { background: var(--yellow-deep); box-shadow: 0 0 0 3px rgba(242,183,5,0.2); flex: none; }
+.ol-chat > .ol-local-note { margin: 0; border-radius: 0; border-width: 0 0 1px; }
 
 /* ---------- Avatars, status pill, spinner ---------- */
 .ol-avatar { --size: 34px; width: var(--size); height: var(--size); flex: none; border-radius: 50%; overflow: hidden; background: #22385c; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(29,78,137,0.25); display: inline-flex; line-height: 0; }
@@ -219,7 +228,24 @@
   background: linear-gradient(110deg, #22385c 0%, #2f4f86 45%, #4b6fb0 100%); color: #fff; border: none;
 }
 .ol-boss-card::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 22px); pointer-events: none; }
-.ol-boss-art { flex: none; width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, #ffe0ec 0%, #ff7aa8 60%, #b2386a 100%); box-shadow: 0 0 0 4px rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.35); }
+.ol-boss-art {
+  flex: none; position: relative; z-index: 1; width: 128px; height: 128px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 42%, #fff1f6 0%, #ffb3cf 38%, #ff6f9f 66%, #8e2c58 100%);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.25), 0 0 0 9px rgba(255,111,159,0.18), 0 8px 24px rgba(0,0,0,0.35);
+}
+.ol-boss-art > * { grid-area: 1 / 1; }
+/* the 3D still breaks out of the ring a little, like a Total Assault boss banner */
+.ol-boss-img { width: 150px; height: 150px; object-fit: contain; margin-top: -18px; filter: drop-shadow(0 6px 8px rgba(20,10,40,0.45)); pointer-events: none; animation: ol-boss-in 420ms var(--ease) both; }
+@keyframes ol-boss-in { from { opacity: 0; transform: scale(0.9) translateY(6px); } }
+.ol-boss-art.down { background: radial-gradient(circle at 50% 42%, #f2f4f8 0%, #b9c2d3 55%, #59647a 100%); }
+.ol-boss-art.down .ol-boss-img, .ol-boss-art.down > svg, .ol-boss-art.down > span:not(.ol-boss-stamp) { filter: grayscale(1) brightness(0.8) contrast(0.9); opacity: 0.85; }
+.ol-boss-stamp {
+  align-self: center; justify-self: center; z-index: 2; padding: 3px 12px; border: 3px solid #ff4d6d; border-radius: 6px; color: #ff4d6d; background: rgba(255,255,255,0.9);
+  font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.05rem; letter-spacing: 0.12em; transform: rotate(-14deg);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.3); animation: ol-stamp 360ms cubic-bezier(.2,1.6,.4,1) both;
+}
+@keyframes ol-stamp { from { transform: rotate(-14deg) scale(1.8); opacity: 0; } }
+.ol-boss-card.down .ol-hp i { background: linear-gradient(180deg, #c9d2e2, #8a96ad); }
 .ol-boss-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
 .ol-boss-kicker { display: flex; justify-content: space-between; gap: 8px; font-size: 0.74rem; font-weight: 900; font-style: italic; color: var(--yellow); letter-spacing: 0.04em; }
 .ol-boss-kicker span { color: #cfe3ff; }
@@ -334,8 +360,27 @@
 .ol-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 50px; }
 .ol-unit small { font-size: 0.62rem; font-weight: 800; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .ol-unit.hero .ol-avatar { box-shadow: 0 0 0 2px var(--yellow-deep), 0 2px 6px rgba(29,78,137,0.25); }
-.ol-room-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ol-room-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .ol-room-foot p { margin: 0; flex: 1; }
+.ol-room-more { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.ol-room-more > .panel { margin: 0; }
+.ol-field-body { display: flex; gap: 14px; align-items: flex-start; }
+.ol-field-thumb { flex: none; width: 260px; aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 10px rgba(29,78,137,0.25); background: #cfe8ff; }
+.ol-field-thumb svg { width: 100%; height: 100%; display: block; }
+.ol-field-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ol-field-desc { margin: 0; font-size: 0.8rem; color: var(--ink); line-height: 1.35; }
+.ol-field-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.ol-field-stats span { font-size: 0.74rem; font-weight: 800; color: var(--muted); background: #f1f6fc; border-radius: 6px; padding: 2px 8px; }
+.ol-field-stats b { color: var(--navy); font-style: italic; }
+.ol-field-foes { display: flex; flex-wrap: wrap; gap: 6px; }
+.ol-foe { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 3px; border-radius: 999px; background: #fff; box-shadow: 0 1px 4px rgba(29,78,137,0.14); }
+.ol-foe small { font-size: 0.68rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
+.ol-tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.ol-tips li { display: flex; gap: 9px; align-items: flex-start; }
+.ol-tips b { display: block; font-style: italic; color: var(--navy); font-size: 0.84rem; }
+.ol-tips small { display: block; color: var(--muted); font-size: 0.74rem; line-height: 1.3; }
+.ol-tip-n { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: linear-gradient(135deg, var(--blue), var(--pink)); color: #fff; font-weight: 900; font-style: italic; font-size: 0.78rem; transform: skewX(var(--skew)); }
+.ol-room-error { max-width: 560px; margin: 24px auto; }
 
 /* ---------- Co-op battle HUD ---------- */
 .ol-coop-hud {
@@ -380,8 +425,12 @@
   .ol-boss-cols { grid-template-columns: minmax(0, 1fr); }
   .ol-sb-body { grid-template-columns: minmax(0, 1fr) 230px; }
 }
+@media (max-width: 900px) {
+  .ol-field-thumb { width: 180px; }
+}
 @media (max-width: 700px) {
   .ol-coop-cols { grid-template-columns: minmax(0, 1fr); }
+  .ol-room-more { grid-template-columns: minmax(0, 1fr); }
   .ol-room-head { flex-wrap: wrap; }
   .ol-room-acts { flex-direction: row; }
 }
@@ -411,6 +460,14 @@
   .ol-pane { padding: 8px; }
   .ol-boss-card { padding: 10px 12px; gap: 12px; }
   .ol-boss-art { width: 80px; height: 80px; }
+  .ol-boss-img { width: 100px; height: 100px; margin-top: -12px; }
+  .ol-boss-stamp { font-size: 0.78rem; padding: 2px 8px; border-width: 2px; }
+  .ol-local-note { padding: 3px 10px; margin-bottom: 6px; font-size: 0.7rem; }
+  .ol-room-more { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .ol-field-thumb { width: 150px; }
+  .ol-field-desc { display: none; }
+  .ol-tips { gap: 4px; }
+  .ol-tips small { font-size: 0.68rem; }
   .ol-boss-name { font-size: 1.25rem; margin: 0 0 4px; }
   .ol-boss-info p.muted { display: none; }
   .ol-sb-grid { max-height: 190px; }

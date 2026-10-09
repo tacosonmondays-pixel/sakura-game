@@ -1,13 +1,16 @@
 -- Sakura Sentinels — online backend for Supabase (the free plan is enough).
 --
--- This is a Supabase CLI migration. With Supabase's GitHub integration connected to the repo
--- it is applied automatically when it reaches main. Without the integration, paste the whole
--- file into Supabase → SQL Editor → Run once; every statement is idempotent, so running it
--- again is harmless. See docs/ONLINE.md for the 5-minute setup.
+-- THIS FILE IS THE WHOLE DATABASE SCHEMA (the brief's "schema.sql"). It is a Supabase CLI
+-- migration: with Supabase's GitHub integration connected to the repo it is applied
+-- automatically when it reaches main. Without the integration, paste the whole file into
+-- Supabase → SQL Editor → Run once. Every statement is idempotent, so running it again is
+-- harmless, and running a newer version of this file over an older one upgrades it in place.
+-- See docs/ONLINE.md for the 5-minute setup.
 --
 -- What it creates
 --   tables     profiles, clans, clan_codes, clan_members, clan_requests, messages,
---              clan_boss, clan_boss_hits, clan_boss_claims, transfer_codes, rate_events
+--              clan_boss, clan_boss_attempts, clan_boss_hits, clan_boss_claims, coop_rooms,
+--              transfer_codes, rate_events
 --   security   Row Level Security on every table. Players read what they may see and write
 --              only their own profile and chat messages; every other change goes through the
 --              SECURITY DEFINER functions below, which check the caller (auth.uid()) and role.
@@ -15,10 +18,14 @@
 --                chat message        1 per 2 s, 20 per minute   (trigger on messages)
 --                create clan         1 per 10 min, 3 per day
 --                join/request/leave  10 per hour
---                clan boss attempt   3 per day (rolling 24 h)
---                transfer code       5 per hour
+--                invite-code tries   counted with joins (a wrong code too: no brute force)
+--                clan boss attempt   3 per day (rolling 24 h); battles start 20 per hour
+--                co-op room          1 per second, 20 per hour (open or join)
+--                transfer code       5 per hour (create or redeem; a wrong code too)
 --   realtime   messages, clan_members and clan_boss are published for live updates.
---              Co-op rooms use Realtime broadcast + presence channels 'coop:<CODE>' (no table).
+--              Co-op rooms use Realtime broadcast + presence channels 'coop:<CODE>:<secret>':
+--              open_room() / join_room() hand the secret to the host and to ONE guest only, so
+--              nobody else can listen to or write into a room (no realtime policies needed).
 --   seed       the developer clan "Sakura Dev Lab" [DEV], join code Rosie777.
 -- No profanity filter (not wanted for now). No keys or secrets live in this file: the game
 -- only ever uses the project's public anon key, and these policies are what protect the data.
@@ -31,6 +38,37 @@ create table if not exists public.profiles (
   last_active timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+-- Display names (src/online/clanRules.js validateName): 2–16 characters, no < >, no invisible /
+-- control characters (Unicode Cf + Cc: bidi overrides, zero-width joiners…), and none of the
+-- reserved names that would pass for a system notice, the developer bot or staff.
+create or replace function public.valid_display_name(p text) returns boolean
+language sql immutable as $$
+  select p is not null
+    and char_length(p) between 2 and 16
+    and p = btrim(p)
+    and p !~ '[<>]'
+    and p !~ '[\u0001-\u001f\u007f-\u009f\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890-\u0891\u08e2\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f]'
+    and lower(regexp_replace(p, '[^[:alnum:]]', '', 'g')) not in
+      ('system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab')
+$$;
+alter table public.profiles drop constraint if exists profiles_name_valid;
+alter table public.profiles add constraint profiles_name_valid check (public.valid_display_name(name)) not valid;
+
+-- last_active and created_at are the server's: stamped on every write, never taken from a client
+create or replace function public.profiles_before_write() returns trigger
+language plpgsql as $$
+begin
+  new.last_active := now();
+  if tg_op = 'UPDATE' then
+    new.id := old.id;
+    new.created_at := old.created_at;
+  end if;
+  return new;
+end $$;
+drop trigger if exists profiles_stamp on public.profiles;
+create trigger profiles_stamp before insert or update on public.profiles
+  for each row execute function public.profiles_before_write();
 
 create table if not exists public.clans (
   id uuid primary key default gen_random_uuid(),
@@ -83,6 +121,25 @@ create table if not exists public.messages (
 );
 create index if not exists messages_channel_time on public.messages (channel, created_at desc);
 
+-- What a message may carry in `meta` (src/online/clanRules.js validMessageMeta): nothing on text,
+-- and on a co-op invite exactly { room: 5 letters/digits, stage?: ≤ 16 characters }, ≤ 256 bytes.
+-- Without this one player could post megabytes per message (20 a minute) into a column every
+-- chat reader downloads and Realtime fans out to every subscriber.
+create or replace function public.valid_message_meta(p_kind text, p_meta jsonb) returns boolean
+language sql immutable as $$
+  select case when p_kind = 'invite' then
+      p_meta is not null
+      and jsonb_typeof(p_meta) = 'object'
+      and pg_column_size(p_meta) <= 256
+      and (p_meta - 'room' - 'stage') = '{}'::jsonb
+      and jsonb_typeof(p_meta -> 'room') = 'string'
+      and (p_meta ->> 'room') ~ '^[A-Z0-9]{5}$'
+      and (not (p_meta ? 'stage') or (jsonb_typeof(p_meta -> 'stage') = 'string' and char_length(p_meta ->> 'stage') <= 16))
+    else p_meta is null end
+$$;
+alter table public.messages drop constraint if exists messages_meta_valid;
+alter table public.messages add constraint messages_meta_valid check (public.valid_message_meta(kind, meta)) not valid;
+
 create table if not exists public.clan_boss (
   clan_id uuid not null references public.clans (id) on delete cascade,
   week text not null,
@@ -91,6 +148,18 @@ create table if not exists public.clan_boss (
   hp bigint not null,
   primary key (clan_id, week)
 );
+
+-- A clan boss battle in progress (start_boss_attempt → submit_boss_damage): the server times it,
+-- so a submit needs a real started battle and its damage is capped by how long that battle ran.
+create table if not exists public.clan_boss_attempts (
+  id uuid primary key default gen_random_uuid(),
+  clan_id uuid not null references public.clans (id) on delete cascade,
+  week text not null,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  boss_id text not null,
+  started_at timestamptz not null default now()
+);
+create index if not exists clan_boss_attempts_user on public.clan_boss_attempts (user_id);
 
 create table if not exists public.clan_boss_hits (
   id bigint generated always as identity primary key,
@@ -110,6 +179,17 @@ create table if not exists public.clan_boss_claims (
   created_at timestamptz not null default now(),
   primary key (clan_id, week, user_id)
 );
+
+-- Co-op rooms: who may use a room code. The Realtime topic is 'coop:<code>:<secret>' and only
+-- open_room() (the host) and join_room() (the first guest) ever return the secret.
+create table if not exists public.coop_rooms (
+  code text primary key check (code ~ '^[A-Z0-9]{5}$'),
+  host_id uuid not null references public.profiles (id) on delete cascade,
+  guest_id uuid references public.profiles (id) on delete set null,
+  secret text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists coop_rooms_host on public.coop_rooms (host_id);
 
 create table if not exists public.transfer_codes (
   code text primary key,
@@ -139,8 +219,10 @@ alter table public.clan_members enable row level security;
 alter table public.clan_requests enable row level security;
 alter table public.messages enable row level security;
 alter table public.clan_boss enable row level security;
+alter table public.clan_boss_attempts enable row level security;
 alter table public.clan_boss_hits enable row level security;
 alter table public.clan_boss_claims enable row level security;
+alter table public.coop_rooms enable row level security;
 alter table public.transfer_codes enable row level security;
 alter table public.rate_events enable row level security;
 
@@ -195,7 +277,8 @@ drop policy if exists clan_boss_hits_read on public.clan_boss_hits;
 create policy clan_boss_hits_read on public.clan_boss_hits for select to authenticated using (clan_id = public.my_clan());
 drop policy if exists clan_boss_claims_read on public.clan_boss_claims;
 create policy clan_boss_claims_read on public.clan_boss_claims for select to authenticated using (user_id = auth.uid());
--- transfer_codes and rate_events: no policies at all (only the functions below touch them)
+-- clan_boss_attempts, coop_rooms, transfer_codes and rate_events: no policies and no grants at
+-- all (only the functions below touch them)
 
 -- Table privileges for the Data API. The policies above decide WHICH rows a player sees or
 -- writes; these decide which statements reach a table at all. Spelled out instead of relying on
@@ -204,22 +287,22 @@ create policy clan_boss_claims_read on public.clan_boss_claims for select to aut
 -- (anonymous accounts are 'authenticated') may only read, create and edit their own profile, and
 -- post chat messages; everything else goes through the functions further down.
 revoke all on public.profiles, public.clans, public.clan_codes, public.clan_members, public.clan_requests,
-  public.messages, public.clan_boss, public.clan_boss_hits, public.clan_boss_claims,
-  public.transfer_codes, public.rate_events from anon, authenticated;
+  public.messages, public.clan_boss, public.clan_boss_attempts, public.clan_boss_hits, public.clan_boss_claims,
+  public.coop_rooms, public.transfer_codes, public.rate_events from anon, authenticated;
 grant usage on schema public to anon, authenticated;
 grant select on public.profiles, public.clans, public.clan_codes, public.clan_members, public.clan_requests,
   public.messages, public.clan_boss, public.clan_boss_hits, public.clan_boss_claims to authenticated;
 grant insert (id, name, level, avatar) on public.profiles to authenticated;
-grant update (name, level, avatar, last_active) on public.profiles to authenticated;
+grant update (name, level, avatar) on public.profiles to authenticated;
 grant insert (channel, user_id, body, kind, meta) on public.messages to authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- Rate limiting
 -- ---------------------------------------------------------------------------------------------
 
--- Raises 'rate_limited:<retry ms>' (the client shows "Slow down, 1.4 s") or records the hit.
-create or replace function public.enforce_rate(p_action text, p_gap_ms int, p_max int, p_window interval)
-returns void language plpgsql security definer set search_path = public as $$
+-- How long (ms) until the caller may do p_action again; 0 = now. Takes the per-player lock.
+create or replace function public.rate_retry_ms(p_action text, p_gap_ms int, p_max int, p_window interval)
+returns bigint language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := auth.uid();
   v_last timestamptz;
@@ -238,9 +321,42 @@ begin
   if v_nth is not null then
     v_retry := greatest(v_retry, extract(epoch from (v_nth + p_window - now())) * 1000);
   end if;
-  if v_retry > 0 then raise exception 'rate_limited:%', ceil(v_retry)::bigint; end if;
-  insert into rate_events (user_id, action) values (v_uid, p_action);
+  return ceil(greatest(v_retry, 0))::bigint;
+end $$;
+
+-- Raises 'rate_limited:<retry ms>' (the client shows "Slow down, 1.4 s") or records the hit.
+-- A recorded hit only sticks if the calling statement commits: functions that must count a
+-- failed try (a wrong invite / transfer code) therefore RETURN the miss instead of raising it.
+create or replace function public.enforce_rate(p_action text, p_gap_ms int, p_max int, p_window interval)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_retry bigint := rate_retry_ms(p_action, p_gap_ms, p_max, p_window);
+begin
+  if v_retry > 0 then raise exception 'rate_limited:%', v_retry; end if;
+  insert into rate_events (user_id, action) values (auth.uid(), p_action);
   if random() < 0.01 then delete from rate_events where at < now() - interval '25 hours'; end if;
+end $$;
+
+-- Unguessable codes: n characters of a 32-letter alphabet (5 random bits each, no 0/O, 1/I)
+-- from gen_random_uuid(), which draws on the server's cryptographic random source.
+create or replace function public.random_code(p_len int) returns text
+language plpgsql volatile as $$
+declare
+  v_alpha constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_out text := '';
+  v_bytes bytea;
+  i int;
+begin
+  while char_length(v_out) < p_len loop
+    v_bytes := uuid_send(gen_random_uuid());
+    for i in 0..15 loop
+      -- byte 6 holds the uuid version in its high nibble: its low 5 bits are not all random
+      continue when i = 6;
+      exit when char_length(v_out) >= p_len;
+      v_out := v_out || substr(v_alpha, get_byte(v_bytes, i) % 32 + 1, 1);
+    end loop;
+  end loop;
+  return v_out;
 end $$;
 
 -- Chat: rate limit, stamp the author's current name/level/avatar, clan XP, history trim.
@@ -327,7 +443,7 @@ begin
             left(coalesce(p_description, ''), 140), auth.uid())
     returning * into c;
   if c.join_mode = 'code' then
-    insert into clan_codes (clan_id, code) values (c.id, upper(substr(md5(random()::text || c.id::text), 1, 6)));
+    insert into clan_codes (clan_id, code) values (c.id, random_code(8));
   end if;
   perform add_member(auth.uid(), c.id, 'leader');
   select * into c from clans where id = c.id;
@@ -350,19 +466,21 @@ begin
   return c;
 end $$;
 
-create or replace function public.join_clan_by_code(p_code text) returns public.clans
+-- Returns {"id": clan id} or {"error": "not_found"}. Every try counts against the join limit
+-- BEFORE the lookup, and a wrong code is returned (not raised) so that count is committed.
+drop function if exists public.join_clan_by_code(text);
+create or replace function public.join_clan_by_code(p_code text) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   c clans%rowtype;
 begin
   if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
   if exists (select 1 from clan_members where user_id = auth.uid()) then raise exception 'already_member'; end if;
-  select clans.* into c from clan_codes join clans on clans.id = clan_codes.clan_id where lower(clan_codes.code) = lower(trim(p_code));
-  if not found then raise exception 'not_found: no clan uses that code'; end if;
   perform enforce_rate('clan_join', 0, 10, interval '1 hour');
+  select clans.* into c from clan_codes join clans on clans.id = clan_codes.clan_id where lower(clan_codes.code) = lower(trim(p_code));
+  if not found then return json_build_object('error', 'not_found'); end if;
   perform add_member(auth.uid(), c.id, 'member');
-  select * into c from clans where id = c.id;
-  return c;
+  return json_build_object('id', c.id);
 end $$;
 
 create or replace function public.request_join(p_clan uuid) returns void
@@ -465,18 +583,26 @@ $$;
 create or replace function public.current_week() returns text
 language sql stable as $$ select to_char(now() at time zone 'utc', 'IYYY-"W"IW') $$;
 
+-- The most damage one attempt on a boss can count (src/online/clanRules.js CLAN_BOSSES hitCap):
+-- a full clear of that Total Assault arena by a maxed team, plus ~15%.
+create or replace function public.boss_hit_cap(p_boss text) returns bigint
+language sql immutable as $$
+  select (case p_boss when 'lych' then 175000 when 'colossus' then 230000 when 'ashwing' then 195000 else 0 end)::bigint
+$$;
+
 create or replace function public.ensure_boss(p_clan uuid, p_week text) returns public.clan_boss
 language plpgsql security definer set search_path = public as $$
 declare
   b clan_boss%rowtype;
+  v_boss text := (array['lych', 'colossus', 'ashwing'])[(split_part(p_week, '-W', 2)::int % 3) + 1];
+  v_members int := (select count(*) from clan_members where clan_id = p_clan);
   v_hp bigint;
 begin
   select * into b from clan_boss where clan_id = p_clan and week = p_week;
   if found then return b; end if;
-  -- 300000 HP for a level-1 clan, +20% per clan level (src/online/clanRules.js bossMaxHp)
-  select round(300000 * (1 + 0.2 * (clan_level(xp) - 1))) into v_hp from clans where id = p_clan;
-  insert into clan_boss (clan_id, week, boss_id, max_hp, hp)
-    values (p_clan, p_week, (array['lych', 'colossus', 'ashwing'])[(split_part(p_week, '-W', 2)::int % 3) + 1], v_hp, v_hp)
+  -- src/online/clanRules.js bossMaxHp: hit cap × 3 attempts × max(2, members) × +20% per clan level
+  select round(boss_hit_cap(v_boss) * 3 * greatest(2, v_members) * (1 + 0.2 * (clan_level(xp) - 1))) into v_hp from clans where id = p_clan;
+  insert into clan_boss (clan_id, week, boss_id, max_hp, hp) values (p_clan, p_week, v_boss, v_hp, v_hp)
     on conflict do nothing;
   select * into b from clan_boss where clan_id = p_clan and week = p_week;
   return b;
@@ -524,20 +650,57 @@ begin
   );
 end $$;
 
-create or replace function public.submit_boss_damage(p_damage bigint) returns json
+-- Starts a clan boss battle: {"attemptId", "bossId", "cap"}. Uses no attempt (a scored submit
+-- does), but refuses up front when the 3 attempts of the last 24 h are spent. One open battle per
+-- player: starting again forgets the previous one.
+create or replace function public.start_boss_attempt() returns json
 language plpgsql security definer set search_path = public as $$
 declare
   v_clan uuid := public.my_clan();
-  v_week text := current_week();
-  v_dmg bigint := least(greatest(coalesce(p_damage, 0), 0), 200000); -- cap per attempt (BOSS_HIT_CAP)
   b clan_boss%rowtype;
+  v_retry bigint;
+  a clan_boss_attempts%rowtype;
 begin
   if v_clan is null then raise exception 'not_member'; end if;
-  b := ensure_boss(v_clan, v_week);
+  b := ensure_boss(v_clan, current_week());
+  if b.hp <= 0 then raise exception 'invalid: this week''s boss has already fallen'; end if;
+  v_retry := rate_retry_ms('boss_hit', 0, 3, interval '1 day');
+  if v_retry > 0 then raise exception 'rate_limited:%', v_retry; end if;
+  perform enforce_rate('boss_start', 0, 20, interval '1 hour');
+  delete from clan_boss_attempts where user_id = auth.uid();
+  insert into clan_boss_attempts (clan_id, week, user_id, boss_id) values (v_clan, b.week, auth.uid(), b.boss_id) returning * into a;
+  return json_build_object('attemptId', a.id, 'bossId', a.boss_id, 'cap', boss_hit_cap(a.boss_id));
+end $$;
+
+-- Scores a started battle. The damage is the client's number, so the server only counts what that
+-- battle could have dealt: nothing in its first 10 s, then at most the boss's hit cap, and only a
+-- 1/50 share of it per second the battle ran (src/online/clanRules.js bossAllowance; the fastest
+-- real clear takes ~60 s at 3×). Nothing to score (0 damage, a submit right after the start)
+-- uses no attempt.
+drop function if exists public.submit_boss_damage(bigint);
+create or replace function public.submit_boss_damage(p_attempt uuid, p_damage bigint) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_clan uuid := public.my_clan();
+  a clan_boss_attempts%rowtype;
+  b clan_boss%rowtype;
+  v_secs numeric;
+  v_dmg bigint;
+begin
+  if v_clan is null then raise exception 'not_member'; end if;
+  delete from clan_boss_attempts where id = p_attempt and user_id = auth.uid() returning * into a;
+  if not found then raise exception 'invalid: that boss battle is over or was never started'; end if;
+  if a.clan_id <> v_clan or a.week <> current_week() then raise exception 'invalid: the clan boss changed during your battle'; end if;
+  if a.started_at < now() - interval '2 hours' then raise exception 'invalid: that boss battle ran too long to count'; end if;
+  v_secs := extract(epoch from (now() - a.started_at));
+  v_dmg := least(greatest(coalesce(p_damage, 0), 0),
+                 case when v_secs < 10 then 0 else floor(boss_hit_cap(a.boss_id) * least(1.0, v_secs / 50.0))::bigint end);
+  if v_dmg <= 0 then return boss_state(v_clan); end if;
+  select * into b from clan_boss where clan_id = v_clan and week = a.week for update;
   if b.hp <= 0 then raise exception 'invalid: this week''s boss has already fallen'; end if;
   perform enforce_rate('boss_hit', 0, 3, interval '1 day');
-  update clan_boss set hp = greatest(0, hp - v_dmg) where clan_id = v_clan and week = v_week;
-  insert into clan_boss_hits (clan_id, week, user_id, damage) values (v_clan, v_week, auth.uid(), v_dmg);
+  update clan_boss set hp = greatest(0, hp - v_dmg) where clan_id = v_clan and week = a.week;
+  insert into clan_boss_hits (clan_id, week, user_id, damage) values (v_clan, a.week, auth.uid(), v_dmg);
   update clans set xp = xp + least(500, 50 + v_dmg / 2000) where id = v_clan;
   return boss_state(v_clan);
 end $$;
@@ -569,6 +732,7 @@ end $$;
 -- Transfer codes (one-time, 24 h): move a save between devices
 -- ---------------------------------------------------------------------------------------------
 
+-- Codes are 12 characters (60 random bits), shown as XXXX-XXXX-XXXX; one live code per player.
 create or replace function public.create_transfer(p_payload text) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -578,27 +742,83 @@ begin
   if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
   if p_payload is null or char_length(p_payload) = 0 or char_length(p_payload) > 307200 then raise exception 'invalid: that save is too large'; end if;
   perform enforce_rate('transfer', 0, 5, interval '1 hour');
+  delete from transfer_codes where created_by = auth.uid() and used_at is null;
   loop
-    v_code := upper(substr(md5(random()::text), 1, 4) || '-' || substr(md5(random()::text), 1, 4));
+    v_code := random_code(12);
     exit when not exists (select 1 from transfer_codes where code = v_code);
   end loop;
   insert into transfer_codes (code, payload, created_by, expires_at) values (v_code, p_payload, auth.uid(), v_exp);
   delete from transfer_codes where expires_at < now() - interval '1 day';
-  return json_build_object('code', v_code, 'expiresAt', v_exp);
+  return json_build_object('code', substr(v_code, 1, 4) || '-' || substr(v_code, 5, 4) || '-' || substr(v_code, 9, 4), 'expiresAt', v_exp);
 end $$;
 
-create or replace function public.redeem_transfer(p_code text) returns text
+-- Returns {"payload"} or {"error": "not_found" | "expired"}. Every try counts against the
+-- transfer limit, and a miss is returned (not raised) so that count is committed: guessing codes
+-- stops after 5 tries an hour.
+drop function if exists public.redeem_transfer(text);
+create or replace function public.redeem_transfer(p_code text) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   t transfer_codes%rowtype;
 begin
   if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
   perform enforce_rate('transfer', 0, 5, interval '1 hour');
-  select * into t from transfer_codes where code = upper(trim(p_code)) for update;
-  if not found then raise exception 'not_found: unknown transfer code'; end if;
-  if t.used_at is not null or t.expires_at < now() then raise exception 'expired'; end if;
+  select * into t from transfer_codes where code = upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g')) for update;
+  if not found then return json_build_object('error', 'not_found'); end if;
+  if t.used_at is not null or t.expires_at < now() then return json_build_object('error', 'expired'); end if;
   update transfer_codes set used_at = now(), used_by = auth.uid() where code = t.code;
-  return t.payload;
+  return json_build_object('payload', t.payload);
+end $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Co-op rooms: the host registers a code, ONE guest joins it; both get the room secret that
+-- names the Realtime channel. A wrong code counts against the room limit (returned, not raised).
+-- ---------------------------------------------------------------------------------------------
+
+-- Returns {"code", "secret", "host"} or {"error": "name_taken"} (another host's live room).
+create or replace function public.open_room(p_code text) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_code text := upper(trim(coalesce(p_code, '')));
+  r coop_rooms%rowtype;
+begin
+  if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
+  if v_code !~ '^[A-Z0-9]{5}$' then raise exception 'invalid: room codes are 5 letters or digits'; end if;
+  select * into r from coop_rooms where code = v_code for update;
+  if found and r.host_id = auth.uid() then
+    return json_build_object('code', r.code, 'secret', r.secret, 'host', true); -- my room (a reload)
+  end if;
+  -- counted before anything about other rooms is revealed (and the miss returned, so it commits)
+  perform enforce_rate('room', 1000, 20, interval '1 hour');
+  if found and r.created_at > now() - interval '6 hours' then return json_build_object('error', 'name_taken'); end if;
+  delete from coop_rooms where host_id = auth.uid() or code = v_code or created_at < now() - interval '1 day';
+  insert into coop_rooms (code, host_id, secret) values (v_code, auth.uid(), random_code(16)) returning * into r;
+  return json_build_object('code', r.code, 'secret', r.secret, 'host', true);
+end $$;
+
+-- Returns {"code", "secret", "host"} or {"error": "not_found" | "full"}.
+create or replace function public.join_room(p_code text) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_code text := upper(trim(coalesce(p_code, '')));
+  r coop_rooms%rowtype;
+begin
+  if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
+  perform enforce_rate('room', 1000, 20, interval '1 hour');
+  select * into r from coop_rooms where code = v_code and created_at > now() - interval '1 day' for update;
+  if not found then return json_build_object('error', 'not_found'); end if;
+  if r.host_id = auth.uid() then return json_build_object('code', r.code, 'secret', r.secret, 'host', true); end if;
+  if r.guest_id is not null and r.guest_id <> auth.uid() then return json_build_object('error', 'full'); end if;
+  update coop_rooms set guest_id = auth.uid() where code = r.code;
+  return json_build_object('code', r.code, 'secret', r.secret, 'host', false);
+end $$;
+
+-- The host closes the room; a guest frees its seat for someone else.
+create or replace function public.leave_room(p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from coop_rooms where code = upper(trim(coalesce(p_code, ''))) and host_id = auth.uid();
+  update coop_rooms set guest_id = null where code = upper(trim(coalesce(p_code, ''))) and guest_id = auth.uid();
 end $$;
 
 -- Only signed-in players (anonymous accounts included) may call the game's functions, and only
@@ -608,10 +828,14 @@ grant execute on function
   public.create_clan(text, text, text, text, text), public.join_clan(uuid), public.join_clan_by_code(text),
   public.request_join(uuid), public.answer_request(uuid, uuid, boolean), public.leave_clan(),
   public.set_role(uuid, text), public.kick(uuid), public.touch_active(), public.boss_state(uuid),
-  public.submit_boss_damage(bigint), public.claim_boss_reward(text), public.create_transfer(text),
-  public.redeem_transfer(text), public.my_clan(), public.my_role(), public.clan_level(bigint), public.current_week()
+  public.start_boss_attempt(), public.submit_boss_damage(uuid, bigint), public.claim_boss_reward(text),
+  public.create_transfer(text), public.redeem_transfer(text), public.open_room(text), public.join_room(text),
+  public.leave_room(text), public.my_clan(), public.my_role(), public.clan_level(bigint), public.current_week(),
+  public.boss_hit_cap(text), public.valid_display_name(text), public.valid_message_meta(text, jsonb)
   to authenticated;
--- (boss_standing, ensure_boss, add_member, enforce_rate, system_message stay internal)
+-- (boss_standing, ensure_boss, add_member, rate_retry_ms, enforce_rate, random_code and
+--  system_message stay internal; the two valid_* checks run inside the table constraints, which
+--  execute with the writing player's rights)
 
 -- ---------------------------------------------------------------------------------------------
 -- Realtime + seed

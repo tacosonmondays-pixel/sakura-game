@@ -144,6 +144,25 @@ export function onlinePill() {
   return el;
 }
 
+/**
+ * In local mode (no server configured, the server unreachable, or ?online=local) everything
+ * online stays inside this browser: say so where it matters, so nobody thinks they are talking
+ * to the whole world. Returns null when connected to the real server.
+ * @param {'chat'|'clan'|'coop'} where
+ */
+export function localNotice(where) {
+  const backend = getBackend();
+  if (backend.status.mode !== 'local') return null;
+  const why = backend.offline ? 'Online features are offline' : 'Local test mode';
+  const what = {
+    chat: 'messages only reach other tabs of this browser.',
+    clan: 'clans live in this browser and only its other tabs can join.',
+    coop: 'rooms only connect tabs of this browser.',
+  }[where] || 'only other tabs of this browser take part.';
+  return h('div.ol-local-note', { 'data-testid': 'local-note', title: 'Configure Supabase to go online for real (docs/ONLINE.md).' },
+    h('i.ol-pill-dot'), h('span', h('b', `${why}: `), what));
+}
+
 const avatarCache = new Map();
 /** Round portrait of a unit (secretary avatar) for chat / member rows. */
 export function avatar(unitId, size = 34) {

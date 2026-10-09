@@ -81,11 +81,16 @@ function answer(call) {
   }
 }
 
+const SECRET = 'K7Q2ZPMN4XW8TR6H';
+const rpcOverride = {};
 function rpcAnswer(fn) {
+  if (fn in rpcOverride) return rpcOverride[fn];
   return {
-    create_clan: { ...clanRow }, join_clan: { ...clanRow }, join_clan_by_code: { ...clanRow },
-    boss_state: bossJson, submit_boss_damage: bossJson, claim_boss_reward: { tier: 'A' },
-    create_transfer: { code: 'AB12-CD34', expiresAt: '2026-10-09T00:00:00Z' }, redeem_transfer: '{"v":2}',
+    create_clan: { ...clanRow }, join_clan: { ...clanRow }, join_clan_by_code: { id: CID },
+    boss_state: bossJson, start_boss_attempt: { attemptId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', bossId: 'ashwing', cap: 195000 },
+    submit_boss_damage: bossJson, claim_boss_reward: { tier: 'A' },
+    create_transfer: { code: 'AB2C-DE3F-GH4J', expiresAt: '2026-10-09T00:00:00Z' }, redeem_transfer: { payload: '{"v":2}' },
+    open_room: { code: 'K7Q2Z', secret: SECRET, host: true }, join_room: { error: 'full' },
   }[fn] ?? null;
 }
 
@@ -219,11 +224,14 @@ beforeAll(async () => {
   results.unsubClan = adapter.subscribeClan(CID, () => {});
   adapter.subscribeClan('_list', () => {});
   results.boss = await adapter.bossState(CID);
-  results.hit = await adapter.submitBossDamage(12345.7);
+  results.attempt = await adapter.startBossAttempt();
+  results.hit = await adapter.submitBossDamage(results.attempt.attemptId, 12345.7);
   results.claim = await adapter.claimBossReward('2026-W40');
   results.transfer = await adapter.createTransfer('{"v":2}');
   results.redeemed = await adapter.redeemTransfer('ab12-cd34');
-  results.room = adapter.openRoom('K7Q2Z', { meta: { name: 'Aiko', host: true }, onMessage: () => {}, onPresence: () => {} });
+  results.room = adapter.openRoom('K7Q2Z', { host: true, meta: { name: 'Aiko', host: true }, onMessage: () => {}, onPresence: () => {} });
+  results.roomErrors = [];
+  results.fullRoom = adapter.openRoom('QQQQQ', { meta: { name: 'Aiko' }, onError: (e) => results.roomErrors.push(e.code) });
   await new Promise((r) => setTimeout(r, 10));
 });
 
@@ -277,11 +285,12 @@ describe('supabase adapter ↔ migration', () => {
       expect(Object.keys(args).sort(), `${fn} parameters`).toEqual([...FUNCS[fn]].sort());
     }
     const names = new Set(rec.rpc.map((r) => r.fn));
-    for (const fn of ['create_clan', 'join_clan', 'join_clan_by_code', 'request_join', 'answer_request', 'leave_clan', 'set_role', 'kick', 'touch_active', 'boss_state', 'submit_boss_damage', 'claim_boss_reward', 'create_transfer', 'redeem_transfer']) {
+    for (const fn of ['create_clan', 'join_clan', 'join_clan_by_code', 'request_join', 'answer_request', 'leave_clan', 'set_role', 'kick', 'touch_active', 'boss_state',
+      'start_boss_attempt', 'submit_boss_damage', 'claim_boss_reward', 'create_transfer', 'redeem_transfer', 'open_room', 'join_room']) {
       expect(names.has(fn), `${fn} is used`).toBe(true);
     }
-    // whole damage numbers only (the column is bigint)
-    expect(rec.rpc.find((r) => r.fn === 'submit_boss_damage').args.p_damage).toBe(12345);
+    // whole damage numbers only (the column is bigint), against the started attempt
+    expect(rec.rpc.find((r) => r.fn === 'submit_boss_damage').args).toEqual({ p_attempt: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', p_damage: 12345 });
   });
 
   it('listens only to published tables, filtered by existing columns', () => {
@@ -302,9 +311,14 @@ describe('supabase adapter ↔ migration', () => {
     expect(rec.channels.filter((c) => c.name.startsWith('chat:') || c.name.startsWith('clan:')).every((c) => c.removed)).toBe(true);
   });
 
-  it('co-op rooms are broadcast + presence channels keyed by the player', () => {
-    const ch = rec.channels.find((c) => c.name === 'coop:K7Q2Z');
+  it('co-op rooms: seat from open_room / join_room, then a broadcast + presence channel named by the secret', async () => {
+    expect(rec.rpc.find((r) => r.fn === 'open_room').args).toEqual({ p_code: 'K7Q2Z' });
+    expect(rec.channels.some((c) => c.name === 'coop:K7Q2Z')).toBe(false); // never the guessable name
+    const ch = rec.channels.find((c) => c.name === `coop:K7Q2Z:${SECRET}`);
     expect(ch.opts.config.presence.key).toBe(UID);
+    // a full room: the error reaches the lobby and no channel is opened
+    expect(results.roomErrors).toEqual(['full']);
+    expect(rec.channels.some((c) => c.name.startsWith('coop:QQQQQ'))).toBe(false);
     expect(ch.opts.config.broadcast.self).toBe(false);
     expect(ch.tracked[0]).toEqual({ name: 'Aiko', host: true });
     results.room.send({ type: 'hello' });
@@ -312,6 +326,17 @@ describe('supabase adapter ↔ migration', () => {
     expect(results.room.peers()).toEqual([{ uid: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Bea', host: true }]);
     results.room.close();
     expect(ch.removed).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(rec.rpc.filter((r) => r.fn === 'leave_room').map((r) => r.args)).toEqual([{ p_code: 'K7Q2Z' }]); // frees the code
+  });
+
+  it('wrong codes come back as { error } (so the server keeps the counted try) and still throw', async () => {
+    rpcOverride.join_clan_by_code = { error: 'not_found' };
+    rpcOverride.redeem_transfer = { error: 'expired' };
+    await expect(adapter.joinByCode('NOPE')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(adapter.redeemTransfer('AAAA-BBBB-CCCC')).rejects.toMatchObject({ code: 'expired' });
+    delete rpcOverride.join_clan_by_code;
+    delete rpcOverride.redeem_transfer;
   });
 
   it('maps rows into the same shapes the local adapter returns', () => {
@@ -327,7 +352,8 @@ describe('supabase adapter ↔ migration', () => {
     expect(results.boss.prev).toMatchObject({ week: '2026-W40', rank: 1, tier: 'S' });
     expect(results.claim.tier).toBe('A');
     expect(results.claim.rewards.length).toBeGreaterThan(0);
-    expect(results.transfer.code).toBe('AB12-CD34');
+    expect(results.transfer.code).toBe('AB2C-DE3F-GH4J');
+    expect(results.attempt).toEqual({ attemptId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', bossId: 'ashwing', cap: 195000 });
     expect(results.transfer.expiresAt).toBe(Date.parse('2026-10-09T00:00:00Z'));
     expect(results.redeemed).toBe('{"v":2}');
   });

@@ -7,13 +7,15 @@ import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
-import { STAGE_MAP } from '../../data/stages.js';
+import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
+import { ENEMY_MAP } from '../../data/enemies.js';
+import { enemyToken } from '../battle/util.js';
 import { getMap } from '../../data/maps.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
-import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
 import { coopLoadout } from '../../online/coop/loadout.js';
@@ -183,7 +185,8 @@ export function render(root, params = {}) {
       }
     })();
 
-    body.replaceChildren(h('div.ol-coop-hub',
+    body.replaceChildren(h('div.ol-coop-hub', ...[
+      localNotice('coop'),
       h('section.panel.ol-coop-intro',
         h('h3.panel-title', 'Defend together'),
         h('div.ol-coop-intro-body',
@@ -202,7 +205,8 @@ export function render(root, params = {}) {
             h('div.ol-form-row', codeInput, button('Join', { kind: 'primary', small: true, testid: 'coop-join', onClick: join }))),
           h('section.panel.ol-coop-clan',
             h('h3.panel-title', 'Clan invites'),
-            invites)))));
+            invites))),
+    ].filter(Boolean)));
   }
 
   // -------------------------------------------------------------------------------------
@@ -281,10 +285,55 @@ export function render(root, params = {}) {
         h('div.ol-pcard-units', units.length ? units : h('small.muted', 'No girls in formation')));
     }
 
+    /** The big stage card under the players: map, story line, waves, who you will meet. */
+    function fieldPanel(s) {
+      const st = STAGE_MAP[s.stageId];
+      if (!st) return null;
+      let foes = [];
+      try {
+        foes = stageEnemies(st).map((id) => ENEMY_MAP[id]).filter((e) => e && e.tier !== 'normal').slice(0, 5);
+        if (foes.length < 3) foes = stageEnemies(st).map((id) => ENEMY_MAP[id]).filter(Boolean).slice(0, 5);
+      } catch {
+        foes = [];
+      }
+      return h('section.panel.ol-room-field', { 'data-testid': 'coop-field' },
+        h('h3.panel-title', 'Battlefield'),
+        h('div.ol-field-body',
+          thumb(s.stageId, 'ol-field-thumb'),
+          h('div.ol-field-info',
+            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || '')),
+            st.desc ? h('p.ol-field-desc', st.desc) : null,
+            h('div.ol-field-stats',
+              h('span', h('b', String(st.waves ?? '—')), ' waves'),
+              h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
+              h('span', h('b', formatNumber(coopStartCash(st))), ' coins each')),
+            foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
+    }
+
+    function tipsPanel() {
+      const tips = [
+        ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
+        ['Kills pay both', 'Every coin the defence earns is split between you.'],
+        ['Hands off her girls', 'Only the owner can upgrade, sell or retarget a girl (the coloured pin shows whose).'],
+        ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
+      ];
+      return h('section.panel.ol-room-tips', h('h3.panel-title', 'How co-op works'),
+        h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
+    }
+
     function paint() {
       if (destroyed) return;
       const s = session;
       if (s.phase === 'closed') return;
+      if (s.error) {
+        // the server refused the room (wrong code, taken, too many): nothing else to show
+        view.replaceChildren(h('section.panel.ol-room-error', { 'data-testid': 'coop-room-error' },
+          h('div.ol-empty', h('b', s.error.code === 'not_found' ? 'Room not found' : 'Cannot open this room'), h('p.muted', s.error.text),
+            h('div.ol-row-end',
+              button('Back', { kind: 'ghost', small: true, icon: 'back', onClick: () => { s.close(); navigate('coop'); } }),
+              s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', onClick: () => { s.close(); navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty }); } }) : null))));
+        return;
+      }
       const host = s.isHost ? s.me : s.peer;
       const guest = s.isHost ? s.peer : s.me;
       const st = STAGE_MAP[s.stageId];
@@ -323,11 +372,17 @@ export function render(root, params = {}) {
           h('div.ol-room-acts',
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
+        localNotice('coop'),
         s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
+        s.mismatch ? h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' },
+          h('span', `${s.mismatch.name} runs a different version of the game, so you cannot play together. Both of you reload the page to get the newest version.`),
+          button('Reload', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => location.reload() })) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
         h('div.ol-room-foot',
-          h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — commands arrive a few frames later on both screens.' : 'Tap Ready when your girls are set. The host starts the battle.'),
+          h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — every order lands on both screens a moment later.' : 'Tap Ready when your girls are set. The host starts the battle.'),
           action),
+        // below the call to action (phones scroll to it): the stage up close and the rules
+        h('div.ol-room-more', fieldPanel(s), tipsPanel()),
       ].filter(Boolean)); // replaceChildren(null) would print "null"
     }
 

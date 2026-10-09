@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createLocalDb } from '../../src/online/adapters/localDb.js';
 import { OnlineError } from '../../src/online/errors.js';
-import { BOSS_HIT_CAP, weekKey } from '../../src/online/clanRules.js';
+import { weekKey, bossHitCap, bossMaxHp, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS } from '../../src/online/clanRules.js';
 
 function setup() {
   let stored = null;
@@ -54,6 +54,25 @@ describe('local adapter db', () => {
     expect(last.at(-1).body).toBe('m59');
     expect((await code(() => db.send('A', 'global', ''))).code).toBe('invalid');
     expect((await code(() => db.send('A', 'global', 'x'.repeat(201)))).code).toBe('invalid');
+  });
+
+  it('message meta: nothing on text, a tiny { room, stage } on invites (SQL: valid_message_meta)', async () => {
+    const bad = [
+      ['invite', { room: 'ABCDE', stage: '1-1', pad: 'x'.repeat(2_000_000) }],
+      ['invite', { room: 'ABCDE', stage: 'x'.repeat(17) }],
+      ['invite', { room: 'abcde' }],
+      ['invite', ['ABCDE']],
+      ['invite', null],
+      ['text', { room: 'ABCDE' }],
+    ];
+    for (const [kind, meta] of bad) expect((await code(() => db.send('A', 'global', 'x', { kind, meta }))).code).toBe('invalid');
+    const m = db.send('A', 'global', 'join me', { kind: 'invite', meta: { room: 'K7Q2Z', stage: '1-1' } });
+    expect(m.meta).toEqual({ room: 'K7Q2Z', stage: '1-1' });
+  });
+
+  it('new accounts get a digits-only automatic name', () => {
+    db.signIn('local-9f3ce79a', {});
+    expect(db.me('local-9f3ce79a').name).toMatch(/^Sensei\d{4}$/);
   });
 
   it('20 messages per minute even with 2 s gaps', async () => {
@@ -121,50 +140,109 @@ describe('local adapter db', () => {
     expect((await code(() => db.joinByCode('B', 'nope'))).code).toBe('not_found');
   });
 
-  it('clan boss: shared HP, 3 attempts a day, capped hits, one claim', async () => {
+  it('invite codes cannot be brute-forced: wrong guesses count (and are saved)', async () => {
+    for (let i = 0; i < 10; i++) expect((await code(() => db.joinByCode('B', `GUESS${i}`))).code).toBe('not_found');
+    const e = await code(() => db.joinByCode('B', 'Rosie777')); // the 11th try, even the right code
+    expect(e.code).toBe('rate_limited');
+    clock.t += 3600 * 1000 + 1;
+    expect(db.joinByCode('B', 'Rosie777').isDev).toBe(true);
+  });
+
+  /** Starts a clan boss battle, lets `secs` of it run, submits `dmg`. */
+  function fight(who, dmg, secs = 120) {
+    const a = db.startBossAttempt(who);
+    clock.t += secs * 1000;
+    return db.submitBossDamage(who, a.attemptId, dmg);
+  }
+
+  it('clan boss: started + timed battles, capped hits, member-sized pool, 3 a day, one claim', async () => {
     const c = db.createClan('A', { name: 'Boss Hunters', tag: 'BH' });
     db.joinClan('B', c.id);
     const s0 = db.bossState('A', c.id);
+    const cap = bossHitCap(s0.bossId);
     expect(s0.week).toBe(weekKey(clock.t));
+    expect(s0.maxHp).toBe(bossMaxHp(1, 2, s0.bossId));
     expect(s0.hp).toBe(s0.maxHp);
-    let s = db.submitBossDamage('A', 50000);
+    // no started battle → nothing to submit
+    expect((await code(() => db.submitBossDamage('A', 'a-made-up', 5000))).code).toBe('invalid');
+    // too short to count: no damage and no attempt used
+    let s = fight('A', 50000, BOSS_MIN_SECONDS - 1);
+    expect(s).toMatchObject({ hp: s0.maxHp, myHitsToday: 0 });
+    s = fight('A', 50000);
     expect(s.hp).toBe(s0.maxHp - 50000);
-    s = db.submitBossDamage('B', 1e12);
-    expect(s.board[0]).toMatchObject({ userId: 'B', damage: BOSS_HIT_CAP });
+    s = fight('B', 1e12, BOSS_FULL_RUN_SECONDS / 2); // forged: clamped to half the cap (half the full-run time)
+    expect(s.board[0]).toMatchObject({ userId: 'B', damage: Math.floor(cap / 2) });
     expect((await code(() => db.claimBossReward('A', s.week))).code).toBe('forbidden'); // still alive this week
-    db.submitBossDamage('A', 10);
-    db.submitBossDamage('A', 10);
-    expect((await code(() => db.submitBossDamage('A', 10))).code).toBe('rate_limited');
+    fight('A', 10);
+    fight('A', 10);
+    expect((await code(() => db.startBossAttempt('A'))).code).toBe('rate_limited'); // refused before the battle
+    // the pool needs about 3 capped hits per member: two forged maximum hits never end a week
+    expect(s0.maxHp).toBeGreaterThan(2 * cap);
     clock.t += 86400000;
-    s = db.submitBossDamage('A', BOSS_HIT_CAP);
+    // (the rest of the week, condensed)
+    const st = JSON.parse(JSON.stringify(db.bossState('A', c.id)));
+    for (let i = 0; i < 6 && !s.defeated; i++) {
+      s = fight(i % 2 ? 'B' : 'A', 1e12);
+      if (i % 2) clock.t += 86400000;
+    }
+    expect(st.hp).toBeGreaterThan(0);
     expect(s.defeated).toBe(true);
     expect(s.hp).toBe(0);
+    expect((await code(() => db.startBossAttempt('A'))).message).toMatch(/fallen/);
     const r = db.claimBossReward('A', s.week);
-    expect(r.tier).toBe('S');
+    expect(r.tier).toMatch(/^[SA]$/);
     expect(r.rewards.length).toBeGreaterThan(0);
     expect((await code(() => db.claimBossReward('A', s.week))).code).toBe('forbidden');
     expect(db.getClan('A', c.id).xp).toBeGreaterThan(0);
   });
 
-  it('transfer codes are one-time and expire', async () => {
+  it('transfer codes are one-time, one live per player, 12 characters, and expire', async () => {
+    const t0 = db.createTransfer('A', 'old');
     const t = db.createTransfer('A', '{"save":1}');
-    expect(t.code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
-    expect(db.redeemTransfer('B', t.code.toLowerCase())).toBe('{"save":1}');
+    expect(t.code).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+    expect((await code(() => db.redeemTransfer('B', t0.code))).code).toBe('not_found'); // replaced
+    expect(db.redeemTransfer('B', t.code.toLowerCase().replace(/-/g, ' '))).toBe('{"save":1}');
     expect((await code(() => db.redeemTransfer('B', t.code))).code).toBe('expired');
     const t2 = db.createTransfer('A', 'x');
     clock.t += 25 * 3600 * 1000;
     expect((await code(() => db.redeemTransfer('B', t2.code))).code).toBe('expired');
   });
 
+  it('transfer codes cannot be brute-forced: the 6th try in an hour is refused, misses included', async () => {
+    const t = db.createTransfer('A', 'mine');
+    for (let i = 0; i < 5; i++) expect((await code(() => db.redeemTransfer('B', `WRNG-WRNG-WRN${i}`))).code).toBe('not_found');
+    expect((await code(() => db.redeemTransfer('B', t.code))).code).toBe('rate_limited');
+  });
+
+  it('co-op rooms: the secret goes to the host and one guest; wrong codes count', async () => {
+    db.signIn('C', { name: 'Chi' });
+    const host = db.openRoom('A', 'k7q2z');
+    expect(host).toMatchObject({ code: 'K7Q2Z', host: true });
+    expect(host.secret).toMatch(/^[A-HJ-NP-Z2-9]{16}$/);
+    expect(db.openRoom('A', 'K7Q2Z').secret).toBe(host.secret);
+    expect(db.joinRoom('B', 'K7Q2Z')).toEqual({ code: 'K7Q2Z', secret: host.secret, host: false });
+    expect(db.roomMembers('K7Q2Z')).toEqual(['A', 'B']);
+    expect((await code(() => db.joinRoom('C', 'K7Q2Z'))).code).toBe('full');
+    clock.t += 1100;
+    expect((await code(() => db.openRoom('C', 'K7Q2Z'))).code).toBe('name_taken');
+    expect((await code(() => db.joinRoom('C', 'K7Q2Z'))).code).toBe('rate_limited'); // 1 per second
+    db.leaveRoom('B', 'K7Q2Z');
+    clock.t += 1100;
+    expect(db.joinRoom('C', 'K7Q2Z').secret).toBe(host.secret);
+    db.leaveRoom('A', 'K7Q2Z');
+    clock.t += 1100;
+    expect((await code(() => db.joinRoom('B', 'K7Q2Z'))).code).toBe('not_found');
+  });
+
   it('attempts recharge over a rolling 24 h; last week\'s survivor still pays tier C next week', async () => {
     const c = db.createClan('A', { name: 'Slow Burners', tag: 'SB' });
-    db.submitBossDamage('A', 1000);
+    fight('A', 1000);
     clock.t += 12 * 3600 * 1000;
-    db.submitBossDamage('A', 1000);
-    db.submitBossDamage('A', 1000);
+    fight('A', 1000);
+    fight('A', 1000);
     expect(db.bossState('A', c.id).myHitsToday).toBe(3);
-    expect((await code(() => db.submitBossDamage('A', 1))).code).toBe('rate_limited');
-    clock.t += 12 * 3600 * 1000 + 1000; // the first attempt is now older than 24 h
+    expect((await code(() => db.startBossAttempt('A'))).code).toBe('rate_limited');
+    clock.t += 12 * 3600 * 1000 - 120 * 1000 + 1000; // the first attempt is now older than 24 h
     expect(db.bossState('A', c.id).myHitsToday).toBe(2);
     const week = db.bossState('A', c.id).week;
     clock.t += 7 * 86400000; // next week: a fresh boss, last week's (alive) boss pays C
@@ -178,7 +256,7 @@ describe('local adapter db', () => {
 
   it('invite codes are shown to leaders and officers only', () => {
     const c = db.createClan('A', { name: 'Code Club', tag: 'CC', joinMode: 'code' });
-    expect(c.joinCode).toMatch(/^[A-Z0-9]{6}$/);
+    expect(c.joinCode).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
     db.joinByCode('B', c.joinCode);
     expect(db.getClan('B', c.id).joinCode).toBe(null);
     db.setRole('A', 'B', 'officer');

@@ -4,7 +4,7 @@
 // drawer the lobby's chat bubble opens.
 import { h, svgEl, toast } from '../components.js';
 import { navigate } from '../router.js';
-import { ensureOnline, avatar, levelChip, clock, showError, CHAT_GLYPH } from './common.js';
+import { ensureOnline, avatar, levelChip, clock, showError, localNotice, CHAT_GLYPH } from './common.js';
 import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
 
@@ -107,7 +107,11 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
       const history = await backend.history(channel, 50);
       if (destroyed) return;
       list.replaceChildren();
-      if (!history.length) list.append(h('div.ol-chat-empty', emptyText));
+      // local mode: say plainly that these messages stay in this browser
+      el.querySelector('.ol-local-note')?.remove();
+      const note = localNotice('chat');
+      if (note) el.prepend(note);
+      if (!history.length) list.append(h('div.ol-chat-empty', note ? 'No messages in this browser yet.' : emptyText));
       for (const m of history) add(m, false);
       list.scrollTop = list.scrollHeight;
       unsub = backend.subscribe(channel, (m) => add(m));

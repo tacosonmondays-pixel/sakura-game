@@ -54,12 +54,16 @@ async function twoTabs() {
   const storage = memoryStorage();
   const tabA = createLocalAdapter({ storage, session: memoryStorage(), BC: hub.BC });
   const tabB = createLocalAdapter({ storage, session: memoryStorage(), BC: hub.BC });
+  const tabC = createLocalAdapter({ storage, session: memoryStorage(), BC: hub.BC });
   await tabA.init();
   await tabB.init();
+  await tabC.init();
   await tabA.signIn({ name: 'Aiko', level: 20, avatar: 'aoi' });
   await tabB.signIn({ name: 'Bea', level: 7, avatar: 'rei' });
-  return { hub, tabA, tabB };
+  await tabC.signIn({ name: 'Chi', level: 2, avatar: 'yuki' });
+  return { hub, tabA, tabB, tabC };
 }
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('local adapter (two tabs of one browser)', () => {
   it('gives each tab its own player and delivers chat live to the other tab', async () => {
@@ -93,26 +97,35 @@ describe('local adapter (two tabs of one browser)', () => {
     expect((await tabA.listClans()).some((c) => c.isDev)).toBe(false);
   });
 
-  it('co-op rooms: presence and messages between tabs', async () => {
-    const { hub, tabA, tabB } = await twoTabs();
+  it('co-op rooms: the host and ONE guest share a secret channel; others are refused', async () => {
+    const { hub, tabA, tabB, tabC } = await twoTabs();
     const seenA = [];
     const presA = [];
-    const roomA = tabA.openRoom('ABCDE', { meta: { name: 'Aiko' }, onMessage: (m) => seenA.push(m), onPresence: (p) => presA.push(p) });
+    const errC = [];
+    const roomA = tabA.openRoom('ABCDE', { host: true, meta: { name: 'Aiko' }, onMessage: (m) => seenA.push(m), onPresence: (p) => presA.push(p) });
     const roomB = tabB.openRoom('ABCDE', { meta: { name: 'Bea' }, onMessage: () => {}, onPresence: () => {} });
-    const other = tabB.openRoom('ZZZZZ', { onMessage: () => {}, onPresence: () => {} });
+    // a third tab: the seat is taken (and it cannot listen in: it never learns the secret)
+    const roomC = tabC.openRoom('ABCDE', { meta: { name: 'Chi' }, onMessage: (m) => seenA.push({ leak: m }), onError: (e) => errC.push(e.code) });
     hub.flush();
+    await tick();
+    expect(errC).toEqual(['full']);
     expect(roomA.peers().map((p) => p.name)).toEqual(['Bea']);
     expect(presA.at(-1).map((p) => p.uid)).toEqual([tabB.uid]);
     roomB.send({ type: 'ping' });
-    other.send({ type: 'wrong-room' });
+    roomC.send({ type: 'forged' });
     hub.flush();
     expect(seenA).toEqual([{ type: 'ping' }]);
     expect(roomA.net).toEqual({ heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay });
+    // a wrong code: refused after openRoom returns
+    const errB = [];
+    await new Promise((r) => setTimeout(r, 1100)); // (one room call per second)
+    tabB.openRoom('ZZZZZ', { onError: (e) => errB.push(e.code) });
+    await tick();
+    expect(errB).toEqual(['not_found']);
     roomB.close();
     hub.flush();
     expect(roomA.peers()).toEqual([]);
     roomA.close();
-    other.close();
   });
 
   it('a whole co-op handshake + battle over the local transport stays in sync', async () => {
@@ -173,6 +186,34 @@ describe('local adapter (two tabs of one browser)', () => {
     expect(A.sim.state).toBe('wave');
     guest.close();
     hub.flush();
+    host.close();
+  });
+});
+
+describe('co-op lobby: version check', () => {
+  it('a client of another build (a cached PWA after a deploy) is never paired', async () => {
+    const { hub, tabA, tabB } = await twoTabs();
+    const timers = { setInterval: () => 0, clearInterval: () => {} };
+    const host = openSession({
+      code: 'VERS1', isHost: true, backend: tabA, stageId: '1-1', timers,
+      me: { uid: tabA.uid, name: 'Aiko', level: 20, avatar: 'aoi', loadout: [{ unitId: 'aoi' }], hero: null },
+    });
+    hub.flush();
+    // the guest speaks the room protocol but carries an older version stamp
+    const old = tabB.openRoom('VERS1', { onMessage: () => {}, onPresence: () => {} });
+    hub.flush();
+    old.send({ type: 'hello', player: { uid: tabB.uid, name: 'Bea', level: 7, avatar: 'rei', loadout: [], ready: true }, v: { proto: 1, build: 'abc123', data: '00000000' } });
+    hub.flush();
+    expect(host.peer).toBe(null);
+    expect(host.mismatch).toMatchObject({ name: 'Bea' });
+    expect(host.canStart).toBe(false);
+    // and with no stamp at all (a build from before the check)
+    host.mismatch = null;
+    old.send({ type: 'hello', player: { uid: tabB.uid, name: 'Bea', level: 7, avatar: 'rei', loadout: [], ready: true } });
+    hub.flush();
+    expect(host.peer).toBe(null);
+    expect(host.mismatch).toBeTruthy();
+    old.close();
     host.close();
   });
 });

@@ -23,12 +23,51 @@ export function validateClan({ name, tag, description = '' } = {}) {
   return null;
 }
 
-/** Display names: 2–16 characters (SQL: profiles.name). */
+/**
+ * Names nobody may take: they would pass for a system notice, the developer bot or staff
+ * (compared without case, spaces or punctuation, so "Supply-Bot" counts). SQL: valid_display_name().
+ */
+export const RESERVED_NAMES = ['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'];
+const INVISIBLE = /[\p{Cf}\p{Cc}]/u; // bidi overrides, zero-width joiners, soft hyphens, control characters
+
+/** Display names: 2–16 characters (SQL: valid_display_name(), the profiles.name check). */
 export function validateName(name) {
   const n = String(name ?? '').trim();
   if (n.length < 2 || n.length > 16) return 'Names are 2–16 characters.';
   if (/[<>]/.test(n)) return 'Names cannot contain < or >.';
+  if (INVISIBLE.test(n)) return 'Names cannot contain invisible or control characters.';
+  if (RESERVED_NAMES.includes(n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''))) return 'That name is reserved.';
   return null;
+}
+
+/**
+ * The automatic name of a new account before the player picks one: "Sensei" + 4 digits taken
+ * from the account id (stable for that account, digits only so it reads as a number).
+ * @param {string} uid
+ */
+export function autoName(uid) {
+  let h = 0;
+  for (const ch of String(uid)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+  return `Sensei${1000 + (h % 9000)}`;
+}
+
+/** Chat message bodies: 1–200 characters (SQL: messages.body). */
+export const MESSAGE_MAX = 200;
+/** Co-op invite payload: only the room code and the stage id, at most this many bytes (SQL: valid_message_meta()). */
+export const INVITE_META_MAX = 256;
+
+/**
+ * The `meta` a chat message may carry (SQL: valid_message_meta(), the messages check):
+ * none on text, and on an invite exactly { room: 5 letters/digits, stage?: up to 16 characters }.
+ * @returns {boolean}
+ */
+export function validMessageMeta(kind, meta) {
+  if (kind !== 'invite') return meta == null;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return false;
+  if (Object.keys(meta).some((k) => k !== 'room' && k !== 'stage')) return false;
+  if (typeof meta.room !== 'string' || !/^[A-Z0-9]{5}$/.test(meta.room)) return false;
+  if ('stage' in meta && (typeof meta.stage !== 'string' || meta.stage.length > 16)) return false;
+  return JSON.stringify(meta).length <= INVITE_META_MAX;
 }
 
 /**
@@ -101,27 +140,59 @@ export function msToWeekReset(now = Date.now()) {
   return next - now;
 }
 
-/** Weekly bosses rotate through the Total Assault arenas. */
+/**
+ * Weekly bosses rotate through the Total Assault arenas. hitCap (SQL: boss_hit_cap()) is the most
+ * damage one attempt can count: a full clear of that arena by a maxed team deals ~150k (lych),
+ * ~197k (colossus) and ~167k (ashwing) — tests/online/clanBoss.test.js measures it with the sim —
+ * plus ~15% headroom. Battle damage comes from the player's own client, so this cap, the
+ * started-attempt check and the pool size below are what keep a forged number from ending the week.
+ */
 export const CLAN_BOSSES = [
-  { id: 'lych', name: 'Grave Lych', stageId: 'boss-lych', enemyId: 'grave_lych', theme: 'night' },
-  { id: 'colossus', name: 'Iron Colossus', stageId: 'boss-colossus', enemyId: 'iron_colossus', theme: 'forge' },
-  { id: 'ashwing', name: 'Ashwing Matriarch', stageId: 'boss-ashwing', enemyId: 'dragon_ashwing', theme: 'summit' },
+  { id: 'lych', name: 'Grave Lych', stageId: 'boss-lych', enemyId: 'grave_lych', theme: 'night', hitCap: 175000 },
+  { id: 'colossus', name: 'Iron Colossus', stageId: 'boss-colossus', enemyId: 'iron_colossus', theme: 'forge', hitCap: 230000 },
+  { id: 'ashwing', name: 'Ashwing Matriarch', stageId: 'boss-ashwing', enemyId: 'dragon_ashwing', theme: 'summit', hitCap: 195000 },
 ];
-/** SQL: boss_max_hp(). Pool for a level-1 clan; +20% per clan level. One attempt deals ~5k–100k. */
-export const BOSS_BASE_HP = 300000;
-/** SQL: submit_boss_damage caps one attempt at this much damage. */
-export const BOSS_HIT_CAP = 200000;
-/** SQL: attempts per player per UTC day. */
+/**
+ * SQL: submit_boss_damage. One attempt earns its full cap only after this many real seconds
+ * (less time → a proportional share): the fastest full clear measured is ~180 s of game time,
+ * i.e. ~60 s at 3× speed.
+ */
+export const BOSS_FULL_RUN_SECONDS = 50;
+/** SQL: submit_boss_damage. A battle shorter than this counts nothing (and uses no attempt). */
+export const BOSS_MIN_SECONDS = 10;
+/** SQL: ensure_boss(). The weekly pool = hitCap × this × max(BOSS_MIN_MEMBERS, members) × level bonus. */
+export const BOSS_POOL_ATTEMPTS = 3;
+export const BOSS_MIN_MEMBERS = 2;
+/** SQL: attempts per player per rolling 24 h (a scored submit uses one; starting a battle does not). */
 export const BOSS_HITS_PER_DAY = 3;
+/** SQL: an attempt left open longer than this cannot be scored any more. */
+export const BOSS_ATTEMPT_TTL_MS = 2 * 3600 * 1000;
 
-/** @returns {{ id, name, stageId, enemyId, theme, maxHp }} the boss for a week key */
-export function bossFor(week, clanLevel = 1) {
+/** @returns {number} the most damage one attempt on `bossId` can count */
+export function bossHitCap(bossId) {
+  return CLAN_BOSSES.find((b) => b.id === bossId)?.hitCap || 0;
+}
+
+/**
+ * Damage an attempt may count after `seconds` of battle (SQL: submit_boss_damage).
+ * @param {string} bossId
+ * @param {number} seconds since start_boss_attempt
+ */
+export function bossAllowance(bossId, seconds) {
+  if (!(seconds >= BOSS_MIN_SECONDS)) return 0;
+  return Math.floor(bossHitCap(bossId) * Math.min(1, seconds / BOSS_FULL_RUN_SECONDS));
+}
+
+/** @returns {{ id, name, stageId, enemyId, theme, hitCap, maxHp }} the boss for a week key */
+export function bossFor(week, clanLevel = 1, members = BOSS_MIN_MEMBERS) {
   const n = Number(String(week).split('-W')[1]) || 0;
   const b = CLAN_BOSSES[n % CLAN_BOSSES.length];
-  return { ...b, maxHp: bossMaxHp(clanLevel) };
+  return { ...b, maxHp: bossMaxHp(clanLevel, members, b.id) };
 }
-export function bossMaxHp(clanLevel = 1) {
-  return Math.round(BOSS_BASE_HP * (1 + 0.2 * (Math.max(1, clanLevel) - 1)));
+/** SQL: ensure_boss(). The shared HP pool: +20% per clan level, scaled by the member count. */
+export function bossMaxHp(clanLevel = 1, members = BOSS_MIN_MEMBERS, bossId = CLAN_BOSSES[0].id) {
+  const people = Math.max(BOSS_MIN_MEMBERS, Math.floor(members) || 0);
+  return Math.round(bossHitCap(bossId) * BOSS_POOL_ATTEMPTS * people * (1 + 0.2 * (Math.max(1, clanLevel) - 1)));
 }
 
 /** Reward tiers by leaderboard rank once the boss falls (or participation if it survives). */

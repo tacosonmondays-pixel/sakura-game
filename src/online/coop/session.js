@@ -2,18 +2,23 @@
 // message that both clients turn into the same Lockstep battle. One session at a time; the
 // battle screen picks it up with getSession().
 //
-// Room messages (over backend.openRoom(code), i.e. Realtime broadcast or BroadcastChannel):
-//   { type: 'hello', player }        my name / level / avatar / loadout (sent on every new peer)
+// Room messages (over backend.openRoom(code), i.e. Realtime broadcast or BroadcastChannel; the
+// host registers the code and one guest takes the seat, see open_room / join_room):
+//   { type: 'hello', player, v }     my name / level / avatar / loadout (sent on every new peer);
+//                                    v = coopVersion(): two different builds never pair up
 //   { type: 'room', stageId, difficulty }   host's stage choice
 //   { type: 'ready', uid, ready }
 //   { type: 'full', uid }            host → a third player: this room already has two
-//   { type: 'start', start }         host → guest: seed, stage, both players' loadouts
+//   { type: 'start', start }         host → guest: seed, stage, both players' loadouts, version
 //                                    (re-sent until the guest's first lockstep packet arrives)
 //   { type: 'ls', m }                lockstep traffic during the battle
 //   { type: 'leave', uid }
 import { createEmitter } from '../../core/events.js';
 import { COOP } from '../../data/coop.js';
 import { Lockstep } from './lockstep.js';
+import { coopVersion, sameVersion } from './version.js';
+import { toOnlineError } from '../errors.js';
+import { formatRetry } from '../limits.js';
 
 let current = null;
 
@@ -69,7 +74,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     phase: 'lobby',
     start: null,
     lockstep: null,
-    error: null,
+    error: null, // { code, text } when the room could not be opened / joined
+    mismatch: null, // the other player's version when it differs from mine (no pairing)
     peerGone: false,
     on: emitter.on,
     emit: emitter.emit,
@@ -77,9 +83,12 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   const changed = () => emitter.emit('change', s);
   let guestHeard = false;
 
-  const hello = () => room.send({ type: 'hello', player: { ...s.me, host: isHost } });
+  const version = coopVersion();
+  const hello = () => room.send({ type: 'hello', player: { ...s.me, host: isHost }, v: version });
   const room = backend.openRoom(code, {
+    host: isHost,
     meta: { name: me.name, host: isHost },
+    onError: (e) => roomError(e),
     onMessage: (msg) => handle(msg),
     onPresence: (list) => {
       // lobby only: in battle a presence blip (reconnecting socket) must not drop the ally;
@@ -92,6 +101,22 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   const net = room.net || { heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay };
   hello();
 
+  /** The server refused this room (open_room / join_room): explain it in the lobby. */
+  function roomError(e) {
+    const err = toOnlineError(e);
+    if (err.code === 'full') s.full = true;
+    else {
+      const text = {
+        not_found: 'No room uses that code. Check it, or ask your ally for a new one.',
+        name_taken: 'That room code is already in use. Create a new room.',
+        rate_limited: `Too many rooms — try again in ${formatRetry(err.retryMs)}.`,
+        offline: 'The co-op server cannot be reached right now.',
+      }[err.code] || 'This room could not be opened.';
+      s.error = { code: err.code, text };
+    }
+    changed();
+  }
+  const mismatchTold = new Set();
   function peerLeft() {
     if (s.phase === 'lobby') {
       s.peer = null;
@@ -111,6 +136,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       case 'hello': {
         const p = msg.player || {};
         if (!p.uid || p.uid === s.me.uid) return;
+        if (!sameVersion(msg.v, version)) {
+          // a cached older (or newer) build: lockstep would desync every time — never pair
+          s.mismatch = { name: p.name || 'Your ally', theirs: msg.v || null };
+          if (!mismatchTold.has(p.uid)) {
+            mismatchTold.add(p.uid);
+            hello(); // so the other side sees the mismatch too
+          }
+          changed();
+          return;
+        }
         if (s.peer && s.peer.uid !== p.uid) {
           // a third player: rooms hold two
           if (isHost) room.send({ type: 'full', uid: p.uid });
@@ -145,6 +180,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       case 'start':
         if (isHost || s.phase !== 'lobby' || !msg.start) return;
         if (!msg.start.players?.some((p) => p.uid === s.me.uid)) return;
+        if (!sameVersion(msg.start.v, version)) return;
         begin(msg.start);
         break;
       case 'ls':
@@ -162,7 +198,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   // lobby beacon: a lost hello (lossy broadcast) is repeated until both sides see each other;
   // the host also repeats the start message until the guest's first lockstep packet arrives
   const beacon = timers.setInterval(() => {
-    if (s.phase === 'lobby' && !s.peer && !s.full) hello();
+    if (s.phase === 'lobby' && !s.peer && !s.full && !s.error && !s.mismatch) hello();
     if (s.phase === 'battle' && isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone) room.send({ type: 'start', start: s.start });
   }, isHost ? START_RESEND_MS : LOBBY_BEACON_MS);
 
@@ -177,6 +213,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       now,
       delay: net.inputDelay,
       heartbeatMs: net.heartbeatMs,
+      keepaliveMs: net.keepaliveMs ?? net.heartbeatMs,
       send: (m) => room.send({ type: 'ls', m }),
       hooks: {
         onPeerGone: (slot, reason) => {
@@ -228,6 +265,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     startBattle(seed = (Math.random() * 2 ** 31) >>> 0) {
       if (!s.canStart) return false;
       const start = {
+        v: version,
         seed,
         stageId: s.stageId,
         difficulty: s.difficulty,

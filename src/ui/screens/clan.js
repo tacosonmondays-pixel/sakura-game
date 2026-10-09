@@ -6,15 +6,17 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
-import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { createSupplyBot } from '../online/supplyBot.js';
 import {
   EMBLEMS, JOIN_MODES, ROLE_NAMES, CLAN_MAX_MEMBERS, BOSS_HITS_PER_DAY, BOSS_REWARDS, levelFromXp, can, validateClan, agoText, msToWeekReset,
+  bossHitCap,
 } from '../../online/clanRules.js';
 import { addItems } from '../../systems/inventory.js';
 import { itemTile } from '../components.js';
 import { enemyToken } from '../battle/util.js';
+import { bossPortrait } from '../online/bossArt.js';
 import { makeRoomCode } from '../../online/coop/session.js';
 
 function emblem(name, size = 56) {
@@ -128,7 +130,7 @@ export function render(root, params = {}) {
       h('div.ol-main',
         h('section.panel.ol-browse',
           h('h3.panel-title', 'Find a clan'),
-          h('div.ol-browse-body', search, list))),
+          h('div.ol-browse-body', ...[localNotice('clan'), search, list].filter(Boolean)))),
       h('aside.ol-side',
         h('section.panel.ol-create', { 'data-testid': 'clan-create-panel' },
           h('h3.panel-title', 'Create a clan'),
@@ -169,7 +171,7 @@ export function render(root, params = {}) {
       navigate('clan', { tab: id }, { replace: true });
       paintTab();
     });
-    body.replaceChildren(h('div.ol-clan-wrap', header, tabsEl, pane));
+    body.replaceChildren(h('div.ol-clan-wrap', ...[header, localNotice('clan'), tabsEl, pane].filter(Boolean)));
     let paneCleanup = null;
 
     function paintHeader() {
@@ -359,7 +361,15 @@ function bossTab(backend, clan, pane) {
       timer = setInterval(paintReset, 60000);
       const fight = button(s.defeated ? 'Defeated!' : left > 0 ? `Fight (${left}/${BOSS_HITS_PER_DAY} left)` : 'Attempts recharge within 24 h', {
         kind: 'yellow', icon: 'sword', testid: 'boss-fight', disabled: s.defeated || left <= 0,
-        onClick: () => navigate('battle', { stage: s.stageId, difficulty: 'normal', clanBoss: '1' }),
+        onClick: async () => {
+          // the server times the battle from here (start_boss_attempt): starting uses no attempt
+          try {
+            const a = await backend.startBossAttempt();
+            if (alive) navigate('battle', { stage: s.stageId, difficulty: 'normal', clanBoss: a.attemptId });
+          } catch (e) {
+            showError(e);
+          }
+        },
       });
       const canClaim = !s.claimed && s.tier && s.defeated;
       const claim = button(s.claimed ? 'Reward claimed' : canClaim ? `Claim tier ${s.tier}` : 'Rewards when the boss falls', {
@@ -384,14 +394,23 @@ function bossTab(backend, clan, pane) {
           h('span', `Last week (${s.prev.week.split('-W')[1]}): rank ${s.prev.rank} · ${formatNumber(s.prev.damage)} damage → tier ${s.prev.tier}`),
           button(`Claim tier ${s.prev.tier}`, { kind: 'pink', small: true, icon: 'gift', testid: 'boss-prev-claim', onClick: () => claimWeek(s.prev.week) }))
         : null;
+      // the boss's own 3D model as a still (the token stands in until it is drawn)
+      const token = enemyToken(s.enemyId, { size: 96 });
+      const art = h(`div.ol-boss-art${s.defeated ? '.down' : ''}`, { 'data-testid': 'boss-art' }, ...[token,
+        s.defeated ? h('span.ol-boss-stamp', 'DEFEATED') : null].filter(Boolean));
+      bossPortrait(s.enemyId).then((url) => {
+        if (!url || !alive || !art.isConnected) return;
+        token.replaceWith(h('img.ol-boss-img', { src: url, alt: s.name, draggable: false }));
+        art.classList.add('has-img');
+      });
       pane.replaceChildren(h('div.ol-boss', { 'data-testid': 'boss-panel' }, prev,
-        h('section.panel.ol-boss-card',
-          h('div.ol-boss-art', enemyToken(s.enemyId, { size: 96 })),
+        h(`section.panel.ol-boss-card${s.defeated ? '.down' : ''}`,
+          art,
           h('div.ol-boss-info',
             h('div.ol-boss-kicker', `Week ${s.week.split('-W')[1]} · Clan Boss`, reset),
             h('div.ol-boss-name', s.name),
             h('div.ol-hp', { 'data-testid': 'boss-hp' }, h('i', { style: { width: `${(pct * 100).toFixed(1)}%` } }), h('span', `${formatNumber(s.hp)} / ${formatNumber(s.maxHp)} HP`)),
-            h('p.muted', 'Every clan member\'s battle damage drains this shared HP pool. Three attempts per 24 hours on this week\'s Total Assault arena; the boss resets every Monday (UTC).'),
+            h('p.muted', `Every clan member's battle damage drains this shared HP pool. Three attempts per 24 hours on this week's Total Assault arena (up to ${formatNumber(bossHitCap(s.bossId))} damage counts per battle); the boss resets every Monday (UTC).`),
             h('div.ol-boss-acts', fight, claim)),
         ),
         h('div.ol-boss-cols',
