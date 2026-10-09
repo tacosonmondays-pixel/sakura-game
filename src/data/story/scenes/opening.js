@@ -12,7 +12,7 @@ export default [
     narrate('Here, students with halos train as Sentinels — the cheerful guardians of the academy and the city below.'),
     say('hikari', 'Sensei! Up here — on the wall!', { at: 'off', name: '???' }),
     cue({ bg: 'cg:hikari-rampart', flash: 'gold' }),
-    say('hikari', "Hehe, sorry! I watch every sunrise from up here. Best seat in the academy. Well, the only seat. It's a wall.", { face: 'laugh' }),
+    say('hikari', "Hehe, sorry! I watch every sunrise from up here. Best seat on the wall. Well, the only seat. It's a wall.", { face: 'laugh' }),
     say('hikari', "I'm {name:hikari}, Captain of the Sentinel Guard. Welcome to Sakura Academy!"),
     choice([
       { text: 'Nice to meet you, Captain!', lines: [say('hikari', "Just {name:hikari} is fine. We're partners from today, after all.", { face: 'wink' })] },
@@ -22,7 +22,7 @@ export default [
     say('hikari', "The academy asked for a Sensei who can read a battlefield. That's you — I've been looking forward to this."),
     say('hikari', "Around the city stand eight old wardstones that keep the wilds calm. This spring, they've started to dim."),
     say('hikari', 'So monsters keep wandering out. Slimes, goblins… and a few things that are much bigger.'),
-    say('hikari', 'The Sentinels protect the city. My job is to protect them while they do it. The dawn is never late!', { fx: 'nod' }),
+    say('hikari', "The Sentinels protect the city, and I protect the Sentinels. So don't worry. The dawn is never late!", { fx: 'nod' }),
     say('aoi', "Captain! The slimes are in the flowerbeds again! They're eating the tulips!", { at: 'left', face: 'surprise', fx: 'slide-in' }),
     say('hikari', 'Sensei, this is {name:aoi} — the steadiest bow in the academy.'),
     say('aoi', "A-a real Sensei? Oh! Hello! I'll do my very best!", { face: 'sparkle', fx: 'hop' }),

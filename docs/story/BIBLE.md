@@ -455,7 +455,7 @@ she refuses to apologise for.
 ```text
 raika    joy          Race you to the gate! Loser carries the lightning rods!
 raika    laugh        That plan was electrifying, Sensei! …I'm not sorry. I'll never be sorry.
-raika    determined   Many small hits? That's just thunder with extra steps!
+raika    determined   Many small hits? My lightning never strikes just once!
 ```
 
 **Momo, the Starlight Idol.** A bubbly performer who cheers everyone on and **turns news into songs**. She is always
@@ -511,8 +511,9 @@ Each joke has a setup, beats along the way and a payoff. Pay off every one of th
    (ch2.pro: "Captain. There is a perfectly good pier."), the shrine roof (ch3.pro: "It is a sacred roof.").
    *Payoff ch8.epi:* she's back on the Wall at sunrise: "Some things never change."
 2. **Rei's Flower Ledger.** Two tulips lost in the tutorial; the Slime Prince wears her roses as a crown (ch1.mid);
-   orcs trample the mountain heather (ch4.pro). *Payoff ch8.epi:* "Flowers lost this spring: two tulips. Flowers
-   planted: two hundred. I am satisfied."
+   orcs trample the mountain heather (ch4.pro). *Payoff ch8.epi:* "Lost: two tulips and some heather. Roses: returned.
+   Slightly sticky." / "Flowers planted: two
+   hundred. I am satisfied."
 3. **Kage's suspect board.** Starts in ch2.epi: "slimes, lizards, the moon… and Sensei. Very suspicious timing."
    Ghosts are added for giggling (ch3.pro) and "warm" is added as a concept (ch3.umeko). Notes on doors read as narrate
    lines in chapters without Kage (ch6.epi, ch8.pro). *Payoff ch8.epi:* "Sensei — CLEARED. (Still suspicious about snacks.)"
@@ -854,7 +855,7 @@ hikari   neutral       …Something clanks in the sanctum at night. Let's finish
 
 ```text
 narrate                Deep in the sanctum, an empty suit of shrine armour walks its rounds. Clank. Clank. Clank.
-ghost_hollowknight determined …None. Shall. Pass.
+ghost_hollowknight determined …Halt. Who comes… to the bell?
 miko     sweat         That armour stood beside the bell for a hundred years. It never once moved. Until now.
 hikari   smile         Sensei, this is {name:hotaru}. She keeps the shrine lanterns, and she hears what spirits mean.
 hotaru   sad           It isn't angry. It's lonely. It's guarding a bell that nobody rings any more.
@@ -1093,7 +1094,7 @@ narrate                The Clockwork Foundry. Steam, gears, and the clatter of m
 chika    pout          That's MY workshop. They borrowed my tools. They are using my torque wrench as a spoon.
 hikari   laugh         Sensei, this is {name:chika}, robotics club. She built half the machines in this place.
 chika    neutral       Two-thirds. And the crystal vats grow shells on everything. Each shell blocks the big hits.
-raika    joy           {name:raika}, weather club! Many small hits? That's just thunder with extra steps! Leave it to me!
+raika    joy           {name:raika}, weather club! Many small hits? My lightning never strikes just once! Leave it to me!
 chika    neutral       Rapid hits crack shells. Fast girls, fast arrows, and lots of them.
 suzu     question      But why are the goblins even here? They usually stay in their burrows under the hill.
 chika    neutral       Burrows froze. The foundry's the warmest building in the city. They're not stealing. They're camping.
@@ -1572,3 +1573,21 @@ The scripts above are now data. Where the shipped text differs from the drafts i
 Checks: `tests/story/content.test.js` (speakers, backgrounds, music, sounds, portraits, tokens, bare names, banned words,
 the mystery rule, clue lines, line counts, blocking, emotes), `tests/story/format.test.js` and
 `tests/story/journal-data.test.js`.
+
+### 10.2 Editor pass
+
+A script edit over every scene in `src/data/story/scenes/` against this bible. The data still wins over the drafts in
+§7–§8; the voice-sheet samples in §5 and the drafts that echoed other works were updated so nobody reuses them.
+
+| Kind | Where | Change |
+|---|---|---|
+| sounded like another work | `ch3.mid`, `ch6.pro` | the armour's "None. Shall. Pass." is now "…Halt. Who comes… to the bell?" (it is lonely, not a gatekeeper); Raika's "thunder with extra steps" is now "My lightning never strikes just once!" (a thunder pun, as her sheet asks) |
+| continuity | `ch2.epi`, `ch3.epi` | Hikari relights the Moon-Pier Lantern and the Shrine Bell on their stage stills, not on the academy painting; the scene cuts to Academy Hill for Kage's tree and the next evening for Shiro (her mirror flashes in the moonlight) |
+| continuity | `ch5.epi`, `ch8.epi`, `ch8.pro` | goblins march *into* the foundry with blankets (they camp there in ch6, they don't carry boilers out); Rei's final ledger counts the heather (ch4) and the roses (ch1, "returned, slightly sticky"); Seiran's "too warm for spring" no longer fights the summer festival |
+| continuity | `lesson.recruit`, `lesson.home` | the ticket arrives in the Mail (the journal mails it); the Login gift line matches the journal ("missing a day never resets it") |
+| setups and payoffs | `ch6.mid`, `ch1.mid`, `ch4.mid`, `lesson.gear` | the scarf is seen before the Chieftain says "No touch scarf!" (it no longer depends on the choice), and the choice asks who knitted it ("Me. Took all winter."); Hikari no longer pre-empts Yuki's "Cold jelly. Slow jelly."; Kaede's choice no longer asks her to bow *back*; Chika mentions dice before Midori asks "Did someone say reroll?" (and gets a "No.") |
+| jokes | `opening`, `ch1.yuki`, `ch2.pro`, `ch7.mid`, `ch8.epi` | "Best seat on the wall. Well, the only seat." (was "in the academy"); Aoi actually rushes before Yuki says "don't rush"; the lamppost is named; Kaede stays on stage for her duel and answers "For the snacks" with "…Hm. Acceptable."; the last choice calls back the wall ("It's a very long wall") instead of "Same time next spring?" |
+| voice | `ch8.pro`, `ch5.pro`, `ch4.mid`, `ch7.mid`, `ch7.pro`, `ch6.noa` | Nami calls Hikari "Sunshine"; the Orc General's lines trimmed toward the six-word monster rule ("Send your STRONGEST! One fight! HONOUR!"); "little dawn" thinned to two per scene; Kanna owns her trophy in first person; Yoriko's puppets "talk of nothing else" (not "whisper"); Noa's join reply says she is coming |
+| repetition | several | "sprinting" ×2 in `ch1.yuki`, "silent… gone quiet" in `ch3.pro`, "sits… sit" in `ch6.epi`, the Hearthstone twice in two lines in `ch8.pro`, "warm" ×3 in the `ch8.mid` narration, Hikari's high-place lines; bare "First light." in ch4 and ch7 now has a few words of greeting to the stone |
+| clarity | `ch1.epi`, `ch3.umeko`, `ch4.pro`, `ch4.epi`, `ch5.mid`, `ch7.hana`, `ch7.epi`, `ch8.mid`, `ch8.epi` | the harbour cut is placed ("That evening…"); "Hear that?" for the clanking hook; orcs are "leaving the mountains" (not "leaving something"); the Confiscation Box is named when it is born; "we leave at sunrise" (keeps "First light" for relighting); "bog priests" for Grave Priests; Aoi's falcon line no longer promises a message; Sensei's ch7 choice names the mountain; the summit's "three trails" became every trail; the final note floats down "from above"; the closing call matches the opening ("Up here — on the wall!") |
+| warmth | `ch3.mid`, `ch3.epi`, `ch4.mid`, `ch6.epi`, `ch8.pro` | "Then we'll keep the watch with it" / "We'll keep the watch from now on"; Hikari tells the goblins "Nobody sleeps cold this spring"; Shiro and Midori are told they're coming ("lead the way", "You're with us") |
