@@ -7,6 +7,11 @@ tutorial outro, Chapter 1), Builder 3 (Chapters 2–8, lesson mini-scenes) and e
 **Where the two documents differ, follow this one for text and the spec for code.** The differences are listed in §10.
 The opening and the tutorial script in §8 are final and replace the drafts in spec §2.2–2.4.
 
+Status: complete. Every script block (27 episodes) was checked against the spec's limits: ≤ 120 characters per line,
+≤ 44 per choice, closed face list, no bare roster names (current 19 and the 11 later girls), banned words, ≤ 1 choice,
+≤ 4 portraits, 9–15 spoken lines per episode. Speaker, enemy, stage, background and music ids were checked against
+`units.js`, `enemies.js`, `stages.js` and spec §1.2.4/§1.6, and each boss's mechanic line against its phases in data.
+
 Contents
 1. [The story in one breath](#1-the-story-in-one-breath)
 2. [The world](#2-the-world)
@@ -146,7 +151,9 @@ know, which is the city. **Defeated monsters "poof" into sparkles and scurry hom
 | Dragons | Ashwing Peaks | ancient, proud, fiercely protective | the Matriarch woke early to nest | "RRRAAAH!" "MINE! WARM!" |
 
 Boss and NPC speakers use their enemy ids (`slime_prince`, `lizard_basilisk`, `ghost_hollowknight`, `orc_general`,
-`plant_treant`, `goblin_chief`, `oni_champion`, `dragon_ashwing`). **Wobble**, Yuki's pet slime, speaks as
+`plant_treant`, `goblin_machine`, `goblin_chief`, `oni_champion`, `dragon_ashwing`); all of them exist in `ENEMY_MAP`.
+Their plates read from data ("Hollow Samurai", "Elder Treant", "Goblin Chieftain"), so text calls them by role ("the
+armour", "the old willow", "the Chieftain") rather than repeating a plate name that may change. **Wobble**, Yuki's pet slime, speaks as
 `slime_droplet` with `name: 'Wobble'` (it only ever says "Bloop.").
 
 ### 2.6 Sensei
@@ -156,6 +163,11 @@ age and face are never shown or stated, and nobody describes them. Sensei speaks
 most) and almost never with a name plate. The girls trust Sensei's plans; Hikari treats Sensei as a partner and
 equal. Sensei's choices are always kind, sometimes silly, never mean and never romantic. Running secret: **Hikari
 herself asked for a Sensei** on the night the first stone dimmed (revealed in ch8.epi).
+
+**Open owner question (spec §8.1):** the player stays "Sensei" and Hikari keeps "Captain" until the owner says
+otherwise. Writers type "Sensei" as plain text. If the owner switches the player to "Captain", Builder 3 does one
+replace pass over `src/data/story/**` and the girls' lines that address *Hikari* as "Captain" (about 25, all easy to
+find with a search for `Captain`) move to her new title. Nothing in the plot depends on the word.
 
 ---
 
@@ -198,6 +210,11 @@ crosses off a suspect, and Sensei stays on the list "for suspicious timing" unti
 | ch8.pro | trace each stone's leaning light on the map and the lines all meet at the summit | Hikari, Shiro |
 | ch8.mid | **Reveal:** the nest sits on the Hearthstone; eggs; "The founders weren't writing a poem. They were writing instructions." | Luna, Hikari, Nami |
 | ch8.epi | **Payoff:** the Hearthstone is relit, all eight shine, the eggs hatch. "We've been keeping her eggs warm since the fountain." **Scale #8** is a gift. Hikari asked for Sensei. Board: "Sensei: CLEARED." | Aoi, Hikari, narrate |
+
+**What the player already knows.** The campaign map names stage 8-5 "The Ashwing Matriarch", and the chapter 8
+blurb mentions her nest. That is fine: the mystery is never *who lives on the peaks*. It is *why the stones are
+dimming*, and the twist is that nobody is stealing anything and that the Sentinels have been helping her all along.
+A player who guesses "the dragon did it" early is still surprised by the eggs and the reason.
 
 Rules: never use the words "dragon" or "Matriarch" for the culprit before ch7.epi (Midori may say "something much
 older"). Never let anyone blame Hikari aloud; the worry lives only in her own lines until ch7.epi. The scales are
@@ -263,6 +280,13 @@ hikari   wink         One petal at a time, Sensei. That's how you climb a mounta
 
 Names, titles and portraits come from data. Never describe hair colours or outfits in dialogue, because the roster
 merge is changing the art. Every sample line below is lint-clean and can be pasted into a scene.
+
+**Story cast versus the player's team.** As in Blue Archive, every girl lives at the academy and can appear in a
+scene whether or not the player has recruited her. Only the eight free girls *join* in the text (Yuki 1-2, Nami and
+Sango 1-5, Kage 2-5, Umeko 3-2, Shiro 3-5, Midori 4-5, Suzu 5-5, matching `acquisition` in `units.js`). Gacha girls
+(Luna, Akane, Raika, Miko, Momo, Hotaru, Kaede, Chika) are introduced as classmates or guardians with a club or a
+post, never as "now on your team", and no scene mentions pulls, rarity or the player's roster. The first time a girl
+speaks she says her club or someone introduces her, so Sensei meets everyone properly.
 
 ### 5.1 The guardians (adults; they mentor and never act romantic)
 
@@ -512,7 +536,24 @@ Each joke has a setup, beats along the way and a payoff. Pay off every one of th
 
 ## 7. Chapter-by-chapter outline (27 episodes)
 
-### 7.0 Episode map
+### 7.0 Chapters at a glance
+
+The whole arc on one page. Joins in **bold** (free girls, by stage). Every chapter: one wardstone relit with "First
+light", one warm grey scale found, one laugh, one quiet moment, and a boss who goes home better off.
+
+| Ch | Place · wardstone | What happens | Who appears | Heart · laugh | Hook into the next chapter |
+|---|---|---|---|---|---|
+| 0 | Academy Hill · (the fountain glows low) | Hikari waves to Sensei from the Wall; the stones are dimming; slimes eat the tulips; the coached first battle on 1-1; the Captain's Journal begins | Hikari, Aoi, Rei | A captain hiding worry behind sunshine · "Well, the only seat. It's a wall." and Rei's tulip funeral | "The fountain's glow is low again" |
+| 1 | Sakura Gardens · Fountain Stone | Yuki's "accidental" frost trips the goblins; the slimes crown a Slime Prince with Rei's roses on the Founders' Fountain; the first "First light"; scale #1 leans north | Hikari, Aoi, Rei, **Yuki** (1-2), **Nami, Sango** (1-5) | Yuki is welcome exactly as she is · the rose crown, Wobble the slime | Nami: lizardfolk are taking the lake lanterns; the Moon-Pier Lantern flickers |
+| 2 | Moonlit Lakeshore · Moon-Pier Lantern | Night patrol; lizards don't break lanterns, they cuddle them for warmth; a smug Bog Basilisk hugs the pier lantern; scale #2, "two's a pattern"; Kage's suspect board | Hikari, Nami, Sango, Aoi, Yuki, **Kage** (2-5) | Aoi's courage in the dark; Nami: "You don't have to carry the whole lake" · "It just gets very smug." | Kage: fog on Moonveil Shrine, its bell has gone silent |
+| 3 | Moonveil Shrine · Shrine Bell | Shy ghosts in incense fog; shrine manners; Umeko's boat and the bowing contest; the founders' record ("The heart keeps what it loves warm"); a lonely armour guarding a bell nobody rings; they ring it together | Miko, Kage, Aoi, **Umeko** (3-2), Hotaru, **Shiro** (3-5) | Hikari: "Standing watch alone… I know that feeling a little." · "It is a sacred roof." | Shiro: every relit light bends four degrees north; orc columns on Ironhold Pass |
+| 4 | Ironhold Pass · Pass Beacon | Armoured orcs are *leaving* the mountain, not attacking; Akane's rocket goes in the Confiscation Box; the Orc General wants a duel; "We win together"; the orcs become the pass's proud gatekeepers | Shiro, Akane, Rei, Kaede, **Midori** (4-5), Yuki | Kaede learns "together", and so does Hikari · Kaede bows to an orc | Midori: the marsh plants have started walking |
+| 5 | Gloomfen Marsh · Willow Root | Luna steps out of the fog ("little dawn") with a riddle; an old willow that is shivering, not cruel; "Where is the warmth going?" "North."; the mountain is named | Luna, Umeko, Midori, Hotaru, **Suzu** (5-5) | Hikari is someone's student again; Luna slows her down · the rude frog, "seventy percent, eighty if it's sunny" | Every bell rings: goblin engineers took the foundry |
+| 6 | Clockwork Foundry · Foundry Heart | Goblins camping in Chika's workshop because their burrows froze; the torque-wrench spoon; the Goblin Machine is a giant walking heater in a knitted scarf; Chika builds them proper heaters | Chika, Raika, Suzu, Akane, Momo | The "villains" were only cold · the scarf, the honk, "confiscated in advance" | A festival flyer with "OGRES??" on the back; Momo's concert is tonight |
+| 7 | Oni Festival · Festival Drum | Festival rules; the oni fled the smoking peaks; Kaede fences "for all of us"; the Confiscation Box becomes the fireworks; the Matriarch woke too early in the cold; Hikari's confession | Miko, Momo, Kaede, Akane, Luna, Nami (+ `ifUnit` Kanna, Yoriko) | The story's heart: "Maybe it was my fault." "You were never the shadow." · the oni rates the festival ten out of ten | "Ashwing Peaks, tomorrow. All of us. Together." |
+| 8 | Ashwing Peaks · Hearthstone | Base camp with half the academy and the bakery's buns; the lines on the map meet at the summit; the reveal: a mother keeping her eggs warm on the Hearthstone; calm her, don't hurt her; all eight stones shine, the eggs hatch, the trees bloom twice; Hikari asked for Sensei herself | Nami, Shiro, Luna, Aoi, then Rei and Yuki for the bookend (+ `ifUnit` Seiran, Hana, Noa) | "Stay behind me— no. Stand with me." / "I couldn't protect everyone alone. So I asked. And you came." · Wobble ate a lantern; "Sensei: CLEARED" | "Chapter one of many" (§7.10) |
+
+### 7.1 Episode map
 
 | # | id | Trigger | Title | Cast (portraits) | One-line beat |
 |---|---|---|---|---|---|
@@ -761,7 +802,7 @@ and the bell rung together.*
 
 ```text
 narrate                Incense fog rolls down the shrine steps. Somewhere inside it, something giggles.
-miko     smile         Welcome to Moonveil Shrine, Sensei. Please bow at the gate, wash your hands, and mind the ghosts.
+miko     smile         Welcome to Moonveil Shrine, Sensei. I am {name:miko}, its keeper. Please bow, wash your hands, and mind the ghosts.
 miko     pout          Captain. Please come down from the roof. It is a sacred roof.
 hikari   sweat         Sorry, sorry! Best lookout on the hill!
 miko     neutral       Our bell has been silent for seven days. Its wardstone sits in the clapper, and it has gone quiet.
@@ -875,7 +916,7 @@ lesson Hikari is teaching herself too.*
 ```text
 narrate                Ironhold Pass. Wind, stone, and the steady thump of iron boots.
 shiro    neutral       Briefing. Ironhide orcs. Plate armour. Small hits bounce off. Big, piercing hits do not.
-akane    joy           Big hits?! Leave it to me! I'll bring exactly the right amount of boom!
+akane    joy           Big hits?! Leave it to {name:akane} of the pyrotechnics club! Exactly the right amount of boom!
 hikari   wink          A polite amount of boom, {name:akane}. And I'll hold on to this rocket for now.
 akane    pout          Aww! That's my favourite one! It has a heart painted on it!
 hikari   laugh         It goes in the box. You'll get it back someday. I promise.
@@ -901,7 +942,7 @@ hikari   determined    Sentinels, hold the pass!
 ```text
 narrate                At Ironhold Gate, the dark beacon tower looms. On its steps stands a very large orc.
 orc_general determined I am the General! Send your STRONGEST! One fight! HONOUR!
-kaede    sparkle       A duel? With a general? Sensei, please let me answer him. I'll bow first, of course.
+kaede    sparkle       {name:kaede}, fencing club. A duel with a general? Sensei, let me answer him. I'll bow first, of course.
 hikari   smile         {name:kaede}, I love that spirit. But we don't duel. We win together.
 kaede    pout          …Together. Hm. Together is acceptable. This time.
 orc_general sad        Also. Mountain grumbles. Big sleeper wakes up. We are NOT going back up there.
@@ -1052,7 +1093,7 @@ narrate                The Clockwork Foundry. Steam, gears, and the clatter of m
 chika    pout          That's MY workshop. They borrowed my tools. They are using my torque wrench as a spoon.
 hikari   laugh         Sensei, this is {name:chika}, robotics club. She built half the machines in this place.
 chika    neutral       Two-thirds. And the crystal vats grow shells on everything. Each shell blocks the big hits.
-raika    joy           Many small hits, then? That's just thunder with extra steps! Leave it to me!
+raika    joy           {name:raika}, weather club! Many small hits? That's just thunder with extra steps! Leave it to me!
 chika    neutral       Rapid hits crack shells. Fast girls, fast arrows, and lots of them.
 suzu     question      But why are the goblins even here? They usually stay in their burrows under the hill.
 chika    neutral       Burrows froze. The foundry's the warmest building in the city. They're not stealing. They're camping.
@@ -1062,10 +1103,11 @@ hikari   determined    Sentinels, let's get {name:chika}'s workshop back!
 ```
 
 #### `ch6.mid` · before 6-5 · "The Goblin Machine"
-`stage:6-5` · `danger` · chika, akane, hikari, raika · NPC `goblin_chief`
+`stage:6-5` · `danger` · chika, akane, hikari, raika · NPC `goblin_machine`, `goblin_chief`
 
 * **What happens:** in the hangar stands something enormous made of boilers, pipes and Chika's spare parts. It is a
-  giant walking heater, and it is wearing a knitted scarf. Chika is offended by the welding. Akane admires the boom
+  giant walking heater, it honks (its bestiary lore says so), and it is wearing a knitted scarf. The Goblin
+  Chieftain rides on top and does the talking. Chika is offended by the welding. Akane admires the boom
   potential; Hikari confiscates the idea in advance.
 * **Emotional beat:** pure comedy, with a soft centre (somebody knitted it a scarf).
 * **Mechanic (2 lines):** break its barrier twice, then watch for the sappers it launches.
@@ -1073,6 +1115,7 @@ hikari   determined    Sentinels, let's get {name:chika}'s workshop back!
 
 ```text
 narrate                In the foundry hangar stands something enormous, built from boilers, pipes and somebody's spare parts.
+goblin_machine sparkle HONK.
 chika    surprise      Those are MY spare parts. And who welded that seam? Did they weld it with a SPOON?
 goblin_chief joy       Machine warm! Machine OURS!
 akane    sparkle       Look at all those boilers! Captain, the boom potential is incredible—
@@ -1107,7 +1150,7 @@ chika    pout          Fine. FINE. I'll build them proper little heaters for the
 narrate                The goblins cheer, bow, and hurry home. One of them drops a bright paper flyer.
 suzu     question      "Summer Lantern Festival, tonight!" …And somebody wrote "OGRES??" on the back.
 cue                    exit suzu, enter momo right (hop)
-momo     joy           Not ogres, oni! And tonight is MY concert night! Sensei, Captain, you have to come!
+momo     joy           Not ogres, oni! I'm {name:momo}, idol club, and tonight is MY concert! Sensei, Captain, you have to come!
 momo     sparkle       I wrote a new song about our adventure! "The Ballad of the Six Grey Scales"!
 chika    deadpan       That's not a ballad. That's a list.
 momo     wink          A list with a beat! Ready? One, two—
@@ -1255,7 +1298,7 @@ hikari   determined    Sentinels, up the mountain!
   embers. Beneath it the Hearthstone burns red-gold, drinking warmth from every stone in the ring. **The reveal:** a
   mother woke too early in a cold spring with eggs to keep warm, and the heart did what the founders built it to do.
   She rampages because she thinks the Sentinels have come to take the stone.
-* **Emotional beat:** Hikari: "We protect what we love. So does she." Aoi aims "for her wings, not her heart". Hikari
+* **Emotional beat:** Hikari: "We protect what we love. So does she." Aoi aims "only to slow her wings". Hikari
   completes her arc: "Stay behind me— no. Stand with me."
 * **Mechanic (1 line):** she takes flight as she tires, lands in armour, then flies once more; keep anti-air ready.
 * **Hook:** for the ward, and for her little ones.
@@ -1270,7 +1313,7 @@ hikari   sad           She woke too early, in a cold spring, with eggs to keep w
 nami     neutral       Nobody was stealing anything. A mother was keeping her children warm.
 dragon_ashwing pout    GO AWAY! NOT YOURS!
 hikari   determined    We protect what we love. So does she. We're not here to hurt her. We're here to calm her down.
-aoi      determined    Then I'll aim for her wings, not her heart. Just enough to help her land.
+aoi      determined    Then I'll only aim to slow her wings. Just enough to help her land.
 hikari   determined    She takes flight as she tires, lands in armour, then flies once more. Keep your anti-air ready!
 choice                 1) Then we'll keep them warm too.
   hikari smile           We will. That's a promise, Sensei.
@@ -1333,7 +1376,23 @@ mechanics, so these add character.
   Mostly." Hook: "Duplicates become Star Fragments. Nothing goes to waste here."
 * **`lesson.gear`, "Dress for the Adventure"** (`academy-day`, hikari, chika, midori): Chika explains enhancing and
   makes a joke about spoons; Midori wants to reroll everything "for science"; Hikari: "Always read the cost before
-  you roll!" Hook: the lock pin keeps your favourite substat safe.
+  you roll!" Hook: the lock pin keeps your favourite substat safe. (Lesson `gear` unlocks at 2-1, before the
+  player meets Chika in ch6, so Hikari introduces her here: "{name:chika} from the robotics club. She'll explain.")
+
+### 7.10 After chapter 8: seeds for later content (not built in this branch)
+
+"Chapter one of many" is a promise; these threads are left open on purpose, so events and side stories can pick
+them up without contradicting anything.
+
+* **The hatchlings.** Three tiny dragons now live on a quieter peak. One of them has a habit of following warm
+  things (lanterns, bakery ovens, Akane). A good light event: "The Little One Who Followed the Buns".
+* **The founders.** The record in ch3 hints that the founders left other "instructions" in poems around the city.
+  The City hub port (`docs/merge/world.md` §0.2) can hide one per district.
+* **The new girls.** The eleven later girls (§5.6) arrive through side stories once the roster lands. Their `ifUnit`
+  cameos in ch4, ch7 and ch8 already place them in the world, so their own stories can start from those lines.
+* **The summer coast.** The old game's ten-episode beach story ports as a seasonal event with non-swimwear outfits
+  (task #66). Nami, Sango and Umeko lead it; Hikari brings "a detailed schedule for relaxing".
+* **Kage's next board.** "SUSPECT BOARD, SEASON TWO" can open any mystery event; Sensei is always on it.
 
 ---
 
@@ -1357,7 +1416,7 @@ scene('opening', { title: 'Meet Hikari', chapter: 0, kind: 'opening', trigger: {
   say('hikari', 'I\'m {name:hikari}, Captain of the Sentinel Guard. Welcome to Sakura Academy!', { face: 'smile' }),
   choice([
     { text: 'Nice to meet you, Captain!', lines: [say('hikari', 'Just {name:hikari} is fine. We\'re partners from today, after all.', { face: 'wink' })] },
-    { text: 'Do you greet everyone from the top of a wall?', lines: [say('hikari', 'Only the important ones! …And the bakery delivery girl. She was very impressed.', { face: 'sweat' })] },
+    { text: 'Do you greet everyone from a wall?', lines: [say('hikari', 'Only the important ones! …And the bakery delivery girl. She was very impressed.', { face: 'sweat' })] },
   ]),
   cue({ bg: 'academy-day', music: 'home', enter: [{ who: 'hikari', at: 'center' }] }),
   say('hikari', 'The academy asked for a Sensei who can read a battlefield. That\'s you — I\'ve been looking forward to this.', { face: 'smile' }),
@@ -1487,5 +1546,8 @@ Spoken lines: hikari ×5, aoi ×2, rei ×2 = 9, plus the cue. If the counter nee
 | §4.4 `ch7.epi` | Momo exits before the guardians talk; Sensei's one choice sits in the confession | adults' moment, Sensei's voice where it matters |
 | §4.4 `ch8.pro` | music `march` instead of `matsuri` | base camp "let's go" (optional) |
 | §4.4 `ch8.epi` | backgrounds `stage:8-5` → `academy-day` → `cg:hikari-rampart`; music `wish` → `home` → `title` | the hatching happens on the summit; the Wall bookends the opening |
-| §4.4 `ch6.mid` | the Goblin Machine is a giant walking heater | ties the boss to the cold-spring mystery |
+| §4.4 `ch6.mid` | the Goblin Machine is a giant walking heater; `goblin_machine` honks once and the Chieftain (`goblin_chief`) talks | ties the boss to the cold-spring mystery; both ids exist |
+| §4.4 `ch1.yuki` | Yuki froze a *birdbath*, not the fountain | the fountain holds the first wardstone and the Slime Prince sits on it in `ch1.mid` |
+| §4.4 first appearances | Akane, Kaede, Raika, Miko and Momo say their club (or post) the first time they speak | Sensei meets every girl properly (§5) |
 | NPCs | Wobble speaks as `slime_droplet` with `name: 'Wobble'` | the id exists in `ENEMY_MAP` |
+| §3.3 / §3.5 UI strings | write Hikari's name as `{name:hikari}` in `featureLockText`, the journal toast and the legacy announce toast (e.g. "Equipment unlocks after {stage:2-1} — {name:hikari} will teach you!") | same rename safety as scenes; the strings resolve through the same token helper |
