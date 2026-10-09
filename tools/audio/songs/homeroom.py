@@ -20,10 +20,12 @@ trumpet fills, music box). The menus fade the melody stem out without restarting
                    the Bell in F and a chromatic walk-up (C7♭9) back to the head
 Form: intro |: H H2 Br S :|  — 2 + 32 bars (61 s loop).
 
-Taste rules (r3 study/taste.md): bass walks 6-7 notes a bar (two 8th-triplet skips, octave pops on 2& or 3&,
-a chromatic enclosure into every bar line); the band pushes the and-of-2 and the and-of-4 together (ride, Rhodes
-anticipation, bass skip, snare/kick comping); every melody stop is answered; a counter-line in H2; fills in bars 4
-and 8; breakdown = the bass solo, lift = the G shout chorus, feature = trading twos.
+Taste rules (r3 study/taste.md): bass walks ~7 notes a bar (8th-triplet skips, octave pops on 1& / 3&, strong beats
+on chord tones, a chromatic enclosure into every bar line; a chip triangle doubles it an octave up for phones); the
+band pushes the and-of-2 and the and-of-4 together (ride, Rhodes anticipation, bass skip, snare/kick comping); every
+melody stop is answered; a counter-line in H2; fills in bars 4 and 8; breakdown = the bass solo, lift = the G shout
+chorus, feature = trading twos. Comping is voiced against the tune (`_horns.comp(against=…)`): no minor 2nds / 9ths
+under the melody, keys stay below it, and the Rhodes hits the horns' pushes instead of anticipating past them.
 
 review: originality — the head, the bridge tune, the bass solo, the counter-line, the shout writing and the
 re-harmonisation are new; the main theme (§4.3) and the BELL motif are the project's own. Written to the jazz idiom
@@ -35,18 +37,18 @@ lobby themes): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
 from sakura_audio.song import Song
 from motifs import BELL
 from _home import bars
-from _horns import line, comp, harmonize, put, notes_of, grid
+from _horns import line, comp, harmonize, put, notes_of, grid, pattern
 
 CH_INTRO = 'Bbmaj9 | C13sus4 C7b9'
 CH_H = 'Fmaj9 | D7b9 | Gm9 | C13 C7b9 | Am7 D7b9 | Gm9 C13 | F69 Bb13 | Gm9 C7b9'
 CH_H2 = 'Fmaj9 | D7b9 | Gm9 | C13 C7b9 | Am7 D7b9 | Gm9 C13 | Fmaj9 Eb9 | Cm9 F13'
-CH_BR = 'Bbmaj9 | Gm9 | Cm9 | F13 | Dm7 Db7 | Cm9 F7b9 | Bbmaj9 Ebmaj7#11 | Am7 D7b9'
+CH_BR = 'Bbmaj9 | Gm9 | Cm9 | F13 | Dm7 Db7 | Cm9 F7b9 | Bbmaj9 Ebmaj7#11 | Am7 D9'
 CH_S = 'G69 | Em9 A13 | C69 Cm6 | Am7 Ab7#11 | Gm9 | C13 Gb7#11 | F69 | Gm9 C7b9'
 
 # ---- the vibes head: 2-bar cells, the second bar stops on beat 3 for the horns
 HEAD = [
     'c5/8 e5/8 g5/4 a5/8 c6/4 a5/8',             # 1 Fmaj9    da-da DAH da DAH da
-    'g5/8 f#5/8 a5/8 eb5/8~ eb5/2',              # 2 D7♭9     bebop turn onto the ♭9 … shout
+    'a5/8 g5/8 f#5/8 eb5/8~ eb5/8 r/8 r/4',      # 2 D7♭9     bebop fall onto the ♭9, handed to the shout
     'd5/8 f5/8 a5/4 bb5/8 d6/4 bb5/8',           # 3 Gm9      the cell a step up
     'a5/8 g5/8 bb5/8 e5/8~ e5/2',                # 4 C13 C7♭9 … shout
     'e5/8 g5/8 c6/4 eb6/8 d6/4 c6/8',            # 5 Am7 D7♭9
@@ -68,7 +70,7 @@ BOSSA = [                                        # the bridge tune (straight 8th
     'c6/4 a5/8 f5/8~ f5/8 ab5/8 b5/4',           # 5 Dm7 D♭7
     'bb5/8 g5/8 eb5/8 d5/8~ d5/2',               # 6 Cm9 F7♭9 … muted trumpet answers
     'd5/8 f5/8 a5/8 c6/8~ c6/4 a5/8 g5/8',       # 7 B♭maj9 E♭maj7♯11
-    'e5/4 c5/8 a4/8~ a4/2',                      # 8 Am7 D7♭9 … the music box asks the Bell in G
+    'e5/4 c5/8 a4/8~ a4/2',                      # 8 Am7 D9   … the music box asks the Bell in G
 ]
 # shout chorus lead (trumpet): main theme bars 1-4 lifted to G, then the answer to the bass solo
 SHOUT = [
@@ -87,17 +89,19 @@ SH_H2 = ['r/1', 'r/1', 'r/1', "r/2 g4/8 c5/8 a4/8! bb4/8'", 'r/1', 'r/1', 'r/1',
 SH_BR = ['r/1', 'r/1', 'r/1', "r/2 c5/8 f5/8 d5/8 eb5/8'", 'r/1', 'r/1', 'r/1', "r/2 a4/8 d5/8 b4/8 c5/8'"]
 # melody-stem fills and the counter-line
 MUTE_H2 = ['r/1', 'r/2 f#4/8 a4/8 c5/8 eb5/8', 'r/1', 'r/1', 'r/1', 'r/2 e5/8 d5/8 bb4/8 a4/8', 'r/1', 'r/1']
-MUTE_BR = ['r/1', 'r/2 d5/8 bb4/8 g4/8 a4/8', 'r/1', 'r/1', 'r/1', 'r/2 a4/8 c5/8 eb5/8 gb5/8', 'r/1', 'r/1']
-CLAR_H2 = ['a4/2 g4/4 e4/4', 'f#4/2. eb4/4', 'f4/2 d4/4 a4/4', 'bb4/2 a4/4. db5/8',
+MUTE_BR = ['r/1', 'r/2 d5/8 bb4/8 g4/8 a4/8', 'r/1', 'r/1', 'r/1', 'r/2 a4/8 c5/8 f5/8 gb5/8', 'r/1', 'r/1']
+CLAR_H2 = ['a4/2 g4/4 e4/4', 'f#4/2. eb4/4', 'f4/2 d4/4 g4/4', 'bb4/2 r/2',
            'g4/2 f#4/2', 'f4/2 e4/4. g4/8', 'e4/2 g4/2', 'eb4/2 a4/2']
 # bass solo (trading twos, S bars 5-6): a swung bebop line, then the horns answer
 BASS_SOLO = ['g2/8 a2/8 bb2/8 d3/8 f3/8t g3/8t f3/8t d3/8 bb2/8',
              'e3/8 c3/8 a2/8 bb2/8~ bb2/8 ab2/8 gb2/8 e2/8']
 
 # ---- bass patterns (degrees, see _horns.line): skip on 2&, chromatic enclosure on 4 / 4&
-WALK = ['R/4 3/8 4?/8 5/4 au/8 ap/8', 'R/4 8/8 R?/8 5/4 au/8 ap/8', 'R/8 8?/8 5/8 b6?/8 6/4 au/8 ap/8',
-        'R/4 3/8 5?/8 R/8 8/8 au/8 ap/8']
-WALK_H = ['R/4 5/8 ap/8', 'R/4 au/8 ap/8', 'R/4 8/8 ap/8', 'R/4 au/8 ap/8']
+WALK = ['R/4 3/8 4?/8 5/8 8/8 au/8 ap/8',           # octave pop on 3&, enclosure into the bar line
+        'R/4 5/8t 6?/8t 7/8t 8/4 au/8 ap/8',         # 8th-triplet skip up to the octave
+        'R/8 8?/8 7/8 6?/8 5/8 8/8 au/8 ap/8',       # ghosted pop on 1&, down 7-6-5, pop on 3&
+        'R/4 3/8 5?/8 8/8t 7/8t 5/8t au/8 ap/8']     # triplet fall from the octave
+WALK_H = ['R/4 5/8 ap/8', 'R/8 8/8 au/8 ap/8', 'R/8t 3/8t 5/8t au/8 ap/8', 'R/4 au/8 ap/8']
 BOSSA_B = ['R/4. 5/8 8/4 5/8 ap/8', 'R/4. 5/8 5/4 8/8 ap/8']
 BOSSA_H = ['R/4. 5/8', 'R/4 au/8 ap/8']
 
@@ -105,21 +109,30 @@ BOSSA_H = ['R/4. 5/8', 'R/4 au/8 ap/8']
 RIDE = 'rd/4 rd+ph!/8 rd?/8 rd/4 rd+ph!/8 rd?/8 |'
 RIDE_C = 'rd+c/4 rd+ph!/8 rd?/8 rd/4 rd+ph!/8 rd?/8 |'
 COMP = 'k?/4 r/8 s?/8 k?/4 r/8 k/8 | k?/4 r/8 s?/8 s/8 s?/8 k!/8 k/8 |'      # bar 2 kicks the shout
+FILL2 = 'k?/4 r/8 s?/8 k?/4 s/8t s?/8t t1?/8t |'                       # H2: a ghosted triplet under the mute's fill
 FILL4 = 'k?/4 r/8 s?/8 s/8t s?/8t s/8t t1/8 t2/8 |'
 FILL8 = 'k?/4 s/8t s?/8t s/8t t1/8t t1?/8t t2/8t t2/8t t3/8t t3/8t |'
 FILL6S = 'k?/4 r/8 s?/8 s/8t s/8t s/8t s/8t t1/8t t3/8t |'
 BRUSH = 'k+rs/8 h?/8 h/8 k+rs/8 k+h/8 h?/8 rs/8 k+h/8 | k+h/8 h?/8 rs/8 k+h/8 k+rs/8 h?/8 h/8 k+h/8 |'
 BRUSH_C = 'k+c/8 h?/8 h/8 k+rs/8 k+h/8 h?/8 rs/8 k+h/8 |'
+BRUSH_F2 = 'k+h/8 h?/8 rs/8 k+h/8 k+rs/8 h?/8 s/16 s?/16 t1?/8 |'
 BRUSH_F4 = 'k+rs/8 h?/8 h/8 k+rs/8 s/16 s? s s? t1/8 t2/8 |'
 BRUSH_F8 = 'k+h/8 h?/8 s/16 s? s s t1/16 t1 t2 t2 t3/16 t3 t3 t3 |'
 CONGA = 'cg+sh/8 sh?/16 cg+sh?/16 sh/16 sh?/16 cgl+sh/16 sh?/16 bg+sh/16 sh?/16 bg+sh?/16 sh?/16 cg+sh/16 sh?/16 cgl+sh?/16 sh?/16 |'
 
 # ---- Rhodes comping: anticipations on the and-of-2 and the and-of-4 ('next' = the chord half a beat later)
-RH = {0: [(1.5, 0.5, -4, 'next'), (3.5, 0.75, 0, 'next')]}
-RH_ODD = [[(0, 0.5, -10), (1.5, 0.5, -4, 'next'), (3.5, 0.75, 0, 'next')], [(1.5, 0.5, -2, 'next'), (3.5, 0.75, 2, 'next')]]
+RH = {0: [(1.5, 0.5, -4), (3.5, 0.5, 0)], 3: [(2, 0.5, -4), (3.5, 0.5, 0)]}   # S: the Rhodes hits with the soli (no
+#   anticipations: the horns voice every note on the chord it starts on)
+BOSSA_GTR = [[(0, 0.75, 0), (1.5, 0.5, -8), (2.5, 0.5, -4), (3.5, 0.5, -10)],
+             [(0.5, 0.5, -6), (1.5, 0.5, -2), (3, 0.5, -4), (3.5, 0.5, -8, 'next')]]
+_RO, _RE = [(0, 0.5, -10), (1.5, 0.5, -4, 'next'), (3.5, 0.75, 0, 'next')], [(1.5, 0.5, -2, 'next'), (3.5, 0.75, 2, 'next')]
+RH_ODD = {1: _RO, 2: _RE, 3: _RO, 4: _RE, 5: _RO, 6: _RE, 7: _RO, 8: [(1.5, 0.5, -2, 'next'), (3.5, 0.5, 4)]}   # bar 8: hit
+#   the shout's last push with the horns (no anticipation of the next section)
 GTR4 = [[(0, 0.6, 0), (1, 0.6, -10), (2, 0.6, -4), (3, 0.6, -10)]]
+PAD_BR = {0: [(0, 4, 0)], 5: [(0, 2, 0), (2, 2, -4)], 6: [(0, 2, 0), (2, 2, -4)], 7: [(0, 2, 0), (2, 2, -4)],
+          8: [(0, 2, 0), (2, 2, -4)]}
 STAB_S = {1: [(2.5, 0.5, 0)], 4: [(1, 0.5, 0)], 5: [(0, 0.5, 6), (1.5, 0.5, 0), (3.5, 0.5, 2)],
-          6: [(0, 0.5, 6), (1.5, 0.5, 0, 'next'), (3, 0.5, 2)], 7: [(3, 0.5, 0)], 8: [(0.5, 0.5, 2)]}
+          6: [(0, 0.5, 6), (1.5, 0.5, 0), (3, 0.5, 2)], 7: [(3, 0.5, 0)], 8: [(0.5, 0.5, 2)]}
 
 
 def build() -> Song:
@@ -139,20 +152,26 @@ def build() -> Song:
     s.section('H2', 8, CH_H2)
     s.section('Br', 8, CH_BR, swing=0)
     s.section('S', 8, CH_S)
+    # the melody each section's comping must stay clear of (minor 2nds / 9ths, register)
+    M_H, M_H2 = notes_of(bars(*HEAD)), notes_of(bars(*HEAD[:4], *HEAD2_END))
+    M_BR, M_S = notes_of(bars(*BOSSA)), notes_of(bars(*SHOUT))
+    X_H2 = [notes_of(bars(*CLAR_H2)), notes_of(bars(*MUTE_H2)), notes_of(bars(*SH_H2))]
+    X_BR = [notes_of(bars(*MUTE_BR)), notes_of(bars(*SH_BR))]
 
     # ================================================================ base (= Study Hall)
     s.part('box', 'music_box', 'base', vel=4).notes('intro', bars(
         BELL.question('F', 6) + ' r/8', BELL.answer('F', 6) + ' r/2'), motifs={1: BELL})
 
     # rhythm section
-    ride = s.part('ride', 'drums_jazz', 'base', vel=-12, gain=5)
+    ride = s.part('ride', 'drums_jazz', 'base', vel=-12, gain=7)
     ride.pattern(['H', 'H2'], RIDE, fills={1: RIDE_C, 5: RIDE_C}).pattern('S', RIDE, fills={1: RIDE_C, 5: RIDE_C, 7: RIDE_C})
     kit = s.part('kit', 'drums_jazz', 'base', vel=-10)
-    kit.pattern(['H', 'H2'], COMP, fills={4: FILL4, 8: FILL8}) \
-        .pattern('S', COMP, fills={4: FILL4, 6: FILL6S, 8: FILL8})
-    s.part('brush', 'drums_brush', 'base', vel=-6) \
-        .notes('intro', 'k?/4 s?/8 s?/8 k?/4 s?/8 s/8 | k?/4 s?/8 s?/8 s/8t s?/8t s/8t t1/8 t2/8') \
-        .pattern('Br', BRUSH, fills={1: BRUSH_C, 4: BRUSH_F4, 5: BRUSH_C, 8: BRUSH_F8})
+    pattern(kit, 'H', COMP, fills={4: FILL4, 8: FILL8})              # _horns.pattern: 2-bar comping, fills on 4 / 8
+    pattern(kit, 'H2', COMP, fills={2: FILL2, 4: FILL4, 6: FILL2, 8: FILL8})
+    pattern(kit, 'S', COMP, fills={4: FILL4, 6: FILL6S, 8: FILL8})
+    brush = s.part('brush', 'drums_brush', 'base', vel=-6) \
+        .notes('intro', 'k?/4 s?/8 s?/8 k?/4 s?/8 s/8 | k?/4 s?/8 s?/8 s/8t s?/8t s/8t t1/8 t2/8')
+    pattern(brush, 'Br', BRUSH, fills={1: BRUSH_C, 2: BRUSH_F2, 4: BRUSH_F4, 5: BRUSH_C, 6: BRUSH_F2, 8: BRUSH_F8})
     s.part('perc', 'drums', 'base', vel=-34, gain=3).pattern('Br', CONGA)
 
     bass = s.part('bass', 'upright_bass', 'base', vel=0, gain=-2.5)
@@ -169,18 +188,18 @@ def build() -> Song:
 
     rh = s.part('rhodes', 'rhodes', 'base', vel=-12, gain=4)
     rh.gen('intro', 'pad:sustain', voicing='rootless', low=55, high=72, vel=60)
-    put(rh, 'H', comp(CH_H, RH_ODD, low=53, high=69, vel=78))
-    put(rh, 'H2', comp(CH_H2, RH_ODD, low=53, high=69, vel=78, nxt='Bbmaj9'))
-    rh.gen('Br', 'pad:sustain', voicing='rootless', low=55, high=70, vel=54)
-    put(rh, 'S', comp(CH_S, RH, low=53, high=69, vel=80, skip=(5, 6), nxt='Fmaj9'))
+    put(rh, 'H', comp(CH_H, RH_ODD, low=53, high=69, vel=78, against=M_H))
+    put(rh, 'H2', comp(CH_H2, RH_ODD, low=53, high=69, vel=78, nxt='Bbmaj9', against=M_H2, also=X_H2))
+    put(rh, 'Br', comp(CH_BR, PAD_BR, low=55, high=70, vel=54, gate=1.0, against=M_BR, also=X_BR))
+    put(rh, 'S', comp(CH_S, RH, low=53, high=69, vel=80, skip=(5, 6), nxt='Fmaj9', against=M_S))
     put(s.part('rh_stab', 'rhodes', 'base', vel=-12), 'S',
-        comp(CH_S, STAB_S, low=55, high=72, vel=86, skip=(2, 3)))
+        comp(CH_S, STAB_S, low=55, high=72, vel=86, skip=(2, 3), against=M_S))
 
     gtr = s.part('gtr', 'jazz_gtr', 'base', vel=-6, gain=1)
-    put(gtr, 'H', comp(CH_H, GTR4, low=50, high=62, style='shell', vel=70))
-    put(gtr, 'H2', comp(CH_H2, GTR4, low=50, high=62, style='shell', vel=70))
-    gtr.gen('Br', 'comp:bossa', voicing='rootless', low=52, high=66, vel=66)
-    put(gtr, 'S', comp(CH_S, GTR4, low=50, high=62, style='shell', vel=74, skip=(5, 6)))
+    put(gtr, 'H', comp(CH_H, GTR4, low=55, high=66, style='shell', vel=70, against=M_H, also=[rh.bodies['H']]))
+    put(gtr, 'H2', comp(CH_H2, GTR4, low=55, high=66, style='shell', vel=70, against=M_H2, also=X_H2 + [rh.bodies['H2']]))
+    put(gtr, 'Br', comp(CH_BR, BOSSA_GTR, low=55, high=67, vel=66, gate=0.6, against=M_BR, also=X_BR + [rh.bodies['Br']]))
+    put(gtr, 'S', comp(CH_S, GTR4, low=55, high=66, style='shell', vel=74, skip=(5, 6), against=M_S, also=[rh.bodies['S']]))
 
     # the horn section: shouts in the melody stops (H, H2, Br) and the shout chorus (S)
     sec = s.part('sec_tpt', 'muted_trumpet', 'base', vel=2, gain=4)
@@ -199,7 +218,8 @@ def build() -> Song:
         put(p, 'S', v)
     # trombone backgrounds under H2 (soft guide-tone pads)
     put(s.part('bg', 'trombone', 'base', vel=-30, gain=4), 'H2', comp(CH_H2, [[(0, 2, 0), (2, 2, -6)]], low=50, high=62,
-                                                              style='shell', vel=60))
+                                                              style='shell', vel=60, against=M_H2,
+                                                              also=X_H2 + [rh.bodies['H2']]))
 
     # ================================================================ melody (the lobby's tune on top)
     vib = s.part('vibes', 'vibes_dry', 'melody', vel=6, gain=2.5)

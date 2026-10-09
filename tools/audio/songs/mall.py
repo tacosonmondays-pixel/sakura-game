@@ -19,6 +19,8 @@ Form: intro |: A B A2 :|  — 1 + 24 bars (50 s loop).
 Taste rules (r3 study/taste.md): slap bass 10 notes a bar (octave pops on every "and", ghost 16ths, a chromatic
 approach into every bar line); every second bar ends in a brass BAM or a steel reply; kick + bass + guitar + keys +
 hats push the "ands" together; a counter-line in A2; fills in bars 4 and 8; breakdown = the bass solo, lift = A♭.
+Keys, clavinet, guitar and the bridge strings are voiced against the tune and the brass (no minor 2nds / 9ths); in
+bars with a brass BAM the keys hit 4& with the horns instead of anticipating the next chord.
 
 review: originality — the hook, the bridge tune, the bass lines, the brass writing and the counter-line are new;
 BELL is the project's own motif. The IV–V/IV–iii–VI progression is a generic J-pop/city-pop idiom (not a song);
@@ -29,7 +31,7 @@ Deltarune shops, EarthBound, Persona): no shared hook or contour. Composer B1, 2
 from sakura_audio.song import Song
 from motifs import BELL
 from _home import bars, tr
-from _horns import line, comp, harmonize, put, notes_of, grid
+from _horns import line, comp, harmonize, put, notes_of, grid, pad_rhythm
 
 CH_INTRO = 'Am7 D7'
 CH_A = 'Cmaj9 | D/C | Bm7 | E7b9 | Am9 | D9sus4 D7 | Gmaj9 Em9 | Am7 D7'
@@ -67,9 +69,9 @@ BAM_B = ['r/1', "r/2 r/16 f4/16 bb4/8! r/16 bb4/16 d5/8!", 'r/1', "r/2 r/16 f4/1
 BAM_A2 = ['r/1', 'r/1', 'r/1', "r/2 r/16 a4/16 c5/8! r/16 a4/16 eb5/8!", 'r/1', 'r/1', 'r/1', 'r/1']
 STEEL_A2 = ['g6/4 r/2.', "r/2 r/16 a6/16' f#6/16' d6/16' r/16 f#6/16' a6/8'", 'r/1', 'r/1',
             'r/1', "r/2 r/16 bb6/16' g6/16' eb6/16' r/16 g6/16' bb6/8'", 'r/1', 'r/1']
-COUNTER_A2 = ['g4/2 b4/2', 'a4/2 f#4/2', 'f#4/2 a4/2', 'a4/2 gb4/2', 'f4/2 db5/2', 'db5/2 g4/2', 'c5/2 ab4/2', 'g4/2 f#4/2']
+COUNTER_A2 = ['g4/2 b4/2', 'a4/2 f#4/2', 'f#4/2 a4/2', 'a4/2 gb4/2', 'f4/2 db5/2', 'bb4/2 g4/2', 'c5/2 ab4/2', 'g4/2 f#4/2']
 BELL_FILL = 'r/4 ' + BELL.question('G', 6, rhythm=('8', '8', '4', '4'))      # bar 8: d6 g6 e6 f♯6 (question)
-CHACHING = "r/2. c7/32 e7/32 g7/32 c8/32 r/8"                                   # chip "cha-ching" after the bridge BAMs
+CHACHING = "r/2. c6/32 e6/32 g6/32 c7/32 r/8"                                   # chip "cha-ching" after the bridge BAMs
 
 # ---- grooves
 SLAP = ['R/8 8/8 R/16 R?/16 8/8 5/8 8/8 7/16 8?/16 ap/8', 'R/8 8/8 R/8 8/16 7?/16 5/8 8/8 R/16 3/16 ap/8']
@@ -85,6 +87,9 @@ SCRATCH = [[(0.25, 0.2, -18), (0.75, 0.2, -10), (1.25, 0.2, -18), (1.5, 0.25, 4)
             (2.75, 0.2, -10), (3.25, 0.2, -18), (3.5, 0.25, 4), (3.75, 0.2, -12)]]
 KEYS = [[(1.5, 0.4, 0), (3.5, 0.4, 2, 'next')]]
 CLAV = [[(0.75, 0.2, -8), (1.5, 0.25, 2), (2.75, 0.2, -8), (3.5, 0.25, 4, 'next')]]
+_KEYS_HIT = [(1.5, 0.4, 0), (3.5, 0.4, 4)]                     # bars with a brass BAM / the Bell fill: hit 4& with the
+_CLAV_HIT = [(0.75, 0.2, -8), (1.5, 0.25, 2), (2.75, 0.2, -8), (3.5, 0.25, 6)]   # horns instead of anticipating
+BAM_BARS = {'A': (2, 4, 6, 8), 'B': (2, 4, 8), 'A2': (4, 8)}
 
 
 def build() -> Song:
@@ -104,6 +109,11 @@ def build() -> Song:
     s.section('A', 8, CH_A)
     s.section('B', 8, CH_B)
     s.section('A2', 8, CH_A2)
+    # what the chords must keep clear of (the tune: stay under + no minor 2nds / 9ths; the rest: no rubs)
+    MEL = {'A': notes_of(bars(*HOOK)), 'B': notes_of(bars(*BRIDGE)), 'A2': notes_of(bars(*HOOK_A2))}
+    brass = lambda sh, ch: [notes_of(bars(*sh))] + harmonize(notes_of(bars(*sh)), grid(ch), voices=2, floor=55)
+    OTH = {'A': brass(BAM_A, CH_A), 'B': [notes_of(bars(*BRASS_LINE_B))] + brass(BRASS_LINE_B, CH_B)[1:2] + brass(BAM_B, CH_B),
+           'A2': [notes_of(bars(*COUNTER_A2))] + brass(BAM_A2, CH_A2)}
 
     # ---- melody: square-lead hook, alto an octave under, a soft chip double; vibes in the bridge
     lead = s.part('lead', 'square_lead', 'full', vel=0)
@@ -113,11 +123,11 @@ def build() -> Song:
     s.part('vibes', 'vibes', 'full', vel=0).notes('B', bars(*BRIDGE))
 
     # ---- the steel drum: Bell question at the end of A / A2 (answered by the next downbeat), replies in A2
-    steel = s.part('steel', 'steel_drum', 'full', vel=-2)
+    steel = s.part('steel', 'steel_drum', 'full', vel=-2, gain=7)
     steel.notes('intro', 'r/4 ' + BELL.question('G', 5, rhythm=('8', '8', '4', '4'))) \
         .at('A', 8, BELL_FILL, motif=BELL).notes('A2', bars(*STEEL_A2[:7], BELL_FILL), motifs={8: BELL}) \
         .at('A', 1, 'g6/4 r/2.')
-    s.part('chaching', 'chip_pulse25', 'full', vel=-14).at('B', 2, CHACHING).at('B', 4, CHACHING)
+    s.part('chaching', 'chip_pulse25', 'full', vel=-18).at('B', 2, CHACHING).at('B', 4, CHACHING)
 
     # ---- brass: BAMs in the hook's stops, the answer to the bass solo in B
     tpt = s.part('tpt', 'trumpet', 'full', vel=2)
@@ -138,7 +148,8 @@ def build() -> Song:
         .at('B', 4, "r/2. c5/32 d5 e5 f5 g5 a5 bb5 c6")
     s.part('hit', 'orch_hit', 'full', vel=0).at(['A', 'A2'], 8, '[a3 c4 e4 g4]/4 r/2.').at('B', 5, '[d4 f4 a4 c5]/4 r/2.')
     s.part('strings', 'strings', 'full', vel=-10).notes('A2', bars(*COUNTER_A2))
-    s.part('pad', 'strings', 'full', vel=-10).gen('B', 'pad:sustain', voicing='rootless', low=55, high=70, vel=56)
+    put(s.part('pad', 'strings', 'full', vel=-10), 'B', comp(CH_B, pad_rhythm(CH_B) | {5: [], 6: []}, low=55, high=70, vel=56,
+                                                            gate=1.0, against=MEL['B'], also=OTH['B']))
 
     # ---- rhythm section
     slap = s.part('slap', 'slap_bass', 'full', vel=0)
@@ -147,19 +158,22 @@ def build() -> Song:
         .notes('B', ' | '.join(line(CH_B, SLAP, SLAP_H, low=36, nxt='Cmaj9').split(' | ')[:4] + SLAP_SOLO
                                + line('Ebmaj9 | Am7 D7b9', SLAP, SLAP_H, low=36, nxt='Cmaj9').split(' | '))) \
         .notes('A2', line(CH_A2, SLAP[1:] + SLAP[:1], SLAP_H, low=36, nxt='Cmaj9'))
-    gtr = s.part('gtr', 'funk_gtr', 'full', vel=-2)
+    gtr = s.part('gtr', 'funk_gtr', 'full', vel=-2, gain=3)
     rh = s.part('rhodes', 'rhodes', 'full', vel=-6)
     clav = s.part('clav', 'clavinet', 'full', vel=-8)
     for sec, ch, nx, skip in (('A', CH_A, 'Ebmaj9', ()), ('B', CH_B, 'Cmaj9', (5, 6)), ('A2', CH_A2, 'Cmaj9', ())):
-        put(gtr, sec, comp(ch, SCRATCH, low=62, high=74, style='shell', vel=88, skip=skip, nxt=nx))
-        put(rh, sec, comp(ch, KEYS, low=53, high=67, style='rootless', vel=82, skip=skip, nxt=nx))
-        put(clav, sec, comp(ch, CLAV, low=60, high=72, style='close', vel=84, skip=skip, nxt=nx))
+        kw = dict(skip=skip, nxt=nx, against=MEL[sec], also=OTH[sec] + [s.parts['pad'].bodies.get(sec, [])])
+        keys = {0: KEYS[0]} | {b: _KEYS_HIT for b in BAM_BARS[sec]}
+        clv = {0: CLAV[0]} | {b: _CLAV_HIT for b in BAM_BARS[sec]}
+        put(gtr, sec, comp(ch, SCRATCH, low=62, high=74, style='shell', vel=88, **kw))
+        put(rh, sec, comp(ch, keys, low=53, high=67, style='rootless', vel=82, **kw))
+        put(clav, sec, comp(ch, clv, low=60, high=72, style='close', vel=84, **kw))
 
     kit = s.part('kit', 'drums', 'full', vel=-6)
     kit.notes('intro', 'k+h/8 o/8 k+s+cl/8 s/16 s/16 s/16 s t1 t1 t2 t2 t3 t3') \
         .pattern(['A', 'A2'], KIT, fills={1: KIT_C, 4: KIT_F4, 5: KIT_C, 8: KIT_F8}) \
         .pattern('B', KIT, fills={1: KIT_C, 4: KIT_F4, 5: KIT_SOLO, 6: KIT_SOLO, 7: KIT_C, 8: KIT_F8})
-    s.part('shaker', 'drums', 'full', vel=-30).pattern(['A', 'B', 'A2'], SHAKER)
+    s.part('shaker', 'drums', 'full', vel=-30, gain=7).pattern(['A', 'B', 'A2'], SHAKER)
     s.part('conga', 'drums', 'full', vel=-22).pattern(['A', 'A2'], CONGA).pattern('B', CONGA)
     return s
 

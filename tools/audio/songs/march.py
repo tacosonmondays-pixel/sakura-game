@@ -2,12 +2,12 @@
 stem. ORIGINAL composition (docs/AUDIO.md §4.1 rules, §4.2 SENTINEL CALL; round-3 genre lane: SKA — a 2-tone brass
 march with a dub breakdown).
 
-B♭ major, 144 bpm, straight 8ths, 4/4. Stems: `base` (the ska band: kit with the kick push on 2&, muted-guitar skank
-+ organ bubble on every "and", walking 8th bass, trumpet + tenor head, low-brass blats, combo-organ stabs,
-xylophone ticks) and `prep` (stage prep, "get ready": field-snare ostinato, tuba on the beats between the skanks,
-timpani, horn swells — never new harmony).
+B♭ major, 144 bpm, straight 8ths, 4/4. Stems: `base` (the ska band: kit with the kick push on 2& and a rimshot
+crack on 2 and 4, muted-guitar skank + organ bubble on every "and", walking 8th bass, trumpet head with the tenor an
+octave under, low-brass blats, combo-organ stabs, xylophone ticks) and `prep` (stage prep, "get ready": field-snare
+ostinato, tuba on the beats between the skanks, timpani, horn swells — never new harmony).
     intro  2 bars  drum pickup, skank and bass, a horn hit on F7
-    A      8 bars  the head: SENTINEL CALL (F–B♭–E♭–F–E♭) in trumpet + tenor unison with a chip double, three
+    A      8 bars  the head: SENTINEL CALL (F–B♭–E♭–F–E♭) in trumpet + tenor (octaves), chip double, three
                    times rising (F, G, A — the third overshoots to C6); every call gets a 1½-beat reply and then the
                    BAM: trombone + bari-sax blats on 3 and 4&, a combo-organ stab and a xylophone double-tick
     A2     8 bars  dialogue: the horns call, the chip pulse answers each call with a bar of its own; B♭ → A♭7
@@ -21,7 +21,8 @@ Form: intro |: A A2 Dub C :|  — 2 + 32 bars (53 s loop).
 Taste rules (r3 study/taste.md): bass walks 8ths with octave pops on 1& and 3& and a chromatic approach into every
 bar line; kit + skank + organ bubble + bass hit every offbeat together (4 offbeat tutti pushes a bar); every melody
 stop is answered by a low-brass BAM with a high tick; A2 is the 1-bar dialogue, Dub the breakdown + bass feature,
-C the lift; fills in bars 4 and 8.
+C the lift; fills in bars 4 and 8. Skank, bubble, stabs and the prep horns are voiced against the tune and each
+other (`_horns.comp(against=…, also=…)`): no minor 2nds / 9ths with the head, the tenor or the descant.
 
 review: originality — the head (built on the project's SENTINEL CALL), the replies, the chip answers, the dub bass
 solo, the descant and all grooves are new; BELL is the project's own motif. Ska / 2-tone / rocksteady standards and
@@ -29,10 +30,12 @@ famous ska horn lines (and their basslines) were kept in mind and not used; chec
 ska, reggae and game overworld marches (Zelda, Mario, Dragon Quest, Pokémon, EarthBound/Mother, Undertale/Deltarune,
 Blue Archive): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
 """
+from dataclasses import replace
+
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL
 from _home import bars, crescendo
-from _horns import line, comp, put, grid
+from _horns import line, comp, put, grid, notes_of, pad_rhythm
 
 CH_INTRO = 'Bb | F7'
 CH_A = 'F7sus4 | Bb | C7sus4 | C7 | D7sus4 | Gm7 Gm7/F | Ebmaj7 F7 | Bb'
@@ -48,7 +51,7 @@ HEAD = [
     "e5/8 g5/8 r/8 c6/8' r/2",                # 4 C7       (the lydian E♮) … BAM
     'a4/8. d5/16 g5/4 a5/8 c6/4.',            # 5 D7sus4   ⟨SENTINEL⟩ overshoots to C6
     "bb5/8 a5/8 r/8 g5/8' r/2",               # 6 Gm7 Gm7/F … BAM
-    'eb5/8 g5/8 bb5/4 c6/8 bb5/8 a5/4',       # 7 E♭maj7 F7
+    'eb5/8 g5/8 bb5/4 a5/8 c6/8 a5/4',        # 7 E♭maj7 F7
     "bb5/8 f5/8 bb5/4' r/2",                  # 8 B♭       … big BAM + fill
 ]
 HEAD_A2 = [HEAD[0], 'r/1', HEAD[2], 'r/1', HEAD[4], 'r/1', HEAD[6], "bb5/8 f5/8 bb5/4' r/2"]
@@ -65,10 +68,10 @@ HEAD_C = [
     "f#5/8 a5/8 r/8 d6/8' r/2",               # 4 D7
     'b4/8. e5/16 a5/4 b5/8 d6/4.',            # 5 E7sus4   ⟨SENTINEL⟩ overshoots to D6
     "c6/8 b5/8 r/8 a5/8' r/2",                # 6 Am7 Am7/G
-    'f5/8 a5/8 c6/4 d6/8 c6/8 b5/4',          # 7 Fmaj7 G7
+    'f5/8 a5/8 c6/4 b5/8 d6/8 b5/4',          # 7 Fmaj7 G7
     "c6/8 g5/8 c6/4' r/2",                    # 8 C C7     … big BAM, back to B♭
 ]
-DESCANT_C = ['e6/2 f6/4 g6/4', 'g6/2. e6/4', 'f#6/2 g6/4 a6/4', 'a6/2. f#6/4', 'g#6/2 a6/4 b6/4', 'c7/2 a6/4 g6/4',
+DESCANT_C = ['e6/2 f6/4 g6/4', 'g6/2. e6/4', 'f#6/2 g6/4 a6/4', 'a6/2. f#6/4', 'g#6/2 a6/4 b6/4', 'a6/2 c7/4 b6/4',
              'a6/2 b6/4 d7/4', 'e7/2 c7/4 bb6/4']
 # Dub: bass solo (bars 1-2), the horns answer (3-4), the harmonica rings the Bell in D♭ (5-8)
 DUB_BASS_SOLO = ['db2/4. ab1/8 r/8 db2/8 f2/8 ab2/8', 'c3/8 bb2/8 r/8 ab2/8~ ab2/8 f2/8 eb2/8 f2/8']
@@ -81,11 +84,11 @@ WALK8 = ['R/8 8/8 5/8 3/8 R/8 8/8 7/8 ap/8', 'R/8 8/8 3/8 5/8 6/8 8/8 5/8 ap/8',
 WALK8_H = ['R/8 8/8 5/8 3/8', 'R/8 8/8 5/8 ap/8']
 TUBA = ['R/4 5/4 R/4 5/4']
 TUBA_H = ['R/4 5/4']
-KIT = 'k+h/8 o/8 s+h/8 k+o/8 k+h/8 o/8 s+h/8 o/8 |'
-KIT_C = 'k+c/8 o/8 s+h/8 k+o/8 k+h/8 o/8 s+h/8 o/8 |'
-KIT_F4 = 'k+h/8 o/8 s+h/8 k+o/8 k+h/8 s/16 s?/16 s/8 t2/8 |'
-KIT_F8 = 'k+h/8 o/8 s+h/8 s?/16 s/16 s/16 s s s t1/16 t1 t2 t3 |'
-KIT_BAM = 'k+h/8 o/8 s+h/8 k+o/8 k+h/8 o/8 s+h/8 k+o/8 |'          # bars with a BAM: the kick kicks 4& with the blat
+KIT = 'k+h/8 o/8 s+rs+h/8 k+o/8 k+h/8 o/8 s+rs+h/8 o/8 |'                 # 2-tone: rimshot crack on 2 and 4
+KIT_C = 'k+c/8 o/8 s+rs+h/8 k+o/8 k+h/8 o/8 s+rs+h/8 o/8 |'
+KIT_F4 = 'k+h/8 o/8 s+rs+h/8 k+o/8 k+h/8 s/16 s?/16 s/8 t2/8 |'
+KIT_F8 = 'k+h/8 o/8 s+rs+h/8 s?/16 s/16 s/16 s s s t1/16 t1 t2 t3 |'
+KIT_BAM = 'k+h/8 o/8 s+rs+h/8 k+o/8 k+h/8 o/8 s+rs+h/8 k+o/8 |'          # bars with a BAM: the kick kicks 4& with the blat
 ONEDROP = 'h/8 h/8 h/8 h/8 k+rs/8 h/8 h/8 h/8 |'
 ONEDROP_F = 'h/8 h/8 h/8 h/8 k+rs/8 s/16 s?/16 s/16 s t1/16 t3 |'
 SNARE_MARCH = 's!/8 s?/16 s?/16 s/8 s?/8 s/8 s?/16 s?/16 s!/8 s?/8 |'
@@ -119,17 +122,37 @@ def build() -> Song:
     s.section('Dub', 8, CH_DUB)
     s.section('C', 8, CH_C)
     calls = {1: SENTINEL, 3: SENTINEL, 5: SENTINEL}
+    # what the chords must keep clear of (melody: stay under + no minor 2nds / 9ths; others: no rubs)
+    MEL = {'A': notes_of(bars(*HEAD)), 'A2': notes_of(bars(*HEAD_A2)), 'C': notes_of(bars(*HEAD_C)),
+           'Dub': notes_of(bars(*DUB_HARP))}
+    lo = lambda ns: [replace(n, pitches=tuple(p - 12 for p in n.pitches)) for n in ns]     # the tenor, an octave down
+    OTH = {'A': [lo(MEL['A'])], 'A2': [lo(MEL['A2']), notes_of(bars(*CHIP_A2))],
+           'C': [lo(MEL['C']), notes_of(bars(*DESCANT_C))],
+           'Dub': [notes_of(bars(*DUB_HORNS)), lo(notes_of(bars(*DUB_HORNS)))]}
 
     # ================================================================ base
     tpt = s.part('tpt', 'trumpet', 'base', vel=4, gain=1)
     tpt.notes('intro', "r/1 | r/2 r/8 [f4]/8! r/8 f4/8!").notes('A', bars(*HEAD), motifs=calls) \
         .notes('A2', bars(*HEAD_A2), motifs=calls).notes('Dub', bars(*DUB_HORNS)).notes('C', bars(*HEAD_C), motifs=calls)
-    s.part('tenor', 'tenor_sax', 'base', vel=-2, gain=-2.5).double('tpt')
+    s.part('tenor', 'tenor_sax', 'base', octave=-1, vel=0, gain=-1).double('tpt')      # ska horns: tenor an octave under
     s.part('chip', 'chip_pulse12', 'base', vel=-18, gain=-4).double('tpt', ['A', 'C'])
-    s.part('chip_ans', 'chip_pulse12', 'base', vel=-6).notes('A2', bars(*CHIP_A2))
+    s.part('chip_ans', 'chip_pulse12', 'base', vel=-10).notes('A2', bars(*CHIP_A2))
     s.part('harp', 'harmonica', 'base', vel=-4, gain=3).notes('Dub', bars(*DUB_HARP), motifs={5: BELL})
     s.part('descant', 'glock', 'base', vel=0, gain=6).notes('C', bars(*DESCANT_C))
     s.part('descant_chip', 'chip_pulse25', 'base', vel=-34, gain=-2).double('descant')
+
+    # the skank (stab bed on every 'and'): muted guitar + organ bubble
+    skank = s.part('skank', 'muted_gtr', 'base', vel=-4)
+    bubble = s.part('bubble', 'organ', 'base', vel=-10, gain=2)
+    put(skank, 'intro', comp(CH_INTRO, SKANK, low=55, high=67, style='close', vel=88, nxt='F7sus4'))
+    put(bubble, 'intro', comp(CH_INTRO, BUBBLE, low=60, high=72, style='close', vel=80, nxt='F7sus4'))
+    for sec, ch, nx in (('A', CH_A, 'F7sus4'), ('A2', CH_A2, 'Dbmaj7'), ('C', CH_C, 'F7sus4')):
+        put(skank, sec, comp(ch, SKANK, low=55, high=67, style='close', vel=88, nxt=nx, against=MEL[sec], also=OTH[sec]))
+        put(bubble, sec, comp(ch, BUBBLE, low=60, high=72, style='close', vel=80, nxt=nx, against=MEL[sec], also=OTH[sec]))
+    put(skank, 'Dub', comp(CH_DUB, SKANK_DUB, low=55, high=67, style='close', vel=84, skip=(1, 2), against=MEL['Dub'],
+                           also=OTH['Dub']))
+    put(bubble, 'Dub', comp(CH_DUB, [[(1.5, 0.25, -6), (3.5, 0.25, -2)]], low=60, high=72, style='close', vel=72,
+                            skip=(1, 2), against=MEL['Dub'], also=OTH['Dub']))
 
     # the BAM: low-brass blats + combo-organ stab + xylophone tick in every melody stop
     bone = s.part('bone', 'trombone', 'base', vel=4)
@@ -138,11 +161,13 @@ def build() -> Song:
         bone.notes(sec, _bam(ch, bb, low=46, nxt=nx))
         bari.notes(sec, _bam(ch, bb, low=34, nxt=nx))
         put(s.part(f'stab_{sec}', 'combo_organ', 'base', vel=-2), sec,
-            comp(ch, {b: BAM_RH[b] for b in bb} | {0: []}, low=58, high=70, style='close', vel=92))
+            comp(ch, {b: BAM_RH[b] for b in bb} | {0: []}, low=58, high=70, style='close', vel=92, against=MEL[sec],
+                 also=OTH[sec] + [skank.bodies[sec], bubble.bodies[sec]]))
     # dub chord throws (combo organ through the echo) in the harmonica's long notes
     put(s.part('stab_Dub', 'combo_organ', 'base', vel=-8), 'Dub',
         comp(CH_DUB, {3: [(2.5, 0.5, 0)], 4: [(2, 0.5, 0), (3.5, 0.5, 4)], 5: [(3, 0.5, 0)], 6: [(1.5, 0.5, 0), (3.5, 0.5, 4)],
-                      7: [(3, 0.5, 0)], 8: [(2, 0.5, 4), (3.5, 0.5, 8)], 0: []}, low=58, high=70, style='close', vel=88))
+                      7: [(3, 0.5, 0)], 8: [(2, 0.5, 4), (3.5, 0.5, 8)], 0: []}, low=58, high=70, style='close', vel=88,
+             against=MEL['Dub'], also=OTH['Dub'] + [skank.bodies['Dub'], bubble.bodies['Dub']]))
     s.part('xylo', 'xylophone', 'base', vel=-6) \
         .at('A', 2, "r/2 r/4 f6/16' f6/16' bb6/8'").at('C', 2, "r/2 r/4 g6/16' g6/16' c7/8'") \
         .at('A', 4, "r/2 r/4 g6/16' g6/16' c7/8'").at('C', 4, "r/2 r/4 a6/16' a6/16' d7/8'") \
@@ -166,17 +191,6 @@ def build() -> Song:
         .pattern('C', KIT, fills={1: KIT_C, 2: KIT_BAM, 4: KIT_F4, 5: KIT_C, 6: KIT_BAM, 8: KIT_F8})
     s.part('tamb', 'drums', 'base', vel=-30).pattern(['A2', 'C'], '(r/16 tb/16 tb?/16 tb/16)x4 |')
 
-    skank = s.part('skank', 'muted_gtr', 'base', vel=-4)
-    bubble = s.part('bubble', 'organ', 'base', vel=-10, gain=2)
-    put(skank, 'intro', comp(CH_INTRO, SKANK, low=55, high=67, style='close', vel=88, nxt='F7sus4'))
-    put(bubble, 'intro', comp(CH_INTRO, BUBBLE, low=62, high=75, style='close', vel=80, nxt='F7sus4'))
-    for sec, ch, nx in (('A', CH_A, 'F7sus4'), ('A2', CH_A2, 'Dbmaj7'), ('C', CH_C, 'F7sus4')):
-        put(skank, sec, comp(ch, SKANK, low=55, high=67, style='close', vel=88, nxt=nx))
-        put(bubble, sec, comp(ch, BUBBLE, low=62, high=75, style='close', vel=80, nxt=nx))
-    put(skank, 'Dub', comp(CH_DUB, SKANK_DUB, low=55, high=67, style='close', vel=84, skip=(1, 2)))
-    put(bubble, 'Dub', comp(CH_DUB, [[(1.5, 0.25, -6), (3.5, 0.25, -2)]], low=62, high=75, style='close', vel=72,
-                            skip=(1, 2)))
-
     # ================================================================ prep ("get ready": the band in parade order)
     s.part('snare', 'drums_orch', 'prep', vel=-10).pattern(['A', 'A2', 'C'], SNARE_MARCH, fills={8: SNARE_ROLL}) \
         .pattern('Dub', 's/8 s?/16 s?/16 s?/8 s?/8 s/8 s?/16 s?/16 s?/8 s?/8 |', fills={8: SNARE_ROLL}) \
@@ -184,10 +198,16 @@ def build() -> Song:
     tuba = s.part('tuba', 'tuba', 'prep', vel=-6)
     for sec, ch, nx in (('A', CH_A, 'F7sus4'), ('A2', CH_A2, 'Dbmaj7'), ('C', CH_C, 'F7sus4')):
         tuba.notes(sec, line(ch, TUBA, TUBA_H, low=34, nxt=nx))
-    tuba.notes('Dub', line(CH_DUB, 'R/2 5/2', 'R/2', low=34, nxt='G7sus4'))
-    s.part('horn', 'horn', 'prep', vel=-28).gen(['A2', 'Dub', 'C'], 'pad:sustain', low=53, high=67, vel=70)
+    tuba.notes('Dub', ' | '.join(['r/1', 'r/1'] + line(CH_DUB, 'R/2 5/2', 'R/2', low=34, nxt='G7sus4').split(' | ')[2:]))
+    horn = s.part('horn', 'horn', 'prep', vel=-28)
+    for sec, ch in (('A2', CH_A2), ('Dub', CH_DUB), ('C', CH_C)):
+        rh = pad_rhythm(ch) | ({1: [], 2: []} if sec == 'Dub' else {})        # Dub 1-2: the bass solo stays alone
+        put(horn, sec, comp(ch, rh, low=53, high=67, style='rootless', vel=70, gate=1.0, against=MEL[sec],
+                            also=OTH[sec] + [p.bodies.get(sec, []) for p in s.parts.values()
+                                             if p.name in ('skank', 'bubble', f'stab_{sec}')]))
     s.part('timp', 'timpani', 'prep', vel=-4).notes('intro', 'bb2/4 r/2. | f2/4 r/2 f2/4') \
-        .gen(['A', 'A2', 'Dub', 'C'], 'bass:root', low=41, high=53, vel=80) \
+        .gen(['A', 'A2', 'C'], 'bass:root', low=41, high=53, vel=80) \
+        .gen('Dub', 'bass:root', low=41, high=53, vel=80, bars=(3, 8)) \
         .at('Dub', 8, 'r/2 ' + crescendo('ab2', '16', 8, 40, 100)) \
         .at('C', 8, 'r/2 ' + crescendo('c3', '16', 8, 40, 100))
     return s
