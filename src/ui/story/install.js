@@ -4,11 +4,15 @@
 // 2. On every screen change: a new player on the lobby is sent to the "Meet Hikari" opening (deep links to other
 //    screens still render); then queued after-scenes play as an overlay in campaign order, then stage prep's
 //    `before` scene. Never on battle, title or scene screens, and never over an open modal (waits up to 10 s).
+//    On 1-1 stage prep, a new player who left the coached battle unfinished is asked once more
+//    ("Shall we finish our first lesson together?" → the tutorial battle, or Not now → skipped for good).
 // 3. On a store change with reason 'battle-result', newly cleared campaign stages queue their after-scenes
 //    (story.queue is saved, so closing the app mid-scene plays it again next session).
 // The scene text is one lazy chunk (src/data/story/index.js), loaded only when a scene may play.
 import { navigate, currentRoute } from '../router.js';
-import { onboardingRoute, skipOnboarding, clearedCampaign, storyOf } from '../../systems/story.js';
+import {
+  onboardingRoute, skipOnboarding, clearedCampaign, storyOf, tutorialPromptDue, tutorialRoute, setTutorial,
+} from '../../systems/story.js';
 import { queueAfterClears, nextQueued, beforeSceneFor } from '../../systems/storyTriggers.js';
 import { playStoryScene, hasUnit } from './play.js';
 
@@ -83,7 +87,10 @@ export function installStory({ store }) {
         if (now.name !== route.name || now.params?.id !== route.params?.id) continue; // moved on: look again
         const scene = nextQueued(store.profile, m.SCENE_LIST, hasUnit)
           || (now.name === 'stage' ? beforeSceneFor(store.profile, now.params?.id, m.SCENE_LIST, hasUnit) : null);
-        if (!scene) return;
+        if (!scene) {
+          if (now.name === 'stage' && tutorialPromptDue(store.profile, now.params?.id)) promptTutorial();
+          return;
+        }
         const how = await playStoryScene(scene, { host: document.body, overlay: true, scenes: m.SCENE_LIST });
         if (how === 'closed') return;
       }
@@ -92,6 +99,22 @@ export function installStory({ store }) {
     } finally {
       pumping = false;
     }
+  }
+
+  // ---- 1-1 prep: finish the first lesson? ------------------------------------------------------
+  let prompting = false;
+  function promptTutorial() {
+    if (prompting) return;
+    prompting = true;
+    import('./coach.js').then((m) => m.showTutorialPrompt({
+      onStart: () => {
+        const r = tutorialRoute();
+        navigate(r.name, r.params);
+      },
+      onLater: () => {
+        if (setTutorial(store.profile, 'skipped')) store.commit('story');
+      },
+    })).catch((e) => console.warn('[story] tutorial prompt failed', e)).finally(() => { prompting = false; });
   }
 
   const onScreen = (detail) => {

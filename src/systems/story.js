@@ -180,6 +180,16 @@ export function setTutorial(profile, state) {
   return true;
 }
 
+/**
+ * The 1-1 stage prep prompt ("Shall we finish our first lesson together?") is due: a new player met Hikari
+ * (opening seen or skipped) but left the coached battle before winning it or skipping it.
+ * @returns {boolean}
+ */
+export function tutorialPromptDue(profile, stageId = TUTORIAL_STAGE) {
+  const s = storyOf(profile);
+  return stageId === TUTORIAL_STAGE && !s.legacy && s.tutorial === 'pending' && (s.opening === 'seen' || s.opening === 'skipped');
+}
+
 /** `?onboarding=0` (e2e / screenshots): mark a pending opening and tutorial skipped. @returns {boolean} changed */
 export function skipOnboarding(profile) {
   const a = storyOf(profile).opening === 'pending' && setOpening(profile, 'skipped');

@@ -115,6 +115,13 @@ export function mountBattle(root, params, hooks) {
     later(() => loading.remove(), 400);
   })();
 
+  // [story] the coached first battle (#/battle?…&tutorial=1, STORY_SPEC §2.3): Hikari's tips over this UI
+  if (params.tutorial === '1') {
+    ready.then(() => import('../story/coach.js')).then((m) => {
+      if (!destroyed && ctx.renderer) cleanups.push(m.attachCoach(ctx));
+    }).catch((e) => console.warn('[battle] tutorial coach failed', e));
+  }
+
   function build() {
     const feed = createFeed(layer);
     ctx.feed = feed;
