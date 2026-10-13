@@ -34,9 +34,11 @@ sys.path.insert(0, HERE)
 from lib import lowpoly, bake, eyes, retarget, clips_hikari, pack  # noqa: E402
 from lib.rig_names import RENAME, RETARGET  # noqa: E402
 
-# Battle size the owner approved for the Meshy Hikari tests: ~1.5x the old chibi (0.98 -> 1.53
-# world units before the hero scale, about 83 px tall at 1280x720 default zoom).
-GAME_HEIGHT = 1.53
+# Battle size: 1.53 world units (~1.5x the 0.98 cage heroes, before the hero scale) was the size
+# approved for the first Meshy tests; the owner then found her too big for the map, so she is
+# 20% smaller: 1.224 (~1.25x the cage heroes, still the tallest girl; ~66 px tall at 1280x720
+# default zoom instead of ~80).
+GAME_HEIGHT = 1.224
 STORE_SCALE = 0.5  # stored at half size so positions fit normalised int16
 
 
