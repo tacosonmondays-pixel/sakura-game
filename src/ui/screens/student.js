@@ -358,7 +358,6 @@ function levelTab(unit, ctx) {
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'levelling');
   const sel = ctx.books;
-  const cap = levelCap(st);
   const wrap = h('div.mb-tab-body');
 
   const head = section(null);
@@ -368,6 +367,8 @@ function levelTab(unit, ctx) {
   put(wrap, head, bookBox, btWrap);
 
   const update = () => {
+    // read the cap every time: a breakthrough below raises it without rebuilding this tab
+    const cap = levelCap(st);
     const pv = previewLevelUp(profile, unit.id, sel);
     const coins = itemCount(profile, 'coins');
     const atCap = st.level >= cap;
