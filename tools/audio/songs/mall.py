@@ -9,8 +9,10 @@ octave under and a chip double, vibes in the bridge, strings, steel drum (the ma
     A      8 bars  the hook on IV–V/IV–iii–VI (the city-pop "royal road"): a 16th-anticipated climb that stops on
                    beat 3 of every second bar, where the brass answers "ta-DAT ta-DAT"; strings rip into bar 8, an
                    orchestra hit lands, the steel drum rings the Bell question (D–G–E–F♯) as the fill
-    B      8 bars  bridge in B♭: the vibes sing a new tune for 4 bars, then a 2-bar slap-bass solo (kit + shaker
-                   only) answered by a 2-bar synth-brass + trumpet line, D7 back to G
+    B      8 bars  bridge in B♭: the vibes sing a new tune for 4 bars, then a 2-bar slap-bass feature (kit + shaker
+                   only; thumb/pop + ghosts, hammer-on triplet, dead-note rake into a pop, a chromatic fall that
+                   lands early on E♭; a chip square doubles it an octave up for phones) answered by a 2-bar
+                   synth-brass + trumpet line, D7 back to G
     A2     8 bars  the hook again with a string counter-line; the steel drum answers the cells; bars 5-7 LIFT a
                    semitone to A♭ (F7♭9 pivots), Am7 D7 slides home and the steel drum's Bell is answered by the
                    loop's first downbeat (G under the hook)
@@ -20,9 +22,12 @@ Taste rules (r3 study/taste.md): slap bass 10 notes a bar (octave pops on every 
 approach into every bar line); every second bar ends in a brass BAM or a steel reply; kick + bass + guitar + keys +
 hats push the "ands" together; a counter-line in A2; fills in bars 4 and 8; breakdown = the bass solo, lift = A♭.
 Keys, clavinet, guitar and the bridge strings are voiced against the tune and the brass (no minor 2nds / 9ths); in
-bars with a brass BAM the keys hit 4& with the horns instead of anticipating the next chord.
+bars with a brass BAM the comping goes stop-time: guitar, keys and clavinet lay out from beat 3 and hit 3& and 4&
+with the horns, so every BAM lands in a hole instead of on top of a full groove.
 
-review: originality — the hook, the bridge tune, the bass lines, the brass writing and the counter-line are new;
+review: originality — the hook, the bridge tune, the bass lines, the brass writing and the counter-line are new
+(round 3 fix: the bridge's slap feature was rewritten; the first draft reused the boss's bar-37 bass break note for
+note — the bass-inclusive cross-song scan now finds no shared bass phrase);
 BELL is the project's own motif. The IV–V/IV–iii–VI progression is a generic J-pop/city-pop idiom (not a song);
 famous city-pop / funk / disco hooks and basslines were kept in mind and not used; checked by ear-memory against
 well-known city pop, J-funk, disco and shop/mall game themes (Animal Crossing, Wii Shop, Pokémon Mart, Undertale /
@@ -59,8 +64,13 @@ BRIDGE = [
 ]
 BRASS_LINE_B = ['r/1', 'r/1', 'r/1', 'r/1', 'r/1', 'r/1',
                 'bb4/8 d5/8 f5/8 g5/8~ g5/4 f5/16 g5/16 bb5/8', "a5/8 g5/8 e5/8 c5/8~ c5/4 a4/8' r/8"]
-SLAP_SOLO = ['d2/16 d3/16 r/16 d2/16 f2/16 g2/16 g#2/16 a2/16 c3/16 d3/16 r/16 c3/16 a2/16 g2/16 f2/16 e2/16',
-             'g1/16 g2/16 r/16 g1/16 bb1/16 d2/16 f2/16 g2/16 c2/16 c3/16 r/16 bb2/16 g2/16 e2/16 c2/16 d2/16']
+# the bridge's slap feature (B bars 5-6, Dm9 | Gm9 C9): thumb-pop alternation with ghosts, a hammer-on 16th triplet
+# and a dead-note rake into a pop on the 'a' of 2 (bar 2 sequences the cell a fourth up), then a chromatic fall from
+# D3 that lands on the E♭ of the next bar a 16th early. Pops sit in octave 3 so phone speakers keep the line.
+SLAP_SOLO = ['d2/16 r/16 a2?/16 c3/16! f2/16t g2/16t a2/16t d2?/32 d2?/32 e3/16! '
+             'd2/16 c3/16! d2?/16 f3/16! e3/16 d3/16 a2/16 ab2/16',
+             'g2/16 r/16 d3?/16 f3/16! bb2/16t c3/16t d3/16t g2?/32 g2?/32 a3/16! '
+             'c2/16 e3/16! d3/16 db3/16 c3/16 b2/16 bb2/16 eb2/16~']
 # brass BAM top lines (trumpet; alto voiced under it, synth-brass stab chord with it)
 BAM_A = ['r/1', "r/2 r/16 a4/16 d5/8! r/16 a4/16 f#5/8!", 'r/1', "r/2 r/16 g#4/16 b4/8! r/16 g#4/16 d5/8!",
          'r/1', "r/2 r/16 f#4/16 a4/8! r/16 a4/16 c5/8!", 'r/1', 'r/1']
@@ -87,8 +97,12 @@ SCRATCH = [[(0.25, 0.2, -18), (0.75, 0.2, -10), (1.25, 0.2, -18), (1.5, 0.25, 4)
             (2.75, 0.2, -10), (3.25, 0.2, -18), (3.5, 0.25, 4), (3.75, 0.2, -12)]]
 KEYS = [[(1.5, 0.4, 0), (3.5, 0.4, 2, 'next')]]
 CLAV = [[(0.75, 0.2, -8), (1.5, 0.25, 2), (2.75, 0.2, -8), (3.5, 0.25, 4, 'next')]]
-_KEYS_HIT = [(1.5, 0.4, 0), (3.5, 0.4, 4)]                     # bars with a brass BAM / the Bell fill: hit 4& with the
-_CLAV_HIT = [(0.75, 0.2, -8), (1.5, 0.25, 2), (2.75, 0.2, -8), (3.5, 0.25, 6)]   # horns instead of anticipating
+# bars with a brass BAM / the Bell fill: stop time. The keys, clavinet and guitar play beats 1-2, lay out from beat 3
+# and hit 3& and 4& WITH the horns' accents (no anticipation past them), so the BAM lands in a hole
+_KEYS_HIT = [(1.5, 0.4, 0), (2.5, 0.3, 2), (3.5, 0.4, 4)]
+_CLAV_HIT = [(0.75, 0.2, -8), (1.5, 0.25, 2), (2.5, 0.2, 4), (3.5, 0.25, 6)]
+_SCRATCH_HIT = [(0.25, 0.2, -18), (0.75, 0.2, -10), (1.25, 0.2, -18), (1.5, 0.25, 4), (1.75, 0.2, -12),
+                (2.5, 0.2, 6), (3.5, 0.2, 8)]
 BAM_BARS = {'A': (2, 4, 6, 8), 'B': (2, 4, 8), 'A2': (4, 8)}
 
 
@@ -158,6 +172,8 @@ def build() -> Song:
         .notes('B', ' | '.join(line(CH_B, SLAP, SLAP_H, low=36, nxt='Cmaj9').split(' | ')[:4] + SLAP_SOLO
                                + line('Ebmaj9 | Am7 D7b9', SLAP, SLAP_H, low=36, nxt='Cmaj9').split(' | '))) \
         .notes('A2', line(CH_A2, SLAP[1:] + SLAP[:1], SLAP_H, low=36, nxt='Cmaj9'))
+    # the solo's chip double an octave up (phone speakers: the feature must not vanish under a 250 Hz roll-off)
+    s.part('solo_sq', 'chip_pulse50', 'full', octave=1, vel=-20).at('B', 5, bars(*SLAP_SOLO).rstrip('~'))
     gtr = s.part('gtr', 'funk_gtr', 'full', vel=-2, gain=3)
     rh = s.part('rhodes', 'rhodes', 'full', vel=-6)
     clav = s.part('clav', 'clavinet', 'full', vel=-8)
@@ -165,7 +181,8 @@ def build() -> Song:
         kw = dict(skip=skip, nxt=nx, against=MEL[sec], also=OTH[sec] + [s.parts['pad'].bodies.get(sec, [])])
         keys = {0: KEYS[0]} | {b: _KEYS_HIT for b in BAM_BARS[sec]}
         clv = {0: CLAV[0]} | {b: _CLAV_HIT for b in BAM_BARS[sec]}
-        put(gtr, sec, comp(ch, SCRATCH, low=62, high=74, style='shell', vel=88, **kw))
+        scr = {0: SCRATCH[0]} | {b: _SCRATCH_HIT for b in BAM_BARS[sec]}
+        put(gtr, sec, comp(ch, scr, low=62, high=74, style='shell', vel=88, **kw))
         put(rh, sec, comp(ch, keys, low=53, high=67, style='rootless', vel=82, **kw))
         put(clav, sec, comp(ch, clv, low=60, high=72, style='close', vel=84, **kw))
 

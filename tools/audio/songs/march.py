@@ -10,27 +10,31 @@ ostinato, tuba on the beats between the skanks, timpani, horn swells — never n
     A      8 bars  the head: SENTINEL CALL (F–B♭–E♭–F–E♭) in trumpet + tenor (octaves), chip double, three
                    times rising (F, G, A — the third overshoots to C6); every call gets a 1½-beat reply and then the
                    BAM: trombone + bari-sax blats on 3 and 4&, a combo-organ stab and a xylophone double-tick
-    A2     8 bars  dialogue: the horns call, the chip pulse answers each call with a bar of its own; B♭ → A♭7
-    Dub    8 bars  dub breakdown in D♭, half-time one-drop: 2 bars of bass solo with the kit alone, the horns answer
-                   with an echoing line, then the harmonica sings the Sakura Bell (A♭–D♭–B♭–C → D♭), A♭7 slides
-                   down a semitone into …
+    A2     8 bars  the second strain, a dialogue: the horns play a NEW tune (offbeat pickup, a syncopation held over
+                   beat 2, a falling blues tail; sequenced up a fifth, then it breaks up to G6), the chip pulse
+                   answers each call with a bar of its own; B♭ → A♭7
+    Dub    8 bars  dub breakdown in D♭, half-time one-drop: 2 bars of bass solo (a low D♭, then an arch sung in
+                   octave 3; a written snare echo throw) with the kit alone, the horns answer with an echoing line,
+                   then the harmonica sings the Sakura Bell (A♭–D♭–B♭–C → D♭), A♭7 slides down a semitone into …
     C      8 bars  … the head lifted a tone to C major (SENTINEL from G), glock + chip descant above; C7 turns back
                    to B♭ for the loop
 Form: intro |: A A2 Dub C :|  — 2 + 32 bars (53 s loop).
 
 Taste rules (r3 study/taste.md): bass walks 8ths with octave pops on 1& and 3& and a chromatic approach into every
-bar line; kit + skank + organ bubble + bass hit every offbeat together (4 offbeat tutti pushes a bar); every melody
+bar line, doubled an octave up by a chip square for phone speakers (R1.6; the prep tuba doubles it on the beats);
+kit + skank + organ bubble + bass hit every offbeat together (4 offbeat tutti pushes a bar); every melody
 stop is answered by a low-brass BAM with a high tick; A2 is the 1-bar dialogue, Dub the breakdown + bass feature,
 C the lift; fills in bars 4 and 8. Skank, bubble, stabs and the prep horns are voiced against the tune and each
 other (`_horns.comp(against=…, also=…)`): no minor 2nds / 9ths with the head, the tenor or the descant.
 
-review: originality — the head (built on the project's SENTINEL CALL), the replies, the chip answers, the dub bass
-solo, the descant and all grooves are new; BELL is the project's own motif. Ska / 2-tone / rocksteady standards and
+review: originality — the head (built on the project's SENTINEL CALL), the replies, the A2 strain, the chip answers,
+the dub bass solo, the descant and all grooves are new; BELL is the project's own motif. Ska / 2-tone / rocksteady standards and
 famous ska horn lines (and their basslines) were kept in mind and not used; checked by ear-memory against well-known
 ska, reggae and game overworld marches (Zelda, Mario, Dragon Quest, Pokémon, EarthBound/Mother, Undertale/Deltarune,
 Blue Archive): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
 """
 from dataclasses import replace
+from fractions import Fraction as Fr
 
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL
@@ -54,7 +58,13 @@ HEAD = [
     'eb5/8 g5/8 bb5/4 a5/8 c6/8 a5/4',        # 7 E♭maj7 F7
     "bb5/8 f5/8 bb5/4' r/2",                  # 8 B♭       … big BAM + fill
 ]
-HEAD_A2 = [HEAD[0], 'r/1', HEAD[2], 'r/1', HEAD[4], 'r/1', HEAD[6], "bb5/8 f5/8 bb5/4' r/2"]
+# A2: the second strain — a new horn tune (not SENTINEL): an offbeat pickup, a held syncopation over beat 2 and a
+# falling blues tail (5-1-2~-1-♭7-5), sequenced up a fifth, then it breaks upward to the sus4 G6; the chip answers
+HEAD_A2 = ["r/8 c5/8 f5/8 g5/8~ g5/8 f5/8 eb5/8 c5/8", 'r/1',          # 1 F7sus4
+           "r/8 g5/8 c6/8 d6/8~ d6/8 c6/8 bb5/8 g5/8", 'r/1',          # 3 C7sus4
+           "r/8 a5/8 d6/8 e6/8~ e6/8 g6/8 e6/8 d6/8", 'r/1',          # 5 D7sus4  the strain breaks upward
+           "g5/8 bb5/8 d6/8 c6/8~ c6/8 a5/8 f5/8 eb5/8",               # 7 E♭maj7 F7
+           "bb5/8 f5/8 bb5/4' r/2"]                                     # 8 B♭ A♭7
 CHIP_A2 = [                                   # the chip pulse answers every call with a bar of its own
     'r/1', 'd6/8 f6/8 bb6/8 f6/8 d6/16 eb6/16 f6/8 r/4',
     'r/1', 'e6/8 g6/8 c7/8 g6/8 e6/16 f6/16 g6/8 r/4',
@@ -74,7 +84,11 @@ HEAD_C = [
 DESCANT_C = ['e6/2 f6/4 g6/4', 'g6/2. e6/4', 'f#6/2 g6/4 a6/4', 'a6/2. f#6/4', 'g#6/2 a6/4 b6/4', 'a6/2 c7/4 b6/4',
              'a6/2 b6/4 d7/4', 'e7/2 c7/4 bb6/4']
 # Dub: bass solo (bars 1-2), the horns answer (3-4), the harmonica rings the Bell in D♭ (5-8)
-DUB_BASS_SOLO = ['db2/4. ab1/8 r/8 db2/8 f2/8 ab2/8', 'c3/8 bb2/8 r/8 ab2/8~ ab2/8 f2/8 eb2/8 f2/8']
+# the bass solo: a low D♭ for weight, then an arch that sings in octave 3 (phone speakers keep it; the chip square
+# doubles it an octave up) and comes down to F, a semitone under the G♭ of bar 3; the one-drop kick hits alone on 3
+DUB_BASS_SOLO = ['db2/4. ab2/8 r/8 db3/8 f3/8 ab3/8', 'bb3/8 ab3/8 r/8 f3/8~ f3/8 db3/8 ab2/8 f2/8']
+# a written dub echo throw: a snare on 4& of the solo's first bar, repeating at dotted-8th spacing as it decays
+DUB_THROW = 'r/2. r/8 s!/8 | r/16 s@v74/16 r/8 s@v56/8 r/8 r/16 s@v40/16 r/8 r/4'
 DUB_HORNS = ['r/1', 'r/1', 'r/8 bb4/8 db5/8 f5/8~ f5/4 eb5/4', "db5/4. eb5/8 r/8 ab4/8' r/4", 'r/1', 'r/1', 'r/1', 'r/1']
 DUB_HARP = ['r/1', 'r/1', 'r/1', 'r/1', 'ab4/4 db5/4 bb4/2', 'c5/2. r/4', 'db5/2 f5/4 ab5/4', 'gb5/4 f5/8 eb5/8~ eb5/4 r/4']
 
@@ -82,8 +96,6 @@ DUB_HARP = ['r/1', 'r/1', 'r/1', 'r/1', 'ab4/4 db5/4 bb4/2', 'c5/2. r/4', 'db5/2
 WALK8 = ['R/8 8/8 5/8 3/8 R/8 8/8 7/8 ap/8', 'R/8 8/8 3/8 5/8 6/8 8/8 5/8 ap/8', 'R/8 8/8 5/8 8/8 R/8 8/8 b3/8 ap/8',
          'R/8 8/8 2/8 3/8 5/8 8/8 6/8 ap/8']
 WALK8_H = ['R/8 8/8 5/8 3/8', 'R/8 8/8 5/8 ap/8']
-TUBA = ['R/4 5/4 R/4 5/4']
-TUBA_H = ['R/4 5/4']
 KIT = 'k+h/8 o/8 s+rs+h/8 k+o/8 k+h/8 o/8 s+rs+h/8 o/8 |'                 # 2-tone: rimshot crack on 2 and 4
 KIT_C = 'k+c/8 o/8 s+rs+h/8 k+o/8 k+h/8 o/8 s+rs+h/8 o/8 |'
 KIT_F4 = 'k+h/8 o/8 s+rs+h/8 k+o/8 k+h/8 s/16 s?/16 s/8 t2/8 |'
@@ -133,7 +145,7 @@ def build() -> Song:
     # ================================================================ base
     tpt = s.part('tpt', 'trumpet', 'base', vel=4, gain=1)
     tpt.notes('intro', "r/1 | r/2 r/8 [f4]/8! r/8 f4/8!").notes('A', bars(*HEAD), motifs=calls) \
-        .notes('A2', bars(*HEAD_A2), motifs=calls).notes('Dub', bars(*DUB_HORNS)).notes('C', bars(*HEAD_C), motifs=calls)
+        .notes('A2', bars(*HEAD_A2)).notes('Dub', bars(*DUB_HORNS)).notes('C', bars(*HEAD_C), motifs=calls)
     s.part('tenor', 'tenor_sax', 'base', octave=-1, vel=0, gain=-1).double('tpt')      # ska horns: tenor an octave under
     s.part('chip', 'chip_pulse12', 'base', vel=-18, gain=-4).double('tpt', ['A', 'C'])
     s.part('chip_ans', 'chip_pulse12', 'base', vel=-10).notes('A2', bars(*CHIP_A2))
@@ -183,6 +195,9 @@ def build() -> Song:
         .notes('Dub', bars(*DUB_BASS_SOLO) + ' | ' + ' | '.join(
             line(CH_DUB, 'R/4. 5/8 r/8 8/8 7/8 ap/8', 'R/4. 5/8', low=34, nxt='G7sus4').split(' | ')[2:])) \
         .notes('C', line(CH_C, WALK8, WALK8_H, low=34, nxt='F7sus4'))
+    # NES square an octave over the bass (07's sq_bass): the walking line and the dub solo carry on phone speakers
+    s.part('sq_bass', 'chip_pulse50', 'base', octave=1, vel=-22).double('bass', ['intro', 'A', 'A2', 'Dub', 'C'])
+    s.part('throw', 'drums', 'base', vel=-6).at('Dub', 1, DUB_THROW)
     kit = s.part('kit', 'drums', 'base', vel=-4)
     kit.notes('intro', 'k/4 s/8 k/8 k/4 s/16 s s s | k+c/8 o/8 s+h/8 k+o/8 ' + crescendo('s', '16', 8, 50, 110)) \
         .pattern('A', KIT, fills={1: KIT_C, 2: KIT_BAM, 4: KIT_F4, 5: KIT_C, 6: KIT_BAM, 8: KIT_F8}) \
@@ -195,21 +210,25 @@ def build() -> Song:
     s.part('snare', 'drums_orch', 'prep', vel=-10).pattern(['A', 'A2', 'C'], SNARE_MARCH, fills={8: SNARE_ROLL}) \
         .pattern('Dub', 's/8 s?/16 s?/16 s?/8 s?/8 s/8 s?/16 s?/16 s?/8 s?/8 |', fills={8: SNARE_ROLL}) \
         .at('intro', 2, 'r/2 ' + crescendo('s', '16', 8, 40, 100))
+    # tuba: doubles the walking bass on the beats, short (it ends before the bass's offbeat note), accents on 1 and
+    # 3 — unisons with the bass instead of held roots and fifths rubbing against its passing notes
     tuba = s.part('tuba', 'tuba', 'prep', vel=-6)
-    for sec, ch, nx in (('A', CH_A, 'F7sus4'), ('A2', CH_A2, 'Dbmaj7'), ('C', CH_C, 'F7sus4')):
-        tuba.notes(sec, line(ch, TUBA, TUBA_H, low=34, nxt=nx))
-    tuba.notes('Dub', ' | '.join(['r/1', 'r/1'] + line(CH_DUB, 'R/2 5/2', 'R/2', low=34, nxt='G7sus4').split(' | ')[2:]))
+    for sec in ('A', 'A2', 'C'):
+        put(tuba, sec, [replace(n, dur=Fr(1, 2), vel=n.vel + (4 if n.start % 2 == 0 else -6))
+                        for n in bass.bodies[sec] if n.pitches and n.start % 1 == 0], vel=-bass.vel)
+    put(tuba, 'Dub', [n for n in bass.bodies['Dub'] if n.pitches and n.start >= 8 and n.start % 4 == 0], vel=-bass.vel)
     horn = s.part('horn', 'horn', 'prep', vel=-28)
     for sec, ch in (('A2', CH_A2), ('Dub', CH_DUB), ('C', CH_C)):
         rh = pad_rhythm(ch) | ({1: [], 2: []} if sec == 'Dub' else {})        # Dub 1-2: the bass solo stays alone
         put(horn, sec, comp(ch, rh, low=53, high=67, style='rootless', vel=70, gate=1.0, against=MEL[sec],
                             also=OTH[sec] + [p.bodies.get(sec, []) for p in s.parts.values()
                                              if p.name in ('skank', 'bubble', f'stab_{sec}')]))
-    s.part('timp', 'timpani', 'prep', vel=-4).notes('intro', 'bb2/4 r/2. | f2/4 r/2 f2/4') \
+    timp = s.part('timp', 'timpani', 'prep', vel=-4).notes('intro', 'bb2/4 r/2. | f2/4 r/2 f2/4') \
         .gen(['A', 'A2', 'C'], 'bass:root', low=41, high=53, vel=80) \
-        .gen('Dub', 'bass:root', low=41, high=53, vel=80, bars=(3, 8)) \
-        .at('Dub', 8, 'r/2 ' + crescendo('ab2', '16', 8, 40, 100)) \
-        .at('C', 8, 'r/2 ' + crescendo('c3', '16', 8, 40, 100))
+        .gen('Dub', 'bass:root', low=41, high=53, vel=80, bars=(3, 8))
+    for sec in ('A', 'A2', 'C', 'Dub'):              # one stroke a chord (a beat long), not a held root under the walk
+        timp.bodies[sec] = [replace(n, dur=min(n.dur, Fr(1))) for n in timp.bodies[sec]]
+    timp.at('Dub', 8, 'r/2 ' + crescendo('ab2', '16', 8, 40, 100)).at('C', 8, 'r/2 ' + crescendo('c3', '16', 8, 40, 100))
     return s
 
 
