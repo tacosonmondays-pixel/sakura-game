@@ -6,7 +6,7 @@
 // The deterministic sim is never touched: SFX come from the drained event array, music from a pure
 // state machine (battleMusicStep) fed with the same events plus the wrapped pause/speed actions.
 import { getAudio } from './cue.js';
-import { battleTrack, waveSting, bossTrackFor, battlePreloads } from './routes.js';
+import { battleTrack, bossTrackFor, battlePreloads } from './routes.js';
 import { capFrame } from './limiter.js';
 
 // ------------------------------------------------------------------------------------- SFX mapping
@@ -166,7 +166,7 @@ export function battleMusicStep(s, ev, info = {}) {
     case 'waveStart':
       st.phase = 'wave';
       a.push({ do: 'cancel', tag: 'calm' });
-      a.push({ do: 'stinger', id: info.final ? 'final_wave' : waveSting(st.theme), duck: -4 });
+      // no wave-start sting (owner, Oct 13: like Bloons, the next wave starts silently; only the music lifts)
       if (!st.boss && st.intensity !== 1) toIntensity(1, 'beat', 1);
       break;
     case 'waveEnd':

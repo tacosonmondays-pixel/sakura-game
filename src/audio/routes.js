@@ -86,8 +86,6 @@ export function preloadFor(name) {
 export function battlePreloads(theme, { hasBoss = false, bossId = null } = {}) {
   const out = [
     { track: battleTrack(theme), decode: true },
-    { track: waveSting(theme), decode: true },
-    { track: 'final_wave', decode: true },
     { track: 'victory', decode: true },
     { track: 'defeat', decode: true },
     { track: 'results_win' },

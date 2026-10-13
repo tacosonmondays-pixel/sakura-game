@@ -309,7 +309,7 @@ describe('battle adapter preloads', () => {
   afterEach(() => {
     delete globalThis.window;
   });
-  test('mount preloads stings + jingles; a boss two waves ahead preloads its track and the warning', async () => {
+  test('mount preloads the battle track + jingles (no wave stings); a boss two waves ahead preloads its track and the warning', async () => {
     const asked = [];
     const audio = { preloadTracks: (list) => (asked.push(...list), list.length), battleAction() {}, setBattleSpeed() {}, setBattlePaused() {}, sfx() {} };
     globalThis.window = { __sakura: { audio } };
@@ -317,7 +317,8 @@ describe('battle adapter preloads', () => {
       waveInfo: (n) => (n === 3 ? [{ enemyId: 'dragon_ashwing', tier: 'boss' }] : [{ enemyId: 'slime', tier: 'normal' }]) };
     const a = attachBattleAudio({ sim, speed: 1, feed: { push() {} } });
     const tracks = asked.map((x) => x.track);
-    expect(tracks).toEqual(expect.arrayContaining(['battle_matsuri', 'wave_matsuri', 'victory', 'defeat', 'results_win']));
+    expect(tracks).toEqual(expect.arrayContaining(['battle_matsuri', 'victory', 'defeat', 'results_win']));
+    expect(tracks).not.toContain('wave_matsuri');                                  // no wave-start sting any more (owner, Oct 13)
     expect(tracks).not.toContain('final');
     sim.wave = 1;                                                                 // wave 3 is now two waves ahead
     await new Promise((r) => setTimeout(r, 300));

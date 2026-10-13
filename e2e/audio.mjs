@@ -211,8 +211,7 @@ try {
     return { off: Math.abs(k - Math.round(k)) * step, step };
   }, Number(sm[1])) : null;
   check(intenseOk && took <= 2 * barSec + 0.05, `wave start: intensity stem fully in ${took.toFixed(2)} s after the event (≤ 2 bars = ${(2 * barSec).toFixed(2)} s), now ${b2.stems.intensity?.value}`);
-  check(stingLate >= 0 && grid && stingLate < grid.step + 0.1 && grid.off < 0.002,
-    `wave start: sting ${stingLine ? `scheduled ${stingLate.toFixed(2)} s after the event, its stab ${(grid?.off * 1000).toFixed(1)} ms off the loop's ${grid?.step.toFixed(2)} s grid (preloaded at mount)` : 'missing'}`);
+  check(!stingLine, `wave start: no sting (owner: the next wave starts silently, like Bloons)${stingLine ? ` — but found: ${stingLine}` : ''}`);
   // a girl placed through the sim emits 'place' → bt.place via the event hook; a coin bump → bt.deny via the wrapped action
   const placed = await A(() => {
     const { sim, ui } = window.__battle;

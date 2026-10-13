@@ -25,9 +25,9 @@ describe('battle music state machine', () => {
     const { actions } = run([{ type: 'mount' }], {}, 'lake');
     expect(actions[0]).toEqual([{ do: 'play', track: 'battle_moonlit', stems: { base: 1, intensity: 0 }, transition: 'bar' }]);
   });
-  test('wave start: family sting, intensity fades in on the next beat; wave end calms down after 2 s', () => {
+  test('wave start: no sting (silent like Bloons), intensity fades in on the next beat; wave end calms down after 2 s', () => {
     const { state, actions } = run([{ type: 'mount' }, { type: 'waveStart', wave: 1 }, { type: 'waveEnd', wave: 1 }]);
-    expect(actions[1]).toContainEqual({ do: 'stinger', id: 'wave_blossom', duck: -4 });
+    expect(actions[1].some((a) => a.do === 'stinger')).toBe(false);
     expect(actions[1]).toContainEqual({ do: 'stems', levels: { intensity: 1 }, quantize: 'beat', fadeBars: 1 });
     expect(actions[2]).toEqual([{ do: 'stems', levels: { intensity: 0 }, quantize: 'bar', fadeBars: 2, delay: 2, tag: 'calm' }]);
     expect(state.phase).toBe('between');
@@ -37,10 +37,10 @@ describe('battle music state machine', () => {
     expect(actions[3][0]).toEqual({ do: 'cancel', tag: 'calm' });
     expect(actions[3].some((a) => a.do === 'stems' && a.levels.intensity === 1)).toBe(true);
   });
-  test('final wave uses the final-wave sting', () => {
+  test('final wave starts silently too (no sting)', () => {
     let s = initialBattleMusic({});
     const r = battleMusicStep(s, { type: 'waveStart', wave: 20 }, { final: true });
-    expect(r.actions).toContainEqual({ do: 'stinger', id: 'final_wave', duck: -4 });
+    expect(r.actions.some((a) => a.do === 'stinger')).toBe(false);
   });
   test('miniboss: sting with a deep duck, intensity held until it dies', () => {
     const tierOf = (id) => ({ prince: 'miniboss', slime: 'normal' })[id];
