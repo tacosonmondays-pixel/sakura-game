@@ -906,6 +906,27 @@ begin
     from friends f join profiles p on p.id = f.friend_id where f.user_id = v_me) x);
 end $$;
 
+-- The co-op room lobby's "Invite a friend" list: my friends and my clanmates (never the
+-- developer clan's), online first, each with whether a DM invite can reach them. Nobody I blocked.
+create or replace function public.invite_candidates() returns json
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := social_me();
+begin
+  return (select coalesce(json_agg(x order by x.online desc, x.friend desc, lower(x.name)), '[]'::json) from (
+    select p.id as "userId", p.name, p.level, p.avatar, p.last_active as "lastActive",
+      coalesce(p.last_active > now() - interval '5 minutes', false) as online,
+      social_are_friends(v_me, p.id) as friend, social_dm_why(v_me, p.id) is null as "canMessage"
+    from profiles p
+    where p.id <> v_me
+      and (exists (select 1 from friends f where f.user_id = v_me and f.friend_id = p.id)
+        or exists (select 1 from clan_members ma join clan_members mb on mb.clan_id = ma.clan_id join clans c on c.id = ma.clan_id
+          where ma.user_id = v_me and mb.user_id = p.id and not c.is_dev))
+      and not exists (select 1 from blocks b where b.blocker_id = v_me and b.blocked_id = p.id)
+    order by p.last_active desc nulls last
+    limit 80) x);
+end $$;
+
 -- incoming: who asked me (with the name stamped when they asked); outgoing: without the
 -- recipients' account ids (swallowed and declined ones look like pending ones)
 create or replace function public.list_friend_requests() returns json
@@ -1018,7 +1039,7 @@ begin
   end if;
   perform enforce_rate('invite', 5000, 20, interval '1 hour');
   perform enforce_rate('dm_day', 0, 300, interval '1 day');
-  update direct_messages set meta = jsonb_set(meta, '{expires}', to_jsonb(v_now))
+  update direct_messages set meta = jsonb_set(meta, '{expires}', to_jsonb(v_now - 1))
     where sender_id = v_me and recipient_id = p_to and kind = 'invite' and (meta ->> 'expires')::bigint > v_now;
   insert into direct_messages (thread_id, sender_id, recipient_id, name, level, avatar, body, kind, meta)
     values (social_thread_for(v_me, p_to), v_me, p_to, me.name, me.level, me.avatar,
@@ -1548,7 +1569,7 @@ begin
       'social_report_evidence', 'social_qualified_reporter', 'social_maybe_auto_mute', 'social_clan_established', 'social_request_json',
       'social_version', 'social_summary', 'player_card', 'set_dm_privacy', 'my_friend_code', 'reset_friend_code', 'send_friend_request',
       'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests',
-      'block_player', 'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read',
+      'invite_candidates', 'block_player', 'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read',
       'dm_clear', 'invite_state', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate',
       'settle_donations', 'claim_donations', 'messages_social_guard', 'profiles_rename_limit', 'clan_members_dev_lab'])
   loop
@@ -1560,7 +1581,7 @@ grant execute on function
   public.social_version(), public.social_summary(), public.player_card(uuid), public.set_dm_privacy(text),
   public.my_friend_code(), public.reset_friend_code(), public.send_friend_request(uuid), public.add_friend_by_code(text),
   public.answer_friend_request(bigint, boolean), public.cancel_friend_request(bigint), public.remove_friend(uuid),
-  public.list_friends(), public.list_friend_requests(), public.block_player(uuid), public.unblock_player(uuid),
+  public.list_friends(), public.list_friend_requests(), public.invite_candidates(), public.block_player(uuid), public.unblock_player(uuid),
   public.list_blocked(), public.send_dm(uuid, text), public.send_coop_invite(uuid, text, text, text), public.dm_inbox(int),
   public.dm_history(uuid, bigint, int), public.dm_mark_read(uuid, bigint), public.dm_clear(uuid), public.invite_state(bigint),
   public.report_player(uuid, text, text, text, bigint), public.donation_state(), public.request_materials(text),

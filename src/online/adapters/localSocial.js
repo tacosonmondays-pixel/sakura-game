@@ -429,6 +429,22 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         return { userId: id, name: p.name || 'Sensei', level: p.level || 1, avatar: p.avatar || 'hikari', lastActive, online: lastActive > now() - 5 * 60000, since, canMessage: !dmWhy(s, x, uid, id) };
       }).sort((a, b) => Number(b.online) - Number(a.online) || a.name.toLowerCase().localeCompare(b.name.toLowerCase())), { save: false });
     },
+    /** SQL: invite_candidates() — friends and clanmates (not the dev clan), online first. */
+    inviteCandidates(uid) {
+      return stx((s, x) => {
+        meUser(s, uid);
+        const myClan = s.members[uid]?.clanId;
+        const devClan = !myClan || s.clans[myClan]?.isDev || myClan === devClanId;
+        const ids = new Set(Object.keys(x.friends[uid] || {}));
+        if (!devClan) for (const m of Object.values(s.members)) if (m.clanId === myClan) ids.add(m.userId);
+        ids.delete(uid);
+        return [...ids].filter((id) => s.users[id] && !blockedByMe(x, uid, id)).map((id) => {
+          const p = s.users[id];
+          const lastActive = p.lastActive || 0;
+          return { userId: id, name: p.name || 'Sensei', level: p.level || 1, avatar: p.avatar || 'hikari', lastActive, online: lastActive > now() - 5 * 60000, friend: areFriends(x, uid, id), canMessage: !dmWhy(s, x, uid, id) };
+        }).sort((a, b) => Number(b.online) - Number(a.online) || Number(b.friend) - Number(a.friend) || a.name.toLowerCase().localeCompare(b.name.toLowerCase())).slice(0, 80);
+      }, { save: false });
+    },
     friendRequests(uid) {
       return stx((s, x) => ({
         incoming: x.requests.filter((r) => r.toId === uid && r.status === 'pending').sort((a, b) => b.at - a.at)
@@ -580,7 +596,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         if (recent.length >= INVITE_PAIR_PER_HOUR) fail('rate_limited', 'Too many invites to this player', { retryMs: Math.max(1000, recent[INVITE_PAIR_PER_HOUR - 1].createdAt + H - now()) });
         rate(s, uid, 'invite');
         rate(s, uid, 'dm_day');
-        for (const m of x.dms) if (m.senderId === uid && m.recipientId === to && m.kind === 'invite' && m.meta.expires > now()) m.meta.expires = now();
+        for (const m of x.dms) if (m.senderId === uid && m.recipientId === to && m.kind === 'invite' && m.meta.expires > now() - 1) m.meta.expires = now() - 1;
         const th = threadFor(s, x, uid, to);
         const m = {
           id: x.seq++, threadId: th.id, senderId: uid, recipientId: to, name: u.name, level: u.level || 1, avatar: u.avatar || 'hikari',

@@ -227,6 +227,9 @@ export function createLocalAdapter(env = {}) {
     async friendRequests() {
       return db.friendRequests(me());
     },
+    async inviteCandidates() {
+      return db.inviteCandidates(me());
+    },
     async addFriend(userId) {
       return db.addFriend(me(), userId);
     },

@@ -41,7 +41,7 @@ const COUNTED_CALLS = new Set(['joinByCode', 'redeemTransfer', 'addFriendByCode'
  */
 export const SOCIAL_METHODS = [
   'socialSummary', 'playerCard', 'setPrivacy', 'myFriendCode', 'resetFriendCode', 'friends', 'friendRequests', 'addFriend', 'addFriendByCode',
-  'answerFriend', 'cancelFriendRequest', 'removeFriend', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
+  'answerFriend', 'cancelFriendRequest', 'removeFriend', 'inviteCandidates', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
   'inviteState', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
 ];
 /** How long a "needs update" answer is trusted before asking the server again. */

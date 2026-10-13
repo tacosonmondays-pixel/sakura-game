@@ -352,6 +352,9 @@ export function createSupabaseAdapter({ url, key }) {
     async friends() {
       return ((await srpc('list_friends')) || []).map((f) => ({ ...f, lastActive: ts(f.lastActive), since: ts(f.since) }));
     },
+    async inviteCandidates() {
+      return ((await srpc('invite_candidates')) || []).map((f) => ({ ...f, lastActive: ts(f.lastActive), online: !!f.online, friend: !!f.friend, canMessage: !!f.canMessage }));
+    },
     async friendRequests() {
       const r = await srpc('list_friend_requests');
       return {

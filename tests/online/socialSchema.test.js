@@ -20,7 +20,7 @@ const ALLOWED = new Set([
   'start_boss_attempt', 'submit_boss_damage', 'claim_boss_reward', 'create_transfer', 'redeem_transfer', 'open_room', 'join_room', 'leave_room',
   'my_clan', 'my_role', 'clan_level', 'current_week', 'boss_hit_cap', 'valid_display_name', 'valid_message_meta',
   'social_version', 'social_summary', 'player_card', 'set_dm_privacy', 'my_friend_code', 'reset_friend_code', 'send_friend_request',
-  'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests', 'block_player',
+  'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests', 'invite_candidates', 'block_player',
   'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read', 'dm_clear', 'invite_state',
   'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations', 'visible_name',
 ]);
@@ -365,6 +365,10 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     const inv2 = await one(A, `select send_coop_invite($1, $2, '1-4', 'normal') as r`, [B, roomCode]);
     expect(await one(B, 'select invite_state($1) as r', [inv.id])).toBe('expired');
     expect(await one(B, 'select invite_state($1) as r', [inv2.id])).toBe('open');
+    // the room lobby's "Invite a friend" list: friends + clanmates, never someone I blocked
+    const cands = await one(A, 'select invite_candidates() as r');
+    expect(cands.find((x) => x.userId === B)).toMatchObject({ friend: true, name: 'Bea' });
+    expect(cands.every((x) => x.userId !== A)).toBe(true);
     // B takes the seat: open for B, full for everyone else
     await clearRate(B, 'room');
     await as(B, `select join_room($1)`, [roomCode]);
