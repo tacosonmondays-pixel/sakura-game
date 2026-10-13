@@ -1,8 +1,8 @@
 // Supabase adapter: anonymous auth, Postgres tables behind Row Level Security, server
 // functions (supabase/migrations/*.sql) for everything that needs a role check or a rate limit,
-// Realtime postgres_changes for chat / clan updates and broadcast + presence channels for
-// co-op rooms. @supabase/supabase-js is imported on first use, so players who never open an
-// online screen never download it.
+// Realtime postgres_changes for chat / clan updates and broadcast-only channels for co-op rooms.
+// @supabase/supabase-js is imported on first use, so players who never open an online screen
+// never download it.
 import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
 import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
 
@@ -34,6 +34,13 @@ function mapRequest(r) {
     myGiven: Number(r.myGiven) || 0, donors: r.donors || [],
   };
 }
+
+/** A room channel not joined this long after a (re)join began is replaced by a fresh one. */
+export const ROOM_STUCK_MS = 12000;
+/** Longest pause between two fresh room channels. */
+export const ROOM_MAX_BACKOFF_MS = 15000;
+/** Messages kept while a room channel is down (beyond that, the oldest go). */
+export const ROOM_OUTBOX_MAX = 50;
 
 function mapMessage(r) {
   return {
@@ -490,78 +497,228 @@ export function createSupabaseAdapter({ url, key }) {
       };
     },
 
-    // ---- co-op rooms (Realtime broadcast + presence; open_room / join_room hand out the secret) --
-    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {}, onSeated = () => {} } = {}) {
+    // ---- co-op rooms (Realtime broadcast; open_room / join_room hand out the secret) ---------
+    // Broadcast only, no Realtime presence, on purpose. On some Realtime server nodes a presence
+    // track() took longer than the server's 5 s limit (measured 2026-10-13 on about half of all
+    // connections); the server then killed that player's channel ("phx_error channel_crash"),
+    // the client rejoined and tracked again, and so on every ~6 s. While the track hung, nothing
+    // that player sent got out, so one side of the room was mute and joining failed. Who is in
+    // the room is now the lobby's own hello beacon (src/online/coop/session.js), which works the
+    // same on every node. See docs/ONLINE.md → Troubleshooting.
+    //
+    // The channel heals itself: realtime-js rejoins it after an error or a timeout; a channel
+    // that is closed, or not back within ROOM_STUCK_MS, is replaced by a fresh one (same secret,
+    // no new open_room / join_room) after a backoff. onStatus tells the lobby what is going on:
+    //   'connecting'   not joined yet          'connected'  joined (again: { rejoin: true })
+    //   'reconnecting' lost it, working on it
+    openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onSeated = () => {} } = {}) {
       const self = need();
+      let c = null;
+      let secret = null;
       let ch = null;
       let closed = false;
       let seated = false;
-      const outbox = [];
-      const peers = () => {
-        if (!ch) return [];
-        const state = ch.presenceState();
-        return Object.entries(state).filter(([k]) => k !== self).map(([k, list]) => ({ uid: k, ...(list[0] || {}) }));
-      };
-      sb().then(async (c) => {
-        if (closed) return;
-        // the host registers the code, a guest takes the one free seat; only they learn the
-        // secret that names the channel, so nobody else can listen to or write into this room
-        let seat;
+      let status = 'connecting';
+      let everJoined = false;
+      let attempt = 0;
+      let retryTimer = null;
+      let watchdog = null;
+      const outbox = []; // { key, payload } while the channel is not joined
+      const live = () => !!ch && ch.state === 'joined' && c?.realtime?.isConnected?.() !== false;
+      const setStatus = (next, info = {}) => {
+        if (closed || (next === status && next !== 'connected')) return;
+        status = next;
         try {
-          seat = await rpc(host ? 'open_room' : 'join_room', { p_code: code });
+          onStatus(next, info);
+        } catch (e) {
+          console.warn('[coop] status handler failed', e);
+        }
+      };
+      const lost = () => (everJoined ? 'reconnecting' : 'connecting');
+      const push = (payload) => ch.send({ type: 'broadcast', event: 'm', payload });
+      const flush = () => {
+        while (outbox.length && live()) push(outbox.shift().payload);
+      };
+      let gen = 0; // the newest join() wins
+      /**
+       * Takes the old channel off the client before a new one is made: realtime-js hands back
+       * the existing channel for a topic it still lists (and forgets every channel of that topic
+       * when one is removed), so the old one must be gone first.
+       */
+      async function retire(old) {
+        try {
+          await Promise.race([c.removeChannel(old), new Promise((r) => setTimeout(r, 3000))]);
+        } catch {
+          /* gone anyway */
+        }
+        if (c.getChannels?.().includes(old)) {
+          // a leave the server has not answered yet: drop it locally
+          try {
+            old.teardown?.();
+          } catch {
+            /* ignore */
+          }
+          c.realtime?._remove?.(old);
+        }
+      }
+
+      // the host registers the code, a guest takes the one free seat; only they learn the
+      // secret that names the channel, so nobody else can listen to or write into this room
+      async function takeSeat() {
+        const seat = await rpc(host ? 'open_room' : 'join_room', { p_code: code });
+        if (seat?.error) throw new OnlineError(seat.error);
+        seated = true;
+        secret = seat.secret;
+      }
+
+      /** Starts over with a fresh channel after a backoff (1 s, 2 s, 4 s … 15 s, ±20%). */
+      function restart(reason) {
+        if (closed || retryTimer) return;
+        clearTimeout(watchdog);
+        watchdog = null;
+        setStatus(lost(), { reason });
+        const ms = Math.min(ROOM_MAX_BACKOFF_MS, 1000 * 2 ** attempt++) * (0.8 + Math.random() * 0.4);
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          join();
+        }, ms);
+      }
+
+      /** Not joined ROOM_STUCK_MS after a (re)join began: replace the channel. */
+      function arm(mine) {
+        clearTimeout(watchdog);
+        watchdog = setTimeout(() => {
+          watchdog = null;
+          if (closed || ch !== mine || mine.state === 'joined') return;
+          // the socket itself is down: realtime-js reconnects it and then rejoins this channel
+          if (c.realtime?.isConnected?.() === false) arm(mine);
+          else restart('stuck');
+        }, ROOM_STUCK_MS);
+      }
+
+      async function join() {
+        if (closed) return;
+        const my = ++gen;
+        const old = ch;
+        ch = null;
+        if (old) await retire(old);
+        // the same room left a moment ago (Retry, back and forth): its channel may still be leaving
+        const topic = `coop:${code}:${secret}`;
+        const stale = c.getChannels?.().find((x) => x.topic === `realtime:${topic}`);
+        if (stale) await retire(stale);
+        if (closed || my !== gen) return;
+        const mine = c.channel(topic, { config: { broadcast: { self: false, ack: false } } });
+        ch = mine;
+        mine.on('broadcast', { event: 'm' }, ({ payload }) => {
+          if (ch === mine && !closed) onMessage(payload?.msg, payload?.uid);
+        });
+        arm(mine);
+        mine.subscribe((st, err) => {
+          if (closed || ch !== mine) return;
+          if (st === 'SUBSCRIBED') {
+            clearTimeout(watchdog);
+            watchdog = null;
+            attempt = 0;
+            flush();
+            const rejoin = everJoined;
+            everJoined = true;
+            setStatus('connected', { rejoin });
+          } else if (st === 'CLOSED') {
+            restart('closed');
+          } else {
+            // CHANNEL_ERROR / TIMED_OUT: realtime-js rejoins this channel by itself (after 1, 2,
+            // 5, 10 s); if that does not bring it back, the watchdog starts over with a new one
+            setStatus(lost(), { reason: st, error: err?.message });
+            if (!watchdog && !retryTimer) arm(mine);
+          }
+        });
+      }
+
+      sb().then(async (client0) => {
+        c = client0;
+        if (closed) return;
+        try {
+          await takeSeat();
         } catch (e) {
           onError(toOnlineError(e));
           return;
         }
-        if (seat?.error) {
-          onError(new OnlineError(seat.error));
-          return;
-        }
-        seated = true;
         if (closed) {
           rpc('leave_room', { p_code: code }).catch(() => {});
           return;
         }
         // [social] the room exists on the server now: a DM invite for it can be sent
         try {
-          onSeated({ code: seat.code, host: !!seat.host });
+          onSeated({ code, host: !!host });
         } catch (e) {
           console.warn('[online] onSeated failed', e);
         }
-        ch = c.channel(`coop:${code}:${seat.secret}`, { config: { broadcast: { self: false, ack: false }, presence: { key: self } } });
-        ch.on('broadcast', { event: 'm' }, ({ payload }) => onMessage(payload?.msg, payload?.uid))
-          .on('presence', { event: 'sync' }, () => onPresence(peers()))
-          .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await ch.track({ ...meta });
-              while (outbox.length) ch.send({ type: 'broadcast', event: 'm', payload: outbox.shift() });
-            }
-          });
+        join();
       });
+
       return {
         // Realtime counts every message against the project's quota (free plan: 2M a month and
         // 100 per second for the whole project), so rooms here talk ~4× a second instead of 20:
         // a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is queued
         // (src/online/coop/lockstep.js). Tower defense hardly notices half a second of lag.
         net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 },
-        send(msg) {
-          if (closed) return;
-          const payload = { uid: self, msg };
-          if (ch?.state === 'joined') ch.send({ type: 'broadcast', event: 'm', payload });
-          else if (outbox.length < 200) outbox.push(payload);
+        get status() {
+          return status;
         },
-        peers,
-        track(next) {
-          Object.assign(meta, next);
-          if (ch?.state === 'joined') ch.track({ ...meta });
+        /** True while messages actually go out (the channel is joined on a live socket). */
+        get connected() {
+          return live();
+        },
+        /**
+         * Sends now, or keeps it until the channel is back: `latest` keeps only the newest
+         * message of that kind (a newer heartbeat makes the older one pointless), `drop` sends
+         * only now (a hello is state, re-sent on every rejoin anyway). Returns true when sent.
+         */
+        send(msg, { latest = null, drop = false } = {}) {
+          if (closed) return false;
+          const payload = { uid: self, msg };
+          if (live()) {
+            push(payload);
+            return true;
+          }
+          if (drop) return false;
+          if (latest) {
+            const i = outbox.findIndex((o) => o.key === latest);
+            if (i >= 0) outbox.splice(i, 1);
+          }
+          outbox.push({ key: latest, payload });
+          if (outbox.length > ROOM_OUTBOX_MAX) outbox.shift();
+          return false;
+        },
+        /** Retry button: take the seat again (finds out if the room is gone) on a fresh channel. */
+        async reconnect() {
+          if (closed || !c) return;
+          clearTimeout(retryTimer);
+          clearTimeout(watchdog);
+          retryTimer = null;
+          watchdog = null;
+          attempt = 0;
+          setStatus(lost(), { reason: 'retry' });
+          try {
+            await takeSeat();
+          } catch (e) {
+            const err = toOnlineError(e);
+            // the room is gone / taken: say so; a network or rate-limit hiccup: just rejoin
+            if (!secret || (err.code !== 'offline' && err.code !== 'rate_limited')) {
+              onError(err);
+              return;
+            }
+          }
+          await join();
         },
         close() {
           if (closed) return;
           closed = true;
-          if (ch) {
-            ch.untrack?.();
-            client?.removeChannel(ch);
-          }
+          clearTimeout(retryTimer);
+          clearTimeout(watchdog);
+          const old = ch;
+          ch = null;
+          if (old) Promise.resolve(c?.removeChannel(old)).catch(() => {});
           if (seated) rpc('leave_room', { p_code: code }).catch(() => {});
         },
       };

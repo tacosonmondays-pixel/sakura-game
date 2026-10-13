@@ -21,6 +21,8 @@ import { openSession, getSession, makeRoomCode, normalizeCode } from '../../onli
 import { coopLoadout } from '../../online/coop/loadout.js';
 import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
+import { APP_VERSION, versionLabel, compareVersions } from '../../core/buildInfo.js';
+import { checkForUpdate, updateAvailable, reloadFresh } from '../../core/updates.js';
 
 const PREF_KEY = 'ss-coop-pref';
 
@@ -97,6 +99,55 @@ function pickStage(current, difficulty) {
       },
     });
   });
+}
+
+/**
+ * "A new version is out" inside co-op (both players need compatible versions to pair): empty
+ * until the update check finds a newer deploy.
+ */
+function updateNotice() {
+  const box = h('div', { 'data-testid': 'coop-update' });
+  const paint = (info) => {
+    if (!info) return;
+    box.replaceChildren(h('div.ol-banner.ol-banner-row',
+      h('span', `A new version${info.version ? ` (${versionLabel(info.version)})` : ''} is out. Update before you play so you and your ally match.`),
+      button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
+  };
+  paint(updateAvailable());
+  checkForUpdate({ force: true }).then(paint).catch(() => {});
+  return box;
+}
+
+/**
+ * Two clients that cannot play together: say who is behind and what to do. An ally without a
+ * version label runs a build from before version numbers existed, so theirs is the older one.
+ */
+function mismatchBanner(m) {
+  const theirs = m.theirs?.label || null;
+  const cmp = theirs ? compareVersions(theirs, APP_VERSION) : -1;
+  const upd = updateAvailable();
+  const you = versionLabel(APP_VERSION);
+  let text;
+  let action = null;
+  if (upd || cmp === 1) {
+    text = `${m.name} is on ${theirs ? versionLabel(theirs) : 'a newer version'} and you're on ${you}. Tap Update to get the newest version — then you can play together.`;
+    action = button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-version-update', onClick: () => reloadFresh(upd?.build) });
+  } else if (cmp === -1) {
+    text = `${m.name} is on ${theirs ? versionLabel(theirs) : 'an older version'} and you're on ${you}, the newest. Ask ${m.name} to reload the page (the game updates itself), then try again.`;
+  } else if (cmp === 0) {
+    // same version, yet the battle data or engine id differ: a game bug, not something to reload away
+    text = `You and ${m.name} are both on ${you}, but your devices don't agree on the battle data, so co-op can't start. That's a game bug — please send the developer a screenshot of this.`;
+  } else {
+    text = `${m.name} runs a different build${theirs ? ` (${versionLabel(theirs)})` : ''} than you (${you}), so you cannot play together yet. Whoever is behind should reload the page.`;
+    action = button('Reload', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-version-reload', onClick: () => reloadFresh() });
+  }
+  return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text, h('small.ol-version-diag', ` (${versionDiff(m.mine, m.theirs)})`)), action);
+}
+
+/** Which parts of two co-op versions differ, for bug reports: "data 785f763b≠c0bb331a". */
+function versionDiff(mine, theirs) {
+  const parts = ['proto', 'sim', 'data', 'build'].filter((k) => String(mine?.[k] ?? '') !== String(theirs?.[k] ?? ''));
+  return parts.map((k) => `${k} ${String(mine?.[k] ?? '–').slice(0, 8)}≠${String(theirs?.[k] ?? '–').slice(0, 8)}`).join(' · ') || 'no difference';
 }
 
 export function render(root, params = {}) {
@@ -187,6 +238,7 @@ export function render(root, params = {}) {
 
     body.replaceChildren(h('div.ol-coop-hub', ...[
       localNotice('coop'),
+      updateNotice(),
       h('section.panel.ol-coop-intro',
         h('h3.panel-title', 'Defend together'),
         h('div.ol-coop-intro-body',
@@ -267,11 +319,20 @@ export function render(root, params = {}) {
       }
     }
 
+    /** What the empty seat says while we wait: the link first, then who we wait for. */
+    function waitText(s) {
+      if (s.link === 'connecting') return ['Connecting to room…', 'This usually takes a second or two.'];
+      if (s.link === 'reconnecting') return ['Reconnecting…', 'The connection dropped. Trying again on its own.'];
+      return s.isHost ? ['Waiting for your ally…', 'Share the code or invite your clan.'] : ['Looking for the host…', 'Your ally\'s room should show up in a moment.'];
+    }
+
     function playerCard(p, slot, me) {
       if (!p) {
+        const [title, sub] = waitText(session);
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] } },
-          h('div.ol-pcard-wait', h('i.ol-spinner'), h('b', session.isHost ? 'Waiting for an ally…' : 'Looking for the host…'),
-            h('p.muted', session.isHost ? 'Share the code or invite your clan.' : 'The host may have closed this room. Check the code.')));
+          session.mismatch
+            ? h('div.ol-pcard-wait', h('b', `${session.mismatch.name} is here`), h('p.muted', 'Your game versions differ — see above.'))
+            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, h('i.ol-spinner'), h('b', title), h('p.muted', sub)));
       }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
@@ -310,6 +371,24 @@ export function render(root, params = {}) {
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
     }
 
+    /**
+     * The connection line above the players: "Reconnecting…" while the link is down with an ally
+     * on screen (the empty seat says it otherwise), and after ~15 s without a link or without a
+     * host, what to check and a Retry button.
+     */
+    function linkBanner(s) {
+      if (s.stuck) {
+        const text = s.stuck === 'server'
+          ? 'Cannot reach the co-op server. Check your internet connection, then tap Retry.'
+          : `The host of room ${roomCode} has not answered yet. Make sure your ally still has this room open, then tap Retry. If it keeps failing, ask your ally for a new code.`;
+        return h('div.ol-banner.warn.ol-banner-row', { 'data-testid': 'coop-stuck' },
+          h('span', text),
+          button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => s.retry() }));
+      }
+      if (s.link === 'reconnecting' && s.peer) return h('div.ol-banner.warn', { 'data-testid': 'coop-link' }, 'Reconnecting… your ally stays in the room.');
+      return null;
+    }
+
     function tipsPanel() {
       const tips = [
         ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
@@ -321,6 +400,7 @@ export function render(root, params = {}) {
         h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
     }
 
+    const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
     function paint() {
       if (destroyed) return;
       const s = session;
@@ -331,8 +411,15 @@ export function render(root, params = {}) {
           h('div.ol-empty', h('b', s.error.code === 'not_found' ? 'Room not found' : 'Cannot open this room'), h('p.muted', s.error.text),
             h('div.ol-row-end',
               button('Back', { kind: 'ghost', small: true, icon: 'back', onClick: () => { s.close(); navigate('coop'); } }),
+              // the server could not be reached at all: open the same room again
+              s.error.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => { s.close(); cleanup(); connecting(body, () => room(roomCode)); } }) : null,
               s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', onClick: () => { s.close(); navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty }); } }) : null))));
         return;
+      }
+      if (s.mismatch && !updateCheckedFor.has(s.mismatch.uid)) {
+        // are WE the one behind? (a newer deploy exists → the banner offers Update); once per ally
+        updateCheckedFor.add(s.mismatch.uid);
+        checkForUpdate({ force: true }).then((info) => { if (info) paint(); }).catch(() => {});
       }
       const host = s.isHost ? s.me : s.peer;
       const guest = s.isHost ? s.peer : s.me;
@@ -374,13 +461,13 @@ export function render(root, params = {}) {
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
         localNotice('coop'),
         s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
-        s.mismatch ? h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' },
-          h('span', `${s.mismatch.name} runs a different version of the game, so you cannot play together. Both of you reload the page to get the newest version.`),
-          button('Reload', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => location.reload() })) : null,
+        linkBanner(s),
+        s.mismatch ? mismatchBanner(s.mismatch) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
         h('div.ol-room-foot',
           h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — every order lands on both screens a moment later.' : 'Tap Ready when your girls are set. The host starts the battle.'),
-          action),
+          action,
+          h('p.ver-line', { 'data-testid': 'coop-my-version' }, `Your game version: ${versionLabel(APP_VERSION)}`)),
         // below the call to action (phones scroll to it): the stage up close and the rules
         h('div.ol-room-more', fieldPanel(s), tipsPanel()),
       ].filter(Boolean)); // replaceChildren(null) would print "null"

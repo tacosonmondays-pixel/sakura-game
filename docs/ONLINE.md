@@ -216,6 +216,42 @@ supabase/migrations/*.sql        tables, RLS, functions, rate limits, realtime p
 supabase/config.toml             Supabase CLI config (anonymous sign-ins, realtime) for local stacks / preview branches
 ```
 
+### Co-op lobby: finding each other
+
+- **The room channel is broadcast only.** `openRoom()` in `src/online/adapters/supabase.js` joins
+  `coop:<CODE>:<secret>` with `broadcast: { self: false, ack: false }` and nothing else: no presence key,
+  no presence listener, no `track()`. (Until 2026-10-13 it tracked presence; on some Realtime server nodes
+  that call hung, the server crashed the channel every ~6 s, and the player on such a node could hear
+  but never be heard. See Troubleshooting.)
+- **Messages go out as soon as the channel is joined.** Anything sent while it is down waits in a small
+  outbox: only the newest heartbeat / start / ready / stage message of each kind is kept, and hellos are
+  not kept at all (they are re-sent on every join).
+- **The channel heals itself.** After `CHANNEL_ERROR` or `TIMED_OUT` realtime-js rejoins the same channel
+  (after 1, 2, 5, 10 s). A channel that is `CLOSED`, or not joined 12 s after a (re)join began, is replaced
+  by a fresh one on the same secret after a backoff of 1 s, 2 s, 4 s … 15 s (±20%). No new `open_room` /
+  `join_room` call is needed for that, so the room rate limit is not touched. Every state change is
+  reported to the lobby: `connecting` → `connected` (again with `rejoin: true`) → `reconnecting`.
+- **The handshake heals itself too** (`src/online/coop/session.js`). Broadcast is lossy: a message sent
+  while the other side is not subscribed is gone. So nothing is said only once:
+  - each side says `hello` right after every (re)join;
+  - the hello says whom I see (`sees`) and carries my ready flag, and the host's carries the stage;
+  - until the other side's hello says it sees me, I say hello every second, and I answer every hello
+    that does not see me yet (at most every 0.4 s);
+  - once both see each other, a keepalive hello every 3 s; a lost `ready` or stage change fixes itself
+    with the next one;
+  - an ally silent for 10 s while my own link is up has left (a `leave` message or closing the tab is
+    instant);
+  - a version mismatch clears as soon as the same player says hello again on my version (after a
+    reload).
+  Normally the guest sees the host within one round trip of its channel joining (well under 3 s).
+- **What the lobby shows.** "Connecting to room…" until the channel is joined, then "Waiting for your
+  ally…" (host) or "Looking for the host…" (guest), "Reconnecting…" while the link is down, and after
+  15 s without a host (or without a link) a banner with what to check and a **Retry** button. Retry takes
+  the seat again (`join_room` / `open_room`, so a room that is gone says "No room uses that code") on a
+  fresh channel. A code with a typo is refused by `join_room` straight away: "No room uses that code".
+- **Lobby traffic** is small: 1 hello a second per player while they look for each other, 1 every 2 s
+  for a host waiting alone, then 1 every 3 s each.
+
 ### Co-op lockstep
 
 - **Same simulation on both clients.** The host's start message carries:
@@ -224,19 +260,39 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 
   Both clients build the same seeded Sim from it, with enemy HP ×1.6 through the stage's `hpScale`.
   `src/sim` is unchanged.
-- **Same version on both clients.** The game is a PWA, so after a deploy a cached older client can meet
-  an updated one, and that pair would desync every time. `hello` and `start` carry
-  `coopVersion()` (`src/online/coop/version.js`): the protocol number, the build's git commit
-  (`__BUILD_ID__`, set in `vite.config.js`) and a hash of the battle data. When they differ the lobby
-  refuses to pair and says "… runs a different version of the game — both of you reload".
+- **Compatible versions on both clients.** After a deploy, a tab left open (or an `index.html` the
+  browser kept for GitHub Pages' 10 minutes) can meet an updated client, and that pair would desync
+  every time. `hello` and `start` carry `coopVersion()` (`src/online/coop/version.js`): the protocol
+  number, the **sim id** (a hash of every source file the lockstep battle runs on — the import graph of
+  `src/sim`, `src/online/coop` and `src/online/adapters`, computed by `tools/simId.mjs` in
+  `vite.config.js`), a hash of the battle data, the git commit and the player-facing version. Two
+  clients pair when protocol, sim id and data match, so deploys that only change art, audio, menus or
+  the renderer don't split players. When they differ the lobby names both versions and who is behind
+  ("Chuu is on v0.1.16 and you're on v0.1.17 …"); the one behind gets an **Update** button.
+- **Version number + updates.** Every deploy gets a player-facing version `<major>.<minor>.<deploy
+  number>` (GitHub Actions run number; local builds say `0.1.dev`), shown on the title screen, in
+  Settings → About (with *Check for updates*) and in the co-op room. The build writes `version.json`
+  next to `index.html`; the game fetches it uncached every 5 minutes, when the tab comes back and on
+  the co-op screens (`src/core/updates.js`). A newer deploy shows a "New version ready" pill (never
+  during a battle; on the title screen it just reloads). Update reloads into `?v=<build>`, a URL the
+  browser never cached, so the new `index.html` really loads. A screen whose file vanished in a deploy
+  makes the page reload itself once into the new build; within a minute of that it shows "This screen
+  did not load" with Try again / Reload instead of a blank page.
 - **Same math on every engine.** JavaScript does not require `Math.sin`, `cos`, `atan2`, `hypot`, … to
   be correctly rounded, and the engines really differ in the last bit (`node e2e/engines.mjs` shows it:
   V8, JavaScriptCore and SpiderMonkey all disagree on `Math.sin`, and even Node 22 and Chromium 141
   do). Over a long battle such a bit can flip a range check, so an iPhone and an Android phone would
   drift apart. Every co-op Sim call therefore runs inside `withDetMath()`
-  (`src/online/coop/detMath.js`), which swaps those functions for ports of FreeBSD's msun built only
-  from + − × ÷ and `Math.sqrt` (which IEEE-754 fixes to the bit). `e2e/engines.mjs` runs one whole
-  scripted co-op battle in Node, Chromium, Bun, WebKit and Firefox and requires identical hashes.
+  (`src/core/detMath.js`, re-exported from `src/online/coop/detMath.js`), which swaps those functions
+  for ports of FreeBSD's msun built only from + − × ÷ and `Math.sqrt` (which IEEE-754 fixes to the
+  bit). The **map builder** (`src/core/track.js`, `src/data/maps.js`) runs when the game loads,
+  outside any battle, so it calls the ports directly (`DET_MATH`): with the engines' own trig, desktop
+  Chrome and iPhone Safari built road samples 1 ulp apart, the lobby's battle-data hash differed and
+  the two could never pair ("both on v0.1.17" yet refused). `tests/core/engineMath.test.js` nudges
+  every Math function by one ulp and requires the same lobby hash, and lints `src/core/track.js` +
+  `src/data/*.js` for engine Math. `e2e/engines.mjs` runs one whole scripted co-op battle in Node,
+  Chromium, Bun, WebKit and Firefox and requires identical battle hashes **and lobby data hash**
+  (Bun = JavaScriptCore, the iPhone engine: `BUN=~/.bun/bin/bun node e2e/engines.mjs`).
   Single-player battles keep the native functions.
 - **Only commands travel.** These are place, upgrade, sell, target, ult, wave, auto-start and speed.
   - Each command is stamped with a tick a little ahead: 6 ticks (0.1 s) on local tabs, 30 ticks
@@ -310,6 +366,14 @@ The vitest suite covers:
 - `engines.test.js`: keeps the cross-engine battle (`e2e/engines/scriptedBattle.js`) finishing in sync
   with every scripted order accepted.
 - `battleRoute.test.js`: solo battle routes never pick up a co-op session.
+- `coopSession.test.js`: the lobby handshake over a fake network with simulated time: pairing time, a
+  mute host found as soon as its link works (no reconnect needed), a lost answer, hello on every rejoin,
+  a lost `ready`, the 10 s silence rule (not while my own link is down), a mismatch that clears, the
+  15 s "cannot find the host" state and Retry, a code with a typo, the lobby message budget, a third
+  player, and the start message re-sent until the guest answers.
+- `supabaseRoom.test.js`: the Supabase room channel against a scriptable fake: no presence, the outbox
+  flushed at the join, status reports, realtime-js's own rejoin, a fresh channel after `CLOSED` or when
+  stuck (with backoff, and not while the socket itself is down), Retry, and close.
 - `schema.test.js`:
   - lints the migration;
   - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema, once with
@@ -328,6 +392,10 @@ The e2e test opens two pages of one browser in local mode. It checks:
 - clan create and join;
 - the clan boss, including one attempt through a real battle that lands on the damage ranking;
 - the Rosie777 Supply Bot;
+- the co-op lobby with faked connection faults (`window.__coop.room._cut()` / `_heal()` in local mode):
+  a code with a typo, a mute host that the guest cannot find (the 15 s banner and Retry) and then finds
+  within seconds once the host's link works again, a `ready` lost on a mute link, and a dropped guest
+  link that shows "Reconnecting…" and comes back paired and still ready;
 - a co-op battle where both players place a girl and the state hashes match, a dropped and re-admitted
   guest, and the host playing on alone.
 
@@ -343,8 +411,41 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | "The game server is not set up yet" | The migration has not run. Check the GitHub integration's log in Supabase, or paste `supabase/migrations/20261008000000_online.sql` into the SQL editor |
 | "Online features are offline right now" | The project cannot be reached: it may be paused (restore it in the dashboard) or down |
 | "Anonymous sign-ins are disabled" | Authentication → Sign In / Providers → Allow anonymous sign-ins |
-| Co-op lobby says the ally **runs a different version** | One of you has an older cached copy of the game. Both reload the page (close and reopen the app on a phone) |
+| Co-op lobby says the ally **is on an older / newer version** | The one with the lower number taps **Update** (or reloads). Settings → About shows your version and has *Check for updates* |
 | Co-op shows **Waiting for ally…** often | High latency between the players. The input delay adapts up to 3× (1.5 s on Supabase); a closer Supabase region helps |
-| Co-op says "No room uses that code" | The host closed the room, or the code is older than a day. Ask for a new one |
+| Co-op says "No room uses that code" | The host closed the room, or the code is older than a day, or it has a typo. Ask for a new one |
+| Co-op guest keeps saying **Looking for the host…**, then "The host … has not answered yet" | The host's page is closed, asleep (phone screen off) or on another version. The host opens the room again (or makes a new one); the guest taps **Retry**. If it still fails, check the browser console of both players for `phx_error` on a `coop:` topic and see the next section |
+| Co-op lobby or battle says **Reconnecting…** | That player's Realtime connection dropped (network change, phone sleeping). The game rejoins on its own within 1–15 s and says hello again; nothing to do. If it never ends, reload the page |
+
+### Realtime presence crashed co-op rooms (found 2026-10-13, fixed in the game)
+
+**Symptom (before the fix).** Joining "didn't work": the host saw the guest, the guest never saw the host,
+and Ready stayed disabled. In the browser's network panel (WS frames) the host's `coop:…` channel got
+`phx_error {"reason":"channel_crash"}` about 5 s after every join, rejoined, and crashed again.
+
+**Cause (server side).** On some Supabase Realtime server nodes a presence `track()` did not finish within
+the server's 5 s limit, so the server killed the channel. While the call hung, nothing the player sent was
+processed, and everything was dropped when the channel crashed. Which node a connection lands on is luck:
+on 2026-10-13 (16:14–16:38 and 21:25–21:45 UTC, through Cloudflare's IAD edge) about half of all
+connections did. It reproduced outside the browser (plain Node `ws` and Node's built-in WebSocket), with
+any presence payload, with or without broadcasts, and with the JSON or the binary protocol; without
+`track()` the same connections paired in 65–130 ms.
+
+**Fix (client side, no owner action needed).** Co-op rooms no longer use presence at all (see "Co-op
+lobby" above); the lobby's own hellos tell who is in the room. Nothing in SQL or the dashboard has to
+change.
+
+**Owner steps (optional).**
+1. Keep **Realtime → Settings → "Allow public access"** switched on. Co-op rooms are public channels whose
+   name contains the room secret; with public access off, joining fails with "Unauthorized: You do not
+   have permissions to read from this Channel topic" (the project has no `realtime.messages` policies).
+2. If you want Supabase to look at it: Dashboard → Support → new ticket, product **Realtime**, with the
+   project ref, the times above and this summary: "presence `track` on a public channel takes > 5 s and
+   the channel is killed with `channel_crash` on about half of connections; the same connections track in
+   ~40 ms on other nodes". The investigation's logs (one socket × several topics: 3 of 6 sockets crashed
+   on every topic, the others answered in 35–58 ms) are in the session's scratchpad, not in this repository.
+3. Do not add presence back to co-op rooms. If a "who is online" feature ever needs presence, give it
+   its own channel, so a slow track cannot block a room's messages, and never use it to decide that a
+   player left.
 | Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
 | A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |

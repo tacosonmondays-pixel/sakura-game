@@ -32,6 +32,8 @@
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
 } from '../core/track.js';
+// engine-independent trig (core/detMath.js): map geometry must be bit-identical on every device
+import { DET_MATH as DM } from '../core/detMath.js';
 
 // Track authoring shorthands (src/core/track.js): L = the next section is an exact straight,
 // IN / OUT = a tunnel starts / ends at the previous control point.
@@ -963,7 +965,7 @@ export const MAPS = [
       'HHHHHHHHHHH.HHHHHHHH',
     ],
     paths: [
-      [[-1, 7.6], L, [0.4, 7.6], ...curve((t) => [10 + 2.95 * (Math.sin(t) + 2 * Math.sin(2 * t)), 6.4 + 1.8 * (Math.cos(t) - 2 * Math.cos(2 * t))], 5.7, 5.7 + 5.62, 30), [2.4, 10.8], L, [2.4, 13]],
+      [[-1, 7.6], L, [0.4, 7.6], ...curve((t) => [10 + 2.95 * (DM.sin(t) + 2 * DM.sin(2 * t)), 6.4 + 1.8 * (DM.cos(t) - 2 * DM.cos(2 * t))], 5.7, 5.7 + 5.62, 30), [2.4, 10.8], L, [2.4, 13]],
     ],
     decor: [
       { type: 'taiko', x: 9, y: 6 }, { type: 'stall', x: 18, y: 2 }, { type: 'stall', x: 1, y: 2 },
@@ -1016,7 +1018,7 @@ export const MAPS = [
       'HHHHH,HHHHHHHHHHHH',
     ],
     paths: [
-      [[-1, 10.6], L, [1.4, 10.6], ...curve((t) => [9 + 1.2 * (4.0 * Math.cos(t) + 2.8 * Math.cos(-3 * t + Math.PI)), 6 + 0.96 * (4.0 * Math.sin(t) + 2.8 * Math.sin(-3 * t + Math.PI))], 2.5, 2.0 + 2 * Math.PI, 48), [1.8, 8.4], L, [-1, 8.4]],
+      [[-1, 10.6], L, [1.4, 10.6], ...curve((t) => [9 + 1.2 * (4.0 * DM.cos(t) + 2.8 * DM.cos(-3 * t + Math.PI)), 6 + 0.96 * (4.0 * DM.sin(t) + 2.8 * DM.sin(-3 * t + Math.PI))], 2.5, 2.0 + 2 * Math.PI, 48), [1.8, 8.4], L, [-1, 8.4]],
     ],
     decor: [
       { type: 'taiko', x: 8, y: 0 }, { type: 'stall', x: 8, y: 1 }, { type: 'stall', x: 8, y: 10 },
@@ -1472,7 +1474,7 @@ function centrelineDistance(tracks, x, y) {
       const l2 = dx * dx + dy * dy;
       let u = l2 > 0 ? ((x - ax) * dx + (y - ay) * dy) / l2 : 0;
       u = u < 0 ? 0 : u > 1 ? 1 : u;
-      const d = Math.hypot(ax + dx * u - x, ay + dy * u - y);
+      const d = DM.hypot(ax + dx * u - x, ay + dy * u - y);
       if (d < best) best = d;
     }
   }
