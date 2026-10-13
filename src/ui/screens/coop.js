@@ -319,13 +319,20 @@ export function render(root, params = {}) {
       }
     }
 
+    /** What the empty seat says while we wait: the link first, then who we wait for. */
+    function waitText(s) {
+      if (s.link === 'connecting') return ['Connecting to room…', 'This usually takes a second or two.'];
+      if (s.link === 'reconnecting') return ['Reconnecting…', 'The connection dropped. Trying again on its own.'];
+      return s.isHost ? ['Waiting for your ally…', 'Share the code or invite your clan.'] : ['Looking for the host…', 'Your ally\'s room should show up in a moment.'];
+    }
+
     function playerCard(p, slot, me) {
       if (!p) {
+        const [title, sub] = waitText(session);
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] } },
           session.mismatch
             ? h('div.ol-pcard-wait', h('b', `${session.mismatch.name} is here`), h('p.muted', 'Your game versions differ — see above.'))
-            : h('div.ol-pcard-wait', h('i.ol-spinner'), h('b', session.isHost ? 'Waiting for an ally…' : 'Looking for the host…'),
-              h('p.muted', session.isHost ? 'Share the code or invite your clan.' : 'The host may have closed this room. Check the code.')));
+            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, h('i.ol-spinner'), h('b', title), h('p.muted', sub)));
       }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
@@ -364,6 +371,24 @@ export function render(root, params = {}) {
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
     }
 
+    /**
+     * The connection line above the players: "Reconnecting…" while the link is down with an ally
+     * on screen (the empty seat says it otherwise), and after ~15 s without a link or without a
+     * host, what to check and a Retry button.
+     */
+    function linkBanner(s) {
+      if (s.stuck) {
+        const text = s.stuck === 'server'
+          ? 'Cannot reach the co-op server. Check your internet connection, then tap Retry.'
+          : `The host of room ${roomCode} has not answered yet. Make sure your ally still has this room open, then tap Retry. If it keeps failing, ask your ally for a new code.`;
+        return h('div.ol-banner.warn.ol-banner-row', { 'data-testid': 'coop-stuck' },
+          h('span', text),
+          button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => s.retry() }));
+      }
+      if (s.link === 'reconnecting' && s.peer) return h('div.ol-banner.warn', { 'data-testid': 'coop-link' }, 'Reconnecting… your ally stays in the room.');
+      return null;
+    }
+
     function tipsPanel() {
       const tips = [
         ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
@@ -375,6 +400,7 @@ export function render(root, params = {}) {
         h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
     }
 
+    const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
     function paint() {
       if (destroyed) return;
       const s = session;
@@ -385,12 +411,14 @@ export function render(root, params = {}) {
           h('div.ol-empty', h('b', s.error.code === 'not_found' ? 'Room not found' : 'Cannot open this room'), h('p.muted', s.error.text),
             h('div.ol-row-end',
               button('Back', { kind: 'ghost', small: true, icon: 'back', onClick: () => { s.close(); navigate('coop'); } }),
+              // the server could not be reached at all: open the same room again
+              s.error.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => { s.close(); cleanup(); connecting(body, () => room(roomCode)); } }) : null,
               s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', onClick: () => { s.close(); navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty }); } }) : null))));
         return;
       }
-      if (s.mismatch && !s.mismatch.checked) {
-        // are WE the one behind? (a newer deploy exists → the banner offers Update)
-        s.mismatch.checked = true;
+      if (s.mismatch && !updateCheckedFor.has(s.mismatch.uid)) {
+        // are WE the one behind? (a newer deploy exists → the banner offers Update); once per ally
+        updateCheckedFor.add(s.mismatch.uid);
         checkForUpdate({ force: true }).then((info) => { if (info) paint(); }).catch(() => {});
       }
       const host = s.isHost ? s.me : s.peer;
@@ -433,6 +461,7 @@ export function render(root, params = {}) {
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
         localNotice('coop'),
         s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
+        linkBanner(s),
         s.mismatch ? mismatchBanner(s.mismatch) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
         h('div.ol-room-foot',

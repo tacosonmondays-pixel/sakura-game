@@ -311,19 +311,23 @@ describe('supabase adapter ↔ migration', () => {
     expect(rec.channels.filter((c) => c.name.startsWith('chat:') || c.name.startsWith('clan:')).every((c) => c.removed)).toBe(true);
   });
 
-  it('co-op rooms: seat from open_room / join_room, then a broadcast + presence channel named by the secret', async () => {
+  it('co-op rooms: seat from open_room / join_room, then a broadcast-only channel named by the secret', async () => {
     expect(rec.rpc.find((r) => r.fn === 'open_room').args).toEqual({ p_code: 'K7Q2Z' });
     expect(rec.channels.some((c) => c.name === 'coop:K7Q2Z')).toBe(false); // never the guessable name
     const ch = rec.channels.find((c) => c.name === `coop:K7Q2Z:${SECRET}`);
-    expect(ch.opts.config.presence.key).toBe(UID);
     // a full room: the error reaches the lobby and no channel is opened
     expect(results.roomErrors).toEqual(['full']);
     expect(rec.channels.some((c) => c.name.startsWith('coop:QQQQQ'))).toBe(false);
-    expect(ch.opts.config.broadcast.self).toBe(false);
-    expect(ch.tracked[0]).toEqual({ name: 'Aiko', host: true });
-    results.room.send({ type: 'hello' });
+    expect(ch.opts.config.broadcast).toEqual({ self: false, ack: false });
+    // no Realtime presence at all: a presence track() could hang the channel on some server
+    // nodes until the server crashed it (see adapters/supabase.js openRoom)
+    expect(ch.opts.config.presence).toBeUndefined();
+    expect(ch.listeners.map((l) => l.type)).toEqual(['broadcast']);
+    expect(ch.tracked).toEqual([]);
+    expect(results.room.status).toBe('connected');
+    expect(results.room.connected).toBe(true);
+    expect(results.room.send({ type: 'hello' })).toBe(true);
     expect(ch.sent.at(-1)).toEqual({ type: 'broadcast', event: 'm', payload: { uid: UID, msg: { type: 'hello' } } });
-    expect(results.room.peers()).toEqual([{ uid: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Bea', host: true }]);
     results.room.close();
     expect(ch.removed).toBe(true);
     await new Promise((r) => setTimeout(r, 0));

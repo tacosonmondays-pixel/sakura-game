@@ -1006,7 +1006,8 @@ be.joinClan(id) be.joinByCode(code) be.requestJoin(id) be.listRequests(id) be.an
 be.leaveClan() be.setRole(userId, 'officer'|'member'|'leader') be.kick(userId) // permissions: clanRules.can(); 'leader' hands leadership over
 be.bossState(clanId) be.startBossAttempt() be.submitBossDamage(attemptId, damage) be.claimBossReward(week)
 be.createTransfer(saveText) be.redeemTransfer(code)
-be.openRoom(code, { host, meta, onMessage, onPresence, onError }) // -> { net, send, peers, track, close }
+be.openRoom(code, { host, onMessage(msg, uid), onError, onStatus(state, info) }) // -> { net, status, connected, send(msg, { latest?, drop? }), reconnect(), close() }
+//   status: 'connecting' | 'connected' (info.rejoin on every later join) | 'reconnecting'; the lobby says hello after every join
 ```
 
 Chat channels are `'global'` and `'clan:<clanId>'`. Adapter selection: `?online=local` → local; build-time
@@ -1016,7 +1017,7 @@ offline"). Only the public URL and the publishable / anon key may ever reach the
 
 **Adapters** — both implement every method above with the same shapes and errors:
 `adapters/supabase.js` (anonymous auth, tables + `SECURITY DEFINER` RPCs, Realtime `postgres_changes` for
-chat / clan updates, broadcast + presence for co-op rooms on `coop:<CODE>:<secret>`) and `adapters/local.js`
+chat / clan updates, broadcast only (no presence: see `openRoom`) for co-op rooms on `coop:<CODE>:<secret>`) and `adapters/local.js`
 + `adapters/localDb.js` (the same rules as the SQL in a localStorage JSON document; BroadcastChannel carries
 the realtime part; each tab is its own player). `tests/online/supabaseAdapter.test.js` checks the Supabase
 adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cover the mock server.
