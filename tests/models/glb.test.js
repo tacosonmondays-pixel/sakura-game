@@ -54,7 +54,7 @@ describe('character GLBs', () => {
           expect(ex.source).toBe('meshy');
           expect(ex.style).toBe('textured');
           expect(ex.lod).toBe(detail === 'lod');
-          expect(ex.height).toBeGreaterThan(1.2); // battle size the owner approved (~1.5x the cage girls)
+          expect(ex.height).toBeGreaterThan(1.2); // battle size: 1.224, ~1.25x the cage heroes (was 1.53, too big for the map)
           expect(ex.unitScale).toBeGreaterThan(0);
           const names = json.animations.map((a) => a.name);
           for (const c of MESHY_CLIPS) expect(names, `${u.id} ${c}`).toContain(c);

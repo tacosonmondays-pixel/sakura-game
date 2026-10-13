@@ -130,8 +130,11 @@ owner's lighting study:
   cheer / victory) and `hurt` (> <, for hurt / disabled / dizzy). Each state is its own material
   sharing one program; the instance swaps its body material, like the highlight.
 - props (the sword) use the vertex-colour toon material with a thinner plain outline. `victory` and
-  `pickup` fall back to `cheer`. Battle size: height 1.53 (≈ 83 px at 1280×720 default zoom, the size
-  the owner approved), versus 0.98 for the cage heroes.
+  `pickup` fall back to `cheer`. Battle size: height 1.224 (`GAME_HEIGHT`, ≈ 66 px at 1280×720
+  default zoom), versus 0.98 for the cage heroes and 0.9 for the students. The first Meshy tests
+  shipped at 1.53 (≈ 80 px); the owner found her too big for the map, so she is 20 % smaller. The
+  size lives only in `asset.extras` (`height`, and `unitScale` = height / stored height), which the
+  runtime reads for the root scale, the outline width and the viewer framing.
 - cost: 20.8k / 9.8k tris and 4 draw calls per instance, ≈ 0.7 s to load. Fine for one hero; with
   ~3× the screen area of a cage girl plus PBR + environment map, 20 instances cost ≈ 3.6× (full) /
   2.7× (LOD) the frame time of 20 Aoi in SwiftShader. Before moving more of the roster to this
