@@ -257,17 +257,57 @@ describe('router: back arrow and battle history entries', () => {
     expect(renders.filter((h) => h.startsWith('#/battle'))).toHaveLength(1);
   });
 
-  it('with no history below (a link or a reload), the arrow opens the parent as a new entry', async () => {
+  it('with no history below (a link or a reload), the arrow opens the parent in place', async () => {
     await boot('#/clan?tab=boss');
     await arrow();
     expect(screen()).toBe('#/lobby');
-    expect(browser.urls()).toEqual(['#/clan?tab=boss', '#/lobby']);
+    expect(browser.urls()).toEqual(['#/lobby']); // the arrow never adds an entry
     // a fresh tab opened on a stage: stage prep still goes back where it was then opened from
     await boot('#/stage/1-3');
     await go('backpack');
     await go('stage', { id: '1-3' }); // Teleport
     await arrow();
     expect(screen()).toBe('#/backpack'); // stage prep goes back where it was opened from
+    expect(browser.i).toBe(1);
+  });
+
+  it('the arrow climbs to the top from a deep link instead of bouncing between two screens', async () => {
+    await boot('#/student/aoi?tab=level');
+    await arrow();
+    expect(screen()).toBe('#/students');
+    await arrow(); // not back to the student it was opened in place of
+    expect(screen()).toBe('#/lobby');
+    expect(browser.urls()).toEqual(['#/lobby']);
+    await boot('#/stage/1-3');
+    await arrow();
+    expect(screen()).toBe(`#/campaign?chapter=${STAGE_MAP['1-3'].chapter}`);
+    await arrow();
+    expect(screen()).toBe('#/missions');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+    expect(browser.urls()).toEqual(['#/lobby']);
+  });
+
+  it('a step back out of a battle lands with the params it was asked for', async () => {
+    await boot('#/lobby');
+    await go('clan'); // the clan opened on its default tab, Fight reached without a tab switch
+    await go('battle', { stage: 'boss-lych', difficulty: 'normal', clanBoss: 'a1' });
+    await go('clan', { tab: 'boss' }); // "Back to the clan"
+    expect(screen()).toBe('#/clan?tab=boss');
+    expect(browser.i).toBe(1);
+    expect(browser.urls()).toEqual(['#/lobby', '#/clan?tab=boss', '#/clan?tab=boss']);
+    expect(router.historyMirror()).toEqual({ idx: 1, entries: ['#/lobby', '#/clan?tab=boss', '#/clan?tab=boss'] });
+    // Quit: stage prep keeps the difficulty it was left on
+    await boot('#/campaign?chapter=1');
+    await go('stage', { id: '1-1', difficulty: 'hard' });
+    await go('battle', { stage: '1-1', difficulty: 'hard' });
+    await go('stage', { id: '1-1' }); // Pause → Quit
+    expect(screen()).toBe('#/stage/1-1?difficulty=hard');
+    expect(browser.i).toBe(1);
+    noBattle();
+    await arrow();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    expect(browser.i).toBe(0);
   });
 
   it('keeps its place in the history when a screen rewrites the URL in place', async () => {

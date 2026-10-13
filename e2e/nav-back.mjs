@@ -268,7 +268,13 @@ async function clanFlow() {
     // second attempt from the lobby: Clan → boss tab → Fight → back to the clan → phone back
     await go(A, '#/clan?tab=boss');
     await A.waitForSelector('[data-testid="boss-panel"]', { timeout: 15000 }).catch(() => null);
-    if (await bossFightAndBack(A, 2)) await walkHistory(A, 'clan boss');
+    if (await bossFightAndBack(A, 2)) {
+      // the phone back gesture on the clan: the screen below it (the lobby), not the battle
+      await A.goBack({ waitUntil: 'commit', timeout: 15000 }).catch(() => null);
+      const w2 = await settled(A);
+      check(!inBattle(w2) && w2.hash === '#/lobby', `clan boss: the back gesture on the clan goes to the lobby, not the battle (now ${w2.hash}${w2.battle ? ', battle mounted' : ''})`);
+      await walkHistory(A, 'clan boss');
+    }
   }
   await A.context().close();
 }

@@ -6,7 +6,8 @@
 // (Screens that rewrite their URL in place pass history.state on: replaceState(history.state, …).)
 // - back(), the top-left arrow, opens the screen's logical parent (src/ui/nav.js), never a
 //   battle. When that screen is already in the history below, the browser steps back to it, so
-//   the arrow and the phone back gesture stay in step; otherwise the parent opens as a new entry.
+//   the arrow and the phone back gesture stay in step; otherwise the parent takes this entry's
+//   place (the arrow never adds an entry, so two screens can never bounce the arrow between them).
 // - Leaving a battle (results buttons, Home, Quit, co-op leave …) never leaves its entry behind:
 //   navigate() replaces it, or steps back onto the screen it returns to when that screen is
 //   already below. A battle entry reached through the history anyway (one the back gesture left
@@ -77,11 +78,12 @@ function stamp() {
 const knownIdx = (st) => (st && Number.isInteger(st.navIdx) ? st.navIdx : null);
 
 /**
- * Steps the browser history back to entry `j`. Popstate draws the screen there; if the step never
- * lands, `missed` runs instead.
+ * Steps the browser history back to entry `j`, which shows the same screen as `target`. Popstate
+ * draws it there with `target`'s params on top of the entry's own (Back to the clan → its boss
+ * tab; Quit → stage prep keeps its chosen difficulty); if the step never lands, `missed` runs.
  */
-function stepTo(j, missed) {
-  const step = {};
+function stepTo(j, target, missed) {
+  const step = { target };
   step.timer = setTimeout(() => {
     if (stepping !== step) return;
     stepping = null;
@@ -101,10 +103,9 @@ function findBelow(target) {
 
 /** The screen below the current one in the history, skipping battles and copies of this screen. */
 function previousScreen() {
-  const here = buildHash(current.name, current.params);
   for (let j = idx - 1; j >= 0 && entries[j]; j--) {
     const e = entries[j];
-    if (!isTransient(e.name) && buildHash(e.name, e.params) !== here) return e;
+    if (!isTransient(e.name) && !sameScreen(e, current)) return e;
   }
   return null;
 }
@@ -119,7 +120,7 @@ function open(hash, replace) {
   }
   stamp();
   entries[idx] = parseHash(hash);
-  fresh = hash;
+  fresh = location.hash; // as the browser spelled it (its hashchange compares against this)
 }
 
 /** Navigate to a screen. navigate('student', {id:'aoi', tab:'level'}) */
@@ -136,7 +137,7 @@ export function navigate(name, params = {}, { replace = false } = {}) {
       try {
         history.replaceState(history.state, '', hash);
         entries[idx] = parseHash(hash);
-        return stepTo(j, () => show(name, params));
+        return stepTo(j, { name, params }, () => show(name, params));
       } catch {
         /* fall through to a replace */
       }
@@ -147,13 +148,17 @@ export function navigate(name, params = {}, { replace = false } = {}) {
   open(hash, replace);
 }
 
-/** The top-left back arrow: the current screen's parent (see src/ui/nav.js), never a battle. */
+/**
+ * The top-left back arrow: the current screen's parent (see src/ui/nav.js), never a battle. Steps
+ * back to it when it is below in the history, else opens it in place of this screen.
+ */
 export function back(fallback = 'lobby') {
   if (stepping) return;
   const target = parentRoute(current.name, current.params || {}, previousScreen()) || { name: fallback, params: {} };
   const j = isTransient(current.name) ? -1 : findBelow(target); // out of a battle: navigate() below
-  if (j >= 0) stepTo(j, () => navigate(target.name, target.params));
-  else navigate(target.name, target.params);
+  const instead = () => navigate(target.name, target.params, { replace: true });
+  if (j >= 0) stepTo(j, target, instead);
+  else instead();
 }
 
 export function currentRoute() {
@@ -193,17 +198,32 @@ function onPopState() {
   // navigate()'s own entry needs nothing here (should a browser send its popstate late)
   if (at == null || (at === idx && location.hash === fresh)) return;
   // a step through the history: the arrow, or the browser / phone back and forward
-  if (stepping) clearTimeout(stepping.timer);
+  const step = stepping;
+  if (step) clearTimeout(step.timer);
   stepping = null;
   fresh = null;
   idx = at;
-  const { name, params } = parseHash();
+  const here = parseHash();
+  const { name } = here;
+  let { params } = here;
   if (isTransient(name)) {
     // a battle that was left already: never start it again — step on back past it (at the very
     // first entry, the lobby takes its place)
     if (idx > 0) history.back();
     else open(buildHash('lobby'), true);
     return;
+  }
+  if (step && sameScreen({ name, params }, step.target)) {
+    // the router's own step: the screen it was asked for, with those params
+    const hash = buildHash(name, { ...params, ...step.target.params });
+    params = parseHash(hash).params;
+    if (hash !== location.hash) {
+      try {
+        history.replaceState(history.state, '', hash);
+      } catch {
+        /* not in a browser */
+      }
+    }
   }
   entries[idx] = { name, params };
   show(name, params);
