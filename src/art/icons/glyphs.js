@@ -92,6 +92,7 @@ export const GLYPHS = {
   sparkle,
   filter: '<path d="M3.5 5h17l-6.5 7.8v6l-4 2v-8z"/>',
   sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/>',
+  hanger: '<path d="M9.8 6.2a2.2 2.2 0 1 1 3.2 2L12 9.2v.4"/><path d="M12 9.6l8.3 6.2c.9.7.4 2.2-.8 2.2H4.5c-1.2 0-1.7-1.5-.8-2.2z"/>',
 
   // --- shared game glyphs ---
   bolt, flame, snow, drop, ghost, slime, bomb, hourglass, wing, flask, wave, heartFill, shieldFill, crosshair,

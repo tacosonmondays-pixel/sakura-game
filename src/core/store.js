@@ -4,6 +4,7 @@
 import { createEmitter } from './events.js';
 import {
   createProfile, migrateProfile, loadSaveText, backupNotice, SAVE_KEY, BACKUP_KEY, MAX_BACKUPS, serializeProfile, deserializeProfile,
+  recoverableBackup, restoreNotice, SAVE_VERSION,
 } from '../systems/save.js';
 
 const emitter = createEmitter();
@@ -35,14 +36,18 @@ function safeSet(key, value) {
  * the game replaces it. When storage is full the oldest copies make room for the new one.
  * @returns {boolean} the raw text is safely kept
  */
-function keepBackup(raw, reason, version) {
-  let list = [];
+function readBackups() {
   try {
     const old = JSON.parse(safeGet(BACKUP_KEY) || '[]');
-    if (Array.isArray(old)) list = old.filter((b) => b && typeof b.raw === 'string');
+    if (Array.isArray(old)) return old.filter((b) => b && typeof b.raw === 'string');
   } catch {
     /* unreadable backup list: start a new one */
   }
+  return [];
+}
+
+function keepBackup(raw, reason, version) {
+  let list = readBackups();
   if (list.some((b) => b.raw === raw)) return true; // already kept (reloaded before the first save)
   list.push({ at: new Date().toISOString(), reason, version, raw });
   list = list.slice(-MAX_BACKUPS);
@@ -72,7 +77,30 @@ export const store = {
       console.warn(`[store] save needed a backup (${res.backup}); ${kept ? `kept in ${BACKUP_KEY}` : 'backup failed, saving is paused'}`);
     }
     profile = res.profile;
+    if (!res.backup) {
+      // a stale tab of an older build replaced this version's save with a fresh profile: offer it back once
+      const found = recoverableBackup(readBackups(), profile);
+      if (found) notice = { reason: 'restore', kept: true, message: restoreNotice(found), backupAt: found.entry.at };
+    }
     return profile;
+  },
+
+  /**
+   * Answer the 'restore' notice: mark the backup as offered (it is never asked about again) and,
+   * when `restore` is true, keep the current profile as a backup and load the saved one.
+   * @param {boolean} restore
+   * @returns {boolean} the backup was restored
+   */
+  answerRestore(restore) {
+    const list = readBackups();
+    const found = recoverableBackup(list, profile);
+    if (!found) return false;
+    list[found.index] = { ...found.entry, offered: true };
+    safeSet(BACKUP_KEY, JSON.stringify(list));
+    if (!restore) return false;
+    keepBackup(JSON.stringify(profile), 'replaced', SAVE_VERSION);
+    store.replace(found.profile);
+    return true;
   },
 
   /**

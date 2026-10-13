@@ -50,6 +50,74 @@
   "lodSize": 193232,
   "lodVertices": 2624
  },
+ "future-hiiro": {
+  "file": "future-hiiro.glb",
+  "size": 410736,
+  "animations": [
+   "attack_thrust",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8680,
+  "lod": "future-hiiro.lod.glb",
+  "lodSize": 201760,
+  "lodVertices": 2868
+ },
+ "future-mizuha": {
+  "file": "future-mizuha.glb",
+  "size": 403812,
+  "animations": [
+   "attack_thrust",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8064,
+  "lod": "future-mizuha.lod.glb",
+  "lodSize": 211268,
+  "lodVertices": 2709
+ },
+ "future-sayo": {
+  "file": "future-sayo.glb",
+  "size": 421828,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8462,
+  "lod": "future-sayo.lod.glb",
+  "lodSize": 218964,
+  "lodVertices": 2820
+ },
+ "future-tomoe": {
+  "file": "future-tomoe.glb",
+  "size": 406556,
+  "animations": [
+   "attack_slash",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8624,
+  "lod": "future-tomoe.lod.glb",
+  "lodSize": 199092,
+  "lodVertices": 2854
+ },
  "hikari": {
   "file": "hikari.glb",
   "size": 438868,
@@ -253,6 +321,261 @@
   "lod": "sango.lod.glb",
   "lodSize": 209212,
   "lodVertices": 2985
+ },
+ "sentinel-akane": {
+  "file": "sentinel-akane.glb",
+  "size": 389304,
+  "animations": [
+   "attack_sweep",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8004,
+  "lod": "sentinel-akane.lod.glb",
+  "lodSize": 198052,
+  "lodVertices": 2685
+ },
+ "sentinel-aoi": {
+  "file": "sentinel-aoi.glb",
+  "size": 394108,
+  "animations": [
+   "attack_bow",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8124,
+  "lod": "sentinel-aoi.lod.glb",
+  "lodSize": 200236,
+  "lodVertices": 2732
+ },
+ "sentinel-chika": {
+  "file": "sentinel-chika.glb",
+  "size": 375032,
+  "animations": [
+   "attack_smash",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 7680,
+  "lod": "sentinel-chika.lod.glb",
+  "lodSize": 193232,
+  "lodVertices": 2624
+ },
+ "sentinel-hikari": {
+  "file": "sentinel-hikari.glb",
+  "size": 438868,
+  "animations": [
+   "attack_slash",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9072,
+  "lod": "sentinel-hikari.lod.glb",
+  "lodSize": 219384,
+  "lodVertices": 2968
+ },
+ "sentinel-hotaru": {
+  "file": "sentinel-hotaru.glb",
+  "size": 389168,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 7972,
+  "lod": "sentinel-hotaru.lod.glb",
+  "lodSize": 198668,
+  "lodVertices": 2674
+ },
+ "sentinel-kage": {
+  "file": "sentinel-kage.glb",
+  "size": 375920,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 7764,
+  "lod": "sentinel-kage.lod.glb",
+  "lodSize": 191460,
+  "lodVertices": 2634
+ },
+ "sentinel-midori": {
+  "file": "sentinel-midori.glb",
+  "size": 459716,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9940,
+  "lod": "sentinel-midori.lod.glb",
+  "lodSize": 217628,
+  "lodVertices": 3208
+ },
+ "sentinel-miko": {
+  "file": "sentinel-miko.glb",
+  "size": 422376,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9128,
+  "lod": "sentinel-miko.lod.glb",
+  "lodSize": 201668,
+  "lodVertices": 2990
+ },
+ "sentinel-momo": {
+  "file": "sentinel-momo.glb",
+  "size": 439316,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9450,
+  "lod": "sentinel-momo.lod.glb",
+  "lodSize": 210152,
+  "lodVertices": 3077
+ },
+ "sentinel-raika": {
+  "file": "sentinel-raika.glb",
+  "size": 388160,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8012,
+  "lod": "sentinel-raika.lod.glb",
+  "lodSize": 196732,
+  "lodVertices": 2688
+ },
+ "sentinel-sango": {
+  "file": "sentinel-sango.glb",
+  "size": 428008,
+  "animations": [
+   "attack_cannon",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9070,
+  "lod": "sentinel-sango.lod.glb",
+  "lodSize": 209212,
+  "lodVertices": 2985
+ },
+ "sentinel-shiro": {
+  "file": "sentinel-shiro.glb",
+  "size": 370792,
+  "animations": [
+   "attack_rifle",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 7528,
+  "lod": "sentinel-shiro.lod.glb",
+  "lodSize": 193052,
+  "lodVertices": 2585
+ },
+ "sentinel-suzu": {
+  "file": "sentinel-suzu.glb",
+  "size": 454304,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9644,
+  "lod": "sentinel-suzu.lod.glb",
+  "lodSize": 219376,
+  "lodVertices": 3111
+ },
+ "sentinel-umeko": {
+  "file": "sentinel-umeko.glb",
+  "size": 463864,
+  "animations": [
+   "attack_sweep",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10090,
+  "lod": "sentinel-umeko.lod.glb",
+  "lodSize": 217424,
+  "lodVertices": 3237
+ },
+ "sentinel-yuki": {
+  "file": "sentinel-yuki.glb",
+  "size": 432164,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9260,
+  "lod": "sentinel-yuki.lod.glb",
+  "lodSize": 207892,
+  "lodVertices": 3023
  },
  "shiro": {
   "file": "shiro.glb",

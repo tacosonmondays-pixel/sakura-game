@@ -224,7 +224,7 @@ export const UI_ICON_NAMES = [
   'back', 'home', 'settings', 'lock', 'star', 'heart', 'coin', 'play', 'pause', 'ff', 'ff2', 'ff3', 'sell', 'target',
   'teleport', 'upgrade', 'info', 'close', 'check', 'plus', 'minus', 'refresh', 'dice', 'backpack', 'wiki',
   'bestiary', 'gacha', 'formation', 'students', 'mission', 'bounty', 'assault', 'challenge', 'mall',
-  'gift', 'calendar', 'trophy', 'map', 'sword', 'shield', 'eye', 'water', 'sparkle', 'filter', 'sort',
+  'gift', 'calendar', 'trophy', 'map', 'sword', 'shield', 'eye', 'water', 'sparkle', 'filter', 'sort', 'hanger',
 ];
 
 /** Monochrome UI icon (24×24, currentColor). Unknown names fall back to a neutral dot. */

@@ -7,10 +7,12 @@ import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { SKIN_MAP } from '../data/skins.js';
+import { ownsSkin, isStoredSkin } from './skins.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
-/** v1 = pre-release stub profile, v2 = full systems profile. */
-export const SAVE_VERSION = 2;
+/** v1 = pre-release stub profile, v2 = full systems profile, v3 = outfits (units[id].skin, skins). */
+export const SAVE_VERSION = 3;
 /**
  * Where store.js keeps safety copies of stored saves it could not load as they were: a JSON
  * list of `{ at, reason, version, raw }` (ISO time, loadSaveText's reason, the save's version,
@@ -41,7 +43,7 @@ export const DEFAULT_SETTINGS = {
 
 /** Fresh per-unit state. */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, skin: null };
 }
 
 function emptyMissions() {
@@ -96,6 +98,7 @@ export function createProfile() {
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
+    skins: [],
   };
 }
 
@@ -138,7 +141,16 @@ function cleanNumberMap(obj) {
   return out;
 }
 
-function cleanUnit(raw, now) {
+/**
+ * Outfits (v3). With a unitId: that girl's equipped skin id, kept only when it is one of her
+ * non-default outfits (her default is stored as null). Without: the shop/event outfits owned.
+ */
+function cleanSkins(raw, unitId = null) {
+  if (unitId) return typeof raw === 'string' && SKIN_MAP[raw]?.unitId === unitId && SKIN_MAP[raw].kind !== 'default' ? raw : null;
+  return strList(raw).filter((id) => isStoredSkin(id));
+}
+
+function cleanUnit(raw, now, unitId) {
   const base = newUnitState(now);
   if (!isObj(raw)) return base;
   const breakthrough = int(raw.breakthrough, 0, 0, 5);
@@ -153,6 +165,7 @@ function cleanUnit(raw, now) {
     gear,
     obtainedAt: num(raw.obtainedAt, now, 0),
     favorite: bool(raw.favorite),
+    skin: cleanSkins(raw.skin, unitId),
   };
 }
 
@@ -305,7 +318,7 @@ export function migrateProfile(raw) {
 
   // Units (only known ids). Starters are always owned.
   p.units = {};
-  if (isObj(raw.units)) for (const [id, u] of Object.entries(raw.units)) if (UNIT_MAP[id]) p.units[id] = cleanUnit(u, now);
+  if (isObj(raw.units)) for (const [id, u] of Object.entries(raw.units)) if (UNIT_MAP[id]) p.units[id] = cleanUnit(u, now, id);
   for (const id of STARTER_UNITS) if (!p.units[id]) p.units[id] = newUnitState(now);
 
   // Gear + equip consistency.
@@ -386,6 +399,8 @@ export function migrateProfile(raw) {
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
+  p.skins = cleanSkins(raw.skins);
+  for (const u of Object.values(p.units)) if (u.skin && !ownsSkin(p, u.skin)) u.skin = null;
   p.version = SAVE_VERSION;
   return p;
 }
@@ -401,6 +416,7 @@ export function migrationDropsData(raw) {
   if (isStubSave(raw, int(raw.version, 0, 0))) return Object.keys(raw).some((k) => k !== 'version');
   if (isObj(raw.units) && Object.keys(raw.units).some((id) => !UNIT_MAP[id])) return true;
   if (isObj(raw.items) && Object.entries(raw.items).some(([id, n]) => !ITEMS[id] && int(n, 0, 0) > 0)) return true;
+  if (strList(raw.skins).some((id) => !SKIN_MAP[id]) || (isObj(raw.units) && Object.values(raw.units).some((u) => isObj(u) && typeof u.skin === 'string' && !SKIN_MAP[u.skin]))) return true;
   return isObj(raw.gear) && Object.entries(raw.gear).some(([uid, g]) => !cleanGear(g, uid));
 }
 
@@ -447,6 +463,36 @@ export function backupNotice(reason, kept = true) {
   return kept
     ? `${what} The original save was kept as a backup on this device.`
     : `${what} The browser storage is full, so no backup could be made: this session will not be saved over the old data.`;
+}
+
+/**
+ * A save worth offering back after an update (pure; store.js reads BACKUP_KEY and asks once).
+ * When a stale tab of an older build opened a save of this version, it started a fresh profile
+ * (backup 'newer') and autosaved it, so the real progress survives only in the backup list. This
+ * returns the newest backup entry that this build can read — reason 'newer', version ===
+ * SAVE_VERSION, not offered before — with more battles played than the current profile.
+ * @param {any} list parsed BACKUP_KEY list ({ at, reason, version, raw, offered? }[])
+ * @param {object} profile the profile that was just loaded
+ * @returns {{ index: number, entry: object, profile: object }|null}
+ */
+export function recoverableBackup(list, profile) {
+  if (!Array.isArray(list)) return null;
+  const battles = int(profile?.stats?.battles, 0, 0);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const b = list[i];
+    if (!isObj(b) || b.reason !== 'newer' || b.version !== SAVE_VERSION || typeof b.raw !== 'string' || b.offered) continue;
+    const res = loadSaveText(b.raw);
+    if (res.backup === 'corrupt' || res.backup === 'newer' || res.version !== SAVE_VERSION) continue;
+    if (res.profile.stats.battles > battles) return { index: i, entry: b, profile: res.profile };
+  }
+  return null;
+}
+
+/** Player-facing question for recoverableBackup (main.js shows it once). */
+export function restoreNotice(found) {
+  const p = found.profile;
+  const when = typeof found.entry.at === 'string' ? found.entry.at.slice(0, 10) : 'earlier';
+  return `An older tab of the game could not open your save after an update and started over, so your progress was kept as a backup (${when}: ${p.stats.battles} battles, ${Object.keys(p.units).length} students). Restore your progress from before the update?`;
 }
 
 // ---------------------------------------------------------------------------

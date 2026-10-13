@@ -2,7 +2,8 @@
 // chibi girls, monsters, projectiles and effects, under an angled orthographic camera with
 // touch-friendly pan / pinch / double-tap-reset controls.
 //
-//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets });
+//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, skins });
+//   (skins: { unitId: skinId } outfits to dress the girls in, from systems/skins.js formationSkins)
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -140,7 +141,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
-  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
+  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
 
   // ----- post-processing -------------------------------------------------------------------
@@ -752,6 +753,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setInsets(next = {}) {
       insets = { ...insets, ...next };
       resize();
+    },
+    /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
+    towerSkin(uid) {
+      return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {

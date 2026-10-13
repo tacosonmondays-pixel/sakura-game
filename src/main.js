@@ -75,7 +75,15 @@ try {
 // A stored save that could not load as it was (unreadable, from a newer build, or with students /
 // items this build does not know) was copied to a backup key before anything saved over it.
 const saveNotice = store.takeNotice();
-if (saveNotice) {
+if (saveNotice?.reason === 'restore') {
+  // v3: a stale older tab replaced the save with a fresh profile; the real one is in the backups
+  import('./ui/components.js')
+    .then(({ modal }) => modal({ title: 'Restore your progress?', body: saveNotice.message, dismissable: false, actions: [
+      { label: 'Keep current', kind: 'ghost', testid: 'save-restore-no', onClick: (c) => { store.answerRestore(false); c(); } },
+      { label: 'Restore', kind: 'yellow', testid: 'save-restore-yes', onClick: (c) => { store.answerRestore(true); c(); location.reload(); } },
+    ] }))
+    .catch((e) => console.warn('[main] restore notice failed', e));
+} else if (saveNotice) {
   import('./ui/components.js')
     .then(({ modal }) => modal({ title: saveNotice.kept ? 'Save backup kept' : 'Saving paused', body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
     .catch((e) => console.warn('[main] save notice failed', e));
@@ -89,13 +97,13 @@ import('./ui/orientation.js').then((o) => { o.initOrientation({ route: currentRo
 // Warm up the character GLBs in the background once the first screen is up: the secretary at
 // full detail (lobby close-up), then the formation at the detail the quality setting needs
 // (chibis-v2: no-arg preloadModels() would fetch all 19 full models ≈ 7.7 MB).
-const warmModels = () => import('./models/index.js').then(async (m) => {
+const warmModels = () => Promise.all([import('./models/index.js'), import('./systems/skins.js')]).then(async ([m, { formationSkins }]) => {
   const p = store.profile || {};
   const f = p.formation || {};
   const detail = m.detailFor(p.settings?.quality || 'high');
-  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full' });
+  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full', skins: formationSkins(p, [p.secretary]) });
   const ids = [f.hero, ...(f.towers || [])].filter(Boolean);
-  if (ids.length) await m.preloadModels(ids, { detail });
+  if (ids.length) await m.preloadModels(ids, { detail, skins: formationSkins(p, ids) });
   else await m.preloadModels([], { detail });
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });

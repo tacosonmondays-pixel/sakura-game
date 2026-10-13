@@ -23,6 +23,7 @@ import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
+import { formationSkins } from '../../systems/skins.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -108,7 +109,8 @@ export function mountBattle(root, params, hooks) {
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
     const ids = [...towers, ...(hero ? [hero] : [])];
     const detail = detailFor(settings.quality || 'high');
-    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
+    ctx.skins = formationSkins(profile, ids);
+    await settle(Promise.all([preloadModels(ids, { detail, skins: ctx.skins }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
     build();
     loading.classList.add('out');
@@ -136,7 +138,7 @@ export function mountBattle(root, params, hooks) {
 
     let renderer;
     try {
-      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets() });
+      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets(), skins: ctx.skins });
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
