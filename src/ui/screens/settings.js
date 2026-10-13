@@ -12,6 +12,8 @@ import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../system
 import { ask } from './stage.js';
 import { onlineSection } from '../online/settingsOnline.js';
 import { cue } from '../../audio/cue.js'; // [audio]
+import { buildLine } from '../../core/buildInfo.js';
+import { checkForUpdate, reloadFresh } from '../../core/updates.js';
 
 function settings() {
   const p = store.profile;
@@ -100,6 +102,7 @@ function build(redraw) {
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes
   wrap.appendChild(saveSection(redraw));
+  wrap.appendChild(versionSection());
   wrap.appendChild(h('p.muted.ma-version', `Sakura Sentinels · save v${SAVE_VERSION} · ${formatNumber(store.profile.stats?.battles || 0)} battles fought`));
   return wrap;
 }
@@ -320,3 +323,27 @@ export async function importSaveText(text, status, redraw) {
   }
 }
 
+/** Which version is running + "Check for updates" (co-op needs both players on compatible ones). */
+function versionSection() {
+  const status = h('div.ma-set-desc', { 'data-testid': 'update-status' }, 'Co-op partners need the same version. The game also checks for new versions by itself.');
+  const control = h('div.ma-set-control');
+  const checkBtn = button('Check for updates', {
+    kind: 'ghost', small: true, icon: 'refresh', testid: 'check-updates',
+    onClick: async () => {
+      status.textContent = 'Checking…';
+      const info = await checkForUpdate({ force: true });
+      if (info) {
+        status.textContent = `A new version${info.version ? ` (v${info.version})` : ''} is ready.`;
+        control.replaceChildren(button('Update now', { kind: 'yellow', small: true, icon: 'refresh', testid: 'update-now-settings', onClick: () => reloadFresh(info.build) }));
+      } else {
+        status.textContent = 'You have the newest version.';
+      }
+    },
+  });
+  control.append(checkBtn);
+  return h('section.panel', { 'data-section': 'about' },
+    h('h3.panel-title', 'About'),
+    h('div.ma-set-row',
+      h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-version' }, buildLine()), status),
+      control));
+}

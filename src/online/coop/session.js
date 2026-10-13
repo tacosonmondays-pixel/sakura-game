@@ -138,7 +138,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (!p.uid || p.uid === s.me.uid) return;
         if (!sameVersion(msg.v, version)) {
           // a cached older (or newer) build: lockstep would desync every time — never pair
-          s.mismatch = { name: p.name || 'Your ally', theirs: msg.v || null };
+          s.mismatch = { uid: p.uid, name: p.name || 'Your ally', theirs: msg.v || null, mine: version };
           if (!mismatchTold.has(p.uid)) {
             mismatchTold.add(p.uid);
             hello(); // so the other side sees the mismatch too
@@ -146,6 +146,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           changed();
           return;
         }
+        // the same player came back updated (reloaded): the warning no longer applies
+        if (s.mismatch && s.mismatch.uid === p.uid) s.mismatch = null;
         if (s.peer && s.peer.uid !== p.uid) {
           // a third player: rooms hold two
           if (isHost) room.send({ type: 'full', uid: p.uid });
