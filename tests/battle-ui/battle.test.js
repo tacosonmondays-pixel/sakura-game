@@ -5,6 +5,7 @@ import { createProfile } from '../../src/systems/save.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { applyBattleResult } from '../../src/systems/rewards.js';
 import { createRng } from '../../src/core/rng.js';
+import { feedDockRight } from '../../src/ui/battle/feed.js';
 
 const NAMES = ['A', 'B', 'C'];
 
@@ -100,5 +101,26 @@ describe('battle setup', () => {
     const out = applyBattleResult(profile, sim.result(), createRng(1), { now: new Date() });
     expect(out.firstClear).toBe(false);
     expect(Array.isArray(out.rewards)).toBe(true);
+  });
+});
+
+describe('toast feed docking (keeps spawn gates in view)', () => {
+  const box = { width: 1280, w: 340, top: 70, hgt: 176 };
+  it('stays top-left on desktop unless a spawn run sits under it', () => {
+    expect(feedDockRight([], box)).toBe(false);
+    // a spawn gate at the top-left (e.g. foundry_core (-1,1.5)) pushes the feed to the right
+    expect(feedDockRight([{ x: 40, y: 120 }, { x: 90, y: 150 }], box)).toBe(true);
+    // spawns on both sides: the side covering fewer stays clear
+    expect(feedDockRight([{ x: 40, y: 120 }, { x: 1200, y: 120 }, { x: 1150, y: 140 }], box)).toBe(false);
+  });
+  it('exit runs only break ties: a spawn always outweighs an exit', () => {
+    const exitRight = [{ x: 1200, y: 120, w: 0.2 }, { x: 1180, y: 130, w: 0.2 }, { x: 1160, y: 140, w: 0.2 }];
+    expect(feedDockRight([{ x: 40, y: 120 }, ...exitRight], box)).toBe(true);
+    const exitLeft = exitRight.map((p) => ({ ...p, x: 1280 - p.x }));
+    // landscape phones prefer the right corner, but leave it for an exit gate there
+    expect(feedDockRight(exitLeft, { ...box, preferRight: true })).toBe(true);
+    expect(feedDockRight(exitRight, { ...box, preferRight: true })).toBe(false);
+    // points below the feed never count
+    expect(feedDockRight([{ x: 40, y: 400 }], box)).toBe(false);
   });
 });

@@ -37,51 +37,87 @@ Source of truth: `src/data/stages.js` (stages), `src/data/maps.js` (49 maps), `s
 
 | Stage | Name | Map (tier) | New | Recommended |
 |---|---|---|---|---|
-| 1-1 | First Petals | Academy Terrace (beginner) | Green Slime | – |
-| 1-2 | Petal Thieves | Petal Lane (beginner) | Goblin Runner | Rapid Hits |
-| 1-3 | Sprinting Gold | Blossom Loop (beginner) | Goblin Dasher, Gold Slime, *hasty* | Slow |
-| 1-4 | Heavy Footsteps | Sakura Creek (beginner) | Orc Grunt, Boar Charger | Slow |
-| 1-5 | The Jelly Throne | Blossom Court (intermediate) | Royal Guard Slime, **Slime Prince**, *splitter* | Slow, Rapid Hits |
-| 2-1 | Moonlit Landing | Moonlit Shore (beginner) | Reed Skink, Pearl Slime, *regen* | Water |
-| 2-2 | Through the Reeds | Reed Maze (intermediate) | Marsh Hunter | Water |
-| 2-3 | Prism Tide | Lantern Isles (intermediate) | Prism Slime, Slime Droplet | Water, Rapid Hits |
-| 2-4 | Sunscale Ferry | Twin Ferry (intermediate, 2 lanes) | Sunscale Warrior, *ward* | Water |
-| 2-5 | Basilisk Moon | Moonlight Pier (advanced) | Bog Basilisk | Water, Armor Break |
-| 3-1 | Torii of Mist | Torii Corridor (intermediate) | Shrine Wisp, Veil Wraith, *veiled* | Veil Sight |
-| 3-2 | Smoke on the Steps | Thousand Steps (intermediate) | Smoke Thrower, Violet Slime | Veil Sight |
-| 3-3 | Between Worlds | Moonveil Spiral (intermediate) | Phantom, *phasing* | Veil Sight, Silence |
+| 1-1 | First Petals | Academy Terrace (beginner, S + one switchback) | Green Slime | – |
+| 1-2 | Petal Thieves | Petal Lane (beginner, meandering brook) | Goblin Runner | Rapid Hits |
+| 1-3 | Sprinting Gold | Blossom Loop (beginner, loop over its own tail) | Goblin Dasher, Gold Slime, *hasty* | Slow |
+| 1-4 | Heavy Footsteps | Sakura Creek (beginner, creek-hugger) | Orc Grunt, Boar Charger | Slow |
+| 1-5 | The Jelly Throne | Blossom Court (intermediate, fountain spiral + arcade tunnel) | Royal Guard Slime, **Slime Prince**, *splitter* | Slow, Rapid Hits |
+| 2-1 | Moonlit Landing | Moonlit Shore (beginner, coastline + spit) | Reed Skink, Pearl Slime, *regen* | Water |
+| 2-2 | Through the Reeds | Reed Maze (intermediate, splits round the reeds, rejoins) | Marsh Hunter | Water |
+| 2-3 | Prism Tide | Lantern Isles (intermediate, island hop) | Prism Slime, Slime Droplet | Water, Rapid Hits |
+| 2-4 | Sunscale Ferry | Twin Ferry (intermediate, 2 lanes, ferry overpass) | Sunscale Warrior, *ward* | Water |
+| 2-5 | Basilisk Moon | Moonlight Pier (advanced, shore lap + pier) | Bog Basilisk | Water, Armor Break |
+| 3-1 | Torii of Mist | Torii Corridor (intermediate, keyhole loop) | Shrine Wisp, Veil Wraith, *veiled* | Veil Sight |
+| 3-2 | Smoke on the Steps | Thousand Steps (intermediate, switchbacks + hill tunnel) | Smoke Thrower, Violet Slime | Veil Sight |
+| 3-3 | Between Worlds | Moonveil Spiral (intermediate, spiral + raised causeway) | Phantom, *phasing* | Veil Sight, Silence |
 | 3-4 | Lantern Procession | Koi Garden (advanced, figure-8) | Lantern Bearer, *summoner* | Veil Sight, Priority |
-| 3-5 | Hollow Guard | Inner Sanctum (advanced, 2 lanes) | Hollow Samurai | Veil Sight, Priority |
-| 4-1 | Iron Column | Ironhold Switchbacks (intermediate) | Ironhide Orc, Iron Slime, *armored* | Armor Pierce, Armor Break |
-| 4-2 | Wolves on the Bridge | Sky Bridge (advanced) | Dusk Wolf, Orc Berserker, Moss Bear, *pack fury* | Armor Pierce, Slow |
-| 4-3 | Shield Wall | Stone Bastion (advanced, tight corners) | Orc Shieldbearer, *guardian* | Armor Break, Armor Pierce, Priority |
+| 3-5 | Hollow Guard | Inner Sanctum (advanced, 2 lanes merge, sanctum tunnel) | Hollow Samurai | Veil Sight, Priority |
+| 4-1 | Iron Column | Ironhold Switchbacks (intermediate, hairpins + rock tunnel) | Ironhide Orc, Iron Slime, *armored* | Armor Pierce, Armor Break |
+| 4-2 | Wolves on the Bridge | Sky Bridge (advanced, ravine dip + rope bridge) | Dusk Wolf, Orc Berserker, Moss Bear, *pack fury* | Armor Pierce, Slow |
+| 4-3 | Shield Wall | Stone Bastion (advanced, switchback climb over its own entrance) | Orc Shieldbearer, *guardian* | Armor Break, Armor Pierce, Priority |
 | 4-4 | Howl of the Alpha | Twin Gorge (advanced, merging lanes) | Orc Warlord, Alpha Wolf | Armor Break, Armor Pierce, Priority |
-| 4-5 | The Iron General | Ironhold Gate (advanced, 2 lanes) | **Orc General** | Armor Break, Armor Pierce, Slow |
-| 5-1 | Leeches in the Fog | Gloomfen Boardwalk (intermediate) | Bonewalker, Bog Shambler, Leech Ghoul, Rose Slime, *siphon* | Anti-Heal, Priority |
-| 5-2 | Blink and Bloom | Lantern Mire (advanced, crossing lanes) | Fog Skulker, Seed Pod, Bog Sprout, *blink*, *brood* | Slow, Anti-Heal |
-| 5-3 | Thorn and Moss | Witchroot Tangle (advanced, 2 crossing lanes) | Thornroot, Mossling | Anti-Heal, Armor Break |
-| 5-4 | Congregation | Sunken Hollow (advanced) | Grave Priest, Elder Treant | Anti-Heal, Priority |
-| 5-5 | The Drowned Willow | Drowned Willow (expert, spiral) | – (everything returns) | Anti-Heal, Priority, Slow |
-| 6-1 | Crystal Vats | Crystal Vats (intermediate) | Cogling, Shellback, Quartz Slime, *crystal* | Rapid Hits |
-| 6-2 | Barrier Line | Conveyor Line (intermediate, long straights) | Aegis Automaton, *barrier* | Barrier Break, Rapid Hits |
-| 6-3 | Sabotage! | Gearworks Crossing (advanced, X crossing) | Goblin Sapper, Iron Sentry, *sabotage* | Traps, Cleanse, Armor Pierce |
-| 6-4 | Powder Kegs | Furnace Core (expert, serpentine) | Goblin Bomber, Ember Slime, Prism Warden, *volatile* | Cleanse, Barrier Break, Rapid Hits |
-| 6-5 | The Goblin Machine | Machine Hangar (expert, self-crossing loop) | Goblin Chieftain, **Goblin Machine** | Barrier Break, Armor Pierce, Traps, Cleanse |
-| 7-1 | Festival Wind | Lantern Street (intermediate, 2 lanes) | Oni Brute, Wind Oni, *field* | Silence, Priority |
-| 7-2 | Fireworks Square | Fireworks Square (advanced, triple crossing) | Ward Oni | Silence, Priority |
-| 7-3 | Mirror Parade | Moon Bridge (advanced, figure-8) | Lantern Sprite, Fae Illusionist, Mirage, Mimic Slime, Glimmer Copy, *decoy* | Rapid Hits, Priority |
-| 7-4 | Drums of the Taiko | Shrine Maze (expert, tight corners) | Bloom Oni, Taiko Oni, Mirror Queen | Silence, Priority, Anti-Heal, Veil Sight |
-| 7-5 | Champion of the Festival | Champion's Stage (expert, merging lanes) | **Oni Champion** | Silence, Priority, Anti-Heal, Slow |
-| 8-1 | Wings over the Ascent | Ashwing Ascent (advanced) | Bubble Slime, Ash Wyvern, *airborne* | Anti-Air |
-| 8-2 | Frozen Falls | Frozen Falls (advanced) | Goblin Glider, Wind Sylph | Anti-Air |
-| 8-3 | Caldera Rim | Caldera Rim (expert, lava lake loop) | Ashdrake | Anti-Air, Armor Pierce |
-| 8-4 | Dragonback Ridge | Dragonback Ridge (expert, merging lanes) | Cinder Wyvern | Anti-Air, Armor Break, Priority |
+| 4-5 | The Iron General | Ironhold Gate (advanced, 2-lane pincer, gatehouse tunnel) | **Orc General** | Armor Break, Armor Pierce, Slow |
+| 5-1 | Leeches in the Fog | Gloomfen Boardwalk (intermediate, bog wander) | Bonewalker, Bog Shambler, Leech Ghoul, Rose Slime, *siphon* | Anti-Heal, Priority |
+| 5-2 | Blink and Bloom | Lantern Mire (advanced, 2 crossing lanes, causeway overpass) | Fog Skulker, Seed Pod, Bog Sprout, *blink*, *brood* | Slow, Anti-Heal |
+| 5-3 | Thorn and Moss | Witchroot Tangle (advanced, 2-lane braid: overpass + flat crossing) | Thornroot, Mossling | Anti-Heal, Armor Break |
+| 5-4 | Congregation | Sunken Hollow (advanced, fish-hook, hollow-log tunnel) | Grave Priest, Elder Treant | Anti-Heal, Priority |
+| 5-5 | The Drowned Willow | Drowned Willow (expert, double spiral) | – (everything returns) | Anti-Heal, Priority, Slow |
+| 6-1 | Crystal Vats | Crystal Vats (intermediate, S round two vats) | Cogling, Shellback, Quartz Slime, *crystal* | Rapid Hits |
+| 6-2 | Barrier Line | Conveyor Line (intermediate, belt figure-8, furnace tunnel) | Aegis Automaton, *barrier* | Barrier Break, Rapid Hits |
+| 6-3 | Sabotage! | Gearworks Crossing (advanced, 2 lanes, cloverleaf on-ramp) | Goblin Sapper, Iron Sentry, *sabotage* | Traps, Cleanse, Armor Pierce |
+| 6-4 | Powder Kegs | Furnace Core (expert, serpentine, two tunnels) | Goblin Bomber, Ember Slime, Prism Warden, *volatile* | Cleanse, Barrier Break, Rapid Hits |
+| 6-5 | The Goblin Machine | Machine Hangar (expert, coil spring: two self-crossing loops) | Goblin Chieftain, **Goblin Machine** | Barrier Break, Armor Pierce, Traps, Cleanse |
+| 7-1 | Festival Wind | Lantern Street (intermediate, 2 lanes merge) | Oni Brute, Wind Oni, *field* | Silence, Priority |
+| 7-2 | Fireworks Square | Fireworks Square (advanced, trefoil, 3 flat junctions) | Ward Oni | Silence, Priority |
+| 7-3 | Mirror Parade | Moon Bridge (advanced, river weave) | Lantern Sprite, Fae Illusionist, Mirage, Mimic Slime, Glimmer Copy, *decoy* | Rapid Hits, Priority |
+| 7-4 | Drums of the Taiko | Shrine Maze (expert, four-leaf pinwheel) | Bloom Oni, Taiko Oni, Mirror Queen | Silence, Priority, Anti-Heal, Veil Sight |
+| 7-5 | Champion of the Festival | Champion's Stage (expert, 2 gates merge, lasso) | **Oni Champion** | Silence, Priority, Anti-Heal, Slow |
+| 8-1 | Wings over the Ascent | Ashwing Ascent (advanced, corkscrew climb) | Bubble Slime, Ash Wyvern, *airborne* | Anti-Air |
+| 8-2 | Frozen Falls | Frozen Falls (advanced, omega, ice cave) | Goblin Glider, Wind Sylph | Anti-Air |
+| 8-3 | Caldera Rim | Caldera Rim (expert, caldera kidney) | Ashdrake | Anti-Air, Armor Pierce |
+| 8-4 | Dragonback Ridge | Dragonback Ridge (expert, 2 trails cross then merge) | Cinder Wyvern | Anti-Air, Armor Break, Priority |
 | 8-5 | The Ashwing Matriarch | Matriarch's Nest (expert, 3 converging trails) | **Ashwing Matriarch** | Anti-Air, Armor Break, Priority |
 
 Every recommended capability is reachable from starters (Hikari, Aoi, Rei) plus free recruits
 unlocked by earlier stages — `tests/data/world.test.js` enforces this ("free-counter rule"), along
 with detection before any veiled enemy, anti-air before any airborne enemy and a water girl
 before chapter 2.
+
+## Track notes (Tracks v3)
+
+The owner's feedback on the V2 maps was "the maps themselves look nice but the tracks are linear
+and repetitive". Since Tracks v3 every path is a smooth authored curve (`src/core/track.js`,
+format in CONTRACTS §4), sampled once into the centreline that the sim walks, the renderer draws
+and the stage thumbnails trace — what you see is exactly where enemies walk.
+
+* **One silhouette per map.** Each MapDef names its shape in `concept` (e.g. "Coil spring: two
+  loops in a row, each crossing itself on an overpass"). `tests/data/world.test.js` keeps them
+  apart: coarse 10×6 raster IoU < 0.65 between any two maps, matching turning signatures must sit
+  differently on the board, and at most two maps (sakura_lane, foundry_core) may be meanders.
+* **Smooth, readable roads.** ≤ 14° turn per 0.1 tile, centreline radius ≥ 1.4 tiles, flat
+  junctions ≥ 2 tiles apart, spawns and exits on the board edge.
+* **Difficulty from length and choke points, not zig-zags.** Longest route per tier (tiles):
+  beginner 28–51 (median 39), intermediate 27–94 (39; the 94 is the endless colosseum),
+  advanced 26–65 (44), expert 27–72 (52). Loops, hairpins and self-crossings create spots where
+  one girl covers two or three passes; multi-lane maps split the defence.
+* **Features in use (49 maps):** 21 maps cross themselves or another lane on a raised overpass
+  (28 overpasses in all; the colosseum alone has 4), 2 run a road over a tunnel (1-5, Lych
+  Crypt), 4 have flat junctions
+  (5-3, 7-2, 7-4, Rune Garden), 13 have tunnels where enemies are hidden and untargetable
+  (1-5, 3-2, 3-5, 4-1, 4-5, 5-4, 6-2, 6-4, 8-2, Library, Workshop, Lych Crypt, Colossus Forge),
+  13 have two or more entrances (8-5 has three), 5 have two exits (2-4, 5-2, 5-3, Market,
+  Rune Garden), 2 split a lane (2-2, Market) and 10 merge lanes. Water maps hug shores and cross
+  on continuous plank / stone decks (2-1 coastline, 1-4 creek-hugger, 7-3 river weave).
+* **Beginner maps stay single-lane** with no tunnels, so the first stages teach coverage
+  without hidden stretches; 1-5 (intermediate) introduces the first tunnel.
+
+Bounty, boss and challenge arenas: Library Courtyard = three aisles (two entrances merge at the
+far wall, return under the reading room); Market Canal = one entrance forking into two exits;
+Workshop Yard = conveyor loop, gear-press tunnel, exit over its own belt; Wildflower Meadow =
+paperclip of nested hairpins; Rune Garden = twin serpents crossing at the rune circle; Lych
+Crypt = buried passage to the centre, then a spiral outward; Colossus Forge = question mark out
+of the forge tunnel; Ashwing Summit = lightning bolt with a self-crossing curl; Sakura Colosseum
+(endless) = a loop-the-loop round each of four ring arenas.
 
 ## Miniboss and boss rewards
 
@@ -144,3 +180,8 @@ Ashwing 70). Rewards are bounty tokens and coins; the UI records the best wave p
   Matriarch is beyond the bot. With level-1 girls, chapters 1–3 are won and later chapters need
   levelling — progression gates the campaign. On Hard the bot loses many mid/late stages, as intended.
 * Difficulty multipliers come from `DIFFICULTIES` in `types.js` (Hard: ×1.35 HP, ×1.1 speed, 50 lives).
+* Tracks v3 re-check (`BALANCE=full`, autoPlan, free units, expected levels; pre-v3 baseline →
+  now): Easy 40/40 → 40/40, Normal 39/40 → 39/40 (8-5 still beyond the bot), Hard 29/40 → 30/40,
+  Nightmare 0/40 → 0/40. Hard flips: 2-2 now lost (wave 18/20), 2-4 and 7-5 now won. Per map
+  tier the Normal / Hard wins are unchanged except expert Hard 6 → 7. Bounty / boss (Normal):
+  12/18 → 12/18 (res-mats-b-2 now lost, boss-ashwing now won); Hard 5/18 → 6/18.
