@@ -313,7 +313,9 @@ export function mountBattle(root, params, hooks) {
       lastT = performance.now();
     };
     ctx.restart = () => hooks.restart();
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', { id: stage.id }));
+    // every way out of a battle goes through navigate(), which never leaves the battle's history
+    // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
+    ctx.quit =() => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       const r = mapRouteFor(stage);

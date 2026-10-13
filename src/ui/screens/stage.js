@@ -75,7 +75,7 @@ export function rememberParams(name, patch) {
   if (route.name !== name || !route.params) return;
   Object.assign(route.params, patch);
   try {
-    history.replaceState(null, '', buildHash(name, route.params));
+    history.replaceState(history.state, '', buildHash(name, route.params));
   } catch {
     /* not in a browser */
   }

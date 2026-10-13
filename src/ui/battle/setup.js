@@ -68,12 +68,5 @@ export function followingStage(stageId) {
   return i >= 0 && i < CAMPAIGN_IDS.length - 1 ? CAMPAIGN_IDS[i + 1] : null;
 }
 
-/** Route that "Back to map" leads to for a stage kind. */
-export function mapRouteFor(stage) {
-  switch (stage?.kind) {
-    case 'resource': return { name: 'bounty', params: {} };
-    case 'boss': return { name: 'assault', params: {} };
-    case 'challenge': return { name: 'challenge', params: {} };
-    default: return { name: 'campaign', params: stage?.chapter != null ? { chapter: String(stage.chapter) } : {} };
-  }
-}
+/** Route that "Back to map" leads to for a stage kind (shared with the back arrow: src/ui/nav.js). */
+export { mapRouteFor } from '../nav.js';
