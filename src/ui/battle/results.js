@@ -114,7 +114,8 @@ export function createResults(ctx) {
     const result = sim.result();
     const rng = createRng(hashString(`${stage.id}:${sim.difficulty}:${sim.seed}:${Date.now()}`));
     try {
-      outcome = applyBattleResult(store.profile, result, rng, { now: new Date() });
+      // co-op / clan boss battles bring their own reward rules (ctx.applyResult)
+      outcome = ctx.applyResult ? ctx.applyResult(store.profile, result, rng) : applyBattleResult(store.profile, result, rng, { now: new Date() });
     } catch (e) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
@@ -126,6 +127,9 @@ export function createResults(ctx) {
   }
 
   function actions(won) {
+    if (ctx.extraActions) {
+      return h('div.bt-result-actions', ctx.extraActions().map((a) => h(`button.${a.cta ? 'bt-cta' : 'bt-btn'}`, { 'data-testid': a.testid, onclick: a.onClick }, a.icon ? icon(a.icon, 'bt-ico-sm') : null, a.label)));
+    }
     const next = won ? followingStage(stage.id) : null;
     return h(
       'div.bt-result-actions',
@@ -174,8 +178,9 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-win',
       h('div.bt-result-ribbon', 'VICTORY!'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
-      out.practice
-        ? practiceNote()
+      out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
+      out.practice || out.coop
+        ? (out.practice ? practiceNote() : null)
         : h(
           'div.bt-medal-row',
           h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
@@ -204,6 +209,7 @@ export function createResults(ctx) {
       h('div.bt-result-ribbon', 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
       out.practice ? practiceNote() : null,
+      out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       summary(),
       h('div.bt-rsec-title', 'Debrief'),
       h('ul.bt-debrief', (d?.lines || ['The defence fell.']).map((l) => h('li', l))),
@@ -249,7 +255,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },
       h('div.bt-result-ribbon', 'REWARDS'),
-      h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
+      h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
       h('div.bt-rewards-body', blocks),
       actions(true),
     );

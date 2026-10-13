@@ -58,6 +58,9 @@ if (prod) {
 }
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
+// The production build carries the real Supabase project (.env.production): force the local
+// online adapter there, so a smoke run never signs anonymous test players into the live project.
+const entry = prod ? `${base}?online=local` : base;
 let browser;
 try {
   const launched = await launchChromium();
@@ -94,6 +97,11 @@ const ROUTES = [
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
   ['settings', '#/settings'],
+  // online screens without a server config: local mode + "Online features offline" pill (with
+  // --prod: forced local mode). The first one asks for a name; leaving the screen closes that prompt
+  ['chat', '#/chat'],
+  ['clan', '#/clan'],
+  ['co-op', '#/coop'],
 ];
 
 async function runViewport(vp) {
@@ -124,8 +132,8 @@ async function runViewport(vp) {
   };
 
   // fresh save, cold start (no route in the URL) → the title / load-up screen: it preloads what
-  // the lobby needs, then "TAP TO START" goes to the lobby
-  await page.goto(base, { waitUntil: 'load' });
+  // the lobby needs, then "TAP TO START" goes to the lobby (with --prod: forced local online mode)
+  await page.goto(entry, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   check(await page.evaluate(() => location.hash === '#/title' && !!document.querySelector('[data-testid="title"]')), 'cold start opens the title screen');
   const startBtn = await page.waitForSelector('[data-testid="title-start"]:not([disabled])', { timeout: 30000 }).catch(() => null);

@@ -2,9 +2,9 @@
 // Blue Archive mission-menu layout: the secretary's drawn stand bottom-left (bleeding off the
 // edge) over the painted academy (dimmed, blurred), and a grid of slanted tiles filled with
 // drawn art on the right: Mission (chapter · next stage, quick start), Bounty, Total Assault,
-// Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm) and a small Story
-// ("coming soon") tile. Locked tiles keep their colour and wear a small lock chip (big tiles) or a
-// lock line in their name plate (small tiles). Tile art never repeats the secretary.
+// Tactical Challenge, Commissions ("In Progress"), Sweep (instant farm), Co-op (online) and a
+// small Story ("coming soon") tile. Locked tiles keep their colour and wear a small lock chip (big
+// tiles) or a lock line in their name plate (small tiles). Tile art never repeats the secretary.
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, modal, toast, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
@@ -73,7 +73,10 @@ function build() {
     tile({ id: 'assault', title: 'Total Assault', art: artFor(sec.id, bust('kaede'), bust('shiro')), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: artFor(sec.id, bust('raika'), bust('shiro')), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     tile({ id: 'commissions', title: 'Commissions', art: artFor(sec.id, bust('umeko'), bust('midori')), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, short: `${notice.dailyDone}/${notice.dailyTotal} done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
-    tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear Hard stages', short: sweepable ? `${sweepable} ready` : 'Hard clears only', onClick: () => openSweep() }),
+    tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} ready` : 'Clear Hard', short: sweepable ? `${sweepable} ready` : 'Hard only', onClick: () => openSweep() }),
+    // [online] 2-player real-time co-op on any unlocked campaign stage. Sweep and Co-op share the
+    // half of the bottom row the long-title tiles leave, so their subtitles stay short enough to fit
+    tile({ id: 'coop', title: 'Co-op', art: artFor(sec.id, bust('miko'), bust('suzu')), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
     tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
   );
   wrap.appendChild(grid);
@@ -86,7 +89,7 @@ function bestWaveLine(profile) {
 }
 
 /** Bottom-row tiles: full-colour bust art with a name plate at the bottom. */
-const SMALL_TILES = new Set(['challenge', 'commissions', 'sweep', 'story']);
+const SMALL_TILES = new Set(['challenge', 'commissions', 'sweep', 'coop', 'story']);
 
 /**
  * One slanted hub tile. sub/short: the subtitle, and a shorter one for phone widths (CSS picks).

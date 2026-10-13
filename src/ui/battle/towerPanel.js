@@ -118,7 +118,7 @@ export function createTowerPanel(ctx) {
         h('span.bt-section-label', icon('target', 'bt-ico-sm'), 'Target'),
         h('div.bt-seg', Object.entries(TARGET_MODES).map(([k, name]) => h(
           `button.bt-seg-btn${t.targetMode === k ? '.on' : ''}`,
-          { 'data-mode': k, title: MODE_HELP[k], onclick: () => { sim.setTargetMode(t.uid, k); sig = ''; update(true); } },
+          { 'data-mode': k, title: MODE_HELP[k], onclick: () => { (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k)); sig = ''; update(true); } },
           name,
         ))),
       );
@@ -185,10 +185,16 @@ export function createTowerPanel(ctx) {
     );
     const foot = h('div.bt-panel-foot', h('span.bt-spent', `Invested ${fmtCoins(t.spent)}`), sell);
 
+    // co-op: an ally's girl can be inspected but only her owner upgrades, retargets or sells her
+    const ally = ctx.coop && !ctx.coop.isMine(t.uid);
+    el.classList.toggle('bt-panel-ally', !!ally);
+    const owner = ally ? ctx.coop.ownerName(t.uid) : '';
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`) : null;
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
     const scroll = h(
       'div.bt-panel-scroll',
       head,
+      allyNote,
       heroBlock,
       target,
       h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades'),
@@ -228,11 +234,12 @@ export function createTowerPanel(ctx) {
             'data-testid': `buy-${i}`,
             disabled: sim.state === 'won' || sim.state === 'lost',
             onclick: () => {
-              if (!sim.upgradeTower(t.uid, i)) {
-                ctx.feed.push(`Need ${fmtCoins(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
+              const done = ctx.act ? ctx.act.upgrade(t.uid, i) : sim.upgradeTower(t.uid, i);
+              if (!done) {
+                if (!ctx.coop || ctx.coop.isMine(t.uid)) ctx.feed.push(`Need ${fmtCoins(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
                 return;
               }
-              ctx.onUpgraded(t, i);
+              if (done !== 'queued') ctx.onUpgraded(t, i);
               sig = '';
               update(true);
             },
@@ -265,7 +272,8 @@ export function createTowerPanel(ctx) {
       return;
     }
     clearTimeout(sellTimer);
-    const refund = sim.sellTower(t.uid);
+    const refund = ctx.act ? ctx.act.sell(t.uid) : sim.sellTower(t.uid);
+    if (refund === false) return;
     ctx.feed.push(`${t.def.name} returned to the academy · +${fmtCoins(refund)}`, 'info', { ms: 1800 });
     ctx.select(null);
   }

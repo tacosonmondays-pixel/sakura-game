@@ -1,0 +1,15 @@
+# Supabase CLI configuration for this repo (used by `supabase start`, preview branches, and the
+# GitHub integration). The GitHub integration applies supabase/migrations/*.sql to the project
+# when they reach main; keep the settings below in line with the dashboard. See docs/ONLINE.md.
+# No keys, passwords or secrets belong in this file.
+project_id = "sakura-sentinels"
+
+[auth]
+# the live game (GitHub Pages); players never get e-mail links, but keep the redirect sane
+site_url = "https://tacosonmondays-pixel.github.io/sakura-game/"
+additional_redirect_urls = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# players get an anonymous account the first time they open chat, clans or co-op
+enable_anonymous_sign_ins = true
+
+[realtime]
+enabled = true

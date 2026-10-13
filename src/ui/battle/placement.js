@@ -118,10 +118,12 @@ export function createPlacement(ctx) {
       reject(chk.x ?? x, chk.y ?? y, chk.reason);
       return null;
     }
-    const t = sim.placeTower(id, x, y);
+    // ctx.act routes through co-op lockstep when this is a co-op battle (the girl appears a few
+    // frames later on both screens); in solo it places right away
+    const t = ctx.act ? ctx.act.place(id, x, y) : sim.placeTower(id, x, y);
     if (t) {
       end();
-      ctx.onPlaced(t);
+      if (t !== 'queued') ctx.onPlaced(t);
     }
     return t;
   }

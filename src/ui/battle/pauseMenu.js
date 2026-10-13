@@ -41,13 +41,14 @@ export function createPauseMenu(ctx) {
     const diff = DIFFICULTIES[ctx.sim.difficulty];
     el.replaceChildren(h(
       'div.bt-sheet.bt-pause',
-      h('div.bt-sheet-title', 'PAUSED'),
+      h('div.bt-sheet-title', ctx.coop ? 'MENU' : 'PAUSED'),
+      ctx.coop ? h('p.bt-pause-sub', 'Co-op battles keep running while this menu is open.') : null,
       h('div.bt-pause-sub', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
       h(
         'div.bt-pause-actions',
         h('button.bt-cta', { 'data-testid': 'resume', onclick: () => ctx.closePause() }, icon('play', 'bt-ico-sm'), 'Resume'),
-        h('button.bt-btn', { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
-        h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), 'Quit'),
+        ctx.coop ? null : h('button.bt-btn', { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
+        h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : 'Quit'),
       ),
       h('div.bt-sheet-section', 'Settings'),
       h('div.bt-set-row', h('span.bt-set-label', 'Graphics'), seg(QUALITIES, s.quality, (q) => {
@@ -78,7 +79,8 @@ export function createPauseMenu(ctx) {
   }
 
   async function quit() {
-    if (!(await confirmDialog('Leave the battle? You will not receive rewards for this run.', { title: 'Quit battle', ok: 'Quit' }))) return;
+    const text = ctx.coop ? 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.' : 'Leave the battle? You will not receive rewards for this run.';
+    if (!(await confirmDialog(text, { title: ctx.coop ? 'Leave co-op' : 'Quit battle', ok: ctx.coop ? 'Leave' : 'Quit' }))) return;
     ctx.quit();
   }
 

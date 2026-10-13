@@ -130,6 +130,12 @@ the home screen as an app.
   - Sweeping after a Hard clear.
   - Auto-start for waves.
 - **Settings:** graphics quality, lighting, and save export/import.
+- **Online (Supabase, optional):** global chat (lobby chat bubble, `#/chat`), clans with roles, clan chat,
+  clan level and a weekly clan boss with one shared HP pool, the developer clan `Rosie777` with its Supply
+  Bot sandbox, 2-player real-time co-op (lockstep on the deterministic Sim, enemy HP ×1.6, separate
+  wallets) and one-time transfer codes. Client and server rate limits. Without a server configured, the
+  same features run between tabs of one browser and the pill says "Online features offline". Setup and
+  details: [docs/ONLINE.md](docs/ONLINE.md).
 
 ## Roster
 
@@ -176,6 +182,8 @@ npm test           # vitest: data, systems, sim, renderer and integration tests
 npm run build      # production build into dist/
 npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chrome/Edge/Chromium; see e2e/smoke.mjs)
+node e2e/online.mjs   # two browser tabs: chat, clans, clan boss, Supply Bot, co-op battle (local adapter)
+node e2e/engines.mjs  # one co-op battle in V8, JavaScriptCore and SpiderMonkey: identical hashes required
 BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
 ```
 
@@ -227,6 +235,17 @@ by hand from the Actions tab), it installs dependencies, runs the tests, builds 
 The build uses relative paths (`base: './'` in `vite.config.js`), so it also works from any other folder
 or static host.
 
+Online features use the Supabase project in `.env.production` (public URL + publishable key; repository
+secrets `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` override it). Note that this makes every local
+production build (`npm run build` / `npm run preview`) talk to the live project; `npm run dev` stays in
+local mode. **The database schema is `supabase/migrations/20261008000000_online.sql`** (the one file to
+paste into Supabase's SQL Editor when setting up by hand). Supabase's GitHub integration, when connected
+(directory `supabase`, production branch `main`), applies it when it reaches `main`. As of 2026-10-13 the
+live project has anonymous sign-ins on but **no tables yet**: paste the migration (or connect the
+integration) before or right after merging. Then run the post-merge check in
+[docs/ONLINE.md](docs/ONLINE.md#setup-about-5-minutes) (open the chat on the live site). Never commit a
+service-role / secret key or the database password.
+
 ## Screenshots
 
 Reviewed stills from the V2 build (`docs/reference/`, `V2final-<screen>-<viewport>.jpg`, each at 1280×720
@@ -259,7 +278,9 @@ src/systems/                save, progression, gear, inventory, gacha, rewards, 
 src/models/                 GLB runtime for girls (glbChibi) and monsters (glbEnemy), procedural fallbacks, viewer, silhouettes
 src/render/                 3D battle renderer: painted terrain, ribbon roads, props, ambient life, actors, effects, overlays, camera
 src/art/                    drawn portrait URLs (portraits.js), SVG fallback card art, item/trait/UI icons, stage thumbnails, backdrops
-src/ui/                     router, DOM helpers, shared components, orientation (rotate / fullscreen), screens/ (incl. title), lobby/ (drawn stage, background picker, mail, notice), battle/, styles/
+src/ui/                     router, DOM helpers, shared components, orientation (rotate / fullscreen), screens/ (incl. title), lobby/ (drawn stage, background picker, mail, notice), battle/, online/, styles/
+src/online/                 online backend (Supabase or local two-tab adapter), rate limits, clan rules, co-op lockstep
+supabase/                   database migrations (tables, RLS, functions, rate limits) + CLI config
 public/art/                 drawn art: portraits/ (6 files per girl), lobby/ (academy, scenes, thumbs), ui/ (mail envelope)
 public/models/characters/   19 girls as <id>.glb + <id>.lod.glb + manifest.json (generated)
 public/models/enemies/      12 monster families as <family>.glb + manifest.json (generated)
