@@ -7,6 +7,7 @@ import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { newSocial, cleanSocial } from '../online/socialSave.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -98,6 +99,8 @@ export function createProfile() {
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
+    // [social] clan donation / collect ledgers (src/online/donateLedger.js)
+    social: newSocial(),
   };
 }
 
@@ -390,6 +393,7 @@ export function migrateProfile(raw) {
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
+  p.social = cleanSocial(raw.social);
   p.version = SAVE_VERSION;
   return p;
 }

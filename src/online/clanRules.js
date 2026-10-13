@@ -29,6 +29,11 @@ export function validateClan({ name, tag, description = '' } = {}) {
  */
 export const RESERVED_NAMES = ['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'];
 const INVISIBLE = /[\p{Cf}\p{Cc}]/u; // bidi overrides, zero-width joiners, soft hyphens, control characters
+// [social] characters that render as nothing (Hangul / half-width fillers, Braille blank, line and
+// paragraph separators) and stacked accents: a name must look like a name (SQL: visible_name(),
+// the profiles_name_visible check of the social migration; socialRules.NAME_BLANKS)
+const BLANKS = /[\u115f\u1160\u2028\u2029\u2800\u3164\uffa0]/u;
+const STACKED = /[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]{5,}/u;
 
 /** Display names: 2–16 characters (SQL: valid_display_name(), the profiles.name check). */
 export function validateName(name) {
@@ -36,6 +41,7 @@ export function validateName(name) {
   if (n.length < 2 || n.length > 16) return 'Names are 2–16 characters.';
   if (/[<>]/.test(n)) return 'Names cannot contain < or >.';
   if (INVISIBLE.test(n)) return 'Names cannot contain invisible or control characters.';
+  if (BLANKS.test(n) || STACKED.test(n)) return 'Names need visible letters.';
   if (RESERVED_NAMES.includes(n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''))) return 'That name is reserved.';
   return null;
 }

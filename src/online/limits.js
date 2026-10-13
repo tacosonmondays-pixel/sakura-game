@@ -26,7 +26,31 @@ export const RULES = Object.freeze({
   dev_grant: { gapMs: 300, max: 60, windowMs: MIN, label: 'supply request' },
   // opening or joining a co-op room (open_room / join_room; a wrong code counts too)
   room: { gapMs: 1 * SEC, max: 20, windowMs: HOUR, label: 'co-op room' },
+  // ---- [social] supabase/migrations/20261013000000_social.sql -------------------------------
+  // private messages: chat's numbers in their own bucket; co-op invites by DM count as well
+  dm: { gapMs: 2 * SEC, max: 20, windowMs: MIN, label: 'message' },
+  // a daily ceiling per sender (two alts chatting all day would fill the free database)
+  dm_day: { gapMs: 0, max: 300, windowMs: DAY, label: 'message' },
+  // the first message to someone new (a new conversation)
+  dm_new: { gapMs: 0, max: 10, windowMs: DAY, label: 'new conversation' },
+  // co-op invites by DM (plus at most 4 per hour to the same player, checked on the server)
+  invite: { gapMs: 5 * SEC, max: 20, windowMs: HOUR, label: 'co-op invite' },
+  // friend requests and friend-code tries (a wrong code counts too: no brute force)
+  friend: { gapMs: 0, max: 10, windowMs: HOUR, label: 'friend request' },
+  block: { gapMs: 0, max: 30, windowMs: HOUR, label: 'block / unblock' },
+  report: { gapMs: 10 * SEC, max: 10, windowMs: DAY, label: 'report' },
+  // privacy changes and new friend codes
+  settings: { gapMs: 0, max: 20, windowMs: HOUR, label: 'settings change' },
+  // opening player cards (stops a script from scanning every account)
+  card: { gapMs: 0, max: 120, windowMs: HOUR, label: 'player card' },
+  // online name changes (a name shown in a friend request cannot be swapped every minute)
+  rename: { gapMs: 0, max: 3, windowMs: DAY, label: 'name change' },
+  // donations: anti-script only; the real caps are the daily donation points
+  donate: { gapMs: 500, max: 60, windowMs: HOUR, label: 'donation' },
 });
+
+/** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */
+export const ROLLING_DAILY = ['dm_day', 'dm_new', 'report', 'rename', 'clan_create', 'boss_hit'];
 
 /**
  * Pure verdict for one action given the earlier hit times (ms, any order).

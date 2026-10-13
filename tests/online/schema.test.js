@@ -416,6 +416,7 @@ describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants 
     await refused(as(A, `select rate_retry_ms('chat', 0, 1, interval '1 minute')`), /permission denied/);
     await refused(as(A, 'select * from clan_boss_attempts'), /permission denied/);
     const pub = await db.query(`select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1`);
-    expect(pub.rows.map((r) => r.tablename)).toEqual(['clan_boss', 'clan_members', 'messages']);
+    // (+ the social update's DM delivery, friend requests and clan material requests: socialSchema.test.js)
+    expect(pub.rows.map((r) => r.tablename)).toEqual(['clan_boss', 'clan_members', 'direct_messages', 'donation_requests', 'friend_requests', 'messages']);
   });
 });
