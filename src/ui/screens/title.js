@@ -16,6 +16,7 @@ import { lobbyArtUrl, lobbyBackgroundFor, BACKDROP } from '../../data/lobbyArt.j
 import { UNIT_MAP } from '../../data/units.js';
 import { redeemCode } from '../../systems/missions.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
+import { onboardingRoute } from '../../systems/story.js';
 import pkg from '../../../package.json';
 
 export const TITLE_SEEN_KEY = 'sakura-title-seen';
@@ -150,8 +151,13 @@ export function render(root) {
       setTimeout(() => el.remove(), reduce ? 0 : 300);
     };
     window.addEventListener('lobby-stage-ready', fade);
+    window.addEventListener('story-stage-ready', fade, { once: true }); // [story] a new player meets Hikari first
     setTimeout(fade, 1800);
-    navigate('lobby', {}, { replace: true });
+    const onboarding = onboardingRoute(store.profile);
+    if (onboarding) {
+      el.style.zIndex = '320'; // stay over the scene player (z 300) until its first picture is up
+      navigate(onboarding.name, onboarding.params, { replace: true });
+    } else navigate('lobby', {}, { replace: true });
   }
 
   // ---- really preload what the lobby needs ------------------------------------------------
@@ -211,6 +217,11 @@ function openCodeModal() {
       if (!ok) return;
       store.reset();
       toast('Progress reset — welcome to Sakura Academy!', 'good');
+      // [story] a fresh profile starts from the title again: TAP TO START → the opening → the first battle
+      try {
+        sessionStorage.removeItem(TITLE_SEEN_KEY);
+      } catch { /* private mode */ }
+      navigate('title', {}, { replace: true });
       return;
     }
     store.commit('redeem');

@@ -38,6 +38,12 @@ export const CHAPTER_FALLBACK_BG = {
   8: 'academy-sunset',
 };
 
+/**
+ * Per-girl vertical nudge (vh, + = lower) for her drawn stand in the scene player, for stands whose head sits
+ * higher or lower in the file than the rest (big hair, ears, a hat). Empty entries use 0.
+ */
+export const STAND_NUDGE = {};
+
 /** @returns {string|null} the stage id of a `stage:<id>` background, else null */
 export function stageOfBackground(id) {
   if (typeof id !== 'string' || !id.startsWith(STAGE_BG_PREFIX)) return null;

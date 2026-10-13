@@ -74,10 +74,22 @@ function build() {
     tile({ id: 'challenge', title: 'Tactical Challenge', art: artFor(sec.id, bust('raika'), bust('shiro')), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     tile({ id: 'commissions', title: 'Commissions', art: artFor(sec.id, bust('umeko'), bust('midori')), sub: `${notice.dailyDone}/${notice.dailyTotal} daily done`, short: `${notice.dailyDone}/${notice.dailyTotal} done`, ribbon: notice.any ? 'In Progress' : null, dot: notice.any, onClick: () => navigate('commissions', notice.login ? { tab: 'login' } : {}) }),
     tile({ id: 'sweep', title: 'Sweep', art: artFor(sec.id, bust('kage'), bust('yuki')), sub: sweepable ? `${sweepable} stage${sweepable === 1 ? '' : 's'} ready` : 'Clear Hard stages', short: sweepable ? `${sweepable} ready` : 'Hard clears only', onClick: () => openSweep() }),
-    tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
+    tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), sub: 'Episodes and replays', short: 'Episodes', onClick: () => navigate('story') }),
   );
+  storyDot(grid.querySelector('[data-testid="hub-story"]'), profile); // [story] NEW dot for unread episodes
   wrap.appendChild(grid);
   return wrap;
+}
+
+/** [story] Red dot on the Story tile while an unlocked episode is unread (the scene list is a lazy chunk). */
+function storyDot(tileEl, profile) {
+  if (!tileEl) return;
+  Promise.all([import('../../data/story/index.js'), import('../../systems/storyTriggers.js'), import('../../data/units.js')])
+    .then(([idx, trig, units]) => {
+      const n = trig.unseenEpisodeCount(profile, idx.SCENE_LIST, (id) => !!units.UNIT_MAP[id]);
+      if (n > 0 && tileEl.isConnected && !tileEl.querySelector('.notif-dot')) tileEl.appendChild(h('span.notif-dot', { 'data-testid': 'hub-story-dot' }));
+    })
+    .catch((e) => console.warn('[missions] story dot failed', e));
 }
 
 function bestWaveLine(profile) {

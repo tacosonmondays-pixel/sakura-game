@@ -31,6 +31,7 @@ import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { onboardingRoute } from '../../systems/story.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -260,7 +261,16 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
-  const betaTimer = setTimeout(() => { if (el.isConnected) maybeShowBetaGift(); }, reduceMotion ? 50 : 700);
+  // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
+  const betaGift = () => {
+    if (!el.isConnected) return;
+    if (window.__sakura?.storyBusy || onboardingRoute(store.profile)) {
+      window.addEventListener('story-end', () => setTimeout(betaGift, 400), { once: true });
+      return;
+    }
+    maybeShowBetaGift();
+  };
+  const betaTimer = setTimeout(betaGift, reduceMotion ? 50 : 700);
 
   return () => {
     clearTimeout(betaTimer);
@@ -336,7 +346,7 @@ function buildTop(host, { openSecretaryPicker }) {
       h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => openMailbox() },
         svgEl(glyph('mail'), 'lb-glyph'), mailCount ? h('span.lb-badge', String(mailCount)) : null),
       sep(),
-      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [{ icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker }, { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox }, { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal }] }) },
+      h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [{ icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker }, { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox }, { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal }, { icon: 'tasks', label: 'Story', testid: 'menu-story', go: () => navigate('story') }] }) },
         svgEl(glyph('menu'), 'lb-glyph')),
     ),
   );

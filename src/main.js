@@ -27,6 +27,8 @@ registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
 registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] mission hub (Campaign button)
+registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
+registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
@@ -38,6 +40,8 @@ try {
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
+// [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
+import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 
 // Cold start (no route in the URL): the title / load-up screen, once per browser session.
 let titleSeen = false;

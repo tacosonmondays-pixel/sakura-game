@@ -826,3 +826,27 @@ push. Each builder runs a screenshot-critic pass at 844×390 and 1280×720 befor
    Suggest "outing" wording and a neutral line, in keeping with the content rule.
 5. **Stage stills** depend on the renderer working headless-ish off-screen. If it misbehaves on low-end phones,
    chapter backgrounds fall back to academy tints. That is ugly-free, but less varied.
+
+---
+
+## 9. Build notes: player + story system (builder "player")
+
+Shipped: `src/systems/story.js` (state, legacy rule, onboarding, prefs), `src/systems/storyTriggers.js` (before/after
+triggers, queue, `markSeen` + first-read gems, archive rows), the `save.js` hooks (`story: newStory()` in `createProfile`,
+`cleanStory(raw.story)` in `migrateProfile`; no SAVE_VERSION bump), `src/ui/story/{player,emotes,backdrop,music,play,scene,archive,install}.js`,
+`src/ui/styles/story.css`, routes `#/scene/<id>` and `#/story`, the title hand-off to the opening, RESET67 → title,
+the missions hub Story tile (+ NEW dot), a lobby Menu Tab "Story" entry, the beta-gift deferral while a scene plays,
+`e2e/story.mjs`, the smoke update and `?onboarding=0` in `e2e/shot.mjs`. Tests: `tests/story/system.test.js`,
+`tests/story/player.test.js`.
+
+Differences from §1–§5 worth knowing:
+* Archive chapter tabs are a horizontal strip above the cards (Hikari's stand keeps the bottom-left), not a left column.
+* Lock texts read "Clear 2-4 Sunscale Ferry" (`Clear <id> {stage:<id>}`); a `before` scene unlocks with its stage.
+* Text speed (Slow / Normal / Fast / Instant) lives in the Log sheet header; Auto and speed persist in `story.prefs`.
+* `markSeen(profile, scene, { skipped })` takes the scene object (or an id plus `kind`) and also records the opening.
+* The startup bundle grows by about 9 KB raw / 4.6 KB gzip (lessons.js text + story.js); scene text stays in its own chunk.
+
+Not built here (next builders): `checkLessons` / `claimLesson` / `featureOpen` / the welcome mail (so `createProfile` still
+grants `ticket_recruit10: 1`), the journal screen and toast, the tutorial coach + `tut.outro` over the results, the 1-1
+prep prompt, stage stills (`setStageStillProvider` in `backdrop.js` is the hook; stage backgrounds use the chapter's
+academy tint meanwhile), and the docs pass (CONTRACTS, README, OWNER_REQUESTS).
