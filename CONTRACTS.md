@@ -441,7 +441,7 @@ Profile = {
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
-  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
+  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
   secretary: unitId,
   lobbyBg: { [girlId]: lobbyBgId },        // chosen lobby background per girl (src/data/lobbyArt.js)
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
@@ -794,13 +794,17 @@ r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the ow
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
+r.setCameraMode('locked'|'free')  // locked (default, settings.camera) holds the fitted view; free = pan / pinch / wheel / double-tap
+r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, position, target, isDefault } for tests
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 ```
 
-Camera: angled orthographic (≈55° pitch) framing the whole map; drag to pan, pinch/wheel to zoom,
-double-tap to reset. Builds terrain from MapDef (themed ground tiles with subtle variation, raised
+Camera: angled orthographic (≈55° pitch) framing the whole map. Locked by default (settings.camera):
+the fitted view never moves. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
+girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes
+(src/render/cameraPolicy.js). Builds terrain from MapDef (themed ground tiles with subtle variation, raised
 stone path, animated water, trees/rocks/buildings, theme props, scenery from stage.scenery
 — e.g. lanterns + fog when veiled enemies are introduced, snow, embers), soft shadows (quality
 high), hemisphere + key light, optional bloom (high). Shows: towers (buildChibi), enemies

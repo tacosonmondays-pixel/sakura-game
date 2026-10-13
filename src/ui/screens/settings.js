@@ -1,5 +1,6 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (placement range, auto start, default speed) and save data
+// motion), audio, battle defaults (placement range, auto start, default speed, camera
+// locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
@@ -96,6 +97,10 @@ function build(redraw) {
     row('Show range while placing', 'While you drag a girl onto the field, her attack range is shown around her. The small circle under her stays white where she can stand and turns red where she can’t.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
     row('Auto start waves', 'Next wave starts automatically after a short pause.', toggle(s.autoStart, (v) => { s.autoStart = v; save(); }, 'autoStart')),
     row('Default speed', 'Game speed when a battle starts.', segmented(BATTLE.speeds.map(String), String(s.defaultSpeed || 1), (v) => { s.defaultSpeed = Number(v); save(); redraw(); }, Object.fromEntries(BATTLE.speeds.map((x) => [String(x), `${x}×`])), 'speed')),
+    row('Camera', s.camera === 'free'
+      ? 'Free: drag empty ground to pan, pinch or scroll to zoom, double-tap to reset. The map still holds still while you place a girl.'
+      : 'Locked: the whole map stays framed and never moves when you drag, so placing a girl can’t nudge it. Choose Free to pan and zoom.',
+    segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
   ));
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes

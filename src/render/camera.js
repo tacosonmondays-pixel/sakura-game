@@ -1,7 +1,8 @@
 // Angled orthographic battle camera: frames the map with margins (respecting HUD insets),
 // supports pan / zoom around a screen point / reset, clamps so the board never leaves the
 // screen, auto-rotates 90° in portrait so the long side of the map runs down the screen,
-// and adds a small decaying shake for impacts.
+// and adds a small decaying shake for impacts. Locked (setLocked, the default camera setting —
+// src/render/cameraPolicy.js) it holds the fitted view: pan / zoom calls do nothing.
 import * as THREE from 'three';
 
 const PITCH = THREE.MathUtils.degToRad(48);
@@ -28,6 +29,8 @@ export class CameraRig {
     this.shakeAmt = 0;
     this.shakeT = 0;
     this.forceYaw = null;
+    this.locked = false;
+    this.target = new THREE.Vector3(); // the world point the camera looks at (after apply)
     this._right = new THREE.Vector3();
     this._up = new THREE.Vector3();
     this._fwd = new THREE.Vector3();
@@ -107,6 +110,11 @@ export class CameraRig {
       this.pan.set(a.p0.x + (a.p1.x - a.p0.x) * k, a.p0.y + (a.p1.y - a.p0.y) * k);
       if (a.t >= 1) this._anim = null;
     }
+    if (this.locked && !this._anim) {
+      // locked: exactly the fitted framing, whatever touched zoom / pan
+      this.zoom = 1;
+      this.pan.set(0, 0);
+    }
     this._clamp();
     const s = this.scale;
     const hw = (this.viewW * s) / 2;
@@ -126,7 +134,7 @@ export class CameraRig {
     }
     const ox = this.baseOffset.x + this.pan.x + sx;
     const oy = this.baseOffset.y + this.pan.y + sy;
-    const target = this._center.clone().addScaledVector(this._right, ox).addScaledVector(this._up, oy);
+    const target = this.target.copy(this._center).addScaledVector(this._right, ox).addScaledVector(this._up, oy);
     cam.position.copy(target).addScaledVector(this._fwd, -this.dist);
     cam.up.copy(this._up);
     cam.lookAt(target);
@@ -148,16 +156,29 @@ export class CameraRig {
     this.pan.y = THREE.MathUtils.clamp(this.pan.y, -ay, ay);
   }
 
-  /** Pans by a screen delta in CSS px (drag). */
+  /**
+   * Locks the view on the fitted framing (pan / zoom calls are ignored; a moved view glides
+   * back to the fit) or frees it again.
+   */
+  setLocked(on, animated = true) {
+    const next = !!on;
+    if (next === this.locked) return;
+    this.locked = next;
+    if (next && !this.isDefault) this.reset(animated);
+  }
+
+  /** Pans by a screen delta in CSS px (drag). Ignored while locked. */
   panBy(dxPx, dyPx) {
+    if (this.locked) return;
     this._anim = null;
     const s = this.scale;
     this.pan.x -= dxPx * s;
     this.pan.y += dyPx * s;
   }
 
-  /** Zooms by factor keeping the world point under (px, py) (CSS px in the viewport) fixed. */
+  /** Zooms by factor keeping the world point under (px, py) (CSS px in the viewport) fixed. Ignored while locked. */
   zoomAt(factor, px, py) {
+    if (this.locked) return;
     this._anim = null;
     const before = this.scale;
     const z0 = this.zoom;

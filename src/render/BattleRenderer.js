@@ -1,8 +1,10 @@
 // Battle renderer (CONTRACTS.md §9). Draws a running Sim with three.js: themed terrain,
-// chibi girls, monsters, projectiles and effects, under an angled orthographic camera with
-// touch-friendly pan / pinch / double-tap-reset controls.
+// chibi girls, monsters, projectiles and effects, under an angled orthographic camera. The
+// camera is locked on the fitted view by default (settings.camera = 'locked'); 'free' brings
+// back the touch-friendly pan / pinch / double-tap-reset controls. Placing a girl never moves
+// the camera in either mode (src/render/cameraPolicy.js).
 //
-//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets });
+//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing });
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -10,6 +12,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig } from './camera.js';
+import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
 import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
@@ -39,7 +42,9 @@ let liveRenderers = 0;
  * Creates the battle renderer.
  * @param {HTMLElement} container element the canvas fills (should have a size)
  * @param {import('../sim/Sim.js').Sim} sim running simulation
- * @param {{ quality?: 'high'|'medium'|'low', settings?: object, insets?: {top,right,bottom,left} }} [opts]
+ * @param {{ quality?: 'high'|'medium'|'low', settings?: object, insets?: {top,right,bottom,left}, isPlacing?: () => boolean }} [opts]
+ *   settings.camera: 'locked' (default) | 'free'; isPlacing: the UI is placing a girl (the
+ *   camera then holds still even in 'free' mode — a visible placement ghost counts too)
  */
 export function createBattleRenderer(container, sim, opts = {}) {
   liveRenderers++;
@@ -92,6 +97,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   const rig = new CameraRig(map);
   const camera = rig.camera;
+  let cameraMode = cameraModeOf(settings);
+  rig.setLocked(cameraMode === 'locked', false);
+  const isPlacing = typeof opts.isPlacing === 'function' ? opts.isPlacing : () => false;
 
   if (look.fog) scene.fog = new THREE.Fog(look.fogColor, rig.dist - 1, rig.dist + 40);
 
@@ -602,6 +610,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let pinch = null;
   let lastTap = null;
 
+  /** Camera gestures allowed right now (camera mode + whether a girl is being placed). */
+  function gestures() {
+    let placing = !!overlays.ghost;
+    if (!placing) {
+      try {
+        placing = !!isPlacing();
+      } catch {
+        placing = false;
+      }
+    }
+    return cameraGestures({ mode: cameraMode, placing });
+  }
+
   function local(e) {
     const rect = canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -609,7 +630,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   function onDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    canvas.setPointerCapture?.(e.pointerId);
+    try {
+      canvas.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* capture is best effort (a pointer already lifted under jank, a synthetic test pointer) */
+    }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1) {
       const g = { moved: false, longFired: false, t0: performance.now(), x0: e.clientX, y0: e.clientY, timer: 0 };
@@ -637,24 +662,26 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const dy = e.clientY - p.y;
     p.x = e.clientX;
     p.y = e.clientY;
+    const allow = gestures();
     if (pointers.size >= 2 && pinch) {
       const [a, b] = [...pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       const mx = (a.x + b.x) / 2;
       const my = (a.y + b.y) / 2;
       const rect = canvas.getBoundingClientRect();
-      if (pinch.dist > 0) rig.zoomAt(dist / pinch.dist, mx - rect.left, my - rect.top);
-      rig.panBy(mx - pinch.mx, my - pinch.my);
+      if (allow.zoom && pinch.dist > 0) rig.zoomAt(dist / pinch.dist, mx - rect.left, my - rect.top);
+      if (allow.pan) rig.panBy(mx - pinch.mx, my - pinch.my);
       pinch = { dist, mx, my };
       return;
     }
     const g = gesture;
     if (!g) return;
-    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 9) {
+    // a press that wanders less than the slop is still a tap (wider while a drag cannot pan)
+    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > allow.tapSlop) {
       g.moved = true;
       clearTimeout(g.timer);
     }
-    if (g.moved && !g.longFired) rig.panBy(dx, dy);
+    if (g.moved && !g.longFired && allow.pan) rig.panBy(dx, dy);
   }
 
   function onUp(e) {
@@ -669,7 +696,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (performance.now() - g.t0 > 600) return;
     const p = pick(e.clientX, e.clientY);
     const now = performance.now();
-    if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && p.towerUid == null && !overlays.ghost) {
+    if (gestures().reset && lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && p.towerUid == null) {
       lastTap = null;
       if (!rig.isDefault) rig.reset(true);
     } else {
@@ -679,7 +706,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   function onWheel(e) {
-    e.preventDefault();
+    e.preventDefault(); // never scroll / zoom the page, locked or not
+    if (!gestures().zoom) return;
     const p = local(e);
     rig.zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
   }
@@ -739,6 +767,32 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     resetCamera() {
       rig.reset(true);
+    },
+    /**
+     * Extra: 'locked' holds the fitted view (a moved view glides back to it); 'free' allows
+     * drag-pan / pinch / wheel zoom / double-tap reset. Applies at once (settings.camera).
+     */
+    setCameraMode(mode) {
+      const next = cameraModeOf({ camera: mode });
+      if (next === cameraMode) return;
+      cameraMode = next;
+      rig.setLocked(next === 'locked', true);
+    },
+    get cameraMode() {
+      return cameraMode;
+    },
+    /** Extra: read-only camera pose for tests / debugging (world units). */
+    get cameraState() {
+      const r = (v) => Math.round(v * 1e4) / 1e4;
+      return {
+        mode: cameraMode,
+        locked: rig.locked,
+        zoom: r(rig.zoom),
+        pan: [r(rig.pan.x), r(rig.pan.y)],
+        position: [r(camera.position.x), r(camera.position.y), r(camera.position.z)],
+        target: [r(rig.target.x), r(rig.target.y), r(rig.target.z)],
+        isDefault: rig.isDefault,
+      };
     },
     onTap(cb) {
       if (typeof cb === 'function') tapCbs.push(cb);
