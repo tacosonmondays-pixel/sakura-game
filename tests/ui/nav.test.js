@@ -285,6 +285,53 @@ describe('router: back arrow and battle history entries', () => {
     expect(browser.i).toBe(1);
   });
 
+  it('navigate(…, { replace: true }) swaps the entry in place; a plain navigate adds one', async () => {
+    await boot('#/title');
+    await go('lobby', {}, { replace: true }); // title → TAP TO START
+    expect(browser.urls()).toEqual(['#/lobby']);
+    await go('clan');
+    await go('clan', { tab: 'boss' }, { replace: true }); // tab switch
+    expect(browser.urls()).toEqual(['#/lobby', '#/clan?tab=boss']);
+    expect(browser.i).toBe(1);
+    expect(router.historyMirror()).toEqual({ idx: 1, entries: ['#/lobby', '#/clan?tab=boss'] });
+    expect(screen()).toBe('#/clan?tab=boss');
+  });
+
+  it('two navigations before the first hashchange keep the history mirror in step', async () => {
+    await boot('#/lobby');
+    router.navigate('missions');
+    router.navigate('campaign', { chapter: '1' }); // a second tap in the same task
+    await settle();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    expect(router.historyMirror()).toEqual({ idx: 2, entries: ['#/lobby', '#/missions', '#/campaign?chapter=1'] });
+    expect(browser.entries.map((e) => e.state?.navIdx)).toEqual([0, 1, 2]);
+    await go('stage', { id: '1-1' });
+    await go('battle', { stage: '1-1' }); // drawn, not mistaken for an old battle entry
+    expect(screen()).toMatch(/^#\/battle/);
+    await arrow(); // (no arrow in battle; back() from a battle still never stays in one)
+    expect(screen()).toBe('#/stage/1-1');
+    noBattle();
+    await arrow();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    expect(browser.i).toBe(2);
+  });
+
+  it('a step that never lands gives up and opens the screen directly', async () => {
+    await boot('#/lobby');
+    await go('missions');
+    await go('campaign');
+    const realGo = browser.history.go;
+    browser.history.go = () => {}; // e.g. the entries below were dropped behind the router's back
+    await arrow();
+    expect(screen()).toBe('#/campaign'); // waiting for the step …
+    await new Promise((res) => setTimeout(res, 1700));
+    await settle();
+    expect(screen()).toBe('#/missions'); // … then the parent opened as a new entry
+    browser.history.go = realGo;
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+  });
+
   it('a double tap on a way out steps back only once', async () => {
     await boot('#/lobby');
     await go('missions');

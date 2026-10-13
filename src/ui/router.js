@@ -1,7 +1,7 @@
 // Hash router. Screens are modules exporting `render(root, params) => cleanup?`.
 // Routes look like #/student/aoi or #/stage/3-2?difficulty=hard
 //
-// History. The router mirrors the browser's session history: every entry it shows carries its
+// History. The router mirrors the browser's session history: every entry it opens carries its
 // position in history.state (`navIdx`), so it knows which screens sit below the current one.
 // (Screens that rewrite their URL in place pass history.state on: replaceState(history.state, …).)
 // - back(), the top-left arrow, opens the screen's logical parent (src/ui/nav.js), never a
@@ -11,6 +11,10 @@
 //   navigate() replaces it, or steps back onto the screen it returns to when that screen is
 //   already below. A battle entry reached through the history anyway (one the back gesture left
 //   mid-fight, then forward) is skipped instead of starting the battle again.
+// - Events: navigate() stamps its new entry at once and draws it on the hashchange that follows.
+//   A step through the history (popstate onto a stamped entry) is drawn on popstate, so a step
+//   between two entries with the same URL (no hashchange) draws too. A hash the router did not
+//   set (a link, a typed URL, a script) arrives as a hashchange with no state: the next entry.
 import { clear } from './dom.js';
 import { parentRoute, isTransient, sameScreen } from './nav.js';
 
@@ -20,11 +24,12 @@ let root = null;
 /** entries[i] = { name, params } of the history entry with navIdx i (holes: not seen yet). */
 let entries = [];
 let idx = 0;
-/** The next hashchange is navigate(…, { replace: true }): same position, new screen. */
-let replacing = false;
-/** A history step the router started: { from: hash before it, at: ms }. */
+/** The hash navigate() just opened (its hashchange draws it). */
+let fresh = null;
+/** A history step the router started, until it lands: a double tap must not step twice. */
 let stepping = null;
-const STEP_TIMEOUT_MS = 2000;
+/** A step that has not landed by then (the history is not what the router thinks) gives up. */
+const STEP_TIMEOUT_MS = 1500;
 
 /**
  * @param {string} name
@@ -71,15 +76,18 @@ function stamp() {
 
 const knownIdx = (st) => (st && Number.isInteger(st.navIdx) ? st.navIdx : null);
 
-/** A step this router started is still on its way (a double tap must not step twice). */
-function isStepping() {
-  if (stepping && Date.now() - stepping.at > STEP_TIMEOUT_MS) stepping = null;
-  return !!stepping;
-}
-
-/** Steps the browser history to entry `j` (below the current one). */
-function stepTo(j) {
-  stepping = { from: location.hash, at: Date.now() };
+/**
+ * Steps the browser history back to entry `j`. Popstate draws the screen there; if the step never
+ * lands, `missed` runs instead.
+ */
+function stepTo(j, missed) {
+  const step = {};
+  step.timer = setTimeout(() => {
+    if (stepping !== step) return;
+    stepping = null;
+    missed();
+  }, STEP_TIMEOUT_MS);
+  stepping = step;
   history.go(j - idx);
 }
 
@@ -101,9 +109,22 @@ function previousScreen() {
   return null;
 }
 
+/** Opens `hash` as the next history entry (or in place of this one) and stamps it at once. */
+function open(hash, replace) {
+  if (replace) location.replace(hash);
+  else {
+    location.hash = hash;
+    idx += 1;
+    entries.length = idx;
+  }
+  stamp();
+  entries[idx] = parseHash(hash);
+  fresh = hash;
+}
+
 /** Navigate to a screen. navigate('student', {id:'aoi', tab:'level'}) */
 export function navigate(name, params = {}, { replace = false } = {}) {
-  if (isStepping()) return;
+  if (stepping) return;
   const hash = buildHash(name, params);
   if (location.hash === hash) return show(name, params);
   stamp(); // in case a screen replaced this entry's state without passing it on
@@ -114,7 +135,8 @@ export function navigate(name, params = {}, { replace = false } = {}) {
     if (j >= 0) {
       try {
         history.replaceState(history.state, '', hash);
-        return stepTo(j);
+        entries[idx] = parseHash(hash);
+        return stepTo(j, () => show(name, params));
       } catch {
         /* fall through to a replace */
       }
@@ -122,18 +144,15 @@ export function navigate(name, params = {}, { replace = false } = {}) {
     // … otherwise the screen takes this entry's place
     replace = true;
   }
-  if (replace) {
-    replacing = true;
-    location.replace(hash);
-  } else location.hash = hash;
+  open(hash, replace);
 }
 
 /** The top-left back arrow: the current screen's parent (see src/ui/nav.js), never a battle. */
 export function back(fallback = 'lobby') {
-  if (isStepping()) return;
+  if (stepping) return;
   const target = parentRoute(current.name, current.params || {}, previousScreen()) || { name: fallback, params: {} };
-  const j = findBelow(target);
-  if (j >= 0) stepTo(j);
+  const j = isTransient(current.name) ? -1 : findBelow(target); // out of a battle: navigate() below
+  if (j >= 0) stepTo(j, () => navigate(target.name, target.params));
   else navigate(target.name, target.params);
 }
 
@@ -147,44 +166,47 @@ export function historyMirror() {
 }
 
 function onHashChange() {
-  stepping = null;
-  const { name, params } = parseHash();
   const at = knownIdx(history.state);
   if (at != null) {
-    // a step through the history: the arrow, or the browser / phone back and forward
-    idx = at;
-    if (isTransient(name)) {
-      // a battle that was left already: never start it again — keep stepping back (at the very
-      // first entry, the lobby takes its place)
-      if (idx > 0) history.back();
-      else navigate('lobby', {}, { replace: true });
-      return;
+    // navigate()'s own new entry: draw it. (Any other stamped entry was reached by a step through
+    // the history, drawn on popstate already.)
+    if (at === idx && location.hash === fresh) {
+      fresh = null;
+      const { name, params } = parseHash();
+      show(name, params);
     }
-  } else {
-    // a new entry (navigate, a link, a typed URL) — or navigate's replacement of this one
-    if (!replacing) {
-      idx += 1;
-      entries.length = idx;
-    }
-    stamp();
+    return;
   }
-  replacing = false;
+  // a hash the router did not set (a link, a typed URL, a script): the next entry
+  fresh = null;
+  idx += 1;
+  entries.length = idx;
+  stamp();
+  const { name, params } = parseHash();
   entries[idx] = { name, params };
   show(name, params);
 }
 
 function onPopState() {
   const at = knownIdx(history.state);
-  if (at == null) return;
+  // a fragment navigation opening a new entry has no state yet (its hashchange follows), and
+  // navigate()'s own entry needs nothing here (should a browser send its popstate late)
+  if (at == null || (at === idx && location.hash === fresh)) return;
+  // a step through the history: the arrow, or the browser / phone back and forward
+  if (stepping) clearTimeout(stepping.timer);
+  stepping = null;
+  fresh = null;
   idx = at;
-  // a step the router started onto an entry with the very same URL: no hashchange follows, so
-  // draw the screen here
-  if (stepping && location.hash === stepping.from) {
-    stepping = null;
-    const { name, params } = parseHash();
-    entries[idx] = { name, params };
-    show(name, params);
+  const { name, params } = parseHash();
+  if (isTransient(name)) {
+    // a battle that was left already: never start it again — step on back past it (at the very
+    // first entry, the lobby takes its place)
+    if (idx > 0) history.back();
+    else open(buildHash('lobby'), true);
+    return;
   }
+  entries[idx] = { name, params };
+  show(name, params);
 }
 
 async function show(name, params) {

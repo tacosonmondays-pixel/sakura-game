@@ -7,12 +7,14 @@
 //      1-2 prep → back arrow → the campaign map → Missions → the lobby
 //   3. leaving a battle: Pause → Quit → 1-1 prep (back arrow → the campaign map); a defeat →
 //      Map → the campaign map; a defeat → Home → the lobby
+//   4. the phone back gesture mid-battle leaves it for 1-1 prep; forward again does not restart it
 // After each flow the whole history is walked with back / forward (page.goBack / goForward, the
 // phone back gesture): no entry is a battle.
 //
 //   node e2e/nav-back.mjs                                  # 844×390 (landscape phone, touch)
 //   node e2e/nav-back.mjs --viewport 1280x720 --shots /tmp/nav
 //   node e2e/nav-back.mjs --prod                           # the production build in dist/
+//   node e2e/nav-back.mjs --only clan,campaign             # some flows (clan, campaign, leave)
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev (or preview) server;
 // the game runs with the local online adapter (?online=local). Exit code 1 when a check fails.
 import { createServer, preview } from 'vite';
@@ -28,6 +30,7 @@ const [W, H] = opt('viewport', '844x390').split('x').map(Number);
 const shotsDir = opt('shots', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const touch = Math.min(W, H) < 600;
+const only = opt('only', 'clan,campaign,leave').split(',');
 
 const IGNORE = [
   /GPU stall due to ReadPixels/i, /WebGL: too many errors/i, /Automatic fallback to software WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i,
@@ -54,11 +57,12 @@ const origin = `http://127.0.0.1:${port}/`;
 const base = `${origin}?online=local`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label} · viewport ${W}x${H}`);
-// reduced motion: no screen / modal entrance animations, so buttons are stable on the first frame
-const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, reducedMotion: 'reduce' });
 const errors = [];
 
+/** Each flow gets its own browser context (its own save) and page. */
 async function openPage(name) {
+  // reduced motion: no screen / modal entrance animations, so buttons are stable on the first frame
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, reducedMotion: 'reduce' });
   const page = await context.newPage();
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
@@ -102,13 +106,9 @@ async function dismissGift(page) {
   }
 }
 
-async function freshLobby(name, { clear = false } = {}) {
+async function freshLobby(name) {
   const page = await openPage(name);
   await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
-  if (clear) {
-    await page.evaluate(() => localStorage.clear());
-    await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
-  }
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 45000 });
   await page.evaluate(() => {
     // software WebGL: low quality keeps the battle responsive
@@ -245,10 +245,10 @@ async function bossFightAndBack(page, n) {
   return inClan;
 }
 
-try {
-  // ---- 1. clan boss --------------------------------------------------------------------------
+/** 1. clan boss: "Back to the clan" → the back arrow → the lobby; the back gesture never re-enters. */
+async function clanFlow() {
   log('\n--- clan boss ---');
-  const A = await freshLobby('A', { clear: true });
+  const A = await freshLobby('A');
   await go(A, '#/clan');
   await setName(A, 'Aiko');
   await A.waitForSelector('[data-testid="clan-create-panel"]', { timeout: 15000 });
@@ -270,9 +270,11 @@ try {
     await A.waitForSelector('[data-testid="boss-panel"]', { timeout: 15000 }).catch(() => null);
     if (await bossFightAndBack(A, 2)) await walkHistory(A, 'clan boss');
   }
-  await A.close();
+  await A.context().close();
+}
 
-  // ---- 2. campaign: victory → Next Stage → back arrows -----------------------------------------
+/** 2. campaign: victory → Next Stage → back arrows climb map → Missions → lobby. */
+async function campaignFlow() {
   log('\n--- campaign ---');
   const B = await freshLobby('B');
   await tap(B, '[data-testid="tile-mission"]');
@@ -301,9 +303,11 @@ try {
     check(await onScreen(B, 'lobby'), `campaign: the back arrow on Missions goes to the lobby (now ${(await where(B)).hash})`);
     await walkHistory(B, 'campaign');
   }
-  await B.close();
+  await B.context().close();
+}
 
-  // ---- 3. leaving a battle: Quit, Map, Home ---------------------------------------------------
+/** 3./4. leaving a battle: the back gesture mid-battle, Quit, Map, Home. */
+async function leaveFlow() {
   log('\n--- leaving a battle ---');
   const C = await freshLobby('C');
   await tap(C, '[data-testid="tile-mission"]');
@@ -311,6 +315,17 @@ try {
   await tap(C, '[data-testid="hub-mission"]');
   await onScreen(C, 'campaign');
   await tap(C, '[data-testid="stage-1-1"]');
+  await onScreen(C, 'stage', '#/stage/1-1');
+  await tap(C, '[data-testid="stage-start"]');
+  if (check(await battleReady(C), 'gesture: Start opens the battle')) {
+    // the phone back gesture mid-fight leaves it (no confirm today) …
+    await C.goBack({ waitUntil: 'commit', timeout: 15000 }).catch(() => null);
+    check(await onScreen(C, 'stage', '#/stage/1-1'), `gesture: back mid-battle returns to 1-1 prep (now ${(await where(C)).hash})`);
+    // … and forward again does not start that battle again
+    await C.goForward({ waitUntil: 'commit', timeout: 15000 }).catch(() => null);
+    const w = await settled(C);
+    check(!inBattle(w) && w.hash.startsWith('#/stage/1-1'), `gesture: forward onto the left battle stays on 1-1 prep (now ${w.hash}${w.battle ? ', battle mounted' : ''})`);
+  }
   await onScreen(C, 'stage', '#/stage/1-1');
   await tap(C, '[data-testid="stage-start"]');
   if (check(await battleReady(C), 'quit: Start opens the battle')) {
@@ -341,7 +356,13 @@ try {
     await shot(C, 'home-after-defeat');
     await walkHistory(C, 'leaving a battle');
   }
-  await C.close();
+  await C.context().close();
+}
+
+try {
+  if (only.includes('clan')) await clanFlow();
+  if (only.includes('campaign')) await campaignFlow();
+  if (only.includes('leave')) await leaveFlow();
 } catch (e) {
   check(false, `unexpected error: ${e.stack || e.message}`);
 } finally {
