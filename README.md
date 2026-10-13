@@ -220,9 +220,11 @@ secrets `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` override it). Note that t
 production build (`npm run build` / `npm run preview`) talk to the live project; `npm run dev` stays in
 local mode. **The database schema is `supabase/migrations/20261008000000_online.sql`** (the one file to
 paste into Supabase's SQL Editor when setting up by hand). Supabase's GitHub integration, when connected
-(directory `supabase`, production branch `main`), applies it when it reaches `main`. After merging, run the
-post-merge check in [docs/ONLINE.md](docs/ONLINE.md#setup-about-5-minutes) (open the chat on the live
-site). Never commit a service-role / secret key or the database password.
+(directory `supabase`, production branch `main`), applies it when it reaches `main`. As of 2026-10-13 the
+live project has anonymous sign-ins on but **no tables yet**: paste the migration (or connect the
+integration) before or right after merging. Then run the post-merge check in
+[docs/ONLINE.md](docs/ONLINE.md#setup-about-5-minutes) (open the chat on the live site). Never commit a
+service-role / secret key or the database password.
 
 ## Screenshots
 

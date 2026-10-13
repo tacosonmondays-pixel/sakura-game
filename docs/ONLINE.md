@@ -24,19 +24,28 @@ that file into the SQL Editor if you set the database up by hand.
 
 ### Status for this repository (checklist)
 
-The owner created the project and sent its URL and publishable key; anonymous sign-ins are on (checked
-on the live project). Nothing on record confirms that the GitHub integration is connected, so check that
-first.
+The owner created the project and sent its URL and publishable key. Last checked on the live project
+on 2026-10-13 (read-only requests with the publishable key): anonymous sign-ins are on, but **the
+database is still empty** — no `clans` table and no `current_week()` function, so the migration has
+not run yet. Until it runs, the live game's chat, clans and co-op say "The game server is not set up
+yet". Do the next step first.
 
 - [x] Supabase project created (free plan).
 - [x] **Allow anonymous sign-ins** is on.
 - [x] The game knows the project: `.env.production` holds the public URL and publishable key (see
       step 4 below for the alternative, repository secrets).
-- [ ] **GitHub integration connected?** Supabase dashboard → Project Settings → Integrations → GitHub:
-      this repository, Supabase directory `supabase`, production branch `main`, "Deploy to production"
-      on. If it is not connected, either connect it now or plan to paste the migration by hand (step 2).
-- [ ] **Merge to `main`.** The integration applies the migration (its log is under Integrations →
-      GitHub), and the Pages workflow builds and deploys the game.
+- [ ] **Create the tables (not done yet).** Either paste the migration now — Supabase → SQL Editor →
+      New query, paste all of `supabase/migrations/20261008000000_online.sql`, Run (it is idempotent,
+      so a later run by the GitHub integration is harmless) — or connect the GitHub integration:
+      Project Settings → Integrations → GitHub: this repository, Supabase directory `supabase`,
+      production branch `main`, "Deploy to production" on. Pasting is the quickest; the integration
+      keeps later migrations automatic.
+- [ ] **Merge to `main`.** The Pages workflow builds and deploys the game (and, if connected, the
+      integration applies the migration; its log is under Integrations → GitHub).
+- [ ] Quick server check without the game (optional): open
+      `https://<ref>.supabase.co/rest/v1/clans?select=id&limit=1` with header `apikey: <publishable key>`
+      (or `curl -H "apikey: …" …`). `PGRST205 … Could not find the table` = migration not run yet;
+      `permission denied` / HTTP 401 = the tables exist (only signed-in players may read them).
 - [ ] **Verify on the live site (2 minutes, after the Pages workflow is green):**
   1. Open the game, then the chat bubble in the lobby (or `#/chat`), and pick a name.
   2. The pill at the top right must read **Online**, and the chat must show no yellow "Local test
