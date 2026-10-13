@@ -222,7 +222,7 @@ def build() -> Song:
     s.part('brass', 'brass_stab', 'intensity', vel=-2, gain=1.5).double('stab', ['B', 'D'])
     s.part('syn_brass', 'synth_brass', 'intensity', vel=4, gain=3.5) \
         .notes('A', bars('ab4/2 g4/2', 'f4/2. eb4/4', 'g4/2 bb4/2', 'c5/2 db5/4 c5/4',
-                         'ab4/2 c5/2', 'db5/2. c5/4', 'bb4/2 g4/2', 'f4/2 e4/2')) \
+                         'ab4/2 c5/2', 'db5/2. ab4/4', 'bb4/2 g4/2', 'f4/2 e4/2')) \
         .notes('D', bars(SENTINEL.question('Gm', 4), 'bb4/2 a4/2', 'g4/2 f#4/2', 'g4/1',
                          SENTINEL.question('Gm', 4), 'bb4/2. g4/4', 'a4/2 c5/2', 'bb4/2 g4/2'),
                motifs={1: SENTINEL, 5: SENTINEL})
