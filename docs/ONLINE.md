@@ -224,11 +224,24 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 
   Both clients build the same seeded Sim from it, with enemy HP ×1.6 through the stage's `hpScale`.
   `src/sim` is unchanged.
-- **Same version on both clients.** The game is a PWA, so after a deploy a cached older client can meet
-  an updated one, and that pair would desync every time. `hello` and `start` carry
-  `coopVersion()` (`src/online/coop/version.js`): the protocol number, the build's git commit
-  (`__BUILD_ID__`, set in `vite.config.js`) and a hash of the battle data. When they differ the lobby
-  refuses to pair and says "… runs a different version of the game — both of you reload".
+- **Compatible versions on both clients.** After a deploy, a tab left open (or an `index.html` the
+  browser kept for GitHub Pages' 10 minutes) can meet an updated client, and that pair would desync
+  every time. `hello` and `start` carry `coopVersion()` (`src/online/coop/version.js`): the protocol
+  number, the **sim id** (a hash of every source file the lockstep battle runs on — the import graph of
+  `src/sim`, `src/online/coop` and `src/online/adapters`, computed by `tools/simId.mjs` in
+  `vite.config.js`), a hash of the battle data, the git commit and the player-facing version. Two
+  clients pair when protocol, sim id and data match, so deploys that only change art, audio, menus or
+  the renderer don't split players. When they differ the lobby names both versions and who is behind
+  ("Chuu is on v0.1.16 and you're on v0.1.17 …"); the one behind gets an **Update** button.
+- **Version number + updates.** Every deploy gets a player-facing version `<major>.<minor>.<deploy
+  number>` (GitHub Actions run number; local builds say `0.1.dev`), shown on the title screen, in
+  Settings → About (with *Check for updates*) and in the co-op room. The build writes `version.json`
+  next to `index.html`; the game fetches it uncached every 5 minutes, when the tab comes back and on
+  the co-op screens (`src/core/updates.js`). A newer deploy shows a "New version ready" pill (never
+  during a battle; on the title screen it just reloads). Update reloads into `?v=<build>`, a URL the
+  browser never cached, so the new `index.html` really loads. A screen whose file vanished in a deploy
+  makes the page reload itself once into the new build; within a minute of that it shows "This screen
+  did not load" with Try again / Reload instead of a blank page.
 - **Same math on every engine.** JavaScript does not require `Math.sin`, `cos`, `atan2`, `hypot`, … to
   be correctly rounded, and the engines really differ in the last bit (`node e2e/engines.mjs` shows it:
   V8, JavaScriptCore and SpiderMonkey all disagree on `Math.sin`, and even Node 22 and Chromium 141
@@ -343,7 +356,7 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | "The game server is not set up yet" | The migration has not run. Check the GitHub integration's log in Supabase, or paste `supabase/migrations/20261008000000_online.sql` into the SQL editor |
 | "Online features are offline right now" | The project cannot be reached: it may be paused (restore it in the dashboard) or down |
 | "Anonymous sign-ins are disabled" | Authentication → Sign In / Providers → Allow anonymous sign-ins |
-| Co-op lobby says the ally **runs a different version** | One of you has an older cached copy of the game. Both reload the page (close and reopen the app on a phone) |
+| Co-op lobby says the ally **is on an older / newer version** | The one with the lower number taps **Update** (or reloads). Settings → About shows your version and has *Check for updates* |
 | Co-op shows **Waiting for ally…** often | High latency between the players. The input delay adapts up to 3× (1.5 s on Supabase); a closer Supabase region helps |
 | Co-op says "No room uses that code" | The host closed the room, or the code is older than a day. Ask for a new one |
 | Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |

@@ -108,3 +108,7 @@ else setTimeout(warmModels, 1200);
 
 // [audio] music + SFX engine (docs/AUDIO.md): lazy, never blocks the first screen
 import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => console.warn('[main] audio unavailable', e));
+
+// New deploys: version.json is checked now and then; a "New version ready" pill offers the
+// update (never during a battle), and a stale tab missing screen files reloads itself once.
+import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
