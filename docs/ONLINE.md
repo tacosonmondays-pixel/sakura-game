@@ -247,9 +247,16 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   V8, JavaScriptCore and SpiderMonkey all disagree on `Math.sin`, and even Node 22 and Chromium 141
   do). Over a long battle such a bit can flip a range check, so an iPhone and an Android phone would
   drift apart. Every co-op Sim call therefore runs inside `withDetMath()`
-  (`src/online/coop/detMath.js`), which swaps those functions for ports of FreeBSD's msun built only
-  from + − × ÷ and `Math.sqrt` (which IEEE-754 fixes to the bit). `e2e/engines.mjs` runs one whole
-  scripted co-op battle in Node, Chromium, Bun, WebKit and Firefox and requires identical hashes.
+  (`src/core/detMath.js`, re-exported from `src/online/coop/detMath.js`), which swaps those functions
+  for ports of FreeBSD's msun built only from + − × ÷ and `Math.sqrt` (which IEEE-754 fixes to the
+  bit). The **map builder** (`src/core/track.js`, `src/data/maps.js`) runs when the game loads,
+  outside any battle, so it calls the ports directly (`DET_MATH`): with the engines' own trig, desktop
+  Chrome and iPhone Safari built road samples 1 ulp apart, the lobby's battle-data hash differed and
+  the two could never pair ("both on v0.1.17" yet refused). `tests/core/engineMath.test.js` nudges
+  every Math function by one ulp and requires the same lobby hash, and lints `src/core/track.js` +
+  `src/data/*.js` for engine Math. `e2e/engines.mjs` runs one whole scripted co-op battle in Node,
+  Chromium, Bun, WebKit and Firefox and requires identical battle hashes **and lobby data hash**
+  (Bun = JavaScriptCore, the iPhone engine: `BUN=~/.bun/bin/bun node e2e/engines.mjs`).
   Single-player battles keep the native functions.
 - **Only commands travel.** These are place, upgrade, sell, target, ult, wave, auto-start and speed.
   - Each command is stamped with a tick a little ahead: 6 ticks (0.1 s) on local tabs, 30 ticks

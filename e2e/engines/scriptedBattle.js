@@ -14,6 +14,7 @@ import { Lockstep } from '../../src/online/coop/lockstep.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
 import { createRng } from '../../src/core/rng.js';
+import { coopVersion } from '../../src/online/coop/version.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -183,6 +184,9 @@ export function runScriptedBattle({ maxFrames = 60 * 60 * 12 } = {}) {
     failed: refused.length,
     refused: refused.join(' '),
     math: mathProbe(),
+    // the co-op lobby's battle-data hash: the maps are built at load time, outside the battle, and
+    // must hash the same on every engine or the lobby refuses to pair (Chrome + iPhone Safari did)
+    lobby: coopVersion().data,
     ms: Date.now() - t0,
   };
 }

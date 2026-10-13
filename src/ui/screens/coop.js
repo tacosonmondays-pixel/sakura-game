@@ -134,11 +134,20 @@ function mismatchBanner(m) {
     action = button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-version-update', onClick: () => reloadFresh(upd?.build) });
   } else if (cmp === -1) {
     text = `${m.name} is on ${theirs ? versionLabel(theirs) : 'an older version'} and you're on ${you}, the newest. Ask ${m.name} to reload the page (the game updates itself), then try again.`;
+  } else if (cmp === 0) {
+    // same version, yet the battle data or engine id differ: a game bug, not something to reload away
+    text = `You and ${m.name} are both on ${you}, but your devices don't agree on the battle data, so co-op can't start. That's a game bug — please send the developer a screenshot of this.`;
   } else {
     text = `${m.name} runs a different build${theirs ? ` (${versionLabel(theirs)})` : ''} than you (${you}), so you cannot play together yet. Whoever is behind should reload the page.`;
     action = button('Reload', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-version-reload', onClick: () => reloadFresh() });
   }
-  return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text), action);
+  return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text, h('small.ol-version-diag', ` (${versionDiff(m.mine, m.theirs)})`)), action);
+}
+
+/** Which parts of two co-op versions differ, for bug reports: "data 785f763b≠c0bb331a". */
+function versionDiff(mine, theirs) {
+  const parts = ['proto', 'sim', 'data', 'build'].filter((k) => String(mine?.[k] ?? '') !== String(theirs?.[k] ?? ''));
+  return parts.map((k) => `${k} ${String(mine?.[k] ?? '–').slice(0, 8)}≠${String(theirs?.[k] ?? '–').slice(0, 8)}`).join(' · ') || 'no difference';
 }
 
 export function render(root, params = {}) {
