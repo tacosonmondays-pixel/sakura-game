@@ -31,6 +31,7 @@ registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] 
 registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
+registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
@@ -104,3 +105,6 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
+
+// [audio] music + SFX engine (docs/AUDIO.md): lazy, never blocks the first screen
+import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => console.warn('[main] audio unavailable', e));

@@ -1,0 +1,213 @@
+{
+ "id": "strict",
+ "description": "Fully license-documented build: the same roles on FluidR3_GM (MIT, Frank Wen) + sakura-chip (CC0) only.",
+ "inherit": "cleared",
+ "soundfonts": {
+  "gm": {
+   "path": "/usr/share/sounds/sf2/FluidR3_GM.sf2",
+   "license": "MIT"
+  }
+ },
+ "quiet_inherit": true,
+ "_roles_doc": "Round-3 roles only. Where cleared uses a GeneralUser-only bank (FluidR3 has banks 0, 8, 16 and 128) the closest FluidR3 preset, chosen from its samples and spectrum; gain_db re-measured against FluidR3 reference roles (it runs hotter than GeneralUser), see docs/AUDIO.md \u00a72.4.",
+ "roles": {
+  "funk_gtr": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 28,
+   "gain_db": -7.5,
+   "pan": 0.3,
+   "echo": 0.2
+  },
+  "surf_gtr": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 27,
+   "gain_db": -0.5,
+   "pan": -0.15,
+   "echo": 0.9
+  },
+  "ukulele": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 24,
+   "gain_db": -9.0,
+   "pan": 0.2,
+   "echo": 0.4
+  },
+  "mandolin": {
+   "sf": "gm",
+   "bank": 16,
+   "program": 25,
+   "gain_db": 2.5,
+   "pan": -0.2,
+   "echo": 0.4
+  },
+  "vibes_dry": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 11,
+   "gain_db": -3.0,
+   "pan": 0.2,
+   "echo": 0.6
+  },
+  "combo_organ": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 16,
+   "gain_db": -2.0,
+   "pan": 0.15,
+   "echo": 0.3
+  },
+  "bell_piano": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 5,
+   "gain_db": 0.0,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "tin_whistle": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 74,
+   "gain_db": -10.0,
+   "pan": -0.15,
+   "echo": 0.7
+  },
+  "tinkle_bells": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 112,
+   "gain_db": 0.5,
+   "pan": -0.2,
+   "echo": 0.9
+  },
+  "xmas_bells": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 98,
+   "gain_db": 0.0,
+   "pan": 0.25,
+   "echo": 0.9
+  },
+  "synth_chime": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 98,
+   "gain_db": -4.5,
+   "pan": 0.15,
+   "echo": 0.7
+  },
+  "techno_bass": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 39,
+   "gain_db": -3.0,
+   "pan": 0.0,
+   "echo": 0.0
+  },
+  "acid_bass": {
+   "sf": "gm",
+   "bank": 8,
+   "program": 39,
+   "gain_db": -7.0,
+   "pan": 0.0,
+   "echo": 0.0,
+   "fx": {
+    "filter": {
+     "type": "lp",
+     "hz": 520,
+     "q": 5.5,
+     "accent": {
+      "depth_oct": 2.6,
+      "decay_ms": 170,
+      "vel_floor": 48
+     }
+    }
+   }
+  },
+  "saw_bass": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 38,
+   "gain_db": -4.5,
+   "pan": 0.0,
+   "echo": 0.0,
+   "fx": {
+    "drive": {
+     "pre_db": 7,
+     "hp_hz": 30,
+     "tone_hz": 5200,
+     "mix": 0.6
+    }
+   }
+  },
+  "square_lead": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 80,
+   "gain_db": -5.0,
+   "pan": 0.1,
+   "echo": 0.6
+  },
+  "saw_lead": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 81,
+   "gain_db": -3.0,
+   "pan": -0.1,
+   "echo": 0.6
+  },
+  "saw_stab": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 81,
+   "gain_db": -5.5,
+   "pan": 0.0,
+   "echo": 0.4
+  },
+  "supersaw": {
+   "sf": "gm",
+   "bank": 0,
+   "program": 50,
+   "gain_db": -10.0,
+   "pan": 0.0,
+   "echo": 0.5
+  },
+  "drums_909": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 25,
+   "gain_db": -11.5,
+   "pan": 0,
+   "echo": 0,
+   "kit_map": {
+    "fs": 37,
+    "sr": 40
+   }
+  },
+  "kick_hard": {
+   "sf": "gm",
+   "bank": 128,
+   "program": 25,
+   "gain_db": -11.0,
+   "pan": 0,
+   "echo": 0,
+   "fx": {
+    "drive": {
+     "pre_db": 14,
+     "hp_hz": 35,
+     "tone_hz": 6000,
+     "mix": 1.0
+    }
+   },
+   "kit_map": {
+    "k": 36,
+    "tk": 35,
+    "fs": 37,
+    "sr": 40
+   }
+  }
+ }
+}

@@ -1,0 +1,7 @@
+# Offline audio toolkit (docs/AUDIO.md §2). Pinned; verified 2026-10-08 with Python 3.11.
+#   python3 -m venv "${AUDIO_VENV:-tools/audio/.venv}" && "$AUDIO_VENV/bin/pip" install -r tools/audio/requirements.txt
+# System tools (not pip): ffmpeg (libopus + aac), fluidsynth 2.x, git; optional /usr/share/sounds/sf2/FluidR3_GM.sf2.
+mido==1.3.3
+numpy==2.4.6
+scipy==1.17.1
+packaging==26.3

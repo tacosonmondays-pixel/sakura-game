@@ -1,0 +1,157 @@
+{
+ "_doc": "Interval fingerprints (semitones, transposition-free) of famous hooks our melodies must not resemble (docs/AUDIO.md §6.5). `min` = how many consecutive matching intervals count as a FAIL (default 6); `anchor` = the match must start at the hook's first interval (its signature opening). Reviewers add entries; keep them short, from memory of the published melody. Used by `studio.py originality`.",
+ "hooks": [
+  {
+   "name": "Megalovania opening (Toby Fox): repeated root, octave leap, down a fourth",
+   "intervals": [
+    0,
+    12,
+    -5,
+    -1,
+    -1,
+    -2,
+    -3,
+    3,
+    2
+   ],
+   "min": 3,
+   "anchor": true
+  },
+  {
+   "name": "Megalovania descending run (Toby Fox)",
+   "intervals": [
+    -5,
+    -1,
+    -1,
+    -2,
+    -3,
+    3,
+    2
+   ],
+   "min": 6
+  },
+  {
+   "name": "Star Trek TOS fanfare (A. Courage): two stacked fourths, semitone dip",
+   "intervals": [
+    5,
+    5,
+    -1
+   ],
+   "min": 3
+  },
+  {
+   "name": "Super Mario Bros. overworld opening (K. Kondo)",
+   "intervals": [
+    0,
+    0,
+    -4,
+    4,
+    3,
+    -12
+   ],
+   "min": 5
+  },
+  {
+   "name": "Legend of Zelda overworld opening (K. Kondo)",
+   "intervals": [
+    -5,
+    5,
+    0,
+    2,
+    2,
+    1,
+    2
+   ],
+   "min": 6
+  },
+  {
+   "name": "Korobeiniki / Tetris A",
+   "intervals": [
+    -5,
+    1,
+    2,
+    -2,
+    -1,
+    -2,
+    0,
+    3,
+    4,
+    -2,
+    -1,
+    -1
+   ],
+   "min": 6
+  },
+  {
+   "name": "Final Fantasy victory fanfare (N. Uematsu)",
+   "intervals": [
+    0,
+    0,
+    0,
+    -4,
+    2,
+    2,
+    -2,
+    2
+   ],
+   "min": 6
+  },
+  {
+   "name": "Für Elise (Beethoven)",
+   "intervals": [
+    -1,
+    1,
+    -1,
+    1,
+    -5,
+    3,
+    -2,
+    -3
+   ],
+   "min": 6
+  },
+  {
+   "name": "Ode to Joy (Beethoven)",
+   "intervals": [
+    0,
+    1,
+    2,
+    0,
+    -2,
+    -1,
+    -2,
+    -2,
+    0,
+    2,
+    2,
+    0,
+    -2,
+    0
+   ],
+   "min": 7
+  },
+  {
+   "name": "Happy Birthday",
+   "intervals": [
+    0,
+    2,
+    -2,
+    5,
+    -1
+   ],
+   "min": 5
+  },
+  {
+   "name": "Twinkle Twinkle Little Star",
+   "intervals": [
+    0,
+    7,
+    0,
+    2,
+    0,
+    -2
+   ],
+   "min": 6
+  }
+ ]
+}

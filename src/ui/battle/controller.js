@@ -28,6 +28,7 @@ import { battleLockstep } from '../../online/coop/session.js';
 import { applyCoopResult } from '../../online/coop/rewards.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { COOP } from '../../data/coop.js';
+import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -500,6 +501,7 @@ export function mountBattle(root, params, hooks) {
       } catch (e) {
         console.error('[battle] render failed', e);
       }
+      ctx.audio?.events(events); // [audio]
       handle(events);
       if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
@@ -517,6 +519,7 @@ export function mountBattle(root, params, hooks) {
 
     ctx.modules = modules;
     ctx.results = results;
+    ctx.audio = attachBattleAudio(ctx); cleanups.push(() => ctx.audio.destroy()); // [audio]
     window.__battle = { sim, renderer, ui: ctx, coop: ctx.coop || null };
   }
 
