@@ -5,8 +5,8 @@
 
 import { DEFAULT_UNIT_STATS } from './constants.js';
 
-const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
-const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
+const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
+const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
 const REPLACE_KEYS = ['attackType', 'element', 'behavior'];
 
 function normAura(a = {}) {
@@ -107,6 +107,10 @@ export function normalizeBase(base = {}, unitDef = {}) {
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
+    // roster merge (ROSTER_SPEC §6.2): flyer damage multiplier, gather pull, relay origin
+    airMul: b.airMul ?? 1,
+    gather: b.gather ?? 0,
+    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3 } : null,
   };
 }
 
@@ -167,6 +171,9 @@ export function applyModSet(s, mods, acc) {
       if (!s.mark) s.mark = { bonus: 0, duration: 0 };
       s.mark.bonus = Math.max(s.mark.bonus, v.bonus ?? 0);
       s.mark.duration = Math.max(s.mark.duration, v.duration ?? 0);
+    } else if (key === 'relay') {
+      // only a girl who already has a familiar / mirror can extend its reach
+      if (s.relay) s.relay.reach += v.reach ?? 0;
     }
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

@@ -1,5 +1,6 @@
 // Pure damage pipeline (CONTRACTS.md §6). Order:
-// eligibility (tunnel / veil / phasing / air) → type multiplier → element ward (×0.5) → soak bonus →
+// eligibility (tunnel / veil / phasing / air unless grounded) → type multiplier → air multiplier →
+// element ward (×0.5) → soak bonus →
 // mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 // barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; min 1
 // except crystal) → hp. Burn/poison ticks skip crit, crystal and flat armor.
@@ -21,7 +22,8 @@ export const SHELL_BROKE = 2;
 export function isEligible(enemy, src) {
   if (enemy.dead) return false;
   if (enemy.hidden) return false; // inside a tunnel: nothing can see or reach it
-  if (enemy.airborne && src.canHitAir === false) return false;
+  // grounded flyers (status 'ground') can be hit by ground-only attacks
+  if (enemy.airborne && !enemy.grounded && src.canHitAir === false) return false;
   if (enemy.veiled && !enemy.revealed && !src.detection) return false;
   if (enemy.phasing && src.attackType !== 'holy' && src.attackType !== 'mystic') return false;
   return true;
@@ -64,7 +66,7 @@ function reduceByModifiers(enemy, dmg, attackType) {
  * Computes one direct hit without mutating the enemy.
  * @param {object} enemy EnemyRT
  * @param {{ damage, attackType, element?, critChance?, critMul?, armorPen?, eliteMul?, bossMul?,
- *   barrierMul?, detection?, canHitAir? }} hit
+ *   barrierMul?, detection?, canHitAir?, airMul? }} hit
  * @param {number} critRoll uniform [0,1) roll (pass rng.next())
  * @param {number} scale extra damage multiplier (duel ramp etc.)
  * @param {object} out reused result object
@@ -74,6 +76,7 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   if (!isEligible(enemy, hit)) return null;
   const typeMul = typeMultiplier(hit.attackType, enemy.armorClass);
   let dmg = (hit.damage || 0) * scale * tierMultiplier(enemy, hit) * typeMul;
+  if (enemy.airborne && hit.airMul) dmg *= hit.airMul; // flyer bonus (also while grounded)
   const warded = !!hit.element && enemy.ward === hit.element;
   if (warded) dmg *= WARD_MUL;
   if (enemy.statuses.soak && (hit.element === 'frost' || hit.element === 'lightning')) dmg *= 1 + SOAK_BONUS;

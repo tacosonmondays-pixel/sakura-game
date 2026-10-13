@@ -139,6 +139,16 @@ export const GLYPHS = {
   support: `${heart}<path d="M12 9.5v6M9 12.5h6" stroke-width="2.2"/>`,
   trapper: '<path d="M2.5 15h19M5 15l1.5-6.5 3 4 2.5-6 2.5 6 3-4L19 15"/><path d="M4.5 18.5h15"/>',
   engineer: '<path d="M14.5 4.5a4.2 4.2 0 0 0-5.3 5.3L3.8 15.2a2 2 0 0 0 2.9 2.9l5.4-5.4a4.2 4.2 0 0 0 5.3-5.3L15 9.8l-2.4-.4-.4-2.4z"/>',
+  displacement: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+  falconer: '<path d="M2.5 9.5c3 0 5 1.5 6.5 4 1-4 4-7.5 9-8.5-1 2-1.5 3.5-1.5 5 2 .3 3.5 1.3 4.5 3-2.3-.5-4-.3-5.5.5-1.5 3-4.5 5-8.5 5 1-1.2 1.5-2.5 1.5-4-2-.5-4.5-2.5-6-5z"/>',
+  purifier: `${shield}<path d="M12 7.8l1.1 2.4 2.6.3-1.9 1.8.5 2.6-2.3-1.3-2.3 1.3.5-2.6-1.9-1.8 2.6-.3z" fill="currentColor" stroke="none"/>`,
+  mortar: '<path d="M3.5 20.5h10"/><rect x="5" y="11.5" width="9" height="5" rx="1.5" transform="rotate(-40 9.5 14)"/><path d="M13 6.5c2.5-3.5 6-3.5 8 0" stroke-dasharray="2 2" stroke-width="1.5"/><circle cx="20.5" cy="9.5" r="1.5" fill="currentColor"/>',
+  prism: '<path d="M10 4.5l6.5 13H3.5z"/><path d="M1.5 12l5-1M13.5 10l8.5-3M14 12l8 .5M14.5 14l7.5 3.5" stroke-width="1.4"/>',
+  mirror: '<ellipse cx="12" cy="9.5" rx="6" ry="7"/><path d="M12 16.5v5M9.5 21.5h5"/><path d="M9 7.5c.8-1.4 2-2.2 3.4-2.2" stroke-width="1.4"/>',
+  hexer: '<rect x="3.5" y="5" width="8" height="12.5" rx="1.5" transform="rotate(-15 7.5 11)"/><rect x="12.5" y="5" width="8" height="12.5" rx="1.5" transform="rotate(15 16.5 11)"/><circle cx="16.5" cy="11.2" r="1.7" fill="currentColor"/>',
+  champion: '<ellipse cx="12" cy="10" rx="7.5" ry="3"/><path d="M4.5 10v5.5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V10"/><path d="M5.5 2.5l4.5 4.5M18.5 2.5L14 7" stroke-width="2.2"/>',
+  puppeteer: '<path d="M4 4h16M12 2v4.5"/><path d="M6 4v8.5M18 4v8.5M12 6.5v4.2" stroke-width="1.2"/><circle cx="12" cy="12.8" r="2.1"/><path d="M12 14.9v3.4M9 16.6l3-1.2 3 1.2M10 21.5l2-3.2 2 3.2"/>',
+  stormrider: '<path d="M3.5 20.5L16.5 7.5"/><path d="M14.5 3.5l6 .5.5 6z" fill="currentColor"/><path d="M8.5 3.5L5.5 8.5h3L7 13" stroke-width="1.6"/>',
 
   // capabilities
   detection: eye,
@@ -159,6 +169,7 @@ export const GLYPHS = {
   water: wave,
   multiHit: '<path d="M3 7h12M12 4l3 3-3 3M3 12h15M15 9l3 3-3 3M3 17h12M12 14l3 3-3 3"/>',
   priority: `${crosshair}<path d="M18.5 2.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor" stroke="none"/>`,
+  grounding: `${wing}<path d="M17 13.5v7M14.5 18l2.5 2.5 2.5-2.5"/>`,
 
   // statuses / elements
   freeze: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8l3 3M16 7.5l-2 2M8.5 16.5l7-7" stroke-width="1.5"/>',
@@ -169,6 +180,8 @@ export const GLYPHS = {
   shred: `${shield}<path d="M12 3l-2 5 3 3-2.5 4 1.5 5.5" stroke-width="1.8"/>`,
   mark: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/>',
   vulnerable: '<path d="M12 2.5l6.5 6.5L12 21.5 5.5 9z"/><path d="M12 4.5l-1.5 5 3 2.5-2.5 5" stroke-width="1.8"/>',
+  ground: '<path d="M2.5 14c1.6-4.4 4.6-7.6 11.5-8.2-1 1.5-2.2 2.2-3.6 2.4 1 .5 1.5 1.1 1.7 1.9-1.2.4-2.3.4-3.4.1.6.6.9 1.3.9 2-2.2.4-4.7.4-7.1 1.8z"/><path d="M18 4.5v9M15.3 11l2.7 2.7 2.7-2.7M2.5 20h19"/>',
+  curse: '<path d="M12 21c-4.5 0-7.5-2.5-7.5-6 0-2.8 2-4.2 3.5-6 .5 2 1.5 3 2.5 3.2-.2-3.4 1.6-6.6 4.5-9.2.4 3.4 4.5 5.7 4.5 11 0 4.2-3 7-7.5 7z"/><path d="M9.5 16.5c1.6 1.2 3.4 1.2 5 0M10 13.5h.01M14 13.5h.01" stroke-width="2.4"/>',
   fire: flame,
   frost: snow,
   lightning: bolt,

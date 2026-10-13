@@ -58,6 +58,17 @@ export const ROLE_SUBCLASS = {
   support: { label: 'Utility Aura', desc: 'Detection and range aura (water).' },
   trapper: { label: 'Traps', desc: 'Rune traps near the exit.' },
   engineer: { label: 'Builder', desc: 'Sentries and cleanse vs sabotage.' },
+  displacement: { label: 'Push-back', desc: 'Pushes enemies back and gathers them into clumps.' },
+  falconer: { label: 'Anti-Air', desc: 'Hunts flyers first and grounds them for the team.' },
+  summoner: { label: 'Familiar', desc: 'A familiar fights from the edge of the nearest lane.' },
+  purifier: { label: 'Cleanser', desc: 'Sanctuary that stops sabotage and volatile stuns.' },
+  mortar: { label: 'Aimed Bombardment', desc: 'Map-wide shells that land 1 s after a warning ring.' },
+  prism: { label: 'Line Pierce', desc: 'Prism beams pierce a whole line and build focus.' },
+  mirror: { label: 'Relay Caster', desc: 'Bolts fire from a mirror placed beside a far lane.' },
+  hexer: { label: 'Chain Curse', desc: 'Cursed enemies burst on death and pass the curse on.' },
+  champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
+  puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
+  stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
 };
 
 /**
@@ -155,7 +166,7 @@ function controls() {
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
         ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button'],
       ]),
-      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
+      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first; "Air" shoots flyers first (then the leader).`)),
     sec('Menus',
       list([
         'The back arrow (top left) returns to the previous screen; the house icon goes to the lobby.',

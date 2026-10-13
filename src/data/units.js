@@ -193,7 +193,7 @@ const LUNA = {
   tips: [
     'Line her beams down a long straight: every beam pierces several enemies.',
     'Mystic is strong against armor and scales but halved by warded fae and oni.',
-    'Moonfall slows the whole map AND speeds up every girl — fire it at the peak of a wave.',
+    'Ninefold Moonfall slows the whole map, speeds up every girl and adds +15% damage — fire it at the peak of a wave.',
   ],
   base: stats({
     cost: 620, behavior: 'beam', damage: 4, rate: 0.8, range: 3.6, projectiles: 3, pierce: 3,
@@ -232,7 +232,7 @@ const LUNA = {
     levels: [
       { level: 1, desc: 'Three piercing moon beams.', mods: {} },
       { level: 2, desc: 'Arcane Focus: +1 damage.', mods: { damage: 1 } },
-      { level: 3, desc: 'Moonfall unlocked; +0.2 range.', mods: { range: 0.2 } },
+      { level: 3, desc: 'Ninefold Moonfall unlocked; +0.2 range.', mods: { range: 0.2 } },
       { level: 4, desc: 'Threaded Light: +1 pierce.', mods: { pierce: 1 } },
       { level: 5, desc: 'Night Tempo: +1 damage, +8% attack speed.', mods: { damage: 1, rateMul: 1.08 } },
       { level: 6, desc: 'Silver Edge: ignores 1 armor.', mods: { armorPen: 1 } },
@@ -242,11 +242,11 @@ const LUNA = {
       { level: 10, desc: 'Lunar Sovereign: +15% damage, +2 pierce.', mods: { damageMul: 1.15, pierce: 2 } },
     ],
     ult: {
-      name: 'Moonfall',
-      desc: 'The moon descends: every enemy is slowed by 50% for 5s and every girl attacks 30% faster for 8s.',
+      name: 'Ninefold Moonfall',
+      desc: 'Nine foxfire stars fall: every enemy is slowed by 50% for 5s, every girl attacks 30% faster for 8s and deals 15% more damage for 4s.',
       unlockLevel: 3,
       cooldown: 80,
-      effect: { type: 'timeWarp', slow: 0.5, duration: 5, rateBuff: 1.3, buffDuration: 8 },
+      effect: { type: 'timeWarp', slow: 0.5, duration: 5, rateBuff: 1.3, buffDuration: 8, dmgBuff: 1.15, dmgBuffDuration: 4 },
     },
   },
 };

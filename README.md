@@ -105,7 +105,7 @@ the home screen as an app.
 - **Free counters:** every counter you need comes from a free girl, and she arrives one stage before the
   mechanic she counters.
 - **Heroes:** one per battle. Each levels from 1 to 10 during the fight and has an ultimate: Celestial
-  Bloom, Moonfall or Tidal Wave.
+  Bloom, Ninefold Moonfall or Tidal Wave.
 - **Recruiting:** SSR rate 1.5% with guaranteed pity on the 90th pull, at least one SR in every 10-pull,
   and 200 recruit points let you pick any SSR (spark). The reveal is a drawn sealed letter whose seal is
   tinted by rarity; it can be skipped, and results are saved before it plays.
@@ -136,7 +136,7 @@ the home screen as an app.
 | Girl | Kind · Rarity | Role | Attack | Placement | How to get | In one line |
 |---|---|---|---|---|---|---|
 | Hikari | Hero · SSR | Vanguard | Holy | Land | Starter | Holy cleaves with Veil Sight; ult *Celestial Bloom* |
-| Luna | Hero · SSR | Mystic | Mystic | Land | Recruit | Three piercing moon beams; ult *Moonfall* slows enemies, speeds allies |
+| Luna | Hero · SSR | Mystic | Mystic | Land | Recruit | Three piercing moon beams; ult *Ninefold Moonfall* slows enemies, speeds allies, +15 % team damage |
 | Nami | Hero · SR | Tideguard | Mystic (frost) | **Water** | Free after 1-5 | Frost strikes from the water; ult *Tidal Wave* pushes enemies back |
 | Aoi | Tower · R | Marksman | Pierce | Land | Starter | Cheap, reliable arrows; good vs crystal shells |
 | Rei | Tower · R | Cleaver | Slash | Land | Starter | Melee sweep for crowds at corners |

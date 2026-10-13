@@ -35,6 +35,7 @@ const CAP_TESTS = {
   buff: (s) => !!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1),
   income: (s) => !!s.income,
   summon: (s) => (s.turret?.max || 0) > 0,
+  grounding: (s, st) => st.has('ground') && attacks(s),
 };
 
 function statsCapabilities(s) {
