@@ -202,8 +202,14 @@ export function createLocalAdapter(env = {}) {
 
     // co-op rooms: the host registers the code and ONE guest takes the seat (db.openRoom /
     // joinRoom, like the SQL functions); both get the room secret, and the BroadcastChannel is
-    // named after it, so nobody else hears or writes into the room. Presence by heartbeat.
-    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {} } = {}) {
+    // named after it, so nobody else hears or writes into the room. Presence by heartbeat (only
+    // the tests read it: the lobby finds its ally with its own hello beacon, as on Supabase).
+    // A BroadcastChannel never drops, so _cut() / _heal() fake a bad connection for the tests:
+    // cut({ send, recv }) loses what this tab sends / receives; status: true also reports it
+    // ('reconnecting', like a Realtime channel error), false keeps it silent (a mute channel
+    // that looks joined: the failure the Supabase adapter used to hit). _heal() ends it and
+    // reports a rejoin (_heal({ report: false }): the link just starts working again).
+    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {}, onStatus = () => {} } = {}) {
       const self = me();
       if (!BC) throw Object.assign(new Error('offline: this browser cannot open local rooms'), { code: 'offline' });
       let seat = null;
@@ -211,16 +217,23 @@ export function createLocalAdapter(env = {}) {
         seat = host ? db.openRoom(self, code) : db.joinRoom(self, code);
       } catch (e) {
         setTimeout(() => onError(e), 0); // like the Supabase adapter: errors arrive after openRoom returns
-        return { net: { heartbeatMs: 50, inputDelay: 6 }, send() {}, peers: () => [], track() {}, close() {} };
+        return { net: { heartbeatMs: 50, inputDelay: 6 }, status: 'connecting', connected: false, send: () => false, peers: () => [], track() {}, reconnect() {}, close() {} };
       }
       const ch = new BC(`ss-coop-${code}-${seat.secret}`);
       const peers = new Map(); // uid -> { meta, seen }
       let closed = false;
+      let cut = null; // { send, recv, status } while a test cuts the link
+      let status = 'connected';
+      const report = (next, info) => {
+        status = next;
+        safe(() => onStatus(next, info));
+      };
       const emitPresence = () => onPresence([...peers.entries()].map(([id, p]) => ({ uid: id, ...p.meta })));
-      const announce = () => safe(() => ch.postMessage({ t: 'here', uid: self, meta }));
+      const post = (data) => !cut?.send && safe(() => (ch.postMessage(data), true), false);
+      const announce = () => post({ t: 'here', uid: self, meta });
       ch.onmessage = (e) => {
         const d = e.data || {};
-        if (d.uid === self) return;
+        if (d.uid === self || cut?.recv) return;
         if (d.t === 'here') {
           const isNew = !peers.has(d.uid);
           peers.set(d.uid, { meta: d.meta || {}, seen: Date.now() });
@@ -251,19 +264,42 @@ export function createLocalAdapter(env = {}) {
       }, PRESENCE_MS);
       return {
         net: { heartbeatMs: 50, inputDelay: 6 },
+        get status() {
+          return status;
+        },
+        get connected() {
+          return !closed && !cut?.status;
+        },
         send(msg) {
-          if (!closed) ch.postMessage({ t: 'msg', uid: self, msg });
+          return !closed && post({ t: 'msg', uid: self, msg });
         },
         peers: () => [...peers.entries()].map(([id, p]) => ({ uid: id, ...p.meta })),
         track(next) {
           Object.assign(meta, next);
           announce();
         },
+        reconnect() {
+          if (closed) return;
+          cut = null;
+          report('connected', { rejoin: true });
+          announce();
+        },
+        _cut({ send = true, recv = true, status: say = true } = {}) {
+          if (closed) return;
+          cut = { send, recv, status: say };
+          if (say) report('reconnecting', { reason: 'test' });
+        },
+        _heal({ report: say = true } = {}) {
+          if (closed || !cut) return;
+          cut = null;
+          if (say) report('connected', { rejoin: true });
+        },
         close() {
           if (closed) return;
+          cut = null;
+          post({ t: 'leave', uid: self });
           closed = true;
           clearInterval(timer);
-          safe(() => ch.postMessage({ t: 'leave', uid: self }));
           ch.close();
           safe(() => db.leaveRoom(self, code));
         },

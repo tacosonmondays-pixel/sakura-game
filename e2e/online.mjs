@@ -6,7 +6,12 @@
 //   3. A founds a clan, B finds and joins it, both member lists show 2; the clan boss tab loads,
 //      and one boss attempt through a real battle (Fight → battle → end) lands on the ranking
 //   4. a third tab joins the developer clan with Rosie777 and the Supply Bot grants items
-//   5. co-op: A hosts a room, B joins by code and readies, A starts; both place a girl through
+//   5. co-op: a code with a typo says "No room uses that code"; A hosts a room whose link is
+//      mute (nothing A sends gets out), B joins by code: B cannot find the host, gets the
+//      "has not answered yet" + Retry banner after ~15 s, and finds A on its own within seconds
+//      once A's link works again; a "ready" lost on a mute link arrives with the next keepalive;
+//      a dropped guest link shows "Reconnecting…" and comes back paired and still ready;
+//      A starts; both place a girl through
 //      the real tower bar (tap card → tap ground), the wave runs and the lockstep state hashes
 //      of both clients match; a cut link drops the guest, the host re-admits it when the link
 //      is back and the hashes agree again; finally the guest leaves and the host plays on
@@ -295,14 +300,62 @@ try {
   await B.waitForSelector('[data-testid="coop-code"]', { timeout: 10000 });
   check(await B.waitForSelector(`[data-testid="coop-invites"] [data-room="${code}"] [data-testid="invite-row-join"]`, { timeout: 10000 }).then(() => true).catch(() => false),
     'co-op: the host\'s clan invite is listed in the clanmate\'s co-op hub');
+  // a code with a typo: the server knows no such room
+  const typo = code.slice(0, 4) + (code[4] === 'Z' ? 'Y' : 'Z');
+  await B.fill('[data-testid="coop-code"]', typo);
+  await tap(B, '[data-testid="coop-join"]');
+  const typoText = await B.waitForSelector('[data-testid="coop-room-error"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  check(/No room uses that code/.test(typoText), `co-op: a code with a typo says "No room uses that code" (${typoText.replace(/\s+/g, ' ').slice(0, 80)})`);
+  await shot(B, 'coop-typo');
+  await B.locator('[data-testid="coop-room-error"] button').first().click(); // Back
+  await B.waitForSelector('[data-testid="coop-code"]', { timeout: 10000 });
+  await B.waitForTimeout(1100); // (one room call per second)
+
+  // Connection faults, faked by the local transport (window.__coop.room._cut / _heal): the
+  // host's room goes MUTE (it looks joined, but nothing it sends gets out: what a hung presence
+  // track did on some Supabase nodes). The guest joins and cannot find the host; after ~15 s the
+  // lobby says so and offers Retry. When the host's link simply works again, the guest's beacon
+  // gets an answer and both pair up within seconds, with no reconnect on either side.
+  await A.evaluate(() => window.__coop.room._cut({ send: true, recv: false, status: false }));
   await B.fill('[data-testid="coop-code"]', code.toLowerCase());
   await tap(B, '[data-testid="coop-join"]');
-  await B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 10000 });
+  await B.waitForSelector('[data-testid="coop-room"]', { timeout: 10000 });
+  const hostHeardGuest = await A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 10000 }).then(() => true).catch(() => false);
+  check(hostHeardGuest && !(await B.locator('[data-testid="coop-player-0"]').count()), 'co-op: a mute host hears the guest, the guest does not see the host yet');
+  check(/Looking for the host/.test(await B.locator('[data-testid="coop-wait"]').innerText().catch(() => '')), 'co-op: the guest\'s lobby says "Looking for the host…"');
+  const stuckText = await B.waitForSelector('[data-testid="coop-stuck"]', { timeout: 25000 }).then((e) => e.innerText()).catch(() => '');
+  check(/has not answered yet/.test(stuckText) && /Retry/.test(stuckText), `co-op: after ~15 s without the host the guest sees what to check and a Retry button`);
+  await shot(B, 'coop-stuck-guest');
+  await tap(B, '[data-testid="coop-retry"]');
+  check(await B.waitForSelector('[data-testid="coop-stuck"]', { state: 'detached', timeout: 5000 }).then(() => true).catch(() => false), 'co-op: Retry starts the search again');
+  const healAt = Date.now();
+  await A.evaluate(() => window.__coop.room._heal({ report: false }));
+  const healed = await B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 10000 }).then(() => Date.now() - healAt).catch(() => null);
+  check(healed != null && healed < 4000, `co-op: once the host's messages get out again the guest finds it on its own (${healed} ms)`);
   const paired = await A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 10000 }).then(() => true).catch(() => false);
   check(paired, 'co-op: both players appear in the room');
+  // a lost "ready": the guest's link is mute while it taps Ready; the next keepalive hello
+  // (every 3 s) carries the flag once the link works again
+  await B.evaluate(() => window.__coop.room._cut({ send: true, recv: false, status: false }));
   await tap(B, '[data-testid="coop-ready"]');
-  const canStart = await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 8000 }).then(() => true).catch(() => false);
-  check(canStart, 'co-op: Start unlocks when the guest is ready');
+  await A.waitForTimeout(1200);
+  check(await A.locator('[data-testid="coop-start"]').isDisabled(), 'co-op: while the guest\'s "ready" is lost, Start stays locked');
+  await B.evaluate(() => window.__coop.room._heal({ report: false }));
+  const readyAt = Date.now();
+  const canStart = await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 8000 }).then(() => Date.now() - readyAt).catch(() => null);
+  check(canStart != null, `co-op: Start unlocks when the guest is ready (the lost "ready" arrived with a keepalive hello after ${canStart} ms)`);
+  // a dropped channel on the guest: "Reconnecting…", then back with the pair and the ready flag
+  await B.evaluate(() => window.__coop.room._cut());
+  const reconnecting = await B.waitForSelector('[data-testid="coop-link"]', { timeout: 5000 }).then((e) => e.innerText()).catch(() => '');
+  check(/Reconnecting/.test(reconnecting), `co-op: a dropped link shows "Reconnecting…" (${reconnecting})`);
+  await shot(B, 'coop-reconnecting-guest');
+  await B.waitForTimeout(2500);
+  await B.evaluate(() => window.__coop.room._heal());
+  const backOk = await B.waitForSelector('[data-testid="coop-link"]', { state: 'detached', timeout: 5000 }).then(() => true).catch(() => false);
+  await A.waitForTimeout(800);
+  const afterReconnect = await Promise.all([A, B].map((p) => p.evaluate(() => ({ paired: window.__coop.paired, link: window.__coop.link, ready: window.__coop.isHost ? window.__coop.peer?.ready : window.__coop.me.ready }))));
+  check(backOk && afterReconnect.every((x) => x.paired && x.link === 'connected' && x.ready) && !(await A.locator('[data-testid="coop-start"]').isDisabled()),
+    `co-op: after the reconnect both still see each other and the guest is still ready (${JSON.stringify(afterReconnect)})`);
   await shot(A, 'coop-lobby');
   await shot(B, 'coop-lobby-guest');
   await tap(A, '[data-testid="coop-start"]');

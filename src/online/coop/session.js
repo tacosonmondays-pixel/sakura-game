@@ -4,15 +4,25 @@
 //
 // Room messages (over backend.openRoom(code), i.e. Realtime broadcast or BroadcastChannel; the
 // host registers the code and one guest takes the seat, see open_room / join_room):
-//   { type: 'hello', player, v }     my name / level / avatar / loadout (sent on every new peer);
-//                                    v = coopVersion(): two different builds never pair up
-//   { type: 'room', stageId, difficulty }   host's stage choice
-//   { type: 'ready', uid, ready }
+//   { type: 'hello', player, v, sees, room? }
+//                                    my name / level / avatar / loadout / ready; v = coopVersion()
+//                                    (two different builds never pair up); sees = the uid of the
+//                                    player I see (or null); the host adds room = its stage choice
+//   { type: 'room', stageId, difficulty }   host's stage choice (at once; hellos repeat it)
+//   { type: 'ready', uid, ready }    (at once; hellos repeat it)
 //   { type: 'full', uid }            host → a third player: this room already has two
 //   { type: 'start', start }         host → guest: seed, stage, both players' loadouts, version
 //                                    (re-sent until the guest's first lockstep packet arrives)
 //   { type: 'ls', m }                lockstep traffic during the battle
 //   { type: 'leave', uid }
+//
+// The lobby handshake heals itself. Broadcast is lossy (a message sent while the other side is
+// not subscribed yet, or while a channel reconnects, is simply gone), so nothing is said only
+// once: hellos are state, not events. Each side says hello right after every (re)join, repeats
+// it every second until the other side's hello shows it sees us ("sees"), answers any hello that
+// does not see it yet, and afterwards keeps a slow hello every 3 s, which also carries the ready
+// flag and the stage, so a lost 'ready' or 'room' message fixes itself. An ally silent for 10 s
+// (while our own link is up) has left. No Realtime presence: see adapters/supabase.js openRoom.
 import { createEmitter } from '../../core/events.js';
 import { COOP } from '../../data/coop.js';
 import { Lockstep } from './lockstep.js';
@@ -50,8 +60,27 @@ export function normalizeCode(code) {
   return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 }
 
-const LOBBY_BEACON_MS = 1500;
-const START_RESEND_MS = 700;
+/** Lobby timing (ms). Exported for the tests. */
+export const LOBBY = Object.freeze({
+  /** how often the session checks its clocks */
+  tickMs: 250,
+  /** hello while the two sides do not see each other yet */
+  helloMs: 1000,
+  /** the host alone in its room (the guest's own beacon finds it; this is a backstop) */
+  idleHelloMs: 2000,
+  /** paired: a keepalive hello (ready flag + stage ride along) */
+  keepaliveMs: 3000,
+  /** answer a hello that does not see me yet at most this often */
+  answerMs: 400,
+  /** a mismatched player (another build) is told so at most this often */
+  mismatchAnswerMs: 5000,
+  /** an ally silent this long while my own link is up has left the lobby */
+  peerSilentMs: 10000,
+  /** guest without a host (or anyone without a link) this long: "can't find…" + Retry */
+  findMs: 15000,
+  /** the host re-sends the start message until the guest's first lockstep packet arrives */
+  startResendMs: 700,
+});
 
 /**
  * @param {{ code: string, isHost: boolean, backend: object, me: object, stageId?: string, difficulty?: string,
@@ -75,30 +104,67 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     start: null,
     lockstep: null,
     error: null, // { code, text } when the room could not be opened / joined
-    mismatch: null, // the other player's version when it differs from mine (no pairing)
+    mismatch: null, // { uid, name, theirs }: the other player's version differs from mine (no pairing)
     peerGone: false,
+    /** my link to the room: 'connecting' (never joined yet) | 'connected' | 'reconnecting' */
+    link: 'connecting',
+    /** null, or why the lobby is stuck after LOBBY.findMs: 'server' (no link) | 'host' (guest: no host) */
+    stuck: null,
     on: emitter.on,
     emit: emitter.emit,
   };
   const changed = () => emitter.emit('change', s);
   let guestHeard = false;
+  let room = null;
 
   const version = coopVersion();
-  const hello = () => room.send({ type: 'hello', player: { ...s.me, host: isHost }, v: version });
-  const room = backend.openRoom(code, {
+  const t0 = now();
+  let searchSince = t0; // since when the guest has been looking for its host (or anyone for a link)
+  let connectedAt = 0; // when my link last came up
+  let lastHelloAt = -Infinity;
+  let lastAnswerAt = -Infinity;
+  let lastStartAt = -Infinity;
+  let lastFullAt = -Infinity;
+  let peerHeard = 0; // last message from the paired ally
+  let peerSeesMe = false; // the ally's last hello said it sees me
+  const mismatchTold = new Map(); // uid → when I last answered its mismatched hello
+
+  const send = (msg, opts) => room?.send(msg, opts);
+  function hello() {
+    if (!room || s.phase !== 'lobby') return;
+    lastHelloAt = now();
+    const msg = { type: 'hello', player: { ...s.me, host: isHost }, v: version, sees: s.peer?.uid ?? null };
+    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty };
+    // a hello is state: one sent while the link is down is pointless (every rejoin says hello)
+    send(msg, { drop: true });
+  }
+
+  function onStatus(state) {
+    if (s.phase === 'closed') return;
+    s.link = state;
+    if (state === 'connected') {
+      connectedAt = now();
+      if (s.stuck === 'server') {
+        // the link took a while: the host gets the full search time from now on
+        s.stuck = null;
+        searchSince = now();
+      }
+      hello(); // after every (re)join: whatever we said while the channel was down is lost
+    }
+    changed();
+  }
+
+  room = backend.openRoom(code, {
     host: isHost,
     meta: { name: me.name, host: isHost },
     onError: (e) => roomError(e),
-    onMessage: (msg) => handle(msg),
-    onPresence: (list) => {
-      // lobby only: in battle a presence blip (reconnecting socket) must not drop the ally;
-      // there the lockstep's silence timeout (COOP.timeoutMs) and the explicit 'leave' / 'bye' decide
-      if (s.phase !== 'lobby') return;
-      if (s.peer && !list.some((p) => p.uid === s.peer.uid)) peerLeft();
-      else if (!s.peer && list.length) hello();
-    },
+    onMessage: (msg, from) => handle(msg, from),
+    onStatus,
   });
   const net = room.net || { heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay };
+  // adapters without status reports (or the local one, which is up at once) count as connected
+  s.link = room.status || 'connected';
+  if (s.link === 'connected') connectedAt = t0;
   hello();
 
   /** The server refused this room (open_room / join_room): explain it in the lobby. */
@@ -114,13 +180,17 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       }[err.code] || 'This room could not be opened.';
       s.error = { code: err.code, text };
     }
+    s.stuck = null;
     changed();
   }
-  const mismatchTold = new Set();
-  function peerLeft() {
+
+  /** The ally left ('leave' message) or went silent in the lobby ('silent': it may come back). */
+  function peerLeft(why = 'left') {
     if (s.phase === 'lobby') {
       s.peer = null;
-      if (!isHost) s.me.ready = false;
+      peerSeesMe = false;
+      searchSince = now();
+      if (!isHost && why === 'left') s.me.ready = false;
     } else if (s.lockstep) {
       const p = [...s.lockstep.peers.values()][0];
       // leaving on purpose is final, even after a lost connection (no rejoin then)
@@ -130,43 +200,68 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     changed();
   }
 
-  function handle(msg) {
-    if (!msg || typeof msg !== 'object') return;
-    switch (msg.type) {
-      case 'hello': {
-        const p = msg.player || {};
-        if (!p.uid || p.uid === s.me.uid) return;
-        if (!sameVersion(msg.v, version)) {
-          // a cached older (or newer) build: lockstep would desync every time — never pair
-          s.mismatch = { name: p.name || 'Your ally', theirs: msg.v || null };
-          if (!mismatchTold.has(p.uid)) {
-            mismatchTold.add(p.uid);
-            hello(); // so the other side sees the mismatch too
-          }
-          changed();
-          return;
-        }
-        if (s.peer && s.peer.uid !== p.uid) {
-          // a third player: rooms hold two
-          if (isHost) room.send({ type: 'full', uid: p.uid });
-          return;
-        }
-        if (!isHost && !p.host && !s.peer) return; // two guests never pair up
-        const isNew = !s.peer;
-        s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host };
-        if (isNew) hello();
-        if (isHost) room.send({ type: 'room', stageId: s.stageId, difficulty: s.difficulty });
-        changed();
-        break;
+  function onHello(msg) {
+    const p = msg.player || {};
+    if (!p.uid || p.uid === s.me.uid) return;
+    const t = now();
+    if (!sameVersion(msg.v, version)) {
+      // a cached older (or newer) build: lockstep would desync every time — never pair
+      s.mismatch = { uid: p.uid, name: p.name || 'Your ally', theirs: msg.v || null };
+      if (s.peer?.uid === p.uid) {
+        s.peer = null;
+        peerSeesMe = false;
       }
+      if (t - (mismatchTold.get(p.uid) ?? -Infinity) >= LOBBY.mismatchAnswerMs) {
+        mismatchTold.set(p.uid, t);
+        hello(); // so the other side sees the mismatch too
+      }
+      changed();
+      return;
+    }
+    // the same player again, now on my version (they reloaded): the mismatch is over
+    if (s.mismatch && (!s.mismatch.uid || s.mismatch.uid === p.uid)) s.mismatch = null;
+    if (s.peer && s.peer.uid !== p.uid) {
+      // a third player: rooms hold two
+      if (isHost && t - lastFullAt >= 2000) {
+        lastFullAt = t;
+        send({ type: 'full', uid: p.uid });
+      }
+      return;
+    }
+    if (isHost ? p.host : !p.host) return; // a host pairs with a guest, a guest with the host
+    const isNew = !s.peer;
+    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host };
+    peerHeard = t;
+    peerSeesMe = msg.sees === s.me.uid;
+    if (!isHost && msg.room?.stageId) {
+      s.stageId = msg.room.stageId;
+      s.difficulty = msg.room.difficulty || s.difficulty;
+    }
+    if (isNew) s.stuck = null;
+    // tell them I see them: at once for a new ally, and to any hello that does not see me yet
+    if (isNew || (!peerSeesMe && t - lastAnswerAt >= LOBBY.answerMs)) {
+      lastAnswerAt = t;
+      hello();
+    }
+    changed();
+  }
+
+  function handle(msg, from) {
+    if (!msg || typeof msg !== 'object') return;
+    if (s.peer && from && from === s.peer.uid) peerHeard = now();
+    switch (msg.type) {
+      case 'hello':
+        if (s.phase === 'lobby') onHello(msg);
+        break;
       case 'full':
         if (msg.uid === s.me.uid && !s.peer) {
           s.full = true;
+          s.stuck = null;
           changed();
         }
         break;
       case 'room':
-        if (isHost) return;
+        if (isHost || s.phase !== 'lobby') return;
         s.stageId = msg.stageId;
         s.difficulty = msg.difficulty;
         changed();
@@ -195,17 +290,38 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     }
   }
 
-  // lobby beacon: a lost hello (lossy broadcast) is repeated until both sides see each other;
-  // the host also repeats the start message until the guest's first lockstep packet arrives
+  /** The lobby's clock: beacon / keepalive hellos, silent allies, "can't find the host". */
+  function lobbyTick(t) {
+    if (s.error || s.full) return;
+    const up = s.link === 'connected' && room?.connected !== false;
+    if (s.peer && up && t - Math.max(peerHeard, connectedAt) > LOBBY.peerSilentMs) peerLeft('silent');
+    if (!s.stuck && !s.peer && t - searchSince > LOBBY.findMs) {
+      if (s.link !== 'connected') s.stuck = 'server';
+      else if (!isHost && !s.mismatch) s.stuck = 'host';
+      if (s.stuck) changed();
+    }
+    if (!up) return;
+    let every = LOBBY.helloMs;
+    if (s.mismatch) every = LOBBY.keepaliveMs;
+    else if (s.peer && peerSeesMe) every = LOBBY.keepaliveMs;
+    else if (isHost && !s.peer) every = LOBBY.idleHelloMs;
+    if (t - lastHelloAt >= every) hello();
+  }
+
   const beacon = timers.setInterval(() => {
-    if (s.phase === 'lobby' && !s.peer && !s.full && !s.error && !s.mismatch) hello();
-    if (s.phase === 'battle' && isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone) room.send({ type: 'start', start: s.start });
-  }, isHost ? START_RESEND_MS : LOBBY_BEACON_MS);
+    const t = now();
+    if (s.phase === 'lobby') lobbyTick(t);
+    else if (s.phase === 'battle' && isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone && t - lastStartAt >= LOBBY.startResendMs) {
+      lastStartAt = t;
+      send({ type: 'start', start: s.start }, { latest: 'start' });
+    }
+  }, LOBBY.tickMs);
 
   let pump = 0;
   function begin(start) {
     s.start = start;
     s.phase = 'battle';
+    s.stuck = null;
     const mySlot = start.players.find((p) => p.uid === s.me.uid)?.slot ?? (isHost ? 0 : 1);
     s.lockstep = new Lockstep({
       start,
@@ -214,7 +330,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       delay: net.inputDelay,
       heartbeatMs: net.heartbeatMs,
       keepaliveMs: net.keepaliveMs ?? net.heartbeatMs,
-      send: (m) => room.send({ type: 'ls', m }),
+      // while the channel is down only the newest heartbeat is worth keeping (each one carries
+      // the horizon, every unacknowledged command and the last hashes)
+      send: (m) => send({ type: 'ls', m }, m?.type === 'in' ? { latest: 'ls-in' } : undefined),
       hooks: {
         onPeerGone: (slot, reason) => {
           s.peerGone = reason || true;
@@ -236,9 +354,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     // the ally sees as short "Waiting for ally…" pauses instead of a disconnect).
     let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
     pump = timers.setInterval(() => {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      const dt = (now - last) / 1000;
-      last = now;
+      const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const dt = (t - last) / 1000;
+      last = t;
       if (!s.lockstep) return;
       if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
       else s.lockstep.beat();
@@ -253,12 +371,21 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       if (!isHost || s.phase !== 'lobby') return;
       s.stageId = stage;
       s.difficulty = diff;
-      room.send({ type: 'room', stageId: stage, difficulty: diff });
+      send({ type: 'room', stageId: stage, difficulty: diff }, { latest: 'room' });
       changed();
     },
     setReady(ready) {
       s.me.ready = !!ready;
-      room.send({ type: 'ready', uid: s.me.uid, ready: s.me.ready });
+      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready }, { latest: 'ready' });
+      changed();
+    },
+    /** Lobby "Retry": a fresh channel (and seat), and the search clock starts again. */
+    retry() {
+      if (s.phase !== 'lobby' || s.error) return;
+      s.stuck = null;
+      searchSince = now();
+      room.reconnect?.();
+      hello();
       changed();
     },
     /** Host: send the start message and begin. */
@@ -274,7 +401,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: null, color: COOP.colors[1] },
         ],
       };
-      room.send({ type: 'start', start });
+      lastStartAt = now();
+      send({ type: 'start', start }, { latest: 'start' });
       begin(start);
       return true;
     },
@@ -288,7 +416,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       timers.clearInterval(beacon);
       try {
         s.lockstep?.leave();
-        room.send({ type: 'leave', uid: s.me.uid });
+        send({ type: 'leave', uid: s.me.uid });
         room.close();
       } catch (e) {
         console.warn('[coop] close failed', e);
@@ -309,11 +437,15 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     close0();
   };
 
-  // a live getter (Object.assign above would freeze a getter into its first value)
+  // live getters (Object.assign above would freeze a getter into its first value); the room
+  // itself stays out of enumeration (tests and the e2e reach it as session.room)
   Object.defineProperty(s, 'canStart', {
     get: () => isHost && s.phase === 'lobby' && !!s.peer && s.peer.ready,
     enumerable: true,
   });
+  Object.defineProperty(s, 'room', { get: () => room, enumerable: false });
+  /** Both sides see each other (the ally's last hello named me). */
+  Object.defineProperty(s, 'paired', { get: () => !!s.peer && peerSeesMe, enumerable: true });
 
   current = s;
   if (typeof window !== 'undefined') window.__coop = s;
