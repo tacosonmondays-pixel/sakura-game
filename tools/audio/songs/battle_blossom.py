@@ -70,15 +70,16 @@ COUNTER_A2 = [   # chip_pulse12 a third (or sixth) under the hook: the EarthBoun
 ]
 BASS_A = [
     'd2/8. d2/16 d3/8 d2/8 a2/8 d3/8 a2/8 c3/8',      # slap: root, 16th pickup, octave pop, fifth,
-    'b2/8. b2/16 b3/8 b2/8 f#2/8 a2/8 b2/8 g#2/8',    # chromatic approach into every change
+    'b2/8. b2/16 b3/8 b2/8 f#2/8 a2/8 b2/16 b3/16 g#2/8',  # chromatic approach into every change;
     'g2/8. g2/16 g3/8 g2/8 d2/8 g2/8 f#2/8 g#2/8',
-    'a2/8. a2/16 a3/8 a2/8 e2/8 g2/8 e2/8 f2/8',
-    'f#2/8. f#2/16 f#3/8 f#2/8 c#3/8 e3/8 c#3/8 c3/8',
-    'b2/8. b2/16 b3/8 b2/8 d#3/8 f#3/8 a2/8 f2/8',
+    'a2/8. a2/16 a3/8 a2/8 e2/8 g2/8 a2/16 a3/16 f2/8',    # round 3: a 16th octave flick before the approach
+    'f#2/8. f#2/16 f#3/8 f#2/8 c#3/8 e3/8 c#3/8 c3/8',     # in every 2nd bar (the hook's answer bars)
+    'b2/8. b2/16 b3/8 b2/8 d#3/8 f#3/16 f#2/16 a2/8 f2/8',
     'e2/8. e2/16 e3/8 b2/8 g2/8. g2/16 bb2/8 d3/8',
-    'a2/8. a2/16 a3/8 a2/8 e2/8 a2/8 g2/8 c#2/8',
+    'a2/8. a2/16 a3/8 a2/8 e2/8 a2/16 a3/16 g2/8 c#2/8',
 ]
-BASS_A2 = BASS_A[:6] + ['e2/8. e2/16 e3/8 e2/8 b2/8 e3/8 d3/8 g#2/8', 'g2/8. g2/16 g3/8 bb2/8 c3/8. c3/16 c4/8 e2/8']
+BASS_A2 = BASS_A[:6] + ['e2/8. e2/16 e3/8 e2/8 b2/8 e3/8 d3/8 g#2/8',
+                        'g2/8. g2/16 g3/8 bb2/8 c3/8. c3/16 c4/16 c3/16 e2/8']
 BASS_B = [
     'f2/8 f3/8 f2/8 f3/8 a2/8 a3/8 e2/8 c#2/8',       # double-time octave pump with a walk into every change
     'd2/8 d3/8 d2/8 d3/8 a2/8 a3/8 c3/8 b2/8',
@@ -88,6 +89,16 @@ BASS_B = [
     'd2/8 d3/8 d2/8 d3/8 f#2/8 f#3/8 a2/8 g#2/8',
     'g2/8 g3/8 g2/8 g3/8 bb2/8 bb3/8 db3/8 db2/8',
     'c2/8 c3/8 c2/8 c3/8 c2/8 bb2/8 g2/8 e2/8',
+]
+BASS_B2 = [   # round 3: the A-section slap shape carried into F (was the generic bass:sync, 6 notes a bar); the rest
+    'd2/8. d2/16 d3/8 d2/8 r/8 c3/8 a2/16 d3/16 b2/8',      # on beat 3 leaves the kick alone, then a 16th flick
+    'bb2/8. bb2/16 bb3/8 bb2/8 r/8 a2/8 f2/16 bb2/16 f#2/8',  # and the chromatic approach
+    'g2/8. g2/16 g3/8 g2/8 r/8 f2/8 d2/16 g2/16 b2/8',
+    'c3/8. c3/16 c4/8 c3/8 r/8 bb2/8 g2/16 c3/16 g#2/8',
+    'a2/8. a2/16 a3/8 a2/8 r/8 g2/8 e2/16 a2/16 c#2/8',
+    'd2/8. d2/16 d3/8 d2/8 r/8 c3/8 a2/16 d3/16 a2/8',
+    'bb2/8. bb2/16 bb3/8 bb2/8 r/8 a2/8 f2/16 a2/16 b2/8',
+    'c3/8. c3/16 c4/8 c3/8 r/8 bb2/8 g2/16 e2/16 c#2/8',
 ]
 BASS_BR = ['d2/2. a2/4', 'f#2/2. c#3/4', 'g2/2. d3/4', 'a2/2 e2/4 c#2/4',
            'd2/4. d2/8 a2/4 d3/4', 'f#2/4. f#2/8 c#3/4 f#3/4',
@@ -108,7 +119,13 @@ def build() -> Song:
     s = Song(id='battle_blossom', title='Blossom Brigade', bpm=150, meter=(4, 4), key='D',
              form=['intro', '|:', 'A', 'A2', 'B', 'B2', 'BR', ':|'],
              mix={'highpass_hz': 40},
-             description='Battle (sakura, arena): bouncy D-major hook, the main theme heroic in F, music-box breakdown.')
+             description='Battle (sakura, arena): bouncy D-major hook, the main theme heroic in F, music-box breakdown.',
+             extra={'lane': 'anime chip-rock',
+                    'busy': {'melody': {'lead': None, 'glock': None, 'tpt': ['B'], 'strings': None, 'box': None},
+                             'bass': ['bass'], 'primary_bass': 'bass',
+                             'cat': {'xylo': 'answer', 'mar_reply': 'answer', 'counter': 'counter', 'stabs': 'stab',
+                                     'hits': 'stab', 'stab_in': 'stab', 'timp': 'answer', 'marimba': 'arp',
+                                     'ep': 'comp', 'harp': 'arp', 'bam': 'stab', 'organ': 'stab'}}})
     s.section('intro', 2, CH_INTRO)
     s.section('A', 8, CH_A)
     s.section('A2', 8, CH_A2)
@@ -129,7 +146,21 @@ def build() -> Song:
     s.part('glock', 'glock', 'base', octave=1, vel=-22).double('lead', ['A2', 'B2'])
     s.part('xylo', 'xylophone', 'base', vel=-10) \
         .at(['A', 'A2'], 2, 'r/2 f#5/16 a5/16 b5/8 d6/8 r/8').at(['A', 'A2'], 4, 'r/2 e5/16 g5/16 a5/8 c#6/8 r/8') \
-        .at('B2', 2, 'r/2 d5/16 f5/16 a5/8 c6/8 r/8').at('B2', 4, 'r/2 e5/16 g5/16 bb5/8 c6/8 r/8')
+        .at('B2', 2, 'r/2 d5/16 f5/16 a5/8 c6/8 r/8').at('B2', 4, 'r/2 e5/16 g5/16 bb5/8 c6/8 r/8') \
+        .at('A', 6, "r/2 a6/16' a6/16' r/8 b6/8' r/8").at('A2', 6, "r/2 d#6/16' f#6/16' a6/8' r/4") \
+        .at('B', 1, "r/2 r/8 a6/16' a6/16' c7/8' r/8").at('B', 4, "r/2. e6/16' g6/16' c7/8'") \
+        .at('B2', 5, "r/2 e6/16' e6/16' g6/8' r/4")
+    # round 3: the "BAM" under the answers — a short brass chord (A3-G4) where the hook holds or rests, and on the
+    # phrase-end fills, so the build phase (base stem) talks back too
+    s.part('bam', 'brass_stab', 'base', vel=4) \
+        .at(['A', 'A2'], 2, "r/2 [a3 b3 d4 f#4]/8! r/8 r/4").at(['A', 'A2'], 4, "r/2 [a3 c#4 e4 g4]/8! r/8 r/4") \
+        .at('A', 6, "r/2 [a3 b3 d#4 f#4]/8! r/8 r/4").at('A2', 6, "r/2 [a3 c4 d#4 f#4]/8! r/8 r/4") \
+        .at('A', 8, "r/2 [a3 c#4 e4 g4]/8! r/8 r/4").at('A2', 8, "r/2 [bb3 c4 e4 g4]/8! r/8 r/4") \
+        .at('B', 4, "r/2 [bb3 c4 e4 g4]/8! r/8 r/4").at('B', 8, "r/2. [bb3 c4 e4 g4]/8! r/8") \
+        .at('B2', 2, "r/2 [a3 bb3 d4 f4]/8! r/8 r/4").at('B2', 4, "r/2 [bb3 c4 e4 g4]/8! r/8 r/4") \
+        .at('B2', 5, "r/2 [g3 a3 c4 e4]/8! r/8 r/4").at('B2', 8, "r/2 [bb3 c4 e4 g4]/8! r/8 r/4")
+    # round 3: a rootless organ stab bed on 1, 2& and 4& under the hook (the intensity brass stabs double it)
+    s.part('organ', 'organ', 'base', vel=-16).gen(['A', 'A2', 'B', 'B2'], 'comp:stabs', voicing='rootless', low=55, high=69)
     s.part('box', 'music_box', 'base').notes('BR', bars(
         BELL.question('D', 6) + ' r/8', 'r/1', 'b5/8 e6/8 c#6/4 d6/4. r/8', 'r/1',
         BELL.question('D', 6) + ' r/8', 'r/1', 'r/1', 'r/1'), motifs={1: BELL, 5: BELL})
@@ -146,7 +177,7 @@ def build() -> Song:
         .notes('intro', bars('bb2/4. c3/4. d3/4', 'd2/2 a2/4 c#3/4')) \
         .notes('A', bars(*BASS_A)).notes('A2', bars(*BASS_A2)) \
         .notes('B', bars(*BASS_B)) \
-        .gen('B2', 'bass:sync', low=36, high=55) \
+        .notes('B2', bars(*BASS_B2)) \
         .notes('BR', bars(*BASS_BR))
     s.part('kit', 'drums', 'base', vel=-6) \
         .notes('intro', bars('k+c/4. k+s/4. k+c/4', 'k/8 h/8 s/8 h/8 ' + roll('s', '16', 8, 60, 112))) \
@@ -177,6 +208,8 @@ def build() -> Song:
         .at('B', 1, 'f2/4 r/2 c2/8 c2/8').at('B', 5, 'a2/4 r/2 c2/8 c2/8') \
         .at('BR', 8, roll('a1', '16', 16, 40, 110))
     s.part('swell', 'rev_cymbal', 'intensity', vel=-10).at('BR', 8, 'c4/1')
+    # round 3: a 16th shaker layer when the wave is on (accent on the offbeat 8ths)
+    s.part('shaker', 'drums', 'intensity', vel=0, gain=4).pattern(['A', 'A2', 'B', 'B2'], '(sh/16? sh? sh! sh?)x4 |')
     return s
 
 

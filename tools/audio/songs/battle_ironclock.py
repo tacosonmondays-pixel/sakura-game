@@ -19,6 +19,9 @@ was rewritten because its contour echoed a famous rock riff); BELL and SENTINEL 
 motifs. Checked by ear-memory against well-known factory/robot/clock stage themes (Mega Man, Metal Man, Sonic
 Metropolis, Mario airship, Undertale CORE/Hotland, Deltarune Cyber World, EarthBound/Mother): no shared hook,
 riff or contour. Composer B, 2026-10-08.
+Round 3 (owner favourite, polish only): no note changes; phone-speaker balance (4th-order HP 380 Hz model) —
+sq_bass +1.5 dB (the bass double that carries the riff on phones), anvil_reply +1 dB and the organ stab bed +1 dB
+(the "melody BAM" answers and pushes read in the build phase).
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL
@@ -100,10 +103,10 @@ def build() -> Song:
         .notes('B', bars(*BELL_RIFF), motifs={1: BELL, 3: BELL, 5: BELL}) \
         .notes('C', bars(*C_SAW)).notes('D', bars(*D_HOOK))
     s.part('organ_mel', 'organ', 'base', vel=-10).double('saw', ['A2', 'B', 'D'])
-    s.part('organ', 'organ', 'base', vel=-14).gen(['A', 'A2', 'B', 'D'], 'comp:stabs', voicing='rootless', low=55, high=72) \
+    s.part('organ', 'organ', 'base', vel=-14, gain=1).gen(['A', 'A2', 'B', 'D'], 'comp:stabs', voicing='rootless', low=55, high=72) \
         .gen('C', 'pad:sustain', voicing='triad', low=55, high=70, vel=56)
     s.part('celesta', 'celesta', 'base', vel=-14).gen('C', 'arp:up16', voicing='triad', low=67, high=86)
-    s.part('anvil_reply', 'xylophone', 'base', vel=-8).at(['A', 'A2', 'D'], 2, "r/2 g6/16' g6/16' r/8 c6/8' r/8") \
+    s.part('anvil_reply', 'xylophone', 'base', vel=-8, gain=1).at(['A', 'A2', 'D'], 2, "r/2 g6/16' g6/16' r/8 c6/8' r/8") \
         .at(['A', 'A2', 'D'], 4, "r/2 g6/16' g6/16' r/8 bb6/8' r/8")
     s.part('bass', 'slap_bass', 'base', vel=4) \
         .notes('intro', walk(CH_INTRO, GEAR, low=43, nxt='Gm7')) \
@@ -112,7 +115,7 @@ def build() -> Song:
         .notes('B', walk(CH_B, GEAR, GEAR_H, low=36, nxt='Gm')) \
         .notes('C', walk(CH_C, 'R/4 r/8 R/8 8/4 r/8 5/8', 'R/4 r/4', low=36, nxt='Bbm7')) \
         .notes('D', walk(CH_D, GEAR, GEAR_H, low=36, nxt='Gm7'))
-    s.part('sq_bass', 'chip_pulse50', 'base', octave=1, vel=-22).double('bass', ['intro', 'A', 'A2', 'B', 'D'])
+    s.part('sq_bass', 'chip_pulse50', 'base', octave=1, vel=-22, gain=1.5).double('bass', ['intro', 'A', 'A2', 'B', 'D'])
     s.part('kit', 'drums_power', 'base') \
         .pattern('intro', STOMP_N) \
         .pattern(['A', 'A2', 'B', 'D'], ROCK, fills={1: ROCK_C, 4: ROCK_F4, 5: ROCK_C, 8: ROCK_F8}) \

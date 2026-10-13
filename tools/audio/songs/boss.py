@@ -22,6 +22,9 @@ review: originality — the minor/heroic settings, counterpoint, bass lines, run
 melodic material is the project's own main theme, BELL and SHADOW. No Megalovania-style opening (repeated root +
 octave leap + descending chromatic run) anywhere; checked by ear-memory against Undertale/Deltarune boss themes,
 EarthBound/Mother battle themes, Mega Man/Castlevania/FF boss themes: no shared hook or contour. Composer B, 2026-10-08.
+Round 3 (owner favourite, polish only): no note changes; phone-speaker balance — slap bass +1.5 dB (the D-section
+bass breaks sat ~7 dB under the chip answers on a phone model and tied with the tremolo strings), tremolo −1 dB,
+organ stab bed +1.5 dB.
 """
 from sakura_audio.song import Song
 from motifs import BELL, SHADOW
@@ -116,7 +119,7 @@ def build() -> Song:
     s.part('arps', 'chip_pulse12', 'base', vel=-14).gen(['A', 'A2'], 'arp:up16', voicing='triad', low=62, high=81) \
         .gen('intro', 'arp:up16', voicing='triad', bars=(2, 4), low=62, high=81) \
         .gen('D', 'arp:up16', voicing='triad', bars=(3, 4), low=62, high=81)
-    s.part('organ', 'organ_drawbar', 'base', vel=-6) \
+    s.part('organ', 'organ_drawbar', 'base', vel=-6, gain=1.5) \
         .notes('intro', bars(shadow_d, 'd3/1', tr_shadow(-4), 'a2/2. r/4'), motifs={1: SHADOW, 3: SHADOW}) \
         .gen(['A', 'A2', 'D'], 'comp:stabs', voicing='triad', low=55, high=70) \
         .gen(['B', 'T'], 'pad:sustain', voicing='triad', low=55, high=70, vel=64) \
@@ -127,7 +130,7 @@ def build() -> Song:
         .at('B', 5, shadow_d, motif=SHADOW).at('T', 1, shadow_d, motif=SHADOW) \
         .gen(['A', 'A2'], 'pad:sustain', voicing='triad', low=43, high=57, vel=62)
     s.part('tuba', 'tuba', 'base', octave=-1, vel=-2).double('bone', ['intro', 'B', 'T'])
-    s.part('bass', 'slap_bass', 'base', vel=8) \
+    s.part('bass', 'slap_bass', 'base', vel=8, gain=1.5) \
         .notes('intro', bars('d2/8 d2/8 d3/8 d2/8 r/2', 'd2/8 d2/8 d3/8 d2/8 f2/8 g2/8 ab2/8 a2/8',
                              'bb1/8 bb1/8 bb2/8 bb1/8 r/2', "a1/4 r/8 a1/8' r/4 c#2/4")) \
         .notes('A', walk(CH_A, PUMP, PUMP_H, low=38, nxt='Bb')) \
@@ -157,7 +160,7 @@ def build() -> Song:
         .double('lead', 'C', octave=-1)
     s.part('choir', 'choir_ahh', 'intensity', vel=20).gen(['A', 'A2'], 'pad:sustain', voicing='triad', low=50, high=65, vel=70) \
         .gen('C', 'pad:sustain', voicing='triad', low=53, high=68, vel=80)
-    s.part('trem', 'tremolo', 'intensity', vel=20).gen(['B', 'D', 'T', 'intro'], 'pad:sustain', voicing='triad', low=50, high=69, vel=76)
+    s.part('trem', 'tremolo', 'intensity', vel=20, gain=-1).gen(['B', 'D', 'T', 'intro'], 'pad:sustain', voicing='triad', low=50, high=69, vel=76)
     s.part('brass', 'brass', 'intensity', vel=12).double('lead', 'C', octave=-1) \
         .gen(['A', 'A2', 'D'], 'comp:stabs', voicing='close', low=55, high=72)
     s.part('timp', 'timpani', 'intensity', vel=10) \

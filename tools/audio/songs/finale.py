@@ -26,6 +26,8 @@ SENTINEL and SHADOW are the project's own. No Megalovania-style opening (repeate
 run). Checked by ear-memory against final-boss themes of Undertale/Deltarune, EarthBound/Mother, Final Fantasy,
 Zelda, Kirby and Mega Man: no shared hook or contour. `studio.py originality`: no blocklist match.
 Composer C (round 2), 2026-10-08.
+Round 3 (keep-polish): the slap-bass pump in A, A2, C and D now walks through the chord (3rd on beat 3, 7th on 4,
+then the chromatic approach) instead of root–octave only: 3.9 → ≥ 4.5 pitches a bar. No other note changes.
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL, SHADOW
@@ -76,6 +78,13 @@ KOTO_RUN_8 = 'r/2 b4/16 d#5/16 f#5/16 a5/16 b5/16 d#6/16 f#6/16 a6/16'
 
 PUMP = 'R/8 8/8 R/8 5/8 R/8 8/8 7/8 ap/8'          # driving eighths (no "root, root, octave" opening)
 PUMP_H = 'R/8 8/8 R/8 ap/8'
+# round 3: the pump walks through the chord — the 3rd on beat 3 and the 7th on 4 (the bass grids below spell the
+# 7ths the comping leaves implicit: Em → Em7 = D, C → Cmaj7 = B), then the chromatic approach
+PUMP7 = 'R/8 8/8 R/8 5/8 3/8 8/8 7/8 ap/8'
+LIFT7 = 'R/8 8/8 r/8 3/8 5/8 8/8 7/8 ap/8'          # C: the hop on 2& now climbs through the 3rd
+BASS_A = 'Em7 | Cmaj7 | Am7 | B7 | Em7 | Cmaj7 | F#m7b5 | B7b9'
+BASS_A2 = 'Em7 | Cmaj7 | Am7 | B7 | Em7 | Cmaj7 | Am7 | B7'
+BASS_D = 'Em7 | Em7 | C | C | Am7 | Am7 | B7sus4 | B7'   # C bars: no B under the pads' C; bar 4 keeps the plain pump (SHADOW sings E♭)
 DRIVE = 'k+h/8 k/16 k/16 s+h/8 h/8 k+h/8 k/16 k/16 s+h/8 h/8 |'
 DRIVE_C = 'k+c/8 k/16 k/16 s+h/8 h/8 k+h/8 k/16 k/16 s+h/8 h/8 |'
 DRIVE_F4 = 'k+h/8 k/16 k/16 s+h/8 h/8 s/16 s s s t1/16 t1 t3/16 t3 |'
@@ -169,12 +178,13 @@ def build() -> Song:
     s.part('bass', 'slap_bass', 'base', vel=6) \
         .notes('intro', bars('e2/8 e3/8 r/8 e2/8 r/2', 'e2/8 e3/8 r/8 e2/8 f2/8 g2/8 a2/8 bb2/8',
                              'c2/8 c3/8 r/8 c2/8 r/2', "b1/4 r/8 b1/8' r/4 d#2/4")) \
-        .notes('A', walk(CH_A, PUMP, PUMP_H, low=40, nxt='Em')) \
-        .notes('A2', walk(CH_A2, PUMP, PUMP_H, low=40, nxt='Em')) \
+        .notes('A', walk(BASS_A, PUMP7, PUMP_H, low=40, nxt='Em')) \
+        .notes('A2', walk(BASS_A2, PUMP7, PUMP_H, low=40, nxt='Em')) \
         .notes('B', bars(*['e2/4. e2/8 r/8 e2/4 e2/8'] * 2, 'e2/4. f2/8 r/8 f2/4 f2/8', 'e2/4. e2/8 r/8 e2/4 g2/8',
                          *['c2/4. c2/8 r/8 c2/4 c2/8'] * 2, 'b1/4. b1/8 r/8 b1/4 b1/8', 'b1/8 c#2/8 d#2/8 e2/8 f#2/8 a2/8 b2/4')) \
-        .notes('C', walk(CH_C, 'R/8 8/8 r/8 R/8 5/8 8/8 7/8 ap/8', 'R/8 8/8 5/8 ap/8', low=38, nxt='Em')) \
-        .notes('D', walk(CH_D, PUMP, PUMP_H, low=40, nxt='Em'))
+        .notes('C', walk(CH_C, LIFT7, 'R/8 8/8 5/8 ap/8', low=38, nxt='Em')) \
+        .notes('D', bars(*[(walk(BASS_D, PUMP, PUMP_H, low=40, nxt='Em') if i == 3 else walk(BASS_D, PUMP7, PUMP_H, low=40, nxt='Em'))
+                           .split(' | ')[i] for i in range(8)]))
     s.part('kit', 'drums_power', 'base', vel=-2) \
         .notes('intro', bars('k+c/4 r/2.', 'k/8 k/8 s/8 k/8 k/8 k/8 s/8 s/8', 'k+c/4 r/2.',
                              "k+c/4 r/8 k/8 r/4 " + roll('s', '16', 4, 80, 116))) \
