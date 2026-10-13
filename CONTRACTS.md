@@ -45,6 +45,7 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
 | battle-ui | `src/ui/battle/**`, `src/ui/screens/battle.js`, `src/ui/styles/battle.css` |
 | meta-a | `src/ui/screens/{lobby,campaign,stage,recruit,mall,commissions,rewards,bounty,assault,challenge,settings}.js`, `src/ui/styles/meta-a.css` |
 | meta-b | `src/ui/screens/{students,student,formation,backpack,bestiary,wiki}.js`, `src/data/wiki.js`, `src/ui/styles/meta-b.css` |
+| online | `src/online/**`, `src/data/coop.js`, `src/ui/online/**`, `src/ui/screens/{chat,clan,coop}.js`, `src/ui/styles/online.css`, `supabase/**`, `.env.production`, `docs/ONLINE.md`, `tests/online/**`, `e2e/online.mjs`, `e2e/engines.mjs`, `e2e/engines/**` (see §13) |
 
 ## 2. Vocabulary — `src/data/types.js` (exists, read it)
 
@@ -801,3 +802,98 @@ in-game result, relevant tests, and evidence against the original request."
   recurring sakura melody in different arrangements), commander tool per mission, Link Arts team
   combos, interactive map mechanisms, mission contracts, tactical lab, roguelite expeditions, events
   with visual-novel mini stories, dev clan `Rosie777` supply bot, anti-tamper saves, PWA install.
+
+## 13. Online — `src/online/**`, `src/ui/online/**`, `supabase/**` (owner: online)
+
+Chat, clans, clan boss, the `Rosie777` developer clan, 2-player co-op and transfer codes. Player-facing
+description and the owner's setup steps: `docs/ONLINE.md`. The game must keep working with no server:
+saves stay local (the save format is unchanged; the online name lives in its own key `ss-online-v1`).
+
+**Backend facade** — `src/online/backend.js`. UI code talks only to `getBackend()`, never to an adapter.
+
+```js
+onlineConfig(env?, search?) // -> { mode: 'supabase'|'local', reason: null|'forced'|'no_config', url, key }
+const be = getBackend();    // singleton; window.__online in the browser (e2e hook)
+await be.init({ name?, level, avatar })   // loads the adapter + anonymous sign-in (once)
+be.status / be.onStatus(cb) // { mode, reason, connected, error }; be.offline = no config or unreachable
+be.user, be.uid, be.limiter, be.lastBoss
+// every call is async and throws OnlineError (errors.js: code ∈ ERROR_CODES, retryMs on rate_limited)
+be.me() be.updateProfile({ name?, level?, avatar? }) be.touch()
+be.history(channel, 50) be.send(channel, body, { kind: 'text'|'invite', meta? }) be.subscribe(channel, cb) // -> unsubscribe
+be.listClans({ query, limit }) be.getClan(id) be.myClan() be.members(id) be.subscribeClan(id, cb)
+be.createClan({ name, tag, emblem, joinMode: 'open'|'request'|'code', description })
+be.joinClan(id) be.joinByCode(code) be.requestJoin(id) be.listRequests(id) be.answerRequest(clanId, userId, accept)
+be.leaveClan() be.setRole(userId, 'officer'|'member'|'leader') be.kick(userId) // permissions: clanRules.can(); 'leader' hands leadership over
+be.bossState(clanId) be.startBossAttempt() be.submitBossDamage(attemptId, damage) be.claimBossReward(week)
+be.createTransfer(saveText) be.redeemTransfer(code)
+be.openRoom(code, { host, meta, onMessage, onPresence, onError }) // -> { net, send, peers, track, close }
+```
+
+Chat channels are `'global'` and `'clan:<clanId>'`. Adapter selection: `?online=local` → local; build-time
+`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` → Supabase (lazy-imported; falls back to local with
+`reason: 'unreachable'` if it fails); otherwise local with `reason: 'no_config'` (UI pill "Online features
+offline"). Only the public URL and the publishable / anon key may ever reach the client.
+
+**Adapters** — both implement every method above with the same shapes and errors:
+`adapters/supabase.js` (anonymous auth, tables + `SECURITY DEFINER` RPCs, Realtime `postgres_changes` for
+chat / clan updates, broadcast + presence for co-op rooms on `coop:<CODE>:<secret>`) and `adapters/local.js`
++ `adapters/localDb.js` (the same rules as the SQL in a localStorage JSON document; BroadcastChannel carries
+the realtime part; each tab is its own player). `tests/online/supabaseAdapter.test.js` checks the Supabase
+adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cover the mock server.
+
+**Rules shared by client and server** — `src/online/limits.js` (`RULES`, `verdict`, `createLimiter`,
+`formatRetry`) and `src/online/clanRules.js` (roles + `can()`, name / tag / message validation, reserved
+names, `DEV_CODE = 'Rosie777'`, emblems, clan XP / level curve, weekly boss table, per-attempt damage
+allowance, reward tiers). The numbers marked in these files are repeated in the SQL;
+`tests/online/schema.test.js` fails when they drift. Rate limits: chat 1 per 2 s and 20 per minute; clan
+create 1 per 10 min and 3 per day; join / request / leave / code try 10 per hour; transfer 5 per hour;
+co-op room 20 per hour; clan boss 3 counted attempts per day. The client limiter only gives instant
+feedback; the server (`enforce_rate()` in triggers and RPCs) is authoritative.
+
+**Database** — `supabase/migrations/20261008000000_online.sql` is the whole schema (the brief's
+`schema.sql`, kept in the Supabase CLI layout; idempotent; there is deliberately no second copy). Tables
+`profiles, clans, clan_codes, clan_members, clan_requests, messages, clan_boss, clan_boss_attempts,
+clan_boss_hits, clan_boss_claims, coop_rooms, transfer_codes, rate_events`, RLS on all of them, explicit
+column grants (players insert / update only their profile's `name, level, avatar` and insert only their
+own messages); every other write is an RPC that checks `auth.uid()` and the clan role. Schema changes go in
+a NEW migration file, never by editing the applied one in a way that breaks re-running it.
+
+**Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
+Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
+with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty })`, `getSession()`,
+  `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
+  `room`, `ready`, `start`, `ls`, `leave`).
+* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, hooks })`: `queue(kind, args)`
+  stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
+  horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
+  command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
+  survivor) and can be re-admitted while the host is still playing.
+* `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]`, positions quantized to 1/1024 tile, per-player
+  wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed network input.
+* `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
+  Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
+* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`).
+The Sim itself is unchanged: co-op is data (`hpScale`) plus command routing.
+
+**Battle UI hooks (battle-ui owns these files; online only added to them)** — `mountBattle(root, params,
+hooks)` takes `hooks.coop` (the session) for `#/battle?coop=<CODE>` and `params.clanBoss` for a clan boss
+attempt. `ctx.act.{place, upgrade, sell, target}` is the Sim in solo and lockstep commands in co-op;
+placement and the tower panel must go through `ctx.act`. `ctx.applyResult` / `ctx.extraActions` /
+`out.note` let co-op and the clan boss replace the solo result handling. Solo battles must behave exactly
+as before when neither is set.
+
+**Routes** — `#/chat[?tab=clan]`, `#/clan[/<id>]` (incl. clan boss and, in the dev clan, the Supply Bot),
+`#/coop[/<CODE>]`. Entry points: lobby chat bubble (drawer) + Menu (Clan / Co-op / Chat), Missions → Co-op,
+Settings → Online (name, status, transfer codes).
+
+**Supply Bot** (`src/online/supply.js`, `src/ui/online/supplyBot.js`) — only inside the `Rosie777` dev clan,
+always labelled DEVELOPER SANDBOX; grants any item or currency (up to `SUPPLY_MAX`) to the player's own
+local save. It never touches the server.
+
+**Tests** — `npx vitest run tests/online` (limiter, local adapter / mock DB, clan rules, clan boss, lockstep
+with two simulated clients and delayed / lost / reordered packets, deterministic math, schema: the migration
+runs twice on PGlite with and without Supabase's default grants, RLS and rate limits exercised);
+`node e2e/online.mjs` (two pages of one browser on the local adapter: chat delivery, clan create / join,
+clan boss, Supply Bot, co-op start with both players placing a girl and matching hashes).

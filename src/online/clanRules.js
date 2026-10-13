@@ -1,6 +1,6 @@
 // Pure clan rules shared by both backend adapters, the UI and tests: roles and permissions,
 // clan level from XP, the weekly clan boss, reward tiers and the developer clan code.
-// (supabase/schema.sql mirrors the numbers marked "SQL".)
+// (supabase/migrations/*_online.sql mirrors the numbers marked "SQL".)
 
 export const ROLES = ['leader', 'officer', 'member'];
 export const ROLE_NAMES = { leader: 'Leader', officer: 'Officer', member: 'Member' };

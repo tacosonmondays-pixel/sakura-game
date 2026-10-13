@@ -1,5 +1,5 @@
 // Rate limits shared by the client limiter, the local adapter's mock server and
-// supabase/schema.sql (tests/online/schema.test.js checks the SQL uses the same numbers).
+// supabase/migrations/*_online.sql (tests/online/schema.test.js checks the SQL uses the same numbers).
 // The client limiter only gives instant feedback ("Slow down, 1.4 s"); the server limits
 // are the real ones.
 
