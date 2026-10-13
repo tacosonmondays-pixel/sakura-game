@@ -2,7 +2,8 @@
 // chibi girls, monsters, projectiles and effects, under an angled orthographic camera. The
 // camera is locked on the fitted view by default (settings.camera = 'locked'); 'free' brings
 // back the touch-friendly pan / pinch / double-tap-reset controls. Placing a girl never moves
-// the camera in either mode (src/render/cameraPolicy.js).
+// the camera in either mode (policy: src/render/cameraPolicy.js; pointer input:
+// src/render/boardInput.js).
 //
 //   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing });
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
@@ -13,6 +14,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
+import { attachBoardInput } from './boardInput.js';
 import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
@@ -248,7 +250,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   function shake(a) {
-    if (!reduceMotion) rig.shake(a);
+    // placing a girl: the camera holds still, impact shakes included (the drop point stays put)
+    if (!reduceMotion && !placingNow()) rig.shake(a);
   }
 
   function fmt(n) {
@@ -524,6 +527,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     ambient.update(d, occupied);
     overlays.update(d);
     actors.drawOverlay();
+    if (rig.shakeAmt > 0 && placingNow()) rig.shakeAmt = 0; // a shake already running stops too
     rig.apply(d);
     fx.update(d);
     for (const b of Object.values(batches)) b.end();
@@ -605,123 +609,33 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   // ----- input -------------------------------------------------------------------------------
-  const pointers = new Map();
-  let gesture = null; // { moved, longFired, timer, t0, x0, y0 }
-  let pinch = null;
-  let lastTap = null;
+  /** A girl is being placed: a placement ghost on the board, or the UI says so (opts.isPlacing). */
+  function placingNow() {
+    if (overlays.ghost) return true;
+    try {
+      return !!isPlacing();
+    } catch {
+      return false;
+    }
+  }
 
   /** Camera gestures allowed right now (camera mode + whether a girl is being placed). */
   function gestures() {
-    let placing = !!overlays.ghost;
-    if (!placing) {
-      try {
-        placing = !!isPlacing();
-      } catch {
-        placing = false;
-      }
-    }
-    return cameraGestures({ mode: cameraMode, placing });
+    return cameraGestures({ mode: cameraMode, placing: placingNow() });
   }
 
-  function local(e) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  }
-
-  function onDown(e) {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    try {
-      canvas.setPointerCapture?.(e.pointerId);
-    } catch {
-      /* capture is best effort (a pointer already lifted under jank, a synthetic test pointer) */
-    }
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size === 1) {
-      const g = { moved: false, longFired: false, t0: performance.now(), x0: e.clientX, y0: e.clientY, timer: 0 };
-      g.timer = setTimeout(() => {
-        if (gesture !== g || g.moved || pointers.size !== 1) return;
-        g.longFired = true;
-        const p = pick(g.x0, g.y0);
-        for (const cb of longCbs) cb({ ...p, clientX: g.x0, clientY: g.y0 });
-      }, 520);
-      gesture = g;
-    } else if (pointers.size === 2) {
-      if (gesture) {
-        clearTimeout(gesture.timer);
-        gesture.moved = true;
-      }
-      const [a, b] = [...pointers.values()];
-      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
-    }
-  }
-
-  function onMove(e) {
-    const p = pointers.get(e.pointerId);
-    if (!p) return;
-    const dx = e.clientX - p.x;
-    const dy = e.clientY - p.y;
-    p.x = e.clientX;
-    p.y = e.clientY;
-    const allow = gestures();
-    if (pointers.size >= 2 && pinch) {
-      const [a, b] = [...pointers.values()];
-      const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      const rect = canvas.getBoundingClientRect();
-      if (allow.zoom && pinch.dist > 0) rig.zoomAt(dist / pinch.dist, mx - rect.left, my - rect.top);
-      if (allow.pan) rig.panBy(mx - pinch.mx, my - pinch.my);
-      pinch = { dist, mx, my };
-      return;
-    }
-    const g = gesture;
-    if (!g) return;
-    // a press that wanders less than the slop is still a tap (wider while a drag cannot pan)
-    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > allow.tapSlop) {
-      g.moved = true;
-      clearTimeout(g.timer);
-    }
-    if (g.moved && !g.longFired && allow.pan) rig.panBy(dx, dy);
-  }
-
-  function onUp(e) {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
-    const g = gesture;
-    if (pointers.size > 0 || !g) return;
-    gesture = null;
-    clearTimeout(g.timer);
-    if (e.type === 'pointercancel' || g.moved || g.longFired) return;
-    if (performance.now() - g.t0 > 600) return;
-    const p = pick(e.clientX, e.clientY);
-    const now = performance.now();
-    if (gestures().reset && lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && p.towerUid == null) {
-      lastTap = null;
-      if (!rig.isDefault) rig.reset(true);
-    } else {
-      lastTap = { t: now, x: e.clientX, y: e.clientY };
-    }
-    for (const cb of tapCbs) cb({ ...p, clientX: e.clientX, clientY: e.clientY });
-  }
-
-  function onWheel(e) {
-    e.preventDefault(); // never scroll / zoom the page, locked or not
-    if (!gestures().zoom) return;
-    const p = local(e);
-    rig.zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y);
-  }
-
-  function onContext(e) {
-    e.preventDefault();
-  }
-
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerup', onUp);
-  canvas.addEventListener('pointercancel', onUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
-  canvas.addEventListener('contextmenu', onContext);
+  // taps, long presses, pan / pinch / wheel / double-tap — each camera move asks gestures()
+  const input = attachBoardInput(canvas, {
+    rig,
+    pick,
+    gestures,
+    onTap: (p) => {
+      for (const cb of tapCbs) cb(p);
+    },
+    onLongPress: (p) => {
+      for (const cb of longCbs) cb(p);
+    },
+  });
 
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => resize()) : null;
   ro?.observe(container);
@@ -814,14 +728,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     dispose() {
       if (disposed) return;
       disposed = true;
-      canvas.removeEventListener('pointerdown', onDown);
-      canvas.removeEventListener('pointermove', onMove);
-      canvas.removeEventListener('pointerup', onUp);
-      canvas.removeEventListener('pointercancel', onUp);
-      canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('contextmenu', onContext);
+      input.dispose();
       ro?.disconnect();
-      if (gesture) clearTimeout(gesture.timer);
       tapCbs.length = 0;
       longCbs.length = 0;
       overlays.dispose();

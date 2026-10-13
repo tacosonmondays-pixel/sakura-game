@@ -803,8 +803,10 @@ r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 
 Camera: angled orthographic (≈55° pitch) framing the whole map. Locked by default (settings.camera):
 the fitted view never moves. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
-girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes
-(src/render/cameraPolicy.js). Builds terrain from MapDef (themed ground tiles with subtle variation, raised
+girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes, impact shakes
+included, and a press that began while placing never pans; a board tap may wander 20 px (9 px when a
+drag would pan) and still be a tap (policy: src/render/cameraPolicy.js; pointer input:
+src/render/boardInput.js). Builds terrain from MapDef (themed ground tiles with subtle variation, raised
 stone path, animated water, trees/rocks/buildings, theme props, scenery from stage.scenery
 — e.g. lanterns + fog when veiled enemies are introduced, snow, embers), soft shadows (quality
 high), hemisphere + key light, optional bloom (high). Shows: towers (buildChibi), enemies

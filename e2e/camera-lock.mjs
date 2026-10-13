@@ -7,8 +7,12 @@
 //   - Settings → Camera → Free from the pause menu applies at once and is saved: the same drag
 //     pans, the wheel zooms; while a card is tapped (placement pending) a drag does not pan;
 //     a drag from the bar with a second finger dragging the map places a girl and never pans
+//   - Locked, the battle UI on top of the board still answers real touches: the selected girl's
+//     panel (upgrade, target mode, close), the hero's ultimate button, the pause button
 //   - the locked fit shows the whole board between the HUD and the tower bar on the largest maps
 //     (screenshots with --shots; --maps all checks every map)
+// Phone viewports (short side < 600 px) run as a touch phone (hasTouch + isMobile); larger ones
+// as a touch-screen desktop (hasTouch, mouse and wheel checks too).
 //
 //   node e2e/camera-lock.mjs [--viewport 844x390] [--shots <dir>] [--maps large|all]
 //
@@ -223,8 +227,9 @@ async function installHelpers(page) {
 
 async function runViewport(vp) {
   const [w, h] = vp.split('x').map(Number);
-  log(`\n=== viewport ${vp} ===`);
-  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: true });
+  log(`\n=== viewport ${vp}${Math.min(w, h) < 600 ? ' (touch phone)' : ' (desktop with touch)'} ===`);
+  const phone = Math.min(w, h) < 600;
+  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: true, isMobile: phone });
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => {
@@ -257,7 +262,12 @@ async function runViewport(vp) {
     }, null, { timeout: 30000 }).catch(() => null);
     return settled();
   };
-  /** Real one-finger touch drag from a to b in `steps` moves (3D draw paused meanwhile). */
+  /**
+   * Real one-finger touch drag from a to b in `steps` moves (3D draw paused meanwhile). Under
+   * SwiftShader each CDP touch event can take seconds to land, so the first move may arrive after
+   * the 520 ms long-press time: fine for "nothing moves" checks; the checks that need a drag to
+   * pan use the same-task synthetic drag (cam('drag')) instead.
+   */
   const touchDrag = async ([x0, y0], [x1, y1], steps = 12) => {
     await cam('freeze');
     await touch('touchStart', [[x0, y0]]);
@@ -273,11 +283,35 @@ async function runViewport(vp) {
     }
     await touch('touchEnd');
   };
+  /** Real mouse drag (3D draw paused meanwhile, so the moves come long before a long press). */
+  const mouseDrag = async ([x0, y0], [x1, y1], steps = 10) => {
+    await cam('freeze');
+    await page.mouse.move(x0, y0);
+    await page.mouse.down();
+    for (let i = 1; i <= steps; i++) await page.mouse.move(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps);
+    await page.mouse.up();
+  };
   const tapCard = async (unitId) => {
     const card = await page.locator(`[data-testid="card-${unitId}"]`).boundingBox();
     await touch('touchStart', [[card.x + card.width / 2, card.y + card.height / 2]]);
     await touch('touchEnd');
     return page.waitForFunction((id) => window.__battle.ui.placement.unitId === id && window.__battle.ui.placement.mode === 'tap', unitId, { timeout: 10000 }).then(() => true, () => false);
+  };
+
+  /** A real one-finger tap through the browser's input pipeline. */
+  const realTap = async (x, y) => {
+    await touch('touchStart', [[x, y]]);
+    await touch('touchEnd');
+  };
+  /** Real tap on the centre of an element (scrolled into view first); false if it is not shown. */
+  const tapEl = async (sel) => {
+    const el = page.locator(sel).first();
+    if (!(await el.isVisible().catch(() => false))) return false;
+    await el.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+    const b = await el.boundingBox();
+    if (!b) return false;
+    await realTap(b.x + b.width / 2, b.y + b.height / 2);
+    return true;
   };
 
   // fresh save straight into stage 1-1 (Easy): the default camera is Locked
@@ -305,10 +339,7 @@ async function runViewport(vp) {
   await touchPinch((sw.x0 + sw.x1) / 2, sw.y, 40, 160);
   const c2 = await settled();
   check(same(c0, c2) && c2.zoom === 1, `locked: a real two-finger pinch neither zooms nor pans (${fmtCam(c2)})`);
-  await page.mouse.move(sw.x0, sw.y);
-  await page.mouse.down();
-  for (let i = 1; i <= 10; i++) await page.mouse.move(sw.x0 + ((sw.x1 - sw.x0) * i) / 10, sw.y + i * 4);
-  await page.mouse.up();
+  await mouseDrag([sw.x0, sw.y], [sw.x1, sw.y + 40]);
   await page.mouse.move((sw.x0 + sw.x1) / 2, sw.y);
   await page.mouse.wheel(0, -600);
   const c3 = await settled();
@@ -400,6 +431,90 @@ async function runViewport(vp) {
     check(await page.evaluate(() => window.__battle.ui.selectedUid == null), `${label}: the long press is not also a tap`);
   };
   await tapAndHold('locked', lockedUid);
+
+  // ---- Locked: the panel, abilities and the pause button still work by real touch ----
+  if (lockedUid != null) {
+    await settled();
+    await page.evaluate(() => { window.__battle.sim.cash += 5000; });
+    const girl = await page.evaluate((id) => {
+      const t = window.__battle.sim.getTower(id);
+      const s = window.__battle.renderer.worldToScreen(t.x, t.y, 0.2);
+      return [s.clientX, s.clientY];
+    }, lockedUid);
+    await cam('tap', girl[0], girl[1]); // a board tap (same-task touch: CDP taps outlast a tap under SwiftShader)
+    const opened = await page.waitForFunction((id) => window.__battle.ui.selectedUid === id && !!document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]'), lockedUid, { timeout: 10000 }).then(() => true, () => false);
+    check(opened, 'locked: tapping her opens her upgrade panel');
+    if (opened) {
+      const tier0 = await page.evaluate((id) => window.__battle.sim.getTower(id).tiers[0], lockedUid);
+      await tapEl('[data-testid="tower-panel"] [data-testid="buy-0"]');
+      const tier1 = await page.waitForFunction(([id, t0]) => window.__battle.sim.getTower(id).tiers[0] > t0 && window.__battle.sim.getTower(id).tiers[0], [lockedUid, tier0], { timeout: 10000 }).then((hd) => hd.jsonValue(), () => tier0);
+      check(tier1 === tier0 + 1, `locked: the panel's upgrade button buys a tier (path 1: T${tier0} → T${tier1})`);
+      const mode = await page.evaluate((id) => {
+        const cur = window.__battle.sim.getTower(id).targetMode;
+        const btn = [...document.querySelectorAll('[data-testid="tower-panel"] .bt-target [data-mode]')].find((b) => b.dataset.mode !== cur);
+        return { cur, next: btn?.dataset.mode ?? null };
+      }, lockedUid);
+      if (mode.next) {
+        await tapEl(`[data-testid="tower-panel"] .bt-target [data-mode="${mode.next}"]`);
+        const now = await page.waitForFunction(([id, m]) => window.__battle.sim.getTower(id).targetMode === m, [lockedUid, mode.next], { timeout: 10000 }).then(() => mode.next, () => null);
+        check(now === mode.next, `locked: the panel's target buttons switch her target (${mode.cur} → ${now})`);
+      }
+      await shot('locked-panel');
+      await tapEl('[data-testid="panel-close"]');
+      check(await page.waitForFunction(() => window.__battle.ui.selectedUid == null, null, { timeout: 10000 }).then(() => true, () => false), 'locked: the panel closes with its close button');
+    }
+    // the hero's ultimate button (deploy the hero first when this formation has one)
+    const hero = await page.evaluate(() => {
+      const { sim, ui, renderer } = window.__battle;
+      const id = sim.heroConfig?.unitId;
+      if (!id) return null;
+      if (!sim.hero) {
+        outer: for (let y = 0.5; y < sim.map.height; y += 0.5) {
+          for (let x = 0.5; x < sim.map.width; x += 0.5) {
+            if (!sim.canPlace(id, x, y).ok) continue;
+            const s = renderer.worldToScreen(x, y, 0);
+            if (s.clientY > ui.bar.el.getBoundingClientRect().top - 30 || s.clientY < 70) continue;
+            const t = sim.placeTower(id, x, y);
+            if (t) ui.onPlaced(t);
+            break outer;
+          }
+        }
+      }
+      // the ultimate only charges during waves from hero level 3: report it ready and count the
+      // activations instead of running one (no wave, no impact shake in the camera checks)
+      window.__ults = 0;
+      window.__ultStub = { status: sim.heroUltStatus, activate: sim.activateUlt };
+      sim.heroUltStatus = () => ({ ...window.__ultStub.status.call(sim), unlocked: true, ready: true, cooldownLeft: 0 });
+      sim.activateUlt = () => {
+        window.__ults++;
+        return true;
+      };
+      return { id, placed: !!sim.hero };
+    });
+    if (hero?.placed) {
+      const ready = await page.waitForFunction(() => {
+        const b = document.querySelector('[data-testid="hero-widget"]:not([hidden]) [data-testid="ult"]');
+        return !!b && !b.disabled;
+      }, null, { timeout: 10000 }).then(() => true, () => false);
+      if (ready) await tapEl('[data-testid="ult"]');
+      check(ready && await page.waitForFunction(() => window.__ults > 0, null, { timeout: 10000 }).then(() => true, () => false), `locked: the hero's ultimate button answers a real tap (${hero.id}, button ready ${ready})`);
+    } else log(`  (no hero in this formation: ultimate button check skipped ${JSON.stringify(hero)})`);
+    await page.evaluate(() => {
+      const { sim } = window.__battle;
+      if (!window.__ultStub) return;
+      sim.heroUltStatus = window.__ultStub.status;
+      sim.activateUlt = window.__ultStub.activate;
+      delete window.__ultStub;
+    });
+    await page.evaluate(() => window.__battle.ui.select(null));
+    // the pause button opens the menu, Resume closes it
+    await tapEl('[data-testid="pause"]');
+    const paused = await page.waitForFunction(() => window.__battle.ui.paused && !document.querySelector('[data-testid="pause-menu"]').hidden, null, { timeout: 10000 }).then(() => true, () => false);
+    await page.waitForTimeout(400); // the sheet rises in
+    await tapEl('[data-testid="resume"]');
+    const resumed = await page.waitForFunction(() => !window.__battle.ui.paused, null, { timeout: 10000 }).then(() => true, () => false);
+    check(paused && resumed, `locked: the pause button opens the menu and Resume closes it (paused ${paused}, resumed ${resumed})`);
+  }
   const cLocked = await settled();
   check(same(c0, cLocked), `locked: after every gesture the camera is still the initial fit (${fmtCam(cLocked)})`);
   check(!takeErrors().length, 'locked checks: no errors');
@@ -407,7 +522,11 @@ async function runViewport(vp) {
   // ---- Settings → Camera → Free from the pause menu: applies at once, persists ----
   await page.evaluate(() => window.__battle.ui.openPause());
   await page.locator('[data-testid="set-camera"] button', { hasText: 'Free' }).click();
-  await page.waitForTimeout(600); // the sheet re-renders and rises in again
+  // the sheet re-renders and rises in again (seconds under SwiftShader): shoot it once it stands
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector('[data-testid="pause-menu"] .bt-sheet');
+    return !!sheet && !sheet.getAnimations().length;
+  }, null, { timeout: 15000 }).catch(() => null);
   await shot('pause-camera-free');
   await page.click('[data-testid="resume"]');
   await page.waitForTimeout(400); // the store saves 150 ms after a change
@@ -418,13 +537,24 @@ async function runViewport(vp) {
   await cam('drag', sw.x0, sw.y, sw.x1, sw.y + 40);
   const f1 = await settled();
   check(!same(f0, f1) && f1.zoom === f0.zoom, `free: a touch drag pans the map (${fmtCam(f0)} → ${fmtCam(f1)})`);
-  await page.mouse.move((sw.x0 + sw.x1) / 2, sw.y);
-  await page.mouse.wheel(0, -500);
+  const cx = (sw.x0 + sw.x1) / 2;
+  await touchPinch(cx, sw.y, 40, 160);
   const f2 = await settled();
-  check(f2.zoom > 1.05, `free: the mouse wheel zooms (zoom ${f1.zoom} → ${f2.zoom})`);
-  await cam('pinch', (sw.x0 + sw.x1) / 2, sw.y, 150, 50);
+  check(f2.zoom > f1.zoom + 0.3, `free: a real two-finger pinch zooms in (zoom ${f1.zoom} → ${f2.zoom})`);
+  await page.mouse.move(cx, sw.y);
+  await page.mouse.wheel(0, 300);
   const f3 = await settled();
-  check(f3.zoom < f2.zoom - 0.05, `free: a pinch zooms out (zoom ${f2.zoom} → ${f3.zoom})`);
+  check(f3.zoom < f2.zoom - 0.05, `free: the mouse wheel zooms (zoom ${f2.zoom} → ${f3.zoom})`);
+  // back the other way: the touch drag above already pushed the view to its pan limit that way
+  await mouseDrag([sw.x1, sw.y + 20], [sw.x0, sw.y - 10]);
+  const f4 = await settled();
+  check(f4.pan.join() !== f3.pan.join() && f4.zoom === f3.zoom, `free: a mouse drag pans (pan ${f3.pan.join(',')} → ${f4.pan.join(',')})`);
+  await cam('pinch', cx, sw.y, 150, 50);
+  const f5 = await settled();
+  check(f5.zoom < f4.zoom - 0.05 || f5.zoom === 1, `free: a pinch zooms back out (zoom ${f4.zoom} → ${f5.zoom})`);
+  await page.mouse.move(cx, sw.y);
+  await page.mouse.wheel(0, -500); // zoomed in again for the checks below (a moved view to hold)
+  await settled();
 
   // free, but a card is tapped (placement pending): drags, pinch and the wheel do not move the camera
   const pendingId = await page.evaluate(() => [...window.__battle.sim.loadout.keys()].find((id) => window.__battle.sim.cash >= window.__battle.sim.placeCost(id)) || null);
