@@ -74,15 +74,15 @@ Roster (ids fixed — other areas rely on them):
 |---|---|---|---|---|---|---|---|---|
 | hikari | hero | SSR | vanguard | holy | – | land | charm | starter |
 | luna | hero | SSR | mystic | mystic | – | land | rune | gacha |
-| nami | hero | SR | tideguard | mystic | frost | water | rime | free after 1-5 |
+| nami | hero | SR | tideguard | mystic | frost | amphibious | rime | free after 1-5 |
 | aoi | tower | R | marksman | pierce | – | land | feather | starter |
 | rei | tower | R | cleaver | slash | – | land | blade | starter |
 | yuki | tower | R | controller | mystic | frost | land | rime | free after 1-2 |
 | momo | tower | R | economy | pierce | – | land | cog | gacha |
 | akane | tower | SR | bombardment | blast | fire | land | ember | gacha |
-| sango | tower | SR | artillery | blast | water | water | ember | free after 1-5 |
+| sango | tower | SR | artillery | blast | water | amphibious | ember | free after 1-5 |
 | kage | tower | SR | skirmisher | pierce | – | land | feather | free after 2-5 |
-| umeko | tower | SR | support | mystic | water | water | charm | free after 3-2 |
+| umeko | tower | SR | support | mystic | water | amphibious | charm | free after 3-2 |
 | shiro | tower | SR | sniper | pierce | – | land | feather | free after 3-5 |
 | midori | tower | SR | alchemist | mystic | poison | land | rune | free after 4-5 |
 | suzu | tower | SR | trapper | blast | – | land | cog | free after 5-5 |
@@ -96,7 +96,7 @@ Every unit (free ones too) is also in the gacha pool of its rarity (duplicates �
 
 ```js
 UnitDef = {
-  id, name, title,              // 'Aoi', 'Sky Archer'
+  id, name, title,              // 'Aoi', 'Wind Ranger'
   kind: 'tower'|'hero', rarity: 'R'|'SR'|'SSR', adult: boolean (true only for heroes),
   role, attackType, element: null|ElementKey, placement, materialFamily,
   capabilities: CapabilityKey[],   // base capabilities BEFORE upgrades (for UI/recommendations)
@@ -106,9 +106,10 @@ UnitDef = {
   look: {
     hairStyle: 'twintails'|'ponytail'|'long'|'bob'|'braid'|'buns'|'short'|'side'|'hime'|'wavy',
     bangs: 'straight'|'swept'|'split'|'hime'|'messy',
-    accessory: 'ribbon'|'bunnyEars'|'catEars'|'foxEars'|'hairpin'|'beret'|'witchHat'|'horns'|'flower'|'goggles'|'hood'|'headband'|'crown'|'none',
+    accessory: 'ribbon'|'bunnyEars'|'catEars'|'foxEars'|'hairpin'|'beret'|'witchHat'|'horns'|'flower'|'goggles'|'hood'|'headband'|'crown'|'cap'|'none',
     outfit: 'sailor'|'blazer'|'miko'|'kimono'|'hoodie'|'dress'|'armor'|'coat'|'apron'|'jumpsuit'|'robe',
-    weapon: 'bow'|'katana'|'staff'|'cannon'|'rifle'|'shuriken'|'tome'|'bell'|'wrench'|'lantern'|'flask'|'parasol'|'trident'|'fan'|'rapier'|'gohei'|'coinPurse'|'sword',
+    weapon: 'bow'|'katana'|'staff'|'cannon'|'rifle'|'shuriken'|'tome'|'bell'|'wrench'|'lantern'|'flask'|'parasol'|'trident'|'fan'|'rapier'|'gohei'|'coinPurse'|'sword'
+          |'mic'|'shield'|'mirror'|'spear'|'mallet'|'puppet'|'cards',   // roster merge (ROSTER_SPEC §4.2)
     halo: 'ring'|'star'|'petal'|'gear'|'moon'|'flame'|'wave'|'crown'|'snow'|'bolt'|'leaf'|'eye',
     eyeStyle: 'round'|'sharp'|'sleepy'|'sparkle'|'closed',
     expression: 'smile'|'smug'|'calm'|'determined'|'shy'|'cheerful',
@@ -240,6 +241,21 @@ export const FUTURE_UNITS, FUTURE_MAP; export function futureThumb(id) // 'futur
 
 Future units (tomoe ← V2 rei, mizuha ← V2 nami, sayo ← V2 luna, hiiro ← V2 kaede) are **not UnitDefs**: never
 in `UNITS`, saves, gacha, the sim or balance. Only the wiki's Coming Soon article shows them.
+
+### 3b. Codex (legacy) kits — `src/data/legacy.js` (owner: units)
+
+The 19 shared girls carry their old Codex identity (ROSTER_SPEC §4.4b): old titles (Hikari keeps "Dawnblade
+Captain"), old looks, and the three old upgrade names as their three path names. Nami, Sango and Umeko are
+`amphibious` again, as in the Codex. The kit data lives outside the UnitDef so the unit schema is unchanged:
+
+```js
+LegacyKit = { title, trait /* the old one-line kit, e.g. 'Fast single-target attacks' */,
+              upgrades: string[] /* 3 for towers, [] for heroes */, paths: { [pathId]: upgradeName } }
+export const LEGACY /* unitId -> LegacyKit, the 19 shared ids */, LEGACY_IDS; export function legacyKit(unitId) // or null
+```
+
+The student Info tab shows the trait as a "Codex kit" line; the wiki has a "Codex Kits" article.
+`tests/data/legacy.test.js` keeps `LEGACY[id].paths` and the `path(...)` names in `units.js` in sync.
 
 ## 4. World — enemies, maps, stages (owner: world)
 

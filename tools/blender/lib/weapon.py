@@ -8,7 +8,7 @@ from .colors import mix, darken, lighten
 
 KIND = dict(bow='bow', katana='slash', sword='slash', rapier='thrust', staff='cast', tome='cast', bell='cast', gohei='cast', lantern='cast',
             cannon='cannon', rifle='rifle', shuriken='throw', flask='throw', coinPurse='throw', trident='thrust', wrench='smash', fan='sweep',
-            parasol='sweep')
+            parasol='sweep', mic='cast', shield='smash', mirror='cast', spear='thrust', mallet='smash', puppet='cast', cards='throw')
 
 
 def kind_of(weapon):
@@ -162,7 +162,8 @@ def staff(ctx):
 def trident(ctx):
     pal = ctx['pal']
     hd, down, fwd, out = hand_frame(ctx)
-    axis = Vector((0, 0, 1))
+    # leaned out a little so the prongs clear the head and long hair
+    axis = (Vector((0, 0, 1)) + out * 0.24).normalized()
     base = hd - axis * 0.2 + out * 0.03
     parts = [_rod(ctx, [base, hd, hd + axis * 0.3], 0.009, darken(pal['weapon'], 0.3), 'hand_R')]
     top = hd + axis * 0.3
@@ -402,5 +403,171 @@ def coin_purse(ctx):
     return [o, n, coin]
 
 
+def _star_plate(center, r_out, r_in, thick, plane='xz'):
+    pts = []
+    for i in range(10):
+        a = math.pi / 2 + i / 10 * math.pi * 2
+        rr = r_out if i % 2 == 0 else r_in
+        pts.append((math.cos(a) * rr, math.sin(a) * rr))
+    return M.plate(pts, thick, center=tuple(center), plane=plane)
+
+
+def _align(verts, origin, nrm):
+    """Rotates verts built around +Z at the origin so +Z points along `nrm`, then moves them."""
+    R = Vector((0, 0, 1)).rotation_difference(nrm.normalized()).to_matrix()
+    return [tuple(origin + R @ Vector(v)) for v in verts]
+
+
+def mic(ctx):
+    """Idol microphone: a slim handle, a silver mesh ball head, an accent band and a little star."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    axis = (Vector((0, 0, 1)) * 0.9 + fwd * 0.32 + out * 0.12).normalized()
+    parts = [_rod(ctx, [hd - axis * 0.035, hd + axis * 0.05, hd + axis * 0.085], [0.009, 0.011, 0.014], darken(pal['weapon'], 0.45), 'hand_R')]
+    head = hd + axis * 0.11
+    v, f = M.sphere(head, (0.027, 0.027, 0.027))
+    b = M.new_object('mic_head', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(b, levels=2)
+    parts.append(b)
+    v, f, r = M.tube([head - axis * 0.026, head - axis * 0.015], 0.02, sides=10)
+    parts.append(M.finish(M.new_object('mic_band', v, f, color=pal['accent'], bone='hand_R'), levels=1))
+    v, f = _star_plate(Vector((0, 0, 0)), 0.024, 0.01, 0.006)
+    v = [tuple(Vector(p) + hd + axis * 0.045 + fwd * 0.016) for p in v]
+    st = M.new_object('mic_star', v, f, color='#ffd45e', bone='hand_R')
+    M.finish(st, levels=0)
+    parts.append(st)
+    return parts
+
+
+def shield(ctx):
+    """Round buckler on the left arm: a domed disc, a raised rim and a five-petal sakura emblem."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx, 'L')
+    nrm = (out * 0.55 + fwd * 0.8).normalized()
+    c = hd + nrm * 0.02 + Vector((0, 0, 0.03))
+    v, f, r = M.lathe([(0.0, 0.018), (0.05, 0.013), (0.082, 0.0), (0.082, -0.008), (0.0, -0.008)], segments=14, close_top=False, close_bottom=False)
+    disc = M.new_object('shield', _align(v, c, nrm), f, color=pal['weapon'], bone='hand_L')
+    M.finish(disc, levels=1)
+    parts = [disc]
+    ring = [Vector((math.cos(a) * 0.084, math.sin(a) * 0.084, 0.002)) for a in (i / 16 * math.pi * 2 for i in range(17))]
+    v, f, r = M.tube(ring, (0.008, 0.008), sides=5, cap_start=False, cap_end=False)
+    rim = M.new_object('shield_rim', _align(v, c, nrm), f, color=lighten(pal['weapon'], 0.35), bone='hand_L')
+    M.finish(rim, levels=1)
+    parts.append(rim)
+    for i in range(5):
+        a = math.pi / 2 + i / 5 * math.pi * 2
+        v, f = M.sphere((math.cos(a) * 0.026, math.sin(a) * 0.026, 0.019), (0.019, 0.019, 0.006))
+        pe = M.new_object('shield_petal', _align(v, c, nrm), f, color=pal['accent'], bone='hand_L')
+        M.finish(pe, levels=1)
+        parts.append(pe)
+    v, f = M.sphere((0, 0, 0.024), (0.011, 0.011, 0.006))
+    k = M.new_object('shield_boss', _align(v, c, nrm), f, color='#ffd45e', bone='hand_L')
+    M.finish(k, levels=1)
+    parts.append(k)
+    return parts
+
+
+def mirror(ctx):
+    """Oval hand mirror: a short handle, a silver frame ring and a softly glowing glass."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    axis = (Vector((0, 0, 1)) * 0.92 + out * 0.2 + fwd * 0.12).normalized()
+    parts = [_rod(ctx, [hd - axis * 0.03, hd + axis * 0.05], [0.009, 0.011], darken(pal['weapon'], 0.3), 'hand_R')]
+    c = hd + axis * 0.115
+    side = axis.cross(fwd).normalized()
+    ring = [c + side * (math.cos(a) * 0.046) + axis * (math.sin(a) * 0.058) for a in (i / 16 * math.pi * 2 for i in range(17))]
+    v, f, r = M.tube(ring, (0.009, 0.007), sides=5, cap_start=False, cap_end=False)
+    fr = M.new_object('mirror_frame', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(fr, levels=1)
+    parts.append(fr)
+    v, f = M.sphere((0, 0, 0), (0.044, 0.004, 0.056))
+    R = Matrix((side, -fwd, axis)).transposed()
+    v = [tuple(c + R @ Vector(p)) for p in v]
+    gl = M.new_object('mirror_glass', v, f, color='#dde6ff', bone='hand_R')
+    M.finish(gl, levels=1)
+    gl['material'] = 'halo'
+    parts.append(gl)
+    v, f = M.sphere(c + axis * 0.064, (0.011, 0.008, 0.011))
+    parts.append(M.finish(M.new_object('mirror_gem', v, f, color=pal['accent'], bone='hand_R'), levels=1))
+    return parts
+
+
+def spear(ctx):
+    """Long storm spear (1.4x a staff): shaft, gold collar and a leaf-shaped blade."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    # leaned out from the body so the blade clears the head and hair
+    axis = (Vector((0, 0, 1)) + out * 0.3 + fwd * 0.1).normalized()
+    base = hd - axis * 0.25 + out * 0.03
+    top = hd + axis * 0.4
+    parts = [_rod(ctx, [base, hd, top], 0.009, darken(pal['weapon'], 0.45), 'hand_R')]
+    v, f, r = M.tube([top - axis * 0.01, top + axis * 0.02], 0.016, sides=8)
+    parts.append(M.finish(M.new_object('spear_collar', v, f, color=pal['accent'], bone='hand_R'), levels=1))
+    parts.append(_blade(ctx, top + axis * 0.02, axis, 0.13, 0.026, 0.006, pal['weapon'], 'hand_R', tip_len=0.35))
+    v, f, r = M.tube([top - axis * 0.012, top - axis * 0.05, top - axis * 0.08], [(0.012, 0.004), (0.016, 0.004), (0.001, 0.001)], sides=4, tip_end=True, up=fwd)
+    parts.append(M.finish(M.new_object('spear_tassel', v, f, color=pal['halo'], bone='hand_R'), levels=1))
+    return parts
+
+
+def mallet(ctx):
+    """Taiko bachi: a short thick drumstick with a rounded tip in each hand."""
+    pal = ctx['pal']
+    parts = []
+    for side, bone in (('R', 'hand_R'), ('L', 'hand_L')):
+        hd, down, fwd, out = hand_frame(ctx, side)
+        axis = (Vector((0, 0, 1)) * 0.75 + fwd * 0.45 + out * 0.25).normalized()
+        parts.append(_rod(ctx, [hd - axis * 0.04, hd + axis * 0.08, hd + axis * 0.15], [0.012, 0.014, 0.016], pal['weapon'], bone))
+        v, f = M.sphere(hd + axis * 0.16, (0.019, 0.019, 0.019))
+        parts.append(M.finish(M.new_object('bachi_tip', v, f, color=lighten(pal['weapon'], 0.15), bone=bone), levels=1))
+        v, f, r = M.tube([hd - axis * 0.045, hd - axis * 0.03], 0.015, sides=8)
+        parts.append(M.finish(M.new_object('bachi_wrap', v, f, color=pal['accent'], bone=bone), levels=1))
+    return parts
+
+
+def puppet(ctx):
+    """Marionette control: a cross bar held above the hand, three thin strings and a tiny doll."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + Vector((0, 0, 0.045)) + fwd * 0.03
+    wood = '#b98a5a'
+    parts = [_rod(ctx, [c - out * 0.055, c + out * 0.055], 0.008, wood, 'hand_R', sides=6)]
+    parts.append(_rod(ctx, [c - fwd * 0.04, c + fwd * 0.04], 0.008, wood, 'hand_R', sides=6))
+    doll = c + fwd * 0.05 - Vector((0, 0, 0.15))
+    head = doll + Vector((0, 0, 0.05))
+    for a in (c - out * 0.05, c + out * 0.05, c + fwd * 0.04):
+        end = head + (a - c) * 0.3
+        parts.append(_rod(ctx, [a, end], 0.0016, '#f4f0e8', 'hand_R', sides=3, levels=0))
+    v, f = M.sphere(head, (0.017, 0.016, 0.017))
+    parts.append(M.finish(M.new_object('doll_head', v, f, color='#ffe6dc', bone='hand_R'), levels=1))
+    v, f, r = M.lathe([(0.008, 0.03), (0.016, 0.012), (0.028, -0.012), (0.024, -0.016)], segments=8, close_top=True, close_bottom=True, center=(doll.x, doll.y, doll.z))
+    parts.append(M.finish(M.new_object('doll_dress', v, f, color=pal['accent'], bone='hand_R'), levels=1))
+    v, f = M.sphere(head + Vector((0, 0, 0.016)), (0.016, 0.015, 0.008))
+    parts.append(M.finish(M.new_object('doll_hair', v, f, color=pal['outfit'], bone='hand_R'), levels=1))
+    return parts
+
+
+def cards(ctx):
+    """A fan of four fortune cards held between the fingers (dark faces with a red edge)."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + fwd * 0.035 + Vector((0, 0, 0.03))
+    face = '#2b1c2a'
+    edge = pal['accent']
+    parts = []
+    for i in range(4):
+        ang = math.radians(-36 + i * 24)
+        R = Matrix.Rotation(ang, 3, 'Y')
+        off = R @ Vector((0, 0, 0.03))
+        for col, w, hgt, t, dy in ((edge, 0.04, 0.056, 0.003, 0.002), (face, 0.034, 0.05, 0.003, -0.0005)):
+            pts = [(-w / 2, -hgt / 2), (w / 2, -hgt / 2), (w / 2, hgt / 2), (-w / 2, hgt / 2)]
+            v, f = M.plate(pts, t, center=(0, 0, 0), plane='xz')
+            v = [tuple(c + off + Vector((0, dy - i * 0.004, 0)) + R @ Vector(p)) for p in v]
+            o = M.new_object('card', v, f, color=col, bone='hand_R')
+            M.finish(o, levels=0)
+            parts.append(o)
+    return parts
+
+
 WEAPONS = dict(bow=bow, katana=katana, staff=staff, cannon=cannon, rifle=rifle, shuriken=shuriken, tome=tome, bell=bell, wrench=wrench,
-               lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword)
+               lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword,
+               mic=mic, shield=shield, mirror=mirror, spear=spear, mallet=mallet, puppet=puppet, cards=cards)

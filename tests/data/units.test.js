@@ -14,15 +14,15 @@ import {
 const ROSTER = [
   ['hikari', 'hero', 'SSR', 'vanguard', 'holy', null, 'land', 'charm', 'starter'],
   ['luna', 'hero', 'SSR', 'mystic', 'mystic', null, 'land', 'rune', 'gacha'],
-  ['nami', 'hero', 'SR', 'tideguard', 'mystic', 'frost', 'water', 'rime', '1-5'],
+  ['nami', 'hero', 'SR', 'tideguard', 'mystic', 'frost', 'amphibious', 'rime', '1-5'],
   ['aoi', 'tower', 'R', 'marksman', 'pierce', null, 'land', 'feather', 'starter'],
   ['rei', 'tower', 'R', 'cleaver', 'slash', null, 'land', 'blade', 'starter'],
   ['yuki', 'tower', 'R', 'controller', 'mystic', 'frost', 'land', 'rime', '1-2'],
   ['momo', 'tower', 'R', 'economy', 'pierce', null, 'land', 'cog', 'gacha'],
   ['akane', 'tower', 'SR', 'bombardment', 'blast', 'fire', 'land', 'ember', 'gacha'],
-  ['sango', 'tower', 'SR', 'artillery', 'blast', 'water', 'water', 'ember', '1-5'],
+  ['sango', 'tower', 'SR', 'artillery', 'blast', 'water', 'amphibious', 'ember', '1-5'],
   ['kage', 'tower', 'SR', 'skirmisher', 'pierce', null, 'land', 'feather', '2-5'],
-  ['umeko', 'tower', 'SR', 'support', 'mystic', 'water', 'water', 'charm', '3-2'],
+  ['umeko', 'tower', 'SR', 'support', 'mystic', 'water', 'amphibious', 'charm', '3-2'],
   ['shiro', 'tower', 'SR', 'sniper', 'pierce', null, 'land', 'feather', '3-5'],
   ['midori', 'tower', 'SR', 'alchemist', 'mystic', 'poison', 'land', 'rune', '4-5'],
   ['suzu', 'tower', 'SR', 'trapper', 'blast', null, 'land', 'cog', '5-5'],
@@ -42,9 +42,10 @@ const PALETTE_KEYS = ['hair', 'hairShade', 'eyes', 'skin', 'outfit', 'outfitShad
 const LOOK_ENUMS = {
   hairStyle: ['twintails', 'ponytail', 'long', 'bob', 'braid', 'buns', 'short', 'side', 'hime', 'wavy'],
   bangs: ['straight', 'swept', 'split', 'hime', 'messy'],
-  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'none'],
+  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'cap', 'none'],
   outfit: ['sailor', 'blazer', 'miko', 'kimono', 'hoodie', 'dress', 'armor', 'coat', 'apron', 'jumpsuit', 'robe'],
-  weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword'],
+  weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
+    'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
@@ -426,7 +427,7 @@ describe('design requirements', () => {
     expect(getUnit('miko').base.aura.dmgMul).toBeGreaterThan(1);
     const umeko = getUnit('umeko');
     expect(umeko.base.aura.detection).toBe(true);
-    expect(umeko.placement).toBe('water');
+    expect(umeko.placement).toBe('amphibious');
     const chika = getUnit('chika');
     expect(chika.base.behavior).toBe('turret');
     expect(chika.base.turret.max).toBeGreaterThan(0);
@@ -457,8 +458,8 @@ describe('design requirements', () => {
     expect(Math.min(...tierOf)).toBeLessThanOrEqual(4);
   });
 
-  it('water units exist: two towers and a hero', () => {
-    const water = UNITS.filter((u) => u.placement === 'water');
+  it('water units exist: two towers and a hero (amphibious again, as in the Codex)', () => {
+    const water = UNITS.filter((u) => u.placement === 'water' || u.placement === 'amphibious');
     expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'umeko']);
   });
 
@@ -534,7 +535,7 @@ describe('hero definitions', () => {
   it('heroes are nerfed: level 10 ≈ a strong tier-4 tower, not a carry', () => {
     // Fold level milestones into base damage/rate and compare raw single-target DPS with Aoi tier 4.
     const aoi = getUnit('aoi');
-    const aoiT4 = (aoi.base.damage + 1 + 1 * 0 + 2 + 6) * aoi.base.rate; // Piercing Arrows 1-4 (per target)
+    const aoiT4 = (aoi.base.damage + 1 + 1 * 0 + 2 + 6) * aoi.base.rate; // Feather Arrows 1-4 (per target)
     for (const u of heroes()) {
       let dmg = u.base.damage; let dmgMul = 1; let rate = u.base.rate;
       for (const l of u.hero.levels) {

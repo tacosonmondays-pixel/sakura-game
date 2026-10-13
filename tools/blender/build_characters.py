@@ -27,7 +27,7 @@ from mathutils import Vector, Matrix  # noqa: E402
 UNIT_SCALE = 0.5
 
 from lib import mesh as M  # noqa: E402
-from lib import body, face, hair, outfit, accessory, weapon, halo, rig, anim, export, optimize  # noqa: E402
+from lib import body, face, hair, outfit, accessory, weapon, halo, rig, anim, export, optimize, extras  # noqa: E402
 from lib.proportions import proportions  # noqa: E402
 from lib.hair import Head  # noqa: E402
 from PIL import Image  # noqa: E402
@@ -36,6 +36,12 @@ DEFAULT_PALETTE = dict(hair='#8a6a5a', hairShade='#5a4038', eyes='#4a7fd0', skin
                        outfitShade='#d0d8e8', accent='#ff6f91', halo='#bfe8ff', weapon='#c0c8d8')
 DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit='sailor', weapon='staff', halo='ring',
                     eyeStyle='round', expression='smile')
+
+# Per-unit extra parts and horn shapes (tools-only, keyed by unit id — no unit schema change). Every extra is
+# joined into the vertex-coloured body mesh, so a GLB keeps exactly three primitives (lib/extras.py).
+EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoDrum'],
+                   tsubaki=['mortarTube'], kohaku=['monocle'])
+HORN_SHAPE = dict(raika='curl', seiran='dragon')
 
 
 def load_units(path=None):
@@ -78,7 +84,7 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     P = proportions(adult)
     spec = outfit.spec(look, pal)
     ctx = dict(unit=unit, pal=pal, look=look, P=P, spec=spec, parts=[], hair_bones=[], H=Head(P), adult=adult,
-               weapon_kind=weapon.kind_of(look['weapon']))
+               weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']))
 
     # --- face atlas ---
     atlas_path = os.path.join(tmpdir, f'{unit["id"]}_face.png')
@@ -106,6 +112,7 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     accessory.build(ctx)
     weapon.build(ctx)
     halo.build(ctx)
+    extras.build(ctx, EXTRA_PARTS.get(unit['id'], []))
 
     # --- materials ---
     mats = export.make_materials(atlas_path, pal['halo'])

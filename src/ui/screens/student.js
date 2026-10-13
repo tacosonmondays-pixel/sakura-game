@@ -30,6 +30,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { SKIN_MAP, resolveSkin } from '../../data/skins.js';
+import { legacyKit } from '../../data/legacy.js';
 import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
@@ -408,6 +409,7 @@ function infoTab(unit) {
           h('div.mb-role-name', role?.name || unit.role, cat ? h('span.mb-cat', { style: { background: cat.color } }, cat.name) : null),
           h('div.mb-subclass', unitSubclassLabel(unit, { maxCaps: 3 })))),
       h('p.mb-role-desc', ROLE_SUBCLASS[unit.role]?.desc || role?.desc || ''),
+      codexLine(unit),
       h('div.mb-good-bad',
         h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
         h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || ''))),
@@ -438,6 +440,16 @@ function infoTab(unit) {
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
   );
+}
+
+/** The girl's old Codex kit (ROSTER_SPEC §4.4b): her trait line and the three upgrade names her paths carry. */
+function codexLine(unit) {
+  const k = legacyKit(unit.id);
+  if (!k) return null;
+  return h('div.mb-codex', { 'data-testid': 'codex-kit' },
+    h('span.mb-codex-tag', 'Codex kit'),
+    h('span.mb-codex-trait', k.trait),
+    k.upgrades.length ? h('span.mb-codex-ups', k.upgrades.join(' · ')) : null);
 }
 
 function heroSection(unit) {

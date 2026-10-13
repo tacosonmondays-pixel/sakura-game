@@ -4,6 +4,8 @@
 // &skin=<skinId> dresses the girl(s) in that outfit (src/data/skins.js)
 // &asset=<manifest key> shows that model file directly (e.g. sentinel-aoi, future-tomoe; id = the
 //   unit whose rig/animation data to borrow) — used to render the outfit / Coming Soon thumbnails
+// &assets=<key>,<key>,… with view=row: a row of model files straight from public/models/characters/
+//   (e.g. look-dev builds of girls who are not in UNITS yet); the label under each is its key
 import * as THREE from 'three';
 import { preloadModels, buildChibi, createModelViewer } from '../src/models/index.js';
 import { loadCharacter, instantiateCharacter, ensureSkeletonUtils } from '../src/models/glbChibi.js';
@@ -17,6 +19,7 @@ const label = document.getElementById('label');
 const transparent = params.get('bg') === 'none';
 const skin = params.get('skin') || null;
 const assetKey = params.get('asset') || null;
+const assetKeys = params.get('assets') ? params.get('assets').split(',') : null;
 let assetData = null;
 
 const app = document.getElementById('app');
@@ -75,6 +78,22 @@ async function main() {
   }
   // one girl: the asset override, else her (skin's) chibi
   const chibi = (u) => (assetData ? instantiateCharacter(assetData, u, { quality }) : buildChibi(u, { quality, skin }));
+  if (assetKeys) {
+    await ensureSkeletonUtils();
+    const datas = await Promise.all(assetKeys.map((k) => loadCharacter(k, quality === 'high' ? 'full' : 'lod')));
+    datas.forEach((d, i) => {
+      if (!d) return;
+      const g = instantiateCharacter(d, { id: assetKeys[i].split('/').pop() }, { quality });
+      g.position.x = (i - (datas.length - 1) / 2) * Number(params.get('gap') || 0.78);
+      g.rotation.y = Number(params.get('rot') || 0);
+      scene.add(g);
+      actors.push(g);
+    });
+    frameCamera(Number(params.get('fov') || 24), [0, 0.62, Number(params.get('dist') || 4.6)], [0, 0.5, 0]);
+    label.textContent = `assets: ${assetKeys.join(', ')} · loaded ${datas.filter(Boolean).length}`;
+    document.body.dataset.ready = '1';
+    return;
+  }
   if (view === 'upgrade') {
     // build BEFORE anything is loaded: the procedural placeholder must be swapped for the GLB
     const list = (ids || ['hikari', 'aoi', 'momo']).map(unit);

@@ -144,6 +144,11 @@ def witch_hat(ctx):
 
 
 def horns(ctx):
+    shape = ctx.get('horn_shape')
+    if shape == 'curl':
+        return _curl_horns(ctx)
+    if shape == 'dragon':
+        return _dragon_horns(ctx)
     H = ctx['H']
     parts = []
     col = mix(ctx['pal']['accent'], '#ffffff', 0.15)
@@ -156,6 +161,105 @@ def horns(ctx):
         M.crease(h, M.tip_edges(r), 1.0)
         M.finish(h, levels=2)
         parts.append(h)
+    return parts
+
+
+def _curl_horns(ctx):
+    """Ram horns: a tapering tube that leaves the side of the head, curls back, down and forward
+    around the ear (Raika's curled horn tufts)."""
+    H = ctx['H']
+    # a shade darker than the accent so the curl reads against blonde hair
+    col = darken(ctx['pal']['accent'], 0.18)
+    parts = []
+    for s in (1, -1):
+        base = H.surf(s * 66, 34, HAIR_TOP - 0.04)
+        n = H.normal(s * 66, 34)
+        c = base + n * 0.05 + Vector((0, 0.014, -0.044))
+        pts = [base - n * 0.012]
+        steps = 9
+        for i in range(steps + 1):
+            t = i / steps
+            th = math.pi * 0.55 + t * math.pi * 1.5
+            r = 0.056 * (1 - 0.5 * t)
+            pts.append(c + Vector((s * (0.014 + 0.04 * t), -r * math.cos(th), r * math.sin(th))))
+        radii = [0.026] + [0.027 * (1 - 0.7 * i / steps) for i in range(steps)] + [0.001]
+        v, f, r = M.tube(pts, radii, sides=6, tip_end=True)
+        h = M.new_object(f'curlhorn{s}', v, f, color=col, bone='head')
+        M.crease(h, M.tip_edges(r), 1.0)
+        M.finish(h, levels=1)
+        parts.append(h)
+    return parts
+
+
+def _dragon_horns(ctx):
+    """Dragon horns: two long tapered tubes swept back from the top of the head (Seiran)."""
+    H = ctx['H']
+    col = mix(ctx['pal']['accent'], '#ffffff', 0.1)
+    parts = []
+    for s in (1, -1):
+        base = H.surf(s * 38, 54, HAIR_TOP - 0.05)
+        n = H.normal(s * 38, 54)
+        pts = [base - n * 0.012, base + n * 0.03, base + n * 0.05 + Vector((s * 0.014, 0.05, 0.02)),
+               base + n * 0.05 + Vector((s * 0.026, 0.11, 0.035)), base + n * 0.05 + Vector((s * 0.03, 0.16, 0.06))]
+        v, f, r = M.tube(pts, [0.024, 0.021, 0.015, 0.009, 0.001], sides=6, tip_end=True)
+        h = M.new_object(f'dragonhorn{s}', v, f, color=col, bone='head')
+        M.crease(h, M.tip_edges(r), 1.0)
+        M.finish(h, levels=2)
+        parts.append(h)
+    return parts
+
+
+def cap(ctx):
+    """Peaked officer / captain cap: a crown slightly wider at the flat top, a dark band, a curved
+    visor at the front and a small gold badge (Nami's white captain cap, Tsubaki's navy one)."""
+    from mathutils import Matrix
+    H = ctx['H']
+    pal = ctx['pal']
+    ctx['halo_lift'] = 0.06
+    body = pal['accent']
+    band_col = darken(pal['outfit'], 0.25)
+    visor_col = darken(pal['outfit'], 0.35)
+    el = 50
+    r0x = H.R.x * (1 + HAIR_TOP) * math.cos(math.radians(el)) * 1.04
+    r0y = H.R.y * (1 + HAIR_TOP) * math.cos(math.radians(el)) * 1.04
+    z0 = H.c.z + H.R.z * (1 + HAIR_TOP) * math.sin(math.radians(el)) - 0.012
+    base = Vector((H.c.x, H.c.y + 0.012, z0))
+    tilt = Matrix.Translation(base) @ Matrix.Rotation(math.radians(-9), 4, 'X')
+    sy = r0y / r0x
+    parts = []
+    # crown (flat top, a little wider than the band) + a puffed top disc
+    v, f, r = M.lathe([(1.0, 0.0), (1.06, 0.03), (1.2, 0.062), (1.13, 0.076), (0.62, 0.082)], segments=14, close_top=True, close_bottom=True)
+    v = [(x * r0x, y * r0x * sy, z) for x, y, z in v]
+    o = M.new_object('cap_crown', v, f, color=body, bone='head')
+    M.crease_ring(o, r[3], 0.5)
+    M.finish(o, levels=2)
+    o.data.transform(tilt)
+    o.data.update()
+    parts.append(o)
+    # band
+    v, f, r = M.tube([Vector((0, 0, -0.002)), Vector((0, 0, 0.026))], (r0x * 1.03, r0y * 1.03), sides=14)
+    b = M.new_object('cap_band', v, f, color=band_col, bone='head')
+    M.finish(b, levels=1)
+    b.data.transform(tilt)
+    b.data.update()
+    parts.append(b)
+    # visor: a curved slab in front of the band, dipping slightly
+    arc = math.radians(150)
+    v, f, r = M.lathe([(1.0, 0.004), (1.32, -0.012), (1.42, -0.02)], segments=8, close_top=False, close_bottom=False,
+                      arc=arc, start=-math.pi / 2 - arc / 2)
+    v = [(x * r0x, y * r0x * sy, z) for x, y, z in v]
+    vz = M.new_object('cap_visor', v, f, color=visor_col, bone='head')
+    M.finish(vz, levels=1, solidify=0.008)
+    vz.data.transform(tilt)
+    vz.data.update()
+    parts.append(vz)
+    # gold badge on the front of the crown
+    v, f = M.sphere((0, -r0y * 1.12, 0.045), (0.02, 0.007, 0.017))
+    g = M.new_object('cap_badge', v, f, color='#ffd45e', bone='head')
+    M.finish(g, levels=1)
+    g.data.transform(tilt)
+    g.data.update()
+    parts.append(g)
     return parts
 
 
@@ -267,4 +371,4 @@ def crown(ctx):
 
 
 ACCESSORIES = dict(ribbon=ribbon, bunnyEars=bunny_ears, catEars=cat_ears, foxEars=fox_ears, hairpin=hairpin, beret=beret, witchHat=witch_hat,
-                   horns=horns, flower=flower, goggles=goggles, hood=hood, headband=headband, crown=crown)
+                   horns=horns, flower=flower, goggles=goggles, hood=hood, headband=headband, crown=crown, cap=cap)

@@ -3,7 +3,7 @@
 
 import { n, lighten, darken, starPoints, sparklePath } from '../svgUtil.js';
 
-const FRONT = new Set(['shuriken', 'tome', 'bell', 'lantern', 'flask', 'gohei', 'coinPurse', 'cannon', 'rapier']);
+const FRONT = new Set(['shuriken', 'tome', 'bell', 'lantern', 'flask', 'gohei', 'coinPurse', 'cannon', 'rapier', 'mic']);
 
 /** Which layer a weapon is drawn on. */
 export function weaponLayer(kind) {
@@ -225,6 +225,15 @@ function coinPurse(r, c) {
   return s;
 }
 
+function mic(r, c) {
+  // Momo's idol microphone (roster merge): silver ball head, accent band, a little star on the handle
+  const { cx } = r;
+  const x = cx - 100;
+  const y = 372;
+  const m = metal(c);
+  return `<path d="M${x + 6} ${y + 60}L${x - 6} ${y - 6}" stroke="#3b3040" stroke-width="12" stroke-linecap="round"/><rect x="${x - 18}" y="${y - 12}" width="28" height="10" rx="4" transform="rotate(-10 ${x - 4} ${y - 7})" fill="${c.accent}" stroke="${c.accentLine}" stroke-width="1.6"/><circle cx="${x - 8}" cy="${y - 34}" r="24" fill="${m.fill}" stroke="${m.line}" stroke-width="2.4"/><path d="M${x - 26} ${y - 40}h36M${x - 28} ${y - 30}h40M${x - 22} ${y - 20}h30" stroke="${m.line}" stroke-width="1" opacity="0.5"/><ellipse cx="${x - 16}" cy="${y - 44}" rx="7" ry="4" fill="#fff" opacity="0.7"/><polygon points="${starPoints(x + 2, y + 26, 9, 4)}" fill="#ffd54a" stroke="#a8740a" stroke-width="1.4"/>`;
+}
+
 /** Weapon markup for the given layer ('back'|'front'); '' when it belongs to the other layer. */
 export function weapon(r, c, look, element, layer) {
   const kind = look.weapon;
@@ -248,6 +257,7 @@ export function weapon(r, c, look, element, layer) {
     case 'flask': return flask(r, c);
     case 'gohei': return gohei(r, c);
     case 'coinPurse': return coinPurse(r, c);
+    case 'mic': return mic(r, c);
     default: return '';
   }
 }

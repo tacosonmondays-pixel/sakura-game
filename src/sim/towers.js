@@ -18,6 +18,7 @@ const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
   staff: 'orb', tome: 'orb', lantern: 'spark', bell: 'spark', gohei: 'spark', fan: 'needle', parasol: 'needle',
   trident: 'orb', rapier: 'needle', katana: 'shuriken', sword: 'shuriken', coinPurse: 'bullet',
+  mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt', mallet: 'shuriken', puppet: 'needle', cards: 'shuriken',
 };
 const TYPE_KIND = { blast: 'shell', pierce: 'arrow', slash: 'shuriken', mystic: 'orb', holy: 'spark' };
 const ARC_KINDS = { shell: true, fireball: true, flask: true };
@@ -25,7 +26,7 @@ const ARC_KINDS = { shell: true, fireball: true, flask: true };
 /** Visual projectile kind for a unit (from its weapon, element and attack type). */
 export function projectileKind(def, stats) {
   let kind = WEAPON_KIND[def.look?.weapon] || TYPE_KIND[stats.attackType] || 'arrow';
-  if (kind === 'shell' && stats.element === 'fire') kind = 'fireball';
+  if ((kind === 'shell' || stats.attackType === 'blast') && stats.element === 'fire') kind = 'fireball';
   if (stats.element === 'lightning' && (kind === 'orb' || kind === 'bullet')) kind = 'bolt';
   return kind;
 }

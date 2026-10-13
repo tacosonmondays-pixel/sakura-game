@@ -25,6 +25,7 @@ import {
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { UNITS } from './units.js';
+import { LEGACY, LEGACY_IDS } from './legacy.js';
 import { CHAPTERS } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -510,9 +511,29 @@ function crosspathArticle() {
   ]);
 }
 
+function codexArticle() {
+  const girls = LEGACY_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  const towersOnly = girls.filter((u) => u.kind === 'tower');
+  return article('codex', 'Codex Kits', 'students', 'wiki', 'The original Sakura Sentinels Codex: every returning girl\'s old trait and upgrades.', ['codex', 'legacy', 'classic', 'old', 'original', 'trait', 'upgrade', 'amphibious'], [
+    sec('Returning girls',
+      p('The nineteen original Sentinels came back with their Codex looks, titles and kits. Their old one-line trait is shown as the "Codex kit" line on each Info tab, and their three old upgrades now name the three upgrade paths (the numbers follow today\'s five-tier paths).'),
+      table(['Girl', 'Codex title', 'Codex kit'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].title, LEGACY[u.id].trait,
+      ]))),
+    sec('Codex upgrades → today\'s paths',
+      table(['Girl', 'Path 1', 'Path 2', 'Path 3'], towersOnly.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ...u.paths.map((path) => `${path.name} — ${path.focus}`),
+      ])),
+      tip('Heroes levelled up automatically in the Codex and had no upgrades, so Hikari, Luna and Nami keep their hero paths.', 'info')),
+    sec('Land and water',
+      p('Girls who fought from land and water in the Codex are amphibious again: they deploy on open ground or on water.'),
+      { type: 'units', ids: girls.filter((u) => u.placement === 'amphibious').map((u) => u.id), caption: 'Amphibious girls' }),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
