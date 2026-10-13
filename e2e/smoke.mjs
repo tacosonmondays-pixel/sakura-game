@@ -199,6 +199,26 @@ async function runViewport(vp) {
   } else check(false, 'student detail: 3D toggle button exists');
   check(!takeErrors().length, 'student 3D: no errors');
 
+  // outfits (skins): open the Outfit sheet, wear Sentinel Style; the 1-1 battle below dresses Aoi in it
+  const pill = await page.$('[data-testid="outfit-open"]');
+  if (check(!!pill, 'student detail: Outfit pill shown')) {
+    await pill.click();
+    await page.waitForSelector('[data-testid="outfit-wear-aoi_sentinel"]', { timeout: 5000 }).catch(() => null);
+    const sheet = await page.evaluate(() => [...document.querySelectorAll('.mb-outfit-card')].map((c) => c.dataset.skin));
+    check(sheet.join() === 'aoi_default,aoi_sentinel', `outfit sheet lists Aoi's outfits (${sheet.join()})`);
+    await shot('student-outfits');
+    await page.click('[data-testid="outfit-wear-aoi_sentinel"]');
+    await page.waitForTimeout(1500);
+    const worn = await page.evaluate(() => ({
+      saved: window.__sakura.store.profile.units.aoi.skin,
+      pill: document.querySelector('[data-testid="outfit-open"]')?.textContent || '',
+      canvas: !!document.querySelector('#app canvas'),
+    }));
+    check(worn.saved === 'aoi_sentinel' && /Sentinel Style/.test(worn.pill) && worn.canvas, `outfit: Wear saves Sentinel Style and shows her in 3D (${JSON.stringify(worn)})`);
+    await shot('student-sentinel-3d');
+  }
+  check(!takeErrors().length, 'outfits: no errors');
+
   // ---- recruit 10-pull ----
   await page.evaluate(() => { location.hash = '#/recruit'; });
   await page.waitForSelector('[data-testid="pull-10"]', { timeout: 10000 });
@@ -436,6 +456,14 @@ async function runViewport(vp) {
   check(placed.towers >= 1, `battle: placed ${placed.towers} girl(s) via free placement (${placed.placed.join(', ')} at ${JSON.stringify(placed.spots)})`);
   check(placed.spots.every(([x, y]) => !Number.isInteger(x) && !Number.isInteger(y)), 'battle: girls stand at continuous (non-tile) positions');
   check(await page.evaluate(() => { const t = window.__battle.sim.towers[0]; return t && t.tx === Math.floor(t.x) && t.ty === Math.floor(t.y) && t.radius > 0; }), 'battle: TowerRT carries tx/ty under the footprint centre and a radius');
+  // the renderer draws new girls on its next frame (slow under SwiftShader)
+  await page.waitForFunction(() => { const { sim, renderer } = window.__battle; return sim.towers.every((t) => renderer.towerSkin(t.uid)); }, null, { timeout: 10000 }).catch(() => null);
+  const outfits = await page.evaluate(() => {
+    const { sim, renderer } = window.__battle;
+    return Object.fromEntries(sim.towers.map((t) => [t.unitId, renderer.towerSkin(t.uid)]));
+  });
+  check(outfits.aoi === 'aoi_sentinel', `battle: Aoi wears the outfit she was given (${JSON.stringify(outfits)})`);
+  check(Object.entries(outfits).every(([id, s]) => id === 'aoi' || s === `${id}_default`), 'battle: the other girls wear their default outfits');
   await page.evaluate(() => { const { ui } = window.__battle; ui.setAutoStart(true); ui.startWave(); ui.speed = 3; });
   await page.waitForTimeout(2500);
   await shot('battle-midwave');

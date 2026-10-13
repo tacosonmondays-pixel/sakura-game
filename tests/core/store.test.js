@@ -106,3 +106,45 @@ describe('store.load backups', () => {
     expect(JSON.parse(ls.m.get(SAVE_KEY)).version).toBe(SAVE_VERSION);
   });
 });
+
+describe('store restore offer (v3: a stale older tab replaced the save)', () => {
+  // What an old v2 tab leaves behind after opening a v3 save: the v3 text in the backups
+  // (reason 'newer') and a fresh v2 profile it autosaved over it.
+  function staleTabAftermath() {
+    const real = createProfile();
+    real.stats.battles = 30;
+    real.units.aoi.skin = 'aoi_sentinel';
+    const fresh = { ...createProfile(), version: 2 };
+    delete fresh.skins;
+    ls.setItem(BACKUP_KEY, JSON.stringify([{ at: '2026-10-12T09:00:00.000Z', reason: 'newer', version: SAVE_VERSION, raw: JSON.stringify(real) }]));
+    ls.setItem(SAVE_KEY, JSON.stringify(fresh));
+  }
+
+  it('offers the backup once and restores it on yes', () => {
+    staleTabAftermath();
+    expect(store.load().stats.battles).toBe(0);
+    const n = store.takeNotice();
+    expect(n).toMatchObject({ reason: 'restore', kept: true });
+    expect(n.message).toMatch(/30 battles/);
+    expect(store.answerRestore(true)).toBe(true);
+    expect(store.profile.stats.battles).toBe(30);
+    expect(store.profile.units.aoi.skin).toBe('aoi_sentinel');
+    expect(JSON.parse(ls.getItem(SAVE_KEY)).stats.battles).toBe(30);
+    expect(backups()[0].offered).toBe(true);
+    expect(backups().some((b) => b.reason === 'replaced')).toBe(true); // the fresh profile is kept too
+    store.load();
+    expect(store.takeNotice()).toBeNull(); // never asked again
+  });
+
+  it('on no, keeps the current profile and never asks again', () => {
+    staleTabAftermath();
+    store.load();
+    expect(store.takeNotice().reason).toBe('restore');
+    expect(store.answerRestore(false)).toBe(false);
+    expect(store.profile.stats.battles).toBe(0);
+    expect(backups()[0].offered).toBe(true);
+    store.load();
+    expect(store.takeNotice()).toBeNull();
+  });
+});
+

@@ -719,16 +719,19 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-tab { scroll-snap-align: start; }
 
 /* ---------- Outfits (skins): Outfit pill, outfit sheet, hanger badges ---------- */
-.mb-outfit-pill { margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 54%; display: flex; align-items: center; gap: 5px; position: relative; min-height: 32px; padding: 3px 10px 3px 7px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--blue-deep); font-weight: 800; font-size: 0.74rem; box-shadow: 0 2px 6px rgba(29, 78, 137, 0.14); transform: skewX(var(--skew)); }
+.mb-outfit-pill { margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 58%; display: flex; align-items: center; gap: 5px; position: relative; min-height: 32px; padding: 3px 10px 3px 7px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--blue-deep); font-weight: 800; font-size: 0.74rem; box-shadow: 0 2px 6px rgba(29, 78, 137, 0.14); transform: skewX(var(--skew)); }
+.mb-show-name-row .mb-show-names { flex: 1 1 0; min-width: min-content; } /* never splits a word; the pill shrinks instead */
 .mb-outfit-pill > * { transform: skewX(calc(-1 * var(--skew))); }
 .mb-outfit-pill .svg-icon { width: 18px; height: 18px; flex: none; }
 .mb-outfit-pill-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mb-outfit-pill.trying { background: #fff4b8; border-color: #f2c94c; color: var(--navy); }
 .mb-outfit-pill:active { transform: skewX(var(--skew)) scale(0.96); }
 .mb-outfit-new { position: absolute; top: -7px; right: -4px; background: #ff4d6d; color: #fff; font-size: 0.56rem; font-weight: 900; font-style: italic; padding: 1px 5px; border-radius: 999px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+.mb-outfit-new.try { background: #f2a50c; }
 @media (min-width: 700px) and (max-height: 480px) {
-  .mb-outfit-pill { min-height: 28px; font-size: 0.68rem; padding: 2px 8px 2px 6px; }
+  .mb-outfit-pill { min-height: 28px; font-size: 0.68rem; padding: 2px 7px 2px 5px; gap: 4px; }
   .mb-outfit-pill .svg-icon { width: 15px; height: 15px; }
+  .mb-show-name-row:has(.mb-outfit-pill) { gap: 7px; }
 }
 
 .mb-outfit-modal .modal-body { padding-bottom: 6px; }

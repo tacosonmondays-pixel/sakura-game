@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
+  recoverableBackup, restoreNotice,
 } from '../../src/systems/save.js';
+import { SKIN_MAP } from '../../src/data/skins.js';
+import { setSkin, equippedSkinId } from '../../src/systems/skins.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 
@@ -196,5 +199,159 @@ describe('loadSaveText (what store.load keeps a backup of)', () => {
       expect(backupNotice(reason)).toMatch(/kept as a backup/);
       expect(backupNotice(reason, false)).toMatch(/no backup could be made/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v3: outfits (units[id].skin, profile.skins) — docs/merge/ROSTER_SPEC.md §3.4
+// ---------------------------------------------------------------------------
+
+/** A save as the v2 build wrote it (no outfit fields). */
+function v2Save() {
+  const p = JSON.parse(JSON.stringify(createProfile()));
+  p.version = 2;
+  delete p.skins;
+  for (const u of Object.values(p.units)) delete u.skin;
+  p.units.yuki = { level: 12, exp: 3, breakthrough: 1, awaken: 1, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: 5, favorite: true };
+  p.stats.battles = 9;
+  return p;
+}
+
+describe('save v3 (outfits)', () => {
+  it('is version 3 and new profiles start with no stored outfits', () => {
+    expect(SAVE_VERSION).toBe(3);
+    const p = createProfile();
+    expect(p.skins).toEqual([]);
+    for (const u of Object.values(p.units)) expect(u.skin).toBeNull();
+  });
+
+  it('a v2 save loads with outfits defaulted and nothing else lost', () => {
+    const raw = v2Save();
+    expect(migrationDropsData(raw)).toBe(false);
+    const r = loadSaveText(JSON.stringify(raw));
+    expect(r.backup).toBeNull();
+    expect(r.version).toBe(2);
+    const p = r.profile;
+    expect(p.version).toBe(3);
+    expect(p.skins).toEqual([]);
+    for (const [id, u] of Object.entries(p.units)) {
+      expect(u.skin, id).toBeNull();
+      expect(equippedSkinId(p, id)).toBe(`${id}_default`);
+    }
+    expect(p.units.yuki).toMatchObject({ level: 12, breakthrough: 1, awaken: 1, favorite: true });
+    expect(p.stats.battles).toBe(9);
+  });
+
+  it('a v3 save keeps an equipped Sentinel Style through save, load and save codes', () => {
+    const p = createProfile();
+    expect(setSkin(p, 'aoi', 'aoi_sentinel').ok).toBe(true);
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBeNull();
+    expect(r.profile.units.aoi.skin).toBe('aoi_sentinel');
+    expect(r.profile.units.rei.skin).toBeNull();
+    const back = deserializeProfile(serializeProfile(r.profile));
+    expect(back.units.aoi.skin).toBe('aoi_sentinel');
+    expect(back).toEqual(r.profile);
+  });
+
+  it('the default row is stored as null; another girl\'s or a withUnit id in skins is dropped quietly', () => {
+    const p = createProfile();
+    p.units.aoi.skin = 'aoi_default';
+    p.units.rei.skin = 'aoi_sentinel'; // another girl's outfit
+    p.units.hikari.skin = 42;
+    p.skins = ['aoi_sentinel', 'aoi_default', 7, 'aoi_sentinel'];
+    expect(migrationDropsData(p)).toBe(false); // all known ids: nothing the player owned is lost
+    const m = migrateProfile(JSON.parse(JSON.stringify(p)));
+    expect(m.units.aoi.skin).toBeNull();
+    expect(m.units.rei.skin).toBeNull();
+    expect(m.units.hikari.skin).toBeNull();
+    expect(m.skins).toEqual([]); // with-unit/default outfits are never stored
+  });
+
+  it('unknown outfit ids are cleared and count as lossy (backup kept)', () => {
+    const p = createProfile();
+    p.units.aoi.skin = 'aoi_summer2027';
+    expect(migrationDropsData(p)).toBe(true);
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBe('lossy');
+    expect(r.profile.units.aoi.skin).toBeNull();
+
+    const q = createProfile();
+    q.skins = ['hikari_gala'];
+    expect(migrationDropsData(q)).toBe(true);
+    expect(migrateProfile(q).skins).toEqual([]);
+  });
+
+  it('keeps owned shop outfits and unequips ones the player does not own', () => {
+    const SHOP = { id: 'aoi_testshop', unitId: 'aoi', name: 'Test', desc: '', kind: 'shop', asset: 'sentinel-aoi', acquisition: { type: 'shop' }, order: 20 };
+    SKIN_MAP[SHOP.id] = SHOP;
+    try {
+      const p = createProfile();
+      p.units.aoi.skin = SHOP.id; // equipped but not owned
+      expect(migrateProfile(JSON.parse(JSON.stringify(p))).units.aoi.skin).toBeNull();
+      p.skins = [SHOP.id, SHOP.id];
+      const m = migrateProfile(JSON.parse(JSON.stringify(p)));
+      expect(m.skins).toEqual([SHOP.id]);
+      expect(m.units.aoi.skin).toBe(SHOP.id);
+    } finally {
+      delete SKIN_MAP[SHOP.id];
+    }
+  });
+
+  it('is idempotent with outfits', () => {
+    const p = createProfile();
+    setSkin(p, 'aoi', 'aoi_sentinel');
+    setSkin(p, 'hikari', 'hikari_sentinel');
+    const once = migrateProfile(JSON.parse(JSON.stringify(p)));
+    const twice = migrateProfile(JSON.parse(JSON.stringify(once)));
+    expect(twice).toEqual(once);
+    expect(once.units.hikari.skin).toBe('hikari_sentinel');
+  });
+});
+
+describe('recoverableBackup (a stale older tab replaced the save)', () => {
+  const real = () => {
+    const p = createProfile();
+    p.stats.battles = 40;
+    p.units.yuki = { level: 20, exp: 0, breakthrough: 2, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: 1, favorite: false, skin: 'yuki_sentinel' };
+    return p;
+  };
+  const entry = (raw, extra = {}) => ({ at: '2026-10-12T10:00:00.000Z', reason: 'newer', version: SAVE_VERSION, raw, ...extra });
+
+  it('offers the newest readable same-version backup with more battles', () => {
+    const fresh = createProfile();
+    const list = [entry(JSON.stringify(real()))];
+    const found = recoverableBackup(list, fresh);
+    expect(found).toBeTruthy();
+    expect(found.index).toBe(0);
+    expect(found.profile.stats.battles).toBe(40);
+    expect(found.profile.units.yuki.skin).toBe('yuki_sentinel');
+    expect(restoreNotice(found)).toMatch(/Restore your progress from before the update\?/);
+    expect(restoreNotice(found)).toMatch(/40 battles/);
+    const newer = real();
+    newer.stats.battles = 50;
+    const two = [entry(JSON.stringify(real())), entry(JSON.stringify(newer))];
+    expect(recoverableBackup(two, fresh).index).toBe(1);
+  });
+
+  it('ignores other reasons, versions, offered or unreadable entries and smaller saves', () => {
+    const fresh = createProfile();
+    const raw = JSON.stringify(real());
+    expect(recoverableBackup(null, fresh)).toBeNull();
+    expect(recoverableBackup('x', fresh)).toBeNull();
+    expect(recoverableBackup([entry(raw, { reason: 'lossy' })], fresh)).toBeNull();
+    expect(recoverableBackup([entry(raw, { reason: 'corrupt' })], fresh)).toBeNull();
+    expect(recoverableBackup([entry(raw, { version: 2 })], fresh)).toBeNull();
+    expect(recoverableBackup([entry(raw, { version: SAVE_VERSION + 1 })], fresh)).toBeNull();
+    expect(recoverableBackup([entry(raw, { offered: true })], fresh)).toBeNull();
+    expect(recoverableBackup([entry('{"version":3,"units":')], fresh)).toBeNull();
+    expect(recoverableBackup([null, 5, entry(raw)], fresh).index).toBe(2);
+    const played = createProfile();
+    played.stats.battles = 40; // the current profile is not behind the backup
+    expect(recoverableBackup([entry(raw)], played)).toBeNull();
+    // a backup whose own content is from a newer build is never offered
+    const nv = real();
+    nv.version = SAVE_VERSION + 1;
+    expect(recoverableBackup([entry(JSON.stringify(nv))], fresh)).toBeNull();
   });
 });

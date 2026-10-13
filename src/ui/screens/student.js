@@ -277,7 +277,9 @@ function buildShowcase(unit, onCycle) {
         h('div.mb-show-names', h('div.mb-show-name', unit.name), h('div.mb-show-title', unit.title)),
         h(`button.mb-outfit-pill${trying ? '.trying' : ''}`, {
           'data-testid': 'outfit-open', title: trying ? `Trying on: ${shown.name}` : `Outfit: ${shown.name}`, onclick: () => openOutfits(unit, api),
-        }, svgEl(uiIcon('hanger')), h('span.mb-outfit-pill-name', trying ? `Try-on · ${shown.name}` : shown.name), isNew ? h('span.mb-outfit-new', 'NEW') : null)),
+        }, svgEl(uiIcon('hanger')), h('span.mb-outfit-pill-name', shown.name),
+        // corner tag: a try-on (not saved) wins over the one-time NEW
+        trying ? h('span.mb-outfit-new.try', 'TRY-ON') : isNew ? h('span.mb-outfit-new', 'NEW') : null)),
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
         stars(st?.awaken || 0, MAX_AWAKEN),
@@ -317,6 +319,7 @@ function openOutfits(unit, showcase) {
   if (!profile.seenIntro.includes(OUTFIT_INTRO)) {
     profile.seenIntro.push(OUTFIT_INTRO);
     store.commit('intro');
+    showcase.refresh(); // drop the pill's NEW tag
   }
   const owned = !!profile.units[unit.id];
   let dlg = null;
@@ -326,7 +329,9 @@ function openOutfits(unit, showcase) {
       ? svgEl(portraitHTML(unit, 'bust'), 'mb-outfit-art')
       : h('img.mb-outfit-art', { src: artUrl(skin.thumb), alt: `${unit.name} — ${skin.name}`, loading: 'lazy', draggable: 'false' });
     const previewing = shownSkinId(unit) === skin.id;
-    const state = c.equipped ? ['Equipped', '.on'] : c.owned ? ['Owned', ''] : ['Locked', '.locked'];
+    // a girl not recruited yet has every outfit locked (her default included)
+    const wearing = c.equipped && c.owned;
+    const state = wearing ? ['Equipped', '.on'] : c.owned ? ['Owned', ''] : ['Locked', '.locked'];
     return h(`div.mb-outfit-card${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
       h('div.mb-outfit-thumb', thumb, skin.kind !== 'default' ? h('span.mb-outfit-kind', '3D') : null),
       h('div.mb-outfit-text',
@@ -344,8 +349,8 @@ function openOutfits(unit, showcase) {
               showcase.show3D();
             },
           }),
-          button(c.equipped ? 'Wearing' : 'Wear', {
-            kind: 'yellow', small: true, testid: `outfit-wear-${skin.id}`, disabled: c.equipped || !c.owned,
+          button(wearing ? 'Wearing' : 'Wear', {
+            kind: 'yellow', small: true, testid: `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
             onClick: () => {
               const res = setSkin(store.profile, unit.id, skin.id);
               if (!res.ok) {

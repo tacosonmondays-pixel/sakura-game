@@ -3,6 +3,7 @@ import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift } from './systems/mail.js';
+import { formationSkins } from './systems/skins.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -97,7 +98,7 @@ import('./ui/orientation.js').then((o) => { o.initOrientation({ route: currentRo
 // Warm up the character GLBs in the background once the first screen is up: the secretary at
 // full detail (lobby close-up), then the formation at the detail the quality setting needs
 // (chibis-v2: no-arg preloadModels() would fetch all 19 full models ≈ 7.7 MB).
-const warmModels = () => Promise.all([import('./models/index.js'), import('./systems/skins.js')]).then(async ([m, { formationSkins }]) => {
+const warmModels = () => import('./models/index.js').then(async (m) => {
   const p = store.profile || {};
   const f = p.formation || {};
   const detail = m.detailFor(p.settings?.quality || 'high');
