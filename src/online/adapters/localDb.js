@@ -5,6 +5,7 @@
 // browser. Storage, clock and randomness are injected, so tests drive it directly in Node.
 import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
+import { createLocalSocial } from './localSocial.js';
 import {
   CLAN_MAX_MEMBERS, DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
@@ -20,7 +21,7 @@ const ROOM_TAKEN = 6 * 3600 * 1000;
 /** Code alphabet of the SQL random_code(): 32 letters/digits without 0/O and 1/I. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** A miss that must still save the state (its rate-limit hit counts): tx() saves, then throws. */
-const COMMIT_FAIL = Symbol('commitFail');
+const COMMIT_FAIL = Symbol.for('ss.localDb.commitFail');
 
 function freshState() {
   return {
@@ -46,9 +47,11 @@ function freshState() {
 
 /**
  * @param {{ read: () => object|null, write: (state: object) => void, now?: () => number,
- *   rand?: () => number, emit?: (topic: string) => void }} io
+ *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean } }} io
+ *   features.social = false: the "server" has no social functions yet (like the live project
+ *   before the owner runs the social migration): every social call throws needs_update
  */
-export function createLocalDb({ read, write, now = () => Date.now(), rand = Math.random, emit = () => {} }) {
+export function createLocalDb({ read, write, now = () => Date.now(), rand = Math.random, emit = () => {}, features = {} }) {
   /** Runs `fn(state)` on a fresh copy of the stored state and saves it when `save`. */
   function tx(fn, { save = true } = {}) {
     let state = read();
@@ -64,11 +67,12 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     return out;
   }
 
-  const fail = (code, msg, extra) => {
-    throw new OnlineError(code, msg, extra);
+  // every refusal of this in-browser "server" is definitive (nothing was applied)
+  const fail = (code, msg, extra = {}) => {
+    throw new OnlineError(code, msg, { ...extra, definitive: true });
   };
   /** Return this from a tx to save the state (e.g. a counted wrong code) and then throw. */
-  const failSaved = (code, msg) => ({ [COMMIT_FAIL]: new OnlineError(code, msg) });
+  const failSaved = (code, msg) => ({ [COMMIT_FAIL]: new OnlineError(code, msg, { definitive: true }) });
 
   /** ms until `uid` may do `action` again (0 = now); records nothing. SQL: rate_retry_ms(). */
   function retry(state, uid, action) {
@@ -202,13 +206,21 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     };
   }
 
+  // [social] DMs, friends, blocks, reports, co-op invites by DM, clan material requests
+  const social = createLocalSocial({
+    tx, rate, retry, now, rand, code, systemMessage, devClanId: DEV_CLAN_ID, enabled: () => features.social !== false,
+  });
+  const { guardChat, roomBlocked, recordPartners, leftDevLab, ...socialApi } = social;
+
   return {
+    ...socialApi,
     // ---- account --------------------------------------------------------------------------
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {
       return tx((s) => {
-        const u = (s.users[uid] ||= { id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar, clanId: null, lastActive: now() });
+        const u = (s.users[uid] ||= { id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar, clanId: null, lastActive: now(), createdAt: now() });
         u.lastActive = now();
+        u.createdAt ||= now(); // accounts from before the social update
         return { ...u };
       });
     },
@@ -221,6 +233,8 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         if (name != null) {
           const err = validateName(name);
           if (err) fail('invalid', err);
+          // [social] 3 name changes a day (SQL: the profiles_rename_limit trigger)
+          if (String(name).trim() !== u.name && features.social !== false) rate(s, uid, 'rename');
           u.name = String(name).trim();
         }
         if (Number.isFinite(level)) u.level = Math.max(1, Math.min(999, Math.floor(level)));
@@ -255,6 +269,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         if (channel !== 'global' && !channel.startsWith('clan:')) fail('invalid', 'Unknown channel.');
         if (channel.startsWith('clan:')) requireMember(s, uid, channel.slice(5));
         rate(s, uid, 'chat');
+        guardChat(s, uid, text, kind, meta); // [social] SQL: messages_social_guard
         const msg = { id: s.seq++, channel, userId: uid, name: u.name, level: u.level, avatar: u.avatar, body: text, kind, meta: meta ? { ...meta } : null, createdAt: now() };
         const list = (s.messages[channel] ||= []);
         list.push(msg);
@@ -386,6 +401,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const c = s.clans[m.clanId];
         delete s.members[uid];
         if (s.users[uid]) s.users[uid].clanId = null;
+        if (c?.isDev) leftDevLab(s, uid); // [social] no donations for a week
         const rest = Object.values(s.members).filter((x) => x.clanId === m.clanId).sort((a, b) => a.joinedAt - b.joinedAt);
         if (c && !c.isDev) {
           if (!rest.length) {
@@ -559,8 +575,11 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const r = s.rooms[c];
         if (!r || now() - r.createdAt > ROOM_TTL) return failSaved('not_found', 'No room uses that code.');
         if (r.hostId === uid) return { code: c, secret: r.secret, host: true };
+        // [social] blocked by the host: this room does not exist for them
+        if (roomBlocked(s, r.hostId, uid)) return failSaved('not_found', 'No room uses that code.');
         if (r.guestId && r.guestId !== uid) return failSaved('full', 'That room already has two players.');
         r.guestId = uid;
+        recordPartners(s, uid, r.hostId); // [social] a friend request context for a week
         return { code: c, secret: r.secret, host: false };
       });
     },

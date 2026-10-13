@@ -77,6 +77,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     error: null, // { code, text } when the room could not be opened / joined
     mismatch: null, // the other player's version when it differs from mine (no pairing)
     peerGone: false,
+    // [social] the server registered my seat (open_room / join_room answered): a DM co-op invite
+    // for this room can be sent now (send_coop_invite checks the room exists and is mine)
+    seated: false,
     on: emitter.on,
     emit: emitter.emit,
   };
@@ -89,6 +92,11 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     host: isHost,
     meta: { name: me.name, host: isHost },
     onError: (e) => roomError(e),
+    onSeated: () => {
+      s.seated = true;
+      emitter.emit('seated', s);
+      changed();
+    },
     onMessage: (msg) => handle(msg),
     onPresence: (list) => {
       // lobby only: in battle a presence blip (reconnecting socket) must not drop the ally;
