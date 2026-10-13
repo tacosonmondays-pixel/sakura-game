@@ -1,5 +1,5 @@
 // End-to-end smoke test: boots the real game in Chromium (SwiftShader WebGL), meets Hikari's
-// opening scene (skipped) on a fresh save, visits every route, does a 10-pull, drags a girl from the tower bar onto the board
+// opening scene (skipped) on a fresh save, sees her tutorial coach on the 1-1 battle and skips it, visits every route, does a 10-pull, drags a girl from the tower bar onto the board
 // (real pointer events), plays stage 1-1 on Easy to victory and checks that rewards, medals
 // and bestiary discoveries were saved. Runs at 1280×720 (mouse), 844×390 (landscape phone,
 // touch) and 390×844 (portrait phone, touch).
@@ -144,6 +144,17 @@ async function runViewport(vp) {
   await page.click('[data-testid="story-skip-confirm"]', { timeout: 15000, force: true }).catch(() => {});
   await page.waitForFunction(() => location.hash.startsWith('#/battle') && location.hash.includes('tutorial=1'), null, { timeout: 20000 }).catch(() => null);
   check(await page.evaluate(() => location.hash.startsWith('#/battle') && window.__sakura.store.profile.story.opening === 'skipped'), 'opening: Skip → confirm opens the tutorial battle (1-1 Easy)');
+  // Hikari's coach is up on the real battle UI ("Meet your first defender!"); Skip tutorial asks first, then the
+  // battle goes on without her tips and the tutorial is never forced again
+  const coachUp = await page.waitForFunction(() => document.querySelector('[data-testid="coach"]')?.dataset.step === 'place'
+    && document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on'), null, { timeout: 90000, polling: 250 }).then(() => true, () => false);
+  check(coachUp, 'tutorial battle: Hikari\'s coach shows the first step');
+  await shot('tutorial-coach');
+  await page.click('[data-testid="coach-skip"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 15000 }).catch(() => null);
+  await page.click('[data-testid="confirm-ok"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('[data-testid="coach"]'), null, { timeout: 15000, polling: 250 }).catch(() => null);
+  check(await page.evaluate(() => !document.querySelector('[data-testid="coach"]') && !!window.__battle && window.__sakura.store.profile.story.tutorial === 'skipped'), 'tutorial: Skip tutorial → confirm removes the coach, the battle stays, tutorial skipped');
   await page.evaluate(() => { location.hash = '#/lobby'; });
   await page.waitForFunction(() => location.hash.startsWith('#/lobby') && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 15000 }).catch(() => null);
   check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'after the opening: the lobby opens');

@@ -215,16 +215,43 @@ export function attachCoach(ctx) {
     }
   }
 
-  /** The best buy button in the open panel for the coached girl (cheapest open tier-1 path). */
+  /**
+   * The buy button to light in the open panel for the coached girl: the cheapest tier-1 path the player can see
+   * without scrolling (on a phone the panel scrolls), else the cheapest one, scrolled into view once.
+   */
+  let scrolledTo = null;
   function buyButton(t) {
     const panel = q('[data-testid="tower-panel"]');
     if (!panel || panel.hidden || ctx.selectedUid !== t.uid) return null;
+    const visible = (btn) => {
+      const r = btn.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return false;
+      for (let el = btn.parentElement; el && el !== panel.parentElement; el = el.parentElement) {
+        if (el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1) continue;
+        const v = el.getBoundingClientRect();
+        if (r.top < v.top - 1 || r.bottom > v.bottom + 1) return false;
+      }
+      return true;
+    };
     let best = null;
+    let bestSeen = null;
     for (let p = 0; p < 3; p++) {
       const st = sim.upgradeStatus(t.uid, p);
       if (!st.next || (st.reason && st.reason !== 'cash')) continue;
       const btn = panel.querySelector(`[data-testid="buy-${p}"]`);
-      if (btn && (!best || st.cost < best.cost)) best = { btn, cost: st.cost };
+      if (!btn) continue;
+      if (!best || st.cost < best.cost) best = { btn, cost: st.cost };
+      if (visible(btn) && (!bestSeen || st.cost < bestSeen.cost)) bestSeen = { btn, cost: st.cost };
+    }
+    if (bestSeen) return bestSeen.btn;
+    const scroller = best?.btn.closest('.bt-panel-scroll');
+    if (best && scroller && scrolledTo !== best.btn) {
+      // only the panel's own scroller moves (scrollIntoView could shift the battle layer too)
+      scrolledTo = best.btn;
+      const r = best.btn.getBoundingClientRect();
+      const v = scroller.getBoundingClientRect();
+      if (r.bottom > v.bottom) scroller.scrollTop += r.bottom - v.bottom + 12;
+      else if (r.top < v.top) scroller.scrollTop -= v.top - r.top + 12;
     }
     return best?.btn || null;
   }
@@ -324,11 +351,18 @@ export function attachCoach(ctx) {
       ring.classList.remove('on');
       return;
     }
+    // a ring that is just appearing jumps onto its target (it glides only from one target to the next)
+    const jump = !ring.classList.contains('on');
+    if (jump) ring.style.transition = 'none';
     ring.classList.toggle('round', !!round);
     ring.style.left = `${Math.round(rect.x)}px`;
     ring.style.top = `${Math.round(rect.y)}px`;
     ring.style.width = `${Math.round(rect.w)}px`;
     ring.style.height = `${Math.round(rect.h)}px`;
+    if (jump) {
+      void ring.offsetWidth;
+      ring.style.transition = '';
+    }
     ring.classList.add('on');
   }
 
@@ -496,6 +530,12 @@ export function attachCoach(ctx) {
           root.dataset.spotY = String(Math.round(hs.spot.y));
         }
       }
+    }
+    // keep the ring inside the screen (the speed button sits in the top-right corner)
+    if (target && !round) {
+      const x0 = Math.max(4, target.x);
+      const y0 = Math.max(4, target.y);
+      target = { x: x0, y: y0, w: Math.min(base.width - 4, target.x + target.w) - x0, h: Math.min(base.height - 4, target.y + target.h) - y0 };
     }
     setRing(target, round);
     setHand(from, to);

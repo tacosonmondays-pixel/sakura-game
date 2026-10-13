@@ -85,6 +85,17 @@ async function runViewport(vp) {
     const context = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 1, hasTouch: touch });
     if (save) await context.addInitScript(([k, v]) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, [SAVE_KEY, save]);
     await context.addInitScript((k) => sessionStorage.setItem(k, '1'), BETA_SHOWN_KEY);
+    // where the coach put its ring (its target geometry: under SwiftShader a CSS glide can lag behind for seconds)
+    await context.addInitScript(() => {
+      window.__ringBox = () => {
+        const ring = document.querySelector('.tc-ring');
+        const l = ring.parentElement.getBoundingClientRect();
+        const n = (k) => parseFloat(ring.style[k]) || 0;
+        const left = l.left + n('left');
+        const top = l.top + n('top');
+        return { left, top, right: left + n('width'), bottom: top + n('height'), on: ring.classList.contains('on') };
+      };
+    });
     const page = await context.newPage();
     const errors = [];
     page.on('console', (m) => {
@@ -99,15 +110,17 @@ async function runViewport(vp) {
   const shot = async (page, name) => {
     if (!shotsDir) return;
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 150))))).catch(() => {});
-    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png` }).catch((e) => log(`  (screenshot ${name} skipped: ${e.message.split('\n')[0]})`));
+    // show where things settle: under SwiftShader a 0.2 s CSS transition can still be on its first frame here
+    await page.evaluate(() => document.getAnimations().forEach((a) => { if (a.constructor?.name === 'CSSTransition') a.finish(); })).catch(() => {});
+    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 60000 }).catch((e) => log(`  (screenshot ${name} skipped: ${e.message.split('\n')[0]})`));
   };
   const story = (page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__sakura.store.profile.story)));
   const coachStep = (page) => page.evaluate(() => document.querySelector('[data-testid="coach"]')?.dataset.step ?? null);
   const waitStep = (page, id, timeout = 15000) => page.waitForFunction((s) => document.querySelector('[data-testid="coach"]')?.dataset.step === s
-    && document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on'), id, { timeout }).then(() => true, () => false);
+    && document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on'), id, { timeout, polling: 200 }).then(() => true, () => false);
   const errorsOk = (errors, label) => check(!errors.length, `${label}: no errors${errors.length ? `\n       ${errors.slice(0, 5).join('\n       ')}` : ''}`);
   const waitBattle = async (page) => {
-    await page.waitForFunction(() => window.__battle?.ui?.placement && window.__battle?.renderer, null, { timeout: 90000 }).catch(() => null);
+    await page.waitForFunction(() => window.__battle?.ui?.placement && window.__battle?.renderer, null, { timeout: 90000, polling: 200 }).catch(() => null);
     // the battle slides in (slow under SwiftShader): aim only once the board stopped moving
     await page.waitForFunction(() => {
       for (let el = window.__battle?.renderer?.canvas; el; el = el.parentElement) {
@@ -116,16 +129,22 @@ async function runViewport(vp) {
       return true;
     }, null, { timeout: 15000 }).catch(() => null);
   };
-  /** Advance the sim in big steps until `until(sim)` (in-page), never placing or buying anything. */
-  const fastForward = (page, until, max = 600) => page.evaluate(async ([src, n]) => {
+  /**
+   * Advance the sim in big steps until `until(sim)` (in-page), never placing or buying anything. With
+   * `startWaves`, the next wave is started whenever the board is quiet (like a player tapping Next wave).
+   */
+  const fastForward = (page, until, max = 600, { startWaves = false } = {}) => page.evaluate(async ([src, n, auto]) => {
     const fn = new Function('sim', `return (${src})(sim)`);
     const { sim } = window.__battle;
     for (let i = 0; i < n && !fn(sim) && sim.state !== 'won' && sim.state !== 'lost'; i++) {
-      for (let k = 0; k < 8 && !fn(sim); k++) sim.update(0.25);
+      for (let k = 0; k < 8 && !fn(sim); k++) {
+        if (auto && sim.state === 'between') sim.startNextWave();
+        sim.update(0.25);
+      }
       await new Promise((r) => setTimeout(r, 16));
     }
     return { state: sim.state, wave: sim.wave, cash: sim.cash };
-  }, [until.toString(), max]);
+  }, [until.toString(), max, startWaves]);
   /** A real pointer drag: press a card, move up and over, release at (rx, ry). Mouse or touch. */
   const realDrag = async (page, context, cardSel, rx, ry) => {
     const card = page.locator(cardSel);
@@ -162,7 +181,7 @@ async function runViewport(vp) {
     check(await page.evaluate(() => location.hash.startsWith('#/scene/opening')), 'fresh save: TAP TO START opens "Meet Hikari"');
     await page.keyboard.press('Escape');
     await page.click('[data-testid="story-skip-confirm"]', { force: true });
-    await page.waitForFunction(() => location.hash.includes('tutorial=1'), null, { timeout: 20000 }).catch(() => null);
+    await page.waitForFunction(() => location.hash.includes('tutorial=1'), null, { timeout: 20000, polling: 200 }).catch(() => null);
     await waitBattle(page);
 
     // step 1: the coach shows Aoi's card, the drag hand and the spot
@@ -172,15 +191,14 @@ async function runViewport(vp) {
       const root = document.querySelector('[data-testid="coach"]');
       const bubble = document.querySelector('[data-testid="coach-bubble"]');
       const hand = document.querySelector('[data-testid="coach-hand"]');
-      const ring = document.querySelector('.tc-ring');
       const card = document.querySelector('[data-testid="card-aoi"]').getBoundingClientRect();
-      const r = ring.getBoundingClientRect();
+      const r = window.__ringBox();
       return {
         title: bubble.querySelector('.tc-title').textContent,
         body: bubble.querySelector('.tc-body').textContent,
         hand: hand.classList.contains('on'),
         scrim: document.querySelector('.tc-scrim').classList.contains('on'),
-        ringOnCard: r.left <= card.left + 1 && r.right >= card.right - 1 && r.top <= card.top + 1,
+        ringOnCard: r.on && r.left <= card.left + 1 && r.right >= card.right - 1 && r.top <= card.top + 1,
         spot: root.dataset.spotX ? [Number(root.dataset.spotX), Number(root.dataset.spotY)] : null,
         layer: (() => { const l = document.querySelector('.bt-layer').getBoundingClientRect(); return [l.left, l.top]; })(),
         sim: { wave: window.__battle.sim.wave, state: window.__battle.sim.state, towers: window.__battle.sim.towers.length },
@@ -197,13 +215,13 @@ async function runViewport(vp) {
       const lift = touch ? 46 : 0;
       await realDrag(page, context, '[data-testid="card-aoi"]', first.layer[0] + first.spot[0], first.layer[1] + first.spot[1] + lift);
     }
-    const placed = await page.waitForFunction(() => window.__battle.sim.towers.some((t) => t.unitId === 'aoi'), null, { timeout: 8000 }).then(() => true, () => false);
+    const placed = await page.waitForFunction(() => window.__battle.sim.towers.some((t) => t.unitId === 'aoi'), null, { timeout: 8000, polling: 200 }).then(() => true, () => false);
     check(placed, 'step 1: a real drag of Aoi onto the hand\'s spot places her');
     const startOk = await waitStep(page, 'start', 6000);
     check(startOk, 'step 2: "Ready, Sensei?" points at Start wave');
     await shot(page, 'coach-2-start');
     await page.click('[data-testid="start-wave"]', { force: true });
-    await page.waitForFunction(() => window.__battle.sim.wave >= 1, null, { timeout: 8000 }).catch(() => null);
+    await page.waitForFunction(() => window.__battle.sim.wave >= 1, null, { timeout: 8000, polling: 200 }).catch(() => null);
     await page.waitForTimeout(500);
     check(await coachStep(page) === '', `wave 1 running: the coach steps back (step="${await coachStep(page)}")`);
 
@@ -232,18 +250,18 @@ async function runViewport(vp) {
     check(ringRound, 'step 4: the ring sits on Aoi herself (round) until her panel opens');
     await shot(page, 'coach-4-upgrade-board');
     await page.click('[data-testid="coach-show"]', { force: true });
-    await page.waitForSelector('[data-testid="tower-panel"]:not([hidden])', { timeout: 5000 }).catch(() => null);
-    await page.waitForTimeout(500);
-    const onBuy = await page.evaluate(() => {
-      const r = document.querySelector('.tc-ring').getBoundingClientRect();
-      const btns = [...document.querySelectorAll('[data-testid="tower-panel"] [data-testid^="buy-"]')];
-      const hit = btns.find((b) => { const q = b.getBoundingClientRect(); return r.left <= q.left + 1 && r.right >= q.right - 1 && r.top <= q.top + 1 && r.bottom >= q.bottom - 1; });
+    await page.waitForSelector('[data-testid="tower-panel"]:not([hidden])', { timeout: 15000 }).catch(() => null);
+    // the coach re-aims on its next 200 ms tick
+    const onBuy = await page.waitForFunction(() => {
+      const r = window.__ringBox();
+      const btns = [...document.querySelectorAll('[data-testid="tower-panel"]:not([hidden]) [data-testid^="buy-"]')];
+      const hit = btns.find((b) => { const q = b.getBoundingClientRect(); return r.on && r.left <= q.left + 1 && r.right >= q.right - 1 && r.top <= q.top + 1 && r.bottom >= q.bottom - 1; });
       return hit?.dataset.testid || null;
-    });
+    }, null, { timeout: 10000, polling: 200 }).then((hnd) => hnd.jsonValue(), () => null);
     check(!!onBuy, `step 4: with her panel open the ring moves to a buy button (${onBuy})`);
     await shot(page, 'coach-4-upgrade-panel');
     if (onBuy) await page.click(`[data-testid="${onBuy}"]`, { force: true });
-    await page.waitForFunction(() => window.__battle.sim.towers.some((t) => !t.isHero && t.tiers.some((n) => n > 0)), null, { timeout: 5000 }).catch(() => null);
+    await page.waitForFunction(() => window.__battle.sim.towers.some((t) => !t.isHero && t.tiers.some((n) => n > 0)), null, { timeout: 5000, polling: 200 }).catch(() => null);
     await page.click('[data-testid="panel-close"]', { force: true }).catch(() => {});
     // step 5: speed (from wave 2)
     await page.click('[data-testid="start-wave"]', { force: true });
@@ -254,18 +272,18 @@ async function runViewport(vp) {
     const freeOk = await waitStep(page, 'free', 5000);
     check(freeOk, 'step 7: all core steps done → "One petal at a time." encouragement');
     await shot(page, 'coach-7-free');
-    await page.waitForFunction(() => !document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on') && !document.querySelector('[data-testid="coach-pill"]')?.hidden, null, { timeout: 9000 }).catch(() => null);
+    await page.waitForFunction(() => !document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on') && !document.querySelector('[data-testid="coach-pill"]')?.hidden, null, { timeout: 9000, polling: 200 }).catch(() => null);
     check(await page.evaluate(() => !document.querySelector('[data-testid="coach-pill"]').hidden), 'the encouragement folds into the "Hikari\'s tips" pill after a few seconds');
     await shot(page, 'coach-pill');
 
     // to the end: the ultimate tip when it is ready, then the win
-    const ult = await fastForward(page, (sim) => sim.heroUltStatus().ready, 900);
+    const ult = await fastForward(page, (sim) => sim.heroUltStatus().ready, 900, { startWaves: true });
     if (ult.state !== 'won' && ult.state !== 'lost') {
       const ultOk = await waitStep(page, 'ult', 5000);
       check(ultOk, `step 6: the ultimate tip opens itself when Celestial Bloom is ready (wave ${ult.wave})`);
       await shot(page, 'coach-6-ult');
       await page.click('[data-testid="ult"]', { force: true });
-      await page.waitForFunction(() => window.__battle.sim.stats.ultsUsed > 0, null, { timeout: 5000 }).catch(() => null);
+      await page.waitForFunction(() => window.__battle.sim.stats.ultsUsed > 0, null, { timeout: 5000, polling: 200 }).catch(() => null);
       check(await page.evaluate(() => window.__battle.sim.stats.ultsUsed > 0), 'step 6: tapping the lit button fires her ultimate');
     }
     // play out the rest (autostart; upgrades like a player would)
@@ -288,7 +306,7 @@ async function runViewport(vp) {
     await shot(page, 'outro-over-results');
     await page.click('[data-testid="story-skip"]', { force: true });
     await page.click('[data-testid="story-skip-confirm"]', { force: true });
-    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000 }).catch(() => null);
+    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000, polling: 200 }).catch(() => null);
     const ptr = await page.waitForSelector('[data-testid="coach-inline-rewards"]', { timeout: 6000 }).catch(() => null);
     check(!!ptr && await page.evaluate(() => document.querySelector('[data-testid="view-rewards"]')?.classList.contains('tc-pulse')), 'after the outro Hikari points at Rewards on the sheet');
     await shot(page, 'pointer-rewards');
@@ -299,7 +317,7 @@ async function runViewport(vp) {
     const s1 = await story(page);
     check(s1.seen.includes('tut.outro') && s1.tutorial === 'done', `the outro counts as seen (${s1.tutorial}, seen: ${s1.seen.join(', ')})`);
     await page.click('[data-testid="home"]', { force: true });
-    await page.waitForFunction(() => location.hash.startsWith('#/lobby'), null, { timeout: 10000 }).catch(() => null);
+    await page.waitForFunction(() => location.hash.startsWith('#/lobby'), null, { timeout: 10000, polling: 200 }).catch(() => null);
     await page.waitForTimeout(1200);
     check(await page.evaluate(() => location.hash.startsWith('#/lobby') && !document.querySelector('.sp')), 'Home → the lobby, nothing forced');
     // 1-1 prep: no prompt once the tutorial is done
@@ -361,7 +379,7 @@ async function runViewport(vp) {
     check(!!lostCard && (await story(page)).tutorial === 'pending', 'defeat: Hikari\'s card on the defeat sheet (tutorial still pending)');
     await shot(page, 'coach-lost');
     await page.click('[data-testid="coach-retry"]', { force: true });
-    await page.waitForFunction(() => window.__battle?.sim?.state === 'prep' && window.__battle.sim.wave === 0, null, { timeout: 30000 }).catch(() => null);
+    await page.waitForFunction(() => window.__battle?.sim?.state === 'prep' && window.__battle.sim.wave === 0, null, { timeout: 30000, polling: 200 }).catch(() => null);
     await waitBattle(page);
     check(await waitStep(page, 'place', 20000), 'Retry with Hikari: a fresh coached battle');
     // quit → the next 1-1 prep asks once more
@@ -370,7 +388,7 @@ async function runViewport(vp) {
     check(!!prompt, '1-1 prep after leaving the coached battle: "Shall we finish our first lesson together?"');
     await shot(page, 'prep-prompt');
     await page.click('[data-testid="tutorial-start"]', { force: true });
-    await page.waitForFunction(() => location.hash.includes('tutorial=1'), null, { timeout: 10000 }).catch(() => null);
+    await page.waitForFunction(() => location.hash.includes('tutorial=1'), null, { timeout: 10000, polling: 200 }).catch(() => null);
     check(await page.evaluate(() => location.hash.includes('tutorial=1')), 'Start with Hikari → the coached battle');
     await page.evaluate(() => { location.hash = '#/stage/1-1'; });
     await page.waitForSelector('[data-testid="tutorial-prompt"]', { timeout: 10000 }).catch(() => null);
@@ -420,7 +438,7 @@ async function runViewport(vp) {
     });
     check(won === 'won', `1-2 won (${won})`);
     await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 20000 }).catch(() => null);
-    await page.waitForFunction(() => window.__sakura.store.profile.story.queue.includes('ch1.yuki'), null, { timeout: 8000 }).catch(() => null);
+    await page.waitForFunction(() => window.__sakura.store.profile.story.queue.includes('ch1.yuki'), null, { timeout: 8000, polling: 200 }).catch(() => null);
     check(await page.evaluate(() => window.__sakura.store.profile.story.queue.includes('ch1.yuki') && !document.querySelector('.sp')), 'the first 1-2 clear queues "Snow in Spring" (nothing plays over the battle)');
     await page.click('[data-testid="view-rewards"]', { force: true });
     await page.click('[data-testid="next-stage"]', { force: true, timeout: 8000 }).catch(() => {});
@@ -430,7 +448,7 @@ async function runViewport(vp) {
     await shot(page, 'hook-after-1-2');
     await page.keyboard.press('Escape');
     await page.click('[data-testid="story-skip-confirm"]', { force: true });
-    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000 }).catch(() => null);
+    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000, polling: 200 }).catch(() => null);
     const s = await story(page);
     check(s.seen.includes('ch1.yuki') && !s.queue.length, 'the epilogue is seen and leaves the queue');
     // finale intro on 1-5 prep: once only
@@ -445,7 +463,7 @@ async function runViewport(vp) {
     await shot(page, 'hook-before-1-5');
     await page.keyboard.press('Escape');
     await page.click('[data-testid="story-skip-confirm"]', { force: true });
-    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000 }).catch(() => null);
+    await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000, polling: 200 }).catch(() => null);
     await page.evaluate(() => { location.hash = '#/campaign'; });
     await page.waitForTimeout(900);
     await page.evaluate(() => { location.hash = '#/stage/1-5'; });
@@ -460,7 +478,7 @@ async function runViewport(vp) {
     check(await page.evaluate(() => location.hash.startsWith('#/scene/ch1.yuki')), 'the archive replays an epilogue');
     await page.keyboard.press('Escape');
     await page.click('[data-testid="story-skip-confirm"]', { force: true });
-    await page.waitForFunction(() => location.hash.startsWith('#/story'), null, { timeout: 10000 }).catch(() => null);
+    await page.waitForFunction(() => location.hash.startsWith('#/story'), null, { timeout: 10000, polling: 200 }).catch(() => null);
     check(await page.evaluate((g) => window.__sakura.store.profile.currencies.gems === g, gems), 'a replay grants nothing');
     errorsOk(errors, 'chapter hooks');
     await context.close();

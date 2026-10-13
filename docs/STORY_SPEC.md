@@ -850,3 +850,37 @@ Not built here (next builders): `checkLessons` / `claimLesson` / `featureOpen` /
 grants `ticket_recruit10: 1`), the journal screen and toast, the tutorial coach + `tut.outro` over the results, the 1-1
 prep prompt, stage stills (`setStageStillProvider` in `backdrop.js` is the hook; stage backgrounds use the chapter's
 academy tint meanwhile), and the docs pass (CONTRACTS, README, OWNER_REQUESTS).
+
+## 10. Build notes: opening flow + tutorial coach (builder "opening")
+
+Owner update (Oct 13): the opening, the tutorial and Chapter 1 stay at the academy as written; the story meets the
+fantasy world in Chapter 2 (later builder work). Nothing in this step depends on that.
+
+Shipped: `src/ui/story/coachSteps.js` (pure step machine, drag-hand spot finder, formation-aware copy), `src/ui/story/coach.js`
+(scrim with spotlight holes, pulsing ring, ghost drag hand, Hikari's bubble with [–] → "Hikari's tips" pill and
+[Skip tutorial] → confirm; outro over the victory sheet, then an inline Hikari card pointing at Rewards, then Home;
+defeat card with [Retry with Hikari] / [Skip tutorial]; the 1-1 prep prompt), `src/ui/styles/coach.css`,
+`src/data/story/tutorial.js` (all coach copy), `tutorialPromptDue()` in `src/systems/story.js`, the one-block
+`tutorial=1` hook in `src/ui/battle/controller.js`, the prompt wiring in `install.js`. Tests:
+`tests/story/coach.test.js` (T-coach-1, T-coach-2, spots, prompt rule) and `tests/story/tutorial-sim.test.js`
+(T-coach-3). E2E: `e2e/tutorial.mjs` (both viewports) and the smoke update (fresh save → opening Skip → coach
+visible → Skip tutorial → lobby).
+
+T-coach-3 (headless 1-1 Easy, new-save formation Aoi + Rei, hero Hikari; Aoi on the hand's spot, Hikari and Aoi's
+cheapest tier 1 after wave 1, nothing else bought): won on seeds 1–3 with 150/150 lives; Hikari's ultimate unlocks
+on wave 6 of 12, so step 6 always gets its moment. Nothing to report to feature/balance-playtest.
+
+Differences from §2.3–§2.4 worth knowing:
+* A shown core step stays up until it is done (the ultimate may cut in once, then the waiting step comes back).
+  The upgrade step also opens from wave 3 without a pause, so a player who never waits between waves still sees it.
+* The upgrade bubble has a [Show Aoi] button that selects her (the ring follows: Aoi on the board → the cheapest
+  tier-1 buy button the player can see; on a phone the panel's own scroller is moved if every option is below the fold).
+* The scrim fades after 12 s on one step and never shows while a girl is being dragged; the ring and bubble stay.
+* The ring and bubble jump onto their first target and glide only between targets.
+* After the outro, Hikari's card sits inside the result sheet ("Let's see what we earned!" with Rewards pulsing,
+  then "Let's go home" with Home pulsing). Next Stage and Map still work.
+* A win counts even if the player leaves before the outro (the coach's cleanup marks the tutorial done).
+* `e2e/tutorial.mjs` polls on a 200 ms timer and reads the ring's target geometry, because SwiftShader on a loaded
+  machine can go seconds without a frame (rAF-based polling and CSS transitions stall).
+
+Not built here (next builder): the Captain's Journal, lesson toasts, feature gates, the welcome 10-pull mail.
