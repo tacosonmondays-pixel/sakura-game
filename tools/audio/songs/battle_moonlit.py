@@ -26,11 +26,14 @@ string rips into every bar 8, orchestra hits, chip-noise triplets, a chip-square
 
 Leitmotifs: BELL minor (Br, unanswered) answered in C (R 1-2); SENTINEL CALL (intensity rally).
 review: originality — jig tune, reel lines, counter-lines and bass lines are new; only the project's BELL / SENTINEL
-motifs are reused. Checked by ear-memory and by interval fingerprints (scratch blocklist) against traditional jigs and
-reels (Irish Washerwoman, Kesh, Morrison's, Banish Misfortune, Swallowtail, Out on the Ocean, Drowsy Maggie,
-Cooley's, The Silver Spear, Merry Blacksmith, Rakes of Mallow, The Butterfly) and film/game Celtic themes (Concerning
-Hobbits, My Heart Will Go On, Riverdance, Zelda/Xenoblade Celtic tracks): no shared hook or contour.
-Composer B3, 2026-10-09 (round 2's flute version had the same title; nothing of it is kept).
+motifs are reused. Checked with the project originality check, a scratch blocklist of interval fingerprints (Irish
+Washerwoman, Drowsy Maggie, The Butterfly) and by ear-memory against traditional jigs and reels (Kesh, Morrison's,
+Banish Misfortune, Swallowtail, Out on the Ocean, Cooley's, The Silver Spear, Merry Blacksmith, Rakes of Mallow) and
+film/game Celtic themes (Concerning Hobbits, My Heart Will Go On, Riverdance, Zelda/Xenoblade Celtic tracks): no
+shared hook or contour.
+Composer B3, 2026-10-09 / 10-13 (round 2's flute version had the same title; nothing of it is kept). Levels from
+per-part solo loudness: mandolin chops −9 dB, accordion BAM +3, glock answers +5, intensity kit/noise up so the
+wave lifts like 07 (base −17.3, intensity −21.7 LUFS).
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL
@@ -171,11 +174,11 @@ def build() -> Song:
     # --- the fiddle: counter-line in A2, the reel dialogue in R; double-stop BAMs in A
     s.part('fiddle', 'fiddle', 'base', vel=-2) \
         .notes('A2', bars(*FIDDLE_A2)).notes('R', bars(*R_FIDDLE))
-    s.part('fid_bam', 'fiddle', 'base', vel=4) \
+    s.part('fid_bam', 'fiddle', 'base', vel=4, gain=2) \
         .at('A', 2, "r/2 r/4 [d4 a4]/4t' r/8t").at('A', 4, "r/2 r/4 [e4 b4]/4t' r/8t") \
         .at('A', 6, "r/2 r/4 [f#4 d5]/4t' r/8t").at('A', 8, "r/2 [e4 d5]/4t' r/8t r/4")
     # --- answers above: glock double-tick on beat 3, a reply note on beat 4
-    s.part('glock', 'glock', 'base', vel=-4) \
+    s.part('glock', 'glock', 'base', vel=-4, gain=5) \
         .at(['A', 'A2'], 2, "r/2 a6/8t' a6/8t' r/8t f#6/8t' r/4t") \
         .at(['A', 'A2'], 4, "r/2 g6/8t' g6/8t' r/8t e6/8t' r/4t") \
         .at(['A', 'A2'], 6, "r/2 a6/8t' a6/8t' r/8t d7/8t' r/4t") \
@@ -183,7 +186,7 @@ def build() -> Song:
         .at('R', 4, "r/2 r/4 g#6/16' g#6/16' b6/8'").at('R', 6, "r/2 r/4 c7/16' c7/16' a6/8'") \
         .at('R', 8, "r/2 r/4 e7/16' e7/16' g#6/8'")
     # --- accordion: the stab bed (and the BAM)
-    s.part('acc', 'accordion', 'base', vel=-4, gain=1) \
+    s.part('acc', 'accordion', 'base', vel=-4, gain=4) \
         .notes('intro', bars('[a3 c4 e4]/1', hits('E7sus4 E7', [(0, '1/3', '!'), ('5/3', '1/3', ''), (2, '1/3', '!'),
                                                                ('11/3', '1/3', '')], 55, 69))) \
         .notes('A', hits(CH_A, BED, 55, 69, per_bar={2: BAM, 4: BAM, 6: BAM, 8: HIT8})) \
@@ -197,7 +200,7 @@ def build() -> Song:
     s.part('harp', 'harp', 'base', vel=-14) \
         .notes('intro', ripple(CH_INTRO, 57, 81)).notes('A', ripple(CH_A, 57, 81)).notes('A2', ripple(CH_A2, 57, 81)) \
         .notes('Br', ripple(CH_BR, 57, 84, mute_bars=(5, 6)))
-    s.part('chip_arp', 'chip_pulse25', 'base', vel=-26, gain=-3).notes('R', ripple(CH_R, 64, 88, per_beat=4, vel=(70, 52)))
+    s.part('chip_arp', 'chip_pulse25', 'base', vel=-26, gain=0).notes('R', ripple(CH_R, 64, 88, per_beat=4, vel=(70, 52), mute_bars=(8,)))
     # --- breakdown: the music box rings BELL in A minor over E7 and leaves it hanging
     bell_j = BELL.question('Am', 5, rhythm=('4t', '8t', '4', '4.')) + ' r/8'
     s.part('box', 'music_box', 'base', vel=-2) \
@@ -226,7 +229,7 @@ def build() -> Song:
         .pattern('R', BOD_R)
 
     # ================================================================ intensity
-    s.part('kit2', 'drums', 'intensity', vel=-6) \
+    s.part('kit2', 'drums', 'intensity', vel=-6, gain=4) \
         .pattern(['A', 'A2'], 'r/4t o/8t r/4t o/8t r/4t o/8t r/4t o/8t |',
                  fills={1: 'c/4t o/8t r/4t o/8t r/4t o/8t r/4t o/8t |',
                         4: 'r/4t o/8t r/4t o/8t r/4t o/8t t1/8t t1/8t t2/8t |',
@@ -236,14 +239,14 @@ def build() -> Song:
         .pattern('R', '(r/8 rd/8)x4 |', fills={1: 'c/8 rd/8 r/8 rd/8 r/8 rd/8 r/8 rd/8 |',
                                               5: 'c/8 rd/8 r/8 rd/8 r/8 rd/8 r/8 rd/8 |',
                                               8: 'r/8 rd/8 r/8 rd/8 t1/16 t1/16 t2/16 t2/16 t3/16 t3/16 t3/16 t3/16 |'})
-    s.part('brass', 'brass_stab', 'intensity', vel=-4).double('acc', ['A', 'A2', 'R'])
+    s.part('brass', 'brass_stab', 'intensity', vel=-4, gain=2).double('acc', ['A', 'A2', 'R'])
     sent_j = ('4t', '8t', '4', '4t', '4')
     s.part('rally', 'fiddle', 'intensity', vel=6) \
         .at('Br', 1, SENTINEL.question('Am', 5, rhythm=sent_j) + ' r/8t', motif=SENTINEL) \
         .at('Br', 3, SENTINEL.question('Dm', 5, rhythm=sent_j) + ' r/8t', motif=SENTINEL) \
         .at('R', 5, SENTINEL.question('Am', 5), motif=SENTINEL)
     s.part('tpt', 'trumpet', 'intensity', octave=-1, vel=-2).double('rally')
-    s.part('mando', 'mandolin', 'intensity', vel=-6) \
+    s.part('mando', 'mandolin', 'intensity', vel=-6, gain=-7) \
         .notes('A', hits(CH_A, CHOP, 57, 74, 'close')).notes('A2', hits(CH_A2, CHOP, 57, 74, 'close')) \
         .notes('R', hits(CH_R, CHOP_R, 57, 74, 'close'))
     s.part('runs', 'strings', 'intensity', vel=4) \
@@ -256,9 +259,9 @@ def build() -> Song:
         .at('R', 1, '[c3 e3 g3 c4]/4 r/2.').at('R', 8, 'r/2 [e3 g#3 d4]/4 r/4')
     s.part('timp', 'timpani', 'intensity', vel=-4) \
         .at('Br', 8, roll('g1', '16', 8, 40, 100) + ' g1/4 r/4').at('R', 1, 'c2/4 r/2.')
-    s.part('noise', 'chip_kit', 'intensity', vel=-26).pattern(['A', 'A2'], '(h/8t h?/8t o/8t)x4 |') \
+    s.part('noise', 'chip_kit', 'intensity', vel=-26, gain=2).pattern(['A', 'A2'], '(h/8t h?/8t o/8t)x4 |') \
         .pattern('R', '(h/16 h?/16 o/16 h?/16)x4 |')
-    s.part('sq_bass', 'chip_pulse50', 'intensity', octave=1, vel=-24, gain=-3).double('bass', ['A', 'A2', 'R'])
+    s.part('sq_bass', 'chip_pulse50', 'intensity', octave=1, vel=-24, gain=-1).double('bass', ['A', 'A2', 'R'])
     return s
 
 

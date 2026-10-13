@@ -15,14 +15,21 @@ Stems: base (build phase) + intensity (wave active).
                    full band; the last bar's G7 drops back into C minor
 Form: intro |: A A2 B C B2 :|  — 2 + 40 bars.
 
-Leitmotifs: BELL in C minor (C, shamisen) and in E♭ major, answered (B, B2).
+Round 3 (batch B3, lane J-ROCK MATSURI — taiko rock): melodies, harmony and form unchanged; the build phase got
+denser and talks back. Base: a shamisen chord-stab bed on 1, 2& and 4& in A/A2 (with a BAM accent on 3 in every
+hook hole), xylophone tick-tick answers in the melody holes of A, A2, B and B2. Intensity: an overdrive-guitar
+power-chord chug on 1, 1&, 2& and 3& (the J-rock engine), a trumpet + trombone SENTINEL CALL rally under the
+shamisen runs of the taiko break (C 3 and 7) and a chip-square bass double for phones.
+
+Leitmotifs: BELL in C minor (C, shamisen) and in E♭ major, answered (B, B2); SENTINEL CALL (intensity, C).
 review: originality — hook, chorus, bass lines and patterns are new; BELL is the project's own motif. Checked by
 ear-memory against well-known festival/fire/ninja game themes (Okami, Ganbare Goemon, Kirby, Mario, Mega Man,
 Undertale/Deltarune, EarthBound/Mother): no shared hook or contour. Composer B, 2026-10-08.
 """
 from sakura_audio.song import Song
-from motifs import BELL
+from motifs import BELL, SENTINEL
 from _battle_kit import bars, roll, walk
+from _band import hits, power
 
 CH_INTRO = 'Cm | G7'
 CH_A = 'Cm | Cm | Ab | Bb | Cm | Fm7 | Ab Bb | G7sus4 G7'
@@ -80,11 +87,36 @@ KIT = 'k/8 cv/8 s/8 cv/8 k/8 k/8 s/8 cv/8 |'
 KIT_C = 'k+c/8 cv/8 s/8 cv/8 k/8 k/8 s/8 cv/8 |'
 KIT_F = 'k/8 cv/8 s/8 cv/8 s/16 s s s t1/16 t1 t3/8 |'
 
+# round 3: the shamisen stab bed (1, 2&, 4&; the hook holes add a BAM on 3) and the J-rock chug (1, 1&, 2&, 3&)
+BED = [(0, '1/4', '!'), ('3/2', '1/4', ''), ('7/2', '1/4', '')]
+BAM = BED + [(2, '1/4', '!')]
+CHUG = [(0, '1/4', '!'), ('1/2', '1/4', ''), ('3/2', '1/4', '!'), ('5/2', '1/4', '')]
+# xylophone answers in the melody holes (tick-tick + a reply note, above the lead)
+XYLO_A = {2: 'r/2 g6/16 g6/16 c7/8 r/4', 4: 'r/2 f6/16 f6/16 d7/8 bb6/8 r/8', 6: 'r/2 c7/16 c7/16 ab6/8 r/4'}
+XYLO_B = {1: 'r/2 r/8 bb6/16 bb6/16 g6/8 eb7/8', 2: 'r/4 g6/16 g6/16 eb6/8 r/8 c7/8 r/4',
+          4: 'r/2 r/8 ab6/16 ab6/16 f6/8 d7/8', 6: 'r/2 r/8 eb7/16 eb7/16 c7/8 g6/8',
+          8: 'r/2 bb6/16 bb6/16 g6/8 eb7/8 r/8'}
+XYLO_B2 = {**XYLO_B, 8: 'r/4 bb6/16 bb6/16 g6/8 r/2'}
+
+BUSY = {   # hint for the r3 busy tool (study/tools): the tune and the bass
+    'melody': {'lead': None, 'fue_hi': None, 'fue_ch': None, 'tpt': None, 'brass': ['B', 'B2'], 'str_oct': None,
+               'shamisen': ['C']},
+    'bass': ['bass', 'sq_bass'], 'primary_bass': 'bass',
+    'cat': {'fue': 'answer', 'harm': 'counter', 'hits': 'stab', 'runs': 'answer', 'choir': 'stab', 'brass': 'stab',
+            'stabs': 'stab', 'koto': 'arp', 'xylo': 'answer', 'sham_stab': 'stab', 'gtr': 'riff', 'rally': 'counter',
+            'rally_lo': 'counter'},
+}
+
+
+def _ans(table):
+    return bars(*[table.get(b, 'r/1') for b in range(1, 9)])
+
 
 def build() -> Song:
     s = Song(id='battle_matsuri', title='Oni Matsuri', bpm=160, meter=(4, 4), key='Cm',
              form=['intro', '|:', 'A', 'A2', 'B', 'C', 'B2', ':|'], mix={'highpass_hz': 40},
              description='Battle (festival, volcano): taiko and shamisen in C minor, a triumphant E♭ chorus with BELL.')
+    s.busy = BUSY
     s.section('intro', 2, CH_INTRO)
     s.section('A', 8, CH_A)
     s.section('A2', 8, CH_A2)
@@ -107,7 +139,12 @@ def build() -> Song:
     s.part('shamisen', 'shamisen', 'base', vel=4) \
         .at('C', 1, BELL.question('Cm', 5) + ' r/8', motif=BELL).at('C', 5, BELL.question('Cm', 5) + ' r/8', motif=BELL) \
         .at('C', 3, "c5/8' c5/8' f5/8' ab5/8' c6/8' ab5/8' f5/8' c5/8'").at('C', 7, "eb5/8' eb5/8' ab5/8' c6/8' eb6/8' c6/8' gb5/8' eb5/8'")
-    s.part('sham_comp', 'shamisen', 'base', vel=-16, gain=4).gen(['A', 'A2', 'B', 'B2'], 'comp:offbeat', voicing='triad', low=57, high=72)
+    s.part('sham_comp', 'shamisen', 'base', vel=-16, gain=4).gen(['B', 'B2'], 'comp:offbeat', voicing='triad', low=57, high=72)
+    s.part('sham_stab', 'shamisen', 'base', vel=-6, gain=4) \
+        .notes('A', hits(CH_A, BED, 55, 69, 'close', per_bar={2: BAM, 4: BAM, 6: BAM})) \
+        .notes('A2', hits(CH_A2, BED, 55, 69, 'close', per_bar={2: BAM, 4: BAM, 6: BAM}))
+    s.part('xylo', 'xylophone', 'base', vel=-4, gain=3) \
+        .notes(['A', 'A2'], _ans(XYLO_A)).notes('B', _ans(XYLO_B)).notes('B2', _ans(XYLO_B2))
     s.part('koto', 'koto', 'base', vel=-12, gain=5).gen(['B', 'B2'], 'arp:up16', voicing='triad', low=67, high=86)
     s.part('bass', 'finger_bass', 'base', vel=6, gain=-2) \
         .notes('intro', "c2/8 c3/8 r/8 c2/8 g2/8 c3/8 bb2/8 b2/8 | g2/8 g3/8 r/8 g2/8 d3/8 g3/8 f3/8 b2/8") \
@@ -146,6 +183,14 @@ def build() -> Song:
     s.part('str_oct', 'strings', 'intensity', octave=-1, vel=12).double('lead', ['A', 'A2'])
     s.part('stabs', 'brass_stab', 'intensity', vel=14).gen(['B', 'B2'], 'comp:stabs', voicing='close', low=58, high=74)
     s.part('noise', 'chip_kit', 'intensity', vel=-26).pattern(['A', 'A2', 'B', 'B2'], '(h/16 h? o/16 h?)x4 |')
+    s.part('gtr', 'overdrive_gtr', 'intensity', vel=-4, gain=6) \
+        .notes('A', power(CH_A, CHUG, low=46)).notes('A2', power(CH_A2, CHUG, low=46)) \
+        .notes('B', power(CH_B, CHUG, low=46)).notes('B2', power(CH_B2, CHUG, low=46)) \
+        .notes('C', power(CH_C, [], low=46, per_bar={5: CHUG, 6: CHUG, 7: CHUG, 8: CHUG}))
+    s.part('sq_bass', 'chip_pulse50', 'intensity', octave=1, vel=-24, gain=-3).double('bass', ['A', 'A2', 'B', 'B2'])
+    s.part('rally', 'trumpet', 'intensity', vel=4) \
+        .at('C', 3, SENTINEL.question('Fm', 4), motif=SENTINEL).at('C', 7, SENTINEL.question('Ab', 4), motif=SENTINEL)
+    s.part('rally_lo', 'trombone', 'intensity', octave=-1, vel=0).double('rally')
     return s
 
 
