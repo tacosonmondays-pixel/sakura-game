@@ -6,20 +6,23 @@ victory  132 bpm, F   The 4-note victory sting (C5 F5 D5 F5 — the Sakura Bell 
                       music box rings the whole Bell, question AND answer, as the chord rings out.
 defeat   108 bpm, Fm  The Bell's question collapses in F minor on the music box (C5–F5–D♭5–C5), slowing down in
                       written-out note values over Fm(add9) → D♭ → B♭m6 → Fm; strings and harp underneath; a soft low
-                      piano "pa-dum" closes it. Gentle, not crushing: the results screen encourages.
+                      piano "pa-dum" closes it, a soft pizzicato heartbeat walks under it (round 3). Gentle, not
+                      crushing: the results screen encourages.
 levelup  150 bpm, A♭  The Bell in 16ths on the 12.5 % chip pulse, E♭6–A♭6–F6–G6 → A♭6 (answered — a little
-                      triumph), a glock shimmer and a triangle ping. Plays over the menus (ducked), a playful lift.
+                      triumph), a glock shimmer and a triangle ping; round 3 adds a slap-bass octave hit with a kick
+                      on the answer and a chip arpeggio running up through it. Plays over the menus (ducked).
 awaken   120 bpm, A♭  (round 2) A student awakens: the Bell on music box + celesta (E♭5–A♭5–F5–G5) over A♭ → E♭/G,
                       answered A♭5 on the barline, held while the choir moves D♭/A♭ → A♭ underneath (a plagal
                       "amen"), harp glissando up through the answer, tubular bell + glock on the A♭, cymbal swell.
 new_student 150 bpm, E (round 2) A new girl joins (gacha NEW, battle unlocks): the celesta asks the Wishing
                       Envelope's question (B5–E6–C♯6–D♯6) and this time it is answered — E6, with a harp glissando,
-                      an E(add9) choir "ooh" and a chip-bell ding. Short (3/4, 2 bars), in E like the recruit music.
+                      an E(add9) choir "ooh" and a chip-bell ding; round 3 adds a pizzicato oom-pah-pah and a harp
+                      bounce under the question. Short (3/4, 2 bars), in E like the recruit music.
 
 review: originality — every line is built from the project's BELL motif; the ♭VI–♭VII–I cadence is a generic
 idiom, written here with its own rhythm (no triplet pickups, pushed ♭VII). Checked against Final Fantasy,
 Dragon Quest, Mario, Zelda, Pokémon, EarthBound/Mother, Undertale/Deltarune victory / level-up / game-over
-jingles: no shared hook. Composer A, 2026-10-08.
+jingles: no shared hook. Composer A, 2026-10-08; levelup / new_student / defeat layers B4, 2026-10-13.
 """
 from sakura_audio.song import Song
 from motifs import BELL, VICTORY_STING
@@ -61,6 +64,8 @@ def defeat() -> Song:
                                                        'db3/8 ab3/8 db4/8 f4/8 bb2/8 f3/8 db4/8 g4/8 | f3/2 r/2')
     s.part('bass', 'fretless', 'full', vel=-18).notes('D', 'f2/1 | db2/2 bb1/2 | f1/2 r/2')
     s.part('piano', 'piano', 'full', vel=-4).notes('D', 'r/1 | r/1 | r/2 c2/8 r/8 f1/4')        # "pa-dum"
+    s.part('pulse', 'pizz', 'full', vel=-22).notes('D', "f2/4 c3/4' ab2/4' c3/4' | db3/4 ab2/4' bb2/4 f2/4' | "
+                                                         "c3/4 r/4 r/2")                     # pizz heartbeat
     return s
 
 
@@ -74,7 +79,9 @@ def levelup() -> Song:
     s.part('glock', 'glock', 'full', vel=-6).notes('L', 'r/4 ab6/32 c7/32 ab6/32 c7/32 ab6/32 c7/32 ab6/32 c7/32 r/2')
     s.part('chord', 'harp', 'full', vel=-28).notes('L', 'r/4 [ab4 c5 eb5 ab5]/4 r/2')
     s.part('bass', 'chip_triangle', 'full', vel=-20).notes('L', 'r/4 ab3/4 r/2')
-    s.part('kit', 'drums', 'full', vel=-20).notes('L', 'r/4 tri/4 r/2')
+    s.part('hit', 'slap_bass', 'full', vel=-6).notes('L', "r/4 [ab1 ab2]/8! r/8 eb2/16' ab2/16' r/8 r/4")   # bass hit
+    s.part('arp', 'chip_pulse25', 'full', vel=-26).notes('L', 'r/4 r/16 c6/16 eb6/16 ab6/16 c7/16 eb7/16 ab7/8 r/4')
+    s.part('kit', 'drums', 'full', vel=-20).notes('L', 'r/4 k+tri/4 r/2')
     return s
 
 
@@ -109,6 +116,8 @@ def new_student() -> Song:
     s.part('choir', 'choir_ooh', 'full', vel=-10).notes('N', '[e4 g#4 b4]/2 [f#4 a4 b4 d#5]/4 | [e4 g#4 b4 f#5]/2.')
     s.part('ding', 'chip_bell', 'full', vel=-20).notes('N', "r/2. | e7/8' b6/8' e7/4 r/4")
     s.part('bass', 'chip_triangle', 'full', vel=-24).notes('N', 'e3/2 b2/4 | e3/2.')
+    s.part('pizz', 'pizz', 'full', vel=-16).notes('N', "e2/4 [g#3 b3]/4' [a3 b3 d#4]/4' | e2/4 [g#3 b3 e4]/8' r/8 r/4")
+    s.part('bounce', 'harp', 'full', vel=-22).notes('N', 'r/8 g#4/8 r/8 b4/8 r/8 d#5/8 | r/2.')
     s.part('kit', 'drums', 'full', vel=-26).notes('N', 'r/2. | tri/2.')
     return s
 

@@ -2,7 +2,9 @@
 
 They play once, on the best rarity of a pull, over the 'Wishing Envelope' music (E major, ducked), and they
 finally ANSWER the Sakura Bell that the recruit screen keeps asking (B5–E6–C♯6–D♯6 → E6).
-    gacha_r    120 bpm, E   ~1 s   the soft answer: a celesta E6 with a chip-bell blip an octave up
+    gacha_r    120 bpm, E   ~1 s   the soft answer: a celesta E6 with a chip-bell blip an octave up, and on the "and"
+                                   of 2 a harp E(add9) chord + a glock double tick answering it (B6 B6 → E7)
+                                   (round 3, B4: the harp chord and the glock answer added)
     gacha_sr   120 bpm, E   ~2.2 s harp glissando up E major, glock answers D♯6 → E6 over an E(add9) chord
     gacha_ssr  120 bpm, E→G ~5.5 s orchestra hit on E, a timpani roll on D lifts the key to G; the brass ring the
                                    Bell in G (D5–G5–E5–F♯5) and hold the answer G5 with choir "ahh", strings, a
@@ -10,7 +12,7 @@ finally ANSWER the Sakura Bell that the recruit screen keeps asking (B5–E6–C
 
 review: originality — built only from the project's BELL motif and generic fanfare gestures (gliss, hit, roll,
 held chord). Checked against gacha / summon fanfares of Genshin, Blue Archive, Fate/GO, Arknights, Granblue,
-Pokémon item-get and Zelda item-get jingles: no shared hook. Composer A, 2026-10-08.
+Pokémon item-get and Zelda item-get jingles: no shared hook. Composer A, 2026-10-08; gacha_r layers B4, 2026-10-13.
 """
 from sakura_audio.song import Song
 from motifs import BELL
@@ -26,7 +28,9 @@ def gacha_r() -> Song:
     s.part('box', 'music_box', 'full', vel=-16).notes('R', 'r/64 e6/2 r/4.. r/32 r/64')
     s.part('blip', 'chip_bell', 'full', vel=-24).notes('R', "r/64 e7/16' r/16 b6/16' r/16 r/4 r/4.. r/32 r/64")
     s.part('pad', 'pad_halo', 'full', vel=-20).notes('R', 'r/64 [e4 g#4 b4]/2 r/4.. r/32 r/64')
-    s.part('harp', 'harp', 'full', vel=-36).notes('R', 'r/64 [e4 b4]/4 r/2 r/8.. r/64')
+    # round 3: on the "and" of 2 the harp rolls an E(add9) chord and the glock answers the answer (B6 B6 → E7)
+    s.part('harp', 'harp', 'full', vel=-24).notes('R', 'r/64 r/4. [e3 b3 e4 f#4 g#4 b4]/4 r/4 r/16 r/32 r/64')
+    s.part('glock', 'glock', 'full', vel=-14).notes('R', 'r/64 r/4. b6/16 b6/16? e7/4 r/8.. r/64')
     s.part('kit', 'drums', 'full', vel=-30).notes('R', 'r/64 tri+sp/4 r/2 r/8.. r/64')
     return s
 

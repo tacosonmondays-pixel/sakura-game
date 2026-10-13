@@ -194,3 +194,26 @@ def gliss(chord: str, lo: int, hi: int, n: int, dur: str = '32', flats: bool = F
         raise ValueError(f'gliss(): only {len(tones)} tones of {chord} in [{lo}, {hi}]')
     sel = tones[:n] if not down else tones[::-1][:n]
     return ' '.join(f'{name_of(p, flats)}/{dur}' for p in sel)
+
+
+# --------------------------------------------------------------------------------------------- chime answers
+def tick(chords: str, bar: int, lo: int = 88, hi: int = 100, beat: float = 2, flats: bool = False,
+         bpb: int = 4) -> str:
+    """One bar of chime answer ("BAM" above the tune) in a melody hole: a 16th double tick on `beat` (0-based, 2 =
+    beat 3) and a short ring an 8th later, chord tones (between MIDI `lo` and `hi`) of the chord sounding there.
+    The rest of the bar is silent."""
+    c = chord_at(grid(chords, bpb), bpb * (bar - 1) + beat, bpb)
+    tones = sorted(p for p in range(lo, hi + 1) if p % 12 in c.tones)
+    a, b = name_of(tones[0], flats), name_of(tones[min(2, len(tones) - 1)], flats)
+    at = Fr(beat).limit_denominator(16)
+    body = f"{b}/16! {b}/16 r/8 {a}/8'"                      # 1.5 beats
+    return ' '.join(x for x in (_rests(at), body, _rests(Fr(bpb) - at - Fr(3, 2))) if x)
+
+
+def _rests(beats: Fr) -> str:
+    out = []
+    for d, tok in ((Fr(4), 'r/1'), (Fr(2), 'r/2'), (Fr(1), 'r/4'), (Fr(1, 2), 'r/8'), (Fr(1, 4), 'r/16')):
+        while beats >= d:
+            out.append(tok)
+            beats -= d
+    return ' '.join(out)
