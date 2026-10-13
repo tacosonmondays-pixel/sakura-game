@@ -415,7 +415,7 @@ function mapsArticle() {
       ])),
     sec('Placement',
       table(['Placement', 'Rule'], Object.values(PLACEMENT).map((x) => [{ text: x.name, strong: true }, x.desc])),
-      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Water girls' }),
+      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Girls who can stand on water' }),
   ]);
 }
 
@@ -514,17 +514,17 @@ function crosspathArticle() {
 function codexArticle() {
   const girls = LEGACY_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const towersOnly = girls.filter((u) => u.kind === 'tower');
-  return article('codex', 'Codex Kits', 'students', 'wiki', 'The original Sakura Sentinels Codex: every returning girl\'s old trait and upgrades.', ['codex', 'legacy', 'classic', 'old', 'original', 'trait', 'upgrade', 'amphibious'], [
+  return article('codex', 'Codex Kits', 'students', 'wiki', 'The original Sakura Sentinels Codex: every returning girl\'s old title, trait and upgrades.', ['codex', 'legacy', 'classic', 'old', 'original', 'trait', 'upgrade', 'amphibious'], [
     sec('Returning girls',
-      p('The nineteen original Sentinels came back with their Codex looks, titles and kits. Their old one-line trait is shown as the "Codex kit" line on each Info tab, and their three old upgrades now name the three upgrade paths (the numbers follow today\'s five-tier paths).'),
+      p('The nineteen original Sentinels came back with their Codex looks and titles. Their old one-line trait and their three old upgrades are shown as the "Codex kit" line on each Info tab. Their upgrade paths and numbers are today\'s academy kits.'),
       table(['Girl', 'Codex title', 'Codex kit'], girls.map((u) => [
         { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].title, LEGACY[u.id].trait,
       ]))),
-    sec('Codex upgrades → today\'s paths',
-      table(['Girl', 'Path 1', 'Path 2', 'Path 3'], towersOnly.map((u) => [
-        { text: u.name, icon: `unit:${u.id}`, strong: true }, ...u.paths.map((path) => `${path.name} — ${path.focus}`),
+    sec('Codex upgrades',
+      table(['Girl', 'Codex upgrades', 'Today\'s paths'], towersOnly.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].upgrades.join(' · '), u.paths.map((path) => path.name).join(' · '),
       ])),
-      tip('Heroes levelled up automatically in the Codex and had no upgrades, so Hikari, Luna and Nami keep their hero paths.', 'info')),
+      tip('Heroes levelled up automatically in the Codex and had no upgrades.', 'info')),
     sec('Land and water',
       p('Girls who fought from land and water in the Codex are amphibious again: they deploy on open ground or on water.'),
       { type: 'units', ids: girls.filter((u) => u.placement === 'amphibious').map((u) => u.id), caption: 'Amphibious girls' }),

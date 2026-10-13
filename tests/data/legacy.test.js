@@ -16,27 +16,31 @@ describe('Codex (legacy) kits', () => {
   it.each(SHARED)('%s has a title, a trait line and her old upgrades', (id) => {
     const k = legacyKit(id);
     expect(k).toBeTruthy();
-    expect(Object.keys(k).sort()).toEqual(['paths', 'title', 'trait', 'upgrades']);
+    expect(Object.keys(k).sort()).toEqual(['title', 'trait', 'upgrades']);
     expect(k.title.length).toBeGreaterThan(3);
     expect(k.trait.length).toBeGreaterThan(8);
     expect(k.trait.length).toBeLessThanOrEqual(64);
     const u = UNIT_MAP[id];
     if (u.kind === 'hero') {
-      // Codex heroes levelled automatically and had no upgrades; their path names stay
+      // Codex heroes levelled automatically and had no upgrades
       expect(k.upgrades).toEqual([]);
-      expect(k.paths).toEqual({});
     } else {
       expect(k.upgrades).toHaveLength(3);
       expect(new Set(k.upgrades).size).toBe(3);
     }
   });
 
-  it.each(SHARED.filter((id) => UNIT_MAP[id].kind === 'tower'))('%s: her three paths carry the three Codex upgrade names', (id) => {
-    const u = UNIT_MAP[id];
-    const k = LEGACY[id];
-    expect(Object.keys(k.paths).sort()).toEqual(u.paths.map((p) => p.id).sort());
-    expect(Object.values(k.paths).sort()).toEqual([...k.upgrades].sort());
-    for (const p of u.paths) expect(p.name, `${id}.${p.id}`).toBe(k.paths[p.id]);
+  it('the School kit keeps its path names: Codex upgrade names live only in the legacy data (owner, 2026-10-13)', () => {
+    // The Codex names belong to a later Fantasy kit; renaming the current paths was withdrawn. Akane's
+    // Wildfire and Suzu's Spirit Seals are the only names both kits happen to share.
+    const shared = new Set(['akane:Wildfire', 'suzu:Spirit Seals']);
+    for (const id of SHARED) {
+      const u = UNIT_MAP[id];
+      for (const p of u.paths) {
+        if (shared.has(`${id}:${p.name}`)) continue;
+        expect(LEGACY[id].upgrades, `${id}.${p.id}`).not.toContain(p.name);
+      }
+    }
   });
 
   it('titles are the Codex titles (Hikari keeps "Dawnblade Captain", which contains hers)', () => {

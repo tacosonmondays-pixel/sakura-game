@@ -268,13 +268,15 @@ def bell(ctx):
     pal = ctx['pal']
     hd, down, fwd, out = hand_frame(ctx)
     axis = Vector((0, 0, 1))
-    top = hd + axis * 0.08
-    parts = [_rod(ctx, [hd - axis * 0.03, top + axis * 0.02], 0.007, darken(pal['accent'], 0.3), 'hand_R')]
-    v, f, r = M.lathe([(0.012, 0.0), (0.03, -0.03), (0.036, -0.05), (0.03, -0.052)], segments=10, close_top=True, close_bottom=True, center=(top.x, top.y, top.z + 0.025))
+    top = hd + axis * 0.1
+    parts = [_rod(ctx, [hd - axis * 0.03, top + axis * 0.02], 0.008, darken(pal['accent'], 0.3), 'hand_R')]
+    # a hand bell big enough to read at battle zoom (the portraits show a large shrine bell)
+    k = 1.6
+    v, f, r = M.lathe([(0.012 * k, 0.0), (0.03 * k, -0.03 * k), (0.036 * k, -0.05 * k), (0.03 * k, -0.052 * k)], segments=12, close_top=True, close_bottom=True, center=(top.x, top.y, top.z + 0.025 * k))
     b = M.new_object('bell', v, f, color=pal['weapon'], bone='hand_R')
     M.finish(b, levels=2)
     parts.append(b)
-    v, f = M.sphere(top - axis * 0.025, (0.009, 0.009, 0.009))
+    v, f = M.sphere(top - axis * 0.025 * k, (0.013, 0.013, 0.013))
     c = M.new_object('clapper', v, f, color=darken(pal['weapon'], 0.4), bone='hand_R')
     M.finish(c, levels=1)
     parts.append(c)

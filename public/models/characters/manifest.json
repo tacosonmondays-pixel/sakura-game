@@ -596,7 +596,7 @@
  },
  "suzu": {
   "file": "suzu.glb",
-  "size": 446664,
+  "size": 450696,
   "animations": [
    "attack_cast",
    "cheer",
@@ -606,10 +606,10 @@
    "victory",
    "walk"
   ],
-  "vertices": 9556,
+  "vertices": 9668,
   "lod": "suzu.lod.glb",
-  "lodSize": 214112,
-  "lodVertices": 3089
+  "lodSize": 215120,
+  "lodVertices": 3117
  },
  "umeko": {
   "file": "umeko.glb",

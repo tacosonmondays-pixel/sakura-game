@@ -535,7 +535,7 @@ describe('hero definitions', () => {
   it('heroes are nerfed: level 10 ≈ a strong tier-4 tower, not a carry', () => {
     // Fold level milestones into base damage/rate and compare raw single-target DPS with Aoi tier 4.
     const aoi = getUnit('aoi');
-    const aoiT4 = (aoi.base.damage + 1 + 1 * 0 + 2 + 6) * aoi.base.rate; // Feather Arrows 1-4 (per target)
+    const aoiT4 = (aoi.base.damage + 1 + 1 * 0 + 2 + 6) * aoi.base.rate; // Piercing Arrows 1-4 (per target)
     for (const u of heroes()) {
       let dmg = u.base.damage; let dmgMul = 1; let rate = u.base.rate;
       for (const l of u.hero.levels) {

@@ -446,7 +446,10 @@ the old raw numbers and the old 3 linear upgrades do not come back, because they
 (combat.md §2.3) and would undo the balance work.
 
 **Now (Builder 2; touch no `base: stats(...)` and no `tier(...)` lines — the balance branch owns those):**
-1. **Path names = the old upgrade names.** Every shared tower had exactly 3 old upgrades. Source: `oldgame/data.js`
+1. ~~**Path names = the old upgrade names.**~~ **WITHDRAWN (owner, 2026-10-13):** the old Codex upgrade names belong to a
+   separate Fantasy kit (a Fantasy ⇄ School toggle built after the balance merge; in the story the fantasy world merges in
+   during Chapter 2). The current path names stay; the Codex names live only in `src/data/legacy.js` `{ title, trait, upgrades }`
+   (the "Codex kit" line). Momo keeps §4.4's idol path names. Original text, for the Fantasy kit later: Every shared tower had exactly 3 old upgrades. Source: `oldgame/data.js`
    `upgrades:[…]`; Kaede, Suzu and Chika are in `oldgame/expansion-roster.js`. Rename its 3 `path(id, NAME, focus, …)`
    names to those 3 old names. Map each old upgrade to the path whose theme fits best, and keep the path ids.
    Example: Aoi becomes 'Feather Arrows' (pierce), 'Windrunner' (rapid volley) and 'Emerald Tempest' (sky hunter).

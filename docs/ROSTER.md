@@ -26,46 +26,47 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 | **Aoi** — Wind Ranger | Tower · R | Marksman | Pierce | – | Land | Starter | Cheap, fast arrows. Paths: pierce/armor, multi-shot + Veil Sight, elite marking. | Ordinary enemies, runners, **crystal shells**, flyers, scaled | Heavy plate (pierce ×0.75, small hits vs armor) |
 | **Rei** — Sakura Samurai | Tower · R | Cleaver | Slash | – | Land | Starter | Melee sweep hitting 3+ enemies; Duelist Stance (T4) turns her into a ramping single-target fighter. | Light swarms at corners, splitters, decoys | Plate (slash ×0.6), spirits, **cannot hit flyers** |
 | **Yuki** — Frost Mage | Tower · R | Controller | Mystic | Frost | Land | Free after 1-2 | Splashing snowballs that slow 30 %; paths add freezes, Brittle (+damage taken) or long-lasting slows. | Hasty goblins, blinkers, pack-fury wolves, leaks | Bosses (resist freezes), warded foes; low damage |
-| **Momo** — Starlight Idol | Tower · R | Economy | Pierce | – | Land | Gacha | +30 coins every wave; paths add big income, interest + upgrade discounts, or a real coin-toss attack. | Funding a stronger late game | Early pressure — she barely defends |
+| **Momo** — Starlight Idol | Tower · R | Economy | Pierce | – | Land | Gacha | +30 coins every wave; paths add big income, interest + upgrade discounts, or a real glow-stick toss attack. | Funding a stronger late game | Early pressure — she barely defends |
 | **Akane** — Flame Witch | Tower · SR | Bombardment | Blast | Fire | Land | Gacha | Fireballs with 1-tile explosions and burns. | Dense swarms, broods, splitters, guarded formations | Fire-warded lizards/dragons, spirits, flyers (until T4/T5) |
 | **Sango** — Coral Corsair | Tower · SR | Artillery | Blast | Water | **Land + water** | Free after 1-5 | Long-range shells (4.2 tiles) that soak, hit barriers ×1.25 and (path 1) **shred armor for everyone**. | Armored formations, barriers, guardians | Scattered runners, spirits (blast ×0.5), flyers (until flak T4) |
 | **Kage** — Shadow Ninja | Tower · SR | Skirmisher | Pierce | – | Land | Free after 2-5 | Two shuriken at a time, very fast, **innate Veil Sight**; paths reveal/mark for the team or pierce armor. | Veiled, fast or scattered enemies, crystal, decoys | Heavy armor (tiny hits) |
 | **Umeko** — Pearl Warden | Tower · SR | Support | Mystic | Water | **Land + water** | Free after 3-2 | **Veil Sight aura** for every girl within 2.6 tiles; weak soaking pulse. Paths: team reveal, buffs, water control. | Veiled waves (makes the whole team see) | Can't defend alone |
 | **Shiro** — Moon Sniper | Tower · SR | Sniper | Pierce | – | Land | Free after 3-5 | Map-wide (10 tiles) hitscan rifle that **ignores 3 armor**, ×1.25 vs elites. | Casters, siphoners, field oni, elites, bosses, armor | Swarms (one target per shot), slow fire rate |
-| **Midori** — Potion Alchemist | Tower · SR | Alchemist | Mystic | Poison | Land | Free after 4-5 | Splashing flasks of poison that ignore armor and **stop regen & siphon healing**; paths add acid shred or mist. | Regenerators, siphoning ghouls, high-HP tanks | Burst-needed moments, flyers (until Emerald Elixir 3) |
+| **Midori** — Potion Alchemist | Tower · SR | Alchemist | Mystic | Poison | Land | Free after 4-5 | Splashing flasks of poison that ignore armor and **stop regen & siphon healing**; paths add acid shred or mist. | Regenerators, siphoning ghouls, high-HP tanks | Burst-needed moments, flyers (until Field Kit 3) |
 | **Suzu** — Bell Trapper | Tower · SR | Trapper | Blast | – | Land | Free after 5-5 | Places up to 4 rune traps on the path in range; paths: big mines, binding roots, holy reveal/silence seals. | Leakers near the exit, **sappers**, hasty runners | Flyers (traps are on the ground), needs set-up time |
 | **Raika** — Storm Caller | Tower · SR | Chain | Mystic | Lightning | Land | Gacha | Lightning that jumps to 3 extra enemies with shock; paths: more jumps, a piercing lance, or tempo + silence. | Spread-out groups, decoys, soaked enemies | Lone targets, warded foes |
 | **Miko** — Shrine Keeper | Tower · SR | Enchanter | Holy | – | Land | Gacha | **+10 % damage aura**; paths: stronger aura, silencing talismans/holy beam, Veil Sight + cleanse aura. | Making a cluster of girls stronger | Defending alone |
 | **Hotaru** — Lantern Keeper | Tower · SSR | Exorcist | Holy | – | Land | Gacha | Holy pulses (8 targets) that **reveal veils and silence** fields, siphons, blinks and phasing. | Ghosts, wraiths, veils, oni field casters | Scaled lizards (holy ×0.75); specialist, not a carry |
-| **Kaede** — Crimson Fencer | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Needle Point 3) |
+| **Kaede** — Crimson Fencer | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
 | **Chika** — Clockwork Mechanic | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | Builds sentry drones (2 at base); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil. | Sabotage waves, long straights | Burst moments before drones are built |
 
 ## Upgrade paths at a glance
 
 Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 000–16 000 coins).
-The 16 shared students' paths carry their three old Codex upgrade names (`src/data/legacy.js`); tier names are unchanged.
+The old Codex upgrade names are kept for a later Fantasy kit (`src/data/legacy.js`, shown as the "Codex kit" line);
+Momo's paths carry idol names, and her tier names change after the balance merge.
 
 | Girl | Path 1 → T5 | Path 2 → T5 | Path 3 → T5 |
 |---|---|---|---|
 | Hikari | Radiant Edge → *Noon Absolute* (huge cleave) | Sanctuary → *Dawn Sanctuary* (Veil Sight + silence aura; cleanse from T4) | Lightbringer → *Celestial Choir* (anti-air light lances) |
 | Luna | Lunar Lances → *Lunatic Lance* (5 beams) | Night Gravity → *Event Horizon* (freeze, Brittle) | Astral Court → *Queen of the Night Sky* (team aura) |
 | Nami | Frostbrand → *Absolute Zero Tide* (freezes) | Undertow → *Leviathan's Wake* (push-back) | Harbor Watch → *Admiral of the Tides* (fleet aura, discounts) |
-| Aoi | Feather Arrows → *Skyline Breaker* (armor pen, pierce 17) | Windrunner → *Thousand Feathers* (6 targets, Veil Sight) | Emerald Tempest → *Apex Huntress* (mark, elite/boss hunter) |
-| Rei | Thousand Cuts → *Thousand Petal Storm* (hit everything) | Honed Edge → *Final Crescent* (becomes `duel`) | Petal Dance → *Kenshi's Answer* (silence, stun, shred) |
-| Yuki | Absolute Zero → *Eternal Winter* (becomes a blizzard `pulse`) | Deep Chill → *Diamond Dust* (Brittle +35 %) | Winter Veil → *Frozen Time* (long slows, silence) |
-| Momo | Superstar → *Golden Peach Bank* (+1 390/wave total) | Opening Act → *Golden Ledger* (interest, 25 % discount aura) | Encore → *Fortune's Favourite* (coin storm) |
-| Akane | Phoenix Heart → *Hanabi Sky Festival* (5 shells, anti-air) | Wildfire → *Inferno Queen* (25/s burns) | Cinder Spark → *Skybreaker Missile* (armor/boss/barrier) |
-| Sango | Reef Powder → *Fortress Fall* (shred −5, Brittle) | Pearlstorm Barrage → *Carpet Bombardment* (flak, 4 shells) | Coral Broadside → *Leviathan Cannon* (boss shells, knockback) |
-| Kage | Shadowstorm → *Thousand Shadows* (13 targets) | Twin Shadows → *Night Sovereign* (team reveal + mark) | Night Blossom → *Black Lotus* (armor pen, stun) |
-| Umeko | Pearl Lantern → *Sea of Lanterns* (6-tile Veil Sight, team reveal) | Ocean's Blessing → *Blooming Ocean* (damage/speed aura) | Tidal Sanctuary → *Tidal Sanctuary* (slow + push-back) |
-| Shiro | Lunar Eclipse → *Cross-Map Execution* (huge shots, stagger) | Eagle Eye → *Overwatch Network* (+40 % mark, Veil Sight aura) | Silver Bullet → *Silver Storm* (4 targets, fast) |
-| Midori | Potent Brew → *Verdant Apocalypse* (40/s poison) | Forbidden Formula → *Universal Solvent* (shred −5, Brittle) | Emerald Elixir → *Elixir Barrage* (anti-air mist, stun spores) |
-| Suzu | Firework Bells → *Grand Bell Detonation* | Binding Bells → *Thousand Bell Prison* (freeze traps) | Spirit Seals → *Great Barrier Seal* (holy, reveal, silence) |
-| Raika | Divine Storm → *Raijin's Wrath* (2 bolts × 21 jumps) | Static Charge → *Heaven's Drum* (becomes a `beam` lance) | Thunder Chorus → *Endless Thunder* (tempo + silence) |
-| Miko | Spirit Blessing → *Goddess's Festival* (+20 % dmg aura) | Sacred Bell → *Amaterasu's Mirror* (becomes a holy `beam`) | Celestial Shrine → *Heavenly Shrine* (Veil Sight, cleanse, discounts) |
-| Hotaru | Thousand Lanterns → *Thousand Souls Festival* (holy nuke) | Firefly Song → *Absolute Stillness* (long silence, stun) | Guiding Light → *Night of Fireflies* (aura, cleanse) |
-| Kaede | Crimson Focus → *Crimson Eternity* (ramp +250 %) | Needle Point → *Thousand Leaves Draw* (anti-air, crits) | Riposte → *Heaven-Splitting Strike* (shred, stun) |
-| Chika | Twin Workshops → *Mecha-Fortress Protocol* (9 drones) | Survey Drones → *Grand Workshop* (cleanse, Veil Sight, buffs) | Heavy Machinery → *Thunderforge Reactor* (becomes a `chain` coil) |
+| Aoi | Piercing Arrows → *Skyline Breaker* (armor pen, pierce 17) | Rapid Volley → *Thousand Feathers* (6 targets, Veil Sight) | Sky Hunter → *Apex Huntress* (mark, elite/boss hunter) |
+| Rei | Whirlwind → *Thousand Petal Storm* (hit everything) | Duelist Stance → *Final Crescent* (becomes `duel`) | Counter Form → *Kenshi's Answer* (silence, stun, shred) |
+| Yuki | Deep Freeze → *Eternal Winter* (becomes a blizzard `pulse`) | Frostbite → *Diamond Dust* (Brittle +35 %) | Permafrost → *Frozen Time* (long slows, silence) |
+| Momo | Fan Club → *Golden Peach Bank* (+1 390/wave total) | Merch Table → *Golden Ledger* (interest, 25 % discount aura) | Encore Toss → *Fortune's Favourite* (coin storm) |
+| Akane | Big Bang → *Hanabi Sky Festival* (5 shells, anti-air) | Wildfire → *Inferno Queen* (25/s burns) | Rocket Science → *Skybreaker Missile* (armor/boss/barrier) |
+| Sango | Armor-Breaker Shells → *Fortress Fall* (shred −5, Brittle) | Wide Fragmentation → *Carpet Bombardment* (flak, 4 shells) | Concentrated Siege → *Leviathan Cannon* (boss shells, knockback) |
+| Kage | Storm of Steel → *Thousand Shadows* (13 targets) | Shadow Mark → *Night Sovereign* (team reveal + mark) | Kunai Craft → *Black Lotus* (armor pen, stun) |
+| Umeko | Lighthouse → *Sea of Lanterns* (6-tile Veil Sight, team reveal) | Plum Rain → *Blooming Ocean* (damage/speed aura) | Undertow Ripples → *Tidal Sanctuary* (slow + push-back) |
+| Shiro | Execution → *Cross-Map Execution* (huge shots, stagger) | Spotter's Mark → *Overwatch Network* (+40 % mark, Veil Sight aura) | Follow-up Shots → *Silver Storm* (4 targets, fast) |
+| Midori | Toxicology → *Verdant Apocalypse* (40/s poison) | Corrosion → *Universal Solvent* (shred −5, Brittle) | Field Kit → *Elixir Barrage* (anti-air mist, stun spores) |
+| Suzu | Explosive Mines → *Grand Bell Detonation* | Binding Traps → *Thousand Bell Prison* (freeze traps) | Spirit Seals → *Great Barrier Seal* (holy, reveal, silence) |
+| Raika | Forked Lightning → *Raijin's Wrath* (2 bolts × 21 jumps) | Overcharge → *Heaven's Drum* (becomes a `beam` lance) | Storm Rhythm → *Endless Thunder* (tempo + silence) |
+| Miko | Blessing → *Goddess's Festival* (+20 % dmg aura) | Purification → *Amaterasu's Mirror* (becomes a holy `beam`) | Sacred Grounds → *Heavenly Shrine* (Veil Sight, cleanse, discounts) |
+| Hotaru | Lantern Light → *Thousand Souls Festival* (holy nuke) | Silent Prayer → *Absolute Stillness* (long silence, stun) | Guiding Lights → *Night of Fireflies* (aura, cleanse) |
+| Kaede | Unbroken Rhythm → *Crimson Eternity* (ramp +250 %) | Flowing Blade → *Thousand Leaves Draw* (anti-air, crits) | Guard Breaker → *Heaven-Splitting Strike* (shred, stun) |
+| Chika | Sentry Works → *Mecha-Fortress Protocol* (9 drones) | Repair Bay → *Grand Workshop* (cleanse, Veil Sight, buffs) | Tesla Engineering → *Thunderforge Reactor* (becomes a `chain` coil) |
 
 ## Looks (for art & models)
 

@@ -244,18 +244,21 @@ in `UNITS`, saves, gacha, the sim or balance. Only the wiki's Coming Soon articl
 
 ### 3b. Codex (legacy) kits — `src/data/legacy.js` (owner: units)
 
-The 19 shared girls carry their old Codex identity (ROSTER_SPEC §4.4b): old titles (Hikari keeps "Dawnblade
-Captain"), old looks, and the three old upgrade names as their three path names. Nami, Sango and Umeko are
-`amphibious` again, as in the Codex. The kit data lives outside the UnitDef so the unit schema is unchanged:
+The 19 shared girls carry their old Codex identity (ROSTER_SPEC §4.2-4.4b): old titles (Hikari keeps "Dawnblade
+Captain") and old looks. Their upgrade paths keep today's (School) names; the owner (2026-10-13) moved the old
+Codex upgrade names to a later Fantasy kit (a Fantasy ⇄ School toggle built after the balance merge), so they live
+only here. Momo's three paths carry idol names (Fan Club, Merch Table, Encore Toss; ROSTER_SPEC §4.4). Nami, Sango
+and Umeko are `amphibious` again, as in the Codex. The kit data lives outside the UnitDef so the unit schema is
+unchanged:
 
 ```js
 LegacyKit = { title, trait /* the old one-line kit, e.g. 'Fast single-target attacks' */,
-              upgrades: string[] /* 3 for towers, [] for heroes */, paths: { [pathId]: upgradeName } }
+              upgrades: string[] /* the 3 old upgrade names for towers, [] for heroes */ }
 export const LEGACY /* unitId -> LegacyKit, the 19 shared ids */, LEGACY_IDS; export function legacyKit(unitId) // or null
 ```
 
-The student Info tab shows the trait as a "Codex kit" line; the wiki has a "Codex Kits" article.
-`tests/data/legacy.test.js` keeps `LEGACY[id].paths` and the `path(...)` names in `units.js` in sync.
+The student Info tab shows the trait and the old upgrade names as a "Codex kit" line; the wiki has a "Codex Kits"
+article. `tests/data/legacy.test.js` checks all 19 have one and that no current path was renamed to a Codex name.
 
 ## 4. World — enemies, maps, stages (owner: world)
 

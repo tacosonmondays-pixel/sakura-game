@@ -138,7 +138,7 @@ Ashwing 70). Rewards are bounty tokens and coins; the UI records the best wave p
 * Wave budgets are tuned with the sim's `autoPlan` bot using free units only and modest expected
   levels per chapter. The bot spreads its coins over many low-tier girls, so it is a
   pessimistic stand-in for a player; minibosses and the 8-5 boss are deliberately beyond it and need
-  focused tier-4/5 builds (e.g. Kage's Shadowstorm, Shiro's Lunar Eclipse, Sango's Reef Powder).
+  focused tier-4/5 builds (e.g. Kage's Storm of Steel, Shiro's Execution, Sango's Armor-Breaker Shells).
 * Tuning results (Normal, autoPlan, free units only): with expected levels per chapter
   (1 / 8 / 14 / 20 / 25 / 30 / 35 / 40) every stage 1-1 … 8-4 is won, most with 40–100 lives; 8-5's
   Matriarch is beyond the bot. With level-1 girls, chapters 1–3 are won and later chapters need

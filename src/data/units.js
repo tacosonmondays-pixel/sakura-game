@@ -371,28 +371,28 @@ const AOI = {
   tips: [
     'Cheap and dependable — a great first placement on any map.',
     'Many small hits crack crystal shells quickly, and she can shoot flyers.',
-    'Windrunner tier 3 gives her Veil Sight; Feather Arrows tier 3 lets her ignore armor.',
+    'Rapid Volley tier 3 gives her Veil Sight; Piercing Arrows tier 3 lets her ignore armor.',
   ],
   base: stats({
     cost: 200, behavior: 'projectile', damage: 4, rate: 1.4, range: 3.2, projectileSpeed: 16,
     canHitAir: true, crit: { chance: 0.05, mul: 1.5 },
   }),
   paths: [
-    path('piercing', 'Feather Arrows', 'Pierce and armor', [
+    path('piercing', 'Piercing Arrows', 'Pierce and armor', [
       tier('Sharpened Tips', 100, '+1 damage; arrows pierce 1 more enemy.', { damage: 1, pierce: 1 }),
       tier('Fletcher\'s Focus', 220, '+1 pierce, +0.3 range.', { pierce: 1, range: 0.3 }),
       tier('Steel Broadheads', 650, 'Ignores 2 armor, +2 damage.', { armorPen: 2, damage: 2 }),
       tier('Comet Arrow', 2200, '+6 damage, +4 pierce, faster arrows, +30% against elites.', { damage: 6, pierce: 4, projectileSpeed: 10, eliteMul: 1.3 }),
       tier('Skyline Breaker', 8500, 'Arrows punch through whole columns: +18 damage, +10 pierce, ignores 6 more armor.', { damage: 18, pierce: 10, armorPen: 6, range: 1, crit: { chance: 0.1, mul: 2.5 } }),
     ]),
-    path('volley', 'Windrunner', 'Speed and multi-shot', [
+    path('volley', 'Rapid Volley', 'Speed and multi-shot', [
       tier('Quick Draw', 90, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Twin Nock', 250, 'Shoots 2 targets at once.', { projectiles: 1 }),
       tier('Hawk Eye', 600, 'Veil Sight; +0.4 range and +15% attack speed.', { detection: true, range: 0.4, rateMul: 1.15 }),
       tier('Arrow Storm', 2400, '4 targets per volley, +50% attack speed.', { projectiles: 2, rateMul: 1.5 }),
       tier('Thousand Feathers', 9500, '6 targets per volley, double attack speed, +3 damage.', { projectiles: 2, rateMul: 2, damage: 3 }),
     ]),
-    path('hunter', 'Emerald Tempest', 'Elites, bosses and marking', [
+    path('hunter', 'Sky Hunter', 'Elites, bosses and marking', [
       tier('Long Bow', 80, '+0.5 range.', { range: 0.5 }),
       tier('Wind Reading', 200, '+0.3 range, +5% crit chance.', { range: 0.3, crit: { chance: 0.05, mul: 1.5 } }),
       tier('Falcon Mark', 700, 'Marked targets take +12% damage from everyone for 3s; +25% against elites.', { mark: { bonus: 0.12, duration: 3 }, eliteMul: 1.25 }),
@@ -437,28 +437,28 @@ const REI = {
     'Put her on the inside of a corner so the path wraps around her.',
     'Slash shreds light armor but bounces off plate — pair her with an armor breaker.',
     'Melee: she cannot hit flyers.',
-    'Honed Edge tier 4 (Duelist Stance) turns her into a single-target boss fighter.',
+    'Duelist Stance (tier 4) turns her into a single-target boss fighter.',
   ],
   base: stats({
     cost: 240, behavior: 'pulse', damage: 4, rate: 0.9, range: 1.8, maxTargets: 3,
     projectileSpeed: 0, canHitAir: false,
   }),
   paths: [
-    path('whirlwind', 'Thousand Cuts', 'Wider cleave', [
+    path('whirlwind', 'Whirlwind', 'Wider cleave', [
       tier('Long Reach', 100, '+0.2 range; each sweep hits 1 more enemy.', { range: 0.2, maxTargets: 1 }),
       tier('Spinning Draw', 260, '+20% attack speed; +1 target.', { rateMul: 1.2, maxTargets: 1 }),
       tier('Crescent Gale', 800, 'Sweeps hit up to 9 enemies; +2 damage, +0.3 range.', { maxTargets: 4, damage: 2, range: 0.3 }),
       tier('Tempest Dance', 2500, '+50% attack speed, +4 damage, 4 more targets.', { rateMul: 1.5, damage: 4, maxTargets: 4 }),
       tier('Thousand Petal Storm', 9000, 'A blade hurricane: hits everything in reach, +14 damage, +60% speed.', { maxTargets: 20, damage: 14, rateMul: 1.6, range: 0.6, crit: { chance: 0.1, mul: 2 } }),
     ]),
-    path('duelist', 'Honed Edge', 'Single-target focus', [
+    path('duelist', 'Duelist Stance', 'Single-target focus', [
       tier('Sharpened Edge', 110, '+2 damage.', { damage: 2 }),
       tier('Iai Draw', 280, '10% crits for ×2 damage.', { crit: { chance: 0.1, mul: 2 } }),
       tier('Focused Strikes', 850, '+4 damage, ignores 2 armor, +20% against elites.', { damage: 4, armorPen: 2, eliteMul: 1.2 }),
       tier('Duelist Stance', 2600, 'Switches to a one-on-one stance: single target, +10% damage per consecutive hit (max +80%).', { behavior: 'duel', ramp: { per: 0.1, max: 0.8 }, damage: 8, rateMul: 1.2 }),
       tier('Final Crescent', 9500, '+20 damage, ramp up to +150%, +40% vs bosses, 15% crits ×3.', { damage: 20, ramp: { per: 0.05, max: 0.7 }, bossMul: 1.4, crit: { chance: 0.15, mul: 3 } }),
     ]),
-    path('counter', 'Petal Dance', 'Interrupting counter-slashes', [
+    path('counter', 'Counter Form', 'Interrupting counter-slashes', [
       tier('Ready Guard', 90, '+10% attack speed.', { rateMul: 1.1 }),
       tier('Parry Rhythm', 240, '+1 damage, +0.2 range.', { damage: 1, range: 0.2 }),
       tier('Riposte', 750, 'Counter-slashes silence for 0.5s (stops blinks and siphons); 25% chance to stun.', { silence: 0.5, status: [S.stun(0.35, 0.25)] }),
@@ -501,7 +501,7 @@ const YUKI = {
   quote: '...Slow down. Please.',
   tips: [
     'Slowed enemies stay in everyone\'s range longer — place her early along the path.',
-    'Deep Chill makes enemies Brittle so every girl deals more damage to them.',
+    'Frostbite makes enemies Brittle so every girl deals more damage to them.',
     'Bosses shrug off most freeze time: lean on slows, not freezes, against them.',
   ],
   base: stats({
@@ -509,21 +509,21 @@ const YUKI = {
     projectileSpeed: 10, canHitAir: true, status: [S.slow(0.3, 1.5)],
   }),
   paths: [
-    path('deepfreeze', 'Absolute Zero', 'Stronger slowdown', [
+    path('deepfreeze', 'Deep Freeze', 'Stronger slowdown', [
       tier('Chill', 90, 'Slow strengthened to 35%.', { status: [S.slow(0.35, 1.6)] }),
       tier('Snowfall', 240, '+0.3 splash.', { splash: 0.3 }),
       tier('Flash Freeze', 700, '20% chance to freeze for 0.6s; slow 45%.', { status: [S.freeze(0.6, 0.2), S.slow(0.45, 1.8)] }),
       tier('Glacial Prison', 2200, '30% chance to freeze for 1s, bigger splash, +20% attack speed.', { status: [S.freeze(1, 0.3)], splash: 0.4, rateMul: 1.2 }),
       tier('Eternal Winter', 8500, 'Becomes a blizzard: pulses hit every enemy in range with 60% slows and frequent freezes.', { behavior: 'pulse', range: 0.6, damage: 6, status: [S.slow(0.6, 2.5), S.freeze(1.5, 0.35)] }),
     ]),
-    path('frostbite', 'Deep Chill', 'Frost vulnerability', [
+    path('frostbite', 'Frostbite', 'Frost vulnerability', [
       tier('Sharp Ice', 100, '+1 damage.', { damage: 1 }),
       tier('Icicle Lance', 260, '+1 damage; icicles pierce 1 more enemy.', { damage: 1, pierce: 1 }),
       tier('Brittle Frost', 800, 'Struck foes turn Brittle: +15% damage from everyone for 2.5s.', { status: [S.vulnerable(0.15, 2.5)] }),
       tier('Shatter Point', 2600, 'Brittle +25%; frost cracks armor (-2, stacks ×3); +5 damage.', { status: [S.vulnerable(0.25, 3), S.shred(2, 3)], damage: 5 }),
       tier('Diamond Dust', 9000, '+15 damage, Brittle +35%, 20% crits ×2.5, +30% attack speed.', { damage: 15, status: [S.vulnerable(0.35, 3.5)], crit: { chance: 0.2, mul: 2.5 }, rateMul: 1.3 }),
     ]),
-    path('permafrost', 'Winter Veil', 'Lingering control', [
+    path('permafrost', 'Permafrost', 'Lingering control', [
       tier('Frost Trail', 80, '+0.3 range.', { range: 0.3 }),
       tier('Lingering Cold', 220, 'Slows last 2.5s.', { status: [S.slow(0.3, 2.5)] }),
       tier('Hoarfrost Field', 650, 'Wide frost patches (+0.5 splash), 3s slows, and chills silence blinks and siphons for 0.6s.', { splash: 0.5, status: [S.slow(0.35, 3)], silence: 0.6 }),
@@ -566,7 +566,7 @@ const MOMO = {
   quote: 'Thank you, everyone! Encore~!',
   tips: [
     'Place her early: her income pays out at the end of every wave.',
-    'Opening Act tier 3 makes upgrades cheaper for the girls around her.',
+    'Merch Table tier 3 makes upgrades cheaper for the girls around her.',
     'Her glow-stick toss is weak — never rely on her to hold a lane alone.',
     'Nightmare difficulty switches off all wave income, hers included.',
   ],
@@ -575,21 +575,21 @@ const MOMO = {
     canHitAir: true, income: { perWave: 30, interest: 0 },
   }),
   paths: [
-    path('orchard', 'Superstar', 'Wave income', [
+    path('orchard', 'Fan Club', 'Wave income', [
       tier('Fresh Stock', 150, '+20 coins per wave.', { income: { perWave: 20 } }),
       tier('Market Stall', 350, '+40 coins per wave.', { income: { perWave: 40 } }),
       tier('Peach Emporium', 1100, '+100 coins per wave.', { income: { perWave: 100 } }),
       tier('Sakura Trading Co.', 3500, '+300 coins per wave.', { income: { perWave: 300 } }),
       tier('Golden Peach Bank', 12000, '+900 coins per wave and 5% interest on your coins (max 150).', { income: { perWave: 900, interest: 0.05 } }),
     ]),
-    path('ledger', 'Opening Act', 'Interest and discounts', [
+    path('ledger', 'Merch Table', 'Interest and discounts', [
       tier('Piggy Bank', 120, 'Earn 2% interest on your coins each wave (max 150).', { income: { interest: 0.02 } }),
       tier('Compound Ledger', 300, '+2% interest and +10 coins per wave.', { income: { perWave: 10, interest: 0.02 } }),
       tier('Coupon Book', 900, 'Girls within 2.5 tiles pay 8% less for upgrades.', { aura: { range: 2.5, costCut: 0.08 } }),
       tier('Wholesale Deals', 2800, 'Discount rises to 15% within 3.2 tiles; +3% interest.', { aura: { range: 3.2, costCut: 0.07 }, income: { interest: 0.03 } }),
       tier('Golden Ledger', 9000, 'Discount rises to 25%; +250 coins per wave and +5% interest.', { aura: { costCut: 0.1 }, income: { perWave: 250, interest: 0.05 } }),
     ]),
-    path('cointoss', 'Encore', 'Lucky attacks', [
+    path('cointoss', 'Encore Toss', 'Lucky attacks', [
       tier('Heavy Coins', 100, '+2 damage.', { damage: 2 }),
       tier('Double Toss', 260, 'Throws at 2 targets; +20% attack speed.', { projectiles: 1, rateMul: 1.2 }),
       tier('Gold Rush', 800, 'Solid gold coins ignore 2 armor, +3 damage, pierce 2 more.', { armorPen: 2, damage: 3, pierce: 2 }),
@@ -640,7 +640,7 @@ const AKANE = {
     projectileSpeed: 9, canHitAir: false, status: [S.burn(2, 2)],
   }),
   paths: [
-    path('bigbang', 'Phoenix Heart', 'Bigger explosions', [
+    path('bigbang', 'Big Bang', 'Bigger explosions', [
       tier('Extra Powder', 140, '+0.3 explosion radius.', { splash: 0.3 }),
       tier('Heavier Shells', 320, '+2 damage.', { damage: 2 }),
       tier('Cluster Bloom', 1000, 'Throws two fireballs at different targets; +0.3 radius.', { projectiles: 1, splash: 0.3 }),
@@ -654,7 +654,7 @@ const AKANE = {
       tier('Phoenix Feather', 2800, 'Fireballs arc high enough to hit flyers; burns 10/s; +4 damage.', { canHitAir: true, status: [S.burn(10, 4)], damage: 4 }),
       tier('Inferno Queen', 10000, 'Burns 25/s for 5s, wider blasts, +40% attack speed.', { status: [S.burn(25, 5)], splash: 0.5, rateMul: 1.4, damage: 6 }),
     ]),
-    path('rocketry', 'Cinder Spark', 'Range, speed and armor', [
+    path('rocketry', 'Rocket Science', 'Range, speed and armor', [
       tier('Long Fuse', 100, '+0.4 range.', { range: 0.4 }),
       tier('Quick Loader', 260, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Shaped Charge', 850, 'Ignores 3 armor and cracks it (-1, stacks ×3).', { armorPen: 3, status: [S.shred(1, 3)] }),
@@ -698,29 +698,29 @@ const SANGO = {
   tips: [
     'Amphibious: she deploys on land or water, and her shells reach far.',
     'Blast deals +50% to barriers, and Sango adds even more on top.',
-    'Reef Powder shells lower armor for every girl that hits the target afterwards.',
-    'Air-Burst Flak (Pearlstorm Barrage tier 4) lets her shoot down flyers.',
+    'Armor-Breaker Shells lower armor for every girl that hits the target afterwards.',
+    'Air-Burst Flak (Wide Fragmentation tier 4) lets her shoot down flyers.',
   ],
   base: stats({
     cost: 560, behavior: 'projectile', damage: 14, rate: 0.45, range: 4.2, splash: 0.8,
     projectileSpeed: 8, canHitAir: false, barrierMul: 1.25, status: [S.soak(2)],
   }),
   paths: [
-    path('breaker', 'Reef Powder', 'Shred armor and barriers', [
+    path('breaker', 'Armor-Breaker Shells', 'Shred armor and barriers', [
       tier('Hardened Tips', 150, 'Ignores 1 armor.', { armorPen: 1 }),
       tier('Crack Shot', 340, 'Shells crack armor: -1 for 3s (stacks ×3).', { status: [S.shred(1, 3)] }),
       tier('Plate Splitter', 1100, 'Shred -2 for 4s, ignores 2 more armor, +4 damage.', { status: [S.shred(2, 4)], armorPen: 2, damage: 4 }),
       tier('Siege Breaker', 3500, 'Shred -3, ×1.5 vs barriers, +10 damage.', { status: [S.shred(3, 5)], barrierMul: 1.5, damage: 10 }),
       tier('Fortress Fall', 12500, 'Shred -5 and Brittle +20% for the whole team; +50 damage, +30% speed, ×1.5 vs barriers.', { status: [S.shred(5, 6), S.vulnerable(0.2, 4)], damage: 50, rateMul: 1.3, barrierMul: 1.5 }),
     ]),
-    path('frag', 'Pearlstorm Barrage', 'Splash and flak', [
+    path('frag', 'Wide Fragmentation', 'Splash and flak', [
       tier('Packed Shrapnel', 140, '+0.3 splash.', { splash: 0.3 }),
       tier('Spread Charge', 300, '+3 damage.', { damage: 3 }),
       tier('Fragmentation Rounds', 1000, '+0.6 splash, +3 damage; 15% chance to stun for 0.25s.', { splash: 0.6, damage: 3, status: [S.stun(0.25, 0.15)] }),
       tier('Air-Burst Flak', 3000, 'Shells burst mid-air to hit flyers; +40% attack speed, +0.4 splash.', { canHitAir: true, rateMul: 1.4, splash: 0.4 }),
       tier('Carpet Bombardment', 11000, 'Four shells per salvo at different targets, +18 damage, +0.8 splash.', { projectiles: 3, damage: 18, splash: 0.8, rateMul: 1.2 }),
     ]),
-    path('siege', 'Coral Broadside', 'Huge single shells', [
+    path('siege', 'Concentrated Siege', 'Huge single shells', [
       tier('Range Finder', 120, '+0.6 range.', { range: 0.6 }),
       tier('Bigger Bore', 320, '+6 damage.', { damage: 6 }),
       tier('Siege Mortar', 1200, '+16 damage, +1 range, +25% against elites.', { damage: 16, range: 1, eliteMul: 1.25 }),
@@ -764,28 +764,28 @@ const KAGE = {
   tips: [
     'Innate Veil Sight: she hits veiled enemies from the moment she is placed.',
     'Many fast hits shatter crystal shells and pop illusion decoys.',
-    'Twin Shadows tier 3 reveals veiled foes for the whole team.',
+    'Shadow Mark tier 3 reveals veiled foes for the whole team.',
   ],
   base: stats({
     cost: 400, behavior: 'projectile', damage: 3, rate: 2.0, range: 3.0, projectiles: 2, pierce: 2,
     projectileSpeed: 18, canHitAir: true, detection: true,
   }),
   paths: [
-    path('steel', 'Shadowstorm', 'Rapid multi-target', [
+    path('steel', 'Storm of Steel', 'Rapid multi-target', [
       tier('Quick Hands', 140, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Triple Star', 320, 'Throws at 3 targets.', { projectiles: 1 }),
       tier('Shuriken Cyclone', 1000, '5 targets, +1 pierce, +15% attack speed.', { projectiles: 2, pierce: 1, rateMul: 1.15 }),
       tier('Blade Rain', 3000, '7 targets, +50% attack speed, +2 damage.', { projectiles: 2, rateMul: 1.5, damage: 2 }),
       tier('Thousand Shadows', 10500, 'Shadow clones join in: 13 targets, +60% speed, +5 damage, +2 pierce.', { projectiles: 6, rateMul: 1.6, damage: 5, pierce: 2 }),
     ]),
-    path('shadowmark', 'Twin Shadows', 'Reveal and mark', [
+    path('shadowmark', 'Shadow Mark', 'Reveal and mark', [
       tier('Keen Senses', 120, '+0.4 range.', { range: 0.4 }),
       tier('Shadow Step', 300, '+1 damage.', { damage: 1 }),
       tier('Unmasking Kunai', 900, 'Hits reveal veiled foes for everyone (3s) and mark them (+10% damage taken).', { reveal: 3, mark: { bonus: 0.1, duration: 3 } }),
       tier('Assassin\'s Mark', 2700, 'Mark +20% for 4s, ×1.4 vs elites, +4 damage.', { mark: { bonus: 0.2, duration: 4 }, eliteMul: 1.4, damage: 4 }),
       tier('Night Sovereign', 9000, 'Mark +30%, reveal lasts 6s, +10 damage, 15% crits ×2.5.', { mark: { bonus: 0.3, duration: 5 }, reveal: 3, damage: 10, crit: { chance: 0.15, mul: 2.5 } }),
     ]),
-    path('kunai', 'Night Blossom', 'Armor-piercing steel', [
+    path('kunai', 'Kunai Craft', 'Armor-piercing steel', [
       tier('Tempered Steel', 130, '+1 damage.', { damage: 1 }),
       tier('Weighted Kunai', 280, 'Ignores 1 armor.', { armorPen: 1 }),
       tier('Paralytic Kunai', 850, '15% chance to stun for 0.2s; ignores 1 more armor; +2 damage.', { status: [S.stun(0.2, 0.15)], armorPen: 1, damage: 2 }),
@@ -829,7 +829,7 @@ const UMEKO = {
   tips: [
     'Amphibious: land or water. Every girl inside her aura gains Veil Sight.',
     'She barely attacks — place her where many girls stand within reach of her aura.',
-    'Pearl Lantern tier 3 strips veils for everyone, even girls outside her aura.',
+    'Lighthouse tier 3 strips veils for everyone, even girls outside her aura.',
   ],
   base: stats({
     cost: 380, behavior: 'pulse', damage: 1, rate: 0.6, range: 2.4, maxTargets: 6,
@@ -837,21 +837,21 @@ const UMEKO = {
     aura: { range: 2.6, detection: true },
   }),
   paths: [
-    path('lighthouse', 'Pearl Lantern', 'Veil Sight and reveal', [
+    path('lighthouse', 'Lighthouse', 'Veil Sight and reveal', [
       tier('Clear Water', 120, 'Aura reaches 3 tiles.', { aura: { range: 3 } }),
       tier('Beacon', 300, '+0.4 range; aura reaches 3.4 tiles.', { range: 0.4, aura: { range: 3.4 } }),
       tier('Revealing Tide', 950, 'Pulses reveal veiled foes for everyone for 3s; +2 damage.', { reveal: 3, damage: 2 }),
       tier('Moonlit Beacon', 3000, 'Aura reaches 4.5 tiles and gives +10% range; reveal +2s.', { aura: { range: 4.5, rangeMul: 1.1 }, reveal: 2 }),
       tier('Sea of Lanterns', 9500, 'Aura reaches 6 tiles: +15% range, +10% damage; reveals last 3s longer and pulses silence for 0.8s.', { aura: { range: 6, rangeMul: 1.15, dmgMul: 1.1 }, reveal: 3, silence: 0.8 }),
     ]),
-    path('plumrain', 'Ocean\'s Blessing', 'Team buffs', [
+    path('plumrain', 'Plum Rain', 'Team buffs', [
       tier('Warm Current', 140, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),
       tier('Blossom Shower', 320, 'Aura: +5% damage.', { aura: { dmgMul: 1.05 } }),
       tier('Spring Tide', 1100, 'Aura: +10% attack speed, +5% damage.', { aura: { rateMul: 1.1, dmgMul: 1.05 } }),
       tier('Festival of Plums', 3400, 'Aura: +12% damage, +8% attack speed.', { aura: { dmgMul: 1.12, rateMul: 1.08 } }),
       tier('Blooming Ocean', 11000, 'Aura: +15% damage and speed, +10% range, 5% cheaper upgrades.', { aura: { dmgMul: 1.15, rateMul: 1.15, rangeMul: 1.1, costCut: 0.05 } }),
     ]),
-    path('ripples', 'Tidal Sanctuary', 'Water control', [
+    path('ripples', 'Undertow Ripples', 'Water control', [
       tier('Ripples', 100, '+1 damage.', { damage: 1 }),
       tier('Drag Current', 260, 'Pulses slow by 20% for 1.5s.', { status: [S.slow(0.2, 1.5)] }),
       tier('Whirl Ward', 850, 'Slow 35%; pulses push enemies back 0.15 tiles.', { status: [S.slow(0.35, 2)], knockback: 0.15 }),
@@ -902,21 +902,21 @@ const SHIRO = {
     armorPen: 3, canHitAir: true, eliteMul: 1.25, crit: { chance: 0.1, mul: 2 },
   }),
   paths: [
-    path('execution', 'Lunar Eclipse', 'Elite execution', [
+    path('execution', 'Execution', 'Elite execution', [
       tier('Full Metal Jacket', 160, '+6 damage, ignores 1 more armor.', { damage: 6, armorPen: 1 }),
       tier('Heavy Calibre', 380, '+10 damage.', { damage: 10 }),
       tier('Elite Hunter', 1300, '+25 damage, ×1.5 vs elites, ignores 2 more armor.', { damage: 25, eliteMul: 1.5, armorPen: 2 }),
       tier('Deadeye', 4000, '+60 damage, ×1.4 vs bosses, +10% crits at ×3.', { damage: 60, bossMul: 1.4, crit: { chance: 0.1, mul: 3 } }),
       tier('Cross-Map Execution', 14000, '+250 damage, ×1.4 elites, ×1.3 bosses; every shot staggers (0.6s stun) and ignores 6 more armor.', { damage: 250, eliteMul: 1.4, bossMul: 1.3, armorPen: 6, status: [S.stun(0.6)] }),
     ]),
-    path('spotter', 'Eagle Eye', 'Marked targets take more allied damage', [
+    path('spotter', 'Spotter\'s Mark', 'Marked targets take more allied damage', [
       tier('Spotter Scope', 120, '+1 range.', { range: 1 }),
       tier('Tracer Round', 300, '+4 damage.', { damage: 4 }),
       tier('Spotter\'s Mark', 1000, 'Thermal scope (Veil Sight); marked foes take +15% damage from everyone for 4s.', { detection: true, mark: { bonus: 0.15, duration: 4 } }),
       tier('Kill Zone', 3200, 'Mark +25% for 6s; shots reveal veiled foes for 4s.', { mark: { bonus: 0.25, duration: 6 }, reveal: 4 }),
       tier('Overwatch Network', 11000, 'Mark +40% for 8s; girls within 4 tiles gain Veil Sight and +10% range; +20 damage.', { mark: { bonus: 0.4, duration: 8 }, aura: { range: 4, detection: true, rangeMul: 1.1 }, damage: 20 }),
     ]),
-    path('followup', 'Silver Bullet', 'Faster follow-ups', [
+    path('followup', 'Follow-up Shots', 'Faster follow-ups', [
       tier('Bolt Polish', 130, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Quick Cycle', 320, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Double Tap', 1100, 'Fires at the two highest-priority targets; +15% attack speed.', { projectiles: 1, rateMul: 1.15 }),
@@ -960,28 +960,28 @@ const MIDORI = {
   tips: [
     'Poison ignores armor and stops regeneration and siphon healing.',
     'Lob flasks where enemies bunch up — poison sticks to everyone in the splash.',
-    'Forbidden Formula shreds armor for the whole team.',
+    'Corrosion shreds armor for the whole team.',
   ],
   base: stats({
     cost: 420, behavior: 'projectile', damage: 2, rate: 0.8, range: 3.0, splash: 0.7,
     projectileSpeed: 9, canHitAir: false, status: [S.poison(3, 4)],
   }),
   paths: [
-    path('toxicology', 'Potent Brew', 'Stronger poison', [
+    path('toxicology', 'Toxicology', 'Stronger poison', [
       tier('Concentrate', 130, 'Poison deals 4/s for 4.5s.', { status: [S.poison(4, 4.5)] }),
       tier('Wide Flask', 300, '+0.3 splash.', { splash: 0.3 }),
       tier('Wither Bloom', 950, 'Poison deals 8/s for 5s; +0.3 splash.', { status: [S.poison(8, 5)], splash: 0.3 }),
       tier('Plague Garden', 3000, 'Poison deals 16/s for 6s; +30% attack speed, +0.4 splash.', { status: [S.poison(16, 6)], rateMul: 1.3, splash: 0.4 }),
       tier('Verdant Apocalypse', 10500, 'Poison deals 40/s for 7s in enormous clouds; +30% attack speed.', { status: [S.poison(40, 7)], splash: 0.8, rateMul: 1.3, damage: 6 }),
     ]),
-    path('corrosion', 'Forbidden Formula', 'Acid that dissolves armor', [
+    path('corrosion', 'Corrosion', 'Acid that dissolves armor', [
       tier('Acid Splash', 120, '+2 damage.', { damage: 2 }),
       tier('Etching Agent', 280, 'Acid cracks armor: -1 for 3s (stacks ×3).', { status: [S.shred(1, 3)] }),
       tier('Melting Point', 900, 'Shred -2 for 4s; ignores 2 armor.', { status: [S.shred(2, 4)], armorPen: 2 }),
       tier('Philosopher\'s Acid', 2800, 'Shred -3 and Brittle +15%; +6 damage.', { status: [S.shred(3, 5), S.vulnerable(0.15, 3)], damage: 6 }),
       tier('Universal Solvent', 9500, 'Shred -5, Brittle +25%, +16 damage, ×1.5 vs barriers.', { status: [S.shred(5, 6), S.vulnerable(0.25, 4)], damage: 16, barrierMul: 1.5 }),
     ]),
-    path('fieldkit', 'Emerald Elixir', 'Mist, flyers and paralysis', [
+    path('fieldkit', 'Field Kit', 'Mist, flyers and paralysis', [
       tier('Long Toss', 100, '+0.4 range.', { range: 0.4 }),
       tier('Quick Mix', 260, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Drifting Mist', 850, 'Gas clouds rise high enough to hit flyers and slow by 25% for 2s.', { canHitAir: true, status: [S.slow(0.25, 2)] }),
@@ -1033,14 +1033,14 @@ const SUZU = {
     trap: { max: 4, damage: 12, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] },
   }),
   paths: [
-    path('mines', 'Firework Bells', 'Big booms', [
+    path('mines', 'Explosive Mines', 'Big booms', [
       tier('Bigger Charges', 120, 'Traps +6 damage.', { trap: { damage: 6 } }),
       tier('Stockpile', 300, 'Up to 6 traps at once.', { trap: { max: 2 } }),
       tier('Blast Mines', 1000, 'Traps +20 damage with bigger blasts; ×1.5 vs barriers.', { trap: { damage: 20, splash: 0.4 }, barrierMul: 1.5 }),
       tier('Chain Mines', 3000, 'Up to 10 traps, +30 damage, sets traps 40% faster.', { trap: { max: 4, damage: 30 }, rateMul: 1.4 }),
       tier('Grand Bell Detonation', 11000, 'Traps +120 damage, huge blasts, 4 more traps, ×1.3 vs bosses.', { trap: { damage: 120, splash: 1, max: 4 }, rateMul: 1.3, bossMul: 1.3 }),
     ]),
-    path('binding', 'Binding Bells', 'Slow and root', [
+    path('binding', 'Binding Traps', 'Slow and root', [
       tier('Sticky Seal', 110, 'Traps slow by 30% for 2s.', { trap: { status: [S.slow(0.3, 2)] } }),
       tier('Quick Set', 280, 'Sets traps 25% faster.', { rateMul: 1.25 }),
       tier('Binding Bell', 900, 'Traps root enemies in place (1s stun).', { trap: { status: [S.stun(1)] } }),
@@ -1091,28 +1091,28 @@ const RAIKA = {
   tips: [
     'Lightning jumps between enemies — the more spread out the wave, the better.',
     'Soaked enemies take +15% lightning damage: pair her with Sango, Umeko or Nami.',
-    'Static Charge tier 4 turns her into a piercing lightning lance.',
+    'Overcharge tier 4 turns her into a piercing lightning lance.',
   ],
   base: stats({
     cost: 480, behavior: 'chain', damage: 5, rate: 0.9, range: 3.2, chain: 3,
     projectileSpeed: 0, canHitAir: true, status: [S.shock(0.15, 0.3)],
   }),
   paths: [
-    path('forked', 'Divine Storm', 'More jumps', [
+    path('forked', 'Forked Lightning', 'More jumps', [
       tier('Conductive', 130, '+1 jump.', { chain: 1 }),
       tier('Static Field', 300, '+1 jump, +0.3 range.', { chain: 1, range: 0.3 }),
       tier('Forked Bolt', 1000, 'Casts two bolts at once; +2 jumps.', { projectiles: 1, chain: 2 }),
       tier('Storm Network', 3000, '+4 jumps, +30% attack speed, +3 damage.', { chain: 4, rateMul: 1.3, damage: 3 }),
       tier('Raijin\'s Wrath', 11000, '+10 jumps, +12 damage, +40% attack speed, 50% shock.', { chain: 10, damage: 12, rateMul: 1.4, status: [S.shock(0.3, 0.5)] }),
     ]),
-    path('overcharge', 'Static Charge', 'Heavy single bolts', [
+    path('overcharge', 'Overcharge', 'Heavy single bolts', [
       tier('Capacitor', 140, '+2 damage.', { damage: 2 }),
       tier('High Voltage', 320, '+2 damage, ignores 1 armor.', { damage: 2, armorPen: 1 }),
       tier('Thunderclap', 1000, '+5 damage, 25% chance to stun for 0.5s, ignores 1 more armor.', { damage: 5, status: [S.stun(0.5, 0.25)], armorPen: 1 }),
       tier('Lightning Lance', 3200, 'Becomes a piercing lightning lance (beam): +14 damage, pierces 4, +25% vs elites.', { behavior: 'beam', damage: 14, pierce: 3, eliteMul: 1.25 }),
       tier('Heaven\'s Drum', 11500, '+40 damage, +30% attack speed, 35% stun for 0.8s, ×1.3 vs bosses.', { damage: 40, rateMul: 1.3, status: [S.stun(0.8, 0.35)], bossMul: 1.3 }),
     ]),
-    path('rhythm', 'Thunder Chorus', 'Tempo and interrupts', [
+    path('rhythm', 'Storm Rhythm', 'Tempo and interrupts', [
       tier('Tempo', 120, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Crackle', 280, 'Shock chance rises to 40% (0.2s).', { status: [S.shock(0.2, 0.4)] }),
       tier('Drum Roll', 900, '+30% attack speed; jolts silence blinks and siphons for 0.5s.', { rateMul: 1.3, silence: 0.5 }),
@@ -1155,29 +1155,29 @@ const MIKO = {
   quote: 'May the blossoms guide your aim.',
   tips: [
     'Every girl within her aura deals +10% damage — place her in the middle of your best girls.',
-    'Celestial Shrine gives Veil Sight and cleanses sabotage for the whole cluster.',
-    'Sacred Bell turns her talismans into silencing holy strikes.',
+    'Sacred Grounds gives Veil Sight and cleanses sabotage for the whole cluster.',
+    'Purification turns her talismans into silencing holy strikes.',
   ],
   base: stats({
     cost: 450, behavior: 'projectile', damage: 2, rate: 0.8, range: 2.8, projectileSpeed: 12,
     canHitAir: true, aura: { range: 2.5, dmgMul: 1.1 },
   }),
   paths: [
-    path('blessing', 'Spirit Blessing', 'Damage aura', [
+    path('blessing', 'Blessing', 'Damage aura', [
       tier('Prayer Beads', 140, 'Aura damage +5%.', { aura: { dmgMul: 1.05 } }),
       tier('Wider Shrine', 320, 'Aura reaches 3 tiles.', { aura: { range: 3 } }),
       tier('Divine Favour', 1100, 'Aura +10% damage and +5% attack speed.', { aura: { dmgMul: 1.1, rateMul: 1.05 } }),
       tier('Kagura Dance', 3400, 'Aura +12% attack speed and reaches 3.5 tiles.', { aura: { rateMul: 1.12, range: 3.5 } }),
       tier('Goddess\'s Festival', 11500, 'Aura +20% damage, +10% speed and range, reaching 4.2 tiles.', { aura: { dmgMul: 1.2, rateMul: 1.1, rangeMul: 1.1, range: 4.2 } }),
     ]),
-    path('purify', 'Sacred Bell', 'Holy talismans', [
+    path('purify', 'Purification', 'Holy talismans', [
       tier('Ofuda', 120, '+2 damage.', { damage: 2 }),
       tier('Purifying Talisman', 300, '+25% attack speed.', { rateMul: 1.25 }),
       tier('Exorcism Rite', 950, 'Talismans silence for 0.8s and reveal veiled foes for 2s.', { silence: 0.8, reveal: 2 }),
       tier('Divine Wind', 3000, 'Three talismans per throw, +6 damage, +2 pierce.', { projectiles: 2, damage: 6, pierce: 2 }),
       tier('Amaterasu\'s Mirror', 10000, 'A mirror of sunlight: a piercing holy beam, +20 damage, +1.5 range, silence +1s.', { behavior: 'beam', damage: 20, pierce: 6, silence: 1, range: 1.5 }),
     ]),
-    path('grounds', 'Celestial Shrine', 'Utility aura', [
+    path('grounds', 'Sacred Grounds', 'Utility aura', [
       tier('Incense', 100, 'Aura: +5% range.', { aura: { rangeMul: 1.05 } }),
       tier('Wind Chime', 260, 'Girls in her aura pay 5% less for upgrades.', { aura: { costCut: 0.05 } }),
       tier('Watchful Kami', 900, 'Aura grants Veil Sight.', { aura: { detection: true } }),
@@ -1228,21 +1228,21 @@ const HOTARU = {
     projectileSpeed: 0, canHitAir: true, detection: true, reveal: 3, silence: 1,
   }),
   paths: [
-    path('lantern', 'Thousand Lanterns', 'Holy damage', [
+    path('lantern', 'Lantern Light', 'Holy damage', [
       tier('Brighter Wick', 160, '+2 damage.', { damage: 2 }),
       tier('Firefly Swarm', 380, 'Pulses hit 4 more enemies; +0.2 range.', { maxTargets: 4, range: 0.2 }),
       tier('Spirit Bane', 1200, '+6 damage, 10% crits ×2.', { damage: 6, crit: { chance: 0.1, mul: 2 } }),
       tier('Requiem Lanterns', 3600, '+14 damage, +30% attack speed; struck foes turn Brittle (+10%).', { damage: 14, rateMul: 1.3, status: [S.vulnerable(0.1, 2)] }),
       tier('Thousand Souls Festival', 13000, '+40 damage, +1.2 range, +30% attack speed; pulses hit everything in range.', { damage: 40, range: 1.2, rateMul: 1.3, maxTargets: 40 }),
     ]),
-    path('prayer', 'Firefly Song', 'Silence and stillness', [
+    path('prayer', 'Silent Prayer', 'Silence and stillness', [
       tier('Hush', 150, 'Silence lasts 0.4s longer.', { silence: 0.4 }),
       tier('Calm Waters', 340, 'Pulses slow by 20% for 1.5s.', { status: [S.slow(0.2, 1.5)] }),
       tier('Sealing Chant', 1100, 'Silence +1s; 20% chance to stun for 0.3s.', { silence: 1, status: [S.stun(0.3, 0.2)] }),
       tier('Quiet Night', 3400, 'Silence +1.5s; struck foes turn Brittle (+15%).', { silence: 1.5, status: [S.vulnerable(0.15, 3)] }),
       tier('Absolute Stillness', 12000, 'Silence +3s, 35% stun for 0.8s, 40% slows, +1 range.', { silence: 3, status: [S.stun(0.8, 0.35), S.slow(0.4, 3)], range: 1 }),
     ]),
-    path('guiding', 'Guiding Light', 'Team support', [
+    path('guiding', 'Guiding Lights', 'Team support', [
       tier('Glowing Path', 140, '+0.3 range.', { range: 0.3 }),
       tier('Shared Glow', 320, 'Girls within 3 tiles gain +5% range.', { aura: { range: 3, rangeMul: 1.05 } }),
       tier('Will-o\'-Wisps', 1000, 'Aura grants Veil Sight; reveals last 3s longer.', { aura: { detection: true }, reveal: 3 }),
@@ -1286,28 +1286,28 @@ const KAEDE = {
   tips: [
     'Her damage builds with every consecutive hit on the same target.',
     'Use Strong or Priority targeting so she locks onto the toughest enemy.',
-    'Melee: she cannot hit flyers until Needle Point tier 3.',
+    'Melee: she cannot hit flyers until Flowing Blade tier 3.',
   ],
   base: stats({
     cost: 600, behavior: 'duel', damage: 10, rate: 1.1, range: 2.0, projectileSpeed: 0,
     canHitAir: false, eliteMul: 1.1, crit: { chance: 0.1, mul: 1.75 }, ramp: { per: 0.1, max: 0.8 },
   }),
   paths: [
-    path('rhythm', 'Crimson Focus', 'Damage ramp', [
+    path('rhythm', 'Unbroken Rhythm', 'Damage ramp', [
       tier('Steady Footwork', 150, 'Ramp builds +2% faster per hit and reaches +20% higher.', { ramp: { per: 0.02, max: 0.2 } }),
       tier('Second Wind', 360, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Maple Cascade', 1200, 'Ramp +16% per hit up to +150%; ignores 3 armor.', { ramp: { per: 0.04, max: 0.5 }, armorPen: 3 }),
       tier('Autumn Requiem', 3800, 'Ramp +20% per hit up to +200%; +30% attack speed, +8 damage.', { ramp: { per: 0.04, max: 0.5 }, rateMul: 1.3, damage: 8 }),
       tier('Crimson Eternity', 14000, '+24 damage, ramp +25% per hit up to +250%, ×1.5 vs bosses, +30% speed.', { damage: 24, ramp: { per: 0.05, max: 0.5 }, bossMul: 1.5, rateMul: 1.3 }),
     ]),
-    path('flowing', 'Needle Point', 'Reach and precision', [
+    path('flowing', 'Flowing Blade', 'Reach and precision', [
       tier('Light Step', 130, '+0.3 range.', { range: 0.3 }),
       tier('Flash Step', 340, '+4 damage.', { damage: 4 }),
       tier('Wind Severing', 1100, 'Air-cutting slashes reach flyers; +0.6 range.', { canHitAir: true, range: 0.6 }),
       tier('Iaijutsu Master', 3500, '+20% crit chance at ×2.5, +10 damage.', { crit: { chance: 0.2, mul: 2.5 }, damage: 10 }),
       tier('Thousand Leaves Draw', 12500, '+60% attack speed, +16 damage, +10% crits, +0.5 range.', { rateMul: 1.6, damage: 16, crit: { chance: 0.1, mul: 2.5 }, range: 0.5 }),
     ]),
-    path('breaker', 'Riposte', 'Armor and stuns', [
+    path('breaker', 'Guard Breaker', 'Armor and stuns', [
       tier('Heavy Hilt', 140, '+3 damage.', { damage: 3 }),
       tier('Pommel Strike', 320, '15% chance to stun for 0.2s.', { status: [S.stun(0.2, 0.15)] }),
       tier('Armor Cleaver', 1150, 'Slices plate open for everyone (-2 armor, stacks ×3); ignores 4 armor.', { status: [S.shred(2, 4)], armorPen: 4 }),
@@ -1350,7 +1350,7 @@ const CHIKA = {
   quote: 'Give me ten seconds and a wrench!',
   tips: [
     'She builds drones over time — place her early beside a long straight.',
-    'Survey Drones tier 3 cleanses sabotage for every girl in her aura.',
+    'Repair Bay tier 3 cleanses sabotage for every girl in her aura.',
     'Tesla Tower (tier 4) trades drone building for a chain-lightning coil.',
   ],
   base: stats({
@@ -1359,21 +1359,21 @@ const CHIKA = {
     turret: { max: 2, damage: 3, rate: 1.5, range: 2.6, attackType: 'pierce', status: [S.shock(0.1, 0.15)] },
   }),
   paths: [
-    path('sentry', 'Twin Workshops', 'More and better drones', [
+    path('sentry', 'Sentry Works', 'More and better drones', [
       tier('Spare Parts', 160, '+1 drone (3 at once).', { turret: { max: 1 } }),
       tier('Better Barrels', 380, 'Drones +2 damage.', { turret: { damage: 2 } }),
       tier('Sentry Grid', 1200, '+2 drones, +0.5 drone range, drones fire 20% faster.', { turret: { max: 2, range: 0.5, rate: 1.2 } }),
       tier('Plasma Sentries', 3600, 'Drones +5 damage and fire 25% faster.', { turret: { damage: 5, rate: 1.25 } }),
       tier('Mecha-Fortress Protocol', 13000, '+4 drones (9 at once), +12 drone damage, +30% fire rate, +1 drone range.', { turret: { max: 4, damage: 12, rate: 1.3, range: 1 } }),
     ]),
-    path('repair', 'Survey Drones', 'Cleanse and buffs', [
+    path('repair', 'Repair Bay', 'Cleanse and buffs', [
       tier('Toolbelt', 140, 'Girls within 2.6 tiles attack 5% faster.', { aura: { range: 2.6, rateMul: 1.05 } }),
       tier('Pit Crew', 320, 'Aura reaches 3 tiles and gives +5% range.', { aura: { range: 3, rangeMul: 1.05 } }),
       tier('Field Repairs', 1100, 'Aura cleanses sabotage and disables; +10% attack speed.', { aura: { cleanse: true, rateMul: 1.1 } }),
       tier('Signal Tower', 3400, 'Radar: aura grants Veil Sight and +10% range.', { aura: { detection: true, rangeMul: 1.1 } }),
       tier('Grand Workshop', 12000, 'Aura +15% damage, +10% speed, 8% cheaper upgrades; +2 drones.', { aura: { dmgMul: 1.15, rateMul: 1.1, costCut: 0.08 }, turret: { max: 2 } }),
     ]),
-    path('tesla', 'Heavy Machinery', 'Lightning conversion', [
+    path('tesla', 'Tesla Engineering', 'Lightning conversion', [
       tier('Copper Coils', 130, 'Drones +1 damage.', { turret: { damage: 1 } }),
       tier('Arc Capacitors', 300, 'Drones fire 20% faster.', { turret: { rate: 1.2 } }),
       tier('Storm Battery', 1000, 'Drones +3 damage and +0.5 range; Chika\'s own shots shock (25%).', { turret: { damage: 3, range: 0.5 }, status: [S.shock(0.25, 0.25)] }),
