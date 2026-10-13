@@ -28,18 +28,32 @@ checks, in this order, and returns the first failing `reason`:
 | `occupied` | overlaps another girl: `dist < r1 + r2` (footprints may touch) |
 | `path` | footprint inside the path band: `dist(centre, any path centre line) < PATH_HALF_WIDTH (0.55) + r` |
 | `blocked` | footprint hits a map obstacle: `T` trees = disc `TREE_RADIUS 0.45` at the tile centre, `R` rocks / `H` buildings & set pieces / `X` void = the tile square (`[tx,tx+1)×[ty,ty+1)`) |
-| `needsWater` / `needsLand` | terrain under the **centre**: `~` = water, `.` and `,` = land; `amphibious` takes both. Bridges (`B`) are path tiles and are caught by the band |
+| `needsWater` / `needsLand` | terrain under the **centre**: `~` and `B` = water, `.` and `,` = land; `amphibious` takes both. `B` marks every water tile the road band touches: the road itself is caught by the band, the open water beside a curve that only grazes the tile still takes water girls |
 | `cash` | `placeCost(unitId, x, y)` (cost-cut auras apply at the spot) |
 
 Consequences worth knowing:
 
 * Towers may stand **0.97** from a path centre line, i.e. their footprint edge sits 0.05 outside
-  the 1-tile-wide path slab. A tower at an adjacent tile centre (1.0 away) is legal, so the old
-  tile-based placements still work. Heroes need **1.05**: the adjacent tile centre is too close
-  for them (tests that parked a hero there were moved to a continuous spot).
+  the 1.1-tile-wide band. Heroes need **1.05**. Since Tracks v3 the centre lines are smooth
+  curves (see below), so "the tile next to the road" is no longer a meaningful unit: a tile
+  centre beside a bend may be closer than 0.97. Old tile-based placements are still *accepted*
+  (legacy integer rule) but are no longer guaranteed to be legal — tests and previews use
+  continuous spots or `autoPlan`.
 * A land girl may overhang water (centre on land); a water girl may overhang the bank.
 * Trees block their whole tile plus a 0.45 + r margin — you cannot squeeze between two trees.
 * Nothing snaps. There is no grid in the sim any more; `pathTiles` / `tileAt` remain as helpers.
+
+### Tracks v3 (curved roads)
+
+The band is unchanged — `PATH_HALF_WIDTH` = `BAND_HALF_WIDTH` = **0.55** (`src/core/track.js`) — but
+it is now measured to the map's dense curved centre lines (`MapDef.tracks`, one point every 0.1
+tile; the same points the renderer draws, so the shaded forbidden zone hugs the visible road).
+`createPlacementRules` buckets those short segments into 1-tile cells (each cell lists the
+segments within 2.5 tiles), so `pathDistance` scans a handful of segments instead of hundreds;
+beyond that reach it falls back to the full scan. Every pass counts, including road inside a
+tunnel and both levels of an overpass. Tunnels change coverage, not placement: `autoPlan`
+ignores road samples inside tunnels when it scores a spot (towers cannot see there), and traps
+are never laid inside one.
 
 ### API (CONTRACTS.md §6)
 

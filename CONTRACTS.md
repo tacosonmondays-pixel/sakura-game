@@ -266,7 +266,7 @@ summons + phasing), Iron Colossus, Ashwing Matriarch.
 export const MAPS = [MapDef...]   // ≥ 24 maps, Bloons-like variety (loops, crossings,
                                    // spirals, two lanes, water lakes, islands, figure-8...)
 export function getMap(id)
-export function pathTiles(map)     // Set of "x,y" strings stamped from waypoints
+export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
@@ -293,6 +293,23 @@ MapDef = {
 }
 ```
 
+Authoring (inside `maps.js`, `defineMap({ ..., paths: [spec...], crossings? })`): a path spec is a
+node list in WORLD coordinates (tile (x, y) covers [x, x+1) × [y, y+1), centre (x + 0.5, y + 0.5) —
+NOT the old integer tile waypoints): `[x, y]` control points the centreline passes through
+(centripetal Catmull-Rom), `L` (= `LINE`) after a point makes the next section an exact straight,
+`IN` / `OUT` (= `TUNNEL_IN` / `TUNNEL_OUT`) after a point open / close a tunnel there, and the
+helpers `arc(cx, cy, r, a0, a1)`, `spiral(cx, cy, r0, r1, a0, a1)`, `curve(fn, t0, t1, n)`,
+`loopNodes(cx, cy, size, heading, mirror)` expand into control points. `{ nodes, fork: { path, at },
+join: { path, at } }` makes a lane that leaves / merges into an EARLIER path tangentially at the
+point nearest `at` (it shares that path's entrance or exit). The first point sits just outside the
+board (spawn), the last is the exit. Crossings are found automatically; `crossings` is one mode
+for all or one per crossing in `findCrossings` order: `'bridge'` (default: the later pass rises
+over the earlier one), `'bridgeUnder'` (the earlier pass goes over) or `'flat'` (a junction);
+where one pass is inside a tunnel the crossing is always `'tunnel'`. Everything is sampled ONCE
+(`TRACK_STEP` 0.1) by `src/core/track.js` (`buildMapTracks`); `mapTracks(map)` returns
+`map.tracks`, or a straight-segment view of a legacy MapDef that only has tile-waypoint `paths`
+(test fixtures passed as `data.map` keep working).
+
 Track quality rules (tests/data/world.test.js): ≤ 14° turn per 0.1-tile sample, centreline radius
 ≥ 1.4 tiles over any 1-tile window, flat junctions ≥ 2 tiles apart, spawns / exits on the board
 edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and two maps whose
@@ -314,11 +331,19 @@ causeway bridges so over / under never blur. Abutment sills sit only where a dec
 ends on a bank (short dry gaps are decked over). Every flat junction gets painted travel
 chevrons a tile before and after it on both passes (src/render/groundFeatures.js).
 
-Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
-outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls
+Path tiles are NOT buildable even if the row says otherwise. Spawn / exit control points sit
+just outside the grid (off-screen). Placement is FREE (Bloons-style, see §6): girls
 stand at continuous positions, so `rows` only describes terrain and obstacles — the sim turns
 'T' into a blocking disc (r 0.45 at the tile centre), 'R' / 'H' / 'X' into blocking squares, and
-the path into a band 0.55 tiles either side of its centre line.
+the path into a band 0.55 tiles either side of its centre line (`BAND_HALF_WIDTH`). A 'B' tile
+is any water tile the road band touches; the open water of a 'B' tile off the band still takes
+water girls (a curved road often only grazes the tile).
+
+Tunnels (Bloons-style): between `IN` and `OUT` the road is drawn under a hill / hall / cave and
+enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
+are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
+already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
+renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
 
 ### `src/data/stages.js`
 
@@ -563,8 +588,10 @@ at continuous (x, y) and own a circular footprint: towers r = 0.42, heroes r = 0
 a UnitDef may override with `footprint`). A spot is legal when the centre is inside the map, no other
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
 line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
-void = the tile square) and the terrain under the CENTRE matches her placement ('~' water, '.' / ','
-land; bridges are path). Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
+void = the tile square) and the terrain under the CENTRE matches her placement ('~' and 'B' water —
+the road itself is excluded by the band —, '.' / ',' land). Path distance is measured to the dense
+Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
+Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
 `towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
 `canPlaceTile` / `placeTowerTile` are the explicit forms).
 
@@ -582,7 +609,9 @@ const sim = new Sim({
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
 sim.startNextWave()   // only in 'prep'/'between'
 sim.state             // 'prep' | 'wave' | 'between' | 'won' | 'lost'
-sim.wave, sim.totalWaves, sim.lives, sim.maxLives, sim.cash, sim.time, sim.map (MapDef), sim.paths (polylines in world coords)
+sim.wave, sim.totalWaves, sim.lives, sim.maxLives, sim.cash, sim.time, sim.map (MapDef), sim.paths (the dense
+                      // Tracks v3 centrelines in world coords, one point per ~0.1 tile — not corner waypoints)
+sim.pathData          // PathData[]: { points, cum, length, dirs, facings, tunnels, under, elev, track }
 sim.enemies           // EnemyRT[] (alive only)
 sim.towers            // TowerRT[] (includes hero)
 sim.projectiles       // ProjectileRT[]
@@ -615,7 +644,9 @@ sim.result()                        // -> battle result object for applyBattleRe
 
 EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*along path*/, pathIndex,
             hp, maxHp, barrier, maxBarrier, armor, speed, statuses: { [type]: { ...spec, left } },
-            veiled, revealed, phasing /*intangible now*/, silenced, facing /*radians*/, tier, flash /*0-1 hit flash*/ }
+            veiled, revealed, phasing /*intangible now*/, silenced, facing /*radians*/, tier, flash /*0-1 hit flash*/,
+            hidden /*inside a tunnel: invisible + untargetable*/, elev /*overpass deck height under it*/,
+            underDeck /*walking under an overpass: drawn hidden, still targetable*/ }
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
@@ -636,10 +667,10 @@ Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `sr
 for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, x, y, uid?, path }`
 (continuous `x`/`y`; old `tx`/`ty` tile actions still run). And `autoPlan(stageId, unitIds)` that
 greedily places girls on the best-covered spots of a 0.25-tile lattice (never overlapping, path band
-respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them) — used to check that every
-campaign stage is beatable on Normal with free units only.
+respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them; road inside tunnels counts as
+no coverage) — used to check that every campaign stage is beatable on Normal with free units only.
 
-Damage pipeline (in order): veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
+Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
 except crystal) → hp. Burn/poison ticks skip flat armor; poison blocks regen and siphon healing.
@@ -748,6 +779,15 @@ float + shadow, projectiles, explosions, chain lightning, beams, pulses, field r
 kind), trap markers, teleport warnings, floating damage numbers (optional on low), death puffs,
 coin pops, ult cinematic flash.
 
+Tracks v3 (`src/render/trackMesh.js`, `groundFeatures.js`): the road ribbon, water decks, overpass
+decks and tunnel mouths / halls are all built from `mapTracks(map)` — the same dense centrelines
+the sim walks (`planRoads(map)`, `buildDecks(...)`, `buildTunnels(map, look)`); nothing re-smooths
+a tile path any more (`terrain.smoothRoad` is gone). Ground walkers stand at `PATH_H + EnemyRT.elev`
+on an overpass; `EnemyRT.hidden` (tunnel) and `EnemyRT.underDeck` (ground walker under a deck)
+hide the model, its shadow and its HP bar. Flat junctions get painted travel chevrons; per-map
+`bridge` / `path` / `tunnel` looks and `ground` features (vat, icefall, runeRing) override the
+theme. The entrance / exit arrows follow the road's first / last tangent.
+
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
 Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
@@ -763,7 +803,9 @@ mode, stats, kills), hero portrait with level/XP + ult button, next-wave scout s
 trait icons + "New!" markers, boss HP bar + phase announcements, pause menu (resume, restart,
 settings, quit), victory/defeat modal → `applyBattleResult` → rewards (items, gear, medal,
 first-clear gems, unlocked girls, bestiary discoveries) → buttons Next stage / Retry / Home.
-Tracks missions (`track`). Must be fully usable on a phone.
+Tracks missions (`track`). Must be fully usable on a phone. The battle toast feed docks left or
+right, whichever side keeps it off the spawn gates and the first tiles of road behind them
+(exit gates as a tie-break): `feed.setAvoid(() => screenPoints)` + `feedDockRight(...)`.
 
 ## 11. Meta screens
 
