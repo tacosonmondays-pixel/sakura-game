@@ -439,6 +439,41 @@ harbour cadets (Sango), fencing club (Kaede), bell club (Suzu), robotics club (C
   Tip 3 → "Ninefold Moonfall slows the whole map, speeds up every girl and adds +15% damage — fire it at the peak of a wave."
 - Everything else on the 19 is unchanged (numbers, paths, behaviours, rarity, placement, acquisition).
 
+### 4.4b Legacy kits (owner, 2026-10-13: "What about legacy kits like for aoi? From codex's version") — Builder 2
+
+The owner wants the old Codex kits back on the shared girls. Bring back their identity on the new 3×5 path system;
+the old raw numbers and the old 3 linear upgrades do not come back, because they are a different scale
+(combat.md §2.3) and would undo the balance work.
+
+**Now (Builder 2; touch no `base: stats(...)` and no `tier(...)` lines — the balance branch owns those):**
+1. **Path names = the old upgrade names.** Every shared tower had exactly 3 old upgrades. Source: `oldgame/data.js`
+   `upgrades:[…]`; Kaede, Suzu and Chika are in `oldgame/expansion-roster.js`. Rename its 3 `path(id, NAME, focus, …)`
+   names to those 3 old names. Map each old upgrade to the path whose theme fits best, and keep the path ids.
+   Example: Aoi becomes 'Feather Arrows' (pierce), 'Windrunner' (rapid volley) and 'Emerald Tempest' (sky hunter).
+   Update the `focus` strings, the `tips` and the wiki text that name a path. Momo's §4.4 renames are replaced by
+   her old upgrades: 'Opening Act', 'Encore' and 'Superstar'.
+2. **Legacy trait line.** Show each girl's old `trait` string ("Fast single-target attacks", "Hits up to 3 enemies",
+   "+65 coins per completed wave" …) as a small "Codex kit" line on the student Info tab and in her wiki entry, next
+   to the current kit summary. Data: a `legacy: { title, trait, upgrades: [...] }` object on the unit, or a map in
+   `src/data/legacy.js` if adding a field breaks a schema test. Add a test that all 19 shared ids have it.
+3. **Amphibious again.** Nami, Sango and Umeko were land + water in Codex. Set `placement: 'amphibious'` (the
+   vocabulary already exists; see integration.md and `src/sim/placement.js`) if the sim supports it for towers
+   and heroes. Otherwise list it under "After the balance merge" below. Add a note to INTEGRATION_NOTES that
+   balance must re-run.
+4. **Heroes:** keep the current ult names where they already match Codex. Luna's ult is covered in §4.4.
+
+**After feature/balance-playtest has merged (do NOT do these now; list them in docs/INTEGRATION_NOTES.md under
+"Legacy kit pass" with the exact proposed values, converted with combat.md §2.3):**
+- Tier-5 capstone names: each path's last tier is renamed to echo its old upgrade (tier names sit on cost lines).
+- Signature mechanics the new kits lost:
+  - Momo as the Starlight Idol: pure economy with no attack, plus a small "fan cheer" buff, sized so her income
+    stays fair.
+  - Miko as a pure support aura in the spirit of the old +25% damage and +15% attack speed.
+  - Midori's poison ignores armor.
+  - Kage hits up to 3 enemies at base.
+  - Any other girl whose old trait the new kit lacks.
+- Each mechanic needs a balance probe before and after.
+
 ### 4.5 Stand-in chibis for the shared ids (Builder 2)
 
 Rebuild 18 ids with `python3 tools/blender/build_characters.py luna nami aoi rei yuki momo akane sango kage umeko shiro midori suzu raika miko hotaru kaede chika`
