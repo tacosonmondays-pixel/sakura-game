@@ -787,7 +787,13 @@ html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
 .bt-pr-ico svg { width: 100%; height: 100%; }
 .bt-pr-pop { margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; background: #f6f0ff; color: #3c2a78; font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
 .bt-pr-pop.warn { background: #fff1e0; color: #8a3d00; }
-@media (max-height: 500px) and (min-width: 701px) { .bt-pressure { padding: 1px 7px; gap: 4px; font-size: 0.68rem; } }
+.bt-scout-chips { flex: 1 1 auto; }
+.bt-pressure { flex: none; }
+/* landscape phones: the strip is short — the chip keeps only HP × (the rest is in the scout popover) */
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-pressure { padding: 1px 7px; gap: 4px; font-size: 0.68rem; }
+  .bt-pressure .bt-pr:not(:first-child) { display: none; }
+}
 
 /* results: FREEPLAY OVER / FREEPLAY COMPLETE */
 .bt-free .bt-result-ribbon { background: linear-gradient(100deg, var(--fp-a), var(--fp-b) 55%, var(--fp-c)); text-shadow: 0 3px 0 rgba(40,0,40,0.3); }

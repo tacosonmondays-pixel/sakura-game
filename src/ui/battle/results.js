@@ -279,8 +279,10 @@ export function createResults(ctx) {
     const won = r.won;
     const diff = DIFFICULTIES[sim.difficulty];
     const killer = won ? null : fellTo(sim);
+    // finished with the ally still there (both voted), or alone after the ally left the run
+    const alone = !!ctx.coop && [...ctx.coop.lockstep.peers.values()].every((p) => p.gone);
     const subline = won
-      ? `Finished together after wave ${r.wavesCleared}`
+      ? (alone ? `Finished after wave ${r.wavesCleared}` : `Finished together after wave ${r.wavesCleared}`)
       : `Fell on wave ${sim.wave}${killer ? ` to the ${killer.name}` : ''}`;
     const bosses = Object.entries(r.kills || {}).filter(([id]) => ['boss', 'miniboss'].includes(enemyDef(id)?.tier))
       .sort(([a], [b]) => (enemyDef(a).tier === 'boss' ? 0 : 1) - (enemyDef(b).tier === 'boss' ? 0 : 1));

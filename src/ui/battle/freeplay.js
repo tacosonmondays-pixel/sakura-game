@@ -229,7 +229,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
     const killer = sim.state === 'lost' ? fellTo(sim) : null;
     session.lastRun = {
       stageId: sim.stage.id, tier: fp.id, wave: sim.wavesCleared, goal: G,
-      text: sim.state === 'won' ? 'finished together' : killer ? `fell to the ${killer.name}` : `fell on wave ${sim.wave}`,
+      text: sim.state === 'won' ? ([...ls.peers.values()].every((p) => p.gone) ? 'finished' : 'finished together') : killer ? `fell to the ${killer.name}` : `fell on wave ${sim.wave}`,
     };
   }
 
