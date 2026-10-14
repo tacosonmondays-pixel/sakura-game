@@ -44,7 +44,7 @@ function spots(unitId, n) {
  * Two lockstep clients over a fake network: each message is delivered after a random
  * 0–9 frame delay (out of order allowed), optionally dropped.
  */
-function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START } = {}) {
+function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START, opts = {}, budget = null } = {}) {
   const rng = createRng(seed);
   const clock = { t: 0 };
   const queue = [];
@@ -55,12 +55,14 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START } =
   const link = [true, true];
   const frozen = new Set();
   let frame = 0;
+  let lose = null; // (slot, msg) => true drops that message (set through the returned object)
   const sent = [[], []];
   const mk = (slot) => new Lockstep({
     start,
     mySlot: slot,
     now: () => clock.t,
     ...(net ? { delay: net.inputDelay, heartbeatMs: net.heartbeatMs, keepaliveMs: net.keepaliveMs } : {}),
+    ...opts,
     hooks: {
       onApplied: (c, r) => { if (!r.ok) failed.push({ slot, c, r: r.reason }); },
       onPeerGone: (s, why) => events.push({ slot, ev: 'gone', why, frame }),
@@ -68,8 +70,8 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START } =
       onResync: () => events.push({ slot, ev: 'resync', frame }),
     },
     send: (msg) => {
-      sent[slot].push({ frame, type: msg.type });
-      if (!link[slot] || (drop && rng.next() < drop)) return;
+      sent[slot].push({ frame, type: msg.type, bytes: JSON.stringify(msg).length });
+      if (!link[slot] || (drop && rng.next() < drop) || lose?.(slot, msg)) return;
       queue.push({ at: frame + Math.floor(rng.next() * (maxLag + 1)), to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) });
     },
   });
@@ -83,9 +85,14 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START } =
         clients[to].receive(msg);
       }
     }
-    clients.forEach((c, i) => { if (!frozen.has(i)) c.advance(1 / 60); });
+    clients.forEach((c, i) => { if (!frozen.has(i)) c.advance(1 / 60, budget == null ? undefined : { budgetMs: budget }); });
   }
-  return { clients, stepFrame, clock, failed, events, link, frozen, sent, get frame() { return frame; } };
+  return {
+    clients, stepFrame, clock, failed, events, link, frozen, sent,
+    get frame() { return frame; },
+    set lose(fn) { lose = fn; },
+    set budget(v) { budget = v; },
+  };
 }
 
 function script(h) {
@@ -823,5 +830,242 @@ describe('co-op lockstep: freeplay', () => {
     expect(A.tick).toBe(B.tick);
     expect(A.coop.hash()).toBe(B.coop.hash());
     expect(B.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'tempest' });
+  }, 120000);
+  // ---- long runs: wave-end checkpoints, background rebuilds (spec §12, M5 + M6) ----------------
+
+  /** Plays on until both clients cleared `n` more waves than now (Auto on). */
+  const moreWaves = (h, n, each) => {
+    const [A, B] = h.clients;
+    const to = Math.max(A.sim.wavesCleared, B.sim.wavesCleared) + n;
+    return runUntil(h, () => h.clients[0].sim.wavesCleared >= to && h.clients[1].sim.wavesCleared >= to, 60 * 60 * 40, each);
+  };
+  /** Both clients' common hashes after tick t all agree (and there are some). */
+  const agreeAfter = (h, t) => {
+    const all = h.clients.flatMap((c) => c.hashPairs().filter((p) => p.t > t));
+    return all.length > 0 && all.every((p) => p.mine === p.theirs);
+  };
+
+  it('a resync deep in a freeplay run restores the host\'s last wave-end checkpoint and replays one wave, not the run; then 10 waves in sync', () => {
+    const start = fpStart('blossom');
+    const h = harness({ seed: 61, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    expect(moreWaves(h, 5, w.each)).toBe(true);
+    // the host keeps a checkpoint at every wave end (the guest does not need any)
+    expect(A.ck).toBeTruthy();
+    expect(A.ck.wave).toBe(A.sim.wavesCleared);
+    expect(B.ck).toBe(null);
+    B.sim.lives -= 3; // corrupt the guest: the hash check catches it, the host's checkpoint repairs it
+    expect(runUntil(h, () => B.resyncs > 0, 60 * 20, w.each)).toBe(true);
+    const r = B.lastRebuild;
+    expect(r).toMatchObject({ kind: 'resync', restored: true });
+    expect(r.from).toBeGreaterThan(0);
+    expect(r.ticks).toBeLessThan(r.T / 4); // only since the last wave end
+    expect(B.sim.lives).toBe(A.sim.lives);
+    const t = A.tick;
+    // 10 more waves past it: same battle on both (bosses on the way), no second resync
+    expect(moreWaves(h, 10, w.each)).toBe(true);
+    runUntil(h, () => false, 30, w.each);
+    expect(agreeAfter(h, t)).toBe(true);
+    expect(B.resyncs).toBe(1);
+    expect(A.desynced || B.desynced).toBe(false);
+    expect(A.sim.towers.length).toBe(B.sim.towers.length);
+    // the guest's battle is a fresh one (its own Sim object, the old screen's is gone)
+    expect(h.events.filter((e) => e.slot === 1 && e.ev === 'resync').length).toBe(1);
+  }, 300000);
+
+  it('a network cut deep in freeplay: both play on alone, then the guest rejoins through the host\'s checkpoint and both agree for 10 more waves', () => {
+    const start = fpStart('tempest');
+    const h = harness({ seed: 62, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    expect(moreWaves(h, 3, w.each)).toBe(true);
+    h.link[0] = false;
+    h.link[1] = false;
+    runUntil(h, () => false, Math.ceil((COOP.maxTimeoutMs / 1000 + 4) * 60), w.each);
+    expect(A.peers.get(1).gone && B.peers.get(0).gone).toBe(true);
+    const apartWaves = A.sim.wavesCleared;
+    h.link[0] = true;
+    h.link[1] = true;
+    expect(runUntil(h, () => A.rejoins === 1 && B.rejoins === 1 && !A.peers.get(1).gone && !B.job, 60 * 20, w.each)).toBe(true);
+    // the guest had played on alone (its own 'gone' marker): not the host's timeline, so it
+    // rebuilt — from the host's newest checkpoint, replaying only since that wave end
+    const r = B.lastRebuild;
+    expect(r).toMatchObject({ kind: 'rejoin', restored: true });
+    expect(r.from).toBeGreaterThan(0);
+    expect(r.T - r.from).toBeLessThan(60 * 60 * 3);
+    expect(r.ticks).toBe(r.T - r.from);
+    expect(A.sim.wavesCleared).toBeGreaterThanOrEqual(apartWaves);
+    const t = A.tick;
+    expect(moreWaves(h, 10, w.each)).toBe(true);
+    runUntil(h, () => false, 30, w.each);
+    expect(agreeAfter(h, t)).toBe(true);
+    expect(A.coop.wallets[1]).toBeGreaterThan(0);
+    expect(A.desynced || B.desynced).toBe(false);
+  }, 300000);
+
+  it('a rebuild runs in slices (the page stays responsive) and reaches the same battle as replaying in one go, from tick 0 or from the checkpoint', () => {
+    const start = fpStart('crimson');
+    const h = harness({ seed: 63, maxLag: 3, start });
+    const [A] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    expect(moreWaves(h, 3, w.each)).toBe(true);
+    runUntil(h, () => A.sim.state === 'wave' && A.sim.enemies.length > 3, 60 * 60, w.each); // mid-wave
+    const T = A.tick;
+    const want = A.coop.hash();
+    const copy = () => new Lockstep({ start, mySlot: 1, send: () => {}, now: () => 0 });
+    // in one go, from tick 0 (what every resync did before)
+    const whole = copy();
+    let t0 = performance.now();
+    whole.rebuild(start, A.log, T);
+    const wholeMs = performance.now() - t0;
+    expect(whole.tick).toBe(T);
+    expect(whole.coop.hash()).toBe(want);
+    // as a background job from tick 0: many slices, none of them long, the same battle
+    const sliced = copy();
+    sliced.startRebuild('resync', start, A.log, T, null, A.sim.wave, null);
+    let slices = 0;
+    let longest = 0;
+    while (sliced.job) {
+      t0 = performance.now();
+      sliced.runJob(4);
+      longest = Math.max(longest, performance.now() - t0);
+      slices++;
+      expect(sliced.rebuilding === null || sliced.rebuilding.done < sliced.rebuilding.total).toBe(true);
+    }
+    expect(slices).toBeGreaterThan(20);
+    expect(longest).toBeLessThan(Math.max(250, wholeMs / 10)); // (a loaded machine stretches a 4 ms slice)
+    expect(sliced.tick).toBe(T);
+    expect(sliced.coop.hash()).toBe(want);
+    // from the host's checkpoint: a fraction of the replay, the same battle
+    const ck = JSON.parse(JSON.stringify(A.checkpointMsg()));
+    expect(ck.t).toBeGreaterThan(T / 2);
+    const fast = copy();
+    fast.rebuild(start, A.log, T, ck);
+    expect(fast.lastRebuild).toMatchObject({ restored: true, from: ck.t, ticks: T - ck.t });
+    expect(fast.tick).toBe(T);
+    expect(fast.coop.hash()).toBe(want);
+    expect(JSON.stringify(fast.coop.snapshot())).toBe(JSON.stringify(A.coop.snapshot()));
+  }, 300000);
+
+  it('a slow rebuild (no checkpoint, a starved page) keeps the host waiting: busy beats, no drop, then in sync', () => {
+    const start = fpStart('blossom');
+    const h = harness({ seed: 64, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    expect(moreWaves(h, 8, w.each)).toBe(true);
+    // no checkpoint (as if snapshots had failed): the guest replays the whole run, 32 ticks a frame
+    A.ckOff = true;
+    A.ck = null;
+    h.budget = 0;
+    B.sim.lives -= 1;
+    expect(runUntil(h, () => !!B.job, 60 * 10, w.each)).toBe(true);
+    let busySeen = 0;
+    let frames = 0;
+    let maxDone = 0;
+    while (B.job && frames < 60 * 120) {
+      h.stepFrame();
+      w.each();
+      frames++;
+      const busy = A.peers.get(1).busy;
+      if (busy) {
+        busySeen++;
+        maxDone = Math.max(maxDone, busy.at / busy.of);
+      }
+      expect(A.peers.get(1).gone).toBe(false);
+    }
+    expect(B.job).toBe(null);
+    expect(B.lastRebuild).toMatchObject({ kind: 'resync', restored: false, from: 0 });
+    expect(frames).toBeGreaterThan(Math.ceil(COOP.timeoutMs / 1000 * 60)); // longer than the drop timeout
+    expect(busySeen).toBeGreaterThan(0);
+    expect(maxDone).toBeGreaterThan(0.5); // the host saw the progress ("Rin is re-syncing… 70%")
+    h.budget = null;
+    const t = A.tick;
+    runUntil(h, () => A.tick > t + 600 && B.tick > t + 600, 60 * 60, w.each);
+    expect(agreeAfter(h, t)).toBe(true);
+    expect(A.peers.get(1).busy).toBe(null);
+    expect(B.desynced).toBe(false);
+  }, 300000);
+});
+
+describe('co-op lockstep: big messages and the idle saver', () => {
+  it('a resync too big for one message travels in parts (reordered, one lost: the guest asks again) and repairs the guest', () => {
+    const h = harness({ seed: 71, maxLag: 6, opts: { maxMessageBytes: 300 } });
+    // two girls of each player's on spots of their own (the shared board above may be full by now)
+    const c = createCoopSim(START);
+    const free = [];
+    for (let y = 0.55; y < c.sim.map.height && free.length < 2; y += 0.35) {
+      for (let x = 0.55; x < c.sim.map.width && free.length < 2; x += 0.35) {
+        if (!c.sim.placementReason('aoi', x, y) && !c.sim.placementReason('yuki', x, y) && c.sim.placement.pathDistance(x, y) < 1.6
+          && !free.some(([fx, fy]) => Math.hypot(fx - x, fy - y) < 1.5)) free.push([x, y]);
+      }
+    }
+    const actions = {
+      5: () => h.clients[0].queue('place', ['aoi', ...quantize(...free[0])]),
+      6: () => h.clients[1].queue('place', ['yuki', ...quantize(...free[1])]),
+      20: () => h.clients[0].queue('wave'),
+      30: () => h.clients[0].queue('auto', [true]),
+    };
+    let lost = 0;
+    h.lose = (slot, msg) => {
+      if (slot === 0 && msg.type === 'part' && msg.i === 2 && !lost) {
+        lost++;
+        return true;
+      }
+      return false;
+    };
+    for (let f = 0; f < 1500; f++) {
+      actions[h.frame]?.();
+      h.stepFrame();
+      if (f === 400) h.clients[1].sim.lives -= 5;
+    }
+    const [A, B] = h.clients;
+    const parts = h.sent[0].filter((m) => m.type === 'part');
+    expect(lost).toBe(1);
+    expect(parts.length).toBeGreaterThanOrEqual(4);
+    expect(h.sent[0].filter((m) => m.type === 'resync').length).toBe(0); // (every answer went in parts)
+    expect(Math.max(...parts.map((m) => m.bytes))).toBeLessThan(600); // ~300 characters of JSON each + the envelope
+    expect(B.resyncs).toBe(1);
+    expect(h.sent[1].filter((m) => m.type === 'resync?').length).toBeGreaterThanOrEqual(2); // the retry
+    for (let f = 0; f < 300; f++) h.stepFrame();
+    const late = B.hashPairs().filter((p) => p.t > A.tick - 400);
+    expect(late.length).toBeGreaterThan(0);
+    expect(late.every((p) => p.mine === p.theirs)).toBe(true);
+    expect(B.desynced).toBe(false);
+  });
+
+  it('idle saver (Supabase rooms): with no orders for 10 s each client beats ~2× a second, not ~4×; the next order still runs on both', () => {
+    const supa = { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 };
+    const idle = { idleAfterMs: 10000, idleLeadTicks: 60, idleKeepaliveMs: 2000 };
+    const rate = (withSaver) => {
+      const h = harness({ seed: 72, maxLag: 9, net: supa, opts: withSaver ? idle : {} });
+      const [A, B] = h.clients;
+      for (let f = 0; f < 70 * 60; f++) {
+        if (h.frame === 5) A.queue('speed', [3]);
+        if (h.frame === 6) A.queue('wave');
+        h.stepFrame();
+      }
+      const window = (list) => list.filter((m) => m.frame >= 15 * 60 && m.frame < 70 * 60).length / 55;
+      return { h, A, B, rates: h.sent.map(window) };
+    };
+    const before = rate(false);
+    const after = rate(true);
+    for (const r of after.rates) expect(r).toBeLessThan(2.4);
+    for (let i = 0; i < 2; i++) expect(after.rates[i]).toBeLessThan(before.rates[i] * 0.65);
+    // still in lockstep while idle (no stalls beyond the first second), hashes agree
+    const { h, A, B } = after;
+    expect(A.tick).toBeGreaterThan(70 * 60 * 2.5);
+    expect(A.hashPairs().every((p) => p.mine === p.theirs)).toBe(true);
+    // the guest's first order after the idle spell lands within ~1 s (+ the input delay) on both
+    const order = B.queue('auto', [true]);
+    expect(order.t - B.tick).toBeLessThanOrEqual(60 * 3 + 30 * 3);
+    for (let f = 0; f < 4 * 60; f++) h.stepFrame();
+    expect(A.sim.options.autoStart && B.sim.options.autoStart).toBe(true);
+    expect(A.hashPairs().slice(-3).every((p) => p.mine === p.theirs)).toBe(true);
+    console.log(`idle saver: messages/s per client ${before.rates.map((r) => r.toFixed(2)).join(' / ')} → ${after.rates.map((r) => r.toFixed(2)).join(' / ')}`);
   }, 120000);
 });

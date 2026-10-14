@@ -44,11 +44,15 @@ export const COOP = Object.freeze({
  *            and 100 a second for the whole project), so rooms talk ~4× a second instead of 20:
  *            a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is
  *            queued, a keepalive every second while nothing changes (src/online/coop/lockstep.js).
- *            Tower defense hardly notices half a second of lag.
+ *            Tower defense hardly notices half a second of lag. Idle saver: once a player has
+ *            given no order for idleAfterMs, her client promises its horizon idleLeadTicks (1 s at
+ *            1×) ahead and beats about twice a second (keepalive every idleKeepaliveMs); her next
+ *            order then lands up to 1 s later. Messages bigger than maxMessageBytes (a resync or
+ *            rejoin carrying a checkpoint) travel in parts that size (Realtime limits a message).
  */
 export const COOP_NET = Object.freeze({
   local: Object.freeze({ heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay, keepaliveMs: COOP.heartbeatMs }),
-  supabase: Object.freeze({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 }),
+  supabase: Object.freeze({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000, idleAfterMs: 10000, idleLeadTicks: 60, idleKeepaliveMs: 2000, maxMessageBytes: 24000 }),
 });
 
 /**

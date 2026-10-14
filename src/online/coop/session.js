@@ -614,6 +614,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       delay: net.inputDelay,
       heartbeatMs: net.heartbeatMs,
       keepaliveMs: net.keepaliveMs ?? net.heartbeatMs,
+      idleAfterMs: net.idleAfterMs,
+      idleLeadTicks: net.idleLeadTicks,
+      idleKeepaliveMs: net.idleKeepaliveMs,
+      maxMessageBytes: net.maxMessageBytes,
       // while the channel is down only the newest heartbeat is worth keeping (each one carries
       // the horizon, every unacknowledged command and the last hashes). Once my ally is back in
       // the room while my battle runs on (a freeplay run they left), nobody runs this battle with
@@ -641,15 +645,19 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     });
     // Heartbeats keep flowing while the battle screen loads. A hidden tab gets no animation
     // frames, so this timer also advances the battle there (browsers slow it to ~1/s, which
-    // the ally sees as short "Waiting for ally…" pauses instead of a disconnect).
+    // the ally sees as short "Waiting for ally…" pauses instead of a disconnect). A rebuild
+    // (resync / rejoin of a long run) gets slices from here too: a short one between frames, a
+    // long one in a hidden tab (nobody is watching that page).
     let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
     pump = timers.setInterval(() => {
       const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const dt = (t - last) / 1000;
       last = t;
       if (!s.lockstep) return;
-      if (s.lockstep.finished) restBeat();
-      else if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
+      const hiddenTab = typeof document !== 'undefined' && document.hidden;
+      if (s.lockstep.job) s.lockstep.advance(Math.min(dt, 1), { budgetMs: hiddenTab ? 250 : 6 });
+      else if (s.lockstep.finished) restBeat();
+      else if (hiddenTab) s.lockstep.advance(Math.min(dt, 1));
       else s.lockstep.beat();
     }, net.heartbeatMs);
     emitter.emit('start', s);
