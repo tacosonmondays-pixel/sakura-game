@@ -16,9 +16,11 @@ import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
 import { createRng } from '../../src/core/rng.js';
 import { coopVersion } from '../../src/online/coop/version.js';
 import { generateWave } from '../../src/sim/waves.js';
-import { STAGES } from '../../src/data/stages.js';
+import { generateFreeplayWave, freeplayHpRamp, freeplayPressure, freeplaySpeed } from '../../src/sim/freeplay.js';
+import { STAGES, CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { coopStage } from '../../src/data/coop.js';
+import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -92,7 +94,7 @@ export function mathProbe() {
 }
 
 /** Legal spots for a unit next to the path, ≥ 1.3 tiles apart (computed with the det math). */
-function spotsFor(start, units) {
+function spotsFor(start, units, per = 2) {
   return withDetMath(() => {
     const c = createCoopSim(start);
     const cands = [];
@@ -108,7 +110,7 @@ function spotsFor(start, units) {
     for (const u of units) {
       out[u] = [];
       for (const [x, y] of cands) {
-        if (out[u].length >= 2) break;
+        if (out[u].length >= per) break;
         if (taken.some(([tx, ty]) => Math.hypot(tx - x, ty - y) < 1.3)) continue;
         // checked where the command will put her: on the 1/1024 grid (next to the path a
         // rounding step can matter)
@@ -219,4 +221,184 @@ export function runScriptedBattle({ maxFrames = 60 * 60 * 12 } = {}) {
     waves: waveTables(),
     ms: Date.now() - t0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Co-op freeplay (waves past a stage's last wave, src/sim/freeplay.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * Freeplay wave tables of every campaign stage on every tier, FNV-1a over the JSON (groups, HP,
+ * budget, boss content, pressure and every 16th spawn): every wave from the goal to goal + 20,
+ * then waves ending in 0 (boss waves) and 7 up to 260, and 300 and 400 —
+ * every HP band, the spawn-window packing, the boss ladder up to the Wyrm. Plus the HP ramp,
+ * armor / Resolve and speed of every wave to 400 as raw bits. Paths of fractional lengths, three
+ * of them, so the boss path pick and the round-robin are exercised.
+ */
+export function freeplayTables() {
+  const look = (id) => ENEMY_MAP[id] || null;
+  const opts = { pathCount: 3, pathLengths: [37.25, 41.125, 29.875] };
+  let h = 0x811c9dc5;
+  let n = 0;
+  const mix = (text) => {
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  };
+  const curve = [];
+  for (const id of CAMPAIGN_IDS) {
+    for (const tier of FREEPLAY_TIERS) {
+      const st = coopStage(id, { freeplay: tier });
+      const G = st.waves;
+      for (let w = G + 1; w <= 400; w++) {
+        const p = freeplayPressure(st, w);
+        curve.push(freeplayHpRamp(st, w), freeplaySpeed(st, w), p.armor, p.cc, p.kb);
+        if (w <= G + 20 || (w <= 260 && (w % 10 === 0 || w % 10 === 7)) || w === 300 || w === 400) {
+          // the whole wave but every 16th spawn (late waves hold thousands; each spawn's time is
+          // one multiply-add of its group's start and spacing, which are hashed in full)
+          const { spawns, ...rest } = generateFreeplayWave(st, w, look, opts);
+          mix(JSON.stringify(rest));
+          mix(JSON.stringify(spawns.filter((_, i) => i % 16 === 0 || i === spawns.length - 1)));
+          mix(String(spawns.length));
+          n++;
+        }
+      }
+    }
+  }
+  return `${n}:${h.toString(16).padStart(8, '0')}:${bitsHash(curve)}`;
+}
+
+export const FREEPLAY_START = Object.freeze({
+  seed: 909090,
+  stageId: '1-3',
+  difficulty: 'normal',
+  freeplay: 'crimson',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: { costMul: 0.2, damageMul: 9, rateMul: 1.4 } }, { unitId: 'kage', stats: { costMul: 0.2, damageMul: 9, rateMul: 1.4 } }], hero: { unitId: 'hikari', stats: { costMul: 0.2, damageMul: 9 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: { costMul: 0.2, damageMul: 9, rateMul: 1.4 } }, { unitId: 'yuki', stats: { costMul: 0.2, damageMul: 9, rateMul: 1.4 } }], hero: null },
+  ],
+});
+
+/**
+ * A whole co-op FREEPLAY battle (Crimson Moon on 1-3): two Lockstep clients over the same seeded
+ * fake network as runScriptedBattle, girls placed and upgraded as coins allow, Auto on at 3×,
+ * through the goal (15/15) and past it into the boss waves; once wave `finishAfter` is cleared both
+ * players vote Finish ('end'), which must end the run on the same tick on both clients. Every state
+ * hash either client computed is collected, so the whole run is compared, not only the last 64.
+ */
+export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(11);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const mk = (slot) => new Lockstep({
+    start: FREEPLAY_START,
+    mySlot: slot,
+    now: () => clock.t,
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const units = { 0: ['aoi', 'kage', 'hikari'], 1: ['rei', 'yuki'] };
+  const spots = spotsFor(FREEPLAY_START, ['kage', 'yuki', 'aoi', 'rei', 'hikari'], 4);
+  const want = [];
+  for (const slot of [0, 1]) for (const u of units[slot]) for (const q of spots[u] || []) want.push([slot, u, q]);
+  const seen = [new Map(), new Map()];
+  const bosses = new Set();
+  let voted = false;
+  let goalTick = -1;
+  let endTick = [-1, -1];
+  while (frame < maxFrames && !(A.finished && B.finished)) {
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 21) B.queue('speed', [3]);
+    if (frame === 22) A.queue('wave');
+    // each player places her girls as soon as her own wallet allows, then upgrades them in turn
+    if (frame % 15 === 0) {
+      for (let i = want.length - 1; i >= 0; i--) {
+        const [slot, u, [qx, qy]] = want[i];
+        const c = clients[slot];
+        if (c.sim.canPlace(u, qx / 1024, qy / 1024).ok) {
+          c.queue('place', [u, qx, qy]);
+          want.splice(i, 1);
+        }
+      }
+    }
+    if (frame % 90 === 45) {
+      for (const c of clients) {
+        const own = c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+        for (const t of own) {
+          const path = t.uid % 2;
+          const st = c.sim.upgradeStatus(t.uid, path);
+          if (!st.locked) {
+            c.queue('upg', [t.uid, path]);
+            break;
+          }
+        }
+      }
+    }
+    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready) A.queue('ult');
+    if (!voted && A.sim.wavesCleared >= finishAfter && B.sim.wavesCleared >= finishAfter) {
+      voted = true;
+      A.queue('end', [true]);
+      B.queue('end', [true]);
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      const was = c.sim.state;
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) if (ev.type === 'goal' && goalTick < 0) goalTick = c.tick;
+        const b = c.sim.freeplayInfo(c.sim.wave);
+        if (b?.boss && c.sim.wave > c.sim.totalWaves) bosses.add(`${c.sim.wave}:${b.boss.kind}`);
+      }
+      if (was !== 'won' && c.sim.state === 'won') endTick[i] = c.tick;
+    });
+    for (const c of clients) c.sim.events.length = 0;
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    stateB: B.sim.state,
+    finished: A.sim.finished && B.sim.finished,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    goal: A.sim.totalWaves,
+    goalTick,
+    endTicks: endTick.join('/'),
+    towers: A.sim.towers.length,
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    bosses: bosses.size,
+    final: A.coop.hash(),
+    finalB: B.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && A.coop.hash() === B.coop.hash(),
+    ms: Date.now() - t0,
+  };
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle and freeplay. */
+export function runEngineChecks() {
+  const r = runScriptedBattle();
+  const t0 = Date.now();
+  const tables = freeplayTables();
+  const battle = runFreeplayBattle();
+  return { ...r, freeplay: { tables, battle, ms: Date.now() - t0 } };
 }
