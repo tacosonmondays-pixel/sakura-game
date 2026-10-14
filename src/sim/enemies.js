@@ -413,6 +413,32 @@ function updateAbilities(sim, e, path, dt) {
         best.disabled = Math.max(best.disabled, t.sabotage.duration ?? 3);
         e.sabotageCd = t.sabotage.cooldown ?? 6;
         sim._emit('sabotage', { towerUid: best.uid, enemyUid: e.uid });
+      } else {
+        // no girl in reach: jam the nearest roaming drone (of a girl neither sabotaged nor cleansed)
+        let drone = null;
+        let owner = null;
+        bestD = r * r;
+        for (const tw of sim.towers) {
+          if (!tw.turretSpec || !(tw.turretSpec.leash > 0) || tw.disabled > 0 || sim._isCleansed(tw)) continue;
+          for (const d of tw.turrets) {
+            if (d.jam > 0) continue;
+            const dx = d.x - e.x;
+            const dy = d.y - e.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 <= bestD) {
+              bestD = d2;
+              drone = d;
+              owner = tw;
+            }
+          }
+        }
+        if (drone) {
+          drone.jam = t.sabotage.duration ?? 3;
+          drone.tgt = null;
+          drone.targetUid = null;
+          e.sabotageCd = t.sabotage.cooldown ?? 6;
+          sim._emit('sabotage', { towerUid: owner.uid, enemyUid: e.uid, turretUid: drone.uid });
+        }
       }
     }
   }

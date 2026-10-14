@@ -38,7 +38,7 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 | **Miko** — Shrine Blessing Keeper | Tower · SR | Enchanter | Holy | – | Land | Gacha | **+10 % damage aura**; paths: stronger aura, silencing talismans/holy beam, Veil Sight + cleanse aura. | Making a cluster of girls stronger | Defending alone |
 | **Hotaru** — Firefly Exorcist | Tower · SSR | Exorcist | Holy | – | Land | Gacha | Holy pulses (8 targets) that **reveal veils and silence** fields, siphons, blinks and phasing. | Ghosts, wraiths, veils, oni field casters | Scaled lizards (holy ×0.75); specialist, not a carry |
 | **Kaede** — Crimson Maple Duelist | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
-| **Chika** — Gadget Prodigy | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | Builds sentry drones (2 at base); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil. | Sabotage waves, long straights | Burst moments before drones are built |
+| **Chika** — Gadget Prodigy | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | A weak wrench bolt plus a wing of **roaming drones** (2 at base) that fly out up to 4 tiles to hunt; flight modes Hover · Hold · Patrol · Pursuit (map-wide); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil (her bolt becomes the coil; drones keep flying). | Sabotage waves, bosses walking a long lane (Pursuit), lanes out of reach (Hold) | Sappers jam drones far from the team; her own bolt is weak |
 
 ## Upgrade paths at a glance
 

@@ -5,7 +5,7 @@ import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, HERO_XP_PER_DAMAGE, heroWaveXp, AUTO_START_DELAY,
-  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST,
+  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, FLIGHT_POINT_ROAM_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -22,7 +22,7 @@ import {
 } from './enemies.js';
 import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
-  updateProjectiles, updateTraps, baseCost,
+  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones,
 } from './towers.js';
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo,
@@ -312,9 +312,10 @@ export class Sim {
 
   /**
    * Resolves one direct hit from a tower (or hero/trap/turret spec) on an enemy, then
-   * applies on-hit effects. @returns {number} damage dealt, -1 if the enemy was not eligible
+   * applies on-hit effects. `drone`: the roaming drone that fired it (per-drone credit).
+   * @returns {number} damage dealt, -1 if the enemy was not eligible
    */
-  _hit(e, tower, spec, scale = 1) {
+  _hit(e, tower, spec, scale = 1, drone = null) {
     if (e.dead) return -1;
     const roll = spec.critChance > 0 ? this.rng.next() : 1;
     const res = computeHit(e, spec, roll, scale, this._hitOut);
@@ -329,10 +330,10 @@ export class Sim {
     });
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
-    this._credit(tower, dealt);
+    this._credit(tower, dealt, e, drone);
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
     if (e.hp <= 0) {
-      this._killEnemy(e, tower);
+      this._killEnemy(e, tower, drone);
       return dealt;
     }
     this._onHitEffects(e, tower, spec);
@@ -388,26 +389,41 @@ export class Sim {
     e.lastDamageAt = this.time;
     const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
-    this._credit(tower, dealt);
+    this._credit(tower, dealt, e);
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
     if (e.hp <= 0) this._killEnemy(e, tower);
     else checkPhases(this, e);
   }
 
-  _credit(tower, dealt) {
+  /**
+   * Credits damage to a girl. Seam S1 (docs/specs/LANDING_PLAN.md §4): `e` is the enemy hit (the
+   * hero rework reads it for damage XP), `drone` the roaming drone that dealt it (its counters
+   * and the girl's droneDmg; DoTs always credit the girl).
+   */
+  _credit(tower, dealt, e = null, drone = null) {
     if (!tower || !(dealt > 0)) return;
     tower.damageDealt += dealt;
+    if (drone) {
+      drone.dmg += dealt;
+      tower.droneDmg += dealt;
+    }
     this.stats.damageByTower[tower.uid] = (this.stats.damageByTower[tower.uid] || 0) + dealt;
     if (tower.isHero && !tower.removed) gainHeroXp(this, tower, dealt * HERO_XP_PER_DAMAGE);
   }
 
-  _killEnemy(e, tower) {
+  _killEnemy(e, tower, drone = null) {
     if (e.dead) return;
     e.dead = true;
     e.hp = 0;
     const bounty = this._gainCash(e.bounty);
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
-    if (tower && !tower.removed) tower.kills++;
+    if (tower && !tower.removed) {
+      tower.kills++;
+      if (drone) {
+        drone.kills++;
+        tower.droneKills++;
+      }
+    }
     this._emit('death', { uid: e.uid, id: e.id, x: e.x, y: e.y, bounty });
     onEnemyDeath(this, e);
   }
@@ -753,12 +769,88 @@ export class Sim {
     return true;
   }
 
+  /**
+   * Flight mode of a girl's drone wing (docs/specs/CHIKA_REWORK.md §16): 'hover' (around her),
+   * 'hold' (around point a), 'patrol' (between points a and b) or 'pursuit' (map-wide). Points
+   * are world coordinates, pulled inside her signal range. Co-op: the `fly` command.
+   * @returns {boolean}
+   */
+  setFlight(uid, mode, ax = null, ay = null, bx = null, by = null) {
+    if (this.state === 'won' || this.state === 'lost') return false;
+    return setFlight(this, this.getTower(uid), mode, ax, ay, bx, by);
+  }
+
+  /** Where a girl's wing flies (UI): mode, points, the patrol position and her signal range; null without roaming drones. */
+  flightInfo(uid) {
+    const t = this.getTower(uid);
+    if (!t || !hasRoamingDrones(t)) return null;
+    const fl = t.flight;
+    return {
+      mode: flightMode(t),
+      a: fl ? [fl.ax, fl.ay] : null,
+      b: fl ? [fl.bx, fl.by] : null,
+      at: fl && (fl.mode === 'hold' || fl.mode === 'patrol') ? [fl.cx, fl.cy] : [t.x, t.y],
+      signal: signalRange(t),
+      roam: fl && (fl.mode === 'hold' || fl.mode === 'patrol') ? t.turretSpec.leash * FLIGHT_POINT_ROAM_MUL : fl?.mode === 'pursuit' ? Infinity : t.turretSpec.leash,
+    };
+  }
+
+  /**
+   * Every roaming drone of a girl, in build order (UI; allocates): position (and the position one
+   * step earlier, for drawing between steps), state, quarry and counters.
+   * state: 'hunting' (has a quarry) | 'returning' (flying, no quarry) | 'home' | 'jammed' (a sapper) | 'stalled' (she is sabotaged)
+   */
+  droneStats(towerUid) {
+    const t = this.getTower(towerUid);
+    if (!t || !hasRoamingDrones(t)) return [];
+    return t.turrets.map((d) => ({
+      uid: d.uid,
+      n: d.n,
+      x: d.x,
+      y: d.y,
+      px: d.px,
+      py: d.py,
+      facing: d.facing,
+      state: t.disabled > 0 ? 'stalled' : d.jam > 0 ? 'jammed' : d.tgt ? 'hunting' : d.moving ? 'returning' : 'home',
+      jam: d.jam,
+      targetUid: d.targetUid,
+      targetId: d.tgt ? d.tgt.id : null,
+      dmg: d.dmg,
+      kills: d.kills,
+      shots: d.shots,
+      born: d.born,
+    }));
+  }
+
+  /** The girl and roaming drone with this uid, or null. */
+  findDrone(uid) {
+    for (const t of this.towers) {
+      if (!hasRoamingDrones(t)) continue;
+      for (const d of t.turrets) if (d.uid === uid) return { tower: t, drone: d };
+    }
+    return null;
+  }
+
   /** Effective stats for the UI panel (after upgrades, levels and buffs). */
   towerStats(uid) {
     const t = this.getTower(uid);
     if (!t) return null;
     const e = t.eff;
     const dps = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles);
+    const ts = t.turretSpec;
+    const roam = !!ts && ts.leash > 0;
+    let turret = null;
+    if (e.turret) {
+      turret = { ...e.turret, damage: ts?.damage ?? e.turret.damage, active: t.turrets.length };
+      if (roam) {
+        Object.assign(turret, {
+          rate: ts.rate, range: ts.range, leash: ts.leash, speed: ts.speed, build: ts.build || 1 / Math.max(0.05, t.def.base?.rate || 0.25),
+          dealt: t.droneDmg, kills: t.droneKills, shots: t.droneShots,
+          nextIn: this.state === 'wave' && t.turrets.length < e.turret.max ? Math.max(0, t.buildTimer) : 0,
+          flight: flightMode(t),
+        });
+      }
+    }
     return {
       uid: t.uid,
       unitId: t.unitId,
@@ -792,7 +884,9 @@ export class Sim {
       aura: e.aura ? { ...e.aura } : null,
       income: e.income ? { ...e.income } : null,
       trap: e.trap ? { ...e.trap, damage: t.trapSpec?.damage ?? e.trap.damage, placed: t.trapCount } : null,
-      turret: e.turret ? { ...e.turret, damage: t.turretSpec?.damage ?? e.turret.damage, active: t.turrets.length } : null,
+      turret,
+      // her own attack, apart from the drones (the panel's Chika tab)
+      own: { dps, dealt: t.damageDealt - t.droneDmg, kills: t.kills - t.droneKills },
       ramp: e.ramp ? { ...e.ramp } : null,
       mark: e.mark ? { ...e.mark } : null,
       silence: e.silence,

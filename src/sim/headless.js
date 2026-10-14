@@ -291,7 +291,11 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       else if (info.role === 'support') {
         const ar = info.stats.aura?.range || 2;
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
-      } else s = coverage(c, info.stats.range);
+      } else {
+        // roaming drones (Chika) fight up to roam + gun range from her
+        const tu = info.stats.turret;
+        s = coverage(c, tu && tu.leash > 0 ? Math.max(info.stats.range, tu.leash + tu.range) : info.stats.range);
+      }
       if (s > bestS) {
         bestS = s;
         best = c;

@@ -49,6 +49,48 @@ export const LINE_HALF_WIDTH = 0.4;
 export const TURRET_PROJECTILE_SPEED = 20;
 export const TURRET_RING = 0.62;
 
+// Roaming drones (turret.leash > 0: Chika). docs/specs/CHIKA_REWORK.md §3 + the flight-mode addendum §16.
+/**
+ * Home offsets of drone slots: [sin, cos] of n·2.39996 + 0.6 (the old spawnTurret angles), printed
+ * to 17 digits so no trig runs at runtime (identical on every JS engine).
+ */
+export const DRONE_SLOTS = Object.freeze([
+  [0.56464247339503537, 0.82533561490967833],
+  [0.14115960764682450, -0.98998685100813055],
+  [-0.77281526051316241, 0.63463105275267850],
+  [0.99853686353464088, 0.054075245375327992],
+  [-0.69976039613131014, -0.71437762283413664],
+  [0.033423159632908594, 0.99944129012171246],
+  [0.65047014652616275, -0.75953182189967017],
+  [-0.99269320576592268, 0.12066565056458856],
+  [0.81348767287040535, 0.58158215764231658],
+  [-0.20698423008646244, -0.97834427912443700],
+  [-0.50824111696891761, 0.86121482048452169],
+  [0.95650437689900925, -0.29171797505988228],
+  [-0.90234782804954183, -0.43100858136964570],
+  [0.37421809708972420, 0.92734072260984302],
+  [0.35047590406320395, -0.93657174881109873],
+  [-0.89107661620040424, 0.45385291016015028],
+].map((p) => Object.freeze(p)));
+/** A drone with a quarry closes to gun range × this. */
+export const DRONE_STANDOFF = 0.5;
+/** Steps between a hunting drone's re-thinks (1 s), between an idle drone's looks, between opportunity shots. */
+export const DRONE_RETHINK_STEPS = 60;
+export const DRONE_IDLE_STEPS = 3;
+export const DRONE_OPP_STEPS = 6;
+/** Steps a girl's drone target pool is reused. */
+export const DRONE_POOL_STEPS = 4;
+/** Flight modes of a drone wing (a player choice, the `fly` co-op command). */
+export const FLIGHT_MODES = Object.freeze(['hover', 'hold', 'patrol', 'pursuit']);
+/** Hold / Patrol points must lie within leash × this of the girl (her signal range). */
+export const FLIGHT_SIGNAL_MUL = 2;
+/** Around a Hold point or the Patrol position the wing roams within leash × this. */
+export const FLIGHT_POINT_ROAM_MUL = 1;
+/** The Patrol position travels at drone speed × this. */
+export const FLIGHT_PATROL_SPEED_MUL = 0.6;
+/** Drones in Pursuit fire at this × their rate (map-wide reach has a price). */
+export const FLIGHT_PURSUIT_RATE_MUL = 0.8;
+
 /** Height of airborne enemies (world units). */
 export const AIR_ALT = 1.2;
 /** Height projectiles fly at when not arcing. */

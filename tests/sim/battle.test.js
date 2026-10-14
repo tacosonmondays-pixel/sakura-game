@@ -84,6 +84,26 @@ describe('determinism', () => {
     expect(a).toEqual(b);
   });
 
+  test('roaming drones and flight modes: same seed + same orders → identical drones', () => {
+    const play = () => {
+      const s = makeSim({ seed: 9 });
+      const t = s.placeTower('roamer', 8.5, 7.5);
+      s.startNextWave();
+      const out = [];
+      for (let i = 0; i < 60 * 40; i++) {
+        if (i === 600) s.setFlight(t.uid, 'pursuit');
+        if (i === 1200) s.setFlight(t.uid, 'patrol', 4, 5, 12, 6);
+        if (i === 1500) s.setTargetMode(t.uid, 'strong');
+        if (i === 1800) s.setFlight(t.uid, 'hold', 10, 3);
+        s.update(1 / 60);
+        if (i % 300 === 0) out.push(t.turrets.map((d) => [d.x, d.y, d.dmg]), t.droneDmg);
+        if (s.state === 'between') s.startNextWave();
+      }
+      return out;
+    };
+    expect(play()).toEqual(play());
+  });
+
   test('frame size does not change the outcome (fixed timestep)', () => {
     const mk = () => {
       const s = makeSim({ seed: 5 });

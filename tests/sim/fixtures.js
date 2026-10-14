@@ -127,6 +127,16 @@ export const UNITS = {
     attackType: 'pierce', role: 'engineer',
     base: { behavior: 'turret', damage: 0, rate: 4, range: 3, turret: { max: 2, damage: 6, rate: 3, range: 3.5 } },
   }),
+  // roaming drones (Chika's kit): a weak own bolt, drones that fly up to 3 tiles out
+  roamer: unit('roamer', {
+    attackType: 'pierce', role: 'engineer',
+    base: { behavior: 'projectile', damage: 2, rate: 1, range: 2, turret: { max: 2, damage: 6, rate: 3, range: 1, leash: 3, speed: 4, build: 1 } },
+    paths: [
+      path('a', [tier('a1', 100, { turret: { max: 1 } }), tier('a2', 100, {}), tier('a3', 100, {}), tier('a4', 100, {}), tier('a5', 100, {})]),
+      path('b', [tier('b1', 100, {}), tier('b2', 100, {}), tier('b3', 100, {}), tier('b4', 100, {}), tier('b5', 100, {})]),
+      path('c', [tier('c1', 100, { behavior: 'chain', chain: 2, attackType: 'mystic' }), tier('c2', 100, {}), tier('c3', 100, {}), tier('c4', 100, {}), tier('c5', 100, {})]),
+    ],
+  }),
   banker: unit('banker', {
     role: 'economy',
     base: { behavior: 'none', damage: 0, income: { perWave: 100, interest: 0 } },

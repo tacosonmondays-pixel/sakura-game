@@ -115,10 +115,12 @@ export function describeMods(mods = {}) {
   }
   if (mods.turret) {
     const t = mods.turret;
-    if (t.max) out.push(`+${t.max} sentry`);
-    if (t.damage) out.push(`+${n1(t.damage)} sentry damage`);
-    if (t.range) out.push(`+${n1(t.range)} sentry range`);
-    if (t.rate && t.rate !== 1) out.push(`+${pctOf(t.rate)} sentry fire rate`);
+    if (t.max) out.push(`+${t.max} drone${t.max === 1 ? '' : 's'}`);
+    if (t.damage) out.push(`+${n1(t.damage)} drone damage`);
+    if (t.range) out.push(`+${n1(t.range)} drone range`);
+    if (t.rate && t.rate !== 1) out.push(`+${pctOf(t.rate)} drone fire rate`);
+    if (t.leash) out.push(`drones fly +${n1(t.leash)} tiles farther`);
+    if (t.speed) out.push(`+${n1(t.speed)} drone speed`);
   }
   if (mods.ramp) out.push(`Damage ramps +${Math.round((mods.ramp.per || 0) * 100)}% per hit on the same target (up to +${Math.round((mods.ramp.max || 0) * 100)}% more)`);
   if (mods.mark) out.push(`Marks targets: +${Math.round((mods.mark.bonus || 0) * 100)}% damage from everyone for ${n1(mods.mark.duration || 0)}s`);
@@ -168,7 +170,7 @@ function statsTable(unit, battle) {
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
-  rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
+  rows.push(['Attack style', b.turret && b.behavior !== 'turret' ? `${BEHAVIOR_NAMES[b.behavior] || b.behavior} + Drones` : BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
   if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
   if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
   if (b.damage && b.rate) {
@@ -190,7 +192,10 @@ function statsTable(unit, battle) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);
   }
   if (b.trap) rows.push(['Traps', `up to ${b.trap.max}, ${n1(b.trap.damage)} damage each`, null]);
-  if (b.turret) rows.push(['Sentries', `up to ${b.turret.max}, ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s`, null]);
+  if (b.turret) {
+    const fly = b.turret.leash > 0 ? ` · fly up to ${n1(b.turret.leash)} tiles · Hover, Hold, Patrol or Pursuit` : '';
+    rows.push([b.turret.leash > 0 ? 'Drones' : 'Sentries', `up to ${b.turret.max} · ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s${fly}`, null]);
+  }
   return h('table.stat-table.mb-stats',
     owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', 'Yours'))) : null,
     h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null))));
