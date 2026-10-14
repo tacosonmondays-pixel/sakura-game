@@ -874,8 +874,8 @@ gacha rates & pity, medals & difficulty, maps, economy, controls; searchable).
 `UNIT_RARITIES`, unit defs, gacha pools/rates/pity, fragments, prices and `src/sim/**` never see UR
 (the co-op compatibility id must not change). `unitCard` applies it on its own; any other girl card
 calls the helpers with the player's profile. Pull results / history keep the dropped rarity; in
-co-op an ally's girl shows her def rarity (no awaken data on the wire). Motion is transform-only
-(compositor); reduced motion (system or Settings) stops it and keeps the rainbow.
+co-op an ally's girl shows her def rarity (no awaken data on the wire). Motion is transform /
+opacity only (compositor); reduced motion (system or Settings) stops it and keeps the rainbow.
 
 ### 11a. First impressions — drawn art, title, lobby backgrounds, beta gift (meta-a)
 

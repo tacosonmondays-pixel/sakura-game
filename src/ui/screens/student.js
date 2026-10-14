@@ -30,7 +30,7 @@ import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
-import { displayRarity, rarityInfo, urBadge, urRing, applyUrFrame, isUR } from '../rarity.js';
+import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -228,7 +228,6 @@ function buildShowcase(unit, onCycle) {
     const st = store.profile.units[unit.id];
     if (view.mode === 'card') {
       stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'mb-show-card'));
-      applyUrFrame(stageEl, unit, store.profile); // UR: the rainbow frame around her art
     } else {
       const holder = h('div.mb-show-3d');
       // The animation pills live inside the stage so the showcase keeps one height in both modes.
@@ -251,6 +250,7 @@ function buildShowcase(unit, onCycle) {
         }, label));
       }
     }
+    applyUrFrame(stageEl, unit, store.profile); // UR: the rainbow frame around her art (card and 3D view)
     clear(toggle);
     for (const [id, label] of [['card', 'Card Art'], ['3d', '3D Chibi']]) {
       toggle.appendChild(h(`button.mb-seg-btn${view.mode === id ? '.on' : ''}`, { role: 'tab', 'data-testid': `view-${id}`, onclick: () => { if (view.mode !== id) { view.mode = id; renderStage(); } } }, label));
@@ -544,10 +544,12 @@ function showAscension(unit) {
     title: '',
     cls: 'ur-ascend-modal',
     body: h('div.ur-ascend', { 'data-testid': 'ur-ascend' },
-      h('div.ur-ascend-burst', { 'aria-hidden': 'true' }),
-      [0, 1, 2, 3, 4, 5].map((i) => h(`span.ur-ascend-spark.s${i}`, { 'aria-hidden': 'true' }, '✦')),
-      h('div.ur-ascend-card', art, urRing()),
-      h('div.ur-ascend-swap', h('span.ur-ascend-old', { 'aria-hidden': 'true' }, 'SSR'), urBadge('ur-ascend-new')),
+      // rays + sparkles sit around her card; the modal's rounded edge clips the rays
+      h('div.ur-ascend-hero',
+        h('div.ur-ascend-burst', { 'aria-hidden': 'true' }),
+        [0, 1, 2, 3, 4, 5].map((i) => h(`span.ur-ascend-spark.s${i}`, { 'aria-hidden': 'true' }, '✦')),
+        h('div.ur-ascend-card', art, urRing(), urSparkles())),
+      h('div.ur-ascend-swap', h('span.ur-ascend-flash', { 'aria-hidden': 'true' }), h('span.ur-ascend-old', { 'aria-hidden': 'true' }, 'SSR'), urBadge('ur-ascend-new')),
       h('h2.ur-ascend-title', h('span.ur-text', 'Ascended to UR!')),
       h('p.ur-ascend-text', `${unit.name} awakened all five stars. From now on she wears the rainbow frame on every card — students, formation and battle.`)),
     actions: [{ label: 'Wonderful!', kind: 'yellow', testid: 'ur-ascend-ok' }],

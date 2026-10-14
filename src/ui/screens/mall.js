@@ -14,7 +14,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { currencyIcon, uiIcon } from '../../art/icons.js';
 import { shopTabs, buyOffer, currencyBalance } from '../../systems/shop.js';
 import { tile, card, showRewardsModal, cssVar, rememberParams } from './stage.js';
-import { applyUrFrame } from '../rarity.js';
+import { applyUrFrame, isUR } from '../rarity.js';
 
 /** Her offer portrait wears the rainbow UR frame once she is fully awakened (display only). */
 function urFramed(el, unitId) {
@@ -83,10 +83,13 @@ function offerCard(o, redraw) {
   const el = h(
     `div.ma-offer${o.soldOut ? '.sold' : ''}${o.highlight ? '.hot' : ''}${isUnit ? '.unit' : ''}`,
     { 'data-offer': o.id },
-    o.highlight ? h('span.ma-offer-ribbon', isUnit ? 'SSR' : 'Hot') : null,
+    o.highlight
+      // a fully awakened SSR she already owns shows as UR here too, like the spark grid (display only)
+      ? (isUnit && isUR(o.unitId, store.profile) ? h('span.ma-offer-ribbon.is-ur', h('span.ur-text', 'UR')) : h('span.ma-offer-ribbon', isUnit ? 'SSR' : 'Hot'))
+      : null,
     h('div.ma-offer-art',
       isUnit
-        // her plain drawn bust (one SSR ribbon + one name on the offer — no card overlay doubling them)
+        // her plain drawn bust (one SSR / UR ribbon + one name on the offer — no card overlay doubling them)
         ? urFramed(h('button.ma-offer-portrait', { title: `${name} — view profile`, style: { '--rarity': UNIT_RARITIES[UNIT_MAP[o.unitId]?.rarity]?.color || '#ff7ad9' }, onclick: () => navigate('student', { id: o.unitId }), html: portraitHTML(UNIT_MAP[o.unitId], 'thumb') }), o.unitId)
         : tile(o.item, o.count > 1 ? o.count : null, { size: 72 }),
     ),

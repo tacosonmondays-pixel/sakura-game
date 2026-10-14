@@ -54,6 +54,11 @@ export function urRing() {
   return h('span.ur-ring', { 'aria-hidden': 'true' });
 }
 
+/** Three little glints that twinkle on the rainbow frame (CSS shows them on the bigger frames). */
+export function urSparkles() {
+  return h('span.ur-sparkles', { 'aria-hidden': 'true' }, h('i.s0'), h('i.s1'), h('i.s2'));
+}
+
 /** "UR" in rainbow letters on a small dark pill (legible on light art and dark panels). */
 export function urBadge(extraCls = '') {
   return h(`span.ur-badge${extraCls ? `.${extraCls}` : ''}`, { title: 'UR — fully awakened' }, h('span.ur-text', 'UR'));
@@ -61,13 +66,13 @@ export function urBadge(extraCls = '') {
 
 /**
  * Turn a girl's frame (card, slot, portrait) into a UR frame when she shows as UR: adds
- * `.is-ur` (glow, rarity colour) and the rainbow ring. Anything else is left untouched.
+ * `.is-ur` (glow, rarity colour), the rainbow ring and its glints. Anything else is left untouched.
  * @returns {boolean} whether she is UR
  */
 export function applyUrFrame(el, unit, profile) {
   if (!el || !isUR(unit, profile)) return false;
   el.classList.add('is-ur');
   el.style.setProperty('--rarity', UR.color);
-  if (!el.querySelector(':scope > .ur-ring')) el.appendChild(urRing());
+  if (!el.querySelector(':scope > .ur-ring')) el.append(urRing(), urSparkles());
   return true;
 }

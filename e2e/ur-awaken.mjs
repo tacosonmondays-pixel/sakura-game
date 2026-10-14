@@ -4,7 +4,9 @@
 // frame + rainbow "UR" badge on the students list, a girl's page (header + Awakening tab),
 // formation, stage prep and the battle bar + panel — and that Kaede, Akane and Aoi keep SSR / SR
 // / R. Then Kaede's 5th star lands: the one-time "Ascended to UR!" moment, and she is UR after.
-// Last: reduced motion (system and the in-game setting) keeps the rainbow but stops the motion.
+// Also: the small stage-prep cards keep their labels apart, the deployed hero card reads
+// "Deployed", the moment's rays reach the modal edge. Last: reduced motion (system and the in-game
+// setting) keeps the rainbow but stops the motion.
 // Phone (844x390) and PC (1280x720).
 // Usage: node e2e/ur-awaken.mjs [--shots dir]
 import { createServer } from 'vite';
@@ -77,6 +79,20 @@ async function frameInfo(page, selector) {
   }, selector);
 }
 
+/** Overlap (px²) of the TEXT of two elements (a hidden one counts as none). */
+async function textOverlap(page, a, b) {
+  return page.evaluate(({ a, b }) => {
+    const rect = (sel) => {
+      const e = document.querySelector(sel);
+      if (!e || getComputedStyle(e).display === 'none') return null;
+      const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect();
+    };
+    const ra = rect(a), rb = rect(b);
+    if (!ra || !rb) return 0;
+    return Math.round(Math.max(0, Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left)) * Math.max(0, Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top)));
+  }, { a, b });
+}
+
 const isUrFrame = (f) => !!f && f.ur && f.ring && f.badge === 'UR' && /conic-gradient/.test(f.ringPaint);
 const showsPlain = (f, label) => !!f && !f.ur && !f.ring && f.badge == null && (label == null || f.label === label);
 
@@ -121,6 +137,14 @@ try {
     const sHot = await frameInfo(page, '.unit-card[data-unit="hotaru"]');
     check(isUrFrame(sHot) && sHot.dataRarity === 'UR', `${tag} students: Hotaru ★5 has the rainbow frame + "UR" badge (${JSON.stringify({ ur: sHot?.ur, ring: sHot?.ring, badge: sHot?.badge })})`);
     check(sHot?.ringAnim === 'ur-spin' && sHot?.textAnim === 'ur-shimmer' && sHot?.textClip === 'text', `${tag} students: the rainbow turns and the letters shimmer (ring ${sHot?.ringAnim}, text ${sHot?.textAnim}, clip ${sHot?.textClip})`);
+    const edge = await page.evaluate(() => {
+      const c = document.querySelector('.unit-card[data-unit="hotaru"]');
+      const nameGap = (id) => { const e = document.querySelector(`.unit-card[data-unit="${id}"] .unit-card-name`); const r = document.createRange(); r.selectNodeContents(e); return Math.round(e.closest('.unit-card').getBoundingClientRect().bottom - r.getBoundingClientRect().bottom); };
+      const glints = [...c.querySelectorAll(':scope > .ur-sparkles i')];
+      return { border: getComputedStyle(c).borderBottomWidth, gapUr: nameGap('hotaru'), gapSsr: nameGap('kaede'), glints: glints.length, glintAnim: glints[0] ? getComputedStyle(glints[0]).animationName : null, shown: getComputedStyle(c.querySelector(':scope > .ur-sparkles')).display };
+    });
+    check(edge.border === '0px' && edge.gapUr === edge.gapSsr, `${tag} students: the rainbow runs to the card's bottom edge (no rarity strip under it: border ${edge.border}), her name sits where Kaede's does (${edge.gapUr} / ${edge.gapSsr} px)`);
+    check(edge.glints === 3 && edge.shown === 'block' && edge.glintAnim === 'ur-glint', `${tag} students: three glints twinkle on her frame (${edge.glints}, ${edge.glintAnim})`);
     for (const [id, label] of [['kaede', 'SSR'], ['akane', 'SR'], ['aoi', 'R']]) {
       const f = await frameInfo(page, `.unit-card[data-unit="${id}"]`);
       check(showsPlain(f, label), `${tag} students: ${id} (★${SEED[id]}) still shows ${label} — "${f?.label}", no rainbow`);
@@ -146,6 +170,12 @@ try {
     check(head.stageUr && head.stageRing, `${tag} Hotaru's page: her card art has the rainbow frame`);
     check(head.panel && head.awBadge, `${tag} Hotaru's page: Awakening tab shows "Ascended to UR"`);
     await shot(page, `student-hotaru-${tag}`);
+    await page.locator('[data-testid="view-3d"]').click({ force: true });
+    await page.waitForTimeout(400);
+    const s3d = await page.evaluate(() => { const s = document.querySelector('.mb-show-stage'); const ring = s?.querySelector(':scope > .ur-ring'); return { is3d: s?.classList.contains('is-3d'), ur: s?.classList.contains('is-ur'), ring: !!ring && getComputedStyle(ring).display !== 'none' }; });
+    check(s3d.is3d && s3d.ur && s3d.ring, `${tag} Hotaru's page: the 3D Chibi view keeps the rainbow frame`);
+    await page.locator('[data-testid="view-card"]').click({ force: true });
+    await page.waitForTimeout(300);
     await go(page, '#/student/kaede?tab=awaken', '[data-testid="rarity-tag"]');
     const kHead = await page.evaluate(() => {
       const t = document.querySelector('[data-testid="rarity-tag"]');
@@ -171,6 +201,12 @@ try {
     const pKae = await frameInfo(page, '.ma-fslot .unit-card[data-unit="kaede"]');
     check(isUrFrame(pHot), `${tag} stage prep: Hotaru's formation card is UR`);
     check(showsPlain(pKae, 'SSR'), `${tag} stage prep: Kaede's card still SSR ("${pKae?.label}")`);
+    const prepOv = [];
+    for (const id of ['hikari', 'hotaru', 'kaede']) {
+      const card = `.ma-fslot .unit-card[data-unit="${id}"]`;
+      prepOv.push(await textOverlap(page, `${card} .unit-card-rarity`, `${card} .unit-card-level`), await textOverlap(page, `${card} .unit-card-level`, `${card} .unit-card-name`));
+    }
+    check(prepOv.every((a) => a === 0), `${tag} stage prep: on the small cards the rarity label, "Lv.30" and the name never overlap (${prepOv.join(', ')} px²; phones leave the label to the colour strip / rainbow ring)`);
     await scrollTo(page, '.ma-fslot .unit-card[data-unit="hotaru"]');
     await shot(page, `stage-prep-${tag}`);
 
@@ -221,12 +257,19 @@ try {
     await page.waitForFunction(() => !document.querySelector('[data-testid="hero-widget"]')?.hidden, null, { timeout: 15000 }).catch(() => {});
     const heroW = await frameInfo(page, '[data-testid="hero-widget"] .bt-herow-portrait');
     check(placed.hikari != null && heroW?.ur && heroW.ring, `${tag} battle: the deployed hero's portrait (Hikari ★5) wears the rainbow ring`);
+    const dep = await page.evaluate(() => { const c = document.querySelector('[data-testid="card-hikari"]'); const d = c.querySelector('.bt-card-deployed'); return { deployed: c.classList.contains('bt-deployed'), ring: !!c.querySelector(':scope > .ur-ring'), fits: d.scrollWidth <= d.clientWidth }; });
+    const depOv = await textOverlap(page, '[data-testid="card-hikari"] .bt-card-ur', '[data-testid="card-hikari"] .bt-card-deployed');
+    check(dep.deployed && dep.ring && dep.fits && depOv === 0, `${tag} battle bar: the deployed hero card reads "Deployed" in full, the UR badge stays off it (overlap ${depOv} px²), the ring stays`);
+    const align = await page.evaluate(() => { const top = (id) => { const e = document.querySelector(`[data-testid="card-${id}"] .bt-card-cost-val`); const r = document.createRange(); r.selectNodeContents(e); return Math.round(r.getBoundingClientRect().top); }; return [top('hotaru'), top('kaede')]; });
+    check(align[0] === align[1], `${tag} battle bar: Hotaru's cost sits level with Kaede's (${align.join(' / ')})`);
 
     // ---- other places her card appears: mall spark offer, lobby background picker, select ticket
     await go(page, '#/mall?tab=recruit', '.ma-offer[data-offer="spark_hotaru"]');
     const mHot = await frameInfo(page, '.ma-offer[data-offer="spark_hotaru"] .ma-offer-portrait');
     const mKae = await frameInfo(page, '.ma-offer[data-offer="spark_kaede"] .ma-offer-portrait');
     check(mHot?.ur && mHot.ring && mKae && !mKae.ur, `${tag} mall: Hotaru's spark portrait has the rainbow ring, Kaede's not`);
+    const ribbons = await page.evaluate(() => ['hotaru', 'kaede'].map((id) => document.querySelector(`.ma-offer[data-offer="spark_${id}"] .ma-offer-ribbon`)?.textContent.trim()));
+    check(ribbons[0] === 'UR' && ribbons[1] === 'SSR', `${tag} mall: the offer ribbon reads UR for Hotaru, SSR for Kaede (${ribbons.join(' / ')})`);
     await page.evaluate(async () => {
       const { openBackgroundPicker } = await import('/src/ui/lobby/bgPicker.js');
       openBackgroundPicker({ girl: 'hotaru' });
@@ -269,10 +312,18 @@ try {
     await page.waitForTimeout(1900); // SSR → UR swap finishes
     const m = moment ? await page.evaluate(() => {
       const el = document.querySelector('[data-testid="ur-ascend"]');
-      return { title: el.querySelector('.ur-ascend-title')?.textContent.trim(), badge: el.querySelector('.ur-ascend-new .ur-text')?.textContent.trim(), ring: !!el.querySelector('.ur-ascend-card .ur-ring'), fits: (() => { const r = el.closest('.modal').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1; })() };
+      const body = el.closest('.modal-body');
+      return {
+        title: el.querySelector('.ur-ascend-title')?.textContent.trim(), badge: el.querySelector('.ur-ascend-new .ur-text')?.textContent.trim(), ring: !!el.querySelector('.ur-ascend-card .ur-ring'),
+        fits: (() => { const r = el.closest('.modal').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1; })(),
+        // the rays reach the modal's rounded edge: the body neither clips them nor scrolls
+        bodyOverflow: getComputedStyle(body).overflowY, titleDelay: parseFloat(getComputedStyle(el.querySelector('.ur-ascend-title')).animationDelay) || 0,
+      };
     }) : null;
     check(!!m && m.title === 'Ascended to UR!' && m.badge === 'UR' && m.ring, `${tag} 5th star: the "Ascended to UR!" moment shows her card in the rainbow frame`);
     check(!!m?.fits, `${tag} 5th star: the moment fits the screen`);
+    check(m?.bodyOverflow === 'visible', `${tag} 5th star: the light rays are not cut off by (or scrollable in) the modal body (overflow ${m?.bodyOverflow})`);
+    check((m?.titleDelay || 0) >= 1, `${tag} 5th star: "Ascended to UR!" waits for SSR to turn into UR (delay ${m?.titleDelay}s)`);
     await shot(page, `ascend-${tag}`);
     if (moment) await page.locator('[data-testid="ur-ascend-ok"]').click({ force: true });
     await page.waitForSelector('[data-testid="ur-ascend"]', { state: 'detached', timeout: 10000 }).catch(() => {});
@@ -310,6 +361,8 @@ try {
     }
     await go(page, '#/students', '.unit-card[data-unit="hotaru"]');
     const f = await frameInfo(page, '.unit-card[data-unit="hotaru"]');
+    const glint = await page.evaluate(() => { const g = document.querySelector('.unit-card[data-unit="hotaru"] > .ur-sparkles i'); const cs = getComputedStyle(g); return { anim: cs.animationName, opacity: Number(cs.opacity) }; });
+    check(glint.anim === 'none' && glint.opacity > 0.5, `reduced motion (${mode}): the glints hold still and stay visible (${glint.anim}, opacity ${glint.opacity})`);
     const attr = await page.evaluate(() => document.documentElement.hasAttribute('data-reduce-motion'));
     check(isUrFrame(f) && f.ringAnim === 'none' && f.textAnim === 'none', `reduced motion (${mode}${mode === 'setting' ? `, data-reduce-motion=${attr}` : ''}): still rainbow, no turning, no shimmer (ring ${f?.ringAnim}, text ${f?.textAnim})`);
     if (SHOTS && mode === 'system') await shot(page, 'students-reduced-motion-1280x720');
@@ -337,6 +390,8 @@ try {
     const kinds = await page.evaluate(() => document.getAnimations().filter((a) => a.animationName === 'ur-spin').map((a) => Object.keys(a.effect.getKeyframes()[0]).filter((k) => !['offset', 'easing', 'composite', 'computedOffset'].includes(k))).flat());
     check(n === 5, `cost: ${n} UR cards on the students screen`);
     check(kinds.length >= 5 && kinds.every((k) => k === 'transform'), `cost: the rainbow rings animate transform only (${[...new Set(kinds)].join(', ') || 'none'}) — compositor work, no layout/paint per frame`);
+    const glintKinds = await page.evaluate(() => [...new Set(document.getAnimations().filter((a) => ['ur-glint', 'ur-sheen'].includes(a.animationName)).flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k))).filter((k) => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)))]);
+    check(glintKinds.length > 0 && glintKinds.every((k) => k === 'transform' || k === 'opacity'), `cost: glints and light sweep animate ${glintKinds.join(' + ')} only`);
     const frames = await page.evaluate(() => new Promise((res) => {
       const t = []; let last = performance.now();
       const step = (now) => { t.push(now - last); last = now; if (t.length < 90) requestAnimationFrame(step); else res(t.slice(5)); };
