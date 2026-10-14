@@ -339,7 +339,14 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   plays on alone (her drop marker lets her finish alone), and instead of lockstep beats nobody needs
   she sends `{ type: 'fighting', wave, goal }` every 10 s (`LOBBY.fightingMs`) and once more when her
   run ends. The one waiting reads it as `session.returning.fighting` ("Rin is still fighting — wave
-  87") and keeps waiting while it comes. "Back to the room" keeps the setting on both sides.
+  87") and keeps waiting while it comes; each beacon also counts as room activity, so the room's
+  30-minute idle close never fires during an hour-long run. The `lobby` message that tells her is said
+  again (at most every 2 s, `LOBBY.lobbyEchoMs`) while her battle's beats still arrive, so a lost one
+  costs no 12 s stall. "Back to the room" keeps the setting on both sides.
+- **A battle that ended stays ended.** A client whose run finished (or fell) while the two were cut
+  off — e.g. her Finish vote counted alone after the drop — says `done` in her beats: the host offers
+  her no rejoin, and a finished guest ignores any offer, so the results screen (already paid) is never
+  pulled back into the run.
 - **Compatibility.** `COOP_PROTOCOL` is 3 (the `start.freeplay` field, the `end` command, the goal
   event) and the freeplay table is part of the battle-data hash, so a build from before freeplay and
   one with it refuse to pair (the version banner).
