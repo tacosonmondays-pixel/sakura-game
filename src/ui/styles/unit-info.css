@@ -422,11 +422,19 @@
   .ut-d-status { font-size: 0.72rem; padding: 4px 7px; }
   .ut-d-back { width: 30px; height: 30px; padding: 8px; }
 }
-/* very short landscape (≤ 420 px): tree cells show chip letters only (the title keeps the word) */
+/* very short landscape (≤ 420 px): a cell with two chips shows their letters (the title and the
+   legend keep the word); a lone chip keeps its word ("Self", "Enemies") — it fits beside the price */
 @media (max-height: 420px) {
-  .ut-overlay .ut-foot .tag-chip .tag-word { display: none; }
-  .ut-overlay .ut-foot .tag-chip::after { content: attr(data-letter); }
+  .ut-overlay .ut-foot .tag-chip:not(:only-child) .tag-word { display: none; }
+  .ut-overlay .ut-foot .tag-chip:not(:only-child)::after { content: attr(data-letter); }
   .ut-overlay .ut-foot .tag-chip.tag-more::after { content: none; }
+  .ut-overlay .ut-foot > .tag-chips { flex: 0 1 auto; min-width: 0; }
+  .ut-overlay .ut-foot > .ut-cost { flex: none; }
+  .ut-overlay .ut-foot .tag-chip:only-child { flex: 0 1 auto; min-width: 0; }
+  .ut-overlay .ut-foot .tag-chip:only-child .tag-word { min-width: 0; }
+  /* hero levels in the 196 px side panel: the chips go under the line instead of squeezing it */
+  .ut-levels li { grid-template-columns: 20px minmax(0, 1fr); row-gap: 1px; }
+  .ut-levels li > .tag-chips { grid-column: 2; justify-content: flex-start; }
 }
 
 /* portrait / narrow: single column, the detail becomes a bottom sheet */

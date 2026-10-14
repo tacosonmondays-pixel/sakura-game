@@ -256,9 +256,15 @@ export function createUpgradeTree(ctx) {
     );
   }
 
-  function onPick(cell) {
-    selected = { path: cell.path, tier: cell.tier };
+  /** A new selection starts at the top of the side panel (a live refresh keeps the scroll). */
+  function pick(sel) {
+    selected = sel;
     renderSide();
+    side.scrollTop = 0;
+  }
+
+  function onPick(cell) {
+    pick({ path: cell.path, tier: cell.tier });
   }
 
   function cellAt(sel) {
@@ -295,8 +301,7 @@ export function createUpgradeTree(ctx) {
   }
 
   function back() {
-    selected = null;
-    renderSide();
+    pick(null);
   }
 
   function cardPanel() {
@@ -315,7 +320,7 @@ export function createUpgradeTree(ctx) {
     }
     if (hero) {
       parts.push(h('div.ut-side-line', hero.level != null ? `Hero Lv ${hero.level} / 10` : 'Hero · levels up in battle'));
-      parts.push(h('button.ut-ult', { type: 'button', 'data-testid': 'ut-ult', onclick: () => { selected = 'ult'; renderSide(); } },
+      parts.push(h('button.ut-ult', { type: 'button', 'data-testid': 'ut-ult', onclick: () => pick('ult') },
         h('span.ut-ult-badge', 'ULT'),
         h('span.ut-ult-text', h('b', hero.ult.name), tagChips(hero.ult.tags, { size: 'xs' }),
           h('small', hero.ult.unlocked == null ? `Unlocks at Lv ${hero.ult.unlockLevel}` : hero.ult.unlocked ? 'Unlocked' : `Unlocks at Lv ${hero.ult.unlockLevel}`))));
