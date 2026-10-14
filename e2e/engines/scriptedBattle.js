@@ -22,6 +22,7 @@ import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { coopStage } from '../../src/data/coop.js';
 import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
 import { snapshotDigest } from '../../src/sim/snapshot.js';
+import { autoPlan } from '../../src/sim/headless.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -416,11 +417,78 @@ export function runFreeplayBattle({ finishAfter = 52, checkpointAt = 40, maxFram
   };
 }
 
+/**
+ * Deep freeplay, far past what the scripted run reaches: a co-op battle on 8-5 (Blossom) jumped to
+ * wave 250 with a fixed test-stat board (both players' girls placed by headless.autoPlan, upgraded
+ * a few rounds), run with Auto on at 3× into the Eclipse Wyrm + Gloom Regent wave (250) for
+ * `ticks` ticks. Every 60 ticks the raw bits of every enemy's HP, position, armor, barrier, Resolve
+ * budgets and speed are hashed, plus the wallets. Also counts non-finite values and the largest HP
+ * (must stay below 2^53, where doubles stop being exact integers).
+ */
+export function runDeepFreeplay({ stageId = '8-5', tier = 'blossom', fromWave = 250, ticks = 3600 } = {}) {
+  const t0 = Date.now();
+  const P1 = ['kage', 'shiro', 'aoi', 'akane', 'miko', 'yuki'];
+  const P2 = ['momo', 'sango', 'umeko', 'midori', 'hotaru', 'rei'];
+  const stats = { damageMul: 3000, costMul: 0.001, rangeMul: 1.2, rateMul: 1.5 };
+  const start = {
+    seed: 777, stageId, difficulty: 'normal', freeplay: tier,
+    players: [
+      { slot: 0, uid: 'a', name: 'A', loadout: P1.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari', stats } },
+      { slot: 1, uid: 'b', name: 'B', loadout: P2.map((unitId) => ({ unitId, stats })), hero: null },
+    ],
+  };
+  const c = createCoopSim(start);
+  const sim = c.sim;
+  const plan = withDetMath(() => autoPlan(stageId, [...P1, ...P2, 'hikari'], { data: { stage: coopStage(stageId, { freeplay: tier }) }, maxCopies: 3 }));
+  let s = 0;
+  const cmd = (p, k, a) => c.apply({ t: 0, p, s: s++, k, a });
+  for (const a of plan) {
+    if (a.action !== 'place') continue;
+    cmd(P2.includes(a.unitId) ? 1 : 0, 'place', [a.unitId, ...quantize(a.x ?? a.tx, a.y ?? a.ty)]);
+  }
+  for (let round = 0; round < 8; round++) {
+    for (const tw of sim.towers) {
+      const p = c.ownerOf(tw.uid);
+      if (p != null) cmd(p, 'upg', [tw.uid, round < 5 ? 0 : 1]);
+    }
+  }
+  sim.wave = fromWave - 1;
+  sim.wavesCleared = fromWave - 1;
+  sim.lives = 1e9;
+  sim.maxLives = 1e9;
+  cmd(0, 'speed', [3]);
+  cmd(0, 'auto', [true]);
+  cmd(0, 'wave', []);
+  const vals = [];
+  const bosses = new Set();
+  let bad = 0;
+  let maxHp = 0;
+  let maxAlive = 0;
+  for (let n = 1; n <= ticks && sim.state !== 'won' && sim.state !== 'lost'; n++) {
+    c.step();
+    sim.events.length = 0;
+    maxAlive = Math.max(maxAlive, sim.enemies.length);
+    if (n % 60 !== 0) continue;
+    vals.push(n, sim.wave, sim.lives, sim.enemies.length, ...c.wallets);
+    for (const e of sim.enemies) {
+      if (![e.hp, e.maxHp, e.x, e.y, e.armor, e.barrier ?? 0, e.speed].every(Number.isFinite)) bad++;
+      if (e.tier === 'boss' || e.tier === 'miniboss') bosses.add(e.id);
+      maxHp = Math.max(maxHp, e.maxHp);
+      vals.push(e.uid, e.hp, e.x, e.y, e.armor, e.barrier ?? -1, e.ccLeft ?? -1, e.kbLeft ?? -1, e.speed);
+    }
+  }
+  return {
+    stageId, tier, fromWave, towers: sim.towers.length, wave: sim.wave, cleared: sim.wavesCleared, lives: sim.lives,
+    maxAlive, maxHp, bad, bosses: [...bosses].sort().join(','), digest: bitsHash(vals), final: c.hash(), ms: Date.now() - t0,
+  };
+}
+
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle and freeplay. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t0 = Date.now();
   const tables = freeplayTables();
   const battle = runFreeplayBattle();
-  return { ...r, freeplay: { tables, battle, ms: Date.now() - t0 } };
+  const deep = runDeepFreeplay();
+  return { ...r, freeplay: { tables, battle, deep, ms: Date.now() - t0 } };
 }
