@@ -447,7 +447,9 @@ async function runViewport(vp) {
   await page.evaluate(() => { const { ui } = window.__battle; ui.setAutoStart(true); ui.startWave(); ui.speed = 3; });
   await page.waitForTimeout(2500);
   await shot('battle-midwave');
-  // attack FX (docs/ATTACK_FX.md) run in the real battle
+  // attack FX (docs/ATTACK_FX.md) run in the real battle (a loaded machine can lag a few frames
+  // behind the placement, so wait for the renderer to style the new girls before reading)
+  await page.waitForFunction(() => { const a = window.__battle.renderer.info.attackFx; return !a || (a.ms > 0 && a.styled > 0); }, null, { timeout: 20000 }).catch(() => null);
   const afx = await page.evaluate(() => window.__battle.renderer.info.attackFx);
   check(!!afx && afx.ms > 0 && afx.styled > 0, `battle: attack FX running (${afx ? `${afx.ms.toFixed(3)} ms, ${afx.styled} girls` : 'off'})`);
 
