@@ -42,6 +42,7 @@ export function createHeroWidget(ctx) {
   );
   const ult = h('button.bt-ult', { 'data-testid': 'ult', onclick: () => ctx.fireUlt() });
   el.append(portrait, ult);
+  const offHold = ctx.tree?.bindHold(portrait, () => (sim.hero ? { uid: sim.hero.uid } : null)); // [unit-info] hold → her tree
 
   let lastLv = -1;
   function update() {
@@ -65,5 +66,5 @@ export function createHeroWidget(ctx) {
     paintUltButton(ult, sim.heroUltStatus());
   }
 
-  return { el, update, destroy() {} };
+  return { el, update, destroy() { offHold?.(); } };
 }

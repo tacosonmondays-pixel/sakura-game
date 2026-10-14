@@ -46,9 +46,11 @@ export function createTowerBar(ctx) {
 
   function bindCard(card, unitId) {
     let down = null;
+    const hold = ctx.tree?.barHold(card, unitId) ?? null; // [unit-info] hold a card → her upgrade tree
     const onDown = (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       down = { id: e.pointerId, x: e.clientX, y: e.clientY, type: e.pointerType, dragging: false };
+      hold?.down(e);
       try {
         card.setPointerCapture(e.pointerId);
       } catch {
@@ -57,6 +59,7 @@ export function createTowerBar(ctx) {
     };
     const onMove = (e) => {
       if (!down || e.pointerId !== down.id) return;
+      if (hold?.move(e)) return; // her tree is open from this press: no drag until the finger moves up
       const dx = e.clientX - down.x;
       const dy = e.clientY - down.y;
       if (!down.dragging) {
@@ -76,6 +79,7 @@ export function createTowerBar(ctx) {
       if (!down || e.pointerId !== down.id) return;
       const d = down;
       down = null;
+      if (hold?.up(e)) return; // the hold opened her tree: not a tap
       if (e.type === 'pointercancel') {
         if (d.dragging) ctx.placement.cancel();
         return;
@@ -87,12 +91,18 @@ export function createTowerBar(ctx) {
     card.addEventListener('pointermove', onMove);
     card.addEventListener('pointerup', onUp);
     card.addEventListener('pointercancel', onUp);
-    card.addEventListener('contextmenu', (e) => e.preventDefault());
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (!hold?.pending && !hold?.fired && !ctx.ended && !ctx.paused) ctx.tree?.open({ unitId }); // right-click → tree
+    });
     // keyboard access: Enter/Space acts like a tap
     card.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         ctx.onCardTap(unitId);
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        ctx.tree?.open({ unitId });
       }
     });
   }

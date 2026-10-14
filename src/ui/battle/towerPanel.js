@@ -7,6 +7,8 @@ import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, UNIT_RARITIES, STATUSES } from '../../data/types.js';
+import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies chips + tree button
+import { tierTags } from '../upgradeTags.js';
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
@@ -73,6 +75,7 @@ export function createTowerPanel(ctx) {
     const rarity = UNIT_RARITIES[def.rarity];
     const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
     setVar(portrait, '--rarity', rarity?.color);
+    if (ctx.tree) Object.assign(portrait, { title: 'Upgrade tree', onclick: () => ctx.tree.open({ uid: t.uid }) }); // [unit-info]
 
     const kills = h('b');
     const dmg = h('b');
@@ -90,6 +93,7 @@ export function createTowerPanel(ctx) {
           st.element ? [h('span.bt-dot', '·'), svgEl(elementIcon(st.element), 'bt-role-ico'), ELEMENTS[st.element]?.name] : null),
         h('div.bt-panel-meta', h('span', 'Kills ', kills), h('span', 'Damage ', dmg)),
       ),
+      ctx.tree ? h('button.bt-x.bt-panel-tree', { 'data-testid': 'panel-tree', title: 'Upgrade tree (T)', 'aria-label': 'Upgrade tree', onclick: () => ctx.tree.open({ uid: t.uid }) }, svgEl(TREE_GLYPH, 'bt-ico')) : null,
       h('button.bt-x.bt-panel-close', { 'data-testid': 'panel-close', title: 'Close', onclick: () => ctx.select(null) }, icon('close')),
     );
 
@@ -156,7 +160,7 @@ export function createTowerPanel(ctx) {
       if (a.costCut > 0) bits.push(`-${Math.round(a.costCut * 100)}% cost`);
       if (a.detection) bits.push('Veil Sight');
       if (a.cleanse) bits.push('Cleanse');
-      add('Aura', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide');
+      add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide');
     }
     const chips = [];
     const cap = (key, label) => chips.push(h('span.bt-cap', svgEl(capabilityIcon(key), 'bt-cap-ico'), label));
@@ -167,13 +171,13 @@ export function createTowerPanel(ctx) {
     if (st.reveal > 0) cap('reveal', `Reveal ${fmtNum(st.reveal, 1)}s`);
     if (st.knockback > 0) cap('stun', `Knockback ${fmtNum(st.knockback, 2)}`);
     for (const s of st.status || []) chips.push(h('span.bt-cap.bt-cap-status', statusLabel(s)));
-    if (st.buffed || (st.buff && (st.buff.dmgMul > 1 || st.buff.rateMul > 1 || st.buff.rangeMul > 1))) chips.push(h('span.bt-cap.bt-cap-buff', 'Buffed'));
+    if (st.buffed || (st.buff && (st.buff.dmgMul > 1 || st.buff.rateMul > 1 || st.buff.rangeMul > 1))) chips.push(h('span.bt-cap.bt-cap-buff', { title: 'A girl\'s aura (Allies) is making her stronger.' }, 'Buffed by an ally'));
     if (st.disabled > 0) chips.push(h('span.bt-cap.bt-cap-bad', `Disabled ${fmtNum(st.disabled, 1)}s`));
     const stats = h('div.bt-stats-grid', rows);
     const caps = chips.length ? h('div.bt-caps', chips) : null;
 
     // ---- upgrade paths
-    const paths = h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames)));
+    const paths = h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames, st.aura?.range || 0)));
 
     // ---- footer
     const value = sim.sellValue(t.uid);
@@ -209,7 +213,7 @@ export function createTowerPanel(ctx) {
     updateLive(t, st);
   }
 
-  function pathRow(t, p, i, names) {
+  function pathRow(t, p, i, names, auraR = 0) {
     const st = sim.upgradeStatus(t.uid, i);
     const cur = t.tiers[i];
     const cap = pathCap(t.tiers, i);
@@ -222,7 +226,7 @@ export function createTowerPanel(ctx) {
       body = h('div.bt-path-max', h('b', 'MAX'), ` ${p.tiers[cur - 1]?.name || ''}`);
     } else {
       const next = st.next;
-      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`), h('div.bt-path-desc', next.desc));
+      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })), h('div.bt-path-desc', next.desc));
       let action;
       if (st.reason === 'crosspath') {
         action = h('div.bt-lock', icon('lock', 'bt-ico-sm'), crosspathReason(t.tiers, i, names));
@@ -250,12 +254,14 @@ export function createTowerPanel(ctx) {
       }
       body = h('div.bt-path-body', desc, action);
     }
-    return h(
+    const row = h(
       `div.bt-path${st.reason === 'crosspath' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
       { 'data-path': i },
       h('div.bt-path-head', h('span.bt-path-name', p.name), h('span.bt-path-focus', p.focus || ''), pips),
       body,
     );
+    ctx.tree?.decoratePathRow?.(row, t.uid, i); // [unit-info] "Upgrade in panel ›" flash
+    return row;
   }
 
   function onSell(t) {

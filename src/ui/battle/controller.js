@@ -20,6 +20,7 @@ import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
+import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-view upgrade tree
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -138,6 +139,8 @@ export function mountBattle(root, params, hooks) {
   function build() {
     const feed = createFeed(layer);
     ctx.feed = feed;
+    const tree = createUpgradeTree(ctx); // [unit-info] before the bar: its cards bind tree holds
+    ctx.tree = tree;
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -152,7 +155,7 @@ export function mountBattle(root, params, hooks) {
     const panel = createTowerPanel(ctx);
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed];
+    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree];
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
@@ -167,6 +170,7 @@ export function mountBattle(root, params, hooks) {
       return;
     }
     ctx.renderer = renderer;
+    cleanups.push(renderer.onLongPress((p) => tree.onLongPress(p))); // [unit-info] hold a placed girl → her tree
     // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
     // as a tie-break, off the exit gates and the last tiles of road before them)
     const tracks = sim.map?.tracks || [];
@@ -495,7 +499,7 @@ export function mountBattle(root, params, hooks) {
       } else if (running) sim.update(dt * ctx.speed);
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
-      if (results.open || (pause.open && !ls)) return;
+      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return; // [unit-info] solo tree: frozen frame
       try {
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
