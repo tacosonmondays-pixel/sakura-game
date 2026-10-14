@@ -362,7 +362,17 @@ export function migrateProfile(raw) {
     const entry = { clears: int(s.clears, 0, 0) };
     for (const d of DIFFICULTY_ORDER) entry[d] = bool(s[d]);
     if (s.bestWave != null) entry.bestWave = int(s.bestWave, 0, 0);
+    // co-op freeplay: best wave per freeplay tier ({ blossom, tempest, crimson }, src/online/coop/rewards.js)
+    if (isObj(s.coopBestWave)) {
+      const best = cleanCounts(s.coopBestWave, (k) => /^[a-z]{1,16}$/.test(k));
+      if (Object.keys(best).length) entry.coopBestWave = best;
+    }
     p.progress.stages[id] = entry;
+  }
+  // co-op freeplay one-time milestones ('tier:id'), titles and profile frames earned there
+  if (isObj(raw.progress) && isObj(raw.progress.freeplay)) {
+    const fp = raw.progress.freeplay;
+    p.progress.freeplay = { done: strList(fp.done, 200), titles: strList(fp.titles, 50), frames: strList(fp.frames, 50) };
   }
 
   // Bestiary.
