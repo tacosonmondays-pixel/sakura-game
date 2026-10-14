@@ -19,10 +19,12 @@
 //   { type: 'ls', m }                lockstep traffic during the battle
 //   { type: 'lobby', uid }           "I am back in the room's lobby" (the room, its code and the
 //                                    seats stay: see backToLobby), mostly after the battle ended;
-//                                    in freeplay also while the ally plays on
+//                                    in freeplay also while the ally plays on (said again while
+//                                    that battle's beats still come: the first one was lost)
 //   { type: 'fighting', uid, wave, goal, over }   my battle runs on while my ally is back in the
 //                                    room (a freeplay run): how far I am, every
-//                                    LOBBY.fightingMs; over = it just ended (results screen)
+//                                    LOBBY.fightingMs; over = it just ended (results screen);
+//                                    keeps the waiting lobby from its idle close
 //   { type: 'leave', uid }           I left the room (Leave, Home, closing the tab)
 //
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
@@ -121,6 +123,9 @@ export const LOBBY = Object.freeze({
   /** my battle runs on while my ally is back in the room (freeplay): a 'fighting' beacon this
    *  often instead of lockstep beats (nobody runs that battle with me any more) */
   fightingMs: 10000,
+  /** back in the room, my ally's battle still beats at me (it missed my one 'lobby' message):
+   *  say 'lobby' again, at most this often */
+  lobbyEchoMs: 2000,
 });
 
 /**
@@ -195,6 +200,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   let lastRestBeat = -Infinity;
   let lastFightingAt = -Infinity; // my last 'fighting' beacon (-Infinity: none in this battle)
   let fightingOver = false; // its last one said my battle is over: no more
+  let lastLobbyEcho = -Infinity; // my last repeated 'lobby' (see case 'ls')
   const hidden = () => doc?.hidden === true;
   /** The other player of the battle that runs (or just ran) here. */
   const isAlly = (uid) => !!uid && uid !== s.me.uid && !!s.start?.players.some((p) => p.uid === uid);
@@ -413,6 +419,17 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         // lockstep traffic only means something to a running battle: an ally still on its
         // results screen keeps beating into the room after I went back to the lobby (and such
         // a beat must not count as the guest's answer to the next battle's start)
+        if (s.phase === 'lobby') {
+          // …but a battle that runs on and still beats at me never heard my one 'lobby' (lost on
+          // the way): it waits on me until its timeout. Say it again (its beats stop once it hears)
+          const m = msg.m;
+          const running = (m?.type === 'in' || m?.type === 'busy') && !m.done;
+          if (running && s.returning && from === s.returning.uid && !s.returning.inRoom && now() - lastLobbyEcho >= LOBBY.lobbyEchoMs) {
+            lastLobbyEcho = now();
+            send({ type: 'lobby', uid: s.me.uid });
+          }
+          break;
+        }
         if (s.phase !== 'battle' || !s.lockstep) break;
         if (isHost) guestHeard = true;
         s.lockstep.receive(msg.m);
@@ -455,6 +472,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (s.phase === 'lobby' && s.returning && msg.uid === s.returning.uid && !s.returning.inRoom) {
           const ok = Number.isInteger(msg.wave) && msg.wave >= 0 && Number.isInteger(msg.goal) && msg.goal >= 0;
           s.returning.fighting = ok && !msg.over ? { wave: msg.wave, goal: msg.goal } : null;
+          // the room is in use while my ally's run goes on (an hour and more): no idle close
+          lastActivity = now();
           changed();
         }
         break;
