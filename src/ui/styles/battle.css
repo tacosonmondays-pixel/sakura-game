@@ -847,7 +847,14 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-keep-btn > span { font-weight: 900; letter-spacing: 0.04em; }
 .bt-keep-btn > small { opacity: 0.9; font-weight: 800; }
 @media (max-height: 500px) {
-  .bt-keep { margin: 6px 0 2px; padding: 6px 8px; gap: 4px; }
-  .bt-keep-hint { display: none; }
-  .bt-keep-tier { min-height: 28px; padding: 3px 8px; }
+  /* landscape phones: chips and the button share one row, and the medal shrinks, so the Rewards
+     button stays in view under them */
+  .bt-keep { margin: 4px 0 2px; padding: 5px 8px; flex-direction: row; align-items: center; gap: 8px; }
+  .bt-keep-head > b, .bt-keep-hint { display: none; }
+  .bt-keep-tier { min-height: 30px; padding: 3px 8px; font-size: 0.74rem; }
+  .bt-keep-btn { flex: 1; min-height: 38px; padding: 4px 10px; font-size: 0.92rem; }
+  .bt-win:has(.bt-keep) .bt-medal-row { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-medal-ico { width: 44px; height: 44px; }
+  .bt-win:has(.bt-keep) .bt-result-stage { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-summary { margin-bottom: 4px; }
 }

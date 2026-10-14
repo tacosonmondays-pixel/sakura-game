@@ -340,8 +340,12 @@ export function mountBattle(root, params, hooks) {
     // every way out of a battle goes through navigate(), which never leaves the battle's history
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
     // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
-    const endlessMap = !!req.endless && stage.kind !== 'challenge';
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
+    // (a campaign map opened from Tactical Challenge with endless=1 is a freeplay run now: it still
+    // belongs to Tactical Challenge)
+    const endlessMap = !ls && !params.clanBoss && (params.endless === '1' || params.endless === 1 || params.endless === 'true') && stage.kind !== 'challenge';
+    // a solo freeplay run's prep comes back with its tier picked
+    const fpParam = req.freeplay ? { freeplay: req.freeplay } : {};
+    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1, ...fpParam } : { id: stage.id, ...fpParam }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       const r = mapRouteFor(stage, { endless: endlessMap });

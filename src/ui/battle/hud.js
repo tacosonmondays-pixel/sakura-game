@@ -60,6 +60,7 @@ export function createHud(ctx) {
 
   let last = { lives: null, cash: null, wave: null, speed: null, state: null };
   function update() {
+    paintChip();
     if (sim.lives !== last.lives) {
       if (last.lives != null && sim.lives < last.lives) {
         livesBox.classList.remove('bt-hit');
@@ -83,7 +84,6 @@ export function createHud(ctx) {
     if (sim.wave !== last.wave) {
       const total = Number.isFinite(sim.totalWaves) ? sim.totalWaves : '∞';
       // recomputed from the state on every change, so a remount (resync) is always right
-      paintChip();
       const fp = fpOf();
       const over = !!fp && sim.wave > sim.totalWaves;
       if (over) {
