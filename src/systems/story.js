@@ -5,12 +5,16 @@
 // forced on it and every feature it already had stays open. Everything else reads the block lazily through
 // storyOf(profile), which also covers profiles built by other code paths.
 //
-// Kept light on purpose: save.js imports this file, so it only imports small data modules and NEVER the scene
-// chunk (the story index and its scene files). Scene-aware logic lives in src/systems/storyTriggers.js.
+// Kept light on purpose: save.js imports this file, so it only imports small data modules (and systems save.js
+// already pulls in) and NEVER the scene chunk (the story index and its scene files). Scene-aware logic lives in
+// src/systems/storyTriggers.js.
 
 import { STAGE_MAP, CAMPAIGN_IDS } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
-import { LESSON_IDS } from '../data/story/lessons.js';
+import { UNIT_MAP } from '../data/units.js';
+import { LESSONS, LESSON_IDS, LESSON_MAP, FEATURE_GATES, WELCOME_MAIL, JOURNAL_TEXT } from '../data/story/lessons.js';
+import { deliverMail } from './mail.js';
+import { addItems } from './inventory.js';
 
 export const STORY_VERSION = 1;
 export const WELCOME_MAIL_ID = 'story-welcome-10pull';
@@ -208,4 +212,174 @@ export function setStoryPrefs(profile, { speed, auto } = {}) {
 /** @returns {boolean} the scene was marked seen (done or skipped) */
 export function sceneSeen(profile, sceneId) {
   return storyOf(profile).seen.includes(sceneId);
+}
+
+// ---- Captain's Journal (STORY_SPEC §3) -------------------------------------------------------------------
+
+/** {name:<id>} only (the welcome letter is stored as plain text; the journal UI resolves every token itself). */
+const fillNames = (text) => String(text).replace(/\{name:([a-z0-9_]+)\}/g, (m, id) => UNIT_MAP[id]?.name ?? m);
+
+/** The lesson's unlock condition holds right now (tutorial done/skipped/legacy, or its stage cleared). */
+function lessonDue(profile, lesson) {
+  if (lesson.unlock.tutorial) {
+    const s = storyOf(profile);
+    return s.legacy || s.tutorial !== 'pending';
+  }
+  return stageCleared(profile, lesson.unlock.stage);
+}
+
+/** @returns {boolean} the lesson is unlocked (recorded, or its condition already holds) */
+export function lessonUnlocked(profile, id) {
+  const lesson = LESSON_MAP[id];
+  if (!lesson) return false;
+  return !!storyOf(profile).lessons[id] || lessonDue(profile, lesson);
+}
+
+/**
+ * The welcome 10-pull (§3.4): mailed once when 1-3 is cleared on a new save. Guarded twice: story.welcome must
+ * still be 'pending' (legacy saves are 'legacy': they got the creation ticket) AND the mail id must never have
+ * been delivered (an import that reset the story block still cannot regrant it).
+ * @returns {boolean} the letter was delivered now
+ */
+export function deliverWelcome(profile, now = Date.now()) {
+  const s = storyOf(profile);
+  if (s.legacy || s.welcome !== 'pending' || !stageCleared(profile, LESSON_MAP.recruit.unlock.stage)) return false;
+  if ((profile.mail?.delivered || []).includes(WELCOME_MAIL_ID)) {
+    s.welcome = 'mailed';
+    return false;
+  }
+  const letter = deliverMail(profile, {
+    id: WELCOME_MAIL_ID,
+    from: fillNames(WELCOME_MAIL.from),
+    title: fillNames(WELCOME_MAIL.title),
+    body: fillNames(WELCOME_MAIL.body),
+    rewards: WELCOME_MAIL.rewards,
+  }, now);
+  s.welcome = 'mailed';
+  return !!letter;
+}
+
+/**
+ * Unlocks every lesson whose condition holds and mails the welcome pull. Idempotent. Legacy saves unlock
+ * quietly (one summary toast instead of one per lesson).
+ * @returns {{ unlocked: string[], quiet: boolean, mailed: boolean }}
+ */
+export function checkLessons(profile, now = Date.now()) {
+  const s = storyOf(profile);
+  const unlocked = [];
+  for (const lesson of LESSONS) {
+    if (s.lessons[lesson.id] || !lessonDue(profile, lesson)) continue;
+    s.lessons[lesson.id] = { at: now, quiet: s.legacy, read: false, claimed: false };
+    unlocked.push(lesson.id);
+  }
+  const mailed = deliverWelcome(profile, now);
+  return { unlocked, quiet: s.legacy, mailed };
+}
+
+/** Lessons delivered by mail have nothing to claim in the journal. */
+const mailOnly = (lesson) => lesson.via === 'mail';
+
+/**
+ * Journal rows, in lesson order.
+ * @returns {Array<object>} { ...lesson, unlocked, read, claimed, claimable, mailOnly, requirement }
+ */
+export function lessonList(profile) {
+  const s = storyOf(profile);
+  return LESSONS.map((lesson) => {
+    const st = s.lessons[lesson.id];
+    const unlocked = !!st;
+    return {
+      ...lesson,
+      unlocked,
+      read: !!st?.read,
+      claimed: !!st?.claimed,
+      claimable: unlocked && !st.claimed && !mailOnly(lesson) && lesson.rewards.length > 0,
+      mailOnly: mailOnly(lesson),
+      requirement: lesson.unlock.tutorial ? JOURNAL_TEXT.requirementTutorial : JOURNAL_TEXT.requirement(lesson.unlock.stage),
+    };
+  });
+}
+
+/** Opening a lesson marks it read. @returns {{ ok: boolean, error?: 'locked'|'unknown', changed?: boolean }} */
+export function readLesson(profile, id) {
+  if (!LESSON_MAP[id]) return { ok: false, error: 'unknown' };
+  const st = storyOf(profile).lessons[id];
+  if (!st) return { ok: false, error: 'locked' };
+  const changed = !st.read;
+  st.read = true;
+  return { ok: true, changed };
+}
+
+/**
+ * Pays a lesson's rewards once.
+ * @returns {{ ok: boolean, error?: 'locked'|'claimed'|'unknown'|'mailOnly', rewards: object[] }}
+ */
+export function claimLesson(profile, id) {
+  const lesson = LESSON_MAP[id];
+  if (!lesson) return { ok: false, error: 'unknown', rewards: [] };
+  if (mailOnly(lesson)) return { ok: false, error: 'mailOnly', rewards: [] };
+  const st = storyOf(profile).lessons[id];
+  if (!st) return { ok: false, error: 'locked', rewards: [] };
+  if (st.claimed) return { ok: false, error: 'claimed', rewards: [] };
+  st.claimed = true;
+  st.read = true;
+  return { ok: true, rewards: addItems(profile, lesson.rewards) };
+}
+
+/** @returns {number} unlocked lessons not opened yet */
+export function unreadLessonCount(profile) {
+  return lessonList(profile).filter((l) => l.unlocked && !l.read).length;
+}
+
+/** @returns {number} unlocked lessons with rewards still waiting */
+export function claimableLessonCount(profile) {
+  return lessonList(profile).filter((l) => l.claimable).length;
+}
+
+/** @returns {boolean} the journal deserves a red dot */
+export function journalDot(profile) {
+  return unreadLessonCount(profile) + claimableLessonCount(profile) > 0;
+}
+
+/** The profile already shows the player uses a gated feature (never hide what they have). */
+function usedEvidence(profile, featureId) {
+  const items = Object.entries(profile?.items || {}).filter(([, n]) => n > 0).map(([id]) => id);
+  if (featureId === 'gear') {
+    return Object.keys(profile?.gear || {}).length > 0 || items.some((id) => id.startsWith('gearbox_'));
+  }
+  if (featureId === 'awaken') {
+    return Object.values(profile?.units || {}).some((u) => (u?.awaken || 0) > 0) || items.some((id) => id.startsWith('crown_'));
+  }
+  return false;
+}
+
+/**
+ * Hard feature gates on new saves (§3.3, D8): 'gear' (Student → Equipment) and 'awaken' (Student → Awakening).
+ * Any lesson id works too (open once that lesson is unlocked). Legacy saves: always open.
+ * @returns {boolean}
+ */
+export function featureOpen(profile, featureId) {
+  const s = storyOf(profile);
+  if (s.legacy) return true;
+  const gate = FEATURE_GATES[featureId];
+  if (gate) return lessonUnlocked(profile, gate.lesson) || usedEvidence(profile, featureId);
+  if (LESSON_MAP[featureId]) return lessonUnlocked(profile, featureId);
+  return true;
+}
+
+/** The locked-feature line (story tokens unresolved: resolve with src/data/story/tokens.js). */
+export function featureLockText(featureId) {
+  return JOURNAL_TEXT.lockText(featureId);
+}
+
+/** The stage that opens a gated feature. @returns {string|null} */
+export function featureStage(featureId) {
+  return FEATURE_GATES[featureId]?.stage ?? null;
+}
+
+/** Legacy saves see one summary toast the first time the journal exists. @returns {number} lessons (0 = none due) */
+export function legacyAnnounceDue(profile) {
+  const s = storyOf(profile);
+  if (!s.legacy || s.announced) return 0;
+  return lessonList(profile).filter((l) => l.unlocked).length;
 }

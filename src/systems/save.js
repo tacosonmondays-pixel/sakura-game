@@ -78,8 +78,8 @@ export function createProfile() {
     version: SAVE_VERSION,
     createdAt: now,
     currencies: { coins: 20000, gems: 2400 },
+    // [story] no ticket_recruit10 here any more: the welcome 10-pull is mailed at the 1-3 clear (story.welcome)
     items: {
-      ticket_recruit10: 1,
       book_common: 20,
       book_rare: 5,
       mat_feather_common: 10,
