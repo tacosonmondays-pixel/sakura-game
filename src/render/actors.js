@@ -8,6 +8,8 @@ import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 
 const TAU = Math.PI * 2;
+/** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
+const MAX_DRONES = 256;
 /** Girls and monsters are drawn a bit larger than their tile for readability on phones. */
 const TOWER_SCALE = 1.22;
 const HERO_SCALE = 1.36;
@@ -132,11 +134,15 @@ export class Actors {
       .finish();
     this.droneGeo = dg;
     this.droneMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-    this.drones = new THREE.InstancedMesh(dg, this.droneMat, 64);
+    this.drones = new THREE.InstancedMesh(dg, this.droneMat, MAX_DRONES);
     this.drones.count = 0;
     this.drones.frustumCulled = false;
     this.root.add(this.drones);
 
+    // roaming drones are drawn between their last two sim positions (alpha = step fraction, set
+    // by the renderer every frame); where each one was drawn is kept for picking and the overlays
+    this.alpha = 1;
+    this.droneDrawn = new Map(); // drone uid -> { x, h, y }
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._e = new THREE.Euler();
@@ -468,13 +474,23 @@ export class Actors {
   _syncDrones() {
     let n = 0;
     const m = this._m;
+    const a = Math.max(0, Math.min(1, this.alpha));
+    const drawn = this.droneDrawn;
+    drawn.clear();
     for (const t of this.sim.towers) {
+      const roam = t.turretSpec?.leash > 0;
       for (const tu of t.turrets || []) {
-        if (n >= 64) break;
-        const y = 0.62 + Math.sin(this.time * 4 + tu.uid) * 0.05;
-        this._e.set(0, tu.facing || 0, 0);
+        if (n >= MAX_DRONES) break;
+        // the attack-FX layer (when present) draws roaming drones itself from droneDrawn; this is
+        // the legacy look: the sim's own position, a small bob, a wobble while jammed
+        const x = roam && tu.px != null ? tu.px + (tu.x - tu.px) * a : tu.x;
+        const z = roam && tu.py != null ? tu.py + (tu.y - tu.py) * a : tu.y;
+        const jam = roam && (tu.jam > 0 || t.disabled > 0);
+        const y = (roam ? 0.92 : 0.62) + (jam ? 0 : Math.sin(this.time * 4 + tu.uid) * 0.05);
+        drawn.set(tu.uid, { x, h: y, y: z });
+        this._e.set(jam ? Math.sin(this.time * 18 + tu.uid) * 0.35 : 0, tu.facing || 0, 0);
         this._q.setFromEuler(this._e);
-        this._p.set(tu.x, y, tu.y);
+        this._p.set(x, y, z);
         this._s.setScalar(1);
         m.compose(this._p, this._q, this._s);
         this.drones.setMatrixAt(n++, m);
@@ -571,7 +587,12 @@ export class Actors {
       }
     }
     // drone shadows
-    for (const tw of sim.towers) for (const tu of tw.turrets || []) gN.push(tu.x, 0.06, tu.y, 0.3, 0.3, R.shadow, 0.05, 0.05, 0.1, 0.3);
+    for (const tw of sim.towers) {
+      for (const tu of tw.turrets || []) {
+        const d = this.droneDrawn.get(tu.uid);
+        gN.push(d ? d.x : tu.x, 0.06, d ? d.y : tu.y, 0.3, 0.3, R.shadow, 0.05, 0.05, 0.1, 0.3);
+      }
+    }
   }
 
   /** HP bars + status icons (overlay batch). */

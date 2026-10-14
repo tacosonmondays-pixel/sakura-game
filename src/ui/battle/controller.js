@@ -24,13 +24,17 @@ import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { quantize } from '../../online/coop/commands.js';
+import { quantize, flyArgs } from '../../online/coop/commands.js';
+import { STEP } from '../../sim/constants.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
 import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
 import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/coop/rewards.js';
 import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
+import { createFlightControl } from './chikaFlight.js';
+import { sampleDroneRates } from './chikaPanel.js';
+import { createRateMeter } from './util.js';
 import { COOP } from '../../data/coop.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
@@ -129,6 +133,8 @@ export function mountBattle(root, params, hooks) {
     paused: false,
     ended: false,
     selectedUid: null,
+    selectedDrone: null,
+    rates: createRateMeter(5), // live damage rates of drone owners (chikaPanel.js)
   };
 
   const ready = (async () => {
@@ -175,7 +181,11 @@ export function mountBattle(root, params, hooks) {
     let renderer;
     try {
       // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
-      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId });
+      renderer = createBattleRenderer(stageEl, sim, {
+        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId,
+        // how far between two sim steps this frame is (drones are drawn between their positions)
+        renderAlpha: () => (ls ? Math.min(1, ls.acc) : Math.min(1, sim._acc / STEP)),
+      });
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
@@ -210,16 +220,25 @@ export function mountBattle(root, params, hooks) {
       upgrade: (uid, path) => sim.upgradeTower(uid, path),
       sell: (uid) => sim.sellTower(uid),
       target: (uid, mode) => sim.setTargetMode(uid, mode),
+      fly: (uid, mode, a, b) => sim.setFlight(uid, mode, a?.[0], a?.[1], b?.[0], b?.[1]),
     };
+    ctx.flight = createFlightControl(ctx);
+    modules.push(ctx.flight);
 
-    ctx.select = (uid) => {
+    // select(girl, { drone }): a drone of hers can be shown too (tapped on the field or in her list)
+    ctx.select = (uid, { drone = null } = {}) => {
       if (ctx.ended && uid != null) return;
       if (uid != null && placement.unitId) placement.cancel();
       ctx.selectedUid = uid ?? null;
-      renderer.setSelected(ctx.selectedUid);
+      ctx.selectedDrone = ctx.selectedUid != null ? drone : null;
+      renderer.setSelected(ctx.selectedUid, ctx.selectedDrone);
       if (ctx.selectedUid == null) panel.close();
-      else panel.open(ctx.selectedUid);
+      else panel.open(ctx.selectedUid, { drone: ctx.selectedDrone });
       shell.classList.toggle('bt-has-panel', ctx.selectedUid != null);
+    };
+    ctx.selectDrone = (d) => {
+      ctx.selectedDrone = d ?? null;
+      renderer.setSelected(ctx.selectedUid, ctx.selectedDrone);
     };
     ctx.onCardTap = (unitId) => {
       if (ctx.ended || ctx.paused) return;
@@ -346,8 +365,9 @@ export function mountBattle(root, params, hooks) {
     cleanups.push(renderer.onTap((p) => {
       if (ctx.paused || ctx.ended) return;
       hud.scout.destroy();
-      if (placement.handleTap(p)) return;
-      ctx.select(p.towerUid != null ? p.towerUid : null);
+      if (ctx.flight.handleTap(p) || placement.handleTap(p)) return;
+      const drone = p.droneUid != null ? sim.findDrone(p.droneUid) : null;
+      ctx.select(drone ? drone.tower.uid : p.towerUid != null ? p.towerUid : null, { drone: drone ? p.droneUid : null });
     }));
     const onCanvasMove = (e) => {
       if (e.pointerType === 'mouse' && !e.buttons) placement.hover(e.clientX, e.clientY);
@@ -357,7 +377,8 @@ export function mountBattle(root, params, hooks) {
     const onKey = (e) => {
       if (e.target instanceof HTMLInputElement || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
-        if (placement.unitId) placement.cancel();
+        if (ctx.flight.active) ctx.flight.cancel();
+        else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
         else if (ctx.paused) ctx.closePause();
         else ctx.openPause();
@@ -470,7 +491,8 @@ export function mountBattle(root, params, hooks) {
             break;
           case 'sabotage': {
             const t = sim.getTower(ev.towerUid);
-            feed.push(`${t?.def.name || 'A girl'} was sabotaged! Cleanse auras protect.`, 'warn', { key: 'sabotage', ms: 2200 });
+            if (ev.turretUid != null) feed.push(`A saboteur jammed one of ${t?.def.name || 'her'}'s drones!`, 'warn', { key: 'jam', ms: 1800 });
+            else feed.push(`${t?.def.name || 'A girl'} was sabotaged! Cleanse auras protect.`, 'warn', { key: 'sabotage', ms: 2200 });
             break;
           }
           case 'sell':
@@ -534,6 +556,8 @@ export function mountBattle(root, params, hooks) {
       handle(events);
       fpBattle?.update();
       if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
+      sampleDroneRates(sim, ctx.rates);
+      ctx.flight.update();
       hud.update();
       bar.update();
       panel.update();
@@ -704,6 +728,11 @@ export function mountBattle(root, params, hooks) {
       target(uid, mode) {
         if (ls.job || !mine(uid)) return false;
         ls.queue('tgt', [uid, mode]);
+        return true;
+      },
+      fly(uid, mode, a, b) {
+        if (ls.job || !mine(uid)) return false;
+        ls.queue('fly', flyArgs(uid, mode, a, b));
         return true;
       },
     };

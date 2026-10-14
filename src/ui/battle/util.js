@@ -101,3 +101,31 @@ export function createThrottle() {
     return true;
   };
 }
+
+/**
+ * Live rates over a sliding window of game time (the drone panel's "Dealing" and "DPS (last 5 s)"):
+ * sample(time, key, value) records a running total (damage dealt so far); rate(key) is how fast it
+ * grew over the last `window` seconds (null until a second of samples exists).
+ */
+export function createRateMeter(window = 5) {
+  const series = new Map(); // key -> [[time, value], …] oldest first
+  return {
+    sample(time, key, value) {
+      let s = series.get(key);
+      if (!s) series.set(key, (s = []));
+      if (s.length && time < s[s.length - 1][0]) s.length = 0; // time went back: a restore
+      s.push([time, value]);
+      while (s.length > 2 && s[1][0] <= time - window) s.shift();
+    },
+    rate(key) {
+      const s = series.get(key);
+      if (!s || s.length < 2) return null;
+      const [t0, v0] = s[0];
+      const [t1, v1] = s[s.length - 1];
+      return t1 - t0 >= 1 ? Math.max(0, (v1 - v0) / (t1 - t0)) : null;
+    },
+    clear() {
+      series.clear();
+    },
+  };
+}
