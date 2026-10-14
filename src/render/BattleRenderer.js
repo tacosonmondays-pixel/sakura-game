@@ -12,7 +12,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CameraRig } from './camera.js';
+import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
 import { attachBoardInput } from './boardInput.js';
 import { createAtlas } from './textures.js';
@@ -41,6 +41,8 @@ const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;
 
 let liveRenderers = 0;
+/** The info panel slides in first (0.22 s); the board follows once it stands. */
+const PANEL_SLIDE_DELAY_MS = 260;
 
 /**
  * Creates the battle renderer.
@@ -182,6 +184,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // ----- state -----------------------------------------------------------------------------
   let time = 0;
   let insets = { top: 0, right: 0, bottom: 0, left: 0, ...(opts.insets || {}) };
+  // the selected girl and the screen the info panel covers (CSS px): the view slides so her
+  // range ring stays clear of the panel (keepSelectedInView)
+  let selectedUid = null;
+  let selectedAtMs = 0;
+  let panelCover = { right: 0, bottom: 0 };
+  let lastFrameMs = 0;
   let flash = { a: 0, decay: 3 };
   let bossVignette = 0;
   let disposed = false;
@@ -538,9 +546,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
     ambient.update(d, occupied);
     overlays.update(d);
     actors.drawOverlay();
+    // the panel slide runs on real time (a girl can be inspected while the game is paused)
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const realDt = lastFrameMs ? Math.min(0.1, Math.max(0, (nowMs - lastFrameMs) / 1000)) : 0;
+    lastFrameMs = nowMs;
+    keepSelectedInView(nowMs);
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
-    rig.apply(d);
+    rig.apply(d, realDt);
     fx.update(d);
     for (const b of batchList) b.end();
 
@@ -614,6 +627,46 @@ export function createBattleRenderer(container, sim, opts = {}) {
     return { x: (tmpV.x + 1) / 2 * rect.width, y: (1 - tmpV.y) / 2 * rect.height, visible: tmpV.z > -1 && tmpV.z < 1 };
   }
 
+  /**
+   * Phone-sized screens: the info panel covers part of the board, often right where the girl
+   * the player just tapped stands. Slide the framing (camera rig focus shift) just far enough
+   * that her whole range ring is clear of the panel, or centre her in the free part when the
+   * ring is bigger than it; slide back when the panel closes. Never further than the panel.
+   * It starts once the panel has slid in (a quick tap-and-close never moves the board) and
+   * ignores slivers (< 12 px).
+   */
+  function keepSelectedInView(nowMs) {
+    let gx = 0;
+    let gy = 0;
+    const t = selectedUid != null && (panelCover.right > 0 || panelCover.bottom > 0) && nowMs - selectedAtMs >= PANEL_SLIDE_DELAY_MS ? sim.getTower?.(selectedUid) : null;
+    if (t) {
+      // sizes from the rig's viewport (CSS px): no layout read every frame
+      const w = rig.viewW;
+      const h = rig.viewH;
+      const r = Math.max(0.5, t.eff?.range ?? t.stats?.range ?? 0);
+      // ring extent on screen without the current slide (4 points of the ground circle)
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let y0 = Infinity;
+      let y1 = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        tmpV.set(t.x + (k === 0 ? r : k === 1 ? -r : 0), 0, t.y + (k === 2 ? r : k === 3 ? -r : 0)).project(camera);
+        const px = ((tmpV.x + 1) / 2) * w + rig.focus.x;
+        const py = ((1 - tmpV.y) / 2) * h + rig.focus.y;
+        x0 = Math.min(x0, px);
+        x1 = Math.max(x1, px);
+        y0 = Math.min(y0, py);
+        y1 = Math.max(y1, py);
+      }
+      const m = 16;
+      if (panelCover.right > 0) gx = clearSlide(m, w - panelCover.right - m, x0, x1, panelCover.right);
+      if (panelCover.bottom > 0) gy = clearSlide(insets.top + m, h - Math.max(panelCover.bottom, insets.bottom) - m, y0, y1, panelCover.bottom);
+      if (gx < 12) gx = 0;
+      if (gy < 12) gy = 0;
+    }
+    rig.setFocusShift(gx, gy);
+  }
+
   function worldToScreen(x, y, z = 0) {
     const rect = canvas.getBoundingClientRect();
     const p = projectPx(x, y, z, rect);
@@ -676,8 +729,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.shakeGhost();
     },
     setSelected(uid) {
+      if ((uid ?? null) !== selectedUid) selectedAtMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      selectedUid = uid ?? null;
       overlays.setSelected(uid ?? null);
       attackFx?.setSelected(uid ?? null);
+    },
+    /**
+     * Extra: the screen the selected girl's info panel covers, in CSS px from the board's right
+     * / bottom edge ({} or zeros when it is closed). The view slides so her range ring stays
+     * visible beside it (also when the camera is locked) and slides back when it closes.
+     */
+    setPanelCover(c = {}) {
+      panelCover = { right: Math.max(0, c.right || 0), bottom: Math.max(0, c.bottom || 0) };
     },
     /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
     setTimeScale(s) {
@@ -722,6 +785,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         pan: [r(rig.pan.x), r(rig.pan.y)],
         position: [r(camera.position.x), r(camera.position.y), r(camera.position.z)],
         target: [r(rig.target.x), r(rig.target.y), r(rig.target.z)],
+        focus: [r(rig.focus.x), r(rig.focus.y)],
         isDefault: rig.isDefault,
       };
     },

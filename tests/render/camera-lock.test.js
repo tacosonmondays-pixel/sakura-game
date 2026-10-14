@@ -1,11 +1,11 @@
 // Battle camera lock (owner: "make it so the screen is locked, I sometimes drag it when I try
 // to place a unit"): the gesture policy, the board's pointer input driven with synthetic touch /
-// mouse / wheel events in every mode, the locked CameraRig, the saved setting and the locked fit
-// of every map at the phone and desktop viewports.
+// mouse / wheel events in every mode, the locked CameraRig, the focus slide beside the info
+// panel, the saved setting and the locked fit of every map at the phone and desktop viewports.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { cameraGestures, cameraModeOf, CAMERA_MODES, DEFAULT_CAMERA_MODE, TAP_SLOP_PX, STILL_TAP_SLOP_PX } from '../../src/render/cameraPolicy.js';
-import { CameraRig } from '../../src/render/camera.js';
+import { CameraRig, clearSlide } from '../../src/render/camera.js';
 import { attachBoardInput, LONG_PRESS_MS, DOUBLE_TAP_MS } from '../../src/render/boardInput.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile, DEFAULT_SETTINGS } from '../../src/systems/save.js';
 import { MAPS } from '../../src/data/maps.js';
@@ -382,6 +382,69 @@ describe('locked camera rig', () => {
       rig.apply(1 / 60);
     }
     expect(pose(rig)).toEqual(fit);
+  });
+});
+
+// The info panel covers the right part of the board on a phone: the view slides so the
+// selected girl's range ring stays visible beside it (also when locked), and back on close.
+describe('focus slide (selected girl beside the info panel)', () => {
+  const pose = (rig) => {
+    rig.apply(0);
+    return [...rig.camera.position.toArray(), ...rig.target.toArray(), rig.camera.left, rig.camera.top].map((v) => +v.toFixed(6));
+  };
+  const screenX = (rig, x, z) => {
+    const v = new THREE.Vector3(x, 0, z).project(rig.camera);
+    return ((v.x + 1) / 2) * rig.viewW;
+  };
+
+  it('clearSlide: just far enough when the ring fits, centred when it does not, capped', () => {
+    expect(clearSlide(8, 500, 100, 300, 340)).toBe(0); // already clear
+    expect(clearSlide(8, 500, 400, 600, 340)).toBe(100); // slides by the overlap
+    expect(clearSlide(8, 500, 100, 800, 340)).toBe(196); // bigger than the gap: centred
+    expect(clearSlide(8, 500, 700, 1200, 340)).toBe(340); // never more than the panel
+  });
+
+  it('glides there and back on a locked camera, moves the board left by the slide in px', () => {
+    const rig = new CameraRig({ width: 22, height: 13 });
+    rig.setLocked(true, false);
+    rig.setViewport(844, 390, { top: 52, bottom: 83 });
+    rig.apply(0);
+    const fit = pose(rig);
+    const x0 = screenX(rig, 15, 6);
+    rig.setFocusShift(120, 0);
+    rig.apply(1 / 60);
+    expect(rig.focus.x).toBeGreaterThan(0);
+    expect(rig.focus.x).toBeLessThan(120); // a glide, not a jump
+    for (let i = 0; i < 60; i++) rig.apply(1 / 60);
+    expect(rig.focus.x).toBe(120);
+    expect(rig.isDefault).toBe(true); // still the locked fit, only slid
+    expect(x0 - screenX(rig, 15, 6)).toBeCloseTo(120, 3);
+    rig.panBy(200, 0); // a drag still does nothing
+    rig.apply(1 / 60);
+    expect(x0 - screenX(rig, 15, 6)).toBeCloseTo(120, 3);
+    rig.setFocusShift(0, 0); // panel closed
+    for (let i = 0; i < 60; i++) rig.apply(1 / 60);
+    expect(rig.focus.x).toBe(0);
+    expect(pose(rig)).toEqual(fit);
+  });
+
+  it('holds still while a girl is being placed, then finishes the glide', () => {
+    const rig = new CameraRig({ width: 22, height: 13 });
+    rig.setLocked(true, false);
+    rig.setViewport(844, 390, { top: 52, bottom: 83 });
+    rig.setFocusShift(150, 0);
+    for (let i = 0; i < 60; i++) rig.apply(1 / 60);
+    rig.setFocusShift(0, 0); // placing starts: the selection clears…
+    for (let i = 0; i < 30; i++) {
+      rig.holdStill(); // …but the view holds where it is while she is placed
+      rig.apply(1 / 60);
+    }
+    expect(rig.focus.x).toBe(150);
+    for (let i = 0; i < 60; i++) rig.apply(1 / 60);
+    expect(rig.focus.x).toBe(0);
+    rig.setFocusShift(-40, -10); // never slides the other way
+    rig.apply(1);
+    expect([rig.focus.x, rig.focus.y]).toEqual([0, 0]);
   });
 });
 
