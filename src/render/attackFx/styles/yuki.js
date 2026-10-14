@@ -71,7 +71,7 @@ export const yuki = {
   onPulse(ev, tw, t, ctx) {
     tw.data.tight = 0.25;
     flash(ctx, t.x, 0.8, t.y, 0.6, ctx.col(ICE), 0.12);
-    ripple(ctx, ev.x, ev.y, ev.radius * 0.4, ev.radius, 0.3, ctx.col(ICE), 0, 'ring', true, 0.35);
+    ripple(ctx, ev.x, ev.y, ev.radius * 0.4, ev.radius, 0.3, ctx.col(ICE), 0, 'ringSoft', true, 0.3);
     return true;
   },
 

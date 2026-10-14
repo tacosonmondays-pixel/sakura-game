@@ -87,7 +87,7 @@ export const shiro = {
         if (red) ctx.quad(ctx.b.bbA, CORE, e.x, ctx.enemyH(e), e.z, 0.14, 0.14, ctx.R.glow, ctx.col('#ff4d6d'), 0.9);
       }
     }
-    if (p1 >= 5 && ctx.q.familiars > 0) tw.data.spotter.update(ctx, gdt, t, tw.lastTargetUid, Math.min(6, t.eff?.range || 6), ctx.col('#f4e2c4'));
+    if (p1 >= 5 && ctx.q.familiars > 0) tw.data.spotter.update(ctx, gdt, t, tw.lastTargetUid, Math.min(6, t.eff?.range || 6), ctx.col('#b9824a'));
   },
 
   onStatus(ev, tw) {

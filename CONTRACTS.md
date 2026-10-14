@@ -797,7 +797,17 @@ r.resetCamera()
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 ```
+
+Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
+(Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls
+sweep over the enemies they really hit, …), purely visual and pooled. `settings.attackFx === false`
+restores the plain look. Truth rules: visuals reach the sim's target at the sim's time, projectile
+offsets fade to 0 by 60% of the flight, flourishes only on real hits, drones stay inside her ring.
+Quad batches now `begin()` before events / `actors.sync` (projectile glows pushed during sync were
+wiped before and never drawn).
 
 Camera: angled orthographic (≈55° pitch) framing the whole map; drag to pan, pinch/wheel to zoom,
 double-tap to reset. Builds terrain from MapDef (themed ground tiles with subtle variation, raised

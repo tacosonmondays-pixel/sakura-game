@@ -48,9 +48,9 @@ export class Spotter {
     this.h += (gh - this.h) * k;
     this.flap += gdt;
     const h = this.h + diveH + 0.05 * Math.sin(ctx.time * 3);
-    const s = 0.34 * ctx.readScale;
+    const s = 0.46 * ctx.readScale;
     const wing = 0.75 + 0.25 * Math.abs(Math.sin(this.flap * 7));
     if (!ctx.quad(ctx.b.bbN, FAMILIAR, this.x, h, this.y, s, s * 0.66 * wing, ctx.R.hawk, color, 1)) return;
-    ctx.quadRGB(ctx.b.groundN, FAMILIAR, this.x, 0.065, this.y, 0.22, 0.16, ctx.R.shadow, 0.05, 0.05, 0.1, 0.25);
+    ctx.quadRGB(ctx.b.groundN, FAMILIAR, this.x, 0.065, this.y, 0.28, 0.2, ctx.R.shadow, 0.05, 0.05, 0.1, 0.32);
   }
 }

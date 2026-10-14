@@ -447,6 +447,9 @@ async function runViewport(vp) {
   await page.evaluate(() => { const { ui } = window.__battle; ui.setAutoStart(true); ui.startWave(); ui.speed = 3; });
   await page.waitForTimeout(2500);
   await shot('battle-midwave');
+  // attack FX (docs/ATTACK_FX.md) run in the real battle
+  const afx = await page.evaluate(() => window.__battle.renderer.info.attackFx);
+  check(!!afx && afx.ms > 0 && afx.styled > 0, `battle: attack FX running (${afx ? `${afx.ms.toFixed(3)} ms, ${afx.styled} girls` : 'off'})`);
 
   // fast-forward: advance the sim in chunks, spending coins on upgrades as we go
   let state = 'wave';

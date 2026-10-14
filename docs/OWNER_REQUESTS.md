@@ -308,3 +308,8 @@ SVG / 3D look on menus and loves drawn art (the drawn lobby in `src/ui/lobby/art
 Still open after this pass: the bond-memory illustrations themselves (need the City dating system),
 landscape scenes for the other 16 girls (they use their stand over the academy), a single art style
 pass so the old-game illustrations and the expansion illustrations match more closely.
+
+## Attack animations (owner, 2026-10-13) — branch `feature/attack-fx`
+| Request (verbatim) | Status |
+|---|---|
+| "Can you also make it so attack animations are more unique like what if the drones flew around in her radius and targetted enemies and follwowed them" | **Done.** Chika's drones orbit above her head inside her ring, launch from her backpack when built, and on every shot fly strafing passes after the enemy the game is shooting, following it along the path, then return. All 19 girls have a signature attack look that grows with upgrades (docs/ATTACK_FX.md). Purely visual: co-op compatibility unchanged. Preview: `previews/attacks.html`. |

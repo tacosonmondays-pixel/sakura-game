@@ -73,7 +73,7 @@ export const aoi = {
       }
     }
     if (lookAt(lk, 2) >= 3 && ctx.q.familiars > 0) {
-      d.spotter.update(ctx, gdt, t, tw.lastTargetUid, (t.eff?.range || 3) + 0.5, ctx.col('#f4e2c4'));
+      d.spotter.update(ctx, gdt, t, tw.lastTargetUid, (t.eff?.range || 3) + 0.5, ctx.col('#b9824a'));
     }
   },
 

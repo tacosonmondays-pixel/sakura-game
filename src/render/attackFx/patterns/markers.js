@@ -5,10 +5,13 @@ import { GROUND, EASE_OUT } from '../quadPool.js';
 
 /**
  * Landing reticle drawn this frame at the sim's aim point (p.tx, p.ty), shrinking as the shell
- * comes down (k = flight progress 0..1).
+ * comes down (k = flight progress 0..1). It marks the landing point, never more than the blast:
+ * diameter ≤ 2·splash, capped at RETICLE_MAX so a five-shell volley of huge blasts stays legible
+ * (the explosion itself shows the full radius).
  */
+export const RETICLE_MAX = 1.6;
 export function reticle(ctx, x, y, splash, k, c, a = 0.85, inner = null) {
-  const s = Math.max(0.35, splash * 2) * (1 - 0.7 * Math.min(1, k));
+  const s = Math.max(0.35, Math.min(RETICLE_MAX, splash * 2)) * (1 - 0.7 * Math.min(1, k));
   const R = ctx.R;
   ctx.quad(ctx.b.groundN, CORE, x, 0.075, y, s, s, R.reticle, c, a * (0.55 + 0.45 * k), ctx.time * 1.6);
   ctx.quad(ctx.b.groundA, CORE, x, 0.078, y, s * 0.5, s * 0.5, R.glow, inner || c, 0.35 + 0.3 * k);
