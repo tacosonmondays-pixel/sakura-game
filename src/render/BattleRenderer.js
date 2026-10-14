@@ -19,6 +19,8 @@ import { Overlays } from './overlays.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { createAttackFx } from './attackFx/index.js';
+import { ATTACK_SPRITES } from './attackFx/sprites.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -125,7 +127,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   key.shadow.radius = 3;
 
   // ----- batches + systems ------------------------------------------------------------
-  const atlas = createAtlas();
+  const atlas = createAtlas(ATTACK_SPRITES);
   const batches = {
     groundN: new QuadBatch({ texture: atlas.texture, max: 3000, mode: 'ground', renderOrder: 2 }),
     groundA: new QuadBatch({ texture: atlas.texture, max: 1500, mode: 'ground', blending: 'additive', renderOrder: 3 }),
@@ -134,6 +136,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     overlay: new QuadBatch({ texture: atlas.texture, max: 5000, depthTest: false, renderOrder: 30 }),
   };
   for (const b of Object.values(batches)) scene.add(b.mesh);
+  const batchList = Object.values(batches);
 
   let shadowsOn = false;
   const terrain = buildTerrain(map, look, scenery, { shadows: false, quality });
@@ -142,6 +145,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
+  // unique attack animations (purely visual; settings.attackFx === false = today's look)
+  const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
+  actors.fxHook = attackFx;
 
   // ----- post-processing -------------------------------------------------------------------
   let composer = null;
@@ -197,6 +203,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     });
     const wantBloom = q === 'high' && (typeof settings.bloom === 'boolean' ? settings.bloom : preset.bloom);
     fx.setQuality(q);
+    attackFx?.setQuality(q);
     ambient.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
@@ -252,7 +259,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
-    for (const ev of events) {
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      if (attackFx?.onEvent(ev, i, events)) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -506,11 +515,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const d = Math.min(0.1, Math.max(0, dt || 0));
     time += d;
     const events = sim.drainEvents();
+    // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
+    for (const b of batchList) b.begin();
     handleEvents(events);
     actors.sync(d);
-    for (const b of Object.values(batches)) b.begin();
     terrain.update(time);
     actors.drawGround(d);
+    attackFx?.update(d);
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -518,7 +529,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.drawOverlay();
     rig.apply(d);
     fx.update(d);
-    for (const b of Object.values(batches)) b.end();
+    for (const b of batchList) b.end();
 
     flash.a = Math.max(0, flash.a - d * flash.decay);
     flashEl.style.opacity = flash.a.toFixed(3);
@@ -723,6 +734,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     setSelected(uid) {
       overlays.setSelected(uid ?? null);
+      attackFx?.setSelected(uid ?? null);
+    },
+    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
+    setTimeScale(s) {
+      attackFx?.setTimeScale(s);
     },
     /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},
@@ -753,9 +769,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
       insets = { ...insets, ...next };
       resize();
     },
+    /** Extra: attack-FX snapshot for previews / e2e (allocates; dev tooling only). */
+    attackFxProbe() {
+      return attackFx?.probe() ?? null;
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
     },
     dispose() {
       if (disposed) return;
@@ -771,6 +791,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tapCbs.length = 0;
       longCbs.length = 0;
       overlays.dispose();
+      attackFx?.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {

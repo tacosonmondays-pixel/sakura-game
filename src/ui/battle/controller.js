@@ -497,6 +497,7 @@ export function mountBattle(root, params, hooks) {
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
       if (results.open || (pause.open && !ls)) return;
       try {
+        renderer.setTimeScale?.(ctx.speed); // [attackFx] drones keep pace at 2×/3× (co-op: shared speed)
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
         console.error('[battle] render failed', e);
