@@ -459,17 +459,21 @@ GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs:
 export const RECORD_V, SNAP_V, MAX_BATTLE_SAVES /*5*/;
 export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map; 'challenge' stays
 export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice
-export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the oldest past the cap*/
-export function oldestToEvict(profile, slot), clearBattleSave(profile, slot, runId?) /*with runId: only that run*/
+export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the least play past the cap*/
+export function savesByWorth(profile) /*least play first; endless last*/, saveToEvict(profile, slot) /*null when there is room*/
+export function clearBattleSave(profile, slot, runId?) /*with runId: only that run*/, saveTitle(rec) /*{ name, mode }*/
+export function droppedBattleSaves(raw), droppedBattleSaveNames(raw) // the one-time notice after an update
 export function saveSummary(rec, now)            // -> { next /*the wave fought next*/, of /*null when endless*/, lives, difficulty, endless, ago }
-export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore, keeps the newest 5)
+export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore or a wave past a shortened stage, keeps the newest 5)
 BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, seed /*uint32 run seed*/,
   loadout: [{ unitId, stats }], hero: { unitId, stats }|null /*unitBattleStats frozen at New game*/,
   createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty }, snap /*src/ui/battle/snapshot.js*/ }
 ```
 Rules: rewards, medals, first clears, stats, missions and drops only on a real end (`results.apply()`),
 which deletes the run's save in the same synchronous write; a closed or replaced run never writes
-again. A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
+again; a full set of saves is only replaced by the player's choice (stage prep → `&evict=<run id>`);
+`store.saveNow()` refuses to write (`lastSaveError: 'stale'`, a 'stale' event) when another tab
+removed a saved battle this tab still holds. A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
 ignores it: no whole-save backup).
 
 ### `src/systems/mail.js` (first impressions)
@@ -559,6 +563,7 @@ export function expectedSSRRate()        // for the rates screen (includes pity)
 export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count}] (gear boxes resolved to gear)
 export function battleDropSeed(stageId, difficulty, runSeed)    // drop rng seed of a saved run (no Date.now(): no reroll by finishing twice)
 export function eventMul(stageId, now)                          // this week's event drop multiplier
+export function battleEventMul(stageId, now, eventAt?)          // a saved run: its start week's event, while it finishes within EVENT_GRACE_MS (48 h) of that week
 export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) // eventAt: when a saved run started (event bonus)
   // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
   // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
@@ -857,11 +862,13 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>]` (`endless` only where `canPlayEndless`; a locked
+Route `#/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>][&evict=<run id>]` (`endless` only where `canPlayEndless`; a locked
 stage plays as a practice run that saves nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
 gets `&resume=<run id>` (history.replaceState) once it has a save, so a reload continues it; a
 `resume` that no longer matches the slot's save shows "already finished or was replaced"; a battle
-link without `resume` for a slot that has a save goes to stage prep (it never overwrites a save).
+link without `resume` for a slot that has a save goes to stage prep (it never overwrites a save);
+`evict` is the saved battle the player chose to replace when 5 are kept (deleted on this run's first
+save; without it a 6th run is not saved).
 Pause menu: Resume · Restart · Save & quit (End run for endless runs); co-op, clan boss, tutorial and
 practice keep Quit / Leave co-op. Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,

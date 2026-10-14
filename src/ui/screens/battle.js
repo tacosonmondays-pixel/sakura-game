@@ -1,4 +1,4 @@
-// Battle screen (CONTRACTS.md §10). Route: #/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>]
+// Battle screen (CONTRACTS.md §10). Route: #/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>][&evict=<run id>]
 // Co-op: #/battle?coop=<ROOM> (the Sim comes from the room's Lockstep). Clan boss: &clanBoss=<attempt id>
 // (from start_boss_attempt; the battle submits its damage against that attempt).
 // The heavy lifting lives in src/ui/battle/** (controller + HUD modules).
