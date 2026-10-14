@@ -884,3 +884,79 @@ Differences from §2.3–§2.4 worth knowing:
   machine can go seconds without a frame (rAF-based polling and CSS transitions stall).
 
 Not built here (next builder): the Captain's Journal, lesson toasts, feature gates, the welcome 10-pull mail.
+
+## 11. Build notes: Builder 2 finished — merge with live, coach polish, Captain's Journal, gates, welcome pull
+
+Merged live (`claude/sakura-sentinels`, 91 commits: online/co-op, music, versions, navigation, camera lock, salvage)
+into this branch. Conflicts were all additive and kept both sides: `src/main.js` (online + sound-test routes next to
+`scene`/`story`), `title.js` (live's `buildInfo` version + `onboardingRoute`), the lobby Menu Tab (Story next to Clan /
+Co-op / Chat), the missions hub (live's Co-op tile + the working Story tile, subtitle shortened to "Episodes" to fit the
+shared bottom row) and `e2e/smoke.mjs` (story archive + online screens). Story touches nothing in `src/sim` or the
+co-op graph: `tools/simId.mjs` gives the same id on both branches.
+
+Shipped:
+* **Journal logic** in `src/systems/story.js`: `checkLessons` (idempotent; legacy unlocks are `quiet`),
+  `lessonUnlocked`, `lessonList`, `readLesson`, `claimLesson` (`mailOnly` for the recruit lesson), `unreadLessonCount`,
+  `claimableLessonCount`, `journalDot`, `featureOpen` / `featureLockText` / `featureStage`, `deliverWelcome`,
+  `legacyAnnounceDue`. `story.js` now also imports `units.js`, `mail.js` and `inventory.js`, which `save.js` already
+  pulls in, so the startup chunk does not grow beyond the code itself; the scene chunk stays lazy (T-bundle-1).
+* **Welcome 10-pull:** `createProfile` no longer grants `ticket_recruit10`. `deliverWelcome` mails it when 1-3 is
+  cleared, only while `story.welcome === 'pending'` and the id is not in `mail.delivered` (an odd import with a reset
+  welcome state just flips to `mailed`). Legacy saves stay `welcome: 'legacy'` and are never mailed.
+* **Journal screen** `src/ui/story/journal.js` (`#/journal?id=`), styles in `src/ui/styles/journal.css`: the lesson
+  list on the left (number, icon, title or ???, "Clear 1-3 Sprinting Gold" or ✓, NEW and gift chips), Hikari's page on
+  the right (bust + speech panel, reward tiles, Claim → `showRewardsModal`, Show me, Hikari explains, Open Mail for the
+  welcome lesson while the letter is unclaimed; legacy saves read "You received this ticket when you joined").
+  Header: Replay battle tutorial ("Tutorial" on phones). At 844×390 both panes stay side by side; portrait collapses
+  to a strip.
+* **Unlock moments** (`install.js` + `toast.js`): `checkLessons` runs at app start, on `battle-result` / `replace` and on
+  every screen change (so the tutorial ending opens "Welcome home"). New lessons queue Hikari's toast pill, shown on the
+  next calm non-battle screen after any queued scene (never over a modal, never on battle / title / scene / journal);
+  a tap opens the journal on that lesson. Legacy saves get one 6 s summary toast on their first lobby visit
+  (`story.announced`). Dots: the lobby Menu button and the Menu Tab "Captain's Journal" entry (`menuTabModal` entries
+  accept `dot`).
+* **Feature gates:** Student → Equipment and Awakening show Hikari's lock (her face, "Equipment unlocks after 2-1
+  Moonlit Landing — Hikari will teach you!", [Go to 2-1]) and a lock on the tab, on new saves only, until 2-1 / 3-2
+  or until the profile shows gear, a gear box, an awakened girl or a crown. The Backpack and Menu → Equipment stay open.
+* **Coach polish:** the "Let's go home" card now sits above the rewards list (it was hidden under the sticky action
+  row). All coach targets were re-checked on the merged battle UI at both sizes.
+* **Audio:** live's music director takes `{ stem: level }`; the story hook now normalises cue stem lists and the
+  restore snapshot (`state()` gives `{ target, value }`), which had produced NaN gains after a scene (`stemMix`).
+  Every story cue resolves against `public/audio/music/manifest.json`.
+
+Tests: `tests/story/journal.test.js` (T-lessons-2, T-gates-1, T-welcome-1, plus two saves written by the live game in
+`tests/story/fixtures/live-saves.json`: fresh and mid-game, both load as legacy with nothing forced, lost or granted
+twice), `stemMix` in `player.test.js`; `e2e/story.mjs` gained the journal, the welcome mail (exactly one, also after a
+reload), the gear lock and the legacy summary toast. `tests/systems/gacha.test.js` gives its profile the ticket
+explicitly now that `createProfile` does not.
+
+T-coach-3 on the merged sim (Aoi on the hand's spot, Hikari and Aoi's cheapest tier 1 after wave 1): won on seeds
+1–3 with 150/150 lives; Hikari's ultimate unlocks on wave 6 of 12. Nothing to report to balance.
+
+Differences from §3 worth knowing:
+* Lock and requirement texts name the stage id as well as its name ("Clear 2-1 Moonlit Landing"), like the archive.
+* `featureOpen` reads the unlock condition directly, so a gate opens the moment the stage is cleared, before
+  `checkLessons` has recorded the lesson.
+* Claiming a lesson also marks it read.
+
+## 12. Open questions for the owner and Builder 3
+
+**New direction (owner, 2026-10-14): Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
+life.** This reverses the Oct 13 note in §10 (academy first, fantasy from Chapter 2). Nothing built so far depends on
+it, but the next story pass needs answers to:
+1. **Framing.** Is Chapter 1 a prologue in the past (a "fantasy era" before the academy existed, told as a legend or
+   Hikari's memory), or the same time in a different place? Does Sensei exist in the fantasy era?
+2. **The opening and tutorial** ("Meet Hikari", the 1-1 coach, "First Petals") are set at Sakura Academy today. Keep
+   them as the academy-day framing that then flashes back to Chapter 1, or rewrite them into the fantasy era?
+3. **Chapter 1 episodes already written** (`ch1.yuki`, `ch1.mid`, `ch1.epi`) are academy scenes. Rewrite them for the
+   fantasy era, or move them later?
+4. **Chapters 2–8 battle maps are fantasy places** (lakeshore, shrine, mountain pass, marsh, foundry, festival,
+   volcano). How should academy life meet them: school trips / club expeditions, or new academy-side maps (a
+   balance-playtest and maps question)?
+5. **Hikari, Luna and Nami** are adults. In academy life are they staff or guardians (the bible's current answer), and
+   do they also appear in the fantasy era (the same people, or ancestors)?
+6. **The journal and lesson texts** say "home base", "academy" and "Sensei". Fine for both eras?
+7. **Content rule for academy life:** students stay students (classes, clubs, homework, festivals). Wholesome only,
+   no romance, no fanservice framing and no swimsuit episodes. This rules out a beach-swimsuit event. A beach day in
+   ordinary summer clothes is fine.
+8. Still open from §8: the player name ("Sensei" vs "Captain"), the welcome pull at 1-3, and the tutorial on Easy.
