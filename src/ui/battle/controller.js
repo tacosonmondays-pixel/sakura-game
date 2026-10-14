@@ -558,8 +558,10 @@ export function mountBattle(root, params, hooks) {
       out.note = `Co-op with ${session.player(1 - mySlot)?.name || 'your ally'} — drops for both, medals stay solo.`;
       return out;
     };
+    // the room stays after the battle: both land back in its lobby with the same code
     ctx.extraActions = () => [
-      { label: 'Back to co-op', testid: 'coop-back', cta: true, icon: 'play', onClick: () => leaveCoop() },
+      { label: 'Back to the room', testid: 'coop-back', cta: true, icon: 'play', onClick: () => backToRoom() },
+      { label: 'Leave room', testid: 'coop-leave-room', icon: 'back', onClick: () => leaveCoop() },
       { label: 'Home', testid: 'home', icon: 'home', onClick: () => { leaveCoop(false); navigate('lobby'); } },
     ];
     const offs = [
@@ -567,7 +569,8 @@ export function mountBattle(root, params, hooks) {
       session.on('peerGone', (reason) => {
         const ally = session.player(1 - mySlot)?.name || 'Your ally';
         const text = reason === 'desync' ? 'Lost sync with your ally — you continue solo.'
-          : reason === 'left' ? `${ally} left. Their girls stay and keep fighting; their income is yours now.`
+          : reason === 'lobby' ? (ctx.ended ? `${ally} is back in the room. Tap "Back to the room" to go again.` : `${ally} went back to the room. Their girls stay and keep fighting.`)
+            : reason === 'left' ? `${ally} left. Their girls stay and keep fighting; their income is yours now.`
             : `Lost contact with ${ally}. Play on — their girls keep fighting, and they rejoin as soon as they are back.`;
         ctx.feed?.push(text, 'warn', { ms: 5200 });
       }),
@@ -586,6 +589,15 @@ export function mountBattle(root, params, hooks) {
   function leaveCoop(go = true) {
     session?.close();
     if (go) navigate('coop');
+  }
+
+  /** Results → the same room's lobby (same code, same ally); a dead session falls back to the co-op menu. */
+  function backToRoom() {
+    if (!session?.backToLobby()) {
+      leaveCoop();
+      return;
+    }
+    navigate('coop', session.isHost ? { id: session.code, host: '1' } : { id: session.code });
   }
 
   function coopActions() {

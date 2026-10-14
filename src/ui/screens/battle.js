@@ -25,7 +25,9 @@ export function render(root, params = {}) {
   mount();
   return () => {
     current?.destroy();
-    // leaving a co-op battle screen leaves the room (the ally keeps playing on their own)
-    if (params.coop) getSession()?.close();
+    // leaving a co-op battle screen leaves the room (the ally keeps playing on their own) —
+    // unless "Back to the room" already took the session back to its lobby
+    const s = params.coop ? getSession() : null;
+    if (s && s.phase !== 'lobby') s.close();
   };
 }

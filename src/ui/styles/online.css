@@ -317,6 +317,11 @@
 .ol-coop-facts { margin: 0; padding-left: 18px; font-size: 0.8rem; font-weight: 700; color: var(--ink); }
 .ol-coop-facts li::marker { color: var(--pink); }
 .ol-coop-right { display: flex; flex-direction: column; }
+/* "Your last room" + Rejoin (co-op menu) */
+.ol-coop-last { border: 2px solid var(--yellow); }
+.ol-last-room { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ol-last-code { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.3rem; letter-spacing: 0.12em; color: var(--navy); }
+.ol-last-room small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ol-invites { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .ol-invites > .btn { align-self: flex-start; }
 .ol-invite-row { display: flex; align-items: center; gap: 8px; background: #f4f8fd; border-radius: 10px; padding: 5px 8px; }

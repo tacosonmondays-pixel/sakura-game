@@ -91,6 +91,9 @@ export const LOBBY = Object.freeze({
   mismatchSilentMs: 45000,
   /** guest without a host (or anyone without a link) this long: "can't find…" + Retry */
   findMs: 15000,
+  /** back in the room after a battle: the guest waits this long for the host (still reading the
+   *  results) before "can't find the host" */
+  returnWaitMs: 120000,
   /** my ally is here but its hellos have not shown it hears me for this long: my link is
    *  one-way, get a fresh channel (then a fresh socket), backing off ×2 up to oneWayMaxMs */
   oneWayMs: 7000,
@@ -125,8 +128,11 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     lockstep: null,
     error: null, // { code, retryMs } when the room could not be opened / joined, or closed ('idle')
     mismatch: null, // { uid, name, theirs }: the other player's version differs from mine (no pairing)
-    /** host: the ally who was here and left / went silent ({ name, why }), until someone pairs */
+    /** the ally who was here and left / went silent ({ name, why }), until someone pairs */
     lastPeer: null,
+    /** back in the room after a battle: the ally from that battle ({ uid, name, inRoom }), until
+     *  they pair again or leave. inRoom: they are already back (else still on the results) */
+    returning: null,
     peerGone: false,
     /** my link to the room: 'connecting' (never joined yet) | 'connected' | 'reconnecting' */
     link: 'connecting',
@@ -295,6 +301,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     }
     if (isNew) {
       s.stuck = null;
+      s.returning = null; // the ally from the last battle is back (or someone new took the seat)
       searchSince = t; // a fresh handshake: hello fast until it completes
       lastActivity = t;
     }
@@ -346,9 +353,25 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         break;
       case 'leave':
         if (s.peer && msg.uid === s.peer.uid) peerLeft();
-        else if (s.mismatch && msg.uid === s.mismatch.uid && s.phase === 'lobby') {
+        else if (s.returning && msg.uid === s.returning.uid && s.phase === 'lobby') {
+          // the ally from the last battle went home instead of back to the room
+          s.lastPeer = { name: s.returning.name, why: 'left' };
+          s.returning = null;
+          lastActivity = now();
+          changed();
+        } else if (s.mismatch && msg.uid === s.mismatch.uid && s.phase === 'lobby') {
           // the player on the other build left (or reloads into a fresh room): stop pointing at them
           clearMismatch();
+          changed();
+        }
+        break;
+      case 'lobby':
+        // my ally is back in the room after the battle: its lockstep stopped, so stop waiting on
+        // it (the battle is over on its screen; mine finishes on its own if it is not yet)
+        if (s.phase === 'battle' && s.start?.players.some((p) => p.uid === msg.uid && p.uid !== s.me.uid)) {
+          s.allyInRoom = true;
+          const p = s.lockstep && [...s.lockstep.peers.values()][0];
+          if (p && !p.gone) s.lockstep.dropPeer(p, 'lobby');
           changed();
         }
         break;
@@ -411,7 +434,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     }
     if (!s.stuck && !s.peer && t - searchSince > LOBBY.findMs) {
       if (s.link !== 'connected') s.stuck = 'server';
-      else if (!isHost && !s.mismatch) s.stuck = 'host';
+      else if (!isHost && !s.mismatch && (!s.returning || t - searchSince > LOBBY.returnWaitMs)) s.stuck = 'host';
       if (s.stuck) changed();
     }
     if (!up) return;
@@ -526,6 +549,47 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       lastStartAt = now();
       send({ type: 'start', start }, { latest: 'start' });
       begin(start);
+      return true;
+    },
+    /**
+     * The battle is over: back to this room's lobby on the same channel, so the room, its code
+     * and the seats stay and the two of you can go again (owner: "make it so the room stays").
+     * The ally is told ('lobby'), pairs again with a fresh handshake when it comes back too, and
+     * the guest taps Ready again. False when there is no battle to come back from.
+     */
+    backToLobby() {
+      if (s.phase !== 'battle') return false;
+      timers.clearInterval(pump);
+      pump = 0;
+      const t = now();
+      const ally = s.start?.players.find((p) => p.uid !== s.me.uid) || null;
+      const lp = s.lockstep && [...s.lockstep.peers.values()][0];
+      send({ type: 'lobby', uid: s.me.uid });
+      s.phase = 'lobby';
+      s.start = null;
+      s.lockstep = null;
+      s.peerGone = false;
+      s.peer = null;
+      s.stuck = null;
+      s.me.ready = isHost;
+      if (ally && lp?.gone && lp.why === 'left') {
+        // they left the battle for good (Leave / Home): nobody to wait for
+        s.lastPeer = { name: ally.name || 'Your ally', why: 'left' };
+        s.returning = null;
+      } else {
+        s.lastPeer = null;
+        s.returning = ally ? { uid: ally.uid, name: ally.name || 'Your ally', inRoom: !!s.allyInRoom } : null;
+      }
+      s.allyInRoom = false;
+      peerSeesMe = false;
+      oneWaySince = 0;
+      oneWayTries = 0;
+      guestHeard = false;
+      lastStartAt = -Infinity;
+      searchSince = t;
+      lastActivity = t;
+      hello();
+      changed();
       return true;
     },
     /** Player info by slot (names / colours for the HUD). */
