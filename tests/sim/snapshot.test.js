@@ -167,6 +167,58 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
   });
 });
 
+// Battle modes and map rules (docs/specs/CODEX_MODES.md §6.5, docs/specs/LANDING_PLAN.md §8): the
+// route orientation is carried (routeReversed), both orientations are rebuilt (REBUILT), and the live
+// one is put back after a restore (AFTER_RESTORE).
+describe('battle snapshots with map rules and battle modes', { timeout: 240000 }, () => {
+  it('4-2 co-op freeplay (Rear Ambush): a checkpoint right after an even wave, walking the other way', () => {
+    const stage = coopStage('4-2', { freeplay: 'blossom' });
+    const args = { stageId: '4-2', difficulty: 'normal', loadout: TEAM.map((unitId) => ({ unitId })), hero: { unitId: 'hikari' }, seed: 42, options: { autoStart: true, freeplay: true }, data: { stage } };
+    const sim = fresh(args);
+    expect(sim.rule?.id).toBe('rear_ambush');
+    const bot = makeBot('4-2', [...TEAM, 'hikari'], { stage });
+    sim.cash += 6000;
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wavesCleared >= 4 && s.state === 'between' && s.routeReversed, 60 * 60 * 20);
+    expect(sim.routeReversed).toBe(true);
+    const copy = fresh(args).restore(wire(sim.snapshot()));
+    expect(copy.pathData).toBe(copy._pathsRev);
+    const r = twin(sim, args, bot);
+    expect(r.compared).toBeGreaterThan(20);
+    // the dense polylines of both orientations never travel in a checkpoint
+    expect(REBUILT).toEqual(expect.arrayContaining(['_pathsFwd', '_pathsRev', 'mode']));
+    expect(r.snap.root._pathsFwd).toBeUndefined();
+  });
+
+  it('6-1 (Prism Conduits): after the pad owner is sold, the next girl on the pad owns it', () => {
+    const args = { stageId: '6-1', difficulty: 'hard', loadout: TEAM.map((unitId) => ({ unitId })), seed: 9, options: { autoStart: true } };
+    const sim = fresh(args);
+    sim.cash += 20000;
+    const pad = sim.rule.pads[0];
+    const a = sim.placeTower('kage', pad.x, pad.y);
+    let b = null;
+    for (const [dx, dy] of [[0.85, 0], [-0.85, 0], [0, 0.85], [0, -0.85]]) if (!b) b = sim.placeTower('yuki', pad.x + dx, pad.y + dy);
+    expect(a?.onPad && b && !b.onPad).toBe(true);
+    const bot = makeBot('6-1', TEAM);
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wavesCleared >= 3 && s.state === 'between', 60 * 60 * 20);
+    sim.sellTower(a.uid);
+    expect(b.onPad).toBe(true);
+    twin(sim, args, bot);
+  });
+
+  it('6-3 Ironclad with vents, mid-wave while the vents burn', () => {
+    const args = { stageId: '6-3', difficulty: 'normal', loadout: TEAM.map((unitId) => ({ unitId })), seed: 5, options: { autoStart: true, mode: 'ironclad' } };
+    const sim = fresh(args);
+    const bot = makeBot('6-3', TEAM);
+    sim.cash += 8000;
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wave >= 5 && s.state === 'wave' && s.rule.active && s.enemies.length > 3, 60 * 60 * 20);
+    expect(sim.rule.active).toBe(true);
+    twin(sim, args, bot, 12000);
+  });
+});
+
 describe('the co-op checkpoint (CoopSim.snapshot / restore)', { timeout: 120000 }, () => {
   it('wallets, owners, votes and the Sim come back; both copies stay hash-identical', () => {
     const STRONG = { damageMul: 30, costMul: 0.3 };

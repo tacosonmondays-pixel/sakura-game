@@ -379,8 +379,19 @@ StageDef = {
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
   tier: MapTierKey,
+  rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
 ```
+
+**Battle modes and map rules** (`docs/specs/CODEX_MODES.md`): `src/data/modes.js` `BATTLE_MODES` (standard,
+reverse, rush, ironclad, frugal, laststand; numbers and ids only), `MODE_ORDER`, `RIBBON_MODES`, `modeId(id)`,
+`modeArmor(mode, stage, difficulty)`. `src/data/rules.js` `MAP_RULES[id] = { id, cycle: [period s, active s]|null,
+active: {...}, always: {...}, pastGoal: 'combat'|'off' }` in a fixed effect vocabulary (dmgMul, typeMul, elementMul,
+enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € livesPerWave, € bonusEvery, zoneDps + zones,
+padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
+zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
+1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
+(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`).
 
 Free recruits arrive one stage **before** their mechanic (see roster table). Chapters:
 1 Sakura Gardens (basics, slimes, hasty goblins; 1-5 Slime Prince), 2 Moonlit Lakeshore
@@ -435,7 +446,7 @@ Profile = {
   units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite? } },
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
-  progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave? } } },
+  progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
@@ -538,9 +549,16 @@ export function expectedSSRRate()        // for the rates screen (includes pity)
 ```js
 export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count}] (gear boxes resolved to gear)
 export function applyBattleResult(profile, result, rng)
-  // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
-  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
+  // result = { stageId, difficulty, mode?, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
+  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice,
+  //      mode, newRibbon, ribbon /*'hard:rush'*/, rewardDifficulty }
   // practice = the stage is still locked (isPracticeRun): nothing is recorded, the profile is untouched
+  // Battle modes: only Standard wins earn medals, medal gems and first clears; a mode win sets the ribbon
+  // modes['<difficulty>:<mode>'], clears + 1, and rolls drops / drop coins / battleWinHard at the reward difficulty.
+  // A Standard Nightmare win also sets modes['nightmare:laststand'] (the same battle).
+export function rewardDifficulty(profile, stageId, difficulty, mode) // Standard: difficulty; a mode: min(difficulty, best Standard medal here)
+export function resultMode(profile, stageId, difficulty, mode)       // the mode a result counts as (Standard when locked / Nightmare × Last Petal)
+export const MODE_RIBBON_GEMS  // { easy: 0, normal: 0, hard: 0, nightmare: 0 } (owner Q1; switching on needs a SAVE_VERSION bump)
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -558,6 +576,10 @@ export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightm
 export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
 export function nextStage(profile)           // first uncleared campaign stage
 export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[], ownedCounters: {cap: unitId[]}, missing: cap[] }
+export function modesUnlocked(profile, stageId)  // a campaign stage cleared once (any difficulty)
+export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
+export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
+export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
 ```
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
@@ -625,7 +647,9 @@ const sim = new Sim({
   loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
   hero: { unitId, stats } | null,
   seed,               // number
-  options: { endless: false, autoStart: false, freeplay: false }, // freeplay: co-op freeplay (needs stage.freeplay)
+  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined },
+  // freeplay: co-op freeplay (needs stage.freeplay); mode: a BATTLE_MODES id (unknown → standard);
+  // rule: overrides stage.rule (tests and headless only; null = no rule)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -683,7 +707,10 @@ SimEvent = { type, ...payload } with types:
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
-  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)   'won' {finished: true} (freeplay Finish)
+  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
+  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
+  'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
+  'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
 
 **Co-op freeplay** (`src/sim/freeplay.js`, table `src/data/freeplay.js`, `coopStage(id, { freeplay: tier })`):
@@ -701,7 +728,7 @@ sim.freeplayInfo(n)   // n > goal: { tier, depth, rotation, chapterCap, visitors
                       //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId] },
                       //   speed, pressure: { armor, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
 sim.finish()          // -> boolean
-sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
+sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean, mode, rule: ruleId|null }
 EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
                       //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
 ```
@@ -735,6 +762,18 @@ Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multipl
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
 except crystal) → hp. Burn/poison ticks skip flat armor; poison blocks regen and siphon healing.
+
+**Battle modes and map rules** (`src/sim/rules.js`, docs/specs/CODEX_MODES.md §6): `sim.mode` (a BATTLE_MODES
+entry), `sim.rule` (the rule runtime or null), `sim.ruleInfo()` → `{ id, cycle, period, active, inWave, secondsToFlip,
+affinity, zones, pads: [{x, y, r, ownerUid}], portals, pastGoal, neutral }` (numbers and ids only),
+`sim.routeReversedFor(n)` (absolute), `sim.routeFlippedFor(n)` (relative to this battle's usual direction: Rear
+Ambush's even waves in any mode; every UI "goal gate" signal uses this), `sim.ruleAffinityFor(n)`, `sim.canHeal()`,
+`sim.setRouteOrientation(rev)`. **Calm-point contract:** a rule's clock restarts at every wave start (each wave opens
+resting) and at every wave end the runtime is canonical (clock 0, resting, vents cold, no affinity, tables rebuilt), so
+a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebuilds `_pathsFwd` / `_pathsRev`
+(`REBUILT`) and `AFTER_RESTORE` puts the live orientation back. Geometry caches (placement, wave lengths, pads, vents)
+come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
+Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
 
 ## 7. Models — `src/models/**` (owner: models)
 
@@ -866,8 +905,13 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing). Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&mode=rush][&endless=1]` (`endless` only where `canPlayEndless`; a locked
+stage plays as a practice run that saves nothing; `mode` only on a campaign stage cleared once, never in endless or
+practice runs, and Nightmare × Last Petal plays Standard — `parseBattleParams` forces Standard otherwise; prep
+`#/stage/<id>?difficulty=hard&mode=rush` remembers it). Battle modes and map rules in battle live in
+`src/ui/battle/modes.js` (mode chip, rule pill + popover, `ruleWarnings(sim, n)`, toasts, banners, scout ⇄, pause row,
+results ribbons) and `src/render/ruleDecals.js` (pads, vents, rifts); the renderer's `setRouteFlipped(flipped,
+reversed)` turns the gate arrows (relative) and junction chevrons (absolute). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
@@ -1088,7 +1132,7 @@ a NEW migration file, never by editing the applied one in a way that breaks re-r
 **Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
 Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
 with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
-* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay })`, `getSession()`,
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay, mode, modesUnlocked })`, `getSession()`,
   `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
   `room`, `ready`, `start`, `ls`, `lobby`, `fighting`, `leave`). `session.freeplay` is the room's freeplay
   setting (`null` = off, or a `FREEPLAY_TIERS` id; `freeplayTier(v)` in `src/data/freeplay.js` normalizes
@@ -1130,7 +1174,13 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
+  `COOP_PROTOCOL` 4 (`version.js`; 3 was freeplay), and the freeplay table and `BATTLE_MODES` are in the
+  battle-data hash. **Battle modes:** `session.mode` (a BATTLE_MODES id) travels exactly like freeplay — `room`,
+  `hello.room`, the guest's `hello` / `ready`, `start.mode` — a changed mode clears the guest's Ready, `canStart`
+  needs `peer.mode === session.mode`; `setStage(stage, diff, freeplay, mode)` resets it to Standard on a stage the
+  host has not cleared (`modesUnlocked`) and while Freeplay is on. `createCoopSim` reads only
+  `modeId(start.freeplay ? 'standard' : start.mode)`; map rules ride on the StageDef. A co-op mode win pays each player
+  at their own reward difficulty (`applyCoopResult`); no medals or ribbons in co-op.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:

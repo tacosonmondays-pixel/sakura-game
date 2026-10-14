@@ -8,6 +8,7 @@
 //   BALANCE=full npx vitest run tests/integration/balance.test.js     # full table, all difficulties
 //   BALANCE=modes npx vitest run tests/integration/balance.test.js    # battle modes × difficulty (rules on)
 //   BALANCE=rules npx vitest run tests/integration/balance.test.js    # Standard, map rules off vs on
+//   BALANCE=fpguard npx vitest run tests/integration/balance.test.js  # co-op freeplay death waves, rules on vs off
 //   BALANCE_OUT=/tmp/table.md also writes the table to a file (vitest hides console of passing tests)
 // The map rules (docs/specs/CODEX_MODES.md) are always on, as shipped: the Easy gate runs with them.
 import { describe, test, expect } from 'vitest';
@@ -20,6 +21,7 @@ const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
 const MODES = process.env.BALANCE === 'modes';
 const RULES = process.env.BALANCE === 'rules';
+const FPGUARD = process.env.BALANCE === 'fpguard';
 
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
@@ -173,4 +175,61 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, `${rows.join('\n')}\n\nflips: ${flips.join('; ') || 'none'}\n`);
     expect(flips.filter((f) => / (easy|normal) /.test(f))).toEqual([]);
   }, 3600000);
+
+  // CODEX_MODES.md §9.11 step 4: past the goal a map rule keeps its combat effects; a strong team's
+  // freeplay run (Blossom) must end within ±5 waves of the same run with the rule switched off.
+  test.runIf(FPGUARD)('co-op freeplay with map rules: death wave within ±5 of rules off', async () => {
+    const { coopStage } = await import('../../src/data/coop.js');
+    const { Sim } = await import('../../src/sim/Sim.js');
+    const team = ['kage', 'suzu', 'raika', 'chika', 'yuki', 'momo', 'kaede', 'umeko'];
+    const level = Number(process.env.FP_LEVEL || 60);
+    const stages = (process.env.FP_STAGES || '1-4,4-1,6-5,7-1,8-5').split(',');
+    const rows = ['| Stage | Rule | Rule off: death wave | Rule on | Δ |', '|---|---|---|---|---|'];
+    const bad = [];
+    for (const id of stages) {
+      const stage = coopStage(id, { freeplay: 'blossom' });
+      const run = (rule) => {
+        const plan = autoPlan(id, [...team, 'hikari'], { data: { stage } });
+        const sim = new Sim({
+          stageId: id, difficulty: 'normal', seed: 7, data: { stage },
+          loadout: team.map((u) => ({ unitId: u, stats: statsAtLevel(u, level) })), hero: { unitId: 'hikari', stats: statsAtLevel('hikari', level) },
+          options: { freeplay: true, autoStart: true, ...(rule ? {} : { rule: null }) },
+        });
+        let i = 0;
+        let turn = 0;
+        sim.startNextWave();
+        for (let k = 0; k < 4 * 60 * 60 * 6 && sim.state !== 'lost' && sim.state !== 'won'; k++) {
+          if (k % 4 === 0) {
+            if (i < plan.length) {
+              const a = plan[i];
+              if (a.action === 'place') {
+                if (sim.canPlace(a.unitId, a.x, a.y).ok) { sim.placeTower(a.unitId, a.x, a.y); i++; } else if (sim.placementReason(a.unitId, a.x, a.y)) i++;
+              } else if (a.action === 'upgrade') {
+                const t = sim.towerAt(a.x, a.y);
+                const st = t && sim.upgradeStatus(t.uid, a.path);
+                if (!t || (st.locked && st.reason !== 'cash')) i++;
+                else if (!st.locked) { sim.upgradeTower(t.uid, a.path); i++; }
+              } else i++;
+            } else if (sim.towers.length) {
+              const t = sim.towers[turn++ % sim.towers.length];
+              for (const path of [0, 1, 2]) if (!sim.upgradeStatus(t.uid, path).locked) { sim.upgradeTower(t.uid, path); break; }
+            }
+            if (sim.hero && sim.heroUltStatus().ready) sim.activateUlt();
+          }
+          sim.update(0.25);
+          sim.drainEvents();
+        }
+        return sim.wave;
+      };
+      const off = run(false);
+      const on = run(true);
+      const d = on - off;
+      if (Math.abs(d) > 5) bad.push(`${id} ${d}`);
+      rows.push(`| ${id} | ${stage.rule?.id ?? '—'} | ${off} | ${on} | ${d >= 0 ? '+' : ''}${d} |`);
+      console.log(rows.at(-1));
+    }
+    console.log(`[balance] freeplay guard (Blossom, level ${level}):\n${rows.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, `${rows.join('\n')}\n`);
+    expect(bad).toEqual([]);
+  }, 7200000);
 });

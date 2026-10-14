@@ -969,3 +969,56 @@ Every issue in `CRITIC.md`, what changed and where. "Fixed" means the spec and t
 | — | Owner questions to add or reword | **Done** | Q1 sized from reachable ribbons; Q2 reworded; Q3 (unlock gate) added; Q4 (freeplay) merges the critic's "rules in freeplay" question with modes in freeplay. Revision 1's Q3 ("rules always on") is dropped: the old build had them always on, so it is a port, not a question. |
 
 **What did not change** (the critic checked these and found them sound): the golden check (re-run on `exp2`: 20/20), the rule math and determinism approach, the data geometry for pads, the Normal aggregates, freeplay's additive `armorBonus`, B3's `e.grounded` flag, the co-op hero and wallets, and the additive `modes` save field.
+
+---
+
+## Build notes (feature/codex-modes, 2026-10-14)
+
+Built M0–M5 on `feature/codex-modes` (base `feature/train-c-base` = co-op freeplay + specs); M6: nothing new had
+landed on `feature/coop-freeplay` since that base, so the merge is a no-op. The prototype (`exp2/`) was not available
+in the build container, so everything was written from this spec and re-measured.
+
+**Measured on the build** (balance bot, expected level, seed 1; `BALANCE=modes`, `BALANCE=rules`, `BALANCE=fpguard`):
+
+| Wins / 40 (hearts) | Standard | Reverse | Rush | Ironclad | Half Income | Last Petal |
+|---|---|---|---|---|---|---|
+| Easy | 40 (96 %) | 39 (95 %) | 39 (93 %) | 39 (91 %) | 39 (91 %) | 16 |
+| Normal | 39 (89 %) | 38 (91 %) | 38 (80 %) | 39 (73 %) | 37 (79 %) | 12 |
+| Hard | 31 (69 %) | 29 (70 %) | 21 (54 %) | 22 (53 %) | 13 (60 %) | 3 |
+
+- Normal is exactly the spec's table; Hard differs by one stage in Reverse (29 vs 30), Rush (21 vs 20) and Ironclad
+  (22 vs 21). Every §10 threshold holds and no mode beats Standard.
+- Rules off → on (Standard): one flip, 2-2 Hard L18 → W20 (as §9.4). Easy gate 40/40 with rules on.
+- Golden: Standard with `rule: null` is bit-identical to the pre-modes sim on 20 battles (`tests/sim/modesGolden.test.js`).
+- Engines: 15 `MODES_*` battles (1,532 hash checkpoints), V8 (Node 22, Chromium 141) = JSC (Bun 1.4.2). Firefox
+  and WebKit are not installed in the build container.
+- Freeplay guard (§9.11 step 4, Blossom, level-60 eight-girl team + Hikari, `autoPlan` then upgrades): death waves
+  rule off / on — 1-4 60/60, 4-1 100/100, 6-5 89/89, 7-1 70/70, 8-5 30/30 (all Δ 0). This bot is weaker than
+  freeplay's calibration team (it falls at 8-5's goal), so the guard should be re-run with freeplay's own bot in the
+  train C combined pass.
+
+**Deviations from the spec**
+- `modeArmor` lives in `src/data/modes.js` (re-exported by `src/sim/rules.js`) so the UI can print Ironclad's numbers
+  without importing the sim; `MODE_RIBBON_GEMS` lives in `src/systems/rewards.js` (a reward number, not display text).
+- Vents burn through `sim._dot` with no source: rule multipliers scale girls' hits and DoTs only (a DoT counts as a
+  girl's when it has a `sourceUid`), never the vents' own burn. Vents scan `sim.enemies` with squared distances
+  (same result as a grid query, deterministic order).
+- `assignPads` runs after the new girl is pushed (and after a sale); the owner rule is the spec's.
+- Rule-only tower fields (`envRangeMul`, `envRangeAdd`, `padIndex`, `onPad`, `padMul`, `padRangeAdd`) and enemy
+  `rifted` are created only in ruled battles, so Standard-without-a-rule state and digests are untouched.
+- Drone range: this branch has no Chika leash yet, so anchored-turret range follows the codex formula
+  (`max(1, (range + add) × mul) × buff`); the LANDING_PLAN S4 rule for roaming drones applies when rebasing onto Chika.
+- `COOP_PROTOCOL` is 4 here (train C's single bump); whichever train C merge lands first sets it, nobody bumps twice.
+- e2e is `e2e/codex-modes.mjs` (+ `e2e/codex-modes-coop.mjs` for step 7) rather than `e2e/modes.mjs`.
+- The cycle "pulse" is the CSS tint on the battle root (`data-rule-on`); `ambient.setRulePulse` (doubling the
+  weather emitters while ACTIVE) is not built.
+- Attack-FX radius easing waits for attack FX to land (not on this branch); the selected girl's range ring eases.
+
+**Battle save (not on this branch) — classification it needs when it lands** (§4): record `mode` (`modeId(r.mode)`),
+`view.mode`, `snap.rr` (= `sim.routeReversed`, restored with `sim.setRouteOrientation(rr)` after the constructor);
+`KNOWN_SIM_KEYS`: `mode`, `incomeMul`, `_modeArmor`, `_ruleGoal`, `_bountyAdd`, `_pathsFwd`, `_pathsRev`, `rule` →
+config; `routeReversed` → carried (`rr`); `_ruleMul`, `_ruleMove`, `_ruleRange`, `_rulePortal` → derived; `_waveTick`
+→ calm; `KNOWN_TOWER_KEYS`: `padIndex`, `onPad`, `padMul`, `padRangeAdd`, `envRangeMul`, `envRangeAdd` → derived;
+enemy `rifted` → calm (enemies are not carried). There is no `_ruleScratch` in the build. Freeplay checkpoints:
+`REBUILT` += `mode`, `_pathsFwd`, `_pathsRev`, and `AFTER_RESTORE` re-applies the live orientation (built; tested on
+4-2 freeplay after an even wave, 6-1 after a pad-owner sale, 6-3 Ironclad mid-vent).

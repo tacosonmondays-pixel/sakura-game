@@ -314,3 +314,12 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 | Request (verbatim) | Status |
 |---|---|
 | "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+
+## Codex battle modes and map rules (owner, 2026-10-14) — branch `feature/codex-modes`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you bring back the codex modifiers, it seems like they didnt come through unless its coming with the merge?" | **Built (waiting to ship with train C).** They were not coming with the merge. The six old battle modes (Standard, Reverse Route, Goblin Rush, Ironclad, Half Income, Last Petal) are back, picked next to the difficulty on stage prep and in the co-op room once a stage is cleared once, and all fifteen map rules are back on 37 campaign stages (1-4 to 8-5) with an ACTIVE / Resting pill in battle, board marks for crystal pads, forge vents and star rifts, and Rear Ambush banners. Mode wins earn ribbons (20 per stage, shown on stage cards and chapter banners). Spec: `docs/specs/CODEX_MODES.md`. |
+| "standard play is super boring and short" (same day) | Partly answered here: Rush, Ironclad, Half Income and Last Petal are real challenges on Normal and Hard (Hard: Standard 31 stage wins for the bot, Rush 21, Ironclad 22, Half Income 13, Last Petal 3). The stage-HP pass ships with the hero rework. |
+
+Open owner questions (defaults in use until answered): ribbons pay no gems; medals only from Standard wins and a mode win's drops are capped at your best Standard medal; modes unlock after one clear; co-op freeplay stays Standard, with map rules keeping only their combat effects past the goal.
