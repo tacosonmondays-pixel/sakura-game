@@ -550,13 +550,11 @@ async function runViewport(vp) {
     return { uid: t.uid, unitId };
   });
   if (side) {
-    // the slide settles: two reads 0.6 s apart agree (slow SwiftShader frames)
+    // the slide settles: the glide reached its goal (frames can be seconds apart under SwiftShader)
     const settledFocus = await page.waitForFunction(() => {
-      const f = window.__battle.renderer.cameraState.focus[0];
-      const same = f > 0 && window.__focusPrev === f;
-      window.__focusPrev = f;
-      return same;
-    }, null, { timeout: 60000, polling: 600 }).then(() => true, () => false);
+      const c = window.__battle.renderer.cameraState;
+      return c.focusGoal[0] > 0 && c.focus[0] === c.focusGoal[0];
+    }, null, { timeout: 90000, polling: 300 }).then(() => true, () => false);
     const m = await page.evaluate((uid) => {
       const { sim, renderer } = window.__battle;
       const t = sim.getTower(uid);

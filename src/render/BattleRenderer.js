@@ -786,6 +786,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         position: [r(camera.position.x), r(camera.position.y), r(camera.position.z)],
         target: [r(rig.target.x), r(rig.target.y), r(rig.target.z)],
         focus: [r(rig.focus.x), r(rig.focus.y)],
+        focusGoal: [r(rig.focusGoal.x), r(rig.focusGoal.y)],
         isDefault: rig.isDefault,
       };
     },
