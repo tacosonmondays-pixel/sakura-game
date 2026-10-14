@@ -117,8 +117,8 @@ const fmtCam = (c) => `pos ${c.position.join(',')} target ${c.target.join(',')} 
 async function installHelpers(page) {
   await page.evaluate(() => {
     const canvas = () => window.__battle.renderer.canvas;
-    const fire = (type, id, x, y) => canvas().dispatchEvent(new PointerEvent(type, {
-      pointerId: id, pointerType: 'touch', isPrimary: id === 101, clientX: x, clientY: y,
+    const fire = (type, id, x, y, pointerType = 'touch') => canvas().dispatchEvent(new PointerEvent(type, {
+      pointerId: id, pointerType, isPrimary: id === 101 || pointerType === 'mouse', clientX: x, clientY: y,
       button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1, bubbles: true, cancelable: true,
     }));
     window.__cam = {
@@ -186,13 +186,16 @@ async function installHelpers(page) {
           delete r.__draw;
         }
       },
-      // Synthetic touch pointers dispatched on the canvas in ONE task, so no frame, timer or
-      // long-press can land in between however slow the machine is (the real-touch checks above
-      // and below cover the browser's input path).
-      drag(x0, y0, x1, y1, n = 12) {
-        fire('pointerdown', 101, x0, y0);
-        for (let i = 1; i <= n; i++) fire('pointermove', 101, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n);
-        fire('pointerup', 101, x1, y1);
+      // Synthetic touch (or mouse) pointers dispatched on the canvas in ONE task, so no frame,
+      // timer or long-press can land in between however slow the machine is (the real-touch and
+      // real-mouse checks cover the browser's input path). Under SwiftShader the browser holds a
+      // real mouse move back until the next frame — seconds at 1280×720 — so a real press-and-drag
+      // reaches the page as a long press and never as a drag.
+      drag(x0, y0, x1, y1, n = 12, pointerType = 'touch') {
+        const id = pointerType === 'mouse' ? 1 : 101;
+        fire('pointerdown', id, x0, y0, pointerType);
+        for (let i = 1; i <= n; i++) fire('pointermove', id, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, pointerType);
+        fire('pointerup', id, x1, y1, pointerType);
       },
       tap(x, y, wobble = 0) {
         fire('pointerdown', 101, x, y);
@@ -345,9 +348,10 @@ async function runViewport(vp) {
   const c3 = await settled();
   check(same(c0, c3), `locked: a mouse drag and the wheel leave the camera put (${fmtCam(c3)})`);
   await cam('drag', sw.x0, sw.y, sw.x1, sw.y + 40);
+  await cam('drag', sw.x1, sw.y + 30, sw.x0, sw.y - 20, 12, 'mouse');
   await cam('pinch', (sw.x0 + sw.x1) / 2, sw.y, 40, 160);
   const c4 = await settled();
-  check(same(c0, c4), `locked: an instant touch drag and pinch (never a long press) leave the camera put (${fmtCam(c4)})`);
+  check(same(c0, c4), `locked: an instant touch drag, mouse drag and pinch (never a long press) leave the camera put (${fmtCam(c4)})`);
   const sel0 = await page.evaluate(() => ({ placing: window.__battle.ui.placement.unitId, selected: window.__battle.ui.selectedUid }));
   check(sel0.placing == null && sel0.selected == null, `locked: those drags did not start a placement or select anything (${JSON.stringify(sel0)})`);
 
@@ -492,12 +496,16 @@ async function runViewport(vp) {
       return { id, placed: !!sim.hero };
     });
     if (hero?.placed) {
+      // the widget repaints every frame; under SwiftShader the first frame with the hero's new
+      // model can take many seconds at 1280×720, so the 3D draw pauses while the button is pressed
+      await cam('freeze');
       const ready = await page.waitForFunction(() => {
         const b = document.querySelector('[data-testid="hero-widget"]:not([hidden]) [data-testid="ult"]');
         return !!b && !b.disabled;
-      }, null, { timeout: 10000 }).then(() => true, () => false);
+      }, null, { timeout: 60000 }).then(() => true, () => false);
       if (ready) await tapEl('[data-testid="ult"]');
-      check(ready && await page.waitForFunction(() => window.__ults > 0, null, { timeout: 10000 }).then(() => true, () => false), `locked: the hero's ultimate button answers a real tap (${hero.id}, button ready ${ready})`);
+      check(ready && await page.waitForFunction(() => window.__ults > 0, null, { timeout: 30000 }).then(() => true, () => false), `locked: the hero's ultimate button answers a real tap (${hero.id}, button ready ${ready})`);
+      await cam('thaw');
     } else log(`  (no hero in this formation: ultimate button check skipped ${JSON.stringify(hero)})`);
     await page.evaluate(() => {
       const { sim } = window.__battle;
@@ -545,8 +553,9 @@ async function runViewport(vp) {
   await page.mouse.wheel(0, 300);
   const f3 = await settled();
   check(f3.zoom < f2.zoom - 0.05, `free: the mouse wheel zooms (zoom ${f2.zoom} → ${f3.zoom})`);
-  // back the other way: the touch drag above already pushed the view to its pan limit that way
-  await mouseDrag([sw.x1, sw.y + 20], [sw.x0, sw.y - 10]);
+  // back the other way: the touch drag above already pushed the view to its pan limit that way.
+  // Same-task mouse pointers: a real CDP mouse drag lands as a long press under SwiftShader (above)
+  await cam('drag', sw.x1, sw.y + 20, sw.x0, sw.y - 10, 12, 'mouse');
   const f4 = await settled();
   check(f4.pan.join() !== f3.pan.join() && f4.zoom === f3.zoom, `free: a mouse drag pans (pan ${f3.pan.join(',')} → ${f4.pan.join(',')})`);
   await cam('pinch', cx, sw.y, 150, 50);
@@ -562,6 +571,7 @@ async function runViewport(vp) {
     const p0 = await settled();
     await touchDrag([sw.x0, sw.y], [sw.x1, sw.y + 40]);
     await cam('drag', sw.x0, sw.y, sw.x1, sw.y + 40);
+    await cam('drag', sw.x1, sw.y + 30, sw.x0, sw.y - 20, 12, 'mouse');
     await cam('pinch', (sw.x0 + sw.x1) / 2, sw.y, 40, 160);
     await page.mouse.move((sw.x0 + sw.x1) / 2, sw.y);
     await page.mouse.wheel(0, 400);

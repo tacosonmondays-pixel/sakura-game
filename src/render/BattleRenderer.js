@@ -527,7 +527,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     ambient.update(d, occupied);
     overlays.update(d);
     actors.drawOverlay();
-    if (rig.shakeAmt > 0 && placingNow()) rig.shakeAmt = 0; // a shake already running stops too
+    // placing a girl: a shake already running stops too, and so does a free-mode reset glide
+    if (placingNow()) rig.holdStill();
     rig.apply(d);
     fx.update(d);
     for (const b of Object.values(batches)) b.end();

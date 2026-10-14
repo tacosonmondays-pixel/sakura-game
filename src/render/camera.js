@@ -206,6 +206,16 @@ export class CameraRig {
     this.shakeAmt = Math.min(0.25, Math.max(this.shakeAmt, amount));
   }
 
+  /**
+   * Holds the view where it is (called every frame while a girl is being placed): a running
+   * shake stops, and so does a reset glide in free mode. Locked, a glide still lands on the fit
+   * — the only place a locked camera may be.
+   */
+  holdStill() {
+    this.shakeAmt = 0;
+    if (!this.locked) this._anim = null;
+  }
+
   get isDefault() {
     return this.zoom < 1.01 && this.pan.lengthSq() < 0.01;
   }

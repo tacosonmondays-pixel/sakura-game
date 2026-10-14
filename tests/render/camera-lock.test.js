@@ -345,6 +345,29 @@ describe('locked camera rig', () => {
     rig.apply(0);
     expect(rig.isDefault).toBe(false);
   });
+
+  it('holdStill (placing a girl): stops a shake and a free reset glide where they are; locked still lands on the fit', () => {
+    const rig = new CameraRig({ width: 22, height: 13 });
+    rig.setViewport(1280, 720, { top: 62, bottom: 106 });
+    const fit = pose(rig);
+    rig.zoomAt(2, 640, 360);
+    rig.panBy(80, 30);
+    rig.reset(true); // a double-tap reset starts gliding home…
+    rig.apply(0.05);
+    rig.shake(0.2);
+    rig.holdStill(); // …and she picks a card: the view stays exactly here
+    const held = pose(rig);
+    for (let i = 0; i < 30; i++) rig.apply(1 / 60);
+    expect(pose(rig)).toEqual(held);
+    expect(rig.isDefault).toBe(false);
+    rig.setLocked(true, true); // locked: the glide back to the fit is not held
+    rig.holdStill();
+    for (let i = 0; i < 30; i++) {
+      rig.holdStill();
+      rig.apply(1 / 60);
+    }
+    expect(pose(rig)).toEqual(fit);
+  });
 });
 
 describe('camera setting in the save', () => {
