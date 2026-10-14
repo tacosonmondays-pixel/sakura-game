@@ -1096,7 +1096,12 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
-* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`).
+* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:
+  `applyCoopClear` banks the normal co-op win at the goal, `applyCoopFreeplayEnd(profile, result, rng,
+  { banked })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
+  gear / crowns / tokens, ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
+  `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
+  session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
 The Sim itself is unchanged: co-op is data (`hpScale`) plus command routing.
 
 **Battle UI hooks (battle-ui owns these files; online only added to them)** — `mountBattle(root, params,
@@ -1104,7 +1109,11 @@ hooks)` takes `hooks.coop` (the session) for `#/battle?coop=<CODE>` and `params.
 attempt. `ctx.act.{place, upgrade, sell, target}` is the Sim in solo and lockstep commands in co-op;
 placement and the tower panel must go through `ctx.act`. `ctx.applyResult` / `ctx.extraActions` /
 `out.note` let co-op and the clan boss replace the solo result handling. Solo battles must behave exactly
-as before when neither is set.
+as before when neither is set. Co-op freeplay (`sim.freeplay`): `src/ui/battle/freeplay.js` (banners, the
+bank at the goal, the Finish vote prompt, preloading the next wave's families; one-shot effects keyed in
+the session's payout ledger), `ctx.voteFinish(v)` / `ctx.myFinishVote()` / `ctx.freeplayAfterGoal()` /
+`ctx.leaveToRoom()` (pause menu, clear card), `results.showFreeplay()` (FREEPLAY OVER / COMPLETE), the HUD
+overflow pill (`.bt-wave-over[data-tier]`), `fmtBig` (util.js) for boss bars and totals.
 
 **Routes** — `#/chat[?tab=clan]`, `#/clan[/<id>]` (incl. clan boss and, in the dev clan, the Supply Bot),
 `#/coop[/<CODE>]`. Entry points: lobby chat bubble (drawer) + Menu (Clan / Co-op / Chat), Missions → Co-op,

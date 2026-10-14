@@ -344,6 +344,59 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   event) and the freeplay table is part of the battle-data hash, so a build from before freeplay and
   one with it refuse to pair (the version banner).
 
+### Co-op freeplay: the room, the battle, the rewards
+
+- **Room.** The host's stage picker (hub "Host a room" → Change stage, and the room's Change) has a
+  **Freeplay: Off · Blossom · Tempest · Crimson Moon** row (pink / storm-indigo / crimson; remembered in
+  the co-op prefs and by "Your last room"). The guest sees a **FREEPLAY · TEMPEST** chip next to the
+  difficulty and cannot change it; a toast tells the guest when the host's change took their Ready back.
+  The Battlefield panel says what freeplay brings on this stage and tier ("15 waves, then freeplay
+  (Tempest): visitors from every chapter, bosses every 10 waves (every 5 deep in), big bosses from wave
+  80, titans from wave 170, the Ashwing Matriarch at 200." — from the same pure schedule the battle
+  uses), "Your best: 87/15 (Tempest)", advice ("Bring Veil Sight, Anti-Air, Armor Pierce and a boss
+  killer"), the Nightmare warning ("1 life — the first leak ends freeplay"), and after a run "Last run:
+  147/15 · Tempest · fell to the Grave Lych". The clan invite reads "4-5 Normal · Freeplay Tempest ·
+  best 130/26". While the ally's run goes on after you came back: "Rin is still fighting — wave 87/15".
+- **The clear (the goal wave cleared).** STAGE CLEAR! — "Rewards saved ✓ · Freeplay ready", the victory
+  sting over the music (the battle goes on), the clear banked and saved at once (toast "Clear rewards
+  saved ✓ — drops for both"), and the wave button becomes the clear card: **STAGE CLEAR ✓** over a
+  violet → pink **GO BEYOND ▶ Wave 16/15** (the normal `wave` command, either player; with Auto on a
+  ring counts the 8 s pause down) and a small **Finish here** pill (this player's Finish vote).
+- **16/15.** Past the goal the HUD wave pill overflows: the number in a shimmering white with pink and
+  cyan edges over a flowing tier gradient (Blossom violet → pink → gold, Tempest indigo → cyan,
+  Crimson Moon deep red → gold), the "/15" dimmed, a slam on every new wave, the label BEYOND
+  (OVERTIME past wave 200; WAVE on narrow phones). Reduced motion keeps the static colours and edges.
+  The first wave past the goal brings a glitch banner "16/15 — BEYOND THE LAST WAVE · Blossom", a pink
+  edge flash and a riser sting; later waves a short "WAVE 37 · 37/15 · Beyond" ribbon (skipped on short
+  screens), milestones at 50 / 100 / 150, TWIN BOSSES, TITAN — "Breaks into two Iron Colossi!", the
+  countdown to the Matriarch (195–199), "WAVE 200 — THE ASHWING MATRIARCH", "MATRIARCH DOWN!", "LAST
+  LIGHT — THE ECLIPSE WYRM", visitor toasts ("Visitors from Chapter 5 (Gloomfen Marsh): Ghouls & Plants ·
+  Swift") and HP surges at each band edge. A boss gets the big ribbon on its first appearance only
+  ("Grave Lych returns!" after that). The scout strip reads "NEXT 16/15" and ends in a pressure chip
+  (HP ×, +armor, +speed, Resolve; orange once Resolve is 4 s or less; tap for the full explanation).
+  Boss bars use k / M / B / T ("132M / 132M"). The next wave's visiting families load between waves.
+- **Finish and leaving.** The co-op MENU after the goal has **Finish run** (my vote; "Ends the run for
+  both of you once Rin agrees") and **Back to the room**. The ally's vote shows a prompt "Rin wants to
+  finish here — Finish / Keep going" and a flag on her HUD chip. Leaving after the goal says "Your clear
+  rewards are saved; you'll get the freeplay bonus for 37 waves. Your girls stay with Rin." and pays it.
+- **Results.** A run that went past the goal ends on a third sheet: **FREEPLAY OVER** (fell) or
+  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Reached wave 147 / 15",
+  "Fell on wave 148 to the Grave Lych" / "Finished together after wave 147", "New best on 1-3
+  (Tempest)!", the bosses beaten, the Stage clear (saved at 15/15), the Freeplay bonus, Top damage and
+  the debrief. Finishing right at the goal is today's VICTORY sheet; falling before it is a DEFEAT.
+- **Rewards** (`src/online/coop/rewards.js`, outside the co-op id). At the goal: the normal co-op win
+  (stage drops without gear, 300 + 40 × goal coins, sightings, kills, kill missions), banked once and
+  saved. At the end (fell, Finish, or leaving after the goal): 40 coins × freeplay waves × the tier
+  (Blossom ×1, Tempest ×1.5, Crimson Moon ×2), a freeplay cache every 25 freeplay waves (a stage drop
+  roll without gear, crowns or tokens), one Assault Token per boss-rank kill since the clear (minibosses
+  none, at most 10 a run), only the kills and sightings since the bank, the best wave per stage and
+  tier (`progress.stages[id].coopBestWave = { blossom, tempest, crimson }`), and once per account and
+  tier: wave 100 → 50 gems, wave 150 → 100 gems, the Matriarch → 200 gems and the title "Ashwing
+  Slayer" ("Crimson Slayer" on Crimson Moon), the Eclipse Wyrm → a profile frame
+  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). A battle's
+  payout ledger lives on the co-op session (`session.freeplayRuns[seed]`: one-shot effects shown, the
+  bank, the end), so a resync remount neither shows nor pays anything twice.
+
 ### Co-op lockstep
 
 - **Same simulation on both clients.** The host's start message carries:
@@ -464,6 +517,10 @@ The vitest suite covers:
   left finishes alone; the replayed log agrees), a frozen guest re-admitted with her earlier vote.
 - `coopFreeplay.test.js`: `start.freeplay` → the freeplay Sim (only for a real tier), the `end` command's
   rules, protocol 3.
+- `coopRewards.test.js`: the freeplay payouts — the bank pays exactly the normal co-op win, the end pays
+  only the freeplay part and only kills since the bank, the tier multiplier, caches without gear /
+  crowns / tokens, the token cap, the best wave per tier (kept by the save), milestones once per tier,
+  and the ledger: banked once per battle even across a remount, the end paid once.
 - `detMath.test.js`: the deterministic sin / cos / atan2 / hypot / … stay within 2 ulp of the engine's own,
   are swapped in only while a co-op call runs, and keep a battle bit-identical when Math is perturbed.
 - `engines.test.js`: keeps the cross-engine battle (`e2e/engines/scriptedBattle.js`) finishing in sync
