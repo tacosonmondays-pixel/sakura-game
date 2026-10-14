@@ -32,7 +32,10 @@ export function createCoopHud(ctx) {
     for (const slot of [0, 1]) cash[slot].textContent = fmtCoins(Math.floor(w[slot] ?? 0));
     const peer = [...ls.peers.values()][0];
     const text = ls.desynced ? 'Lost sync — playing solo'
-      : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting' : 'Ally disconnected — their girls keep fighting')
+      : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting'
+        : peer.why === 'lobby' ? 'Ally is back in the room'
+          : peer.why === 'desync' ? 'Lost sync — playing solo'
+            : 'Ally disconnected — their girls keep fighting')
         : ls.resyncPending ? 'Resyncing with the host…' : ls.stalled ? 'Waiting for ally…' : '';
     if (text !== lastState) {
       lastState = text;

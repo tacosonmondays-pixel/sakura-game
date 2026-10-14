@@ -244,7 +244,7 @@ export function render(root, params = {}) {
 
     /** "Your last room" (left within the last two hours): one tap back in, no code to retype. */
     function lastPanel() {
-      const last = lastRoom();
+      const last = lastRoom(backend.uid);
       if (!last) return null;
       return h('section.panel.ol-coop-last', { 'data-testid': 'coop-last-room' },
         h('h3.panel-title', 'Your last room'),
@@ -507,7 +507,7 @@ export function render(root, params = {}) {
         // the server refused the room (wrong code, taken, full, too many) or it closed after
         // idling: nothing else to show (no seats, no Ready). A room that will not come back is
         // no longer offered for Rejoin on the co-op menu
-        if (s.full || ['not_found', 'name_taken', 'idle', 'invalid'].includes(s.error?.code)) forgetRoom(roomCode);
+        if (s.full || ['not_found', 'name_taken', 'idle', 'invalid'].includes(s.error?.code)) forgetRoom(roomCode, s.me.uid);
         view.replaceChildren(deadEnd(s));
         return;
       }

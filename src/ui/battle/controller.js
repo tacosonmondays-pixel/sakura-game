@@ -26,7 +26,7 @@ import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
-import { lastRoom, roomRoute } from '../../online/coop/lastRoom.js';
+import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
 import { applyCoopResult } from '../../online/coop/rewards.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { COOP } from '../../data/coop.js';
@@ -54,8 +54,7 @@ export function mountBattle(root, params, hooks) {
   const ls = battleLockstep(params, session);
   // a co-op battle page without its battle (reloaded, or reached again later): the room itself
   // is still there, so lead back into it (no code to retype, no new room)
-  const lastCoop = params.coop && !ls ? lastRoom() : null;
-  const coopRoom = lastCoop?.code === normalizeCode(params.coop) ? lastCoop : null;
+  const coopRoom = params.coop && !ls ? roomByCode(normalizeCode(params.coop)) : null;
   const req = ls
     ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, practice: false, error: null }
     : params.coop
