@@ -9,9 +9,12 @@
 //      applyCoopFreeplayEnd): coins per freeplay wave × the tier's multiplier, a freeplay cache
 //      every 25 freeplay waves, Assault Tokens for boss-rank kills (capped), the per-tier best
 //      wave, one-time milestones, and only the kills / sightings made since the bank.
-// About 30–60 % of normal co-op farming per minute (spec §11): freeplay is played for the record
-// and the bosses, not the farm. Not part of the co-op compatibility id (tools/simId.mjs): these
-// numbers can change in any deploy without splitting players.
+// Freeplay is played for the record and the bosses, not the farm. Measured (bot runs at 3×, coins
+// per real minute): the waves pay 125–210 (Blossom), 185–300 (Tempest), 230–370 (Crimson Moon); a
+// cache every 25 waves adds about 170–450 more (it carries the stage's own coin drop) — together
+// up to ~80 % of farming normal co-op clears of the same stage (660–1,050 a minute), never more, and
+// no path pays a wave twice (the bank and the end each pay once per battle). Not part of the co-op
+// compatibility id (tools/simId.mjs): these numbers can change in any deploy without splitting players.
 import { rollStageDrops } from '../../systems/rewards.js';
 import { addItems } from '../../systems/inventory.js';
 import { track } from '../../systems/missions.js';

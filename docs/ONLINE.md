@@ -393,7 +393,10 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   tier (`progress.stages[id].coopBestWave = { blossom, tempest, crimson }`), and once per account and
   tier: wave 100 → 50 gems, wave 150 → 100 gems, the Matriarch → 200 gems and the title "Ashwing
   Slayer" ("Crimson Slayer" on Crimson Moon), the Eclipse Wyrm → a profile frame
-  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). A battle's
+  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). Measured
+  per real minute at 3×: the waves pay 125–210 coins (Blossom), 185–300 (Tempest), 230–370 (Crimson
+  Moon), the caches about 170–450 more — at most ~80 % of farming normal co-op clears (660–1,050 a
+  minute), so freeplay is never the better farm. A battle's
   payout ledger lives on the co-op session (`session.freeplayRuns[seed]`: one-shot effects shown, the
   bank, the end), so a resync remount neither shows nor pays anything twice. That ledger is in memory,
   so after every freeplay wave the save also keeps what the end payout needs
