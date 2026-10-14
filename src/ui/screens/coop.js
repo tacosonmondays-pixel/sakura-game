@@ -18,6 +18,7 @@ import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
 import { resolveFormation } from '../battle/setup.js';
 import { unitBattleStats } from '../../systems/progression.js';
@@ -27,41 +28,6 @@ import { APP_VERSION, versionLabel, compareVersions } from '../../core/buildInfo
 import { checkForUpdate, updateAvailable, reloadFresh } from '../../core/updates.js';
 
 const PREF_KEY = 'ss-coop-pref';
-// the room you were last in (code, host or guest, stage): the co-op menu offers to rejoin it
-const LAST_KEY = 'ss-coop-last';
-const LAST_MS = 2 * 60 * 60 * 1000;
-
-function rememberRoom(s) {
-  try {
-    localStorage.setItem(LAST_KEY, JSON.stringify({ code: s.code, host: !!s.isHost, stageId: s.stageId, difficulty: s.difficulty, at: Date.now() }));
-  } catch {
-    /* ignore */
-  }
-}
-
-/** The last room, if it is recent: { code, host, stageId, difficulty, at } or null. */
-export function lastRoom() {
-  try {
-    const r = JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
-    if (r && /^[A-Z0-9]{4,8}$/.test(r.code) && Date.now() - r.at < LAST_MS) return r;
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function forgetRoom(code) {
-  try {
-    if (!code || lastRoom()?.code === code) localStorage.removeItem(LAST_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** The address of a room: the host reopens it with its stage, a guest joins it. */
-function roomRoute(r) {
-  return r.host ? { id: r.code, host: '1', stage: r.stageId, difficulty: r.difficulty } : { id: r.code };
-}
 
 function readPref() {
   try {
@@ -398,11 +364,13 @@ export function render(root, params = {}) {
       if (s.link === 'connecting') return ['Connecting to room…', 'This usually takes a second or two.'];
       if (s.link === 'reconnecting') return ['Reconnecting…', 'The connection dropped. Trying again on its own.'];
       if (s.returning) {
-        // back from a battle: the ally is still on the results (or already here and pairing)
+        // back from a battle: the ally is still on its battle screen (the results, or a battle
+        // that runs on), or already back here and pairing
         return s.returning.inRoom
           ? [`${s.returning.name} is back too…`, 'Joining you up again.']
-          : [`Waiting for ${s.returning.name}…`, 'They are still on the results screen. The room stays open — same code, no need to retype it.'];
+          : [`Waiting for ${s.returning.name}…`, 'They are still on the battle screen. The room stays open — same code, no need to retype it.'];
       }
+      if (!s.isHost && s.lastPeer?.why === 'left') return [`Waiting for ${s.lastPeer.name || 'the host'}…`, 'The room stays open while they are away.'];
       return s.isHost ? ['Waiting for your ally…', 'Share the code or invite your clan.'] : ['Looking for the host…', 'Your ally\'s room should show up in a moment.'];
     }
 
@@ -464,7 +432,8 @@ export function render(root, params = {}) {
      * host, what to check and a Retry button.
      */
     function linkBanner(s) {
-      if (s.stuck) {
+      const hostGone = !s.isHost && !s.peer && s.lastPeer?.why === 'left' && !s.mismatch;
+      if (s.stuck === 'server' || (s.stuck && !hostGone)) {
         const text = s.stuck === 'server'
           ? 'Cannot reach the co-op server. Check your internet connection, then tap Retry.'
           : `The host of room ${roomCode} has not answered yet. Make sure your ally still has this room open, then tap Retry. If it keeps failing, ask your ally for a new code.`;
@@ -481,12 +450,12 @@ export function render(root, params = {}) {
           h('span', `${s.lastPeer.why === 'left' ? `${who} left the room.` : `Lost contact with ${who}.`} The room stays open: they can come back with code ${roomCode}. If they can't get back in (another browser or device), make a new room and send them the new code.`),
           button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }));
       }
-      if (!s.isHost && !s.peer && s.lastPeer?.why === 'left' && !s.mismatch) {
-        // the host left: a host leaving closes its room on the server, so waiting here is pointless
+      if (hostGone) {
+        // the host left, but its room stays (same code, same channel): it pairs up again here
+        // as soon as the host opens it again ("Your last room" → Rejoin)
         const who = s.lastPeer.name || 'The host';
-        return h('div.ol-banner.warn.ol-banner-row', { 'data-testid': 'coop-host-gone' },
-          h('span', `${who} left, so room ${roomCode} closed. If they open it again, tap Rejoin; or ask them for a new code.`),
-          button('Rejoin', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-rejoin-room', onClick: () => reopen(s) }));
+        return h('div.ol-banner.warn', { 'data-testid': 'coop-host-gone' },
+          `${who} left the room. It stays open: wait here and you pair up again as soon as they are back, or ask them for a new code.`);
       }
       return null;
     }
@@ -499,7 +468,7 @@ export function render(root, params = {}) {
     }
 
     function newRoom(s) {
-      s.close();
+      s.close({ keepRoom: false }); // this code is given up for the new one
       navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
     }
 
@@ -512,10 +481,8 @@ export function render(root, params = {}) {
         h('div.ol-empty', h('b', title), h('p.muted', text),
           h('div.ol-row-end',
             button('Back', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-back', onClick: () => { s.close(); navigate('coop'); } }),
-            // the server could not be reached, or (guest) the host has not opened the room again
-            // yet: open the same room again
-            s.error?.code === 'offline' || (!s.isHost && s.error?.code === 'not_found')
-              ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => reopen(s) }) : null,
+            // the server could not be reached at all: open the same room again
+            s.error?.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => reopen(s) }) : null,
             s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }) : null)));
     }
 
@@ -539,13 +506,15 @@ export function render(root, params = {}) {
       if (s.error || s.full) {
         // the server refused the room (wrong code, taken, full, too many) or it closed after
         // idling: nothing else to show (no seats, no Ready). A room that will not come back is
-        // not offered for Rejoin on the co-op menu (a guest's "not found" may: the host reopens)
-        if (s.full || ['name_taken', 'idle', 'invalid'].includes(s.error?.code)) forgetRoom(roomCode);
+        // no longer offered for Rejoin on the co-op menu
+        if (s.full || ['not_found', 'name_taken', 'idle', 'invalid'].includes(s.error?.code)) forgetRoom(roomCode);
         view.replaceChildren(deadEnd(s));
         return;
       }
+      // the co-op menu's "Your last room": only once the server let me in (a mistyped or full
+      // code must not replace the room I was really in)
       const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}`;
-      if (key !== remembered) {
+      if (s.link === 'connected' && key !== remembered) {
         remembered = key;
         rememberRoom(s);
       }

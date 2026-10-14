@@ -416,6 +416,9 @@
 .bt-ally-note { margin: 6px 0; padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; color: var(--navy); background: color-mix(in srgb, var(--ally, #ff8fab) 20%, #fff); border-left: 4px solid var(--ally, #ff8fab); }
 .bt-panel-ally .bt-panel-foot button, .bt-panel-ally [data-testid^="buy-"] { filter: grayscale(0.8); opacity: 0.55; }
 .bt-coop-note { text-align: center; font-weight: 800; color: var(--blue-deep); background: var(--blue-soft); border-radius: 8px; padding: 6px 10px; margin: 6px auto; max-width: 520px; }
+/* results sheet: where the ally went once the battle is over ("Bea is back in the room") */
+.bt-coop-ally { text-align: center; font-size: 0.82rem; font-weight: 800; color: var(--navy); background: color-mix(in srgb, #ff8fab 18%, #fff); border-left: 4px solid #ff8fab; border-radius: 8px; padding: 5px 10px; margin: 6px auto; max-width: 520px; }
+.bt-coop-ally[hidden] { display: none; }
 @media (max-height: 480px) { .ol-coop-hud { top: calc(44px + var(--safe-top)); font-size: 0.66rem; } .ol-coop-name { max-width: 70px; } }
 /* narrow screens: the connection state ("Waiting for ally…", "Ally left…") hangs below the chip */
 @media (max-width: 900px) {
