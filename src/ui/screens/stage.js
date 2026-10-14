@@ -568,8 +568,10 @@ function buildPrep(stage, state, { endless, redraw }) {
       const sum = saveSummary(rec);
       const savedDiff = DIFFICULTIES[sum.difficulty].name;
       const newDiff = DIFFICULTIES[state.difficulty].name;
-      const newGame = button(isEndless ? 'New game' : `New game · ${newDiff}`, {
+      const newLabel = isEndless ? 'New game' : `New game · ${newDiff}`;
+      const newGame = button(newLabel, {
         kind: 'ghost',
+        title: newLabel,
         testid: 'stage-new',
         disabled: !formationOk,
         onClick: async () => {
@@ -585,11 +587,8 @@ function buildPrep(stage, state, { endless, redraw }) {
         },
       });
       newGame.classList.add('ma-new-btn');
-      // Continue always plays the saved difficulty: named on it when the picker shows another one
-      const contLabel = sum.endless
-        ? `Continue · Wave ${sum.next}`
-        : state.difficulty !== sum.difficulty ? `Continue · ${savedDiff} · W${sum.next}/${sum.of}` : `Continue · Wave ${sum.next}/${sum.of}`;
-      const cont = button(contLabel, {
+      // Continue always plays the saved difficulty (the saved line and the picker's "Saved" card say which)
+      const cont = button(sum.endless ? `Continue · Wave ${sum.next}` : `Continue · Wave ${sum.next}/${sum.of}`, {
         kind: 'yellow',
         icon: 'play',
         testid: 'stage-continue',

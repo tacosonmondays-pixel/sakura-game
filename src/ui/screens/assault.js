@@ -57,8 +57,8 @@ export function render(root, params = {}) {
           h('span.ma-boss-kicker', 'BOSS'),
           h('span.ma-boss-card-name', boss?.name || s.name),
           h('span.ma-boss-card-sub', unlocked ? `HP ${formatNumber(Math.round((boss?.hp || 0) * s.hpScale))}` : requirementText(profile, s.id)),
+          unlocked ? savedBadge(profile, s.id) : null,
         ),
-        unlocked ? savedBadge(profile, s.id) : null,
         unlocked ? medalRow(profile, s.id, { size: 18, cls: 'ma-boss-card-medals' }) : svgEl(uiIcon('lock'), 'ma-boss-card-lock'),
       );
       c.style.animationDelay = `${i * 60}ms`;

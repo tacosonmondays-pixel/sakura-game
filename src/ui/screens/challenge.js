@@ -14,6 +14,15 @@ import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon } from '../../art/icons.js';
 import { isStageUnlocked, canPlayEndless } from '../../systems/unlocks.js';
 import { dropGrid, requirementText, savedBadge } from './stage.js';
+import { getBattleSave, slotKey, saveSummary } from '../../systems/battleSave.js';
+
+/** The line under an endless map's name: its best wave, a saved run, or how to open it. */
+function endlessInfo(profile, id, { cleared, best, tier }) {
+  if (!cleared) return `Clear ${id} to unlock`;
+  const rec = getBattleSave(profile, slotKey(id, true));
+  if (rec && !best) return `Saved run · wave ${saveSummary(rec).next}`;
+  return best ? `Endless best · wave ${best}` : `${tier?.name || ''} · no endless run yet`;
+}
 
 const CHALLENGE_ID = 'challenge';
 
@@ -99,7 +108,7 @@ function build() {
         h('span.ma-ec-id', id),
         best ? h('span.ma-ec-best', svgEl(medalIcon(best >= 50 ? 'nightmare' : best >= 40 ? 'hard' : best >= 30 ? 'normal' : 'easy'), 'ma-ec-medal'), `Wave ${best}`) : null,
         cleared ? savedBadge(profile, id, true) : null,
-        h('div.ma-ec-info', h('b', map?.name || s.name), h('span.muted', cleared ? (best ? `Endless best · wave ${best}` : `${tier?.name || ''} · no endless run yet`) : `Clear ${id} to unlock`)),
+        h('div.ma-ec-info', h('b', map?.name || s.name), h('span.muted', endlessInfo(profile, id, { cleared, best, tier }))),
         cleared ? null : h('div.ma-ec-lock', svgEl(uiIcon('lock'), 'ma-inline-icon')),
       ));
     }
