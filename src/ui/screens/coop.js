@@ -18,6 +18,7 @@ import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
 import { resolveFormation } from '../battle/setup.js';
 import { unitBattleStats } from '../../systems/progression.js';
@@ -241,6 +242,19 @@ export function render(root, params = {}) {
       if (e.key === 'Enter') join();
     });
 
+    /** "Your last room" (left within the last two hours): one tap back in, no code to retype. */
+    function lastPanel() {
+      const last = lastRoom(backend.uid);
+      if (!last) return null;
+      return h('section.panel.ol-coop-last', { 'data-testid': 'coop-last-room' },
+        h('h3.panel-title', 'Your last room'),
+        h('div.ol-form-row',
+          h('div.ol-last-room',
+            h('b.ol-last-code', last.code),
+            h('small.muted', `${last.host ? 'You host' : 'You joined'}${STAGE_MAP[last.stageId] ? ` · ${stageLabel(last.stageId)}` : ''}`)),
+          button('Rejoin', { kind: 'yellow', small: true, icon: 'play', testid: 'coop-rejoin', onClick: () => navigate('coop', roomRoute(last)) })));
+    }
+
     const invites = h('div.ol-invites', { 'data-testid': 'coop-invites' }, h('p.muted', 'Loading invites…'));
     (async () => {
       try {
@@ -277,6 +291,7 @@ export function render(root, params = {}) {
           stagePane,
           h('div.ol-row-end', create)),
         h('div.ol-coop-right',
+          lastPanel(),
           h('section.panel.ol-coop-join',
             h('h3.panel-title', 'Join with a code'),
             h('div.ol-form-row', codeInput, button('Join', { kind: 'primary', small: true, testid: 'coop-join', onClick: join }))),
@@ -348,6 +363,14 @@ export function render(root, params = {}) {
     function waitText(s) {
       if (s.link === 'connecting') return ['Connecting to room…', 'This usually takes a second or two.'];
       if (s.link === 'reconnecting') return ['Reconnecting…', 'The connection dropped. Trying again on its own.'];
+      if (s.returning) {
+        // back from a battle: the ally is still on its battle screen (the results, or a battle
+        // that runs on), or already back here and pairing
+        return s.returning.inRoom
+          ? [`${s.returning.name} is back too…`, 'Joining you up again.']
+          : [`Waiting for ${s.returning.name}…`, 'They are still on the battle screen. The room stays open — same code, no need to retype it.'];
+      }
+      if (!s.isHost && s.lastPeer?.why === 'left') return [`Waiting for ${s.lastPeer.name || 'the host'}…`, 'The room stays open while they are away.'];
       return s.isHost ? ['Waiting for your ally…', 'Share the code or invite your clan.'] : ['Looking for the host…', 'Your ally\'s room should show up in a moment.'];
     }
 
@@ -409,7 +432,8 @@ export function render(root, params = {}) {
      * host, what to check and a Retry button.
      */
     function linkBanner(s) {
-      if (s.stuck) {
+      const hostGone = !s.isHost && !s.peer && s.lastPeer?.why === 'left' && !s.mismatch;
+      if (s.stuck === 'server' || (s.stuck && !hostGone)) {
         const text = s.stuck === 'server'
           ? 'Cannot reach the co-op server. Check your internet connection, then tap Retry.'
           : `The host of room ${roomCode} has not answered yet. Make sure your ally still has this room open, then tap Retry. If it keeps failing, ask your ally for a new code.`;
@@ -423,14 +447,28 @@ export function render(root, params = {}) {
         // server may still hold their seat ("room full") — a new room is the quick way out
         const who = s.lastPeer.name || 'Your ally';
         return h('div.ol-banner.warn.ol-banner-row', { 'data-testid': 'coop-ally-gone' },
-          h('span', `${s.lastPeer.why === 'left' ? `${who} left the room.` : `Lost contact with ${who}.`} If they can't get back in (another browser or device), make a new room and send them the new code.`),
+          h('span', `${s.lastPeer.why === 'left' ? `${who} left the room.` : `Lost contact with ${who}.`} The room stays open: they can come back with code ${roomCode}. If they can't get back in (another browser or device), make a new room and send them the new code.`),
           button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }));
+      }
+      if (hostGone) {
+        // the host left, but its room stays (same code, same channel): it pairs up again here
+        // as soon as the host opens it again ("Your last room" → Rejoin)
+        const who = s.lastPeer.name || 'The host';
+        return h('div.ol-banner.warn', { 'data-testid': 'coop-host-gone' },
+          `${who} left the room. It stays open: wait here and you pair up again as soon as they are back, or ask them for a new code.`);
       }
       return null;
     }
 
-    function newRoom(s) {
+    /** Leave this session and open the same room again from scratch (a fresh join / seat). */
+    function reopen(s) {
       s.close();
+      cleanup();
+      connecting(body, () => room(roomCode));
+    }
+
+    function newRoom(s) {
+      s.close({ keepRoom: false }); // this code is given up for the new one
       navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
     }
 
@@ -444,7 +482,7 @@ export function render(root, params = {}) {
           h('div.ol-row-end',
             button('Back', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-back', onClick: () => { s.close(); navigate('coop'); } }),
             // the server could not be reached at all: open the same room again
-            s.error?.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => { s.close(); cleanup(); connecting(body, () => room(roomCode)); } }) : null,
+            s.error?.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => reopen(s) }) : null,
             s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }) : null)));
     }
 
@@ -460,15 +498,25 @@ export function render(root, params = {}) {
     }
 
     const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
+    let remembered = '';
     function paint() {
       if (destroyed) return;
       const s = session;
       if (s.phase === 'closed') return;
       if (s.error || s.full) {
         // the server refused the room (wrong code, taken, full, too many) or it closed after
-        // idling: nothing else to show (no seats, no Ready)
+        // idling: nothing else to show (no seats, no Ready). A room that will not come back is
+        // no longer offered for Rejoin on the co-op menu
+        if (s.full || ['not_found', 'name_taken', 'idle', 'invalid'].includes(s.error?.code)) forgetRoom(roomCode, s.me.uid);
         view.replaceChildren(deadEnd(s));
         return;
+      }
+      // the co-op menu's "Your last room": only once the server let me in (a mistyped or full
+      // code must not replace the room I was really in)
+      const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}`;
+      if (s.link === 'connected' && key !== remembered) {
+        remembered = key;
+        rememberRoom(s);
       }
       if (s.mismatch && !updateCheckedFor.has(s.mismatch.uid)) {
         // are WE the one behind? (a newer deploy exists → the banner offers Update); once per ally

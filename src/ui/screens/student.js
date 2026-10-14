@@ -170,6 +170,8 @@ function statsTable(unit, battle) {
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+  // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
+  if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
   rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
   if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
   if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);

@@ -581,6 +581,27 @@ describe('co-op lockstep: reconnecting', () => {
     expect(A.rejoins).toBe(0);
   });
 
+  it('a fatal desync says so in its goodbye: the ally drops it as "desync" (not "left") and offers no rejoin', () => {
+    // in order, like one sender's messages on a Realtime channel (the goodbye before its next beats)
+    const h = harness({ seed: 36, maxLag: 0 });
+    run(h, null, 200);
+    const [A, B] = h.clients;
+    // the guest's hash check failed twice in a row (no state is touched: only the verdict)
+    B.flagMismatch(); // first strike: it asks the host for its state…
+    run(h, null, 60);
+    expect(B.resyncs).toBe(1);
+    B.flagMismatch(); // …second strike shortly after: the engines disagree, it gives up
+    expect(B.desynced).toBe(true);
+    expect(B.peers.get(0)).toMatchObject({ gone: true, why: 'desync' });
+    run(h, null, 30);
+    // the host was not left: the guest's battle runs on solo (and so does the host's)
+    expect(A.peers.get(1)).toMatchObject({ gone: true, why: 'desync' });
+    expect(h.events.filter((e) => e.slot === 0 && e.ev === 'gone').map((e) => e.why)).toEqual(['desync']);
+    run(h, null, 300); // the guest keeps beating: final all the same
+    expect(A.rejoins).toBe(0);
+    expect(A.peers.get(1).why).toBe('desync');
+  });
+
   it('the drop and the return are markers in the host log, so a replay reproduces the wallets', () => {
     const h = harness({ seed: 35, maxLag: 3 });
     const actions = script(h);
