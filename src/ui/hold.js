@@ -20,8 +20,11 @@ export const SWALLOW_MS = 700;
 
 /** Screens where holding a girl's card opens her sheet (battle has its own tree). */
 export const HOLD_ROUTES = new Set(['formation', 'students', 'stage', 'recruit', 'coop', 'wiki', 'backpack', 'mall', 'campaign', 'rewards']);
-/** Never a hold target inside these (the sheet itself, unflipped gacha cards, showcases, battle). */
-const EXCLUDE = '[data-hold-info="off"], .us-overlay, .ma-gc:not(.flipped), .mb-showcase, .bt-root';
+/**
+ * Never a hold target inside these: the sheet itself, unflipped gacha cards (no spoilers), the
+ * recruit SSR showcase (a tap there means "continue"), the student page's showcase, the battle.
+ */
+export const HOLD_EXCLUDE = '[data-hold-info="off"], .us-overlay, .ma-gc:not(.flipped), .ma-showcase, .mb-showcase, .bt-root';
 /** The visual "card" that scales and gets the ring (the nearest of these around the target). */
 const ANCHOR = 'button, .unit-card, .ma-gc, .ol-unit, .mb-unit-mini, .mb-fslot';
 /** Routes where "Open full page" would break something (leaving the co-op lobby closes the room). */
@@ -227,7 +230,7 @@ export function onEscape(fn) {
 export function holdTarget(node, route = currentRoute().name) {
   if (!node || typeof node.closest !== 'function' || !HOLD_ROUTES.has(route)) return null;
   const el = node.closest('[data-hold-unit],[data-unit]');
-  if (!el || el.closest(EXCLUDE)) return null;
+  if (!el || el.closest(HOLD_EXCLUDE)) return null;
   const unitId = el.dataset.holdUnit || el.dataset.unit;
   if (!UNIT_MAP[unitId]) return null;
   return { el, unitId, anchor: el.closest(ANCHOR) || el };

@@ -1,7 +1,7 @@
 // Hold gesture timing (owner request #152): what fires, what cancels, and the click swallower
 // that keeps a fired hold from also running the card's tap action.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createHoldGesture, swallowNextClick, HOLD_MS, BAR_HOLD_MS, SWALLOW_MS, MOVE_CANCEL_PX, PEEK_DRAG_PX, HOLD_ROUTES } from '../../src/ui/hold.js';
+import { createHoldGesture, swallowNextClick, HOLD_MS, BAR_HOLD_MS, SWALLOW_MS, MOVE_CANCEL_PX, PEEK_DRAG_PX, HOLD_ROUTES, HOLD_EXCLUDE } from '../../src/ui/hold.js';
 
 const ev = (x = 100, y = 100, id = 1) => ({ pointerId: id, clientX: x, clientY: y });
 
@@ -110,6 +110,11 @@ describe('createHoldGesture', () => {
     expect(HOLD_ROUTES.has('battle')).toBe(false);
     expect(HOLD_ROUTES.has('student')).toBe(false);
     expect(HOLD_ROUTES.has('lobby')).toBe(false);
+  });
+
+  it('never a target: face-down recruit cards, the SSR showcase, the sheet itself, the battle', () => {
+    const ex = HOLD_EXCLUDE.split(',').map((x) => x.trim());
+    for (const sel of ['.ma-gc:not(.flipped)', '.ma-showcase', '.us-overlay', '.bt-root', '[data-hold-info="off"]']) expect(ex).toContain(sel);
   });
 });
 
