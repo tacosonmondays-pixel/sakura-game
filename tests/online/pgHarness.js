@@ -38,7 +38,16 @@ export async function createDb({ defaultGrants, users = [], sql = MIGRATION_SQL,
   `);
   for (let i = 0; i < runs; i++) await db.exec(sql);
 
-  async function as(uid, text, params = []) {
+  // PGlite has ONE connection: calls fired together (Promise.all, the race tests) run one whole
+  // transaction after another in the order they arrive, like requests queued on a row lock /
+  // advisory lock of a real server
+  let queue = Promise.resolve();
+  function as(uid, text, params = []) {
+    const run = queue.then(() => asNow(uid, text, params));
+    queue = run.catch(() => {});
+    return run;
+  }
+  async function asNow(uid, text, params) {
     await db.exec('begin');
     try {
       await db.exec(`set local role authenticated; select set_config('request.jwt.claim.sub', '${uid}', true);`);

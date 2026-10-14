@@ -600,4 +600,78 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     expect((await sup('select count(*)::int as n from direct_messages')).rows[0].n).toBe(0);
     expect((await sup('select count(*)::int as n from donation_keys')).rows[0].n).toBeGreaterThan(0);
   });
+
+  it('races: same-key retries, two donors for the last pieces, the 30-point cap and settle vs a late donate stay exact', async () => {
+    const give = (who, req, n, key) => one(who, 'select donate($1, $2, $3) as r', [req, n, key]);
+    const outcome = (p) => p.then((r) => ({ ok: r }), (e) => ({ err: e.message }));
+    const received = async (id) => (await sup('select received from donation_requests where id = $1', [id])).rows[0].received;
+    const rowsFor = async (key) => (await sup('select count(*)::int as n from donations where donor_key = $1', [key])).rows[0].n;
+    // the lock comes FIRST: two calls with one key can never both miss the replay check
+    const def = (await sup(`select pg_get_functiondef('public.donate(uuid,int,uuid)'::regprocedure) as d`)).rows[0].d;
+    const lockAt = def.indexOf('pg_advisory_xact_lock');
+    expect(lockAt).toBeGreaterThan(0);
+    expect(lockAt).toBeLessThan(def.indexOf('from donation_keys'));
+    expect(def.indexOf('from donation_keys')).toBeLessThan(def.indexOf('for update'));
+    const settleDef = (await sup(`select pg_get_functiondef('public.settle_donations(uuid[])'::regprocedure) as d`)).rows[0].d;
+    expect(settleDef).toContain(`pg_advisory_xact_lock(hashtext(v_me::text || ':donate'))`);
+    expect(def).toContain(`pg_advisory_xact_lock(hashtext(v_me::text || ':donate'))`);
+
+    await sup('delete from clan_members where user_id = any($1)', [[I, J, C, D]]);
+    const [clan] = await as(I, `select * from create_clan('Race Track', 'RT', 'gems', 'open', '')`);
+    for (const who of [J, C, D]) {
+      await clearRate(who, 'clan_join');
+      await as(who, 'select join_clan($1)', [clan.id]);
+    }
+    for (const who of [I, J, C, D]) {
+      await tenure(who, 100);
+      await age(who, 30);
+      await clearRate(who, 'donate');
+    }
+    await sup('delete from donation_requests where user_id = any($1)', [[I, C]]);
+    const rI = await one(I, `select request_materials('mat_blade_rare') as r`); // 6 wanted, 3 per donor, 2 points each
+    const rC = await one(C, `select request_materials('mat_ember_rare') as r`);
+
+    // 1. a retry with the same key while the first call is still running: one effect, both answers equal
+    const [a, b] = await Promise.all([give(J, rI.id, 3, KEY(70)), give(J, rI.id, 3, KEY(70))]);
+    expect([a.replayed, b.replayed].sort()).toEqual([false, true]);
+    expect([a.count, b.count, a.reward.coins, b.reward.coins]).toEqual([3, 3, 300, 300]);
+    expect(await received(rI.id)).toBe(3);
+    expect(await rowsFor(KEY(70))).toBe(1);
+
+    // 2. two donors race for the last 3 pieces (2 + 2): one lands, the other is refused, never overfilled
+    const two = await Promise.all([outcome(give(C, rI.id, 2, KEY(71))), outcome(give(D, rI.id, 2, KEY(72)))]);
+    expect(two.filter((x) => x.ok)).toHaveLength(1);
+    expect(two.find((x) => x.err).err).toMatch(/^invalid: that request needs only 1 more/);
+    expect(await received(rI.id)).toBe(5);
+
+    // 3. the 30-point cap with two requests at once: D at 28 points today → only one 2-point gift fits
+    const dToday = Number((await sup('select coalesce(sum(points), 0)::int as n from donations where donor_id = $1 and game_day = $2', [D, gameDay(Date.now())])).rows[0].n);
+    await sup(`insert into donations (request_id, requester_id, donor_id, donor_name, clan_id, item, count, points, game_day, donor_key)
+      values (null, $1, $2, 'Dara', $3, 'mat_cog_common', 1, $4, $5, $6)`, [C, D, clan.id, 28 - dToday, gameDay(Date.now()), KEY(73)]);
+    await clearRate(D, 'donate');
+    const cap = await Promise.all([outcome(give(D, rI.id, 1, KEY(74))), outcome(give(D, rC.id, 1, KEY(75)))]);
+    expect(cap.filter((x) => x.ok)).toHaveLength(1);
+    expect(cap.find((x) => x.err).err).toMatch(/^daily_limit:\d+$/);
+    expect(Number((await sup('select sum(points)::int as n from donations where donor_id = $1 and game_day = $2', [D, gameDay(Date.now())])).rows[0].n)).toBe(30);
+    expect(await received(rI.id)).toBeLessThanOrEqual(6);
+
+    // 4. settle_donations and a late donate() with the same key at once, in both orders: a key is
+    //    either applied (with its row) or voided (with none), never refunded AND applied
+    await clearRate(J, 'donate');
+    const first = await Promise.all([outcome(give(J, rC.id, 1, KEY(76))), one(J, 'select settle_donations($1::uuid[]) as r', [[KEY(76)]])]);
+    expect(first[0].ok).toMatchObject({ replayed: false, count: 1 });
+    expect(first[1]).toEqual([{ key: KEY(76), state: 'applied', item: 'mat_ember_rare', count: 1, coins: 100 }]);
+    expect(await rowsFor(KEY(76))).toBe(1);
+    await clearRate(J, 'donate');
+    const second = await Promise.all([one(J, 'select settle_donations($1::uuid[]) as r', [[KEY(77)]]), outcome(give(J, rC.id, 1, KEY(77)))]);
+    expect(second[0]).toEqual([{ key: KEY(77), state: 'voided', item: null, count: 0, coins: 0 }]);
+    expect(second[1].ok).toEqual({ key: KEY(77), voided: true });
+    expect(await rowsFor(KEY(77))).toBe(0);
+
+    // 5. two collects at once with two keys: the items go to exactly one of them
+    const [c1, c2] = await Promise.all([one(I, 'select claim_donations($1) as r', [KEY(78)]), one(I, 'select claim_donations($1) as r', [KEY(79)])]);
+    const got = (c) => c.items.reduce((n, x) => n + x.count, 0);
+    expect(got(c1) + got(c2)).toBe(await received(rI.id));
+    expect(Math.min(got(c1), got(c2))).toBe(0);
+  });
 });

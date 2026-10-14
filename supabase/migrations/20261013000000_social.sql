@@ -1345,7 +1345,14 @@ begin
     values (r.id, r.user_id, v_me, me.name, r.clan_id, r.item, p_count, v_points, v_points * 50, v_day, p_key)
     on conflict (donor_id, donor_key) do nothing
     returning * into d;
-  if d.id is null then raise exception 'invalid: that donation was already sent'; end if;
+  if d.id is null then
+    -- (the key check above runs under the lock, so this cannot happen; if it ever does, answer
+    -- with the donation that exists: a refusal here would make the client refund applied items)
+    select * into d from donations where donor_id = v_me and donor_key = p_key;
+    return json_build_object('key', p_key, 'item', d.item, 'count', d.count, 'points', d.points,
+      'reward', json_build_object('coins', d.coins), 'replayed', true, 'request', social_request_json(r, v_me),
+      'donatedToday', v_today, 'cap', 30);
+  end if;
   insert into donation_keys (donor_id, key, state, item, count, coins) values (v_me, p_key, 'applied', r.item, p_count, v_points * 50)
     on conflict (donor_id, key) do nothing;
   update donation_requests set received = received + p_count,
