@@ -16,6 +16,7 @@
 //
 // Item ids follow CONTRACTS §5. Gear boxes use `gearbox_<rarity>` (category 'gearbox').
 
+import { stageRule } from './rules.js';
 import { ENEMY_MAP } from './enemies.js';
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,7 @@ function campaign(o) {
     firstClear: campaignFirstClear(chapter, finale),
     scenery: o.scenery,
     tier: o.tier,
+    rule: stageRule(o.id),
   };
 }
 

@@ -182,6 +182,29 @@ export const GLYPHS = {
   spectral: '<path d="M12 2.8l7.5 2.8v6c0 4.8-3.2 8.2-7.5 9.8-4.3-1.6-7.5-5-7.5-9.8v-6z" stroke-dasharray="3 2.2"/><circle cx="9.8" cy="11" r="1.2" fill="currentColor"/><circle cx="14.2" cy="11" r="1.2" fill="currentColor"/><path d="M10 15c1.2.8 2.8.8 4 0" stroke-width="1.5"/>',
   warded: `${shield}<path d="M12 7.5l3.5 3.5-3.5 4.5-3.5-4.5z" stroke-width="1.6"/><circle cx="12" cy="11" r="1" fill="currentColor"/>`,
   scaled: `${shield}<path d="M7 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0M8.5 13.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 4 0M9.5 17.5a2.5 2.5 0 0 0 5 0" stroke-width="1.4"/>`,
+  // battle modes (docs/specs/CODEX_MODES.md §8)
+  modeStandard: '<path d="M6 21.5V3"/><path d="M6 4h11.5l-2.6 4 2.6 4H6" fill="currentColor" fill-opacity="0.35"/>',
+  modeReverse: '<path d="M4 8h14.5M15 4.5L18.5 8 15 11.5"/><path d="M20 16H5.5M9 12.5L5.5 16 9 19.5"/>',
+  modeRush: '<path d="M3 8h9.5a2.8 2.8 0 1 0-2.6-3.8"/><path d="M3 12.5h15a3 3 0 1 1-2.8 4"/><path d="M3 17h6"/>',
+  modeIronclad: `${shieldFill}<path d="M8.5 9.5h7M8.5 12.5h7M9.5 15.5h5" stroke="#000" stroke-opacity="0.35" stroke-width="1.6"/>`,
+  modeFrugal: '<circle cx="9.5" cy="9.5" r="6"/><path d="M9.5 7v5M7.8 9.5h3.4" stroke-width="1.6"/><path d="M15.8 9.8a6 6 0 1 1-6 6" stroke-dasharray="2.4 2"/>',
+  modeLastPetal: `${heartFill}<path d="M12 7.6l-1.6 3.2 2.4 1.8-1.8 3.4" stroke="#000" stroke-opacity="0.45" stroke-width="1.6"/>`,
+  // map rules
+  rulePetal: '<path d="M12 3.5c3.5 2.6 5 5.6 5 8.5a5 5 0 0 1-10 0c0-2.9 1.5-5.9 5-8.5z" fill="currentColor" fill-opacity="0.35"/><path d="M12 8v12M12 14l-2.5-2"/><path d="M19 17.5c.8-.4 1.6-.2 2 .6-.8.4-1.6.2-2-.6zM4 6.5c.6-.6 1.4-.6 2 0-.6.6-1.4.6-2 0z" fill="currentColor"/>',
+  ruleFirefly: '<ellipse cx="12" cy="14.5" rx="3.2" ry="4.8" fill="currentColor"/><path d="M9 11.5C6 8.5 4 9 3.5 11c1.5 1.5 3.5 1.8 5.5.8M15 11.5c3-3 5-2.5 5.5-.5-1.5 1.5-3.5 1.8-5.5.8M10.5 9.5L9 5.5M13.5 9.5L15 5.5"/><circle cx="12" cy="20.5" r="1.3" fill="currentColor"/>',
+  ruleMoon: '<path d="M15.5 3.5a8.5 8.5 0 1 0 5 13.5A7 7 0 0 1 15.5 3.5z" fill="currentColor" fill-opacity="0.4"/><path d="M6.5 5l.5 1.5L8.5 7 7 7.5 6.5 9 6 7.5 4.5 7 6 6.5z" fill="currentColor"/>',
+  ruleTide: wave,
+  ruleSnow: snow,
+  ruleSun: '<circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  ruleVent: '<ellipse cx="12" cy="18" rx="8.5" ry="3"/><path d="M12 15c-2-3 1.5-5-0.2-9M8.5 15.5c-1.2-2 .8-3.4 0-5.5M15.5 15.5c1.2-2-.8-3.4 0-5.5"/>',
+  ruleMist: flask,
+  ruleWind: '<path d="M3 8.5h11a2.8 2.8 0 1 0-2.6-3.8M3 12.5h15.5a2.8 2.8 0 1 1-2.6 3.8M3 16.5h7"/>',
+  ruleShip: '<path d="M3 15.5h18l-2.5 4.5h-13z" fill="currentColor" fill-opacity="0.35"/><path d="M12 3v12.5M12 4l6 8.5h-6"/><path d="M12 6.5L7.5 12.5H12"/>',
+  rulePrism: '<path d="M12 2.8l7 9.2-7 9.2-7-9.2z" fill="currentColor" fill-opacity="0.3"/><path d="M5 12h14M12 2.8L9.5 12 12 21.2 14.5 12z" stroke-width="1.5"/>',
+  ruleAmbush: '<path d="M3 7.5h11M10.5 4L14 7.5 10.5 11"/><path d="M21 16.5H10M13.5 13L10 16.5l3.5 3.5"/><path d="M18.5 3.5v8M5.5 12.5v8" stroke-width="1.6"/>',
+  ruleEclipse: '<circle cx="12" cy="12" r="8" stroke-dasharray="2 2.2"/><circle cx="12" cy="12" r="6" fill="currentColor"/><circle cx="14.3" cy="10.5" r="5" fill="#000" fill-opacity="0.45" stroke="none"/>',
+  ruleEncore: '<path d="M8 4.5h8M9.5 4.5c-3.5 1.5-4.5 4.5-4.5 7.5s1 6 4.5 7.5h5c3.5-1.5 4.5-4.5 4.5-7.5s-1-6-4.5-7.5" fill="currentColor" fill-opacity="0.3"/><path d="M12 2v2.5M8 19.5h8M12 19.5V22M5.5 12h13"/>',
+  ruleStars: sparkle,
 };
 
 /** Wrap a glyph in a standalone 24×24 currentColor SVG. */
