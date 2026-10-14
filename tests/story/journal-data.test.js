@@ -163,7 +163,7 @@ describe('journal strings and the welcome mail', () => {
       mailBody: WELCOME_MAIL.body,
     };
     for (const [k, text] of Object.entries(strings)) lintText(text, k);
-    expect(resolveText(strings.lockGear)).toBe(`Equipment unlocks after ${STAGE_MAP['2-1'].name} — Hikari will teach you!`);
+    expect(resolveText(strings.lockGear)).toBe(`Equipment unlocks after 2-1 ${STAGE_MAP['2-1'].name} — Hikari will teach you!`);
     expect(resolveText(strings.toastOne)).toBe('Hikari has a new lesson ♡ — Dress for the adventure');
     expect(resolveText(WELCOME_MAIL.from)).toBe('Hikari');
   });

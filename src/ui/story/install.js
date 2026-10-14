@@ -8,11 +8,16 @@
 //    ("Shall we finish our first lesson together?" → the tutorial battle, or Not now → skipped for good).
 // 3. On a store change with reason 'battle-result', newly cleared campaign stages queue their after-scenes
 //    (story.queue is saved, so closing the app mid-scene plays it again next session).
+// 4. Captain's Journal: checkLessons runs at start, after every battle result and on every screen change
+//    (unlocks lessons, mails the welcome 10-pull once). New lessons show Hikari's toast on the next calm
+//    non-battle screen; a legacy save gets one summary toast on its first lobby visit instead.
 // The scene text is one lazy chunk (src/data/story/index.js), loaded only when a scene may play.
 import { navigate, currentRoute } from '../router.js';
 import {
   onboardingRoute, skipOnboarding, clearedCampaign, storyOf, tutorialPromptDue, tutorialRoute, setTutorial,
+  checkLessons, legacyAnnounceDue,
 } from '../../systems/story.js';
+import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { queueAfterClears, nextQueued, beforeSceneFor } from '../../systems/storyTriggers.js';
 import { playStoryScene, hasUnit } from './play.js';
 
@@ -53,13 +58,31 @@ export function installStory({ store }) {
   }
   storyOf(store.profile); // a profile from another code path gets its (legacy) block now
 
+  // ---- Captain's Journal: unlocks + welcome mail ---------------------------------------------
+  const toastIds = [];
+  const lessonsCheck = () => {
+    try {
+      const r = checkLessons(store.profile);
+      if (!r.unlocked.length && !r.mailed) return;
+      if (!r.quiet) for (const id of r.unlocked) if (!toastIds.includes(id)) toastIds.push(id);
+      store.commit('story');
+    } catch (e) {
+      console.warn('[story] checking lessons failed', e);
+    }
+  };
+  lessonsCheck();
+
   // ---- first clears → after-scenes -----------------------------------------------------------
   let cleared = clearedCampaign(store.profile);
   let queueing = Promise.resolve();
   let queuePending = 0;
   store.on('change', (e) => {
     const reason = e?.reason;
-    if (reason === 'story' || reason === 'story-prefs') return;
+    if (reason === 'story' || reason === 'story-prefs' || reason === 'story-claim') return;
+    if (reason === 'battle-result' || reason === 'replace') {
+      lessonsCheck();
+      toastSoon(); // waits for a calm non-battle screen (on battle it waits for the next screen change)
+    }
     const now = clearedCampaign(store.profile);
     const fresh = reason === 'battle-result' ? [...now].filter((id) => !cleared.has(id)) : [];
     cleared = now;
@@ -98,6 +121,37 @@ export function installStory({ store }) {
       console.warn('[story] playing a queued scene failed', e);
     } finally {
       pumping = false;
+      toastSoon();
+    }
+  }
+
+  // ---- journal toasts: after scenes, never on battle / title / scene, never over a modal ------
+  let toasting = false;
+  async function toastSoon() {
+    if (toasting) return;
+    const name = currentRoute().name;
+    const announce = name === 'lobby' && !onboardingRoute(store.profile) ? legacyAnnounceDue(store.profile) : 0;
+    if (!toastIds.length && !announce) return;
+    toasting = true;
+    try {
+      await sleep(SETTLE_MS);
+      if (!(await screenClear()) || window.__sakura?.storyBusy || pumping) return;
+      const now = currentRoute().name;
+      if (!now || BLOCKED_SCREENS.has(now) || now === 'journal') return;
+      const { showJournalToast } = await import('./toast.js');
+      if (announce && now === 'lobby') {
+        storyOf(store.profile).announced = true;
+        store.commit('story');
+        toastIds.length = 0; // the summary covers them
+        const { resolveText } = await import('../../data/story/tokens.js');
+        showJournalToast({ text: resolveText(JOURNAL_TEXT.legacyAnnounce(announce)), ms: 6000 });
+      } else if (toastIds.length) {
+        showJournalToast({ ids: toastIds.splice(0) });
+      }
+    } catch (e) {
+      console.warn('[story] journal toast failed', e);
+    } finally {
+      toasting = false;
     }
   }
 
@@ -127,8 +181,13 @@ export function installStory({ store }) {
       }
     }
     if (!name || BLOCKED_SCREENS.has(name)) return;
+    lessonsCheck(); // the tutorial ending (done or skipped) opens the first lesson
+    if (name === 'journal') toastIds.length = 0; // already reading it
     const s = storyOf(store.profile);
-    if (!s.queue.length && !queuePending && name !== 'stage') return;
+    if (!s.queue.length && !queuePending && name !== 'stage') {
+      toastSoon();
+      return;
+    }
     pump();
   };
   window.addEventListener('screenchange', (e) => onScreen(e.detail));

@@ -6,7 +6,9 @@
 //   · reduced motion: instant text, no motion on the stands
 //   · the Story archive lists the episodes, plays one (NEW → read, +20 gems once) and returns to its tab
 //   · stage prep plays its `before` scene as an overlay; a first clear queues the `after` scene for the next screen
-//   · a legacy save (no story block) is never forced through anything
+//   · a legacy save (no story block) is never forced through anything; it gets one journal summary toast
+//   · Captain's Journal: lesson toast, NEW chips, ??? while locked, claim once, Equipment locked on a new save,
+//     the welcome 10-pull mailed exactly once at the 1-3 clear (also after a reload)
 //
 //   node e2e/story.mjs                          # both viewports
 //   node e2e/story.mjs --viewport 844x390 --shots <dir>
@@ -329,6 +331,88 @@ async function runViewport(vp) {
     await context.close();
   }
 
+  // ---------------------------------------------------------------- Captain's Journal + welcome mail (new save)
+  {
+    const { context, page, errors } = await newPage({ save: seeded({ upTo: '1-2' }) });
+    await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+    const toastEl = await page.waitForSelector('[data-testid="journal-toast"]', { timeout: 12000 }).catch(() => null);
+    const toastText = toastEl ? await toastEl.textContent() : '';
+    check(!!toastEl && /new lessons/i.test(toastText), `journal: Hikari's toast announces the new lessons ("${toastText}")`);
+    await shot(page, 'journal-toast');
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="journal-dot"]')), 'journal: the lobby Menu button has a dot');
+    const s0 = await story(page);
+    check(['home', 'bestiary', 'formation'].every((id) => s0.lessons[id]) && !s0.lessons.recruit && s0.welcome === 'pending', `journal: lessons 1–3 unlocked at 1-2, welcome still pending (${Object.keys(s0.lessons).join(',')})`);
+    await page.click('[data-testid="top-menu"]', { force: true });
+    await page.waitForSelector('[data-testid="menu-journal"] .notif-dot', { timeout: 5000 }).catch(() => null);
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="menu-journal"] .notif-dot')), 'journal: the Menu Tab entry has a dot');
+    await page.click('[data-testid="menu-journal"]', { force: true });
+    await page.waitForSelector('[data-testid="journal-detail"]', { timeout: 8000 }).catch(() => null);
+    const j = await page.evaluate(() => ({
+      hash: location.hash,
+      cards: document.querySelectorAll('[data-testid^="journal-lesson-"]').length,
+      locked: document.querySelector('[data-testid="journal-lesson-gear"] .jn-card-title')?.textContent,
+      lockReq: document.querySelector('[data-testid="journal-lesson-gear"] .jn-card-state')?.textContent,
+      news: document.querySelectorAll('[data-testid^="journal-new-"]').length,
+      title: document.querySelector('[data-testid="journal-title"]')?.textContent,
+    }));
+    check(j.hash.startsWith('#/journal') && j.cards === 12, `journal: opens with 12 lesson cards (${j.cards})`);
+    check(j.locked === '???' && /Clear/.test(j.lockReq || ''), `journal: a locked lesson shows ??? and its requirement (${j.locked} · ${j.lockReq})`);
+    check(j.news >= 2 && /Welcome home/.test(j.title || ''), `journal: NEW chips, the first unread lesson is open (${j.news} new · "${j.title}")`);
+    await shot(page, 'journal');
+    const gems0 = await page.evaluate(() => window.__sakura.store.profile.currencies.gems);
+    await page.click('[data-testid="journal-claim"]', { force: true });
+    await page.waitForSelector('.modal-overlay', { timeout: 5000 }).catch(() => null);
+    await shot(page, 'journal-claim');
+    const gems1 = await page.evaluate(() => window.__sakura.store.profile.currencies.gems);
+    check(gems1 === gems0 + 100, `journal: claiming "Welcome home" pays 100 gems (${gems0} → ${gems1})`);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => document.querySelector('.modal-overlay .btn')?.click());
+    await page.waitForTimeout(400);
+    check(await page.evaluate(() => !document.querySelector('[data-testid="journal-claim"]') && /Claimed/.test(document.querySelector('[data-testid="journal-note"]')?.textContent || '')), 'journal: the reward cannot be claimed twice');
+    await page.click('[data-testid="journal-lesson-gear"]', { force: true });
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => /blank/i.test(document.querySelector('.jn-speech')?.textContent || '') && !document.querySelector('[data-testid="journal-show-me"]')), 'journal: a locked lesson keeps its page blank');
+    // Equipment is locked on a new save before 2-1
+    await page.evaluate(() => { location.hash = '#/student/aoi?tab=gear'; });
+    const lock = await page.waitForSelector('[data-testid="story-lock-gear"]', { timeout: 8000 }).catch(() => null);
+    check(!!lock && /2-1|unlocks after/i.test(await lock.textContent()), 'student: Equipment shows Hikari\'s lock until 2-1');
+    await shot(page, 'gear-lock');
+    // clear 1-3 (as the battle would) → the welcome 10-pull is mailed once
+    await page.evaluate(() => { location.hash = '#/lobby'; });
+    await page.waitForSelector('[data-testid="top-mail"]', { timeout: 8000 }).catch(() => null);
+    await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.progress.stages['1-3'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+      store.commit('battle-result');
+    });
+    const t2 = await page.waitForSelector('[data-testid="journal-toast"]', { timeout: 10000 }).catch(() => null);
+    check(!!t2 && /2 new lessons/i.test(await t2.textContent()), 'welcome: clearing 1-3 announces two lessons');
+    const mail = await page.evaluate(() => {
+      const p = window.__sakura.store.profile;
+      return { welcome: p.story.welcome, letters: p.mail.letters.filter((l) => l.id === 'story-welcome-10pull').length, t10: p.items.ticket_recruit10 || 0 };
+    });
+    check(mail.welcome === 'mailed' && mail.letters === 1 && mail.t10 === 0, `welcome: exactly one letter mailed, not yet claimed (${JSON.stringify(mail)})`);
+    await page.click('[data-testid="top-mail"]', { force: true });
+    await page.waitForSelector('.mbx-modal', { timeout: 5000 }).catch(() => null);
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => /Ten new possibilities/.test(document.querySelector('.mbx-modal')?.textContent || '')), 'welcome: the letter from Hikari is in the Mail');
+    await shot(page, 'welcome-mail');
+    await page.evaluate(() => document.querySelector('[data-testid="mail-close"]')?.click());
+    await page.waitForTimeout(600);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('[data-testid="top-mail"]', { timeout: 15000 }).catch(() => null);
+    await page.waitForTimeout(1500);
+    const again = await page.evaluate(() => window.__sakura.store.profile.mail.letters.filter((l) => l.id === 'story-welcome-10pull').length);
+    check(again === 1, `welcome: still one letter after a reload (${again})`);
+    await page.evaluate(() => { location.hash = '#/journal?id=recruit'; });
+    await page.waitForSelector('[data-testid="journal-open-mail"]', { timeout: 8000 }).catch(() => null);
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="journal-open-mail"]') && !document.querySelector('[data-testid="journal-claim"]')), 'journal: the recruit lesson points at the Mail instead of a Claim');
+    await shot(page, 'journal-recruit');
+    check(!errors.length, `journal: no errors${errors.length ? `\n       ${errors.slice(0, 5).join('\n       ')}` : ''}`);
+    await context.close();
+  }
+
   // ---------------------------------------------------------------- legacy save
   {
     const { context, page, errors } = await newPage({ save: seeded({ upTo: '2-3', legacy: true }) });
@@ -337,6 +421,14 @@ async function runViewport(vp) {
     const l = await page.evaluate(() => ({ hash: location.hash, player: !!document.querySelector('.sp'), story: window.__sakura.store.profile.story }));
     check(l.hash.startsWith('#/lobby') && !l.player, 'legacy save: the lobby opens, nothing is forced');
     check(l.story.legacy === true && l.story.opening === 'legacy' && l.story.welcome === 'legacy', 'legacy save: the story block is legacy');
+    const sum = await page.waitForSelector('[data-testid="journal-toast"]', { timeout: 8000 }).catch(() => null);
+    check(!!sum && /Journal is here/i.test(await sum.textContent()), 'legacy save: one summary toast announces the journal');
+    await shot(page, 'legacy-toast');
+    const l2 = await page.evaluate(() => ({ announced: window.__sakura.store.profile.story.announced, mail: window.__sakura.store.profile.mail.letters.some((x) => x.id === 'story-welcome-10pull') }));
+    check(l2.announced && !l2.mail, 'legacy save: announced once, no welcome letter');
+    await page.evaluate(() => { location.hash = '#/student/aoi?tab=gear'; });
+    await page.waitForTimeout(1500);
+    check(await page.evaluate(() => !document.querySelector('[data-testid^="story-lock-"]')), 'legacy save: Equipment stays open');
     await page.evaluate(() => { location.hash = '#/stage/2-1'; });
     await page.waitForTimeout(2500);
     check(await page.evaluate(() => !document.querySelector('.sp')), 'legacy save: no backlog scene on an already cleared stage');

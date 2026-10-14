@@ -32,7 +32,7 @@ import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
-import { onboardingRoute } from '../../systems/story.js';
+import { onboardingRoute, journalDot } from '../../systems/story.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -354,12 +354,13 @@ function buildTop(host, { openSecretaryPicker }) {
         { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox },
         { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal },
         { icon: 'tasks', label: 'Story', testid: 'menu-story', go: () => navigate('story') }, // [story]
+        { icon: 'notice', label: "Captain's Journal", testid: 'menu-journal', dot: journalDot(profile), go: () => navigate('journal') }, // [story]
         // [online]
         { icon: 'students', label: 'Clan', testid: 'menu-clan', go: () => navigate('clan') },
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
         { icon: 'mail', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
       ] }) },
-        svgEl(glyph('menu'), 'lb-glyph')),
+        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? h('span.notif-dot', { 'data-testid': 'journal-dot' }) : null),
     ),
   );
 }

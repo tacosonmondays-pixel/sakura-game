@@ -34,6 +34,7 @@ registerRoute('coop', () => import('./ui/screens/coop.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
 registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
+registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.

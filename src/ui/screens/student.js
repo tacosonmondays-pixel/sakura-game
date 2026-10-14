@@ -3,6 +3,7 @@
 // Left: a stable showcase (Card Art ⇄ 3D Chibi toggle, name, rarity, stars, level) that never
 // re-renders when tabs change. Right: tabs Info / Level Up / Awakening / Equipment / Tree.
 import '../styles/meta-b.css';
+import '../styles/journal.css'; // [story] feature locks
 import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
@@ -30,6 +31,9 @@ import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
+import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
+import { JOURNAL_TEXT } from '../../data/story/lessons.js';
+import { resolveText } from '../../data/story/tokens.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -297,6 +301,18 @@ function lockedTab(unit, what) {
       : button('Recruit', { kind: 'yellow', icon: 'gacha', onClick: () => navigate('recruit') }), 'lock');
 }
 
+/** [story] Equipment / Awakening on a new save open with Hikari's lesson (STORY_SPEC §3.3). */
+function storyLockedTab(feature) {
+  const stageId = featureStage(feature);
+  const el = emptyState(feature === 'gear' ? 'Equipment' : 'Awakening', resolveText(featureLockText(feature)),
+    button(resolveText(JOURNAL_TEXT.lockButton(stageId)), { kind: 'yellow', icon: 'teleport', testid: 'story-lock-go', onClick: () => navigate('stage', { id: stageId }) }), 'lock');
+  el.classList.add('story-lock');
+  el.dataset.testid = `story-lock-${feature}`;
+  const art = el.querySelector('.mb-empty-art');
+  if (art && UNIT_MAP.hikari) art.innerHTML = portraitHTML(UNIT_MAP.hikari, 'thumb', { alt: '' });
+  return el;
+}
+
 function infoTab(unit) {
   const profile = store.profile;
   const role = ROLES[unit.role];
@@ -482,6 +498,7 @@ function awakenTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'awakening');
+  if (!featureOpen(profile, 'awaken')) return storyLockedTab('awaken');
   const star = st.awaken;
   const check = canAwaken(profile, unit.id);
   const track = h('div.mb-aw-track', [1, 2, 3, 4, 5].map((s) => {
@@ -587,6 +604,7 @@ function gearTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'equipment');
+  if (!featureOpen(profile, 'gear')) return storyLockedTab('gear');
   const slot = view.gearSlot;
   const wrap = h('div.mb-tab-body');
   const rerender = () => ctx.rerenderTab();
@@ -725,7 +743,8 @@ export function render(root, params = {}) {
   function renderTabs() {
     clear(tabBar);
     for (const t of TABS) {
-      const locked = !store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id);
+      const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
+        || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
       tabBar.appendChild(h(`button.mb-tab${t.id === tab ? '.active' : ''}${locked ? '.locked' : ''}`, {
         'data-testid': `tab-${t.id}`,
         onclick: () => {

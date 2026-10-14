@@ -209,9 +209,10 @@ export const JOURNAL_TEXT = {
   claim: 'Claim',
   explains: '{name:hikari} explains',
   replayTutorial: 'Replay battle tutorial',
+  replayTutorialShort: 'Tutorial',
   mailNote: 'Delivered to your Mail',
   /** @param {string} stageId */
-  requirement: (stageId) => `Clear {stage:${stageId}}`,
+  requirement: (stageId) => `Clear ${stageId} {stage:${stageId}}`,
   requirementTutorial: 'Finish the first battle',
   /** @param {string} title lesson title */
   toastOne: (title) => `{name:hikari} has a new lesson ♡ — ${title}`,
@@ -220,7 +221,7 @@ export const JOURNAL_TEXT = {
   /** @param {number} n lessons waiting for a legacy save */
   legacyAnnounce: (n) => `{name:hikari}'s Captain's Journal is here — ${n} lessons to read (Menu → Journal)`,
   /** @param {'gear'|'awaken'} feature */
-  lockText: (feature) => `${FEATURE_GATES[feature]?.label ?? 'This'} unlocks after {stage:${FEATURE_GATES[feature]?.stage ?? '1-1'}} — {name:hikari} will teach you!`,
+  lockText: (feature) => `${FEATURE_GATES[feature]?.label ?? 'This'} unlocks after ${FEATURE_GATES[feature]?.stage ?? '1-1'} {stage:${FEATURE_GATES[feature]?.stage ?? '1-1'}} — {name:hikari} will teach you!`,
   /** @param {string} stageId */
-  lockButton: (stageId) => `Go to {stage:${stageId}}`,
+  lockButton: (stageId) => `Go to ${stageId}`,
 };
