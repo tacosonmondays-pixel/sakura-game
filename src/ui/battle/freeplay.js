@@ -26,6 +26,15 @@ const MILESTONES = {
 const plural = (name) => (/us$/.test(name) ? name.replace(/us$/, 'i') : /s$/.test(name) ? name : `${name}s`);
 const shortScreen = () => typeof window !== 'undefined' && window.innerHeight <= 500;
 
+/** The enemy that took the most lives on the battle's last wave (what a run "fell to"), or null. */
+export function fellTo(sim) {
+  const per = new Map();
+  for (const l of sim.stats?.leakLog || []) if (l.wave === sim.wave) per.set(l.enemyId, (per.get(l.enemyId) || 0) + l.lives);
+  let best = null;
+  for (const [id, lives] of per) if (!best || lives > best[1]) best = [id, lives];
+  return best ? enemyDef(best[0]) : null;
+}
+
 /** Families a list of enemy ids belongs to (model families, for preloading). */
 function familiesOf(ids) {
   const out = new Set();
@@ -215,9 +224,19 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
     }
   }
 
+  /** The run ended: remember it on the session for the room ("Last run: 147/15 · Tempest · fell to …"). */
+  function onEnd() {
+    const killer = sim.state === 'lost' ? fellTo(sim) : null;
+    session.lastRun = {
+      stageId: sim.stage.id, tier: fp.id, wave: sim.wavesCleared, goal: G,
+      text: sim.state === 'won' ? 'finished together' : killer ? `fell to the ${killer.name}` : `fell on wave ${sim.wave}`,
+    };
+  }
+
   return {
     ledger,
     vote,
+    onEnd,
     myVote,
     afterGoal,
     onApplied,

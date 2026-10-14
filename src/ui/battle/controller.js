@@ -498,6 +498,7 @@ export function mountBattle(root, params, hooks) {
       shell.classList.add('bt-ended');
       // co-op freeplay past the goal: its own sheet (finishing right at the goal is a plain victory)
       const fpEnd = isFreeplayRun();
+      if (fpEnd) fpBattle?.onEnd();
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       results.apply();

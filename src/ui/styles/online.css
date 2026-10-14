@@ -505,3 +505,23 @@
 @media (prefers-reduced-motion: reduce) {
   .ol-msg, .ol-clan-card, .ol-member, .ol-pcard, .ol-drawer, .ol-sb-face { animation: none !important; }
 }
+
+/* ---------- Co-op freeplay: the room setting (Off · Blossom · Tempest · Crimson Moon) ---------- */
+.ol-chip-fp { display: inline-block; margin-left: 6px; font-weight: 900; font-style: italic; font-size: 0.68rem; padding: 1px 9px; border-radius: 4px; transform: skewX(var(--skew)); color: #fff; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; background: linear-gradient(90deg, #7b5cff, #ff7aa8); box-shadow: 0 1px 6px rgba(255,122,168,0.45); }
+.ol-chip-fp.ol-fp-tempest { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); box-shadow: 0 1px 6px rgba(76,201,240,0.45); }
+.ol-chip-fp.ol-fp-crimson { background: linear-gradient(90deg, #4a0010, #ff1f4b); box-shadow: 0 1px 6px rgba(255,31,75,0.45); }
+.ol-fp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0; }
+.ol-fp-label { font-weight: 900; font-style: italic; color: var(--navy); }
+.ol-fp-hint { flex-basis: 100%; }
+.ol-fp-seg .ol-fp-btn.on { color: #fff; }
+.ol-fp-seg .ol-fp-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); }
+.ol-fp-seg .ol-fp-tempest.on { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
+.ol-fp-seg .ol-fp-crimson.on { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
+.ol-field-fp { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: linear-gradient(90deg, #f6f0ff, #fff6fa); box-shadow: inset 3px 0 0 #b49cff; font-size: 0.8rem; line-height: 1.35; }
+.ol-field-fp.ol-fp-tempest { background: linear-gradient(90deg, #eef6ff, #f4fbff); box-shadow: inset 3px 0 0 #4cc9f0; }
+.ol-field-fp.ol-fp-crimson { background: linear-gradient(90deg, #fff0f2, #fff8f0); box-shadow: inset 3px 0 0 #ff1f4b; }
+.ol-field-fp p { margin: 2px 0; }
+.ol-field-fp b { color: var(--navy); font-style: italic; }
+.ol-field-fp-best { font-weight: 900; color: #7b2cbf; }
+.ol-field-fp-last { font-weight: 800; color: var(--navy); }
+.ol-field-fp-warn { font-weight: 900; color: #c9184a; }

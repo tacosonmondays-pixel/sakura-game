@@ -17,6 +17,7 @@ import { getUnit } from '../../data/units.js';
 import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
+import { fellTo } from './freeplay.js';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -269,15 +270,6 @@ export function createResults(ctx) {
     open(card);
   }
 
-  /** The enemy that took the most lives on the last wave (what the run "fell to"), or null. */
-  function fellTo() {
-    const per = new Map();
-    for (const l of sim.stats?.leakLog || []) if (l.wave === sim.wave) per.set(l.enemyId, (per.get(l.enemyId) || 0) + l.lives);
-    let best = null;
-    for (const [id, lives] of per) if (!best || lives > best[1]) best = [id, lives];
-    return best ? enemyDef(best[0]) : null;
-  }
-
   /** Co-op freeplay past the goal: FREEPLAY OVER (fell) or FREEPLAY COMPLETE (the Finish vote). */
   function showFreeplay() {
     const out = apply();
@@ -286,7 +278,7 @@ export function createResults(ctx) {
     const table = sim.stage.freeplay;
     const won = r.won;
     const diff = DIFFICULTIES[sim.difficulty];
-    const killer = won ? null : fellTo();
+    const killer = won ? null : fellTo(sim);
     const subline = won
       ? `Finished together after wave ${r.wavesCleared}`
       : `Fell on wave ${sim.wave}${killer ? ` to the ${killer.name}` : ''}`;
