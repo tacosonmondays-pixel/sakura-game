@@ -1,8 +1,10 @@
 // Attack FX end-to-end checks in Chromium (SwiftShader WebGL) on previews/attacks.html.
 //
-//   node e2e/attack-fx.mjs [--viewport 844x390|1280x720] [--shots <dir>] [--quick]
+//   node e2e/attack-fx.mjs [--viewport 844x390|1280x720] [--shots <dir>] [--quick] [--matrix-every]
 //
-// Checks, per viewport (both by default; 844×390 runs as a touch phone):
+// Checks per viewport (both by default; 844×390 runs as a touch phone); 4 and 5 run on a tiny
+// canvas and do not depend on the viewport, so they run once (first viewport) unless
+// --matrix-every:
 //   1. the co-op sim id is unchanged (renderer-only work never touches the lockstep code)
 //   2. Chika truth at 1× and 3×: drones 1:1 with turrets, inside her leash, targets = the sim's
 //      shot targets, blended bullets land exactly on the sim path, sorties reach strafing passes
@@ -13,12 +15,17 @@
 //   6. screenshots (gallery, Chika focus, Akane / Hotaru on the phone)
 // Exit code 1 on any failure.
 import { createServer } from 'vite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { launchChromium } from './browser.mjs';
+import { simId } from '../tools/simId.mjs';
 
-const SIM_ID = '0d1a6d8f4878';
+// The live game's co-op id: computed from the live branch (SIM_REF, default the live branch) when
+// git has it, else this pin (v0.1.21). Renderer-only work must leave it unchanged.
+const SIM_ID_PIN = '538573d3561e';
+const SIM_REF = process.env.SIM_REF || 'claude/sakura-sentinels';
 const args = process.argv.slice(2);
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
@@ -27,6 +34,8 @@ const opt = (name, def) => {
 const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
 const shots = opt('shots', null);
 const quick = args.includes('--quick');
+const matrixEvery = args.includes('--matrix-every');
+let matrixDone = false;
 if (shots) mkdirSync(shots, { recursive: true });
 
 const IGNORE = [
@@ -46,11 +55,24 @@ function check(cond, msg) {
   return cond;
 }
 
-// 1. sim id gate
+/** The sim id of a git ref (its src/ extracted to a temp folder), or null when git lacks it. */
+function refSimId(ref) {
+  if (spawnSync('git', ['rev-parse', '--verify', '--quiet', ref]).status !== 0) return null;
+  const dir = mkdtempSync(join(tmpdir(), 'simref-'));
+  try {
+    const tar = spawnSync('sh', ['-c', `git archive ${ref} src | tar -x -C "${dir}"`]);
+    return tar.status === 0 ? simId(dir).id : null;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// 1. sim id gate: same id as the live game
 {
   const r = spawnSync(process.execPath, ['-e', "import('./tools/simId.mjs').then(m=>console.log(m.simId().id))"], { encoding: 'utf8' });
   const id = String(r.stdout).trim();
-  check(id === SIM_ID, `co-op sim id unchanged (${id})`);
+  const want = refSimId(SIM_REF) || SIM_ID_PIN;
+  check(id === want, `co-op sim id unchanged (${id}, live ${want})`);
 }
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1', hmr: false }, logLevel: 'error' });
@@ -154,8 +176,10 @@ async function runViewport(vp) {
     await page.close();
   }
 
-  // 4. every girl × every build, high and low
-  for (const quality of quick ? ['high'] : ['high', 'low']) {
+  // 4. every girl × every build, high and low (viewport independent: once unless --matrix-every)
+  const matrix = matrixEvery || !matrixDone;
+  matrixDone = true;
+  for (const quality of !matrix ? [] : quick ? ['high'] : ['high', 'low']) {
     for (const build of quick ? ['max'] : ['base', 'p0', 'p1', 'p2']) {
       const page = await open(ctxB, `mode=gallery&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&tiny=1`, errors);
       const r = await page.evaluate((n) => {
@@ -188,7 +212,7 @@ async function runViewport(vp) {
   }
 
   // 5. stress: 19 maxed girls + 3 extra Chikas (≈ 40 drones) at 3×
-  {
+  if (matrix) {
     const page = await open(ctxB, 'mode=gallery&build=max&extra=3&quality=high&seed=3&speed=3&preroll=40&tiny=1', errors);
     const r = await page.evaluate((n) => {
       const ms = [];

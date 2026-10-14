@@ -196,7 +196,7 @@ async function main() {
   if (params.get('tiny') === '1') el.style.cssText = 'width:96px;height:54px;inset:auto;left:0;top:0';
   const top = phone ? 40 : 44;
   const insets = clean ? { top: 0, right: 0, bottom: 0, left: 0 } : phone ? { top, right: 0, bottom: 56, left: 0 } : { top, right: 300, bottom: 0, left: 0 };
-  const r = createBattleRenderer(el, sim, { quality, settings: { quality, attackFx: fxOn ? undefined : false, lighting: { exposure: 1, warmth: 0 }, ...(params.get('bloom') === '0' ? { bloom: false } : {}) }, insets });
+  const r = createBattleRenderer(el, sim, { quality, settings: { quality, camera: 'free', attackFx: fxOn ? undefined : false, lighting: { exposure: 1, warmth: 0 }, ...(params.get('bloom') === '0' ? { bloom: false } : {}) }, insets });
   window.__sim = sim;
   window.__r = r;
   window.__placed = placed;
