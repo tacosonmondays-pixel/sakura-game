@@ -114,3 +114,20 @@ describe('tools/simId.mjs', () => {
     expect(files.some((f) => f.startsWith('src/render/') || f.startsWith('src/audio/') || f.startsWith('src/art/') || f.startsWith('src/ui/screens/'))).toBe(false);
   });
 });
+
+describe('stale-chunk reload decision', async () => {
+  const { shouldReloadForStaleChunk } = await import('../../src/core/updates.js');
+  const base = { deployed: true, chunkError: true, recently: false, online: true, currentV: null, build: 'aaa' };
+  it('reloads only into a confirmed newer build', () => {
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' } })).toBe(true);
+  });
+  it('never reloads offline, on the same build, without a version answer, twice, or right after a reload', () => {
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' }, online: false })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'aaa' } })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: null })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' }, currentV: 'bbb' })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' }, recently: true })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' }, chunkError: false })).toBe(false);
+    expect(shouldReloadForStaleChunk({ ...base, info: { build: 'bbb' }, deployed: false })).toBe(false);
+  });
+});
