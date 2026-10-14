@@ -63,6 +63,14 @@ for (const [W, H] of viewports) {
 
   async function newContext(name, storage = null) {
     const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, reducedMotion: 'reduce' });
+    // every battle toast is kept after it fades: on a loaded machine the check can come later
+    // than the toast's few seconds on screen
+    await context.addInitScript(() => {
+      window.__toasts = [];
+      new MutationObserver((recs) => {
+        for (const r of recs) for (const n of r.addedNodes) if (n.nodeType === 1 && n.classList.contains('bt-toast')) window.__toasts.push(n.textContent);
+      }).observe(document, { childList: true, subtree: true });
+    });
     if (storage) {
       // the copied storage of a killed app, in place before the game's first script runs (once)
       await context.addInitScript((data) => {
@@ -119,6 +127,8 @@ for (const [W, H] of viewports) {
   const storedProfile = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
   const savedRec = async (page, slot = '1-1') => (await storedProfile(page))?.battleSaves?.[slot] || null;
   const text = (page, sel) => page.locator(sel).first().innerText({ timeout: 15000 }).catch(() => '');
+  /** A battle toast matching `re` was shown on this page (still up or already faded). */
+  const toastSeen = (page, re) => page.evaluate((src) => (window.__toasts || []).some((t) => new RegExp(src).test(t)), re.source).catch(() => false);
   /** The player's build as the save stores it (towers sorted by uid). */
   const buildOf = (page) => page.evaluate(() => {
     const { sim } = window.__battle;
@@ -319,7 +329,7 @@ for (const [W, H] of viewports) {
     const b = await buildOf(A);
     check(b.wave === 2 && b.state === 'between', `5: it lands between waves, wave 3 next (${b.wave} ${b.state})`);
     check(same(b.towers, expected.towers) && b.cash === expected.cash && b.lives === expected.lives, '5: the same girls, spots, tiers, target modes, coins and lives');
-    check(/Welcome back/.test(await text(A, '[data-testid="battle-feed"]')), '5: "Welcome back!" toast');
+    check(await toastSeen(A, /Welcome back/), '5: "Welcome back!" toast');
     check((await savedRec(A))?.resumes === 1, `5: resumes = ${(await savedRec(A))?.resumes}`);
     await A.evaluate((uid) => {
       const { ui, sim } = window.__battle;
@@ -338,7 +348,7 @@ for (const [W, H] of viewports) {
       const k = await buildOf(B);
       check(k.wave === 2 && k.state === 'between', `5: the start of wave 3 again (${k.wave} ${k.state})`);
       check(same(k.towers, expected.towers) && k.cash === expected.cash && k.lives === expected.lives, '5: the build, coins and lives from before the wave (the mid-wave upgrade is undone)');
-      check(/Welcome back/.test(await text(B, '[data-testid="battle-feed"]')), '5: "Welcome back!" toast');
+      check(await toastSeen(B, /Welcome back/), '5: "Welcome back!" toast');
       check((await savedRec(B))?.resumes === 2, `5: resumes = ${(await savedRec(B))?.resumes}`);
       await shot(B, 'continued-battle');
 
