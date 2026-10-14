@@ -1,0 +1,21 @@
+{"test":"boss","stageId":"4-5","profile":"strong","build":"t0","hover":13051,"hoverPaths":[4582,8469],"hold":17615,"holdPaths":[8089,9526],"patrol":13466,"patrolPaths":[3940,9526],"pursuit":27100,"pursuitPaths":[13240,13860]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"3-0-0","hover":45776,"hoverPaths":[17659,28117],"hold":65217,"holdPaths":[31665,33552],"patrol":53398,"patrolPaths":[27427,25971],"pursuit":92148,"pursuitPaths":[47206,44942]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"5-2-0","hover":513585,"hoverPaths":[213095,300490],"hold":720310,"holdPaths":[360997,359313],"patrol":602163,"patrolPaths":[295750,306413],"pursuit":958383,"pursuitPaths":[476868,481515]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"5-0-2","hover":652474,"hoverPaths":[266786,385688],"hold":917646,"holdPaths":[454558,463088],"patrol":767057,"patrolPaths":[374676,392381],"pursuit":1216778,"pursuitPaths":[607146,609632]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"2-0-5","hover":102902,"hoverPaths":[39173,63729],"hold":134717,"holdPaths":[62655,72062],"patrol":100750,"patrolPaths":[49443,51307],"pursuit":178636,"pursuitPaths":[85339,93297]}
+{"test":"boss","stageId":"4-5","profile":"base","build":"3-0-0","hover":2033,"hoverPaths":[780,1253],"hold":2859,"holdPaths":[1375,1484],"patrol":2373,"patrolPaths":[1225,1148],"pursuit":4091,"pursuitPaths":[2036,2055]}
+{"test":"boss","stageId":"4-5","profile":"base","build":"5-0-2","hover":72165,"hoverPaths":[29443,42722],"hold":100255,"holdPaths":[50396,49859],"patrol":84244,"patrolPaths":[41308,42936],"pursuit":132951,"pursuitPaths":[66927,66024]}
+{"test":"boss","stageId":"8-5","profile":"strong","build":"5-0-2","hover":828287,"hoverPaths":[276060,272211,280016],"hold":863985,"holdPaths":[272796,270556,320633],"patrol":776342,"patrolPaths":[249882,249805,276655],"pursuit":1659587,"pursuitPaths":[597566,595090,466931]}
+{"test":"boss","stageId":"2-5","profile":"strong","build":"5-0-2","hover":525168,"hoverPaths":[525168],"hold":729243,"holdPaths":[729243],"patrol":557231,"patrolPaths":[557231],"pursuit":1409839,"pursuitPaths":[1409839]}
+
+| Stage | Profile | Build | hover | hold | patrol | pursuit |
+|---|---|---|---|---|---|---|
+| 4-5 | strong | t0 | 13,051 | 17,615 (+35%) | 13,466 (+3%) | 27,100 (+108%) |
+| 4-5 | strong | 3-0-0 | 45,776 | 65,217 (+42%) | 53,398 (+17%) | 92,148 (+101%) |
+| 4-5 | strong | 5-2-0 | 513,585 | 720,310 (+40%) | 602,163 (+17%) | 958,383 (+87%) |
+| 4-5 | strong | 5-0-2 | 652,474 | 917,646 (+41%) | 767,057 (+18%) | 1,216,778 (+86%) |
+| 4-5 | strong | 2-0-5 | 102,902 | 134,717 (+31%) | 100,750 (-2%) | 178,636 (+74%) |
+| 4-5 | base | 3-0-0 | 2,033 | 2,859 (+41%) | 2,373 (+17%) | 4,091 (+101%) |
+| 4-5 | base | 5-0-2 | 72,165 | 100,255 (+39%) | 84,244 (+17%) | 132,951 (+84%) |
+| 8-5 | strong | 5-0-2 | 828,287 | 863,985 (+4%) | 776,342 (-6%) | 1,659,587 (+100%) |
+| 2-5 | strong | 5-0-2 | 525,168 | 729,243 (+39%) | 557,231 (+6%) | 1,409,839 (+168%) |

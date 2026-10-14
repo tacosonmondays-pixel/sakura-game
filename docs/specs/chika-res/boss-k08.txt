@@ -1,0 +1,21 @@
+{"test":"boss","stageId":"4-5","profile":"strong","build":"t0","hover":13051,"hoverPaths":[4582,8469],"pursuit":21418,"pursuitPaths":[10645,10773]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"3-0-0","hover":45776,"hoverPaths":[17659,28117],"pursuit":74422,"pursuitPaths":[37686,36736]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"5-2-0","hover":513585,"hoverPaths":[213095,300490],"pursuit":746824,"pursuitPaths":[373599,373225]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"5-0-2","hover":652474,"hoverPaths":[266786,385688],"pursuit":955176,"pursuitPaths":[475762,479414]}
+{"test":"boss","stageId":"4-5","profile":"strong","build":"2-0-5","hover":102902,"hoverPaths":[39173,63729],"pursuit":137634,"pursuitPaths":[66252,71382]}
+{"test":"boss","stageId":"4-5","profile":"base","build":"3-0-0","hover":2033,"hoverPaths":[780,1253],"pursuit":3272,"pursuitPaths":[1631,1641]}
+{"test":"boss","stageId":"4-5","profile":"base","build":"5-0-2","hover":72165,"hoverPaths":[29443,42722],"pursuit":105136,"pursuitPaths":[52745,52391]}
+{"test":"boss","stageId":"8-5","profile":"strong","build":"5-0-2","hover":828287,"hoverPaths":[276060,272211,280016],"pursuit":1297745,"pursuitPaths":[467516,463948,366281]}
+{"test":"boss","stageId":"2-5","profile":"strong","build":"5-0-2","hover":525168,"hoverPaths":[525168],"pursuit":1092431,"pursuitPaths":[1092431]}
+
+| Stage | Profile | Build | hover | pursuit |
+|---|---|---|---|---|
+| 4-5 | strong | t0 | 13,051 | 21,418 (+64%) |
+| 4-5 | strong | 3-0-0 | 45,776 | 74,422 (+63%) |
+| 4-5 | strong | 5-2-0 | 513,585 | 746,824 (+45%) |
+| 4-5 | strong | 5-0-2 | 652,474 | 955,176 (+46%) |
+| 4-5 | strong | 2-0-5 | 102,902 | 137,634 (+34%) |
+| 4-5 | base | 3-0-0 | 2,033 | 3,272 (+61%) |
+| 4-5 | base | 5-0-2 | 72,165 | 105,136 (+46%) |
+| 8-5 | strong | 5-0-2 | 828,287 | 1,297,745 (+57%) |
+| 2-5 | strong | 5-0-2 | 525,168 | 1,092,431 (+108%) |

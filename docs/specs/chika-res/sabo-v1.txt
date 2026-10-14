@@ -1,0 +1,19 @@
+{"test":"sabo","stageId":"6-3","profile":"base","build":"3-0-0","spot":"best","hover":61,"hoverLost":303,"hoverJams":53,"hoverDisabled":29,"hold":76,"holdLost":288,"holdJams":61,"holdDisabled":40,"patrol":75,"patrolLost":289,"patrolJams":54,"patrolDisabled":67,"pursuit":76,"pursuitLost":288,"pursuitJams":75,"pursuitDisabled":55}
+{"test":"sabo","stageId":"6-3","profile":"base","build":"3-0-0","spot":"far","hover":105,"hoverLost":259,"hoverJams":78,"hoverDisabled":0,"hold":79,"holdLost":285,"holdJams":79,"holdDisabled":0,"patrol":85,"patrolLost":279,"patrolJams":79,"patrolDisabled":0,"pursuit":84,"pursuitLost":280,"pursuitJams":91,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-4","profile":"base","build":"3-0-0","spot":"best","hover":98,"hoverLost":879,"hoverJams":120,"hoverDisabled":0,"hold":124,"holdLost":853,"holdJams":151,"holdDisabled":0,"patrol":110,"patrolLost":867,"patrolJams":126,"patrolDisabled":0,"pursuit":179,"pursuitLost":798,"pursuitJams":174,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-4","profile":"base","build":"5-0-2","spot":"best","hover":944,"hoverLost":13,"hoverJams":87,"hoverDisabled":0,"hold":947,"holdLost":10,"holdJams":85,"holdDisabled":0,"patrol":946,"patrolLost":11,"patrolJams":85,"patrolDisabled":0,"pursuit":949,"pursuitLost":0,"pursuitJams":84,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"3-0-0","spot":"best","hover":152,"hoverLost":787,"hoverJams":167,"hoverDisabled":48,"hold":165,"holdLost":774,"holdJams":175,"holdDisabled":55,"patrol":151,"patrolLost":788,"patrolJams":168,"patrolDisabled":51,"pursuit":267,"pursuitLost":673,"pursuitJams":233,"pursuitDisabled":53}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"3-0-0","spot":"far","hover":107,"hoverLost":832,"hoverJams":108,"hoverDisabled":0,"hold":172,"holdLost":767,"holdJams":211,"holdDisabled":0,"patrol":165,"patrolLost":774,"patrolJams":209,"patrolDisabled":0,"pursuit":272,"pursuitLost":667,"pursuitJams":255,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"5-0-2","spot":"best","hover":842,"hoverLost":40,"hoverJams":67,"hoverDisabled":18,"hold":819,"holdLost":63,"holdJams":101,"holdDisabled":54,"patrol":844,"patrolLost":39,"patrolJams":87,"patrolDisabled":34,"pursuit":820,"pursuitLost":6,"pursuitJams":64,"pursuitDisabled":2}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"5-0-2","spot":"far","hover":814,"hoverLost":83,"hoverJams":78,"hoverDisabled":0,"hold":835,"holdLost":44,"holdJams":63,"holdDisabled":0,"patrol":843,"patrolLost":40,"patrolJams":70,"patrolDisabled":0,"pursuit":821,"pursuitLost":6,"pursuitJams":64,"pursuitDisabled":0}
+
+| Stage | Profile | Build | Spot | hover kills (lives lost, jams) | hold kills (lives lost, jams) | patrol kills (lives lost, jams) | pursuit kills (lives lost, jams) |
+|---|---|---|---|---|---|---|---|
+| 6-3 | base | 3-0-0 | best | 61 (303, 53) | 76 +25% (288, 61) | 75 +23% (289, 54) | 76 +25% (288, 75) |
+| 6-3 | base | 3-0-0 | far | 105 (259, 78) | 79 -25% (285, 79) | 85 -19% (279, 79) | 84 -20% (280, 91) |
+| 6-4 | base | 3-0-0 | best | 98 (879, 120) | 124 +27% (853, 151) | 110 +12% (867, 126) | 179 +83% (798, 174) |
+| 6-4 | base | 5-0-2 | best | 944 (13, 87) | 947 +0% (10, 85) | 946 +0% (11, 85) | 949 +1% (0, 84) |
+| 6-5 | base | 3-0-0 | best | 152 (787, 167) | 165 +9% (774, 175) | 151 -1% (788, 168) | 267 +76% (673, 233) |
+| 6-5 | base | 3-0-0 | far | 107 (832, 108) | 172 +61% (767, 211) | 165 +54% (774, 209) | 272 +154% (667, 255) |
+| 6-5 | base | 5-0-2 | best | 842 (40, 67) | 819 -3% (63, 101) | 844 +0% (39, 87) | 820 -3% (6, 64) |
+| 6-5 | base | 5-0-2 | far | 814 (83, 78) | 835 +3% (44, 63) | 843 +4% (40, 70) | 821 +1% (6, 64) |
