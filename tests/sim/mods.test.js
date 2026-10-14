@@ -80,7 +80,7 @@ describe('ModSet application', () => {
   });
 });
 
-describe('crosspath rules (BTD6)', () => {
+describe('crosspath rules', () => {
   test('at most two paths, only one above tier 2', () => {
     expect(crosspathBlock([0, 0, 0], 0)).toBe(null);
     expect(crosspathBlock([2, 2, 0], 2)).toBe('crosspath');

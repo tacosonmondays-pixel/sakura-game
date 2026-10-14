@@ -250,7 +250,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
 }
 
 /**
- * BTD6 crosspath rule: at most two paths may have tiers > 0 and only one path may go
+ * Crosspath rule: at most two paths may have tiers > 0 and only one path may go
  * above tier 2; tier N requires tier N-1 (implicit: tiers only ever increase by one).
  * @returns {null|'max'|'crosspath'} reason the next tier of `path` is unavailable
  */

@@ -519,7 +519,7 @@ describe('maps', () => {
     }
   });
 
-  it('has Bloons-style variety: multi-lane, crossings and water maps', () => {
+  it('has map variety: multi-lane, crossings and water maps', () => {
     expect(MAPS.filter((m) => m.paths.length >= 2).length).toBeGreaterThanOrEqual(6);
     expect(MAPS.filter((m) => m.paths.length >= 3).length).toBeGreaterThanOrEqual(1);
     expect(MAPS.filter((m) => isCrossing(m) > 0).length).toBeGreaterThanOrEqual(8);

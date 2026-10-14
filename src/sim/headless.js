@@ -200,7 +200,7 @@ function jitter(i, j, salt) {
 /**
  * Greedy plan on a continuous candidate lattice (0.25-tile grid + jitter): best path
  * coverage first, footprints never overlap, then upgrades on each unit's strongest path
- * (BTD6 crosspath respected). Used to sanity-check that stages are beatable.
+ * (the crosspath rule respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
  * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best

@@ -796,7 +796,7 @@ const SHIRO = {
     hairStyle: 'long', bangs: 'straight', accessory: 'beret', outfit: 'blazer', weapon: 'rifle',
     halo: 'eye', eyeStyle: 'sleepy', expression: 'calm',
   },
-  bio: 'Ace of the rifle team. Long silver-white hair under a navy beret, a gold-buttoned military-cut blazer, a scope-shaped halo, and a long rifle taller than she is. She speaks in single sentences and never misses the target that matters most.',
+  bio: 'The sharpest shot of the rifle team. Long silver-white hair under a navy beret, a gold-buttoned military-cut blazer, a scope-shaped halo, and a long rifle taller than she is. She speaks in single sentences and never misses the target that matters most.',
   personality: 'Deadpan, patient and quietly kind; keeps a pocket full of candy for her spotters.',
   quote: 'Target confirmed.',
   tips: [

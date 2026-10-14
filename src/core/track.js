@@ -9,7 +9,7 @@
 //                     either side leave / enter it tangentially
 //   TUNNEL_IN ('[')   a tunnel starts at the previous control point …
 //   TUNNEL_OUT (']')  … and ends at the previous control point (enemies inside are hidden and
-//                     cannot be targeted, like Bloons TD6 tunnels)
+//                     cannot be targeted, like tunnels)
 //   ...arc(cx, cy, r, a0, a1)        control points along a circle (degrees, 0 = +x, 90 = +y/south)
 //   ...spiral(cx, cy, r0, r1, a0, a1) the same with a radius that changes with the angle
 //

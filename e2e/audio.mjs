@@ -211,7 +211,7 @@ try {
     return { off: Math.abs(k - Math.round(k)) * step, step };
   }, Number(sm[1])) : null;
   check(intenseOk && took <= 2 * barSec + 0.05, `wave start: intensity stem fully in ${took.toFixed(2)} s after the event (≤ 2 bars = ${(2 * barSec).toFixed(2)} s), now ${b2.stems.intensity?.value}`);
-  check(!stingLine, `wave start: no sting (owner: the next wave starts silently, like Bloons)${stingLine ? ` — but found: ${stingLine}` : ''}`);
+  check(!stingLine, `wave start: no sting (owner: the next wave starts silently)${stingLine ? ` — but found: ${stingLine}` : ''}`);
   // a girl placed through the sim emits 'place' → bt.place via the event hook; a coin bump → bt.deny via the wrapped action
   const placed = await A(() => {
     const { sim, ui } = window.__battle;

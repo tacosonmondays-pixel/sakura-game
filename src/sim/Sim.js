@@ -35,7 +35,7 @@ import { snapshotSim, restoreSim } from './snapshot.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
-/** Rounds coin costs to a multiple of 5 (min 5), BTD6-style. */
+/** Rounds coin costs to a multiple of 5 (min 5). */
 export function roundCost(c) {
   return Math.max(5, Math.round(c / 5) * 5);
 }

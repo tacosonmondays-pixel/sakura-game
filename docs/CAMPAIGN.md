@@ -169,7 +169,7 @@ Ashwing 70). Rewards are bounty tokens and coins; the UI records the best wave p
 ## Balance notes
 
 * Bounty ≈ 1 coin per 10 *effective* HP in the chapter where an enemy debuts (late monsters carry
-  more loot), so the economy keeps pace with `hpScale` the way Bloons pays $1 per RBE. The green
+  more loot), so the economy keeps pace with `hpScale` the way a bounty-per-HP economy does. The green
   slime keeps the §5b anchor (14 HP, 1 coin).
 * Wave budgets are tuned with the sim's `autoPlan` bot using free units only and modest expected
   levels per chapter. The bot spreads its coins over many low-tier girls, so it is a

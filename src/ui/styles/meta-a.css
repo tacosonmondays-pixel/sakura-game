@@ -1317,7 +1317,7 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-stage-card { border-width: 2px; border-radius: var(--radius); }
 .ma-sc-id { border-radius: 0 4px 4px 0; }
 .ma-boss-card { border-width: 2px; }
-/* chapter rows fit on one line on wide screens (5 stages per chapter, Bloons style) */
+/* chapter rows fit on one line on wide screens (5 stages per chapter) */
 @media (min-width: 800px) { .ma-stage-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; } }
 @media (min-width: 1100px) { .ma-stage-grid { gap: 14px; } }
 /* landscape phones: compact banner, summary + tabs on one rhythm, 5 cards in view */
