@@ -525,3 +525,9 @@
 .ol-field-fp-best { font-weight: 900; color: #7b2cbf; }
 .ol-field-fp-last { font-weight: 800; color: var(--navy); }
 .ol-field-fp-warn { font-weight: 900; color: #c9184a; }
+@media (max-width: 560px) {
+  /* portrait: the stage (with its difficulty and freeplay chips) gets a row of its own */
+  .ol-room-stage { flex: 1 1 100%; order: 3; }
+  .ol-room-thumb { width: 104px; }
+  .ol-chip-fp { margin-left: 0; }
+}
