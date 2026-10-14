@@ -73,9 +73,17 @@ const go = async (page, hash) => {
 const text = (page, sel) => page.evaluate((s) => document.querySelector(s)?.textContent?.trim() ?? null, sel);
 const shot = (page, vp, name) => page.screenshot({ path: join(shotsDir, `${vp}-${name}.png`) });
 
-async function waitBattle(page) {
-  await page.waitForFunction(() => window.__battle?.sim, null, { timeout: 60000 });
-  await page.waitForTimeout(800);
+async function waitBattle(page, mode = null) {
+  await page.waitForFunction((m) => window.__battle?.sim && (!m || window.__battle.sim.mode?.id === m) && document.querySelector('[data-testid=battle-hud]'), mode, { timeout: 60000 });
+  await page.waitForTimeout(900);
+}
+
+/** Opens a battle route from the campaign map (a fresh mount every time). */
+async function openBattle(page, hash, mode) {
+  await go(page, '#/campaign');
+  await page.waitForFunction(() => !window.__battle, null, { timeout: 20000 }).catch(() => null);
+  await go(page, hash);
+  await waitBattle(page, mode);
 }
 
 /** Runs the battle's sim forward by `seconds` of game time (in chunks, so the HUD keeps up). */
@@ -153,8 +161,7 @@ for (const vp of viewports) {
   if (only.includes('battle')) {
     log('(3) in battle: mode chip and rule pill');
     await grant(page, '3-4', { '3-3': { normal: true, clears: 1 } });
-    await go(page, '#/battle?stage=3-3&difficulty=normal&mode=rush');
-    await waitBattle(page);
+    await openBattle(page, '#/battle?stage=3-3&difficulty=normal&mode=rush', 'rush');
     check(!!(await page.$('.bt-mode.bt-mode-rush')), 'HUD .bt-mode-rush');
     check(!!(await page.$('[data-testid=rule-pill]')), 'rule pill');
     await shot(page, vp, 'hud-resting');
@@ -174,8 +181,7 @@ for (const vp of viewports) {
     log('(4) 4-2 Rear Ambush in Standard and Reverse Route');
     for (const mode of ['standard', 'reverse']) {
       await grant(page, '4-3', { '4-2': { normal: true, clears: 1 } });
-      await go(page, `#/battle?stage=4-2&difficulty=easy&mode=${mode}`);
-      await waitBattle(page);
+      await openBattle(page, `#/battle?stage=4-2&difficulty=easy&mode=${mode}`, mode);
       const banners = [];
       const scout = [];
       for (let w = 1; w <= 2; w++) {
@@ -184,8 +190,8 @@ for (const vp of viewports) {
           const sim = window.__battle.sim;
           sim.startNextWave();
         });
-        await page.waitForTimeout(500);
-        banners.push(await page.evaluate(() => document.querySelector('.bt-banner')?.textContent || ''));
+        // the banner shows for about a second: catch it as it appears
+        banners.push(await page.waitForFunction((w) => [...document.querySelectorAll('.bt-banner')].map((b) => b.textContent).find((t) => t.includes(`WAVE ${w}`)) || null, w, { timeout: 5000 }).then((x) => x.jsonValue()).catch(() => ''));
         await page.evaluate(() => {
           const sim = window.__battle.sim;
           for (const e of sim.enemies) e.dead = true;
@@ -203,18 +209,22 @@ for (const vp of viewports) {
   if (only.includes('win')) {
     log('(5) a Goblin Rush win → ribbon results, prep "Ribbon ✓", card count');
     await grant(page, '1-2', { '1-1': { normal: true, hard: false, clears: 1 } });
-    await go(page, '#/battle?stage=1-1&difficulty=hard&mode=rush');
-    await waitBattle(page);
-    await page.evaluate(() => {
-      const sim = window.__battle.sim;
-      sim.cash = 1e7;
-      sim.lives = sim.maxLives;
-      // a sure win: kill everything that spawns
-      sim.__origSpawn = sim.spawnEnemy;
-      sim.spawnEnemy = function (...a) { const e = sim.__origSpawn.apply(sim, a); if (e) e.hp = 0.0001; return e; };
-    });
-    await fastForward(page, 900);
-    await page.evaluate(() => { const s = window.__battle?.sim; if (s) for (const e of s.enemies) s._killEnemy(e, null); });
+    await openBattle(page, '#/battle?stage=1-1&difficulty=hard&mode=rush', 'rush');
+    // a sure win: every enemy falls the step it appears
+    for (let k = 0; k < 400; k++) {
+      const st = await page.evaluate(() => {
+        const sim = window.__battle?.sim;
+        if (!sim) return 'gone';
+        for (let i = 0; i < 40 && sim.state !== 'won' && sim.state !== 'lost'; i++) {
+          if (sim.state === 'prep' || sim.state === 'between') sim.startNextWave();
+          sim.update(0.25);
+          for (const e of sim.enemies) if (!e.dead) sim._killEnemy(e, null);
+        }
+        return sim.state;
+      });
+      if (st !== 'wave' && st !== 'between' && st !== 'prep') break;
+      await page.waitForTimeout(20);
+    }
     await page.waitForSelector('.res-root, [data-testid=results], .bt-results', { timeout: 30000 }).catch(() => null);
     await page.waitForTimeout(1500);
     const body = await page.evaluate(() => document.body.textContent);

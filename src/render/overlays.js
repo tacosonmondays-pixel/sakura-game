@@ -209,7 +209,13 @@ export class Overlays {
     if (uid != null && !tower) this.setSelected(null);
     if (tower) {
       this._applyHighlight();
-      const range = this._towerRange(uid);
+      // map rules (blizzard, heat haze, crystal pads) change a girl's range mid-wave: the ring eases
+      // to the new radius over about 0.3 s instead of jumping (a new selection snaps)
+      const target = this._towerRange(uid);
+      if (this._ringUid !== uid || !(this._ringRange > 0)) this._ringRange = target;
+      else this._ringRange += (target - this._ringRange) * (1 - Math.exp(-10 * dt));
+      this._ringUid = uid;
+      const range = this._ringRange;
       const v = this.actors.towerView(uid);
       const y = v?.water ? WATER_Y + 0.04 : PATH_H + 0.03;
       this.selRange.visible = range > 0;

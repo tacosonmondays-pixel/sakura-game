@@ -48,6 +48,10 @@ export class AmbientSystem {
     this.gust = { t: 3 + this.rand() * 4, phase: 99, strength: 1, value: 0 };
     this._c = new THREE.Color();
     this._gateColors = new Map();
+    /** a wave walks the other way than the terrain's gates show (Rear Ambush's even waves) */
+    this.gatesReversed = false;
+    /** the road's travel direction against the map's tracks (Reverse Route XOR an ambush wave) */
+    this.chevronsReversed = false;
     this.build();
   }
 
@@ -348,11 +352,19 @@ export class AmbientSystem {
         gA.push(m.x, PATH_H + 0.032, m.z, D * 1.12, D * 1.12, R.ringSoft, c.r, c.g, c.b, 0.18 + 0.12 * pulse);
       } else if (m.kind === 'chevron') {
         // a soft pulse runs along the road in its travel direction
-        const k = 0.5 + 0.5 * Math.sin(t * 3.2 - m.d * 2.4);
-        gN.push(m.x, PATH_H + 0.016, m.z, 0.5, 0.5, R.chevron, 0.08, 0.1, 0.2, 0.22, m.rot);
-        gN.push(m.x, PATH_H + 0.022, m.z, 0.44, 0.44, R.chevron, 1, 0.97, 0.88, 0.42 + 0.3 * k, m.rot);
+        const rv = this.chevronsReversed;
+        const k = 0.5 + 0.5 * Math.sin(t * 3.2 - (rv ? -m.d : m.d) * 2.4);
+        const rot = rv ? m.rot + Math.PI : m.rot;
+        gN.push(m.x, PATH_H + 0.016, m.z, 0.5, 0.5, R.chevron, 0.08, 0.1, 0.2, 0.22, rot);
+        gN.push(m.x, PATH_H + 0.022, m.z, 0.44, 0.44, R.chevron, 1, 0.97, 0.88, 0.42 + 0.3 * k, rot);
       }
     }
+  }
+
+  /** Turns the gate arrows (relative to the terrain's gates) and the junction chevrons (absolute). */
+  setGatesReversed(gates, chevrons = gates) {
+    this.gatesReversed = !!gates;
+    this.chevronsReversed = !!chevrons;
   }
 
   /** Bouncing arrows + glowing discs at every spawn / goal gate (cute, readable from afar). */
@@ -366,11 +378,13 @@ export class AmbientSystem {
         col = new THREE.Color(g.color);
         this._gateColors.set(g.color, col);
       }
-      const [dx, dz] = g.dir;
+      const flip = this.gatesReversed;
+      const dx = flip ? -g.dir[0] : g.dir[0];
+      const dz = flip ? -g.dir[1] : g.dir[1];
       // ground quads turn by rot about +y with the texture's +u (the arrow tip) along
       // (cos rot, -sin rot) in xz: this points the tip along the road's travel direction
       const rot = Math.atan2(-dz, dx);
-      const spawn = g.kind === 'spawn';
+      const spawn = (g.kind === 'spawn') !== flip;
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + (spawn ? 0 : 1.5));
       // glowing disc under the gate
       if (spawn) {

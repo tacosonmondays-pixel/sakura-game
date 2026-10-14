@@ -31,6 +31,7 @@ import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/co
 import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
+import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
@@ -146,6 +147,9 @@ export function mountBattle(root, params, hooks) {
   function build() {
     const feed = createFeed(layer);
     ctx.feed = feed;
+    // battle modes + map rules (src/ui/battle/modes.js): the HUD chip and pill, toasts, banners
+    const modesUi = createModesBattle(ctx);
+    ctx.modes = modesUi;
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -160,7 +164,7 @@ export function mountBattle(root, params, hooks) {
     const panel = createTowerPanel(ctx);
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed];
+    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, modesUi];
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
@@ -192,7 +196,9 @@ export function mountBattle(root, params, hooks) {
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
-      for (const [runs, w] of [[spawnRuns, 1], [exitRuns, 0.2]]) {
+      // the live spawn gates: a reversed route (Reverse Route, an ambush wave) comes in at the exits
+      const pairs = sim.routeReversed ? [[exitRuns, 1], [spawnRuns, 0.2]] : [[spawnRuns, 1], [exitRuns, 0.2]];
+      for (const [runs, w] of pairs) {
         for (const run of runs) {
           for (const [x, y] of run) {
             const p = renderer.worldToScreen(x, y, 0);
@@ -403,6 +409,8 @@ export function mountBattle(root, params, hooks) {
 
     // ---- events from the sim (via renderer.update) ------------------------------------------
     const announcedNew = new Set();
+    /** map rule warnings that matter most (route, mode) lead; affinity follows the sim's */
+    const ruleFirst = (ws) => ws.filter((w) => w.kind !== 'affinity').concat(ws.filter((w) => w.kind === 'affinity'));
     function warnFor(n) {
       let list = [];
       try {
@@ -411,6 +419,7 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       for (const w of list) if (w.kind === 'new') for (const id of [w.enemyId, ...(w.enemyIds || [])]) if (id) announcedNew.add(id);
+      list = [...ruleFirst(ctx.modes?.warnings(n) || []), ...list];
       for (const w of list.slice(0, 3)) {
         const kind = w.severity === 'danger' ? 'bad' : w.severity === 'warn' ? 'warn' : 'info';
         feed.push(w.text, kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
@@ -420,6 +429,7 @@ export function mountBattle(root, params, hooks) {
     function handle(events) {
       for (const ev of events) {
         fpBattle?.handle(ev);
+        ctx.modes?.handle(ev);
         switch (ev.type) {
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
@@ -446,7 +456,7 @@ export function mountBattle(root, params, hooks) {
           case 'waveStart':
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
-            feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
@@ -533,6 +543,7 @@ export function mountBattle(root, params, hooks) {
       ctx.audio?.events(events); // [audio]
       handle(events);
       fpBattle?.update();
+      ctx.modes?.update();
       if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
       bar.update();

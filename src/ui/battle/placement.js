@@ -31,6 +31,7 @@ export function createPlacement(ctx) {
   let unitId = null;
   let mode = null; // 'tap' | 'drag'
   let last = null; // { x, y, ok, reason }
+  let padHint = null;
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -53,6 +54,7 @@ export function createPlacement(ctx) {
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
       h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', ` · ${fmtCoins(cost)}`)),
+      padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
   }
@@ -82,6 +84,7 @@ export function createPlacement(ctx) {
   }
 
   function end() {
+    padHint = null;
     unitId = null;
     mode = null;
     last = null;
@@ -98,6 +101,12 @@ export function createPlacement(ctx) {
     const chk = sim.canPlace(unitId, x, y);
     last = { x, y, ok: chk.ok, reason: chk.reason };
     ctx.renderer.setGhost(unitId, x, y, chk.ok);
+    // crystal pads (map rule): "+25% damage · +0.7 range" on a free pad, "Pad taken by Aoi" on a taken one
+    const ph = ctx.modes?.padHint(chk.x ?? x, chk.y ?? y) ?? null;
+    if (ph !== padHint) {
+      padHint = ph;
+      renderHint();
+    }
     return chk;
   }
 

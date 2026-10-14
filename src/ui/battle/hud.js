@@ -30,6 +30,7 @@ export function createHud(ctx) {
     'div.bt-stage-label',
     h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.name),
     h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),
+    ctx.modes?.chip || null,
     ctx.req.practice ? h('span.bt-practice', 'Practice') : null,
     fp ? h(`span.bt-fp-chip.bt-fp-${fp.id}`, { 'data-testid': 'hud-freeplay' }, `Freeplay · ${fp.name}`) : null,
   );
@@ -42,7 +43,7 @@ export function createHud(ctx) {
     { 'data-testid': 'battle-hud' },
     h('div.bt-hud-left', pauseBtn, h('div.bt-stats', livesBox, cashBox), waveBox),
     h('div.bt-hud-mid', scout.el),
-    h('div.bt-hud-right', stageLabel, speedBtn),
+    h('div.bt-hud-right', ctx.modes?.pill || null, stageLabel, speedBtn),
   );
 
   let last = { lives: null, cash: null, wave: null, speed: null, state: null };

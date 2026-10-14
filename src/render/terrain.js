@@ -187,7 +187,7 @@ export function resolveScenery(stage, familyOf = () => null) {
  * @param {{ keywords: string[] }} scenery
  * @param {{ quality?: string, shadows?: boolean }} opts
  */
-export function buildTerrain(map, look, scenery, { shadows = false, quality = 'high' } = {}) {
+export function buildTerrain(map, look, scenery, { shadows = false, quality = 'high', reverse = false } = {}) {
   // a map may restyle its bridges (e.g. a steel-grating overpass on a timber-deck theme)
   if (map.bridge) look = { ...look, bridge: { ...look.bridge, ...map.bridge } };
   // … its road surface (e.g. conveyor belts) and its tunnels (e.g. an ice cave)
@@ -210,8 +210,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- roads: the canonical centrelines (MapDef.tracks), run out past the board ------
   const plan = planRoads(map, { margin: MARGIN });
   const pathSet = new Set([...stampTracks(mapTracks(map)), ...plan.extraTiles]);
-  const entrances = plan.entrances;
-  const exits = plan.exits;
+  // Reverse Route (docs/specs/CODEX_MODES.md §8.4): the arches show this battle's usual start and
+  // goal, so the road's exits become the entrances (travel direction turned round) and back
+  const turn = (g) => ({ ...g, dir: [-g.dir[0], -g.dir[1]] });
+  const entrances = reverse ? plan.exits.map(turn) : plan.entrances;
+  const exits = reverse ? plan.entrances.map(turn) : plan.exits;
   const inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
   // centreline pieces for the painter (buried tunnel sections excluded)
   const roads = [];
