@@ -14,7 +14,9 @@
 //   { type: 'start', start }         host → guest: seed, stage, both players' loadouts, version
 //                                    (re-sent until the guest's first lockstep packet arrives)
 //   { type: 'ls', m }                lockstep traffic during the battle
-//   { type: 'leave', uid }
+//   { type: 'lobby', uid }           "the battle is over, I am back in the room's lobby" (the
+//                                    room, its code and the seats stay: see backToLobby)
+//   { type: 'leave', uid }           I left the room (Leave, Home, closing the tab)
 //
 // The lobby handshake heals itself. Broadcast is lossy (a message sent while the other side is
 // not subscribed yet, or while a channel reconnects, is simply gone), so nothing is said only
@@ -91,9 +93,6 @@ export const LOBBY = Object.freeze({
   mismatchSilentMs: 45000,
   /** guest without a host (or anyone without a link) this long: "can't find…" + Retry */
   findMs: 15000,
-  /** back in the room after a battle: the guest waits this long for the host (still reading the
-   *  results) before "can't find the host" */
-  returnWaitMs: 120000,
   /** my ally is here but its hellos have not shown it hears me for this long: my link is
    *  one-way, get a fresh channel (then a fresh socket), backing off ×2 up to oneWayMaxMs */
   oneWayMs: 7000,
@@ -102,6 +101,9 @@ export const LOBBY = Object.freeze({
   idleCloseMs: 30 * 60000,
   /** the host re-sends the start message until the guest's first lockstep packet arrives */
   startResendMs: 700,
+  /** the battle is over on my screen and my ally has caught up (or is back in the room): a
+   *  lockstep beat only this often, which just tells a lobby waiting for me that I am still here */
+  restBeatMs: 8000,
 });
 
 /**
@@ -131,7 +133,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     /** the ally who was here and left / went silent ({ name, why }), until someone pairs */
     lastPeer: null,
     /** back in the room after a battle: the ally from that battle ({ uid, name, inRoom }), until
-     *  they pair again or leave. inRoom: they are already back (else still on the results) */
+     *  they pair again, leave, or go quiet for LOBBY.peerSilentMs. inRoom: they are back in the
+     *  room too (else still on their battle screen: the results, or a battle that runs on) */
     returning: null,
     peerGone: false,
     /** my link to the room: 'connecting' (never joined yet) | 'connected' | 'reconnecting' */
@@ -160,7 +163,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   let oneWaySince = 0; // since when my ally is here without seeing me (0: not now)
   let oneWayTries = 0; // fresh channels / sockets asked for since we last were paired
   let lastActivity = t0; // ally joined / left, either Ready, stage, Retry (an untouched lobby closes)
+  let returningHeard = 0; // last message from the ally of the last battle (s.returning)
+  // this battle's ally: back in the room ('lobby'), or left the room for good ('leave'); only a
+  // room 'leave' means gone for good (a lockstep goodbye also comes after a desync)
+  let allyInRoom = false;
+  let allyLeft = false;
+  let restSince = 0; // the battle is over on my screen since (0: not yet)
+  let lastRestBeat = -Infinity;
   const hidden = () => doc?.hidden === true;
+  /** The other player of the battle that runs (or just ran) here. */
+  const isAlly = (uid) => !!uid && uid !== s.me.uid && !!s.start?.players.some((p) => p.uid === uid);
 
   const send = (msg, opts) => room?.send(msg, opts);
   function hello() {
@@ -222,7 +234,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     s.stuck = null;
     try {
       send({ type: 'leave', uid: s.me.uid });
-      room.close();
+      room.close(); // a host's room is gone for good here (the code is free again)
     } catch (e) {
       console.warn('[coop] idle close failed', e);
     }
@@ -244,7 +256,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       oneWaySince = 0;
       searchSince = now();
       lastActivity = now();
-      if (!isHost && why === 'left') s.me.ready = false;
+      if (!isHost && why === 'left') {
+        s.me.ready = false;
+        if (s.stuck === 'host') s.stuck = null; // the host left: nothing to retry (see lobbyTick)
+      }
     } else if (s.lockstep) {
       const p = [...s.lockstep.peers.values()][0];
       // leaving on purpose is final, even after a lost connection (no rejoin then)
@@ -316,6 +331,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   function handle(msg, from) {
     if (!msg || typeof msg !== 'object') return;
     if (s.peer && from && from === s.peer.uid) peerHeard = now();
+    // the ally of the last battle is still there (its battle or results screen keeps talking)
+    if (s.returning && from && from === s.returning.uid) returningHeard = now();
     switch (msg.type) {
       case 'hello':
         if (s.phase === 'lobby') onHello(msg);
@@ -348,16 +365,27 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         begin(msg.start);
         break;
       case 'ls':
+        // lockstep traffic only means something to a running battle: an ally still on its
+        // results screen keeps beating into the room after I went back to the lobby (and such
+        // a beat must not count as the guest's answer to the next battle's start)
+        if (s.phase !== 'battle' || !s.lockstep) break;
         if (isHost) guestHeard = true;
-        s.lockstep?.receive(msg.m);
+        s.lockstep.receive(msg.m);
         break;
       case 'leave':
-        if (s.peer && msg.uid === s.peer.uid) peerLeft();
+        if (s.phase === 'battle' && isAlly(msg.uid)) {
+          // my ally left the room (Leave / Home / closed the tab), not just this battle
+          allyLeft = true;
+          peerLeft();
+          emitter.emit('ally', 'left');
+        } else if (s.peer && msg.uid === s.peer.uid) peerLeft();
         else if (s.returning && msg.uid === s.returning.uid && s.phase === 'lobby') {
           // the ally from the last battle went home instead of back to the room
           s.lastPeer = { name: s.returning.name, why: 'left' };
           s.returning = null;
+          searchSince = now();
           lastActivity = now();
+          if (!isHost && s.stuck === 'host') s.stuck = null;
           changed();
         } else if (s.mismatch && msg.uid === s.mismatch.uid && s.phase === 'lobby') {
           // the player on the other build left (or reloads into a fresh room): stop pointing at them
@@ -368,10 +396,12 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       case 'lobby':
         // my ally is back in the room after the battle: its lockstep stopped, so stop waiting on
         // it (the battle is over on its screen; mine finishes on its own if it is not yet)
-        if (s.phase === 'battle' && s.start?.players.some((p) => p.uid === msg.uid && p.uid !== s.me.uid)) {
-          s.allyInRoom = true;
+        if (s.phase === 'battle' && isAlly(msg.uid) && !allyInRoom) {
+          allyInRoom = true;
           const p = s.lockstep && [...s.lockstep.peers.values()][0];
           if (p && !p.gone) s.lockstep.dropPeer(p, 'lobby');
+          else if (p && p.why !== 'left') p.why = 'lobby'; // dropped before: no rejoin offer now
+          emitter.emit('ally', 'room');
           changed();
         }
         break;
@@ -428,13 +458,23 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     }
     const up = s.link === 'connected' && room?.connected !== false;
     if (s.peer && up && t - Math.max(peerHeard, connectedAt) > LOBBY.peerSilentMs) peerLeft('silent');
+    if (s.returning && !s.peer && up && t - Math.max(returningHeard, connectedAt) > LOBBY.peerSilentMs) {
+      // the ally of the last battle went quiet (its tab closed without a goodbye, the phone
+      // slept, the connection dropped): like any ally gone silent, it may still come back
+      s.lastPeer = { name: s.returning.name, why: 'silent' };
+      s.returning = null;
+      searchSince = t;
+      changed();
+    }
     if (s.mismatch && up && t - Math.max(mismatchHeard, connectedAt) > LOBBY.mismatchSilentMs) {
       clearMismatch();
       changed();
     }
     if (!s.stuck && !s.peer && t - searchSince > LOBBY.findMs) {
       if (s.link !== 'connected') s.stuck = 'server';
-      else if (!isHost && !s.mismatch && (!s.returning || t - searchSince > LOBBY.returnWaitMs)) s.stuck = 'host';
+      // no alarm while the host is still on its battle screen (it keeps saying so) or left the
+      // room (the room stays: they pair up again here when the host is back)
+      else if (!isHost && !s.mismatch && !(s.returning && !s.returning.inRoom) && s.lastPeer?.why !== 'left') s.stuck = 'host';
       if (s.stuck) changed();
     }
     if (!up) return;
@@ -457,11 +497,41 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     }
   }, LOBBY.tickMs);
 
+  /**
+   * The battle is over on my screen (results). My ally needs my beats until it has run to the
+   * end too; after that (or once it is back in the room) one every LOBBY.restBeatMs only tells
+   * a lobby that waits for me that I am still here, and none once my ally left the room.
+   */
+  function restBeat() {
+    const ls = s.lockstep;
+    const t = now();
+    if (!restSince) {
+      restSince = t;
+      lastRestBeat = t;
+      ls.beat(true); // my last horizon and ack, at once
+      return;
+    }
+    const behind = [...ls.peers.values()].some((p) => !p.gone && p.ack < ls.tick - 1 && t - p.lastHeard < COOP.timeoutMs);
+    if (behind) {
+      ls.beat();
+      return;
+    }
+    if (allyLeft || t - lastRestBeat < LOBBY.restBeatMs) return;
+    lastRestBeat = t;
+    ls.beat(true);
+  }
+
   let pump = 0;
   function begin(start) {
     s.start = start;
     s.phase = 'battle';
     s.stuck = null;
+    // a fresh battle (also after "Back to the room"): nothing from the last one carries over
+    guestHeard = false;
+    allyInRoom = false;
+    allyLeft = false;
+    restSince = 0;
+    lastRestBeat = -Infinity;
     const mySlot = start.players.find((p) => p.uid === s.me.uid)?.slot ?? (isHost ? 0 : 1);
     s.lockstep = new Lockstep({
       start,
@@ -498,7 +568,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       const dt = (t - last) / 1000;
       last = t;
       if (!s.lockstep) return;
-      if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
+      if (s.lockstep.finished) restBeat();
+      else if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
       else s.lockstep.beat();
     }, net.heartbeatMs);
     emitter.emit('start', s);
@@ -563,7 +634,6 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       pump = 0;
       const t = now();
       const ally = s.start?.players.find((p) => p.uid !== s.me.uid) || null;
-      const lp = s.lockstep && [...s.lockstep.peers.values()][0];
       send({ type: 'lobby', uid: s.me.uid });
       s.phase = 'lobby';
       s.start = null;
@@ -572,15 +642,20 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       s.peer = null;
       s.stuck = null;
       s.me.ready = isHost;
-      if (ally && lp?.gone && lp.why === 'left') {
-        // they left the battle for good (Leave / Home): nobody to wait for
+      if (ally && allyLeft) {
+        // they left the room (Leave / Home / closed the tab): nobody to wait for
         s.lastPeer = { name: ally.name || 'Your ally', why: 'left' };
         s.returning = null;
       } else {
+        // back in the room already, or still on their battle screen (the results, or a battle
+        // that runs on after a split): wait for them while they keep saying they are there
         s.lastPeer = null;
-        s.returning = ally ? { uid: ally.uid, name: ally.name || 'Your ally', inRoom: !!s.allyInRoom } : null;
+        s.returning = ally ? { uid: ally.uid, name: ally.name || 'Your ally', inRoom: allyInRoom } : null;
       }
-      s.allyInRoom = false;
+      returningHeard = t;
+      allyInRoom = false;
+      allyLeft = false;
+      restSince = 0;
       peerSeesMe = false;
       oneWaySince = 0;
       oneWayTries = 0;
@@ -596,14 +671,19 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     player(slot) {
       return s.start?.players.find((p) => p.slot === slot) || null;
     },
-    close() {
+    /**
+     * Leave the room: goodbye to the ally, the seat freed. A host's room itself stays registered
+     * (keepRoom), so opening it again ("Your last room", a reload) gets the same channel back and
+     * an ally still waiting in it pairs up at once; keepRoom: false (New room) gives the code up.
+     */
+    close({ keepRoom = true } = {}) {
       if (s.phase === 'closed') return;
       timers.clearInterval(pump);
       timers.clearInterval(beacon);
       try {
         s.lockstep?.leave();
         send({ type: 'leave', uid: s.me.uid });
-        room.close();
+        room.close({ keep: keepRoom });
       } catch (e) {
         console.warn('[coop] close failed', e);
       }
@@ -619,10 +699,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   const onPageHide = () => s.close();
   globalThis.addEventListener?.('pagehide', onPageHide);
   const close0 = s.close;
-  s.close = () => {
+  s.close = (opts) => {
     globalThis.removeEventListener?.('pagehide', onPageHide);
     doc?.removeEventListener?.('visibilitychange', onVisibility);
-    close0();
+    close0(opts);
   };
 
   // live getters (Object.assign above would freeze a getter into its first value); the room
