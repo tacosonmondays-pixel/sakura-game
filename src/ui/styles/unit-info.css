@@ -435,6 +435,15 @@
   /* hero levels in the 196 px side panel: the chips go under the line instead of squeezing it */
   .ut-levels li { grid-template-columns: 20px minmax(0, 1fr); row-gap: 1px; }
   .ut-levels li > .tag-chips { grid-column: 2; justify-content: flex-start; }
+  /* the capstone's gold double ring is drawn outside the circle: keep it off the name below */
+  .ut-overlay .ut-circle { margin-bottom: 3px; }
+  .ut-overlay .ut-cell.capstone .ut-circle { box-shadow: 0 0 0 1.5px #ffc300, 0 0 0 3px #fff, 0 0 0 4px #8a5a00, 0 2px 6px rgba(138, 90, 0, 0.3); }
+  /* the 196 px card panel: a smaller card, and "Her info" above the legend and the rule text so
+     it is on screen without scrolling */
+  .ut-overlay .ut-card-art { width: 40%; }
+  .ut-overlay .ut-card-panel > .ut-side-acts { order: 1; }
+  .ut-overlay .ut-card-panel > .tag-legend { order: 2; }
+  .ut-overlay .ut-card-panel > .ut-side-rule { order: 3; }
 }
 
 /* portrait / narrow: single column, the detail becomes a bottom sheet */
@@ -459,8 +468,10 @@
   .ut-side.ut-side-detail { border-top: 1px solid var(--line); border-bottom: none; }
   .ut-overlay .ut-grid { --circle: 30px; --cell-gap: 3px; }
   .ut-overlay .ut-eff { display: none; }
-  .ut-overlay .ut-name { font-size: 10px; }
-  .ut-name { hyphens: auto; }
+  /* names at 10 px with a slim cell padding keep whole words ("Sharpened", "Thousand") on one
+     line in the sheet as well as the tree: hyphenation dictionaries are not on every device */
+  .ut-name { font-size: 10px; hyphens: auto; }
+  .us-sheet .ut-cell { padding-left: 2px; padding-right: 2px; }
   .ut-overlay .ut-row-focus, .ut-overlay .ut-row-head .tag-summary { display: none; }
   /* chips stay (who it helps is the point), as glyph + letter; the legend above the grid spells them out */
   .ut-overlay .ut-foot .tag-chip .tag-word { display: none; }

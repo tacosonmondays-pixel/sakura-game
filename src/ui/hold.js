@@ -255,7 +255,7 @@ let uninstall = null;
 export function installHoldInfo() {
   if (uninstall) return uninstall;
   let active = null; // { target, g, route, id }
-  let lastFire = -1e9;
+  let lastTouchFire = -1e9; // a touch long-press (Android) also sends contextmenu: ignore that one
 
   const detach = () => {
     document.removeEventListener('pointermove', onMove, true);
@@ -285,7 +285,7 @@ export function installHoldInfo() {
       onStart: () => showHoldRing(target.anchor, HOLD_MS - RING_DELAY_MS),
       onCancel: () => hideHoldRing(),
       onFire: () => {
-        lastFire = performance.now();
+        if (e.pointerType !== 'mouse') lastTouchFire = performance.now();
         navigator.vibrate?.(10);
         swallowNextClick();
         hideHoldRing({ pop: true });
@@ -328,8 +328,9 @@ export function installHoldInfo() {
     const target = holdTarget(e.target);
     if (!target) return;
     e.preventDefault();
-    // a touch long-press (Android) already opened her sheet through the hold
-    if (active || performance.now() - lastFire < 1500) return;
+    // a touch long-press (Android) already opened her sheet through the hold; a mouse hold never
+    // sends contextmenu, so a right-click right after one still opens the sheet
+    if (active || performance.now() - lastTouchFire < 1500) return;
     open(target, currentRoute().name);
   }
   function onKey(e) {

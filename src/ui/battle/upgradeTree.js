@@ -150,6 +150,10 @@ export function createUpgradeTree(ctx) {
       }
       loadDescribe();
     }
+    // render() reset these while the overlay was hidden, which the browser ignores: a reopened
+    // tree would otherwise come back scrolled to where the last one was left
+    gridWrap.scrollTop = 0;
+    side.scrollTop = 0;
     requestAnimationFrame(() => overlay.querySelector('.ut-close')?.focus({ preventScroll: true }));
   }
 
