@@ -1072,15 +1072,75 @@ placement and the tower panel must go through `ctx.act`. `ctx.applyResult` / `ct
 `out.note` let co-op and the clan boss replace the solo result handling. Solo battles must behave exactly
 as before when neither is set.
 
+**Social update** (DMs, friends, co-op invites by DM, clan material requests) — schema
+`supabase/migrations/20261013000000_social.sql` (a NEW idempotent file; the applied
+`20261008000000_online.sql` is never edited). Every social facade method first awaits `socialStatus()` and
+throws `OnlineError('needs_update', …, { definitive: true })` without a request while the server lacks the
+social functions (the frontend deploys BEFORE the owner runs the SQL; the Supabase adapter maps
+`PGRST202 / PGRST205 / 42883 / 42P01 / 404` to `needs_update` for social calls only, core calls keep their
+old errors). The UI then shows `needsUpdateCard()` (src/ui/online/needsUpdate.js) and adds no new Realtime
+listener; chat, clans, the boss and co-op behave as before.
+
+```js
+be.socialStatus() / be.recheckSocial()   // 'ready' | 'needs_update' | 'offline'; never throws (ready cached for the session, needs_update 5 min)
+be.socialSummary()                       // { unreadDms, friendRequests, donationsReady, privacy }
+be.playerCard(userId)                    // { userId, name, level, avatar, clan, clanmate, lastActive (friends/clanmates only), isSelf, friend: 'none'|'requested'|'incoming'|'friends',
+                                         //   requestId, blockedByMe, canMessage, why, canFriend, friendWhy, threadId }
+be.setPrivacy('friends_clan'|'friends'|'nobody') be.myFriendCode() be.resetFriendCode()   // { code: 'K7Q2ZP4M' } (formatFriendCode → K7Q2-ZP4M)
+be.friends() be.friendRequests() be.inviteCandidates()      // friends / { incoming, outgoing (no target ids) } / friends + clanmates for "Invite a friend"
+be.addFriend(userId) be.addFriendByCode(code) be.answerFriend(requestId, accept) be.cancelFriendRequest(requestId) be.removeFriend(userId)
+be.block(userId) be.unblock(userId) be.blocked() be.report(userId, { reason, note, context, messageId })
+be.inbox()                               // { threads: [{ id, peer, last, unread, canMessage }], unread }
+be.dmHistory(threadId, { before, limit }) // { peer, canMessage, why, messages (newest first), hasMore }
+be.sendDm(userId, body)                  // message + threadId (the first message creates the thread)
+be.sendCoopInvite(userId, { room, stage, difficulty })   // the server writes the text and meta.expires (now + 15 min)
+be.inviteState(messageId) be.markRead(threadId, lastId) be.clearThread(threadId)
+be.subscribeInbox(cb)                    // cb({ type: 'dm'|'friend_request'|'donation', row }) -> unsubscribe; postgres_changes, never presence
+be.donationState()                       // { today, nextReset, serverNow, clanId, myRequest, requests, collectable, donatedToday, cap, canRequest, requestWhy,
+                                         //   canDonate, donateWhy, weekly, mythicOpen }
+be.requestMaterials(itemId) be.cancelMaterialRequest()
+be.donate(requestId, count, key)         // idempotent by key: { key, item, count, points, reward: { coins }, request, donatedToday, cap, replayed } | { key, voided: true }
+be.settleDonations(keys)                 // [{ key, state: 'applied'|'voided', item, count, coins }] — voids unknown keys under the donate lock
+be.claimDonations(key)                   // { key, items: [{ item, count, from }], replayed, expired? } — the same key replays the same set for 24 h
+```
+
+Rules modules: `src/online/socialRules.js` (privacy values, friend / block / DM numbers, `bodyError()` /
+`validMessageBody()` = SQL `valid_dm_body`, `validDmMeta()`, `inviteBody()`, `whyText()` — a block and a
+setting read the same), `src/online/donateRules.js` (`DONATE_RULES` by rarity: size 10/6/3/1, per donor
+5/3/2/1, points 1/2/5/10, super rare 3 and mythic 1 per 7 days, mythic only in an established clan;
+`DONOR_DAILY_POINTS` 30, `DONOR_COINS_PER_POINT` 50, `CLAN_XP_PER_POINT` 1), `src/online/donateLedger.js`
+(escrow / finalize / refund / settle / claim, pure over the profile; the caller `store.saveNow()`s; refunds
+only on a `definitive` error or a `voided` key). Save block `profile.social = { escrow, donated, pendingClaim,
+claimed }` (`cleanSocial()` in `src/online/socialSave.js`; no `SAVE_VERSION` bump). Rate limits (`RULES` in
+limits.js, the same literal numbers in the SQL): dm 1/2 s + 20/min, dm_day 300, dm_new 10/day, invite 1/5 s +
+20/h (4/h per pair on the server), friend 10/h, block 30/h, report 1/10 s + 10/day, settings 20/h, card
+120/h, rename 3/day, donate 1/500 ms + 60/h. Error codes `needs_update` (client) and `daily_limit:<ms to reset>`.
+
+**Game day** — every daily cap resets at **7 PM America/Chicago** (owner decision D3, DST-aware).
+`src/core/reset.js` `gameDay(t)` = SQL `game_day_key(t)` = `'YYYY-MM-DD'` of the date the game day ENDS
+(Tue 7 PM → Wed 7 PM is "Wednesday"); `nextDailyReset(t)` = SQL `next_game_reset()`. Never store the
+start-date expression `((now() at time zone 'America/Chicago') - interval '19 hours')::date` (it flips at the
+same instant but names the day one date earlier); the UI counts down with the server's `nextReset` and
+`serverNow`, not the device clock.
+
 **Routes** — `#/chat[?tab=clan]`, `#/clan[/<id>]` (incl. clan boss and, in the dev clan, the Supply Bot),
-`#/coop[/<CODE>]`. Entry points: lobby chat bubble (drawer) + Menu (Clan / Co-op / Chat), Missions → Co-op,
-Settings → Online (name, status, transfer codes).
+`#/coop[/<CODE>]`, `#/messages[/<threadId>|/new][?tab=friends|requests|blocked]` (URLs carry thread ids,
+never account ids; `/new` keeps the peer in sessionStorage; back arrow: a conversation → the list → the
+lobby, `src/ui/nav.js`). Clan tab ids: `members`, `chat`, `donate` (label **Requests**: material requests),
+`boss`, `requests` (label **Applicants**: join requests; the id stays for old links), `supply` (dev clan).
+Entry points: lobby chat bubble (drawer, pink number = unread DMs + friend requests) + Menu (Clan / Co-op /
+Chat / Messages), Missions → Co-op, a name in chat / roster / co-op room → player card
+(`src/ui/online/playerCard.js`), Settings → Online (name, status, transfer codes, Who can message me,
+friend code, blocked players).
 
 **Supply Bot** (`src/online/supply.js`, `src/ui/online/supplyBot.js`) — only inside the `Rosie777` dev clan,
 always labelled DEVELOPER SANDBOX; grants any item or currency (up to `SUPPLY_MAX`) to the player's own
 local save. It never touches the server.
 
-**Tests** — `npx vitest run tests/online` (limiter, local adapter / mock DB, clan rules, clan boss, lockstep
+**Tests** — `npx vitest run tests/online tests/ui/social.test.js tests/core/reset.test.js` (social: the
+migration on PGlite as ten players incl. the function allow-list, privacy matrix, caps, races and the 7 PM
+boundary; the local mirror with an injected clock; ledger crash recovery; the deploy-order switch) and
+`node e2e/social.mjs`. Older suites: `npx vitest run tests/online` (limiter, local adapter / mock DB, clan rules, clan boss, lockstep
 with two simulated clients and delayed / lost / reordered packets, deterministic math, schema: the migration
 runs twice on PGlite with and without Supabase's default grants, RLS and rate limits exercised);
 `node e2e/online.mjs` (two pages of one browser on the local adapter: chat delivery, clan create / join,

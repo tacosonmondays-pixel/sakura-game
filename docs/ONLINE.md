@@ -1,4 +1,4 @@
-# Online features: chat, clans, clan boss, co-op, transfer codes
+# Online features: chat, clans, clan boss, co-op, messages, transfer codes
 
 Sakura Sentinels is a static site on GitHub Pages. The online features talk to a **Supabase** project on
 the free plan. Supabase provides anonymous accounts, Postgres with Row Level Security, and Realtime. The
@@ -13,14 +13,20 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Developer clan | Clan → Join with a code → `Rosie777` | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
 | Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
+| Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends and clanmates (after 3 days in the same clan), unread badges, live delivery, block, report, "Who can message me" (Friends & clan · Friends only · Nobody). Friends by request (clanmates, recent co-op partners) or by friend code (`K7Q2-ZP4M`) |
+| Co-op invites by DM | a conversation's **Invite to co-op**, a player card, or the room lobby's **Invite a friend** | Opens a room for you as host and sends the invite once the server registered it; the friend gets a pop-up on any screen with **Join** (no code typing). Invites expire after 15 min or when the room closes or fills |
+| Clan requests | Clan → Requests | Once per game day ask your clan for one material; clanmates donate from their own backpacks (30 donation points a day each, +50 coins and +1 clan XP per point); collect what arrived with one tap. Everything resets at **7 PM Central** |
 
 No profanity filter for now (owner's decision). Client **and** server rate limits are always on.
 
 ## Setup (about 5 minutes)
 
-**The schema is one file:** `supabase/migrations/20261008000000_online.sql`. It is the brief's
-`schema.sql`, kept in the Supabase CLI layout so that Supabase's GitHub integration can apply it. Paste
-that file into the SQL Editor if you set the database up by hand.
+**The schema is two files**, applied in order: `supabase/migrations/20261008000000_online.sql` (chat,
+clans, clan boss, co-op, transfer codes; already applied on the live project — never edit it) and
+`supabase/migrations/20261013000000_social.sql` (messages, friends, co-op invites by DM, clan requests;
+see "Run the social update" below). They are kept in the Supabase CLI layout so that Supabase's GitHub
+integration can apply them. Paste them into the SQL Editor in that order if you set the database up by
+hand; both are idempotent.
 
 ### Status for this repository (checklist)
 
@@ -42,6 +48,8 @@ yet". Do the next step first.
       keeps later migrations automatic.
 - [ ] **Merge to `main`.** The Pages workflow builds and deploys the game (and, if connected, the
       integration applies the migration; its log is under Integrations → GitHub).
+- [ ] **Run the social update** once the game update with Messages is live (see "Run the social
+      update" below). Until then those features say "Needs the latest server update".
 - [ ] Quick server check without the game (optional): open
       `https://<ref>.supabase.co/rest/v1/clans?select=id&limit=1` with header `apikey: <publishable key>`
       (or `curl -H "apikey: …" …`). `PGRST205 … Could not find the table` = migration not run yet;
@@ -55,6 +63,29 @@ yet". Do the next step first.
      Supabase → SQL Editor → New query, paste all of `supabase/migrations/20261008000000_online.sql`,
      and Run. Reload the game.
   5. Optional: Clan → Join with a code → `Rosie777` opens the developer clan and its Supply Bot.
+
+### Run the social update (messages, friends, co-op invites by DM, clan requests)
+
+The game update that adds these features goes live **before** its database part. Until the owner runs
+it, Messages, the player card's buttons, Settings → Online → "Who can message me" and Clan → Requests say
+**"Needs the latest server update"**; chat, clans, the clan boss and co-op keep working exactly as before.
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open the new migration's raw file on GitHub:
+   <https://raw.githubusercontent.com/tacosonmondays-pixel/sakura-game/main/supabase/migrations/20261013000000_social.sql>
+   (or open `supabase/migrations/20261013000000_social.sql` on GitHub and press **Raw**). Select all
+   (Ctrl+A / ⌘A) and copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**.
+   The file is idempotent: running it again is safe. (If the GitHub integration is connected, merging
+   to `main` already applied it; check Integrations → GitHub's log.) Never paste a service-role key
+   anywhere: nothing here needs one.
+4. Check: run `select public.social_version();` in the SQL Editor. It returns `1`.
+5. Reload the game. Settings → Online shows "Who can message me" and your friend code; Menu → Messages
+   opens; Clan → Requests shows "Ask for materials". Open screens notice by themselves within 5 minutes.
+
+**Important:** if `20261008000000_online.sql` is ever pasted again, paste `20261013000000_social.sql`
+again right after it (the old file resets every function grant and restores the old `join_room()`
+without the block check).
 
 ### Fresh project (or checking the settings)
 
@@ -101,7 +132,7 @@ other tabs of the same browser.
 | Mode | When | Behaviour |
 |---|---|---|
 | Online | the build has `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` | Supabase: anonymous auth, tables, Realtime |
-| Local test mode | the URL has `?online=local` (dev, tests, e2e) | Chat, clans, the boss and co-op run between **tabs of one browser** (BroadcastChannel + localStorage). Each tab is a separate player |
+| Local test mode | the URL has `?online=local` (dev, tests, e2e) | Chat, clans, the boss, co-op and the social features run between **tabs of one browser** (BroadcastChannel + localStorage). Each tab is a separate player. Add `&social=0` to play a server without the social update ("Needs the latest server update") |
 | Online features offline | no config in the build, or the server cannot be reached | Same as local test mode, with a grey pill. Nothing leaves the device |
 
 `npm run dev` and the e2e tests use `?online=local`. A local `npm run build` picks up `.env.production`
@@ -178,6 +209,132 @@ and co-op says that messages, clans and rooms only reach other tabs of this brow
 - **Housekeeping.** Chat older than 14 days and rate-limit records older than 25 hours are deleted as
   new rows arrive. There is no cron job.
 
+### Messages, friends, co-op invites and clan requests (the social update)
+
+Everything below is in `supabase/migrations/20261013000000_social.sql`; the client mirrors live in
+`src/online/socialRules.js`, `src/online/donateRules.js` and `src/online/limits.js`. Players may be
+young, so the defaults are the safe ones.
+
+- **Who can message whom.** A DM needs *both* players' "Who can message me" to allow it:
+  - **Friends & clan** (default): friends, and clanmates once *both* have been in the same clan for
+    3 days (the developer clan never counts).
+  - **Friends only**, or **Nobody** (no DMs and no DM invites at all, friends included).
+  - Strangers can never message each other; there is no "Everyone". To add someone met in global
+    chat, swap friend codes. A missing setting means the default, never "open".
+  - Never if either player blocked the other, or the sender is muted. A blocked sender gets exactly the
+    same refusal as a privacy refusal ("… can't get messages from you yet"), so a block is never revealed.
+- **Friends.** Mutual (request → accept). A request needs a shared context: the same clan, a co-op game
+  together in the last 7 days, or the friend code. Requests carry no text, only the sender's name as it
+  was when sent (names can change 3 times a day). A declined, blocked or "Nobody" request is silently
+  swallowed for 30 days (the sender still sees "Requested"); a full queue (30) drops its oldest request.
+  50 friends at most. Friend codes are 8 characters (40 random bits), shown only to their owner, and
+  reset with **New code**.
+- **What a DM may hold.** Text only, 1–200 characters, shown as plain text (no links, no images, no
+  HTML). No control / bidi / zero-width / tag characters, no blank-looking fillers or line separators,
+  at least one visible character, at most 4 stacked accents. Emoji sequences (ZWJ) are fine. The
+  server stamps the sender's name, level and avatar. The same invisible-character rule now applies to
+  new chat messages (`messages_social_guard` trigger).
+- **Co-op invites by DM** follow the DM rules. Only the host of a room with a free seat can invite; the
+  server writes the invite text and its expiry (15 min); one live invite per pair (a new one replaces the
+  old) and 4 per hour to the same player. "Later" on the pop-up hides that sender's invites for 30 min.
+- **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship and
+  pending requests go, the conversation leaves the blocker's inbox, the blocker no longer sees their
+  chat lines, and `join_room` refuses a guest the host has blocked.
+- **Report**: reason chips (bullying, inappropriate words, spam, asked for personal info, something
+  else), an optional note, "Also block" (on by default). The **server** copies the evidence (the
+  reported message, the last 20 DMs between the two, the target's name; ≤ 8 KB) into `reports`, which
+  no player can read. One open report per reporter and target (a repeat updates it).
+- **Auto-mute**: 3 *qualified* reporters within 24 h — online accounts at least 7 days old that had real
+  contact with the target (a DM from them, 24 h in the same clan, or a message of theirs they reported)
+  — mute the target from DMs, invites and friend requests for 24 h. Chat is only muted by the owner.
+  Brand-new alt accounts cannot mute anyone.
+- **Who reads what.** Players read only three new tables directly, for Realtime: DMs they sent or
+  received, friend requests sent *to* them (pending only) and their clan's material requests. Every other
+  read and every write is a `SECURITY DEFINER` function that checks `auth.uid()`. Internal helpers are
+  `SECURITY INVOKER` and revoked; a test fails if players can execute any function outside an explicit
+  allow-list. URLs carry conversation ids, never account ids; a friend code never reveals its owner's
+  account id before they accept.
+- **Clan requests and donations.** The server never sees backpacks (saves are local), so a donation is
+  "the server lets a clanmate grant up to the caps": the caps, not the donor's honesty, bound what anyone
+  can receive.
+  - Requestable: materials only (7 families), common · rare · super rare · mythic. Never legendary,
+    books, crowns, Star Fragments, dice, pins, gear boxes, tickets, tokens, coins, gems or event items.
+
+    | Rarity | Request size | Most from one donor | Points per piece | Extra rule |
+    |---|---:|---:|---:|---|
+    | Common | 10 | 5 | 1 | |
+    | Rare | 6 | 3 | 2 | |
+    | Super rare | 3 | 2 | 5 | 3 requests per rolling 7 days |
+    | Mythic | 1 | 1 | 10 | 1 per 7 days; clan ≥ 14 days old with ≥ 5 members of ≥ 3 days |
+
+  - **One request per player per game day** (across clans; cancelling does not give it back), after a
+    day in the clan. **Donors: 30 points per game day** (≤ 1,500 coins), +50 coins and +1 clan XP per
+    point; donors need 3 days in the clan and an online account at least 7 days old, and cannot donate
+    for 7 days after leaving the developer clan (its Supply Bot grants anything).
+  - The **game day** ends at **7 PM America/Chicago** (DST-aware; `game_day_key()` names it by the date
+    it ends). Requests close at the next 7 PM; donations wait 7 days for their requester, even after
+    leaving or being removed from the clan (the clan list shows "Donations waiting for you").
+  - Exactly once with a local save: a donation leaves the backpack before the server call (escrow in
+    the save) and comes back only after a definitive refusal or after `settle_donations()` voided its
+    key; collecting uses a replayable key (24 h). See `src/online/donateLedger.js`.
+- **Social rate limits** (client + server, same numbers):
+
+  | Action | Limit |
+  |---|---|
+  | Private message (and DM invite text) | 1 per 2 s, 20 per minute, 300 per rolling day |
+  | New conversation (first message to someone) | 10 per rolling day |
+  | Co-op invite by DM | 1 per 5 s, 20 per hour; 4 per hour to the same player |
+  | Friend request / friend-code try (a wrong code too) | 10 per hour |
+  | Block / unblock | 30 per hour |
+  | Report | 1 per 10 s, 10 per rolling day |
+  | Privacy change / new friend code | 20 per hour |
+  | Player card | 120 per hour |
+  | Name change | 3 per rolling day |
+  | Donation | 1 per 500 ms, 60 per hour (the real caps are the daily points) |
+
+- **Retention** (deleted as new rows arrive, no cron): DMs after 14 days and beyond the newest 200 per
+  conversation; friend requests after 30 days; donations 7 days unclaimed / 30 days claimed; donation
+  key tombstones after 90 days; ended automatic mutes after 30 days; reports and owner mutes are kept
+  until the owner deletes them.
+- **Realtime.** `direct_messages`, `friend_requests` and `donation_requests` join the publication
+  (`postgres_changes`, filtered and RLS-checked per player). The social features never use Realtime
+  presence (see "Realtime presence crashed co-op rooms").
+- **Known limits.** `profiles.last_active` is readable by every signed-in player since the first
+  migration (the social functions only hand it to friends and clanmates). Hiding the column needs
+  column grants that old cached clients would trip over; the new client already reads profiles with
+  explicit columns, so a later migration can do it. Friends, DMs and donations belong to the device's
+  anonymous online account: a transfer code moves the save, not the account.
+
+#### Moderation (owner, SQL Editor)
+
+Check reports weekly (Table Editor → `reports`, filter `status = open`), sooner for "Asked for personal
+info". Optional: a Database Webhook (Database → Webhooks, or Integrations → Database Webhooks) on
+`reports` INSERT that posts to an e-mail / chat service of your choice (dashboard only; no keys go into
+the repository).
+
+```sql
+-- open reports, newest first
+select r.id, r.created_at, r.reason, r.note, r.context, r.reporter_name, r.target_name, r.qualified, r.target_id, r.evidence
+from reports r where r.status = 'open' order by r.created_at desc;
+
+-- mark one reviewed (or 'actioned')
+update reports set status = 'reviewed', updated_at = now() where id = 123;
+
+-- mute a player for 3 days (owner mutes also cover global / clan chat)
+insert into social_mutes (user_id, until, reason, created_by)
+values ('<target uuid>', now() + interval '3 days', 'report 123', 'owner')
+on conflict (user_id) do update set until = excluded.until, reason = excluded.reason, created_by = 'owner';
+
+-- lift a mute
+delete from social_mutes where user_id = '<target uuid>';
+
+-- delete one player's private messages
+delete from direct_messages where sender_id = '<target uuid>';
+
+-- how big the DM table is (the free plan has 500 MB for everything)
+select pg_size_pretty(pg_total_relation_size('direct_messages'));
+```
+
 **Free plan quotas.** These are the ones that matter, as of 2026; check the Supabase pricing page.
 
 - **Realtime:** 200 concurrent connections, 100 messages per second for the whole project, 2 million
@@ -218,6 +375,15 @@ src/online/coop/                 lockstep.js, commands.js (wallets, ownership), 
 src/data/coop.js                 co-op tuning: HP ×1.6, cash share 0.6, input delay, heartbeat, hash interval, timeouts, colours, stage list
 src/ui/online/                   chat panel + lobby drawer, name prompt, status pill, Supply Bot, co-op HUD, Settings → Online
 src/ui/screens/{chat,clan,coop}.js   #/chat, #/clan, #/coop/<CODE>
+src/online/socialRules.js        [social] privacy, friends, DM text rules, invite meta, report reasons, auto-mute numbers, player-facing reasons
+src/online/donateRules.js        [social] what a clan may ask for, sizes, per-donor caps, points, 30 points a day, coins / clan XP per point
+src/online/donateLedger.js       [social] exactly-once donations and collects with a local save (escrow, settle, replayable collect key)
+src/online/socialSave.js         [social] profile.social sanitizer (the ledgers live in the save)
+src/online/adapters/localSocial.js  [social] the local adapter's copy of the social SQL rules (?online=local; &social=0 = server not updated)
+src/core/reset.js                the 7 PM Central game day: gameDay(), nextDailyReset(), formatCountdown() (shared with the energy update)
+src/ui/online/socialHub.js       [social] badges, the live inbox subscription, DM / friend / invite pop-ups (held during a battle)
+src/ui/online/{playerCard,reportDialog,inviteToast,coopInvite,donatePanel,needsUpdate,inboxButton}.js
+src/ui/screens/messages.js       #/messages, #/messages/<threadId> (conversations, friends + friend code, requests, blocked)
 supabase/migrations/*.sql        tables, RLS, functions, rate limits, realtime publication, dev clan seed
 supabase/config.toml             Supabase CLI config (anonymous sign-ins, realtime) for local stacks / preview branches
 ```
@@ -384,6 +550,7 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 ```bash
 npx vitest run tests/online
 node e2e/online.mjs
+node e2e/social.mjs           # DMs, friends, invites by DM, clan requests, block / report, needs-update
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
 node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
 ```
@@ -428,6 +595,19 @@ The vitest suite covers:
 - `supabaseAdapter.test.js`: runs the Supabase adapter against a recording fake of supabase-js. Every
   table, column, function, parameter and realtime filter it uses must exist in the migration, and
   every column it writes must be granted to players.
+- `socialSchema.test.js` (the social migration on PGlite, both grant modes, applied twice, as ten
+  players): the function allow-list (no helper executable by players), no direct reads or writes, the
+  7 PM Central game day across DST, the privacy matrix with no settings row and no clan, friend codes,
+  text rules, every social rate limit, Friends only / Nobody and the 72 h clan rule, blocks (same words
+  as privacy), decline tombstones and the full queue, renames, co-op invites by DM, reports + qualified
+  auto-mute, material requests, donations (caps, 30 points, clan XP, filled notice), settle / void, collect
+  replay, yesterday's request, leave / kick / disband, and races (same-key retries, two donors for the
+  last pieces, the 30-point cap with two requests at once, settle vs a late donate, two collects).
+- `localSocial.test.js`: the same rules on the local adapter with an injected clock (the 7 PM rollover).
+- `socialRules.test.js`, `donateLedger.test.js` (escrow / refund / settle / claim replay after a crash at
+  every step), `backendSocial.test.js` (the deploy order: `needs_update` without a request, chat and clans
+  unaffected), `tests/core/reset.test.js` (the game clock) and `tests/ui/social.test.js` (pop-up rules,
+  the invites kept for a room, the Messages back arrow).
 
 The e2e test opens two pages of one browser in local mode. It checks:
 
@@ -443,6 +623,13 @@ The e2e test opens two pages of one browser in local mode. It checks:
   shows "Reconnecting…" and comes back paired and still ready;
 - a co-op battle where both players place a girl and the state hashes match, a dropped and re-admitted
   guest, and the host playing on alone.
+
+`e2e/social.mjs` drives three players in local mode: friend request from the clan-chat player card, DMs
+both ways with badges and pop-ups, a co-op invite from the conversation → **Join** → both in the lobby
+(no code typed), the room's **Invite a friend** list, a material request → donation → collect (a reload
+pays nothing twice), the daily caps, a removed clanmate collecting from the clan list, report + block,
+Settings → Online, and a fourth tab with `&social=0` (the server before the owner runs the SQL) showing
+"Needs the latest server update" while clan chat still delivers.
 
 `e2e/engines.mjs` bundles `e2e/engines/scriptedBattle.js` once and runs it in Node, Bun, and Playwright's
 Chromium, Firefox and WebKit (whichever are installed; at least two engines must run, `--require-all`
@@ -463,6 +650,12 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | Co-op lobby or battle says **Reconnecting…** | That player's Realtime connection dropped (network change, phone sleeping). The game rejoins on its own within 1–15 s and says hello again; nothing to do. If it never ends, reload the page |
 | Co-op says **This room already has two players** to a friend who was just in it | They came back from another browser or device (a different anonymous account) while their old seat was still held (a crash or a tab killed by the phone skips the goodbye). The host taps **New room** (shown when the ally left) and sends the new code. See "Proposal: the host frees the seat" below |
 | Co-op lobby says **This room closed after 30 minutes without a battle** | Working as intended (Realtime bills every lobby message). Open a new room |
+| Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
+| A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |
+| Messages / Clan → Requests say **Needs the latest server update** | The social SQL has not run: see "Run the social update" above. Chat, clans and co-op are unaffected |
+| "… can't get messages from you yet" | Their "Who can message me" setting (or yours) does not include the other player, or one blocked the other (deliberately not told apart). Add each other as friends (friend code) |
+| "Daily limit reached — resets at 7 PM Central" | Working as intended: one material request and 30 donation points per game day |
+| "Checking your donation…" stays | The answer to a donation was lost. The game asks the server again on the next visit (Retry appears after two tries); the items come back only if the server never applied it |
 
 ### Proposal: the host frees the seat (server change, not applied)
 
@@ -519,5 +712,3 @@ change.
 3. Do not add presence back to co-op rooms. If a "who is online" feature ever needs presence, give it
    its own channel, so a slow track cannot block a room's messages, and never use it to decide that a
    player left.
-| Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
-| A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |

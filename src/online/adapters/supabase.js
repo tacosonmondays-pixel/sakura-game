@@ -184,7 +184,7 @@ export function createSupabaseAdapter({ url, key }) {
       }
       if (!user) throw new OnlineError('offline', 'Sign-in failed.');
       uid = user.id;
-      const existing = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
+      const existing = await q(c.from('profiles').select('id').eq('id', uid).maybeSingle());
       if (!existing) {
         // two tabs signing in at once share one account: the second insert must not fail
         await q(c.from('profiles').upsert({ id: uid, name: name || autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
@@ -200,7 +200,8 @@ export function createSupabaseAdapter({ url, key }) {
     async me() {
       if (!uid) return null;
       const c = await sb();
-      const p = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
+      // explicit columns (never profiles.*): a later migration can then hide other columns
+      const p = await q(c.from('profiles').select('id,name,level,avatar,last_active').eq('id', uid).maybeSingle());
       const m = await q(c.from('clan_members').select('clan_id').eq('user_id', uid).maybeSingle());
       return p ? { id: p.id, name: p.name, level: p.level, avatar: p.avatar, clanId: m?.clan_id || null, lastActive: ts(p.last_active) } : null;
     },
