@@ -724,7 +724,7 @@ export function render(root, params = {}) {
         onclick: () => {
           if (tab === t.id) return;
           tab = t.id;
-          history.replaceState(null, '', `#/student/${unit.id}?tab=${tab}`);
+          history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
           renderTabs();
           renderTab(true);
         },
