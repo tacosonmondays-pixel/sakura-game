@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createUpdateChecker, isChunkLoadError, MIN_GAP_MS } from '../../src/core/updates.js';
+import { createUpdateChecker, isChunkLoadError, MIN_GAP_MS, reloadFresh } from '../../src/core/updates.js';
 import { compareVersions, versionLabel, buildLine } from '../../src/core/buildInfo.js';
 import { sameVersion, coopVersion } from '../../src/online/coop/version.js';
 import { simId } from '../../tools/simId.mjs';
@@ -39,6 +39,39 @@ describe('update checker (version.json)', () => {
     const disabled = createUpdateChecker({ enabled: false, build: 'a', url: () => 'v', fetchImpl: () => { fetched = true; return reply({ build: 'b' }); } });
     expect(await disabled.check({ force: true })).toBe(null);
     expect(fetched).toBe(false);
+  });
+
+  it('tells "no newer version" apart from "could not check" (Settings must not say newest when offline)', async () => {
+    let ok = true;
+    const c = createUpdateChecker({ build: 'a', url: () => 'v', fetchImpl: () => (ok ? reply({ build: 'a' }) : Promise.reject(new TypeError('Failed to fetch'))) });
+    expect(await c.check({ force: true })).toBe(null);
+    expect(c.lastFailed()).toBe(false);
+    ok = false;
+    expect(await c.check({ force: true })).toBe(null);
+    expect(c.lastFailed()).toBe(true);
+    const notOk = createUpdateChecker({ build: 'a', url: () => 'v', fetchImpl: () => reply({}, false) });
+    await notOk.check({ force: true });
+    expect(notOk.lastFailed()).toBe(true);
+  });
+
+  it('Update always loads a page, even when the address already has ?v=<that build>', () => {
+    const replace = vi.fn();
+    vi.stubGlobal('location', { href: 'https://x.io/sakura/?v=ffffffffffff#/coop', replace });
+    try {
+      reloadFresh('ffffffffffff'); // same address: a nonce makes it a real navigation
+      const next = new URL(replace.mock.calls[0][0]);
+      expect(next.searchParams.get('v')).toBe('ffffffffffff');
+      expect(next.searchParams.get('r')).toMatch(/^[0-9a-z]+$/);
+      expect(next.hash).toBe('#/coop');
+      reloadFresh('abc123'); // a new build: just ?v=
+      expect(replace.mock.calls[1][0]).toBe('https://x.io/sakura/?v=abc123#/coop');
+      // an automatic reload (title screen) to the address it is already on does nothing: no loop
+      // while GitHub Pages still answers that URL with the old page
+      expect(reloadFresh('ffffffffffff', { auto: true })).toBe(false);
+      expect(replace).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('recognises the browsers\' "screen file is gone" errors', () => {

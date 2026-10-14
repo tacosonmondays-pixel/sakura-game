@@ -10,8 +10,16 @@
 .upd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 4px rgba(255, 221, 74, 0.25); flex: none; }
 .upd-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .upd-text small { opacity: 0.75; font-weight: 600; }
-.upd-x { width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 1.2rem; line-height: 1; flex: none; }
+.upd-x { position: relative; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 1.2rem; line-height: 1; flex: none; }
+/* 30 px to look at, 44 px to hit (Apple's minimum touch target) */
+.upd-x::after { content: ''; position: absolute; inset: -7px; }
 .upd-x:active { transform: scale(0.9); }
+/* short landscape phones: just the dot, Update and ×, so the pill (centred under the top bar)
+   stays clear of the tabs, tiles and fields there */
+@media (max-height: 420px) {
+  .upd-bar { gap: 6px; padding: 4px 4px 4px 10px; }
+  .upd-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 
 /* A screen that could not load (router): message + Try again / Reload. */
 .load-fail { margin: 12vh auto 0; width: min(420px, calc(100vw - 2 * var(--gutter))); text-align: center; }
