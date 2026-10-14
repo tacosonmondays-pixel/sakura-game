@@ -12,6 +12,7 @@ import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
 import { itemSources, itemCount } from '../systems/inventory.js';
+import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -369,6 +370,7 @@ export function stars(n, max = 5) {
 }
 
 export function rarityBadge(rarity) {
+  if (rarity === 'UR') return urBadge(); // display-only rarity of a fully awakened SSR (rarity.js)
   const r = UNIT_RARITIES[rarity] || ITEM_RARITIES[rarity];
   return h('span.rarity-badge', { style: { background: r?.color || '#999' } }, r?.name || rarity);
 }
@@ -427,22 +429,27 @@ export function showItemInfo(itemId) {
   return m;
 }
 
-/** Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'. */
+/**
+ * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
+ * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
+ */
 export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false } = {}) {
   const u = getUnit(unitId);
-  const r = UNIT_RARITIES[u.rarity];
+  const shown = owned ? displayRarity(u, store.profile) : u.rarity;
+  const r = rarityInfo(shown);
   const art = svgEl(portraitHTML(u, variant === 'tall' ? 'card' : 'thumb', { awaken }), 'unit-card-art');
   const el = h(
     `button.unit-card.unit-card-${variant}${owned ? '' : '.locked'}${selected ? '.selected' : ''}`,
-    { onclick: onClick, 'data-unit': unitId, style: { '--rarity': r.color } },
+    { onclick: onClick, 'data-unit': unitId, 'data-rarity': shown, style: { '--rarity': r.color } },
     art,
-    h('div.unit-card-rarity', r.name),
+    shown === 'UR' ? h('div.unit-card-rarity.unit-card-ur', urBadge()) : h('div.unit-card-rarity', r.name),
     level != null ? h('div.unit-card-level', `Lv.${level}`) : null,
     awaken ? h('div.unit-card-stars', '★'.repeat(awaken)) : null,
     h('div.unit-card-name', u.name),
     owned ? null : h('div.unit-card-lock', svgEl(uiIcon('lock'))),
   );
   el.style.setProperty('--rarity', r.color);
+  if (shown === 'UR') applyUrFrame(el, u, store.profile);
   return el;
 }
 

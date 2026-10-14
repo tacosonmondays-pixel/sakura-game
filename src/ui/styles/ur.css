@@ -1,0 +1,249 @@
+/* UR display (src/ui/rarity.js): an SSR at the last awaken star shows as UR — an animated rainbow
+   frame and a rainbow "UR" badge. Display only (no game rule reads UR).
+
+   Cost: the ring is a static mask and only the rainbow inside it turns (transform: rotate), and the
+   light sweep on the big cards and the twinkling glints are transform / opacity too — the
+   compositor runs them without style, layout or paint work, so a screen of UR cards stays smooth.
+   The only painted motion is the shimmer of the tiny "UR" letters (their gradient slides). No JS
+   runs per frame. Reduced motion (system setting or Settings → Reduce motion): everything holds
+   still, the rainbow and the glints stay. */
+
+:root {
+  /* one rainbow everywhere: rose → amber → lemon → mint → sky → violet → orchid → rose (loops) */
+  --ur-rainbow: #ff5f8f, #ffa53d, #ffe14d, #5fe39a, #4fc3ff, #8b7bff, #f36bff, #ff5f8f;
+  /* a rainbow halo: rose on the left, sky on the right, gold below, violet above */
+  --ur-glow: 0 0 0 1px rgba(255, 255, 255, 0.85), -4px 0 13px -1px rgba(255, 95, 143, 0.62), 4px 0 13px -1px rgba(79, 195, 255, 0.62),
+    0 5px 14px -1px rgba(255, 200, 60, 0.55), 0 -4px 12px -2px rgba(139, 123, 255, 0.55);
+  --ur-ink: #1c2240;
+}
+
+/* ---------- Ring: a frame-shaped mask, the rainbow inside it turns ---------- */
+.ur-ring {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  border-radius: inherit; overflow: hidden; padding: var(--ur-w, 3px);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+/* a square twice the frame's width, centred: covers any frame up to 3:5 at every angle */
+.ur-ring::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 200%; aspect-ratio: 1;
+  background: conic-gradient(var(--ur-rainbow));
+  transform: translate(-50%, -50%);
+  animation: ur-spin 4.5s linear infinite;
+}
+@keyframes ur-spin { from { transform: translate(-50%, -50%) rotate(0turn); } to { transform: translate(-50%, -50%) rotate(1turn); } }
+
+/* ---------- Glints: three little four-point stars that twinkle on the frame (opacity + transform) ---------- */
+.ur-sparkles { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: none; --ur-sp: 13px; }
+.unit-card-tall.is-ur > .ur-sparkles, .mb-show-stage.is-ur > .ur-sparkles, .sst-cell.is-ur > .ur-sparkles,
+.mb-fslot.is-ur > .ur-sparkles, .ur-ascend-card > .ur-sparkles { display: block; }
+.unit-card-tall.is-ur > .ur-sparkles { --ur-sp: 15px; }
+.ur-sparkles i {
+  position: absolute; width: var(--ur-sp); height: var(--ur-sp); margin: calc(var(--ur-sp) / -2);
+  background: radial-gradient(circle, #fff 0 16%, var(--c) 46%);
+  clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%);
+  opacity: 0; animation: ur-glint 3.6s ease-in-out infinite;
+}
+/* centred on the rainbow edge: the top edge, the right edge low, the left edge high */
+.ur-sparkles .s0 { left: 64%; top: 3px; --c: #ffe14d; }
+.ur-sparkles .s1 { left: calc(100% - 3px); top: 60%; --c: #4fc3ff; animation-delay: -1.2s; }
+.ur-sparkles .s2 { left: 3px; top: 36%; --c: #f36bff; animation-delay: -2.4s; }
+@keyframes ur-glint {
+  0%, 52%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  68% { opacity: 1; transform: scale(1.15) rotate(45deg); }
+  84% { opacity: 0; transform: scale(0.4) rotate(90deg); }
+}
+
+/* ---------- "UR" letters ---------- */
+.ur-text {
+  display: inline-block; font-weight: 900; font-style: italic; letter-spacing: 0.02em; line-height: 1;
+  padding: 0 0.08em; /* the italic tail stays inside the clipped box */
+  background: linear-gradient(90deg, var(--ur-rainbow)) 0 0 / 200% 100% repeat-x;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  /* a thin dark rim keeps lemon and mint readable on white and the letters crisp on the art */
+  filter: drop-shadow(0 0.6px 0 rgba(20, 16, 50, 0.9)) drop-shadow(0 0 1px rgba(20, 16, 50, 0.75));
+  animation: ur-shimmer 3.2s linear infinite;
+}
+@keyframes ur-shimmer { to { background-position: 200% 0; } }
+
+/* the badge: rainbow letters on a small dark pill with a hairline rainbow edge — reads on light
+   panels, dark panels and busy art alike */
+.ur-badge {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  padding: 1px 6px 2px; border-radius: 5px; border: 1.5px solid transparent;
+  background: linear-gradient(160deg, #2b2f5c, var(--ur-ink)) padding-box, linear-gradient(120deg, var(--ur-rainbow)) border-box;
+  box-shadow: 0 1px 3px rgba(10, 10, 40, 0.35), 0 0 8px rgba(255, 120, 220, 0.35);
+  font-size: 0.78rem; line-height: 1; vertical-align: middle; white-space: nowrap;
+}
+.ur-badge .ur-text { filter: none; }
+
+/* a soft light sweep across the big frames every few seconds (transform only) */
+.unit-card.is-ur::after, .mb-show-stage.is-ur::before, .ur-ascend-card::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(110deg, transparent 34%, rgba(255, 255, 255, 0.34) 47%, rgba(255, 255, 255, 0.06) 54%, transparent 64%);
+  transform: translateX(-130%);
+  animation: ur-sheen 4.5s ease-in-out infinite;
+}
+@keyframes ur-sheen { 0%, 70% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+
+/* ---------- Unit cards (components.js unitCard: students, formation picker, stage prep, mall…) ---------- */
+/* the rainbow takes the rarity strip's place: no bottom border (border-box, so the card keeps its
+   size), and what sat on the strip keeps its height (the name strip's dark runs on under the ring) */
+.unit-card.is-ur { border-bottom-width: 0; box-shadow: var(--ur-glow), var(--shadow); }
+.unit-card.is-ur .unit-card-name { border-bottom: 4px solid rgba(10, 20, 40, 0.85); }
+.unit-card.is-ur .unit-card-stars, .unit-card.is-ur .mb-card-role, .unit-card.is-ur .unit-card-level { margin-bottom: 4px; } /* (no effect on a top-anchored level) */
+.unit-card.is-ur .ur-ring { --ur-w: 3px; }
+.unit-card-tall.is-ur .ur-ring { --ur-w: 4px; }
+.unit-card.mb-tall.is-ur .ur-ring { --ur-w: 5px; } /* the big students grid cards */
+.unit-card-rarity.unit-card-ur { left: 5px; top: 5px; color: inherit; text-shadow: none; z-index: 4; }
+.unit-card-ur .ur-badge { font-size: 0.8rem; padding: 1px 5px 2px; }
+.unit-card-tall .unit-card-rarity.unit-card-ur { left: 7px; top: 7px; }
+.unit-card-tall .unit-card-ur .ur-badge { font-size: 0.95rem; padding: 1px 6px 2px; }
+.unit-card.is-ur .mb-card-hero { top: 31px; }
+/* small square cards (stage prep strip, counters, mall): the bare rainbow letters, no pill, so
+   they take no more room than "SSR" did next to the level */
+.unit-card-square .unit-card-ur { left: 6px; top: 4px; }
+.unit-card-square .unit-card-ur .ur-badge { font-size: 0.85rem; padding: 0; border: 0; background: none; box-shadow: none; }
+.unit-card-square .unit-card-ur .ur-badge .ur-text { filter: drop-shadow(0 1px 0 rgba(10, 10, 30, 0.95)) drop-shadow(0 0 1.5px rgba(10, 10, 30, 0.9)); }
+.ma-fslot .unit-card-square .unit-card-ur .ur-badge { font-size: 0.62rem; }
+.unit-card.locked.is-ur { box-shadow: var(--shadow); }
+@media (hover: hover) { .unit-card.mb-tall.is-ur:hover { box-shadow: var(--ur-glow), var(--shadow-strong); } }
+.mb-pick.in .unit-card.is-ur { outline-color: var(--yellow); }
+
+/* ---------- Formation squad slots ---------- */
+.mb-fslot.filled.is-ur { border-bottom: 0 !important; box-shadow: var(--ur-glow), var(--shadow); }
+.mb-fslot-ur { position: absolute; left: 50%; top: 3px; transform: translateX(-50%); z-index: 4; }
+.mb-fslot-ur .ur-badge { font-size: 0.6rem; padding: 1px 4px; }
+
+/* ---------- A girl's page: header tag + showcase frame ---------- */
+.mb-rarity-tag.is-ur { position: relative; overflow: hidden; background: linear-gradient(160deg, #2b2f5c, var(--ur-ink)); text-shadow: none; padding: 3px 11px; box-shadow: 0 0 10px rgba(255, 112, 214, 0.45), 0 0 16px rgba(96, 196, 255, 0.3); }
+.mb-rarity-tag.is-ur .ur-ring { --ur-w: 2px; }
+.mb-rarity-tag.is-ur .ur-text { font-size: 1.05em; filter: none; }
+.mb-show-stage.is-ur { box-shadow: var(--ur-glow); }
+.mb-show-stage.is-ur .ur-ring { --ur-w: 5px; z-index: 3; }
+.mb-show-stage.is-ur > .ur-sparkles { --ur-sp: 20px; }
+.mb-show-stage.is-ur > .ur-sparkles .s0 { top: 4px; } .mb-show-stage.is-ur > .ur-sparkles .s1 { left: calc(100% - 4px); } .mb-show-stage.is-ur > .ur-sparkles .s2 { left: 4px; }
+/* 3D view: the same frame, glow and glints around the chibi (no light sweep over the model) */
+.mb-show-stage.is-ur.is-3d { border: 1px solid rgba(255, 255, 255, 0.85); }
+.mb-show-stage.is-ur.is-3d::before { display: none; }
+
+/* awakening tab: the permanent "Ascended to UR" panel */
+.mb-ur-panel { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; overflow: hidden; color: #fff; background: linear-gradient(135deg, #2b2f5c, var(--ur-ink) 70%); box-shadow: var(--ur-glow); }
+.mb-ur-panel .ur-ring { --ur-w: 2px; }
+.mb-ur-panel .ur-badge { font-size: 1.25rem; padding: 3px 10px 4px; }
+.mb-ur-panel p { margin: 0; font-weight: 700; font-size: 0.86rem; color: #e7ebff; }
+.mb-ur-panel b { display: block; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.05rem; color: #fff; }
+.mb-aw-head .ur-badge { margin-left: 8px; font-size: 0.9rem; }
+
+/* ---------- The one-time "Ascended to UR!" moment (the 5th star lands) ---------- */
+.modal.ur-ascend-modal { overflow: hidden; overflow: clip; text-align: center; background: radial-gradient(ellipse at 50% 30%, #3a3f7a, #1b1f3d 70%); color: #fff; border: none; box-shadow: var(--ur-glow), 0 20px 60px rgba(10, 10, 40, 0.6); width: min(420px, calc(100vw - 24px)); }
+/* the body does not clip or scroll: the rays run on to the modal's own rounded edge */
+.ur-ascend-modal .modal-body { padding-top: 14px; overflow: visible; }
+.ur-ascend-modal .modal-actions { justify-content: center; position: relative; z-index: 2; }
+.ur-ascend { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* her card with the rays and sparkles around it */
+.ur-ascend-hero { position: relative; width: 150px; flex: none; }
+/* light rays behind her card, fading out towards the edge */
+.ur-ascend-burst { position: absolute; left: 50%; top: 50%; width: 420px; aspect-ratio: 1; margin: -210px 0 0 -210px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.26) 0 3deg, transparent 3deg 15deg);
+  -webkit-mask-image: radial-gradient(circle, #000 18%, transparent 66%); mask-image: radial-gradient(circle, #000 18%, transparent 66%);
+  animation: ur-spin-plain 24s linear infinite; }
+@keyframes ur-spin-plain { to { transform: rotate(1turn); } }
+/* twinkling sparkles around the card (opacity + scale only) */
+.ur-ascend-spark { position: absolute; z-index: 1; pointer-events: none; font-size: 1.1rem; line-height: 1; color: #fff; text-shadow: 0 0 8px currentColor; animation: ur-twinkle 2.4s ease-in-out infinite both; }
+.ur-ascend-spark.s0 { left: -15%; top: 7%; color: #ffe14d; }
+.ur-ascend-spark.s1 { left: 104%; top: 17%; color: #4fc3ff; animation-delay: 0.5s; font-size: 0.8rem; }
+.ur-ascend-spark.s2 { left: -24%; top: 52%; color: #f36bff; animation-delay: 1.1s; font-size: 0.75rem; }
+.ur-ascend-spark.s3 { left: 112%; top: 60%; color: #5fe39a; animation-delay: 1.6s; }
+.ur-ascend-spark.s4 { left: -8%; top: 88%; color: #ffa53d; animation-delay: 0.8s; font-size: 0.7rem; }
+.ur-ascend-spark.s5 { left: 98%; top: 91%; color: #8b7bff; animation-delay: 2s; font-size: 0.85rem; }
+@keyframes ur-twinkle { 0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(20deg); } }
+/* she rises in, then pulses as the UR lands */
+.ur-ascend-card { position: relative; z-index: 1; width: 100%; aspect-ratio: 3 / 5; border-radius: 12px; overflow: hidden; background: #22385c; box-shadow: var(--ur-glow), 0 10px 26px rgba(0, 0, 0, 0.45); animation: ur-rise 700ms var(--ease) both, ur-land 650ms 1050ms var(--ease); }
+.ur-ascend-card .ur-ring { --ur-w: 4px; }
+.ur-ascend-card > .ur-sparkles { --ur-sp: 16px; }
+.ur-ascend-card .ur-ascend-art, .ur-ascend-card .ur-ascend-art > * { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
+.ur-ascend-card .ur-ascend-art svg { width: 100%; height: 100%; }
+.ur-ascend-swap { position: relative; height: 42px; width: 120px; display: grid; place-items: center; }
+.ur-ascend-swap > * { grid-area: 1 / 1; }
+/* the white flash the moment SSR turns into UR */
+.ur-ascend-flash { position: absolute; left: 50%; top: 50%; width: 170px; height: 170px; margin: -85px 0 0 -85px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 12%, rgba(255, 244, 210, 0.7) 30%, rgba(255, 160, 230, 0.25) 50%, transparent 70%);
+  opacity: 0; animation: ur-flash 800ms 930ms ease-out both; }
+.ur-ascend-old { font-weight: 900; font-style: italic; font-size: 1.5rem; color: #ff9fe6; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); animation: ur-old-out 900ms 500ms var(--ease) both; }
+.ur-ascend-new { position: relative; font-size: 2.2rem; padding: 2px 14px 4px; border-width: 2px; animation: ur-new-in 700ms 1000ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+/* the words wait for the reveal */
+.ur-ascend-title { position: relative; margin: 2px 0 0; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.6rem; line-height: 1.1; animation: ur-rise 500ms 1250ms var(--ease) both; }
+.ur-ascend-title .ur-text { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6)); padding: 0 0.1em; }
+.ur-ascend-text { position: relative; margin: 0; color: #dfe4ff; font-weight: 700; font-size: 0.9rem; max-width: 320px; animation: ur-rise 500ms 1400ms var(--ease) both; }
+@keyframes ur-rise { from { opacity: 0; transform: translateY(14px) scale(0.92); } }
+@keyframes ur-land { 0%, 100% { transform: none; } 35% { transform: scale(1.06); } }
+@keyframes ur-flash { 0% { opacity: 0; transform: scale(0.3); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes ur-old-out { 0% { opacity: 1; transform: none; } 60% { opacity: 1; transform: scale(1.15); filter: brightness(2); } 100% { opacity: 0; transform: scale(0.6); } }
+@keyframes ur-new-in { from { opacity: 0; transform: scale(2.2); } to { opacity: 1; transform: none; } }
+/* phones held sideways: card beside the words */
+@media (max-height: 480px) {
+  .modal.ur-ascend-modal { width: min(560px, calc(100vw - 24px)); }
+  .ur-ascend { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 16px; row-gap: 4px; align-items: center; text-align: left; }
+  .ur-ascend-hero { grid-row: 1 / 4; width: 104px; }
+  .ur-ascend-spark.s0 { left: -4%; top: 3%; } .ur-ascend-spark.s2 { left: -9%; top: 48%; } .ur-ascend-spark.s4 { left: -2%; top: 89%; }
+  .ur-ascend-swap { justify-self: start; place-items: center start; height: 38px; }
+  .ur-ascend-flash { left: 38px; }
+  .ur-ascend-new { font-size: 1.8rem; }
+  .ur-ascend-title { font-size: 1.35rem; }
+  .ur-ascend-text { font-size: 0.82rem; }
+}
+
+/* ---------- Battle: tower bar card, selected-girl panel, hero widget ---------- */
+/* the ring takes the rarity strip's place; the cost bar's dark runs on under it, so name and cost
+   sit where they sit on her neighbours */
+.bt-card.is-ur { border-bottom-width: 0; box-shadow: var(--ur-glow), 0 3px 8px rgba(29, 78, 137, 0.28); }
+.bt-card.is-ur .bt-card-cost { height: 22px; padding-bottom: 4px; }
+.bt-card.is-ur .bt-card-name { bottom: 22px; }
+.bt-card.is-ur.bt-deployed .bt-card-deployed { bottom: 22px; }
+.bt-card.is-ur.bt-active { box-shadow: 0 0 0 3px var(--yellow), 0 8px 18px rgba(242, 183, 5, 0.55); }
+.bt-card .ur-ring { --ur-w: 3px; }
+.bt-card-ur { position: absolute; left: 50%; top: 3px; transform: translateX(-50%); z-index: 4; line-height: 0; }
+.bt-card-ur .ur-badge { font-size: 0.6rem; padding: 1px 4px; border-width: 1px; }
+.bt-card-hero .bt-card-ur { left: auto; right: 3px; top: 20px; transform: none; } /* under the HERO tag */
+.bt-card.bt-deployed .bt-card-ur { display: none; } /* "Deployed" takes the middle; the ring still says UR */
+.bt-card.bt-poor.is-ur:not(.bt-deployed) .ur-ring { opacity: 0.55; }
+.bt-panel-portrait.is-ur { position: relative; box-shadow: var(--ur-glow), 0 3px 8px rgba(29, 78, 137, 0.25); }
+.bt-panel-portrait.is-ur .ur-ring { --ur-w: 3px; }
+.bt-panel-name .ur-badge { font-size: 0.72rem; align-self: center; }
+.bt-herow-portrait.is-ur { box-shadow: var(--ur-glow), 0 4px 12px rgba(120, 60, 200, 0.4); border-color: transparent; }
+.bt-herow-portrait.is-ur .ur-ring { --ur-w: 3px; inset: -3px; border-radius: 50%; }
+.bt-herow-portrait.is-ur .bt-herow-lv, .bt-herow-portrait.is-ur .bt-herow-xp { z-index: 4; }
+
+/* ---------- Small frames: mall spark portrait, lobby background picker, avatar minis ---------- */
+/* (its 3 px border would clip the ring: the ring takes the border's place) */
+.ma-offer-portrait.is-ur { position: relative; border-width: 0; box-shadow: var(--ur-glow), 0 3px 10px rgba(29, 54, 96, 0.2); }
+.ma-offer-portrait.is-ur .ur-ring { --ur-w: 3px; }
+.sst-cell.is-ur { border-width: 0; box-shadow: var(--ur-glow), var(--shadow); }
+.sst-cell.is-ur .ur-ring { --ur-w: 3px; }
+.sst-rarity.sst-ur { left: 5px; top: 5px; text-shadow: none; z-index: 4; }
+.bgp-girl-art.is-ur { position: relative; box-shadow: var(--ur-glow); }
+/* Mall exchange: a girl you ascended reads UR on the offer ribbon too */
+.ma-offer-ribbon.is-ur { padding: 1px 10px; background: linear-gradient(90deg, #2b2f5c, var(--ur-ink)); box-shadow: 0 0 8px rgba(255, 120, 220, 0.45); font-size: 0.72rem; line-height: 1.1; }
+.ma-offer-ribbon.is-ur .ur-text { filter: none; }
+.bgp-girl-art.is-ur .ur-ring { --ur-w: 2px; }
+/* minis are many and tiny: a still rainbow edge, no motion */
+.mb-unit-mini.is-ur { border-color: transparent; background: linear-gradient(var(--navy), var(--navy)) padding-box, conic-gradient(var(--ur-rainbow)) border-box; box-shadow: 0 0 6px rgba(255, 112, 214, 0.45); }
+
+/* ---------- Reduced motion: still rainbow, still glints, no turning, no shimmer, no fly-ins ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ur-ring::before, .ur-text, .ur-ascend-burst, .ur-ascend-card, .ur-ascend-old, .ur-ascend-new, .ur-ascend-spark,
+  .ur-ascend-title, .ur-ascend-text, .ur-sparkles i { animation: none !important; }
+  .ur-sparkles i { opacity: 0.9; }
+  .ur-ascend-old, .ur-ascend-flash, .unit-card.is-ur::after, .mb-show-stage.is-ur::before, .ur-ascend-card::after { display: none; }
+}
+/* (html[data-reduce-motion] * shortens every animation to 1 ms — an infinite one would flicker) */
+html[data-reduce-motion] .ur-ring::before, html[data-reduce-motion] .ur-text, html[data-reduce-motion] .ur-ascend-burst,
+html[data-reduce-motion] .ur-ascend-card, html[data-reduce-motion] .ur-ascend-old, html[data-reduce-motion] .ur-ascend-new,
+html[data-reduce-motion] .ur-ascend-spark, html[data-reduce-motion] .ur-ascend-title, html[data-reduce-motion] .ur-ascend-text,
+html[data-reduce-motion] .ur-sparkles i { animation: none !important; }
+html[data-reduce-motion] .ur-sparkles i { opacity: 0.9; }
+html[data-reduce-motion] .ur-ascend-old, html[data-reduce-motion] .ur-ascend-flash, html[data-reduce-motion] .unit-card.is-ur::after,
+html[data-reduce-motion] .mb-show-stage.is-ur::before, html[data-reduce-motion] .ur-ascend-card::after { display: none; }

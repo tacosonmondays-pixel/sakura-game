@@ -6,7 +6,8 @@ import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
-import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, UNIT_RARITIES, STATUSES } from '../../data/types.js';
+import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, STATUSES } from '../../data/types.js';
+import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
 import { roundCost } from '../../sim/Sim.js';
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
@@ -71,9 +72,13 @@ export function createTowerPanel(ctx) {
     const def = t.def;
     const role = ROLES[def.role];
     const pathNames = def.paths.map((p) => p.name);
-    const rarity = UNIT_RARITIES[def.rarity];
+    // UR (display only) comes from YOUR save: your own girls show it; an ally's girl in co-op
+    // shows her def rarity (their awakening is not sent over the network)
+    const profile = !ctx.coop || ctx.coop.isMine(t.uid) ? ctx.profile : null;
+    const ur = isUR(def, profile);
     const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
-    setVar(portrait, '--rarity', rarity?.color);
+    setVar(portrait, '--rarity', rarityColor(def, profile));
+    if (ur) applyUrFrame(portrait, def, profile);
 
     const kills = h('b');
     const dmg = h('b');
@@ -85,7 +90,7 @@ export function createTowerPanel(ctx) {
       portrait,
       h(
         'div.bt-panel-id',
-        h('div.bt-panel-name', def.name, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-'))),
+        h('div.bt-panel-name', def.name, ur ? urBadge() : null, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-'))),
         h('div.bt-panel-role', svgEl(roleIcon(def.role), 'bt-role-ico'), role?.name || def.role,
           h('span.bt-dot', '·'), svgEl(attackTypeIcon(st.attackType), 'bt-role-ico'), ATTACK_TYPES[st.attackType]?.name || st.attackType,
           st.element ? [h('span.bt-dot', '·'), svgEl(elementIcon(st.element), 'bt-role-ico'), ELEMENTS[st.element]?.name] : null),
