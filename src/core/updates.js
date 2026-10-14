@@ -27,17 +27,20 @@ export function createUpdateChecker({
   let latest = null; // last version.json seen: { version, build, sim, time }
   let lastAt = -Infinity;
   let inflight = null;
+  let failed = false; // the last check got no answer (offline, blocked, a bad file)
   const listeners = new Set();
 
   const newer = () => (latest && latest.build && latest.build !== build ? latest : null);
 
   async function run() {
     lastAt = now();
+    failed = true;
     try {
       const res = await fetchImpl(url(), { cache: 'no-store' });
       if (!res || !res.ok) return newer();
       const info = await res.json();
       if (!info || typeof info.build !== 'string') return newer();
+      failed = false;
       const wasNew = newer();
       latest = { version: String(info.version || ''), build: info.build, sim: String(info.sim || ''), time: String(info.time || '') };
       const found = newer();
@@ -61,6 +64,8 @@ export function createUpdateChecker({
     },
     /** The newer deploy seen so far, or null. */
     available: newer,
+    /** Did the last check fail to get an answer? (null from check() then means "don't know") */
+    lastFailed: () => failed,
     /** cb(info) once per newly seen build. @returns unsubscribe */
     onUpdate(cb) {
       listeners.add(cb);
@@ -76,20 +81,33 @@ const checker = createUpdateChecker({ enabled: DEPLOYED });
 
 export const checkForUpdate = (opts) => checker.check(opts);
 export const updateAvailable = () => checker.available();
+export const updateCheckFailed = () => checker.lastFailed();
 export const onUpdate = (cb) => checker.onUpdate(cb);
 
-/** Reloads into a never-cached URL (?v=<build>) so the newest index.html is fetched. */
-export function reloadFresh(build = checker.available()?.build) {
+/**
+ * Reloads into a never-cached URL (?v=<build>) so the newest index.html is fetched.
+ * Already on that address (?v=<build> was answered once with an older index.html — GitHub Pages
+ * can do that for a few minutes): a tap on Update adds a nonce (&r=), because replacing the URL
+ * with itself only moves to the #fragment and loads nothing; an automatic reload ({ auto: true },
+ * the title screen) does nothing then, so it can never loop while the old page is still served.
+ * @returns {boolean} a reload was started
+ */
+export function reloadFresh(build = checker.available()?.build, { auto = false } = {}) {
   const loc = globalThis.location;
-  if (!loc) return;
+  if (!loc) return false;
+  const url = new URL(loc.href);
+  url.searchParams.set('v', String(build || Date.now().toString(36)).replace(/[^\w.-]/g, '').slice(0, 24));
+  if (url.href === loc.href) {
+    if (auto) return false;
+    url.searchParams.set('r', Date.now().toString(36));
+  }
   try {
     sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
   } catch {
     /* private mode: no loop guard, still reload */
   }
-  const url = new URL(loc.href);
-  url.searchParams.set('v', String(build || Date.now().toString(36)).replace(/[^\w.-]/g, '').slice(0, 24));
   loc.replace(url.href);
+  return true;
 }
 
 /** Did this tab reload itself for an update in the last minute? (no reload loops) */
@@ -109,16 +127,43 @@ export function isChunkLoadError(e) {
 }
 
 /**
+ * Should a failed screen / chunk download reload the page? Only when a NEWER deploy is confirmed
+ * (version.json names another build) and the device is online: offline, a network blip or the
+ * same build still deployed must not reload (that would drop a co-op match and show the
+ * browser's offline page instead of the game's "This screen did not load" panel). Never twice
+ * for the same build (?v=<build> already in the address), never within a minute of the last one.
+ */
+export function shouldReloadForStaleChunk({ deployed, chunkError, recently, info, online, currentV, build = BUILD_ID }) {
+  if (!deployed || !chunkError || recently) return false;
+  if (online === false) return false;
+  if (!info || !info.build || info.build === build) return false;
+  return currentV !== info.build;
+}
+
+/**
  * After a deploy, an old page asks for screen files that no longer exist. Reload into the new
- * build once (not again within a minute). @returns true when a reload was started
+ * build once. @returns true when a reload was started
  */
 let recovering = null;
+let reloadStarted = false; // in-memory loop guard (sessionStorage may be unavailable)
 export function recoverFromStaleBuild(e) {
   if (recovering) return recovering; // the router and Vite's preload error can both ask
-  if (!DEPLOYED || !isChunkLoadError(e) || reloadedRecently()) return Promise.resolve(false);
+  if (reloadStarted || !DEPLOYED || !isChunkLoadError(e) || reloadedRecently()) return Promise.resolve(false);
+  if (globalThis.navigator?.onLine === false) return Promise.resolve(false);
   recovering = Promise.race([checker.check({ force: true }), new Promise((r) => setTimeout(() => r(null), 3000))]).then((info) => {
-    reloadFresh(info?.build);
-    return true;
+    let currentV = null;
+    try {
+      currentV = new URL(globalThis.location.href).searchParams.get('v');
+    } catch {
+      /* ignore */
+    }
+    const go = shouldReloadForStaleChunk({
+      deployed: DEPLOYED, chunkError: true, recently: reloadedRecently(), info, online: globalThis.navigator?.onLine, currentV,
+    });
+    recovering = null;
+    if (!go) return false;
+    reloadStarted = true;
+    return reloadFresh(info.build, { auto: true });
   });
   return recovering;
 }
@@ -137,6 +182,9 @@ export function startUpdateWatcher({ every = CHECK_EVERY_MS, firstAfter = 8000 }
   // not only a screen. The error still reaches the caller (no preventDefault), so the router
   // shows its message if the reload does not happen.
   const onPreloadError = (ev) => {
+    // never mid-battle (a lazy model helper failing on a network blip must not end a co-op
+    // match); screens are recovered by the router when you navigate
+    if (document.getElementById('app')?.dataset.screen === 'battle') return;
     recoverFromStaleBuild(ev.payload || new Error('Unable to preload'));
   };
   window.addEventListener('vite:preloadError', onPreloadError);

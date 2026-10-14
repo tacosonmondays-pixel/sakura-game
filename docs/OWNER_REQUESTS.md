@@ -309,6 +309,12 @@ Still open after this pass: the bond-memory illustrations themselves (need the C
 landscape scenes for the other 16 girls (they use their stand over the academy), a single art style
 pass so the old-game illustrations and the expansion illustrations match more closely.
 
+## Battle camera lock (owner, 2026-10-13) — branch `feature/camera-lock`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+
 ## Attack animations (owner, 2026-10-13) — branch `feature/attack-fx`
 | Request (verbatim) | Status |
 |---|---|

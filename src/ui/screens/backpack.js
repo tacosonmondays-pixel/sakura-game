@@ -290,7 +290,7 @@ export function render(root, params = {}) {
     clear(tabsEl);
     for (const t of tabsList) {
       const count = t.id === 'equipment' ? ownedItems(t.id).length + Object.keys(profile.gear).length : ownedItems(t.id).length;
-      tabsEl.appendChild(h(`button.mb-tab${t.id === state.tab ? '.active' : ''}`, { 'data-testid': `tab-${t.id}`, onclick: () => { state.tab = t.id; history.replaceState(null, '', `#/backpack?tab=${t.id}`); rerender(); } }, t.name, h('span.mb-tab-count', String(count))));
+      tabsEl.appendChild(h(`button.mb-tab${t.id === state.tab ? '.active' : ''}`, { 'data-testid': `tab-${t.id}`, onclick: () => { state.tab = t.id; history.replaceState(history.state, '', `#/backpack?tab=${t.id}`); rerender(); } }, t.name, h('span.mb-tab-count', String(count))));
     }
     const activeTab = tabsEl.querySelector('.mb-tab.active');
     // bring the active tab into view by scrolling the strip only, resting on a whole tab (no sliver)

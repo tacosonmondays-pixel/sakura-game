@@ -8,8 +8,8 @@ export const COOP = Object.freeze({
   /** Each player's start cash = round(stage start cash × cashShare). */
   cashShare: 0.6,
   /** Commands run this many ticks (× game speed) after they are issued. The local transport's
-   *  value; the Supabase adapter asks for 30 ticks (src/online/adapters/supabase.js net). Stalls
-   *  raise it adaptively up to 3×. */
+   *  value; Supabase rooms use 30 ticks (COOP_NET below). Stalls raise it adaptively up to 3×,
+   *  a quiet spell lowers it again. */
   inputDelay: 6,
   /** "I will send nothing more up to tick N" heartbeat interval (local transport; Supabase
    *  beats at most every 250 ms and only when the ally needs it, see Lockstep.beat). */
@@ -32,6 +32,22 @@ export const COOP = Object.freeze({
   /** Room codes: 5 characters without look-alikes (0/O, 1/I/L). */
   codeAlphabet: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789',
   codeLength: 5,
+});
+
+/**
+ * Lockstep net settings per room transport (src/online/adapters/*: openRoom().net). Both players
+ * must use the same ones, so they live here, in the co-op compatibility id (tools/simId.mjs),
+ * and not in the adapters (chat / clan / social code that changes far more often).
+ *   local    tabs of one browser (BroadcastChannel): a 6-tick input delay, a beat every 50 ms
+ *   supabase Realtime counts every message against the project's quota (free plan: 2M a month
+ *            and 100 a second for the whole project), so rooms talk ~4× a second instead of 20:
+ *            a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is
+ *            queued, a keepalive every second while nothing changes (src/online/coop/lockstep.js).
+ *            Tower defense hardly notices half a second of lag.
+ */
+export const COOP_NET = Object.freeze({
+  local: Object.freeze({ heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay, keepaliveMs: COOP.heartbeatMs }),
+  supabase: Object.freeze({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 }),
 });
 
 /**

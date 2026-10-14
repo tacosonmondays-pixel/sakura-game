@@ -6,6 +6,7 @@ import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { preloadModels, preloadEnemies, detailFor } from '../../models/index.js';
 import { createBattleRenderer } from '../../render/BattleRenderer.js';
+import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
@@ -160,13 +161,16 @@ export function mountBattle(root, params, hooks) {
 
     let renderer;
     try {
-      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets() });
+      // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
+      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId });
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
       return;
     }
     ctx.renderer = renderer;
+    // Settings → Battle → Camera (or the pause menu) applies to the open battle at once
+    cleanups.push(store.on('change', () => renderer.setCameraMode(cameraModeOf(store.profile.settings))));
     // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
     // as a tie-break, off the exit gates and the last tiles of road before them)
     const tracks = sim.map?.tracks || [];
@@ -313,10 +317,14 @@ export function mountBattle(root, params, hooks) {
       lastT = performance.now();
     };
     ctx.restart = () => hooks.restart();
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', { id: stage.id }));
+    // every way out of a battle goes through navigate(), which never leaves the battle's history
+    // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
+    // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
+    const endlessMap = !!req.endless && stage.kind !== 'challenge';
+    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
-      const r = mapRouteFor(stage);
+      const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
     ctx.goHome = () => navigate('lobby');

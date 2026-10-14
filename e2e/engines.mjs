@@ -5,7 +5,8 @@
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
 //   JavaScriptCore  Bun and WebKit (iPhone / iPad Safari)
 //   SpiderMonkey    Firefox
-// It also compares the deterministic math ports (src/online/coop/detMath.js) bit for bit, and
+// It also compares every stage's wave table (whole powers growth^wave: src/sim/waves.js powInt) and
+// the deterministic math ports (src/online/coop/detMath.js) bit for bit, and
 // reports — for information — where the engines' own Math.sin / atan2 / hypot differ.
 //
 //   node e2e/engines.mjs                  # every engine available; at least two must run
@@ -97,10 +98,10 @@ rmSync(out, { recursive: true, force: true });
 // 5. compare
 const failures = [];
 const ref = results[0].r;
-const KEYS = ['ticks', 'state', 'wave', 'towers', 'wallets', 'ults', 'final', 'hashes', 'checkpoints', 'lobby'];
+const KEYS = ['ticks', 'state', 'wave', 'towers', 'wallets', 'ults', 'final', 'hashes', 'checkpoints', 'lobby', 'waves'];
 log('\nScripted co-op battle (stage 1-3, both players, to the end):');
 for (const { name, r } of results) {
-  log(`  ${name.padEnd(46)} ticks ${r.ticks} · ${r.state} · wave ${r.wave} · towers ${r.towers} · ults ${r.ults} · coins ${r.wallets} · final ${r.final} · ${r.checkpoints} hash checkpoints → ${r.hashes} · lobby data ${r.lobby} · ${r.ms} ms`);
+  log(`  ${name.padEnd(46)} ticks ${r.ticks} · ${r.state} · wave ${r.wave} · towers ${r.towers} · ults ${r.ults} · coins ${r.wallets} · final ${r.final} · ${r.checkpoints} hash checkpoints → ${r.hashes} · lobby data ${r.lobby} · wave tables ${r.waves} · ${r.ms} ms`);
   if (!r.agree) failures.push(`${name}: its own two clients disagreed`);
   if (r.failed) failures.push(`${name}: ${r.failed} scripted command(s) refused: ${r.refused}`);
   for (const k of KEYS) if (r[k] !== ref[k]) failures.push(`${name}: ${k} ${r[k]} ≠ ${ref[k]} (${results[0].name})`);

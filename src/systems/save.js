@@ -39,7 +39,11 @@ export const DEFAULT_SETTINGS = {
   defaultSpeed: 1,
   lighting: { exposure: 1, warmth: 0 },
   reduceMotion: false,
+  /** Battle camera: 'locked' holds the fitted map view; 'free' = drag to pan, pinch / wheel to zoom. */
+  camera: 'locked',
 };
+
+const CAMERA_MODES = ['locked', 'free'];
 
 /** Fresh per-unit state. */
 export function newUnitState(now = Date.now()) {
@@ -210,6 +214,8 @@ function cleanSettings(raw) {
     defaultSpeed: [1, 2, 3].includes(s.defaultSpeed) ? s.defaultSpeed : d.defaultSpeed,
     lighting: { exposure: num(lighting.exposure, d.lighting.exposure, 0.3, 2.5), warmth: num(lighting.warmth, d.lighting.warmth, -1, 1) },
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
+    // older saves have no camera setting: they get the locked camera too
+    camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
   };
 }
 

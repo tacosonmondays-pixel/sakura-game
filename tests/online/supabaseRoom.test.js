@@ -3,6 +3,7 @@
 // self-healing (realtime-js's own rejoin, a fresh channel after CLOSED or when stuck, backoff,
 // Retry). Fake timers; no network.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { openSession } from '../../src/online/coop/session.js';
 
 const UID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const net = { channels: [], listed: [], rpc: [], answers: {}, connected: true };
@@ -40,11 +41,39 @@ function fakeChannel(name, opts) {
   return ch;
 }
 
+/** realtime-js's socket, as far as the room uses it: phoenix counts a heartbeat sent while one
+ *  is still unanswered as a timeout (it then errors every channel and reconnects the socket) */
+function fakeRealtime() {
+  const rt = {
+    beats: 0,
+    timeouts: 0,
+    pendingHeartbeatRef: null,
+    isConnected: () => net.connected,
+    async sendHeartbeat() {
+      if (!net.connected) return;
+      rt.beats++;
+      if (rt.pendingHeartbeatRef) {
+        rt.pendingHeartbeatRef = null;
+        rt.timeouts++;
+      } else rt.pendingHeartbeatRef = `hb${rt.beats}`;
+    },
+  };
+  net.rt = rt;
+  return rt;
+}
+
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({
+  createClient: () => {
+    // like phoenix: its own 'pagehide' listener closes the socket (registered when the client is made)
+    globalThis.addEventListener?.('pagehide', () => {
+      net.connected = false;
+      for (const ch of net.channels) if (ch.state === 'joined') ch.state = 'closed';
+    });
+    return {
     auth: {
-      getSession: async () => ({ data: { session: { user: { id: UID } } }, error: null }),
+      getSession: async () => ({ data: { session: { user: { id: UID }, access_token: 'jwt-123' } }, error: null }),
       signInAnonymously: async () => ({ data: { user: { id: UID } }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
     },
     from: () => {
       const p = new Proxy({}, { get: (_, k) => (k === 'then' ? (ok) => ok({ data: null, error: null }) : () => p) });
@@ -64,8 +93,9 @@ vi.mock('@supabase/supabase-js', () => ({
       ch.emit('CLOSED'); // realtime-js reports CLOSED to the subscriber as it leaves
       return Promise.resolve('ok');
     },
-    realtime: { isConnected: () => net.connected },
-  }),
+    realtime: fakeRealtime(),
+    };
+  },
 }));
 
 let mod;
@@ -241,5 +271,117 @@ describe('supabase co-op room channel', () => {
     expect(ev.status).toHaveLength(n);
     expect(net.channels).toHaveLength(1);
     expect(room.send({ type: 'hello' })).toBe(false);
+  });
+});
+
+describe('supabase co-op room: reconnect options and the page lifecycle', () => {
+  it('the one-way heal gets a fresh channel without taking the seat again; Retry also replaces the socket', async () => {
+    const { room, ch } = await openGuest();
+    ch().emit('SUBSCRIBED');
+    await room.reconnect({ seat: false, socket: false, reason: 'one-way' });
+    expect(net.rpc.map((r) => r.fn)).toEqual(['join_room']); // join_room is rate-limited: not again
+    expect(net.channels).toHaveLength(2);
+    expect(net.rt.beats).toBe(0);
+    ch().emit('SUBSCRIBED');
+    await room.reconnect({ seat: true, socket: true });
+    expect(net.rpc.map((r) => r.fn)).toEqual(['join_room', 'join_room']);
+    expect(net.rt.timeouts).toBe(1); // the socket was replaced (phoenix's heartbeat-timeout path)
+    expect(net.channels).toHaveLength(3);
+    room.close();
+  });
+
+  describe('with a page', () => {
+    let win;
+    let doc;
+    let fetchSpy;
+    let adapter2;
+    beforeEach(async () => {
+      win = new EventTarget();
+      doc = Object.assign(new EventTarget(), { visibilityState: 'visible', hidden: false });
+      vi.stubGlobal('addEventListener', win.addEventListener.bind(win));
+      vi.stubGlobal('removeEventListener', win.removeEventListener.bind(win));
+      vi.stubGlobal('document', doc);
+      fetchSpy = vi.fn(() => Promise.resolve({ ok: true, status: 204 }));
+      vi.stubGlobal('fetch', fetchSpy);
+      // an adapter made with a page around: its 'pagehide' listener comes before realtime-js's
+      adapter2 = mod.createSupabaseAdapter({ url: 'https://example.supabase.co', key: 'public-anon-key' });
+      await adapter2.init();
+      await adapter2.signIn({ name: 'Bea' });
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+    const setVisible = (v) => {
+      doc.visibilityState = v ? 'visible' : 'hidden';
+      doc.hidden = !v;
+      doc.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    it('closing the tab: the session\'s goodbye still gets out, and the seat is freed with a keepalive request', async () => {
+      const s = openSession({ code: 'K7Q2Z', isHost: false, backend: adapter2, exclusive: false, me: { uid: UID, name: 'Bea', level: 3, avatar: 'aoi', loadout: [], hero: null } });
+      await settle();
+      const c0 = net.channels.at(-1);
+      c0.emit('SUBSCRIBED');
+      expect(s.link).toBe('connected');
+      win.dispatchEvent(new Event('pagehide'));
+      expect(s.phase).toBe('closed');
+      // the 'leave' went out over the socket before realtime-js closed it
+      expect(c0.sent.map((m) => m.type)).toContain('leave');
+      // leave_room as a keepalive fetch (supabase-js would await its session first and never send)
+      expect(net.rpc.map((r) => r.fn)).toEqual(['join_room']);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe('https://example.supabase.co/rest/v1/rpc/leave_room');
+      expect(init).toMatchObject({ method: 'POST', keepalive: true, body: JSON.stringify({ p_code: 'K7Q2Z' }) });
+      expect(init.headers).toEqual({ apikey: 'public-anon-key', Authorization: 'Bearer jwt-123', 'Content-Type': 'application/json' });
+    });
+
+    it('Leave (not unloading) still frees the seat through supabase-js', async () => {
+      const room = adapter2.openRoom('K7Q2Z', { host: false });
+      await settle();
+      net.channels.at(-1).emit('SUBSCRIBED');
+      room.close();
+      await settle();
+      expect(net.rpc.map((r) => r.fn)).toEqual(['join_room', 'leave_room']);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('back on the tab after the phone slept: an unanswered heartbeat replaces the socket within SOCKET_PROBE_MS', async () => {
+      const room = adapter2.openRoom('K7Q2Z', { host: false });
+      await settle();
+      net.channels.at(-1).emit('SUBSCRIBED');
+      setVisible(false);
+      await vi.advanceTimersByTimeAsync(mod.WAKE_PROBE_AFTER_MS + 2000);
+      setVisible(true);
+      expect(net.rt.beats).toBe(1); // a probe
+      await vi.advanceTimersByTimeAsync(mod.SOCKET_PROBE_MS - 100);
+      expect(net.rt.timeouts).toBe(0);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(net.rt.timeouts).toBe(1); // no answer: replaced (instead of 25–50 s later)
+      room.close();
+    });
+
+    it('an answered probe, or a short look away, leaves the socket alone', async () => {
+      const room = adapter2.openRoom('K7Q2Z', { host: false });
+      await settle();
+      net.channels.at(-1).emit('SUBSCRIBED');
+      setVisible(false);
+      await vi.advanceTimersByTimeAsync(1000);
+      setVisible(true);
+      expect(net.rt.beats).toBe(0); // 1 s away: no probe
+      setVisible(false);
+      await vi.advanceTimersByTimeAsync(mod.WAKE_PROBE_AFTER_MS + 1000);
+      setVisible(true);
+      expect(net.rt.beats).toBe(1);
+      net.rt.pendingHeartbeatRef = null; // the server answered
+      await vi.advanceTimersByTimeAsync(mod.SOCKET_PROBE_MS + 500);
+      expect(net.rt.timeouts).toBe(0);
+      room.close();
+      // closed: no more probes
+      setVisible(false);
+      await vi.advanceTimersByTimeAsync(mod.WAKE_PROBE_AFTER_MS + 1000);
+      setVisible(true);
+      expect(net.rt.beats).toBe(1);
+    });
   });
 });
