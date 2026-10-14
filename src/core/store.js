@@ -70,14 +70,16 @@ export const store = {
       holdSaves = !kept;
       notice = { reason: res.backup, kept, message: backupNotice(res.backup, kept) };
       console.warn(`[store] save needed a backup (${res.backup}); ${kept ? `kept in ${BACKUP_KEY}` : 'backup failed, saving is paused'}`);
+    } else if (res.droppedBattles > 0) {
+      notice = { reason: 'battle-save', kept: true, title: 'Saved battle removed', message: res.droppedBattles > 1 ? `${res.droppedBattles} saved battles couldn't be kept after the update.` : 'A saved battle couldn\'t be kept after the update.' };
     }
     profile = res.profile;
     return profile;
   },
 
   /**
-   * The pending backup notice, once: `{ reason: 'corrupt'|'newer'|'lossy', kept, message }`
-   * or null.
+   * The pending backup notice, once: `{ reason: 'corrupt'|'newer'|'lossy'|'battle-save', kept,
+   * message, title? }` or null.
    */
   takeNotice() {
     const n = notice;
@@ -85,16 +87,21 @@ export const store = {
     return n;
   },
 
-  /** Persist (debounced) and emit 'change'. Call after any profile mutation. */
-  commit(reason = 'change') {
+  /**
+   * Persist (debounced) and emit 'change'. Call after any profile mutation. `quiet` saves without
+   * the 'change' event (a battle saving itself must not wake every screen listener).
+   */
+  commit(reason = 'change', { quiet = false } = {}) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => store.saveNow(), 150);
-    emitter.emit('change', { reason });
+    if (!quiet) emitter.emit('change', { reason });
   },
 
+  /** Writes the profile now. @returns {boolean} it was stored (false: storage full, or saving paused) */
   saveNow() {
     clearTimeout(saveTimer);
-    if (profile && !holdSaves) safeSet(SAVE_KEY, JSON.stringify(profile));
+    if (!profile || holdSaves) return false;
+    return safeSet(SAVE_KEY, JSON.stringify(profile));
   },
 
   /** Replace the whole profile (used by import / reset — an explicit choice, so saving resumes). */
@@ -125,6 +132,8 @@ export const store = {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => store.saveNow());
+  // iOS Safari and installed apps often skip beforeunload; pagehide still fires
+  window.addEventListener('pagehide', () => store.saveNow());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') store.saveNow();
   });

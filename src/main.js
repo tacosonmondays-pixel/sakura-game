@@ -82,7 +82,7 @@ try {
 const saveNotice = store.takeNotice();
 if (saveNotice) {
   import('./ui/components.js')
-    .then(({ modal }) => modal({ title: saveNotice.kept ? 'Save backup kept' : 'Saving paused', body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
+    .then(({ modal }) => modal({ title: saveNotice.title || (saveNotice.kept ? 'Save backup kept' : 'Saving paused'), body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
     .catch((e) => console.warn('[main] save notice failed', e));
 }
 

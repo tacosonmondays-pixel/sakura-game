@@ -9,6 +9,7 @@ import { addItems, normalizeList } from './inventory.js';
 import { rollGear, addGear } from './gear.js';
 import { grantUnit, isOwned, stageMedals, isPracticeRun } from './unlocks.js';
 import { track, currentEvent } from './missions.js';
+import { hashString } from '../core/rng.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
 export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare: 1.5 };
@@ -62,9 +63,19 @@ function splitDrops(profile, drops) {
   return { items, gear };
 }
 
-function eventMul(stageId, now) {
+/** Drop multiplier of this week's event for a stage at time `now`. */
+export function eventMul(stageId, now) {
   const ev = currentEvent(now);
   return ev.stageIds.includes(stageId) ? ev.dropMul : 1;
+}
+
+/**
+ * Seed of the drop roll of a saved run (src/systems/battleSave.js): fixed by the run, so
+ * finishing the same run again (an older copy of the profile, another tab) rolls the same drops.
+ * @returns {number} uint32
+ */
+export function battleDropSeed(stageId, difficulty, seed) {
+  return hashString(`drops:${stageId}:${difficulty}:${seed >>> 0}`);
 }
 
 /**
@@ -79,10 +90,11 @@ function eventMul(stageId, now) {
  * @param {object} profile
  * @param {{ stageId, difficulty, won, wave, wavesCleared?, livesLeft, encountered, kills, stats }} result
  * @param {object} rng
- * @param {{ now?: Date }} [opts]
+ * @param {{ now?: Date, eventAt?: Date }} [opts] `eventAt`: when the run started (a saved run
+ *   finished later still gets the event bonus of the week it began in, and only that one)
  * @returns {{ firstClear: boolean, newMedal: boolean, medal: string|null, rewards: object[], gear: object[], unlockedUnits: string[], discovered: string[], gemsEarned: number, eventBonus: boolean, practice: boolean }}
  */
-export function applyBattleResult(profile, result, rng, { now = new Date() } = {}) {
+export function applyBattleResult(profile, result, rng, { now = new Date(), eventAt = null } = {}) {
   const stage = STAGE_MAP[result?.stageId];
   const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false };
   if (!stage) return out;
@@ -142,7 +154,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date() } = {
         out.unlockedUnits.push(unitId);
       }
     }
-    const mul = eventMul(stage.id, now);
+    const mul = eventMul(stage.id, eventAt ?? now);
     out.eventBonus = mul > 1;
     const drops = rollStageDrops(stage.id, difficulty, rng, { dropMul: mul });
     const split = splitDrops(profile, drops);

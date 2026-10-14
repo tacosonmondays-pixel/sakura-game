@@ -1,0 +1,228 @@
+// Battle saves in the profile (src/systems/battleSave.js + save.js): the field survives every
+// load path, broken records are dropped one by one (never the whole save, never a backup
+// prompt), the cap keeps the newest, a clear only removes its own run, and the payout helpers
+// (run-seeded drops, the event bonus by start time) are deterministic.
+import { describe, it, expect } from 'vitest';
+import {
+  RECORD_V, SNAP_V, MAX_BATTLE_SAVES, slotKey, isSavableRun, getBattleSave, listBattleSaves, putBattleSave, oldestToEvict,
+  clearBattleSave, saveSummary, cleanBattleSaves, droppedBattleSaves, newRunId, agoText,
+} from '../../src/systems/battleSave.js';
+import {
+  createProfile, migrateProfile, migrationDropsData, loadSaveText, serializeProfile, deserializeProfile,
+} from '../../src/systems/save.js';
+import { battleDropSeed, eventMul, applyBattleResult } from '../../src/systems/rewards.js';
+import { currentEvent } from '../../src/systems/missions.js';
+import { createRng } from '../../src/core/rng.js';
+
+/** A minimal valid record (stage 1-1, saved between waves 2 and 3). */
+const rec = (over = {}, snapOver = {}) => ({
+  v: RECORD_V,
+  id: 'bs-test-1',
+  slot: '1-1',
+  stageId: '1-1',
+  endless: false,
+  difficulty: 'normal',
+  seed: 3735928559,
+  loadout: [{ unitId: 'aoi', stats: { damageMul: 1.2 } }, { unitId: 'rei', stats: { damageMul: 1 } }],
+  hero: { unitId: 'hikari', stats: { damageMul: 1 } },
+  createdAt: 1000,
+  updatedAt: 2000,
+  build: { app: '0.1.dev', sim: 'dev' },
+  resumes: 0,
+  view: { next: 3, of: 12, lives: 100, difficulty: 'normal' },
+  snap: {
+    v: SNAP_V, wave: 2, wavesCleared: 2, state: 'between', time: 61.5, cash: 480, carry: 0.25, lives: 97, uid: 12, buffs: [],
+    towers: [
+      { uid: 1, u: 'aoi', x: 4.25, y: 3.75, tiers: [1, 0, 0], tm: 'first', spent: 300, kills: 9, dmg: 400, cd: 0, dis: 0, face: 1, bt: 0 },
+      { uid: 4, u: 'retired-girl', x: 6.25, y: 3.75, tiers: [0, 0, 0], tm: 'strong', spent: 200, kills: 1, dmg: 50, cd: 0, dis: 0, face: 0, bt: 0 },
+    ],
+    kills: { slime: 10 },
+    enc: ['slime'],
+    stats: { leaks: 3 },
+    ...snapOver,
+  },
+  ...over,
+});
+const saves = (...list) => Object.fromEntries(list.map((r) => [r.slot, r]));
+const roundTrip = (p) => migrateProfile(JSON.parse(JSON.stringify(p)));
+
+describe('profile.battleSaves', () => {
+  it('a new profile has none', () => {
+    expect(createProfile().battleSaves).toEqual({});
+  });
+
+  it('a valid record survives load / migrate (the allowlist keeps the field)', () => {
+    const p = createProfile();
+    p.battleSaves = saves(rec());
+    const back = roundTrip(p);
+    expect(back.battleSaves['1-1']).toEqual(rec());
+    // a tower of a unit this build does not know stays: Continue refunds her
+    expect(back.battleSaves['1-1'].snap.towers.map((t) => t.u)).toEqual(['aoi', 'retired-girl']);
+    expect(migrateProfile({ ...JSON.parse(JSON.stringify(createProfile())), battleSaves: undefined }).battleSaves).toEqual({});
+  });
+
+  it('records travel with export / import and transfer codes', () => {
+    const p = createProfile();
+    p.battleSaves = saves(rec(), rec({ id: 'bs-2', slot: 'challenge', stageId: 'challenge', endless: true }));
+    expect(deserializeProfile(serializeProfile(p)).battleSaves).toEqual(p.battleSaves);
+  });
+
+  it('drops each broken record on its own', () => {
+    const bad = {
+      'not an object': 5,
+      'slot mismatch': rec({ slot: '1-2' }),
+      'unknown stage': rec({ slot: 'nope-1', stageId: 'nope-1' }),
+      'bad difficulty': rec({ difficulty: 'insane' }),
+      'seed not uint32': rec({ seed: -4 }),
+      'seed fraction': rec({ seed: 1.5 }),
+      'newer record': rec({ v: RECORD_V + 1 }),
+      'newer snapshot': rec({}, { v: SNAP_V + 1 }),
+      'mid-wave state': rec({}, { state: 'wave' }),
+      'cash not finite': rec({}, { cash: 'lots' }),
+      'lives not finite': rec({}, { lives: null }),
+      'wave not finite': rec({}, { wave: Infinity }),
+      'time missing': rec({}, { time: undefined }),
+      'duplicate uids': rec({}, { towers: [{ uid: 2, u: 'aoi' }, { uid: 2, u: 'rei' }] }),
+      'zero uid': rec({}, { towers: [{ uid: 0, u: 'aoi' }] }),
+      'no team': rec({ loadout: [], hero: null }),
+      'no id': rec({ id: '' }),
+      'no snapshot': rec({ snap: null }),
+    };
+    for (const [why, r] of Object.entries(bad)) {
+      const slot = r?.slot ?? 'x';
+      expect(cleanBattleSaves({ [slot]: r }), why).toEqual({});
+    }
+    // the good one next to them stays
+    const good = rec({ id: 'ok', slot: '1-2', stageId: '1-2' });
+    expect(Object.keys(cleanBattleSaves({ ...saves(good), 'bad': 7, '1-1': rec({ difficulty: 'x' }) }))).toEqual(['1-2']);
+    // endless slots: a campaign map's endless run has its own slot, the Colosseum keeps its id
+    expect(Object.keys(cleanBattleSaves(saves(rec({ slot: '1-1:endless', endless: true }))))).toEqual(['1-1:endless']);
+    expect(cleanBattleSaves({ '1-1': rec({ endless: true }) })).toEqual({});
+  });
+
+  it('keeps the newest MAX_BATTLE_SAVES by last play', () => {
+    const many = ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2'].map((id, i) => rec({ id: `bs-${i}`, slot: id, stageId: id, updatedAt: 100 + i }));
+    const kept = cleanBattleSaves(saves(...many));
+    expect(Object.keys(kept).length).toBe(MAX_BATTLE_SAVES);
+    expect(Object.keys(kept).sort()).toEqual(['1-3', '1-4', '1-5', '2-1', '2-2']);
+  });
+
+  it('a dropped record is not a lossy migration (no whole-save backup), but it is counted for a notice', () => {
+    const raw = JSON.parse(JSON.stringify(createProfile()));
+    raw.battleSaves = { ...saves(rec()), '1-2': rec({ slot: '1-2', stageId: '1-2', v: 99 }) };
+    expect(migrationDropsData(raw)).toBe(false);
+    expect(droppedBattleSaves(raw)).toBe(1);
+    const res = loadSaveText(JSON.stringify(raw));
+    expect(res.backup).toBeNull();
+    expect(res.droppedBattles).toBe(1);
+    expect(Object.keys(res.profile.battleSaves)).toEqual(['1-1']);
+  });
+});
+
+describe('battle save slots and modes', () => {
+  it('slotKey: one slot per stage, endless runs on a map apart, the Colosseum as itself', () => {
+    expect(slotKey('3-5')).toBe('3-5');
+    expect(slotKey('3-5', false)).toBe('3-5');
+    expect(slotKey('3-5', true)).toBe('3-5:endless');
+    expect(slotKey('challenge', true)).toBe('challenge');
+    expect(slotKey('challenge')).toBe('challenge');
+    expect(slotKey('res-books-2')).toBe('res-books-2');
+  });
+
+  it('isSavableRun: campaign / Bounty / Assault / Colosseum / endless yes; co-op, clan boss, tutorial, practice no', () => {
+    const ok = { practice: false, error: null };
+    expect(isSavableRun({ stage: '1-1' }, ok)).toBe(true);
+    expect(isSavableRun({ stage: 'challenge' }, ok)).toBe(true);
+    expect(isSavableRun({ stage: '1-1', endless: '1' }, ok)).toBe(true);
+    expect(isSavableRun({ coop: 'ABCD' }, ok)).toBe(false);
+    expect(isSavableRun({ stage: 'boss-lych', clanBoss: '42' }, ok)).toBe(false);
+    expect(isSavableRun({ stage: '1-1', tutorial: '1' }, ok)).toBe(false);
+    expect(isSavableRun({ stage: '8-5' }, { practice: true, error: null })).toBe(false);
+    expect(isSavableRun({ stage: 'nope' }, { practice: false, error: 'Unknown stage' })).toBe(false);
+  });
+});
+
+describe('battle save records', () => {
+  it('put / get / list (newest first), and the cap replaces the oldest', () => {
+    const p = createProfile();
+    for (let i = 0; i < MAX_BATTLE_SAVES; i++) putBattleSave(p, rec({ id: `bs-${i}`, slot: `1-${i + 1}`, stageId: `1-${i + 1}`, updatedAt: 10 + i }));
+    expect(listBattleSaves(p).map((r) => r.slot)).toEqual(['1-5', '1-4', '1-3', '1-2', '1-1']);
+    expect(oldestToEvict(p, '1-3')).toBeNull(); // overwrites its own slot
+    expect(oldestToEvict(p, '2-1').slot).toBe('1-1');
+    const evicted = putBattleSave(p, rec({ id: 'bs-new', slot: '2-1', stageId: '2-1', updatedAt: 99 }));
+    expect(evicted.map((r) => r.slot)).toEqual(['1-1']);
+    expect(getBattleSave(p, '1-1')).toBeNull();
+    expect(getBattleSave(p, '2-1').id).toBe('bs-new');
+    expect(listBattleSaves(p).length).toBe(MAX_BATTLE_SAVES);
+  });
+
+  it('clearBattleSave with another run id keeps the record (a payout never deletes a newer run)', () => {
+    const p = createProfile();
+    putBattleSave(p, rec());
+    expect(clearBattleSave(p, '1-1', 'bs-someone-else')).toBe(false);
+    expect(getBattleSave(p, '1-1')).not.toBeNull();
+    expect(clearBattleSave(p, '1-1', 'bs-test-1')).toBe(true);
+    expect(getBattleSave(p, '1-1')).toBeNull();
+    putBattleSave(p, rec());
+    expect(clearBattleSave(p, '1-1')).toBe(true); // New game / Restart: whatever is there
+    expect(clearBattleSave(p, '1-1')).toBe(false);
+  });
+
+  it('saveSummary: the next wave to fight, of the total (none for endless), lives and age', () => {
+    const now = 2000 + 12 * 60 * 1000;
+    expect(saveSummary(rec(), now)).toEqual({ next: 3, of: 12, lives: 97, difficulty: 'normal', endless: false, ago: '12 min ago' });
+    const col = rec({ slot: 'challenge', stageId: 'challenge', endless: true }, { wave: 30 });
+    expect(saveSummary(col, now)).toMatchObject({ next: 31, of: null, endless: true });
+    expect(saveSummary(rec({}, { wave: 0, state: 'prep' }), now).next).toBe(1);
+    expect(agoText(0, 30 * 1000)).toBe('just now');
+    expect(agoText(0, 3 * 3600 * 1000)).toBe('3 h ago');
+    expect(agoText(0, 49 * 3600 * 1000)).toBe('2 d ago');
+  });
+
+  it('newRunId is unique per run and URL-safe', () => {
+    const a = newRunId(1700000000000, () => 0.1);
+    const b = newRunId(1700000000000, () => 0.2);
+    expect(a).toMatch(/^bs-[a-z0-9]+-[0-9a-f]{5}$/);
+    expect(a).not.toBe(b);
+    expect(encodeURIComponent(newRunId())).toMatch(/^bs-/);
+  });
+});
+
+describe('payout helpers', () => {
+  it('battleDropSeed is fixed by the run', () => {
+    expect(battleDropSeed('3-5', 'hard', 77)).toBe(battleDropSeed('3-5', 'hard', 77));
+    expect(battleDropSeed('3-5', 'hard', 77)).not.toBe(battleDropSeed('3-5', 'hard', 78));
+    expect(battleDropSeed('3-5', 'hard', 77)).not.toBe(battleDropSeed('3-5', 'normal', 77));
+    expect(Number.isInteger(battleDropSeed('3-5', 'hard', 77))).toBe(true);
+  });
+
+  it('the event bonus is judged by when the run started (eventAt), not when it finished', () => {
+    // two weeks: one where a Bounty arena has the 2× event, one where it does not
+    const week = 7 * 24 * 3600 * 1000;
+    const t0 = Date.UTC(2026, 9, 14, 12);
+    let on = null;
+    let off = null;
+    let stageId = null;
+    for (let i = 0; i < 30 && !(on && off); i++) {
+      const at = new Date(t0 + i * week);
+      const ev = currentEvent(at);
+      stageId ||= ev.stageIds[0];
+      if (ev.stageIds.includes(stageId)) on ||= at;
+      else off ||= at;
+    }
+    expect(on && off).toBeTruthy();
+    expect(eventMul(stageId, on)).toBe(2);
+    expect(eventMul(stageId, off)).toBe(1);
+    const won = { stageId, difficulty: 'normal', won: true, wave: 12, wavesCleared: 12, livesLeft: 100, encountered: [], kills: {}, stats: {} };
+    const unlockAll = (p) => {
+      for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) p.progress.stages[id] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+      return p;
+    };
+    // started in the event week, finished after it: still the bonus
+    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: off, eventAt: on }).eventBonus).toBe(true);
+    // started before the event week, finished inside it: no bonus (no stockpiled saves)
+    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: on, eventAt: off }).eventBonus).toBe(false);
+    // without eventAt, as before: the finish time
+    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: on }).eventBonus).toBe(true);
+  });
+});

@@ -106,3 +106,38 @@ describe('store.load backups', () => {
     expect(JSON.parse(ls.m.get(SAVE_KEY)).version).toBe(SAVE_VERSION);
   });
 });
+
+describe('store writes for battle saves', () => {
+  it('commit(reason, { quiet }) saves (debounced) without the change event', async () => {
+    store.load();
+    const seen = [];
+    const off = store.on('change', (e) => seen.push(e.reason));
+    store.profile.currencies.gems = 77;
+    store.commit('battle-save', { quiet: true });
+    expect(seen).toEqual([]);
+    await new Promise((r) => setTimeout(r, 220));
+    expect(JSON.parse(ls.getItem(SAVE_KEY)).currencies.gems).toBe(77);
+    store.commit('battle-save');
+    expect(seen).toEqual(['battle-save']);
+    off();
+  });
+
+  it('saveNow says whether the profile was stored (storage full: false)', () => {
+    store.load();
+    expect(store.saveNow()).toBe(true);
+    vi.stubGlobal('localStorage', { ...ls, setItem: () => { throw new Error('QuotaExceededError'); } });
+    expect(store.saveNow()).toBe(false);
+  });
+
+  it('a saved battle this build cannot keep is dropped with a one-time notice, not a backup', () => {
+    const p = createProfile();
+    p.battleSaves = { '1-1': { v: 99, id: 'bs-x', slot: '1-1', stageId: '1-1' } };
+    ls.setItem(SAVE_KEY, JSON.stringify(p));
+    expect(store.load().battleSaves).toEqual({});
+    expect(ls.getItem(BACKUP_KEY)).toBeNull();
+    const n = store.takeNotice();
+    expect(n).toMatchObject({ reason: 'battle-save', kept: true, title: 'Saved battle removed' });
+    expect(n.message).toMatch(/saved battle couldn't be kept/);
+    expect(store.takeNotice()).toBeNull();
+  });
+});

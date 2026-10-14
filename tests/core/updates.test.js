@@ -165,6 +165,14 @@ describe('tools/simId.mjs', () => {
     expect(outside).toEqual([]);
   });
 
+  it('battle saves stay outside the graph (saving a battle never changes who can play co-op together)', () => {
+    const { files } = simId();
+    for (const f of ['src/systems/battleSave.js', 'src/ui/battle/snapshot.js', 'src/ui/battle/battleSaver.js', 'src/core/store.js', 'src/systems/save.js', 'src/systems/rewards.js']) {
+      expect(files).not.toContain(f);
+    }
+    expect(files.filter((f) => f.startsWith('src/systems/') || f.startsWith('src/ui/'))).toEqual([]);
+  });
+
   it('the net settings both players must share are data the id covers (not the adapters)', async () => {
     const { COOP_NET } = await import('../../src/data/coop.js');
     expect(COOP_NET.supabase).toEqual({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 });
