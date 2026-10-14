@@ -1,6 +1,7 @@
 // Co-op tuning (2-player real-time lockstep battles). Data only: the online layer
 // (src/online/coop/**) and the co-op screens read these numbers.
 import { CAMPAIGN_IDS, STAGE_MAP } from './stages.js';
+import { freeplayTable } from './freeplay.js';
 
 export const COOP = Object.freeze({
   /** Enemy HP multiplier on top of the stage's own hpScale (two defenders). */
@@ -55,10 +56,13 @@ export const COOP_NET = Object.freeze({
  * @param {string} stageId
  * @returns {object|null}
  */
-export function coopStage(stageId) {
+export function coopStage(stageId, { freeplay = null } = {}) {
   const s = STAGE_MAP[stageId];
   if (!s) return null;
-  return { ...s, hpScale: (s.hpScale ?? 1) * COOP.hpMul, coop: true };
+  const out = { ...s, hpScale: (s.hpScale ?? 1) * COOP.hpMul, coop: true };
+  const table = freeplay ? freeplayTable(freeplay) : null;
+  if (table && s.kind === 'campaign' && Number.isFinite(s.waves)) out.freeplay = table;
+  return out;
 }
 
 /**

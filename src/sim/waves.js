@@ -22,7 +22,7 @@ function eliteWeight(def, entry, wave) {
   return 0.5;
 }
 
-function groupSpacing(base, def) {
+export function groupSpacing(base, def) {
   const threat = def.threat ?? 1;
   let s = base;
   if (threat >= 15) s *= 2.2;

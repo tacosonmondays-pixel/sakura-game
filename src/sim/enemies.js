@@ -97,6 +97,7 @@ export function createEnemy(def, o) {
     bounty: (def.bounty || 0) * o.cashMul,
     leak: leakAmount(def),
     hpMul: o.hpMul,
+    childHpMul: o.childHpMul ?? o.hpMul,
     wave: o.wave || 0,
     dead: false,
     leaked: false,
@@ -154,6 +155,29 @@ export function initTraitState(e) {
   if (!t.blink) e.blinkWarned = false;
 }
 
+/** Freeplay affix on a wave spawn: + flat armor, × walk speed, extra traits, a barrier of pct × base HP. */
+export function applySpawnMods(e, m) {
+  if (m.armor) { e.armor += m.armor; e.armorBonus = (e.armorBonus || 0) + m.armor; }
+  if (m.speed && m.speed !== 1) {
+    e.speedMul *= m.speed;
+    e.baseSpeed = (e.def.speed ?? 1) * e.speedMul;
+    e.speed = e.baseSpeed;
+  }
+  if (m.traits) for (const k of Object.keys(m.traits)) if (!e.traits[k]) e.traits[k] = m.traits[k];
+  if (m.barrierPct > 0 && !e.traits.barrier) e.traits.barrier = { hp: (e.def.hp || 1) * m.barrierPct, regenDelay: 3 };
+  initTraitState(e);
+}
+
+/** Freeplay pressure of the current wave (every enemy that enters during it, summons and splits
+ *  included): + flat armor (kept through boss phases) and the Resolve budgets — hard-CC seconds and
+ *  knockback tiles this enemy can still be held for. */
+export function applyPressure(e, p) {
+  const add = e.tier === 'normal' || e.tier === 'elite' ? p.armor : p.bossArmor || 0;
+  if (add) { e.armor += add; e.armorBonus = (e.armorBonus || 0) + add; }
+  e.ccLeft = e.tier === 'normal' || e.tier === 'elite' ? p.cc : p.bossCc;
+  e.kbLeft = p.kb;
+}
+
 /** Places the enemy at its current path distance (position, facing, tunnel + overpass state). */
 export function placeOnPath(e, path) {
   const p = pointAt(path, e.dist, e._pt || (e._pt = {}), e.seg);
@@ -173,7 +197,7 @@ export function checkPhases(sim, e) {
     const ph = e.phases[e.nextPhase++];
     const set = ph.set || {};
     if (set.speed != null) e.baseSpeed = set.speed * e.speedMul;
-    if (set.armor != null) e.armor = set.armor;
+    if (set.armor != null) e.armor = set.armor + (e.armorBonus || 0);
     if (set.armorClass) e.armorClass = set.armorClass;
     if (set.traits) {
       for (const k of Object.keys(set.traits)) {
@@ -352,7 +376,7 @@ function updateAbilities(sim, e, path, dt) {
       e.summonTimer = 0;
       const n = t.summoner.count ?? 1;
       for (let i = 0; i < n; i++) {
-        sim.spawnEnemy(t.summoner.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist - 0.4 - 0.35 * i), hpMul: e.hpMul, parent: e });
+        sim.spawnEnemy(t.summoner.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist - 0.4 - 0.35 * i), hpMul: e.childHpMul, parent: e });
       }
     }
   }
@@ -363,7 +387,7 @@ function updateAbilities(sim, e, path, dt) {
       e.decoyTimer = 0;
       const n = t.decoy.count ?? 2;
       for (let i = 0; i < n; i++) {
-        const d = sim.spawnEnemy(t.decoy.spawn, { pathIndex: e.pathIndex, dist: Math.min(path.length - 0.5, e.dist + 0.35 * (i + 1)), hpMul: e.hpMul, parent: e });
+        const d = sim.spawnEnemy(t.decoy.spawn, { pathIndex: e.pathIndex, dist: Math.min(path.length - 0.5, e.dist + 0.35 * (i + 1)), hpMul: e.childHpMul, parent: e });
         if (d) d.isDecoy = true;
       }
     }
@@ -476,7 +500,7 @@ export function onEnemyDeath(sim, e) {
     const children = [];
     for (let i = 0; i < n; i++) {
       const offset = (i - (n - 1) / 2) * 0.3;
-      const c = sim.spawnEnemy(b.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist + offset), hpMul: e.hpMul, parent: e });
+      const c = sim.spawnEnemy(b.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist + offset), hpMul: b.inherit != null ? e.hpMul * b.inherit : e.childHpMul, leak: b.leak, parent: e });
       if (c) children.push(c.uid);
     }
     if (children.length) sim._emit('split', { uid: e.uid, children });
