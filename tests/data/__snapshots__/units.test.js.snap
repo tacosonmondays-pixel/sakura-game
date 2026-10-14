@@ -75,7 +75,7 @@ exports[`hero definitions > luna Lv 25 stats are frozen (catches accidental powe
     "chance": 0,
     "mul": 1.5,
   },
-  "damage": 80.70239999999998,
+  "damage": 75.95519999999999,
   "detection": false,
   "element": null,
   "eliteMul": 1.25,
