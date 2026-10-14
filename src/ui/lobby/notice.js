@@ -1,8 +1,10 @@
 // Lobby V3 "Notice" board (owner: ui lobby): news, this week's event, recruit pick-up, the
-// free-to-play guide and Sensei tips, BA-style (tab list on the left, article on the right).
-// Read state is a per-device convenience (localStorage), so a fresh notice shows a red dot.
+// free-to-play guide, Sensei tips and the patch notes (every game version, each with a gem gift
+// to claim), tab list on the left, article on the right.
+// Read state is a per-device convenience (localStorage), so a fresh notice shows a red dot; the
+// dot also stays lit while any patch gift is unclaimed (claims live in the saved profile).
 import { h, clear } from '../dom.js';
-import { modal, svgEl, button } from '../components.js';
+import { modal, svgEl, button, toast } from '../components.js';
 import { navigate } from '../router.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
@@ -11,13 +13,16 @@ import { GACHA } from '../../data/types.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { betaNoticeState } from '../../systems/mail.js';
 import { store } from '../../core/store.js';
+import { PATCH_NOTES } from '../../data/patchNotes.js';
+import { PATCH_GIFT_GEMS, unclaimedPatchGifts, isPatchGiftClaimed, claimPatchGift, claimAllPatchGifts } from '../../systems/patchGifts.js';
 
 /** Bump when the notice list gains a new article (shows the red dot again). */
-export const NOTICE_VERSION = 'first-impressions-1';
+export const NOTICE_VERSION = 'patch-notes-1';
 const SEEN_KEY = 'sakura-lobby-notice-seen';
 export const RECRUIT_FEATURED = ['luna', 'hotaru', 'kaede'];
 
-export function noticeUnread() {
+export function noticeUnread(profile = store.profile) {
+  if (profile && unclaimedPatchGifts(profile).length) return true;
   try {
     return localStorage.getItem(SEEN_KEY) !== NOTICE_VERSION;
   } catch {
@@ -45,6 +50,59 @@ export const ARENA_ART = { 'res-books': 'thumbs/academy.webp', 'res-coins': 'thu
 /** The student who hosts each weekly event (her drawn stand on the lobby EVENT card and Events screen). */
 export const ARENA_GUEST = { 'res-books': 'hotaru', 'res-coins': 'chika', 'res-gear': 'kaede', 'res-mats-a': 'luna', 'res-mats-b': 'miko' };
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** '2026-10-14' → 'Oct 14' (patch dates are already US Central calendar days: no time zone math). */
+export function shortDate(iso, { year = false } = {}) {
+  const [y, mo, d] = String(iso).split('-').map(Number);
+  if (!y || !mo || !d) return String(iso);
+  return `${MONTHS[mo - 1]} ${d}${year ? `, ${y}` : ''}`;
+}
+
+const PATCH_SECTIONS = [['added', 'Added'], ['changed', 'Changed'], ['fixed', 'Fixed']];
+
+/** The "Patch notes" article: every version, newest first, each with a once-per-save gem gift. */
+function patchNotesPage({ rerender }) {
+  const profile = store.profile;
+  const waiting = unclaimedPatchGifts(profile);
+  const after = (r, gems) => {
+    if (!r.ok) return toast(r.error === 'claimed' ? 'Already claimed.' : 'That gift is not available.', 'bad');
+    store.commit('patch-gift');
+    toast(`Received ${gems} 💎 — thank you for playing, Sensei!`, 'good', 2600);
+    rerender();
+  };
+  const claimOne = (id) => after(claimPatchGift(profile, id), PATCH_GIFT_GEMS);
+  const claimAll = () => {
+    const r = claimAllPatchGifts(profile);
+    after(r, PATCH_GIFT_GEMS * r.count);
+  };
+  return [
+    h('div.lb-notice-head', h('span.lb-notice-tag', { dataset: { tag: 'Update' } }, 'Update'), h('h3', 'Patch notes')),
+    h('div.lb-patch-intro',
+      h('p', `Every version of the academy, newest first. Each one comes with ${PATCH_GIFT_GEMS} 💎 — claim it once per version.`),
+      waiting.length >= 2 ? button(`Claim all (${waiting.length})`, { kind: 'yellow', small: true, testid: 'patch-claim-all', onClick: claimAll }) : null,
+    ),
+    h('div.lb-patch-list', ...PATCH_NOTES.map((n) => {
+      const claimed = isPatchGiftClaimed(profile, n.id);
+      return h('section.lb-patch', { 'data-testid': `patch-${n.id}` },
+        h('header.lb-patch-head',
+          h('div.lb-patch-title',
+            h('span.lb-patch-ver', `v${n.version}`),
+            h('small.lb-patch-date', shortDate(n.date, { year: true })),
+            h('b', n.title),
+          ),
+          claimed
+            ? h('span.lb-patch-claimed', { 'data-testid': `patch-claimed-${n.id}` }, 'Claimed ✓')
+            : button(`Claim ${PATCH_GIFT_GEMS} 💎`, { kind: 'yellow', small: true, testid: `patch-claim-${n.id}`, onClick: () => claimOne(n.id) }),
+        ),
+        ...PATCH_SECTIONS.filter(([k]) => n[k]?.length).map(([k, label]) => h('div.lb-patch-sec',
+          h(`span.lb-patch-kind.${k}`, label),
+          h('ul', ...n[k].map((line) => h('li', line))),
+        )),
+      );
+    })),
+  ];
+}
+
 function articles() {
   const event = currentEvent();
   const days = eventDaysLeft();
@@ -69,12 +127,12 @@ function articles() {
       cta: { label: 'Open Mail', go: () => import('./mailbox.js').then((m) => m.openMailbox()) },
     },
     {
-      id: 'renewal', tag: 'Update', icon: 'notice', title: 'A brand-new look for the academy', date: 'New',
-      body: [
-        'Every student now has hand-drawn art — in the lobby, Students, Formation, Recruit, the missions hub and even the battle bar.',
-        'Choose your Lobby Background from the picture button next to ⤢ (or Menu → Lobby Background): her scene, the academy by day, at sunset or by night. Bond memories — a café date, festival night, a sunset walk — unlock later through dates and gifts in the City.',
-        'Tap your secretary to chat. The ⤢ button hides the menus so you can admire the view.',
-      ],
+      id: 'patch', tag: 'Update', icon: 'notice', title: 'Patch notes',
+      date: () => {
+        const n = unclaimedPatchGifts(store.profile).length;
+        return `v${PATCH_NOTES[0].version} · ${n ? `${n} gift${n === 1 ? '' : 's'} 💎` : shortDate(PATCH_NOTES[0].date)}`;
+      },
+      render: patchNotesPage,
     },
     {
       id: 'event', tag: 'Event', icon: 'calendar', title: event.name, date: `${days} day${days === 1 ? '' : 's'} left`, paint: ARENA_ART[event.arena] || 'thumbs/academy.webp',
@@ -116,9 +174,22 @@ export function showNoticeModal() {
   const tabs = h('nav.lb-notice-tabs', { role: 'tablist' });
   const page = h('article.lb-notice-page');
   let m = null;
-  const open = (a) => {
-    for (const b of tabs.children) b.classList.toggle('active', b.dataset.id === a.id);
+  const dateOf = (a) => (typeof a.date === 'function' ? a.date() : a.date);
+  const open = (a, { keepScroll = false } = {}) => {
+    const top = page.scrollTop;
+    for (const b of tabs.children) {
+      b.classList.toggle('active', b.dataset.id === a.id);
+      const it = list.find((x) => x.id === b.dataset.id);
+      const small = b.querySelector('small');
+      if (it && small) small.textContent = dateOf(it);
+    }
+    page.classList.toggle('lb-notice-page-patch', a.id === 'patch');
     clear(page);
+    if (a.render) {
+      page.append(...a.render({ rerender: () => open(a, { keepScroll: true }) }).filter(Boolean));
+      page.scrollTop = keepScroll ? top : 0;
+      return;
+    }
     page.append(...[
       a.paint ? h('div.lb-notice-art', h('img', { src: lobbyArtUrl(a.paint), alt: '', loading: 'lazy', decoding: 'async' })) : null,
       h('div.lb-notice-head', h('span.lb-notice-tag', { dataset: { tag: a.tag } }, a.tag), h('h3', a.title)),
@@ -130,11 +201,12 @@ export function showNoticeModal() {
   for (const a of list) {
     tabs.appendChild(h('button.lb-notice-tab', { role: 'tab', dataset: { id: a.id }, onclick: () => open(a), 'data-testid': `notice-${a.id}` },
       svgEl(lobbyIcon(a.icon, { uid: `notice-${a.id}`, shadow: false }), 'lb-notice-ico'),
-      h('span.lb-notice-tab-text', h('b', a.title), h('small', a.date)),
+      h('span.lb-notice-tab-text', h('b', a.title), h('small', dateOf(a))),
     ));
   }
   m = modal({ title: 'Notice', body: h('div.lb-notice', tabs, page), actions: [], wide: true, cls: 'lb-notice-modal' });
   m.el.querySelector('.modal-title')?.appendChild(h('button.lb-modal-x', { onclick: () => m.close(), 'aria-label': 'Close', 'data-testid': 'notice-close' }, svgEl(lobbyIcon('close', { uid: 'notice-x', shadow: false }))));
-  open(list[0]);
+  // waiting patch gifts are what lights the red dot, so open straight onto them
+  open((unclaimedPatchGifts(store.profile).length && list.find((a) => a.id === 'patch')) || list[0]);
   return m;
 }
