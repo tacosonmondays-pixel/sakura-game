@@ -526,6 +526,14 @@
 .ol-fp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0; }
 .ol-fp-label { font-weight: 900; font-style: italic; color: var(--navy); }
 .ol-fp-hint { flex-basis: 100%; }
+/* the tier buttons: name, difficulty pips, reward multiplier */
+.ol-fp-btn { display: inline-flex; align-items: baseline; gap: 4px; }
+.ol-fp-pips { font-style: normal; font-size: 0.66rem; letter-spacing: -0.04em; color: #f2b705; text-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+.ol-fp-mul { font-size: 0.66rem; font-weight: 900; opacity: 0.85; }
+.ol-fp-btn.on .ol-fp-pips { color: #ffe37a; }
+.ol-fp-row-hub { margin: 6px 0 0; }
+.ol-fp-row-room { margin: 2px 0 0; gap: 4px 8px; }
+.ol-fp-row-room .ol-seg-btn { min-height: 28px; padding: 3px 8px; font-size: 0.78rem; }
 .ol-fp-seg .ol-fp-btn.on { color: #fff; }
 .ol-fp-seg .ol-fp-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); }
 .ol-fp-seg .ol-fp-tempest.on { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
@@ -543,6 +551,14 @@
   .ol-room-stage { flex: 1 1 100%; order: 3; }
   .ol-room-thumb { width: 104px; }
   .ol-chip-fp { margin-left: 0; }
+  /* the Battlefield panel: the map on top, the text (and the freeplay block) at full width under it */
+  .ol-field-body { flex-direction: column; }
+  .ol-field-thumb { width: 100%; max-width: 360px; align-self: center; }
+  .ol-field-info { width: 100%; }
+  /* the Start / Ready row: the button at full width, the hint and the version line under it */
+  .ol-room-foot { flex-direction: column; align-items: stretch; gap: 6px; }
+  .ol-room-foot p { text-align: center; }
+  .ol-room-foot > .btn { order: -1; width: 100%; }
 }
 /* the room's repaints keep its panels still (only the first paint slides them in) */
 .ol-room-live .panel { animation: none; }
