@@ -16,10 +16,7 @@ function show(info) {
   if (!info || dismissed === info.build) return;
   const route = currentRoute()?.name;
   if (QUIET_SCREENS.has(route)) return; // after the battle
-  if (route === 'title') {
-    reloadFresh(info.build);
-    return;
-  }
+  if (route === 'title' && reloadFresh(info.build, { auto: true })) return;
   bar?.remove();
   bar = h('div.upd-bar', { role: 'status', 'data-testid': 'update-bar' },
     h('span.upd-dot', { 'aria-hidden': 'true' }),

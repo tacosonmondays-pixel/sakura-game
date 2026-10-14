@@ -6,8 +6,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { createLocalAdapter } from '../../src/online/adapters/local.js';
 import { openSession } from '../../src/online/coop/session.js';
 import { quantize } from '../../src/online/coop/commands.js';
-import { COOP } from '../../src/data/coop.js';
-import { coopLoadout } from '../../src/online/coop/loadout.js';
+import { COOP, COOP_NET } from '../../src/data/coop.js';
+import { pickLoadout } from '../../src/online/coop/loadout.js';
+import { resolveFormation } from '../../src/ui/battle/setup.js';
+import { unitBattleStats } from '../../src/systems/progression.js';
 import { supplyGrant, SUPPLY_MAX } from '../../src/online/supply.js';
 import { createProfile } from '../../src/systems/save.js';
 import { itemCount } from '../../src/systems/inventory.js';
@@ -115,7 +117,7 @@ describe('local adapter (two tabs of one browser)', () => {
     roomC.send({ type: 'forged' });
     hub.flush();
     expect(seenA).toEqual([{ type: 'ping' }]);
-    expect(roomA.net).toEqual({ heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay });
+    expect(roomA.net).toEqual(COOP_NET.local);
     // a wrong code: refused after openRoom returns
     const errB = [];
     await new Promise((r) => setTimeout(r, 1100)); // (one room call per second)
@@ -223,6 +225,7 @@ describe('co-op loadout and the Supply Bot', () => {
     const p = createProfile();
     for (const id of ['aoi', 'rei', 'yuki', 'momo', 'akane', 'kage', 'sango']) p.units[id] ||= { level: 1, stars: 1, awaken: 0, gear: {} };
     p.formation = { hero: 'hikari', towers: ['aoi', 'rei', 'yuki', 'momo', 'akane', 'kage', 'sango'] };
+    const coopLoadout = (profile, isHost) => pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
     const host = coopLoadout(p, true);
     const guest = coopLoadout(p, false);
     expect(host.hero?.unitId).toBe('hikari');

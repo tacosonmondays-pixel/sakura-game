@@ -4,6 +4,7 @@
 // browser can chat, form a clan and play co-op together. Used in dev, in the e2e test and
 // whenever no Supabase project is configured.
 import { createLocalDb } from './localDb.js';
+import { COOP_NET } from '../../data/coop.js';
 
 const DB_KEY = 'ss-online-db';
 const TAB_KEY = 'ss-online-tab';
@@ -353,7 +354,7 @@ export function createLocalAdapter(env = {}) {
         seat = host ? db.openRoom(self, code) : db.joinRoom(self, code);
       } catch (e) {
         setTimeout(() => onError(e), 0); // like the Supabase adapter: errors arrive after openRoom returns
-        return { net: { heartbeatMs: 50, inputDelay: 6 }, status: 'connecting', connected: false, send: () => false, peers: () => [], track() {}, reconnect() {}, close() {} };
+        return { net: COOP_NET.local, status: 'connecting', connected: false, send: () => false, peers: () => [], track() {}, reconnect() {}, close() {} };
       }
       // the server registered the seat (a DM invite for this room can be sent now)
       setTimeout(() => onSeated({ code: seat.code, host: seat.host }), 0);
@@ -401,7 +402,9 @@ export function createLocalAdapter(env = {}) {
         if (changed) emitPresence();
       }, PRESENCE_MS);
       return {
-        net: { heartbeatMs: 50, inputDelay: 6 },
+        net: COOP_NET.local,
+        /** fresh channels asked for (Retry, the lobby's one-way healing): the e2e test reads it */
+        reconnects: 0,
         get status() {
           return status;
         },
@@ -416,8 +419,10 @@ export function createLocalAdapter(env = {}) {
           Object.assign(meta, next);
           announce();
         },
+        /** A fresh channel: ends a faked fault (like a fresh Realtime channel on a good node). */
         reconnect() {
           if (closed) return;
+          this.reconnects++;
           cut = null;
           report('connected', { rejoin: true });
           announce();

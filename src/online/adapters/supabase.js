@@ -5,6 +5,7 @@
 // never download it.
 import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
 import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
+import { COOP_NET } from '../../data/coop.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
 const tsOrNull = (v) => (v ? new Date(v).getTime() : null);
@@ -41,6 +42,10 @@ export const ROOM_STUCK_MS = 12000;
 export const ROOM_MAX_BACKOFF_MS = 15000;
 /** Messages kept while a room channel is down (beyond that, the oldest go). */
 export const ROOM_OUTBOX_MAX = 50;
+/** Back on the tab after at least this long hidden (a phone unlocked): probe the socket… */
+export const WAKE_PROBE_AFTER_MS = 3000;
+/** …and replace it when its heartbeat is not answered within this long. */
+export const SOCKET_PROBE_MS = 4000;
 
 function mapMessage(r) {
   return {
@@ -77,12 +82,51 @@ const CLAN_COLS = 'id,name,tag,emblem,join_mode,description,leader_id,xp,max_mem
 export function createSupabaseAdapter({ url, key }) {
   let client = null;
   let uid = null;
+  let accessToken = null; // the session's JWT, kept at hand for requests made while the page unloads
+
+  // Open co-op rooms, told first when the page goes away. This listener is added before
+  // createClient runs (sb() below), so it fires before realtime-js's own 'pagehide' handler,
+  // which closes the socket: the rooms' goodbyes ('leave', the lockstep 'bye') still get out
+  // over the open socket, and the seat is freed with a keepalive request that outlives the page.
+  const rooms = new Set();
+  let unloading = false;
+  globalThis.addEventListener?.('pagehide', () => {
+    unloading = true;
+    try {
+      for (const r of [...rooms]) r.unload();
+    } finally {
+      unloading = false;
+    }
+  });
 
   async function sb() {
     if (client) return client;
     const { createClient } = await import('@supabase/supabase-js');
     client = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ss-online-auth' } });
+    client.auth.onAuthStateChange?.((_event, session) => {
+      accessToken = session?.access_token || null;
+    });
     return client;
+  }
+
+  /**
+   * leave_room as a plain keepalive request (the page is unloading: supabase-js would first
+   * await its session and never get to send). Same endpoint and headers as supabase-js uses.
+   * @returns {boolean} sent
+   */
+  function leaveRoomNow(code) {
+    if (!accessToken || typeof fetch !== 'function') return false;
+    try {
+      fetch(`${String(url).replace(/\/+$/, '')}/rest/v1/rpc/leave_room`, {
+        method: 'POST',
+        keepalive: true,
+        headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_code: code }),
+      }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Unwraps { data, error } and normalizes errors. */
@@ -132,9 +176,11 @@ export function createSupabaseAdapter({ url, key }) {
       const c = await sb();
       const { data } = await c.auth.getSession();
       let user = data?.session?.user || null;
+      if (data?.session?.access_token) accessToken = data.session.access_token;
       if (!user) {
         const res = await q(c.auth.signInAnonymously());
         user = res?.user;
+        if (res?.session?.access_token) accessToken = res.session.access_token;
       }
       if (!user) throw new OnlineError('offline', 'Sign-in failed.');
       uid = user.id;
@@ -514,7 +560,12 @@ export function createSupabaseAdapter({ url, key }) {
     // no new open_room / join_room) after a backoff. onStatus tells the lobby what is going on:
     //   'connecting'   not joined yet          'connected'  joined (again: { rejoin: true })
     //   'reconnecting' lost it, working on it
-    openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onSeated = () => {} } = {}) {
+    // A socket can also die without anyone noticing (an iPhone locked for a while: WebKit does
+    // not always report the close, and realtime-js only finds out at its next missed heartbeat,
+    // 25–50 s later). Back on the tab after WAKE_PROBE_AFTER_MS, the room sends a heartbeat and
+    // replaces the socket when it is not answered within SOCKET_PROBE_MS.
+    // onUnload: called when the page goes away (before realtime-js closes its socket).
+    openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onUnload = null, onSeated = () => {} } = {}) {
       const self = need();
       let c = null;
       let secret = null;
@@ -526,7 +577,22 @@ export function createSupabaseAdapter({ url, key }) {
       let attempt = 0;
       let retryTimer = null;
       let watchdog = null;
+      let probeTimer = null;
+      let hiddenAt = 0;
       const outbox = []; // { key, payload } while the channel is not joined
+      const entry = {
+        unload() {
+          // the session says goodbye and closes the room (→ close() with `unloading` set)
+          try {
+            if (onUnload) onUnload();
+            else api.close();
+          } catch (e) {
+            console.warn('[coop] unload failed', e);
+          }
+          api.close();
+        },
+      };
+      rooms.add(entry);
       const live = () => !!ch && ch.state === 'joined' && c?.realtime?.isConnected?.() !== false;
       const setStatus = (next, info = {}) => {
         if (closed || (next === status && next !== 'connected')) return;
@@ -637,6 +703,54 @@ export function createSupabaseAdapter({ url, key }) {
         });
       }
 
+      /**
+       * Replaces the socket at once, the way realtime-js does after a missed heartbeat: a
+       * heartbeat sent while one is still unanswered counts as a timeout, so every channel is
+       * errored (they rejoin), the socket closes and reconnects (after ~1 s).
+       */
+      function resetSocket() {
+        const rt = c?.realtime;
+        if (!rt?.sendHeartbeat || rt.isConnected?.() !== true) return; // down: it reconnects by itself
+        clearTimeout(probeTimer);
+        probeTimer = null;
+        try {
+          if (!rt.pendingHeartbeatRef) Promise.resolve(rt.sendHeartbeat()).catch(() => {});
+          Promise.resolve(rt.sendHeartbeat()).catch(() => {});
+        } catch (e) {
+          console.warn('[coop] socket reset failed', e);
+        }
+      }
+
+      /** Is the socket really alive? A heartbeat, answered within SOCKET_PROBE_MS or replaced. */
+      function probeSocket() {
+        const rt = c?.realtime;
+        if (closed || !rt?.sendHeartbeat || rt.isConnected?.() !== true || probeTimer) return;
+        try {
+          if (!rt.pendingHeartbeatRef) Promise.resolve(rt.sendHeartbeat()).catch(() => {});
+        } catch {
+          return;
+        }
+        const ref = rt.pendingHeartbeatRef;
+        if (!ref) return;
+        probeTimer = setTimeout(() => {
+          probeTimer = null;
+          if (!closed && rt.pendingHeartbeatRef === ref) resetSocket();
+        }, SOCKET_PROBE_MS);
+      }
+
+      const doc = globalThis.document;
+      const onVisibility = () => {
+        if (closed || !doc) return;
+        if (doc.visibilityState === 'hidden') {
+          hiddenAt = Date.now();
+          return;
+        }
+        const away = hiddenAt ? Date.now() - hiddenAt : 0;
+        hiddenAt = 0;
+        if (away >= WAKE_PROBE_AFTER_MS) probeSocket();
+      };
+      doc?.addEventListener?.('visibilitychange', onVisibility);
+
       sb().then(async (client0) => {
         c = client0;
         if (closed) return;
@@ -659,12 +773,9 @@ export function createSupabaseAdapter({ url, key }) {
         join();
       });
 
-      return {
-        // Realtime counts every message against the project's quota (free plan: 2M a month and
-        // 100 per second for the whole project), so rooms here talk ~4× a second instead of 20:
-        // a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is queued
-        // (src/online/coop/lockstep.js). Tower defense hardly notices half a second of lag.
-        net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 },
+      const api = {
+        // the lockstep's net settings for Realtime rooms (~4 messages a second; see COOP_NET)
+        net: COOP_NET.supabase,
         get status() {
           return status;
         },
@@ -693,23 +804,31 @@ export function createSupabaseAdapter({ url, key }) {
           if (outbox.length > ROOM_OUTBOX_MAX) outbox.shift();
           return false;
         },
-        /** Retry button: take the seat again (finds out if the room is gone) on a fresh channel. */
-        async reconnect() {
+        /**
+         * A fresh channel. seat: take the seat again first (the Retry button: finds out if the
+         * room is gone; join_room counts against the room rate limit, so the lobby's own
+         * one-way healing passes seat: false). socket: replace the socket too (it may be dead
+         * without knowing it, or stuck on a bad server node).
+         */
+        async reconnect({ seat = true, socket = false, reason = null } = {}) {
           if (closed || !c) return;
           clearTimeout(retryTimer);
           clearTimeout(watchdog);
           retryTimer = null;
           watchdog = null;
           attempt = 0;
-          setStatus(lost(), { reason: 'retry' });
-          try {
-            await takeSeat();
-          } catch (e) {
-            const err = toOnlineError(e);
-            // the room is gone / taken: say so; a network or rate-limit hiccup: just rejoin
-            if (!secret || (err.code !== 'offline' && err.code !== 'rate_limited')) {
-              onError(err);
-              return;
+          setStatus(lost(), { reason: reason || (seat ? 'retry' : 'heal') });
+          if (socket) resetSocket();
+          if (seat || !secret) {
+            try {
+              await takeSeat();
+            } catch (e) {
+              const err = toOnlineError(e);
+              // the room is gone / taken: say so; a network or rate-limit hiccup: just rejoin
+              if (!secret || (err.code !== 'offline' && err.code !== 'rate_limited')) {
+                onError(err);
+                return;
+              }
             }
           }
           await join();
@@ -717,14 +836,20 @@ export function createSupabaseAdapter({ url, key }) {
         close() {
           if (closed) return;
           closed = true;
+          rooms.delete(entry);
+          doc?.removeEventListener?.('visibilitychange', onVisibility);
           clearTimeout(retryTimer);
           clearTimeout(watchdog);
+          clearTimeout(probeTimer);
           const old = ch;
           ch = null;
           if (old) Promise.resolve(c?.removeChannel(old)).catch(() => {});
-          if (seated) rpc('leave_room', { p_code: code }).catch(() => {});
+          // free the seat (a guest's seat would otherwise lock out anyone else for a day); while
+          // the page unloads, as a keepalive request that outlives it
+          if (seated && !(unloading && leaveRoomNow(code))) rpc('leave_room', { p_code: code }).catch(() => {});
         },
       };
+      return api;
     },
   };
 }

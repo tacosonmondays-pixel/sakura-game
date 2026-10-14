@@ -239,7 +239,7 @@ export function render(root, params = {}) {
         'data-testid': `fam-${f}`,
         onclick: () => {
           view.family = f;
-          history.replaceState(null, '', `#/bestiary?family=${f}`);
+          history.replaceState(history.state, '', `#/bestiary?family=${f}`);
           renderTabs();
           renderGrid();
           if (!view.selected || !detailHost.querySelector('.mb-detail-panel')) renderDetailPlaceholder();
@@ -334,7 +334,7 @@ export function render(root, params = {}) {
 
   function select(id) {
     view.selected = id;
-    history.replaceState(null, '', `#/bestiary?family=${view.family}&id=${id}`);
+    history.replaceState(history.state, '', `#/bestiary?family=${view.family}&id=${id}`);
     grid.querySelectorAll('.mb-beast').forEach((b) => b.classList.toggle('on', b.dataset.enemy === id));
     const e = ENEMY_MAP[id];
     const { panel, mount } = detailPanel(e);

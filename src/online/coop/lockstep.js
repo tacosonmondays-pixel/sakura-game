@@ -18,7 +18,8 @@
 // Every message carries `ep` (the timeline epoch, bumped by each rejoin) so packets from a
 // timeline that was abandoned are ignored; 'in' also lists the slots its sender lost (`gone`).
 // A client only runs tick T once every connected peer's horizon >= T; otherwise it stalls
-// ("Waiting for ally…") and raises its own input delay a little. A peer silent for
+// ("Waiting for ally…") and raises its own input delay a little (and lowers it again after
+// DELAY_RELAX_MS without a stall). A peer silent for
 // COOP.timeoutMs (COOP.loadTimeoutMs before its first packet: its battle screen is still
 // loading) is dropped: its towers stay, its income goes to the survivor. If the dropped peer
 // was only frozen or cut off (a phone switching apps, a long load, a network hiccup) and its
@@ -47,6 +48,10 @@ const REJOIN_WAIT_MS = 6000;
 const REJOINABLE = new Set(['timeout', 'lost']);
 /** Marker commands ('gone' / 'join') sort before the players' own commands of their tick. */
 const MARK_BASE = -1000000;
+/** No stall for this long (real time): the adaptive input delay steps back toward its base
+ *  (half the excess per step), so one hiccup does not slow every later order for the whole
+ *  battle. Safe at any time: promises (horizon) never shrink and queue() schedules after them. */
+export const DELAY_RELAX_MS = 10000;
 
 export class Lockstep {
   /**
@@ -63,7 +68,9 @@ export class Lockstep {
     this.sendRaw = send;
     this.now = now;
     this.delay = delay;
+    this.baseDelay = delay;
     this.maxDelay = Math.max(delay, maxDelay);
+    this.lastStallAt = -Infinity; // real time of the last stall / delay change (adaptive delay)
     this.heartbeatMs = heartbeatMs;
     this.keepaliveMs = Math.max(heartbeatMs, keepaliveMs);
     this.sentHorizon = -1; // what my last beat said: horizon, newest hash tick, live flag
@@ -533,6 +540,7 @@ export class Lockstep {
       if (!this.canRun(this.tick)) {
         this.stalled = true;
         this.stallTicks++;
+        this.lastStallAt = t;
         if (this.stallTicks % 30 === 0 && this.delay < this.maxDelay) this.delay = Math.min(this.maxDelay, this.delay + Math.max(2, Math.round(this.delay / 3)));
         break;
       }
@@ -541,8 +549,17 @@ export class Lockstep {
       ran++;
       if (this.finished) break;
     }
+    this.relaxDelay(t);
     if (ran) this.beat();
     return ran;
+  }
+
+  /** A quiet spell (no stall for DELAY_RELAX_MS): step the input delay back toward its base. */
+  relaxDelay(t) {
+    if (this.stalled || this.delay <= this.baseDelay || t - this.lastStallAt < DELAY_RELAX_MS) return;
+    this.delay = Math.max(this.baseDelay, this.delay - Math.max(2, Math.round((this.delay - this.baseDelay) / 2)));
+    this.lastStallAt = t; // the next step after another quiet spell
+    this.note('delay', { delay: this.delay });
   }
 
   /** Last common hashes (for the e2e test / debug HUD). */
