@@ -203,6 +203,9 @@ async function run(vp) {
     maxSeen = Math.max(maxSeen, s.n);
     if (i === 3) await shot('battle-spawned');
   }
+  // the panel spaces a group 0.35 s of game time apart: let the queue drain (slow on a loaded machine)
+  const drained = await page.waitForFunction(() => { const { ui } = window.__battle; return (ui.modules.find((m) => m.state === ui.sandbox)?.queued ?? 0) === 0; }, null, { timeout: 60000 }).then(() => true).catch(() => false);
+  check(drained, 'spawn queue drained');
   const spawned = await page.evaluate(() => { const { sim } = window.__battle; return { encountered: [...sim.encountered], alive: sim.enemies.length, kills: sim.kills, leaked: sim.stats.enemiesLeaked, lives: sim.lives, max: sim.maxLives, state: sim.state, ended: window.__battle.ui.ended }; });
   const total = spawned.alive + Object.values(spawned.kills).reduce((a, b) => a + b, 0) + spawned.leaked;
   check(spawned.encountered.includes('dragon_ashwing') && total >= 21, `spawned 20 + the Ashwing Matriarch (${total} seen, max ${maxSeen} on the board, ${JSON.stringify(spawned.kills)})`);
