@@ -6,15 +6,24 @@
 //
 //   npx vitest run tests/integration/balance.test.js                  # Easy gate (fast-ish)
 //   BALANCE=full npx vitest run tests/integration/balance.test.js     # full table, all difficulties
+//   BALANCE=hero npx vitest run tests/integration/balance.test.js     # hero rework: headroom, pace, power, counters
 //   BALANCE_OUT=/tmp/table.md also writes the table to a file (vitest hides console of passing tests)
 import { describe, test, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { Sim } from '../../src/sim/Sim.js';
+import { xpToReach } from '../../src/sim/hero.js';
+import { ENEMY_MAP } from '../../src/data/enemies.js';
+import { towers as towerDefs, heroes as heroDefs } from '../../src/data/units.js';
+import { HERO_LEVEL_PRICES } from '../../src/data/heroTracks.js';
+import { headroom, geoMean } from '../../tools/balance/headroom.js';
+import { benchDps, towerBest, median } from '../../tools/balance/bench.js';
 
 const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
+const HERO = process.env.BALANCE === 'hero';
 
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
@@ -40,16 +49,21 @@ function statsAtLevel(unitId, level) {
 }
 
 /** Runs one stage with the F2P roster. */
-export function runStage(stageId, difficulty, level, seed = 1) {
+export function runStage(stageId, difficulty, level, seed = 1, { hpMul = 1, heroId } = {}) {
   const d = defaultData();
-  const { towers, hero } = freeUnitsBefore(d, stageId);
+  const free = freeUnitsBefore(d, stageId);
+  const towers = free.towers;
+  const hero = heroId === undefined ? free.hero : heroId;
   const plan = autoPlan(stageId, [...towers, ...(hero ? [hero] : [])]);
+  const st = d.stages[stageId];
   const r = runHeadless({
     stageId, difficulty, plan, seed, maxTime: 7200,
+    data: hpMul === 1 ? undefined : { stage: { ...st, hpScale: (st.hpScale ?? 1) * hpMul } },
     loadout: towers.map((id) => ({ unitId: id, stats: statsAtLevel(id, level) })),
     hero: hero ? { unitId: hero, stats: statsAtLevel(hero, level) } : null,
   });
-  return { won: r.won, wave: r.wave, total: r.sim.totalWaves, lives: r.lives, maxLives: r.maxLives, units: [...towers, ...(hero ? [hero] : [])] };
+  const h = r.sim.towers.find((t) => t.isHero);
+  return { won: r.won, wave: r.wave, total: r.sim.totalWaves, lives: r.lives, maxLives: r.maxLives, units: [...towers, ...(hero ? [hero] : [])], heroLevel: h ? h.level : 0, sim: r.sim };
 }
 
 describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
@@ -93,4 +107,69 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     expect(wins.normal).toBeGreaterThanOrEqual(Math.ceil(campaign.length * 0.6));
     expect(wins.nightmare).toBeLessThanOrEqual(Math.floor(campaign.length * 0.35));
   }, 3600000);
+});
+
+// ---------------------------------------------------------------------------
+// Hero rework (docs/specs/HERO_REWORK.md §6, §12; docs/BALANCE.md)
+// ---------------------------------------------------------------------------
+describe.runIf(ready && HERO)('hero rework balance (BALANCE=hero)', () => {
+  const STAGES10 = ['1-1', '1-3', '1-5', '2-5', '3-5', '4-5', '5-5', '6-5', '7-5', '8-5'];
+  const level = (id) => EXPECTED_LEVEL[defaultData().stages[id].chapter] || 1;
+
+  test('headroom (Normal, F2P bot, cap 16) and the pace guard (no buying)', () => {
+    const rows = ['| Stage | Hero | Headroom | Won at ×1 | End level |', '|---|---|---|---|---|'];
+    const ends = {};
+    const values = [];
+    for (const id of STAGES10) {
+      const hr = headroom((m) => runStage(id, 'normal', level(id), 1, { hpMul: m }));
+      ends[id] = hr.at1.heroLevel;
+      values.push(hr.value);
+      rows.push(`| ${id} | ${hr.at1.units.at(-1)} | ${hr.capped ? '≥16' : hr.value} | ${hr.wonAt1 ? '✓' : '✗'} | ${hr.at1.heroLevel} |`);
+    }
+    rows.push(`| **geomean** | | ${geoMean(values).toFixed(2)} | | |`);
+    console.log(`[balance] hero headroom:\n${rows.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, rows.join('\n') + '\n');
+    // pace guard: with no coins spent, chapter 1 ends Lv 13–20, 8-5 Lv 17–21
+    for (const id of ['1-1', '1-3', '1-5']) {
+      expect(ends[id], id).toBeGreaterThanOrEqual(13);
+      expect(ends[id], id).toBeLessThanOrEqual(20);
+    }
+    expect(ends['8-5']).toBeGreaterThanOrEqual(17);
+    expect(ends['8-5']).toBeLessThanOrEqual(21);
+  }, 3600000);
+
+  test('power guard on the in-sim crowd / single-target bench', () => {
+    const deps = { Sim, xpToReach, enemies: ENEMY_MAP };
+    const t = towerDefs().map((u) => ({ id: u.id, t32: towerBest(deps, u.id, 3, 2), t42: towerBest(deps, u.id, 4, 2), t52: towerBest(deps, u.id, 5, 2), s52: towerBest(deps, u.id, 5, 2, { count: 1 }) }));
+    const best52 = Math.max(...t.map((x) => x.t52));
+    const bestS52 = Math.max(...t.map((x) => x.s52));
+    const med = (k) => median(t.map((x) => x[k]));
+    const lines = [];
+    for (const u of heroDefs()) {
+      const at = (L, count = 10) => benchDps(deps, { unitId: u.id, heroLevel: L, count });
+      const c10 = at(10);
+      const c20 = at(20);
+      const c25 = at(25);
+      const s25 = at(25, 1);
+      lines.push(`${u.id}: Lv10 ${Math.round(c10)} · Lv20 ${Math.round(c20)} · Lv25 ${Math.round(c25)} (${(c25 / best52).toFixed(2)}× best 5/2) · single Lv25 ${Math.round(s25)} (${(s25 / bestS52).toFixed(2)}×)`);
+      expect(c25 / best52, `${u.id} Lv 25 crowd ≤ 1.4× the best 5/2 tower`).toBeLessThanOrEqual(1.4);
+      expect(s25 / bestS52, `${u.id} Lv 25 single ≤ the best 5/2 tower`).toBeLessThanOrEqual(1.0);
+      expect(c25, `${u.id} Lv 25 crowd ≥ the 5/2 median`).toBeGreaterThanOrEqual(med('t52'));
+      expect(c20, `${u.id} Lv 20 crowd ≥ the 4/2 median`).toBeGreaterThanOrEqual(med('t42'));
+      expect(c10, `${u.id} Lv 10 crowd ≥ half the 3/2 median`).toBeGreaterThanOrEqual(0.5 * med('t32'));
+    }
+    console.log(`[balance] hero power (best 5/2 crowd ${Math.round(best52)}, single ${Math.round(bestS52)}; medians 3/2 ${Math.round(med('t32'))}, 4/2 ${Math.round(med('t42'))}, 5/2 ${Math.round(med('t52'))}):\n${lines.join('\n')}`);
+  }, 600000);
+
+  test('capability timing: the level a hero-only counter needs by its first wave (no buying), or the coins to buy it', () => {
+    const lines = [];
+    for (const id of ['6-3', '6-4', '6-5']) {
+      const r = runStage(id, 'normal', level(id), 1, { heroId: 'hikari' });
+      const cleanseAt = heroDefs().find((u) => u.id === 'hikari').hero.levels.find((l) => l.mods.aura?.cleanse).level;
+      const coins = HERO_LEVEL_PRICES.slice(0, cleanseAt - 1).reduce((a, b) => a + b, 0);
+      lines.push(`${id}: Hikari ends Lv ${r.heroLevel} (cleanse at Lv ${cleanseAt}; buying it from Lv 1 costs ${coins})`);
+      expect(r.heroLevel).toBeGreaterThanOrEqual(cleanseAt);
+    }
+    console.log(`[balance] capability timing:\n${lines.join('\n')}`);
+  }, 600000);
 });

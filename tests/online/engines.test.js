@@ -16,10 +16,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.final).toBe(r.finalB);
     // and the run is reproducible (what the cross-engine comparison relies on)
     expect(runScriptedBattle().final).toBe(r.final);
-    // pinned: re-pinned once by the hero rework (START fields Hikari, who now deploys for free and
-    // levels on her track; landing plan S12)
+    // pinned: re-pinned by the hero rework (START fields Hikari, who now deploys for free and levels
+    // on her track; landing plan S12) together with its stage-HP pass
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 27019, state: 'won', wallets: '1491/1355', final: 3399722556, hashes: '10c65307', waves: '3018:9657f4ba' });
+      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3018:9657f4ba' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {

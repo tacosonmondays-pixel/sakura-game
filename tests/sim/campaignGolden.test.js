@@ -64,7 +64,7 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     expect({ coop, endless }).toEqual(GOLDEN.coopEndless);
   }, 120000);
 
-  it('battles without a hero are bit-identical to before the hero rework (solo and co-op)', () => {
+  it('battles without a hero play out exactly as pinned (solo and co-op)', () => {
     const units = ['aoi', 'rei', 'yuki', 'kage', 'akane', 'shiro'];
     const out = {};
     for (const [stageId, difficulty] of [['1-3', 'normal'], ['4-5', 'hard'], ['8-5', 'normal']]) {
@@ -111,27 +111,28 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 
 // Taken at fb36911 (before freeplay). Never update these to make a test pass: a change here
 // means a battle outside freeplay changed. Re-pinned once by the hero rework (these battles field
-// Hikari, who now deploys for free and levels on her 25-level track); battles without a hero are
-// pinned below (HEROLESS) and did not move.
+// Hikari, who now deploys for free and levels on her 25-level track) and once more by its stage-HP
+// pass (HERO_HP_PASS); battles without a hero are pinned below (HEROLESS).
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '3392461e', wave: 15, won: true },
-    '4-2': { digest: 'c8f06870', wave: 25, won: true },
-    '8-5': { digest: 'f62a412f', wave: 30, won: false },
+    '1-3': { digest: '2a092051', wave: 15, won: true },
+    '4-2': { digest: '7926f22f', wave: 13, won: false },
+    '8-5': { digest: '07c8734a', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '87f728ec', wave: 22, won: true },
-    endless: { digest: 'f97595c4', wave: 25, won: false },
+    coop: { digest: '86503440', wave: 22, won: true },
+    endless: { digest: 'c754a97f', wave: 25, won: false },
   },
-  coopSim: { hash: 2336671149, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 57814410, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
-// Taken on the commit before the hero rework (ca97c1e) and checked equal there: battles without a
-// hero must not move by a bit (the hash folds hero level / XP only for heroes).
+// Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
+// at 56b521d: 8bbf185c / 53b1e458 / 36f6aec3 / 2155310468); its stage-HP pass (HERO_HP_PASS, data:
+// more enemy HP) moves them, so they were re-pinned once in that commit. From here they must not move.
 const HEROLESS = {
-  '1-3': ['8bbf185c', 15, true],
-  '4-5': ['53b1e458', 20, false],
-  '8-5': ['36f6aec3', 30, false],
-  coop: [2155310468, 3],
+  '1-3': ['15a8e76f', 15, true],
+  '4-5': ['15f8aba0', 13, false],
+  '8-5': ['2f760744', 30, false],
+  coop: [3341544735, 3],
 };

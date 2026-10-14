@@ -65,7 +65,12 @@ export function coopStage(stageId, { freeplay = null } = {}) {
   if (!s) return null;
   const out = { ...s, hpScale: (s.hpScale ?? 1) * COOP.hpMul, coop: true };
   const table = freeplay ? freeplayTable(freeplay) : null;
-  if (table && s.kind === 'campaign' && Number.isFinite(s.waves)) out.freeplay = table;
+  if (table && s.kind === 'campaign' && Number.isFinite(s.waves)) {
+    out.freeplay = table;
+    // freeplay keeps the pre-hero-rework HP ramp (stage hpPass, src/data/stages.js): its HP bands
+    // and numeric bounds were calibrated there
+    out.hpScale = Math.round(((s.hpScale ?? 1) / (s.hpPass || 1)) * 100) / 100 * COOP.hpMul;
+  }
   return out;
 }
 

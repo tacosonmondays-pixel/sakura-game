@@ -64,7 +64,7 @@ export function priceToLevel(sim, hero, target) {
  */
 export function createHeroLevels(ctx, ls) {
   const { sim } = ctx;
-  let allyChipAt = 0;
+  let allyChipAt = -Infinity;
   let lastLevelToast = { uid: -1, frame: -1 };
   let frame = 0;
 
