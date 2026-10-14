@@ -11,6 +11,21 @@ async function maybeName(page, name) {
   await page.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 10000 }).catch(() => null);
 }
 
+/** Closes a stray dialog (a late name prompt, a notice) that would cover the room; logs what it was. */
+async function clearModal(page, log, name) {
+  for (let i = 0; i < 3; i++) {
+    const text = await page.evaluate(() => document.querySelector('.modal-overlay')?.innerText?.slice(0, 120) || null);
+    if (!text) return;
+    log(`    (a dialog was open on ${name}: "${text.replace(/\s+/g, ' ')}")`);
+    if (await page.$('[data-testid="beta-gift-later"]')) await page.click('[data-testid="beta-gift-later"]', { force: true, timeout: 10000 });
+    else if (await page.$('[data-testid="name-input"]')) {
+      await page.fill('[data-testid="name-input"]', name);
+      await page.click('[data-testid="name-save"]', TOUCHLESS);
+    } else await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  }
+}
+
 export async function runCoop({ browser, base, check, log, shotsDir }) {
   log('\n(7) co-op two tabs: modes in the room');
   const url = `${base}?online=local`;
@@ -40,6 +55,7 @@ export async function runCoop({ browser, base, check, log, shotsDir }) {
   check(/Map rule: Petal Sanctuary/.test(field), `battlefield panel names the map rule ("${field.slice(0, 40)}…")`);
 
   // Ready, then the host changes the mode: the guest's Ready is taken back
+  await clearModal(B, log, 'Bea');
   await B.click('[data-testid="coop-ready"]', TOUCHLESS);
   await A.waitForFunction(() => window.__coop?.canStart, null, { timeout: 15000 });
   await A.evaluate(() => window.__coop.setStage(window.__coop.stageId, window.__coop.difficulty, null, 'ironclad'));
@@ -47,6 +63,7 @@ export async function runCoop({ browser, base, check, log, shotsDir }) {
   check(cleared, 'a changed mode clears the guest\'s Ready');
 
   // the host's picker: Freeplay on disables the Mode segment, and the mode resets to Standard
+  await clearModal(A, log, 'Aiko');
   await A.click('[data-testid="coop-room-stage"]', TOUCHLESS);
   await A.waitForSelector('[data-testid="coop-mode"]', { timeout: 10000 });
   await A.click('[data-testid="coop-freeplay"] [data-tier="blossom"]', TOUCHLESS);

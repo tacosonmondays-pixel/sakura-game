@@ -47,6 +47,9 @@ async function newPage(vp) {
   page.on('console', (m) => { if (m.type() === 'error') page.errors.push(m.text()); });
   await page.goto(base, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 60000 });
+  // a fresh profile gets the beta-tester gift popup on start (until Nov 7): "Later"
+  const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 4000 }).catch(() => null);
+  if (later) await later.click({ force: true }).catch(() => null);
   return page;
 }
 
