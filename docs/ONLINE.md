@@ -14,7 +14,7 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
 | Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
 | Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends and clanmates (after 3 days in the same clan), unread badges, live delivery, block, report, "Who can message me" (Friends & clan · Friends only · Nobody). Friends by request (clanmates, recent co-op partners) or by friend code (`K7Q2-ZP4M`) |
-| Co-op invites by DM | a conversation's **Invite to co-op**, a player card, or the room lobby's **Invite a friend** | Opens a room for you as host and sends the invite once the server registered it; the friend gets a pop-up on any screen with **Join** (no code typing). Invites expire after 15 min or when the room closes or fills |
+| Co-op invites by DM | a conversation's **Invite to co-op**, a player card, or the room lobby's **Invite a friend** | Opens a room for you as host and sends the invite once the server registered it; the friend gets a pop-up on any screen with **Join** (no code typing). Invites expire after 15 min or when the room closes or fills (a host's **Leave** keeps the room for "Your last room", so an invite into it stays good until it expires) |
 | Clan requests | Clan → Requests | Once per game day ask your clan for one material; clanmates donate from their own backpacks (30 donation points a day each, +50 coins and +1 clan XP per point); collect what arrived with one tap. Everything resets at **7 PM Central** |
 
 No profanity filter for now (owner's decision). Client **and** server rate limits are always on.
@@ -237,6 +237,8 @@ young, so the defaults are the safe ones.
 - **Co-op invites by DM** follow the DM rules. Only the host of a room with a free seat can invite; the
   server writes the invite text and its expiry (15 min); one live invite per pair (a new one replaces the
   old) and 4 per hour to the same player. "Later" on the pop-up hides that sender's invites for 30 min.
+  The pop-up shows for 20 s (a DM 6 s, a friend request 7 s); one under the pointer / finger or with
+  keyboard focus stays until it is let go (then 4 s more), and an invite still closes when it expires.
 - **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship and
   pending requests go, the conversation leaves the blocker's inbox, the blocker no longer sees their
   chat lines, and `join_room` refuses a guest the host has blocked.

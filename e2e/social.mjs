@@ -70,7 +70,8 @@ const shot = async (page, name) => {
   check(!leaked, `${name}: no "null" / "undefined" / "NaN" on screen${leaked ? ` (${leaked})` : ''}`);
   if (!shotsDir) return;
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 250))))).catch(() => {});
-  await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png` });
+  // a screenshot that times out (a starved tab on a loaded machine) is not a failed check
+  await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png` }).catch((e) => log(`    (screenshot ${name} skipped: ${String(e.message).split('\n')[0]})`));
 };
 const go = (page, hash) => page.evaluate((h) => { location.hash = h; }, hash);
 // Several pages share one headless browser: only the page in front gets animation frames (which
@@ -119,6 +120,15 @@ const tap = async (page, sel) => {
     log(`    (no frames for 15 s: tapping ${sel} without the stability wait)`);
     await act({ timeout: 15000, force: true });
   }
+};
+/** A tap on something that will not stay long (a pop-up): no long stability wait for frames. */
+const quickTap = async (page, sel) => {
+  await toFront(page);
+  const el = page.locator(sel).first();
+  await (touch ? el.tap({ timeout: 4000 }) : el.click({ timeout: 4000 })).catch(async () => {
+    log(`    (no frames: tapping ${sel} through the page)`);
+    await page.evaluate((s) => document.querySelector(s)?.click(), sel);
+  });
 };
 const until = async (page, fn, arg, ms = 10000) => {
   await toFront(page);
@@ -265,20 +275,16 @@ try {
   const room = await A.locator('[data-testid="coop-room-code"]').innerText({ timeout: 10000 });
   check(/^[A-Z0-9]{5}$/.test(room), `co-op: A hosts room ${room}`);
   check(await until(A, () => /Bea/.test(document.querySelector('[data-testid="coop-invited"]')?.innerText || ''), null, 10000), 'co-op: the lobby lists "Invited: Bea"');
-  // the room lobby's own "Invite a friend" list (friends + clanmates): Bea is already invited
-  await tap(A, '[data-testid="coop-invite-friend"]');
-  await wait(A, '[data-testid="coop-candidates"]', { timeout: 10000 });
-  check(await until(A, () => [...document.querySelectorAll('[data-testid="coop-candidate"]')].some((r) => /Bea/.test(r.innerText) && r.querySelector('[data-testid="coop-candidate-invite"]')?.disabled)),
-    'co-op: "Invite a friend" lists Bea, already invited');
-  await shot(A, 'invite-friend-picker');
-  await tap(A, '[data-testid="coop-candidates-close"]');
-  await wait(A, '[data-testid="coop-candidates"]', { state: 'detached', timeout: 5000 }).catch(() => null);
+  await shot(A, 'coop-invited');
+  // B's pop-up right away: it closes by itself after 20 s, and on a loaded machine the picker
+  // steps (below) or a tap's stability wait can take longer than that
   check(await popped(B, 'invite', t1), 'co-op: B gets the invite pop-up');
   await wait(B, '[data-testid="invite-toast"]', { timeout: 5000 }).catch(() => null);
+  // the pointer rests on the pop-up (a player reading it): it stays open until let go
+  await B.locator('[data-testid="invite-toast"]').first().dispatchEvent('pointerenter').catch(() => {});
   check(/invites you to co-op/.test(await text(B, '[data-testid="invite-toast"]')), 'co-op: the pop-up says who invites');
   await shot(B, 'invite-toast');
-  await shot(A, 'coop-invited');
-  await tap(B, '[data-testid="invite-toast-join"]');
+  await quickTap(B, '[data-testid="invite-toast-join"]');
   await wait(B, '[data-testid="coop-room"]', { timeout: 15000 });
   check((await B.locator('[data-testid="coop-room-code"]').innerText()) === room, 'co-op: Join opened the same room (no code typed)');
   const paired = await until(A, () => !!document.querySelector('[data-testid="coop-player-1"]'), null, 20000)
@@ -286,12 +292,25 @@ try {
   check(paired, 'co-op: both players are in the lobby together');
   await shot(B, 'coop-joined');
   await tap(B, '[data-testid="coop-leave"]');
+  // the room lobby's own "Invite a friend" list (friends + clanmates; back once the ally left):
+  // Bea is listed, and her invite is still live
+  check(await until(A, () => !!document.querySelector('[data-testid="coop-invite-friend"]'), null, 20000), 'co-op: "Invite a friend" is back once the ally left');
+  await tap(A, '[data-testid="coop-invite-friend"]');
+  await wait(A, '[data-testid="coop-candidates"]', { timeout: 10000 });
+  check(await until(A, () => [...document.querySelectorAll('[data-testid="coop-candidate"]')].some((r) => /Bea/.test(r.innerText) && r.querySelector('[data-testid="coop-candidate-invite"]')?.disabled)),
+    'co-op: "Invite a friend" lists Bea, already invited');
+  await shot(A, 'invite-friend-picker');
+  await tap(A, '[data-testid="coop-candidates-close"]');
+  await wait(A, '[data-testid="coop-candidates"]', { state: 'detached', timeout: 5000 }).catch(() => null);
   await tap(A, '[data-testid="coop-leave"]');
-  // the conversation keeps the invite as a card (state: the room closed)
+  // the conversation keeps the invite as a card. A host's Leave keeps the room registered (the
+  // co-op menu's "Your last room" reopens it), so the invite stays open until it expires; a room
+  // that is really gone shows "room closed" (tests/online/localSocial.test.js, socialSchema.test.js)
   await go(A, '#/messages');
   await wait(A, '[data-testid="thread-row"]', { timeout: 10000 });
   await tap(A, '[data-testid="thread-row"]');
-  check(await until(A, () => /room closed|Expired|full/i.test(document.querySelector('[data-testid="dm-invite"]')?.innerText || ''), null, 10000), 'co-op: the invite card in the conversation shows the room closed');
+  check(await until(A, () => /Expires in/i.test(document.querySelector('[data-testid="dm-invite"]')?.innerText || ''), null, 10000),
+    'co-op: the invite card in the conversation stays open while the host\'s room waits for them');
   await shot(A, 'thread-invite');
 
   // ---- clan material request → donate → collect ------------------------------------------

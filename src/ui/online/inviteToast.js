@@ -1,11 +1,13 @@
 // Social pop-ups on any screen (top centre): a co-op invite with Join / Later (role="alert", 20 s,
 // a live "expires in" countdown), a new DM with Reply, a friend request with View. Text is set
-// with textContent only.
+// with textContent only. A pop-up under the pointer / finger or with focus inside stays until it is
+// let go (then HOLD_GRACE_MS more); an invite still closes when the invite itself expires.
 import '../styles/social.css';
 import { h, button } from '../components.js';
 import { avatar } from './common.js';
 
 const MAX_SHOWN = 3;
+const HOLD_GRACE_MS = 4000;
 
 function host() {
   let el = document.querySelector('.sc-toast-host');
@@ -28,11 +30,14 @@ export function showSocialToast({ kind = 'dm', avatar: av = 'hikari', title, tex
   while (box.children.length >= MAX_SHOWN) box.firstElementChild.remove();
   let closed = false;
   let tick = 0;
+  let timer = 0;
+  let held = 0; // pointer over it (1) and/or focus inside (2)
   const sub = h('small.sc-toast-sub');
   const close = () => {
     if (closed) return;
     closed = true;
     clearInterval(tick);
+    clearTimeout(timer);
     el.classList.add('out');
     setTimeout(() => el.remove(), 260);
   };
@@ -56,8 +61,25 @@ export function showSocialToast({ kind = 'dm', avatar: av = 'hikari', title, tex
     paint();
     tick = setInterval(paint, 15000);
   }
+  const arm = (wait) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!held) close();
+    }, wait);
+  };
+  const hold = (bit, on) => {
+    held = on ? held | bit : held & ~bit;
+    if (held) clearTimeout(timer);
+    else if (!closed) arm(HOLD_GRACE_MS);
+  };
+  el.addEventListener('pointerenter', () => hold(1, true));
+  el.addEventListener('pointerleave', () => hold(1, false));
+  el.addEventListener('focusin', () => hold(2, true));
+  el.addEventListener('focusout', (e) => {
+    if (!el.contains(e.relatedTarget)) hold(2, false);
+  });
   box.appendChild(el);
-  setTimeout(close, ms);
+  arm(ms);
   // e2e / debug hook: the pop-ups this tab showed (a pop-up can come and go between two checks)
   (globalThis.__socialToasts ||= []).push({ kind, title, at: Date.now() });
   return { close, el };
