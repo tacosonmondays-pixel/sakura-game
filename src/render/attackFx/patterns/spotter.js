@@ -1,5 +1,5 @@
 // Spotter familiar (a hawk) that hovers just above and ahead of the girl's current target —
-// the pursuit pattern of a helicopter-style unit — and dives when that target gets marked.
+// a hovering pursuit that keeps station over the target — and dives when that target gets marked.
 // It never attacks; it only points at the enemy the sim is shooting.
 import { FAMILIAR } from '../context.js';
 
