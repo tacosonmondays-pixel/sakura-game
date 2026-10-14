@@ -113,13 +113,15 @@ if (ref.state !== 'won' && ref.state !== 'lost') failures.push(`the scripted bat
 if (ref.checkpoints < 20) failures.push(`only ${ref.checkpoints} hash checkpoints`);
 
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
-const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints'];
+const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
 for (const { name, r } of results) {
   const f = r.freeplay;
   const b = f.battle;
   log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state}${b.finished ? ' (Finish vote)' : ''} · wave ${b.wave}/${b.goal} · bosses ${b.bosses} · lives ${b.lives} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · freeplay tables ${f.tables} · ${f.ms} ms`);
+  log(`  ${''.padEnd(46)} wave-${b.ckWave} checkpoint (tick ${b.ckTick}, ${b.ckKb} KB) ${b.ckDigest} → restored + replayed ${b.ckReplay} ticks in ${b.ckReplayMs} ms → final state ${b.finalDigest} ${b.ckSame ? '= the run' : '≠ THE RUN'}`);
   if (!b.agree) failures.push(`${name}: its own two freeplay clients disagreed`);
+  if (!b.ckSame) failures.push(`${name}: restoring the wave-${b.ckWave} checkpoint and replaying did not give the run's final state`);
   if (f.tables !== ref.freeplay.tables) failures.push(`${name}: freeplay tables ${f.tables} ≠ ${ref.freeplay.tables} (${results[0].name})`);
   for (const k of FP_KEYS) if (b[k] !== ref.freeplay.battle[k]) failures.push(`${name}: freeplay ${k} ${b[k]} ≠ ${ref.freeplay.battle[k]} (${results[0].name})`);
 }
@@ -129,6 +131,7 @@ for (const { name, r } of results) {
   if (!(b.cleared > b.goal + 30)) failures.push(`the freeplay battle cleared only ${b.cleared} waves (goal ${b.goal})`);
   if (b.bosses < 3) failures.push(`the freeplay battle met only ${b.bosses} boss waves`);
   if (b.checkpoints < 200) failures.push(`only ${b.checkpoints} freeplay hash checkpoints`);
+  if (!(b.cleared >= b.ckWave + 10)) failures.push(`the checkpoint replay covers only ${b.cleared - b.ckWave} waves (want ≥ 10)`);
   const [ta, tb] = b.endTicks.split('/');
   if (ta !== tb) failures.push(`the Finish vote ended the run on different ticks (${b.endTicks})`);
 }
@@ -146,4 +149,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle and the identical freeplay run.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

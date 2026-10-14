@@ -21,6 +21,7 @@ import { STAGES, CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { coopStage } from '../../src/data/coop.js';
 import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
+import { snapshotDigest } from '../../src/sim/snapshot.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -286,8 +287,12 @@ export const FREEPLAY_START = Object.freeze({
  * through the goal (15/15) and past it into the boss waves; once wave `finishAfter` is cleared both
  * players vote Finish ('end'), which must end the run on the same tick on both clients. Every state
  * hash either client computed is collected, so the whole run is compared, not only the last 64.
+ * The checkpoint check: the host's wave-end checkpoint after wave `checkpointAt` (the snapshot a
+ * resync or rejoin would carry) is kept as JSON; after the run a fresh client restores it and
+ * replays the host's commands since, to the last tick — the same battle as the one that ran on,
+ * and the same checkpoint JSON in every engine (so one engine's checkpoint restores in another).
  */
-export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 } = {}) {
+export function runFreeplayBattle({ finishAfter = 52, checkpointAt = 40, maxFrames = 60 * 60 * 40 } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -310,6 +315,7 @@ export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 }
   let voted = false;
   let goalTick = -1;
   let endTick = [-1, -1];
+  let ck = null; // { json, t, wave }
   while (frame < maxFrames && !(A.finished && B.finished)) {
     if (frame === 20) A.queue('auto', [true]);
     if (frame === 21) B.queue('speed', [3]);
@@ -363,6 +369,7 @@ export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 }
       if (was !== 'won' && c.sim.state === 'won') endTick[i] = c.tick;
     });
     for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
   }
   for (let f = 0; f < 30; f++) {
     frame++;
@@ -370,6 +377,12 @@ export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 }
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  // restore the checkpoint into a fresh client, replay the host's log since it to the last tick
+  const tc = Date.now();
+  const copy = new Lockstep({ start: FREEPLAY_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(FREEPLAY_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const ckReplayMs = Date.now() - tc;
+  const finalDigest = snapshotDigest(A.coop.snapshot());
   const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
   return {
     ticks: A.tick,
@@ -390,6 +403,15 @@ export function runFreeplayBattle({ finishAfter = 52, maxFrames = 60 * 60 * 40 }
     hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
     checkpoints: ticks.length,
     agree: ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && A.coop.hash() === B.coop.hash(),
+    // the checkpoint: its wave and tick, its JSON's digest and size, the replay from it
+    ckWave: ck?.wave ?? -1,
+    ckTick: ck?.t ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckKb: ck ? Math.round(ck.json.length / 1024) : 0,
+    ckReplay: copy.lastRebuild ? `${copy.lastRebuild.from}+${copy.lastRebuild.ticks}` : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ckReplayMs,
     ms: Date.now() - t0,
   };
 }
