@@ -380,7 +380,7 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   finish here — Finish / Keep going" and a flag on her HUD chip. Leaving after the goal says "Your clear
   rewards are saved; you'll get the freeplay bonus for 37 waves. Your girls stay with Rin." and pays it.
 - **Results.** A run that went past the goal ends on a third sheet: **FREEPLAY OVER** (fell) or
-  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Reached wave 147 / 15",
+  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Cleared wave 147 / 15",
   "Fell on wave 148 to the Grave Lych" / "Finished together after wave 147", "New best on 1-3
   (Tempest)!", the bosses beaten, the Stage clear (saved at 15/15), the Freeplay bonus, Top damage and
   the debrief. Finishing right at the goal is today's VICTORY sheet; falling before it is a DEFEAT.

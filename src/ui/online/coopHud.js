@@ -39,7 +39,10 @@ export function createCoopHud(ctx) {
   let lastSync = '';
   const ringEls = new Map();
   let lastState = '';
+  let stateAt = 0;
   let frame = 0;
+  /** A final state (the ally left / went back to the room / lost) shows this long, then only the dimmed chip says so. */
+  const GONE_LINE_MS = 4000;
 
   function update() {
     const w = ls.coop.wallets;
@@ -79,9 +82,14 @@ export function createCoopHud(ctx) {
               : ls.stalled ? 'Waiting for ally…' : '';
     if (text !== lastState) {
       lastState = text;
+      stateAt = performance.now();
       state.textContent = text;
       state.hidden = !text;
       el.classList.toggle('ol-coop-wait', !!text && !peer?.gone);
+      chips[1 - coop.mySlot]?.classList.toggle('gone', !!peer?.gone || !!ls.desynced);
+    } else if (text && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
+      // (the feed said it too; the line would only cover the field from now on)
+      state.hidden = true;
     }
   }
 

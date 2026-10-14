@@ -301,7 +301,7 @@ export function createResults(ctx) {
       h('div.bt-free-head',
         h(`div.bt-free-pill`, { 'data-tier': table.id, 'data-testid': 'freeplay-reached' }, h('b.bt-wave-n', String(r.wavesCleared)), h('span.bt-wave-goal', `/${sim.totalWaves}`)),
         h('div.bt-free-meta',
-          h('b', `Reached wave ${r.wavesCleared} / ${sim.totalWaves}`),
+          h('b', `Cleared wave ${r.wavesCleared} / ${sim.totalWaves}`),
           h('span', subline),
           h('small', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name} · Freeplay ${table.name}`))),
       fp.newBest

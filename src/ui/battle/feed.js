@@ -111,7 +111,7 @@ export function createFeed(layer) {
   function announce(title, sub = '', kind = 'wave', ms = 2200, o = {}) {
     // on a landscape phone the ribbon covers a third of the board: routine wave banners leave fast
     if (shortScreen() && kind === 'wave') ms = Math.min(ms, 800);
-    else if (shortScreen() && (kind === 'free' || kind === 'finale')) ms = Math.min(ms, Math.max(1200, ms * 0.67));
+    else if (shortScreen() && (kind === 'free' || kind === 'finale' || kind === 'titan')) ms = Math.min(ms, Math.max(1200, ms * 0.67));
     banner.replaceChildren();
     const titleEl = h('div.bt-banner-title', { 'data-text': o.glitch ? title : null }, title);
     const b = h(`div.bt-banner.bt-banner-${kind}${o.glitch ? '.bt-banner-glitch' : ''}`, titleEl, sub ? h('div.bt-banner-sub', sub) : null);

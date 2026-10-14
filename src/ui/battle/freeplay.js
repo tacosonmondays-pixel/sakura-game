@@ -104,7 +104,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
   function showPrompt() {
     prompt.replaceChildren(
-      h('span', h('b', allyName()), ' wants to finish here'),
+      h('span.bt-vote-text', h('b.bt-vote-name', allyName()), ' wants to finish here'),
       h('button.bt-vote-yes', { 'data-testid': 'finish-agree', onclick: () => vote(true) }, 'Finish'),
       h('button.bt-vote-no', { onclick: () => { prompt.hidden = true; } }, 'Keep going'),
     );
@@ -123,12 +123,13 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
 
   // ---- banners and toasts --------------------------------------------------------------------------
-  function edgeFlash() {
-    ctx.shell.classList.remove('bt-free-flash');
+  function edgeFlash(red = false) {
+    ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red');
     void ctx.shell.offsetWidth;
     ctx.shell.classList.add('bt-free-flash');
+    ctx.shell.classList.toggle('bt-flash-red', red);
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash'), 700);
+    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red'), 700);
   }
 
   function visitorToast(info) {
@@ -176,10 +177,12 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
       const split = def?.traits?.splitter;
       const inner = split?.spawn ? enemyDef(split.spawn) : null;
       const sub = !inner ? 'A giant that holds giants.' : (split.count ?? 2) === 1 ? `Breaks open into the ${inner.name}!` : `Breaks into two ${plural(inner.name)}!`;
-      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'boss', 3000);
+      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'titan', 3000);
+      edgeFlash(true);
       announcedAtStart.add(id);
     } else if (info?.boss?.kind === 'boss' && info.boss.bosses.length > 1 && info.boss.bosses.every((id) => enemyDef(id)?.tier === 'boss') && once('twin')) {
-      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'boss', 2800);
+      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'titan', 2800);
+      edgeFlash(true);
       for (const id of info.boss.bosses) announcedAtStart.add(id);
     } else if (!shortScreen()) {
       // routine freeplay waves: a short ribbon (short screens: the pill's slam is enough)
