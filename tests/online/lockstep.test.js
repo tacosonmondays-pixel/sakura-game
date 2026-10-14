@@ -831,6 +831,45 @@ describe('co-op lockstep: freeplay', () => {
     expect(A.coop.hash()).toBe(B.coop.hash());
     expect(B.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'tempest' });
   }, 120000);
+
+  it('a guest that finished alone during a two-way cut stays finished when the link heals (no rejoin pulls it back)', () => {
+    const start = fpStart('tempest');
+    const h = harness({ seed: 54, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    B.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([false, true]);
+    // both pages keep running, nothing gets through: each drops the other; the guest's own
+    // 'gone' marker re-checks the votes and its run ends (its result is shown and paid)
+    h.link[0] = false;
+    h.link[1] = false;
+    runUntil(h, () => false, Math.ceil((COOP.maxTimeoutMs / 1000 + 8) * 60), w.each);
+    expect(B.finished).toBe(true);
+    expect(B.sim.result()).toMatchObject({ won: true, finished: true });
+    expect(A.finished).toBe(false);
+    const bTick = B.tick;
+    const bHash = B.coop.hash();
+    // the link heals: the host hears the finished guest ('done') and offers nothing; an offer
+    // from an older build would be ignored by the guest anyway
+    h.link[0] = true;
+    h.link[1] = true;
+    runUntil(h, () => false, 60 * 15, w.each);
+    expect(A.rejoins).toBe(0);
+    expect(B.rejoins).toBe(0);
+    expect(B.finished).toBe(true);
+    expect(B.tick).toBe(bTick);
+    expect(B.coop.hash()).toBe(bHash);
+    expect(h.events.filter((e) => e.slot === 1 && e.ev === 'resync')).toEqual([]);
+    expect(A.sim.wave).toBeGreaterThan(B.sim.wave - 1); // the host plays on alone
+    // a rejoin offer reaching a finished guest (older host) is ignored too
+    const ep = B.epoch;
+    B.receive({ type: 'rejoin', from: 0, ep: ep + 5, start, T: A.tick, w: A.sim.wave, cmds: A.log, ck: null });
+    expect(B.job).toBe(null);
+    expect(B.finished).toBe(true);
+    expect(B.epoch).toBe(ep);
+  }, 120000);
   // ---- long runs: wave-end checkpoints, background rebuilds (spec §12, M5 + M6) ----------------
 
   /** Plays on until both clients cleared `n` more waves than now (Auto on). */

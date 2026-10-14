@@ -3,13 +3,15 @@
 // few frames in the future (input delay) and executed on every client at exactly that tick.
 //
 // Messages (any transport that delivers JSON objects; order and loss are tolerated):
-//   { type: 'in', from, n, horizon, ack, cmds, live, hs }  right after a command, and otherwise
+//   { type: 'in', from, n, horizon, ack, cmds, live, hs, done? }  right after a command, and otherwise
 //        only as often as the peer needs it (see beat()):
 //        "I will send no more commands with t <= horizon; I executed every tick < ack + 1".
 //        cmds = my commands the peer has not executed yet (re-sent until acked → lossy links ok)
 //        live = my battle is running (before that the peer allows COOP.loadTimeoutMs of silence)
 //        hs   = my last state hashes [[t, h], …] (one every COOP.hashEvery ticks; the last two
 //               ride along on every beat, so a lost packet costs nothing)
+//        done = my battle is over (won / lost): a host that dropped me offers no rejoin, and a
+//               finished guest ignores one (its result is shown and paid)
 //   { type: 'resync?', from }                  guest saw a hash mismatch: please send state
 //   { type: 'resync', from, start, T, w, cmds, ck }  host: rebuild from start (or from the
 //                                              checkpoint ck), replay cmds up to tick T (wave w)
@@ -348,7 +350,8 @@ export class Lockstep {
     this.sentLive = this.running;
     // live: my battle screen is up and ticking (until then the ally allows the long load timeout)
     const gone = [...this.peers.values()].filter((p) => p.gone).map((p) => p.slot);
-    this.send({ type: 'in', n: ++this.beatSeq, horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2) });
+    // done: my battle is over (won / lost) — a host that dropped me must not offer a rejoin
+    this.send({ type: 'in', n: ++this.beatSeq, horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2), ...(this.finished ? { done: true } : {}) });
   }
 
   /** While rebuilding: "still here, rebuilding (at / of ticks)" once a second (and at the start). */
@@ -369,9 +372,10 @@ export class Lockstep {
       this.receivePart(msg);
       return;
     }
-    // the host offers a dropped guest its timeline (a newer epoch than the guest's)
+    // the host offers a dropped guest its timeline (a newer epoch than the guest's); a battle that
+    // already ended here stays ended (its result is on screen and paid: never pulled back into a run)
     if (msg.type === 'rejoin') {
-      if (!this.isHost && ep > this.epoch && !this.desynced && (!peer.gone || REJOINABLE.has(peer.why))) this.applyRejoin(peer, msg);
+      if (!this.isHost && ep > this.epoch && !this.desynced && !this.finished && (!peer.gone || REJOINABLE.has(peer.why))) this.applyRejoin(peer, msg);
       return;
     }
     if (msg.type === 'bye') {
@@ -390,8 +394,9 @@ export class Lockstep {
       return;
     }
     if (peer.gone) {
-      // a dropped guest is talking again (it was frozen or cut off, not gone): re-admit it
-      if (msg.type === 'in' && this.isHost && REJOINABLE.has(peer.why) && !this.desynced && !this.finished && this.now() >= peer.rejoinAfter) this.rejoin(peer);
+      // a dropped guest is talking again (it was frozen or cut off, not gone): re-admit it —
+      // unless its battle ended while we were apart (done: e.g. it finished the run alone)
+      if (msg.type === 'in' && this.isHost && REJOINABLE.has(peer.why) && !msg.done && !this.desynced && !this.finished && this.now() >= peer.rejoinAfter) this.rejoin(peer);
       return;
     }
     const t = this.now();
@@ -410,7 +415,7 @@ export class Lockstep {
         if (Array.isArray(msg.gone) && msg.gone.includes(this.mySlot)) {
           // it lost me (one-way silence) while I still heard it: split up, then the host re-admits
           this.dropPeer(peer, 'lost');
-          if (this.isHost && !this.desynced && !this.finished) this.rejoin(peer);
+          if (this.isHost && !msg.done && !this.desynced && !this.finished) this.rejoin(peer);
           break;
         }
         if (peer.offer) {
