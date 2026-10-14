@@ -308,3 +308,12 @@ SVG / 3D look on menus and loves drawn art (the drawn lobby in `src/ui/lobby/art
 Still open after this pass: the bond-memory illustrations themselves (need the City dating system),
 landscape scenes for the other 16 girls (they use their stand over the academy), a single art style
 pass so the old-game illustrations and the expansion illustrations match more closely.
+
+## Unit info (owner, 2026-10-13) — branch `feature/unit-info` (request #152)
+
+| Request (verbatim) | Status |
+|---|---|
+| "within various menus when you hold on the card art, it should bring up this menu! Like in the formation for example" | **Done.** Hold any girl's card or portrait (~0.45 s, a pink ring fills) in Formation, Students, Stage prep (also inside the swap dialog), Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign and Rewards → her info sheet: card art, the student Info content, an Upgrades tab and "Open full page". Taps, scrolling and drags work as before; desktop: right-click. |
+| "can you also make it more clear if an upgrade path boosts their own stats or allies stats?" | **Done.** Every tier everywhere carries coloured word chips: **Self**, **Allies · 2.6 tiles** (aura radius), **Enemies** ("helps all" for marks / Brittle / shred / reveal) and **Coins**, plus a violet **New attack** flag; each path shows a tally ("Allies ×5 · 4 tiles"). Battle panel, student Tree tab, info sheet, battle tree and a wiki legend. |
+| "within the gameplay, there should be something you can click and hold and see the upgrade tree" | **Done.** Hold a placed girl, hold her card in the bar, or press the Tree button / her portrait in the panel (or T): 3 paths × 5 round tier icons with owned / next / locked states, the crosspath cap, and each tier's name, price, one-line effect and tag; tap a tier for details. Solo waits while it is open; co-op never pauses. |
+
