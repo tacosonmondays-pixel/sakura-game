@@ -28,7 +28,8 @@ import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../s
 import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
-import { showRewardsModal, card, requirementText } from './stage.js';
+import { listBattleSaves, saveSummary } from '../../systems/battleSave.js';
+import { showRewardsModal, card, requirementText, savedStageLabel } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
@@ -483,7 +484,24 @@ function buildCarousel(host, { reduceMotion }) {
 // Bottom-left EVENT card
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * "▶ Continue Mission 3-5 · Wave 12": the most recently played saved battle (after an app
+ * relaunch the game opens on the title / lobby, not in the battle). Opens that stage's prep.
+ */
+function continueChip(profile) {
+  const rec = listBattleSaves(profile).find((r) => STAGE_MAP[r.stageId]);
+  if (!rec) return null;
+  const stage = STAGE_MAP[rec.stageId];
+  const route = rec.endless && stage.kind !== 'challenge' ? { id: stage.id, endless: 1 } : { id: stage.id };
+  return h('button.lb-continue', { onclick: () => navigate('stage', route), 'data-testid': 'lobby-continue', title: 'Continue your saved battle' },
+    svgEl(glyph('play'), 'lb-continue-ico'),
+    h('span.lb-continue-text', h('b', `Continue ${savedStageLabel(rec)}`), h('small', `Wave ${saveSummary(rec).next}`)),
+  );
+}
+
 function buildEventCard(host) {
+  const chip = continueChip(store.profile);
+  if (chip) host.appendChild(chip);
   const event = currentEvent();
   const days = eventDaysLeft();
   const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;

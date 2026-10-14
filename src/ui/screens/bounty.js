@@ -19,7 +19,7 @@ import { isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
-import { medalRow, dropGrid, enemyChip, requirementText, showRewardsModal, uiRng, rememberParams } from './stage.js';
+import { medalRow, dropGrid, enemyChip, requirementText, showRewardsModal, uiRng, rememberParams, savedBadge } from './stage.js';
 
 const ARENA_ICON = { 'res-books': 'book_rare', 'res-coins': 'coins', 'res-gear': 'gearbox_superRare', 'res-mats-a': 'mat_feather_superRare', 'res-mats-b': 'mat_rune_superRare' };
 const ARENA_TAG = { 'res-books': 'Level-up books', 'res-coins': 'Coins', 'res-gear': 'Gear boxes · dice', 'res-mats-a': 'Feather · Blade · Ember · Rime', 'res-mats-b': 'Charm · Rune · Cog' };
@@ -82,7 +82,7 @@ export function render(root, params = {}) {
         { onclick: () => { arenaId = a.id; pickTier(a); remember(); drawList(); }, 'data-testid': `arena-${a.id}`, 'aria-expanded': active ? 'true' : 'false' },
         h('div.ma-loc-thumb', { html: map ? stageThumbSVG(map, { width: 200, height: 125 }) : '' }, svgEl(itemIcon(ARENA_ICON[a.id] || 'coins'), 'ma-loc-item')),
         h('div.ma-loc-text',
-          h('div.ma-loc-name', a.name, isEvent ? h('span.ma-event-badge', `${event.dropMul}×`) : null),
+          h('div.ma-loc-name', a.name, isEvent ? h('span.ma-event-badge', `${event.dropMul}×`) : null, unlocked && !active ? a.stages.map((id) => savedBadge(profile, id)).find(Boolean) || null : null),
           h('div.ma-loc-desc', a.desc),
           h('div.ma-loc-meta',
             h('span.ma-loc-tag', ARENA_TAG[a.id] || ''),
@@ -121,7 +121,7 @@ export function render(root, params = {}) {
       return h(`button.ma-tier-btn${id === stageId ? '.active' : ''}${un ? '' : '.locked'}`,
         { onclick: (e) => { e.stopPropagation(); stageId = id; remember(); drawList(); }, 'data-testid': `tier-${i + 1}` },
         h('span.ma-tier-num', ['I', 'II', 'III'][i]),
-        h('span.ma-tier-meta', h('b', tierInfo?.name || ''), h('span.muted', un ? `HP ×${s.hpScale} · ${s.waves} waves` : requirementText(profile, id))),
+        h('span.ma-tier-meta', h('b', tierInfo?.name || '', un ? savedBadge(profile, id) : null), h('span.muted', un ? `HP ×${s.hpScale} · ${s.waves} waves` : requirementText(profile, id))),
         un ? medalRow(profile, id, { size: 16, cls: 'ma-tier-medals' }) : svgEl(uiIcon('lock'), 'ma-inline-icon'),
       );
     }));
@@ -155,6 +155,6 @@ export function render(root, params = {}) {
   };
 
   drawList();
-  const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'sweep' || e?.reason === 'secretary') drawList(); });
+  const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'sweep' || e?.reason === 'secretary' || e?.reason === 'battle-save') drawList(); });
   return () => off();
 }

@@ -1,14 +1,15 @@
 // Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&endless=1]
 // Map preview, wave info, enemy scouting chips, recommended counters with one-tap
 // "Add to formation", formation strip, difficulty picker with medals, drop table,
-// first-clear rewards, Start and Sweep.
+// first-clear rewards, Start and Sweep. With a saved battle (Save & quit, src/systems/battleSave.js)
+// Start becomes Continue · Wave N/M and New game (which asks before deleting the save).
 //
 // Also exports small shared building blocks used by the other meta-a screens
 // (campaign, bounty, assault, challenge): medal rows, drop lists, enemy chips, the
 // rewards modal and the formation helpers.
 import '../styles/meta-a.css';
 import { h, clear, screen, panel, button, modal, toast, svgEl, itemTile, unitCard, confirmDialog } from '../components.js';
-import { navigate, buildHash, currentRoute } from '../router.js';
+import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
@@ -26,6 +27,8 @@ import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless }
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
+import { getBattleSave, slotKey, saveSummary, clearBattleSave, oldestToEvict } from '../../systems/battleSave.js';
+import { portraitHTML } from '../../art/portraits.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -66,25 +69,33 @@ export function rewardTiles(rewards, { size = 56 } = {}) {
   return h('div.reward-row', rewards.map((r) => tile(r.id, r.count, { size })));
 }
 
-/**
- * Update the current route's params in place (URL + the router's back stack) without
- * re-rendering, e.g. when a tab changes inside a screen.
- */
-export function rememberParams(name, patch) {
-  const route = currentRoute();
-  if (route.name !== name || !route.params) return;
-  Object.assign(route.params, patch);
-  try {
-    history.replaceState(history.state, '', buildHash(name, route.params));
-  } catch {
-    /* not in a browser */
-  }
-}
+/** (moved to the router; kept here for the screens that import it from stage prep) */
+export { rememberParams };
 
 /** Short label like "Mission 1-3" / "Bounty" for a stage. */
 export function stageLabel(stage) {
   if (!stage) return '';
   return stage.kind === 'campaign' ? `${KIND_LABEL.campaign} ${stage.id}` : KIND_LABEL[stage.kind];
+}
+
+/** Name of a saved battle's stage for prep, badges and the lobby: "Mission 1-3", "Endless 2-4", "Library Raid II". */
+export function savedStageLabel(rec) {
+  const stage = STAGE_MAP[rec?.stageId];
+  if (!stage) return rec?.stageId || '';
+  if (rec.endless && stage.kind !== 'challenge') return `Endless ${stage.id}`;
+  return stage.kind === 'campaign' ? stageLabel(stage) : stage.name;
+}
+
+/**
+ * "Saved · W12" badge for a stage card with a saved battle (null without one).
+ * @param {object} profile
+ * @param {string} stageId
+ * @param {boolean} [endless] the endless run on that map
+ */
+export function savedBadge(profile, stageId, endless = false) {
+  const rec = getBattleSave(profile, slotKey(stageId, endless));
+  if (!rec) return null;
+  return h('span.ma-saved-badge', { 'data-testid': 'saved-badge', title: 'Saved battle: continue it from the stage screen' }, svgEl(uiIcon('play'), 'ma-saved-badge-ico'), `Saved · W${saveSummary(rec).next}`);
 }
 
 /** "Clear 1-4 first" style requirement text (null when unlocked). */
@@ -353,6 +364,9 @@ export function render(root, params = {}) {
     difficulty: DIFFICULTIES[params.difficulty] ? params.difficulty : defaultDifficulty(store.profile, stage),
   };
   if (endless || stage.kind === 'challenge') state.difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  // a saved battle here: the picker starts on its difficulty (it only changes the New game run)
+  const saved = getBattleSave(store.profile, slotKey(stage.id, endless || stage.kind === 'challenge'));
+  if (saved && DIFFICULTIES[saved.difficulty]) state.difficulty = saved.difficulty;
 
   const draw = () => {
     clear(body);
@@ -362,7 +376,7 @@ export function render(root, params = {}) {
   const off = store.on('change', (e) => {
     // 'sweep' adds clears: without it the Clears fact stayed stale until the stage was re-entered.
     // Redraw in place, keeping the page and column scroll (the Sweep bar is pinned at the bottom).
-    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace') {
+    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') {
       const scrolled = () => [body, ...body.querySelectorAll('.ma-prep-col')];
       const keep = scrolled().map((n) => n.scrollTop);
       draw();
@@ -471,21 +485,66 @@ function buildPrep(stage, state, { endless, redraw }) {
     const reqStage = STAGE_MAP[stage.requires];
     if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
+    const rec = getBattleSave(profile, slotKey(stage.id, isEndless));
+    if (rec) actions.appendChild(savedLine(rec));
     if (!isEndless) actions.appendChild(sweepControls(stage, state));
-    const start = button(isEndless ? 'Start endless' : `Start · ${DIFFICULTIES[state.difficulty].name}`, {
-      kind: 'yellow',
-      icon: 'play',
-      testid: 'stage-start',
-      disabled: !formationOk,
-      onClick: () => {
-        const p = { stage: stage.id, difficulty: state.difficulty };
-        if (endless) p.endless = 1;
-        navigate('battle', p);
-      },
-    });
-    start.classList.add('ma-start-btn');
-    if (!formationOk) actions.appendChild(h('div.ma-locked-note', 'Add at least one girl to your formation.'));
-    actions.appendChild(start);
+    const battleParams = () => {
+      const p = { stage: stage.id, difficulty: state.difficulty };
+      if (endless) p.endless = 1;
+      return p;
+    };
+    if (rec) {
+      // Continue works without a formation: the team is the one frozen in the save
+      const sum = saveSummary(rec);
+      const newGame = button(isEndless ? 'New game' : `New game · ${DIFFICULTIES[state.difficulty].name}`, {
+        kind: 'ghost',
+        testid: 'stage-new',
+        disabled: !formationOk,
+        onClick: async () => {
+          const what = sum.endless ? `wave ${sum.next}` : `${DIFFICULTIES[sum.difficulty].name} · wave ${sum.next} of ${sum.of}`;
+          const ok = await ask(`Start a new battle on ${savedStageLabel(rec)}? Your saved battle (${what}) will be deleted.`, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
+          if (!ok) return;
+          clearBattleSave(store.profile, rec.slot, rec.id);
+          store.commit('battle-save');
+          store.saveNow();
+          navigate('battle', battleParams());
+        },
+      });
+      newGame.classList.add('ma-new-btn');
+      const cont = button(sum.endless ? `Continue · Wave ${sum.next}` : `Continue · Wave ${sum.next}/${sum.of}`, {
+        kind: 'yellow',
+        icon: 'play',
+        testid: 'stage-continue',
+        onClick: () => {
+          const p = { stage: stage.id, difficulty: rec.difficulty };
+          if (endless) p.endless = 1;
+          p.resume = rec.id;
+          navigate('battle', p);
+        },
+      });
+      cont.classList.add('ma-start-btn', 'ma-continue-btn');
+      if (!formationOk) actions.appendChild(h('div.ma-locked-note', 'New game needs at least one girl in your formation.'));
+      actions.append(newGame, cont);
+    } else {
+      const start = button(isEndless ? 'Start endless' : `Start · ${DIFFICULTIES[state.difficulty].name}`, {
+        kind: 'yellow',
+        icon: 'play',
+        testid: 'stage-start',
+        disabled: !formationOk,
+        onClick: async () => {
+          // a 6th saved battle would replace the oldest one: say so first
+          const old = oldestToEvict(store.profile, slotKey(stage.id, isEndless));
+          if (old) {
+            const ok = await ask(`You can keep 5 saved battles. Starting here deletes the oldest one: ${savedStageLabel(old)} · wave ${saveSummary(old).next}.`, { title: 'Saved battles full', ok: 'Start', cancel: 'Cancel' });
+            if (!ok) return;
+          }
+          navigate('battle', battleParams());
+        },
+      });
+      start.classList.add('ma-start-btn');
+      if (!formationOk) actions.appendChild(h('div.ma-locked-note', 'Add at least one girl to your formation.'));
+      actions.appendChild(start);
+    }
   }
   right.appendChild(actions);
   wrap.appendChild(right);
@@ -498,6 +557,21 @@ function safeMap(id) {
   } catch {
     return null;
   }
+}
+
+/** "Saved battle · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. */
+function savedLine(rec) {
+  const sum = saveSummary(rec);
+  const text = sum.endless
+    ? `Saved run · wave ${sum.next} · ♥ ${sum.lives} · ${sum.ago}`
+    : `Saved battle · ${DIFFICULTIES[sum.difficulty].name} · wave ${sum.next} of ${sum.of} · ♥ ${sum.lives} · ${sum.ago}`;
+  const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
+  return h(
+    'div.ma-saved',
+    { 'data-testid': 'stage-saved' },
+    h('div.ma-saved-text', h('b', text), h('small', 'Continues with the team you started with.')),
+    h('div.ma-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 9).map((id) => h('span.ma-saved-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))),
+  );
 }
 
 function fact(label, value) {
