@@ -32,12 +32,29 @@ function groupSpacing(base, def) {
 }
 
 /**
+ * x to a whole power n ≥ 0 by square-and-multiply: the same bits on every engine. The `**`
+ * operator is not required to be correctly rounded, and V8 (Chrome) and JavaScriptCore (iPhone
+ * Safari) differ by a few ulps on growth ** wave; budgets are floored far from a boundary today,
+ * but a future stage could land on one and split a co-op pair. JavaScriptCore and SpiderMonkey
+ * compute whole powers this very way, so their results do not change.
+ */
+export function powInt(x, n) {
+  let r = 1;
+  let b = x;
+  for (let k = Math.max(0, Math.floor(n)); k > 0; k = Math.floor(k / 2)) {
+    if (k % 2 === 1) r *= b;
+    b *= b;
+  }
+  return r;
+}
+
+/**
  * HP multiplier from wave position (gentle in-stage ramp, steeper after the last scripted
  * wave in endless mode). Excludes stage hpScale and difficulty.
  */
 export function waveHpRamp(stage, wave) {
   let m = 1 + WAVE_HP_RAMP * (wave - 1);
-  if (Number.isFinite(stage.waves) && wave > stage.waves) m *= ENDLESS_HP_GROWTH ** (wave - stage.waves);
+  if (Number.isFinite(stage.waves) && wave > stage.waves) m *= powInt(ENDLESS_HP_GROWTH, wave - stage.waves);
   return m;
 }
 
@@ -59,8 +76,8 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
   const growth = gen.budget?.growth ?? 1.1;
   let budget;
   if (finite && wave > stage.waves) {
-    budget = start * growth ** (stage.waves - 1) * (1 + 0.05 * (wave - stage.waves));
-  } else budget = start * growth ** (wave - 1);
+    budget = start * powInt(growth, stage.waves - 1) * (1 + 0.05 * (wave - stage.waves));
+  } else budget = start * powInt(growth, wave - 1);
   let hpMul = waveHpRamp(stage, wave);
   const baseSpacing = gen.spacing ?? DEFAULT_SPACING;
 

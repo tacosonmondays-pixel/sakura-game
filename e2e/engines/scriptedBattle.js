@@ -15,6 +15,10 @@ import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
 import { createRng } from '../../src/core/rng.js';
 import { coopVersion } from '../../src/online/coop/version.js';
+import { generateWave } from '../../src/sim/waves.js';
+import { STAGES } from '../../src/data/stages.js';
+import { ENEMY_MAP } from '../../src/data/enemies.js';
+import { coopStage } from '../../src/data/coop.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -26,6 +30,31 @@ export const START = Object.freeze({
     { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: { ...CHEAP, damageMul: 1.2 } }, { unitId: 'yuki', stats: CHEAP }], hero: null },
   ],
 });
+
+/**
+ * Every stage's wave table (its co-op version, every wave, plus 30 endless waves of the solo
+ * stage), FNV-1a over the JSON (which spells each double exactly): the battle above only plays
+ * stage 1-3, but every stage's budgets and HP multipliers are whole powers (growth^wave) that
+ * must come out bit-identical on every engine (src/sim/waves.js powInt).
+ */
+export function waveTables() {
+  const look = (id) => ENEMY_MAP[id] || null;
+  let h = 0x811c9dc5;
+  let n = 0;
+  const mix = (text) => {
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  };
+  for (const st of STAGES) {
+    const cs = coopStage(st.id);
+    const waves = Number.isFinite(cs.waves) ? cs.waves : 30;
+    for (let w = 1; w <= waves; w++, n++) mix(JSON.stringify(generateWave(cs, w, look, { pathCount: 2, pathLengths: [30, 40] })));
+    if (Number.isFinite(st.waves)) for (let w = st.waves + 1; w <= st.waves + 30; w++, n++) mix(JSON.stringify(generateWave(st, w, look)));
+  }
+  return `${n}:${h.toString(16).padStart(8, '0')}`;
+}
 
 /** FNV-1a over the bit patterns of a list of doubles → 8 hex digits. */
 export function bitsHash(values) {
@@ -187,6 +216,7 @@ export function runScriptedBattle({ maxFrames = 60 * 60 * 12 } = {}) {
     // the co-op lobby's battle-data hash: the maps are built at load time, outside the battle, and
     // must hash the same on every engine or the lobby refuses to pair (Chrome + iPhone Safari did)
     lobby: coopVersion().data,
+    waves: waveTables(),
     ms: Date.now() - t0,
   };
 }
