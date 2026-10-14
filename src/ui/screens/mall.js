@@ -14,6 +14,13 @@ import { portraitHTML } from '../../art/portraits.js';
 import { currencyIcon, uiIcon } from '../../art/icons.js';
 import { shopTabs, buyOffer, currencyBalance } from '../../systems/shop.js';
 import { tile, card, showRewardsModal, cssVar, rememberParams } from './stage.js';
+import { applyUrFrame } from '../rarity.js';
+
+/** Her offer portrait wears the rainbow UR frame once she is fully awakened (display only). */
+function urFramed(el, unitId) {
+  applyUrFrame(el, unitId, store.profile);
+  return el;
+}
 
 const CURRENCY_NAME = { coins: 'Coins', gems: 'Gems', recruitPoints: 'Recruit Points', token_boss: 'Assault Tokens', token_bounty: 'Bounty Tokens' };
 const RESET_LABEL = { daily: 'Daily', weekly: 'Weekly', never: 'Once' };
@@ -80,7 +87,7 @@ function offerCard(o, redraw) {
     h('div.ma-offer-art',
       isUnit
         // her plain drawn bust (one SSR ribbon + one name on the offer — no card overlay doubling them)
-        ? h('button.ma-offer-portrait', { title: `${name} — view profile`, style: { '--rarity': UNIT_RARITIES[UNIT_MAP[o.unitId]?.rarity]?.color || '#ff7ad9' }, onclick: () => navigate('student', { id: o.unitId }), html: portraitHTML(UNIT_MAP[o.unitId], 'thumb') })
+        ? urFramed(h('button.ma-offer-portrait', { title: `${name} — view profile`, style: { '--rarity': UNIT_RARITIES[UNIT_MAP[o.unitId]?.rarity]?.color || '#ff7ad9' }, onclick: () => navigate('student', { id: o.unitId }), html: portraitHTML(UNIT_MAP[o.unitId], 'thumb') }), o.unitId)
         : tile(o.item, o.count > 1 ? o.count : null, { size: 72 }),
     ),
     h('div.ma-offer-name', name),
