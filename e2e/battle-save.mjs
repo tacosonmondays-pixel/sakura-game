@@ -14,6 +14,9 @@
 //   9. frozen team: formation and levels changed after the save do not change the continued run
 //  10. practice (a locked stage) never saves; 11. Restart deletes the save and starts at wave 0
 //  12. the lobby Continue chip opens the saved stage's prep
+//  13. a wave won, then the app killed on the between-wave shop: Continue keeps that wave; a lost
+//      Sim whose event was dropped still ends the battle (paid once, save gone)
+//  14. the Colosseum: Save & quit, the badge, Continue, End run (40 coins per wave, save gone)
 // Screenshots (prep with a save, the Save & quit confirm, the map badge, the lobby chip) go to
 // --shots. Runs each viewport given (default both).
 //
@@ -478,6 +481,101 @@ for (const [W, H] of viewports) {
     }
   }
   await A.context().close();
+
+  // ------------------------------------------------------------------------------------------
+  log('\n--- 13: a wave won and the app killed on the between-wave shop, then a lost Sim nobody ended ---');
+  const C = await freshLobby('C');
+  await C.evaluate(() => { location.hash = '#/stage/1-1'; });
+  await onScreen(C, 'stage', '#/stage/1-1');
+  await tap(C, '[data-testid="diff-easy"]');
+  await tap(C, '[data-testid="stage-start"]');
+  if (check(await battleReady(C), '13: Start opens 1-1')) {
+    await placeTwo(C);
+    // wave 1 is started and played to its end; no command after it, no lifecycle event
+    const end1 = await C.evaluate(() => {
+      const { sim, ui } = window.__battle;
+      ui.startWave();
+      for (let k = 0; k < 4000 && sim.state === 'wave'; k++) sim.update(0.25);
+      return { wave: sim.wave, state: sim.state, cash: sim.cash };
+    });
+    check(end1.wave === 1 && end1.state === 'between', `13: wave 1 won, on the between-wave shop (${JSON.stringify(end1)})`);
+    // a few frames go by (the battle loop writes the wave end once)
+    await C.waitForFunction((k) => JSON.parse(localStorage.getItem(k))?.battleSaves?.['1-1']?.snap?.wave === 1, SAVE_KEY, { timeout: 30000, polling: 200 }).catch(() => null);
+    const storage = await C.evaluate(() => Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])));
+    const D = await newContext('D', storage);
+    await D.goto(`${base}#/stage/1-1`, { waitUntil: 'load' });
+    await onScreen(D, 'stage', '#/stage/1-1', 60000);
+    const contText = await D.waitForSelector('[data-testid="stage-continue"]', { timeout: 30000 }).then(() => text(D, '[data-testid="stage-continue"]')).catch(() => '');
+    check(/Wave 2\//.test(contText), `13: after the kill, prep offers the wave after the one won ("${contText.replace(/\s+/g, ' ')}")`);
+    await tap(D, '[data-testid="stage-continue"]');
+    if (check(await battleReady(D), '13: Continue on the relaunched app')) {
+      const k = await buildOf(D);
+      check(k.wave === 1 && k.state === 'between' && k.cash === end1.cash, `13: wave 1 kept with its bonus (${k.wave} ${k.state}, ${k.cash} coins)`);
+      // the Sim reaches 'lost' but its event never reaches the controller (dropped): the battle
+      // still ends, pays the defeat once and deletes the save instead of rewinding to a wave start
+      const before = await storedProfile(D);
+      await D.evaluate(() => {
+        const { sim, ui } = window.__battle;
+        ui.startWave();
+        sim.drainEvents();
+        sim.lives = 0;
+        sim.state = 'lost';
+      });
+      const ended = await D.waitForFunction(() => window.__battle?.ui?.ended === true, null, { timeout: 60000, polling: 200 }).then(() => true).catch(() => false);
+      check(ended, '13: a lost Sim whose event was dropped still ends the battle');
+      const after = await storedProfile(D);
+      check(!after.battleSaves['1-1'] && after.stats.battles === before.stats.battles + 1, `13: … paid once, the save gone (${before.stats.battles}→${after.stats.battles} battles)`);
+    }
+    await D.context().close();
+  }
+  await C.context().close();
+
+  // ------------------------------------------------------------------------------------------
+  log('\n--- 14: the Colosseum: Save & quit, Continue, End run ---');
+  const E = await freshLobby('E');
+  await E.evaluate(() => {
+    const { store } = window.__sakura;
+    for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) store.profile.progress.stages[id] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
+    store.commit('replace');
+    store.saveNow();
+    location.hash = '#/stage/challenge';
+  });
+  await onScreen(E, 'stage', '#/stage/challenge');
+  await tap(E, '[data-testid="stage-start"]');
+  if (check(await battleReady(E), '14: Start endless opens the Colosseum')) {
+    await placeTwo(E);
+    const st = await playUntil(E, 2);
+    check(st.state === 'between' && st.wave === 2, `14: two waves held (${JSON.stringify(st)})`);
+    await saveAndQuit(E, ['Continue from wave 3']);
+    await answer(E, true);
+    check(await onScreen(E, 'stage', '#/stage/challenge'), '14: Save & quit lands on the Colosseum prep');
+    const cont = await E.waitForSelector('[data-testid="stage-continue"]', { timeout: 20000 }).then(() => text(E, '[data-testid="stage-continue"]')).catch(() => '');
+    check(/Wave 3/.test(cont) && !/\//.test(cont), `14: Continue · Wave 3, no total (${cont.replace(/\s+/g, ' ')})`);
+    await E.evaluate(() => { location.hash = '#/challenge'; });
+    await onScreen(E, 'challenge');
+    const badge = await E.waitForSelector('[data-testid="saved-badge"]', { timeout: 20000 }).catch(() => null);
+    check(!!badge && /W3/.test(await badge.innerText()), `14: the Colosseum card shows "${badge ? await badge.innerText() : 'no badge'}"`);
+    await E.evaluate(() => { location.hash = '#/stage/challenge'; });
+    await onScreen(E, 'stage', '#/stage/challenge');
+    await tap(E, '[data-testid="stage-continue"]');
+    if (check(await battleReady(E), '14: Continue opens the Colosseum run')) {
+      const before = await storedProfile(E);
+      const cleared = await E.evaluate(() => window.__battle.sim.wavesCleared);
+      await E.evaluate(() => window.__battle.ui.openPause());
+      const conf = await openConfirm(E, '[data-testid="pause-menu"] [data-testid="end-run"]');
+      check(new RegExp(`${40 * cleared} coins`).test(conf), `14: End run says what it pays (${JSON.stringify(conf.slice(0, 120))})`);
+      await answer(E, true);
+      await E.waitForFunction(() => window.__battle?.ui?.ended === true, null, { timeout: 60000, polling: 200 }).catch(() => null);
+      await E.waitForSelector('[data-testid="result"]:not([hidden])', { timeout: 60000 }).catch(() => null);
+      const after = await storedProfile(E);
+      check(!after.battleSaves.challenge, '14: End run deletes the save in the payout');
+      check(after.currencies.coins === before.currencies.coins + 40 * cleared, `14: … and pays 40 × ${cleared} coins (${before.currencies.coins}→${after.currencies.coins})`);
+      check(after.progress.stages.challenge?.bestWave === cleared, `14: best wave ${after.progress.stages.challenge?.bestWave}`);
+      check(/RUN OVER/.test(await text(E, '[data-testid="result"]')), '14: the sheet says RUN OVER');
+      await shot(E, 'end-run-result');
+    }
+  }
+  await E.context().close();
 }
 
 await browser.close();
