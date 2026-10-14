@@ -440,19 +440,33 @@
 /* portrait / narrow: single column, the detail becomes a bottom sheet */
 @media (max-width: 700px) {
   .ut-sheet { inset: max(6px, var(--safe-top)) 6px max(6px, var(--safe-bottom)) 6px; }
+  /* the head chips get their own line under the name */
+  .ut-head { flex-wrap: wrap; row-gap: 4px; }
+  .ut-head-chips { order: 3; flex-basis: 100%; }
   .ut-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .ut-main.has-detail { grid-template-rows: minmax(0, 1fr) auto; }
+  .ut-main.has-detail > .ut-grid-wrap { grid-row: 1; }
+  .ut-main.has-detail > .ut-side { grid-row: 2; max-height: 48vh; }
+  /* the rows keep their natural height and the grid scrolls (landscape squeezes all 15 in) */
+  .ut-grid-wrap > .ut-grid, .ut-grid-wrap > .ut-grid > .ut-row { flex: none; }
   .ut-side { border-right: none; border-bottom: 1px solid var(--line); max-height: 45%; padding: 8px; }
   .ut-side:not(.ut-side-detail) { max-height: none; }
   .ut-side:not(.ut-side-detail) .ut-card-panel { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 4px 10px; }
   .ut-side:not(.ut-side-detail) .ut-card-art { width: 56px; grid-row: span 2; }
-  .ut-side:not(.ut-side-detail) .ut-card-panel > :not(.ut-card-art):not(.ut-side-name):not(.ut-side-acts) { display: none; }
+  .ut-side:not(.ut-side-detail) .ut-card-panel > :not(.ut-card-art):not(.ut-side-name):not(.ut-side-acts):not(.tag-legend) { display: none; }
+  .ut-side:not(.ut-side-detail) .ut-card-panel > .tag-legend { grid-column: 1 / -1; justify-content: flex-start; }
   .ut-side-name { align-items: flex-start; text-align: left; }
-  .ut-side.ut-side-detail { order: 2; max-height: 45%; border-top: 1px solid var(--line); border-bottom: none; }
+  .ut-side.ut-side-detail { border-top: 1px solid var(--line); border-bottom: none; }
   .ut-overlay .ut-grid { --circle: 30px; --cell-gap: 3px; }
   .ut-overlay .ut-eff { display: none; }
   .ut-overlay .ut-name { font-size: 10px; }
+  .ut-name { hyphens: auto; }
   .ut-overlay .ut-row-focus, .ut-overlay .ut-row-head .tag-summary { display: none; }
-  .ut-overlay .ut-foot .tag-chips { display: none; }
+  /* chips stay (who it helps is the point), as glyph + letter; the legend above the grid spells them out */
+  .ut-overlay .ut-foot .tag-chip .tag-word { display: none; }
+  .ut-overlay .ut-foot .tag-chip::after { content: attr(data-letter); }
+  .ut-overlay .ut-foot .tag-chip.tag-more::after { content: none; }
+  .ut-overlay .ut-foot .tag-chip.tag-xs { padding: 0 3px 0 2px; }
   .ut-overlay .ut-cell { padding: 4px 2px; }
 }
 

@@ -286,6 +286,7 @@ export function createUpgradeTree(ctx) {
   function renderSide() {
     if (!model) return;
     side.classList.toggle('ut-side-detail', !!selected);
+    side.parentElement?.classList.toggle('has-detail', !!selected); // portrait: grid on top, detail below
     if (selected === 'ult') {
       side.replaceChildren(ultDetail());
       return;

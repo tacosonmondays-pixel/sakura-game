@@ -8,6 +8,7 @@
 //   node e2e/unit-info.mjs --viewport 844x390 --shots /tmp/unit-info
 //   node e2e/unit-info.mjs --no-coop                         # skip the two-player section
 //   node e2e/unit-info.mjs --coop-only                       # only the two-player section
+//   node e2e/unit-info.mjs --portrait-only                   # only the 390×844 smoke pass (--no-portrait skips it)
 //
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1
 // when a check fails.
@@ -20,7 +21,9 @@ const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 };
-const viewports = args.includes('--coop-only') ? [] : opt('viewport', null) ? [opt('viewport')] : ['1280x720', '844x390'];
+const only = args.includes('--coop-only') || args.includes('--portrait-only');
+const viewports = only ? [] : opt('viewport', null) ? [opt('viewport')] : ['1280x720', '844x390'];
+const withPortrait = !args.includes('--coop-only') && !args.includes('--no-portrait') && !opt('viewport', null);
 const shotsDir = opt('shots', null);
 const withCoop = !args.includes('--no-coop');
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
@@ -196,16 +199,18 @@ async function runViewport(vp) {
     check(await sheetOpen(), 'formation picker: holding a card opens her sheet');
     await page.waitForTimeout(800);
     check((await formation()) === f1, 'formation picker: holding did NOT toggle her');
-    await closeSheet();
+    check(await closeSheet(), 'formation picker: ✕ closes the sheet');
     if (!touch) {
       await page.evaluate(() => {
         window.__ctxPrevented = null;
-        window.addEventListener('contextmenu', (e) => { window.__ctxPrevented = e.defaultPrevented; }, { once: true });
+        window.addEventListener('contextmenu', (e) => { window.__ctxPrevented = { dp: e.defaultPrevented, target: String(e.target.className?.baseVal ?? e.target.className), sheet: !!document.querySelector('[data-testid="unit-sheet"]') }; }, { once: true });
       });
       const at = await center(pickSel);
       await page.mouse.click(at.x, at.y, { button: 'right' });
       check(await sheetOpen(), 'formation picker: right-click opens her sheet');
-      check(await page.evaluate(() => window.__ctxPrevented === true), 'formation picker: right-click shows no browser menu (contextmenu prevented)');
+      await page.waitForFunction(() => window.__ctxPrevented != null, null, { timeout: 3000 }).catch(() => null);
+      const ctxInfo = await page.evaluate(() => window.__ctxPrevented);
+      check(ctxInfo?.dp === true, `formation picker: right-click shows no browser menu (contextmenu prevented) (${JSON.stringify(ctxInfo)})`);
       check((await formation()) === f1, 'formation picker: right-click did not toggle her');
       await closeSheet();
     }
@@ -272,14 +277,38 @@ async function runViewport(vp) {
       await page.evaluate(() => { const s = document.querySelector('[data-e2e-scroller]'); if (s) s.scrollTop = 0; });
       await page.waitForTimeout(300);
     } else {
-      // a mouse press that moves (drag-select, scrollbar-like motion) is not a hold
-      const at = await center(cardSel);
-      await page.mouse.move(at.x, at.y);
-      await page.mouse.down();
-      await page.mouse.move(at.x + 30, at.y + 4, { steps: 4 });
-      await page.waitForTimeout(600);
-      await page.mouse.up();
-      check(!(await page.$('[data-testid="unit-sheet"]')), 'students: a press that moves does not open a sheet');
+      // a mouse press that moves (drag-select, scrollbar-like motion) is not a hold. The moves are
+      // dispatched in the page in one go: under software GL a 1280×720 frame can take longer
+      // than the hold itself, and real mouse moves are only delivered once per frame.
+      const moved = await page.evaluate(async (sel) => {
+        const card = document.querySelector(sel);
+        const img = card.querySelector('[data-unit]') || card;
+        const r = img.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        const ev = (type, dx, target = img) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 77, pointerType: 'mouse', isPrimary: true, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x + dx, clientY: y + dx * 0.13 }));
+        ev('pointerdown', 0);
+        for (const dx of [7.5, 15, 22.5, 30]) ev('pointermove', dx);
+        await new Promise((res) => setTimeout(res, 650));
+        const ring = !!document.querySelector('.hold-ring.run');
+        ev('pointerup', 30);
+        await new Promise((res) => setTimeout(res, 150));
+        return { sheet: !!document.querySelector('[data-testid="unit-sheet"]'), ring };
+      }, cardSel);
+      check(!moved.sheet && !moved.ring, `students: a press that moves does not open a sheet (${JSON.stringify(moved)})`);
+      // …and the same press held still does (the synthetic events reach the hold at all)
+      const still = await page.evaluate(async (sel) => {
+        const img = document.querySelector(sel).querySelector('[data-unit]') || document.querySelector(sel);
+        const r = img.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, composed: true, pointerId: 78, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+        img.dispatchEvent(new PointerEvent('pointerdown', o));
+        img.dispatchEvent(new PointerEvent('pointermove', { ...o, button: -1, clientX: o.clientX + 4 }));
+        await new Promise((res) => setTimeout(res, 650));
+        img.dispatchEvent(new PointerEvent('pointerup', { ...o, buttons: 0 }));
+        return true;
+      }, cardSel);
+      check(still && await sheetOpen(), 'students: the same synthetic press held still (4 px wobble) opens the sheet');
+      await closeSheet();
       await go('#/students', 600);
     }
     const id = await page.getAttribute(cardSel, 'data-unit');
@@ -347,9 +376,11 @@ async function runViewport(vp) {
       await page.waitForTimeout(300);
       check(!(await page.$('[data-testid="unit-sheet"]')), 'recruit: holding a face-down card does not spoil it');
     }
-    await page.click('[data-testid="reveal-skip"]', { timeout: 5000 }).catch(() => {});
+    // Skip straight to the results (an SSR showcase may already cover the Skip button)
+    await page.evaluate(() => document.querySelector('[data-testid="reveal-skip"]')?.click());
     await page.waitForSelector('[data-testid="reveal-close"]', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(600);
+    check(!(await page.$('.ma-showcase')), 'recruit: Skip shows the results');
     await holdAt(await center('.ma-gacha-grid .ma-gc.flipped'));
     check(await sheetOpen(), 'recruit: holding a flipped result card opens her sheet');
     await shot('sheet-recruit');
@@ -618,6 +649,99 @@ async function runViewport(vp) {
   await context.close();
 }
 
+// ---- portrait phone (390×844, touch): smoke only — the sheet and the tree fit a narrow screen ----
+async function runPortrait() {
+  const vp = '390x844';
+  log(`\n=== portrait ${vp} (touch, smoke) ===`);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    if (!IGNORE.some((re) => re.test(t))) errors.push(`[console] ${t}`);
+  });
+  page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+  const cdp = await context.newCDPSession(page);
+  const holdAt = async ({ x, y }, ms = 750) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+    await page.waitForTimeout(ms);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const center = async (sel) => {
+    const el = page.locator(sel).first();
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    const b = await el.boundingBox();
+    return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
+  };
+  const shot = async (name) => {
+    if (!shotsDir) return;
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 200))))).catch(() => {});
+    await page.screenshot({ path: `${shotsDir}/${name}-${vp}.png` }).catch(() => {});
+  };
+  const noOverflow = (sel) => page.evaluate((q) => {
+    const el = document.querySelector(q);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { fits: r.left >= -0.5 && r.right <= innerWidth + 0.5 && el.scrollWidth <= el.clientWidth + 1, w: Math.round(r.width), iw: innerWidth };
+  }, sel);
+  try {
+    await page.goto(`${base}#/formation`, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.__sakura && document.documentElement.dataset.holdInfo === 'on', null, { timeout: 30000 });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => window.__sakura && document.documentElement.dataset.holdInfo === 'on', null, { timeout: 30000 });
+    await seed(page, { quality: 'low' });
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+    await page.evaluate(() => { location.hash = '#/students'; });
+    await page.waitForTimeout(600);
+    await page.evaluate(() => { location.hash = '#/formation'; });
+    await page.waitForTimeout(1200);
+    const slot = '.mb-tower-slots .mb-fslot.filled[data-unit]';
+    if (check(!!(await page.$(slot)), 'portrait formation: a filled squad slot')) {
+      const f0 = await page.evaluate(() => JSON.stringify(window.__sakura.store.profile.formation));
+      await holdAt(await center(slot));
+      const open = await page.waitForSelector('[data-testid="unit-sheet"]', { timeout: 10000 }).then(() => true).catch(() => false);
+      check(open, 'portrait formation: holding a squad slot opens her sheet');
+      await page.waitForTimeout(800);
+      check(await page.evaluate(() => JSON.stringify(window.__sakura.store.profile.formation)) === f0, 'portrait formation: holding did not remove her');
+      const fit = await noOverflow('.us-sheet');
+      check(fit?.fits === true, `portrait sheet: fits the screen width (${JSON.stringify(fit)})`);
+      await page.waitForSelector('[data-testid="unit-sheet"] .mb-eff-row', { timeout: 8000 }).catch(() => null);
+      await shot('sheet-formation');
+      await page.click('[data-testid="unit-sheet-tab-upgrades"]').catch(() => {});
+      await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
+      const g = await noOverflow('[data-testid="unit-sheet"] .ut-grid');
+      check(g?.fits === true, `portrait sheet Upgrades: the 3 × 5 grid fits the width (${JSON.stringify(g)})`);
+      await shot('sheet-upgrades');
+      await page.click('[data-testid="unit-sheet-close"]').catch(() => {});
+      await page.waitForSelector('[data-testid="unit-sheet"]', { state: 'detached', timeout: 4000 }).catch(() => null);
+    }
+    await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=easy'; });
+    await page.waitForFunction(() => window.__battle?.ui?.placement && window.__battle?.ui?.tree, null, { timeout: 90000 });
+    await page.waitForTimeout(1500);
+    const id = await page.evaluate(() => [...window.__battle.sim.loadout.keys()].find((u) => window.__battle.sim.data.unit(u)?.placement === 'land'));
+    const at = await center(`[data-testid="card-${id}"]`);
+    if (check(!!at, `portrait battle: ${id}'s bar card on screen`)) {
+      await holdAt(at, 800);
+      const up = await page.waitForFunction(() => window.__battle.ui.tree.isOpen, null, { timeout: 4000 }).then(() => true).catch(() => false);
+      check(up, 'portrait battle: holding a bar card opens her tree');
+      const t = await noOverflow('[data-testid="upgrade-tree"] .ut-sheet');
+      check(t?.fits === true, `portrait battle tree: fits the screen width (${JSON.stringify(t)})`);
+      await shot('tree-preview');
+      await page.click('[data-testid="upgrade-tree"] [data-testid="ut-cell-1-3"]').catch(() => {});
+      await page.waitForSelector('[data-testid="upgrade-tree"] [data-testid="ut-detail"]', { timeout: 3000 }).catch(() => null);
+      await shot('tree-detail');
+      await page.click('[data-testid="upgrade-tree-close"]').catch(() => {});
+    }
+    const errs = errors.splice(0);
+    check(!errs.length, `portrait: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
+  } finally {
+    await cdp.detach().catch(() => {});
+    await context.close();
+  }
+}
+
 // ---- co-op: the tree pauses nothing; lobby chips open the sheet without "Open full page" -------
 async function runCoop() {
   const W = 1280;
@@ -668,12 +792,28 @@ async function runCoop() {
     // lobby squad chip: hold → sheet without "Open full page" (leaving would close the room)
     const chip = await A.waitForSelector('.ol-unit[data-unit]', { timeout: 10000 }).catch(() => null);
     if (check(!!chip, 'co-op lobby: squad chips shown')) {
-      const b = await chip.boundingBox();
-      await A.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-      await A.mouse.down();
-      await A.waitForTimeout(700);
-      await A.mouse.up();
-      check(await A.waitForSelector('[data-testid="unit-sheet"]', { timeout: 15000 }).then(() => true).catch(() => false), 'co-op lobby: holding a squad chip opens her sheet');
+      // The lobby repaints on every link change, and on a loaded machine a busy renderer can
+      // deliver the press and the release in the same task (a tap, not a hold): press longer and
+      // try again rather than call that a failure. The page records when the sheet appears.
+      await A.evaluate(() => {
+        window.__sheetSeen = 0;
+        new MutationObserver(() => { if (document.querySelector('[data-testid="unit-sheet"]')) window.__sheetSeen++; }).observe(document.body, { childList: true });
+      });
+      let opened = false;
+      for (let attempt = 1; attempt <= 3 && !opened; attempt++) {
+        const at = await A.evaluate(() => {
+          const r = document.querySelector('.ol-pcard.me .ol-unit[data-unit]')?.getBoundingClientRect();
+          return r && { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        });
+        if (!at) break;
+        await A.mouse.move(at.x, at.y);
+        await A.mouse.down();
+        await A.waitForTimeout(700 + 500 * attempt);
+        await A.mouse.up();
+        opened = await A.waitForFunction(() => window.__sheetSeen > 0, null, { timeout: 8000, polling: 100 }).then(() => true).catch(() => false);
+        if (!opened) log(`    (lobby hold attempt ${attempt}: no sheet yet — holding again)`);
+      }
+      check(opened && await A.waitForSelector('[data-testid="unit-sheet"]', { timeout: 5000 }).then(() => true).catch(() => false), 'co-op lobby: holding a squad chip opens her sheet');
       check(!(await A.$('[data-testid="unit-sheet-open-page"]')), 'co-op lobby: no "Open full page" (leaving the lobby would close the room)');
       await shot(A, 'sheet-coop-lobby');
       await A.click('[data-testid="unit-sheet-close"]', { timeout: 10000 }).catch(() => {});
@@ -779,7 +919,14 @@ try {
       check(false, `${vp}: unexpected error: ${e.stack || e.message}`);
     }
   }
-  if (withCoop) await runCoop();
+  if (withPortrait) {
+    try {
+      await runPortrait();
+    } catch (e) {
+      check(false, `portrait: unexpected error: ${e.stack || e.message}`);
+    }
+  }
+  if (withCoop && !args.includes('--portrait-only')) await runCoop();
 } finally {
   await browser.close();
   await server.close();
