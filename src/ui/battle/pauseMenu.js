@@ -3,6 +3,8 @@
 // Settings persist through store.commit(). Battles that save (ctx.saver: campaign, Bounty, solo
 // Total Assault, the Colosseum, endless) say what Save & quit keeps; the others (practice,
 // tutorial, clan boss, co-op) keep their Quit / Leave co-op wording.
+// Colours follow the risk: in a battle that saves, Save & quit keeps everything (a plain button)
+// and Restart throws the run away (red); where leaving loses the run, Quit is the red one.
 import { h, icon } from './util.js';
 import { confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
@@ -42,6 +44,7 @@ export function createPauseMenu(ctx) {
     const s = settings();
     const stage = ctx.stage;
     const diff = DIFFICULTIES[ctx.sim.difficulty];
+    const saves = saving();
     el.replaceChildren(h(
       'div.bt-sheet.bt-pause',
       h('div.bt-sheet-title', ctx.coop ? 'MENU' : 'PAUSED'),
@@ -50,9 +53,9 @@ export function createPauseMenu(ctx) {
       h(
         'div.bt-pause-actions',
         h('button.bt-cta', { 'data-testid': 'resume', onclick: () => ctx.closePause() }, icon('play', 'bt-ico-sm'), 'Resume'),
-        ctx.coop ? null : h('button.bt-btn', { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
+        ctx.coop ? null : h(`button.bt-btn${saves ? '.bt-btn-danger' : ''}`, { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
         ctx.endRun ? h('button.bt-btn', { 'data-testid': 'end-run', onclick: () => endRun() }, icon('trophy', 'bt-ico-sm'), 'End run') : null,
-        h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : ctx.saver ? 'Save & quit' : 'Quit'),
+        h(`button.bt-btn${saves ? '' : '.bt-btn-danger'}`, { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : saves ? 'Save & quit' : 'Quit'),
       ),
       h('div.bt-sheet-section', 'Settings'),
       h('div.bt-set-row', h('span.bt-set-label', 'Graphics'), seg(QUALITIES, s.quality, (q) => {
@@ -81,11 +84,16 @@ export function createPauseMenu(ctx) {
     ));
   }
 
+  /** This battle is being saved (a saver that is not shut out by full saved-battle slots). */
+  function saving() {
+    return !!ctx.saver && !ctx.saver.full;
+  }
+
   async function restart() {
-    const text = ctx.saver
+    const text = saving()
       ? 'Start this battle again from wave 1? Your saved progress in it will be deleted.'
       : 'Restart this stage from wave 1? Progress in this battle is lost.';
-    if (!(await confirmDialog(text, { title: 'Restart', ok: 'Restart', danger: !!ctx.saver }))) return;
+    if (!(await confirmDialog(text, { title: 'Restart', ok: 'Restart', danger: saving() }))) return;
     ctx.restart();
   }
 
@@ -98,6 +106,7 @@ export function createPauseMenu(ctx) {
   function quitConfirm() {
     if (ctx.coop) return { text: 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.', title: 'Leave co-op', ok: 'Leave' };
     const saver = ctx.saver;
+    if (saver?.full) return { text: 'Your saved battles are full, so this one isn\'t being saved. Leave anyway? You will not receive rewards for this run.', title: 'Quit battle', ok: 'Quit', danger: true };
     if (!saver) return { text: 'Leave the battle? You will not receive rewards for this run.', title: 'Quit battle', ok: 'Quit' };
     const sim = ctx.sim;
     if (sim.state === 'wave') {
@@ -109,7 +118,8 @@ export function createPauseMenu(ctx) {
 
   async function quit() {
     const c = quitConfirm();
-    if (!(await confirmDialog(c.text, { title: c.title, ok: c.ok }))) return;
+    if (!(await confirmDialog(c.text, { title: c.title, ok: c.ok, danger: !!c.danger }))) return;
+    ctx.leaveExplained = true; // the sheet said what Continue gets: no second notice on the way out
     ctx.quit();
   }
 

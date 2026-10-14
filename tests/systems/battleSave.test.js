@@ -4,13 +4,13 @@
 // (run-seeded drops, the event bonus by start time) are deterministic.
 import { describe, it, expect } from 'vitest';
 import {
-  RECORD_V, SNAP_V, MAX_BATTLE_SAVES, slotKey, isSavableRun, getBattleSave, listBattleSaves, putBattleSave, oldestToEvict,
-  clearBattleSave, saveSummary, cleanBattleSaves, droppedBattleSaves, newRunId, agoText,
+  RECORD_V, SNAP_V, MAX_BATTLE_SAVES, slotKey, isSavableRun, getBattleSave, listBattleSaves, putBattleSave, saveToEvict, savesByWorth,
+  clearBattleSave, saveSummary, cleanBattleSaves, droppedBattleSaves, droppedBattleSaveNames, newRunId, agoText, saveTitle,
 } from '../../src/systems/battleSave.js';
 import {
   createProfile, migrateProfile, migrationDropsData, loadSaveText, serializeProfile, deserializeProfile,
 } from '../../src/systems/save.js';
-import { battleDropSeed, eventMul, applyBattleResult } from '../../src/systems/rewards.js';
+import { battleDropSeed, eventMul, battleEventMul, applyBattleResult } from '../../src/systems/rewards.js';
 import { currentEvent } from '../../src/systems/missions.js';
 import { createRng } from '../../src/core/rng.js';
 
@@ -107,11 +107,26 @@ describe('profile.battleSaves', () => {
     expect(Object.keys(kept).sort()).toEqual(['1-3', '1-4', '1-5', '2-1', '2-2']);
   });
 
-  it('a dropped record is not a lossy migration (no whole-save backup), but it is counted for a notice', () => {
+  it('a save past the end of a stage an update made shorter is dropped (no "wave 15 of 14")', () => {
+    const waves = 12; // 1-1
+    expect(cleanBattleSaves(saves(rec({}, { wave: waves - 1 })))['1-1']).toBeTruthy();
+    expect(cleanBattleSaves(saves(rec({}, { wave: waves })))).toEqual({});
+    // endless runs have no end
+    const col = rec({ slot: 'challenge', stageId: 'challenge', endless: true }, { wave: 120 });
+    expect(cleanBattleSaves(saves(col)).challenge).toBeTruthy();
+  });
+
+  it('a record without a start time counts from its last play (never the 1970 event week)', () => {
+    expect(cleanBattleSaves(saves(rec({ createdAt: undefined, updatedAt: 5000 })))['1-1'].createdAt).toBe(5000);
+    expect(cleanBattleSaves(saves(rec({ createdAt: 0, updatedAt: 0 })))['1-1'].createdAt).toBeGreaterThan(1e12);
+  });
+
+  it('a dropped record is not a lossy migration (no whole-save backup), but it is counted and named for a notice', () => {
     const raw = JSON.parse(JSON.stringify(createProfile()));
-    raw.battleSaves = { ...saves(rec()), '1-2': rec({ slot: '1-2', stageId: '1-2', v: 99 }) };
+    raw.battleSaves = { ...saves(rec()), '1-2': rec({ slot: '1-2', stageId: '1-2', v: 99 }, { wave: 4 }) };
     expect(migrationDropsData(raw)).toBe(false);
     expect(droppedBattleSaves(raw)).toBe(1);
+    expect(droppedBattleSaveNames(raw)).toEqual(['Mission 1-2 (wave 5)']);
     const res = loadSaveText(JSON.stringify(raw));
     expect(res.backup).toBeNull();
     expect(res.droppedBattles).toBe(1);
@@ -143,17 +158,41 @@ describe('battle save slots and modes', () => {
 });
 
 describe('battle save records', () => {
-  it('put / get / list (newest first), and the cap replaces the oldest', () => {
+  it('put / get / list (newest first); when full, the save with the least play is the one offered to go', () => {
     const p = createProfile();
-    for (let i = 0; i < MAX_BATTLE_SAVES; i++) putBattleSave(p, rec({ id: `bs-${i}`, slot: `1-${i + 1}`, stageId: `1-${i + 1}`, updatedAt: 10 + i }));
-    expect(listBattleSaves(p).map((r) => r.slot)).toEqual(['1-5', '1-4', '1-3', '1-2', '1-1']);
-    expect(oldestToEvict(p, '1-3')).toBeNull(); // overwrites its own slot
-    expect(oldestToEvict(p, '2-1').slot).toBe('1-1');
+    // 1-1 at wave 9 of 12, 1-2 at wave 2 of 14 (least play), 1-3 at wave 2 of 15 played most recently
+    // (still less), the Colosseum at wave 30 (endless: always kept longest), 1-4 at wave 7 of 15
+    const list = [
+      rec({ id: 'bs-a', slot: '1-1', stageId: '1-1', updatedAt: 10 }, { wave: 9 }),
+      rec({ id: 'bs-b', slot: '1-2', stageId: '1-2', updatedAt: 11 }, { wave: 2 }),
+      rec({ id: 'bs-c', slot: '1-3', stageId: '1-3', updatedAt: 14 }, { wave: 2 }),
+      rec({ id: 'bs-d', slot: 'challenge', stageId: 'challenge', endless: true, updatedAt: 1 }, { wave: 30 }),
+      rec({ id: 'bs-e', slot: '1-4', stageId: '1-4', updatedAt: 12 }, { wave: 7 }),
+    ];
+    for (const r of list) putBattleSave(p, r);
+    expect(listBattleSaves(p).map((r) => r.slot)).toEqual(['1-3', '1-4', '1-2', '1-1', 'challenge']);
+    expect(savesByWorth(p).map((r) => r.id)).toEqual(['bs-c', 'bs-b', 'bs-e', 'bs-a', 'bs-d']);
+    expect(saveToEvict(p, '1-3')).toBeNull(); // overwrites its own slot
+    expect(saveToEvict(p, '2-1').id).toBe('bs-c');
+    // the Colosseum's wave-30 run, the least recently played, is never the first to go
+    expect(savesByWorth(p).at(-1).slot).toBe('challenge');
     const evicted = putBattleSave(p, rec({ id: 'bs-new', slot: '2-1', stageId: '2-1', updatedAt: 99 }));
-    expect(evicted.map((r) => r.slot)).toEqual(['1-1']);
-    expect(getBattleSave(p, '1-1')).toBeNull();
+    expect(evicted.map((r) => r.id)).toEqual(['bs-c']);
+    expect(getBattleSave(p, '1-3')).toBeNull();
     expect(getBattleSave(p, '2-1').id).toBe('bs-new');
+    expect(getBattleSave(p, 'challenge').id).toBe('bs-d');
     expect(listBattleSaves(p).length).toBe(MAX_BATTLE_SAVES);
+  });
+
+  it('saveTitle: the stage name, and the kind of battle on a second line where the name does not say it', () => {
+    expect(saveTitle(rec())).toEqual({ name: 'Mission 1-1', mode: null });
+    expect(saveTitle(rec({ slot: '2-4:endless', stageId: '2-4', endless: true }))).toEqual({ name: 'Endless 2-4', mode: null });
+    const col = saveTitle(rec({ slot: 'challenge', stageId: 'challenge', endless: true }));
+    expect(col.mode).toBe('Endless');
+    expect(col.name).toBeTruthy();
+    expect(saveTitle(rec({ slot: 'boss-lych', stageId: 'boss-lych' }))).toEqual({ name: 'Grave Lych', mode: 'Total Assault' });
+    expect(saveTitle(rec({ slot: 'res-books-2', stageId: 'res-books-2' }))).toEqual({ name: 'Library Courtyard II', mode: 'Bounty' });
+    expect(saveTitle({ stageId: 'gone-9' })).toEqual({ name: 'gone-9', mode: null });
   });
 
   it('clearBattleSave with another run id keeps the record (a payout never deletes a newer run)', () => {
@@ -196,9 +235,10 @@ describe('payout helpers', () => {
     expect(Number.isInteger(battleDropSeed('3-5', 'hard', 77))).toBe(true);
   });
 
-  it('the event bonus is judged by when the run started (eventAt), not when it finished', () => {
+  it('the event bonus is judged by when the run started (eventAt), and only while it finishes within 48 h of that week', () => {
     // two weeks: one where a Bounty arena has the 2× event, one where it does not
     const week = 7 * 24 * 3600 * 1000;
+    const hour = 3600 * 1000;
     const t0 = Date.UTC(2026, 9, 14, 12);
     let on = null;
     let off = null;
@@ -213,16 +253,25 @@ describe('payout helpers', () => {
     expect(on && off).toBeTruthy();
     expect(eventMul(stageId, on)).toBe(2);
     expect(eventMul(stageId, off)).toBe(1);
+    // the first hour of the week after the event week
+    let end = on.getTime();
+    while (currentEvent(new Date(end)).week === currentEvent(on).week) end += hour;
     const won = { stageId, difficulty: 'normal', won: true, wave: 12, wavesCleared: 12, livesLeft: 100, encountered: [], kills: {}, stats: {} };
     const unlockAll = (p) => {
       for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) p.progress.stages[id] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
       return p;
     };
-    // started in the event week, finished after it: still the bonus
-    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: off, eventAt: on }).eventBonus).toBe(true);
+    const bonus = (now, eventAt) => applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: new Date(now), eventAt: eventAt && new Date(eventAt) }).eventBonus;
+    // started in the event week, finished in it or up to 48 h after it: the bonus
+    expect(bonus(on.getTime() + hour, on)).toBe(true);
+    expect(bonus(end + 24 * hour, on)).toBe(true);
+    expect(battleEventMul(stageId, new Date(end + 47 * hour), on)).toBe(2);
+    // kept longer than that: no bonus (a save cannot be banked for weeks and still paid double)
+    expect(bonus(end + 49 * hour, on)).toBe(false);
+    expect(bonus(end + 3 * week, on)).toBe(false);
     // started before the event week, finished inside it: no bonus (no stockpiled saves)
-    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: on, eventAt: off }).eventBonus).toBe(false);
+    expect(bonus(on.getTime(), off)).toBe(false);
     // without eventAt, as before: the finish time
-    expect(applyBattleResult(unlockAll(createProfile()), won, createRng(1), { now: on }).eventBonus).toBe(true);
+    expect(bonus(on.getTime())).toBe(true);
   });
 });

@@ -15,7 +15,7 @@ import { DIFFICULTIES } from '../data/types.js';
 export const RECORD_V = 1;
 /** Snapshot format this build writes (and the newest it can read). */
 export const SNAP_V = 1;
-/** Saved battles kept at once; starting another one replaces the oldest. */
+/** Saved battles kept at once; starting another one asks which one to delete (stage prep). */
 export const MAX_BATTLE_SAVES = 5;
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -60,26 +60,46 @@ export function listBattleSaves(profile) {
 }
 
 /**
- * The record a new save in `slot` would replace to stay within MAX_BATTLE_SAVES (the oldest
- * one), or null when there is room (or the slot already holds a save it simply overwrites).
+ * How much play a save holds, for choosing which one to give up: endless runs (the Colosseum,
+ * endless on a map) rank above every finite stage by the waves they reached; a finite stage by
+ * the share of its waves already cleared.
  */
-export function oldestToEvict(profile, slot) {
-  const list = listBattleSaves(profile);
-  if (list.some((r) => r.slot === slot) || list.length < MAX_BATTLE_SAVES) return null;
-  return list[list.length - 1];
+function saveWorth(rec) {
+  const s = saveSummary(rec);
+  return s.endless ? 1 + s.next : s.of ? (s.next - 1) / s.of : 0;
 }
 
 /**
- * Stores a record in its slot, replacing the oldest other saves past MAX_BATTLE_SAVES.
+ * Every saved battle, the one with the least play first (a tie: the one played least recently
+ * first): the order stage prep offers them in when the saves are full.
+ */
+export function savesByWorth(profile) {
+  return listBattleSaves(profile).sort((a, b) => saveWorth(a) - saveWorth(b) || (a.updatedAt || 0) - (b.updatedAt || 0));
+}
+
+/**
+ * The save a new one in `slot` would have to replace to stay within MAX_BATTLE_SAVES (the one
+ * with the least play), or null when there is room (or the slot already holds a save it simply
+ * overwrites). Nothing is ever replaced without asking: stage prep lets the player pick.
+ */
+export function saveToEvict(profile, slot) {
+  const list = savesByWorth(profile);
+  if (list.some((r) => r.slot === slot) || list.length < MAX_BATTLE_SAVES) return null;
+  return list[0];
+}
+
+/**
+ * Stores a record in its slot, replacing the saves with the least play past MAX_BATTLE_SAVES
+ * (the battle saver never gets here when that would be needed: it asks first).
  * @returns {object[]} the records removed to make room
  */
 export function putBattleSave(profile, rec) {
   const all = saves(profile);
   all[rec.slot] = rec;
   const evicted = [];
-  const list = listBattleSaves(profile).filter((r) => r !== rec);
+  const list = savesByWorth(profile).filter((r) => r !== rec);
   while (list.length + 1 > MAX_BATTLE_SAVES) {
-    const old = list.pop();
+    const old = list.shift();
     delete all[old.slot];
     evicted.push(old);
   }
@@ -96,6 +116,26 @@ export function clearBattleSave(profile, slot, runId = null) {
   if (!rec || (runId != null && rec.id !== runId)) return false;
   delete profile.battleSaves[slot];
   return true;
+}
+
+const KIND_NAME = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge' };
+
+/**
+ * Name of a saved battle's stage: "Mission 1-3", "Endless 2-4", "Library Courtyard II", "Grave
+ * Lych", "Tactical Challenge". `mode` is the kind of battle, for a second, smaller line: "Bounty",
+ * "Total Assault", "Endless", or null where the name already says it (a mission, endless on a map).
+ * @returns {{ name: string, mode: string|null }}
+ */
+export function saveTitle(rec) {
+  const stage = STAGE_MAP[rec?.stageId];
+  if (!stage) return { name: String(rec?.stageId || ''), mode: null };
+  if (rec.endless && stage.kind !== 'challenge') return { name: `Endless ${stage.id}`, mode: null };
+  if (stage.kind === 'campaign') return { name: `${KIND_NAME.campaign} ${stage.id}`, mode: null };
+  if (stage.kind === 'challenge') return { name: stage.name, mode: 'Endless' };
+  // "Total Assault: Grave Lych" → the boss, with the mode on its own line
+  const mode = KIND_NAME[stage.kind] || null;
+  const name = mode ? stage.name.replace(new RegExp(`^${mode}:\\s*`), '') : stage.name;
+  return { name: name || stage.name, mode };
 }
 
 /** "just now", "12 min ago", "2 h ago", "3 d ago" */
@@ -148,19 +188,24 @@ function cleanRecord(slot, r) {
   if (!isObj(s) || !finite(s.v) || s.v > SNAP_V) return null;
   if (s.state !== 'prep' && s.state !== 'between') return null;
   if (![s.cash, s.lives, s.wave, s.time].every(finite)) return null;
+  // a finite stage made shorter by an update: nothing left to continue (dropped with the notice)
+  const endlessRun = !!r.endless || stage.kind === 'challenge' || !Number.isFinite(stage.waves);
+  if (!endlessRun && s.wave >= stage.waves) return null;
   if (!Array.isArray(s.towers) || !s.towers.every(isObj)) return null;
   const uids = s.towers.map((t) => t.uid);
   if (!uids.every((u) => Number.isInteger(u) && u > 0) || new Set(uids).size !== uids.length) return null;
   const loadout = (Array.isArray(r.loadout) ? r.loadout : []).map(cleanEntry).filter(Boolean);
   const hero = cleanEntry(r.hero);
   if (!loadout.length && !hero) return null;
+  const updatedAt = finite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0;
   return {
     ...r,
     loadout,
     hero,
     endless: !!r.endless,
-    createdAt: finite(r.createdAt) ? r.createdAt : 0,
-    updatedAt: finite(r.updatedAt) ? r.updatedAt : 0,
+    // the event bonus is judged by createdAt: a record without one counts from its last play
+    createdAt: finite(r.createdAt) && r.createdAt > 0 ? r.createdAt : updatedAt || Date.now(),
+    updatedAt,
     resumes: Number.isInteger(r.resumes) && r.resumes > 0 ? r.resumes : 0,
   };
 }
@@ -187,4 +232,16 @@ export function droppedBattleSaves(raw) {
   if (!isObj(raw) || !isObj(raw.battleSaves)) return 0;
   const n = Object.values(raw.battleSaves).length;
   return Math.max(0, Math.min(n, MAX_BATTLE_SAVES) - Object.keys(cleanBattleSaves(raw.battleSaves)).length);
+}
+
+/** What the one-time notice names: "Mission 1-3 (wave 5)" for each dropped saved battle it can name. */
+export function droppedBattleSaveNames(raw) {
+  if (!isObj(raw) || !isObj(raw.battleSaves)) return [];
+  const kept = cleanBattleSaves(raw.battleSaves);
+  const names = [];
+  for (const [slot, r] of Object.entries(raw.battleSaves)) {
+    if (!isObj(r) || (kept[slot] && kept[slot].id === r.id) || !STAGE_MAP[r.stageId]) continue;
+    names.push(finite(r.snap?.wave) ? `${saveTitle(r).name} (wave ${r.snap.wave + 1})` : saveTitle(r).name);
+  }
+  return names.slice(0, droppedBattleSaves(raw));
 }

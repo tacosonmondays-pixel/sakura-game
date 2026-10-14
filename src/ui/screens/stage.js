@@ -27,7 +27,9 @@ import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless }
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
-import { getBattleSave, slotKey, saveSummary, clearBattleSave, oldestToEvict } from '../../systems/battleSave.js';
+import {
+  getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES,
+} from '../../systems/battleSave.js';
 import { portraitHTML } from '../../art/portraits.js';
 
 // ---------------------------------------------------------------------------
@@ -78,12 +80,64 @@ export function stageLabel(stage) {
   return stage.kind === 'campaign' ? `${KIND_LABEL.campaign} ${stage.id}` : KIND_LABEL[stage.kind];
 }
 
-/** Name of a saved battle's stage for prep, badges and the lobby: "Mission 1-3", "Endless 2-4", "Library Raid II". */
+/** Name of a saved battle's stage for prep, badges and the lobby: "Mission 1-3", "Endless 2-4", "Library Courtyard II". */
 export function savedStageLabel(rec) {
-  const stage = STAGE_MAP[rec?.stageId];
-  if (!stage) return rec?.stageId || '';
-  if (rec.endless && stage.kind !== 'challenge') return `Endless ${stage.id}`;
-  return stage.kind === 'campaign' ? stageLabel(stage) : stage.name;
+  return saveTitle(rec).name;
+}
+
+/** "Hard · wave 5 of 14 · 2 h ago" / "wave 31 · 1 d ago" (with the mode first where the name lacks it). */
+export function savedDetail(rec, { ago = true } = {}) {
+  const sum = saveSummary(rec);
+  const { mode } = saveTitle(rec);
+  return [
+    mode,
+    sum.endless ? null : DIFFICULTIES[sum.difficulty].name,
+    sum.endless ? `wave\u00a0${sum.next}` : `wave\u00a0${sum.next}\u00a0of\u00a0${sum.of}`,
+    ago ? sum.ago.replace(/ /g, '\u00a0') : null,
+  ].filter(Boolean).join(' · ');
+}
+
+/**
+ * "Saved battles full": the player picks which saved battle makes room for a new one (the one
+ * with the least play is picked first; endless runs come last). Resolves the chosen record, or
+ * null on Cancel. Nothing is deleted here: the battle deletes it when it first saves (`evict`).
+ * @returns {Promise<object|null>}
+ */
+export function pickSaveToReplace(profile) {
+  const list = savesByWorth(profile);
+  return new Promise((resolve) => {
+    let picked = list[0] || null;
+    let done = false;
+    const finish = (v) => {
+      if (done) return;
+      done = true;
+      resolve(v);
+    };
+    const rows = h('div.ma-evict-list', { role: 'radiogroup' });
+    const paint = () => {
+      for (const b of rows.children) {
+        const on = b.dataset.id === picked?.id;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      }
+    };
+    for (const rec of list) {
+      rows.appendChild(h('button.ma-evict-row', { role: 'radio', 'data-id': rec.id, 'data-testid': `evict-${rec.slot}`, onclick: () => { picked = rec; paint(); } },
+        h('span.ma-evict-dot'),
+        h('span.ma-evict-text', h('b', savedStageLabel(rec)), h('small', savedDetail(rec)))));
+    }
+    paint();
+    modal({
+      title: 'Saved battles full',
+      body: h('div.ma-evict', h('p', `You can keep ${MAX_BATTLE_SAVES} saved battles. Pick the one to delete so this new battle can be saved:`), rows,
+        h('p.muted.ma-evict-note', 'It is deleted once this battle saves for the first time (when you place a girl or start a wave).')),
+      actions: [
+        { label: 'Cancel', kind: 'ghost', testid: 'evict-cancel', onClick: (c) => { finish(null); c(); } },
+        { label: 'Delete & start', kind: 'danger', icon: 'play', testid: 'evict-start', onClick: (c) => { finish(picked); c(); } },
+      ],
+      onClose: () => finish(null),
+    }).el.classList.add('ma-evict-modal');
+  });
 }
 
 /**
@@ -95,7 +149,7 @@ export function savedStageLabel(rec) {
 export function savedBadge(profile, stageId, endless = false) {
   const rec = getBattleSave(profile, slotKey(stageId, endless));
   if (!rec) return null;
-  return h('span.ma-saved-badge', { 'data-testid': 'saved-badge', title: 'Saved battle: continue it from the stage screen' }, svgEl(uiIcon('play'), 'ma-saved-badge-ico'), `Saved · W${saveSummary(rec).next}`);
+  return h('span.ma-saved-badge', { 'data-testid': 'saved-badge', title: `Saved battle: ${savedDetail(rec)}. Continue it from the stage screen.` }, svgEl(uiIcon('play'), 'ma-saved-badge-ico'), `Saved · W${saveSummary(rec).next}`);
 }
 
 /** "Clear 1-4 first" style requirement text (null when unlocked). */
@@ -373,6 +427,13 @@ export function render(root, params = {}) {
     body.appendChild(buildPrep(stage, state, { endless, redraw: draw }));
   };
   draw();
+  // one column (portrait phones): a saved battle's Continue / New game moves to the top of the
+  // page; turning the phone redraws it in place
+  const mq = typeof matchMedia === 'function' ? matchMedia(ONE_COLUMN) : null;
+  const onLayout = () => {
+    if (getBattleSave(store.profile, slotKey(stage.id, endless || stage.kind === 'challenge'))) draw();
+  };
+  mq?.addEventListener?.('change', onLayout);
   const off = store.on('change', (e) => {
     // 'sweep' adds clears: without it the Clears fact stayed stale until the stage was re-entered.
     // Redraw in place, keeping the page and column scroll (the Sweep bar is pinned at the bottom).
@@ -383,8 +444,15 @@ export function render(root, params = {}) {
       scrolled().forEach((n, i) => { n.scrollTop = keep[i] || 0; });
     }
   });
-  return () => off();
+  return () => {
+    off();
+    mq?.removeEventListener?.('change', onLayout);
+  };
 }
+
+/** Stage prep's one-column layout (portrait phones): see meta-a.css `.ma-prep`. */
+const ONE_COLUMN = '(max-width: 699px)';
+const oneColumn = () => typeof matchMedia === 'function' && matchMedia(ONE_COLUMN).matches;
 
 /** First difficulty without a medal (so the player is nudged up the ladder). */
 function defaultDifficulty(profile, stage) {
@@ -462,7 +530,9 @@ function buildPrep(stage, state, { endless, redraw }) {
   // ----- Right: difficulty, counters, formation, drops, actions ------------------
   const right = h('div.ma-prep-col.right');
 
-  if (!isEndless) right.appendChild(panel('Difficulty', difficultyPicker(stage, state, medals, redraw)));
+  const rec = unlocked ? getBattleSave(profile, slotKey(stage.id, isEndless)) : null;
+  // with a saved battle the picker only sets a New game's difficulty: the save's card says "Saved"
+  if (!isEndless) right.appendChild(panel(rec ? 'New game difficulty' : 'Difficulty', difficultyPicker(stage, state, medals, redraw, rec ? rec.difficulty : null)));
   else if (endless) right.appendChild(panel('Endless mode', h('p', 'Waves keep coming after the map\'s last wave — survive as long as you can. Your best wave on this map is recorded. Medals are not awarded in endless runs.')));
 
   right.appendChild(countersPanel(stage));
@@ -485,9 +555,9 @@ function buildPrep(stage, state, { endless, redraw }) {
     const reqStage = STAGE_MAP[stage.requires];
     if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
-    const rec = getBattleSave(profile, slotKey(stage.id, isEndless));
     if (rec) actions.appendChild(savedLine(rec));
-    if (!isEndless) actions.appendChild(sweepControls(stage, state));
+    // (the "Sweep unlocks after a Hard clear" note waits while a saved battle needs the room)
+    if (!isEndless && (!rec || canSweep(profile, stage.id))) actions.appendChild(sweepControls(stage, state));
     const battleParams = () => {
       const p = { stage: stage.id, difficulty: state.difficulty };
       if (endless) p.endless = 1;
@@ -496,13 +566,17 @@ function buildPrep(stage, state, { endless, redraw }) {
     if (rec) {
       // Continue works without a formation: the team is the one frozen in the save
       const sum = saveSummary(rec);
-      const newGame = button(isEndless ? 'New game' : `New game · ${DIFFICULTIES[state.difficulty].name}`, {
+      const savedDiff = DIFFICULTIES[sum.difficulty].name;
+      const newDiff = DIFFICULTIES[state.difficulty].name;
+      const newGame = button(isEndless ? 'New game' : `New game · ${newDiff}`, {
         kind: 'ghost',
         testid: 'stage-new',
         disabled: !formationOk,
         onClick: async () => {
-          const what = sum.endless ? `wave ${sum.next}` : `${DIFFICULTIES[sum.difficulty].name} · wave ${sum.next} of ${sum.of}`;
-          const ok = await ask(`Start a new battle on ${savedStageLabel(rec)}? Your saved battle (${what}) will be deleted.`, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
+          const text = sum.endless
+            ? `Start a new run on ${savedStageLabel(rec)}? Your saved run (wave ${sum.next}) will be deleted.`
+            : `Start a new ${newDiff} battle on ${savedStageLabel(rec)}? Your saved ${savedDiff} battle (wave ${sum.next} of ${sum.of}) will be deleted.`;
+          const ok = await ask(text, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
           if (!ok) return;
           clearBattleSave(store.profile, rec.slot, rec.id);
           store.commit('battle-save');
@@ -511,7 +585,11 @@ function buildPrep(stage, state, { endless, redraw }) {
         },
       });
       newGame.classList.add('ma-new-btn');
-      const cont = button(sum.endless ? `Continue · Wave ${sum.next}` : `Continue · Wave ${sum.next}/${sum.of}`, {
+      // Continue always plays the saved difficulty: named on it when the picker shows another one
+      const contLabel = sum.endless
+        ? `Continue · Wave ${sum.next}`
+        : state.difficulty !== sum.difficulty ? `Continue · ${savedDiff} · W${sum.next}/${sum.of}` : `Continue · Wave ${sum.next}/${sum.of}`;
+      const cont = button(contLabel, {
         kind: 'yellow',
         icon: 'play',
         testid: 'stage-continue',
@@ -524,7 +602,8 @@ function buildPrep(stage, state, { endless, redraw }) {
       });
       cont.classList.add('ma-start-btn', 'ma-continue-btn');
       if (!formationOk) actions.appendChild(h('div.ma-locked-note', 'New game needs at least one girl in your formation.'));
-      actions.append(newGame, cont);
+      actions.appendChild(h('div.ma-save-btns', newGame, cont));
+      actions.classList.add('has-save');
     } else {
       const start = button(isEndless ? 'Start endless' : `Start · ${DIFFICULTIES[state.difficulty].name}`, {
         kind: 'yellow',
@@ -532,13 +611,15 @@ function buildPrep(stage, state, { endless, redraw }) {
         testid: 'stage-start',
         disabled: !formationOk,
         onClick: async () => {
-          // a 6th saved battle would replace the oldest one: say so first
-          const old = oldestToEvict(store.profile, slotKey(stage.id, isEndless));
-          if (old) {
-            const ok = await ask(`You can keep 5 saved battles. Starting here deletes the oldest one: ${savedStageLabel(old)} · wave ${saveSummary(old).next}.`, { title: 'Saved battles full', ok: 'Start', cancel: 'Cancel' });
-            if (!ok) return;
+          // saved battles full: the player picks which one this battle replaces (nothing is
+          // deleted until the new battle first saves)
+          const params = battleParams();
+          if (saveToEvict(store.profile, slotKey(stage.id, isEndless))) {
+            const victim = await pickSaveToReplace(store.profile);
+            if (!victim) return;
+            params.evict = victim.id;
           }
-          navigate('battle', battleParams());
+          navigate('battle', params);
         },
       });
       start.classList.add('ma-start-btn');
@@ -546,7 +627,12 @@ function buildPrep(stage, state, { endless, redraw }) {
       actions.appendChild(start);
     }
   }
-  right.appendChild(actions);
+  // one column (portrait phones): a saved battle's choice leads the page instead of waiting
+  // below both columns; otherwise the bar stays pinned at the bottom of the right column
+  if (rec && oneColumn()) {
+    actions.classList.add('ma-prep-actions-top');
+    left.prepend(actions);
+  } else right.appendChild(actions);
   wrap.appendChild(right);
   return wrap;
 }
@@ -562,15 +648,17 @@ function safeMap(id) {
 /** "Saved battle · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. */
 function savedLine(rec) {
   const sum = saveSummary(rec);
-  const text = sum.endless
-    ? `Saved run · wave ${sum.next} · ♥ ${sum.lives} · ${sum.ago}`
-    : `Saved battle · ${DIFFICULTIES[sum.difficulty].name} · wave ${sum.next} of ${sum.of} · ♥ ${sum.lives} · ${sum.ago}`;
+  // each part stays whole when the line wraps ("♥ 63", "12 min ago")
+  const parts = sum.endless
+    ? ['Saved run', `wave ${sum.next}`, `♥ ${sum.lives}`, sum.ago]
+    : ['Saved battle', DIFFICULTIES[sum.difficulty].name, `wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago];
   const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
+  const note = 'Continues with the team you started with.';
   return h(
     'div.ma-saved',
-    { 'data-testid': 'stage-saved' },
-    h('div.ma-saved-text', h('b', text), h('small', 'Continues with the team you started with.')),
-    h('div.ma-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 9).map((id) => h('span.ma-saved-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))),
+    { 'data-testid': 'stage-saved', title: note },
+    h('div.ma-saved-text', h('b', parts.flatMap((p, i) => [i ? ' · ' : null, h('span.ma-saved-seg', p)]).filter(Boolean)), h('small', note)),
+    h('div.ma-saved-team', { 'aria-hidden': 'true', title: note }, team.slice(0, 9).map((id) => h('span.ma-saved-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))),
   );
 }
 
@@ -578,7 +666,7 @@ function fact(label, value) {
   return h('div.ma-fact', h('div.ma-fact-label', label), h('div.ma-fact-value', value));
 }
 
-function difficultyPicker(stage, state, medals, redraw) {
+function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) {
   const row = h('div.ma-diffs', { role: 'radiogroup' });
   for (const d of DIFFICULTY_ORDER) {
     const def = DIFFICULTIES[d];
@@ -595,6 +683,7 @@ function difficultyPicker(stage, state, medals, redraw) {
       h('span.ma-diff-name', def.name),
       h('span.ma-diff-sub', DIFF_SUMMARY[d]),
       medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`),
+      savedDifficulty === d ? h('span.ma-diff-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null,
     );
     row.appendChild(b);
   }

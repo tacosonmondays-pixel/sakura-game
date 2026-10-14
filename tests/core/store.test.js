@@ -137,7 +137,91 @@ describe('store writes for battle saves', () => {
     expect(ls.getItem(BACKUP_KEY)).toBeNull();
     const n = store.takeNotice();
     expect(n).toMatchObject({ reason: 'battle-save', kept: true, title: 'Saved battle removed' });
-    expect(n.message).toMatch(/saved battle couldn't be kept/);
+    expect(n.message).toBe('Your saved battle on Mission 1-1 couldn\'t be kept after the update.');
     expect(store.takeNotice()).toBeNull();
+  });
+
+  it('saveNow says why nothing was written (lastSaveError)', () => {
+    store.load();
+    expect(store.saveNow()).toBe(true);
+    expect(store.lastSaveError).toBeNull();
+    vi.stubGlobal('localStorage', { ...ls, setItem: () => { throw new Error('QuotaExceededError'); } });
+    expect(store.saveNow()).toBe(false);
+    expect(store.lastSaveError).toBe('quota');
+  });
+});
+
+describe('two tabs and battle saves', () => {
+  const SRC = '../../src';
+  /** A second copy of the game (its own store module) over the same localStorage. */
+  async function tab() {
+    vi.resetModules();
+    const [{ store: s }, setup, saverMod, rewards, rng] = await Promise.all([
+      import(`${SRC}/core/store.js`), import(`${SRC}/ui/battle/setup.js`), import(`${SRC}/ui/battle/battleSaver.js`),
+      import(`${SRC}/systems/rewards.js`), import(`${SRC}/core/rng.js`),
+    ]);
+    return { store: s, ...setup, ...saverMod, ...rewards, ...rng };
+  }
+  const stored = () => JSON.parse(ls.getItem(SAVE_KEY));
+  const spot = (sim, unitId) => {
+    for (let y = 0.25; y < sim.map.height; y += 0.5) for (let x = 0.25; x < sim.map.width; x += 0.5) if (sim.canPlace(unitId, x, y).ok) return [x, y];
+    return null;
+  };
+  const req = { stageId: '1-1', difficulty: 'normal', endless: false };
+
+  it('a tab still playing a run another tab paid out never brings it back, nor erases that payout', async () => {
+    ls.setItem(SAVE_KEY, JSON.stringify(createProfile()));
+    // tab A: New game on 1-1, a girl placed, wave 1 started (the record is written)
+    const A = await tab();
+    const { sim: simA, cfg } = A.createBattleSim(A.store.profile, { ...req, seed: 4242 });
+    const saverA = A.createBattleSaver({ sim: simA, req, cfg }).install();
+    const u = [...simA.loadout.keys()][0];
+    simA.placeTower(u, ...spot(simA, u));
+    saverA.markProgress();
+    simA.startNextWave();
+    saverA.persistPending();
+    const runId = saverA.runId;
+    expect(stored().battleSaves['1-1'].id).toBe(runId);
+    // tab B opens later, continues the same run and wins it (results.apply order)
+    const B = await tab();
+    const rec = B.store.profile.battleSaves['1-1'];
+    const { sim: simB } = B.resumeBattleSim(B.store.profile, rec);
+    const saverB = B.createBattleSaver({ sim: simB, req, record: rec }).install();
+    B.applyBattleResult(B.store.profile, { ...simB.result(), won: true, stageId: '1-1', difficulty: 'normal' }, B.createRng(1), { now: new Date() });
+    saverB.finish(B.store.profile);
+    expect(B.store.saveNow()).toBe(true);
+    const paid = stored();
+    expect(paid.battleSaves['1-1']).toBeUndefined();
+    expect(paid.stats.wins).toBe(1);
+    // tab A plays on: wave 1 ends, Start wave 2, then the tab is hidden
+    const stale = vi.fn();
+    A.store.on('stale', stale);
+    while (simA.state === 'wave') {
+      simA.update(1 / 30);
+      saverA.persistPending();
+      saverA.persistCalm();
+    }
+    simA.startNextWave();
+    saverA.persistPending();
+    saverA.flush();
+    expect(A.store.saveNow()).toBe(false);
+    expect(A.store.lastSaveError).toBe('stale');
+    expect(stale).toHaveBeenCalledTimes(1);
+    expect(saverA.closed).toBe(true);
+    // storage still holds B's payout and no save of the finished run
+    expect(stored()).toEqual(paid);
+  });
+
+  it('tabs that only share a save (local co-op test mode, a setting) keep last-writer-wins', async () => {
+    ls.setItem(SAVE_KEY, JSON.stringify(createProfile()));
+    const A = await tab();
+    A.store.profile;
+    const B = await tab();
+    B.store.profile.currencies.gems = 5;
+    expect(B.store.saveNow()).toBe(true);
+    A.store.profile.settings.quality = 'low';
+    expect(A.store.saveNow()).toBe(true);
+    expect(stored().settings.quality).toBe('low');
+    expect(A.store.stale).toBe(false);
   });
 });

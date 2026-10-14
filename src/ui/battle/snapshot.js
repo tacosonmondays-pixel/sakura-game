@@ -17,8 +17,40 @@ import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, RECORD_V } from '../../systems/battleSave.js';
 
-/** stats.leakLog entries a snapshot keeps (the defeat debrief only needs the recent ones). */
-const LEAK_LOG_KEEP = 300;
+/**
+ * Leak groups a snapshot keeps (the most recent ones): stats.leakLog is stored grouped by
+ * (wave, enemy, lives), which keeps everything the defeat debrief reads (sums per enemy, wave and
+ * trait, and the first boss leak) in a few KB even after hundreds of leaks in a long endless run.
+ */
+const LEAK_GROUPS_KEEP = 160;
+/** Leak entries a restore rebuilds at most (a damaged or edited save cannot blow up memory). */
+const LEAK_ENTRIES_MAX = 5000;
+
+/**
+ * stats.leakLog as [wave, enemyId, lives, count] groups, in the order each group first appears.
+ * The entries' `time` is left out (nothing reads it).
+ */
+export function packLeaks(log) {
+  const groups = new Map();
+  for (const l of Array.isArray(log) ? log : []) {
+    if (!l || typeof l.enemyId !== 'string') continue;
+    const key = `${l.wave}|${l.enemyId}|${l.lives}`;
+    const g = groups.get(key);
+    if (g) g[3]++;
+    else groups.set(key, [r(l.wave), l.enemyId, r(l.lives), 1]);
+  }
+  return [...groups.values()].slice(-LEAK_GROUPS_KEEP);
+}
+
+/** The leak log of packed groups (see packLeaks), `time` 0. */
+export function unpackLeaks(groups) {
+  const out = [];
+  for (const g of Array.isArray(groups) ? groups : []) {
+    if (!Array.isArray(g) || typeof g[1] !== 'string') continue;
+    for (let i = 0; i < Math.min(r(g[3]), LEAK_ENTRIES_MAX) && out.length < LEAK_ENTRIES_MAX; i++) out.push({ wave: r(g[0]), enemyId: g[1], lives: r(g[2]), time: 0 });
+  }
+  return out;
+}
 
 /** A save this build cannot restore (stage gone, wave past the end, format too new …). */
 export class StaleSaveError extends Error {
@@ -84,8 +116,7 @@ const r = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
  */
 export function snapshotSim(sim) {
   if (sim.state !== 'prep' && sim.state !== 'between') throw new Error(`[battleSave] no snapshot while ${sim.state}`);
-  const stats = JSON.parse(JSON.stringify(sim.stats));
-  if (Array.isArray(stats.leakLog) && stats.leakLog.length > LEAK_LOG_KEEP) stats.leakLog = stats.leakLog.slice(-LEAK_LOG_KEEP);
+  const { leakLog, ...stats } = JSON.parse(JSON.stringify(sim.stats));
   return {
     v: SNAP_V,
     wave: sim.wave,
@@ -111,6 +142,7 @@ export function snapshotSim(sim) {
     kills: { ...sim.kills },
     enc: [...sim.encountered],
     stats,
+    leakGroups: packLeaks(leakLog),
   };
 }
 
@@ -212,6 +244,8 @@ export function restoreSim(rec, profile = null) {
   sim.kills = { ...(s.kills || {}) };
   sim.encountered = new Set(s.enc || []);
   if (s.stats && typeof s.stats === 'object') sim.stats = { ...sim.stats, ...JSON.parse(JSON.stringify(s.stats)) };
+  if (Array.isArray(s.leakGroups)) sim.stats.leakLog = unpackLeaks(s.leakGroups);
+  if (!Array.isArray(sim.stats.leakLog)) sim.stats.leakLog = [];
   sim.drainEvents(); // no placement, upgrade or level-up FX / audio for the rebuild
   return { sim, refunded, dropped };
 }

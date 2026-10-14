@@ -2,19 +2,24 @@
 // played, so Save & quit, the back gesture, a closed tab or a killed app can all Continue later.
 //
 // - The record is created on first progress (a girl placed, upgraded, sold or retargeted, the
-//   ult, or the first wave start): opening a battle and backing out leaves nothing behind.
+//   ult, or the first wave start): opening a battle and backing out leaves nothing behind. With
+//   MAX_BATTLE_SAVES already kept it is only created when the player chose which save to delete
+//   (stage prep's "Saved battles full" sheet → `evict`); otherwise this battle is not saved.
 // - Every wave start (the Start button and auto-start inside Sim._step both go through the
 //   instance wrapper below) snapshots the calm state just before the wave and switches to that
 //   wave's random stream; the snapshot is written synchronously right after the step / tap.
-// - A command between waves writes a fresh snapshot (quiet, debounced commit). During a wave
-//   nothing new is written: leaving mid-wave continues from the start of that wave.
+// - Every wave end is written once (persistCalm), so a crash on the between-wave shop never
+//   replays a wave the player already won.
+// - A command between waves writes a fresh snapshot (debounced). During a wave nothing new is
+//   written: leaving mid-wave continues from the start of that wave.
 // - Hidden / pagehide / freeze / leaving the screen flush at once.
-// - A closed saver (the battle ended, Restart, Retry) never writes again, and no write ever
-//   brings back a record that something else deleted (a payout, a New game, a Restart).
+// - A closed saver (the battle ended, Restart, Retry, another tab moved on) never writes again,
+//   and no write ever brings back a record that something else deleted (a payout, a New game, a
+//   Restart: the run-id check here, and store.saveNow's check for other tabs).
 import { store } from '../../core/store.js';
 import { APP_VERSION, SIM_ID } from '../../core/buildInfo.js';
 import {
-  RECORD_V, slotKey, getBattleSave, putBattleSave, clearBattleSave, newRunId, saveSummary,
+  RECORD_V, slotKey, getBattleSave, putBattleSave, clearBattleSave, newRunId, saveSummary, saveToEvict, listBattleSaves,
 } from '../../systems/battleSave.js';
 import { snapshotSim, useWaveStream } from './snapshot.js';
 
@@ -25,10 +30,14 @@ const calm = (sim) => sim.state === 'prep' || sim.state === 'between';
 
 /**
  * @param {{ sim: object, req: { stageId: string, endless?: boolean }, cfg?: { seed: number, loadout: object[], hero: object|null },
- *   record?: object|null, mountedAt?: number, onCreate?: (rec: object) => void, onStorageFull?: () => void, isEnded?: () => boolean }} o
- *   cfg: a New game's frozen team and seed (setup.js createBattleSim); record: the save a Continue restored
+ *   record?: object|null, evict?: string|null, mountedAt?: number, onCreate?: (rec: object) => void,
+ *   onStorageFull?: (reason: 'quota'|'held') => boolean|void, onFull?: () => void, isEnded?: () => boolean }} o
+ *   cfg: a New game's frozen team and seed (setup.js createBattleSim); record: the save a Continue restored;
+ *   evict: the run id of the save the player chose to delete to make room (stage prep);
+ *   onStorageFull: a write failed (return true once the player has been told); onFull: the saved
+ *   battles are full and this battle is not being saved
  */
-export function createBattleSaver({ sim, req, cfg = null, record = null, mountedAt = Date.now(), onCreate = null, onStorageFull = null, isEnded = () => false }) {
+export function createBattleSaver({ sim, req, cfg = null, record = null, evict = null, mountedAt = Date.now(), onCreate = null, onStorageFull = null, onFull = null, isEnded = () => false }) {
   const slot = slotKey(req.stageId, !!req.endless);
   const seed = (record ? record.seed : cfg?.seed ?? sim.seed) >>> 0;
   let rec = record;
@@ -36,6 +45,9 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
   let closed = false;
   let timer = null;
   let warned = false;
+  let full = false;
+  /** wave + state of the last snapshot put in the record (persistCalm writes a wave end once) */
+  let lastSnap = record?.snap ? `${record.snap.state}:${record.snap.wave}` : null;
 
   const profile = () => store.profile;
   const writable = () => !closed && !isEnded() && sim.state !== 'won' && sim.state !== 'lost';
@@ -54,11 +66,29 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
     clearTimeout(timer);
     timer = null;
     const ok = store.saveNow();
-    if (!ok && !warned) {
-      warned = true;
-      onStorageFull?.();
+    if (!ok) {
+      const reason = store.lastSaveError;
+      // another tab moved on with this run (or any saved battle): main.js asks for a reload
+      if (reason === 'stale') saver.close();
+      else if (!warned) warned = onStorageFull?.(reason || 'quota') !== false;
     }
     return ok;
+  }
+
+  /**
+   * Room for a new record: there is one, or the player chose which save to delete (`evict`,
+   * deleted now). Otherwise this battle is not saved (onFull, once).
+   */
+  function makeRoom() {
+    const p = profile();
+    if (!saveToEvict(p, slot)) return true;
+    const chosen = evict ? listBattleSaves(p).find((r) => r.id === evict && r.slot !== slot) : null;
+    if (chosen && clearBattleSave(p, chosen.slot, chosen.id) && !saveToEvict(p, slot)) return true;
+    if (!full) {
+      full = true;
+      onFull?.();
+    }
+    return false;
   }
 
   /** Puts `snap` in the record (creating it on the first write). @returns {boolean} written */
@@ -66,6 +96,7 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
     if (!writable() || !stillMine()) return false;
     const now = Date.now();
     const created = !rec;
+    if (created && !makeRoom()) return false;
     if (created) {
       rec = {
         v: RECORD_V,
@@ -85,6 +116,7 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
     }
     rec.snap = snap;
     rec.updatedAt = now;
+    lastSnap = `${snap.state}:${snap.wave}`;
     const s = saveSummary(rec, now);
     rec.view = { next: s.next, of: s.of, lives: s.lives, difficulty: s.difficulty };
     if (created) {
@@ -118,6 +150,10 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
     },
     get closed() {
       return closed;
+    },
+    /** The saved battles are full and the player did not choose one to delete: not saved. */
+    get full() {
+      return full && !rec;
     },
     /** When the run began (New game mount time): the event bonus is judged by it. */
     get createdAt() {
@@ -153,6 +189,16 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
       return put(snap) && saveNow();
     },
 
+    /**
+     * Every frame: a wave just ended (state 'between' at a wave this record has no snapshot of
+     * yet) is written once, so a crash or a killed app on the between-wave shop keeps that wave.
+     */
+    persistCalm() {
+      if (!rec || sim.state !== 'between' || lastSnap === `between:${sim.wave}` || !writable()) return false;
+      const snap = freshSnap();
+      return !!snap && put(snap) && saveNow();
+    },
+
     /** A successful player command: progress. Between waves it is saved (batched). */
     markProgress() {
       if (!writable()) return;
@@ -166,7 +212,7 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, mounted
       if (!snap || !put(snap)) return;
       if (first) saveNow();
       else {
-        store.commit('battle-save', { quiet: true });
+        // one debounced write per batch of commands (the store's own timer is not armed too)
         clearTimeout(timer);
         timer = setTimeout(() => saveNow(), COMMAND_SAVE_MS);
       }

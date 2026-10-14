@@ -70,10 +70,24 @@ const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTim
 // derived per-tower references / caches, and the harmless stale target memory of a calm point
 const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange']);
 
+/**
+ * stats.leakLog as the debrief reads it: counts per (wave, enemy, lives) in first-seen order (a
+ * snapshot keeps it grouped that way; the entries' unread `time` is not kept).
+ */
+function leakDigest(log) {
+  const m = new Map();
+  for (const l of log || []) {
+    const k = `${l.wave}|${l.enemyId}|${l.lives}`;
+    m.set(k, (m.get(k) || 0) + 1);
+  }
+  return [...m.entries()];
+}
+
 /** Generic digest: every own Sim field (minus references / scratch) and every JSON-able tower field. */
 function digest(sim, { calm = false } = {}) {
   const out = {};
   for (const k of Object.keys(sim)) if (!SIM_SKIP.has(k) && !(calm && CALM_SKIP.has(k)) && typeof sim[k] !== 'function') out[k] = plain(sim[k]);
+  if (out.stats) out.stats.leakLog = leakDigest(out.stats.leakLog);
   out.towers = sim.towers.map((t) => {
     const o = {};
     for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k)) o[k] = plain(t[k]);
@@ -342,6 +356,31 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
       expect(t.unitStats.critMul).toBe(1);
       expect(t.unitStats.damageMul).toBe(c.stats.damageMul);
     }
+  });
+
+  it('a long endless run with hundreds of leaks stays small and keeps the defeat debrief exact', () => {
+    const col = SCEN['colosseum to wave 30'];
+    const cp = fullRun('colosseum to wave 30').cps.at(-1);
+    const { sim } = restoreSim(recordOf(col, JSON.parse(cp.json)));
+    // a 120-wave Colosseum run that leaked every wave: ~1000 leaks of six kinds, a boss among them
+    const kinds = ['slime_green', 'goblin_scout', 'ghost_wisp', 'orc_brute', 'beast_wolf', 'oni_red'].filter((id) => sim.data.enemy(id));
+    const boss = Object.keys(sim.kills).find((id) => sim.data.enemy(id)?.tier === 'boss') || kinds[0];
+    sim.stats.leakLog = [];
+    for (let w = 1; w <= 120; w++) {
+      for (let i = 0; i < 8; i++) sim.stats.leakLog.push({ wave: w, enemyId: kinds[(w + i) % kinds.length], lives: 1 + (i % 2), time: w * 61.123456789 + i });
+      if (w % 10 === 0) sim.stats.leakLog.push({ wave: w, enemyId: boss, lives: 25, time: w * 61.5 });
+    }
+    sim.stats.leaks = sim.stats.leakLog.reduce((a, l) => a + l.lives, 0);
+    const json = JSON.stringify(snapshotSim(sim));
+    expect(json.length, 'snapshot size').toBeLessThan(8 * 1024);
+    // the newest groups are the ones kept; a short run keeps them all, so its debrief is the same
+    const recent = sim.stats.leakLog.filter((l) => l.wave > 100);
+    sim.stats.leakLog = recent;
+    sim.stats.leaks = recent.reduce((a, l) => a + l.lives, 0);
+    const { sim: back } = restoreSim(recordOf(col, JSON.parse(JSON.stringify(snapshotSim(sim)))));
+    expect(leakDigest(back.stats.leakLog)).toEqual(leakDigest(recent));
+    expect(back.debrief().lines).toEqual(sim.debrief().lines);
+    expect(back.debrief().leaks).toEqual(sim.debrief().leaks);
   });
 
   it('restores the hero: XP, level, ult unlock and cooldown, with no events left over', () => {

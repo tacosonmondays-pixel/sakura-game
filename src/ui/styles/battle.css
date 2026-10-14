@@ -688,3 +688,10 @@
   78% { opacity: 1; transform: translate(-50%, -100%); }
   100% { opacity: 0; transform: translate(-50%, -130%); }
 }
+
+/* battle saves: the "Battle not found" / "Saved battle removed" sheet, centred, and the line on a
+   result sheet whose rewards could not be written */
+.bt-notice { text-align: center; }
+.bt-notice p { margin: 8px 0 14px; font-weight: 600; color: var(--ink); }
+.bt-notice-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.bt-save-failed { text-align: center; font-weight: 800; color: #9b1238; background: #ffe3ea; border-radius: 8px; padding: 6px 10px; margin: 6px auto; max-width: 520px; }

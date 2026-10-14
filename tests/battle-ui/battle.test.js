@@ -276,6 +276,99 @@ describe('battle saver', () => {
     expect(stored(ls).battleSaves['1-1']).toBeUndefined();
   });
 
+  it('a wave end is written once, with no command: a crash on the between-wave shop keeps the cleared wave', () => {
+    const { sim, saver } = newGame();
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    sim.startNextWave();
+    saver.persistPending();
+    const frame = () => {
+      sim.update(1 / 30);
+      saver.persistPending();
+      saver.persistCalm();
+    };
+    for (let i = 0; i < 6000 && sim.state === 'wave'; i++) frame();
+    expect(sim.state).toBe('between');
+    const rec = stored(ls).battleSaves['1-1'];
+    expect(rec.snap).toMatchObject({ state: 'between', wave: 1, wavesCleared: 1, cash: sim.cash });
+    expect(rec.snap.kills).toEqual(sim.kills);
+    expect(rec.view.next).toBe(2);
+    // idling on the shop writes nothing more
+    const writes = ls.writes.length;
+    for (let i = 0; i < 300; i++) frame();
+    vi.advanceTimersByTime(60000);
+    expect(ls.writes.length).toBe(writes);
+  });
+
+  it('a batch of commands between waves is one write (one debounce, not the store\'s as well)', () => {
+    const { sim, saver } = newGame();
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    const writes = ls.writes.length;
+    sim.setTargetMode(sim.towers[0].uid, 'strong');
+    saver.markProgress();
+    sim.upgradeTower(sim.towers[0].uid, 0);
+    saver.markProgress();
+    vi.advanceTimersByTime(1000);
+    expect(ls.writes.length).toBe(writes + 1);
+    expect(stored(ls).battleSaves['1-1'].snap.towers[0].tiers[0]).toBe(1);
+  });
+
+  it('saved battles full: nothing is replaced without the player\'s choice (evict), which is deleted on the first write', () => {
+    store.replace(createProfile());
+    const others = ['1-2', '1-3', '1-4', '1-5', '2-1'];
+    for (const [i, id] of others.entries()) {
+      const g = createBattleSim(store.profile, { stageId: id, difficulty: 'normal', seed: 10 + i });
+      const sv = createBattleSaver({ sim: g.sim, req: { stageId: id }, cfg: g.cfg }).install();
+      const u = [...g.sim.loadout.keys()][0];
+      g.sim.placeTower(u, ...spot(g.sim, u));
+      sv.markProgress();
+    }
+    expect(Object.keys(stored(ls).battleSaves).sort()).toEqual(others);
+    const play = (evict) => {
+      const { sim, cfg } = createBattleSim(store.profile, { stageId: '1-1', difficulty: 'normal', seed: 4242 });
+      const full = vi.fn();
+      const saver = createBattleSaver({ sim, req: { stageId: '1-1' }, cfg, evict, onFull: full }).install();
+      const u = [...sim.loadout.keys()][0];
+      sim.placeTower(u, ...spot(sim, u));
+      saver.markProgress();
+      sim.startNextWave();
+      saver.persistPending();
+      saver.flush();
+      return { saver, full };
+    };
+    // a deep link with no choice: this battle is not saved, the player is told once, nothing goes
+    const a = play(null);
+    expect(a.full).toHaveBeenCalledTimes(1);
+    expect(a.saver.full).toBe(true);
+    expect(a.saver.hasProgress).toBe(false);
+    expect(Object.keys(stored(ls).battleSaves).sort()).toEqual(others);
+    // stage prep's choice (1-4): exactly that one goes, when this battle is first saved
+    const chosen = store.profile.battleSaves['1-4'].id;
+    const b = play(chosen);
+    expect(b.full).not.toHaveBeenCalled();
+    expect(b.saver.full).toBe(false);
+    expect(Object.keys(stored(ls).battleSaves).sort()).toEqual(['1-1', '1-2', '1-3', '1-5', '2-1']);
+  });
+
+  it('a write that fails says why: storage full, or saving paused', () => {
+    const { sim, saver: s0 } = newGame();
+    s0.close();
+    const told = [];
+    const saver = createBattleSaver({ sim, req: { stageId: '1-1' }, onStorageFull: (reason) => { told.push(reason); return true; } }).install();
+    ls.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    saver.flush();
+    expect(told).toEqual(['quota']); // once
+    expect(store.lastSaveError).toBe('quota');
+  });
+
   it('a finish clears only its own run (a newer run in the slot stays)', () => {
     const { sim, saver } = newGame();
     const unitId = [...sim.loadout.keys()][0];

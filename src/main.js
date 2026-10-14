@@ -86,6 +86,19 @@ if (saveNotice) {
     .catch((e) => console.warn('[main] save notice failed', e));
 }
 
+// Another tab finished, restarted or replaced a saved battle this tab still holds (src/core/store.js):
+// this tab stopped saving so it never brings that battle back or erases the other tab's rewards.
+store.on('stale', () => {
+  import('./ui/components.js')
+    .then(({ modal }) => modal({
+      title: 'Opened in another tab',
+      body: 'Sakura Sentinels was played in another tab, so this tab stopped saving. Reload to carry on with your latest progress.',
+      dismissable: false,
+      actions: [{ label: 'Reload', kind: 'yellow', icon: 'refresh', testid: 'stale-reload', onClick: () => location.reload() }],
+    }))
+    .catch((e) => console.warn('[main] stale-tab notice failed', e));
+});
+
 // [ui-v2] landscape-first: rotate prompt on phone/tablet portrait + orientation lock in fullscreen/PWA.
 // The first route's 'screenchange' may fire before this import resolves: pass the route in, so a
 // cold load into battle still words the dismiss button for battle.

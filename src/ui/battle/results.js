@@ -130,9 +130,21 @@ export function createResults(ctx) {
     }
     saver?.finish(store.profile);
     store.commit('battle-result');
-    store.saveNow();
+    // the result sheet says so when the payout could not be written (storage full, saving
+    // paused, or another tab moved on): a reload would bring the old state back
+    if (!store.saveNow()) outcome.saveFailed = store.lastSaveError || 'quota';
     ctx.onResultApplied?.(outcome);
     return outcome;
+  }
+
+  const SAVE_FAILED = {
+    quota: 'Your rewards couldn\'t be saved on this device (storage is full). Free up some space and keep the game open.',
+    held: 'Saving is paused on this device, so these rewards were not saved.',
+    stale: 'The game was played in another tab, so these rewards were not saved here.',
+  };
+  /** A line on the result sheet when the payout was not written. */
+  function saveFailedNote(out) {
+    return out.saveFailed ? h('p.bt-save-failed', { 'data-testid': 'result-save-failed' }, SAVE_FAILED[out.saveFailed] || SAVE_FAILED.quota) : null;
   }
 
   function actions(won) {
@@ -187,6 +199,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-win',
       h('div.bt-result-ribbon', 'VICTORY!'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       out.practice || out.coop
@@ -219,6 +232,7 @@ export function createResults(ctx) {
       h('div.bt-result-ribbon', ctx.endedRun ? 'RUN OVER' : 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
       out.practice ? practiceNote() : null,
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       summary(),

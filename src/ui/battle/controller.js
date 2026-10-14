@@ -13,7 +13,7 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
 import { createBattleSim, resumeBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
 import { createBattleSaver } from './battleSaver.js';
-import { isSavableRun, slotKey, getBattleSave, clearBattleSave } from '../../systems/battleSave.js';
+import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
@@ -24,7 +24,7 @@ import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
-import { enemyDef, traitBadge, fmtCoins } from './util.js';
+import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
 import { svgEl, toast } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
@@ -86,9 +86,14 @@ export function mountBattle(root, params, hooks) {
   const savable = !ls && isSavableRun(params, req);
   const slot = savable ? slotKey(req.stageId, req.endless) : null;
   const saved = savable ? getBattleSave(profile, slot) : null;
-  /** A sheet instead of the battle, with one way back to the stage. */
-  const notice = (title, text, testid) => {
-    shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', title), h('p', text), h('button.bt-cta', { 'data-testid': testid, onclick: () => navigate('stage', prepRoute) }, 'Back to the stage'))));
+  /** A sheet instead of the battle: back to the stage (or, with `cont`, straight into the save that is there now). */
+  const notice = (title, text, testid, cont = null) => {
+    shell.append(h('div.bt-error', h('div.bt-sheet.bt-notice',
+      h('div.bt-sheet-title', title),
+      h('p', text),
+      h('div.bt-notice-actions',
+        h(`button.${cont ? 'bt-btn' : 'bt-cta'}`, { 'data-testid': testid, onclick: () => navigate('stage', prepRoute) }, icon('back', 'bt-ico-sm'), 'Back to the stage'),
+        cont ? h('button.bt-cta', { 'data-testid': 'save-gone-continue', onclick: () => navigate('battle', cont.route, { replace: true }) }, icon('play', 'bt-ico-sm'), cont.label) : null))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
   };
   if (savable && !req.resume && saved) {
@@ -99,7 +104,14 @@ export function mountBattle(root, params, hooks) {
     }, 0);
     return { destroy: () => { clearTimeout(t); shell.remove(); }, ready: Promise.resolve() };
   }
-  if (savable && req.resume && saved?.id !== req.resume) return notice('Battle not found', 'This battle is already finished or was replaced.', 'save-gone-back');
+  if (savable && req.resume && saved?.id !== req.resume) {
+    // a newer run took the slot (another New game): offer that one rather than a dead end
+    const cont = saved ? {
+      label: `Continue saved battle · Wave ${saveSummary(saved).next}`,
+      route: { stage: stage.id, difficulty: saved.difficulty, ...(endlessMap ? { endless: 1 } : {}), resume: saved.id },
+    } : null;
+    return notice('Battle not found', saved ? 'This battle is already finished or was replaced by a newer one on this stage.' : 'This battle is already finished or was replaced.', 'save-gone-back', cont);
+  }
   let restored = null;
   if (savable && req.resume) {
     try {
@@ -174,6 +186,16 @@ export function mountBattle(root, params, hooks) {
     saver: null,
   };
 
+  // a battle-save warning raised before the feed exists (the first write can come before build())
+  let saveWarning = null;
+  const warnSave = (text) => {
+    if (!ctx.feed) {
+      saveWarning = text;
+      return true;
+    }
+    ctx.feed.push(text, 'bad', { key: 'save-warn', ms: 5200, sticky: true });
+    return true;
+  };
   // the save of this run (null for runs that never save): created on first progress
   const saver = savable
     ? createBattleSaver({
@@ -181,10 +203,15 @@ export function mountBattle(root, params, hooks) {
       req,
       cfg: made.cfg || null,
       record: restored ? saved : null,
+      // stage prep's "Saved battles full" sheet: the save the player chose to delete for this one
+      evict: !restored && typeof params.evict === 'string' ? params.evict : null,
       isEnded: () => ctx.ended,
       // from now on a reload of this page continues the run
-      onCreate: (rec) => rememberParams('battle', { resume: rec.id }),
-      onStorageFull: () => ctx.feed?.push('Couldn\'t save this battle on this device (storage is full).', 'bad', { key: 'save-full', ms: 4200 }),
+      onCreate: (rec) => rememberParams('battle', { resume: rec.id, evict: null }),
+      onStorageFull: (reason) => warnSave(reason === 'held'
+        ? 'Saving is paused on this device (see the notice from start-up), so this battle isn\'t being saved.'
+        : 'Couldn\'t save this battle on this device (storage is full).'),
+      onFull: () => warnSave(`You already keep ${MAX_BATTLE_SAVES} saved battles, so this one isn't being saved. Finish or delete one from its stage screen to make room.`),
     }).install()
     : null;
   ctx.saver = saver;
@@ -205,6 +232,7 @@ export function mountBattle(root, params, hooks) {
   function build() {
     const feed = createFeed(layer);
     ctx.feed = feed;
+    if (saveWarning) warnSave(saveWarning);
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -563,6 +591,12 @@ export function mountBattle(root, params, hooks) {
       }
     }
 
+    /** Ends the battle when the Sim is over but endBattle never ran (see frame()). */
+    function settleFinished() {
+      if (!ctx.ended && (sim.state === 'won' || sim.state === 'lost')) endBattle(sim.state === 'won');
+    }
+    ctx.settleFinished = settleFinished;
+
     /** @param {{ endedRun?: boolean }} [o] endedRun: the player cashed out an endless run (End run) */
     function endBattle(won, { endedRun = false } = {}) {
       if (ctx.ended) return;
@@ -585,6 +619,9 @@ export function mountBattle(root, params, hooks) {
     let lastT = performance.now();
     function frame(now) {
       raf = requestAnimationFrame(frame);
+      // a finished Sim whose 'won' / 'lost' event never reached handle() (a render or handler
+      // error dropped it) still ends the battle: paid, and its save deleted, never left to rewind
+      settleFinished();
       const frameT = lastT;
       const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000));
       lastT = now;
@@ -599,6 +636,7 @@ export function mountBattle(root, params, hooks) {
       } else if (running) {
         sim.update(dt * ctx.speed);
         saver?.persistPending(); // a wave auto-started inside that step: save its calm start
+        saver?.persistCalm(); // a wave ended in that step: keep it (once per wave)
       }
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
@@ -620,16 +658,17 @@ export function mountBattle(root, params, hooks) {
     }
     raf = requestAnimationFrame(frame);
 
-    // first-wave scouting + practice notice (Continue: the next wave's, and a welcome back)
-    later(() => warnFor(restored ? sim.wave + 1 : 1), 600);
+    // first-wave scouting + practice notice (Continue: a welcome back first, kept on screen
+    // (sticky), then the next wave's scouting once it has been read; the NEXT strip has it too)
+    later(() => warnFor(restored ? sim.wave + 1 : 1), restored ? 4600 : 600);
     if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
-      feed.push(`Welcome back! Wave ${sim.wave + 1} is next. Tap Start when you're ready.`, 'good', { key: 'welcome-back', ms: 4200 });
       if (restored.dropped.length) {
         const names = [...new Set(restored.dropped.map((id) => UNIT_MAP[id]?.name || id))];
         const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded)} coins refunded.`, 'warn', { key: 'save-refund', ms: 5200 });
+        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
       }
+      feed.push(`Welcome back! Wave ${sim.wave + 1} is next. Tap Start when you're ready.`, 'good', { key: 'welcome-back', ms: 4200, sticky: true });
     }
 
     ctx.modules = modules;
@@ -804,10 +843,18 @@ export function mountBattle(root, params, hooks) {
     ready,
     destroy() {
       if (destroyed) return;
+      // a Sim that is over but was never ended (its event got lost) pays out now, never rewinds
+      ctx.settleFinished?.();
       // a finished battle always pays out, even if the player leaves before the modal
       if (ctx.ended && ctx.results && !ctx.results.outcome) ctx.results.apply();
       // any other way out (Save & quit, the back arrow or gesture, Home …) keeps the battle
-      else if (!ctx.ended) saver?.flush();
+      else if (!ctx.ended) {
+        saver?.flush();
+        // leaving mid-wave without the Save & quit sheet (which says so): say what Continue gets
+        if (saver?.hasProgress && !saver.closed && sim.state === 'wave' && !ctx.leaveExplained) {
+          toast(`Battle saved at the start of wave ${sim.wave}. Anything built during that wave was undone.`, 'info', 4200);
+        }
+      }
       destroyed = true;
       cancelAnimationFrame(raf);
       for (const id of timers) clearTimeout(id);
