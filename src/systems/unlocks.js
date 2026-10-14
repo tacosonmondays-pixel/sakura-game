@@ -6,6 +6,7 @@ import { STAGE_MAP, CAMPAIGN_IDS, CHAPTERS } from '../data/stages.js';
 import { DIFFICULTY_ORDER, UNIT_RARITIES } from '../data/types.js';
 import { newUnitState } from './save.js';
 import { addItems } from './inventory.js';
+import { potentialLevel, shadowPotential } from './potential.js';
 
 /** @returns {string[]} owned unit ids in roster order */
 export function ownedUnits(profile) {
@@ -18,8 +19,10 @@ export function isOwned(profile, unitId) {
 }
 
 /**
- * Give a unit. Duplicates convert into Star Fragments (UNIT_RARITIES.fragmentsOnDupe).
- * @returns {{ isNew: boolean, fragments: number }}
+ * Give a unit. A duplicate adds 1 to her `dupes` (Potential = min(6, 1 + dupes), see
+ * src/systems/potential.js) and still converts into Star Fragments (UNIT_RARITIES.fragmentsOnDupe);
+ * from P6 on it only gives the fragments. Every grant rewrites her shadow copy.
+ * @returns {{ isNew: boolean, fragments: number, potential: number, potentialUp: boolean }}
  */
 export function grantUnit(profile, unitId, now = Date.now()) {
   const def = UNIT_MAP[unitId];
@@ -29,11 +32,17 @@ export function grantUnit(profile, unitId, now = Date.now()) {
     // bond (affection) starts at 0; the future City dating / gift system raises it
     profile.bond ||= {};
     profile.bond[unitId] ??= 0;
-    return { isNew: true, fragments: 0 };
+    shadowPotential(profile, unitId, now);
+    return { isNew: true, fragments: 0, potential: 1, potentialUp: false };
   }
+  const st = profile.units[unitId];
+  const before = potentialLevel(st);
+  st.dupes = Math.max(0, Math.floor(Number(st.dupes) || 0)) + 1;
+  shadowPotential(profile, unitId, now);
   const fragments = UNIT_RARITIES[def.rarity].fragmentsOnDupe;
   addItems(profile, [{ id: 'star_fragment', count: fragments }]);
-  return { isNew: false, fragments };
+  const potential = potentialLevel(st);
+  return { isNew: false, fragments, potential, potentialUp: potential > before };
 }
 
 /** @returns {{ easy: boolean, normal: boolean, hard: boolean, nightmare: boolean }} */

@@ -7,6 +7,7 @@ import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -45,9 +46,9 @@ export const DEFAULT_SETTINGS = {
 
 const CAMERA_MODES = ['locked', 'free'];
 
-/** Fresh per-unit state. */
+/** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0 };
 }
 
 function emptyMissions() {
@@ -73,6 +74,10 @@ export function createProfile() {
   const now = Date.now();
   const units = {};
   for (const id of STARTER_UNITS) units[id] = newUnitState(now);
+  const missions = emptyMissions();
+  // Potential shadow copy (see creditPotential): every owned girl has one from the start
+  for (const id of STARTER_UNITS) missions.counters[POT_SHADOW_PREFIX + id] = 0;
+  missions.counters[POT_SHADOW_AT] = now;
   return {
     version: SAVE_VERSION,
     createdAt: now,
@@ -91,7 +96,7 @@ export function createProfile() {
     progress: { stages: {} },
     bestiary: {},
     formation: { hero: 'hikari', towers: ['aoi', 'rei'] },
-    missions: emptyMissions(),
+    missions,
     shop: { day: null, week: null, bought: {} },
     redeemed: [],
     settings: structuredCloneSafe(DEFAULT_SETTINGS),
@@ -159,6 +164,8 @@ function cleanUnit(raw, now) {
     gear,
     obtainedAt: num(raw.obtainedAt, now, 0),
     favorite: bool(raw.favorite),
+    // null = a save from before Potential counted (or an older build dropped it): migrateProfile credits it
+    dupes: 'dupes' in raw ? int(raw.dupes, 0, 0, 1e6) : null,
   };
 }
 
@@ -396,8 +403,23 @@ export function migrateProfile(raw) {
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
+  creditPotential(p, now);
   p.version = SAVE_VERSION;
   return p;
+}
+
+/**
+ * Potential counting (M0, docs/specs/POTENTIAL.md §6): fills `dupes` that the save lacks — first
+ * from the shadow copy in missions.counters (an older build dropped it), then from the recruit
+ * history (a save from before Potential) — and rewrites every shadow. Never lowers a count.
+ */
+function creditPotential(p, now) {
+  const restored = restoreFromShadow(p.units, p.missions.counters, p.gacha.history);
+  for (const [id, n] of Object.entries(restored)) p.units[id].dupes = n;
+  const credited = backfillDupes(p.units, p.gacha, { createdAt: p.createdAt, now });
+  for (const [id, n] of Object.entries(credited)) p.units[id].dupes = n;
+  if (Object.keys(credited).length && !p.seenIntro.includes(BACKFILL_MARKER)) p.seenIntro.push(BACKFILL_MARKER);
+  for (const id of Object.keys(p.units)) shadowPotential(p, id, now);
 }
 
 /**
