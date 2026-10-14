@@ -27,7 +27,7 @@ export function showJournalToast({ ids = [], text = null, ms = TOAST_MS } = {}) 
   const hikari = UNIT_MAP.hikari;
   let timer = null;
   const pill = h('button.jn-toast', {
-    type: 'button', 'data-testid': 'journal-toast', 'aria-live': 'polite',
+    type: 'button', 'data-testid': 'journal-toast', 'data-lessons': ids.join(','), 'aria-live': 'polite',
     onclick: () => {
       clearTimeout(timer);
       pill.remove();

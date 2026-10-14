@@ -127,15 +127,23 @@ export function installStory({ store }) {
 
   // ---- journal toasts: after scenes, never on battle / title / scene, never over a modal ------
   let toasting = false;
-  async function toastSoon() {
+  let toastRetry = null;
+  const TOAST_RETRIES = 8;
+  const TOAST_RETRY_MS = 1500;
+  async function toastSoon(attempt = 0) {
     if (toasting) return;
+    clearTimeout(toastRetry);
     const name = currentRoute().name;
     const announce = name === 'lobby' && !onboardingRoute(store.profile) ? legacyAnnounceDue(store.profile) : 0;
     if (!toastIds.length && !announce) return;
     toasting = true;
     try {
       await sleep(SETTLE_MS);
-      if (!(await screenClear()) || window.__sakura?.storyBusy || pumping) return;
+      if (!(await screenClear()) || window.__sakura?.storyBusy || pumping) {
+        // something else still owns the screen: look again shortly (the next screen change also retries)
+        if (attempt < TOAST_RETRIES) toastRetry = setTimeout(() => toastSoon(attempt + 1), TOAST_RETRY_MS);
+        return;
+      }
       const now = currentRoute().name;
       if (!now || BLOCKED_SCREENS.has(now) || now === 'journal') return;
       const { showJournalToast } = await import('./toast.js');

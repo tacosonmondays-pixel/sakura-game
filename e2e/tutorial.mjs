@@ -263,8 +263,10 @@ async function runViewport(vp) {
     if (onBuy) await page.click(`[data-testid="${onBuy}"]`, { force: true });
     await page.waitForFunction(() => window.__battle.sim.towers.some((t) => !t.isHero && t.tiers.some((n) => n > 0)), null, { timeout: 5000, polling: 200 }).catch(() => null);
     await page.click('[data-testid="panel-close"]', { force: true }).catch(() => {});
-    // step 5: speed (from wave 2)
-    await page.click('[data-testid="start-wave"]', { force: true });
+    // step 5: speed (from wave 2). On a loaded machine wave 1 may still be running here: wait for the button, and
+    // skip the tap if the next wave is already under way
+    const startBtn = await page.waitForSelector('[data-testid="start-wave"]:not([hidden])', { timeout: 15000 }).catch(() => null);
+    if (startBtn && (await page.evaluate(() => window.__battle.sim.wave < 2))) await startBtn.click({ force: true }).catch(() => {});
     const spOk = await waitStep(page, 'speed', 8000);
     check(spOk, 'step 5: from wave 2, the speed button is lit');
     await shot(page, 'coach-5-speed');
@@ -282,6 +284,9 @@ async function runViewport(vp) {
       const ultOk = await waitStep(page, 'ult', 5000);
       check(ultOk, `step 6: the ultimate tip opens itself when Celestial Bloom is ready (wave ${ult.wave})`);
       await shot(page, 'coach-6-ult');
+      // the HUD repaints the button on render frames, which SwiftShader can stall after a fast-forward: a locked
+      // (disabled) paint swallows the tap, so wait for the lit button like a player would
+      await page.waitForSelector('[data-testid="ult"].ready', { timeout: 10000 }).catch(() => null);
       await page.click('[data-testid="ult"]', { force: true });
       await page.waitForFunction(() => window.__battle.sim.stats.ultsUsed > 0, null, { timeout: 5000, polling: 200 }).catch(() => null);
       check(await page.evaluate(() => window.__battle.sim.stats.ultsUsed > 0), 'step 6: tapping the lit button fires her ultimate');

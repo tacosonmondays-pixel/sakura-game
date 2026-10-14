@@ -386,8 +386,10 @@ async function runViewport(vp) {
       store.profile.progress.stages['1-3'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
       store.commit('battle-result');
     });
-    const t2 = await page.waitForSelector('[data-testid="journal-toast"]', { timeout: 10000 }).catch(() => null);
-    check(!!t2 && /2 new lessons/i.test(await t2.textContent()), 'welcome: clearing 1-3 announces two lessons');
+    // the first batch's pill may still be fading out: wait for the one that carries the 1-3 lessons
+    const t2 = await page.waitForSelector('[data-testid="journal-toast"][data-lessons*="recruit"]', { timeout: 10000 }).catch(() => null);
+    const t2Text = t2 ? `${await t2.textContent().catch(() => '')} [${await t2.getAttribute('data-lessons').catch(() => '')}]` : '';
+    check(!!t2 && /2 new lessons/i.test(t2Text), `welcome: clearing 1-3 announces two lessons ("${t2Text}")`);
     const mail = await page.evaluate(() => {
       const p = window.__sakura.store.profile;
       return { welcome: p.story.welcome, letters: p.mail.letters.filter((l) => l.id === 'story-welcome-10pull').length, t10: p.items.ticket_recruit10 || 0 };
