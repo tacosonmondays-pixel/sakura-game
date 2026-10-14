@@ -504,10 +504,25 @@ describe('router: back arrow and battle history entries', () => {
     await go('stage', { id: '1-2' }); // Pause → Quit
     expect(screen()).toBe('#/stage/1-2?difficulty=easy');
     expect(browser.i).toBe(1);
+    // the battle's entry became that prep, as drawn: forward onto it shows Easy too
+    expect(browser.urls()).toEqual(['#/campaign?chapter=1', '#/stage/1-2?difficulty=easy', '#/stage/1-2?difficulty=easy']);
+    browser.history.forward();
+    await settle();
+    expect(screen()).toBe('#/stage/1-2?difficulty=easy');
+    browser.history.back();
+    await settle();
     await go('battle', { stage: '1-2', difficulty: 'easy' });
     browser.history.back(); // the back gesture mid-battle
     await settle();
     expect(screen()).toBe('#/stage/1-2?difficulty=easy');
+    // a defeat → Retry (the battle remounts in place) → Quit
+    browser.history.forward(); // (the old battle entry is skipped: back on prep)
+    await settle();
+    await go('battle', { stage: '1-2', difficulty: 'easy' });
+    await go('stage', { id: '1-2' });
+    expect(screen()).toBe('#/stage/1-2?difficulty=easy');
+    expect(browser.i).toBe(1);
+    noBattle();
   });
 
   it('an endless run: Map and the prep arrow both go to Tactical Challenge', async () => {

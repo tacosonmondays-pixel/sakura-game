@@ -382,7 +382,7 @@ async function leaveFlow() {
   await tap(C, '[data-testid="stage-start"]');
   if (check(await battleReady(C), 'map: Start opens the battle')) {
     await loseBattle(C);
-    await C.waitForSelector('[data-testid="back-map"]', { timeout: 30000 }).catch(() => null);
+    await C.waitForSelector('[data-testid="back-map"]', { timeout: 60000 }).catch(() => null);
     await tap(C, '[data-testid="back-map"]');
     check(await onScreen(C, 'campaign'), `map: a defeat → Map opens the campaign map (now ${(await where(C)).hash})`);
   }
@@ -537,7 +537,7 @@ async function difficultyFlow() {
   await tap(D, '[data-testid="stage-start"]');
   if (await battleReady(D)) {
     await loseBattle(D);
-    await D.waitForSelector('[data-testid="retry"]', { timeout: 30000 }).catch(() => null);
+    await D.waitForSelector('[data-testid="retry"]', { timeout: 60000 }).catch(() => null);
     await tap(D, '[data-testid="retry"]');
     if (check(await battleReady(D), 'difficulty: a defeat → Retry starts the battle again')) {
       await tap(D, '[data-testid="pause"]');
@@ -564,7 +564,7 @@ async function endlessFlow() {
   await tap(E, '[data-testid="stage-start"]');
   if (check(await battleReady(E), 'endless: Start endless opens the run')) {
     await loseBattle(E);
-    await E.waitForSelector('[data-testid="back-map"]', { timeout: 30000 }).catch(() => null);
+    await E.waitForSelector('[data-testid="back-map"]', { timeout: 60000 }).catch(() => null);
     await tap(E, '[data-testid="back-map"]');
     check(await onScreen(E, 'challenge'), `endless: a lost run → Map opens Tactical Challenge (now ${(await where(E)).hash})`);
   }

@@ -140,8 +140,11 @@ export function navigate(name, params = {}, { replace = false } = {}) {
     const j = findBelow({ name, params });
     if (j >= 0) {
       try {
-        history.replaceState(history.state, '', hash);
-        entries[idx] = parseHash(hash);
+        // (as that screen will be drawn: its own params, `params` on top, so a forward step
+        // onto this entry shows the same, e.g. stage prep keeps its chosen difficulty)
+        const as = buildHash(name, { ...entries[j].params, ...params });
+        history.replaceState(history.state, '', as);
+        entries[idx] = parseHash(as);
         return stepTo(j, { name, params }, () => show(name, params));
       } catch {
         /* fall through to a replace */
