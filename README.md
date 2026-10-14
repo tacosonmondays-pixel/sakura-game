@@ -41,6 +41,7 @@ Deploy workflow has run on `main` (see [Deploy to GitHub Pages](#deploy-to-githu
 | Pan / zoom the camera (Settings → Battle → Camera: **Free**) | Drag / mouse wheel | Drag / pinch |
 | Reset the camera (Camera: Free) | Double-click empty ground | Double-tap empty ground |
 | Hero ultimate | Ult button on the hero portrait (unlocks at hero level 3) | Same |
+| See a girl's whole upgrade tree | `T` (selected girl), right-click or `i` on her card, the Tree button in her panel | Hold her on the map, hold her card in the bar, or tap Tree / her portrait in her panel |
 
 The battle camera is **Locked** by default: the whole map stays framed and no drag, pinch or wheel moves
 it, so placing a girl can never nudge the view. Settings → Battle → Camera (or the pause menu) switches to
@@ -83,6 +84,17 @@ the home screen as an app.
   cheer, victory, hurt and pick-up clips. Toon shading with outlines. The 74 monsters ship as one rigged
   GLB per family (12 files, 2.27 MB in all) with move, idle, hit, death and special clips; killed monsters
   act out their death. Models load in the background and upgrade in place, so the game never waits.
+- **Hold for info:** hold any girl's card or portrait for about half a second (a pink ring fills) on
+  Formation, Students, Stage prep, Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign or
+  Rewards and her info sheet opens: card art, the student Info content, an Upgrades tab and "Open full
+  page". Quick taps, scrolling and drags work as before; on desktop, right-click. In battle, holding a
+  girl (or her bar card) opens her **upgrade tree**: 3 paths × 5 round tier icons with owned / next /
+  locked states, the crosspath cap, and each tier's price, one-line effect and who it helps. Solo waits
+  while it is open; co-op never pauses.
+- **Who an upgrade helps:** every upgrade tier carries coloured chips: **Self** (her own attacks),
+  **Allies · 2.6 tiles** (an aura and its radius), **Enemies** (debuffs; "helps all" for marks, Brittle,
+  shred and reveal), **Coins**, and a violet **New attack** when a tier changes how she fights. Derived
+  from the upgrade data by `src/ui/upgradeTags.js` (a test fails if a new mod key is not classified).
 - **Free placement:** no grid. Every girl has a round footprint; drag a card and release anywhere that is
   not the road band, an obstacle, wrong terrain or another girl. The forbidden zones are shaded while you
   hold a card, invalid drops shake a red ghost and explain why.

@@ -964,8 +964,8 @@ player's letter waits, then hidden.
   `data-hold-info="off"` on an ancestor opts out. A ~450 ms hold (pink fill ring from 120 ms; cancel
   past 10 px, on scroll or pointercancel) opens the Unit Sheet and swallows the click that follows
   (`swallowNextClick`, expires after 700 ms), so remove / toggle / swap / navigate never fire.
-  Right-click, the ContextMenu key or `i` open it at once. Unflipped recruit cards, showcases and the
-  battle are excluded. `onEscape(fn)` is the shared Escape stack (topmost overlay wins).
+  Right-click, the ContextMenu key or `i` open it at once. `HOLD_EXCLUDE` keeps out unflipped recruit
+  cards, the recruit SSR showcase (a tap there means "continue"), the student page showcase and the battle. `onEscape(fn)` is the shared Escape stack (topmost overlay wins).
 - `src/ui/unitSheet.js` (lazy): `openUnitSheet(unitId, { tab, allowFullPage, origin })` — card art,
   Info (the student page's `infoTab`, word for word), Upgrades (legend + the tree grid in static
   mode + tier details), "Open full page" (hidden in the co-op lobby, where leaving closes the room,
