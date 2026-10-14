@@ -681,13 +681,14 @@ export function mountBattle(root, params, hooks) {
     };
     return {
       place(id, x, y) {
+        if (ls.job) return null; // rebuilding (a resync / rejoin): orders wait until it is done
         const chk = sim.canPlace(id, x, y);
         if (!chk.ok) return null;
         ls.queue('place', [id, ...quantize(chk.x ?? x, chk.y ?? y)]);
         return 'queued';
       },
       upgrade(uid, path) {
-        if (!mine(uid) || sim.upgradeStatus(uid, path).locked) return false;
+        if (ls.job || !mine(uid) || sim.upgradeStatus(uid, path).locked) return false;
         const key = `${uid}:${path}`;
         if (pendingUpg.has(key)) return 'queued';
         pendingUpg.add(key);
@@ -695,13 +696,13 @@ export function mountBattle(root, params, hooks) {
         return 'queued';
       },
       sell(uid) {
-        if (!mine(uid)) return false;
+        if (ls.job || !mine(uid)) return false;
         const v = sim.sellValue(uid);
         ls.queue('sell', [uid]);
         return v;
       },
       target(uid, mode) {
-        if (!mine(uid)) return false;
+        if (ls.job || !mine(uid)) return false;
         ls.queue('tgt', [uid, mode]);
         return true;
       },

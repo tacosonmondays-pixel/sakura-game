@@ -432,6 +432,17 @@
   .ol-coop-state { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
 }
 
+/* a rebuild of this client's battle (resync / rejoin of a long run): the battlefield waits under a card */
+.ol-coop-sync { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--bt-hud-h, 56px) + var(--safe-top)); z-index: 5; display: grid; place-items: center; padding: 16px; background: rgba(20, 35, 60, 0.38); pointer-events: auto !important; animation: fade-in 0.2s; }
+.ol-coop-sync[hidden] { display: none; }
+.ol-coop-sync-card { display: flex; flex-direction: column; align-items: center; gap: 6px; width: min(360px, 100%); padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.96); color: var(--navy); box-shadow: 0 8px 24px rgba(10,25,55,0.35); text-align: center; }
+.ol-coop-sync-title { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.05rem; }
+.ol-coop-sync-line { font-weight: 800; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.ol-coop-sync-bar { display: block; width: 100%; height: 8px; border-radius: 999px; background: rgba(29,78,137,0.14); overflow: hidden; }
+.ol-coop-sync-fill { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--pink)); transition: width 0.2s linear; }
+.ol-coop-sync-card small { font-size: 0.72rem; font-weight: 700; color: var(--ink); opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) { .ol-coop-sync, .ol-coop-sync-fill { animation: none; transition: none; } }
+
 /* ---------- Settings → Online ---------- */
 .ol-settings-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ol-transfer-code { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.5rem; letter-spacing: 0.16em; color: var(--navy); background: #fff6cc; padding: 2px 14px; border-radius: 8px; user-select: text; }

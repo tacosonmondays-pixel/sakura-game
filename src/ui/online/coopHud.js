@@ -2,6 +2,9 @@
 // "Waiting for ally…" / "Ally left" state, and a small pin in the owner's colour above every
 // girl showing who placed her. Mounted by the battle controller only in co-op.
 // Co-op freeplay: a small flag on the chip of whoever has voted Finish.
+// Long runs: while this client rebuilds its battle (a resync or rejoin replaying from the host's
+// checkpoint, src/online/coop/lockstep.js) a card says so with a progress bar and keeps taps off
+// the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
 import '../styles/online.css';
 import { h } from '../components.js';
 import { fmtCoins } from '../battle/util.js';
@@ -24,8 +27,16 @@ export function createCoopHud(ctx) {
   const el = h('div.ol-coop-hud', { 'data-testid': 'coop-hud' },
     h('div.ol-coop-room', h('span', 'CO-OP'), h('b', session.code)), ...chips, state);
   const rings = h('div.ol-coop-rings');
-  ctx.layer.append(el);
+  const syncTitle = h('b.ol-coop-sync-title');
+  const syncLine = h('span.ol-coop-sync-line', { 'data-testid': 'coop-sync-line' });
+  const syncFill = h('i.ol-coop-sync-fill');
+  const sync = h('div.ol-coop-sync', { 'data-testid': 'coop-sync', role: 'status', 'aria-live': 'polite' },
+    h('div.ol-coop-sync-card', syncTitle, syncLine, h('i.ol-coop-sync-bar', syncFill), h('small', 'Your battle is catching up with your ally\'s — one moment.')));
+  sync.hidden = true;
+  ctx.layer.append(el, sync);
   ctx.layer.prepend(rings);
+  const allyName = () => players[1 - coop.mySlot]?.name || 'your ally';
+  let lastSync = '';
   const ringEls = new Map();
   let lastState = '';
   let frame = 0;
@@ -38,12 +49,28 @@ export function createCoopHud(ctx) {
       for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];
     }
     const peer = [...ls.peers.values()][0];
+    const rb = ls.rebuilding;
+    const syncKey = rb ? `${rb.kind}:${rb.wave}:${Math.floor((100 * rb.done) / rb.total)}` : '';
+    if (syncKey !== lastSync) {
+      lastSync = syncKey;
+      sync.hidden = !rb;
+      if (rb) {
+        syncTitle.textContent = rb.kind === 'resync' ? `Re-syncing with ${allyName()}…` : `Rejoining ${allyName()}'s battle…`;
+        const pct = Math.min(99, Math.floor((100 * rb.done) / rb.total));
+        syncLine.textContent = rb.target != null && rb.target > 0 ? `Wave ${rb.wave} of ${rb.target} · ${pct}%` : `${pct}%`;
+        syncFill.style.width = `${pct}%`;
+      }
+    }
+    const busy = peer && !peer.gone ? peer.busy : null;
     const text = ls.desynced ? 'Lost sync — playing solo'
       : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting'
         : peer.why === 'lobby' ? 'Ally is back in the room'
           : peer.why === 'desync' ? 'Lost sync — playing solo'
             : 'Ally disconnected — their girls keep fighting')
-        : ls.resyncPending ? 'Resyncing with the host…' : ls.stalled ? 'Waiting for ally…' : '';
+        : rb ? 'Re-syncing…'
+          : ls.resyncPending ? 'Resyncing with the host…'
+            : busy ? `${players[1 - coop.mySlot]?.name || 'Ally'} is re-syncing… ${Math.min(99, Math.floor((100 * busy.at) / busy.of))}%`
+              : ls.stalled ? 'Waiting for ally…' : '';
     if (text !== lastState) {
       lastState = text;
       state.textContent = text;
@@ -82,6 +109,7 @@ export function createCoopHud(ctx) {
     update,
     destroy() {
       el.remove();
+      sync.remove();
       rings.remove();
     },
   };
