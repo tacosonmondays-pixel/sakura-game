@@ -10,8 +10,11 @@ import { UNITS } from '../../data/units.js';
 import { unitPower } from '../../systems/progression.js';
 import { roleIcon, attackTypeIcon, uiIcon } from '../../art/icons.js';
 import { howToGet, cssVars, put } from './backpack.js';
+import { displayRarity, rarityColor, DISPLAY_RARITY_RANK } from '../rarity.js';
 
-const RARITY_RANK = { R: 0, SR: 1, SSR: 2 };
+// sorting by rarity puts UR (fully awakened SSRs, display only) above SSR; the rarity filter
+// keeps matching the drop rarity, so "SSR" lists URs too
+const RARITY_RANK = DISPLAY_RARITY_RANK;
 const SORTS = [
   { id: 'power', label: 'Power' },
   { id: 'level', label: 'Level' },
@@ -37,7 +40,7 @@ function sortList(list, profile) {
   const key = {
     power: (u) => (profile.units[u.id] ? unitPower(profile, u.id) : -1),
     level: (u) => profile.units[u.id]?.level ?? 0,
-    rarity: (u) => RARITY_RANK[u.rarity] * 1000 + (profile.units[u.id]?.level ?? 0),
+    rarity: (u) => RARITY_RANK[displayRarity(u, profile)] * 1000 + (profile.units[u.id]?.level ?? 0),
     name: (u) => u.name,
   }[state.sort];
   const dir = state.desc ? -1 : 1;
@@ -48,7 +51,7 @@ function sortList(list, profile) {
     const ka = key(a);
     const kb = key(b);
     if (typeof ka === 'string') return dir * ka.localeCompare(kb);
-    return dir * (ka - kb) || RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || a.name.localeCompare(b.name);
+    return dir * (ka - kb) || RARITY_RANK[displayRarity(b, profile)] - RARITY_RANK[displayRarity(a, profile)] || a.name.localeCompare(b.name);
   });
 }
 
@@ -65,7 +68,7 @@ function studentCard(u, profile) {
     onClick: () => navigate('student', { id: u.id }),
   });
   card.classList.add('mb-tall');
-  card.style.setProperty('--rarity', UNIT_RARITIES[u.rarity].color);
+  card.style.setProperty('--rarity', rarityColor(u, profile));
   put(card,
     h('div.mb-card-badges',
       svgEl(roleIcon(u.role), 'mb-card-badge'),

@@ -9,7 +9,7 @@ import { navigate } from '../router.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
-  ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT, UNIT_RARITIES,
+  ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT,
   STATUSES, GEAR_SLOTS, ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
@@ -30,6 +30,7 @@ import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
+import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -171,7 +172,11 @@ function statsTable(unit, battle) {
     // heroes deploy for free; gear Cost Reduction discounts her battle level prices instead
     rows.push(['Deploy cost', 'Free', null]);
     if (owned && battle.costMul < 1) rows.push(['Level prices', `−${Math.round((1 - battle.costMul) * 100)}%`, null]);
-  } else dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+  } else {
+    dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+    // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
+    if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
+  }
   rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
   if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
   if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
@@ -225,6 +230,7 @@ function buildShowcase(unit, onCycle) {
     clear(stageEl);
     clear(actRow);
     stageEl.classList.toggle('is-3d', view.mode === '3d');
+    stageEl.classList.remove('is-ur');
     const st = store.profile.units[unit.id];
     if (view.mode === 'card') {
       stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'mb-show-card'));
@@ -250,6 +256,7 @@ function buildShowcase(unit, onCycle) {
         }, label));
       }
     }
+    applyUrFrame(stageEl, unit, store.profile); // UR: the rainbow frame around her art (card and 3D view)
     clear(toggle);
     for (const [id, label] of [['card', 'Card Art'], ['3d', '3D Chibi']]) {
       toggle.appendChild(h(`button.mb-seg-btn${view.mode === id ? '.on' : ''}`, { role: 'tab', 'data-testid': `view-${id}`, onclick: () => { if (view.mode !== id) { view.mode = id; renderStage(); } } }, label));
@@ -259,10 +266,13 @@ function buildShowcase(unit, onCycle) {
   const renderInfo = () => {
     clear(info);
     const st = store.profile.units[unit.id];
-    const r = UNIT_RARITIES[unit.rarity];
+    const shown = displayRarity(unit, store.profile);
+    const r = rarityInfo(shown);
     put(info,
       h('div.mb-show-name-row',
-        h('span.mb-rarity-tag', { style: cssVars({ '--rarity': r.color }) }, r.name),
+        shown === 'UR'
+          ? h('span.mb-rarity-tag.is-ur', { 'data-testid': 'rarity-tag', title: 'UR — every awaken star' }, h('span.ur-text', 'UR'), urRing())
+          : h('span.mb-rarity-tag', { 'data-testid': 'rarity-tag', style: cssVars({ '--rarity': r.color }) }, r.name),
         h('div.mb-show-names', h('div.mb-show-name', unit.name), h('div.mb-show-title', unit.title))),
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
@@ -514,16 +524,19 @@ function awakenTab(unit, ctx) {
       h('div.mb-aw-bonus', s === 3 ? 'Passive' : '+5% DMG'));
   }));
   const passiveOn = star >= 3;
+  const ur = isUR(unit, profile);
   return h('div.mb-tab-body',
     section(null,
-      h('div.mb-aw-head', h('div.mb-aw-big', stars(star, MAX_AWAKEN)), h('div.muted', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`)),
+      h('div.mb-aw-head', h('div.mb-aw-big', stars(star, MAX_AWAKEN), ur ? urBadge() : null), h('div.muted', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`)),
       track),
     section('Awakening passive',
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active in every battle' : `Unlocks at ★3 (${Math.max(0, 3 - star)} more)`)))),
     star >= MAX_AWAKEN
-      ? section('Fully awakened', h('p', `${unit.name} shines with all five stars.`))
+      ? (ur
+        ? section('Fully awakened', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing()))
+        : section('Fully awakened', h('p', `${unit.name} shines with all five stars.`)))
       : section(`Next: ★${star + 1}`,
         h('p.muted', 'Crowns drop from minibosses and Total Assault bosses. Star Fragments come from duplicate recruits and the exchanges.'),
         requirementList(check.cost || awakenCost(unit.id, star + 1)),
@@ -531,15 +544,40 @@ function awakenTab(unit, ctx) {
           button('Awaken', {
             kind: 'yellow', icon: 'star', testid: 'awaken', disabled: !check.ok,
             onClick: () => {
+              const wasUR = isUR(unit, profile);
               const res = awaken(profile, unit.id);
               if (!res.ok) { toast('Missing crowns, fragments or coins.', 'bad'); return; }
               store.commit('awaken');
-              toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
               ctx.refreshShowcase();
               ctx.rerenderTab();
+              // the 5th star of an SSR: she ascends to UR (display only) — a one-time moment
+              if (!wasUR && isUR(unit, profile)) showAscension(unit);
+              else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
             },
           }))),
   );
+}
+
+/**
+ * "Ascended to UR!": shown once, the moment an SSR's 5th awaken star lands. Her card with the
+ * rainbow frame, SSR turning into the rainbow UR, a slow light burst (still with reduced motion).
+ */
+function showAscension(unit) {
+  const art = svgEl(portraitHTML(unit, 'card', { eager: true, awaken: MAX_AWAKEN }), 'ur-ascend-art');
+  modal({
+    title: '',
+    cls: 'ur-ascend-modal',
+    body: h('div.ur-ascend', { 'data-testid': 'ur-ascend' },
+      // rays + sparkles sit around her card; the modal's rounded edge clips the rays
+      h('div.ur-ascend-hero',
+        h('div.ur-ascend-burst', { 'aria-hidden': 'true' }),
+        [0, 1, 2, 3, 4, 5].map((i) => h(`span.ur-ascend-spark.s${i}`, { 'aria-hidden': 'true' }, '✦')),
+        h('div.ur-ascend-card', art, urRing(), urSparkles())),
+      h('div.ur-ascend-swap', h('span.ur-ascend-flash', { 'aria-hidden': 'true' }), h('span.ur-ascend-old', { 'aria-hidden': 'true' }, 'SSR'), urBadge('ur-ascend-new')),
+      h('h2.ur-ascend-title', h('span.ur-text', 'Ascended to UR!')),
+      h('p.ur-ascend-text', `${unit.name} awakened all five stars. From now on she wears the rainbow frame on every card — students, formation and battle.`)),
+    actions: [{ label: 'Wonderful!', kind: 'yellow', testid: 'ur-ascend-ok' }],
+  });
 }
 
 // ----- Equipment -----------------------------------------------------------

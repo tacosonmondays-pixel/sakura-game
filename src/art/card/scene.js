@@ -122,9 +122,16 @@ export function fullFrame(p, unit, awaken) {
     const filled = i < awaken;
     s += `<polygon points="${starPoints(x, 404 - i * 1.1, 7.5, 3.4)}" fill="${filled ? '#ffd23f' : '#ffffff'}" fill-opacity="${filled ? 1 : 0.35}" stroke="${filled ? '#b8860b' : '#22385c'}" stroke-opacity="${filled ? 1 : 0.4}" stroke-width="1.4" stroke-linejoin="round"/>`;
   }
-  // rarity badge + stars (top-left)
-  s += `<path d="M14 16L84 16L76 44L8 44Z" fill="url(#${p}-rar)" stroke="#ffffff" stroke-width="2"/>`;
-  s += `<text x="45" y="38" text-anchor="middle" font-family="${FONT}" font-style="italic" font-weight="900" font-size="20" fill="#ffffff" stroke="${darken(rar.color, 0.45)}" stroke-width="3" paint-order="stroke">${esc(rar.name)}</text>`;
+  // rarity badge + stars (top-left). An SSR at ★5 shows as UR (display only, src/ui/rarity.js):
+  // rainbow letters on a dark plate inside a rainbow edge.
+  if (unit.rarity === 'SSR' && awaken >= 5) {
+    s += `<defs>${linGrad(`${p}-ur`, [[0, '#ff5f8f'], [0.17, '#ffa53d'], [0.33, '#ffe14d'], [0.5, '#5fe39a'], [0.67, '#4fc3ff'], [0.83, '#8b7bff'], [1, '#f36bff']], { x2: 1, y2: 0 })}</defs>`;
+    s += `<path d="M14 16L84 16L76 44L8 44Z" fill="#1c2240" stroke="url(#${p}-ur)" stroke-width="3"/>`;
+    s += `<text x="45" y="38" text-anchor="middle" font-family="${FONT}" font-style="italic" font-weight="900" font-size="21" fill="url(#${p}-ur)">UR</text>`;
+  } else {
+    s += `<path d="M14 16L84 16L76 44L8 44Z" fill="url(#${p}-rar)" stroke="#ffffff" stroke-width="2"/>`;
+    s += `<text x="45" y="38" text-anchor="middle" font-family="${FONT}" font-style="italic" font-weight="900" font-size="20" fill="#ffffff" stroke="${darken(rar.color, 0.45)}" stroke-width="3" paint-order="stroke">${esc(rar.name)}</text>`;
+  }
   for (let i = 0; i < rar.stars; i++) s += `<polygon points="${starPoints(20 + i * 18, 58, 8, 3.6)}" fill="#ffe066" stroke="#b8860b" stroke-width="1.4" stroke-linejoin="round"/>`;
   if (unit.kind === 'hero') {
     s += `<path d="M206 16L290 16L290 40L198 40Z" fill="#7b3fd4" stroke="#ffffff" stroke-width="2"/><text x="246" y="33.5" text-anchor="middle" font-family="${FONT}" font-style="italic" font-weight="900" font-size="13" fill="#ffffff" letter-spacing="1.5">HERO</text>`;

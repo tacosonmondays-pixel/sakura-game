@@ -4,6 +4,7 @@
 import { h, setVar, fmtTime, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
+import { applyUrFrame } from '../rarity.js';
 import { currencyIcon } from '../../art/icons.js';
 import { PRICE_TICK } from './heroLevels.js';
 
@@ -43,6 +44,7 @@ export function createHeroWidget(ctx) {
     lv,
     h('span.bt-herow-xp', xpFill),
   );
+  applyUrFrame(portrait, def, ctx.profile); // your hero, fully awakened SSR → rainbow ring (display only)
   const ult = h('button.bt-ult', { 'data-testid': 'ult', onclick: () => ctx.fireUlt() });
   // what the pill shows right now: a tap buys exactly this (level + price), never a dearer one
   let shown = null;
