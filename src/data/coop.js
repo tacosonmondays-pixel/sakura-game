@@ -26,7 +26,7 @@ export const COOP = Object.freeze({
   maxTimeoutMs: 20000,
   /** …except while the ally's battle screen is still loading (no lockstep packet yet). */
   loadTimeoutMs: 30000,
-  /** Towers per player (the host also brings the hero; the guest gets one more tower). */
+  /** Towers per player (each also brings her hero; a player without one gets one more tower). */
   towersPerPlayer: 5,
   /** Player colours: slot 0 (host) and slot 1 (guest). */
   colors: ['#4cc9f0', '#ff8fab'],

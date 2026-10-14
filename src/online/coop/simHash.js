@@ -48,6 +48,10 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     if (e.hp >= 134217728) h.int(Math.floor(e.hp / 268435456));
   }
   h.int(sim.towers.length);
-  for (const t of sim.towers) h.int(t.uid).int(t.tiers[0]).int(t.tiers[1]).int(t.tiers[2]).int(t.x * 1024).int(t.y * 1024).str(t.targetMode);
+  for (const t of sim.towers) {
+    h.int(t.uid).int(t.tiers[0]).int(t.tiers[1]).int(t.tiers[2]).int(t.x * 1024).int(t.y * 1024).str(t.targetMode);
+    // heroes only (battles without one keep their digest): a level / XP difference shows at once
+    if (t.isHero) h.int(t.level).int(t.xp * 16);
+  }
   return h.value;
 }

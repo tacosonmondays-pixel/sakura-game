@@ -259,7 +259,7 @@ describe('co-op lobby: version check', () => {
 });
 
 describe('co-op loadout and the Supply Bot', () => {
-  it('host brings the hero + 5 girls, the guest 6 girls and no hero', () => {
+  it('each player brings her hero + 5 girls (one without a hero brings 6 girls)', () => {
     const p = createProfile();
     for (const id of ['aoi', 'rei', 'yuki', 'momo', 'akane', 'kage', 'sango']) p.units[id] ||= { level: 1, stars: 1, awaken: 0, gear: {} };
     p.formation = { hero: 'hikari', towers: ['aoi', 'rei', 'yuki', 'momo', 'akane', 'kage', 'sango'] };
@@ -268,9 +268,12 @@ describe('co-op loadout and the Supply Bot', () => {
     const guest = coopLoadout(p, false);
     expect(host.hero?.unitId).toBe('hikari');
     expect(host.loadout.map((e) => e.unitId)).toHaveLength(COOP.towersPerPlayer);
-    expect(guest.hero).toBe(null);
-    expect(guest.loadout).toHaveLength(COOP.towersPerPlayer + 1);
+    expect(guest.hero?.unitId).toBe('hikari');
+    expect(guest.loadout).toHaveLength(COOP.towersPerPlayer);
     expect(guest.loadout[0].stats).toBeTruthy();
+    const noHero = coopLoadout({ ...p, formation: { ...p.formation, hero: null } }, false);
+    expect(noHero.hero).toBe(null);
+    expect(noHero.loadout).toHaveLength(COOP.towersPerPlayer + 1);
   });
 
   it('grants any item or currency in any quantity, and refuses nonsense', () => {
