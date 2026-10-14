@@ -315,6 +315,12 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 |---|---|
 | "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
 
+## UR awakening (owner, 2026-10-14) — branch `feature/ur-awaken`
+
+| Request (verbatim) | Status |
+|---|---|
+| "when you awaken ssr's all the way, give it a rainbow border, and change the ssr to UR with rainbow font make it EPIC!" | **Done (display only).** An SSR you own at ★5 shows as **UR**: an animated rainbow frame (turning conic rainbow + a rainbow halo, twinkling glints, a light sweep on the big cards) and "UR" in shimmering rainbow letters on a small dark badge, on every card of hers — students list (rarity sort puts URs first), her page (header tag, framed card art and 3D view, Awakening tab "Ascended to UR"), formation slots + picker, stage prep, battle bar card, selected-girl panel and hero portrait, Mall spark offer (ribbon reads UR), lobby background picker, SSR Select Ticket, avatar minis. The 5th star triggers a one-time "Ascended to UR!" moment (her card in the rainbow frame, SSR turning into UR). UR is not a game rarity: drops, rates, pity, fragments, prices and the battle sim are unchanged (co-op id unchanged); pull results and recruit history still say SSR; an ally's girl in co-op shows her own rarity. Reduced motion keeps the rainbow still. Code: `src/ui/rarity.js`, `src/ui/styles/ur.css`; tests: `tests/ui/ur-rarity.test.js`, `e2e/ur-awaken.mjs`. |
+
 ## Patch notes + gem gifts (owner, 2026-10-14) — branch `feature/patch-notes`
 
 | Request (verbatim) | Status |
