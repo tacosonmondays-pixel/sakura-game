@@ -141,10 +141,37 @@ describe('tools/simId.mjs', () => {
     expect(simId(root, ['src/sim']).id).not.toBe(one.id);
   });
 
-  it('covers the real sim, co-op and adapter code but not menus, art, audio or the renderer', () => {
+  it('takes single files as entries too', () => {
+    const root = mkdtempSync(join(tmpdir(), 'simid-'));
+    mkdirSync(join(root, 'src/online/coop'), { recursive: true });
+    writeFileSync(join(root, 'src/online/coop/lockstep.js'), "import { X } from './commands.js';\n");
+    writeFileSync(join(root, 'src/online/coop/commands.js'), 'export const X = 1;\n');
+    writeFileSync(join(root, 'src/online/coop/rewards.js'), 'export const R = 1;\n');
+    expect(simId(root, ['src/online/coop/lockstep.js']).files).toEqual(['src/online/coop/commands.js', 'src/online/coop/lockstep.js']);
+  });
+
+  it('covers exactly what the lockstep battle runs on: sim, co-op protocol, battle data, net settings', () => {
     const { files } = simId();
-    for (const f of ['src/sim/Sim.js', 'src/online/coop/lockstep.js', 'src/online/coop/commands.js', 'src/data/units.js', 'src/data/maps.js', 'src/online/adapters/supabase.js']) expect(files).toContain(f);
-    expect(files.some((f) => f.startsWith('src/render/') || f.startsWith('src/audio/') || f.startsWith('src/art/') || f.startsWith('src/ui/screens/'))).toBe(false);
+    for (const f of [
+      'src/sim/Sim.js', 'src/sim/waves.js', 'src/online/coop/lockstep.js', 'src/online/coop/commands.js', 'src/online/coop/session.js',
+      'src/online/coop/loadout.js', 'src/online/coop/version.js', 'src/online/coop/simHash.js', 'src/core/detMath.js',
+      'src/data/units.js', 'src/data/enemies.js', 'src/data/stages.js', 'src/data/maps.js', 'src/data/types.js', 'src/data/coop.js',
+    ]) expect(files).toContain(f);
+    // not: the room adapters (chat / clan / social code), shared online helpers, post-battle
+    // rewards, menu data and systems, art, audio, the renderer or any screen
+    const outside = files.filter((f) => f.startsWith('src/online/adapters/') || /^src\/online\/[^/]+\.js$/.test(f) || f === 'src/online/coop/rewards.js'
+      || f.startsWith('src/systems/') || f.startsWith('src/ui/') || f.startsWith('src/render/') || f.startsWith('src/audio/') || f.startsWith('src/art/')
+      || ['src/data/shop.js', 'src/data/missions.js', 'src/data/mail.js', 'src/data/lobbyArt.js', 'src/data/items.js'].includes(f));
+    expect(outside).toEqual([]);
+  });
+
+  it('the net settings both players must share are data the id covers (not the adapters)', async () => {
+    const { COOP_NET } = await import('../../src/data/coop.js');
+    expect(COOP_NET.supabase).toEqual({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 });
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['src/online/adapters/supabase.js', 'src/online/adapters/local.js']) {
+      expect(readFileSync(f, 'utf8')).not.toMatch(/inputDelay:\s*\d/); // no numbers of their own
+    }
   });
 });
 

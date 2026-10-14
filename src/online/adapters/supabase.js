@@ -5,6 +5,7 @@
 // never download it.
 import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
 import { OnlineError, toOnlineError } from '../errors.js';
+import { COOP_NET } from '../../data/coop.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
 
@@ -540,11 +541,8 @@ export function createSupabaseAdapter({ url, key }) {
       });
 
       const api = {
-        // Realtime counts every message against the project's quota (free plan: 2M a month and
-        // 100 per second for the whole project), so rooms here talk ~4× a second instead of 20:
-        // a 30-tick (0.5 s) input delay and a beat only every 250 ms or when a command is queued
-        // (src/online/coop/lockstep.js). Tower defense hardly notices half a second of lag.
-        net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 },
+        // the lockstep's net settings for Realtime rooms (~4 messages a second; see COOP_NET)
+        net: COOP_NET.supabase,
         get status() {
           return status;
         },

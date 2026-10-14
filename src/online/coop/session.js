@@ -30,7 +30,7 @@
 // waits long, a mismatched or hidden one beacons slowly, and a lobby nobody touches for
 // LOBBY.idleCloseMs closes. No Realtime presence: see adapters/supabase.js openRoom.
 import { createEmitter } from '../../core/events.js';
-import { COOP } from '../../data/coop.js';
+import { COOP, COOP_NET } from '../../data/coop.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
 
@@ -191,7 +191,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     // lets the goodbye ('leave' / the lockstep 'bye') still get out
     onUnload: () => s.close(),
   });
-  const net = room.net || { heartbeatMs: COOP.heartbeatMs, inputDelay: COOP.inputDelay };
+  const net = room.net || COOP_NET.local;
   // adapters without status reports (or the local one, which is up at once) count as connected
   s.link = room.status || 'connected';
   if (s.link === 'connected') connectedAt = t0;

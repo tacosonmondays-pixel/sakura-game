@@ -18,7 +18,9 @@ import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
-import { coopLoadout } from '../../online/coop/loadout.js';
+import { pickLoadout } from '../../online/coop/loadout.js';
+import { resolveFormation } from '../battle/setup.js';
+import { unitBattleStats } from '../../systems/progression.js';
 import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
 import { APP_VERSION, versionLabel, compareVersions } from '../../core/buildInfo.js';
@@ -301,7 +303,7 @@ export function render(root, params = {}) {
     if (!session || session.code !== roomCode || session.phase === 'closed') {
       const isHost = params.host === '1';
       const card = profileCard(profile);
-      const { loadout, hero } = coopLoadout(profile, isHost);
+      const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
       const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
       try {
