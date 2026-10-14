@@ -6,7 +6,9 @@ import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
-import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, UNIT_RARITIES, STATUSES } from '../../data/types.js';
+import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, STATUSES } from '../../data/types.js';
+import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { roundCost } from '../../sim/Sim.js';
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
@@ -44,7 +46,7 @@ export function createTowerPanel(ctx) {
       const st = sim.upgradeStatus(t.uid, p);
       return `${st.tier}${st.reason || 'ok'}${st.cost}`;
     }).join(',');
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}`;
   }
 
   function open(towerUid) {
@@ -70,9 +72,13 @@ export function createTowerPanel(ctx) {
     const def = t.def;
     const role = ROLES[def.role];
     const pathNames = def.paths.map((p) => p.name);
-    const rarity = UNIT_RARITIES[def.rarity];
+    // UR (display only) comes from YOUR save: your own girls show it; an ally's girl in co-op
+    // shows her def rarity (their awakening is not sent over the network)
+    const profile = !ctx.coop || ctx.coop.isMine(t.uid) ? ctx.profile : null;
+    const ur = isUR(def, profile);
     const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
-    setVar(portrait, '--rarity', rarity?.color);
+    setVar(portrait, '--rarity', rarityColor(def, profile));
+    if (ur) applyUrFrame(portrait, def, profile);
 
     const kills = h('b');
     const dmg = h('b');
@@ -84,7 +90,7 @@ export function createTowerPanel(ctx) {
       portrait,
       h(
         'div.bt-panel-id',
-        h('div.bt-panel-name', def.name, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-'))),
+        h('div.bt-panel-name', def.name, ur ? urBadge() : null, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-'))),
         h('div.bt-panel-role', svgEl(roleIcon(def.role), 'bt-role-ico'), role?.name || def.role,
           h('span.bt-dot', '·'), svgEl(attackTypeIcon(st.attackType), 'bt-role-ico'), ATTACK_TYPES[st.attackType]?.name || st.attackType,
           st.element ? [h('span.bt-dot', '·'), svgEl(elementIcon(st.element), 'bt-role-ico'), ELEMENTS[st.element]?.name] : null),
@@ -127,9 +133,18 @@ export function createTowerPanel(ctx) {
     // ---- stats
     const rows = [];
     const add = (label, value, cls = '') => rows.push(h(`div.bt-stat-cell${cls}`, h('span', label), h('b', value)));
-    if (st.dps > 0) add('DPS', fmtNum(st.dps, 1), '.bt-stat-main');
-    if (st.damage > 0) add('Damage', fmtNum(st.damage, 1));
-    if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 2));
+    // Drone carriers (Chika): the drones do the shooting (her own shots only start once every
+    // drone is out), so her DPS is the full drone wing plus her own; her "attack rate" is how
+    // fast she builds drones
+    const drones = st.turret && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
+    const dps = st.dps + (drones ? drones.each * st.turret.max : 0);
+    if (dps > 0) add('DPS', fmtNum(dps, 1), '.bt-stat-main');
+    if (st.behavior === 'turret') {
+      if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 1)}s`);
+    } else {
+      if (st.damage > 0) add('Damage', fmtNum(st.damage, 1));
+      if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 2));
+    }
     if (st.range > 0) add('Range', fmtNum(st.range, 1));
     if (st.behavior === 'projectile' && st.projectiles > 1) add('Targets', st.projectiles);
     if (st.behavior === 'beam' && st.projectiles > 1) add('Beams', st.projectiles);
@@ -143,7 +158,15 @@ export function createTowerPanel(ctx) {
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
     if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');
-    if (st.turret) add('Sentries', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg`, '.bt-stat-wide2');
+    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg × ${fmtNum(drones?.rate ?? 0, 2)}/s each`, '.bt-stat-wide');
+    // gear Cost Reduction (and cost-cut auras) make her upgrades cheaper: say so, with the total
+    const gearCut = 1 - (t.unitStats?.costMul ?? 1);
+    const auraCut = Math.min(0.5, t.buff?.costCut || 0);
+    const cut = 1 - (1 - gearCut) * (1 - auraCut);
+    if (cut > 0.004) {
+      const from = [gearCut > 0.004 ? `gear ${Math.round(gearCut * 100)}%` : null, auraCut > 0.004 ? `aura ${Math.round(auraCut * 100)}%` : null].filter(Boolean).join(' + ');
+      add('Upgrades', `${Math.round(cut * 100)}% cheaper (${from})`, '.bt-stat-wide');
+    }
     if (st.income) add('Income', `${fmtCoins(st.income.perWave || 0)}/wave${st.income.interest ? ` +${Math.round(st.income.interest * 100)}%` : ''}`, '.bt-stat-wide2');
     if (st.ramp) add('Ramp', `+${Math.round(st.ramp.per * 100)}%/hit (max ${Math.round(st.ramp.max * 100)}%)`, '.bt-stat-wide');
     if (st.mark) add('Mark', `+${Math.round(st.mark.bonus * 100)}% · ${fmtNum(st.mark.duration, 1)}s`, '.bt-stat-wide2');
@@ -209,6 +232,9 @@ export function createTowerPanel(ctx) {
     updateLive(t, st);
   }
 
+  /** A tier's price before gear Cost Reduction and cost-cut auras (difficulty still applies). */
+  const fullCost = (tier) => roundCost((tier.cost || 0) * (sim.diff?.costMul ?? 1));
+
   function pathRow(t, p, i, names) {
     const st = sim.upgradeStatus(t.uid, i);
     const cur = t.tiers[i];
@@ -245,6 +271,8 @@ export function createTowerPanel(ctx) {
             },
           },
           svgEl(currencyIcon('coins'), 'bt-buy-coin'),
+          // the full price struck through when gear / an aura makes it cheaper
+          st.cost < fullCost(next) ? h('s.bt-buy-was', fmtCoins(fullCost(next))) : null,
           fmtCoins(st.cost),
         );
       }

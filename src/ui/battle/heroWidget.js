@@ -3,6 +3,7 @@
 import { h, setVar, fmtTime } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
+import { applyUrFrame } from '../rarity.js';
 
 /**
  * Paints an ult button: conic ring progress (--p 0..1), state classes and label.
@@ -40,6 +41,7 @@ export function createHeroWidget(ctx) {
     lv,
     h('span.bt-herow-xp', xpFill),
   );
+  applyUrFrame(portrait, def, ctx.profile); // your hero, fully awakened SSR → rainbow ring (display only)
   const ult = h('button.bt-ult', { 'data-testid': 'ult', onclick: () => ctx.fireUlt() });
   el.append(portrait, ult);
 
