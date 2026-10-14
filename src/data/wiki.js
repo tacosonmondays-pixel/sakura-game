@@ -12,6 +12,7 @@
 //         | { type: 'table', head: Cell[], rows: Cell[][], caption? }
 //         | { type: 'typeChart' }                      // coloured attack × armor matrix
 //         | { type: 'crosspath' }                      // BTD6-style crosspath diagram
+//         | { type: 'upgradeTags' }                    // Self / Allies / Enemies / Coins legend
 //         | { type: 'units', ids: unitId[], caption? } // tappable portrait chips
 //         | { type: 'items', ids: itemId[], caption? } // tappable item tiles
 //         | { type: 'links', ids: articleId[] }        // "see also"
@@ -143,6 +144,8 @@ function controls() {
         'Or tap a card, then tap the ground. Tap the card again to cancel.',
         'While you hold a card, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red. Water girls (Sango, Umeko, Nami) stand on water instead of land.',
         'Placement shows her range circle; a red, shaking ghost means the spot is invalid and a short message says why.',
+        'Hold a girl\'s card (or right-click it) in the menus to open her info sheet.',
+        'In battle, hold a placed girl or a card in the bar (or press Tree in her panel, or T) to see her whole upgrade tree.',
       ])),
     sec('During a battle',
       table(['Action', 'Touch', 'Mouse'], [
@@ -494,7 +497,7 @@ function tipsArticle() {
 }
 
 function crosspathArticle() {
-  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell'], [
+  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'self', 'allies', 'aura', 'enemies', 'buff'], [
     sec('Three paths',
       p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone.'),
       table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '7,000–16,000']])),
@@ -507,6 +510,10 @@ function crosspathArticle() {
       ]),
       p('So a girl can be 5-2-0, 2-0-4 or 0-3-2, but never 3-3-0 or 1-1-1.'),
       tip('The Tree tab on each student shows all fifteen tiers with plain-language effects so you can plan before a battle.', 'good')),
+    sec('Who an upgrade helps',
+      p('Every tier carries coloured chips that say who it helps. Self makes her own attacks stronger. Allies is an aura: it buffs the other girls standing inside her circle (the chip shows the radius), never herself, and auras of the same kind do not stack. Enemies slows, stops or weakens what she hits; "helps all" means the debuff (a mark, Brittle, shred or reveal) makes every girl\'s hits better. Coins pays your wallet each wave. A violet New attack chip marks a tier that changes how she attacks.'),
+      { type: 'upgradeTags' },
+      tip('Hold any girl\'s card to see her info; in battle, hold a girl or her card to see her whole upgrade tree.', 'good')),
   ]);
 }
 

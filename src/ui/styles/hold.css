@@ -1,0 +1,31 @@
+/* Hold-for-info (src/ui/hold.js): fill ring + press feedback. Kept tiny (main bundle); the
+   sheet, chips and tree styles live in unit-info.css (lazy chunks). */
+
+/* iOS: no Save Image callout on a long press over card art */
+[data-unit], [data-unit] img, .pt-img, [data-hold-unit] { -webkit-touch-callout: none; }
+
+.hold-active { scale: 0.97; transition: scale 300ms var(--ease, ease); }
+
+.hold-ring {
+  --s: 48px;
+  position: fixed; z-index: 180; pointer-events: none;
+  width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  filter: drop-shadow(0 2px 6px rgba(20, 35, 60, 0.4));
+}
+.hold-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+.hold-ring circle { fill: none; }
+.hold-ring .hold-ring-bg { fill: rgba(31, 42, 68, 0.38); }
+.hold-ring .hold-ring-track { stroke: rgba(255, 255, 255, 0.92); stroke-width: 4.5; }
+.hold-ring .hold-ring-fill { stroke: #ff7aa8; stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.hold-ring.run .hold-ring-fill { animation: hold-fill var(--d, 330ms) linear forwards; }
+.hold-ring-i {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: #fff; font: 900 italic calc(var(--s) * 0.38) / 1 var(--font-head, sans-serif);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.hold-ring.pop { animation: hold-pop 120ms ease-out forwards; }
+@keyframes hold-fill { to { stroke-dashoffset: 0; } }
+@keyframes hold-pop { to { opacity: 0; transform: scale(1.3); } }
+@media (prefers-reduced-motion: reduce) {
+  .hold-active { transition: none; }
+}

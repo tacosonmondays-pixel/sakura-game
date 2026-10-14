@@ -28,6 +28,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
+import { tierTags, tierNote } from '../upgradeTags.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -293,7 +295,7 @@ function lockedTab(unit, what) {
       : button('Recruit', { kind: 'yellow', icon: 'gacha', onClick: () => navigate('recruit') }), 'lock');
 }
 
-function infoTab(unit) {
+export function infoTab(unit) {
   const profile = store.profile;
   const role = ROLES[unit.role];
   const cat = ROLE_CATEGORIES[role?.category];
@@ -658,15 +660,17 @@ function gearTab(unit, ctx) {
 
 // ----- Tree ----------------------------------------------------------------
 
-function treeTab(unit) {
+export function treeTab(unit) {
   const cols = unit.paths.map((p, pi) => h(`div.mb-path.p${pi}`,
-    h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus)),
+    h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus), pathSummaryChips(unit, pi, { size: 'sm' })),
     p.tiers.map((t, ti) => {
       const words = describeMods(t.mods);
       return h(`div.mb-tier.t${ti + 1}`,
         h('div.mb-tier-top', h('span.mb-tier-num', `T${ti + 1}`), h('span.mb-tier-name', t.name), h('span.mb-tier-cost', svgEl(uiIcon('coin'), 'mb-inline-icon'), formatNumber(t.cost))),
+        tagChips(tierTags(unit, pi, ti + 1), { size: 'sm' }),
         h('div.mb-tier-desc', t.desc),
-        words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null);
+        words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null,
+        tierNote(unit, pi, ti + 1) ? h('div.mb-tier-note', tierNote(unit, pi, ti + 1)) : null);
     })));
   const tree = h('div.mb-tree', cols);
   // Phones show one path at a time (swipe); the switcher mirrors and drives the scroll position.
@@ -682,6 +686,7 @@ function treeTab(unit) {
   return h('div.mb-tab-body',
     section('How upgrades combine',
       h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone.'),
+      tagLegend({ size: 'sm' }),
       crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
     switcher,
     tree,
