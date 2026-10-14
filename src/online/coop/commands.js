@@ -11,7 +11,7 @@
 // Every Sim call here runs inside withDetMath() (detMath.js): bit-identical trig and hypot on
 // every JS engine, so an iPhone and an Android phone stay in lockstep too.
 import { Sim } from '../../sim/Sim.js';
-import { STEP, DEFAULT_UNIT_STATS } from '../../sim/constants.js';
+import { STEP, DEFAULT_UNIT_STATS, FLIGHT_MODES } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
@@ -21,9 +21,11 @@ import { withDetMath } from './detMath.js';
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
  * speed[n] end[bool] (freeplay: this player's Finish vote; the run ends when everyone still in
- * the room has voted, and only after the stage's goal wave).
+ * the room has voted, and only after the stage's goal wave)
+ * fly[uid, mode, qx1?, qy1?, qx2?, qy2?] (a drone wing's flight mode, owner only like tgt: Hold
+ * takes point 1, Patrol points 1 and 2, in 1/1024 tiles; docs/specs/CHIKA_REWORK.md §16).
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'fly'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -34,6 +36,14 @@ export function quantize(x, y) {
   const qy = Math.round(y * Q);
   if (qx % Q === 0 && qy % Q === 0) qx += 1;
   return [qx, qy];
+}
+
+/** The `fly` command's arguments for a flight mode and its points (world coordinates). */
+export function flyArgs(uid, mode, a = null, b = null) {
+  const q = (v) => Math.round(v * Q);
+  if (mode === 'hold' && a) return [uid, mode, q(a[0]), q(a[1])];
+  if (mode === 'patrol' && a && b) return [uid, mode, q(a[0]), q(a[1]), q(b[0]), q(b[1])];
+  return [uid, mode];
 }
 
 /** Orders commands for one tick: player slot, then that player's sequence number. */
@@ -52,7 +62,7 @@ export const MARKERS = ['gone', 'join'];
  */
 export function isValidCmd(c, { markers = false } = {}) {
   return !!c && Number.isInteger(c.t) && c.t >= 0 && Number.isInteger(c.p) && c.p >= 0 && c.p < 2
-    && Number.isInteger(c.s) && (KINDS.includes(c.k) || (markers && MARKERS.includes(c.k))) && Array.isArray(c.a) && c.a.length <= 4;
+    && Number.isInteger(c.s) && (KINDS.includes(c.k) || (markers && MARKERS.includes(c.k))) && Array.isArray(c.a) && c.a.length <= (c.k === 'fly' ? 6 : 4);
 }
 
 /**
@@ -179,6 +189,15 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           else if (typeof a[1] !== 'string' || !Object.hasOwn(TARGET_MODES, a[1])) res = { ok: false, reason: 'invalid' };
           else res = { ok: sim.setTargetMode(a[0], a[1]) };
           break;
+        case 'fly': {
+          // own girls only; points are whole 1/1024 tiles (Hold: 1, Patrol: 2)
+          const [uid, mode, ...q] = a;
+          const need = mode === 'hold' ? 2 : mode === 'patrol' ? 4 : 0;
+          if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else if (typeof mode !== 'string' || !FLIGHT_MODES.includes(mode) || q.length < need || !q.slice(0, need).every(Number.isInteger)) res = { ok: false, reason: 'invalid' };
+          else res = { ok: sim.setFlight(uid, mode, need ? q[0] / Q : null, need ? q[1] / Q : null, need > 2 ? q[2] / Q : null, need > 2 ? q[3] / Q : null) };
+          break;
+        }
         case 'ult':
           res = views[slot].heroConfig && sim.hero ? { ok: !!sim.activateUlt() } : { ok: false, reason: 'noHero' };
           break;

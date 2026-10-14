@@ -997,7 +997,7 @@ describe('co-op freeplay: the room setting', () => {
     const W = world();
     const { host, guest } = paired(W, { freeplay: 'tempest' });
     const v = coopVersion();
-    expect(v.proto).toBe(3);
+    expect(v.proto).toBe(4);
     const old = { ...v, proto: 2 };
     host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
     expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 2 } });

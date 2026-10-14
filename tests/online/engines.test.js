@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runDronesBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -33,6 +33,20 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     const [a, b] = r.endTicks.split('/');
     expect(a).toBe(b); // the Finish vote ended the run on the same tick on both clients
     expect(r.checkpoints).toBeGreaterThan(200);
+  }, 240000);
+
+  it('runs a co-op battle with two Chikas through every flight mode on a sapper stage, in sync, its checkpoint replaying to the run', () => {
+    const r = runDronesBattle();
+    expect(r.agree).toBe(true);
+    expect(r.final).toBe(r.finalB);
+    expect(r.refused).toBe('');
+    expect(r.state).toBe('won');
+    expect(r.drones).toBeGreaterThanOrEqual(3);
+    expect(r.flies).toBeGreaterThanOrEqual(4);
+    expect(r.jams).toBeGreaterThan(0); // sappers jammed drones
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runDronesBattle().final).toBe(r.final);
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

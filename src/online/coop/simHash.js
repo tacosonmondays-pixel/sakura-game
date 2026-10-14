@@ -48,6 +48,15 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     if (e.hp >= 134217728) h.int(Math.floor(e.hp / 268435456));
   }
   h.int(sim.towers.length);
-  for (const t of sim.towers) h.int(t.uid).int(t.tiers[0]).int(t.tiers[1]).int(t.tiers[2]).int(t.x * 1024).int(t.y * 1024).str(t.targetMode);
+  for (const t of sim.towers) {
+    h.int(t.uid).int(t.tiers[0]).int(t.tiers[1]).int(t.tiers[2]).int(t.x * 1024).int(t.y * 1024).str(t.targetMode);
+    // drones (and the wing's flight mode) only for girls that have some: battles without drones
+    // keep their digests (docs/specs/LANDING_PLAN.md S8)
+    if (t.turrets.length) {
+      h.int(t.turrets.length);
+      for (const d of t.turrets) h.int(d.uid).int(d.x * 256).int(d.y * 256);
+      if (t.flight) h.str(t.flight.mode).int(t.flight.cx * 256).int(t.flight.cy * 256);
+    }
+  }
   return h.value;
 }

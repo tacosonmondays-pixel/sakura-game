@@ -19,7 +19,9 @@ import { FREEPLAY } from '../../data/freeplay.js';
 import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 
 // 3: co-op freeplay (start.freeplay, the 'end' Finish vote, the freeplay goal event)
-export const COOP_PROTOCOL = 3;
+// 4: battle train C (set once for the whole train; docs/specs/LANDING_PLAN.md S9): Chika's `fly`
+//    command (a drone wing's flight mode, up to 6 arguments); the hero rework's commands share it
+export const COOP_PROTOCOL = 4;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */
