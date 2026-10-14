@@ -803,14 +803,15 @@ html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
 
 /* the ally's Finish vote */
 .bt-vote-prompt { position: absolute; z-index: 9; left: 50%; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 14px); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(31, 22, 60, 0.92); color: #fff; font-weight: 800; font-size: 0.86rem; box-shadow: 0 6px 18px rgba(0,0,0,0.3); width: max-content; max-width: calc(100% - 24px); animation: bt-rise 0.2s var(--bt-ease); }
-.bt-vote-text { display: flex; align-items: baseline; gap: 4px; min-width: 0; white-space: nowrap; }
-/* a long name (up to 16 characters) never pushes the buttons off the screen */
-.bt-vote-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.bt-vote-text { min-width: 0; white-space: nowrap; }
+/* a long name (up to 16 characters) never pushes the buttons off the screen (inline: the line still
+   reads as one sentence, also to screen readers and innerText) */
+.bt-vote-name { display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .bt-vote-prompt button { flex: none; border: none; border-radius: 999px; padding: 5px 12px; font-weight: 900; font-size: 0.8rem; }
 /* portrait: above the hero / ULT row, the text on top and the two buttons under it */
 @media (max-width: 560px) {
   .bt-vote-prompt { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 96px); flex-wrap: wrap; justify-content: center; row-gap: 6px; padding: 8px 10px; border-radius: 16px; }
-  .bt-vote-text { flex: 1 1 100%; justify-content: center; }
+  .bt-vote-text { flex: 1 1 100%; text-align: center; }
 }
 .bt-vote-yes { background: linear-gradient(90deg, #ff7aa8, #ff4d6d); color: #fff; }
 .bt-vote-no { background: rgba(255,255,255,0.9); color: var(--navy); }
