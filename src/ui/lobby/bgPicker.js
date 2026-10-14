@@ -11,12 +11,19 @@ import { modal, svgEl, glyph, toast } from '../components.js';
 import { store } from '../../core/store.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { UNIT_RARITIES } from '../../data/types.js';
+import { applyUrFrame } from '../rarity.js';
 import { portraitHTML } from '../../art/portraits.js';
 import {
   lobbyBackgrounds, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bondLevel, BOND_MAX,
 } from '../../data/lobbyArt.js';
 import { ownedUnits } from '../../systems/unlocks.js';
 import { secretaryOf } from './secretaryOf.js';
+
+/** Her thumb in the list wears the rainbow UR ring once she is fully awakened (display only). */
+function urArt(el, unit) {
+  applyUrFrame(el, unit, store.profile);
+  return el;
+}
 
 /**
  * @param {{ girl?: string }} [opts] girl to open on (default: the current secretary)
@@ -46,7 +53,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
       girls.appendChild(h(`button.bgp-girl${id === current ? '.on' : ''}${id === secretaryOf(store.profile) ? '.sec' : ''}${mine ? '' : '.unowned'}`, {
         'data-testid': `bgp-girl-${id}`, title: mine ? u.name : `${u.name} — recruit her to unlock her backgrounds`, style: { '--rarity': UNIT_RARITIES[u.rarity]?.color || '#9aa5b1' },
         onclick: () => { current = id; paint(); },
-      }, h('span.bgp-girl-art', { html: portraitHTML(u, 'thumb') }), h('span.bgp-girl-name', u.name)));
+      }, urArt(h('span.bgp-girl-art', { html: portraitHTML(u, 'thumb') }), u), h('span.bgp-girl-name', u.name)));
     }
     // keep the chosen girl in view by scrolling the list itself (scrollIntoView would also
     // scroll the dialog and push its header off screen)

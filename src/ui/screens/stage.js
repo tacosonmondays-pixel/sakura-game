@@ -18,7 +18,7 @@ import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { UNIT_MAP, unitsWithCapability, hasCapability } from '../../data/units.js';
 import { getItem } from '../../data/items.js';
 import {
-  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, MAP_TIERS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES, UNIT_RARITIES,
+  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, MAP_TIERS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES,
 } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon } from '../../art/icons.js';
@@ -29,6 +29,7 @@ import { describeStat } from '../../systems/gear.js';
 import {
   initialMode, playMode, startLabel, livesFor, modeSubLine, ribbonCorner, firstClearNote, rulePanel, modePanel, withRuleMarks,
 } from './stageModes.js';
+import { rarityInfo } from '../rarity.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -56,11 +57,10 @@ export function tile(itemId, count = null, opts = {}) {
   return el;
 }
 
-/** card() with its rarity colour applied. */
+/** card() with its rarity colour applied (the rarity unitCard shows: UR for a fully awakened SSR). */
 export function card(unitId, opts = {}) {
   const el = unitCard(unitId, opts);
-  const color = UNIT_RARITIES[UNIT_MAP[unitId]?.rarity]?.color;
-  if (color) cssVar(el, '--rarity', color);
+  if (el.dataset.rarity) cssVar(el, '--rarity', rarityInfo(el.dataset.rarity).color);
   return el;
 }
 
