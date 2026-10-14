@@ -484,6 +484,15 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
     rebuilding player, and the ally's chip says "Bea is re-syncing… 45%".
   - Messages bigger than 24 000 characters (a checkpoint) travel in parts on Supabase rooms (Realtime
     limits a message's size) and are put back together on arrival.
+  - A player who rebuilt reloads her battle screen; the ally waits up to 60 s for it (instead of the
+    normal 12–20 s drop timeout), showing "Bea is re-syncing…".
+  - Measured (`node e2e/coop-longrun.mjs`, a strong scripted pair on Blossom 1-3, cut past the drop
+    timeout at wave 150 = 413k ticks): the rejoin restored the host's checkpoint (51 KB with 17 girls; a
+    60-girl board is ~140 KB) in 7–13 ms and replayed 2 412 ticks in 236–824 ms of CPU — about 0.25–0.45 s
+    at 60 frames a second, slices of 19 ms at most in Chromium — in Node, Bun and Chromium alike. The old
+    rebuild replayed the whole run from tick 0 in one go: 12–15 s of frozen page (16–36 s under heavier
+    load), longer than the drop timeout. Two pages (`node e2e/coop-rejoin.mjs`): a rejoin and a resync
+    at wave 16 each replayed under 700 ticks with the guest's page never blocked more than ~120 ms.
 - **Disconnect.** A peer is dropped when it says bye (Leave, closing the tab) or is silent for 12–20 s.
   It gets longer (30 s) while the ally's battle is still loading.
   - The ally's girls stay on the map and keep fighting.

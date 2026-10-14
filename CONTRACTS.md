@@ -1111,9 +1111,11 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   job (`ls.job`, progress in `ls.rebuilding = { kind, done, total, wave, target }`): `advance(dt, {
   budgetMs })` replays a slice (10 ms by default; the session's pump gives 6 ms between frames, 250 ms in a
   hidden tab) while the old battle stays on screen, `queue()` returns null meanwhile, and a `busy` beat a
-  second (`peer.busy = { at, of, w }` on the other side) stops the ally's drop timeout. Done: the new
-  CoopSim is swapped in, `onResync` remounts the battle screen; `ls.lastRebuild = { kind, from, T, ticks,
-  ms, slices, maxSliceMs, restored }`. `rebuild(start, cmds, T, ck?)` still does it in one go (tests,
+  second (`peer.busy = { at, of, w }` on the other side) keeps the ally waiting: a peer that said it is
+  rebuilding gets `REBUILD_TIMEOUT_MS` (60 s) until its reloaded battle screen is live. `hooks.onRebuild(
+  kind)` (session event `rebuild`) fires when one starts. Done: the new CoopSim is swapped in, `onResync`
+  remounts the battle screen; `ls.lastRebuild = { kind, from, T, ticks, ms, slices, maxSliceMs,
+  restoreMs, restored }`. `rebuild(start, cmds, T, ck?)` still does it in one go (tests,
   tools). Messages over `maxMessageBytes` (Supabase: 24 000 characters) go as `part` messages and are
   reassembled; a guest whose resync does not arrive asks again every 4 s. Idle saver (Supabase rooms,
   `COOP_NET.supabase`): after `idleAfterMs` (10 s) without an order the horizon reaches `idleLeadTicks`
