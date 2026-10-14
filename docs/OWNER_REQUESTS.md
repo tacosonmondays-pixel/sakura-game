@@ -309,6 +309,12 @@ Still open after this pass: the bond-memory illustrations themselves (need the C
 landscape scenes for the other 16 girls (they use their stand over the academy), a single art style
 pass so the old-game illustrations and the expansion illustrations match more closely.
 
+## Battle camera lock (owner, 2026-10-13) — branch `feature/camera-lock`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+
 ## Unit info (owner, 2026-10-13) — branch `feature/unit-info` (request #152)
 
 | Request (verbatim) | Status |
@@ -316,4 +322,3 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 | "within various menus when you hold on the card art, it should bring up this menu! Like in the formation for example" | **Done.** Hold any girl's card or portrait (~0.45 s, a pink ring fills) in Formation, Students, Stage prep (also inside the swap dialog), Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign and Rewards → her info sheet: card art, the student Info content, an Upgrades tab and "Open full page". Taps, scrolling and drags work as before; desktop: right-click. |
 | "can you also make it more clear if an upgrade path boosts their own stats or allies stats?" | **Done.** Every tier everywhere carries coloured word chips: **Self**, **Allies · 2.6 tiles** (aura radius), **Enemies** ("helps all" for marks / Brittle / shred / reveal) and **Coins**, plus a violet **New attack** flag; each path shows a tally ("Allies ×5 · 4 tiles"). Battle panel, student Tree tab, info sheet, battle tree and a wiki legend. |
 | "within the gameplay, there should be something you can click and hold and see the upgrade tree" | **Done.** Hold a placed girl, hold her card in the bar, or press the Tree button / her portrait in the panel (or T): 3 paths × 5 round tier icons with owned / next / locked states, the crosspath cap, and each tier's name, price, one-line effect and tag; tap a tier for details. Solo waits while it is open; co-op never pauses. |
-

@@ -151,12 +151,13 @@ function controls() {
       table(['Action', 'Touch', 'Mouse'], [
         ['Select a girl', 'Tap her', 'Click her'],
         ['Upgrade / sell', 'Selected panel buttons', 'Selected panel buttons'],
-        ['Pan the camera', 'Drag empty ground', 'Drag empty ground'],
-        ['Zoom', 'Pinch', 'Mouse wheel'],
-        ['Reset camera', 'Double-tap empty ground', 'Double-click empty ground'],
+        ['Pan the camera (Camera: Free)', 'Drag empty ground', 'Drag empty ground'],
+        ['Zoom (Camera: Free)', 'Pinch', 'Mouse wheel'],
+        ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
         ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button'],
       ]),
+      p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
       p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
     sec('Menus',
       list([

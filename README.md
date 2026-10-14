@@ -38,9 +38,13 @@ Deploy workflow has run on `main` (see [Deploy to GitHub Pages](#deploy-to-githu
 | Start the next wave | `Space` or **Start wave** | **Start wave** button |
 | Game speed 1× / 2× / 3× | `F` or the speed button | Speed button |
 | Pick a card from the tower bar | `1`–`9` | — |
-| Pan / zoom the camera | Drag / mouse wheel | Drag / pinch |
-| Reset the camera | Double-click empty ground | Double-tap empty ground |
+| Pan / zoom the camera (Settings → Battle → Camera: **Free**) | Drag / mouse wheel | Drag / pinch |
+| Reset the camera (Camera: Free) | Double-click empty ground | Double-tap empty ground |
 | Hero ultimate | Ult button on the hero portrait (unlocks at hero level 3) | Same |
+
+The battle camera is **Locked** by default: the whole map stays framed and no drag, pinch or wheel moves
+it, so placing a girl can never nudge the view. Settings → Battle → Camera (or the pause menu) switches to
+**Free** for the old pan / zoom controls; even then the camera holds still while you place a girl.
 
 Placement is free, like Bloons: every girl has a round footprint and can stand anywhere that is not the
 road, an obstacle or another girl. While you hold a card the forbidden zones are shaded red; an invalid

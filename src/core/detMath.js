@@ -6,7 +6,8 @@
 // editing it, the co-op layer runs every Sim call inside withDetMath(): for that synchronous
 // stretch the transcendental functions are swapped for the ports below, built only from + − × ÷
 // and Math.sqrt, which IEEE-754 does fix to the bit on every engine. (The `**` operator cannot
-// be swapped; the sim only uses it for wave budgets that are floored into enemy counts.)
+// be swapped: the sim only uses it for squares, x ** 2 === x * x on every engine, and the wave
+// generator raises to whole powers with powInt() in src/sim/waves.js instead.)
 //
 // The map builder (src/core/track.js, src/data/maps.js) calls DET_MATH directly: map geometry is
 // computed when the game loads, outside any withDetMath() stretch, and must come out bit-identical

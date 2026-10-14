@@ -3,7 +3,9 @@
 // page but its the same link"). Builds with a deploy number, serves the build from disk, then:
 //   1. the version shows on the title screen and in Settings → About;
 //   2. Settings "Check for updates" says "newest", then a new deploy (version.json rewritten) is
-//      found: the "New version ready" pill appears, and Update reloads into ?v=<build>;
+//      found: the "New version ready" pill appears, and Update reloads into ?v=<build> (also
+//      when the address already has that ?v=); a check that gets no answer says so; the pill
+//      covers no control on the main screens and its × is a 44 px target;
 //   3. a screen file deleted by a deploy: the page reloads itself once into the new build, and
 //      within a minute of that it shows "This screen did not load" + Try again instead of a
 //      blank page;
@@ -138,6 +140,82 @@ try {
   await shot(A, 'pill');
   await Promise.all([A.waitForURL(/[?&]v=feedface0001/, { timeout: 20000 }).catch(() => {}), tap(A, '[data-testid="update-now"]')]);
   check(/[?&]v=feedface0001/.test(A.url()) && /#\/settings/.test(A.url()), `Update reloads into a fresh URL, same screen (${A.url().replace(base, '/')})`);
+
+  // 2b. the address already has ?v=feedface0001 but this page is still the old build (GitHub
+  //     Pages can answer a new URL with the old index.html for a few minutes): Update must still
+  //     load a page, not just jump to the #fragment
+  await A.waitForSelector('[data-testid="check-updates"]', { timeout: 20000 });
+  await dismissGift(A);
+  await A.evaluate(() => { window.__samePage = true; });
+  await tap(A, '[data-testid="check-updates"]');
+  await A.waitForSelector('[data-testid="update-bar"]', { timeout: 10000 }).catch(() => null);
+  await shot(A, 'pill-same-v');
+  await Promise.all([A.waitForURL(/[?&]r=/, { timeout: 20000 }).catch(() => {}), tap(A, '[data-testid="update-now"]')]);
+  await A.waitForLoadState('load').catch(() => {});
+  const reloadedAgain = await A.evaluate(() => !window.__samePage).catch(() => false);
+  check(reloadedAgain && /[?&]v=feedface0001/.test(A.url()) && /[?&]r=/.test(A.url()), `Update on an address that already has ?v=<build> still loads the page (${A.url().replace(base, '/')})`);
+
+  // 2c. the check itself fails (offline, blocked): Settings says so instead of "newest"
+  setVersionJson(deployed);
+  renameSync(join(out, 'version.json'), join(out, 'version.json.gone'));
+  await A.waitForSelector('[data-testid="check-updates"]', { timeout: 20000 });
+  await dismissGift(A);
+  await tap(A, '[data-testid="check-updates"]');
+  await A.waitForFunction(() => !/Checking/.test(document.querySelector('[data-testid="update-status"]')?.textContent || 'Checking'), null, { timeout: 10000 }).catch(() => {});
+  const failedText = await A.locator('[data-testid="update-status"]').innerText();
+  check(/Couldn't check/.test(failedText) && !/newest/i.test(failedText), `a check that gets no answer says so ("${failedText}")`);
+  renameSync(join(out, 'version.json.gone'), join(out, 'version.json'));
+
+  // 2d. the pill never covers a control (short landscape phones get a compact pill) and its ×
+  //     is a 44 px target
+  setVersionJson(next);
+  await tap(A, '[data-testid="check-updates"]');
+  await A.waitForSelector('[data-testid="update-bar"]', { timeout: 10000 }).catch(() => null);
+  const covered = [];
+  for (const screenName of ['lobby', 'students', 'missions', 'settings', 'coop']) {
+    await A.evaluate((h) => { location.hash = h; }, `#/${screenName}`);
+    await A.waitForTimeout(1500);
+    await dismissGift(A);
+    const r = await A.evaluate(() => {
+      const bar = document.querySelector('[data-testid="update-bar"]');
+      if (!bar) return null;
+      const box = bar.getBoundingClientRect();
+      // a control counts as covered when the pill hides its centre or more than a quarter of it
+      // (a strip across the top of a big tile leaves it usable; a background tap area is no control)
+      const seen = new Set();
+      const hits = [];
+      for (let x = box.left + 2; x < box.right - 1; x += 5) {
+        for (let y = box.top + 2; y < box.bottom - 1; y += 5) {
+          const under = document.elementsFromPoint(x, y).find((el) => !bar.contains(el));
+          if (!under || under === document.body || under === document.documentElement) continue;
+          const ctl = under.closest('button, a[href], input, select, textarea, [role="button"], [role="tab"], [data-testid]');
+          const clickable = ctl && (ctl.matches('button, a[href], input, select, textarea, [role="button"], [role="tab"]') || getComputedStyle(ctl).cursor === 'pointer');
+          if (!clickable || seen.has(ctl)) continue;
+          seen.add(ctl);
+          const c = ctl.getBoundingClientRect();
+          if (c.width * c.height > (innerWidth * innerHeight) / 2) continue;
+          const ix = Math.max(0, Math.min(c.right, box.right) - Math.max(c.left, box.left));
+          const iy = Math.max(0, Math.min(c.bottom, box.bottom) - Math.max(c.top, box.top));
+          const cx = (c.left + c.right) / 2;
+          const cy = (c.top + c.bottom) / 2;
+          const centre = cx >= box.left && cx <= box.right && cy >= box.top && cy <= box.bottom;
+          if (centre || ix * iy > 0.25 * c.width * c.height) hits.push(`${ctl.dataset.testid || ctl.getAttribute('aria-label') || ctl.textContent.trim().slice(0, 24) || ctl.tagName} (${Math.round((100 * ix * iy) / (c.width * c.height))}%)`);
+        }
+      }
+      const x = bar.querySelector('.upd-x').getBoundingClientRect();
+      const probe = document.elementFromPoint(x.left + x.width / 2, x.bottom + 5);
+      return { rect: [box.left, box.top, box.width, box.height].map(Math.round), hits, xTarget: !!probe?.closest('.upd-x') };
+    });
+    if (!r) {
+      covered.push(`${screenName}: no pill`);
+      continue;
+    }
+    log(`    pill on #/${screenName}: ${JSON.stringify(r.rect)}${r.hits.length ? ` covers ${r.hits.join(', ')}` : ''}`);
+    if (r.hits.length) covered.push(`${screenName}: ${r.hits.join(', ')}`);
+    if (!r.xTarget) covered.push(`${screenName}: × hit area under 44 px`);
+    await shot(A, `pill-${screenName}`);
+  }
+  check(!covered.length, `the update pill covers no button, tab or field, and its × is a 44 px target${covered.length ? ` (${covered.join(' | ')})` : ''}`);
   setVersionJson(deployed);
 
   // ---- 3. a screen file missing after a deploy --------------------------------------------------
@@ -149,6 +227,16 @@ try {
   const failBox = await A.waitForSelector('[data-testid="load-fail"]', { timeout: 15000 }).then(() => true).catch(() => false);
   check(failBox, 'missing screen right after an update: "This screen did not load" with Try again / Reload (no blank page)');
   await shot(A, 'load-fail');
+  // a network failure while the SAME build is deployed (offline blip, not a deploy): no reload
+  await A.evaluate(() => sessionStorage.removeItem('sakura-fresh-reload'));
+  setVersionJson({ ...deployed, build: A.url().match(/[?&]v=([^&#]+)/)?.[1] || deployed.build });
+  await A.evaluate(() => { location.hash = '#/settings'; });
+  await A.waitForSelector('[data-testid="settings-version"]', { timeout: 15000 });
+  const urlBefore = A.url();
+  await A.evaluate(() => { location.hash = '#/bestiary'; });
+  const panelSame = await A.waitForSelector('[data-testid="load-fail"]', { timeout: 15000 }).then(() => true).catch(() => false);
+  await A.waitForTimeout(3500);
+  check(panelSame && A.url().replace(/#.*/, '') === urlBefore.replace(/#.*/, ''), 'missing screen file but no newer deploy (network blip): the panel shows, the page does NOT reload');
   // later (guard expired): the page reloads itself into the newest build
   await A.evaluate(() => sessionStorage.removeItem('sakura-fresh-reload'));
   setVersionJson({ ...deployed, build: 'feedface0002', version: '0.1.19' });

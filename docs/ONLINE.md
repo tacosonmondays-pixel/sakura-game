@@ -189,9 +189,15 @@ and co-op says that messages, clans and rooms only reach other tabs of this brow
     second, or about 6,000 for a 6-minute battle: roughly **330 co-op battles a month**, and about
     **6 rooms at the same moment** before the 100-per-second cap starts throttling (which would also slow
     chat). The local transport keeps the faster 20-a-second profile.
-  - The knobs are `net` in `openRoom()` in `src/online/adapters/supabase.js` (`heartbeatMs` 250,
-    `inputDelay` 30 ticks, `keepaliveMs` 1000). If co-op ever outgrows this, the next step is a WebRTC
-    DataChannel between the two players, with Supabase broadcast used only to set it up.
+  - The knobs are `COOP_NET.supabase` in `src/data/coop.js` (`heartbeatMs` 250, `inputDelay` 30
+    ticks, `keepaliveMs` 1000; both players must use the same ones, so they are part of the co-op
+    compatibility id). If co-op ever outgrows this, the next step is a WebRTC DataChannel between the
+    two players, with Supabase broadcast used only to set it up.
+  - Lobbies are cheap but not free. An hour of an idle paired lobby costs about 900 messages (one
+    keepalive every 8 s per player, each counted sent and received), a guest stuck without its host
+    about 180, a host waiting alone about 180; a lobby nobody touches for 30 minutes closes itself.
+    (Before 2026-10-14 a paired idle lobby cost ~2,400 an hour, ~57k a day: almost the whole free
+    quota of ~66k a day.)
 - **Inactive projects are paused** after a week without traffic. Restore the project in the dashboard;
   until then the online screens show "Online features are offline right now".
 - **Anonymous sign-ins** are limited to 30 per hour per IP by default (Authentication → Rate Limits).
@@ -237,20 +243,48 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   - the hello says whom I see (`sees`) and carries my ready flag, and the host's carries the stage;
   - until the other side's hello says it sees me, I say hello every second, and I answer every hello
     that does not see me yet (at most every 0.4 s);
-  - once both see each other, a keepalive hello every 3 s; a lost `ready` or stage change fixes itself
+  - once both see each other, a keepalive hello every 8 s; a lost `ready` or stage change fixes itself
     with the next one;
-  - an ally silent for 10 s while my own link is up has left (a `leave` message or closing the tab is
+  - an ally silent for 25 s while my own link is up has left (a `leave` message or closing the tab is
     instant);
   - a version mismatch clears as soon as the same player says hello again on my version (after a
-    reload).
+    reload), says `leave`, or is not heard from for 45 s (then the search, and its Retry, start again).
   Normally the guest sees the host within one round trip of its channel joining (well under 3 s).
+- **A one-way link heals itself.** If I hear my ally but its hellos have not said for 7 s that it hears
+  me (what I send does not get out: a mute channel on a bad server node, a socket that died while the
+  phone slept), the lobby asks for a fresh channel, from the second try on a fresh socket too, with a
+  doubling pause (7 s, 14 s, 28 s … 60 s). It never re-takes the seat for that (`join_room` is
+  rate-limited). Both host and guest do this; the side whose link works does nothing.
+- **Only paired players can get ready.** The ally's card says "Connecting to <name>…" until both
+  sides see each other; Ready (guest) and Start (host) unlock only then, so a guest can never be
+  "ready" for a host that cannot hear it.
+- **Traffic.** Hellos are fast only during a fresh handshake: 1 a second while we look for each other
+  (the first 15 s of a search; a host alone: every 4 s), then a slow beacon every 20 s (a stuck guest, a
+  host waiting long, a version mismatch on screen). A hidden tab hellos at most every 20 s and says
+  hello at once when it is shown again. Every (re)join and Retry still says hello at once, and a hello
+  that does not see me yet is answered at once. A lobby with no ally joining or leaving, no Ready, no
+  stage change and no Retry for 30 minutes closes ("This room closed after 30 minutes without a
+  battle").
+- **Leaving says goodbye, even by closing the tab.** realtime-js closes its socket in its own
+  `pagehide` handler, which used to run before the lobby's, so the `leave` (and the battle's `bye`)
+  never got out. The Supabase adapter now registers its `pagehide` listener before it creates the
+  client and lets the room say goodbye first; the seat is freed with `leave_room` sent as a
+  `fetch(..., { keepalive: true })` with the session's cached access token and the publishable key
+  (supabase-js would first await its session and never get to send). Leave, Back and Retry still go
+  through supabase-js. A page restored from the back/forward cache opens its room again.
+- **Waking up.** A phone locked for a while can come back with a socket that looks open but is dead
+  (WebKit does not always report the close; realtime-js only notices at its next missed heartbeat,
+  25–50 s later). Back on the tab after at least 3 s, the room sends a heartbeat and replaces the socket
+  when it is not answered within 4 s. Retry replaces the socket too.
 - **What the lobby shows.** "Connecting to room…" until the channel is joined, then "Waiting for your
-  ally…" (host) or "Looking for the host…" (guest), "Reconnecting…" while the link is down, and after
-  15 s without a host (or without a link) a banner with what to check and a **Retry** button. Retry takes
-  the seat again (`join_room` / `open_room`, so a room that is gone says "No room uses that code") on a
-  fresh channel. A code with a typo is refused by `join_room` straight away: "No room uses that code".
-- **Lobby traffic** is small: 1 hello a second per player while they look for each other, 1 every 2 s
-  for a host waiting alone, then 1 every 3 s each.
+  ally…" (host) or "Looking for the host…" (guest), "Connecting to <name>…" while only one side hears
+  the other, "Reconnecting…" while the link is down, and after 15 s without a host (or without a link)
+  a banner with what to check and a **Retry** button. Retry takes the seat again (`join_room` /
+  `open_room`, so a room that is gone says "No room uses that code") on a fresh socket and channel. A
+  code with a typo is refused by `join_room` straight away: "No room uses that code". A third player
+  gets a "Room full" page (no seats, no Ready). When the ally leaves or vanishes, the host sees
+  "<name> left the room" with a **New room** button: someone coming back from another browser or
+  device is a different account and may find the seat still taken.
 
 ### Co-op lockstep
 
@@ -264,10 +298,12 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   browser kept for GitHub Pages' 10 minutes) can meet an updated client, and that pair would desync
   every time. `hello` and `start` carry `coopVersion()` (`src/online/coop/version.js`): the protocol
   number, the **sim id** (a hash of every source file the lockstep battle runs on — the import graph of
-  `src/sim`, `src/online/coop` and `src/online/adapters`, computed by `tools/simId.mjs` in
-  `vite.config.js`), a hash of the battle data, the git commit and the player-facing version. Two
-  clients pair when protocol, sim id and data match, so deploys that only change art, audio, menus or
-  the renderer don't split players. When they differ the lobby names both versions and who is behind
+  `src/sim`, the co-op protocol files `src/online/coop/{session,lockstep,commands,loadout,version}.js`
+  and `src/data/coop.js` with the net settings, computed by `tools/simId.mjs` in `vite.config.js`), a
+  hash of the battle data, the git commit and the player-facing version. Two clients pair when
+  protocol, sim id and data match, so deploys that only change art, audio, menus, the save, missions,
+  post-battle rewards, the room adapters (chat / clan / social code) or the renderer don't split
+  players. A change to any hashed file does: both players then need the new deploy. When they differ the lobby names both versions and who is behind
   ("Chuu is on v0.1.16 and you're on v0.1.17 …"); the one behind gets an **Update** button.
 - **Version number + updates.** Every deploy gets a player-facing version `<major>.<minor>.<deploy
   number>` (GitHub Actions run number; local builds say `0.1.dev`), shown on the title screen, in
@@ -304,6 +340,9 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
 - **Promises.**
   - Every heartbeat says "I will send nothing more up to tick N". A client only runs tick T when its ally
     has promised T. Otherwise it shows **Waiting for ally…** and raises its input delay (up to 3×).
+    After 10 s without a stall the delay steps back toward its base (half the excess per step), so one
+    hiccup does not slow every later order for the rest of the battle. Lowering it is always safe:
+    promises never shrink, and new orders are scheduled after the last promise.
   - A heartbeat goes out at once when the player gives an order; otherwise only when the promise has
     moved on by half an input delay (local: every 50 ms; Supabase: at most every 250 ms) or, when
     nothing changes, as a keepalive (Supabase: once a second).
@@ -367,13 +406,17 @@ The vitest suite covers:
   with every scripted order accepted.
 - `battleRoute.test.js`: solo battle routes never pick up a co-op session.
 - `coopSession.test.js`: the lobby handshake over a fake network with simulated time: pairing time, a
-  mute host found as soon as its link works (no reconnect needed), a lost answer, hello on every rejoin,
-  a lost `ready`, the 10 s silence rule (not while my own link is down), a mismatch that clears, the
-  15 s "cannot find the host" state and Retry, a code with a typo, the lobby message budget, a third
-  player, and the start message re-sent until the guest answers.
+  mute host found as soon as its link works, a lost answer, hello on every rejoin, a lost `ready`, the
+  25 s silence rule (not while my own link is down), a mismatch that clears (same player again, its
+  `leave`, or its silence), the 15 s "cannot find the host" state and Retry, a code with a typo, a
+  one-way link on either side healed with fresh channels / sockets and a backoff (never re-taking the
+  seat), the lobby message budget per hour (stuck, alone, paired, hidden, mismatched), an untouched
+  lobby closing after 30 min, a third player, and the start message re-sent until the guest answers.
 - `supabaseRoom.test.js`: the Supabase room channel against a scriptable fake: no presence, the outbox
   flushed at the join, status reports, realtime-js's own rejoin, a fresh channel after `CLOSED` or when
-  stuck (with backoff, and not while the socket itself is down), Retry, and close.
+  stuck (with backoff, and not while the socket itself is down), Retry (seat + socket) and the one-way
+  heal (neither), the tab closing (the goodbye gets out before realtime-js closes the socket, the seat
+  is freed with a keepalive `leave_room`), the wake-up probe, and close.
 - `schema.test.js`:
   - lints the migration;
   - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema, once with
@@ -393,9 +436,11 @@ The e2e test opens two pages of one browser in local mode. It checks:
 - the clan boss, including one attempt through a real battle that lands on the damage ranking;
 - the Rosie777 Supply Bot;
 - the co-op lobby with faked connection faults (`window.__coop.room._cut()` / `_heal()` in local mode):
-  a code with a typo, a mute host that the guest cannot find (the 15 s banner and Retry) and then finds
-  within seconds once the host's link works again, a `ready` lost on a mute link, and a dropped guest
-  link that shows "Reconnecting…" and comes back paired and still ready;
+  a code with a typo, a mute host that shows "Connecting to Bea…" with Start locked and heals its
+  one-way link by itself, the guest leaving ("Bea left the room" + New room), a host whose link is dead
+  both ways (the guest's 15 s banner and Retry, then found within seconds once the host's link works
+  again), a third player's "Room full", a `ready` lost on a mute link, and a dropped guest link that
+  shows "Reconnecting…" and comes back paired and still ready;
 - a co-op battle where both players place a girl and the state hashes match, a dropped and re-admitted
   guest, and the host playing on alone.
 
@@ -416,6 +461,33 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | Co-op says "No room uses that code" | The host closed the room, or the code is older than a day, or it has a typo. Ask for a new one |
 | Co-op guest keeps saying **Looking for the host…**, then "The host … has not answered yet" | The host's page is closed, asleep (phone screen off) or on another version. The host opens the room again (or makes a new one); the guest taps **Retry**. If it still fails, check the browser console of both players for `phx_error` on a `coop:` topic and see the next section |
 | Co-op lobby or battle says **Reconnecting…** | That player's Realtime connection dropped (network change, phone sleeping). The game rejoins on its own within 1–15 s and says hello again; nothing to do. If it never ends, reload the page |
+| Co-op says **This room already has two players** to a friend who was just in it | They came back from another browser or device (a different anonymous account) while their old seat was still held (a crash or a tab killed by the phone skips the goodbye). The host taps **New room** (shown when the ally left) and sends the new code. See "Proposal: the host frees the seat" below |
+| Co-op lobby says **This room closed after 30 minutes without a battle** | Working as intended (Realtime bills every lobby message). Open a new room |
+
+### Proposal: the host frees the seat (server change, not applied)
+
+The client now frees the guest's seat when the tab closes (a keepalive `leave_room`), but a browser
+that is killed, crashes or loses its network on the way out still leaves `guest_id` set, and
+`join_room` refuses anyone else for up to a day. The host already sees that the guest is gone (no
+hellos for 25 s, or its `leave`), so a host-only function would close the gap. This is a proposal only;
+it is **not** in `supabase/migrations` and the game does not call it. To adopt it, paste this into the
+SQL editor, add it to a new migration, and have the lobby call it when its ally left or went silent:
+
+```sql
+-- The host gives the guest seat back (its ally left or went silent): the next join_room can take it.
+create or replace function public.free_seat(p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
+  update coop_rooms set guest_id = null
+   where code = upper(trim(coalesce(p_code, ''))) and host_id = auth.uid();
+end $$;
+revoke all on function public.free_seat(text) from public, anon;
+grant execute on function public.free_seat(text) to authenticated;
+```
+
+The secret does not change, so a guest who comes back on the same account simply takes the seat again.
+Until then, **New room** is the way out.
 
 ### Realtime presence crashed co-op rooms (found 2026-10-13, fixed in the game)
 
