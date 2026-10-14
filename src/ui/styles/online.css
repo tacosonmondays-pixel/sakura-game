@@ -317,6 +317,11 @@
 .ol-coop-facts { margin: 0; padding-left: 18px; font-size: 0.8rem; font-weight: 700; color: var(--ink); }
 .ol-coop-facts li::marker { color: var(--pink); }
 .ol-coop-right { display: flex; flex-direction: column; }
+/* "Your last room" + Rejoin (co-op menu) */
+.ol-coop-last { border: 2px solid var(--yellow); }
+.ol-last-room { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ol-last-code { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.3rem; letter-spacing: 0.12em; color: var(--navy); }
+.ol-last-room small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ol-invites { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .ol-invites > .btn { align-self: flex-start; }
 .ol-invite-row { display: flex; align-items: center; gap: 8px; background: #f4f8fd; border-radius: 10px; padding: 5px 8px; }
@@ -411,6 +416,13 @@
 .bt-ally-note { margin: 6px 0; padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; color: var(--navy); background: color-mix(in srgb, var(--ally, #ff8fab) 20%, #fff); border-left: 4px solid var(--ally, #ff8fab); }
 .bt-panel-ally .bt-panel-foot button, .bt-panel-ally [data-testid^="buy-"] { filter: grayscale(0.8); opacity: 0.55; }
 .bt-coop-note { text-align: center; font-weight: 800; color: var(--blue-deep); background: var(--blue-soft); border-radius: 8px; padding: 6px 10px; margin: 6px auto; max-width: 520px; }
+/* results sheet: where the ally went once the battle is over ("Bea is back in the room") */
+.bt-coop-ally { text-align: center; font-size: 0.82rem; font-weight: 800; color: var(--navy); background: color-mix(in srgb, #ff8fab 18%, #fff); border-left: 4px solid #ff8fab; border-radius: 8px; padding: 5px 10px; margin: 6px auto; max-width: 520px; }
+.bt-coop-ally[hidden] { display: none; }
+/* a short phone screen: that line takes the place of the drops note, so the buttons stay in view */
+@media (max-height: 480px) {
+  .bt-result:has(> .bt-coop-ally:not([hidden])) > .bt-coop-note { display: none; }
+}
 @media (max-height: 480px) { .ol-coop-hud { top: calc(44px + var(--safe-top)); font-size: 0.66rem; } .ol-coop-name { max-width: 70px; } }
 /* narrow screens: the connection state ("Waiting for ally…", "Ally left…") hangs below the chip */
 @media (max-width: 900px) {

@@ -274,6 +274,39 @@ describe('supabase co-op room channel', () => {
   });
 });
 
+describe('supabase co-op room: a host that steps away keeps its room', () => {
+  async function openHost() {
+    const room = adapter.openRoom('K7Q2Z', { host: true });
+    await settle();
+    net.channels.at(-1).emit('SUBSCRIBED');
+    return room;
+  }
+
+  it('close({ keep }) leaves the channel but not the room: opening it again is "my room" (same secret, same channel)', async () => {
+    const room = await openHost();
+    expect(net.rpc.map((r) => r.fn)).toEqual(['open_room']);
+    room.close({ keep: true });
+    await settle();
+    expect(net.channels.at(-1).removed).toBe(true);
+    expect(net.rpc.map((r) => r.fn)).toEqual(['open_room']); // no leave_room: the row stays
+    // "Your last room" → Rejoin: open_room hands back the same secret, so the same channel
+    const again = await openHost();
+    expect(net.channels.at(-1).name).toBe('coop:K7Q2Z:S1');
+    again.close();
+    await settle();
+    // without keep (New room, an idle lobby) the code is given up
+    expect(net.rpc.map((r) => r.fn)).toEqual(['open_room', 'open_room', 'leave_room']);
+  });
+
+  it('a guest frees its seat even with keep (the host may want someone else)', async () => {
+    const { room, ch } = await openGuest();
+    ch().emit('SUBSCRIBED');
+    room.close({ keep: true });
+    await settle();
+    expect(net.rpc.map((r) => r.fn)).toEqual(['join_room', 'leave_room']);
+  });
+});
+
 describe('supabase co-op room: reconnect options and the page lifecycle', () => {
   it('the one-way heal gets a fresh channel without taking the seat again; Retry also replaces the socket', async () => {
     const { room, ch } = await openGuest();
@@ -334,6 +367,18 @@ describe('supabase co-op room: reconnect options and the page lifecycle', () => 
       expect(url).toBe('https://example.supabase.co/rest/v1/rpc/leave_room');
       expect(init).toMatchObject({ method: 'POST', keepalive: true, body: JSON.stringify({ p_code: 'K7Q2Z' }) });
       expect(init.headers).toEqual({ apikey: 'public-anon-key', Authorization: 'Bearer jwt-123', 'Content-Type': 'application/json' });
+    });
+
+    it('a host closing the tab says goodbye but keeps its room (a reload opens the same one again)', async () => {
+      const s = openSession({ code: 'K7Q2Z', isHost: true, backend: adapter2, exclusive: false, me: { uid: UID, name: 'Aiko', level: 3, avatar: 'aoi', loadout: [], hero: null } });
+      await settle();
+      const c0 = net.channels.at(-1);
+      c0.emit('SUBSCRIBED');
+      win.dispatchEvent(new Event('pagehide'));
+      expect(s.phase).toBe('closed');
+      expect(c0.sent.map((m) => m.type)).toContain('leave');
+      expect(net.rpc.map((r) => r.fn)).toEqual(['open_room']);
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it('Leave (not unloading) still frees the seat through supabase-js', async () => {

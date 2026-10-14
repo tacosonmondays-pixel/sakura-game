@@ -286,6 +286,35 @@ supabase/config.toml             Supabase CLI config (anonymous sign-ins, realti
   "<name> left the room" with a **New room** button: someone coming back from another browser or
   device is a different account and may find the seat still taken.
 
+### Co-op: the room stays after a battle
+
+Owner, Oct 14: "When you lose and go back to coop make it so the room stays and you can rejoin the
+room". Nobody retypes a code or makes a new room to play again:
+
+- **Back to the room.** The results screen offers **Back to the room**, **Leave room** and **Home**.
+  Back to the room (or the phone's back gesture / the browser's Back once the battle is over) takes
+  the session back to its lobby on the same channel (`session.backToLobby()`): the code, the seats
+  and the ally stay. It tells the ally (`{ type: 'lobby' }`); an ally still on its results reads
+  "Aiko is back in the room" on the results sheet. The two pair again with a fresh handshake as soon
+  as both are back; the guest taps Ready again and the host starts a fresh battle (a new lockstep).
+- **Waiting for the ally.** The one back first waits ("Waiting for Bea… They are still on the battle
+  screen") as long as the ally's battle screen keeps talking: a finished battle beats every 8 s
+  (`LOBBY.restBeatMs`; once both are at the end, instead of every second) only to say "still here".
+  An ally silent for 25 s counts as gone silent ("Lost contact with Bea", the guest's Retry banner
+  after 15 s more). A guest whose host left the room waits without an alarm: the room stays.
+- **Left for good** is only a room `leave` (Leave, Home, closing the tab), never a lockstep goodbye: a
+  fatal desync now says `{ type: 'bye', why: 'desync' }`, so the other side reads "Lost sync", and
+  back in the room it waits for its ally instead of calling the room closed.
+- **A host that steps away keeps its room.** Leave, Home, Leave co-op and closing or reloading the
+  tab only stop listening (`close({ keep: true })`, no `leave_room`): `open_room` hands the host the
+  same secret again ("my room"), so an ally still waiting in the channel hears it at once. **New room**
+  and a lobby closed after 30 idle minutes give the code up (`leave_room` deletes the row, as before).
+  A guest always frees its seat.
+- **Your last room.** The co-op menu remembers the room you were last let into (for two hours, per
+  player, `src/online/coop/lastRoom.js`, saved only once the server accepted the seat) and offers **Rejoin**:
+  the host opens it again with its stage, a guest joins it. A reloaded co-op battle page leads back
+  into the same room too ("Back to the room").
+
 ### Co-op lockstep
 
 - **Same simulation on both clients.** The host's start message carries:
@@ -412,11 +441,19 @@ The vitest suite covers:
   one-way link on either side healed with fresh channels / sockets and a backoff (never re-taking the
   seat), the lobby message budget per hour (stuck, alone, paired, hidden, mismatched), an untouched
   lobby closing after 30 min, a third player, and the start message re-sent until the guest answers.
+  The rematch: battles played to their real end (Nightmare, the first enemy through), both back in
+  the room in either order and paired again with no code typed, Ready again before Start, a fresh
+  battle 2 (start re-sent even after a results screen kept beating into the room), the host or the
+  guest going Home, the "lobby" drop, waiting while the ally's battle screen still talks and the
+  silence rule after that, a desync that is not a departure, the slow beat of a finished battle, and
+  which closes keep the host's room.
 - `supabaseRoom.test.js`: the Supabase room channel against a scriptable fake: no presence, the outbox
   flushed at the join, status reports, realtime-js's own rejoin, a fresh channel after `CLOSED` or when
   stuck (with backoff, and not while the socket itself is down), Retry (seat + socket) and the one-way
   heal (neither), the tab closing (the goodbye gets out before realtime-js closes the socket, the seat
-  is freed with a keepalive `leave_room`), the wake-up probe, and close.
+  is freed with a keepalive `leave_room`; a host keeps its room), the wake-up probe, close, and a host
+  that steps away (`close({ keep: true })`: no `leave_room`, the same secret when it opens the room
+  again).
 - `schema.test.js`:
   - lints the migration;
   - runs it twice on real Postgres (PGlite) against a stub of Supabase's auth schema, once with
@@ -441,8 +478,14 @@ The e2e test opens two pages of one browser in local mode. It checks:
   both ways (the guest's 15 s banner and Retry, then found within seconds once the host's link works
   again), a third player's "Room full", a `ready` lost on a mute link, and a dropped guest link that
   shows "Reconnecting…" and comes back paired and still ready;
-- a co-op battle where both players place a girl and the state hashes match, a dropped and re-admitted
-  guest, and the host playing on alone.
+- the rematch: a Nightmare battle that ends on both screens at the same tick, both results screens,
+  the host back in the room first ("Waiting for Bea…", her results say Aiko is back), then the guest
+  through the browser's Back (the phone's back gesture): same code, paired again, Start locked until
+  the guest taps Ready again;
+- battle 2, where both players place a girl and the state hashes match, a dropped and re-admitted
+  guest, and the host playing on alone;
+- "Your last room": the guest (gone Home) and then the host (Leave co-op) find the room on their
+  co-op menu, tap Rejoin, and are paired again in it.
 
 `e2e/engines.mjs` bundles `e2e/engines/scriptedBattle.js` once and runs it in Node, Bun, and Playwright's
 Chromium, Firefox and WebKit (whichever are installed; at least two engines must run, `--require-all`
@@ -458,7 +501,7 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | "Anonymous sign-ins are disabled" | Authentication → Sign In / Providers → Allow anonymous sign-ins |
 | Co-op lobby says the ally **is on an older / newer version** | The one with the lower number taps **Update** (or reloads). Settings → About shows your version and has *Check for updates* |
 | Co-op shows **Waiting for ally…** often | High latency between the players. The input delay adapts up to 3× (1.5 s on Supabase); a closer Supabase region helps |
-| Co-op says "No room uses that code" | The host closed the room, or the code is older than a day, or it has a typo. Ask for a new one |
+| Co-op says "No room uses that code" | The host made a new room, its lobby closed after 30 idle minutes, the code is older than a day, or it has a typo. Ask for a new one |
 | Co-op guest keeps saying **Looking for the host…**, then "The host … has not answered yet" | The host's page is closed, asleep (phone screen off) or on another version. The host opens the room again (or makes a new one); the guest taps **Retry**. If it still fails, check the browser console of both players for `phx_error` on a `coop:` topic and see the next section |
 | Co-op lobby or battle says **Reconnecting…** | That player's Realtime connection dropped (network change, phone sleeping). The game rejoins on its own within 1–15 s and says hello again; nothing to do. If it never ends, reload the page |
 | Co-op says **This room already has two players** to a friend who was just in it | They came back from another browser or device (a different anonymous account) while their old seat was still held (a crash or a tab killed by the phone skips the goodbye). The host taps **New room** (shown when the ally left) and sends the new code. See "Proposal: the host frees the seat" below |
