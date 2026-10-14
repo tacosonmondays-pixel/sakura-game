@@ -10,6 +10,7 @@
 import '../styles/meta-a.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
 import { chatButton } from '../online/lobbyChat.js';
+import { hub } from '../online/socialHub.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -344,9 +345,11 @@ function buildTop(host, { openSecretaryPicker }) {
         { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox },
         { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal },
         // [online]
-        { icon: 'students', label: 'Clan', testid: 'menu-clan', go: () => navigate('clan') },
+        { icon: 'students', label: 'Clan', testid: 'menu-clan', badge: hub.badges.donationsReady > 0, go: () => navigate('clan') },
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
         { icon: 'mail', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
+        // [social] private messages (shown once the server has the social update)
+        ...(hub.ready ? [{ icon: 'mail', label: 'Messages', testid: 'menu-messages', badge: hub.count || null, go: () => navigate('messages') }] : []),
       ] }) },
         svgEl(glyph('menu'), 'lb-glyph')),
     ),

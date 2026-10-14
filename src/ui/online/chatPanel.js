@@ -7,6 +7,9 @@ import { navigate } from '../router.js';
 import { ensureOnline, avatar, levelChip, clock, showError, localNotice, CHAT_GLYPH } from './common.js';
 import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
+import { bodyError } from '../../online/socialRules.js';
+import { hub } from './socialHub.js';
+import { openPlayerCard } from './playerCard.js';
 
 const MAX = 200;
 const SEEN_KEY = 'ss-online-seen';
@@ -47,16 +50,24 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   let cooldown = 0;
   let statusTimer = 0;
 
+  // [social] tap someone's avatar or name: their player card (Message, Invite, Add friend, Block, Report)
+  function openCard(m) {
+    openPlayerCard(m.userId, { name: m.name, level: m.level, avatar: m.avatar }, {
+      context: channel === 'global' ? 'global' : 'clan', messageId: m.id, clanmate: channel !== 'global',
+    });
+  }
+
   function row(m) {
     if (m.kind === 'system') return h('div.ol-msg.ol-msg-system', { 'data-id': m.id }, h('span', m.body), h('time', clock(m.createdAt)));
     const mine = backend && m.userId === backend.uid;
     const invite = m.kind === 'invite' && m.meta?.room;
+    const name = h('b.ol-msg-name', m.name || 'Sensei');
     return h(
       `div.ol-msg${mine ? '.ol-msg-mine' : ''}`,
-      { 'data-id': m.id, 'data-testid': 'chat-msg' },
-      mine ? null : avatar(m.avatar, compact ? 28 : 34),
+      { 'data-id': m.id, 'data-testid': 'chat-msg', 'data-user': m.userId || '' },
+      mine ? null : h('button.ol-msg-av', { type: 'button', 'aria-label': `${m.name || 'Sensei'}: player card`, 'data-testid': 'chat-avatar', onclick: () => openCard(m) }, avatar(m.avatar, compact ? 28 : 34)),
       h('div.ol-msg-col',
-        h('div.ol-msg-head', h('b.ol-msg-name', m.name || 'Sensei'), levelChip(m.level), h('time', clock(m.createdAt))),
+        h('div.ol-msg-head', mine ? name : h('button.ol-msg-who', { type: 'button', 'data-testid': 'chat-name', onclick: () => openCard(m) }, name), levelChip(m.level), h('time', clock(m.createdAt))),
         h('div.ol-bubble', m.body,
           invite ? h('button.ol-invite-btn', { 'data-testid': 'invite-join', onclick: () => navigate('coop', { id: m.meta.room }) }, 'Join co-op') : null)),
     );
@@ -64,6 +75,8 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
 
   function add(m, scroll = true) {
     if (shown.has(m.id)) return;
+    // [social] players you blocked: their lines (and clan invites) are not shown
+    if (m.userId && hub.isBlocked(m.userId)) return;
     shown.add(m.id);
     list.querySelector('.ol-chat-empty')?.remove();
     const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
@@ -125,6 +138,12 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   async function send() {
     const body = input.value.trim();
     if (!body || !backend) return;
+    // [social] the same text rule as the server's chat guard (invisible / bidi characters)
+    const bad = bodyError(body);
+    if (bad) {
+      setStatus(bad, 'bad', 3000);
+      return;
+    }
     const v = backend.limiter.check('chat');
     if (!v.ok) {
       countdown(v.retryMs);
@@ -151,6 +170,10 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     count.textContent = n > MAX - 40 ? `${MAX - n}` : '';
   });
   load();
+  // [social] someone was just blocked: their lines go at once
+  const offBlocked = hub.on('blocked', (set) => {
+    for (const r of list.querySelectorAll('.ol-msg[data-user]')) if (r.dataset.user && set.has(r.dataset.user)) r.remove();
+  });
 
   return {
     el,
@@ -164,6 +187,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     },
     destroy() {
       destroyed = true;
+      offBlocked();
       unsub();
       cancelAnimationFrame(cooldown);
       clearTimeout(statusTimer);
@@ -192,12 +216,21 @@ export async function openChatDrawer() {
   paintTabs();
   const close = () => {
     overlay.classList.add('out');
+    offDms.forEach((off) => off());
     panel.destroy();
     window.removeEventListener('hashchange', close);
     setTimeout(() => overlay.remove(), 220);
   };
+  // [social] Messages (with the unread number) once the server has the social update
+  const dms = h('button.ol-drawer-full.sc-drawer-dm', { 'data-testid': 'drawer-messages', hidden: !hub.ready, onclick: () => { close(); navigate('messages'); }, title: 'Private messages' }, 'Messages');
+  const paintDms = () => {
+    dms.hidden = !hub.ready;
+    dms.replaceChildren('Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null);
+  };
+  paintDms();
+  const offDms = [hub.on('badges', paintDms), hub.on('status', paintDms)];
   const drawer = h('aside.ol-drawer', { 'data-testid': 'chat-drawer' },
-    h('header.ol-drawer-head', svgEl(CHAT_GLYPH, 'ol-drawer-ico'), h('b', 'Chat'), tabs,
+    h('header.ol-drawer-head', svgEl(CHAT_GLYPH, 'ol-drawer-ico'), h('b', 'Chat'), tabs, dms,
       h('button.ol-drawer-full', { onclick: () => { close(); navigate('chat'); }, title: 'Full screen' }, 'Open'),
       h('button.ol-drawer-x', { 'data-testid': 'drawer-close', onclick: () => close(), 'aria-label': 'Close' }, '×')),
     panel.el);

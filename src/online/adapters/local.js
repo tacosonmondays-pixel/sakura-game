@@ -81,7 +81,15 @@ export function createLocalAdapter(env = {}) {
     async init() {
       if (BC && !bus) {
         bus = new BC(BUS);
-        bus.onmessage = (e) => e.data?.topic && notifyLocal(e.data.topic);
+        // Another tab's write to localStorage can reach this tab a moment AFTER its
+        // BroadcastChannel ping (separate processes): look again shortly. Every listener is
+        // idempotent (chat by message id, the inbox by cursor, clans by a debounced refresh).
+        bus.onmessage = (e) => {
+          const topic = e.data?.topic;
+          if (!topic) return;
+          notifyLocal(topic);
+          setTimeout(() => notifyLocal(topic), 400);
+        };
       }
       // storage events also reach other tabs when BroadcastChannel is missing
       globalThis.addEventListener?.('storage', (e) => {

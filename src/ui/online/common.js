@@ -44,6 +44,8 @@ export function ensureOnline({ ask = true } = {}) {
     if (name && (backend.user?.name !== name || backend.user?.level !== card.level || backend.user?.avatar !== card.avatar)) {
       await backend.updateProfile({ name, ...card });
     }
+    // [social] a player who is online now gets badges, live DMs and invite pop-ups (the hub)
+    import('./socialHub.js').then((m) => m.startSocialHub({ force: true })).catch(() => {});
     return backend;
   })();
   pending.catch(() => {}).finally(() => {
@@ -195,8 +197,15 @@ export function connecting(host, run) {
   const status = h('p.muted', 'Connecting…');
   host.replaceChildren(h('div.ol-connecting', h('i.ol-spinner'), status));
   run().catch((e) => {
+    const box = host.querySelector('.ol-connecting');
+    // the screen was already drawn (a later step failed): keep it, just say so
+    if (!box) {
+      console.warn('[online] screen step failed', e);
+      showError(e);
+      return;
+    }
     status.textContent = errorText(e);
-    host.querySelector('.ol-connecting').append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
+    box.append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
   });
 }
 

@@ -7,16 +7,29 @@ import { h, svgEl } from '../components.js';
 import { getBackend } from '../../online/backend.js';
 import { ensureOnline, storedName, CHAT_GLYPH } from './common.js';
 import { openChatDrawer, lastSeen } from './chatPanel.js';
+import { hub } from './socialHub.js';
 
 /** @returns {HTMLButtonElement} */
 export function chatButton() {
   const dot = h('span.ol-unread', { hidden: true, 'data-testid': 'chat-unread' });
+  // [social] unread private messages + friend requests: a pink number (the red dot stays for chat)
+  const count = h('span.sc-badge', { hidden: true, 'data-testid': 'top-chat-count' });
+  const paintCount = () => {
+    const n = hub.count;
+    count.hidden = !n;
+    count.textContent = n > 99 ? '99+' : String(n);
+    dot.classList.toggle('under', !!n);
+  };
+  paintCount();
+  const offHub = [hub.on('badges', paintCount), hub.on('status', paintCount)];
   const btn = h('button.lb-tr-btn.ol-top-chat', { title: 'Chat', 'aria-label': 'Chat', 'data-testid': 'top-chat', onclick: () => { dot.hidden = true; openChatDrawer(); } },
-    svgEl(CHAT_GLYPH, 'lb-glyph'), dot);
+    svgEl(CHAT_GLYPH, 'lb-glyph'), dot, count);
   let unsub = null;
   const stop = () => {
     unsub?.();
     unsub = null;
+    offHub.forEach((off) => off());
+    offHub.length = 0;
   };
   if (storedName()) {
     (async () => {

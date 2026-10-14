@@ -31,6 +31,8 @@ registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] 
 registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
+// [social] private messages, friends, blocks (#/messages[/<threadId>|/new][?tab=…])
+registerRoute('messages', () => import('./ui/screens/messages.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
 
 store.load();
@@ -105,6 +107,17 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
+
+// [social] badges, live DMs and invite pop-ups for players who already went online (a stored
+// online name; the hub never creates an account). Lazy, after the first screen.
+try {
+  // (local mode keeps the name per tab; startSocialHub() checks the right one)
+  if ([localStorage, sessionStorage].some((st) => st.getItem('ss-online-v1')?.includes('"name"'))) {
+    setTimeout(() => import('./ui/online/socialHub.js').then((m) => m.startSocialHub()).catch((e) => console.warn('[main] social hub unavailable', e)), 1500);
+  }
+} catch {
+  /* storage blocked: no hub until the player opens an online screen */
+}
 
 // [audio] music + SFX engine (docs/AUDIO.md): lazy, never blocks the first screen
 import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => console.warn('[main] audio unavailable', e));

@@ -6,9 +6,11 @@ import { ensureOnline, onlinePill, avatar, levelChip, askName, storedName, PEOPL
 import { store } from '../../core/store.js';
 import { profileCard } from '../../online/identity.js';
 import { getBackend } from '../../online/backend.js';
+import { onlineHeadExtra } from '../online/inboxButton.js';
+import { hub } from '../online/socialHub.js';
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Chat', { cls: 'ol-screen' });
+  const { el, body } = screen('Chat', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   const side = h('aside.ol-side');
   const main = h('div.ol-main');
@@ -41,6 +43,15 @@ export function render(root, params = {}) {
     paintSide(clan);
   })();
 
+  // [social] Messages · 3 (hidden until the server has the social update)
+  const dmLink = h('button.ol-link', { onclick: () => navigate('messages'), 'data-testid': 'chat-to-messages', hidden: !hub.ready });
+  const paintDm = () => {
+    dmLink.hidden = !hub.ready;
+    dmLink.replaceChildren(svgEl(glyph('mail'), 'ol-link-ico'), h('span', 'Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null));
+  };
+  paintDm();
+  const offHub = [hub.on('badges', paintDm), hub.on('status', paintDm)];
+
   function paintSide(clan) {
     const card = profileCard(store.profile);
     // no name chosen yet ("Not now"): the automatic one the server gave this account
@@ -53,13 +64,15 @@ export function render(root, params = {}) {
         button('Change name', { kind: 'ghost', small: true, testid: 'chat-rename', onClick: async () => { await askName({ title: 'Change name', current: storedName() }); nameEl.textContent = shownName(); } })),
       h('section.panel.ol-side-links',
         h('button.ol-link', { onclick: () => navigate('clan'), 'data-testid': 'chat-to-clan' }, svgEl(PEOPLE_GLYPH, 'ol-link-ico'), h('span', clan ? `Clan · ${clan.name}` : 'Find a clan')),
-        h('button.ol-link', { onclick: () => navigate('coop'), 'data-testid': 'chat-to-coop' }, svgEl(glyph('sword'), 'ol-link-ico'), h('span', 'Co-op battle'))),
-      h('p.muted.ol-rules', 'Be kind. Chat is limited to one message every 2 seconds and 20 per minute.'),
+        h('button.ol-link', { onclick: () => navigate('coop'), 'data-testid': 'chat-to-coop' }, svgEl(glyph('sword'), 'ol-link-ico'), h('span', 'Co-op battle')),
+        dmLink),
+      h('p.muted.ol-rules', 'Be kind. Chat is limited to one message every 2 seconds and 20 per minute. Tap a name to message, invite, block or report.'),
     );
   }
 
   return () => {
     destroyed = true;
+    offHub.forEach((off) => off());
     panel?.destroy();
   };
 }
