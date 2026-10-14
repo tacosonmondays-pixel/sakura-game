@@ -566,12 +566,17 @@ export function createSupabaseAdapter({ url, key }) {
     // 25–50 s later). Back on the tab after WAKE_PROBE_AFTER_MS, the room sends a heartbeat and
     // replaces the socket when it is not answered within SOCKET_PROBE_MS.
     // onUnload: called when the page goes away (before realtime-js closes its socket).
+    // close({ keep }): a host that only steps away (Leave, Home, a reload) keeps its room
+    // registered: open_room hands it the same secret again ("my room"), so an ally still waiting
+    // in the channel hears it at once. Without keep (New room, an idle lobby) the code is freed.
+    // onSeated: [social] called once the server registered the seat (a DM invite can go out).
     openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onUnload = null, onSeated = () => {} } = {}) {
       const self = need();
       let c = null;
       let secret = null;
       let ch = null;
       let closed = false;
+      let keepRoom = false; // closed with keep: a host's room stays registered
       let seated = false;
       let status = 'connecting';
       let everJoined = false;
@@ -762,7 +767,7 @@ export function createSupabaseAdapter({ url, key }) {
           return;
         }
         if (closed) {
-          rpc('leave_room', { p_code: code }).catch(() => {});
+          if (!(host && keepRoom)) rpc('leave_room', { p_code: code }).catch(() => {});
           return;
         }
         // [social] the room exists on the server now: a DM invite for it can be sent
@@ -834,9 +839,10 @@ export function createSupabaseAdapter({ url, key }) {
           }
           await join();
         },
-        close() {
+        close({ keep = false } = {}) {
           if (closed) return;
           closed = true;
+          keepRoom = !!keep;
           rooms.delete(entry);
           doc?.removeEventListener?.('visibilitychange', onVisibility);
           clearTimeout(retryTimer);
@@ -846,8 +852,9 @@ export function createSupabaseAdapter({ url, key }) {
           ch = null;
           if (old) Promise.resolve(c?.removeChannel(old)).catch(() => {});
           // free the seat (a guest's seat would otherwise lock out anyone else for a day); while
-          // the page unloads, as a keepalive request that outlives it
-          if (seated && !(unloading && leaveRoomNow(code))) rpc('leave_room', { p_code: code }).catch(() => {});
+          // the page unloads, as a keepalive request that outlives it. A host that keeps its
+          // room only stops listening (see close({ keep }) above)
+          if (seated && !(host && keepRoom) && !(unloading && leaveRoomNow(code))) rpc('leave_room', { p_code: code }).catch(() => {});
         },
       };
       return api;

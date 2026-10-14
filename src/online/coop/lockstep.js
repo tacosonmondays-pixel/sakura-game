@@ -12,7 +12,8 @@
 //               ride along on every beat, so a lost packet costs nothing)
 //   { type: 'resync?', from }                  guest saw a hash mismatch: please send state
 //   { type: 'resync', from, start, T, cmds }   host: rebuild from start, replay cmds up to T
-//   { type: 'bye', from, why? }                leaving (why 'timeout': "I lost you", rejoinable)
+//   { type: 'bye', from, why? }                leaving (why 'timeout': "I lost you", rejoinable;
+//                                              'desync': "our battles disagree", final)
 //   { type: 'rejoin', from, ep, start, T, cmds }  host → a dropped guest that is alive again:
 //                                              adopt my timeline (rebuild, replay to T)
 // Every message carries `ep` (the timeline epoch, bumped by each rejoin) so packets from a
@@ -252,6 +253,10 @@ export class Lockstep {
       this.note('bye', { why: msg.why || null, ep });
       if (msg.why === 'timeout') {
         if (ep === this.epoch) this.dropPeer(peer, 'lost');
+      } else if (msg.why === 'desync') {
+        // its battle gave up on ours: final like leaving, but it did not leave
+        if (!peer.gone) this.dropPeer(peer, 'desync');
+        else if (REJOINABLE.has(peer.why)) peer.why = 'desync';
       } else if (peer.gone) peer.why = 'left';
       else this.dropPeer(peer, 'left');
       return;
@@ -333,7 +338,7 @@ export class Lockstep {
       // a second desync shortly after a resync: the engines disagree (e.g. Math.sin), give up
       this.desynced = true;
       for (const p of this.peers.values()) this.dropPeer(p, 'desync');
-      this.send({ type: 'bye' });
+      this.send({ type: 'bye', why: 'desync' });
       this.hooks.onDesync?.('fatal');
       return;
     }
