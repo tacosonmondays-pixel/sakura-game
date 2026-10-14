@@ -1,4 +1,4 @@
-// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&endless=1]
+// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&mode=rush][&endless=1]
 // Map preview, wave info, enemy scouting chips, recommended counters with one-tap
 // "Add to formation", formation strip, difficulty picker with medals, drop table,
 // first-clear rewards, Start and Sweep.
@@ -26,6 +26,9 @@ import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless }
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
+import {
+  initialMode, playMode, startLabel, livesFor, modeSubLine, ribbonCorner, firstClearNote, rulePanel, modePanel, withRuleMarks,
+} from './stageModes.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -353,6 +356,8 @@ export function render(root, params = {}) {
     difficulty: DIFFICULTIES[params.difficulty] ? params.difficulty : defaultDifficulty(store.profile, stage),
   };
   if (endless || stage.kind === 'challenge') state.difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  // battle mode (docs/specs/CODEX_MODES.md §8.1): remembered in the route like the difficulty
+  state.mode = initialMode(store.profile, stage, params, endless);
 
   const draw = () => {
     clear(body);
@@ -398,7 +403,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   // ----- Left: map + info + enemies ------------------------------------------------
   const left = h('div.ma-prep-col.left');
   const tier = MAP_TIERS[stage.tier];
-  const thumb = h('div.ma-prep-thumb', { html: map ? stageThumbSVG(map, { width: 480, height: 300 }) : '' });
+  const thumb = h('div.ma-prep-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
   // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   const hero = h(
@@ -423,7 +428,7 @@ function buildPrep(stage, state, { endless, redraw }) {
     h('p.ma-stage-desc', stage.desc),
     h('div.ma-facts',
       fact('Waves', isEndless ? '∞' : String(stage.waves)),
-      fact('Lives', String(DIFFICULTIES[state.difficulty].lives)),
+      fact('Lives', String(livesFor(state.difficulty, state.mode))),
       fact('Start cash', formatNumber(Math.round(stage.startCash))),
       fact('Map', map?.name || stage.mapId),
       isEndless && entry?.bestWave ? fact('Best wave', String(entry.bestWave)) : null,
@@ -431,6 +436,8 @@ function buildPrep(stage, state, { endless, redraw }) {
     ),
     chapter ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), chapter.mechanic) : null,
   ));
+  const rule = rulePanel(stage);
+  if (rule) left.appendChild(rule);
 
   // Enemies
   const introduces = new Set(stage.introduces || []);
@@ -449,6 +456,9 @@ function buildPrep(stage, state, { endless, redraw }) {
   const right = h('div.ma-prep-col.right');
 
   if (!isEndless) right.appendChild(panel('Difficulty', difficultyPicker(stage, state, medals, redraw)));
+  if (!isEndless && stage.kind === 'campaign') {
+    right.appendChild(modePanel(profile, stage, state, (m) => { state.mode = m; rememberParams('stage', { mode: m }); redraw(); }));
+  }
   else if (endless) right.appendChild(panel('Endless mode', h('p', 'Waves keep coming after the map\'s last wave — survive as long as you can. Your best wave on this map is recorded. Medals are not awarded in endless runs.')));
 
   right.appendChild(countersPanel(stage));
@@ -461,7 +471,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   );
   right.appendChild(dropsPanel);
 
-  if (!isEndless) right.appendChild(firstClearPanel(stage, medals));
+  if (!isEndless) right.appendChild(firstClearPanel(stage, medals, state.mode));
 
   // Actions
   const formationOk = formationIds(profile).length > 0;
@@ -472,13 +482,15 @@ function buildPrep(stage, state, { endless, redraw }) {
     if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
     if (!isEndless) actions.appendChild(sweepControls(stage, state));
-    const start = button(isEndless ? 'Start endless' : `Start · ${DIFFICULTIES[state.difficulty].name}`, {
+    const start = button(isEndless ? 'Start endless' : startLabel(state.difficulty, state.mode), {
       kind: 'yellow',
       icon: 'play',
       testid: 'stage-start',
       disabled: !formationOk,
       onClick: () => {
         const p = { stage: stage.id, difficulty: state.difficulty };
+        const mode = playMode(state.difficulty, state.mode);
+        if (!isEndless && mode !== 'standard') p.mode = mode;
         if (endless) p.endless = 1;
         navigate('battle', p);
       },
@@ -519,8 +531,9 @@ function difficultyPicker(stage, state, medals, redraw) {
       },
       svgEl(medalIcon(d, { earned: medals[d] }), 'ma-diff-medal'),
       h('span.ma-diff-name', def.name),
-      h('span.ma-diff-sub', DIFF_SUMMARY[d]),
-      medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`),
+      h('span.ma-diff-sub', modeSubLine(DIFF_SUMMARY[d], d, state.mode)),
+      ribbonCorner(store.profile, stage.id, d, state.mode)
+        ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`)),
     );
     row.appendChild(b);
   }
@@ -602,7 +615,7 @@ function formationPanel() {
   );
 }
 
-function firstClearPanel(stage, medals) {
+function firstClearPanel(stage, medals, mode = 'standard') {
   const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
   const medalGems = DIFFICULTY_ORDER.map((d) => h(
     `div.ma-fc-medal${medals[d] ? '.done' : ''}`,
@@ -613,7 +626,7 @@ function firstClearPanel(stage, medals) {
   return panel(
     'First clear',
     h('div.ma-fc', h('div', h('div.ma-sub', cleared ? 'First clear — claimed' : 'First clear (any difficulty)'), h(`div.ma-fc-rewards${cleared ? '.done' : ''}`, rewardTiles(stage.firstClear || []))),
-      h('div', h('div.ma-sub', 'Medal gems (once per difficulty)'), h('div.ma-fc-medals', medalGems))),
+      h('div', h('div.ma-sub', 'Medal gems (once per difficulty)'), h('div.ma-fc-medals', medalGems), firstClearNote(mode))),
     unlocks.length
       ? h('div.ma-unlock-note', unlocks.map((id) => h('div.ma-unlock-unit', card(id, { variant: 'square', owned: isOwned(store.profile, id) }), h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('div.muted', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`)))))
       : null,

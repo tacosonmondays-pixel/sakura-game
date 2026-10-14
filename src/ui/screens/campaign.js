@@ -1,13 +1,15 @@
 // Campaign map picker (owner: meta-a). Route: #/campaign?chapter=3
-// Bloons TD6-style: chapter tabs grouped by map tier, a themed chapter banner and
+// Chapter tabs grouped by map tier, a themed chapter banner and
 // stage cards with stageThumbSVG, a medals row in the corner, lock states with the
-// requirement, "New mechanic" badges and free-recruit badges.
+// requirement, "New mechanic" badges and free-recruit badges, the map rule chip and ribbon counts.
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { CHAPTERS, STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
+import { stageCardRuleChip, stageCardRibbons, withRuleMarks } from './stageModes.js';
+import { chapterRibbons } from '../../systems/unlocks.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { MAP_TIERS, TRAITS, DIFFICULTY_ORDER } from '../../data/types.js';
@@ -118,6 +120,7 @@ function chapterBanner(profile, chapter) {
     h('div.ma-cb-progress',
       h('div.ma-cb-count', h('b', `${prog.cleared}`), `/${prog.total}`),
       h('div.ma-cb-medals', DIFFICULTY_ORDER.map((d) => h('span.ma-cb-medal', svgEl(medalIcon(d, { earned: prog.medals[d] > 0 }), 'ma-cb-medal-icon'), `${prog.medals[d]}`))),
+      h('span.ma-chapter-ribbons', { 'data-testid': `chapter-ribbons-${chapter.id}` }, (() => { const r = chapterRibbons(profile, chapter.id); return `Ribbons ${r.have}/${r.total}`; })()),
     ),
     locked ? h('div.ma-cb-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, chapter.stages[0])) : null,
   );
@@ -158,7 +161,7 @@ function stageCard(profile, stageId, { isNext }) {
     `button.ma-stage-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`,
     { 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }) },
     h('div.ma-sc-top',
-      h('div.ma-sc-thumb', { html: map ? stageThumbSVG(map, { width: 320, height: 200 }) : '' }),
+      h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
       h('span.ma-sc-id', stage.id),
       isNext ? h('span.ma-sc-next', 'NEXT') : null,
       medalRow(profile, stageId, { size: 22, cls: 'ma-sc-medals' }),
@@ -169,8 +172,10 @@ function stageCard(profile, stageId, { isNext }) {
         tier ? h('span.ma-sc-tier', { style: { color: tier.color } }, tier.name) : null,
         h('span.muted', `${stage.waves} waves`),
         isFinale ? h('span.ma-sc-boss', 'BOSS') : null,
+        stageCardRibbons(profile, stage),
       ),
       h('div.ma-sc-badges',
+        stageCardRuleChip(stage),
         mech ? h(`span.ma-sc-mech${mech.boss ? '.boss' : ''}`, mech.icon ? svgEl(mech.icon, 'ma-trait') : null, h('span', mech.enemy ? `New: ${mech.text}` : `New mechanic: ${mech.text}`)) : null,
         unlocks.map((id) => h('span.ma-sc-unlock', { title: `${UNIT_MAP[id].name} joins on first clear` }, h('span.ma-sc-unlock-art', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), `+${UNIT_MAP[id].name}`)),
       ),
