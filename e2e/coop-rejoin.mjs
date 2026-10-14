@@ -381,6 +381,35 @@ try {
     return { ticks: ls.tick, ms: Math.round(performance.now() - t) };
   });
   log(`    the old way (replay from tick 0 in one go) at tick ${old.ticks}: the page blocked for ${old.ms} ms`);
+
+  // ---- 5. how the card looks (a real rebuild is over in a blink here): progress shown as it would be
+  // at wave 87 of a 150-wave run, on the guest at three sizes, and the host's chip ---------------------
+  if (shotsDir) {
+    await B.evaluate(() => {
+      const ls = window.__coop.lockstep;
+      Object.defineProperty(ls, 'rebuilding', { configurable: true, get: () => ({ kind: 'rejoin', done: 1840, total: 3200, wave: 149, target: 150 }) });
+    });
+    await A.evaluate(() => {
+      const p = window.__coop.lockstep.peers.get(1);
+      p.busy = { at: 1840, of: 3200, w: 149, t: window.__coop.lockstep.now() };
+      p.keepBusy = setInterval(() => { p.busy = { at: 1840, of: 3200, w: 149, t: window.__coop.lockstep.now() }; }, 50);
+    });
+    for (const [w, hgt] of [[1280, 720], [844, 390], [390, 844]]) {
+      await B.setViewportSize({ width: w, height: hgt });
+      await B.waitForTimeout(1200);
+      await shot(B, `rejoin-03-sync-card-${w}x${hgt}`);
+    }
+    await A.waitForTimeout(500);
+    await shot(A, 'rejoin-04-host-chip');
+    const card = await B.locator('[data-testid="coop-sync"]').innerText().catch(() => '');
+    check(/Rejoining Aiko's battle/.test(card) && /Wave 149 of 150 · 57%/.test(card), `the card reads "${card.replace(/\s+/g, ' ')}"`);
+    await B.evaluate(() => { delete window.__coop.lockstep.rebuilding; });
+    await A.evaluate(() => {
+      const p = window.__coop.lockstep.peers.get(1);
+      clearInterval(p.keepBusy);
+      p.busy = null;
+    });
+  }
 } catch (e) {
   failures.push(`crashed: ${e.stack || e.message}`);
   log(`  FAIL crashed: ${e.stack || e.message}`);
