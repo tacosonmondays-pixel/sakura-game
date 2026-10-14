@@ -317,7 +317,7 @@ function membersTab(backend, clan, role, pane) {
             acts.push(button('Demote', { kind: 'ghost', small: true, onClick: () => act(() => backend.setRole(m.userId, 'member')) }));
           }
         }
-        if (!me && can(role, 'kick', m.role) && !clan.isDev) acts.push(button('Remove', { kind: 'danger', small: true, onClick: async () => { if (await confirmDialog(`Remove ${m.name} from the clan?`, { title: 'Remove member', ok: 'Remove', danger: true })) act(() => backend.kick(m.userId)); } }));
+        if (!me && can(role, 'kick', m.role) && !clan.isDev) acts.push(button('Remove', { kind: 'danger', small: true, testid: 'member-remove', onClick: async () => { if (await confirmDialog(`Remove ${m.name} from the clan?`, { title: 'Remove member', ok: 'Remove', danger: true })) act(() => backend.kick(m.userId)); } }));
         if (!me) acts.push(button('Co-op', { kind: 'yellow', small: true, icon: 'play', testid: 'member-coop', onClick: () => navigate('coop', { id: makeRoomCode(), host: '1', invite: 'clan' }) }));
         const recent = Date.now() - m.lastActive < 5 * 60000;
         // [social] tap a member: their player card (Message, Invite to co-op, Add friend, Block, Report)

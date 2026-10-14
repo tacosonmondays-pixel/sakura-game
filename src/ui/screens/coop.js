@@ -388,7 +388,7 @@ export function render(root, params = {}) {
               },
             }))))
           : h('div.ol-empty', h('b', 'Nobody to invite yet'), h('p.muted', 'Add friends from their player card (tap a name in chat or your clan), or share the room code.')),
-        actions: [{ label: 'Close', kind: 'ghost' }],
+        actions: [{ label: 'Close', kind: 'ghost', testid: 'coop-candidates-close' }],
       });
     }
 

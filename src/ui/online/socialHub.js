@@ -176,8 +176,43 @@ export function setViewing(threadId) {
 
 // ---- live events -------------------------------------------------------------------------------
 
+/**
+ * The pop-up a live inbox event asks for, or null (pure; tests). Blocked senders never pop up;
+ * "Later" on an invite hides that sender's invite pop-ups for 30 minutes (the invite stays in the
+ * conversation); a DM in the conversation that is open and visible needs none.
+ * @returns {{ kind: 'invite'|'dm'|'friend', row: object }|null}
+ */
+export function popupFor(e, { blocked = new Set(), later = new Map(), viewing = null, visible = true, now = Date.now() } = {}) {
+  if (!e?.row) return null;
+  if (e.type === 'dm') {
+    const m = e.row;
+    if (blocked.has(m.senderId)) return null;
+    if (m.kind === 'invite') return (later.get(m.senderId) || 0) < now && Number(m.meta?.expires) > now ? { kind: 'invite', row: m } : null;
+    return viewing === m.threadId && visible ? null : { kind: 'dm', row: m };
+  }
+  if (e.type === 'friend_request') return blocked.has(e.row.userId) ? null : { kind: 'friend', row: e.row };
+  return null;
+}
+
+/** The pop-ups held during a battle, to show after it: newest first, one per kind and sender, no expired invite (pure). */
+export function afterBattle(queue, now = Date.now()) {
+  const seen = new Set();
+  const out = [];
+  for (const p of [...queue].reverse()) {
+    const key = `${p.kind}:${p.row?.senderId || p.row?.userId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (p.kind === 'invite' && !(Number(p.row.meta?.expires) > now)) continue;
+    out.push(p);
+  }
+  return out;
+}
+
 function onInbox(e) {
   if (!e) return;
+  const pop = popupFor(e, {
+    blocked: state.blocked, later: state.later, viewing: state.viewing, visible: typeof document === 'undefined' || document.visibilityState === 'visible',
+  });
   if (e.type === 'dm' && e.row) {
     const m = e.row;
     if (state.blocked.has(m.senderId)) return;
@@ -185,17 +220,16 @@ function onInbox(e) {
     if (m.kind === 'invite') {
       state.invites.set(m.id, m);
       emitter.emit('invites', hub.invites);
-      if ((state.later.get(m.senderId) || 0) < Date.now()) popup({ kind: 'invite', row: m });
-    } else if (state.viewing !== m.threadId || document.visibilityState !== 'visible') popup({ kind: 'dm', row: m });
+    }
     refreshSoon();
   } else if (e.type === 'friend_request') {
-    if (e.row && !state.blocked.has(e.row.userId)) popup({ kind: 'friend', row: e.row });
     emitter.emit('friend_request', e.row);
     refreshSoon();
   } else if (e.type === 'donation') {
     emitter.emit('donation', e.row);
     refreshSoon();
   }
+  if (pop) popup(pop);
 }
 
 function inBattle() {
@@ -211,16 +245,7 @@ function popup(p) {
 }
 
 function flushQueue() {
-  const q = state.queue.splice(0);
-  // one pop-up per kind and sender is enough after a battle
-  const seen = new Set();
-  for (const p of q.reverse()) {
-    const key = `${p.kind}:${p.row?.senderId || p.row?.userId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (p.kind === 'invite' && !(Number(p.row.meta?.expires) > Date.now())) continue;
-    show(p);
-  }
+  for (const p of afterBattle(state.queue.splice(0))) show(p);
 }
 
 async function show(p) {

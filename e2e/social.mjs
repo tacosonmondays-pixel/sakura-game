@@ -265,6 +265,14 @@ try {
   const room = await A.locator('[data-testid="coop-room-code"]').innerText({ timeout: 10000 });
   check(/^[A-Z0-9]{5}$/.test(room), `co-op: A hosts room ${room}`);
   check(await until(A, () => /Bea/.test(document.querySelector('[data-testid="coop-invited"]')?.innerText || ''), null, 10000), 'co-op: the lobby lists "Invited: Bea"');
+  // the room lobby's own "Invite a friend" list (friends + clanmates): Bea is already invited
+  await tap(A, '[data-testid="coop-invite-friend"]');
+  await wait(A, '[data-testid="coop-candidates"]', { timeout: 10000 });
+  check(await until(A, () => [...document.querySelectorAll('[data-testid="coop-candidate"]')].some((r) => /Bea/.test(r.innerText) && r.querySelector('[data-testid="coop-candidate-invite"]')?.disabled)),
+    'co-op: "Invite a friend" lists Bea, already invited');
+  await shot(A, 'invite-friend-picker');
+  await tap(A, '[data-testid="coop-candidates-close"]');
+  await wait(A, '[data-testid="coop-candidates"]', { state: 'detached', timeout: 5000 }).catch(() => null);
   check(await popped(B, 'invite', t1), 'co-op: B gets the invite pop-up');
   await wait(B, '[data-testid="invite-toast"]', { timeout: 5000 }).catch(() => null);
   check(/invites you to co-op/.test(await text(B, '[data-testid="invite-toast"]')), 'co-op: the pop-up says who invites');
@@ -362,6 +370,26 @@ try {
   check(await until(A, () => [...document.querySelectorAll('[data-testid="donate-request"]')].some((r) => /Cleo/.test(r.innerText) && /Daily limit reached/.test(r.innerText))), 'cap: A\'s buttons say "Daily limit reached — resets at 7 PM Central"');
   check(/resets in .*7 PM Central/.test(await text(A, '[data-testid="donate-reset"]')), 'cap: the footer shows the next reset at 7 PM Central');
   await shot(A, 'requests-capped');
+
+  // ---- a removed clanmate still collects (Clan → browse screen) ------------------------------
+  // B gives Cleo 3 of the plumes B just collected; then A (the leader) removes Cleo from the clan
+  await go(B, '#/clan?tab=members');
+  await go(B, '#/clan?tab=donate');
+  check(await until(B, () => [...document.querySelectorAll('[data-testid="donate-request"]')].some((r) => /Cleo/.test(r.innerText) && r.querySelector('[data-testid="donate-max"]')), null, 12000), 'donate: B can help Cleo');
+  await tap(B, '[data-testid="donate-request"]:has-text("Cleo") [data-testid="donate-max"]');
+  check(await until(C, () => /3\/6/.test(document.querySelector('[data-testid="my-request-progress"]')?.innerText || ''), null, 12000), 'request: Cleo sees 3/6 from Bea');
+  await go(A, '#/clan?tab=members');
+  await wait(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-remove"]`, { timeout: 10000 });
+  await tap(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-remove"]`);
+  await tap(A, '[data-testid="confirm-ok"]');
+  await A.waitForTimeout(800);
+  await C.reload({ waitUntil: 'load' });
+  await go(C, '#/clan');
+  check(await wait(C, '[data-testid="collect-browse"]', { timeout: 15000 }).then(() => true).catch(() => false), 'collect: a removed clanmate sees "Donations waiting for you" on the clan list');
+  await shot(C, 'collect-after-kick');
+  const c0 = await items(C, 'mat_feather_rare');
+  await tap(C, '[data-testid="collect-browse"]');
+  check(await until(C, (n) => (window.__sakura.store.profile.items?.mat_feather_rare || 0) === n + 3, c0, 10000), `collect: Cleo received 3 Swallow Plumes without a clan (${c0} → ${c0 + 3})`);
   await C.close();
 
   // ---- report + block ----------------------------------------------------------------------
@@ -401,6 +429,25 @@ try {
     }
   }, uidB);
   check(/can't get messages from you/.test(refused), `block: A's next DM is refused, with the same words as a privacy refusal ("${refused}")`);
+
+  // ---- Settings → Online and the lobby Menu ---------------------------------------------------
+  await go(A, '#/settings');
+  check(await wait(A, '[data-testid="settings-privacy-friends_clan"]', { timeout: 15000 }).then(() => true).catch(() => false), 'settings: Who can message me (Friends & clan by default)');
+  check(await A.locator('[data-testid="settings-privacy-friends_clan"]').evaluate((b) => b.classList.contains('on')), 'settings: the default is Friends & clan');
+  await A.locator('[data-testid="settings-social"]').scrollIntoViewIfNeeded().catch(() => {});
+  await shot(A, 'settings-online');
+  await tap(A, '[data-testid="settings-privacy-friends"]');
+  check(await until(A, () => document.querySelector('[data-testid="settings-privacy-friends"]')?.classList.contains('on')), 'settings: Friends only is saved');
+  check(await A.evaluate(() => window.__online.socialSummary().then((s) => s.privacy)) === 'friends', 'settings: the server has Friends only');
+  check(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(await text(A, '[data-testid="settings-friend-code"]')), 'settings: my friend code is shown');
+  await lobby(A);
+  await tap(A, '[data-testid="top-menu"]');
+  check(await wait(A, '[data-testid="menu-messages"]', { timeout: 8000 }).then(() => true).catch(() => false), 'menu: a Messages tile');
+  await shot(A, 'menu-messages');
+  await A.keyboard.press('Escape').catch(() => {});
+  await A.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+  await go(A, '#/clan?tab=chat');
+  await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
 
   // ---- the server before the owner runs the SQL (&social=0) ---------------------------------
   const D = await openPage('D');

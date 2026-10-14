@@ -17,6 +17,16 @@ export function render(root, params = {}) {
   body.append(h('div.ol-layout', main, side));
   let panel = null;
   let destroyed = false;
+
+  // [social] Messages · 3 (hidden until the server has the social update)
+  const dmLink = h('button.ol-link', { onclick: () => navigate('messages'), 'data-testid': 'chat-to-messages', hidden: !hub.ready });
+  const paintDm = () => {
+    dmLink.hidden = !hub.ready;
+    dmLink.replaceChildren(svgEl(glyph('mail'), 'ol-link-ico'), h('span', 'Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null));
+  };
+  paintDm();
+  const offHub = [hub.on('badges', paintDm), hub.on('status', paintDm)];
+
   // the layout is there at once (also behind the first-time name prompt); the chat fills in
   // once the account is ready
   main.append(h('section.panel.ol-chat-wait', h('div.ol-connecting', h('i.ol-spinner'), h('p.muted', 'Connecting to chat…'))));
@@ -42,15 +52,6 @@ export function render(root, params = {}) {
     }), panel.el);
     paintSide(clan);
   })();
-
-  // [social] Messages · 3 (hidden until the server has the social update)
-  const dmLink = h('button.ol-link', { onclick: () => navigate('messages'), 'data-testid': 'chat-to-messages', hidden: !hub.ready });
-  const paintDm = () => {
-    dmLink.hidden = !hub.ready;
-    dmLink.replaceChildren(svgEl(glyph('mail'), 'ol-link-ico'), h('span', 'Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null));
-  };
-  paintDm();
-  const offHub = [hub.on('badges', paintDm), hub.on('status', paintDm)];
 
   function paintSide(clan) {
     const card = profileCard(store.profile);

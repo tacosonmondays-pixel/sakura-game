@@ -54,6 +54,8 @@
   position: fixed; left: 50%; top: calc(10px + var(--safe-top)); transform: translateX(-50%); z-index: 210; width: min(94vw, 460px);
   display: flex; flex-direction: column; gap: 8px; pointer-events: none;
 }
+/* a game toast ("You and Aiko are friends!") shows below the pop-ups instead of under them */
+body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(96px + var(--safe-top)); }
 .sc-toast {
   pointer-events: auto; position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 34px 9px 10px; border-radius: 12px;
   background: rgba(255,255,255,0.98); box-shadow: 0 10px 26px rgba(20,35,60,0.28); border: 1px solid #e0eaf6; animation: sc-toast-in 260ms var(--ease) both;
@@ -206,8 +208,9 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
 .sc-don .panel { margin: 0; }
 .sc-don-mine { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .sc-don-mine p { margin: 0; font-size: 0.82rem; }
-.sc-my-req { display: flex; gap: 10px; align-items: center; width: 100%; }
-.sc-my-req-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-my-req { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; width: 100%; }
+.sc-my-req-info { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-my-req > .btn { margin-left: auto; }
 .sc-my-req-info b { color: var(--navy); font-style: italic; }
 .sc-bar { position: relative; height: 16px; border-radius: 5px; background: #e1ebf7; overflow: hidden; transform: skewX(var(--skew)); }
 .sc-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff9fc2, var(--pink)); transition: width 500ms var(--ease); }

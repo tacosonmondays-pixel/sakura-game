@@ -32,16 +32,18 @@ function readNewPeer() {
   }
 }
 
-function dayLabel(ts) {
+/** The day separator of a conversation: Today / Yesterday / Oct 12 (exported for tests). */
+export function dayLabel(ts, now = Date.now()) {
   const d = new Date(ts);
-  const today = new Date();
-  const y = new Date(Date.now() - 86400000);
+  const today = new Date(now);
+  const y = new Date(now - 86400000);
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
   return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
 }
 
-function preview(m) {
+/** The inbox line under a name: "You: hi" / "🎮 Co-op invite" (exported for tests). */
+export function preview(m) {
   if (!m) return '';
   const text = m.kind === 'invite' ? '🎮 Co-op invite' : m.body;
   return m.mine ? `You: ${text}` : text;
