@@ -62,19 +62,22 @@ describe('battle setup', () => {
     expect(parseBattleParams({ stage: '3-1' }, profile).practice).toBe(true);
     expect(parseBattleParams({ stage: '1-1' }, profile).practice).toBe(false);
   });
-  it('only honours endless=1 where the Tactical Challenge screen offers it', () => {
+  it('only honours endless=1 where the Tactical Challenge screen offers it (as freeplay on campaign maps)', () => {
     const profile = createProfile();
-    // 1-1 is unlocked but not cleared yet; 8-5 is locked (practice) — no endless on either
-    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile).endless).toBe(false);
-    expect(parseBattleParams({ stage: '8-5', difficulty: 'easy', endless: '1' }, profile)).toMatchObject({ endless: false, practice: true });
+    // 1-1 is unlocked but not cleared yet; 8-5 is locked (practice) — no freeplay on either
+    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile)).toMatchObject({ endless: false, freeplay: null });
+    expect(parseBattleParams({ stage: '8-5', difficulty: 'easy', endless: '1' }, profile)).toMatchObject({ endless: false, freeplay: null, practice: true });
     profile.progress.stages['1-1'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
-    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile).endless).toBe(true);
-    expect(parseBattleParams({ stage: '1-1' }, profile).endless).toBe(false);
+    // the old endless run on a campaign map is a freeplay run now (Blossom unless a tier is given)
+    expect(parseBattleParams({ stage: '1-1', endless: '1' }, profile)).toMatchObject({ endless: false, freeplay: 'blossom' });
+    expect(parseBattleParams({ stage: '1-1' }, profile)).toMatchObject({ endless: false, freeplay: null, keepGoing: true });
     // the colosseum is endless by nature (a locked one is a practice run)
     expect(parseBattleParams({ stage: 'challenge' }, profile)).toMatchObject({ endless: true, practice: true });
     // the sim follows the request
     const { sim } = createBattleSim(profile, parseBattleParams({ stage: '1-1', endless: '1' }, profile));
-    expect(sim.endless).toBe(true);
+    expect(sim.endless).toBe(false);
+    expect(sim.freeplay).toBe(true);
+    expect(sim.stage.freeplay.id).toBe('blossom');
   });
   it('creates a playable sim with unitBattleStats', () => {
     const profile = createProfile();
