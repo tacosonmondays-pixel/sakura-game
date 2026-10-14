@@ -698,21 +698,33 @@ try {
   await shot(B, 'coop-battle-guest');
 
   // ---- hero rework: each player deploys her own hero (free), the guest buys a level ----------
-  async function placeHero(page) {
-    return page.evaluate(() => {
+  // (the guest searches from the opposite corner and after the host's hero stands, so the two
+  // orders never race for the same spot)
+  async function placeHero(page, fromEnd) {
+    return page.evaluate((rev) => {
       const { sim, ui } = window.__battle;
       const id = sim.heroConfig?.unitId;
       if (!id || sim.hero) return id ? 'already' : null;
-      for (let y = 0.5; y < sim.map.height; y += 0.35) {
-        for (let x = 0.5; x < sim.map.width; x += 0.35) {
+      const ys = [];
+      // a centre right on the map's edge can round out of bounds on the 1/1024 command grid: stay 1 tile in
+      for (let y = 1; y < sim.map.height - 1; y += 0.35) ys.push(y);
+      const xs = [];
+      for (let x = 1; x < sim.map.width - 1; x += 0.35) xs.push(x);
+      if (rev) {
+        ys.reverse();
+        xs.reverse();
+      }
+      for (const y of ys) {
+        for (const x of xs) {
           if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) return ui.act.place(id, x, y) ? id : null;
         }
       }
       return null;
-    });
+    }, fromEnd);
   }
-  const heroA = await placeHero(A);
-  const heroB = await placeHero(B);
+  const heroA = await placeHero(A, false);
+  await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
+  const heroB = await placeHero(B, true);
   check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB})`);
   const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await twoHeroes(A) && await twoHeroes(B), 'co-op heroes: both heroes stand on both screens')) await dump('lockstep state');

@@ -824,3 +824,8 @@ crowd 3,960 vs 3,944; headroom ×2 overall, as §6.1).
    another game was reworded (Shiro's bio no longer opens with "Ace").
 7. **Stage-HP pass is a per-stage multiplier** (`HERO_HP_PASS` in `stages.js`), not #75's calibration —
    see `docs/BALANCE.md`. Economy (`cashScale`) is computed from the pre-pass HP, so coins are unchanged.
+8. **Found, not fixed (pre-existing, outside this spec):** a co-op placement whose centre sits within a
+   rounding step of the map's edge (e.g. y = 10.99999 on an 11-tall map) passes `canPlace` on the
+   placing client, then quantizes onto the edge (y = 11.0) and is refused `outOfBounds` by the command.
+   Rare (a centre on the border); a one-line clamp in `quantize` or `inBounds` would fix it, but it changes
+   the co-op command path, so it is left to the co-op owner. `e2e/online.mjs` keeps its hero spots 1 tile in.

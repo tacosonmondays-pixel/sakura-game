@@ -875,3 +875,4 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-card.bt-deployed .bt-card-deployed { font-size: 0.6rem; }
 }
 @media (prefers-reduced-motion: reduce) { .bt-card-hero-arm { animation: none; box-shadow: 0 0 0 3px #7ff0c5; } }
+.bt-herow-lv { white-space: nowrap; }
