@@ -2,7 +2,7 @@
 // persists via store.commit), then the rewards view: medal, first-clear gems, item tiles,
 // gear cards, unlocked girls (card art celebration) and new bestiary entries.
 import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtTime } from './util.js';
-import { svgEl, itemTile } from '../components.js';
+import { svgEl, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { applyBattleResult } from '../../systems/rewards.js';
@@ -112,6 +112,7 @@ export function createResults(ctx) {
     if (applied) return outcome;
     applied = true;
     const result = sim.result();
+    if (ctx.req?.sandbox) result.sandbox = true;
     const rng = createRng(hashString(`${stage.id}:${sim.difficulty}:${sim.seed}:${Date.now()}`));
     try {
       // co-op / clan boss battles bring their own reward rules (ctx.applyResult)
@@ -120,10 +121,28 @@ export function createResults(ctx) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
     }
-    store.commit('battle-result');
-    store.saveNow();
+    // a sandbox run changes nothing, so there is nothing to save
+    if (!outcome.sandbox && !ctx.req?.sandbox) {
+      store.commit('battle-result');
+      store.saveNow();
+    }
+    if (outcome.sandboxUnlocked) toast('Sandbox unlocked! Find it on the Missions screen.', 'good', 4200);
     ctx.onResultApplied?.(outcome);
     return outcome;
+  }
+
+  /** Sandbox: one line and the way back (nothing was earned or saved). */
+  function showSandbox() {
+    apply();
+    const card = h(
+      'div.bt-sheet.bt-result.bt-sandbox-result',
+      { 'data-testid': 'sandbox-result' },
+      h('div.bt-result-ribbon', 'SANDBOX'),
+      h('p.bt-sandbox-line', 'Sandbox: no rewards'),
+      summary(),
+      actions(false),
+    );
+    open(card);
   }
 
   function actions(won) {
@@ -281,6 +300,7 @@ export function createResults(ctx) {
     showVictory,
     showDefeat,
     showRewards,
+    showSandbox,
     get outcome() {
       return outcome;
     },

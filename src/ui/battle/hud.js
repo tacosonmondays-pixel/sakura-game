@@ -27,6 +27,7 @@ export function createHud(ctx) {
     h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.name),
     h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),
     ctx.req.practice ? h('span.bt-practice', 'Practice') : null,
+    ctx.req.sandbox ? h('span.bt-practice.bt-sandbox-tag', 'Sandbox') : null,
   );
   const waveBox = h('div.bt-wave', h('span.bt-wave-label', 'WAVE'), waveVal);
   const el = h(
@@ -37,15 +38,21 @@ export function createHud(ctx) {
     h('div.bt-hud-right', stageLabel, speedBtn),
   );
 
-  let last = { lives: null, cash: null, wave: null, speed: null, state: null };
+  let last = { lives: null, cash: null, wave: null, speed: null, state: null, inf: null };
   function update() {
+    // Sandbox with unlimited lives: the heart reads ∞
+    const inf = !!ctx.sandbox?.unlimitedLives;
+    if (inf !== last.inf) {
+      last.inf = inf;
+      last.lives = null;
+    }
     if (sim.lives !== last.lives) {
       if (last.lives != null && sim.lives < last.lives) {
         livesBox.classList.remove('bt-hit');
         void livesBox.offsetWidth;
         livesBox.classList.add('bt-hit');
       }
-      livesVal.textContent = String(Math.max(0, sim.lives));
+      livesVal.textContent = inf ? '∞' : String(Math.max(0, sim.lives));
       livesBox.classList.toggle('bt-low', sim.lives <= sim.maxLives * 0.25);
       last.lives = sim.lives;
     }

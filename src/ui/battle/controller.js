@@ -21,6 +21,8 @@ import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
+import { createSandboxPanel } from './sandboxPanel.js';
+import { sandboxOutcome } from '../../systems/sandbox.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -159,6 +161,20 @@ export function mountBattle(root, params, hooks) {
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
     const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed];
+    ctx.wave = wave;
+    let sandbox = null;
+    if (req.sandbox) {
+      // Sandbox: spawn controls + unlimited lives; nothing from this battle is ever saved
+      ctx.preloadEnemies = (fams) => settle(preloadEnemies(fams), MODEL_TIMEOUT_MS);
+      ctx.applyResult = () => sandboxOutcome();
+      ctx.endSandbox = () => endBattle(false);
+      ctx.extraActions = () => [
+        { label: 'Back', testid: 'sandbox-back', cta: true, icon: 'back', onClick: () => ctx.quit() },
+        { label: 'Retry', testid: 'retry', icon: 'refresh', onClick: () => ctx.restart() },
+      ];
+      sandbox = createSandboxPanel(ctx);
+      modules.push(sandbox);
+    }
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
@@ -326,9 +342,10 @@ export function mountBattle(root, params, hooks) {
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
     // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
     const endlessMap = !!req.endless && stage.kind !== 'challenge';
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
+    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { step: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
+      if (req.sandbox) return navigate('sandbox');
       const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
@@ -395,6 +412,7 @@ export function mountBattle(root, params, hooks) {
 
     // ---- events from the sim (via renderer.update) ------------------------------------------
     const announcedNew = new Set();
+    let lastWaveEnd = 0;
     function warnFor(n) {
       let list = [];
       try {
@@ -437,7 +455,10 @@ export function mountBattle(root, params, hooks) {
             feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? 'Final wave!' : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
             break;
           case 'waveEnd':
-            feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            // a sandbox spawn between waves runs as a wave of its own (the counter stays)
+            if (req.sandbox && ev.wave === lastWaveEnd) feed.push('Sandbox group cleared', 'good', { key: 'sbx-group', ms: 1600 });
+            else feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
             break;
           case 'bossPhase':
@@ -484,8 +505,14 @@ export function mountBattle(root, params, hooks) {
       pause.hide();
       ctx.paused = false;
       shell.classList.add('bt-ended');
-      feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       results.apply();
+      if (req.sandbox) {
+        // ended from the panel, or the lives ran out with lives switched on
+        feed.announce('SANDBOX', sim.state === 'lost' ? `Fell on wave ${sim.wave}` : 'Session over', 'wave', 900);
+        later(() => results.showSandbox(), 700);
+        return;
+      }
+      feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       if (params.clanBoss) submitClanBoss();
       later(() => (won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
     }
@@ -523,6 +550,7 @@ export function mountBattle(root, params, hooks) {
       heroW.update();
       boss.update(dt);
       wave.update();
+      sandbox?.update();
     }
     raf = requestAnimationFrame(frame);
 
