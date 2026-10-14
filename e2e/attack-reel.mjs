@@ -5,7 +5,9 @@
 //        [--viewport 960x540] [--seconds 1.6] [--fps 15] [--out <dir>] [--before] [--zoom 2.4]
 //
 // For each unit × build: the focus preview (previews/attacks.html, manual frames) swaps the girl
-// in place, warms up 2 s of game time, then captures seconds·fps frames. ffmpeg (if installed)
+// in place, warms up 1 s of game time, steps on to her next attack so every clip opens on one,
+// then captures seconds·fps frames (2.5 s for the slow girls). "max" is each girl's showcase
+// build (her most distinctive capstone look). ffmpeg (if installed)
 // turns them into <unit>-<build>.mp4 / .gif; ImageMagick `montage` (if installed) into
 // <unit>-<build>-sheet.jpg and all-girls.jpg. --before also records Chika with fx=off and
 // stacks it next to fx=on (chika-before-after.mp4). Writes reel.json (manifest).
@@ -48,8 +50,14 @@ const { port } = server.httpServer.address();
 const { browser, label } = await launchChromium();
 console.log(`browser: ${label} · out: ${out}`);
 
-/** The "max" build of a girl: T5 on her signature path + T2 on the next (crosspath legal). */
+/** Showcase builds where the rotation below would miss a girl's most distinctive capstone. */
+const SHOWCASE = { kage: '5-2-0', midori: '2-0-5', momo: '2-0-5' };
+/** Slow attackers: a longer clip so it holds more than one attack. */
+const SLOW = { shiro: 2.5, kaede: 2.5 };
+
+/** The "max" build of a girl: her showcase, else T5 on path i%3 + T2 on the next (crosspath legal). */
 const maxBuild = (u) => {
+  if (SHOWCASE[u]) return SHOWCASE[u];
   const i = ORDER.indexOf(u);
   const t = [0, 0, 0];
   t[i % 3] = 5;
@@ -97,9 +105,9 @@ function encode(dir, name) {
 
 const manifest = [];
 const keyFrames = [];
-const frames = Math.round(seconds * fps);
 const { page, errors } = await openFocus('on', units[0]);
 for (const u of units) {
+  const frames = Math.round(Math.max(seconds, SLOW[u] || 0) * fps);
   for (const b0 of builds) {
     const b = b0 === 'max' ? maxBuild(u) : b0 === 'base' ? '0-0-0' : b0;
     const name = `${u}-${b}`;
@@ -111,6 +119,8 @@ for (const u of units) {
       continue;
     }
     await page.evaluate(() => window.__advance(10, 0.1));
+    // open on an attack (frame-by-frame at 60 Hz until her next one, at most 10 s)
+    await page.evaluate(() => window.__untilAttack(1, 600, 1 / 60));
     await capture(page, dir, frames);
     const res = encode(dir, name);
     manifest.push({ unit: u, build: b, frames, quality, ...res });

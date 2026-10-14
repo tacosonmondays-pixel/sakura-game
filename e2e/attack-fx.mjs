@@ -183,17 +183,22 @@ async function runViewport(vp) {
   for (const quality of !matrix ? [] : quick ? ['high'] : ['high', 'low']) {
     for (const build of quick ? ['max'] : ['base', 'p0', 'p1', 'p2']) {
       const page = await open(ctxB, `mode=gallery&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&tiny=1`, errors);
+      // draw calls: the median over the last 60 frames (the same sim frames with FX on and off),
+      // so a one-frame spike (a model finishing loading, an enemy entering) cannot decide it
       const r = await page.evaluate((n) => {
         let maxQuads = 0;
         let budget = 0;
+        const calls = [];
         for (let k = 0; k < n; k++) {
           window.__advance(1);
           const a = window.__r.info.attackFx;
           maxQuads = Math.max(maxQuads, a.quads);
           budget = a.quadBudget;
+          if (k >= n - 60) calls.push(window.__r.info.calls);
         }
+        calls.sort((x, y) => x - y);
         const s = window.__r.info.attackFx;
-        return { maxQuads, budget, calls: window.__r.info.calls, styled: s.styled, defaultPulses: s.defaultPulses, impacts: s.impacts, girls: window.__placed.length };
+        return { maxQuads, budget, calls: calls[calls.length >> 1], styled: s.styled, defaultPulses: s.defaultPulses, impacts: s.impacts, girls: window.__placed.length };
       }, quick ? 90 : 180);
       check(r.girls === 19 && r.styled >= 19, `${quality} ${build}: all 19 girls styled (${r.styled})`);
       // core truth cues (drones, shadows, reticles, tracers) are never shed; decor sheds at 60–95 %
@@ -202,11 +207,16 @@ async function runViewport(vp) {
       if (build === (quick ? 'max' : 'p0')) {
         const off = await open(ctxB, `mode=gallery&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&fx=off&tiny=1`, errors);
         const callsOff = await off.evaluate((n) => {
-          for (let k = 0; k < n; k++) window.__advance(1);
-          return window.__r.info.calls;
+          const calls = [];
+          for (let k = 0; k < n; k++) {
+            window.__advance(1);
+            if (k >= n - 60) calls.push(window.__r.info.calls);
+          }
+          calls.sort((x, y) => x - y);
+          return calls[calls.length >> 1];
         }, quick ? 90 : 180);
         await off.close();
-        check(r.calls <= callsOff + 1, `${quality} ${build}: draw calls with FX ${r.calls} ≤ without ${callsOff} + 1`);
+        check(r.calls <= callsOff + 1, `${quality} ${build}: draw calls with FX ${r.calls} ≤ without ${callsOff} + 1 (median of the last 60 frames)`);
       }
       await page.close();
     }
