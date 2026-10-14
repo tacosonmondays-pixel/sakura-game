@@ -170,6 +170,14 @@
 .ma-fslot .unit-card-square { width: 100%; height: 100%; }
 .ma-fslot .unit-card-name { font-size: 0.62rem; padding: 8px 3px 2px; }
 .ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; }
+/* these cards are too narrow for rarity and level side by side ("SSR" ran into "Lv.30"): the level
+   sits on the name strip's dark, at the right. On phones they are ~38px, too small for three rows:
+   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top */
+.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 14px; }
+@media (max-height: 480px) {
+  .ma-fslot .unit-card-rarity { display: none; }
+  .ma-fslot .unit-card-level { top: 3px; bottom: auto; }
+}
 .ma-fslot.empty { border: 2px dashed #b6cbe6; background: rgba(255,255,255,0.6); border-radius: 10px; display: grid; place-items: center; color: #8aa6c8; font-weight: 800; font-size: 0.75rem; width: 100%; }
 .ma-fslot.hero .unit-card { outline: 2px solid #c77dff; outline-offset: 1px; }
 .ma-fslot-tag { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); background: #c77dff; color: #fff; font-size: 0.55rem; font-weight: 900; padding: 0 6px; border-radius: 999px; }

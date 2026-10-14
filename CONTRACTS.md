@@ -886,6 +886,15 @@ viewer, black silhouettes until discovered, traits/counters/lore), wiki (article
 started, type chart, roles, traits, statuses, items & rarities, gear & rerolls, awakening,
 gacha rates & pity, medals & difficulty, maps, economy, controls; searchable).
 
+**UR display (owner, 2026-10-14).** An owned SSR at awaken ★5 (`MAX_AWAKEN`) *shows* as UR —
+`displayRarity(unit, profile)` in `src/ui/rarity.js` ('UR' | the def rarity), with `applyUrFrame`
+(animated rainbow ring + glow), `urBadge` (rainbow "UR") and `src/ui/styles/ur.css`. Display only:
+`UNIT_RARITIES`, unit defs, gacha pools/rates/pity, fragments, prices and `src/sim/**` never see UR
+(the co-op compatibility id must not change). `unitCard` applies it on its own; any other girl card
+calls the helpers with the player's profile. Pull results / history keep the dropped rarity; in
+co-op an ally's girl shows her def rarity (no awaken data on the wire). Motion is transform /
+opacity only (compositor); reduced motion (system or Settings) stops it and keeps the rainbow.
+
 ### 11a. First impressions — drawn art, title, lobby backgrounds, beta gift (meta-a)
 
 Owner: "people won't even bother giving the game a shot if it looks ugly right away". Menus use

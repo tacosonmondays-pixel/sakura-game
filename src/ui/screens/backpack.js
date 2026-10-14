@@ -20,6 +20,7 @@ import { applyGearFilter } from '../../systems/gearFilter.js';
 import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
+import { isUR } from '../rarity.js';
 
 // ---------------------------------------------------------------------------
 // Shared pieces
@@ -49,7 +50,8 @@ export function rarityTile(itemId, count = null, opts = {}) {
 export function unitMini(unitId, { size = 28 } = {}) {
   const u = UNIT_MAP[unitId];
   if (!u) return null;
-  return h('span.mb-unit-mini', { style: { width: `${size}px`, height: `${size}px` }, title: u.name }, svgEl(portraitHTML(u, 'thumb'), 'mb-unit-mini-art'));
+  // a fully awakened SSR (UR, display only) gets a still rainbow edge
+  return h(`span.mb-unit-mini${isUR(u, store.profile) ? '.is-ur' : ''}`, { style: { width: `${size}px`, height: `${size}px` }, title: u.name }, svgEl(portraitHTML(u, 'thumb'), 'mb-unit-mini-art'));
 }
 
 /**
