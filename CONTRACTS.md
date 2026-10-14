@@ -706,6 +706,24 @@ EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLef
                       //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
 ```
 
+**Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
+checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is
+stored except the ones its constructor rebuilds (`REBUILT`: data, stage, map, paths, placement, the wave
+cache, the event queue, scratch arrays, loadout and hero config), so a new field is saved without anyone
+listing it. Game data (unit / enemy definitions and anything inside them, the difficulty, the stage) and the
+battle's configuration (the players' loadout stats) are stored as paths and resolved in the restoring Sim;
+shared objects stay shared; ±Infinity / NaN / -0 are tagged; the current wave's spawn list is regenerated.
+JSON spells every other double exactly, so a snapshot from one JS engine restores bit-identical in another.
+```js
+sim.snapshot(config?)        // -> { v, root, o }  (take it between steps; config: see simConfig)
+sim.restore(snap, config?)   // on a FRESH Sim built with the same arguments -> the same battle, continuing
+snapshotDigest(snap)         // FNV-1a over the JSON: equal digests = equal states
+```
+`tests/sim/snapshot.test.js` is the self-test: restore into a fresh Sim, run both copies on 20 000 ticks with
+the same orders and compare their full snapshots all the way (a campaign stage between waves, a crowded
+wave mid-fight, freeplay wave 200 with the Matriarch). Anything that cannot be stored (a function, an unknown
+class) throws.
+
 Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `src/sim/headless.js`
 for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, x, y, uid?, path }`
 (continuous `x`/`y`; old `tx`/`ty` tile actions still run). And `autoPlan(stageId, unitIds)` that
@@ -1081,11 +1099,28 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `backToLobby()` keeps the setting (and works while the battle still runs: the ally plays on alone and
   sends `{ type: 'fighting', uid, wave, goal, over }` every `LOBBY.fightingMs` instead of lockstep beats;
   the returner reads it as `session.returning.fighting = { wave, goal } | null`).
-* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, hooks })`: `queue(kind, args)`
+* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, keepaliveMs, idleAfterMs,
+  idleLeadTicks, idleKeepaliveMs, maxMessageBytes, hooks })`: `queue(kind, args)`
   stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
   horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
   command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
   survivor) and can be re-admitted while the host is still playing.
+  Long runs (spec §12): the host keeps `ls.ck = { t, wave, snap }`, a `CoopSim.snapshot()` taken at every
+  wave end; `resync` and `rejoin` messages carry it (`ck`) with the command log, and the guest restores it
+  and replays only the commands since. Every rebuild (resync, rejoin, an in-place catch-up) is a background
+  job (`ls.job`, progress in `ls.rebuilding = { kind, done, total, wave, target }`): `advance(dt, {
+  budgetMs })` replays a slice (10 ms by default; the session's pump gives 6 ms between frames, 250 ms in a
+  hidden tab) while the old battle stays on screen, `queue()` returns null meanwhile, and a `busy` beat a
+  second (`peer.busy = { at, of, w }` on the other side) stops the ally's drop timeout. Done: the new
+  CoopSim is swapped in, `onResync` remounts the battle screen; `ls.lastRebuild = { kind, from, T, ticks,
+  ms, slices, maxSliceMs, restored }`. `rebuild(start, cmds, T, ck?)` still does it in one go (tests,
+  tools). Messages over `maxMessageBytes` (Supabase: 24 000 characters) go as `part` messages and are
+  reassembled; a guest whose resync does not arrive asks again every 4 s. Idle saver (Supabase rooms,
+  `COOP_NET.supabase`): after `idleAfterMs` (10 s) without an order the horizon reaches `idleLeadTicks`
+  (1 s) ahead and beats come about twice a second instead of four times.
+* `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
+  the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
+  stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
@@ -1102,7 +1137,7 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   gear / crowns / tokens, ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
   `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
   session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
-The Sim itself is unchanged: co-op is data (`hpScale`) plus command routing.
+Co-op is data (`hpScale`) plus command routing; the Sim only gained `snapshot()` / `restore()`.
 
 **Battle UI hooks (battle-ui owns these files; online only added to them)** — `mountBattle(root, params,
 hooks)` takes `hooks.coop` (the session) for `#/battle?coop=<CODE>` and `params.clanBoss` for a clan boss

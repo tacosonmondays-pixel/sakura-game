@@ -457,6 +457,10 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   - A heartbeat goes out at once when the player gives an order; otherwise only when the promise has
     moved on by half an input delay (local: every 50 ms; Supabase: at most every 250 ms) or, when
     nothing changes, as a keepalive (Supabase: once a second).
+  - Idle saver (Supabase rooms): after 10 s without an order a client promises its horizon 1 s ahead,
+    a new hash waits for the next beat, and the keepalive is every 2 s — about 2 messages a second
+    instead of ~4 (measured: 3.84 → 2.00 per client in `lockstep.test.js`). The next order lands up
+    to 1 s later, then the normal delay applies again.
   - Unacknowledged commands are re-sent with every heartbeat, so a lossy link is fine.
 - **Wallets.**
   - Each player starts with 60% of the stage's coins.
@@ -466,8 +470,20 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   - Only a girl's owner can upgrade, retarget or sell her.
 - **Desync check.** Both clients compute a state hash every 120 ticks; the last two ride along on every
   heartbeat.
-  - On a mismatch the guest asks the host for its command log and replays it from the start.
+  - On a mismatch the guest asks the host for its state: the host answers with its newest wave-end
+    checkpoint and its command log, and the guest restores the checkpoint and replays only the commands
+    since (one wave, not the whole run). It asks again every 4 s until the answer arrives.
   - A second mismatch within 30 s ends the link. Both players continue solo.
+- **Long runs (co-op freeplay goes on for an hour and more).**
+  - Checkpoints: at every wave end the host keeps a snapshot of the whole battle (`src/sim/snapshot.js`:
+    towers, enemies, projectiles, statuses, the rng, wallets, owners, votes — ~100–150 KB of JSON with
+    60 girls). Resyncs and rejoins carry it.
+  - Rebuilds never freeze the page: a resync, a rejoin and a catch-up replay as a background job, about
+    10 ms per frame, while the old battle stays on screen under a "Re-syncing with Aiko… Wave 12 of 150"
+    card. Orders wait until it is done. A `busy` beat every second keeps the ally from dropping the
+    rebuilding player, and the ally's chip says "Bea is re-syncing… 45%".
+  - Messages bigger than 24 000 characters (a checkpoint) travel in parts on Supabase rooms (Realtime
+    limits a message's size) and are put back together on arrival.
 - **Disconnect.** A peer is dropped when it says bye (Leave, closing the tab) or is silent for 12–20 s.
   It gets longer (30 s) while the ally's battle is still loading.
   - The ally's girls stay on the map and keep fighting.
@@ -480,9 +496,10 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   - A guest that was only frozen (its battle never ran on alone: a long load, a phone switching
     apps) is still on the host's timeline: it keeps its battle screen, takes the host's newer
     commands and fast-forwards in place.
-  - A guest that played on alone meanwhile rebuilds the battle from that log (its battle screen
-    reloads), fast-forwards to the host's tick, and both continue in lockstep. Orders the guest gave
-    while it was cut off are lost.
+  - A guest that played on alone meanwhile rebuilds the battle from the host's newest checkpoint and
+    the log since (its battle screen reloads), catches up to the host's tick, and both continue in
+    lockstep. Orders the guest gave while it was cut off are lost. A guest that was only frozen also
+    restores the checkpoint instead of fast-forwarding in place when that replays clearly less.
   - Every packet carries the timeline's epoch, so stale packets from before the rejoin are ignored.
   - An offer that is not taken within 6 s (a one-way link) is withdrawn and retried later with a
     doubling pause (8 s … 60 s), so the host never waits long.
@@ -497,6 +514,8 @@ npx vitest run tests/online
 node e2e/online.mjs
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
 node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
+node e2e/coop-rejoin.mjs      # two pages: a freeplay run past the goal, a cut link, a rejoin and a resync through the checkpoint
+node e2e/coop-longrun.mjs     # a rejoin at freeplay wave 150, timed in Node, Bun and Chromium
 ```
 
 The vitest suite covers:
@@ -515,6 +534,13 @@ The vitest suite covers:
   sync, the Finish vote refused before the goal, one vote not enough, both votes ending the run on the
   same tick; a resync after the goal (the votes come back with the log), an ally dropping out (the one
   left finishes alone; the replayed log agrees), a frozen guest re-admitted with her earlier vote.
+  Long runs: a resync deep in freeplay restores the host's checkpoint and replays one wave, then 10
+  waves in sync; a network cut deep in freeplay ends in a rejoin through the checkpoint and 10 waves in
+  sync; a rebuild runs in many short slices and reaches the same battle as replaying in one go (from tick
+  0 or the checkpoint); a slow rebuild longer than the drop timeout keeps the host waiting (busy beats);
+  a resync in parts with one part lost (the guest asks again); the idle saver's message rate.
+- `tests/sim/snapshot.test.js`: battle snapshots restored into fresh Sims run 20 000 ticks against the
+  original without drifting; the co-op checkpoint (wallets, owners, votes) and 10 more waves.
 - `coopFreeplay.test.js`: `start.freeplay` → the freeplay Sim (only for a real tier), the `end` command's
   rules, protocol 3.
 - `coopRewards.test.js`: the freeplay payouts — the bank pays exactly the normal co-op win, the end pays

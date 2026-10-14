@@ -160,7 +160,7 @@ export class Lockstep {
     this.job = null;
     this.lastBusy = -Infinity;
     this.deferredMarks = []; // drop / return markers that happened during a rebuild
-    /** The last finished rebuild: { kind, from, T, ticks, ms, slices, maxSliceMs, restored }. */
+    /** The last finished rebuild: { kind, from, T, ticks, ms, slices, maxSliceMs, restoreMs, restored }. */
     this.lastRebuild = null;
     this.parts = new Map(); // `${from}:${id}` -> { n, got, d[], at } (multipart messages)
     this.partSeq = 0;
@@ -575,9 +575,10 @@ export class Lockstep {
         coop = createCoopSim(start || this.start, { mySlot: this.mySlot });
       }
     }
+    const restoreMs = realNow() - t0; // (building the CoopSim + restoring the checkpoint: one block)
     const job = {
       kind, coop, T: target, from, w: Number.isInteger(w) ? w : null, onDone, inPlace: false,
-      log: [], known: new Set(), pending: new Map(), hashes: new Map(), done: 0, t0, slices: 0, maxSlice: realNow() - t0,
+      log: [], known: new Set(), pending: new Map(), hashes: new Map(), done: 0, t0, slices: 0, maxSlice: 0, restoreMs,
     };
     for (const c of cmds.filter((x) => isValidCmd(x, { markers: true })).sort(compareCmds)) {
       const key = cmdKey(c);
@@ -622,7 +623,7 @@ export class Lockstep {
     for (const c of host.sort(compareCmds)) if (c.t >= G) this.accept(c);
     this.job = {
       kind: 'catchup', coop: this.coop, T: msg.T, from: G, w: Number.isInteger(msg.w) ? msg.w : null, onDone, inPlace: true,
-      log: this.log, known: this.known, pending: this.pending, hashes: this.hashes, done: 0, t0: realNow(), slices: 0, maxSlice: 0,
+      log: this.log, known: this.known, pending: this.pending, hashes: this.hashes, done: 0, t0: realNow(), slices: 0, maxSlice: 0, restoreMs: 0,
     };
     this.note('rebuild', { kind: 'catchup', from: G, T: msg.T });
     this.beatBusy(this.now(), true);
@@ -676,7 +677,8 @@ export class Lockstep {
       this.sentHash = -1;
     }
     this.lastRebuild = {
-      kind: job.kind, from: job.from, T: job.T, ticks: job.T - job.from, ms: Math.round(realNow() - job.t0), slices: job.slices, maxSliceMs: Math.round(job.maxSlice), restored: job.from > 0 && !job.inPlace,
+      kind: job.kind, from: job.from, T: job.T, ticks: job.T - job.from, ms: Math.round(realNow() - job.t0), slices: job.slices,
+      maxSliceMs: Math.round(job.maxSlice), restoreMs: Math.round(job.restoreMs), restored: job.from > 0 && !job.inPlace,
     };
     this.note('rebuilt', this.lastRebuild);
     for (const [k, slot] of this.deferredMarks.splice(0)) this.mark(k, slot);
@@ -859,6 +861,8 @@ export class Lockstep {
     while (this.acc >= 1) {
       if (!this.canRun(this.tick)) {
         this.stalled = true;
+        // (waiting on an ally who is rebuilding its battle is not lag: the input delay stays)
+        if (this.livePeers().some((p) => p.busy)) break;
         this.stallTicks++;
         this.lastStallAt = t;
         if (this.stallTicks % 30 === 0 && this.delay < this.maxDelay) this.delay = Math.min(this.maxDelay, this.delay + Math.max(2, Math.round(this.delay / 3)));
