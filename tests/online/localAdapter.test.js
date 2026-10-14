@@ -192,6 +192,44 @@ describe('local adapter (two tabs of one browser)', () => {
   });
 });
 
+describe('co-op rooms: stepping away and Retry (as on Supabase)', () => {
+  it('a host that steps away keeps its room; Retry re-takes the seat: a room that is gone says so, one opened again under a new secret moves the guest to its channel', async () => {
+    const { hub, tabA, tabB } = await twoTabs();
+    const seenB = [];
+    const errB = [];
+    const roomA = tabA.openRoom('KEEP1', { host: true });
+    const roomB = tabB.openRoom('KEEP1', { onMessage: (m) => seenB.push(m), onError: (e) => errB.push(e.code) });
+    hub.flush();
+    // Home / Leave: the host keeps its room, so opening it again is the same channel
+    roomA.close({ keep: true });
+    hub.flush();
+    const roomA2 = tabA.openRoom('KEEP1', { host: true });
+    roomA2.send({ type: 'back' });
+    hub.flush();
+    expect(seenB).toEqual([{ type: 'back' }]);
+    // New room (no keep): the code is given up, and the guest's Retry finds out
+    roomA2.close();
+    hub.flush();
+    await new Promise((r) => setTimeout(r, 1100)); // (one room call per second)
+    roomB.reconnect({ seat: true });
+    await tick();
+    expect(errB).toEqual(['not_found']);
+    // the host opens the code again (a new secret): the guest's next Retry follows it there
+    const roomA3 = tabA.openRoom('KEEP1', { host: true });
+    await new Promise((r) => setTimeout(r, 1100));
+    roomB.reconnect({ seat: true });
+    roomA3.send({ type: 'new channel' });
+    hub.flush();
+    expect(seenB).toEqual([{ type: 'back' }, { type: 'new channel' }]);
+    // the lobby's own one-way healing (seat: false) never takes the seat again
+    roomB.reconnect({ seat: false });
+    await tick();
+    expect(errB).toEqual(['not_found']);
+    roomB.close();
+    roomA3.close();
+  });
+});
+
 describe('co-op lobby: version check', () => {
   it('a client of another build (a cached PWA after a deploy) is never paired', async () => {
     const { hub, tabA, tabB } = await twoTabs();
