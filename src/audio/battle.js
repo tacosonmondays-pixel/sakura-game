@@ -9,6 +9,9 @@ import { getAudio } from './cue.js';
 import { battleTrack, bossTrackFor, battlePreloads } from './routes.js';
 import { capFrame } from './limiter.js';
 
+/** Time of the last hero level-up chime (throttle). */
+let lastHeroLevel = 0;
+
 // ------------------------------------------------------------------------------------- SFX mapping
 const FIRE = {
   arrow: 'fire.arrow', needle: 'fire.arrow', bullet: 'fire.bullet', shell: 'fire.shell', fireball: 'fire.shell',
@@ -112,8 +115,20 @@ export function battleSfx(events, info = {}) {
       case 'trapTriggered':
         push({ id: 'trap.trigger', pan: pan(ev.x) });
         break;
-      case 'heroLevel':
-        push({ id: 'hero.level' });
+      case 'heroLevel': {
+        // 24 levels and bought levels: at most one chime per 400 ms
+        const now = Date.now();
+        if (now - (lastHeroLevel || 0) >= 400) {
+          lastHeroLevel = now;
+          push({ id: 'hero.level' });
+        }
+        break;
+      }
+      case 'heroBuy':
+        push({ id: 'bt.upgrade' });
+        break;
+      case 'heroMove':
+        push({ id: 'bt.place', pan: pan(ev.x) });
         break;
       case 'ult':
         push({ id: 'hero.ult' });

@@ -16,6 +16,7 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
+import { createHeroLevels, heroWarnText } from './heroLevels.js';
 import { createBossBar } from './bossBar.js';
 import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
@@ -91,11 +92,13 @@ export function mountBattle(root, params, hooks) {
     return id;
   };
 
-  const { sim, towers, hero } = ls
+  const { sim, towers, hero, heroes: heroIds } = ls
     ? {
       sim: ls.sim,
       towers: [...new Set(ls.start.players.flatMap((p) => (p.loadout || []).map((e) => e.unitId)))],
-      hero: ls.start.players.find((p) => p.slot === 0)?.hero?.unitId || null,
+      // every player's hero (each brings her own); preloaded like the girls
+      hero: null,
+      heroes: ls.start.players.map((p) => p.hero?.unitId).filter(Boolean),
     }
     : createBattleSim(profile, req);
   const settings = profile.settings || {};
@@ -134,7 +137,7 @@ export function mountBattle(root, params, hooks) {
   const ready = (async () => {
     // chibis-v2: only the formation (+ hero) at the detail this quality needs (phones get the
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
-    const ids = [...towers, ...(hero ? [hero] : [])];
+    const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
     await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
@@ -153,6 +156,11 @@ export function mountBattle(root, params, hooks) {
     layer.append(bar.el);
     const placement = createPlacement(ctx);
     ctx.placement = placement;
+    // hero rework: level buys, Move, hero event toasts (src/ui/battle/heroLevels.js)
+    const heroLevels = createHeroLevels(ctx, ls);
+    ctx.heroLevels = heroLevels;
+    ctx.levelUpHero = (shown) => heroLevels.levelUp(shown);
+    ctx.startHeroMove = () => placement.startMove();
     const heroW = createHeroWidget(ctx);
     layer.append(heroW.el);
     const boss = createBossBar(ctx);
@@ -229,7 +237,7 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.onPlaced = (t) => {
       navigator.vibrate?.(12);
-      if (t.isHero) feed.push(`${t.def.name} takes the field! She levels up as she fights.`, 'good', { ms: 2400 });
+      if (t.isHero) feed.push(`${t.def.name} takes the field! She levels up through the battle. Tap her to buy levels.`, 'good', { ms: 2600 });
       bar.update();
       // connect the drawn card to her chibi: the card glows and a name tag with her drawn bust
       // pops over the spot where she landed
@@ -299,11 +307,7 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       if (ls) {
-        if (!sim.heroConfig) {
-          feed.push(`Only ${session.player(0)?.name || 'the host'} commands the hero.`, 'warn', { key: 'ult-ally', ms: 1600 });
-          return;
-        }
-        ls.queue('ult', []);
+        ls.queue('ult', []); // each player fires her own hero's ult
         return;
       }
       sim.activateUlt();
@@ -365,6 +369,9 @@ export function mountBattle(root, params, hooks) {
         e.preventDefault();
         ctx.startWave();
       } else if ((e.key === 'f' || e.key === 'F') && !ctx.paused) ctx.cycleSpeed();
+      else if ((e.key === 'q' || e.key === 'Q') && !ctx.paused) ctx.fireUlt();
+      // L buys the level the pill shows (its level and price), so a held key cannot overshoot
+      else if ((e.key === 'l' || e.key === 'L') && !ctx.paused && sim.hero && !e.repeat) ctx.levelUpHero(heroW.shown);
       else if (/^[1-9]$/.test(e.key) && !ctx.paused) {
         const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
         const id = ids[Number(e.key) - 1];
@@ -413,11 +420,12 @@ export function mountBattle(root, params, hooks) {
       for (const w of list) if (w.kind === 'new') for (const id of [w.enemyId, ...(w.enemyIds || [])]) if (id) announcedNew.add(id);
       for (const w of list.slice(0, 3)) {
         const kind = w.severity === 'danger' ? 'bad' : w.severity === 'warn' ? 'warn' : 'info';
-        feed.push(w.text, kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
+        feed.push(heroWarnText(sim, w.text), kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
       }
     }
 
     function handle(events) {
+      heroLevels.handle(events);
       for (const ev of events) {
         fpBattle?.handle(ev);
         switch (ev.type) {
@@ -455,16 +463,7 @@ export function mountBattle(root, params, hooks) {
           case 'bossPhase':
             feed.announce('PHASE SHIFT', ev.announce || '', 'phase', 3200);
             break;
-          case 'heroLevel': {
-            const name = sim.hero?.def.name || 'Hero';
-            const ult = sim.hero?.def.hero?.ult;
-            const unlock = ult && ev.level === (ult.unlockLevel ?? 3);
-            feed.push(unlock ? `${name} reached Lv ${ev.level} — ${ult.name} unlocked!` : `${name} reached Lv ${ev.level}`, 'good', { ms: 2400 });
-            break;
-          }
-          case 'ult':
-            feed.announce(ev.name || 'Ultimate', sim.hero?.def.name || '', 'good', 1500);
-            break;
+          // heroLevel / heroBuy / heroMastery / ult: heroLevels.handle (attributed by towerUid)
           case 'teleportWarn':
             feed.push('A ghoul is about to blink forward — slow or stun it!', 'warn', { key: 'blink', ms: 2000 });
             break;
@@ -545,6 +544,20 @@ export function mountBattle(root, params, hooks) {
 
     // first-wave scouting + practice notice
     later(() => warnFor(1), 600);
+    // wave 0: her card is armed, so one tap on the grass places her (co-op: once the room ticks)
+    const heroId = sim.heroConfig?.unitId;
+    const armHero = () => {
+      if (!heroId || sim.hero || ctx.ended || sim.wave > 0 || placement.unitId) return;
+      if (ls && ls.tick <= 0) {
+        later(armHero, 300);
+        return;
+      }
+      if (placement.start(heroId)) {
+        bar.update();
+        feed.push(`${sim.data.unit(heroId)?.name || 'Your hero'} deploys free — tap the grass!`, 'info', { key: 'hero-free', ms: 3400 });
+      }
+    };
+    later(armHero, 700);
     if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
 
     ctx.modules = modules;
@@ -713,6 +726,7 @@ export function mountBattle(root, params, hooks) {
   function onApplied(cmd, res) {
     if (destroyed || !ctx.feed) return;
     fpBattle?.onApplied(cmd, res);
+    ctx.heroLevels?.onApplied(cmd, res);
     const minePlayer = cmd.p === ls.mySlot;
     if (cmd.k === 'upg') pendingUpg.delete(`${cmd.a[0]}:${cmd.a[1]}`);
     if (cmd.k === 'place') {

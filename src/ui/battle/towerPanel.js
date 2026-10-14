@@ -1,12 +1,15 @@
 // Selected-girl panel: portrait, role, target mode, effective stats, 3 upgrade paths with
-// tier pips / next tier / crosspath locks / buy buttons, sell, close. Hero extras: level,
-// XP bar and ultimate. Landscape: right-side card; portrait: bottom sheet.
+// tier pips / next tier / crosspath locks / buy buttons, sell, close. Heroes instead: level, XP
+// bar, Level up, the next levels and the full 25-level track, the ultimate and its rank, and
+// Move (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet.
 import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
 import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, UNIT_RARITIES, STATUSES } from '../../data/types.js';
+import { HERO_GROWTH } from '../../data/heroTracks.js';
+import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
@@ -38,19 +41,32 @@ export function createTowerPanel(ctx) {
   let live = null; // nodes updated every frame
   let sellArmed = 0;
   let sellTimer = 0;
+  let trackOpen = false;
+  let heroShown = null; // the level status the Level up button shows (a tap buys exactly this)
+
+  /** Hero part of the signature: level, the price bucket (≤ 2 repaints/s), the reason, the move state. */
+  function heroSig(t) {
+    if (!t.isHero) return '';
+    const st = sim.heroLevelStatus();
+    const own = sim.hero === t;
+    const bucket = Math.floor(performance.now() / 1000 / PRICE_TICK);
+    const mv = ctx.heroLevels?.moveState(t);
+    return `|h${t.level}:${own ? `${bucket}:${st.reason}` : 'ally'}:${mv?.label}:${trackOpen ? 1 : 0}:${Math.round((t.mastery || 0) * 100)}`;
+  }
 
   function signature(t) {
     const afford = [0, 1, 2].map((p) => {
       const st = sim.upgradeStatus(t.uid, p);
       return `${st.tier}${st.reason || 'ok'}${st.cost}`;
     }).join(',');
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}${heroSig(t)}`;
   }
 
   function open(towerUid) {
     uid = towerUid;
     sig = '';
     sellArmed = 0;
+    trackOpen = false;
     el.hidden = false;
     el.classList.remove('bt-panel-in');
     void el.offsetWidth;
@@ -94,21 +110,7 @@ export function createTowerPanel(ctx) {
     );
 
     // ---- hero block
-    let heroBlock = null;
-    if (t.isHero) {
-      const xpFill = h('span.bt-xp-fill');
-      const xpText = h('span.bt-xp-text');
-      const ultBtn = h('button.bt-ult-btn', { 'data-testid': 'panel-ult', onclick: () => ctx.fireUlt() });
-      live.xpFill = xpFill;
-      live.xpText = xpText;
-      live.ult = ultBtn;
-      const ult = def.hero?.ult;
-      heroBlock = h(
-        'div.bt-hero-block',
-        h('div.bt-xp', h('span.bt-xp-lv', `Lv ${t.level}`), h('span.bt-xp-bar', xpFill), xpText),
-        ult ? h('div.bt-ult-row', h('div.bt-ult-info', h('b', ult.name), h('div.bt-ult-desc', ult.desc)), ultBtn) : null,
-      );
-    }
+    const heroBlock = t.isHero ? heroSection(t, st) : null;
 
     // ---- target mode
     let target = null;
@@ -138,6 +140,11 @@ export function createTowerPanel(ctx) {
     if (st.splash > 0) add('Splash', fmtNum(st.splash, 1));
     if (st.chain > 0) add('Jumps', st.chain);
     if (st.armorPen > 0) add('Armor pen', fmtNum(st.armorPen, 1));
+    if (t.isHero && t.level > 1) {
+      const g = Math.round((t.def.hero?.growth ?? HERO_GROWTH).damage * (t.level - 1) * 100);
+      add('Level bonus', `+${g}% damage${t.mastery > 0 ? ` · Mastery +${Math.round(t.mastery * 100)}%` : ''}`, '.bt-stat-wide2');
+    }
+    if (t.isHero && (t.unitStats?.costMul ?? 1) < 1) add('Level prices', `−${Math.round((1 - t.unitStats.costMul) * 100)}%`, '.bt-stat-wide2');
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ×${fmtNum(st.crit.mul, 2)}`, '.bt-stat-wide2');
     if (st.eliteMul > 1) add('vs Elite', `×${fmtNum(st.eliteMul, 2)}`);
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
@@ -172,24 +179,32 @@ export function createTowerPanel(ctx) {
     const stats = h('div.bt-stats-grid', rows);
     const caps = chips.length ? h('div.bt-caps', chips) : null;
 
-    // ---- upgrade paths
-    const paths = h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames)));
+    // ---- upgrade paths (heroes have none: they level along their track)
+    const paths = def.paths.length ? h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames))) : null;
 
-    // ---- footer
-    const value = sim.sellValue(t.uid);
-    const sell = h(
-      `button.bt-sell${sellArmed ? '.armed' : ''}`,
-      { 'data-testid': 'sell', onclick: () => onSell(t) },
-      icon('sell', 'bt-ico-sm'),
-      sellArmed ? `Confirm · +${fmtCoins(value)}` : `Sell · ${fmtCoins(value)}`,
-    );
-    const foot = h('div.bt-panel-foot', h('span.bt-spent', `Invested ${fmtCoins(t.spent)}`), sell);
+    // ---- footer: heroes Move instead of Sell (they deploy for free)
+    let foot;
+    if (t.isHero) {
+      const mv = ctx.heroLevels?.moveState(t) || { label: 'Move', disabled: true };
+      const own = !ctx.coop || ctx.coop.isMine(t.uid);
+      const moveBtn = own ? h('button.bt-sell.bt-move', { 'data-testid': 'hero-move', disabled: mv.disabled, onclick: () => ctx.startHeroMove?.() }, icon('target', 'bt-ico-sm'), mv.label) : null;
+      foot = h('div.bt-panel-foot', h('span.bt-spent', `Levels bought ${fmtCoins(t.levelSpent || 0)}`), moveBtn);
+    } else {
+      const value = sim.sellValue(t.uid);
+      const sell = h(
+        `button.bt-sell${sellArmed ? '.armed' : ''}`,
+        { 'data-testid': 'sell', onclick: () => onSell(t) },
+        icon('sell', 'bt-ico-sm'),
+        sellArmed ? `Confirm · +${fmtCoins(value)}` : `Sell · ${fmtCoins(value)}`,
+      );
+      foot = h('div.bt-panel-foot', h('span.bt-spent', `Invested ${fmtCoins(t.spent)}`), sell);
+    }
 
     // co-op: an ally's girl can be inspected but only her owner upgrades, retargets or sells her
     const ally = ctx.coop && !ctx.coop.isMine(t.uid);
     el.classList.toggle('bt-panel-ally', !!ally);
     const owner = ally ? ctx.coop.ownerName(t.uid) : '';
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, t.isHero ? `${owner}'s hero — only ${owner} can level her up, retarget or move her.` : `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`) : null;
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
     const scroll = h(
       'div.bt-panel-scroll',
@@ -197,7 +212,7 @@ export function createTowerPanel(ctx) {
       allyNote,
       heroBlock,
       target,
-      h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades'),
+      paths ? h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades') : null,
       paths,
       h('div.bt-section-label', icon('info', 'bt-ico-sm'), 'Stats'),
       stats,
@@ -207,6 +222,61 @@ export function createTowerPanel(ctx) {
     if (prevScroll && el.dataset.uid === String(t.uid)) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);
     updateLive(t, st);
+  }
+
+  /** Hero block: Lv + XP, Level up, the next levels, the full track, the ultimate and its rank. */
+  function heroSection(t, st) {
+    const def = t.def;
+    const own = sim.hero === t;
+    const xpFill = h('span.bt-xp-fill');
+    const xpText = h('span.bt-xp-text');
+    const ultBtn = own ? h('button.bt-ult-btn', { 'data-testid': 'panel-ult', onclick: () => ctx.fireUlt() }) : null;
+    live.xpFill = xpFill;
+    live.xpText = xpText;
+    live.ult = ultBtn;
+    const max = st.heroLevel?.max ?? 25;
+    const lvLabel = t.level >= max ? (t.mastery > 0 ? `MAX · +${Math.round(t.mastery * 100)}%` : 'MAX') : `Lv ${t.level}`;
+    // Level up (own hero, not at max): sends the level and the price it shows
+    let buy = null;
+    if (own) {
+      heroShown = sim.heroLevelStatus();
+      const hs = heroShown;
+      if (hs.reason !== 'max' && hs.reason !== 'noHero') {
+        buy = h(
+          `button.bt-buy.bt-hero-lvup${hs.reason === 'cash' ? '.poor' : ''}`,
+          { 'data-testid': 'hero-levelup', disabled: hs.reason === 'ended', onclick: () => { if (ctx.levelUpHero?.(heroShown)) { sig = ''; update(true); } } },
+          h('span', `▲ Level up · `),
+          svgEl(currencyIcon('coins'), 'bt-buy-coin'),
+          fmtCoins(hs.price),
+        );
+      }
+    }
+    const next = [];
+    for (let l = t.level + 1; l <= Math.min(max, t.level + 3); l++) {
+      const row = trackLevel(def, l);
+      if (!row) continue;
+      next.push(h(`div.bt-track-next${l === t.level + 1 ? '.first' : ''}`, h('b', `${l === t.level + 1 ? 'Next' : 'Then'}: Lv ${l}`), ` · ${row.desc}`));
+    }
+    const rows = (def.hero?.levels || []).map((row) => h(
+      `div.bt-track-row${row.level <= t.level ? '.on' : ''}${row.level === t.level + 1 ? '.next' : ''}${rankAt(def, row.level) ? '.rank' : ''}`,
+      { 'data-level': row.level },
+      h('span.bt-track-lv', row.level <= t.level ? `✓ ${row.level}` : String(row.level)),
+      h('span.bt-track-desc', row.desc, h('small', sourceText(def, row.from))),
+    ));
+    const track = trackOpen ? h('div.bt-track', { 'data-testid': 'hero-track' }, rows) : null;
+    const toggle = h('button.bt-track-toggle', { 'data-testid': 'hero-track-toggle', onclick: () => { trackOpen = !trackOpen; sig = ''; update(true); } }, trackOpen ? 'Full track ▴' : 'Full track ▾');
+    const ult = def.hero?.ult;
+    const rank = st.ultRank || 1;
+    const nextRank = (ult?.ranks || []).find((r) => t.level < r.level);
+    return h(
+      'div.bt-hero-block',
+      h('div.bt-xp', h('span.bt-xp-lv', lvLabel), h('span.bt-xp-bar', xpFill), xpText),
+      buy ? h('div.bt-hero-buy', buy) : null,
+      next.length ? h('div.bt-track-nexts', next) : null,
+      toggle,
+      track,
+      ult ? h('div.bt-ult-row', h('div.bt-ult-info', h('b', `${ult.name} · Rank ${rank}`), h('div.bt-ult-desc', ult.desc, nextRank ? h('small', ` (rank ${(ult.ranks.indexOf(nextRank)) + 2} at Lv ${nextRank.level})`) : null)), ultBtn) : null,
+    );
   }
 
   function pathRow(t, p, i, names) {

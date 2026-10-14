@@ -1,9 +1,10 @@
-// Placement controller (free placement, Bloons-style): drag a card from the bar and release
-// ANYWHERE on the board to deploy, or tap a card then tap the board. Nothing snaps — the
-// girl stands exactly where the finger lets go. Like BTD6 there is no zone shading: a small
-// circle under the dragged girl is white where she can stand and red where she can't, and
-// releasing on a red spot simply returns her to the bar (a short toast only explains
-// non-obvious reasons such as water-only girls or missing coins).
+// Placement controller (free placement): drag a card from the bar and release ANYWHERE on the
+// board to deploy, or tap a card then tap the board. Nothing snaps — the girl stands exactly
+// where the finger lets go. There is no zone shading: a small circle under the dragged girl is
+// white where she can stand and red where she can't, and releasing on a red spot simply returns
+// her to the bar (a short toast only explains non-obvious reasons such as water-only girls or
+// missing coins). Move mode (a hero's Move button) reuses the same ghost: tap where she should
+// stand and she walks over (during a wave she pauses for 3 s).
 import { h, icon, fmtCoins } from './util.js';
 import { cue } from '../../audio/cue.js'; // [audio]
 
@@ -23,7 +24,7 @@ export const PLACE_REASONS = {
 const TOUCH_LIFT = 46;
 /** Ghost only re-evaluates after the pointer moved this far (tiles) — cheap, still fluid. */
 const MOVE_EPS = 0.015;
-/** Reasons the red circle alone already explains (no toast, BTD6-style). */
+/** Reasons the red circle alone already explains (no toast). */
 const SILENT_REASONS = new Set(['occupied', 'path', 'blocked', 'outOfBounds']);
 
 export function createPlacement(ctx) {
@@ -31,6 +32,7 @@ export function createPlacement(ctx) {
   let unitId = null;
   let mode = null; // 'tap' | 'drag'
   let last = null; // { x, y, ok, reason }
+  let moving = false; // Move mode: the ghost is the placed hero, the drop moves her
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -50,9 +52,18 @@ export function createPlacement(ctx) {
     const cost = sim.placeCost(unitId);
     const where = whereText(def);
     hint.hidden = false;
+    if (moving) {
+      const wave = sim.state === 'wave';
+      hint.classList.toggle('bt-place-water', def.placement === 'water');
+      hint.replaceChildren(
+        h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ' · she pauses 3s' : ' · free')),
+        h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
+      );
+      return;
+    }
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
-      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', ` · ${fmtCoins(cost)}`)),
+      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtCoins(cost)}` : ' · free')),
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
   }
@@ -85,6 +96,7 @@ export function createPlacement(ctx) {
     unitId = null;
     mode = null;
     last = null;
+    moving = false;
     ctx.renderer.setGhost(null);
     renderHint();
   }
@@ -95,7 +107,7 @@ export function createPlacement(ctx) {
 
   /** Moves the ghost to a world point and returns the sim's verdict. */
   function ghostAt(x, y) {
-    const chk = sim.canPlace(unitId, x, y);
+    const chk = moving ? sim.canMoveHero(x, y) : sim.canPlace(unitId, x, y);
     last = { x, y, ok: chk.ok, reason: chk.reason };
     ctx.renderer.setGhost(unitId, x, y, chk.ok);
     return chk;
@@ -115,6 +127,17 @@ export function createPlacement(ctx) {
   function tryPlace(x, y) {
     const id = unitId;
     if (!id) return null;
+    if (moving) {
+      const mv = sim.canMoveHero(x, y);
+      if (!mv.ok) {
+        if (mv.reason === 'same') cancel();
+        else reject(x, y, mv.reason);
+        return null;
+      }
+      const ok = ctx.heroLevels?.move(x, y);
+      if (ok) end();
+      return ok ? 'moved' : null;
+    }
     const chk = sim.canPlace(id, x, y);
     if (!chk.ok) {
       reject(chk.x ?? x, chk.y ?? y, chk.reason);
@@ -137,13 +160,17 @@ export function createPlacement(ctx) {
       cancel();
       return true;
     }
-    const chk = sim.canPlace(unitId, p.x, p.y);
+    const chk = moving ? sim.canMoveHero(p.x, p.y) : sim.canPlace(unitId, p.x, p.y);
     if (chk.ok) {
       tryPlace(p.x, p.y);
       return true;
     }
+    if (moving && p.towerUid != null && p.towerUid === sim.hero?.uid) {
+      cancel(); // tapping her again: she stays
+      return true;
+    }
     if (chk.reason === 'occupied' && p.towerUid != null) {
-      // tapping another girl cancels placement and selects her (BTD6 behaviour)
+      // tapping another girl cancels placement and selects her
       cancel();
       ctx.select(p.towerUid);
       return true;
@@ -189,6 +216,26 @@ export function createPlacement(ctx) {
       return last;
     },
     start: (id) => begin(id, 'tap'),
+    get moving() {
+      return moving;
+    },
+    /** Move mode for the player's own placed hero (her panel's Move button). */
+    startMove() {
+      const hero = sim.hero;
+      if (!hero || sim.state === 'won' || sim.state === 'lost') return false;
+      const mv = ctx.heroLevels?.moveState(hero);
+      if (mv?.disabled) {
+        if (mv.reason === 'cooldown') ctx.feed.push(`Move recharging · ${Math.ceil(hero.moveCd)}s`, 'warn', { key: 'move-cd', ms: 1400 });
+        return false;
+      }
+      ctx.select(null);
+      unitId = hero.unitId;
+      moving = true;
+      mode = 'tap';
+      last = null;
+      renderHint();
+      return true;
+    },
     beginDrag: (id) => begin(id, 'drag'),
     dragMove(clientX, clientY, pointerType) {
       if (!unitId || mode !== 'drag') return;
@@ -217,7 +264,7 @@ export function createPlacement(ctx) {
         return;
       }
       const t = tryPlace(p.x, p.y);
-      // released on a red spot: she just goes back to the bar (BTD6)
+      // released on a red spot: she just goes back to the bar
       if (!t && unitId) cancel();
     },
     handleTap,
