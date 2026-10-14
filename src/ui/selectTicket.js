@@ -10,6 +10,7 @@ import { UNIT_RARITIES, ROLES } from '../data/types.js';
 import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
+import { isUR, urBadge, applyUrFrame } from './rarity.js';
 
 /**
  * After a claim: "Choose your SSR now?"
@@ -41,7 +42,7 @@ export function openSelectTicket() {
   for (const id of POOL.SSR) {
     const u = UNIT_MAP[id];
     const owned = !!profile.units[id];
-    grid.appendChild(h(`button.sst-cell${owned ? '.owned' : ''}`, {
+    const cell = h(`button.sst-cell${owned ? '.owned' : ''}`, {
       'data-testid': `sst-${id}`,
       onclick: async () => {
         const ok = await confirmDialog(owned ? `${u.name} is already in your academy: the ticket becomes ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments. Use it?` : `Recruit ${u.name}, ${u.title}?`, { title: 'Use SSR Select Ticket', ok: owned ? 'Convert' : `Choose ${u.name}`, okKind: 'yellow' });
@@ -55,10 +56,13 @@ export function openSelectTicket() {
       },
     },
     h('span.sst-art', { html: portraitHTML(u, 'card') }),
-    h('span.sst-rarity', 'SSR'),
+    // the ticket recruits an SSR; a girl you already ascended keeps her UR frame here
+    isUR(u, profile) ? h('span.sst-rarity.sst-ur', urBadge()) : h('span.sst-rarity', 'SSR'),
     owned ? h('span.sst-owned', 'Owned') : null,
     h('span.sst-name', h('b', u.name), h('small', ROLES[u.role]?.name || u.title)),
-    ));
+    );
+    applyUrFrame(cell, u, profile);
+    grid.appendChild(cell);
   }
   return m;
 }
