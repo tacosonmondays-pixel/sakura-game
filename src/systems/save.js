@@ -419,7 +419,10 @@ function creditPotential(p, now) {
   const credited = backfillDupes(p.units, p.gacha, { createdAt: p.createdAt, now });
   for (const [id, n] of Object.entries(credited)) p.units[id].dupes = n;
   if (Object.keys(credited).length && !p.seenIntro.includes(BACKFILL_MARKER)) p.seenIntro.push(BACKFILL_MARKER);
-  for (const id of Object.keys(p.units)) shadowPotential(p, id, now);
+  // 'pot:at' moves only when a count changed or a shadow is missing, so loading a save twice gives the same profile
+  const c = p.missions.counters;
+  const stale = !(POT_SHADOW_AT in c) || Object.entries(p.units).some(([id, u]) => c[POT_SHADOW_PREFIX + id] !== u.dupes);
+  if (stale || Object.keys(restored).length || Object.keys(credited).length) for (const id of Object.keys(p.units)) shadowPotential(p, id, now);
 }
 
 /**

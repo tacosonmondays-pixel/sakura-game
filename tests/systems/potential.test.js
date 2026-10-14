@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   potentialLevel, backfillDupes, restoreFromShadow, poissonQuantile, shadowPotential,
   POOL_SIZE_V0125, RARITY_SHARE, MAX_POTENTIAL, BACKFILL_MARKER, SHADOW_AT,
@@ -181,6 +181,18 @@ describe('save: new field, round trip, old saves', () => {
     expect(once.units.aoi.dupes).toBe(2);
     expect(twice.units.aoi.dupes).toBe(2);
     expect(twice.seenIntro).not.toContain(BACKFILL_MARKER);
+  });
+
+  it('loading the same save later gives the same profile (pot:at only moves when a count changes)', () => {
+    const p = createProfile();
+    grantUnit(p, 'aoi');
+    const a = migrateProfile(JSON.parse(JSON.stringify(p)));
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    try {
+      expect(migrateProfile(JSON.parse(JSON.stringify(a)))).toEqual(a);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('clamps garbage dupes', () => {

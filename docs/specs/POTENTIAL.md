@@ -37,7 +37,8 @@ M0 is built: counting starts, nothing on screen or in the battle changes.
   `unlocks.js grantUnit` (§4.2: +1 `dupes`, shadow, returns `potential` / `potentialUp`; fragments unchanged);
   `save.js` (`newUnitState.dupes = 0`; `cleanUnit` → `null` when missing; `createProfile` writes the starters' shadow;
   `migrateProfile` → `creditPotential`: `restoreFromShadow`, then `backfillDupes`, then the `'potential-backfilled'`
-  marker and every shadow rewritten with `pot:at = now`).
+  marker; the shadows are rewritten with `pot:at = now` only when a count was set or a shadow is missing or differs,
+  so loading the same save twice gives the same profile).
 - **One timestamp for spark and Select Ticket.** `spark()` and `redeemSelectTicket()` now stamp the grant and the history
   entry with the same `Date.now()` (§6.1 noted a 1–2 ms skew). The stale-tab restore counts history entries strictly
   after `pot:at`, so a skewed entry would have counted twice. Old entries with the skew are still handled by the 2 s
