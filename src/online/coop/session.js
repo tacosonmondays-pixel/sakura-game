@@ -10,8 +10,10 @@
 //                                    player I see (or null); the host adds room = its stage choice
 //                                    { stageId, difficulty, freeplay }, the guest adds freeplay =
 //                                    the freeplay setting it sees (what its Ready agrees to)
-//   { type: 'room', stageId, difficulty, freeplay }   host's choice (at once; hellos repeat it)
-//   { type: 'ready', uid, ready, freeplay }   (at once; hellos repeat it)
+//   { type: 'room', stageId, difficulty, freeplay, mode }   host's choice (at once; hellos repeat it)
+//   { type: 'ready', uid, ready, freeplay, mode }   (at once; hellos repeat it)
+//   (mode: the battle mode, docs/specs/CODEX_MODES.md; it travels exactly like freeplay: in room,
+//   hello and start, and a guest's Ready is consent to it. Freeplay runs in Standard.)
 //   { type: 'full', uid }            host → a third player: this room already has two
 //   { type: 'start', start }         host → guest: seed, stage, difficulty, freeplay, both
 //                                    players' loadouts, version (re-sent until the guest's first
@@ -47,6 +49,7 @@
 import { createEmitter } from '../../core/events.js';
 import { COOP, COOP_NET } from '../../data/coop.js';
 import { freeplayTier } from '../../data/freeplay.js';
+import { modeId } from '../../data/modes.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
 
@@ -132,7 +135,7 @@ export const LOBBY = Object.freeze({
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, mode = 'standard', modesUnlocked = () => true, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
@@ -147,6 +150,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     difficulty,
     /** co-op freeplay past the stage's last wave: null (off) or a tier id (the host's choice) */
     freeplay: freeplayTier(freeplay),
+    /** the battle mode (BATTLE_MODES id); Standard while freeplay is on or the host has not cleared the stage */
+    mode: freeplay || !modesUnlocked(stageId) ? 'standard' : modeId(mode),
     phase: 'lobby',
     start: null,
     lockstep: null,
@@ -204,8 +209,11 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!room || s.phase !== 'lobby') return;
     lastHelloAt = now();
     const msg = { type: 'hello', player: { ...s.me, host: isHost }, v: version, sees: s.peer?.uid ?? null };
-    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay };
-    else msg.freeplay = s.freeplay; // what my ready flag agrees to
+    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay, mode: s.mode };
+    else {
+      msg.freeplay = s.freeplay; // what my ready flag agrees to
+      msg.mode = s.mode;
+    }
     // a hello is state: one sent while the link is down is pointless (every rejoin says hello)
     send(msg, { drop: true });
   }
@@ -271,14 +279,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
    * Guest: the host's freeplay setting (from its hello or room message). Ready is consent to it,
    * so a changed setting takes my Ready back (I tap it again for the new one).
    */
-  function adoptFreeplay(value) {
+  function adoptFreeplay(value, modeValue = s.mode) {
     const fp = freeplayTier(value);
-    if (fp === s.freeplay) return;
+    const m = fp ? 'standard' : modeId(modeValue);
+    if (fp === s.freeplay && m === s.mode) return;
     s.freeplay = fp;
+    s.mode = m;
     lastActivity = now();
     if (s.me.ready) {
       s.me.ready = false;
-      send({ type: 'ready', uid: s.me.uid, ready: false, freeplay: s.freeplay }, { latest: 'ready' });
+      send({ type: 'ready', uid: s.me.uid, ready: false, freeplay: s.freeplay, mode: s.mode }, { latest: 'ready' });
     }
   }
 
@@ -344,7 +354,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     const isNew = !s.peer;
     if (!isNew && s.peer.ready !== !!p.ready) lastActivity = t; // my ally toggled Ready
     // freeplay: the setting a guest's ready flag was given for (see canStart)
-    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay) };
+    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay), mode: modeId(msg.mode) };
     peerHeard = t;
     peerSeesMe = msg.sees === s.me.uid;
     if (peerSeesMe) {
@@ -355,7 +365,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!isHost && msg.room?.stageId) {
       s.stageId = msg.room.stageId;
       s.difficulty = msg.room.difficulty || s.difficulty;
-      adoptFreeplay(msg.room.freeplay);
+      adoptFreeplay(msg.room.freeplay, msg.room.mode);
     }
     if (isNew) {
       s.stuck = null;
@@ -391,7 +401,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (isHost || s.phase !== 'lobby') return;
         s.stageId = msg.stageId;
         s.difficulty = msg.difficulty;
-        adoptFreeplay(msg.freeplay);
+        adoptFreeplay(msg.freeplay, msg.mode);
         lastActivity = now();
         changed();
         break;
@@ -400,6 +410,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           if (s.peer.ready !== !!msg.ready) lastActivity = now();
           s.peer.ready = !!msg.ready;
           s.peer.freeplay = freeplayTier(msg.freeplay);
+          s.peer.mode = modeId(msg.mode);
           changed();
         }
         break;
@@ -598,6 +609,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (start.stageId) s.stageId = start.stageId;
     if (start.difficulty) s.difficulty = start.difficulty;
     s.freeplay = freeplayTier(start.freeplay);
+    s.mode = s.freeplay ? 'standard' : modeId(start.mode);
     // a fresh battle (also after "Back to the room"): nothing from the last one carries over
     guestHeard = false;
     allyInRoom = false;
@@ -671,20 +683,22 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
      * Host: the room's stage, difficulty and freeplay setting (a FREEPLAY_TIERS id or null: off;
      * left out = unchanged). A changed freeplay setting needs the guest's Ready again.
      */
-    setStage(stage, diff, freeplay = s.freeplay) {
+    setStage(stage, diff, freeplay = s.freeplay, mode = s.mode) {
       if (!isHost || s.phase !== 'lobby') return;
       s.stageId = stage;
       s.difficulty = diff;
       s.freeplay = freeplayTier(freeplay);
+      // modes need the host's clear of this stage, and freeplay runs in Standard (v1)
+      s.mode = s.freeplay || !modesUnlocked(stage) ? 'standard' : modeId(mode);
       lastActivity = now();
-      send({ type: 'room', stageId: stage, difficulty: diff, freeplay: s.freeplay }, { latest: 'room' });
+      send({ type: 'room', stageId: stage, difficulty: diff, freeplay: s.freeplay, mode: s.mode }, { latest: 'room' });
       changed();
     },
     setReady(ready) {
       s.me.ready = !!ready;
       lastActivity = now();
       // the freeplay setting this Ready is for (the host starts only when it is still its own)
-      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready, freeplay: s.freeplay }, { latest: 'ready' });
+      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready, freeplay: s.freeplay, mode: s.mode }, { latest: 'ready' });
       changed();
     },
     /** Lobby "Retry": the seat again, on a fresh socket and channel; the search clock restarts. */
@@ -708,6 +722,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         stageId: s.stageId,
         difficulty: s.difficulty,
         freeplay: s.freeplay, // null: a normal battle (createCoopSim)
+        mode: s.freeplay ? 'standard' : s.mode,
         players: [
           { slot: 0, uid: s.me.uid, name: s.me.name, loadout: s.me.loadout, hero: s.me.hero || null, color: COOP.colors[0] },
           { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: null, color: COOP.colors[1] },
@@ -808,7 +823,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     // only once both sides see each other: a guest the host hears but who cannot hear the
     // host would never get the start message; and only with the guest's Ready given for the
     // freeplay setting the room has now (not one from before the host changed it)
-    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay,
+    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay && s.peer.mode === s.mode,
     enumerable: true,
   });
   Object.defineProperty(s, 'room', { get: () => room, enumerable: false });
