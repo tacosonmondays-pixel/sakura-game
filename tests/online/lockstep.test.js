@@ -4,6 +4,7 @@ import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { COOP, coopStage, coopStartCash } from '../../src/data/coop.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { createRng } from '../../src/core/rng.js';
+import { ENEMY_MAP } from '../../src/data/enemies.js';
 
 const STAGE = '1-3';
 const CHEAP = { costMul: 0.5 };
@@ -43,7 +44,7 @@ function spots(unitId, n) {
  * Two lockstep clients over a fake network: each message is delivered after a random
  * 0–9 frame delay (out of order allowed), optionally dropped.
  */
-function harness({ seed = 7, drop = 0, maxLag = 9, net = null } = {}) {
+function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START } = {}) {
   const rng = createRng(seed);
   const clock = { t: 0 };
   const queue = [];
@@ -56,7 +57,7 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null } = {}) {
   let frame = 0;
   const sent = [[], []];
   const mk = (slot) => new Lockstep({
-    start: START,
+    start,
     mySlot: slot,
     now: () => clock.t,
     ...(net ? { delay: net.inputDelay, heartbeatMs: net.heartbeatMs, keepaliveMs: net.keepaliveMs } : {}),
@@ -619,4 +620,208 @@ describe('co-op lockstep: reconnecting', () => {
     expect(copy.coop.wallets).toEqual(A.coop.wallets);
     expect(copy.coop.hash()).toBe(A.coop.hash());
   });
+});
+
+// Co-op freeplay through the lockstep (owner, Oct 14: "once you get past what you need like 15/15
+// … 16/15"). The room's tier rides in the start message, so both clients — and every resync and
+// rejoin, which rebuild from it — run the same waves past the stage's goal; the Finish vote ('end')
+// travels like any other command and ends the run on the same tick everywhere.
+describe('co-op lockstep: freeplay', () => {
+  // test-only profile bonuses so a scripted pair of six girls lives well past the goal
+  const STRONG = { damageMul: 60, costMul: 0.2, rangeMul: 1.3 };
+  const fpStart = (freeplay, stageId = '1-1') => ({
+    seed: 4242,
+    stageId,
+    difficulty: 'normal',
+    freeplay,
+    players: [
+      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: STRONG }, { unitId: 'rei', stats: STRONG }], hero: { unitId: 'hikari', stats: STRONG } },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: STRONG }, { unitId: 'yuki', stats: STRONG }], hero: null },
+    ],
+  });
+  /** Three legal spots for `unitId` next to the path of the start's map (1.3 tiles apart). */
+  function board(start) {
+    const c = createCoopSim(start);
+    const cands = [];
+    for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+      for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+        if (!c.sim.placementReason('aoi', x, y) && !c.sim.placementReason('yuki', x, y)) cands.push([x, y, c.sim.placement.pathDistance(x, y)]);
+      }
+    }
+    cands.sort((a, b) => a[2] - b[2]);
+    const out = [];
+    for (const [x, y] of cands) {
+      if (out.length >= 6) break;
+      if (!out.some(([tx, ty]) => Math.hypot(tx - x, ty - y) < 1.3)) out.push([x, y]);
+    }
+    return { aoi: out.slice(0, 3), yuki: out.slice(3, 6) };
+  }
+  /** Drains both clients' battle events (as their battle screens do) and keeps what the tests read. */
+  function watcher(h) {
+    const seen = h.clients.map(() => ({ goal: [], won: [], bosses: new Set() }));
+    const each = () => h.clients.forEach((c, i) => {
+      if (!c.sim) return;
+      for (const e of c.sim.drainEvents()) {
+        if (e.type === 'goal') seen[i].goal.push(e.wave);
+        else if (e.type === 'won') seen[i].won.push(e);
+        else if (e.type === 'spawn' && !['normal', 'elite'].includes(ENEMY_MAP[e.id]?.tier)) seen[i].bosses.add(`${c.sim.wave}:${e.id}`);
+      }
+    });
+    return { seen, each };
+  }
+  /** Frames until cond() holds (or max frames): true when it held. */
+  function runUntil(h, cond, max, each) {
+    for (let f = 0; f < max && !cond(); f++) {
+      h.stepFrame();
+      each?.();
+    }
+    return cond();
+  }
+  /** Both deploy three strong girls, the host starts at 3× with Auto on; runs until both cleared the goal. */
+  function toGoal(h, start, each) {
+    const [A, B] = h.clients;
+    const { aoi, yuki } = board(start);
+    for (const p of aoi) A.queue('place', ['aoi', ...quantize(...p)]);
+    for (const p of yuki) B.queue('place', ['yuki', ...quantize(...p)]);
+    A.queue('speed', [3]);
+    A.queue('wave');
+    A.queue('auto', [true]);
+    const done = () => A.sim.wavesCleared >= A.sim.totalWaves && B.sim.wavesCleared >= B.sim.totalWaves;
+    expect(runUntil(h, done, 60 * 60 * 10, each)).toBe(true);
+  }
+  const allEqual = (c) => c.hashPairs().every((p) => p.mine === p.theirs);
+
+  it('a start without freeplay is a normal battle; with a tier both clients build the freeplay battle', () => {
+    expect(harness().clients[0].sim.freeplay).toBe(false);
+    const h = harness({ start: fpStart('tempest') });
+    for (const c of h.clients) {
+      expect(c.sim.freeplay).toBe(true);
+      expect(c.sim.stage.freeplay.id).toBe('tempest');
+      expect(c.sim.totalWaves).toBe(STAGE_MAP['1-1'].waves);
+    }
+  });
+
+  it('both play through the goal and 20 freeplay waves in sync (bosses on the way), then both vote Finish: won on the same tick', () => {
+    const start = fpStart('crimson');
+    const h = harness({ seed: 51, maxLag: 4, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    // a Finish vote before the goal is refused on both clients and counts for nothing
+    runUntil(h, () => false, 10, w.each);
+    B.queue('end', [true]);
+    toGoal(h, start, w.each);
+    expect(h.failed.filter((f) => f.c.k === 'end').map((f) => [f.slot, f.r]).sort()).toEqual([[0, 'notYet'], [1, 'notYet']]);
+    expect(h.failed.filter((f) => f.c.k !== 'end')).toEqual([]);
+    expect(A.coop.endVotes()).toEqual([false, false]);
+    const goal = A.sim.totalWaves;
+    // the goal is a clear, not the end: the 'goal' event once on each screen, the battle goes on
+    for (const s of w.seen) expect(s.goal).toEqual([goal]);
+    expect(A.sim.state).not.toBe('won');
+    // 20 waves past it (Auto on): visitors, armor, bosses (crimson 1-1: a miniboss at 20 and 30)
+    expect(runUntil(h, () => A.sim.wave >= goal + 20 && B.sim.wave >= goal + 20, 60 * 60 * 30, w.each)).toBe(true);
+    expect(A.finished || B.finished).toBe(false);
+    expect(A.sim.freeplayInfo(goal + 20).pressure.armor).toBeGreaterThan(0);
+    for (const s of w.seen) {
+      const waves = [...new Set([...s.bosses].map((k) => Number(k.split(':')[0])))];
+      expect(waves.filter((n) => n > goal).length).toBeGreaterThanOrEqual(2);
+    }
+    expect(w.seen[1].bosses).toEqual(w.seen[0].bosses);
+    // one vote is not enough…
+    A.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([true, false]);
+    expect(B.coop.endVotes()).toEqual([true, false]);
+    expect(A.finished || B.finished).toBe(false);
+    // …both end the run, on the same tick on both screens
+    B.queue('end', [true]);
+    expect(runUntil(h, () => A.finished && B.finished, 600, w.each)).toBe(true);
+    runUntil(h, () => false, 20, w.each); // the last horizons and hashes land
+    expect(A.tick).toBe(B.tick);
+    expect(A.coop.hash()).toBe(B.coop.hash());
+    expect(A.sim.result()).toEqual(B.sim.result());
+    expect(A.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'crimson', goal, goalReached: true });
+    for (const s of w.seen) expect(s.won).toEqual([{ type: 'won', finished: true }]);
+    // in sync all along: hash pairs every 120 ticks, no resync, no desync
+    expect(A.hashPairs().length).toBeGreaterThan(20);
+    expect(allEqual(A) && allEqual(B)).toBe(true);
+    expect(A.resyncs + B.resyncs).toBe(0);
+    expect(A.desynced || B.desynced).toBe(false);
+  }, 180000);
+
+  it('a resync after the goal rebuilds the freeplay battle (and the votes cast so far) from the start message', () => {
+    const start = fpStart('blossom');
+    const h = harness({ seed: 52, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    const goal = A.sim.totalWaves;
+    runUntil(h, () => A.sim.wave > goal && B.sim.wave > goal, 60 * 60, w.each);
+    B.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([false, true]);
+    B.sim.lives -= 7; // corrupt the guest's state: the hash check catches it, the host's log repairs it
+    expect(runUntil(h, () => B.resyncs > 0, 60 * 10, w.each)).toBe(true);
+    const B2 = h.clients[1];
+    expect(B2.sim.freeplay).toBe(true);
+    expect(B2.sim.stage.freeplay.id).toBe('blossom');
+    expect(B2.sim.lives).toBe(A.sim.lives);
+    expect(B2.coop.endVotes()).toEqual([false, true]);
+    const t = A.tick;
+    A.queue('end', [true]);
+    expect(runUntil(h, () => A.finished && B2.finished, 600, w.each)).toBe(true);
+    runUntil(h, () => false, 20, w.each);
+    expect(A.tick).toBe(B2.tick);
+    expect(A.coop.hash()).toBe(B2.coop.hash());
+    expect(A.sim.finished && B2.sim.finished).toBe(true);
+    expect(B2.hashPairs().filter((p) => p.t > t - 240).every((p) => p.mine === p.theirs)).toBe(true);
+    expect(B2.desynced).toBe(false);
+  }, 120000);
+
+  it('an ally who drops out does not block the Finish: her drop re-checks the votes and the one left finishes alone', () => {
+    const start = fpStart('blossom');
+    const h = harness({ seed: 53, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    A.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([true, false]);
+    expect(A.finished).toBe(false);
+    // the guest's tab dies: after the timeout the host drops it, and its own vote is enough
+    h.clients[1] = { receive() {}, advance() {} };
+    expect(runUntil(h, () => A.finished, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60), w.each)).toBe(true);
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(A.sim.result()).toMatchObject({ won: true, finished: true, goalReached: true });
+    // the drop is a marker in the host's log: a replay of it ends on the same tick
+    const copy = new Lockstep({ start, mySlot: 0, send: () => {}, now: () => 0 });
+    copy.rebuild(start, A.log, A.tick);
+    expect(copy.sim.finished).toBe(true);
+    expect(copy.coop.hash()).toBe(A.coop.hash());
+    expect(B.sim.finished).toBe(false); // (the guest's own battle never saw the end)
+  }, 120000);
+
+  it('a guest frozen past the timeout after the goal comes back into the same freeplay run; her earlier vote still counts', () => {
+    const start = fpStart('tempest');
+    const h = harness({ seed: 54, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    B.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([false, true]);
+    h.frozen.add(1);
+    runUntil(h, () => false, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60), w.each);
+    expect(A.peers.get(1).gone).toBe(true);
+    expect(A.finished).toBe(false); // the host had not voted: the run goes on alone
+    h.frozen.delete(1);
+    expect(runUntil(h, () => A.rejoins === 1 && B.rejoins === 1, 60 * 8, w.each)).toBe(true);
+    expect(B.sim.freeplay).toBe(true);
+    expect(B.coop.endVotes()).toEqual([false, true]);
+    A.queue('end', [true]);
+    expect(runUntil(h, () => A.finished && B.finished, 60 * 5, w.each)).toBe(true);
+    runUntil(h, () => false, 20, w.each);
+    expect(A.tick).toBe(B.tick);
+    expect(A.coop.hash()).toBe(B.coop.hash());
+    expect(B.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'tempest' });
+  }, 120000);
 });
