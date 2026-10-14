@@ -1902,7 +1902,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 /* stage prep: the saved battle line above Continue / New game */
 .ma-saved { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 10px; border-radius: 10px; background: linear-gradient(90deg, #fff7d1, #fffdf4); border: 1px solid #ffe28a; }
 .ma-saved-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
-.ma-saved-text b { color: var(--navy); font-size: 0.86rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-saved-text b { color: var(--navy); font-size: 0.86rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .ma-saved-text small { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
 .ma-saved-team { display: flex; flex: none; }
 .ma-saved-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; line-height: 0; border: 2px solid #fff; background: var(--sky-1); box-shadow: 0 1px 4px rgba(29,78,137,0.25); }
