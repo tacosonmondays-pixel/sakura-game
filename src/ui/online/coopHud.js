@@ -48,6 +48,12 @@ export function createCoopHud(ctx) {
       const votes = ls.coop.endVotes?.() || [];
       for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];
     }
+    status();
+    placeRings();
+  }
+
+  /** The connection line and the re-sync card (also on a timer: a page busy rebuilding gets few frames). */
+  function status() {
     const peer = [...ls.peers.values()][0];
     const rb = ls.rebuilding;
     const syncKey = rb ? `${rb.kind}:${rb.wave}:${Math.floor((100 * rb.done) / rb.total)}` : '';
@@ -77,6 +83,9 @@ export function createCoopHud(ctx) {
       state.hidden = !text;
       el.classList.toggle('ol-coop-wait', !!text && !peer?.gone);
     }
+  }
+
+  function placeRings() {
     // owner rings (every other frame is plenty)
     if (frame++ % 2 || !ctx.renderer?.worldToScreen) return;
     const seen = new Set();
@@ -104,10 +113,14 @@ export function createCoopHud(ctx) {
   }
 
   update();
+  const statusTimer = setInterval(status, 150);
+  const offRebuild = session.on?.('rebuild', status); // the card at once, not at the next frame
   return {
     el,
     update,
     destroy() {
+      clearInterval(statusTimer);
+      offRebuild?.();
       el.remove();
       sync.remove();
       rings.remove();

@@ -103,7 +103,7 @@ export class Lockstep {
    * @param {{ start: object, mySlot: number, send: (msg: object) => void, now?: () => number,
    *   delay?: number, heartbeatMs?: number, keepaliveMs?: number, maxDelay?: number,
    *   idleAfterMs?: number, idleLeadTicks?: number, idleKeepaliveMs?: number, maxMessageBytes?: number,
-   *   hooks?: { onApplied?: Function, onResync?: Function, onDesync?: Function, onPeerGone?: Function, onPeerBack?: Function } }} opts
+   *   hooks?: { onApplied?: Function, onResync?: Function, onDesync?: Function, onPeerGone?: Function, onPeerBack?: Function, onRebuild?: Function } }} opts
    *   delay / heartbeatMs / keepaliveMs: the transport's profile — local tabs 6 ticks / every
    *   50 ms; Supabase 30 ticks / at most every 250 ms, and only once a second while nothing
    *   changes (Realtime bills every message). maxDelay: the adaptive delay's ceiling (3×).
@@ -605,7 +605,10 @@ export class Lockstep {
     }
     this.job = job;
     this.note('rebuild', { kind, from, T: target });
-    if (!quiet) this.beatBusy(this.now(), true);
+    if (!quiet) {
+      this.beatBusy(this.now(), true);
+      this.hooks.onRebuild?.(kind);
+    }
   }
 
   /**
@@ -638,6 +641,7 @@ export class Lockstep {
     };
     this.note('rebuild', { kind: 'catchup', from: G, T: msg.T });
     this.beatBusy(this.now(), true);
+    this.hooks.onRebuild?.('catchup');
     return true;
   }
 

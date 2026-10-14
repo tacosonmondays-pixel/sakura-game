@@ -640,6 +640,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         },
         onDesync: (kind) => emitter.emit('desync', kind),
         onResync: () => emitter.emit('resync'),
+        onRebuild: (kind) => emitter.emit('rebuild', kind),
         onApplied: (cmd, res) => emitter.emit('applied', { cmd, res }),
       },
     });
