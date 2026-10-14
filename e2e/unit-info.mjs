@@ -608,6 +608,58 @@ async function runViewport(vp) {
     await shot('tree');
     await page.click('[data-testid="upgrade-tree-close"]');
     await page.waitForTimeout(300);
+
+    // §8 perf. Opening the tree builds its DOM and forces one style + layout pass inside open()
+    // (the restart of the open animation). Compared with an interaction the battle already has,
+    // selecting a girl (her panel opens), on this same machine: software GL makes absolute numbers
+    // from this box meaningless for a phone. Then the frame right after an open vs ordinary frames,
+    // and the size of the DOM (HTML elements; the SVG icon paths inside them counted apart).
+    const perf = await page.evaluate(async (uid) => {
+      const { ui } = window.__battle;
+      const raf = () => new Promise((r) => requestAnimationFrame(r));
+      const med = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+      const gaps = async (n) => {
+        const out = [];
+        let last = await raf().then(() => performance.now());
+        for (let i = 0; i < n; i++) {
+          const now = await raf().then(() => performance.now());
+          out.push(now - last);
+          last = now;
+        }
+        return out;
+      };
+      const opens = [];
+      const selects = [];
+      const openGaps = [];
+      const baseGaps = [];
+      for (let i = 0; i < 5; i++) {
+        let t0 = performance.now();
+        ui.select(uid);
+        document.body.offsetHeight;
+        selects.push(performance.now() - t0);
+        ui.select(null);
+        await raf();
+        baseGaps.push(...(await gaps(6)));
+        t0 = performance.now();
+        ui.tree.open({ uid });
+        document.body.offsetHeight;
+        opens.push(performance.now() - t0);
+        openGaps.push(Math.max(...(await gaps(6))));
+        ui.tree.close();
+        await raf();
+      }
+      ui.tree.open({ uid });
+      const ov = document.querySelector('[data-testid="upgrade-tree"]');
+      const all = ov.querySelectorAll('*').length;
+      const svgInner = [...ov.querySelectorAll('svg')].reduce((n, el) => n + el.querySelectorAll('*').length, 0);
+      ui.tree.close();
+      const sorted = [...baseGaps].sort((x, y) => x - y);
+      return { open: med(opens), select: med(selects), openFrame: med(openGaps), baseFrame: med(baseGaps), baseP90: sorted[Math.floor(sorted.length * 0.9)], html: all - svgInner, svgInner };
+    }, placedUid);
+    log(`  perf tree open: ${perf.open.toFixed(1)} ms build + style + layout (selecting her: ${perf.select.toFixed(1)} ms); frame after open ${perf.openFrame.toFixed(1)} ms vs ordinary battle frames median ${perf.baseFrame.toFixed(1)} / p90 ${perf.baseP90.toFixed(1)} ms; ${perf.html} HTML elements + ${perf.svgInner} SVG icon nodes`);
+    check(perf.open <= Math.max(32, perf.select * 1.5), `tree perf: opening costs no more than selecting a girl (${perf.open.toFixed(1)} vs ${perf.select.toFixed(1)} ms)`);
+    check(perf.openFrame <= Math.max(perf.baseP90 * 2, perf.baseFrame + 50), `tree perf: no long frame on open (${perf.openFrame.toFixed(1)} ms vs ordinary p90 ${perf.baseP90.toFixed(1)} ms)`);
+    check(perf.html <= 400, `tree perf: ${perf.html} HTML elements (15 cells × ~11 + rows + side panel)`);
   }
   noErrors('battle tree');
 
