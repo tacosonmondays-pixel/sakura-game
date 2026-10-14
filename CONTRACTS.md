@@ -22,8 +22,8 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
   wholesome/non-sexual (cute, cool, stylish). The three heroes (Hikari, Luna, Nami) are
   adult guardians: elegant, glamorous, grown-up designs are OK, but no body-focused framing,
   no lingerie/swimsuits, no suggestive poses.
-* Do not copy copyrighted characters, names or assets (no Blue Archive/Bloons/Uma Musume
-  assets). Inspired-by is fine; everything we ship is original.
+* Do not copy copyrighted characters, names or assets: nothing from other games, and never name
+  another game in code, comments, tests, commits or UI text. Inspired-by is fine; everything we ship is original.
 * Do not edit files you do not own (see §1). `src/data/types.js`, `src/core/**`,
   `src/ui/router.js`, `src/ui/dom.js`, `src/ui/components.js`, `src/ui/styles/base.css`,
   `src/main.js`, `index.html` belong to the lead; ask via INTEGRATION_NOTES instead.
@@ -187,21 +187,30 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
 
-Upgrade rules (BTD6-style crosspathing): at most two paths may have tiers > 0, and only one
-path may go above tier 2. Tier N requires tier N-1 in that path.
+Upgrade rules (crosspathing): at most two paths may have tiers > 0, and only one
+path may go above tier 2. Tier N requires tier N-1 in that path. Heroes have no paths (`paths: []`).
 
 ```js
-HeroDef = {
-  levelXp: number[],     // XP needed for levels 2..10 (length 9)
-  levels: [{ level, desc, mods: ModSet }],  // milestones applied when reached
-  ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect },
+HeroDef = {                       // src/data/heroTracks.js (hero rework, docs/specs/HERO_REWORK.md)
+  levels: [{ level /*1..25*/, from /*'base' | '<pathKey>.<tier>' | 'L<n>'*/, also?: string[], desc, mods: ModSet }],
+                                  // one 25-level track: every reached level's mods apply (+ growth, below)
+  pathKeys: [a, b, c],            // the old path ids `from` refers to (attack looks; the sim ignores them)
+  levelXp?: number[],             // optional own XP table (24 entries, Lv 2..25) — requires levelPrices
+  levelPrices?: number[],         // optional own price table (24 entries); default HERO_XP_STEPS / HERO_LEVEL_PRICES
+  growth?: { damage, rate },      // default HERO_GROWTH { damage: 0.03, rate: 0 } per level above 1
+  ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect,
+         ranks: [{ level, desc, effect: Partial<UltEffect>, cooldownMul }] },  // rank 2 at Lv 10, rank 3 at Lv 20
 }
 UltEffect = { type: 'nova', damage, radius /*0 = whole map*/, attackType, status?: StatusSpec[], reveal?: seconds }
           | { type: 'timeWarp', slow, duration, rateBuff, buffDuration }
           | { type: 'tide', damage, pushback /*tiles*/, slow, duration }
 ```
 
-Heroes gain XP from damage dealt and wave clears inside a battle; only one hero per battle.
+Heroes deploy for free (`base.cost` 0) and level 1–25 (`BATTLE.maxHeroLevel`) inside each battle from
+time in a wave, wave clears and damage dealt (in the enemy's base HP), all scaled by the stage pace
+`k = clamp(22 / totalWaves, 1, 2)` (`HERO_XP`). Each level adds +3 % damage; past Lv 25 Mastery adds
++1 % per 2,000 XP (≤ +25 %). Players buy the rest of a level with battle coins. One hero per player
+(co-op: two). Heroes cannot be sold; they can be moved.
 
 ## 4. World — enemies, maps, stages (owner: world)
 
@@ -265,7 +274,7 @@ summons + phasing), Iron Colossus, Ashwing Matriarch.
 ### `src/data/maps.js`
 
 ```js
-export const MAPS = [MapDef...]   // ≥ 24 maps, Bloons-like variety (loops, crossings,
+export const MAPS = [MapDef...]   // ≥ 24 maps, wide variety (loops, crossings,
                                    // spirals, two lanes, water lakes, islands, figure-8...)
 export function getMap(id)
 export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
@@ -334,14 +343,14 @@ ends on a bank (short dry gaps are decked over). Every flat junction gets painte
 chevrons a tile before and after it on both passes (src/render/groundFeatures.js).
 
 Path tiles are NOT buildable even if the row says otherwise. Spawn / exit control points sit
-just outside the grid (off-screen). Placement is FREE (Bloons-style, see §6): girls
+just outside the grid (off-screen). Placement is FREE (see §6): girls
 stand at continuous positions, so `rows` only describes terrain and obstacles — the sim turns
 'T' into a blocking disc (r 0.45 at the tile centre), 'R' / 'H' / 'X' into blocking squares, and
 the path into a band 0.55 tiles either side of its centre line (`BAND_HALF_WIDTH`). A 'B' tile
 is any water tile the road band touches; the open water of a 'B' tile off the band still takes
 water girls (a curved road often only grazes the tile).
 
-Tunnels (Bloons-style): between `IN` and `OUT` the road is drawn under a hill / hall / cave and
+Tunnels: between `IN` and `OUT` the road is drawn under a hill / hall / cave and
 enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
 are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
 already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
@@ -591,7 +600,7 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 * Tile = 1 world unit. Ranges: melee 1.6–2.2, normal ranged 2.8–3.6, sniper 8–12.
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
-* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000 (Bloons-like).
+* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000.
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -605,7 +614,7 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 Pure JS. World units = tiles; tile (tx,ty) covers [tx,tx+1)×[ty,ty+1); centre = (tx+0.5, ty+0.5).
 The 3D renderer maps sim (x, y) → three.js (x, 0, y) (y-down on the grid = +z in 3D).
 
-**Free placement (V2, Bloons-style — `src/sim/placement.js`, `docs/PLACEMENT.md`).** Girls stand
+**Free placement (V2 — `src/sim/placement.js`, `docs/PLACEMENT.md`).** Girls stand
 at continuous (x, y) and own a circular footprint: towers r = 0.42, heroes r = 0.5 (`footprintRadius(def)`;
 a UnitDef may override with `footprint`). A spot is legal when the centre is inside the map, no other
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
@@ -624,6 +633,7 @@ const sim = new Sim({
   difficulty,         // 'easy'|'normal'|'hard'|'nightmare'
   loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
   hero: { unitId, stats } | null,
+  heroes: [{ unitId, stats } | null, …],  // co-op: one per player, by player index (instead of `hero`)
   seed,               // number
   options: { endless: false, autoStart: false, freeplay: false }, // freeplay: co-op freeplay (needs stage.freeplay)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
@@ -639,7 +649,11 @@ sim.towers            // TowerRT[] (includes hero)
 sim.projectiles       // ProjectileRT[]
 sim.traps             // [{ uid, x, y, ownerUid, armed }]
 sim.fields            // [{ uid, x, y, radius, kind, silenced }]  (oni fields, for rings)
-sim.hero              // TowerRT|null
+sim.hero              // TowerRT|null — the ACTIVE player's hero (getter; co-op: the viewing / commanding player)
+sim.heroConfig        // { unitId, stats, index }|null — the active player's hero config (getter + setter)
+sim.heroes, sim.heroConfigs   // every player's placed hero / config, by player index
+                      // VIEW RULE: nothing inside the step reads sim.hero / sim.heroConfig (they follow the
+                      // view); with globalThis.__SIM_VIEW_TRAP__ set (tests) such a read throws
 sim.encountered       // Set<enemyId> seen this battle
 sim.kills             // { enemyId: count }
 sim.stats             // { damageByTower: {uid: n}, leaks, cashEarned }
@@ -653,11 +667,18 @@ sim.footprintRadius(unitId)         // 0.42 towers, 0.5 heroes
 sim.canPlaceTile(unitId, tx, ty) / sim.placeTowerTile(unitId, tx, ty)   // legacy: tile centre
 sim.upgradeStatus(uid, path)        // -> { tier /*current*/, next: TierDef|null, cost, locked, reason: 'max'|'crosspath'|'cash'|null }
 sim.upgradeTower(uid, path)         // -> boolean
-sim.sellTower(uid)                  // -> refund coins
+sim.sellTower(uid)                  // -> refund coins; false for a hero (heroes cannot be sold); 0 unknown / ended
+sim.canSell(uid)                    // -> { ok, reason: null|'none'|'hero'|'ended' }
 sim.sellValue(uid)
 sim.setTargetMode(uid, mode)
 sim.activateUlt()                   // hero ult -> boolean
-sim.heroUltStatus()                 // -> { unlocked, ready, cooldownLeft, cooldown }
+sim.heroUltStatus()                 // -> { unlocked, ready, cooldownLeft, cooldown, unlockLevel, name, rank }
+sim.heroLevelStatus(want?)          // -> { level, max, next, price, xpLeft, reason: null|'noHero'|'ended'|'max'|'stale'|'cash' }
+sim.buyHeroLevel(want?)             // -> { ok, reason, price } — buys the rest of her level (exactly the missing XP).
+                                    //    want = { level, maxPrice }: refused 'stale' if she already levelled past it
+                                    //    or it now costs more (what the button showed; co-op safe)
+sim.canMoveHero(x, y) / sim.moveHero(x, y)  // -> { ok, reason } — free and instant before / between waves; in a
+                                    //    wave she pauses 3 s (moveLock) and Move recharges 15 s (moveCd)
 sim.nextWavePreview()               // -> [{ enemyId, count, traits: TraitKey[] }]
 sim.waveInfo(n)                     // same for any wave
 sim.drainEvents()                   // -> SimEvent[] since last call (renderer/UI consume; then cleared)
@@ -672,6 +693,7 @@ EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
+            /*heroes:*/ heroIndex, levelSpent, levelsBought, mastery, moveCd, moveLock, ultUnlocked, ultCooldown,
             spent /*coins invested*/, turrets: [{ uid, x, y, facing }] }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
 SimEvent = { type, ...payload } with types:
@@ -681,7 +703,8 @@ SimEvent = { type, ...payload } with types:
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
   'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
-  'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
+  'heroLevel' {level,towerUid} 'ult' {name,effect,x,y,towerUid,rank} 'waveStart' {wave} 'waveEnd' {wave,bonus}
+  'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)   'won' {finished: true} (freeplay Finish)
 ```
@@ -829,7 +852,7 @@ r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point
 r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)
 r.shakeGhost()                   // wobble the ghost for a moment (rejected drop feedback)
 r.setSelected(uid|null)          // selected tower: outline + range circle
-r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the owner's request — BTD6 shows none)
+r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the owner's request)
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
@@ -888,7 +911,7 @@ right, whichever side keeps it off the spawn gates and the first tiles of road b
 
 meta-a: lobby (drawn secretary background — see 11a — + big slanted tiles: Mission, Bounty, Total Assault,
 Tactical Challenge, Recruit, Students, Formation, Backpack, Mall, Commissions, Bestiary, Wiki,
-Events/rewards), campaign (Bloons-style map picker: chapter tabs, map cards with
+Events/rewards), campaign (map picker: chapter tabs, map cards with
 `stageThumbSVG`, medals row in the corner, tier badges), stage prep (map preview, enemies
 incl. "New!", recommended counters with "add to formation" shortcut, difficulty picker with
 medals, drops with item tiles, Start / Sweep), recruit (banner, rates, pity counter, 1/10 pulls,
@@ -995,7 +1018,7 @@ in-game result, relevant tests, and evidence against the original request."
   weak), Armored (visible protection), Support (helps nearby enemies: fields, siphon, guardian). Slime
   mimics each copy ONE rule from another family. Depth comes from combining simple roles inside waves,
   not from stacking exceptions on one enemy. Every essential counter must be available from free units.
-* **Difficulty:** Bloons TD6 / Battle Cats level. Easy forgiving but not passive; Normal rewards
+* **Difficulty:** at the level of the owner's reference tower-defense games. Easy forgiving but not passive; Normal rewards
   understanding (upgrades + right counters); Hard demands good decisions, never a specific gacha pull.
 * **Pre-wave warnings and defeat debriefs (sim + battle-ui):** before a wave, warn about new or dangerous
   roles ("Armored orcs incoming — bring armor break"). On defeat, explain from recorded events, e.g.
@@ -1017,7 +1040,7 @@ in-game result, relevant tests, and evidence against the original request."
   idle that says something about her, attack with anticipation → strike → recovery, victory pose.
   Owner's primary style reference is a cute dinosaur-hoodie chibi character-modeling time-lapse
   (soft rounded forms, big head, clean toon shading).
-* **Maps v2 (renderer, world):** vibrant and alive like Bloons TD6 but with strong composition — "five
+* **Maps v2 (renderer, world):** vibrant and alive, with strong composition — "five
   beautifully composed features beat fifty random props" (creek banks, bridges/boardwalks, clustered
   vegetation, lanterns, flowing water, gentle foliage motion). Path, buildable tiles and warnings must
   stay instantly readable. Mark entrances/exits with cute animated arrows.
@@ -1124,13 +1147,19 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]`, positions quantized to 1/1024 tile,
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
+  `COOP_PROTOCOL` 4 (`version.js`; 3 was freeplay), and the freeplay table is in the battle-data hash.
+  Heroes (hero rework): every start player carries her own `hero` (a player without one brings a sixth girl,
+  `loadout.js`); the Sim holds both (`heroes`, by player index) and `hero` follows the commanding player, so
+  `ult` fires the commander's own hero. `hlv[level, maxPrice]` buys her next level (refused `stale` when she
+  already levelled or it got dearer; `cash`, `max`, `ended`, `noHero` pass through); `hmv[qx, qy]` moves her
+  (`cooldown`, placement reasons). A hero `sell` is refused `hero` and she stays hers. `hashSim` folds a
+  tower's level and XP for heroes only (battles without one keep their hash).
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:

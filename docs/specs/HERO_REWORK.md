@@ -778,3 +778,49 @@ r1 under `scratchpad/four-features/hero-rework/exp/` (unchanged; see r1's list i
 | `single-bench.mjs`, `res/single-bench.md` | Single-target bench (heroes Lv 10/20/25, towers 5/2) |
 | `share13.mjs`, `res/share13.txt` | 1-3 damage share with the bot's plan vs hero placed first |
 | `golden.mjs`, `res/golden.txt` | Hero-less battles: live = r2 (1-3, 4-5, 8-5) |
+
+---
+
+## Build notes (`feature/hero-rework`, 2026-10-14)
+
+Built on `feature/train-c-base` (co-op freeplay + the specs). The `exp-r2/` prototype was not
+available to the builder, so every number below was re-measured on this branch with the scripts
+named here; the spec's own figures were reproduced within a few percent (bench §5.3: Hikari Lv 25
+crowd 3,960 vs 3,944; headroom ×2 overall, as §6.1).
+
+### What was built (M0–M5)
+
+| Milestone | Where |
+|---|---|
+| M0 data | `src/data/heroTracks.js` (3 tracks exactly as §3.2, XP / price tables, pace, growth, Mastery, Move), `units.js` heroes (cost 0, `paths: []`, `hero.levels` / `pathKeys` / `ult.ranks`), `BATTLE.maxHeroLevel` 25, `tools/heroTrack.mjs` (track + rule-5 report; `--draft` for a hero still written with paths), data tests (complete tracks, every old tier / milestone once, rule 5, frozen Lv 25 stats, `levelXp` ⇒ `levelPrices`). |
+| M1 solo sim | `hero.js` (pace, wave / time / damage XP, Mastery, `heroLevelStatus` / `buyHeroLevel` with `want`, ranks, `canMoveHero` / `moveHero`, `heroLookTiers`), `Sim.js` (`heroes[]`, `hero` / `heroConfig` getters + view trap, `_step` → `_step1`, `_credit(tower, dealt, e = null, drone = null)` (landing plan S1), free hero placement + `DIFFICULTIES[d].heroCost` knob, `canSell` / `sellTower` false, `_relocate` (S5), `towerStats` / `result` hero fields), `mods.js` growth + Mastery ModSet, `towers.js` `moveLock`, `headless.js` (`sell` → `'fail'` for heroes, `heroLevel` plan action), `report.js` (`capabilitySources` names the hero level: "Hikari at Lv 9"). Tests: `tests/sim/hero.test.js`, `heroes.test.js`, `viewRule.test.js`; the view trap is on for every test (`tests/setup.js`). |
+| M2 co-op | `commands.js` (`heroes: players.map(p => p.hero)`, `hlv[level, maxPrice]`, `hmv[qx, qy]`, hero `sell` refused without dropping the owner), `loadout.js` (each player brings her hero; no hero → a sixth girl), `session.js` (guest's hero in `start`), `simHash.js` (level / XP folded **only for heroes**, landing plan S8 / §10.4), `COOP_PROTOCOL` 4. `snapshot.js` `REBUILT` += `heroConfigs`, `_heroConfig`, `_stepping` (landing plan §10.5): a host checkpoint restores on the guest with the guest's own view (`tests/online/coopHeroes.test.js`). Engines: new named scenario `HERO2_START` / `runHeroBattle()` (S12). |
+| M3 battle UI | `src/ui/battle/heroLevels.js` (feature module, S14), `towerBar.js` (FREE, armed pulse, "Deployed · Lv n"), `heroWidget.js` (Level up pill, 2 Hz price, MAX · Mastery), `towerPanel.js` (track block, Full track, ult rank, Level bonus / Level prices stats, Move instead of Sell), `placement.js` (Move mode), `controller.js` (≈ 25 lines: hooks, Q / L keys, wave-0 arming), `results.js` (your hero's line), `scout.js` (hero price in warnings), renderer `heroMove`, audio throttle. Tests: `tests/battle-ui/hero.test.js`, `e2e/hero.mjs`. |
+| M4 outside battle | student page (Deploy cost **Free**, Level prices −X %, Hero section with the 25 levels + sources + ranks, Tree tab = the track), formation (Free, total skips heroes, "Hero · free in battle"), wiki (hero tip, controls), unit tips, co-op lobby text and "Two heroes" rule. |
+| M5 balance | `tools/balance/headroom.js`, `tools/balance/bench.js`, `BALANCE=hero` in `tests/integration/balance.test.js`, the stage-HP pass (below), `docs/BALANCE.md`. |
+
+### Deviations from the spec (and why)
+
+1. **Luna Lv 22 "Lunatic Lance" +8 damage (spec +10).** On this branch's bench the best tier-5/2 tower
+   (Kage) measures 3,473 (spec 3,749), which put Luna's Lv 25 crowd DPS at 1.40× — on the §5.3 guard
+   line. +8 gives 1.32× (the spec's own design point was 1.34×). Same knob the spec used for rule 2.
+2. **Hero push lock is our own** (`HERO_PUSH_LOCK` 0.5 s in `constants.js`, `e.pushLock`): roster B3's
+   `PUSH_LOCK` lines were not available. It applies to hero hits only, so battles without a hero stay
+   bit-identical (pinned in `campaignGolden.test.js`). B3 can replace it with its own lock on rebase.
+3. **No coached tutorial on this branch**, so the wave-0 arming has no tutorial exclusion yet; the
+   story branch should skip `armHero` in its coached battle.
+4. **Battle save (#170) is not on this branch** (no `src/ui/battle/snapshot.js`). Field list for whoever
+   lands second (§9.2–9.3, landing plan §8): snapshot row adds `ls` (levelSpent), `lb` (levelsBought),
+   `mc` (moveCd); `KNOWN_SIM_KEYS`: remove `hero`, `heroConfig` (now getters); add `heroes: 'snap'`,
+   `heroConfigs: 'config'`, `_heroConfig: 'config'`, `_stepping: 'scratch'`; `KNOWN_TOWER_KEYS`:
+   `levelSpent`, `levelsBought`, `moveCd: 'snap'`, `moveLock: 'calm'`, `mastery: 'derived'`,
+   `heroIndex: 'config'`; restore a hero without the tier loop and never `sellTower` her
+   (`gainHeroXp(sim, t, o.xp, 'restore')`); `SNAP_V` 1 → 2 with the v1 migration of §9.3 if #170 ships
+   first. If hero hits carry the push lock: enemy `pushLock` is calm (enemies are not carried).
+5. **Attack-FX hand-off:** `heroLookTiers(def, level)` is exported from `src/sim/hero.js` and unit-tested
+   (Lv 9 / 10 / 15 / 22 / 25); the multi-look `tierLook` and the intensity cap belong to the attack-fx
+   branch, which is not here.
+6. **Other games' names**: besides the two wiki lines, every comment, test name and doc line that named
+   another game was reworded (Shiro's bio no longer opens with "Ace").
+7. **Stage-HP pass is a per-stage multiplier** (`HERO_HP_PASS` in `stages.js`), not #75's calibration —
+   see `docs/BALANCE.md`. Economy (`cashScale`) is computed from the pre-pass HP, so coins are unchanged.
