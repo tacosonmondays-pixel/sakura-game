@@ -402,7 +402,9 @@ export function attachCoach(ctx) {
     inline.el?.remove();
     const card = h('div.tc-inline', { 'data-testid': `coach-inline-${kind}` }, thumb(),
       h('div.tc-inline-text', h('b', title), body ? h('p', body) : null, buttons.length ? h('div.tc-actions', buttons) : null));
-    const anchor = sheet.querySelector('.bt-result-actions') || sheet.querySelector('.bt-rewards-body');
+    // the rewards view keeps its actions in a sticky row under a scroller: there the card goes on top, in view
+    const anchor = (kind === 'home' && sheet.querySelector('.bt-rewards-body'))
+      || sheet.querySelector('.bt-result-actions') || sheet.querySelector('.bt-rewards-body');
     if (anchor) sheet.insertBefore(card, anchor);
     else sheet.appendChild(card);
     inline.el = card;

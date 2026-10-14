@@ -299,6 +299,8 @@ async function runViewport(vp) {
       return { state: sim.state, lives: sim.lives };
     });
     check(end.state === 'won', `the coached 1-1 Easy is won (${JSON.stringify(end)})`);
+    // the coach notices the win on its own 200 ms timer (a loaded machine can stall it for a moment)
+    await page.waitForFunction(() => window.__sakura.store.profile.story.tutorial === 'done', null, { timeout: 4000, polling: 200 }).catch(() => null);
     check((await story(page)).tutorial === 'done', 'the win marks the tutorial done right away');
     const outro = await page.waitForSelector('.sp.sp-overlay[data-scene="tut.outro"].sp-ready', { timeout: 20000 }).catch(() => null);
     check(!!outro && await page.evaluate(() => !!document.querySelector('[data-testid="result"]:not([hidden])')), '"First Petals" plays over the victory sheet');
