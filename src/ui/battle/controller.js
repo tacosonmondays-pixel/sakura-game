@@ -275,10 +275,11 @@ export function mountBattle(root, params, hooks) {
     ctx.startWave = () => {
       if (ctx.ended) return;
       if (ls) {
-        if ((sim.state === 'prep' || sim.state === 'between') && !pendingWave) {
-          pendingWave = true;
-          ls.queue('wave', []);
-        }
+        // one 'wave' order in flight at a time (a double tap must not send two waves); once its
+        // tick has run it is spent, so a wave that started and ended between two frames (a hidden
+        // tab, a slow page) never leaves NEXT WAVE / GO BEYOND dead
+        const inFlight = pendingWave && ls.tick <= pendingWave.t;
+        if ((sim.state === 'prep' || sim.state === 'between') && !inFlight) pendingWave = ls.queue('wave', []);
         if (ctx.paused) ctx.closePause();
         return;
       }
@@ -533,7 +534,6 @@ export function mountBattle(root, params, hooks) {
       ctx.audio?.events(events); // [audio]
       handle(events);
       fpBattle?.update();
-      if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
       bar.update();
       panel.update();
@@ -554,7 +554,8 @@ export function mountBattle(root, params, hooks) {
   }
 
   // ---- co-op -----------------------------------------------------------------------------
-  let pendingWave = false;
+  /** co-op: my last 'wave' order (its cmd; in flight until the lockstep has run its tick) */
+  let pendingWave = null;
   let coopHud = null;
   /** co-op freeplay presentation + vote (src/ui/battle/freeplay.js), null otherwise */
   let fpBattle = null;
