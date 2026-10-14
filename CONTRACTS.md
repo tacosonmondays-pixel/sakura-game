@@ -625,7 +625,7 @@ const sim = new Sim({
   loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
   hero: { unitId, stats } | null,
   seed,               // number
-  options: { endless: false, autoStart: false },
+  options: { endless: false, autoStart: false, freeplay: false }, // freeplay: co-op freeplay (needs stage.freeplay)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -683,6 +683,27 @@ SimEvent = { type, ...payload } with types:
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
+  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)   'won' {finished: true} (freeplay Finish)
+```
+
+**Co-op freeplay** (`src/sim/freeplay.js`, table `src/data/freeplay.js`, `coopStage(id, { freeplay: tier })`):
+with `options.freeplay` and `stage.freeplay` (the tier's table) set, `sim.freeplay` is true and the
+battle does not end at the stage's last wave. `sim.totalWaves` stays the goal (the "15" of 16/15),
+`sim.lastWave` is `Infinity` (no cap). Clearing the goal emits `waveEnd` then `goal {wave}` and the
+state goes to 'between' (auto-start waits `stage.freeplay.clearPause` = 8 s there, 1 s otherwise);
+waves past it come from `generateFreeplayWave` (pure and seeded like `waves.js`; every spawn carries
+its own `hpMul`, `speedMul`, `leak` and affix `mods`). The run ends on defeat or `sim.finish()` (only
+after the goal; state 'won', `sim.finished = true`, event `won {finished: true}`; co-op calls it when
+every player still in the room has sent the `end` command).
+```js
+sim.freeplay, sim.lastWave, sim.finished
+sim.freeplayInfo(n)   // n > goal: { tier, depth, rotation, chapterCap, visitors: [chapter], affix: id|null,
+                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId] },
+                      //   speed, pressure: { armor, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
+sim.finish()          // -> boolean
+sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
+EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
+                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
 ```
 
 Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `src/sim/headless.js`

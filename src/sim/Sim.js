@@ -455,6 +455,9 @@ export class Sim {
     if (this.state !== 'prep' && this.state !== 'between') return false;
     if (!this.endless && this.wave >= this.lastWave) return false;
     this.wave++;
+    // a long freeplay run would keep every past wave's spawn list: keep only the waves around now
+    // (the cache is a pure function of the wave number, so dropping it changes nothing)
+    if (this.freeplay) for (const k of this._waveCache.keys()) if (k < this.wave - 1) this._waveCache.delete(k);
     const w = this._getWave(this.wave);
     this._spawnQueue = w.spawns;
     this._spawnIndex = 0;
