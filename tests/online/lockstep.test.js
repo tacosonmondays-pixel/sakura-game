@@ -528,6 +528,42 @@ describe('co-op lockstep: reconnecting', () => {
     expect(inSync(h, A.tick - 240)).toBe(true);
   });
 
+  it('the adaptive input delay steps back down after a quiet spell (one hiccup does not slow the whole battle)', () => {
+    // the Supabase profile: a 30-tick base delay
+    const h = harness({ seed: 41, maxLag: 4, net: { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 } });
+    run(h, null, 300);
+    const [A, B] = h.clients;
+    expect(A.delay).toBe(30);
+    // a 5 s silent cut both ways (shorter than the drop timeout): both stall, both raise the delay
+    h.link[0] = false;
+    h.link[1] = false;
+    run(h, null, 60 * 5);
+    h.link[0] = true;
+    h.link[1] = true;
+    run(h, null, 60);
+    const raised = A.delay;
+    expect(raised).toBeGreaterThan(30);
+    expect(A.peers.get(1).gone || B.peers.get(0).gone).toBe(false);
+    // a quiet minute: back to the base, step by step (never below it)
+    let min = Infinity;
+    for (let f = 0; f < 60 * 70; f++) {
+      h.stepFrame();
+      min = Math.min(min, A.delay, B.delay);
+    }
+    expect(A.delay).toBe(30);
+    expect(B.delay).toBe(30);
+    expect(min).toBe(30);
+    // and orders issued while it stepped down still ran on both clients in sync
+    const t0 = A.tick;
+    const spot = spots('aoi', 1)[0];
+    A.queue('place', ['aoi', ...quantize(...spot)]);
+    run(h, null, 60 * 5);
+    expect(A.sim.towers.length).toBe(1);
+    expect(B.sim.towers.length).toBe(1);
+    expect(h.failed).toEqual([]);
+    expect(inSync(h, t0)).toBe(true);
+  });
+
   it('leaving on purpose is final: no rejoin', () => {
     const h = harness({ seed: 34, maxLag: 3 });
     run(h, null, 200);

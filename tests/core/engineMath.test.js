@@ -56,4 +56,32 @@ describe('battle data is the same on every JS engine', () => {
     }
     expect(bad).toEqual([]);
   });
+
+  it('the sim raises to a power only as squares (x ** 2 === x * x everywhere) or through powInt', () => {
+    const bad = [];
+    for (const f of readdirSync('src/sim').filter((x) => x.endsWith('.js')).map((x) => join('src/sim', x))) {
+      readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+        if (/^\s*(\*|\/\*)/.test(line)) return; // JSDoc / block comments
+        const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+        for (const m of code.matchAll(/[\w)\]]\s*\*\*\s*([\w(.]+)/g)) if (m[1] !== '2') bad.push(`${f}:${i + 1}: ${line.trim()}`);
+      });
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('powInt: whole powers by square-and-multiply (what JavaScriptCore and SpiderMonkey do for **)', async () => {
+    const { powInt, waveHpRamp } = await import('../../src/sim/waves.js');
+    expect(powInt(1.3, 0)).toBe(1);
+    expect(powInt(2, 10)).toBe(1024);
+    expect(powInt(1.07, 1)).toBe(1.07);
+    const b2 = 1.201 * 1.201;
+    expect(powInt(1.201, 3)).toBe(1.201 * b2); // r = b, then r *= b²
+    const c2 = 1.07 * 1.07;
+    const c4 = c2 * c2;
+    expect(powInt(1.07, 5)).toBe(1.07 * c4);
+    expect(powInt(1.07, 13)).toBe(1.07 * c4 * (c4 * c4)); // 13 = 1101b
+    // the endless HP ramp and the wave budgets go through it (not the engine's **)
+    const { WAVE_HP_RAMP, ENDLESS_HP_GROWTH } = await import('../../src/sim/constants.js');
+    expect(waveHpRamp({ waves: 20 }, 33)).toBe((1 + WAVE_HP_RAMP * 32) * powInt(ENDLESS_HP_GROWTH, 13));
+  });
 });

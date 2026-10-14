@@ -13,7 +13,7 @@ import { ask } from './stage.js';
 import { onlineSection } from '../online/settingsOnline.js';
 import { cue } from '../../audio/cue.js'; // [audio]
 import { buildLine } from '../../core/buildInfo.js';
-import { checkForUpdate, reloadFresh } from '../../core/updates.js';
+import { checkForUpdate, reloadFresh, updateCheckFailed } from '../../core/updates.js';
 
 function settings() {
   const p = store.profile;
@@ -335,6 +335,8 @@ function versionSection() {
       if (info) {
         status.textContent = `A new version${info.version ? ` (v${info.version})` : ''} is ready.`;
         control.replaceChildren(button('Update now', { kind: 'yellow', small: true, icon: 'refresh', testid: 'update-now-settings', onClick: () => reloadFresh(info.build) }));
+      } else if (updateCheckFailed()) {
+        status.textContent = 'Couldn\'t check for updates — are you online? Try again in a moment.';
       } else {
         status.textContent = 'You have the newest version.';
       }

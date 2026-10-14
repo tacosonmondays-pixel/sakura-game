@@ -27,17 +27,20 @@ export function createUpdateChecker({
   let latest = null; // last version.json seen: { version, build, sim, time }
   let lastAt = -Infinity;
   let inflight = null;
+  let failed = false; // the last check got no answer (offline, blocked, a bad file)
   const listeners = new Set();
 
   const newer = () => (latest && latest.build && latest.build !== build ? latest : null);
 
   async function run() {
     lastAt = now();
+    failed = true;
     try {
       const res = await fetchImpl(url(), { cache: 'no-store' });
       if (!res || !res.ok) return newer();
       const info = await res.json();
       if (!info || typeof info.build !== 'string') return newer();
+      failed = false;
       const wasNew = newer();
       latest = { version: String(info.version || ''), build: info.build, sim: String(info.sim || ''), time: String(info.time || '') };
       const found = newer();
@@ -61,6 +64,8 @@ export function createUpdateChecker({
     },
     /** The newer deploy seen so far, or null. */
     available: newer,
+    /** Did the last check fail to get an answer? (null from check() then means "don't know") */
+    lastFailed: () => failed,
     /** cb(info) once per newly seen build. @returns unsubscribe */
     onUpdate(cb) {
       listeners.add(cb);
@@ -76,20 +81,33 @@ const checker = createUpdateChecker({ enabled: DEPLOYED });
 
 export const checkForUpdate = (opts) => checker.check(opts);
 export const updateAvailable = () => checker.available();
+export const updateCheckFailed = () => checker.lastFailed();
 export const onUpdate = (cb) => checker.onUpdate(cb);
 
-/** Reloads into a never-cached URL (?v=<build>) so the newest index.html is fetched. */
-export function reloadFresh(build = checker.available()?.build) {
+/**
+ * Reloads into a never-cached URL (?v=<build>) so the newest index.html is fetched.
+ * Already on that address (?v=<build> was answered once with an older index.html — GitHub Pages
+ * can do that for a few minutes): a tap on Update adds a nonce (&r=), because replacing the URL
+ * with itself only moves to the #fragment and loads nothing; an automatic reload ({ auto: true },
+ * the title screen) does nothing then, so it can never loop while the old page is still served.
+ * @returns {boolean} a reload was started
+ */
+export function reloadFresh(build = checker.available()?.build, { auto = false } = {}) {
   const loc = globalThis.location;
-  if (!loc) return;
+  if (!loc) return false;
+  const url = new URL(loc.href);
+  url.searchParams.set('v', String(build || Date.now().toString(36)).replace(/[^\w.-]/g, '').slice(0, 24));
+  if (url.href === loc.href) {
+    if (auto) return false;
+    url.searchParams.set('r', Date.now().toString(36));
+  }
   try {
     sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
   } catch {
     /* private mode: no loop guard, still reload */
   }
-  const url = new URL(loc.href);
-  url.searchParams.set('v', String(build || Date.now().toString(36)).replace(/[^\w.-]/g, '').slice(0, 24));
   loc.replace(url.href);
+  return true;
 }
 
 /** Did this tab reload itself for an update in the last minute? (no reload loops) */
@@ -145,8 +163,7 @@ export function recoverFromStaleBuild(e) {
     recovering = null;
     if (!go) return false;
     reloadStarted = true;
-    reloadFresh(info.build);
-    return true;
+    return reloadFresh(info.build, { auto: true });
   });
   return recovering;
 }

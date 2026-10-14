@@ -7,9 +7,11 @@
 //      and one boss attempt through a real battle (Fight → battle → end) lands on the ranking
 //   4. a third tab joins the developer clan with Rosie777 and the Supply Bot grants items
 //   5. co-op: a code with a typo says "No room uses that code"; A hosts a room whose link is
-//      mute (nothing A sends gets out), B joins by code: B cannot find the host, gets the
-//      "has not answered yet" + Retry banner after ~15 s, and finds A on its own within seconds
-//      once A's link works again; a "ready" lost on a mute link arrives with the next keepalive;
+//      mute (nothing A sends gets out), B joins by code: A shows "Connecting to Bea…" with Start
+//      locked and heals its one-way link by itself (fresh channel); B leaves and A is offered a
+//      New room; with A's link dead both ways B gets the "has not answered yet" + Retry banner
+//      after ~15 s and finds A within seconds once A's link works again; a third tab gets
+//      "Room full"; a "ready" lost on a mute link arrives with the next keepalive;
 //      a dropped guest link shows "Reconnecting…" and comes back paired and still ready;
 //      A starts; both place a girl through
 //      the real tower bar (tap card → tap ground), the wave runs and the lockstep state hashes
@@ -311,18 +313,46 @@ try {
   await B.waitForSelector('[data-testid="coop-code"]', { timeout: 10000 });
   await B.waitForTimeout(1100); // (one room call per second)
 
-  // Connection faults, faked by the local transport (window.__coop.room._cut / _heal): the
-  // host's room goes MUTE (it looks joined, but nothing it sends gets out: what a hung presence
-  // track did on some Supabase nodes). The guest joins and cannot find the host; after ~15 s the
-  // lobby says so and offers Retry. When the host's link simply works again, the guest's beacon
-  // gets an answer and both pair up within seconds, with no reconnect on either side.
+  // Connection faults, faked by the local transport (window.__coop.room._cut / _heal).
+  // 1. One-way link: the host's room goes MUTE (it looks joined, but nothing it sends gets out:
+  //    what a hung presence track did on some Supabase nodes). The guest joins: the host hears
+  //    it, the guest does not hear the host. The host shows "Connecting to Bea…" with Start
+  //    locked, notices after ~7 s that its ally never hears it, and gets itself a fresh channel
+  //    (the local transport's reconnect ends the fault, like a fresh Realtime channel on a good
+  //    node): both pair without anyone tapping anything.
   await A.evaluate(() => window.__coop.room._cut({ send: true, recv: false, status: false }));
   await B.fill('[data-testid="coop-code"]', code.toLowerCase());
+  const joinAt = Date.now();
   await tap(B, '[data-testid="coop-join"]');
   await B.waitForSelector('[data-testid="coop-room"]', { timeout: 10000 });
-  const hostHeardGuest = await A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 10000 }).then(() => true).catch(() => false);
-  check(hostHeardGuest && !(await B.locator('[data-testid="coop-player-0"]').count()), 'co-op: a mute host hears the guest, the guest does not see the host yet');
+  const hostHeardGuest = await A.waitForSelector('[data-testid="coop-connecting"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  check(/Connecting to Bea/.test(hostHeardGuest) && !(await B.locator('[data-testid="coop-player-0"]').count()),
+    `co-op: a mute host hears the guest and shows "Connecting to Bea…", the guest does not see the host yet (${hostHeardGuest.replace(/\s+/g, ' ').slice(0, 60)})`);
+  check(await A.locator('[data-testid="coop-start"]').isDisabled(), 'co-op: while the guest cannot hear the host, Start stays locked');
   check(/Looking for the host/.test(await B.locator('[data-testid="coop-wait"]').innerText().catch(() => '')), 'co-op: the guest\'s lobby says "Looking for the host…"');
+  await shot(A, 'coop-connecting-host');
+  const healedAt = await A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 30000 }).then(() => Date.now() - joinAt).catch(() => null);
+  const pairedB = await B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 10000 }).then(() => true).catch(() => false);
+  const heals = await A.evaluate(() => window.__coop.room.reconnects);
+  check(healedAt != null && pairedB && heals >= 1 && healedAt < 25000,
+    `co-op: the host notices its one-way link and heals it with a fresh channel by itself; both pair (${healedAt} ms, ${heals} reconnect(s))`);
+
+  // 2. The guest leaves: the host is told and offered a new room (a guest coming back from
+  //    another browser or device might find the seat still taken)
+  await tap(B, '[data-testid="coop-leave"]');
+  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  check(/Bea left the room/.test(goneText) && /New room/.test(goneText), `co-op: when the guest leaves, the host sees "Bea left the room" with a New room button (${goneText.replace(/\s+/g, ' ').slice(0, 80)})`);
+  await shot(A, 'coop-ally-gone-host');
+
+  // 3. A host that hears nothing and is not heard (a dead link that looks fine): the guest
+  //    cannot find the host; after ~15 s the lobby says so and offers Retry. When the host's
+  //    link works again, the guest's search (fast again after Retry) finds it within seconds.
+  await B.waitForSelector('[data-testid="coop-code"]', { timeout: 10000 });
+  await B.waitForTimeout(1100); // (one room call per second)
+  await A.evaluate(() => window.__coop.room._cut({ send: true, recv: true, status: false }));
+  await B.fill('[data-testid="coop-code"]', code);
+  await tap(B, '[data-testid="coop-join"]');
+  await B.waitForSelector('[data-testid="coop-room"]', { timeout: 10000 });
   const stuckText = await B.waitForSelector('[data-testid="coop-stuck"]', { timeout: 25000 }).then((e) => e.innerText()).catch(() => '');
   check(/has not answered yet/.test(stuckText) && /Retry/.test(stuckText), `co-op: after ~15 s without the host the guest sees what to check and a Retry button`);
   await shot(B, 'coop-stuck-guest');
@@ -331,18 +361,33 @@ try {
   const healAt = Date.now();
   await A.evaluate(() => window.__coop.room._heal({ report: false }));
   const healed = await B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 10000 }).then(() => Date.now() - healAt).catch(() => null);
-  check(healed != null && healed < 4000, `co-op: once the host's messages get out again the guest finds it on its own (${healed} ms)`);
+  check(healed != null && healed < 4000, `co-op: once the host's link works again the guest finds it on its own (${healed} ms)`);
   const paired = await A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 10000 }).then(() => true).catch(() => false);
   check(paired, 'co-op: both players appear in the room');
+  check(!(await A.locator('[data-testid="coop-ally-gone"]').count()), 'co-op: the "left the room" banner goes once the ally is back');
+
+  // 4. A third player with the code: "Room full", no seats and no Ready button
+  const D = await openPage('D');
+  await D.goto(`${base}#/chat`, { waitUntil: 'load' });
+  await setName(D, 'Chi');
+  await go(D, `#/coop/${code}`);
+  const fullText = await D.waitForSelector('[data-testid="coop-room-full"]', { timeout: 15000 }).then((e) => e.innerText()).catch(() => '');
+  check(/Room full/.test(fullText) && /already has two players/.test(fullText) && !(await D.locator('[data-testid="coop-ready"]').count()) && !(await D.locator('[data-testid="coop-wait"]').count()),
+    `co-op: a third player sees "Room full" — no seats, no Ready, no "Connecting…" (${fullText.replace(/\s+/g, ' ').slice(0, 70)})`);
+  await shot(D, 'coop-room-full');
+  await D.close();
+  const stillPaired = await Promise.all([A, B].map((p) => p.evaluate(() => window.__coop?.paired)));
+  check(stillPaired.every(Boolean), 'co-op: the pair is untouched by the third player');
+
   // a lost "ready": the guest's link is mute while it taps Ready; the next keepalive hello
-  // (every 3 s) carries the flag once the link works again
+  // (every 8 s) carries the flag once the link works again
   await B.evaluate(() => window.__coop.room._cut({ send: true, recv: false, status: false }));
   await tap(B, '[data-testid="coop-ready"]');
   await A.waitForTimeout(1200);
   check(await A.locator('[data-testid="coop-start"]').isDisabled(), 'co-op: while the guest\'s "ready" is lost, Start stays locked');
   await B.evaluate(() => window.__coop.room._heal({ report: false }));
   const readyAt = Date.now();
-  const canStart = await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 8000 }).then(() => Date.now() - readyAt).catch(() => null);
+  const canStart = await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 15000 }).then(() => Date.now() - readyAt).catch(() => null);
   check(canStart != null, `co-op: Start unlocks when the guest is ready (the lost "ready" arrived with a keepalive hello after ${canStart} ms)`);
   // a dropped channel on the guest: "Reconnecting…", then back with the pair and the ready flag
   await B.evaluate(() => window.__coop.room._cut());

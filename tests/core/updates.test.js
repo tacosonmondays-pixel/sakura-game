@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createUpdateChecker, isChunkLoadError, MIN_GAP_MS } from '../../src/core/updates.js';
+import { createUpdateChecker, isChunkLoadError, MIN_GAP_MS, reloadFresh } from '../../src/core/updates.js';
 import { compareVersions, versionLabel, buildLine } from '../../src/core/buildInfo.js';
 import { sameVersion, coopVersion } from '../../src/online/coop/version.js';
 import { simId } from '../../tools/simId.mjs';
@@ -39,6 +39,39 @@ describe('update checker (version.json)', () => {
     const disabled = createUpdateChecker({ enabled: false, build: 'a', url: () => 'v', fetchImpl: () => { fetched = true; return reply({ build: 'b' }); } });
     expect(await disabled.check({ force: true })).toBe(null);
     expect(fetched).toBe(false);
+  });
+
+  it('tells "no newer version" apart from "could not check" (Settings must not say newest when offline)', async () => {
+    let ok = true;
+    const c = createUpdateChecker({ build: 'a', url: () => 'v', fetchImpl: () => (ok ? reply({ build: 'a' }) : Promise.reject(new TypeError('Failed to fetch'))) });
+    expect(await c.check({ force: true })).toBe(null);
+    expect(c.lastFailed()).toBe(false);
+    ok = false;
+    expect(await c.check({ force: true })).toBe(null);
+    expect(c.lastFailed()).toBe(true);
+    const notOk = createUpdateChecker({ build: 'a', url: () => 'v', fetchImpl: () => reply({}, false) });
+    await notOk.check({ force: true });
+    expect(notOk.lastFailed()).toBe(true);
+  });
+
+  it('Update always loads a page, even when the address already has ?v=<that build>', () => {
+    const replace = vi.fn();
+    vi.stubGlobal('location', { href: 'https://x.io/sakura/?v=ffffffffffff#/coop', replace });
+    try {
+      reloadFresh('ffffffffffff'); // same address: a nonce makes it a real navigation
+      const next = new URL(replace.mock.calls[0][0]);
+      expect(next.searchParams.get('v')).toBe('ffffffffffff');
+      expect(next.searchParams.get('r')).toMatch(/^[0-9a-z]+$/);
+      expect(next.hash).toBe('#/coop');
+      reloadFresh('abc123'); // a new build: just ?v=
+      expect(replace.mock.calls[1][0]).toBe('https://x.io/sakura/?v=abc123#/coop');
+      // an automatic reload (title screen) to the address it is already on does nothing: no loop
+      // while GitHub Pages still answers that URL with the old page
+      expect(reloadFresh('ffffffffffff', { auto: true })).toBe(false);
+      expect(replace).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('recognises the browsers\' "screen file is gone" errors', () => {
@@ -108,10 +141,37 @@ describe('tools/simId.mjs', () => {
     expect(simId(root, ['src/sim']).id).not.toBe(one.id);
   });
 
-  it('covers the real sim, co-op and adapter code but not menus, art, audio or the renderer', () => {
+  it('takes single files as entries too', () => {
+    const root = mkdtempSync(join(tmpdir(), 'simid-'));
+    mkdirSync(join(root, 'src/online/coop'), { recursive: true });
+    writeFileSync(join(root, 'src/online/coop/lockstep.js'), "import { X } from './commands.js';\n");
+    writeFileSync(join(root, 'src/online/coop/commands.js'), 'export const X = 1;\n');
+    writeFileSync(join(root, 'src/online/coop/rewards.js'), 'export const R = 1;\n');
+    expect(simId(root, ['src/online/coop/lockstep.js']).files).toEqual(['src/online/coop/commands.js', 'src/online/coop/lockstep.js']);
+  });
+
+  it('covers exactly what the lockstep battle runs on: sim, co-op protocol, battle data, net settings', () => {
     const { files } = simId();
-    for (const f of ['src/sim/Sim.js', 'src/online/coop/lockstep.js', 'src/online/coop/commands.js', 'src/data/units.js', 'src/data/maps.js', 'src/online/adapters/supabase.js']) expect(files).toContain(f);
-    expect(files.some((f) => f.startsWith('src/render/') || f.startsWith('src/audio/') || f.startsWith('src/art/') || f.startsWith('src/ui/screens/'))).toBe(false);
+    for (const f of [
+      'src/sim/Sim.js', 'src/sim/waves.js', 'src/online/coop/lockstep.js', 'src/online/coop/commands.js', 'src/online/coop/session.js',
+      'src/online/coop/loadout.js', 'src/online/coop/version.js', 'src/online/coop/simHash.js', 'src/core/detMath.js',
+      'src/data/units.js', 'src/data/enemies.js', 'src/data/stages.js', 'src/data/maps.js', 'src/data/types.js', 'src/data/coop.js',
+    ]) expect(files).toContain(f);
+    // not: the room adapters (chat / clan / social code), shared online helpers, post-battle
+    // rewards, menu data and systems, art, audio, the renderer or any screen
+    const outside = files.filter((f) => f.startsWith('src/online/adapters/') || /^src\/online\/[^/]+\.js$/.test(f) || f === 'src/online/coop/rewards.js'
+      || f.startsWith('src/systems/') || f.startsWith('src/ui/') || f.startsWith('src/render/') || f.startsWith('src/audio/') || f.startsWith('src/art/')
+      || ['src/data/shop.js', 'src/data/missions.js', 'src/data/mail.js', 'src/data/lobbyArt.js', 'src/data/items.js'].includes(f));
+    expect(outside).toEqual([]);
+  });
+
+  it('the net settings both players must share are data the id covers (not the adapters)', async () => {
+    const { COOP_NET } = await import('../../src/data/coop.js');
+    expect(COOP_NET.supabase).toEqual({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 });
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['src/online/adapters/supabase.js', 'src/online/adapters/local.js']) {
+      expect(readFileSync(f, 'utf8')).not.toMatch(/inputDelay:\s*\d/); // no numbers of their own
+    }
   });
 });
 
