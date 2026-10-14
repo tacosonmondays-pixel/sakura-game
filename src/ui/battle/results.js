@@ -258,8 +258,8 @@ export function createResults(ctx) {
       { 'data-testid': 'rewards' },
       h('div.bt-result-ribbon', 'REWARDS'),
       h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
-      h('div.bt-rewards-body', blocks),
       ctx.resultLine?.() || null,
+      h('div.bt-rewards-body', blocks),
       actions(true),
     );
     open(card);

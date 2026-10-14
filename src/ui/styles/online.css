@@ -419,6 +419,10 @@
 /* results sheet: where the ally went once the battle is over ("Bea is back in the room") */
 .bt-coop-ally { text-align: center; font-size: 0.82rem; font-weight: 800; color: var(--navy); background: color-mix(in srgb, #ff8fab 18%, #fff); border-left: 4px solid #ff8fab; border-radius: 8px; padding: 5px 10px; margin: 6px auto; max-width: 520px; }
 .bt-coop-ally[hidden] { display: none; }
+/* a short phone screen: that line takes the place of the drops note, so the buttons stay in view */
+@media (max-height: 480px) {
+  .bt-result:has(> .bt-coop-ally:not([hidden])) > .bt-coop-note { display: none; }
+}
 @media (max-height: 480px) { .ol-coop-hud { top: calc(44px + var(--safe-top)); font-size: 0.66rem; } .ol-coop-name { max-width: 70px; } }
 /* narrow screens: the connection state ("Waiting for ally…", "Ally left…") hangs below the chip */
 @media (max-width: 900px) {
