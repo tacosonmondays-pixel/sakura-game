@@ -488,3 +488,11 @@
 }
 html[data-reduce-motion] .ut-cell.s-next .ut-circle::after { animation: none; opacity: 0.6; transform: none; }
 html[data-reduce-motion] .us-overlay, html[data-reduce-motion] .us-sheet { animation: none; }
+
+/* UR (src/ui/rarity.js, display only): her sheet card and the tree's card / header thumb take the
+   rainbow frame like every other card of a fully awakened SSR */
+.us-art.is-ur, .ut-card-art.is-ur, .ut-head-art.is-ur { position: relative; box-shadow: var(--ur-glow), 0 6px 16px rgba(29, 78, 137, 0.22); }
+.us-art.is-ur > .ur-sparkles, .ut-card-art.is-ur > .ur-sparkles { display: block; }
+.us-art.is-ur .ur-ring, .ut-card-art.is-ur .ur-ring { --ur-w: 4px; }
+.ut-head-art.is-ur .ur-ring { --ur-w: 2px; }
+.us-rarity-ur { flex: none; }

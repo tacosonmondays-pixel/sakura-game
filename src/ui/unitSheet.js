@@ -6,7 +6,8 @@ import { h, clear, svgEl, stars } from './components.js';
 import { store } from '../core/store.js';
 import { navigate } from './router.js';
 import { UNIT_MAP } from '../data/units.js';
-import { UNIT_RARITIES, ROLES } from '../data/types.js';
+import { ROLES } from '../data/types.js';
+import { rarityInfo, displayRarity, applyUrFrame, urBadge } from './rarity.js';
 import { levelCap, unitPower, MAX_AWAKEN } from '../systems/progression.js';
 import { portraitHTML } from '../art/portraits.js';
 import { uiIcon } from '../art/icons.js';
@@ -45,7 +46,8 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
 
   const profile = store.profile;
   const st = profile?.units?.[unit.id] || null;
-  const r = UNIT_RARITIES[unit.rarity];
+  const shown = displayRarity(unit, profile); // UR for a fully awakened SSR she owns (display only)
+  const r = rarityInfo(shown);
   let closed = false;
   let current = tab === 'upgrades' ? 'upgrades' : 'info';
   const bodies = {};
@@ -74,7 +76,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
   }
   const closeBtn = h('button.us-close', { type: 'button', 'data-testid': 'unit-sheet-close', title: 'Close', 'aria-label': 'Close', onclick: () => close() }, svgEl(uiIcon('close'), 'us-close-ico'));
   const head = h('header.us-head',
-    h('span.us-rarity', { style: { '--rarity': r?.color || '#999' } }, r?.name || unit.rarity),
+    shown === 'UR' ? urBadge('us-rarity-ur') : h('span.us-rarity', { style: { '--rarity': r?.color || '#999' } }, r?.name || unit.rarity),
     h('div.us-names', h('div.us-name', unit.name), h('div.us-title', unit.title || ROLES[unit.role]?.name || '')),
     meta,
     closeBtn);
@@ -90,9 +92,9 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
       },
     }, h('span.us-full-long', 'Open full page'), h('span.us-full-short', 'Full page'), svgEl(uiIcon('play'), 'us-full-ico'))
     : null;
-  const left = h('aside.us-left',
-    h('div.us-art', { style: { '--rarity': r?.color || '#999' } }, svgEl(portraitHTML(unit, 'card', { eager: true, awaken: st?.awaken || 0 }), 'us-art-img')),
-    fullBtn);
+  const art = h('div.us-art', { style: { '--rarity': r?.color || '#999' } }, svgEl(portraitHTML(unit, 'card', { eager: true, awaken: st?.awaken || 0 }), 'us-art-img'));
+  applyUrFrame(art, unit, profile);
+  const left = h('aside.us-left', art, fullBtn);
 
   // ---- tabs
   const tabBar = h('nav.us-tabs', { role: 'tablist' });

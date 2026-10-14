@@ -10,7 +10,8 @@ import { h } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon } from '../../art/icons.js';
-import { ROLES, UNIT_RARITIES } from '../../data/types.js';
+import { ROLES } from '../../data/types.js';
+import { rarityColor, applyUrFrame } from '../rarity.js';
 import { roundCost } from '../../sim/Sim.js';
 import { buildTreeModel, treeSignature, RULE_TEXT } from '../treeModel.js';
 import { upgradeGrid, tierDetail } from '../upgradeGrid.js';
@@ -241,11 +242,16 @@ export function createUpgradeTree(ctx) {
     return h('span.ut-chip.ut-chip-mine', 'Yours');
   }
 
+  /** UR (display only) comes from my save: an ally's girl in co-op shows her def rarity (as the panel). */
+  function urProfile() {
+    return target?.uid != null && ctx.coop && !ctx.coop.isMine(target.uid) ? null : ctx.profile;
+  }
+
   function renderHead() {
     const def = sim.data.unit(model.unitId);
-    const rarity = UNIT_RARITIES[def.rarity];
     const art = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'ut-head-art');
-    art.style.setProperty('--rarity', rarity?.color || '#7aa7d9');
+    art.style.setProperty('--rarity', rarityColor(def, urProfile()));
+    applyUrFrame(art, def, urProfile());
     head.replaceChildren(
       art,
       h('div.ut-head-id',
@@ -311,9 +317,9 @@ export function createUpgradeTree(ctx) {
 
   function cardPanel() {
     const def = sim.data.unit(model.unitId);
-    const rarity = UNIT_RARITIES[def.rarity];
     const art = svgEl(portraitHTML(def, 'card', { eager: true }), 'ut-card-art');
-    art.style.setProperty('--rarity', rarity?.color || '#7aa7d9');
+    art.style.setProperty('--rarity', rarityColor(def, urProfile()));
+    applyUrFrame(art, def, urProfile());
     const hero = model.hero;
     const parts = [
       art,

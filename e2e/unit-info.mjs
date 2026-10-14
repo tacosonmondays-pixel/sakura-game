@@ -225,6 +225,7 @@ async function runViewport(vp) {
       const info = await page.waitForSelector('[data-testid="unit-sheet"] .mb-eff-row', { timeout: 10000 }).then(() => true).catch(() => false);
       check(info && await page.isVisible('[data-testid="unit-sheet"] .mb-role'), 'sheet Info tab: role card + type effectiveness (the student Info content)');
       check(/Lv\.\s*60/.test(await page.innerText('[data-testid="unit-sheet"] .us-head')), 'sheet header: her level (Lv.60)');
+      check(await page.evaluate(() => !!document.querySelector('[data-testid="unit-sheet"] .us-head .ur-badge') && !!document.querySelector('[data-testid="unit-sheet"] .us-art.is-ur .ur-ring')), 'sheet: Hikari at ★5 shows as UR (rainbow badge and frame)');
       await shot('sheet-hikari-info');
       await page.click('[data-testid="unit-sheet-tab-upgrades"]');
       await page.waitForSelector('[data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
@@ -686,6 +687,7 @@ async function runViewport(vp) {
     const ho = await page.waitForFunction(() => window.__battle.ui.tree.isOpen, null, { timeout: 2000 }).then(() => true).catch(() => false);
     const hm = await page.evaluate(() => ({ mode: window.__battle.ui.tree.model?.mode, hero: !!window.__battle.ui.tree.model?.hero, sel: window.__battle.ui.selectedUid }));
     check(ho && hm.mode === 'live' && hm.hero, `battle: holding the hero portrait opens her live tree with the ult card (${JSON.stringify(hm)})`);
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="upgrade-tree"] .ut-card-art.is-ur .ur-ring')), 'battle tree: Hikari at ★5 has the UR rainbow frame');
     await shot('tree-hero');
     await page.click('[data-testid="ut-ult"]').catch(() => {});
     await page.waitForTimeout(300);
