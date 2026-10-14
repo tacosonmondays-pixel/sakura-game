@@ -28,6 +28,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { applyGearFilter } from '../../systems/gearFilter.js';
+import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -622,8 +624,11 @@ function gearTab(unit, ctx) {
       nextSub ? h('p.muted', `Main stat grows every level. Next substat growth in ${nextSub} level${nextSub > 1 ? 's' : ''}.`) : null));
   }
 
-  const others = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
-  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${others.length})`,
+  const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
+  const others = applyGearFilter(allOthers, gearFilterFor('student', slot));
+  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${allOthers.length})`,
+    allOthers.length ? gearFilterBar({ place: 'student', slot, shown: others.length, total: allOthers.length, onChange: rerender }) : null,
+    allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
     others.length
       ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
         actions: h('div.mb-gear-card-acts',
@@ -651,7 +656,7 @@ function gearTab(unit, ctx) {
             },
           })),
       })))
-      : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
+      : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
         h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
   return wrap;
 }

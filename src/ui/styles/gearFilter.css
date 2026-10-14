@@ -1,0 +1,25 @@
+/* Equipment filter bar (src/ui/gearFilterBar.js): rarity chips + four compact dropdowns.
+   Phones (≤ 560 px wide or short landscape): the dropdowns wrap two per row. */
+.gf-bar { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); }
+.gf-rarities { display: flex; gap: 6px; flex-wrap: wrap; }
+.gf-rarity {
+  --gf: var(--navy);
+  min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--gf) 45%, #fff);
+  background: #fff; color: color-mix(in srgb, var(--gf) 80%, #000); font: inherit; font-weight: 800; font-size: 0.82rem;
+}
+.gf-rarity.on { background: var(--gf); border-color: var(--gf); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25); }
+.gf-rarity:active { transform: scale(0.95); }
+.gf-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.gf-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gf-label { font-size: 0.7rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.gf-select {
+  width: 100%; min-height: 36px; padding: 4px 8px; border-radius: 9px; border: 2px solid var(--line); background: #fff;
+  color: var(--navy); font: inherit; font-weight: 700; font-size: 0.85rem;
+}
+.gf-select:focus { outline: none; border-color: var(--blue); }
+.gf-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.8rem; }
+.gf-count { color: var(--muted); font-weight: 700; }
+.gf-clear { border: 0; background: none; color: var(--bad); font: inherit; font-weight: 800; padding: 4px 6px; min-height: 30px; }
+@media (max-width: 560px), (max-height: 430px) and (max-width: 900px) {
+  .gf-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

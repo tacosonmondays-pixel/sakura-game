@@ -16,6 +16,8 @@ import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
+import { applyGearFilter } from '../../systems/gearFilter.js';
+import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
 
 // ---------------------------------------------------------------------------
@@ -259,13 +261,18 @@ function renderGearSection(host, rerender) {
           h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null));
       }))));
   }
-  const gear = gearList(profile, { slot: state.gearSlot });
+  const slotGear = gearList(profile, { slot: state.gearSlot });
+  // the page's own rarity chips (top row) filter gear too: one rarity control on this tab
+  const gear = applyGearFilter(slotGear, gearFilterFor('backpack', state.gearSlot, { rarity: state.rarity }));
   const slotOpts = [{ id: null, label: 'All slots' }, ...Object.entries(GEAR_SLOTS).map(([id, s]) => ({ id, label: s.name, icon: gearIcon(id, 'rare') }))];
   host.appendChild(h('section.mb-section',
     h('div.mb-section-head', h('h3.mb-h', `Gear (${Object.keys(profile.gear).length})`), chipRow(slotOpts, state.gearSlot, (id) => { state.gearSlot = id; rerender(); })),
+    slotGear.length ? gearFilterBar({ place: 'backpack', slot: state.gearSlot, shown: gear.length, total: slotGear.length, onChange: rerender, rarity: state.rarity, onClearRarity: () => { state.rarity = null; } }) : null,
     gear.length
       ? h('div.mb-gear-grid', gear.map((g) => gearCard(g, { onClick: () => openGearModal(g, rerender) })))
-      : emptyState('No gear yet', 'Gear drops as boxes from Bounty · Workshop Yard and bosses, and the Mall sells boxes for tokens.', button('Go to Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') }))));
+      : slotGear.length
+        ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.')
+        : emptyState('No gear yet', 'Gear drops as boxes from Bounty · Workshop Yard and bosses, and the Mall sells boxes for tokens.', button('Go to Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') }))));
 }
 
 /** Designed empty state block. */
