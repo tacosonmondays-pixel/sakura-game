@@ -80,6 +80,50 @@ describe('attack FX over a real sim', { timeout: 180000 }, () => {
     expect(maxLeash).toBeLessThanOrEqual(1 + 1e-6);
   });
 
+  it('a full wing reads as separate drones: lanes on a shared target, spread out, rarely touching', () => {
+    for (const quality of ['high', 'low']) {
+      let frames = 0;
+      let spread = 0;
+      let pairs = 0;
+      let close = 0;
+      let badLanes = 0;
+      run(['chika'], [[5, 2, 0]], {
+        frames: 2400,
+        quality,
+        check(sim, h, events, f) {
+          const list = h.fxa.ctx.drones.list;
+          if (f < 1200 || list.length < 9) return;
+          frames++;
+          let cx = 0;
+          let cy = 0;
+          for (const v of list) {
+            cx += v.dx / list.length;
+            cy += v.dy / list.length;
+          }
+          for (const v of list) spread += Math.hypot(v.dx - cx, v.dy - cy) / list.length;
+          for (let i = 0; i < list.length; i++) {
+            for (let j = i + 1; j < list.length; j++) {
+              pairs++;
+              if (Math.hypot(list[i].dx - list[j].dx, list[i].dy - list[j].dy, (list[i].dh - list[j].dh) * 0.7) < 0.25) close++;
+            }
+          }
+          // drones sharing a target hold distinct lanes 0..n-1
+          const byTarget = new Map();
+          for (const v of list) if (v.targetUid != null) byTarget.set(v.targetUid, [...(byTarget.get(v.targetUid) || []), v]);
+          for (const vs of byTarget.values()) {
+            const lanes = vs.map((v) => v.lane).sort((a, b) => a - b);
+            if (vs.some((v) => v.laneN !== vs.length) || lanes.some((l, k) => l !== k)) badLanes++;
+          }
+        },
+      });
+      expect(frames, quality).toBeGreaterThan(600);
+      expect(badLanes, quality).toBe(0);
+      // before the lanes: high 0.80 tiles / 4.2 % of pairs touching, low 0.53 / 28 %
+      expect(spread / frames, quality).toBeGreaterThan(quality === 'high' ? 1.0 : 0.8);
+      expect(close / pairs, quality).toBeLessThan(quality === 'high' ? 0.025 : 0.08);
+    }
+  });
+
   it('flourishes only on matched hits/explosions; pools drain after selling everything', () => {
     const ids = ['akane', 'sango', 'midori', 'nami', 'yuki', 'momo', 'miko', 'aoi'];
     const builds = ids.map(() => [0, 0, 0]);

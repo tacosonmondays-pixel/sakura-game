@@ -13,8 +13,23 @@ import {
   steerToward, arriveVelocity, seekVelocity, clampToDisc, leash, separation, wrapAngle,
 } from '../math/steer.js';
 import { CORE, DECOR } from '../context.js';
+import { GeoBuilder } from '../../geo.js';
 
 const TAU = Math.PI * 2;
+
+/**
+ * Drone body: a light dome over a dark belly (reads against grass at phone scale, and keeps
+ * its contrast when a tier tints the body gold), an orange ring, a cyan nose and a rotor mast.
+ */
+function droneGeometry() {
+  return new GeoBuilder({ flat: false })
+    .sphere(0.105, 12, 8, { sy: 0.8, color: '#2c3654' })
+    .add(new THREE.SphereGeometry(0.113, 12, 6, 0, TAU, 0, Math.PI / 2), { sy: 0.82, y: 0.004, color: '#f4f7fc' })
+    .torus(0.15, 0.024, 4, 16, { rx: Math.PI / 2, color: '#ff9f1c' })
+    .sphere(0.045, 8, 6, { z: 0.1, y: 0.012, color: '#4cc9f0' })
+    .box(0.02, 0.08, 0.02, { y: 0.07, color: '#3d4456' })
+    .finish();
+}
 
 export const DRONE = {
   STEP: 1 / 60,
@@ -36,8 +51,14 @@ export const DRONE = {
   PASS_EXIT: 1.0,
   PASS_MAX: 0.5,
   SEP_R: 0.35,
+  SEP_R_ENGAGED: 0.55,
   SEP_K: 2.5,
   SPREAD: 0.45,
+  SPREAD_MAX: 0.9,
+  LANE_H: 0.12,
+  LAYER_GAP: 0.85,
+  TRIO_W: 0.28,
+  TRIO_LAG: 0.45,
   AIM_SNAP: 0.08,
   AIM_HOLD: 0.15,
   LAUNCH_T: 0.5,
@@ -70,7 +91,7 @@ const _e = new THREE.Euler();
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const SHADOW = new THREE.Color(0.05, 0.05, 0.1);
-const RING_CYAN = new THREE.Color('#7fe3ff');
+const ROTOR = new THREE.Color('#eef6ff');
 
 function easeOutBack(k) {
   const c1 = 1.70158;
@@ -86,7 +107,8 @@ export class Drones {
   constructor(ctx, parent) {
     this.ctx = ctx;
     const a = ctx.actors;
-    this.mesh = new THREE.InstancedMesh(a.droneGeo, a.droneMat, DRONE.CAP);
+    this.geo = droneGeometry();
+    this.mesh = new THREE.InstancedMesh(this.geo, a.droneMat, DRONE.CAP);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.setColorAt(0, new THREE.Color('#ffffff'));
     this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -188,6 +210,8 @@ export class Drones {
     v.l0y = 0;
     v.seen = this.frame;
     v.passes = 0;
+    v.lane = 0;
+    v.laneN = 1;
     v.dx = t.x; // drawn (interpolated) position
     v.dy = t.y;
     v.dh = DRONE.H_ORB;
@@ -223,7 +247,8 @@ export class Drones {
         m = n - inner;
       } else m = inner;
     }
-    let r = layer ? Math.min(R + 0.35, L - 0.2) : R;
+    // the outer layer flies well clear of the inner one so a full wing reads as separate drones
+    let r = layer ? Math.min(R + DRONE.LAYER_GAP, L - 0.25) : R;
     let ang;
     if (g.dock) {
       r = DRONE.DOCK_R;
@@ -234,12 +259,15 @@ export class Drones {
       ang = g.phase * 0.5 + 0.6;
       out.h = 1.45;
     } else if (look.formation) {
+      // V-trios: a leader and two wingmen trailing behind it, one further out and one further
+      // in (≈ 0.45 tiles apart at full size); outer-layer trios sit half a trio-slot over
       const trios = Math.max(1, Math.ceil(m / 3));
       const k = Math.floor(j / 3);
       const mem = j % 3;
-      ang = (k / trios) * TAU + (layer ? g.phase2 : g.phase) - (mem ? 0.35 : 0);
-      if (mem === 1) r += 0.12;
-      else if (mem === 2) r -= 0.12;
+      const w = DRONE.TRIO_W * Math.min(1, R / DRONE.R_ORB_MAX);
+      ang = ((k + (layer ? 0.5 : 0)) / trios) * TAU + (layer ? g.phase2 : g.phase) - (mem ? DRONE.TRIO_LAG : 0);
+      if (mem === 1) r += w;
+      else if (mem === 2) r -= w;
       out.h = (layer ? DRONE.H_ORB2 : DRONE.H_ORB) + (mem ? -0.05 : 0.04);
     } else {
       ang = j * 2.39996 + 0.6 + (layer ? g.phase2 : g.phase);
@@ -443,6 +471,7 @@ export class Drones {
         v.tgtPrevY = e.z;
       }
     }
+    this._lanes();
     // fixed steps
     this.acc += gdt;
     let steps = Math.floor((this.acc + 1e-9) / DRONE.STEP);
@@ -475,6 +504,26 @@ export class Drones {
       }
     }
     this._draw(alpha);
+  }
+
+  /**
+   * Strafing lanes: drones chasing the same enemy each take their own side of it (lane / laneN,
+   * ordered by owner and slot so a lane never jumps when another drone leaves).
+   */
+  _lanes() {
+    const list = this.list;
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      v.lane = 0;
+      v.laneN = 1;
+      if (v.targetUid == null) continue;
+      for (let k = 0; k < list.length; k++) {
+        const o = list[k];
+        if (k === i || o.targetUid !== v.targetUid) continue;
+        v.laneN++;
+        if (o.towerUid < v.towerUid || (o.towerUid === v.towerUid && o.slot < v.slot)) v.lane++;
+      }
+    }
   }
 
   _step(v, g, t, dt) {
@@ -558,11 +607,14 @@ export class Drones {
       case ST_APPROACH: {
         const e = ctx.enemy(v.targetUid);
         // each drone strafes its target from its own side (a slowly turning offset), so a
-        // squadron on one enemy fans out instead of stacking
-        const sa = v.slot * 2.39996 + this.clock * 1.2;
-        const ex = e.x + v.tgtVX * DRONE.LEAD + Math.sin(sa) * DRONE.SPREAD;
-        const ey = e.z + v.tgtVY * DRONE.LEAD + Math.cos(sa) * DRONE.SPREAD;
-        hT = DRONE.H_ENGAGE;
+        // squadron on one enemy fans out instead of stacking: drones sharing a target split the
+        // circle around it into lanes, wider and at staggered heights the more of them there are
+        const ln = v.laneN;
+        const sa = (ln > 1 ? (v.lane / ln) * TAU : v.slot * 2.39996) + this.clock * 1.2;
+        const spread = ln > 1 ? Math.min(DRONE.SPREAD_MAX, DRONE.SPREAD + 0.08 * ln) : DRONE.SPREAD;
+        const ex = e.x + v.tgtVX * DRONE.LEAD + Math.sin(sa) * spread;
+        const ey = e.z + v.tgtVY * DRONE.LEAD + Math.cos(sa) * spread;
+        hT = DRONE.H_ENGAGE + (ln > 1 ? ((v.lane % 3) - 1) * DRONE.LANE_H : 0);
         if (low) {
           // hover beside the target and strafe sideways (no loops)
           let dx = e.x - t.x;
@@ -570,20 +622,46 @@ export class Drones {
           const d = Math.sqrt(dx * dx + dy * dy) || 1;
           dx /= d;
           dy /= d;
-          const side = 0.25 * Math.sin(this.clock * TAU * 1.5 + v.slot);
-          clampToDisc(e.x - dx * 0.6 - dy * side, e.z - dy * 0.6 + dx * side, t.x, t.y, L - 0.05, _g);
+          const lat = ln > 1 ? Math.max(-1.2, Math.min(1.2, (v.lane - (ln - 1) / 2) * 0.3)) : 0;
+          const side = lat + 0.25 * Math.sin(this.clock * TAU * 1.5 + v.slot);
+          if (ln > 1 && d > L - 0.3) {
+            // target past her ring edge: hover in a spread along the arc facing it
+            const a = Math.atan2(dx, dy) + (v.lane / (ln - 1) - 0.5) * Math.min(1.5, 0.34 * (ln - 1)) + 0.1 * Math.sin(this.clock * TAU * 0.5 + v.slot);
+            const r = L - 0.2 - 0.35 * (v.lane % 2);
+            _g.x = t.x + Math.sin(a) * r;
+            _g.y = t.y + Math.cos(a) * r;
+          } else clampToDisc(e.x - dx * 0.6 - dy * side, e.z - dy * 0.6 + dx * side, t.x, t.y, L - 0.05, _g);
           arriveVelocity(v, _g.x, _g.y, DRONE.V_CRUISE, DRONE.A_MAX, _v, v.tgtVX, v.tgtVY, 4);
         } else {
-          clampToDisc(ex, ey, t.x, t.y, L - 0.05, _g);
-          seekVelocity(v, _g.x, _g.y, vmax, _v);
-          const hx = ex - v.x;
-          const hy = ey - v.y;
+          let gx = ex;
+          let gy = ey;
+          const tx = e.x - t.x;
+          const ty = e.z - t.y;
+          if (tx * tx + ty * ty > (L - 0.3) * (L - 0.3)) {
+            // target at or past her ring edge (drone shots out-range her ring): the wing spreads
+            // along the arc of her ring that faces it, two rows deep, instead of piling up on
+            // the one point where the leash would clamp every lane
+            const a = Math.atan2(tx, ty) + (ln > 1 ? (v.lane / (ln - 1) - 0.5) * Math.min(1.5, 0.34 * (ln - 1)) : 0) + 0.18 * Math.sin(this.clock * 1.3 + v.slot);
+            const r = L - 0.2 - (ln > 1 ? 0.35 * (v.lane % 2) : 0);
+            gx = t.x + Math.sin(a) * r;
+            gy = t.y + Math.cos(a) * r;
+          } else if ((gx - t.x) * (gx - t.x) + (gy - t.y) * (gy - t.y) > (L - 0.05) * (L - 0.05)) {
+            // lane outside her ring: take the mirrored lane on the near side of the target
+            gx = 2 * (e.x + v.tgtVX * DRONE.LEAD) - ex;
+            gy = 2 * (e.z + v.tgtVY * DRONE.LEAD) - ey;
+          }
+          clampToDisc(gx, gy, t.x, t.y, L - 0.05, _g);
+          gx = _g.x;
+          gy = _g.y;
+          seekVelocity(v, gx, gy, vmax, _v);
+          const hx = gx - v.x;
+          const hy = gy - v.y;
           if (hx * hx + hy * hy < DRONE.PASS_TRIGGER * DRONE.PASS_TRIGGER) {
             v.state = ST_PASS;
             v.stateT = 0;
             v.passes++;
             this.passes++;
-            clampToDisc(ex + Math.sin(v.heading) * DRONE.PASS_EXIT, ey + Math.cos(v.heading) * DRONE.PASS_EXIT, t.x, t.y, L - 0.05, _g);
+            clampToDisc(gx + Math.sin(v.heading) * DRONE.PASS_EXIT, gy + Math.cos(v.heading) * DRONE.PASS_EXIT, t.x, t.y, L - 0.05, _g);
             v.exitX = _g.x;
             v.exitY = _g.y;
           }
@@ -611,7 +689,9 @@ export class Drones {
       _v.x = 0;
       _v.y = 0;
     }
-    if (ctx.q.separation && g.list.length > 1 && v.state !== ST_PASS && g.list[v.gi] === v) separation(g.list, g.list.length, v.gi, DRONE.SEP_R, DRONE.SEP_K, _v);
+    if (ctx.q.separation && g.list.length > 1 && v.state !== ST_PASS && g.list[v.gi] === v) {
+      separation(g.list, g.list.length, v.gi, v.state === ST_APPROACH ? DRONE.SEP_R_ENGAGED : DRONE.SEP_R, DRONE.SEP_K, _v);
+    }
     steerToward(v, _v.x, _v.y, DRONE.A_MAX, DRONE.TURN_MAX, dt);
     leash(v, t.x, t.y, L);
     v.h += (hT - v.h) * (1 - Math.exp(-5 * dt));
@@ -674,6 +754,8 @@ export class Drones {
         if (tu && tu.uid === v.uid && tu.cooldown > 0 && tu.cooldown <= 0.12) eg = 0.2;
       }
       ctx.quad(ctx.b.bbA, DECOR, x + sy * 0.09 * sc, h, y + cy * 0.09 * sc, eg * sc, eg * sc, R.glow, look.eye, 0.8);
+      // spinning rotor over the mast (flat, additive): reads as a little craft, not a disc
+      ctx.quad(ctx.b.groundA, DECOR, x, h + 0.15 * sc, y, 0.4 * sc, 0.4 * sc, R.rotor, ROTOR, 0.5, ctx.time * 31 + v.slot);
       if (cmd && Math.sin(ctx.time * 9) > 0) ctx.quad(ctx.b.bbA, DECOR, x, h + 0.13 * sc, y, 0.07, 0.07, R.glow, ctx.col('#ff6b6b'), 1);
       if ((trailsAll || (look.trail && ctx.q.trails >= 1)) && v.speed > 1.2) {
         const k = 0.35 * Math.min(1, v.speed / DRONE.V_PASS);
@@ -686,16 +768,7 @@ export class Drones {
       mesh.instanceColor.needsUpdate = true;
     }
     this.maxLeash = maxLeash;
-    // drone reach ring around the selected owner
-    const sel = ctx.selectedUid;
-    if (sel != null) {
-      const g = this.groups.get(sel);
-      const t = g?.tower;
-      if (t && t.turretSpec && !g.dock) {
-        const d = t.turretSpec.range * 2;
-        ctx.quad(ctx.b.groundN, CORE, t.x, 0.075, t.y, d, d, R.ringDashed, RING_CYAN, 0.35, ctx.time * 0.15);
-      }
-    }
+    // no extra ring when she is selected: the drones never leave her own range ring
   }
 
   /** Snapshot for tests / e2e (allocates; not for the frame loop). */
@@ -715,5 +788,6 @@ export class Drones {
   dispose() {
     this.parent.remove(this.mesh);
     this.mesh.dispose();
+    this.geo.dispose();
   }
 }

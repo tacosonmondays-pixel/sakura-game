@@ -329,4 +329,26 @@ export const ATTACK_SPRITES = [
     ctx.fillStyle = gr;
     fillPath(ctx, [w / 2 - 2, h, w / 2 + 2, h, w - 1, 0, 1, 0]);
   }],
+  ['rotor', 48, 48, (ctx, w, h) => {
+    // drone rotor seen from above: a faint blur disc and two motion-blurred blades
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = w / 2 - 1;
+    const gr = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
+    gr.addColorStop(0, 'rgba(255,255,255,0.12)');
+    gr.addColorStop(0.85, 'rgba(255,255,255,0.3)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (const a of [0, Math.PI]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r * 0.95, a - 0.2, a + 0.2);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }],
 ];
