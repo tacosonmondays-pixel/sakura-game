@@ -149,6 +149,16 @@ try {
   const failBox = await A.waitForSelector('[data-testid="load-fail"]', { timeout: 15000 }).then(() => true).catch(() => false);
   check(failBox, 'missing screen right after an update: "This screen did not load" with Try again / Reload (no blank page)');
   await shot(A, 'load-fail');
+  // a network failure while the SAME build is deployed (offline blip, not a deploy): no reload
+  await A.evaluate(() => sessionStorage.removeItem('sakura-fresh-reload'));
+  setVersionJson({ ...deployed, build: A.url().match(/[?&]v=([^&#]+)/)?.[1] || deployed.build });
+  await A.evaluate(() => { location.hash = '#/settings'; });
+  await A.waitForSelector('[data-testid="settings-version"]', { timeout: 15000 });
+  const urlBefore = A.url();
+  await A.evaluate(() => { location.hash = '#/bestiary'; });
+  const panelSame = await A.waitForSelector('[data-testid="load-fail"]', { timeout: 15000 }).then(() => true).catch(() => false);
+  await A.waitForTimeout(3500);
+  check(panelSame && A.url().replace(/#.*/, '') === urlBefore.replace(/#.*/, ''), 'missing screen file but no newer deploy (network blip): the panel shows, the page does NOT reload');
   // later (guard expired): the page reloads itself into the newest build
   await A.evaluate(() => sessionStorage.removeItem('sakura-fresh-reload'));
   setVersionJson({ ...deployed, build: 'feedface0002', version: '0.1.19' });

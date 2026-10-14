@@ -109,15 +109,43 @@ export function isChunkLoadError(e) {
 }
 
 /**
+ * Should a failed screen / chunk download reload the page? Only when a NEWER deploy is confirmed
+ * (version.json names another build) and the device is online: offline, a network blip or the
+ * same build still deployed must not reload (that would drop a co-op match and show the
+ * browser's offline page instead of the game's "This screen did not load" panel). Never twice
+ * for the same build (?v=<build> already in the address), never within a minute of the last one.
+ */
+export function shouldReloadForStaleChunk({ deployed, chunkError, recently, info, online, currentV, build = BUILD_ID }) {
+  if (!deployed || !chunkError || recently) return false;
+  if (online === false) return false;
+  if (!info || !info.build || info.build === build) return false;
+  return currentV !== info.build;
+}
+
+/**
  * After a deploy, an old page asks for screen files that no longer exist. Reload into the new
- * build once (not again within a minute). @returns true when a reload was started
+ * build once. @returns true when a reload was started
  */
 let recovering = null;
+let reloadStarted = false; // in-memory loop guard (sessionStorage may be unavailable)
 export function recoverFromStaleBuild(e) {
   if (recovering) return recovering; // the router and Vite's preload error can both ask
-  if (!DEPLOYED || !isChunkLoadError(e) || reloadedRecently()) return Promise.resolve(false);
+  if (reloadStarted || !DEPLOYED || !isChunkLoadError(e) || reloadedRecently()) return Promise.resolve(false);
+  if (globalThis.navigator?.onLine === false) return Promise.resolve(false);
   recovering = Promise.race([checker.check({ force: true }), new Promise((r) => setTimeout(() => r(null), 3000))]).then((info) => {
-    reloadFresh(info?.build);
+    let currentV = null;
+    try {
+      currentV = new URL(globalThis.location.href).searchParams.get('v');
+    } catch {
+      /* ignore */
+    }
+    const go = shouldReloadForStaleChunk({
+      deployed: DEPLOYED, chunkError: true, recently: reloadedRecently(), info, online: globalThis.navigator?.onLine, currentV,
+    });
+    recovering = null;
+    if (!go) return false;
+    reloadStarted = true;
+    reloadFresh(info.build);
     return true;
   });
   return recovering;
@@ -137,6 +165,9 @@ export function startUpdateWatcher({ every = CHECK_EVERY_MS, firstAfter = 8000 }
   // not only a screen. The error still reaches the caller (no preventDefault), so the router
   // shows its message if the reload does not happen.
   const onPreloadError = (ev) => {
+    // never mid-battle (a lazy model helper failing on a network blip must not end a co-op
+    // match); screens are recovered by the router when you navigate
+    if (document.getElementById('app')?.dataset.screen === 'battle') return;
     recoverFromStaleBuild(ev.payload || new Error('Unable to preload'));
   };
   window.addEventListener('vite:preloadError', onPreloadError);
