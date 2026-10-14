@@ -349,6 +349,40 @@ describe('results.apply() with a battle save', () => {
     expect(stored(ls).battleSaves).toEqual({});
   });
 
+  it('End run on an endless run pays exactly what a defeat at that moment pays (40 coins per wave held)', () => {
+    store.replace(createProfile());
+    store.profile.progress.stages['2-5'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 }; // the Colosseum opens
+    const req = { stageId: 'challenge', difficulty: 'normal', endless: true };
+    const { sim, cfg } = createBattleSim(store.profile, { ...req, seed: 99 });
+    const ctx = { ended: false };
+    const saver = createBattleSaver({ sim, req, cfg, isEnded: () => ctx.ended }).install();
+    expect(saver.slot).toBe('challenge');
+    sim.cash = 1e6;
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    for (const p of [0, 0, 1]) sim.upgradeTower(sim.towers[0].uid, p);
+    saver.markProgress();
+    for (let k = 0; k < 20000 && sim.wavesCleared < 3 && sim.state !== 'lost'; k++) {
+      if (sim.state === 'prep' || sim.state === 'between') {
+        sim.startNextWave();
+        saver.persistPending();
+      }
+      sim.update(0.25);
+    }
+    expect(sim.state).toBe('between');
+    expect(stored(ls).battleSaves.challenge.snap.wave).toBe(2);
+    // End run: endBattle(false, { endedRun: true }) → saver.close() → results.apply()
+    const before = stored(ls);
+    ctx.ended = true;
+    saver.close();
+    const out = createResults({ ...ctx, endedRun: true, sim, stage: STAGE_MAP.challenge, layer: new FakeNode(), saver }).apply();
+    const after = stored(ls);
+    expect(out.rewards).toEqual([{ id: 'coins', count: 40 * sim.wavesCleared }]);
+    expect(after.currencies.coins).toBe(before.currencies.coins + 40 * sim.wavesCleared);
+    expect(after.progress.stages.challenge.bestWave).toBe(sim.wavesCleared);
+    expect(after.battleSaves).toEqual({});
+  });
+
   it('a saved run rolls its drops from the run seed (the same run finished twice rolls the same)', () => {
     const roll = () => {
       const g = newGame();
