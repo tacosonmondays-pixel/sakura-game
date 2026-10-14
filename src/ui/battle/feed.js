@@ -99,15 +99,23 @@ export function createFeed(layer) {
 
   /**
    * Big announcement banner (slanted Blue Archive ribbon).
+   * Freeplay kinds: 'free' (violet → pink → gold; with o.glitch the title splits into pink and cyan
+   * copies for a moment — the 16/15 crossing) and 'finale' (dark red → gold with drifting embers).
+   * They are not clamped like routine 'wave' banners on short screens, only shortened.
    * @param {string} title
    * @param {string} [sub]
-   * @param {'wave'|'boss'|'phase'|'good'|'bad'} [kind]
+   * @param {'wave'|'boss'|'phase'|'good'|'bad'|'free'|'finale'} [kind]
+   * @param {number} [ms]
+   * @param {{ glitch?: boolean }} [o]
    */
-  function announce(title, sub = '', kind = 'wave', ms = 2200) {
+  function announce(title, sub = '', kind = 'wave', ms = 2200, o = {}) {
     // on a landscape phone the ribbon covers a third of the board: routine wave banners leave fast
     if (shortScreen() && kind === 'wave') ms = Math.min(ms, 800);
+    else if (shortScreen() && (kind === 'free' || kind === 'finale')) ms = Math.min(ms, Math.max(1200, ms * 0.67));
     banner.replaceChildren();
-    const b = h(`div.bt-banner.bt-banner-${kind}`, h('div.bt-banner-title', title), sub ? h('div.bt-banner-sub', sub) : null);
+    const titleEl = h('div.bt-banner-title', { 'data-text': o.glitch ? title : null }, title);
+    const b = h(`div.bt-banner.bt-banner-${kind}${o.glitch ? '.bt-banner-glitch' : ''}`, titleEl, sub ? h('div.bt-banner-sub', sub) : null);
+    if (kind === 'finale') b.append(h('div.bt-banner-embers', { 'aria-hidden': 'true' }));
     banner.append(b);
     later(() => b.classList.add('out'), ms);
     later(() => b.remove(), ms + 450);

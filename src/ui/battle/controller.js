@@ -27,8 +27,10 @@ import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
 import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
-import { applyCoopResult } from '../../online/coop/rewards.js';
+import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/coop/rewards.js';
+import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
+import { createFreeplayBattle } from './freeplay.js';
 import { COOP } from '../../data/coop.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
@@ -162,6 +164,12 @@ export function mountBattle(root, params, hooks) {
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
+    }
+    if (ls && sim.freeplay) {
+      // co-op freeplay: banners, the bank at the goal, the Finish vote (src/ui/battle/freeplay.js)
+      fpBattle = createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies: stageFamilies() });
+      modules.push(fpBattle);
+      ctx.freeplay = fpBattle;
     }
 
     let renderer;
@@ -411,6 +419,7 @@ export function mountBattle(root, params, hooks) {
 
     function handle(events) {
       for (const ev of events) {
+        fpBattle?.handle(ev);
         switch (ev.type) {
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
@@ -421,7 +430,8 @@ export function mountBattle(root, params, hooks) {
           case 'spawn': {
             const def = enemyDef(ev.id);
             if (!def) break;
-            if (def.tier === 'boss' || def.tier === 'miniboss') {
+            // freeplay: the big ribbon only on a boss's first appearance (then "… returns!")
+            if ((def.tier === 'boss' || def.tier === 'miniboss') && !fpBattle?.onBossSpawn(def)) {
               feed.announce(def.tier === 'boss' ? 'BOSS INCOMING' : 'MINIBOSS', def.name, 'boss', 2600);
             }
             if (!knownEnemies.has(ev.id) && !announcedNew.has(ev.id) && def.leak !== 0) {
@@ -434,7 +444,9 @@ export function mountBattle(root, params, hooks) {
             break;
           }
           case 'waveStart':
-            feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? 'Final wave!' : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
+            // freeplay waves past the goal: their own banners (freeplay.js)
+            if (fpBattle && ev.wave > sim.totalWaves) break;
+            feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
             break;
           case 'waveEnd':
             feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
@@ -484,10 +496,13 @@ export function mountBattle(root, params, hooks) {
       pause.hide();
       ctx.paused = false;
       shell.classList.add('bt-ended');
-      feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
+      // co-op freeplay past the goal: its own sheet (finishing right at the goal is a plain victory)
+      const fpEnd = isFreeplayRun();
+      if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
+      else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       results.apply();
       if (params.clanBoss) submitClanBoss();
-      later(() => (won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
+      later(() => (fpEnd ? results.showFreeplay() : won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
     }
 
     // ---- main loop ----------------------------------------------------------------------
@@ -516,6 +531,7 @@ export function mountBattle(root, params, hooks) {
       }
       ctx.audio?.events(events); // [audio]
       handle(events);
+      fpBattle?.update();
       if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
       bar.update();
@@ -539,6 +555,15 @@ export function mountBattle(root, params, hooks) {
   // ---- co-op -----------------------------------------------------------------------------
   let pendingWave = false;
   let coopHud = null;
+  /** co-op freeplay presentation + vote (src/ui/battle/freeplay.js), null otherwise */
+  let fpBattle = null;
+  /** a resync rebuilds this battle screen: its destroy() must not count as leaving the run */
+  let remounting = false;
+  /** A freeplay run past its goal (not a plain victory at exactly the goal). */
+  function isFreeplayRun() {
+    if (!ls || !sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
+    return !(sim.state === 'won' && sim.wavesCleared === sim.totalWaves);
+  }
   const pendingUpg = new Set();
   if (ls) {
     ls.note('mount');
@@ -559,10 +584,22 @@ export function mountBattle(root, params, hooks) {
       },
     };
     ctx.applyResult = (p, result, rng) => {
-      const out = applyCoopResult(p, result, rng);
+      let out;
+      if (result.freeplay && result.goalReached) {
+        // freeplay: the clear was banked at the goal; this pays the run (once per battle, see
+        // rewards.js payFreeplayEnd), and the sheet shows both parts
+        const ledger = freeplayLedger(session, ls.start.seed);
+        const end = payFreeplayEnd(ledger, p, result, rng);
+        out = { ...end, bank: ledger.bank, freeplayRewards: end.rewards, rewards: normalizeList([...(ledger.bank?.rewards || []), ...end.rewards]) };
+      } else out = applyCoopResult(p, result, rng);
       out.note = `Co-op with ${session.player(1 - mySlot)?.name || 'your ally'} — drops for both, medals stay solo.`;
       return out;
     };
+    // freeplay: my Finish vote (an 'end' lockstep command; the run ends when everyone left agrees)
+    ctx.voteFinish = (v) => fpBattle?.vote(v);
+    ctx.myFinishVote = () => !!fpBattle?.myVote();
+    ctx.freeplayAfterGoal = () => !!fpBattle?.afterGoal();
+    ctx.leaveToRoom = () => backToRoom();
     // the room stays after the battle: both land back in its lobby with the same code. One tap
     // only: the screen changes a moment later (a second tap must not leave the room it kept)
     let acted = false;
@@ -596,7 +633,10 @@ export function mountBattle(root, params, hooks) {
         allyLine.hidden = false;
       }),
       session.on('peerBack', () => ctx.feed?.push(`${session.player(1 - mySlot)?.name || 'Your ally'} is back — defending together again.`, 'good', { ms: 3600 })),
-      session.on('resync', () => hooks.restart()),
+      session.on('resync', () => {
+        remounting = true;
+        hooks.restart();
+      }),
     ];
     cleanups.push(() => offs.forEach((off) => off()));
   }
@@ -607,13 +647,23 @@ export function mountBattle(root, params, hooks) {
     ];
   }
 
+  /**
+   * Leaving a freeplay run after the goal pays its freeplay part with the waves cleared so far (the
+   * clear is already banked); the ally plays on with my girls.
+   */
+  function payIfLeavingRun() {
+    if (!ctx.ended && ctx.results && !ctx.results.outcome && ls && sim.freeplay && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
+  }
+
   function leaveCoop(go = true) {
+    payIfLeavingRun();
     session?.close();
     if (go) navigate('coop');
   }
 
   /** Results → the same room's lobby (same code, same ally); a dead session falls back to the co-op menu. */
   function backToRoom() {
+    payIfLeavingRun();
     // (already back in the lobby: the back gesture got there first)
     if (session?.phase !== 'lobby' && !session?.backToLobby()) {
       leaveCoop();
@@ -660,6 +710,7 @@ export function mountBattle(root, params, hooks) {
   /** A lockstep command just ran on this client (mine or my ally's). */
   function onApplied(cmd, res) {
     if (destroyed || !ctx.feed) return;
+    fpBattle?.onApplied(cmd, res);
     const minePlayer = cmd.p === ls.mySlot;
     if (cmd.k === 'upg') pendingUpg.delete(`${cmd.a[0]}:${cmd.a[1]}`);
     if (cmd.k === 'place') {
@@ -702,8 +753,10 @@ export function mountBattle(root, params, hooks) {
     ready,
     destroy() {
       if (destroyed) return;
-      // a finished battle always pays out, even if the player leaves before the modal
+      // a finished battle always pays out, even if the player leaves before the modal (and so does
+      // a freeplay run left after its goal; a resync rebuild is not leaving)
       if (ctx.ended && ctx.results && !ctx.results.outcome) ctx.results.apply();
+      else if (!remounting) payIfLeavingRun();
       destroyed = true;
       cancelAnimationFrame(raf);
       for (const id of timers) clearTimeout(id);

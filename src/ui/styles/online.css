@@ -403,6 +403,7 @@
 .ol-coop-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--pc); box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
 .ol-coop-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ol-coop-p b { color: var(--yellow); font-variant-numeric: tabular-nums; }
+.ol-coop-flag { font-style: normal; font-weight: 900; color: #ff7aa8; margin-left: 2px; text-shadow: 0 0 6px rgba(255,122,168,0.8); }
 .ol-coop-state { padding: 2px 8px; border-radius: 6px; background: var(--pink); color: #fff; font-style: italic; }
 .ol-coop-state[hidden] { display: none; }
 .ol-coop-wait .ol-coop-state { animation: ol-blink 1s infinite; }

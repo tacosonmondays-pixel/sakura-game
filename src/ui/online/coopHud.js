@@ -1,6 +1,7 @@
 // Co-op battle overlay: room chip with both players (colour, name, coins), the
 // "Waiting for ally…" / "Ally left" state, and a small pin in the owner's colour above every
 // girl showing who placed her. Mounted by the battle controller only in co-op.
+// Co-op freeplay: a small flag on the chip of whoever has voted Finish.
 import '../styles/online.css';
 import { h } from '../components.js';
 import { fmtCoins } from '../battle/util.js';
@@ -15,8 +16,10 @@ export function createCoopHud(ctx) {
   const session = coop.session;
   const players = [0, 1].map((slot) => session.player(slot));
   const cash = [h('b'), h('b')];
+  const flags = [0, 1].map((slot) => h('i.ol-coop-flag', { title: 'Voted to finish', 'data-testid': `coop-vote-${slot}` }, '⚑'));
+  for (const f of flags) f.hidden = true;
   const chips = players.map((p, slot) => h(`div.ol-coop-p${slot === coop.mySlot ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] } },
-    h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot]));
+    h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot]));
   const state = h('div.ol-coop-state', { 'data-testid': 'coop-state' });
   const el = h('div.ol-coop-hud', { 'data-testid': 'coop-hud' },
     h('div.ol-coop-room', h('span', 'CO-OP'), h('b', session.code)), ...chips, state);
@@ -30,6 +33,10 @@ export function createCoopHud(ctx) {
   function update() {
     const w = ls.coop.wallets;
     for (const slot of [0, 1]) cash[slot].textContent = fmtCoins(Math.floor(w[slot] ?? 0));
+    if (sim.freeplay) {
+      const votes = ls.coop.endVotes?.() || [];
+      for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];
+    }
     const peer = [...ls.peers.values()][0];
     const text = ls.desynced ? 'Lost sync — playing solo'
       : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting'

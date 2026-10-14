@@ -1,7 +1,10 @@
 // End of battle: victory / defeat modal (applies the result once with a seeded rng and
 // persists via store.commit), then the rewards view: medal, first-clear gems, item tiles,
 // gear cards, unlocked girls (card art celebration) and new bestiary entries.
-import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtTime } from './util.js';
+// Co-op freeplay past the goal gets a third sheet (FREEPLAY OVER / FREEPLAY COMPLETE): the big
+// overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
+// goal) and the freeplay bonus.
+import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
 import { svgEl, itemTile } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -142,13 +145,14 @@ export function createResults(ctx) {
 
   function summary() {
     const r = sim.result();
+    const over = !!r.freeplay && r.wavesCleared > sim.totalWaves;
     const items = [
       ['Waves', Number.isFinite(sim.totalWaves) ? `${r.wavesCleared}/${sim.totalWaves}` : `${r.wavesCleared}`],
       ['Lives', `${r.livesLeft}/${r.maxLives}`],
-      ['Defeated', fmtCoins(Object.values(r.kills).reduce((a, b) => a + b, 0))],
+      ['Defeated', fmtBig(Object.values(r.kills).reduce((a, b) => a + b, 0))],
       ['Time', fmtTime(r.stats.time)],
     ];
-    return h('div.bt-summary', items.map(([k, v]) => h('div.bt-sum', h('span', k), h('b', v))));
+    return h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v))));
   }
 
   function mvp() {
@@ -265,6 +269,75 @@ export function createResults(ctx) {
     open(card);
   }
 
+  /** The enemy that took the most lives on the last wave (what the run "fell to"), or null. */
+  function fellTo() {
+    const per = new Map();
+    for (const l of sim.stats?.leakLog || []) if (l.wave === sim.wave) per.set(l.enemyId, (per.get(l.enemyId) || 0) + l.lives);
+    let best = null;
+    for (const [id, lives] of per) if (!best || lives > best[1]) best = [id, lives];
+    return best ? enemyDef(best[0]) : null;
+  }
+
+  /** Co-op freeplay past the goal: FREEPLAY OVER (fell) or FREEPLAY COMPLETE (the Finish vote). */
+  function showFreeplay() {
+    const out = apply();
+    const r = sim.result();
+    const fp = out.freeplay || {};
+    const table = sim.stage.freeplay;
+    const won = r.won;
+    const diff = DIFFICULTIES[sim.difficulty];
+    const killer = won ? null : fellTo();
+    const subline = won
+      ? `Finished together after wave ${r.wavesCleared}`
+      : `Fell on wave ${sim.wave}${killer ? ` to the ${killer.name}` : ''}`;
+    const bosses = Object.entries(r.kills || {}).filter(([id]) => ['boss', 'miniboss'].includes(enemyDef(id)?.tier))
+      .sort(([a], [b]) => (enemyDef(a).tier === 'boss' ? 0 : 1) - (enemyDef(b).tier === 'boss' ? 0 : 1));
+    const bankRewards = out.bank?.rewards || [];
+    const fpRewards = out.freeplayRewards || [];
+    const tiles = (list) => (list.length ? h('div.bt-tiles', list.map((x) => rewardTile(x.id, x.count, 56))) : h('p.muted.bt-empty', 'Nothing this time.'));
+    const bonusLines = [
+      fp.waves ? `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(40)} coins${table.rewardMul !== 1 ? ` × ${table.rewardMul} (${table.name})` : ''}` : 'No freeplay waves cleared yet.',
+      fp.caches ? `${fp.caches} freeplay cache${fp.caches === 1 ? '' : 's'} (one every 25 waves)` : null,
+      fp.tokens ? `${fp.tokens} Assault Token${fp.tokens === 1 ? '' : 's'} for bosses beaten` : null,
+    ].filter(Boolean);
+    const card = h(
+      `div.bt-sheet.bt-result.bt-free${won ? '.bt-free-done' : ''}`,
+      { 'data-testid': 'freeplay-result', 'data-tier': table.id },
+      h('div.bt-result-ribbon', won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER'),
+      h('div.bt-free-head',
+        h(`div.bt-free-pill`, { 'data-tier': table.id, 'data-testid': 'freeplay-reached' }, h('b.bt-wave-n', String(r.wavesCleared)), h('span.bt-wave-goal', `/${sim.totalWaves}`)),
+        h('div.bt-free-meta',
+          h('b', `Reached wave ${r.wavesCleared} / ${sim.totalWaves}`),
+          h('span', subline),
+          h('small', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name} · Freeplay ${table.name}`))),
+      fp.newBest
+        ? h('div.bt-free-best', { 'data-testid': 'freeplay-best' }, `New best on ${stage.id} (${table.name})!`)
+        : fp.best ? h('div.bt-free-best.old', `Your best on ${stage.id} (${table.name}): ${fp.best}/${sim.totalWaves}`) : null,
+      out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
+      ctx.resultLine?.() || null,
+      bosses.length ? section('Bosses beaten', h('div.bt-free-bosses', bosses.map(([id, n]) => h('div.bt-free-boss', { title: enemyDef(id)?.name || id }, enemyToken(id, { size: 40 }), h('small', `${enemyDef(id)?.name || id}${n > 1 ? ` ×${n}` : ''}`))))) : null,
+      summary(),
+      section(`Stage clear · saved at ${sim.totalWaves}/${sim.totalWaves}`, tiles(bankRewards)),
+      section('Freeplay bonus', h('ul.bt-free-lines', bonusLines.map((l) => h('li', l))), tiles(fpRewards),
+        (fp.milestones || []).length ? h('div.bt-free-milestones', fp.milestones.map((m) => h('div.bt-free-ms', h('b', m.label), h('span', [m.gems ? `+${m.gems} gems` : '', m.title ? `Title: ${m.title}` : '', m.frame ? 'New profile frame' : ''].filter(Boolean).join(' · '))))) : null),
+      (() => {
+        const m = mvp();
+        return m ? section('Top damage', m) : null;
+      })(),
+      (() => {
+        let d = null;
+        try {
+          d = sim.debrief();
+        } catch {
+          d = null;
+        }
+        return d?.lines?.length ? section('Debrief', h('ul.bt-debrief', d.lines.slice(0, 3).map((l) => h('li', l)))) : null;
+      })(),
+      actions(won),
+    );
+    open(card);
+  }
+
   function open(card, extra = null) {
     el.replaceChildren(...[extra, card].filter(Boolean));
     // a victory stand takes the left side: the sheet moves right so it never covers her or her bubble
@@ -281,6 +354,7 @@ export function createResults(ctx) {
     showVictory,
     showDefeat,
     showRewards,
+    showFreeplay,
     get outcome() {
       return outcome;
     },

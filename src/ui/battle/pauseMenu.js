@@ -36,6 +36,26 @@ export function createPauseMenu(ctx) {
     return h('div.bt-seg', options.map(([k, name]) => h(`button.bt-seg-btn${String(k) === String(value) ? '.on' : ''}`, { onclick: () => onPick(k) }, name)));
   }
 
+  /** The ally's name (co-op), for the freeplay texts. */
+  const ally = () => ctx.coop?.session.player(1 - ctx.coop.mySlot)?.name || 'your ally';
+  const allyGone = () => !!ctx.coop && [...ctx.coop.lockstep.peers.values()].every((p) => p.gone);
+
+  /** Co-op freeplay after the goal: Finish run (my vote) and Back to the room (leave the run). */
+  function freeplayBlock() {
+    if (!ctx.freeplayAfterGoal?.()) return null;
+    const voted = !!ctx.myFinishVote?.();
+    const waves = Math.max(0, ctx.sim.wavesCleared - ctx.sim.totalWaves);
+    return h('div.bt-pause-free', { 'data-testid': 'pause-freeplay' },
+      h('div.bt-sheet-section', `Freeplay · ${ctx.sim.wavesCleared}/${ctx.sim.totalWaves}`),
+      h('p.bt-pause-free-text', allyGone()
+        ? 'Finish run ends it now — you are the only one left. Your clear rewards are already saved.'
+        : voted ? `You voted to finish. The run ends as soon as ${ally()} agrees.` : `Finish run ends the run for both of you once ${ally()} agrees. Your clear rewards are already saved.`),
+      h('div.bt-pause-actions',
+        h(`button.${voted ? 'bt-btn' : 'bt-cta'}`, { 'data-testid': 'pause-finish', onclick: () => { ctx.voteFinish(!voted); render(); } }, icon(voted ? 'refresh' : 'check', 'bt-ico-sm'), voted ? 'Keep going' : 'Finish run'),
+        h('button.bt-btn', { 'data-testid': 'pause-to-room', onclick: () => toRoom() }, icon('back', 'bt-ico-sm'), 'Back to the room')),
+      h('small.bt-pause-free-note', `Leaving now pays the freeplay bonus for ${waves} wave${waves === 1 ? '' : 's'}.`));
+  }
+
   function render() {
     const s = settings();
     const stage = ctx.stage;
@@ -51,6 +71,7 @@ export function createPauseMenu(ctx) {
         ctx.coop ? null : h('button.bt-btn', { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
         h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : 'Quit'),
       ),
+      freeplayBlock(),
       h('div.bt-sheet-section', 'Settings'),
       h('div.bt-set-row', h('span.bt-set-label', 'Graphics'), seg(QUALITIES, s.quality, (q) => {
         save({ quality: q });
@@ -83,8 +104,22 @@ export function createPauseMenu(ctx) {
     ctx.restart();
   }
 
+  /** What leaving costs (or keeps): a freeplay run past its goal keeps its rewards. */
+  function leaveText() {
+    if (ctx.freeplayAfterGoal?.()) {
+      const waves = Math.max(0, ctx.sim.wavesCleared - ctx.sim.totalWaves);
+      return `Your clear rewards are saved; you'll get the freeplay bonus for ${waves} wave${waves === 1 ? '' : 's'}. Your girls stay with ${ally()}.`;
+    }
+    return ctx.coop ? 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.' : 'Leave the battle? You will not receive rewards for this run.';
+  }
+
+  async function toRoom() {
+    if (!(await confirmDialog(leaveText(), { title: 'Back to the room', ok: 'Back to the room' }))) return;
+    ctx.leaveToRoom?.();
+  }
+
   async function quit() {
-    const text = ctx.coop ? 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.' : 'Leave the battle? You will not receive rewards for this run.';
+    const text = leaveText();
     if (!(await confirmDialog(text, { title: ctx.coop ? 'Leave co-op' : 'Quit battle', ok: ctx.coop ? 'Leave' : 'Quit' }))) return;
     ctx.quit();
   }

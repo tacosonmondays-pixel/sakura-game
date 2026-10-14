@@ -21,7 +21,7 @@ export const THEME_FAMILY = {
 export const FAMILIES = ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'];
 
 /** Boss enemy id → boss track; minibosses get a stinger only. */
-export const BOSS_TRACK = { dragon_ashwing: 'final', grave_lych: 'boss', iron_colossus: 'boss' };
+export const BOSS_TRACK = { dragon_ashwing: 'final', grave_lych: 'boss', iron_colossus: 'boss', fp_eclipse_wyrm: 'final' };
 
 export function familyForTheme(theme) {
   return THEME_FAMILY[theme] || 'blossom';
