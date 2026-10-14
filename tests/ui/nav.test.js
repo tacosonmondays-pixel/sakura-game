@@ -14,7 +14,9 @@ describe('parentRoute: the back arrow target', () => {
     for (const prev of [null, r('chat'), r('battle', { stage: 'boss-lych', clanBoss: 'a1' }), r('student', { id: 'aoi' }), r('clan')]) {
       expect(parentRoute('clan', { tab: 'boss' }, prev)).toEqual(r('lobby'));
       expect(parentRoute('missions', {}, prev)).toEqual(r('lobby'));
-      for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'commissions', 'coop']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
+      for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'sandbox', 'coop']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
+      expect(parentRoute('commissions', {}, prev)).toEqual(r('lobby')); // a lobby screen (Tasks / dock)
+      expect(parentRoute('sandbox', { step: 'team' }, prev)).toEqual(r('sandbox')); // the squad step → the map step
       expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, prev)).toEqual(r('coop'));
     }
   });
@@ -26,7 +28,7 @@ describe('parentRoute: the back arrow target', () => {
     }
     // from the parent itself: that screen as it was left (its tab / chapter kept)
     const hub = r('missions', { tab: 'x' });
-    expect(parentRoute('commissions', {}, hub)).toBe(hub);
+    expect(parentRoute('challenge', {}, hub)).toBe(hub);
     expect(parentRoute('coop', { id: 'ABCDE' }, r('coop'))).toEqual(r('coop'));
     expect(parentRoute('coop', { id: 'ABCDE' }, r('missions'))).toEqual(r('missions')); // a room → above the hub
     expect(parentRoute('coop', { id: 'ABCDE' }, r('coop', { id: 'FGHIJ' }))).toEqual(r('coop')); // another room: the hub
@@ -486,7 +488,7 @@ describe('router: back arrow and battle history entries', () => {
       expect(browser.i).toBe(0);
     }
     await go('missions');
-    await go('commissions');
+    await go('challenge');
     await arrow();
     expect(screen()).toBe('#/missions');
     expect(browser.i).toBe(1);
