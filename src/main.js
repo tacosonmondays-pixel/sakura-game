@@ -3,6 +3,7 @@ import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift } from './systems/mail.js';
+import { createRng, hashString } from './core/rng.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -47,8 +48,8 @@ try {
 // A co-op freeplay run this browser could not pay (reloaded, closed, or the phone threw the tab
 // away mid-run): its freeplay part is paid now, from the last wave it saved.
 if (store.profile.progress?.freeplayPending) {
-  Promise.all([import('./online/coop/rewards.js'), import('./core/rng.js')])
-    .then(([r, { createRng, hashString }]) => {
+  import('./online/coop/rewards.js')
+    .then((r) => {
       const paid = r.payPendingFreeplayRuns(store.profile, (seed) => createRng(hashString(`fp-pending:${seed}:${Date.now()}`)));
       store.commit('freeplay-pending');
       store.saveNow();
