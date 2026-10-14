@@ -27,7 +27,7 @@ const ENEMY_KEYS = [
 ];
 const ENEMY_OPTIONAL = ['phases'];
 const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
-const MAP_OPTIONAL = ['decor', 'desc', 'concept'];
+const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground'];
 const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
@@ -476,6 +476,33 @@ describe('maps', () => {
         expect(typeof d.type).toBe('string');
         expect(d.x >= 0 && d.y >= 0 && d.x < m.width && d.y < m.height, `${m.id} decor ${d.type}`).toBe(true);
         expect(tiles.has(`${d.x},${d.y}`), `${m.id} decor ${d.type} on path`).toBe(false);
+      }
+    }
+  });
+
+  it('composed ground features are valid and sit where they make sense', () => {
+    const tiles = (m) => pathTiles(m);
+    for (const m of MAPS) {
+      for (const f of m.ground || []) {
+        expect(['vat', 'icefall', 'runeRing'], `${m.id} ground ${f.type}`).toContain(f.type);
+        if (f.type === 'vat') {
+          // a machined tank: a whole rectangle of water or molten metal, off the road
+          for (let y = f.y; y < f.y + f.h; y++) {
+            for (let x = f.x; x < f.x + f.w; x++) {
+              expect(['~', 'X'], `${m.id} vat tile ${x},${y}`).toContain(m.rows[y][x]);
+              expect(tiles(m).has(`${x},${y}`), `${m.id} vat tile ${x},${y} on path`).toBe(false);
+            }
+          }
+        } else if (f.type === 'icefall') {
+          // the frozen falls hang over the head of a river
+          const y = Math.floor(f.y);
+          let wet = 0;
+          for (let x = Math.floor(f.x0); x < f.x1; x++) if ('~B'.includes(m.rows[y]?.[x])) wet++;
+          expect(wet, `${m.id} icefall over water`).toBeGreaterThanOrEqual(2);
+        } else if (f.type === 'runeRing') {
+          // marks a junction: some crossing lies inside the circle
+          expect(m.crossings.some((c) => Math.hypot(c.x - f.x, c.y - f.y) < f.r * 0.5), `${m.id} rune ring on a crossing`).toBe(true);
+        }
       }
     }
   });

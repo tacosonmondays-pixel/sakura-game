@@ -36,6 +36,7 @@ export class AmbientSystem {
     this.flocks = [];
     this.glows = terrain.glows;
     this.gates = terrain.gates || [];
+    this.marks = terrain.marks || [];
     this.emitters = terrain.emitters.map((e) => ({ ...e, timer: this.rand() * 2 }));
     this.waterTiles = terrain.waterTiles || [];
     if (!terrain.waterTiles) {
@@ -326,6 +327,32 @@ export class AmbientSystem {
     }
 
     this.drawGates(t);
+    this.drawMarks(t);
+  }
+
+  /** Painted ground marks: glowing rune circles under junctions, travel chevrons at flat junctions. */
+  drawMarks(t) {
+    if (!this.marks.length) return;
+    const R = this.R;
+    const gN = this.b.groundN;
+    const gA = this.b.groundA;
+    const c = this._c;
+    for (const m of this.marks) {
+      if (m.kind === 'rune') {
+        c.set(m.color);
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.6);
+        const D = m.r * 2;
+        gN.push(m.x, PATH_H + 0.018, m.z, D * 1.04, D * 1.04, R.disc, 0.12, 0.06, 0.22, 0.32);
+        gA.push(m.x, PATH_H + 0.026, m.z, D, D, R.rune, c.r, c.g, c.b, 0.5 + 0.25 * pulse, t * 0.18);
+        gA.push(m.x, PATH_H + 0.03, m.z, D * 0.62, D * 0.62, R.rune, c.r, c.g, c.b, 0.3 + 0.2 * (1 - pulse), -t * 0.3);
+        gA.push(m.x, PATH_H + 0.032, m.z, D * 1.12, D * 1.12, R.ringSoft, c.r, c.g, c.b, 0.18 + 0.12 * pulse);
+      } else if (m.kind === 'chevron') {
+        // a soft pulse runs along the road in its travel direction
+        const k = 0.5 + 0.5 * Math.sin(t * 3.2 - m.d * 2.4);
+        gN.push(m.x, PATH_H + 0.016, m.z, 0.5, 0.5, R.chevron, 0.08, 0.1, 0.2, 0.22, m.rot);
+        gN.push(m.x, PATH_H + 0.022, m.z, 0.44, 0.44, R.chevron, 1, 0.97, 0.88, 0.42 + 0.3 * k, m.rot);
+      }
+    }
   }
 
   /** Bouncing arrows + glowing discs at every spawn / goal gate (cute, readable from afar). */
@@ -340,6 +367,8 @@ export class AmbientSystem {
         this._gateColors.set(g.color, col);
       }
       const [dx, dz] = g.dir;
+      // ground quads turn by rot about +y with the texture's +u (the arrow tip) along
+      // (cos rot, -sin rot) in xz: this points the tip along the road's travel direction
       const rot = Math.atan2(-dz, dx);
       const spawn = g.kind === 'spawn';
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + (spawn ? 0 : 1.5));
@@ -362,12 +391,12 @@ export class AmbientSystem {
       const fadeA = Math.sin(slide * Math.PI);
       const y = PATH_H + 0.12 + hop * 0.22;
       gN.push(ax, 0.045, az, 0.62, 0.62, R.shadow, 0.05, 0.05, 0.12, 0.3 * (1 - hop * 0.5) * fadeA);
-      gN.push(ax, y, az, 0.78, 0.78, R.arrow, col.r, col.g, col.b, fadeA);
+      gN.push(ax, y, az, 0.78, 0.78, R.arrow, col.r, col.g, col.b, fadeA, rot);
       // second, smaller arrow half a cycle behind
       const slide2 = ((t * 0.9 + 0.5) % 1);
       const along2 = spawn ? 0.9 + slide2 * 1.1 : 0.2 + slide2 * 1.1;
       const hop2 = Math.abs(Math.sin(t * 3.4 + 1.6 + (spawn ? 0 : 1)));
-      gN.push(g.x + dx * along2, PATH_H + 0.1 + hop2 * 0.18, g.z + dz * along2, 0.6, 0.6, R.arrow, col.r, col.g, col.b, Math.sin(slide2 * Math.PI) * 0.85);
+      gN.push(g.x + dx * along2, PATH_H + 0.1 + hop2 * 0.18, g.z + dz * along2, 0.6, 0.6, R.arrow, col.r, col.g, col.b, Math.sin(slide2 * Math.PI) * 0.85, rot);
     }
   }
 

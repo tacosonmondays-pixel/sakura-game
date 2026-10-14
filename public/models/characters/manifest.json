@@ -52,20 +52,21 @@
  },
  "hikari": {
   "file": "hikari.glb",
-  "size": 438868,
+  "size": 1312464,
   "animations": [
    "attack_slash",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 9072,
+  "vertices": 18957,
+  "triangles": 20791,
+  "source": "meshy",
   "lod": "hikari.lod.glb",
-  "lodSize": 219384,
-  "lodVertices": 2968
+  "lodSize": 599012,
+  "lodVertices": 9255,
+  "lodTriangles": 9791
  },
  "hotaru": {
   "file": "hotaru.glb",

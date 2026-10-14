@@ -28,6 +28,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { applyGearFilter } from '../../systems/gearFilter.js';
+import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -166,6 +168,8 @@ function statsTable(unit, battle) {
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+  // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
+  if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
   rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
   if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
   if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
@@ -358,7 +362,6 @@ function levelTab(unit, ctx) {
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'levelling');
   const sel = ctx.books;
-  const cap = levelCap(st);
   const wrap = h('div.mb-tab-body');
 
   const head = section(null);
@@ -368,6 +371,8 @@ function levelTab(unit, ctx) {
   put(wrap, head, bookBox, btWrap);
 
   const update = () => {
+    // read the cap every time: a breakthrough below raises it without rebuilding this tab
+    const cap = levelCap(st);
     const pv = previewLevelUp(profile, unit.id, sel);
     const coins = itemCount(profile, 'coins');
     const atCap = st.level >= cap;
@@ -621,8 +626,11 @@ function gearTab(unit, ctx) {
       nextSub ? h('p.muted', `Main stat grows every level. Next substat growth in ${nextSub} level${nextSub > 1 ? 's' : ''}.`) : null));
   }
 
-  const others = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
-  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${others.length})`,
+  const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
+  const others = applyGearFilter(allOthers, gearFilterFor('student', slot));
+  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${allOthers.length})`,
+    allOthers.length ? gearFilterBar({ place: 'student', slot, shown: others.length, total: allOthers.length, onChange: rerender }) : null,
+    allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
     others.length
       ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
         actions: h('div.mb-gear-card-acts',
@@ -650,7 +658,7 @@ function gearTab(unit, ctx) {
             },
           })),
       })))
-      : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
+      : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
         h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
   return wrap;
 }
@@ -723,7 +731,7 @@ export function render(root, params = {}) {
         onclick: () => {
           if (tab === t.id) return;
           tab = t.id;
-          history.replaceState(null, '', `#/student/${unit.id}?tab=${tab}`);
+          history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
           renderTabs();
           renderTab(true);
         },

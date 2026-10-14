@@ -33,12 +33,18 @@ export const DEFAULT_SETTINGS = {
   music: true,
   sfx: true,
   volume: 0.8,
+  musicVolume: 0.7, // [audio]
+  sfxVolume: 0.8, // [audio]
   showRanges: true,
   autoStart: false,
   defaultSpeed: 1,
   lighting: { exposure: 1, warmth: 0 },
   reduceMotion: false,
+  /** Battle camera: 'locked' holds the fitted map view; 'free' = drag to pan, pinch / wheel to zoom. */
+  camera: 'locked',
 };
+
+const CAMERA_MODES = ['locked', 'free'];
 
 /** Fresh per-unit state. */
 export function newUnitState(now = Date.now()) {
@@ -203,11 +209,15 @@ function cleanSettings(raw) {
     music: typeof s.music === 'number' ? num(s.music, 0.6, 0, 1) : bool(s.music, d.music),
     sfx: typeof s.sfx === 'number' ? num(s.sfx, 0.8, 0, 1) : bool(s.sfx, d.sfx),
     volume: num(s.volume, d.volume, 0, 1),
+    musicVolume: num(s.musicVolume, typeof s.music === 'number' ? s.music : d.musicVolume, 0, 1), // [audio] old numeric music migrates
+    sfxVolume: num(s.sfxVolume, typeof s.sfx === 'number' ? s.sfx : d.sfxVolume, 0, 1), // [audio]
     showRanges: bool(s.showRanges, d.showRanges),
     autoStart: bool(s.autoStart, d.autoStart),
     defaultSpeed: [1, 2, 3].includes(s.defaultSpeed) ? s.defaultSpeed : d.defaultSpeed,
     lighting: { exposure: num(lighting.exposure, d.lighting.exposure, 0.3, 2.5), warmth: num(lighting.warmth, d.lighting.warmth, -1, 1) },
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
+    // older saves have no camera setting: they get the locked camera too
+    camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
   };
 }
 

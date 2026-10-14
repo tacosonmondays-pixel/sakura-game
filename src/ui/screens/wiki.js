@@ -87,7 +87,7 @@ export function render(root, params = {}) {
 
   const syncHash = () => {
     const q = view.q ? `?q=${encodeURIComponent(view.q)}` : '';
-    history.replaceState(null, '', `#/wiki${view.article ? `/${view.article}` : ''}${q}`);
+    history.replaceState(history.state, '', `#/wiki${view.article ? `/${view.article}` : ''}${q}`);
   };
 
   function openArticle(id) {

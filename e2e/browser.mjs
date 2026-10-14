@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 // WebGL through SwiftShader, so the 3D views render on machines (and CI) without a GPU.
 export const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
-async function loadPlaywright() {
+export async function loadPlaywright() {
   const explicit = process.env.PLAYWRIGHT_MODULE;
   if (explicit) {
     // a package folder loads through require (its "main"); a file through import(). Both resolve a

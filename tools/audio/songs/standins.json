@@ -1,0 +1,3 @@
+{
+ "_doc": "Stand-ins for design track ids that have no rendered track yet (docs/AUDIO.md §4.4): {\"wanted_id\": \"shipped_id\"}, '*' globs allowed. The game uses a stand-in only when the real track is missing from the manifest; stems the stand-in lacks are ignored. Round 2: every design id is composed and shipped, so the map is empty (the 'Roll Call' demo is a palette audition and is no longer shipped)."
+}

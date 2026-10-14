@@ -90,7 +90,9 @@ const HIKARI = {
   pathCapabilities: ['armorPen', 'reveal', 'silence', 'buff', 'cleanse', 'antiAir', 'stun'],
   acquisition: STARTER,
   palette: {
-    hair: '#ffe08a', hairShade: '#e0a93b', eyes: '#ffb347', skin: '#ffe6d6',
+    // pink hair + teal eyes: her battle model is the owner's own Meshy figure, so the procedural
+    // fallback chibi (shown before the GLB arrives / offline) matches it
+    hair: '#f7a3bf', hairShade: '#dc7398', eyes: '#2bb8ad', skin: '#ffe6d6',
     outfit: '#ffffff', outfitShade: '#d9dfee', accent: '#f2c14e', halo: '#fff1a8', weapon: '#e8ecf5',
   },
   look: {

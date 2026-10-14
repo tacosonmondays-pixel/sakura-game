@@ -18,6 +18,7 @@ import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems/gacha.js';
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
+import { cue } from '../../audio/cue.js'; // [audio]
 
 const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
 
@@ -293,6 +294,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
   const skip = h('button.ma-gacha-skip', { onclick: () => finish(), 'data-testid': 'reveal-skip' }, 'Skip', svgEl(uiIcon('ff'), 'ma-inline-icon'));
   overlay.append(h('div.ma-gacha-sky'), stageEl, skip);
   document.body.appendChild(overlay);
+  cue('gacha.envelope', { best, count: results.length }); // [audio]
 
   // --- intro: a sealed academy letter (drawn) glowing in the best rarity's colour; its wax
   // seal is tinted blue / gold / pink. Tap (or wait) → it pops open in a flash of light.
@@ -317,6 +319,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
   const showGrid = () => {
     if (phase !== 'intro' && phase !== 'opening') return;
     phase = 'flip';
+    cue('gacha.open'); // [audio]
     clear(stageEl);
     stageEl.appendChild(grid);
     cards.forEach((c, i) => later(() => c.flip(), 350 + i * 170));
@@ -332,6 +335,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     }
     phase = 'showcase';
     const r = ssrs[i];
+    cue('gacha.showcase', { unitId: r.unitId }); // [audio]
     const u = UNIT_MAP[r.unitId];
     const full = portraitUrl(u, 'full');
     const sc = h('div.ma-showcase', { onclick: () => { sc.remove(); showcase(i + 1); } },
@@ -361,6 +365,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     cards.forEach((c) => c.flip(true));
     skip.remove();
     const newCount = results.filter((r) => r.isNew).length;
+    cue('gacha.results', { best, newCount }); // [audio]
     const frags = results.reduce((a, r) => a + (r.fragments || 0), 0);
     clear(footer);
     footer.append(
@@ -385,6 +390,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 
   function close(silent = false) {
     timers.forEach(clearTimeout);
+    cue('gacha.close'); // [audio]
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 200);
     if (!silent) onClose?.();
@@ -425,6 +431,7 @@ function revealCard(r, i) {
       flipped = true;
       if (instant) el.classList.add('instant');
       el.classList.add('flipped');
+      cue('gacha.flip', { rarity: r.rarity, instant }); // [audio]
     },
   };
 }

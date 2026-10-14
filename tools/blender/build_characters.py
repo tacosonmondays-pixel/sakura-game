@@ -154,14 +154,24 @@ def main():
     ap.add_argument('--blend', default=None, help='save the last built character as a .blend for inspection')
     ap.add_argument('--units', default=None, help='units JSON (default: dumped from src/data/units.js)')
     ap.add_argument('--no-lod', action='store_true', help='skip the <id>.lod.glb (medium/low quality) build')
+    ap.add_argument('--force-procedural', action='store_true', help='also rebuild units whose manifest entry is an imported Meshy model')
     args = ap.parse_args()
     units = load_units(args.units)
     ids = args.ids or [u['id'] for u in units]
     by_id = {u['id']: u for u in units}
+    manifest_path = os.path.join(args.out, 'manifest.json')
+    existing = {}
+    if os.path.exists(manifest_path):
+        with open(manifest_path) as f:
+            existing = json.load(f)
     results = {}
     for uid in ids:
         if uid not in by_id:
             print(f'[build] unknown unit {uid}', file=sys.stderr)
+            continue
+        if existing.get(uid, {}).get('source') == 'meshy' and not args.force_procedural:
+            # imported figure (tools/meshy/build_meshy_chibi.py): never overwrite it with a cage build
+            print(f'[build] {uid}: kept the imported Meshy model (use --force-procedural to replace it)')
             continue
         full = build_unit(by_id[uid], args.out, animations=not args.no_anim, keep_blend=args.blend)
         lod = None if args.no_lod else build_unit(by_id[uid], args.out, animations=not args.no_anim, lod=True)

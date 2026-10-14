@@ -360,6 +360,8 @@
 .bt-buy:active:not(:disabled) { transform: skewX(var(--skew)) scale(0.94); }
 .bt-buy.poor { background: #e9edf3; color: #9aa5b8; box-shadow: none; }
 .bt-buy-coin { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
+/* full price before gear Cost Reduction / cost-cut auras, struck through */
+.bt-buy-was { font-size: 0.72rem; font-weight: 700; opacity: 0.6; margin-right: 2px; }
 .bt-buy-coin svg { width: 100%; height: 100%; }
 .bt-lock { flex: none; max-width: 46%; display: flex; gap: 4px; align-items: flex-start; font-size: 0.68rem; font-weight: 700; color: #8a94a6; line-height: 1.25; }
 .bt-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); background: rgba(234,246,255,0.95); border-top: 1px solid var(--line); }
@@ -579,6 +581,16 @@
   .bt-ult { width: 48px; height: 48px; }
   .bt-start-label { font-size: 1.15rem; }
 }
+
+/* spawn-aware feed docking (feed.js): swap to the other top corner when a spawn gate sits under
+   the toasts (not on narrow portrait screens, where the feed is centred) */
+@media (min-width: 701px) {
+  .bt-feed.bt-feed-r { left: auto; right: 12px; }
+  .bt-feed.bt-feed-l { left: 12px; right: auto; }
+  .bt-feed.bt-feed-r .bt-toast { animation-name: bt-slide-r; }
+  .bt-feed.bt-feed-r .bt-toast.out { transform: translateX(12px); }
+}
+@keyframes bt-slide-r { from { opacity: 0; transform: translateX(14px); } }
 
 @media (prefers-reduced-motion: reduce) {
   .bt-root *, .bt-root *::before, .bt-root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }

@@ -1,0 +1,33 @@
+/* "New version ready" pill (src/ui/updateBanner.js): top centre just under the top bar (back,
+   coins and home stay reachable), above screens but below modals. */
+.upd-bar {
+  position: fixed; left: 50%; top: calc(54px + var(--safe-top)); transform: translateX(-50%); z-index: 190;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 2 * var(--gutter));
+  padding: 6px 6px 6px 14px; border-radius: 999px; background: rgba(31, 42, 68, 0.94); color: #fff;
+  box-shadow: var(--shadow-strong); font-weight: 700; animation: upd-in var(--t-panel) var(--ease);
+}
+@keyframes upd-in { from { opacity: 0; transform: translate(-50%, -10px); } }
+.upd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 4px rgba(255, 221, 74, 0.25); flex: none; }
+.upd-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upd-text small { opacity: 0.75; font-weight: 600; }
+.upd-x { position: relative; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 1.2rem; line-height: 1; flex: none; }
+/* 30 px to look at, 44 px to hit (Apple's minimum touch target) */
+.upd-x::after { content: ''; position: absolute; inset: -7px; }
+.upd-x:active { transform: scale(0.9); }
+/* short landscape phones: just the dot, Update and ×, so the pill (centred under the top bar)
+   stays clear of the tabs, tiles and fields there */
+@media (max-height: 420px) {
+  .upd-bar { gap: 6px; padding: 4px 4px 4px 10px; }
+  .upd-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+/* A screen that could not load (router): message + Try again / Reload. */
+.load-fail { margin: 12vh auto 0; width: min(420px, calc(100vw - 2 * var(--gutter))); text-align: center; }
+.load-fail p { margin: 6px 0 14px; }
+.load-fail .load-fail-acts { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* Small version line (co-op lobby, settings). */
+.ver-line { font-size: 0.78rem; color: var(--muted); text-align: center; margin-top: 8px; }
+
+/* co-op mismatch banner: which version parts differ (for bug reports) */
+.ol-version-diag { font-weight: 600; opacity: 0.7; font-size: 0.78em; word-break: break-all; }

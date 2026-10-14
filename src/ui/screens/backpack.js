@@ -16,6 +16,9 @@ import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
+import { applyGearFilter } from '../../systems/gearFilter.js';
+import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
+import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
 
 // ---------------------------------------------------------------------------
@@ -149,7 +152,8 @@ export function crosspathDiagram({ labels = ['Main path', 'Second path', 'Third 
 
 const ALL_TAB = { id: 'all', name: 'All', desc: 'Everything you own.' };
 const SORTS = { rarityDesc: 'Rarity ↓', rarityAsc: 'Rarity ↑', count: 'Count', name: 'Name' };
-const state = { tab: 'all', sort: 'rarityDesc', rarity: null, gearSlot: null };
+// pick: null, or the Set of gear uids ticked for multi-salvage while "Multi-salvage" is on
+const state = { tab: 'all', sort: 'rarityDesc', rarity: null, gearSlot: null, pick: null };
 
 function ownedItems(tabId) {
   const profile = store.profile;
@@ -259,13 +263,119 @@ function renderGearSection(host, rerender) {
           h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null));
       }))));
   }
-  const gear = gearList(profile, { slot: state.gearSlot });
+  const slotGear = gearList(profile, { slot: state.gearSlot });
+  // the page's own rarity chips (top row) filter gear too: one rarity control on this tab
+  const gear = applyGearFilter(slotGear, gearFilterFor('backpack', state.gearSlot, { rarity: state.rarity }));
   const slotOpts = [{ id: null, label: 'All slots' }, ...Object.entries(GEAR_SLOTS).map(([id, s]) => ({ id, label: s.name, icon: gearIcon(id, 'rare') }))];
-  host.appendChild(h('section.mb-section',
-    h('div.mb-section-head', h('h3.mb-h', `Gear (${Object.keys(profile.gear).length})`), chipRow(slotOpts, state.gearSlot, (id) => { state.gearSlot = id; rerender(); })),
-    gear.length
-      ? h('div.mb-gear-grid', gear.map((g) => gearCard(g, { onClick: () => openGearModal(g, rerender) })))
-      : emptyState('No gear yet', 'Gear drops as boxes from Bounty · Workshop Yard and bosses, and the Mall sells boxes for tokens.', button('Go to Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') }))));
+  const pick = state.pick;
+  if (pick) {
+    // only what is on screen can be salvaged: a filter or slot change drops hidden picks
+    const shown = new Set(gear.map((g) => g.uid));
+    for (const uid of pick) if (!shown.has(uid)) pick.delete(uid);
+  }
+  const cards = new Map();
+  const pickTools = pick ? h('div.mb-pick-tools', { 'data-testid': 'salvage-tools' }) : null;
+  const pickBar = pick ? h('div.mb-salvage-bar', { 'data-testid': 'salvage-bar' }) : null;
+  const refreshPick = () => {
+    for (const [uid, el] of cards) {
+      el.classList.toggle('selected', pick.has(uid));
+      el.setAttribute('aria-pressed', pick.has(uid) ? 'true' : 'false');
+    }
+    const pickable = gear.filter((g) => !salvageBlock(g));
+    const all = pickable.length > 0 && pickable.every((g) => pick.has(g.uid));
+    clear(pickTools);
+    put(pickTools,
+      h('span.mb-pick-hint', 'Tap gear to pick it. Locked and equipped gear is protected.'),
+      pickable.length ? button(all ? 'Clear picks' : `Select all shown (${pickable.length})`, {
+        kind: 'ghost',
+        small: true,
+        icon: all ? 'close' : 'check',
+        testid: 'salvage-select-all',
+        onClick: () => {
+          if (all) pick.clear();
+          else for (const g of pickable) pick.add(g.uid);
+          refreshPick();
+        },
+      }) : null);
+    const pv = salvagePreview(profile, [...pick]);
+    clear(pickBar);
+    put(pickBar,
+      h('div.mb-sv-count', { 'data-testid': 'salvage-count' }, pv.uids.length ? `${pv.uids.length} picked` : 'Nothing picked'),
+      h('div.mb-sv-rewards', pv.rewards.map((r) => h('span.mb-sv-reward', { title: getItem(r.id)?.name || r.id }, svgEl(itemIcon(r.id), 'mb-sv-icon'), formatNumber(r.count)))),
+      button(pv.uids.length ? `Salvage ${pv.uids.length}` : 'Salvage', { kind: 'danger', icon: 'sell', disabled: !pv.uids.length, testid: 'salvage-go', onClick: () => salvagePicked(rerender) }));
+  };
+  const onCard = (g) => {
+    if (!pick) return openGearModal(g, rerender);
+    const why = salvageBlock(g);
+    if (why) {
+      toast(why === 'locked' ? 'Locked gear is protected. Unlock it first to salvage it.' : `Equipped by ${UNIT_MAP[g.equippedBy]?.name || 'a student'}. Unequip it first to salvage it.`, 'bad');
+      return;
+    }
+    if (pick.has(g.uid)) pick.delete(g.uid);
+    else pick.add(g.uid);
+    refreshPick();
+  };
+  const grid = gear.length
+    ? h(`div.mb-gear-grid${pick ? '.picking' : ''}`, gear.map((g) => {
+      const card = gearCard(g, { onClick: () => onCard(g) });
+      if (pick) {
+        if (salvageBlock(g)) card.classList.add('blocked');
+        else {
+          card.appendChild(h('span.mb-pick-check', { 'aria-hidden': 'true' }, svgEl(uiIcon('check'))));
+          cards.set(g.uid, card);
+        }
+      }
+      return card;
+    }))
+    : null;
+  const canSalvage = slotGear.some((g) => !salvageBlock(g));
+  host.appendChild(h(`section.mb-section${pick ? '.mb-picking' : ''}`,
+    h('div.mb-section-head',
+      h('h3.mb-h', `Gear (${Object.keys(profile.gear).length})`),
+      chipRow(slotOpts, state.gearSlot, (id) => { state.gearSlot = id; rerender(); }),
+      pick || canSalvage ? button(pick ? 'Done' : 'Multi-salvage', {
+        kind: pick ? 'primary' : 'ghost',
+        small: true,
+        icon: pick ? 'check' : 'sell',
+        testid: 'salvage-mode',
+        onClick: () => { state.pick = pick ? null : new Set(); rerender(); },
+      }) : null),
+    slotGear.length ? gearFilterBar({ place: 'backpack', slot: state.gearSlot, shown: gear.length, total: slotGear.length, onChange: rerender, rarity: state.rarity, onClearRarity: () => { state.rarity = null; } }) : null,
+    pickTools,
+    grid || (slotGear.length
+      ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.')
+      : emptyState('No gear yet', 'Gear drops as boxes from Bounty · Workshop Yard and bosses, and the Mall sells boxes for tokens.', button('Go to Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') }))),
+    pickBar));
+  if (pick) refreshPick();
+}
+
+/** Multi-salvage: confirm (with a warning for Mythic+ or enhanced pieces), then salvage every pick. */
+async function salvagePicked(rerender) {
+  const profile = store.profile;
+  const pv = salvagePreview(profile, [...state.pick]);
+  if (!pv.uids.length) return;
+  const n = pv.uids.length;
+  const names = pv.precious.slice(0, 4).map((uid) => {
+    const g = profile.gear[uid];
+    return `${g.name} (${ITEM_RARITIES[g.rarity]?.name || g.rarity}${g.level ? ` +${g.level}` : ''})`;
+  });
+  const body = h('div.mb-sv-confirm',
+    h('p', `Salvage ${n} piece${n === 1 ? '' : 's'} of gear? This cannot be undone.`),
+    pv.precious.length ? h('p.mb-sv-warn', { 'data-testid': 'salvage-warn' },
+      h('b', `Includes ${pv.precious.length} enhanced or Mythic+ piece${pv.precious.length === 1 ? '' : 's'}: `),
+      names.join(', '), pv.precious.length > names.length ? ` and ${pv.precious.length - names.length} more` : '', '.') : null,
+    h('div.mb-sub-title', 'You get'),
+    h('div.reward-row', pv.rewards.map((r) => rarityTile(r.id, r.count, { size: 48 }))));
+  if (!(await confirmDialog(body, { title: 'Multi-salvage', ok: `Salvage ${n}`, danger: true }))) return;
+  const res = salvageMany(profile, pv.uids);
+  if (!res.count) {
+    toast('Nothing was salvaged.', 'bad');
+    return;
+  }
+  store.commit('gear-salvage');
+  state.pick?.clear();
+  toast(`Salvaged ${res.count} piece${res.count === 1 ? '' : 's'}: ${res.rewards.map((r) => `${getItem(r.id)?.name || r.id} ×${formatNumber(r.count)}`).join(', ')}`, 'good', 3200);
+  rerender();
 }
 
 /** Designed empty state block. */
@@ -275,6 +385,7 @@ export function emptyState(title, text, action = null, icon = 'backpack') {
 
 export function render(root, params = {}) {
   if (params.tab && (params.tab === 'all' || BACKPACK_TABS.some((t) => t.id === params.tab))) state.tab = params.tab;
+  state.pick = null;
   const { el, body } = screen('Backpack');
   el.classList.add('mb-screen');
   root.appendChild(el);
@@ -284,13 +395,15 @@ export function render(root, params = {}) {
   const content = h('div.mb-bp-content');
   put(body, tabsEl, toolbar, content);
 
-  const rerender = () => {
+  // keepScroll: a filter change or a salvage redraws the page where you were; a new tab starts at the top
+  const rerender = (keepScroll = true) => {
     const profile = store.profile;
+    const scrollTop = keepScroll === false ? 0 : body.scrollTop;
     const tabsList = [ALL_TAB, ...BACKPACK_TABS];
     clear(tabsEl);
     for (const t of tabsList) {
       const count = t.id === 'equipment' ? ownedItems(t.id).length + Object.keys(profile.gear).length : ownedItems(t.id).length;
-      tabsEl.appendChild(h(`button.mb-tab${t.id === state.tab ? '.active' : ''}`, { 'data-testid': `tab-${t.id}`, onclick: () => { state.tab = t.id; history.replaceState(null, '', `#/backpack?tab=${t.id}`); rerender(); } }, t.name, h('span.mb-tab-count', String(count))));
+      tabsEl.appendChild(h(`button.mb-tab${t.id === state.tab ? '.active' : ''}`, { 'data-testid': `tab-${t.id}`, onclick: () => { state.tab = t.id; state.pick = null; history.replaceState(history.state, '', `#/backpack?tab=${t.id}`); rerender(false); } }, t.name, h('span.mb-tab-count', String(count))));
     }
     const activeTab = tabsEl.querySelector('.mb-tab.active');
     // bring the active tab into view by scrolling the strip only, resting on a whole tab (no sliver)
@@ -326,6 +439,7 @@ export function render(root, params = {}) {
       content.appendChild(emptyState(state.rarity ? 'Nothing of that rarity' : 'Nothing here yet', state.tab === 'tickets' ? 'Recruit tickets come from the login calendar, weekly commissions and the Mall.' : 'Clear stages and Bounty arenas to fill your backpack.', button('Go to Mission', { kind: 'yellow', icon: 'map', onClick: () => navigate('campaign') })));
     }
     if (state.tab === 'equipment') renderGearSection(content, rerender);
+    body.scrollTop = scrollTop;
   };
   rerender();
   // 'select-ticket': using an SSR Select Ticket from here must drop its tile at once, not on re-entry

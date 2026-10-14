@@ -46,6 +46,7 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
 | meta-a | `src/ui/screens/{lobby,campaign,stage,recruit,mall,commissions,rewards,bounty,assault,challenge,settings,missions,title}.js`, `src/ui/lobby/**`, `src/ui/{hubArt,selectTicket}.js`, `src/data/lobbyArt.js`, `src/ui/styles/{meta-a,title}.css`, `public/art/{lobby,ui}/**` |
 | art (drawn) | `src/art/portraits.js`, `public/art/portraits/**` (6 files per girl, see §11a) |
 | meta-b | `src/ui/screens/{students,student,formation,backpack,bestiary,wiki}.js`, `src/data/wiki.js`, `src/ui/styles/meta-b.css` |
+| online | `src/online/**`, `src/data/coop.js`, `src/ui/online/**`, `src/ui/screens/{chat,clan,coop}.js`, `src/ui/styles/online.css`, `supabase/**`, `.env.production`, `docs/ONLINE.md`, `tests/online/**`, `e2e/online.mjs`, `e2e/engines.mjs`, `e2e/engines/**` (see §13) |
 
 ## 2. Vocabulary — `src/data/types.js` (exists, read it)
 
@@ -267,7 +268,7 @@ summons + phasing), Iron Colossus, Ashwing Matriarch.
 export const MAPS = [MapDef...]   // ≥ 24 maps, Bloons-like variety (loops, crossings,
                                    // spirals, two lanes, water lakes, islands, figure-8...)
 export function getMap(id)
-export function pathTiles(map)     // Set of "x,y" strings stamped from waypoints
+export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
@@ -285,9 +286,31 @@ MapDef = {
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
   decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
+                                   // grating overpass, conveyor-belt road, ice-cave tunnel)
+  ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
+          | { type: 'icefall', x0, x1, y }  // frozen falls over a river head
+          | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
 }
 ```
+
+Authoring (inside `maps.js`, `defineMap({ ..., paths: [spec...], crossings? })`): a path spec is a
+node list in WORLD coordinates (tile (x, y) covers [x, x+1) × [y, y+1), centre (x + 0.5, y + 0.5) —
+NOT the old integer tile waypoints): `[x, y]` control points the centreline passes through
+(centripetal Catmull-Rom), `L` (= `LINE`) after a point makes the next section an exact straight,
+`IN` / `OUT` (= `TUNNEL_IN` / `TUNNEL_OUT`) after a point open / close a tunnel there, and the
+helpers `arc(cx, cy, r, a0, a1)`, `spiral(cx, cy, r0, r1, a0, a1)`, `curve(fn, t0, t1, n)`,
+`loopNodes(cx, cy, size, heading, mirror)` expand into control points. `{ nodes, fork: { path, at },
+join: { path, at } }` makes a lane that leaves / merges into an EARLIER path tangentially at the
+point nearest `at` (it shares that path's entrance or exit). The first point sits just outside the
+board (spawn), the last is the exit. Crossings are found automatically; `crossings` is one mode
+for all or one per crossing in `findCrossings` order: `'bridge'` (default: the later pass rises
+over the earlier one), `'bridgeUnder'` (the earlier pass goes over) or `'flat'` (a junction);
+where one pass is inside a tunnel the crossing is always `'tunnel'`. Everything is sampled ONCE
+(`TRACK_STEP` 0.1) by `src/core/track.js` (`buildMapTracks`); `mapTracks(map)` returns
+`map.tracks`, or a straight-segment view of a legacy MapDef that only has tile-waypoint `paths`
+(test fixtures passed as `data.map` keep working).
 
 Track quality rules (tests/data/world.test.js): ≤ 14° turn per 0.1-tile sample, centreline radius
 ≥ 1.4 tiles over any 1-tile window, flat junctions ≥ 2 tiles apart, spawns / exits on the board
@@ -303,13 +326,26 @@ abutments on each bank), and only where the centreline itself crosses at least 0
 a road that merely grazes a pond corner or runs along a bank gets no deck; the water mask is carved
 back 0.74 tiles from every ground-level centreline instead, so it reads as a shore road. Overpass
 decks are exactly road + railings wide, with a girder fascia, mirrored pier pairs either side of the
-road they span, a drop shadow along the key light, and no railings on the lower pass under them.
+road they span, a drop shadow along the key light; the lower pass keeps its railings running on
+under the span (no posts beneath the deck). A raised span is ONE material end to end (chosen by the
+raised flag, not by what lies under it); boardwalk themes (marsh) build raised spans as stone
+causeway bridges so over / under never blur. Abutment sills sit only where a deck run starts or
+ends on a bank (short dry gaps are decked over). Every flat junction gets painted travel
+chevrons a tile before and after it on both passes (src/render/groundFeatures.js).
 
-Path tiles are NOT buildable even if the row says otherwise. Waypoints may be one tile
-outside the grid (spawn/exit off-screen). Placement is FREE (Bloons-style, see §6): girls
+Path tiles are NOT buildable even if the row says otherwise. Spawn / exit control points sit
+just outside the grid (off-screen). Placement is FREE (Bloons-style, see §6): girls
 stand at continuous positions, so `rows` only describes terrain and obstacles — the sim turns
 'T' into a blocking disc (r 0.45 at the tile centre), 'R' / 'H' / 'X' into blocking squares, and
-the path into a band 0.55 tiles either side of its centre line.
+the path into a band 0.55 tiles either side of its centre line (`BAND_HALF_WIDTH`). A 'B' tile
+is any water tile the road band touches; the open water of a 'B' tile off the band still takes
+water girls (a curved road often only grazes the tile).
+
+Tunnels (Bloons-style): between `IN` and `OUT` the road is drawn under a hill / hall / cave and
+enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
+are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
+already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
+renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
 
 ### `src/data/stages.js`
 
@@ -405,7 +441,7 @@ Profile = {
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
-  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion },
+  settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
   secretary: unitId,
   lobbyBg: { [girlId]: lobbyBgId },        // chosen lobby background per girl (src/data/lobbyArt.js)
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
@@ -574,8 +610,10 @@ at continuous (x, y) and own a circular footprint: towers r = 0.42, heroes r = 0
 a UnitDef may override with `footprint`). A spot is legal when the centre is inside the map, no other
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
 line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
-void = the tile square) and the terrain under the CENTRE matches her placement ('~' water, '.' / ','
-land; bridges are path). Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
+void = the tile square) and the terrain under the CENTRE matches her placement ('~' and 'B' water —
+the road itself is excluded by the band —, '.' / ',' land). Path distance is measured to the dense
+Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
+Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
 `towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
 `canPlaceTile` / `placeTowerTile` are the explicit forms).
 
@@ -593,7 +631,9 @@ const sim = new Sim({
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
 sim.startNextWave()   // only in 'prep'/'between'
 sim.state             // 'prep' | 'wave' | 'between' | 'won' | 'lost'
-sim.wave, sim.totalWaves, sim.lives, sim.maxLives, sim.cash, sim.time, sim.map (MapDef), sim.paths (polylines in world coords)
+sim.wave, sim.totalWaves, sim.lives, sim.maxLives, sim.cash, sim.time, sim.map (MapDef), sim.paths (the dense
+                      // Tracks v3 centrelines in world coords, one point per ~0.1 tile — not corner waypoints)
+sim.pathData          // PathData[]: { points, cum, length, dirs, facings, tunnels, under, elev, track }
 sim.enemies           // EnemyRT[] (alive only)
 sim.towers            // TowerRT[] (includes hero)
 sim.projectiles       // ProjectileRT[]
@@ -626,7 +666,9 @@ sim.result()                        // -> battle result object for applyBattleRe
 
 EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*along path*/, pathIndex,
             hp, maxHp, barrier, maxBarrier, armor, speed, statuses: { [type]: { ...spec, left } },
-            veiled, revealed, phasing /*intangible now*/, silenced, facing /*radians*/, tier, flash /*0-1 hit flash*/ }
+            veiled, revealed, phasing /*intangible now*/, silenced, facing /*radians*/, tier, flash /*0-1 hit flash*/,
+            hidden /*inside a tunnel: invisible + untargetable*/, elev /*overpass deck height under it*/,
+            underDeck /*walking under an overpass: drawn hidden, still targetable*/ }
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
@@ -647,10 +689,10 @@ Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `sr
 for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, x, y, uid?, path }`
 (continuous `x`/`y`; old `tx`/`ty` tile actions still run). And `autoPlan(stageId, unitIds)` that
 greedily places girls on the best-covered spots of a 0.25-tile lattice (never overlapping, path band
-respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them) — used to check that every
-campaign stage is beatable on Normal with free units only.
+respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them; road inside tunnels counts as
+no coverage) — used to check that every campaign stage is beatable on Normal with free units only.
 
-Damage pipeline (in order): veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
+Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
 except crystal) → hp. Burn/poison ticks skip flat armor; poison blocks regen and siphon healing.
@@ -752,13 +794,20 @@ r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the ow
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
+r.setCameraMode('locked'|'free')  // locked (default, settings.camera) holds the fitted view; free = pan / pinch / wheel / double-tap
+r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, position, target, isDefault } for tests
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 ```
 
-Camera: angled orthographic (≈55° pitch) framing the whole map; drag to pan, pinch/wheel to zoom,
-double-tap to reset. Builds terrain from MapDef (themed ground tiles with subtle variation, raised
+Camera: angled orthographic (≈55° pitch) framing the whole map. Locked by default (settings.camera):
+the fitted view never moves. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
+girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes, impact shakes
+and a free-mode reset glide included (CameraRig.holdStill); a press that began while placing never
+pans, and the tap that places her is never half of a double-tap reset. A board tap may wander 20 px (9 px when a
+drag would pan) and still be a tap (policy: src/render/cameraPolicy.js; pointer input:
+src/render/boardInput.js). Builds terrain from MapDef (themed ground tiles with subtle variation, raised
 stone path, animated water, trees/rocks/buildings, theme props, scenery from stage.scenery
 — e.g. lanterns + fog when veiled enemies are introduced, snow, embers), soft shadows (quality
 high), hemisphere + key light, optional bloom (high). Shows: towers (buildChibi), enemies
@@ -766,6 +815,15 @@ high), hemisphere + key light, optional bloom (high). Shows: towers (buildChibi)
 float + shadow, projectiles, explosions, chain lightning, beams, pulses, field rings (coloured by
 kind), trap markers, teleport warnings, floating damage numbers (optional on low), death puffs,
 coin pops, ult cinematic flash.
+
+Tracks v3 (`src/render/trackMesh.js`, `groundFeatures.js`): the road ribbon, water decks, overpass
+decks and tunnel mouths / halls are all built from `mapTracks(map)` — the same dense centrelines
+the sim walks (`planRoads(map)`, `buildDecks(...)`, `buildTunnels(map, look)`); nothing re-smooths
+a tile path any more (`terrain.smoothRoad` is gone). Ground walkers stand at `PATH_H + EnemyRT.elev`
+on an overpass; `EnemyRT.hidden` (tunnel) and `EnemyRT.underDeck` (ground walker under a deck)
+hide the model, its shadow and its HP bar. Flat junctions get painted travel chevrons; per-map
+`bridge` / `path` / `tunnel` looks and `ground` features (vat, icefall, runeRing) override the
+theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
@@ -783,7 +841,9 @@ mode, stats, kills), hero portrait with level/XP + ult button, next-wave scout s
 trait icons + "New!" markers, boss HP bar + phase announcements, pause menu (resume, restart,
 settings, quit), victory/defeat modal → `applyBattleResult` → rewards (items, gear, medal,
 first-clear gems, unlocked girls, bestiary discoveries) → buttons Next stage / Retry / Home.
-Tracks missions (`track`). Must be fully usable on a phone.
+Tracks missions (`track`). Must be fully usable on a phone. The battle toast feed docks left or
+right, whichever side keeps it off the spawn gates and the first tiles of road behind them
+(exit gates as a tie-break): `feed.setAvoid(() => screenPoints)` + `feedDockRight(...)`.
 
 ## 11. Meta screens
 
@@ -929,3 +989,99 @@ in-game result, relevant tests, and evidence against the original request."
   recurring sakura melody in different arrangements), commander tool per mission, Link Arts team
   combos, interactive map mechanisms, mission contracts, tactical lab, roguelite expeditions, events
   with visual-novel mini stories, dev clan `Rosie777` supply bot, anti-tamper saves, PWA install.
+
+## 13. Online — `src/online/**`, `src/ui/online/**`, `supabase/**` (owner: online)
+
+Chat, clans, clan boss, the `Rosie777` developer clan, 2-player co-op and transfer codes. Player-facing
+description and the owner's setup steps: `docs/ONLINE.md`. The game must keep working with no server:
+saves stay local (the save format is unchanged; the online name lives in its own key `ss-online-v1`).
+
+**Backend facade** — `src/online/backend.js`. UI code talks only to `getBackend()`, never to an adapter.
+
+```js
+onlineConfig(env?, search?) // -> { mode: 'supabase'|'local', reason: null|'forced'|'no_config', url, key }
+const be = getBackend();    // singleton; window.__online in the browser (e2e hook)
+await be.init({ name?, level, avatar })   // loads the adapter + anonymous sign-in (once)
+be.status / be.onStatus(cb) // { mode, reason, connected, error }; be.offline = no config or unreachable
+be.user, be.uid, be.limiter, be.lastBoss
+// every call is async and throws OnlineError (errors.js: code ∈ ERROR_CODES, retryMs on rate_limited)
+be.me() be.updateProfile({ name?, level?, avatar? }) be.touch()
+be.history(channel, 50) be.send(channel, body, { kind: 'text'|'invite', meta? }) be.subscribe(channel, cb) // -> unsubscribe
+be.listClans({ query, limit }) be.getClan(id) be.myClan() be.members(id) be.subscribeClan(id, cb)
+be.createClan({ name, tag, emblem, joinMode: 'open'|'request'|'code', description })
+be.joinClan(id) be.joinByCode(code) be.requestJoin(id) be.listRequests(id) be.answerRequest(clanId, userId, accept)
+be.leaveClan() be.setRole(userId, 'officer'|'member'|'leader') be.kick(userId) // permissions: clanRules.can(); 'leader' hands leadership over
+be.bossState(clanId) be.startBossAttempt() be.submitBossDamage(attemptId, damage) be.claimBossReward(week)
+be.createTransfer(saveText) be.redeemTransfer(code)
+be.openRoom(code, { host, onMessage(msg, uid), onError, onStatus(state, info) }) // -> { net, status, connected, send(msg, { latest?, drop? }), reconnect(), close() }
+//   status: 'connecting' | 'connected' (info.rejoin on every later join) | 'reconnecting'; the lobby says hello after every join
+```
+
+Chat channels are `'global'` and `'clan:<clanId>'`. Adapter selection: `?online=local` → local; build-time
+`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` → Supabase (lazy-imported; falls back to local with
+`reason: 'unreachable'` if it fails); otherwise local with `reason: 'no_config'` (UI pill "Online features
+offline"). Only the public URL and the publishable / anon key may ever reach the client.
+
+**Adapters** — both implement every method above with the same shapes and errors:
+`adapters/supabase.js` (anonymous auth, tables + `SECURITY DEFINER` RPCs, Realtime `postgres_changes` for
+chat / clan updates, broadcast only (no presence: see `openRoom`) for co-op rooms on `coop:<CODE>:<secret>`) and `adapters/local.js`
++ `adapters/localDb.js` (the same rules as the SQL in a localStorage JSON document; BroadcastChannel carries
+the realtime part; each tab is its own player). `tests/online/supabaseAdapter.test.js` checks the Supabase
+adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cover the mock server.
+
+**Rules shared by client and server** — `src/online/limits.js` (`RULES`, `verdict`, `createLimiter`,
+`formatRetry`) and `src/online/clanRules.js` (roles + `can()`, name / tag / message validation, reserved
+names, `DEV_CODE = 'Rosie777'`, emblems, clan XP / level curve, weekly boss table, per-attempt damage
+allowance, reward tiers). The numbers marked in these files are repeated in the SQL;
+`tests/online/schema.test.js` fails when they drift. Rate limits: chat 1 per 2 s and 20 per minute; clan
+create 1 per 10 min and 3 per day; join / request / leave / code try 10 per hour; transfer 5 per hour;
+co-op room 20 per hour; clan boss 3 counted attempts per day. The client limiter only gives instant
+feedback; the server (`enforce_rate()` in triggers and RPCs) is authoritative.
+
+**Database** — `supabase/migrations/20261008000000_online.sql` is the whole schema (the brief's
+`schema.sql`, kept in the Supabase CLI layout; idempotent; there is deliberately no second copy). Tables
+`profiles, clans, clan_codes, clan_members, clan_requests, messages, clan_boss, clan_boss_attempts,
+clan_boss_hits, clan_boss_claims, coop_rooms, transfer_codes, rate_events`, RLS on all of them, explicit
+column grants (players insert / update only their profile's `name, level, avatar` and insert only their
+own messages); every other write is an RPC that checks `auth.uid()` and the clan role. Schema changes go in
+a NEW migration file, never by editing the applied one in a way that breaks re-running it.
+
+**Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
+Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
+with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty })`, `getSession()`,
+  `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
+  `room`, `ready`, `start`, `ls`, `leave`).
+* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, hooks })`: `queue(kind, args)`
+  stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
+  horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
+  command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
+  survivor) and can be re-admitted while the host is still playing.
+* `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]`, positions quantized to 1/1024 tile, per-player
+  wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed network input.
+* `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
+  Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
+* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`).
+The Sim itself is unchanged: co-op is data (`hpScale`) plus command routing.
+
+**Battle UI hooks (battle-ui owns these files; online only added to them)** — `mountBattle(root, params,
+hooks)` takes `hooks.coop` (the session) for `#/battle?coop=<CODE>` and `params.clanBoss` for a clan boss
+attempt. `ctx.act.{place, upgrade, sell, target}` is the Sim in solo and lockstep commands in co-op;
+placement and the tower panel must go through `ctx.act`. `ctx.applyResult` / `ctx.extraActions` /
+`out.note` let co-op and the clan boss replace the solo result handling. Solo battles must behave exactly
+as before when neither is set.
+
+**Routes** — `#/chat[?tab=clan]`, `#/clan[/<id>]` (incl. clan boss and, in the dev clan, the Supply Bot),
+`#/coop[/<CODE>]`. Entry points: lobby chat bubble (drawer) + Menu (Clan / Co-op / Chat), Missions → Co-op,
+Settings → Online (name, status, transfer codes).
+
+**Supply Bot** (`src/online/supply.js`, `src/ui/online/supplyBot.js`) — only inside the `Rosie777` dev clan,
+always labelled DEVELOPER SANDBOX; grants any item or currency (up to `SUPPLY_MAX`) to the player's own
+local save. It never touches the server.
+
+**Tests** — `npx vitest run tests/online` (limiter, local adapter / mock DB, clan rules, clan boss, lockstep
+with two simulated clients and delayed / lost / reordered packets, deterministic math, schema: the migration
+runs twice on PGlite with and without Supabase's default grants, RLS and rate limits exercised);
+`node e2e/online.mjs` (two pages of one browser on the local adapter: chat delivery, clan create / join,
+clan boss, Supply Bot, co-op start with both players placing a girl and matching hashes).

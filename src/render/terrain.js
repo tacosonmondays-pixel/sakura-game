@@ -17,6 +17,7 @@ import { buildProp, hasProp } from './props.js';
 import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
+import { buildGroundFeatures } from './groundFeatures.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
@@ -187,6 +188,13 @@ export function resolveScenery(stage, familyOf = () => null) {
  * @param {{ quality?: string, shadows?: boolean }} opts
  */
 export function buildTerrain(map, look, scenery, { shadows = false, quality = 'high' } = {}) {
+  // a map may restyle its bridges (e.g. a steel-grating overpass on a timber-deck theme)
+  if (map.bridge) look = { ...look, bridge: { ...look.bridge, ...map.bridge } };
+  // … its road surface (e.g. conveyor belts) and its tunnels (e.g. an ice cave)
+  if (map.path) look = { ...look, path: { ...look.path, ...map.path } };
+  if (map.tunnel) look = { ...look, tunnel: { ...look.tunnel, ...map.tunnel } };
+  // composed ground features (tanks, icefalls, rune circles) + junction chevrons
+  const features = buildGroundFeatures(map);
   const W = map.width;
   const H = map.height;
   const rows = map.rows;
@@ -342,7 +350,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       });
       if (cur.length > 1) carve.push(cur);
     }
-    const mask = maskTexture(EW, EH, (gx, gy) => isWater(gx + X0, gy + Y0), { px: 16, blur: 4, carve, carveHalf: WATER_CLEAR });
+    const sharp = features.sharp.filter((r) => r.kind === 'water').map((r) => ({ x: r.x - X0, y: r.y - Y0, w: r.w, h: r.h }));
+    const mask = maskTexture(EW, EH, (gx, gy) => isWater(gx + X0, gy + Y0), { px: 16, blur: 4, carve, carveHalf: WATER_CLEAR, sharp });
     disposables.push(mask);
     waterMat = createWaterMaterial(mask, look, { x0: X0, y0: Y0, w: EW, h: EH });
     const geo = new THREE.PlaneGeometry(EW, EH, 1, 1);
@@ -355,7 +364,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   let hasLava = false;
   for (let y = 0; y < H && !hasLava; y++) for (let x = 0; x < W; x++) if (rows[y][x] === 'X') { hasLava = true; break; }
   if (hasLava) {
-    const mask = maskTexture(W + 2, H + 2, (gx, gy) => isLava(gx - 1, gy - 1), { px: 16, blur: 5 });
+    const sharp = features.sharp.filter((r) => r.kind === 'lava').map((r) => ({ x: r.x + 1, y: r.y + 1, w: r.w, h: r.h }));
+    const mask = maskTexture(W + 2, H + 2, (gx, gy) => isLava(gx - 1, gy - 1), { px: 16, blur: 5, sharp });
     disposables.push(mask);
     lavaMat = createLavaMaterial(mask, { x0: -1, y0: -1, w: W + 2, h: H + 2 });
     const geo = new THREE.PlaneGeometry(W + 2, H + 2);
@@ -501,13 +511,14 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
   if (decks.shadow) {
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: look.bridge.shadow ?? 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     disposables.push(shadowMat);
     const m = addMesh(decks.shadow, shadowMat, { name: 'overpassShadow', receive: false });
     m.renderOrder = 2;
   }
   for (const gl of decks.glows) glows.push({ ...gl, color: new THREE.Color(gl.color), phase: rand() * 6 });
   if (tunnels.geometry) solidParts.push(tunnels.geometry);
+  if (features.geometry) solidParts.push(features.geometry);
 
   // ----- auto lily pads on pond shores (grass-family themes) --------------------------
   if (look.life.koi && waterTiles.length >= 4) {
@@ -759,6 +770,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     exits,
     /** Gate markers (1 tile outside the board): { kind: 'spawn'|'goal', x, z, dir, color }. */
     gates,
+    /** Painted ground marks drawn by the ambient batches: rune circles, junction chevrons. */
+    marks: features.marks,
     /** Road centreline pieces in world coords (the canonical tracks, run out past the board, tunnels cut out). */
     roads,
     /** Drawing plan per track (points, elevation, tunnel flags) and tunnel portals. */

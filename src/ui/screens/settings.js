@@ -1,5 +1,6 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (placement range, auto start, default speed) and save data
+// motion), audio, battle defaults (placement range, auto start, default speed, camera
+// locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
@@ -10,6 +11,10 @@ import { BATTLE } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
+import { onlineSection } from '../online/settingsOnline.js';
+import { cue } from '../../audio/cue.js'; // [audio]
+import { buildLine } from '../../core/buildInfo.js';
+import { checkForUpdate, reloadFresh, updateCheckFailed } from '../../core/updates.js';
 
 function settings() {
   const p = store.profile;
@@ -82,8 +87,11 @@ function build(redraw) {
   wrap.appendChild(h('section.panel',
     h('h3.panel-title', 'Audio'),
     row('Music', 'Background music.', toggle(s.music, (v) => { s.music = v; save(); }, 'music')),
+    row('Music volume', null, slider(s.musicVolume ?? 0.7, 0, 1, 0.05, (v) => { s.musicVolume = v; cue('settings.audio'); }, () => save(), (v) => `${Math.round(v * 100)}%`, 'musicVolume')), // [audio]
     row('Sound effects', 'Attacks, hits and UI sounds.', toggle(s.sfx, (v) => { s.sfx = v; save(); }, 'sfx')),
-    row('Volume', 'Master volume.', slider(s.volume ?? 0.8, 0, 1, 0.05, (v) => { s.volume = v; }, () => save(), (v) => `${Math.round(v * 100)}%`, 'volume')),
+    row('Sound effects volume', null, slider(s.sfxVolume ?? 0.8, 0, 1, 0.05, (v) => { s.sfxVolume = v; cue('settings.audio'); }, () => { save(); cue('sfx.preview'); }, (v) => `${Math.round(v * 100)}%`, 'sfxVolume')), // [audio]
+    row('Master volume', 'Everything at once.', slider(s.volume ?? 0.8, 0, 1, 0.05, (v) => { s.volume = v; cue('settings.audio'); }, () => save(), (v) => `${Math.round(v * 100)}%`, 'volume')),
+    row('Sound test', 'Every track and sound effect.', button('Open', { kind: 'ghost', small: true, icon: 'play', onClick: () => navigate('soundtest'), testid: 'set-soundtest' })), // [audio]
   ));
 
   wrap.appendChild(h('section.panel',
@@ -91,9 +99,15 @@ function build(redraw) {
     row('Show range while placing', 'While you drag a girl onto the field, her attack range is shown around her. The small circle under her stays white where she can stand and turns red where she can’t.', toggle(s.showRanges, (v) => { s.showRanges = v; save(); }, 'showRanges')),
     row('Auto start waves', 'Next wave starts automatically after a short pause.', toggle(s.autoStart, (v) => { s.autoStart = v; save(); }, 'autoStart')),
     row('Default speed', 'Game speed when a battle starts.', segmented(BATTLE.speeds.map(String), String(s.defaultSpeed || 1), (v) => { s.defaultSpeed = Number(v); save(); redraw(); }, Object.fromEntries(BATTLE.speeds.map((x) => [String(x), `${x}×`])), 'speed')),
+    row('Camera', s.camera === 'free'
+      ? 'Free: drag empty ground to pan, pinch or scroll to zoom, double-tap to reset. The map still holds still while you place a girl.'
+      : 'Locked: the whole map stays framed and never moves when you drag, so placing a girl can’t nudge it. Choose Free to pan and zoom.',
+    segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
   ));
 
+  wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes
   wrap.appendChild(saveSection(redraw));
+  wrap.appendChild(versionSection());
   wrap.appendChild(h('p.muted.ma-version', `Sakura Sentinels · save v${SAVE_VERSION} · ${formatNumber(store.profile.stats?.battles || 0)} battles fought`));
   return wrap;
 }
@@ -223,44 +237,7 @@ function saveSection(redraw) {
   };
 
   const doImport = async () => {
-    const text = importBox.value.trim();
-    status.className = 'ma-code-status';
-    if (!text) {
-      status.classList.add('bad');
-      status.textContent = 'Paste a save code first.';
-      return;
-    }
-    let preview;
-    try {
-      preview = deserializeProfile(text);
-    } catch (e) {
-      status.classList.add('bad');
-      status.textContent = e?.message === 'Newer save'
-        ? 'That save code comes from a newer version of Sakura Sentinels — update the game to import it.'
-        : 'That is not a valid Sakura Sentinels save code.';
-      return;
-    }
-    const units = Object.keys(preview.units || {}).length;
-    const cleared = Object.values(preview.progress?.stages || {}).filter((e) => e && (e.easy || e.normal || e.hard || e.nightmare)).length;
-    const ok = await ask(h('div',
-      h('p', 'Replace your current progress with this save?'),
-      h('ul.ma-import-summary',
-        h('li', `${units} students`),
-        h('li', `${cleared} stages cleared`),
-        h('li', `${formatNumber(preview.currencies?.gems || 0)} gems · ${formatNumber(preview.currencies?.coins || 0)} coins`),
-      ),
-      h('p.muted', 'Tip: export your current save first if you might want it back.'),
-    ), { title: 'Import save', ok: 'Import' });
-    if (!ok) return;
-    try {
-      store.importSave(text);
-      toast('Save imported', 'good');
-      importBox.value = '';
-      redraw();
-    } catch {
-      status.classList.add('bad');
-      status.textContent = 'Import failed — the save code is damaged.';
-    }
+    if (await importSaveText(importBox.value.trim(), status, redraw)) importBox.value = '';
   };
 
   const doReset = async () => {
@@ -301,4 +278,79 @@ function saveSection(redraw) {
       button('Open wiki', { kind: 'ghost', small: true, icon: 'wiki', onClick: () => navigate('wiki') }),
     ),
   );
+}
+
+/**
+ * Previews a save code, asks for confirmation and replaces the local save (Settings → Import,
+ * and Settings → Online → Redeem transfer code). Resolves true when the save was imported.
+ * @param {string} text
+ * @param {HTMLElement} status error line
+ * @param {() => void} redraw
+ */
+export async function importSaveText(text, status, redraw) {
+  status.className = 'ma-code-status';
+  if (!text) {
+    status.classList.add('bad');
+    status.textContent = 'Paste a save code first.';
+    return false;
+  }
+  let preview;
+  try {
+    preview = deserializeProfile(text);
+  } catch (e) {
+    status.classList.add('bad');
+    status.textContent = e?.message === 'Newer save'
+      ? 'That save code comes from a newer version of Sakura Sentinels — update the game to import it.'
+      : 'That is not a valid Sakura Sentinels save code.';
+    return false;
+  }
+  const units = Object.keys(preview.units || {}).length;
+  const cleared = Object.values(preview.progress?.stages || {}).filter((e) => e && (e.easy || e.normal || e.hard || e.nightmare)).length;
+  const ok = await ask(h('div',
+    h('p', 'Replace your current progress with this save?'),
+    h('ul.ma-import-summary',
+      h('li', `${units} students`),
+      h('li', `${cleared} stages cleared`),
+      h('li', `${formatNumber(preview.currencies?.gems || 0)} gems · ${formatNumber(preview.currencies?.coins || 0)} coins`),
+    ),
+    h('p.muted', 'Tip: export your current save first if you might want it back.'),
+  ), { title: 'Import save', ok: 'Import' });
+  if (!ok) return false;
+  try {
+    store.importSave(text);
+    toast('Save imported', 'good');
+    redraw();
+    return true;
+  } catch {
+    status.classList.add('bad');
+    status.textContent = 'Import failed — the save code is damaged.';
+    return false;
+  }
+}
+
+/** Which version is running + "Check for updates" (co-op needs both players on compatible ones). */
+function versionSection() {
+  const status = h('div.ma-set-desc', { 'data-testid': 'update-status' }, 'Co-op partners need the same version. The game also checks for new versions by itself.');
+  const control = h('div.ma-set-control');
+  const checkBtn = button('Check for updates', {
+    kind: 'ghost', small: true, icon: 'refresh', testid: 'check-updates',
+    onClick: async () => {
+      status.textContent = 'Checking…';
+      const info = await checkForUpdate({ force: true });
+      if (info) {
+        status.textContent = `A new version${info.version ? ` (v${info.version})` : ''} is ready.`;
+        control.replaceChildren(button('Update now', { kind: 'yellow', small: true, icon: 'refresh', testid: 'update-now-settings', onClick: () => reloadFresh(info.build) }));
+      } else if (updateCheckFailed()) {
+        status.textContent = 'Couldn\'t check for updates — are you online? Try again in a moment.';
+      } else {
+        status.textContent = 'You have the newest version.';
+      }
+    },
+  });
+  control.append(checkBtn);
+  return h('section.panel', { 'data-section': 'about' },
+    h('h3.panel-title', 'About'),
+    h('div.ma-set-row',
+      h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-version' }, buildLine()), status),
+      control));
 }

@@ -26,6 +26,10 @@
 //
 // Pure functions, no DOM / three.js — safe in Node (tests) and the browser.
 
+// Trig and hypot through the deterministic ports: the canonical road samples must be bit-identical
+// on every engine (V8 / JavaScriptCore / SpiderMonkey differ in Math.sin & co.'s last bit).
+import { DET_MATH as DM } from './detMath.js';
+
 /** Spacing (tiles) of the dense centreline samples. */
 export const TRACK_STEP = 0.1;
 /** Half-width of the sim's forbidden placement band (CONTRACTS §6, PATH_HALF_WIDTH). */
@@ -79,7 +83,7 @@ export function spiral(cx, cy, r0, r1, a0, a1, stepDeg = 30, sy = 1) {
     const t = i / n;
     const a = (a0 + (a1 - a0) * t) * DEG;
     const r = r0 + (r1 - r0) * t;
-    out.push([r4(cx + Math.cos(a) * r), r4(cy + Math.sin(a) * r * sy)]);
+    out.push([r4(cx + DM.cos(a) * r), r4(cy + DM.sin(a) * r * sy)]);
   }
   return out;
 }
@@ -113,8 +117,8 @@ const LOOP_TEMPLATE = [[-1.55, 0.6], [-0.33, 0.64], [0.79, 0.39], [1.15, -0.27],
  */
 export function loopNodes(cx, cy, size, headingDeg = 0, mirror = false) {
   const a = headingDeg * DEG;
-  const c = Math.cos(a);
-  const s = Math.sin(a);
+  const c = DM.cos(a);
+  const s = DM.sin(a);
   return LOOP_TEMPLATE.map(([x, y]) => {
     const yy = mirror ? -y : y;
     return [r4(cx + (x * c - yy * s) * size), r4(cy + (x * s + yy * c) * size)];
@@ -129,7 +133,7 @@ export function loopNodes(cx, cy, size, headingDeg = 0, mirror = false) {
 export function cumulative(points) {
   const cum = new Array(points.length);
   cum[0] = 0;
-  for (let i = 1; i < points.length; i++) cum[i] = cum[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+  for (let i = 1; i < points.length; i++) cum[i] = cum[i - 1] + DM.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
   return cum;
 }
 
@@ -182,7 +186,7 @@ export function nearestOnPolyline(points, cum, x, y) {
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     const px = ax + dx * t;
     const py = ay + dy * t;
-    const dist = Math.hypot(px - x, py - y);
+    const dist = DM.hypot(px - x, py - y);
     if (dist < best.dist) best = { x: px, y: py, d: cum[i] + Math.sqrt(l2) * t, dist, i };
   }
   return best;
@@ -234,14 +238,14 @@ export function parseNodes(nodes) {
     }
     if (!Array.isArray(n) || n.length < 2 || !Number.isFinite(n[0]) || !Number.isFinite(n[1])) throw new Error(`bad track node ${JSON.stringify(n)}`);
     const last = pts[pts.length - 1];
-    if (last && Math.hypot(n[0] - last[0], n[1] - last[1]) < 1e-6) continue;
+    if (last && DM.hypot(n[0] - last[0], n[1] - last[1]) < 1e-6) continue;
     pts.push([n[0], n[1]]);
   }
   return { pts, straight, marks };
 }
 
 const unit = (dx, dy) => {
-  const l = Math.hypot(dx, dy) || 1;
+  const l = DM.hypot(dx, dy) || 1;
   return [dx / l, dy / l];
 };
 
@@ -272,7 +276,7 @@ export function sampleSpline(pts, straight = [], startDir = null, endDir = null)
   for (let i = 0; i < n - 1; i++) {
     const P1 = P(i);
     const P2 = P(i + 1);
-    const chord = Math.hypot(P2[0] - P1[0], P2[1] - P1[1]);
+    const chord = DM.hypot(P2[0] - P1[0], P2[1] - P1[1]);
     const steps = Math.max(6, Math.ceil(chord / 0.04));
     if (straight[i]) {
       for (let k = 1; k <= steps; k++) {
@@ -284,9 +288,9 @@ export function sampleSpline(pts, straight = [], startDir = null, endDir = null)
     }
     const P0 = i > 0 ? P(i - 1) : [2 * P1[0] - P2[0], 2 * P1[1] - P2[1]];
     const P3 = i + 2 < n ? P(i + 2) : [2 * P2[0] - P1[0], 2 * P2[1] - P1[1]];
-    const d01 = Math.max(1e-4, Math.sqrt(Math.hypot(P1[0] - P0[0], P1[1] - P0[1])));
+    const d01 = Math.max(1e-4, Math.sqrt(DM.hypot(P1[0] - P0[0], P1[1] - P0[1])));
     const d12 = Math.max(1e-4, Math.sqrt(chord));
-    const d23 = Math.max(1e-4, Math.sqrt(Math.hypot(P3[0] - P2[0], P3[1] - P2[1])));
+    const d23 = Math.max(1e-4, Math.sqrt(DM.hypot(P3[0] - P2[0], P3[1] - P2[1])));
     let m1;
     let m2;
     if (over[i]) m1 = [over[i][0] * chord, over[i][1] * chord];
@@ -359,7 +363,7 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     const t = pointAtDistance(parent.points, parent.cum, near.d);
     startDir = [t.dx, t.dy];
     for (let i = 0; i < parent.points.length && parent.cum[i] < near.d - 1e-6; i++) prefix.push([parent.points[i][0], parent.points[i][1]]);
-    if (pts.length && Math.hypot(pts[0][0] - near.x, pts[0][1] - near.y) < 0.05) pts.shift();
+    if (pts.length && DM.hypot(pts[0][0] - near.x, pts[0][1] - near.y) < 0.05) pts.shift();
     pts.unshift([near.x, near.y]);
     straight.unshift(false);
     for (const m of marks) m.at++;
@@ -371,7 +375,7 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     joinNear = nearestOnPolyline(joinTarget.points, joinTarget.cum, s.join.at[0], s.join.at[1]);
     const t = pointAtDistance(joinTarget.points, joinTarget.cum, joinNear.d);
     endDir = [t.dx, t.dy];
-    if (pts.length && Math.hypot(pts[pts.length - 1][0] - joinNear.x, pts[pts.length - 1][1] - joinNear.y) < 0.05) pts.pop();
+    if (pts.length && DM.hypot(pts[pts.length - 1][0] - joinNear.x, pts[pts.length - 1][1] - joinNear.y) < 0.05) pts.pop();
     pts.push([joinNear.x, joinNear.y]);
     for (let i = 0; i < joinTarget.points.length; i++) if (joinTarget.cum[i] > joinNear.d + 1e-6) suffix.push([joinTarget.points[i][0], joinTarget.points[i][1]]);
     join = { path: s.join.path, d: joinNear.d };
@@ -385,7 +389,7 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
   const clean = [points[0]];
   for (let i = 1; i < points.length; i++) {
     const p = clean[clean.length - 1];
-    if (Math.hypot(points[i][0] - p[0], points[i][1] - p[1]) > 1e-6) clean.push(points[i]);
+    if (DM.hypot(points[i][0] - p[0], points[i][1] - p[1]) > 1e-6) clean.push(points[i]);
   }
   const rounded = clean.map(([x, y]) => [r4(x), r4(y)]);
   const cum = cumulative(rounded);
@@ -498,8 +502,8 @@ export function findCrossings(tracks) {
         let a = { path: A.ti, d: da };
         let b = { path: B.ti, d: db };
         if (a.path > b.path || (a.path === b.path && a.d > b.d)) [a, b] = [b, a];
-        const cos = Math.abs((rx * sx + ry * sy) / (Math.hypot(rx, ry) * Math.hypot(sx, sy)));
-        raw.push({ x: A.ax + rx * t, y: A.ay + ry * t, a, b, angle: Math.round(Math.acos(Math.min(1, cos)) / DEG) });
+        const cos = Math.abs((rx * sx + ry * sy) / (DM.hypot(rx, ry) * DM.hypot(sx, sy)));
+        raw.push({ x: A.ax + rx * t, y: A.ay + ry * t, a, b, angle: Math.round(DM.acos(Math.min(1, cos)) / DEG) });
       }
     }
   }
@@ -552,7 +556,7 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
     if (c.mode !== 'bridge') continue;
     // the lower pass is under the deck for the deck's width (measured along the lower road)
     const low = c[c.over === 'a' ? 'b' : 'a'];
-    const sin = Math.max(0.35, Math.sin((c.angle || 90) * DEG));
+    const sin = Math.max(0.35, DM.sin((c.angle || 90) * DEG));
     const w = Math.min(1.6, DECK_HALF / sin);
     tracks[low.path].under.push([r4(Math.max(0, low.d - w)), r4(low.d + w)]);
     const pass = c[c.over];
@@ -629,7 +633,7 @@ export function inTunnel(track, d) {
 function pointBoxDist(px, py, x0, y0, x1, y1) {
   const dx = Math.max(x0 - px, 0, px - x1);
   const dy = Math.max(y0 - py, 0, py - y1);
-  return Math.hypot(dx, dy);
+  return DM.hypot(dx, dy);
 }
 
 function pointSegDist(px, py, ax, ay, bx, by) {
@@ -638,7 +642,7 @@ function pointSegDist(px, py, ax, ay, bx, by) {
   const l2 = dx * dx + dy * dy;
   let t = l2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
   t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return Math.hypot(ax + dx * t - px, ay + dy * t - py);
+  return DM.hypot(ax + dx * t - px, ay + dy * t - py);
 }
 
 /** Does segment AB intersect the box (Liang–Barsky)? */

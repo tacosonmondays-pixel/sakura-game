@@ -32,6 +32,8 @@
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
 } from '../core/track.js';
+// engine-independent trig (core/detMath.js): map geometry must be bit-identical on every device
+import { DET_MATH as DM } from '../core/detMath.js';
 
 // Track authoring shorthands (src/core/track.js): L = the next section is an exact straight,
 // IN / OUT = a tunnel starts / ends at the previous control point.
@@ -84,6 +86,15 @@ function defineMap(o) {
     // older readers that add 0.5 still land on the canonical curve.
     paths: tracks.map((t) => t.points.map(([x, y]) => [Math.round((x - 0.5) * 1e4) / 1e4, Math.round((y - 0.5) * 1e4) / 1e4])),
     decor: o.decor || [],
+    // optional per-map looks merged over the theme's (src/render/terrain.js): `bridge` (e.g.
+    // { overpass, girder, grating: true } for a steel-grating overpass), `path` (e.g. { style:
+    // 'belt' } for conveyor belts) and `tunnel` (e.g. ice-cave colours)
+    ...(o.bridge ? { bridge: o.bridge } : {}),
+    ...(o.path ? { path: o.path } : {}),
+    ...(o.tunnel ? { tunnel: o.tunnel } : {}),
+    // optional composed ground features (src/render/groundFeatures.js): { type: 'vat', x, y, w, h }
+    // machined tank rim, { type: 'icefall', x0, x1, y } frozen falls, { type: 'runeRing', x, y, r }
+    ...(o.ground ? { ground: o.ground } : {}),
     desc: o.desc,
     concept: o.concept || '',
   };
@@ -620,10 +631,10 @@ export const MAPS = [
       'RRRRR~~RRRRRR.RRRR',
     ],
     paths: [
-      [[14.0, 13], L, [14.0, 9.2], ...arc(12.2, 9.2, 1.8, 0, -90, 30), L, [9.8, 7.4], ...arc(9.8, 5.9, 1.5, 90, 270, 30), L, [13.6, 4.4], ...arc(13.6, 2.9, 1.5, 90, -90, 30), L, [3.8, 1.4], ...arc(3.8, 3.4, 2.0, -90, -180, 30), L, [1.8, 7.6], ...arc(3.8, 7.6, 2.0, 180, 90, 30), L, [19, 9.6]],
+      [[19, 11.0], L, [15.8, 11.0], ...arc(15.8, 9.2, 1.8, 90, 180, 30), ...arc(12.2, 9.2, 1.8, 0, -90, 30), L, [9.8, 7.4], ...arc(9.8, 5.9, 1.5, 90, 270, 30), L, [13.6, 4.4], ...arc(13.6, 2.9, 1.5, 90, -90, 30), L, [3.8, 1.4], ...arc(3.8, 3.4, 2.0, -90, -180, 30), L, [1.8, 7.6], ...arc(3.8, 7.6, 2.0, 180, 90, 30), L, [12.6, 9.6], [14.0, 9.6], [15.3, 9.4], [16.4, 8.6], [17.2, 7.6], [18.0, 7.2], L, [19, 7.2]],
     ],
     decor: [
-      { type: 'banner', x: 14, y: 6 }, { type: 'flag', x: 16, y: 7 }, { type: 'campfire', x: 3, y: 6 },
+      { type: 'banner', x: 14, y: 6 }, { type: 'flag', x: 16, y: 6 }, { type: 'campfire', x: 3, y: 6 },
       { type: 'pine', x: 16, y: 1 }, { type: 'statue', x: 3, y: 3 },
     ],
   }),
@@ -796,17 +807,17 @@ export const MAPS = [
   }),
   defineMap({
     id: 'foundry_belt', name: 'Conveyor Line', theme: 'foundry', tier: 'intermediate',
-    desc: 'A square figure-eight of conveyor belts round the two coolant vats: straight belts and machined corners, the far end through the furnace, and both diagonals meeting at the waist where one belt rides over the other on a steel overpass. Perfect for beams and lines of fire.',
-    concept: 'Belt figure-eight: two square belt loops round the coolant vats, a steel overpass at the waist, the far end inside the furnace',
+    desc: 'A square figure-eight of conveyor belts: one loop round the coolant tank, the other round the furnace crucible and through the furnace hall, both diagonals meeting at the waist where one belt rides over the other on a steel-grating overpass. Perfect for beams and lines of fire.',
+    concept: 'Belt figure-eight: a square conveyor loop round the coolant tank, another round the furnace crucible and through the furnace hall, a steel-grating overpass at the waist',
     rows: [
       'HHH..RRHHH...HHH..RHHH',
       'H......,.......,.....H',
       'H....................H',
       'H....R.........R.....H',
-      'H...~~~~.....~~~~....H',
-      'H...~~~~.....~~~~.H..H',
-      'H...~~~~.....~~~~.H..H',
-      'H...~~~~.....~~~~....H',
+      'H...~~~~.....XXXX.H..H',
+      'H...~~~~.....XXXX.H..H',
+      'H...~~~~.....XXXX.H..H',
+      'H...~~~~.....XXXX.H..H',
       'H.,..R.........R...,.H',
       'H.....,........,.....H',
       'H....................H',
@@ -815,9 +826,12 @@ export const MAPS = [
     paths: [
       [[3.6, -1], L, [3.6, 0.3], ...arc(5.2, 0.3, 1.6, 180, 90, 30), L, [7.6, 1.9], [9.4, 2.7], [11.0, 6.0], [12.6, 9.3], [14.4, 10.1], L, [17.6, 10.1], ...arc(17.6, 8.1, 2.0, 90, 0, 30), IN, L, [19.6, 3.9], OUT, ...arc(17.6, 3.9, 2.0, 0, -90, 30), L, [14.4, 1.9], [12.6, 2.7], [11.0, 6.0], [9.4, 9.3], [7.6, 10.1], L, [4.0, 10.1], ...arc(4.0, 8.1, 2.0, 90, 180, 30), L, [2.0, 6.2], ...arc(0.4, 6.2, 1.6, 0, -90, 30), L, [-1, 4.6]],
     ],
+    path: { style: 'belt', color: '#9aa1ab', side: '#4d535c' },
+    bridge: { overpass: '#a4adb8', girder: '#3c4250', grating: true },
+    ground: [{ type: 'vat', x: 4, y: 4, w: 4, h: 4 }, { type: 'vat', x: 13, y: 4, w: 4, h: 4 }],
     decor: [
       { type: 'chimney', x: 8, y: 0 }, { type: 'gearTower', x: 11, y: 10 }, { type: 'crane', x: 11, y: 1 },
-      { type: 'vent', x: 15, y: 8 }, { type: 'chimney', x: 20, y: 11 },
+      { type: 'vent', x: 15, y: 8 }, { type: 'chimney', x: 17, y: 3 },
     ],
   }),
   defineMap({
@@ -951,7 +965,7 @@ export const MAPS = [
       'HHHHHHHHHHH.HHHHHHHH',
     ],
     paths: [
-      [[-1, 7.6], L, [0.4, 7.6], ...curve((t) => [10 + 2.95 * (Math.sin(t) + 2 * Math.sin(2 * t)), 6.4 + 1.8 * (Math.cos(t) - 2 * Math.cos(2 * t))], 5.7, 5.7 + 5.62, 30), [2.4, 10.8], L, [2.4, 13]],
+      [[-1, 7.6], L, [0.4, 7.6], ...curve((t) => [10 + 2.95 * (DM.sin(t) + 2 * DM.sin(2 * t)), 6.4 + 1.8 * (DM.cos(t) - 2 * DM.cos(2 * t))], 5.7, 5.7 + 5.62, 30), [2.4, 10.8], L, [2.4, 13]],
     ],
     decor: [
       { type: 'taiko', x: 9, y: 6 }, { type: 'stall', x: 18, y: 2 }, { type: 'stall', x: 1, y: 2 },
@@ -986,9 +1000,9 @@ export const MAPS = [
   }),
   defineMap({
     id: 'festival_maze', name: 'Shrine Maze', theme: 'festival', tier: 'expert',
-    desc: 'The parade swings out into four great petal loops around the taiko stage, crossing the little square in front of it four times. Every girl has a choke point — and so does every oni.',
-    concept: 'Four-leaf pinwheel: four petal loops round a central square (four flat junctions)',
-    crossings: 'flat',
+    desc: 'The parade swings out into four great petal loops, crossing the little square in the middle four times: twice over arched festival bridges, twice straight across the cobbles. Every girl has a choke point — and so does every oni.',
+    concept: 'Four-leaf pinwheel: four petal loops round a central square, two arched bridges and two flat junctions',
+    crossings: ['flat', 'bridge', 'flat', 'bridge'],
     rows: [
       'HHHH,HHH,HHH,HHHHH',
       '...H.H.....H.H...H',
@@ -1004,7 +1018,7 @@ export const MAPS = [
       'HHHHH,HHHHHHHHHHHH',
     ],
     paths: [
-      [[-1, 10.6], L, [1.4, 10.6], ...curve((t) => [9 + 1.2 * (4.0 * Math.cos(t) + 2.8 * Math.cos(-3 * t + Math.PI)), 6 + 0.96 * (4.0 * Math.sin(t) + 2.8 * Math.sin(-3 * t + Math.PI))], 2.5, 2.0 + 2 * Math.PI, 48), [1.8, 8.4], L, [-1, 8.4]],
+      [[-1, 10.6], L, [1.4, 10.6], ...curve((t) => [9 + 1.2 * (4.0 * DM.cos(t) + 2.8 * DM.cos(-3 * t + Math.PI)), 6 + 0.96 * (4.0 * DM.sin(t) + 2.8 * DM.sin(-3 * t + Math.PI))], 2.5, 2.0 + 2 * Math.PI, 48), [1.8, 8.4], L, [-1, 8.4]],
     ],
     decor: [
       { type: 'taiko', x: 8, y: 0 }, { type: 'stall', x: 8, y: 1 }, { type: 'stall', x: 8, y: 10 },
@@ -1013,35 +1027,31 @@ export const MAPS = [
   }),
   defineMap({
     id: 'festival_arena', name: 'Champion\'s Stage', theme: 'festival', tier: 'expert',
-    desc: 'The tournament stage of the Oni Festival. Parades from the west gate and the south gate join beside the stage and circle it under the champion\'s nose before leaving.',
-    concept: 'Two gates, one stage: parades from the west and the south merge and circle the stage',
+    desc: 'The tournament stage of the Oni Festival. Parades from the west gate and the south gate join, run a full lap of honour round the champion\'s stage, and leave over the festival bridge across their own way in — under the champion\'s nose the whole time.',
+    concept: 'Lap of honour: two gates merge, lap the stage once and leave over their own entry on a bridge (a lasso)',
     rows: [
       'HHH,HHHHHHHHHHHH,HHH',
-      'H....,....H.....,..H',
-      'H.,...~~......~~...H',
-      '.......,.......,....',
-      'H..~~.,.HHHH.,..~~.H',
-      'H..~~...HHHH.....~~H',
-      'H.,.....HHHH...,...H',
-      'H..,..........,....H',
+      'H....,..........,..H',
+      'H.~~...............H',
+      '..~~...,..........,.',
+      'H.....,.HHHH.,.....H',
+      'H.......HHHH.......H',
+      'H.,.....HHHH...,~~.H',
+      'H..,............~~.H',
       'H.................,H',
-      'H.,..~~~.....~~~...H',
+      'H.,.........,......H',
       '........,....,.....H',
       'HHHHHHHH,HHHHHHHHHHH',
     ],
     paths: [
-      [[-1, 7.6], L, [1.0, 7.6], [3.6, 7.4], [5.6, 6.0], [6.0, 3.4], [7.8, 1.8], [10.4, 1.4], [13.2, 1.8], [15.0, 3.6], [15.2, 6.4], [16.4, 8.4], [18.6, 9.0], L, [21, 9.0]],
-      { nodes: [[5.5, 13], L, [5.5, 11.6], [4.4, 10.0], [4.6, 8.6]], join: { path: 0, at: [5.6, 6.0] } },
+      [[-1, 7.4], L, [1.0, 7.4], [3.2, 7.6], [5.2, 8.2], [7.6, 8.7], [10.4, 8.8], [13.0, 8.4], [14.7, 6.9], [15.0, 4.6], [13.8, 2.6], [11.4, 1.7], [8.6, 1.7], [6.4, 2.5], [5.4, 4.3], [5.7, 6.4], [6.8, 8.4], [7.8, 9.8], [9.6, 10.4], [12.4, 10.5], [16.0, 10.4], [18.4, 10.3], L, [21, 10.3]],
+      { nodes: [[2.4, 13], L, [2.4, 11.4], [2.6, 9.8]], join: { path: 0, at: [4.4, 7.9] } },
     ],
     decor: [
-      { type: 'taiko', x: 12, y: 8 }, { type: 'banner', x: 2, y: 5 }, { type: 'banner', x: 17, y: 6 },
-      { type: 'lantern', x: 3, y: 1 }, { type: 'stall', x: 17, y: 2 },
+      { type: 'taiko', x: 10, y: 3 }, { type: 'banner', x: 2, y: 5 }, { type: 'banner', x: 17, y: 4 },
+      { type: 'lantern', x: 4, y: 1 }, { type: 'stall', x: 17, y: 1 },
     ],
   }),
-
-  // -------------------------------------------------------------------------
-  // Chapter 8 — Ashwing Peaks (snow / volcano)
-  // -------------------------------------------------------------------------
   defineMap({
     id: 'peaks_ascent', name: 'Ashwing Ascent', theme: 'snow', tier: 'advanced',
     desc: 'A snowy climb: two long switchback legs up the slope, then a corkscrew loop round the steaming hot spring that rides over itself before the summit gate. Wyverns cut across the bends.',
@@ -1070,12 +1080,12 @@ export const MAPS = [
   }),
   defineMap({
     id: 'peaks_glacier', name: 'Frozen Falls', theme: 'snow', tier: 'advanced',
-    desc: 'The road climbs the left bank, runs behind the frozen falls in an ice cave at the top of the glacier and comes down the far bank — an omega around the glacier river.',
-    concept: 'Omega: up one bank, behind the frozen falls in an ice tunnel, down the other',
+    desc: 'The road climbs the left bank, ducks into the ice cave above the frozen falls where the glacier river is born, and comes down the far bank — an omega around the river. Nothing can hit the monsters inside the ice.',
+    concept: 'Omega: up one bank, through the ice cave above the frozen falls, down the other',
     rows: [
-      'RRRRTTRR~~~RRRTTRRRR',
-      '........~~~.......TR',
-      'R.T..,..~~~..,..T..R',
+      'RRRRTTRRRRRRRRTTRRRR',
+      '..................TR',
+      'R.T..,.......,..T..R',
       'R......~~~~~.......R',
       'RT..,...~~~...,..T.R',
       'R.......~~~........R',
@@ -1087,8 +1097,11 @@ export const MAPS = [
       'RRRRTTR~~~~~RRRTTRRR',
     ],
     paths: [
-      [[-1, 10.0], L, [1.0, 10.0], [4.4, 9.8], [6.4, 8.4], [5.6, 6.6], [3.8, 4.8], [3.8, 2.6], [5.8, 1.2], [7.4, 0.9], [8.6, 0.8], IN, L, [11.2, 0.8], OUT, [12.6, 0.9], [14.4, 1.4], [16.2, 2.8], [16.2, 4.8], [14.4, 6.6], [13.6, 8.4], [15.0, 9.8], [17.0, 9.5], [18.4, 8.4], [19.2, 6.9], [20.2, 6.2], L, [21.5, 6.2]],
+      [[-1, 10.0], L, [1.0, 10.0], [4.4, 9.8], [6.4, 8.4], [5.6, 6.6], [3.8, 4.8], [3.8, 2.6], [5.2, 1.7], [6.8, 1.6], ...arc(9.9, 3.0, 2.4, 226, 236, 10), IN, ...arc(9.9, 3.0, 2.4, 254, 286, 16), ...arc(9.9, 3.0, 2.4, 304, 304), OUT, ...arc(9.9, 3.0, 2.4, 314, 314), [13.0, 1.6], [14.6, 1.7], [16.2, 2.8], [16.2, 4.8], [14.4, 6.6], [13.6, 8.4], [15.0, 9.8], [17.0, 9.5], [18.4, 8.4], [19.2, 6.9], [20.2, 6.2], L, [21.5, 6.2]],
     ],
+    // the river is born under the glacier: an ice cave over the road, the frozen falls below it
+    tunnel: { top: '#d4efff', side: '#7fb8e2', portal: '#5fa3d6', dark: '#0a1a2e', crystals: true },
+    ground: [{ type: 'icefall', x0: 6.95, x1: 12.05, y: 3.02 }],
     decor: [
       { type: 'pine', x: 2, y: 4 }, { type: 'pine', x: 17, y: 5 }, { type: 'nest', x: 18, y: 11 },
       { type: 'flag', x: 1, y: 7 }, { type: 'crystal', x: 12, y: 3 },
@@ -1304,6 +1317,7 @@ export const MAPS = [
       [[-1, 2.0], L, [0.8, 2.0], [3.4, 1.6], [6.8, 2.2], [8.2, 4.2], [9.6, 5.6], [11.4, 6.6], [12.2, 8.6], [14.2, 9.4], [17.4, 9.2], [19.0, 9.4], L, [21, 9.4]],
       [[-1, 8.6], L, [0.8, 8.6], [3.4, 9.2], [6.4, 8.8], [7.8, 6.8], [9.6, 5.6], [11.8, 4.2], [12.4, 2.4], [14.4, 1.4], [17.6, 1.6], [18.6, 0.4], L, [18.6, -1]],
     ],
+    ground: [{ type: 'runeRing', x: 9.6, y: 5.6, r: 1.35, color: '#b48cff' }],
     decor: [
       { type: 'stoneLantern', x: 10, y: 1 }, { type: 'crystal', x: 4, y: 5 }, { type: 'shrine', x: 15, y: 5 },
       { type: 'lantern', x: 5, y: 6 }, { type: 'statue', x: 2, y: 6 },
@@ -1367,34 +1381,32 @@ export const MAPS = [
   }),
   defineMap({
     id: 'arena_summit', name: 'Ashwing Summit', theme: 'volcano', tier: 'expert',
-    desc: 'The Matriarch\'s summit: the trail zig-zags down the peak like a lightning bolt between lava vents and hot springs — nowhere to hide from the sky.',
-    concept: 'Lightning bolt: two long slanted legs joined by sharp switchback turns',
+    desc: 'The Matriarch\'s summit: the trail zig-zags down the peak like a lightning bolt between lava vents and hot springs, and halfway down it curls once round the old cinder cone, crossing itself on a basalt bridge — nowhere to hide from the sky.',
+    concept: 'Lightning bolt with a curl: two slanted legs and an alpha curl at the lower switchback that crosses itself',
     rows: [
       'RRRRRRRRRRRRRRRRRRRR',
       'R~~......R.......~~R',
       'R..,...........,....',
-      'R..........~~......R',
-      'R.....,....~~~~,...R',
-      'R...........~~~..XXR',
-      'R.....,....~~~...XXR',
-      'R..,.........,....XR',
-      'R.~~..........R....R',
+      'R......,...........R',
+      'R.....,........,...R',
+      'R.................XR',
+      'R.....,..........XXR',
+      'R..,.........~~...XR',
+      'R............~~R...R',
       '...................R',
       'R~~~...,.....,..~~~R',
       'RRRRRRRRRRRRRRRRRRRR',
     ],
     paths: [
-      [[-1, 2.2], L, [1.0, 2.2], [5.6, 2.8], [10.4, 3.6], [14.4, 4.0], [15.8, 5.0], [15.2, 6.4], [12.6, 6.6], [8.6, 6.4], [6.0, 6.6], [4.2, 6.9], [3.4, 8.1], [4.4, 9.4], [6.6, 9.6], [8.6, 9.6], [13.6, 9.6], [17.4, 9.2], [18.6, 8.6], L, [21, 8.6]],
+      [[3.0, -1], L, [3.0, 0.6], [4.4, 1.8], [8.0, 2.4], [12.0, 2.6], [14.6, 3.0], [16.2, 4.4], [15.6, 6.0], [13.0, 6.5], [9.6, 6.5], [7.2, 6.8], [5.4, 7.4], [3.6, 8.0], [2.2, 7.2], [2.0, 5.6], [3.2, 4.6], [4.8, 4.9], [5.6, 6.4], [5.8, 8.2], [7.0, 9.4], [9.0, 9.7], [13.6, 9.6], [17.4, 9.2], [18.6, 8.6], L, [21, 8.6]],
     ],
+    // a pale basalt slab with ember-red parapets, so the curl's bridge stands out on the dark ash
+    bridge: { overpass: '#bba899', girder: '#2b2020', overRail: '#e0703a' },
     decor: [
-      { type: 'nest', x: 17, y: 2 }, { type: 'vent', x: 8, y: 7 }, { type: 'bones', x: 2, y: 9 },
-      { type: 'crystal', x: 11, y: 8 }, { type: 'vent', x: 1, y: 4 },
+      { type: 'nest', x: 17, y: 2 }, { type: 'vent', x: 8, y: 8 }, { type: 'bones', x: 3, y: 6 },
+      { type: 'crystal', x: 16, y: 7 }, { type: 'vent', x: 9, y: 4 },
     ],
   }),
-
-  // -------------------------------------------------------------------------
-  // Tactical Challenge (endless)
-  // -------------------------------------------------------------------------
   defineMap({
     id: 'arena_colosseum', name: 'Sakura Colosseum', theme: 'arena', tier: 'intermediate',
     desc: 'The academy\'s practice colosseum: four ring arenas, and the challenge road loops the loop around each one in turn — built for endless runs.',
@@ -1462,7 +1474,7 @@ function centrelineDistance(tracks, x, y) {
       const l2 = dx * dx + dy * dy;
       let u = l2 > 0 ? ((x - ax) * dx + (y - ay) * dy) / l2 : 0;
       u = u < 0 ? 0 : u > 1 ? 1 : u;
-      const d = Math.hypot(ax + dx * u - x, ay + dy * u - y);
+      const d = DM.hypot(ax + dx * u - x, ay + dy * u - y);
       if (d < best) best = d;
     }
   }

@@ -17,10 +17,11 @@ import { UNIT_MAP } from '../../data/units.js';
 import { redeemCode } from '../../systems/missions.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { onboardingRoute } from '../../systems/story.js';
-import pkg from '../../../package.json';
+import { APP_VERSION as BUILD_VERSION } from '../../core/buildInfo.js';
 
 export const TITLE_SEEN_KEY = 'sakura-title-seen';
-export const APP_VERSION = pkg.version || '0.1.0';
+/** The player-facing version, one higher every deploy (vite.config.js: "0.1.17"). */
+export const APP_VERSION = BUILD_VERSION;
 const TRIO = ['aoi', 'hikari', 'luna'];
 const STEP_TIMEOUT = 6000;
 

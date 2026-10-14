@@ -27,6 +27,11 @@ registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
 registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] mission hub (Campaign button)
+// [online] global chat, clans (+ clan boss, dev Supply Bot), real-time co-op rooms
+registerRoute('chat', () => import('./ui/screens/chat.js'));
+registerRoute('clan', () => import('./ui/screens/clan.js'));
+registerRoute('coop', () => import('./ui/screens/coop.js'));
+registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
 registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 
@@ -104,3 +109,10 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
+
+// [audio] music + SFX engine (docs/AUDIO.md): lazy, never blocks the first screen
+import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => console.warn('[main] audio unavailable', e));
+
+// New deploys: version.json is checked now and then; a "New version ready" pill offers the
+// update (never during a battle), and a stale tab missing screen files reloads itself once.
+import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
