@@ -61,7 +61,7 @@ export const chika = {
     }
     if (p0 >= 5) {
       L.layers = true;
-      L.tint.set('#ffe08a');
+      L.tint.set('#ffefb8');
       L.eye.set('#fff3b0');
       L.scale = 1.36;
       L.command = true;
@@ -89,7 +89,15 @@ export const chika = {
   },
 
   view(p, rec, _t, v, ctx) {
-    if (rec.turretUid != null || p.kind !== 'bolt') return;
+    if (rec.turretUid != null) {
+      // drone bullet: a bright streak so each shot reads even when the drone is right there
+      const vl = Math.hypot(p.vx, p.vy) || 1;
+      const c = rec.tw.droneLook?.eye || ctx.col('#7fe3ff');
+      v.scale = 1.3;
+      ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - (p.vx / vl) * 0.32, v.z, v.y - (p.vy / vl) * 0.32, 0.07, c, 0.85);
+      return;
+    }
+    if (p.kind !== 'bolt') return;
     v.roll = ctx.time * 14 + rec.uid;
     v.sz = 0.8;
   },

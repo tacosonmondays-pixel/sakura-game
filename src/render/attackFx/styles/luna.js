@@ -44,9 +44,9 @@ export const luna = {
     moonPos(ctx, t, M);
     const ex = ev.to[0];
     const ey = ev.to[1];
-    const w = Math.max(0.14, (ev.width || 0.15) * 1.5) * (1 + 0.1 * (p0 || lk.accent[0]));
-    const sheath = ctx.col(p0 >= 5 ? '#e3d4ff' : '#b48cff');
-    const s = ctx.segs.add(M.x, M.h, M.y, ex, 0.35, ey, w, sheath, 0.18, SEG_CORE);
+    const w = Math.min(0.32, Math.max(0.12, (ev.width || 0.15) * 0.8)) * (1 + 0.1 * (p0 || lk.accent[0]));
+    const sheath = ctx.col(p0 >= 5 ? '#c9a8ff' : '#8f5bff');
+    const s = ctx.segs.add(M.x, M.h, M.y, ex, 0.35, ey, w, sheath, 0.18, SEG_CORE, -1, 0.85);
     // sweeping lance: slide from this slot's previous end when the angle barely changed
     const a0 = Math.atan2(d.ex[k] - t.x, d.ey[k] - t.y);
     const a1 = Math.atan2(ex - t.x, ey - t.y);

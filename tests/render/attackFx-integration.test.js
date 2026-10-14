@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { harness, gallerySim, streamer } from './attackFxHarness.js';
 import { ORDER } from './attackFxOrder.js';
+import { victimsFor } from '../../src/render/attackFx/math/victims.js';
 
 const BUILDS = { base: [0, 0, 0], p0: [5, 2, 0], p1: [0, 5, 2], p2: [2, 0, 5] };
 
@@ -106,6 +107,43 @@ describe('attack FX over a real sim', { timeout: 180000 }, () => {
     const ids2 = ORDER.slice(10);
     const builds2 = ids2.map((_, i) => [BUILDS.p2, BUILDS.p0, BUILDS.p1][i % 3]);
     expect(() => run(ids2, builds2, { frames: 600, strict: true })).not.toThrow();
+  });
+
+  it('pulse hit attribution is precise (≥ 98%) against the real hits of each girl', () => {
+    const ids = ['hotaru', 'umeko', 'rei', 'hikari', 'shiro', 'akane', 'aoi', 'yuki'];
+    const builds = ids.map(() => [0, 0, 0]);
+    const sim = gallerySim(ids, builds, 7);
+    // test-only: tag each hit event with the tower that dealt it (events are output, not sim state)
+    const orig = sim._hit;
+    sim._hit = function hit(e, tower, spec, scale) {
+      const n = this.events.length;
+      const r = orig.call(this, e, tower, spec, scale);
+      for (let k = n; k < this.events.length; k++) if (this.events[k].type === 'hit' && this.events[k].uid === e.uid) this.events[k]._tower = tower ? tower.uid : null;
+      return r;
+    };
+    const feed = streamer(sim);
+    const out = [];
+    let total = 0;
+    let right = 0;
+    for (let f = 0; f < 3600; f++) {
+      feed(1 / 20);
+      sim.update(1 / 20);
+      const events = sim.drainEvents();
+      for (let i = 0; i < events.length; i++) {
+        const ev = events[i];
+        if (ev.type !== 'pulse') continue;
+        const t = sim.getTower(ev.towerUid);
+        victimsFor(events, i, ev.x, ev.y, ev.radius, ev.attackType, t.eff.maxTargets, out);
+        for (const uid of out) {
+          let j = i - 1;
+          while (j >= 0 && !(events[j].type === 'hit' && events[j].uid === uid)) j--;
+          total++;
+          if (j >= 0 && events[j]._tower === ev.towerUid) right++;
+        }
+      }
+    }
+    expect(total).toBeGreaterThan(200);
+    expect(right / total).toBeGreaterThanOrEqual(0.98);
   });
 
   for (const q of ['high', 'low']) {

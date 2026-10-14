@@ -36,7 +36,7 @@ export const hotaru = {
         if (e) flash(ctx, e.x, ctx.enemyH(e), e.z, 0.4, ctx.col(FLY), 0.12);
       }
     }
-    if (ctx.cap('sweep')) ripple(ctx, ev.x, ev.y, ev.radius * 0.6, ev.radius, 0.35, ctx.col('#fff59d'), 0, 'ring', true, 0.25);
+    if (ctx.cap('sweep')) ripple(ctx, ev.x, ev.y, ev.radius * 0.7, ev.radius, 0.35, ctx.col('#fff59d'), 0, 'ringSoft', true, 0.14);
     return true;
   },
 
@@ -58,7 +58,7 @@ export const hotaru = {
     sw.setCount(Math.min(16, n));
     const R = t.eff?.range || 2.6;
     sw.update(ctx, gdt, t.x, t.y, R, 0.75, burst, d);
-    sw.draw(ctx, ctx.R.glow, ctx.col(d.gold ? GOLD : FLY), 0.11, true, ctx.col('#c8ff6a'));
+    sw.draw(ctx, ctx.R.glow, ctx.col(d.gold ? GOLD : FLY), 0.15, true, ctx.col('#d8ff7a'));
     // lantern glow at her feet
     ctx.quad(ctx.b.groundA, CORE, t.x, 0.07, t.y, 0.9, 0.9, ctx.R.glow, ctx.col('#fff59d'), 0.3 + 0.05 * Math.sin(ctx.time * 3));
     // guiding lights over allies inside her aura

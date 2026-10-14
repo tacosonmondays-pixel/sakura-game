@@ -143,7 +143,7 @@ export class Swarm {
       }
       const b = blink ? 0.45 + 0.55 * Math.max(0, Math.sin(time * 3.1 + i * 1.7)) : 1;
       if (!ctx.quad(B, MOTE, this.x[i], this.h[i], this.y[i], size, size, uv, c, b)) continue;
-      if (glowC) ctx.quad(B, MOTE, this.x[i], this.h[i], this.y[i], size * 2.4, size * 2.4, ctx.R.glow, glowC, 0.25 * b);
+      if (glowC) ctx.quad(B, MOTE, this.x[i], this.h[i], this.y[i], size * 2.6, size * 2.6, ctx.R.glow, glowC, 0.4 * b);
     }
   }
 }

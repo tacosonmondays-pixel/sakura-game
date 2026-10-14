@@ -29,15 +29,15 @@ export const DRONE = {
   V_PASS: 5.2,
   A_MAX: 14,
   TURN_MAX: 7.5,
-  H_ENGAGE: 0.9,
-  H_PASS: 0.75,
+  H_ENGAGE: 1.1,
+  H_PASS: 0.95,
   LEAD: 0.25,
   PASS_TRIGGER: 0.4,
   PASS_EXIT: 1.0,
   PASS_MAX: 0.5,
   SEP_R: 0.35,
   SEP_K: 2.5,
-  SPREAD: 0.3,
+  SPREAD: 0.45,
   AIM_SNAP: 0.08,
   AIM_HOLD: 0.15,
   LAUNCH_T: 0.5,
@@ -664,7 +664,7 @@ export class Drones {
       n++;
       // ground shadow: always drawn (true position read from the 55° camera)
       const ss = 0.3 * (1 - 0.25 * Math.min(1.6, h)) * Math.max(0.6, sc);
-      ctx.quad(ctx.b.groundN, CORE, x, 0.06, y, ss, ss, R.shadow, SHADOW, 0.34);
+      ctx.quad(ctx.b.groundN, CORE, x, 0.06, y, ss, ss, R.shadow, SHADOW, 0.5);
       // eye glow (+ anticipation just before the next shot)
       const sy = Math.sin(yaw);
       const cy = Math.cos(yaw);

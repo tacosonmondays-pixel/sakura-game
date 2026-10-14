@@ -156,7 +156,7 @@ export function gallerySim(ids, builds, seed = 3) {
 }
 
 /** Keeps enemies streaming (3 ground : 1 air) — call every frame with the game dt. */
-export function streamer(sim, every = 0.45) {
+export function streamer(sim, every = 0.45, hpMul = 40) {
   let t = 0;
   let n = 0;
   const ground = ['slime_green', 'goblin_runner', 'slime_pearl'];
@@ -168,7 +168,7 @@ export function streamer(sim, every = 0.45) {
       t += every;
       const id = n % 4 === 3 ? air[(n >> 2) % 2] : ground[n % 3];
       n++;
-      if (sim.enemies.length < 60) sim.spawnEnemy(id, { dist: 0, pathIndex: 0, hpMul: 40 });
+      if (sim.enemies.length < 60) sim.spawnEnemy(id, { dist: 0, pathIndex: 0, hpMul });
     }
   };
 }

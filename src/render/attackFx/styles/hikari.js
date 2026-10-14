@@ -14,7 +14,8 @@ import { victims } from './util.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
 
 const SPAN = { a0: 0, a1: 0, r: 1, n: 0 };
-const GOLD = '#ffd95a';
+const GOLD = '#ffe08a';
+const FAN = '#fff2c0';
 const PALE = '#fff4c8';
 
 export const hikari = {
@@ -30,12 +31,12 @@ export const hikari = {
     if (ctx.cap('sweep')) {
       let rays = 5 + tw.look.accent[0] + (p0 >= 3 ? p0 - 2 : 0);
       if (ctx.quality === 'low') rays = 3;
-      raySweep(ctx, ev.x, ev.y, SPAN.a0, SPAN.a1, r, Math.min(9, rays), 0.12, gold, 0.36 * (1 + 0.15 * p0) * Math.min(1.3, I), 0.24);
+      raySweep(ctx, ev.x, ev.y, SPAN.a0, SPAN.a1, r, Math.min(9, rays), 0.12, gold, 0.26 * (1 + 0.12 * p0) * Math.min(1.3, I), 0.22, 0.75);
       crescentSweep(ctx, ev.x, ev.y, SPAN.a0, SPAN.a1, r * 0.65, 0.12, ctx.col(PALE), 0.75 * Math.min(1.3, I), ctx.quality === 'low' ? 2 : 4, 0.45);
-      fanDecal(ctx, ev.x, ev.y, SPAN.a0, SPAN.a1, r, gold, 0.28, 0.3);
+      fanDecal(ctx, ev.x, ev.y, SPAN.a0, SPAN.a1, r, ctx.col(FAN), 0.26, 0.14);
       if (p0 >= 5) {
         const pad = 0.5;
-        raySweep(ctx, ev.x, ev.y, SPAN.a0 - pad, SPAN.a1 + pad, r, 7, 0.14, ctx.col('#fff0a0'), 0.3, 0.2);
+        raySweep(ctx, ev.x, ev.y, SPAN.a0 - pad, SPAN.a1 + pad, r, 7, 0.14, ctx.col('#fff0a0'), 0.22, 0.2, 0.6);
         flash(ctx, t.x, 1.1, t.y, 1.3, ctx.col('#fff3b0'), 0.18);
       }
     }

@@ -16,7 +16,8 @@ const CLONE_OFF = [[0.45, 0], [-0.45, 0], [0, -0.45]];
 
 function clonePos(ctx, t, i, out) {
   const f = ctx.facing(t);
-  const [side, back] = CLONE_OFF[i];
+  const side = CLONE_OFF[i][0];
+  const back = CLONE_OFF[i][1];
   out.x = t.x + Math.cos(f) * side + Math.sin(f) * back;
   out.y = t.y - Math.sin(f) * side + Math.cos(f) * back;
   return out;

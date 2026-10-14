@@ -8,7 +8,7 @@
 import { lookAt } from '../flair.js';
 import { stain, petalSpiral } from '../patterns/bursts.js';
 import { reticle } from '../patterns/markers.js';
-import { hand } from './util.js';
+import { hand, handFlash } from './util.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
 
 const GREEN = '#7be08a';
@@ -29,6 +29,7 @@ export const midori = {
   id: 'midori',
 
   onAttack(ev, tw, t, ctx) {
+    handFlash(ctx, t, ctx.col('#b9fbc0'), 0.26);
     if (lookAt(tw.look, 2) >= 3 && ctx.cap('muzzle')) {
       const h = hand(ctx, t);
       const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.smoke, h.x, h.h, h.y, 0.2, 0.5, 0.5, ctx.col('#c8f7d0'), 0.6);
