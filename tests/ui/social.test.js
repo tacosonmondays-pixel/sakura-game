@@ -4,8 +4,8 @@
 // the inbox texts. The screens themselves are driven by e2e/social.mjs.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parentRoute } from '../../src/ui/nav.js';
-import { popupFor, afterBattle, addPendingInvite, takePendingInvites } from '../../src/ui/online/socialHub.js';
-import { preview, dayLabel } from '../../src/ui/screens/messages.js';
+import { popupFor, afterBattle, addPendingInvite, takePendingInvites, liveInvites, inviteSummary } from '../../src/ui/online/socialHub.js';
+import { preview, dayLabel, joinsNewThread } from '../../src/ui/screens/messages.js';
 import { whyText, friendWhyText, presenceText } from '../../src/online/socialRules.js';
 
 const NOW = Date.parse('2026-10-14T18:00:00Z');
@@ -33,14 +33,26 @@ describe('social hub pop-ups', () => {
     expect(popupFor({ type: 'dm', row: dm() }, { blocked: new Set(['u-bea']), now: NOW })).toBeNull();
   });
 
-  it('a co-op invite pops up on any screen until it expires; "Later" hides that sender for a while', () => {
+  it('a co-op invite pops up on any screen until it expires; "Later" never hides the sender\'s next invite', () => {
     expect(popupFor({ type: 'dm', row: invite() }, { viewing: 't1', now: NOW })).toEqual({ kind: 'invite', row: invite() });
     expect(popupFor({ type: 'dm', row: invite({ meta: { ...invite().meta, expires: NOW - 1 } }) }, { now: NOW })).toBeNull();
-    const later = new Map([['u-bea', NOW + 30 * 60000]]);
-    expect(popupFor({ type: 'dm', row: invite() }, { later, now: NOW })).toBeNull();
-    expect(popupFor({ type: 'dm', row: invite() }, { later, now: NOW + 31 * 60000 })).toBeNull(); // expired by then
-    expect(popupFor({ type: 'dm', row: invite({ meta: { ...invite().meta, expires: NOW + 40 * 60000 } }) }, { later, now: NOW + 31 * 60000 })?.kind).toBe('invite');
+    // (UX #7: "Later" used to hide every invite of that player for 30 minutes without saying so)
+    expect(popupFor({ type: 'dm', row: invite({ id: 3 }) }, { later: new Map([['u-bea', NOW + 30 * 60000]]), now: NOW })?.kind).toBe('invite');
     expect(popupFor({ type: 'dm', row: invite() }, { blocked: new Set(['u-bea']), now: NOW })).toBeNull();
+    // the pop-up names the stage like the stage picker does
+    expect(inviteSummary(invite().meta)).toMatch(/^1-1 · .+ · Normal$/);
+    expect(inviteSummary({ stage: '99-9', difficulty: 'hard' })).toBe('99-9 · Hard');
+  });
+
+  it('Co-op → Invites: only the newest open invite per sender (a new invite ends the older one)', () => {
+    const a1 = invite({ id: 10 });
+    const a2 = invite({ id: 12 });
+    const a3 = invite({ id: 14 });
+    const old = invite({ id: 9, senderId: 'u-cleo', name: 'Cleo', meta: { ...invite().meta, expires: NOW - 1 } });
+    const c1 = invite({ id: 11, senderId: 'u-cleo', name: 'Cleo' });
+    expect(liveInvites([a1, a3, a2, old, c1, dm({ id: 15 })], NOW).map((m) => m.id)).toEqual([14, 11]);
+    expect(liveInvites([], NOW)).toEqual([]);
+    expect(liveInvites([a1, a2, a3, c1], NOW, 1).map((m) => m.id)).toEqual([14]);
   });
 
   it('friend requests pop up (not from blocked players); donations and junk do not', () => {
@@ -114,9 +126,25 @@ describe('inbox texts', () => {
     expect(dayLabel(NOW - 5 * 86400000, NOW)).toMatch(/^Oct \d{1,2}$/);
   });
 
+  it('a brand-new conversation adopts the thread of a live message from (or to) that player', () => {
+    expect(joinsNewThread(dm({ threadId: 't9', senderId: 'u-bea' }), 'u-bea')).toBe(true);
+    expect(joinsNewThread(dm({ threadId: 't9', senderId: 'me', recipientId: 'u-bea' }), 'u-bea')).toBe(true);
+    expect(joinsNewThread(dm({ threadId: 't9', senderId: 'u-cleo', recipientId: 'me' }), 'u-bea')).toBe(false);
+    expect(joinsNewThread(dm({ threadId: null }), 'u-bea')).toBe(false);
+    expect(joinsNewThread(null, 'u-bea')).toBe(false);
+  });
+
   it('refusals never tell a block from a setting; presence is coarse', () => {
     expect(whyText('not_allowed', 'Bea')).not.toMatch(/block/i);
     expect(whyText('blocked_by_me', 'Bea')).toMatch(/You blocked Bea/);
+    // UX #5: no advice that leads nowhere
+    expect(whyText('stranger', 'Bea')).toMatch(/Only friends and clanmates/);
+    expect(whyText('stranger', 'Bea')).not.toMatch(/setting/);
+    expect(whyText('my_setting', 'Bea', { myPrivacy: 'nobody', friend: true })).toMatch(/Nobody/);
+    expect(whyText('my_setting', 'Bea', { myPrivacy: 'nobody', friend: true })).not.toMatch(/add .* as a friend/i);
+    expect(whyText('my_setting', 'Bea', { myPrivacy: 'friends' })).toMatch(/Friends only.*Add Bea as a friend/);
+    expect(whyText('not_allowed', 'Bea', { friend: true })).toBe('Bea isn\'t taking messages right now.');
+    expect(whyText('not_allowed', 'Bea', { friend: false })).toMatch(/try adding them as a friend/);
     expect(friendWhyText('context', 'Bea')).toMatch(/friend code/i);
     expect(presenceText(Date.now() - 60000)).toBe('Online');
     expect(presenceText(null)).toBe('');

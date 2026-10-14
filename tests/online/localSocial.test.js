@@ -83,7 +83,7 @@ describe('local social server: privacy, friends, blocks', () => {
     const env = setup();
     const { db } = env;
     let card = db.playerCard('A', 'B');
-    expect(card).toMatchObject({ canMessage: false, why: 'my_setting', friend: 'none', canFriend: false, friendWhy: 'context', clan: null });
+    expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends_clan', friend: 'none', canFriend: false, friendWhy: 'context', clan: null });
     expect(err(() => db.sendDm('A', 'B', 'hi')).code).toBe('forbidden');
     // the developer clan: no DMs, no friend context
     db.joinByCode('A', 'Rosie777');
@@ -173,9 +173,9 @@ describe('local social server: privacy, friends, blocks', () => {
     expect(db.inbox('B').threads).toHaveLength(0);
     expect(db.socialSummary('B').unreadDms).toBe(0);
     expect(db.blocked('B').map((x) => x.userId)).toEqual(['A']);
-    // A's room does not exist for B... and B's for A
+    // B's room is never free for A: it reads like a full room (the block is not revealed)
     db.openRoom('B', 'ROOMB');
-    expect(err(() => db.joinRoom('A', 'ROOMB')).code).toBe('not_found');
+    expect(err(() => db.joinRoom('A', 'ROOMB')).code).toBe('full');
     // A's friend request is swallowed (A sees "requested", B nothing)
     expect(db.addFriend('A', 'B').state).toBe('requested');
     expect(db.friendRequests('B').incoming).toHaveLength(0);
@@ -301,7 +301,11 @@ describe('local social server: reports and mutes', () => {
     expect(db.reports().filter((x) => x.qualified)).toHaveLength(1);
     clock.t += 2100;
     expect(db.sendDm('A', 'B', 'still allowed').body).toBe('still allowed');
-    // clanmates of a week: C and D make three qualified reporters → A cannot DM for a day
+    // C and D got DMs from A too: three reporters with contact → A cannot DM for a day
+    for (const who of ['C', 'D']) {
+      clock.t += 2100;
+      db.sendDm('A', who, 'you too');
+    }
     db.report('C', 'A', { reason: 'bullying' });
     db.report('D', 'A', { reason: 'bullying' });
     clock.t += 2100;
@@ -435,5 +439,191 @@ describe('local social server: clan material requests and donations', () => {
     expect(err(() => db.donate('A', r3.id, 1, KEY(100))).message).toMatch(/closed/);
     expect(db.donationState('A').requests).toEqual([]);
     expect(c.id).toBeTruthy();
+  });
+});
+
+// The verifier findings of the social update (SECURITY 2–7 + UX), on the local "server": the same
+// scenarios tests/online/socialFixes.test.js runs on Postgres.
+describe('local social server: verifier fixes', () => {
+  const cp = (...c) => String.fromCodePoint(...c);
+  /** x and y are friends (DMs allowed both ways). */
+  const befriend = (env, x, y) => env.edit((s) => {
+    s.social ||= {};
+    s.social.friends ||= {};
+    s.social.friends[x] = { ...(s.social.friends[x] || {}), [y]: env.clock.t };
+    s.social.friends[y] = { ...(s.social.friends[y] || {}), [x]: env.clock.t };
+  });
+  const ageAll = (env, days = 10) => env.edit((s) => { for (const u of Object.values(s.users)) u.createdAt = env.clock.t - days * DAY; });
+
+  it('#2 auto-mute: one public chat line is no contact; a repeat report counts again only after NEW contact', () => {
+    const env = setup();
+    const { db, clock } = env;
+    ageAll(env);
+    const line = db.send('A', 'global', 'hello everyone');
+    for (const who of ['B', 'C', 'D']) db.report(who, 'A', { reason: 'spam', context: 'global', messageId: line.id });
+    expect(db.reports().map((r) => [r.qualified, r.qualifiedAt])).toEqual([[false, null], [false, null], [false, null]]);
+    clock.t += 2100;
+    expect(db.send('A', 'global', 'not muted').body).toBe('not muted');
+    // real contact (a DM to each) + three reports → muted for a day
+    for (const who of ['B', 'C', 'D']) befriend(env, 'A', who);
+    for (const who of ['B', 'C', 'D']) {
+      clock.t += 2100;
+      db.sendDm('A', who, 'hi');
+    }
+    clock.t += 11000;
+    for (const who of ['B', 'C', 'D']) db.report(who, 'A', { reason: 'bullying', context: 'dm' });
+    clock.t += 2100;
+    expect(err(() => db.sendDm('A', 'B', 'muted?')).message).toMatch(/can't send messages right now/);
+    // the next day the same three report again with no new contact: still backed (7 days), but no new mute
+    clock.t += DAY + 60000;
+    for (const who of ['B', 'C', 'D']) db.report(who, 'A', { reason: 'other' });
+    expect(db.reports().every((r) => r.qualified)).toBe(true);
+    clock.t += 2100;
+    expect(db.sendDm('A', 'B', 'sorry').body).toBe('sorry');
+    // new contact with B only: B's repeat counts again, C's and D's do not → still no mute
+    clock.t += 11000;
+    for (const who of ['B', 'C', 'D']) db.report(who, 'A', { reason: 'bullying' });
+    clock.t += 2100;
+    expect(db.sendDm('A', 'C', 'ok').body).toBe('ok');
+  });
+
+  it('#5 friend requests: request → cancel → request pings once a day at most; a block + unblock keeps "declined"', () => {
+    const env = setup();
+    const { db, clock } = env;
+    const { code } = db.myFriendCode('B');
+    // B's live pop-ups (the Realtime stand-in, polled after every step)
+    let cursor = db.inboxEvents('B').cursor;
+    let pops = 0;
+    const poll = () => {
+      const r = db.inboxEvents('B', cursor);
+      cursor = r.cursor;
+      pops += r.events.filter((e) => e.type === 'friend_request').length;
+    };
+    expect(db.addFriendByCode('A', code).state).toBe('requested');
+    poll();
+    const first = db.friendRequests('B').incoming[0];
+    db.cancelFriendRequest('A', first.id);
+    expect(db.friendRequests('B').incoming).toEqual([]);
+    expect(db.playerCard('A', 'B').friend).toBe('none');
+    for (let i = 0; i < 3; i++) {
+      expect(db.addFriendByCode('A', code).state).toBe('requested'); // swallowed: no new request, no pop-up
+      poll();
+      db.cancelFriendRequest('A', db.playerCard('A', 'B').requestId);
+    }
+    expect(db.friendRequests('B').incoming).toEqual([]);
+    expect(pops).toBe(1);
+    // a day after the cancel it may go out again (one new pop-up)
+    clock.t += DAY + 1000;
+    expect(db.addFriendByCode('A', code).state).toBe('requested');
+    poll();
+    expect(db.friendRequests('B').incoming).toHaveLength(1);
+    expect(pops).toBe(2);
+    // B declines; A blocks and unblocks B: the 30-day tombstone survives, A's next try is swallowed
+    db.answerFriend('B', db.friendRequests('B').incoming[0].id, false);
+    db.block('A', 'B');
+    db.unblock('A', 'B');
+    expect(db.addFriendByCode('A', code).state).toBe('requested');
+    expect(db.friendRequests('B').incoming).toEqual([]);
+    // the blocker's own pending request becomes a tombstone too (no block → unblock → ping)
+    const { code: codeC } = db.myFriendCode('C');
+    expect(db.addFriendByCode('D', codeC).state).toBe('requested');
+    db.block('D', 'C');
+    db.unblock('D', 'C');
+    expect(db.addFriendByCode('D', codeC).state).toBe('requested');
+    expect(db.friendRequests('C').incoming).toEqual([]);
+  });
+
+  it('#4 a flood cannot erase an abusive DM: every DM of the 14 days stays, and the report finds it', () => {
+    const env = setup();
+    const { db, clock } = env;
+    befriend(env, 'A', 'B');
+    const bad = db.sendDm('A', 'B', 'tell me your address and school');
+    for (let i = 0; i < 210; i++) {
+      clock.t += 3100;
+      db.sendDm('A', 'B', `hi ${i}`);
+    }
+    const thread = db.inbox('B').threads[0].id;
+    let before = null;
+    let all = 0;
+    for (;;) {
+      const page = db.dmHistory('B', thread, { before, limit: 50 });
+      all += page.messages.length;
+      if (!page.hasMore) break;
+      before = page.messages.at(-1).id;
+    }
+    expect(all).toBe(211);
+    clock.t += 11000;
+    db.report('B', 'A', { reason: 'personal_info', context: 'dm', messageId: bad.id });
+    expect(db.reports()[0].evidence.message).toMatchObject({ kind: 'dm', body: 'tell me your address and school' });
+  });
+
+  it('#6 a block is never revealed: the requester who blocked me shows, closed; the room reads full', () => {
+    const env = setup();
+    const { db } = env;
+    clan(env, ['A', 'B', 'C']);
+    const r = db.requestMaterials('B', 'mat_feather_rare');
+    db.block('B', 'A');
+    const forA = db.donationState('A').requests;
+    expect(forA.map((x) => [x.id, x.open])).toEqual([[r.id, false]]);
+    expect(db.donationState('C').requests.map((x) => [x.id, x.open])).toEqual([[r.id, true]]);
+    const e = err(() => db.donate('A', r.id, 1, KEY(1)));
+    expect([e.code, e.message]).toEqual(['invalid', 'that request is closed']);
+    // the blocker no longer sees requests of the player she blocked
+    const ra = db.requestMaterials('A', 'mat_blade_rare');
+    expect(db.donationState('B').requests.map((x) => x.id)).not.toContain(ra.id);
+    expect(db.donationState('C').requests.map((x) => x.id)).toContain(ra.id);
+  });
+
+  it('#3 settle_donations is bounded: 30 calls an hour, at most 100 voided keys, old tombstones go after 2 days', () => {
+    const env = setup();
+    const { db, clock } = env;
+    for (let i = 0; i < 30; i++) expect(db.settleDonations('A', [KEY(i)])[0].state).toBe('voided');
+    expect(err(() => db.settleDonations('A', [KEY(99)])).code).toBe('rate_limited');
+    clock.t += H + 1000;
+    const batch = (n) => Array.from({ length: 20 }, (_, i) => KEY(1000 + n * 20 + i));
+    for (let n = 0; n < 3; n++) db.settleDonations('A', batch(n)); // 30 + 60 = 90 voided
+    expect(err(() => db.settleDonations('A', batch(3))).code).toBe('rate_limited'); // 110 > 100
+    // asking about keys it already knows is always fine
+    expect(db.settleDonations('A', [KEY(5)])[0].state).toBe('voided');
+    clock.t += 2 * DAY + H;
+    expect(db.settleDonations('A', batch(3))).toHaveLength(20);
+  });
+
+  it('UX: the host leaving the room lobby expires their DM invites into it', () => {
+    const env = setup();
+    const { db, clock } = env;
+    befriend(env, 'A', 'B');
+    db.openRoom('A', 'ROOMX');
+    const inv = db.sendCoopInvite('A', 'B', { room: 'ROOMX', stage: '1-1', difficulty: 'normal' });
+    expect(db.inviteState('B', inv.id)).toBe('open');
+    clock.t += 1000;
+    expect(db.expireCoopInvites('A', 'roomx')).toBe(1);
+    expect(db.inviteState('B', inv.id)).toBe('expired');
+    expect(db.expireCoopInvites('A', 'ROOMX')).toBe(0);
+  });
+
+  it('#7 text: blank-looking bodies and names, look-alikes of reserved names; Japanese spacing and variants stay', () => {
+    const env = setup();
+    const { db, clock } = env;
+    befriend(env, 'A', 'B');
+    for (const bad of [cp(0xa0, 0xa0), cp(0x34f), cp(0x17b4, 0x17b5), cp(0x180b), cp(0xe0100), cp(0x1d159), cp(0x3000, 0x3000)]) {
+      clock.t += 2100;
+      expect(err(() => db.sendDm('A', 'B', bad)).code, JSON.stringify(bad)).toBe('invalid');
+    }
+    for (const ok of [`こんにちは${cp(0x3000)}みんな`, `葛${cp(0xe0100)}城`, '👩‍👩‍👧']) {
+      clock.t += 2100;
+      expect(db.sendDm('A', 'B', ok).body).toBe(ok);
+    }
+    for (const bad of [cp(0x34f, 0x34f), cp(0x17b4, 0x17b4), `${cp(0x405)}ystem`, `Supply B${cp(0x43e)}t`, cp(0xff33, 0xff59, 0xff53, 0xff54, 0xff45, 0xff4d), `${cp(0x391)}dmin`]) {
+      expect(err(() => db.updateProfile('C', { name: bad })).code, JSON.stringify(bad)).toBe('invalid');
+    }
+    // a look-alike stored on this device is never sent: the new account gets the automatic name
+    expect(db.signIn('L', { name: `${cp(0x405)}ystem` }).name).toMatch(/^Sensei\d{4}$/);
+    // an account that kept an old name of that kind: chat still works, DMs ask for a new name
+    env.edit((s) => { s.users.B.name = `${cp(0x405)}ystem`; });
+    clock.t += 3000;
+    expect(db.send('B', 'global', 'hello').body).toBe('hello');
+    expect(err(() => db.sendDm('B', 'A', 'hi')).message).toMatch(/change your online name first/);
+    expect(db.playerCard('B', 'A').why).toBe('name');
   });
 });

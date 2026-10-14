@@ -3,15 +3,20 @@
 // (unread DMs, friend requests, donations ready to collect), the blocked list (chat hides those
 // players), one live inbox subscription (postgres_changes / BroadcastChannel — never Realtime
 // presence), and shows the pop-ups: a DM, a friend request, and the co-op invite with Join. During a
-// battle the pop-ups wait and show afterwards (an expired invite is dropped).
+// battle the pop-ups wait and show afterwards (an expired invite is dropped). Reply / Join / View
+// close every open window first, so nothing stays on top of the screen they open.
 import { createEmitter } from '../../core/events.js';
 import { getBackend } from '../../online/backend.js';
 import { ensureOnline, storedName } from './common.js';
 import { navigate, currentRoute } from '../router.js';
+import { closeAllModals } from '../components.js';
+import { STAGE_MAP } from '../../data/stages.js';
+import { DIFFICULTIES } from '../../data/types.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
-const LATER_MS = 30 * 60 * 1000;
 const PENDING_KEY = 'ss-social-pending-invites';
+/** At most this many DM invites are checked with the server for Co-op → Invites. */
+const INVITES_SHOWN = 6;
 
 const emitter = createEmitter();
 const state = {
@@ -23,7 +28,6 @@ const state = {
   blocked: new Set(),
   viewing: null, // thread id open on the Messages screen
   invites: new Map(), // message id → a DM co-op invite this tab saw (Co-op → Invites)
-  later: new Map(), // sender id → until (Later on an invite pop-up)
   queue: [], // pop-ups waiting for the battle to end
   offInbox: null,
   timer: 0,
@@ -58,12 +62,38 @@ export const hub = {
   isBlocked(uid) {
     return !!uid && state.blocked.has(uid);
   },
-  /** DM co-op invites this tab received and that may still be open (newest first). */
+  /** DM co-op invites this tab received and that may still be open: the newest per sender (newest first). */
   get invites() {
-    const now = Date.now();
-    return [...state.invites.values()].filter((m) => Number(m.meta?.expires) > now).sort((a, b) => b.id - a.id);
+    return liveInvites([...state.invites.values()]);
   },
 };
+
+/**
+ * The invites worth showing (pure; tests): not expired by their own clock, only the newest from
+ * each sender (the server expires the older ones when a new one goes out), newest first.
+ * @param {object[]} list DM invite messages
+ */
+export function liveInvites(list, now = Date.now(), max = INVITES_SHOWN) {
+  const bySender = new Map();
+  for (const m of list) {
+    if (!m || m.kind !== 'invite' || !(Number(m.meta?.expires) > now)) continue;
+    const had = bySender.get(m.senderId);
+    if (!had || m.id > had.id) bySender.set(m.senderId, m);
+  }
+  return [...bySender.values()].sort((a, b) => b.id - a.id).slice(0, max);
+}
+
+/** The server said this invite is no longer open: Co-op → Invites stops listing it. */
+export function forgetInvite(id) {
+  if (state.invites.delete(id)) emitter.emit('invites', hub.invites);
+}
+
+/** "1-1 · First Petals · Normal" — the same words as the stage picker and the room lobby. */
+export function inviteSummary(meta) {
+  const st = STAGE_MAP[meta?.stage];
+  const diff = DIFFICULTIES[meta?.difficulty]?.name || String(meta?.difficulty || '').replace(/^./, (c) => c.toUpperCase());
+  return [st ? `${st.id} · ${st.name}` : meta?.stage || '?', diff].filter(Boolean).join(' · ');
+}
 
 /**
  * Starts the hub for a player who already went online (never asks for a name, never creates an
@@ -177,17 +207,18 @@ export function setViewing(threadId) {
 // ---- live events -------------------------------------------------------------------------------
 
 /**
- * The pop-up a live inbox event asks for, or null (pure; tests). Blocked senders never pop up;
- * "Later" on an invite hides that sender's invite pop-ups for 30 minutes (the invite stays in the
- * conversation); a DM in the conversation that is open and visible needs none.
+ * The pop-up a live inbox event asks for, or null (pure; tests). Blocked senders never pop up; an
+ * invite pops up while it is open ("Later" only closes that one pop-up: the invite stays in the
+ * conversation and in Co-op → Invites, and the next invite pops up again); a DM in the
+ * conversation that is open and visible needs none.
  * @returns {{ kind: 'invite'|'dm'|'friend', row: object }|null}
  */
-export function popupFor(e, { blocked = new Set(), later = new Map(), viewing = null, visible = true, now = Date.now() } = {}) {
+export function popupFor(e, { blocked = new Set(), viewing = null, visible = true, now = Date.now() } = {}) {
   if (!e?.row) return null;
   if (e.type === 'dm') {
     const m = e.row;
     if (blocked.has(m.senderId)) return null;
-    if (m.kind === 'invite') return (later.get(m.senderId) || 0) < now && Number(m.meta?.expires) > now ? { kind: 'invite', row: m } : null;
+    if (m.kind === 'invite') return Number(m.meta?.expires) > now ? { kind: 'invite', row: m } : null;
     return viewing === m.threadId && visible ? null : { kind: 'dm', row: m };
   }
   if (e.type === 'friend_request') return blocked.has(e.row.userId) ? null : { kind: 'friend', row: e.row };
@@ -211,7 +242,7 @@ export function afterBattle(queue, now = Date.now()) {
 function onInbox(e) {
   if (!e) return;
   const pop = popupFor(e, {
-    blocked: state.blocked, later: state.later, viewing: state.viewing, visible: typeof document === 'undefined' || document.visibilityState === 'visible',
+    blocked: state.blocked, viewing: state.viewing, visible: typeof document === 'undefined' || document.visibilityState === 'visible',
   });
   if (e.type === 'dm' && e.row) {
     const m = e.row;
@@ -255,30 +286,38 @@ async function show(p) {
     showSocialToast({
       kind: 'invite', avatar: m.avatar, alert: true, ms: 20000, testid: 'invite-toast',
       title: `${m.name} invites you to co-op`,
-      text: m.body,
+      text: inviteSummary(m.meta),
       expires: Number(m.meta?.expires) || 0,
       actions: [
-        { label: 'Later', kind: 'ghost', testid: 'invite-toast-later', onClick: () => state.later.set(m.senderId, Date.now() + LATER_MS) },
+        // closes this pop-up only; the invite waits in Co-op → Invites and in the conversation
+        { label: 'Later', kind: 'ghost', testid: 'invite-toast-later' },
         { label: 'Join', kind: 'yellow', testid: 'invite-toast-join', onClick: () => joinInvite(m) },
       ],
     });
   } else if (p.kind === 'dm') {
     showSocialToast({
       kind: 'dm', avatar: m.avatar, ms: 6000, testid: 'dm-toast', title: m.name, text: m.body,
-      actions: [{ label: 'Reply', kind: 'primary', testid: 'dm-toast-reply', onClick: () => navigate('messages', { id: m.threadId }) }],
+      actions: [{ label: 'Reply', kind: 'primary', testid: 'dm-toast-reply', onClick: () => leaveTo('messages', { id: m.threadId }) }],
     });
   } else if (p.kind === 'friend') {
     showSocialToast({
       kind: 'friend', avatar: m.avatar, ms: 7000, testid: 'friend-toast', title: `${m.name} wants to be friends`, text: 'Friends can message each other and invite each other to co-op.',
-      actions: [{ label: 'View', kind: 'primary', testid: 'friend-toast-view', onClick: () => navigate('messages', { tab: 'requests' }) }],
+      actions: [{ label: 'View', kind: 'primary', testid: 'friend-toast-view', onClick: () => leaveTo('messages', { tab: 'requests' }) }],
     });
   }
+}
+
+/** From a pop-up to another screen: open windows (Menu, a gift, a card) close first. */
+function leaveTo(name, params) {
+  closeAllModals();
+  navigate(name, params);
 }
 
 /** Join a DM co-op invite: the room's code is in the invite (no typing). */
 export async function joinInvite(m) {
   const room = m?.meta?.room;
   if (!room) return;
+  closeAllModals();
   try {
     const { getSession } = await import('../../online/coop/session.js');
     const s = getSession();

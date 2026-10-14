@@ -281,6 +281,9 @@ export function createLocalAdapter(env = {}) {
     async inviteState(messageId) {
       return db.inviteState(me(), messageId);
     },
+    async expireCoopInvites(room) {
+      return db.expireCoopInvites(me(), room);
+    },
     async markRead(threadId, lastId) {
       return db.markRead(me(), threadId, lastId);
     },

@@ -1,6 +1,7 @@
 // Pure clan rules shared by both backend adapters, the UI and tests: roles and permissions,
 // clan level from XP, the weekly clan boss, reward tiers and the developer clan code.
 // (supabase/migrations/*_online.sql mirrors the numbers marked "SQL".)
+import { nameLooksBlank, nameKey } from './textRules.js';
 
 export const ROLES = ['leader', 'officer', 'member'];
 export const ROLE_NAMES = { leader: 'Leader', officer: 'Officer', member: 'Member' };
@@ -25,24 +26,25 @@ export function validateClan({ name, tag, description = '' } = {}) {
 
 /**
  * Names nobody may take: they would pass for a system notice, the developer bot or staff
- * (compared without case, spaces or punctuation, so "Supply-Bot" counts). SQL: valid_display_name().
+ * (compared by nameKey(): without case, spaces, punctuation or accents, with fullwidth letters and
+ * Cyrillic / Greek look-alikes mapped to Latin — "Supply-Bot", "Ѕystem", "Ｓｙｓｔｅｍ" all count).
+ * SQL: valid_display_name() + reserved_name() of the social migration.
  */
 export const RESERVED_NAMES = ['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'];
 const INVISIBLE = /[\p{Cf}\p{Cc}]/u; // bidi overrides, zero-width joiners, soft hyphens, control characters
-// [social] characters that render as nothing (Hangul / half-width fillers, Braille blank, line and
-// paragraph separators) and stacked accents: a name must look like a name (SQL: visible_name(),
-// the profiles_name_visible check of the social migration; socialRules.NAME_BLANKS)
-const BLANKS = /[\u115f\u1160\u2028\u2029\u2800\u3164\uffa0]/u;
-const STACKED = /[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]{5,}/u;
 
-/** Display names: 2–16 characters (SQL: valid_display_name(), the profiles.name check). */
+/**
+ * Display names: 2–16 characters (SQL: valid_display_name(), the profiles.name check) that look
+ * like a name — visible letters, no blank fillers or stacked accents (SQL visible_name(), the
+ * social migration's profiles_name_rules trigger) — and no reserved name or look-alike of one.
+ */
 export function validateName(name) {
   const n = String(name ?? '').trim();
   if (n.length < 2 || n.length > 16) return 'Names are 2–16 characters.';
   if (/[<>]/.test(n)) return 'Names cannot contain < or >.';
   if (INVISIBLE.test(n)) return 'Names cannot contain invisible or control characters.';
-  if (BLANKS.test(n) || STACKED.test(n)) return 'Names need visible letters.';
-  if (RESERVED_NAMES.includes(n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''))) return 'That name is reserved.';
+  if (nameLooksBlank(n)) return 'Names need visible letters.';
+  if (RESERVED_NAMES.includes(nameKey(n))) return 'That name is reserved.';
   return null;
 }
 

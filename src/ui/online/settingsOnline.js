@@ -88,7 +88,7 @@ function socialRows() {
           } }))),
       h('div.ma-set-row',
         h('div.ma-set-text', h('div.ma-set-label', 'Blocked players'), h('div.ma-set-desc', blocked.length ? `${blocked.length} blocked. They can't message, invite or friend you.` : 'Nobody blocked.')),
-        h('div.ma-set-control', button('Messages', { kind: 'ghost', small: true, icon: 'mail', testid: 'settings-blocked', onClick: () => navigate('messages', { tab: blocked.length ? 'blocked' : undefined }) }))),
+        h('div.ma-set-control', button(blocked.length ? 'Manage' : 'Open list', { kind: 'ghost', small: true, icon: 'close', testid: 'settings-blocked', onClick: () => navigate('messages', { tab: 'blocked' }) }))),
     );
   })();
   return box;

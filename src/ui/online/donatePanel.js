@@ -178,14 +178,15 @@ export function createDonatePanel({ backend = getBackend(), onBadge = null } = {
     const led = ledgerState(store.profile, backend.uid);
     const helpable = s.requests.filter((r) => canHelp(r) > 0).length;
     onBadge?.(helpable + s.collectable.length);
+    // (the day's points and the reset time first: on a phone the bottom of a long list is out of sight)
     el.replaceChildren(...[
       ledgerBanner(led),
+      footer(),
       h('div.sc-don-cols',
         mineCard(),
         h('section.panel.sc-don-list', { 'data-testid': 'donate-requests' },
           h('h3.panel-title', 'Clanmates\' requests'),
           requestsList())),
-      footer(),
     ].filter(Boolean));
   }
 
@@ -284,6 +285,7 @@ export function createDonatePanel({ backend = getBackend(), onBadge = null } = {
       const have = itemCount(store.profile, r.item);
       let why = '';
       if (!s.canDonate) why = WHY.donate[s.donateWhy] || '';
+      else if (!r.open) why = 'This request is closed.';
       else if (!have) why = 'You have none.';
       else if (r.myGiven >= rule.perDonor) why = 'You gave the most you can to this one.';
       else if (left < rule.points) why = `Daily limit reached — resets at ${RESET.label}.`;

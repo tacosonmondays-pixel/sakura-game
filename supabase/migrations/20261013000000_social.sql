@@ -24,10 +24,13 @@
 --   privacy    "Who can message me": Friends & clan (default; clanmates after both spent 72 h in
 --              the same non-developer clan) · Friends only · Nobody. Both sides' settings must
 --              allow a DM. A missing settings row means the default, never "open". Blocking is
---              never revealed: a blocked sender gets the same refusal as a privacy refusal.
+--              never shown to the blocked player: a block reads like a privacy refusal, a closed
+--              request (donations) or a full room (co-op).
 --   friends    requests need a shared context (same clan, a co-op game in the last 7 days, or the
 --              friend code); they carry no text, only the sender's name stamped when sent; a
---              declined / blocked / Nobody request is silently swallowed for 30 days.
+--              declined / blocked / Nobody request is silently swallowed for 30 days, a cancelled
+--              one for a day (asking again does not notify again). A friend code is a way to ask,
+--              not a secret identity: every profile row (id, name, level) is readable anyway.
 --   limits     enforce_rate() (same numbers as src/online/limits.js):
 --                DM                    1 per 2 s, 20 per minute, 300 per day; 10 new conversations a day
 --                co-op invite by DM    1 per 5 s, 20 per hour (and 4 per hour to the same player)
@@ -35,18 +38,30 @@
 --                block / unblock       30 per hour        report      1 per 10 s, 10 per day
 --                privacy / new code    20 per hour        player card 120 per hour
 --                name change           3 per day          donation    1 per 500 ms, 60 per hour
+--                donation check        30 per hour (settle_donations; at most 100 voided keys / 2 days)
 --              daily caps on the GAME DAY (7 PM America/Chicago, DST-aware; game_day_key()):
 --                one material request per player per game day (across clans); 30 donation points
 --                per donor per game day; super rare requests 3 / mythic 1 per rolling 7 days.
+--   names      new and changed names only (a trigger, never a check constraint: an old name must
+--              never lock its owner out of chat, clans or co-op): visible letters, no blank
+--              fillers, no look-alike of a reserved name ("Ѕystem" with a Cyrillic Ѕ, "Ｓｙｓｔｅｍ").
+--              An older name keeps working everywhere except DMs / friend requests / invites
+--              ("change your online name first").
 --   donations  the server never sees inventories (saves are local): donate(key) is idempotent by a
---              client key, settle_donations() voids keys it never applied (tombstones, 90 days),
---              claim_donations(key) replays the same set for 24 h. See src/online/donateLedger.js.
+--              client key, settle_donations() voids keys it never applied (tombstones: voided 2
+--              days, applied 90 days), claim_donations(key) replays the same set for 24 h. See
+--              src/online/donateLedger.js.
+--   reports    stored for the owner with the server's own copy of the evidence. Auto-mute: 3
+--              reporters (accounts ≥ 7 days old) the target contacted by DM, co-op invite or
+--              friend request in the last 7 days, within 24 h; a repeat report only counts again
+--              after new contact.
 --   realtime   direct_messages, friend_requests and donation_requests join the publication.
---   retention  DMs 14 days (newest 200 per conversation), friend requests 30 days, donations 7
---              days unclaimed / 30 days claimed, key tombstones 90 days — deleted as new rows
---              arrive (no cron).
+--   retention  DMs 14 days (every message of those 14 days is kept: report evidence), friend
+--              requests 30 days, donations 7 days unclaimed / 30 days claimed, key tombstones as
+--              above — deleted as new rows arrive (no cron).
 -- No profanity filter (owner's decision); text rules: 1–200 characters, no invisible / bidi /
--- control characters, no blank-looking names, text only (the game shows it as plain text).
+-- control characters, at least one visible character, no blank-looking names, text only (the game
+-- shows it as plain text).
 
 -- =============================================================================================
 -- 0. The game clock (owner decision D3: every daily reset at 7 PM America/Chicago)
@@ -74,15 +89,20 @@ language sql stable as $$ select greatest(0, ceil(extract(epoch from (public.nex
 -- =============================================================================================
 
 -- DM / chat bodies: 1–200 characters, trimmed, no control / bidi / zero-width-space / tag
--- characters, no line separators or blank fillers, at least one visible character, at most 4
--- stacked accents in a row. ZWJ / ZWNJ and variation selectors stay allowed (emoji sequences).
+-- characters, no line separators, blank fillers or invisible marks (combining grapheme joiner,
+-- Khmer inherent vowels, the null notehead), at most 4 stacked accents in a row, and at least one
+-- VISIBLE character: one that is not a space of any kind (U+00A0, U+2000–U+200A, U+3000…), a
+-- joiner, a variation selector or an accent. Spelled out as code points, never [[:space:]]: the
+-- character classes follow the database locale. ZWJ / ZWNJ, variation selectors (emoji, Japanese
+-- ideographic variants) and the ideographic space inside a sentence stay allowed.
+-- src/online/textRules.js MESSAGE_INVISIBLE / VISIBLE_CHAR mirror both sets.
 create or replace function public.valid_dm_body(p text) returns boolean
 language sql immutable as $$
   select p is not null
     and p = btrim(p)
     and char_length(p) between 1 and 200
-    and p !~ '[\u0001-\u001f\u007f-\u009f\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890-\u0891\u08e2\u115f\u1160\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e007f]'
-    and p ~ '[^[:space:]\u200c\u200d\ufe00-\ufe0f]'
+    and p !~ '[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890-\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d159\U0001d173-\U0001d17a\U000e0000-\U000e007f]'
+    and p ~ '[^\u0009-\u000d\u0020\u0085\u00a0\u0300-\u036f\u1680\u180b-\u180f\u1ab0-\u1aff\u1dc0-\u1dff\u2000-\u200f\u2028\u2029\u202f\u205f\u20d0-\u20ff\u3000\ufe00-\ufe0f\ufe20-\ufe2f\U000e0100-\U000e01ef]'
     and p !~ '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]{5,}'
 $$;
 
@@ -102,16 +122,49 @@ language sql immutable as $$
     else p_kind = 'text' and p_meta is null end
 $$;
 
--- Display names must not look empty (fillers, Braille blank, line separators, stacked accents);
--- on top of valid_display_name() of the first migration. New / changed names only (not valid).
+-- Display names must not look empty: no fillers / Braille blank / line separators / invisible
+-- marks, no stacked accents, at least one visible character (the set of valid_dm_body), and no
+-- space of any kind at either end (btrim() only trims ASCII spaces: "　　" passed the first
+-- migration). On top of valid_display_name() of the first migration. src/online/clanRules.js
+-- validateName() mirrors it.
 create or replace function public.visible_name(p text) returns boolean
 language sql immutable as $$
   select p is not null
-    and p !~ '[\u115f\u1160\u2028\u2029\u2800\u3164\uffa0]'
+    and p !~ '[\u034f\u115f\u1160\u17b4\u17b5\u2028\u2029\u2800\u3164\uffa0\U0001d159]'
     and p !~ '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]{5,}'
+    and p ~ '[^\u0009-\u000d\u0020\u0085\u00a0\u0300-\u036f\u1680\u180b-\u180f\u1ab0-\u1aff\u1dc0-\u1dff\u2000-\u200f\u2028\u2029\u202f\u205f\u20d0-\u20ff\u3000\ufe00-\ufe0f\ufe20-\ufe2f\U000e0100-\U000e01ef]'
+    and p !~ '^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]'
+    and p !~ '[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]$'
 $$;
+
+-- What a name is compared by for the reserved list: compatibility-decomposed (fullwidth → ASCII,
+-- accents split off), common Cyrillic / Greek / Latin look-alikes mapped to Latin (both cases
+-- listed: lower() follows the database locale), then only a–z and 0–9 kept. 'Ѕystem' (Cyrillic
+-- Ѕ), 'Ｓｙｓｔｅｍ', 'Sýstem', 'Supply Bоt' (Cyrillic о), 'Αdmin' (Greek Α) all give their plain
+-- spelling. src/online/textRules.js nameKey() uses the same table (LOOKALIKE_FROM / _TO).
+create or replace function public.name_key(p text) returns text
+language sql immutable as $$
+  select regexp_replace(lower(translate(normalize(coalesce(p, ''), NFKD),
+    'АВСЕНІЈКМОРЅТХУҮҺԀԚԜӀѴавсеніјкморѕтхуүһԁԛԝӏѵΑΒΕΖΗΙΚΜΝΟΡΤΥΧαβεζηικμνορτυχϳıɑɡɩ',
+    'abcehijkmopstxyyhdqwlvabcehijkmopstxyyhdqwlvabezhikmnoptyxabezhikmnoptyxjiagi')), '[^a-z0-9]', '', 'g')
+$$;
+
+-- Names nobody may take, look-alikes included (src/online/clanRules.js RESERVED_NAMES).
+create or replace function public.reserved_name(p text) returns boolean
+language sql immutable as $$
+  select name_key(p) = any (array['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'])
+$$;
+
+-- A name the social features accept from a sender (DMs, invites, friend requests). A name from
+-- before this file that fails it keeps working in chat, clans and co-op.
+create or replace function public.social_name_ok(p text) returns boolean
+language sql immutable as $$
+  select coalesce(valid_display_name(p) and visible_name(p) and not reserved_name(p), false)
+$$;
+
+-- (an earlier draft of this file checked names with a NOT VALID constraint: that still runs on
+-- every UPDATE of an old row and locked such players out. The trigger in section 6 replaces it.)
 alter table public.profiles drop constraint if exists profiles_name_visible;
-alter table public.profiles add constraint profiles_name_visible check (public.visible_name(name)) not valid;
 
 -- =============================================================================================
 -- 2. Tables
@@ -132,7 +185,9 @@ create unique index if not exists friend_codes_code on public.friend_codes (code
 
 -- status: pending (the recipient sees it) · declined (a 30-day tombstone: repeats are swallowed)
 -- · shadow (swallowed at once: blocked pair or a "Nobody" recipient; the sender still sees
--- "Requested", so neither a block nor a setting can be told apart)
+-- "Requested", so neither a block nor a setting can be told apart) · cancelled (the sender took
+-- it back: asking again within a day is swallowed, so request → cancel → request cannot ping the
+-- recipient over and over)
 create table if not exists public.friend_requests (
   id bigint generated always as identity primary key,
   from_id uuid not null references public.profiles (id) on delete cascade,
@@ -141,13 +196,15 @@ create table if not exists public.friend_requests (
   from_level int not null default 1,
   from_avatar text,
   via text not null default 'clan' check (via in ('clan', 'coop', 'code')),
-  status text not null default 'pending' check (status in ('pending', 'declined', 'shadow')),
+  status text not null default 'pending',
   sender_hidden boolean not null default false,
   created_at timestamptz not null default now(),
   unique (from_id, to_id),
   check (from_id <> to_id)
 );
 create index if not exists friend_requests_to on public.friend_requests (to_id, status);
+alter table public.friend_requests drop constraint if exists friend_requests_status_check;
+alter table public.friend_requests add constraint friend_requests_status_check check (status in ('pending', 'declined', 'shadow', 'cancelled'));
 
 -- two rows per friendship
 create table if not exists public.friends (
@@ -230,7 +287,11 @@ create table if not exists public.reports (
   context text not null default 'profile' check (context in ('dm', 'global', 'clan', 'profile', 'coop')),
   message_id bigint,
   evidence jsonb,
+  -- backed by contact: the target DMed / invited / friend-requested the reporter in the last 7
+  -- days (recomputed on every repeat). qualified_at: when a report last counted toward an
+  -- auto-mute (a repeat counts again only after NEW contact).
   qualified boolean not null default false,
+  qualified_at timestamptz,
   status text not null default 'open' check (status in ('open', 'reviewed', 'actioned')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -238,6 +299,7 @@ create table if not exists public.reports (
 -- one open report per reporter and target (a repeat updates it)
 create unique index if not exists reports_open_pair on public.reports (reporter_id, target_id) where status = 'open';
 create index if not exists reports_target on public.reports (target_id, created_at desc);
+alter table public.reports add column if not exists qualified_at timestamptz;
 
 -- created_by 'owner' (SQL editor; also mutes chat) or 'auto' (3 qualified reporters; DMs,
 -- invites and friend requests only)
@@ -381,25 +443,25 @@ end $$;
 -- =============================================================================================
 
 create or replace function public.social_me() returns uuid
-language plpgsql stable security invoker set search_path = public as $$
+language plpgsql stable security invoker set search_path = public, pg_temp as $$
 begin
   if auth.uid() is null then raise exception 'forbidden: sign in first'; end if;
   return auth.uid();
 end $$;
 
 create or replace function public.social_is_blocked(a uuid, b uuid) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select exists (select 1 from blocks where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a))
 $$;
 
 create or replace function public.social_are_friends(a uuid, b uuid) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select exists (select 1 from friends where user_id = a and friend_id = b)
 $$;
 
 -- same non-developer clan, both members for at least p_hours
 create or replace function public.social_clanmates(a uuid, b uuid, p_hours int) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select coalesce(a <> b, false) and exists (
     select 1 from clan_members ma
     join clan_members mb on mb.clan_id = ma.clan_id
@@ -411,13 +473,13 @@ $$;
 
 -- no settings row = the default (never "open")
 create or replace function public.social_privacy(u uuid) returns text
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select coalesce((select dm_privacy from social_settings where user_id = u), 'friends_clan')
 $$;
 
 -- does p_owner's setting let p_other contact them?
 create or replace function public.social_dm_allows(p_owner uuid, p_other uuid) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select coalesce(case social_privacy(p_owner)
     when 'nobody' then false
     when 'friends' then social_are_friends(p_owner, p_other)
@@ -425,19 +487,22 @@ language sql stable security invoker set search_path = public as $$
 $$;
 
 create or replace function public.social_muted(u uuid) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select exists (select 1 from social_mutes where user_id = u and until > now())
 $$;
 
 -- Why p_a cannot message p_b, or null. My own side is decided first; their setting and their
--- block are deliberately the same answer ('not_allowed').
+-- block are deliberately the same answer ('not_allowed'). 'stranger': neither friends nor in the
+-- same clan — no setting allows that, whatever either side chose (and it says nothing about the
+-- other side either).
 create or replace function public.social_dm_why(p_a uuid, p_b uuid) returns text
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select case
     when p_a is null or p_b is null then 'not_allowed'
     when p_a = p_b then 'self'
     when exists (select 1 from blocks where blocker_id = p_a and blocked_id = p_b) then 'blocked_by_me'
     when social_muted(p_a) then 'muted'
+    when not social_are_friends(p_a, p_b) and not social_clanmates(p_a, p_b, 0) then 'stranger'
     -- clanmates who have not both been in the clan for 3 days yet (both can see the join dates)
     when not social_dm_allows(p_a, p_b) and social_privacy(p_a) = 'friends_clan' and social_clanmates(p_a, p_b, 0) then 'clan_new'
     when not social_dm_allows(p_a, p_b) then 'my_setting'
@@ -446,23 +511,24 @@ language sql stable security invoker set search_path = public as $$
 $$;
 
 create or replace function public.social_why_text(p_why text) returns text
-language sql immutable security invoker set search_path = public as $$
+language sql immutable security invoker set search_path = public, pg_temp as $$
   select case p_why
     when 'self' then 'that is you'
     when 'blocked_by_me' then 'you blocked them'
     when 'muted' then 'you can''t send messages right now'
     when 'my_setting' then 'your "Who can message me" setting doesn''t include them'
+    when 'stranger' then 'only friends and clanmates can message each other — add them as a friend first'
     when 'clan_new' then 'clanmates can message each other after 3 days together in the clan'
     else 'they can''t get messages from you yet' end
 $$;
 
 create or replace function public.social_friend_count(u uuid) returns int
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select count(*)::int from friends where user_id = u
 $$;
 
 create or replace function public.social_friend_state(p_me uuid, p_other uuid) returns text
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select case
     when social_are_friends(p_me, p_other) then 'friends'
     when exists (select 1 from friend_requests where from_id = p_other and to_id = p_me and status = 'pending') then 'incoming'
@@ -473,7 +539,7 @@ $$;
 -- A shared context that allows a friend request: 'clan' (same non-developer clan), 'coop' (a
 -- co-op game in the last 7 days), or null (strangers need the friend code).
 create or replace function public.social_friend_context(p_me uuid, p_other uuid) returns text
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select case
     when social_clanmates(p_me, p_other, 0) then 'clan'
     when exists (select 1 from coop_partners where user_id = p_me and partner_id = p_other and last_at > now() - interval '7 days') then 'coop'
@@ -481,8 +547,11 @@ language sql stable security invoker set search_path = public as $$
 $$;
 
 create or replace function public.social_befriend(a uuid, b uuid) returns void
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security invoker set search_path = public, pg_temp as $$
 begin
+  -- both friend lists, locked in a fixed order (no deadlock): ten accepts at once still stop at 50
+  perform pg_advisory_xact_lock(hashtext('friends:' || least(a, b)::text));
+  perform pg_advisory_xact_lock(hashtext('friends:' || greatest(a, b)::text));
   if social_friend_count(a) >= 50 or social_friend_count(b) >= 50 then
     raise exception 'invalid: one of you already has 50 friends';
   end if;
@@ -493,13 +562,17 @@ end $$;
 -- The core of a friend request (send_friend_request / add_friend_by_code). Returns the state the
 -- sender sees: 'friends' or 'requested' (also when the request was swallowed).
 create or replace function public.social_request_friend(p_me uuid, p_to uuid, p_via text) returns text
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
   v_me profiles%rowtype;
   fr friend_requests%rowtype;
   v_shadow boolean;
   v_weight int;
 begin
+  -- one request at a time per player (both, in a fixed order: no deadlock), so the recipient's
+  -- daily cap and pending queue hold when many players ask at the same moment
+  perform pg_advisory_xact_lock(hashtext('friendreq:' || least(p_me, p_to)::text));
+  perform pg_advisory_xact_lock(hashtext('friendreq:' || greatest(p_me, p_to)::text));
   select * into v_me from profiles where id = p_me;
   if social_are_friends(p_me, p_to) then return 'friends'; end if;
   -- they asked me already: both become friends at once
@@ -508,9 +581,12 @@ begin
     perform social_befriend(p_me, p_to);
     return 'friends';
   end if;
-  -- asked before (pending, swallowed or declined): nothing new, never a second notification
+  -- asked before (pending, swallowed, declined, or cancelled less than a day ago): nothing new,
+  -- never a second notification. A request cancelled a day ago or more may go out again.
   select * into fr from friend_requests where from_id = p_me and to_id = p_to for update;
-  if found then
+  if found and fr.status = 'cancelled' and fr.created_at <= now() - interval '1 day' then
+    delete from friend_requests where id = fr.id;
+  elsif found then
     update friend_requests set sender_hidden = false where id = fr.id;
     return 'requested';
   end if;
@@ -537,7 +613,7 @@ end $$;
 
 -- Find or create the conversation of two players. A new one counts against 'dm_new'.
 create or replace function public.social_thread_for(a uuid, b uuid) returns uuid
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
   v_lo uuid := least(a, b);
   v_hi uuid := greatest(a, b);
@@ -556,7 +632,7 @@ end $$;
 -- must still belong to the sender (a reused code of another host reads 'closed'); its secret is
 -- never exposed.
 create or replace function public.social_invite_state(m public.direct_messages, p_viewer uuid) returns text
-language plpgsql stable security invoker set search_path = public as $$
+language plpgsql stable security invoker set search_path = public, pg_temp as $$
 declare
   r coop_rooms%rowtype;
   v_exp bigint;
@@ -571,7 +647,7 @@ begin
 end $$;
 
 create or replace function public.social_dm_json(m public.direct_messages, p_viewer uuid) returns jsonb
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select jsonb_build_object(
     'id', m.id, 'threadId', m.thread_id, 'senderId', m.sender_id, 'recipientId', m.recipient_id,
     'name', m.name, 'level', m.level, 'avatar', m.avatar, 'body', m.body, 'kind', m.kind, 'meta', m.meta,
@@ -580,7 +656,7 @@ language sql stable security invoker set search_path = public as $$
 $$;
 
 create or replace function public.social_housekeeping() returns void
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security invoker set search_path = public, pg_temp as $$
 begin
   delete from direct_messages where created_at < now() - interval '14 days';
   delete from dm_threads t where t.last_at < now() - interval '14 days'
@@ -589,23 +665,22 @@ begin
   delete from coop_partners where last_at < now() - interval '7 days';
   delete from donations where (claim_key is null and created_at < now() - interval '7 days') or claimed_at < now() - interval '30 days';
   delete from donation_requests where created_at < now() - interval '14 days';
-  delete from donation_keys where created_at < now() - interval '90 days';
+  -- a voided key only has to outlive a late donate() of the same game day; applied ones answer
+  -- replays and settle_donations() for as long as a client may still ask (ESCROW_GIVE_UP_DAYS)
+  delete from donation_keys where (state = 'voided' and created_at < now() - interval '2 days') or created_at < now() - interval '90 days';
   delete from social_mutes where created_by = 'auto' and until < now() - interval '30 days';
   delete from dev_lab_visits where left_at < now() - interval '7 days';
 end $$;
 
--- After a DM / invite: the conversation's last message, my read marker, the per-conversation
--- trim (newest 200), my last_active, and sometimes housekeeping.
+-- After a DM / invite: the conversation's last message, my read marker, my last_active, and
+-- sometimes housekeeping. No per-conversation trim: flooding a conversation must never push an
+-- abusive message out of what a report can show (14 days × 300 DMs a day bound the storage).
 create or replace function public.social_after_dm(m public.direct_messages) returns void
-language plpgsql security invoker set search_path = public as $$
-declare
-  v_cut bigint;
+language plpgsql security invoker set search_path = public, pg_temp as $$
 begin
   update dm_threads set last_message_id = m.id, last_at = m.created_at where id = m.thread_id;
   insert into dm_state (thread_id, user_id, last_read_id) values (m.thread_id, m.sender_id, m.id)
     on conflict (thread_id, user_id) do update set last_read_id = greatest(dm_state.last_read_id, excluded.last_read_id);
-  select id into v_cut from direct_messages where thread_id = m.thread_id order by id desc offset 199 limit 1;
-  if v_cut is not null then delete from direct_messages where thread_id = m.thread_id and id < v_cut; end if;
   update profiles set last_active = now() where id = m.sender_id;
   if random() < 0.01 then perform social_housekeeping(); end if;
 end $$;
@@ -614,7 +689,7 @@ end $$;
 -- the last DMs between the two (whatever the reporter cleared), the target's name and level.
 -- At most 8 KB. Never the client's text.
 create or replace function public.social_report_evidence(p_reporter uuid, p_target uuid, p_context text, p_message bigint) returns jsonb
-language plpgsql stable security invoker set search_path = public as $$
+language plpgsql stable security invoker set search_path = public, pg_temp as $$
 declare
   p profiles%rowtype;
   v_msg jsonb;
@@ -646,31 +721,32 @@ begin
   return v;
 end $$;
 
--- A report only counts toward an auto-mute when the reporter's account is ≥ 7 days old and they
--- really met the target: a DM from them in the last 7 days, the same clan for a day, or a chat
--- message of theirs from the last 24 h that the reporter could see.
-create or replace function public.social_qualified_reporter(p_reporter uuid, p_target uuid, p_context text, p_message bigint) returns boolean
-language sql stable security invoker set search_path = public as $$
+-- A report is backed by contact when the reporter's account is ≥ 7 days old and the target
+-- reached them through what an auto-mute silences — a DM, a co-op invite or a friend request —
+-- in the last 7 days and after p_since (the reporter's previous counted report: a repeat needs
+-- new contact). Chat is no path: one public chat line is not contact, and only the owner mutes
+-- chat. (A shadow request never reached the reporter; declined / cancelled ones did.)
+drop function if exists public.social_qualified_reporter(uuid, uuid, text, bigint);
+create or replace function public.social_qualified_reporter(p_reporter uuid, p_target uuid, p_since timestamptz) returns boolean
+language sql stable security invoker set search_path = public, pg_temp as $$
   select coalesce((select created_at <= now() - interval '7 days' from profiles where id = p_reporter), false)
     and (
-      exists (select 1 from direct_messages where sender_id = p_target and recipient_id = p_reporter and created_at > now() - interval '7 days')
-      or social_clanmates(p_reporter, p_target, 24)
-      or (p_message is not null and p_context in ('global', 'clan') and exists (
-        select 1 from messages m where m.id = p_message and m.user_id = p_target and m.created_at > now() - interval '24 hours'
-          and (m.channel = 'global' or m.channel = 'clan:' || coalesce((select clan_id::text from clan_members where user_id = p_reporter), '-'))))
-    )
+      exists (select 1 from direct_messages where sender_id = p_target and recipient_id = p_reporter
+        and created_at > greatest(now() - interval '7 days', coalesce(p_since, '-infinity'::timestamptz)))
+      or exists (select 1 from friend_requests where from_id = p_target and to_id = p_reporter and status in ('pending', 'declined', 'cancelled')
+        and created_at > greatest(now() - interval '7 days', coalesce(p_since, '-infinity'::timestamptz))))
 $$;
 
--- 3 different qualified reporters within 24 h → no DMs, DM invites or friend requests for 24 h.
--- An owner mute is never touched.
+-- 3 different reporters whose report counted (qualified_at) within 24 h → no DMs, DM invites or
+-- friend requests for 24 h. An owner mute is never touched.
 create or replace function public.social_maybe_auto_mute(p_target uuid) returns void
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
   v_n int;
   mu social_mutes%rowtype;
 begin
   select count(distinct reporter_id) into v_n from reports
-    where target_id = p_target and qualified and status = 'open' and updated_at > now() - interval '24 hours';
+    where target_id = p_target and status = 'open' and qualified_at > now() - interval '24 hours';
   if v_n < 3 then return; end if;
   select * into mu from social_mutes where user_id = p_target;
   if found and mu.until > now() and (mu.created_by = 'owner' or mu.until >= now() + interval '23 hours') then return; end if;
@@ -679,18 +755,20 @@ begin
 end $$;
 
 create or replace function public.social_clan_established(p_clan uuid) returns boolean
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select coalesce((select c.created_at <= now() - interval '14 days' from clans c where c.id = p_clan), false)
     and (select count(*) from clan_members where clan_id = p_clan and joined_at <= now() - interval '72 hours') >= 5
 $$;
 
 create or replace function public.social_request_json(r public.donation_requests, p_viewer uuid) returns jsonb
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, pg_temp as $$
   select jsonb_build_object(
     'id', r.id, 'clanId', r.clan_id, 'userId', r.user_id, 'name', r.user_name, 'avatar', r.user_avatar,
     'item', r.item, 'wanted', r.wanted, 'received', r.received, 'status', r.status, 'gameDay', r.game_day,
     'createdAt', r.created_at,
-    'open', r.status = 'open' and r.game_day = game_day_key(now()),
+    -- a requester who blocked the viewer: closed for them (donate() says the same)
+    'open', r.status = 'open' and r.game_day = game_day_key(now())
+      and not exists (select 1 from blocks b where b.blocker_id = r.user_id and b.blocked_id = p_viewer),
     'perDonor', d.per_donor, 'points', d.points,
     'myGiven', coalesce((select sum(count) from donations x where x.request_id = r.id and x.donor_id = p_viewer), 0),
     'donors', coalesce((select jsonb_agg(n order by first_id) from (
@@ -708,7 +786,7 @@ language sql immutable as $$ select 1 $$;
 
 -- Badge counts for the lobby, the Menu and the clan tile.
 create or replace function public.social_summary() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -725,7 +803,7 @@ end $$;
 -- The card behind a tapped name. Nothing about the other player's settings or blocks leaks:
 -- `why` is one of self / blocked_by_me / muted / my_setting / clan_new / name / not_allowed.
 create or replace function public.player_card(p_user uuid) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   p profiles%rowtype;
@@ -744,7 +822,7 @@ begin
     where m.user_id = p_user and (not c2.is_dev or c2.id = public.my_clan());
   v_mate := social_clanmates(v_me, p_user, 0);
   v_why := social_dm_why(v_me, p_user);
-  if v_why is null and not (select valid_display_name(name) and visible_name(name) from profiles where id = v_me) then v_why := 'name'; end if;
+  if v_why is null and not (select social_name_ok(name) from profiles where id = v_me) then v_why := 'name'; end if;
   v_state := social_friend_state(v_me, p_user);
   v_ctx := social_friend_context(v_me, p_user);
   v_fwhy := case
@@ -752,6 +830,7 @@ begin
     when exists (select 1 from blocks where blocker_id = v_me and blocked_id = p_user) then 'blocked_by_me'
     when social_muted(v_me) then 'muted'
     when v_state <> 'none' then null
+    when not (select social_name_ok(name) from profiles where id = v_me) then 'name'
     when v_ctx is null then 'context'
     when social_friend_count(v_me) >= 50 then 'full'
     else null end;
@@ -768,12 +847,14 @@ begin
       when 'requested' then (select id from friend_requests where from_id = v_me and to_id = p_user) end,
     'blockedByMe', exists (select 1 from blocks where blocker_id = v_me and blocked_id = p_user),
     'canMessage', v_why is null, 'why', v_why,
+    -- my own setting (the card explains 'my_setting' with it); never the other player's
+    'myPrivacy', social_privacy(v_me),
     'canFriend', v_state = 'none' and v_fwhy is null, 'friendWhy', v_fwhy,
     'threadId', (select id from dm_threads where user_lo = least(v_me, p_user) and user_hi = greatest(v_me, p_user)));
 end $$;
 
 create or replace function public.set_dm_privacy(p_value text) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -789,7 +870,7 @@ end $$;
 
 -- My own friend code (8 characters of the 32-letter alphabet, 40 bits), created on first use.
 create or replace function public.my_friend_code() returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_code text;
@@ -807,7 +888,7 @@ begin
 end $$;
 
 create or replace function public.reset_friend_code() returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -817,7 +898,7 @@ begin
 end $$;
 
 create or replace function public.send_friend_request(p_user uuid) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_ctx text;
@@ -825,7 +906,7 @@ begin
   if p_user is null or p_user = v_me then raise exception 'invalid: that is you'; end if;
   if not exists (select 1 from profiles where id = p_user) then raise exception 'not_found: that player is gone'; end if;
   if social_muted(v_me) then raise exception 'forbidden: you can''t send friend requests right now'; end if;
-  if not (select valid_display_name(name) and visible_name(name) from profiles where id = v_me) then raise exception 'invalid: change your online name first'; end if;
+  if not (select social_name_ok(name) from profiles where id = v_me) then raise exception 'invalid: change your online name first'; end if;
   if exists (select 1 from blocks where blocker_id = v_me and blocked_id = p_user) then raise exception 'invalid: unblock them first'; end if;
   perform enforce_rate('friend', 0, 10, interval '1 hour');
   if social_are_friends(v_me, p_user) then return json_build_object('state', 'friends'); end if;
@@ -836,10 +917,12 @@ begin
   return json_build_object('state', social_request_friend(v_me, p_user, coalesce(v_ctx, 'clan')));
 end $$;
 
--- Returns {name, level, avatar, state} (no account id until they accept) or {error}. Every try
--- counts BEFORE the lookup and a miss is returned (not raised), so the counted try commits.
+-- Returns {name, level, avatar, state} or {error}. (No account id in the answer — though a code
+-- is no secret identity: profiles rows are readable, so name + level + avatar can point to the
+-- account. The code only decides who may ASK.) Every try counts BEFORE the lookup and a miss is
+-- returned (not raised), so the counted try commits.
 create or replace function public.add_friend_by_code(p_code text) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_code text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
@@ -848,7 +931,7 @@ declare
   v_state text;
 begin
   if social_muted(v_me) then raise exception 'forbidden: you can''t send friend requests right now'; end if;
-  if not (select valid_display_name(name) and visible_name(name) from profiles where id = v_me) then raise exception 'invalid: change your online name first'; end if;
+  if not (select social_name_ok(name) from profiles where id = v_me) then raise exception 'invalid: change your online name first'; end if;
   perform enforce_rate('friend', 0, 10, interval '1 hour');
   select user_id into v_to from friend_codes where code = v_code;
   if not found then return json_build_object('error', 'not_found'); end if;
@@ -860,7 +943,7 @@ begin
 end $$;
 
 create or replace function public.answer_friend_request(p_id bigint, p_accept boolean) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   fr friend_requests%rowtype;
@@ -876,19 +959,24 @@ begin
 end $$;
 
 create or replace function public.cancel_friend_request(p_id bigint) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   fr friend_requests%rowtype;
 begin
   select * into fr from friend_requests where id = p_id and from_id = v_me for update;
   if not found then raise exception 'not_found: that request is gone'; end if;
-  if fr.status = 'declined' then update friend_requests set sender_hidden = true where id = fr.id; -- the tombstone stays
-  else delete from friend_requests where id = fr.id; end if;
+  -- the row stays as a tombstone (the recipient no longer sees it): asking again within a day is
+  -- swallowed, so request → cancel → request cannot notify them again and again
+  if fr.status = 'pending' then
+    update friend_requests set status = 'cancelled', sender_hidden = true, created_at = now() where id = fr.id;
+  else
+    update friend_requests set sender_hidden = true where id = fr.id; -- declined / swallowed / cancelled stay as they are
+  end if;
 end $$;
 
 create or replace function public.remove_friend(p_user uuid) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -896,7 +984,7 @@ begin
 end $$;
 
 create or replace function public.list_friends() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -909,7 +997,7 @@ end $$;
 -- The co-op room lobby's "Invite a friend" list: my friends and my clanmates (never the
 -- developer clan's), online first, each with whether a DM invite can reach them. Nobody I blocked.
 create or replace function public.invite_candidates() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -930,7 +1018,7 @@ end $$;
 -- incoming: who asked me (with the name stamped when they asked); outgoing: without the
 -- recipients' account ids (swallowed and declined ones look like pending ones)
 create or replace function public.list_friend_requests() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -944,7 +1032,7 @@ begin
 end $$;
 
 create or replace function public.block_player(p_user uuid) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -957,11 +1045,16 @@ begin
   end if;
   insert into blocks (blocker_id, blocked_id) values (v_me, p_user) on conflict do nothing;
   delete from friends where (user_id = v_me and friend_id = p_user) or (user_id = p_user and friend_id = v_me);
-  delete from friend_requests where (from_id = v_me and to_id = p_user) or (from_id = p_user and to_id = v_me);
+  -- their requests to me go; my pending request to them is withdrawn as a tombstone. Every
+  -- tombstone stays (declined / cancelled / swallowed): a block + unblock must never reset the
+  -- other player's "30 days quiet" after they declined me
+  delete from friend_requests where from_id = p_user and to_id = v_me and status in ('pending', 'shadow');
+  update friend_requests set status = 'cancelled', sender_hidden = true, created_at = now()
+    where from_id = v_me and to_id = p_user and status = 'pending';
 end $$;
 
 create or replace function public.unblock_player(p_user uuid) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -971,7 +1064,7 @@ begin
 end $$;
 
 create or replace function public.list_blocked() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -981,7 +1074,7 @@ begin
 end $$;
 
 create or replace function public.send_dm(p_to uuid, p_body text) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   me profiles%rowtype;
@@ -996,7 +1089,7 @@ begin
   if not valid_dm_body(v_body) then raise exception 'invalid: messages can''t contain invisible characters'; end if;
   v_why := social_dm_why(v_me, p_to);
   if v_why is not null then raise exception 'forbidden: %', social_why_text(v_why); end if;
-  if not (valid_display_name(me.name) and visible_name(me.name)) then raise exception 'invalid: change your online name first'; end if;
+  if not social_name_ok(me.name) then raise exception 'invalid: change your online name first'; end if;
   perform enforce_rate('dm', 2000, 20, interval '1 minute');
   perform enforce_rate('dm_day', 0, 300, interval '1 day');
   insert into direct_messages (thread_id, sender_id, recipient_id, name, level, avatar, body, kind)
@@ -1009,7 +1102,7 @@ end $$;
 -- A co-op invite by DM: only the host of an open room with a free seat; the server writes the
 -- text and the expiry (now + 15 min); one live invite per pair (a new one expires the last).
 create or replace function public.send_coop_invite(p_to uuid, p_room text, p_stage text, p_difficulty text) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   me profiles%rowtype;
@@ -1024,7 +1117,7 @@ begin
   if not exists (select 1 from profiles where id = p_to) then raise exception 'not_found: that player is gone'; end if;
   v_why := social_dm_why(v_me, p_to);
   if v_why is not null then raise exception 'forbidden: %', social_why_text(v_why); end if;
-  if not (valid_display_name(me.name) and visible_name(me.name)) then raise exception 'invalid: change your online name first'; end if;
+  if not social_name_ok(me.name) then raise exception 'invalid: change your online name first'; end if;
   if coalesce(p_stage, '') !~ '^[0-9]{1,2}-[0-9]{1,2}$' then raise exception 'invalid: pick a campaign stage'; end if;
   if coalesce(p_difficulty, '') not in ('easy', 'normal', 'hard', 'nightmare') then raise exception 'invalid: unknown difficulty'; end if;
   select * into r from coop_rooms where code = upper(trim(coalesce(p_room, ''))) and host_id = v_me and created_at > now() - interval '1 day';
@@ -1053,7 +1146,7 @@ end $$;
 -- My conversations, newest first: peer, last message, unread count, whether I may write.
 -- Conversations I cleared (no newer message) and peers I blocked are hidden.
 create or replace function public.dm_inbox(p_limit int) returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_threads json;
@@ -1085,7 +1178,7 @@ end $$;
 
 -- One page of a conversation, newest first (p_before = the oldest id already shown).
 create or replace function public.dm_history(p_thread uuid, p_before bigint, p_limit int) returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   th dm_threads%rowtype;
@@ -1107,15 +1200,15 @@ begin
       order by id desc limit v_lim);
   select * into p from profiles where id = v_peer;
   v_why := social_dm_why(v_me, v_peer);
-  if v_why is null and not (select valid_display_name(name) and visible_name(name) from profiles where id = v_me) then v_why := 'name'; end if;
+  if v_why is null and not (select social_name_ok(name) from profiles where id = v_me) then v_why := 'name'; end if;
   return json_build_object('threadId', th.id,
     'peer', json_build_object('userId', p.id, 'name', p.name, 'level', p.level, 'avatar', p.avatar),
-    'canMessage', v_why is null, 'why', v_why, 'messages', v_list,
+    'canMessage', v_why is null, 'why', v_why, 'myPrivacy', social_privacy(v_me), 'friend', social_are_friends(v_me, v_peer), 'messages', v_list,
     'hasMore', v_min is not null and exists (select 1 from direct_messages where thread_id = th.id and id > v_cleared and id < v_min));
 end $$;
 
 create or replace function public.dm_mark_read(p_thread uuid, p_last bigint) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   th dm_threads%rowtype;
@@ -1128,7 +1221,7 @@ end $$;
 
 -- "Clear chat": hides the history for me only; the other side keeps theirs (reports still see it).
 create or replace function public.dm_clear(p_thread uuid) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   th dm_threads%rowtype;
@@ -1141,7 +1234,7 @@ begin
 end $$;
 
 create or replace function public.invite_state(p_message bigint) returns text
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   m direct_messages%rowtype;
@@ -1151,13 +1244,32 @@ begin
   return coalesce(social_invite_state(m, v_me), 'closed');
 end $$;
 
+-- The host left the room lobby: their DM invites into that room expire now, so the invited player
+-- sees "Expired" instead of joining an empty room and waiting. Returns how many expired.
+create or replace function public.expire_coop_invites(p_room text) returns int
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_me uuid := social_me();
+  v_now bigint := (extract(epoch from now()) * 1000)::bigint;
+  v_n int;
+begin
+  update direct_messages set meta = jsonb_set(meta, '{expires}', to_jsonb(v_now - 1))
+    where sender_id = v_me and kind = 'invite' and created_at > now() - interval '20 minutes'
+      and meta ->> 'room' = upper(trim(coalesce(p_room, ''))) and (meta ->> 'expires')::bigint > v_now;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+
 create or replace function public.report_player(p_target uuid, p_reason text, p_note text, p_context text, p_message bigint) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   p profiles%rowtype;
   v_note text := btrim(coalesce(p_note, ''));
   v_ctx text := coalesce(p_context, 'profile');
+  v_prev timestamptz;
+  v_recent boolean;
+  v_new boolean;
 begin
   if p_target is null or p_target = v_me then raise exception 'invalid: you can''t report yourself'; end if;
   select * into p from profiles where id = p_target;
@@ -1166,12 +1278,18 @@ begin
   if v_ctx not in ('dm', 'global', 'clan', 'profile', 'coop') then raise exception 'invalid: unknown place'; end if;
   if char_length(v_note) > 200 or (v_note <> '' and not valid_dm_body(v_note)) then raise exception 'invalid: notes are up to 200 visible characters'; end if;
   perform enforce_rate('report', 10000, 10, interval '1 day');
-  insert into reports (reporter_id, target_id, reporter_name, target_name, reason, note, context, message_id, evidence, qualified)
+  -- backed by contact in the last 7 days (recomputed every time) · counts toward an auto-mute
+  -- again only with contact after my previous counted report
+  select qualified_at into v_prev from reports where reporter_id = v_me and target_id = p_target and status = 'open';
+  v_recent := social_qualified_reporter(v_me, p_target, null);
+  v_new := v_recent and (v_prev is null or social_qualified_reporter(v_me, p_target, v_prev));
+  insert into reports (reporter_id, target_id, reporter_name, target_name, reason, note, context, message_id, evidence, qualified, qualified_at)
     values (v_me, p_target, coalesce((select name from profiles where id = v_me), ''), p.name, p_reason, v_note, v_ctx, p_message,
-      social_report_evidence(v_me, p_target, v_ctx, p_message), social_qualified_reporter(v_me, p_target, v_ctx, p_message))
+      social_report_evidence(v_me, p_target, v_ctx, p_message), v_recent, case when v_new then now() else v_prev end)
     on conflict (reporter_id, target_id) where status = 'open' do update set
       reason = excluded.reason, note = excluded.note, context = excluded.context, message_id = excluded.message_id,
-      evidence = excluded.evidence, target_name = excluded.target_name, qualified = reports.qualified or excluded.qualified, updated_at = now();
+      evidence = excluded.evidence, target_name = excluded.target_name, qualified = excluded.qualified,
+      qualified_at = excluded.qualified_at, updated_at = now();
   perform social_maybe_auto_mute(p_target);
 end $$;
 
@@ -1179,7 +1297,7 @@ end $$;
 
 -- Everything the Clan → Requests tab shows, on the server's clock (today, next reset, now).
 create or replace function public.donation_state() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_day text := game_day_key(now());
@@ -1228,7 +1346,9 @@ begin
       select coalesce(jsonb_agg(social_request_json(r, v_me) order by r.created_at), '[]'::jsonb) from donation_requests r
       where r.clan_id = c.id and r.game_day = v_day and r.status = 'open' and r.user_id <> v_me
         and exists (select 1 from clan_members cm where cm.user_id = r.user_id and cm.clan_id = c.id)
-        and not social_is_blocked(v_me, r.user_id)) else '[]'::jsonb end,
+        -- only players I blocked are hidden (one who blocked me shows, closed: hiding it would
+        -- tell them, since clanmates see it and the clan chat announced it)
+        and not exists (select 1 from blocks b where b.blocker_id = v_me and b.blocked_id = r.user_id)) else '[]'::jsonb end,
     'collectable', (select coalesce(json_agg(json_build_object('item', x.item, 'count', x.n) order by x.item), '[]'::json) from (
       select item, sum(count)::int as n from donations where requester_id = v_me and claim_key is null and created_at > now() - interval '7 days' group by item) x));
 end $$;
@@ -1236,7 +1356,7 @@ end $$;
 -- Ask my clan for one material, once per game day (across clans; cancelling does not give the
 -- slot back). Errors: daily_limit:<ms to 7 PM Central> when today's request is used.
 create or replace function public.request_materials(p_item text) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_day text := game_day_key(now());
@@ -1275,7 +1395,7 @@ begin
 end $$;
 
 create or replace function public.cancel_material_request() returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
 begin
@@ -1288,7 +1408,7 @@ end $$;
 -- taken FIRST, then the key's tombstone decides (applied → the same answer again, voided →
 -- nothing). Every refusal is a 'code: detail' (definitive: the client refunds at once).
 create or replace function public.donate(p_request uuid, p_count int, p_key uuid) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_day text := game_day_key(now());
@@ -1322,11 +1442,12 @@ begin
   select * into m from clan_members where user_id = v_me;
   if not found or r.clan_id is null or m.clan_id <> r.clan_id then raise exception 'not_member: that request is from another clan'; end if;
   if r.status = 'filled' then raise exception 'invalid: that request is already filled'; end if;
+  -- a block (either way) reads exactly like a closed request: the blocked player is never told
   if r.status <> 'open' or r.game_day <> v_day
-     or not exists (select 1 from clan_members where user_id = r.user_id and clan_id = r.clan_id) then
+     or not exists (select 1 from clan_members where user_id = r.user_id and clan_id = r.clan_id)
+     or social_is_blocked(v_me, r.user_id) then
     raise exception 'invalid: that request is closed';
   end if;
-  if social_is_blocked(v_me, r.user_id) then raise exception 'forbidden: you can''t donate to this request'; end if;
   select * into me from profiles where id = v_me;
   if m.joined_at > now() - interval '72 hours' then raise exception 'forbidden: you can donate after 3 days in the clan'; end if;
   if coalesce(me.created_at > now() - interval '7 days', true) then raise exception 'forbidden: new online accounts can donate after 7 days'; end if;
@@ -1377,16 +1498,27 @@ end $$;
 -- Recovery for donations whose answer was lost: for each key, 'applied' (with what it did) or
 -- 'voided'. A key the server never applied is voided HERE, under the same lock as donate(), so
 -- a late donate() with it can never land afterwards: the client refunds only after this answer.
+-- Bounded (nobody can fill the database with tombstones): 30 calls an hour, my voided keys older
+-- than 2 days go first, and at most 100 voided keys at a time — an honest client only ever
+-- settles its own few lost answers.
 create or replace function public.settle_donations(p_keys uuid[]) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   k uuid;
   dk donation_keys%rowtype;
   v_out jsonb := '[]'::jsonb;
+  v_oldest timestamptz;
 begin
   if p_keys is null or cardinality(p_keys) > 20 then raise exception 'invalid: at most 20 keys'; end if;
   perform pg_advisory_xact_lock(hashtext(v_me::text || ':donate'));
+  perform enforce_rate('settle', 0, 30, interval '1 hour');
+  delete from donation_keys where donor_id = v_me and state = 'voided' and created_at < now() - interval '2 days';
+  if (select count(*) from donation_keys where donor_id = v_me and state = 'voided')
+     + (select count(distinct x) from unnest(p_keys) x where not exists (select 1 from donation_keys d where d.donor_id = v_me and d.key = x)) > 100 then
+    select min(created_at) into v_oldest from donation_keys where donor_id = v_me and state = 'voided';
+    raise exception 'rate_limited:%', greatest(1000, ceil(extract(epoch from (coalesce(v_oldest, now()) + interval '2 days' - now())) * 1000))::bigint;
+  end if;
   foreach k in array p_keys loop
     select * into dk from donation_keys where donor_id = v_me and key = k;
     if not found then
@@ -1402,7 +1534,7 @@ end $$;
 -- key returns the same set again for 24 h (crash recovery); a new key finds nothing left.
 -- Scoped to the caller: a donor cannot replay the requester's key.
 create or replace function public.claim_donations(p_key uuid) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_me uuid := social_me();
   v_first timestamptz;
@@ -1433,7 +1565,7 @@ end $$;
 -- after messages_rate_limit): owner mutes also silence chat, chat bodies follow the DM text rule,
 -- and a clan co-op invite names a campaign stage. System notices pass.
 create or replace function public.messages_social_guard() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if coalesce(current_setting('ss.system', true), '') = '1' then return new; end if;
   if exists (select 1 from social_mutes where user_id = auth.uid() and created_by = 'owner' and until > now()) then
@@ -1452,10 +1584,29 @@ drop trigger if exists messages_social_guard on public.messages;
 create trigger messages_social_guard before insert on public.messages
   for each row execute function public.messages_social_guard();
 
+-- Names: the rules of section 1 for NEW and CHANGED names only. A trigger, never a check
+-- constraint: a NOT VALID check still runs on every UPDATE of an old row, so a name accepted
+-- before this file (two Hangul fillers, a look-alike) would make that player's level sync,
+-- chat (it stamps last_active) and touch_active() fail. Such a player keeps the old name until
+-- they change it (DMs, invites and friend requests ask them to: social_name_ok()).
+create or replace function public.profiles_name_rules() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if tg_op = 'UPDATE' and new.name is not distinct from old.name then return new; end if;
+  -- (what the first migration's profiles_name_valid check refuses, it answers itself)
+  if not valid_display_name(new.name) then return new; end if;
+  if not visible_name(new.name) then raise exception 'invalid: names need visible letters'; end if;
+  if reserved_name(new.name) then raise exception 'invalid: that name is reserved'; end if;
+  return new;
+end $$;
+drop trigger if exists profiles_name_rules on public.profiles;
+create trigger profiles_name_rules before insert or update of name on public.profiles
+  for each row execute function public.profiles_name_rules();
+
 -- Name changes: 3 a day (a name shown in a friend request cannot be swapped every minute).
 -- The server's own updates and the owner's SQL editor are not counted.
 create or replace function public.profiles_rename_limit() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if auth.uid() is null or auth.uid() <> new.id then return new; end if;
   perform enforce_rate('rename', 0, 3, interval '1 day');
@@ -1467,7 +1618,7 @@ create trigger profiles_rename_limit before update of name on public.profiles
 
 -- Leaving the developer clan is remembered for a week (no donations meanwhile).
 create or replace function public.clan_members_dev_lab() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if old.clan_id = '00000000-0000-4000-8000-000000000777' then
     insert into dev_lab_visits (user_id, left_at) values (old.user_id, now())
@@ -1480,10 +1631,11 @@ create trigger clan_members_dev_lab after delete on public.clan_members
   for each row execute function public.clan_members_dev_lab();
 
 -- join_room() from 20261008000000_online.sql, unchanged except two [social] additions: a host who
--- blocked the guest has no room for them (the same answer as a wrong code), and both players are
--- remembered as co-op partners for a week (a friend request context). Keeps its grant.
+-- blocked the guest has no free seat for them (the answer of a full room: the code came from
+-- clan chat or a friend, so "no such room" while others join would reveal the block), and both
+-- players are remembered as co-op partners for a week (a friend request context). Keeps its grant.
 create or replace function public.join_room(p_code text) returns json
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_code text := upper(trim(coalesce(p_code, '')));
   r coop_rooms%rowtype;
@@ -1493,8 +1645,8 @@ begin
   select * into r from coop_rooms where code = v_code and created_at > now() - interval '1 day' for update;
   if not found then return json_build_object('error', 'not_found'); end if;
   if r.host_id = auth.uid() then return json_build_object('code', r.code, 'secret', r.secret, 'host', true); end if;
-  -- [social] blocked by the host: this room does not exist for them
-  if exists (select 1 from blocks where blocker_id = r.host_id and blocked_id = auth.uid()) then return json_build_object('error', 'not_found'); end if;
+  -- [social] blocked by the host: never a free seat for them
+  if exists (select 1 from blocks where blocker_id = r.host_id and blocked_id = auth.uid()) then return json_build_object('error', 'full'); end if;
   if r.guest_id is not null and r.guest_id <> auth.uid() then return json_build_object('error', 'full'); end if;
   update coop_rooms set guest_id = auth.uid() where code = r.code;
   -- [social] co-op partners for a week
@@ -1570,6 +1722,7 @@ begin
     select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = any (array[
       'game_clock', 'game_day_key', 'next_game_reset', 'ms_to_game_reset', 'valid_dm_body', 'valid_dm_meta', 'visible_name',
+      'name_key', 'reserved_name', 'social_name_ok', 'profiles_name_rules', 'expire_coop_invites',
       'social_me', 'social_is_blocked', 'social_are_friends', 'social_clanmates', 'social_privacy', 'social_dm_allows', 'social_muted',
       'social_dm_why', 'social_why_text', 'social_friend_count', 'social_friend_state', 'social_friend_context', 'social_befriend',
       'social_request_friend', 'social_thread_for', 'social_invite_state', 'social_dm_json', 'social_housekeeping', 'social_after_dm',
@@ -1591,12 +1744,12 @@ grant execute on function
   public.list_friends(), public.list_friend_requests(), public.invite_candidates(), public.block_player(uuid), public.unblock_player(uuid),
   public.list_blocked(), public.send_dm(uuid, text), public.send_coop_invite(uuid, text, text, text), public.dm_inbox(int),
   public.dm_history(uuid, bigint, int), public.dm_mark_read(uuid, bigint), public.dm_clear(uuid), public.invite_state(bigint),
+  public.expire_coop_invites(text),
   public.report_player(uuid, text, text, text, bigint), public.donation_state(), public.request_materials(text),
-  public.cancel_material_request(), public.donate(uuid, int, uuid), public.settle_donations(uuid[]), public.claim_donations(uuid),
-  public.visible_name(text)
+  public.cancel_material_request(), public.donate(uuid, int, uuid), public.settle_donations(uuid[]), public.claim_donations(uuid)
   to authenticated;
--- (visible_name runs inside the profiles check constraint, which executes with the writing
---  player's rights; every social_* helper, the clock, valid_dm_* and the triggers stay internal)
+-- (every social_* helper, the name rules, the clock, valid_dm_* and the triggers stay internal:
+--  the name trigger is SECURITY DEFINER, so it needs no player grant)
 
 -- PostgREST picks up the new functions at once
 notify pgrst, 'reload schema';

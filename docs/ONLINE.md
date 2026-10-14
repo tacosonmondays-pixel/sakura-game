@@ -222,40 +222,70 @@ young, so the defaults are the safe ones.
   - Strangers can never message each other; there is no "Everyone". To add someone met in global
     chat, swap friend codes. A missing setting means the default, never "open".
   - Never if either player blocked the other, or the sender is muted. A blocked sender gets exactly the
-    same refusal as a privacy refusal ("… can't get messages from you yet"), so a block is never revealed.
+    same refusal as a privacy refusal ("… can't get messages from you yet"), so a block is never revealed;
+    the same goes for donations (a request of someone who blocked you reads "closed") and co-op rooms (a
+    host who blocked you has a "full" room).
+  - What the card says when Message is off depends only on what the viewer may know: "Only friends and
+    clanmates can message each other" (strangers — no setting allows them), the viewer's *own* setting
+    (Friends only / Nobody, sent as `myPrivacy`), "clanmates after 3 days", or "X isn't taking messages
+    right now" for a friend whose side says no (a block and a setting read the same).
 - **Friends.** Mutual (request → accept). A request needs a shared context: the same clan, a co-op game
   together in the last 7 days, or the friend code. Requests carry no text, only the sender's name as it
   was when sent (names can change 3 times a day). A declined, blocked or "Nobody" request is silently
   swallowed for 30 days (the sender still sees "Requested"); a full queue (30) drops its oldest request.
-  50 friends at most. Friend codes are 8 characters (40 random bits), shown only to their owner, and
-  reset with **New code**.
+  A cancelled request stays as a tombstone: asking again within a day is swallowed too (request → cancel
+  → request cannot pop up again and again), and a block + unblock keeps every tombstone (it never resets
+  "declined"). 50 friends at most; the caps (50 friends, 10 requests a day per recipient) take a lock on
+  the players involved, so they hold when many requests or accepts arrive at once. Friend codes are 8
+  characters (40 random bits), shown only to their owner, and reset with **New code**. A code decides who
+  may *ask*; it is no secret identity (every profile's id, name and level is readable, see Known limits).
 - **What a DM may hold.** Text only, 1–200 characters, shown as plain text (no links, no images, no
-  HTML). No control / bidi / zero-width / tag characters, no blank-looking fillers or line separators,
-  at least one visible character, at most 4 stacked accents. Emoji sequences (ZWJ) are fine. The
-  server stamps the sender's name, level and avatar. The same invisible-character rule now applies to
-  new chat messages (`messages_social_guard` trigger).
+  HTML). No control / bidi / zero-width / tag characters, no blank-looking fillers, line separators or
+  invisible marks (combining grapheme joiner, Khmer inherent vowels, the null notehead), at least one
+  *visible* character (spaces of every kind — NBSP, U+2000–U+200A, the ideographic space — joiners,
+  variation selectors and lone accents don't count), at most 4 stacked accents. Emoji sequences (ZWJ),
+  Japanese ideographic variants and an ideographic space inside a sentence are fine. The sets are code
+  points in SQL and JS alike (never a locale class). The server stamps the sender's name, level and
+  avatar. The same rule applies to new chat messages (`messages_social_guard` trigger).
+- **Names** (new and changed ones only — a trigger, `profiles_name_rules`, never a check constraint, so a
+  name accepted before the social SQL never locks its player out of chat, clans or co-op): visible
+  letters, no space of any kind at either end, and no look-alike of a reserved name (fullwidth letters,
+  accents, Cyrillic / Greek look-alikes such as "Ѕystem" or "Supply Bоt" are compared as plain Latin:
+  `name_key()` = `nameKey()` in `src/online/textRules.js`). A player who kept such an old name can still
+  chat and play co-op; DMs, invites and friend requests ask them to change it first.
 - **Co-op invites by DM** follow the DM rules. Only the host of a room with a free seat can invite; the
   server writes the invite text and its expiry (15 min); one live invite per pair (a new one replaces the
-  old) and 4 per hour to the same player. "Later" on the pop-up hides that sender's invites for 30 min.
-  The pop-up shows for 20 s (a DM 6 s, a friend request 7 s); one under the pointer / finger or with
-  keyboard focus stays until it is let go (then 4 s more), and an invite still closes when it expires.
+  old) and 4 per hour to the same player. When the host leaves the room lobby (Leave, a new room, or
+  another screen) their invites into it expire (`expire_coop_invites`), so nobody joins an empty room.
+  "Later" on the pop-up closes that pop-up only (the invite waits in Co-op → Invites and in the
+  conversation; the next invite pops up again). Co-op → Invites shows the newest invite per sender and
+  asks the server whether it is still open. The pop-up shows for 20 s (a DM 6 s, a friend request 7 s);
+  one under the pointer / finger or with keyboard focus stays until it is let go (then 4 s more), and an
+  invite still closes when it expires. Reply / Join / View close any open window (Menu, a gift, a card)
+  before they open their screen. On a phone held sideways the pop-ups sit on the left under the top bar
+  (the coins and the chat drawer stay free). "Invite to co-op" on the card of the ally already in my
+  room says "In your co-op room"; leaving a room for a new one is asked first.
 - **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship and
   pending requests go, the conversation leaves the blocker's inbox, the blocker no longer sees their
-  chat lines, and `join_room` refuses a guest the host has blocked.
+  chat lines (nor their clan requests), and `join_room` answers "full" to a guest the host has blocked.
 - **Report**: reason chips (bullying, inappropriate words, spam, asked for personal info, something
   else), an optional note, "Also block" (on by default). The **server** copies the evidence (the
   reported message, the last 20 DMs between the two, the target's name; ≤ 8 KB) into `reports`, which
   no player can read. One open report per reporter and target (a repeat updates it).
-- **Auto-mute**: 3 *qualified* reporters within 24 h — online accounts at least 7 days old that had real
-  contact with the target (a DM from them, 24 h in the same clan, or a message of theirs they reported)
-  — mute the target from DMs, invites and friend requests for 24 h. Chat is only muted by the owner.
-  Brand-new alt accounts cannot mute anyone.
+- **Auto-mute**: 3 reporters within 24 h whose report *counts* — online accounts at least 7 days old that
+  the target reached through what the mute silences (a DM, a co-op invite or a friend request in the
+  last 7 days) — mute the target from DMs, invites and friend requests for 24 h. Seeing one public chat
+  line is no contact, and chat is only muted by the owner. `reports.qualified` (backed by contact) is
+  recomputed on every repeat; `reports.qualified_at` decides the mute, and a repeat report counts again
+  only after *new* contact, so the same three accounts cannot mute someone day after day. Brand-new alt
+  accounts cannot mute anyone.
 - **Who reads what.** Players read only three new tables directly, for Realtime: DMs they sent or
   received, friend requests sent *to* them (pending only) and their clan's material requests. Every other
   read and every write is a `SECURITY DEFINER` function that checks `auth.uid()`. Internal helpers are
   `SECURITY INVOKER` and revoked; a test fails if players can execute any function outside an explicit
-  allow-list. URLs carry conversation ids, never account ids; a friend code never reveals its owner's
-  account id before they accept.
+  allow-list. URLs carry conversation ids, never account ids. (A friend code's answer carries no account
+  id either, but name + level + avatar can be matched against the readable profiles: the code only
+  decides who may ask — see Known limits.)
 - **Clan requests and donations.** The server never sees backpacks (saves are local), so a donation is
   "the server lets a clanmate grant up to the caps": the caps, not the donor's honesty, bound what anyone
   can receive.
@@ -293,16 +323,24 @@ young, so the defaults are the safe ones.
   | Player card | 120 per hour |
   | Name change | 3 per rolling day |
   | Donation | 1 per 500 ms, 60 per hour (the real caps are the daily points) |
+  | Donation check (`settle_donations`) | 30 per hour; at most 100 voided keys per player at a time |
 
-- **Retention** (deleted as new rows arrive, no cron): DMs after 14 days and beyond the newest 200 per
-  conversation; friend requests after 30 days; donations 7 days unclaimed / 30 days claimed; donation
-  key tombstones after 90 days; ended automatic mutes after 30 days; reports and owner mutes are kept
-  until the owner deletes them.
+- **Retention** (deleted as new rows arrive, no cron): DMs after 14 days — every DM of those 14 days is
+  kept (no per-conversation trim: a flood could otherwise push an abusive message out of a report's
+  evidence; 300 DMs a day per sender bound the storage); friend requests after 30 days; donations 7 days
+  unclaimed / 30 days claimed; donation key tombstones: voided after 2 days (a late donate() can only
+  land on the same game day), applied after 90; ended automatic mutes after 30 days; reports and owner
+  mutes are kept until the owner deletes them.
 - **Realtime.** `direct_messages`, `friend_requests` and `donation_requests` join the publication
   (`postgres_changes`, filtered and RLS-checked per player). The social features never use Realtime
   presence (see "Realtime presence crashed co-op rooms").
-- **Known limits.** `profiles.last_active` is readable by every signed-in player since the first
-  migration (the social functions only hand it to friends and clanmates). Hiding the column needs
+- **Known limits.** `profiles` (id, name, level, avatar, `last_active`) is readable by every signed-in
+  player since the first migration (the social functions only hand `last_active` to friends and
+  clanmates), so a friend code's owner can be matched to an account id by name + level + avatar.
+  Supabase does not apply Row Level Security to Realtime DELETE events: a listener could see the ids of
+  deleted DM / request rows (ids only, no content; the game never listens to DELETEs). If the first
+  migration is ever pasted again it revokes the social grants (the game then shows "Needs the latest
+  server update" until the social SQL is pasted again) and restores the old `join_room()`. Hiding the column needs
   column grants that old cached clients would trip over; the new client already reads profiles with
   explicit columns, so a later migration can do it. Friends, DMs and donations belong to the device's
   anonymous online account: a transfer code moves the save, not the account.
@@ -329,6 +367,11 @@ on conflict (user_id) do update set until = excluded.until, reason = excluded.re
 
 -- lift a mute
 delete from social_mutes where user_id = '<target uuid>';
+
+-- names from before the social SQL that today's rules would refuse (they keep working; DMs ask
+-- those players to pick a new name). Optional cleanup: give them the automatic name.
+select id, name from profiles where not social_name_ok(name);
+-- update profiles set name = 'Sensei ' || upper(left(replace(id::text, '-', ''), 4)) where not social_name_ok(name);
 
 -- delete one player's private messages
 delete from direct_messages where sender_id = '<target uuid>';
@@ -642,7 +685,17 @@ The vitest suite covers:
   auto-mute, material requests, donations (caps, 30 points, clan XP, filled notice), settle / void, collect
   replay, yesterday's request, leave / kick / disband, and races (same-key retries, two donors for the
   last pieces, the 30-point cap with two requests at once, settle vs a late donate, two collects).
-- `localSocial.test.js`: the same rules on the local adapter with an injected clock (the 7 PM rollover).
+- `socialFixes.test.js`: the verifier findings of the social update, each reproduced on PGlite and
+  shown fixed: players with names the first migration accepted keep chat / level sync / co-op once
+  the social SQL runs; one public chat line is no auto-mute contact and a repeat report needs new
+  contact; `settle_donations` is rate-limited and capped; a 200-DM flood keeps the abusive message for
+  the report; request → cancel → request and block → unblock cannot ping again; a block reads like a
+  closed request / a full room; blank-looking bodies and names and look-alike reserved names (JS and
+  SQL compared on the same strings); the friend caps' locks; `expire_coop_invites`. (The concurrency of
+  #8 needs real parallel connections: the verifier's probe p11 on Postgres 16 — 50 friends and 10
+  requests a day hold.)
+- `localSocial.test.js`: the same rules on the local adapter with an injected clock (the 7 PM rollover),
+  including the same verifier scenarios.
 - `socialRules.test.js`, `donateLedger.test.js` (escrow / refund / settle / claim replay after a crash at
   every step), `backendSocial.test.js` (the deploy order: `needs_update` without a request, chat and clans
   unaffected), `tests/core/reset.test.js` (the game clock) and `tests/ui/social.test.js` (pop-up rules,

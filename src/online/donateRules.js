@@ -41,8 +41,15 @@ export const CLAIM_KEEP_DAYS = 7;
 export const CLAIM_REPLAY_HOURS = 24;
 /** No donations for a week after leaving the developer clan (its Supply Bot grants any item). SQL. */
 export const DEV_LAB_COOLDOWN_DAYS = 7;
-/** Server-side donation key tombstones (applied / voided) are kept this long. SQL. */
+/** Server-side donation key tombstones: 'applied' ones are kept this long (replays, settle). SQL. */
 export const KEY_KEEP_DAYS = 90;
+/**
+ * 'voided' tombstones only need to outlive a late donate() of the same game day (a request takes
+ * donations on its own game day only), and one player may hold at most VOID_KEY_MAX of them:
+ * settle_donations() cannot be used to fill the database (SECURITY #3). SQL.
+ */
+export const VOID_KEY_KEEP_DAYS = 2;
+export const VOID_KEY_MAX = 100;
 /** The client gives up on an unconfirmed donation older than this (never refunds it: no dupes). */
 export const ESCROW_GIVE_UP_DAYS = 80;
 

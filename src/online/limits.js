@@ -47,6 +47,8 @@ export const RULES = Object.freeze({
   rename: { gapMs: 0, max: 3, windowMs: DAY, label: 'name change' },
   // donations: anti-script only; the real caps are the daily donation points
   donate: { gapMs: 500, max: 60, windowMs: HOUR, label: 'donation' },
+  // checking donations whose answer was lost (settle_donations; each call may void up to 20 keys)
+  settle: { gapMs: 0, max: 30, windowMs: HOUR, label: 'donation check' },
 });
 
 /** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */

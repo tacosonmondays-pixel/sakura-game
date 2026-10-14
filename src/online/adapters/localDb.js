@@ -575,8 +575,8 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const r = s.rooms[c];
         if (!r || now() - r.createdAt > ROOM_TTL) return failSaved('not_found', 'No room uses that code.');
         if (r.hostId === uid) return { code: c, secret: r.secret, host: true };
-        // [social] blocked by the host: this room does not exist for them
-        if (roomBlocked(s, r.hostId, uid)) return failSaved('not_found', 'No room uses that code.');
+        // [social] blocked by the host: never a free seat for them (a full room: the block is not revealed)
+        if (roomBlocked(s, r.hostId, uid)) return failSaved('full', 'That room already has two players.');
         if (r.guestId && r.guestId !== uid) return failSaved('full', 'That room already has two players.');
         r.guestId = uid;
         recordPartners(s, uid, r.hostId); // [social] a friend request context for a week

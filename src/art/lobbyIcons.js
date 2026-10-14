@@ -348,6 +348,25 @@ const ICONS = {
     return { sil, art };
   },
 
+  // [social] public chat (Menu → Chat): a blue bubble in front of a white one
+  chat({ lin }) {
+    const sil = '<path d="M8 14q0-6 6-6h28q6 0 6 6v16q0 6-6 6H24l-9 8v-8h-1q-6 0-6-6z"/><path d="M30 30q0-5 5-5h17q5 0 5 5v11q0 5-5 5h-1v7l-7-7h-9q-5 0-5-5z"/>';
+    const art = `<path d="M30 30q0-5 5-5h17q5 0 5 5v11q0 5-5 5h-1v7l-7-7h-9q-5 0-5-5z" fill="${lin('back', [[0, '#ffffff'], [1, '#d6e3f2']])}" ${LINE}/>`
+      + `<path d="M8 14q0-6 6-6h28q6 0 6 6v16q0 6-6 6H24l-9 8v-8h-1q-6 0-6-6z" fill="${lin('front', [[0, P.blue[0]], [1, P.blue[1]]])}" ${LINE}/>`
+      + '<circle cx="18" cy="22" r="2.6" fill="#fff"/><circle cx="28" cy="22" r="2.6" fill="#fff"/><circle cx="38" cy="22" r="2.6" fill="#fff"/>'
+      + gloss('M13 13.5h12', 0.7, 2.2);
+    return { sil, art };
+  },
+
+  // [social] private messages (Menu → Messages): a pink bubble with a heart
+  messages({ lin }) {
+    const sil = '<path d="M10 16q0-7 7-7h30q7 0 7 7v18q0 7-7 7H30l-11 10v-10h-2q-7 0-7-7z"/>';
+    const art = `<path d="M10 16q0-7 7-7h30q7 0 7 7v18q0 7-7 7H30l-11 10v-10h-2q-7 0-7-7z" fill="${lin('bubble', [[0, P.pink[0]], [1, P.pink[1]]])}" ${LINE}/>`
+      + `<path d="M32 34c-1-1-8.5-5.6-8.5-10.6a4.5 4.5 0 0 1 8.5-2.3 4.5 4.5 0 0 1 8.5 2.3c0 5-7.5 9.6-8.5 10.6z" fill="#ffffff" stroke="${P.red[2]}" stroke-width="1.2"/>`
+      + gloss('M15 15h14', 0.75, 2.2);
+    return { sil, art };
+  },
+
   chest({ lin }) {
     const sil = '<path d="M9 30q0-16 23-16t23 16v22q0 4-4 4H13q-4 0-4-4z"/>';
     const art = `<path d="M9 31h46v21q0 4-4 4H13q-4 0-4-4z" fill="${lin('body', [[0, '#d98c4c'], [1, '#8f4f22']])}" ${LINE}/>`

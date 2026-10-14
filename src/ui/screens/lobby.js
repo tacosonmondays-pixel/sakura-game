@@ -347,9 +347,9 @@ function buildTop(host, { openSecretaryPicker }) {
         // [online]
         { icon: 'students', label: 'Clan', testid: 'menu-clan', badge: hub.badges.donationsReady > 0, go: () => navigate('clan') },
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
-        { icon: 'mail', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
+        { icon: 'chat', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
         // [social] private messages (shown once the server has the social update)
-        ...(hub.ready ? [{ icon: 'mail', label: 'Messages', testid: 'menu-messages', badge: hub.count || null, go: () => navigate('messages') }] : []),
+        ...(hub.ready ? [{ icon: 'messages', label: 'Messages', testid: 'menu-messages', badge: hub.count || null, go: () => navigate('messages') }] : []),
       ] }) },
         svgEl(glyph('menu'), 'lb-glyph')),
     ),

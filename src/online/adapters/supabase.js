@@ -3,7 +3,7 @@
 // Realtime postgres_changes for chat / clan updates and broadcast-only channels for co-op rooms.
 // @supabase/supabase-js is imported on first use, so players who never open an online screen
 // never download it.
-import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
+import { BOSS_REWARDS, bossFor, rewardTier, autoName, validateName } from '../clanRules.js';
 import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
 import { COOP_NET } from '../../data/coop.js';
 
@@ -156,10 +156,18 @@ export function createSupabaseAdapter({ url, key }) {
       throw toOnlineError(e);
     }
     if (res?.error) {
-      if (isMissingFeature(res.error) || res.status === 404) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+      if (isMissingFeature(res.error) || res.status === 404 || lostGrant(res.error)) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
       throw toOnlineError(res.error);
     }
     return res?.data;
+  }
+  /**
+   * A social function players may not execute: the first migration was pasted again after the
+   * social one (it revokes every function grant). Pasting the social SQL again fixes it, so this
+   * is "needs the latest server update" too, never a scary "not allowed".
+   */
+  function lostGrant(err) {
+    return err?.code === '42501' && /permission denied for function/i.test(String(err.message || ''));
   }
   const need = () => {
     if (!uid) throw new OnlineError('forbidden', 'Sign in first.');
@@ -187,7 +195,8 @@ export function createSupabaseAdapter({ url, key }) {
       const existing = await q(c.from('profiles').select('id').eq('id', uid).maybeSingle());
       if (!existing) {
         // two tabs signing in at once share one account: the second insert must not fail
-        await q(c.from('profiles').upsert({ id: uid, name: name || autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
+        // (a stored name the rules no longer accept starts as the automatic name instead)
+        await q(c.from('profiles').upsert({ id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
       } else {
         // the server stamps last_active on every profile write
         await q(c.from('profiles').update({ level, avatar }).eq('id', uid));
@@ -456,7 +465,10 @@ export function createSupabaseAdapter({ url, key }) {
     },
     async dmHistory(threadId, { before = null, limit = 30 } = {}) {
       const r = await srpc('dm_history', { p_thread: threadId, p_before: before == null ? null : Number(before), p_limit: limit });
-      return { threadId: r.threadId, peer: mapPeer(r.peer), canMessage: !!r.canMessage, why: r.why || null, messages: (r.messages || []).map(mapDm), hasMore: !!r.hasMore };
+      return {
+        threadId: r.threadId, peer: mapPeer(r.peer), canMessage: !!r.canMessage, why: r.why || null, myPrivacy: r.myPrivacy || null, friend: !!r.friend,
+        messages: (r.messages || []).map(mapDm), hasMore: !!r.hasMore,
+      };
     },
     async sendDm(userId, body) {
       return mapDm(await srpc('send_dm', { p_to: userId, p_body: String(body ?? '').trim() }));
@@ -466,6 +478,9 @@ export function createSupabaseAdapter({ url, key }) {
     },
     async inviteState(messageId) {
       return srpc('invite_state', { p_message: Number(messageId) });
+    },
+    async expireCoopInvites(room) {
+      return Number(await srpc('expire_coop_invites', { p_room: String(room || '') })) || 0;
     },
     async markRead(threadId, lastId) {
       await srpc('dm_mark_read', { p_thread: threadId, p_last: Number(lastId) || 0 });

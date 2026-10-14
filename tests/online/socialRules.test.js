@@ -39,6 +39,24 @@ describe('message text rules (SQL: valid_dm_body; the chat guard trigger)', () =
     expect(bodyError(' hello ')).toBeNull(); // the client trims before sending
   });
 
+  it('blank-looking bodies are refused (no visible character), Japanese spacing / variants stay (SECURITY #7)', () => {
+    const cp = (...c) => String.fromCodePoint(...c);
+    for (const bad of [cp(0xa0, 0xa0), cp(0x34f), cp(0x17b4, 0x17b5), cp(0x180b), cp(0xe0100), cp(0x1d159), cp(0x3000, 0x3000), cp(0x2003, 0x2003), cp(0x301)]) {
+      expect(validMessageBody(bad), JSON.stringify(bad)).toBe(false);
+    }
+    for (const ok of [`こんにちは${cp(0x3000)}みんな`, `葛${cp(0xe0100)}城`, `x${cp(0x301)}`]) expect(validMessageBody(ok), ok).toBe(true);
+  });
+
+  it('names: visible letters, no edge spaces, no look-alike of a reserved name (SECURITY #7)', () => {
+    const cp = (...c) => String.fromCodePoint(...c);
+    for (const bad of [cp(0x34f, 0x34f), cp(0x17b4, 0x17b4)]) expect(validateName(bad), JSON.stringify(bad)).toBe('Names need visible letters.');
+    for (const bad of [`${cp(0x405)}ystem`, `Supply B${cp(0x43e)}t`, cp(0xff33, 0xff59, 0xff53, 0xff54, 0xff45, 0xff4d), `${cp(0x391)}dmin`, `S${cp(0xfd)}stem`, 'Supply-Bot', 'M O D']) {
+      expect(validateName(bad), JSON.stringify(bad)).toBe('That name is reserved.');
+    }
+    expect(nameLooksBlank(`Aiko${cp(0x3000)}`)).toBe(true); // (validateName trims it away first)
+    for (const ok of ['Aiko', '桜ミカ', 'Mika-chan 2', 'Modé', 'Systemic']) expect(validateName(ok), ok).toBeNull();
+  });
+
   it('names must look like names', () => {
     for (const bad of ['Ai\u3164ko', '\u2800\u2800', 'A\u2028B', 'Zz\u0300\u0301\u0302\u0303\u0304']) expect(validateName(bad), bad).toBeTruthy();
     expect(validateName('Mika-chan 2')).toBeNull();

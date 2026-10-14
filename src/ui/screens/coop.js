@@ -28,7 +28,8 @@ import { APP_VERSION, versionLabel, compareVersions } from '../../core/buildInfo
 import { checkForUpdate, updateAvailable, reloadFresh } from '../../core/updates.js';
 import { onlineHeadExtra } from '../online/inboxButton.js';
 import { openPlayerCard } from '../online/playerCard.js';
-import { hub as social, takePendingInvites, addPendingInvite, joinInvite } from '../online/socialHub.js';
+import { hub as social, takePendingInvites, addPendingInvite, joinInvite, liveInvites, forgetInvite } from '../online/socialHub.js';
+import { getBackend } from '../../online/backend.js';
 import { sendRoomInvite } from '../online/coopInvite.js';
 import { INVITE_TTL_MS } from '../../online/socialRules.js';
 
@@ -160,6 +161,15 @@ function mismatchBanner(m) {
   return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text, h('small.ol-version-diag', ` (${versionDiff(m.mine, m.theirs)})`)), action);
 }
 
+/**
+ * [social] The host left the room lobby: their DM invites into it expire on the server, so the
+ * invited player sees "Expired" instead of joining an empty room and waiting for the host.
+ */
+function expireMyInvites(s) {
+  if (!s?.isHost || !social.ready) return;
+  getBackend().expireCoopInvites(s.code).catch(() => {});
+}
+
 /** What the lobby says when the server refused the room (or it closed): by error code. */
 export function roomErrorText(err) {
   switch (err?.code) {
@@ -269,16 +279,29 @@ export function render(root, params = {}) {
     }
 
     const invites = h('div.ol-invites', { 'data-testid': 'coop-invites' }, h('p.muted', 'Loading invites…'));
-    // [social] open DM invites (to me) + today's clan-chat invites (unchanged, < 15 min)
+    // [social] open DM invites (to me) + today's clan-chat invites (unchanged, < 15 min). DM
+    // invites this tab remembers are asked about again: only the newest per sender, and only
+    // while the server still says "open" (a newer invite, a full or closed room ends one)
     (async () => {
       const rows = [];
       let clanTag = null;
       try {
         if ((await backend.socialStatus()) === 'ready') {
           const seen = new Map(social.invites.map((m) => [m.id, m]));
+          const fresh = new Map();
           const inbox = await backend.inbox().catch(() => ({ threads: [] }));
-          for (const t of inbox.threads) if (t.last?.kind === 'invite' && !t.last.mine && t.last.inviteState === 'open') seen.set(t.last.id, t.last);
-          for (const m of [...seen.values()].filter((x) => Number(x.meta?.expires) > Date.now()).sort((a, b) => b.id - a.id)) {
+          for (const t of inbox.threads) {
+            if (t.last?.kind !== 'invite' || t.last.mine) continue;
+            seen.set(t.last.id, t.last);
+            fresh.set(t.last.id, t.last.inviteState);
+          }
+          for (const m of liveInvites([...seen.values()])) {
+            const st = fresh.get(m.id) || (await backend.inviteState(m.id).catch(() => null));
+            if (destroyed) return;
+            if (st !== 'open') {
+              forgetInvite(m.id);
+              continue;
+            }
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room, 'data-testid': 'invite-row-dm' }, avatar(m.avatar, 34),
               h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)} · private invite`)),
               button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
@@ -564,6 +587,7 @@ export function render(root, params = {}) {
     }
 
     function newRoom(s) {
+      expireMyInvites(s);
       s.close({ keepRoom: false }); // this code is given up for the new one
       navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
     }
@@ -658,7 +682,7 @@ export function render(root, params = {}) {
           h('div.ol-room-acts',
             s.isHost && social.ready && !s.peer ? button('Invite a friend', { kind: 'pink', small: true, icon: 'plus', testid: 'coop-invite-friend', onClick: inviteFriend }) : null,
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
-            button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
+            button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { expireMyInvites(s); s.close(); navigate('coop'); } }))),
         localNotice('coop'),
         linkBanner(s),
         invitedChips(s),
@@ -703,8 +727,12 @@ export function render(root, params = {}) {
     destroyed = true;
     globalThis.removeEventListener?.('pageshow', onPageShow);
     cleanup();
-    // leaving the lobby screen (not into the battle) leaves the room
+    // leaving the lobby screen (not into the battle) leaves the room (and the host's DM invites
+    // into it expire: nobody is there to play with)
     const s = getSession();
-    if (s && s.code === code && !keepSession && s.phase === 'lobby') s.close();
+    if (s && s.code === code && !keepSession && s.phase === 'lobby') {
+      expireMyInvites(s);
+      s.close();
+    }
   };
 }

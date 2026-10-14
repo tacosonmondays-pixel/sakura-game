@@ -6,14 +6,14 @@
 import { OnlineError } from '../errors.js';
 import { validateName, levelFromXp } from '../clanRules.js';
 import {
-  DM_PRIVACY, DM_PRIVACY_DEFAULT, FRIEND_MAX, FRIEND_PENDING_MAX, FRIEND_DAILY_WEIGHT, BLOCK_MAX, DM_KEEP_DAYS, DM_THREAD_KEEP, DM_CLAN_MIN_HOURS,
+  DM_PRIVACY, DM_PRIVACY_DEFAULT, FRIEND_MAX, FRIEND_PENDING_MAX, FRIEND_DAILY_WEIGHT, BLOCK_MAX, DM_KEEP_DAYS, DM_CLAN_MIN_HOURS,
   INVITE_TTL_MS, INVITE_PAIR_PER_HOUR, INVITE_DIFFICULTIES, INVITE_STAGE_RE, REPORT_REASONS, REPORT_CONTEXTS, REPORT_NOTE_MAX, AUTO_MUTE,
-  COOP_PARTNER_DAYS, FRIEND_DECLINE_DAYS, FRIEND_CODE_LENGTH, validMessageBody, inviteBody, normalizeFriendCode, nameLooksBlank,
+  COOP_PARTNER_DAYS, FRIEND_DECLINE_DAYS, FRIEND_CODE_LENGTH, FRIEND_CANCEL_HOURS, validMessageBody, inviteBody, normalizeFriendCode, nameLooksBlank,
 } from '../socialRules.js';
 import {
   requestRule, DONOR_DAILY_POINTS, DONOR_COINS_PER_POINT, CLAN_XP_PER_POINT, DONOR_MIN_TENURE_HOURS, DONOR_MIN_ACCOUNT_DAYS,
   REQUESTER_MIN_TENURE_HOURS, MYTHIC_MIN_CLAN_DAYS, MYTHIC_MIN_MEMBERS, MYTHIC_MEMBER_TENURE_HOURS, CLAIM_KEEP_DAYS, CLAIM_REPLAY_HOURS,
-  DEV_LAB_COOLDOWN_DAYS, KEY_KEEP_DAYS,
+  DEV_LAB_COOLDOWN_DAYS, KEY_KEEP_DAYS, VOID_KEY_KEEP_DAYS, VOID_KEY_MAX,
 } from '../donateRules.js';
 import { gameDay, nextDailyReset } from '../../core/reset.js';
 import { MESSAGE_MAX } from '../clanRules.js';
@@ -25,6 +25,7 @@ const WHY_TEXT = {
   blocked_by_me: 'you blocked them',
   muted: 'you can\'t send messages right now',
   my_setting: 'your "Who can message me" setting doesn\'t include them',
+  stranger: 'only friends and clanmates can message each other — add them as a friend first',
   clan_new: 'clanmates can message each other after 3 days together in the clan',
   not_allowed: 'they can\'t get messages from you yet',
 };
@@ -103,6 +104,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
     if (a === b) return 'self';
     if (blockedByMe(x, a, b)) return 'blocked_by_me';
     if (muted(x, a)) return 'muted';
+    if (!areFriends(x, a, b) && !clanmates(s, a, b, 0)) return 'stranger';
     if (!dmAllows(s, x, a, b)) return privacy(x, a) === 'friends_clan' && clanmates(s, a, b, 0) ? 'clan_new' : 'my_setting';
     if (blockedByMe(x, b, a) || !dmAllows(s, x, b, a)) return 'not_allowed';
     return null;
@@ -132,8 +134,11 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
       befriend(x, me, to);
       return 'friends';
     }
+    // asked before (pending, swallowed, declined, or cancelled less than a day ago): nothing new
     const mine = x.requests.find((r) => r.fromId === me && r.toId === to);
-    if (mine) {
+    if (mine && mine.status === 'cancelled' && mine.at <= now() - FRIEND_CANCEL_HOURS * H) {
+      x.requests = x.requests.filter((r) => r !== mine);
+    } else if (mine) {
       mine.senderHidden = false;
       return 'requested';
     }
@@ -192,19 +197,15 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
     x.requests = x.requests.filter((r) => r.at >= t - FRIEND_DECLINE_DAYS * DAY);
     x.donations = x.donations.filter((d) => !((!d.claimKey && d.createdAt < t - CLAIM_KEEP_DAYS * DAY) || (d.claimedAt && d.claimedAt < t - 30 * DAY)));
     x.donReqs = x.donReqs.filter((r) => r.createdAt >= t - 14 * DAY);
-    for (const [k, v] of Object.entries(x.keys)) if (v.at < t - KEY_KEEP_DAYS * DAY) delete x.keys[k];
+    for (const [k, v] of Object.entries(x.keys)) if (v.at < t - (v.state === 'voided' ? VOID_KEY_KEEP_DAYS : KEY_KEEP_DAYS) * DAY) delete x.keys[k];
   }
+  // (no per-conversation trim: a flood must never push a reported message out of the evidence)
   function afterDm(s, x, m, topics) {
     const th = x.threads[m.threadId];
     th.lastId = m.id;
     th.lastAt = m.createdAt;
     const st = stateOf(x, m.threadId, m.senderId);
     st.lastRead = Math.max(st.lastRead, m.id);
-    const mine = x.dms.filter((d) => d.threadId === m.threadId);
-    if (mine.length > DM_THREAD_KEEP) {
-      const cut = mine.sort((a, b) => b.id - a.id)[DM_THREAD_KEEP - 1].id;
-      x.dms = x.dms.filter((d) => d.threadId !== m.threadId || d.id >= cut);
-    }
     if (s.users[m.senderId]) s.users[m.senderId].lastActive = now();
     housekeeping(s, x);
     topics.add(`inbox:${m.recipientId}`).add(`inbox:${m.senderId}`);
@@ -226,13 +227,22 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
     if (!c || now() - (c.createdAt || 0) < MYTHIC_MIN_CLAN_DAYS * DAY) return false;
     return Object.values(s.members).filter((m) => m.clanId === clanId && m.joinedAt <= now() - MYTHIC_MEMBER_TENURE_HOURS * H).length >= MYTHIC_MIN_MEMBERS;
   };
+  /** SQL social_qualified_reporter: DM / invite / friend request from the target, last 7 days, after `since`. */
+  function contactSince(s, x, reporter, target, since) {
+    const me = s.users[reporter];
+    if (!me || (me.createdAt || now()) > now() - AUTO_MUTE.minAccountDays * DAY) return false;
+    const after = Math.max(now() - AUTO_MUTE.contactDays * DAY, since ?? -Infinity);
+    return x.dms.some((d) => d.senderId === target && d.recipientId === reporter && d.createdAt > after)
+      || x.requests.some((r) => r.fromId === target && r.toId === reporter && ['pending', 'declined', 'cancelled'].includes(r.status) && r.at > after);
+  }
   const reqOut = (x, r, viewer) => {
     const rule = requestRule(r.item);
     const donors = [];
     for (const d of x.donations.filter((y) => y.requestId === r.id).sort((a, b) => a.id - b.id)) if (!donors.includes(d.donorName)) donors.push(d.donorName);
     return {
       id: r.id, clanId: r.clanId, userId: r.userId, name: r.userName, avatar: r.userAvatar, item: r.item, wanted: r.wanted, received: r.received,
-      status: r.status, gameDay: r.gameDay, createdAt: r.createdAt, open: r.status === 'open' && r.gameDay === today(),
+      // a requester who blocked the viewer: closed for them (donate says the same)
+      status: r.status, gameDay: r.gameDay, createdAt: r.createdAt, open: r.status === 'open' && r.gameDay === today() && !blockedByMe(x, r.userId, viewer),
       perDonor: rule?.perDonor ?? 0, points: rule?.points ?? 0,
       myGiven: x.donations.filter((d) => d.requestId === r.id && d.donorId === viewer).reduce((n, d) => n + d.count, 0),
       donors,
@@ -262,7 +272,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
       if (text.length <= MESSAGE_MAX && !validMessageBody(text)) fail('invalid', 'Messages can\'t contain invisible characters');
       if (kind === 'invite' && meta?.stage != null && !INVITE_STAGE_RE.test(meta.stage)) fail('invalid', 'That invite is not for a campaign stage');
     },
-    /** SQL: join_room's [social] additions. Returns true when the host blocked the guest. */
+    /** SQL: join_room's [social] additions. True when the host blocked the guest (answered like a full room). */
     roomBlocked(s, hostId, uid) {
       return enabled() && !!S(s).blocks[hostId]?.[uid];
     },
@@ -312,6 +322,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         if (userId === uid) fwhy = 'self';
         else if (blockedByMe(x, uid, userId)) fwhy = 'blocked_by_me';
         else if (muted(x, uid)) fwhy = 'muted';
+        else if (state === 'none' && !nameOk(s.users[uid])) fwhy = 'name';
         else if (state === 'none' && !ctx) fwhy = 'context';
         else if (state === 'none' && friendCount(x, uid) >= FRIEND_MAX) fwhy = 'full';
         const th = threadOf(x, uid, userId);
@@ -323,7 +334,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           clanmate: mate,
           lastActive: userId === uid || mate || areFriends(x, uid, userId) ? p.lastActive || null : null,
           isSelf: userId === uid, friend: state, requestId: reqId ?? null, blockedByMe: blockedByMe(x, uid, userId),
-          canMessage: !why, why: why || null, canFriend: state === 'none' && !fwhy, friendWhy: fwhy, threadId: th ? th.id : null,
+          canMessage: !why, why: why || null, myPrivacy: privacy(x, uid), canFriend: state === 'none' && !fwhy, friendWhy: fwhy, threadId: th ? th.id : null,
         };
       });
     },
@@ -410,8 +421,9 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
       return stx((s, x) => {
         const r = x.requests.find((q) => q.id === Number(requestId) && q.fromId === uid);
         if (!r) fail('not_found', 'that request is gone');
-        if (r.status === 'declined') r.senderHidden = true;
-        else x.requests = x.requests.filter((q) => q !== r);
+        // a tombstone: asking again within a day is swallowed (no request → cancel → request pings)
+        if (r.status === 'pending') Object.assign(r, { status: 'cancelled', senderHidden: true, at: now() });
+        else r.senderHidden = true;
         return true;
       });
     },
@@ -465,7 +477,9 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         mine[userId] ||= now();
         if (x.friends[uid]) delete x.friends[uid][userId];
         if (x.friends[userId]) delete x.friends[userId][uid];
-        x.requests = x.requests.filter((r) => !((r.fromId === uid && r.toId === userId) || (r.fromId === userId && r.toId === uid)));
+        // their requests go; mine (pending) becomes a tombstone; every tombstone stays
+        x.requests = x.requests.filter((r) => !(r.fromId === userId && r.toId === uid && (r.status === 'pending' || r.status === 'shadow')));
+        for (const r of x.requests) if (r.fromId === uid && r.toId === userId && r.status === 'pending') Object.assign(r, { status: 'cancelled', senderHidden: true, at: now() });
         return true;
       });
     },
@@ -509,15 +523,16 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         const dms = th ? x.dms.filter((d) => d.threadId === th.id).sort((a, b) => a.id - b.id).slice(-20)
           .map((d) => ({ id: d.id, from: d.senderId === target ? 'target' : 'reporter', name: d.name, body: d.body, kind: d.kind, at: d.createdAt })) : [];
         const evidence = { target: { id: target, name: p.name, level: p.level || 1, createdAt: p.createdAt }, message, dms };
-        const qualified = (me.createdAt || now()) <= now() - AUTO_MUTE.minAccountDays * DAY && (
-          x.dms.some((d) => d.senderId === target && d.recipientId === uid && d.createdAt > now() - 7 * DAY)
-          || clanmates(s, uid, target, 24)
-          || (message?.kind === 'chat' && message.at > now() - DAY));
+        // backed by contact (recomputed every time); counts toward a mute again only after NEW contact
         const open = x.reports.find((r) => r.reporterId === uid && r.targetId === target && r.status === 'open');
-        if (open) Object.assign(open, { reason, note: n, context, messageId, evidence, qualified: open.qualified || qualified, updatedAt: now(), targetName: p.name });
-        else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId, evidence, qualified, status: 'open', createdAt: now(), updatedAt: now() });
+        const prev = open?.qualifiedAt ?? null;
+        const recent = contactSince(s, x, uid, target, null);
+        const fresh = recent && (prev == null || contactSince(s, x, uid, target, prev));
+        const qualifiedAt = fresh ? now() : prev;
+        if (open) Object.assign(open, { reason, note: n, context, messageId, evidence, qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name });
+        else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId, evidence, qualified: recent, qualifiedAt, status: 'open', createdAt: now(), updatedAt: now() });
         // SQL: social_maybe_auto_mute
-        const reporters = new Set(x.reports.filter((r) => r.targetId === target && r.qualified && r.status === 'open' && r.updatedAt > now() - AUTO_MUTE.windowHours * H).map((r) => r.reporterId));
+        const reporters = new Set(x.reports.filter((r) => r.targetId === target && r.status === 'open' && r.qualifiedAt != null && r.qualifiedAt > now() - AUTO_MUTE.windowHours * H).map((r) => r.reporterId));
         if (reporters.size >= AUTO_MUTE.reporters) {
           const mu = x.mutes[target];
           if (!(mu && mu.until > now() && (mu.by === 'owner' || mu.until >= now() + 23 * H))) x.mutes[target] = { until: now() + AUTO_MUTE.hours * H, by: 'auto', reason: `auto: ${reporters.size} reports` };
@@ -565,7 +580,10 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         const page = all.slice(0, lim);
         let why = dmWhy(s, x, uid, peer);
         if (!why && !nameOk(s.users[uid])) why = 'name';
-        return { threadId: t.id, peer: peerOut(s, peer), canMessage: !why, why: why || null, messages: page.map((m) => dmOut(s, m, uid)), hasMore: all.length > page.length };
+        return {
+          threadId: t.id, peer: peerOut(s, peer), canMessage: !why, why: why || null, myPrivacy: privacy(x, uid), friend: areFriends(x, uid, peer),
+          messages: page.map((m) => dmOut(s, m, uid)), hasMore: all.length > page.length,
+        };
       }, { save: false });
     },
     sendDm(uid, to, body) {
@@ -613,6 +631,20 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         if (!m) fail('not_found', 'that invite is gone');
         return inviteState(s, m, uid) || 'closed';
       }, { save: false });
+    },
+    /** SQL expire_coop_invites: the host left the room lobby — their open invites into it expire now. */
+    expireCoopInvites(uid, room) {
+      return stx((s, x) => {
+        const code5 = String(room || '').trim().toUpperCase();
+        let n = 0;
+        for (const m of x.dms) {
+          if (m.senderId === uid && m.kind === 'invite' && m.meta?.room === code5 && m.meta.expires > now()) {
+            m.meta.expires = now() - 1;
+            n++;
+          }
+        }
+        return n;
+      });
     },
     markRead(uid, threadId, lastId) {
       return stx((s, x, topics) => {
@@ -685,8 +717,9 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           mythicOpen: !!live && clanEstablished(s, c.id),
           weekly: { superRare: weeklyCount(x, uid, 'superRare'), mythic: weeklyCount(x, uid, 'mythic') },
           myRequest: mine ? reqOut(x, mine, uid) : null,
+          // only players I blocked are hidden; a requester who blocked me shows, closed
           requests: live ? x.donReqs.filter((r) => r.clanId === c.id && r.gameDay === today() && r.status === 'open' && r.userId !== uid
-            && s.members[r.userId]?.clanId === c.id && !isBlocked(x, uid, r.userId)).sort((a, b) => a.createdAt - b.createdAt).map((r) => reqOut(x, r, uid)) : [],
+            && s.members[r.userId]?.clanId === c.id && !blockedByMe(x, uid, r.userId)).sort((a, b) => a.createdAt - b.createdAt).map((r) => reqOut(x, r, uid)) : [],
           collectable: collectable(x, uid),
         };
       }, { save: false });
@@ -749,8 +782,8 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         const m = s.members[uid];
         if (!m || !r.clanId || m.clanId !== r.clanId) fail('not_member', 'that request is from another clan');
         if (r.status === 'filled') fail('invalid', 'that request is already filled');
-        if (r.status !== 'open' || r.gameDay !== today() || s.members[r.userId]?.clanId !== r.clanId) fail('invalid', 'that request is closed');
-        if (isBlocked(x, uid, r.userId)) fail('forbidden', 'you can\'t donate to this request');
+        // a block (either way) reads exactly like a closed request
+        if (r.status !== 'open' || r.gameDay !== today() || s.members[r.userId]?.clanId !== r.clanId || isBlocked(x, uid, r.userId)) fail('invalid', 'that request is closed');
         if (m.joinedAt > now() - DONOR_MIN_TENURE_HOURS * H) fail('forbidden', 'you can donate after 3 days in the clan');
         if ((me.createdAt || now()) > now() - DONOR_MIN_ACCOUNT_DAYS * DAY) fail('forbidden', 'new online accounts can donate after 7 days');
         if ((x.devVisits[uid] || 0) > now() - DEV_LAB_COOLDOWN_DAYS * DAY) fail('forbidden', 'no donations for a week after leaving the developer clan');
@@ -792,6 +825,15 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
       return stx((s, x) => {
         meUser(s, uid);
         if (!Array.isArray(keys) || keys.length > 20) fail('invalid', 'at most 20 keys');
+        rate(s, uid, 'settle');
+        // my voided tombstones older than 2 days go; at most VOID_KEY_MAX at a time (SQL settle_donations)
+        const mineVoided = () => Object.entries(x.keys).filter(([k, v]) => k.startsWith(`${uid}|`) && v.state === 'voided');
+        for (const [k, v] of mineVoided()) if (v.at < now() - VOID_KEY_KEEP_DAYS * DAY) delete x.keys[k];
+        const fresh = new Set(keys.filter((key) => !x.keys[`${uid}|${key}`]));
+        if (mineVoided().length + fresh.size > VOID_KEY_MAX) {
+          const oldest = Math.min(...mineVoided().map(([, v]) => v.at), now());
+          fail('rate_limited', 'Too many donation checks', { retryMs: Math.max(1000, oldest + VOID_KEY_KEEP_DAYS * DAY - now()) });
+        }
         return keys.map((key) => {
           const id = `${uid}|${key}`;
           x.keys[id] ||= { state: 'voided', item: null, count: 0, coins: 0, at: now() };

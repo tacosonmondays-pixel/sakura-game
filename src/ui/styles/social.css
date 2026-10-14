@@ -227,9 +227,10 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
   animation: panel-in var(--t-panel) var(--ease) both;
 }
 .sc-req-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.sc-req-who { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.sc-req-who { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; min-width: 0; }
 .sc-req-who b { color: var(--navy); flex: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sc-req-who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the whole "asks for 10 × Sparrow Feather" stays readable: it wraps instead of being cut */
+.sc-req-who small { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 .sc-req-info > small { font-size: 0.7rem; }
 .sc-req-acts { display: flex; flex-direction: column; gap: 4px; align-items: stretch; min-width: 64px; }
 .sc-req-acts .btn-small { padding: 4px 10px; min-height: 30px; }
@@ -291,6 +292,15 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
   .sc-card-head .ol-avatar { --size: 52px !important; }
   .sc-card { gap: 8px; }
   .sc-card-name { font-size: 1.1rem; }
+  /* a phone held sideways: who on the left, every button (Block / Report too) on the right, no scrolling */
+  .sc-card-modal { width: min(640px, 100%); }
+  .sc-card { display: grid; grid-template-columns: minmax(140px, 0.75fr) minmax(0, 1.5fr); align-items: start; gap: 8px 14px; }
+  .sc-card-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .sc-card-acts { min-height: 0; gap: 6px; }
+  .sc-card-foot { padding-top: 6px; }
+  /* pop-ups on the left under the top bar: the coins and the chat drawer's header stay free */
+  .sc-toast-host { left: calc(8px + var(--safe-left, 0px)); transform: none; top: calc(50px + var(--safe-top)); width: min(48vw, 400px); }
+  body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(50px + var(--safe-top)); left: auto; right: calc(10px + var(--safe-right, 0px)); transform: none; width: min(44vw, 380px); }
   .sc-toast { padding: 6px 30px 6px 8px; }
   .sc-toast .ol-avatar { --size: 32px !important; }
   .sc-needs-update { margin: 8px auto; padding: 10px 14px; }

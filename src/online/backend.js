@@ -28,7 +28,7 @@ const LIMITED = {
   startBossAttempt: 'boss_start', createTransfer: 'transfer', redeemTransfer: 'transfer',
   // [social]
   sendDm: 'dm', sendCoopInvite: 'invite', addFriend: 'friend', addFriendByCode: 'friend', block: 'block', unblock: 'block', report: 'report',
-  setPrivacy: 'settings', resetFriendCode: 'settings', donate: 'donate', playerCard: 'card',
+  setPrivacy: 'settings', resetFriendCode: 'settings', donate: 'donate', playerCard: 'card', settleDonations: 'settle',
 };
 // a wrong code is a counted try on the server too (not undone like other refusals)
 const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
@@ -42,7 +42,7 @@ const COUNTED_CALLS = new Set(['joinByCode', 'redeemTransfer', 'addFriendByCode'
 export const SOCIAL_METHODS = [
   'socialSummary', 'playerCard', 'setPrivacy', 'myFriendCode', 'resetFriendCode', 'friends', 'friendRequests', 'addFriend', 'addFriendByCode',
   'answerFriend', 'cancelFriendRequest', 'removeFriend', 'inviteCandidates', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
-  'inviteState', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
+  'inviteState', 'expireCoopInvites', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
 ];
 /** How long a "needs update" answer is trusted before asking the server again. */
 const SOCIAL_RETRY_MS = 5 * 60 * 1000;

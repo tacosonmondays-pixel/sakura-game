@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { RULES } from '../../src/online/limits.js';
 import { gameDay, nextDailyReset } from '../../src/core/reset.js';
 import { donatableItems, requestRule, DONOR_DAILY_POINTS, DONOR_COINS_PER_POINT } from '../../src/online/donateRules.js';
-import { FRIEND_MAX, DM_THREAD_KEEP, INVITE_TTL_MS } from '../../src/online/socialRules.js';
+import { FRIEND_MAX, INVITE_TTL_MS } from '../../src/online/socialRules.js';
 import { MIGRATION_SQL as sql, PGlite, createDb, refused } from './pgHarness.js';
 
 const SOCIAL_TABLES = ['social_settings', 'friend_codes', 'friend_requests', 'friends', 'blocks', 'coop_partners', 'dm_threads', 'direct_messages',
@@ -22,7 +22,7 @@ const ALLOWED = new Set([
   'social_version', 'social_summary', 'player_card', 'set_dm_privacy', 'my_friend_code', 'reset_friend_code', 'send_friend_request',
   'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests', 'invite_candidates', 'block_player',
   'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read', 'dm_clear', 'invite_state',
-  'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations', 'visible_name',
+  'expire_coop_invites', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations',
 ]);
 
 describe('social migration (lint)', () => {
@@ -40,7 +40,7 @@ describe('social migration (lint)', () => {
       const [n, unit] = txt.split(' ');
       return Number(n) * { minute: 60e3, hour: 3600e3, day: 86400e3 }[unit.replace(/s$/, '')];
     };
-    for (const action of ['dm', 'dm_day', 'dm_new', 'invite', 'friend', 'block', 'report', 'settings', 'card', 'rename', 'donate']) {
+    for (const action of ['dm', 'dm_day', 'dm_new', 'invite', 'friend', 'block', 'report', 'settings', 'card', 'rename', 'donate', 'settle']) {
       const m = sql.match(new RegExp(`enforce_rate\\('${action}', (\\d+), (\\d+), interval '([^']+)'\\)`));
       expect(m, action).toBeTruthy();
       expect(Number(m[1]), `${action} gap`).toBe(RULES[action].gapMs);
@@ -62,7 +62,8 @@ describe('social migration (lint)', () => {
     expect(sql).toContain(`v_today + v_points > ${DONOR_DAILY_POINTS}`);
     expect(sql).toContain(`v_points * ${DONOR_COINS_PER_POINT}`);
     expect(sql).toContain(`>= ${FRIEND_MAX}`);
-    expect(sql).toContain(`offset ${DM_THREAD_KEEP - 1}`);
+    // no per-conversation trim: flooding must never push a reported message out (SECURITY #4)
+    expect(sql.slice(sql.indexOf('function public.social_after_dm'), sql.indexOf('function public.social_report_evidence'))).not.toMatch(/delete from direct_messages/);
     expect(sql).toContain(`v_now + ${INVITE_TTL_MS}`);
   });
 });
@@ -145,9 +146,10 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
 
   it('privacy: strangers cannot DM or friend each other; no settings row and no clan never fail open', async () => {
     expect((await sup('select count(*)::int as n from social_settings')).rows[0].n).toBe(0);
-    await refused(dm(A, B, 'hi stranger'), /forbidden: they can't get messages from you yet|forbidden: your "Who can message me"/);
+    // strangers: the same answer whatever either side chose (no setting allows strangers)
+    await refused(dm(A, B, 'hi stranger'), /forbidden: only friends and clanmates can message each other/);
     const c = await card(A, B);
-    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'my_setting', friend: 'none', canFriend: false, friendWhy: 'context', isSelf: false, lastActive: null });
+    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'stranger', myPrivacy: 'friends_clan', friend: 'none', canFriend: false, friendWhy: 'context', isSelf: false, lastActive: null });
     expect(c).not.toHaveProperty('privacy');
     await refused(as(A, 'select send_friend_request($1)', [B]), /forbidden: ask for their friend code/);
     await refused(as(A, 'select player_card($1)', ['deadbeef-0000-4000-8000-000000000000']), /not_found/);
@@ -293,9 +295,9 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     expect((await one(A, 'select list_friend_requests() as r')).incoming).toEqual([]);
     expect(await as(A, 'select * from friend_requests')).toEqual([]);
     expect((await one(A, 'select social_summary() as r')).friendRequests).toBe(0);
-    // a blocked guest cannot take the host's co-op seat
+    // a blocked guest cannot take the host's co-op seat (it reads like a full room: SECURITY #6)
     await as(A, `select open_room('BLKD1')`);
-    expect(await one(B, `select join_room('BLKD1') as r`)).toEqual({ error: 'not_found' });
+    expect(await one(B, `select join_room('BLKD1') as r`)).toEqual({ error: 'full' });
     await as(A, `select leave_room('BLKD1')`);
     // the inbox hides the conversation; unblocking brings it back
     expect((await one(A, 'select dm_inbox(50) as r')).threads).toEqual([]);
@@ -334,8 +336,11 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     await refused(as(F, `update profiles set name = 'Fumi 5' where id = $1`, [F]), /^rate_limited:\d+$/);
     await as(F, 'update profiles set level = 9 where id = $1', [F]); // level changes are not renames
     await clearRate(F, 'rename');
-    for (const bad of ['Fu\u3164mi', '\u2800\u2800', 'Fu\u2028mi', 'Z\u0300\u0301\u0302\u0303\u0304ed']) {
-      await refused(as(F, 'update profiles set name = $1 where id = $2', [bad, F]), /check constraint/);
+    for (const bad of ['Fu\u3164mi', '\u2800\u2800', 'Fu\u2028mi', 'Z\u0300\u0301\u0302\u0303\u0304ed', '\u034f\u034f', '\u3000\u3000', '\u17b4\u17b4', 'Fumi\u3000']) {
+      await refused(as(F, 'update profiles set name = $1 where id = $2', [bad, F]), /invalid: names need visible letters/);
+    }
+    for (const bad of ['\u0405ystem', 'Supply B\u043et', '\uff33\uff59\uff53\uff54\uff45\uff4d', '\u0391dmin', 'S\u00fdstem', 'M\u039fD']) {
+      await refused(as(F, 'update profiles set name = $1 where id = $2', [bad, F]), /invalid: that name is reserved/);
     }
     await clearRate(F, 'rename');
     await as(F, `update profiles set name = 'Fumi' where id = $1`, [F]);
@@ -591,8 +596,9 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     await clearRate(G, 'block');
     await as(G, 'select block_player($1)', [E]);
     await clearRate(E, 'donate');
-    await refused(as(E, 'select donate($1, 1, $2)', [r.id, KEY(60)]), /forbidden: you can't donate to this request/);
-    expect((await one(E, 'select donation_state() as r')).requests).toEqual([]); // hidden for the blocked pair
+    // the blocked donor is never told: the request shows, closed, and donate() says "closed"
+    await refused(as(E, 'select donate($1, 1, $2)', [r.id, KEY(60)]), /^invalid: that request is closed$/);
+    expect((await one(E, 'select donation_state() as r')).requests.map((x) => [x.id, x.open])).toEqual([[r.id, false]]);
     // housekeeping
     await sup(`update direct_messages set created_at = now() - interval '15 days'`);
     await sup(`update donation_keys set created_at = now() - interval '30 days'`);

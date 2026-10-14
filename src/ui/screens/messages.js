@@ -10,7 +10,7 @@ import { buildHash } from '../router.js';
 import { ensureOnline, onlinePill, avatar, levelChip, clock, connecting, showError } from '../online/common.js';
 import { needsUpdateCard } from '../online/needsUpdate.js';
 import { openPlayerCard, NEW_PEER_KEY } from '../online/playerCard.js';
-import { hub, startSocialHub, setViewing, refreshSoon, setBlocked, joinInvite, setPrivacyCache } from '../online/socialHub.js';
+import { hub, startSocialHub, setViewing, refreshSoon, setBlocked, joinInvite, setPrivacyCache, inviteSummary } from '../online/socialHub.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { formatRetry } from '../../online/limits.js';
 import { MESSAGE_MAX } from '../../online/clanRules.js';
@@ -40,6 +40,14 @@ export function dayLabel(ts, now = Date.now()) {
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
   return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Does a live DM belong to the conversation with `peerId` that has no thread id yet (a brand-new
+ * conversation)? Then the screen adopts its thread id instead of dropping it (exported for tests).
+ */
+export function joinsNewThread(m, peerId) {
+  return !!(m && m.threadId && peerId && (m.senderId === peerId || m.recipientId === peerId));
 }
 
 /** The inbox line under a name: "You: hi" / "🎮 Co-op invite" (exported for tests). */
@@ -340,7 +348,8 @@ export function render(root, params = {}) {
 
     function paintFoot() {
       if (!info.canMessage) {
-        foot.replaceChildren(h('p.sc-thread-why', { 'data-testid': 'thread-why' }, whyText(info.why, info.peer.name) || 'You can\'t message this player right now.'));
+        const why = whyText(info.why, info.peer.name, { myPrivacy: info.myPrivacy, friend: info.friend });
+        foot.replaceChildren(h('p.sc-thread-why', { 'data-testid': 'thread-why' }, why || 'You can\'t message this player right now.'));
         return;
       }
       foot.replaceChildren(composer());
@@ -384,17 +393,14 @@ export function render(root, params = {}) {
           input.value = '';
           count.textContent = '';
           if (!id) {
-            // the first message made the conversation: the address gets its thread id
-            id = m.threadId;
-            selected = id;
-            setViewing(id);
-            try {
-              sessionStorage.removeItem(NEW_PEER_KEY);
-            } catch {
-              /* ignore */
-            }
-            setHash({ id });
-            paintList();
+            // the first message made the conversation (or found the one the other player just
+            // started): the address gets its thread id, and the history is read again so a
+            // message they sent meanwhile shows too
+            adoptThread(m.threadId);
+            add(m);
+            scrollDown();
+            reload({ rebuild: true });
+            return;
           }
           add(m);
           scrollDown();
@@ -424,7 +430,7 @@ export function render(root, params = {}) {
       const join = m.mine ? null : button('Join', { kind: 'yellow', small: true, icon: 'play', testid: 'invite-join-dm', onClick: () => joinInvite(m) });
       const card = h(`div.sc-invite${m.mine ? '.mine' : ''}`, { 'data-id': m.id, 'data-testid': 'dm-invite' },
         h('span.sc-inv-ico', svgEl(glyph('people'), 'sc-icon')),
-        h('div.sc-inv-text', h('b', m.mine ? `You invited ${info.peer.name} to co-op` : `${m.name} invites you to co-op`), h('small', `Stage ${m.meta?.stage || '?'} · ${(m.meta?.difficulty || '').replace(/^./, (c) => c.toUpperCase())}`), state),
+        h('div.sc-inv-text', h('b', m.mine ? `You invited ${info.peer.name} to co-op` : `${m.name} invites you to co-op`), h('small', inviteSummary(m.meta)), state),
         join);
       const paint = () => {
         const left = Number(m.meta?.expires) - Date.now();
@@ -465,6 +471,34 @@ export function render(root, params = {}) {
       msgs.scrollTop = msgs.scrollHeight;
     }
 
+    /** A brand-new conversation got its thread id (my first message, or theirs arriving live). */
+    function adoptThread(threadId) {
+      if (id || !threadId) return;
+      id = threadId;
+      selected = id;
+      setViewing(id);
+      try {
+        sessionStorage.removeItem(NEW_PEER_KEY);
+      } catch {
+        /* ignore */
+      }
+      setHash({ id });
+      paintList();
+    }
+
+    /** Throw away what is shown and show `page` (newest first) from scratch. */
+    function rebuild(page) {
+      msgs.replaceChildren();
+      shown.clear();
+      newest = 0;
+      oldest = null;
+      lastDay = null;
+      for (const m of [...page.messages].reverse()) add(m);
+      hasMore = page.hasMore;
+      if (hasMore) msgs.prepend(more);
+      if (!page.messages.length) msgs.append(h('div.ol-chat-empty', `Say hi to ${page.peer.name}!`));
+    }
+
     function markRead() {
       if (!id || !newest) return;
       clearTimeout(readTimer);
@@ -499,13 +533,8 @@ export function render(root, params = {}) {
         if (id) {
           const page = await backend.dmHistory(id, { limit: DM_PAGE });
           if (!alive) return;
-          info = { peer: page.peer, canMessage: page.canMessage, why: page.why };
-          msgs.replaceChildren();
-          lastDay = null;
-          for (const m of [...page.messages].reverse()) add(m);
-          hasMore = page.hasMore;
-          if (hasMore) msgs.prepend(more);
-          if (!page.messages.length) msgs.append(h('div.ol-chat-empty', `Say hi to ${page.peer.name}!`));
+          info = { peer: page.peer, canMessage: page.canMessage, why: page.why, myPrivacy: page.myPrivacy, friend: page.friend };
+          rebuild(page);
         } else {
           const c = await backend.playerCard(peer.userId);
           if (!alive) return;
@@ -513,7 +542,7 @@ export function render(root, params = {}) {
             openThread(c.threadId);
             return;
           }
-          info = { peer: { userId: c.userId, name: c.name, level: c.level, avatar: c.avatar }, canMessage: c.canMessage, why: c.why };
+          info = { peer: { userId: c.userId, name: c.name, level: c.level, avatar: c.avatar }, canMessage: c.canMessage, why: c.why, myPrivacy: c.myPrivacy, friend: c.friend === 'friends' };
           msgs.replaceChildren(h('div.ol-chat-empty', `Say hi to ${c.name}!`));
         }
         paintHead();
@@ -528,17 +557,22 @@ export function render(root, params = {}) {
       }
     }
 
-    /** New messages since the newest shown (a missed live event, the other side's messages). */
-    async function reload() {
+    /**
+     * New messages since the newest shown (a missed live event, the other side's messages). A
+     * message older than the newest shown that never appeared (it arrived before this conversation
+     * had its thread id) makes the page show the history from scratch, in order.
+     */
+    async function reload({ rebuild: fresh = false } = {}) {
       if (!id || !alive) return;
       try {
         const page = await backend.dmHistory(id, { limit: DM_PAGE });
         if (!alive) return;
         const was = info?.canMessage;
-        info = { peer: page.peer, canMessage: page.canMessage, why: page.why };
+        info = { peer: page.peer, canMessage: page.canMessage, why: page.why, myPrivacy: page.myPrivacy, friend: page.friend };
         const near = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
-        for (const m of [...page.messages].reverse()) if (m.id > newest) add(m);
-        if (near) scrollDown();
+        if (fresh || page.messages.some((m) => !shown.has(m.id) && m.id < newest)) rebuild(page);
+        else for (const m of [...page.messages].reverse()) if (m.id > newest) add(m);
+        if (near || fresh) scrollDown();
         if (was !== info.canMessage) {
           paintHead();
           paintFoot();
@@ -622,7 +656,10 @@ export function render(root, params = {}) {
 
     return {
       onDm(m) {
-        if (!alive || !id || m.threadId !== id) return;
+        if (!alive) return;
+        // a brand-new conversation (no thread id yet): their first message starts it here
+        if (!id && joinsNewThread(m, info?.peer.userId || peer?.userId)) adoptThread(m.threadId);
+        if (!id || m.threadId !== id) return;
         add(m);
         const near = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 120;
         if (near) scrollDown();
@@ -662,11 +699,14 @@ export function render(root, params = {}) {
       },
     }, h('b', PRIVACY_LABELS[p]), h('small', PRIVACY_HELP[p]))));
     paint();
-    const dlg = modal({
+    // (Blocked players sits next to Done: the actions row never scrolls out of sight on a phone)
+    modal({
       title: 'Who can message me',
-      body: h('div', seg, h('p.muted.sc-small', 'Strangers can never message you. To add someone you met in global chat, swap friend codes.'),
-        h('button.sc-menu-btn.sc-blocked-btn', { 'data-testid': 'msg-blocked', onclick: () => { dlg.close(); tab = 'blocked'; setHash({ id: selected || undefined, tab: 'blocked' }); paintTabs(); paintList(); wrap.dataset.pane = 'list'; } }, 'Blocked players')),
-      actions: [{ label: 'Done', kind: 'primary' }],
+      body: h('div', seg, h('p.muted.sc-small', 'Strangers can never message you. To add someone you met in global chat, swap friend codes.')),
+      actions: [
+        { label: 'Blocked players', kind: 'ghost', testid: 'msg-blocked', onClick: (close) => { close(); tab = 'blocked'; setHash({ id: selected || undefined, tab: 'blocked' }); paintTabs(); paintList(); wrap.dataset.pane = 'list'; } },
+        { label: 'Done', kind: 'primary' },
+      ],
     });
   }
 

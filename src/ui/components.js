@@ -257,6 +257,15 @@ export function tabs(items, activeId, onChange) {
 }
 
 let modalStack = [];
+const modalClosers = new Map(); // overlay → its close()
+
+/**
+ * Closes every open window (menus, gifts, cards, confirmations). A social pop-up's Reply / Join /
+ * View calls it before it opens another screen, so nothing stays on top of that screen.
+ */
+export function closeAllModals() {
+  for (const close of [...modalClosers.values()].reverse()) close();
+}
 /**
  * modal({title, body: Node|string, actions:[{label, kind, onClick(close)}], wide, onClose})
  * @returns {{close: () => void, el: HTMLElement}}
@@ -269,6 +278,7 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 160);
     modalStack = modalStack.filter((m) => m !== overlay);
+    modalClosers.delete(overlay);
     onClose?.();
   };
   const dialog = h(
@@ -283,6 +293,7 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
   const overlay = h('div.modal-overlay', { onclick: (e) => { if (dismissable && e.target === overlay) close(); } }, dialog);
   document.body.appendChild(overlay);
   modalStack.push(overlay);
+  modalClosers.set(overlay, close);
   return { close, el: dialog };
 }
 

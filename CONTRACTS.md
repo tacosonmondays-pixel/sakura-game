@@ -1100,10 +1100,11 @@ be.friends() be.friendRequests() be.inviteCandidates()      // friends / { incom
 be.addFriend(userId) be.addFriendByCode(code) be.answerFriend(requestId, accept) be.cancelFriendRequest(requestId) be.removeFriend(userId)
 be.block(userId) be.unblock(userId) be.blocked() be.report(userId, { reason, note, context, messageId })
 be.inbox()                               // { threads: [{ id, peer, last, unread, canMessage }], unread }
-be.dmHistory(threadId, { before, limit }) // { peer, canMessage, why, messages (newest first), hasMore }
+be.dmHistory(threadId, { before, limit }) // { peer, canMessage, why, myPrivacy, friend, messages (newest first), hasMore }
 be.sendDm(userId, body)                  // message + threadId (the first message creates the thread)
 be.sendCoopInvite(userId, { room, stage, difficulty })   // the server writes the text and meta.expires (now + 15 min)
 be.inviteState(messageId) be.markRead(threadId, lastId) be.clearThread(threadId)
+be.expireCoopInvites(room)               // the host left the room lobby: its open DM invites into `room` expire -> count
 be.subscribeInbox(cb)                    // cb({ type: 'dm'|'friend_request'|'donation', row }) -> unsubscribe; postgres_changes, never presence
 be.donationState()                       // { today, nextReset, serverNow, clanId, myRequest, requests, collectable, donatedToday, cap, canRequest, requestWhy,
                                          //   canDonate, donateWhy, weekly, mythicOpen }
@@ -1114,8 +1115,13 @@ be.claimDonations(key)                   // { key, items: [{ item, count, from }
 ```
 
 Rules modules: `src/online/socialRules.js` (privacy values, friend / block / DM numbers, `bodyError()` /
-`validMessageBody()` = SQL `valid_dm_body`, `validDmMeta()`, `inviteBody()`, `whyText()` — a block and a
-setting read the same), `src/online/donateRules.js` (`DONATE_RULES` by rarity: size 10/6/3/1, per donor
+`validMessageBody()` = SQL `valid_dm_body`, `validDmMeta()`, `inviteBody()`, `whyText(why, name, { myPrivacy,
+friend })` — a block and a setting read the same; why codes self / blocked_by_me / muted / stranger /
+my_setting / clan_new / not_allowed / name), `src/online/textRules.js` (the code-point sets of the text
+rules and `nameKey()` = SQL `name_key()`: names are compared for the reserved list after NFKD + the
+`LOOKALIKE_FROM/TO` table; `clanRules.validateName()` = SQL `valid_display_name()` + `visible_name()` +
+`reserved_name()`, enforced on new / changed names by the `profiles_name_rules` trigger, never a check
+constraint), `src/online/donateRules.js` (`DONATE_RULES` by rarity: size 10/6/3/1, per donor
 5/3/2/1, points 1/2/5/10, super rare 3 and mythic 1 per 7 days, mythic only in an established clan;
 `DONOR_DAILY_POINTS` 30, `DONOR_COINS_PER_POINT` 50, `CLAN_XP_PER_POINT` 1), `src/online/donateLedger.js`
 (escrow / finalize / refund / settle / claim, pure over the profile; the caller `store.saveNow()`s; refunds
@@ -1123,7 +1129,9 @@ only on a `definitive` error or a `voided` key). Save block `profile.social = { 
 claimed }` (`cleanSocial()` in `src/online/socialSave.js`; no `SAVE_VERSION` bump). Rate limits (`RULES` in
 limits.js, the same literal numbers in the SQL): dm 1/2 s + 20/min, dm_day 300, dm_new 10/day, invite 1/5 s +
 20/h (4/h per pair on the server), friend 10/h, block 30/h, report 1/10 s + 10/day, settings 20/h, card
-120/h, rename 3/day, donate 1/500 ms + 60/h. Error codes `needs_update` (client) and `daily_limit:<ms to reset>`.
+120/h, rename 3/day, donate 1/500 ms + 60/h, settle 30/h (plus ≤ `VOID_KEY_MAX` 100 voided keys per player,
+voided tombstones kept `VOID_KEY_KEEP_DAYS` 2). Error codes `needs_update` (client; also a social function
+whose grant is gone, 42501) and `daily_limit:<ms to reset>`.
 
 **Game day** — every daily cap resets at **7 PM America/Chicago** (owner decision D3, DST-aware).
 `src/core/reset.js` `gameDay(t)` = SQL `game_day_key(t)` = `'YYYY-MM-DD'` of the date the game day ENDS
@@ -1148,7 +1156,8 @@ local save. It never touches the server.
 
 **Tests** — `npx vitest run tests/online tests/ui/social.test.js tests/core/reset.test.js` (social: the
 migration on PGlite as ten players incl. the function allow-list, privacy matrix, caps, races and the 7 PM
-boundary; the local mirror with an injected clock; ledger crash recovery; the deploy-order switch) and
+boundary; `socialFixes.test.js`: the verifier findings reproduced and fixed; the local mirror with an
+injected clock; ledger crash recovery; the deploy-order switch) and
 `node e2e/social.mjs`. Older suites: `npx vitest run tests/online` (limiter, local adapter / mock DB, clan rules, clan boss, lockstep
 with two simulated clients and delayed / lost / reordered packets, deterministic math, schema: the migration
 runs twice on PGlite with and without Supabase's default grants, RLS and rate limits exercised);

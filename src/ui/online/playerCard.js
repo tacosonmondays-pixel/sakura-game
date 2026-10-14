@@ -10,7 +10,7 @@ import { errorText, toOnlineError } from '../../online/errors.js';
 import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS } from '../../online/socialRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
 import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
-import { makeRoomCode } from '../../online/coop/session.js';
+import { makeRoomCode, getSession } from '../../online/coop/session.js';
 
 export const NEW_PEER_KEY = 'ss-social-new-peer';
 
@@ -91,16 +91,21 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       paintSelf();
       return;
     }
-    const why = c.canMessage ? null : whyText(c.why, c.name);
+    const why = c.canMessage ? null : whyText(c.why, c.name, { myPrivacy: c.myPrivacy, friend: c.friend === 'friends' });
     const msg = button('Message', { kind: 'primary', icon: 'chat', testid: 'card-message', disabled: !c.canMessage && !c.threadId, onClick: () => { m.close(); openConversation(c); } });
-    const coop = button('Invite to co-op', {
-      kind: 'yellow', icon: 'play', testid: 'card-coop', disabled: !c.canMessage,
-      onClick: async () => {
-        m.close();
-        const { startCoopInvite } = await import('./coopInvite.js');
-        startCoopInvite(c);
-      },
-    });
+    // already my ally in the co-op room I am in: no second room (that would leave this one)
+    const s = getSession();
+    const ally = !!s && s.phase === 'lobby' && s.peer?.uid === c.userId;
+    const coop = ally
+      ? button('In your co-op room', { kind: 'ghost', icon: 'play', testid: 'card-coop-ally', onClick: () => { m.close(); navigate('coop', { id: s.code, ...(s.isHost ? { host: '1' } : {}) }); } })
+      : button('Invite to co-op', {
+        kind: 'yellow', icon: 'play', testid: 'card-coop', disabled: !c.canMessage,
+        onClick: async () => {
+          m.close();
+          const { startCoopInvite } = await import('./coopInvite.js');
+          startCoopInvite(c);
+        },
+      });
     acts.replaceChildren(...[
       h('div.sc-card-row', msg, coop),
       why ? h('p.sc-card-why', { 'data-testid': 'card-why' }, why) : null,
@@ -138,7 +143,8 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     } else {
       el = button('Add friend', { kind: 'pink', small: true, icon: 'plus', testid: 'card-add-friend', disabled: !c.canFriend, onClick: () => act(() => b.addFriend(c.userId), null, 'Friend request sent.') });
     }
-    const fwhy = c.friend === 'none' && !c.canFriend ? friendWhyText(c.friendWhy, c.name) : '';
+    // (a block is said once, by the message line above: never twice)
+    const fwhy = c.friend === 'none' && !c.canFriend && c.friendWhy !== 'blocked_by_me' ? friendWhyText(c.friendWhy, c.name) : '';
     return h('div.sc-card-friend', el, fwhy ? h('p.sc-card-why', { 'data-testid': 'card-friend-why' }, fwhy) : null);
   }
 

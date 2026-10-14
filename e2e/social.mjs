@@ -13,6 +13,9 @@
 //      lines are hidden for B
 //   7. a third tab with &social=0 (the live server before the owner runs the SQL) shows
 //      "Needs the latest server update" on Messages and Clan → Requests while chat still delivers
+//   + the verifier fixes: Join on a pop-up closes the open Menu first; the ally's card in the room
+//     says "In your co-op room"; the host's Leave expires its invites (card "Expired", Co-op →
+//     Invites empty); a brand-new conversation shows the other player's first message at once
 //
 //   node e2e/social.mjs                                  # 1280×720
 //   node e2e/social.mjs --viewport 844x390 --shots <dir> # + screenshots
@@ -267,6 +270,9 @@ try {
 
   // ---- co-op invite by DM → Join -----------------------------------------------------------
   await lobby(B);
+  // B has the Menu open when the invite arrives: Join must not leave it on top of the room (UX #2)
+  await tap(B, '[data-testid="top-menu"]');
+  await wait(B, '[data-testid="menu-close"]', { timeout: 8000 }).catch(() => null);
   const t1 = await B.evaluate(() => Date.now());
   await tap(A, '[data-testid="thread-invite"]');
   await wait(A, '[data-testid="coop-stage-ok"]', { timeout: 10000 });
@@ -275,22 +281,30 @@ try {
   const room = await A.locator('[data-testid="coop-room-code"]').innerText({ timeout: 10000 });
   check(/^[A-Z0-9]{5}$/.test(room), `co-op: A hosts room ${room}`);
   check(await until(A, () => /Bea/.test(document.querySelector('[data-testid="coop-invited"]')?.innerText || ''), null, 10000), 'co-op: the lobby lists "Invited: Bea"');
-  await shot(A, 'coop-invited');
-  // B's pop-up right away: it closes by itself after 20 s, and on a loaded machine the picker
-  // steps (below) or a tap's stability wait can take longer than that
+  // B's pop-up right away: it closes by itself after 20 s, and on a loaded machine a screenshot
+  // or a tap's stability wait can take longer than that
   check(await popped(B, 'invite', t1), 'co-op: B gets the invite pop-up');
   await wait(B, '[data-testid="invite-toast"]', { timeout: 5000 }).catch(() => null);
   // the pointer rests on the pop-up (a player reading it): it stays open until let go
   await B.locator('[data-testid="invite-toast"]').first().dispatchEvent('pointerenter').catch(() => {});
+  await shot(A, 'coop-invited');
   check(/invites you to co-op/.test(await text(B, '[data-testid="invite-toast"]')), 'co-op: the pop-up says who invites');
+  check(/1-\d+ · .+ · \w+/.test(await text(B, '[data-testid="invite-toast"]')), 'co-op: the pop-up names the stage like the stage picker ("1-1 · First Petals · Normal")');
   await shot(B, 'invite-toast');
   await quickTap(B, '[data-testid="invite-toast-join"]');
   await wait(B, '[data-testid="coop-room"]', { timeout: 15000 });
   check((await B.locator('[data-testid="coop-room-code"]').innerText()) === room, 'co-op: Join opened the same room (no code typed)');
+  check(await until(B, () => !document.querySelector('.modal-overlay'), null, 5000), 'co-op: Join closed the open Menu (nothing left on top of the room)');
   const paired = await until(A, () => !!document.querySelector('[data-testid="coop-player-1"]'), null, 20000)
     && await until(B, () => !!document.querySelector('[data-testid="coop-player-0"]'), null, 20000);
   check(paired, 'co-op: both players are in the lobby together');
   await shot(B, 'coop-joined');
+  // the ally's card: no "Invite to co-op" that would silently leave this room (UX #4)
+  await tap(A, '[data-testid="coop-ally-card"]');
+  check(await wait(A, '[data-testid="card-coop-ally"]', { timeout: 10000 }).then(() => true).catch(() => false), 'co-op: the ally\'s card says "In your co-op room" instead of opening a second room');
+  await shot(A, 'coop-ally-card');
+  await tap(A, '[data-testid="card-close"]');
+  await wait(A, '[data-testid="player-card"]', { state: 'detached', timeout: 5000 }).catch(() => null);
   await tap(B, '[data-testid="coop-leave"]');
   // the room lobby's own "Invite a friend" list (friends + clanmates; back once the ally left):
   // Bea is listed, and her invite is still live
@@ -303,15 +317,21 @@ try {
   await tap(A, '[data-testid="coop-candidates-close"]');
   await wait(A, '[data-testid="coop-candidates"]', { state: 'detached', timeout: 5000 }).catch(() => null);
   await tap(A, '[data-testid="coop-leave"]');
-  // the conversation keeps the invite as a card. A host's Leave keeps the room registered (the
-  // co-op menu's "Your last room" reopens it), so the invite stays open until it expires; a room
-  // that is really gone shows "room closed" (tests/online/localSocial.test.js, socialSchema.test.js)
+  // the conversation keeps the invite as a card. The host's Leave expires it (UX #6: nobody is in
+  // the room any more, so Join would only wait for a host who left); "Your last room" still
+  // reopens the room for the host, who can invite again
   await go(A, '#/messages');
   await wait(A, '[data-testid="thread-row"]', { timeout: 10000 });
   await tap(A, '[data-testid="thread-row"]');
-  check(await until(A, () => /Expires in/i.test(document.querySelector('[data-testid="dm-invite"]')?.innerText || ''), null, 10000),
-    'co-op: the invite card in the conversation stays open while the host\'s room waits for them');
+  check(await until(A, () => /Expired/i.test(document.querySelector('[data-testid="dm-invite"]')?.innerText || ''), null, 10000),
+    'co-op: after the host left, the invite card says "Expired"');
   await shot(A, 'thread-invite');
+  // B's Co-op → Invites asks the server: the invite this tab remembers is gone (UX #3)
+  await lobby(B);
+  await go(B, '#/coop');
+  check(await until(B, () => { const t = document.querySelector('[data-testid="coop-invites"]')?.innerText || ''; return !/Loading/.test(t); }, null, 15000)
+    && !(await B.locator('[data-testid="invite-row-dm"]').count()), 'co-op: Co-op → Invites lists no invite that is no longer open');
+  await shot(B, 'coop-hub-invites');
 
   // ---- clan material request → donate → collect ------------------------------------------
   await go(B, '#/clan?tab=donate');
@@ -373,7 +393,8 @@ try {
   await tap(C, '[data-testid="join-PS"]');
   await wait(C, '[data-testid="clan-home"]', { timeout: 10000 });
   const uidC = await C.evaluate(() => window.__online.uid);
-  await editDb(C, 's.members[a].joinedAt -= 30 * 3600e3;', uidC);
+  // (80 h in the clan: a day for her request, 3 days for DMs with Aiko)
+  await editDb(C, 's.members[a].joinedAt -= 80 * 3600e3;', uidC);
   await go(C, '#/clan?tab=donate');
   await wait(C, '[data-testid="donate-ask"]', { timeout: 15000 });
   await tap(C, '[data-testid="donate-ask"]');
@@ -382,6 +403,23 @@ try {
   await tap(C, '[data-testid="pick-ok"]');
   await tap(C, '[data-testid="confirm-ok"]');
   await wait(C, '[data-testid="my-request-progress"]', { timeout: 10000 });
+  // ---- a brand-new conversation: the other player's first message shows at once (UX #1) --------
+  await go(A, '#/clan?tab=members');
+  await wait(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-card"]`, { timeout: 10000 });
+  await tap(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-card"]`);
+  await wait(A, '[data-testid="card-message"]:not([disabled])', { timeout: 10000 });
+  await tap(A, '[data-testid="card-message"]');
+  await A.waitForFunction(() => /#\/messages\/new/.test(location.hash), null, { timeout: 8000 });
+  await wait(A, '[data-testid="dm-input"]', { timeout: 10000 });
+  await C.evaluate((to) => window.__online.sendDm(to, 'Cleo writes first'), uidA);
+  check(await until(A, () => [...document.querySelectorAll('[data-testid="dm-msg"]')].some((m) => /Cleo writes first/.test(m.innerText)), null, 12000),
+    'DM: in a brand-new conversation the other player\'s first message shows at once');
+  await toFront(A);
+  await A.fill('[data-testid="dm-input"]', 'Aiko writes second');
+  await A.press('[data-testid="dm-input"]', 'Enter');
+  check(await until(A, () => /Cleo writes first[\s\S]*Aiko writes second/.test([...document.querySelectorAll('[data-testid="dm-msg"]')].map((m) => m.innerText).join('|')), null, 12000),
+    'DM: both first messages show, in order');
+  await shot(A, 'dm-new-thread');
   await go(A, '#/clan?tab=members');
   await go(A, '#/clan?tab=donate');
   check(await until(A, () => /Cleo/.test(document.querySelector('[data-testid="donate-requests"]')?.innerText || ''), null, 12000), 'donate: A sees Cleo\'s request too');
