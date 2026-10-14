@@ -12,7 +12,10 @@
 // * Tier descriptions describe that tier's own change, written for the upgrade panel.
 // * Element side effects are explicit: a fire unit lists its burn in `status`, frost lists its
 //   slow, and so on — the sim never has to guess.
-// * Hero levelXp[i] = XP needed to go from level i+1 to level i+2 (9 entries for levels 2..10).
+// * Heroes have no upgrade paths: they deploy for free and level 1–25 inside each battle along one
+//   track (src/data/heroTracks.js). Their `paths` is empty and `hero.levels` holds all 25 levels.
+
+import { HERO_TRACKS } from './heroTracks.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -70,8 +73,8 @@ const STARTER = { type: 'starter' };
 const GACHA_ONLY = { type: 'gacha' };
 
 // ---------------------------------------------------------------------------
-// Heroes — adult guardians (one per battle). Good, not carrying: level 1 ≈ a tier-2 tower,
-// level 10 ≈ a strong tier-4 tower.
+// Heroes — adult guardians (one per player). Free to deploy; they level 1–25 during each battle:
+// one more defender early on, the team's strongest unit by the last waves.
 // ---------------------------------------------------------------------------
 
 const HIKARI = {
@@ -103,63 +106,31 @@ const HIKARI = {
   personality: 'Warm, unshakable and quietly teasing — the confident big-sister commander everyone wants to impress.',
   quote: 'Stay behind me, girls. The dawn is never late.',
   tips: [
-    'She has Veil Sight from the start — your first answer to veiled enemies.',
+    'She deploys for free and has Veil Sight from the start — your first answer to veiled enemies.',
     'Place her on the inside of a double bend: her short cleave hits far more enemies on corners.',
     'Save Celestial Bloom for a packed wave, or to stun a miniboss right before the exit.',
-    'Sanctuary turns her into a holy banner: Veil Sight, silence and buffs for the girls around her.',
+    'From Lv 9 her aura cleanses sabotage; at Lv 19 it becomes a holy banner.',
   ],
   base: stats({
-    cost: 520, behavior: 'pulse', damage: 6, rate: 1.0, range: 2.1, maxTargets: 3,
+    cost: 0, behavior: 'pulse', damage: 6, rate: 1.0, range: 2.1, maxTargets: 3,
     projectileSpeed: 0, canHitAir: false, detection: true, crit: { chance: 0.05, mul: 1.5 },
   }),
-  paths: [
-    path('radiant', 'Radiant Edge', 'Holy cleave damage', [
-      tier('Honed Light', 150, '+2 damage.', { damage: 2 }),
-      tier('Wide Arc', 320, 'Each sweep hits 2 more enemies; +0.2 range.', { maxTargets: 2, range: 0.2 }),
-      tier('Sunsteel Edge', 950, 'Ignores 3 armor and +4 damage — plate no longer stops the dawn.', { armorPen: 3, damage: 4 }),
-      tier('Judgement Arc', 2700, '+10 damage, 3 more targets per sweep, 15% crits for ×2.', { damage: 10, maxTargets: 3, crit: { chance: 0.15, mul: 2 } }),
-      tier('Noon Absolute', 9800, 'The sun at its zenith: +24 damage, +40% attack speed, 4 more targets, longer reach.', { damage: 24, rateMul: 1.4, maxTargets: 4, range: 0.5 }),
-    ]),
-    path('sanctuary', 'Sanctuary', 'Holy aura and silence', [
-      tier('Guiding Light', 140, 'Girls within 2.6 tiles gain +6% range.', { aura: { range: 2.6, rangeMul: 1.06 } }),
-      tier('Shared Light', 300, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),
-      tier('Blessed Ground', 1100, 'Aura shares Veil Sight and +10% damage; her hits silence fields and blinks for 0.6s.', { aura: { detection: true, dmgMul: 1.1 }, silence: 0.6 }),
-      tier('Sanctified Banner', 3200, 'Aura +15% attack speed, reaches 3.2 tiles and cleanses sabotage and stuns; hits reveal veiled foes for 2s.', { aura: { rateMul: 1.15, range: 3.2, cleanse: true }, reveal: 2 }),
-      tier('Dawn Sanctuary', 11000, 'Aura +20% damage and reaches 4 tiles; silence +0.8s.', { aura: { dmgMul: 1.2, range: 4 }, silence: 0.8 }),
-    ]),
-    path('lightbringer', 'Lightbringer', 'Reach, flyers and light lances', [
-      tier('Bright Step', 120, '+0.3 range.', { range: 0.3 }),
-      tier('Morning Tempo', 280, '+15% attack speed.', { rateMul: 1.15 }),
-      tier('Skyward Radiance', 1000, 'Holy waves reach flying enemies; +0.6 range.', { canHitAir: true, range: 0.6 }),
-      tier('Halo Lances', 2900, 'Her cleave becomes three piercing lances of light thrown at range; +4 damage.', { behavior: 'projectile', projectiles: 2, pierce: 3, range: 1, projectileSpeed: 16, damage: 4 }),
-      tier('Celestial Choir', 10500, 'Five radiant lances, +20 damage; hits may stun and reveal veiled foes.', { projectiles: 2, damage: 20, status: [S.stun(0.4, 0.25)], reveal: 3 }),
-    ]),
-  ],
+  paths: [],
   awakenPassive: {
     name: 'Unbroken Dawn',
     desc: '+8% damage, and her strikes reveal veiled enemies for 1.5s.',
     mods: { damageMul: 1.08, reveal: 1.5 },
   },
   hero: {
-    levelXp: [180, 320, 480, 680, 920, 1200, 1550, 1950, 2400],
-    levels: [
-      { level: 1, desc: 'Holy cleaves with Veil Sight.', mods: {} },
-      { level: 2, desc: 'Steady Guard: +1 damage.', mods: { damage: 1 } },
-      { level: 3, desc: 'Celestial Bloom unlocked; +5% attack speed.', mods: { rateMul: 1.05 } },
-      { level: 4, desc: 'Wider Sweep: +1 target per sweep, +0.2 range.', mods: { maxTargets: 1, range: 0.2 } },
-      { level: 5, desc: 'Radiant Focus: +2 damage, +5% crit chance.', mods: { damage: 2, crit: { chance: 0.05, mul: 1.5 } } },
-      { level: 6, desc: 'Searing Dawn: hits reveal veiled enemies for 1.5s.', mods: { reveal: 1.5 } },
-      { level: 7, desc: 'Captain\'s Resolve: +10% damage.', mods: { damageMul: 1.1 } },
-      { level: 8, desc: 'Unwavering: +10% attack speed, +1 target.', mods: { rateMul: 1.1, maxTargets: 1 } },
-      { level: 9, desc: 'Sunforged: +3 damage, ignores 1 armor.', mods: { damage: 3, armorPen: 1 } },
-      { level: 10, desc: 'Dawnblade Ascendant: +15% damage, +0.3 range.', mods: { damageMul: 1.15, range: 0.3 } },
-    ],
+    levels: HERO_TRACKS.hikari.levels,
+    pathKeys: HERO_TRACKS.hikari.pathKeys,
     ult: {
       name: 'Celestial Bloom',
       desc: 'A sun blooms around Hikari: 160 holy damage within 4.5 tiles, a 1.2s stun, and every veiled foe is revealed for 8s.',
       unlockLevel: 3,
       cooldown: 70,
       effect: { type: 'nova', damage: 160, radius: 4.5, attackType: 'holy', status: [S.stun(1.2)], reveal: 8 },
+      ranks: HERO_TRACKS.hikari.ultRanks,
     },
   },
 };
@@ -196,57 +167,25 @@ const LUNA = {
     'Moonfall slows the whole map AND speeds up every girl — fire it at the peak of a wave.',
   ],
   base: stats({
-    cost: 620, behavior: 'beam', damage: 4, rate: 0.8, range: 3.6, projectiles: 3, pierce: 3,
+    cost: 0, behavior: 'beam', damage: 4, rate: 0.8, range: 3.6, projectiles: 3, pierce: 3,
     projectileSpeed: 0, canHitAir: true,
   }),
-  paths: [
-    path('lances', 'Lunar Lances', 'Piercing beam damage', [
-      tier('Focused Moonlight', 160, '+1 beam damage.', { damage: 1 }),
-      tier('Silver Thread', 340, 'Each beam pierces 2 more enemies.', { pierce: 2 }),
-      tier('Eclipse Prism', 1100, 'Beams ignore 3 armor and deal +3 damage.', { armorPen: 3, damage: 3 }),
-      tier('Full Moon Lance', 3200, '+8 damage, +4 pierce and +25% against elites.', { damage: 8, pierce: 4, eliteMul: 1.25 }),
-      tier('Lunatic Lance', 11500, 'Five beams, +24 damage, +30% attack speed.', { projectiles: 2, damage: 24, rateMul: 1.3 }),
-    ]),
-    path('gravity', 'Night Gravity', 'Slows and brittle', [
-      tier('Dusk Veil', 140, 'Beams slow by 15% for 1s.', { status: [S.slow(0.15, 1)] }),
-      tier('Heavy Night', 300, '+0.4 range.', { range: 0.4 }),
-      tier('Lunar Gravity', 1000, 'Slow 30%, and struck foes turn Brittle: +10% damage from everyone.', { status: [S.slow(0.3, 1.5), S.vulnerable(0.1, 2)] }),
-      tier('Starfall Bind', 3400, '+20% damage; 15% chance to stun for 0.5s.', { damageMul: 1.2, status: [S.stun(0.5, 0.15)] }),
-      tier('Event Horizon', 10500, 'Gravity collapse: freeze chance, 50% slows, Brittle +20%, +20% attack speed.', { status: [S.freeze(1.2, 0.2), S.slow(0.5, 2.5), S.vulnerable(0.2, 3)], rateMul: 1.2 }),
-    ]),
-    path('court', 'Astral Court', 'Team buffs', [
-      tier('Starlit Study', 150, 'Girls within 3 tiles gain +5% range.', { aura: { range: 3, rangeMul: 1.05 } }),
-      tier('Night Lessons', 320, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),
-      tier('Celestial Court', 1200, 'Aura shares Veil Sight and +10% damage.', { aura: { detection: true, dmgMul: 1.1 } }),
-      tier('Moon Court Regalia', 3600, 'Aura +12% attack speed and reaches 3.6 tiles; +4 damage.', { aura: { rateMul: 1.12, range: 3.6 }, damage: 4 }),
-      tier('Queen of the Night Sky', 12000, 'Aura +20% damage, +10% range and speed; a fourth beam.', { aura: { dmgMul: 1.2, rangeMul: 1.1, rateMul: 1.1 }, projectiles: 1 }),
-    ]),
-  ],
+  paths: [],
   awakenPassive: {
     name: 'Moon\'s Favour',
     desc: 'Beams pierce 1 more enemy and reach 0.3 tiles further.',
     mods: { pierce: 1, range: 0.3 },
   },
   hero: {
-    levelXp: [200, 350, 520, 720, 960, 1250, 1600, 2000, 2450],
-    levels: [
-      { level: 1, desc: 'Three piercing moon beams.', mods: {} },
-      { level: 2, desc: 'Arcane Focus: +1 damage.', mods: { damage: 1 } },
-      { level: 3, desc: 'Moonfall unlocked; +0.2 range.', mods: { range: 0.2 } },
-      { level: 4, desc: 'Threaded Light: +1 pierce.', mods: { pierce: 1 } },
-      { level: 5, desc: 'Night Tempo: +1 damage, +8% attack speed.', mods: { damage: 1, rateMul: 1.08 } },
-      { level: 6, desc: 'Silver Edge: ignores 1 armor.', mods: { armorPen: 1 } },
-      { level: 7, desc: 'Fourth Phase: a fourth beam.', mods: { projectiles: 1 } },
-      { level: 8, desc: 'Tidal Moon: +2 damage.', mods: { damage: 2 } },
-      { level: 9, desc: 'Midnight Cadence: +10% attack speed.', mods: { rateMul: 1.1 } },
-      { level: 10, desc: 'Lunar Sovereign: +15% damage, +2 pierce.', mods: { damageMul: 1.15, pierce: 2 } },
-    ],
+    levels: HERO_TRACKS.luna.levels,
+    pathKeys: HERO_TRACKS.luna.pathKeys,
     ult: {
       name: 'Moonfall',
       desc: 'The moon descends: every enemy is slowed by 50% for 5s and every girl attacks 30% faster for 8s.',
       unlockLevel: 3,
       cooldown: 80,
       effect: { type: 'timeWarp', slow: 0.5, duration: 5, rateBuff: 1.3, buffDuration: 8 },
+      ranks: HERO_TRACKS.luna.ultRanks,
     },
   },
 };
@@ -274,66 +213,34 @@ const NAMI = {
     hairStyle: 'wavy', bangs: 'split', accessory: 'flower', outfit: 'coat', weapon: 'trident',
     halo: 'wave', eyeStyle: 'sharp', expression: 'calm',
   },
-  bio: 'A retired naval commodore who now guards the academy harbor. Sun-kissed and statuesque, she wears a fitted navy greatcoat with gold epaulettes and a sea-blossom pinned in her long teal waves, and stands knee-deep in the shallows with a gilded trident. Her strikes freeze the tide around her foes.',
+  bio: 'A retired naval commodore who now guards the academy harbor. Calm and weathered by the sea wind, she wears a fitted navy greatcoat with gold epaulettes and a sea-blossom pinned in her long teal waves, and stands knee-deep in the shallows with a gilded trident. Her strikes freeze the tide around her foes.',
   personality: 'Laid-back and dryly funny until the horn sounds — then every order is crisp, calm and exactly right.',
   quote: 'Tide\'s turning. Hold the line and let the sea do the rest.',
   tips: [
     'Deploys only on water tiles — lakes beside the path are perfect.',
     'Tidal Wave pushes the whole wave back 5 tiles: a lifesaver right before a leak.',
-    'Undertow keeps pushing enemies back into your kill zone; Harbor Watch buffs nearby girls.',
+    'From Lv 9 her hits push enemies back into your kill zone; at Lv 24 her aura makes upgrades 10% cheaper for girls nearby (not hero levels).',
   ],
   base: stats({
-    cost: 460, behavior: 'projectile', damage: 5, rate: 1.0, range: 3.2, splash: 0.5,
+    cost: 0, behavior: 'projectile', damage: 5, rate: 1.0, range: 3.2, splash: 0.5,
     projectileSpeed: 12, canHitAir: true, status: [S.slow(0.2, 1.2)],
   }),
-  paths: [
-    path('frostbrand', 'Frostbrand', 'Freezing strikes', [
-      tier('Cold Current', 130, '+1 damage.', { damage: 1 }),
-      tier('Biting Spray', 300, 'Slow strengthened to 25% for 1.5s.', { status: [S.slow(0.25, 1.5)] }),
-      tier('Rime Spear', 950, 'Brittle +12%, ignores 1 armor, wider splash.', { status: [S.vulnerable(0.12, 2.5)], armorPen: 1, splash: 0.3 }),
-      tier('Glacier Breaker', 2900, '+6 damage; 20% chance to freeze for 0.8s.', { damage: 6, status: [S.freeze(0.8, 0.2)] }),
-      tier('Absolute Zero Tide', 9800, '+18 damage, 30% freeze for 1.5s, huge splash, +25% attack speed.', { damage: 18, status: [S.freeze(1.5, 0.3)], splash: 0.6, rateMul: 1.25 }),
-    ]),
-    path('undertow', 'Undertow', 'Push-back control', [
-      tier('Riptide', 140, '+0.3 range.', { range: 0.3 }),
-      tier('Undertow', 320, 'Hits push enemies back 0.2 tiles (not bosses).', { knockback: 0.2 }),
-      tier('Whirlpool', 1000, 'Bigger splash, stronger push-back and a 35% slow.', { splash: 0.5, knockback: 0.2, status: [S.slow(0.35, 1.5)] }),
-      tier('Maelstrom', 3200, '+4 damage, further push-back, 20% chance to stun for 0.4s.', { damage: 4, knockback: 0.3, status: [S.stun(0.4, 0.2)] }),
-      tier('Leviathan\'s Wake', 10500, 'A tidal hammer: +14 damage, massive splash and push-back, +20% speed.', { damage: 14, splash: 0.8, knockback: 0.6, rateMul: 1.2 }),
-    ]),
-    path('harbor', 'Harbor Watch', 'Fleet support', [
-      tier('Sea Breeze', 120, 'Girls within 2.8 tiles attack 5% faster.', { aura: { range: 2.8, rateMul: 1.05 } }),
-      tier('Lighthouse', 300, '+0.5 range.', { range: 0.5 }),
-      tier('Captain\'s Orders', 1000, 'Aura +10% attack speed and +5% range.', { aura: { rateMul: 1.1, rangeMul: 1.05 } }),
-      tier('Fleet Formation', 3000, 'Aura +12% damage and reaches 3.4 tiles.', { aura: { dmgMul: 1.12, range: 3.4 } }),
-      tier('Admiral of the Tides', 11000, 'Aura +15% damage, +10% speed, 10% cheaper upgrades; +10 damage.', { aura: { dmgMul: 1.15, rateMul: 1.1, costCut: 0.1 }, damage: 10 }),
-    ]),
-  ],
+  paths: [],
   awakenPassive: {
     name: 'Rising Tide',
     desc: 'Slow strengthened to 30% and +5% damage.',
     mods: { status: [S.slow(0.3, 1.6)], damageMul: 1.05 },
   },
   hero: {
-    levelXp: [160, 300, 450, 640, 870, 1150, 1480, 1860, 2300],
-    levels: [
-      { level: 1, desc: 'Frost strikes from the water that slow.', mods: {} },
-      { level: 2, desc: 'Salt Spray: +1 damage.', mods: { damage: 1 } },
-      { level: 3, desc: 'Tidal Wave unlocked; +0.2 range.', mods: { range: 0.2 } },
-      { level: 4, desc: 'Rolling Surf: +0.2 splash.', mods: { splash: 0.2 } },
-      { level: 5, desc: 'Cold Front: slow strengthened to 25%.', mods: { status: [S.slow(0.25, 1.4)] } },
-      { level: 6, desc: 'Deep Current: +2 damage.', mods: { damage: 2 } },
-      { level: 7, desc: 'Steady Helm: +10% attack speed.', mods: { rateMul: 1.1 } },
-      { level: 8, desc: 'Rimebite: struck foes turn Brittle (+8% damage taken) for 2s.', mods: { status: [S.vulnerable(0.08, 2)] } },
-      { level: 9, desc: 'High Tide: +2 damage.', mods: { damage: 2 } },
-      { level: 10, desc: 'Tidecaller: +15% damage; hits push enemies back 0.15 tiles.', mods: { damageMul: 1.15, knockback: 0.15 } },
-    ],
+    levels: HERO_TRACKS.nami.levels,
+    pathKeys: HERO_TRACKS.nami.pathKeys,
     ult: {
       name: 'Tidal Wave',
       desc: 'A wave crashes down every path: 70 damage, enemies are pushed back 5 tiles (bosses resist) and slowed by 40% for 3s.',
       unlockLevel: 3,
       cooldown: 60,
       effect: { type: 'tide', damage: 70, pushback: 5, slow: 0.4, duration: 3 },
+      ranks: HERO_TRACKS.nami.ultRanks,
     },
   },
 };
@@ -566,7 +473,7 @@ const MOMO = {
   quote: 'Every coin counts — especially the ones I throw!',
   tips: [
     'Place her early: her income pays out at the end of every wave.',
-    'Savings Pact tier 3 makes upgrades cheaper for the girls around her.',
+    'Savings Pact tier 3 makes upgrades cheaper for the girls around her (not hero levels).',
     'Her coin toss is weak — never rely on her to hold a lane alone.',
     'Nightmare difficulty switches off all wave income, hers included.',
   ],
@@ -1155,7 +1062,7 @@ const MIKO = {
   quote: 'May the blossoms guide your aim.',
   tips: [
     'Every girl within her aura deals +10% damage — place her in the middle of your best girls.',
-    'Sacred Grounds gives Veil Sight and cleanses sabotage for the whole cluster.',
+    'Sacred Grounds gives Veil Sight, cleanses sabotage and makes upgrades cheaper for the whole cluster (not hero levels).',
     'Purification turns her talismans into silencing holy strikes.',
   ],
   base: stats({

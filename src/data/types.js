@@ -274,6 +274,6 @@ export const BATTLE = {
   maxTowers: 8, // towers in formation (plus 1 hero)
   sellRefund: 0.7,
   waveClearBonusBase: 80, // coins at end of each wave (+ wave index * 6)
-  maxHeroLevel: 10,
+  maxHeroLevel: 25,
   speeds: [1, 2, 3],
 };
