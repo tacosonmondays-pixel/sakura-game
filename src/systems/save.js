@@ -367,6 +367,11 @@ export function migrateProfile(raw) {
       const best = cleanCounts(s.coopBestWave, (k) => /^[a-z]{1,16}$/.test(k));
       if (Object.keys(best).length) entry.coopBestWave = best;
     }
+    // solo freeplay: the same per-tier best (src/systems/freeplayRewards.js)
+    if (isObj(s.freeplayBest)) {
+      const best = cleanCounts(s.freeplayBest, (k) => /^[a-z]{1,16}$/.test(k));
+      if (Object.keys(best).length) entry.freeplayBest = best;
+    }
     p.progress.stages[id] = entry;
   }
   // co-op freeplay one-time milestones ('tier:id'), titles and profile frames earned there

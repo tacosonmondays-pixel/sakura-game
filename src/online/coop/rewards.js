@@ -167,11 +167,14 @@ export function coopBestWaves(profile, stageId) {
  * @param {object} profile
  * @param {object} result Sim.result() (result.freeplay = tier id, result.goal, result.wavesCleared)
  * @param {{ next(): number }} rng
- * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null }} [opts]
+ * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null, bestKey?: string }} [opts]
+ *   bestKey: the stage-entry field holding the per-tier best (co-op `coopBestWave`; solo freeplay,
+ *   src/systems/freeplayRewards.js, uses `freeplayBest` with these same payouts); waveCoins: coins per
+ *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage)
  * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tokens,
  *   best, prevBest, newBest, milestones: [{ id, label, gems, title?, frame? }] }`
  */
-export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {}) {
+export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null } = {}) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
@@ -189,7 +192,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
   const killed = addSightings(profile, newlySeen, kills);
   if (killed) track(profile, 'kill', killed);
 
-  const coins = Math.round(R.coinsPerWave * waves * (table.rewardMul ?? 1));
+  const coins = Math.round((waveCoins ?? R.coinsPerWave * (table.rewardMul ?? 1)) * waves);
   if (coins > 0) rewards.push({ id: 'coins', count: coins });
   const caches = Math.floor(waves / R.cacheEvery);
   for (let i = 0; i < caches; i++) rewards.push(...rollFreeplayCache(stage.id, result.difficulty, rng));
@@ -200,7 +203,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
 
   // the per-tier best (absolute waves cleared: "147/15")
   const entry = ((profile.progress ||= { stages: {} }).stages ||= {})[stage.id] ||= { easy: false, normal: false, hard: false, nightmare: false, clears: 0 };
-  const bests = (entry.coopBestWave = isObj(entry.coopBestWave) ? entry.coopBestWave : {});
+  const bests = (entry[bestKey] = isObj(entry[bestKey]) ? entry[bestKey] : {});
   const prevBest = count(bests[table.id]);
   const newBest = cleared > prevBest;
   if (newBest) bests[table.id] = cleared;
