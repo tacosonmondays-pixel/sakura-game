@@ -76,14 +76,15 @@ describe('late freeplay cost (CPU per step)', () => {
 
   // The peak of the heaviest wave we know: all 908 spawns enter within 50 s and (at ×760k HP) none
   // of them dies, so ~900 enemies walk at once. The owner accepts lag this deep (no cap), so this
-  // is a regression guard, not a frame budget: ~4.5 ms a step is ~1.2× real time at 3× speed.
-  it('wave 250 on 5-5 (908 scheduled spawns, no cap) stays under 6 ms a step at its peak', () => {
+  // is a regression guard, not a frame budget: 4.5-5 ms a step measured on a loaded 4-core box
+  // (~1.1× real time at 3× speed).
+  it('wave 250 on 5-5 (908 scheduled spawns, no cap) stays under 8 ms a step at its peak', () => {
     const { sim, placed } = lateBoard('5-5', 'blossom', 250, 60);
     expect(placed).toBe(60);
     expect(sim._getWave(250).spawns.length).toBeGreaterThan(800);
     const r = measure(sim, 3600);
     console.log(`[perf freeplay] 5-5 wave 250: ${r.msPerStep.toFixed(3)} ms/step over ${r.steps} steps, ${r.maxAlive} alive, ${r.maxProj} projectiles`);
     expect(r.maxAlive).toBeGreaterThan(300);
-    expect(r.msPerStep).toBeLessThan(process.env.CI ? 18 : 6);
+    expect(r.msPerStep).toBeLessThan(process.env.CI ? 20 : 8);
   }, 240000);
 });
