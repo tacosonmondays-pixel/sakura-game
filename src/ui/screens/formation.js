@@ -7,7 +7,7 @@ import { h, clear, screen, svgEl, button, unitCard, toast } from '../components.
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { formatNumber } from '../../core/util.js';
-import { BATTLE, CAPABILITIES, UNIT_RARITIES } from '../../data/types.js';
+import { BATTLE, CAPABILITIES } from '../../data/types.js';
 import { UNIT_MAP, hasCapability, unitsWithCapability } from '../../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
@@ -17,6 +17,7 @@ import { capabilityIcon, uiIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { unitMini, howToGet, put, emptyState } from './backpack.js';
+import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
 
 const pickState = { kind: 'tower' };
 
@@ -49,11 +50,15 @@ function slotTile(unitId, onRemove, needCaps) {
   if (!unitId) return null;
   const u = UNIT_MAP[unitId];
   const st = store.profile.units[unitId];
-  return h('button.mb-fslot.filled', { title: `Remove ${u.name}`, onclick: onRemove, 'data-unit': unitId, style: `border-bottom: 3px solid ${UNIT_RARITIES[u.rarity].color}` },
+  const ur = isUR(u, store.profile);
+  const el = h('button.mb-fslot.filled', { title: `Remove ${u.name}`, onclick: onRemove, 'data-unit': unitId, style: `border-bottom: 3px solid ${rarityColor(u, store.profile)}` },
     svgEl(portraitHTML(u, 'card'), 'unit-card-art'),
     needCaps.length ? h('div.mb-fslot-caps', needCaps.map((c) => svgEl(capabilityIcon(c)))) : null,
     h('span.mb-fslot-x', '×'),
+    ur ? h('span.mb-fslot-ur', urBadge()) : null,
     h('div.mb-fslot-name', u.name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${st?.level || 1}`)));
+  if (ur) applyUrFrame(el, u, store.profile);
+  return el;
 }
 
 export function render(root, params = {}) {
@@ -190,7 +195,7 @@ export function render(root, params = {}) {
           const st = profile.units[u.id];
           const covers = missingCaps.filter((c) => hasCapability(u, c, { includePaths: true }));
           const card = unitCard(u.id, { variant: 'tall', level: st.level, awaken: st.awaken, owned: true, onClick: () => toggle(u.id) });
-          card.style.setProperty('--rarity', UNIT_RARITIES[u.rarity].color);
+          card.style.setProperty('--rarity', rarityColor(u, profile));
           return h(`div.mb-pick${team.includes(u.id) ? '.in' : ''}${covers.length ? '.mb-pick-glow' : ''}`,
             card,
             team.includes(u.id) ? h('span.mb-pick-check', svgEl(uiIcon('check'))) : null,

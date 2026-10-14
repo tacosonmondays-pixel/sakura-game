@@ -556,6 +556,7 @@
   .bt-card-hero { width: 64px; }
   .bt-card-art { height: 48px; }
   .bt-card-name { display: none; }
+  .bt-card.bt-deployed .bt-card-deployed { font-size: 0.66rem; } /* "Deployed" fits the 64px hero card */
   .bt-panel { width: 340px; bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); z-index: 8; }
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
   .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(300px, 40%); gap: 4px; align-items: stretch; }
