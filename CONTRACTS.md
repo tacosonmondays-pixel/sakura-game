@@ -143,7 +143,10 @@ BaseStats = {
   aura?: { range, dmgMul?, rateMul?, rangeMul?, detection?, costCut?, cleanse? }, // buffs towers within range
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
-  turret?: { max, damage, rate, range, attackType?, status? },  // drones spawned near the tower, 1 per attack until max
+  turret?: { max, damage, rate, range, leash?, speed?, build?, attackType?, status? },
+           // drones. leash 0 (default): anchored near the tower, 1 per attack until max (behavior 'turret').
+           // leash > 0: ROAMING drones (Chika) — fly up to `leash` tiles from her (flight modes, §6), gun `range`,
+           // `speed` tiles/s (default 3), one built every `build` s during waves (default 1 / base rate)
   ramp?: { per, max },     // duel: +per damage fraction per consecutive hit on same target, up to +max
   mark?: { bonus, duration }, // marks target (all sources +bonus)
   silence?: number,          // seconds of silence applied on hit
@@ -182,7 +185,7 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse} | |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
-| turret: {max, damage, range (add); rate (mul)} | |
+| turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
 | ramp: {per, max (add)} | |
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
@@ -672,14 +675,19 @@ EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
-            spent /*coins invested*/, turrets: [{ uid, x, y, facing }] }
+            spent /*coins invested*/, turrets: [{ uid, x, y, facing }],
+            // roaming drones (turretSpec.leash > 0): each drone also has n (1, 2, …), slot, px/py (position one
+            // step earlier: draw between), jam (s), tgt/targetUid, moving, dmg, kills, shots, born (wave);
+            // the girl: droneDmg, droneKills, droneShots, droneSerial, flight (null = hover)
+            flight: null | { mode: 'hover'|'hold'|'patrol'|'pursuit', ax, ay, bx, by, cx, cy /*wing centre*/, leg } }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
 SimEvent = { type, ...payload } with types:
   'spawn' {uid,id} 'death' {uid,id,x,y,bounty} 'leak' {uid,id,lives} 'hit' {uid,x,y,amount,crit,attackType,effective}
   'attack' {towerUid, targetUid, kind} 'explode' {x,y,radius,element} 'chain' {points:[[x,y]...]}
   'beam' {from:[x,y], to:[x,y], width, color} 'pulse' {x,y,radius,element} 'status' {uid,status}
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
-  'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
+  'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid, turretUid? /*a jammed drone*/} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
+  'fizzle' {uid,x,y,turretUid} (a guided drone bullet whose target is gone)
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
@@ -704,6 +712,27 @@ sim.finish()          // -> boolean
 sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
 EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
                       //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
+```
+
+**Roaming drones and flight modes** (Chika; docs/specs/CHIKA_REWORK.md §3, §16). A girl whose
+`turret.leash > 0` builds drones on her own timer during waves (`turret.build` s, faster with attack-speed
+buffs) while her own attack (`base.behavior`, Chika's wrench bolt or Tesla coil) fires as usual. Each drone
+hunts its own quarry inside the wing's roam area, follows it at `speed` and shoots it from `range` with
+**guided** bullets (they hit only their target and fizzle when it is gone). Strong / Elite focus the wing on
+one enemy; First / Last / Close spread it. Flight mode (a player choice, co-op command `fly`):
+`hover` (default: within `leash` of her) · `hold` (within `leash` of point A) · `patrol` (around a position
+travelling A ↔ B at 0.6 × speed) · `pursuit` (anywhere on the map, fire rate × 0.8). Hold / Patrol points are
+pulled inside her signal range (2 × leash). A sapper with no girl in reach jams the nearest drone (3 s).
+Credit: `_hit(e, tower, spec, scale = 1, drone = null)`, `_credit(tower, dealt, e = null, drone = null)`,
+`_killEnemy(e, tower, drone = null)` (LANDING_PLAN S1); her own numbers = totals − drone totals.
+```js
+sim.setFlight(uid, mode, ax?, ay?, bx?, by?) // -> boolean (only roaming-drone girls; points pulled into range)
+sim.flightInfo(uid)   // -> { mode, a: [x,y]|null, b, at: [x,y] /*wing centre*/, signal, roam } | null
+sim.droneStats(uid)   // -> [{ uid, n, x, y, px, py, facing, state, jam, targetUid, targetId, dmg, kills, shots, born }]
+                      //    state: 'hunting'|'returning'|'home'|'jammed'|'stalled' (UI only; allocates)
+sim.findDrone(uid)    // -> { tower, drone } | null
+sim.towerStats(uid)   // + own: { dps, dealt, kills } (her own attack); turret + { leash, speed, build, rate,
+                      //   range (after buffs), dealt, kills, shots, nextIn, flight } for roaming drones
 ```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
@@ -883,6 +912,17 @@ first-clear gems, unlocked girls, bestiary discoveries) → buttons Next stage /
 Tracks missions (`track`). Must be fully usable on a phone. The battle toast feed docks left or
 right, whichever side keeps it off the spawn gates and the first tiles of road behind them
 (exit gates as a tie-break): `feed.setAvoid(() => screenPoints)` + `feedDockRight(...)`.
+
+**Drone owners (Chika)** — `src/ui/battle/chikaPanel.js`, `chikaFlight.js`: her panel adds a split bar
+(her own damage vs her drones'), a **Flight** row (Hover · Hold · Patrol · Pursuit; Hold = one board tap,
+Patrol = two, with a banner and her signal ring while picking; Esc / Cancel / re-tap cancels) and a tab
+row **Upgrades · Overall · Chika · Drones** (first open = Overall, then the last tab used, per battle). The
+Drones tab lists every drone (`drone-row-<n>`); a row or a tap on a flying drone opens the drone card
+(`drone-card`, ◀ ▶ step through the wing, ‹ goes back). Selection: `ctx.select(uid, { drone })`,
+`ctx.selectedDrone`, `ctx.selectDrone(d)`; `renderer.pick()` returns `droneUid` (a flying drone beats a
+girl, a drone at home loses to her); `renderer.setSelected(uid, droneUid)`, `renderer.setFlightPreview(p)`,
+`renderer.droneScreen(uid)`, `renderer.drawnDrones`. Live rates: `ctx.rates` (`createRateMeter`, 5 s of
+game time). Actions: `ctx.act.fly(uid, mode, a, b)` (solo `sim.setFlight`, co-op `fly`).
 
 ## 11. Meta screens
 
@@ -1124,13 +1164,16 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] fly[uid,mode,qx1?,qy1?,qx2?,qy2?]`
+  (`fly`: a drone wing's flight mode, owner only like `tgt`, up to 6 arguments; `flyArgs()` builds it), positions quantized to 1/1024 tile,
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
+  `COOP_PROTOCOL` 4 (`version.js`; battle train C — Chika's `fly`, the hero rework's commands share it), and
+  the freeplay table is in the battle-data hash. `hashSim` folds drones (uid, x, y) and the wing's flight mode
+  only for girls that have drones, so drone-less battles keep their digests.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:

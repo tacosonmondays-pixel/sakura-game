@@ -890,3 +890,31 @@ Pursuit's map-wide pool costs nothing measurable: the pool is still built at mos
 - **Q-F2. How far Hold / Patrol may reach.** Default: **2 × her drone range** (8 tiles at tier 0). Option: anywhere on the map (more helicopter-like, makes where you place her matter much less).
 - **Q-F3. Unlocks.** Default: **all four modes from tier 0**. Option: Pursuit from Sentry Grid (tier 3 of Sentry Works), if you want it to feel earned.
 
+---
+
+## 17. Build notes (branch `feature/chika-rework`, off `feature/train-c-base`)
+
+What was built, milestone by milestone, and where it differs from the text above.
+
+| # | Built | Files |
+|---|---|---|
+| M0 | Sim core as §3 plus the flight modes of §16: `makeDrone` / `restoreDrone` / `hasRoamingDrones`, `topTargets` (stable top-k), the per-girl pool, `updateRoamingDrones` with `wingFrame`, guided drone bullets (+ `fizzle` event), `buildDrones` on `turret.build`, `setFlight` / `flightMode` / `signalRange`; `Sim` `_hit/_credit/_killEnemy` drone credit, `setFlight`, `flightInfo`, `droneStats`, `findDrone`, `towerStats().own` and the roaming `turret` fields; sappers jam drones when no girl is in reach. | `src/sim/constants.js`, `mods.js`, `towers.js`, `Sim.js`, `enemies.js`, `headless.js` |
+| M1 | Chika data and copy (§3.6), the flight-mode tip, `autoPlan` placing her by drone reach, student-page copy (drone lines, "Projectile + Drones", the Drones row with the modes), `docs/ROSTER.md`. | `src/data/units.js`, `src/ui/screens/student.js` |
+| M2 | `fly` command, `isValidCmd` 6 args for `fly`, `COOP_PROTOCOL` 4, `hashSim` drone + flight folds, `DRONES_START` / `runDronesBattle` in the engines fixture and `e2e/engines.mjs`. | `src/online/coop/commands.js`, `simHash.js`, `version.js`, `e2e/engines/*` |
+| M3 | Panel: split bar, Flight row, tab row (coin dot), Overall / Chika / Drones tabs, drone list, drone card (◀ ▶ ‹), tab memory per battle, scroll to top on a tab change, `createRateMeter`, `droneNames.js`, CSS for both sizes (`.bt-dr-*`). | `src/ui/battle/chikaPanel.js`, `chikaFlight.js`, `towerPanel.js`, `util.js`, `src/data/droneNames.js`, `src/ui/styles/battle.css` |
+| M4 | Picking: `pick().droneUid` (flying drone > footprint > body > home drone, 22 px or 0.3 tiles), `ctx.select(uid, { drone })`, `ctx.selectDrone`, overlays (roam ring, signal ring while picking, Hold / Patrol markers, drone ring + tether + reticle), `renderAlpha` interpolation in the legacy drone mesh, `droneScreen` / `drawnDrones` / `setFlightPreview`. | `src/render/BattleRenderer.js`, `overlays.js`, `actors.js`, `src/ui/battle/controller.js` |
+| M5 | **Hook only**: `src/render/attackFx/` is not on this base (§16.8). The legacy mesh draws the sim's drones between steps; attack FX reads `renderer.drawnDrones` when it lands. | — |
+| M6 | **Field list only**: battle save (`src/ui/battle/snapshot.js`) is not on this base (§16.7). The generic `src/sim/snapshot.js` (co-op checkpoints) stores everything; split-run tests switch flight modes every 10 s. | `tests/sim/snapshot.test.js` |
+| M7 | `e2e/chika-drones.mjs` (both sizes), tests, docs (`CONTRACTS.md` §3 / §6 / §10 / §13, `docs/OWNER_REQUESTS.md`, this spec), measurement tools `tools/chika/`. `e2e/stat-display.mjs` does not exist on this base (it belongs to the unit-info branch), so its update (§9) is left to the branch that lands second. | `e2e/chika-drones.mjs`, `tools/chika/*`, docs |
+
+**Deviations from the spec text**
+- **Credit seam**: `_credit(tower, dealt, e = null, drone = null)` (LANDING_PLAN S1, problem #1), not §3.4's `_credit(tower, dealt, drone)`; `_dot` passes the enemy too. The hero rework's damage XP reads `e`.
+- **Drone range under map rules** (problem #2): this base has no codex env inputs, so `refreshEffective` uses `leash = max(1, leash) × buff.rangeMul`, `gun = range × buff.rangeMul`; the codex merge adds `envAdd` / `envMul` to the roam radius only, as S4 says.
+- **Flight seam**: `t.flight` carries `cx, cy, leg` besides the landing plan's `mode, ax, ay, bx, by` (the Patrol position and direction are state). `null` means Hover, so drone-less girls carry nothing.
+- **`fly` arguments**: `fly[uid, mode, qx1, qy1, qx2, qy2]` — the landing plan's row left out the girl's uid; `isValidCmd` allows 6 arguments for `fly` only.
+- **Hold / Patrol roam = the full leash** (`FLIGHT_POINT_ROAM_MUL` 1; 0.5 measured and rejected, §16.9.7) and **Pursuit fires at 80%** (Q-F1).
+- **Panel**: the Overall grid is today's grid (this base has no "Upgrades x% cheaper" or "New drone every …" rows; the spec described the unit-info WIP panel). The base panel called drones "Sentries"; drone owners now see "Drones".
+- **Tests**: `tests/battle-ui/towerPanelTabs.test.js` and `tests/render/pick.test.js` need a DOM / a projector stub that this repo's vitest setup does not have (no jsdom); their checks run in `e2e/chika-drones.mjs` instead, and `tests/battle-ui/chikaPanel.test.js` covers the pure parts (names, rate meter, DPS basis).
+- **Measurements** are from `tools/chika/measure.js` on this branch (relative to Hover); the r2 tables (§8, old kit vs new) were not re-run against the old kit. Its gates (§8.10) remain for the train's re-run.
+
+**Gates run here** (Oct 14, final head of this branch): `npm ci` ✓; `npx vitest run` 1126 passed, 1 skipped, **1 failed — pre-existing** (`tests/core/updates.test.js` "the net settings both players must share…": `COOP_NET.supabase` has idle keys the test does not list; the same on `feature/train-c-base`, `src/data/coop.js` untouched here); `npx vite build` ✓; `node e2e/smoke.mjs --viewport 844x390` ✓ and `--viewport 1280x720` ✓ (ALL SMOKE CHECKS PASSED); `BUN=/root/.bun/bin/bun node e2e/engines.mjs` ✓ (V8 Node, JSC Bun 1.4.2, V8 Chromium; Firefox / WebKit not installed); `node e2e/chika-drones.mjs` ✓ at 844×390 and 1280×720 (screenshots looked at: the phone layout was tightened twice — one-line header, icon-only Target / Flight labels, hint only while picking — so the first drone row, Wing DPS and Flying are on screen). Co-op id **`5be1f155a2d0`** (37 graph files; base `6447e0fe5bd6`).
