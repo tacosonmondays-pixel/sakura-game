@@ -13,12 +13,17 @@
 import { Sim } from '../../sim/Sim.js';
 import { STEP, DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
+import { FREEPLAY_TIERS } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
 
-/** Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]. */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed'];
+/**
+ * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
+ * speed[n] end[bool] (freeplay: this player's Finish vote; the run ends when everyone still in
+ * the room has voted, and only after the stage's goal wave).
+ */
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -51,12 +56,14 @@ export function isValidCmd(c, { markers = false } = {}) {
 }
 
 /**
- * @param {{ seed: number, stageId: string, difficulty: string,
+ * @param {{ seed: number, stageId: string, difficulty: string, freeplay?: string|null,
  *   players: { slot: number, uid: string, name: string, loadout: {unitId: string, stats?: object}[], hero?: {unitId: string, stats?: object}|null }[] }} start
+ *   `freeplay` is the room's freeplay tier (FREEPLAY_TIERS) or null/absent for a normal battle.
  * @param {{ mySlot?: number, stage?: object }} [opts]
  */
 export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
-  const stageDef = stage || coopStage(start.stageId);
+  const freeplay = FREEPLAY_TIERS.includes(start.freeplay) ? start.freeplay : null;
+  const stageDef = stage || coopStage(start.stageId, { freeplay });
   if (!stageDef) throw new Error(`[coop] unknown stage ${start.stageId}`);
   const players = [...start.players].sort((a, b) => a.slot - b.slot);
   const host = players[0];
@@ -68,7 +75,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
   }
   const sim = withDetMath(() => new Sim({
     stageId: stageDef.id, difficulty: start.difficulty, loadout: union, hero: host.hero || null, seed: start.seed >>> 0,
-    options: { endless: false, autoStart: false }, data: { stage: stageDef },
+    options: { endless: false, autoStart: false, freeplay: !!freeplay }, data: { stage: stageDef },
   }));
   const heroCfg = sim.heroConfig;
   const views = players.map((p) => {
@@ -87,6 +94,15 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
   let speed = 1;
   let tick = 0;
   let oddTurn = 0; // who gets the next odd coin
+  const endVotes = players.map(() => false); // freeplay Finish votes, by player index
+
+  /** Freeplay: once the goal is cleared, the run ends when every player still here votes Finish. */
+  function checkEndVotes() {
+    if (!sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
+    if (!players.every((_, i) => gone.has(i) || endVotes[i])) return false;
+    if (players.every((_, i) => gone.has(i))) return false;
+    return sim.finish();
+  }
 
   function view(slot) {
     sim.cash = wallets[slot];
@@ -113,6 +129,8 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     if (cmd.k === 'gone' || cmd.k === 'join') {
       if (cmd.k === 'gone') gone.add(slot);
       else gone.delete(slot);
+      // the one left can finish alone (her vote may already be in)
+      if (cmd.k === 'gone') checkEndVotes();
       return { ok: true };
     }
     view(slot);
@@ -170,6 +188,16 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
         case 'speed':
           if ([1, 2, 3].includes(a[0])) {
             speed = a[0];
+            res = { ok: true };
+          }
+          break;
+        case 'end':
+          // a Finish vote counts only in freeplay, after the goal, while the run is on
+          if (typeof a[0] !== 'boolean') res = { ok: false, reason: 'invalid' };
+          else if (!sim.freeplay || sim.wavesCleared < sim.totalWaves || sim.state === 'won' || sim.state === 'lost') res = { ok: false, reason: 'notYet' };
+          else {
+            endVotes[slot] = a[0];
+            checkEndVotes();
             res = { ok: true };
           }
           break;
@@ -234,6 +262,8 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
       gone.delete(slot);
     },
     isGone: (slot) => gone.has(slot),
+    /** Freeplay Finish votes, by player index (for the HUD). */
+    endVotes: () => endVotes.slice(),
     hash: () => hashSim(sim, { tick, wallets }),
   };
 }
