@@ -676,7 +676,7 @@ export function render(root, params = {}) {
             h('button.ol-copy', { onclick: copy, title: 'Copy', 'aria-label': 'Copy the room code' }, 'Copy')),
           h('div.ol-room-stage',
             thumb(s.stageId, 'ol-room-thumb'),
-            h('div',
+            h('div.ol-room-stage-info',
               h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
               h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
               s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
@@ -685,13 +685,14 @@ export function render(root, params = {}) {
                   writePref(r);
                   s.setStage(r.stageId, r.difficulty, r.freeplay);
                 }
-              } }) : null,
-              // the host can switch freeplay here too (the guest's Ready is taken back: consent)
-              s.isHost ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
-                if (v === s.freeplay) return;
-                writePref({ freeplay: v });
-                s.setStage(s.stageId, s.difficulty, v);
-              }, 'coop-room-freeplay')) : null)),
+              } }) : null),
+            // the host can switch freeplay here too, under the stage (the guest's Ready is taken
+            // back: Ready is consent)
+            s.isHost ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
+              if (v === s.freeplay) return;
+              writePref({ freeplay: v });
+              s.setStage(s.stageId, s.difficulty, v);
+            }, 'coop-room-freeplay')) : null),
           h('div.ol-room-acts',
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),

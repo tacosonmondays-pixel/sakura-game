@@ -307,10 +307,10 @@
 .ol-coop-intro-body p { margin: 0 0 4px; }
 .ol-coop-big-ico { width: 54px; height: 54px; flex: none; color: #fff; padding: 10px; border-radius: 14px; background: linear-gradient(135deg, var(--blue), var(--pink)); box-shadow: 0 4px 12px rgba(43,127,255,0.3); }
 .ol-coop-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: start; }
-.ol-coop-stage { display: flex; gap: 12px; align-items: stretch; }
+.ol-coop-stage { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
 .ol-stage-thumb, .ol-room-thumb { flex: none; width: 200px; aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 10px rgba(29,78,137,0.25); background: #cfe8ff; }
 .ol-stage-thumb svg, .ol-room-thumb svg, .ol-stage-opt-thumb svg { width: 100%; height: 100%; display: block; }
-.ol-coop-stage-info { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
+.ol-coop-stage-info { flex: 1 1 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
 .ol-coop-stage-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ol-coop-stage-name b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.05rem; }
 .ol-chip-diff { background: var(--navy); color: var(--yellow); font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 1px 8px; border-radius: 4px; transform: skewX(var(--skew)); }
@@ -339,7 +339,7 @@
 .ol-room-code b { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.7rem; letter-spacing: 0.18em; line-height: 1.1; user-select: text; }
 .ol-copy { border: none; background: rgba(255,255,255,0.18); color: #fff; border-radius: 5px; font-size: 0.68rem; font-weight: 900; padding: 1px 10px; margin-top: 2px; }
 .ol-room-stage { flex: 1; display: flex; gap: 12px; align-items: center; min-width: 0; }
-.ol-room-stage > div:last-child { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0; }
+.ol-room-stage > .ol-room-stage-info { flex: 1 1 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0; }
 .ol-room-thumb { width: 150px; }
 .ol-room-acts { display: flex; flex-direction: column; gap: 6px; }
 .ol-room-players { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: stretch; margin-bottom: 10px; }
@@ -531,8 +531,9 @@
 .ol-fp-pips { font-style: normal; font-size: 0.66rem; letter-spacing: -0.04em; color: #f2b705; text-shadow: 0 1px 0 rgba(0,0,0,0.15); }
 .ol-fp-mul { font-size: 0.66rem; font-weight: 900; opacity: 0.85; }
 .ol-fp-btn.on .ol-fp-pips { color: #ffe37a; }
-.ol-fp-row-hub { margin: 6px 0 0; }
-.ol-fp-row-room { margin: 2px 0 0; gap: 4px 8px; }
+.ol-fp-row-hub { flex: 1 1 100%; margin: 0; }
+.ol-room-stage { flex-wrap: wrap; row-gap: 6px; }
+.ol-fp-row-room { flex: 1 1 100%; margin: 0; gap: 4px 8px; }
 .ol-fp-row-room .ol-seg-btn { min-height: 28px; padding: 3px 8px; font-size: 0.78rem; }
 .ol-fp-seg .ol-fp-btn.on { color: #fff; }
 .ol-fp-seg .ol-fp-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); }
@@ -570,6 +571,12 @@
   .bt-has-boss .ol-coop-hud { top: calc(var(--bt-hud-h, 56px) + var(--safe-top) + 6px); left: auto; right: 8px; transform: none; }
   .bt-has-boss .ol-coop-room, .bt-has-boss .ol-coop-name { display: none; }
   .bt-has-boss .ol-coop-state { left: auto; right: 0; transform: none; }
+}
+/* portrait: the feed is centred under the HUD, where the co-op chip (and its state line) sits — the
+   toasts start below them */
+@media (max-width: 700px) and (min-height: 481px) {
+  .bt-root:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 58px); }
+  .bt-root.bt-has-boss:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 122px); }
 }
 /* the ally's chip once they are gone (the state line says why for a few seconds, then hides) */
 .ol-coop-p.gone { opacity: 0.55; }
