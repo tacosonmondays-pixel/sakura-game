@@ -15,7 +15,7 @@ describe('co-op: your last room', () => {
   it('remembers the room for two hours, then lets it go', () => {
     const t = 1_000_000;
     rememberRoom(session('aiko', 'AB3CD', true, '1-2', 'hard'), t);
-    expect(lastRoom('aiko', t + 60000)).toEqual({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard', at: t });
+    expect(lastRoom('aiko', t + 60000)).toEqual({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard', freeplay: null, at: t });
     expect(lastRoom('aiko', t + 2 * 3600000 - 1)).not.toBe(null);
     expect(lastRoom('aiko', t + 2 * 3600000)).toBe(null);
   });
@@ -43,6 +43,17 @@ describe('co-op: your last room', () => {
   it('Rejoin: the host opens its room again with its stage, a guest joins by code', () => {
     expect(roomRoute({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard' })).toEqual({ id: 'AB3CD', host: '1', stage: '1-2', difficulty: 'hard' });
     expect(roomRoute({ code: 'AB3CD', host: false, stageId: '1-2', difficulty: 'hard' })).toEqual({ id: 'AB3CD' });
+  });
+
+  it('a freeplay room is remembered with its setting: the host reopens it as one, a guest just joins (and takes the host\'s)', () => {
+    const t = 1_000_000;
+    rememberRoom({ ...session('aiko', 'AB3CD', true, '1-2', 'hard'), freeplay: 'crimson' }, t);
+    rememberRoom({ ...session('bea', 'AB3CD', false, '1-2', 'hard'), freeplay: 'crimson' }, t);
+    expect(lastRoom('aiko', t)).toMatchObject({ code: 'AB3CD', freeplay: 'crimson' });
+    expect(roomRoute(lastRoom('aiko', t))).toEqual({ id: 'AB3CD', host: '1', stage: '1-2', difficulty: 'hard', freeplay: 'crimson' });
+    expect(roomRoute(lastRoom('bea', t))).toEqual({ id: 'AB3CD' });
+    // a room from before freeplay (no field) reopens as a normal one
+    expect(roomRoute({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard' })).not.toHaveProperty('freeplay');
   });
 
   it('without storage (private mode, blocked) it remembers nothing and never throws', () => {

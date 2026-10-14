@@ -1,4 +1,4 @@
-// The co-op room each player of this browser was last in (code, host or guest, stage), for two
+// The co-op room each player of this browser was last in (code, host or guest, stage, freeplay), for two
 // hours: the co-op menu offers it again ("Your last room" → Rejoin) and a battle page that lost
 // its session (a reload) leads back to it, so nobody retypes a code or makes a new room after a
 // battle (owner, Oct 14: "make it so the room stays and you can rejoin the room"). Kept per
@@ -9,7 +9,7 @@ const LAST_MS = 2 * 60 * 60 * 1000;
 
 const valid = (r, at) => !!r && typeof r === 'object' && /^[A-Z0-9]{4,8}$/.test(r.code) && at - r.at < LAST_MS;
 
-/** uid → { code, host, stageId, difficulty, at } (an unreadable or old-format store is empty). */
+/** uid → { code, host, stageId, difficulty, freeplay, at } (an unreadable or old-format store is empty). */
 function readAll() {
   try {
     const all = JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
@@ -32,11 +32,11 @@ function writeAll(all) {
 export function rememberRoom(s, at = Date.now()) {
   const all = readAll();
   for (const [uid, r] of Object.entries(all)) if (!valid(r, at)) delete all[uid];
-  all[s.me?.uid || '-'] = { code: s.code, host: !!s.isHost, stageId: s.stageId, difficulty: s.difficulty, at };
+  all[s.me?.uid || '-'] = { code: s.code, host: !!s.isHost, stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay ?? null, at };
   writeAll(all);
 }
 
-/** This player's last room, if it is recent: { code, host, stageId, difficulty, at } or null. */
+/** This player's last room, if it is recent: { code, host, stageId, difficulty, freeplay, at } or null. */
 export function lastRoom(uid, at = Date.now()) {
   const r = readAll()[uid || '-'];
   return valid(r, at) ? r : null;
@@ -60,7 +60,13 @@ export function forgetRoom(code, uid) {
   writeAll(all);
 }
 
-/** The route params of a room: the host opens it again with its stage, a guest joins it. */
+/**
+ * The route params of a room: the host opens it again with its stage (and its freeplay setting,
+ * when it had one), a guest joins it (and takes the host's).
+ */
 export function roomRoute(r) {
-  return r.host ? { id: r.code, host: '1', stage: r.stageId, difficulty: r.difficulty } : { id: r.code };
+  if (!r.host) return { id: r.code };
+  const route = { id: r.code, host: '1', stage: r.stageId, difficulty: r.difficulty };
+  if (r.freeplay) route.freeplay = r.freeplay;
+  return route;
 }

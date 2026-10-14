@@ -13,6 +13,7 @@ import { enemyToken } from '../battle/util.js';
 import { getMap } from '../../data/maps.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
+import { freeplayTier } from '../../data/freeplay.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
@@ -321,9 +322,11 @@ export function render(root, params = {}) {
       const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
       const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+      // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
+      const freeplay = isHost ? freeplayTier(params.freeplay) : null;
       try {
         session = openSession({
-          code: roomCode, isHost, backend, stageId, difficulty,
+          code: roomCode, isHost, backend, stageId, difficulty, freeplay,
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
         });
       } catch (e) {
@@ -469,7 +472,7 @@ export function render(root, params = {}) {
 
     function newRoom(s) {
       s.close({ keepRoom: false }); // this code is given up for the new one
-      navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
+      navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty, ...(s.freeplay ? { freeplay: s.freeplay } : {}) });
     }
 
     /** The room cannot be used (refused, full, closed after idling): what happened + a way on. */
@@ -513,7 +516,7 @@ export function render(root, params = {}) {
       }
       // the co-op menu's "Your last room": only once the server let me in (a mistyped or full
       // code must not replace the room I was really in)
-      const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}`;
+      const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}|${s.freeplay}`;
       if (s.link === 'connected' && key !== remembered) {
         remembered = key;
         rememberRoom(s);
