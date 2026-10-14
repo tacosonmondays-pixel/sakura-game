@@ -155,8 +155,14 @@ describe('HP ramp', () => {
 
   it('ramps up hard by 200 and harder on harder tiers (the 4k-DPS friend must eventually lose)', () => {
     const at = (tier, w) => freeplayHpRamp(fpStage('1-3', tier), w);
-    expect(at('blossom', 100)).toBeGreaterThan(25);
-    expect(at('blossom', 200)).toBeGreaterThan(5000);
+    // the spec's table (§3.1, 1-3, goal 15): Blossom ×31 / ×353 / ×2.5k at 100 / 150 / 200,
+    // Tempest ×46 / ×852 / ×16k, Crimson Moon ×104 / ×2.4k / ×57k
+    const want = { blossom: [31, 353, 2506], tempest: [46, 852, 15695], crimson: [104, 2425, 56508] };
+    for (const [tier, [a, b, c]] of Object.entries(want)) {
+      expect(Math.round(at(tier, 100)), tier).toBe(a);
+      expect(Math.round(at(tier, 150)), tier).toBe(b);
+      expect(Math.round(at(tier, 200)), tier).toBe(c);
+    }
     for (const w of [50, 100, 150, 200]) {
       expect(at('tempest', w)).toBeGreaterThan(at('blossom', w));
       expect(at('crimson', w)).toBeGreaterThan(at('tempest', w));
