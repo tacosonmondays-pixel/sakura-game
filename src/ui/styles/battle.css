@@ -831,10 +831,15 @@ html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
    way (it clips) before they do — the whole explanation is in the scout popover */
 .bt-scout-chips { flex: 1 1 0; min-width: min(150px, 34%); }
 .bt-pressure { flex: 0 1 auto; min-width: 0; overflow: hidden; }
-/* phones (landscape: a short strip; portrait: a narrow one): the chip keeps only HP × */
-@media (max-height: 500px) and (min-width: 701px), (max-width: 560px) {
-  .bt-pressure { padding: 1px 7px; gap: 4px; font-size: 0.68rem; }
+/* portrait phones (a full-width strip): the chip keeps only HP ×, short ("♡×3k") */
+@media (max-width: 560px) {
+  .bt-pressure { flex: none; padding: 1px 6px; gap: 3px; font-size: 0.66rem; }
   .bt-pressure .bt-pr:not(:first-child) { display: none; }
+}
+/* landscape phones: the strip in the HUD row has room for its label and one or two enemies only —
+   they win; the pressure is a tap away (the scout popover), and the HUD pill wears the tier */
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-pressure { display: none; }
 }
 
 /* results: FREEPLAY OVER / FREEPLAY COMPLETE */
