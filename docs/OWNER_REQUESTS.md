@@ -317,6 +317,10 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 
 ## Unit info (owner, 2026-10-13) — branch `feature/unit-info` (request #152)
 
+Status 2026-10-14: finished and merged with the live game. All three asks are done and checked in the browser at
+1280×720, 844×390 and 390×844 (`node e2e/unit-info.mjs`), co-op stays compatible with live players (same co-op id), and
+the branch is ready for the coordinating session to merge.
+
 | Request (verbatim) | Status |
 |---|---|
 | "within various menus when you hold on the card art, it should bring up this menu! Like in the formation for example" | **Done.** Hold any girl's card or portrait (~0.45 s, a pink ring fills) in Formation, Students, Stage prep (also inside the swap dialog), Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign and Rewards → her info sheet: card art, the student Info content, an Upgrades tab and "Open full page". Taps, scrolling and drags work as before; desktop: right-click. |

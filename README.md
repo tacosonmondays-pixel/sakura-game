@@ -200,6 +200,7 @@ npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chrome/Edge/Chromium; see e2e/smoke.mjs)
 node e2e/online.mjs   # two browser tabs: chat, clans, clan boss, Supply Bot, co-op battle (local adapter)
 node e2e/engines.mjs  # one co-op battle in V8, JavaScriptCore and SpiderMonkey: identical hashes required
+node e2e/unit-info.mjs  # hold-for-info sheet, upgrade chips, battle upgrade tree (1280x720, 844x390, 390x844, co-op); --shots <dir>
 BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
 ```
 

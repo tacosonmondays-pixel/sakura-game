@@ -855,7 +855,7 @@ Merge notes:
 6. `tierIcon` returns a valid key for its set (`UI_ICON_NAMES`, `CAPABILITIES`, `STATUSES`, `ATTACK_TYPES`, `ELEMENTS`) for every tier.
 7. Every `TIER_NOTES` key resolves to an existing tier.
 8. `pathSummary(hikari, 1)` → allies 5 (radius 4), enemies 3 (team 1).
-9. No third-party names: none of the new source files match `/bloons|btd/i` (cheap grep in the test).
+9. No third-party names: none of the new source files contain another game's name (cheap grep in the test).
 
 **`tests/ui/treeModel.test.js`**
 1. **Static mode:** 3 rows × 5 cells, all `later`, cap 5, `costKind 'base'`, `cost === tier.cost`.
@@ -948,7 +948,7 @@ Touch holds use CDP `Input.dispatchTouchEvent` (as in `smoke.mjs`): `touchStart`
 **Release gate:**
 * `npx vitest run`, `npx vite build`, `node e2e/smoke.mjs`, `node e2e/unit-info.mjs` and `node e2e/online.mjs` all pass;
 * the simId command prints `0d1a6d8f4878`;
-* `git grep -niE "bloons|btd6?" -- src e2e tests` adds no new hits.
+* a grep of `src`, `e2e` and `tests` for other games' names adds no new hits.
 
 ---
 

@@ -858,6 +858,10 @@ right-click / `i` on a bar card, or `T` for the selected girl. API: `open({ uid 
 (`ctx.paused`, header chip "Paused while open"); co-op never pauses** (header chip "Battle keeps
 going"). Prices: `liveCostOf(sim, t)` matches `Sim._upgradeCost` (tested); before she is placed,
 `previewCostOf` (no aura discount). An ally's girl is view-only (no affordability, no actions).
+Every open starts with the grid and the side panel scrolled to the top. Cost: one DOM build plus
+one style + layout pass inside `open()` (~14 ms on the software-GL test box, less than selecting a
+girl there), nothing per frame; while open, a 4 Hz signature check rebuilds only on change.
+`e2e/unit-info.mjs` measures it against selecting a girl on the same machine.
 
 ## 11. Meta screens
 
@@ -964,7 +968,8 @@ player's letter waits, then hidden.
   `data-hold-info="off"` on an ancestor opts out. A ~450 ms hold (pink fill ring from 120 ms; cancel
   past 10 px, on scroll or pointercancel) opens the Unit Sheet and swallows the click that follows
   (`swallowNextClick`, expires after 700 ms), so remove / toggle / swap / navigate never fire.
-  Right-click, the ContextMenu key or `i` open it at once. `HOLD_EXCLUDE` keeps out unflipped recruit
+  Right-click, the ContextMenu key or `i` open it at once (the `contextmenu` a touch long-press sends
+  on Android is ignored for 1.5 s after a touch hold fired; a mouse hold never sends one). `HOLD_EXCLUDE` keeps out unflipped recruit
   cards, the recruit SSR showcase (a tap there means "continue"), the student page showcase and the battle. `onEscape(fn)` is the shared Escape stack (topmost overlay wins).
 - `src/ui/unitSheet.js` (lazy): `openUnitSheet(unitId, { tab, allowFullPage, origin })` — card art,
   Info (the student page's `infoTab`, word for word), Upgrades (legend + the tree grid in static
