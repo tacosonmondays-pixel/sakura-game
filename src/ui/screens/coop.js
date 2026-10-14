@@ -15,9 +15,9 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { enemyToken } from '../battle/util.js';
 import { getMap } from '../../data/maps.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { COOP, coopStages, coopStartCash, coopStage } from '../../data/coop.js';
+import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
 import { freeplayTier, freeplayTable, FREEPLAY_TIERS } from '../../data/freeplay.js';
-import { freeplayBosses } from '../../sim/freeplay.js';
+import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
@@ -68,41 +68,11 @@ function freeplayChip(tier, { testid = null } = {}) {
   return t ? h(`span.ol-chip-fp.ol-fp-${t.id}`, { 'data-testid': testid, title: TIER_PITCH[t.id] }, `Freeplay · ${t.name}`) : null;
 }
 
-/** Room text per freeplay tier (spec §3.1). */
-const TIER_PITCH = {
-  blossom: 'Petals and pressure — the classic climb to the Matriarch.',
-  tempest: 'Storm season: bosses come early and hit hard.',
-  crimson: 'Under the red moon nothing holds for long.',
-};
-
 /** The freeplay segment of the stage picker: Off · Blossom · Tempest · Crimson Moon. */
 function freeplaySeg(value, onPick) {
   return h('div.ol-seg.ol-fp-seg', { 'data-testid': 'coop-freeplay' },
     h(`button.ol-seg-btn${!value ? '.on' : ''}`, { type: 'button', 'data-tier': 'off', onclick: () => onPick(null) }, 'Off'),
     ...FREEPLAY_TIERS.map((id) => h(`button.ol-seg-btn.ol-fp-btn.ol-fp-${id}${value === id ? '.on' : ''}`, { type: 'button', 'data-tier': id, title: TIER_PITCH[id], onclick: () => onPick(id) }, freeplayTable(id).name)));
-}
-
-/**
- * What freeplay brings on this stage and tier, from the same pure schedule the battle uses:
- * "15 waves, then freeplay (Tempest): visitors from every chapter, bosses every 10 waves (every 5
- * deep in), titans from wave 170, the Ashwing Matriarch at 200."
- */
-export function freeplaySummary(stageId, tier) {
-  const st = coopStage(stageId, { freeplay: tier });
-  const fp = st?.freeplay;
-  if (!fp || !Number.isFinite(st.waves)) return null;
-  let titan = null;
-  let boss = null;
-  for (let w = st.waves + 1; w <= (fp.finale?.wave ?? 200) && !titan; w++) {
-    const b = freeplayBosses(st, w);
-    if (!boss && b && b.kind !== 'miniboss') boss = w;
-    if (b?.kind === 'titan') titan = w;
-  }
-  const bits = ['visitors from every chapter', 'bosses every 10 waves (every 5 deep in)'];
-  if (boss) bits.push(`big bosses from wave ${boss}`);
-  if (titan) bits.push(`titans from wave ${titan}`);
-  bits.push(`the Ashwing Matriarch at ${fp.finale?.wave ?? 200}`);
-  return `${st.waves} waves, then freeplay (${fp.name}): ${bits.join(', ')}.`;
 }
 
 function stageLabel(id) {
