@@ -167,7 +167,7 @@ describe('tools/simId.mjs', () => {
 
   it('the net settings both players must share are data the id covers (not the adapters)', async () => {
     const { COOP_NET } = await import('../../src/data/coop.js');
-    expect(COOP_NET.supabase).toEqual({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 });
+    expect(COOP_NET.supabase).toEqual({ heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000, idleAfterMs: 10000, idleLeadTicks: 60, idleKeepaliveMs: 2000, maxMessageBytes: 24000 });
     const { readFileSync } = await import('node:fs');
     for (const f of ['src/online/adapters/supabase.js', 'src/online/adapters/local.js']) {
       expect(readFileSync(f, 'utf8')).not.toMatch(/inputDelay:\s*\d/); // no numbers of their own
