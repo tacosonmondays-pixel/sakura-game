@@ -1,7 +1,8 @@
 // Battle modes data (docs/specs/CODEX_MODES.md §5.1, §10).
 import { describe, it, expect } from 'vitest';
 import { BATTLE_MODES, MODE_ORDER, RIBBON_MODES, modeId, modeArmor } from '../../src/data/modes.js';
-import { MODE_TEXT, MODE_RIBBON_GEMS, modeDesc } from '../../src/ui/text/modes.js';
+import { MODE_TEXT, modeDesc } from '../../src/ui/text/modes.js';
+import { MODE_RIBBON_GEMS } from '../../src/systems/rewards.js';
 import { GLYPHS } from '../../src/art/icons/glyphs.js';
 import { DIFFICULTY_ORDER } from '../../src/data/types.js';
 import { getStage } from '../../src/data/stages.js';

@@ -11,9 +11,6 @@ export const MODE_TEXT = {
   laststand: { name: 'Last Petal', short: 'Last Petal', icon: 'modeLastPetal', color: '#ff4d8d', desc: 'One heart, and no hearts come back. Let nothing reach the goal.' },
 };
 
-/** Gems per ribbon by difficulty (owner question Q1: 0 in v1). Rewards, outside the co-op id. */
-export const MODE_RIBBON_GEMS = { easy: 0, normal: 0, hard: 0, nightmare: 0 };
-
 export function modeText(id) {
   return MODE_TEXT[id] || MODE_TEXT.standard;
 }

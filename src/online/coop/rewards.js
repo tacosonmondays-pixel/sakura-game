@@ -12,7 +12,7 @@
 // About 30–60 % of normal co-op farming per minute (spec §11): freeplay is played for the record
 // and the bosses, not the farm. Not part of the co-op compatibility id (tools/simId.mjs): these
 // numbers can change in any deploy without splitting players.
-import { rollStageDrops } from '../../systems/rewards.js';
+import { rollStageDrops, rewardDifficulty } from '../../systems/rewards.js';
 import { addItems } from '../../systems/inventory.js';
 import { track } from '../../systems/missions.js';
 import { STAGE_MAP } from '../../data/stages.js';
@@ -72,7 +72,11 @@ export function applyCoopResult(profile, result, rng) {
   const kills = addSightings(profile, result.encountered, result.kills);
   const rewards = [];
   if (result.won) {
-    const drops = rollStageDrops(stage.id, result.difficulty, rng);
+    // a battle-mode win pays each player at most their own best Standard medal there (CODEX_MODES §7.1)
+    const payAt = rewardDifficulty(profile, stage.id, result.difficulty, result.mode);
+    out.rewardDifficulty = payAt;
+    out.mode = result.mode || 'standard';
+    const drops = rollStageDrops(stage.id, payAt, rng);
     for (const d of drops) if (d && d.id && !d.gear) rewards.push({ id: d.id, count: d.count });
     rewards.push({ id: 'coins', count: 300 + 40 * (result.wavesCleared || 0) });
   } else if (result.wavesCleared > 0) {

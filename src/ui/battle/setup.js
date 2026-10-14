@@ -4,7 +4,8 @@ import { UNIT_MAP } from '../../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
-import { isOwned, isPracticeRun, canPlayEndless } from '../../systems/unlocks.js';
+import { isOwned, isPracticeRun, canPlayEndless, modesUnlocked } from '../../systems/unlocks.js';
+import { modeId } from '../../data/modes.js';
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -28,25 +29,31 @@ export function resolveFormation(profile) {
  * Parses route params into a validated battle request. With a profile, `endless=1` is only
  * honoured where the Tactical Challenge screen offers it (systems `canPlayEndless`); without
  * one the params are taken as they are.
- * @returns {{ stageId: string|null, difficulty: string, endless: boolean, practice: boolean, error: string|null }}
+ * `mode` (a battle mode, docs/specs/CODEX_MODES.md) is honoured only on a campaign stage whose modes
+ * are unlocked (cleared once), never in endless or practice runs; Nightmare × Last Petal is the same
+ * battle as Nightmare Standard. Anything else plays Standard.
+ * @returns {{ stageId: string|null, difficulty: string, mode: string, endless: boolean, practice: boolean, error: string|null }}
  */
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
-  if (!stage) return { stageId, difficulty: 'normal', endless: false, practice: false, error: `Unknown stage "${stageId ?? ''}".` };
+  if (!stage) return { stageId, difficulty: 'normal', mode: 'standard', endless: false, practice: false, error: `Unknown stage "${stageId ?? ''}".` };
   const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
   const endless = stage.kind === 'challenge' || (wantsEndless && (!profile || canPlayEndless(profile, stageId)));
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
   const practice = !!profile && isPracticeRun(profile, stageId);
-  return { stageId, difficulty, endless, practice, error: null };
+  let mode = modeId(params.mode);
+  if (stage.kind !== 'campaign' || endless || practice || (profile && !modesUnlocked(profile, stageId))) mode = 'standard';
+  if (mode === 'laststand' && difficulty === 'nightmare') mode = 'standard';
+  return { stageId, difficulty, mode, endless, practice, error: null };
 }
 
 /**
  * Creates the Sim for a battle.
  * @param {object} profile
- * @param {{ stageId: string, difficulty: string, endless?: boolean, seed?: number }} req
+ * @param {{ stageId: string, difficulty: string, mode?: string, endless?: boolean, seed?: number }} req
  */
 export function createBattleSim(profile, req) {
   const { towers, hero } = resolveFormation(profile);
@@ -57,7 +64,7 @@ export function createBattleSim(profile, req) {
     loadout: towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) })),
     hero: hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null,
     seed,
-    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart },
+    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: modeId(req.mode) },
   });
   return { sim, towers, hero, seed };
 }

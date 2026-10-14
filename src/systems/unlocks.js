@@ -4,6 +4,7 @@
 import { UNIT_MAP, UNITS, hasCapability } from '../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS, CHAPTERS } from '../data/stages.js';
 import { DIFFICULTY_ORDER, UNIT_RARITIES } from '../data/types.js';
+import { RIBBON_MODES } from '../data/modes.js';
 import { newUnitState } from './save.js';
 import { addItems } from './inventory.js';
 
@@ -52,6 +53,49 @@ export function isStageCleared(profile, stageId) {
 export function bestDifficulty(profile, stageId) {
   const m = stageMedals(profile, stageId);
   return [...DIFFICULTY_ORDER].reverse().find((d) => m[d]) || null;
+}
+
+// ---------------------------------------------------------------------------
+// Battle modes (docs/specs/CODEX_MODES.md §7.1): ribbons per difficulty × mode
+// ---------------------------------------------------------------------------
+
+/** Battle modes unlock on a campaign stage after its first clear (any difficulty). */
+export function modesUnlocked(profile, stageId) {
+  return STAGE_MAP[stageId]?.kind === 'campaign' && isStageCleared(profile, stageId);
+}
+
+/**
+ * The 20 ribbons of a stage: { 'easy:reverse': bool, … }. Nightmare × Last Petal is the same battle
+ * as Nightmare Standard, so the Nightmare medal earns it too.
+ * @returns {Object<string, boolean>}
+ */
+export function modeRibbons(profile, stageId) {
+  const e = profile.progress?.stages?.[stageId] || {};
+  const got = e.modes || {};
+  const out = {};
+  for (const d of DIFFICULTY_ORDER) for (const m of RIBBON_MODES) out[`${d}:${m}`] = !!got[`${d}:${m}`];
+  out['nightmare:laststand'] = !!(e.nightmare || got['nightmare:laststand']);
+  return out;
+}
+
+/** @returns {{ have: number, total: number }} */
+export function ribbonCount(profile, stageId) {
+  const r = modeRibbons(profile, stageId);
+  const keys = Object.keys(r);
+  return { have: keys.filter((k) => r[k]).length, total: keys.length };
+}
+
+/** @returns {{ have: number, total: number }} over the chapter's stages */
+export function chapterRibbons(profile, chapterId) {
+  const chapter = CHAPTERS.find((c) => c.id === Number(chapterId));
+  let have = 0;
+  let total = 0;
+  for (const id of chapter ? chapter.stages : []) {
+    const c = ribbonCount(profile, id);
+    have += c.have;
+    total += c.total;
+  }
+  return { have, total };
 }
 
 /** @returns {boolean} the stage's `requires` is cleared (or it has none) */
