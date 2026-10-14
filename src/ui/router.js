@@ -177,6 +177,25 @@ export function currentRoute() {
   return { name: current.name, params: current.params };
 }
 
+/**
+ * Update the current route's params in place (URL + the router's back stack) without
+ * re-rendering, e.g. when a tab changes inside a screen, or a battle gets its save id. A null /
+ * undefined value removes that param. Nothing happens when `name` is not the current screen.
+ */
+export function rememberParams(name, patch) {
+  const route = currentRoute();
+  if (route.name !== name || !route.params) return;
+  for (const [k, v] of Object.entries(patch)) {
+    if (v == null) delete route.params[k];
+    else route.params[k] = v;
+  }
+  try {
+    history.replaceState(history.state, '', buildHash(name, route.params));
+  } catch {
+    /* not in a browser */
+  }
+}
+
 /** Where the router thinks it is (tests / debugging). */
 export function historyMirror() {
   return { idx, entries: entries.map((e) => (e ? buildHash(e.name, e.params) : null)) };

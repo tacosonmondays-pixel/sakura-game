@@ -1,6 +1,8 @@
-// Pause menu: resume, restart, quit and in-battle settings (quality, placement range,
-// auto-start, default speed, camera locked / free, reduce motion). Settings persist through
-// store.commit().
+// Pause menu: resume, restart, save & quit (end run for endless runs) and in-battle settings
+// (quality, placement range, auto-start, default speed, camera locked / free, reduce motion).
+// Settings persist through store.commit(). Battles that save (ctx.saver: campaign, Bounty, solo
+// Total Assault, the Colosseum, endless) say what Save & quit keeps; the others (practice,
+// tutorial, clan boss, co-op) keep their Quit / Leave co-op wording.
 import { h, icon } from './util.js';
 import { confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
@@ -49,7 +51,8 @@ export function createPauseMenu(ctx) {
         'div.bt-pause-actions',
         h('button.bt-cta', { 'data-testid': 'resume', onclick: () => ctx.closePause() }, icon('play', 'bt-ico-sm'), 'Resume'),
         ctx.coop ? null : h('button.bt-btn', { 'data-testid': 'restart', onclick: () => restart() }, icon('refresh', 'bt-ico-sm'), 'Restart'),
-        h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : 'Quit'),
+        ctx.endRun ? h('button.bt-btn', { 'data-testid': 'end-run', onclick: () => endRun() }, icon('trophy', 'bt-ico-sm'), 'End run') : null,
+        h('button.bt-btn.bt-btn-danger', { 'data-testid': 'quit', onclick: () => quit() }, icon('back', 'bt-ico-sm'), ctx.coop ? 'Leave co-op' : ctx.saver ? 'Save & quit' : 'Quit'),
       ),
       h('div.bt-sheet-section', 'Settings'),
       h('div.bt-set-row', h('span.bt-set-label', 'Graphics'), seg(QUALITIES, s.quality, (q) => {
@@ -79,14 +82,42 @@ export function createPauseMenu(ctx) {
   }
 
   async function restart() {
-    if (!(await confirmDialog('Restart this stage from wave 1? Progress in this battle is lost.', { title: 'Restart', ok: 'Restart' }))) return;
+    const text = ctx.saver
+      ? 'Start this battle again from wave 1? Your saved progress in it will be deleted.'
+      : 'Restart this stage from wave 1? Progress in this battle is lost.';
+    if (!(await confirmDialog(text, { title: 'Restart', ok: 'Restart', danger: !!ctx.saver }))) return;
     ctx.restart();
   }
 
+  /** "wave 3 of 12", or just "wave 31" in an endless run. */
+  function waveOf(n) {
+    return Number.isFinite(ctx.sim.totalWaves) ? `wave ${n} of ${ctx.sim.totalWaves}` : `wave ${n}`;
+  }
+
+  /** What Save & quit (or Quit / Leave co-op) says before it leaves. */
+  function quitConfirm() {
+    if (ctx.coop) return { text: 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.', title: 'Leave co-op', ok: 'Leave' };
+    const saver = ctx.saver;
+    if (!saver) return { text: 'Leave the battle? You will not receive rewards for this run.', title: 'Quit battle', ok: 'Quit' };
+    const sim = ctx.sim;
+    if (sim.state === 'wave') {
+      return { text: `Your battle is saved at the start of wave ${sim.wave}. Anything you build, upgrade or sell during this wave will be undone.`, title: 'Save & quit', ok: 'Save & quit' };
+    }
+    if (!saver.hasProgress) return { text: 'Leave the battle? Nothing has happened yet, so there\'s nothing to save.', title: 'Quit battle', ok: 'Quit' };
+    return { text: `Your battle is saved. Continue from ${waveOf(sim.wave + 1)} any time from the stage screen.`, title: 'Save & quit', ok: 'Save & quit' };
+  }
+
   async function quit() {
-    const text = ctx.coop ? 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.' : 'Leave the battle? You will not receive rewards for this run.';
-    if (!(await confirmDialog(text, { title: ctx.coop ? 'Leave co-op' : 'Quit battle', ok: ctx.coop ? 'Leave' : 'Quit' }))) return;
+    const c = quitConfirm();
+    if (!(await confirmDialog(c.text, { title: c.title, ok: c.ok }))) return;
     ctx.quit();
+  }
+
+  async function endRun() {
+    const cleared = ctx.sim.wavesCleared;
+    const coins = 40 * cleared; // what a defeat right now pays (src/systems/rewards.js)
+    if (!(await confirmDialog(`End this run now? Wave ${cleared} goes on your record and you get ${coins} coins for the waves you cleared.`, { title: 'End run', ok: 'End run', cancel: 'Keep playing' }))) return;
+    ctx.endRun?.();
   }
 
   return {

@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { crosspathReason, pathCap } from '../../src/ui/battle/rules.js';
 import { resolveFormation, parseBattleParams, createBattleSim, followingStage, mapRouteFor } from '../../src/ui/battle/setup.js';
-import { createProfile } from '../../src/systems/save.js';
+import { createProfile, SAVE_KEY } from '../../src/systems/save.js';
+import { store } from '../../src/core/store.js';
+import { clearBattleSave } from '../../src/systems/battleSave.js';
+import { createBattleSaver } from '../../src/ui/battle/battleSaver.js';
+import { createResults } from '../../src/ui/battle/results.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { applyBattleResult } from '../../src/systems/rewards.js';
 import { createRng } from '../../src/core/rng.js';
@@ -122,5 +126,246 @@ describe('toast feed docking (keeps spawn gates in view)', () => {
     expect(feedDockRight(exitRight, { ...box, preferRight: true })).toBe(false);
     // points below the feed never count
     expect(feedDockRight([{ x: 40, y: 400 }], box)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Battle save wiring: the saver (src/ui/battle/battleSaver.js) and the payout (results.apply)
+// ---------------------------------------------------------------------------------------------
+
+/** Map-backed localStorage that records every write of the save key. */
+function fakeStorage() {
+  const m = new Map();
+  const writes = [];
+  return {
+    m,
+    writes,
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => {
+      m.set(k, String(v));
+      if (k === SAVE_KEY) writes.push(String(v));
+    },
+    removeItem: (k) => m.delete(k),
+    clear: () => m.clear(),
+  };
+}
+
+/** Just enough DOM for createResults() to build its (hidden) overlay in Node. */
+class FakeNode {
+  constructor() {
+    this.children = [];
+    this.classList = { add() {}, remove() {}, toggle() {}, contains: () => false };
+    this.style = { setProperty() {} };
+    this.dataset = {};
+  }
+  setAttribute() {}
+  addEventListener() {}
+  appendChild(c) {
+    this.children.push(c);
+    return c;
+  }
+  append(...c) {
+    this.children.push(...c);
+  }
+  remove() {}
+}
+
+/** A fresh profile in the store, a New game on 1-1 with its saver installed. */
+function newGame(stageId = '1-1') {
+  store.replace(createProfile());
+  const req = { stageId, difficulty: 'normal', endless: false };
+  const { sim, cfg } = createBattleSim(store.profile, { ...req, seed: 4242 });
+  const ctx = { ended: false };
+  const saver = createBattleSaver({ sim, req, cfg, isEnded: () => ctx.ended }).install();
+  return { sim, saver, ctx, cfg };
+}
+const stored = (ls) => JSON.parse(ls.getItem(SAVE_KEY));
+const spot = (sim, unitId) => {
+  for (let y = 0.25; y < sim.map.height; y += 0.5) for (let x = 0.25; x < sim.map.width; x += 0.5) if (sim.canPlace(unitId, x, y).ok) return [x, y];
+  return null;
+};
+
+describe('battle saver', () => {
+  let ls;
+  beforeEach(() => {
+    ls = fakeStorage();
+    vi.stubGlobal('localStorage', ls);
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('writes nothing until the first progress; the first command creates the record at once', () => {
+    const { sim, saver } = newGame();
+    saver.flush();
+    expect(saver.hasProgress).toBe(false);
+    expect(store.profile.battleSaves).toEqual({});
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    const rec = stored(ls).battleSaves['1-1'];
+    expect(rec).toMatchObject({ id: saver.runId, slot: '1-1', stageId: '1-1', difficulty: 'normal', seed: 4242, resumes: 0 });
+    expect(rec.snap).toMatchObject({ wave: 0, state: 'prep' });
+    expect(rec.snap.towers.map((t) => t.u)).toEqual([unitId]);
+    expect(rec.loadout.map((e) => e.unitId)).toEqual([...sim.loadout.keys()]);
+    expect(rec.view).toEqual({ next: 1, of: sim.totalWaves, lives: sim.lives, difficulty: 'normal' });
+  });
+
+  it('a wave start writes the calm state before it; mid-wave commands never overwrite it; between waves they do (batched)', () => {
+    const { sim, saver } = newGame();
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    expect(sim.startNextWave()).toBe(true);
+    expect(saver.persistPending()).toBe(true);
+    const atStart = stored(ls).battleSaves['1-1'].snap;
+    expect(atStart).toMatchObject({ wave: 0, state: 'prep' });
+    // mid-wave: a sale is undone by Continue (the wave-start snapshot stands)
+    const t = sim.towers[0];
+    sim.sellTower(t.uid);
+    saver.markProgress();
+    saver.flush();
+    vi.advanceTimersByTime(500);
+    expect(stored(ls).battleSaves['1-1'].snap).toEqual(atStart);
+    for (let i = 0; i < 6000 && sim.state === 'wave'; i++) sim.update(1 / 30);
+    expect(sim.state).toBe('between');
+    // between waves: a fresh snapshot, written after the debounce
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    expect(stored(ls).battleSaves['1-1'].snap.wave).toBe(0);
+    vi.advanceTimersByTime(200);
+    expect(stored(ls).battleSaves['1-1'].snap).toMatchObject({ wave: 1, state: 'between' });
+    expect(stored(ls).battleSaves['1-1'].view.next).toBe(2);
+  });
+
+  it('every wave plays its own stream: hash(run seed, wave)', () => {
+    const a = newGame();
+    const b = newGame();
+    a.sim.rng.next();
+    a.sim.startNextWave();
+    b.sim.startNextWave();
+    expect(a.sim.rng.next()).toBe(b.sim.rng.next());
+  });
+
+  it('a closed or discarded saver never writes again, and never brings a deleted record back', () => {
+    const { sim, saver } = newGame();
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    const id = saver.runId;
+    // another New game took the slot (here: the record was cleared under the saver)
+    clearBattleSave(store.profile, '1-1', id);
+    sim.upgradeTower(sim.towers[0].uid, 0);
+    saver.markProgress();
+    saver.flush();
+    vi.advanceTimersByTime(500);
+    expect(store.profile.battleSaves['1-1']).toBeUndefined();
+    expect(saver.closed).toBe(true);
+    // discard: Restart / Retry
+    const g = newGame();
+    g.sim.placeTower(unitId, ...spot(g.sim, unitId));
+    g.saver.markProgress();
+    expect(stored(ls).battleSaves['1-1']).toBeTruthy();
+    g.saver.discard();
+    expect(stored(ls).battleSaves['1-1']).toBeUndefined();
+    g.sim.startNextWave();
+    g.saver.persistPending();
+    g.saver.flush();
+    expect(stored(ls).battleSaves['1-1']).toBeUndefined();
+  });
+
+  it('a finish clears only its own run (a newer run in the slot stays)', () => {
+    const { sim, saver } = newGame();
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    store.profile.battleSaves['1-1'] = { ...store.profile.battleSaves['1-1'], id: 'bs-newer' };
+    expect(saver.finish(store.profile)).toBe(false);
+    expect(store.profile.battleSaves['1-1'].id).toBe('bs-newer');
+  });
+});
+
+describe('results.apply() with a battle save', () => {
+  let ls;
+  beforeEach(() => {
+    ls = fakeStorage();
+    vi.stubGlobal('localStorage', ls);
+    vi.stubGlobal('Node', FakeNode);
+    vi.stubGlobal('document', { createElement: () => new FakeNode(), createTextNode: () => new FakeNode() });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /** A New game on 1-1 that made progress (a girl placed, a wave started) and then lost. */
+  function lostGame() {
+    const g = newGame();
+    const unitId = [...g.sim.loadout.keys()][0];
+    g.sim.placeTower(unitId, ...spot(g.sim, unitId));
+    g.saver.markProgress();
+    g.sim.startNextWave();
+    g.saver.persistPending();
+    g.sim.lives = 1;
+    for (let k = 0; k < 4000 && g.sim.state !== 'lost'; k++) {
+      if (g.sim.state !== 'wave') g.sim.startNextWave();
+      g.sim.update(0.25);
+    }
+    expect(g.sim.state).toBe('lost');
+    expect(stored(ls).battleSaves['1-1']).toBeTruthy();
+    g.ctx.ended = true;
+    g.saver.close();
+    return g;
+  }
+
+  it('pays and deletes the save in the same write; a second apply changes nothing', () => {
+    const g = lostGame();
+    const before = stored(ls);
+    const results = createResults({ ...g.ctx, sim: g.sim, stage: STAGE_MAP['1-1'], layer: new FakeNode(), saver: g.saver });
+    const writes = ls.writes.length;
+    const out = results.apply();
+    const after = stored(ls);
+    // one synchronous write holds both: the result and no save
+    expect(ls.writes.length).toBe(writes + 1);
+    expect(after.battleSaves).toEqual({});
+    expect(after.stats.battles).toBe(before.stats.battles + 1);
+    const coins = out.rewards.find((r) => r.id === 'coins')?.count || 0;
+    expect(coins).toBe(40 * g.sim.wavesCleared);
+    expect(after.currencies.coins).toBe(before.currencies.coins + coins);
+    // twice: nothing more
+    expect(results.apply()).toBe(out);
+    expect(stored(ls)).toEqual(after);
+    expect(ls.writes.length).toBe(writes + 1);
+  });
+
+  it('an apply whose reward step throws still deletes the save', () => {
+    const g = lostGame();
+    const results = createResults({ ...g.ctx, sim: g.sim, stage: STAGE_MAP['1-1'], layer: new FakeNode(), saver: g.saver, applyResult: () => { throw new Error('boom'); } });
+    const out = results.apply();
+    expect(out.error).toBe(true);
+    expect(stored(ls).battleSaves).toEqual({});
+  });
+
+  it('a saved run rolls its drops from the run seed (the same run finished twice rolls the same)', () => {
+    const roll = () => {
+      const g = newGame();
+      const unitId = [...g.sim.loadout.keys()][0];
+      g.sim.placeTower(unitId, ...spot(g.sim, unitId));
+      g.saver.markProgress();
+      // a won result, as the payout sees it
+      g.sim.state = 'won';
+      g.sim.wavesCleared = g.sim.totalWaves;
+      g.ctx.ended = true;
+      g.saver.close();
+      return createResults({ ...g.ctx, sim: g.sim, stage: STAGE_MAP['1-1'], layer: new FakeNode(), saver: g.saver }).apply();
+    };
+    const a = roll();
+    const b = roll();
+    expect(a.firstClear).toBe(true);
+    expect(a.rewards).toEqual(b.rewards);
+    expect(a.gear.map((x) => [x.slot, x.rarity, x.main])).toEqual(b.gear.map((x) => [x.slot, x.rarity, x.main]));
   });
 });
