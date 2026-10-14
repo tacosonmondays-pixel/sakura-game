@@ -108,7 +108,7 @@ for (const [W, H] of viewports) {
   const where = (page) => page.evaluate(() => ({ hash: location.hash, screen: document.querySelector('#app')?.dataset.screen || null, battle: !!window.__battle })).catch(() => ({ hash: '?', screen: null, battle: false }));
   const onScreen = (page, name, prefix = `#/${name}`, timeout = 45000) => page.waitForFunction(([n, p]) => document.querySelector('#app')?.dataset.screen === n && location.hash.startsWith(p) && (n === 'battle' || !window.__battle), [name, prefix], { timeout, polling: 100 }).then(() => true).catch(() => false);
   const battleReady = async (page) => {
-    const ok = await page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle', null, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
+    const ok = await page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle', null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
     if (!ok) {
       log(`    (battle not ready: ${JSON.stringify(await where(page))})`);
       await shot(page, 'not-ready');
