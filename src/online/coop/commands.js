@@ -111,6 +111,11 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
   }
   view(viewSlot);
 
+  /** Every player's loadout stats and the hero config: what a girl's unitStats points at (snapshots). */
+  function config() {
+    return { players: views.map((v) => ({ loadout: Object.fromEntries(v.loadout), hero: v.heroConfig })) };
+  }
+
   function ownsTower(slot, uid) {
     return owners.get(uid) === slot;
   }
@@ -265,5 +270,39 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     /** Freeplay Finish votes, by player index (for the HUD). */
     endVotes: () => endVotes.slice(),
     hash: () => hashSim(sim, { tick, wallets }),
+    /**
+     * The whole co-op battle as plain JSON (a lockstep checkpoint): the Sim's snapshot plus the
+     * wallets, tower owners, who is gone, the Finish votes, speed and the odd-coin turn. Taken
+     * between ticks (after step(), before the next tick's commands). The same on every client: the
+     * Sim's cash (this client's view of its own wallet) is stored as 0, the wallets hold the coins.
+     */
+    snapshot() {
+      const mine = sim.cash;
+      sim.cash = 0;
+      try {
+        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), sim: sim.snapshot(config()) };
+      } finally {
+        sim.cash = mine;
+      }
+    },
+    /**
+     * Continues from snapshot() (on a CoopSim fresh from the same start message): the next
+     * command and step are those of tick `snap.tick`. The view stays this client's own.
+     */
+    restore(snap) {
+      if (!snap || snap.v !== 1 || !Number.isInteger(snap.tick) || snap.wallets?.length !== players.length) throw new Error('[coop] not a co-op checkpoint');
+      withDetMath(() => sim.restore(snap.sim, config()));
+      tick = snap.tick;
+      speed = snap.speed;
+      oddTurn = snap.oddTurn;
+      snap.wallets.forEach((w, i) => { wallets[i] = w; });
+      owners.clear();
+      for (const [uid, slot] of snap.owners) owners.set(uid, slot);
+      gone.clear();
+      for (const i of snap.gone) gone.add(i);
+      snap.endVotes.forEach((v, i) => { endVotes[i] = !!v; });
+      view(viewSlot);
+      return this;
+    },
   };
 }

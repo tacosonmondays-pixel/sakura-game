@@ -30,6 +30,7 @@ import {
 import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
+import { snapshotSim, restoreSim } from './snapshot.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -836,6 +837,28 @@ export class Sim {
   /** Evidence-based battle summary (leaks by enemy/wave/trait, top damage, plain-language lines). */
   debrief() {
     return buildDebrief(this);
+  }
+
+  // -------------------------------------------------------------------------
+  // Snapshots (src/sim/snapshot.js)
+  // -------------------------------------------------------------------------
+
+  /**
+   * The whole battle state as plain JSON (towers, enemies, projectiles, statuses, rng, stats…),
+   * taken between steps. Co-op keeps one at every wave end as a checkpoint.
+   * @returns {{ v: number, root: any, o: any[] }}
+   */
+  snapshot(config) {
+    return snapshotSim(this, config);
+  }
+
+  /**
+   * Continues a battle from snapshot(): call it on a fresh Sim built with the same arguments
+   * (stage, difficulty, loadout, hero, seed, options). `config`: see src/sim/snapshot.js (co-op
+   * passes every player's loadout). @returns {Sim} this
+   */
+  restore(snap, config) {
+    return restoreSim(this, snap, config);
   }
 
   // -------------------------------------------------------------------------
