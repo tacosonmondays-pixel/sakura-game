@@ -1,8 +1,8 @@
 // End-to-end test of the long-run netcode (spec §12, M5 + M6) with the LOCAL adapter (one browser,
 // two pages = two players, BroadcastChannel; nothing touches Supabase):
-//   1. A Freeplay Blossom room on 1-1 (goal 12), both pages play it past the goal (the clock pumped
-//      on both pages, girls placed through the battle's own command path), so the host has a
-//      freeplay wave-end checkpoint.
+//   1. A Freeplay Blossom room on 1-1 (goal 12), both pages play it past the goal (the clock pumped on
+//      both pages; girls placed through the battle's own command path), so the host has a freeplay
+//      wave-end checkpoint. Then both run at the game's own pace (3×, the frame loop only).
 //   2. The guest's link is cut (its lockstep sends and hears nothing) until the host drops it;
 //      both play on alone for a moment; the link comes back: the host re-admits the guest, whose
 //      battle rebuilds from the host's newest checkpoint as a background job — the "Rejoining…"
@@ -51,7 +51,7 @@ const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/?online=local`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label}`);
-const context = await browser.newContext({ viewport: { width: 800, height: 450 }, deviceScaleFactor: 1 });
+const context = await browser.newContext({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 1 });
 const errors = [];
 async function openPage(name) {
   const page = await context.newPage();
@@ -84,7 +84,10 @@ async function setName(page, name) {
   await page.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 15000 });
 }
 const waitFor = (page, fn, arg, ms = 600000, polling = 250) => page.waitForFunction(fn, arg, { timeout: ms, polling }).then(() => true).catch(() => false);
-/** Pump the lockstep clock faster on this page (the frame loop's own call, more often). */
+/**
+ * Pump the lockstep clock faster on this page (the frame loop's own call, more often) — only to get
+ * past the goal quickly; the cut and the rejoin run at the game's own pace (3×, the frame loop).
+ */
 const pump = (page, on) => page.evaluate((run) => {
   clearInterval(window.__fpPump);
   window.__fpPump = 0;
@@ -92,8 +95,8 @@ const pump = (page, on) => page.evaluate((run) => {
   window.__fpPump = setInterval(() => {
     const ls = window.__battle?.coop?.lockstep;
     if (!ls || ls.finished || ls.job) return;
-    for (let i = 0; i < 3; i++) ls.advance(0.05);
-  }, 4);
+    ls.advance(0.05);
+  }, 8);
 }, on);
 /** A player on this page: her own girls on spots near the road as her coins allow, then upgrades (ui.act). */
 const startBot = (page) => page.evaluate(async () => {
@@ -183,6 +186,22 @@ const watchGaps = (page) => page.evaluate(() => {
   }, 16);
 });
 
+/** Both pages' lockstep traces, events and long tasks (a failed check explains itself). */
+async function dump(when) {
+  for (const [n, p] of [['A', A], ['B', B]]) {
+    const d = await p.evaluate(() => {
+      const ls = window.__coop?.lockstep;
+      return {
+        tick: ls?.tick, ep: ls?.epoch, job: ls?.rebuilding, running: ls?.running, rejoins: ls?.rejoins, resyncs: ls?.resyncs, last: ls?.lastRebuild,
+        peers: ls ? [...ls.peers.values()].map((q) => ({ gone: q.gone, why: q.why, ready: q.ready, busy: q.busy, offer: q.offer, horizon: q.horizon, silent: Math.round(ls.now() - q.lastHeard) })) : null,
+        trace: (ls?.trace || []).map((e) => `${e.ev}@${e.tick}/${e.at}${e.reason ? `:${e.reason}` : ''}${e.kind ? `:${e.kind}` : ''}${e.ck != null ? ` ck${e.ck}` : ''}`).join(' '),
+        events: window.__events, long: (window.__long || []).filter((x) => x.ms > 300).slice(-20), now: Math.round(performance.now()), mounted: window.__battle?.coop?.lockstep === ls,
+      };
+    }).catch((e) => ({ error: e.message }));
+    log(`    [${when}] ${n}: ${JSON.stringify(d)}`);
+  }
+}
+
 let A;
 let B;
 const t0 = Date.now();
@@ -252,10 +271,32 @@ try {
   const s1 = await Promise.all([state(A), state(B)]);
   log(`    past the goal: ${JSON.stringify(s1.map((s) => ({ wave: s?.wave, cleared: s?.cleared, tick: s?.tick, towers: s?.towers, ck: s?.ck })))} (${Math.round((Date.now() - t0) / 1000)} s)`);
   check(reached.every(Boolean) && s1.every((s) => s && s.state !== 'lost' && s.cleared >= target), `both pages cleared wave ${target} (${PAST} freeplay waves past ${GOAL}/${GOAL})`);
+  // from here the game's own pace (3×, the frame loop only)
+  await Promise.all([pump(A, false), pump(B, false)]);
+  // together (a page starved for a while may have been dropped and re-admitted on the way)
+  const together = await Promise.all([A, B].map((p) => waitFor(p, () => {
+    const ls = window.__coop?.lockstep;
+    return !!ls && !ls.job && ls.livePeers().length === 1 && ls.running && window.__battle?.coop?.lockstep === ls;
+  }, null, 300000)));
+  check(together.every(Boolean), 'before the cut both pages play together');
+  const preTick = await A.evaluate(() => window.__battle.coop.lockstep.tick);
+  await A.waitForTimeout(6000);
+  await agreeAfter(A, B, preTick - 600, 'before the cut');
   check(!!s1[0]?.ck && s1[0].ck.wave > GOAL && s1[1]?.ck === null, `the host keeps a freeplay wave-end checkpoint (wave ${s1[0]?.ck?.wave}, tick ${s1[0]?.ck?.t}); the guest keeps none`);
   await shot(A, 'rejoin-01-before-cut-host');
 
   // ---- 2. the guest's link is cut until the host drops it; the link is back: the rejoin -----------
+  await Promise.all([A, B].map((p) => p.evaluate(() => {
+    window.__long = [];
+    try {
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) window.__long.push({ at: Math.round(e.startTime), ms: Math.round(e.duration), job: !!window.__coop?.lockstep?.job });
+      }).observe({ type: 'longtask', buffered: false });
+    } catch { /* no long-task timing in this browser */ }
+    window.__events = [];
+    const s = window.__coop;
+    for (const ev of ['resync', 'peerGone', 'peerBack']) s.on(ev, (x) => window.__events.push({ ev, x: x ?? null, at: Math.round(performance.now()), tick: s.lockstep?.tick }));
+  })));
   await B.evaluate(() => {
     const ls = window.__coop.lockstep;
     window.__cut = ls.sendRaw;
@@ -295,8 +336,8 @@ try {
   const back = await Promise.all([A, B].map((p) => waitFor(p, () => {
     const ls = window.__coop?.lockstep;
     return ls && ls.rejoins >= 1 && !ls.job && [...ls.peers.values()].every((q) => !q.gone) && window.__battle?.coop?.lockstep === ls && ls.running;
-  }, null, 240000)));
-  check(back.every(Boolean), 'the link is back: the host re-admits the guest and both play together again');
+  }, null, 400000)));
+  if (!check(back.every(Boolean), 'the link is back: the host re-admits the guest and both play together again')) await dump('after the rejoin');
   const rb = await B.evaluate(() => ({ r: window.__coop.lockstep.lastRebuild, trace: window.__coop.lockstep.trace.filter((e) => /adopt|rebuild|rejoin/.test(e.ev)).map((e) => `${e.ev}@${e.tick}${e.ck != null ? ` ck ${e.ck}` : ''}`).join(' '), gaps: window.__gaps }));
   log(`    guest rebuild: ${JSON.stringify(rb.r)} · ${rb.trace}`);
   log(`    guest main thread while rebuilding: longest gap ${Math.round(rb.gaps.jobMax)} ms over ${rb.gaps.jobN} timer ticks; card "${rb.gaps.overlayText}"`);
@@ -322,7 +363,7 @@ try {
   }, null, 240000);
   const rs = await B.evaluate(() => ({ r: window.__coop.lockstep.lastRebuild, gaps: window.__gaps }));
   log(`    guest resync: ${JSON.stringify(rs.r)} · longest gap ${Math.round(rs.gaps.jobMax)} ms`);
-  check(resynced && rs.r?.kind === 'resync' && rs.r.restored, `a resync restores the host's checkpoint (tick ${rs.r?.from}) and replays ${rs.r?.ticks} ticks`);
+  if (!check(resynced && rs.r?.kind === 'resync' && rs.r.restored, `a resync restores the host's checkpoint (tick ${rs.r?.from}) and replays ${rs.r?.ticks} ticks`)) await dump('after the resync');
   await A.waitForTimeout(12000);
   const t2 = await A.evaluate(() => window.__battle.coop.lockstep.tick);
   await A.waitForTimeout(8000);
@@ -340,7 +381,6 @@ try {
     return { ticks: ls.tick, ms: Math.round(performance.now() - t) };
   });
   log(`    the old way (replay from tick 0 in one go) at tick ${old.ticks}: the page blocked for ${old.ms} ms`);
-  await Promise.all([pump(A, false), pump(B, false)]);
 } catch (e) {
   failures.push(`crashed: ${e.stack || e.message}`);
   log(`  FAIL crashed: ${e.stack || e.message}`);

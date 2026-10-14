@@ -117,6 +117,8 @@ export function runLongRun({ wave = 150, after = 10, tier = 'blossom', stageId =
     step();
   }
   const ckBytes = A.ck ? JSON.stringify(A.ck.snap).length : 0;
+  // the battle at the cut (everything up to here is deterministic: the same in every engine)
+  const cutDigest = snapshotDigest(A.coop.snapshot());
   // 2. the old way, for comparison: the whole run replayed from tick 0 in one go (what froze the page)
   let tw = Date.now();
   const whole = new Lockstep({ start, mySlot: 1, send: () => {}, now: () => 0 });
@@ -132,10 +134,12 @@ export function runLongRun({ wave = 150, after = 10, tier = 'blossom', stageId =
   link[1] = true;
   let jobFrames = 0;
   let sawJob = false;
+  let ckDigest = 'none'; // the checkpoint the guest restores (taken by the host while apart)
   tw = Date.now();
   for (let f = 0; f < 60 * 120 && !over(); f++) {
     step();
     if (B.job) {
+      if (!sawJob && A.ck) ckDigest = `${A.ck.t}:${snapshotDigest(A.ck.snap)}`;
       sawJob = true;
       jobFrames++;
     } else if (sawJob && A.rejoins >= 1 && B.rejoins >= 1 && !A.peers.get(1).gone) break;
@@ -171,6 +175,10 @@ export function runLongRun({ wave = 150, after = 10, tier = 'blossom', stageId =
     after: Math.min(A.sim.wavesCleared, B.sim.wavesCleared) - (goal - after),
     pairs: pairs.length,
     agree: pairs.length > 0 && pairs.every((p) => p.mine === p.theirs) && !A.desynced && !B.desynced,
+    cutDigest,
+    ckDigest,
+    // (after the rejoin the run depends on how many frames the time-sliced rebuild took, so the
+    // final state is compared between the two clients, not between engines)
     finalDigest: snapshotDigest(A.coop.snapshot()),
     totalMs: Date.now() - t0,
   };

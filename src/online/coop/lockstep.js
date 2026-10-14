@@ -76,6 +76,10 @@ export const JOB_BUDGET_MS = 10;
 const JOB_MIN_TICKS = 30;
 /** 'busy' beats while rebuilding. */
 const BUSY_BEAT_MS = 1000;
+/** A peer that said it is rebuilding gets this long without a packet until its rebuilt battle
+ *  screen is live again (a phone reloading the battle screen can block its page for seconds;
+ *  under software WebGL on a loaded machine, measured 15–35 s). */
+export const REBUILD_TIMEOUT_MS = 60000;
 /** A rejoin fast-forwards the guest's own battle in place (no battle-screen rebuild) unless
  *  restoring the host's checkpoint replays clearly less: in place when the gap is at most this
  *  many ticks or no longer than the replay from the checkpoint. */
@@ -168,7 +172,7 @@ export class Lockstep {
     this.trace = [];
     this.peers = new Map();
     for (const p of start.players) {
-      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, offerParts: 1, rejoinAfter: 0, failedOffers: 0, goneAt: 0, busy: null });
+      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, offerParts: 1, rejoinAfter: 0, failedOffers: 0, goneAt: 0, busy: null, rebuilt: false });
     }
   }
 
@@ -216,10 +220,9 @@ export class Lockstep {
 
   /** How long `peer` may stay silent before it counts as gone. */
   timeoutFor(peer) {
-    if (!peer.ready) return COOP.loadTimeoutMs;
-    const t = Math.min(COOP.maxTimeoutMs, Math.max(COOP.timeoutMs, 3 * peer.jitter));
-    // a peer rebuilding its battle says so every second; a slow phone may still miss a beat
-    return peer.busy ? Math.max(t, COOP.loadTimeoutMs) : t;
+    // not live: still loading its battle screen (or, after a rebuild, reloading it)
+    if (!peer.ready) return peer.rebuilt ? REBUILD_TIMEOUT_MS : COOP.loadTimeoutMs;
+    return Math.min(COOP.maxTimeoutMs, Math.max(COOP.timeoutMs, 3 * peer.jitter));
   }
 
   livePeers() {
@@ -413,7 +416,10 @@ export class Lockstep {
           peer.failedOffers = 0;
         }
         peer.busy = null;
-        if (msg.live) peer.ready = true;
+        if (msg.live) {
+          peer.ready = true;
+          peer.rebuilt = false;
+        }
         if (Number.isInteger(msg.horizon)) peer.horizon = Math.max(peer.horizon, msg.horizon);
         if (Number.isInteger(msg.ack)) peer.ack = Math.max(peer.ack, msg.ack);
         // while rebuilding, its commands and hashes wait: the battle they belong to is not built
@@ -441,6 +447,9 @@ export class Lockstep {
           peer.failedOffers = 0;
         }
         peer.busy = { at: Number(msg.at) || 0, of: Math.max(1, Number(msg.of) || 1), w: Number.isInteger(msg.w) ? msg.w : null, t };
+        // its battle screen reloads once the rebuild is done: a long allowance until it is live
+        peer.ready = false;
+        peer.rebuilt = true;
         break;
       case 'resync?':
         if (this.isHost && t - this.lastResyncAnswer >= RESYNC_ANSWER_MS) {
@@ -541,6 +550,8 @@ export class Lockstep {
     this.resyncPending = 0;
     this.startRebuild('resync', msg.start, [...(Array.isArray(msg.cmds) ? msg.cmds : []), ...keepMine], msg.T, msg.ck, msg.w, () => {
       this.resyncs++;
+      this.running = false; // "live" again once the rebuilt battle screen runs
+      this.beat(true);
       this.hooks.onResync?.(this.coop);
     });
   }

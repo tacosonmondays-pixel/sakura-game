@@ -6,7 +6,8 @@
 //   the checkpoint (size, cost), the rejoin message, the replay from the checkpoint (ticks, CPU,
 //   slices, the longest slice, the wait at 60 frames a second), and the old way (the whole run
 //   replayed from tick 0 in one go: how long the page used to freeze), then whether both clients
-//   agree for 10 more waves.
+//   agree for 10 more waves. Across engines it compares the battle at the cut and the checkpoint the
+//   guest restores (the run after the rejoin depends on how many frames the time-sliced rebuild took).
 //
 //   node e2e/coop-longrun.mjs [--wave 150] [--tier blossom] [--stage 1-3] [--engines node,bun,chromium]
 // Exit code 1 when a run fails (stopped early, no checkpoint restore, disagreement, slow rejoin).
@@ -80,7 +81,7 @@ for (const { name, r } of results) {
   const b = r.rebuild;
   log(`  ${name}`);
   log(`    played to wave ${r.reached} (${r.ticks} ticks, ${r.towers} girls, ${r.logCmds} orders) in ${Math.round(r.playMs / 1000)} s`);
-  log(`    checkpoint ${r.ckKb} KB (taken in ${r.ckMs} ms) · rejoin offer ${r.offerKb} KB`);
+  log(`    the battle at the cut ${r.cutDigest} · the checkpoint restored ${r.ckDigest} (${r.ckKb} KB, taken in ${r.ckMs} ms) · rejoin offer ${r.offerKb} KB`);
   log(`    rejoin: restored the tick-${b.from} checkpoint in ${b.restoreMs} ms, replayed ${b.ticks} ticks in ${b.cpuMs} ms CPU over ${b.slices} slices (longest ${b.maxSliceMs} ms) → ${r.at60fpsMs} ms at 60 fps`);
   log(`    the old way: ${r.wholeTicks} ticks from tick 0 in one go = ${r.wholeMs} ms frozen (${r.wholeSame ? 'same battle' : 'DIFFERENT'})`);
   log(`    after: ${r.after} more waves together, ${r.pairs} hash pairs ${r.agree ? 'all equal' : 'DISAGREE'} · final ${r.finalDigest}`);
@@ -89,10 +90,12 @@ for (const { name, r } of results) {
   if (!r.wholeSame) failures.push(`${name}: the replay from tick 0 gave another battle`);
   if (r.at60fpsMs > 5000) failures.push(`${name}: the rejoin took ${r.at60fpsMs} ms at 60 fps (want < 5000)`);
 }
-const digests = new Set(results.filter((x) => x.r.ok).map((x) => x.r.finalDigest));
-if (digests.size > 1) failures.push(`the engines ended in different states: ${[...digests].join(' ≠ ')}`);
+// up to the rejoin everything is deterministic: the same battle at the cut and the same checkpoint
+// in every engine (after it, the time-sliced rebuild ends on a frame that depends on the CPU)
+const digests = new Set(results.filter((x) => x.r.ok).map((x) => `${x.r.cutDigest} / ${x.r.ckDigest}`));
+if (digests.size > 1) failures.push(`the engines disagree on the battle at the cut or the checkpoint: ${[...digests].join(' ≠ ')}`);
 if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} engine(s); identical final state ${[...digests][0]}.`);
+log(`\nOK: ${results.length} engine(s); the same battle at the cut and the same checkpoint everywhere (${[...digests][0]}).`);
