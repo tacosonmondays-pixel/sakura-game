@@ -533,3 +533,5 @@
   .ol-room-thumb { width: 104px; }
   .ol-chip-fp { margin-left: 0; }
 }
+/* the room's repaints keep its panels still (only the first paint slides them in) */
+.ol-room-live .panel { animation: none; }

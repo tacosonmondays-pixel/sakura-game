@@ -673,6 +673,9 @@ export function render(root, params = {}) {
         // below the call to action (phones scroll to it): the stage up close and the rules
         h('div.ol-room-more', fieldPanel(s), tipsPanel()),
       ].filter(Boolean)); // replaceChildren(null) would print "null"
+      // the room repaints on every session change (hellos, ready, returning…): only the first paint
+      // slides the panels in, later ones must not restart that animation (a flicker every few seconds)
+      requestAnimationFrame(() => view.classList.add('ol-room-live'));
     }
 
     paint();
