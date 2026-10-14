@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Lockstep } from '../../src/online/coop/lockstep.js';
+import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { COOP, coopStage, coopStartCash } from '../../src/data/coop.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -1036,6 +1036,30 @@ describe('co-op lockstep: big messages and the idle saver', () => {
     expect(late.length).toBeGreaterThan(0);
     expect(late.every((p) => p.mine === p.theirs)).toBe(true);
     expect(B.desynced).toBe(false);
+  });
+
+  it('after a rebuild the ally waits up to REBUILD_TIMEOUT_MS for the battle screen to reload (not the 12–20 s drop timeout)', () => {
+    const h = harness({ seed: 73, maxLag: 3 });
+    const [A, B] = h.clients;
+    for (let f = 0; f < 600; f++) {
+      if (h.frame === 20) A.queue('wave');
+      h.stepFrame();
+    }
+    B.sim.lives -= 2;
+    let f = 0;
+    while (!B.resyncs && f++ < 60 * 20) h.stepFrame();
+    expect(B.resyncs).toBe(1);
+    // the guest's page blocks while its battle screen reloads (a phone compiling shaders): its last
+    // packets (busy, then "not live yet") still arrive
+    h.frozen.add(1);
+    for (let i = 0; i < 12; i++) h.stepFrame();
+    expect(A.peers.get(1).ready).toBe(false);
+    expect(A.peers.get(1).rebuilt).toBe(true);
+    for (let i = 0; i < Math.ceil((COOP.loadTimeoutMs / 1000 + 10) * 60); i++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(false); // longer than the load timeout, still waited for
+    for (let i = 0; i < Math.ceil(((REBUILD_TIMEOUT_MS - COOP.loadTimeoutMs) / 1000) * 60); i++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(true); // …but not for ever
+    expect(A.peers.get(1).why).toBe('timeout');
   });
 
   it('idle saver (Supabase rooms): with no orders for 10 s each client beats ~2× a second, not ~4×; the next order still runs on both', () => {
