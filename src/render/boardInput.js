@@ -34,7 +34,7 @@ const WHEEL_ZOOM = 0.0015;
  */
 export function attachBoardInput(el, { rig, pick, gestures, onTap = () => {}, onLongPress = () => {}, now = () => performance.now() }) {
   const pointers = new Map(); // pointerId -> { x, y } (last client position)
-  let gesture = null; // the one-finger press: { moved, longFired, timer, t0, x0, y0, pan, slop }
+  let gesture = null; // the one-finger press: { moved, longFired, timer, t0, x0, y0, pan, reset, slop }
   let pinch = null; // two fingers: { dist, mx, my } at the last move, { pan, zoom } allowed at the start
   let lastTap = null; // { t, x, y } for the double-tap
 
@@ -51,7 +51,7 @@ export function attachBoardInput(el, { rig, pick, gestures, onTap = () => {}, on
     // ends before the finger lifts
     const allow = gestures();
     if (pointers.size === 1) {
-      const g = { moved: false, longFired: false, t0: now(), x0: e.clientX, y0: e.clientY, timer: 0, pan: allow.pan, slop: allow.tapSlop };
+      const g = { moved: false, longFired: false, t0: now(), x0: e.clientX, y0: e.clientY, timer: 0, pan: allow.pan, reset: allow.reset, slop: allow.tapSlop };
       g.timer = setTimeout(() => {
         if (gesture !== g || g.moved || pointers.size !== 1) return;
         g.longFired = true;
@@ -112,11 +112,13 @@ export function attachBoardInput(el, { rig, pick, gestures, onTap = () => {}, on
     const t = now();
     if (t - g.t0 > TAP_MAX_MS) return;
     const p = pick(e.clientX, e.clientY);
-    if (gestures().reset && lastTap && t - lastTap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_TAP_PX && p.towerUid == null) {
+    if (g.reset && gestures().reset && lastTap && t - lastTap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_TAP_PX && p.towerUid == null) {
       lastTap = null;
       if (!rig.isDefault) rig.reset(true);
     } else {
-      lastTap = { t, x: e.clientX, y: e.clientY };
+      // a tap made while the camera holds still (the tap that places a girl) is never the first
+      // half of a double-tap reset
+      lastTap = g.reset ? { t, x: e.clientX, y: e.clientY } : null;
     }
     onTap({ ...p, clientX: e.clientX, clientY: e.clientY });
   }

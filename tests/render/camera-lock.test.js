@@ -275,6 +275,21 @@ describe('board input honours the camera policy', () => {
     expect(b.pose().pan).not.toEqual([0, 0]);
   });
 
+  it('free: the tap that places a girl is never the first half of a double-tap reset', () => {
+    const b = board({ mode: 'free' });
+    b.drag([300, 200], [500, 240]);
+    const moved = b.pose();
+    expect(moved).not.toEqual(FIT);
+    b.state.placing = true;
+    b.tap(400, 200); // places her (the UI ends placing on this tap)…
+    b.state.placing = false;
+    b.wait(90);
+    b.tap(402, 201); // …and a quick second tap on the same spot right after
+    for (let i = 0; i < 30; i++) b.rig.apply(1 / 60);
+    expect(b.pose()).toEqual(moved);
+    expect(b.taps.length).toBe(2);
+  });
+
   it('free: a pan in progress stops the moment placing starts (a second finger drags a card)', () => {
     const b = board({ mode: 'free' });
     b.fire('pointerdown', 1, 200, 200);
