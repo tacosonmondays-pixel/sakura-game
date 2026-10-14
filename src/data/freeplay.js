@@ -154,3 +154,8 @@ export const FREEPLAY = Object.freeze(tables);
 export function freeplayTable(tierId) {
   return (typeof tierId === 'string' && Object.hasOwn(FREEPLAY, tierId) && FREEPLAY[tierId]) || null;
 }
+
+/** A room's freeplay setting from anything (a message, a route param): a tier id, or null (off). */
+export function freeplayTier(value) {
+  return freeplayTable(value)?.id ?? null;
+}

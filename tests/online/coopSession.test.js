@@ -876,3 +876,221 @@ describe('co-op rematch: back to the room after a battle', () => {
     idle.close();
   });
 });
+
+// Co-op freeplay (owner, Oct 14: "can you add freeplay stages too to coop?"): a room setting next to
+// the difficulty — off or a tier — that the host picks, the guest agrees to with Ready, rides in
+// hello / room / start, survives "Back to the room", and a run one player left plays on.
+describe('co-op freeplay: the room setting', () => {
+  const lastMsg = (s, type) => s.room.log.filter((e) => e.msg.type === type).at(-1)?.msg;
+  const sent = (s, type) => s.room.log.filter((e) => e.msg.type === type && e.up).length;
+  /** The given sessions' battle screens run (a frame every 16 ms) until `until()` holds. */
+  function play(W, sessions, until, max = 120000) {
+    const t0 = W.clock.t;
+    while (!until() && W.clock.t - t0 < max) {
+      W.step(16);
+      for (const s of sessions) if (s.phase === 'battle' && s.lockstep && !s.lockstep.finished) s.lockstep.advance(0.016);
+    }
+    return until();
+  }
+  function paired(W, hostExtra = {}) {
+    const host = open(W, true, hostExtra);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    expect(W.until(() => host.paired && guest.paired)).not.toBe(null);
+    return { host, guest };
+  }
+  function startTogether(W, host, guest, seed) {
+    guest.setReady(true);
+    expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+    expect(host.startBattle(seed)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+  }
+
+  it("the host's setting rides in hello, room and start; the guest takes it from each, and both build that battle", () => {
+    const W = world();
+    const host = open(W, true, { freeplay: 'tempest' });
+    const guest = open(W, false);
+    expect(host.freeplay).toBe('tempest');
+    expect(guest.freeplay).toBe(null);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    expect(guest.freeplay).toBe('tempest'); // from the host's hello
+    expect(lastMsg(host, 'hello').room).toEqual({ stageId: '1-2', difficulty: 'normal', freeplay: 'tempest' });
+    expect(lastMsg(guest, 'hello').freeplay).toBe('tempest'); // what the guest's Ready would agree to
+    // a change goes out at once
+    host.setStage('1-3', 'hard', 'crimson');
+    expect(lastMsg(host, 'room')).toEqual({ type: 'room', stageId: '1-3', difficulty: 'hard', freeplay: 'crimson' });
+    W.step(200);
+    expect([guest.stageId, guest.difficulty, guest.freeplay]).toEqual(['1-3', 'hard', 'crimson']);
+    // left out it stays; anything that is not a tier is off
+    host.setStage('1-1', 'normal');
+    W.step(200);
+    expect(guest.freeplay).toBe('crimson');
+    for (const off of [null, 'toString', 'nightmare', true, { id: 'blossom' }]) {
+      host.setStage('1-1', 'normal', off);
+      expect(host.freeplay, String(off)).toBe(null);
+    }
+    W.step(200);
+    expect(guest.freeplay).toBe(null);
+    // a lost room message: the host's next keepalive hello carries the setting
+    W.lose = (msg) => msg.type === 'room';
+    host.setStage('1-1', 'normal', 'blossom');
+    expect(W.until(() => guest.freeplay === 'blossom', LOBBY.keepaliveMs + 1000)).not.toBe(null);
+    W.lose = () => false;
+    startTogether(W, host, guest, 31);
+    expect(host.lockstep.start.freeplay).toBe('blossom');
+    expect(guest.lockstep.start).toEqual(host.lockstep.start);
+    for (const s of [host, guest]) {
+      expect(s.lockstep.sim.freeplay).toBe(true);
+      expect(s.lockstep.sim.stage.freeplay.id).toBe('blossom');
+      expect(s.lockstep.sim.totalWaves).toBe(12);
+    }
+    host.close();
+    guest.close();
+  });
+
+  it("Ready is consent: a changed setting takes the guest's Ready back, and a Ready from before the change never starts the battle", () => {
+    const W = world();
+    const { host, guest } = paired(W);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    // a stage change alone keeps the Ready (as before freeplay)
+    host.setStage('1-3', 'normal');
+    W.step(500);
+    expect(guest.me.ready).toBe(true);
+    expect(host.canStart).toBe(true);
+    // the host turns freeplay on: Start locks at once, before any message has crossed
+    host.setStage('1-3', 'normal', 'crimson');
+    expect(host.canStart).toBe(false);
+    expect(host.startBattle(5)).toBe(false);
+    W.step(500);
+    expect(guest.freeplay).toBe('crimson');
+    expect(guest.me.ready).toBe(false);
+    expect(host.peer.ready).toBe(false);
+    guest.setReady(true);
+    expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+    expect(host.peer.freeplay).toBe('crimson');
+    // the race: the change does not reach the guest, whose keepalive hellos still say "ready" —
+    // for Crimson Moon. That never counts for Tempest, until the guest saw Tempest and readied again
+    W.lose = (msg) => msg.type === 'room';
+    host.setStage('1-3', 'normal', 'tempest');
+    let startable = false;
+    const ms = W.until(() => {
+      startable ||= host.canStart;
+      return guest.freeplay === 'tempest';
+    }, LOBBY.keepaliveMs * 2);
+    expect(ms).not.toBe(null);
+    expect(lastMsg(guest, 'hello').freeplay).toBe('crimson'); // (its keepalive hellos said ready, for crimson)
+    W.step(1000);
+    expect(startable || host.canStart).toBe(false);
+    expect(guest.me.ready).toBe(false);
+    W.lose = () => false;
+    startTogether(W, host, guest, 6);
+    expect(guest.lockstep.start.freeplay).toBe('tempest');
+    host.close();
+    guest.close();
+  });
+
+  it('protocol 3: a hello or a start message from a protocol-2 build is refused (the version banner)', () => {
+    const W = world();
+    const { host, guest } = paired(W, { freeplay: 'tempest' });
+    const v = coopVersion();
+    expect(v.proto).toBe(3);
+    const old = { ...v, proto: 2 };
+    host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
+    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 2 } });
+    expect(host.peer.uid).toBe(GUEST);
+    // a start message from an old host never becomes a battle
+    const players = [{ slot: 0, uid: HOST, name: 'Aiko', loadout: [], hero: null }, { slot: 1, uid: GUEST, name: 'Bea', loadout: [], hero: null }];
+    guest.room.handlers.onMessage({ type: 'start', start: { v: old, seed: 1, stageId: '1-1', difficulty: 'normal', freeplay: 'tempest', players } }, HOST);
+    expect(guest.phase).toBe('lobby');
+    expect(guest.lockstep).toBe(null);
+    host.close();
+    guest.close();
+  });
+
+  it('"Back to the room" keeps the setting on both; the next battle starts with it again (and Off is a normal battle)', () => {
+    const W = world();
+    const { host, guest } = paired(W, { stageId: '1-1', difficulty: 'nightmare', freeplay: 'tempest' });
+    startTogether(W, host, guest, 77);
+    // nobody deploys on Nightmare: the first enemy through ends it (long before the goal)
+    host.lockstep.queue('speed', [3]);
+    host.lockstep.queue('wave');
+    expect(play(W, [host, guest], () => host.lockstep.finished && guest.lockstep.finished)).toBe(true);
+    expect(host.lockstep.sim.result()).toMatchObject({ won: false, freeplay: 'tempest', goalReached: false });
+    expect(host.backToLobby()).toBe(true);
+    W.step(1000);
+    expect(guest.backToLobby()).toBe(true);
+    expect(W.until(() => host.paired && guest.paired, 3000)).not.toBe(null);
+    for (const s of [host, guest]) expect([s.stageId, s.difficulty, s.freeplay]).toEqual(['1-1', 'nightmare', 'tempest']);
+    startTogether(W, host, guest, 78);
+    expect(guest.lockstep.start).toMatchObject({ seed: 78, freeplay: 'tempest' });
+    expect(guest.lockstep.sim.freeplay).toBe(true);
+    // battle 3 with freeplay off: a plain co-op battle
+    host.lockstep.queue('speed', [3]);
+    host.lockstep.queue('wave');
+    expect(play(W, [host, guest], () => host.lockstep.finished && guest.lockstep.finished)).toBe(true);
+    host.backToLobby();
+    guest.backToLobby();
+    W.until(() => host.paired && guest.paired, 3000);
+    host.setStage('1-1', 'nightmare', null);
+    W.step(500);
+    startTogether(W, host, guest, 79);
+    expect(guest.lockstep.start.freeplay).toBe(null);
+    for (const s of [host, guest]) expect(s.lockstep.sim.freeplay).toBe(false);
+    host.close();
+    guest.close();
+  });
+
+  it('a freeplay run one player leaves for the room plays on: the other hears how far it is, the one left finishes alone, then they pair again', () => {
+    const W = world();
+    const { host, guest } = paired(W, { stageId: '1-1', freeplay: 'blossom' });
+    startTogether(W, host, guest, 90);
+    // (both screens jump to the cleared goal the same way before any tick: no need to play 12
+    // waves here — the lockstep tests do that)
+    const goal = host.lockstep.sim.totalWaves;
+    for (const s of [host, guest]) Object.assign(s.lockstep.sim, { wave: goal, wavesCleared: goal, state: 'between' });
+    expect(play(W, [host, guest], () => host.lockstep.tick > 300 && guest.lockstep.tick > 300)).toBe(true);
+    expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+    // the guest goes back to the room while the run goes on
+    expect(guest.backToLobby()).toBe(true);
+    expect(guest.returning).toMatchObject({ uid: HOST, inRoom: false, fighting: null });
+    const ls0 = sent(host, 'ls');
+    expect(play(W, [host], () => !!guest.returning?.fighting, 3000)).toBe(true);
+    expect(host.lockstep.peers.get(1)).toMatchObject({ gone: true, why: 'lobby' });
+    expect(guest.returning.fighting).toEqual({ wave: goal, goal });
+    // the host plays on alone for longer than peerSilentMs: no lockstep beats nobody needs, a
+    // beacon every fightingMs, and the guest keeps waiting for it (no "lost contact")
+    const f0 = sent(host, 'fighting');
+    play(W, [host], () => false, 40000);
+    expect(sent(host, 'ls')).toBe(ls0);
+    expect(sent(host, 'fighting') - f0).toBeGreaterThanOrEqual(Math.floor(40000 / LOBBY.fightingMs) - 1);
+    expect(sent(host, 'fighting') - f0).toBeLessThanOrEqual(Math.ceil(40000 / LOBBY.fightingMs) + 1);
+    expect(guest.returning).toMatchObject({ uid: HOST, inRoom: false });
+    expect(guest.lastPeer).toBe(null);
+    expect(guest.stuck).toBe(null);
+    // the next freeplay wave: the beacon says so
+    host.lockstep.queue('wave');
+    expect(play(W, [host], () => guest.returning?.fighting?.wave === goal + 1, LOBBY.fightingMs + 2000)).toBe(true);
+    // the one left votes Finish: enough on her own (the guest's drop is a marker in the log)
+    host.lockstep.queue('end', [true]);
+    expect(play(W, [host], () => host.lockstep.finished, 3000)).toBe(true);
+    expect(host.lockstep.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'blossom', goal, goalReached: true });
+    W.step(1000);
+    expect(guest.returning).toMatchObject({ uid: HOST, inRoom: false, fighting: null }); // her results screen now
+    const f1 = sent(host, 'fighting');
+    W.step(30000);
+    expect(sent(host, 'fighting')).toBe(f1); // (none after the last one)
+    expect(guest.returning).not.toBe(null); // its rest beats keep the guest waiting
+    // back in the room: they pair again, same setting, and go again
+    expect(host.backToLobby()).toBe(true);
+    expect(W.until(() => host.paired && guest.paired, 3000)).not.toBe(null);
+    expect([host.freeplay, guest.freeplay]).toEqual(['blossom', 'blossom']);
+    startTogether(W, host, guest, 91);
+    expect(guest.lockstep.start.freeplay).toBe('blossom');
+    host.close();
+    guest.close();
+  });
+});

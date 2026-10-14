@@ -13,7 +13,7 @@
 import { Sim } from '../../sim/Sim.js';
 import { STEP, DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
-import { FREEPLAY_TIERS } from '../../data/freeplay.js';
+import { freeplayTier } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
@@ -62,7 +62,7 @@ export function isValidCmd(c, { markers = false } = {}) {
  * @param {{ mySlot?: number, stage?: object }} [opts]
  */
 export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
-  const freeplay = FREEPLAY_TIERS.includes(start.freeplay) ? start.freeplay : null;
+  const freeplay = freeplayTier(start.freeplay);
   const stageDef = stage || coopStage(start.stageId, { freeplay });
   if (!stageDef) throw new Error(`[coop] unknown stage ${start.stageId}`);
   const players = [...start.players].sort((a, b) => a.slot - b.slot);
