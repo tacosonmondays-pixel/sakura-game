@@ -535,3 +535,5 @@
 }
 /* the room's repaints keep its panels still (only the first paint slides them in) */
 .ol-room-live .panel { animation: none; }
+/* a boss bar takes the spot under the HUD: the co-op chip moves below it (bosses come often in freeplay) */
+.bt-has-boss .ol-coop-hud { top: calc(var(--bt-hud-h, 56px) + var(--safe-top) + 72px); }
