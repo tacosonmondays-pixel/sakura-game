@@ -101,3 +101,14 @@ describe('scene route', () => {
     expect(nextRoute({})).toBeNull();
   });
 });
+
+describe('story music hook', () => {
+  it('stemMix turns lists, level maps and the director state into finite levels', async () => {
+    const { stemMix } = await import('../../src/ui/story/music.js');
+    expect(stemMix(['base', 'melody'])).toEqual({ base: 1, melody: 1 });
+    expect(stemMix({ base: 1, melody: 0 })).toEqual({ base: 1, melody: 0 });
+    expect(stemMix({ base: { target: 1, value: 0.4 }, prep: { target: 0, value: 0 } })).toEqual({ base: 1, prep: 0 });
+    expect(stemMix({ base: NaN, x: 'no', y: { foo: 1 } })).toBeNull();
+    expect(stemMix(null)).toBeNull();
+  });
+});

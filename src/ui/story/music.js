@@ -16,6 +16,28 @@ function director() {
   }
 }
 
+/**
+ * Stem mix in the audio director's shape ({ name: level 0..1 }). Accepts a list of stem names (all on), a level map,
+ * or the director's own state() map ({ name: { target, value } }); anything non-finite is dropped.
+ * @returns {object|null}
+ */
+export function stemMix(stems) {
+  if (!stems) return null;
+  const out = {};
+  if (Array.isArray(stems)) for (const n of stems) if (typeof n === 'string') out[n] = 1;
+  if (!Array.isArray(stems) && typeof stems === 'object') {
+    for (const [n, v] of Object.entries(stems)) {
+      const level = typeof v === 'object' && v ? v.target ?? v.value : v;
+      if (Number.isFinite(Number(level)) && level !== null) out[n] = Math.max(0, Math.min(1, Number(level)));
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+const playOpts = (stems) => {
+  const mix = stemMix(stems);
+  return mix ? { stems: mix } : {};
+};
+
 const guard = (fn) => {
   try {
     return fn();
@@ -33,7 +55,7 @@ export function storyMusic(cueId) {
   return !!guard(() => {
     if (cue.stop) return a.music?.stop?.({ fade: cue.fade ?? 0.6 }) ?? true;
     if (cue.jingle) return a.music?.jingle?.(cue.jingle) ?? a.jingle?.(cue.jingle) ?? true;
-    return a.play?.(cue.track, cue.stems ? { stems: cue.stems } : {}) ?? true;
+    return a.play?.(cue.track, playOpts(cue.stems)) ?? true;
   });
 }
 
@@ -56,5 +78,5 @@ export function musicSnapshot() {
 export function restoreMusic(snap) {
   const a = director();
   if (!a || !snap?.track) return;
-  guard(() => a.play?.(snap.track, snap.stems ? { stems: snap.stems } : {}));
+  guard(() => a.play?.(snap.track, playOpts(snap.stems)));
 }
