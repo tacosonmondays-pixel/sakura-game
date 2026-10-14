@@ -15,8 +15,10 @@ export function isTransient(name) {
 }
 
 /**
- * Screens with a fixed place in the menus: the arrow always goes to this parent, wherever the
- * screen was opened from. A route name, or (params) => route name.
+ * Screens with a fixed place in the menus: the arrow goes to this parent, wherever the screen was
+ * opened from (a chat link, a battle, the clan …) — except straight from higher up the same menus
+ * (a lobby shortcut): then back there, since the player never saw the screens in between. A route
+ * name, or (params) => route name.
  */
 const PARENTS = {
   missions: 'lobby',
@@ -29,11 +31,28 @@ const PARENTS = {
   coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
 };
 
+const fixedParent = (name, params = {}) => {
+  const p = PARENTS[name];
+  return typeof p === 'function' ? p(params) : p || null;
+};
+
+/** The screens above `name` in the menus, nearest first; the lobby is always the last. */
+export function menuAncestors(name, params = {}) {
+  const out = [];
+  for (let n = fixedParent(name, params); n && !out.includes(n); n = fixedParent(n)) out.push(n);
+  if (!out.includes('lobby')) out.push('lobby');
+  return out;
+}
+
 /** Every other screen goes back to the screen it was opened from, or (unknown) to this one. */
 const FALLBACK = { student: 'students', soundtest: 'settings' };
 
-/** The screen a stage's "Map" button and back arrow lead to (campaign chapter / Bounty / …). */
-export function mapRouteFor(stage) {
+/**
+ * The screen a stage's "Map" button and back arrow lead to (campaign chapter / Bounty / …). An
+ * endless run on a campaign map belongs to Tactical Challenge, where endless runs are picked.
+ */
+export function mapRouteFor(stage, { endless = false } = {}) {
+  if (endless) return { name: 'challenge', params: {} };
   switch (stage?.kind) {
     case 'resource': return { name: 'bounty', params: {} };
     case 'boss': return { name: 'assault', params: {} };
@@ -58,12 +77,21 @@ export function parentRoute(name, params = {}, prev = null) {
     // stage prep: back where it was opened from (the map, a Bounty arena, Missions' quick start,
     // a Teleport) … unless that was another stage (Next Stage) or nothing: then the stage's map
     if (from && from.name !== 'stage') return from;
-    if (params.endless === '1' || params.endless === 1 || params.endless === true) return route('challenge');
-    return mapRouteFor(STAGE_MAP[params.id]);
+    return mapRouteFor(STAGE_MAP[params.id], { endless: isEndless(params) });
   }
-  const fixed = PARENTS[name];
-  if (fixed) return route(typeof fixed === 'function' ? fixed(params) : fixed);
+  const fixed = fixedParent(name, params);
+  if (fixed) {
+    // opened from its parent, or straight from higher up the menus (the lobby's Tasks / Bounty /
+    // Total Assault shortcuts, Menu → Co-op): back there, the way the back gesture goes
+    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)))) return from;
+    return route(fixed);
+  }
   return from || route(FALLBACK[name] || 'lobby');
+}
+
+/** Route params of an endless run (stage prep / battle: endless=1). */
+export function isEndless(params = {}) {
+  return params.endless === '1' || params.endless === 1 || params.endless === true || params.endless === 'true';
 }
 
 /** Same screen (route name + id), whatever its other params (tab, chapter, …). */

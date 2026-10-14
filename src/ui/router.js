@@ -80,10 +80,12 @@ const knownIdx = (st) => (st && Number.isInteger(st.navIdx) ? st.navIdx : null);
 /**
  * Steps the browser history back to entry `j`, which shows the same screen as `target`. Popstate
  * draws it there with `target`'s params on top of the entry's own (Back to the clan → its boss
- * tab; Quit → stage prep keeps its chosen difficulty); if the step never lands, `missed` runs.
+ * tab; Map → the stage's chapter; Quit → stage prep keeps its chosen difficulty, the entry's own);
+ * with `asItIs` (the arrow onto the screen below, as that entry has it now) the entry's own
+ * params only, like the back gesture. If the step never lands, `missed` runs.
  */
-function stepTo(j, target, missed) {
-  const step = { target };
+function stepTo(j, target, missed, asItIs = false) {
+  const step = { target, asItIs };
   step.timer = setTimeout(() => {
     if (stepping !== step) return;
     stepping = null;
@@ -129,6 +131,9 @@ export function navigate(name, params = {}, { replace = false } = {}) {
   const hash = buildHash(name, params);
   if (location.hash === hash) return show(name, params);
   stamp(); // in case a screen replaced this entry's state without passing it on
+  // the entry being left, as its URL is now: screens rewrite it in place (a chapter or arena
+  // picked, a tab, the difficulty), and the arrow and the back gesture must find it that way
+  entries[idx] = parseHash();
   if (isTransient(current.name)) {
     // leaving a battle: when the screen it returns to is already below (Quit → stage prep, Back to
     // the clan, Home …), this entry becomes that screen and the browser steps back onto it …
@@ -154,10 +159,13 @@ export function navigate(name, params = {}, { replace = false } = {}) {
  */
 export function back(fallback = 'lobby') {
   if (stepping) return;
-  const target = parentRoute(current.name, current.params || {}, previousScreen()) || { name: fallback, params: {} };
+  const prev = previousScreen();
+  const target = parentRoute(current.name, current.params || {}, prev) || { name: fallback, params: {} };
   const j = isTransient(current.name) ? -1 : findBelow(target); // out of a battle: navigate() below
   const instead = () => navigate(target.name, target.params, { replace: true });
-  if (j >= 0) stepTo(j, target, instead);
+  // back onto the screen below as it is (a chapter / arena / tab picked there stays picked);
+  // a parent the router chose itself (a fixed parent, the stage's own map) brings its params
+  if (j >= 0) stepTo(j, target, instead, target === prev);
   else instead();
 }
 
@@ -170,7 +178,7 @@ export function historyMirror() {
   return { idx, entries: entries.map((e) => (e ? buildHash(e.name, e.params) : null)) };
 }
 
-function onHashChange() {
+function onHashChange(e) {
   const at = knownIdx(history.state);
   if (at != null) {
     // navigate()'s own new entry: draw it. (Any other stamped entry was reached by a step through
@@ -182,8 +190,14 @@ function onHashChange() {
     }
     return;
   }
-  // a hash the router did not set (a link, a typed URL, a script): the next entry
+  // a hash the router did not set (a link, a typed URL, a script): the next entry (the one left
+  // keeps the URL it had then, in case a screen rewrote it in place)
   fresh = null;
+  try {
+    if (typeof e?.oldURL === 'string' && entries[idx]) entries[idx] = parseHash(new URL(e.oldURL).hash);
+  } catch {
+    /* no usable old URL: keep what the router saw last */
+  }
   idx += 1;
   entries.length = idx;
   stamp();
@@ -213,7 +227,7 @@ function onPopState() {
     else open(buildHash('lobby'), true);
     return;
   }
-  if (step && sameScreen({ name, params }, step.target)) {
+  if (step && !step.asItIs && sameScreen({ name, params }, step.target)) {
     // the router's own step: the screen it was asked for, with those params
     const hash = buildHash(name, { ...params, ...step.target.params });
     params = parseHash(hash).params;

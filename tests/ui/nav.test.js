@@ -3,7 +3,7 @@
 // target table; the router tests run against a small fake of the browser's session history
 // (hash entries, history.state, async go/back/forward, popstate + hashchange like Chromium).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { parentRoute, mapRouteFor, isTransient, sameScreen } from '../../src/ui/nav.js';
+import { parentRoute, mapRouteFor, isTransient, sameScreen, menuAncestors } from '../../src/ui/nav.js';
 import { mapRouteFor as battleMapRoute } from '../../src/ui/battle/setup.js';
 import { STAGE_MAP, STAGES } from '../../src/data/stages.js';
 
@@ -11,12 +11,28 @@ const r = (name, params = {}) => ({ name, params });
 
 describe('parentRoute: the back arrow target', () => {
   it('menu screens go to their fixed parent, wherever they were opened from', () => {
-    for (const prev of [null, r('chat'), r('battle', { stage: 'boss-lych', clanBoss: 'a1' }), r('lobby')]) {
+    for (const prev of [null, r('chat'), r('battle', { stage: 'boss-lych', clanBoss: 'a1' }), r('student', { id: 'aoi' }), r('clan')]) {
       expect(parentRoute('clan', { tab: 'boss' }, prev)).toEqual(r('lobby'));
       expect(parentRoute('missions', {}, prev)).toEqual(r('lobby'));
       for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'commissions', 'coop']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
       expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, prev)).toEqual(r('coop'));
     }
+  });
+
+  it('… except straight from higher up the menus: back there (the lobby shortcuts skip Missions)', () => {
+    // Lobby → Commissions dock / Tasks, event strip → Bounty, Total Assault, Menu → Co-op
+    for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'commissions', 'coop', 'missions', 'clan']) {
+      expect(parentRoute(name, { tab: 'login' }, r('lobby'))).toEqual(r('lobby'));
+    }
+    // from the parent itself: that screen as it was left (its tab / chapter kept)
+    const hub = r('missions', { tab: 'x' });
+    expect(parentRoute('commissions', {}, hub)).toBe(hub);
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('coop'))).toEqual(r('coop'));
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('missions'))).toEqual(r('missions')); // a room → above the hub
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('coop', { id: 'FGHIJ' }))).toEqual(r('coop')); // another room: the hub
+    expect(menuAncestors('coop', { id: 'ABCDE' })).toEqual(['coop', 'missions', 'lobby']);
+    expect(menuAncestors('bounty')).toEqual(['missions', 'lobby']);
+    expect(menuAncestors('lobby')).toEqual(['lobby']);
   });
 
   it('stage prep goes back where it was opened from, else to its own map', () => {
@@ -47,8 +63,11 @@ describe('parentRoute: the back arrow target', () => {
     for (const name of names) expect(isTransient(parentRoute(name, { id: '1-1' }, r('battle', { stage: '1-1' })).name)).toBe(false);
   });
 
-  it('shares the map route with the battle results', () => {
+  it('shares the map route with the battle results; an endless run maps to Tactical Challenge', () => {
     expect(battleMapRoute).toBe(mapRouteFor);
+    expect(mapRouteFor(STAGE_MAP['1-1'])).toEqual(r('campaign', { chapter: String(STAGE_MAP['1-1'].chapter) }));
+    expect(mapRouteFor(STAGE_MAP['1-1'], { endless: true })).toEqual(r('challenge'));
+    expect(parentRoute('stage', { id: '1-1', endless: 1 }, r('stage', { id: '1-1' }))).toEqual(r('challenge'));
     expect(sameScreen(r('clan'), r('clan', { tab: 'boss' }))).toBe(true);
     expect(sameScreen(r('coop'), r('coop', { id: 'ABCDE' }))).toBe(false);
   });
@@ -59,11 +78,12 @@ function fakeBrowser(startHash) {
   const win = new EventTarget();
   const b = { entries: [{ url: startHash, state: null }], i: 0 };
   const cur = () => b.entries[b.i];
-  const fire = (type) => win.dispatchEvent(new Event(type));
+  const fire = (type, props = {}) => win.dispatchEvent(Object.assign(new Event(type), props));
+  const hashchange = (oldUrl) => setTimeout(() => fire('hashchange', { oldURL: `http://game.test/${oldUrl}`, newURL: `http://game.test/${cur().url}` }), 0);
   // a fragment navigation: popstate at once (Chromium does), hashchange as a task
   const fragmentNav = (oldUrl) => {
     fire('popstate');
-    if (cur().url !== oldUrl) setTimeout(() => fire('hashchange'), 0);
+    if (cur().url !== oldUrl) hashchange(oldUrl);
   };
   b.location = {
     get hash() {
@@ -101,7 +121,7 @@ function fakeBrowser(startHash) {
         const old = cur().url;
         b.i = to;
         fire('popstate');
-        if (cur().url !== old) setTimeout(() => fire('hashchange'), 0);
+        if (cur().url !== old) hashchange(old);
       }, 0);
     },
     back() {
@@ -151,6 +171,12 @@ describe('router: back arrow and battle history entries', () => {
     await settle();
   };
   const screen = () => router.buildHash(router.currentRoute().name, router.currentRoute().params);
+  /** What a screen does when a tab / chapter / arena / difficulty is picked (stage.js rememberParams). */
+  const remember = (patch) => {
+    const route = router.currentRoute();
+    Object.assign(route.params, patch);
+    browser.history.replaceState(browser.history.state, '', router.buildHash(route.name, route.params));
+  };
   const noBattle = () => expect(browser.urls().filter((u) => u.startsWith('#/battle'))).toEqual([]);
 
   beforeEach(() => {
@@ -390,5 +416,116 @@ describe('router: back arrow and battle history entries', () => {
     await settle();
     expect(screen()).toBe('#/lobby');
     expect(browser.i).toBe(0);
+  });
+  it('the arrow lands on the screen below as the player left it (URL rewritten in place)', async () => {
+    // campaign: opened on chapter 2, Chapter 1 tab picked, 1-3 prep → arrow: Chapter 1
+    await boot('#/lobby');
+    await go('missions');
+    await go('campaign', { chapter: '2' });
+    remember({ chapter: '1' });
+    await go('stage', { id: '1-3' });
+    await arrow();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    expect(browser.i).toBe(2);
+    // the back gesture agrees
+    await go('stage', { id: '1-3' });
+    browser.history.back();
+    await settle();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    // bounty: opened from the event strip on one arena, another arena picked → its prep → arrow
+    await boot('#/lobby');
+    await go('bounty', { arena: 'res-coins' });
+    remember({ arena: 'res-books', tier: '3' });
+    await go('stage', { id: 'res-books-3' });
+    await arrow();
+    expect(screen()).toBe('#/bounty?arena=res-books&tier=3');
+    // mall: opened on Gems, General picked, a girl opened → arrow
+    await boot('#/lobby');
+    await go('mall', { tab: 'gems' });
+    remember({ tab: 'general' });
+    await go('student', { id: 'aoi' });
+    await arrow();
+    expect(screen()).toBe('#/mall?tab=general');
+    expect(browser.i).toBe(1);
+  });
+
+  it('… also after the back and forward gestures, and a hash set from outside', async () => {
+    await boot('#/lobby');
+    await go('missions');
+    await go('campaign', { chapter: '2' });
+    await go('stage', { id: '1-3' });
+    browser.history.back(); // gesture back onto the map …
+    await settle();
+    remember({ chapter: '1' }); // … another chapter there …
+    browser.history.forward(); // … and forward to 1-3 prep again
+    await settle();
+    expect(screen()).toBe('#/stage/1-3');
+    await arrow();
+    expect(screen()).toBe('#/campaign?chapter=1');
+    expect(browser.i).toBe(2);
+    // a hash set from outside the router (a link, a typed URL): the entry left keeps its URL
+    remember({ chapter: '3' });
+    browser.location.hash = '#/settings';
+    await settle();
+    expect(screen()).toBe('#/settings');
+    expect(router.historyMirror().entries[2]).toBe('#/campaign?chapter=3');
+    await arrow();
+    expect(screen()).toBe('#/campaign?chapter=3');
+  });
+
+  it('a menu screen opened straight from the lobby arrows back to the lobby, from Missions to Missions', async () => {
+    await boot('#/lobby');
+    await go('commissions'); // the dock button / Tasks shortcut
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+    expect(browser.i).toBe(0);
+    for (const [name, params] of [['bounty', { arena: 'res-coins' }], ['assault', {}], ['coop', {}], ['commissions', { tab: 'login' }]]) {
+      await go(name, params);
+      await arrow();
+      expect(screen()).toBe('#/lobby');
+      expect(browser.i).toBe(0);
+    }
+    await go('missions');
+    await go('commissions');
+    await arrow();
+    expect(screen()).toBe('#/missions');
+    expect(browser.i).toBe(1);
+    // a deep link (nothing below): Missions, as before
+    await boot('#/bounty');
+    await arrow();
+    expect(screen()).toBe('#/missions');
+  });
+
+  it('stage prep keeps the difficulty picked there after a battle (Quit, the back gesture, Retry → Quit)', async () => {
+    await boot('#/campaign?chapter=1');
+    await go('stage', { id: '1-2' }); // defaults to Hard on this save
+    remember({ difficulty: 'easy' }); // the picker
+    await go('battle', { stage: '1-2', difficulty: 'easy' });
+    await go('stage', { id: '1-2' }); // Pause → Quit
+    expect(screen()).toBe('#/stage/1-2?difficulty=easy');
+    expect(browser.i).toBe(1);
+    await go('battle', { stage: '1-2', difficulty: 'easy' });
+    browser.history.back(); // the back gesture mid-battle
+    await settle();
+    expect(screen()).toBe('#/stage/1-2?difficulty=easy');
+  });
+
+  it('an endless run: Map and the prep arrow both go to Tactical Challenge', async () => {
+    await boot('#/lobby');
+    await go('missions');
+    await go('challenge');
+    await go('stage', { id: '1-1', endless: 1 });
+    await go('battle', { stage: '1-1', difficulty: 'normal', endless: 1 });
+    const r = mapRouteFor(STAGE_MAP['1-1'], { endless: true }); // results: Map
+    await go(r.name, r.params);
+    expect(screen()).toBe('#/challenge');
+    expect(browser.i).toBe(2);
+    await go('stage', { id: '1-1', endless: 1 });
+    await go('battle', { stage: '1-1', difficulty: 'normal', endless: 1 });
+    await go('stage', { id: '1-1', endless: 1 }); // Pause → Quit
+    expect(screen()).toBe('#/stage/1-1?endless=1');
+    await arrow();
+    expect(screen()).toBe('#/challenge');
+    noBattle();
   });
 });

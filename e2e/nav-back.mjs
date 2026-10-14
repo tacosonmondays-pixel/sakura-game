@@ -8,13 +8,25 @@
 //   3. leaving a battle: Pause → Quit → 1-1 prep (back arrow → the campaign map); a defeat →
 //      Map → the campaign map; a defeat → Home → the lobby
 //   4. the phone back gesture mid-battle leaves it for 1-1 prep; forward again does not restart it
+//   5. inplace: screens that rewrite their URL in place come back as the player left them — the
+//      campaign opened on a later chapter, Chapter 1 picked, 1-3 prep → the arrow (and the back
+//      gesture) land on Chapter 1; Bounty from the event strip, another arena picked → its prep →
+//      the arrow lands on that arena; the Mall from the gems shortcut, another tab → a girl → the
+//      arrow lands on that tab
+//   6. shortcuts: Commissions / Tasks / Bounty / Total Assault / Co-op opened straight from the
+//      lobby arrow back to the lobby (opened from Missions: to Missions)
+//   7. difficulty: stage prep keeps the difficulty picked there after Quit, the back gesture
+//      mid-battle, and a defeat → Retry → Quit
+//   8. endless: an endless run's Map button and the endless prep's arrow both go to Tactical
+//      Challenge (Quit keeps the endless prep)
 // After each flow the whole history is walked with back / forward (page.goBack / goForward, the
 // phone back gesture): no entry is a battle.
 //
 //   node e2e/nav-back.mjs                                  # 844×390 (landscape phone, touch)
 //   node e2e/nav-back.mjs --viewport 1280x720 --shots /tmp/nav
 //   node e2e/nav-back.mjs --prod                           # the production build in dist/
-//   node e2e/nav-back.mjs --only clan,campaign             # some flows (clan, campaign, leave)
+//   node e2e/nav-back.mjs --only clan,campaign             # some flows (clan, campaign, leave,
+//                                                          #   inplace, shortcuts, difficulty, endless)
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev (or preview) server;
 // the game runs with the local online adapter (?online=local). Exit code 1 when a check fails.
 import { createServer, preview } from 'vite';
@@ -30,7 +42,7 @@ const [W, H] = opt('viewport', '844x390').split('x').map(Number);
 const shotsDir = opt('shots', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const touch = Math.min(W, H) < 600;
-const only = opt('only', 'clan,campaign,leave').split(',');
+const only = opt('only', 'clan,campaign,leave,inplace,shortcuts,difficulty,endless').split(',');
 
 const IGNORE = [
   /GPU stall due to ReadPixels/i, /WebGL: too many errors/i, /Automatic fallback to software WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i,
@@ -106,19 +118,42 @@ async function dismissGift(page) {
   }
 }
 
-async function freshLobby(name) {
+/**
+ * A fresh account on the lobby. `cleared`: { stageId: ['easy', …] } marks stages cleared on those
+ * difficulties (a save further along), then reloads so every screen starts from that save.
+ */
+async function freshLobby(name, { cleared = null } = {}) {
   const page = await openPage(name);
+  const lobby = () => page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 45000 });
   await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 45000 });
-  await page.evaluate(() => {
+  await lobby();
+  await page.evaluate((cleared) => {
     // software WebGL: low quality keeps the battle responsive
     const { store } = window.__sakura;
     Object.assign(store.profile.settings, { quality: 'low', shadows: false, bloom: false });
-    store.commit('settings');
-  });
+    for (const [id, diffs] of Object.entries(cleared || {})) {
+      const e = (store.profile.progress.stages[id] ||= { clears: 0 });
+      e.clears = Math.max(1, e.clears || 0);
+      for (const d of diffs) e[d] = true;
+    }
+    store.commit(cleared ? 'progress' : 'settings');
+    store.saveNow();
+  }, cleared);
+  if (cleared) {
+    await page.reload({ waitUntil: 'load' });
+    await lobby();
+  }
   await dismissGift(page);
   return page;
 }
+
+/** { '1-1': diffs, …, 'N-5': diffs }: campaign chapters `from`..`to` cleared on `diffs`. */
+function chapters(from, to, diffs = ['easy']) {
+  const out = {};
+  for (let c = from; c <= to; c++) for (let s = 1; s <= 5; s++) out[`${c}-${s}`] = diffs;
+  return out;
+}
+const checked = (page, testid) => page.locator(`#app [data-testid="${testid}"][aria-checked="true"]`).count().then((n) => n > 0).catch(() => false);
 
 /** Waits for the battle to be playable. */
 const battleReady = (page) => page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle', null, { timeout: 90000, polling: 200 }).then(() => true).catch(() => false);
@@ -365,12 +400,201 @@ async function leaveFlow() {
   await C.context().close();
 }
 
+/** 5. screens that rewrite their URL in place: the arrow brings them back as they were left. */
+async function inPlaceFlow() {
+  log('\n--- screens that rewrite their URL in place ---');
+  const P = await freshLobby('D', { cleared: chapters(1, 5) });
+  // campaign: the Mission tile opens the next chapter (6); pick Chapter 1, open 1-3 prep, arrow
+  await tap(P, '[data-testid="tile-mission"]');
+  await onScreen(P, 'missions');
+  await tap(P, '[data-testid="hub-mission"]');
+  check(await onScreen(P, 'campaign', '#/campaign?chapter=6'), `inplace: Missions → Mission opens the next chapter (now ${(await where(P)).hash})`);
+  await tap(P, '#app [data-testid="chapter-1"]');
+  await P.waitForFunction(() => location.hash === '#/campaign?chapter=1', null, { timeout: 10000 }).catch(() => null);
+  await tap(P, '[data-testid="stage-1-3"]');
+  check(await onScreen(P, 'stage', '#/stage/1-3'), 'inplace: Chapter 1 → 1-3 opens its prep');
+  await arrow(P);
+  let w = await settled(P);
+  check(w.hash === '#/campaign?chapter=1' && (await P.locator('#app [data-testid="chapter-1"][aria-selected="true"]').count()) > 0,
+    `inplace: the arrow on 1-3 prep lands on Chapter 1, the chapter left (now ${w.hash})`);
+  await shot(P, 'inplace-campaign');
+  await tap(P, '[data-testid="stage-1-3"]');
+  await onScreen(P, 'stage', '#/stage/1-3');
+  await P.goBack({ waitUntil: 'commit', timeout: 15000 }).catch(() => null);
+  w = await settled(P);
+  check(w.hash === '#/campaign?chapter=1', `inplace: the back gesture on 1-3 prep agrees (now ${w.hash})`);
+  await arrow(P);
+  await onScreen(P, 'missions');
+  await arrow(P);
+  check(await onScreen(P, 'lobby'), `inplace: arrows climb Missions → the lobby (now ${(await where(P)).hash})`);
+
+  // bounty: the event strip opens this week's arena; pick another, Prepare, arrow
+  await tap(P, '[data-testid="event-strip"]');
+  check(await onScreen(P, 'bounty', '#/bounty?arena='), `inplace: the event strip opens Bounty on this week's arena (now ${(await where(P)).hash})`);
+  const eventArena = new URLSearchParams((await where(P)).hash.split('?')[1]).get('arena');
+  const other = await P.evaluate((ev) => [...document.querySelectorAll('#app [data-testid^="arena-"]')].map((b) => b.dataset.testid).find((t) => t !== `arena-${ev}`), eventArena);
+  if (check(!!other, `inplace: another arena to pick than ${eventArena}`)) {
+    await tap(P, `#app [data-testid="${other}"]`);
+    const arenaId = other.replace(/^arena-/, '');
+    await P.waitForFunction((a) => location.hash.includes(`arena=${a}`), arenaId, { timeout: 10000 }).catch(() => null);
+    const picked = (await where(P)).hash;
+    await tap(P, '[data-testid="bounty-prepare"]');
+    check(await onScreen(P, 'stage', `#/stage/${arenaId}`), `inplace: Prepare opens that arena's prep (now ${(await where(P)).hash})`);
+    await arrow(P);
+    w = await settled(P);
+    check(w.hash === picked && (await P.locator(`#app [data-testid="${other}"][aria-expanded="true"]`).count()) > 0,
+      `inplace: the arrow on its prep lands on the arena picked, ${picked} (now ${w.hash})`);
+    await shot(P, 'inplace-bounty');
+  }
+  // … and Bounty, opened from the lobby, arrows back to the lobby
+  await arrow(P);
+  check(await onScreen(P, 'lobby'), `inplace: the arrow on Bounty (opened from the event strip) goes to the lobby (now ${(await where(P)).hash})`);
+
+  // mall: the gems shortcut opens the Gem Shop; pick the Recruit Exchange, open a girl, arrow
+  await tap(P, '[data-testid="shortcut-gems"]');
+  check(await onScreen(P, 'mall', '#/mall?tab=gems'), `inplace: the gems shortcut opens the Gem Shop (now ${(await where(P)).hash})`);
+  await tap(P, '#app [data-testid="tab-recruit"]');
+  await P.waitForFunction(() => location.hash === '#/mall?tab=recruit', null, { timeout: 10000 }).catch(() => null);
+  await tap(P, '#app .ma-offer-portrait');
+  check(await onScreen(P, 'student', '#/student/'), `inplace: a girl in the Recruit Exchange opens her page (now ${(await where(P)).hash})`);
+  await arrow(P);
+  w = await settled(P);
+  check(w.hash === '#/mall?tab=recruit', `inplace: the arrow on her page lands on the Mall tab left (now ${w.hash})`);
+  await shot(P, 'inplace-mall');
+  await arrow(P);
+  check(await onScreen(P, 'lobby'), `inplace: then the arrow goes to the lobby (now ${(await where(P)).hash})`);
+  await walkHistory(P, 'inplace');
+  await P.context().close();
+}
+
+/** 6. menu screens opened straight from the lobby: the arrow goes back to the lobby. */
+async function shortcutsFlow() {
+  log('\n--- lobby shortcuts ---');
+  const S = await freshLobby('E', { cleared: chapters(1, 5) }); // Total Assault unlocked
+  const fromLobby = async (label, open, name) => {
+    await open();
+    if (!check(await onScreen(S, name), `shortcuts: ${label} opens ${name} (now ${(await where(S)).hash})`)) return;
+    await arrow(S);
+    check(await onScreen(S, 'lobby', '#/lobby', 20000), `shortcuts: the arrow on ${name} opened from ${label} goes to the lobby (now ${(await where(S)).hash})`);
+    const st = await S.evaluate(() => history.state?.navIdx);
+    check(st === 0, `shortcuts: … stepping back onto the lobby entry, like the back gesture (entry ${st})`);
+  };
+  await fromLobby('the Commissions dock button', () => tap(S, '[data-testid="dock-commissions"]'), 'commissions');
+  await fromLobby('the Tasks shortcut', () => tap(S, '[data-testid="shortcut-tasks"]'), 'commissions');
+  await fromLobby('the event strip', () => tap(S, '[data-testid="event-strip"]'), 'bounty');
+  await fromLobby('the Total Assault shortcut', () => tap(S, '[data-testid="shortcut-assault"]'), 'assault');
+  await fromLobby('Menu → Co-op', async () => {
+    await tap(S, '[data-testid="top-menu"]');
+    await tap(S, '[data-testid="menu-coop"]');
+    // online screens ask a fresh account for a name first
+    if (await S.waitForSelector('[data-testid="name-input"]', { timeout: 10000 }).catch(() => null)) await setName(S, 'Aiko');
+  }, 'coop');
+  // opened from Missions: back to Missions
+  await tap(S, '[data-testid="tile-mission"]');
+  await onScreen(S, 'missions');
+  await tap(S, '[data-testid="hub-commissions"]');
+  await onScreen(S, 'commissions');
+  await arrow(S);
+  check(await onScreen(S, 'missions'), `shortcuts: Commissions opened from Missions arrows back to Missions (now ${(await where(S)).hash})`);
+  await arrow(S);
+  check(await onScreen(S, 'lobby'), `shortcuts: then Missions → the lobby (now ${(await where(S)).hash})`);
+  await walkHistory(S, 'shortcuts');
+  await S.context().close();
+}
+
+/** 7. stage prep keeps the difficulty picked there after a battle. */
+async function difficultyFlow() {
+  log('\n--- stage prep difficulty ---');
+  // 1-2 cleared on Easy and Normal: its prep opens on Hard
+  const D = await freshLobby('F', { cleared: { '1-1': ['easy'], '1-2': ['easy', 'normal'] } });
+  await tap(D, '[data-testid="tile-mission"]');
+  await onScreen(D, 'missions');
+  await tap(D, '[data-testid="hub-mission"]');
+  await onScreen(D, 'campaign');
+  await tap(D, '[data-testid="stage-1-2"]');
+  await onScreen(D, 'stage', '#/stage/1-2');
+  check(await checked(D, 'diff-hard'), 'difficulty: 1-2 prep opens on Hard (Easy and Normal cleared)');
+  await tap(D, '[data-testid="diff-easy"]');
+  await D.waitForFunction(() => location.hash.includes('difficulty=easy'), null, { timeout: 10000 }).catch(() => null);
+  check((await where(D)).hash.includes('difficulty=easy'), `difficulty: picking Easy keeps it in the URL (now ${(await where(D)).hash})`);
+  const prepOnEasy = async (how) => {
+    const ok = await onScreen(D, 'stage', '#/stage/1-2');
+    check(ok && (await checked(D, 'diff-easy')), `difficulty: ${how} → 1-2 prep still on Easy (now ${(await where(D)).hash})`);
+  };
+  await tap(D, '[data-testid="stage-start"]');
+  if (check(await battleReady(D), 'difficulty: Start opens the battle')) {
+    check(/difficulty=easy/.test((await where(D)).hash), 'difficulty: … on Easy');
+    await tap(D, '[data-testid="pause"]');
+    await tap(D, '[data-testid="quit"]');
+    await tap(D, '[data-testid="confirm-ok"]');
+    await prepOnEasy('Pause → Quit');
+  }
+  await tap(D, '[data-testid="stage-start"]');
+  if (await battleReady(D)) {
+    await D.goBack({ waitUntil: 'commit', timeout: 15000 }).catch(() => null);
+    await prepOnEasy('the back gesture mid-battle');
+  }
+  await tap(D, '[data-testid="stage-start"]');
+  if (await battleReady(D)) {
+    await loseBattle(D);
+    await D.waitForSelector('[data-testid="retry"]', { timeout: 30000 }).catch(() => null);
+    await tap(D, '[data-testid="retry"]');
+    if (check(await battleReady(D), 'difficulty: a defeat → Retry starts the battle again')) {
+      await tap(D, '[data-testid="pause"]');
+      await tap(D, '[data-testid="quit"]');
+      await tap(D, '[data-testid="confirm-ok"]');
+      await prepOnEasy('a defeat → Retry → Quit');
+    }
+  }
+  await shot(D, 'difficulty-prep');
+  await walkHistory(D, 'difficulty');
+  await D.context().close();
+}
+
+/** 8. an endless run belongs to Tactical Challenge: Map, Quit and the prep arrow. */
+async function endlessFlow() {
+  log('\n--- endless run ---');
+  const E = await freshLobby('G', { cleared: chapters(1, 2) }); // Tactical Challenge unlocked
+  await tap(E, '[data-testid="tile-mission"]');
+  await onScreen(E, 'missions');
+  await tap(E, '[data-testid="hub-challenge"]');
+  check(await onScreen(E, 'challenge'), 'endless: Missions → Tactical Challenge');
+  await tap(E, '[data-testid="endless-1-1"]');
+  check(await onScreen(E, 'stage', '#/stage/1-1') && (await where(E)).hash.includes('endless=1'), `endless: the 1-1 card opens the endless prep (now ${(await where(E)).hash})`);
+  await tap(E, '[data-testid="stage-start"]');
+  if (check(await battleReady(E), 'endless: Start endless opens the run')) {
+    await loseBattle(E);
+    await E.waitForSelector('[data-testid="back-map"]', { timeout: 30000 }).catch(() => null);
+    await tap(E, '[data-testid="back-map"]');
+    check(await onScreen(E, 'challenge'), `endless: a lost run → Map opens Tactical Challenge (now ${(await where(E)).hash})`);
+  }
+  await tap(E, '[data-testid="endless-1-1"]');
+  await onScreen(E, 'stage', '#/stage/1-1');
+  await tap(E, '[data-testid="stage-start"]');
+  if (await battleReady(E)) {
+    await tap(E, '[data-testid="pause"]');
+    await tap(E, '[data-testid="quit"]');
+    await tap(E, '[data-testid="confirm-ok"]');
+    const ok = await onScreen(E, 'stage', '#/stage/1-1');
+    check(ok && (await where(E)).hash.includes('endless=1'), `endless: Pause → Quit returns to the endless prep (now ${(await where(E)).hash})`);
+  }
+  await arrow(E);
+  check(await onScreen(E, 'challenge'), `endless: the arrow on the endless prep goes to Tactical Challenge (now ${(await where(E)).hash})`);
+  await walkHistory(E, 'endless');
+  await E.context().close();
+}
+
+const FLOWS = { clan: clanFlow, campaign: campaignFlow, leave: leaveFlow, inplace: inPlaceFlow, shortcuts: shortcutsFlow, difficulty: difficultyFlow, endless: endlessFlow };
 try {
-  if (only.includes('clan')) await clanFlow();
-  if (only.includes('campaign')) await campaignFlow();
-  if (only.includes('leave')) await leaveFlow();
-} catch (e) {
-  check(false, `unexpected error: ${e.stack || e.message}`);
+  for (const [name, flow] of Object.entries(FLOWS)) {
+    if (!only.includes(name)) continue;
+    try {
+      await flow();
+    } catch (e) {
+      // one flow stuck (a check above says where) does not skip the others
+      check(false, `${name}: unexpected error: ${e.stack || e.message}`);
+    }
+  }
 } finally {
   const errs = errors.splice(0);
   check(!errs.length, `no page/console errors${errs.length ? `\n       ${errs.slice(0, 8).join('\n       ')}` : ''}`);

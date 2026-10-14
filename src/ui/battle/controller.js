@@ -315,10 +315,12 @@ export function mountBattle(root, params, hooks) {
     ctx.restart = () => hooks.restart();
     // every way out of a battle goes through navigate(), which never leaves the battle's history
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', { id: stage.id }));
+    // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
+    const endlessMap = !!req.endless && stage.kind !== 'challenge';
+    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
-      const r = mapRouteFor(stage);
+      const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
     ctx.goHome = () => navigate('lobby');

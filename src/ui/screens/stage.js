@@ -514,7 +514,8 @@ function difficultyPicker(stage, state, medals, redraw) {
         role: 'radio',
         'aria-checked': state.difficulty === d ? 'true' : 'false',
         'data-testid': `diff-${d}`,
-        onclick: () => { state.difficulty = d; redraw(); },
+        // in the URL too: after a battle (Quit, the back gesture, Retry → Quit) prep comes back on it
+        onclick: () => { state.difficulty = d; rememberParams('stage', { difficulty: d }); redraw(); },
       },
       svgEl(medalIcon(d, { earned: medals[d] }), 'ma-diff-medal'),
       h('span.ma-diff-name', def.name),
