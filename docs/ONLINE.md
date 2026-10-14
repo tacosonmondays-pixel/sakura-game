@@ -395,7 +395,11 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   Slayer" ("Crimson Slayer" on Crimson Moon), the Eclipse Wyrm → a profile frame
   (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). A battle's
   payout ledger lives on the co-op session (`session.freeplayRuns[seed]`: one-shot effects shown, the
-  bank, the end), so a resync remount neither shows nor pays anything twice.
+  bank, the end), so a resync remount neither shows nor pays anything twice. That ledger is in memory,
+  so after every freeplay wave the save also keeps what the end payout needs
+  (`progress.freeplayPending[seed]`, at most 3 runs; `payFreeplayEnd` removes it): a run whose page was
+  reloaded, closed or thrown away by the phone mid-run is paid at the next app start, from the last
+  wave it saved, with a toast ("Freeplay run paid: 1-3 · Blossom · 87/15 · +2,880 coins").
 
 ### Co-op lockstep
 

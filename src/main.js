@@ -44,6 +44,25 @@ try {
   console.error('[main] onAppStart failed', e);
 }
 
+// A co-op freeplay run this browser could not pay (reloaded, closed, or the phone threw the tab
+// away mid-run): its freeplay part is paid now, from the last wave it saved.
+if (store.profile.progress?.freeplayPending) {
+  Promise.all([import('./online/coop/rewards.js'), import('./core/rng.js')])
+    .then(([r, { createRng, hashString }]) => {
+      const paid = r.payPendingFreeplayRuns(store.profile, (seed) => createRng(hashString(`fp-pending:${seed}:${Date.now()}`)));
+      store.commit('freeplay-pending');
+      store.saveNow();
+      if (!paid.length) return;
+      return import('./ui/components.js').then(({ toast }) => {
+        for (const o of paid) {
+          const f = o.freeplay;
+          toast(`Freeplay run paid: ${o.stageId} · ${f.tierName} · ${f.cleared}/${f.goal}${f.coins ? ` · +${f.coins.toLocaleString('en-US')} coins` : ''}${f.caches ? ` · ${f.caches} cache${f.caches > 1 ? 's' : ''}` : ''}`, 'good', 6000);
+        }
+      });
+    })
+    .catch((e) => console.warn('[main] pending freeplay payout failed', e));
+}
+
 // Cold start (no route in the URL): the title / load-up screen, once per browser session.
 let titleSeen = false;
 try {

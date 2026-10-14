@@ -13,7 +13,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
 import { preloadEnemies } from '../../models/index.js';
-import { freeplayLedger, bankFreeplayClear } from '../../online/coop/rewards.js';
+import { freeplayLedger, bankFreeplayClear, rememberFreeplayRun } from '../../online/coop/rewards.js';
 import { AFFIX_TEXT } from './scout.js';
 
 /** Absolute-wave milestone banners. */
@@ -214,6 +214,13 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
 
   function onWaveEnd() {
+    // what the end payout needs, in the save after every freeplay wave: a reload, a closed tab or
+    // a phone that throws the background tab away still pays the run at the next app start
+    try {
+      if (rememberFreeplayRun(store.profile, ledger, sim.result())) store.commit('freeplay-wave');
+    } catch (e) {
+      console.warn('[battle] freeplay progress not saved', e);
+    }
     // the next wave's visitors: their models load while the board is quiet (no placeholder pop-in)
     try {
       const ids = sim.waveInfo(sim.wave + 1).map((r) => r.enemyId);

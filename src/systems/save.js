@@ -374,6 +374,23 @@ export function migrateProfile(raw) {
     const fp = raw.progress.freeplay;
     p.progress.freeplay = { done: strList(fp.done, 200), titles: strList(fp.titles, 50), frames: strList(fp.frames, 50) };
   }
+  // co-op freeplay runs the page never got to pay (reload / closed tab), by start seed: paid at
+  // the next app start (src/online/coop/rewards.js payPendingFreeplayRuns)
+  if (isObj(raw.progress) && isObj(raw.progress.freeplayPending)) {
+    const id = (k) => /^[a-z0-9_]{1,40}$/.test(k);
+    const runs = {};
+    for (const [seed, r] of Object.entries(raw.progress.freeplayPending).slice(-3)) {
+      if (!isObj(r) || !/^[\w-]{1,40}$/.test(seed) || typeof r.stageId !== 'string' || r.stageId.length > 16) continue;
+      if (!DIFFICULTY_ORDER.includes(r.difficulty) || typeof r.freeplay !== 'string' || !/^[a-z]{1,16}$/.test(r.freeplay)) continue;
+      const b = isObj(r.banked) ? r.banked : {};
+      runs[seed] = {
+        stageId: r.stageId, difficulty: r.difficulty, freeplay: r.freeplay, goal: int(r.goal, 0, 0), wavesCleared: int(r.wavesCleared, 0, 0),
+        kills: cleanCounts(r.kills, id), encountered: strList(r.encountered, 200).filter(id),
+        banked: { goal: int(b.goal, 0, 0), kills: cleanCounts(b.kills, id), encountered: strList(b.encountered, 200).filter(id) },
+      };
+    }
+    if (Object.keys(runs).length) p.progress.freeplayPending = runs;
+  }
 
   // Bestiary.
   p.bestiary = {};

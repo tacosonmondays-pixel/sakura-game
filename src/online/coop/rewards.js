@@ -111,7 +111,7 @@ export function applyCoopClear(profile, result, rng) {
  */
 export function freeplayLedger(holder, seed) {
   const all = (holder.freeplayRuns ||= {});
-  return (all[seed] ||= { fx: new Set(), bank: null, end: null });
+  return (all[seed] ||= { seed, fx: new Set(), bank: null, end: null });
 }
 
 /** Banks the clear once per ledger (later calls return the same outcome and pay nothing). */
@@ -123,8 +123,69 @@ export function bankFreeplayClear(ledger, profile, result, rng) {
 /** Pays the end of the run once per ledger (banking the clear first if that never happened). */
 export function payFreeplayEnd(ledger, profile, result, rng) {
   bankFreeplayClear(ledger, profile, result, rng);
-  if (!ledger.end) ledger.end = applyCoopFreeplayEnd(profile, result, rng, { banked: ledger.bank.banked });
+  if (!ledger.end) {
+    ledger.end = applyCoopFreeplayEnd(profile, result, rng, { banked: ledger.bank.banked });
+    dropPendingFreeplay(profile, ledger.seed);
+  }
   return ledger.end;
+}
+
+// ---- a run the page never got to pay (reloaded, closed, or discarded by the phone) -------------
+// The ledger lives in memory; on an iPhone the most common end of an hour-long run is a reload or
+// a background tab the browser threw away. So after every freeplay wave the battle keeps what the
+// end payout needs in the save (progress.freeplayPending[seed]); payFreeplayEnd removes it, and
+// the next app start pays whatever is still there (payPendingFreeplayRuns).
+
+/** The most runs kept waiting (the oldest goes first). */
+const PENDING_MAX = 3;
+
+/** Saves (in the profile) what the end payout of this run needs, as of now. Call after each freeplay wave. */
+export function rememberFreeplayRun(profile, ledger, result) {
+  if (!ledger?.bank || ledger.end || ledger.seed == null || !result?.freeplay) return false;
+  if (count(result.wavesCleared) <= count(ledger.bank.banked?.goal)) return false;
+  const progress = (profile.progress ||= { stages: {} });
+  const all = (progress.freeplayPending = isObj(progress.freeplayPending) ? progress.freeplayPending : {});
+  const key = String(ledger.seed);
+  delete all[key]; // (re-added last: the newest run is the last key)
+  all[key] = {
+    stageId: result.stageId, difficulty: result.difficulty, freeplay: result.freeplay, goal: count(result.goal),
+    wavesCleared: count(result.wavesCleared), kills: { ...(result.kills || {}) }, encountered: [...(result.encountered || [])],
+    banked: { goal: count(ledger.bank.banked?.goal), kills: { ...(ledger.bank.banked?.kills || {}) }, encountered: [...(ledger.bank.banked?.encountered || [])] },
+  };
+  const keys = Object.keys(all);
+  for (const k of keys.slice(0, Math.max(0, keys.length - PENDING_MAX))) delete all[k];
+  return true;
+}
+
+/** Forgets a pending run (it was paid). */
+export function dropPendingFreeplay(profile, seed) {
+  const all = profile?.progress?.freeplayPending;
+  if (!isObj(all) || seed == null) return;
+  delete all[String(seed)];
+  if (!Object.keys(all).length) delete profile.progress.freeplayPending;
+}
+
+/**
+ * App start: pays every freeplay run the last session could not (its freeplay part, from the
+ * last wave it saved) and forgets them. @param {(seed: string) => { next(): number }} rngFor
+ * @returns {object[]} applyCoopFreeplayEnd's outcomes, + stageId
+ */
+export function payPendingFreeplayRuns(profile, rngFor) {
+  const all = profile?.progress?.freeplayPending;
+  if (!isObj(all)) return [];
+  const out = [];
+  for (const [seed, rec] of Object.entries(all)) {
+    delete all[seed]; // first: a run that fails to pay is never paid twice
+    if (!isObj(rec)) continue;
+    try {
+      const res = applyCoopFreeplayEnd(profile, { ...rec, won: false, finished: false }, rngFor(seed), { banked: rec.banked });
+      if (res.freeplay) out.push({ ...res, stageId: rec.stageId });
+    } catch (e) {
+      console.warn('[coop] a pending freeplay run could not be paid', e);
+    }
+  }
+  delete profile.progress.freeplayPending;
+  return out;
 }
 
 /** Kills since the bank: result.kills − banked.kills, per id (never negative). */
