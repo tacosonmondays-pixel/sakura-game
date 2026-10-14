@@ -144,6 +144,18 @@ function mismatchBanner(m) {
   return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text, h('small.ol-version-diag', ` (${versionDiff(m.mine, m.theirs)})`)), action);
 }
 
+/** What the lobby says when the server refused the room (or it closed): by error code. */
+export function roomErrorText(err) {
+  switch (err?.code) {
+    case 'not_found': return 'No room uses that code. Check it, or ask your ally for a new one.';
+    case 'name_taken': return 'That room code is already in use. Create a new room.';
+    case 'rate_limited': return `Too many rooms — try again in ${formatRetry(err.retryMs || 2000)}.`;
+    case 'offline': return 'The co-op server cannot be reached right now.';
+    case 'idle': return `This room closed after ${err.minutes || 30} minutes without a battle. Open a new one when you are both ready.`;
+    default: return 'This room could not be opened.';
+  }
+}
+
 /** Which parts of two co-op versions differ, for bug reports: "data 785f763b≠c0bb331a". */
 function versionDiff(mine, theirs) {
   const parts = ['proto', 'sim', 'data', 'build'].filter((k) => String(mine?.[k] ?? '') !== String(theirs?.[k] ?? ''));
@@ -160,6 +172,17 @@ export function render(root, params = {}) {
 
   if (code) connecting(body, () => room(code));
   else connecting(body, () => hub());
+
+  // back from the back/forward cache (Safari keeps pages there): leaving the page closed the
+  // room (goodbye + seat freed), so open it again instead of showing a dead lobby
+  const onPageShow = (ev) => {
+    if (!ev.persisted || destroyed || !code) return;
+    const s = getSession();
+    if (s && s.code === code && s.phase !== 'closed') return;
+    cleanup();
+    connecting(body, () => room(code));
+  };
+  globalThis.addEventListener?.('pageshow', onPageShow);
 
   // -------------------------------------------------------------------------------------
   // Hub: create or join
@@ -334,6 +357,13 @@ export function render(root, params = {}) {
             ? h('div.ol-pcard-wait', h('b', `${session.mismatch.name} is here`), h('p.muted', 'Your game versions differ — see above.'))
             : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, h('i.ol-spinner'), h('b', title), h('p.muted', sub)));
       }
+      if (!me && !session.paired) {
+        // I hear my ally, but it does not hear me yet: no Ready / Start until it does (the
+        // lobby fixes a one-way link by itself with a fresh connection)
+        return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] }, 'data-testid': 'coop-connecting', 'data-slot': slot },
+          h('div.ol-pcard-wait', h('i.ol-spinner'), h('b', `Connecting to ${p.name || 'your ally'}…`),
+            h('p.muted', 'Making sure you can both hear each other. This fixes itself in a few seconds.')));
+      }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
       return h(`section.ol-pcard${me ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] }, 'data-testid': `coop-player-${slot}` },
@@ -386,7 +416,34 @@ export function render(root, params = {}) {
           button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => s.retry() }));
       }
       if (s.link === 'reconnecting' && s.peer) return h('div.ol-banner.warn', { 'data-testid': 'coop-link' }, 'Reconnecting… your ally stays in the room.');
+      if (s.isHost && !s.peer && s.lastPeer && !s.mismatch) {
+        // the ally left or vanished: if they come back from another browser or device, the
+        // server may still hold their seat ("room full") — a new room is the quick way out
+        const who = s.lastPeer.name || 'Your ally';
+        return h('div.ol-banner.warn.ol-banner-row', { 'data-testid': 'coop-ally-gone' },
+          h('span', `${s.lastPeer.why === 'left' ? `${who} left the room.` : `Lost contact with ${who}.`} If they can't get back in (another browser or device), make a new room and send them the new code.`),
+          button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }));
+      }
       return null;
+    }
+
+    function newRoom(s) {
+      s.close();
+      navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
+    }
+
+    /** The room cannot be used (refused, full, closed after idling): what happened + a way on. */
+    function deadEnd(s) {
+      const full = s.full && !s.error;
+      const title = full ? 'Room full' : s.error.code === 'not_found' ? 'Room not found' : s.error.code === 'idle' ? 'Room closed' : 'Cannot open this room';
+      const text = full ? 'This room already has two players. Ask your ally for a new code.' : roomErrorText(s.error);
+      return h('section.panel.ol-room-error', { 'data-testid': full ? 'coop-room-full' : 'coop-room-error' },
+        h('div.ol-empty', h('b', title), h('p.muted', text),
+          h('div.ol-row-end',
+            button('Back', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-back', onClick: () => { s.close(); navigate('coop'); } }),
+            // the server could not be reached at all: open the same room again
+            s.error?.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => { s.close(); cleanup(); connecting(body, () => room(roomCode)); } }) : null,
+            s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }) : null)));
     }
 
     function tipsPanel() {
@@ -405,15 +462,10 @@ export function render(root, params = {}) {
       if (destroyed) return;
       const s = session;
       if (s.phase === 'closed') return;
-      if (s.error) {
-        // the server refused the room (wrong code, taken, too many): nothing else to show
-        view.replaceChildren(h('section.panel.ol-room-error', { 'data-testid': 'coop-room-error' },
-          h('div.ol-empty', h('b', s.error.code === 'not_found' ? 'Room not found' : 'Cannot open this room'), h('p.muted', s.error.text),
-            h('div.ol-row-end',
-              button('Back', { kind: 'ghost', small: true, icon: 'back', onClick: () => { s.close(); navigate('coop'); } }),
-              // the server could not be reached at all: open the same room again
-              s.error.code === 'offline' ? button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-retry', onClick: () => { s.close(); cleanup(); connecting(body, () => room(roomCode)); } }) : null,
-              s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', onClick: () => { s.close(); navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty }); } }) : null))));
+      if (s.error || s.full) {
+        // the server refused the room (wrong code, taken, full, too many) or it closed after
+        // idling: nothing else to show (no seats, no Ready)
+        view.replaceChildren(deadEnd(s));
         return;
       }
       if (s.mismatch && !updateCheckedFor.has(s.mismatch.uid)) {
@@ -426,15 +478,16 @@ export function render(root, params = {}) {
       const st = STAGE_MAP[s.stageId];
       let action;
       if (s.isHost) {
-        action = button(s.canStart ? 'Start battle' : s.peer ? 'Waiting for ready…' : 'Waiting for ally…', {
+        action = button(s.canStart ? 'Start battle' : s.paired ? 'Waiting for ready…' : s.peer ? 'Connecting…' : 'Waiting for ally…', {
           kind: 'yellow', icon: 'play', testid: 'coop-start', disabled: !s.canStart,
           onClick: () => {
             if (!s.startBattle()) toast('Your ally is not ready yet.', 'info');
           },
         });
       } else {
+        // Ready only once the host can hear me (it would never arrive otherwise)
         action = button(s.me.ready ? 'Ready ✓' : 'Ready', {
-          kind: s.me.ready ? 'primary' : 'yellow', icon: 'check', testid: 'coop-ready', disabled: !s.peer,
+          kind: s.me.ready ? 'primary' : 'yellow', icon: 'check', testid: 'coop-ready', disabled: !s.paired,
           onClick: () => s.setReady(!s.me.ready),
         });
       }
@@ -460,7 +513,6 @@ export function render(root, params = {}) {
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
         localNotice('coop'),
-        s.full ? h('div.ol-banner.bad', 'This room already has two players. Ask for a new code.') : null,
         linkBanner(s),
         s.mismatch ? mismatchBanner(s.mismatch) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
@@ -498,6 +550,7 @@ export function render(root, params = {}) {
 
   return () => {
     destroyed = true;
+    globalThis.removeEventListener?.('pageshow', onPageShow);
     cleanup();
     // leaving the lobby screen (not into the battle) leaves the room
     const s = getSession();

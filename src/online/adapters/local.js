@@ -264,6 +264,8 @@ export function createLocalAdapter(env = {}) {
       }, PRESENCE_MS);
       return {
         net: { heartbeatMs: 50, inputDelay: 6 },
+        /** fresh channels asked for (Retry, the lobby's one-way healing): the e2e test reads it */
+        reconnects: 0,
         get status() {
           return status;
         },
@@ -278,8 +280,10 @@ export function createLocalAdapter(env = {}) {
           Object.assign(meta, next);
           announce();
         },
+        /** A fresh channel: ends a faked fault (like a fresh Realtime channel on a good node). */
         reconnect() {
           if (closed) return;
+          this.reconnects++;
           cut = null;
           report('connected', { rejoin: true });
           announce();
