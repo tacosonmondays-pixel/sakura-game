@@ -11,6 +11,7 @@ import {
   AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK,
 } from './constants.js';
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
+import { ruleMoveMul, ruleRift } from './rules.js';
 import {
   tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
@@ -469,6 +470,7 @@ export function updateEnemy(sim, e, dt) {
     if (e.hastyLeft > 0) mul *= t.hasty?.mul ?? 2;
     if (t.enrage && e.enrageStacks > 0) mul *= 1 + enrageBonus(t.enrage, e.enrageStacks);
   }
+  if (sim._ruleMove) mul *= ruleMoveMul(sim._ruleMove, e);
   e.speed = e.baseSpeed * mul;
   e.dist += e.speed * dt;
   if (e.dist >= path.length) {
@@ -476,6 +478,7 @@ export function updateEnemy(sim, e, dt) {
     return;
   }
   placeOnPath(e, path);
+  if (sim._rulePortal) ruleRift(sim, e, path);
   if (e.flash > 0) e.flash = Math.max(0, e.flash - dt * 6);
 }
 

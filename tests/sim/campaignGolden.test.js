@@ -21,11 +21,14 @@ function fnv(text, h = 0x811c9dc5) {
 const hex = (h) => h.toString(16).padStart(8, '0');
 
 /** A whole headless battle reduced to one digest: its result (kills, leaks, damage per girl, time, cash). */
-function battleDigest(cfg) {
-  const r = runHeadless(cfg);
+// Map rules (docs/specs/CODEX_MODES.md) are always on in campaign battles: these digests run with
+// `rule: null` (Standard without a rule must stay the pre-freeplay battle); RULED below guards the
+// same battles with their rules on.
+function battleDigest(cfg, { rules = false } = {}) {
+  const r = runHeadless(rules ? cfg : { ...cfg, options: { ...(cfg.options || {}), rule: null } });
   // result() gained freeplay-only fields (freeplay, goal, goalReached, finished: null/false
-  // outside freeplay); the digest covers what the battle did, as before.
-  const { freeplay, goal, goalReached, finished, ...res } = r.result;
+  // outside freeplay) and the battle mode and rule; the digest covers what the battle did, as before.
+  const { freeplay, goal, goalReached, finished, mode, rule, ...res } = r.result;
   return { digest: hex(fnv(JSON.stringify({ res, cash: r.cash, lives: r.lives, failed: r.failed.length }))), wave: r.wave, won: r.won };
 }
 
@@ -62,6 +65,17 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     const coop = battleDigest({ stageId: '2-4', plan: autoPlan('2-4', units), seed: 5, maxTime: 2400, data: { stage: cs } });
     const endless = battleDigest({ stageId: '1-2', plan: autoPlan('1-2', units), seed: 9, maxTime: 900, options: { endless: true } });
     expect({ coop, endless }).toEqual(GOLDEN.coopEndless);
+  }, 120000);
+
+  it('the same battles with their map rules on (recorded when the rules landed)', () => {
+    const units = ['hikari', 'aoi', 'rei', 'yuki', 'kage', 'akane'];
+    const out = {};
+    for (const [stageId, difficulty] of [['4-2', 'hard'], ['8-5', 'normal']]) {
+      out[stageId] = battleDigest({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400 }, { rules: true });
+    }
+    out.coop = battleDigest({ stageId: '2-4', plan: autoPlan('2-4', units), seed: 5, maxTime: 2400, data: { stage: coopStage('2-4') } }, { rules: true });
+    if (process.env.GOLDEN_PRINT) console.log('RULED', JSON.stringify(out));
+    expect(out).toEqual(RULED);
   }, 120000);
 
   it('createCoopSim without freeplay runs the same battle (hash after 3 waves)', () => {
@@ -101,4 +115,11 @@ const GOLDEN = {
     endless: { digest: 'cb1457ce', wave: 25, won: false },
   },
   coopSim: { hash: 3243583272, wave: 4, state: 'wave', wallets: '184/364', towers: 3 },
+};
+
+// Recorded when the map rules landed (feature/codex-modes): 4-2 Rear Ambush, 8-5 Tailwind, 2-4 Supply Ship.
+const RULED = {
+  '4-2': { digest: '8cf59ba9', wave: 19, won: false },
+  '8-5': { digest: 'bcfd8d75', wave: 30, won: false },
+  coop: { digest: '1fa187d2', wave: 22, won: true },
 };

@@ -63,11 +63,12 @@ export function waveHpRamp(stage, wave) {
  * @param {object} stage StageDef
  * @param {number} wave 1-based
  * @param {(id: string) => object|null} lookupEnemy
- * @param {{ pathCount?: number, pathLengths?: number[] }} opts  pathLengths lets bosses and
- *   minibosses take the longest trail (a finale boss on a short side trail would leak at once).
+ * @param {{ pathCount?: number, pathLengths?: number[], spacingMul?: number }} opts  pathLengths lets bosses
+ *   and minibosses take the longest trail (a finale boss on a short side trail would leak at once);
+ *   spacingMul scales every group's spacing (Goblin Rush 0.7; 1 gives the very same wave).
  * @returns {WaveData}
  */
-export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLengths = null } = {}) {
+export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLengths = null, spacingMul = 1 } = {}) {
   const rng = createRng(hashString(`${stage.id}|wave|${wave}`));
   const gen = stage.waveGen || {};
   const finite = Number.isFinite(stage.waves);
@@ -79,7 +80,7 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
     budget = start * powInt(growth, stage.waves - 1) * (1 + 0.05 * (wave - stage.waves));
   } else budget = start * powInt(growth, wave - 1);
   let hpMul = waveHpRamp(stage, wave);
-  const baseSpacing = gen.spacing ?? DEFAULT_SPACING;
+  const baseSpacing = (gen.spacing ?? DEFAULT_SPACING) * spacingMul;
 
   const all = (gen.pool || []).filter((p) => p && lookupEnemy(p.enemy));
   let pool = all.filter((p) => (p.from ?? 1) <= poolWave && poolWave <= (p.to ?? Infinity));
@@ -153,7 +154,7 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
     else if ((def.tier === 'boss' || def.tier === 'miniboss') && pathLengths?.length > 1) {
       path = pathLengths.indexOf(Math.max(...pathLengths));
     }
-    groups.push({ enemyId: f.enemy, def, count: Math.max(1, f.count ?? 1), spacing: f.spacing ?? baseSpacing * 2, start: f.delay ?? 2, fixed: true, path });
+    groups.push({ enemyId: f.enemy, def, count: Math.max(1, f.count ?? 1), spacing: f.spacing != null ? f.spacing * spacingMul : baseSpacing * 2, start: f.delay ?? 2, fixed: true, path });
   }
 
   const spawns = [];

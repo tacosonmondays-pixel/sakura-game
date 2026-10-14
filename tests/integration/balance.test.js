@@ -6,7 +6,10 @@
 //
 //   npx vitest run tests/integration/balance.test.js                  # Easy gate (fast-ish)
 //   BALANCE=full npx vitest run tests/integration/balance.test.js     # full table, all difficulties
+//   BALANCE=modes npx vitest run tests/integration/balance.test.js    # battle modes × difficulty (rules on)
+//   BALANCE=rules npx vitest run tests/integration/balance.test.js    # Standard, map rules off vs on
 //   BALANCE_OUT=/tmp/table.md also writes the table to a file (vitest hides console of passing tests)
+// The map rules (docs/specs/CODEX_MODES.md) are always on, as shipped: the Easy gate runs with them.
 import { describe, test, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
@@ -15,6 +18,8 @@ import { unitBattleStats } from '../../src/systems/progression.js';
 
 const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
+const MODES = process.env.BALANCE === 'modes';
+const RULES = process.env.BALANCE === 'rules';
 
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
@@ -40,12 +45,12 @@ function statsAtLevel(unitId, level) {
 }
 
 /** Runs one stage with the F2P roster. */
-export function runStage(stageId, difficulty, level, seed = 1) {
+export function runStage(stageId, difficulty, level, seed = 1, options = {}) {
   const d = defaultData();
   const { towers, hero } = freeUnitsBefore(d, stageId);
   const plan = autoPlan(stageId, [...towers, ...(hero ? [hero] : [])]);
   const r = runHeadless({
-    stageId, difficulty, plan, seed, maxTime: 7200,
+    stageId, difficulty, plan, seed, maxTime: 7200, options,
     loadout: towers.map((id) => ({ unitId: id, stats: statsAtLevel(id, level) })),
     hero: hero ? { unitId: hero, stats: statsAtLevel(hero, level) } : null,
   });
@@ -92,5 +97,80 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     expect(wins.easy).toBe(campaign.length);
     expect(wins.normal).toBeGreaterThanOrEqual(Math.ceil(campaign.length * 0.6));
     expect(wins.nightmare).toBeLessThanOrEqual(Math.floor(campaign.length * 0.35));
+  }, 3600000);
+
+  test.runIf(MODES)('battle modes as shipped (mode + the stage rule), wins out of 40', () => {
+    const d = defaultData();
+    const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
+    const modes = ['standard', 'reverse', 'rush', 'ironclad', 'frugal', 'laststand'];
+    const diffs = (process.env.BALANCE_DIFFS || 'easy,normal,hard').split(',');
+    const out = [];
+    const wins = {};
+    const hearts = {};
+    for (const k of diffs) {
+      wins[k] = Object.fromEntries(modes.map((m) => [m, 0]));
+      hearts[k] = Object.fromEntries(modes.map((m) => [m, 0]));
+      const rows = [`### ${k}`, '', '| Stage | Rule | Standard | Reverse | Rush | Ironclad | Half Income | Last Petal |', '|---|---|---|---|---|---|---|---|'];
+      for (const s of campaign) {
+        const lv = EXPECTED_LEVEL[s.chapter] || 1;
+        const cells = modes.map((m) => {
+          const r = runStage(s.id, k, lv, 1, { mode: m });
+          if (r.won) {
+            wins[k][m]++;
+            hearts[k][m] += r.lives / r.maxLives;
+          }
+          return r.won ? `W${Math.round((100 * r.lives) / r.maxLives)}` : `L${r.wave}`;
+        });
+        rows.push(`| ${s.id} | ${s.rule?.id ?? '—'} | ${cells.join(' | ')} |`);
+      }
+      rows.push(`| **wins** | | ${modes.map((m) => `**${wins[k][m]}/${campaign.length}** (${wins[k][m] ? Math.round((100 * hearts[k][m]) / wins[k][m]) : 0} %)`).join(' | ')} |`, '');
+      out.push(...rows);
+    }
+    console.log(`[balance] modes:\n${out.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, out.join('\n') + '\n');
+    // §10 thresholds (spec measurements in brackets in the comment)
+    if (wins.easy) expect(wins.easy.standard).toBe(campaign.length);
+    if (wins.normal) {
+      const n = wins.normal;
+      expect(n.standard).toBeGreaterThanOrEqual(38); // 39
+      expect(n.reverse).toBeGreaterThanOrEqual(36); // 38
+      expect(n.rush).toBeGreaterThanOrEqual(36); // 38
+      expect(n.ironclad).toBeGreaterThanOrEqual(37); // 39
+      expect(n.frugal).toBeGreaterThanOrEqual(35); // 37
+      expect(n.laststand).toBeGreaterThanOrEqual(10); // 12
+    }
+    if (wins.hard) {
+      const h = wins.hard;
+      expect(h.standard).toBeGreaterThanOrEqual(29); // 31
+      expect(h.reverse).toBeGreaterThanOrEqual(28); // 30
+      expect(h.rush).toBeGreaterThanOrEqual(17); // 20
+      expect(h.ironclad).toBeGreaterThanOrEqual(18); // 21
+      expect(h.frugal).toBeGreaterThanOrEqual(11); // 13
+      expect(h.laststand).toBeGreaterThanOrEqual(2); // 3
+    }
+    // no mode wins more stages than Standard
+    for (const k of diffs) for (const m of modes) expect(wins[k][m], `${k} ${m}`).toBeLessThanOrEqual(wins[k].standard);
+  }, 7200000);
+
+  test.runIf(RULES)('map rules off vs on (Standard), every ruled stage', () => {
+    const d = defaultData();
+    const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign' && s.rule);
+    const diffs = ['easy', 'normal', 'hard'];
+    const rows = ['| Stage | Rule | Easy off → on | Normal off → on | Hard off → on |', '|---|---|---|---|---|'];
+    const flips = [];
+    for (const s of campaign) {
+      const lv = EXPECTED_LEVEL[s.chapter] || 1;
+      const cells = diffs.map((k) => {
+        const off = runStage(s.id, k, lv, 1, { rule: null });
+        const on = runStage(s.id, k, lv, 1);
+        const c = (r) => (r.won ? `W${Math.round((100 * r.lives) / r.maxLives)}` : `L${r.wave}`);
+        if (off.won !== on.won) flips.push(`${s.id} ${k} ${c(off)} → ${c(on)}`);
+        return `${c(off)} → ${c(on)}${off.won !== on.won ? ' **flip**' : ''}`;
+      });
+      rows.push(`| ${s.id} | ${s.rule.id} | ${cells.join(' | ')} |`);
+    }
+    console.log(`[balance] rules:\n${rows.join('\n')}\nflips: ${flips.join('; ') || 'none'}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, `${rows.join('\n')}\n\nflips: ${flips.join('; ') || 'none'}\n`);
+    expect(flips.filter((f) => / (easy|normal) /.test(f))).toEqual([]);
   }, 3600000);
 });
