@@ -65,11 +65,9 @@ export const DEFAULT_SPACING = 0.8;
 /** Fraction of a group's duration after which the next group starts (overlap). */
 export const GROUP_OVERLAP = 0.55;
 
-/** Hero XP: per point of damage dealt and per cleared wave. */
-export const HERO_XP_PER_DAMAGE = 1;
-export function heroWaveXp(wave) {
-  return 30 + 10 * wave;
-}
+/** Hero XP and level prices live in src/data/heroTracks.js (HERO_XP, HERO_XP_STEPS, …). */
+/** Seconds an enemy pushed back by a hero cannot be pushed by her again (no pinned lanes). */
+export const HERO_PUSH_LOCK = 0.5;
 /** Fraction of the ult cooldown that must still charge when the ult unlocks. */
 export const ULT_INITIAL_CHARGE = 0.5;
 

@@ -4,8 +4,8 @@
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
 import { createRng } from '../core/rng.js';
 import {
-  STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, HERO_XP_PER_DAMAGE, heroWaveXp, AUTO_START_DELAY,
-  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST,
+  STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
+  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -25,7 +25,8 @@ import {
   updateProjectiles, updateTraps, baseCost,
 } from './towers.js';
 import {
-  initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo,
+  initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
+  damageXp, heroLevelStatus, buyHeroLevel, canMoveHero, moveHero, ultRank,
 } from './hero.js';
 import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
@@ -42,11 +43,12 @@ export function roundCost(c) {
 export class Sim {
   /**
    * @param {{ stageId?: string, difficulty?: string, loadout?: {unitId: string, stats?: object}[],
-   *   hero?: {unitId: string, stats?: object}|null, seed?: number,
-   *   options?: { endless?: boolean, autoStart?: boolean, freeplay?: boolean },
+   *   hero?: {unitId: string, stats?: object}|null, heroes?: ({unitId: string, stats?: object}|null)[],
+   *   seed?: number, options?: { endless?: boolean, autoStart?: boolean, freeplay?: boolean },
    *   data?: { stage?, map?, units?, enemies? } }} opts
+   * `heroes` (co-op): one hero per player, by player index; `hero` is the solo form (= heroes[0]).
    */
-  constructor({ stageId, difficulty = 'normal', loadout = [], hero = null, seed = 1, options = {}, data = {} } = {}) {
+  constructor({ stageId, difficulty = 'normal', loadout = [], hero = null, heroes = null, seed = 1, options = {}, data = {} } = {}) {
     const ds = createDataSource(stageId ?? data.stage?.id, data || {});
     this.data = ds;
     this.stage = ds.stage;
@@ -65,16 +67,24 @@ export class Sim {
     this.placement = createPlacementRules(this.map, this.pathData);
 
     this.loadout = new Map();
-    this.heroConfig = null;
+    // Heroes, one per player (co-op: index = player index). heroConfigs[i] = { unitId, stats, index };
+    // heroes[i] = her placed tower or null. `hero` / `heroConfig` are getters for the active
+    // (viewing or commanding) player's: never read them inside the step (see the view trap below).
+    const heroCfg = (h) => (h && ds.unit(h.unitId) ? { unitId: h.unitId, stats: { ...DEFAULT_UNIT_STATS, ...(h.stats || {}) } } : null);
+    let fromLoadout = null;
     for (const entry of loadout || []) {
       const def = entry && ds.unit(entry.unitId);
       if (!def) continue;
       const stats = { ...DEFAULT_UNIT_STATS, ...(entry.stats || {}) };
       if (def.kind === 'hero') {
-        if (!hero && !this.heroConfig) this.heroConfig = { unitId: def.id, stats };
+        if (!fromLoadout) fromLoadout = { unitId: def.id, stats };
       } else this.loadout.set(def.id, stats);
     }
-    if (hero && ds.unit(hero.unitId)) this.heroConfig = { unitId: hero.unitId, stats: { ...DEFAULT_UNIT_STATS, ...(hero.stats || {}) } };
+    const cfgs = Array.isArray(heroes) ? heroes.slice(0, 2).map(heroCfg) : [heroCfg(hero) || (hero ? null : fromLoadout)];
+    this.heroConfigs = cfgs.map((c, i) => (c ? { ...c, index: i } : null));
+    this._heroConfig = this.heroConfigs[0] || null;
+    this.heroes = this.heroConfigs.map(() => null);
+    this._stepping = false;
 
     this.endless = !!this.options.endless || !Number.isFinite(this.stage.waves);
     this.totalWaves = this.endless ? Infinity : this.stage.waves ?? 10;
@@ -104,13 +114,13 @@ export class Sim {
     this.projectiles = [];
     this.traps = [];
     this.fields = [];
-    this.hero = null;
     this.encountered = new Set();
     this.kills = {};
     // leaks = lives lost; leakLog/leaksByEnemy/leaksByWave feed the defeat debrief.
     this.stats = {
       damageByTower: {}, damageByType: {}, leaks: 0, cashEarned: 0, cashSpent: 0, enemiesLeaked: 0, towersPlaced: 0,
       upgrades: 0, ultsUsed: 0, leakLog: [], leaksByEnemy: {}, leaksByWave: {}, towerUnits: {},
+      heroXp: { time: 0, wave: 0, damage: 0, bought: 0, restore: 0 }, heroLevelsBought: 0,
     };
     this.warnings = [];
     this.globalRateMul = 1;
@@ -138,6 +148,27 @@ export class Sim {
   }
 
   // -------------------------------------------------------------------------
+  // The active player's hero (view-dependent: never read inside the step)
+  // -------------------------------------------------------------------------
+
+  /** The active player's placed hero (solo: the hero; co-op: the viewing / commanding player's). */
+  get hero() {
+    if (this._stepping && globalThis.__SIM_VIEW_TRAP__) throw new Error('[sim] sim.hero read inside the step (use sim.heroes or the tower)');
+    const c = this._heroConfig;
+    return c ? this.heroes[c.index] || null : null;
+  }
+
+  /** The active player's hero config ({ unitId, stats, index }) or null. */
+  get heroConfig() {
+    if (this._stepping && globalThis.__SIM_VIEW_TRAP__) throw new Error('[sim] sim.heroConfig read inside the step (use sim.heroConfigs)');
+    return this._heroConfig;
+  }
+
+  set heroConfig(c) {
+    this._heroConfig = c || null;
+  }
+
+  // -------------------------------------------------------------------------
   // Main loop
   // -------------------------------------------------------------------------
 
@@ -159,6 +190,15 @@ export class Sim {
   }
 
   _step(dt) {
+    this._stepping = true;
+    try {
+      this._step1(dt);
+    } finally {
+      this._stepping = false;
+    }
+  }
+
+  _step1(dt) {
     this.time += dt;
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
@@ -329,7 +369,7 @@ export class Sim {
     });
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
-    this._credit(tower, dealt);
+    this._credit(tower, dealt, e);
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
     if (e.hp <= 0) {
       this._killEnemy(e, tower);
@@ -364,6 +404,11 @@ export class Sim {
     if (spec.knockback > 0) {
       let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
       if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+      // a hero's push-back holds off for HERO_PUSH_LOCK seconds per enemy, so she cannot pin a lane
+      if (tower?.isHero && amt > 0) {
+        if (e.pushLock > this.time) amt = 0;
+        else e.pushLock = this.time + HERO_PUSH_LOCK;
+      }
       if (amt > 0) {
         e.dist = Math.max(0, e.dist - amt);
         placeOnPath(e, this.pathData[e.pathIndex]);
@@ -388,17 +433,22 @@ export class Sim {
     e.lastDamageAt = this.time;
     const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
-    this._credit(tower, dealt);
+    this._credit(tower, dealt, e);
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
     if (e.hp <= 0) this._killEnemy(e, tower);
     else checkPhases(this, e);
   }
 
-  _credit(tower, dealt) {
+  /**
+   * Credits damage to the girl who dealt it. `e` is the enemy (a hero's XP is measured in its base
+   * HP); `drone` is reserved for per-drone counters (landing plan seam S1).
+   */
+  // eslint-disable-next-line no-unused-vars
+  _credit(tower, dealt, e = null, drone = null) {
     if (!tower || !(dealt > 0)) return;
     tower.damageDealt += dealt;
     this.stats.damageByTower[tower.uid] = (this.stats.damageByTower[tower.uid] || 0) + dealt;
-    if (tower.isHero && !tower.removed) gainHeroXp(this, tower, dealt * HERO_XP_PER_DAMAGE);
+    if (tower.isHero && !tower.removed) gainHeroXp(this, tower, damageXp(dealt, e), 'damage');
   }
 
   _killEnemy(e, tower) {
@@ -487,7 +537,9 @@ export class Sim {
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
       }
     }
-    if (this.hero && !this.hero.removed) gainHeroXp(this, this.hero, heroWaveXp(this.wave));
+    // every placed hero (both players' in co-op), never the view-dependent sim.hero
+    const k = heroPace(this);
+    for (const h of this.heroes) if (h && !h.removed) gainHeroXp(this, h, waveClearXp(this.wave, k), 'wave');
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
@@ -552,6 +604,11 @@ export class Sim {
   placeCost(unitId, x = null, y = null) {
     const def = this.data.unit(unitId);
     if (!def) return Infinity;
+    // heroes deploy for free (a 0-cost unit costs 0, never the rounding floor of 5); a difficulty
+    // may put a deploy price back on heroes (DIFFICULTIES[d].heroCost, default none)
+    let raw = baseCost(def);
+    if (def.kind === 'hero' && this.diff.heroCost > 0) raw = this.diff.heroCost;
+    if (!(raw > 0)) return 0;
     const us = this._unitStats(unitId) || DEFAULT_UNIT_STATS;
     let cut = 0;
     if (x != null && y != null) {
@@ -561,7 +618,7 @@ export class Sim {
       }
       cut = costCutAt(this, x, y);
     }
-    return roundCost(baseCost(def) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
+    return roundCost(raw * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
   }
 
   /** Terrain char at a tile ('X' outside the map). */
@@ -636,11 +693,14 @@ export class Sim {
     const isHero = !!this.heroConfig && unitId === this.heroConfig.unitId;
     this._spend(chk.cost);
     const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost });
-    if (isHero) initHero(t);
+    if (isHero) {
+      initHero(t);
+      t.heroIndex = this._heroConfig.index;
+      this.heroes[t.heroIndex] = t;
+    }
     refreshTowerStats(t, this.globalRateMul);
     this.towers.push(t);
     this._towerByUid.set(t.uid, t);
-    if (isHero) this.hero = t;
     this._buffsDirty = true;
     recomputeBuffs(this);
     this.stats.towersPlaced++;
@@ -726,9 +786,22 @@ export class Sim {
     return t ? Math.floor(t.spent * BATTLE.sellRefund) : 0;
   }
 
-  /** Sells a tower. @returns {number} refund */
+  /**
+   * Can this girl be sold? Heroes cannot (they deploy for free; move her instead).
+   * @returns {{ ok: boolean, reason: null|'none'|'hero'|'ended' }}
+   */
+  canSell(uid) {
+    const t = this.getTower(uid);
+    if (!t) return { ok: false, reason: 'none' };
+    if (t.isHero) return { ok: false, reason: 'hero' };
+    if (this.state === 'won' || this.state === 'lost') return { ok: false, reason: 'ended' };
+    return { ok: true, reason: null };
+  }
+
+  /** Sells a tower. @returns {number|false} refund (0 for an unknown uid or an ended battle), false for a hero */
   sellTower(uid) {
     const t = this.getTower(uid);
+    if (t && t.isHero) return false;
     if (!t || this.state === 'won' || this.state === 'lost') return 0;
     const refund = this.sellValue(uid);
     this.cash += refund;
@@ -737,11 +810,34 @@ export class Sim {
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
     t.turrets = [];
-    if (this.hero === t) this.hero = null;
     this._buffsDirty = true;
     recomputeBuffs(this);
     this._emit('sell', { towerUid: uid, refund });
     return refund;
+  }
+
+  /**
+   * Puts a girl somewhere else (a hero's Move). The one place for every position-derived field:
+   * traps, targets, drones and auras here; other features add theirs (landing plan seam S5).
+   */
+  _relocate(t, x, y) {
+    const dx = x - t.x;
+    const dy = y - t.y;
+    t.x = x;
+    t.y = y;
+    t.tx = Math.floor(x);
+    t.ty = Math.floor(y);
+    t.trapSpots = null;
+    t.trapSpotsRange = -1;
+    t.targetUid = null;
+    t.rampTarget = null;
+    t.rampStacks = 0;
+    for (const d of t.turrets || []) {
+      if (typeof d.x === 'number') d.x += dx;
+      if (typeof d.y === 'number') d.y += dy;
+    }
+    this._buffsDirty = true;
+    recomputeBuffs(this);
   }
 
   setTargetMode(uid, mode) {
@@ -804,7 +900,15 @@ export class Sim {
       kills: t.kills,
       damageDealt: t.damageDealt,
       spent: t.spent,
-      sellValue: this.sellValue(uid),
+      sellValue: t.isHero ? 0 : this.sellValue(uid),
+      canSell: !t.isHero,
+      heroLevel: t.isHero ? heroLevelStatus(this, t) : null,
+      ultRank: t.isHero ? ultRank(t) : 0,
+      mastery: t.isHero ? t.mastery || 0 : 0,
+      levelsBought: t.isHero ? t.levelsBought || 0 : 0,
+      levelSpent: t.isHero ? t.levelSpent || 0 : 0,
+      moveCd: t.isHero ? t.moveCd || 0 : 0,
+      moveLock: t.isHero ? t.moveLock || 0 : 0,
     };
   }
 
@@ -818,6 +922,34 @@ export class Sim {
 
   heroUltStatus() {
     return heroUltStatus(this);
+  }
+
+  /** The active hero's next-level price and state; `want` = { level, maxPrice } (see hero.js). */
+  heroLevelStatus(want = null) {
+    return heroLevelStatus(this, this.hero, want);
+  }
+
+  /** Buys the rest of the active hero's level. @returns {{ ok, reason, price }} */
+  buyHeroLevel(want = null) {
+    return buyHeroLevel(this, this.hero, want);
+  }
+
+  /** Can the active hero move to world (x, y)? (two integers = a tile centre) */
+  canMoveHero(x, y) {
+    if (isTileCall(x, y)) {
+      x += 0.5;
+      y += 0.5;
+    }
+    return canMoveHero(this, x, y, this.hero);
+  }
+
+  /** Moves the active hero. @returns {{ ok, reason }} */
+  moveHero(x, y) {
+    if (isTileCall(x, y)) {
+      x += 0.5;
+      y += 0.5;
+    }
+    return moveHero(this, x, y, this.hero);
   }
 
   // -------------------------------------------------------------------------
@@ -887,8 +1019,11 @@ export class Sim {
         towerUnits: { ...this.stats.towerUnits },
         time: this.time,
         heroLevel: this.hero ? this.hero.level : 0,
+        heroLevels: this.heroes.map((h) => (h ? h.level : 0)),
         endless: this.endless,
       },
+      // per hero, by player index: her own counters (the results line reads the local player's)
+      heroes: this.heroes.map((h) => (h ? { unitId: h.unitId, level: h.level, levelsBought: h.levelsBought || 0, levelSpent: h.levelSpent || 0 } : null)),
       // co-op freeplay: the tier, the goal (the stage's last wave), whether it was cleared, and
       // whether the run ended on a Finish vote (otherwise it fell)
       freeplay: this.freeplay ? this.stage.freeplay.id : null,
