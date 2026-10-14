@@ -1,7 +1,8 @@
 // Shiro (hitscan sniper: the sim resolves her shot instantly). Signature "Glint and tracer":
 // while she is about to fire, a scope glint pulses at her rifle and a faint sight line runs to
 // her last target; on the shot a tracer flashes from the muzzle to the enemy the sim hit, with
-// a muzzle cone and an ejected casing; extra tracers go to her other attributed hits.
+// a muzzle flash + cone, a glint on that enemy and an ejected casing; extra tracers go to her
+// other attributed hits.
 //   P0 Execution: a wider tracer; T5 it lingers with a ring at the target
 //   P1 Spotter's Mark: a red sight line + laser dot; T5 a hawk spotter
 //   P2 Follow-up: T5 silver tracers
@@ -28,20 +29,28 @@ export const shiro = {
     const my = h.y;
     const mh = h.h + 0.08;
     const col = ctx.col(silver ? '#e8eef8' : '#ffe8a8');
-    const w = (p0 >= 3 ? 0.11 : 0.07) * (1 + 0.15 * lk.accent[0]);
-    const life = p0 >= 5 ? 0.35 : 0.12;
+    // base cue sized for a phone: a tracer that holds ≈ 0.1 s, a bright muzzle flash and a
+    // glint on the enemy the sim hit; wider with each Execution tier
+    const w = (p0 >= 3 ? 0.14 : 0.1) * (1 + 0.15 * lk.accent[0]);
+    const life = p0 >= 5 ? 0.35 : 0.18;
     const e = ctx.enemy(ev.targetUid);
+    // the shot's attributed hits (hitscan: the sim emitted them just before this event)
+    const max = Math.max(1, (t.eff?.projectiles || 1) * (t.eff?.pierce || 1));
+    const v = victims(ctx, events, i, t.x, t.y, t.eff?.range || 10, ev.attackType || t.eff?.attackType, max);
     if (e && ctx.cap('tracer')) {
       const eh = ctx.enemyH(e);
       ctx.segs.add(mx, mh, my, e.x, eh, e.z, w, col, life, SEG_CORE | SEG_HOLD);
       if (p0 >= 5) ripple(ctx, e.x, e.z, 0.1, 0.5, 0.3, col, 0, 'ring', true, 0.9);
-      // muzzle cone pointing down the shot
+      // muzzle flash + cone pointing down the shot
+      ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, mx, mh, my, 0.5, 0.2, 0.1, ctx.col('#fff6d0'), 1);
       const ang = ctx.screenAngle(mx, mh, my, e.x - mx, eh - mh, e.z - my);
-      const c = ctx.spr(ctx.b.bbA, CORE, ctx.R.cone, mx, mh, my, 0.36, 0.22, 0.07, ctx.col('#fff6d0'), 1);
+      const c = ctx.spr(ctx.b.bbA, CORE, ctx.R.cone, mx, mh, my, 0.5, 0.3, 0.1, ctx.col('#fff6d0'), 1);
       if (c) {
         c.asp = 0.6;
         c.rot = ang - Math.PI / 2;
       }
+      // impact glint only where the sim really hit her target
+      if (v.uids.indexOf(ev.targetUid) >= 0) ctx.spr(ctx.b.bbA, CORE, ctx.R.star, e.x, eh, e.z, 0.42, 0.12, 0.12, col, 1);
     }
     // casing
     const f = ctx.facing(t);
@@ -55,9 +64,7 @@ export const shiro = {
       cs.vrot = 14;
     }
     // follow-up hits (attributed to this shot), 0.04 s apart
-    const max = Math.max(1, (t.eff?.projectiles || 1) * (t.eff?.pierce || 1));
     if (max > 1) {
-      const v = victims(ctx, events, i, t.x, t.y, t.eff?.range || 10, ev.attackType || t.eff?.attackType, max);
       let k = 0;
       for (let j = 0; j < v.n; j++) {
         if (v.uids[j] === ev.targetUid) continue;

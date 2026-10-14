@@ -19,7 +19,7 @@ export const momo = {
   onAttack(ev, tw, t, ctx) {
     if (!ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + 0.1, h.y, 0.22, 0.08, 0.12, ctx.col(GOLD), 1);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + 0.1, h.y, 0.34, 0.1, 0.14, ctx.col(GOLD), 1);
   },
 
   origin(p, t, idx, n, rec, ctx) {
@@ -33,12 +33,17 @@ export const momo = {
 
   view(p, rec, _t, v, ctx) {
     v.skip = true;
-    const big = lookAt(rec.tw.look, 2) >= 3;
-    const s = (big ? 0.26 : 0.2) * ctx.readScale;
+    const lk = rec.tw.look;
+    const big = lookAt(lk, 2) >= 3;
+    // a coin you can follow on a phone (≈ 12 CSS px), a touch bigger with each Coin Toss accent,
+    // in a soft gold glow, with a glint each time it turns face-on
+    const s = (big ? 0.36 : 0.3 + 0.02 * lk.accent[2]) * ctx.readScale;
     const flip = Math.abs(Math.cos(ctx.time * 14 + rec.uid));
+    const gold = ctx.col(GOLD);
+    ctx.quad(ctx.b.bbA, DECOR, v.x, v.z, v.y, s * (big ? 2.2 : 1.7), s * (big ? 2.2 : 1.7), ctx.R.glow, gold, big ? 0.45 : 0.32);
     ctx.quad(ctx.b.bbN, CORE, v.x, v.z, v.y, s * Math.max(0.15, flip), s, ctx.R.coin, ctx.col('#ffffff'), 1);
-    if (big) ctx.quad(ctx.b.bbA, DECOR, v.x, v.z, v.y, s * 2.2, s * 2.2, ctx.R.glow, ctx.col(GOLD), 0.45);
-    ctx.quadRGB(ctx.b.groundN, CORE, v.x, 0.065, v.y, 0.14, 0.14, ctx.R.shadow, 0.05, 0.05, 0.1, 0.25);
+    if (flip > 0.92) ctx.quad(ctx.b.bbA, DECOR, v.x, v.z + 0.02, v.y, s * 1.3, s * 1.3, ctx.R.star, ctx.col('#fff6c8'), 0.9, rec.uid);
+    ctx.quadRGB(ctx.b.groundN, CORE, v.x, 0.065, v.y, 0.18, 0.18, ctx.R.shadow, 0.05, 0.05, 0.1, 0.25);
   },
 
   onImpact(rec, x, y, crit, radius, ctx) {
@@ -89,7 +94,7 @@ export const momo = {
     const p1 = lookAt(tw.look, 1);
     const aura = t.stats?.aura?.range || 0;
     if (p1 >= 3 && aura > 0 && ctx.q.familiars > 0) {
-      drawRingFamiliars(ctx, t, ctx.R.ticket, Math.min(ctx.q.familiars, p1 >= 5 ? 3 : 2), aura, 0.4, 0.8, 0.22 * ctx.readScale, ctx.col('#ffe9a8'), ctx.selectedUid === t.uid);
+      drawRingFamiliars(ctx, t, ctx.R.ticket, Math.min(ctx.q.familiars, p1 >= 5 ? 3 : 2), aura, 0.4, 0.8, 0.32 * ctx.readScale, ctx.col('#ffe9a8'), ctx.selectedUid === t.uid);
     }
   },
 };

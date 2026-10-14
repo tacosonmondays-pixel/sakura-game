@@ -1,6 +1,6 @@
-// Aoi (projectile `arrow`). Signature "Fletch streaks": every arrow trails a short white streak
-// and her bow string flashes white.
-//   P0 Piercing: comet tail 0.5; T5 a contrail from her bow to the aim point (0.3 s)
+// Aoi (projectile `arrow`). Signature "Fletch streaks": every arrow trails a white streak with a
+// glowing tip and her bow string flashes white.
+//   P0 Piercing: comet tail 0.62; T5 a contrail from her bow to the aim point (0.3 s)
 //   P1 Rapid Volley: a paper crane flies a figure-8 around her (never fires) and flaps faster
 //      after each volley; 2 cranes at T4, 3 at T5
 //   P2 Sky Hunter: a hawk spotter hovers just ahead of the enemy she is shooting, and dives
@@ -25,8 +25,9 @@ export const aoi = {
     tw.data.flap = 1;
     if (!ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.05, h.y, 0.3, 0.12, 0.08, ctx.col('#ffffff'), 1);
-    const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.beam, h.x, h.h + 0.05, h.y, 0.4, 0.4, 0.08, ctx.col('#ffffff'), 0.9);
+    // bow-release flash: big enough to read at phone scale (≈ 15 CSS px), the string snaps white
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.05, h.y, 0.44, 0.16, 0.12, ctx.col('#ffffff'), 1);
+    const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.beam, h.x, h.h + 0.05, h.y, 0.52, 0.5, 0.1, ctx.col('#ffffff'), 0.95);
     if (p) {
       p.asp = 0.15;
       p.rot = Math.PI / 2;
@@ -47,9 +48,13 @@ export const aoi = {
 
   view(p, rec, _t, v, ctx) {
     const lk = rec.tw.look;
-    const tail = lookAt(lk, 0) >= 3 ? 0.5 : 0.25 + 0.05 * lk.accent[0];
+    // the fletch streak is her base cue: long and bright enough to follow on a phone, longer
+    // with each Piercing accent tier, a comet tail from T3
+    const tail = lookAt(lk, 0) >= 3 ? 0.62 : 0.42 + 0.08 * lk.accent[0];
     const vl = Math.hypot(p.vx, p.vy) || 1;
-    ctx.line(ctx.b.bbA, ctx.q.trails ? CORE : DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * tail, v.z, v.y - (p.vy / vl) * tail, 0.06, ctx.col('#ffffff'), 0.75);
+    const c = ctx.col('#ffffff');
+    ctx.line(ctx.b.bbA, ctx.q.trails ? CORE : DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * tail, v.z, v.y - (p.vy / vl) * tail, 0.09, c, 0.85);
+    ctx.quad(ctx.b.bbA, DECOR, v.x, v.z, v.y, 0.18, 0.18, ctx.R.glow, c, 0.5);
   },
 
   update(gdt, tw, t, ctx) {

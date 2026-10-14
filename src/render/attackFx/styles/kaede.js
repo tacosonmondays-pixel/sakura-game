@@ -1,5 +1,5 @@
-// Kaede (duel with a damage ramp, rapier). Signature "Maple lunge": she lunges at her target
-// with a white thrust line and a slash sized by her ramp; maple leaves orbit her, one more for
+// Kaede (duel with a damage ramp, rapier). Signature "Maple lunge": she steps at her target with
+// a rapier glint, a white thrust line and a slash sized by her ramp; maple leaves orbit her, one more for
 // every two hits in a row (orange turning crimson), and scatter when the ramp resets.
 //   P0 Unbroken Rhythm: T3 up to 8 leaves; T5 glowing leaves
 //   P1 Flowing Blade: an afterimage streak along the lunge; T5 a leaf burst on each hit
@@ -36,11 +36,16 @@ export const kaede = {
     const dx = e.x - t.x;
     const dy = e.z - t.y;
     const len = Math.hypot(dx, dy) || 1;
-    ctx.lunge.start(t.uid, dx, dy, 0.25, 0.05, 0.02, 0.15);
+    ctx.lunge.start(t.uid, dx, dy, 0.25, 0.05, 0.04, 0.15);
     const h = ctx.enemyH(e);
-    ctx.segs.add(t.x + (dx / len) * 0.25, 0.5, t.y + (dy / len) * 0.25, e.x, h, e.z, 0.07, ctx.col('#ffffff'), 0.07, SEG_CORE);
+    // base cue sized for a phone: the step forward, a rapier glint and a white thrust line that
+    // holds ≈ 0.1 s, then the slash on her target
+    const sx = t.x + (dx / len) * 0.3;
+    const sy = t.y + (dy / len) * 0.3;
+    if (ctx.cap('muzzle')) ctx.spr(ctx.b.bbA, CORE, ctx.R.star, sx, 0.55, sy, 0.38, 0.1, 0.1, ctx.col('#ffffff'), 1);
+    ctx.segs.add(sx, 0.5, sy, e.x, h, e.z, 0.1, ctx.col('#ffffff'), 0.12, SEG_CORE);
     // the slash grows with the ramp
-    const size = 0.75 + Math.min(0.7, ramp * 0.06);
+    const size = 0.9 + Math.min(0.7, ramp * 0.06);
     const k = Math.min(1, ramp / 12);
     const c = ctx.col('#ffffff');
     const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, e.x, h, e.z, size * 0.8, size * 1.2, 0.16, c, 1);

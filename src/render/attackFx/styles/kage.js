@@ -1,5 +1,6 @@
-// Kage (projectile `shuriken` ×2, pierce, fast). Signature "Shadow step": an afterimage of her
-// dashes toward her first target as she throws, and her shuriken leave a dark spiral trail.
+// Kage (projectile `shuriken` ×2, pierce, fast). Signature "Shadow step": a violet flick at her
+// hand and an afterimage of her dashing toward her first target as she throws; her shuriken
+// leave a dark streak and a spiral trail.
 //   P0 Storm of Steel: T3 shuriken spin out of a small ring around her; T5 three shadow
 //      clones stand beside and behind her while she fights, and the volley leaves from Kage
 //      and her clones in turn
@@ -9,7 +10,7 @@ import { lookAt } from '../flair.js';
 import { afterimage, drawClone } from '../patterns/clones.js';
 import { flash } from '../patterns/bursts.js';
 import { hand } from './util.js';
-import { DECOR } from '../context.js';
+import { CORE, DECOR } from '../context.js';
 
 const SHADOW = '#5b3fa8';
 const CLONE_OFF = [[0.45, 0], [-0.45, 0], [0, -0.45]];
@@ -28,8 +29,12 @@ export const kage = {
   id: 'kage',
 
   onAttack(ev, tw, t, ctx) {
+    if (!ctx.cap('muzzle')) return;
+    // every throw: a violet flick at her hand and a dark afterimage dashing at her target
+    const h = hand(ctx, t);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h, h.y, 0.4, 0.14, 0.1, ctx.col('#a77bff'), 1);
     const e = ctx.enemy(ev.targetUid);
-    if (e && ctx.q.clones > 0 && ctx.cap('muzzle')) afterimage(ctx, t.x, t.y, e.x, e.z, ctx.col(SHADOW), 0.5, 0.15, 0.6, 0.62 * ctx.bodyScale(t));
+    if (e && ctx.q.clones > 0) afterimage(ctx, t.x, t.y, e.x, e.z, ctx.col(SHADOW), 0.72, 0.22, 0.6, 0.66 * ctx.bodyScale(t));
   },
 
   origin(p, t, idx, n, rec, ctx) {
@@ -68,10 +73,13 @@ export const kage = {
         ctx.line(ctx.b.bbN, DECOR, h.x, h.h, h.y, v.x, v.z, v.y, 0.035, ctx.col('#8a90a0'), 0.9);
       }
     }
-    if (ctx.q.trails >= 2) {
+    // dark streak behind every star (all qualities): her throws read even when the stars are tiny
+    const vl = Math.hypot(p.vx, p.vy) || 1;
+    ctx.line(ctx.b.bbN, ctx.q.trails ? CORE : DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * 0.34, v.z, v.y - (p.vy / vl) * 0.34, 0.08, ctx.col(SHADOW), 0.6);
+    if (ctx.q.trails >= 1) {
       rec.trailT -= ctx.gdt;
       if (rec.trailT <= 0) {
-        rec.trailT = 0.03;
+        rec.trailT = ctx.q.trails >= 2 ? 0.03 : 0.06;
         const s = ctx.spr(ctx.b.bbN, DECOR, ctx.R.soft, v.x, v.z, v.y, 0.12, 0.04, 0.22, ctx.col(SHADOW), 0.55);
         if (s) s.vrot = 6;
       }

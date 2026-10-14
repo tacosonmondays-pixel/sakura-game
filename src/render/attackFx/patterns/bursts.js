@@ -113,7 +113,7 @@ export function rise(ctx, uv, x, h, y, size, c, life = 0.7, speed = 0.9, cls = D
 
 /** A coin that hops off the target, spins and falls. */
 export function coinHop(ctx, x, h, y) {
-  const p = ctx.spr(ctx.b.bbN, CORE, ctx.R.coin, x, h, y, 0.2, 0.18, 0.55, ctx.col('#ffffff'), 1);
+  const p = ctx.spr(ctx.b.bbN, CORE, ctx.R.coin, x, h, y, 0.26, 0.22, 0.55, ctx.col('#ffffff'), 1);
   if (p) {
     const a = Math.random() * TAU;
     p.vx = Math.cos(a) * 0.6;
