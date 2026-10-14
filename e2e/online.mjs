@@ -16,7 +16,8 @@
 //      A starts; both place a girl through
 //      the real tower bar (tap card → tap ground), the wave runs and the lockstep state hashes
 //      of both clients match; a cut link drops the guest, the host re-admits it when the link
-//      is back and the hashes agree again; finally the guest leaves and the host plays on
+//      is back and the hashes agree again; finally the guest leaves and the host plays on. Both
+//      battle cameras start Locked (the default) and neither a board drag nor placing moves them
 //
 //   node e2e/online.mjs                              # 1280×720
 //   node e2e/online.mjs --viewport 844x390 --shots /tmp/online   # + screenshots
@@ -434,6 +435,24 @@ try {
     return true;
   }, null, { timeout: 15000 }).catch(() => null)));
 
+  // co-op battles use the same renderer and camera policy: both screens start Locked on the
+  // fitted view, a drag across the host's board leaves it there, and placing (below) never moves it
+  const camOf = (p) => p.evaluate(() => window.__battle.renderer.cameraState).catch(() => null);
+  const sameCam = (a, b) => !!a && !!b && ['position', 'target'].every((k) => a[k].every((v, i) => Math.abs(v - b[k][i]) < 1e-3)) && a.zoom === b.zoom;
+  const coopCam0 = await Promise.all([A, B].map(camOf));
+  check(coopCam0.every((c) => c?.mode === 'locked' && c.locked && c.zoom === 1 && c.isDefault), `co-op: both battles start with the camera Locked on the fitted view (${coopCam0.map((c) => c?.mode).join(' / ')})`);
+  await A.evaluate(() => {
+    const c = window.__battle.renderer.canvas;
+    const r = c.getBoundingClientRect();
+    const y = r.top + r.height * 0.45;
+    const fire = (type, x) => c.dispatchEvent(new PointerEvent(type, { pointerId: 77, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, buttons: type === 'pointerup' ? 0 : 1, bubbles: true, cancelable: true }));
+    fire('pointerdown', r.left + r.width * 0.3);
+    for (let i = 1; i <= 10; i++) fire('pointermove', r.left + r.width * (0.3 + i * 0.04));
+    fire('pointerup', r.left + r.width * 0.7);
+  }).catch(() => null);
+  const coopCam1 = await camOf(A);
+  check(sameCam(coopCam0[0], coopCam1), 'co-op: a drag across the host\'s board leaves the locked camera put');
+
   // each player places one of HER girls through the tower bar: tap the card, tap the ground
   async function placeOne(page, avoid = []) {
     const spot = await page.evaluate((taken) => {
@@ -534,6 +553,8 @@ try {
   await debugFor('dbg2');
   const bothPlaced = async (p) => p.waitForFunction(() => window.__battle.sim.towers.length >= 2, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await bothPlaced(A) && await bothPlaced(B), 'co-op: both girls stand on both screens')) await dump('lockstep state');
+  const coopCam2 = await Promise.all([A, B].map(camOf));
+  check(coopCam2.every((c, i) => sameCam(coopCam0[i], c)), 'co-op: placing the girls never moved either camera');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
   // the host starts the wave: one 'wave' order in its log, and it runs on both clients

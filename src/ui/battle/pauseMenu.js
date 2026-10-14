@@ -1,5 +1,6 @@
 // Pause menu: resume, restart, quit and in-battle settings (quality, placement range,
-// auto-start, default speed, reduce motion). Settings persist through store.commit().
+// auto-start, default speed, camera locked / free, reduce motion). Settings persist through
+// store.commit().
 import { h, icon } from './util.js';
 import { confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
@@ -56,6 +57,8 @@ export function createPauseMenu(ctx) {
         ctx.renderer.setQuality(q);
       })),
       h('div.bt-set-row', h('span.bt-set-label', 'Default speed'), seg([[1, '1×'], [2, '2×'], [3, '3×']], s.defaultSpeed || 1, (v) => save({ defaultSpeed: Number(v) }))),
+      // applies at once: the controller hands every settings change to the renderer
+      h('div.bt-set-row', { 'data-testid': 'set-camera' }, h('span.bt-set-label', 'Camera'), seg([['locked', 'Locked'], ['free', 'Free']], s.camera === 'free' ? 'free' : 'locked', (v) => save({ camera: v }))),
       toggle('Placement range', 'Show her attack range while you drag a girl onto the field', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
       toggle('Auto-start waves', 'Next wave starts by itself', !!ctx.sim.options.autoStart, (v) => {
         ctx.setAutoStart(v);
@@ -67,7 +70,9 @@ export function createPauseMenu(ctx) {
         'ul.bt-help',
         h('li', h('b', 'Deploy: '), 'drag a card onto the map and let go, or tap a card and then the ground. Red shading marks where she cannot stand.'),
         h('li', h('b', 'Upgrade: '), 'tap a girl. Two paths max; only one may pass tier 2.'),
-        h('li', h('b', 'Camera: '), 'drag to pan, pinch or scroll to zoom, double-tap to reset.'),
+        h('li', h('b', 'Camera: '), s.camera === 'free'
+          ? 'drag to pan, pinch or scroll to zoom, double-tap to reset. It holds still while you place a girl.'
+          : 'locked — the whole map stays framed and never moves when you drag. Pick Free above to pan and zoom.'),
         h('li', h('b', 'Scout: '), 'tap the NEXT strip at the top to see the coming wave and its traits.'),
       ),
     ));
