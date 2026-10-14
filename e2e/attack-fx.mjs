@@ -23,8 +23,9 @@ import { launchChromium } from './browser.mjs';
 import { simId } from '../tools/simId.mjs';
 
 // The live game's co-op id: computed from the live branch (SIM_REF, default the live branch) when
-// git has it, else this pin (v0.1.21). Renderer-only work must leave it unchanged.
-const SIM_ID_PIN = '538573d3561e';
+// git has it, else this pin (the live game after the co-op rematch merge). Renderer-only work must
+// leave it unchanged.
+const SIM_ID_PIN = '06763e510bb4';
 const SIM_REF = process.env.SIM_REF || 'claude/sakura-sentinels';
 const args = process.argv.slice(2);
 const opt = (name, def) => {

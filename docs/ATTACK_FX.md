@@ -9,7 +9,7 @@ Owner reels: `e2e/attack-reel.mjs`.
 
 - **Purely visual.** The sim decides every hit and its timing; attack FX only reads sim state and
   events and draws. Nothing under `src/sim`, `src/online` or the hashed data changes, so the co-op
-  sim id stays the live game's (`538573d3561e` at v0.1.21; `node -e "import('./tools/simId.mjs').then(m=>console.log(m.simId().id))"`;
+  sim id stays the live game's (`06763e510bb4` after the co-op rematch merge; `node -e "import('./tools/simId.mjs').then(m=>console.log(m.simId().id))"`;
   `e2e/attack-fx.mjs` compares it with the live branch).
   `tests/render/attackFx-registry.test.js` asserts no `src/render/` file is in the hash graph; the
   integration test compares a sim digest with FX on and off.
