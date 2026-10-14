@@ -93,8 +93,12 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
   function vote(v) {
     if (!afterGoal()) return;
+    // (while the battle re-syncs no order can go out: say so instead of showing a vote nobody gets)
+    if (!ls.queue('end', [!!v])) {
+      ctx.feed.push('Re-syncing with your ally — vote again in a moment.', 'warn', { key: 'fp-vote-wait', ms: 2400 });
+      return;
+    }
     pendingVote = !!v;
-    ls.queue('end', [!!v]);
     prompt.hidden = true;
     if (v && !ls.peers.values().next().value?.gone) ctx.feed.push(`Finish vote cast — the run ends once ${allyName()} agrees.`, 'info', { key: 'fp-vote', ms: 2600 });
   }
