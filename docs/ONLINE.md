@@ -312,8 +312,37 @@ room". Nobody retypes a code or makes a new room to play again:
   A guest always frees its seat.
 - **Your last room.** The co-op menu remembers the room you were last let into (for two hours, per
   player, `src/online/coop/lastRoom.js`, saved only once the server accepted the seat) and offers **Rejoin**:
-  the host opens it again with its stage, a guest joins it. A reloaded co-op battle page leads back
-  into the same room too ("Back to the room").
+  the host opens it again with its stage (and its freeplay setting), a guest joins it. A reloaded co-op
+  battle page leads back into the same room too ("Back to the room").
+
+### Co-op freeplay: the room setting
+
+Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past what you need like 15/15
+… 16/15". Freeplay is a room setting next to the difficulty: **Off**, **Blossom**, **Tempest** or
+**Crimson Moon** (`session.freeplay`: `null` or a tier id; the waves past the goal come from
+`src/data/freeplay.js` and `src/sim/freeplay.js`, see CONTRACTS §6).
+
+- **The host picks it**, the guest's **Ready is consent.** It rides in the `room` message, the host's
+  hellos and the `start` message, and the guest takes it from each, so a lost `room` message fixes
+  itself with the next hello. A guest's hello and `ready` say which setting its Ready was given for: a
+  changed setting clears the guest's Ready, and Start stays locked until the guest has readied for the
+  setting the host has now (a stale "ready" sent before the change never counts). A stage change alone
+  keeps the Ready, as before.
+- **Both build the same run.** The battle is built from the start message (`start.freeplay`), and so is
+  every resync and rejoin (they rebuild from it), so both clients always agree on the mode and the
+  waves past the goal.
+- **The Finish vote** is a lockstep command, `end[true]` (or `end[false]` to take it back). It counts
+  only after the goal; the run ends (a win, `finished`) on the tick every player still in the battle has
+  voted. A player who drops out or leaves no longer blocks it (the drop is a `gone` marker in the
+  command log, so a replay agrees), and one who comes back keeps her vote.
+- **Leaving a run for the room.** "Back to the room" also works while the battle still runs: the ally
+  plays on alone (her drop marker lets her finish alone), and instead of lockstep beats nobody needs
+  she sends `{ type: 'fighting', wave, goal }` every 10 s (`LOBBY.fightingMs`) and once more when her
+  run ends. The one waiting reads it as `session.returning.fighting` ("Rin is still fighting — wave
+  87") and keeps waiting while it comes. "Back to the room" keeps the setting on both sides.
+- **Compatibility.** `COOP_PROTOCOL` is 3 (the `start.freeplay` field, the `end` command, the goal
+  event) and the freeplay table is part of the battle-data hash, so a build from before freeplay and
+  one with it refuse to pair (the version banner).
 
 ### Co-op lockstep
 
@@ -429,6 +458,12 @@ The vitest suite covers:
   covers loss, desync repair, a disconnect, slow devices and reconnecting (a frozen guest, a cut in
   both directions, a one-way cut, a deliberate leave, and the replayed drop/return markers), the
   Supabase message budget (about 4 packets a second, hashes folded in), forged or junk commands.
+  Freeplay: both clients play 1-1 Crimson Moon through the goal and 20 waves past it (two boss waves) in
+  sync, the Finish vote refused before the goal, one vote not enough, both votes ending the run on the
+  same tick; a resync after the goal (the votes come back with the log), an ally dropping out (the one
+  left finishes alone; the replayed log agrees), a frozen guest re-admitted with her earlier vote.
+- `coopFreeplay.test.js`: `start.freeplay` → the freeplay Sim (only for a real tier), the `end` command's
+  rules, protocol 3.
 - `detMath.test.js`: the deterministic sin / cos / atan2 / hypot / … stay within 2 ulp of the engine's own,
   are swapped in only while a co-op call runs, and keep a battle bit-identical when Math is perturbed.
 - `engines.test.js`: keeps the cross-engine battle (`e2e/engines/scriptedBattle.js`) finishing in sync
@@ -446,7 +481,13 @@ The vitest suite covers:
   battle 2 (start re-sent even after a results screen kept beating into the room), the host or the
   guest going Home, the "lobby" drop, waiting while the ally's battle screen still talks and the
   silence rule after that, a desync that is not a departure, the slow beat of a finished battle, and
-  which closes keep the host's room.
+  which closes keep the host's room. Freeplay: the setting in hello / room / start (a lost `room`
+  message healed by the next hello), Ready as consent (a stale ready never starts the battle), a
+  protocol-2 hello or start refused, the setting kept through "Back to the room" (and Off again a plain
+  battle), and a run one player leaves for the room: the other plays on with a `fighting` beacon instead
+  of lockstep beats, finishes alone, and they pair again.
+- `lastRoom.test.js`: "Your last room" (two hours, per player, forgotten only by its own code), and a
+  freeplay room reopened as one by its host.
 - `supabaseRoom.test.js`: the Supabase room channel against a scriptable fake: no presence, the outbox
   flushed at the join, status reports, realtime-js's own rejoin, a fresh channel after `CLOSED` or when
   stuck (with backoff, and not while the socket itself is down), Retry (seat + socket) and the one-way

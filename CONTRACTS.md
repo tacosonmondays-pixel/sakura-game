@@ -1070,17 +1070,30 @@ a NEW migration file, never by editing the applied one in a way that breaks re-r
 **Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
 Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
 with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
-* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty })`, `getSession()`,
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay })`, `getSession()`,
   `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
-  `room`, `ready`, `start`, `ls`, `leave`).
+  `room`, `ready`, `start`, `ls`, `lobby`, `fighting`, `leave`). `session.freeplay` is the room's freeplay
+  setting (`null` = off, or a `FREEPLAY_TIERS` id; `freeplayTier(v)` in `src/data/freeplay.js` normalizes
+  anything else to `null`): the host sets it with `setStage(stageId, difficulty, freeplay)` (left out =
+  unchanged), it rides in `room`, the host's `hello.room` and `start.freeplay`, and the guest adopts it.
+  The guest's Ready is its consent: its `hello` / `ready` carry the setting they were given for, a changed
+  setting clears the guest's Ready, and `canStart` needs `peer.freeplay === session.freeplay`.
+  `backToLobby()` keeps the setting (and works while the battle still runs: the ally plays on alone and
+  sends `{ type: 'fighting', uid, wave, goal, over }` every `LOBBY.fightingMs` instead of lockstep beats;
+  the returner reads it as `session.returning.fighting = { wave, goal } | null`).
 * `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, hooks })`: `queue(kind, args)`
   stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
   horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
   command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
   survivor) and can be re-admitted while the host is still playing.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]`, positions quantized to 1/1024 tile, per-player
-  wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed network input.
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
+  network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
+  `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
+  (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
+  votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
+  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`).
