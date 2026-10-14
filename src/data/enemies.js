@@ -1,6 +1,7 @@
 // Sakura Sentinels — the bestiary (owner: world). See CONTRACTS.md §4 and docs/BESTIARY.md.
 //
-// 12 families, 74 enemies. Readability rules (CONTRACTS §12):
+// 12 families, 74 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
+// that break open into bosses when they fall). Readability rules (CONTRACTS §12):
 // * Ordinary enemies have exactly ONE rule — one trait, or none for plain fodder (their armor
 //   class is their only quirk). Flat armor counts as the 'armored' rule.
 // * Elites combine at most two familiar rules.
@@ -810,9 +811,69 @@ const DRAGONS = [
   }),
 ];
 
+// ---------------------------------------------------------------------------
+// Freeplay titans — co-op freeplay only (src/data/freeplay.js boss pool). Each reuses its family's
+// boss model (bigger, re-tinted) and, when it falls, breaks open into the bosses it was built
+// around (`inherit` × its own HP multiplier each) — a giant that holds giants.
+// ---------------------------------------------------------------------------
+
+const TITANS = [
+  enemy({
+    id: 'fp_foundry_titan', name: 'Foundry Titan', family: 'construct', tier: 'boss', hp: 20000, speed: 0.3, armorClass: 'heavy', armor: 8,
+    bounty: 4000, threat: 700, size: 3.7, color: '#2b2d42', accent: '#ff6b35', variant: 'colossus', props: ['crystals', 'gears', 'chimney'],
+    traits: { crystal: { cap: 40, hits: 60 }, splitter: { spawn: 'iron_colossus', count: 2, inherit: 0.35, leak: 35 } },
+    phases: [
+      { atHp: 0.7, announce: 'The Foundry Titan opens its vents — Sentries march out of the slag!', set: { traits: { summoner: { spawn: 'construct_sentry', count: 2, every: 8 } } } },
+      { atHp: 0.4, announce: 'Molten plate! The Titan\'s armor glows white-hot!', set: { armor: 12, traits: { crystal: { cap: 30, hits: 70 } } } },
+      { atHp: 0.15, announce: 'Its furnace cracks — two Iron Colossi stir inside!', set: { armor: 6, speed: 0.45, traits: { crystal: null } } },
+    ],
+    lore: 'The Foundry\'s furnace-heart, grown too large for one body. Crack it open and two Colossi climb out of the slag.',
+    counters: 'Many quick hits for its shell, armor pierce for the plate, and a boss killer held back for the two Colossi it releases.',
+    introducedIn: 'freeplay',
+  }),
+  enemy({
+    id: 'fp_gloom_regent', name: 'Gloom Regent', family: 'ghoul', tier: 'boss', hp: 18000, speed: 0.35, armorClass: 'spectral', armor: 4,
+    bounty: 3600, threat: 650, size: 3.4, color: '#10002b', accent: '#c77dff', variant: 'lych', props: ['crown', 'staff', 'cape', 'candle'],
+    traits: { regen: { pct: 0.01, delay: 3 }, summoner: { spawn: 'ghoul_bonewalker', count: 4, every: 7 }, splitter: { spawn: 'grave_lych', count: 2, inherit: 0.35, leak: 35 } },
+    phases: [
+      { atHp: 0.7, announce: 'The Gloom Regent fades between worlds!', set: { traits: { phasing: { every: 5, duration: 2.5 } } } },
+      { atHp: 0.4, announce: 'The Regent calls its leeches to feed!', set: { traits: { summoner: { spawn: 'ghoul_leech', count: 3, every: 6 }, regen: { pct: 0.015, delay: 2.5 } } } },
+      { atHp: 0.15, announce: 'Its crown splits — two Grave Lychs rise from the pieces!', set: { speed: 0.55, traits: { phasing: null } } },
+    ],
+    lore: 'Older than the Lychs it crowned. When the Regent falls, its court keeps ruling.',
+    counters: 'Poison stops its healing, holy hits break its phasing, and splash clears the dead it raises.',
+    introducedIn: 'freeplay',
+  }),
+  enemy({
+    id: 'fp_hyakki_daimyo', name: 'Hyakki Daimyo', family: 'oni', tier: 'boss', hp: 16000, speed: 0.4, armorClass: 'warded', armor: 5,
+    bounty: 3400, threat: 620, size: 3.3, color: '#3d0000', accent: '#ffb703', variant: 'champion', props: ['horns', 'mask', 'club', 'cape'],
+    traits: { field: { kinds: ['haste', 'shield'], every: 5, radius: 3.2, amount: 0.35 }, splitter: { spawn: 'oni_champion', count: 2, inherit: 0.5, leak: 25 }, brood: { spawn: 'oni_shield', count: 4 } },
+    phases: [
+      { atHp: 0.6, announce: 'The Daimyo raises the parade banner — its field begins to heal!', set: { traits: { field: { kinds: ['haste', 'shield', 'regen'], every: 4, radius: 3.4, amount: 0.35 } } } },
+      { atHp: 0.25, announce: 'The Night Parade charges for the gate!', set: { speed: 0.6 } },
+    ],
+    lore: 'Lord of the hundred-demon night parade. Defeat it and its two champions carry the banner on.',
+    counters: 'Holy hits silence its rotating field; slow its haste stance; keep blast for the shield-bearers it drops.',
+    introducedIn: 'freeplay',
+  }),
+  enemy({
+    id: 'fp_eclipse_wyrm', name: 'Eclipse Wyrm', family: 'dragon', tier: 'boss', hp: 16000, speed: 0.35, armorClass: 'scaled', armor: 6,
+    bounty: 6000, threat: 900, size: 4, color: '#1a0b2e', accent: '#ff006e', variant: 'matriarch', props: ['wings', 'tail', 'horns', 'crown', 'ember'],
+    traits: { ward: 'fire', splitter: { spawn: 'dragon_ashwing', count: 1, inherit: 0.5 }, brood: { spawn: 'dragon_cinder', count: 4 } },
+    phases: [
+      { atHp: 0.75, announce: 'The Eclipse Wyrm blots out the sun — cinders rain from its wings!', set: { traits: { airborne: true, summoner: { spawn: 'dragon_cinder', count: 1, every: 8 } } } },
+      { atHp: 0.4, announce: 'It lands in darkness — its scales turn to obsidian!', set: { armor: 10, speed: 0.45, traits: { airborne: null, summoner: { spawn: 'dragon_ashdrake', count: 2, every: 9 } } } },
+      { atHp: 0.15, announce: 'The eclipse breaks — the Ashwing Matriarch tears free!', set: { armor: 6, speed: 0.5, traits: { airborne: true } } },
+    ],
+    lore: 'What the Matriarch dreams of becoming. It carries her inside its shadow.',
+    counters: 'Anti-air for its flights, armor break for its landing — and save everything you have for the Matriarch it releases.',
+    introducedIn: 'freeplay',
+  }),
+];
+
 export const ENEMIES = [
   ...SLIMES, ...GOBLINS, ...ORCS, ...GHOSTS, ...GHOULS, ...ONI,
-  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS,
+  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS, ...TITANS,
 ];
 
 export const ENEMY_MAP = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));

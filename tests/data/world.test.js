@@ -26,6 +26,9 @@ const ENEMY_KEYS = [
   'size', 'color', 'accent', 'model', 'traits', 'lore', 'counters', 'introducedIn',
 ];
 const ENEMY_OPTIONAL = ['phases'];
+/** Co-op freeplay's giants (src/data/freeplay.js): bosses outside the campaign, never in a stage. */
+const FREEPLAY_ONLY = (e) => e.introducedIn === 'freeplay';
+const CAMPAIGN_ENEMIES = ENEMIES.filter((e) => !FREEPLAY_ONLY(e));
 const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
 const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground'];
 const STAGE_KEYS = [
@@ -66,15 +69,16 @@ const isCrossing = (map) => (map.crossings || []).length;
 // ---------------------------------------------------------------------------
 
 describe('enemies', () => {
-  it('has 12 families and 60-75 enemies with unique ids', () => {
+  it('has 12 families and 60-75 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_IDS].sort());
     expect([...FAMILY_ORDER].sort()).toEqual([...FAMILY_IDS].sort());
     for (const [id, f] of Object.entries(FAMILIES)) {
       expect(f.id).toBe(id);
       for (const k of ['name', 'color', 'desc', 'behavior']) expect(f[k], `${id}.${k}`).toBeTruthy();
     }
-    expect(ENEMIES.length).toBeGreaterThanOrEqual(60);
-    expect(ENEMIES.length).toBeLessThanOrEqual(75);
+    expect(CAMPAIGN_ENEMIES.length).toBeGreaterThanOrEqual(60);
+    expect(CAMPAIGN_ENEMIES.length).toBeLessThanOrEqual(75);
+    expect(ENEMIES.filter(FREEPLAY_ONLY).map((e) => e.id).sort()).toEqual(['fp_eclipse_wyrm', 'fp_foundry_titan', 'fp_gloom_regent', 'fp_hyakki_daimyo']);
     expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(ENEMIES.length);
     expect(Object.keys(ENEMY_MAP).length).toBe(ENEMIES.length);
     for (const fam of FAMILY_IDS) expect(enemiesByFamily(fam).length, fam).toBeGreaterThanOrEqual(4);
@@ -96,7 +100,7 @@ describe('enemies', () => {
       expect(e.speed).toBeGreaterThan(0.2);
       expect(e.speed).toBeLessThanOrEqual(2);
       expect(e.size).toBeGreaterThanOrEqual(0.6);
-      expect(e.size).toBeLessThanOrEqual(3);
+      expect(e.size).toBeLessThanOrEqual(FREEPLAY_ONLY(e) ? 4 : 3); // the freeplay giants dwarf the bosses they hold
       if (e.tier === 'boss') expect(e.leak).toBe(Infinity);
       else expect(Number.isInteger(e.leak) && e.leak >= 0, `${e.id}.leak`).toBe(true);
       expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
@@ -212,9 +216,17 @@ describe('enemies', () => {
   it('has the 4 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
     expect(minis).toEqual(['goblin_machine', 'oni_champion', 'orc_general', 'slime_prince']);
-    const bosses = ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
+    const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
-    for (const id of [...minis, ...bosses]) {
+    const giants = ENEMIES.filter(FREEPLAY_ONLY);
+    for (const e of giants) {
+      expect(e.tier, e.id).toBe('boss');
+      // a giant that holds giants: it breaks open into a campaign boss when it falls
+      const inner = getEnemy(e.traits.splitter.spawn);
+      expect(['boss', 'miniboss'], `${e.id} releases ${inner.id}`).toContain(inner.tier);
+      expect(FREEPLAY_ONLY(inner)).toBe(false);
+    }
+    for (const id of [...minis, ...bosses, ...giants.map((e) => e.id)]) {
       const e = getEnemy(id);
       expect(e.phases?.length, `${id} phases`).toBeGreaterThanOrEqual(2);
       let last = 1;
@@ -245,7 +257,7 @@ describe('enemies', () => {
     for (const sid of stageOrder) {
       for (const eid of stageEnemies(sid)) if (!first.has(eid)) first.set(eid, sid);
     }
-    for (const e of ENEMIES) {
+    for (const e of CAMPAIGN_ENEMIES) {
       expect(STAGE_MAP[e.introducedIn], `${e.id} introducedIn ${e.introducedIn}`).toBeTruthy();
       expect(first.get(e.id), `${e.id} first appears`).toBe(e.introducedIn);
     }
@@ -776,6 +788,7 @@ describe('stages', () => {
 
   it('every enemy appears in at least one stage', () => {
     const all = new Set(STAGES.flatMap((s) => stageEnemies(s)));
-    for (const e of ENEMIES) expect(all.has(e.id), e.id).toBe(true);
+    for (const e of CAMPAIGN_ENEMIES) expect(all.has(e.id), e.id).toBe(true);
+    for (const e of ENEMIES.filter(FREEPLAY_ONLY)) expect(all.has(e.id), `${e.id} is freeplay-only`).toBe(false);
   });
 });
