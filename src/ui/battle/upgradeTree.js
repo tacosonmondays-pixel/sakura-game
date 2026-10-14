@@ -106,7 +106,9 @@ export function createUpgradeTree(ctx) {
   const quality = () => ctx.settings?.quality || 'high';
   const shell = () => ctx.shell || ctx.layer?.closest?.('.bt-root') || null;
 
-  // describeMods (student.js) for the tier bullets: prefetched at idle, a few seconds in
+  // describeMods (student.js) for the tier bullets: fetched when the tree first opens (not at
+  // battle start, where it would compete with the first frames); until then the detail shows
+  // the one-line effect
   let studentP = null;
   const loadDescribe = () => (studentP ||= import('../screens/student.js').then((m) => {
     describe = m.describeMods;
@@ -116,10 +118,6 @@ export function createUpgradeTree(ctx) {
     studentP = null;
     console.warn('[tree] details unavailable', e);
   }));
-  const prefetchT = setTimeout(() => {
-    if ('requestIdleCallback' in window) requestIdleCallback(() => loadDescribe(), { timeout: 5000 });
-    else loadDescribe();
-  }, 3000);
 
   // ---- open / close ------------------------------------------------------------------------
   function open(next, { peek = null } = {}) {
@@ -544,7 +542,6 @@ export function createUpgradeTree(ctx) {
     destroy() {
       destroyed = true;
       close();
-      clearTimeout(prefetchT);
       clearTimeout(tipT);
       window.removeEventListener('keydown', onKeyGlobal);
       overlay.remove();
