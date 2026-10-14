@@ -68,8 +68,9 @@ function world({ latency = 60 } = {}) {
               r.reconnectLog.push({ at: clock.t, ...opts });
               W.onReconnect(r, opts);
             },
-            close() {
+            close(opts = {}) {
               r.closed = true;
+              r.closeOpts = opts;
             },
           };
           rooms.push(r);
@@ -557,5 +558,321 @@ describe('co-op lobby handshake', () => {
     expect(hellos(guest)).toBe(g0);
     host.close();
     guest.close();
+  });
+});
+
+// "When you lose and go back to coop make it so the room stays and you can rejoin the room"
+// (owner, Oct 14). Each battle runs to its end the way the game ends one: both clients' battle
+// screens advance their own lockstep (Nightmare: one life, no girls placed, so the first enemy
+// through ends it), so both reach the same result at the same tick.
+describe('co-op rematch: back to the room after a battle', () => {
+  /** Host + guest paired in room ROOM1 (stage 1-1, Nightmare) and in a battle. */
+  function battleRoom(W, seed = 77) {
+    const host = open(W, true, { stageId: '1-1', difficulty: 'nightmare' });
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(seed)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    return { host, guest };
+  }
+  /** Both battle screens running (a frame every 16 ms) until `until()` holds. */
+  function play(W, sessions, until, max = 120000) {
+    const t0 = W.clock.t;
+    while (!until() && W.clock.t - t0 < max) {
+      W.step(16);
+      for (const s of sessions) if (s.phase === 'battle' && s.lockstep && !s.lockstep.finished) s.lockstep.advance(0.016);
+    }
+    return until();
+  }
+  /** The host starts the wave at 3× and both play until the battle is over on both screens. */
+  function fightToEnd(W, host, guest) {
+    host.lockstep.queue('speed', [3]);
+    host.lockstep.queue('wave');
+    expect(play(W, [host, guest], () => host.lockstep.finished && guest.lockstep.finished)).toBe(true);
+    expect(host.lockstep.sim.state).toBe('lost');
+    expect(guest.lockstep.tick).toBe(host.lockstep.tick);
+    expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+  }
+  const lsSent = (s) => s.room.log.filter((e) => e.msg.type === 'ls' && e.up).length;
+
+  for (const first of ['host', 'guest']) {
+    it(`both go back to the room (${first} first) and pair again with no code typed; Ready again, then a fresh battle 2`, () => {
+      const W = world();
+      const { host, guest } = battleRoom(W);
+      const rooms = [host.room, guest.room];
+      fightToEnd(W, host, guest);
+      const [a, b] = first === 'host' ? [host, guest] : [guest, host];
+      const told = [];
+      b.on('ally', (where) => told.push(where));
+      expect(a.backToLobby()).toBe(true);
+      expect(a.phase).toBe('lobby');
+      expect(a.returning).toMatchObject({ uid: b.me.uid, name: b.me.name, inRoom: false });
+      W.step(500);
+      // the one still on its results screen hears it: its lockstep stops waiting for the ally
+      expect(b.lockstep.peers.get(a.isHost ? 0 : 1)).toMatchObject({ gone: true, why: 'lobby' });
+      expect(told).toEqual(['room']);
+      // a while on the results screen: the one in the lobby keeps waiting (no alarm, no "gone")
+      W.step(60000);
+      expect(a.returning).toMatchObject({ uid: b.me.uid, inRoom: false });
+      expect(a.lastPeer).toBe(null);
+      expect(a.stuck).toBe(null);
+      expect(b.backToLobby()).toBe(true);
+      expect(b.returning).toMatchObject({ uid: a.me.uid, inRoom: true });
+      expect(W.until(() => host.paired && guest.paired, 3000)).not.toBe(null);
+      // same room, same channel: nothing reconnected, nothing retyped
+      expect([host.room, guest.room]).toEqual(rooms);
+      expect(host.room.reconnects + guest.room.reconnects).toBe(0);
+      expect(host.code).toBe('ROOM1');
+      expect(guest.code).toBe('ROOM1');
+      expect(host.returning).toBe(null);
+      expect(guest.returning).toBe(null);
+      // the guest taps Ready again: Start stays locked until then
+      expect(guest.me.ready).toBe(false);
+      W.step(2000);
+      expect(host.peer.ready).toBe(false);
+      expect(host.canStart).toBe(false);
+      expect(host.startBattle(99)).toBe(false);
+      guest.setReady(true);
+      expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+      expect(host.lockstep).toBe(null); // battle 1's lockstep went with it
+      expect(host.startBattle(99)).toBe(true);
+      expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+      // battle 2: a fresh lockstep on both, nothing carried over from battle 1
+      for (const s of [host, guest]) {
+        expect(s.lockstep.start.seed).toBe(99);
+        expect(s.lockstep.tick).toBe(0);
+        expect(s.lockstep.epoch).toBe(0);
+        expect(s.lockstep.log).toEqual([]);
+        expect([...s.lockstep.peers.values()].every((p) => !p.gone && p.why === null)).toBe(true);
+        expect(s.peerGone).toBe(false);
+        expect(s.returning).toBe(null);
+        expect(s.lastPeer).toBe(null);
+      }
+      expect(guest.lockstep.start).toEqual(host.lockstep.start);
+      expect(play(W, [host, guest], () => host.lockstep.tick > 500 && guest.lockstep.tick > 500)).toBe(true);
+      const pairs = host.lockstep.hashPairs();
+      expect(pairs.length).toBeGreaterThan(2);
+      for (const p of [...pairs, ...guest.lockstep.hashPairs()]) expect(p.mine).toBe(p.theirs);
+      host.close();
+      guest.close();
+    });
+  }
+
+  it('battle 2\'s start is re-sent until the guest answers, even when the host came back first and the guest\'s results screen kept beating', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    expect(host.backToLobby()).toBe(true);
+    W.step(4000); // the guest reads its results: its lockstep still beats into the room
+    expect(guest.phase).toBe('battle');
+    expect(guest.backToLobby()).toBe(true);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    let starts = 0;
+    W.lose = (msg) => msg.type === 'start' && starts++ === 0; // battle 2's first start is lost
+    expect(host.startBattle(5)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    expect(starts).toBeGreaterThanOrEqual(2);
+    expect(guest.lockstep.start.seed).toBe(5);
+    host.close();
+    guest.close();
+  });
+
+  it('the host goes Home from the results: the guest sees the host left (no long wait, no alarm), and pairs again when the host reopens the room', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    const told = [];
+    guest.on('ally', (where) => told.push(where));
+    host.close(); // Home / Leave room on the results
+    expect(host.room.closeOpts).toEqual({ keep: true }); // a host keeps its room registered
+    W.step(500);
+    expect(told).toEqual(['left']);
+    expect(guest.lockstep.peers.get(0)).toMatchObject({ gone: true, why: 'left' });
+    expect(guest.backToLobby()).toBe(true);
+    expect(guest.lastPeer).toEqual({ name: 'Aiko', why: 'left' });
+    expect(guest.returning).toBe(null);
+    W.step(LOBBY.findMs * 3);
+    expect(guest.stuck).toBe(null); // the room stays: nothing to retry
+    // "Your last room" → Rejoin: the host opens the same room again and they pair up
+    const again = open(W, true, { stageId: '1-1' });
+    W.connect(again.room);
+    expect(W.until(() => again.paired && guest.paired, 5000)).not.toBe(null);
+    expect(guest.lastPeer).toBe(null);
+    again.close();
+    guest.close();
+  });
+
+  it('the guest goes Home from the results: the host sees its ally left, whether it is still on its results or back in the room', () => {
+    // host still on its results screen
+    {
+      const W = world();
+      const { host, guest } = battleRoom(W);
+      fightToEnd(W, host, guest);
+      guest.close();
+      expect(guest.room.closeOpts).toEqual({ keep: true }); // (a guest frees its seat all the same)
+      W.step(500);
+      expect(host.lockstep.peers.get(1)).toMatchObject({ gone: true, why: 'left' });
+      expect(host.backToLobby()).toBe(true);
+      expect(host.lastPeer).toEqual({ name: 'Bea', why: 'left' });
+      expect(host.returning).toBe(null);
+      host.close();
+    }
+    // host back in the room first, waiting for the guest
+    {
+      const W = world();
+      const { host, guest } = battleRoom(W);
+      fightToEnd(W, host, guest);
+      host.backToLobby();
+      W.step(3000);
+      expect(host.returning).toMatchObject({ name: 'Bea', inRoom: false });
+      guest.close();
+      W.step(500);
+      expect(host.returning).toBe(null);
+      expect(host.lastPeer).toEqual({ name: 'Bea', why: 'left' });
+      host.close();
+    }
+  });
+
+  it('a "lobby" message drops the lockstep peer with reason "lobby" and nothing else', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    const gone = [];
+    host.on('peerGone', (why) => gone.push(why));
+    guest.backToLobby();
+    W.step(500);
+    expect(gone).toEqual(['lobby']);
+    expect(host.peerGone).toBe('lobby');
+    expect(host.lockstep.peers.get(1)).toMatchObject({ gone: true, why: 'lobby' });
+    // its stale beats, its hellos and its lobby goodbye do not touch the host's finished battle
+    W.step(5000);
+    expect(host.phase).toBe('battle');
+    expect(host.lockstep.rejoins).toBe(0);
+    expect(host.lastPeer).toBe(null);
+    host.close();
+    guest.close();
+  });
+
+  it('the guest\'s "can\'t find the host" waits while the host is on its battle screen, and shows peerSilentMs + findMs after the host goes quiet', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    guest.backToLobby();
+    W.step(3 * 60000); // the host lingers on its results: it keeps saying so (a slow beat)
+    expect(guest.stuck).toBe(null);
+    expect(guest.returning).toMatchObject({ name: 'Aiko', inRoom: false });
+    // the host's tab dies on the results screen (no goodbye)
+    host.room.closed = true;
+    const quiet = W.clock.t;
+    expect(W.until(() => guest.lastPeer?.why === 'silent', LOBBY.peerSilentMs + 1000)).not.toBe(null);
+    expect(guest.returning).toBe(null);
+    expect(W.until(() => guest.stuck === 'host', LOBBY.findMs + 1000)).not.toBe(null);
+    expect(W.clock.t - quiet).toBeLessThanOrEqual(LOBBY.peerSilentMs + LOBBY.findMs + 2 * LOBBY.tickMs);
+    guest.close();
+  });
+
+  it('a guest whose host is already back in the room but cannot be heard gets the alarm after the usual findMs', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    host.backToLobby();
+    W.step(500);
+    guest.room.deaf = true; // from now on the guest hears nothing
+    guest.backToLobby();
+    expect(guest.returning).toMatchObject({ inRoom: true });
+    const ms = W.until(() => guest.stuck === 'host', LOBBY.findMs + 2000);
+    expect(ms).not.toBe(null);
+    expect(ms).toBeLessThanOrEqual(LOBBY.findMs + LOBBY.tickMs);
+    host.close();
+    guest.close();
+  });
+
+  it('the host waiting for an ally who went quiet on its results screen says so after peerSilentMs', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    host.backToLobby();
+    W.step(2 * 60000);
+    expect(host.returning).toMatchObject({ name: 'Bea', inRoom: false });
+    guest.room.closed = true; // the guest's phone killed the tab: no goodbye
+    expect(W.until(() => host.lastPeer?.why === 'silent', LOBBY.peerSilentMs + 1000)).not.toBe(null);
+    expect(host.lastPeer).toEqual({ name: 'Bea', why: 'silent' });
+    expect(host.returning).toBe(null);
+    host.close();
+  });
+
+  it('after a fatal desync the ally still counts as in the room: back in the lobby, the other waits for it', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    play(W, [host, guest], () => host.lockstep.tick > 300 && guest.lockstep.tick > 300);
+    // the host's hash check failed twice (only the verdict: neither battle is touched)
+    host.lockstep.flagMismatch();
+    host.lockstep.flagMismatch();
+    expect(host.lockstep.desynced).toBe(true);
+    W.step(500);
+    expect(guest.lockstep.peers.get(0)).toMatchObject({ gone: true, why: 'desync' });
+    host.lockstep.queue('wave');
+    guest.lockstep.queue('wave');
+    expect(play(W, [host, guest], () => host.lockstep.finished && guest.lockstep.finished)).toBe(true);
+    expect(guest.backToLobby()).toBe(true);
+    expect(guest.lastPeer).toBe(null);
+    expect(guest.returning).toMatchObject({ name: 'Aiko', inRoom: false });
+    W.step(LOBBY.findMs * 2);
+    expect(guest.stuck).toBe(null);
+    host.backToLobby();
+    expect(W.until(() => host.paired && guest.paired, 3000)).not.toBe(null);
+    host.close();
+    guest.close();
+  });
+
+  it('a finished battle beats only every restBeatMs once both are at the end, and not at all once the ally left the room', () => {
+    const W = world();
+    const { host, guest } = battleRoom(W);
+    fightToEnd(W, host, guest);
+    W.step(3000);
+    const n0 = lsSent(guest);
+    W.step(80000);
+    const n = lsSent(guest) - n0;
+    // was a keepalive every second (keepaliveMs 1000 here): ~80
+    expect(n).toBeGreaterThanOrEqual(Math.floor(80000 / LOBBY.restBeatMs) - 1);
+    expect(n).toBeLessThanOrEqual(Math.ceil(80000 / LOBBY.restBeatMs) + 1);
+    host.close();
+    W.step(500);
+    const n1 = lsSent(guest);
+    W.step(60000);
+    expect(lsSent(guest)).toBe(n1);
+    guest.close();
+  });
+
+  it('backToLobby is only for a battle: false in the lobby and once closed', () => {
+    const W = world();
+    const host = open(W, true);
+    W.connect(host.room);
+    expect(host.backToLobby()).toBe(false);
+    expect(host.phase).toBe('lobby');
+    expect(host.room.log.some((e) => e.msg.type === 'lobby')).toBe(false);
+    host.close();
+    expect(host.backToLobby()).toBe(false);
+    expect(host.phase).toBe('closed');
+  });
+
+  it('New room gives the code up; idle closing too', () => {
+    const W = world();
+    const host = open(W, true);
+    W.connect(host.room);
+    host.close({ keepRoom: false });
+    expect(host.room.closeOpts).toEqual({ keep: false });
+    const idle = open(W, true);
+    W.connect(idle.room);
+    W.step(LOBBY.idleCloseMs + 1000);
+    expect(idle.error?.code).toBe('idle');
+    expect(idle.room.closeOpts).toEqual({});
+    idle.close();
   });
 });

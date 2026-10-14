@@ -210,17 +210,22 @@ export function createLocalAdapter(env = {}) {
     // ('reconnecting', like a Realtime channel error), false keeps it silent (a mute channel
     // that looks joined: the failure the Supabase adapter used to hit). _heal() ends it and
     // reports a rejoin (_heal({ report: false }): the link just starts working again).
+    // Like the Supabase adapter: reconnect({ seat: true }) takes the seat again (the room may be
+    // gone: onError; or reopened under a new secret: a new channel), and close({ keep }) lets a
+    // host step away without giving up its room.
     openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {}, onStatus = () => {} } = {}) {
       const self = me();
       if (!BC) throw Object.assign(new Error('offline: this browser cannot open local rooms'), { code: 'offline' });
-      let seat = null;
+      const takeSeat = () => (host ? db.openRoom(self, code) : db.joinRoom(self, code));
+      let taken = null;
       try {
-        seat = host ? db.openRoom(self, code) : db.joinRoom(self, code);
+        taken = takeSeat();
       } catch (e) {
         setTimeout(() => onError(e), 0); // like the Supabase adapter: errors arrive after openRoom returns
         return { net: COOP_NET.local, status: 'connecting', connected: false, send: () => false, peers: () => [], track() {}, reconnect() {}, close() {} };
       }
-      const ch = new BC(`ss-coop-${code}-${seat.secret}`);
+      let secret = taken.secret;
+      let ch = null;
       const peers = new Map(); // uid -> { meta, seen }
       let closed = false;
       let cut = null; // { send, recv, status } while a test cuts the link
@@ -232,24 +237,28 @@ export function createLocalAdapter(env = {}) {
       const emitPresence = () => onPresence([...peers.entries()].map(([id, p]) => ({ uid: id, ...p.meta })));
       const post = (data) => !cut?.send && safe(() => (ch.postMessage(data), true), false);
       const announce = () => post({ t: 'here', uid: self, meta });
-      ch.onmessage = (e) => {
-        const d = e.data || {};
-        if (d.uid === self || cut?.recv) return;
-        if (d.t === 'here') {
-          const isNew = !peers.has(d.uid);
-          peers.set(d.uid, { meta: d.meta || {}, seen: Date.now() });
-          if (isNew) {
-            announce();
-            emitPresence();
+      const listen = () => {
+        ch = new BC(`ss-coop-${code}-${secret}`);
+        ch.onmessage = (e) => {
+          const d = e.data || {};
+          if (d.uid === self || cut?.recv) return;
+          if (d.t === 'here') {
+            const isNew = !peers.has(d.uid);
+            peers.set(d.uid, { meta: d.meta || {}, seen: Date.now() });
+            if (isNew) {
+              announce();
+              emitPresence();
+            }
+          } else if (d.t === 'leave') {
+            if (peers.delete(d.uid)) emitPresence();
+          } else if (d.t === 'msg') {
+            const p = peers.get(d.uid);
+            if (p) p.seen = Date.now();
+            onMessage(d.msg, d.uid);
           }
-        } else if (d.t === 'leave') {
-          if (peers.delete(d.uid)) emitPresence();
-        } else if (d.t === 'msg') {
-          const p = peers.get(d.uid);
-          if (p) p.seen = Date.now();
-          onMessage(d.msg, d.uid);
-        }
+        };
       };
+      listen();
       announce();
       const timer = setInterval(() => {
         announce();
@@ -281,11 +290,32 @@ export function createLocalAdapter(env = {}) {
           Object.assign(meta, next);
           announce();
         },
-        /** A fresh channel: ends a faked fault (like a fresh Realtime channel on a good node). */
-        reconnect() {
+        /**
+         * A fresh channel: ends a faked fault (like a fresh Realtime channel on a good node).
+         * seat: take the seat again first (Retry): a room that is gone says so (onError), one
+         * reopened under a new secret moves this tab to its channel; a rate limit or a missing
+         * store only skips the check, as on Supabase.
+         */
+        reconnect({ seat = true } = {}) {
           if (closed) return;
           this.reconnects++;
           cut = null;
+          if (seat) {
+            try {
+              const next = takeSeat();
+              if (next.secret !== secret) {
+                safe(() => ch.close());
+                secret = next.secret;
+                peers.clear();
+                listen();
+              }
+            } catch (e) {
+              if (e?.code !== 'rate_limited' && e?.code !== 'offline') {
+                setTimeout(() => onError(e), 0);
+                return;
+              }
+            }
+          }
           report('connected', { rejoin: true });
           announce();
         },
@@ -299,14 +329,15 @@ export function createLocalAdapter(env = {}) {
           cut = null;
           if (say) report('connected', { rejoin: true });
         },
-        close() {
+        close({ keep = false } = {}) {
           if (closed) return;
           cut = null;
           post({ t: 'leave', uid: self });
           closed = true;
           clearInterval(timer);
           ch.close();
-          safe(() => db.leaveRoom(self, code));
+          // the guest frees its seat; the host gives up the code unless it only steps away
+          if (!(host && keep)) safe(() => db.leaveRoom(self, code));
         },
       };
     },

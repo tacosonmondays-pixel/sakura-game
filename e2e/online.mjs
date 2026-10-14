@@ -13,11 +13,20 @@
 //      after ~15 s and finds A within seconds once A's link works again; a third tab gets
 //      "Room full"; a "ready" lost on a mute link arrives with the next keepalive;
 //      a dropped guest link shows "Reconnecting…" and comes back paired and still ready;
-//      A starts; both place a girl through
+//   6. rematch (owner: "make it so the room stays"): A picks Nightmare (one life) and starts; the
+//      first enemy through ends the battle on both screens (same tick, same state hash); both see
+//      the results; A taps "Back to the room" first (its lobby waits for Bea, Bea's results say
+//      Aiko is back), then B with the browser's Back (the phone's back gesture): same code,
+//      paired again, Start locked until B taps Ready again;
+//      A switches back to Normal and starts battle 2, which runs the checks below.
+//      In battle 2 both place a girl through
 //      the real tower bar (tap card → tap ground), the wave runs and the lockstep state hashes
 //      of both clients match; a cut link drops the guest, the host re-admits it when the link
 //      is back and the hashes agree again; finally the guest leaves and the host plays on. Both
 //      battle cameras start Locked (the default) and neither a board drag nor placing moves them
+//   7. "Your last room": the guest (gone Home) finds the room on its co-op menu and taps Rejoin;
+//      the host leaves its solo battle through the menu, finds the room there too, taps Rejoin,
+//      and they are paired again in the same room
 //
 //   node e2e/online.mjs                              # 1280×720
 //   node e2e/online.mjs --viewport 844x390 --shots /tmp/online   # + screenshots
@@ -80,7 +89,16 @@ const shot = async (page, name) => {
   check(!leaked, `${name}: no "null" / "undefined" / "NaN" on screen${leaked ? ` (${leaked})` : ''}`);
   if (!shotsDir) return;
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 250)))));
-  await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png` });
+  // a page starved of frames (two software-GL pages on a busy machine) can take a long time to
+  // hand over a picture: wait longer, try twice, and never let a missing picture stop the run
+  for (let i = 0; i < 2; i++) {
+    try {
+      await page.screenshot({ path: `${shotsDir}/${prefix}${name}-${W}x${H}.png`, timeout: 90000 });
+      return;
+    } catch (e) {
+      log(`    (screenshot ${name}: ${String(e.message).split('\n')[0]}${i ? '' : ' — trying again'})`);
+    }
+  }
 };
 const go = (page, hash) => page.evaluate((h) => { location.hash = h; }, hash);
 // A normal tap/click waits for two animation frames with the element in the same place. On an
@@ -404,7 +422,7 @@ try {
     `co-op: after the reconnect both still see each other and the guest is still ready (${JSON.stringify(afterReconnect)})`);
   await shot(A, 'coop-lobby');
   await shot(B, 'coop-lobby-guest');
-  await tap(A, '[data-testid="coop-start"]');
+
   // in the battle = the battle screen is built and this client's lockstep runs with its ally
   // connected. On an overloaded machine (two software-WebGL pages) a battle screen can take longer
   // to load than the ally's load allowance: the host then starts alone and re-admits the guest
@@ -420,6 +438,89 @@ try {
     tick: window.__coop?.lockstep?.tick, peers: window.__coop?.lockstep ? [...window.__coop.lockstep.peers.values()].map((q) => ({ gone: q.gone, why: q.why, ready: q.ready })) : null, rejoins: window.__coop?.lockstep?.rejoins,
     trace: window.__coop?.lockstep?.trace,
   })).catch((e) => ({ error: e.message }));
+  // the hash checkpoints at or after `from` both clients compared (a frozen page answers nothing)
+  const comparedFrom = (p, from) => Promise.race([
+    p.evaluate((t0) => (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= t0), from).catch(() => []),
+    new Promise((r) => setTimeout(() => r([]), 30000).unref()),
+  ]);
+  /** The host's stage picker in the room: pick a difficulty (same stage). */
+  async function pickDifficulty(name) {
+    await tap(A, '[data-testid="coop-room-stage"]');
+    await A.waitForSelector('.ol-pick', { timeout: 10000 });
+    await tap(A, `.ol-pick .ol-seg-btn:text-is("${name}")`);
+    await tap(A, '[data-testid="coop-stage-ok"]');
+    await A.waitForSelector('.ol-pick', { state: 'detached', timeout: 10000 }).catch(() => null);
+  }
+
+  // ---- rematch: a battle that really ends, then both go back to the room ------------------
+  // (owner, Oct 14: "When you lose and go back to coop make it so the room stays and you can
+  // rejoin the room"). The host picks Nightmare (one life) in the room's own stage picker, nobody
+  // places a girl, and the host starts the wave: lockstep orders that both clients run, so the
+  // first enemy through ends the battle on both screens at the same tick.
+  await pickDifficulty('Nightmare');
+  check(await B.waitForFunction(() => window.__coop?.difficulty === 'nightmare', null, { timeout: 15000 }).then(() => true).catch(() => false),
+    'rematch: the host picks Nightmare in the room and the guest sees it');
+  await tap(A, '[data-testid="coop-start"]');
+  const [in1A, in1B] = await Promise.all([inBattle(A), inBattle(B)]);
+  if (!check(in1A && in1B, 'rematch: battle 1 runs on both')) {
+    log(`    host: ${JSON.stringify(await battleInfo(A))}`);
+    log(`    guest: ${JSON.stringify(await battleInfo(B))}`);
+  }
+  const seed1 = await A.evaluate(() => window.__coop.start.seed);
+  // one common hash checkpoint first (the battles agree), then the wave, at 2× then 3×
+  let t1 = 0;
+  for (const until = Date.now() + 300000; !t1 && Date.now() < until;) {
+    const [ta, tb] = await Promise.all([A, B].map((p) => comparedFrom(p, 120)));
+    t1 = Math.max(0, ...tb.filter((t) => ta.includes(t)));
+    if (!t1) await A.waitForTimeout(500);
+  }
+  check(!!t1, `rematch: battle 1's hash checkpoints are compared on both (tick ${t1})`);
+  await A.evaluate(() => window.__battle.ui.startWave());
+  for (const speed of [2, 3]) {
+    await tap(A, '[data-testid="speed"]');
+    await A.waitForFunction((v) => window.__battle?.ui?.speed === v || window.__battle?.sim?.state === 'lost', speed, { timeout: 30000, polling: 100 }).catch(() => null);
+  }
+  const resultsUp = (p) => p.waitForFunction(() => window.__battle?.sim?.state === 'lost' && !!document.querySelector('[data-testid="result"]:not([hidden]) [data-testid="coop-back"]'), null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
+  const [r1A, r1B] = await Promise.all([resultsUp(A), resultsUp(B)]);
+  if (!check(r1A && r1B, 'rematch: the battle ends on both screens (the first enemy through) and both see the results')) await Promise.all([A, B].map(async (p) => log(`    ${JSON.stringify(await battleInfo(p))}`)));
+  const end1 = await Promise.all([A, B].map((p) => p.evaluate(() => ({ tick: window.__coop.lockstep.tick, hash: window.__coop.lockstep.coop.hash(), pairs: window.__battle.coop.hashes }))));
+  check(end1[0].tick === end1[1].tick && end1[0].hash === end1[1].hash && end1.every((e) => e.pairs.every((q) => q.mine === q.theirs)),
+    `rematch: both battles end at the same tick with the same state (${end1.map((e) => `${e.tick}:${e.hash}`).join(' / ')})`);
+  const buttons = await Promise.all([A, B].map((p) => p.evaluate(() => [...document.querySelectorAll('[data-testid="result"] .bt-result-actions button')].map((b) => b.dataset.testid))));
+  check(buttons.every((b) => ['coop-back', 'coop-leave-room', 'home'].every((id) => b.includes(id))), `rematch: the results offer "Back to the room", "Leave room" and "Home" (${JSON.stringify(buttons)})`);
+  await shot(A, 'coop-results-host');
+  await shot(B, 'coop-results-guest');
+
+  // the host goes back first: its lobby (same code) waits for Bea, still on her results
+  await tap(A, '[data-testid="coop-back"]');
+  const backCode = await A.waitForSelector('[data-testid="coop-room-code"]', { timeout: 30000 }).then((e) => e.innerText()).catch(() => '');
+  const waitA = await A.waitForSelector('[data-testid="coop-wait"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  check(backCode.trim() === code && /Waiting for Bea/.test(waitA) && /still on the battle screen/.test(waitA),
+    `rematch: "Back to the room" lands the host in room ${backCode.trim()} again, waiting for Bea on her results (${waitA.replace(/\s+/g, ' ').slice(0, 90)})`);
+  check(await A.locator('[data-testid="coop-start"]').isDisabled(), 'rematch: Start is locked while the guest is away');
+  const allyBack = await B.waitForSelector('[data-testid="coop-ally-status"]:not([hidden])', { timeout: 15000 }).then((e) => e.innerText()).catch(() => '');
+  check(/Aiko is back in the room/.test(allyBack), `rematch: the guest's results say the host is back in the room (${allyBack})`);
+  await shot(A, 'coop-lobby-ally-on-results');
+  await shot(B, 'coop-results-ally-back');
+  await B.waitForTimeout(1500); // a moment on the results screen
+  // the guest uses the browser's Back (the phone's back gesture) instead of the button: once the
+  // battle is over that also goes back to the room (it used to leave it)
+  await B.goBack();
+  const backCodeB = await B.waitForSelector('[data-testid="coop-room-code"]', { timeout: 30000 }).then((e) => e.innerText()).catch(() => '');
+  const repaired = await Promise.all([A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 20000 }), B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 20000 })]).then(() => true).catch(() => false);
+  const pair2 = await Promise.all([A, B].map((p) => p.evaluate(() => ({ code: window.__coop.code, paired: window.__coop.paired, phase: window.__coop.phase, reconnects: window.__coop.room.reconnects }))));
+  check(backCodeB.trim() === code && repaired && pair2.every((x) => x.code === code && x.paired && x.phase === 'lobby'),
+    `rematch: both back in room ${code} (the guest through the browser's Back) and paired again, no code typed (${JSON.stringify(pair2)})`);
+  await A.waitForTimeout(1500);
+  check(await A.locator('[data-testid="coop-start"]').isDisabled() && /NOT READY/.test(await A.locator('[data-testid="coop-ready-1"]').innerText().catch(() => '')),
+    'rematch: the guest has to tap Ready again — Start stays locked until then');
+  // battle 2 runs the long checks below: back to Normal
+  await pickDifficulty('Normal');
+  await B.waitForFunction(() => window.__coop?.difficulty === 'normal', null, { timeout: 15000 }).catch(() => null);
+  await tap(B, '[data-testid="coop-ready"]');
+  check(await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 15000 }).then(() => true).catch(() => false),
+    'rematch: Start unlocks once the guest is ready again');
+  await tap(A, '[data-testid="coop-start"]');
   const [inA, inB] = await Promise.all([inBattle(A), inBattle(B)]);
   if (!check(inA, 'co-op: host is in the battle') | !check(inB, 'co-op: guest is in the battle')) {
     log(`    host: ${JSON.stringify(await battleInfo(A))}`);
@@ -428,6 +529,9 @@ try {
     const ev = (p) => p.evaluate(() => window.__coop.lockstep.trace.map((e) => `${e.ev}@${e.tick}`).join(' ')).catch(() => '?');
     log(`    connection events — host: ${await ev(A)} | guest: ${await ev(B)}`);
   }
+  const fresh = await Promise.all([A, B].map((p) => p.evaluate(() => ({ seed: window.__coop.start.seed, diff: window.__battle.sim.difficulty, state: window.__battle.sim.state, ended: !!window.__battle.ui.ended, peerGone: window.__coop.peerGone }))));
+  check(fresh.every((f) => f.seed === fresh[0].seed && f.seed !== seed1 && f.diff === 'normal' && f.state !== 'lost' && !f.ended && !f.peerGone),
+    `rematch: battle 2 is a fresh battle on both (${JSON.stringify(fresh)})`);
   await Promise.all([A, B].map((p) => p.waitForFunction(() => {
     for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
       if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
@@ -573,10 +677,7 @@ try {
   // rebuilt guest starts its comparisons afresh), so wait for a tick that both really compared.
   // (generous: on a shared, overloaded 4-core box a page has been seen getting no frames for
   // 2.5 minutes, twice in a row; this waits that out)
-  const comparedTicks = (p) => Promise.race([
-    p.evaluate(() => (window.__battle?.coop?.hashes || []).map((q) => q.t).filter((t) => t >= 360)).catch(() => []),
-    new Promise((r) => setTimeout(() => r([]), 30000).unref()), // a frozen page answers nothing
-  ]);
+  const comparedTicks = (p) => comparedFrom(p, 360);
   let tB = 0;
   for (const until = Date.now() + 600000; !tB && Date.now() < until;) {
     const [ta, tb] = await Promise.all([A, B].map(comparedTicks));
@@ -638,6 +739,32 @@ try {
   const ticking = await A.waitForFunction((t) => window.__battle.coop.tick > t + 30 && !window.__battle.coop.lockstep.stalled, t0, { timeout: 40000, polling: 250 }).then(() => true).catch(() => false);
   check(ticking, 'co-op: the host\'s battle keeps ticking after the ally left');
   await shot(A, 'coop-ally-left');
+
+  // ---- "Your last room": back into the same room from the co-op menu, no code typed --------
+  // the guest went Home (above): its co-op menu offers the room again
+  await go(B, '#/coop');
+  const lastB = await B.waitForSelector('[data-testid="coop-last-room"]', { timeout: 15000 }).then((e) => e.innerText()).catch(() => '');
+  check(lastB.includes(code) && /You joined/.test(lastB), `last room: the guest's co-op menu shows "Your last room" ${code} (${lastB.replace(/\s+/g, ' ').slice(0, 70)})`);
+  await shot(B, 'coop-hub-last-room');
+  await B.waitForTimeout(1100); // (one room call per second)
+  await tap(B, '[data-testid="coop-rejoin"]');
+  const rejoinB = await B.waitForSelector('[data-testid="coop-room-code"]', { timeout: 15000 }).then((e) => e.innerText()).catch(() => '');
+  check(rejoinB.trim() === code, `last room: Rejoin takes the guest back into room ${rejoinB.trim()}`);
+  // the host leaves its solo battle through the co-op menu (its room stays registered) and
+  // finds the room on its co-op menu too
+  await tap(A, '[data-testid="pause"]');
+  await tap(A, '[data-testid="quit"]');
+  await tap(A, '[data-testid="confirm-ok"]');
+  const lastA = await A.waitForSelector('[data-testid="coop-last-room"]', { timeout: 20000 }).then((e) => e.innerText()).catch(() => '');
+  check(lastA.includes(code) && /You host/.test(lastA), `last room: the host's co-op menu shows "Your last room" ${code} (${lastA.replace(/\s+/g, ' ').slice(0, 70)})`);
+  await shot(A, 'coop-hub-last-room-host');
+  await tap(A, '[data-testid="coop-rejoin"]');
+  const rejoinA = await A.waitForSelector('[data-testid="coop-room-code"]', { timeout: 15000 }).then((e) => e.innerText()).catch(() => '');
+  const rejoined = await Promise.all([A.waitForSelector('[data-testid="coop-player-1"]', { timeout: 20000 }), B.waitForSelector('[data-testid="coop-player-0"]', { timeout: 20000 })]).then(() => true).catch(() => false);
+  const pair3 = await Promise.all([A, B].map((p) => p.evaluate(() => ({ code: window.__coop?.code, host: window.__coop?.isHost, paired: window.__coop?.paired }))));
+  check(rejoinA.trim() === code && rejoined && pair3.every((x) => x.code === code && x.paired) && pair3[0].host && !pair3[1].host,
+    `last room: both Rejoined room ${code} and are paired again (${JSON.stringify(pair3)})`);
+  await shot(A, 'coop-rejoined-host');
 } catch (e) {
   check(false, `unexpected error: ${e.stack || e.message}`);
 } finally {

@@ -25,7 +25,8 @@ import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
-import { battleLockstep } from '../../online/coop/session.js';
+import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
+import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
 import { applyCoopResult } from '../../online/coop/rewards.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { COOP } from '../../data/coop.js';
@@ -51,17 +52,21 @@ export function mountBattle(root, params, hooks) {
   // Co-op: the Sim comes from the session's Lockstep (same start message on both clients)
   const session = params.coop ? hooks.coop || null : null;
   const ls = battleLockstep(params, session);
+  // a co-op battle page without its battle (reloaded, or reached again later): the room itself
+  // is still there, so lead back into it (no code to retype, no new room)
+  const coopRoom = params.coop && !ls ? roomByCode(normalizeCode(params.coop)) : null;
   const req = ls
     ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, practice: false, error: null }
     : params.coop
-      ? { error: 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
+      ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
       : parseBattleParams(params, profile);
   const shell = h('div.bt-root', { 'data-testid': 'battle' });
   root.append(shell);
 
   if (req.error) {
-    const back = params.coop ? () => navigate('coop') : () => navigate('campaign');
-    shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { onclick: back }, params.coop ? 'Back to co-op' : 'Back to the map'))));
+    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : () => navigate('campaign');
+    const label = coopRoom ? 'Back to the room' : params.coop ? 'Back to co-op' : 'Back to the map';
+    shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { 'data-testid': coopRoom ? 'coop-room-again' : 'battle-unavailable-back', onclick: back }, label))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
   }
 
@@ -559,18 +564,37 @@ export function mountBattle(root, params, hooks) {
       out.note = `Co-op with ${session.player(1 - mySlot)?.name || 'your ally'} — drops for both, medals stay solo.`;
       return out;
     };
+    // the room stays after the battle: both land back in its lobby with the same code. One tap
+    // only: the screen changes a moment later (a second tap must not leave the room it kept)
+    let acted = false;
+    const once = (fn) => () => {
+      if (acted) return;
+      acted = true;
+      fn();
+    };
     ctx.extraActions = () => [
-      { label: 'Back to co-op', testid: 'coop-back', cta: true, icon: 'play', onClick: () => leaveCoop() },
-      { label: 'Home', testid: 'home', icon: 'home', onClick: () => { leaveCoop(false); navigate('lobby'); } },
+      { label: 'Back to the room', testid: 'coop-back', cta: true, icon: 'play', onClick: once(() => backToRoom()) },
+      { label: 'Leave room', testid: 'coop-leave-room', icon: 'back', onClick: once(() => leaveCoop()) },
+      { label: 'Home', testid: 'home', icon: 'home', onClick: once(() => { leaveCoop(false); navigate('lobby'); }) },
     ];
+    // where my ally is once the battle is over: a line on the results sheet (the feed sits under it)
+    const allyLine = h('p.bt-coop-ally', { 'data-testid': 'coop-ally-status' });
+    allyLine.hidden = true;
+    ctx.resultLine = () => allyLine;
+    const allyName = () => session.player(1 - mySlot)?.name || 'Your ally';
     const offs = [
       session.on('applied', ({ cmd, res }) => onApplied(cmd, res)),
       session.on('peerGone', (reason) => {
-        const ally = session.player(1 - mySlot)?.name || 'Your ally';
+        const ally = allyName();
         const text = reason === 'desync' ? 'Lost sync with your ally — you continue solo.'
-          : reason === 'left' ? `${ally} left. Their girls stay and keep fighting; their income is yours now.`
+          : reason === 'lobby' ? (ctx.ended ? `${ally} is back in the room.` : `${ally} went back to the room. Their girls stay and keep fighting.`)
+            : reason === 'left' ? (ctx.ended ? `${ally} left the room.` : `${ally} left. Their girls stay and keep fighting; their income is yours now.`)
             : `Lost contact with ${ally}. Play on — their girls keep fighting, and they rejoin as soon as they are back.`;
         ctx.feed?.push(text, 'warn', { ms: 5200 });
+      }),
+      session.on('ally', (where) => {
+        allyLine.textContent = where === 'room' ? `${allyName()} is back in the room — tap "Back to the room" to play again.` : `${allyName()} left the room.`;
+        allyLine.hidden = false;
       }),
       session.on('peerBack', () => ctx.feed?.push(`${session.player(1 - mySlot)?.name || 'Your ally'} is back — defending together again.`, 'good', { ms: 3600 })),
       session.on('resync', () => hooks.restart()),
@@ -587,6 +611,16 @@ export function mountBattle(root, params, hooks) {
   function leaveCoop(go = true) {
     session?.close();
     if (go) navigate('coop');
+  }
+
+  /** Results → the same room's lobby (same code, same ally); a dead session falls back to the co-op menu. */
+  function backToRoom() {
+    // (already back in the lobby: the back gesture got there first)
+    if (session?.phase !== 'lobby' && !session?.backToLobby()) {
+      leaveCoop();
+      return;
+    }
+    navigate('coop', session.isHost ? { id: session.code, host: '1' } : { id: session.code });
   }
 
   function coopActions() {
