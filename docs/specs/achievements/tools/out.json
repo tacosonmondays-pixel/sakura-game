@@ -699,5 +699,34 @@
   "a_gold_rush",
   "a_not_fooled",
   "a_mirror_mirror"
- ]
+ ],
+ "shipped": {
+  "rowsInGame": 102,
+  "missing": [],
+  "differs": [],
+  "launch": {
+   "n": 86,
+   "gems": 5930,
+   "tickets": 5,
+   "sturdy": 8,
+   "ornate": 61,
+   "radiant": 18,
+   "celestial": 4,
+   "ribbons": 20,
+   "titles": 26
+  },
+  "all": {
+   "n": 102,
+   "gems": 6780,
+   "tickets": 6,
+   "sturdy": 8,
+   "ornate": 84,
+   "radiant": 20,
+   "celestial": 5,
+   "ribbons": 22,
+   "titles": 34
+  },
+  "totalsMatch": true,
+  "ok": true
+ }
 }

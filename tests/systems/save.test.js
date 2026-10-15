@@ -198,3 +198,44 @@ describe('loadSaveText (what store.load keeps a backup of)', () => {
     }
   });
 });
+
+// Achievements expansion (docs/specs/ACHIEVEMENTS.md §3.1–3.2): the §3.2 probe as a test. What this build writes must
+// survive the migrateProfile an older cached tab runs (the same claim and counter cleaners since v0.1.27).
+describe('achievements: old-build safety', () => {
+  const written = () => {
+    const p = createProfile();
+    p.missions.achievements = { a_first_win: true, a_quad_40: true, a_fp_bosses_4: true };
+    p.missions.counters = { coopWin: 3, 'ach:flawless': 2, 'ach:seenHR': 4, 'ach:seenTT': 2, 'gear:legendary': 1, 'gear10:mythic': '2', eventWin: 7, bad: true, obj: { x: 1 } };
+    p.honors = { a_quad_40: true }; // a top-level block an older build would drop (ownership must never live in one)
+    p.seenIntro = ['ach2'];
+    return JSON.parse(JSON.stringify(p));
+  };
+
+  it('keeps unknown claimed ids and numeric counters, drops booleans and objects, keeps seenIntro', () => {
+    const raw = written();
+    const m = migrateProfile(raw);
+    expect(migrationDropsData(raw)).toBe(false);
+    expect(m.missions.achievements).toEqual({ a_first_win: true, a_quad_40: true, a_fp_bosses_4: true });
+    expect(m.missions.counters).toMatchObject({ coopWin: 3, 'ach:flawless': 2, 'ach:seenHR': 4, 'ach:seenTT': 2, 'gear:legendary': 1, 'gear10:mythic': 2, eventWin: 7 });
+    expect('bad' in m.missions.counters || 'obj' in m.missions.counters).toBe(false);
+    expect('honors' in m).toBe(false);
+    expect(m.seenIntro).toEqual(['ach2']);
+  });
+
+  it('falsy claims are dropped, true ones kept word for word', () => {
+    const raw = written();
+    raw.missions.achievements.a_chapter_1 = false;
+    raw.missions.achievements.a_chapter_2 = 0;
+    const m = migrateProfile(raw);
+    expect(m.missions.achievements.a_chapter_1).toBeUndefined();
+    expect(m.missions.achievements.a_chapter_2).toBeUndefined();
+  });
+
+  it('no new top-level key, no SAVE_VERSION bump, seenIntro "ach2" round-trips', () => {
+    expect(SAVE_VERSION).toBe(2);
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story']);
+    const p = createProfile();
+    p.seenIntro.push('ach2');
+    expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');
+  });
+});

@@ -100,7 +100,7 @@ describe('sfx sprite', () => {
     const snap = { coins: 1, gems: 1, items: 1, gearCount: 1, gearLevels: 1 };
     const more = { coins: 9, gems: 9, items: 9, gearCount: 2, gearLevels: 3 };
     for (const r of ['breakthrough', 'gear-enhance', 'gear-reroll', 'gear-equip', 'gear-unequip', 'gear-lock', 'shop', 'sweep', 'gearbox-open',
-      'gear-salvage', 'formation', 'secretary', 'missions', 'achievements', 'login', 'redeem']) {
+      'gear-salvage', 'formation', 'secretary', 'missions', 'achievements', 'achievements-special', 'login', 'redeem']) {
       for (const a of economyCues(snap, more, r)) if (a.sfx) ids.add(a.sfx);
     }
     const kinds = ['arrow', 'needle', 'bullet', 'shell', 'fireball', 'shuriken', 'orb', 'flask', 'spark', 'bolt', 'slash', 'pulse', 'beam', 'chain', 'build'];

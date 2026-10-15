@@ -38,6 +38,8 @@ import { createFreeplayBattle } from './freeplay.js';
 import { COOP } from '../../data/coop.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { applyBattleResult } from '../../systems/rewards.js';
+import { track } from '../../systems/missions.js';
+import { countCoopWin } from '../../systems/achievementCounters.js';
 import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } from '../../systems/freeplayRewards.js';
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -853,7 +855,11 @@ export function mountBattle(root, params, hooks) {
         const ledger = freeplayLedger(session, ls.start.seed);
         const end = payFreeplayEnd(ledger, p, result, rng);
         out = { ...end, bank: ledger.bank, freeplayRewards: end.rewards, rewards: normalizeList([...(ledger.bank?.rewards || []), ...end.rewards]) };
-      } else out = applyCoopResult(p, result, rng);
+        countCoopWin(p, session, `coop:${ls.start.seed}`); // the clear was won (achievements; once per battle)
+      } else {
+        out = applyCoopResult(p, result, rng);
+        if (result.won) countCoopWin(p, session, `coop:${ls.start.seed}`);
+      }
       out.note = `Co-op with ${session.player(1 - mySlot)?.name || 'your ally'} — drops for both, medals stay solo.`;
       return out;
     };
@@ -1003,6 +1009,9 @@ export function mountBattle(root, params, hooks) {
     })
       .then(({ state, counted }) => {
         ctx.clanBossResult = state;
+        // achievements: one clan boss attempt resolved (the server accepted it)
+        track(store.profile, 'clanBossHit', 1);
+        store.commit('clan-boss-hit');
         const text = counted >= dmg || !dmg ? `${fmtCoins(dmg)} damage counted` : `${fmtCoins(counted)} of ${fmtCoins(dmg)} damage counted`;
         ctx.feed?.push(`Clan boss: ${text} · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
       })
