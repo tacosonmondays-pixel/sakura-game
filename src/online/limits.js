@@ -49,10 +49,15 @@ export const RULES = Object.freeze({
   donate: { gapMs: 500, max: 60, windowMs: HOUR, label: 'donation' },
   // checking donations whose answer was lost (settle_donations; each call may void up to 20 keys)
   settle: { gapMs: 0, max: 30, windowMs: HOUR, label: 'donation check' },
+  // ---- [profile] supabase/migrations/20261016000000_profile.sql -----------------------------
+  // publishing my profile card (the sync sends it only when it changed)
+  profile: { gapMs: 1 * SEC, max: 60, windowMs: HOUR, label: 'profile update' },
+  // bio changes
+  bio: { gapMs: 0, max: 10, windowMs: DAY, label: 'bio change' },
 });
 
 /** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */
-export const ROLLING_DAILY = ['dm_day', 'dm_new', 'report', 'rename', 'clan_create', 'boss_hit'];
+export const ROLLING_DAILY = ['dm_day', 'dm_new', 'report', 'rename', 'clan_create', 'boss_hit', 'bio'];
 
 /**
  * Pure verdict for one action given the earlier hit times (ms, any order).
