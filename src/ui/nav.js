@@ -29,6 +29,8 @@ const PARENTS = {
   challenge: 'missions',
   commissions: 'missions',
   coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
+  // [social] a conversation (#/messages/<threadId> or /new) → the Messages list → the lobby
+  messages: (p) => (p.id ? 'messages' : 'lobby'),
 };
 
 const fixedParent = (name, params = {}) => {

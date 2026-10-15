@@ -1,12 +1,14 @@
 // #/clan — clans. Without a clan: browse / search, create, join by code (Rosie777 opens the
-// developer clan). With a clan (#/clan or #/clan/<id>?tab=…): header with level and XP, and
-// tabs Members · Chat · Boss · Requests (leaders/officers) · Supply Bot (developer clan only).
+// developer clan), and "Donations waiting for you" when a former clan left some. With a clan
+// (#/clan or #/clan/<id>?tab=…): header with level and XP, and tabs Members · Chat · Requests
+// (tab id 'donate': material requests + donations) · Clan Boss · Applicants (leaders/officers;
+// tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).
 import { h, screen, button, svgEl, toast, confirmDialog, tabs as tabBar } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
-import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { createSupplyBot } from '../online/supplyBot.js';
 import {
@@ -18,6 +20,10 @@ import { itemTile } from '../components.js';
 import { enemyToken } from '../battle/util.js';
 import { bossPortrait } from '../online/bossArt.js';
 import { makeRoomCode } from '../../online/coop/session.js';
+import { onlineHeadExtra } from '../online/inboxButton.js';
+import { openPlayerCard } from '../online/playerCard.js';
+import { createDonatePanel, collectCard } from '../online/donatePanel.js';
+import { hub } from '../online/socialHub.js';
 
 function emblem(name, size = 56) {
   const el = svgEl(lobbyIcon(EMBLEMS.includes(name) || name === 'wiki' ? name : 'assault', { uid: `emb-${name}-${size}`, shadow: false }), 'ol-emblem');
@@ -26,7 +32,7 @@ function emblem(name, size = 56) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Clan', { cls: 'ol-screen', extra: onlinePill() });
+  const { el, body } = screen('Clan', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   let destroyed = false;
   const cleanups = [];
@@ -132,6 +138,7 @@ export function render(root, params = {}) {
           h('h3.panel-title', 'Find a clan'),
           h('div.ol-browse-body', ...[localNotice('clan'), search, list].filter(Boolean)))),
       h('aside.ol-side',
+        collectCard(backend), // [social] donations from a clan you left
         h('section.panel.ol-create', { 'data-testid': 'clan-create-panel' },
           h('h3.panel-title', 'Create a clan'),
           h('div.ol-form',
@@ -157,22 +164,39 @@ export function render(root, params = {}) {
   function home(backend, mine) {
     let clan = mine.clan;
     let role = mine.role;
+    // Tab ids vs labels: 'donate' is labelled "Requests" (material requests, everyone) and
+    // 'requests' is labelled "Applicants" (join requests, officers) — the ids stay stable for links.
+    let hubDot = hub.badges.donationsReady > 0; // donations arrived for me
+    let panelDot = false; // the Requests tab saw requests I can help with
+    let donateBadge = hubDot;
     const tabsList = () => {
-      const t = [{ id: 'members', label: 'Members' }, { id: 'chat', label: 'Chat' }, { id: 'boss', label: 'Clan Boss' }];
-      if (can(role, 'answer') && !clan.isDev) t.push({ id: 'requests', label: 'Requests' });
+      const t = [{ id: 'members', label: 'Members' }, { id: 'chat', label: 'Chat' }];
+      if (!clan.isDev) t.push({ id: 'donate', label: 'Requests', badge: donateBadge });
+      t.push({ id: 'boss', label: 'Clan Boss' });
+      if (can(role, 'answer') && !clan.isDev) t.push({ id: 'requests', label: 'Applicants' });
       if (clan.isDev) t.push({ id: 'supply', label: 'Supply Bot' });
       return t;
     };
-    let tab = tabsList().some((t) => t.id === params.tab) ? params.tab : clan.isDev ? 'supply' : 'members';
+    const tabItems = tabsList();
+    let tab = tabItems.some((t) => t.id === params.tab) ? params.tab : clan.isDev ? 'supply' : 'members';
     const header = h('section.panel.ol-clan-head', { 'data-testid': 'clan-home' });
     const pane = h('div.ol-pane');
-    const tabsEl = tabBar(tabsList(), tab, (id) => {
+    const tabsEl = tabBar(tabItems, tab, (id) => {
       tab = id;
       navigate('clan', { tab: id }, { replace: true });
       paintTab();
     });
+    const setDonateBadge = () => {
+      const on = hubDot || panelDot;
+      if (on === donateBadge) return;
+      donateBadge = on;
+      const it = tabItems.find((t) => t.id === 'donate');
+      if (it) it.badge = on;
+      tabsEl.setActive(tab);
+    };
     body.replaceChildren(h('div.ol-clan-wrap', ...[header, localNotice('clan'), tabsEl, pane].filter(Boolean)));
     let paneCleanup = null;
+    let paneRefresh = null;
 
     function paintHeader() {
       const lv = levelFromXp(clan.xp);
@@ -209,8 +233,14 @@ export function render(root, params = {}) {
     function paintTab() {
       paneCleanup?.();
       paneCleanup = null;
+      paneRefresh = null;
       pane.dataset.tab = tab;
-      if (tab === 'chat') {
+      if (tab === 'donate' && !clan.isDev) {
+        const panel = createDonatePanel({ backend, onBadge: (n) => { panelDot = n > 0; setDonateBadge(); } });
+        pane.replaceChildren(panel.el);
+        paneCleanup = () => panel.destroy();
+        paneRefresh = () => panel.refresh();
+      } else if (tab === 'chat') {
         const chat = createChatPanel({ channel: `clan:${clan.id}`, emptyText: 'Your clan chat is quiet. Plan this week\'s boss!' });
         pane.replaceChildren(chat.el);
         paneCleanup = () => chat.destroy();
@@ -245,13 +275,16 @@ export function render(root, params = {}) {
           role = now.role;
           paintHeader();
           tabsEl.setActive(tab);
-          if (tab === 'members' || tab === 'requests' || tab === 'boss') paintTab();
+          if (tab === 'donate') paneRefresh?.();
+          else if (tab === 'members' || tab === 'requests' || tab === 'boss') paintTab();
         } catch {
           /* keep showing what we have */
         }
       }, 120);
     });
-    cleanups.push(off, () => paneCleanup?.(), () => clearTimeout(t));
+    // [social] donations that arrived for me (Requests tab dot)
+    const offBadges = hub.on('badges', (b) => { hubDot = b.donationsReady > 0; setDonateBadge(); });
+    cleanups.push(off, offBadges, () => paneCleanup?.(), () => clearTimeout(t));
     backend.touch().catch(() => {});
   }
 
@@ -284,14 +317,17 @@ function membersTab(backend, clan, role, pane) {
             acts.push(button('Demote', { kind: 'ghost', small: true, onClick: () => act(() => backend.setRole(m.userId, 'member')) }));
           }
         }
-        if (!me && can(role, 'kick', m.role) && !clan.isDev) acts.push(button('Remove', { kind: 'danger', small: true, onClick: async () => { if (await confirmDialog(`Remove ${m.name} from the clan?`, { title: 'Remove member', ok: 'Remove', danger: true })) act(() => backend.kick(m.userId)); } }));
+        if (!me && can(role, 'kick', m.role) && !clan.isDev) acts.push(button('Remove', { kind: 'danger', small: true, testid: 'member-remove', onClick: async () => { if (await confirmDialog(`Remove ${m.name} from the clan?`, { title: 'Remove member', ok: 'Remove', danger: true })) act(() => backend.kick(m.userId)); } }));
         if (!me) acts.push(button('Co-op', { kind: 'yellow', small: true, icon: 'play', testid: 'member-coop', onClick: () => navigate('coop', { id: makeRoomCode(), host: '1', invite: 'clan' }) }));
         const recent = Date.now() - m.lastActive < 5 * 60000;
-        return h(`div.ol-member${me ? '.me' : ''}`, { 'data-testid': 'member-row' },
-          avatar(m.avatar, 40),
-          h('div.ol-member-info',
-            h('div.ol-member-name', h('b', m.name), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
-            h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`)),
+        // [social] tap a member: their player card (Message, Invite to co-op, Add friend, Block, Report)
+        const card = () => openPlayerCard(m.userId, { name: m.name, level: m.level, avatar: m.avatar }, { context: 'clan', clanmate: !me });
+        return h(`div.ol-member${me ? '.me' : ''}`, { 'data-testid': 'member-row', 'data-user': m.userId },
+          h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card, 'aria-label': `${m.name}: player card` },
+            avatar(m.avatar, 40),
+            h('div.ol-member-info',
+              h('div.ol-member-name', h('b', m.name), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
+              h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`))),
           h('div.ol-member-acts', acts));
       }));
     } catch (e) {
@@ -378,9 +414,15 @@ function bossTab(backend, clan, pane) {
       });
       async function claimWeek(week) {
         try {
+          // the server pays a week once: the reward goes into the NEWEST save (another tab may have
+          // saved since this one loaded it, M5) and is written at once — never into an old copy
+          // this tab can no longer save
+          store.refresh();
           const r = await backend.claimBossReward(week);
+          store.refresh();
           addItems(store.profile, r.rewards);
           store.commit('clan-boss');
+          store.saveNow();
           toast(`Tier ${r.tier} rewards claimed!`, 'good');
           if (alive) bossTab(backend, clan, pane);
         } catch (e) {

@@ -5,7 +5,7 @@ import { store } from '../../core/store.js';
 import { getBackend } from '../../online/backend.js';
 import { readIdentity, writeIdentity, profileCard } from '../../online/identity.js';
 import { validateName } from '../../online/clanRules.js';
-import { errorText } from '../../online/errors.js';
+import { errorText, toOnlineError } from '../../online/errors.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { getUnit } from '../../data/units.js';
 
@@ -41,9 +41,20 @@ export function ensureOnline({ ask = true } = {}) {
       askedName = true;
       name = await askName();
     }
-    if (name && (backend.user?.name !== name || backend.user?.level !== card.level || backend.user?.avatar !== card.avatar)) {
-      await backend.updateProfile({ name, ...card });
+    // a stored name the rules no longer accept (a look-alike of a reserved name, a blank filler)
+    // is never sent: the server keeps the account's current name and everything else works
+    const nameOk = !!name && !validateName(name);
+    if (backend.user && ((nameOk && backend.user.name !== name) || backend.user.level !== card.level || backend.user.avatar !== card.avatar)) {
+      try {
+        await backend.updateProfile(nameOk ? { name, ...card } : { ...card });
+      } catch (e) {
+        // the name was refused (or renamed too often today): sync the rest, keep the old name
+        if (!nameOk || !['invalid', 'rate_limited'].includes(toOnlineError(e).code)) throw e;
+        await backend.updateProfile({ ...card });
+      }
     }
+    // [social] a player who is online now gets badges, live DMs and invite pop-ups (the hub)
+    import('./socialHub.js').then((m) => m.startSocialHub({ force: true })).catch(() => {});
     return backend;
   })();
   pending.catch(() => {}).finally(() => {
@@ -195,8 +206,15 @@ export function connecting(host, run) {
   const status = h('p.muted', 'Connecting…');
   host.replaceChildren(h('div.ol-connecting', h('i.ol-spinner'), status));
   run().catch((e) => {
+    const box = host.querySelector('.ol-connecting');
+    // the screen was already drawn (a later step failed): keep it, just say so
+    if (!box) {
+      console.warn('[online] screen step failed', e);
+      showError(e);
+      return;
+    }
     status.textContent = errorText(e);
-    host.querySelector('.ol-connecting').append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
+    box.append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
   });
 }
 

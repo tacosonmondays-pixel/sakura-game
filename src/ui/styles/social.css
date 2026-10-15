@@ -1,0 +1,351 @@
+/* Sakura Sentinels — social UI (DMs, friends, player card, co-op invites by DM, clan material
+   requests). Same Blue Archive language as online.css: white panels, navy italic headings, slanted
+   pills, yellow calls to action, sakura-pink for the social accents. Landscape-first; every layout
+   compacts under 480px of height and collapses to one pane under 700px of width. */
+
+/* ---------- small shared bits ---------- */
+.sc-pill {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; margin-left: 6px;
+  background: var(--pink); color: #fff; font-size: 0.66rem; font-weight: 900; font-style: normal; box-shadow: 0 0 0 1.5px #fff; vertical-align: 1px;
+}
+.sc-badge {
+  position: absolute; top: -3px; right: -1px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center;
+  background: var(--pink); color: #fff; font-size: 0.66rem; font-weight: 900; box-shadow: 0 0 0 2px #fff; pointer-events: none;
+}
+.menu-tab-badge {
+  position: absolute; top: 5px; right: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center;
+  background: var(--pink); color: #fff; font-size: 0.72rem; font-weight: 900; box-shadow: 0 0 0 2px #fff;
+}
+.sc-icon { width: 20px; height: 20px; display: inline-flex; }
+.sc-icon svg { width: 100%; height: 100%; }
+.sc-icon-btn {
+  flex: none; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--blue-deep); display: grid; place-items: center; padding: 0;
+  transition: transform var(--t-press) var(--ease);
+}
+.sc-icon-btn:active { transform: scale(0.92); }
+.sc-mini { border: 1px solid var(--line); background: #fff; color: var(--blue-deep); border-radius: 7px; padding: 4px 10px; font-weight: 900; font-size: 0.76rem; min-height: 30px; white-space: nowrap; }
+.sc-mini-blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+.sc-mini:active { transform: scale(0.95); }
+.sc-small { font-size: 0.78rem; }
+.sc-grow { flex: 1; }
+.sc-inbox-btn { position: relative; }
+.sc-head-extra { display: flex; align-items: center; gap: 8px; }
+.sc-head-extra .icon-btn { width: 38px; height: 34px; padding: 4px; }
+.sc-head-extra .icon-btn .svg-icon { width: 20px; height: 20px; }
+.sc-head-extra .icon-btn-badge { background: var(--pink); }
+
+/* ---------- "Needs the latest server update" ---------- */
+.sc-needs-update {
+  display: flex; gap: 14px; align-items: center; max-width: 560px; margin: 18px auto; padding: 16px 18px; border-radius: var(--radius);
+  background: linear-gradient(110deg, #fff 0%, #fff 60%, var(--blue-soft) 100%); box-shadow: var(--shadow); border: 1px solid var(--panel-border);
+}
+.sc-needs-update.compact { margin: 6px 0; padding: 10px 12px; box-shadow: none; border-style: dashed; }
+.sc-nu-ico { width: 64px; height: 64px; flex: none; display: inline-flex; }
+.sc-nu-ico svg { width: 100%; height: 100%; }
+.sc-needs-update.compact .sc-nu-ico { width: 42px; height: 42px; }
+.sc-nu-text b { display: block; font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.08rem; }
+.sc-nu-text p { margin: 4px 0 8px; font-size: 0.82rem; }
+.sc-nu-acts { display: flex; gap: 10px; align-items: center; }
+.sc-nu-status { font-weight: 800; color: var(--blue-deep); }
+.sc-nu-wrap { padding: 8px; }
+
+/* ---------- Pop-ups (DM, friend request, co-op invite) ---------- */
+.sc-toast-host {
+  position: fixed; left: 50%; top: calc(10px + var(--safe-top)); transform: translateX(-50%); z-index: 210; width: min(94vw, 460px);
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+/* a game toast ("You and Aiko are friends!") shows below the pop-ups instead of under them */
+body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(96px + var(--safe-top)); }
+.sc-toast {
+  pointer-events: auto; position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 34px 9px 10px; border-radius: 12px;
+  background: rgba(255,255,255,0.98); box-shadow: 0 10px 26px rgba(20,35,60,0.28); border: 1px solid #e0eaf6; animation: sc-toast-in 260ms var(--ease) both;
+}
+.sc-toast.out { animation: sc-toast-out 240ms forwards; }
+@keyframes sc-toast-in { from { opacity: 0; transform: translateY(-10px) scale(0.98); } }
+@keyframes sc-toast-out { to { opacity: 0; transform: translateY(-10px); } }
+.sc-toast::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: var(--blue); }
+.sc-toast-invite { background: linear-gradient(100deg, #fffbe2, #fff 55%); border-color: #ffe68a; }
+.sc-toast-invite::before { background: var(--yellow-deep); }
+.sc-toast-friend::before { background: var(--pink); }
+.sc-toast-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sc-toast-title { color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-toast-text { font-size: 0.8rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.sc-toast-sub { color: #9a6a00; font-weight: 800; font-size: 0.7rem; }
+.sc-toast-acts { display: flex; gap: 6px; flex: none; }
+.sc-toast-acts .btn-small { padding: 5px 12px; min-height: 32px; }
+.sc-toast-x { position: absolute; top: 2px; right: 4px; width: 26px; height: 26px; border: none; background: transparent; color: var(--muted); font-size: 1.2rem; line-height: 1; padding: 0; }
+
+/* ---------- Player card ---------- */
+.sc-card-modal { width: min(380px, 100%); }
+.sc-card-modal .modal-title { padding-right: 48px; }
+.sc-card-x { font-size: 1.5rem; line-height: 1; display: grid; place-items: center; }
+.sc-card { display: flex; flex-direction: column; gap: 12px; }
+.sc-card-head { display: flex; gap: 12px; align-items: center; }
+.sc-card-av .ol-avatar { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--pink), 0 4px 12px rgba(29,78,137,0.25); }
+.sc-card-id { min-width: 0; }
+.sc-card-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sc-card-name { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.3rem; overflow-wrap: anywhere; }
+.sc-card-clan { font-weight: 900; font-style: italic; color: var(--blue); font-size: 0.82rem; min-height: 0; }
+.sc-card-presence { color: var(--muted); font-weight: 800; font-size: 0.74rem; }
+.sc-card-presence.on { color: var(--good); }
+.sc-card-presence.on::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 5px; vertical-align: 1px; }
+.sc-card-acts { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.sc-card-wait { padding: 12px; }
+.sc-card-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sc-card-row > .btn { flex: 1 1 140px; }
+.sc-card-why { margin: 0; font-size: 0.78rem; font-weight: 700; color: #7a5600; background: #fff6cf; border-radius: 8px; padding: 6px 10px; }
+.sc-card-note { margin: 0; font-weight: 800; color: var(--blue-deep); background: var(--blue-soft); border-radius: 8px; padding: 8px 10px; font-size: 0.84rem; }
+.sc-card-friend { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.sc-card-ask { font-weight: 800; font-size: 0.82rem; color: var(--navy); }
+.sc-card-foot { display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 8px; }
+.sc-card-foot .btn { color: var(--muted); }
+.sc-card-code { display: flex; flex-direction: column; align-items: flex-start; }
+.sc-card-code small { font-weight: 900; font-style: italic; color: var(--blue); font-size: 0.7rem; }
+.sc-card-code b, .sc-mycode { font-family: var(--font-head); font-style: italic; font-weight: 900; letter-spacing: 0.14em; color: var(--navy); background: #fff6cc; padding: 1px 10px; border-radius: 7px; font-size: 1.2rem; user-select: text; }
+
+/* ---------- Report ---------- */
+.sc-report-body { display: flex; flex-direction: column; gap: 8px; }
+.sc-report-body p { margin: 0; font-size: 0.82rem; }
+.sc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-chip { border: 1.5px solid var(--line); background: #fff; color: var(--navy); border-radius: 999px; padding: 5px 12px; font-weight: 800; font-size: 0.8rem; min-height: 32px; }
+.sc-chip.on { border-color: var(--bad); background: #ffe8ec; color: #b4304c; }
+.sc-note { min-height: 56px; resize: vertical; font-weight: 700; }
+.sc-check { display: flex; gap: 8px; align-items: center; font-weight: 800; color: var(--navy); font-size: 0.86rem; }
+.sc-check input { width: 18px; height: 18px; accent-color: var(--bad); }
+
+/* ---------- Messages screen ---------- */
+.sc-screen .screen-body { padding-bottom: 8px; }
+.sc-msg {
+  --list-w: 300px; flex: 1; min-height: 0; width: 100%; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); gap: 10px;
+}
+.sc-list-pane, .sc-thread-pane {
+  min-height: 0; display: flex; flex-direction: column; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--panel-border); overflow: hidden;
+}
+.sc-list-head { display: flex; align-items: flex-end; gap: 6px; padding: 6px 6px 0; background: linear-gradient(180deg, var(--blue-soft), rgba(255,255,255,0.4)); border-bottom: 1px solid var(--line); }
+.sc-list-head .sc-icon-btn { margin-bottom: 5px; width: 32px; height: 32px; }
+.sc-tabs { flex: 1; min-width: 0; padding-bottom: 0; }
+.sc-tabs .tab { padding: 7px 10px; min-height: 36px; font-size: 0.84rem; }
+.sc-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px; }
+.sc-rows { display: flex; flex-direction: column; gap: 4px; }
+.sc-row {
+  display: flex; align-items: center; gap: 9px; width: 100%; border: 1px solid transparent; background: transparent; border-radius: 10px; padding: 6px 8px; text-align: left; color: inherit;
+  transition: background var(--t-panel);
+}
+button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
+.sc-row.on { background: #e5f1ff; border-color: #c5ddfb; }
+.sc-row.unread .sc-row-top b { color: var(--blue-deep); }
+.sc-row-tap { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; border: none; background: transparent; padding: 0; text-align: left; border-radius: 8px; }
+.sc-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sc-row-top { display: flex; align-items: center; gap: 6px; }
+.sc-row-top b { color: var(--navy); font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sc-row-top time { margin-left: auto; color: var(--muted); font-size: 0.68rem; font-weight: 700; flex: none; }
+.sc-row-sub { color: var(--muted); font-size: 0.76rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-row.unread .sc-row-sub { color: var(--ink); }
+.sc-empty { padding: 18px 10px; }
+.sc-empty p { margin: 0; font-size: 0.8rem; }
+.sc-sec { font-size: 0.7rem; font-weight: 900; font-style: italic; color: var(--blue); letter-spacing: 0.04em; text-transform: uppercase; margin: 8px 6px 2px; }
+.sc-none { margin: 4px 8px; font-size: 0.78rem; }
+.sc-req-acts { display: flex; gap: 4px; flex: none; }
+.sc-req.out { opacity: 0.85; }
+.sc-code-box { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin-bottom: 4px; border-radius: 10px; background: linear-gradient(100deg, #fffbe6, #fff); border: 1px solid #f5e3a0; }
+.sc-code-mine { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sc-code-mine small { font-weight: 900; font-style: italic; color: #9a6a00; font-size: 0.7rem; width: 100%; }
+.sc-code-mine .sc-mycode { font-size: 1.05rem; }
+.sc-code-acts { display: flex; gap: 4px; margin-left: auto; }
+.sc-code-add { display: flex; gap: 6px; align-items: center; }
+.sc-code-in { text-transform: uppercase; letter-spacing: 0.18em; font-family: var(--font-head); font-style: italic; font-weight: 900; min-height: 36px; }
+.sc-code-tip { font-size: 0.7rem; }
+
+.sc-thread-pane { position: relative; }
+.sc-pick { margin: auto; }
+.sc-pick-ico { width: 46px; height: 46px; color: var(--blue); opacity: 0.6; }
+.sc-pick p { max-width: 300px; margin: 0; font-size: 0.8rem; }
+.sc-thread { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sc-thread-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg, #fff, var(--blue-soft)); }
+.sc-back { display: none; width: 34px; height: 34px; border: none; background: transparent; color: var(--navy); padding: 6px; border-radius: 8px; flex: none; }
+.sc-back .sc-icon { width: 100%; height: 100%; }
+.sc-thread-who { display: flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 2px 6px 2px 2px; border-radius: 10px; min-width: 0; text-align: left; }
+.sc-thread-who > span:last-child { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sc-thread-who b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.sc-thread-head .btn-small { white-space: nowrap; }
+.sc-thread-list { flex: 1; min-height: 0; }
+.sc-more { align-self: center; border: 1px solid var(--line); background: #fff; color: var(--blue-deep); border-radius: 999px; padding: 4px 14px; font-weight: 900; font-size: 0.74rem; }
+.sc-day { align-self: center; font-size: 0.68rem; font-weight: 900; color: var(--muted); background: rgba(255,255,255,0.85); border-radius: 999px; padding: 1px 10px; margin: 2px 0; }
+.sc-msg-time { font-size: 0.62rem; color: var(--muted); font-weight: 700; padding: 0 6px; }
+.ol-msg-mine .sc-msg-time { text-align: right; }
+.sc-invite-wrap { display: flex; flex-direction: column; align-self: flex-start; max-width: 88%; }
+.sc-invite-wrap:has(.sc-invite.mine) { align-self: flex-end; }
+.sc-invite {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: linear-gradient(110deg, #fff7c7, #fff 70%); border: 1.5px solid #ffe07a;
+  box-shadow: 0 3px 10px rgba(242,183,5,0.18);
+}
+.sc-invite.done { filter: grayscale(0.7); opacity: 0.75; }
+.sc-inv-ico { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--blue), var(--pink)); flex: none; }
+.sc-inv-text { display: flex; flex-direction: column; min-width: 0; }
+.sc-inv-text b { color: var(--navy); font-style: italic; font-size: 0.84rem; }
+.sc-inv-text small { color: var(--ink); font-weight: 700; font-size: 0.74rem; }
+.sc-inv-state { color: #9a6a00; font-weight: 900; font-size: 0.7rem; }
+.sc-thread-foot { border-top: 1px solid var(--line); background: #fff; }
+.sc-thread-foot .ol-chat-form { border-top: none; }
+.sc-thread-why { margin: 0; padding: 10px 14px; font-weight: 800; font-size: 0.82rem; color: #7a5600; background: #fff6cf; }
+.sc-menu { width: min(320px, 100%); }
+.sc-menu-list { display: flex; flex-direction: column; gap: 6px; }
+.sc-menu-btn {
+  border: 1px solid #d9e3ee; border-radius: 8px; background: linear-gradient(180deg, #fff, #f4f7fb); box-shadow: 0 3px 0 #cfd9e6; padding: 10px 12px;
+  font-weight: 900; color: var(--navy); text-align: left; min-height: 44px;
+}
+.sc-menu-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #cfd9e6; }
+.sc-menu-btn.danger { color: #b3263e; }
+.sc-menu-hint { display: block; margin-top: 2px; font-weight: 700; font-size: 0.74rem; color: var(--muted); }
+.sc-quote { margin: 0 0 4px; padding: 8px 10px; border-left: 3px solid #d9e3ee; border-radius: 6px; background: #f4f7fb; color: var(--navy); font-weight: 700; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden; }
+/* their messages can be pressed and held (report that one): no text-callout menu on the long press */
+.sc-holdable .ol-bubble { -webkit-touch-callout: none; }
+/* chat and DM bubbles never grow taller than their text box (L3: stacked marks) */
+.sc-thread-list .ol-bubble, .ol-chat-list .ol-bubble { overflow: hidden; }
+.sc-privacy { display: flex; flex-direction: column; gap: 6px; }
+.sc-privacy-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 12px; }
+.sc-privacy-opt b { color: var(--navy); font-style: italic; }
+.sc-privacy-opt small { color: var(--muted); font-weight: 700; font-size: 0.76rem; }
+.sc-privacy-opt.on { border-color: var(--blue); background: #f0f7ff; box-shadow: 0 0 0 3px rgba(43,127,255,0.15); }
+.sc-intro-body p { margin: 0 0 8px; }
+
+/* ---------- Clan → Requests (donations) ---------- */
+.sc-don { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.sc-don-cols { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 10px; align-items: start; }
+.sc-don .panel { margin: 0; }
+.sc-don-mine { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.sc-don-mine p { margin: 0; font-size: 0.82rem; }
+.sc-my-req { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; width: 100%; }
+.sc-my-req-info { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-my-req > .btn { margin-left: auto; }
+.sc-my-req-info b { color: var(--navy); font-style: italic; }
+.sc-bar { position: relative; height: 16px; border-radius: 5px; background: #e1ebf7; overflow: hidden; transform: skewX(var(--skew)); }
+.sc-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff9fc2, var(--pink)); transition: width 500ms var(--ease); }
+.sc-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.68rem; font-weight: 900; color: var(--navy); transform: skewX(calc(var(--skew) * -1)); }
+.sc-bar.small { height: 12px; }
+.sc-bar.small span { font-size: 0.6rem; }
+.sc-donors { color: var(--pink); font-weight: 900; font-size: 0.72rem; }
+.sc-next { font-size: 0.72rem; }
+.sc-collect { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px; border-radius: 10px; background: linear-gradient(100deg, #ffe9f2, #fff); border: 1px solid #ffc9dc; width: 100%; }
+.sc-tiles { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.sc-req-list { display: flex; flex-direction: column; gap: 6px; }
+.sc-req-card {
+  display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 10px; background: #fff; border: 1px solid #e0eaf6; box-shadow: 0 2px 0 #d7e2ef;
+  animation: panel-in var(--t-panel) var(--ease) both;
+}
+.sc-req-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sc-req-who { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; min-width: 0; }
+.sc-req-who b { color: var(--navy); flex: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the whole "asks for 10 × Sparrow Feather" stays readable: it wraps instead of being cut */
+.sc-req-who small { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+.sc-req-info > small { font-size: 0.7rem; }
+.sc-req-acts { display: flex; flex-direction: column; gap: 4px; align-items: stretch; min-width: 64px; }
+.sc-req-acts .btn-small { padding: 4px 10px; min-height: 30px; }
+.sc-req-why { font-size: 0.66rem; font-weight: 800; color: var(--muted); max-width: 110px; text-align: right; }
+.sc-don-foot {
+  display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--navy); color: #cfe3ff; font-size: 0.76rem; font-weight: 800;
+}
+.sc-don-foot b { color: var(--yellow); font-style: italic; }
+.sc-burst { position: absolute; left: 20%; top: 30%; width: 80px; height: 80px; pointer-events: none; color: var(--pink); animation: sc-burst 900ms var(--ease) forwards; }
+.sc-burst-ico { width: 100%; height: 100%; }
+@keyframes sc-burst { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.8) translateY(-30px); opacity: 0; } }
+.sc-collect-card .panel-title { margin-bottom: 6px; }
+.sc-pick { display: flex; flex-direction: column; gap: 10px; }
+.sc-fam-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.sc-fam { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 2px solid transparent; border-radius: 10px; padding: 4px 2px; background: #f4f8fd; cursor: pointer; }
+.sc-fam.on { border-color: var(--blue); background: #fff; box-shadow: 0 2px 8px rgba(43,127,255,0.2); }
+.sc-fam small { font-size: 0.64rem; font-weight: 800; color: var(--navy); text-align: center; line-height: 1.1; }
+.sc-rar-row { align-self: flex-start; }
+.sc-pick-detail { display: flex; gap: 12px; align-items: center; padding: 8px; border-radius: 10px; background: #f7faff; }
+.sc-pick-info { display: flex; flex-direction: column; gap: 2px; }
+.sc-pick-info b { color: var(--navy); font-style: italic; font-size: 1.02rem; }
+.sc-needs { color: var(--pink); font-weight: 900; font-size: 0.74rem; }
+.sc-lock { color: #b4304c; font-weight: 800; font-size: 0.74rem; }
+
+/* ---------- Co-op room lobby: DM invites ---------- */
+.sc-invited { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.sc-invited-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; background: #fff; box-shadow: 0 1px 4px rgba(29,78,137,0.14); font-size: 0.74rem; font-weight: 800; color: var(--navy); }
+.sc-invited-chip small { color: #9a6a00; font-weight: 800; }
+.sc-cands { display: flex; flex-direction: column; gap: 4px; max-height: 52vh; overflow-y: auto; }
+.sc-cand { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 10px; background: #f6f9fd; }
+.sc-cand .sc-row-main { flex: 1; }
+.sc-cand-tag { font-size: 0.64rem; font-weight: 900; color: var(--pink); }
+
+/* ---------- Narrow / short screens ---------- */
+@media (max-width: 900px) {
+  .sc-msg { --list-w: 282px; }
+  .sc-tabs .tab { padding: 6px 9px; font-size: 0.8rem; }
+}
+@media (max-width: 700px) {
+  .sc-don-cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .sc-msg { grid-template-columns: minmax(0, 1fr); }
+  .sc-msg[data-pane="thread"] .sc-list-pane { display: none; }
+  .sc-msg:not([data-pane="thread"]) .sc-thread-pane { display: none; }
+  .sc-back { display: inline-flex; }
+  .sc-thread-who b { max-width: 110px; }
+  .sc-fam-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sc-msg { min-height: 60vh; }
+}
+@media (max-height: 480px) {
+  .sc-list-head { padding: 4px 4px 0; }
+  .sc-tabs .tab { padding: 5px 8px; min-height: 32px; font-size: 0.78rem; }
+  .sc-row { padding: 4px 6px; gap: 7px; }
+  .sc-row .ol-avatar { --size: 32px !important; }
+  .sc-thread-head { padding: 4px 6px; }
+  .sc-thread-head .ol-avatar { --size: 30px !important; }
+  .sc-thread-who b { font-size: 0.95rem; }
+  .sc-card-head .ol-avatar { --size: 52px !important; }
+  .sc-card { gap: 8px; }
+  .sc-card-name { font-size: 1.1rem; }
+  /* a phone held sideways: who on the left, every button (Block / Report too) on the right, no scrolling */
+  .sc-card-modal { width: min(640px, 100%); }
+  .sc-card { display: grid; grid-template-columns: minmax(140px, 0.75fr) minmax(0, 1.5fr); align-items: start; gap: 8px 14px; }
+  .sc-card-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .sc-card-acts { min-height: 0; gap: 6px; }
+  .sc-card-foot { padding-top: 6px; }
+  /* pop-ups on the left under the top bar: the coins and the chat drawer's header stay free */
+  .sc-toast-host { left: calc(8px + var(--safe-left, 0px)); transform: none; top: calc(50px + var(--safe-top)); width: min(48vw, 400px); }
+  body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(50px + var(--safe-top)); left: auto; right: calc(10px + var(--safe-right, 0px)); transform: none; width: min(44vw, 380px); }
+  .sc-toast { padding: 6px 30px 6px 8px; }
+  .sc-toast .ol-avatar { --size: 32px !important; }
+  .sc-needs-update { margin: 8px auto; padding: 10px 14px; }
+  .sc-nu-ico { width: 48px; height: 48px; }
+  .sc-code-box { padding: 6px; gap: 4px; }
+  .sc-fam-row { gap: 4px; }
+  .sc-fam .item-tile { width: 34px !important; }
+  .sc-don { gap: 6px; }
+  .sc-don-mine p { font-size: 0.76rem; }
+  .sc-don-mine .btn { padding: 6px 14px; min-height: 36px; }
+  .sc-req-card { padding: 5px 7px; gap: 7px; }
+  .sc-req-card .item-tile { width: 38px !important; }
+  .sc-don-foot { padding: 5px 10px; font-size: 0.7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-toast, .sc-req-card, .sc-burst { animation: none !important; }
+}
+html[data-reduce-motion] .sc-toast, html[data-reduce-motion] .sc-req-card, html[data-reduce-motion] .sc-burst { animation: none !important; }
+
+/* ---------- Chat: tappable names (player card) ---------- */
+.ol-msg-av { border: none; background: transparent; padding: 0; border-radius: 50%; flex: none; line-height: 0; cursor: pointer; }
+.ol-msg-av:active { transform: scale(0.92); }
+.ol-msg-who { border: none; background: transparent; padding: 0; font: inherit; color: inherit; cursor: pointer; min-width: 0; display: inline-flex; }
+.ol-msg-who:hover .ol-msg-name { text-decoration: underline; }
+.sc-drawer-dm { display: inline-flex; align-items: center; }
+.sc-drawer-dm[hidden] { display: none; }
+.ol-link[hidden], .sc-inbox-btn[hidden] { display: none; }
+.ol-link .sc-pill { margin-left: 8px; }
+
+/* ---------- Clan roster: tap a member for the player card ---------- */
+.ol-member-tap { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; min-width: 0; border: none; background: transparent; padding: 0; text-align: left; color: inherit; border-radius: 8px; cursor: pointer; }
+.ol-member-tap:active { transform: scale(0.98); }
+.ol-member-tap .ol-member-info { flex: 1; }
+
+/* lobby chat bubble: the pink DM / friend-request number (the red chat dot hides under it) */
+.ol-top-chat .sc-badge { top: -4px; right: -2px; }
+.ol-top-chat .ol-unread.under { display: none; }
+.sc-badge[hidden], .sc-pill[hidden] { display: none; }
+.sc-sec-row { display: flex; align-items: center; justify-content: space-between; }
+.sc-blocked-btn { width: 100%; margin-top: 10px; }
+.sc-card-row > .btn { white-space: nowrap; font-size: 0.92rem; padding-left: 12px; padding-right: 12px; }

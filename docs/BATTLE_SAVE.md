@@ -49,8 +49,11 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
   reached the controller (a render error) is ended at the next frame or on leave, never saved.
 - **Other tabs.** `store.saveNow()` compares the stored save with what this tab last read or wrote:
   when another tab finished, restarted or replaced a saved battle this tab still holds, this tab stops
-  writing (it would bring that run back and erase the other tab's payout) and asks for a reload.
-  Tabs that only share a save (two players in local co-op test mode, a setting) keep last-writer-wins.
+  writing (it would bring that run back and erase the other tab's payout) and asks for a reload
+  (the 'stale' event's reason is `'battle-save'`: a modal in main.js). Since v0.1.29 every save also
+  carries a revision (`saveRev`, src/core/store.js): any save by another tab stops an older tab's
+  writes too, with the "Open in another tab" pill instead of the modal (reason `'another-tab'`). The
+  run check still covers a write without a revision (a tab on an older build).
 - **No rerolls.** Each wave of a saved run plays on its own random stream `hash(run seed, wave)`
   (`useWaveStream`), so continuing at a wave start replays the same luck; drops come from
   `battleDropSeed(stage, difficulty, run seed)`, so finishing the same run twice (an older copy of the
@@ -132,8 +135,8 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
   `results.apply()` (one write with the payout and no save; a second apply changes nothing; a throwing
   apply still deletes the save).
 - `tests/core/store.test.js`: two copies of the game over one storage: a tab still playing a run
-  another tab paid out never brings it back nor erases the payout; tabs that only share a save keep
-  last-writer-wins.
+  another tab paid out never brings it back nor erases the payout (also when an older build's tab
+  wrote it, without a revision); a tab that only shares a save stops saving without the modal.
 - `tests/battle-ui/snapshot.test.js` also checks a 120-wave run with ~1000 leaks stays under 8 KB and
   keeps the debrief.
 - `e2e/battle-save.mjs`: the whole flow in a browser at 844×390 and 1280×720, including an app kill

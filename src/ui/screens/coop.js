@@ -21,7 +21,7 @@ import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
-import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
@@ -32,6 +32,12 @@ import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
 import { APP_VERSION, versionLabel, compareVersions } from '../../core/buildInfo.js';
 import { checkForUpdate, updateAvailable, reloadFresh } from '../../core/updates.js';
+import { onlineHeadExtra } from '../online/inboxButton.js';
+import { openPlayerCard } from '../online/playerCard.js';
+import { hub as social, takePendingInvites, addPendingInvite, joinInvite, liveInvites, forgetInvite } from '../online/socialHub.js';
+import { getBackend } from '../../online/backend.js';
+import { sendRoomInvite } from '../online/coopInvite.js';
+import { INVITE_TTL_MS } from '../../online/socialRules.js';
 
 const PREF_KEY = 'ss-coop-pref';
 
@@ -111,7 +117,7 @@ function unitChip(unitId, { hero = false } = {}) {
 }
 
 /** Stage + difficulty + freeplay picker modal. Resolves { stageId, difficulty, freeplay } or null. */
-function pickStage(current, difficulty, freeplay = null) {
+export function pickStage(current, difficulty, freeplay = null) {
   return new Promise((resolve) => {
     const profile = store.profile;
     const stages = hostStages(profile);
@@ -145,6 +151,14 @@ function pickStage(current, difficulty, freeplay = null) {
       },
     });
   });
+}
+
+/** [social] The stage picker with the player's last choice (Invite to co-op from a card / DM). */
+export async function pickCoopStage() {
+  const pref = readPref();
+  const r = await pickStage(defaultStage(store.profile), DIFFICULTIES[pref.difficulty] ? pref.difficulty : 'normal', freeplayTier(pref.freeplay));
+  if (r) writePref(r);
+  return r;
 }
 
 /**
@@ -190,6 +204,15 @@ function mismatchBanner(m) {
   return h('div.ol-banner.bad.ol-banner-row', { 'data-testid': 'coop-version' }, h('span', text, h('small.ol-version-diag', ` (${versionDiff(m.mine, m.theirs)})`)), action);
 }
 
+/**
+ * [social] The host left the room lobby: their DM invites into it expire on the server, so the
+ * invited player sees "Expired" instead of joining an empty room and waiting for the host.
+ */
+function expireMyInvites(s) {
+  if (!s?.isHost || !social.ready) return;
+  getBackend().expireCoopInvites(s.code).catch(() => {});
+}
+
 /** What the lobby says when the server refused the room (or it closed): by error code. */
 export function roomErrorText(err) {
   switch (err?.code) {
@@ -210,7 +233,7 @@ function versionDiff(mine, theirs) {
 
 export function render(root, params = {}) {
   const code = normalizeCode(params.id || '');
-  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlinePill() });
+  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   let destroyed = false;
   let cleanup = () => {};
@@ -310,20 +333,48 @@ export function render(root, params = {}) {
     }
 
     const invites = h('div.ol-invites', { 'data-testid': 'coop-invites' }, h('p.muted', 'Loading invites…'));
+    // [social] open DM invites (to me) + today's clan-chat invites (unchanged, < 15 min). DM
+    // invites this tab remembers are asked about again: only the newest per sender, and only
+    // while the server still says "open" (a newer invite, a full or closed room ends one)
     (async () => {
+      const rows = [];
+      let clanTag = null;
       try {
+        if ((await backend.socialStatus()) === 'ready') {
+          const seen = new Map(social.invites.map((m) => [m.id, m]));
+          const fresh = new Map();
+          const inbox = await backend.inbox().catch(() => ({ threads: [] }));
+          for (const t of inbox.threads) {
+            if (t.last?.kind !== 'invite' || t.last.mine) continue;
+            seen.set(t.last.id, t.last);
+            fresh.set(t.last.id, t.last.inviteState);
+          }
+          for (const m of liveInvites([...seen.values()])) {
+            const st = fresh.get(m.id) || (await backend.inviteState(m.id).catch(() => null));
+            if (destroyed) return;
+            if (st !== 'open') {
+              forgetInvite(m.id);
+              continue;
+            }
+            rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room, 'data-testid': 'invite-row-dm' }, avatar(m.avatar, 34),
+              h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)} · private invite`)),
+              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
+          }
+        }
         const mine = await backend.myClan();
         if (destroyed) return;
-        if (!mine) {
-          invites.replaceChildren(h('p.muted', 'Join a clan to see your clanmates\' co-op invites here.'), button('Find a clan', { kind: 'ghost', small: true, onClick: () => navigate('clan') }));
-          return;
+        if (mine) {
+          clanTag = mine.clan.tag;
+          const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && !social.isBlocked(m.userId) && Date.now() - m.createdAt < 15 * 60000).reverse();
+          for (const m of msgs.slice(0, 4)) {
+            rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
+              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
+          }
         }
-        const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && Date.now() - m.createdAt < 15 * 60000).reverse();
         if (destroyed) return;
-        invites.replaceChildren(...(msgs.length
-          ? msgs.slice(0, 4).map((m) => h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
-            button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })))
-          : [h('p.muted', `No open invites from [${mine.clan.tag}] right now. Create a room and invite them!`)]));
+        if (rows.length) invites.replaceChildren(...rows.slice(0, 6));
+        else if (clanTag) invites.replaceChildren(h('p.muted', `No open invites right now. Create a room and invite [${clanTag}] or a friend!`));
+        else invites.replaceChildren(h('p.muted', 'Invites from friends and clanmates show up here.'), button('Find a clan', { kind: 'ghost', small: true, onClick: () => navigate('clan') }));
       } catch {
         invites.replaceChildren(h('p.muted', 'Invites are unavailable right now.'));
       }
@@ -350,7 +401,7 @@ export function render(root, params = {}) {
             h('h3.panel-title', 'Join with a code'),
             h('div.ol-form-row', codeInput, button('Join', { kind: 'primary', small: true, testid: 'coop-join', onClick: join }))),
           h('section.panel.ol-coop-clan',
-            h('h3.panel-title', 'Clan invites'),
+            h('h3.panel-title', 'Invites'),
             invites))),
     ].filter(Boolean)));
   }
@@ -381,6 +432,7 @@ export function render(root, params = {}) {
         session = openSession({
           code: roomCode, isHost, backend, stageId, difficulty, freeplay,
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
+          isBlocked: (uid) => social.isBlocked(uid), // [social] never pair with a player I blocked
         });
       } catch (e) {
         const err = toOnlineError(e);
@@ -390,6 +442,8 @@ export function render(root, params = {}) {
     }
 
     const view = h('div.ol-room', { 'data-testid': 'coop-room' });
+    /** [social] who was blocked when this lobby opened (dropBlockedAlly: who was blocked since). */
+    let knownBlocked = social.blockedIds;
     body.replaceChildren(view);
 
     const copy = async () => {
@@ -400,6 +454,72 @@ export function render(root, params = {}) {
         toast(`Room code: ${roomCode}`, 'info');
       }
     };
+
+    // [social] invite a friend or clanmate by DM (sent once the server registered the room)
+    async function inviteFriend() {
+      const st = await backend.socialStatus();
+      if (st !== 'ready') {
+        toast(st === 'needs_update' ? 'Private invites need the latest server update — use Invite clan or share the code.' : 'Online features are offline right now.', 'info', 3200);
+        return;
+      }
+      let list = [];
+      try {
+        list = await backend.inviteCandidates();
+      } catch (e) {
+        showError(e);
+        return;
+      }
+      const invited = new Set((session.dmInvites || []).filter((x) => x.expires > Date.now()).map((x) => x.userId));
+      const m = modal({
+        title: 'Invite a friend',
+        body: list.length
+          ? h('div.sc-cands', { 'data-testid': 'coop-candidates' }, list.map((c) => h('div.sc-cand', { 'data-testid': 'coop-candidate' },
+            avatar(c.avatar, 34),
+            h('span.sc-row-main', h('span.sc-row-top', h('b', c.name), levelChip(c.level)),
+              h('span.sc-row-sub', h(`span${c.online ? '.ol-online-dot' : ''}`, c.online ? 'Online' : c.friend ? 'Friend' : 'Clanmate'), c.canMessage ? '' : ' · can\'t get private invites yet')),
+            button(invited.has(c.userId) ? 'Invited' : 'Invite', {
+              kind: 'yellow', small: true, testid: 'coop-candidate-invite', disabled: !c.canMessage || invited.has(c.userId),
+              onClick: async () => {
+                m.close();
+                await inviteOne(c);
+              },
+            }))))
+          : h('div.ol-empty', h('b', 'Nobody to invite yet'), h('p.muted', 'Add friends from their player card (tap a name in chat or your clan), or share the room code.')),
+        actions: [{ label: 'Close', kind: 'ghost', testid: 'coop-candidates-close' }],
+      });
+    }
+
+    async function inviteOne(peer) {
+      if (!session.seated) {
+        addPendingInvite(roomCode, peer);
+        toast(`${peer.name} gets the invite as soon as the room is ready.`, 'info');
+        return;
+      }
+      const m = await sendRoomInvite(peer, session);
+      if (m) {
+        (session.dmInvites ||= []).push({ userId: peer.userId, name: peer.name, avatar: peer.avatar, expires: Number(m.meta?.expires) || Date.now() + INVITE_TTL_MS });
+        paint();
+      }
+    }
+
+    /** Invites waiting for the room to exist (from a card / DM, or before a reload). */
+    async function sendPending() {
+      if (!session.isHost || !session.seated || session.phase !== 'lobby') return;
+      const list = takePendingInvites(roomCode);
+      if (!list.length) return;
+      if ((await backend.socialStatus()) !== 'ready') {
+        toast('Invite not sent — private invites need the latest server update. Share the room code instead.', 'info', 3600);
+        return;
+      }
+      for (const peer of list) await inviteOne(peer);
+    }
+
+    function invitedChips(s) {
+      const live = (s.dmInvites || []).filter((x) => x.expires > Date.now());
+      if (!live.length || s.peer) return null;
+      return h('div.sc-invited', { 'data-testid': 'coop-invited' }, h('small.muted', 'Invited:'), live.map((x) => h('span.sc-invited-chip', avatar(x.avatar || 'hikari', 22), x.name,
+        h('small', ` · expires in ${Math.max(1, Math.ceil((x.expires - Date.now()) / 60000))} min`))));
+    }
 
     async function inviteClan() {
       try {
@@ -461,9 +581,11 @@ export function render(root, params = {}) {
       }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
+      // [social] the ally's avatar opens their player card ("Add friend after a good game")
+      const face = me || !p.uid ? avatar(p.avatar, 52) : h('button.ol-msg-av', { type: 'button', 'data-testid': 'coop-ally-card', 'aria-label': `${p.name || 'Ally'}: player card`, onclick: () => openPlayerCard(p.uid, p, { context: 'coop' }) }, avatar(p.avatar, 52));
       return h(`section.ol-pcard${me ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] }, 'data-testid': `coop-player-${slot}` },
         h('div.ol-pcard-head',
-          avatar(p.avatar, 52),
+          face,
           h('div.ol-pcard-id',
             h('div', h('b.ol-pcard-name', p.name || 'Sensei'), me ? h('small.muted', ' (you)') : null),
             h('div.ol-pcard-tags', levelChip(p.level), h('span.ol-pcard-role', slot === 0 ? 'Host' : 'Guest'))),
@@ -554,7 +676,37 @@ export function render(root, params = {}) {
       connecting(body, () => room(roomCode));
     }
 
+    /**
+     * [social] I blocked my ally (their card, Messages, a report). The server already freed their
+     * seat and gave my room a new secret (block_player), so as the host I open the same room again
+     * on the new channel, which they cannot reach (join_room answers them "full"); as a guest I
+     * leave (my seat in their room is gone too). Also on coming back from a battle with them.
+     * `blocked`: the blocked list of a 'blocked' event (who was blocked just now).
+     */
+    function dropBlockedAlly(blocked = null) {
+      const s = session;
+      if (destroyed || s.phase !== 'lobby') return;
+      const fresh = blocked ? [...blocked].filter((u) => !knownBlocked.has(u)) : [];
+      if (blocked) knownBlocked = new Set(blocked);
+      const ally = s.peer?.uid || s.returning?.uid || null;
+      if (ally && social.isBlocked(ally)) {
+        if (s.isHost) {
+          toast('The player you blocked is out of your room. Same code, new connection.', 'info', 3200);
+          reopen(s);
+        } else {
+          s.close();
+          toast('You left the room.', 'info');
+          navigate('coop');
+        }
+        return;
+      }
+      // someone who sat in my room earlier still knows its secret: the server gave my empty room a
+      // new one (block_player), so I open it again on the new channel (nobody is waiting in it)
+      if (fresh.length && s.isHost && !s.peer) reopen(s);
+    }
+
     function newRoom(s) {
+      expireMyInvites(s);
       s.close({ keepRoom: false }); // this code is given up for the new one
       navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty, ...(s.freeplay ? { freeplay: s.freeplay } : {}) });
     }
@@ -665,10 +817,12 @@ export function render(root, params = {}) {
               s.setStage(s.stageId, s.difficulty, v);
             }, 'coop-room-freeplay')) : null),
           h('div.ol-room-acts',
+            s.isHost && social.ready && !s.peer ? button('Invite a friend', { kind: 'pink', small: true, icon: 'plus', testid: 'coop-invite-friend', onClick: inviteFriend }) : null,
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
-            button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
+            button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { expireMyInvites(s); s.close(); navigate('coop'); } }))),
         localNotice('coop'),
         linkBanner(s),
+        invitedChips(s),
         s.mismatch ? mismatchBanner(s.mismatch) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
         h('div.ol-room-foot',
@@ -698,20 +852,29 @@ export function render(root, params = {}) {
     }
     const offs = [
       session.on('change', paint),
+      session.on('seated', () => sendPending()),
+      social.on('status', () => paint()),
+      social.on('blocked', (set) => dropBlockedAlly(set)),
       session.on('start', () => {
         keepSession = true;
         navigate('battle', { coop: roomCode });
       }),
     ];
+    if (session.seated) sendPending();
     cleanup = () => offs.forEach((off) => off());
+    dropBlockedAlly();
   }
 
   return () => {
     destroyed = true;
     globalThis.removeEventListener?.('pageshow', onPageShow);
     cleanup();
-    // leaving the lobby screen (not into the battle) leaves the room
+    // leaving the lobby screen (not into the battle) leaves the room (and the host's DM invites
+    // into it expire: nobody is there to play with)
     const s = getSession();
-    if (s && s.code === code && !keepSession && s.phase === 'lobby') s.close();
+    if (s && s.code === code && !keepSession && s.phase === 'lobby') {
+      expireMyInvites(s);
+      s.close();
+    }
   };
 }
