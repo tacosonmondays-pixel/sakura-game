@@ -950,6 +950,24 @@ Tracks missions (`track`). Must be fully usable on a phone. The battle toast fee
 right, whichever side keeps it off the spawn gates and the first tiles of road behind them
 (exit gates as a tie-break): `feed.setAvoid(() => screenPoints)` + `feedDockRight(...)`.
 
+**Upgrade Tree — `src/ui/battle/upgradeTree.js`** (`ctx.tree`, built before the tower bar). A read-only
+3 paths × 5 tiers overview (owned / next / later / blocked, crosspath cap, name, price, one-line
+effect, Self / Allies / Enemies / Coins chips; tap a tier for its details). Opens from: a hold on a
+placed girl (`renderer.onLongPress` — the only canvas hook it uses), a 550 ms hold on a bar card
+(`ctx.tree.barHold(card, unitId)`; moving the finger up then closes it and the bar's drag-to-place
+takes over), the panel's Tree button or portrait, a hold on the hero widget (`ctx.tree.bindHold`),
+right-click / `i` on a bar card, or `T` for the selected girl. API: `open({ uid } | { unitId })`,
+`close()`, `isOpen`, `model` (e2e), `decoratePathRow(row, uid, path)` (towerPanel hook for the
+"Upgrade in panel ›" flash). Rules: it never writes the sim and never buys (its actions are
+`ctx.select` and `ctx.onCardTap`), so co-op commands are unchanged. **Solo pauses while it is open
+(`ctx.paused`, header chip "Paused while open"); co-op never pauses** (header chip "Battle keeps
+going"). Prices: `liveCostOf(sim, t)` matches `Sim._upgradeCost` (tested); before she is placed,
+`previewCostOf` (no aura discount). An ally's girl is view-only (no affordability, no actions).
+Every open starts with the grid and the side panel scrolled to the top. Cost: one DOM build plus
+one style + layout pass inside `open()` (~14 ms on the software-GL test box, less than selecting a
+girl there), nothing per frame; while open, a 4 Hz signature check rebuilds only on change.
+`e2e/unit-info.mjs` measures it against selecting a girl on the same machine.
+
 ## 11. Meta screens
 
 meta-a: lobby (drawn secretary background — see 11a — + big slanted tiles: Mission, Bounty, Total Assault,
@@ -1056,6 +1074,29 @@ one "Gifts received!" dialog (Choose now / Later, never a toast on top) → the 
 SSR; a duplicate converts to 40 Star Fragments; the ticket also works later from the Backpack).
 Notice board article per `betaNoticeState()`: `active` until the deadline, `unclaimed` while this
 player's letter waits, then hidden.
+
+**Hold for info + upgrade tags (owner request #152).**
+- `src/ui/hold.js` (main bundle, installed from `src/main.js`): on a `HOLD_ROUTES` screen (formation,
+  students, stage, recruit, coop, wiki, backpack, mall, campaign, rewards) any element with
+  `data-unit="<id>"` (every `portraitHTML` image has one) or `data-hold-unit` is a hold target;
+  `data-hold-info="off"` on an ancestor opts out. A ~450 ms hold (pink fill ring from 120 ms; cancel
+  past 10 px, on scroll or pointercancel) opens the Unit Sheet and swallows the click that follows
+  (`swallowNextClick`, expires after 700 ms), so remove / toggle / swap / navigate never fire.
+  Right-click, the ContextMenu key or `i` open it at once (the `contextmenu` a touch long-press sends
+  on Android is ignored for 1.5 s after a touch hold fired; a mouse hold never sends one). `HOLD_EXCLUDE` keeps out unflipped recruit
+  cards, the recruit SSR showcase (a tap there means "continue"), the student page showcase and the battle. `onEscape(fn)` is the shared Escape stack (topmost overlay wins).
+- `src/ui/unitSheet.js` (lazy): `openUnitSheet(unitId, { tab, allowFullPage, origin })` — card art,
+  Info (the student page's `infoTab`, word for word), Upgrades (legend + the tree grid in static
+  mode + tier details), "Open full page" (hidden in the co-op lobby, where leaving closes the room,
+  and in battle). z-index 170 (above modals 100 and the gacha 150).
+- `src/ui/upgradeTags.js` (pure): sorts every tier, passive, hero level and ult into Self / Allies
+  (with the aura radius) / Enemies ("helps all" for marks, Brittle, shred, reveal) / Coins, plus the
+  violet New attack flag, from the mod keys alone — no data edits. **A new mod key (roster merge)
+  must be added to `MOD_TAGS` (+ `SUB_KEYS`, the one-line phrases and the icon order);
+  `tests/ui/upgradeTags.test.js` fails until it is.** UI-only errata live in `TIER_NOTES`.
+- `src/ui/treeModel.js` (pure view model), `src/ui/upgradeGrid.js` + `src/ui/tagChips.js` (DOM),
+  styles in `src/ui/styles/unit-info.css` (lazy) and `hold.css` (main). Chips appear in the battle
+  panel, the student Tree tab, the sheet, the battle tree and the wiki legend (`{ type: 'upgradeTags' }`).
 
 ## 12. Owner's V2 directives (latest feedback — these override earlier wording where they conflict)
 

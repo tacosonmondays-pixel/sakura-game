@@ -321,6 +321,18 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 |---|---|
 | "Can you also make it so attack animations are more unique like what if the drones flew around in her radius and targetted enemies and follwowed them" | **Done.** Chika's drones orbit above her head inside her ring, launch from her backpack when built, and on every shot fly strafing passes after the enemy the game is shooting, following it along the path, then return. All 19 girls have a signature attack look that grows with upgrades (docs/ATTACK_FX.md). Purely visual: co-op compatibility unchanged. Preview: `previews/attacks.html`. |
 
+## Unit info (owner, 2026-10-13) — branch `feature/unit-info` (request #152)
+
+Status 2026-10-14: finished and merged with the live game. All three asks are done and checked in the browser at
+1280×720, 844×390 and 390×844 (`node e2e/unit-info.mjs`), co-op stays compatible with live players (same co-op id), and
+the branch is ready for the coordinating session to merge.
+
+| Request (verbatim) | Status |
+|---|---|
+| "within various menus when you hold on the card art, it should bring up this menu! Like in the formation for example" | **Done.** Hold any girl's card or portrait (~0.45 s, a pink ring fills) in Formation, Students, Stage prep (also inside the swap dialog), Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign and Rewards → her info sheet: card art, the student Info content, an Upgrades tab and "Open full page". Taps, scrolling and drags work as before; desktop: right-click. |
+| "can you also make it more clear if an upgrade path boosts their own stats or allies stats?" | **Done.** Every tier everywhere carries coloured word chips: **Self**, **Allies · 2.6 tiles** (aura radius), **Enemies** ("helps all" for marks / Brittle / shred / reveal) and **Coins**, plus a violet **New attack** flag; each path shows a tally ("Allies ×5 · 4 tiles"). Battle panel, student Tree tab, info sheet, battle tree and a wiki legend. |
+| "within the gameplay, there should be something you can click and hold and see the upgrade tree" | **Done.** Hold a placed girl, hold her card in the bar, or press the Tree button / her portrait in the panel (or T): 3 paths × 5 round tier icons with owned / next / locked states, the crosspath cap, and each tier's name, price, one-line effect and tag; tap a tier for details. Solo waits while it is open; co-op never pauses. |
+
 ## UR awakening (owner, 2026-10-14) — branch `feature/ur-awaken`
 
 | Request (verbatim) | Status |

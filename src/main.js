@@ -150,3 +150,5 @@ import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => cons
 // New deploys: version.json is checked now and then; a "New version ready" pill offers the
 // update (never during a battle), and a stale tab missing screen files reloads itself once.
 import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
+// [unit-info] hold a girl's card (or right-click it) on a menu screen → her info sheet (request #152)
+import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.warn('[main] hold info unavailable', e));

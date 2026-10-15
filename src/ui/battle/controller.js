@@ -24,6 +24,7 @@ import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
+import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-view upgrade tree
 import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
 import { svgEl, toast } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -242,6 +243,8 @@ export function mountBattle(root, params, hooks) {
     const feed = createFeed(layer);
     ctx.feed = feed;
     if (saveWarning) warnSave(saveWarning);
+    const tree = createUpgradeTree(ctx); // [unit-info] before the bar: its cards bind tree holds
+    ctx.tree = tree;
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -256,7 +259,7 @@ export function mountBattle(root, params, hooks) {
     const panel = createTowerPanel(ctx);
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed];
+    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree];
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
@@ -278,6 +281,7 @@ export function mountBattle(root, params, hooks) {
       return;
     }
     ctx.renderer = renderer;
+    cleanups.push(renderer.onLongPress((p) => tree.onLongPress(p))); // [unit-info] hold a placed girl → her tree
     // Settings → Battle → Camera (or the pause menu) applies to the open battle at once
     cleanups.push(store.on('change', () => renderer.setCameraMode(cameraModeOf(store.profile.settings))));
     // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
@@ -685,7 +689,7 @@ export function mountBattle(root, params, hooks) {
       }
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
-      if (results.open || (pause.open && !ls)) return;
+      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return; // [unit-info] solo tree: frozen frame
       try {
         renderer.setTimeScale?.(ctx.speed); // [attackFx] drones keep pace at 2×/3× (co-op: shared speed)
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);

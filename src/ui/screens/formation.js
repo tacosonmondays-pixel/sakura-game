@@ -118,7 +118,7 @@ export function render(root, params = {}) {
         h('div.mb-hero-slot', h('div.mb-slot-label', 'Hero'), heroTile),
         h('div', h('div.mb-slot-label', `Students ${f.towers.length} / ${BATTLE.maxTowers}`), h('div.mb-tower-slots', towerTiles))),
       h('div.mb-squad-foot',
-        h('div.muted', `Tap a girl to remove her · total deploy cost ${formatNumber(deploy)}`),
+        h('div.muted', `Tap a girl to remove her · hold for her info · total deploy cost ${formatNumber(deploy)}`),
         h('span.mb-saved', svgEl(uiIcon('check')), 'Saved')),
       h('div.mb-actions',
         button('Clear', { kind: 'ghost', small: true, disabled: !members(f).length, onClick: () => { f = { hero: null, towers: [] }; save(); } }),
@@ -189,7 +189,7 @@ export function render(root, params = {}) {
       h('div.mb-section-head',
         h('div.mb-seg',
           [['tower', 'Students'], ['hero', 'Heroes']].map(([k, label]) => h(`button.mb-seg-btn${pickState.kind === k ? '.on' : ''}`, { onclick: () => { pickState.kind = k; renderPicker(needs); } }, label))),
-        h('span.muted', missingCaps.length ? 'Glowing girls cover a counter this stage still needs.' : 'Tap a girl to add or remove her.')),
+        h('span.muted', missingCaps.length ? 'Glowing girls cover a counter this stage still needs.' : 'Tap a girl to add or remove her · hold for her info.')),
       list.length
         ? h('div.mb-pick-grid', list.map((u) => {
           const st = profile.units[u.id];

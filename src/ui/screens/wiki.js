@@ -11,6 +11,7 @@ import {
 } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { put, cssVars, rarityTile, unitMini, crosspathDiagram } from './backpack.js';
+import { tagLegend } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins legend
 
 const view = { q: '', cat: null, article: null };
 const CAT = Object.fromEntries(WIKI_CATEGORIES.map((c) => [c.id, c]));
@@ -59,6 +60,7 @@ function renderBlock(b, openArticle) {
     ];
     case 'typeChart': return typeChartBlock();
     case 'crosspath': return crosspathDiagram();
+    case 'upgradeTags': return tagLegend({ long: true, size: 'md' });
     case 'units': return [
       h('div.mb-wunits', b.ids.filter((id) => UNIT_MAP[id]).map((id) => h('button.mb-wunit', { onclick: () => navigate('student', { id }), title: UNIT_MAP[id].title }, unitMini(id, { size: 54 }), h('span', UNIT_MAP[id].name)))),
       b.caption ? h('div.mb-caption', b.caption) : null,

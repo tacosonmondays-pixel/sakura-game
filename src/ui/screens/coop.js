@@ -136,7 +136,7 @@ function thumb(stageId, cls = 'ol-stage-thumb') {
 function unitChip(unitId, { hero = false } = {}) {
   const u = UNIT_MAP[unitId];
   if (!u) return null;
-  return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: u.name }, avatar(unitId, 30), h('small', u.name));
+  return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: `${u.name} — hold for her info`, 'data-unit': unitId }, avatar(unitId, 30), h('small', u.name));
 }
 
 /** Stage + difficulty + freeplay picker modal. Resolves { stageId, difficulty, freeplay } or null. */
