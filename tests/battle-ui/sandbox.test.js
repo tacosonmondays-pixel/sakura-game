@@ -5,9 +5,10 @@ import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { ENEMIES } from '../../src/data/enemies.js';
 import { SANDBOX_COINS, SANDBOX_COIN_STEP } from '../../src/systems/sandbox.js';
+import { battleMusicStep, initialBattleMusic } from '../../src/audio/battle.js';
 import {
-  spawnOne, spawnSwitches, defaultMods, applyMods, sendNextWave, clearEnemies, guardLives, damageByGirl, addCoins,
-  ensureWave, enemyGroups, EXTRA_ARMOR,
+  spawnOne, spawnSwitches, defaultMods, applyMods, clearEnemies, guardLives, damageByGirl, addCoins,
+  ensureWave, enemyGroups, createSandboxDriver, EXTRA_ARMOR, SPAWN_SPACING,
 } from '../../src/ui/battle/sandboxPanel.js';
 
 const unlocked = () => {
@@ -97,26 +98,95 @@ describe('sandbox spawn helpers', () => {
     expect(run()).toBe(run());
   });
 
-  it('sends the next wave between waves and during one', () => {
+  it('sends the next wave between waves and during one (early enemies keep their own wave HP)', () => {
     const sim = sandboxSim();
-    expect(sendNextWave(sim)).toBe(true);
+    const d = createSandboxDriver(sim);
+    expect(d.sendNextWave()).toBe(true);
     expect(sim.wave).toBe(1);
+    const hp1 = sim._waveHpMul;
     const pending = sim._spawnQueue.length - sim._spawnIndex;
-    expect(sendNextWave(sim)).toBe(true);
+    expect(pending).toBeGreaterThan(0);
+    sim.drainEvents();
+    expect(d.sendNextWave()).toBe(true);
     expect(sim.wave).toBe(2);
-    expect(sim._spawnQueue.length - sim._spawnIndex).toBeGreaterThan(pending);
+    expect(sim.drainEvents().some((e) => e.type === 'waveStart' && e.wave === 2)).toBe(true);
+    // wave 1's enemies still to come are untouched; wave 2's queue with wave 2's HP scale
+    expect(sim._waveHpMul).toBe(hp1);
+    expect(sim._spawnQueue.length - sim._spawnIndex).toBe(pending);
+    const w2 = sim._getWave(2);
+    expect(d.queue.length).toBe(w2.spawns.length);
+    expect(d.queue[0].hpMul).toBeCloseTo((sim.stage.hpScale ?? 1) * sim.diff.hpMul * w2.hpMul, 9);
+    d.destroy();
   });
 
-  it('clears the board without paying for it', () => {
+  it('a spawn group is one wave, however fast its enemies fall', () => {
     const sim = sandboxSim();
-    for (let i = 0; i < 5; i++) spawnOne(sim, 'slime_green');
+    const d = createSandboxDriver(sim);
+    expect(d.spawnGroup('slime_green', 6)).toBe(6);
+    let waveEnds = 0;
+    for (let i = 0; i < 400 && (d.queue.length || sim.enemies.length || sim.state === 'wave'); i++) {
+      sim.update(1 / 60);
+      for (const e of [...sim.enemies]) sim._killEnemy(e, null); // an instant defence
+      waveEnds += sim.drainEvents().filter((e) => e.type === 'waveEnd').length;
+    }
+    expect(sim.kills.slime_green).toBe(6);
+    expect(waveEnds).toBe(1);
+    expect(sim.state).toBe('between');
+    d.destroy();
+  });
+
+  it('spaces a group in game time, even when one update covers many steps', () => {
+    const sim = sandboxSim();
+    const d = createSandboxDriver(sim);
+    d.spawnGroup('goblin_runner', 4);
+    sim.update(1);
+    sim.update(1);
+    const dists = sim.enemies.filter((e) => e.id === 'goblin_runner').map((e) => e.dist);
+    expect(dists.length).toBe(4);
+    const speed = sim.enemies[0].baseSpeed;
+    for (let i = 1; i < dists.length; i++) expect(dists[i - 1] - dists[i]).toBeCloseTo(speed * SPAWN_SPACING, 1);
+    d.destroy();
+  });
+
+  it('clears the board without paying for it, and tells the music a boss is gone', () => {
+    const sim = sandboxSim();
+    const d = createSandboxDriver(sim);
+    for (let i = 0; i < 4; i++) spawnOne(sim, 'slime_green');
+    const boss = spawnOne(sim, 'dragon_ashwing');
+    d.spawnGroup('slime_green', 10);
+    let music = initialBattleMusic();
+    for (const ev of sim.drainEvents()) music = battleMusicStep(music, ev, { tierOf: (id) => sim.data.enemy(id)?.tier }).state;
+    expect(music.boss?.uid).toBe(boss.uid);
     const cash = sim.cash;
-    expect(clearEnemies(sim)).toBe(5);
+    expect(d.clear()).toBe(5);
+    expect(d.queue.length).toBe(0);
     expect(sim.enemies.length).toBe(0);
     expect(sim.kills).toEqual({});
+    const deaths = sim.drainEvents().filter((e) => e.type === 'death');
+    expect(deaths.length).toBe(5);
+    expect(deaths.every((e) => e.bounty === 0)).toBe(true);
+    for (const ev of deaths) music = battleMusicStep(music, ev, { tierOf: (id) => sim.data.enemy(id)?.tier }).state;
+    expect(music.boss).toBe(null);
     sim.update(0.1);
     expect(sim.cash).toBeGreaterThanOrEqual(cash); // the (empty) wave ends with its bonus
     expect(sim.state).toBe('between');
+    d.destroy();
+  });
+
+  it('a boss that leaks (unlimited lives) stops holding the battle music', () => {
+    let music = initialBattleMusic();
+    music = battleMusicStep(music, { type: 'spawn', uid: 7, id: 'dragon_ashwing', tier: 'boss' }).state;
+    expect(music.boss?.uid).toBe(7);
+    music = battleMusicStep(music, { type: 'leak', uid: 7, id: 'dragon_ashwing', lives: 0 }).state;
+    expect(music.boss).toBe(null);
+  });
+
+  it('the driver puts the Sim back as it was', () => {
+    const sim = sandboxSim();
+    const d = createSandboxDriver(sim);
+    expect(Object.prototype.hasOwnProperty.call(sim, '_step')).toBe(true);
+    d.destroy();
+    for (const k of ['_step', '_checkWaveEnd', '_leak']) expect(Object.prototype.hasOwnProperty.call(sim, k)).toBe(false);
   });
 
   it('unlimited lives: leaks take no lives while on, and do again once off', () => {
@@ -145,7 +215,10 @@ describe('sandbox spawn helpers', () => {
 
   it('places an unowned girl at max level with plenty of coins left', () => {
     const sim = sandboxSim();
-    const id = TOWERS[0];
+    const fresh = createProfile();
+    const id = [...sim.loadout.keys()].find((u) => !fresh.units[u]);
+    expect(id).toBeTruthy();
+    expect(sim.loadout.get(id).level).toBe(60);
     let placed = null;
     for (let y = 1; y < sim.map.height && !placed; y++) for (let x = 1; x < sim.map.width && !placed; x++) placed = sim.placeTower(id, x + 0.5, y + 0.5);
     expect(placed?.def.id).toBe(UNIT_MAP[id].id);

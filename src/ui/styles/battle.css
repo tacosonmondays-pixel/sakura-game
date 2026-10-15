@@ -759,3 +759,12 @@
   .bt-sbx-toggle { min-height: 30px; padding: 4px 10px; font-size: 0.8rem; }
   .bt-sbx-body { padding: 6px 8px 8px; gap: 5px; }
 }
+/* the toast feed steps right of the open Sandbox panel instead of hiding under it (phones dock
+   the feed top-right already; only a feed that swapped to the left moves) */
+@media (min-width: 701px) {
+  .bt-sbx-open .bt-feed:not(.bt-feed-r) { left: 274px; }
+}
+@media (min-width: 701px) and (max-height: 500px) {
+  .bt-sbx-open .bt-feed:not(.bt-feed-r):not(.bt-feed-l) { left: auto; }
+  .bt-sbx-open .bt-feed.bt-feed-l { left: 250px; }
+}

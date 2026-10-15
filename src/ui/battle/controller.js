@@ -269,6 +269,11 @@ export function mountBattle(root, params, hooks) {
       if (ls) ls.queue('speed', [next]); // shared: both players switch at the same tick
       else ctx.speed = next;
     };
+    // a set speed (the Sandbox panel's 0.5-5×); attachBattleAudio follows it like cycleSpeed
+    ctx.setSpeed = (s) => {
+      if (ls) ls.queue('speed', [s]);
+      else ctx.speed = s;
+    };
     ctx.setAutoStart = (v) => {
       store.profile.settings.autoStart = !!v;
       store.commit('settings');
@@ -364,7 +369,8 @@ export function mountBattle(root, params, hooks) {
     renderer.canvas.addEventListener('pointermove', onCanvasMove);
     cleanups.push(() => renderer.canvas.removeEventListener('pointermove', onCanvasMove));
     const onKey = (e) => {
-      if (e.target instanceof HTMLInputElement || document.querySelector('.modal-overlay')) return;
+      // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
+      if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
         if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
