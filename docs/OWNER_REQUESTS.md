@@ -370,3 +370,9 @@ game. No save-version change.
 
 **New direction (owner, 2026-10-14):** Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
 life. Not built yet; the questions it raises for the next story pass are in `docs/STORY_SPEC.md` §12.
+
+## Patch notes + gem gifts (owner, 2026-10-14) — branch `feature/patch-notes`
+
+| Request (verbatim) | Status |
+|---|---|
+| "can you post all game version under notice and mention what was added or changed with the date and add a button to claim a few gems?" | **Done.** Notice → **Patch notes** (tag Update, second tab; the Notice opens on it while a gift waits): every version from 0.1.1 to the newest, newest first, with its date (US Central), title and Added / Changed / Fixed bullets. Each version has a **Claim 100 💎** button (once per version per save, then a "Claimed ✓" chip) and **Claim all (N)** appears while 2+ wait; a claim shows a toast and the top-bar gems update at once. The Notice red dot stays lit while any gift is unclaimed. Claims live in the saved profile (`profile.patchGifts`, no save-version bump) so they follow cloud saves, backups and transfer codes. Notes: `src/data/patchNotes.js` (how to add one is at the top: every deploy to main = the next run number, `0.1.<run>`); gifts: `src/systems/patchGifts.js` (`PATCH_GIFT_GEMS = 100`); tests: `tests/systems/patchGifts.test.js`, `e2e/patch-notes.mjs`. The old "brand-new look" Update article was replaced by the patch notes. |

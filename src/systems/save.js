@@ -10,6 +10,7 @@ import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { newStory, cleanStory } from './story.js';
+import { cleanPatchGifts } from './patchGifts.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -106,6 +107,7 @@ export function createProfile() {
     lobbyBg: {},
     bond: Object.fromEntries(STARTER_UNITS.map((id) => [id, 0])),
     mail: emptyMail(),
+    patchGifts: {},
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
@@ -432,6 +434,7 @@ export function migrateProfile(raw) {
   p.lobbyBg = cleanLobbyBg(raw.lobbyBg);
   p.bond = cleanBond(raw.bond, p.units);
   p.mail = cleanMail(raw.mail);
+  p.patchGifts = cleanPatchGifts(raw.patchGifts);
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);

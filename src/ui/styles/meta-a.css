@@ -615,6 +615,30 @@
 .lb-notice-tag[data-tag='Tips'] { background: #7b5ce0; }
 .lb-notice-page p { font-size: 0.86rem; font-weight: 600; }
 .lb-notice-cta { margin-top: 10px; }
+/* Patch notes: every version as a card with its gem gift; the list scrolls inside the article pane */
+.lb-patch-intro { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.lb-patch-intro p { flex: 1 1 200px; margin: 0; font-size: 0.8rem; color: var(--muted); }
+.lb-patch-intro .btn { flex: none; }
+.lb-patch-list { display: flex; flex-direction: column; gap: 8px; }
+.lb-patch { padding: 8px 10px 6px; border: 1px solid #dde7f2; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 #dbe6f3; }
+.lb-patch-head { display: flex; align-items: center; gap: 8px; }
+.lb-patch-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; flex: 1; min-width: 0; }
+.lb-patch-ver { flex: none; padding: 0 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 900; color: #fff; background: var(--navy); }
+.lb-patch-date { font-size: 0.66rem; font-weight: 800; color: var(--muted); }
+.lb-patch-title b { flex-basis: 100%; font-size: 0.9rem; font-weight: 900; font-style: italic; color: var(--navy); line-height: 1.2; }
+.lb-patch-head .btn { flex: none; }
+.lb-patch-claimed { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 900; color: #1f8a57; background: #e2f6ec; border: 1px solid #b6e6cc; white-space: nowrap; }
+.lb-patch-sec { display: flex; align-items: flex-start; gap: 8px; margin-top: 5px; }
+.lb-patch-kind { flex: none; width: 58px; margin-top: 2px; padding: 1px 0; border-radius: 4px; text-align: center; font-size: 0.6rem; font-weight: 900; color: #fff; background: var(--blue); }
+.lb-patch-kind.added { background: #2bb673; }
+.lb-patch-kind.fixed { background: #ff8a3d; }
+.lb-patch-sec ul { flex: 1; min-width: 0; margin: 0; padding-left: 16px; }
+.lb-patch-sec li { font-size: 0.8rem; font-weight: 600; line-height: 1.35; margin: 1px 0; }
+@media (max-width: 700px), (max-height: 480px) {
+  .lb-notice-page-patch { padding: 8px 10px 10px; }
+  .lb-patch-sec { flex-direction: column; gap: 2px; }
+  .lb-patch-kind { width: auto; padding: 1px 6px; }
+}
 
 /* ---- tall phones held sideways (≥ 900 wide, short): a touch more room ---- */
 @media (min-width: 900px) and (max-height: 480px) {
