@@ -5,7 +5,7 @@ import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, HERO_XP_PER_DAMAGE, heroWaveXp, AUTO_START_DELAY,
-  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST,
+  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, DPS_WINDOW,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -13,6 +13,7 @@ import { createPlacementRules, footprintRadius, footprintAt, isTileCall } from '
 import { SpatialGrid } from './grid.js';
 import { crosspathBlock } from './mods.js';
 import { finalTierOf, findFinalHolder } from './finalTier.js';
+import { updateLimited, limitedRange, buffSources, buffTargets, aurasCovering } from './buffs.js';
 import {
   computeHit, applyHitResult, computeDot, BARRIER_BROKE, SHELL_BROKE,
 } from './combat.js';
@@ -35,7 +36,7 @@ import { snapshotSim, restoreSim } from './snapshot.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
-/** Rounds coin costs to a multiple of 5 (min 5), BTD6-style. */
+/** Rounds coin costs to a multiple of 5 (min 5). */
 export function roundCost(c) {
   return Math.max(5, Math.round(c / 5) * 5);
 }
@@ -130,6 +131,8 @@ export class Sim {
     this._buffTimer = 0;
     this._buffsDirty = true;
     this._globalBuffs = [];
+    /** Seconds until every girl's recentDps is re-measured (src/sim/buffs.js). */
+    this._dpsTimer = DPS_WINDOW;
     this._scratch = [];
     this._scratch2 = [];
     this._hitOut = {};
@@ -193,6 +196,7 @@ export class Sim {
   }
 
   _updateBuffs(dt) {
+    updateLimited(this, dt);
     if (this._globalBuffs.length) {
       let mul = 1;
       for (const b of this._globalBuffs) {
@@ -213,9 +217,12 @@ export class Sim {
     }
   }
 
-  /** Multiplies every tower's attack rate for `duration` seconds (strongest active buff wins). */
-  addGlobalRateBuff(mul, duration) {
-    this._globalBuffs.push({ mul, left: duration });
+  /**
+   * Multiplies every tower's attack rate for `duration` seconds (strongest active buff wins). `src` = the
+   * girl who cast it (the buff icons; default the hero).
+   */
+  addGlobalRateBuff(mul, duration, src = this.hero?.uid ?? -1) {
+    this._globalBuffs.push({ mul, left: duration, src });
     this.globalRateMul = Math.max(this.globalRateMul, mul);
     this._buffsDirty = true;
   }
@@ -699,6 +706,49 @@ export class Sim {
    */
   finalTierHolders(unitId, owner = 0) {
     return [0, 1, 2].map((p) => findFinalHolder(this.towers, unitId, owner, p)?.uid ?? null);
+  }
+
+  /** Every buff a girl has and who gives it (src/sim/buffs.js buffSources; read-only, for the UI). */
+  buffSources(uid) {
+    return buffSources(this, uid);
+  }
+
+  /** The girls a girl currently buffs (brew / link targets first, then aura winners; read-only). */
+  buffTargets(uid) {
+    return buffTargets(this, uid);
+  }
+
+  /** Every aura in range of a girl, the weaker ones that do not stack included (read-only). */
+  aurasCovering(uid) {
+    return aurasCovering(this, uid);
+  }
+
+  /**
+   * Pins the girl Midori brews / Chika links first (the pick command). `targetUid` -1 = back to auto
+   * (the strongest girl in reach). The target must be another placed girl in reach now (brew: Midori's
+   * range; link: Chika's aura); selling her clears the pin, leaving reach only skips her.
+   * @returns {{ ok: boolean, reason: null|'noBuff'|'self'|'gone'|'range' }}
+   */
+  setBuffPick(uid, targetUid) {
+    const t = this.getTower(uid);
+    if (!t || (!t.stats?.brew && !t.stats?.link)) return { ok: false, reason: 'noBuff' };
+    if (targetUid == null || targetUid === -1) {
+      t.buffPick = -1;
+      if (t.lim) t.lim.repick = true;
+      this._buffsDirty = true;
+      return { ok: true, reason: null };
+    }
+    if (targetUid === uid) return { ok: false, reason: 'self' };
+    const o = this.getTower(targetUid);
+    if (!o) return { ok: false, reason: 'gone' };
+    const r = limitedRange(t);
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy > r * r) return { ok: false, reason: 'range' };
+    t.buffPick = targetUid;
+    if (t.lim) t.lim.repick = true;
+    this._buffsDirty = true;
+    return { ok: true, reason: null };
   }
 
   /** Upgrade cost for the next tier of a path (applies difficulty, profile and cost-cut auras). */

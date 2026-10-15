@@ -19,6 +19,8 @@ import { FREEPLAY } from '../../data/freeplay.js';
 import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 
 // 3: co-op freeplay (start.freeplay, the 'end' Finish vote, the freeplay goal event)
+//    (feature/path-cap, for the train-C bump to 4: one final tier per path per player — towers carry
+//    `owner` — and the 'pick' command; no bump of its own)
 export const COOP_PROTOCOL = 3;
 export { BUILD_ID };
 

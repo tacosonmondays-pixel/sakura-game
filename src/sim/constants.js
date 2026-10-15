@@ -78,6 +78,16 @@ export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */
 export const BUFF_REFRESH = 0.2;
 
+/** Limited buffs (src/sim/buffs.js): Midori re-brews every BREW_EVERY s; a brew lasts BREW_TIME s (re-brewed
+ *  before it runs out); a girl she stops brewing keeps it at most BREW_DROP s more. */
+export const BREW_EVERY = 6;
+export const BREW_TIME = 6.5;
+export const BREW_DROP = 0.5;
+/** Window (s) of a girl's recent DPS (what the limited buffs pick by). */
+export const DPS_WINDOW = 2;
+/** How often a Chika with a free link slot looks for a girl to link (s). */
+export const LINK_SCAN = 0.25;
+
 /** Neutral unit battle stats (when no profile stats are supplied). */
 export const DEFAULT_UNIT_STATS = Object.freeze({
   damageMul: 1,

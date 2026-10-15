@@ -80,7 +80,7 @@ describe('ModSet application', () => {
   });
 });
 
-describe('crosspath rules (BTD6)', () => {
+describe('crosspath rules', () => {
   test('at most two paths, only one above tier 2', () => {
     expect(crosspathBlock([0, 0, 0], 0)).toBe(null);
     expect(crosspathBlock([2, 2, 0], 2)).toBe('crosspath');
@@ -125,5 +125,31 @@ describe('crosspath rules (BTD6)', () => {
     expect(sim.placeCost('archer')).toBe(215); // 200 × 1.2 × 0.9 = 216 → 215
     const t = sim.placeTower('archer', 3, 3);
     expect(sim.upgradeStatus(t.uid, 0).cost).toBe(110); // 100 × 1.08 = 108 → 110
+  });
+});
+
+describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
+  test('brew and link accumulate: targets max, multipliers multiply, pen and crit add, overclock replaces', () => {
+    const s = normalizeBase({ damage: 1 });
+    expect(s.brew).toBe(null);
+    expect(s.link).toBe(null);
+    const acc = { damageAdd: 0, damageMul: 1 };
+    applyModSet(s, { brew: { targets: 1, dmgMul: 1.15 } }, acc);
+    applyModSet(s, { brew: { dmgMul: 1.05, armorPen: 1 } }, acc);
+    applyModSet(s, { brew: { targets: 3, rateMul: 1.2, armorPen: 2, critChance: 0.1 } }, acc);
+    expect(s.brew).toMatchObject({ targets: 3, rateMul: 1.2, armorPen: 3, critChance: 0.1, overclock: null });
+    expect(s.brew.dmgMul).toBeCloseTo(1.2075, 12);
+    applyModSet(s, { link: { targets: 2, rateMul: 1.4, overclock: { every: 20, time: 6, rateMul: 1.25 } } }, acc);
+    applyModSet(s, { link: { targets: 1, rateMul: 1.143, overclock: { every: 15, time: 5, rateMul: 1.5 } } }, acc);
+    expect(s.link.targets).toBe(2);
+    expect(s.link.rateMul).toBeCloseTo(1.6002, 12);
+    expect(s.link.overclock).toEqual({ every: 15, time: 5, rateMul: 1.5 });
+  });
+
+  test('aura armorPen and critChance add within one girl\'s aura', () => {
+    const s = normalizeBase({ aura: { range: 3, armorPen: 2 } });
+    expect(s.aura).toMatchObject({ armorPen: 2, critChance: 0 });
+    applyModSet(s, { aura: { armorPen: 2, critChance: 0.05 } }, { damageAdd: 0, damageMul: 1 });
+    expect(s.aura).toMatchObject({ armorPen: 4, critChance: 0.05, range: 3 });
   });
 });

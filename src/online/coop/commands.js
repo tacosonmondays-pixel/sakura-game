@@ -24,8 +24,10 @@ import { withDetMath } from './detMath.js';
  * the room has voted, and only after the stage's goal wave).
  * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
  * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
+ * pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
+ * target may be an ally's girl (Sim.setBuffPick).
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'pick'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -212,6 +214,12 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
             checkEndVotes();
             res = { ok: true };
           }
+          break;
+        case 'pick':
+          // limited buffs (src/sim/buffs.js): my brewer / linker, any girl as the target (teamwork)
+          if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
+          else if (!Number.isInteger(a[1])) res = { ok: false, reason: 'invalid' };
+          else res = sim.setBuffPick(a[0], a[1]);
           break;
         default:
           break;
