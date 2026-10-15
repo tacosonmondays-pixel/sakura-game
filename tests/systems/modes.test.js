@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { createProfile, migrateProfile, migrationDropsData, cleanModeRibbons } from '../../src/systems/save.js';
 import { applyBattleResult, rewardDifficulty, rollStageDrops, MODE_RIBBON_GEMS } from '../../src/systems/rewards.js';
-import { modeRibbons, modesUnlocked, ribbonCount, chapterRibbons } from '../../src/systems/unlocks.js';
+import { modeRibbons, modesUnlocked, ribbonCount, chapterRibbons, stageShowcase, campaignShowcase } from '../../src/systems/unlocks.js';
 import { applyCoopResult } from '../../src/online/coop/rewards.js';
 import { parseBattleParams } from '../../src/ui/battle/setup.js';
 import { createRng } from '../../src/core/rng.js';
@@ -133,5 +133,23 @@ describe('parseBattleParams mode', () => {
     expect(parseBattleParams({ stage: 'challenge', mode: 'rush' }, p).mode).toBe('standard');
     expect(parseBattleParams({ stage: '3-2', difficulty: 'nightmare', mode: 'laststand' }, p).mode).toBe('standard');
     expect(parseBattleParams({ stage: '3-2', difficulty: 'hard', mode: 'laststand' }, p).mode).toBe('laststand');
+  });
+});
+
+describe('the medal and ribbon showcase', () => {
+  it('one grid per stage: Standard = medals, other modes = ribbons, Nightmare × Last Petal merged', () => {
+    const p = profileWith({ normal: true, nightmare: true, modes: { 'hard:rush': true } });
+    const s = stageShowcase(p, '3-2');
+    expect(Object.keys(s.grid)).toEqual(['standard', 'reverse', 'rush', 'ironclad', 'frugal', 'laststand']);
+    expect(s.grid.standard.normal).toEqual({ earned: true, kind: 'medal' });
+    expect(s.grid.standard.hard).toEqual({ earned: false, kind: 'medal' });
+    expect(s.grid.rush.hard).toEqual({ earned: true, kind: 'ribbon' });
+    expect(s.grid.laststand.nightmare).toEqual({ earned: true, kind: 'ribbon', merged: true });
+    expect(s).toMatchObject({ stageId: '3-2', chapter: 3, cleared: true, modesUnlocked: true, medals: { have: 2, total: 4 }, ribbons: { have: 2, total: 20 } });
+    const all = campaignShowcase(p);
+    expect(all.stages.length).toBe(40);
+    expect(all.medals.total).toBe(160);
+    expect(all.ribbons.total).toBe(800);
+    expect(all.ribbons.have).toBe(2);
   });
 });

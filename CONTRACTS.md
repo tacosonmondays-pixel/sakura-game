@@ -580,6 +580,12 @@ export function modesUnlocked(profile, stageId)  // a campaign stage cleared onc
 export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
 export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
 export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
+export function stageShowcase(profile, stageId)  // the medal and ribbon showcase of a stage (the profile showcase reads this):
+  // -> { stageId, chapter, cleared, modesUnlocked, medals: { have, total: 4 }, ribbons: { have, total: 20 },
+  //      grid: { [mode in MODE_ORDER]: { [difficulty in DIFFICULTY_ORDER]: { earned, kind: 'medal'|'ribbon', merged? } } } }
+  // the 'standard' row is the difficulty medals; the other five rows are ribbons; nightmare × laststand is merged
+  // (earned with the Nightmare medal). Read-only; never writes the profile.
+export function campaignShowcase(profile)        // -> { stages: stageShowcase[] in campaign order, medals: { have, total: 160 }, ribbons: { have, total: 800 } }
 ```
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`

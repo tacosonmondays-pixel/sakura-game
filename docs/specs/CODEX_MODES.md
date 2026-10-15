@@ -1022,3 +1022,8 @@ config; `routeReversed` → carried (`rr`); `_ruleMul`, `_ruleMove`, `_ruleRange
 enemy `rifted` → calm (enemies are not carried). There is no `_ruleScratch` in the build. Freeplay checkpoints:
 `REBUILT` += `mode`, `_pathsFwd`, `_pathsRev`, and `AFTER_RESTORE` re-applies the live orientation (built; tested on
 4-2 freeplay after an even wave, 6-1 after a pad-owner sale, 6-3 Ironclad mid-vent).
+
+**Owner answers (2026-10-15):** Q1 no ribbon gems, Q2 medals only from Standard wins with the drop cap, Q3 modes unlock
+after one clear — all confirmed as built. Q4 (freeplay stays Standard) keeps its default. For the planned profile
+"medal and ribbon showcase", `stageShowcase(profile, stageId)` returns one mode × difficulty grid per stage (Standard =
+medals, other modes = ribbons, Nightmare × Last Petal merged) and `campaignShowcase(profile)` the whole campaign.
