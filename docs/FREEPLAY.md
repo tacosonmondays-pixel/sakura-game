@@ -24,6 +24,11 @@ at wave 200. Nothing caps the run.
   banner "16/15 — BEYOND THE LAST WAVE", milestones, visitor toasts, HP surges, boss ribbons, the
   Matriarch countdown, the pressure chip. **Finish run** is in the pause menu (solo: it ends the run at
   once); Quit pays the freeplay bonus for the waves cleared.
+- **Battle saves** (docs/BATTLE_SAVE.md): a freeplay run is never saved (its pause menu keeps a plain
+  Quit, which returns to the prep with its tier picked); a normal run that may Keep going saves as
+  usual until its win, which deletes the save. With a saved normal battle on the stage, prep shows
+  **Freeplay · Tier** beside **Continue** (instead of New game) and leaves the save alone; Continue
+  always resumes the save as a normal run.
 - **Results**: FREEPLAY OVER (fell) / FREEPLAY COMPLETE (Finish), "Cleared wave 147 / 15", "Fell on
   wave 148 to the Grave Lych" / "Finished after wave 147", "New best on 1-3 (Tempest)!", the stage clear
   (saved at 15/15) and the freeplay bonus.
