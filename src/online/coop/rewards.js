@@ -215,8 +215,19 @@ export function freeplayRecords(profile) {
   const p = (profile.progress ||= { stages: {} });
   const r = (p.freeplay = isObj(p.freeplay) ? p.freeplay : {});
   for (const k of ['done', 'titles', 'frames']) if (!Array.isArray(r[k])) r[k] = [];
+  // the once-per-account milestones are mirrored into missions.counters, which every older build
+  // keeps when it saves: an old cached tab that drops progress.freeplay can't make them pay twice
+  const counters = profile.missions?.counters;
+  if (isObj(counters)) {
+    for (const [k, v] of Object.entries(counters)) {
+      if (k.startsWith(MILESTONE_MARK) && v > 0 && !r.done.includes(k.slice(MILESTONE_MARK.length))) r.done.push(k.slice(MILESTONE_MARK.length));
+    }
+  }
   return r;
 }
+
+/** missions.counters key prefix of a paid freeplay milestone ('fpm:' + 'tier:id'). */
+export const MILESTONE_MARK = 'fpm:';
 
 /** Best freeplay wave on a stage per tier: { blossom?, tempest?, crimson? } (absolute waves). */
 export function coopBestWaves(profile, stageId) {
@@ -278,6 +289,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
     const hit = m.wave != null ? cleared >= m.wave : count(kills[m.kill]) > 0;
     if (!hit) continue;
     rec.done.push(key);
+    ((profile.missions ||= {}).counters ||= {})[MILESTONE_MARK + key] = 1;
     const title = table.id === 'crimson' && m.crimsonTitle ? m.crimsonTitle : m.title || null;
     if (title && !rec.titles.includes(title)) rec.titles.push(title);
     if (m.frame && !rec.frames.includes(m.frame)) rec.frames.push(m.frame);

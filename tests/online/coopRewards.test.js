@@ -127,6 +127,24 @@ describe('applyCoopFreeplayEnd (the end of a run)', () => {
     expect(migrateProfile(JSON.parse(JSON.stringify(p))).progress.freeplay).toEqual(p.progress.freeplay);
   });
 
+  it('milestones never pay twice when an older build drops progress.freeplay (mirrored in missions.counters)', () => {
+    const p = createProfile();
+    const gemsBefore = p.currencies.gems;
+    applyCoopFreeplayEnd(p, fpResult({ wavesCleared: 152, kills: { dragon_ashwing: 1 } }), createRng(1), { banked: null });
+    expect(p.currencies.gems - gemsBefore).toBe(350);
+    expect(p.missions.counters['fpm:blossom:w100']).toBe(1);
+    // an old cached build rewrites the save: progress.freeplay is gone, missions.counters stays
+    const old = JSON.parse(JSON.stringify(p));
+    delete old.progress.freeplay;
+    const back = migrateProfile(old);
+    expect(back.progress.freeplay).toBeUndefined();
+    expect(back.missions.counters['fpm:blossom:matriarch']).toBe(1);
+    const r = applyCoopFreeplayEnd(back, fpResult({ wavesCleared: 160, kills: { dragon_ashwing: 1 } }), createRng(1), { banked: null });
+    expect(r.freeplay.milestones).toEqual([]);
+    expect(back.currencies.gems - gemsBefore).toBe(350);
+    expect(back.progress.freeplay.done).toEqual(expect.arrayContaining(['blossom:w100', 'blossom:w150', 'blossom:matriarch']));
+  });
+
   it('pays nothing extra when the run is finished right at the goal', () => {
     const p = createProfile();
     const before = JSON.stringify(p.items);
