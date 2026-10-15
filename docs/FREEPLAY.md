@@ -18,7 +18,9 @@ at wave 200. Nothing caps the run.
 - **Keep going**: every normal campaign run that wins its last wave shows a **Keep going?** block on
   the victory sheet (and on the rewards sheet): the tier chips (the last tier picked first) and a
   violet → pink **KEEP GOING ▶ Wave 16/15**. The win is already saved (medal, first clear, drops);
-  the battle goes on in place as a freeplay run on that tier.
+  the battle goes on in place as a freeplay run on that tier. Not in the coached first battle
+  (`tutorial=1`, docs/STORY_SPEC.md §2.3): a brand-new player's first win ends on a plain victory
+  sheet (`parseBattleParams` gives it no freeplay and no Keep going).
 - **In battle**: exactly the co-op presentation — the FREEPLAY · TIER chip, the clear card (STAGE CLEAR ✓
   / GO BEYOND ▶ 16/15 / Finish here), the overflow pill (BEYOND, OVERTIME after 200), the glitch
   banner "16/15 — BEYOND THE LAST WAVE", milestones, visitor toasts, HP surges, boss ribbons, the
