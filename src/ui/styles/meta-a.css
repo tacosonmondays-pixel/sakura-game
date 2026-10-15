@@ -168,12 +168,17 @@
 @media (max-width: 560px) { .ma-formation-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .ma-fslot { position: relative; aspect-ratio: 1; }
 .ma-fslot .unit-card-square { width: 100%; height: 100%; }
-.ma-fslot .unit-card-name { font-size: 0.62rem; padding: 8px 3px 2px; }
-.ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; }
+.ma-fslot .unit-card-name { font-size: 0.62rem; line-height: 1.4; padding: 14px 3px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; line-height: 1.4; }
 /* these cards are too narrow for rarity and level side by side ("SSR" ran into "Lv.30"): the level
    sits on the name strip's dark, at the right. On phones they are ~38px, too small for three rows:
-   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top */
-.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 14px; }
+   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top.
+   The rows are spaced by explicit line boxes (1.4em, at least the text's own height in the game
+   font and its fallbacks), not by the font's "normal" line height: with the web font loaded, the
+   name's text box (2px + ~1.4em) reached up into "Lv.30" at bottom: 14px on the ~58px cards of a
+   1280×720 screen. Now the name (one line) ends 15px above the card's bottom edge (19px on a UR
+   card, whose ring adds a 4px border) and the level starts at 16px (20px with the UR's margin). */
+.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 16px; }
 @media (max-height: 480px) {
   .ma-fslot .unit-card-rarity { display: none; }
   .ma-fslot .unit-card-level { top: 3px; bottom: auto; }
