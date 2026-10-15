@@ -292,11 +292,19 @@ async function runViewport(vp) {
     await page.click('[data-testid="panel-close"]', { force: true }).catch(() => {});
     // step 5: speed (from wave 2). On a loaded machine wave 1 may still be running here: wait for the button, and
     // skip the tap if the next wave is already under way. The tip's 8 s window starts once the page has wave 2
-    // running: at 1280x720 SwiftShader frames can stall the page for seconds under load, so the tap itself (and
-    // the NEXT WAVE button it needs, which the frame loop shows) can land late; the tip must not.
+    // running. The fast-forward above moved the sim to 'between' outside the battle's frame loop, and only a
+    // rendered frame shows NEXT WAVE: at 1280x720 under SwiftShader on a loaded machine that frame can come
+    // 8–15+ s late (seen in gate runs), so when the tap has not started wave 2 the test starts it through the
+    // battle's own Start wave handler (the button's onclick; the tap itself is checked in step 2) and says so.
     const startBtn = await page.waitForSelector('[data-testid="start-wave"]:not([hidden])', { timeout: 15000 }).catch(() => null);
     if (startBtn && (await page.evaluate(() => window.__battle.sim.wave < 2))) await startBtn.click({ force: true }).catch(() => {});
-    await page.waitForFunction(() => window.__battle.sim.wave >= 2, null, { timeout: 20000, polling: 200 }).catch(() => null);
+    const tapped = await page.waitForFunction(() => window.__battle.sim.wave >= 2, null, { timeout: 8000, polling: 200 }).then(() => true, () => false);
+    if (!tapped) {
+      const why = await page.evaluate(() => ({ startShown: !document.querySelector('[data-testid="start-wave"]')?.hidden, wave: window.__battle.sim.wave, state: window.__battle.sim.state }));
+      log(`  note step 5: NEXT WAVE ${startBtn ? 'tap did not start' : 'did not show within 15 s for'} wave 2 (${JSON.stringify(why)}): starting it through the battle's Start wave handler`);
+      await page.evaluate(() => { if (window.__battle.sim.wave < 2) window.__battle.ui.startWave(); });
+      await page.waitForFunction(() => window.__battle.sim.wave >= 2, null, { timeout: 10000, polling: 200 }).catch(() => null);
+    }
     const spOk = await waitStep(page, 'speed', 8000);
     const sp = await page.evaluate(() => {
       const { sim, ui } = window.__battle;
