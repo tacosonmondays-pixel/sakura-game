@@ -18,10 +18,29 @@ try {
 }
 export const PGlite = PGliteCtor;
 
+/** The developer clan's id in the migration (its row is seeded; its join code is not). */
+export const DEV_CLAN_UUID = '00000000-0000-4000-8000-000000000777';
 /**
- * @param {{ defaultGrants: boolean, users?: [string, string][] }} opts users: [uuid, name]
+ * A TEST-ONLY join code for the developer clan. The migration seeds no code (the owner sets the
+ * real one in the live database and never commits it), so each test database gets this one.
  */
-export async function createDb({ defaultGrants, users = [], sql = MIGRATION_SQL, runs = 2 }) {
+export const TEST_DEV_CODE = 'TEST-DEV-LAB';
+
+/**
+ * Sets the developer clan's join code as the superuser, the way the owner does in the SQL editor
+ * (docs/ONLINE.md, "Rotate the developer clan code"). Inserts the row when there is none yet.
+ */
+export async function setDevCode(db, code = TEST_DEV_CODE) {
+  await db.query(`insert into public.clan_codes (clan_id, code) values ($1, $2)
+    on conflict (clan_id) do update set code = excluded.code`, [DEV_CLAN_UUID, code]);
+}
+
+/**
+ * @param {{ defaultGrants: boolean, users?: [string, string][], devCode?: string|null }} opts
+ *   users: [uuid, name]; devCode: the developer clan's test join code (null: none, like a fresh
+ *   project before the owner sets one)
+ */
+export async function createDb({ defaultGrants, users = [], sql = MIGRATION_SQL, runs = 2, devCode = TEST_DEV_CODE }) {
   const db = new PGliteCtor();
   await db.exec(`
     create role anon nologin; create role authenticated nologin; create role service_role nologin;
@@ -37,6 +56,7 @@ export async function createDb({ defaultGrants, users = [], sql = MIGRATION_SQL,
     create publication supabase_realtime;
   `);
   for (let i = 0; i < runs; i++) await db.exec(sql);
+  if (devCode) await setDevCode(db, devCode);
 
   // PGlite has ONE connection: calls fired together (Promise.all, the race tests) run one whole
   // transaction after another in the order they arrive, like requests queued on a row lock /
