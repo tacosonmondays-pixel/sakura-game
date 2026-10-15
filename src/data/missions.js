@@ -3,9 +3,7 @@
 //
 // Plain data. Progress for daily/weekly commissions comes from `track(profile, event, n)`
 // events listed in `events`. Achievements are evaluated from the profile by `metric`
-// (see src/systems/missions.js).
-
-import { UNITS } from './units.js';
+// (see src/systems/achievementMetrics.js).
 
 /** Events the game reports through track(). 'dailyDone' is internal (all dailies claimed). */
 export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone'];
@@ -40,43 +38,9 @@ export const LOGIN_REWARDS = [
   { day: 7, rewards: [{ id: 'gems', count: 150 }, { id: 'ticket_recruit', count: 1 }] },
 ];
 
-const A = (id, name, desc, metric, goal, rewards, param = undefined) => (param === undefined
-  ? { id, name, desc, metric, goal, rewards }
-  : { id, name, desc, metric, goal, rewards, param });
-const gems = (n) => ({ id: 'gems', count: n });
-
-/**
- * One-time achievements. metric:
- *  stagesCleared (campaign stages cleared), chapterClear (param chapter id, goal 5),
- *  medals (param medal difficulty, count of campaign stages with that medal),
- *  bestiaryPct (percent of enemies discovered), pulls, maxLevel, unitsOwned, kills, wins,
- *  gearRerolls (lifetime counter), maxAwaken, bossClears (Total Assault stages cleared).
- */
-export const ACHIEVEMENTS = [
-  A('a_first_win', 'First Patrol', 'Clear stage 1-1.', 'stagesCleared', 1, [gems(50), { id: 'book_rare', count: 3 }]),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((c) => A(`a_chapter_${c}`, `Chapter ${c} Complete`, `Clear every stage of chapter ${c}.`, 'chapterClear', 5, [gems(100 + 25 * c), ...(c % 2 === 0 ? [{ id: 'ticket_recruit', count: 1 }] : [])], c)),
-  A('a_gold_10', 'Golden Student', 'Earn Gold medals (Hard) on 10 campaign stages.', 'medals', 10, [gems(200), { id: 'lock_pin', count: 1 }], 'hard'),
-  A('a_gold_40', 'Valedictorian', 'Earn Gold medals on all 40 campaign stages.', 'medals', 40, [gems(600), { id: 'ticket_recruit', count: 2 }], 'hard'),
-  A('a_sakura_1', 'Nightmare Survivor', 'Earn a Sakura medal (Nightmare) on any campaign stage.', 'medals', 1, [gems(150)], 'nightmare'),
-  A('a_sakura_10', 'Sakura Sentinel', 'Earn Sakura medals on 10 campaign stages.', 'medals', 10, [gems(400), { id: 'crown_oni', count: 1 }], 'nightmare'),
-  A('a_bestiary_25', 'Field Notes', 'Discover 25% of the bestiary.', 'bestiaryPct', 25, [gems(100)]),
-  A('a_bestiary_50', 'Monster Scholar', 'Discover 50% of the bestiary.', 'bestiaryPct', 50, [gems(200)]),
-  A('a_bestiary_100', 'Encyclopedia Sakura', 'Discover every enemy in the bestiary.', 'bestiaryPct', 100, [gems(500), { id: 'ticket_recruit', count: 2 }]),
-  A('a_pulls_10', 'Welcome Committee', 'Recruit 10 times.', 'pulls', 10, [gems(50)]),
-  A('a_pulls_100', 'Club President', 'Recruit 100 times.', 'pulls', 100, [gems(200)]),
-  A('a_pulls_300', 'Student Council', 'Recruit 300 times.', 'pulls', 300, [gems(300), { id: 'star_fragment', count: 40 }]),
-  A('a_level_20', 'Diligent', 'Raise any student to level 20.', 'maxLevel', 20, [gems(80), { id: 'book_superRare', count: 2 }]),
-  A('a_level_40', 'Honor Roll', 'Raise any student to level 40.', 'maxLevel', 40, [gems(150), { id: 'book_mythic', count: 1 }]),
-  A('a_level_60', 'Perfect Score', 'Raise any student to level 60.', 'maxLevel', 60, [gems(300), { id: 'book_legendary', count: 1 }]),
-  A('a_awaken_1', 'Awakened', 'Awaken any student to ★1.', 'maxAwaken', 1, [gems(80)]),
-  A('a_awaken_5', 'Radiant Halo', 'Awaken any student to ★5.', 'maxAwaken', 5, [gems(500)]),
-  A('a_units_10', 'Growing Club', 'Own 10 students or heroes.', 'unitsOwned', 10, [gems(150)]),
-  A('a_units_all', 'Full Roster', 'Own every student and hero.', 'unitsOwned', UNITS.length, [gems(500), { id: 'ticket_recruit10', count: 1 }]),
-  A('a_kills_1000', 'Guardian', 'Defeat 1,000 enemies.', 'kills', 1000, [gems(80)]),
-  A('a_kills_25000', 'Legend of the Academy', 'Defeat 25,000 enemies.', 'kills', 25000, [gems(300)]),
-  A('a_reroll_10', 'Gambler\'s Eye', 'Reroll gear 10 times.', 'gearRerolls', 10, [gems(80), { id: 'lock_pin', count: 1 }]),
-  A('a_boss_3', 'Total Assault', 'Clear all three Total Assault bosses.', 'bossClears', 3, [gems(400), { id: 'crown_dragon', count: 1 }]),
-];
+// Achievements live in ./achievements.js (the shipped 30 + the expansion; docs/specs/ACHIEVEMENTS.md). Re-exported
+// here so every existing import keeps working.
+export { ACHIEVEMENTS } from './achievements.js';
 
 /**
  * Redemption codes (case-insensitive, spaces ignored). `action` codes do not grant items;

@@ -1,0 +1,127 @@
+// The public card (docs/specs/PROFILE.md §5, ACHIEVEMENTS.md §6.3–6.5).
+import { describe, it, expect } from 'vitest';
+import { buildCard, cleanViewedCard, snapshotToMiniProfile, loadoutToMiniProfile, restorePicks, validCard } from '../../src/online/profileCard.js';
+import { CARD_JSON_BUDGET } from '../../src/online/profileRules.js';
+import { setSensei } from '../../src/systems/senseiSave.js';
+import { unitBattleStats, unitPower } from '../../src/systems/progression.js';
+import { gearStatTotals } from '../../src/systems/gear.js';
+import { freshSave, lateSave } from '../systems/profileFixtures.js';
+
+describe('buildCard', () => {
+  it('a fresh save → a valid card with the auto showcase and no pins', () => {
+    const c = buildCard(freshSave());
+    expect(validCard(c)).toBe(true);
+    expect(c.units.map((u) => u.id).sort()).toEqual(['aoi', 'hikari', 'rei']);
+    expect(c.med).toEqual({ a: [0, 0, 0, 0], pins: [] });
+    expect(c.fp).toBeUndefined();
+    expect(c.fav).toBe('hikari');
+  });
+
+  it('a late save → valid, under budget, auto pins, st.h, no ribbons before the Codex modes', () => {
+    const p = lateSave();
+    const c = buildCard(p);
+    expect(validCard(c)).toBe(true);
+    expect(JSON.stringify(c).length).toBeLessThanOrEqual(CARD_JSON_BUDGET);
+    expect(c.units).toHaveLength(8);
+    expect(c.units[0].g).toHaveLength(3);
+    expect(c.units[0].g[0].x).toHaveLength(4);
+    expect(c.med.pins).toHaveLength(4);
+    expect(c.med.r).toBeUndefined();
+    expect(c.st.h).toBeGreaterThan(0);
+    expect(c.fp.crimson).toEqual({ w: 121, s: '7-3', c: 1 });
+  });
+
+  it('publishes the picks in the owner\'s order', () => {
+    const p = lateSave();
+    setSensei(p, { showcase: ['nami', 'luna'], favorite: 'luna', title: 'fp_crimson', frame: 'eclipse', banner: 'theme:festival', pins: ['ach:a_gold_40'] });
+    const c = buildCard(p);
+    expect(c.units.map((u) => u.id)).toEqual(['nami', 'luna']);
+    expect(c).toMatchObject({ fav: 'luna', ttl: 'fp_crimson', frm: 'eclipse', ban: 'theme:festival' });
+    expect(c.med.pins).toEqual(['ach:a_gold_40']);
+  });
+
+  it('never publishes private fields', () => {
+    const p = lateSave();
+    p.currencies.gems = 99999;
+    const json = JSON.stringify(buildCard(p));
+    for (const word of ['uid', 'locked', 'name', 'gems', 'pulls', 'gemsEarned', 'equippedBy', 'exp', 'obtainedAt', 'bond', 'Eternal Sakura']) {
+      expect(json.includes(`"${word}"`) || json.includes(word === 'Eternal Sakura' ? word : `"${word}":`)).toBe(false);
+    }
+  });
+});
+
+describe('cleanViewedCard', () => {
+  it('drops unknown ids and never returns an unknown title or banner', () => {
+    const v = cleanViewedCard({ v: 1, fav: 'nobody', ban: 'theme:space', frm: 'golden', ttl: 'add_me', units: [{ id: 'nobody', lv: 5, bt: 0, aw: 0 }, { id: 'aoi', lv: 50, bt: 1, aw: 9, p: 12, sk: 'aoi_x' }] });
+    expect(v.fav).toBe('hikari');
+    expect(v.ban).toBe('academy:day');
+    expect(v.frm).toBeNull();
+    expect(v.ttl).toBeNull();
+    expect(v.units).toEqual([{ id: 'aoi', bt: 1, aw: 5, lv: 20, p: 6 }]); // lv clamped to the cap at bt 1
+  });
+
+  it('removes duplicate and illegal substats and clamps gear values', () => {
+    const v = cleanViewedCard({
+      units: [{
+        id: 'luna', lv: 60, bt: 5, aw: 5,
+        g: [
+          { s: 'charm', r: 'rare', l: 30, m: ['atkPct', 9], x: [['critChance', 0.03, 9], ['critDmg', 0.05]] },
+          { s: 'charm', r: 'legendary', l: 10, m: ['atkPct', 0.2] },
+          { s: 'ribbon', r: 'legendary', l: 10, m: ['atkPct', 0.2] },
+          { s: 'shoes', r: 'legendary', l: 3, m: ['ratePct', 0.1], x: [['ratePct', 0.05], ['atkPct', 0.04], ['atkPct', 0.04], ['nope', 1], ['critDmg', 0.1], ['rangePct', 0.03], ['costCut', 0.01]] },
+        ],
+      }],
+    });
+    const [charm, shoes] = v.units[0].g;
+    expect(v.units[0].g.map((g) => g.s)).toEqual(['charm', 'shoes']);
+    expect(charm.l).toBe(10);
+    expect(charm.m[1]).toBeLessThan(0.5);
+    expect(charm.x).toHaveLength(1); // a rare piece has 1 substat
+    expect(charm.x[0][2]).toBe(3); // upgrades ≤ level / 3
+    expect(shoes.x.map((x) => x[0])).toEqual(['atkPct', 'critDmg', 'rangePct', 'costCut']);
+  });
+
+  it('reads field by field: an unknown key never blanks the card; st.h is clamped', () => {
+    const v = cleanViewedCard({ v: 1, fav: 'luna', st: { u: 999, s: 70, b: 101, k: 5, h: 5000 }, newKey: { x: 1 }, med: { a: [99, 1, 2, 3], pins: ['8-5:nightmare', 'ach:a_from_the_future', 'nowhere:hard', 'ach:Bad Text'] } });
+    expect(v.fav).toBe('luna');
+    expect(v.st.h).toBe(999);
+    expect(v.st.s).toBe(59);
+    expect(v.st.b).toBe(100);
+    expect(v.med.a[0]).toBe(59);
+    expect(v.med.pins).toEqual(['8-5:nightmare', 'ach:a_from_the_future']); // the unknown ach pin draws the neutral plaque
+    expect(cleanViewedCard({ st: {} }).st.h).toBeNull();
+    expect(cleanViewedCard(null).units).toEqual([]);
+  });
+});
+
+describe('snapshots', () => {
+  it('snapshotToMiniProfile gives the owner\'s battle stats, power and gear totals (within rounding)', () => {
+    const p = lateSave();
+    const card = cleanViewedCard(buildCard(p));
+    for (const u of card.units) {
+      const mini = snapshotToMiniProfile(u);
+      expect(unitPower(mini, u.id)).toBeCloseTo(unitPower(p, u.id), -1);
+      const a = unitBattleStats(mini, u.id);
+      const b = unitBattleStats(p, u.id);
+      for (const k of ['damageMul', 'rateMul', 'rangeMul', 'critChance', 'critMul', 'costMul']) expect(a[k]).toBeCloseTo(b[k], 3);
+      const ga = gearStatTotals(mini, u.id);
+      const gb = gearStatTotals(p, u.id);
+      for (const k of Object.keys(gb)) expect(ga[k]).toBeCloseTo(gb[k], 3);
+    }
+  });
+  it('loadoutToMiniProfile has no gear', () => {
+    const m = loadoutToMiniProfile('aoi', { level: 40, breakthrough: 3, awaken: 2 });
+    expect(m.units.aoi).toMatchObject({ level: 40, breakthrough: 3, awaken: 2 });
+    expect(m.gear).toEqual({});
+  });
+});
+
+describe('restorePicks', () => {
+  it('keeps only what this save owns or has earned, and clears lost', () => {
+    const p = freshSave();
+    p.sensei.lost = true;
+    p.progress.stages['1-1'] = { clears: 1, easy: true };
+    const s = restorePicks(p, { v: 1, fav: 'luna', ban: 'theme:volcano', frm: 'eclipse', ttl: 'fp_crimson', units: [{ id: 'aoi' }, { id: 'luna' }, { id: 'rei' }], med: { pins: ['1-1:easy', '8-5:nightmare'] } }, 'rei');
+    expect(s).toMatchObject({ avatar: 'rei', favorite: null, banner: 'academy:day', frame: null, title: null, showcase: ['aoi', 'rei'], pins: ['1-1:easy'], lost: false });
+  });
+});

@@ -19,7 +19,7 @@ const MAIN_GROWTH = { default: 0.06, armorPen: 0.04 };
 /** Each sub upgrade adds this fraction of the stat's mid roll (scaled by rarity). */
 const SUB_GROWTH = 0.5;
 /** A substat grows on every Nth enhancement level. */
-const SUB_GROWTH_EVERY = 3;
+export const SUB_GROWTH_EVERY = 3;
 
 const SLOT_NOUNS = {
   charm: ['Omamori', 'Pendant', 'Charm Bracelet', 'Brooch'],
@@ -50,6 +50,17 @@ export function substatRange(stat, rarity) {
   const [a, b] = GEAR_STATS[stat].base;
   const s = statScale(stat, rarity);
   return [roundStat(stat, a * s), roundStat(stat, b * s)];
+}
+
+/** Highest value a main stat can show at a rarity and level (best +0 roll, grown; profile snapshots clamp to it). */
+export function mainStatMax(stat, rarity, level = MAX_GEAR_LEVEL) {
+  const growth = MAIN_GROWTH[stat] ?? MAIN_GROWTH.default;
+  return roundStat(stat, mainStatRange(stat, rarity)[1] * (1 + growth * level));
+}
+
+/** Highest value a substat can show at a rarity after `upgrades` growths (profile snapshots clamp to it). */
+export function substatMax(stat, rarity, upgrades = 0) {
+  return roundStat(stat, substatRange(stat, rarity)[1] + upgrades * subGrowth(stat, rarity));
 }
 
 /** Range [min, max] a main stat (+0) can roll at a rarity. */
@@ -139,6 +150,7 @@ export function addGear(profile, gear) {
     do uid = `g${++profile.seq.gear}`; while (profile.gear[uid]);
   }
   profile.gear[uid] = { ...gear, uid, equippedBy: null };
+  if (gear.rarity) track(profile, `gear:${gear.rarity}`, 1); // achievements: gear of a rarity ever obtained
   return uid;
 }
 
@@ -303,6 +315,7 @@ export function enhanceGear(profile, uid) {
   if (!consumeItems(profile, [{ id: 'coins', count: cost }])) return { ok: false, error: 'missing', missing: [{ id: 'coins', need: cost, have: itemCount(profile, 'coins') }] };
   gear.level += 1;
   applyMainLevel(gear.main, gear.level);
+  if (gear.level === MAX_GEAR_LEVEL) track(profile, `gear10:${gear.rarity}`, 1); // achievements: pieces ever at +10
   let grewSub = null;
   if (gear.level % SUB_GROWTH_EVERY === 0 && gear.subs.length) {
     let best = 0;
@@ -340,6 +353,7 @@ export function salvageGear(profile, uid) {
   const rewards = salvageRewards(gear);
   delete profile.gear[uid];
   addItems(profile, rewards);
+  track(profile, 'salvage', 1);
   return { ok: true, rewards };
 }
 

@@ -33,7 +33,7 @@ export function writeIdentity(patch, perTab = false) {
   return next;
 }
 
-/** Profile fields the server shows next to the name. */
+/** Profile fields the server shows next to the name (the avatar: the Sensei Profile picture, else the secretary). */
 export function profileCard(profile) {
-  return { level: accountLevel(profile).level, avatar: profile?.secretary || 'hikari' };
+  return { level: accountLevel(profile).level, avatar: profile?.sensei?.avatar || profile?.secretary || 'hikari' };
 }

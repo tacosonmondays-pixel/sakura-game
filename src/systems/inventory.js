@@ -7,6 +7,7 @@ import { getItem, ITEMS } from '../data/items.js';
 import { STAGES } from '../data/stages.js';
 import { SHOP_OFFERS, SHOP_TABS } from '../data/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS } from '../data/missions.js';
+import { achievementLive } from '../data/achievements.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, ITEM_RARITIES } from '../data/types.js';
 
 /** Merge duplicate ids and drop non-positive counts. */
@@ -155,13 +156,17 @@ function buildSourceIndex() {
     const seen = new Set();
     for (const entry of list) for (const r of entry.rewards) if (!seen.has(r.id)) {
       seen.add(r.id);
-      push(r.id, { kind: 'mission', label, route, params, note: typeof note === 'function' ? note(entry, r) : note });
+      push(r.id, { kind: 'mission', label: typeof label === 'function' ? label(r) : label, route, params, note: typeof note === 'function' ? note(entry, r) : note });
     }
   };
   rewardSource(DAILY_MISSIONS, 'Daily Commissions', (m, r) => `${m.name}: ×${r.count} per day`, 'commissions', { tab: 'daily' });
   rewardSource(WEEKLY_MISSIONS, 'Weekly Commissions', (m, r) => `${m.name}: ×${r.count} per week`, 'commissions', { tab: 'weekly' });
   rewardSource(LOGIN_REWARDS, 'Login Calendar', (d, r) => `Day ${d.day}: ×${r.count}`, 'commissions', { tab: 'login' });
-  rewardSource(ACHIEVEMENTS, 'Achievements', (a, r) => `${a.name}: ×${r.count} (one-time)`, 'commissions', { tab: 'achievements' });
+  // achievements: one row per item, "Achievements (n)" = how many live achievements grant it
+  const liveAch = ACHIEVEMENTS.filter((a) => achievementLive(a)).sort((a, b) => !!a.hidden - !!b.hidden); // secrets never named
+  const achGrants = {};
+  for (const a of liveAch) for (const id of new Set(a.rewards.map((r) => r.id))) achGrants[id] = (achGrants[id] || 0) + 1;
+  rewardSource(liveAch, (r) => `Achievements (${achGrants[r.id]})`, (a, r) => `${a.hidden ? 'A secret achievement' : a.name}: ×${r.count} (one-time)`, 'commissions', { tab: 'achievements' });
 
   // Special sources not in any table.
   push('star_fragment', { kind: 'other', label: 'Recruit duplicates', route: 'recruit', params: {}, note: 'Duplicate R ×2 · SR ×10 · SSR ×40 fragments' });

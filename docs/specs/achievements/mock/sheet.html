@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Honor Ribbon Sheet</title>
+<link rel="stylesheet" href="../../../profile/mock/css/fonts.css">
+<link rel="stylesheet" href="../../../profile/mock/css/base.css">
+<link rel="stylesheet" href="../../../profile/mock/css/ur.css">
+<link rel="stylesheet" href="../../mock/css/ribbons.css">
+<style>
+  html, body { overflow: auto; height: auto; }
+  body { padding: 14px 18px; background: linear-gradient(160deg, #eef8ff, #d9ecff); }
+  h2 { font: italic 900 1.05rem/1 var(--font-head); margin: 14px 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 92px; text-align: center; }
+  .cell small { font-size: 0.62rem; font-weight: 800; color: var(--muted); line-height: 1.15; }
+  .cell b { font-size: 0.66rem; color: var(--navy); line-height: 1.1; }
+  .cls { font: 900 0.56rem/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 5px; border-radius: 3px; color: #fff; }
+  .cls.plain { background: #4aa6f0; } .cls.shiny { background: #e0a800; } .cls.special { background: linear-gradient(90deg, #ff5f8f, #ffa53d, #5fe39a, #4fc3ff, #8b7bff); }
+  .fxrow { display: flex; gap: 22px; align-items: flex-end; margin-bottom: 8px; }
+  .fxcell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .fxcell .sizes { display: flex; gap: 12px; align-items: flex-end; }
+  .fxcell small { font-weight: 900; font-size: 0.7rem; color: var(--navy); }
+  .dark { background: #22385c; border-radius: 12px; padding: 10px 14px; }
+  .dark small { color: #dbe8ff; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="ribbons.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get('rm') === '1') document.documentElement.setAttribute('data-reduce-motion', '');
+const app = document.getElementById('app');
+const sec = (t) => { app.insertAdjacentHTML('beforeend', `<h2>${t}</h2>`); const r = document.createElement('div'); r.className = 'row'; app.append(r); return r; };
+const part = q.get('part') || 'all';
+if (part === 'all' || part === 'set') {
+  const r = sec('All 34 Honor Ribbons (final spec) at 64 px (rest frame) · class silhouettes: plain 2 tails / shiny 2 rings / special 3 tails + aura points');
+  for (const h of HONORS) r.insertAdjacentHTML('beforeend', `<div class="cell">${ribbonEl(h, 64)}<span class="cls ${h.cls}">HR-${String(h.no).padStart(2, '0')} · ${h.cls}</span><b>${h.name}</b><small>${h.ach}${h.avail ? ` (${h.avail})` : ''}</small></div>`);
+  const r2 = sec('At 40 px (rows, toast) · locked · secret');
+  for (const h of HONORS) r2.insertAdjacentHTML('beforeend', ribbonEl(h, 40));
+  r2.insertAdjacentHTML('beforeend', `<span style="width:16px"></span>${ribbonEl(HONORS[3], 40, { locked: true })}${ribbonEl(HONORS[20], 40, { locked: true })}${ribbonEl(HONORS[29], 40, { locked: true })}${ribbonEl(HONORS[10], 40, { locked: true, secret: true })}`);
+}
+if (part === 'all' || part === 'fx') {
+  app.insertAdjacentHTML('beforeend', '<h2>The 8 specials, live, at 40 / 64 / 160 px</h2>');
+  const box = document.createElement('div'); box.className = 'fxrow'; box.style.flexWrap = 'wrap'; app.append(box);
+  for (const h of HONORS.filter((x) => x.cls === 'special')) {
+    box.insertAdjacentHTML('beforeend', `<div class="fxcell"><div class="sizes">${ribbonEl(h, 40, { live: true })}${ribbonEl(h, 64, { live: true })}${ribbonEl(h, 160, { live: true })}</div><small>${h.fx.toUpperCase()} · ${h.name}</small></div>`);
+  }
+}
+document.querySelectorAll('.rb-shiny').forEach((e) => e.classList.add('reveal'));
+</script>
+</body>
+</html>

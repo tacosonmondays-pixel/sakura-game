@@ -1,6 +1,8 @@
 // Unit Sheet (owner request #152): the quick info sheet that opens when you hold a girl's card.
-// Left: her card art + "Open full page". Right: Info (the student page's Info tab, word for
-// word) | Upgrades (Self / Allies / Enemies / Coins legend + the 3 × 5 tree with tier details).
+// Left: her card art + "Open full page". Right: Build (growth, gear, battle stats: src/ui/unitBuild.js)
+// | Info (the student page's Info tab, word for word) | Upgrades (Self / Allies / Enemies / Coins
+// legend + the 3 × 5 tree with tier details). Any profile can be shown: the live save by default, or
+// a mini profile from someone's Sensei Profile snapshot (`profile` + `owner`, docs/specs/PROFILE.md §7.4).
 // Lazy chunk; student.js (Info content + describeMods) is fetched on first open and cached.
 import { h, clear, svgEl, stars } from './components.js';
 import { store } from '../core/store.js';
@@ -15,6 +17,8 @@ import { onEscape } from './hold.js';
 import { tagLegend, tagChips, TAG_GLYPHS } from './tagChips.js';
 import { buildTreeModel } from './treeModel.js';
 import { upgradeGrid, tierDetail } from './upgradeGrid.js';
+import { buildTab } from './unitBuild.js';
+import { potentialLevel } from '../systems/potential.js';
 
 let studentMod = null;
 const loadStudent = () => (studentMod ||= import('./screens/student.js').catch((e) => {
@@ -36,20 +40,25 @@ const reduced = () => document.documentElement.hasAttribute('data-reduce-motion'
 /**
  * Opens (or replaces) the sheet.
  * @param {string} unitId
- * @param {{ tab?: 'info'|'upgrades', allowFullPage?: boolean, origin?: HTMLElement|null }} [o]
+ * @param {{ tab?: 'build'|'info'|'upgrades', allowFullPage?: boolean, origin?: HTMLElement|null,
+ *   profile?: object|null, owner?: { name: string, avatar?: string }|null, gearText?: string|null }} [o]
+ *   profile: the mini profile ({ units, gear }) to show instead of the save; owner: whose build it is
+ *   ("<name>'s build" chip, no full page, never "Recruit"); gearText: replaces "No charm equipped"
  * @returns {{ close(): void, el: HTMLElement }}
  */
-export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, origin = null } = {}) {
+export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, origin = null, profile = null, owner = null, gearText = null } = {}) {
   const unit = UNIT_MAP[unitId];
   if (!unit) return { close() {}, el: null };
   openSheet?.close({ restoreFocus: false });
 
-  const profile = store.profile;
-  const st = profile?.units?.[unit.id] || null;
-  const shown = displayRarity(unit, profile); // UR for a fully awakened SSR she owns (display only)
+  const prof = profile || store.profile;
+  if (owner) allowFullPage = false;
+  const st = prof?.units?.[unit.id] || null;
+  const shown = displayRarity(unit, prof); // UR for a fully awakened SSR she owns (display only)
   const r = rarityInfo(shown);
+  const hasBuild = !!st; // the Build tab: only when this profile has her
   let closed = false;
-  let current = tab === 'upgrades' ? 'upgrades' : 'info';
+  let current = tab === 'upgrades' ? 'upgrades' : tab === 'build' && hasBuild ? 'build' : 'info';
   const bodies = {};
 
   const close = ({ restoreFocus = true } = {}) => {
@@ -67,17 +76,25 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
   // ---- header
   const meta = h('div.us-meta');
   if (st) {
+    const pot = potentialLevel(st);
     meta.append(
       h('span.us-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.us-muted', ` / ${levelCap(st)}`)),
       stars(st.awaken || 0, MAX_AWAKEN),
-      h('span.us-power', svgEl(uiIcon('sword'), 'us-power-ico'), fmt(unitPower(profile, unit.id))));
-  } else {
+      pot > 1 ? h(`span.us-pot${pot >= 6 ? '.p6' : ''}`, { title: `Potential ${pot}` }, `P${pot}`) : null,
+      h('span.us-power', svgEl(uiIcon('sword'), 'us-power-ico'), fmt(unitPower(prof, unit.id))));
+  } else if (!owner) {
     meta.append(h('span.us-locked', svgEl(uiIcon('lock'), 'us-lock-ico'), howShort(unit)));
   }
+  const ownerChip = owner
+    ? h('span.us-owner', { 'data-testid': 'unit-sheet-owner' },
+      UNIT_MAP[owner.avatar] ? svgEl(portraitHTML(UNIT_MAP[owner.avatar], 'thumb', { alt: '' }), 'us-owner-pic') : null,
+      `${owner.name}'s build`)
+    : null;
   const closeBtn = h('button.us-close', { type: 'button', 'data-testid': 'unit-sheet-close', title: 'Close', 'aria-label': 'Close', onclick: () => close() }, svgEl(uiIcon('close'), 'us-close-ico'));
   const head = h('header.us-head',
     shown === 'UR' ? urBadge('us-rarity-ur') : h('span.us-rarity', { style: { '--rarity': r?.color || '#999' } }, r?.name || unit.rarity),
     h('div.us-names', h('div.us-name', unit.name), h('div.us-title', unit.title || ROLES[unit.role]?.name || '')),
+    ownerChip,
     meta,
     closeBtn);
 
@@ -93,14 +110,14 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     }, h('span.us-full-long', 'Open full page'), h('span.us-full-short', 'Full page'), svgEl(uiIcon('play'), 'us-full-ico'))
     : null;
   const art = h('div.us-art', { style: { '--rarity': r?.color || '#999' } }, svgEl(portraitHTML(unit, 'card', { eager: true, awaken: st?.awaken || 0 }), 'us-art-img'));
-  applyUrFrame(art, unit, profile);
+  applyUrFrame(art, unit, prof);
   const left = h('aside.us-left', art, fullBtn);
 
   // ---- tabs
   const tabBar = h('nav.us-tabs', { role: 'tablist' });
   const host = h('div.us-body', { tabindex: '-1' });
   const tabBtns = {};
-  for (const [id, label] of [['info', 'Info'], ['upgrades', 'Upgrades']]) {
+  for (const [id, label] of [...(hasBuild ? [['build', 'Build']] : []), ['info', 'Info'], ['upgrades', 'Upgrades']]) {
     tabBtns[id] = h('button.us-tab', {
       type: 'button', role: 'tab', 'data-testid': `unit-sheet-tab-${id}`,
       onclick: () => show(id),
@@ -108,7 +125,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     tabBar.append(tabBtns[id]);
   }
 
-  const sheet = h('div.us-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${unit.name} — info`, 'data-testid': 'unit-sheet', 'data-unit-sheet': unit.id },
+  const sheet = h('div.us-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${unit.name} — ${owner ? `${owner.name}'s build` : 'info'}`, 'data-testid': 'unit-sheet', 'data-unit-sheet': unit.id },
     head,
     h('div.us-main', left, h('div.us-right', tabBar, host)));
   const overlay = h('div.modal-overlay.us-overlay', { 'data-hold-info': 'off', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
@@ -122,7 +139,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     }
     clear(host);
     host.scrollTop = 0;
-    if (!bodies[id]) bodies[id] = id === 'info' ? buildInfo() : buildUpgrades();
+    if (!bodies[id]) bodies[id] = id === 'build' ? buildTab(unit, prof, { snapshotOwner: owner?.name || null, gearText }) : id === 'info' ? buildInfo() : buildUpgrades();
     host.append(bodies[id]);
   }
 
@@ -137,7 +154,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     const box = h('div.us-info', shimmer());
     const fill = () => loadStudent().then((m) => {
       if (closed) return;
-      box.replaceChildren(m.infoTab(unit));
+      box.replaceChildren(m.infoTab(unit, { profile: prof, label: owner ? 'theirs' : 'yours' }));
     }).catch((e) => {
       console.warn('[unitSheet] student page unavailable', e);
       box.replaceChildren(failBox(() => {
@@ -200,7 +217,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
   show(current);
   requestAnimationFrame(() => closeBtn.focus({ preventScroll: true }));
 
-  const api = { close, el: sheet, show };
+  const api = { close, el: sheet, show, tab: () => current };
   openSheet = api;
   return api;
 }

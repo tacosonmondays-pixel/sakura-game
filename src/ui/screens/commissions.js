@@ -10,8 +10,9 @@ import { DAILY_MISSIONS, WEEKLY_MISSIONS } from '../../data/missions.js';
 import { uiIcon } from '../../art/icons.js';
 import {
   onAppStart, missionList, claimMission, claimAllMissions, loginCalendar, claimLogin,
-  achievementList, claimAchievement, redeemCode,
+  achievementNotice, redeemCode,
 } from '../../systems/missions.js';
+import { achievementsView } from './achievements/list.js';
 import { rewardTiles, showRewardsModal, ask, rememberParams } from './stage.js';
 
 const TAB_IDS = ['daily', 'weekly', 'login', 'achievements', 'codes'];
@@ -70,7 +71,7 @@ export function render(root, params = {}) {
       daily: ml.daily.some((m) => m.claimable),
       weekly: ml.weekly.some((m) => m.claimable),
       login: loginCalendar(p).claimable,
-      achievements: achievementList(p).some((a) => a.claimable),
+      achievements: achievementNotice(p).dot, // gate-locked rows never light it
       codes: false,
     };
   };
@@ -81,26 +82,36 @@ export function render(root, params = {}) {
     const b = badges();
     const bar = tabs(TAB_IDS.map((id) => ({ id, label: labels[id], badge: b[id] })), active, (id) => {
       active = id;
-      rememberParams('commissions', { tab: id });
+      rememberParams('commissions', { tab: id, cat: null, view: null, highlight: null });
       draw();
     });
     bar.classList.add('ma-tabs');
     tabHost.appendChild(bar);
   };
 
+  let achView = null;
   const draw = () => {
     drawTabs();
+    achView?.cleanup?.();
+    achView = null;
     clear(content);
+    // the achievements tab fills the screen (its list scrolls inside, beside the category rail)
+    el.classList.toggle('ach-mode', active === 'achievements');
     const panelEl = h('div.ma-comm-panel');
     if (active === 'daily' || active === 'weekly') panelEl.appendChild(missionsView(active, draw));
     else if (active === 'login') panelEl.appendChild(loginView(draw));
-    else if (active === 'achievements') panelEl.appendChild(achievementsView(draw));
+    else if (active === 'achievements') panelEl.appendChild((achView = achievementsView({ params: first ? params : {}, onChange: drawTabs })));
     else panelEl.appendChild(codesView());
+    first = false;
     content.appendChild(panelEl);
   };
+  let first = true;
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
-  return () => off();
+  return () => {
+    off();
+    achView?.cleanup?.();
+  };
 }
 
 function progressBar(progress, goal) {
@@ -205,70 +216,6 @@ function loginView(redraw) {
   wrap.appendChild(grid);
   wrap.appendChild(h('p.muted.ma-hint', `Next reset in ${formatDuration(msUntil('daily'))} (local midnight, ${dayKey()}).`));
   return wrap;
-}
-
-function achievementsView(redraw) {
-  const profile = store.profile;
-  const list = achievementList(profile);
-  const done = list.filter((a) => a.claimed).length;
-  const claimable = list.filter((a) => a.claimable);
-  const wrap = h('div');
-  wrap.appendChild(h('div.ma-comm-head',
-    h('div', h('h3.ma-section-title', 'Achievements'), h('div.muted', `${done}/${list.length} completed`)),
-    button(claimable.length ? `Claim all (${claimable.length})` : 'Claim all', {
-      kind: 'yellow',
-      icon: 'trophy',
-      disabled: !claimable.length,
-      onClick: () => {
-        const all = [];
-        for (const a of claimable) {
-          const r = claimAchievement(profile, a.id);
-          if (r.ok) all.push(...r.rewards);
-        }
-        store.commit('achievements');
-        showRewardsModal({ title: 'Achievement rewards', rewards: mergeRewards(all) });
-        redraw();
-      },
-    }),
-  ));
-  const sorted = [...list].sort((a, b) => Number(b.claimable) - Number(a.claimable) || Number(a.claimed) - Number(b.claimed) || (b.progress / b.goal) - (a.progress / a.goal));
-  const rows = h('div.ma-mission-list');
-  for (const a of sorted) {
-    rows.appendChild(h(`div.ma-mission.ach${a.claimable ? '.ready' : ''}${a.claimed ? '.claimed' : ''}`,
-      h('div.ma-ach-icon', svgEl(uiIcon('trophy'))),
-      h('div.ma-mission-main',
-        h('div.ma-mission-name', a.name),
-        h('div.muted.ma-mission-desc', a.desc),
-        h('div.ma-mission-prog', progressBar(a.progress, a.goal), h('span.ma-mission-count', `${formatNumber(a.progress)}/${formatNumber(a.goal)}`)),
-      ),
-      h('div.ma-mission-rewards', rewardTiles(a.rewards, { size: 46 })),
-      h('div.ma-mission-act',
-        a.claimed
-          ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Done')
-          : a.claimable
-            ? button('Claim', {
-              kind: 'yellow',
-              small: true,
-              onClick: () => {
-                const r = claimAchievement(profile, a.id);
-                if (!r.ok) return;
-                store.commit('achievements');
-                showRewardsModal({ title: a.name, rewards: r.rewards });
-                redraw();
-              },
-            })
-            : h('span.muted', `${Math.floor((a.progress / a.goal) * 100)}%`),
-      ),
-    ));
-  }
-  wrap.appendChild(rows);
-  return wrap;
-}
-
-function mergeRewards(list) {
-  const m = new Map();
-  for (const r of list) m.set(r.id, (m.get(r.id) || 0) + r.count);
-  return [...m].map(([id, count]) => ({ id, count }));
 }
 
 function codesView() {

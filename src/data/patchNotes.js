@@ -20,6 +20,24 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.30', version: '0.1.30', date: '2026-10-15', title: 'Sensei Profile & Honors',
+    added: [
+      'Your Sensei Profile: tap your name badge in the lobby. Choose a picture, frame, banner, title and favorite girl, show off 8 girls (hold one to see her build), pin your best ribbons and see your Freeplay records. Visiting other players’ profiles comes in a later update.',
+      'Achievements now has 116 goals in tidy categories, and Claim all collects everything that’s ready in one tap. Many goals pay gear boxes alongside gems.',
+      'Honor Ribbons: achievements award ribbons for your Ribbon Case, and you can pin your favorites to your profile. The special ribbons have their own animated effects.',
+      'Titles: 37 titles on standard, gold and rare rainbow plates, shown under your name.',
+      'Backpack: Open all opens every gear box of a kind at once.',
+    ],
+    changed: [
+      'Goals you already met before this update are ready to claim right away, ribbons and titles included.',
+      'A small pop-up tells you when you complete an achievement. It waits until the battle is over, and the results screen shows how many are ready.',
+    ],
+    fixed: [
+      'The chat’s Messages button no longer shows the word “null” when you have no unread messages.',
+      'When you can’t add a player as a friend yet, their card says why and gives you an Add with a friend code button.',
+    ],
+  },
+  {
     id: 'v0.1.29', version: '0.1.29', date: '2026-10-15', title: 'Friends, messages & Sandbox',
     added: [
       'Friends: tap a player’s name in chat, your clan or co-op to open their card, then Add friend. You can also share your friend code (Settings → Online).',

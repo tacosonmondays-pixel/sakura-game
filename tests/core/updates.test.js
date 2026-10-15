@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createUpdateChecker, isChunkLoadError, MIN_GAP_MS, reloadFresh } from '../../src/core/updates.js';
@@ -171,6 +171,15 @@ describe('tools/simId.mjs', () => {
       expect(files).not.toContain(f);
     }
     expect(files.filter((f) => f.startsWith('src/systems/') || f.startsWith('src/ui/'))).toEqual([]);
+  });
+
+  it('social hooks stay outside the graph (blocking a player or DM co-op invites never change who can play co-op together)', () => {
+    const { files } = simId();
+    expect(files).toContain('src/online/coop/session.js');
+    expect(files).not.toContain('src/online/coop/socialRoom.js');
+    // the block filter and the "room is registered" signal live in socialRoom.js, around the session
+    const social = files.filter((f) => /\[social\]|\bisBlocked\b|\bonSeated\b|\bseated\b/.test(readFileSync(f, 'utf8')));
+    expect(social).toEqual([]);
   });
 
   it('the net settings both players must share are data the id covers (not the adapters)', async () => {

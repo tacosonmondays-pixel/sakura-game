@@ -41,6 +41,11 @@ export function registerRoute(name, loader) {
   routes.set(name, loader);
 }
 
+/** A screen of this name is registered (links to screens that ship later, e.g. the Sensei Profile). */
+export function hasRoute(name) {
+  return routes.has(name);
+}
+
 /** decodeURIComponent that keeps the raw text for malformed escapes (e.g. "%E0"). */
 function safeDecode(s) {
   try {

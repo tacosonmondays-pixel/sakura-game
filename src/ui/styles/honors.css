@@ -1,0 +1,284 @@
+/* Honor Ribbons and title plates (docs/specs/ACHIEVEMENTS.md §2). Built by src/ui/honorFx.js.
+
+   Cost: every effect is a sibling <span> layer over the SVG, clipped by a static mask made from the ribbon's own
+   paths (--rbm-*, set once by installHonorMasks), and animates transform and opacity only, so the compositor runs
+   it without style, layout or paint work. Nothing here is SMIL or an animated SVG attribute.
+
+   Motion runs only on `.live` (src/ui/honorFx.js liveHonors keeps at most 3–4 live per screen), and every `.live`
+   rule sits inside (prefers-reduced-motion: no-preference) AND html:not([data-reduce-motion]). Without `.live`
+   each special shows its designed REST FRAME (the global 1 ms reduce-motion rule is never relied on: it would end
+   every loop on a random phase). Losing `.live` means `animation: none`, never `paused`. */
+
+/* ---------- the ribbon ---------- */
+.rb { position: relative; display: inline-block; flex: none; width: var(--s, 40px); height: var(--s, 40px); line-height: 0; vertical-align: middle; isolation: isolate; }
+.rb > .rb-art { position: relative; z-index: 1; display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 calc(var(--s) * 0.03) calc(var(--s) * 0.04) rgba(29, 78, 137, 0.28)); }
+.rb.rb-s > .rb-art { filter: none; }
+.rb > span { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.rb.locked > .rb-art { filter: none; opacity: 0.92; }
+
+/* the masks: the whole silhouette, the pleat ring, the disc, the rosette, the halo ring */
+.rb-special > .rb-ring, .rb-special > .rb-sweep, .rb-special > .rb-foil {
+  -webkit-mask: var(--rbm-special) center / 100% 100% no-repeat; mask: var(--rbm-special) center / 100% 100% no-repeat;
+}
+.rb-special > .rb-ring { -webkit-mask-image: var(--rbm-ring-special); mask-image: var(--rbm-ring-special); overflow: hidden; }
+.rb-special > .rb-stars, .rb-special > .rb-flash {
+  -webkit-mask: var(--rbm-disc-special) center / 100% 100% no-repeat; mask: var(--rbm-disc-special) center / 100% 100% no-repeat; overflow: hidden;
+}
+.rb-special > .rb-aurora { -webkit-mask: var(--rbm-rosette) center / 100% 100% no-repeat; mask: var(--rbm-rosette) center / 100% 100% no-repeat; overflow: hidden; }
+.rb-special > .rb-rays { -webkit-mask: var(--rbm-aura-ring) center / 100% 100% no-repeat; mask: var(--rbm-aura-ring) center / 100% 100% no-repeat; overflow: hidden; }
+.rb-shiny > .rb-once { -webkit-mask: var(--rbm-shiny) center / 100% 100% no-repeat; mask: var(--rbm-shiny) center / 100% 100% no-repeat; overflow: hidden; }
+
+/* ---------- glints: four-point stars (shared by several effects) ---------- */
+.rb-glints i {
+  position: absolute; width: calc(var(--s) * 0.17); height: calc(var(--s) * 0.17); margin: calc(var(--s) * -0.085);
+  background: radial-gradient(circle, #fff 0 18%, var(--gc, #fff6c2) 50%, transparent 72%);
+  clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%);
+  opacity: 0.9; transform: scale(0.85);
+}
+.rb-glints i:nth-child(1) { left: 74%; top: 14%; }
+.rb-glints i:nth-child(2) { left: 20%; top: 26%; --gc: #cfe8ff; }
+.rb-glints i:nth-child(3) { left: 80%; top: 56%; --gc: #ffd1e4; }
+.rb-s .rb-glints i { width: calc(var(--s) * 0.24); height: calc(var(--s) * 0.24); margin: calc(var(--s) * -0.12); }
+@keyframes rb-glint {
+  0%, 55%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  70% { opacity: 1; transform: scale(1.1) rotate(45deg); }
+  86% { opacity: 0; transform: scale(0.4) rotate(90deg); }
+}
+
+/* ---------- Prism (Rainbow Bright): the UR rainbow turns in the pleat ring ---------- */
+.fx-prism > .rb-ring { opacity: 0.88; }
+.fx-prism > .rb-ring::before {
+  content: ''; position: absolute; left: 50%; top: 42%; width: 160%; aspect-ratio: 1;
+  background: conic-gradient(var(--ur-rainbow, #ff5f8f, #ffa53d, #ffe14d, #5fe39a, #4fc3ff, #8b7bff, #f36bff, #ff5f8f));
+  transform: translate(-50%, -50%) rotate(20deg);
+}
+@keyframes rb-spin { from { transform: translate(-50%, -50%) rotate(0turn); } to { transform: translate(-50%, -50%) rotate(1turn); } }
+
+/* ---------- Sakura Drift (Thousand Petals): petals fall across and past the ribbon ---------- */
+.fx-sakura > .rb-petals { overflow: visible; z-index: 3; }
+.rb-petals i {
+  position: absolute; left: 0; top: 0; width: calc(var(--s) * 0.11); height: calc(var(--s) * 0.075);
+  border-radius: 80% 10% 80% 10%; background: linear-gradient(135deg, #fff 0%, #ffc4dd 45%, #ff8fbf 100%);
+  box-shadow: 0 0 0 0.5px rgba(181, 48, 106, 0.25); opacity: 0;
+}
+/* rest frame: two petals resting on the tails */
+.rb-petals i:nth-child(1) { opacity: 1; transform: translate(calc(var(--s) * 0.27), calc(var(--s) * 0.8)) rotate(-24deg); }
+.rb-petals i:nth-child(2) { opacity: 1; transform: translate(calc(var(--s) * 0.66), calc(var(--s) * 0.86)) rotate(38deg); }
+@keyframes rb-petal {
+  0% { opacity: 0; transform: translate(var(--x0), calc(var(--s) * -0.14)) rotate(0deg); }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x1), calc(var(--s) * 1.1)) rotate(var(--r, 320deg)); }
+}
+
+/* ---------- Sunrise (Laureate's Sunrise): gold rays turn between the halo points; a light band sweeps ---------- */
+.fx-sunrise > .rb-rays::before {
+  content: ''; position: absolute; left: 50%; top: 42%; width: 150%; aspect-ratio: 1;
+  background: repeating-conic-gradient(rgba(255, 225, 120, 0.95) 0 7deg, rgba(255, 255, 255, 0) 7deg 15deg);
+  transform: translate(-50%, -50%) rotate(4deg);
+}
+.rb-sweep { overflow: hidden; }
+.rb-sweep::before {
+  content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.85) 50%, transparent);
+  transform: translateX(-140%) skewX(-14deg); opacity: 0;
+}
+.fx-sunrise > .rb-glints i { --gc: #ffe58a; }
+@keyframes rb-sweep {
+  0%, 62% { transform: translateX(-140%) skewX(-14deg); opacity: 0; }
+  64% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateX(330%) skewX(-14deg); opacity: 0; }
+}
+
+/* ---------- Thunderclap (Stormproof): short bolts crackle on the rim, then calm ---------- */
+.fx-storm > .rb-bolts { overflow: visible; z-index: 3; }
+.rb-bolts i {
+  position: absolute; width: calc(var(--s) * 0.16); height: calc(var(--s) * 0.24);
+  background: linear-gradient(180deg, #fff 0%, #ffe14d 55%, #ffb000 100%);
+  clip-path: polygon(58% 0, 10% 56%, 46% 56%, 30% 100%, 92% 38%, 54% 38%, 76% 0);
+  filter: drop-shadow(0 0 1px rgba(255, 225, 77, 0.9)); opacity: 0;
+}
+.rb-bolts i:nth-child(1) { left: 74%; top: 2%; opacity: 0.85; transform: rotate(18deg); }
+.rb-bolts i:nth-child(2) { left: 6%; top: 34%; transform: rotate(-30deg); }
+.rb-bolts i:nth-child(3) { left: 78%; top: 50%; transform: rotate(40deg); }
+.fx-storm > .rb-flash { background: radial-gradient(circle at 50% 42%, #fff 0 30%, rgba(207, 220, 255, 0.6) 60%, transparent 75%); opacity: 0; }
+/* calm for 88%, then two short crackles (opacity in steps; never more than 2 flashes per cycle) */
+@keyframes rb-bolt {
+  0%, 88% { opacity: 0; }
+  89%, 91% { opacity: 1; }
+  92%, 94% { opacity: 0; }
+  95%, 97% { opacity: 1; }
+  98%, 100% { opacity: 0; }
+}
+@keyframes rb-bolt-rest {
+  0%, 88% { opacity: 0.85; }
+  89%, 91% { opacity: 1; }
+  92%, 94% { opacity: 0.3; }
+  95%, 97% { opacity: 1; }
+  98%, 100% { opacity: 0.85; }
+}
+@keyframes rb-flash {
+  0%, 89% { opacity: 0; }
+  90% { opacity: 0.32; }
+  92%, 94% { opacity: 0; }
+  96% { opacity: 0.28; }
+  98%, 100% { opacity: 0; }
+}
+
+/* ---------- Ember Glow (Crimson Ember): a warm pulse at the rim; embers rise from the tails ---------- */
+.fx-ember > .rb-halo {
+  z-index: 0; inset: -14% -14% 8% -14%; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 140, 70, 0.62) 0 38%, rgba(255, 90, 60, 0.32) 52%, rgba(255, 90, 60, 0) 70%);
+  opacity: 0.8; transform: scale(1);
+}
+.fx-ember > .rb-embers { overflow: visible; z-index: 3; }
+.rb-embers i {
+  position: absolute; width: calc(var(--s) * 0.05); height: calc(var(--s) * 0.05); border-radius: 50%;
+  background: radial-gradient(circle, #fff3c2 0 30%, #ffb347 60%, rgba(255, 120, 40, 0) 100%); opacity: 0;
+}
+.rb-embers i:nth-child(1) { left: 30%; top: 70%; opacity: 0.9; }
+.rb-embers i:nth-child(2) { left: 64%; top: 60%; opacity: 0.8; }
+.rb-embers i:nth-child(3) { left: 46%; top: 88%; opacity: 0.7; }
+@keyframes rb-pulse { 0%, 100% { opacity: 0.6; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes rb-ember {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), calc(var(--s) * -0.62)) scale(1); }
+}
+
+/* ---------- Starfield (Starlight Vigil): a night sky drifts behind the eclipse; stars twinkle ---------- */
+.rb-stars b {
+  position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; opacity: 0.85;
+  background:
+    radial-gradient(circle at 12% 20%, #fff 0 0.5%, transparent 0.9%), radial-gradient(circle at 36% 64%, #fff 0 0.4%, transparent 0.8%),
+    radial-gradient(circle at 58% 30%, #ffe7a3 0 0.55%, transparent 0.95%), radial-gradient(circle at 80% 74%, #fff 0 0.45%, transparent 0.85%),
+    radial-gradient(circle at 70% 12%, #cfc8ff 0 0.5%, transparent 0.9%), radial-gradient(circle at 24% 86%, #fff 0 0.4%, transparent 0.8%),
+    radial-gradient(circle at 46% 48%, #fff 0 0.35%, transparent 0.7%), radial-gradient(circle at 90% 40%, #ffe7a3 0 0.45%, transparent 0.85%);
+}
+.rb-stars b.far { opacity: 0.5; transform: scale(0.7) rotate(40deg); }
+.fx-starfield > .rb-glints i { --gc: #ffe7a3; }
+@keyframes rb-drift { from { transform: translate(0, 0); } to { transform: translate(25%, 12%); } }
+@keyframes rb-drift-far { from { transform: scale(0.7) rotate(40deg) translate(0, 0); } to { transform: scale(0.7) rotate(40deg) translate(-20%, 10%); } }
+
+/* ---------- Aurora (Aurora Year): soft green, teal and violet bands drift across the rosette ---------- */
+.rb-aurora i {
+  position: absolute; top: 4%; height: 60%; left: -40%; width: 120%; border-radius: 50%;
+  background: linear-gradient(90deg, rgba(95, 227, 154, 0) 0%, rgba(95, 227, 154, 0.55) 30%, rgba(79, 195, 255, 0.5) 60%, rgba(178, 141, 255, 0) 100%);
+  transform: translateX(10%) rotate(-12deg);
+}
+.rb-aurora i:nth-child(2) { top: 26%; background: linear-gradient(90deg, rgba(47, 179, 140, 0), rgba(47, 179, 140, 0.5) 40%, rgba(178, 141, 255, 0.45) 75%, rgba(178, 141, 255, 0)); transform: translateX(30%) rotate(8deg); }
+.rb-aurora i:nth-child(3) { top: 44%; height: 40%; background: linear-gradient(90deg, rgba(178, 141, 255, 0), rgba(178, 141, 255, 0.45) 45%, rgba(95, 227, 154, 0.4) 80%, rgba(95, 227, 154, 0)); transform: translateX(-4%) rotate(-4deg); }
+@keyframes rb-band { from { transform: translateX(-12%) rotate(-12deg); } to { transform: translateX(42%) rotate(-6deg); } }
+
+/* ---------- Holo Foil (Holo Codex): pastel foil stripes shift as if the card were tilted ---------- */
+.fx-holo > .rb-foil { overflow: hidden; opacity: 0.62; }
+.fx-holo > .rb-foil::before {
+  content: ''; position: absolute; top: -50%; left: -100%; width: 300%; height: 200%;
+  background: repeating-linear-gradient(115deg, #ffd1e4 0 6%, #fff6c2 6% 12%, #c9f2e3 12% 18%, #cfe8ff 18% 24%, #e3d7ff 24% 30%);
+  transform: translateX(16%);
+}
+@keyframes rb-foil { from { transform: translateX(0%); } to { transform: translateX(33%); } }
+
+/* ---------- Shiny: static foil; one light pass when first seen or claimed (.reveal) ---------- */
+.rb-shiny > .rb-once::before {
+  content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 30%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.9) 50%, transparent);
+  transform: translateX(-140%) skewX(-14deg);
+}
+@keyframes rb-once { from { transform: translateX(-140%) skewX(-14deg); } to { transform: translateX(360%) skewX(-14deg); } }
+
+/* ---------- motion: only .live, only with motion allowed ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduce-motion]) .rb.live .rb-glints i { animation: rb-glint 3.4s ease-in-out infinite; }
+  html:not([data-reduce-motion]) .rb.live .rb-glints i:nth-child(2) { animation-delay: -1.1s; }
+  html:not([data-reduce-motion]) .rb.live .rb-glints i:nth-child(3) { animation-delay: -2.3s; }
+
+  html:not([data-reduce-motion]) .rb.live.fx-prism > .rb-ring::before { animation: rb-spin 5s linear infinite; }
+
+  html:not([data-reduce-motion]) .rb.live .rb-petals i { --x0: calc(var(--s) * -0.1); --x1: calc(var(--s) * 0.5); animation: rb-petal 7.2s linear infinite; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(1) { --x0: calc(var(--s) * 0.05); --x1: calc(var(--s) * 0.42); animation-duration: 6.4s; animation-delay: -0.6s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(2) { --x0: calc(var(--s) * 0.5); --x1: calc(var(--s) * 0.92); --r: -280deg; animation-duration: 7.4s; animation-delay: -3.1s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(3) { --x0: calc(var(--s) * 0.72); --x1: calc(var(--s) * 1.04); animation-duration: 8.2s; animation-delay: -5.2s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(4) { --x0: calc(var(--s) * 0.24); --x1: calc(var(--s) * 0.1); --r: -360deg; animation-duration: 6.9s; animation-delay: -2s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(5) { --x0: calc(var(--s) * 0.9); --x1: calc(var(--s) * 0.6); animation-duration: 8.6s; animation-delay: -4.4s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(6) { --x0: calc(var(--s) * -0.06); --x1: calc(var(--s) * 0.28); animation-duration: 7.8s; animation-delay: -6.6s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(7) { --x0: calc(var(--s) * 0.36); --x1: calc(var(--s) * 0.78); --r: 240deg; animation-duration: 6.6s; animation-delay: -1.5s; }
+  html:not([data-reduce-motion]) .rb.live .rb-petals i:nth-child(8) { --x0: calc(var(--s) * 0.6); --x1: calc(var(--s) * 0.2); animation-duration: 8s; animation-delay: -7.1s; }
+
+  html:not([data-reduce-motion]) .rb.live.fx-sunrise > .rb-rays::before { animation: rb-spin 40s linear infinite; }
+  html:not([data-reduce-motion]) .rb.live > .rb-sweep::before { animation: rb-sweep 4.2s ease-in-out infinite; }
+  html:not([data-reduce-motion]) .rb.live.fx-holo > .rb-sweep::before { animation-duration: 4.2s; animation-delay: -1.4s; }
+
+  html:not([data-reduce-motion]) .rb.live .rb-bolts i { animation: rb-bolt 3.6s steps(1, end) infinite; }
+  html:not([data-reduce-motion]) .rb.live .rb-bolts i:nth-child(1) { animation-name: rb-bolt-rest; }
+  html:not([data-reduce-motion]) .rb.live .rb-bolts i:nth-child(2) { animation-delay: -0.05s; }
+  html:not([data-reduce-motion]) .rb.live .rb-bolts i:nth-child(3) { animation-delay: -0.1s; }
+  html:not([data-reduce-motion]) .rb.live.fx-storm > .rb-flash { animation: rb-flash 3.6s steps(1, end) infinite; }
+
+  html:not([data-reduce-motion]) .rb.live.fx-ember > .rb-halo { animation: rb-pulse 2.4s ease-in-out infinite; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i { animation: rb-ember 3.6s ease-out infinite; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(1) { --dx: -3px; animation-duration: 3.2s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(2) { --dx: 4px; animation-duration: 3.8s; animation-delay: -1.2s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(3) { --dx: 2px; animation-duration: 4s; animation-delay: -2.2s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(4) { left: 52%; top: 76%; --dx: -5px; animation-duration: 3.4s; animation-delay: -0.6s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(5) { left: 22%; top: 58%; --dx: 3px; animation-duration: 3.7s; animation-delay: -2.8s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(6) { left: 74%; top: 74%; --dx: -2px; animation-duration: 3.3s; animation-delay: -1.8s; }
+  html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(7) { left: 40%; top: 64%; --dx: 5px; animation-duration: 3.9s; animation-delay: -3.3s; }
+
+  html:not([data-reduce-motion]) .rb.live .rb-stars b { animation: rb-drift 18s linear infinite alternate; }
+  html:not([data-reduce-motion]) .rb.live .rb-stars b.far { animation: rb-drift-far 30s linear infinite alternate; }
+
+  html:not([data-reduce-motion]) .rb.live .rb-aurora i { animation: rb-band 9s ease-in-out infinite alternate; }
+  html:not([data-reduce-motion]) .rb.live .rb-aurora i:nth-child(2) { animation-duration: 11s; animation-direction: alternate-reverse; }
+  html:not([data-reduce-motion]) .rb.live .rb-aurora i:nth-child(3) { animation-duration: 13s; }
+
+  html:not([data-reduce-motion]) .rb.live.fx-holo > .rb-foil::before { animation: rb-foil 6s ease-in-out infinite alternate; }
+
+  html:not([data-reduce-motion]) .rb-shiny.reveal > .rb-once::before { animation: rb-once 1.1s ease-out 1 both; }
+}
+
+/* ---------- title plates: Standard / Gold / Prism ---------- */
+.tp {
+  position: relative; display: inline-flex; align-items: center; max-width: 100%; padding: 0.18em 0.75em; border-radius: 4px;
+  font: italic 900 0.78rem/1.25 var(--font-head); letter-spacing: 0.01em; white-space: nowrap; vertical-align: middle;
+  transform: skewX(-10deg); isolation: isolate;
+}
+.tp > .tp-text { display: inline-block; transform: skewX(10deg); overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 2; }
+.tp.sm { font-size: 0.64rem; padding: 0.12em 0.6em; }
+.tp-standard { color: #fff; background: linear-gradient(90deg, #7b5cff, #b06bff 45%, #ff6fb5); box-shadow: 0 2px 6px rgba(123, 92, 255, 0.3); text-shadow: 0 1px 0 rgba(60, 20, 120, 0.35); }
+.tp-gold {
+  color: #4a3300; background: linear-gradient(100deg, #ffe58a 0%, #ffd34d 30%, #f2b705 62%, #ffe58a 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(194, 140, 0, 0.35);
+}
+.tp-prism { color: #fff; background: linear-gradient(90deg, #1b1640, #26305e); box-shadow: 0 2px 8px rgba(27, 22, 64, 0.45); overflow: hidden; }
+.tp-prism > .tp-text {
+  background: linear-gradient(90deg, #ff8fb1, #ffc06b, #fff07a, #7ff0b0, #7fd6ff, #b6a8ff, #ff9cf0);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.tp-ring {
+  position: absolute; inset: 0; z-index: 1; padding: 2px; border-radius: inherit; overflow: hidden; pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.tp-ring::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 140%; aspect-ratio: 1;
+  background: conic-gradient(var(--ur-rainbow, #ff5f8f, #ffa53d, #ffe14d, #5fe39a, #4fc3ff, #8b7bff, #f36bff, #ff5f8f));
+  transform: translate(-50%, -50%) rotate(30deg);
+}
+.tp-prism::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; z-index: 3; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45) 50%, transparent);
+  transform: translateX(-160%); opacity: 0;
+}
+.tp.locked { color: #8a97ad; background: #edf1f7; box-shadow: inset 0 0 0 1px #d4dce8; text-shadow: none; }
+.tp.locked > .tp-text { background: none; color: #8a97ad; }
+.tp.locked > .tp-ring { display: none; }
+@keyframes tp-sweep { 0%, 80% { transform: translateX(-160%); opacity: 0; } 82% { opacity: 1; } 100% { transform: translateX(420%); opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduce-motion]) .tp-prism.live > .tp-ring::before { animation: rb-spin 4.5s linear infinite; }
+  html:not([data-reduce-motion]) .tp-prism.live::after { animation: tp-sweep 5s ease-in-out infinite; }
+}
+
+/* the Classic look (planned toggle): no tactical brackets or spaced caps on honors */
+html[data-ui="classic"] .tp { transform: none; }
+html[data-ui="classic"] .tp > .tp-text { transform: none; }

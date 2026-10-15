@@ -11,6 +11,7 @@ import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
+import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
 import { newSocial, cleanSocial } from '../online/socialSave.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
@@ -85,7 +86,7 @@ export function createProfile() {
   // [story] this save was created with the story: an older build that drops profile.story keeps
   // this mark (missions.counters), so the block comes back as a new player's, never as legacy
   missions.counters[STORY_NEW_MARK] = 1;
-  return {
+  const p = {
     version: SAVE_VERSION,
     createdAt: now,
     currencies: { coins: 20000, gems: 2400 },
@@ -118,9 +119,12 @@ export function createProfile() {
     /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
     battleSaves: {},
     story: newStory(), // [story] opening, tutorial, journal, episodes (src/systems/story.js)
+    sensei: newSensei(), // [profile] Sensei Profile picks (src/systems/senseiSave.js)
     // [social] clan donation / collect ledgers (src/online/donateLedger.js)
     social: newSocial(),
   };
+  markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
+  return p;
 }
 
 function structuredCloneSafe(v) {
@@ -462,6 +466,10 @@ export function migrateProfile(raw) {
   // back from their marks too, and the block's state is marked again
   p.story = restoreStory(raw.story, p.missions.counters, p.mail.delivered);
   markStory(p);
+  // [profile] additive block: none = an older build dropped it (or a save from before profiles): the
+  // picks come back from their 'pfs:' shadows in missions.counters, else once from the server card
+  // (`lost`, PROFILE.md §2.4). Cosmetic drops inside it never count as lossy (migrationDropsData).
+  restoreSensei(raw.sensei, p);
   p.social = cleanSocial(raw.social);
   p.version = SAVE_VERSION;
   return p;

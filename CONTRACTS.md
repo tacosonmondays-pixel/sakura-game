@@ -605,7 +605,8 @@ export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[],
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
 
 Daily commissions (5-6 tasks, 120 gems/day total + items), weekly (600 gems), 7-day login
-calendar, achievements (one-time: clears, medals, bestiary %, pulls, levels), redemption codes
+calendar, achievements (one-time; 132 rows in `src/data/achievements.js`, re-exported by `src/data/missions.js`, 116
+live at launch — docs/specs/ACHIEVEMENTS.md), redemption codes
 (`SAKURA2026`, `WELCOME`, `TACOTUESDAY`), weekly rotating event (double drops on one bounty
 arena, chosen by `weekKey`). Mall tabs: General (coins), Gems, Recruit Exchange (recruit points
 → SSR spark, fragments), Boss Exchange (`token_boss` → crowns/dice), Bounty Exchange
@@ -618,8 +619,10 @@ export function missionList(profile)                   // -> { daily: [...], wee
 export function claimMission(profile, kind, id)        // -> { ok, rewards }
 export function loginCalendar(profile)                 // -> { days: [{ day, rewards, claimed, today }], streak }
 export function claimLogin(profile)
-export function achievementList(profile)
-export function claimAchievement(profile, id)
+export function achievementList(profile, { includeHidden })  // -> [{ id, name, desc, progress, goal, rewards, claimable, claimed, met, cat, tier, series, seriesIds, honor, title, hidden, hint, since, locked: 'gear'|'awaken'|null, live }]
+export function claimAchievement(profile, id)          // -> { ok, error?: 'unknown'|'notLive'|'retired'|'claimed'|'incomplete'|'locked', feature?, rewards }; marker set BEFORE the payout
+export function claimAllAchievements(profile)          // -> { ok, ids, rewards, honors, titles, skipped }; category order, repeats until nothing is left
+export function achievementsReady(prevIds, nextIds)    // the unlock-toast diff; achievementNotice(profile) -> { ready, dot } (cached); recordMax(profile, key, v)
 export function redeemCode(profile, code)              // -> { ok, error?, rewards }
 export function currentEvent(now = new Date())         // -> { id, name, desc, stageIds, dropMul }
 export function f2pIncomeSummary()                     // -> rows like the HSR version chart: [{ source, gems, tickets, note }], totals per 28 days
@@ -628,6 +631,23 @@ export function f2pIncomeSummary()                     // -> rows like the HSR v
 export function shopTabs(profile)                      // -> [{ id, name, currency, offers: [{ id, item, count, price, currency, stock, bought, resets }] }]
 export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewards }
 ```
+
+### Achievements expansion (docs/specs/ACHIEVEMENTS.md)
+
+- **Def fields** (`src/data/achievements.js`): `{ id, name, desc, metric, param?, goal, rewards, cat, tier, series?,
+  honor?: { no, name, cls: plain|shiny|special, fx, emblem }, title?: { text, tier: std|gold|prism }, hidden?, hint?,
+  since?, grind?, wave: launch|social|codex|later, shipped?, retired? }`. Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
+  a shipped row's `rewards` never change (frozen in `tests/fixtures/achievements-ledger.json`); rewards are item ids
+  only, never a ribbon or a title. Metrics: `src/systems/achievementMetrics.js` (pure; an unknown metric throws).
+- **Claim gate**: a `gearbox_*` reward waits for `featureOpen(p, 'gear')`, a `crown_*` for `featureOpen(p, 'awaken')`
+  (`claimAchievement` → `'locked'`; legacy saves are always open). Rows of a wave that hasn't shipped refuse `'notLive'`.
+- **Honor Ribbons and titles** are never stored: `src/systems/honors.js` derives them from `missions.achievements`
+  (`ownedRibbons`, `ownedTitles`, `honorCount` for the card's `st.h`, `titleGroups`, `ribbonArt`, `titlePlate`; seen
+  marks `ach:seenHR` / `ach:seenTT`). Tables: `src/data/honors.js` (`HONOR_RIBBONS`, `TITLES`); art: `src/art/honors.js`.
+- **Counters** (`missions.counters`, numbers only, written outside the sim and `src/online/coop/*`): `coopWin` (battle
+  UI, once per battle), `ults`, `ach:flawless`, `ach:closeCall`, `ach:squad3`, `eventWin` (applyBattleResult, solo),
+  `weeklyDone` (claimMission), `salvage`, `gear:<rarity>`, `gear10:<rarity>` (gear.js), `clanBossHit` (battle UI),
+  `donate` (social wave), `heroMax` (later, `recordMax`), `ach:seenHR`, `ach:seenTT`. `seenIntro` gains `'ach2'`.
 
 ## 5b. Balance anchors (shared by units, world, sim)
 

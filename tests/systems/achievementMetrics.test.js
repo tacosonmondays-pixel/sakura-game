@@ -1,0 +1,243 @@
+// Achievement metrics (docs/specs/ACHIEVEMENTS.md §1.6) on small fixtures. Every metric is a pure read of the save,
+// and the ones that read a counter beside the save only ever rise.
+import { describe, it, expect } from 'vitest';
+import { createProfile } from '../../src/systems/save.js';
+import {
+  metricValue, achievementContext, killsAll, winsAll, gearEver, gearMaxEver, familyFound, familiesFound, enemyFamilies,
+  freeplayMark, freeplayExtra, urOwned, storyChapters, lessonsClaimed, achievementsClaimedCount, UR_AWAKEN,
+} from '../../src/systems/achievementMetrics.js';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP, ACHIEVEMENT_METRICS } from '../../src/data/achievements.js';
+import { addGear, rollGear, salvageGear, enhanceGear } from '../../src/systems/gear.js';
+import { grantUnit } from '../../src/systems/unlocks.js';
+import { claimLesson, skipOnboarding, checkLessons, lessonList } from '../../src/systems/story.js';
+import { claimAchievement, achievementList } from '../../src/systems/missions.js';
+import { MAX_AWAKEN } from '../../src/systems/progression.js';
+import { CHAPTER_SCENE_IDS } from '../../src/data/story/sceneIndex.js';
+import { CAMPAIGN_IDS, STAGES } from '../../src/data/stages.js';
+import { createRng } from '../../src/core/rng.js';
+
+const value = (p, id) => metricValue(p, ACHIEVEMENT_MAP[id]);
+const stage = (p, id, medals = {}) => { p.progress.stages[id] = { easy: false, normal: false, hard: false, nightmare: false, clears: 1, ...medals }; };
+
+describe('every metric is known', () => {
+  it('each row uses a listed metric, and every listed metric computes on a new save', () => {
+    const p = createProfile();
+    const ctx = achievementContext(p);
+    for (const a of ACHIEVEMENTS) {
+      expect(ACHIEVEMENT_METRICS).toContain(a.metric);
+      expect(Number.isFinite(metricValue(p, a, ctx)), a.id).toBe(true);
+    }
+  });
+
+  it('an unknown metric throws instead of silently reading 0', () => {
+    expect(() => metricValue(createProfile(), { metric: 'nope', goal: 1 })).toThrow(/not known/);
+  });
+});
+
+describe('battles', () => {
+  it('killsAll = max(stats.kills, counters.kill): co-op kills count, and it never goes down', () => {
+    const p = createProfile();
+    p.stats.kills = 900;
+    p.missions.counters.kill = 1200; // co-op kills only reach the counter
+    expect(killsAll(p)).toBe(1200);
+    expect(value(p, 'a_kills_1000')).toBe(1200);
+    p.missions.counters.kill = 0;
+    expect(killsAll(p)).toBe(900);
+  });
+
+  it('winsAll = solo wins + co-op wins (sweeps never count)', () => {
+    const p = createProfile();
+    p.missions.counters = { battleWin: 40, coopWin: 7, sweep: 300 };
+    expect(winsAll(p)).toBe(47);
+  });
+});
+
+describe('campaign and bounty', () => {
+  it('medalsAll, chapterSets, stageMedals, kindClear and kindMedals', () => {
+    const p = createProfile();
+    for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5']) stage(p, id, { normal: true, hard: true });
+    stage(p, '1-1', { easy: true, normal: true, hard: true, nightmare: true });
+    stage(p, 'res-books-1', { normal: true, hard: true });
+    stage(p, 'boss-lych', { hard: true });
+    expect(value(p, 'a_quad_1')).toBe(1);
+    expect(value(p, 'a_goldchap_1')).toBe(1);
+    expect(value(p, 'a_sakurachap_1')).toBe(0);
+    expect(value(p, 'a_first_petals')).toBe(4);
+    expect(value(p, 'a_bounty_1')).toBe(1);
+    expect(value(p, 'a_bountyg_15')).toBe(1);
+    expect(value(p, 'a_boss_gold_3')).toBe(1);
+    expect(value(p, 'a_boss_1')).toBe(1);
+  });
+
+  it('arenaRuns sums clears over the three tiers (sweeps count); challengeWave reads the best wave', () => {
+    const p = createProfile();
+    stage(p, 'res-gear-1'); p.progress.stages['res-gear-1'].clears = 60;
+    stage(p, 'res-gear-3'); p.progress.stages['res-gear-3'].clears = 45;
+    expect(value(p, 'a_yard_100')).toBe(105);
+    p.progress.stages.challenge = { clears: 1, bestWave: 41 };
+    expect(value(p, 'a_tc_40')).toBe(41);
+  });
+});
+
+describe('bestiary', () => {
+  it('familyFound / familiesFound over discoverable members; familyKills and enemyKills', () => {
+    const fam = enemyFamilies();
+    expect(Object.keys(fam).length).toBe(12);
+    expect(fam.slime).toHaveLength(15);
+    expect(fam.dragon).toHaveLength(4);
+    const p = createProfile();
+    for (const id of fam.dragon) p.bestiary[id] = { seen: true, discovered: true, kills: 10 };
+    for (const id of fam.slime.slice(0, 14)) p.bestiary[id] = { seen: true, discovered: true, kills: 70 };
+    expect(familyFound(p, 'dragon')).toBe(4);
+    expect(familyFound(p, 'slime')).toBe(14);
+    expect(familiesFound(p)).toBe(1);
+    expect(value(p, 'a_slime_1000')).toBe(980);
+    p.bestiary.slime_gold = { seen: true, discovered: true, kills: 512 };
+    expect(value(p, 'a_gold_rush')).toBe(512);
+  });
+
+  it('enemySetKilled counts distinct freeplay bosses defeated', () => {
+    const p = createProfile();
+    p.bestiary.fp_foundry_titan = { seen: true, discovered: false, kills: 2 };
+    p.bestiary.fp_eclipse_wyrm = { seen: true, discovered: false, kills: 0 };
+    expect(value(p, 'a_fp_bosses_4')).toBe(1);
+  });
+});
+
+describe('gear: gearEver and gearMaxEver never go down', () => {
+  it('gearEver stays met after salvaging the piece (the gear:<r> counter)', () => {
+    const p = createProfile();
+    const uid = addGear(p, rollGear(createRng(1), { rarity: 'legendary' }));
+    expect(gearEver(p, 'mythic')).toBe(1); // a better rarity counts
+    expect(gearEver(p, 'legendary')).toBe(1);
+    salvageGear(p, uid);
+    expect(p.gear[uid]).toBeUndefined();
+    expect(gearEver(p, 'legendary')).toBe(1);
+  });
+
+  it('owned pieces count even without the counter (saves from before it)', () => {
+    const p = createProfile();
+    addGear(p, rollGear(createRng(2), { rarity: 'mythic', level: 10 }));
+    p.missions.counters = {};
+    expect(gearEver(p, 'mythic')).toBe(1);
+    expect(gearMaxEver(p, 'any')).toBe(1);
+    expect(gearMaxEver(p, 'legendary')).toBe(0);
+  });
+
+  it('gearMaxEver counts pieces enhanced to +10, kept after salvage', () => {
+    const p = createProfile();
+    p.currencies.coins = 1e7;
+    const uid = addGear(p, rollGear(createRng(3), { rarity: 'legendary' }));
+    for (let i = 0; i < 10; i++) enhanceGear(p, uid);
+    expect(gearMaxEver(p, 'legendary')).toBe(1);
+    p.gear[uid].locked = false;
+    salvageGear(p, uid);
+    expect(gearMaxEver(p, 'legendary')).toBe(1);
+    expect(value(p, 'a_plus10_1')).toBe(1);
+  });
+
+  it('fullSets counts students wearing all three slots', () => {
+    const p = createProfile();
+    p.units.aoi.gear = { charm: 'g1', ribbon: 'g2', shoes: 'g3' };
+    p.units.rei.gear = { charm: 'g4', ribbon: null, shoes: 'g5' };
+    expect(value(p, 'a_fullset_1')).toBe(1);
+  });
+});
+
+describe('freeplay', () => {
+  it('fpTiers100 and freeplayBest read both freeplayBest and coopBestWave', () => {
+    const p = createProfile();
+    stage(p, '1-3'); p.progress.stages['1-3'].freeplayBest = { blossom: 120, tempest: 60 };
+    stage(p, '2-1'); p.progress.stages['2-1'].coopBestWave = { tempest: 101, crimson: 100 };
+    expect(value(p, 'a_fp_seasons')).toBe(3);
+    expect(value(p, 'a_fp_50')).toBe(120);
+  });
+
+  it('freeplayExtra: waves past the stage\'s last wave', () => {
+    const p = createProfile();
+    stage(p, '1-1'); p.progress.stages['1-1'].freeplayBest = { blossom: 25 }; // 12 waves
+    expect(freeplayExtra(p)).toBe(13);
+  });
+
+  it('freeplayMark from the fpm: marks AND the older strings and frames', () => {
+    const p = createProfile();
+    expect(freeplayMark(p, 'wyrm')).toBe(0);
+    p.missions.counters['fpm:tempest:wyrm'] = 1;
+    expect(freeplayMark(p, 'wyrm')).toBe(1);
+    expect(freeplayMark(p, 'crimson:matriarch')).toBe(0);
+    p.missions.counters['fpm:blossom:matriarch'] = 1;
+    expect(freeplayMark(p, 'crimson:matriarch')).toBe(0);
+    p.missions.counters['fpm:crimson:matriarch'] = 1;
+    expect(freeplayMark(p, 'crimson:matriarch')).toBe(1);
+    const legacy = createProfile();
+    legacy.progress.freeplay = { done: [], titles: ['Crimson Slayer'], frames: ['eclipse'] };
+    expect(freeplayMark(legacy, 'wyrm')).toBe(1);
+    expect(freeplayMark(legacy, 'crimson:matriarch')).toBe(1);
+    const strings = createProfile();
+    strings.progress.freeplay = { done: ['crimson:matriarch'], titles: [], frames: [] };
+    expect(freeplayMark(strings, 'crimson:matriarch')).toBe(1);
+  });
+});
+
+describe('students', () => {
+  it('urOwned counts an SSR at the top star, heroes included (Hikari is a starter SSR)', () => {
+    expect(UR_AWAKEN).toBe(MAX_AWAKEN);
+    const p = createProfile();
+    expect(urOwned(p)).toBe(0);
+    p.units.hikari.awaken = MAX_AWAKEN;
+    expect(urOwned(p)).toBe(1);
+    p.units.aoi.awaken = MAX_AWAKEN; // not an SSR
+    expect(urOwned(p)).toBe(1);
+  });
+
+  it('unitsAtLevel, unitsAwakened, awakenStars, maxBreakthrough, formationSize', () => {
+    const p = createProfile();
+    grantUnit(p, 'yuki');
+    p.units.aoi.level = 40; p.units.rei.level = 25; p.units.aoi.awaken = 2; p.units.rei.awaken = 1; p.units.aoi.breakthrough = 2;
+    expect(value(p, 'a_lv20_10')).toBe(2);
+    expect(value(p, 'a_awake_3')).toBe(2);
+    expect(value(p, 'a_stars_25')).toBe(3);
+    expect(value(p, 'a_break_1')).toBe(2);
+    p.formation.towers = ['aoi', 'rei', 'yuki'];
+    expect(value(p, 'a_formation_8')).toBe(3);
+  });
+});
+
+describe('story and journal (train A data)', () => {
+  it('storyChapters: a chapter completes from its CHAPTER_SCENE_IDS alone (its ifUnit join scene is not listed)', () => {
+    const p = createProfile();
+    for (const id of CHAPTER_SCENE_IDS[6]) p.missions.counters[`ss:${id}`] = 1;
+    expect(CHAPTER_SCENE_IDS[6]).not.toContain('ch6.join');
+    expect(storyChapters(p)).toBe(1);
+    for (const ids of Object.values(CHAPTER_SCENE_IDS)) for (const id of ids) p.missions.counters[`ss:${id}`] = 1;
+    expect(value(p, 'a_story_8')).toBe(8);
+  });
+
+  it('lessons ignores unknown sl: ids; a new save that claims every claimable lesson reaches 11 and can claim a_journal_11', () => {
+    const p = createProfile();
+    p.missions.counters['sl:not_a_lesson'] = 1;
+    expect(lessonsClaimed(p)).toBe(0);
+    skipOnboarding(p);
+    for (const id of CAMPAIGN_IDS) stage(p, id, { normal: true });
+    checkLessons(p);
+    for (const l of lessonList(p)) claimLesson(p, l.id);
+    expect(lessonsClaimed(p)).toBe(11);
+    expect(claimAchievement(p, 'a_journal_11').ok).toBe(true);
+  });
+});
+
+describe('achievementsClaimed', () => {
+  it('counts known, live ids only', () => {
+    const p = createProfile();
+    p.missions.achievements = { a_first_win: true, a_future_row: true, a_mr_800: true, a_chapter_1: true };
+    expect(achievementsClaimedCount(p)).toBe(2);
+    expect(achievementList(p).find((a) => a.id === 'a_ach_25').progress).toBe(2);
+  });
+});
+
+describe('every stage kind in the tables is reachable by some metric', () => {
+  it('resource and boss stages exist for the Bounty & Assault rows', () => {
+    expect(STAGES.filter((s) => s.kind === 'resource')).toHaveLength(15);
+    expect(STAGES.filter((s) => s.kind === 'boss')).toHaveLength(3);
+  });
+});

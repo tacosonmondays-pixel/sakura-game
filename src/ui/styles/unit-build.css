@@ -1,0 +1,85 @@
+/* Unit Sheet → Build tab (src/ui/unitBuild.js; docs/specs/PROFILE.md §1.6, mock bs-* rules) and the
+   sheet's snapshot extras (owner chip, Potential pill). */
+.us-owner { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 2px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 0.78rem; font-weight: 900; color: var(--blue-deep); white-space: nowrap; }
+.us-owner-pic { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px #7048e8; line-height: 0; }
+.us-owner-pic img, .us-owner-pic svg { width: 100%; height: 100%; object-fit: cover; }
+.us-pot { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: #3b2350; color: #fff; font: 900 0.72rem/1 var(--font); letter-spacing: 0.02em; }
+.us-pot.p6 { background: linear-gradient(90deg, #ff7aa8, #ffb6cf); color: #3b2350; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8); }
+
+.ub { display: flex; flex-direction: column; gap: 10px; }
+.ub-sec { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(29, 78, 137, 0.08); border: 1px solid #e6f0fb; padding: 9px 11px 11px; }
+.ub-sec-t { display: flex; align-items: center; gap: 8px; position: relative; font: italic 900 0.95rem/1.2 var(--font-head); color: var(--navy); margin-bottom: 8px; padding-bottom: 4px; }
+.ub-sec-t::after { content: ''; position: absolute; left: 0; bottom: -1px; width: 30px; height: 3px; border-radius: 2px; background: var(--yellow); }
+.ub-sec-t small { margin-left: auto; font: 800 0.72rem/1 var(--font); color: var(--muted); font-style: normal; }
+
+.ub-growth { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ub-g { padding: 7px 9px; border-radius: 10px; background: linear-gradient(180deg, #f7fbff, #eaf3fd); border: 1px solid var(--line); min-width: 0; }
+.ub-k { display: flex; align-items: center; gap: 4px; font-size: 0.66rem; font-weight: 900; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.ub-k .ur-badge { font-size: 0.66rem; letter-spacing: 0; }
+.ub-g > b { display: block; font: italic 900 1.3rem/1.15 var(--font-head); color: var(--navy); white-space: nowrap; }
+.ub-g > b small { font-size: 0.8rem; color: var(--muted); font-style: normal; }
+.ub-g .stars { display: block; font-size: 1.15rem; line-height: 1.2; color: #ffc300; letter-spacing: -1px; }
+.ub-g .stars .star:not(.on) { color: #d5dde8; }
+.ub-sub { display: block; font-size: 0.66rem; font-weight: 800; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ub-pips, .ub-pot-track { display: flex; gap: 3px; margin-top: 4px; }
+.ub-pips i { flex: 1; height: 5px; border-radius: 3px; background: #d5e2f2; }
+.ub-pips i.on { background: linear-gradient(90deg, #4cc9f0, var(--blue)); }
+.ub-pot-track i { flex: 1; height: 7px; border-radius: 3px; background: #e7ddef; }
+.ub-pot-track i.on { background: #3b2350; }
+.ub-pot-track i.sig:not(.on) { background: repeating-linear-gradient(45deg, #ffd1e0 0 3px, #ffe9f1 3px 6px); box-shadow: inset 0 0 0 1px #ff9fc2; }
+
+.ub-gear { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ub-gc { --rarity: #9aa5b1; display: flex; flex-direction: column; gap: 5px; padding: 8px 9px; border-radius: 10px; background: #fff; border: 1px solid var(--line); border-top: 3px solid var(--rarity); box-shadow: 0 2px 6px rgba(29, 78, 137, 0.08); min-width: 0; }
+.ub-gc.empty { border-top-color: #d5e2f2; background: #f7fafd; }
+.ub-gc-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ub-gc-ico { width: 40px; height: 40px; flex: none; border-radius: 9px; padding: 3px; line-height: 0; background: radial-gradient(circle at 50% 35%, #fff, color-mix(in srgb, var(--rarity) 28%, #fff)); }
+.ub-gc-ico svg { width: 100%; height: 100%; }
+.ub-gc.empty .ub-gc-ico { opacity: 0.45; filter: grayscale(1); }
+.ub-gc-slot { min-width: 0; font-size: 0.66rem; font-weight: 900; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.ub-gc-rar { color: #fff; background: var(--rarity); border-radius: 999px; padding: 1px 6px; font-size: 0.6rem; letter-spacing: 0.02em; text-transform: none; }
+.ub-gc-lv { font: italic 900 0.85rem/1 var(--font-head); color: var(--blue-deep); text-transform: none; letter-spacing: 0; }
+.ub-gc-main { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-weight: 900; font-size: 0.92rem; color: var(--navy); background: rgba(29, 78, 137, 0.06); border-radius: 6px; padding: 3px 8px; }
+.ub-gc-main span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ub-gc-main b { font: italic 900 1.05rem/1 var(--font-head); }
+.ub-gc-subs { list-style: none; margin: 0; padding: 0 2px; display: flex; flex-direction: column; gap: 1px; font-size: 0.8rem; font-weight: 700; }
+.ub-gc-subs li { display: flex; align-items: baseline; gap: 4px; }
+.ub-gc-subs li::before { content: '◆'; color: var(--rarity); font-size: 0.6em; margin-right: 2px; align-self: center; }
+.ub-gc-subs li span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ub-gc-subs li b { font-weight: 900; color: var(--navy); }
+.ub-gc-subs li em { font-style: normal; color: #2bb673; font-size: 0.7em; letter-spacing: -1px; }
+.ub-gc-none { margin: 4px 0 2px; font-size: 0.78rem; font-weight: 800; color: var(--muted); }
+
+.ub-tot { display: flex; flex-wrap: wrap; gap: 6px; }
+.ub-tot span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #f1f7ff; border: 1px solid var(--line); font-size: 0.8rem; font-weight: 800; color: var(--ink); }
+.ub-tot span b { color: var(--blue-deep); font-weight: 900; }
+.ub-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ub-st { text-align: center; padding: 6px 4px; border-radius: 9px; background: #f7fbff; border: 1px solid var(--line); min-width: 0; }
+.ub-st span { display: block; font-size: 0.64rem; font-weight: 900; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.ub-st b { display: block; font: italic 900 1.1rem/1.2 var(--font-head); color: var(--navy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ub-st em { display: block; font-style: normal; font-size: 0.66rem; font-weight: 800; color: #2bb673; white-space: nowrap; }
+.ub-foot { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: var(--muted); padding: 0 2px; }
+.ub-foot-ico { display: inline-flex; width: 14px; height: 14px; color: var(--blue); flex: none; line-height: 0; }
+.ub-foot-ico svg { width: 100%; height: 100%; }
+
+@media (max-height: 480px) {
+  .us-owner { font-size: 0.7rem; }
+  .us-owner-pic { width: 20px; height: 20px; }
+  .ub { gap: 7px; }
+  .ub-sec { padding: 6px 8px 8px; border-radius: 10px; }
+  .ub-sec-t { font-size: 0.8rem; margin-bottom: 5px; }
+  .ub-growth, .ub-gear { gap: 5px; }
+  .ub-g { padding: 4px 7px; }
+  .ub-k { font-size: 0.56rem; }
+  .ub-g > b { font-size: 1.02rem; }
+  .ub-g .stars { font-size: 0.86rem; }
+  .ub-sub { font-size: 0.56rem; margin-top: 1px; }
+  .ub-gc { padding: 5px 6px; gap: 3px; }
+  .ub-gc-ico { width: 30px; height: 30px; padding: 2px; }
+  .ub-gc-slot { font-size: 0.56rem; gap: 3px; }
+  .ub-gc-lv { font-size: 0.72rem; }
+  .ub-gc-main { font-size: 0.72rem; padding: 2px 5px; }
+  .ub-gc-main b { font-size: 0.82rem; }
+  .ub-gc-subs { font-size: 0.66rem; }
+  .ub-st b { font-size: 0.92rem; }
+  .ub-st span { font-size: 0.54rem; }
+}

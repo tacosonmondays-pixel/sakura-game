@@ -349,3 +349,6 @@ html[data-reduce-motion] .sc-toast, html[data-reduce-motion] .sc-req-card, html[
 .sc-sec-row { display: flex; align-items: center; justify-content: space-between; }
 .sc-blocked-btn { width: 100%; margin-top: 10px; }
 .sc-card-row > .btn { white-space: nowrap; font-size: 0.92rem; padding-left: 12px; padding-right: 12px; }
+
+/* [social] Add friend (off) next to "Add with a friend code" on a player card */
+.sc-card-friend-row { align-self: stretch; }

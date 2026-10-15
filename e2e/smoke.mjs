@@ -325,6 +325,18 @@ async function runViewport(vp) {
     check(await page.evaluate((g) => window.__sakura.store.profile.currencies.gems > g, gems0), 'commissions: claim paid gems');
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  // achievements: the tab lists the rows; claim one by its test id (Settling In: 7 days visited, no gear box)
+  await page.evaluate(() => { window.__sakura.store.profile.missions.counters.login = 7; window.__sakura.store.commit('missions'); location.hash = '#/commissions?tab=achievements'; });
+  await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 10000 }).catch(() => null);
+  const achGems0 = await page.evaluate(() => window.__sakura.store.profile.currencies.gems);
+  const achClaim = await page.$('[data-testid="ach-claim-a_login_7"]');
+  if (check(!!achClaim, 'achievements: Settling In is claimable by its test id')) {
+    await achClaim.click();
+    await page.waitForTimeout(900);
+    const ach = await page.evaluate((g) => ({ paid: window.__sakura.store.profile.currencies.gems > g, claimed: window.__sakura.store.profile.missions.achievements.a_login_7 === true }), achGems0);
+    check(ach.paid && ach.claimed, 'achievements: the claim paid gems and its ribbon is owned');
+  }
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   // a redeemed code shows up in the tab's "Redeemed" list without leaving it
   await page.evaluate(() => { location.hash = '#/commissions?tab=codes'; });
   await page.waitForSelector('[data-testid="code-input"]', { timeout: 5000 });
