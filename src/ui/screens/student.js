@@ -169,9 +169,9 @@ export function effectivenessRow(attackType) {
   }));
 }
 
-function statsTable(unit, battle) {
+/** Base stats next to hers (`label`: 'yours' on your own save, 'theirs' on someone's build snapshot). */
+function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   const b = unit.base;
-  const owned = !!store.profile.units[unit.id];
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
@@ -201,7 +201,7 @@ function statsTable(unit, battle) {
   if (b.trap) rows.push(['Traps', `up to ${b.trap.max}, ${n1(b.trap.damage)} damage each`, null]);
   if (b.turret) rows.push(['Sentries', `up to ${b.turret.max}, ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s`, null]);
   return h('table.stat-table.mb-stats',
-    owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', 'Yours'))) : null,
+    owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', label[0].toUpperCase() + label.slice(1)))) : null,
     h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null))));
 }
 
@@ -321,8 +321,11 @@ function storyLockedTab(feature) {
   return el;
 }
 
-export function infoTab(unit) {
-  const profile = store.profile;
+/**
+ * The Info tab (also the Unit Sheet's). `profile`: whose girl it is (default the save; a Sensei Profile
+ * snapshot's mini profile shows someone else's numbers, `label` 'theirs').
+ */
+export function infoTab(unit, { profile = store.profile, label = 'yours' } = {}) {
   const role = ROLES[unit.role];
   const cat = ROLE_CATEGORIES[role?.category];
   const battle = unitBattleStats(profile, unit.id);
@@ -362,7 +365,7 @@ export function infoTab(unit) {
       h('p.muted', unit.personality),
       st ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
     section('Tips', h('ul.mb-tips', unit.tips.map((t) => h('li', t)))),
-    section('Base stats', statsTable(unit, battle)),
+    section('Base stats', statsTable(unit, battle, { owned: !!st, label })),
     section('Awakening passive',
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),

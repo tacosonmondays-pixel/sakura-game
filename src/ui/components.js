@@ -427,9 +427,9 @@ export function showItemInfo(itemId) {
  * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
-export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false } = {}) {
+export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, profile = store.profile } = {}) {
   const u = getUnit(unitId);
-  const shown = owned ? displayRarity(u, store.profile) : u.rarity;
+  const shown = owned ? displayRarity(u, profile) : u.rarity;
   const r = rarityInfo(shown);
   const art = svgEl(portraitHTML(u, variant === 'tall' ? 'card' : 'thumb', { awaken }), 'unit-card-art');
   const el = h(
@@ -443,7 +443,7 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
     owned ? null : h('div.unit-card-lock', svgEl(uiIcon('lock'))),
   );
   el.style.setProperty('--rarity', r.color);
-  if (shown === 'UR') applyUrFrame(el, u, store.profile);
+  if (shown === 'UR') applyUrFrame(el, u, profile);
   return el;
 }
 
