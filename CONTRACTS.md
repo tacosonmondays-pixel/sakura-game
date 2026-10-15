@@ -793,7 +793,7 @@ export async function preloadModels()  // loads public/models/chibi_base.glb onc
 export function buildChibi(unitDef, { quality = 'high', pose = 'idle' } = {}) // -> THREE.Group (≈0.9 tall, feet at y=0, faces +z)
    // group.userData.animate(time, dt, state) state: 'idle'|'attack'|'cheer'|'disabled'
    // group.userData.playAttack()  short attack animation
-   // group.userData.setHighlight(bool)
+   // group.userData.setHighlight(bool)  selected look: her own colours a little brighter + a soft light rim (models/highlight.js)
 export function buildEnemy(enemyDef, { quality }) // -> THREE.Group, feet at y=0, faces +z, height ≈ 0.6*size
    // userData.animate(time, dt, { moving, speed }) ; userData.hitFlash() ; userData.setVeiled(bool)
    // userData.setBarrier(frac|0) ; userData.setPhasing(bool) ; userData.setStatus(statusMap)
