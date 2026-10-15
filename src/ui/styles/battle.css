@@ -403,6 +403,38 @@
 .bt-final-show b { color: var(--blue); white-space: nowrap; }
 .bt-final-show:active { transform: scale(0.98); }
 .bt-pip.held:not(.on) { background: repeating-linear-gradient(135deg, #ffe0b3 0 2px, #f4a340 2px 4px); box-shadow: inset 0 0 0 1px #e8590c; }
+/* "Buffed by" / "Buffing": one row per source girl, her rim colour on the left edge (the same tint
+   as the icons over the girls); limited sources (brews, tune-ups) in a warmer card */
+.bt-buffs { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.bt-buff-row {
+  --tint: #adb5bd; display: flex; align-items: center; gap: 7px; width: 100%; min-height: 34px; border: none; border-radius: 8px; padding: 4px 8px 4px 5px;
+  background: #fff; text-align: left; font: inherit; cursor: pointer; box-shadow: inset 3px 0 0 var(--tint), inset 0 0 0 1px var(--line);
+}
+.bt-buff-row.limited { background: linear-gradient(90deg, #fffbea, #fff); box-shadow: inset 4px 0 0 var(--tint), inset 0 0 0 1px #ffe08a; }
+.bt-buff-row:active { transform: scale(0.98); }
+.bt-buff-face { flex: none; width: 22px; height: 22px; border-radius: 50%; overflow: hidden; display: inline-grid; place-items: center; background: #eef3fa; box-shadow: 0 0 0 2px var(--tint, #c9d6e6); }
+.bt-buff-face svg { width: 100%; height: 100%; }
+.bt-buff-face-none { color: var(--muted); }
+.bt-buff-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.bt-buff-info b { font-size: 0.74rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-buff-what { font-size: 0.7rem; font-weight: 700; color: var(--blue-deep); }
+.bt-buff-kind { flex: none; font-size: 0.64rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bt-buffs-more { align-self: flex-start; border: none; background: transparent; color: var(--blue); font: inherit; font-size: 0.72rem; font-weight: 900; padding: 2px 4px; min-height: 26px; cursor: pointer; }
+.bt-buffs-foot { font-size: 0.68rem; color: var(--muted); font-weight: 700; font-style: italic; }
+.bt-buff-lim { font-size: 0.72rem; color: var(--ink); line-height: 1.3; }
+.bt-buff-lim b { color: #8a5300; }
+.bt-buff-oc { color: #b26b00; font-weight: 800; }
+.bt-buff-held { font-size: 0.7rem; font-weight: 800; color: var(--blue-deep); }
+.bt-buffing-faces { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.bt-buffing-face { border: none; background: transparent; padding: 0; cursor: pointer; line-height: 0; }
+.bt-buffing-more { font-size: 0.7rem; font-weight: 900; color: var(--muted); }
+.bt-buff-pick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.bt-buff-pick-now { flex: 1 1 auto; min-width: 0; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.bt-buff-pick-now b { color: var(--navy); }
+.bt-buff-pick .bt-btn { min-height: 32px; padding: 5px 12px; font-size: 0.76rem; }
+.bt-buff-pick-btn.on { background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--navy); }
+/* pick mode: the board says what a tap does */
+.bt-picking canvas { cursor: crosshair; }
 .bt-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); background: rgba(234,246,255,0.95); border-top: 1px solid var(--line); }
 .bt-spent { font-size: 0.74rem; color: var(--muted); font-weight: 700; }
 .bt-sell { display: flex; align-items: center; gap: 5px; border: none; border-radius: 8px; padding: 8px 14px; min-height: 38px; font-weight: 900; background: #fff; color: #c9184a; box-shadow: inset 0 0 0 2px #ffb3c1; }

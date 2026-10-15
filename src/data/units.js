@@ -961,6 +961,7 @@ const MIDORI = {
     'Poison ignores armor and stops regeneration and siphon healing.',
     'Lob flasks where enemies bunch up — poison sticks to everyone in the splash.',
     'Corrosion shreds armor for the whole team.',
+    'Her brews pick the strongest girl in range — tap Pick to choose.',
   ],
   base: stats({
     cost: 420, behavior: 'projectile', damage: 2, rate: 0.8, range: 3.0, splash: 0.7,

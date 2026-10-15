@@ -23,6 +23,8 @@ import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
 import { finalRaceText } from './rules.js';
+import { PICK_REFUSED, pickText } from './buffs.js';
+import { limitedRange } from '../../sim/buffs.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
@@ -191,7 +193,11 @@ export function mountBattle(root, params, hooks) {
     }
     ctx.renderer = renderer;
     // Settings → Battle → Camera (or the pause menu) applies to the open battle at once
-    cleanups.push(store.on('change', () => renderer.setCameraMode(cameraModeOf(store.profile.settings))));
+    cleanups.push(store.on('change', () => {
+      renderer.setCameraMode(cameraModeOf(store.profile.settings));
+      renderer.setBuffIcons?.(store.profile.settings.buffIcons);
+    }));
+    renderer.setBuffIcons?.(settings.buffIcons);
     // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
     // as a tie-break, off the exit gates and the last tiles of road before them)
     const tracks = sim.map?.tracks || [];
@@ -218,10 +224,52 @@ export function mountBattle(root, params, hooks) {
       upgrade: (uid, path) => sim.upgradeTower(uid, path),
       sell: (uid) => sim.sellTower(uid),
       target: (uid, mode) => sim.setTargetMode(uid, mode),
+      pick: (uid, target) => sim.setBuffPick(uid, target),
+    };
+
+    // ---- pick mode: choose who Midori brews / Chika tunes up first (spec §4.4) ------------
+    ctx.picking = null;
+    ctx.startPick = (srcUid) => {
+      const src = sim.getTower(srcUid);
+      if (!src || ctx.ended) return;
+      if (ctx.coop && !ctx.coop.isMine(srcUid)) {
+        feed.push(PICK_REFUSED.notYours, 'warn', { key: 'pick-refused', ms: 1600 });
+        return;
+      }
+      const r = limitedRange(src);
+      const cands = sim.towers.filter((o) => o.uid !== srcUid && !o.removed && (o.x - src.x) ** 2 + (o.y - src.y) ** 2 <= r * r).map((o) => o.uid);
+      ctx.picking = srcUid;
+      renderer.setBuffPick?.(srcUid, cands);
+      shell.classList.add('bt-picking');
+      feed.push(cands.length ? `Tap the girl ${src.def.name} should ${src.stats?.brew ? 'brew' : 'tune up'} first.` : 'No girl in her reach yet.', 'info', { key: 'pick-mode', ms: 2000 });
+      panel.update();
+    };
+    ctx.cancelPick = () => {
+      if (ctx.picking == null) return;
+      ctx.picking = null;
+      renderer.setBuffPick?.(null);
+      shell.classList.remove('bt-picking');
+      panel.update();
+    };
+    /** Sends a pick (solo: at once; co-op: the 'pick' command) and says what happened. */
+    ctx.sendPick = (srcUid, targetUid) => {
+      const src = sim.getTower(srcUid);
+      const tgt = targetUid >= 0 ? sim.getTower(targetUid) : null;
+      const res = ctx.act.pick?.(srcUid, targetUid);
+      if (res === 'queued') return true;
+      if (!res?.ok) {
+        feed.push(PICK_REFUSED[res?.reason] || 'She cannot pick that girl.', 'warn', { key: 'pick-refused', ms: 1800 });
+        return false;
+      }
+      if (src && tgt) feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
+      else if (src) feed.push(`${src.def.name} picks the strongest girl again.`, 'info', { key: 'pick-ok', ms: 1600 });
+      panel.update();
+      return true;
     };
 
     ctx.select = (uid) => {
       if (ctx.ended && uid != null) return;
+      if (ctx.picking != null && uid !== ctx.selectedUid) ctx.cancelPick();
       if (uid != null && placement.unitId) placement.cancel();
       ctx.selectedUid = uid ?? null;
       renderer.setSelected(ctx.selectedUid);
@@ -359,6 +407,14 @@ export function mountBattle(root, params, hooks) {
     cleanups.push(renderer.onTap((p) => {
       if (ctx.paused || ctx.ended) return;
       hud.scout.destroy();
+      if (ctx.picking != null) {
+        // pick mode: a girl → she is the pick; empty ground → leave pick mode
+        const src = ctx.picking;
+        ctx.cancelPick();
+        if (p.towerUid != null && p.towerUid !== src) ctx.sendPick(src, p.towerUid);
+        else if (p.towerUid === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
+        return;
+      }
       if (placement.handleTap(p)) return;
       ctx.select(p.towerUid != null ? p.towerUid : null);
     }));
@@ -370,7 +426,8 @@ export function mountBattle(root, params, hooks) {
     const onKey = (e) => {
       if (e.target instanceof HTMLInputElement || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
-        if (placement.unitId) placement.cancel();
+        if (ctx.picking != null) ctx.cancelPick();
+        else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
         else if (ctx.paused) ctx.closePause();
         else ctx.openPause();
@@ -785,6 +842,12 @@ export function mountBattle(root, params, hooks) {
         ls.queue('tgt', [uid, mode]);
         return true;
       },
+      pick(uid, target) {
+        if (ls.job) return { ok: false, reason: 'busy' };
+        if (!mine(uid)) return { ok: false, reason: 'notYours' };
+        ls.queue('pick', [uid, target]);
+        return 'queued';
+      },
     };
   }
 
@@ -805,6 +868,12 @@ export function mountBattle(root, params, hooks) {
       // two copies ordered the same final tier: the first order won on every client
       const t = sim.getTower(cmd.a[0]);
       if (t) ctx.feed.push(finalRaceText(t.def.name, t.def.paths[cmd.a[1]]?.name || ''), 'warn', { key: 'final-race', ms: 1800 });
+    } else if (cmd.k === 'pick' && minePlayer) {
+      // my pick ran on every client: say what happened (a refusal comes back the same everywhere)
+      const src = sim.getTower(cmd.a[0]);
+      const tgt = cmd.a[1] >= 0 ? sim.getTower(cmd.a[1]) : null;
+      if (!res.ok) ctx.feed.push(PICK_REFUSED[res.reason] || 'She cannot pick that girl.', 'warn', { key: 'pick-refused', ms: 1800 });
+      else if (src && tgt) ctx.feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
     } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
     }

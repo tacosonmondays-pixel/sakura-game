@@ -521,9 +521,39 @@ function crosspathArticle() {
   ]);
 }
 
+function buffsArticle() {
+  return article('buffs', 'Buffs: auras, brews and tune-ups', 'combat', 'buff', 'Who makes whom stronger, why auras never stack, and what the little icons over a girl mean.', ['buff', 'aura', 'brew', 'tune-up', 'link', 'overclock', 'icon', 'support', 'midori', 'chika', 'pick', 'stack', 'armor pen', 'crit'], [
+    sec('Auras',
+      p('Support girls (Miko, Umeko, Hotaru, Momo, Shiro\'s Overwatch…) give every girl in their aura more damage, attack speed, range, armor pen, crit chance, Veil Sight, cheaper upgrades or a cleanse.'),
+      list([
+        'Auras never stack: of each kind the strongest one in reach wins. Two +20 % damage auras still give +20 %.',
+        'Different kinds do add up: one girl\'s damage aura and another\'s attack speed aura both count.',
+        'The panel says "2 weaker auras here don\'t stack" when more auras reach a girl than can help her.',
+      ])),
+    sec('Brews and tune-ups (limited, strong)',
+      p('Midori brews potions and Chika\'s Repair Bay tunes up girls: only a few girls at a time, but much stronger than an aura, and they multiply on top of auras. A girl holds one brew and one tune-up at most.'),
+      list([
+        'They pick the strongest girl in reach by themselves (who dealt the most damage lately).',
+        'Tap Midori or Chika, then Pick a girl, and tap the girl she should help first. Auto goes back to the strongest.',
+        'Chika\'s Overclock (Repair Bay tier 5) speeds her linked girls up even more for a few seconds every so often.',
+        'In co-op you can brew or tune up your ally\'s girls; only the owner of Midori or Chika picks for her.',
+      ]),
+      tip('Her brews pick the strongest girl in range — tap Pick to choose.', 'good')),
+    sec('The icons over the girls',
+      p('A buffed girl shows a row of small icons over her head, one per kind of buff: sword = damage, double chevron = attack speed, arrow through a plate = armor pen, star burst = crit, rings = range, eye = Veil Sight, coin = cheaper upgrades, drop = cleanse.'),
+      list([
+        'The rim colour is the girl who gives the buff (Midori green, Chika amber, Miko red, Umeko violet…).',
+        'A thick rim with a flask or gear badge marks a brew or tune-up; a bolt badge pulses during an overclock; a crown is a hero ultimate; a pin is a map rule.',
+        'Tap a girl to see lines to everyone who buffs her and everyone she buffs, and the full list in her panel ("Buffed by" / "Buffing").',
+        'Settings → Battle → Buff icons: All, Selected (only the selected girl and her links) or Off.',
+      ]),
+      { type: 'links', ids: ['crosspath', 'roles'] }),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

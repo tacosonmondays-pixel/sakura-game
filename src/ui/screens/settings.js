@@ -103,6 +103,8 @@ function build(redraw) {
       ? 'Free: drag empty ground to pan, pinch or scroll to zoom, double-tap to reset. The map still holds still while you place a girl.'
       : 'Locked: the whole map stays framed and never moves when you drag, so placing a girl can’t nudge it. Choose Free to pan and zoom.',
     segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
+    row('Buff icons', 'Small icons over buffed girls; their rim colour shows who gives the buff.',
+      segmented(['all', 'selected', 'off'], ['selected', 'off'].includes(s.buffIcons) ? s.buffIcons : 'all', (v) => { s.buffIcons = v; save(); redraw(); }, { all: 'All', selected: 'Selected', off: 'Off' }, 'buffIcons')),
   ));
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes

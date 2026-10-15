@@ -21,6 +21,7 @@ import { FxSystem } from './fx.js';
 import { AmbientSystem } from './ambient.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
+import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
@@ -142,6 +143,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     bbN: new QuadBatch({ texture: atlas.texture, max: 3000, renderOrder: 20 }),
     bbA: new QuadBatch({ texture: atlas.texture, max: 4000, blending: 'additive', renderOrder: 21 }),
     overlay: new QuadBatch({ texture: atlas.texture, max: 5000, depthTest: false, renderOrder: 30 }),
+    // buff links of the selected girl: on the ground plane but over the models (src/render/buffIcons.js)
+    links: new QuadBatch({ texture: atlas.texture, max: 800, mode: 'ground', depthTest: false, renderOrder: 25 }),
   };
   for (const b of Object.values(batches)) scene.add(b.mesh);
 
@@ -152,6 +155,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
+  const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
+  buffIcons.setMode(settings.buffIcons);
 
   // ----- post-processing -------------------------------------------------------------------
   let composer = null;
@@ -527,6 +532,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     ambient.update(d, occupied);
     overlays.update(d);
     actors.drawOverlay();
+    buffIcons.update(d, { worldPerPx: rig.scale, shortSide: Math.min(rig.viewW || 800, rig.viewH || 800) });
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
     rig.apply(d);
@@ -666,6 +672,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     setSelected(uid) {
       overlays.setSelected(uid ?? null);
+      buffIcons.setSelected(uid ?? null);
+    },
+    /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
+    setBuffIcons(mode) {
+      buffIcons.setMode(mode);
+    },
+    /** Extra: pick mode rings on the girls `srcUid` can brew / tune up (null ends it). */
+    setBuffPick(srcUid, candidates = []) {
+      buffIcons.setPick(srcUid ?? null, candidates);
+    },
+    /** Extra: what the buff layer drew last frame ({ rows, icons, links, pick }; e2e / debugging). */
+    get buffIconStats() {
+      return { ...buffIcons.stats, mode: buffIcons.mode };
     },
     /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
     pulseTower(uid) {
