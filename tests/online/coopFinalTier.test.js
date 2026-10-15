@@ -10,7 +10,7 @@ const START = {
   stageId: '1-3',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'rei', stats: CHEAP }], hero: { unitId: 'hikari', stats: CHEAP } },
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'midori', stats: CHEAP }], hero: { unitId: 'hikari', stats: CHEAP } },
     { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'yuki', stats: CHEAP }], hero: null },
   ],
 };
@@ -133,5 +133,49 @@ describe('co-op: one final tier per path per player', () => {
     // a third argument ({ restoring: true } in the Sim) is ignored on the network
     expect(both(0, 'upg', [b, 0, { restoring: true }]).reason).toBe('onePerPath');
     expect(A.sim.getTower(b).tiers[0]).toBe(4);
+  });
+});
+
+describe('co-op: the pick command (limited buffs)', () => {
+  /** A spot for Midori within reach of SPOTS[1] and out of reach of SPOTS[3] (geometry only). */
+  function midoriSpot() {
+    const c = createCoopSim(START);
+    const reach = 3.0;
+    for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+      for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+        if (c.sim.placementReason('midori', x, y)) continue;
+        if (SPOTS.some(([sx, sy]) => Math.hypot(sx - x, sy - y) < 1)) continue;
+        const d1 = Math.hypot(SPOTS[1][0] - x, SPOTS[1][1] - y);
+        const d3 = Math.hypot(SPOTS[3][0] - x, SPOTS[3][1] - y);
+        if (d1 < reach - 0.3 && d3 > reach + 0.5) return [x, y];
+      }
+    }
+    return null;
+  }
+
+  it('owner check on the brewer, an ally\'s girl as the target, the same refusals on both clients', () => {
+    const at = midoriSpot();
+    expect(at).toBeTruthy();
+    const { A, B, both } = twoClients();
+    const ally = both(1, 'place', ['aoi', ...quantize(...SPOTS[1])]).tower.uid;
+    const far = both(1, 'place', ['aoi', ...quantize(...SPOTS[3])]).tower.uid;
+    const m = both(0, 'place', ['midori', ...quantize(...at)]).tower.uid;
+    expect(both(0, 'upg', [m, 0]).ok).toBe(true); // Concentrate: Toxic Tonic brews 1 girl
+    expect(both(1, 'pick', [m, ally]).reason).toBe('notYours');
+    expect(both(0, 'pick', [m, far]).reason).toBe('range');
+    expect(both(0, 'pick', [m, m]).reason).toBe('self');
+    expect(both(0, 'pick', [m, 'x']).reason).toBe('invalid');
+    expect(both(0, 'pick', [ally, m]).reason).toBe('notYours');
+    expect(both(0, 'pick', [m, ally])).toMatchObject({ ok: true });
+    for (let i = 0; i < 20; i++) {
+      A.step();
+      B.step();
+    }
+    for (const c of [A, B]) {
+      expect(c.sim.getTower(m).buffPick).toBe(ally);
+      expect(c.sim.getTower(ally).limIn.brew).toBe(m);
+    }
+    expect(A.hash()).toBe(B.hash());
+    expect(both(0, 'pick', [m, -1]).ok).toBe(true);
   });
 });

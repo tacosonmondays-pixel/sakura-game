@@ -1,8 +1,12 @@
 // Cost of late co-op freeplay waves (no cap on counts, owner, Oct 14): a fully built late board
-// (60 girls, main path 5 / crosspath 2, max gear) at wave 200 on 8-5 and wave 250 on 5-5 (908
-// scheduled spawns, hundreds alive at once). Measured as this process's CPU time per 1/60 s step
-// over the first 60 s of the wave (its whole spawn window), which a loaded machine distorts far less
-// than wall time. At 3× speed the sim runs 180 steps per real second.
+// (60 girls, max gear) at wave 200 on 8-5 and wave 250 on 5-5 (hundreds of scheduled spawns, hundreds
+// alive at once). Measured as this process's CPU time per 1/60 s step over the first 60 s of the wave
+// (its whole spawn window), which a loaded machine distorts far less than wall time. At 3× speed the
+// sim runs 180 steps per real second.
+// The board is the cap-legal worst case (one final tier per path per girl type, owner Oct 15): every
+// copy aims for its main path's tier 5, later copies of a type rotate their main path so each type
+// holds as many tier 5s as the rule allows (the rest stop at 4-x-2), and two Midoris (brews on 3 and
+// 4 girls) and a Chika (tune-up links + overclock) keep the limited-buff code in the budget.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { samplePath } from '../../src/sim/path.js';
@@ -10,8 +14,12 @@ import { coopStage } from '../../src/data/coop.js';
 
 // ★5, legendary +10 gear, average rolls (the "maxed" calibration build)
 const MAXED = { damageMul: 2.87, rateMul: 1.53, rangeMul: 1, critChance: 0.39, critMul: 1.48, armorPen: 2, costMul: 1, ultHaste: 0, awakenPassive: true, level: 60, awaken: 5 };
-const GIRLS = ['kage', 'shiro', 'aoi', 'akane', 'miko', 'momo', 'sango', 'yuki', 'umeko', 'midori', 'hotaru'];
-const CARRY = [['kage', 0, 2], ['shiro', 0, 2], ['aoi', 1, 2], ['shiro', 2, 0], ['akane', 0, 2], ['kage', 0, 2], ['momo', 2, 0], ['sango', 1, 2], ['yuki', 0, 2], ['midori', 0, 2], ['miko', 0, 2], ['umeko', 0, 2], ['hotaru', 0, 2]];
+const GIRLS = ['kage', 'shiro', 'aoi', 'akane', 'miko', 'momo', 'sango', 'yuki', 'umeko', 'midori', 'hotaru', 'chika'];
+const CARRY = [
+  ['kage', 0, 2], ['shiro', 0, 2], ['aoi', 1, 2], ['shiro', 2, 0], ['akane', 0, 2], ['kage', 2, 0], ['momo', 2, 0], ['sango', 1, 2],
+  ['yuki', 0, 2], ['midori', 0, 2], ['miko', 0, 2], ['umeko', 0, 2], ['hotaru', 0, 2], ['midori', 2, 0], ['chika', 1, 2], ['kage', 1, 0],
+  ['aoi', 0, 2], ['akane', 2, 0],
+];
 
 function lateBoard(stageId, tier, wave, towers) {
   const stage = coopStage(stageId, { freeplay: tier });
@@ -38,7 +46,7 @@ function lateBoard(stageId, tier, wave, towers) {
     const t = sim.placeTower(u, spot.x, spot.y);
     if (!t) continue;
     placed++;
-    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, main);
+    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, main); // a held final tier stops this copy at 4
     for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, cross);
     if (u === 'shiro' && main === 0) sim.setTargetMode(t.uid, 'strong');
   }

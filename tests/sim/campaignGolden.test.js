@@ -89,12 +89,15 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 
 // Taken at fb36911 (before freeplay). Never update these to make a test pass: a change here
 // means a battle outside freeplay changed.
+// Re-pinned once (feature/path-cap, tier 4/5 first pass): solo['8-5'] only. That battle's autoPlan owns a
+// Yuki 2-4-0, and Frostbite tier 4 (Shatter Point) changed (Brittle 25 → 30%, +25% damage), so its digest
+// moves; the outcome is the same (lost on wave 30). Every other battle here owns nothing above tier 3.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
     '1-3': { digest: 'a1ae7416', wave: 15, won: true },
     '4-2': { digest: 'fe4e1b42', wave: 19, won: false },
-    '8-5': { digest: '439207b8', wave: 30, won: false },
+    '8-5': { digest: '33acf917', wave: 30, won: false },
   },
   coopEndless: {
     coop: { digest: '95c63b80', wave: 22, won: true },
