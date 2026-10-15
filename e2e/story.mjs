@@ -60,8 +60,11 @@ function seeded({ upTo = null, legacy = false, story = null } = {}) {
     p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
     if (id === upTo) break;
   }
-  if (legacy) delete p.story;
-  else Object.assign(p.story, { opening: 'seen', tutorial: 'done', seen: ['opening', 'tut.outro'] }, story || {});
+  if (legacy) {
+    // a save from before the story: no block, and never the 'story:new' mark a story-era save carries
+    delete p.story;
+    delete p.missions.counters['story:new'];
+  } else Object.assign(p.story, { opening: 'seen', tutorial: 'done', seen: ['opening', 'tut.outro'] }, story || {});
   return JSON.stringify(p);
 }
 

@@ -61,8 +61,11 @@ function seeded({ upTo = null, legacy = false, story = {} } = {}) {
     p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
     if (id === upTo) break;
   }
-  if (legacy) delete p.story;
-  else Object.assign(p.story, story);
+  if (legacy) {
+    // a save from before the story: no block, and never the 'story:new' mark a story-era save carries
+    delete p.story;
+    delete p.missions.counters['story:new'];
+  } else Object.assign(p.story, story);
   return JSON.stringify(p);
 }
 
@@ -209,6 +212,29 @@ async function runViewport(vp) {
     check(first.sim.state === 'prep' && first.sim.wave === 0, 'step 1: the coach never starts or pauses anything (still in prep)');
     await page.waitForTimeout(700); // let the hand reach the spot
     await shot(page, 'coach-1-place');
+
+    // no Upgrade Tree in the coached battle: a new player who presses and waits on Aoi's card (or
+    // right-clicks it) must not pause the battle behind the tree and hide the coach. The press ends
+    // in a pointercancel, so it is no tap either (the real drag below still starts from scratch).
+    const held = await page.evaluate(async () => {
+      const card = document.querySelector('[data-testid="card-aoi"]');
+      const r = card.getBoundingClientRect();
+      const o = { bubbles: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+      card.dispatchEvent(new PointerEvent('pointerdown', o));
+      await new Promise((res) => setTimeout(res, 1000));
+      const during = { tree: !!window.__battle.ui.tree?.isOpen, paused: !!window.__battle.ui.paused };
+      card.dispatchEvent(new PointerEvent('pointercancel', o));
+      card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: o.clientX, clientY: o.clientY }));
+      await new Promise((res) => setTimeout(res, 300));
+      return {
+        ...during,
+        treeAfter: !!window.__battle.ui.tree?.isOpen,
+        coachHidden: document.querySelector('[data-testid="coach"]').hidden,
+        placing: window.__battle.ui.placement.unitId ?? null,
+      };
+    });
+    check(!held.tree && !held.paused && !held.treeAfter && !held.coachHidden && !held.placing && await coachStep(page) === 'place',
+      `step 1: holding (or right-clicking) Aoi's card opens no Upgrade Tree in the coached battle (${JSON.stringify(held)})`);
 
     // a REAL drag of Aoi's card to the spot the hand shows (touch: release below it, like the hand)
     if (first.spot) {
