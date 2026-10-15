@@ -24,6 +24,7 @@ function statusLabel(s) {
   const parts = [];
   if (s.amount) parts.push(`${Math.round(s.amount * 100)}%`);
   if (s.dps) parts.push(`${fmtNum(s.dps, 1)}/s`);
+  if (s.pct) parts.push(`+${fmtNum(s.pct * 100, 2)}% max HP/s`);
   if (s.bonus) parts.push(`+${Math.round(s.bonus * 100)}%`);
   if (s.duration) parts.push(`${fmtNum(s.duration, 1)}s`);
   if (s.chance != null && s.chance < 1) parts.push(`${Math.round(s.chance * 100)}% chance`);

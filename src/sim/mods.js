@@ -120,6 +120,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     mark: b.mark ? { bonus: b.mark.bonus ?? 0, duration: b.mark.duration ?? 0 } : null,
     brew: b.brew ? normLimited(b.brew) : null,
     link: b.link ? normLimited(b.link) : null,
+    hpPct: b.hpPct ? { pct: b.hpPct.pct ?? 0, boss: b.hpPct.boss ?? 0, cap: b.hpPct.cap ?? 0 } : null,
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
@@ -195,6 +196,13 @@ export function applyModSet(s, mods, acc) {
       if (v.armorPen != null) l.armorPen += v.armorPen;
       if (v.critChance != null) l.critChance += v.critChance;
       if (v.overclock) l.overclock = { every: v.overclock.every ?? 20, time: v.overclock.time ?? 6, rateMul: v.overclock.rateMul ?? 1 };
+    } else if (key === 'hpPct') {
+      // execution shot (src/sim/combat.js): + pct of the target's current HP (boss on minibosses / bosses),
+      // at most cap × the hit; the strongest numbers win
+      if (!s.hpPct) s.hpPct = { pct: 0, boss: 0, cap: 0 };
+      s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
+      s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
+      s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
     }
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

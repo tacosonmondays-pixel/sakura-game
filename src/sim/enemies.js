@@ -8,7 +8,8 @@
 //   _leak(enemy), _isCleansed(tower)
 
 import {
-  AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK,
+  AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK, DOT_PCT_BOSS_MUL,
+  FREEPLAY_ARMOR_FLOOR,
 } from './constants.js';
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import {
@@ -174,8 +175,18 @@ export function applySpawnMods(e, m) {
 export function applyPressure(e, p) {
   const add = e.tier === 'normal' || e.tier === 'elite' ? p.armor : p.bossArmor || 0;
   if (add) { e.armor += add; e.armorBonus = (e.armorBonus || 0) + add; }
-  e.ccLeft = e.tier === 'normal' || e.tier === 'elite' ? p.cc : p.bossCc;
+  e.ccLeft = (e.tier === 'normal' || e.tier === 'elite' ? p.cc : p.bossCc) * (e.ccMul ?? 1);
   e.kbLeft = p.kb;
+  // armor never removes more than 75% of a hit in freeplay (campaign enemies never carry the field)
+  e.armorFloor = FREEPLAY_ARMOR_FLOOR;
+}
+
+/** Burn / poison damage this tick: flat dps + `pct` of max HP per second (×0.1 on minibosses and bosses). */
+function dotAmount(e, st, dt) {
+  const pct = st.pct;
+  if (!pct) return st.dps * dt;
+  const boss = e.tier === 'boss' || e.tier === 'miniboss';
+  return (st.dps + pct * e.maxHp * (boss ? DOT_PCT_BOSS_MUL : 1)) * dt;
 }
 
 /** Places the enemy at its current path distance (position, facing, tunnel + overpass state). */
@@ -439,8 +450,8 @@ export function syncStatusFlags(e) {
  */
 export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
-  if (st.burn) sim._dot(e, 'burn', st.burn.dps * dt, st.burn);
-  if (!e.dead && st.poison) sim._dot(e, 'poison', st.poison.dps * dt, st.poison);
+  if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
+  if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
   if (e.dead) return;
   tickStatusDurations(e, dt);
   syncStatusFlags(e);

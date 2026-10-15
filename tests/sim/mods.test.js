@@ -146,6 +146,15 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
     expect(s.link.overclock).toEqual({ every: 15, time: 5, rateMul: 1.5 });
   });
 
+  test('hpPct keeps the strongest numbers', () => {
+    const s = normalizeBase({});
+    expect(s.hpPct).toBe(null);
+    const acc = { damageAdd: 0, damageMul: 1 };
+    applyModSet(s, { hpPct: { pct: 0.03, boss: 0.003, cap: 2 } }, acc);
+    applyModSet(s, { hpPct: { pct: 0.01, boss: 0.005, cap: 1 } }, acc);
+    expect(s.hpPct).toEqual({ pct: 0.03, boss: 0.005, cap: 2 });
+  });
+
   test('aura armorPen and critChance add within one girl\'s aura', () => {
     const s = normalizeBase({ aura: { range: 3, armorPen: 2 } });
     expect(s.aura).toMatchObject({ armorPen: 2, critChance: 0 });
