@@ -10,7 +10,7 @@ import { errorText } from '../../online/errors.js';
 import { onlinePill, ensureOnline, askName, storedName } from './common.js';
 import { navigate } from '../router.js';
 import { ledgerBusy } from '../../online/donateLedger.js';
-import { DM_PRIVACY, PRIVACY_LABELS, PRIVACY_HELP, formatFriendCode } from '../../online/socialRules.js';
+import { DM_PRIVACY, DM_PRIVACY_DEFAULT, PRIVACY_LABELS, PRIVACY_HELP, formatFriendCode } from '../../online/socialRules.js';
 import { setPrivacyCache } from './socialHub.js';
 
 /**
@@ -48,7 +48,7 @@ function socialRows() {
       note(errorText(e));
       return;
     }
-    let value = summary.privacy || 'friends_clan';
+    let value = summary.privacy || DM_PRIVACY_DEFAULT;
     const seg = h('div.ol-seg.sc-set-seg');
     const help = h('div.ma-set-desc', PRIVACY_HELP[value]);
     const paint = () => {

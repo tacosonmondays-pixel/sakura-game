@@ -113,8 +113,9 @@ export const LOBBY = Object.freeze({
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
+ *   isBlocked: (uid) => true for a player I blocked: their hellos are ignored (never paired)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true, isBlocked = () => false }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
@@ -279,7 +280,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
 
   function onHello(msg) {
     const p = msg.player || {};
-    if (!p.uid || p.uid === s.me.uid) return;
+    if (!p.uid || p.uid === s.me.uid || isBlocked(p.uid)) return; // [social] never pair with a player I blocked
     const t = now();
     if (!sameVersion(msg.v, version)) {
       // a cached older (or newer) build: lockstep would desync every time — never pair

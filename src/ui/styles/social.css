@@ -195,6 +195,13 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
   font-weight: 900; color: var(--navy); text-align: left; min-height: 44px;
 }
 .sc-menu-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #cfd9e6; }
+.sc-menu-btn.danger { color: #b3263e; }
+.sc-menu-hint { display: block; margin-top: 2px; font-weight: 700; font-size: 0.74rem; color: var(--muted); }
+.sc-quote { margin: 0 0 4px; padding: 8px 10px; border-left: 3px solid #d9e3ee; border-radius: 6px; background: #f4f7fb; color: var(--navy); font-weight: 700; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden; }
+/* their messages can be pressed and held (report that one): no text-callout menu on the long press */
+.sc-holdable .ol-bubble { -webkit-touch-callout: none; }
+/* chat and DM bubbles never grow taller than their text box (L3: stacked marks) */
+.sc-thread-list .ol-bubble, .ol-chat-list .ol-bubble { overflow: hidden; }
 .sc-privacy { display: flex; flex-direction: column; gap: 6px; }
 .sc-privacy-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 12px; }
 .sc-privacy-opt b { color: var(--navy); font-style: italic; }

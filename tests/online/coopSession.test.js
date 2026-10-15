@@ -168,6 +168,30 @@ describe('co-op lobby handshake', () => {
     guest.close();
   });
 
+  it('[social] never pairs with a player I blocked (their hellos are ignored); someone else still can', () => {
+    const W = world();
+    const blocked = new Set([GUEST]);
+    const host = open(W, true, { isBlocked: (uid) => blocked.has(uid) });
+    W.connect(host.room);
+    const guest = open(W, false);
+    W.connect(guest.room);
+    W.step(8000);
+    expect(host.peer).toBe(null); // the blocked guest's hellos never make it an ally
+    expect(host.paired).toBe(false);
+    expect(guest.paired).toBe(false);
+    guest.close();
+    // another player takes the seat at once
+    const other = openSession({
+      code: 'ROOM1', isHost: false, backend: W.backend('other-uid'), timers: W.timers, now: W.now, exclusive: false,
+      me: meOf('other-uid', 'Cleo', ['yuki']),
+    });
+    W.connect(other.room);
+    expect(W.until(() => host.paired && other.paired)).not.toBe(null);
+    expect(host.peer.name).toBe('Cleo');
+    host.close();
+    other.close();
+  });
+
   it('a mute host (its messages never get out) is found as soon as its link works again', () => {
     const W = world();
     const host = open(W, true);

@@ -2,10 +2,10 @@
 // live events pop up (blocked senders, "Later", the open conversation), what waits for the end of a
 // battle, the co-op invites kept for a room until the server registered it (sessionStorage), and
 // the inbox texts. The screens themselves are driven by e2e/social.mjs.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { parentRoute } from '../../src/ui/nav.js';
-import { popupFor, afterBattle, addPendingInvite, takePendingInvites, liveInvites, inviteSummary } from '../../src/ui/online/socialHub.js';
-import { preview, dayLabel, joinsNewThread } from '../../src/ui/screens/messages.js';
+import { popupFor, afterBattle, addPendingInvite, takePendingInvites, liveInvites, inviteSummary, noticeNamesBlocked } from '../../src/ui/online/socialHub.js';
+import { preview, dayLabel, joinsNewThread, onLongPress, HOLD_MS } from '../../src/ui/screens/messages.js';
 import { whyText, friendWhyText, presenceText } from '../../src/online/socialRules.js';
 
 const NOW = Date.parse('2026-10-14T18:00:00Z');
@@ -148,5 +148,70 @@ describe('inbox texts', () => {
     expect(friendWhyText('context', 'Bea')).toMatch(/friend code/i);
     expect(presenceText(Date.now() - 60000)).toBe('Online');
     expect(presenceText(null)).toBe('');
+  });
+});
+
+describe('clan system notices about a blocked player (M3)', () => {
+  it('a notice that starts with their name or thanks them is hidden; other players\' notices stay', () => {
+    const names = ['Pete', 'u cant hide lol'];
+    for (const body of ['Pete joined the clan.', 'Pete left the clan.', 'Pete was removed from the clan.', 'Pete is the new leader.', 'Pete is now officer.',
+      'Pete asks for 6 × Swallow Plume. Clan → Requests to help!', 'Pete\'s request is filled — thanks Ann, Bo!', 'Ann\'s request is filled — thanks Bo, Pete +2!',
+      'u cant hide lol joined the clan.']) {
+      expect(noticeNamesBlocked(body, names), body).toBe(true);
+    }
+    for (const body of ['Peter joined the clan.', 'Ann joined the clan.', 'Ann\'s request is filled — thanks Bo, Peter!', 'Ann asks for 6 × Pete Plume.']) {
+      expect(noticeNamesBlocked(body, names), body).toBe(false);
+    }
+    expect(noticeNamesBlocked('Pete joined the clan.', [])).toBe(false);
+    expect(noticeNamesBlocked('', ['Pete'])).toBe(false);
+  });
+});
+
+describe('press and hold a DM to report that one (H1)', () => {
+  /** A stand-in element: listeners + dispatch (the vitest environment has no DOM). */
+  function fakeEl() {
+    const on = {};
+    return {
+      addEventListener: (t, fn) => { (on[t] ||= []).push(fn); },
+      fire: (t, e = {}) => { for (const fn of on[t] || []) fn({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn(), ...e }); },
+    };
+  }
+
+  it('opens after the hold, not after a tap, a scroll or a release before the hold', () => {
+    vi.useFakeTimers();
+    try {
+      let t = 0;
+      const el = fakeEl();
+      const held = vi.fn();
+      onLongPress(el, held, { now: () => t });
+      el.fire('pointerdown');
+      vi.advanceTimersByTime(HOLD_MS - 50);
+      el.fire('pointerup'); // a tap
+      vi.advanceTimersByTime(1000);
+      expect(held).not.toHaveBeenCalled();
+      el.fire('pointerdown', { clientX: 10, clientY: 10 });
+      el.fire('pointermove', { clientX: 10, clientY: 40 }); // scrolling the conversation
+      vi.advanceTimersByTime(1000);
+      expect(held).not.toHaveBeenCalled();
+      el.fire('pointerdown');
+      vi.advanceTimersByTime(HOLD_MS);
+      expect(held).toHaveBeenCalledTimes(1);
+      // the phone's own long-press 'contextmenu' right after: no second menu
+      t += 100;
+      el.fire('contextmenu');
+      expect(held).toHaveBeenCalledTimes(1);
+      // a right-click (desktop) later opens it
+      t += 2000;
+      const e = { preventDefault: vi.fn() };
+      el.fire('contextmenu', e);
+      expect(held).toHaveBeenCalledTimes(2);
+      expect(e.preventDefault).toHaveBeenCalled();
+      // a secondary button press never starts a hold
+      el.fire('pointerdown', { button: 2 });
+      vi.advanceTimersByTime(1000);
+      expect(held).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

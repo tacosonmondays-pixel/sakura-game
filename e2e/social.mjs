@@ -9,8 +9,9 @@
 //   5. B asks the clan for 6 × Swallow Plume → A donates (+3; A's backpack drops, coins rise) →
 //      B collects (+3) → a reload of B changes nothing; caps: B's second ask, A's per-request cap,
 //      A's 30 points a day
-//   6. B reports A (stored for the owner) and blocks A: A's next DM is refused, A's clan-chat
-//      lines are hidden for B
+//   6. B holds one of A's messages and reports that one, then reports A again from the menu (the
+//      evidence keeps the first) and blocks A: A's next DM is refused, A's clan-chat lines and the
+//      clan notices naming A are hidden for B
 //   7. a third tab with &social=0 (the live server before the owner runs the SQL) shows
 //      "Needs the latest server update" on Messages and Clan → Requests while chat still delivers
 //   + the verifier fixes: Join on a pop-up closes the open Menu first; the ally's card in the room
@@ -216,7 +217,9 @@ try {
   await tap(A, '[data-testid="chat-msg"]:has-text("Bea here") [data-testid="chat-name"]');
   await wait(A, '[data-testid="player-card"] [data-testid="card-message"]', { timeout: 10000 });
   check(/Bea/.test(await text(A, '[data-testid="card-name"]')), 'player card: tapping B\'s name opens B\'s card');
-  check(await A.locator('[data-testid="card-message"]').isEnabled(), 'player card: Message is on (clanmates for 3+ days)');
+  // the default "Who can message me" is Friends only (REVERIFY M4): a clanmate of 3+ days is no friend yet
+  check(!(await A.locator('[data-testid="card-message"]').isEnabled()), 'player card: Message waits for a friendship (the default is Friends only)');
+  check(/Friends only/.test(await text(A, '[data-testid="card-why"]')), 'player card: says why (my own setting, Friends only)');
   await shot(A, 'player-card');
   await tap(A, '[data-testid="card-add-friend"]');
   await wait(A, '[data-testid="card-requested"]', { timeout: 8000 });
@@ -405,6 +408,8 @@ try {
   await tap(C, '[data-testid="confirm-ok"]');
   await wait(C, '[data-testid="my-request-progress"]', { timeout: 10000 });
   // ---- a brand-new conversation: the other player's first message shows at once (UX #1) --------
+  // (Aiko and Cleo are friends: with the default setting only friends write to each other)
+  await editDb(C, `const f = (s.social.friends ||= {}); (f[a.x] ||= {})[a.y] = Date.now(); (f[a.y] ||= {})[a.x] = Date.now();`, { x: uidA, y: uidC });
   await go(A, '#/clan?tab=members');
   await wait(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-card"]`, { timeout: 10000 });
   await tap(A, `[data-testid="member-row"][data-user="${uidC}"] [data-testid="member-card"]`);
@@ -455,6 +460,20 @@ try {
   await wait(B, '[data-testid="thread-row"]', { timeout: 10000 });
   await tap(B, '[data-testid="thread-row"]');
   await wait(B, '[data-testid="thread-menu"]', { timeout: 10000 });
+  // (REVERIFY H1) press and hold one of A's messages: report exactly that one (no block yet)
+  await until(B, () => [...document.querySelectorAll('[data-testid="dm-msg"]')].some((m) => /Want to play co-op/.test(m.innerText)), null, 10000);
+  await B.locator('[data-testid="dm-msg"]:has-text("Want to play co-op")').first().dispatchEvent('contextmenu');
+  check(await wait(B, '[data-testid="msg-report"]', { timeout: 8000 }).then(() => true).catch(() => false), 'report: holding one of their messages opens its menu');
+  check(/Want to play co-op/.test(await text(B, '[data-testid="msg-quote"]')), 'report: the menu quotes that message');
+  await shot(B, 'message-menu');
+  await tap(B, '[data-testid="msg-report"]');
+  await tap(B, '[data-testid="report-inappropriate"]');
+  await B.locator('[data-testid="report-block"]').uncheck();
+  await tap(B, '[data-testid="report-send"]');
+  check(await until(B, () => /look at it/.test(document.querySelector('.toast-host')?.innerText || ''), null, 8000), 'report: one message reported');
+  const one = await B.evaluate(() => (JSON.parse(localStorage.getItem('ss-online-db')).social.reports || []).map((r) => ({ body: r.evidence?.message?.body, total: r.evidence?.dmsTotal })));
+  check(one.length === 1 && /Want to play co-op/.test(one[0].body) && one[0].total >= 2, `report: the held message is the reported one, with the conversation's size (${JSON.stringify(one)})`);
+  await B.waitForTimeout(10500); // (reports: 1 per 10 s)
   await tap(B, '[data-testid="thread-menu"]');
   await tap(B, '[data-testid="thread-report"]');
   await tap(B, '[data-testid="report-bullying"]');
@@ -464,8 +483,9 @@ try {
   await tap(B, '[data-testid="report-send"]');
   const reported = await until(B, () => /look at it/.test(document.querySelector('.toast-host')?.innerText || ''), null, 8000);
   check(reported, 'report: "Thanks — the game\'s team will look at it."');
-  const stored = await B.evaluate(() => (JSON.parse(localStorage.getItem('ss-online-db')).social.reports || []).map((r) => ({ reason: r.reason, dms: r.evidence?.dms?.length || 0 })));
+  const stored = await B.evaluate(() => (JSON.parse(localStorage.getItem('ss-online-db')).social.reports || []).map((r) => ({ reason: r.reason, dms: r.evidence?.dms?.length || 0, earlier: (r.evidence?.earlier || []).map((m) => m.body) })));
   check(stored.length === 1 && stored[0].reason === 'bullying' && stored[0].dms >= 2, `report: stored for the owner with server-made evidence (${JSON.stringify(stored)})`);
+  check(stored[0]?.earlier.some((b) => /Want to play co-op/.test(b)), 'report: the repeat report keeps the message reported first (earlier)');
   // "Also block" was on: the conversation is gone for B
   check(await until(B, () => !document.querySelector('[data-testid="thread-row"]'), null, 8000), 'block: the conversation leaves B\'s inbox');
   await wait(A, '[data-testid="dm-input"]', { timeout: 10000 }).catch(() => null);
@@ -478,6 +498,8 @@ try {
   await A.press('[data-testid="chat-input"]', 'Enter');
   await A.waitForTimeout(1500);
   check(!(await B.locator('[data-testid="chat-msg"]:has-text("after the block")').count()), 'block: A\'s clan-chat lines are hidden for B');
+  check(!(await B.locator('[data-testid="chat-notice"]:has-text("Aiko")').count()) && await A.locator('[data-testid="chat-notice"]:has-text("Aiko")').count() > 0,
+    'block: clan notices that name A ("Aiko joined the clan.") are hidden for B (REVERIFY M3)');
   const refused = await A.evaluate(async (to) => {
     try {
       await window.__online.sendDm(to, 'still there?');
@@ -486,17 +508,19 @@ try {
       return e.message;
     }
   }, uidB);
-  check(/can't get messages from you/.test(refused), `block: A's next DM is refused, with the same words as a privacy refusal ("${refused}")`);
+  // (the block ended the friendship: with the default, Friends only, A's own setting now says no, the
+  // same words as for any clanmate who is no friend — the block itself is never mentioned)
+  check(/can't get messages from you|setting doesn't include them/.test(refused) && !/block/i.test(refused), `block: A's next DM is refused with the words of a privacy refusal, never "blocked" ("${refused}")`);
 
   // ---- Settings → Online and the lobby Menu ---------------------------------------------------
   await go(A, '#/settings');
-  check(await wait(A, '[data-testid="settings-privacy-friends_clan"]', { timeout: 15000 }).then(() => true).catch(() => false), 'settings: Who can message me (Friends & clan by default)');
-  check(await A.locator('[data-testid="settings-privacy-friends_clan"]').evaluate((b) => b.classList.contains('on')), 'settings: the default is Friends & clan');
+  check(await wait(A, '[data-testid="settings-privacy-friends"]', { timeout: 15000 }).then(() => true).catch(() => false), 'settings: Who can message me (Friends only by default)');
+  check(await A.locator('[data-testid="settings-privacy-friends"]').evaluate((b) => b.classList.contains('on')), 'settings: the default is Friends only');
   await A.locator('[data-testid="settings-social"]').scrollIntoViewIfNeeded().catch(() => {});
   await shot(A, 'settings-online');
-  await tap(A, '[data-testid="settings-privacy-friends"]');
-  check(await until(A, () => document.querySelector('[data-testid="settings-privacy-friends"]')?.classList.contains('on')), 'settings: Friends only is saved');
-  check(await A.evaluate(() => window.__online.socialSummary().then((s) => s.privacy)) === 'friends', 'settings: the server has Friends only');
+  await tap(A, '[data-testid="settings-privacy-friends_clan"]');
+  check(await until(A, () => document.querySelector('[data-testid="settings-privacy-friends_clan"]')?.classList.contains('on')), 'settings: Friends & clan is saved');
+  check(await A.evaluate(() => window.__online.socialSummary().then((s) => s.privacy)) === 'friends_clan', 'settings: the server has Friends & clan');
   check(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(await text(A, '[data-testid="settings-friend-code"]')), 'settings: my friend code is shown');
   await lobby(A);
   await tap(A, '[data-testid="top-menu"]');

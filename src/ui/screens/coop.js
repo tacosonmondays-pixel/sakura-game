@@ -376,6 +376,7 @@ export function render(root, params = {}) {
         session = openSession({
           code: roomCode, isHost, backend, stageId, difficulty,
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
+          isBlocked: (uid) => social.isBlocked(uid), // [social] never pair with a player I blocked
         });
       } catch (e) {
         const err = toOnlineError(e);
@@ -586,6 +587,27 @@ export function render(root, params = {}) {
       connecting(body, () => room(roomCode));
     }
 
+    /**
+     * [social] I blocked my ally (their card, Messages, a report). The server already freed their
+     * seat and gave my room a new secret (block_player), so as the host I open the same room again
+     * on the new channel, which they cannot reach (join_room answers them "full"); as a guest I
+     * leave (my seat in their room is gone too). Also on coming back from a battle with them.
+     */
+    function dropBlockedAlly() {
+      const s = session;
+      if (destroyed || s.phase !== 'lobby') return;
+      const ally = s.peer?.uid || s.returning?.uid || null;
+      if (!ally || !social.isBlocked(ally)) return;
+      if (s.isHost) {
+        toast('The player you blocked is out of your room. Same code, new connection.', 'info', 3200);
+        reopen(s);
+      } else {
+        s.close();
+        toast('You left the room.', 'info');
+        navigate('coop');
+      }
+    }
+
     function newRoom(s) {
       expireMyInvites(s);
       s.close({ keepRoom: false }); // this code is given up for the new one
@@ -714,6 +736,7 @@ export function render(root, params = {}) {
       session.on('change', paint),
       session.on('seated', () => sendPending()),
       social.on('status', () => paint()),
+      social.on('blocked', () => dropBlockedAlly()),
       session.on('start', () => {
         keepSession = true;
         navigate('battle', { coop: roomCode });
@@ -721,6 +744,7 @@ export function render(root, params = {}) {
     ];
     if (session.seated) sendPending();
     cleanup = () => offs.forEach((off) => off());
+    dropBlockedAlly();
   }
 
   return () => {

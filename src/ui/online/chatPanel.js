@@ -58,7 +58,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   }
 
   function row(m) {
-    if (m.kind === 'system') return h('div.ol-msg.ol-msg-system', { 'data-id': m.id }, h('span', m.body), h('time', clock(m.createdAt)));
+    if (m.kind === 'system') return h('div.ol-msg.ol-msg-system', { 'data-id': m.id, 'data-testid': 'chat-notice' }, h('span', m.body), h('time', clock(m.createdAt)));
     const mine = backend && m.userId === backend.uid;
     const invite = m.kind === 'invite' && m.meta?.room;
     const name = h('b.ol-msg-name', m.name || 'Sensei');
@@ -75,8 +75,10 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
 
   function add(m, scroll = true) {
     if (shown.has(m.id)) return;
-    // [social] players you blocked: their lines (and clan invites) are not shown
+    // [social] players you blocked: their lines (and clan invites) are not shown, nor the clan's
+    // system notices that name them ("X joined the clan.": a kick → rejoin loop, M3)
     if (m.userId && hub.isBlocked(m.userId)) return;
+    if (m.kind === 'system' && hub.hidesNotice(m.body)) return;
     shown.add(m.id);
     list.querySelector('.ol-chat-empty')?.remove();
     const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
@@ -173,6 +175,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   // [social] someone was just blocked: their lines go at once
   const offBlocked = hub.on('blocked', (set) => {
     for (const r of list.querySelectorAll('.ol-msg[data-user]')) if (r.dataset.user && set.has(r.dataset.user)) r.remove();
+    for (const r of list.querySelectorAll('.ol-msg-system')) if (hub.hidesNotice(r.firstElementChild?.textContent)) r.remove();
   });
 
   return {

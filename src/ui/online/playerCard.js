@@ -7,7 +7,7 @@ import { h, modal, button, toast, confirmDialog } from '../components.js';
 import { navigate } from '../router.js';
 import { getBackend } from '../../online/backend.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
-import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS } from '../../online/socialRules.js';
+import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
 import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
 import { makeRoomCode, getSession } from '../../online/coop/session.js';
@@ -155,7 +155,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       const [{ code }, sum] = await Promise.all([b.myFriendCode(), b.socialSummary()]);
       acts.append(
         h('div.sc-card-code', h('small', 'Your friend code'), h('b', { 'data-testid': 'card-my-code' }, formatFriendCode(code))),
-        h('p.sc-card-why', `Who can message me: ${PRIVACY_LABELS[sum.privacy] || PRIVACY_LABELS.friends_clan}. Only share your code with people you know.`),
+        h('p.sc-card-why', `Who can message me: ${PRIVACY_LABELS[sum.privacy] || PRIVACY_LABELS[DM_PRIVACY_DEFAULT]}. Only share your code with people you know.`),
         button('Online settings', { kind: 'ghost', small: true, icon: 'settings', onClick: () => { m.close(); navigate('settings', { section: 'online' }); } }));
     } catch (e) {
       acts.append(h('p.ol-error', errorText(e)));
@@ -179,7 +179,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
   async function block() {
     const c = card;
     const ok = await confirmDialog(`${c.name} won't be able to message, invite or friend you, and you won't see their chat messages.`, { title: `Block ${c.name}?`, ok: 'Block', danger: true });
-    if (ok) act(() => getBackend().block(c.userId), () => setBlocked(c.userId, true), `${c.name} is blocked.`);
+    if (ok) act(() => getBackend().block(c.userId), () => setBlocked(c.userId, true, c.name), `${c.name} is blocked.`);
   }
 
   async function report() {

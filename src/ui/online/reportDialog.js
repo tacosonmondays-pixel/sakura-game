@@ -43,7 +43,7 @@ export function openReportDialog({ userId, name = 'this player', context = 'prof
         if (also.checked && !blocked) {
           try {
             await backend.block(userId);
-            setBlocked(userId, true);
+            setBlocked(userId, true, name === 'this player' ? null : name);
             done.blocked = true;
           } catch (e) {
             toast(errorText(e), 'bad');

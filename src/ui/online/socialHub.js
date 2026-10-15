@@ -26,6 +26,7 @@ const state = {
   badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0 },
   privacy: null,
   blocked: new Set(),
+  blockedNames: new Map(), // uid → their current name (clan system notices that name them are hidden)
   viewing: null, // thread id open on the Messages screen
   invites: new Map(), // message id → a DM co-op invite this tab saw (Co-op → Invites)
   queue: [], // pop-ups waiting for the battle to end
@@ -62,6 +63,10 @@ export const hub = {
   isBlocked(uid) {
     return !!uid && state.blocked.has(uid);
   },
+  /** A clan system notice about a player I blocked ("X joined the clan.") is not shown (M3). */
+  hidesNotice(body) {
+    return noticeNamesBlocked(body, [...state.blockedNames.values()]);
+  },
   /** DM co-op invites this tab received and that may still be open: the newest per sender (newest first). */
   get invites() {
     return liveInvites([...state.invites.values()]);
@@ -86,6 +91,21 @@ export function liveInvites(list, now = Date.now(), max = INVITES_SHOWN) {
 /** The server said this invite is no longer open: Co-op → Invites stops listing it. */
 export function forgetInvite(id) {
   if (state.invites.delete(id)) emitter.emit('invites', hub.invites);
+}
+
+/**
+ * Does this clan system notice name one of `names` (pure; tests)? The notices start with the
+ * player's name ("X joined the clan.", "X left the clan.", "X was removed from the clan.", "X is the
+ * new leader.", "X asks for 6 × …", "X's request is filled — thanks …") or thank donors at the end
+ * ("… — thanks A, B +2!"). A kicked-and-blocked player could otherwise keep posting their name
+ * (a new one each time) into the kid's clan chat by joining and leaving.
+ * @param {string} body
+ * @param {string[]} names current names of the players I blocked
+ */
+export function noticeNamesBlocked(body, names) {
+  const b = String(body || '');
+  const thanks = /— thanks (.*?)(?: \+\d+)?!$/.exec(b)?.[1]?.split(', ') || [];
+  return names.some((n) => !!n && (b.startsWith(`${n} `) || b.startsWith(`${n}'s `) || thanks.includes(n)));
 }
 
 /** "1-1 · First Petals · Normal" — the same words as the stage picker and the room lobby. */
@@ -181,18 +201,28 @@ export async function refreshBlocked() {
   try {
     const list = await getBackend().blocked();
     state.blocked = new Set(list.map((b) => b.userId));
+    state.blockedNames = new Map(list.map((b) => [b.userId, b.name]));
     emitter.emit('blocked', state.blocked);
   } catch {
     /* keep the old list */
   }
 }
 
-/** The player blocked / unblocked someone here: chat hides / shows them at once. */
-export function setBlocked(uid, on) {
-  if (on) state.blocked.add(uid);
-  else state.blocked.delete(uid);
+/**
+ * The player blocked / unblocked someone here: chat hides / shows them (and clan notices naming
+ * them) at once; a co-op room with them closes (coop.js). `name`: their current name.
+ */
+export function setBlocked(uid, on, name = null) {
+  if (on) {
+    state.blocked.add(uid);
+    if (name) state.blockedNames.set(uid, name);
+  } else {
+    state.blocked.delete(uid);
+    state.blockedNames.delete(uid);
+  }
   emitter.emit('blocked', state.blocked);
   refreshSoon();
+  if (on) refreshBlocked(); // their current name from the server
 }
 
 export function setPrivacyCache(value) {

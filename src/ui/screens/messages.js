@@ -15,10 +15,54 @@ import { errorText, toOnlineError } from '../../online/errors.js';
 import { formatRetry } from '../../online/limits.js';
 import { MESSAGE_MAX } from '../../online/clanRules.js';
 import {
-  bodyError, whyText, presenceText, formatFriendCode, normalizeFriendCode, DM_PRIVACY, PRIVACY_LABELS, PRIVACY_HELP, DM_PAGE,
+  bodyError, whyText, presenceText, formatFriendCode, normalizeFriendCode, DM_PRIVACY, DM_PRIVACY_DEFAULT, PRIVACY_LABELS, PRIVACY_HELP, DM_PAGE,
 } from '../../online/socialRules.js';
 
 const TABS = ['chats', 'friends', 'requests', 'blocked'];
+/** Press and hold a message this long to report just that one (a right-click works too). */
+export const HOLD_MS = 550;
+
+/**
+ * Press and hold (touch, pen or mouse) or right-click `el`: `onHold()` once. A move of more than
+ * 10 px (scrolling) or letting go early cancels; the long-press 'contextmenu' a phone fires as
+ * well opens nothing twice.
+ * @param {HTMLElement} el
+ * @param {() => void} onHold
+ */
+export function onLongPress(el, onHold, { ms = HOLD_MS, now = () => Date.now() } = {}) {
+  let timer = 0;
+  let x0 = 0;
+  let y0 = 0;
+  let firedAt = -Infinity;
+  const fire = () => {
+    if (now() - firedAt < 800) return;
+    firedAt = now();
+    onHold();
+  };
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = 0;
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    cancel();
+    x0 = e.clientX;
+    y0 = e.clientY;
+    timer = setTimeout(() => {
+      timer = 0;
+      fire();
+    }, ms);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel();
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, cancel);
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    cancel();
+    fire();
+  });
+}
 const INTRO_KEY = 'ss-social-intro';
 const POLL_MS = 30000;
 const VIA = { clan: 'from your clan', coop: 'played co-op with you', code: 'used your friend code' };
@@ -420,9 +464,41 @@ export function render(root, params = {}) {
 
     function row(m) {
       if (m.kind === 'invite') return inviteCard(m);
-      return h(`div.ol-msg${m.mine ? '.ol-msg-mine' : ''}`, { 'data-id': m.id, 'data-testid': 'dm-msg' },
+      const el = h(`div.ol-msg${m.mine ? '.ol-msg-mine' : ''}`, { 'data-id': m.id, 'data-testid': 'dm-msg' },
         m.mine ? null : avatar(m.avatar, 30),
         h('div.ol-msg-col', h('div.ol-bubble', m.body), h('time.sc-msg-time', clock(m.createdAt))));
+      // (H1) press and hold their message: report exactly that one
+      if (!m.mine) {
+        el.classList.add('sc-holdable');
+        onLongPress(el, () => messageMenu(m));
+      }
+      return el;
+    }
+
+    /** The menu of one of their messages (press and hold / right-click): report that message. */
+    function messageMenu(m) {
+      const p = info.peer;
+      const blocked = hub.isBlocked(p.userId);
+      const mm = modal({
+        title: `Message from ${p.name}`,
+        cls: 'sc-menu',
+        body: h('div.sc-menu-list',
+          h('blockquote.sc-quote', { 'data-testid': 'msg-quote' }, m.kind === 'invite' ? inviteSummary(m.meta) : m.body),
+          h('button.sc-menu-btn.danger', { 'data-testid': 'msg-report', onclick: () => { mm.close(); reportMessage(m.id, blocked); } }, 'Report this message')),
+        actions: [{ label: 'Close', kind: 'ghost', testid: 'msg-menu-close' }],
+      });
+    }
+
+    async function reportMessage(messageId, blocked) {
+      const p = info.peer;
+      const { openReportDialog } = await import('../online/reportDialog.js');
+      const r = await openReportDialog({ userId: p.userId, name: p.name, context: 'dm', messageId, blocked });
+      if (r.blocked) {
+        selected = null;
+        setHash({});
+        paintEmptyThread();
+        paintList();
+      }
     }
 
     function inviteCard(m) {
@@ -432,6 +508,7 @@ export function render(root, params = {}) {
         h('span.sc-inv-ico', svgEl(glyph('people'), 'sc-icon')),
         h('div.sc-inv-text', h('b', m.mine ? `You invited ${info.peer.name} to co-op` : `${m.name} invites you to co-op`), h('small', inviteSummary(m.meta)), state),
         join);
+      if (!m.mine) onLongPress(card, () => messageMenu(m)); // (an unwanted invite can be reported too)
       const paint = () => {
         const left = Number(m.meta?.expires) - Date.now();
         let st = m.inviteState || 'open';
@@ -603,7 +680,7 @@ export function render(root, params = {}) {
               if (!(await confirmDialog(`${p.name} won't be able to message, invite or friend you.`, { title: `Block ${p.name}?`, ok: 'Block', danger: true }))) return;
               try {
                 await backend.block(p.userId);
-                setBlocked(p.userId, true);
+                setBlocked(p.userId, true, p.name);
                 toast(`${p.name} is blocked.`, 'info');
                 selected = null;
                 setHash({});
@@ -618,17 +695,12 @@ export function render(root, params = {}) {
             'data-testid': 'thread-report',
             onclick: async () => {
               m.close();
-              const { openReportDialog } = await import('../online/reportDialog.js');
+              // the whole conversation is the evidence (the server keeps it while the report is
+              // open); one message in particular: press and hold it instead
               const last = [...msgs.querySelectorAll('.ol-msg:not(.ol-msg-mine), .sc-invite:not(.mine)')].pop();
-              const r = await openReportDialog({ userId: p.userId, name: p.name, context: 'dm', messageId: last ? Number(last.dataset.id) : null, blocked });
-              if (r.blocked) {
-                selected = null;
-                setHash({});
-                paintEmptyThread();
-                paintList();
-              }
+              reportMessage(last ? Number(last.dataset.id) : null, blocked);
             },
-          }, 'Report'),
+          }, 'Report', h('small.sc-menu-hint', 'To report one message, press and hold it.')),
           id ? h('button.sc-menu-btn', {
             'data-testid': 'thread-clear',
             onclick: async () => {
@@ -675,7 +747,7 @@ export function render(root, params = {}) {
 
   // ---- privacy + intro ----------------------------------------------------------------------
   async function privacyDialog() {
-    let value = hub.privacy || 'friends_clan';
+    let value = hub.privacy || DM_PRIVACY_DEFAULT;
     try {
       value = (await backend.socialSummary()).privacy || value;
     } catch {
@@ -724,7 +796,7 @@ export function render(root, params = {}) {
       body: h('div.sc-intro-body',
         h('p', h('b', 'Be kind.'), ' Never share your real name, school, address, phone number or passwords.'),
         h('p', 'If someone makes you uncomfortable, tap their name → ', h('b', 'Block'), ' and ', h('b', 'Report'), '.'),
-        h('p.muted', 'Friends and clanmates (after 3 days together) can message you. You can change this any time.')),
+        h('p.muted', 'Only your friends can message you. You can let clanmates (after 3 days together) message you too in "Who can message me".')),
       actions: [{ label: 'Got it', kind: 'yellow', testid: 'intro-ok', onClick: (close) => { try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* ignore */ } close(); } }],
       dismissable: false,
     });
