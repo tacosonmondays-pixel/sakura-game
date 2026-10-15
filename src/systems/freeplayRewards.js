@@ -14,7 +14,7 @@
 // freeplay waves where normal play rolls the drop table every run.
 import { applyBattleResult, DIFFICULTY_COIN_MUL } from './rewards.js';
 import { STAGE_MAP } from '../data/stages.js';
-import { applyCoopFreeplayEnd, killsSince, FREEPLAY_REWARDS } from '../online/coop/rewards.js';
+import { applyCoopFreeplayEnd, killsSince, FREEPLAY_REWARDS, dropPendingFreeplay } from '../online/coop/rewards.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { track } from './missions.js';
 import { normalizeList } from './inventory.js';
@@ -101,7 +101,9 @@ export function applySoloFreeplayEnd(profile, result, rng, { banked = null } = {
 /** The ledger of one solo freeplay battle (banked clear, paid end, one-shot effects). */
 const SOLO_RUNS = {};
 export function soloFreeplayLedger(seed) {
-  return (SOLO_RUNS[seed] ||= { fx: new Set(), bank: null, end: null });
+  // seed + payout: the run is kept in the save after every freeplay wave (rememberFreeplayRun) and a
+  // run the page never got to pay is paid at the next app start with the solo best and coin cap
+  return (SOLO_RUNS[seed] ||= { seed, fx: new Set(), bank: null, end: null, payout: { bestKey: 'freeplayBest', waveCoins: null } });
 }
 
 /** Banks the clear once per ledger. */
@@ -117,7 +119,10 @@ export function bankSoloClear(ledger, profile, result, rng) {
  */
 export function paySoloFreeplay(ledger, profile, result, rng) {
   const bank = bankSoloClear(ledger, profile, result, rng);
-  if (!ledger.end && result.wavesCleared > (result.goal ?? Infinity)) ledger.end = applySoloFreeplayEnd(profile, result, rng, { banked: bank.banked });
+  if (!ledger.end && result.wavesCleared > (result.goal ?? Infinity)) {
+    ledger.end = applySoloFreeplayEnd(profile, result, rng, { banked: bank.banked });
+    dropPendingFreeplay(profile, ledger.seed);
+  }
   const end = ledger.end;
   if (!end) return { ...bank, bank, freeplayRewards: [] };
   const rewards = normalizeList([...bank.rewards, ...end.rewards]);

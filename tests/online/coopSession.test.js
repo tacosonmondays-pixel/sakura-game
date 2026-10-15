@@ -1093,4 +1093,57 @@ describe('co-op freeplay: the room setting', () => {
     host.close();
     guest.close();
   });
+
+  it('waiting in the room for longer than idleCloseMs while the ally\'s run goes on: its beacons keep the room open', () => {
+    const W = world();
+    const { host, guest } = paired(W, { stageId: '1-1', freeplay: 'blossom' });
+    startTogether(W, host, guest, 92);
+    const goal = host.lockstep.sim.totalWaves;
+    for (const s of [host, guest]) Object.assign(s.lockstep.sim, { wave: goal, wavesCleared: goal, state: 'between' });
+    expect(play(W, [host, guest], () => host.lockstep.tick > 300 && guest.lockstep.tick > 300)).toBe(true);
+    expect(guest.backToLobby()).toBe(true);
+    expect(play(W, [host], () => !!guest.returning?.fighting, 3000)).toBe(true);
+    let left = false;
+    host.on('ally', (where) => { if (where === 'left') left = true; });
+    // (only the clock moves on the host's battle: it sits between waves, its beacon keeps coming)
+    const t0 = W.clock.t;
+    while (W.clock.t - t0 < LOBBY.idleCloseMs + 10 * 60000) play(W, [host], () => false, 60000);
+    expect(guest.error).toBe(null);
+    expect(guest.room.closed).toBe(false);
+    expect(guest.returning).toMatchObject({ uid: HOST, inRoom: false, fighting: { wave: goal, goal } });
+    expect(left).toBe(false);
+    // the run ends: from its last beacon on the usual idle clock runs again
+    host.lockstep.queue('end', [true]);
+    expect(play(W, [host], () => host.lockstep.finished, 3000)).toBe(true);
+    W.step(LOBBY.idleCloseMs + 60000);
+    expect(guest.error).toMatchObject({ code: 'idle' });
+    host.close();
+    guest.close();
+  });
+
+  it("a lost 'lobby' message is said again while the ally's battle still beats: no 12 s stall, its beats stop, the beacon starts", () => {
+    const W = world();
+    const { host, guest } = paired(W, { stageId: '1-1', freeplay: 'blossom' });
+    startTogether(W, host, guest, 93);
+    const goal = host.lockstep.sim.totalWaves;
+    for (const s of [host, guest]) Object.assign(s.lockstep.sim, { wave: goal, wavesCleared: goal, state: 'between' });
+    expect(play(W, [host, guest], () => host.lockstep.tick > 300 && guest.lockstep.tick > 300)).toBe(true);
+    W.lose = (msg) => msg.type === 'lobby';
+    expect(guest.backToLobby()).toBe(true);
+    W.lose = () => false;
+    const t0 = W.clock.t;
+    expect(play(W, [host], () => host.lockstep.peers.get(1).gone, 10000)).toBe(true);
+    expect(W.clock.t - t0).toBeLessThan(LOBBY.lobbyEchoMs + 2000);
+    expect(host.lockstep.peers.get(1).why).toBe('lobby');
+    expect(sent(guest, 'lobby')).toBe(2); // the lost one and one repeat
+    expect(play(W, [host], () => !!guest.returning?.fighting, 3000)).toBe(true);
+    const ls0 = sent(host, 'ls');
+    const tick0 = host.lockstep.tick;
+    play(W, [host], () => false, 30000);
+    expect(sent(host, 'ls')).toBe(ls0);
+    expect(host.lockstep.tick - tick0).toBeGreaterThan(30 * 60 * 0.95);
+    expect(sent(guest, 'lobby')).toBe(2);
+    host.close();
+    guest.close();
+  });
 });

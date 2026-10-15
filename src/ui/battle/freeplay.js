@@ -15,7 +15,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
 import { preloadEnemies } from '../../models/index.js';
-import { freeplayLedger, bankFreeplayClear } from '../../online/coop/rewards.js';
+import { freeplayLedger, bankFreeplayClear, rememberFreeplayRun } from '../../online/coop/rewards.js';
 import { AFFIX_TEXT } from './scout.js';
 
 /** Absolute-wave milestone banners. */
@@ -107,14 +107,18 @@ export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null,
       if (v) sim.finish();
       return;
     }
+    // (while the battle re-syncs no order can go out: say so instead of showing a vote nobody gets)
+    if (!ls.queue('end', [!!v])) {
+      ctx.feed.push('Re-syncing with your ally — vote again in a moment.', 'warn', { key: 'fp-vote-wait', ms: 2400 });
+      return;
+    }
     pendingVote = !!v;
-    ls.queue('end', [!!v]);
     prompt.hidden = true;
     if (v && !ls.peers.values().next().value?.gone) ctx.feed.push(`Finish vote cast — the run ends once ${allyName()} agrees.`, 'info', { key: 'fp-vote', ms: 2600 });
   }
   function showPrompt() {
     prompt.replaceChildren(
-      h('span', h('b', allyName()), ' wants to finish here'),
+      h('span.bt-vote-text', h('b.bt-vote-name', allyName()), ' wants to finish here'),
       h('button.bt-vote-yes', { 'data-testid': 'finish-agree', onclick: () => vote(true) }, 'Finish'),
       h('button.bt-vote-no', { onclick: () => { prompt.hidden = true; } }, 'Keep going'),
     );
@@ -133,12 +137,13 @@ export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null,
   }
 
   // ---- banners and toasts --------------------------------------------------------------------------
-  function edgeFlash() {
-    ctx.shell.classList.remove('bt-free-flash');
+  function edgeFlash(red = false) {
+    ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red');
     void ctx.shell.offsetWidth;
     ctx.shell.classList.add('bt-free-flash');
+    ctx.shell.classList.toggle('bt-flash-red', red);
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash'), 700);
+    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red'), 700);
   }
 
   function visitorToast(info) {
@@ -186,10 +191,12 @@ export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null,
       const split = def?.traits?.splitter;
       const inner = split?.spawn ? enemyDef(split.spawn) : null;
       const sub = !inner ? 'A giant that holds giants.' : (split.count ?? 2) === 1 ? `Breaks open into the ${inner.name}!` : `Breaks into two ${plural(inner.name)}!`;
-      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'boss', 3000);
+      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'titan', 3000);
+      edgeFlash(true);
       announcedAtStart.add(id);
     } else if (info?.boss?.kind === 'boss' && info.boss.bosses.length > 1 && info.boss.bosses.every((id) => enemyDef(id)?.tier === 'boss') && once('twin')) {
-      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'boss', 2800);
+      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'titan', 2800);
+      edgeFlash(true);
       for (const id of info.boss.bosses) announcedAtStart.add(id);
     } else if (!shortScreen()) {
       // routine freeplay waves: a short ribbon (short screens: the pill's slam is enough)
@@ -228,6 +235,13 @@ export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null,
   }
 
   function onWaveEnd() {
+    // what the end payout needs, in the save after every freeplay wave: a reload, a closed tab or
+    // a phone that throws the background tab away still pays the run at the next app start
+    try {
+      if (rememberFreeplayRun(store.profile, ledger, sim.result())) store.commit('freeplay-wave');
+    } catch (e) {
+      console.warn('[battle] freeplay progress not saved', e);
+    }
     // the next wave's visitors: their models load while the board is quiet (no placeholder pop-in)
     try {
       const ids = sim.waveInfo(sim.wave + 1).map((r) => r.enemyId);

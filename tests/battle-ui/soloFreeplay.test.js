@@ -158,3 +158,43 @@ describe('solo freeplay never out-earns normal play per minute', () => {
     }
   });
 });
+
+describe('solo freeplay milestones and a run cut off by a reload', { timeout: 60000 }, () => {
+  it('milestones go through the co-op mirror (missions.counters fpm:<tier>:<id>); a pending solo run pays at solo rates into freeplayBest', async () => {
+    const { rememberFreeplayRun, payPendingFreeplayRuns, MILESTONE_MARK } = await import('../../src/online/coop/rewards.js');
+    const p = clearedProfile(['1-1']);
+    const sim = new Sim({ stageId: '1-2', seed: 5, options: { freeplay: true }, data: { stage: soloFreeplayStage('1-2', 'blossom') } });
+    for (let w = 0; w < sim.totalWaves; w++) clearWave(sim);
+    const ledger = soloFreeplayLedger(910001);
+    ledger.payout.waveCoins = soloWaveCoins('1-2', 'normal', 'blossom');
+    bankSoloClear(ledger, p, sim.result(), createRng(1));
+    // jump to wave 100 cleared: the w100 milestone pays once, mirrored like co-op
+    const r100 = { ...sim.result(), wavesCleared: 100, wave: 100 };
+    const out = paySoloFreeplay(ledger, p, r100, createRng(2));
+    expect(out.freeplay.milestones.map((m) => m.id)).toContain('w100');
+    expect(p.missions.counters[`${MILESTONE_MARK}blossom:w100`]).toBe(1);
+    // a second solo run (another ledger) cut off by a reload at wave 40: kept after the wave, paid at the next start
+    const p2 = clearedProfile(['1-1']);
+    const ledger2 = soloFreeplayLedger(910002);
+    ledger2.payout.waveCoins = soloWaveCoins('1-2', 'normal', 'tempest');
+    bankSoloClear(ledger2, p2, { ...sim.result(), freeplay: 'tempest' }, createRng(3));
+    const r40 = { ...sim.result(), freeplay: 'tempest', wavesCleared: 40, wave: 41 };
+    expect(rememberFreeplayRun(p2, ledger2, r40)).toBe(true);
+    const saved = migrateProfile(JSON.parse(JSON.stringify(p2)));
+    const rec = Object.values(saved.progress.freeplayPending)[0];
+    expect(rec).toMatchObject({ bestKey: 'freeplayBest', waveCoins: ledger2.payout.waveCoins, wavesCleared: 40 });
+    const paid = payPendingFreeplayRuns(saved, () => createRng(4));
+    expect(paid[0].freeplay.coins).toBe(ledger2.payout.waveCoins * (40 - sim.totalWaves));
+    expect(saved.progress.stages['1-2'].freeplayBest).toEqual({ tempest: 40 });
+    expect(saved.progress.stages['1-2'].coopBestWave).toBeUndefined();
+    expect(saved.progress.freeplayPending).toBeUndefined();
+    // paying the run normally forgets it
+    const p3 = clearedProfile(['1-1']);
+    const ledger3 = soloFreeplayLedger(910003);
+    bankSoloClear(ledger3, p3, sim.result(), createRng(5));
+    rememberFreeplayRun(p3, ledger3, { ...sim.result(), wavesCleared: 20 });
+    expect(p3.progress.freeplayPending).toBeTruthy();
+    paySoloFreeplay(ledger3, p3, { ...sim.result(), wavesCleared: 20 }, createRng(6));
+    expect(p3.progress.freeplayPending).toBeUndefined();
+  });
+});

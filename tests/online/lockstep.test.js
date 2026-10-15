@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Lockstep } from '../../src/online/coop/lockstep.js';
+import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { COOP, coopStage, coopStartCash } from '../../src/data/coop.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -831,6 +831,45 @@ describe('co-op lockstep: freeplay', () => {
     expect(A.coop.hash()).toBe(B.coop.hash());
     expect(B.sim.result()).toMatchObject({ won: true, finished: true, freeplay: 'tempest' });
   }, 120000);
+
+  it('a guest that finished alone during a two-way cut stays finished when the link heals (no rejoin pulls it back)', () => {
+    const start = fpStart('tempest');
+    const h = harness({ seed: 54, maxLag: 3, start });
+    const [A, B] = h.clients;
+    const w = watcher(h);
+    toGoal(h, start, w.each);
+    B.queue('end', [true]);
+    runUntil(h, () => false, 60, w.each);
+    expect(A.coop.endVotes()).toEqual([false, true]);
+    // both pages keep running, nothing gets through: each drops the other; the guest's own
+    // 'gone' marker re-checks the votes and its run ends (its result is shown and paid)
+    h.link[0] = false;
+    h.link[1] = false;
+    runUntil(h, () => false, Math.ceil((COOP.maxTimeoutMs / 1000 + 8) * 60), w.each);
+    expect(B.finished).toBe(true);
+    expect(B.sim.result()).toMatchObject({ won: true, finished: true });
+    expect(A.finished).toBe(false);
+    const bTick = B.tick;
+    const bHash = B.coop.hash();
+    // the link heals: the host hears the finished guest ('done') and offers nothing; an offer
+    // from an older build would be ignored by the guest anyway
+    h.link[0] = true;
+    h.link[1] = true;
+    runUntil(h, () => false, 60 * 15, w.each);
+    expect(A.rejoins).toBe(0);
+    expect(B.rejoins).toBe(0);
+    expect(B.finished).toBe(true);
+    expect(B.tick).toBe(bTick);
+    expect(B.coop.hash()).toBe(bHash);
+    expect(h.events.filter((e) => e.slot === 1 && e.ev === 'resync')).toEqual([]);
+    expect(A.sim.wave).toBeGreaterThan(B.sim.wave - 1); // the host plays on alone
+    // a rejoin offer reaching a finished guest (older host) is ignored too
+    const ep = B.epoch;
+    B.receive({ type: 'rejoin', from: 0, ep: ep + 5, start, T: A.tick, w: A.sim.wave, cmds: A.log, ck: null });
+    expect(B.job).toBe(null);
+    expect(B.finished).toBe(true);
+    expect(B.epoch).toBe(ep);
+  }, 120000);
   // ---- long runs: wave-end checkpoints, background rebuilds (spec §12, M5 + M6) ----------------
 
   /** Plays on until both clients cleared `n` more waves than now (Auto on). */
@@ -1036,6 +1075,30 @@ describe('co-op lockstep: big messages and the idle saver', () => {
     expect(late.length).toBeGreaterThan(0);
     expect(late.every((p) => p.mine === p.theirs)).toBe(true);
     expect(B.desynced).toBe(false);
+  });
+
+  it('after a rebuild the ally waits up to REBUILD_TIMEOUT_MS for the battle screen to reload (not the 12–20 s drop timeout)', () => {
+    const h = harness({ seed: 73, maxLag: 3 });
+    const [A, B] = h.clients;
+    for (let f = 0; f < 600; f++) {
+      if (h.frame === 20) A.queue('wave');
+      h.stepFrame();
+    }
+    B.sim.lives -= 2;
+    let f = 0;
+    while (!B.resyncs && f++ < 60 * 20) h.stepFrame();
+    expect(B.resyncs).toBe(1);
+    // the guest's page blocks while its battle screen reloads (a phone compiling shaders): its last
+    // packets (busy, then "not live yet") still arrive
+    h.frozen.add(1);
+    for (let i = 0; i < 12; i++) h.stepFrame();
+    expect(A.peers.get(1).ready).toBe(false);
+    expect(A.peers.get(1).rebuilt).toBe(true);
+    for (let i = 0; i < Math.ceil((COOP.loadTimeoutMs / 1000 + 10) * 60); i++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(false); // longer than the load timeout, still waited for
+    for (let i = 0; i < Math.ceil(((REBUILD_TIMEOUT_MS - COOP.loadTimeoutMs) / 1000) * 60); i++) h.stepFrame();
+    expect(A.peers.get(1).gone).toBe(true); // …but not for ever
+    expect(A.peers.get(1).why).toBe('timeout');
   });
 
   it('idle saver (Supabase rooms): with no orders for 10 s each client beats ~2× a second, not ~4×; the next order still runs on both', () => {

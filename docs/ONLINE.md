@@ -339,7 +339,14 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   plays on alone (her drop marker lets her finish alone), and instead of lockstep beats nobody needs
   she sends `{ type: 'fighting', wave, goal }` every 10 s (`LOBBY.fightingMs`) and once more when her
   run ends. The one waiting reads it as `session.returning.fighting` ("Rin is still fighting — wave
-  87") and keeps waiting while it comes. "Back to the room" keeps the setting on both sides.
+  87") and keeps waiting while it comes; each beacon also counts as room activity, so the room's
+  30-minute idle close never fires during an hour-long run. The `lobby` message that tells her is said
+  again (at most every 2 s, `LOBBY.lobbyEchoMs`) while her battle's beats still arrive, so a lost one
+  costs no 12 s stall. "Back to the room" keeps the setting on both sides.
+- **A battle that ended stays ended.** A client whose run finished (or fell) while the two were cut
+  off — e.g. her Finish vote counted alone after the drop — says `done` in her beats: the host offers
+  her no rejoin, and a finished guest ignores any offer, so the results screen (already paid) is never
+  pulled back into the run.
 - **Compatibility.** `COOP_PROTOCOL` is 3 (the `start.freeplay` field, the `end` command, the goal
   event) and the freeplay table is part of the battle-data hash, so a build from before freeplay and
   one with it refuse to pair (the version banner).
@@ -380,7 +387,7 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   finish here — Finish / Keep going" and a flag on her HUD chip. Leaving after the goal says "Your clear
   rewards are saved; you'll get the freeplay bonus for 37 waves. Your girls stay with Rin." and pays it.
 - **Results.** A run that went past the goal ends on a third sheet: **FREEPLAY OVER** (fell) or
-  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Reached wave 147 / 15",
+  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Cleared wave 147 / 15",
   "Fell on wave 148 to the Grave Lych" / "Finished together after wave 147", "New best on 1-3
   (Tempest)!", the bosses beaten, the Stage clear (saved at 15/15), the Freeplay bonus, Top damage and
   the debrief. Finishing right at the goal is today's VICTORY sheet; falling before it is a DEFEAT.
@@ -393,9 +400,16 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   tier (`progress.stages[id].coopBestWave = { blossom, tempest, crimson }`), and once per account and
   tier: wave 100 → 50 gems, wave 150 → 100 gems, the Matriarch → 200 gems and the title "Ashwing
   Slayer" ("Crimson Slayer" on Crimson Moon), the Eclipse Wyrm → a profile frame
-  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). A battle's
+  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). Measured
+  per real minute at 3×: the waves pay 125–210 coins (Blossom), 185–300 (Tempest), 230–370 (Crimson
+  Moon), the caches about 170–450 more — at most ~80 % of farming normal co-op clears (660–1,050 a
+  minute), so freeplay is never the better farm. A battle's
   payout ledger lives on the co-op session (`session.freeplayRuns[seed]`: one-shot effects shown, the
-  bank, the end), so a resync remount neither shows nor pays anything twice.
+  bank, the end), so a resync remount neither shows nor pays anything twice. That ledger is in memory,
+  so after every freeplay wave the save also keeps what the end payout needs
+  (`progress.freeplayPending[seed]`, at most 3 runs; `payFreeplayEnd` removes it): a run whose page was
+  reloaded, closed or thrown away by the phone mid-run is paid at the next app start, from the last
+  wave it saved, with a toast ("Freeplay run paid: 1-3 · Blossom · 87/15 · +2,880 coins").
 
 ### Co-op lockstep
 

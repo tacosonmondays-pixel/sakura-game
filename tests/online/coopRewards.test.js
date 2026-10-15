@@ -7,7 +7,7 @@ import { itemCount } from '../../src/systems/inventory.js';
 import { getItem } from '../../src/data/items.js';
 import {
   applyCoopResult, applyCoopClear, applyCoopFreeplayEnd, rollFreeplayCache, killsSince, coopBestWaves,
-  freeplayLedger, bankFreeplayClear, payFreeplayEnd, FREEPLAY_REWARDS,
+  freeplayLedger, bankFreeplayClear, payFreeplayEnd, FREEPLAY_REWARDS, rememberFreeplayRun, payPendingFreeplayRuns,
 } from '../../src/online/coop/rewards.js';
 
 /** A Sim.result()-shaped freeplay result. */
@@ -127,6 +127,24 @@ describe('applyCoopFreeplayEnd (the end of a run)', () => {
     expect(migrateProfile(JSON.parse(JSON.stringify(p))).progress.freeplay).toEqual(p.progress.freeplay);
   });
 
+  it('milestones never pay twice when an older build drops progress.freeplay (mirrored in missions.counters)', () => {
+    const p = createProfile();
+    const gemsBefore = p.currencies.gems;
+    applyCoopFreeplayEnd(p, fpResult({ wavesCleared: 152, kills: { dragon_ashwing: 1 } }), createRng(1), { banked: null });
+    expect(p.currencies.gems - gemsBefore).toBe(350);
+    expect(p.missions.counters['fpm:blossom:w100']).toBe(1);
+    // an old cached build rewrites the save: progress.freeplay is gone, missions.counters stays
+    const old = JSON.parse(JSON.stringify(p));
+    delete old.progress.freeplay;
+    const back = migrateProfile(old);
+    expect(back.progress.freeplay).toBeUndefined();
+    expect(back.missions.counters['fpm:blossom:matriarch']).toBe(1);
+    const r = applyCoopFreeplayEnd(back, fpResult({ wavesCleared: 160, kills: { dragon_ashwing: 1 } }), createRng(1), { banked: null });
+    expect(r.freeplay.milestones).toEqual([]);
+    expect(back.currencies.gems - gemsBefore).toBe(350);
+    expect(back.progress.freeplay.done).toEqual(expect.arrayContaining(['blossom:w100', 'blossom:w150', 'blossom:matriarch']));
+  });
+
   it('pays nothing extra when the run is finished right at the goal', () => {
     const p = createProfile();
     const before = JSON.stringify(p.items);
@@ -181,5 +199,65 @@ describe('the payout ledger (bank once per battle, even across a remount)', () =
     expect(L.bank?.clear).toBe(true);
     expect(end.freeplay.waves).toBe(5);
     expect(p.currencies.coins - coins0).toBeGreaterThanOrEqual(300 + 40 * 15 + 200);
+  });
+});
+
+describe('a run the page never paid (reload, closed tab, a phone that threw the tab away)', () => {
+  /** A profile that banked seed `seed` at the goal and saved a pending run after `cleared` waves. */
+  function midRun(seed, cleared, kills = { slime_green: 90 }) {
+    const p = createProfile();
+    const L = freeplayLedger({}, seed);
+    bankFreeplayClear(L, p, fpResult({ wave: 15, wavesCleared: 15, kills: { slime_green: 60 } }), createRng(1));
+    expect(rememberFreeplayRun(p, L, fpResult({ wavesCleared: cleared, kills }))).toBe(true);
+    return { p, L };
+  }
+
+  it('after each freeplay wave the save keeps what the end payout needs; paying the end forgets it', () => {
+    const { p, L } = midRun(4321, 30);
+    expect(p.progress.freeplayPending['4321']).toMatchObject({ stageId: '1-3', freeplay: 'blossom', goal: 15, wavesCleared: 30, banked: { goal: 15, kills: { slime_green: 60 } } });
+    // nothing before or at the goal, nothing once paid
+    expect(rememberFreeplayRun(createProfile(), freeplayLedger({}, 1), fpResult())).toBe(false);
+    payFreeplayEnd(L, p, fpResult({ wavesCleared: 31, kills: { slime_green: 95 } }), createRng(2));
+    expect(p.progress.freeplayPending).toBeUndefined();
+    expect(rememberFreeplayRun(p, L, fpResult({ wavesCleared: 32 }))).toBe(false);
+  });
+
+  it('the next app start pays it exactly like leaving at that wave would have, once', () => {
+    const { p } = midRun(55, 140);
+    // what leaving the run at wave 140 pays, for comparison
+    const ref = midRun(56, 140);
+    const leave = payFreeplayEnd(ref.L, ref.p, fpResult({ wavesCleared: 140, kills: { slime_green: 90 } }), createRng(9));
+    // the save survives a reload (migration keeps the record) …
+    const loaded = migrateProfile(JSON.parse(JSON.stringify(p)));
+    expect(loaded.progress.freeplayPending['55']).toEqual(p.progress.freeplayPending['55']);
+    const coins0 = loaded.currencies.coins;
+    const kills0 = loaded.bestiary.slime_green.kills;
+    // … and the app start pays it
+    const paid = payPendingFreeplayRuns(loaded, () => createRng(9));
+    expect(paid).toHaveLength(1);
+    expect(paid[0].stageId).toBe('1-3');
+    expect(paid[0].freeplay).toMatchObject({ tier: 'blossom', waves: 125, coins: leave.freeplay.coins, caches: 5, cleared: 140, newBest: true });
+    expect(loaded.currencies.coins - coins0).toBe(paid[0].rewards.filter((r) => r.id === 'coins').reduce((a, r) => a + r.count, 0));
+    expect(loaded.currencies.coins - coins0).toBeGreaterThanOrEqual(leave.freeplay.coins);
+    expect(loaded.progress.stages['1-3'].coopBestWave).toEqual({ blossom: 140 });
+    expect(loaded.progress.freeplay.done).toContain('blossom:w100');
+    expect(loaded.bestiary.slime_green.kills - kills0).toBe(30); // only the kills since the bank
+    expect(loaded.progress.freeplayPending).toBeUndefined();
+    expect(payPendingFreeplayRuns(loaded, () => createRng(9))).toEqual([]);
+  });
+
+  it('keeps at most three runs, and the save drops a broken record', () => {
+    const p = createProfile();
+    for (const seed of [1, 2, 3, 4]) {
+      const L = freeplayLedger({}, seed);
+      bankFreeplayClear(L, p, fpResult({ wave: 15, wavesCleared: 15 }), createRng(seed));
+      rememberFreeplayRun(p, L, fpResult({ wavesCleared: 20 }));
+    }
+    expect(Object.keys(p.progress.freeplayPending)).toEqual(['2', '3', '4']);
+    p.progress.freeplayPending['2'].difficulty = 'impossible';
+    p.progress.freeplayPending['3'].kills = { slime_green: -5, 'Bad Key!': 3, goblin_runner: 2 };
+    const loaded = migrateProfile(JSON.parse(JSON.stringify(p)));
+    expect(Object.keys(loaded.progress.freeplayPending)).toEqual(['3', '4']);
+    expect(loaded.progress.freeplayPending['3'].kills).toEqual({ goblin_runner: 2 });
   });
 });

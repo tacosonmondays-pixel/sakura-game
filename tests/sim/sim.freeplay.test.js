@@ -187,6 +187,8 @@ describe('freeplay spawns', { timeout: 60000 }, () => {
     for (const k of kids) {
       expect(k.hpMul).toBe(titan.hpMul * split.inherit);
       expect(k.leak).toBe(split.leak);
+      // what the released bosses summon or brood gets the wave's pool HP (spec §6.2), as the titan's own would
+      expect(k.childHpMul).toBe(titan.childHpMul);
     }
 
     const w = fpSim('1-3', 'blossom');
@@ -194,8 +196,29 @@ describe('freeplay spawns', { timeout: 60000 }, () => {
     w._killEnemy(wyrm, null);
     const mat = w.enemies.find((e) => e.id === 'dragon_ashwing');
     expect(mat.hpMul).toBe(wyrm.hpMul * 0.5);
+    expect(mat.childHpMul).toBe(wyrm.childHpMul);
     expect(mat.leak).toBe(Infinity);
-    expect(w.enemies.filter((e) => e.id === 'dragon_cinder').length).toBe(4); // its brood: pool HP
+    const brood = w.enemies.filter((e) => e.id === 'dragon_cinder');
+    expect(brood.length).toBe(4); // its brood: pool HP
+    for (const b of brood) expect(b.hpMul).toBe(wyrm.childHpMul);
+  });
+
+  it("a Grave Lych released by the Gloom Regent raises bonewalkers at the wave's pool HP, not the split share", () => {
+    const sim = fpSim('1-3', 'blossom');
+    jumpTo(sim, 209);
+    const pool = sim._waveHpMul * (sim.stage.hpScale ?? 1) * sim.diff.hpMul;
+    const regent = sim.spawnEnemy('fp_gloom_regent', { waveHpMul: sim._waveHpMul * 3 });
+    expect(regent.childHpMul).toBe(pool);
+    sim._killEnemy(regent, null);
+    const lychs = sim.enemies.filter((e) => e.id === 'grave_lych' && e.parentUid === regent.uid);
+    expect(lychs.length).toBe(2);
+    const lych = lychs[0];
+    expect(lych.hpMul).toBe(regent.hpMul * 0.35);
+    lych.summonTimer = 0;
+    for (let i = 0; i < 60 * 8 && !sim.enemies.some((e) => e.parentUid === lych.uid); i++) sim.update(1 / 60);
+    const raised = sim.enemies.filter((e) => e.parentUid === lych.uid);
+    expect(raised.length).toBeGreaterThan(0);
+    for (const b of raised) expect(b.hpMul).toBe(pool);
   });
 
   it('flat armor survives a boss phase that sets armor', () => {

@@ -33,7 +33,7 @@ import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { COOP } from '../../data/coop.js';
 import { applyBattleResult } from '../../systems/rewards.js';
-import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay } from '../../systems/freeplayRewards.js';
+import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } from '../../systems/freeplayRewards.js';
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
@@ -282,10 +282,11 @@ export function mountBattle(root, params, hooks) {
     ctx.startWave = () => {
       if (ctx.ended) return;
       if (ls) {
-        if ((sim.state === 'prep' || sim.state === 'between') && !pendingWave) {
-          pendingWave = true;
-          ls.queue('wave', []);
-        }
+        // one 'wave' order in flight at a time (a double tap must not send two waves); once its
+        // tick has run it is spent, so a wave that started and ended between two frames (a hidden
+        // tab, a slow page) never leaves NEXT WAVE / GO BEYOND dead
+        const inFlight = pendingWave && ls.tick <= pendingWave.t;
+        if ((sim.state === 'prep' || sim.state === 'between') && !inFlight) pendingWave = ls.queue('wave', []);
         if (ctx.paused) ctx.closePause();
         return;
       }
@@ -573,7 +574,6 @@ export function mountBattle(root, params, hooks) {
       ctx.audio?.events(events); // [audio]
       handle(events);
       fpBattle?.update();
-      if (ls) pendingWave = pendingWave && (sim.state === 'prep' || sim.state === 'between');
       hud.update();
       bar.update();
       panel.update();
@@ -594,7 +594,8 @@ export function mountBattle(root, params, hooks) {
   }
 
   // ---- co-op -----------------------------------------------------------------------------
-  let pendingWave = false;
+  /** co-op: my last 'wave' order (its cmd; in flight until the lockstep has run its tick) */
+  let pendingWave = null;
   let coopHud = null;
   /** co-op freeplay presentation + vote (src/ui/battle/freeplay.js), null otherwise */
   let fpBattle = null;
@@ -620,6 +621,8 @@ export function mountBattle(root, params, hooks) {
   /** Solo: banners, the clear card and the bank for a freeplay battle (built or continued). */
   function startSoloFreeplay(modules) {
     if (fpBattle || !soloLedger || !sim.freeplay) return;
+    // what a run cut off by a reload is paid at the next app start (the solo coin cap of this tier)
+    soloLedger.payout.waveCoins = soloWaveCoins(sim.stageId, sim.difficulty, sim.stage.freeplay.id);
     fpBattle = createFreeplayBattle(ctx, {
       ledger: soloLedger,
       homeFamilies: stageFamilies(),

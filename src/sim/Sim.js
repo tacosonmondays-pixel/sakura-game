@@ -261,10 +261,12 @@ export class Sim {
   /**
    * Spawns an enemy (waves, broods, summons, decoys; also handy for tests/debug).
    * `hpMul` is absolute (summons, splits); `waveHpMul` replaces the wave's HP multiplier for this
-   * spawn only (freeplay bosses carry their rank factor; what they summon still gets the wave's).
+   * spawn only (freeplay bosses carry their rank factor; what they summon still gets the wave's);
+   * `childHpMul` (absolute) is what this enemy's own summons / brood get (default: hpMul).
+   * The bosses a freeplay titan breaks into carry the titan's pool multiplier on that way.
    * `speedMul`, `leak` and `mods` (a freeplay affix) come from freeplay wave spawns.
    * @param {string} enemyId
-   * @param {{ pathIndex?: number, dist?: number, hpMul?: number, waveHpMul?: number, speedMul?: number,
+   * @param {{ pathIndex?: number, dist?: number, hpMul?: number, waveHpMul?: number, childHpMul?: number, speedMul?: number,
    *   leak?: number, mods?: object, parent?: object }} o
    * @returns {object|null} EnemyRT
    */
@@ -277,7 +279,7 @@ export class Sim {
     const pathIndex = ((o.pathIndex ?? 0) % this.pathData.length + this.pathData.length) % this.pathData.length;
     const base = (this.stage.hpScale ?? 1) * this.diff.hpMul;
     const hpMul = o.hpMul ?? base * (o.waveHpMul ?? this._waveHpMul);
-    const childHpMul = o.hpMul ?? base * this._waveHpMul;
+    const childHpMul = o.childHpMul ?? o.hpMul ?? base * this._waveHpMul;
     const e = createEnemy(def, {
       uid: this._nextUid(),
       pathIndex,

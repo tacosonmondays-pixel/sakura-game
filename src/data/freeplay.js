@@ -91,7 +91,7 @@ const TIERS = {
   blossom: {
     name: 'Blossom', order: 0,
     /** HP growth per wave by ABSOLUTE wave: [firstWave, growth ‰]. Exact integer ‰, powInt compounding. */
-    hpBands: [[1, 1030], [51, 1045], [101, 1055], [151, 1050], [201, 1100]],
+    hpBands: [[1, 1030], [51, 1045], [101, 1050], [151, 1040], [201, 1100]],
     /** + flat armor every `every` waves past the goal, up to `max`, on normal and elite enemies;
      *  minibosses, bosses and titans get armor × bossMul (0: their own armor and phases only). */
     armor: { every: 20, max: 10, bossMul: 0 },
