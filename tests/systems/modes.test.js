@@ -134,6 +134,13 @@ describe('parseBattleParams mode', () => {
     expect(parseBattleParams({ stage: '3-2', difficulty: 'nightmare', mode: 'laststand' }, p).mode).toBe('standard');
     expect(parseBattleParams({ stage: '3-2', difficulty: 'hard', mode: 'laststand' }, p).mode).toBe('laststand');
   });
+
+  it('freeplay runs in Standard, and a mode run is never offered Keep going', () => {
+    const fp = parseBattleParams({ stage: '3-2', mode: 'rush', freeplay: 'blossom' }, p);
+    expect(fp).toMatchObject({ mode: 'standard', freeplay: 'blossom', keepGoing: false });
+    expect(parseBattleParams({ stage: '3-2', mode: 'rush' }, p)).toMatchObject({ mode: 'rush', freeplay: null, keepGoing: false });
+    expect(parseBattleParams({ stage: '3-2' }, p)).toMatchObject({ mode: 'standard', keepGoing: true });
+  });
 });
 
 describe('the medal and ribbon showcase', () => {
