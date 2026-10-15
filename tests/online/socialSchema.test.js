@@ -69,8 +69,8 @@ describe('social migration (lint)', () => {
 });
 
 const U = (n) => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
-const [A, B, C, D, E, F, G, H, I, J] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'a'].map(U);
-const NAMES = [[A, 'Aiko'], [B, 'Bea'], [C, 'Cleo'], [D, 'Dara'], [E, 'Emi'], [F, 'Fumi'], [G, 'Gin'], [H, 'Hana'], [I, 'Iris'], [J, 'Juno']];
+const [A, B, C, D, E, F, G, H, I, J, K, L] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c'].map(U);
+const NAMES = [[A, 'Aiko'], [B, 'Bea'], [C, 'Cleo'], [D, 'Dara'], [E, 'Emi'], [F, 'Fumi'], [G, 'Gin'], [H, 'Hana'], [I, 'Iris'], [J, 'Juno'], [K, 'Kiri'], [L, 'Lena']];
 const KEY = (n) => `${String(n).padStart(8, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 for (const defaultGrants of [true, false])
@@ -144,15 +144,15 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     expect(Math.abs(n - nextDailyReset(Date.now()))).toBeLessThan(5000);
   });
 
-  it('privacy: strangers cannot DM or friend each other; no settings row and no clan never fail open', async () => {
+  it('privacy: strangers cannot DM each other (but may ask to be friends); no settings row and no clan never fail open', async () => {
     expect((await sup('select count(*)::int as n from social_settings')).rows[0].n).toBe(0);
     // strangers: the same answer whatever either side chose (no setting allows strangers)
     await refused(dm(A, B, 'hi stranger'), /forbidden: only friends and clanmates can message each other/);
     const c = await card(A, B);
     // (no settings row: the default, Friends only)
-    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: false, friendWhy: 'context', isSelf: false, lastActive: null });
+    // open friend requests (20261015000000_social_open_friends.sql): a stranger may ask, nothing more
+    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: true, friendWhy: null, isSelf: false, lastActive: null });
     expect(c).not.toHaveProperty('privacy');
-    await refused(as(A, 'select send_friend_request($1)', [B]), /forbidden: ask for their friend code/);
     await refused(as(A, 'select player_card($1)', ['deadbeef-0000-4000-8000-000000000000']), /not_found/);
   });
 
@@ -697,5 +697,16 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     const got = (c) => c.items.reduce((n, x) => n + x.count, 0);
     expect(got(c1) + got(c2)).toBe(await received(rI.id));
     expect(Math.min(got(c1), got(c2))).toBe(0);
+  });
+  it('open friend requests (20261015000000_social_open_friends.sql): a stranger may ask, stored as via any; still no DM until accepted', async () => {
+    expect(await card(K, L)).toMatchObject({ friend: 'none', canFriend: true, friendWhy: null, canMessage: false, why: 'stranger' });
+    expect(await one(K, 'select send_friend_request($1) as r', [L])).toEqual({ state: 'requested' });
+    const inc = (await one(L, 'select list_friend_requests() as r')).incoming;
+    expect(inc).toHaveLength(1);
+    expect(inc[0]).toMatchObject({ userId: K, name: 'Kiri', via: 'any' });
+    await refused(dm(K, L, 'hi'), /forbidden/);
+    await as(L, 'select answer_friend_request($1, true)', [inc[0].id]);
+    expect((await card(K, L)).friend).toBe('friends');
+    expect((await card(K, L)).canMessage).toBe(true);
   });
 });

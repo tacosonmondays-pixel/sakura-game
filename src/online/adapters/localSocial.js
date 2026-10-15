@@ -155,7 +155,8 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
   const friendContext = (s, x, me, other) => {
     if (clanmates(s, me, other, 0)) return 'clan';
     if ((x.partners[me]?.[other] || 0) > now() - COOP_PARTNER_DAYS * DAY) return 'coop';
-    return null;
+    // anyone may ask (owner, 2026-10-15; SQL 20261015000000_social_open_friends.sql): no link needed
+    return 'any';
   };
   function befriend(x, a, b) {
     if (friendCount(x, a) >= FRIEND_MAX || friendCount(x, b) >= FRIEND_MAX) fail('invalid', `one of you already has ${FRIEND_MAX} friends`);
