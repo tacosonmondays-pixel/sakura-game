@@ -23,6 +23,7 @@ export function isTransient(name) {
 const PARENTS = {
   missions: 'lobby',
   clan: 'lobby',
+  profile: 'lobby', // [profile] Sensei Profile
   campaign: 'missions',
   bounty: 'missions',
   assault: 'missions',

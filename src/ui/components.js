@@ -66,6 +66,11 @@ const EXTRA_GLYPHS = {
   chevron: '<path d="M9 5l7 7-7 7"/>',
   account: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16.5c.5-1.8 1.9-2.8 3.5-2.8s3 1 3.5 2.8M14.5 9.5h4M14.5 12.5h4"/>',
   expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>',
+  // [profile] Sensei Profile glyphs
+  edit: '<path d="M4.5 19.5l1-4.2L16.2 4.6a1.8 1.8 0 0 1 2.5 0l.7.7a1.8 1.8 0 0 1 0 2.5L8.7 18.5z"/><path d="M14.3 6.5l3.2 3.2"/>',
+  hold: '<circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.8" stroke-dasharray="30 20"/>',
+  friend: '<circle cx="9.5" cy="8.5" r="3.5"/><path d="M3 20c.5-3.8 3.2-6 6.5-6s6 2.2 6.5 6M18.5 8v6M15.5 11h6"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/>',
 };
 
 /** SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. */

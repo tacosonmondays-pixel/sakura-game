@@ -88,7 +88,8 @@ describe('medals and pins', () => {
   it('picker lists best first; recruiting never', () => {
     const p = lateSave();
     const o = pinOptions(p);
-    expect(o.medals[0]).toBe(`${STAGES[STAGES.length - 1].id}:nightmare`);
+    expect(o.medals[0]).toBe('8-5:nightmare');
+    expect(pinInfo('boss-colossus:hard').sub).toBe('Iron Colossus');
     expect(o.medals.slice(0, 59).every((pin) => pin.endsWith(':nightmare'))).toBe(true);
     expect(o.achievements.some((pin) => /a_pulls_|a_units_all|a_reroll_10/.test(pin))).toBe(false);
     // shiny Honor Ribbons before plain ones, ribbons before plain achievements

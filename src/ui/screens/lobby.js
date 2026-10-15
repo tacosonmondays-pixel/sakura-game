@@ -10,6 +10,7 @@
 import '../styles/meta-a.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
 import { chatButton } from '../online/lobbyChat.js';
+import { storedName } from '../online/common.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -336,7 +337,8 @@ function buildTop(host, { openSecretaryPicker }) {
   const tickets = itemCount(profile, 'ticket_recruit') + 10 * itemCount(profile, 'ticket_recruit10');
   const sep = () => h('i.lb-tr-sep');
   host.append(
-    h('div.lb-top-left', levelBadge(profile, { name: 'Sensei', onClick: () => navigate('commissions', { tab: 'achievements' }) })),
+    // [profile] the badge opens the Sensei Profile (owner, Oct 15); achievements stay in the Missions hub
+    h('div.lb-top-left', levelBadge(profile, { name: storedName() || 'Sensei', onClick: () => navigate('profile') })),
     h('div.lb-pills',
       pill({ iconSvg: itemIcon('ticket_recruit'), value: formatNumber(tickets), testid: 'tickets', title: 'Recruit tickets (pulls)', onPlus: () => navigate('mall', { tab: 'general' }), onClick: () => navigate('recruit') }),
       pill({ iconSvg: currencyIcon('coins'), value: formatNumber(profile.currencies.coins), testid: 'coins', title: 'Coins', onPlus: null }),

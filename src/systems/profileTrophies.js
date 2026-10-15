@@ -116,11 +116,20 @@ export function pinEarned(p, pin) {
 
 const DIFF_RANK = Object.fromEntries(DIFFICULTY_ORDER.map((d, i) => [d, i]));
 
-/** Earned medal pins, best first: Sakura → Gold → Silver → Bronze, later stages first. */
+/** Earned medal pins, best first: Sakura → Gold → Silver → Bronze; campaign stages (later first), then the rest. */
 function medalPins(p) {
   const out = [];
-  for (const s of STAGES) for (const d of DIFFICULTY_ORDER) if (p?.progress?.stages?.[s.id]?.[d] === true) out.push({ pin: `${s.id}:${d}`, d, i: STAGE_INDEX[s.id] });
-  return out.sort((a, b) => DIFF_RANK[b.d] - DIFF_RANK[a.d] || b.i - a.i).map((x) => x.pin);
+  for (const s of STAGES) {
+    for (const d of DIFFICULTY_ORDER) if (p?.progress?.stages?.[s.id]?.[d] === true) out.push({ pin: `${s.id}:${d}`, d, c: s.kind === 'campaign' ? 1 : 0, i: STAGE_INDEX[s.id] });
+  }
+  return out.sort((a, b) => DIFF_RANK[b.d] - DIFF_RANK[a.d] || b.c - a.c || b.i - a.i).map((x) => x.pin);
+}
+
+/** How a stage reads on a plaque: "Stage 8-5", "Iron Colossus", "Market Canal II". */
+export function stageLabel(stage) {
+  if (!stage) return '';
+  if (stage.kind === 'campaign') return `Stage ${stage.id}`;
+  return String(stage.name || stage.id).replace(/^Total Assault:\s*/, '');
 }
 
 const CLS_RANK = { special: 0, shiny: 1, plain: 2 };
@@ -164,8 +173,8 @@ export function pinInfo(pin) {
   }
   const stage = STAGE_MAP[x.stage];
   if (!stage) return { kind: x.kind, title: 'A newer trophy', sub: 'Update to see it', unknown: true };
-  if (x.kind === 'medal') return { kind: 'medal', diff: x.diff, title: MEDAL_NAMES[x.diff], sub: `Stage ${stage.id}` };
-  if (x.kind === 'perfect') return { kind: 'perfect', title: 'All 20 Ribbons', sub: `Stage ${stage.id}` };
+  if (x.kind === 'medal') return { kind: 'medal', diff: x.diff, title: MEDAL_NAMES[x.diff], sub: stageLabel(stage) };
+  if (x.kind === 'perfect') return { kind: 'perfect', title: 'All 20 Ribbons', sub: stageLabel(stage) };
   return { kind: 'ribbon', diff: x.diff, mode: x.mode, title: 'Mode Ribbon', sub: `${x.diff[0].toUpperCase()}${x.diff.slice(1)} ${stage.id}` };
 }
 

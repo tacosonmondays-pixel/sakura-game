@@ -36,6 +36,7 @@ registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] juk
 registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
+registerRoute('profile', () => import('./ui/screens/profile.js')); // [profile] Sensei Profile: #/profile (yours)
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
