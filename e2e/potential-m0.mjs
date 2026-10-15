@@ -1,8 +1,9 @@
-// Potential M0 (owner, Oct 14: "add potential levels when you get dupes … max 6"): counting only,
-// nothing on screen yet. Owns every girl, recruits ten through the real Recruit screen and checks
-// that the ten duplicates landed in units[id].dupes and in the shadow copy, and that the counts
-// survive a reload. Then stores a save as a build from before M0 would (no dupes, no shadow),
-// reloads and checks the one-time backfill from the recruit history.
+// Potential M0 (owner, Oct 14: "add potential levels when you get dupes … max 6"): the counting
+// (M2 put it on screen; this file keeps checking the counts). Owns every girl, recruits ten
+// through the real Recruit screen and checks that the ten duplicates landed in units[id].dupes
+// and in the shadow copy, and that the counts survive a reload. Then stores a save as a build
+// from before M0 would (no dupes, no shadow), reloads and checks the one-time backfill from the
+// recruit history.
 // Phone (844x390) and PC (1280x720).
 // Usage: node e2e/potential-m0.mjs
 import { createServer } from 'vite';
@@ -70,12 +71,14 @@ for (const vp of [{ w: 844, h: 390, touch: true }, { w: 1280, h: 720, touch: fal
   const skip = await page.waitForSelector('[data-testid="reveal-skip"]', { timeout: 15000 }).catch(() => null);
   if (skip) await skip.click({ force: true }).catch(() => {});
   const close = await page.waitForSelector('[data-testid="reveal-close"]', { timeout: 30000 }).catch(() => null);
+  // since M2 the reveal shows the steps ("▲ N Potential"); M0 itself showed nothing
+  const summary = await page.evaluate(() => document.querySelector('[data-testid="reveal-summary"]')?.textContent || '');
   if (close) await close.click({ force: true }).catch(() => {});
   await page.waitForTimeout(300);
   const after = await dupesOf(page);
   check(sum(after.dupes) === 10, `a 10-pull of owned girls adds 10 duplicates (${sum(after.dupes)})`);
   check(Object.entries(after.dupes).every(([id, n]) => after.counters[`pot:${id}`] === n), 'the shadow copy matches every count');
-  check(!(await page.locator('text=/Potential/').count()), 'nothing about Potential on screen (M0 is invisible)');
+  check(/▲ \d+ Potential/.test(summary), `the reveal summary counts the Potential steps (M2): "${summary}"`);
 
   // reload: the counts survive
   await page.evaluate(() => window.__sakura.store.saveNow());

@@ -10,7 +10,8 @@ mechanic, and what is still missing.
   tiers (BTD6 crosspathing: two paths max, only one above tier 2) and an awakening passive (★3+).
 * Heroes are grown-up guardians with glamorous, elegant designs; the students stay cute, cool and
   wholesome (see CONTRACTS.md §0).
-* Every girl, free ones included, is also in the gacha pool of her rarity (duplicates → Star Fragments).
+* Every girl, free ones included, is also in the gacha pool of her rarity (a duplicate gives +1 Potential, up to
+  P6, and Star Fragments; see *Potential* below).
 
 Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral · **Pierce** ×1.5 scaled,
 ×1.25 light, ×0.75 heavy · **Slash** ×1.5 light, ×0.6 heavy · **Mystic** ×1.25 heavy/scaled,
@@ -156,6 +157,37 @@ Every capability the stage `recommended` list can ask for has at least one free 
    wards in late chapters will lean heavily on lightning (Raika, Chika) and frost (Yuki, Nami).
 9. **Phase 2 event units** (owner request): a summer-event tower and hero — keep students in cute
    summer outfits; an adult event hero can have a glamorous summer look within the content rule.
+
+## Potential (P2–P6 steps, `src/data/potential.js`)
+
+Every duplicate raises a girl's Potential by 1 (P1 = her first copy, max P6). P2–P5 follow her role's ladder; P6 is
+her own signature (✦). All steps are relative, so they are the same size at level 1 and level 60 and reach her traps
+and drones. Generated from the data (the in-game wiki article *Potential* shows the same table).
+
+| Girl | P2 | P3 | P4 | P5 | P6 signature |
+|---|---|---|---|---|---|
+| Hikari | +2% damage | +2% attack speed | +3% range | +3% damage | **First Light**: +3% crit chance |
+| Luna | +2% damage | +2% attack speed | +3% range | +3% damage | **Moonwake**: +5% damage to elites |
+| Nami | +2% damage | +2% attack speed | +3% range | +3% damage | **Neap Tide**: +5% damage to bosses |
+| Aoi | +2% damage | +2% attack speed | +3% range | +3% damage | **Fletcher's Focus**: +3% crit chance |
+| Rei | +2% damage | +2% attack speed | +2% crit chance | +3% damage | **Iron Edge**: +5% damage to elites |
+| Yuki | +3% range | +2% attack speed | +3% damage | +2% attack speed | **Powder Snow**: +4% range |
+| Momo | +3% attack speed | +2% coins per wave | +3% range | +3% damage | **Lucky Coin**: +3% coins per wave |
+| Akane | +2% damage | +2% attack speed | +3% range | +3% damage | **Bonfire Night**: +3% attack speed |
+| Sango | +2% damage | +2% attack speed | +3% range | +3% damage | **Coral Drill**: +5% damage to elites |
+| Kage | +2% damage | +2% attack speed | +3% range | +3% damage | **Moonless Strike**: +5% damage to elites |
+| Umeko | +3% range | +2% attack speed | aura +1% attack speed | +2% attack speed | **Spring Breeze**: aura +1% attack speed |
+| Shiro | +2% damage | +2% attack speed | +2% crit chance | +3% damage | **Big Game**: +5% damage to bosses |
+| Midori | +2% damage | +2% attack speed | +3% range | +3% damage | **Quick Brew**: +3% attack speed |
+| Suzu | +3% range | +2% attack speed | +3% damage (traps) | +2% attack speed | **Silver Bells**: +3% damage (traps) |
+| Raika | +2% damage | +2% attack speed | +3% range | +3% damage | **Static Charge**: +3% damage |
+| Miko | +3% range | +2% attack speed | aura +1% damage | +2% attack speed | **Festival Blessing**: aura +1% damage |
+| Hotaru | +3% range | +2% attack speed | +3% damage | +2% attack speed | **Quiet Lantern**: silence +0.1 s |
+| Kaede | +2% damage | +2% attack speed | +3% range | +3% damage | **Maple Focus**: focus cap +5% |
+| Chika | +3% range (drones too) | +2% attack speed (drones too) | +3% damage (drones too) | +2% attack speed (drones too) | **Overclocked Drones**: +3% attack speed (drones too) |
+
+**A new girl needs her row in the same PR** (`tests/data/potential.test.js` fails otherwise): every step must
+change a stat her behaviour reads, inside the budget (CONTRACTS §3, *Potential steps*).
 
 ## Data notes for other areas
 

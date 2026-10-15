@@ -20,7 +20,9 @@ Owner: systems. Source of truth is the data (`src/data/items.js`, `src/data/shop
 * Rates: **SSR 1.5% · SR 18.5% · R 80%**. Every unit (free recruits and heroes included) is in its rarity's pool.
 * **Pity:** the 90th recruit without an SSR is an SSR. Consolidated SSR rate ≈ **2.02%** (1 SSR per ≈ 49.6 recruits on average).
 * **10× guarantee:** at least one SR or better in every 10×.
-* Duplicates → Star Fragments: R ×2, SR ×10, SSR ×40.
+* Duplicates → **+1 Potential** (P1 → P6, a small passive per step) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
+  At P6 a duplicate gives the fragments only. Sparks and SSR Select Tickets on an owned girl count as duplicates.
+  Potential adds no currency, item, price, reward or drop (§5, Potential).
 * **Spark:** 200 recruit points → any SSR (Recruit Exchange or `spark()`).
 * Tickets are always spent before gems (`ticket_recruit10` for a 10×, then single tickets, then gems).
 
@@ -107,6 +109,32 @@ Names run e.g. Sparrow Feather → Swallow Plume → Hawk Quill → Phoenix Plum
 | ★5 | Ashwing Crown (Ashwing Matriarch 8-5 / Total Assault) + Horned Festival Crown | 80 | 400,000 |
 
 ★3 unlocks the unit's awaken passive. Crowns also rotate in the Boss Exchange (weekly stock).
+
+### Potential (P1–P6, from duplicates; `docs/specs/POTENTIAL.md`)
+
+Every duplicate raises a girl's Potential by 1, up to P6, and still pays its fragments. The five steps are small and
+relative (+2–3 % damage, attack speed, range or coins, a +1 % aura, or a signature: crit, vs elites, vs bosses,
+silence, focus cap); together a damage girl's P6 is ×1.072–×1.104 paper DPS (≈ +9 % real damage on crowds at every
+level), well below the awakening's ≈ +20–25 %. All eight of a team at P6 ≈ +8–12 % team damage.
+
+How fast free players get there (revision 1's Monte Carlo, `exp/gacha-mc.mjs`, 3,000 players; the duplicate rules
+are unchanged):
+
+| Girl | Pulls to P2 (median) | Pulls to P4 | Pulls to P6 (median, 25–75 %) | P6 for a typical free player |
+|---|---|---|---|---|
+| Aoi (R, starter) | 4 | 13 | 24 (17–31) | inside the starter gift |
+| Momo (R, gacha) | 9 | 19 | 29 (22–37) | inside the starter gift |
+| Kage (SR, free after 2-5) | 37 | 135 | 236 (173–318) | inside the one-time sources |
+| Raika (SR, gacha) | 86 | 190 | 294 (217–384) | ≈ 12 days after them |
+| Hikari (SSR, starter) | 176 | 668 | 1,164 (857–>1,185) | ≈ 11 months after them |
+| Kaede (SSR, gacha) | 411 | 896 | > 1,185 | over a year |
+| Kaede with every spark on her | 200 | 411 | 654 (600–800) | ≈ 5 months after them |
+
+After the roster (30 girls) everything slows (Aoi P6 at ~36 pulls, a standard-banner SSR P2 at ~910).
+**R girls are P6 for everyone on day one and SR girls within the one-time sources**, so chapters 1–3 are played
+with R girls at ≈ P6 (note for the playtest rebalance, #75). Value changes for the owner (spec §10): sparks and
+tickets on an owned SSR give a step; freeplay runs last a few waves longer (more coins, milestones a little
+sooner); endless pays a few more waves; clan boss caps unchanged.
 
 ### Battle scaling (deliberately modest — heroes used to be overpowered)
 

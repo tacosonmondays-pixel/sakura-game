@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runPotentialBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -19,6 +19,21 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // co-op freeplay changed nothing outside freeplay: the same battle as before it landed
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
       .toEqual({ ticks: 28347, state: 'won', wallets: '1239/1347', final: 411300916, hashes: '5b904cb9', waves: '3018:9657f4ba' });
+  }, 120000);
+
+  it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest) in sync', () => {
+    const r = runPotentialBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(['won', 'lost']).toContain(r.state);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    expect((r.towers.match(/:P/g) || []).length).toBe(11);
+    const [guest, host] = r.aoi.split(' | ');
+    expect(guest).not.toBe(host); // the same girl, two owners, two Potentials
+    expect(runPotentialBattle().final).toBe(r.final);
+    // pinned when Potential M1 landed (change only with a deliberate sim / data change, and say why)
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
+      .toEqual({ ticks: 28390, state: 'won', wallets: '334/918', final: 471369358, hashes: '7d947497' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
