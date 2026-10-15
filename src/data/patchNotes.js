@@ -20,12 +20,36 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.27', version: '0.1.27', date: '2026-10-14', title: 'Patch notes & gifts',
+    id: 'v0.1.28', version: '0.1.28', date: '2026-10-15', title: 'Battle saves, attacks & Hikari’s welcome',
     added: [
-      'Patch notes in the Notice: every game version, what was added, changed and fixed, with its date.',
-      'Every version comes with a gift of 100 gems. Claim them one by one or all at once — once per version.',
+      'Every girl now has her own attack animation that grows with her upgrades. Chika’s drones circle above her, chase the enemy she is shooting and fly back.',
+      'Leaving a battle saves it. Its stage then offers Continue (from the start of the wave you were on, with the same team, coins and lives) or New game. You can keep up to 5 saved battles, and the lobby shows a Continue shortcut.',
+      'New players meet Hikari first: a short opening scene, then a first battle where she shows you around. Skip tutorial is always one tap away.',
+      'Captain’s Journal (Menu → Captain’s Journal): lessons from Hikari that unlock as you clear stages, each with a small reward. Story scenes play as you clear chapter 1, and the Story archive lets you watch them again.',
+      'Hold a girl’s card (or right-click it) to see her info sheet. Every upgrade is tagged Self, Allies or Enemies, and in battle you can hold a girl to see her whole upgrade tree.',
+      'Patch notes in the Notice: every game version with its date and what was added, changed and fixed. Each version comes with a 100-gem gift; claim them one by one or all at once.',
     ],
-    changed: ['The Notice shows a red dot while a patch gift is waiting for you.'],
+    changed: [
+      'The pause menu’s Save & quit keeps your battle for later. Endless runs can also End run, which pays what a defeat at that wave would.',
+      'New accounts get their free 10-pull from Hikari in the Mail after clearing 1-3. On new accounts, Equipment and Awakening open later in the campaign, each with a lesson from Hikari.',
+      'The Notice shows a red dot while a patch gift is waiting for you.',
+    ],
+    fixed: [
+      'On stage prep, the rarity, level and name on the small team cards no longer overlap.',
+    ],
+  },
+  {
+    id: 'v0.1.27', version: '0.1.27', date: '2026-10-14', title: 'Co-op Freeplay',
+    added: [
+      'Co-op Freeplay: the host turns it on in the room and picks Blossom, Tempest or Crimson Moon. Clear the stage’s last wave, then keep going past it as the wave counter overflows (16/15, 17/15…).',
+      'Past the stage’s last wave, enemies from every map join in, and their HP and armor keep climbing.',
+      'Boss waves come on a schedule and get tougher all the way to the Ashwing Matriarch around wave 200.',
+      'Vote Finish to end the run together, and the results show the wave you reached.',
+      'Freeplay rewards: coins for every wave past the goal, a reward cache every 25 waves, Assault Tokens for the bosses you beat, your best wave on each difficulty, and one-time milestone gems, titles and a frame. Tempest and Crimson Moon pay more.',
+    ],
+    changed: [
+      'Back to the room keeps the room’s freeplay setting for your next battle.',
+    ],
   },
   {
     id: 'v0.1.26', version: '0.1.26', date: '2026-10-14', title: 'UR awakening',
