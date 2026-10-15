@@ -126,6 +126,8 @@ describe('store writes for battle saves', () => {
     store.load();
     expect(store.saveNow()).toBe(true);
     vi.stubGlobal('localStorage', { ...ls, setItem: () => { throw new Error('QuotaExceededError'); } });
+    // [social] an unchanged save is not written again (saveRev), so change something to save
+    store.profile.currencies.gems += 1;
     expect(store.saveNow()).toBe(false);
   });
 
@@ -146,6 +148,7 @@ describe('store writes for battle saves', () => {
     expect(store.saveNow()).toBe(true);
     expect(store.lastSaveError).toBeNull();
     vi.stubGlobal('localStorage', { ...ls, setItem: () => { throw new Error('QuotaExceededError'); } });
+    store.profile.currencies.gems += 1; // an unchanged save is not written again (saveRev)
     expect(store.saveNow()).toBe(false);
     expect(store.lastSaveError).toBe('quota');
   });
@@ -207,21 +210,57 @@ describe('two tabs and battle saves', () => {
     expect(A.store.saveNow()).toBe(false);
     expect(A.store.lastSaveError).toBe('stale');
     expect(stale).toHaveBeenCalledTimes(1);
+    expect(stale.mock.calls[0][0].reason).toBe('battle-save'); // main.js: the reload modal
     expect(saverA.closed).toBe(true);
     // storage still holds B's payout and no save of the finished run
     expect(stored()).toEqual(paid);
   });
 
-  it('tabs that only share a save (local co-op test mode, a setting) keep last-writer-wins', async () => {
+  // [social] was "keep last-writer-wins": the save revision (saveRev, v0.1.29) makes any other
+  // tab's save win over an older tab's, so an older tab can no longer write over it. Without a
+  // saved battle lost the reason is 'another-tab' (the pill, not the reload modal).
+  it('tabs that only share a save (local co-op test mode, a setting): the older tab stops saving, without the battle modal', async () => {
     ls.setItem(SAVE_KEY, JSON.stringify(createProfile()));
     const A = await tab();
     A.store.profile;
     const B = await tab();
     B.store.profile.currencies.gems = 5;
     expect(B.store.saveNow()).toBe(true);
+    const stale = vi.fn();
+    A.store.on('stale', stale);
     A.store.profile.settings.quality = 'low';
-    expect(A.store.saveNow()).toBe(true);
-    expect(stored().settings.quality).toBe('low');
-    expect(A.store.stale).toBe(false);
+    expect(A.store.saveNow()).toBe(false);
+    expect(A.store.lastSaveError).toBe('stale');
+    expect(A.store.stale).toBe(true);
+    expect(stale).toHaveBeenCalledTimes(1);
+    expect(stale.mock.calls[0][0].reason).toBe('another-tab');
+    expect(stored().currencies.gems).toBe(5);
+    expect(stored().settings.quality).not.toBe('low');
+  });
+
+  it('a tab without save revisions (an older build) that pays out a run still stops this tab', async () => {
+    ls.setItem(SAVE_KEY, JSON.stringify(createProfile()));
+    const A = await tab();
+    const { sim: simA, cfg } = A.createBattleSim(A.store.profile, { ...req, seed: 4242 });
+    const saverA = A.createBattleSaver({ sim: simA, req, cfg }).install();
+    const u = [...simA.loadout.keys()][0];
+    simA.placeTower(u, ...spot(simA, u));
+    saverA.markProgress();
+    simA.startNextWave();
+    saverA.persistPending();
+    expect(stored().battleSaves['1-1'].id).toBe(saverA.runId);
+    // an older build's tab writes the save without a revision and without that run
+    const old = stored();
+    delete old.saveRev;
+    delete old.saveBy;
+    old.battleSaves = {};
+    old.stats.wins = 1;
+    ls.setItem(SAVE_KEY, JSON.stringify(old));
+    const stale = vi.fn();
+    A.store.on('stale', stale);
+    A.store.profile.settings.quality = 'low';
+    expect(A.store.saveNow()).toBe(false);
+    expect(stale.mock.calls[0][0].reason).toBe('battle-save');
+    expect(stored()).toEqual(old);
   });
 });

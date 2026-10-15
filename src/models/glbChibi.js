@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
 import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
+import { selectToonMaterial, selectTwin } from './highlight.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -226,6 +227,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   }
   const meshes = [];
   let bodyMesh = null;
+  let headMesh = null;
   root.traverse((o) => {
     if (o.isMesh) meshes.push(o);
   });
@@ -250,6 +252,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     } else if (name === 'head') {
       o.material = new THREE.MeshToonMaterial({ map: faceTex, gradientMap: gradientMap('soft'), color: '#ffffff' });
       o.name = 'head';
+      headMesh = o;
       tint = '#4a3344';
     } else if (name === 'halo') {
       o.material = new THREE.MeshBasicMaterial({ color: asset.haloColor, toneMapped: false });
@@ -294,29 +297,33 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   group.userData.animate = (time, dt, state = 'idle') => anim.update(time, dt, state);
   group.userData.playAttack = () => anim.playAttack();
   group.userData.setExpression = (name) => anim.setExpression(name);
+  // selected: her own colours a little brighter with a soft light rim (highlight.js) on the body
+  // (shared toon material) and the painted face (her own twin, made on the first tap)
+  const headMat = headMesh?.material || null;
+  let headHl = null;
   group.userData.setHighlight = (on) => {
-    if (!bodyMesh) return;
+    on = !!on;
     if (asset.textured) {
-      look.hl = !!on;
+      if (!bodyMesh) return;
+      look.hl = on;
       bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes);
       return;
     }
-    if (on) {
-      if (!bodyMesh.userData.hl) {
-        bodyMesh.userData.hl = new THREE.MeshToonMaterial({ vertexColors: !!bodyMesh.geometry.attributes.color, color: '#ffffff', emissive: '#4d6dff', emissiveIntensity: 0.35, gradientMap: gradientMap(3) });
-      }
-      bodyMesh.material = bodyMesh.userData.hl;
-    } else {
-      bodyMesh.material = toonMaterial({ vertexColors: !!bodyMesh.geometry.attributes.color });
+    if (bodyMesh) {
+      const vertexColors = !!bodyMesh.geometry.attributes.color;
+      bodyMesh.material = on ? selectToonMaterial({ vertexColors }) : toonMaterial({ vertexColors });
+    }
+    if (headMesh) {
+      if (on && !headHl) headHl = selectTwin(headMat);
+      headMesh.material = on ? headHl : headMat;
     }
   };
   group.userData.dispose = () => {
     anim.dispose();
     faceTex?.dispose();
-    for (const o of meshes) {
-      if (o.name === 'head' || o.name === 'halo') o.material.dispose();
-      o.userData.hl?.dispose();
-    }
+    for (const o of meshes) if (o.name === 'halo') o.material.dispose();
+    headMat?.dispose();
+    headHl?.dispose();
   };
   anim.update(0, 0, pose === 'attack' ? 'idle' : pose);
   return group;

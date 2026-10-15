@@ -1,0 +1,47 @@
+/* Sandbox screen (owner: meta-a): map picker + squad picker. Reuses the endless map cards
+   (meta-a) and the formation slots / roster grid (meta-b); this file adds the header, the rules
+   strip, the selected-map state and the "Trial" tag on girls the player does not own. */
+.ma-sandbox-screen .screen-body { padding-bottom: 14px; }
+.sbx-wrap { display: flex; flex-direction: column; gap: 10px; }
+/* the map step's header and the squad step's bar stay at the top while the grid scrolls */
+.sbx-head, .sbx-bar {
+  position: sticky; top: -12px; z-index: 4; /* flush with the scroll edge: .screen-body has 12px top padding */
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow);
+}
+.sbx-head-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1 1 260px; }
+.sbx-head-line { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.sbx-badge { flex: none; background: linear-gradient(90deg, #2bb673, #1f9e8f); color: #fff; font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 1px 10px; border-radius: 4px; transform: skewX(var(--skew)); }
+.sbx-title { margin: 0; font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.4rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sbx-bar { padding: 8px 12px; }
+.sbx-bar-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; }
+.sbx-bar-map { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sbx-bar-diff { flex: none; font-size: 0.72rem; font-weight: 900; color: #fff; background: var(--blue-deep); padding: 1px 8px; border-radius: 999px; }
+.sbx-bar-actions { display: flex; gap: 8px; flex: none; }
+.sbx-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sbx-diff { margin: 0; }
+.sbx-rules { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.sbx-rule { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; font-weight: 800; color: var(--blue-deep); background: #eaf4ff; padding: 2px 9px 2px 6px; border-radius: 999px; }
+.sbx-rule .ma-inline-icon { width: 14px; height: 14px; }
+.sbx-rule-no { color: #c2347a; background: #fdebf3; }
+.sbx-map-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.sbx-map.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43, 127, 255, 0.35), 0 6px 16px rgba(29, 78, 137, 0.25); }
+.sbx-map-check { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; padding: 4px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+.sbx-map-check .svg-icon, .sbx-map-check svg { width: 100%; height: 100%; display: block; }
+.sbx-team .sbx-rules { justify-content: flex-start; }
+.sbx-squad-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 6px; }
+.sbx-squad-head .mb-card-title { margin: 0; }
+.sbx-trial { position: absolute; left: 4px; top: 4px; z-index: 3; font-size: 0.6rem; font-weight: 900; font-style: italic; color: #fff; background: linear-gradient(90deg, #2bb673, #1f9e8f); padding: 0 6px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); pointer-events: none; }
+.mb-pick { position: relative; }
+.sbx-locked { padding-top: 24px; }
+.sbx-locked h3 { color: var(--navy); margin: 4px 0; }
+@media (max-height: 480px) {
+  /* landscape phone: one slim line (the rules strip shows on the squad step) */
+  .sbx-head, .sbx-bar { top: -8px; padding: 5px 10px; gap: 8px; flex-wrap: nowrap; } /* .screen-body pads 8px here */
+  .sbx-head .sbx-rules { display: none; }
+  .sbx-head-text { flex: 1 1 auto; }
+  .sbx-title { font-size: 1.05rem; }
+  .sbx-head-actions { flex-wrap: nowrap; gap: 6px; }
+  .sbx-head-actions .mb-seg-btn { padding-left: 8px; padding-right: 8px; }
+  .sbx-map-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+}

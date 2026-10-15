@@ -152,6 +152,12 @@ the home screen as an app.
   wallets) and one-time transfer codes. Client and server rate limits. Without a server configured, the
   same features run between tabs of one browser and the pill says "Online features offline". Setup and
   details: [docs/ONLINE.md](docs/ONLINE.md).
+- **Social (online):** private messages between friends and clanmates (`#/messages`, tap any name for a
+  player card), friends + friend codes, block / report / "Who can message me", co-op invites by message
+  with a pop-up **Join** on any screen, and **Clan → Requests**: ask your clan for one material a day,
+  donate up to 30 points a day for coins + clan XP, collect with one tap — all resetting at 7 PM Central.
+  Needs `supabase/migrations/20261013000000_social.sql` on the server ("Needs the latest server update"
+  until then); see [docs/ONLINE.md](docs/ONLINE.md#run-the-social-update-messages-friends-co-op-invites-by-dm-clan-requests).
 
 ## Roster
 
@@ -199,6 +205,7 @@ npm run build      # production build into dist/
 npm run preview    # serve the production build
 npm run e2e        # browser smoke test (needs Playwright + Chrome/Edge/Chromium; see e2e/smoke.mjs)
 node e2e/online.mjs   # two browser tabs: chat, clans, clan boss, Supply Bot, co-op battle (local adapter)
+node e2e/social.mjs   # DMs, friends, co-op invite by DM → Join, clan requests / donations / collect, block, report
 node e2e/engines.mjs  # one co-op battle in V8, JavaScriptCore and SpiderMonkey: identical hashes required
 node e2e/unit-info.mjs  # hold-for-info sheet, upgrade chips, battle upgrade tree (1280x720, 844x390, 390x844, co-op); --shots <dir>
 BALANCE=full BALANCE_OUT=balance.md npx vitest run tests/integration/balance.test.js   # campaign balance table (~2 min)
@@ -255,8 +262,9 @@ or static host.
 Online features use the Supabase project in `.env.production` (public URL + publishable key; repository
 secrets `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` override it). Note that this makes every local
 production build (`npm run build` / `npm run preview`) talk to the live project; `npm run dev` stays in
-local mode. **The database schema is `supabase/migrations/20261008000000_online.sql`** (the one file to
-paste into Supabase's SQL Editor when setting up by hand). Supabase's GitHub integration, when connected
+local mode. **The database schema is `supabase/migrations/20261008000000_online.sql`** plus the social
+update `supabase/migrations/20261013000000_social.sql` (paste them into Supabase's SQL Editor in that order
+when setting up by hand; the first is already applied on the live project). Supabase's GitHub integration, when connected
 (directory `supabase`, production branch `main`), applies it when it reaches `main`. As of 2026-10-13 the
 live project has anonymous sign-ins on but **no tables yet**: paste the migration (or connect the
 integration) before or right after merging. Then run the post-merge check in
@@ -271,7 +279,7 @@ and at the landscape-phone size 844×390):
 | File | What it shows |
 |---|---|
 | `V2final-lobby-*` | Lobby (V2, since replaced by the drawn lobby): 3D secretary (Hikari GLB), login gift, campaign card, dock |
-| `V2final-missions-*` | Missions hub: Mission, Story, Bounty, Total Assault, Tactical Challenge, Commissions, Sweep |
+| `V2final-missions-*` | Missions hub (V2, since redesigned): Mission, Story, Bounty, Total Assault, Tactical Challenge, Commissions, Sweep. Today's hub has Mission, Bounty, Total Assault, Tactical Challenge, Co-op, Sandbox and Story; Commissions open from the lobby's Tasks button and Sweep sits on stage prep, Bounty and Total Assault |
 | `V2final-campaign-*` | Campaign map: chapter tabs, stage cards with medals, "New mechanic" and free-recruit tags |
 | `V2final-stage-1-1-*` | Stage prep: map preview, difficulty medals, recommended counters, formation, drops, Sweep / Start |
 | `V2final-battle-1-1-midwave-*` | Battle 1-1 wave 2: Aoi, Rei and Yuki standing at free (continuous) spots on the painted sakura map, GLB slimes on the road |

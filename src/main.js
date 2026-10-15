@@ -21,6 +21,7 @@ registerRoute('backpack', () => import('./ui/screens/backpack.js'));
 registerRoute('bounty', () => import('./ui/screens/bounty.js'));
 registerRoute('assault', () => import('./ui/screens/assault.js'));
 registerRoute('challenge', () => import('./ui/screens/challenge.js'));
+registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
 registerRoute('rewards', () => import('./ui/screens/rewards.js'));
@@ -32,6 +33,8 @@ registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] 
 registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
+// [social] private messages, friends, blocks (#/messages[/<threadId>|/new][?tab=…])
+registerRoute('messages', () => import('./ui/screens/messages.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
 registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
@@ -113,7 +116,9 @@ if (saveNotice) {
 
 // Another tab finished, restarted or replaced a saved battle this tab still holds (src/core/store.js):
 // this tab stopped saving so it never brings that battle back or erases the other tab's rewards.
-store.on('stale', () => {
+// Any other save by another tab only shows the "Open in another tab" pill (ui/staleBanner.js).
+store.on('stale', ({ reason } = {}) => {
+  if (reason !== 'battle-save') return;
   import('./ui/components.js')
     .then(({ modal }) => modal({
       title: 'Opened in another tab',
@@ -144,6 +149,17 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
 else setTimeout(warmModels, 1200);
 
+// [social] badges, live DMs and invite pop-ups for players who already went online (a stored
+// online name; the hub never creates an account). Lazy, after the first screen.
+try {
+  // (local mode keeps the name per tab; startSocialHub() checks the right one)
+  if ([localStorage, sessionStorage].some((st) => st.getItem('ss-online-v1')?.includes('"name"'))) {
+    setTimeout(() => import('./ui/online/socialHub.js').then((m) => m.startSocialHub()).catch((e) => console.warn('[main] social hub unavailable', e)), 1500);
+  }
+} catch {
+  /* storage blocked: no hub until the player opens an online screen */
+}
+
 // [audio] music + SFX engine (docs/AUDIO.md): lazy, never blocks the first screen
 import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => console.warn('[main] audio unavailable', e));
 
@@ -152,3 +168,5 @@ import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => cons
 import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
 // [unit-info] hold a girl's card (or right-click it) on a menu screen → her info sheet (request #152)
 import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.warn('[main] hold info unavailable', e));
+// two tabs share one save: a tab another tab saved over stops saving and says "reload" (store.js)
+import('./ui/staleBanner.js').then((b) => b.initStaleBanner()).catch((e) => console.warn('[main] stale-save banner unavailable', e));

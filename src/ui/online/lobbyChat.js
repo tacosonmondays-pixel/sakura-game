@@ -7,16 +7,29 @@ import { h, svgEl } from '../components.js';
 import { getBackend } from '../../online/backend.js';
 import { ensureOnline, storedName, CHAT_GLYPH } from './common.js';
 import { openChatDrawer, lastSeen } from './chatPanel.js';
+import { hub } from './socialHub.js';
 
 /** @returns {HTMLButtonElement} */
 export function chatButton() {
   const dot = h('span.ol-unread', { hidden: true, 'data-testid': 'chat-unread' });
+  // [social] unread private messages + friend requests: a pink number (the red dot stays for chat)
+  const count = h('span.sc-badge', { hidden: true, 'data-testid': 'top-chat-count' });
+  const paintCount = () => {
+    const n = hub.count;
+    count.hidden = !n;
+    count.textContent = n > 99 ? '99+' : String(n);
+    dot.classList.toggle('under', !!n);
+  };
+  paintCount();
+  const offHub = [hub.on('badges', paintCount), hub.on('status', paintCount)];
   const btn = h('button.lb-tr-btn.ol-top-chat', { title: 'Chat', 'aria-label': 'Chat', 'data-testid': 'top-chat', onclick: () => { dot.hidden = true; openChatDrawer(); } },
-    svgEl(CHAT_GLYPH, 'lb-glyph'), dot);
+    svgEl(CHAT_GLYPH, 'lb-glyph'), dot, count);
   let unsub = null;
   const stop = () => {
     unsub?.();
     unsub = null;
+    offHub.forEach((off) => off());
+    offHub.length = 0;
   };
   if (storedName()) {
     (async () => {
@@ -27,11 +40,22 @@ export function chatButton() {
           await new Promise((r) => requestAnimationFrame(r));
           if (!btn.isConnected) return;
         }
+        // (a blocked player's line never lights the dot: chat hides it anyway; the blocked list
+        // may arrive a moment after the first check, so it is asked again then)
+        const counts = (m) => !!m && m.userId !== backend.uid && !hub.isBlocked(m.userId);
+        let litBy = null;
+        const light = (m) => {
+          litBy = m;
+          dot.hidden = false;
+        };
         const last = (await backend.history('global', 1)).at(-1);
-        if (last && last.id > lastSeen() && last.userId !== backend.uid) dot.hidden = false;
+        if (last && last.id > lastSeen() && counts(last)) light(last);
+        offHub.push(hub.on('blocked', () => {
+          if (litBy && !counts(litBy)) dot.hidden = true;
+        }));
         unsub = backend.subscribe('global', (m) => {
           if (!btn.isConnected) return stop();
-          if (m.userId !== backend.uid && !document.querySelector('.ol-drawer')) dot.hidden = false;
+          if (counts(m) && !document.querySelector('.ol-drawer')) light(m);
         });
       } catch {
         /* offline: no dot */

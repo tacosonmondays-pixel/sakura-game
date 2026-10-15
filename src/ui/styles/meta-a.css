@@ -1225,11 +1225,11 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-hub-grid {
   grid-column: 2; display: grid; gap: 8px; min-height: 0; height: 100%; padding-bottom: 8px;
   grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(120px, 1.9fr) minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: 'mission mission mission story story story' 'bounty bounty assault assault challenge challenge' 'commissions commissions sweep sweep coop coop';
+  grid-template-areas: 'mission mission mission mission bounty bounty' 'mission mission mission mission assault assault' 'challenge challenge coop sandbox sandbox story';
 }
 .ma-hub-coop { grid-area: coop; } /* [online] real-time co-op */
 .ma-hub-mission { grid-area: mission; } .ma-hub-story { grid-area: story; } .ma-hub-bounty { grid-area: bounty; } .ma-hub-assault { grid-area: assault; }
-.ma-hub-challenge { grid-area: challenge; } .ma-hub-commissions { grid-area: commissions; } .ma-hub-sweep { grid-area: sweep; }
+.ma-hub-challenge { grid-area: challenge; } .ma-hub-sandbox { grid-area: sandbox; } /* solo test range */
 .ma-hub-tile {
   position: relative; overflow: hidden; border: 2px solid rgba(255,255,255,0.95); border-radius: 12px; padding: 0; text-align: left; min-height: 60px;
   background: rgba(255,255,255,0.9); box-shadow: 0 8px 22px rgba(10,30,60,0.22); transform: skewX(var(--skew)); margin: 0 6px;
@@ -1259,10 +1259,6 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-hub-tile.locked .ma-hub-title { color: #7b8aa5; }
 .ma-hub-lock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: rgba(34,56,92,0.8); color: #fff; font-size: 0.66rem; font-weight: 800; padding: 3px 14px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ma-hub-tile.soon .ma-hub-kicker { background: linear-gradient(90deg, #ff7aa8, #ff5c8a); color: #fff; }
-.ma-sweep-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
-.ma-sweep-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; background: var(--sky-1); border-radius: 10px; padding: 6px 10px; }
-.ma-sweep-name { display: flex; flex-direction: column; min-width: 0; }
-.ma-sweep-name b { color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .ma-hub { grid-template-columns: 380px minmax(0, 1fr); gap: 20px; }
   .ma-hub-char { width: 380px; left: 0; bottom: -12px; }
@@ -1618,7 +1614,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.92fr);
   grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
                        'mission mission mission mission mission mission mission assault assault assault assault assault'
-                       'challenge challenge challenge commissions commissions commissions sweep sweep coop coop story story';
+                       'challenge challenge challenge challenge coop coop coop sandbox sandbox sandbox story story';
 }
 .ma-hub-tile { background: #fff; }
 .ma-hub-art { inset: 0; }
@@ -1626,12 +1622,14 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-hub-art.girl > img { object-position: 50% 16%; }
 .ma-hub-art.girl.bust > img { object-position: 50% 28%; }
 .ma-hub-tile:hover .ma-hub-art > img { transform: skewX(calc(var(--skew) * -1)) scale(1.13); }
+.ma-hub-art.scene > svg { width: 100%; height: 100%; display: block; transform: skewX(calc(var(--skew) * -1)) scale(1.12); transition: transform 600ms var(--ease); }
+.ma-hub-tile:hover .ma-hub-art.scene > svg { transform: skewX(calc(var(--skew) * -1)) scale(1.17); }
 .ma-hub-shade, .ma-hub-mission .ma-hub-shade { background: linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.72) 28%, rgba(255,255,255,0.08) 54%, rgba(255,255,255,0) 70%); }
 .ma-hub-mission .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.7) 26%, rgba(255,255,255,0.06) 52%, rgba(255,255,255,0) 100%); }
 /* small bottom-row tiles: the text runs the full width, so the wash runs top-down and titles may wrap */
-.ma-hub-challenge .ma-hub-shade, .ma-hub-commissions .ma-hub-shade, .ma-hub-sweep .ma-hub-shade, .ma-hub-coop .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.74) 34%, rgba(255,255,255,0.06) 72%, rgba(255,255,255,0) 100%); }
-.ma-hub-challenge .ma-hub-text, .ma-hub-commissions .ma-hub-text, .ma-hub-sweep .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { right: 8px; }
-.ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.02; }
+.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.74) 34%, rgba(255,255,255,0.06) 72%, rgba(255,255,255,0) 100%); }
+.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { right: 8px; }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.02; }
 .ma-hub-text { right: 34%; }
 .ma-hub-mission .ma-hub-text { right: 12px; }
 .ma-hub-title { text-shadow: 0 1px 0 #fff, 0 0 10px rgba(255,255,255,0.8); }
@@ -1641,7 +1639,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-hub-story .ma-hub-shade { background: linear-gradient(100deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.6) 36%, rgba(255,255,255,0.04) 64%); }
 /* locked: art stays in colour, a small lock chip instead of a dark bar */
 .ma-hub-tile.locked .ma-hub-art { filter: none; }
-.ma-hub-challenge .ma-hub-lock, .ma-hub-commissions .ma-hub-lock, .ma-hub-sweep .ma-hub-lock, .ma-hub-coop .ma-hub-lock { left: 8px; right: 8px; max-width: none; justify-content: center; }
+.ma-hub-challenge .ma-hub-lock, .ma-hub-sandbox .ma-hub-lock, .ma-hub-coop .ma-hub-lock { left: 8px; right: 8px; max-width: none; justify-content: center; }
 .ma-hub-tile.locked .ma-hub-title { color: var(--navy); }
 .ma-hub-lock { left: auto; right: 10px; bottom: 8px; max-width: 64%; padding: 2px 10px 2px 6px; gap: 3px; border-radius: 999px; background: rgba(29,54,96,0.88); font-size: 0.62rem; box-shadow: 0 2px 6px rgba(10,24,50,0.3); }
 .ma-hub-lock > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1650,34 +1648,34 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .ma-hub { grid-template-columns: 330px minmax(0, 1fr); }
   .ma-hub-char.hub-stand { width: 470px; }
   .ma-hub-story .ma-hub-title { font-size: 1.3rem; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 1.32rem; }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 1.32rem; }
   .ma-hub-lock { font-size: 0.74rem; }
 }
 @media (max-height: 480px) {
   .ma-hub-title { font-size: 1.02rem; }
   .ma-hub-mission .ma-hub-title { font-size: 1.8rem; }
   .ma-hub-text { top: 6px; left: 12px; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 0.9rem; }
-  .ma-hub-challenge .ma-hub-sub, .ma-hub-commissions .ma-hub-sub, .ma-hub-sweep .ma-hub-sub, .ma-hub-coop .ma-hub-sub { font-size: 0.62rem; }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 0.9rem; }
+  .ma-hub-challenge .ma-hub-sub, .ma-hub-sandbox .ma-hub-sub, .ma-hub-coop .ma-hub-sub { font-size: 0.62rem; }
 }
 @media (max-aspect-ratio: 1/1) {
-  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge challenge challenge commissions commissions commissions commissions commissions commissions' 'sweep sweep sweep sweep coop coop coop coop story story story story'; }
+  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge challenge challenge coop coop coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
 }
 /* r2: small bottom-row tiles — her bust in full colour (no white veil), a white name plate at the
    bottom (title + subtitle or lock line), ribbon top-left; phones get the short subtitles */
-.ma-hub-challenge .ma-hub-shade, .ma-hub-commissions .ma-hub-shade, .ma-hub-sweep .ma-hub-shade, .ma-hub-coop .ma-hub-shade, .ma-hub-story .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,34,72,0.28) 100%); }
-.ma-hub-challenge .ma-hub-art > img, .ma-hub-commissions .ma-hub-art > img, .ma-hub-sweep .ma-hub-art > img, .ma-hub-coop .ma-hub-art > img, .ma-hub-story .ma-hub-art > img { object-position: 50% 20%; filter: none; }
-.ma-hub-challenge .ma-hub-text, .ma-hub-commissions .ma-hub-text, .ma-hub-sweep .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { top: auto; bottom: 7px; left: 8px; right: auto; max-width: calc(100% - 16px); gap: 1px; padding: 3px 10px 4px; border-radius: 7px; background: rgba(255,255,255,0.94); box-shadow: 0 3px 10px rgba(10,30,60,0.28); }
-.ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-story .ma-hub-title { text-shadow: none; }
+.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade, .ma-hub-story .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,34,72,0.28) 100%); }
+.ma-hub-challenge .ma-hub-art > img, .ma-hub-sandbox .ma-hub-art > img, .ma-hub-coop .ma-hub-art > img, .ma-hub-story .ma-hub-art > img { object-position: 50% 20%; filter: none; }
+.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { top: auto; bottom: 7px; left: 8px; right: auto; max-width: calc(100% - 16px); gap: 1px; padding: 3px 10px 4px; border-radius: 7px; background: rgba(255,255,255,0.94); box-shadow: 0 3px 10px rgba(10,30,60,0.28); }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-story .ma-hub-title { text-shadow: none; }
 .ma-hub-lockline { display: inline-flex; align-items: center; gap: 3px; color: #c2347a; }
 .ma-hub-lockline .ma-inline-icon { width: 11px; height: 11px; flex: none; }
 .ma-hub-lockline > span { overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-commissions .ma-hub-ribbon, .ma-hub-coop .ma-hub-ribbon { top: 6px; left: 8px; right: auto; bottom: auto; }
+.ma-hub-coop .ma-hub-ribbon { top: 6px; left: 8px; right: auto; bottom: auto; }
 .ma-hub-story .ma-hub-kicker { margin-bottom: 1px; }
 .ma-sub-short { display: none; }
 @media (max-width: 900px) { .ma-sub-long { display: none; } .ma-sub-short { display: inline; } }
 @media (max-height: 480px) {
-  .ma-hub-challenge .ma-hub-text, .ma-hub-commissions .ma-hub-text, .ma-hub-sweep .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
+  .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
   .ma-hub-story .ma-hub-title { font-size: 0.95rem; }
 }
 
@@ -1908,12 +1906,11 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 
 /* ==== first impressions r3 ==== */
 /* missions hub: small-tile titles break between words only ("Commissions" never splits) */
-.ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title { overflow-wrap: normal; word-break: keep-all; hyphens: none; }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { overflow-wrap: normal; word-break: keep-all; hyphens: none; }
 .ma-hub-coop .ma-hub-title { white-space: nowrap; } /* "Co-op" never breaks at its hyphen */
-.ma-hub-commissions .ma-hub-title { white-space: nowrap; overflow: visible; letter-spacing: -0.02em; }
 @media (max-height: 480px) {
-  .ma-hub-challenge .ma-hub-title, .ma-hub-commissions .ma-hub-title, .ma-hub-sweep .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: clamp(0.74rem, 1.7vw, 0.88rem); }
-  .ma-hub-challenge .ma-hub-text, .ma-hub-commissions .ma-hub-text, .ma-hub-sweep .ma-hub-text, .ma-hub-coop .ma-hub-text { padding-left: 6px; padding-right: 6px; }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: clamp(0.74rem, 1.7vw, 0.88rem); }
+  .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text { padding-left: 6px; padding-right: 6px; }
 }
 
 /* lobby background picker: the dialog keeps its size; the girls list and the tiles scroll inside */

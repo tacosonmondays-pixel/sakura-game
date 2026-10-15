@@ -14,12 +14,12 @@ import { buildAccessory } from './accessory.js';
 import { buildWeapon, weaponStyle } from './weapons.js';
 import { buildHalo } from './halo.js';
 import { fallbackEyes } from './fallbackFace.js';
+import { selectToonMaterial } from './highlight.js';
 
 /** World height of a girl (feet to head top, without halo). */
 export const CHIBI_HEIGHT = 0.9;
 const GIRL_UNITS_TALL = 4.2; // head top incl. hair volume in girl space
 const assetCache = new Map();
-let highlightMat = null;
 
 /**
  * Builds a chibi for a unit definition.
@@ -190,13 +190,9 @@ function instantiate(asset, unit, quality, pose) {
   group.userData.bones = bones;
   group.userData.animate = (time, dt, state = 'idle') => anim.update(time, dt, state);
   group.userData.playAttack = () => anim.playAttack();
+  // selected: her own colours a little brighter with a soft light rim (highlight.js, shared)
   group.userData.setHighlight = (on) => {
-    if (!highlightMat) {
-      highlightMat = new THREE.MeshToonMaterial({ vertexColors: true, color: '#ffffff', emissive: '#4d6dff', emissiveIntensity: 0.35 });
-      highlightMat.gradientMap = toonMaterial().gradientMap;
-      highlightMat.userData.shared = true;
-    }
-    body.material = on ? highlightMat : toonMaterial();
+    body.material = on ? selectToonMaterial({ vertexColors: true }) : toonMaterial();
   };
   group.userData.dispose = () => {
     faceTex?.dispose();
