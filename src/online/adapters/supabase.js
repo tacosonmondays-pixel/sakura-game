@@ -50,8 +50,19 @@ export const SOCKET_PROBE_MS = 4000;
 function mapMessage(r) {
   return {
     id: r.id, channel: r.channel, userId: r.user_id, name: r.name, level: r.level, avatar: r.avatar,
-    body: r.body, kind: r.kind, meta: r.meta || null, createdAt: ts(r.created_at),
+    body: r.body, kind: r.kind, meta: r.meta || null, about: aboutList(r.about), createdAt: ts(r.created_at),
   };
+}
+
+/**
+ * [social] messages.about (uuid[]): who a clan system notice is about — a JSON array from the API
+ * and Realtime, or Postgres array text ("{a,b}") — or null (a player's line, a notice from before
+ * the social SQL, or a server without it).
+ */
+export function aboutList(v) {
+  if (Array.isArray(v)) return v.filter((x) => typeof x === 'string' && x).map(String);
+  if (typeof v === 'string' && /^\{.*\}$/.test(v)) return v.slice(1, -1).split(',').map((x) => x.replace(/"/g, '').trim()).filter(Boolean);
+  return null;
 }
 
 function mapClan(r, memberCount = null, joinCode = null) {

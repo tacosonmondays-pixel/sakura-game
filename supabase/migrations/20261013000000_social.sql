@@ -5,6 +5,8 @@
 -- New query → paste → Run. It is idempotent: running it again is harmless. It needs the first
 -- migration (20261008000000_online.sql) to have run before. Never paste a service-role key
 -- anywhere — nothing here needs one. Check afterwards: `select public.social_version();` → 1.
+-- It runs as ONE transaction: if it stops with an error ("The game is busy right now…", or any
+-- other), nothing at all was changed — press Run again (docs/ONLINE.md, "Running the social SQL").
 -- IMPORTANT: if 20261008000000_online.sql is ever pasted again, paste THIS file again right after
 -- it (the old file revokes every function grant and restores the old join_room()).
 --
@@ -15,6 +17,8 @@
 --   tables     social_settings, friend_codes, friend_requests, friends, blocks, coop_partners,
 --              dm_threads, direct_messages, dm_state, reports, social_mutes, donate_items,
 --              donation_requests, donations, donation_keys, dev_lab_visits, clan_bans
+--   columns    messages.about (who a clan system notice is about: the chat hides notices about a
+--              player the reader blocked, by account)
 --   security   Row Level Security on every table. Players get NO insert / update / delete grant
 --              on any of them: every change is a SECURITY DEFINER entry point below that checks
 --              auth.uid(). Internal helpers are SECURITY INVOKER (called by a player directly
@@ -45,10 +49,11 @@
 --                per donor per game day; super rare requests 3 / mythic 1 per rolling 7 days.
 --   names      new and changed names only (a trigger, never a check constraint: an old name must
 --              never lock its owner out of chat, clans or co-op): visible letters, no blank
---              fillers, no look-alike of a reserved name ("Ѕystem" with a Cyrillic Ѕ, "Ｓｙｓｔｅｍ"),
---              no staff word inside a name ("Staff Hana", "Adm1n", "GM Rosie"). An older name
---              keeps working everywhere except DMs / friend requests / invites ("change your online
---              name first").
+--              fillers, no look-alike of a reserved name ("Ѕystem" with a Cyrillic Ѕ, "Ｓｙｓｔｅｍ",
+--              "Ꭺdmin" with a Cherokee Ꭺ), no Latin letters mixed with look-alike alphabets, no
+--              staff word inside a name ("Staff Hana", "Adm1n", "GM Rosie", "GMRosie", "D.E.V.").
+--              An older name keeps working everywhere except DMs / friend requests / invites
+--              ("change your online name first").
 --   clans      new and changed clans follow the same text rules (name, description), never look
 --              like the developer clan or staff (no DEV / GM / MOD… tag, no 'wiki' emblem) and never
 --              repeat an existing clan's name in another spelling ("Moon-Clan" next to "Moon Clan").
@@ -60,7 +65,8 @@
 --              src/online/donateLedger.js.
 --   reports    stored for the owner with the server's own copy of the evidence (the reported
 --              message, the newest DMs between the two and how many there are in all; a repeat
---              report adds to it, never replaces it). Auto-mute: 3 reporters (accounts ≥ 7 days
+--              report adds to it, never replaces it: "Asked for personal info" stays the reason and
+--              every earlier reason and note is kept in evidence.earlierReports). Auto-mute: 3 reporters (accounts ≥ 7 days
 --              old) the target contacted by DM, co-op invite or friend request in the last 7 days,
 --              within 24 h; a repeat report only counts again after new contact.
 --   realtime   direct_messages, friend_requests and donation_requests join the publication.
@@ -72,6 +78,36 @@
 -- No profanity filter (owner's decision); text rules: 1–200 characters, no invisible / bidi /
 -- control characters, at least one visible character, no blank-looking names, text only (the game
 -- shows it as plain text).
+
+-- =============================================================================================
+-- Before anything: one quiet moment. Players keep playing while this runs, and this file changes
+-- live tables (a trigger on chat messages, on clan members…). Taking those locks one at a time
+-- while players write could end in "deadlock detected", so the file first waits for a moment when
+-- none of those tables is in use and takes them all at once (players' requests then wait the
+-- second or two this file needs). If the game stays busy for 30 seconds it stops with "the game is
+-- busy right now" — nothing was changed: press Run again.
+-- =============================================================================================
+
+do $$
+declare
+  v_list text;
+begin
+  select string_agg(format('public.%I', t), ', ' order by t) into v_list
+  from unnest(array['profiles', 'clans', 'clan_members', 'messages', 'social_settings', 'friend_codes', 'friend_requests', 'friends',
+    'blocks', 'coop_partners', 'dm_threads', 'direct_messages', 'dm_state', 'reports', 'social_mutes', 'donate_items', 'donation_requests',
+    'donations', 'donation_keys', 'dev_lab_visits', 'clan_bans']) t
+  where to_regclass('public.' || t) is not null;
+  if v_list is null then return; end if;
+  for i in 1..600 loop
+    begin
+      execute 'lock table ' || v_list || ' in access exclusive mode nowait';
+      return;
+    exception when lock_not_available then
+      perform pg_sleep(0.05);
+    end;
+  end loop;
+  raise exception 'The game is busy right now, so nothing was changed. Press Run again in a minute.';
+end $$;
 
 -- =============================================================================================
 -- 0. The game clock (owner decision D3: every daily reset at 7 PM America/Chicago)
@@ -149,40 +185,80 @@ language sql immutable as $$
     and p !~ '[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]$'
 $$;
 
--- What a name is compared by for the reserved list: compatibility-decomposed (fullwidth → ASCII,
--- accents split off), common Cyrillic / Greek / Latin look-alikes mapped to Latin (both cases
--- listed: lower() follows the database locale), then only a–z and 0–9 kept. 'Ѕystem' (Cyrillic
--- Ѕ), 'Ｓｙｓｔｅｍ', 'Sýstem', 'Supply Bоt' (Cyrillic о), 'Αdmin' (Greek Α) all give their plain
--- spelling. src/online/textRules.js nameKey() uses the same table (LOOKALIKE_FROM / _TO).
+-- What a name is compared by: compatibility-decomposed (fullwidth → ASCII, accents split off),
+-- invisible characters dropped (zero-width joiners / spaces, variation selectors, soft hyphens,
+-- bidi marks, tags: 'D' + U+FE0F + 'ev' is 'Dev'), and look-alike letters mapped to Latin, case
+-- kept: Cyrillic / Greek, Cherokee ('ᎠEV'), Lisu ('ꓢtaff'), small capitals ('ᴅᴇᴠ'), Armenian
+-- ('Տystem'), Coptic, the syllabics of "fancy text" ('ᗪᗴᐯ'), letters with a stroke or a hook ('Đev')
+-- and the boxed letters ('🅳🅴🆅'). src/online/textRules.js nameFold() uses the same table
+-- (LOOKALIKE_FROM / _TO) and the same invisible set (NAME_INVISIBLE).
+create or replace function public.name_fold(p text) returns text
+language sql immutable as $$
+  select translate(regexp_replace(normalize(coalesce(p, ''), NFKD), '[\u00ad\u034f\u061c\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufe00-\ufe0f\ufeff\U000e0000-\U000e0fff]', '', 'g'),
+    'АВСЕНІЈКМОРЅТХУҮҺԀԚԜӀѴавсеніјкморѕтхуүһԁԛԝӏѵΑΒΕΖΗΙΚΜΝΟΡΤΥΧαβεζηικμνορτυχϳıɑɡɩᎠᎡᎢᎥᎩᎪᎫᎬᎳᎷᎻᎾᏀᏂᏃᏏᏒᏔᏙᏚᏞᏟᏢᏦᏴꭰꭱꭲꭵꭹꭺꭻꭼꮃꮇꮋꮎꮐꮒꮓꮟꮢꮤꮩꮪꮮꮯꮲꮶᏼꓐꓑꓒꓓꓔꓖꓗꓙꓚꓜꓝꓟꓠꓡꓢꓣꓦꓧꓪꓫꓬꓮꓰꓲꓳꓴᴀᴄᴅᴇᴊᴋᴍᴏᴘᴛᴜᴠᴡᴢʙɢʜɪʟɴʀʏꜰꜱꞯՏՕՍԼօսհոցզաⲀⲁⲂⲎⲒⲔⲕⲘⲚⲞⲟⲢⲣⲤⲥⲦⲨⲬⲭᗩᗷᑕᗪᗴᕮᖴᘜᕼᒍᒪᗰᑎᑭᑫᖇᔕᑌᐯᗯ᙭ĐđĦħŁłØøŦŧƀƁƊɗƑƒƓƗɨƘƙƝƤƥƬƭƲʋƵƶǤǥȻȼɆɇɌɍɎɏɃß🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉',
+    'ABCEHIJKMOPSTXYYHDQWlVabcehijkmopstxyyhdqwlvABEZHIKMNOPTYXabezhikmnoptyxjiagiDRTiYAJEWMHOGhZbRWVSLCPKBdrtiyajewmhoghzbrwvslcpkbBPdDTGKJCZFMNLSRVHWXYAEIOUacdejkmoptuvwzbghilnryfsqSOULouhngqwAaBHIKkMNOoPpCcTYXxABCDEEFGHJLMNPQRSUVWXDdHhLlOoTtbBDdFfGIiKkNPpTtVvZzGgCcEeRrYyBsABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ')
+$$;
+
+-- What a name is compared by for the reserved list: name_fold(), lower case, then only a–z and
+-- 0–9 kept. 'Ѕystem' (Cyrillic Ѕ), 'Ｓｙｓｔｅｍ', 'Sýstem', 'Supply Bоt' (Cyrillic о), 'Αdmin'
+-- (Greek Α), 'Ꭺdmin' (Cherokee Ꭺ) all give their plain spelling. src/online/textRules.js nameKey().
 create or replace function public.name_key(p text) returns text
 language sql immutable as $$
-  select regexp_replace(lower(translate(normalize(coalesce(p, ''), NFKD),
-    'АВСЕНІЈКМОРЅТХУҮҺԀԚԜӀѴавсеніјкморѕтхуүһԁԛԝӏѵΑΒΕΖΗΙΚΜΝΟΡΤΥΧαβεζηικμνορτυχϳıɑɡɩ',
-    'abcehijkmopstxyyhdqwlvabcehijkmopstxyyhdqwlvabezhikmnoptyxabezhikmnoptyxjiagi')), '[^a-z0-9]', '', 'g')
+  select regexp_replace(lower(name_fold(p)), '[^a-z0-9]', '', 'g')
 $$;
 
 -- name_key() with the word breaks kept (one space between words) for whole-word checks: marks
 -- are dropped, never a break ('Modé' → 'mode', 'GM Rosie' → 'gm rosie', 'Ｄｅｖ　Ｒｏｓｉｅ' →
--- 'dev rosie'). src/online/textRules.js nameWords() is the same.
+-- 'dev rosie'), and letters spelled one by one are one word ('D.E.V. Team' → 'dev team',
+-- 'G M Rosie' → 'gm rosie'). src/online/textRules.js nameWords() is the same.
 create or replace function public.name_words(p text) returns text
 language sql immutable as $$
-  select btrim(regexp_replace(regexp_replace(lower(translate(normalize(coalesce(p, ''), NFKD),
-    'АВСЕНІЈКМОРЅТХУҮҺԀԚԜӀѴавсеніјкморѕтхуүһԁԛԝӏѵΑΒΕΖΗΙΚΜΝΟΡΤΥΧαβεζηικμνορτυχϳıɑɡɩ',
-    'abcehijkmopstxyyhdqwlvabcehijkmopstxyyhdqwlvabezhikmnoptyxabezhikmnoptyxjiagi')),
-    '[\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]', '', 'g'), '[^a-z0-9]+', ' ', 'g'))
+  select regexp_replace(btrim(regexp_replace(regexp_replace(lower(name_fold(p)),
+    '[\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]', '', 'g'), '[^a-z0-9]+', ' ', 'g')),
+    '(?<=(^| )[a-z0-9]) (?=[a-z0-9]( |$))', '', 'g')
+$$;
+
+-- name_fold() with a word break where the case says one starts ('GMRosie' → 'GM Rosie',
+-- 'DevTeam' → 'Dev Team'); reserved_name() checks the words of both spellings ('dEV Rosie' is
+-- still 'dev rosie'). src/online/textRules.js nameCamel().
+create or replace function public.name_camel(p text) returns text
+language sql immutable as $$
+  select regexp_replace(regexp_replace(name_fold(p), '([a-z])([A-Z])', '\1 \2', 'g'), '([A-Z])([A-Z][a-z])', '\1 \2', 'g')
+$$;
+
+-- A NEW name (or clan name) may not mix Latin letters with letters of the alphabets that are
+-- mostly look-alikes of Latin ones (IPA and small capitals, Armenian, Georgian capitals,
+-- Cherokee, Canadian syllabics, Coptic, Lisu, Latin Extended-D, boxed letters): no 'ᎠEV Lab'
+-- next to the developer clan, whatever letter the look-alike table above misses. A name written
+-- wholly in one of them is fine. src/online/textRules.js mixesLookalikes().
+create or replace function public.lookalike_mix(p text) returns boolean
+language sql immutable as $$
+  select coalesce(normalize(p, NFKD) ~ '[A-Za-z]' and p ~ '[\u0250-\u02af\u0530-\u058f\u10a0-\u10cf\u13a0-\u13ff\u1400-\u167f\u1d00-\u1dbf\u2c80-\u2cff\ua4d0-\ua4ff\ua720-\ua7ff\uab70-\uabbf\U0001f130-\U0001f189]', false)
+$$;
+
+-- What two clan names are compared by (a new clan may not repeat an existing one in another
+-- spelling): name_fold(), lower case, without marks, spaces, punctuation, symbols or emoji — but
+-- every other letter kept, so 'さくら組' and 'さくら' + U+200D + '組' are the same name while
+-- 'さくら Clan' and 'ひまわり Clan' are not ('Moon-Clan' = 'Moon Clan' = 'Ｍｏｏｎ Ｃｌａｎ' =
+-- 'Mооn Clan'). src/online/textRules.js clanNameKey().
+create or replace function public.clan_name_key(p text) returns text
+language sql immutable as $$
+  select regexp_replace(lower(name_fold(p)), '[\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f\u0001-\u002f\u003a-\u0040\u005b-\u0060\u007b-\u00bf\u00d7\u00f7\u02b0-\u02ff\u1680\u2000-\u2bff\u2e00-\u2e7f\u3000-\u303f\u30fb\u3164\ufe10-\ufe6f\uff00-\uff0f\uffa0\U0001f000-\U0001faff]', '', 'g')
 $$;
 
 -- Names nobody may take, look-alikes included (src/online/clanRules.js RESERVED_NAMES,
 -- RESERVED_PARTS, RESERVED_WORDS, reservedName()): a reserved name itself; a staff word anywhere
 -- in it, digits read as letters both ways for 1 (0→o, 1→i or l, 3→e, 4→a, 5→s, 7→t: 'Staff Hana',
 -- 'Adm1n', 'SupplyB0t', 'Sakura Sentine1s'; 'badminton' is no 'admin'); or gm / dev / mod as a
--- word of its own ('GM Rosie', 'Dev Rosie'; 'Devi' and 'Modé' stay fine).
+-- word of its own ('GM Rosie', 'Dev Rosie', 'D.E.V. Team', 'GMRosie', 'DevTeam'; 'Devi', 'Devon'
+-- and 'Modé' stay fine).
 create or replace function public.reserved_name(p text) returns boolean
 language sql immutable as $$
   select name_key(p) = any (array['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'])
     or translate(replace(name_key(p), 'badminton', ''), '013457', 'oieast') ~ '(admin|moderator|staff|official|developer|supplybot|system|sakurasentinel|devlab)'
     or translate(replace(name_key(p), 'badminton', ''), '013457', 'oleast') ~ '(admin|moderator|staff|official|developer|supplybot|system|sakurasentinel|devlab)'
     or translate(name_words(p), '013457', 'oieast') ~ '(^| )(gm|gms|dev|devs|mod|mods)( |$)'
+    or translate(name_words(name_camel(p)), '013457', 'oieast') ~ '(^| )(gm|gms|dev|devs|mod|mods)( |$)'
 $$;
 
 -- Clan names nobody may take (src/online/clanRules.js reservedClanName()): a reserved player name,
@@ -203,7 +279,7 @@ $$;
 -- before this file that fails it keeps working in chat, clans and co-op.
 create or replace function public.social_name_ok(p text) returns boolean
 language sql immutable as $$
-  select coalesce(valid_display_name(p) and visible_name(p) and not reserved_name(p), false)
+  select coalesce(valid_display_name(p) and visible_name(p) and not reserved_name(p) and not lookalike_mix(p), false)
 $$;
 
 -- (an earlier draft of this file checked names with a NOT VALID constraint: that still runs on
@@ -440,6 +516,12 @@ create table if not exists public.clan_bans (
   until timestamptz not null,
   primary key (clan_id, user_id)
 );
+
+-- Who a clan system notice is about ("X joined the clan." → X's account; a filled request → the
+-- requester and the donors it thanks): the chat hides notices about a player the reader blocked by
+-- account, whatever name they have now. Only the server writes it (messages_social_guard below):
+-- the players' insert grant on messages lists its columns and this is not one of them.
+alter table public.messages add column if not exists about uuid[];
 
 -- =============================================================================================
 -- 3. Row Level Security + table privileges
@@ -846,6 +928,20 @@ begin
   return v;
 end $$;
 
+-- What a repeat report keeps of the report it adds to: the earlier reasons, notes (the child's
+-- own words) and places, oldest first, the newest 10 — {reason, note, context, at}.
+create or replace function public.social_earlier_reports(p_old jsonb, p_reason text, p_note text, p_context text, p_at timestamptz) returns jsonb
+language sql immutable security invoker set search_path = public, pg_temp as $$
+  select coalesce(jsonb_agg(x order by n), '[]'::jsonb) from (
+    select x, n from (
+      select x, n from jsonb_array_elements(case when jsonb_typeof(p_old -> 'earlierReports') = 'array' then p_old -> 'earlierReports' else '[]'::jsonb end)
+        with ordinality as e(x, n)
+      where jsonb_typeof(x) = 'object'
+      union all
+      select jsonb_build_object('reason', p_reason, 'note', coalesce(p_note, ''), 'context', p_context, 'at', p_at), 1000000) a
+    order by n desc limit 10) b
+$$;
+
 -- A report is backed by contact when the reporter's account is ≥ 7 days old and the target
 -- reached them through what an auto-mute silences — a DM, a co-op invite or a friend request —
 -- in the last 7 days and after p_since (the reporter's previous counted report: a repeat needs
@@ -1168,6 +1264,9 @@ begin
      and (select count(*) from blocks where blocker_id = v_me) >= 200 then
     raise exception 'invalid: you blocked 200 players — unblock someone first';
   end if;
+  -- both players' co-op rooms first (a fixed order: two blocks at once never deadlock): a
+  -- join_room() at the same moment waits for this block and then reads 'full'
+  perform 1 from coop_rooms where host_id in (v_me, p_user) order by code for update;
   insert into blocks (blocker_id, blocked_id) values (v_me, p_user) on conflict do nothing;
   delete from friends where (user_id = v_me and friend_id = p_user) or (user_id = p_user and friend_id = v_me);
   -- their pending request to me is swallowed (a shadow: they keep seeing "Requested", exactly as
@@ -1178,9 +1277,12 @@ begin
   update friend_requests set status = 'cancelled', sender_hidden = true, created_at = now()
     where from_id = v_me and to_id = p_user and status = 'pending';
   -- co-op: in my room their seat goes and the secret changes (the Realtime channel they know goes
-  -- dead; my reopen gets the new secret); in their room I give up my seat. join_room() answers a
-  -- blocked pair 'full' from now on.
-  update coop_rooms set guest_id = null, secret = random_code(16) where host_id = v_me and guest_id = p_user;
+  -- dead; my reopen gets the new secret) — also when they sat in it earlier and left (they still
+  -- know its secret), unless someone else has the seat now; in their room I give up my seat.
+  -- join_room() answers a blocked pair 'full' from now on.
+  update coop_rooms r set guest_id = case when r.guest_id = p_user then null else r.guest_id end, secret = random_code(16)
+    where r.host_id = v_me and (r.guest_id = p_user or (r.guest_id is null and exists (
+      select 1 from coop_partners cp where cp.user_id = v_me and cp.partner_id = p_user and cp.last_at >= r.created_at)));
   update coop_rooms set guest_id = null where host_id = p_user and guest_id = v_me;
 end $$;
 
@@ -1401,6 +1503,7 @@ declare
   v_prev timestamptz;
   v_recent boolean;
   v_new boolean;
+  v_ev jsonb;
 begin
   if p_target is null or p_target = v_me then raise exception 'invalid: you can''t report yourself'; end if;
   select * into p from profiles where id = p_target;
@@ -1414,15 +1517,23 @@ begin
   select qualified_at into v_prev from reports where reporter_id = v_me and target_id = p_target and status = 'open';
   v_recent := social_qualified_reporter(v_me, p_target, null);
   v_new := v_recent and (v_prev is null or social_qualified_reporter(v_me, p_target, v_prev));
+  v_ev := social_report_evidence(v_me, p_target, v_ctx, p_message);
+  -- message_id: the message the server found and checked (evidence.message), never the client's number
   insert into reports (reporter_id, target_id, reporter_name, target_name, reason, note, context, message_id, evidence, qualified, qualified_at)
-    values (v_me, p_target, coalesce((select name from profiles where id = v_me), ''), p.name, p_reason, v_note, v_ctx, p_message,
-      social_report_evidence(v_me, p_target, v_ctx, p_message), v_recent, case when v_new then now() else v_prev end)
-    -- a repeat report adds its evidence to the earlier one's (the abusive line reported first
-    -- must never be replaced by the harmless lines that followed it)
+    values (v_me, p_target, coalesce((select name from profiles where id = v_me), ''), p.name, p_reason, v_note, v_ctx,
+      (v_ev -> 'message' ->> 'id')::bigint, v_ev, v_recent, case when v_new then now() else v_prev end)
+    -- a repeat report adds to the earlier one, never replaces it: its evidence joins the earlier
+    -- evidence (the abusive line reported first is never pushed out by the harmless lines that
+    -- followed it), "Asked for personal info" stays the reason, an empty note keeps the earlier
+    -- note, and every earlier reason / note / place is kept in evidence.earlierReports
     on conflict (reporter_id, target_id) where status = 'open' do update set
-      reason = excluded.reason, note = excluded.note, context = excluded.context,
+      reason = case when reports.reason = 'personal_info' then reports.reason else excluded.reason end,
+      note = case when excluded.note = '' then reports.note else excluded.note end,
+      context = excluded.context,
       message_id = coalesce(excluded.message_id, reports.message_id),
-      evidence = social_merge_evidence(reports.evidence, excluded.evidence), target_name = excluded.target_name,
+      evidence = social_merge_evidence(reports.evidence, excluded.evidence)
+        || jsonb_build_object('earlierReports', social_earlier_reports(reports.evidence, reports.reason, reports.note, reports.context, reports.updated_at)),
+      target_name = excluded.target_name,
       qualified = excluded.qualified, qualified_at = excluded.qualified_at, updated_at = now();
   perform social_maybe_auto_mute(p_target);
 end $$;
@@ -1526,7 +1637,9 @@ begin
   exception when unique_violation then
     raise exception 'daily_limit:%', ms_to_game_reset();
   end;
+  perform set_config('ss.about', array[v_me]::text, true); -- the notice is about me (messages.about)
   perform system_message('clan:' || c.id::text, me.name || ' asks for ' || di.request_size || ' × ' || di.name || '. Clan → Requests to help!');
+  perform set_config('ss.about', '', true);
   return social_request_json(r, v_me);
 end $$;
 
@@ -1558,6 +1671,7 @@ declare
   v_today int;
   v_points int;
   v_names text[];
+  v_donors uuid[];
 begin
   if p_key is null then raise exception 'invalid: missing donation key'; end if;
   perform pg_advisory_xact_lock(hashtext(v_me::text || ':donate'));
@@ -1618,11 +1732,14 @@ begin
     where id = r.id returning * into r;
   update clans set xp = xp + v_points where id = r.clan_id;
   if r.status = 'filled' then
-    select array_agg(n order by first_id) into v_names from (
-      select min(id) as first_id, donor_name as n from donations where request_id = r.id group by donor_id, donor_name) s;
+    select array_agg(n order by first_id), array_agg(u order by first_id) into v_names, v_donors from (
+      select min(id) as first_id, donor_name as n, donor_id as u from donations where request_id = r.id group by donor_id, donor_name) s;
+    -- the notice is about the requester and the donors it names (messages.about)
+    perform set_config('ss.about', array_remove(array[r.user_id] || v_donors[1:2], null)::text, true);
     perform system_message('clan:' || r.clan_id::text, r.user_name || '''s request is filled — thanks '
       || array_to_string(v_names[1:2], ', ')
       || case when cardinality(v_names) > 2 then ' +' || (cardinality(v_names) - 2) else '' end || '!');
+    perform set_config('ss.about', '', true);
   end if;
   update profiles set last_active = now() where id = v_me;
   if random() < 0.01 then perform social_housekeeping(); end if;
@@ -1697,13 +1814,62 @@ end $$;
 -- 6. Triggers and the one re-created function of the first migration
 -- =============================================================================================
 
+-- Who a system notice is about (messages.about), or null. The social notices name their players
+-- themselves (ss.about: request_materials, donate). The first migration's notices come right
+-- after the clan_members change they announce, which clan_members_notice_subject remembers for
+-- the transaction: "X joined the clan." → the member just added, "X left the clan." / "X was
+-- removed from the clan." → the member just removed, "X is the new leader." / "X is now officer."
+-- → the member whose role just changed — and only when the notice starts with that player's name.
+create or replace function public.social_notice_about(p_channel text, p_body text) returns uuid[]
+language plpgsql stable security invoker set search_path = public, pg_temp as $$
+declare
+  v text := coalesce(current_setting('ss.about', true), '');
+  k uuid;
+begin
+  if v <> '' then return v::uuid[]; end if;
+  if coalesce(p_channel, '') !~ '^clan:' then return null; end if;
+  v := case
+    when p_body like '% joined the clan.' then current_setting('ss.about_join', true)
+    when p_body like '% left the clan.' or p_body like '% was removed from the clan.' then current_setting('ss.about_leave', true)
+    when p_body like '% is the new leader.' or p_body ~ ' is now (leader|officer|member)\.$' then current_setting('ss.about_role', true)
+  end;
+  if coalesce(v, '') = '' then return null; end if;
+  k := v::uuid;
+  if not (starts_with(p_body, coalesce((select name from profiles where id = k), '') || ' ') or p_body ~ '^A (sensei|member) ') then
+    return null;
+  end if;
+  return array[k];
+end $$;
+
+-- Remembers (for this transaction) the member a clan notice of the first migration is about.
+create or replace function public.clan_members_notice_subject() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if tg_op = 'INSERT' then
+    perform set_config('ss.about_join', new.user_id::text, true);
+  elsif tg_op = 'DELETE' then
+    perform set_config('ss.about_leave', old.user_id::text, true);
+  elsif new.role is distinct from old.role then
+    perform set_config('ss.about_role', new.user_id::text, true);
+  end if;
+  return null;
+end $$;
+drop trigger if exists clan_members_notice_subject on public.clan_members;
+create trigger clan_members_notice_subject after insert or delete or update of role on public.clan_members
+  for each row execute function public.clan_members_notice_subject();
+
 -- Chat guard (a SEPARATE trigger, so a re-run of the first migration cannot undo it; it fires
 -- after messages_rate_limit): owner mutes also silence chat, chat bodies follow the DM text rule,
--- and a clan co-op invite names a campaign stage. System notices pass.
+-- and a clan co-op invite names a campaign stage. System notices pass, stamped with who they are
+-- about (messages.about); a player's own line never carries one.
 create or replace function public.messages_social_guard() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
-  if coalesce(current_setting('ss.system', true), '') = '1' then return new; end if;
+  if coalesce(current_setting('ss.system', true), '') = '1' then
+    new.about := social_notice_about(new.channel, new.body);
+    return new;
+  end if;
+  new.about := null;
   if exists (select 1 from social_mutes where user_id = auth.uid() and created_by = 'owner' and until > now()) then
     raise exception 'forbidden: you can''t send messages right now';
   end if;
@@ -1732,6 +1898,7 @@ begin
   -- (what the first migration's profiles_name_valid check refuses, it answers itself)
   if not valid_display_name(new.name) then return new; end if;
   if not visible_name(new.name) then raise exception 'invalid: names need visible letters'; end if;
+  if lookalike_mix(new.name) then raise exception 'invalid: names can''t mix in look-alike letters from other alphabets'; end if;
   if reserved_name(new.name) then raise exception 'invalid: that name is reserved'; end if;
   return new;
 end $$;
@@ -1769,12 +1936,12 @@ create trigger clan_members_dev_lab after delete on public.clan_members
 -- Clans: the text rules for NEW and CHANGED clans only (a trigger, never a constraint or a
 -- unique index: live clans from before this file, a "Moon Clan" next to a "MoonClan" or a player
 -- clan with the 'wiki' emblem, keep working and the paste never fails on them). The name follows
--- the DM text rule and has visible letters (no zero-width or right-to-left tricks), no reserved
--- or staff-looking name, no look-alike of an existing clan's name (name_key: 'Moon-Clan' next to
--- 'Moon Clan'; names without Latin letters or digits are only compared exactly); the
--- description follows the DM text rule; the tag and the emblem never look like the developer
--- clan's (reserved_clan_tag, 'wiki'). The developer clan itself is exempt. src/online/clanRules.js
--- validateClan() mirrors it.
+-- the DM text rule and has visible letters (no zero-width or right-to-left tricks), no Latin
+-- letters mixed with look-alike ones ('ᎠEV Lab': lookalike_mix), no reserved or staff-looking
+-- name, no look-alike of an existing clan's name (clan_name_key: 'Moon-Clan' next to 'Moon Clan',
+-- 'さくら組' with a zero-width joiner next to 'さくら組'); the description follows the DM text
+-- rule; the tag and the emblem never look like the developer clan's (reserved_clan_tag, 'wiki').
+-- The developer clan itself is exempt. src/online/clanRules.js validateClan() mirrors it.
 create or replace function public.clans_text_rules() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -1796,12 +1963,13 @@ begin
     if not (valid_dm_body(new.name) and visible_name(new.name)) or new.name ~ '[<>]' then
       raise exception 'invalid: clan names need visible letters';
     end if;
+    if lookalike_mix(new.name) then raise exception 'invalid: clan names can''t mix in look-alike letters from other alphabets'; end if;
     if reserved_clan_name(new.name) then raise exception 'invalid: that clan name is reserved'; end if;
-    v_key := name_key(new.name);
+    v_key := clan_name_key(new.name);
     if v_key <> '' then
       -- one look-alike check at a time per spelling (two "Moon Clan"s at the same moment)
       perform pg_advisory_xact_lock(hashtext('clan_name:' || v_key));
-      if exists (select 1 from clans c where c.id <> new.id and name_key(c.name) = v_key) then
+      if exists (select 1 from clans c where c.id <> new.id and clan_name_key(c.name) = v_key) then
         raise exception 'name_taken: a clan with that name already exists';
       end if;
     end if;
@@ -1942,19 +2110,20 @@ begin
     select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = any (array[
       'game_clock', 'game_day_key', 'next_game_reset', 'ms_to_game_reset', 'valid_dm_body', 'valid_dm_meta', 'visible_name',
-      'name_key', 'name_words', 'reserved_name', 'reserved_clan_name', 'reserved_clan_tag', 'social_name_ok', 'profiles_name_rules',
+      'name_fold', 'name_key', 'name_words', 'name_camel', 'lookalike_mix', 'clan_name_key', 'reserved_name', 'reserved_clan_name',
+      'reserved_clan_tag', 'social_name_ok', 'profiles_name_rules',
       'expire_coop_invites',
       'social_me', 'social_is_blocked', 'social_are_friends', 'social_clanmates', 'social_privacy', 'social_dm_allows', 'social_muted',
       'social_dm_why', 'social_why_text', 'social_friend_count', 'social_friend_state', 'social_friend_context', 'social_befriend',
       'social_request_friend', 'social_thread_for', 'social_invite_state', 'social_dm_json', 'social_housekeeping', 'social_after_dm',
-      'social_report_evidence', 'social_merge_evidence', 'social_qualified_reporter', 'social_maybe_auto_mute', 'social_clan_established',
-      'social_request_json',
+      'social_report_evidence', 'social_merge_evidence', 'social_earlier_reports', 'social_qualified_reporter', 'social_maybe_auto_mute',
+      'social_clan_established', 'social_request_json', 'social_notice_about',
       'social_version', 'social_summary', 'player_card', 'set_dm_privacy', 'my_friend_code', 'reset_friend_code', 'send_friend_request',
       'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests',
       'invite_candidates', 'block_player', 'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read',
       'dm_clear', 'invite_state', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate',
       'settle_donations', 'claim_donations', 'messages_social_guard', 'profiles_rename_limit', 'clan_members_dev_lab',
-      'clans_text_rules', 'clan_members_kick_ban', 'clan_members_ban_check'])
+      'clans_text_rules', 'clan_members_kick_ban', 'clan_members_ban_check', 'clan_members_notice_subject'])
   loop
     execute format('revoke all on function %s from public, anon, authenticated', r.sig);
   end loop;

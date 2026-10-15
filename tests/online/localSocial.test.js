@@ -779,3 +779,86 @@ describe('local social server: judge re-verification fixes', () => {
     expect(db.sendDm('B', 'A', 'hello').body).toBe('hello');
   });
 });
+
+describe('local social server: final verification (R1, R3, R4)', () => {
+  const befriend = (env, x, y) => env.edit((s) => {
+    s.social.friends[x] = { ...(s.social.friends[x] || {}), [y]: env.clock.t };
+    s.social.friends[y] = { ...(s.social.friends[y] || {}), [x]: env.clock.t };
+  });
+
+  it('R1 a repeat report keeps the child\'s reason and note; every earlier one stays; messageId is the checked message', () => {
+    const env = setup();
+    const { db, clock } = env;
+    befriend(env, 'A', 'B');
+    const bad = db.sendDm('A', 'B', 'whats your school and your address');
+    const report = (r) => {
+      clock.t += 2.5 * H; // (10 reports a day)
+      db.report('B', 'A', r);
+      return db.reports()[0];
+    };
+    report({ reason: 'personal_info', note: 'he asked for my school and my address', context: 'dm', messageId: bad.id });
+    let r = report({ reason: 'spam', note: '', context: 'profile' });
+    expect(r).toMatchObject({ reason: 'personal_info', note: 'he asked for my school and my address', context: 'profile', messageId: bad.id });
+    expect(r.evidence.earlierReports).toEqual([expect.objectContaining({ reason: 'personal_info', note: 'he asked for my school and my address', context: 'dm' })]);
+    r = report({ reason: 'bullying', note: 'now he is mean', context: 'dm', messageId: 999999 });
+    expect(r).toMatchObject({ reason: 'personal_info', note: 'now he is mean', messageId: bad.id });
+    expect(r.evidence.earlierReports.map((e) => e.context)).toEqual(['dm', 'profile']);
+    for (let i = 0; i < 10; i++) r = report({ reason: 'other', note: `note ${i}`, context: 'profile' });
+    expect(r.evidence.earlierReports).toHaveLength(10);
+    expect(r.evidence.earlierReports.at(-1).note).toBe('note 8');
+    // my own DM's id is no evidence: no message, no messageId
+    const mine = db.sendDm('B', 'A', 'hi');
+    clock.t += 11000;
+    db.report('C', 'A', { reason: 'other', context: 'dm', messageId: mine.id });
+    expect(db.reports().find((x) => x.reporterId === 'C')).toMatchObject({ messageId: null, evidence: { message: null } });
+  });
+
+  it('R3 blocking a player who sat in my room earlier changes its secret too (not when someone else has the seat)', () => {
+    const env = setup();
+    const { db, clock } = env;
+    const tick = () => { clock.t += 1100; };
+    const s1 = db.openRoom('A', 'KXR01').secret;
+    expect(db.joinRoom('B', 'KXR01').secret).toBe(s1);
+    db.leaveRoom('B', 'KXR01');
+    db.block('A', 'B');
+    tick();
+    const s2 = db.openRoom('A', 'KXR01').secret;
+    expect(s2).not.toBe(s1);
+    tick();
+    expect(db.joinRoom('C', 'KXR01').secret).toBe(s2);
+    db.unblock('A', 'B');
+    db.block('A', 'B');
+    tick();
+    expect(db.openRoom('A', 'KXR01').secret).toBe(s2); // C keeps the seat and the connection
+    db.block('A', 'D'); // never sat in it: nothing changes
+    tick();
+    expect(db.openRoom('A', 'KXR01').secret).toBe(s2);
+  });
+
+  it('R4 clan notices say who they are about: joins, leaves, kicks, roles, a new leader, requests, a filled request', () => {
+    const env = setup();
+    const { db, clock, edit } = env;
+    const c = clan(env, ['A', 'B', 'C', 'D']);
+    db.setRole('A', 'C', 'officer');
+    db.updateProfile?.('B', { name: 'Bea Renamed' });
+    db.leaveClan('B');
+    db.joinClan('B', c.id);
+    db.kick('C', 'B');
+    edit((s) => { for (const m of Object.values(s.members)) if (m.clanId === c.id) m.joinedAt -= 100 * H; });
+    db.requestMaterials('A', 'mat_feather_rare');
+    const req = db.donationState('D').requests[0];
+    clock.t += 1000;
+    db.donate('D', req.id, 3, KEY(9101));
+    clock.t += 1000;
+    db.donate('C', req.id, 3, KEY(9102));
+    clock.t += 11 * 60000;
+    db.leaveClan('A');
+    const notices = db.history('C', `clan:${c.id}`).filter((m) => m.kind === 'system').map((m) => [m.body.replace(/^\S+( Renamed)?/, 'X'), (m.about || []).join('+')]);
+    expect(notices).toEqual([
+      ['X joined the clan.', 'A'], ['X joined the clan.', 'B'], ['X joined the clan.', 'C'], ['X joined the clan.', 'D'], ['X is now officer.', 'C'],
+      ['X left the clan.', 'B'], ['X joined the clan.', 'B'], ['X was removed from the clan.', 'B'],
+      ['X asks for 6 × Swallow Plume. Clan → Requests to help!', 'A'], ['X request is filled — thanks Dara, Cleo!', 'A+D+C'],
+      ['X is the new leader.', 'C'], ['X left the clan.', 'A'],
+    ]);
+  });
+});

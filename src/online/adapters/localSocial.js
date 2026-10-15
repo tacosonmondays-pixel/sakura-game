@@ -66,6 +66,15 @@ export function mergeEvidence(old, next) {
 }
 
 /**
+ * SQL social_earlier_reports: what a repeat report keeps of the report it adds to — every earlier
+ * reason, note (the child's own words) and place, oldest first, the newest 10.
+ */
+export function earlierReports(oldEvidence, { reason, note, context, updatedAt }) {
+  const list = Array.isArray(oldEvidence?.earlierReports) ? oldEvidence.earlierReports.filter((r) => r && typeof r === 'object') : [];
+  return [...list, { reason, note: note || '', context, at: updatedAt }].slice(-10);
+}
+
+/**
  * @param {{ tx: Function, rate: Function, retry: Function, now: () => number, rand: () => number, code: (n: number) => string,
  *   systemMessage: Function, devClanId: string, enabled: () => boolean }} ctx
  */
@@ -528,9 +537,11 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           else if (r.fromId === uid && r.toId === userId && r.status === 'pending') Object.assign(r, { status: 'cancelled', senderHidden: true, at: now() });
         }
         // co-op (SQL block_player): my room frees their seat and changes its secret (their channel
-        // goes dead); in their room I give up my seat
+        // goes dead) — also when they sat in it earlier and left, unless someone else has the seat
+        // now; in their room I give up my seat
+        const playedHere = (room) => (x.partners[uid]?.[userId] ?? -Infinity) >= room.createdAt;
         for (const room of Object.values(s.rooms || {})) {
-          if (room.hostId === uid && room.guestId === userId) Object.assign(room, { guestId: null, secret: code(16) });
+          if (room.hostId === uid && (room.guestId === userId || (room.guestId == null && playedHere(room)))) Object.assign(room, { guestId: null, secret: code(16) });
           else if (room.hostId === userId && room.guestId === uid) room.guestId = null;
         }
         return true;
@@ -591,9 +602,18 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         const recent = contactSince(s, x, uid, target, null);
         const fresh = recent && (prev == null || contactSince(s, x, uid, target, prev));
         const qualifiedAt = fresh ? now() : prev;
-        // a repeat report adds its evidence to the earlier one's (never replaces it)
-        if (open) Object.assign(open, { reason, note: n, context, messageId: messageId ?? open.messageId, evidence: mergeEvidence(open.evidence, evidence), qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name });
-        else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId, evidence, qualified: recent, qualifiedAt, status: 'open', createdAt: now(), updatedAt: now() });
+        // messageId: the message found and checked above (SQL: evidence.message), never the client's number
+        const checkedId = message ? message.id : null;
+        // a repeat report adds to the earlier one, never replaces it: the evidence joins, "Asked for
+        // personal info" stays the reason, an empty note keeps the earlier note, and every earlier
+        // reason / note / place is kept (evidence.earlierReports)
+        if (open) {
+          Object.assign(open, {
+            reason: open.reason === 'personal_info' ? open.reason : reason, note: n || open.note, context, messageId: checkedId ?? open.messageId,
+            evidence: { ...mergeEvidence(open.evidence, evidence), earlierReports: earlierReports(open.evidence, open) },
+            qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name,
+          });
+        } else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId: checkedId, evidence, qualified: recent, qualifiedAt, status: 'open', createdAt: now(), updatedAt: now() });
         // SQL: social_maybe_auto_mute
         const reporters = new Set(x.reports.filter((r) => r.targetId === target && r.status === 'open' && r.qualifiedAt != null && r.qualifiedAt > now() - AUTO_MUTE.windowHours * H).map((r) => r.reporterId));
         if (reporters.size >= AUTO_MUTE.reporters) {
@@ -807,7 +827,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           wanted: rule.size, received: 0, gameDay: today(), status: 'open', createdAt: now(), closedAt: null,
         };
         x.donReqs.push(r);
-        systemMessage(s, `clan:${c.id}`, `${me.name} asks for ${rule.size} × ${rule.name}. Clan → Requests to help!`, topics);
+        systemMessage(s, `clan:${c.id}`, `${me.name} asks for ${rule.size} × ${rule.name}. Clan → Requests to help!`, topics, [uid]);
         topics.add(`donate:${c.id}`);
         return reqOut(x, r, uid);
       });
@@ -873,8 +893,16 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         if (clan) clan.xp += points * CLAN_XP_PER_POINT;
         if (r.status === 'filled') {
           const names = [];
-          for (const d of x.donations.filter((y) => y.requestId === r.id).sort((a, b) => a.id - b.id)) if (!names.includes(d.donorName)) names.push(d.donorName);
-          systemMessage(s, `clan:${r.clanId}`, `${r.userName}'s request is filled — thanks ${names.slice(0, 2).join(', ')}${names.length > 2 ? ` +${names.length - 2}` : ''}!`, topics);
+          const donors = [];
+          for (const d of x.donations.filter((y) => y.requestId === r.id).sort((a, b) => a.id - b.id)) {
+            if (!names.includes(d.donorName)) {
+              names.push(d.donorName);
+              donors.push(d.donorId);
+            }
+          }
+          // about the requester and the donors it names (SQL: messages.about)
+          systemMessage(s, `clan:${r.clanId}`, `${r.userName}'s request is filled — thanks ${names.slice(0, 2).join(', ')}${names.length > 2 ? ` +${names.length - 2}` : ''}!`, topics,
+            [r.userId, ...donors.slice(0, 2)].filter(Boolean));
         }
         me.lastActive = now();
         housekeeping(s, x);

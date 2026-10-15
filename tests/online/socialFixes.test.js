@@ -20,6 +20,16 @@
 //   M3/F4 a kick bans a self-join for 7 days (open and code), an officer's accept lifts it
 //   M4    Friends only by default · L1 (#6) a blocker's request is gone · L2 a block swallows the
 //         blocked player's request · L3 marks of every script · L4 staff words inside names
+// and the final verification (the last round before the owner pastes the file):
+//   R1 a repeat report keeps the child's reason ("Asked for personal info") and note, and every
+//      earlier reason / note / place (evidence.earlierReports); message_id is the checked message
+//   R2 look-alike letters of other alphabets (Cherokee, Lisu, small capitals, Armenian…), letters
+//      spelled one by one ('D.E.V.'), camel case ('GMRosie') and invisible characters inside a word
+//      no longer get past the staff / developer name rules; 'さくら Clan' and 'ひまわり Clan' coexist
+//   R3 blocking a player who sat in my room earlier changes its secret too
+//   R4 clan system notices carry who they are about (messages.about), so the chat hides them by
+//      account, whatever the blocked player's name is now
+//   R5 the paste waits for one quiet moment and takes its locks at once (no "deadlock detected")
 // tests/online/localSocial.test.js runs the same scenarios against the local mirror.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -27,7 +37,7 @@ import { join } from 'node:path';
 import { MIGRATIONS_DIR, MIGRATION_FILES, PGlite, createDb, refused } from './pgHarness.js';
 import { validMessageBody } from '../../src/online/socialRules.js';
 import { validateName, validateClan, reservedName, reservedClanName, reservedClanTag, RESERVED_NAMES } from '../../src/online/clanRules.js';
-import { nameKey, nameWords, LOOKALIKE_FROM, LOOKALIKE_TO, nameLooksBlank } from '../../src/online/textRules.js';
+import { nameKey, nameWords, nameCamel, mixesLookalikes, clanNameKey, LOOKALIKE_FROM, LOOKALIKE_TO, nameLooksBlank } from '../../src/online/textRules.js';
 import { VOID_KEY_KEEP_DAYS, VOID_KEY_MAX } from '../../src/online/donateRules.js';
 
 const FIRST = readFileSync(join(MIGRATIONS_DIR, MIGRATION_FILES[0]), 'utf8');
@@ -43,6 +53,11 @@ describe('social migration fixes (lint)', () => {
     expect(SOCIAL).toMatch(/create trigger profiles_name_rules before insert or update of name on public\.profiles/);
     expect(SOCIAL).toContain(`'${LOOKALIKE_FROM}',\n    '${LOOKALIKE_TO}'`);
     expect([...LOOKALIKE_FROM].length).toBe(LOOKALIKE_TO.length);
+    expect(new Set(LOOKALIKE_FROM).size).toBe([...LOOKALIKE_FROM].length); // translate() takes the first of a repeat, the JS map the last
+    // R5: before anything else, one quiet moment (all locks at once, NOWAIT, retried; never a deadlock)
+    const firstStatement = SOCIAL.slice(SOCIAL.indexOf('\ndo $$'));
+    expect(SOCIAL.indexOf('\ndo $$')).toBeLessThan(SOCIAL.indexOf('create or replace function'));
+    expect(firstStatement).toMatch(/^\ndo \$\$[\s\S]*?in access exclusive mode nowait[\s\S]*?exception when lock_not_available then[\s\S]*?end \$\$;/);
     expect(SOCIAL).toContain(`array[${RESERVED_NAMES.map((n) => `'${n}'`).join(', ')}]`);
     expect(SOCIAL).toContain(`interval '${VOID_KEY_KEEP_DAYS} days'`);
     expect(SOCIAL).toContain(`> ${VOID_KEY_MAX} then`);
@@ -526,7 +541,7 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
 
     it('L4 staff words inside names and gm / dev / mod as words are reserved, digits read as letters (JS and SQL agree)', async () => {
       const names = ['GM Rosie', 'Staff Hana', 'SupplyB0t', 'Adm1n', 'Dev Rosie', 'System', 'Systemic', 'Sakura Sentine1s', 'M0D Kai', 'Ｄｅｖ　Ｒｏｓｉｅ', 'Unofficial',
-        'Aiko', 'Modé', 'Devi', 'Badminton Kid', 'Mika-chan 2', '桜ミカ', 'Sensei7051', 'DevTester', 'Rosie777'];
+        'DevTester', 'Aiko', 'Modé', 'Devi', 'Devon', 'Badminton Kid', 'Mika-chan 2', '桜ミカ', 'Sensei7051', 'Rosie777'];
       const rows = (await sup('select x, public.reserved_name(x) as r, public.name_words(x) as w, public.social_name_ok(x) as ok, public.reserved_clan_name(x) as c from unnest($1::text[]) x', [names])).rows;
       for (const { x, r, w, ok, c } of rows) {
         expect([x, w]).toEqual([x, nameWords(x)]);
@@ -534,13 +549,179 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
         expect([x, ok]).toEqual([x, !validateName(x)]);
         expect([x, c]).toEqual([x, reservedClanName(x)]);
       }
-      expect(rows.filter((x) => x.r).map((x) => x.x)).toEqual(names.slice(0, 11));
+      expect(rows.filter((x) => x.r).map((x) => x.x)).toEqual(names.slice(0, 12));
       const tags = ['DEV', 'D3V', 'M0D', 'GM', 'B0T', 'PS', 'KID', 'MOON', 'GMR'];
       const tagRows = (await sup('select x, public.reserved_clan_tag(x) as r from unnest($1::text[]) x', [tags])).rows;
       for (const { x, r } of tagRows) expect([x, r]).toEqual([x, reservedClanTag(x)]);
       expect(tagRows.filter((x) => x.r).map((x) => x.x)).toEqual(['DEV', 'D3V', 'M0D', 'GM', 'B0T']);
       // the profile trigger refuses them as new names
       await refused(as(P(37), 'update profiles set name = $2 where id = $1', [P(37), 'Staff Hana']), /invalid: that name is reserved/);
+    });
+  });
+
+  describe('final verification (R1–R5)', () => {
+    let db; let as; let one;
+    const sup = (text, params) => db.query(text, params);
+    const clearRate = (uid) => sup('delete from rate_events where user_id = $1', [uid]);
+    const age = (uid, days) => db.exec(`set session_replication_role = replica;
+      update profiles set created_at = now() - interval '${Number(days)} days' where id = '${uid}';
+      set session_replication_role = default;`);
+    const Q = (i) => U(800 + i);
+    const users = Array.from({ length: 16 }, (_, i) => [Q(i), `Q${800 + i}`]);
+
+    beforeAll(async () => {
+      ({ db, as, one } = await createDb({ defaultGrants: false, users }));
+    }, 90000);
+
+    it('R1 a repeat report keeps the child\'s reason and note; every earlier reason / note / place stays; message_id is the checked message', async () => {
+      const [K, X] = [Q(0), Q(1)];
+      await age(K, 30);
+      await sup('insert into friends values ($1, $2, now()), ($2, $1, now())', [K, X]);
+      const [bad] = await as(X, 'select (send_dm($1, $2) ->> \'id\')::bigint as id', [K, 'what school do you go to? whats your address']);
+      const report = async (reason, note, ctx, msg) => {
+        await clearRate(K);
+        await as(K, 'select report_player($1, $2, $3, $4, $5)', [X, reason, note, ctx, msg]);
+        return (await sup('select reason, note, context, message_id, evidence from reports where reporter_id = $1', [K])).rows[0];
+      };
+      let r = await report('personal_info', 'he asked for my school and my address', 'dm', bad.id);
+      expect(Number(r.message_id)).toBe(Number(bad.id));
+      r = await report('spam', '', 'profile', null);
+      expect(r).toMatchObject({ reason: 'personal_info', note: 'he asked for my school and my address', context: 'profile' });
+      expect(Number(r.message_id)).toBe(Number(bad.id));
+      expect(r.evidence.earlierReports).toEqual([expect.objectContaining({ reason: 'personal_info', note: 'he asked for my school and my address', context: 'dm' })]);
+      r = await report('bullying', 'now he is mean', 'dm', 999999); // a message id that is not theirs: not stored
+      expect(r).toMatchObject({ reason: 'personal_info', note: 'now he is mean', context: 'dm' });
+      expect(Number(r.message_id)).toBe(Number(bad.id));
+      expect(r.evidence.earlierReports.map((e) => [e.reason, e.note, e.context])).toEqual([
+        ['personal_info', 'he asked for my school and my address', 'dm'], ['personal_info', 'he asked for my school and my address', 'profile']]);
+      expect(r.evidence.message.body).toBe('what school do you go to? whats your address');
+      // a report of my own DM's id: the evidence has no message, and neither has message_id
+      const [K2] = [Q(2)];
+      await sup('insert into friends values ($1, $2, now()), ($2, $1, now())', [K2, X]);
+      const [mine] = await as(K2, 'select (send_dm($1, $2) ->> \'id\')::bigint as id', [X, 'hi']);
+      await as(K2, 'select report_player($1, $2, $3, $4, $5)', [X, 'other', '', 'dm', mine.id]);
+      expect((await sup('select message_id, evidence -> \'message\' as m from reports where reporter_id = $1', [K2])).rows[0]).toEqual({ message_id: null, m: null });
+      // ten more repeats: earlierReports keeps the newest 10
+      for (let i = 0; i < 10; i++) r = await report('other', `note ${i}`, 'profile', null);
+      expect(r.evidence.earlierReports).toHaveLength(10);
+      expect(r.evidence.earlierReports.at(-1).note).toBe('note 8');
+      expect(r.reason).toBe('personal_info');
+    });
+
+    it('R2 look-alike letters, letters one by one, camel case and invisible characters never pass for staff or the developer clan (JS and SQL agree)', async () => {
+      const names = [
+        `${cp(0x13a0)}EV Rosie`, `${cp(0x13a0)}ev Rosie`, `${cp(0x1d05, 0x1d07, 0x1d20)} Rosie`, `${cp(0xa4e2)}taff Hana`, `${cp(0x13aa)}dmin`, `${cp(0x13da)}upply Bot`,
+        'GMRosie', 'DevRosie', 'G.M. Rosie', 'D.E.V. Team', 'DevTeam', `D${cp(0xfe0f)}ev Rosie`, `G${cp(0xfe0f)}M Rosie`, `M${cp(0xfe0f)}od Rosie`, `D${cp(0xe0100)}ev Rosie`,
+        `D${cp(0x180b)}ev Rosie`, `${cp(0x15ea, 0x15f4, 0x142f)}`, `${cp(0x1f173, 0x1f174, 0x1f185)} Rosie`, `${cp(0x110)}ev Rosie`, `${cp(0x54f)}ystem`];
+      const fine = ['Devon', 'Devi', 'Modé', 'Mia Rose', 'Bjørn', 'さくら', 'Sensei7051', 'Rosie777', 'Aiko-chan', 'McKenzie'];
+      const rows = (await sup(`select x, public.reserved_name(x) as r, public.lookalike_mix(x) as m, public.name_words(x) as w, public.name_camel(x) as c,
+        public.name_key(x) as k, public.clan_name_key(x) as ck from unnest($1::text[]) x`, [[...names, ...fine]])).rows;
+      for (const { x, r, m, w, c, k, ck } of rows) {
+        expect([x, w, c, k, ck, m, r]).toEqual([x, nameWords(x), nameCamel(x), nameKey(x), clanNameKey(x), mixesLookalikes(x), reservedName(x)]);
+        expect([x, r || m]).toEqual([x, names.includes(x)]);
+      }
+      // new names: the profile trigger refuses every one of them, and so does the client
+      for (const [i, x] of names.entries()) {
+        await clearRate(Q(3));
+        await refused(as(Q(3), 'update profiles set name = $2 where id = $1', [Q(3), x]), /invalid: (that name is reserved|names can't mix in look-alike letters)/);
+        expect(validateName(x), `${i} ${x}`).toBeTruthy();
+      }
+      await as(Q(3), 'update profiles set name = $2 where id = $1', [Q(3), 'Bjørn']);
+      // clans: the verifier's fake developer clans and staff clans are refused
+      const make = async (who, name, tag) => {
+        await clearRate(who);
+        await sup('delete from clans where leader_id = $1', [who]);
+        return as(who, 'select name from create_clan($1, $2, $3, $4, $5)', [name, tag, 'assault', 'open', '']);
+      };
+      for (const n of [`Sakura ${cp(0x13a0)}EV Lab`, `Sakura ${cp(0x13a0)}ev Lab`, `Sakura ${cp(0x1d05, 0x1d07, 0x1d20)} Lab`, `${cp(0x13aa)}dmin Clan`, `${cp(0xa4e2)}taff Team`,
+        `${cp(0x13be)}fficial Clan`, `${cp(0x54f)}ystem Clan`, 'D.E.V. Team', 'DevTeam', `G${cp(0x200d)}M Clan`, `M${cp(0x200d)}od Clan`, `D${cp(0x200d)}ev Clan`]) {
+        await refused(make(Q(4), n, 'LAB'), /invalid: (that clan name is reserved|clan names can't mix in look-alike letters)/);
+        expect(validateClan({ name: n, tag: 'LAB' }), n).toBeTruthy();
+      }
+      // the same clan name with an invisible joiner is the same name; two Japanese clans with a Latin word are not
+      expect((await make(Q(4), 'さくら組', 'JP'))[0].name).toBe('さくら組');
+      for (const n of [`さくら${cp(0x200d)}組`, `さくら${cp(0xfe0f)}組`, 'さくら 組', 'さくら・組']) await refused(make(Q(5), n, 'JP2'), /name_taken/);
+      expect((await make(Q(5), 'さくら Clan', 'SC'))[0].name).toBe('さくら Clan');
+      expect((await make(Q(6), 'ひまわり Clan', 'HC'))[0].name).toBe('ひまわり Clan');
+    });
+
+    it('R3 blocking a player who sat in my room earlier changes its secret too (not when someone else has the seat now)', async () => {
+      const [K, P, O] = [Q(8), Q(9), Q(10)];
+      const s1 = (await one(K, `select open_room('KXR01') as r`)).secret;
+      expect((await one(P, `select join_room('KXR01') as r`)).secret).toBe(s1);
+      await as(P, `select leave_room('KXR01')`);
+      await as(K, 'select block_player($1)', [P]);
+      const s2 = (await sup(`select secret from coop_rooms where code = 'KXR01'`)).rows[0].secret;
+      expect(s2).not.toBe(s1); // the ex-guest knew s1
+      await clearRate(K);
+      expect((await one(K, `select open_room('KXR01') as r`)).secret).toBe(s2);
+      // someone else holds the seat now: their connection stays (no new secret)
+      await clearRate(O);
+      expect((await one(O, `select join_room('KXR01') as r`)).secret).toBe(s2);
+      await clearRate(K);
+      await as(K, 'select unblock_player($1)', [P]);
+      await clearRate(K);
+      await as(K, 'select block_player($1)', [P]);
+      expect((await sup(`select secret, guest_id from coop_rooms where code = 'KXR01'`)).rows[0]).toEqual({ secret: s2, guest_id: O });
+      // a player who never sat in my room: nothing changes
+      await clearRate(K);
+      await as(K, 'select block_player($1)', [Q(11)]);
+      expect((await sup(`select secret from coop_rooms where code = 'KXR01'`)).rows[0].secret).toBe(s2);
+    });
+
+    it('R4 clan notices say who they are about (join, leave, kick, roles, a new leader, requests, a filled request); players cannot set it', async () => {
+      const [K, P, L, D1] = [Q(12), Q(13), Q(14), Q(15)];
+      const [c] = await as(K, `select * from create_clan('Notice Club', 'NC', 'assault', 'open', '')`);
+      for (const u of [P, L, D1]) {
+        await clearRate(u);
+        await as(u, 'select join_clan($1)', [c.id]);
+      }
+      await as(K, 'select set_role($1, $2)', [L, 'officer']);
+      await as(P, 'update profiles set name = $2 where id = $1', [P, 'Q813 Renamed']);
+      await clearRate(P);
+      await as(P, 'select leave_clan()');
+      await clearRate(P);
+      await as(P, 'select join_clan($1)', [c.id]);
+      await as(L, 'select kick($1)', [P]);
+      // a material request (a day in the clan first)
+      await sup(`update clan_members set joined_at = now() - interval '100 hours' where clan_id = $1`, [c.id]);
+      await one(K, `select request_materials('mat_feather_superRare') as r`);
+      await clearRate(K);
+      await as(K, 'select leave_clan()'); // the leader leaves: L (officer) is the new leader
+      const rows = (await sup(`select body, about from messages where channel = $1 and kind = 'system' order by id`, [`clan:${c.id}`])).rows;
+      const who = { [K]: 'K', [P]: 'P', [L]: 'L', [D1]: 'D1' };
+      const got = rows.map((r) => [r.body.replace(/^Q8\d\d( Renamed)?/, 'X'), (r.about || []).map((u) => who[u]).join('+')]);
+      expect(got).toEqual([
+        ['X joined the clan.', 'K'], ['X joined the clan.', 'P'], ['X joined the clan.', 'L'], ['X joined the clan.', 'D1'], ['X is now officer.', 'L'],
+        ['X left the clan.', 'P'], ['X joined the clan.', 'P'], ['X was removed from the clan.', 'P'],
+        ['X asks for 3 × Hawk Quill. Clan → Requests to help!', 'K'], ['X is the new leader.', 'L'], ['X left the clan.', 'K'],
+      ]);
+      // a player's own line never carries one, and players cannot write the column
+      await clearRate(D1);
+      const [line] = await as(D1, `insert into messages (channel, user_id, body) values ($1, $2, 'hi') returning about`, [`clan:${c.id}`, D1]);
+      expect(line.about).toBeNull();
+      await refused(as(D1, `insert into messages (channel, user_id, body, about) values ($1, $2, 'x', array[$3::uuid])`, [`clan:${c.id}`, D1, K]), /permission denied/);
+    });
+
+    it('R4 a filled request names the requester and the donors it thanks', async () => {
+      const [R, A, B] = [Q(0), Q(1), Q(2)];
+      for (const u of [R, A, B]) {
+        await clearRate(u);
+        await sup('delete from clan_members where user_id = $1', [u]);
+      }
+      const [c] = await as(R, `select * from create_clan('Filled Club', 'FC', 'assault', 'open', '')`);
+      for (const u of [A, B]) {
+        await clearRate(u);
+        await as(u, 'select join_clan($1)', [c.id]);
+      }
+      await sup(`update clan_members set joined_at = now() - interval '100 hours' where clan_id = $1`, [c.id]);
+      for (const u of [R, A, B]) await age(u, 10);
+      const req = await one(R, `select request_materials('mat_feather_rare') as r`);
+      await as(A, 'select donate($1, 3, $2)', [req.id, KEY(8901)]);
+      await as(B, 'select donate($1, 3, $2)', [req.id, KEY(8902)]);
+      const filled = (await sup(`select body, about from messages where channel = $1 and body like '%filled%'`, [`clan:${c.id}`])).rows[0];
+      expect(filled.body).toBe('Q800\'s request is filled — thanks Q801, Q802!');
+      expect(filled.about).toEqual([R, A, B]);
     });
   });
 });

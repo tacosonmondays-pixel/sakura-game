@@ -11,7 +11,7 @@ import {
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
   bossHitCap, bossAllowance, BOSS_ATTEMPT_TTL_MS, MESSAGE_MAX,
 } from '../clanRules.js';
-import { nameKey } from '../textRules.js';
+import { clanNameKey } from '../textRules.js';
 
 const HISTORY_KEEP = 200;
 const TRANSFER_TTL = 24 * 3600 * 1000;
@@ -143,13 +143,14 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     state.requests = state.requests.filter((r) => r.userId !== uid);
     if (!clan.leaderId && !clan.isDev) clan.leaderId = uid;
     clan.xp += CLAN_XP.join;
-    systemMessage(state, `clan:${clan.id}`, `${state.users[uid].name} joined the clan.`, topics);
+    systemMessage(state, `clan:${clan.id}`, `${state.users[uid].name} joined the clan.`, topics, [uid]);
     topics.add(`clan:${clan.id}`).add('clans');
   }
 
-  function systemMessage(state, channel, body, topics) {
+  /** `about`: the players the notice names (SQL messages.about: the chat hides notices about a player the reader blocked). */
+  function systemMessage(state, channel, body, topics, about = null) {
     const list = (state.messages[channel] ||= []);
-    list.push({ id: state.seq++, channel, userId: null, name: 'System', level: 0, avatar: null, body, kind: 'system', meta: null, createdAt: now() });
+    list.push({ id: state.seq++, channel, userId: null, name: 'System', level: 0, avatar: null, body, kind: 'system', meta: null, about: about ? [...about] : null, createdAt: now() });
     if (list.length > HISTORY_KEEP) list.splice(0, list.length - HISTORY_KEEP);
     topics.add(`chat:${channel}`);
   }
@@ -322,9 +323,10 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const err = validateClan(spec);
         if (err) fail('invalid', err);
         const name = String(spec.name).trim();
-        // the same name in another spelling counts too ('Moon-Clan' next to 'Moon Clan'; SQL clans_text_rules)
-        const key = nameKey(name);
-        if (Object.values(s.clans).some((c) => c.name.toLowerCase() === name.toLowerCase() || (key && nameKey(c.name) === key))) fail('name_taken', 'A clan with that name exists.');
+        // the same name in another spelling counts too ('Moon-Clan' next to 'Moon Clan', 'さくら組' with a
+        // zero-width joiner; SQL clans_text_rules + clan_name_key)
+        const key = clanNameKey(name);
+        if (Object.values(s.clans).some((c) => c.name.toLowerCase() === name.toLowerCase() || (key && clanNameKey(c.name) === key))) fail('name_taken', 'A clan with that name exists.');
         rate(s, uid, 'clan_create');
         const joinMode = ['open', 'request', 'code'].includes(spec.joinMode) ? spec.joinMode : 'open';
         const c = {
@@ -418,10 +420,10 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
             const next = rest.find((x) => x.role === 'officer') || rest[0];
             next.role = 'leader';
             c.leaderId = next.userId;
-            systemMessage(s, `clan:${c.id}`, `${s.users[next.userId]?.name || 'A member'} is the new leader.`, topics);
+            systemMessage(s, `clan:${c.id}`, `${s.users[next.userId]?.name || 'A member'} is the new leader.`, topics, [next.userId]);
           }
         }
-        if (c && s.clans[c.id]) systemMessage(s, `clan:${c.id}`, `${s.users[uid]?.name || 'A member'} left the clan.`, topics);
+        if (c && s.clans[c.id]) systemMessage(s, `clan:${c.id}`, `${s.users[uid]?.name || 'A member'} left the clan.`, topics, [uid]);
         topics.add(`clan:${m.clanId}`).add('clans');
         return true;
       });
@@ -438,7 +440,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
           c.leaderId = userId;
         }
         target.role = role;
-        systemMessage(s, `clan:${c.id}`, `${s.users[userId]?.name || 'A member'} is now ${role}.`, topics);
+        systemMessage(s, `clan:${c.id}`, `${s.users[userId]?.name || 'A member'} is now ${role}.`, topics, [userId]);
         topics.add(`clan:${c.id}`);
         return true;
       });
@@ -452,7 +454,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         delete s.members[userId];
         if (s.users[userId]) s.users[userId].clanId = null;
         kickBan(s, m.clanId, userId); // [social] no rejoining by themselves for 7 days
-        systemMessage(s, `clan:${m.clanId}`, `${s.users[userId]?.name || 'A member'} was removed from the clan.`, topics);
+        systemMessage(s, `clan:${m.clanId}`, `${s.users[userId]?.name || 'A member'} was removed from the clan.`, topics, [userId]);
         topics.add(`clan:${m.clanId}`).add('clans');
         return true;
       });
