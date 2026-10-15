@@ -44,7 +44,7 @@ const sizeOf = (v) => JSON.stringify(v ?? null).length;
 /**
  * SQL social_merge_evidence: a repeat report keeps what the earlier one stored — 'message' is the
  * newest reported message, 'earlier' the ones reported before it (up to 10, once each), 'dms' every
- * line of the earlier snapshot plus the newest lines of this one (halved until it fits in 16 KB).
+ * line of the earlier snapshot plus as many of the newest lines of this one as fit in 16 KB.
  */
 export function mergeEvidence(old, next) {
   if (!old || typeof old !== 'object') return next;
@@ -58,7 +58,7 @@ export function mergeEvidence(old, next) {
   const oldDms = Array.isArray(old.dms) ? old.dms : [];
   const oldIds = new Set(oldDms.map((d) => d.id));
   const fresh = (Array.isArray(next.dms) ? next.dms : []).filter((d) => !oldIds.has(d.id)).sort((a, b) => b.id - a.id);
-  for (let n = fresh.length; ; n = Math.floor(n / 2)) {
+  for (let n = fresh.length; ; n -= 1) {
     const dms = [...oldDms, ...fresh.slice(0, n)].sort((a, b) => a.id - b.id);
     const v = { ...next, message: msg, earlier, dms };
     if (sizeOf(v) <= 16384 || n === 0) return v;
@@ -576,7 +576,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         const all = th ? x.dms.filter((d) => d.threadId === th.id).sort((a, b) => a.id - b.id) : [];
         const line = (d) => ({ id: d.id, from: d.senderId === target ? 'target' : 'reporter', name: d.name, body: d.body, kind: d.kind, at: d.createdAt });
         let evidence;
-        for (let n = REPORT_DMS; ; n = Math.floor(n / 2)) {
+        for (let n = REPORT_DMS; ; n -= 1) {
           // the newest lines (≤ 8 KB) + how many DMs the two have in all: the owner reads the whole
           // conversation when the snapshot is partial (it is kept while the report is open)
           evidence = {

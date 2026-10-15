@@ -756,8 +756,8 @@ end $$;
 -- the last DMs between the two (whatever the reporter cleared), how many DMs the two have in all
 -- (dmsTotal) and how many of them the target sent (dmsFromTarget) — so the owner sees when the
 -- snapshot is only the newest part and reads the whole conversation, which is kept while the
--- report is open (social_housekeeping) — and the target's name and level. At most 8 KB. Never the
--- client's text.
+-- report is open (social_housekeeping) — and the target's name and level. At most 8 KB (as many of
+-- the newest lines as fit). Never the client's text.
 create or replace function public.social_report_evidence(p_reporter uuid, p_target uuid, p_context text, p_message bigint) returns jsonb
 language plpgsql stable security invoker set search_path = public, pg_temp as $$
 declare
@@ -793,15 +793,15 @@ begin
       -- the snapshot holds the newest lines only: when dmsTotal is larger, read the whole thread
       'dmsTotal', v_total, 'dmsFromTarget', v_from_target);
     exit when pg_column_size(v) <= 8192 or v_n = 0;
-    v_n := v_n / 2;
+    v_n := v_n - 1; -- one line fewer at a time: as many lines as fit
   end loop;
   return v;
 end $$;
 
 -- A repeat report (the same reporter and target, the report still open) never loses what the
 -- earlier one stored: 'message' is the newest reported message, 'earlier' keeps the ones reported
--- before it (up to 10), and 'dms' keeps every line of the earlier snapshot plus the newest lines
--- of this one (halved until the evidence fits in 16 KB). target / dmsTotal / dmsFromTarget are
+-- before it (up to 10), and 'dms' keeps every line of the earlier snapshot plus as many of the
+-- newest lines of this one as fit in 16 KB. target / dmsTotal / dmsFromTarget are
 -- the new report's (today's numbers).
 create or replace function public.social_merge_evidence(p_old jsonb, p_new jsonb) returns jsonb
 language plpgsql immutable security invoker set search_path = public, pg_temp as $$
@@ -841,7 +841,7 @@ begin
         order by (x ->> 'id')::bigint desc limit v_n) y) z;
     v := p_new || jsonb_build_object('message', v_msg, 'earlier', v_earlier, 'dms', v_dms);
     exit when pg_column_size(v) <= 16384 or v_n = 0;
-    v_n := v_n / 2;
+    v_n := v_n - 1;
   end loop;
   return v;
 end $$;
