@@ -5,7 +5,9 @@
 //   2. a chat message from A appears live on B, and a burst shows rate-limit feedback
 //   3. A founds a clan, B finds and joins it, both member lists show 2; the clan boss tab loads,
 //      and one boss attempt through a real battle (Fight → battle → end) lands on the ranking
-//   4. a third tab joins the developer clan with Rosie777 and the Supply Bot grants items
+//   4. a third tab joins the developer clan with the offline backend's LOCAL_DEV_CODE (this runs
+//      on the Vite dev server: a production build's local backend has no developer clan code)
+//      and the Supply Bot grants items
 //   5. co-op: a code with a typo says "No room uses that code"; A hosts a room whose link is
 //      mute (nothing A sends gets out), B joins by code: A shows "Connecting to Bea…" with Start
 //      locked and heals its one-way link by itself (fresh channel); B leaves and A is offered a
@@ -35,6 +37,7 @@
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { launchChromium, ownSave } from './browser.mjs';
+import { LOCAL_DEV_CODE } from '../src/online/clanRules.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -270,10 +273,10 @@ try {
   // (not 'DevTester': since the social update "dev" as a word of its own is a reserved name, clanRules.reservedName)
   await setName(C, 'Tester');
   await C.waitForSelector('[data-testid="clan-code"]', { timeout: 10000 });
-  await C.fill('[data-testid="clan-code"]', 'Rosie777');
+  await C.fill('[data-testid="clan-code"]', LOCAL_DEV_CODE);
   await tap(C, '[data-testid="clan-code-join"]');
   await C.waitForSelector('[data-testid="supply-bot"]', { timeout: 10000 });
-  check(/DEVELOPER SANDBOX/.test(await C.locator('[data-testid="supply-bot"]').innerText()), 'dev clan: Rosie777 opens the Supply Bot, labelled DEVELOPER SANDBOX');
+  check(/DEVELOPER SANDBOX/.test(await C.locator('[data-testid="supply-bot"]').innerText()), 'dev clan: the local test code opens the Supply Bot, labelled DEVELOPER SANDBOX');
   const gems0 = await C.evaluate(() => window.__sakura.store.profile.currencies.gems);
   await C.evaluate(() => {
     for (const b of document.querySelectorAll('.ol-sb-tabs .ol-seg-btn')) if (/currenc|token/i.test(b.textContent)) b.click();

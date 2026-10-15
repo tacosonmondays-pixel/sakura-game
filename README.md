@@ -147,7 +147,7 @@ the home screen as an app.
   - Auto-start for waves.
 - **Settings:** graphics quality, lighting, and save export/import.
 - **Online (Supabase, optional):** global chat (lobby chat bubble, `#/chat`), clans with roles, clan chat,
-  clan level and a weekly clan boss with one shared HP pool, the developer clan `Rosie777` with its Supply
+  clan level and a weekly clan boss with one shared HP pool, the developer clan (joined with the developer clan's private code (set by the owner in the database)) with its Supply
   Bot sandbox, 2-player real-time co-op (lockstep on the deterministic Sim, enemy HP ×1.6, separate
   wallets) and one-time transfer codes. Client and server rate limits. Without a server configured, the
   same features run between tabs of one browser and the pill says "Online features offline". Setup and

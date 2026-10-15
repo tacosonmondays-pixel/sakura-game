@@ -541,7 +541,7 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
 
     it('L4 staff words inside names and gm / dev / mod as words are reserved, digits read as letters (JS and SQL agree)', async () => {
       const names = ['GM Rosie', 'Staff Hana', 'SupplyB0t', 'Adm1n', 'Dev Rosie', 'System', 'Systemic', 'Sakura Sentine1s', 'M0D Kai', 'Ｄｅｖ　Ｒｏｓｉｅ', 'Unofficial',
-        'DevTester', 'Aiko', 'Modé', 'Devi', 'Devon', 'Badminton Kid', 'Mika-chan 2', '桜ミカ', 'Sensei7051', 'Rosie777'];
+        'DevTester', 'Aiko', 'Modé', 'Devi', 'Devon', 'Badminton Kid', 'Mika-chan 2', '桜ミカ', 'Sensei7051', 'Rosie2026'];
       const rows = (await sup('select x, public.reserved_name(x) as r, public.name_words(x) as w, public.social_name_ok(x) as ok, public.reserved_clan_name(x) as c from unnest($1::text[]) x', [names])).rows;
       for (const { x, r, w, ok, c } of rows) {
         expect([x, w]).toEqual([x, nameWords(x)]);
@@ -613,7 +613,7 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
         `${cp(0x13a0)}EV Rosie`, `${cp(0x13a0)}ev Rosie`, `${cp(0x1d05, 0x1d07, 0x1d20)} Rosie`, `${cp(0xa4e2)}taff Hana`, `${cp(0x13aa)}dmin`, `${cp(0x13da)}upply Bot`,
         'GMRosie', 'DevRosie', 'G.M. Rosie', 'D.E.V. Team', 'DevTeam', `D${cp(0xfe0f)}ev Rosie`, `G${cp(0xfe0f)}M Rosie`, `M${cp(0xfe0f)}od Rosie`, `D${cp(0xe0100)}ev Rosie`,
         `D${cp(0x180b)}ev Rosie`, `${cp(0x15ea, 0x15f4, 0x142f)}`, `${cp(0x1f173, 0x1f174, 0x1f185)} Rosie`, `${cp(0x110)}ev Rosie`, `${cp(0x54f)}ystem`];
-      const fine = ['Devon', 'Devi', 'Modé', 'Mia Rose', 'Bjørn', 'さくら', 'Sensei7051', 'Rosie777', 'Aiko-chan', 'McKenzie'];
+      const fine = ['Devon', 'Devi', 'Modé', 'Mia Rose', 'Bjørn', 'さくら', 'Sensei7051', 'Rosie2026', 'Aiko-chan', 'McKenzie'];
       const rows = (await sup(`select x, public.reserved_name(x) as r, public.lookalike_mix(x) as m, public.name_words(x) as w, public.name_camel(x) as c,
         public.name_key(x) as k, public.clan_name_key(x) as ck from unnest($1::text[]) x`, [[...names, ...fine]])).rows;
       for (const { x, r, m, w, c, k, ck } of rows) {

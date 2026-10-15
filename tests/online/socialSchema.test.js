@@ -9,7 +9,7 @@ import { RULES } from '../../src/online/limits.js';
 import { gameDay, nextDailyReset } from '../../src/core/reset.js';
 import { donatableItems, requestRule, DONOR_DAILY_POINTS, DONOR_COINS_PER_POINT } from '../../src/online/donateRules.js';
 import { FRIEND_MAX, INVITE_TTL_MS } from '../../src/online/socialRules.js';
-import { MIGRATION_SQL as sql, PGlite, createDb, refused } from './pgHarness.js';
+import { MIGRATION_SQL as sql, PGlite, createDb, refused, TEST_DEV_CODE } from './pgHarness.js';
 
 const SOCIAL_TABLES = ['social_settings', 'friend_codes', 'friend_requests', 'friends', 'blocks', 'coop_partners', 'dm_threads', 'direct_messages',
   'dm_state', 'reports', 'social_mutes', 'donate_items', 'donation_requests', 'donations', 'donation_keys', 'dev_lab_visits', 'clan_bans'];
@@ -267,9 +267,9 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     await as(B, `select set_dm_privacy('friends_clan')`);
     await dm(A, B, 'back again');
     // the developer clan is not a clan for DMs (and stays hidden on cards)
-    await as(F, `select join_clan_by_code('Rosie777')`);
+    await as(F, `select join_clan_by_code('${TEST_DEV_CODE}')`);
     await clearRate(E, 'clan_join');
-    await as(E, `select join_clan_by_code('Rosie777')`);
+    await as(E, `select join_clan_by_code('${TEST_DEV_CODE}')`);
     await tenure(E, 100);
     await tenure(F, 100);
     await refused(dm(E, F, 'dev hi'), /forbidden/);
@@ -588,7 +588,7 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     expect(c.items).toEqual(expect.arrayContaining([{ item: 'mat_cog_common', count: 2, from: ['Gin'] }]));
     // leaving the developer clan is remembered
     await clearRate(F, 'clan_join');
-    await as(F, `select join_clan_by_code('Rosie777')`);
+    await as(F, `select join_clan_by_code('${TEST_DEV_CODE}')`);
     await clearRate(F, 'clan_join');
     await as(F, 'select leave_clan()');
     expect((await sup('select count(*)::int as n from dev_lab_visits where user_id = $1', [F])).rows[0].n).toBe(1);

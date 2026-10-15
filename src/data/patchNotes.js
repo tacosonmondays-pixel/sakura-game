@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.32', version: '0.1.32', date: '2026-10-15', title: 'Stability update',
+    fixed: [
+      'Behind-the-scenes stability fixes.',
+    ],
+  },
+  {
     id: 'v0.1.31', version: '0.1.31', date: '2026-10-15', title: 'Clan button & friendlier friends',
     changed: [
       'The lobby’s bottom bar has a Clan button where the Wiki was. The Wiki is now in the Menu.',

@@ -246,7 +246,7 @@ beforeAll(async () => {
   results.myClan = await adapter.myClan();
   results.created = await adapter.createClan({ name: 'Petal Squad', tag: 'PS', emblem: 'assault', joinMode: 'code', description: '' });
   await adapter.joinClan(CID);
-  await adapter.joinByCode('Rosie777');
+  await adapter.joinByCode('PETAL123');
   await adapter.requestJoin(CID);
   results.requests = await adapter.listRequests(CID);
   await adapter.answerRequest(CID, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', true);
