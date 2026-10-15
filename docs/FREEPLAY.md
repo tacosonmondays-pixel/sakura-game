@@ -51,19 +51,24 @@ Wave the run **falls on** (Normal difficulty; goal = the stage's last wave):
 
 | Stage (goal) | Build | Blossom | Tempest | Crimson Moon |
 |---|---|---|---|---|
-| 1-5 (18) | strong team | 180 | 171 | 114 |
+| 1-5 (18) | strong team | 200 † | 171 | 114 |
 | 4-5 (26) | strong team | 150 | 120 | 90 |
 | 8-5 (30) | strong team | 160 | 140 | 90 |
-| 1-5 (18) | max Kage | 114 | 98 | 79 |
+| 1-5 (18) | max Kage | 121 | 98 | 79 |
 | 4-5 (26) | max Kage | 99 | 90 | 50 |
 | 8-5 (30) | max Kage | 30 * | 30 * | 30 * |
 | 4-5 (26), co-op HP ×1.6 | strong team (one bot) | 130 | 100 | 80 |
 
 \* Kage alone cannot clear 8-5 (fliers and veiled enemies): the run falls on the stage's own last wave.
+† Falls to the Ashwing Matriarch at wave 200 itself.
+
+(Re-run after merging feature/coop-freeplay 34d1c38: Blossom's HP bands back to the spec, titan
+children summoning at the wave's pool HP. Only the two Blossom rows on 1-5 moved: 180 → 200 and
+114 → 121.)
 
 Every build falls on every tier; the tiers stay in order; a single strong player stops around wave
-150–180 on Blossom, 120–170 on Tempest and 90–115 on Crimson Moon — the Matriarch (200) is a real
-goal, not a given. The same bot under co-op HP falls 20–30 waves earlier, which two players' builds
+150–200 on Blossom (the best run reaches the Matriarch and falls to her), 120–170 on Tempest and
+90–115 on Crimson Moon — the Matriarch (200) is a real goal, not a given. The same bot under co-op HP falls 20–30 waves earlier, which two players' builds
 make up. No enemy ever had a NaN / Infinity HP in any run.
 
 ## Rewards (never above normal play per minute)
@@ -91,6 +96,11 @@ make up. No enemy ever had a NaN / Infinity HP in any run.
    every stage, difficulty and tier (`tests/battle-ui/soloFreeplay.test.js` checks every
    combination). Drop rolls: a cache every 25 freeplay waves (~0.05 a minute) against a full roll per
    normal run (~0.11–0.15 a minute).
+   The once-per-account milestones go through the co-op mirror (`missions.counters['fpm:<tier>:<id>']`),
+   so solo and co-op share them and an older cached build cannot pay them twice. A solo run is kept in
+   the save after every freeplay wave (`progress.freeplayPending`, with `bestKey: 'freeplayBest'` and
+   its capped `waveCoins`): a reload, a closed tab or a discarded phone tab is paid at the next app
+   start, at solo rates, into the solo best.
 3. **Best wave per stage and tier**: `progress.stages[id].freeplayBest = { blossom, tempest, crimson }`
    (absolute waves, "87" of 87/15), shown in stage prep, on the Tactical Challenge map cards and on
    the results. The save keeps the field without a SAVE_VERSION bump (`save.js` cleans it like
@@ -110,7 +120,7 @@ make up. No enemy ever had a NaN / Infinity HP in any run.
 
 ## Cost of late waves
 
-- **Sim (Node)**: the calibration runs (four at once on a 4-core box) never took more than 7 ms for a
+- **Sim (Node)**: the calibration runs (four at once on a 4-core box) never took more than 10 ms for a
   1/60 s step, deep runs included; `tests/sim/perf.freeplay.test.js` keeps the 900-enemy wave 250
   under its guard.
 - **Chromium** (`node e2e/solo-freeplay-perf.mjs`, SwiftShader software GL, 1280×720, 31 upgraded
