@@ -683,7 +683,12 @@ story: {
 export const STORY_VERSION = 1, WELCOME_MAIL_ID = 'story-welcome-10pull';
 export function newStory()                     // fresh save (createProfile)
 export function legacyStory()                  // pre-story save: legacy everywhere
-export function cleanStory(raw)                // migrateProfile: non-object → legacyStory(); repairs enums, lists, caps; never throws
+export function cleanStory(raw)                // non-object → legacyStory(); repairs enums, lists, caps; never throws
+export function restoreStory(raw, counters, delivered) // migrateProfile: cleanStory, but no block + the 'story:new' mark = a new player's block
+                                               // (an older build dropped it: opening/tutorial 'skipped', welcome pending unless delivered);
+                                               // claimed lessons ('sl:<id>'), read scenes ('ss:<id>') and the legacy toast ('story:ann')
+                                               // come back from their missions.counters marks, which older builds keep word for word
+export function markStory(profile)             // migrateProfile: (re)writes those marks; claimLesson / markSeen / markAnnounced write them as they happen
 export function storyOf(profile)               // lazy: profile.story ??= legacyStory(); returns it
 export function clearedCampaign(profile)       // Set of campaign stage ids cleared (any difficulty)
 export function onboardingRoute(profile)       // { name: 'scene', params: { id: 'opening', next: 'tutorial' } } | null
