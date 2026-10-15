@@ -1363,8 +1363,8 @@ const CHIKA = {
       tier('Spare Parts', 160, '+1 drone (3 at once).', { turret: { max: 1 } }),
       tier('Better Barrels', 380, 'Drones +2 damage.', { turret: { damage: 2 } }),
       tier('Sentry Grid', 1200, '+2 drones, +0.5 drone range, drones fire 20% faster.', { turret: { max: 2, range: 0.5, rate: 1.2 } }),
-      tier('Plasma Sentries', 3600, 'Drones +5 damage and fire 25% faster.', { turret: { damage: 5, rate: 1.25 } }),
-      tier('Mecha-Fortress Protocol', 13000, '+4 drones (9 at once), +12 drone damage, +30% fire rate, +1 drone range.', { turret: { max: 4, damage: 12, rate: 1.3, range: 1 } }),
+      tier('Plasma Sentries', 3600, 'Drones +7 damage and fire 25% faster; her own bolt +30% damage.', { turret: { damage: 7, rate: 1.25 }, damageMul: 1.3 }),
+      tier('Mecha-Fortress Protocol', 32500, '+4 drones (9 at once), +20 drone damage, +30% fire rate, +1 drone range; ×1.25 vs bosses.', { turret: { max: 4, damage: 20, rate: 1.3, range: 1 }, bossMul: 1.25 }),
     ]),
     path('repair', 'Repair Bay', 'Cleanse and buffs', [
       tier('Toolbelt', 140, 'Girls within 2.6 tiles attack 5% faster.', { aura: { range: 2.6, rateMul: 1.05 } }),
@@ -1377,8 +1377,8 @@ const CHIKA = {
       tier('Copper Coils', 130, 'Drones +1 damage.', { turret: { damage: 1 } }),
       tier('Arc Capacitors', 300, 'Drones fire 20% faster.', { turret: { rate: 1.2 } }),
       tier('Storm Battery', 1000, 'Drones +3 damage and +0.5 range; Chika\'s own shots shock (25%).', { turret: { damage: 3, range: 0.5 }, status: [S.shock(0.25, 0.25)] }),
-      tier('Tesla Tower', 3300, 'Stops building drones and becomes a tesla coil: mystic lightning chains through 5 enemies, ignoring 2 armor.', { behavior: 'chain', attackType: 'mystic', rateMul: 4, chain: 4, damage: 6, armorPen: 2 }),
-      tier('Thunderforge Reactor', 12500, '+6 jumps, +24 damage, +50% attack speed, 30% stun for 0.5s.', { chain: 6, damage: 24, rateMul: 1.5, status: [S.stun(0.5, 0.3)] }),
+      tier('Tesla Tower', 3300, 'Stops building drones and becomes a tesla coil: mystic lightning chains through 5 enemies, ignoring 4 armor; +25% damage.', { behavior: 'chain', attackType: 'mystic', rateMul: 4, chain: 4, damage: 6, armorPen: 4, damageMul: 1.25 }),
+      tier('Thunderforge Reactor', 25000, '+6 jumps, +24 damage, +50% attack speed, 30% stun for 0.5s, ×1.6 vs bosses, drones +2 damage; +30% damage.', { chain: 6, damage: 24, rateMul: 1.5, status: [S.stun(0.5, 0.3)], bossMul: 1.6, turret: { damage: 2 }, damageMul: 1.3 }),
     ]),
   ],
   awakenPassive: {
