@@ -9,6 +9,7 @@ import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
+import { newStory, cleanStory } from './story.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -83,8 +84,8 @@ export function createProfile() {
     version: SAVE_VERSION,
     createdAt: now,
     currencies: { coins: 20000, gems: 2400 },
+    // [story] no ticket_recruit10 here any more: the welcome 10-pull is mailed at the 1-3 clear (story.welcome)
     items: {
-      ticket_recruit10: 1,
       book_common: 20,
       book_rare: 5,
       mat_feather_common: 10,
@@ -110,6 +111,7 @@ export function createProfile() {
     seq: { gear: 0 },
     /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
     battleSaves: {},
+    story: newStory(), // [story] opening, tutorial, journal, episodes (src/systems/story.js)
   };
 }
 
@@ -436,6 +438,7 @@ export function migrateProfile(raw) {
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   creditPotential(p, now);
+  p.story = cleanStory(raw.story); // [story] no block = a save from before the story (legacy)
   p.version = SAVE_VERSION;
   return p;
 }

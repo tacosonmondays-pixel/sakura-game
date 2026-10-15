@@ -299,7 +299,11 @@ function codesView() {
       }
       store.reset();
       toast('Progress reset — welcome to Sakura Academy!', 'good');
-      navigate('lobby');
+      // [story] a fresh profile starts from the title: TAP TO START → the opening → the first battle (K-02)
+      try {
+        sessionStorage.removeItem('sakura-title-seen');
+      } catch { /* private mode */ }
+      navigate('title');
       return;
     }
     store.commit('redeem');

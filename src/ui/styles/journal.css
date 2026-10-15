@@ -1,0 +1,122 @@
+/* Captain's Journal, its unlock toast and the student-screen feature locks (owner: story; STORY_SPEC §3). */
+/* ============================================================================================
+   Captain's Journal (#/journal)
+   ============================================================================================ */
+.jn-screen { background: #cfe8ff; }
+.jn-screen .topbar { position: relative; z-index: 5; }
+.jn-screen .screen-body { position: relative; z-index: 1; display: flex; padding-top: 6px; padding-bottom: 0; overflow: hidden; }
+.jn-replay {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; margin-right: 6px; border: 0; border-radius: 8px;
+  transform: skewX(var(--skew)); background: rgba(255, 255, 255, 0.92); color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.78rem;
+  box-shadow: var(--shadow); white-space: nowrap;
+}
+.jn-replay > * { transform: skewX(8deg); }
+.jn-replay-short { display: none; }
+.jn { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(230px, 34%) minmax(0, 1fr); gap: 10px; padding: 0 4px calc(8px + var(--safe-bottom)); }
+
+/* lesson list */
+.jn-list { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 4px 6px; scrollbar-width: thin; }
+.jn-card {
+  position: relative; flex: 0 0 auto; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  min-height: 52px; padding: 5px 10px 5px 6px; text-align: left; border: 2px solid rgba(255, 255, 255, 0.95); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92); color: var(--navy); box-shadow: 0 3px 10px rgba(10, 30, 60, 0.18);
+  transition: box-shadow var(--t-press) ease, transform var(--t-press) ease;
+}
+.jn-card:active { transform: scale(0.98); }
+.jn-card:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.jn-card.on { background: linear-gradient(180deg, #fff 0%, #fff7c2 100%); border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow), 0 4px 12px rgba(10, 30, 60, 0.25); }
+.jn-card.locked { background: rgba(236, 242, 250, 0.88); }
+.jn-card.locked .jn-card-ico { filter: grayscale(1) opacity(0.55); }
+.jn-card.locked .jn-card-title { color: #7a8aa6; letter-spacing: 0.15em; }
+.jn-card-ico { width: 40px; height: 40px; display: grid; place-items: center; color: var(--blue-deep); }
+.jn-card-ico svg { width: 100%; height: 100%; }
+.jn-card-num { position: absolute; left: 3px; top: 2px; font-size: 0.6rem; font-weight: 900; color: #fff; background: var(--navy); border-radius: 8px; min-width: 15px; height: 15px; display: grid; place-items: center; }
+.jn-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jn-card-title { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 0.86rem; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jn-card-state { display: flex; align-items: center; gap: 4px; font-size: 0.66rem; font-weight: 800; min-width: 0; }
+.jn-card-state > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jn-card-state.done { color: var(--good); }
+.jn-card-state.locked { color: #6c7d9c; }
+.jn-chips { display: flex; align-items: center; gap: 4px; }
+.jn-new { font-size: 0.62rem; }
+.jn-gift { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: var(--navy); box-shadow: 0 1px 3px rgba(10, 30, 60, 0.3); }
+.jn-gift .sa-ico { width: 14px; height: 14px; }
+
+/* the open lesson */
+.jn-detail {
+  min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9); border: 2px solid rgba(255, 255, 255, 0.95); box-shadow: 0 6px 18px rgba(10, 30, 60, 0.22); color: var(--navy);
+  scrollbar-width: thin;
+}
+.jn-detail-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.jn-detail-title { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.2rem; line-height: 1.15; color: var(--navy); }
+.jn-talk { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; }
+.jn-bust { width: 76px; height: 76px; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, #ffe2ee, #ffd1e4); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(10, 30, 60, 0.25); line-height: 0; }
+.jn-bust .pt-img, .jn-bust svg { width: 100%; height: 100%; object-fit: cover; }
+.jn-speech { position: relative; background: #f2f7ff; border: 2px solid #d6e6fb; border-radius: 4px 14px 14px 14px; padding: 8px 12px 10px; font-size: 0.88rem; line-height: 1.4; }
+.jn-speech::before { content: ''; position: absolute; left: -9px; top: 12px; border: 8px solid transparent; border-right-color: #d6e6fb; border-left: 0; }
+.jn-speech p { margin: 0 0 6px; }
+.jn-speech p:last-child { margin-bottom: 0; }
+.jn-speaker { display: inline-block; margin-bottom: 4px; padding: 0 10px; border-radius: 4px; transform: skewX(var(--skew)); background: #ff8fb8; color: #fff; font-weight: 900; font-style: italic; font-size: 0.72rem; }
+.jn-rewards { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(214, 230, 251, 0.6); }
+.jn-rewards.claimed .jn-reward-tiles { opacity: 0.5; filter: grayscale(0.6); }
+.jn-rewards-label { font-weight: 900; font-style: italic; font-size: 0.74rem; color: var(--blue-deep); }
+.jn-reward-tiles { display: flex; gap: 6px; flex-wrap: wrap; }
+.jn-note { font-size: 0.74rem; font-weight: 800; color: #4b6390; }
+.jn-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.jn-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 16px; border: 0; border-radius: 8px; transform: skewX(var(--skew));
+  background: var(--blue-deep, #2f7de1); color: #fff; font-weight: 900; font-style: italic; font-size: 0.86rem; box-shadow: var(--shadow); white-space: nowrap;
+}
+.jn-btn > * { transform: skewX(8deg); }
+.jn-btn-yellow { background: var(--yellow); color: var(--navy); }
+.jn-btn-ghost { background: #fff; color: var(--navy); border: 2px solid #d6e6fb; }
+
+@media (min-width: 1000px) and (min-height: 600px) {
+  .jn { grid-template-columns: minmax(300px, 32%) minmax(0, 1fr); gap: 16px; padding: 4px 16px 16px; }
+  .jn-card { min-height: 60px; }
+  .jn-card-title { font-size: 0.98rem; }
+  .jn-card-state { font-size: 0.74rem; }
+  .jn-detail { padding: 18px 22px; gap: 14px; }
+  .jn-detail-title { font-size: 1.7rem; }
+  .jn-talk { grid-template-columns: 120px minmax(0, 1fr); gap: 16px; }
+  .jn-bust { width: 120px; height: 120px; }
+  .jn-speech { font-size: 1.02rem; padding: 12px 16px 14px; }
+}
+@media (max-height: 480px) {
+  .jn-replay-label { display: none; }
+  .jn-replay-short { display: inline; }
+  .jn-card-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.8rem; line-height: 1.1; }
+  .jn-replay { padding: 0 10px; }
+  .jn-card { min-height: 46px; padding: 3px 8px 3px 4px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px; }
+  .jn-card-ico { width: 34px; height: 34px; }
+  .jn-detail { padding: 8px 12px 10px; gap: 6px; }
+  .jn-detail-title { font-size: 1.05rem; }
+  .jn-talk { grid-template-columns: 58px minmax(0, 1fr); }
+  .jn-bust { width: 58px; height: 58px; }
+  .jn-speech { font-size: 0.82rem; padding: 6px 10px 8px; }
+  .jn-btn { min-height: 40px; padding: 0 12px; font-size: 0.8rem; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .jn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .jn-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .jn-card { min-width: 200px; }
+}
+
+/* journal toast pill (toast.js) */
+.jn-toast {
+  position: fixed; left: 50%; top: calc(64px + var(--safe-top, 0px)); z-index: 9000; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 5px 16px 5px 5px; border: 2px solid #fff; border-radius: 999px;
+  background: linear-gradient(90deg, #fff 0%, #ffeef6 100%); color: var(--navy); font-weight: 900; font-size: 0.86rem; text-align: left;
+  box-shadow: 0 0 0 2px #ff9cc2, 0 8px 22px rgba(10, 30, 60, 0.3); animation: jn-toast-in 260ms var(--ease) both;
+}
+.jn-toast.out { opacity: 0; transform: translate(-50%, -10px); transition: opacity 300ms ease, transform 300ms ease; }
+.jn-toast-face { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex: 0 0 auto; background: #ffd1e4; border: 2px solid #fff; line-height: 0; }
+.jn-toast-face .pt-img, .jn-toast-face svg { width: 100%; height: 100%; object-fit: cover; }
+.jn-toast-text { min-width: 0; line-height: 1.25; }
+@keyframes jn-toast-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+html[data-reduce-motion] .jn-toast { animation: none; }
+
+/* student Equipment / Awakening lock on new saves (student.js storyLockedTab) */
+.mb-empty.story-lock .mb-empty-art { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #ffd1e4; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(10, 30, 60, 0.25); line-height: 0; }
+.mb-empty.story-lock .mb-empty-art .pt-img, .mb-empty.story-lock .mb-empty-art svg { width: 100%; height: 100%; object-fit: cover; }

@@ -33,6 +33,9 @@ registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
+registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
+registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
+registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
@@ -44,6 +47,8 @@ try {
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
+// [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
+import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 
 // A co-op freeplay run this browser could not pay (reloaded, closed, or the phone threw the tab
 // away mid-run): its freeplay part is paid now, from the last wave it saved.

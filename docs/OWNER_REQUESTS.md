@@ -338,3 +338,23 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 | Request (verbatim) | Status |
 |---|---|
 | "Can you add potential levels when you get dupes, perhaps they get small passives, and increase level by 1-5 per dupe max 6!" — chose "+1 per dupe, max 6" and "Both" (dupes still give Star Fragments; only fragments once she is at P6) | **M0 built (invisible): the game starts counting duplicates now so none are lost; nothing visible changes yet.** Every duplicate of an owned girl (recruit, spark, Mall Recruit Exchange, SSR Select Ticket) adds 1 to her count and still gives its Star Fragments; Potential will be P1 + duplicates, up to P6. Existing saves are credited once from the recruit history (older than the last 100 recruits: average luck for R and SR girls, a cautious guess for SSR girls). An out-of-date open tab cannot lower the count. No screen, battle or co-op change. M1–M3 (the passives, the sim, the screens, a letter) come after co-op freeplay, as asked. Code: `src/systems/potential.js`; tests: `tests/systems/potential.test.js`, `e2e/potential-m0.mjs`. |
+
+## Story: opening, tutorial and Captain's Journal (owner requests T-01..T-03, G-08, K-02, L-02) — branch `feature/story`
+Spec: `docs/STORY_SPEC.md` (build notes §9–§11). Bible: `docs/story/BIBLE.md`.
+
+| Request (verbatim) | Status |
+|---|---|
+| "the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!!" | **Done.** A new save goes title → "Meet Hikari" (a Blue Archive-style scene: type-on text, Auto, Log, Skip, one choice) → the real 1-1 on Easy with Hikari's coach: a cute text box with her face that points (a ring and a spotlight) at Aoi's card with a drag hand, Start wave, her own hero card, Aoi's first upgrade, the speed button and her ultimate, then cheers at the win and walks the player to Rewards and Home. Skip tutorial is always one tap away. Checked at 844×390 (touch) and 1280×720 (mouse). |
+| "reset 67 … takes me back to main menu and tutorial" | **Done.** RESET67 goes back to the title, and the fresh save meets Hikari and the tutorial again. Keeping device settings on reset is still open (meta-a). |
+| "after some stages give tutorials on bestiary, upgrades etc" / "scale when you unlock bosses resources etc" | **Done.** The Captain's Journal (Menu → Captain's Journal, `#/journal`): 12 lessons in Hikari's voice that unlock as stages are cleared (Welcome home, Bestiary, Formation, Recruit, Level Up, upgrade paths, Bounty, Equipment, Commissions, Challenge, Awakening, Total Assault). Each has a small one-time reward, a Show me button and, for three of them, a short "Hikari explains" scene. A toast with Hikari's face announces new lessons; the lobby Menu shows a dot. On new saves Equipment opens at 2-1 and Awakening at 3-2 (earlier if the player already has gear or crowns). |
+| free 10-pull after a few stages (Codex handoff) | **Done.** New accounts no longer get the 10× ticket at creation; Hikari mails it when 1-3 is cleared ("Ten new possibilities, on us ♡"). It is sent once ever per account. |
+| "events with a visual novel type mini story" | **Partly.** The scene player and the Story archive (missions hub → Story) exist; chapter 1 episodes are written and play at their stages. Chapters 2–8 and event stories are the next builder's work. |
+
+**Existing players are safe.** A save from before this update is "legacy": it is never sent through the opening or
+the tutorial, every feature stays open, nothing is taken away, and it never gets the welcome 10-pull (it got the
+creation ticket). Lessons for content it already passed unlock quietly with one summary toast ("Hikari's Captain's
+Journal is here"), and their small rewards can be claimed once as a thank-you. Tested with saves written by the live
+game. No save-version change.
+
+**New direction (owner, 2026-10-14):** Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
+life. Not built yet; the questions it raises for the next story pass are in `docs/STORY_SPEC.md` §12.

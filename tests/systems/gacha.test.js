@@ -121,6 +121,7 @@ describe('pull', () => {
 
   it('spends tickets first, then gems', () => {
     const p = createProfile();
+    p.items.ticket_recruit10 = 1; // the story's welcome 10-pull
     const rng = createRng('spend');
     expect(p.currencies.gems).toBe(2400);
     let r = pull(p, 10, rng);

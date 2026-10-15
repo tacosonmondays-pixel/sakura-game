@@ -21,6 +21,17 @@ const wait = opt('wait', null);
 const delay = Number(opt('delay', '800'));
 const evalJs = opt('eval', null);
 
+/**
+ * Game pages get `?onboarding=0` (before the hash): a fresh save would otherwise be sent from the lobby to
+ * the "Meet Hikari" opening (src/ui/story/install.js). Preview pages and explicit queries stay as given.
+ */
+function withoutOnboarding(p) {
+  const [beforeHash, hash = null] = p.split(/#(.*)/s);
+  if (!/^\/?(index\.html)?$/.test(beforeHash.replace(/\?.*$/, '')) || /onboarding=/.test(beforeHash)) return p;
+  const sep = beforeHash.includes('?') ? '&' : '?';
+  return `${beforeHash || '/'}${sep}onboarding=0${hash != null ? `#${hash}` : ''}`;
+}
+
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const { port } = server.httpServer.address();
@@ -30,7 +41,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 try {
-  await page.goto(`http://127.0.0.1:${port}${path}`, { waitUntil: 'load', timeout: 60000 });
+  await page.goto(`http://127.0.0.1:${port}${withoutOnboarding(path)}`, { waitUntil: 'load', timeout: 60000 });
   if (wait) await page.waitForSelector(wait, { timeout: 30000 });
   if (evalJs) await page.evaluate(evalJs);
   await page.waitForTimeout(delay);
