@@ -23,7 +23,8 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
-import { openSession, getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
 import { resolveFormation } from '../battle/setup.js';
@@ -429,11 +430,10 @@ export function render(root, params = {}) {
       // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
       const freeplay = isHost ? freeplayTier(params.freeplay) : null;
       try {
-        session = openSession({
+        session = openSocialSession({
           code: roomCode, isHost, backend, stageId, difficulty, freeplay,
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
-          isBlocked: (uid) => social.isBlocked(uid), // [social] never pair with a player I blocked
-        });
+        }, { isBlocked: (uid) => social.isBlocked(uid) }); // [social] never pair with a player I blocked; session.seated
       } catch (e) {
         const err = toOnlineError(e);
         if (err.code === 'rate_limited') throw new Error(`Too many rooms — try again in ${formatRetry(err.retryMs)}.`);
