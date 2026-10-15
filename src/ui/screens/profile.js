@@ -118,9 +118,9 @@ export function render(root, params = {}) {
   root.append(host);
 
   const actions = {
-    editProfile: (section) => loadEditors().then((m) => m.openEditProfile({ section })),
+    editProfile: (section, extra = {}) => loadEditors().then((m) => m.openEditProfile({ section, ...extra })),
     editShowcase: (slot) => loadEditors().then((m) => m.openShowcaseEditor({ slot })),
-    pinPicker: () => loadEditors().then((m) => m.openPinPicker()),
+    pinPicker: (extra = {}) => loadEditors().then((m) => m.openPinPicker(extra)),
     preview: () => openPreview(),
   };
 
@@ -135,6 +135,12 @@ export function render(root, params = {}) {
     if (main) main.scrollTop = scroll;
   }
   draw();
+  // deep links from the achievements screens: Equip a new title, Pin a ribbon (then the plain #/profile URL)
+  if (params.edit || params.pin) {
+    history.replaceState(null, '', '#/profile');
+    if (params.edit) actions.editProfile(params.edit, { title: params.title || null });
+    else actions.pinPicker({ pin: params.pin });
+  }
   const offStore = store.on('change', () => {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(draw);
@@ -260,7 +266,7 @@ function profileView(m, ctx) {
     h('div.panel-title.pf-ph',
       h('span', 'Medals & Ribbons'),
       h('span.pf-hint', ico('trophy'), `${totalMedals} medals`),
-      own ? h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'profile-pin', onclick: actions.pinPicker }, h('span', 'Pin')) : null),
+      own ? h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'profile-pin', onclick: () => actions.pinPicker() }, h('span', 'Pin')) : null),
     h('div.pf-tally', h('div.pf-tally-grp',
       h('div.pf-tally-lbl', 'Medals', h('b', `${totalMedals} / ${STAGE_COUNT * 4}`)),
       medalTallyRow(m.medals))),

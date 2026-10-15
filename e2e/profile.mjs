@@ -4,6 +4,7 @@
 //   3. hold card 1 → her Unit Sheet on the Build tab with 3 gear cards
 //   4. set banner, favorite, title, frame and 2 pins
 //   5. Preview: the visitor layout; holding a girl there shows the snapshot build (owner chip)
+//   6. the achievements' deep links (Equip a title, Pin a ribbon) and the ≤ 4 live special ribbons on the shelf
 // plus: a bio renders as text, the old build drops the block and the picks come back, a reset gives
 // the auto showcase again, Reduce Motion stops every infinite animation, no horizontal overflow.
 //
@@ -331,6 +332,39 @@ async function runViewport(vp) {
   check(await page.waitForSelector('[data-testid="profile-preview-overlay"]', { state: 'detached', timeout: 4000 }).then(() => true).catch(() => false), 'Preview closes');
   noErrors('preview');
 
+  // ---- deep links from the achievements screens + the live-ribbon budget (ACHIEVEMENTS.md §2.4)
+  log('-- 6. achievements deep links + ribbon budget');
+  const specials = await page.evaluate(async () => {
+    const { HONOR_RIBBONS } = await import('/src/data/honors.js');
+    const { ACHIEVEMENT_MAP, achievementLive } = await import('/src/data/achievements.js');
+    const own = window.__sakura.store.profile.missions.achievements;
+    return HONOR_RIBBONS.filter((r) => r.class === 'special' && own[r.id] && achievementLive(ACHIEVEMENT_MAP[r.id])).map((r) => r.id);
+  });
+  await page.evaluate(() => { location.hash = '#/profile?edit=title&title=a_gold_40'; });
+  const eqOpen = await page.waitForSelector('[data-testid="edit-profile"]', { timeout: 8000 }).then(() => true).catch(() => false);
+  const eq = await page.evaluate(() => ({ hash: location.hash, on: document.querySelector('[data-testid="edit-titles"] .ep-title.on')?.dataset.title, tab: document.querySelector('.ep-nav button.on')?.dataset.testid }));
+  check(eqOpen && eq.tab === 'edit-tab-title' && eq.on === 'a_gold_40' && eq.hash === '#/profile', `Equip link: Edit Profile → Title with that title selected (${JSON.stringify(eq)})`);
+  await tap('[data-testid="edit-profile-save"]');
+  await page.waitForSelector('[data-testid="edit-profile"]', { state: 'detached', timeout: 4000 }).catch(() => {});
+  check((await sensei()).title === 'a_gold_40', 'Equip link: saving equips the title');
+  await page.evaluate((pin) => { location.hash = `#/profile?pin=${pin}`; }, `ach:${specials[0]}`);
+  const pinOpen = await page.waitForSelector('[data-testid="pin-picker"]', { timeout: 8000 }).then(() => true).catch(() => false);
+  const pp = await page.evaluate(() => ({ slots: [...document.querySelectorAll('[data-testid="pin-slots"] [data-pin]')].map((e) => e.dataset.pin), tab: document.querySelector('.pp-tabs button.on')?.dataset.testid }));
+  check(pinOpen && pp.slots.includes(`ach:${specials[0]}`) && pp.tab === 'pin-tab-achievements', `Pin link: the picker opens with the ribbon preselected (${pp.slots.join(', ')})`);
+  await page.click('[data-testid="pin-picker-close"]').catch(() => {});
+  await page.evaluate(async (ids) => {
+    const { setSensei } = await import('/src/systems/senseiSave.js');
+    const { store } = window.__sakura;
+    setSensei(store.profile, { pins: ids.slice(0, 4).map((id) => `ach:${id}`) });
+    store.commit('e2e');
+  }, specials);
+  await settle();
+  await page.evaluate(() => { document.querySelector('.pf-shelf')?.scrollIntoView({ block: 'center' }); });
+  await page.waitForTimeout(600);
+  const liveCount = await page.evaluate(() => document.querySelectorAll('.pf .rb.live').length);
+  check(specials.length >= 4 && liveCount >= 1 && liveCount <= 4, `4 special pins: ${liveCount} live (≤ 4)`);
+  await shot('pins-special');
+
   // ---- extras
   log('-- extras');
   // the bio is text, never HTML
@@ -368,6 +402,7 @@ async function runViewport(vp) {
   await page.waitForTimeout(300);
   const still = await running();
   check(still === 0, `Reduce Motion: no infinite animation on the profile (${live} → ${still})`);
+  check(await page.evaluate(() => document.querySelectorAll('.pf .rb.live').length) === 0, 'Reduce Motion: no live Honor Ribbon');
   await page.evaluate(() => { const { store } = window.__sakura; store.profile.settings.reduceMotion = false; store.commit('e2e'); document.documentElement.removeAttribute('data-reduce-motion'); });
   // back goes to the lobby
   await tap('[data-testid="back"]');

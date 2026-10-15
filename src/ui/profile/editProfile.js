@@ -20,8 +20,8 @@ const TIERS = [['prism', 'Prism · rarest'], ['gold', 'Gold'], ['std', 'Standard
 const PRIVACY = [['everyone', 'Everyone', 'Any Sensei can see your profile.'], ['friends_clan', 'Friends & clan', 'Only friends and clanmates.'], ['nobody', 'Only me', 'Nobody else can see it.']];
 const LATER = 'Opens with the next server update.';
 
-/** @param {{ section?: string }} [o] */
-export function openEditProfile({ section = 'picture' } = {}) {
+/** @param {{ section?: string, title?: string|null }} [o] title: preselect an earned title (Equip from the achievements) */
+export function openEditProfile({ section = 'picture', title = null } = {}) {
   const p = store.profile;
   const s = p.sensei;
   const draft = { avatar: s.avatar || p.secretary, frame: s.frame, banner: s.banner, title: s.title, favorite: s.favorite || p.secretary };
@@ -30,6 +30,7 @@ export function openEditProfile({ section = 'picture' } = {}) {
   const body = h('div.ep-body', { 'data-testid': 'edit-profile-body' });
   const prev = h('div.ep-card', { 'data-testid': 'edit-profile-preview' });
   const titles = new Set(earnedTitles(p));
+  if (title && titles.has(title)) draft.title = title;
   const frames = new Set(earnedFrames(p));
   const ownedIds = Object.keys(p.units).filter((id) => UNIT_MAP[id]).sort((a, b) => unitPower(p, b) - unitPower(p, a) || a.localeCompare(b));
 

@@ -3,7 +3,7 @@
 // No pins = the best 4 medals, shown automatically.
 import { h, svgEl, glyph, toast } from '../components.js';
 import { store } from '../../core/store.js';
-import { pinOptions, autoPins } from '../../systems/profileTrophies.js';
+import { pinOptions, autoPins, pinEarned } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { PINS_MAX } from '../../online/profileRules.js';
 import { plaqueEl, openSheetFrame } from './parts.js';
@@ -11,11 +11,19 @@ import { plaqueEl, openSheetFrame } from './parts.js';
 const TABS = [['medals', 'Medals'], ['ribbons', 'Ribbons'], ['achievements', 'Achievements']];
 const PAGE = 60;
 
-export function openPinPicker() {
+/** @param {{ pin?: string|null }} [o] pin: preselect an earned pin (Pin to profile from the Ribbon Case) */
+export function openPinPicker({ pin: want = null } = {}) {
   const p = store.profile;
   const opts = pinOptions(p);
   let pins = p.sensei.pins.length ? [...p.sensei.pins] : [];
   let tab = 'medals';
+  if (want && pinEarned(p, want)) {
+    tab = want.startsWith('ach:') ? 'achievements' : 'medals';
+    if (!pins.includes(want)) {
+      if (pins.length < PINS_MAX) pins.push(want);
+      else setTimeout(() => toast(`Up to ${PINS_MAX} pins: remove one to add it.`), 0);
+    }
+  }
   let shown = PAGE;
   const top = h('div.pp-row', { 'data-testid': 'pin-slots' });
   const tabs = h('div.es-sort.pp-tabs');
