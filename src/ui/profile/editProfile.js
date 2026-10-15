@@ -1,7 +1,7 @@
 // Edit Profile (docs/specs/PROFILE.md §1.9): Bio | Picture | Banner | Title | Favorite | Privacy, with a
 // live Preview card on PC. Picture (+ frame), Banner, Title and Favorite save to the game now. Bio and
 // Privacy are the server's: until the profile server update (M2) they show read-only.
-import { h, svgEl, toast } from '../components.js';
+import { h, svgEl, toast, accountLevel } from '../components.js';
 import { store } from '../../core/store.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { BANNERS, FRAMES, FRAME_IDS, TITLES, QUICK_LINES, bannerLockText } from '../../data/profileArt.js';
@@ -11,7 +11,6 @@ import { unitPower } from '../../systems/progression.js';
 import { earnedTitles, earnedFrames, bannerUnlocked } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT } from '../../online/profileRules.js';
-import { accountLevel } from '../components.js';
 import { storedName, askName } from '../online/common.js';
 import { displayRarity, rarityInfo } from '../rarity.js';
 import { ico, bannerArt, avatarEl, titlePlate, openSheetFrame } from './parts.js';
@@ -92,7 +91,7 @@ export function openEditProfile({ section = 'picture' } = {}) {
             ids.map((id) => {
               const ok = titles.has(id);
               return h(`button.ep-title${draft.title === id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-title': id, onclick: () => set('title', id) },
-                titlePlate(id, { still: true }), ok ? null : h('span.ep-how', ico('lock'), `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
+                titlePlate(id, { still: true, locked: !ok }), ok ? null : h('span.ep-how', ico('lock'), `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
             }));
         })),
     ],

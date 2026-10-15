@@ -116,19 +116,9 @@
 .pf-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; min-height: 4px; }
 .pf-tags:empty { margin-top: 0; }
 
-/* Title plates (ACHIEVEMENTS.md §2.5): Standard, Gold, Prism (only the equipped plate moves) */
-.pf-title { position: relative; font-size: 0.8rem; padding: 3px 14px 3px 12px; overflow: hidden; background: linear-gradient(90deg, #7048e8, #b26bff 60%, #ff7ad9); box-shadow: 0 2px 8px rgba(112,72,232,0.35); }
-.pf-title > span::before { content: '✦ '; color: #ffe14d; }
-.pf-title.tier-gold { background: linear-gradient(100deg, #b8860b, #f7d774 35%, #fff3b0 50%, #e8b923 70%, #a87708); color: #4a2f05; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7), 0 2px 8px rgba(184,134,11,0.4); }
-.pf-title.tier-gold > span::before { content: '★ '; color: #fff; }
-.pf-title.tier-prism { background: linear-gradient(90deg, #1b1f3d, #2a2f5c); color: #fff; box-shadow: 0 2px 10px rgba(80,60,180,0.45); }
-.pf-title.tier-prism > span { background: linear-gradient(90deg, var(--ur-rainbow)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
-.pf-title.tier-prism > span::before { -webkit-text-fill-color: #ffe14d; }
-.pf-title.tier-prism.still { box-shadow: inset 0 0 0 2px #8b7bff, 0 2px 10px rgba(80,60,180,0.4); }
-.pf-title.tier-prism .ur-ring { --ur-w: 2px; border-radius: 4px; }
-.pf-title.tier-prism::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.35) 50%, transparent 65%); transform: translateX(-120%); animation: pf-sweep 5s ease-in-out infinite; pointer-events: none; }
-.pf-title.tier-prism.still::after { display: none; }
-@keyframes pf-sweep { 0%, 76% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+/* Title plates: the achievements' .tp plates (src/ui/honorFx.js, styles/honors.css), sized for the profile */
+.pf-tags .tp.pf-title { font-size: 0.82rem; }
+.ep-card .tp.pf-title { font-size: 0.74rem; }
 
 .pf-bio { position: relative; margin-top: 8px; padding: 7px 12px 7px 30px; border-radius: 10px; background: linear-gradient(90deg, #fff4f8, #f7fbff); border: 1px solid #ffd9e6; font-weight: 700; font-size: 0.9rem; color: var(--ink); line-height: 1.35; overflow-wrap: anywhere; white-space: pre-wrap; }
 .pf-bio::before { content: '“'; position: absolute; left: 9px; top: -2px; font: italic 900 2rem/1 var(--font-head); color: var(--pink); }
@@ -210,6 +200,7 @@
 .pf-plaque.honor-special { box-shadow: 0 2px 0 #c2b0f5, inset 0 0 0 1px rgba(255,255,255,0.8); }
 .pf-plaque.honor-special::before { content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--ur-rainbow)); }
 .pf-pl-art { width: 36px; height: 36px; flex: none; display: grid; place-items: center; line-height: 0; }
+.pf-pl-art:has(> .rb) { width: auto; height: auto; }
 .pf-pl-art svg { width: 100%; height: 100%; display: block; }
 .pf-plaque .tx { min-width: 0; max-width: 100%; line-height: 1.15; }
 .pf-plaque .tx b { display: block; font-weight: 900; font-size: 0.78rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -379,7 +370,6 @@
 .ep-title { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 7px 28px 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: #fff; min-width: 0; max-width: 100%; text-align: left; }
 .ep-title.on { box-shadow: inset 0 0 0 2px #22b8cf; border-color: #22b8cf; }
 .ep-title.locked { background: #f1f4f8; }
-.ep-title.locked .pf-title { filter: grayscale(1); opacity: 0.55; }
 .ep-title.none { flex-direction: row; align-items: center; padding: 8px 30px 8px 12px; align-self: flex-start; }
 .ep-title-none { font-weight: 900; color: var(--muted); font-size: 0.82rem; }
 .ep-how { display: flex; align-items: flex-start; gap: 4px; font-size: 0.64rem; font-weight: 800; color: var(--muted); max-width: 230px; line-height: 1.25; }
@@ -440,7 +430,7 @@
   .pf-name { font-size: 1.3rem; }
   .pf-lv b { font-size: 0.95rem; }
   .pf-tags { gap: 6px; margin-top: 4px; }
-  .pf-title { font-size: 0.68rem; padding: 2px 10px; }
+  .pf-tags .tp.pf-title { font-size: 0.68rem; }
   .pf-bio { margin-top: 5px; font-size: 0.76rem; padding: 4px 12px 4px 24px; line-height: 1.3; }
   .pf-bio::before { font-size: 1.5rem; left: 7px; }
   .pf-ph .pf-hint { font-size: 0.64rem; }
@@ -517,10 +507,10 @@
 
 /* ---------- Reduce Motion: the UR ring, sweeps, petals and glints stand still ---------- */
 html[data-reduce-motion] .pf .ur-ring::before, html[data-reduce-motion] .pf .ur-sparkles i, html[data-reduce-motion] .pf-petal,
-html[data-reduce-motion] .pf-slot.is-ur::after, html[data-reduce-motion] .pf-title.tier-prism::after, html[data-reduce-motion] .pf .ur-text,
+html[data-reduce-motion] .pf-slot.is-ur::after, html[data-reduce-motion] .pf .ur-text,
 html[data-reduce-motion] .pf-preview, html[data-reduce-motion] .pf-sheet-overlay { animation: none !important; }
-html[data-reduce-motion] .pf-slot.is-ur::after, html[data-reduce-motion] .pf-title.tier-prism::after { display: none; }
+html[data-reduce-motion] .pf-slot.is-ur::after { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .pf .ur-ring::before, .pf .ur-sparkles i, .pf-petal, .pf-slot.is-ur::after, .pf-title.tier-prism::after, .pf .ur-text, .pf-preview, .pf-sheet-overlay { animation: none !important; }
-  .pf-slot.is-ur::after, .pf-title.tier-prism::after { display: none; }
+  .pf .ur-ring::before, .pf .ur-sparkles i, .pf-petal, .pf-slot.is-ur::after, .pf .ur-text, .pf-preview, .pf-sheet-overlay { animation: none !important; }
+  .pf-slot.is-ur::after { display: none; }
 }

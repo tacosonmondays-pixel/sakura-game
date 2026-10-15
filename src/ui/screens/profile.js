@@ -19,7 +19,8 @@ import { buildCard, cleanViewedCard, snapshotToMiniProfile } from '../../online/
 import {
   autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, STAGE_COUNT,
 } from '../../systems/profileTrophies.js';
-import { HONOR_TOTAL, earnedHonors, honorSVG } from '../../systems/profileHonors.js';
+import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
+import { ribbonArt, liveHonors } from '../honorFx.js';
 import { TITLES } from '../../data/profileArt.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
@@ -129,6 +130,7 @@ export function render(root, params = {}) {
     const scroll = oldMain ? oldMain.scrollTop : 0;
     for (const off of detach.splice(0)) off();
     host.replaceChildren(profileView(ownModel(store.profile), { actions, detach }));
+    detach.push(liveHonors(host.querySelector('.pf-shelf') || host, { budget: 4 })); // special pins: at most 4 live
     const main = host.querySelector('.pf-main');
     if (main) main.scrollTop = scroll;
   }
@@ -250,7 +252,7 @@ function profileView(m, ctx) {
     ? own
       ? h('button.pf-honors', { type: 'button', 'data-testid': 'profile-honors', onclick: () => navigate('commissions', { tab: 'achievements' }) },
         h('span.pf-honors-k', 'Honor Ribbons'), h('b', String(m.honors.count), h('small', ` / ${m.honors.total}`)),
-        h('span.pf-honors-row', m.honors.latest.map((id) => svgEl(honorSVG(id, 26), 'pf-honor-mini'))),
+        h('span.pf-honors-row', m.honors.latest.map((id) => ribbonArt(id, 26, { still: true }))),
         h('span.pf-honors-go', 'All achievements ›'))
       : h('div.pf-honors', { 'data-testid': 'profile-honors' }, h('span.pf-honors-k', 'Honor Ribbons'), h('b', String(m.honors.count)))
     : null;
@@ -314,6 +316,7 @@ function openPreview() {
     if (closePreview === close) closePreview = null;
   };
   overlay.append(profileView({ ...m, own: false }, { detach, preview: { onClose: close } }));
+  detach.push(liveHonors(overlay, { budget: 4, ignoreOverlays: true }));
   document.body.append(overlay);
   const offEsc = onEscape(close);
   window.addEventListener('hashchange', close);

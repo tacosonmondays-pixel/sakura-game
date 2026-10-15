@@ -1,6 +1,46 @@
-// The profile's view of the achievements expansion (docs/specs/ACHIEVEMENTS.md §6): titles, Honor
-// Ribbons, their art and the kill count. The profile imports these names only from here, so the
-// switch to feature/achievements' real honors modules is this one file.
-export {
-  NO_COSMETIC, TITLE_TABLE, HONOR_TOTAL, honorOf, honorSVG, earnedAchievementTitles, earnedHonors, honorCount, killsAll,
-} from './profileHonorsShim.js';
+// The profile's view of the achievements expansion (docs/specs/ACHIEVEMENTS.md §6): titles, Honor Ribbons and
+// the kill count, from feature/achievements' tables (src/data/honors.js, src/data/achievements.js).
+//
+// Pure on purpose: src/systems/save.js reaches this file (senseiSave → profileTrophies), and the main bundle must
+// not pull the ribbon art or its CSS. So ownership is read here with the same rules as src/systems/honors.js
+// (ownedRibbons / ownedTitles: a claimed, live, cosmetic row); tests/systems/profileHonors.test.js keeps the two
+// equal. The art (ribbonArt, titlePlate) is imported by the profile UI from src/ui/honorFx.js.
+import { ACHIEVEMENT_MAP, NO_COSMETIC, achievementLive } from '../data/achievements.js';
+import { HONOR_RIBBONS, HONOR_MAP, TITLES } from '../data/honors.js';
+import { killsAll } from './achievementMetrics.js';
+
+export { NO_COSMETIC, killsAll };
+
+const TIER = { standard: 'std', gold: 'gold', prism: 'prism' };
+const live = (id) => !ACHIEVEMENT_MAP[id] || achievementLive(ACHIEVEMENT_MAP[id]);
+
+/** { [titleId]: { text, tier: 'std'|'gold'|'prism', how } } for every title this build contains. */
+export const TITLE_TABLE = Object.freeze(Object.fromEntries(TITLES.filter((t) => live(t.id)).map((t) => [t.id, Object.freeze({
+  text: t.name, tier: TIER[t.plate] || 'std', how: ACHIEVEMENT_MAP[t.id]?.desc || t.source || '',
+})])));
+
+/** Honor Ribbons this build contains (the "n / total" on screens). */
+export const HONOR_TOTAL = HONOR_RIBBONS.filter((h) => live(h.id)).length;
+
+/** @returns {{ name: string, cls: 'plain'|'shiny'|'special' }|null} */
+export function honorOf(achId) {
+  const h = HONOR_MAP[achId];
+  return h ? { name: h.name, cls: h.class } : null;
+}
+
+const claimed = (p, id) => p?.missions?.achievements?.[id] === true && !NO_COSMETIC(id) && !!ACHIEVEMENT_MAP[id] && achievementLive(ACHIEVEMENT_MAP[id]);
+
+/** Claimed achievement ids that carry a title (the freeplay titles are read by profileTrophies.earnedTitles). */
+export function earnedAchievementTitles(p) {
+  return TITLES.filter((t) => ACHIEVEMENT_MAP[t.id] && claimed(p, t.id)).map((t) => t.id);
+}
+
+/** Claimed achievement ids that carry an Honor Ribbon, in case order. */
+export function earnedHonors(p) {
+  return HONOR_RIBBONS.filter((h) => claimed(p, h.id)).map((h) => h.id);
+}
+
+/** The public card's st.h (0–999). */
+export function honorCount(p) {
+  return Math.min(999, earnedHonors(p).length);
+}

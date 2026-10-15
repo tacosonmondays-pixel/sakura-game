@@ -16,7 +16,7 @@ import { eclipseFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.j
 import { levelCap, MAX_AWAKEN } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/profileTrophies.js';
-import { honorSVG } from '../../systems/profileHonors.js';
+import { ribbonArt, titlePlate as honorPlate } from '../honorFx.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles } from '../rarity.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS, RING_DELAY_MS } from '../hold.js';
 
@@ -61,13 +61,16 @@ export function frameName(frame) {
   return frame && FRAMES[frame] ? `${FRAMES[frame].name} frame` : '';
 }
 
-/** The equipped title on its plate (Standard / Gold / Prism). A title this build doesn't know reads "—". */
-export function titlePlate(id, { still = false } = {}) {
+/**
+ * A title on its plate (Standard / Gold / Prism: the achievements' own plate, src/ui/honorFx.js). Only the equipped
+ * plate under the name moves (`still: false`). A title this build doesn't know reads "—".
+ */
+export function titlePlate(id, { still = false, small = false, locked = false } = {}) {
   if (!id) return null;
-  const t = TITLES[id];
-  const tier = t?.tier || 'std';
-  return h(`span.tag-ribbon.pf-title.tier-${tier}${still ? '.still' : ''}`, { 'data-testid': 'profile-title', 'data-title': id },
-    h('span', t ? t.text : '—'), tier === 'prism' && !still ? urRing() : null);
+  const el = honorPlate(id, { live: !still, small, locked, text: TITLES[id] ? null : '—' });
+  el.classList.add('pf-title');
+  el.dataset.testid = 'profile-title';
+  return el;
 }
 
 /** A small title chip (lists, Freeplay Records): never animated. */
@@ -127,8 +130,10 @@ export function favInfo(id, prof) {
 const MEDAL_CLS = { nightmare: 'pink', hard: 'gold', normal: 'sky', easy: 'bronze' };
 const HONOR_CLS = { plain: 'sky', shiny: 'gold', special: 'violet' };
 
-/** A pinned plaque (pin, icon, title, one line). */
-export function plaqueEl(pin) {
+const phone = () => typeof matchMedia === 'function' && matchMedia('(max-height: 480px)').matches;
+
+/** A pinned plaque (pin, icon, title, one line). Ribbons are drawn natively: 40 px, 36 px on phones. */
+export function plaqueEl(pin, { size = phone() ? 36 : 40 } = {}) {
   const info = pinInfo(pin);
   let cls = 'grey';
   let art;
@@ -137,7 +142,7 @@ export function plaqueEl(pin) {
     art = svgEl(medalIcon(info.diff), 'pf-pl-art');
   } else if (info.kind === 'ach' && !info.unknown && info.honor) {
     cls = `${HONOR_CLS[info.honor.cls] || 'sky'}.honor-${info.honor.cls}`;
-    art = svgEl(honorSVG(info.ach, 40), 'pf-pl-art');
+    art = h('span.pf-pl-art', ribbonArt(info.ach, size, { prio: 2 })); // specials animate through liveHonors (≤ 4 on the shelf)
   } else if (info.kind === 'ach' && !info.unknown) {
     cls = 'sky';
     art = svgEl(trophySVG(), 'pf-pl-art');

@@ -4,7 +4,7 @@ import { STAGES, STAGE_MAP, CHAPTERS } from '../data/stages.js';
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
-import { ACHIEVEMENTS } from '../data/missions.js';
+import { ACHIEVEMENTS, achievementLive } from '../data/achievements.js';
 import { TITLES, FREEPLAY_TITLES, FRAME_IDS, BANNER_MAP } from '../data/profileArt.js';
 import { MAX_AWAKEN, unitPower } from './progression.js';
 import { bestiaryPercent } from './missions.js';
@@ -141,8 +141,8 @@ function achievementPins(p) {
     if (h) return CLS_RANK[h.cls] ?? 2;
     return TITLES[id] ? 3 : 4;
   };
-  return ACHIEVEMENTS.map((a, i) => ({ id: a.id, i }))
-    .filter(({ id }) => claimed(p, id) && !NO_COSMETIC(id))
+  return ACHIEVEMENTS.map((a, i) => ({ id: a.id, live: achievementLive(a), i }))
+    .filter(({ id, live }) => live && claimed(p, id) && !NO_COSMETIC(id))
     .sort((a, b) => rank(a.id) - rank(b.id) || a.i - b.i)
     .map(({ id }) => `ach:${id}`);
 }

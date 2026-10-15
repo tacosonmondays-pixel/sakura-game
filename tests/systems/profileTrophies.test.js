@@ -92,9 +92,11 @@ describe('medals and pins', () => {
     expect(pinInfo('boss-colossus:hard').sub).toBe('Iron Colossus');
     expect(o.medals.slice(0, 59).every((pin) => pin.endsWith(':nightmare'))).toBe(true);
     expect(o.achievements.some((pin) => /a_pulls_|a_units_all|a_reroll_10/.test(pin))).toBe(false);
-    // shiny Honor Ribbons before plain ones, ribbons before plain achievements
-    const first = o.achievements.slice(0, 3).map((x) => pinInfo(x).honor?.cls);
-    expect(first).toEqual(['shiny', 'shiny', 'shiny']);
+    // specials → shiny → plain Honor Ribbons → titled rows without a ribbon → the rest
+    const RANK = { special: 0, shiny: 1, plain: 2 };
+    const ranks = o.achievements.map((x) => RANK[pinInfo(x).honor?.cls] ?? 3);
+    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
+    expect(ranks[0]).toBe(0);
     expect(autoPins(p)).toEqual(o.medals.slice(0, 4));
     expect(autoPins(freshSave())).toEqual([]);
   });
