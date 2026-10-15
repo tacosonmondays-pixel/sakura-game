@@ -36,10 +36,18 @@ function save(reason = 'donate') {
   store.saveNow();
 }
 
-/** One writer at a time across tabs of this browser (two tabs share one save). */
+/**
+ * One writer at a time across tabs of this browser (two tabs share one save). Inside the lock the
+ * save is read again first (store.refresh(): another tab may have saved since this one loaded it),
+ * so a ledger step always works on the newest save and never writes over it (M5).
+ */
 function ledgerLock(fn) {
   const locks = globalThis.navigator?.locks;
-  return locks?.request ? locks.request('ss-social-ledger', fn) : fn();
+  const run = () => {
+    store.refresh();
+    return fn();
+  };
+  return locks?.request ? locks.request('ss-social-ledger', run) : run();
 }
 
 const WHY = {
@@ -61,7 +69,7 @@ const WHY = {
 /** Collect everything waiting for me (also without a clan). Resolves what was added. */
 export async function collectDonations(backend = getBackend()) {
   return ledgerLock(async () => {
-    const profile = store.profile;
+    const profile = store.profile; // (the newest save: ledgerLock re-read it)
     const uid = backend.uid;
     const key = beginClaim(profile, { key: newKey(), uid });
     save('collect');
@@ -320,10 +328,10 @@ export function createDonatePanel({ backend = getBackend(), onBadge = null } = {
   }
 
   async function donate(r, n) {
-    const profile = store.profile;
     const uid = backend.uid;
     const key = newKey();
     await ledgerLock(async () => {
+      const profile = store.profile; // (the newest save: ledgerLock re-read it)
       if (!holdDonation(profile, { key, uid, requestId: r.id, item: r.item, count: n })) {
         toast('You don\'t have enough of that.', 'info');
         return;

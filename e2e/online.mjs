@@ -34,7 +34,7 @@
 // when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
-import { launchChromium } from './browser.mjs';
+import { launchChromium, ownSave } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -74,6 +74,7 @@ const context = await browser.newContext({ viewport: { width: W, height: H }, de
 const errors = [];
 async function openPage(name) {
   const page = await context.newPage();
+  await ownSave(page, name); // each page is its own device: its own game save (a shared one would go stale)
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const t = m.text();
