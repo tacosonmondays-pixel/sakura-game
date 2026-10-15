@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementLive } from '../../src/data/a
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { skipOnboarding, checkLessons, featureOpen } from '../../src/systems/story.js';
 import { shopTabs, buyOffer } from '../../src/systems/shop.js';
-import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS } from '../../src/data/missions.js';
+import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, REDEEM_CODES } from '../../src/data/missions.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
 import { bountyArenas } from '../../src/data/stages.js';
 import { weekKey } from '../../src/core/util.js';
@@ -314,6 +314,30 @@ describe('codes', () => {
     const p = createProfile();
     const r = redeemCode(p, 'reset 67');
     expect(r).toMatchObject({ ok: true, action: 'resetProgress', rewards: [] });
+    // the reset is player-facing (it only wipes the redeemer's own save): it works in production too
+    expect(redeemCode(createProfile(), 'reset 67', { allowDev: false })).toMatchObject({ ok: true, action: 'resetProgress' });
+  });
+
+  it('ships no developer currency code, and a dev code only works in a dev build', () => {
+    // the code table is in the public bundle: nothing in it may be a dev cheat
+    expect(Object.values(REDEEM_CODES).filter((c) => c.dev)).toEqual([]);
+    for (const c of Object.values(REDEEM_CODES)) expect(c.rewards.every((r) => r.id !== 'gems' || r.count <= 1000)).toBe(true);
+    // defence in depth: a def marked dev answers 'invalid' in a production build
+    REDEEM_CODES.TESTDEVONLY = { rewards: [{ id: 'gems', count: 5 }], desc: 'test', dev: true };
+    try {
+      const p = createProfile();
+      const gems = p.currencies.gems;
+      expect(redeemCode(p, 'testdevonly', { allowDev: false })).toMatchObject({ ok: false, error: 'invalid', rewards: [] });
+      expect(p.currencies.gems).toBe(gems);
+      expect(p.redeemed || []).toEqual([]);
+      expect(redeemCode(p, 'testdevonly', { allowDev: true })).toMatchObject({ ok: true });
+      expect(p.currencies.gems).toBe(gems + 5);
+      // vitest runs as a dev build, so the default follows import.meta.env.DEV
+      expect(import.meta.env.DEV).toBe(true);
+      expect(redeemCode(createProfile(), 'testdevonly').ok).toBe(true);
+    } finally {
+      delete REDEEM_CODES.TESTDEVONLY;
+    }
   });
 });
 

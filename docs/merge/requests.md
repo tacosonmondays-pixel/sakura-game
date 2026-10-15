@@ -208,7 +208,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 |---|---|---|---|---|---|
 | G-01 | Gacha animations + 10-pulls, skippable (C6) | DONE (`recruit.js` `playReveal` L281-384, Skip L290; results saved before the animation, header L6) | DONE | — | |
 | G-02 | Reveal "like CRK or Genshin, cool VFX"; Genshin = the gacha reference (anticipation → meteor colour by rarity blue/purple/gold → readable results) (C6; O7 16:38; OWNER_REQUESTS L271) | PARTIAL: CSS halo "envelope", card flips, SSR showcase with SVG card (`recruit.js` L295-334); no rarity colour tell | DONE-ish: 3D portal + meteor coloured by best rarity `#ffdb85/#d5adff/#9cdfff` + 3D chibi reveal (`req-pretty/cinematics.js` L53-60, L121, L537-602); looked at `$M/world-shots/old/o17-wish-cine-b.png` | P1 | Port the idea with illustrations; keep "results never lost or double-charged". |
-| G-03 | verity777 currency must not drop after a pull (C7) | DONE structurally (single local profile) but no test that 999,999 survives 1× and 10× pulls (`tests/systems/missions.test.js` has only reset 67, L135) | DONE (save-switch bug fixed, CX@619, CX@911) | P1 | Add the regression test. |
+| G-03 | Developer gem code (removed): currency must not drop after a pull (C7) | DONE structurally (single local profile) but no test that 999,999 survives 1× and 10× pulls (`tests/systems/missions.test.js` has only reset 67, L135) | DONE (save-switch bug fixed, CX@619, CX@911) | P1 | Add the regression test. |
 | G-04 | Multiple banners for towers and for heroes (C7) | MISSING: one "Standard Recruitment" (`recruit.js` L126-141; `src/systems/gacha.js` `POOL` L17) | DONE: 11 banners, `category: towers|heroes` (`req-pretty/gacha.js` L60-190) | P1 | 30+ unit pool needs it; event girls stay out of ordinary pools (HO L118). Integration D5. |
 | G-05 | Banners rotate on real time, daily 7 PM CST (C15) | MISSING | DONE `bannerRotation()` America/Chicago 19:00, standard + 5 rotating pairs, countdown, "nothing was spent" guard (`req-pretty/live-ops.js` L38-79) | P1 | |
 | G-06 | SSRs harder (C18) | DONE: SSR 1.5 %, pity 90, ≥1 SR per 10, spark 200 (`types.js` L260) | DONE 1.5 % / 90 | — | |
@@ -310,7 +310,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
-| K-01 | `verity777` → 999,999 summon currency (C6), once per save (HO L65) | DONE (`src/data/missions.js` L89 `VERITY777` 999,999 gems, once; `src/systems/missions.js` L261-279, case/space-insensitive) | DONE (999,999 Starlight once) | P1 test | See G-03. |
+| K-01 | The developer gem code (removed) → 999,999 summon currency (C6), once per save (HO L65) | REMOVED 2026-10-15 (was `src/data/missions.js`, 999,999 gems, once; `src/systems/missions.js` L261-279, case/space-insensitive) | DONE (999,999 Starlight once) | P1 test | See G-03. |
 | K-02 | `reset 67` → reset progress, back to main menu **and tutorial** (C30); keep device settings (HO L87-92) | PARTIAL: `RESET67` resets and goes to the lobby (`commissions.js` L294-303); there is no tutorial; `store.reset()` = `createProfile()` (`src/core/store.js` L108-110) also wipes graphics/audio settings | DONE (`oldgame/reset-code.js`; returns to Hikari's tutorial; keeps device settings) | P1 | Preserve `settings` on reset; route to the tutorial. |
 | K-03 | `Rosie777` dev clan (RM L8) → L-09 | | | P2 | |
 
@@ -431,7 +431,7 @@ BA-style stubby chibis (chibi-v2 pipeline), with the Codex GLBs as a temporary s
 | City | Moonpetal City, 5 districts | none |
 | Audio | WebAudio synth | none (toggles only) |
 | Wiki / bestiary | yes / yes | 17 articles / yes |
-| Codes | verity777, reset 67 | SAKURA2026, WELCOME, TACOTUESDAY, VERITY777, RESET67 |
+| Codes | the developer gem code (removed), reset 67 | SAKURA2026, WELCOME, TACOTUESDAY, the developer gem code (removed), RESET67 |
 | Backend | Cloudflare Worker + D1 (not in mirror) | none (static Pages) |
 
 ---

@@ -364,15 +364,20 @@ export function normalizeCode(code) {
   return String(code ?? '').replace(/\s+/g, '').toUpperCase();
 }
 
+/** True only in a local dev build (Vite dev server, vitest); false in every production build. */
+const DEV_BUILD = !!import.meta.env?.DEV;
+
 /**
  * Redeem a code once per account. Action codes (e.g. RESET67) return `action` for the UI to
- * perform after confirmation and grant nothing.
+ * perform after confirmation and grant nothing. A code marked `dev: true` answers 'invalid' in
+ * production builds (defence in depth: the code table ships in the public bundle).
+ * @param {{ allowDev?: boolean }} [opts] allowDev: tests only (defaults to the build's DEV flag)
  * @returns {{ ok: boolean, error?: 'invalid'|'redeemed', rewards: object[], action?: string, desc?: string }}
  */
-export function redeemCode(profile, code) {
+export function redeemCode(profile, code, { allowDev = DEV_BUILD } = {}) {
   const key = normalizeCode(code);
-  const def = REDEEM_CODES[key];
-  if (!def) return { ok: false, error: 'invalid', rewards: [] };
+  const def = Object.hasOwn(REDEEM_CODES, key) ? REDEEM_CODES[key] : null;
+  if (!def || (def.dev && !allowDev)) return { ok: false, error: 'invalid', rewards: [] };
   profile.redeemed ||= [];
   if (!def.repeatable && profile.redeemed.includes(key)) return { ok: false, error: 'redeemed', rewards: [] };
   if (def.action) return { ok: true, rewards: [], action: def.action, desc: def.desc };

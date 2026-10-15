@@ -319,7 +319,7 @@ This is the reason cosmetics must never live in a new block. RS §1.6 shows the 
 | Two new-build tabs both claim | Each pays its own copy. The last write keeps exactly one payment. | No |
 | Import an older export, or RESET67 | The whole profile is replaced (`src/core/store.js:100-110`), so claims and rewards go back together | No net gain |
 | Transfer code | Copies the save to a new device (`src/ui/online/settingsOnline.js:39`, `:72`). Both copies can claim. | This is the same fork as every reward and every currency. Accepted: nothing server-side reads gems. |
-| Dev code `VERITY777` | Unrelated to achievements | — |
+| Dev gem code (removed) | Unrelated to achievements | — |
 
 ### 4.5 Permanence rules
 

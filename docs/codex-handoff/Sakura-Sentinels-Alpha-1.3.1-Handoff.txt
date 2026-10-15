@@ -62,7 +62,7 @@ WHAT WAS IMPLEMENTED
    knowledge bonuses, equipment crafting/equipping/upgrading/rerolling,
    materials, inventory, saved teams, wish history, wallet/ledger, recruitment
    banners/rates/guarantees, daily rotations and limited shop stock.
-   verity777 grants 999,999 Starlight once to the redeeming collection.
+   The developer gem code (removed) granted 999,999 Starlight once to the redeeming collection.
 
 3. Alpha 1.1 expansion
    Twelve enemy families and 80 variants; separate armor, barriers, crystal
