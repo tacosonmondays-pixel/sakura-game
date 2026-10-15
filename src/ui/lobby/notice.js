@@ -7,6 +7,7 @@ import { h, clear } from '../dom.js';
 import { modal, svgEl, button, toast } from '../components.js';
 import { navigate } from '../router.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
+import { currencyIcon } from '../../art/icons.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
@@ -60,6 +61,9 @@ export function shortDate(iso, { year = false } = {}) {
 
 const PATCH_SECTIONS = [['added', 'Added'], ['changed', 'Changed'], ['fixed', 'Fixed']];
 
+/** The game's gem currency icon, sized to sit inside a line of text or a button label. */
+const gem = () => svgEl(currencyIcon('gems'), 'gem-inline');
+
 /** The "Patch notes" article: every version, newest first, each with a once-per-save gem gift. */
 function patchNotesPage({ rerender }) {
   const profile = store.profile;
@@ -67,7 +71,7 @@ function patchNotesPage({ rerender }) {
   const after = (r, gems) => {
     if (!r.ok) return toast(r.error === 'claimed' ? 'Already claimed.' : 'That gift is not available.', 'bad');
     store.commit('patch-gift');
-    toast(`Received ${gems} 💎 — thank you for playing, Sensei!`, 'good', 2600);
+    toast([`Received ${gems} `, gem(), ' — thank you for playing, Sensei!'], 'good', 2600);
     rerender();
   };
   const claimOne = (id) => after(claimPatchGift(profile, id), PATCH_GIFT_GEMS);
@@ -78,7 +82,7 @@ function patchNotesPage({ rerender }) {
   return [
     h('div.lb-notice-head', h('span.lb-notice-tag', { dataset: { tag: 'Update' } }, 'Update'), h('h3', 'Patch notes')),
     h('div.lb-patch-intro',
-      h('p', `Every version of the academy, newest first. Each one comes with ${PATCH_GIFT_GEMS} 💎 — claim it once per version.`),
+      h('p', `Every version of the academy, newest first. Each one comes with ${PATCH_GIFT_GEMS} `, gem(), ' — claim it once per version.'),
       waiting.length >= 2 ? button(`Claim all (${waiting.length})`, { kind: 'yellow', small: true, testid: 'patch-claim-all', onClick: claimAll }) : null,
     ),
     h('div.lb-patch-list', ...PATCH_NOTES.map((n) => {
@@ -92,7 +96,7 @@ function patchNotesPage({ rerender }) {
           ),
           claimed
             ? h('span.lb-patch-claimed', { 'data-testid': `patch-claimed-${n.id}` }, 'Claimed ✓')
-            : button(`Claim ${PATCH_GIFT_GEMS} 💎`, { kind: 'yellow', small: true, testid: `patch-claim-${n.id}`, onClick: () => claimOne(n.id) }),
+            : button([`Claim ${PATCH_GIFT_GEMS} `, gem()], { kind: 'yellow', small: true, testid: `patch-claim-${n.id}`, onClick: () => claimOne(n.id) }),
         ),
         ...PATCH_SECTIONS.filter(([k]) => n[k]?.length).map(([k, label]) => h('div.lb-patch-sec',
           h(`span.lb-patch-kind.${k}`, label),
@@ -130,7 +134,7 @@ function articles() {
       id: 'patch', tag: 'Update', icon: 'notice', title: 'Patch notes',
       date: () => {
         const n = unclaimedPatchGifts(store.profile).length;
-        return `v${PATCH_NOTES[0].version} · ${n ? `${n} gift${n === 1 ? '' : 's'} 💎` : shortDate(PATCH_NOTES[0].date)}`;
+        return `v${PATCH_NOTES[0].version} · ${n ? `${n} gem gift${n === 1 ? '' : 's'}` : shortDate(PATCH_NOTES[0].date)}`;
       },
       render: patchNotesPage,
     },
