@@ -17,15 +17,15 @@ import { MAX_AWAKEN } from '../../systems/progression.js';
 import { SHOWCASE_MAX } from '../../online/profileRules.js';
 import { buildCard, cleanViewedCard, snapshotToMiniProfile } from '../../online/profileCard.js';
 import {
-  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, STAGE_COUNT,
+  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, titleChoices, STAGE_COUNT,
 } from '../../systems/profileTrophies.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
-import { TITLES } from '../../data/profileArt.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName } from '../online/common.js';
 import { tagChips } from '../online/tagChip.js';
+import { tagsOf, selfId } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -61,6 +61,8 @@ export function ownModel(p) {
     fp: freeplayByTier(p),
     st,
     earnedTitles: earnedTitles(p),
+    // "All titles n / N": the tag titles count only for a player who owns them (titleChoices)
+    titleTotal: titleChoices(p).length,
     earnedFrames: earnedFrames(p),
     honors: { count: st.h, total: HONOR_TOTAL, latest: earnedHonors(p).slice(-7).reverse() },
   };
@@ -92,6 +94,7 @@ export function cardModel(card, who) {
     fp: card.fp,
     st: card.st,
     earnedTitles: [],
+    titleTotal: 0,
     earnedFrames: [],
     honors: card.st.h == null ? null : { count: card.st.h },
   };
@@ -282,7 +285,7 @@ function profileView(m, ctx) {
     ? h('div.pf-fp-earned',
       m.earnedTitles.filter((id) => id.startsWith('fp_')).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
       m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })),
-      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${Object.keys(TITLES).length} ›`) : null)
+      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${m.titleTotal} ›`) : null)
     : !own && (m.title || m.frame)
       ? h('div.pf-fp-earned', m.title ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null)
       : null;
@@ -313,7 +316,8 @@ let closePreview = null;
 function openPreview() {
   closePreview?.();
   const p = store.profile;
-  const card = cleanViewedCard(buildCard(p));
+  // what other Senseis see: a tag title only while the server backs it (never this save's own marks)
+  const card = cleanViewedCard(buildCard(p), { tags: tagsOf(selfId()) });
   const name = storedName() || 'Sensei';
   const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: p.sensei.bio });
   const detach = [];

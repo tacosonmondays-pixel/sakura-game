@@ -13,6 +13,7 @@ import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax } from '../sy
 import { autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, STAGE_COUNT, UNIT_COUNT } from '../systems/profileTrophies.js';
 import { setSensei, cleanShowcase } from '../systems/senseiSave.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX, GEAR_MAX } from './profileRules.js';
+import { tagTitleAllowed } from './tags.js';
 
 export { cardHash, validCard } from './profileRules.js';
 
@@ -131,9 +132,13 @@ const counts = (a, n, hi) => Array.from({ length: n }, (_, i) => whole(Array.isA
  * A card from the network, made safe to show: unknown ids fall back or drop, numbers are clamped,
  * unknown keys are ignored (so a newer card never blanks the profile for an older viewer). Pins keep
  * their grammar; an achievement pin this build doesn't know draws the neutral plaque (pinInfo).
+ * A tag title (Developer, Alpha / Beta Tester) shows only when the card owner's SERVER tags include
+ * it (`tags`, src/online/tags.js): a save's own marks are never proof for anyone else.
+ * @param {object} card
+ * @param {{ tags?: object|null }} [opts] tags: the card owner's player_tags (null: unknown → no tag title)
  * @returns {{ fav, ban, frm, ttl, units: object[], med: { a: number[], r: number[]|null, pins: string[] }, fp: object, st: { u, s, b, k, h: number|null } }}
  */
-export function cleanViewedCard(card) {
+export function cleanViewedCard(card, { tags = null } = {}) {
   const c = isObj(card) ? card : {};
   const med = isObj(c.med) ? c.med : {};
   const pins = Array.isArray(med.pins) ? [...new Set(med.pins.filter((pin) => typeof pin === 'string' && PIN_RE.test(pin)))].filter((pin) => {
@@ -152,7 +157,7 @@ export function cleanViewedCard(card) {
     fav: typeof c.fav === 'string' && UNIT_MAP[c.fav] ? c.fav : 'hikari',
     ban: typeof c.ban === 'string' && BANNER_MAP[c.ban] ? c.ban : DEFAULT_BANNER,
     frm: typeof c.frm === 'string' && FRAME_IDS.includes(c.frm) ? c.frm : null,
-    ttl: typeof c.ttl === 'string' && TITLES[c.ttl] ? c.ttl : null,
+    ttl: typeof c.ttl === 'string' && TITLES[c.ttl] && tagTitleAllowed(c.ttl, tags) ? c.ttl : null,
     units: viewUnits(c.units),
     med: { a: counts(med.a, 4, STAGE_COUNT), r: Array.isArray(med.r) ? counts(med.r, Math.min(8, med.r.length), 160) : null, pins },
     fp,

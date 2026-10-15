@@ -10,6 +10,7 @@ import { MAX_AWAKEN, unitPower } from './progression.js';
 import { bestiaryPercent } from './missions.js';
 import { NO_COSMETIC, honorOf, earnedAchievementTitles, honorCount, killsAll } from './profileHonors.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
+import { markedTags } from '../data/playerTags.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const counters = (p) => (isObj(p?.missions?.counters) ? p.missions.counters : {});
@@ -29,17 +30,29 @@ export const STAGE_COUNT = STAGES.length;
 
 /**
  * Title ids this save has earned, in TITLES order. Freeplay titles read the 'fpm:' marks (kept by
- * every older build) and the legacy strings; achievement titles read the claims.
+ * every older build) and the legacy strings; achievement titles read the claims; the tag titles read
+ * the 'tag:' marks the save keeps once the server told it its tags (src/online/tags.js).
  */
 export function earnedTitles(p) {
   const c = counters(p);
   const legacy = fpLegacy(p, 'titles');
   const ach = new Set(earnedAchievementTitles(p));
+  const tags = markedTags(p);
   return Object.keys(TITLES).filter((id) => {
     const fp = FREEPLAY_TITLES[id];
     if (fp) return fp.tiers.some((t) => c[`fpm:${t}:matriarch`] > 0) || legacy.includes(fp.legacy);
+    if (TITLES[id].tag) return tags.includes(TITLES[id].tag);
     return ach.has(id);
   });
+}
+
+/**
+ * The titles this save may see in the picker and count in "n / total": every title of this build
+ * except the tag titles it does not own (a tag title is never an unobtainable row for anyone else).
+ */
+export function titleChoices(p) {
+  const earned = new Set(earnedTitles(p));
+  return Object.keys(TITLES).filter((id) => !TITLES[id].tag || earned.has(id));
 }
 
 /**

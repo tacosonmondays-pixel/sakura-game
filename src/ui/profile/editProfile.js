@@ -8,7 +8,7 @@ import { BANNERS, FRAMES, FRAME_IDS, TITLES, QUICK_LINES, bannerLockText } from 
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, bannerUnlocked } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT } from '../../online/profileRules.js';
 import { storedName, askName } from '../online/common.js';
@@ -30,6 +30,8 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   const body = h('div.ep-body', { 'data-testid': 'edit-profile-body' });
   const prev = h('div.ep-card', { 'data-testid': 'edit-profile-preview' });
   const titles = new Set(earnedTitles(p));
+  // every title of this build, except the tag titles this player doesn't own (never an unobtainable row)
+  const choices = titleChoices(p);
   if (title && titles.has(title)) draft.title = title;
   const frames = new Set(earnedFrames(p));
   const ownedIds = Object.keys(p.units).filter((id) => UNIT_MAP[id]).sort((a, b) => unitPower(p, b) - unitPower(p, a) || a.localeCompare(b));
@@ -80,12 +82,12 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       })),
     ],
     title: () => [
-      label('Title', `${titles.size} / ${Object.keys(TITLES).length} earned`),
+      label('Title', `${titles.size} / ${choices.length} earned`),
       h('p.ep-help', 'Titles come from achievements. Nothing you buy gives a title.'),
       h('div.ep-titles', { 'data-testid': 'edit-titles' },
         h(`button.ep-title.none${draft.title == null ? '.on' : ''}`, { type: 'button', 'data-title': '', onclick: () => set('title', null) }, h('span.ep-title-none', 'None'), draft.title == null ? h('i.ep-check', '✓') : null),
         TIERS.map(([tier, name]) => {
-          const ids = Object.keys(TITLES).filter((id) => TITLES[id].tier === tier);
+          const ids = choices.filter((id) => TITLES[id].tier === tier);
           if (!ids.length) return null;
           return h('div.ep-title-grp',
             h('div.ep-title-head', name, h('small', `${ids.filter((id) => titles.has(id)).length} / ${ids.length}`)),

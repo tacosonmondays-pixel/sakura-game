@@ -35,23 +35,29 @@ describe('the tables (stable interface for the profile)', () => {
     for (const f of fx) expect(EFFECT_LINES[f].length).toBeGreaterThan(10);
   });
 
-  it('TITLES: 45 titles on 3 plates, id = the achievement id or a freeplay title', () => {
-    expect(TITLES).toHaveLength(45);
+  it('TITLES: 48 titles on 3 plates, id = the achievement id, a freeplay title or a player-tag title', () => {
+    expect(TITLES).toHaveLength(48);
     const by = (pl) => TITLES.filter((t) => t.plate === pl).length;
-    expect([by('prism'), by('gold'), by('standard')]).toEqual([7, 17, 21]);
+    expect([by('prism'), by('gold'), by('standard')]).toEqual([9, 18, 21]);
+    // the three player-tag titles (src/data/playerTags.js): Developer + Alpha Tester on prism, Beta Tester on gold
+    expect(TITLES.filter((t) => t.tag).map((t) => [t.id, t.name, t.plate])).toEqual([
+      ['tag_dev', 'Developer', 'prism'], ['tag_alpha', 'Alpha Tester', 'prism'], ['tag_beta', 'Beta Tester', 'gold'],
+    ]);
     for (const t of TITLES) {
       expect(t.id).toMatch(/^[a-z][a-z0-9_]{0,23}$/);
       expect(t.name.length).toBeLessThanOrEqual(24);
       expect(TITLE_MAP[t.id]).toBe(t);
-      if (!t.id.startsWith('fp_')) expect(ACHIEVEMENT_MAP[t.id].title.text).toBe(t.name);
+      if (!t.id.startsWith('fp_') && !t.tag) expect(ACHIEVEMENT_MAP[t.id].title.text).toBe(t.name);
+      if (t.tag) expect(ACHIEVEMENT_MAP[t.id]).toBeUndefined();
     }
     expect(TITLE_MAP.fp_ashwing).toMatchObject({ name: 'Ashwing Slayer', plate: 'gold' });
     expect(TITLE_MAP.fp_crimson).toMatchObject({ name: 'Crimson Slayer', plate: 'prism' });
   });
 
-  it('launch counts: 32 ribbons and 37 titles in this build', () => {
+  it('launch counts: 32 ribbons and 37 titles in this build (the tag titles never count for everyone)', () => {
     expect(liveRibbons()).toHaveLength(32);
     expect(liveTitles()).toHaveLength(37);
+    expect(liveTitles().some((t) => t.tag)).toBe(false);
   });
 
   it('exports the functions the profile uses', () => {
@@ -156,6 +162,7 @@ describe('titleTier and titleTable', () => {
     const t = titleTable();
     expect(t.a_sakura_40).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
     expect(t.a_first_win).toEqual({ text: 'Rookie Sentinel', tier: 'std' });
-    expect(Object.keys(t)).toHaveLength(45);
+    expect(Object.keys(t)).toHaveLength(48); // 45 + the three player-tag titles (a lookup, never a count)
+    expect(t.tag_alpha).toEqual({ text: 'Alpha Tester', tier: 'prism' });
   });
 });
