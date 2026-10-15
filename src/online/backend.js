@@ -182,6 +182,22 @@ export function getBackend() {
       socialCache = null;
       return api.socialStatus();
     },
+    /**
+     * [tags] Public player tags for up to 100 account ids: [{ userId, staff, tester }] (players with
+     * no tag are left out). Never signs in by itself (a tab that never went online gets []). A
+     * server without the player_tags table throws needs_update; src/online/tags.js then stops
+     * asking for the session. Not counted by the client limiter (one batched request at a time).
+     */
+    async getTags(ids) {
+      if (!ready) return [];
+      await ready;
+      if (!adapter?.getTags) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+      try {
+        return await adapter.getTags(ids);
+      } catch (e) {
+        throw toOnlineError(e);
+      }
+    },
     /** [social] live DMs / friend requests / donation changes for this player, once the server has them. */
     subscribeInbox(cb) {
       if (!adapter?.subscribeInbox) return () => {};
