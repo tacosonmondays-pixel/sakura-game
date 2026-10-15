@@ -23,7 +23,7 @@ export const PATCH_NOTES = [
     id: 'v0.1.28', version: '0.1.28', date: '2026-10-15', title: 'Battle saves, attacks & Hikari’s welcome',
     added: [
       'Every girl now has her own attack animation that grows with her upgrades. Chika’s drones circle above her, chase the enemy she is shooting and fly back.',
-      'Leaving a battle saves it. Its stage then offers Continue (from the start of the wave you were on, with the same team, coins and lives) or New game. You can keep up to 5 saved battles, and the lobby shows a Continue shortcut.',
+      'Leaving a battle saves it. Its stage then offers Continue (from the start of the wave you were on, with the same team, coins and lives) or New game. You can keep up to 5 saved battles, and the lobby shows a Continue shortcut. (Freeplay runs aren’t saved; a stage with a saved battle can still start one.)',
       'New players meet Hikari first: a short opening scene, then a first battle where she shows you around. Skip tutorial is always one tap away.',
       'Captain’s Journal (Menu → Captain’s Journal): lessons from Hikari that unlock as you clear stages, each with a small reward. Story scenes play as you clear chapter 1, and the Story archive lets you watch them again.',
       'Hold a girl’s card (or right-click it) to see her info sheet. Every upgrade is tagged Self, Allies or Enemies, and in battle you can hold a girl to see her whole upgrade tree.',
@@ -42,14 +42,15 @@ export const PATCH_NOTES = [
     id: 'v0.1.27', version: '0.1.27', date: '2026-10-14', title: 'Freeplay, solo & co-op',
     added: [
       'Co-op Freeplay: the host turns it on in the room and picks Blossom, Tempest or Crimson Moon. Clear the stage’s last wave, then keep going past it as the wave counter overflows (16/15, 17/15…).',
-      'Freeplay in solo too: every stage you’ve cleared offers Blossom, Tempest or Crimson Moon in its prep. Win a stage and tap Keep going on the victory screen to play on past its last wave. Your best wave on each stage is recorded.',
+      'Freeplay in solo too: every stage you’ve cleared has a Freeplay choice on its prep screen (Blossom, Tempest or Crimson Moon). Or win a stage and tap Keep going on the victory screen to play on past its last wave.',
       'Past the stage’s last wave, enemies from every map join in, and their HP and armor keep climbing.',
       'Boss waves come on a schedule and get tougher all the way to the Ashwing Matriarch around wave 200.',
-      'Vote Finish to end the run together, and the results show the wave you reached.',
-      'Freeplay rewards: coins for every wave past the goal, a reward cache every 25 waves, Assault Tokens for the bosses you beat, your best wave on each difficulty, and one-time milestone gems, titles and a frame. Tempest and Crimson Moon pay more.',
+      'End a run whenever you like: vote Finish together in co-op, or pick Finish run in the pause menu in solo. The results show the wave you reached.',
+      'Freeplay rewards: coins for every wave past the last one, a reward cache every 25 waves, Assault Tokens for the bosses you beat, and one-time milestone gems, titles and a frame. Your best wave is kept for each stage on each of the three tiers. In co-op, Tempest and Crimson Moon pay more coins per wave.',
     ],
     changed: [
       'Back to the room keeps the room’s freeplay setting for your next battle.',
+      'Tactical Challenge’s map cards now start Freeplay runs.',
     ],
   },
   {
