@@ -77,10 +77,22 @@ function build() {
     // [online] 2-player real-time co-op on any unlocked campaign stage. Sweep and Co-op share the
     // half of the bottom row the long-title tiles leave, so their subtitles stay short enough to fit
     tile({ id: 'coop', title: 'Co-op', art: artFor(sec.id, bust('miko'), bust('suzu')), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
-    tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), kicker: 'Soon', soon: true, onClick: () => toast('Story episodes arrive in a future update — the girls are rehearsing!', 'info') }),
+    tile({ id: 'story', title: 'Story', art: artFor(sec.id, bust('hotaru'), bust('momo')), sub: 'Episodes', short: 'Episodes', onClick: () => navigate('story') }), // [story]
   );
+  storyDot(grid.querySelector('[data-testid="hub-story"]'), profile); // [story] NEW dot for unread episodes
   wrap.appendChild(grid);
   return wrap;
+}
+
+/** [story] Red dot on the Story tile while an unlocked episode is unread (the scene list is a lazy chunk). */
+function storyDot(tileEl, profile) {
+  if (!tileEl) return;
+  Promise.all([import('../../data/story/index.js'), import('../../systems/storyTriggers.js'), import('../../data/units.js')])
+    .then(([idx, trig, units]) => {
+      const n = trig.unseenEpisodeCount(profile, idx.SCENE_LIST, (id) => !!units.UNIT_MAP[id]);
+      if (n > 0 && tileEl.isConnected && !tileEl.querySelector('.notif-dot')) tileEl.appendChild(h('span.notif-dot', { 'data-testid': 'hub-story-dot' }));
+    })
+    .catch((e) => console.warn('[missions] story dot failed', e));
 }
 
 function bestWaveLine(profile) {

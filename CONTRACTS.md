@@ -424,7 +424,7 @@ export const BACKUP_KEY = 'sakura-sentinels-save-v1.backup', MAX_BACKUPS = 3; //
 export function createProfile()           // fresh profile: starters owned, 2400 gems, 1 ticket_recruit10, formation set
 export function migrateProfile(raw)        // fills missing fields, upgrades old versions; never throws on partial data (lossy for other builds' saves)
 export function migrationDropsData(raw)    // true when migrateProfile would leave unknown units/items/gear (or a stub save) out
-export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version }; newer/corrupt load fresh
+export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version, droppedBattles? }; newer/corrupt load fresh
 export function backupNotice(reason, kept) // player-facing sentence for store.takeNotice()
 export function serializeProfile(p)        // compact string (base64 JSON) for export
 export function deserializeProfile(text)   // throws Error('Invalid save') on garbage, Error('Newer save') for a newer build's save
@@ -432,13 +432,13 @@ Profile = {
   version, createdAt,
   currencies: { coins, gems },
   items: { [itemId]: count },
-  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite? } },
+  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave? } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -447,10 +447,47 @@ Profile = {
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
   mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
-  seenIntro: string[],
+  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save
+  battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
+  patchGifts: { [noteId]: true },          // claimed patch-note gifts (src/systems/patchGifts.js); also marked 'pg:<noteId>' in missions.counters
+  story: StoryBlock,                       // src/systems/story.js (newStory / legacyStory / restoreStory): no block and no 'story:new' mark = legacy save
 }
 GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
 ```
+
+### `src/systems/battleSave.js` (battle saves)
+
+```js
+export const RECORD_V, SNAP_V, MAX_BATTLE_SAVES /*5*/;
+export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map (none since Freeplay: cleanBattleSaves drops them); 'challenge' stays
+export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice / solo freeplay (req.freeplay)
+export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the least play past the cap*/
+export function savesByWorth(profile) /*least play first; endless last*/, saveToEvict(profile, slot) /*null when there is room*/
+export function clearBattleSave(profile, slot, runId?) /*with runId: only that run*/, saveTitle(rec) /*{ name, mode }*/
+export function droppedBattleSaves(raw), droppedBattleSaveNames(raw) // the one-time notice after an update
+export function saveSummary(rec, now)            // -> { next /*the wave fought next*/, of /*null when endless*/, lives, difficulty, endless, ago }
+export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore or a wave past a shortened stage, keeps the newest 5)
+BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, seed /*uint32 run seed*/,
+  loadout: [{ unitId, stats }], hero: { unitId, stats }|null /*unitBattleStats frozen at New game*/,
+  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty }, snap /*src/ui/battle/snapshot.js*/ }
+```
+Rules: rewards, medals, first clears, stats, missions and drops only on a real end (`results.apply()`),
+which deletes the run's save in the same synchronous write; a closed or replaced run never writes
+again; a full set of saves is only replaced by the player's choice (stage prep → `&evict=<run id>`);
+`store.saveNow()` refuses to write (`lastSaveError: 'stale'`, a 'stale' event) when another tab
+removed a saved battle this tab still holds. A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
+ignores it: no whole-save backup).
+
+### `src/systems/potential.js` (Potential M0: counting only; spec `docs/specs/POTENTIAL.md`)
+
+```js
+export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
+export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
+export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
+export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
+```
+Not read by any screen or by the sim yet (M1–M3). Not in the co-op graph.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -465,7 +502,7 @@ export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < B
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
 // src/systems/gacha.js
-export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments }
+export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
 
 ### `src/systems/progression.js`
@@ -537,7 +574,10 @@ export function expectedSSRRate()        // for the rates screen (includes pity)
 
 ```js
 export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count}] (gear boxes resolved to gear)
-export function applyBattleResult(profile, result, rng)
+export function battleDropSeed(stageId, difficulty, runSeed)    // drop rng seed of a saved run (no Date.now(): no reroll by finishing twice)
+export function eventMul(stageId, now)                          // this week's event drop multiplier
+export function battleEventMul(stageId, now, eventAt?)          // a saved run: its start week's event, while it finishes within EVENT_GRACE_MS (48 h) of that week
+export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) // eventAt: when a saved run started (event bonus)
   // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
   // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
   // practice = the stage is still locked (isPracticeRun): nothing is recorded, the profile is untouched
@@ -550,7 +590,7 @@ export function canSweep(profile, stageId)
 ```js
 export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
-export function grantUnit(profile, unitId)   // -> { isNew, fragments }
+export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments
 export function isStageUnlocked(profile, stageId)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
@@ -731,6 +771,14 @@ greedily places girls on the best-covered spots of a 0.25-tile lattice (never ov
 respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them; road inside tunnels counts as
 no coverage) — used to check that every campaign stage is beatable on Normal with free units only.
 
+Battle saves read and write a short, documented list of Sim fields from outside this folder
+(`src/ui/battle/snapshot.js`, so the co-op id does not move): every new own field of the Sim or of a
+TowerRT must be classified in its `KNOWN_SIM_KEYS` / `KNOWN_TOWER_KEYS` (tests fail until it is), and
+player-made state that lives across waves must be added to `snapshotSim` / `restoreSim`. The calm
+point contract: in 'prep' / 'between' there are no enemies, statuses, shots or aura fields, and no
+random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
+the instance). See docs/BATTLE_SAVE.md.
+
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
@@ -834,14 +882,27 @@ r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
 r.setCameraMode('locked'|'free')  // locked (default, settings.camera) holds the fitted view; free = pan / pinch / wheel / double-tap
+r.setPanelCover({ right, bottom }) // CSS px the battle info panel covers; a selected girl's ring slides clear of it
 r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, position, target, isDefault } for tests
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 ```
 
+Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
+(Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls
+sweep over the enemies they really hit, …), purely visual and pooled. `settings.attackFx === false`
+restores the plain look. Truth rules: visuals reach the sim's target at the sim's time, projectile
+offsets fade to 0 by 60% of the flight, flourishes only on real hits, drones stay inside her ring.
+Quad batches now `begin()` before events / `actors.sync` (projectile glows pushed during sync were
+wiped before and never drawn).
+
 Camera: angled orthographic (≈55° pitch) framing the whole map. Locked by default (settings.camera):
-the fitted view never moves. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
+the fitted view never moves from a drag, pinch or wheel; the one exception is the panel slide — when a
+selected girl's range ring would sit under the info panel, the board glides aside just far enough
+(r.setPanelCover(c) tells the renderer what the panel covers) and back when the panel closes. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
 girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes, impact shakes
 and a free-mode reset glide included (CameraRig.holdStill); a press that began while placing never
 pans, and the tap that places her is never half of a double-tap reset. A board tap may wander 20 px (9 px when a
@@ -866,8 +927,16 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1]` (`freeplay` / `endless` only
-where `canPlayEndless`; a locked stage plays as a practice run that saves nothing). **Solo freeplay**
+Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1][&resume=<run id>][&evict=<run id>]`
+(`freeplay` / `endless` only where `canPlayEndless`; a locked stage plays as a practice run that saves
+nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
+gets `&resume=<run id>` (history.replaceState) once it has a save, so a reload continues it; a
+`resume` that no longer matches the slot's save shows "already finished or was replaced"; a battle
+link without `resume` for a slot that has a save goes to stage prep (it never overwrites a save);
+`evict` is the saved battle the player chose to replace when 5 are kept (deleted on this run's first
+save; without it a 6th run is not saved).
+Pause menu: Resume · Restart · Save & quit (End run for endless runs); co-op, clan boss, tutorial,
+practice and solo freeplay keep Quit / Leave co-op. **Solo freeplay**
 (docs/FREEPLAY.md): `freeplay=blossom|tempest|crimson` on a campaign stage builds the Sim with
 `options.freeplay` and `soloFreeplayStage(id, tier)` (`src/data/freeplaySolo.js`: the stage's own HP plus
 the co-op freeplay table); `endless=1` on a campaign map is freeplay now (that tier, or Blossom; only the
@@ -875,7 +944,11 @@ Colosseum stays endless). A normal campaign run that wins can **Keep going** (`c
 `continueIntoFreeplay(sim, tier)` in `src/ui/battle/soloFreeplay.js`: the won Sim goes on in place as a
 freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a normal solo win at the goal,
 `paySoloFreeplay` = the co-op freeplay payout with coins per wave capped at the stage's normal rate,
-`progress.stages[id].freeplayBest[tier]`). Builds the Sim from the profile formation
+`progress.stages[id].freeplayBest[tier]`). **Solo freeplay is never saved** (`isSavableRun` is false for
+`req.freeplay`; a Keep going run's save is deleted by the win it continues): its clear is banked at the
+goal and its freeplay part is paid on leaving or at the next app start, so a continued copy would pay
+twice. Quit returns to the run's prep with its tier picked. A `resume` link never turns freeplay on
+(`parseBattleParams`): Continue plays the save as it was saved. Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
@@ -891,6 +964,24 @@ first-clear gems, unlocked girls, bestiary discoveries) → buttons Next stage /
 Tracks missions (`track`). Must be fully usable on a phone. The battle toast feed docks left or
 right, whichever side keeps it off the spawn gates and the first tiles of road behind them
 (exit gates as a tie-break): `feed.setAvoid(() => screenPoints)` + `feedDockRight(...)`.
+
+**Upgrade Tree — `src/ui/battle/upgradeTree.js`** (`ctx.tree`, built before the tower bar). A read-only
+3 paths × 5 tiers overview (owned / next / later / blocked, crosspath cap, name, price, one-line
+effect, Self / Allies / Enemies / Coins chips; tap a tier for its details). Opens from: a hold on a
+placed girl (`renderer.onLongPress` — the only canvas hook it uses), a 550 ms hold on a bar card
+(`ctx.tree.barHold(card, unitId)`; moving the finger up then closes it and the bar's drag-to-place
+takes over), the panel's Tree button or portrait, a hold on the hero widget (`ctx.tree.bindHold`),
+right-click / `i` on a bar card, or `T` for the selected girl. API: `open({ uid } | { unitId })`,
+`close()`, `isOpen`, `model` (e2e), `decoratePathRow(row, uid, path)` (towerPanel hook for the
+"Upgrade in panel ›" flash). Rules: it never writes the sim and never buys (its actions are
+`ctx.select` and `ctx.onCardTap`), so co-op commands are unchanged. **Solo pauses while it is open
+(`ctx.paused`, header chip "Paused while open"); co-op never pauses** (header chip "Battle keeps
+going"). Prices: `liveCostOf(sim, t)` matches `Sim._upgradeCost` (tested); before she is placed,
+`previewCostOf` (no aura discount). An ally's girl is view-only (no affordability, no actions).
+Every open starts with the grid and the side panel scrolled to the top. Cost: one DOM build plus
+one style + layout pass inside `open()` (~14 ms on the software-GL test box, less than selecting a
+girl there), nothing per frame; while open, a 4 Hz signature check rebuilds only on change.
+`e2e/unit-info.mjs` measures it against selecting a girl on the same machine.
 
 ## 11. Meta screens
 
@@ -998,6 +1089,29 @@ one "Gifts received!" dialog (Choose now / Later, never a toast on top) → the 
 SSR; a duplicate converts to 40 Star Fragments; the ticket also works later from the Backpack).
 Notice board article per `betaNoticeState()`: `active` until the deadline, `unclaimed` while this
 player's letter waits, then hidden.
+
+**Hold for info + upgrade tags (owner request #152).**
+- `src/ui/hold.js` (main bundle, installed from `src/main.js`): on a `HOLD_ROUTES` screen (formation,
+  students, stage, recruit, coop, wiki, backpack, mall, campaign, rewards) any element with
+  `data-unit="<id>"` (every `portraitHTML` image has one) or `data-hold-unit` is a hold target;
+  `data-hold-info="off"` on an ancestor opts out. A ~450 ms hold (pink fill ring from 120 ms; cancel
+  past 10 px, on scroll or pointercancel) opens the Unit Sheet and swallows the click that follows
+  (`swallowNextClick`, expires after 700 ms), so remove / toggle / swap / navigate never fire.
+  Right-click, the ContextMenu key or `i` open it at once (the `contextmenu` a touch long-press sends
+  on Android is ignored for 1.5 s after a touch hold fired; a mouse hold never sends one). `HOLD_EXCLUDE` keeps out unflipped recruit
+  cards, the recruit SSR showcase (a tap there means "continue"), the student page showcase and the battle. `onEscape(fn)` is the shared Escape stack (topmost overlay wins).
+- `src/ui/unitSheet.js` (lazy): `openUnitSheet(unitId, { tab, allowFullPage, origin })` — card art,
+  Info (the student page's `infoTab`, word for word), Upgrades (legend + the tree grid in static
+  mode + tier details), "Open full page" (hidden in the co-op lobby, where leaving closes the room,
+  and in battle). z-index 170 (above modals 100 and the gacha 150).
+- `src/ui/upgradeTags.js` (pure): sorts every tier, passive, hero level and ult into Self / Allies
+  (with the aura radius) / Enemies ("helps all" for marks, Brittle, shred, reveal) / Coins, plus the
+  violet New attack flag, from the mod keys alone — no data edits. **A new mod key (roster merge)
+  must be added to `MOD_TAGS` (+ `SUB_KEYS`, the one-line phrases and the icon order);
+  `tests/ui/upgradeTags.test.js` fails until it is.** UI-only errata live in `TIER_NOTES`.
+- `src/ui/treeModel.js` (pure view model), `src/ui/upgradeGrid.js` + `src/ui/tagChips.js` (DOM),
+  styles in `src/ui/styles/unit-info.css` (lazy) and `hold.css` (main). Chips appear in the battle
+  panel, the student Tree tab, the sheet, the battle tree and the wiki legend (`{ type: 'upgradeTags' }`).
 
 ## 12. Owner's V2 directives (latest feedback — these override earlier wording where they conflict)
 

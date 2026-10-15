@@ -28,9 +28,9 @@ const T = 60000;
 const SEED = { hotaru: 5, kaede: 4, akane: 5, aoi: 5, hikari: 5 };
 
 async function openGame(page) {
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await page.evaluate(() => { localStorage.clear(); });
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 30000 }).catch(() => null);
   if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 15000 }).catch(() => {}); }
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });

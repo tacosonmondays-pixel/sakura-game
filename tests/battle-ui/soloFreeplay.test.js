@@ -60,6 +60,17 @@ describe('route params', () => {
     expect(parseBattleParams({ stage: 'challenge' }, p)).toMatchObject({ endless: true, freeplay: null, keepGoing: false });
   });
 
+  it('the coached first battle (tutorial=1) is a plain run: no Keep going on its victory, never freeplay', () => {
+    // a brand-new player's 1-1 (the tutorial's stage) and a cleared one alike
+    for (const p of [createProfile(), clearedProfile()]) {
+      expect(parseBattleParams({ stage: '1-1', difficulty: 'easy', tutorial: '1' }, p)).toMatchObject({ freeplay: null, endless: false, keepGoing: false, practice: false });
+      expect(parseBattleParams({ stage: '1-1', tutorial: '1', freeplay: 'tempest' }, p)).toMatchObject({ freeplay: null, keepGoing: false });
+      expect(parseBattleParams({ stage: '1-1', tutorial: '1', endless: '1' }, p)).toMatchObject({ freeplay: null, endless: false, keepGoing: false });
+      // the same stage without the coach still offers Keep going
+      expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }, p)).toMatchObject({ keepGoing: true });
+    }
+  });
+
   it('builds the freeplay Sim from freeplay=<tier>; a normal run stays a normal Sim', () => {
     const p = clearedProfile();
     const { sim } = createBattleSim(p, parseBattleParams({ stage: '1-3', freeplay: 'tempest' }, p));

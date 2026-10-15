@@ -40,7 +40,7 @@ const GLYPHS = '0123456789+-!x%ABCDEFGHIJKLMNOPQRSTUVWXYZ';
  * Builds the sprite atlas. Returns { texture, regions: {name: [u0,v0,u1,v1]}, glyph(ch), glyphAspect }.
  * All sprites are white/greyscale so they can be tinted by instance colour.
  */
-export function createAtlas() {
+export function createAtlas(extra = []) {
   const c = canvas(ATLAS_SIZE, ATLAS_SIZE);
   const g = c.getContext('2d');
   const pk = new Packer(ATLAS_SIZE);
@@ -548,6 +548,7 @@ export function createAtlas() {
     });
   }
 
+  for (const [n, w, h, draw] of extra) add(n, w, h, draw); // [attackFx] extra sprites
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.generateMipmaps = true;

@@ -1,5 +1,5 @@
-// End-to-end smoke test: boots the real game in Chromium (SwiftShader WebGL), visits every
-// route with a fresh save, does a 10-pull, drags a girl from the tower bar onto the board
+// End-to-end smoke test: boots the real game in Chromium (SwiftShader WebGL), meets Hikari's
+// opening scene (skipped) on a fresh save, sees her tutorial coach on the 1-1 battle and skips it, visits every route, does a 10-pull, drags a girl from the tower bar onto the board
 // (real pointer events), plays stage 1-1 on Easy to victory and checks that rewards, medals
 // and bestiary discoveries were saved. Runs at 1280×720 (mouse), 844×390 (landscape phone,
 // touch) and 390×844 (portrait phone, touch).
@@ -97,6 +97,7 @@ const ROUTES = [
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
   ['settings', '#/settings'],
+  ['story archive', '#/story'],
   // online screens without a server config: local mode + "Online features offline" pill (with
   // --prod: forced local mode). The first one asks for a name; leaving the screen closes that prompt
   ['chat', '#/chat'],
@@ -141,8 +142,30 @@ async function runViewport(vp) {
   await shot('title');
   // force: the button pulses forever, so it is never 'stable' for Playwright on a loaded machine
   if (startBtn) await startBtn.click({ force: true });
+  // [story] a new player meets Hikari first: the opening scene → Skip (asks first) → the coached
+  // 1-1 Easy battle; once the opening is done or skipped the lobby opens normally
+  await page.waitForSelector('[data-testid="story-player"].sp-ready', { timeout: 20000 }).catch(() => null);
+  check(await page.evaluate(() => location.hash.startsWith('#/scene/opening') && !!document.querySelector('[data-testid="story-text"]')), 'title: tap to start opens the "Meet Hikari" opening on a fresh save');
+  await shot('opening');
+  await page.click('[data-testid="story-skip"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForSelector('[data-testid="story-skip-confirm"]', { state: 'visible', timeout: 15000 }).catch(() => null);
+  await page.click('[data-testid="story-skip-confirm"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForFunction(() => location.hash.startsWith('#/battle') && location.hash.includes('tutorial=1'), null, { timeout: 20000 }).catch(() => null);
+  check(await page.evaluate(() => location.hash.startsWith('#/battle') && window.__sakura.store.profile.story.opening === 'skipped'), 'opening: Skip → confirm opens the tutorial battle (1-1 Easy)');
+  // Hikari's coach is up on the real battle UI ("Meet your first defender!"); Skip tutorial asks first, then the
+  // battle goes on without her tips and the tutorial is never forced again
+  const coachUp = await page.waitForFunction(() => document.querySelector('[data-testid="coach"]')?.dataset.step === 'place'
+    && document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on'), null, { timeout: 90000, polling: 250 }).then(() => true, () => false);
+  check(coachUp, 'tutorial battle: Hikari\'s coach shows the first step');
+  await shot('tutorial-coach');
+  await page.click('[data-testid="coach-skip"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 15000 }).catch(() => null);
+  await page.click('[data-testid="confirm-ok"]', { timeout: 15000, force: true }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('[data-testid="coach"]'), null, { timeout: 15000, polling: 250 }).catch(() => null);
+  check(await page.evaluate(() => !document.querySelector('[data-testid="coach"]') && !!window.__battle && window.__sakura.store.profile.story.tutorial === 'skipped'), 'tutorial: Skip tutorial → confirm removes the coach, the battle stays, tutorial skipped');
+  await page.evaluate(() => { location.hash = '#/lobby'; });
   await page.waitForFunction(() => location.hash.startsWith('#/lobby') && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 15000 }).catch(() => null);
-  check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'title: tap to start opens the lobby');
+  check(await page.evaluate(() => location.hash.startsWith('#/lobby')), 'after the opening: the lobby opens');
   check(await page.evaluate(() => !!window.__sakura.store.profile.units.aoi), 'fresh profile owns starter Aoi');
 
   // Beta Tester Thank-You (accounts up to 2026-11-07): celebration modal → claim → SSR Select
@@ -177,7 +200,8 @@ async function runViewport(vp) {
     }
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
-  check(!takeErrors().length, 'title + beta gift: no errors');
+  const titleErrs = takeErrors();
+  check(!titleErrs.length, `title + opening + beta gift: no errors${titleErrs.length ? `\n       ${titleErrs.slice(0, 5).join('\n       ')}` : ''}`);
 
   // ---- every route ----
   for (const [label, hash] of ROUTES) {
@@ -447,6 +471,11 @@ async function runViewport(vp) {
   await page.evaluate(() => { const { ui } = window.__battle; ui.setAutoStart(true); ui.startWave(); ui.speed = 3; });
   await page.waitForTimeout(2500);
   await shot('battle-midwave');
+  // attack FX (docs/ATTACK_FX.md) run in the real battle (a loaded machine can lag a few frames
+  // behind the placement, so wait for the renderer to style the new girls before reading)
+  await page.waitForFunction(() => { const a = window.__battle.renderer.info.attackFx; return !a || (a.ms > 0 && a.styled > 0); }, null, { timeout: 20000 }).catch(() => null);
+  const afx = await page.evaluate(() => window.__battle.renderer.info.attackFx);
+  check(!!afx && afx.ms > 0 && afx.styled > 0, `battle: attack FX running (${afx ? `${afx.ms.toFixed(3)} ms, ${afx.styled} girls` : 'off'})`);
 
   // fast-forward: advance the sim in chunks, spending coins on upgrades as we go
   let state = 'wave';

@@ -63,7 +63,7 @@ function check(cond, msg) {
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const { port } = server.httpServer.address();
-const base = `http://127.0.0.1:${port}/?online=local`;
+const base = `http://127.0.0.1:${port}/?online=local&onboarding=0`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label} · viewport ${W}x${H}`);
 
@@ -699,6 +699,12 @@ try {
   const state = await Promise.all([A, B].map((p) => p.evaluate(() => ({ wave: window.__battle.sim.wave, enemies: window.__battle.sim.enemies.length, stalled: window.__battle.coop.lockstep.stalled, desynced: window.__battle.coop.lockstep.desynced, hud: document.querySelector('[data-testid="coop-hud"]')?.innerText || '' }))));
   check(state.every((s) => s.wave >= 1 && !s.desynced), `co-op: wave running, no desync (${JSON.stringify(state.map((s) => ({ wave: s.wave, enemies: s.enemies })))})`);
   check(/Aiko/.test(state[0].hud) && /Bea/.test(state[0].hud), 'co-op: HUD shows both players');
+  // attack FX (render-only) style both players' girls on both screens
+  const fxCoop = await Promise.all([A, B].map((p) => p.evaluate(() => {
+    const a = window.__battle.renderer.info.attackFx;
+    return a && { styled: a.styled, quads: a.quads };
+  }).catch(() => null)));
+  check(fxCoop.every((a) => a && a.styled >= 2), `co-op: attack FX style both players' girls on both screens (${JSON.stringify(fxCoop)})`);
   await A.waitForTimeout(600);
   await shot(A, 'coop-battle');
   await shot(B, 'coop-battle-guest');

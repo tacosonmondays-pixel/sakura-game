@@ -7,6 +7,10 @@ import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
+import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
+import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
+import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -45,9 +49,9 @@ export const DEFAULT_SETTINGS = {
 
 const CAMERA_MODES = ['locked', 'free'];
 
-/** Fresh per-unit state. */
+/** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0 };
 }
 
 function emptyMissions() {
@@ -73,12 +77,19 @@ export function createProfile() {
   const now = Date.now();
   const units = {};
   for (const id of STARTER_UNITS) units[id] = newUnitState(now);
+  const missions = emptyMissions();
+  // Potential shadow copy (see creditPotential): every owned girl has one from the start
+  for (const id of STARTER_UNITS) missions.counters[POT_SHADOW_PREFIX + id] = 0;
+  missions.counters[POT_SHADOW_AT] = now;
+  // [story] this save was created with the story: an older build that drops profile.story keeps
+  // this mark (missions.counters), so the block comes back as a new player's, never as legacy
+  missions.counters[STORY_NEW_MARK] = 1;
   return {
     version: SAVE_VERSION,
     createdAt: now,
     currencies: { coins: 20000, gems: 2400 },
+    // [story] no ticket_recruit10 here any more: the welcome 10-pull is mailed at the 1-3 clear (story.welcome)
     items: {
-      ticket_recruit10: 1,
       book_common: 20,
       book_rare: 5,
       mat_feather_common: 10,
@@ -91,7 +102,7 @@ export function createProfile() {
     progress: { stages: {} },
     bestiary: {},
     formation: { hero: 'hikari', towers: ['aoi', 'rei'] },
-    missions: emptyMissions(),
+    missions,
     shop: { day: null, week: null, bought: {} },
     redeemed: [],
     settings: structuredCloneSafe(DEFAULT_SETTINGS),
@@ -99,9 +110,13 @@ export function createProfile() {
     lobbyBg: {},
     bond: Object.fromEntries(STARTER_UNITS.map((id) => [id, 0])),
     mail: emptyMail(),
+    patchGifts: {},
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
+    /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
+    battleSaves: {},
+    story: newStory(), // [story] opening, tutorial, journal, episodes (src/systems/story.js)
   };
 }
 
@@ -159,6 +174,8 @@ function cleanUnit(raw, now) {
     gear,
     obtainedAt: num(raw.obtainedAt, now, 0),
     favorite: bool(raw.favorite),
+    // null = a save from before Potential counted (or an older build dropped it): migrateProfile credits it
+    dupes: 'dupes' in raw ? int(raw.dupes, 0, 0, 1e6) : null,
   };
 }
 
@@ -428,16 +445,45 @@ export function migrateProfile(raw) {
   p.lobbyBg = cleanLobbyBg(raw.lobbyBg);
   p.bond = cleanBond(raw.bond, p.units);
   p.mail = cleanMail(raw.mail);
+  // claims plus their 'pg:' marks in missions.counters (an older build dropped profile.patchGifts)
+  p.patchGifts = cleanPatchGifts(raw.patchGifts, p.missions.counters);
+  markPatchGifts(p);
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
+  // additive (no version bump): a save from before battle saves simply has none
+  p.battleSaves = cleanBattleSaves(raw.battleSaves);
+  creditPotential(p, now);
+  // [story] no block = a save from before the story (legacy), unless missions.counters marks it as
+  // created with the story (an older build dropped the block): claimed lessons and read scenes come
+  // back from their marks too, and the block's state is marked again
+  p.story = restoreStory(raw.story, p.missions.counters, p.mail.delivered);
+  markStory(p);
   p.version = SAVE_VERSION;
   return p;
 }
 
 /**
+ * Potential counting (M0, docs/specs/POTENTIAL.md §6): fills `dupes` that the save lacks — first
+ * from the shadow copy in missions.counters (an older build dropped it), then from the recruit
+ * history (a save from before Potential) — and rewrites every shadow. Never lowers a count.
+ */
+function creditPotential(p, now) {
+  const restored = restoreFromShadow(p.units, p.missions.counters, p.gacha.history);
+  for (const [id, n] of Object.entries(restored)) p.units[id].dupes = n;
+  const credited = backfillDupes(p.units, p.gacha, { createdAt: p.createdAt, now });
+  for (const [id, n] of Object.entries(credited)) p.units[id].dupes = n;
+  if (Object.keys(credited).length && !p.seenIntro.includes(BACKFILL_MARKER)) p.seenIntro.push(BACKFILL_MARKER);
+  // 'pot:at' moves only when a count changed or a shadow is missing, so loading a save twice gives the same profile
+  const c = p.missions.counters;
+  const stale = !(POT_SHADOW_AT in c) || Object.entries(p.units).some(([id, u]) => c[POT_SHADOW_PREFIX + id] !== u.dupes);
+  if (stale || Object.keys(restored).length || Object.keys(credited).length) for (const id of Object.keys(p.units)) shadowPotential(p, id, now);
+}
+
+/**
  * True when migrateProfile would leave stored data out: students or items this build does
- * not know, gear it cannot read, or a whole pre-release stub save.
+ * not know, gear it cannot read, or a whole pre-release stub save. A saved battle this build
+ * cannot restore does not count (it is dropped with its own notice, no whole-save backup).
  * @param {any} raw parsed profile
  * @returns {boolean}
  */
@@ -456,8 +502,9 @@ export function migrationDropsData(raw) {
  * - unreadable (not JSON, not an object) → fresh profile, `backup: 'corrupt'`
  * - written by a newer build (version > SAVE_VERSION) → fresh profile, `backup: 'newer'`
  * - migration would leave data out (migrationDropsData) → migrated profile, `backup: 'lossy'`
+ * `droppedBattles` counts saved battles this build could not keep (a notice, not a backup).
  * @param {string|null|undefined} text
- * @returns {{ profile: object, backup: null|'corrupt'|'newer'|'lossy', version: number|null }}
+ * @returns {{ profile: object, backup: null|'corrupt'|'newer'|'lossy', version: number|null, droppedBattles?: number }}
  */
 export function loadSaveText(text) {
   if (typeof text !== 'string' || !text.trim()) return { profile: createProfile(), backup: null, version: null };
@@ -471,7 +518,7 @@ export function loadSaveText(text) {
   const version = int(raw.version, 0, 0);
   if (version > SAVE_VERSION) return { profile: createProfile(), backup: 'newer', version };
   try {
-    return { profile: migrateProfile(raw), backup: migrationDropsData(raw) ? 'lossy' : null, version };
+    return { profile: migrateProfile(raw), backup: migrationDropsData(raw) ? 'lossy' : null, version, droppedBattles: droppedBattleSaves(raw) };
   } catch {
     return { profile: createProfile(), backup: 'corrupt', version };
   }

@@ -14,7 +14,7 @@ describe('createProfile', () => {
     expect(p.formation).toEqual({ hero: 'hikari', towers: ['aoi', 'rei'] });
     expect(p.currencies.gems).toBe(2400);
     expect(p.currencies.coins).toBeGreaterThan(0);
-    expect(p.items.ticket_recruit10).toBe(1);
+    expect(p.items.ticket_recruit10).toBeUndefined(); // [story] mailed at the 1-3 clear instead
     expect(p.items.book_common).toBeGreaterThan(0);
     expect(p.gacha).toEqual({ pity: 0, totalPulls: 0, recruitPoints: 0, history: [] });
     expect(p.secretary).toBe('hikari');

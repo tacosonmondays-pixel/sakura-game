@@ -21,9 +21,9 @@ for (const [W, H] of [[844, 390], [1280, 720]]) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await page.evaluate(() => { localStorage.clear(); });
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 15000 }).catch(() => null);
   if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 10000 }).catch(() => {}); }
   await page.evaluate(async () => {

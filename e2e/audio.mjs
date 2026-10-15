@@ -60,9 +60,9 @@ try {
   const waitFor = (fn, arg, timeout = 20000) => page.waitForFunction(fn, arg, { timeout, polling: 100 }).then(() => true, () => false);
 
   // ---- 1. boot, nothing before a gesture, then unlock ------------------------------------------------------
-  await page.goto(base, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0`, { waitUntil: 'load' });
   await A(() => localStorage.clear());
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await waitFor(() => window.__sakura?.audio && document.querySelector('#app')?.children.length > 0, null, 30000);
   await page.waitForTimeout(800);
   await waitFor(() => window.__sakura.audio.state().rawBytes > 300_000, null, 15000);

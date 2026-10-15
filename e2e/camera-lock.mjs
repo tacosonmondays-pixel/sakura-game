@@ -294,11 +294,37 @@ async function runViewport(vp) {
     for (let i = 1; i <= steps; i++) await page.mouse.move(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps);
     await page.mouse.up();
   };
+  // A real tap on a bar card. Under SwiftShader each CDP touch event can take seconds to land, and
+  // a press that reaches the page as longer than 550 ms is a hold, which opens her Upgrade Tree
+  // (unit info) instead of starting tap-to-place. So the 3D draw is paused and the lift is sent
+  // right behind the press (not after the press was acknowledged).
   const tapCard = async (unitId) => {
     const card = await page.locator(`[data-testid="card-${unitId}"]`).boundingBox();
-    await touch('touchStart', [[card.x + card.width / 2, card.y + card.height / 2]]);
-    await touch('touchEnd');
-    return page.waitForFunction((id) => window.__battle.ui.placement.unitId === id && window.__battle.ui.placement.mode === 'tap', unitId, { timeout: 10000 }).then(() => true, () => false);
+    const openBefore = await page.evaluate(() => {
+      window.__tapLog = [];
+      window.__tapOff?.();
+      const f = (e) => window.__tapLog.push([e.type, Math.round(performance.now())]);
+      document.addEventListener('pointerdown', f, true);
+      document.addEventListener('pointerup', f, true);
+      window.__tapOff = () => {
+        document.removeEventListener('pointerdown', f, true);
+        document.removeEventListener('pointerup', f, true);
+      };
+      return !!window.__battle.ui.tree?.isOpen;
+    });
+    await cam('freeze');
+    await Promise.all([touch('touchStart', [[card.x + card.width / 2, card.y + card.height / 2]]), touch('touchEnd')]);
+    await cam('thaw');
+    const ok = await page.waitForFunction((id) => window.__battle.ui.placement.unitId === id && window.__battle.ui.placement.mode === 'tap', unitId, { timeout: 10000 }).then(() => true, () => false);
+    const why = await page.evaluate(() => {
+      window.__tapOff?.();
+      const l = window.__tapLog || [];
+      const d = l.find((x) => x[0] === 'pointerdown');
+      const u = l.find((x) => x[0] === 'pointerup');
+      return { pressMs: d && u ? u[1] - d[1] : null, treeOpen: !!window.__battle.ui.tree?.isOpen };
+    });
+    if (!ok) log(`  (card tap: ${JSON.stringify({ ...why, treeOpenBefore: openBefore })})`);
+    return ok;
   };
 
   /** A real one-finger tap through the browser's input pipeline. */
@@ -433,6 +459,9 @@ async function runViewport(vp) {
     const lp = await page.evaluate(() => window.__lp);
     check(lp?.towerUid === uid, `${label}: a long press on her fires the long-press callback (${JSON.stringify(lp)})`);
     check(await page.evaluate(() => window.__battle.ui.selectedUid == null), `${label}: the long press is not also a tap`);
+    // unit info: holding a placed girl opens her Upgrade Tree; close it before the next checks
+    check(await page.evaluate(() => window.__battle.ui.tree?.isOpen === true), `${label}: the long press opens her Upgrade Tree`);
+    await page.evaluate(() => window.__battle.ui.tree?.close()); // synchronous: the overlay is hidden at once
   };
   await tapAndHold('locked', lockedUid);
 
@@ -523,6 +552,54 @@ async function runViewport(vp) {
     const resumed = await page.waitForFunction(() => !window.__battle.ui.paused, null, { timeout: 10000 }).then(() => true, () => false);
     check(paused && resumed, `locked: the pause button opens the menu and Resume closes it (paused ${paused}, resumed ${resumed})`);
   }
+
+  // ---- Locked: the info panel never hides the selected girl's ring — the board slides aside
+  // just far enough once the panel stands, and back when it closes (never from a drag) ----
+  await cam('thaw');
+  const side = await page.evaluate(() => {
+    const { sim, renderer, ui } = window.__battle;
+    sim.cash += 5000;
+    const unitId = [...sim.loadout.keys()].find((id) => sim.data.unit(id)?.placement === 'land');
+    const rect = renderer.canvas.getBoundingClientRect();
+    const barTop = ui.bar.el.getBoundingClientRect().top;
+    let best = null;
+    for (let y = 0.5; y < sim.map.height; y += 0.5) {
+      for (let x = 0.5; x < sim.map.width; x += 0.5) {
+        if (!sim.canPlace(unitId, x, y).ok) continue;
+        const s = renderer.worldToScreen(x, y, 0);
+        if (s.clientY < 90 || s.clientY > barTop - 30) continue;
+        const fr = (s.clientX - rect.left) / rect.width;
+        if (fr < 0.72 || fr > 0.92) continue;
+        if (!best || Math.abs(fr - 0.82) < best.d) best = { x, y, d: Math.abs(fr - 0.82) };
+      }
+    }
+    const t = best && sim.placeTower(unitId, best.x, best.y);
+    if (!t) return null;
+    ui.select(t.uid);
+    return { uid: t.uid, unitId };
+  });
+  if (side) {
+    // the slide settles: the glide reached its goal (frames can be seconds apart under SwiftShader)
+    const settledFocus = await page.waitForFunction(() => {
+      const c = window.__battle.renderer.cameraState;
+      return c.focusGoal[0] > 0 && c.focus[0] === c.focusGoal[0];
+    }, null, { timeout: 90000, polling: 300 }).then(() => true, () => false);
+    const m = await page.evaluate((uid) => {
+      const { sim, renderer } = window.__battle;
+      const t = sim.getTower(uid);
+      const r = t.eff?.range ?? t.stats?.range ?? 0;
+      const panel = document.querySelector('[data-testid="tower-panel"]').getBoundingClientRect();
+      return { ringRight: Math.round(renderer.worldToScreen(t.x + r, t.y, 0).clientX), panelLeft: Math.round(panel.left), ...renderer.cameraState };
+    }, side.uid);
+    check(settledFocus && m.focus[0] > 0 && m.ringRight <= m.panelLeft, `locked: a girl on the right slides the board so her ring clears the panel (${side.unitId}: ring edge ${m.ringRight} px ≤ panel ${m.panelLeft} px, slid ${m.focus[0]} px, locked ${m.locked}, zoom ${m.zoom})`);
+    await shot('locked-panel-slide');
+    await page.evaluate(() => window.__battle.ui.select(null));
+    const back = await page.waitForFunction(() => {
+      const f = window.__battle.renderer.cameraState.focus;
+      return f[0] === 0 && f[1] === 0;
+    }, null, { timeout: 60000 }).then(() => true, () => false);
+    check(back, 'locked: closing the panel slides the board back to the fit');
+  } else log('  (no open ground on the right of this map: panel slide check skipped)');
   const cLocked = await settled();
   check(same(c0, cLocked), `locked: after every gesture the camera is still the initial fit (${fmtCam(cLocked)})`);
   check(!takeErrors().length, 'locked checks: no errors');
@@ -629,6 +706,11 @@ async function runViewport(vp) {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('sakura-sentinels-save-v1'));
     delete raw.settings.camera;
+    // leaving the 1-1 battle above saved it (battle save), and a battle link for a stage with a
+    // saved battle opens its prep instead: this check wants the battle itself. The live profile
+    // drops it too (the goto below only changes the hash, so the store is not reloaded).
+    delete raw.battleSaves;
+    delete window.__sakura.store.profile.battleSaves;
     localStorage.setItem('sakura-sentinels-save-v1', JSON.stringify(raw));
   });
   await page.goto(`${base}#/battle?stage=1-1&difficulty=easy`, { waitUntil: 'load' });

@@ -313,7 +313,25 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 
 | Request (verbatim) | Status |
 |---|---|
-| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Tapping a girl whose range ring would sit under the info panel (phones) slides the board just far enough to show the whole ring beside the panel, and back when the panel closes — never from a drag, held still while a girl is being placed (`src/render/camera.js` focus slide, attack-FX branch). Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+
+## Attack animations (owner, 2026-10-13) — branch `feature/attack-fx`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you also make it so attack animations are more unique like what if the drones flew around in her radius and targetted enemies and follwowed them" | **Done.** Chika's drones orbit above her head inside her ring, launch from her backpack when built, and on every shot fly strafing passes after the enemy the game is shooting, following it along the path, then return. All 19 girls have a signature attack look that grows with upgrades (docs/ATTACK_FX.md). Purely visual: co-op compatibility unchanged. Preview: `previews/attacks.html`. |
+
+## Unit info (owner, 2026-10-13) — branch `feature/unit-info` (request #152)
+
+Status 2026-10-14: finished and merged with the live game. All three asks are done and checked in the browser at
+1280×720, 844×390 and 390×844 (`node e2e/unit-info.mjs`), co-op stays compatible with live players (same co-op id), and
+the branch is ready for the coordinating session to merge.
+
+| Request (verbatim) | Status |
+|---|---|
+| "within various menus when you hold on the card art, it should bring up this menu! Like in the formation for example" | **Done.** Hold any girl's card or portrait (~0.45 s, a pink ring fills) in Formation, Students, Stage prep (also inside the swap dialog), Recruit results, the Co-op lobby, Wiki, Backpack, Mall, Campaign and Rewards → her info sheet: card art, the student Info content, an Upgrades tab and "Open full page". Taps, scrolling and drags work as before; desktop: right-click. |
+| "can you also make it more clear if an upgrade path boosts their own stats or allies stats?" | **Done.** Every tier everywhere carries coloured word chips: **Self**, **Allies · 2.6 tiles** (aura radius), **Enemies** ("helps all" for marks / Brittle / shred / reveal) and **Coins**, plus a violet **New attack** flag; each path shows a tally ("Allies ×5 · 4 tiles"). Battle panel, student Tree tab, info sheet, battle tree and a wiki legend. |
+| "within the gameplay, there should be something you can click and hold and see the upgrade tree" | **Done.** Hold a placed girl, hold her card in the bar, or press the Tree button / her portrait in the panel (or T): 3 paths × 5 round tier icons with owned / next / locked states, the crosspath cap, and each tier's name, price, one-line effect and tag; tap a tier for details. Solo waits while it is open; co-op never pauses. |
 
 ## UR awakening (owner, 2026-10-14) — branch `feature/ur-awaken`
 
@@ -321,3 +339,40 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 |---|---|
 | "when you awaken ssr's all the way, give it a rainbow border, and change the ssr to UR with rainbow font make it EPIC!" | **Done (display only).** An SSR you own at ★5 shows as **UR**: an animated rainbow frame (turning conic rainbow + a rainbow halo, twinkling glints, a light sweep on the big cards) and "UR" in shimmering rainbow letters on a small dark badge, on every card of hers — students list (rarity sort puts URs first), her page (header tag, framed card art and 3D view, Awakening tab "Ascended to UR"), formation slots + picker, stage prep, battle bar card, selected-girl panel and hero portrait, Mall spark offer (ribbon reads UR), lobby background picker, SSR Select Ticket, avatar minis. The 5th star triggers a one-time "Ascended to UR!" moment (her card in the rainbow frame, SSR turning into UR). UR is not a game rarity: drops, rates, pity, fragments, prices and the battle sim are unchanged (co-op id unchanged); pull results and recruit history still say SSR; an ally's girl in co-op shows her own rarity. Reduced motion keeps the rainbow still. Code: `src/ui/rarity.js`, `src/ui/styles/ur.css`; tests: `tests/ui/ur-rarity.test.js`, `e2e/ur-awaken.mjs`. |
 
+## Battle save (owner, 2026-10-14) — branch `feature/battle-save`
+
+| Request (verbatim) | Status |
+|---|---|
+| "when you quit a match can you make it saves and you have two buttons continue or new game? something like that!" + "Like in [the reference game] do a bit of research on that" | **Done.** Leaving a solo battle in any way saves it (pause **Save & quit**, the back arrow or gesture, Home, closing the tab or the app). Stage prep then shows **Continue · Wave N/M** and **New game** (New game asks first; "Keep it" cancels). Like the reference game, Continue starts at the beginning of the wave that was in progress (anything bought during that wave is undone, and the confirm says so), with the same girls, tiers, targeting, hero level, drones, traps, coins and lives, and the same luck in that wave. Up to 5 saved battles (one per stage; endless runs and the Colosseum too); "Saved · W12" badges on the map screens and a Continue chip in the lobby. Rewards, medals and first clears are paid once, on a real finish, and the save is deleted in the same write; a reload or another copy of the save cannot pay again or reroll drops. Endless runs can also be ended (End run) for what a defeat would pay. Not saved: practice runs, the tutorial, the clan boss and co-op. Reference: docs/BATTLE_SAVE.md; tests: `tests/battle-ui/snapshot.test.js`, `tests/systems/battleSave.test.js`, `e2e/battle-save.mjs`. |
+
+## Potential (owner, 2026-10-14) — spec `docs/specs/POTENTIAL.md`; M0 on branch `feature/potential-m0`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you add potential levels when you get dupes, perhaps they get small passives, and increase level by 1-5 per dupe max 6!" — chose "+1 per dupe, max 6" and "Both" (dupes still give Star Fragments; only fragments once she is at P6) | **M0 built (invisible): the game starts counting duplicates now so none are lost; nothing visible changes yet.** Every duplicate of an owned girl (recruit, spark, Mall Recruit Exchange, SSR Select Ticket) adds 1 to her count and still gives its Star Fragments; Potential will be P1 + duplicates, up to P6. Existing saves are credited once from the recruit history (older than the last 100 recruits: average luck for R and SR girls, a cautious guess for SSR girls). An out-of-date open tab cannot lower the count. No screen, battle or co-op change. M1–M3 (the passives, the sim, the screens, a letter) come after co-op freeplay, as asked. Code: `src/systems/potential.js`; tests: `tests/systems/potential.test.js`, `e2e/potential-m0.mjs`. |
+
+## Story: opening, tutorial and Captain's Journal (owner requests T-01..T-03, G-08, K-02, L-02) — branch `feature/story`
+Spec: `docs/STORY_SPEC.md` (build notes §9–§11). Bible: `docs/story/BIBLE.md`.
+
+| Request (verbatim) | Status |
+|---|---|
+| "the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!!" | **Done.** A new save goes title → "Meet Hikari" (a Blue Archive-style scene: type-on text, Auto, Log, Skip, one choice) → the real 1-1 on Easy with Hikari's coach: a cute text box with her face that points (a ring and a spotlight) at Aoi's card with a drag hand, Start wave, her own hero card, Aoi's first upgrade, the speed button and her ultimate, then cheers at the win and walks the player to Rewards and Home. Skip tutorial is always one tap away. Checked at 844×390 (touch) and 1280×720 (mouse). |
+| "reset 67 … takes me back to main menu and tutorial" | **Done.** RESET67 goes back to the title, and the fresh save meets Hikari and the tutorial again. Keeping device settings on reset is still open (meta-a). |
+| "after some stages give tutorials on bestiary, upgrades etc" / "scale when you unlock bosses resources etc" | **Done.** The Captain's Journal (Menu → Captain's Journal, `#/journal`): 12 lessons in Hikari's voice that unlock as stages are cleared (Welcome home, Bestiary, Formation, Recruit, Level Up, upgrade paths, Bounty, Equipment, Commissions, Challenge, Awakening, Total Assault). Each has a small one-time reward, a Show me button and, for three of them, a short "Hikari explains" scene. A toast with Hikari's face announces new lessons; the lobby Menu shows a dot. On new saves Equipment opens at 2-1 and Awakening at 3-2 (earlier if the player already has gear or crowns). |
+| free 10-pull after a few stages (Codex handoff) | **Done.** New accounts no longer get the 10× ticket at creation; Hikari mails it when 1-3 is cleared ("Ten new possibilities, on us ♡"). It is sent once ever per account. |
+| "events with a visual novel type mini story" | **Partly.** The scene player and the Story archive (missions hub → Story) exist; episodes for all 8 chapters are written and play at their stages (owner approved shipping chapters 2–8 on Oct 15; they may be rewritten later for the academy-life direction). Event stories are the next builder's work. |
+
+**Existing players are safe.** A save from before this update is "legacy": it is never sent through the opening or
+the tutorial, every feature stays open, nothing is taken away, and it never gets the welcome 10-pull (it got the
+creation ticket). Lessons for content it already passed unlock quietly with one summary toast ("Hikari's Captain's
+Journal is here"), and their small rewards can be claimed once as a thank-you. Tested with saves written by the live
+game. No save-version change.
+
+**New direction (owner, 2026-10-14):** Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
+life. Not built yet; the questions it raises for the next story pass are in `docs/STORY_SPEC.md` §12.
+
+## Patch notes + gem gifts (owner, 2026-10-14) — branch `feature/patch-notes`
+
+| Request (verbatim) | Status |
+|---|---|
+| "can you post all game version under notice and mention what was added or changed with the date and add a button to claim a few gems?" | **Done.** Notice → **Patch notes** (tag Update, second tab; the Notice opens on it while a gift waits): every version from 0.1.1 to the newest, newest first, with its date (US Central), title and Added / Changed / Fixed bullets. Each version has a **Claim 100 (gem icon)** button (once per version per save, then a "Claimed ✓" chip) and **Claim all (N)** appears while 2+ wait; a claim shows a toast and the top-bar gems update at once. The Notice red dot stays lit while any gift is unclaimed. Claims live in the saved profile (`profile.patchGifts`, no save-version bump) so they follow cloud saves, backups and transfer codes, and each claim is also marked in `missions.counters` (`pg:<id>`), so a save rewritten by an older build (before patch notes) cannot claim the same gifts again. Notes: `src/data/patchNotes.js` (how to add one is at the top: every deploy to main = the next run number, `0.1.<run>`); gifts: `src/systems/patchGifts.js` (`PATCH_GIFT_GEMS = 100`); tests: `tests/systems/patchGifts.test.js`, `e2e/patch-notes.mjs`. The old "brand-new look" Update article was replaced by the patch notes. |

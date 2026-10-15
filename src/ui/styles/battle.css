@@ -882,6 +882,13 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-pause-free-text { margin: 4px 0 8px; font-size: 0.82rem; font-weight: 700; color: var(--ink); text-align: center; }
 .bt-pause-free-note { display: block; margin-top: 6px; text-align: center; color: var(--muted); font-weight: 700; font-size: 0.72rem; }
 
+/* battle saves: the "Battle not found" / "Saved battle removed" sheet, centred, and the line on a
+   result sheet whose rewards could not be written */
+.bt-notice { text-align: center; }
+.bt-notice p { margin: 8px 0 14px; font-weight: 600; color: var(--ink); }
+.bt-notice-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.bt-save-failed { text-align: center; font-weight: 800; color: #9b1238; background: #ffe3ea; border-radius: 8px; padding: 6px 10px; margin: 6px auto; max-width: 520px; }
+
 /* ---------- Solo freeplay: Keep going on the victory / rewards sheets ---------- */
 .bt-keep { margin: 10px 0 4px; padding: 8px 10px; border-radius: 12px; background: linear-gradient(90deg, rgba(123,92,255,0.12), rgba(255,122,168,0.14)); box-shadow: inset 3px 0 0 #b49cff; display: flex; flex-direction: column; gap: 6px; }
 .bt-keep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }

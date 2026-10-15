@@ -3,6 +3,7 @@
 // Left: a stable showcase (Card Art ⇄ 3D Chibi toggle, name, rarity, stars, level) that never
 // re-renders when tabs change. Right: tabs Info / Level Up / Awakening / Equipment / Tree.
 import '../styles/meta-b.css';
+import '../styles/journal.css'; // [story] feature locks
 import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
@@ -28,9 +29,14 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
+import { tierTags, tierNote } from '../upgradeTags.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
+import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
+import { JOURNAL_TEXT } from '../../data/story/lessons.js';
+import { resolveText } from '../../data/story/tokens.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -303,7 +309,19 @@ function lockedTab(unit, what) {
       : button('Recruit', { kind: 'yellow', icon: 'gacha', onClick: () => navigate('recruit') }), 'lock');
 }
 
-function infoTab(unit) {
+/** [story] Equipment / Awakening on a new save open with Hikari's lesson (STORY_SPEC §3.3). */
+function storyLockedTab(feature) {
+  const stageId = featureStage(feature);
+  const el = emptyState(feature === 'gear' ? 'Equipment' : 'Awakening', resolveText(featureLockText(feature)),
+    button(resolveText(JOURNAL_TEXT.lockButton(stageId)), { kind: 'yellow', icon: 'teleport', testid: 'story-lock-go', onClick: () => navigate('stage', { id: stageId }) }), 'lock');
+  el.classList.add('story-lock');
+  el.dataset.testid = `story-lock-${feature}`;
+  const art = el.querySelector('.mb-empty-art');
+  if (art && UNIT_MAP.hikari) art.innerHTML = portraitHTML(UNIT_MAP.hikari, 'thumb', { alt: '' });
+  return el;
+}
+
+export function infoTab(unit) {
   const profile = store.profile;
   const role = ROLES[unit.role];
   const cat = ROLE_CATEGORIES[role?.category];
@@ -488,6 +506,7 @@ function awakenTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'awakening');
+  if (!featureOpen(profile, 'awaken')) return storyLockedTab('awaken');
   const star = st.awaken;
   const check = canAwaken(profile, unit.id);
   const track = h('div.mb-aw-track', [1, 2, 3, 4, 5].map((s) => {
@@ -621,6 +640,7 @@ function gearTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'equipment');
+  if (!featureOpen(profile, 'gear')) return storyLockedTab('gear');
   const slot = view.gearSlot;
   const wrap = h('div.mb-tab-body');
   const rerender = () => ctx.rerenderTab();
@@ -699,15 +719,17 @@ function gearTab(unit, ctx) {
 
 // ----- Tree ----------------------------------------------------------------
 
-function treeTab(unit) {
+export function treeTab(unit) {
   const cols = unit.paths.map((p, pi) => h(`div.mb-path.p${pi}`,
-    h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus)),
+    h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus), pathSummaryChips(unit, pi, { size: 'sm' })),
     p.tiers.map((t, ti) => {
       const words = describeMods(t.mods);
       return h(`div.mb-tier.t${ti + 1}`,
         h('div.mb-tier-top', h('span.mb-tier-num', `T${ti + 1}`), h('span.mb-tier-name', t.name), h('span.mb-tier-cost', svgEl(uiIcon('coin'), 'mb-inline-icon'), formatNumber(t.cost))),
+        tagChips(tierTags(unit, pi, ti + 1), { size: 'sm' }),
         h('div.mb-tier-desc', t.desc),
-        words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null);
+        words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null,
+        tierNote(unit, pi, ti + 1) ? h('div.mb-tier-note', tierNote(unit, pi, ti + 1)) : null);
     })));
   const tree = h('div.mb-tree', cols);
   // Phones show one path at a time (swipe); the switcher mirrors and drives the scroll position.
@@ -723,6 +745,7 @@ function treeTab(unit) {
   return h('div.mb-tab-body',
     section('How upgrades combine',
       h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone.'),
+      tagLegend({ size: 'sm' }),
       crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
     switcher,
     tree,
@@ -759,7 +782,8 @@ export function render(root, params = {}) {
   function renderTabs() {
     clear(tabBar);
     for (const t of TABS) {
-      const locked = !store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id);
+      const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
+        || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
       tabBar.appendChild(h(`button.mb-tab${t.id === tab ? '.active' : ''}${locked ? '.locked' : ''}`, {
         'data-testid': `tab-${t.id}`,
         onclick: () => {

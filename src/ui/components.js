@@ -333,7 +333,7 @@ export function menuTabModal({ extra = [] } = {}) {
   const ico = (name, key) => svgEl(lobbyIcon(name, { uid: `menu-${key}`, shadow: false }), 'menu-tab-icon');
   for (const e of entries) {
     const key = e.label.toLowerCase();
-    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label)));
+    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), e.dot ? h('span.notif-dot') : null));
   }
   const fs = h('button.menu-tab-btn', { 'data-testid': 'menu-fullscreen' }, ico('fullscreen', 'fullscreen'), h('span', 'Fullscreen'));
   fs.addEventListener('click', async () => {

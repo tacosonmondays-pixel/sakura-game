@@ -4,7 +4,7 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { ITEMS } from '../../src/data/items.js';
 import { ROLES, ATTACK_TYPES, ARMOR_CLASSES, TRAITS, STATUSES, CAPABILITIES } from '../../src/data/types.js';
 
-const BLOCK_TYPES = new Set(['p', 'list', 'tip', 'table', 'typeChart', 'crosspath', 'units', 'items', 'links']);
+const BLOCK_TYPES = new Set(['p', 'list', 'tip', 'table', 'typeChart', 'crosspath', 'upgradeTags', 'units', 'items', 'links']);
 const REQUIRED = ['getting-started', 'controls', 'type-chart', 'roles', 'crosspath', 'traits', 'statuses', 'items', 'materials', 'leveling', 'gear', 'gacha', 'medals', 'maps', 'economy', 'unlocks', 'tips'];
 
 describe('wiki data', () => {

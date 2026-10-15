@@ -28,10 +28,12 @@ import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../s
 import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
+import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSave.js';
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { onboardingRoute, journalDot } from '../../systems/story.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -261,7 +263,16 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
-  const betaTimer = setTimeout(() => { if (el.isConnected) maybeShowBetaGift(); }, reduceMotion ? 50 : 700);
+  // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
+  const betaGift = () => {
+    if (!el.isConnected) return;
+    if (window.__sakura?.storyBusy || onboardingRoute(store.profile)) {
+      window.addEventListener('story-end', () => setTimeout(betaGift, 400), { once: true });
+      return;
+    }
+    maybeShowBetaGift();
+  };
+  const betaTimer = setTimeout(betaGift, reduceMotion ? 50 : 700);
 
   return () => {
     clearTimeout(betaTimer);
@@ -343,12 +354,14 @@ function buildTop(host, { openSecretaryPicker }) {
         { icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker },
         { icon: 'mail', label: 'Mail', testid: 'menu-mail', go: openMailbox },
         { icon: 'notice', label: 'Notice', testid: 'menu-notice', go: showNoticeModal },
+        { icon: 'tasks', label: 'Story', testid: 'menu-story', go: () => navigate('story') }, // [story]
+        { icon: 'notice', label: "Captain's Journal", testid: 'menu-journal', dot: journalDot(profile), go: () => navigate('journal') }, // [story]
         // [online]
         { icon: 'students', label: 'Clan', testid: 'menu-clan', go: () => navigate('clan') },
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
         { icon: 'mail', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
       ] }) },
-        svgEl(glyph('menu'), 'lb-glyph')),
+        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? h('span.notif-dot', { 'data-testid': 'journal-dot' }) : null),
     ),
   );
 }
@@ -483,7 +496,26 @@ function buildCarousel(host, { reduceMotion }) {
 // Bottom-left EVENT card
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * "▶ Grave Lych / Continue · Total Assault · Wave 4": the most recently played saved battle
+ * (after an app relaunch the game opens on the title / lobby, not in the battle). Opens that
+ * stage's prep. The name comes first so a narrow chip still says which battle it is.
+ */
+function continueChip(profile) {
+  const rec = listBattleSaves(profile).find((r) => STAGE_MAP[r.stageId]);
+  if (!rec) return null;
+  const stage = STAGE_MAP[rec.stageId];
+  const route = rec.endless && stage.kind !== 'challenge' ? { id: stage.id, endless: 1 } : { id: stage.id };
+  const { name, mode } = saveTitle(rec);
+  return h('button.lb-continue', { onclick: () => navigate('stage', route), 'data-testid': 'lobby-continue', title: `Continue your saved battle: ${name}` },
+    svgEl(glyph('play'), 'lb-continue-ico'),
+    h('span.lb-continue-text', h('b', name), h('small', ['Continue', mode, `Wave ${saveSummary(rec).next}`].filter(Boolean).join(' · '))),
+  );
+}
+
 function buildEventCard(host) {
+  const chip = continueChip(store.profile);
+  if (chip) host.appendChild(chip);
   const event = currentEvent();
   const days = eventDaysLeft();
   const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;

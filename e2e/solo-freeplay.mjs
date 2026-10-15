@@ -208,6 +208,11 @@ try {
     const { sim } = window.__battle;
     for (const t of [...sim.towers]) if (!t.isHero) sim.sellTower(t.uid);
     sim.lives = 1;
+    // the payout's write fails (storage full) until the sheet is checked: the freeplay sheet says
+    // so, as the victory and defeat sheets do (restored and saved right after)
+    const s = window.__sakura.store;
+    window.__realSaveNow = s.saveNow;
+    s.saveNow = () => false;
   });
   const lost = await pump('false', { max: 400 });
   check(lost.state === 'lost', `the run falls (${JSON.stringify(lost)})`);
@@ -216,6 +221,13 @@ try {
   await page.waitForSelector('[data-testid="freeplay-result"]', { timeout: 30000 }).catch(() => null);
   const res = await textOf('[data-testid="freeplay-result"]');
   check(/FREEPLAY OVER/i.test(res), 'results: FREEPLAY OVER');
+  check(!!(await page.$('[data-testid="freeplay-result"] [data-testid="result-save-failed"]')), 'results: "Your rewards couldn\'t be saved…" when the payout\'s write failed');
+  await page.evaluate(() => {
+    const s = window.__sakura.store;
+    if (window.__realSaveNow) s.saveNow = window.__realSaveNow;
+    delete window.__realSaveNow;
+    s.saveNow();
+  });
   // (the shared freeplay sheet reads "Cleared wave N / 12": the waves the run actually cleared)
   check(/Cleared wave \d+ \/ 12/.test(res), `results: "Cleared wave N / 12" (${(res.match(/Cleared wave \d+ \/ \d+/) || [''])[0]})`);
   check(/New best on 1-1 \(Blossom\)!/.test(res), 'results: "New best on 1-1 (Blossom)!"');

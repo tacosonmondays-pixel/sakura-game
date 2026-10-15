@@ -168,12 +168,17 @@
 @media (max-width: 560px) { .ma-formation-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .ma-fslot { position: relative; aspect-ratio: 1; }
 .ma-fslot .unit-card-square { width: 100%; height: 100%; }
-.ma-fslot .unit-card-name { font-size: 0.62rem; padding: 8px 3px 2px; }
-.ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; }
+.ma-fslot .unit-card-name { font-size: 0.62rem; line-height: 1.4; padding: 14px 3px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; line-height: 1.4; }
 /* these cards are too narrow for rarity and level side by side ("SSR" ran into "Lv.30"): the level
    sits on the name strip's dark, at the right. On phones they are ~38px, too small for three rows:
-   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top */
-.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 14px; }
+   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top.
+   The rows are spaced by explicit line boxes (1.4em, at least the text's own height in the game
+   font and its fallbacks), not by the font's "normal" line height: with the web font loaded, the
+   name's text box (2px + ~1.4em) reached up into "Lv.30" at bottom: 14px on the ~58px cards of a
+   1280×720 screen. Now the name (one line) ends 15px above the card's bottom edge (19px on a UR
+   card, whose ring adds a 4px border) and the level starts at 16px (20px with the UR's margin). */
+.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 16px; }
 @media (max-height: 480px) {
   .ma-fslot .unit-card-rarity { display: none; }
   .ma-fslot .unit-card-level { top: 3px; bottom: auto; }
@@ -615,6 +620,33 @@
 .lb-notice-tag[data-tag='Tips'] { background: #7b5ce0; }
 .lb-notice-page p { font-size: 0.86rem; font-weight: 600; }
 .lb-notice-cta { margin-top: 10px; }
+/* Patch notes: every version as a card with its gem gift; the list scrolls inside the article pane */
+.lb-patch-intro { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.lb-patch-intro p { flex: 1 1 200px; margin: 0; font-size: 0.8rem; color: var(--muted); }
+.lb-patch-intro .btn { flex: none; }
+/* the gem currency icon inside a line of text or a button label (patch-note gifts) */
+.gem-inline { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.25em; line-height: 0; }
+.gem-inline svg { width: 100%; height: 100%; display: block; }
+.lb-patch-list { display: flex; flex-direction: column; gap: 8px; }
+.lb-patch { padding: 8px 10px 6px; border: 1px solid #dde7f2; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 #dbe6f3; }
+.lb-patch-head { display: flex; align-items: center; gap: 8px; }
+.lb-patch-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; flex: 1; min-width: 0; }
+.lb-patch-ver { flex: none; padding: 0 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 900; color: #fff; background: var(--navy); }
+.lb-patch-date { font-size: 0.66rem; font-weight: 800; color: var(--muted); }
+.lb-patch-title b { flex-basis: 100%; font-size: 0.9rem; font-weight: 900; font-style: italic; color: var(--navy); line-height: 1.2; }
+.lb-patch-head .btn { flex: none; }
+.lb-patch-claimed { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 900; color: #1f8a57; background: #e2f6ec; border: 1px solid #b6e6cc; white-space: nowrap; }
+.lb-patch-sec { display: flex; align-items: flex-start; gap: 8px; margin-top: 5px; }
+.lb-patch-kind { flex: none; width: 58px; margin-top: 2px; padding: 1px 0; border-radius: 4px; text-align: center; font-size: 0.6rem; font-weight: 900; color: #fff; background: var(--blue); }
+.lb-patch-kind.added { background: #2bb673; }
+.lb-patch-kind.fixed { background: #ff8a3d; }
+.lb-patch-sec ul { flex: 1; min-width: 0; margin: 0; padding-left: 16px; }
+.lb-patch-sec li { font-size: 0.8rem; font-weight: 600; line-height: 1.35; margin: 1px 0; }
+@media (max-width: 700px), (max-height: 480px) {
+  .lb-notice-page-patch { padding: 8px 10px 10px; }
+  .lb-patch-sec { flex-direction: column; gap: 2px; }
+  .lb-patch-kind { width: auto; padding: 1px 6px; }
+}
 
 /* ---- tall phones held sideways (≥ 900 wide, short): a touch more room ---- */
 @media (min-width: 900px) and (max-height: 480px) {
@@ -1905,6 +1937,96 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 /* phone: wider thumbs so a girl with six backgrounds shows both rows whole */
 @media (max-height: 480px) { .bgp-thumb { aspect-ratio: 16 / 9; } .bgp-grid { gap: 6px; } }
 @media (max-height: 480px) and (min-width: 821px) { .ma-event-girl { right: 8%; height: 145%; } }
+
+/* ------------------------------------------------------------------ battle saves (Save & quit) */
+/* stage prep: the saved battle line, then New game (ghost) and Continue (yellow) on one row */
+.ma-saved { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 10px; border-radius: 10px; background: linear-gradient(90deg, #fff7d1, #fffdf4); border: 1px solid #ffe28a; }
+.ma-saved-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.ma-saved-text b { color: var(--navy); font-size: 0.86rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.ma-saved-seg { white-space: nowrap; }
+.ma-saved-text small { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.ma-saved-team { display: flex; flex: none; }
+.ma-saved-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; line-height: 0; border: 2px solid #fff; background: var(--sky-1); box-shadow: 0 1px 4px rgba(29,78,137,0.25); }
+.ma-saved-face + .ma-saved-face { margin-left: -8px; }
+.ma-saved-face svg { width: 100%; height: 100%; }
+.ma-save-btns { flex: 1 1 100%; display: flex; gap: 8px; justify-content: flex-end; min-width: 0; }
+.ma-save-btns .ma-new-btn { flex: 0 1 auto; min-width: 0; min-height: 52px; }
+.ma-save-btns .ma-continue-btn { flex: 0 1 auto; min-width: 0; }
+.ma-save-btns .btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ma-save-btns .btn-icon { flex: none; }
+/* with a Freeplay tier picked, the freeplay start sits where New game was: "FREEPLAY" over the tier */
+.ma-fp-start-text { display: inline-flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; line-height: 1.05; }
+.ma-fp-start-text small { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+.ma-fp-start-text b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  /* narrow: Continue on top, New game under it, both full width (the block leads the page here) */
+  .ma-save-btns { flex-direction: column-reverse; gap: 6px; }
+  .ma-save-btns .ma-new-btn, .ma-save-btns .ma-continue-btn { flex: none; width: 100%; }
+  .ma-save-btns .ma-new-btn { min-height: 44px; }
+  .ma-saved-team { display: none; }
+}
+/* landscape phones: one line for the save, one row of buttons (the bar stays near 110 px) */
+@media (max-height: 480px) {
+  .ma-prep-actions.has-save { gap: 6px; padding: 6px 8px; }
+  .ma-saved { padding: 3px 8px; gap: 8px; }
+  .ma-saved-text b { display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 0.78rem; }
+  .ma-saved-text small { display: none; }
+  .ma-saved-face { width: 22px; height: 22px; }
+  .ma-save-btns .ma-new-btn, .ma-save-btns .ma-continue-btn { min-height: 42px; font-size: 0.86rem; padding: 6px 10px; gap: 4px; }
+  .ma-save-btns .btn-icon { width: 15px; height: 15px; }
+  .ma-save-btns .ma-new-btn { flex: 1 1 0; }
+  .ma-save-btns .ma-continue-btn { flex: 1.25 1 0; }
+  .ma-prep-actions.has-save .ma-sweep .btn { min-height: 34px; }
+}
+/* one column (portrait phones): the saved battle's choice leads the page */
+.ma-prep-actions.ma-prep-actions-top { position: relative; bottom: auto; margin: 0 0 12px; box-shadow: var(--shadow-strong); }
+.ma-prep-actions.ma-prep-actions-top::before { display: none; }
+/* difficulty picker: the card a saved battle plays */
+.ma-diff-saved { position: absolute; left: 6px; top: -8px; padding: 0 7px; border-radius: 999px; background: linear-gradient(180deg, #fff27a, #ffd21f); color: #2a3550; font-size: 0.6rem; font-weight: 900; font-style: italic; letter-spacing: 0.02em; box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,0.2); }
+/* "Saved battles full": pick the one to delete */
+.ma-evict p { margin: 0 0 8px; }
+.ma-evict-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+.ma-evict-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 7px 10px; border-radius: 10px; border: 2px solid var(--line); background: #fff; transition: border-color var(--ma-small), background var(--ma-small); }
+.ma-evict-row.on { border-color: #e0245e; background: #fff1f5; }
+.ma-evict-dot { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #b9c7da; background: #fff; }
+.ma-evict-row.on .ma-evict-dot { border-color: #e0245e; box-shadow: inset 0 0 0 3px #fff; background: #e0245e; }
+.ma-evict-text { display: flex; flex-direction: column; min-width: 0; }
+.ma-evict-text b { color: var(--navy); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-evict-text small { color: var(--muted); font-weight: 700; font-size: 0.74rem; }
+.ma-evict-note { font-size: 0.74rem; margin: 8px 0 0 !important; }
+@media (max-height: 480px) { .ma-evict-list { max-height: 38vh; } .ma-evict-row { padding: 4px 10px; } .ma-evict p { margin-bottom: 4px; } }
+
+/* map screens: "Saved · W12" on a stage card with a saved battle */
+.ma-saved-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px 1px 5px; border-radius: 999px; background: linear-gradient(180deg, #fff27a, #ffd21f); color: #2a3550; font-weight: 900; font-style: italic; font-size: 0.7rem; line-height: 1.5; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.22), 0 0 0 1.5px #fff; }
+.ma-saved-badge-ico { width: 11px; height: 11px; flex: none; }
+/* campaign card: top-right where NEXT sits (under it when both show), clear of the medal row */
+.ma-sc-top .ma-saved-badge { position: absolute; right: 6px; top: 8px; }
+.ma-sc-top .ma-sc-next ~ .ma-saved-badge { top: 34px; }
+.ma-endless-card > .ma-saved-badge { position: absolute; left: 6px; top: 30px; }
+/* Total Assault card: a line of its own under the boss's HP (the BOSS tag stays visible) */
+.ma-boss-card-text .ma-saved-badge { align-self: flex-start; margin-top: 3px; font-size: 0.64rem; text-shadow: none; }
+.ma-tier-meta b .ma-saved-badge, .ma-loc-name .ma-saved-badge { margin-left: 6px; vertical-align: middle; font-size: 0.64rem; }
+.ma-col-text > .ma-saved-badge { align-self: flex-start; margin-top: 4px; }
+
+/* lobby: Continue chip above the event card (in portrait, where the event card is hidden, alone) */
+.lb-continue { display: flex; align-items: center; gap: 6px; max-width: 230px; margin: 0 0 20px 4px; padding: 4px 12px 4px 6px; border: 2px solid #fff; border-radius: 6px; background: linear-gradient(180deg, rgba(30,52,96,0.95), rgba(22,38,72,0.97)); color: #fff; text-align: left; transform: skewX(var(--skew)); box-shadow: 0 4px 12px rgba(10,24,50,0.35); transition: transform var(--t-press) var(--ease); }
+.lb-continue:active { transform: skewX(var(--skew)) scale(0.95); }
+.lb-continue > * { transform: skewX(calc(var(--skew) * -1)); }
+.lb-continue-ico { flex: none; width: 22px; height: 22px; padding: 4px; border-radius: 50%; background: #ffd21f; color: #1d2f52; }
+.lb-continue-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
+.lb-continue-text b { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-continue-text small { font-size: 0.62rem; font-weight: 800; color: #ffe27a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-aspect-ratio: 1/1) {
+  .lb-hud > .lb-eventcard-host:has(> .lb-continue) { display: block; bottom: calc(var(--dock-h) + 96px + var(--safe-bottom)); }
+  .lb-eventcard-host > :not(.lb-continue) { display: none; }
+  .lb-eventcard-host > .lb-continue { margin: 0; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  .lb-continue { max-width: 300px; margin-bottom: 24px; }
+  .lb-continue-text b { font-size: 0.95rem; }
+}
+.lb-continue-ico, .ma-saved-badge-ico { display: inline-flex; line-height: 0; }
+.lb-continue-ico svg, .ma-saved-badge-ico svg { width: 100%; height: 100%; }
 
 /* ---------- Solo freeplay (stage prep): Off · Blossom · Tempest · Crimson Moon ---------- */
 .ma-fp-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: #e6eef8; border-radius: 10px; padding: 3px; }

@@ -33,6 +33,9 @@ registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
+registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
+registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
+registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
@@ -44,6 +47,8 @@ try {
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
+// [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
+import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 
 // A co-op freeplay run this browser could not pay (reloaded, closed, or the phone threw the tab
 // away mid-run): its freeplay part is paid now, from the last wave it saved.
@@ -102,9 +107,22 @@ try {
 const saveNotice = store.takeNotice();
 if (saveNotice) {
   import('./ui/components.js')
-    .then(({ modal }) => modal({ title: saveNotice.kept ? 'Save backup kept' : 'Saving paused', body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
+    .then(({ modal }) => modal({ title: saveNotice.title || (saveNotice.kept ? 'Save backup kept' : 'Saving paused'), body: saveNotice.message, actions: [{ label: 'OK', kind: 'yellow', testid: 'save-notice-ok' }] }))
     .catch((e) => console.warn('[main] save notice failed', e));
 }
+
+// Another tab finished, restarted or replaced a saved battle this tab still holds (src/core/store.js):
+// this tab stopped saving so it never brings that battle back or erases the other tab's rewards.
+store.on('stale', () => {
+  import('./ui/components.js')
+    .then(({ modal }) => modal({
+      title: 'Opened in another tab',
+      body: 'Sakura Sentinels was played in another tab, so this tab stopped saving. Reload to carry on with your latest progress.',
+      dismissable: false,
+      actions: [{ label: 'Reload', kind: 'yellow', icon: 'refresh', testid: 'stale-reload', onClick: () => location.reload() }],
+    }))
+    .catch((e) => console.warn('[main] stale-tab notice failed', e));
+});
 
 // [ui-v2] landscape-first: rotate prompt on phone/tablet portrait + orientation lock in fullscreen/PWA.
 // The first route's 'screenchange' may fire before this import resolves: pass the route in, so a
@@ -132,3 +150,5 @@ import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => cons
 // New deploys: version.json is checked now and then; a "New version ready" pill offers the
 // update (never during a battle), and a stale tab missing screen files reloads itself once.
 import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
+// [unit-info] hold a girl's card (or right-click it) on a menu screen → her info sheet (request #152)
+import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.warn('[main] hold info unavailable', e));

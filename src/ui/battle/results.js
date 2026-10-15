@@ -8,7 +8,7 @@ import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from
 import { svgEl, itemTile } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
-import { applyBattleResult } from '../../systems/rewards.js';
+import { applyBattleResult, battleDropSeed } from '../../systems/rewards.js';
 import { describeStat } from '../../systems/gear.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, gearIcon, traitIcon } from '../../art/icons.js';
@@ -139,23 +139,44 @@ export function createResults(ctx) {
   el.hidden = true;
   ctx.layer.append(el);
 
-  /** Applies the battle result exactly once and persists it. */
+  /**
+   * Applies the battle result exactly once and persists it. A saved run (ctx.saver) rolls its
+   * drops from the run seed (finishing it again from an older copy of the profile rolls the
+   * same), gets the event bonus of the week it started in, and its save is deleted in the same
+   * synchronous write as the rewards: never paid twice, never continued after the payout.
+   */
   function apply() {
     if (applied) return outcome;
     applied = true;
     const result = sim.result();
-    const rng = createRng(hashString(`${stage.id}:${sim.difficulty}:${sim.seed}:${Date.now()}`));
+    const saver = ctx.saver || null;
+    const rng = createRng(saver ? battleDropSeed(stage.id, sim.difficulty, saver.seed) : hashString(`${stage.id}:${sim.difficulty}:${sim.seed}:${Date.now()}`));
     try {
       // co-op / clan boss battles bring their own reward rules (ctx.applyResult)
-      outcome = ctx.applyResult ? ctx.applyResult(store.profile, result, rng) : applyBattleResult(store.profile, result, rng, { now: new Date() });
+      outcome = ctx.applyResult
+        ? ctx.applyResult(store.profile, result, rng)
+        : applyBattleResult(store.profile, result, rng, { now: new Date(), eventAt: saver ? new Date(saver.createdAt) : null });
     } catch (e) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
     }
+    saver?.finish(store.profile);
     store.commit('battle-result');
-    store.saveNow();
+    // the result sheet says so when the payout could not be written (storage full, saving
+    // paused, or another tab moved on): a reload would bring the old state back
+    if (!store.saveNow()) outcome.saveFailed = store.lastSaveError || 'quota';
     ctx.onResultApplied?.(outcome);
     return outcome;
+  }
+
+  const SAVE_FAILED = {
+    quota: 'Your rewards couldn\'t be saved on this device (storage is full). Free up some space and keep the game open.',
+    held: 'Saving is paused on this device, so these rewards were not saved.',
+    stale: 'The game was played in another tab, so these rewards were not saved here.',
+  };
+  /** A line on the result sheet when the payout was not written. */
+  function saveFailedNote(out) {
+    return out.saveFailed ? h('p.bt-save-failed', { 'data-testid': 'result-save-failed' }, SAVE_FAILED[out.saveFailed] || SAVE_FAILED.quota) : null;
   }
 
   function actions(won) {
@@ -211,6 +232,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-win',
       h('div.bt-result-ribbon', 'VICTORY!'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       out.practice || out.coop
@@ -241,9 +263,10 @@ export function createResults(ctx) {
     const traits = (d?.leaks?.traits || []).slice(0, 3);
     const card = h(
       'div.bt-sheet.bt-result.bt-lose',
-      h('div.bt-result-ribbon', 'DEFEAT'),
+      h('div.bt-result-ribbon', ctx.endedRun ? 'RUN OVER' : 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
       out.practice ? practiceNote() : null,
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       summary(),
@@ -300,7 +323,7 @@ export function createResults(ctx) {
     open(card);
   }
 
-  /** Co-op freeplay past the goal: FREEPLAY OVER (fell) or FREEPLAY COMPLETE (the Finish vote). */
+  /** Freeplay past the goal (co-op or solo): FREEPLAY OVER (fell) or FREEPLAY COMPLETE (Finish). */
   function showFreeplay() {
     const out = apply();
     const r = sim.result();
@@ -339,6 +362,8 @@ export function createResults(ctx) {
       fp.newBest
         ? h('div.bt-free-best', { 'data-testid': 'freeplay-best' }, `New best on ${stage.id} (${table.name})!`)
         : fp.best ? h('div.bt-free-best.old', `Your best on ${stage.id} (${table.name}): ${fp.best}/${sim.totalWaves}`) : null,
+      // as on the victory and defeat sheets: the freeplay payout could not be written
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       bosses.length ? section('Bosses beaten', h('div.bt-free-bosses', bosses.map(([id, n]) => h('div.bt-free-boss', { title: enemyDef(id)?.name || id }, enemyToken(id, { size: 40 }), h('small', `${enemyDef(id)?.name || id}${n > 1 ? ` ×${n}` : ''}`))))) : null,

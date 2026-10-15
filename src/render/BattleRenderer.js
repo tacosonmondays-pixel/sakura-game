@@ -12,7 +12,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CameraRig } from './camera.js';
+import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
 import { attachBoardInput } from './boardInput.js';
 import { createAtlas } from './textures.js';
@@ -24,6 +24,8 @@ import { Overlays } from './overlays.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { createAttackFx } from './attackFx/index.js';
+import { ATTACK_SPRITES } from './attackFx/sprites.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -39,6 +41,8 @@ const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;
 
 let liveRenderers = 0;
+/** The info panel slides in first (0.22 s); the board follows once it stands. */
+const PANEL_SLIDE_DELAY_MS = 260;
 
 /**
  * Creates the battle renderer.
@@ -135,7 +139,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   key.shadow.radius = 3;
 
   // ----- batches + systems ------------------------------------------------------------
-  const atlas = createAtlas();
+  const atlas = createAtlas(ATTACK_SPRITES);
   const batches = {
     groundN: new QuadBatch({ texture: atlas.texture, max: 3000, mode: 'ground', renderOrder: 2 }),
     groundA: new QuadBatch({ texture: atlas.texture, max: 1500, mode: 'ground', blending: 'additive', renderOrder: 3 }),
@@ -144,6 +148,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     overlay: new QuadBatch({ texture: atlas.texture, max: 5000, depthTest: false, renderOrder: 30 }),
   };
   for (const b of Object.values(batches)) scene.add(b.mesh);
+  const batchList = Object.values(batches);
 
   let shadowsOn = false;
   const terrain = buildTerrain(map, look, scenery, { shadows: false, quality });
@@ -152,6 +157,28 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
+  // unique attack animations (purely visual; settings.attackFx === false = today's look)
+  const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
+  actors.fxHook = attackFx;
+  // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
+  // on the first one the FX switch off for this battle (today's look) and it is logged once
+  let fxBroken = false;
+  function fxSafe(fn) {
+    if (fxBroken) return false;
+    try {
+      return fn();
+    } catch (err) {
+      fxBroken = true;
+      actors.fxHook = null;
+      try {
+        attackFx.dispose();
+      } catch {
+        /* already broken: leave what is drawn */
+      }
+      console.warn('[attack fx] disabled after an error', err);
+      return false;
+    }
+  }
 
   // ----- post-processing -------------------------------------------------------------------
   let composer = null;
@@ -176,6 +203,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // ----- state -----------------------------------------------------------------------------
   let time = 0;
   let insets = { top: 0, right: 0, bottom: 0, left: 0, ...(opts.insets || {}) };
+  // the selected girl and the screen the info panel covers (CSS px): the view slides so her
+  // range ring stays clear of the panel (keepSelectedInView)
+  let selectedUid = null;
+  let selectedAtMs = 0;
+  let panelCover = { right: 0, bottom: 0 };
+  let lastFrameMs = 0;
   let flash = { a: 0, decay: 3 };
   let bossVignette = 0;
   let disposed = false;
@@ -207,6 +240,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     });
     const wantBloom = q === 'high' && (typeof settings.bloom === 'boolean' ? settings.bloom : preset.bloom);
     fx.setQuality(q);
+    attackFx?.setQuality(q);
     ambient.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
@@ -263,7 +297,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
-    for (const ev of events) {
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -517,21 +553,28 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const d = Math.min(0.1, Math.max(0, dt || 0));
     time += d;
     const events = sim.drainEvents();
+    // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
+    for (const b of batchList) b.begin();
     handleEvents(events);
     actors.sync(d);
-    for (const b of Object.values(batches)) b.begin();
     terrain.update(time);
     actors.drawGround(d);
+    if (attackFx) fxSafe(() => attackFx.update(d));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
     overlays.update(d);
     actors.drawOverlay();
+    // the panel slide runs on real time (a girl can be inspected while the game is paused)
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const realDt = lastFrameMs ? Math.min(0.1, Math.max(0, (nowMs - lastFrameMs) / 1000)) : 0;
+    lastFrameMs = nowMs;
+    keepSelectedInView(nowMs);
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
-    rig.apply(d);
+    rig.apply(d, realDt);
     fx.update(d);
-    for (const b of Object.values(batches)) b.end();
+    for (const b of batchList) b.end();
 
     flash.a = Math.max(0, flash.a - d * flash.decay);
     flashEl.style.opacity = flash.a.toFixed(3);
@@ -603,6 +646,46 @@ export function createBattleRenderer(container, sim, opts = {}) {
     return { x: (tmpV.x + 1) / 2 * rect.width, y: (1 - tmpV.y) / 2 * rect.height, visible: tmpV.z > -1 && tmpV.z < 1 };
   }
 
+  /**
+   * Phone-sized screens: the info panel covers part of the board, often right where the girl
+   * the player just tapped stands. Slide the framing (camera rig focus shift) just far enough
+   * that her whole range ring is clear of the panel, or centre her in the free part when the
+   * ring is bigger than it; slide back when the panel closes. Never further than the panel.
+   * It starts once the panel has slid in (a quick tap-and-close never moves the board) and
+   * ignores slivers (< 12 px).
+   */
+  function keepSelectedInView(nowMs) {
+    let gx = 0;
+    let gy = 0;
+    const t = selectedUid != null && (panelCover.right > 0 || panelCover.bottom > 0) && nowMs - selectedAtMs >= PANEL_SLIDE_DELAY_MS ? sim.getTower?.(selectedUid) : null;
+    if (t) {
+      // sizes from the rig's viewport (CSS px): no layout read every frame
+      const w = rig.viewW;
+      const h = rig.viewH;
+      const r = Math.max(0.5, t.eff?.range ?? t.stats?.range ?? 0);
+      // ring extent on screen without the current slide (4 points of the ground circle)
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let y0 = Infinity;
+      let y1 = -Infinity;
+      for (let k = 0; k < 4; k++) {
+        tmpV.set(t.x + (k === 0 ? r : k === 1 ? -r : 0), 0, t.y + (k === 2 ? r : k === 3 ? -r : 0)).project(camera);
+        const px = ((tmpV.x + 1) / 2) * w + rig.focus.x;
+        const py = ((1 - tmpV.y) / 2) * h + rig.focus.y;
+        x0 = Math.min(x0, px);
+        x1 = Math.max(x1, px);
+        y0 = Math.min(y0, py);
+        y1 = Math.max(y1, py);
+      }
+      const m = 16;
+      if (panelCover.right > 0) gx = clearSlide(m, w - panelCover.right - m, x0, x1, panelCover.right);
+      if (panelCover.bottom > 0) gy = clearSlide(insets.top + m, h - Math.max(panelCover.bottom, insets.bottom) - m, y0, y1, panelCover.bottom);
+      if (gx < 12) gx = 0;
+      if (gy < 12) gy = 0;
+    }
+    rig.setFocusShift(gx, gy);
+  }
+
   function worldToScreen(x, y, z = 0) {
     const rect = canvas.getBoundingClientRect();
     const p = projectPx(x, y, z, rect);
@@ -665,7 +748,22 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.shakeGhost();
     },
     setSelected(uid) {
+      if ((uid ?? null) !== selectedUid) selectedAtMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      selectedUid = uid ?? null;
       overlays.setSelected(uid ?? null);
+      attackFx?.setSelected(uid ?? null);
+    },
+    /**
+     * Extra: the screen the selected girl's info panel covers, in CSS px from the board's right
+     * / bottom edge ({} or zeros when it is closed). The view slides so her range ring stays
+     * visible beside it (also when the camera is locked) and slides back when it closes.
+     */
+    setPanelCover(c = {}) {
+      panelCover = { right: Math.max(0, c.right || 0), bottom: Math.max(0, c.bottom || 0) };
+    },
+    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
+    setTimeScale(s) {
+      attackFx?.setTimeScale(s);
     },
     /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},
@@ -706,6 +804,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
         pan: [r(rig.pan.x), r(rig.pan.y)],
         position: [r(camera.position.x), r(camera.position.y), r(camera.position.z)],
         target: [r(rig.target.x), r(rig.target.y), r(rig.target.z)],
+        focus: [r(rig.focus.x), r(rig.focus.y)],
+        focusGoal: [r(rig.focusGoal.x), r(rig.focusGoal.y)],
         isDefault: rig.isDefault,
       };
     },
@@ -722,9 +822,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
       insets = { ...insets, ...next };
       resize();
     },
+    /** Extra: attack-FX snapshot for previews / e2e (allocates; dev tooling only). */
+    attackFxProbe() {
+      return attackFx?.probe() ?? null;
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
     },
     dispose() {
       if (disposed) return;
@@ -734,6 +838,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tapCbs.length = 0;
       longCbs.length = 0;
       overlays.dispose();
+      attackFx?.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {
