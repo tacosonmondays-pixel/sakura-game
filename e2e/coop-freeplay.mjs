@@ -26,7 +26,7 @@
 // when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
-import { launchChromium } from './browser.mjs';
+import { launchChromium, ownSave } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -63,6 +63,7 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 720 
 const errors = [];
 async function openPage(name, size) {
   const page = await context.newPage();
+  await ownSave(page, name); // each page is its own device: its own game save (a shared one would go stale)
   if (size) await page.setViewportSize({ width: size[0], height: size[1] });
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
@@ -247,7 +248,8 @@ let A;
 let B;
 const t0 = Date.now();
 try {
-  // ---- a fresh shared save with strong girls (both "tabs" share it), two names ---------------
+  // ---- a fresh save with strong girls, copied to the second player's own save, two names -------
+  // (two pages on ONE save would turn the older tab stale since the two-tab guard, src/core/store.js)
   A = await openPage('A', [1280, 720]);
   await A.goto(`${base}#/lobby`, { waitUntil: 'load' });
   await A.evaluate(() => localStorage.clear());
@@ -266,7 +268,12 @@ try {
     store.saveNow?.();
   });
   await setName(A, 'Aiko');
+  const saveA = await A.evaluate(() => localStorage.getItem('sakura-sentinels-save-v1'));
   B = await openPage('B', [844, 390]);
+  // B starts from a copy of A's save (the same strong girls), stored under B's own save key
+  await B.addInitScript((raw) => {
+    if (raw && localStorage.getItem('sakura-sentinels-save-v1') == null) localStorage.setItem('sakura-sentinels-save-v1', raw);
+  }, saveA);
   await B.goto(`${base}#/chat`, { waitUntil: 'load' });
   await setName(B, 'Bea');
 

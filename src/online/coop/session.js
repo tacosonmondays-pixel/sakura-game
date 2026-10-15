@@ -136,9 +136,8 @@ export const LOBBY = Object.freeze({
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
- *   isBlocked: (uid) => true for a player I blocked: their hellos are ignored (never paired)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true, isBlocked = () => false }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
@@ -166,9 +165,6 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
      *  fighting: { wave, goal } while that battle runs on (a freeplay run I left), else null */
     returning: null,
     peerGone: false,
-    // [social] the server registered my seat (open_room / join_room answered): a DM co-op invite
-    // for this room can be sent now (send_coop_invite checks the room exists and is mine)
-    seated: false,
     /** my link to the room: 'connecting' (never joined yet) | 'connected' | 'reconnecting' */
     link: 'connecting',
     /** null, or why the lobby is stuck after LOBBY.findMs: 'server' (no link) | 'host' (guest: no host) */
@@ -239,11 +235,6 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     host: isHost,
     meta: { name: me.name, host: isHost },
     onError: (e) => roomError(e),
-    onSeated: () => {
-      s.seated = true;
-      emitter.emit('seated', s);
-      changed();
-    },
     onMessage: (msg, from) => handle(msg, from),
     onStatus,
     // the page is going away: an adapter that sees this before its socket closes (Supabase)
@@ -327,7 +318,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
 
   function onHello(msg) {
     const p = msg.player || {};
-    if (!p.uid || p.uid === s.me.uid || isBlocked(p.uid)) return; // [social] never pair with a player I blocked
+    if (!p.uid || p.uid === s.me.uid) return;
     const t = now();
     if (!sameVersion(msg.v, version)) {
       // a cached older (or newer) build: lockstep would desync every time — never pair

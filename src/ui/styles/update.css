@@ -38,3 +38,7 @@
   .upd-bar.save-stale .upd-text { position: static; width: auto; height: auto; clip: auto; }
   .upd-bar.save-stale .upd-text small { display: none; }
 }
+/* While it shows, sheets and dialogs (battle results / pause, modals) end above it: their action
+   buttons (Next Stage, Back to the room, OK…) sit at the bottom and must stay tappable. */
+body.has-save-stale .bt-overlay,
+body.has-save-stale .modal-overlay { padding-bottom: calc(66px + var(--safe-bottom, 0px)); }

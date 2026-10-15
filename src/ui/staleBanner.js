@@ -14,6 +14,7 @@ function show() {
     h('span.upd-text', h('b', 'Open in another tab'), h('small', ' — progress here is not saved')),
     button('Reload', { kind: 'yellow', small: true, icon: 'refresh', testid: 'save-stale-reload', onClick: () => location.reload() }));
   document.body.appendChild(bar);
+  document.body.classList.add('has-save-stale'); // sheets and dialogs leave room for it (update.css)
 }
 
 /** Once, from main.js. */
@@ -25,6 +26,7 @@ export function initStaleBanner() {
     if ((reason === 'reload' || reason === 'replace') && !store.stale) {
       bar?.remove();
       bar = null;
+      document.body.classList.remove('has-save-stale');
     }
   });
 }

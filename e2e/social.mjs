@@ -53,7 +53,9 @@ function check(cond, msg) {
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const { port } = server.httpServer.address();
-const base = `http://127.0.0.1:${port}/?online=local`;
+// ?onboarding=0: the players are fresh saves that go to the lobby, so Hikari's opening and the
+// coached first battle are marked skipped (as in the other feature checks; story/tutorial test them)
+const base = `http://127.0.0.1:${port}/?online=local&onboarding=0`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label} · viewport ${W}x${H}`);
 

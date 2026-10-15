@@ -33,6 +33,13 @@ const SAVED = () => {
   return JSON.stringify({ c: p.currencies, i: p.items, pr: p.progress, b: p.bestiary, s: p.stats, m: p.missions, u: Object.keys(p.units).sort(), g: Object.keys(p.gear || {}).length });
 };
 
+/**
+ * Size of what the game stores (every 'sakura' key) except the one-time UI hints ('sakura.tip.*',
+ * e.g. the battle's "hold a girl to see her upgrade tree" tip): a hint shown once per device is no
+ * save and no reward, and it may be set in any battle, a sandbox run too.
+ */
+const STORED = () => Object.keys(localStorage).filter((k) => /sakura/i.test(k) && !k.startsWith('sakura.tip.')).map((k) => localStorage.getItem(k)).join('|').length;
+
 async function run(vp) {
   const [w, hgt] = vp.split('x').map(Number);
   const touch = Math.min(w, hgt) < 600;
@@ -121,7 +128,7 @@ async function run(vp) {
   await shot('formation');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'squad: no horizontal overflow');
   const before = await page.evaluate(SAVED);
-  const savedBefore = await page.evaluate(() => Object.keys(localStorage).filter((k) => /sakura/i.test(k)).map((k) => localStorage.getItem(k)).join('|').length);
+  const savedBefore = await page.evaluate(STORED);
 
   await tap('[data-testid="sandbox-start"]');
   await page.waitForFunction(() => window.__battle?.ui?.placement && window.__battle.ui.sandbox, null, { timeout: 90000 });
@@ -265,7 +272,7 @@ async function run(vp) {
   await shot('result');
   const after = await page.evaluate(SAVED);
   check(after === before, 'nothing granted or saved: currencies, items, progress, bestiary, stats, missions, units and gear unchanged');
-  const savedAfter = await page.evaluate(() => Object.keys(localStorage).filter((k) => /sakura/i.test(k)).map((k) => localStorage.getItem(k)).join('|').length);
+  const savedAfter = await page.evaluate(STORED);
   check(savedAfter === savedBefore, `the stored save did not change size (${savedBefore} → ${savedAfter})`);
   check(await page.evaluate((id) => !window.__sakura.store.profile.units[id], unowned), `${unowned} is still not owned`);
   await tap('[data-testid="sandbox-back"]');

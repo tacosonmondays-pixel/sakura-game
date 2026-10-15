@@ -6,8 +6,10 @@
 // cloth, brown on gold, near-black on navy). Her painted eyes can close (blink, ^ ^, > <): the
 // shader paints eyelids over the measured eye boxes (asset.extras.eyes).
 //
-// Everything is cached per asset / texture, so every instance of her shares two programs.
+// Everything is cached per asset / texture, so every instance of her shares two programs (three
+// with the selection highlight, highlight.js).
 import * as THREE from 'three';
+import { SELECT_HIGHLIGHT, SELECT_PROGRAM_KEY, patchSelectShader } from './highlight.js';
 
 /**
  * Environment strength on her material. 1.0 with exposure 1.0 keeps hair and skin within a few %
@@ -178,7 +180,8 @@ void figCloseEyes( inout vec3 col, vec3 tex ) {
  * Her body material (shared per asset). `maps` = { map, mrMap?, normalMap? } from the GLB.
  * Without a metal/roughness map she is a plain satin dielectric. `eyes` (asset extras, see
  * eyeUniforms) lets the painted eyes close: `eyeMode` is one of EYE_MODES (one material each,
- * all sharing one program).
+ * all sharing one program). `highlight` is her selected look (highlight.js): her own colours a
+ * little brighter with a soft light rim, one more program shared by every eye state.
  */
 export function figurineMaterial(maps, { highlight = false, eyes = null, eyeMode = 0 } = {}) {
   const { map, mrMap = null, normalMap = null, normalScale = null } = maps;
@@ -191,8 +194,9 @@ export function figurineMaterial(maps, { highlight = false, eyes = null, eyeMode
     normalMap,
     envMap: studioEnvironment(),
     envMapIntensity: FIGURINE_ENV,
-    emissive: highlight ? new THREE.Color('#4d6dff') : new THREE.Color('#000000'),
-    emissiveIntensity: highlight ? 0.35 : 0,
+    // selected: neutral emissive × her own colour + a rim (patchSelectShader), never a tint
+    emissive: new THREE.Color(highlight ? SELECT_HIGHLIGHT.emissive : '#000000'),
+    emissiveIntensity: highlight ? SELECT_HIGHLIGHT.glow : 0,
   });
   // GLTFLoader flips normalScale.y for meshes without tangents (derivative tangent frames)
   if (normalMap && normalScale) m.normalScale.copy(normalScale);
@@ -215,10 +219,12 @@ export function figurineMaterial(maps, { highlight = false, eyes = null, eyeMode
         .replace('#include <common>', '#include <common>\nvarying vec3 vFigPos;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvFigPos = vec3( position );');
     }
+    if (highlight) patchSelectShader(shader);
   };
-  m.customProgramCacheKey = () => `figurine|${!!mrMap}|${!!normalMap}|${!!eyeU}`;
+  m.customProgramCacheKey = () => `figurine|${!!mrMap}|${!!normalMap}|${!!eyeU}${highlight ? `|${SELECT_PROGRAM_KEY}` : ''}`;
   m.userData.shared = true;
   m.userData.eyeMode = eyeMode;
+  if (highlight) m.userData.selectHighlight = true;
   return m;
 }
 

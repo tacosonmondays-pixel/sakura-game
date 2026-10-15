@@ -279,7 +279,7 @@ and at the landscape-phone size 844×390):
 | File | What it shows |
 |---|---|
 | `V2final-lobby-*` | Lobby (V2, since replaced by the drawn lobby): 3D secretary (Hikari GLB), login gift, campaign card, dock |
-| `V2final-missions-*` | Missions hub: Mission, Story, Bounty, Total Assault, Tactical Challenge, Commissions, Sweep |
+| `V2final-missions-*` | Missions hub (V2, since redesigned): Mission, Story, Bounty, Total Assault, Tactical Challenge, Commissions, Sweep. Today's hub has Mission, Bounty, Total Assault, Tactical Challenge, Co-op, Sandbox and Story; Commissions open from the lobby's Tasks button and Sweep sits on stage prep, Bounty and Total Assault |
 | `V2final-campaign-*` | Campaign map: chapter tabs, stage cards with medals, "New mechanic" and free-recruit tags |
 | `V2final-stage-1-1-*` | Stage prep: map preview, difficulty medals, recommended counters, formation, drops, Sweep / Start |
 | `V2final-battle-1-1-midwave-*` | Battle 1-1 wave 2: Aoi, Rei and Yuki standing at free (continuous) spots on the painted sakura map, GLB slimes on the road |

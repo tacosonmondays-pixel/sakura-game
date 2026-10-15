@@ -12,6 +12,14 @@
 // another tab — reload" (main.js). One tab alone behaves exactly as before (an unchanged save is
 // not rewritten, so hiding a tab bumps nothing).
 //
+// Tabs still on an older build (no revisions) during an update: such a tab writes its whole
+// profile, without a revision, whenever it is hidden or closed — also when its "Update" pill
+// reloads it. A tab on this build that saved with revisions puts its own (newer) save back as soon
+// as it sees such a write (storage event), unless its saving is paused. The updated tab may have
+// loaded that revision-less save already: when it then saves revision 1, 2, … below the revision
+// another tab holds, that other tab turns stale instead of writing over it (and the updated tab
+// turns stale if the write-back landed first).
+//
 // Saved battles: when the other tab's save no longer holds a saved battle this tab still plays
 // (paid out, restarted, replaced by a New game) the 'stale' event says reason 'battle-save' and
 // main.js asks for a reload at once. That check also covers a write without a revision (a tab
@@ -134,11 +142,22 @@ export function createStore({ debounceMs = 150 } = {}) {
   let by = '';
   /** This tab's id: written next to the revision of every save it writes. */
   const tabId = newTabId();
-  /** Did another tab save after the revision this tab holds? (a higher revision, or the same one by another tab) */
+  /**
+   * Did another tab save after the revision this tab holds? A higher revision, the same one by
+   * another tab, or a lower non-zero one written since this tab last read or wrote the save: a tab
+   * that loaded a save an older build wrote (its count restarted at 1) and saved on — never write
+   * over it.
+   */
   const newerThanMine = (text) => {
     const r = saveRevOf(text);
-    return r > rev || (r === rev && rev > 0 && saveByOf(text) !== by);
+    if (r > rev || (r === rev && rev > 0 && saveByOf(text) !== by)) return true;
+    return r > 0 && r < rev && text != null && text !== syncedText;
   };
+  /**
+   * A save without a revision written over this tab's revisioned one: a tab still on an older build
+   * (it writes its whole profile whenever it is hidden or closed, also when it updates itself).
+   */
+  const olderBuildWrote = (text) => text != null && rev > 0 && saveRevOf(text) === 0 && text !== syncedText;
   /** Another tab saved after this one loaded / last saved: this tab never writes again. */
   let stale = false;
   /** Why the last saveNow() wrote nothing: 'quota' (storage full), 'held' (saving paused), 'stale' (another tab), or null. */
@@ -296,7 +315,11 @@ export function createStore({ debounceMs = 150 } = {}) {
 
     /** The storage event of another tab (or a check before a write): did someone save after me? */
     checkStale() {
-      if (!stale && profile && overwrittenBy(safeGet(SAVE_KEY))) markStale();
+      const stored = safeGet(SAVE_KEY);
+      if (!stale && profile && overwrittenBy(stored)) markStale();
+      // an older build's tab wrote its old profile over this newer one: put this tab's back at once
+      // (newer data wins; the write turns any other new-build tab that saw the same write stale)
+      else if (!stale && profile && !holdSaves && olderBuildWrote(stored)) s.saveNow();
       return stale;
     },
 

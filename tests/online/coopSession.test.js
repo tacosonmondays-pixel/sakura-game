@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { openSession, LOBBY } from '../../src/online/coop/session.js';
 import { coopVersion } from '../../src/online/coop/version.js';
+import { openSocialSession } from '../../src/online/coop/socialRoom.js';
 
 function world({ latency = 60 } = {}) {
   const clock = { t: 1_000_000 };
@@ -132,14 +133,14 @@ const meOf = (uid, name, units) => ({ uid, name, level: 5, avatar: 'aoi', loadou
 const HOST = 'host-uid';
 const GUEST = 'guest-uid';
 
-function open(W, isHost, extra = {}) {
+function open(W, isHost, extra = {}, social = null) {
   const uid = isHost ? HOST : GUEST;
-  const s = openSession({
+  const opts = {
     code: 'ROOM1', isHost, backend: W.backend(uid), timers: W.timers, now: W.now, exclusive: false, stageId: '1-2',
     me: meOf(uid, isHost ? 'Aiko' : 'Bea', isHost ? ['aoi', 'rei'] : ['yuki', 'rei']),
     ...extra,
-  });
-  return s;
+  };
+  return social ? openSocialSession(opts, social) : openSession(opts);
 }
 const hellos = (s) => s.room.log.filter((e) => e.msg.type === 'hello' && e.up).length;
 
@@ -171,7 +172,7 @@ describe('co-op lobby handshake', () => {
   it('[social] never pairs with a player I blocked (their hellos are ignored); someone else still can', () => {
     const W = world();
     const blocked = new Set([GUEST]);
-    const host = open(W, true, { isBlocked: (uid) => blocked.has(uid) });
+    const host = open(W, true, {}, { isBlocked: (uid) => blocked.has(uid) });
     W.connect(host.room);
     const guest = open(W, false);
     W.connect(guest.room);
@@ -190,6 +191,32 @@ describe('co-op lobby handshake', () => {
     expect(host.peer.name).toBe('Cleo');
     host.close();
     other.close();
+  });
+
+  it('[social] session.seated turns on (with a \'seated\' event) once the server registers the seat', () => {
+    const W = world();
+    const host = open(W, true, {}, {});
+    const seen = [];
+    host.on('seated', (s) => seen.push(s.seated));
+    let changes = 0;
+    host.on('change', () => changes++);
+    expect(host.seated).toBe(false);
+    W.connect(host.room);
+    expect(host.seated).toBe(false);
+    host.room.handlers.onSeated({ code: 'ROOM1', host: true }); // what open_room answering does
+    expect(host.seated).toBe(true);
+    expect(seen).toEqual([true]);
+    expect(changes).toBeGreaterThan(0);
+    host.close();
+    // an adapter that answers before openSession returns: seated from the start
+    const fast = { uid: GUEST, openRoom: (code, handlers) => { handlers.onSeated({ code, host: false }); return W.backend(GUEST).openRoom(code, handlers); } };
+    const guest = openSocialSession({ code: 'ROOM2', isHost: false, backend: fast, timers: W.timers, now: W.now, exclusive: false, me: meOf(GUEST, 'Bea', ['yuki']) });
+    expect(guest.seated).toBe(true);
+    guest.close();
+    // the plain session knows nothing about seats (that lives outside the co-op compatibility id)
+    const plain = open(W, true);
+    expect(plain.seated).toBe(undefined);
+    plain.close();
   });
 
   it('a mute host (its messages never get out) is found as soon as its link works again', () => {

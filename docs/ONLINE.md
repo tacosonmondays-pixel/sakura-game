@@ -303,7 +303,9 @@ young, so the defaults are the safe ones.
   sat in that room earlier and left (they still know its secret), unless someone else has the seat
   now — a
   blocker who sat in the blocked player's room leaves it, and `join_room` answers "full" when either
-  player blocked the other. The lobby never pairs with a player you blocked.
+  player blocked the other. The lobby never pairs with a player you blocked
+  (`src/online/coop/socialRoom.js` drops their lobby hellos; it wraps the session from outside so the
+  co-op compatibility id below stays the same).
 - **Report**: reason chips (bullying, inappropriate words, spam, asked for personal info, something
   else), an optional note, "Also block" (on by default). In a conversation, press and hold (or
   right-click) one of their messages to report exactly that one; the conversation menu's Report sends
@@ -482,7 +484,7 @@ src/online/supply.js             Supply Bot grants (developer clan)
 src/online/adapters/supabase.js  supabase-js (loaded only when an online screen opens)
 src/online/adapters/local.js     BroadcastChannel + localStorage transport (two tabs = two players)
 src/online/adapters/localDb.js   the local adapter's "server": the same rules as the SQL, pure and tested
-src/online/coop/                 lockstep.js, commands.js (wallets, ownership), simHash.js, session.js (room lobby), loadout.js, rewards.js
+src/online/coop/                 lockstep.js, commands.js (wallets, ownership), simHash.js, session.js (room lobby), socialRoom.js (block filter + seat signal around the session, not hashed), loadout.js, rewards.js
 src/data/coop.js                 co-op tuning: HP ×1.6, cash share 0.6, input delay, heartbeat, hash interval, timeouts, colours, stage list
 src/ui/online/                   chat panel + lobby drawer, name prompt, status pill, Supply Bot, co-op HUD, Settings → Online
 src/ui/screens/{chat,clan,coop}.js   #/chat, #/clan, #/coop/<CODE>
@@ -704,8 +706,8 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   and `src/data/coop.js` with the net settings, computed by `tools/simId.mjs` in `vite.config.js`), a
   hash of the battle data, the git commit and the player-facing version. Two clients pair when
   protocol, sim id and data match, so deploys that only change art, audio, menus, the save, missions,
-  post-battle rewards, the room adapters (chat / clan / social code) or the renderer don't split
-  players. A change to any hashed file does: both players then need the new deploy. When they differ the lobby names both versions and who is behind
+  post-battle rewards, the room adapters (chat / clan / social code, including the lobby's block filter
+  and seat signal in `socialRoom.js`) or the renderer don't split players. A change to any hashed file does: both players then need the new deploy. When they differ the lobby names both versions and who is behind
   ("Chuu is on v0.1.16 and you're on v0.1.17 …"); the one behind gets an **Update** button.
 - **Version number + updates.** Every deploy gets a player-facing version `<major>.<minor>.<deploy
   number>` (GitHub Actions run number; local builds say `0.1.dev`), shown on the title screen, in
@@ -920,7 +922,8 @@ The vitest suite covers:
   including the same verifier and judge scenarios.
 - `tests/core/storeTabs.test.js`: two open tabs on one save (two stores, one storage, the real
   donation ledger): an older tab never writes over a newer save (it turns stale and shows "Open in
-  another tab — reload"), the donation ledger re-reads the newest save, one tab alone is unchanged.
+  another tab — reload"), the donation ledger re-reads the newest save, one tab alone is unchanged;
+  during an update a tab still on the older build (no revisions) can no longer roll the ledger back.
 - `socialRules.test.js`, `donateLedger.test.js` (escrow / refund / settle / claim replay after a crash at
   every step), `backendSocial.test.js` (the deploy order: `needs_update` without a request, chat and clans
   unaffected), `tests/core/reset.test.js` (the game clock) and `tests/ui/social.test.js` (pop-up rules,
