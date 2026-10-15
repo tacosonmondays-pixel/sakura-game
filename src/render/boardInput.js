@@ -11,6 +11,8 @@
 
 /** A still press this long (ms) is a long press. */
 export const LONG_PRESS_MS = 520;
+/** A long-press timer this late (ms past its deadline) waits one more task for a queued release. */
+export const LATE_FIRE_MS = 100;
 /** A press held longer than this (ms) is no tap any more. */
 export const TAP_MAX_MS = 600;
 /** Two taps within this time (ms) and distance (px) are a double-tap. */
@@ -52,10 +54,17 @@ export function attachBoardInput(el, { rig, pick, gestures, onTap = () => {}, on
     const allow = gestures();
     if (pointers.size === 1) {
       const g = { moved: false, longFired: false, t0: now(), x0: e.clientX, y0: e.clientY, timer: 0, pan: allow.pan, reset: allow.reset, slop: allow.tapSlop };
-      g.timer = setTimeout(() => {
+      // a timer that runs late (a long frame held the page) looks again one task later, after a
+      // pointerup that queued up behind it: a slow tap stays a tap (src/ui/hold.js holdTimer)
+      const fire = () => {
         if (gesture !== g || g.moved || pointers.size !== 1) return;
         g.longFired = true;
         onLongPress({ ...pick(g.x0, g.y0), clientX: g.x0, clientY: g.y0 });
+      };
+      g.timer = setTimeout(() => {
+        if (gesture !== g) return;
+        if (now() - g.t0 > LONG_PRESS_MS + LATE_FIRE_MS) g.timer = setTimeout(fire, 0);
+        else fire();
       }, LONG_PRESS_MS);
       gesture = g;
     } else if (pointers.size === 2) {

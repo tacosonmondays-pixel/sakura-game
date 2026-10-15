@@ -122,7 +122,9 @@ export function createUpgradeTree(ctx) {
 
   // ---- open / close ------------------------------------------------------------------------
   function open(next, { peek = null } = {}) {
-    if (destroyed || ctx.ended || !next) return;
+    // (never in the coached first battle: a right-click / Android long-press contextmenu or `i`
+    // on a card would pause it behind the tree and hide Hikari's coach)
+    if (destroyed || ctx.tutorial || ctx.ended || !next) return;
     const args = treeArgs(sim, resolveTarget(next), { coop: ctx.coop });
     if (!args) return;
     target = resolveTarget(next);
@@ -415,14 +417,16 @@ export function createUpgradeTree(ctx) {
   }
   function onKeyGlobal(e) {
     if (isOpen || (e.key !== 't' && e.key !== 'T') || typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (document.querySelector('.modal-overlay') || ctx.ended || ctx.paused || ctx.selectedUid == null) return;
+    if (ctx.tutorial || document.querySelector('.modal-overlay') || ctx.ended || ctx.paused || ctx.selectedUid == null) return;
     e.preventDefault();
     open({ uid: ctx.selectedUid });
   }
   window.addEventListener('keydown', onKeyGlobal);
 
   // ---- holds -------------------------------------------------------------------------------
-  const blocked = () => destroyed || ctx.ended || (ctx.paused && !pausedByTree);
+  // the coached first battle has no holds: a new player who presses and waits on a card during
+  // the coach's place step would pause the battle behind the tree and hide the coach
+  const blocked = () => destroyed || !!ctx.tutorial || ctx.ended || (ctx.paused && !pausedByTree);
 
   /**
    * Hold on a tower-bar card: 550 ms opens her tree (a peek). Moving the finger up past 12 px
@@ -519,7 +523,7 @@ export function createUpgradeTree(ctx) {
   } catch {
     tipSeen = true;
   }
-  if (!tipSeen) {
+  if (!tipSeen && !ctx.tutorial) { // (no tip in the coached first battle: holds are off there)
     const waitFirst = () => {
       if (destroyed) return;
       if (!sim.towers.length) {

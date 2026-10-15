@@ -17,6 +17,33 @@ export const MOVE_CANCEL_PX = 10;
 export const BAR_MOVE_CANCEL_PX = 8;
 export const PEEK_DRAG_PX = 12;
 export const SWALLOW_MS = 700;
+/**
+ * A hold timer that runs this much past its deadline ran behind a long frame (a busy phone, a
+ * battle starting up): the finger may have lifted in time, with its pointerup still queued behind
+ * the timer. The hold then looks again after the queued input has run, so a slow tap stays a tap.
+ */
+export const LATE_FIRE_MS = 100;
+
+const clockNow = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
+/**
+ * setTimeout(fn, ms) for a hold: when the timer runs late (see LATE_FIRE_MS), `fn` runs one task
+ * later instead, after any input event that queued up behind it (a pointerup cancels it first).
+ * `still()` = the press is still the live one. Returns a handle whose `.id` is the current timer.
+ */
+export function holdTimer(fn, ms, { still = () => true, now = clockNow } = {}) {
+  const t0 = now();
+  const handle = { id: 0 };
+  handle.id = setTimeout(() => {
+    if (!still()) return;
+    if (now() - t0 > ms + LATE_FIRE_MS) {
+      handle.id = setTimeout(() => { if (still()) fn(); }, 0);
+      return;
+    }
+    fn();
+  }, ms);
+  return handle;
+}
 
 /** Screens where holding a girl's card opens her sheet (battle has its own tree). */
 export const HOLD_ROUTES = new Set(['formation', 'students', 'stage', 'recruit', 'coop', 'wiki', 'backpack', 'mall', 'campaign', 'rewards']);
@@ -46,26 +73,26 @@ const NO_FULL_PAGE = new Set(['coop']);
  */
 export function createHoldGesture({
   ms = HOLD_MS, movePx = MOVE_CANCEL_PX, ringDelay = RING_DELAY_MS, onStart = null, onFire = null, onCancel = null,
-  onDragOut = null, dragOutPx = PEEK_DRAG_PX,
+  onDragOut = null, dragOutPx = PEEK_DRAG_PX, now = clockNow,
 } = {}) {
-  let p = null; // { id, x, y, fired, out, fireT, ringT }
+  let p = null; // { id, x, y, fired, out, fireT: { id }, ringT }
   const clear = () => {
     if (!p) return;
-    clearTimeout(p.fireT);
+    clearTimeout(p.fireT?.id);
     clearTimeout(p.ringT);
   };
   const g = {
     down(e) {
       if (p) return false;
-      const press = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false, out: false, fireT: 0, ringT: 0 };
+      const press = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false, out: false, fireT: null, ringT: 0 };
       p = press;
       press.ringT = setTimeout(() => { if (p === press && !press.fired) onStart?.(); }, ringDelay);
-      press.fireT = setTimeout(() => {
-        if (p !== press) return;
+      // a late timer (a long frame) looks again after the queued input: a slow tap stays a tap
+      press.fireT = holdTimer(() => {
         press.fired = true;
         clearTimeout(press.ringT);
         onFire?.();
-      }, ms);
+      }, ms, { still: () => p === press, now });
       return true;
     },
     move(e) {

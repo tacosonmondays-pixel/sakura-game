@@ -195,6 +195,8 @@ export function mountBattle(root, params, hooks) {
     ended: false,
     selectedUid: null,
     saver: null,
+    // [story] the coached first battle: no hold-to-view tree there (src/ui/battle/upgradeTree.js)
+    tutorial: params.tutorial === '1',
   };
 
   // a battle-save warning raised before the feed exists (the first write can come before build())

@@ -1,7 +1,8 @@
 // Hold gesture timing (owner request #152): what fires, what cancels, and the click swallower
 // that keeps a fired hold from also running the card's tap action.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createHoldGesture, swallowNextClick, HOLD_MS, BAR_HOLD_MS, SWALLOW_MS, MOVE_CANCEL_PX, PEEK_DRAG_PX, HOLD_ROUTES, HOLD_EXCLUDE } from '../../src/ui/hold.js';
+import { createHoldGesture, swallowNextClick, HOLD_MS, BAR_HOLD_MS, SWALLOW_MS, MOVE_CANCEL_PX, PEEK_DRAG_PX, HOLD_ROUTES, HOLD_EXCLUDE, LATE_FIRE_MS } from '../../src/ui/hold.js';
+import { attachBoardInput, LONG_PRESS_MS } from '../../src/render/boardInput.js';
 
 const ev = (x = 100, y = 100, id = 1) => ({ pointerId: id, clientX: x, clientY: y });
 
@@ -100,6 +101,77 @@ describe('createHoldGesture', () => {
     g.move(ev(160, 296));
     expect(calls.out).toBe(0);
     expect(g.up(ev(160, 296))).toBe(true);
+  });
+
+  // A long frame (a busy phone) can hold the page past the hold's deadline while the finger has
+  // already lifted: the timer and the queued pointerup are both waiting. A late timer looks again
+  // one task later, after the queued input ran, so that slow tap stays a tap.
+  it('a timer that runs late behind a long frame waits for a queued release: the tap goes through', () => {
+    let t = 0;
+    const { g, calls } = make({ ms: BAR_HOLD_MS, now: () => t });
+    g.down(ev());
+    t = 2000; // a 2 s frame: the timer runs ~1.45 s late
+    vi.advanceTimersByTime(BAR_HOLD_MS);
+    expect(calls.fire).toBe(0);
+    expect(g.pending).toBe(true);
+    expect(g.up(ev())).toBe(false); // the release that was queued behind the timer
+    vi.advanceTimersByTime(1000);
+    expect(calls.fire).toBe(0);
+    expect(calls.cancel).toBe(1);
+  });
+
+  it('a late timer with the finger still down fires one task later (a real hold stays a hold)', () => {
+    let t = 0;
+    const { g, calls } = make({ ms: BAR_HOLD_MS, now: () => t });
+    g.down(ev());
+    t = BAR_HOLD_MS + LATE_FIRE_MS + 1;
+    vi.advanceTimersByTime(BAR_HOLD_MS);
+    expect(calls.fire).toBe(0);
+    vi.advanceTimersByTime(1); // the next task
+    expect(calls.fire).toBe(1);
+    expect(g.up(ev())).toBe(true);
+    // on time (or only a little late) it fires at once, as before
+    const b = make({ ms: BAR_HOLD_MS, now: () => t });
+    b.g.down(ev());
+    t += BAR_HOLD_MS + LATE_FIRE_MS;
+    vi.advanceTimersByTime(BAR_HOLD_MS);
+    expect(b.calls.fire).toBe(1);
+  });
+
+  it('board long press: a late timer waits for the queued release too', () => {
+    let t = 0;
+    const target = new EventTarget();
+    target.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 400 });
+    const long = [];
+    const taps = [];
+    const input = attachBoardInput(target, {
+      rig: { panBy() {}, zoomAt() {}, reset() {}, isDefault: true },
+      pick: () => ({ towerUid: 7 }),
+      gestures: () => ({ pan: false, zoom: false, reset: false, tapSlop: 12 }),
+      onTap: (p) => taps.push(p),
+      onLongPress: (p) => long.push(p),
+      now: () => t,
+    });
+    const pe = (type, x = 100, y = 100) => Object.assign(new Event(type), { pointerId: 1, pointerType: 'touch', button: 0, clientX: x, clientY: y });
+    target.dispatchEvent(pe('pointerdown'));
+    t = 1500; // a long frame: the timer runs late, the finger had lifted at ~200 ms
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    expect(long).toHaveLength(0);
+    t = 1501;
+    target.dispatchEvent(pe('pointerup'));
+    vi.advanceTimersByTime(1000);
+    expect(long).toHaveLength(0);
+    // a real long press still fires (one task late when its timer ran late)
+    t = 5000;
+    target.dispatchEvent(pe('pointerdown'));
+    t = 5000 + LONG_PRESS_MS + LATE_FIRE_MS + 50;
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    expect(long).toHaveLength(0);
+    vi.advanceTimersByTime(1); // the next task
+    expect(long).toHaveLength(1);
+    expect(long[0].towerUid).toBe(7);
+    target.dispatchEvent(pe('pointerup'));
+    input.dispose();
   });
 
   it('constants match the spec', () => {
