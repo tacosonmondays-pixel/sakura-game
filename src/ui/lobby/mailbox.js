@@ -73,7 +73,8 @@ export function openMailbox() {
         h('div.mbx-letter-ico', svgEl(glyph(l.claimable ? 'gift' : 'mail'), 'mbx-ico')),
         h('div.mbx-letter-main',
           h('div.mbx-letter-head', h('b', l.title), h('span.muted', `${l.from} · ${dateText(l.sentAt)}`)),
-          h('p.mbx-letter-body', l.body),
+          // phones clamp a body to two lines: a tap shows the whole letter
+          h('p.mbx-letter-body', { title: 'Tap to read the whole letter', onclick: (e) => e.currentTarget.classList.toggle('open') }, l.body),
           rewardTiles(l.rewards),
         ),
         h('div.mbx-letter-side',

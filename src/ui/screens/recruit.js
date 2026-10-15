@@ -19,6 +19,8 @@ import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
+import { MAX_POTENTIAL, potentialLevel } from '../../systems/potential.js';
+import { revealTag } from '../potential.js';
 
 const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
 
@@ -70,7 +72,7 @@ export function render(root) {
       title: 'Spark — pick any SSR',
       wide: true,
       body: h('div',
-        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. Owned girls convert into ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`),
+        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`),
         h('div.ma-spark-points', svgEl(currencyIcon('recruitPoints'), 'ma-inline-icon'), h('b', formatNumber(profile.gacha?.recruitPoints || 0)), ` / ${GACHA.sparkCost} points`),
         grid),
       actions: [{ label: 'Close', kind: 'ghost' }],
@@ -78,9 +80,11 @@ export function render(root) {
     for (const id of POOL.SSR) {
       const u = UNIT_MAP[id];
       const owned = !!profile.units[id];
+      const p = owned ? potentialLevel(profile.units[id]) : 0;
+      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments` : `Owned · P${p} → P${p + 1}`;
       grid.appendChild(h('div.ma-spark-cell',
         card(id, { variant: 'tall', owned: true }),
-        h('div.ma-spark-meta', h('b', u.name), h('span.muted', owned ? 'Owned → fragments' : u.title)),
+        h('div.ma-spark-meta', h('b', u.name), h('span.muted', { 'data-testid': `spark-meta-${id}` }, meta)),
         button('Spark', {
           kind: 'yellow',
           small: true,
@@ -94,7 +98,7 @@ export function render(root) {
             }
             store.commit('spark');
             m.close();
-            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, fragments: r.fragments }], {
+            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, fragments: r.fragments, potential: r.potential, potentialUp: r.potentialUp }], {
               skipIntro: true,
               onClose: () => { overlay = null; draw(); },
             });
@@ -245,7 +249,7 @@ function showRates() {
         h('li', h('b', 'Consolidated SSR rate: '), `${formatPct(t.consolidatedSSR, 2)} per recruit including pity (on average one SSR every ${Math.round(1 / t.consolidatedSSR)} recruits).`),
         h('li', h('b', '10× guarantee: '), 'every 10× recruit contains at least one SR or better.'),
         h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${t.sparkCost} points exchange for any SSR in the Recruit Exchange.`),
-        h('li', h('b', 'Duplicates: '), `convert into Star Fragments for awakening (R ×${UNIT_RARITIES.R.fragmentsOnDupe}, SR ×${UNIT_RARITIES.SR.fragmentsOnDupe}, SSR ×${UNIT_RARITIES.SSR.fragmentsOnDupe}).`),
+        h('li', h('b', 'Duplicates: '), `+1 Potential (P1 → P${MAX_POTENTIAL}; each step adds a small passive) and Star Fragments for awakening (R ×${UNIT_RARITIES.R.fragmentsOnDupe}, SR ×${UNIT_RARITIES.SR.fragmentsOnDupe}, SSR ×${UNIT_RARITIES.SSR.fragmentsOnDupe}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`),
         h('li', h('b', 'Tickets first: '), 'Recruit tickets are always used before gems.'),
       ),
       h('h4', 'Per-unit rates'),
@@ -343,7 +347,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
       h('div.ma-showcase-rays'),
       h(`div.ma-showcase-card${full ? '.drawn' : ''}`, { html: portraitHTML(u, full ? 'cut' : 'full', { eager: true }) }),
       h('div.ma-showcase-text',
-        h('div.ma-showcase-kicker', r.pity ? 'SSR · pity' : 'SSR'),
+        h('div.ma-showcase-kicker', { 'data-testid': 'showcase-kicker' }, showcaseKicker(r)),
         h('div.ma-showcase-name', u.name),
         h('div.ma-showcase-title', u.title),
         h('div.ma-showcase-quote', `“${u.quote}”`),
@@ -367,11 +371,14 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     const newCount = results.filter((r) => r.isNew).length;
     cue('gacha.results', { best, newCount }); // [audio]
     const frags = results.reduce((a, r) => a + (r.fragments || 0), 0);
+    const ups = results.filter((r) => r.potentialUp).length;
     clear(footer);
     footer.append(
-      h('div.ma-gacha-summary',
+      h('div.ma-gacha-summary', { 'data-testid': 'reveal-summary' },
         newCount ? h('span.ma-sum-new', `${newCount} new`) : null,
-        frags ? h('span.ma-sum-frag', svgEl(itemIcon('star_fragment'), 'ma-pay-icon'), `+${frags} Star Fragments`) : null,
+        ups ? h('span.ma-sum-pot', { 'data-testid': 'reveal-sum-pot' }, h('span.pot-up', '▲'), ` ${ups} Potential`) : null,
+        // on phones the words go (icon + number stay) so the line fits on one row at 844×390
+        frags ? h('span.ma-sum-frag', svgEl(itemIcon('star_fragment'), 'ma-pay-icon'), `+${frags}`, h('span.pot-hide-phone', ' Star Fragments')) : null,
         h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
       ),
       h('div.ma-gacha-actions',
@@ -394,6 +401,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 200);
     if (!silent) onClose?.();
+    potentialTip(results);
   }
 
   if (skipIntro) {
@@ -405,6 +413,25 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     later(openLetter, 1900);
   }
   return overlay;
+}
+
+/** SSR showcase kicker: SSR · pity · Potential 4 ▲ / P6 · MAX. */
+function showcaseKicker(r) {
+  const parts = ['SSR'];
+  if (r.pity) parts.push('pity');
+  if (!r.isNew && r.potentialUp) parts.push(`Potential ${r.potential} ▲`);
+  else if (!r.isNew && r.potential >= MAX_POTENTIAL) parts.push(`P${MAX_POTENTIAL}`, 'MAX');
+  return parts.join(' · ');
+}
+
+/** The first Potential gain ever: one tip after the reveal closes (seenIntro 'potential-tip'). */
+const POTENTIAL_TIP = 'potential-tip';
+function potentialTip(results) {
+  const profile = store.profile;
+  if (!results.some((r) => r.potentialUp) || profile.seenIntro?.includes(POTENTIAL_TIP)) return;
+  (profile.seenIntro ||= []).push(POTENTIAL_TIP);
+  store.commit('potential-tip');
+  setTimeout(() => toast(`Duplicates raise Potential — small passives up to P${MAX_POTENTIAL}. See her Info tab.`, 'info', 4200), 260);
 }
 
 function revealCard(r, i) {
@@ -419,6 +446,7 @@ function revealCard(r, i) {
         h('span.ma-gc-rarity', r.rarity),
         h('span.ma-gc-name', u.name),
         r.isNew ? h('span.ma-gc-new', 'NEW') : h('span.ma-gc-frag', svgEl(itemIcon('star_fragment'), 'ma-gc-frag-icon'), `+${r.fragments}`),
+        revealTag(r),
       ),
     ),
   );

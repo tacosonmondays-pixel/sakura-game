@@ -31,6 +31,9 @@ import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, empty
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
+import { resolveStats } from '../../sim/mods.js';
+import { potentialLevel } from '../../systems/potential.js';
+import { potPill, potentialSection } from '../potential.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -166,26 +169,30 @@ export function effectivenessRow(attackType) {
 function statsTable(unit, battle) {
   const b = unit.base;
   const owned = !!store.profile.units[unit.id];
+  // Yours = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential
+  const y = resolveStats(unit, { unitStats: battle });
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
   // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
   if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
   rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
-  if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
-  if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
+  if (b.damage) dual('Damage per hit', b.damage, y.damage);
+  if (b.rate) dual('Attacks / sec', b.rate, y.rate);
   if (b.damage && b.rate) {
-    const hits = b.behavior === 'pulse' ? 1 : Math.max(1, b.projectiles || 1);
-    dual('Single-target DPS', b.damage * b.rate * hits, b.damage * b.rate * hits * battle.damageMul * battle.rateMul, (v) => n1(Math.round(v * 10) / 10));
+    const hits = (beh) => (beh === 'pulse' ? 1 : null);
+    const bh = hits(b.behavior) ?? Math.max(1, b.projectiles || 1);
+    const yh = hits(y.behavior) ?? Math.max(1, y.projectiles || 1);
+    dual('Single-target DPS', b.damage * b.rate * bh, y.damage * y.rate * yh, (v) => n1(Math.round(v * 10) / 10));
   }
-  dual('Range (tiles)', b.range, b.range * battle.rangeMul);
+  dual('Range (tiles)', b.range, y.range);
   if (b.behavior === 'pulse') rows.push(['Targets per pulse', b.maxTargets >= 99 ? 'All in range' : String(b.maxTargets), null]);
   if (b.projectiles > 1) rows.push(['Projectiles', String(b.projectiles), null]);
   if (b.pierce > 1) rows.push(['Pierce', String(b.pierce), null]);
   if (b.splash) rows.push(['Splash radius', n1(b.splash), null]);
   if (b.chain) rows.push(['Chain jumps', String(b.chain), null]);
-  dual('Armor pierce', b.armorPen, b.armorPen + battle.armorPen);
-  dual('Crit chance', b.crit.chance, b.crit.chance + battle.critChance, (v) => formatPct(v));
+  dual('Armor pierce', b.armorPen, y.armorPen);
+  dual('Crit chance', b.crit.chance, y.crit.chance, (v) => formatPct(v));
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
@@ -194,16 +201,18 @@ function statsTable(unit, battle) {
   }
   if (b.trap) rows.push(['Traps', `up to ${b.trap.max}, ${n1(b.trap.damage)} damage each`, null]);
   if (b.turret) rows.push(['Sentries', `up to ${b.turret.max}, ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s`, null]);
-  return h('table.stat-table.mb-stats',
-    owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', 'Yours'))) : null,
-    h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null))));
+  return h('div',
+    h('table.stat-table.mb-stats',
+      owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', 'Yours'))) : null,
+      h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null)))),
+    owned ? h('p.muted.mb-stats-note', 'Yours = level, gear, awakening and Potential, before upgrades.') : null);
 }
 
 // ---------------------------------------------------------------------------
 // Showcase (left column) — stays mounted while tabs change
 // ---------------------------------------------------------------------------
 
-function buildShowcase(unit, onCycle) {
+function buildShowcase(unit, onCycle, onPotential) {
   let viewer = null;
   let model = null;
   let disposed = false;
@@ -271,6 +280,7 @@ function buildShowcase(unit, onCycle) {
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
         stars(st?.awaken || 0, MAX_AWAKEN),
+        st ? potPill(potentialLevel(st), { tag: 'button', min: 1, testid: 'show-potential', title: `Potential ${potentialLevel(st)} of 6 — see her Info tab`, onClick: onPotential }) : null,
         st ? h('div.mb-show-power', svgEl(uiIcon('sword')), formatNumber(unitPower(store.profile, unit.id))) : null),
     );
   };
@@ -349,6 +359,7 @@ function infoTab(unit) {
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
+    potentialSection(unit, st),
   );
 }
 
@@ -747,7 +758,18 @@ export function render(root, params = {}) {
     navigate('student', { id: next.id, tab }, { replace: true });
   };
 
-  const showcase = buildShowcase(unit, cycle);
+  // the showcase's P pill: the Info tab (never locked), scrolled to the Potential section
+  const focusPotential = () => requestAnimationFrame(() => tabHost.querySelector('#potential')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
+  const goPotential = () => {
+    history.replaceState(history.state, '', `#/student/${unit.id}?tab=info&focus=potential`);
+    if (tab !== 'info') {
+      tab = 'info';
+      renderTabs();
+      renderTab(true);
+    }
+    focusPotential();
+  };
+  const showcase = buildShowcase(unit, cycle, goPotential);
   const tabBar = h('nav.mb-tabs.mb-detail-tabs');
   const tabHost = h('div.mb-tab-host');
   const ctx = {
@@ -797,6 +819,7 @@ export function render(root, params = {}) {
   body.appendChild(h('div.mb-detail', showcase.el, h('div.mb-detail-right', tabBar, tabHost)));
   renderTabs();
   renderTab(true);
+  if (params.focus === 'potential' && tab === 'info') focusPotential();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') { showcase.refresh(); renderTab(false); } });
   return () => { off(); showcase.dispose(); };
 }

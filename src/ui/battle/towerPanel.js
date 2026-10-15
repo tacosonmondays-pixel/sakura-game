@@ -8,6 +8,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, STATUSES } from '../../data/types.js';
 import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { potPill } from '../potential.js';
+import { potentialSummary } from '../../systems/potential.js';
 import { roundCost } from '../../sim/Sim.js';
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
@@ -72,9 +74,12 @@ export function createTowerPanel(ctx) {
     const def = t.def;
     const role = ROLES[def.role];
     const pathNames = def.paths.map((p) => p.name);
-    // UR (display only) comes from YOUR save: your own girls show it; an ally's girl in co-op
-    // shows her def rarity (their awakening is not sent over the network)
-    const profile = !ctx.coop || ctx.coop.isMine(t.uid) ? ctx.profile : null;
+    // UR and the Potential pill (display only) show what she FIGHTS at: your save for your own
+    // girls; an ally's girl in co-op from her owner's battle stats (t.unitStats travels in the loadout)
+    const mine = !ctx.coop || ctx.coop.isMine(t.uid);
+    const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
+    const pot = t.unitStats?.potential || 1;
+    const potSummary = pot >= 2 ? potentialSummary(def, pot) : '';
     const ur = isUR(def, profile);
     const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
     setVar(portrait, '--rarity', rarityColor(def, profile));
@@ -90,7 +95,8 @@ export function createTowerPanel(ctx) {
       portrait,
       h(
         'div.bt-panel-id',
-        h('div.bt-panel-name', def.name, ur ? urBadge() : null, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-'))),
+        h('div.bt-panel-name', h('span.bt-panel-nm', def.name), ur ? urBadge() : null, h('span.bt-panel-tiers', t.isHero ? `Lv ${t.level}` : t.tiers.join('-')),
+          pot >= 2 ? potPill(pot, { cls: 'bt-panel-pot', testid: 'panel-pot', title: `Potential ${pot}: ${potSummary}` }) : null),
         h('div.bt-panel-role', svgEl(roleIcon(def.role), 'bt-role-ico'), role?.name || def.role,
           h('span.bt-dot', '·'), svgEl(attackTypeIcon(st.attackType), 'bt-role-ico'), ATTACK_TYPES[st.attackType]?.name || st.attackType,
           st.element ? [h('span.bt-dot', '·'), svgEl(elementIcon(st.element), 'bt-role-ico'), ELEMENTS[st.element]?.name] : null),

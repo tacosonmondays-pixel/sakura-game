@@ -2,7 +2,7 @@ import './ui/styles/base.css';
 import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
-import { ensureBetaGift } from './systems/mail.js';
+import { ensureBetaGift, ensurePotentialLetter } from './systems/mail.js';
 import { createRng, hashString } from './core/rng.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
@@ -40,6 +40,7 @@ window.__sakura = { store };
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
+  ensurePotentialLetter(store.profile); // "New: Potential!" once, to saves whose duplicates were counted from history
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);

@@ -84,7 +84,7 @@ export function buyOffer(profile, offerId, qty = 1, now = new Date()) {
     const r = spark(profile, offer.unitId);
     if (!r.ok) return { ok: false, error: r.error === 'points' ? 'funds' : 'unknown', rewards: [] };
     profile.shop.bought[offer.id] = bought + 1;
-    return { ok: true, rewards: r.fragments ? [{ id: 'star_fragment', count: r.fragments }] : [], unit: { unitId: r.unitId, isNew: r.isNew, fragments: r.fragments } };
+    return { ok: true, rewards: r.fragments ? [{ id: 'star_fragment', count: r.fragments }] : [], unit: { unitId: r.unitId, isNew: r.isNew, fragments: r.fragments, potential: r.potential, potentialUp: r.potentialUp } };
   }
   const price = offer.price * n;
   if (!consumeItems(profile, [{ id: offer.currency, count: price }])) return { ok: false, error: 'funds', rewards: [] };

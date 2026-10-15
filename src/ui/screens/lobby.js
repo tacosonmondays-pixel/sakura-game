@@ -22,7 +22,7 @@ import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
-import { ensureBetaGift, unclaimedMailCount } from '../../systems/mail.js';
+import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
@@ -261,6 +261,7 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
+  if (ensurePotentialLetter(store.profile)) store.commit('mail');
   const betaTimer = setTimeout(() => { if (el.isConnected) maybeShowBetaGift(); }, reduceMotion ? 50 : 700);
 
   return () => {

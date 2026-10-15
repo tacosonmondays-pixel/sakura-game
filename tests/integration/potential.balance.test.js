@@ -6,7 +6,7 @@
 //
 // 1. Paper DPS (sim.towerStats) P1 → P6 for every girl at t0 and 5-0-2.
 // 2. Crowd bench: one girl on the best-covered spot of 4-5, an immortal orc grunt every 0.1 s, 15 s
-//    warm-up then 40 s of damage; at level 1 (no gear, ★0) and "strong" (L60, ★3, mythic gear).
+//    warm-up then 40 s of damage (held target: 120 s); at level 1 (no gear, ★0) and "strong" (L60, ★3, mythic gear).
 // 3. Held single target: the same girl, one immortal elite held at the path point nearest her.
 // 4. Auras: Aoi standing in Miko's / Umeko's aura, the aura girl at P1 vs P6.
 // 5. Campaign: the balance bot (tests/integration/balance.test.js) on all 40 stages, Easy and
@@ -79,13 +79,13 @@ function upgrade(sim, uid, tiers) {
 function bench(unitId, { stats, potential, tiers = [0, 0, 0], kind = 'crowd', seed = 9, secs = 40, warm = 15, partner = null }) {
   const ids = partner ? [unitId, partner.id] : [unitId];
   const sim = benchSim('4-5', ids, { ...stats, potential }, seed);
+  // with a partner: the aura girl next to Aoi; Aoi (measured) stays at P1, the aura girl at `potential`
+  if (partner) sim.loadout = new Map([[unitId, { ...stats, potential: 1 }], [partner.id, { ...stats, potential }]]);
   const spot = bestSpot(sim, unitId);
   const t = sim.placeTower(unitId, spot.x, spot.y);
   upgrade(sim, t.uid, tiers);
-  let target = t;
+  const target = t;
   if (partner) {
-    // the aura girl next to Aoi: Aoi is the one measured, the aura girl at her own Potential
-    sim.loadout = new Map([[unitId, { ...stats, potential: 1 }], [partner.id, { ...stats, potential }]]);
     const p = bestSpot(sim, partner.id, spot);
     sim.placeTower(partner.id, p.x, p.y);
   }
@@ -197,7 +197,9 @@ describe.runIf(RUN)('Potential balance guard (BALANCE=potential)', () => {
       const g = {};
       for (const [name, stats] of [['L1', L1], ['strong', STRONG]]) {
         for (const kind of ['crowd', 'still']) {
-          const vals = [9, 21].map((seed) => bench(u.id, { stats, potential: 6, kind, seed }) / Math.max(1e-9, bench(u.id, { stats, potential: 1, kind, seed })) - 1);
+          // held target: 120 s, so slow shooters (Sango 0.45/s) and traps count enough hits
+          const secs = kind === 'still' ? 120 : 40;
+          const vals = [9, 21].map((seed) => bench(u.id, { stats, potential: 6, kind, seed, secs }) / Math.max(1e-9, bench(u.id, { stats, potential: 1, kind, seed, secs })) - 1);
           g[`${kind}:${name}`] = vals.reduce((a, b) => a + b, 0) / vals.length;
         }
       }
@@ -206,7 +208,7 @@ describe.runIf(RUN)('Potential balance guard (BALANCE=potential)', () => {
     }
     const med = (k) => median(Object.values(res).map((g) => g[k]));
     rows.push(`| **median** | ${pct(med('crowd:L1'))} | ${pct(med('crowd:strong'))} | ${pct(med('still:L1'))} | ${pct(med('still:strong'))} |`);
-    report(`\n### Crowd and held single target (P6 vs P1, 40 s, seeds 9 / 21, t0)\n${rows.join('\n')}`);
+    report(`\n### Crowd (40 s) and held single target (120 s), P6 vs P1, seeds 9 / 21, t0\n${rows.join('\n')}`);
     expect(med('crowd:L1')).toBeLessThanOrEqual(0.12);
     expect(med('crowd:strong')).toBeLessThanOrEqual(0.12);
     expect(med('still:L1')).toBeLessThanOrEqual(0.13);

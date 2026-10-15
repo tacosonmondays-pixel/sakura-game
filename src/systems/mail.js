@@ -12,6 +12,8 @@
 import { addItems, normalizeList } from './inventory.js';
 import { materialId, bookId } from '../data/items.js';
 import { MATERIAL_FAMILIES } from '../data/types.js';
+import { UNITS } from '../data/units.js';
+import { potentialLevel, BACKFILL_MARKER, MAX_POTENTIAL } from './potential.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
 export const MAIL_LIMIT = 60;
@@ -185,4 +187,44 @@ export function pendingBetaGift(profile, now = Date.now()) {
 export function betaNoticeState(profile, now = Date.now()) {
   if (ms(now) < BETA_DEADLINE) return 'active';
   return pendingBetaGift(profile, now) ? 'unclaimed' : 'ended';
+}
+
+/** One-time letter for players whose duplicates were counted from their history (Potential M3). */
+export const POTENTIAL_LETTER_ID = 'potential-arrived-1';
+const POTENTIAL_LETTER_NAMES = 12;
+
+/**
+ * The Potential letter's text: every girl at P2+, highest first (12 names, then "and N more").
+ * @returns {object|null} the letter, or null when no girl is at P2+
+ */
+export function potentialLetter(profile) {
+  const girls = UNITS.map((u, i) => ({ u, i, p: profile.units?.[u.id] ? potentialLevel(profile.units[u.id]) : 0 }))
+    .filter((g) => g.p >= 2)
+    .sort((a, b) => b.p - a.p || a.i - b.i);
+  if (!girls.length) return null;
+  const names = girls.slice(0, POTENTIAL_LETTER_NAMES).map((g) => `${g.u.name} P${g.p}`);
+  const more = girls.length - names.length;
+  return {
+    id: POTENTIAL_LETTER_ID,
+    from: 'Sakura Academy Staff',
+    title: 'New: Potential!',
+    body: `From today, every duplicate recruit raises a girl's Potential by 1, from P1 up to P${MAX_POTENTIAL}, and each step gives her `
+      + 'a small passive. Duplicates still give their Star Fragments. We counted the duplicates in your recruit history; for '
+      + 'recruits older than your last 100 we estimated (average luck for R and SR girls, a cautious guess for SSR girls): '
+      + `${names.join(', ')}${more > 0 ? `, and ${more} more` : ''}. You can see each girl's passives on her Info tab.`,
+    rewards: [],
+    expiresAt: null,
+  };
+}
+
+/**
+ * Deliver the Potential letter once (call on app start, next to ensureBetaGift): only to saves the
+ * one-time backfill credited (seenIntro 'potential-backfilled') with some girl at P2+. No rewards.
+ * @returns {object|null} the delivered letter
+ */
+export function ensurePotentialLetter(profile, now = Date.now()) {
+  if (!profile?.seenIntro?.includes(BACKFILL_MARKER)) return null;
+  if (profile.mail?.delivered?.includes(POTENTIAL_LETTER_ID)) return null;
+  const letter = potentialLetter(profile);
+  return letter ? deliverMail(profile, letter, now) : null;
 }

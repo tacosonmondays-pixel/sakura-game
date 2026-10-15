@@ -13,6 +13,7 @@ import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
 import { itemSources, itemCount } from '../systems/inventory.js';
 import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
+import { potentialOf, potPill } from './potential.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -427,9 +428,11 @@ export function showItemInfo(itemId) {
  * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
-export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false } = {}) {
+export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, potential } = {}) {
   const u = getUnit(unitId);
   const shown = owned ? displayRarity(u, store.profile) : u.rarity;
+  // Potential pill (P2+), from the save unless the caller passes it (0 hides it)
+  const pot = owned ? (potential ?? potentialOf(store.profile, unitId)) : 0;
   const r = rarityInfo(shown);
   const art = svgEl(portraitHTML(u, variant === 'tall' ? 'card' : 'thumb', { awaken }), 'unit-card-art');
   const el = h(
@@ -437,12 +440,14 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
     { onclick: onClick, 'data-unit': unitId, 'data-rarity': shown, style: { '--rarity': r.color } },
     art,
     shown === 'UR' ? h('div.unit-card-rarity.unit-card-ur', urBadge()) : h('div.unit-card-rarity', r.name),
-    level != null ? h('div.unit-card-level', `Lv.${level}`) : null,
+    level != null ? h('div.unit-card-level', h('span.unit-card-lv', 'Lv.'), String(level)) : null,
     awaken ? h('div.unit-card-stars', '★'.repeat(awaken)) : null,
+    pot >= 2 ? h('div.unit-card-pot', { 'data-testid': 'card-pot' }, potPill(pot)) : null,
     h('div.unit-card-name', u.name),
     owned ? null : h('div.unit-card-lock', svgEl(uiIcon('lock'))),
   );
   el.style.setProperty('--rarity', r.color);
+  if (pot >= 2) el.classList.add('has-pot');
   if (shown === 'UR') applyUrFrame(el, u, store.profile);
   return el;
 }

@@ -1,5 +1,5 @@
 // SSR Select Ticket (Beta Tester Thank-You gift): pick ANY SSR student. New girls join the
-// academy; owned girls convert into Star Fragments like any duplicate. Opened from the item's
+// academy; owned girls count as a duplicate (+1 Potential up to P6, and Star Fragments). Opened from the item's
 // "Use" button (Backpack / item info) and right after the beta gift is claimed.
 import { h } from './dom.js';
 import { modal, toast, confirmDialog } from './components.js';
@@ -11,6 +11,7 @@ import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
 import { isUR, urBadge, applyUrFrame } from './rarity.js';
+import { MAX_POTENTIAL, potentialLevel } from '../systems/potential.js';
 
 /**
  * After a claim: "Choose your SSR now?"
@@ -36,7 +37,7 @@ export function openSelectTicket() {
     title: 'SSR Select Ticket',
     wide: true,
     cls: 'sst-modal',
-    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She converts into ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`), grid),
+    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
   for (const id of POOL.SSR) {
@@ -45,7 +46,12 @@ export function openSelectTicket() {
     const cell = h(`button.sst-cell${owned ? '.owned' : ''}`, {
       'data-testid': `sst-${id}`,
       onclick: async () => {
-        const ok = await confirmDialog(owned ? `${u.name} is already in your academy: the ticket becomes ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments. Use it?` : `Recruit ${u.name}, ${u.title}?`, { title: 'Use SSR Select Ticket', ok: owned ? 'Convert' : `Choose ${u.name}`, okKind: 'yellow' });
+        const frag = UNIT_RARITIES.SSR.fragmentsOnDupe;
+        const p = owned ? potentialLevel(store.profile.units[id]) : 0;
+        const text = !owned ? `Recruit ${u.name}, ${u.title}?`
+          : p >= MAX_POTENTIAL ? `${u.name} is at P${MAX_POTENTIAL}: the ticket becomes ${frag} Star Fragments. Use it?`
+            : `${u.name} is already in your academy: she gains +1 Potential (P${p} → P${p + 1}) and ${frag} Star Fragments. Use it?`;
+        const ok = await confirmDialog(text, { title: 'Use SSR Select Ticket', ok: !owned ? `Choose ${u.name}` : p >= MAX_POTENTIAL ? 'Convert' : 'Use ticket', okKind: 'yellow' });
         if (!ok) return;
         const r = redeemSelectTicket(store.profile, id);
         if (!r.ok) return toast(r.error === 'noTicket' ? 'You have no SSR Select Ticket.' : 'That student cannot be chosen.', 'bad');
@@ -77,7 +83,9 @@ function showJoined(u, r) {
         h('span.sst-joined-kicker', 'SSR'),
         h('b.sst-joined-name', u.name),
         h('span.sst-joined-title', u.title),
-        h('p', r.isNew ? `${u.name} joined the academy!` : `${u.name} was already here — +${r.fragments} Star Fragments.`),
+        h('p', { 'data-testid': 'sst-joined-text' }, r.isNew ? `${u.name} joined the academy!`
+          : r.potentialUp ? `${u.name} was already here — Potential ${r.potential} ▲ and +${r.fragments} Star Fragments.`
+            : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments.`),
         u.quote ? h('q', u.quote) : null,
       ),
     ),
