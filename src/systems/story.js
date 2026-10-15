@@ -5,6 +5,12 @@
 // forced on it and every feature it already had stays open. Everything else reads the block lazily through
 // storyOf(profile), which also covers profiles built by other code paths.
 //
+// Marks in missions.counters (= 1) outlive an older build that drops profile.story when it rewrites the save
+// (an old cached tab, a rollback deploy, an older desktop app on the same address: they all keep missions.counters
+// word for word, as Potential's 'pot:' and Freeplay's 'fpm:' copies rely on): 'story:new' (created with the story,
+// so not legacy), 'story:ann' (the legacy summary toast was shown), 'sl:<lesson>' (its reward was claimed) and
+// 'ss:<scene>' (read or skipped: its first-read reward was paid). restoreStory rebuilds the block from them.
+//
 // Kept light on purpose: save.js imports this file, so it only imports small data modules (and systems save.js
 // already pulls in) and NEVER the scene chunk (the story index and its scene files). Scene-aware logic lives in
 // src/systems/storyTriggers.js.
@@ -35,6 +41,26 @@ export const TUTORIAL_DIFFICULTY = 'easy';
 
 const SCENE_ID_RE = /^[a-z0-9]+(\.[a-z0-9]+)*$/;
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
+
+/** missions.counters marks (see the header): created with the story; the legacy summary toast was shown. */
+export const STORY_NEW_MARK = 'story:new';
+export const STORY_ANNOUNCED_MARK = 'story:ann';
+/** missions.counters mark prefixes: a claimed lesson ('sl:' + id), a scene read or skipped ('ss:' + id). */
+export const LESSON_MARK = 'sl:';
+export const SEEN_MARK = 'ss:';
+
+/** profile.missions.counters, created on demand. */
+function marks(profile) {
+  const m = isObj(profile.missions) ? profile.missions : (profile.missions = {});
+  return isObj(m.counters) ? m.counters : (m.counters = {});
+}
+
+const marked = (counters, key) => isObj(counters) && typeof counters[key] === 'number' && counters[key] > 0;
+
+/** Ids after `prefix` among the set marks. */
+const markedIds = (counters, prefix) => (isObj(counters)
+  ? Object.keys(counters).filter((k) => k.startsWith(prefix) && marked(counters, k)).map((k) => k.slice(prefix.length))
+  : []);
 
 export function defaultPrefs() {
   return { speed: 'normal', auto: false };
@@ -111,6 +137,63 @@ export function cleanStory(raw) {
   const prefs = isObj(raw.prefs) ? raw.prefs : {};
   s.prefs = { speed: SPEED_IDS.includes(prefs.speed) ? prefs.speed : 'normal', auto: prefs.auto === true };
   return s;
+}
+
+/**
+ * migrateProfile: the story block from the stored one and the missions.counters marks (see the header). A save
+ * without a block is legacy unless 'story:new' says it was created with the story: then an older build dropped
+ * the block, and it comes back as a new player's who is past the opening (nothing forced again; the welcome pull
+ * still due unless its letter was delivered). Claimed lessons, read scenes and the legacy toast come back from
+ * their marks either way. Never throws.
+ * @param {any} raw profile.story as stored
+ * @param {object} [counters] the migrated profile's missions.counters
+ * @param {string[]} [delivered] the migrated profile's mail.delivered
+ * @returns {object} story block
+ */
+export function restoreStory(raw, counters = null, delivered = []) {
+  let s;
+  if (isObj(raw)) s = cleanStory(raw);
+  else if (marked(counters, STORY_NEW_MARK)) {
+    s = newStory();
+    s.opening = 'skipped';
+    s.tutorial = 'skipped';
+    s.welcome = Array.isArray(delivered) && delivered.includes(WELCOME_MAIL_ID) ? 'mailed' : 'pending';
+  } else s = legacyStory();
+  for (const id of markedIds(counters, LESSON_MARK)) {
+    if (!LESSON_MAP[id]) continue;
+    const l = s.lessons[id] || { at: 0, quiet: s.legacy, read: true, claimed: true };
+    s.lessons[id] = { ...l, read: true, claimed: true };
+  }
+  const seen = markedIds(counters, SEEN_MARK).filter((id) => id.length <= 64 && SCENE_ID_RE.test(id) && !s.seen.includes(id));
+  if (seen.length) {
+    s.seen = [...s.seen, ...seen].slice(-SEEN_LIMIT);
+    s.queue = s.queue.filter((id) => !s.seen.includes(id));
+  }
+  if (marked(counters, STORY_ANNOUNCED_MARK)) s.announced = true;
+  return s;
+}
+
+/** Writes the missions.counters marks of the profile's story block (migrateProfile; idempotent). */
+export function markStory(profile) {
+  if (!isObj(profile?.story)) return;
+  const s = profile.story;
+  const c = marks(profile);
+  if (s.legacy !== true) c[STORY_NEW_MARK] = 1;
+  if (s.announced === true) c[STORY_ANNOUNCED_MARK] = 1;
+  if (isObj(s.lessons)) for (const [id, l] of Object.entries(s.lessons)) if (l?.claimed === true) c[LESSON_MARK + id] = 1;
+  if (Array.isArray(s.seen)) for (const id of s.seen) if (typeof id === 'string') c[SEEN_MARK + id] = 1;
+}
+
+/** A scene was read or skipped (storyTriggers markSeen): its mark survives an older build. */
+export function markSceneSeen(profile, sceneId) {
+  if (isObj(profile) && typeof sceneId === 'string' && sceneId) marks(profile)[SEEN_MARK + sceneId] = 1;
+}
+
+/** The legacy summary toast was shown (once per save). */
+export function markAnnounced(profile) {
+  if (!isObj(profile)) return;
+  storyOf(profile).announced = true;
+  marks(profile)[STORY_ANNOUNCED_MARK] = 1;
 }
 
 function looksClean(s) {
@@ -323,6 +406,7 @@ export function claimLesson(profile, id) {
   if (st.claimed) return { ok: false, error: 'claimed', rewards: [] };
   st.claimed = true;
   st.read = true;
+  marks(profile)[LESSON_MARK + id] = 1; // survives an older build dropping profile.story
   return { ok: true, rewards: addItems(profile, lesson.rewards) };
 }
 

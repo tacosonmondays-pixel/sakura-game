@@ -14,7 +14,7 @@
 // The scene text is one lazy chunk (src/data/story/index.js), loaded only when a scene may play.
 import { navigate, currentRoute } from '../router.js';
 import {
-  onboardingRoute, skipOnboarding, clearedCampaign, storyOf, tutorialPromptDue, tutorialRoute, setTutorial,
+  onboardingRoute, skipOnboarding, clearedCampaign, storyOf, markAnnounced, tutorialPromptDue, tutorialRoute, setTutorial,
   checkLessons, legacyAnnounceDue,
 } from '../../systems/story.js';
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
@@ -148,7 +148,7 @@ export function installStory({ store }) {
       if (!now || BLOCKED_SCREENS.has(now) || now === 'journal') return;
       const { showJournalToast } = await import('./toast.js');
       if (announce && now === 'lobby') {
-        storyOf(store.profile).announced = true;
+        markAnnounced(store.profile);
         store.commit('story');
         toastIds.length = 0; // the summary covers them
         const { resolveText } = await import('../../data/story/tokens.js');

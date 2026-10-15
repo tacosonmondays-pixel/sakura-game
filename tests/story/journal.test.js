@@ -135,6 +135,7 @@ describe('feature gates (T-gates-1)', () => {
   it('legacy saves have every feature open with 0 clears; lesson ids work as features', () => {
     const raw = JSON.parse(JSON.stringify(createProfile()));
     delete raw.story;
+    delete raw.missions.counters['story:new']; // a save from before the story never had the mark
     const p = migrateProfile(raw);
     for (const f of ['gear', 'awaken', ...LESSON_IDS]) expect(featureOpen(p, f), f).toBe(true);
     const q = fresh();
@@ -204,6 +205,7 @@ describe('welcome 10-pull: no double grant (T-welcome-1)', () => {
   it('legacy saves are never mailed, at 5 clears or after reaching 1-3 later', () => {
     const raw = JSON.parse(JSON.stringify(createProfile()));
     delete raw.story;
+    delete raw.missions.counters['story:new']; // a save from before the story never had the mark
     const a = clearUpTo(migrateProfile(raw), '1-5');
     expect(storyOf(a).welcome).toBe('legacy');
     expect(checkLessons(a).mailed).toBe(false);

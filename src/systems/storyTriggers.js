@@ -9,7 +9,7 @@ import { CAMPAIGN_IDS, STAGE_MAP } from '../data/stages.js';
 import { storyRewardFor } from '../data/story/lessons.js';
 import { addItems } from './inventory.js';
 import {
-  storyOf, stageCleared, stageOpen, setOpening, SEEN_LIMIT, QUEUE_LIMIT,
+  storyOf, stageCleared, stageOpen, setOpening, markSceneSeen, SEEN_LIMIT, QUEUE_LIMIT,
 } from './story.js';
 
 const campaignIndex = (stageId) => {
@@ -119,6 +119,7 @@ export function markSeen(profile, scene, { skipped = false, kind } = {}) {
   if (s.seen.includes(id)) return { first: false, rewards: [] };
   s.seen.push(id);
   if (s.seen.length > SEEN_LIMIT) s.seen = s.seen.slice(-SEEN_LIMIT);
+  markSceneSeen(profile, id); // its first-read reward never pays twice, even after an older build
   const rewards = sceneKind ? storyRewardFor(sceneKind) : [];
   if (rewards.length) addItems(profile, rewards);
   return { first: true, rewards };

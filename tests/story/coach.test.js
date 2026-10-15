@@ -201,6 +201,7 @@ describe('the 1-1 prep prompt and the tutorial route', () => {
     // a legacy save is never asked
     const raw = JSON.parse(JSON.stringify(createProfile()));
     delete raw.story;
+    delete raw.missions.counters['story:new']; // a save from before the story never had the mark
     expect(tutorialPromptDue(migrateProfile(raw))).toBe(false);
   });
 

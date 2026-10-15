@@ -9,8 +9,8 @@ import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
-import { newStory, cleanStory } from './story.js';
-import { cleanPatchGifts } from './patchGifts.js';
+import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
+import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -81,6 +81,9 @@ export function createProfile() {
   // Potential shadow copy (see creditPotential): every owned girl has one from the start
   for (const id of STARTER_UNITS) missions.counters[POT_SHADOW_PREFIX + id] = 0;
   missions.counters[POT_SHADOW_AT] = now;
+  // [story] this save was created with the story: an older build that drops profile.story keeps
+  // this mark (missions.counters), so the block comes back as a new player's, never as legacy
+  missions.counters[STORY_NEW_MARK] = 1;
   return {
     version: SAVE_VERSION,
     createdAt: now,
@@ -442,14 +445,20 @@ export function migrateProfile(raw) {
   p.lobbyBg = cleanLobbyBg(raw.lobbyBg);
   p.bond = cleanBond(raw.bond, p.units);
   p.mail = cleanMail(raw.mail);
-  p.patchGifts = cleanPatchGifts(raw.patchGifts);
+  // claims plus their 'pg:' marks in missions.counters (an older build dropped profile.patchGifts)
+  p.patchGifts = cleanPatchGifts(raw.patchGifts, p.missions.counters);
+  markPatchGifts(p);
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   creditPotential(p, now);
-  p.story = cleanStory(raw.story); // [story] no block = a save from before the story (legacy)
+  // [story] no block = a save from before the story (legacy), unless missions.counters marks it as
+  // created with the story (an older build dropped the block): claimed lessons and read scenes come
+  // back from their marks too, and the block's state is marked again
+  p.story = restoreStory(raw.story, p.missions.counters, p.mail.delivered);
+  markStory(p);
   p.version = SAVE_VERSION;
   return p;
 }

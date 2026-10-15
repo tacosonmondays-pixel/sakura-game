@@ -34,6 +34,7 @@ function clearUpTo(p, lastId) {
 const legacySave = (lastId = null) => {
   const raw = JSON.parse(JSON.stringify(createProfile()));
   delete raw.story;
+  delete raw.missions.counters['story:new']; // a save from before the story never had the mark
   const p = migrateProfile(raw);
   return lastId ? clearUpTo(p, lastId) : p;
 };
