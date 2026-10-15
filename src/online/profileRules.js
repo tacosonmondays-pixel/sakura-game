@@ -1,14 +1,11 @@
 // Sensei Profile: the client mirror of supabase/migrations/20261016000000_profile.sql (docs/specs/PROFILE.md §7.1).
-// Pure; no DOM, no game imports. The text constants below are inlined until feature/social ships
-// src/online/textRules.js (M2 then imports MESSAGE_INVISIBLE / VISIBLE_CHAR / COMBINING_RUN / MARK_SET /
-// LOOKALIKE_* from there instead).
+// Pure; no DOM, no game imports. The DM text rules come from ./textRules.js (valid_dm_body's mirror); the
+// look-alike table below is profile_flat()'s own, string for string (the name rules use a larger one).
+import { MESSAGE_INVISIBLE, VISIBLE_CHAR as VISIBLE, COMBINING_RUN, MARK_SET } from './textRules.js';
 
-export const MARK_SET = String.raw`\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f`;
+export { MARK_SET };
 const LOOKALIKE_FROM = 'АВСЕНІЈКМОРЅТХУҮҺԀԚԜӀѴавсеніјкморѕтхуүһԁԛԝӏѵΑΒΕΖΗΙΚΜΝΟΡΤΥΧαβεζηικμνορτυχϳıɑɡɩ';
 const LOOKALIKE_TO = 'abcehijkmopstxyyhdqwlvabcehijkmopstxyyhdqwlvabezhikmnoptyxabezhikmnoptyxjiagi';
-const MESSAGE_INVISIBLE = /[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890-\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\u{110bd}\u{110cd}\u{13430}-\u{1343f}\u{1bca0}-\u{1bca3}\u{1d159}\u{1d173}-\u{1d17a}\u{e0000}-\u{e007f}]/u;
-const VISIBLE = /[^\u0009-\u000d \u0085\u00a0\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1680\u180b-\u180f\u1ab0-\u1aff\u1dc0-\u1dff\u2000-\u200f\u2028\u2029\u202f\u205f\u20d0-\u20ff\u3000\ufe00-\ufe0f\ufe20-\ufe2f\u{e0100}-\u{e01ef}]/u;
-const COMBINING_RUN = new RegExp(`[${MARK_SET}]{5,}`, 'u');
 
 // ---- numbers repeated in the SQL (M2: tests/online/profileSchema.test.js compares them) -------
 export const BIO_MAX = 80;

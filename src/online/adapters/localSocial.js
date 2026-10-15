@@ -76,9 +76,11 @@ export function earlierReports(oldEvidence, { reason, note, context, updatedAt }
 
 /**
  * @param {{ tx: Function, rate: Function, retry: Function, now: () => number, rand: () => number, code: (n: number) => string,
- *   systemMessage: Function, devClanId: string, enabled: () => boolean }} ctx
+ *   systemMessage: Function, devClanId: string, enabled: () => boolean, afterReport?: Function }} ctx
+ *   afterReport(s, report, oldEvidence): runs after a report is stored ([profile]: profile evidence + bio auto-hide;
+ *   SQL: the reports_profile_* triggers of 20261016000000_profile.sql)
  */
-export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, devClanId, enabled }) {
+export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, devClanId, enabled, afterReport = null }) {
   const fail = (c, msg, extra = {}) => {
     throw new OnlineError(c, msg, { ...extra, definitive: true });
   };
@@ -299,6 +301,11 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
   };
 
   return {
+    /** [profile] the relation helpers the profile mirror shares (SQL: social_is_blocked, social_are_friends, …). */
+    relations: {
+      S, isBlocked, blockedByMe, areFriends, clanmates, muted,
+      ownerMuted: (x, u) => x.mutes[u]?.by === 'owner' && (x.mutes[u]?.until || 0) > now(),
+    },
     /** The deploy probe (SQL: social_version()). */
     socialProbe() {
       return enabled() ? 'ready' : 'needs_update';
@@ -608,6 +615,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         // a repeat report adds to the earlier one, never replaces it: the evidence joins, "Asked for
         // personal info" stays the reason, an empty note keeps the earlier note, and every earlier
         // reason / note / place is kept (evidence.earlierReports)
+        const before = open?.evidence || null; // [profile] the hook reads what was there (SQL: OLD.evidence)
         if (open) {
           Object.assign(open, {
             reason: open.reason === 'personal_info' ? open.reason : reason, note: n || open.note, context, messageId: checkedId ?? open.messageId,
@@ -615,6 +623,7 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
             qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name,
           });
         } else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId: checkedId, evidence, qualified: recent, qualifiedAt, status: 'open', createdAt: now(), updatedAt: now() });
+        afterReport?.(s, open || x.reports[x.reports.length - 1], before);
         // SQL: social_maybe_auto_mute
         const reporters = new Set(x.reports.filter((r) => r.targetId === target && r.status === 'open' && r.qualifiedAt != null && r.qualifiedAt > now() - AUTO_MUTE.windowHours * H).map((r) => r.reporterId));
         if (reporters.size >= AUTO_MUTE.reporters) {

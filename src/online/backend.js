@@ -29,6 +29,8 @@ const LIMITED = {
   // [social]
   sendDm: 'dm', sendCoopInvite: 'invite', addFriend: 'friend', addFriendByCode: 'friend', block: 'block', unblock: 'block', report: 'report',
   setPrivacy: 'settings', resetFriendCode: 'settings', donate: 'donate', playerCard: 'card', settleDonations: 'settle',
+  // [profile]
+  profileView: 'card', setProfileCard: 'profile', setProfileBio: 'bio', setProfileVisibility: 'settings',
 };
 // a wrong code is a counted try on the server too (not undone like other refusals)
 const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
@@ -44,6 +46,11 @@ export const SOCIAL_METHODS = [
   'answerFriend', 'cancelFriendRequest', 'removeFriend', 'inviteCandidates', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
   'inviteState', 'expireCoopInvites', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
 ];
+/**
+ * [profile] calls (supabase/migrations/20261016000000_profile.sql). needs_update whenever the social
+ * functions are missing too (the profile file needs them), without a request.
+ */
+export const PROFILE_METHODS = ['profileView', 'myProfileCard', 'setProfileCard', 'setProfileBio', 'setProfileVisibility'];
 /** How long a "needs update" answer is trusted before asking the server again. */
 const SOCIAL_RETRY_MS = 5 * 60 * 1000;
 
@@ -60,9 +67,11 @@ export function getBackend() {
   let adapter = null;
   let ready = null;
   let user = null;
-  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null };
+  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null, profile: null };
   let socialCache = null; // { status: 'ready'|'needs_update', at }
   let socialProbe = null;
+  let profileCache = null; // [profile] the same, for the profile migration
+  let profileProbe = null;
 
   async function load() {
     if (cfg.mode === 'supabase') {
@@ -182,6 +191,40 @@ export function getBackend() {
       socialCache = null;
       return api.socialStatus();
     },
+    /**
+     * [profile] 'ready' | 'needs_update' | 'offline'. Never throws. needs_update whenever socialStatus()
+     * is (no request); otherwise probes profile_version, cached like socialStatus. status.profile mirrors it.
+     */
+    async profileStatus() {
+      const social = await api.socialStatus();
+      if (social !== 'ready') {
+        if (status.profile !== social) setStatus({ profile: social });
+        return social;
+      }
+      if (profileCache && (profileCache.status === 'ready' || Date.now() - profileCache.at < SOCIAL_RETRY_MS)) return profileCache.status;
+      if (!profileProbe) {
+        profileProbe = (async () => {
+          let st = 'offline';
+          try {
+            st = adapter.profileProbe ? await adapter.profileProbe() : 'needs_update';
+          } catch {
+            st = 'offline';
+          }
+          profileCache = st === 'offline' ? null : { status: st, at: Date.now() };
+          if (status.profile !== st) setStatus({ profile: st });
+          return st;
+        })().finally(() => {
+          profileProbe = null;
+        });
+      }
+      return profileProbe;
+    },
+    /** [profile] the "Retry" button of the profile's needs-update card. */
+    recheckProfile() {
+      socialCache = socialCache?.status === 'ready' ? socialCache : null;
+      profileCache = null;
+      return api.profileStatus();
+    },
     /** [social] live DMs / friend requests / donation changes for this player, once the server has them. */
     subscribeInbox(cb) {
       if (!adapter?.subscribeInbox) return () => {};
@@ -221,7 +264,10 @@ export function getBackend() {
       // (except a wrong code, which the server counts as a try as well)
       if (action && err.code !== 'rate_limited' && !(COUNTED_MISSES.has(err.code) && COUNTED_CALLS.has(name))) limiter.undo(action);
       // the functions went missing after all (a reset project): ask again next time
-      if (err.code === 'needs_update') socialCache = { status: 'needs_update', at: Date.now() };
+      if (err.code === 'needs_update') {
+        if (PROFILE_METHODS.includes(name)) profileCache = { status: 'needs_update', at: Date.now() };
+        else socialCache = { status: 'needs_update', at: Date.now() };
+      }
       throw err;
     }
   }
@@ -244,6 +290,19 @@ export function getBackend() {
     api[name] = (...args) => call(name, args);
   }
   for (const name of SOCIAL_METHODS) api[name] = (...args) => socialCall(name, args);
+
+  async function profileCall(name, args) {
+    const st = await api.profileStatus();
+    if (st === 'needs_update') throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+    if (st !== 'ready') throw new OnlineError('offline', 'Cannot reach the server.');
+    const action = LIMITED[name];
+    if (action) {
+      const v = limiter.check(action);
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
+    }
+    return call(name, args);
+  }
+  for (const name of PROFILE_METHODS) api[name] = (...args) => profileCall(name, args);
 
   instance = api;
   if (typeof window !== 'undefined') window.__online = api; // e2e / debug hook

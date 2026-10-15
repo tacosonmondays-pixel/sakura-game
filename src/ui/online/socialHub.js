@@ -201,7 +201,11 @@ function goLive(backend) {
   state.offInbox?.();
   state.offInbox = backend.subscribeInbox((e) => onInbox(e));
   clearInterval(state.timer);
-  state.timer = setInterval(() => refresh(), REFRESH_MS);
+  state.timer = setInterval(() => {
+    refresh();
+    // [profile] the card follows the save (throttled to 10 min inside the sync)
+    import('../../online/profileSync.js').then((m) => m.syncProfileSoon('tick')).catch(() => {});
+  }, REFRESH_MS);
   if (typeof document !== 'undefined' && !goLive.bound) {
     goLive.bound = true;
     document.addEventListener('visibilitychange', () => {
