@@ -595,14 +595,15 @@ function buildPrep(stage, state, { endless, redraw }) {
       let other;
       if (fpOn) {
         // a freeplay run is never saved: it starts beside the saved battle and leaves it as it is
-        other = button(`Freeplay · ${fpName}`, {
+        // ("FREEPLAY" over the tier, so Crimson Moon fits the half-width button on a phone)
+        other = button(h('span.ma-fp-start-text', h('small', 'Freeplay'), h('b', fpName)), {
           kind: 'ghost',
-          icon: 'play',
-          title: `Start · ${newDiff} · ${fpName} (your saved battle stays)`,
+          title: `Start · ${newDiff} · ${fpName} freeplay (your saved battle stays)`,
           testid: 'stage-start',
           disabled: !formationOk,
           onClick: () => navigate('battle', battleParams()),
         });
+        other.classList.add('ma-fp-start-btn');
       } else {
         const newLabel = isEndless ? 'New game' : `New game · ${newDiff}`;
         other = button(newLabel, {

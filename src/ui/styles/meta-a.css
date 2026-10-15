@@ -1951,6 +1951,10 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-save-btns .ma-continue-btn { flex: 0 1 auto; min-width: 0; }
 .ma-save-btns .btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ma-save-btns .btn-icon { flex: none; }
+/* with a Freeplay tier picked, the freeplay start sits where New game was: "FREEPLAY" over the tier */
+.ma-fp-start-text { display: inline-flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; line-height: 1.05; }
+.ma-fp-start-text small { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+.ma-fp-start-text b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 560px) {
   /* narrow: Continue on top, New game under it, both full width (the block leads the page here) */
   .ma-save-btns { flex-direction: column-reverse; gap: 6px; }
