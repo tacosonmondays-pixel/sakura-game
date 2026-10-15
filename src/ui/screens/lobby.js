@@ -26,7 +26,7 @@ import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
 import { ensureBetaGift, unclaimedMailCount } from '../../systems/mail.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
-import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
+import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
 import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSave.js';
@@ -44,7 +44,7 @@ export function commissionsNotice(profile) {
     const missions = all.some((m) => m.claimable);
     const claimable = all.filter((m) => m.claimable).length;
     const login = loginCalendar(profile).claimable;
-    const ach = achievementList(profile).filter((a) => a.claimable).length;
+    const ach = achievementNotice(profile).ready; // cached: asked up to 3 times per lobby render
     const dailyDone = ml.daily.filter((m) => m.claimed || m.claimable).length;
     return { any: missions || login || ach > 0, missions, login, ach: ach > 0, count: claimable + ach + (login ? 1 : 0), dailyDone, dailyTotal: ml.daily.length };
   } catch {

@@ -101,3 +101,22 @@ export function markTitlesSeen(p) {
   setCounter(p, SEEN_TITLES_MARK, n);
   return true;
 }
+
+const PLATE_LABEL = { prism: 'Prism · rarest', gold: 'Gold', standard: 'Standard' };
+/**
+ * Title picker data (Edit Profile → Title, the Achievements tab's Titles sheet): the live titles grouped by plate,
+ * owned first inside each group, each with its "How:" line.
+ * @returns {{ plate: 'prism'|'gold'|'standard', label: string, owned: number, total: number,
+ *   titles: { id, name, plate, owned: boolean, how: string, source: string }[] }[]}
+ */
+export function titleGroups(profile) {
+  const owned = new Set(ownedTitles(profile));
+  return ['prism', 'gold', 'standard'].map((plate) => {
+    const titles = liveTitles().filter((t) => t.plate === plate).map((t) => {
+      const a = ACHIEVEMENT_MAP[t.id];
+      const how = a ? (a.hidden && !owned.has(t.id) ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`;
+      return { id: t.id, name: t.name, plate, owned: owned.has(t.id), how, source: t.source };
+    }).sort((x, y) => Number(y.owned) - Number(x.owned));
+    return { plate, label: PLATE_LABEL[plate], owned: titles.filter((t) => t.owned).length, total: titles.length, titles };
+  });
+}

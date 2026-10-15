@@ -48,6 +48,23 @@ try {
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
+// [achievements] Honor Ribbon masks, the unlock toasts (the first check is the baseline: nothing toasts on app start)
+// and the one-time update-day notice on the lobby
+import('./ui/achToast.js').then(async (m) => {
+  (await import('./ui/honorFx.js')).installHonorMasks();
+  m.installAchievementToasts(store);
+  const intro = await import('./ui/achIntro.js');
+  const tryIntro = () => {
+    try {
+      if (intro.maybeShowAchievementIntro(store) || store.profile.seenIntro?.includes(intro.ACH_INTRO_MARK)) window.removeEventListener('hashchange', later);
+    } catch (e) {
+      console.warn('[main] achievements notice failed', e);
+    }
+  };
+  const later = () => setTimeout(tryIntro, 600);
+  window.addEventListener('hashchange', later);
+  later();
+}).catch((e) => console.warn('[main] achievements install failed', e));
 // [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
 import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 

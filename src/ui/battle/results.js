@@ -21,6 +21,10 @@ import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { lastSoloTier } from './soloFreeplay.js';
 import { TIER_PITCH } from '../freeplayText.js';
+import { newlyReadyIds } from '../achToast.js';
+import { ribbonArt } from '../honorFx.js';
+import { HONOR_MAP } from '../../data/honors.js';
+import { navigate } from '../router.js';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -131,6 +135,15 @@ function keepGoingBlock(ctx) {
 /**
  * @param {object} ctx battle context
  */
+/** "★ 2 achievements ready ›" with up to 3 static ribbon minis (never auto-claims; achievements spec §5.5). */
+function achLine() {
+  const ids = newlyReadyIds();
+  if (!ids.length) return null;
+  const minis = ids.filter((id) => HONOR_MAP[id]).slice(0, 3).map((id) => ribbonArt(id, 22, { still: true }));
+  return h('button.bt-ach-line', { 'data-testid': 'result-achievements', onclick: () => navigate('commissions', { tab: 'achievements', highlight: ids[0] }) },
+    h('span', `★ ${ids.length} achievement${ids.length === 1 ? '' : 's'} ready`), minis, h('b', '›'));
+}
+
 export function createResults(ctx) {
   const { sim, stage } = ctx;
   let outcome = null;
@@ -235,6 +248,7 @@ export function createResults(ctx) {
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
+      achLine(),
       out.practice || out.coop
         ? (out.practice ? practiceNote() : null)
         : h(
@@ -269,6 +283,7 @@ export function createResults(ctx) {
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
+      achLine(),
       summary(),
       h('div.bt-rsec-title', 'Debrief'),
       h('ul.bt-debrief', (d?.lines || ['The defence fell.']).map((l) => h('li', l))),
@@ -316,6 +331,7 @@ export function createResults(ctx) {
       h('div.bt-result-ribbon', 'REWARDS'),
       h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
       ctx.resultLine?.() || null,
+      achLine(),
       h('div.bt-rewards-body', blocks),
       out.practice ? null : keepGoingBlock(ctx),
       actions(true),
@@ -366,6 +382,7 @@ export function createResults(ctx) {
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
+      achLine(),
       bosses.length ? section('Bosses beaten', h('div.bt-free-bosses', bosses.map(([id, n]) => h('div.bt-free-boss', { title: enemyDef(id)?.name || id }, enemyToken(id, { size: 40 }), h('small', `${enemyDef(id)?.name || id}${n > 1 ? ` ×${n}` : ''}`))))) : null,
       summary(),
       section(`Stage clear · saved at ${sim.totalWaves}/${sim.totalWaves}`, tiles(bankRewards)),

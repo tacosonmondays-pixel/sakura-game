@@ -355,13 +355,22 @@ export function menuTabModal({ extra = [] } = {}) {
   return m;
 }
 
+/**
+ * A short notice at the top. `message` is text or a node (kind 'ach': the achievement card of src/ui/achToast.js,
+ * which takes taps and sits a little lower).
+ */
 export function toast(message, kind = 'info', ms = 2200) {
   let host = document.querySelector('.toast-host');
   if (!host) document.body.appendChild((host = h('div.toast-host')));
   const t = h(`div.toast.toast-${kind}`, message);
+  if (kind === 'ach') host.classList.add('has-ach');
   host.appendChild(t);
   setTimeout(() => t.classList.add('out'), ms);
-  setTimeout(() => t.remove(), ms + 400);
+  setTimeout(() => {
+    t.remove();
+    if (!host.querySelector('.toast-ach')) host.classList.remove('has-ach');
+  }, ms + 400);
+  return t;
 }
 
 export function stars(n, max = 5) {
