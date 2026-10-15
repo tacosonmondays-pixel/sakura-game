@@ -169,12 +169,15 @@ export function presenceText(lastActive, now = Date.now()) {
  * @param {string} [name]
  * @param {{ myPrivacy?: string|null, friend?: boolean }} [ctx]
  */
-export function whyText(why, name = 'They', { myPrivacy = null, friend = false } = {}) {
+export function whyText(why, name = 'They', { myPrivacy = null, friend = false, devClan = false } = {}) {
   switch (why) {
     case 'self': return '';
     case 'blocked_by_me': return `You blocked ${name}.`;
     case 'muted': return 'You can\'t send messages right now.';
-    case 'stranger': return `Only friends and clanmates can message each other. Add ${name} as a friend first.`;
+    // the developer clan's join code is public, so it never counts as a clan for contact (SQL social_clanmates)
+    case 'stranger': return devClan
+      ? `The developer clan doesn't count as a clan for messages: anyone can join it with its public code. Swap friend codes with ${name} to add each other.`
+      : `Only friends and clanmates can message each other. Add ${name} as a friend first.`;
     case 'my_setting': return myPrivacy === 'nobody'
       ? 'Your "Who can message me" is set to Nobody, so you can\'t send messages either. Change it in Settings → Online.'
       : `Your "Who can message me" is Friends only. Add ${name} as a friend, or change it in Settings → Online.`;
@@ -186,9 +189,11 @@ export function whyText(why, name = 'They', { myPrivacy = null, friend = false }
 }
 
 /** Player-facing line for a card's `friendWhy` (why Add friend is off). */
-export function friendWhyText(why, name = 'them') {
+export function friendWhyText(why, name = 'them', { devClan = false } = {}) {
   switch (why) {
-    case 'context': return `Ask ${name} for their friend code — friend requests work between clanmates, co-op partners or with a code.`;
+    case 'context': return devClan
+      ? `Ask ${name} for their friend code and enter it under Add with a friend code.`
+      : `Ask ${name} for their friend code — friend requests work between clanmates, co-op partners or with a code.`;
     case 'muted': return 'You can\'t send friend requests right now.';
     case 'full': return `You have ${FRIEND_MAX} friends. Remove one first.`;
     case 'blocked_by_me': return `You blocked ${name}.`;

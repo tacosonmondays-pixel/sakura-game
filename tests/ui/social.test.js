@@ -141,6 +141,12 @@ describe('inbox texts', () => {
     // UX #5: no advice that leads nowhere
     expect(whyText('stranger', 'Bea')).toMatch(/Only friends and clanmates/);
     expect(whyText('stranger', 'Bea')).not.toMatch(/setting/);
+    // the developer clan never counts as a clan (public join code): say so instead of "only clanmates"
+    expect(whyText('stranger', 'Bea', { devClan: true })).toMatch(/developer clan doesn't count/);
+    expect(whyText('stranger', 'Bea', { devClan: true })).toMatch(/Swap friend codes with Bea/);
+    expect(whyText('stranger', 'Bea', { devClan: true })).not.toMatch(/Only friends and clanmates/);
+    expect(friendWhyText('context', 'Bea', { devClan: true })).toMatch(/Add with a friend code/);
+    expect(friendWhyText('context', 'Bea')).toMatch(/clanmates, co-op partners or with a code/);
     expect(whyText('my_setting', 'Bea', { myPrivacy: 'nobody', friend: true })).toMatch(/Nobody/);
     expect(whyText('my_setting', 'Bea', { myPrivacy: 'nobody', friend: true })).not.toMatch(/add .* as a friend/i);
     expect(whyText('my_setting', 'Bea', { myPrivacy: 'friends' })).toMatch(/Friends only.*Add Bea as a friend/);
