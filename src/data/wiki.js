@@ -495,9 +495,9 @@ function tipsArticle() {
 }
 
 function crosspathArticle() {
-  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell'], [
+  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'final', 'tier 5', 'one per path', 'copies', 'limit'], [
     sec('Three paths',
-      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone.'),
+      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone — one girl per path at a time.'),
       table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '7,000–16,000']])),
     sec('The crosspath rule',
       { type: 'crosspath' },
@@ -508,6 +508,16 @@ function crosspathArticle() {
       ]),
       p('So a girl can be 5-2-0, 2-0-4 or 0-3-2, but never 3-3-0 or 1-1-1.'),
       tip('The Tree tab on each student shows all fifteen tiers with plain-language effects so you can plan before a battle.', 'good')),
+    sec('One final tier per path',
+      p('Deploy as many copies of a girl as you like, but each path\'s tier 5 is one girl at a time: one Aoi can be 5-x-x, another x-5-x and a third x-x-5, but two Aois can never hold the same tier 5.'),
+      list([
+        'Tier 4 has no limit: a late army is mostly tier 4s plus one tier 5 per path.',
+        'Selling the girl who holds it frees it: another copy can then buy that tier 5.',
+        'In co-op each player has her own: your ally\'s Aoi never blocks yours.',
+        'It applies everywhere: campaign, Freeplay, Tactical Challenge, Total Assault, Bounty, Codex modes and Sandbox. Heroes are not affected.',
+        'Because a tier 5 is now a one-of-a-kind centrepiece, it costs more and hits much harder (bosses, armor, a signature trick).',
+      ]),
+      tip('A locked tier 5 names the girl who holds it and where she stands — tap Show to jump to her.', 'info')),
   ]);
 }
 

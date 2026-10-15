@@ -1,6 +1,6 @@
-// Placement & selection overlays (free placement, Bloons-style): range circles, the
+// Placement & selection overlays (free placement): range circles, the
 // placement ghost (translucent girl with a small circle under her — white where she can
-// stand, red where she can't; no zone shading, like BTD6) and the selected-tower highlight.
+// stand, red where she can't; no zone shading) and the selected-tower highlight.
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../models/index.js';
 import { footprintRadius } from '../sim/placement.js';
@@ -34,6 +34,8 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+/** "She is here" pulse ring duration (s). */
+const PULSE_T = 1.2;
 /** Ghost shake duration (s) and amplitude (tiles). */
 const SHAKE_T = 0.42;
 const SHAKE_AMP = 0.085;
@@ -79,6 +81,13 @@ export class Overlays {
     this.ghostShake = 0;
     this.showGhostRange = true;
     this.time = 0;
+    /** uid → seconds left of a "she is here" pulse ring (pulseTower). */
+    this.pulses = new Map();
+  }
+
+  /** A 1.2 s pulse ring on a girl (e.g. "Show ›" on a locked final tier). */
+  pulseTower(uid) {
+    if (uid != null) this.pulses.set(uid, PULSE_T);
   }
 
   setQuality(q) {
@@ -195,7 +204,7 @@ export class Overlays {
     return (def.base?.range || 0) * (stats.rangeMul || 1);
   }
 
-  /** Kept for API compatibility: BTD6-style placement shows no zone shading (owner request). */
+  /** Kept for API compatibility: free placement shows no zone shading (owner request). */
   showTileHints() {}
 
   refreshHints() {}
@@ -223,6 +232,23 @@ export class Overlays {
     } else {
       this.selRange.visible = false;
     }
+    // pulse rings: two expanding rings over 1.2 s on the girl the UI points at
+    for (const [puid, left] of this.pulses) {
+      const pt = this.sim.getTower ? this.sim.getTower(puid) : null;
+      const nl = left - dt;
+      if (!pt || nl <= 0) {
+        this.pulses.delete(puid);
+        continue;
+      }
+      this.pulses.set(puid, nl);
+      const v = this.actors.towerView(puid);
+      const py = (v?.water ? WATER_Y + 0.05 : PATH_H + 0.04);
+      for (const ph of [0, 0.5]) {
+        const k = ((PULSE_T - nl) / PULSE_T * 2 + ph) % 1;
+        const d = (pt.radius || 0.42) * (2 + k * 3.2);
+        this.b.groundA.push(pt.x, py, pt.y, d, d, this.R.ringThick, 1, 0.78, 0.25, (1 - k) * 0.95, 0);
+      }
+    }
     this.selRange.material.uniforms.uTime.value = t;
     this.ghostRange.material.uniforms.uTime.value = t;
     // ghost footprint marker + bob + shake
@@ -236,7 +262,7 @@ export class Overlays {
       }
       const water = this._waterAt(g.x, g.y);
       const y = (water ? WATER_Y : PATH_H) + 0.035;
-      // small circle under her: white = can stand here, red = can't (BTD6)
+      // small circle under her: white = can stand here, red = can't
       const c = g.valid ? [1, 1, 1] : [1, 0.08, 0.16];
       const d = g.radius * 2;
       const px = g.x + sx;

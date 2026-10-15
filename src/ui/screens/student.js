@@ -722,7 +722,7 @@ function treeTab(unit) {
   }, { passive: true });
   return h('div.mb-tab-body',
     section('How upgrades combine',
-      h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone.'),
+      h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone, and only one copy of her can hold each path\'s tier 5.'),
       crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
     switcher,
     tree,

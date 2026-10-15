@@ -386,6 +386,23 @@
 .bt-buy-was { font-size: 0.72rem; font-weight: 700; opacity: 0.6; margin-right: 2px; }
 .bt-buy-coin svg { width: 100%; height: 100%; }
 .bt-lock { flex: none; max-width: 46%; display: flex; gap: 4px; align-items: flex-start; font-size: 0.68rem; font-weight: 700; color: #8a94a6; line-height: 1.25; }
+/* one final tier per path: the lock takes the row's full width under the tier text; the holder
+   line is its own button (Show selects and pulses her) */
+.bt-path-body-final { flex-wrap: wrap; }
+.bt-lock-final {
+  flex: 1 1 100%; max-width: none; flex-direction: column; gap: 4px; padding: 5px 7px; border-radius: 8px;
+  background: #fff6e8; box-shadow: inset 0 0 0 1px #ffd8a8; color: #8a5300;
+}
+.bt-lock-line { display: flex; gap: 4px; align-items: flex-start; }
+.bt-lock-line .bt-ico-sm { flex: none; }
+.bt-final-show {
+  display: block; width: 100%; min-height: 28px; text-align: left; border: none; border-radius: 6px; padding: 4px 8px;
+  background: #fff; color: var(--blue-deep); font: inherit; font-size: 0.68rem; font-weight: 800; line-height: 1.25;
+  box-shadow: inset 0 0 0 1px #c9dcf5; cursor: pointer; white-space: normal; overflow-wrap: anywhere;
+}
+.bt-final-show b { color: var(--blue); white-space: nowrap; }
+.bt-final-show:active { transform: scale(0.98); }
+.bt-pip.held:not(.on) { background: repeating-linear-gradient(135deg, #ffe0b3 0 2px, #f4a340 2px 4px); box-shadow: inset 0 0 0 1px #e8590c; }
 .bt-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); background: rgba(234,246,255,0.95); border-top: 1px solid var(--line); }
 .bt-spent { font-size: 0.74rem; color: var(--muted); font-weight: 700; }
 .bt-sell { display: flex; align-items: center; gap: 5px; border: none; border-radius: 8px; padding: 8px 14px; min-height: 38px; font-weight: 900; background: #fff; color: #c9184a; box-shadow: inset 0 0 0 2px #ffb3c1; }

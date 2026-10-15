@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { crosspathReason, pathCap } from '../../src/ui/battle/rules.js';
+import {
+  crosspathReason, pathCap, onePerPathReason, whereOnMap, finalHolderLine, finalRaceText, heldPipTitle, ONE_PER_PATH_RULE, FINAL_NUMERAL,
+} from '../../src/ui/battle/rules.js';
 import { resolveFormation, parseBattleParams, createBattleSim, followingStage, mapRouteFor } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -36,6 +38,29 @@ describe('crosspath rules', () => {
       }
       sim.sellTower(t.uid);
     }
+  });
+});
+
+describe('one final tier per path (copy)', () => {
+  it('says who can hold the final tier, in the owner\'s words', () => {
+    expect(FINAL_NUMERAL).toBe('V');
+    expect(onePerPathReason('Chika', 'Sentry Works')).toBe('Only one Chika can hold Sentry Works V. Sell or upgrade that one.');
+    expect(finalRaceText('Kage', 'Storm of Steel')).toBe('Another Kage took Storm of Steel V first.');
+    expect(heldPipTitle('Thousand Shadows', 'Kage')).toBe('T5 Thousand Shadows — held by another Kage');
+    expect(ONE_PER_PATH_RULE).toMatch(/one 5-x-x, one x-5-x and one x-x-5/);
+  });
+  it('names where the holder stands (thirds of the map)', () => {
+    expect(whereOnMap(1, 1, 30, 18)).toBe('top left');
+    expect(whereOnMap(15, 1, 30, 18)).toBe('top');
+    expect(whereOnMap(29, 1, 30, 18)).toBe('top right');
+    expect(whereOnMap(1, 9, 30, 18)).toBe('left');
+    expect(whereOnMap(15, 9, 30, 18)).toBe('centre');
+    expect(whereOnMap(29, 9, 30, 18)).toBe('right');
+    expect(whereOnMap(1, 17, 30, 18)).toBe('bottom left');
+    expect(whereOnMap(15, 17, 30, 18)).toBe('bottom');
+    expect(whereOnMap(29, 17, 30, 18)).toBe('bottom right');
+    expect(whereOnMap(3, 3, 0, 0)).toBe('centre');
+    expect(finalHolderLine({ def: { name: 'Chika' }, tiers: [5, 0, 2] }, 'bottom left')).toBe('Held by Chika 5-0-2 · bottom left');
   });
 });
 

@@ -667,7 +667,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setSelected(uid) {
       overlays.setSelected(uid ?? null);
     },
-    /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
+    /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
+    pulseTower(uid) {
+      overlays.pulseTower(uid);
+    },
+    /** Legacy no-op: free placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},
     /** Extra: show the range circle around the placement ghost (settings.showRanges). */
     setPlacementRange(on) {

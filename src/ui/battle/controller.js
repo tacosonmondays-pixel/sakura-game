@@ -22,6 +22,7 @@ import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { enemyDef, traitBadge, fmtCoins } from './util.js';
+import { finalRaceText } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { quantize } from '../../online/coop/commands.js';
@@ -800,6 +801,10 @@ export function mountBattle(root, params, hooks) {
     } else if (cmd.k === 'upg' && res.ok && minePlayer) {
       const t = sim.getTower(cmd.a[0]);
       if (t) ctx.onUpgraded(t, cmd.a[1]);
+    } else if (cmd.k === 'upg' && !res.ok && minePlayer && res.reason === 'onePerPath') {
+      // two copies ordered the same final tier: the first order won on every client
+      const t = sim.getTower(cmd.a[0]);
+      if (t) ctx.feed.push(finalRaceText(t.def.name, t.def.paths[cmd.a[1]]?.name || ''), 'warn', { key: 'final-race', ms: 1800 });
     } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
     }

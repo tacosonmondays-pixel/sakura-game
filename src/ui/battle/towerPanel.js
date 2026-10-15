@@ -2,7 +2,7 @@
 // tier pips / next tier / crosspath locks / buy buttons, sell, close. Hero extras: level,
 // XP bar and ultimate. Landscape: right-side card; portrait: bottom sheet.
 import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
-import { crosspathReason, pathCap } from './rules.js';
+import { crosspathReason, pathCap, onePerPathReason, heldPipTitle, whereOnMap, finalHolderLine, ONE_PER_PATH_COOP } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
@@ -44,7 +44,9 @@ export function createTowerPanel(ctx) {
   function signature(t) {
     const afford = [0, 1, 2].map((p) => {
       const st = sim.upgradeStatus(t.uid, p);
-      return `${st.tier}${st.reason || 'ok'}${st.cost}`;
+      // a final tier held by another copy: her build and spot are in the lock line
+      const hold = st.holder != null ? sim.getTower(st.holder) : null;
+      return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
     }).join(',');
     return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}`;
   }
@@ -235,13 +237,39 @@ export function createTowerPanel(ctx) {
   /** A tier's price before gear Cost Reduction and cost-cut auras (difficulty still applies). */
   const fullCost = (tier) => roundCost((tier.cost || 0) * (sim.diff?.costMul ?? 1));
 
+  /** The holder of a locked final tier: name + build + where she stands, and a Show button. */
+  function finalLock(t, p, i, st) {
+    const hold = st.holder != null ? sim.getTower(st.holder) : null;
+    const show = hold ? h(
+      'button.bt-final-show',
+      {
+        'data-testid': `final-show-${i}`,
+        title: `Select ${hold.def.name}`,
+        onclick: () => {
+          ctx.select(hold.uid);
+          ctx.renderer?.pulseTower?.(hold.uid);
+        },
+      },
+      finalHolderLine(hold, whereOnMap(hold.x, hold.y, sim.map?.width, sim.map?.height)),
+      h('b', ' · Show ›'),
+    ) : null;
+    return h(
+      'div.bt-lock.bt-lock-final',
+      { 'data-testid': `final-lock-${i}`, title: ctx.coop ? ONE_PER_PATH_COOP : '' },
+      h('div.bt-lock-line', icon('lock', 'bt-ico-sm'), h('span', onePerPathReason(t.def.name, p.name))),
+      show,
+    );
+  }
+
   function pathRow(t, p, i, names) {
     const st = sim.upgradeStatus(t.uid, i);
     const cur = t.tiers[i];
     const cap = pathCap(t.tiers, i);
+    // one final tier per path: the last pip shows a lock when another copy holds it
+    const held = !t.isHero && cur < p.tiers.length && sim.finalTierHolder?.(t.uid, i) ? p.tiers.length - 1 : -1;
     const pips = h('div.bt-pips', p.tiers.map((tier, k) => h(
-      `span.bt-pip${k < cur ? '.on' : ''}${k >= cap ? '.capped' : ''}${k === cur && !st.locked ? '.next' : ''}`,
-      { title: `T${k + 1} ${tier.name}` },
+      `span.bt-pip${k < cur ? '.on' : ''}${k >= cap ? '.capped' : ''}${k === held ? '.held' : ''}${k === cur && !st.locked ? '.next' : ''}`,
+      { title: k === held ? heldPipTitle(tier.name, t.def.name) : `T${k + 1} ${tier.name}` },
     )));
     let body;
     if (st.reason === 'max' || !st.next) {
@@ -252,6 +280,8 @@ export function createTowerPanel(ctx) {
       let action;
       if (st.reason === 'crosspath') {
         action = h('div.bt-lock', icon('lock', 'bt-ico-sm'), crosspathReason(t.tiers, i, names));
+      } else if (st.reason === 'onePerPath') {
+        action = finalLock(t, p, i, st);
       } else {
         const afford = st.reason !== 'cash';
         action = h(
@@ -262,7 +292,12 @@ export function createTowerPanel(ctx) {
             onclick: () => {
               const done = ctx.act ? ctx.act.upgrade(t.uid, i) : sim.upgradeTower(t.uid, i);
               if (!done) {
-                if (!ctx.coop || ctx.coop.isMine(t.uid)) ctx.feed.push(`Need ${fmtCoins(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
+                if (ctx.coop && !ctx.coop.isMine(t.uid)) return;
+                const now = sim.upgradeStatus(t.uid, i);
+                // the holder may have taken the final tier since the panel was drawn
+                if (now.reason === 'onePerPath') ctx.feed.push(onePerPathReason(t.def.name, p.name), 'warn', { key: 'upg-final', ms: 2200 });
+                else ctx.feed.push(`Need ${fmtCoins(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
+                sig = '';
                 return;
               }
               if (done !== 'queued') ctx.onUpgraded(t, i);
@@ -276,10 +311,10 @@ export function createTowerPanel(ctx) {
           fmtCoins(st.cost),
         );
       }
-      body = h('div.bt-path-body', desc, action);
+      body = h(`div.bt-path-body${st.reason === 'onePerPath' ? '.bt-path-body-final' : ''}`, desc, action);
     }
     return h(
-      `div.bt-path${st.reason === 'crosspath' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
+      `div.bt-path${st.reason === 'crosspath' || st.reason === 'onePerPath' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
       { 'data-path': i },
       h('div.bt-path-head', h('span.bt-path-name', p.name), h('span.bt-path-focus', p.focus || ''), pips),
       body,
