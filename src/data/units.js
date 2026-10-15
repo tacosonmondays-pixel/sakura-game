@@ -775,7 +775,7 @@ const KAGE = {
       tier('Quick Hands', 140, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Triple Star', 320, 'Throws at 3 targets.', { projectiles: 1 }),
       tier('Shuriken Cyclone', 1000, '5 targets, +1 pierce, +15% attack speed.', { projectiles: 2, pierce: 1, rateMul: 1.15 }),
-      tier('Blade Rain', 3000, '7 targets, +50% attack speed, +4 damage, ignores 3 armor; +20% damage.', { projectiles: 2, rateMul: 1.5, damage: 4, armorPen: 3, damageMul: 1.2 }),
+      tier('Blade Rain', 3000, '7 targets, +50% attack speed, +4 damage, ignores 5 armor; +20% damage.', { projectiles: 2, rateMul: 1.5, damage: 4, armorPen: 5, damageMul: 1.2 }),
       tier('Thousand Shadows', 26000, 'Shadow clones join in: 13 targets, +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.', { projectiles: 6, rateMul: 1.6, damage: 3, pierce: 2, armorPen: 4, bossMul: 1.3, damageMul: 1.65 }),
     ]),
     path('shadowmark', 'Shadow Mark', 'Reveal and mark', [
