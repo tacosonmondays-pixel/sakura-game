@@ -103,7 +103,9 @@ export class Actors {
     this.selectedUid = null;
     this.teleports = new Map();
     this.victory = false;
+    this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
     this._c = new THREE.Color();
+    this._tint = new THREE.Color();
     this._statusColors = {};
     for (const [k, [, hex]] of Object.entries(STATUS_ICONS)) this._statusColors[k] = new THREE.Color(hex);
 
@@ -122,6 +124,8 @@ export class Actors {
       this.proj[kind] = mesh;
     }
     this.projPrev = new Map();
+    this._alive = new Set();
+    this._counts = {};
 
     // drones (engineer turrets)
     const dg = new GeoBuilder({ flat: false })
@@ -293,6 +297,11 @@ export class Actors {
     if (this.victory) state = 'victory';
     else if (t.disabled > 0) state = 'disabled';
     v.state = state;
+    if (this.fxHook) {
+      const o = this.fxHook.towerOffset(t.uid);
+      m.position.x = t.x + o.x;
+      m.position.z = t.y + o.z;
+    }
     m.userData.animate?.(this.time, dt, state);
   }
 
@@ -407,20 +416,23 @@ export class Actors {
   // -------------------------------------------------------------------------
 
   _syncProjectiles(dt) {
-    const counts = {};
+    const counts = this._counts;
     for (const k in this.proj) counts[k] = 0;
     const prev = this.projPrev;
-    const alive = new Set();
+    const alive = this._alive;
+    alive.clear();
     const m = this._m;
     const col = this._c;
     for (const p of this.sim.projectiles) {
-      const kind = this.proj[p.kind] ? p.kind : 'arrow';
+      const v = this.fxHook ? this.fxHook.projectile(p, dt) : null;
+      if (v && v.skip) continue;
+      const kind = this.proj[v ? v.kind : p.kind] ? (v ? v.kind : p.kind) : 'arrow';
       const mesh = this.proj[kind];
       const i = counts[kind];
       if (i >= mesh.instanceMatrix.count) continue;
       counts[kind] = i + 1;
       alive.add(p.uid);
-      const z = p.z ?? 0.55;
+      const z = v ? v.z : p.z ?? 0.55;
       const last = prev.get(p.uid);
       let pitch = 0;
       if (last !== undefined && dt > 0) {
@@ -429,29 +441,32 @@ export class Actors {
         pitch = -Math.atan2(vz, hv);
       }
       prev.set(p.uid, z);
-      const yaw = Math.atan2(p.vx || 0, p.vy || 1);
-      const spin = SPIN_KINDS[kind] ? this.time * SPIN_KINDS[kind] + p.uid : 0;
+      const yaw = v && v.yaw === v.yaw ? v.yaw : Math.atan2(p.vx || 0, p.vy || 1);
+      const spin = v && v.roll === v.roll ? v.roll : SPIN_KINDS[kind] ? this.time * SPIN_KINDS[kind] + p.uid : 0;
       this._e.set(pitch, yaw, kind === 'shuriken' ? 0 : spin, 'YXZ');
       if (kind === 'shuriken') this._e.set(0, spin, 0);
       this._q.setFromEuler(this._e);
-      this._p.set(p.x, z, p.y);
-      this._s.setScalar(kind === 'fireball' ? 1 + 0.15 * Math.sin(this.time * 20 + p.uid) : 1);
+      const px = v ? v.x : p.x;
+      const py = v ? v.y : p.y;
+      this._p.set(px, z, py);
+      const sc = (v ? v.scale : 1) * (kind === 'fireball' ? 1 + 0.15 * Math.sin(this.time * 20 + p.uid) : 1);
+      this._s.set(sc, sc, sc * (v ? v.sz : 1));
       m.compose(this._p, this._q, this._s);
       mesh.setMatrixAt(i, m);
-      const fc = cachedColor(fxColor(p.element, p.attackType, '#ffffff'));
-      col.copy(TINT_KINDS[kind] ? fc : WHITE);
+      const fc = v && v.tint ? this._tint.setHex(v.tint) : cachedColor(fxColor(p.element, p.attackType, '#ffffff'));
+      col.copy(TINT_KINDS[kind] || (v && v.tint) ? fc : WHITE);
       if (kind === 'bolt' || kind === 'spark' || kind === 'bullet') col.lerp(WHITE, 0.35);
       mesh.setColorAt(i, col);
-      const glow = GLOW_KINDS[kind];
-      if (glow) this.b.bbA.push(p.x, z, p.y, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
+      const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
+      if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
       if (kind === 'fireball' && Math.random() < dt * 30) {
-        this.fx.spawn({ batch: 'bbA', uv: this.R.glow, x: p.x, y: z, z: p.y, vy: 0.3, s0: 0.22, s1: 0.04, life: 0.3, color: '#ff8a3d' });
+        this.fx.spawn({ batch: 'bbA', uv: this.R.glow, x: px, y: z, z: py, vy: 0.3, s0: 0.22, s1: 0.04, life: 0.3, color: '#ff8a3d' });
       }
       if (kind === 'shell' && Math.random() < dt * 20) {
-        this.fx.spawn({ batch: 'bbN', uv: this.R.smoke, x: p.x, y: z, z: p.y, vy: 0.2, s0: 0.1, s1: 0.3, life: 0.5, color: '#d8d4d0', a0: 0.5 });
+        this.fx.spawn({ batch: 'bbN', uv: this.R.smoke, x: px, y: z, z: py, vy: 0.2, s0: 0.1, s1: 0.3, life: 0.5, color: '#d8d4d0', a0: 0.5 });
       }
       if (kind === 'flask' && Math.random() < dt * 15) {
-        this.fx.spawn({ batch: 'bbA', uv: this.R.bubble, x: p.x, y: z, z: p.y, vy: 0.2, s0: 0.08, s1: 0.02, life: 0.4, color: '#7be08a' });
+        this.fx.spawn({ batch: 'bbA', uv: this.R.bubble, x: px, y: z, z: py, vy: 0.2, s0: 0.08, s1: 0.02, life: 0.4, color: '#7be08a' });
       }
     }
     for (const k in this.proj) {
@@ -466,6 +481,10 @@ export class Actors {
   }
 
   _syncDrones() {
+    if (this.fxHook?.drones) {
+      this.drones.count = 0;
+      return;
+    }
     let n = 0;
     const m = this._m;
     for (const t of this.sim.towers) {
@@ -507,6 +526,7 @@ export class Actors {
     }
     // traps
     for (const tr of sim.traps) {
+      if (this.fxHook?.trapHidden(tr.uid)) continue;
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;
@@ -571,7 +591,7 @@ export class Actors {
       }
     }
     // drone shadows
-    for (const tw of sim.towers) for (const tu of tw.turrets || []) gN.push(tu.x, 0.06, tu.y, 0.3, 0.3, R.shadow, 0.05, 0.05, 0.1, 0.3);
+    if (!this.fxHook?.drones) for (const tw of sim.towers) for (const tu of tw.turrets || []) gN.push(tu.x, 0.06, tu.y, 0.3, 0.3, R.shadow, 0.05, 0.05, 0.1, 0.3);
   }
 
   /** HP bars + status icons (overlay batch). */

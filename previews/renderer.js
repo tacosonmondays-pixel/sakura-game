@@ -6,6 +6,7 @@
 //   &select=1     select the first tower (range circle) · &ghost=aoi,5,5 placement ghost
 //   &hints=aoi    tile hints · &zoom=1.8 initial zoom · &ult=1 fire the hero ult at start
 //   &insets=60,0,90,0  HUD insets (top,right,bottom,left)
+//   &fx=off       plain attack look (settings.attackFx = false; A/B for the attack FX)
 import { preloadModels } from '../src/models/index.js';
 import { Sim } from '../src/sim/Sim.js';
 import { autoPlan } from '../src/sim/headless.js';
@@ -76,7 +77,7 @@ async function main() {
   const insets = (params.get('insets') || '56,0,0,0').split(',').map(Number);
   const r = createBattleRenderer(el, sim, {
     quality,
-    settings: { quality, lighting: { exposure: 1, warmth: 0 } },
+    settings: { quality, lighting: { exposure: 1, warmth: 0 }, ...(params.get('fx') === 'off' ? { attackFx: false } : {}) },
     insets: { top: insets[0] || 0, right: insets[1] || 0, bottom: insets[2] || 0, left: insets[3] || 0 },
   });
   window.__sim = sim;
@@ -156,6 +157,7 @@ async function main() {
     last = now;
     runPlan();
     sim.update(dt * speed);
+    r.setTimeScale?.(speed);
     r.update(dt);
     frames++;
     fpsT += dt;

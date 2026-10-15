@@ -2,11 +2,23 @@
 // supports pan / zoom around a screen point / reset, clamps so the board never leaves the
 // screen, auto-rotates 90° in portrait so the long side of the map runs down the screen,
 // and adds a small decaying shake for impacts. Locked (setLocked, the default camera setting —
-// src/render/cameraPolicy.js) it holds the fitted view: pan / zoom calls do nothing.
+// src/render/cameraPolicy.js) it holds the fitted view: pan / zoom calls do nothing. A focus
+// shift (setFocusShift) slides the framing itself, locked or not, so a selected girl's ring
+// clears the info panel; it glides there and back and holds still while a girl is placed.
 import * as THREE from 'three';
 
 const PITCH = THREE.MathUtils.degToRad(48);
 const MAX_ZOOM = 3.2;
+
+/**
+ * Focus slide (CSS px, ≥ 0) that brings the screen span a..b inside lo..hi from the far side:
+ * just far enough when it fits, else centred in lo..hi; never more than `max`.
+ */
+export function clearSlide(lo, hi, a, b, max) {
+  if (b <= hi) return 0;
+  const s = b - a <= hi - lo ? b - hi : (a + b) / 2 - (lo + hi) / 2;
+  return Math.max(0, Math.min(max, s));
+}
 
 export class CameraRig {
   /**
@@ -36,6 +48,9 @@ export class CameraRig {
     this._fwd = new THREE.Vector3();
     this._center = new THREE.Vector3(this.mapW / 2, 0, this.mapH / 2);
     this._anim = null;
+    this.focus = new THREE.Vector2(); // CSS px the framing is slid by (x: board moves left, y: up)
+    this.focusGoal = new THREE.Vector2();
+    this._focusHold = false;
   }
 
   /** Sets the viewport size (CSS px) and HUD insets; refits. */
@@ -101,7 +116,11 @@ export class CameraRig {
     return this.fitScale / this.zoom;
   }
 
-  apply(dt = 0) {
+  /**
+   * @param {number} dt game-frame seconds (glides, shake)
+   * @param {number} [focusDt] real seconds for the focus slide (it also runs while paused)
+   */
+  apply(dt = 0, focusDt = dt) {
     if (this._anim) {
       const a = this._anim;
       a.t = Math.min(1, a.t + dt / a.dur);
@@ -115,6 +134,16 @@ export class CameraRig {
       this.zoom = 1;
       this.pan.set(0, 0);
     }
+    if (!this._focusHold && focusDt > 0) {
+      const f = this.focus;
+      const g = this.focusGoal;
+      const k = 1 - Math.exp(-focusDt * 12);
+      f.x += (g.x - f.x) * k;
+      f.y += (g.y - f.y) * k;
+      if (Math.abs(g.x - f.x) < 0.5) f.x = g.x;
+      if (Math.abs(g.y - f.y) < 0.5) f.y = g.y;
+    }
+    this._focusHold = false;
     this._clamp();
     const s = this.scale;
     const hw = (this.viewW * s) / 2;
@@ -132,8 +161,8 @@ export class CameraRig {
       sy = Math.cos(this.shakeT * 47) * this.shakeAmt;
       this.shakeAmt *= Math.exp(-dt * 7);
     }
-    const ox = this.baseOffset.x + this.pan.x + sx;
-    const oy = this.baseOffset.y + this.pan.y + sy;
+    const ox = this.baseOffset.x + this.pan.x + sx + this.focus.x * s;
+    const oy = this.baseOffset.y + this.pan.y + sy - this.focus.y * s;
     const target = this.target.copy(this._center).addScaledVector(this._right, ox).addScaledVector(this._up, oy);
     cam.position.copy(target).addScaledVector(this._fwd, -this.dist);
     cam.up.copy(this._up);
@@ -209,11 +238,20 @@ export class CameraRig {
   /**
    * Holds the view where it is (called every frame while a girl is being placed): a running
    * shake stops, and so does a reset glide in free mode. Locked, a glide still lands on the fit
-   * — the only place a locked camera may be.
+   * — the only place a locked camera may be. A focus slide waits where it is until she is placed.
    */
   holdStill() {
     this.shakeAmt = 0;
     if (!this.locked) this._anim = null;
+    this._focusHold = true;
+  }
+
+  /**
+   * Slides the framing by (x, y) CSS px — x > 0 moves the board left, y > 0 up — gliding there
+   * (≈ 0.25 s). Applies locked or free: it is part of the framing, never a drag.
+   */
+  setFocusShift(x, y) {
+    this.focusGoal.set(Math.max(0, x || 0), Math.max(0, y || 0));
   }
 
   get isDefault() {

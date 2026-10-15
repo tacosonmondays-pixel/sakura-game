@@ -523,6 +523,54 @@ async function runViewport(vp) {
     const resumed = await page.waitForFunction(() => !window.__battle.ui.paused, null, { timeout: 10000 }).then(() => true, () => false);
     check(paused && resumed, `locked: the pause button opens the menu and Resume closes it (paused ${paused}, resumed ${resumed})`);
   }
+
+  // ---- Locked: the info panel never hides the selected girl's ring — the board slides aside
+  // just far enough once the panel stands, and back when it closes (never from a drag) ----
+  await cam('thaw');
+  const side = await page.evaluate(() => {
+    const { sim, renderer, ui } = window.__battle;
+    sim.cash += 5000;
+    const unitId = [...sim.loadout.keys()].find((id) => sim.data.unit(id)?.placement === 'land');
+    const rect = renderer.canvas.getBoundingClientRect();
+    const barTop = ui.bar.el.getBoundingClientRect().top;
+    let best = null;
+    for (let y = 0.5; y < sim.map.height; y += 0.5) {
+      for (let x = 0.5; x < sim.map.width; x += 0.5) {
+        if (!sim.canPlace(unitId, x, y).ok) continue;
+        const s = renderer.worldToScreen(x, y, 0);
+        if (s.clientY < 90 || s.clientY > barTop - 30) continue;
+        const fr = (s.clientX - rect.left) / rect.width;
+        if (fr < 0.72 || fr > 0.92) continue;
+        if (!best || Math.abs(fr - 0.82) < best.d) best = { x, y, d: Math.abs(fr - 0.82) };
+      }
+    }
+    const t = best && sim.placeTower(unitId, best.x, best.y);
+    if (!t) return null;
+    ui.select(t.uid);
+    return { uid: t.uid, unitId };
+  });
+  if (side) {
+    // the slide settles: the glide reached its goal (frames can be seconds apart under SwiftShader)
+    const settledFocus = await page.waitForFunction(() => {
+      const c = window.__battle.renderer.cameraState;
+      return c.focusGoal[0] > 0 && c.focus[0] === c.focusGoal[0];
+    }, null, { timeout: 90000, polling: 300 }).then(() => true, () => false);
+    const m = await page.evaluate((uid) => {
+      const { sim, renderer } = window.__battle;
+      const t = sim.getTower(uid);
+      const r = t.eff?.range ?? t.stats?.range ?? 0;
+      const panel = document.querySelector('[data-testid="tower-panel"]').getBoundingClientRect();
+      return { ringRight: Math.round(renderer.worldToScreen(t.x + r, t.y, 0).clientX), panelLeft: Math.round(panel.left), ...renderer.cameraState };
+    }, side.uid);
+    check(settledFocus && m.focus[0] > 0 && m.ringRight <= m.panelLeft, `locked: a girl on the right slides the board so her ring clears the panel (${side.unitId}: ring edge ${m.ringRight} px ≤ panel ${m.panelLeft} px, slid ${m.focus[0]} px, locked ${m.locked}, zoom ${m.zoom})`);
+    await shot('locked-panel-slide');
+    await page.evaluate(() => window.__battle.ui.select(null));
+    const back = await page.waitForFunction(() => {
+      const f = window.__battle.renderer.cameraState.focus;
+      return f[0] === 0 && f[1] === 0;
+    }, null, { timeout: 60000 }).then(() => true, () => false);
+    check(back, 'locked: closing the panel slides the board back to the fit');
+  } else log('  (no open ground on the right of this map: panel slide check skipped)');
   const cLocked = await settled();
   check(same(c0, cLocked), `locked: after every gesture the camera is still the initial fit (${fmtCam(cLocked)})`);
   check(!takeErrors().length, 'locked checks: no errors');

@@ -126,4 +126,21 @@ describe('crosspath rules (BTD6)', () => {
     const t = sim.placeTower('archer', 3, 3);
     expect(sim.upgradeStatus(t.uid, 0).cost).toBe(110); // 100 × 1.08 = 108 → 110
   });
+
+  test('gear Cost Reduction (profile costMul) makes every upgrade cheaper, and that is what it charges', () => {
+    const full = makeSim({ cash: 5000 });
+    const geared = makeSim({ cash: 5000, stats: { archer: { costMul: 0.8 } } }); // a 20% Cost Reduction roll
+    const a = full.placeTower('archer', 3, 3);
+    const b = geared.placeTower('archer', 3, 3);
+    for (let tier = 0; tier < 2; tier++) {
+      const fullCost = full.upgradeStatus(a.uid, 0).cost;
+      const gearCost = geared.upgradeStatus(b.uid, 0).cost;
+      expect(gearCost).toBeLessThan(fullCost);
+      const cash = geared.cash;
+      expect(geared.upgradeTower(b.uid, 0)).toBe(true);
+      expect(cash - geared.cash).toBe(gearCost);
+      full.upgradeTower(a.uid, 0);
+    }
+    expect([full.towers[0].spent - full.placeCost('archer'), geared.towers[0].spent - geared.placeCost('archer')]).toEqual([300, 240]);
+  });
 });

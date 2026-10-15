@@ -313,7 +313,13 @@ pass so the old-game illustrations and the expansion illustrations match more cl
 
 | Request (verbatim) | Status |
 |---|---|
-| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+| "Can you also make it so the screen is locked, I sometimes drag it when I try to palce a unit" | **Done.** Settings → Battle → Camera: **Locked** (the default, also for older saves) keeps the map framed exactly as the initial fit — one-finger drags never pan, pinch and the mouse wheel never zoom, there is no double-tap reset — or **Free** (the old drag / pinch / wheel / double-tap controls). The pause menu has the same switch; both apply to the open battle at once and are saved. While a girl is being placed (dragging her card, her ghost on the board, or a tapped card waiting for the board tap) the camera holds still in both modes, impact shakes included, and a board tap may wobble up to 20 px and still place her. Co-op battles use the same camera. Tapping a girl whose range ring would sit under the info panel (phones) slides the board just far enough to show the whole ring beside the panel, and back when the panel closes — never from a drag, held still while a girl is being placed (`src/render/camera.js` focus slide, attack-FX branch). Policy: `src/render/cameraPolicy.js`; input: `src/render/boardInput.js`; tests: `tests/render/camera-lock.test.js`, `e2e/camera-lock.mjs`. |
+
+## Attack animations (owner, 2026-10-13) — branch `feature/attack-fx`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Can you also make it so attack animations are more unique like what if the drones flew around in her radius and targetted enemies and follwowed them" | **Done.** Chika's drones orbit above her head inside her ring, launch from her backpack when built, and on every shot fly strafing passes after the enemy the game is shooting, following it along the path, then return. All 19 girls have a signature attack look that grows with upgrades (docs/ATTACK_FX.md). Purely visual: co-op compatibility unchanged. Preview: `previews/attacks.html`. |
 
 ## UR awakening (owner, 2026-10-14) — branch `feature/ur-awaken`
 

@@ -314,7 +314,24 @@ export function mountBattle(root, params, hooks) {
       if (ctx.selectedUid == null) panel.close();
       else panel.open(ctx.selectedUid);
       shell.classList.toggle('bt-has-panel', ctx.selectedUid != null);
+      renderer.setPanelCover?.(panelCover());
     };
+    /**
+     * The part of the board the info panel covers (CSS px from the board's right / bottom edge):
+     * the renderer slides the view so the selected girl's range ring stays beside the panel.
+     * Offsets, not getBoundingClientRect: the panel's slide-in animation must not count.
+     */
+    function panelCover() {
+      const el = panel.el;
+      if (ctx.selectedUid == null || el.hidden || !el.offsetParent) return { right: 0, bottom: 0 };
+      const board = renderer.canvas.getBoundingClientRect();
+      const host = el.offsetParent.getBoundingClientRect();
+      const left = host.left + el.offsetLeft;
+      const top = host.top + el.offsetTop;
+      // a side panel (landscape) covers the right; a bottom sheet (narrow screens) the bottom
+      if (el.offsetWidth < board.width * 0.75) return { right: Math.max(0, board.right - left), bottom: 0 };
+      return { right: 0, bottom: Math.max(0, board.bottom - top) };
+    }
     ctx.onCardTap = (unitId) => {
       if (ctx.ended || ctx.paused) return;
       if (placement.unitId === unitId) placement.cancel();
@@ -482,10 +499,14 @@ export function mountBattle(root, params, hooks) {
       const bottom = (r.bottom - bar.el.getBoundingClientRect().top) || 90;
       return { top: Math.max(0, top + 4), bottom: Math.max(0, bottom + 2), left: 0, right: 0 };
     }
-    const ro = new ResizeObserver(() => renderer.setInsets(insets()));
+    const ro = new ResizeObserver(() => {
+      renderer.setInsets(insets());
+      renderer.setPanelCover?.(panelCover());
+    });
     ro.observe(hud.el);
     ro.observe(bar.el);
     ro.observe(shell);
+    ro.observe(panel.el);
     cleanups.push(() => ro.disconnect());
 
     // ---- tab visibility: stop the loop while hidden ---------------------------------------
@@ -659,6 +680,7 @@ export function mountBattle(root, params, hooks) {
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
       if (results.open || (pause.open && !ls)) return;
       try {
+        renderer.setTimeScale?.(ctx.speed); // [attackFx] drones keep pace at 2×/3× (co-op: shared speed)
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
         console.error('[battle] render failed', e);
