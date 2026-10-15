@@ -678,10 +678,10 @@ Everything below was **prototyped in the real sim on this branch** (`feature/chi
 
 ### 16.0 Verdict in one screen
 
-- **Four modes, all from tier 0, picked on her panel:** **Hover** (default: today's 4-tile roam around her), **Hold** (the wing guards a point you tap), **Patrol** (it flies back and forth between two points you tap), **Pursuit** (map-wide: it chases her target mode's best enemies anywhere, at **80% fire rate**). "Follow the touch" is **tap a rally point**: tapping Hold again moves the point. One `fly` command per choice, so co-op stays command-based.
+- **Four modes, all from tier 0, picked on her panel:** **Hover** (default: today's 4-tile roam around her), **Hold** (the wing guards a point you tap), **Patrol** (it flies back and forth between two points you tap), **Pursuit** (map-wide: it chases her target mode's best enemies anywhere, at **85% fire rate**). "Follow the touch" is **tap a rally point**: tapping Hold again moves the point. One `fly` command per choice, so co-op stays command-based.
 - **Hold and Patrol points** must lie inside her **signal range** = 2 × her roam radius (8 tiles at tier 0, 8.5 at Sentry Grid, 9.5 at Mecha-Fortress); a tap farther out is pulled in. Around the point the wing roams her full roam radius (Hold is Hover, moved).
 - **Travel is real**: drones fly in straight lines at their speed (3.5 tiles/s, 4.5 at Mecha-Fortress). The Patrol position travels at 0.6 × that. Pursuit drones start from her side and fly to the target; nothing teleports.
-- **Balance** (measured, §16.9): Pursuit hits a boss walking the whole lane **+34…+108%** harder than Hover (it can never beat her own parked-boss DPS × 0.8), kills **−8…+75%** in real waves (better from a bad spot, slightly worse than Hover at her best spot), and changes **no win or loss in 60 campaign runs** versus Hover; Hold/Patrol are situational (−9…+74% kills; their gain is placement freedom). Co-op freeplay with Chika lines: Pursuit ×0.8 **+0…+1 wave** over Hover (×1.0: +2…+6), never more than 9 waves past the same team without Chika. **Pursuit does not trivialize bosses.**
+- **Balance** (measured, §16.9): Pursuit hits a boss walking the whole lane **+43…+124%** harder than Hover (it can never beat her own parked-boss DPS × 0.85), kills **−8…+79%** in real waves (much better from a bad spot, about even with Hover at her best spot), and changes **no win or loss in 60 campaign runs** versus Hover; Hold/Patrol are situational (−9…+74% kills; their gain is placement freedom). Co-op freeplay with Chika lines: Pursuit ×0.85 **+1…+6 waves** over Hover (×1.0: +2…+6), never more than 9 waves past the same team without Chika. **Pursuit does not trivialize bosses.**
 - **Determinism**: only `+ − × ÷` and `Math.sqrt` in the flight maths; the `DRONES_START` engines scenario (two Chikas through every mode on the sapper stage 6-5, 62 jams, a wave-8 checkpoint replayed) agrees in V8 and JavaScriptCore (§16.6). Battles without drones keep their hashes.
 
 ### 16.1 The owner's words mapped to behaviour
@@ -692,7 +692,7 @@ Everything below was **prototyped in the real sim on this branch** (`feature/chi
 | "Hover near her" | Today's roaming disc (§3): drones hunt within `leash` (4.0 / 4.25 / 4.75) of her. The default; a newly placed Chika hovers. |
 | "Hold (lock in place)" | One tap on the map: the wing's centre moves to that point; drones hunt within `leash` of it and rest around it between waves. |
 | "Patrol (fly between two points the player sets)" | Two taps: the wing's centre travels A → B → A … at 0.6 × drone speed, all the time (also between waves); drones hunt within `leash` of wherever it is. |
-| "Pursuit (map-wide, chases the target-priority enemy anywhere)" | No disc: drones pick quarries from **every enemy on the map** by her Target mode (First = closest to the exit, Strong = toughest …), fly there at their speed and shoot at 0.8 × their fire rate. Between waves they fly home to her. |
+| "Pursuit (map-wide, chases the target-priority enemy anywhere)" | No disc: drones pick quarries from **every enemy on the map** by her Target mode (First = closest to the exit, Strong = toughest …), fly there at their speed and shoot at 0.85 × their fire rate. Between waves they fly home to her. |
 | "Follow-the-touch becomes tap a rally point" | Hold's point is the rally point: tap **Hold** again, then the map, to move it. Never a live cursor stream. |
 | "modes are deterministic lockstep commands (`fly`), saved in battle save" | `fly[uid, mode, qx1?, qy1?, qx2?, qy2?]` (1/1024 tiles, owner-only like `tgt`); `t.flight` is battle state, saved as row field `fl` (§16.7). |
 
@@ -703,7 +703,7 @@ Everything below was **prototyped in the real sim on this branch** (`feature/chi
 | **Hover** | Chika | `leash` | within `L + gun` of her | her side (slot offsets) | 1.0 |
 | **Hold** | point A (pulled into her signal range) | `leash × FLIGHT_POINT_ROAM_MUL` (1.0) | within `L + gun` of A | around A | 1.0 |
 | **Patrol** | position travelling A ↔ B | `leash × 1.0` | within `L + gun` of the position | around the position | 1.0 |
-| **Pursuit** | Chika (for Close ordering) | ∞ | every eligible enemy on the map | her side | `FLIGHT_PURSUIT_RATE_MUL` (0.8) |
+| **Pursuit** | Chika (for Close ordering) | ∞ | every eligible enemy on the map | her side | `FLIGHT_PURSUIT_RATE_MUL` (0.85) |
 
 The quarry rules inside a mode are §3.2's: Strong / Elite focus the wing on the pool's #1; First / Last / Close spread it. Opportunity shots, guided bullets, standoff (gun × 0.5), the shrinking-disc rule, sabotage stalls and sapper jams all work the same in every mode.
 
@@ -716,11 +716,11 @@ The quarry rules inside a mode are §3.2's: Strong / Elite focus the wing on the
 - **State** (the landing plan's seam, filled in): `t.flight = null` (Hover) or `{ mode, ax, ay, bx, by, cx, cy, leg }` — the points as set (pulled into range), the wing centre `cx, cy` (Hold: A; Patrol: the travelling position) and `leg` (Patrol heading to B = 1, to A = 0). Created on the first `setFlight`; Hover and Pursuit keep the last points so switching back to Hold returns to the same spot.
 - **`setFlight(sim, t, mode, ax, ay, bx, by)`** (export) / **`sim.setFlight(uid, …)`**: refuses girls without roaming drones, unknown modes and missing or non-finite points (Hold needs A, Patrol A and B). Hold / Patrol put the centre at A and set `leg = 1`. Every drone's quarry is cleared and the pool invalidated (`_poolLeft = 0`), so the wing re-thinks at once on the new frame.
 - **`wingFrame(sim, t, spec, dt)`** runs once per girl per step at the top of `updateRoamingDrones` and returns `{ cx, cy, L, reach }` for the mode (table above). Patrol advances its position there: straight at `speed × FLIGHT_PATROL_SPEED_MUL × dt`, exact arrival, then `leg` flips. Nothing else in §3.2 changes: drones fly to "home = centre + (hx, hy)", to their quarry's standoff point clamped to the disc, or straight back to the disc's edge when outside it — **which is also how they travel when the mode or the point changes** (the centre jumps, the drones fly).
-- **Pursuit**: `reach = L = ∞`, the pool is `topTargets(…, Infinity, …)` over every enemy (the grid query with an infinite radius visits every cell), and each shot's cooldown is `1 / (rate × 0.8)`.
-- **Constants** (`constants.js`): `FLIGHT_MODES = ['hover', 'hold', 'patrol', 'pursuit']`, `FLIGHT_SIGNAL_MUL = 2`, `FLIGHT_POINT_ROAM_MUL = 1`, `FLIGHT_PATROL_SPEED_MUL = 0.6`, `FLIGHT_PURSUIT_RATE_MUL = 0.8`.
+- **Pursuit**: `reach = L = ∞`, the pool is `topTargets(…, Infinity, …)` over every enemy (the grid query with an infinite radius visits every cell), and each shot's cooldown is `1 / (rate × 0.85)`.
+- **Constants** (`constants.js`): `FLIGHT_MODES = ['hover', 'hold', 'patrol', 'pursuit']`, `FLIGHT_SIGNAL_MUL = 2`, `FLIGHT_POINT_ROAM_MUL = 1`, `FLIGHT_PATROL_SPEED_MUL = 0.6`, `FLIGHT_PURSUIT_RATE_MUL = 0.85` (owner, Oct 15: Q-F1 → 85%).
 - **UI API**: `sim.flightInfo(uid)` → `{ mode, a, b, at, signal, roam }`; `towerStats().turret.flight`; `droneStats()` and `findDrone()` (§3.5) unchanged.
 - **How drones travel**: straight lines at constant speed (`speed` tiles/s, exact arrival), the same mover as Hover; turns are instant in the sim. Smooth paths (banking, easing) are the renderer's job (§6.1 decoration ≤ 0.35 tiles); a curved sim path was not needed for the numbers and would add state.
-- **Sappers**: the §3.2 rule in every mode — a sapper with no girl in its reach jams the nearest roaming drone. Wings far from the team (Hold, Patrol, Pursuit) meet sappers alone more often: on 6-4 / 6-5 Pursuit takes 106–265 jams per stage against Hover's 67–167 (§16.9.4). That is the mode's natural counter; no extra rule.
+- **Sappers**: the §3.2 rule in every mode — a sapper with no girl in its reach jams the nearest roaming drone. Wings far from the team (Hold, Patrol, Pursuit) meet sappers alone more often: on 6-4 / 6-5 Pursuit takes 67–260 jams per stage against Hover's 67–167 (§16.9.4). That is the mode's natural counter; no extra rule.
 - **Selling, sabotage, building**: unchanged. A sabotaged Chika's drones stall wherever they are (the wing's centre, including the Patrol position, also stops).
 
 ### 16.4 Co-op (`src/online/coop/commands.js`, `simHash.js`, `version.js`)
@@ -770,7 +770,7 @@ Battle save (`wt-battlesave`) is not merged into this base, so the edit is writt
 
 ### 16.9 Balance (real sim, this branch)
 
-Method: `tools/chika/measure.js`. Profiles **base** (neutral) and **strong** (L60 ★5 mythic preset). Spots **best** (most lane within her 3.0 range) and **far** (3.6–4.2 tiles from the lane). Hold / Patrol points are what a sensible player picks: Hold = the lane point inside her signal range with the most lane within `L + gun`; Patrol = that and the best other lane point ≥ 3 tiles away. Pursuit as shipped (×0.8) unless noted. Seeds 9 / 21 / 33 (campaign 7 / 8 / 9).
+Method: `tools/chika/measure.js`. Profiles **base** (neutral) and **strong** (L60 ★5 mythic preset). Spots **best** (most lane within her 3.0 range) and **far** (3.6–4.2 tiles from the lane). Hold / Patrol points are what a sensible player picks: Hold = the lane point inside her signal range with the most lane within `L + gun`; Patrol = that and the best other lane point ≥ 3 tiles away. Pursuit as shipped (×0.85, the owner's choice) unless noted; ×0.8 (the first proposal) and ×1.0 are kept as knob rows. Seeds 9 / 21 / 33 (campaign 7 / 8 / 9).
 
 #### 16.9.1 Per-mode summary
 
@@ -779,69 +779,70 @@ Method: `tools/chika/measure.js`. Profiles **base** (neutral) and **strong** (L6
 | **Hover** | — (4-5 strong 5-0-2: 652k) | — | 7 / 10 Normal won (same as below) | 1-3: dies at **120** · 8-5: **110** |
 | **Hold** | **+4…+42%** | **−7…+72%** (+35…+72% from a far spot) | **no flip**; 5-5 Normal lost once in 3 (auto-picked point) | 1-3: 120 · 8-5: 110 |
 | **Patrol** | **−6…+18%** | **−9…+74%** | **no flip**; 5-5 Normal lost once in 3 (auto-picked points) | 1-3: 120 · 8-5: 110 |
-| **Pursuit ×0.8** (ships) | **+34…+108%** | **−8…+75%** (−7…+1% at her best spot, +21…+75% from a far spot) | **no flip** (wins end with +0…+15 more lives) | 1-3: **121** · 8-5: **110** |
+| **Pursuit ×0.85** (ships) | **+43…+124%** | **−8…+79%** (−2…+3% at her best spot outside mid-game bends; +29…+79% from a far spot) | **no flip** (wins end with +0…+16 more lives) | 1-3: **121** · 8-5: **116** |
+| Pursuit ×0.8 (first proposal) | +34…+108% | −8…+75% | no flip | 1-3: 121 · 8-5: 110 |
 | Pursuit ×1.0 (knob) | +74…+168% | +0…+100% | no flip | 1-3: 122 · 8-5: 116 |
 
 No-Chika team for scale: 1-3 dies at 112, 8-5 at 116.
 
 #### 16.9.2 Boss walking the whole lane (`boss`; damage over one pass per path after a 45 s warm-up; target Strong)
 
-| Stage | Profile | Build | Hover | Hold | Patrol | Pursuit ×0.8 | Pursuit ×1.0 |
+| Stage | Profile | Build | Hover | Hold | Patrol | Pursuit ×0.85 | Pursuit ×1.0 |
 |---|---|---|---|---|---|---|---|
-| 4-5 | strong | t0 | 13,051 | 17,615 (+35%) | 13,466 (+3%) | 21,418 (+64%) | 27,100 (+108%) |
-| 4-5 | strong | 3-0-0 | 45,776 | 65,217 (+42%) | 53,398 (+17%) | 74,422 (+63%) | 92,148 (+101%) |
-| 4-5 | strong | 5-2-0 | 513,585 | 720,310 (+40%) | 602,163 (+17%) | 746,824 (+45%) | 958,383 (+87%) |
-| 4-5 | strong | 5-0-2 | 652,474 | 917,646 (+41%) | 767,057 (+18%) | 955,176 (+46%) | 1,216,778 (+86%) |
-| 4-5 | strong | 2-0-5 | 102,902 | 134,717 (+31%) | 100,750 (−2%) | 137,634 (+34%) | 178,636 (+74%) |
-| 4-5 | base | 3-0-0 | 2,033 | 2,859 (+41%) | 2,373 (+17%) | 3,272 (+61%) | 4,091 (+101%) |
-| 4-5 | base | 5-0-2 | 72,165 | 100,255 (+39%) | 84,244 (+17%) | 105,136 (+46%) | 132,951 (+84%) |
-| 8-5 | strong | 5-0-2 | 828,287 | 863,985 (+4%) | 776,342 (−6%) | 1,297,745 (+57%) | 1,659,587 (+100%) |
-| 2-5 | strong | 5-0-2 | 525,168 | 729,243 (+39%) | 557,231 (+6%) | 1,092,431 (+108%) | 1,409,839 (+168%) |
+| 4-5 | strong | t0 | 13,051 | 17,615 (+35%) | 13,466 (+3%) | 22,650 (+74%) | 27,100 (+108%) |
+| 4-5 | strong | 3-0-0 | 45,776 | 65,217 (+42%) | 53,398 (+17%) | 78,530 (+72%) | 92,148 (+101%) |
+| 4-5 | strong | 5-2-0 | 513,585 | 720,310 (+40%) | 602,163 (+17%) | 801,061 (+56%) | 958,383 (+87%) |
+| 4-5 | strong | 5-0-2 | 652,474 | 917,646 (+41%) | 767,057 (+18%) | 1,022,122 (+57%) | 1,216,778 (+86%) |
+| 4-5 | strong | 2-0-5 | 102,902 | 134,717 (+31%) | 100,750 (−2%) | 147,504 (+43%) | 178,636 (+74%) |
+| 4-5 | base | 3-0-0 | 2,033 | 2,859 (+41%) | 2,373 (+17%) | 3,478 (+71%) | 4,091 (+101%) |
+| 4-5 | base | 5-0-2 | 72,165 | 100,255 (+39%) | 84,244 (+17%) | 111,876 (+55%) | 132,951 (+84%) |
+| 8-5 | strong | 5-0-2 | 828,287 | 863,985 (+4%) | 776,342 (−6%) | 1,387,370 (+67%) | 1,659,587 (+100%) |
+| 2-5 | strong | 5-0-2 | 525,168 | 729,243 (+39%) | 557,231 (+6%) | 1,174,078 (+124%) | 1,409,839 (+168%) |
 
-**Why Pursuit does not trivialize bosses**: Pursuit only removes the *walking* part of the problem — the wing stays on the boss for the whole lane instead of the part near her. Its ceiling is her **parked-boss** throughput × 0.8 (a boss standing in her disc the whole time), which §8.3 puts at 7.6k/s for a strong 5-0-2 (×0.8 ≈ 6.1k/s) — below Shiro's 13.6k walking-past figure. Every boss that a team kills today still needs the team; the campaign outcome table does not move.
+**Why Pursuit does not trivialize bosses**: Pursuit only removes the *walking* part of the problem — the wing stays on the boss for the whole lane instead of the part near her. Its ceiling is her **parked-boss** throughput × 0.85 (a boss standing in her disc the whole time), which §8.3 puts at 7.6k/s for a strong 5-0-2 (×0.85 ≈ 6.5k/s) — below Shiro's 13.6k walking-past figure. Every boss that a team kills today still needs the team; the campaign outcome table does not move.
 
 #### 16.9.3 Real waves, Chika alone (`waves`; kills, mean of 3 seeds; lives lost in brackets)
 
-| Stage | Profile | Build | Spot | Hover | Hold | Patrol | Pursuit ×0.8 |
+| Stage | Profile | Build | Spot | Hover | Hold | Patrol | Pursuit ×0.85 |
 |---|---|---|---|---|---|---|---|
-| 1-3 | base | t0 | best | 275 (222) | 271 −1% | 272 −1% | 266 −3% |
-| 1-3 | base | t0 | far | 169 (328) | 228 +35% | 234 +38% | 237 +40% |
-| 1-3 | base | 0-0-2 | best | 415 (82) | 423 +2% | 421 +1% | 387 −7% |
-| 1-3 | base | 0-0-2 | far | 374 (123) | 396 +6% | 411 +10% | 367 −2% |
-| 2-5 | base | 3-0-0 | best | 579 (222) | 716 +24% | 531 −8% | 708 +22% |
-| 2-5 | base | 0-0-3 | best | 342 (408) | 389 +14% | 347 +1% | 437 +28% |
-| 3-5 | base | 3-0-0 | best | 96 (315) | 111 +16% | 109 +14% | 109 +14% |
-| 3-5 | base | 3-0-0 | far | 61 (350) | 105 +72% | 106 +74% | 107 +75% |
-| 4-5 | base | 5-0-2 | best | 383 (31) | 390 +2% (0) | 384 0% | 387 +1% |
-| 4-5 | base | 5-0-2 | far | 389 (25) | 389 0% | 386 −1% | 390 0% (0) |
-| 4-5 | base | 2-0-5 | best | 388 (30) | 389 0% | 389 0% | 389 0% |
-| 4-5 | base | 2-0-5 | far | 188 (234) | 174 −7% | 171 −9% | 228 +21% |
+| 1-3 | base | t0 | best | 275 (222) | 271 −1% | 272 −1% | 284 +3% |
+| 1-3 | base | t0 | far | 169 (328) | 228 +35% | 234 +38% | 254 +50% |
+| 1-3 | base | 0-0-2 | best | 415 (82) | 423 +2% | 421 +1% | 408 −2% |
+| 1-3 | base | 0-0-2 | far | 374 (123) | 396 +6% | 411 +10% | 388 +4% |
+| 2-5 | base | 3-0-0 | best | 579 (222) | 716 +24% | 531 −8% | 736 +27% |
+| 2-5 | base | 0-0-3 | best | 342 (408) | 389 +14% | 347 +1% | 455 +33% |
+| 3-5 | base | 3-0-0 | best | 96 (315) | 111 +16% | 109 +14% | 111 +16% |
+| 3-5 | base | 3-0-0 | far | 61 (350) | 105 +72% | 106 +74% | 109 +79% |
+| 4-5 | base | 5-0-2 | best | 383 (31) | 390 +2% (0) | 384 0% | 390 +2% (0) |
+| 4-5 | base | 5-0-2 | far | 389 (25) | 389 0% | 386 −1% | 390 +0% (0) |
+| 4-5 | base | 2-0-5 | best | 388 (30) | 389 0% | 389 0% | 389 +0% |
+| 4-5 | base | 2-0-5 | far | 188 (234) | 174 −7% | 171 −9% | 242 +29% |
 | 4-5 | strong | 3-0-0 | best | 386 (28) | 389 +1% | 388 +1% | 389 +1% |
 | 4-5 | strong | 3-0-0 | far | 387 (27) | 375 −3% | 378 −2% | 389 +1% |
-| 6-5 | strong | 5-0-2 | best | 782 (0) | 790 +1% | 784 0% | 778 −1% |
-| 6-5 | strong | 5-0-2 | far | 844 (0) | 790 −6% | 790 −6% | 778 −8% |
+| 6-5 | strong | 5-0-2 | best | 782 (0) | 790 +1% | 784 0% | 777 −1% (0) |
+| 6-5 | strong | 5-0-2 | far | 844 (0) | 790 −6% | 790 −6% | 776 −8% (0) |
 
-Reading: at her best spot, Hover is already near the best a mode can do and Pursuit ×0.8 costs a little (−7…+1%); the modes pay off when she stands where Hover cannot reach (far spots: +35…+75%) or when the lane bends inside her signal range (2-5: Hold +24%, Pursuit +22%). That is the intended choice: **Hover to defend her area, Hold/Patrol to move her coverage, Pursuit for bosses and leakers anywhere.**
+Reading: at her best spot, Hover is already near the best a mode can do and Pursuit ×0.85 is about even (−2…+3%); the modes pay off when she stands where Hover cannot reach (far spots: +35…+79%) or when the lane bends inside her signal range (2-5: Hold +24%, Pursuit +27…+33%). That is the intended choice: **Hover to defend her area, Hold/Patrol to move her coverage, Pursuit for bosses and leakers anywhere.**
 
 #### 16.9.4 Sapper stages (`sabo`; base; kills (lives lost, drone jams))
 
-| Stage | Build | Spot | Hover | Hold | Patrol | Pursuit ×0.8 |
+| Stage | Build | Spot | Hover | Hold | Patrol | Pursuit ×0.85 |
 |---|---|---|---|---|---|---|
-| 6-3 | 3-0-0 | best | 61 (303, 53) | 76 (288, 61) | 75 (289, 54) | 59 (305, 71) |
-| 6-3 | 3-0-0 | far | 105 (259, 78) | 79 (285, 79) | 85 (279, 79) | 64 (300, 88) |
-| 6-4 | 3-0-0 | best | 98 (879, 120) | 124 (853, 151) | 110 (867, 126) | 150 (827, 181) |
-| 6-4 | 5-0-2 | best | 944 (13, 87) | 947 (10, 85) | 946 (11, 85) | 948 (5, 84) |
-| 6-5 | 3-0-0 | best | 152 (787, 167) | 165 (774, 175) | 151 (788, 168) | 224 (716, 242) |
-| 6-5 | 3-0-0 | far | 107 (832, 108) | 172 (767, 211) | 165 (774, 209) | 224 (715, 265) |
-| 6-5 | 5-0-2 | best | 842 (40, 67) | 819 (63, 101) | 844 (39, 87) | 826 (20, 106) |
-| 6-5 | 5-0-2 | far | 814 (83, 78) | 835 (44, 63) | 843 (40, 70) | 832 (13, 71) |
+| 6-3 | 3-0-0 | best | 61 (303, 53) | 76 (288, 61) | 75 (289, 54) | 63 (301, 70) |
+| 6-3 | 3-0-0 | far | 105 (259, 78) | 79 (285, 79) | 85 (279, 79) | 68 (296, 87) |
+| 6-4 | 3-0-0 | best | 98 (879, 120) | 124 (853, 151) | 110 (867, 126) | 154 (823, 180) |
+| 6-4 | 5-0-2 | best | 944 (13, 87) | 947 (10, 85) | 946 (11, 85) | 948 (5, 90) |
+| 6-5 | 3-0-0 | best | 152 (787, 167) | 165 (774, 175) | 151 (788, 168) | 238 (701, 238) |
+| 6-5 | 3-0-0 | far | 107 (832, 108) | 172 (767, 211) | 165 (774, 209) | 240 (700, 260) |
+| 6-5 | 5-0-2 | best | 842 (40, 67) | 819 (63, 101) | 844 (39, 87) | 830 (11, 91) |
+| 6-5 | 5-0-2 | far | 814 (83, 78) | 835 (44, 63) | 843 (40, 70) | 831 (11, 67) |
 
-Wings away from the team take more jams (Pursuit up to 265 a stage); on 6-3 (sappers early, few other enemies) Pursuit's far wing loses 39% of the far-spot kills to jams — the counter works.
+Wings away from the team take more jams (Pursuit up to 260 a stage); on 6-3 (sappers early, few other enemies) Pursuit's far wing loses 35% of the far-spot kills to jams — the counter works.
 
 #### 16.9.5 Team campaign and co-op freeplay
 
-- **Campaign** (`campaign`; `autoPlan` team Hikari, Chika, Aoi, Yuki, ≤ 2 copies; 10 stages × Normal/Hard × 3 seeds = 60 runs per mode): every mode wins and loses the **same stages** as Hover — 1-5, 2-3, 2-5, 3-5, 4-3, 5-5, 7-5 Normal and 1-5 Hard won; the rest lost. Pursuit ×0.8 wins with more lives (2-5 Normal 80 → 85, 4-3 Normal 78–82 → 85–90, 5-5 Normal 1–19 → 23–28) and loses 0–3 waves later; Chika's share of team damage moves from 11–63% (Hover) to 14–62%, higher on most stages. Hold / Patrol lose 5-5 Normal in one seed each with the automatic point picker (a player would pick better). Table: `docs/specs/chika-res/camp-*.txt`.
-- **Co-op freeplay** (`freeplay`; Blossom, strong profile, every other copy a Chika, placed by drone reach): 1-3 — no Chika 112, Hover 120, Hold 120, Patrol 120, Pursuit ×0.8 121 (×1.0: 122); 8-5 — no Chika 116, Hover 110, Hold 110, Patrol 110, Pursuit ×0.8 110 (×1.0: 116). Pursuit raises Chika's share (50% → 59–61%) but the run ends within a few waves of Hover. (This bot is weaker than freeplay's own calibration bot — its no-Chika team dies at 112–116 — so read the differences, not the absolutes; the train-C step 7 re-run uses freeplay's `fp/bot.mjs`.)
+- **Campaign** (`campaign`; `autoPlan` team Hikari, Chika, Aoi, Yuki, ≤ 2 copies; 10 stages × Normal/Hard × 3 seeds = 60 runs per mode): every mode wins and loses the **same stages** as Hover — 1-5, 2-3, 2-5, 3-5, 4-3, 5-5, 7-5 Normal and 1-5 Hard won; the rest lost. Pursuit ×0.85 wins with more lives (2-5 Normal 80 → 85–90, 4-3 Normal 78–82 → 89–91, 5-5 Normal 1–19 → 20–30, 7-5 Normal 12–17 → 14–24) and loses 0–3 waves later; Chika's share of team damage moves from 11–63% (Hover) to 15–64%, higher on most stages. Hold / Patrol lose 5-5 Normal in one seed each with the automatic point picker (a player would pick better). Table: `docs/specs/chika-res/camp-*.txt`.
+- **Co-op freeplay** (`freeplay`; Blossom, strong profile, every other copy a Chika, placed by drone reach): 1-3 — no Chika 112, Hover 120, Hold 120, Patrol 120, Pursuit ×0.85 121 (×0.8: 121, ×1.0: 122); 8-5 — no Chika 116, Hover 110, Hold 110, Patrol 110, Pursuit ×0.85 116 (×0.8: 110, ×1.0: 116). Pursuit raises Chika's share (50% → 59–61%) but the run ends within a few waves of Hover. (This bot is weaker than freeplay's own calibration bot — its no-Chika team dies at 112–116 — so read the differences, not the absolutes; the train-C step 7 re-run uses freeplay's `fp/bot.mjs`.)
 
 #### 16.9.6 Lockstep cost (`perf`; Node 22, idle 4-core machine)
 
@@ -860,7 +861,7 @@ Pursuit's map-wide pool costs nothing measurable: the pool is still built at mos
 
 | Knob | Ships | Measured alternative |
 |---|---|---|
-| `FLIGHT_PURSUIT_RATE_MUL` | **0.8** | 1.0: Pursuit ≥ Hover almost everywhere (boss +74…+168%, kills +0…+100%), so the modes stop being a choice; campaign still no flip; freeplay +2…+6 waves. |
+| `FLIGHT_PURSUIT_RATE_MUL` | **0.85** (owner) | 0.8 (first proposal): boss +34…+108%, kills −8…+75%, freeplay 121 / 110. 1.0: Pursuit ≥ Hover almost everywhere (boss +74…+168%, kills +0…+100%), so the modes stop being a choice; campaign still no flip; freeplay +2…+6 waves. |
 | `FLIGHT_POINT_ROAM_MUL` | **1.0** | 0.5 (a tight Hold disc): Hold −49% / Patrol −58% boss damage against Hover (4-5 strong 5-0-2) and −16% / −48% kills (2-5 base 3-0-0, seed 9) — Hold became strictly worse than Hover. |
 | `FLIGHT_SIGNAL_MUL` | **2** | Not swept: the whole map would make placement meaningless for Hold/Patrol; 2 × leash (8 tiles) reaches the next bend on every measured map. |
 | `FLIGHT_PATROL_SPEED_MUL` | **0.6** | Faster patrols leave the drones behind (they spend the time flying back to the disc). |
@@ -868,7 +869,7 @@ Pursuit's map-wide pool costs nothing measurable: the pool is still built at mos
 #### 16.9.8 Gates (re-run on the train)
 
 1. §8.10 gates for Hover (the r2 numbers), unchanged.
-2. Pursuit `boss`: ≤ +110% over Hover at every build (here +34…+108%), and never above her parked-boss DPS × `FLIGHT_PURSUIT_RATE_MUL` over the pass.
+2. Pursuit `boss`: ≤ +130% over Hover at every build (here +43…+124%; raised from +110% with the owner's 85%), and never above her parked-boss DPS × `FLIGHT_PURSUIT_RATE_MUL` over the pass.
 3. `waves`: no mode below −10% of Hover at her best spot; none above +80% anywhere.
 4. `campaign`: no mode flips an outcome against Hover (re-approve any flip).
 5. Freeplay step 7 (LANDING_PLAN §9.2) with Chika lines in Pursuit: inside its band.
@@ -877,18 +878,18 @@ Pursuit's map-wide pool costs nothing measurable: the pool is still built at mos
 
 ### 16.10 Evidence (`docs/specs/chika-res/`)
 
-`boss-v1.txt`, `waves-v1.txt`, `sabo-v1.txt`, `camp-v1.txt`, `fp-v1.txt` (all modes, Pursuit ×1.0), `boss-k08.txt`, `waves-k08.txt`, `sabo-k08.txt`, `camp-k08.txt`, `fp-k08.txt` (Pursuit ×0.8, the shipping value), `perf.txt`. Re-run: `node tools/chika/run.mjs tools/chika/measure.js <boss|waves|sabo|campaign|freeplay|perf> [--modes …]`.
+`boss-v1.txt`, `waves-v1.txt`, `sabo-v1.txt`, `camp-v1.txt`, `fp-v1.txt` (all modes, Pursuit ×1.0), `boss-k08.txt`, `waves-k08.txt`, `sabo-k08.txt`, `camp-k08.txt`, `fp-k08.txt` (Pursuit ×0.8), `*-k085.txt` (Pursuit ×0.85, the shipping value), `perf.txt`. Re-run: `node tools/chika/run.mjs tools/chika/measure.js <boss|waves|sabo|campaign|freeplay|perf> [--modes …]`.
 
 ### 16.11 Runs on this branch
 
-- `BUN=/root/.bun/bin/bun node e2e/engines.mjs`: **OK, 3 runs on 2 engines** (Node 22 V8, Bun 1.4.2 JavaScriptCore, Chromium 141 V8). `DRONES_START`: ticks 32,353, won at wave 28, Chikas 5-0-2 and 2-0-5, 12 drones, 281,748 drone damage, 8 `fly`, 62 jams, final `4154523290`, 269 hash checkpoints → `5334ceab`, the wave-8 checkpoint replays to the run in all three. `START` is unchanged (`411300916`). Firefox and WebKit are not installed in this container (`--require-all` not run). Output: `docs/specs/chika-res/engines.txt`.
+- `BUN=/root/.bun/bin/bun node e2e/engines.mjs`: **OK, 3 runs on 2 engines** (Node 22 V8, Bun 1.4.2 JavaScriptCore, Chromium 141 V8). `DRONES_START` (Pursuit ×0.85): ticks 32,287, won at wave 28, Chikas 5-0-2 and 2-0-5, 12 drones, 281,633 drone damage, 8 `fly`, 62 jams, final `3098440430`, 269 hash checkpoints → `912192f9`, the wave-8 checkpoint replays to the run in all three. `START` is unchanged (`411300916`). Firefox and WebKit are not installed in this container (`--require-all` not run). Output: `docs/specs/chika-res/engines.txt`.
 - Perf: §16.9.6.
 
 ### 16.12 Owner questions (defaults ship)
 
-- **Q-F1. Pursuit's price.** Default: drones in Pursuit fire at **80%** (map-wide reach has a cost, so Hover still wins at her own spot). Option: no price (×1.0) — Pursuit then beats Hover nearly everywhere; still no campaign flip.
-- **Q-F2. How far Hold / Patrol may reach.** Default: **2 × her drone range** (8 tiles at tier 0). Option: anywhere on the map (more helicopter-like, makes where you place her matter much less).
-- **Q-F3. Unlocks.** Default: **all four modes from tier 0**. Option: Pursuit from Sentry Grid (tier 3 of Sentry Works), if you want it to feel earned.
+- **Q-F1. Pursuit's price. Answered (owner, Oct 15): 85%.** (Proposed 80%; no price ×1.0 makes Pursuit beat Hover nearly everywhere.)
+- **Q-F2. How far Hold / Patrol may reach. Answered: keep the default.** **2 × her drone range** (8 tiles at tier 0). Option: anywhere on the map (more helicopter-like, makes where you place her matter much less).
+- **Q-F3. Unlocks. Answered: keep the default.** **all four modes from tier 0**. Option: Pursuit from Sentry Grid (tier 3 of Sentry Works), if you want it to feel earned.
 
 ---
 
@@ -907,14 +908,16 @@ What was built, milestone by milestone, and where it differs from the text above
 | M6 | **Field list only**: battle save (`src/ui/battle/snapshot.js`) is not on this base (§16.7). The generic `src/sim/snapshot.js` (co-op checkpoints) stores everything; split-run tests switch flight modes every 10 s. | `tests/sim/snapshot.test.js` |
 | M7 | `e2e/chika-drones.mjs` (both sizes), tests, docs (`CONTRACTS.md` §3 / §6 / §10 / §13, `docs/OWNER_REQUESTS.md`, this spec), measurement tools `tools/chika/`. `e2e/stat-display.mjs` does not exist on this base (it belongs to the unit-info branch), so its update (§9) is left to the branch that lands second. | `e2e/chika-drones.mjs`, `tools/chika/*`, docs |
 
+**Owner answers (Oct 15)**: Q-F1 → Pursuit fires at **85%** (`FLIGHT_PURSUIT_RATE_MUL` 0.8 → 0.85; Pursuit rows re-measured, §16.9, `docs/specs/chika-res/*-k085.txt`); Q-F2 and Q-F3 → the defaults stay (signal range 2 × leash; every mode from tier 0).
+
 **Deviations from the spec text**
 - **Credit seam**: `_credit(tower, dealt, e = null, drone = null)` (LANDING_PLAN S1, problem #1), not §3.4's `_credit(tower, dealt, drone)`; `_dot` passes the enemy too. The hero rework's damage XP reads `e`.
 - **Drone range under map rules** (problem #2): this base has no codex env inputs, so `refreshEffective` uses `leash = max(1, leash) × buff.rangeMul`, `gun = range × buff.rangeMul`; the codex merge adds `envAdd` / `envMul` to the roam radius only, as S4 says.
 - **Flight seam**: `t.flight` carries `cx, cy, leg` besides the landing plan's `mode, ax, ay, bx, by` (the Patrol position and direction are state). `null` means Hover, so drone-less girls carry nothing.
 - **`fly` arguments**: `fly[uid, mode, qx1, qy1, qx2, qy2]` — the landing plan's row left out the girl's uid; `isValidCmd` allows 6 arguments for `fly` only.
-- **Hold / Patrol roam = the full leash** (`FLIGHT_POINT_ROAM_MUL` 1; 0.5 measured and rejected, §16.9.7) and **Pursuit fires at 80%** (Q-F1).
+- **Hold / Patrol roam = the full leash** (`FLIGHT_POINT_ROAM_MUL` 1; 0.5 measured and rejected, §16.9.7) and **Pursuit fires at 85%** (Q-F1, the owner's answer; 80% was proposed).
 - **Panel**: the Overall grid is today's grid (this base has no "Upgrades x% cheaper" or "New drone every …" rows; the spec described the unit-info WIP panel). The base panel called drones "Sentries"; drone owners now see "Drones".
 - **Tests**: `tests/battle-ui/towerPanelTabs.test.js` and `tests/render/pick.test.js` need a DOM / a projector stub that this repo's vitest setup does not have (no jsdom); their checks run in `e2e/chika-drones.mjs` instead, and `tests/battle-ui/chikaPanel.test.js` covers the pure parts (names, rate meter, DPS basis).
 - **Measurements** are from `tools/chika/measure.js` on this branch (relative to Hover); the r2 tables (§8, old kit vs new) were not re-run against the old kit. Its gates (§8.10) remain for the train's re-run.
 
-**Gates run here** (Oct 14, final head of this branch): `npm ci` ✓; `npx vitest run` 1126 passed, 1 skipped, **1 failed — pre-existing** (`tests/core/updates.test.js` "the net settings both players must share…": `COOP_NET.supabase` has idle keys the test does not list; the same on `feature/train-c-base`, `src/data/coop.js` untouched here); `npx vite build` ✓; `node e2e/smoke.mjs --viewport 844x390` ✓ and `--viewport 1280x720` ✓ (ALL SMOKE CHECKS PASSED); `BUN=/root/.bun/bin/bun node e2e/engines.mjs` ✓ (V8 Node, JSC Bun 1.4.2, V8 Chromium; Firefox / WebKit not installed); `node e2e/chika-drones.mjs` ✓ at 844×390 and 1280×720 (screenshots looked at: the phone layout was tightened twice — one-line header, icon-only Target / Flight labels, hint only while picking — so the first drone row, Wing DPS and Flying are on screen). Co-op id **`5be1f155a2d0`** (37 graph files; base `6447e0fe5bd6`).
+**Gates run here** (Oct 14, final head of this branch): `npm ci` ✓; `npx vitest run` 1126 passed, 1 skipped, **1 failed — pre-existing** (`tests/core/updates.test.js` "the net settings both players must share…": `COOP_NET.supabase` has idle keys the test does not list; the same on `feature/train-c-base`, `src/data/coop.js` untouched here); `npx vite build` ✓; `node e2e/smoke.mjs --viewport 844x390` ✓ and `--viewport 1280x720` ✓ (ALL SMOKE CHECKS PASSED); `BUN=/root/.bun/bin/bun node e2e/engines.mjs` ✓ (V8 Node, JSC Bun 1.4.2, V8 Chromium; Firefox / WebKit not installed); `node e2e/chika-drones.mjs` ✓ at 844×390 and 1280×720 (screenshots looked at: the phone layout was tightened twice — one-line header, icon-only Target / Flight labels, hint only while picking — so the first drone row, Wing DPS and Flying are on screen). Co-op id **`5ced3a409b98`** after the owner's 85% (37 graph files; `5be1f155a2d0` at ×0.8; base `6447e0fe5bd6`).

@@ -89,7 +89,7 @@ export const FLIGHT_POINT_ROAM_MUL = 1;
 /** The Patrol position travels at drone speed × this. */
 export const FLIGHT_PATROL_SPEED_MUL = 0.6;
 /** Drones in Pursuit fire at this × their rate (map-wide reach has a price). */
-export const FLIGHT_PURSUIT_RATE_MUL = 0.8;
+export const FLIGHT_PURSUIT_RATE_MUL = 0.85;
 
 /** Height of airborne enemies (world units). */
 export const AIR_ALT = 1.2;

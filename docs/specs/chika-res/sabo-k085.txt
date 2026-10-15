@@ -1,0 +1,19 @@
+{"test":"sabo","stageId":"6-3","profile":"base","build":"3-0-0","spot":"best","hover":61,"hoverLost":303,"hoverJams":53,"hoverDisabled":29,"pursuit":63,"pursuitLost":301,"pursuitJams":70,"pursuitDisabled":60}
+{"test":"sabo","stageId":"6-3","profile":"base","build":"3-0-0","spot":"far","hover":105,"hoverLost":259,"hoverJams":78,"hoverDisabled":0,"pursuit":68,"pursuitLost":296,"pursuitJams":87,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-4","profile":"base","build":"3-0-0","spot":"best","hover":98,"hoverLost":879,"hoverJams":120,"hoverDisabled":0,"pursuit":154,"pursuitLost":823,"pursuitJams":180,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-4","profile":"base","build":"5-0-2","spot":"best","hover":944,"hoverLost":13,"hoverJams":87,"hoverDisabled":0,"pursuit":948,"pursuitLost":5,"pursuitJams":90,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"3-0-0","spot":"best","hover":152,"hoverLost":787,"hoverJams":167,"hoverDisabled":48,"pursuit":238,"pursuitLost":701,"pursuitJams":238,"pursuitDisabled":63}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"3-0-0","spot":"far","hover":107,"hoverLost":832,"hoverJams":108,"hoverDisabled":0,"pursuit":240,"pursuitLost":700,"pursuitJams":260,"pursuitDisabled":0}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"5-0-2","spot":"best","hover":842,"hoverLost":40,"hoverJams":67,"hoverDisabled":18,"pursuit":830,"pursuitLost":11,"pursuitJams":91,"pursuitDisabled":21}
+{"test":"sabo","stageId":"6-5","profile":"base","build":"5-0-2","spot":"far","hover":814,"hoverLost":83,"hoverJams":78,"hoverDisabled":0,"pursuit":831,"pursuitLost":11,"pursuitJams":67,"pursuitDisabled":0}
+
+| Stage | Profile | Build | Spot | hover kills (lives lost, jams) | pursuit kills (lives lost, jams) |
+|---|---|---|---|---|---|
+| 6-3 | base | 3-0-0 | best | 61 (303, 53) | 63 +3% (301, 70) |
+| 6-3 | base | 3-0-0 | far | 105 (259, 78) | 68 -35% (296, 87) |
+| 6-4 | base | 3-0-0 | best | 98 (879, 120) | 154 +57% (823, 180) |
+| 6-4 | base | 5-0-2 | best | 944 (13, 87) | 948 +0% (5, 90) |
+| 6-5 | base | 3-0-0 | best | 152 (787, 167) | 238 +57% (701, 238) |
+| 6-5 | base | 3-0-0 | far | 107 (832, 108) | 240 +124% (700, 260) |
+| 6-5 | base | 5-0-2 | best | 842 (40, 67) | 830 -1% (11, 91) |
+| 6-5 | base | 5-0-2 | far | 814 (83, 78) | 831 +2% (11, 67) |

@@ -1,21 +1,21 @@
 
 Scripted co-op battle (stage 1-3, both players, to the end):
-  Node v22.22.0 (V8)                             ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 1765 ms
-  Bun 1.4.2 (JavaScriptCore)                     ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 1054 ms
-  chromium 141.0.7390.37 (V8)                    ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 935 ms
+  Node v22.22.0 (V8)                             ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 1134 ms
+  Bun 1.4.2 (JavaScriptCore)                     ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 1008 ms
+  chromium 141.0.7390.37 (V8)                    ticks 28347 · won · wave 15 · towers 6 · ults 5 · coins 1239/1347 · final 411300916 · 64 hash checkpoints → 5b904cb9 · lobby data 558d248a · wave tables 3018:9657f4ba · 1058 ms
 
 Scripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):
-  Node v22.22.0 (V8)                             ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 7372 ms
-                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 875 ms → final state 124727e4 = the run
-  Bun 1.4.2 (JavaScriptCore)                     ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 5427 ms
-                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 529 ms → final state 124727e4 = the run
-  chromium 141.0.7390.37 (V8)                    ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 5839 ms
-                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 846 ms → final state 124727e4 = the run
+  Node v22.22.0 (V8)                             ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 7155 ms
+                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 843 ms → final state 124727e4 = the run
+  Bun 1.4.2 (JavaScriptCore)                     ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 5286 ms
+                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 528 ms → final state 124727e4 = the run
+  chromium 141.0.7390.37 (V8)                    ticks 127043 · won (Finish vote) · wave 52/15 · bosses 3 · lives 100 · coins 3101/1106 · final 2338183441 · 1058 hash checkpoints → ddcf8e43 · freeplay tables 7893:e8ee7b6a:798d7735 · 5753 ms
+                                                 wave-40 checkpoint (tick 88762, 32 KB) f4714079 → restored + replayed 88762+38281 ticks in 708 ms → final state 124727e4 = the run
 
 Scripted co-op DRONES battle (two Chikas on 6-5, every flight mode, sappers):
-  Node v22.22.0 (V8)                             ticks 32353 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281748 · 8 fly · 62 jams · final 4154523290 · 269 hash checkpoints → 5334ceab · checkpoint w8 replays to the run · 1407 ms
-  Bun 1.4.2 (JavaScriptCore)                     ticks 32353 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281748 · 8 fly · 62 jams · final 4154523290 · 269 hash checkpoints → 5334ceab · checkpoint w8 replays to the run · 1283 ms
-  chromium 141.0.7390.37 (V8)                    ticks 32353 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281748 · 8 fly · 62 jams · final 4154523290 · 269 hash checkpoints → 5334ceab · checkpoint w8 replays to the run · 1046 ms
+  Node v22.22.0 (V8)                             ticks 32287 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281633 · 8 fly · 62 jams · final 3098440430 · 269 hash checkpoints → 912192f9 · checkpoint w8 replays to the run · 1348 ms
+  Bun 1.4.2 (JavaScriptCore)                     ticks 32287 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281633 · 8 fly · 62 jams · final 3098440430 · 269 hash checkpoints → 912192f9 · checkpoint w8 replays to the run · 1349 ms
+  chromium 141.0.7390.37 (V8)                    ticks 32287 · won · wave 28 · Chikas 5-0-2 2-0-5 · 12 drones · drone dmg 281633 · 8 fly · 62 jams · final 3098440430 · 269 hash checkpoints → 912192f9 · checkpoint w8 replays to the run · 1107 ms
 
 Engine-native Math (information only; co-op runs on the deterministic ports):
   Math.sin    Node v22.22.0  vs  Bun 1.4.2  vs  chromium 141.0.7390.37
@@ -27,4 +27,3 @@ Engine-native Math (information only; co-op runs on the deterministic ports):
 Skipped: firefox (browserType.launch: Executable doesn't exist at /opt/pw-browsers/firefox-1495/firefox/firefox); webkit (browserType.launch: Executable doesn't exist at /opt/pw-browsers/webkit-2215/pw_run.sh)
 
 OK: 3 runs on 2 engines (V8, JavaScriptCore) computed the identical battle and the identical freeplay run, wrote the identical wave-40 checkpoint, and each restored it and replayed to the run's final state.
-EXIT 0
