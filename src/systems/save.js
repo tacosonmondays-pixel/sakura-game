@@ -381,6 +381,11 @@ export function migrateProfile(raw) {
       const best = cleanCounts(s.coopBestWave, (k) => /^[a-z]{1,16}$/.test(k));
       if (Object.keys(best).length) entry.coopBestWave = best;
     }
+    // solo freeplay: the same per-tier best (src/systems/freeplayRewards.js)
+    if (isObj(s.freeplayBest)) {
+      const best = cleanCounts(s.freeplayBest, (k) => /^[a-z]{1,16}$/.test(k));
+      if (Object.keys(best).length) entry.freeplayBest = best;
+    }
     p.progress.stages[id] = entry;
   }
   // co-op freeplay one-time milestones ('tier:id'), titles and profile frames earned there
@@ -402,6 +407,9 @@ export function migrateProfile(raw) {
         kills: cleanCounts(r.kills, id), encountered: strList(r.encountered, 200).filter(id),
         banked: { goal: int(b.goal, 0, 0), kills: cleanCounts(b.kills, id), encountered: strList(b.encountered, 200).filter(id) },
       };
+      // a solo run (src/systems/freeplayRewards.js): its best field and capped coins per wave
+      if (r.bestKey === 'freeplayBest') runs[seed].bestKey = 'freeplayBest';
+      if (r.waveCoins != null) runs[seed].waveCoins = int(r.waveCoins, 0, 0, 1000);
     }
     if (Object.keys(runs).length) p.progress.freeplayPending = runs;
   }

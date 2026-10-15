@@ -39,9 +39,10 @@ export const PATCH_NOTES = [
     ],
   },
   {
-    id: 'v0.1.27', version: '0.1.27', date: '2026-10-14', title: 'Co-op Freeplay',
+    id: 'v0.1.27', version: '0.1.27', date: '2026-10-14', title: 'Freeplay, solo & co-op',
     added: [
       'Co-op Freeplay: the host turns it on in the room and picks Blossom, Tempest or Crimson Moon. Clear the stage’s last wave, then keep going past it as the wave counter overflows (16/15, 17/15…).',
+      'Freeplay in solo too: every stage you’ve cleared offers Blossom, Tempest or Crimson Moon in its prep. Win a stage and tap Keep going on the victory screen to play on past its last wave. Your best wave on each stage is recorded.',
       'Past the stage’s last wave, enemies from every map join in, and their HP and armor keep climbing.',
       'Boss waves come on a schedule and get tougher all the way to the Ashwing Matriarch around wave 200.',
       'Vote Finish to end the run together, and the results show the wave you reached.',

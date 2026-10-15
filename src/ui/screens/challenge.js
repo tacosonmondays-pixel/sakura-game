@@ -1,6 +1,8 @@
-// Tactical Challenge (owner: meta-a). Endless mode: the Colosseum challenge stage plus
-// endless runs on every campaign map you have cleared, each with its best wave.
-// Endless map runs open stage prep with `endless=1` (battle receives ?endless=1).
+// Tactical Challenge (owner: meta-a). Endless mode: the Colosseum challenge stage plus Freeplay
+// on every campaign map you have cleared, each with its best freeplay wave (solo, per tier).
+// The map cards open stage prep with `endless=1`, which is freeplay prep now (the old endless runs
+// on campaign maps were replaced by Freeplay; a best wave from them still shows until a freeplay
+// run beats it).
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
@@ -14,15 +16,7 @@ import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon } from '../../art/icons.js';
 import { isStageUnlocked, canPlayEndless } from '../../systems/unlocks.js';
 import { dropGrid, requirementText, savedBadge } from './stage.js';
-import { getBattleSave, slotKey, saveSummary } from '../../systems/battleSave.js';
-
-/** The line under an endless map's name: its best wave, a saved run, or how to open it. */
-function endlessInfo(profile, id, { cleared, best, tier }) {
-  if (!cleared) return `Clear ${id} to unlock`;
-  const rec = getBattleSave(profile, slotKey(id, true));
-  if (rec && !best) return `Saved run · wave ${saveSummary(rec).next}`;
-  return best ? `Endless best · wave ${best}` : `${tier?.name || ''} · no endless run yet`;
-}
+import { soloBestLines } from '../../systems/freeplayRewards.js';
 
 const CHALLENGE_ID = 'challenge';
 
@@ -100,23 +94,26 @@ function build() {
       const cleared = canPlayEndless(profile, id); // = cleared on any difficulty (same rule as battle)
       any ||= cleared;
       const map = safeMap(s.mapId);
-      const best = endlessBest(profile, s);
+      const old = endlessBest(profile, s);
+      const fp = soloBestLines(profile, id)[0] || null; // the hardest tier with a best
+      const best = fp ? fp.wave : old;
       const tier = MAP_TIERS[s.tier];
       grid.appendChild(h(`button.ma-endless-card${cleared ? '' : '.locked'}`,
         { onclick: () => cleared && navigate('stage', { id, endless: 1 }), disabled: !cleared, 'data-testid': `endless-${id}` },
         h('div.ma-ec-thumb', { html: map ? stageThumbSVG(map, { width: 240, height: 150 }) : '' }),
         h('span.ma-ec-id', id),
         best ? h('span.ma-ec-best', svgEl(medalIcon(best >= 50 ? 'nightmare' : best >= 40 ? 'hard' : best >= 30 ? 'normal' : 'easy'), 'ma-ec-medal'), `Wave ${best}`) : null,
-        cleared ? savedBadge(profile, id, true) : null,
-        h('div.ma-ec-info', h('b', map?.name || s.name), h('span.muted', endlessInfo(profile, id, { cleared, best, tier }))),
+        // (no saved-battle badge here: freeplay runs are never saved, and a map's normal saved
+        // battle shows on its campaign card and in the prep this card opens)
+        h('div.ma-ec-info', h('b', map?.name || s.name), h(fp ? 'span.ma-ec-fp' : 'span.muted', cleared ? (fp ? fp.text : old ? `Endless best · wave ${old}` : `${tier?.name || ''} · no freeplay run yet`) : `Clear ${id} to unlock`)),
         cleared ? null : h('div.ma-ec-lock', svgEl(uiIcon('lock'), 'ma-inline-icon')),
       ));
     }
   }
   wrap.appendChild(h('section',
-    h('h3.ma-section-title', 'Endless on campaign maps'),
-    h('p.muted', 'Every map you clear can be replayed endlessly: the waves keep scaling past the last one. Your best wave on each map is recorded here.'),
-    any ? grid : h('div.ma-empty-state', svgEl(uiIcon('map')), h('p', 'Clear your first campaign stage to unlock endless runs on its map.')),
+    h('h3.ma-section-title', 'Freeplay on campaign maps'),
+    h('p.muted', 'Every map you clear can be played in Freeplay: past its last wave (16/15 …) visitors from every chapter, bosses on a schedule and the Ashwing Matriarch at wave 200. Pick Blossom, Tempest or Crimson Moon in the prep; your best wave per tier is recorded.'),
+    any ? grid : h('div.ma-empty-state', svgEl(uiIcon('map')), h('p', 'Clear your first campaign stage to unlock Freeplay on its map.')),
   ));
   return wrap;
 }

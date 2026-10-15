@@ -6,6 +6,8 @@ import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { isOwned, isPracticeRun, canPlayEndless } from '../../systems/unlocks.js';
 import { restoreSim } from './snapshot.js';
+import { freeplayTier } from '../../data/freeplay.js';
+import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -26,44 +28,59 @@ export function resolveFormation(profile) {
 }
 
 /**
- * Parses route params into a validated battle request. With a profile, `endless=1` is only
- * honoured where the Tactical Challenge screen offers it (systems `canPlayEndless`); without
- * one the params are taken as they are.
- * `resume` is a battle save's run id (Continue; src/systems/battleSave.js), or null.
- * @returns {{ stageId: string|null, difficulty: string, endless: boolean, practice: boolean, error: string|null, resume: string|null }}
+ * Parses route params into a validated battle request. With a profile, `endless=1` / `freeplay=<tier>`
+ * are only honoured where stage prep offers them (systems `canPlayEndless`: a cleared map, an
+ * unlocked colosseum); without one the params are taken as they are.
+ * Solo freeplay (`freeplay=blossom|tempest|crimson`) runs on campaign stages: the stage plays as
+ * usual up to its last wave, then the run goes on (16/15 …). The old endless runs on campaign maps
+ * (`endless=1`, Tactical Challenge) are freeplay now: they open as freeplay on the given tier, or
+ * Blossom. The colosseum (kind 'challenge') stays endless.
+ * `resume` is a battle save's run id (Continue; src/systems/battleSave.js), or null. A Continue
+ * plays the saved run as it was saved, and freeplay runs are never saved (isSavableRun), so next
+ * to `resume` a `freeplay` / `endless=1` param never turns freeplay on.
+ * @returns {{ stageId: string|null, difficulty: string, endless: boolean, freeplay: string|null,
+ *   keepGoing: boolean, practice: boolean, error: string|null, resume: string|null }}
+ *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
  */
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
-  if (!stage) return { stageId, difficulty: 'normal', endless: false, practice: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
+  if (!stage) return { stageId, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
   const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
-  const endless = stage.kind === 'challenge' || (wantsEndless && (!profile || canPlayEndless(profile, stageId)));
+  const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
   const practice = !!profile && isPracticeRun(profile, stageId);
   const resume = typeof params.resume === 'string' && params.resume ? params.resume : null;
-  return { stageId, difficulty, endless, practice, error: null, resume };
+  const fpStage = hasSoloFreeplay(stageId) && !practice;
+  let freeplay = fpStage && allowed && !resume ? freeplayTier(params.freeplay) : null;
+  if (fpStage && allowed && !resume && wantsEndless && !freeplay) freeplay = 'blossom';
+  const endless = stage.kind === 'challenge' || (wantsEndless && allowed && !hasSoloFreeplay(stageId));
+  return { stageId, difficulty, endless, freeplay, keepGoing: fpStage && !freeplay && !endless, practice, error: null, resume };
 }
 
 /**
  * Creates the Sim for a battle. `cfg` is what a battle save freezes at New game: the run seed
  * and the team's battle stats as they are now (Continue never reads the live profile again).
  * @param {object} profile
- * @param {{ stageId: string, difficulty: string, endless?: boolean, seed?: number }} req
+ * @param {{ stageId: string, difficulty: string, endless?: boolean, freeplay?: string|null, seed?: number }} req
  */
 export function createBattleSim(profile, req) {
   const { towers, hero } = resolveFormation(profile);
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
+  // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js)
+  const fpStage = req.freeplay ? soloFreeplayStage(req.stageId, req.freeplay) : null;
   const sim = new Sim({
     stageId: req.stageId,
     difficulty: req.difficulty,
     loadout,
     hero: heroEntry,
     seed,
-    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart },
+    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, ...(fpStage ? { freeplay: true } : {}) },
+    ...(fpStage ? { data: { stage: fpStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
 }

@@ -154,6 +154,9 @@ export function rememberFreeplayRun(profile, ledger, result) {
     stageId: result.stageId, difficulty: result.difficulty, freeplay: result.freeplay, goal: count(result.goal),
     wavesCleared: count(result.wavesCleared), kills: { ...(result.kills || {}) }, encountered: [...(result.encountered || [])],
     banked: { goal: count(ledger.bank.banked?.goal), kills: { ...(ledger.bank.banked?.kills || {}) }, encountered: [...(ledger.bank.banked?.encountered || [])] },
+    // solo freeplay (src/systems/freeplayRewards.js): its best field and its capped coins per wave
+    ...(ledger.payout?.bestKey ? { bestKey: ledger.payout.bestKey } : {}),
+    ...(ledger.payout?.waveCoins != null ? { waveCoins: count(ledger.payout.waveCoins) } : {}),
   };
   const keys = Object.keys(all);
   for (const k of keys.slice(0, Math.max(0, keys.length - PENDING_MAX))) delete all[k];
@@ -181,7 +184,11 @@ export function payPendingFreeplayRuns(profile, rngFor) {
     delete all[seed]; // first: a run that fails to pay is never paid twice
     if (!isObj(rec)) continue;
     try {
-      const res = applyCoopFreeplayEnd(profile, { ...rec, won: false, finished: false }, rngFor(seed), { banked: rec.banked });
+      const res = applyCoopFreeplayEnd(profile, { ...rec, won: false, finished: false }, rngFor(seed), {
+        banked: rec.banked,
+        ...(rec.bestKey === 'freeplayBest' ? { bestKey: 'freeplayBest' } : {}),
+        ...(rec.waveCoins != null ? { waveCoins: count(rec.waveCoins) } : {}),
+      });
       if (res.freeplay) out.push({ ...res, stageId: rec.stageId });
     } catch (e) {
       console.warn('[coop] a pending freeplay run could not be paid', e);
@@ -242,11 +249,14 @@ export function coopBestWaves(profile, stageId) {
  * @param {object} profile
  * @param {object} result Sim.result() (result.freeplay = tier id, result.goal, result.wavesCleared)
  * @param {{ next(): number }} rng
- * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null }} [opts]
+ * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null, bestKey?: string }} [opts]
+ *   bestKey: the stage-entry field holding the per-tier best (co-op `coopBestWave`; solo freeplay,
+ *   src/systems/freeplayRewards.js, uses `freeplayBest` with these same payouts); waveCoins: coins per
+ *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage)
  * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tokens,
  *   best, prevBest, newBest, milestones: [{ id, label, gems, title?, frame? }] }`
  */
-export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {}) {
+export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null } = {}) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
@@ -264,7 +274,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
   const killed = addSightings(profile, newlySeen, kills);
   if (killed) track(profile, 'kill', killed);
 
-  const coins = Math.round(R.coinsPerWave * waves * (table.rewardMul ?? 1));
+  const coins = Math.round((waveCoins ?? R.coinsPerWave * (table.rewardMul ?? 1)) * waves);
   if (coins > 0) rewards.push({ id: 'coins', count: coins });
   const caches = Math.floor(waves / R.cacheEvery);
   for (let i = 0; i < caches; i++) rewards.push(...rollFreeplayCache(stage.id, result.difficulty, rng));
@@ -275,7 +285,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
 
   // the per-tier best (absolute waves cleared: "147/15")
   const entry = ((profile.progress ||= { stages: {} }).stages ||= {})[stage.id] ||= { easy: false, normal: false, hard: false, nightmare: false, clears: 0 };
-  const bests = (entry.coopBestWave = isObj(entry.coopBestWave) ? entry.coopBestWave : {});
+  const bests = (entry[bestKey] = isObj(entry[bestKey]) ? entry[bestKey] : {});
   const prevBest = count(bests[table.id]);
   const newBest = cleared > prevBest;
   if (newBest) bests[table.id] = cleared;

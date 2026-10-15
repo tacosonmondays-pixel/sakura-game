@@ -15,7 +15,7 @@ running), with Start waiting.
 | Pause menu | **Resume · Restart · Save & quit**; endless runs also get **End run** (cash out: exactly what a defeat right now pays). Colours follow the risk: Save & quit keeps the battle (plain button), Restart throws it away (red). Practice, tutorial, clan boss and co-op keep a red Quit / Leave co-op. (This departs from spec §2.1, which kept Save & quit red: owner may want to confirm.) |
 | Save & quit confirm | Nothing done yet: "nothing to save". Between waves: "Continue from wave N of M". During a wave: "saved at the start of wave N; anything you build, upgrade or sell during this wave will be undone". |
 | Stage prep with a save | "Saved battle · Hard · wave 12 of 25 · ♥ 63 · 12 min ago", the frozen team, then **New game · Hard** and **Continue · Wave 12/25** (yellow) on one row (New game asks, naming both difficulties; "Keep it" cancels). Start is not shown. The picker is titled "New game difficulty", starts on the save's difficulty, marks it "Saved" and only changes New game. On a landscape phone the bar is one line plus one row (~92 px); in one column (portrait) the block leads the page, Continue above New game. |
-| Map screens | "Saved · W12" on campaign nodes (top-right, under NEXT), Bounty tiers, Total Assault cards (under the boss's HP), the Colosseum and endless rows ("Saved run · wave N" when there is no best yet). |
+| Map screens | "Saved · W12" on campaign nodes (top-right, under NEXT), Bounty tiers, Total Assault cards (under the boss's HP) and the Colosseum. (Tactical Challenge's map cards are Freeplay now, which never saves: no badge there.) |
 | Lobby | "▶ Grave Lych / Continue · Total Assault · Wave 4" (the battle's name first) for the most recent save; opens prep, never the battle. Shown in portrait too. |
 | Continue | Loading card "Resuming wave N…", toast "Welcome back! Wave N is next. Tap Start when you're ready." A girl who can't return after an update is refunded (toast). Both toasts are sticky and the scouting warnings wait ~4.6 s for them. A save this build can't restore is removed (sheet). |
 | Links | A battle URL carries `&resume=<run id>` once the run has a save, so a reload continues it. A finished / replaced run's link shows "already finished or was replaced", plus **Continue saved battle · Wave N** when a newer run holds the slot. A battle link without `resume` for a slot with a save goes to prep (toast) and never overwrites it. |
@@ -23,9 +23,21 @@ running), with Start waiting.
 | Saved battles full | Start on a stage without a save, with 5 kept, opens **Saved battles full**: the 5 saves, least play first (a finite stage by the share of waves cleared, endless runs last), the first one picked; **Delete & start** (red) or Cancel. The pick travels as `&evict=<run id>` and is only deleted when the new battle first saves (backing out keeps it). A battle reached without that choice (a deep link) is not saved and says so; its pause menu offers a plain Quit. |
 
 Saves: campaign, Bounty, solo Total Assault, the Colosseum and endless runs (`isSavableRun`). Never:
-practice (a locked stage), the tutorial, the clan boss, co-op. One save per slot (a stage; an endless
-run on a campaign map has its own slot `<id>:endless`; the Colosseum is `challenge`), at most 5
-(`MAX_BATTLE_SAVES`, spec §14 default; a 6th asks which one to replace).
+practice (a locked stage), the tutorial, the clan boss, co-op, solo freeplay. One save per slot (a
+stage; the Colosseum is `challenge`), at most 5 (`MAX_BATTLE_SAVES`, spec §14 default; a 6th asks
+which one to replace). The old endless runs on campaign maps (their own slot `<id>:endless`) are
+Freeplay now; a save of one from an earlier build is dropped with the update notice.
+
+**Solo freeplay is never saved** (docs/FREEPLAY.md). Its clear is banked as a normal win the moment
+the goal wave is cleared, and its freeplay part is paid when the run ends, when it is left after the
+goal, or at the next app start (`progress.freeplayPending`); that ledger lives in memory, so a
+continued copy would bank the clear again and pay the same freeplay waves twice. So a
+`freeplay=<tier>` run (and `endless=1` on a campaign map, which is one) has no saver: its pause menu
+offers a plain Quit, which returns to its prep with the tier picked. A normal run that may Keep going
+is saved as usual until it wins; the win deletes its save, and the freeplay run it continues into is
+not saved. Stage prep with a save and a Freeplay tier picked shows **Freeplay · Tier** beside
+Continue (a freeplay start that leaves the save alone) instead of New game. Continue always plays the
+save as it was saved: `parseBattleParams` never turns freeplay on next to `resume`.
 
 ## Economy and integrity
 
@@ -100,7 +112,8 @@ progress.
 Co-op freeplay (`src/sim/freeplay.js`) added `freeplay` and `lastWave` (config: the constructor's
 flag and last playable wave), `_fp` (calm: the current freeplay wave's pressure, set at every wave
 start before its first spawn) and `finished` (calm: only `finish()` sets it, and that ends the
-battle). Battle saves are solo and a solo Sim is never a freeplay one, so none of it is saved:
+battle). Solo freeplay uses the same fields (`freeplay=<tier>`, Keep going), but freeplay runs are
+never saved (above), so none of it is saved:
 `snapshotSim` throws on a freeplay Sim and `restoreSim` never passes `options.freeplay` (an edited
 record asking for it still restores a plain solo run). Enemy-level freeplay fields (flat armor,
 Resolve budgets, per-spawn HP and affixes) never reach a save: there are no enemies at a calm point.

@@ -19,17 +19,19 @@ export function createWaveControl(ctx) {
   finish.hidden = true;
   const el = h('div.bt-wavectl', clearHead, start, h('div.bt-wavectl-row', finish, auto));
   ctx.layer.append(el);
-  const fp = sim.freeplay ? sim.stage.freeplay : null;
-  if (fp) el.dataset.tier = fp.id;
   const lastWave = () => sim.lastWave ?? sim.totalWaves;
 
   let last = '';
+  let fp = null;
   function update() {
+    // read live: a solo run that won its last wave can Keep going into freeplay
+    fp = sim.freeplay ? sim.stage.freeplay : null;
+    if (fp && el.dataset.tier !== fp.id) el.dataset.tier = fp.id;
     const canStart = (sim.state === 'prep' || sim.state === 'between') && (sim.endless || sim.wave < lastWave());
     // the goal wave just cleared (freeplay): the clear card
     const atClear = !!fp && sim.state === 'between' && sim.wave === sim.totalWaves;
     const voted = !!ctx.myFinishVote?.();
-    const key = `${canStart}|${sim.wave}|${sim.options.autoStart}|${sim.state}|${atClear}|${voted}`;
+    const key = `${canStart}|${sim.wave}|${sim.options.autoStart}|${sim.state}|${atClear}|${voted}|${fp?.id}`;
     if (key !== last) {
       last = key;
       start.hidden = !canStart;

@@ -82,9 +82,10 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
   events: 'scratch', _waveCache: 'scratch', _scratch: 'scratch', _scratch2: 'scratch', _hitOut: 'scratch', _dotOut: 'scratch',
   _capSources: 'scratch',
-  // Co-op freeplay (src/sim/freeplay.js). Battle saves are solo only and a solo battle is never a
-  // freeplay Sim (options.freeplay is set by the co-op start message alone), so none of this is
-  // saved: snapshotSim refuses a freeplay Sim, and restoreSim builds one without options.freeplay.
+  // Freeplay (src/sim/freeplay.js): co-op, and solo freeplay (freeplay=<tier>, Keep going). Neither
+  // is ever saved (co-op battles never save; isSavableRun is false for a solo freeplay run, and a
+  // Keep going run's save is deleted by its win), so none of this is saved: snapshotSim refuses a
+  // freeplay Sim, and restoreSim builds one without options.freeplay.
   //   freeplay: the constructor's flag (options.freeplay + the stage's tier table) — false in solo;
   //   lastWave: the constructor's last playable wave (totalWaves outside freeplay);
   //   _fp: the current freeplay wave's pressure (flat armor, Resolve budgets), set at every wave
@@ -125,8 +126,8 @@ const r = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
  */
 export function snapshotSim(sim) {
   if (sim.state !== 'prep' && sim.state !== 'between') throw new Error(`[battleSave] no snapshot while ${sim.state}`);
-  // co-op freeplay state (goal, pressure, Finish) has no place in a solo save (see KNOWN_SIM_KEYS)
-  if (sim.freeplay) throw new Error('[battleSave] a freeplay battle is co-op only and never saved');
+  // freeplay state (goal, pressure, Finish) has no place in a battle save (see KNOWN_SIM_KEYS)
+  if (sim.freeplay) throw new Error('[battleSave] a freeplay battle (co-op or solo) is never saved');
   const { leakLog, ...stats } = JSON.parse(JSON.stringify(sim.stats));
   return {
     v: SNAP_V,
@@ -187,7 +188,7 @@ export function restoreSim(rec, profile = null) {
       loadout: (rec.loadout || []).map(teamEntry).filter(Boolean),
       hero: teamEntry(rec.hero),
       seed: rec.seed,
-      // never options.freeplay: a battle save is a solo run (co-op freeplay is not saved)
+      // never options.freeplay: freeplay runs (co-op or solo) are never saved
       options: { endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart },
     });
   } catch (e) {
