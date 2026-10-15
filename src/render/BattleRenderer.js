@@ -160,6 +160,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
   const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
   actors.fxHook = attackFx;
+  // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
+  // on the first one the FX switch off for this battle (today's look) and it is logged once
+  let fxBroken = false;
+  function fxSafe(fn) {
+    if (fxBroken) return false;
+    try {
+      return fn();
+    } catch (err) {
+      fxBroken = true;
+      actors.fxHook = null;
+      try {
+        attackFx.dispose();
+      } catch {
+        /* already broken: leave what is drawn */
+      }
+      console.warn('[attack fx] disabled after an error', err);
+      return false;
+    }
+  }
 
   // ----- post-processing -------------------------------------------------------------------
   let composer = null;
@@ -280,7 +299,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     let hitFx = 0;
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
-      if (attackFx?.onEvent(ev, i, events)) continue;
+      if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -540,7 +559,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.sync(d);
     terrain.update(time);
     actors.drawGround(d);
-    attackFx?.update(d);
+    if (attackFx) fxSafe(() => attackFx.update(d));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);

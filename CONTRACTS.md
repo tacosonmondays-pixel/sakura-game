@@ -795,6 +795,7 @@ r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
 r.setCameraMode('locked'|'free')  // locked (default, settings.camera) holds the fitted view; free = pan / pinch / wheel / double-tap
+r.setPanelCover({ right, bottom }) // CSS px the battle info panel covers; a selected girl's ring slides clear of it
 r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, position, target, isDefault } for tests
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
@@ -812,7 +813,9 @@ Quad batches now `begin()` before events / `actors.sync` (projectile glows pushe
 wiped before and never drawn).
 
 Camera: angled orthographic (≈55° pitch) framing the whole map. Locked by default (settings.camera):
-the fitted view never moves. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
+the fitted view never moves from a drag, pinch or wheel; the one exception is the panel slide — when a
+selected girl's range ring would sit under the info panel, the board glides aside just far enough
+(r.setPanelCover(c) tells the renderer what the panel covers) and back when the panel closes. 'free': drag to pan, pinch/wheel to zoom, double-tap to reset. Placing a
 girl (opts.isPlacing, or a ghost on the board) holds the camera still in both modes, impact shakes
 and a free-mode reset glide included (CameraRig.holdStill); a press that began while placing never
 pans, and the tap that places her is never half of a double-tap reset. A board tap may wander 20 px (9 px when a
