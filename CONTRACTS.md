@@ -721,7 +721,7 @@ hunts its own quarry inside the wing's roam area, follows it at `speed` and shoo
 **guided** bullets (they hit only their target and fizzle when it is gone). Strong / Elite focus the wing on
 one enemy; First / Last / Close spread it. Flight mode (a player choice, co-op command `fly`):
 `hover` (default: within `leash` of her) · `hold` (within `leash` of point A) · `patrol` (around a position
-travelling A ↔ B at 0.6 × speed) · `pursuit` (anywhere on the map, fire rate × 0.8). Hold / Patrol points are
+travelling A ↔ B at 0.6 × speed) · `pursuit` (anywhere on the map, fire rate × 0.85). Hold / Patrol points are
 pulled inside her signal range (2 × leash). A sapper with no girl in reach jams the nearest drone (3 s).
 Credit: `_hit(e, tower, spec, scale = 1, drone = null)`, `_credit(tower, dealt, e = null, drone = null)`,
 `_killEnemy(e, tower, drone = null)` (LANDING_PLAN S1); her own numbers = totals − drone totals.
