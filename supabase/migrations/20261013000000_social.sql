@@ -1839,6 +1839,8 @@ begin
     return null;
   end if;
   return array[k];
+exception when others then
+  return null; -- never let this break a join, a leave or a kick: the notice just carries no subject
 end $$;
 
 -- Remembers (for this transaction) the member a clan notice of the first migration is about.
