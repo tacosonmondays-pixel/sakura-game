@@ -158,10 +158,30 @@ export function addGear(profile, gear) {
  * Open gear boxes from the backpack into real gear.
  * @returns {{ ok: boolean, error?: string, gear: object[] }}
  */
+/**
+ * Most gear pieces a save holds (equipped ones included). Opening boxes stops there, so a huge
+ * pile of boxes can never freeze the game or grow the save past what the browser can store
+ * (99,000 boxes opened at once did both).
+ */
+export const GEAR_BAG_MAX = 1000;
+/** Most boxes one tap opens. */
+export const OPEN_BATCH_MAX = 100;
+/** @returns {number} gear pieces in the save */
+export const gearCount = (profile) => Object.keys(profile?.gear || {}).length;
+/** @returns {number} free places in the gear bag */
+export const gearRoom = (profile) => Math.max(0, GEAR_BAG_MAX - gearCount(profile));
+
+/**
+ * Open up to `count` boxes: at most OPEN_BATCH_MAX at a time and never past GEAR_BAG_MAX
+ * (boxes that don't fit stay in the backpack).
+ * @returns {{ ok: boolean, error?: 'notGearBox'|'missing'|'bagFull', gear: object[], opened?: number, wanted?: number }}
+ */
 export function openGearBox(profile, itemId, rng, count = 1) {
   const item = getItem(itemId);
   if (!item || item.category !== 'gearbox') return { ok: false, error: 'notGearBox', gear: [] };
-  const n = Math.max(1, Math.floor(count));
+  const wanted = Math.max(1, Math.floor(count));
+  const n = Math.min(wanted, OPEN_BATCH_MAX, gearRoom(profile));
+  if (n <= 0) return { ok: false, error: 'bagFull', gear: [], opened: 0, wanted };
   if (!consumeItems(profile, [{ id: itemId, count: n }])) return { ok: false, error: 'missing', gear: [] };
   const gear = [];
   for (let i = 0; i < n; i++) {
@@ -169,7 +189,7 @@ export function openGearBox(profile, itemId, rng, count = 1) {
     g.uid = addGear(profile, g);
     gear.push(profile.gear[g.uid]);
   }
-  return { ok: true, gear };
+  return { ok: true, gear, opened: n, wanted };
 }
 
 /**

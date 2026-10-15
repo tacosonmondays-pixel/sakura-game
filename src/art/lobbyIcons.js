@@ -264,6 +264,24 @@ const ICONS = {
     return { sil, art };
   },
 
+  clan({ lin }) {
+    // a swallow-tailed clan banner on a gold pole, a sakura crest in the middle
+    const banner = 'M19 13h31v34l-15.5-7.5L19 47z';
+    const sil = '<rect x="13.5" y="7" width="5" height="51" rx="2.5"/><circle cx="16" cy="7" r="4"/><rect x="14" y="9.5" width="38" height="5" rx="2.5"/>'
+      + `<path d="${banner}"/><path d="${sparklePath(53, 52, 6)}"/>`;
+    const art = `<rect x="13.5" y="7" width="5" height="51" rx="2.5" fill="${lin('pole', [[0, P.wood[0]], [1, P.wood[2]]], 'h')}" ${LINE_SOFT}/>`
+      + `<circle cx="16" cy="7" r="4" fill="${lin('finial', [[0, P.yellow[0]], [1, P.yellow[2]]])}" ${LINE_SOFT}/>`
+      + `<path d="${banner}" fill="${lin('flag', [[0, '#8fb8ff'], [0.55, P.blue[1]], [1, P.purple[2]]])}" ${LINE}/>`
+      + '<path d="M19 13h31v4.2H19z" fill="#ffd34d" opacity=".95"/>'
+      + '<path d="M22 43.6V18.6M47 43.6V18.6" stroke="#ffffff" stroke-width="1.1" opacity=".35"/>'
+      + `<circle cx="34.5" cy="28.5" r="9.2" fill="${lin('crest', [[0, '#ffffff'], [1, '#dbe9ff']])}" stroke="#ffd34d" stroke-width="1.4"/>`
+      + blossom(34.5, 28.5, 6.4, P.pink[1], '#ffd34d')
+      + `<rect x="14" y="9.5" width="38" height="5" rx="2.5" fill="${lin('bar', [[0, P.yellow[0]], [1, P.yellow[2]]])}" ${LINE_SOFT}/>`
+      + gloss('M22.5 21q0-2.6 2.6-3.6', 0.6, 1.8)
+      + `<path d="${sparklePath(53, 52, 6)}" fill="${lin('spark', [[0, P.yellow[0]], [1, P.yellow[1]]])}" ${LINE_SOFT}/>`;
+    return { sil, art };
+  },
+
   options({ lin }) {
     const big = gearPath(25, 28, 17, 12.5, 9);
     const small = gearPath(45, 45, 11.5, 8.2, 7);

@@ -3,6 +3,7 @@ import { createProfile } from '../../src/systems/save.js';
 import {
   rollGear, addGear, equipGear, unequipGear, rerollCost, rerollSubstats, rerollMainStat, enhanceCost, enhanceGear,
   salvageGear, gearStatTotals, describeStat, mainStatRange, substatRange, openGearBox, setGearLocked, MAX_GEAR_LEVEL,
+  GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount, gearRoom,
 } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 import { GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, GEAR_STATS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
@@ -237,6 +238,31 @@ describe('enhance & salvage', () => {
     }
     expect(p.items.gearbox_mythic).toBeUndefined();
     expect(openGearBox(p, 'gearbox_mythic', createRng(4)).ok).toBe(false);
+  });
+
+  it('opens at most OPEN_BATCH_MAX boxes a tap; the rest stay (99,000 boxes at once froze the game)', () => {
+    const p = createProfile();
+    p.items.gearbox_common = 99_000;
+    const r = openGearBox(p, 'gearbox_common', createRng(7), 99_000);
+    expect(r).toMatchObject({ ok: true, opened: OPEN_BATCH_MAX, wanted: 99_000 });
+    expect(r.gear).toHaveLength(OPEN_BATCH_MAX);
+    expect(p.items.gearbox_common).toBe(99_000 - OPEN_BATCH_MAX);
+    expect(gearCount(p)).toBe(OPEN_BATCH_MAX);
+  });
+
+  it('never fills the gear bag past GEAR_BAG_MAX: a partial open, then bagFull with nothing spent', () => {
+    const p = createProfile();
+    const rng = createRng(9);
+    for (let i = gearCount(p); i < GEAR_BAG_MAX - 10; i++) addGear(p, rollGear(rng, { rarity: 'common' }));
+    expect(gearRoom(p)).toBe(10);
+    p.items.gearbox_rare = 50;
+    const part = openGearBox(p, 'gearbox_rare', rng, 50);
+    expect(part).toMatchObject({ ok: true, opened: 10, wanted: 50 });
+    expect(p.items.gearbox_rare).toBe(40);
+    expect(gearCount(p)).toBe(GEAR_BAG_MAX);
+    const full = openGearBox(p, 'gearbox_rare', rng, 5);
+    expect(full).toMatchObject({ ok: false, error: 'bagFull', gear: [] });
+    expect(p.items.gearbox_rare).toBe(40);
   });
 });
 

@@ -87,16 +87,20 @@ export function openClaimedBoxes(granted, { onDone = null } = {}) {
   const p = store.profile;
   const gear = [];
   const rng = createRng((Date.now() ^ Math.floor(performance.now() * 1000)) >>> 0);
+  let full = false;
   for (const [id, n] of Object.entries(granted)) {
     const k = Math.min(n, itemCount(p, id));
     if (k <= 0) continue;
     const r = openGearBox(p, id, rng, k);
     if (r.ok) gear.push(...r.gear);
+    // the gear bag's limit (or one tap's limit) stopped it: the rest stay in the backpack
+    if (!r.ok ? r.error === 'bagFull' : r.opened < k) full = true;
   }
   if (!gear.length) {
-    toast('No gear boxes left to open.', 'info');
+    toast(full ? 'Your gear bag is full. Salvage some gear first; the boxes stay in your backpack.' : 'No gear boxes left to open.', 'info');
     return;
   }
+  if (full) toast('Some boxes stay in your backpack: the gear bag is full, or that was the most one tap opens.', 'info', 4200);
   store.commit('gearbox-open');
   const seeAll = (close) => { close(); navigate('backpack', { tab: 'equipment' }); };
   let m;

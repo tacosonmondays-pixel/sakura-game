@@ -138,11 +138,13 @@
 .ol-drawer-overlay.out .ol-drawer { animation: ol-drawer-out 200ms forwards; }
 @keyframes ol-drawer-in { from { transform: translateX(40px); opacity: 0; } }
 @keyframes ol-drawer-out { to { transform: translateX(40px); opacity: 0; } }
-.ol-drawer-head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 8px; }
-.ol-drawer-head > b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.15rem; }
+/* two rows: the title with Messages / Open / × on top, the channel tabs on their own full-width row
+   below (in one row, "[TAG] Clan" was squeezed between Global and the buttons) */
+.ol-drawer-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 2px 2px 8px; }
+.ol-drawer-head > b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.15rem; margin-right: auto; }
 .ol-drawer-ico { width: 24px; height: 24px; color: var(--blue); }
-.ol-drawer-tabs { display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.ol-drawer-tab { border: none; border-radius: 7px; padding: 5px 11px; font-weight: 900; font-size: 0.8rem; color: var(--muted); background: rgba(255,255,255,0.7); white-space: nowrap; transform: skewX(var(--skew)); }
+.ol-drawer-tabs { order: 1; flex: 1 0 100%; display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.ol-drawer-tab { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; border: none; border-radius: 7px; padding: 6px 11px; font-weight: 900; font-size: 0.82rem; color: var(--muted); background: rgba(255,255,255,0.7); white-space: nowrap; transform: skewX(var(--skew)); }
 .ol-drawer-tab.on { background: var(--blue); color: #fff; box-shadow: 0 2px 6px rgba(43,127,255,0.35); }
 .ol-drawer-full { border: 1px solid var(--line); background: #fff; color: var(--blue-deep); border-radius: 7px; padding: 5px 10px; font-weight: 900; font-size: 0.78rem; }
 .ol-drawer-x { width: 34px; height: 34px; border: none; border-radius: 8px; background: transparent; color: var(--navy); font-size: 1.6rem; line-height: 1; padding: 0; }
