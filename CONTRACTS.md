@@ -424,7 +424,7 @@ export const BACKUP_KEY = 'sakura-sentinels-save-v1.backup', MAX_BACKUPS = 3; //
 export function createProfile()           // fresh profile: starters owned, 2400 gems, 1 ticket_recruit10, formation set
 export function migrateProfile(raw)        // fills missing fields, upgrades old versions; never throws on partial data (lossy for other builds' saves)
 export function migrationDropsData(raw)    // true when migrateProfile would leave unknown units/items/gear (or a stub save) out
-export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version }; newer/corrupt load fresh
+export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version, droppedBattles? }; newer/corrupt load fresh
 export function backupNotice(reason, kept) // player-facing sentence for store.takeNotice()
 export function serializeProfile(p)        // compact string (base64 JSON) for export
 export function deserializeProfile(text)   // throws Error('Invalid save') on garbage, Error('Newer save') for a newer build's save
@@ -448,9 +448,33 @@ Profile = {
   mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
   seenIntro: string[],
+  battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
 }
 GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
 ```
+
+### `src/systems/battleSave.js` (battle saves)
+
+```js
+export const RECORD_V, SNAP_V, MAX_BATTLE_SAVES /*5*/;
+export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map; 'challenge' stays
+export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice
+export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the least play past the cap*/
+export function savesByWorth(profile) /*least play first; endless last*/, saveToEvict(profile, slot) /*null when there is room*/
+export function clearBattleSave(profile, slot, runId?) /*with runId: only that run*/, saveTitle(rec) /*{ name, mode }*/
+export function droppedBattleSaves(raw), droppedBattleSaveNames(raw) // the one-time notice after an update
+export function saveSummary(rec, now)            // -> { next /*the wave fought next*/, of /*null when endless*/, lives, difficulty, endless, ago }
+export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore or a wave past a shortened stage, keeps the newest 5)
+BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, seed /*uint32 run seed*/,
+  loadout: [{ unitId, stats }], hero: { unitId, stats }|null /*unitBattleStats frozen at New game*/,
+  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty }, snap /*src/ui/battle/snapshot.js*/ }
+```
+Rules: rewards, medals, first clears, stats, missions and drops only on a real end (`results.apply()`),
+which deletes the run's save in the same synchronous write; a closed or replaced run never writes
+again; a full set of saves is only replaced by the player's choice (stage prep → `&evict=<run id>`);
+`store.saveNow()` refuses to write (`lastSaveError: 'stale'`, a 'stale' event) when another tab
+removed a saved battle this tab still holds. A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
+ignores it: no whole-save backup).
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -537,7 +561,10 @@ export function expectedSSRRate()        // for the rates screen (includes pity)
 
 ```js
 export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count}] (gear boxes resolved to gear)
-export function applyBattleResult(profile, result, rng)
+export function battleDropSeed(stageId, difficulty, runSeed)    // drop rng seed of a saved run (no Date.now(): no reroll by finishing twice)
+export function eventMul(stageId, now)                          // this week's event drop multiplier
+export function battleEventMul(stageId, now, eventAt?)          // a saved run: its start week's event, while it finishes within EVENT_GRACE_MS (48 h) of that week
+export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) // eventAt: when a saved run started (event bonus)
   // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
   // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
   // practice = the stage is still locked (isPracticeRun): nothing is recorded, the profile is untouched
@@ -731,6 +758,14 @@ greedily places girls on the best-covered spots of a 0.25-tile lattice (never ov
 respected; actions carry `x`, `y` plus the tile `tx`, `ty` under them; road inside tunnels counts as
 no coverage) — used to check that every campaign stage is beatable on Normal with free units only.
 
+Battle saves read and write a short, documented list of Sim fields from outside this folder
+(`src/ui/battle/snapshot.js`, so the co-op id does not move): every new own field of the Sim or of a
+TowerRT must be classified in its `KNOWN_SIM_KEYS` / `KNOWN_TOWER_KEYS` (tests fail until it is), and
+player-made state that lives across waves must be added to `snapshotSim` / `restoreSim`. The calm
+point contract: in 'prep' / 'between' there are no enemies, statuses, shots or aura fields, and no
+random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
+the instance). See docs/BATTLE_SAVE.md.
+
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
@@ -866,8 +901,15 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing). Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>][&evict=<run id>]` (`endless` only where `canPlayEndless`; a locked
+stage plays as a practice run that saves nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
+gets `&resume=<run id>` (history.replaceState) once it has a save, so a reload continues it; a
+`resume` that no longer matches the slot's save shows "already finished or was replaced"; a battle
+link without `resume` for a slot that has a save goes to stage prep (it never overwrites a save);
+`evict` is the saved battle the player chose to replace when 5 are kept (deleted on this run's first
+save; without it a 6th run is not saved).
+Pause menu: Resume · Restart · Save & quit (End run for endless runs); co-op, clan boss, tutorial and
+practice keep Quit / Leave co-op. Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy

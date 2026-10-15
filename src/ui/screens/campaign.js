@@ -16,7 +16,7 @@ import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon, traitIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
-import { medalRow, requirementText, cssVar, rememberParams } from './stage.js';
+import { medalRow, requirementText, cssVar, rememberParams, savedBadge } from './stage.js';
 
 const TIER_KEYS = Object.keys(MAP_TIERS);
 
@@ -162,6 +162,7 @@ function stageCard(profile, stageId, { isNext }) {
       h('span.ma-sc-id', stage.id),
       isNext ? h('span.ma-sc-next', 'NEXT') : null,
       medalRow(profile, stageId, { size: 22, cls: 'ma-sc-medals' }),
+      unlocked ? savedBadge(profile, stageId) : null,
     ),
     h('div.ma-sc-info',
       h('div.ma-sc-name', stage.name),

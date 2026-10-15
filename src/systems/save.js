@@ -7,6 +7,7 @@ import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -102,6 +103,8 @@ export function createProfile() {
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
     seenIntro: [],
     seq: { gear: 0 },
+    /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
+    battleSaves: {},
   };
 }
 
@@ -423,13 +426,16 @@ export function migrateProfile(raw) {
   const st = isObj(raw.stats) ? raw.stats : {};
   p.stats = { battles: int(st.battles, 0, 0), wins: int(st.wins, 0, 0), kills: int(st.kills, 0, 0), pulls: int(st.pulls, 0, 0), gemsEarned: int(st.gemsEarned, 0, 0) };
   p.seenIntro = strList(raw.seenIntro);
+  // additive (no version bump): a save from before battle saves simply has none
+  p.battleSaves = cleanBattleSaves(raw.battleSaves);
   p.version = SAVE_VERSION;
   return p;
 }
 
 /**
  * True when migrateProfile would leave stored data out: students or items this build does
- * not know, gear it cannot read, or a whole pre-release stub save.
+ * not know, gear it cannot read, or a whole pre-release stub save. A saved battle this build
+ * cannot restore does not count (it is dropped with its own notice, no whole-save backup).
  * @param {any} raw parsed profile
  * @returns {boolean}
  */
@@ -448,8 +454,9 @@ export function migrationDropsData(raw) {
  * - unreadable (not JSON, not an object) → fresh profile, `backup: 'corrupt'`
  * - written by a newer build (version > SAVE_VERSION) → fresh profile, `backup: 'newer'`
  * - migration would leave data out (migrationDropsData) → migrated profile, `backup: 'lossy'`
+ * `droppedBattles` counts saved battles this build could not keep (a notice, not a backup).
  * @param {string|null|undefined} text
- * @returns {{ profile: object, backup: null|'corrupt'|'newer'|'lossy', version: number|null }}
+ * @returns {{ profile: object, backup: null|'corrupt'|'newer'|'lossy', version: number|null, droppedBattles?: number }}
  */
 export function loadSaveText(text) {
   if (typeof text !== 'string' || !text.trim()) return { profile: createProfile(), backup: null, version: null };
@@ -463,7 +470,7 @@ export function loadSaveText(text) {
   const version = int(raw.version, 0, 0);
   if (version > SAVE_VERSION) return { profile: createProfile(), backup: 'newer', version };
   try {
-    return { profile: migrateProfile(raw), backup: migrationDropsData(raw) ? 'lossy' : null, version };
+    return { profile: migrateProfile(raw), backup: migrationDropsData(raw) ? 'lossy' : null, version, droppedBattles: droppedBattleSaves(raw) };
   } catch {
     return { profile: createProfile(), backup: 'corrupt', version };
   }

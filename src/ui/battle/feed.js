@@ -62,8 +62,9 @@ export function createFeed(layer) {
   /**
    * @param {string|Node} content
    * @param {'info'|'good'|'warn'|'bad'|'new'} kind
-   * @param {{ key?: string, ms?: number, merge?: boolean, icon?: Node }} [o]
-   *   key: throttles duplicates (and with merge, bumps a ×N counter on the live toast)
+   * @param {{ key?: string, ms?: number, merge?: boolean, icon?: Node, sticky?: boolean }} [o]
+   *   key: throttles duplicates (and with merge, bumps a ×N counter on the live toast);
+   *   sticky: newer toasts push the others out first (a welcome back, a refund note)
    */
   function push(content, kind = 'info', o = {}) {
     const ms = (o.ms ?? 2600) * (shortScreen() ? 0.8 : 1);
@@ -81,8 +82,13 @@ export function createFeed(layer) {
     dock();
     const t = h(`div.bt-toast.bt-toast-${kind}`, { 'data-key': o.key || null }, o.icon || null, h('span.bt-toast-text', content));
     t.dataset.until = String(performance.now() + ms);
+    if (o.sticky) t.dataset.sticky = '1';
     list.prepend(t);
-    while (list.children.length > maxToasts()) list.lastElementChild.remove();
+    // over the limit: the oldest toast that is not sticky goes (else the oldest one)
+    while (list.children.length > maxToasts()) {
+      const old = [...list.children].reverse().find((n) => n !== t && !n.dataset.sticky) || list.lastElementChild;
+      old.remove();
+    }
     const check = () => {
       if (!t.isConnected) return;
       const left = Number(t.dataset.until) - performance.now();
