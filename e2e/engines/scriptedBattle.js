@@ -484,11 +484,144 @@ export function runDeepFreeplay({ stageId = '8-5', tier = 'blossom', fromWave = 
 }
 
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle and freeplay. */
+// ---------------------------------------------------------------------------
+// Potential (src/data/potential.js): every kind of step in one co-op battle
+// ---------------------------------------------------------------------------
+
+const P = (potential, more = {}) => ({ ...CHEAP, potential, ...more });
+/**
+ * Potential's scenario (docs/specs/POTENTIAL.md §11.2): drones (Chika), traps (Suzu), an aura
+ * (Miko), the focus cap (Kaede), elites (hero Luna), coins (Momo), silence (Hotaru), crit (Shiro
+ * P4), range (Yuki), and the SAME girl at two Potentials: host Aoi P1, guest Aoi P6. (Umeko's
+ * aura-speed step needs water, which 1-3 lacks; tests/sim/mods.test.js covers it.) START stays
+ * as it is, so its digest keeps meaning "P1 changes nothing".
+ */
+export const POTENTIAL_START = Object.freeze({
+  seed: 616161,
+  stageId: '1-3',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: P(1) }, { unitId: 'chika', stats: P(6) }, { unitId: 'suzu', stats: P(6) }, { unitId: 'miko', stats: P(6) }, { unitId: 'kaede', stats: P(5) }], hero: { unitId: 'luna', stats: P(6) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'aoi', stats: P(6, { damageMul: 1.1 }) }, { unitId: 'momo', stats: P(6) }, { unitId: 'hotaru', stats: P(6) }, { unitId: 'shiro', stats: P(4) }, { unitId: 'yuki', stats: P(6) }], hero: null },
+  ],
+});
+
+/**
+ * POTENTIAL_START to the end: each player places her girls as her own coins allow (in list
+ * order), upgrades two of them, auto-start and 2× speed; the host fires Luna's ult when ready.
+ * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats)
+ */
+export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
+  const t0 = Date.now();
+  const start = POTENTIAL_START;
+  const rng = createRng(11);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const refused = [];
+  const mk = (slot) => new Lockstep({
+    start,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: { onApplied: (c, r) => { if (!r.ok && slot === 0) refused.push(`${c.k}@${c.t}:${r.reason}`); } },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const host = ['luna', 'aoi', 'chika', 'suzu', 'miko', 'kaede'];
+  const guest = ['aoi', 'momo', 'hotaru', 'shiro', 'yuki'];
+  const all = [...new Set([...host, ...guest])];
+  const sp = spotsFor(start, all, 2);
+  const used = new Set();
+  const spotOf = (u) => {
+    const q = sp[u].find((x) => !used.has(x.join()));
+    if (q) used.add(q.join());
+    return q;
+  };
+  const later = [...host.map((u) => [A, u, spotOf(u)]), ...guest.map((u) => [B, u, spotOf(u)])].filter((x) => x[2]);
+  const upgrades = [[A, 'chika', 0], [A, 'suzu', 0], [B, 'aoi', 0], [B, 'momo', 2], [B, 'aoi', 1], [A, 'miko', 1]];
+  let ults = 0;
+  let lastUlt = -1e9;
+  let aoi = '';
+  while (frame < maxFrames && !(A.finished && B.finished)) {
+    if (frame === 20) A.queue('wave');
+    if (frame === 30) A.queue('auto', [true]);
+    if (frame === 40) B.queue('speed', [2]);
+    // each player: her next girl when her own wallet allows it; one in flight at a time, and a
+    // girl leaves the list only once she stands on the map (a refused place is tried again)
+    for (const c of clients) {
+      const i = later.findIndex((x) => x[0] === c);
+      if (i < 0 || frame % 15) continue;
+      const [, unit, [qx, qy], sent] = later[i];
+      if (c.sim.towers.some((t) => t.def.id === unit && c.coop.isMine(t.uid))) {
+        later.splice(i, 1);
+        continue;
+      }
+      if (frame - (sent ?? -1e9) < 120) continue;
+      if (c.sim.canPlace(unit, qx / 1024, qy / 1024).ok) {
+        c.queue('place', [unit, qx, qy]);
+        later[i][3] = frame;
+      }
+    }
+    if (!later.length && upgrades.length && frame % 60 === 0) {
+      const [c, unit, path] = upgrades[0];
+      const t = c.sim.towers.find((x) => x.def.id === unit && c.coop.isMine(x.uid));
+      if (t && c.sim.coins >= 0) {
+        c.queue('upg', [t.uid, path]);
+        upgrades.shift();
+      }
+    }
+    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120) {
+      lastUlt = A.tick;
+      A.queue('ult');
+      ults++;
+    }
+    if (!aoi && A.sim.towers.filter((t) => t.def.id === 'aoi').length === 2) {
+      const [x, y] = A.sim.towers.filter((t) => t.def.id === 'aoi').map((t) => t.stats);
+      aoi = [x, y].map((st) => `${st.damage}/${st.rate}/${st.range}/${st.crit.chance}`).join(' | ');
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    for (const c of clients) c.advance(1 / 60);
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const pairs = A.hashPairs();
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    towers: A.sim.towers.map((t) => `${t.def.id}:P${t.unitStats?.potential ?? 1}`).join(' '),
+    wallets: A.coop.wallets.join('/'),
+    final: A.coop.hash(),
+    hashes: bitsHash(pairs.map((p) => Number.parseInt(p.mine, 16) || 0)),
+    checkpoints: pairs.length,
+    agree: pairs.every((p) => p.mine === p.theirs) && A.coop.hash() === B.coop.hash(),
+    ults,
+    aoi,
+    failed: refused.length,
+    refused: refused.join(' '),
+    ms: Date.now() - t0,
+  };
+}
+
 export function runEngineChecks() {
   const r = runScriptedBattle();
+  const t1 = Date.now();
+  const potential = runPotentialBattle();
+  potential.ms = Date.now() - t1;
   const t0 = Date.now();
   const tables = freeplayTables();
   const battle = runFreeplayBattle();
   const deep = runDeepFreeplay();
-  return { ...r, freeplay: { tables, battle, deep, ms: Date.now() - t0 } };
+  return { ...r, potential, freeplay: { tables, battle, deep, ms: Date.now() - t0 } };
 }

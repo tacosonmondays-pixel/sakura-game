@@ -127,3 +127,82 @@ describe('crosspath rules (BTD6)', () => {
     expect(sim.upgradeStatus(t.uid, 0).cost).toBe(110); // 100 × 1.08 = 108 → 110
   });
 });
+
+// Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
+// and each kind of step lands where the spec says (docs/specs/POTENTIAL.md §11.1).
+import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
+
+describe('Potential in resolveStats', () => {
+  test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
+    const TIERS = [[0, 0, 0], [5, 0, 2], [2, 5, 0], [0, 2, 5]];
+    const out = [];
+    for (const u of REAL_UNITS) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
+      for (const us of [null, { damageMul: 1.3, rateMul: 1.1, rangeMul: 1.05, critChance: 0.1, awakenPassive: true, potential: 1 }]) {
+        out.push(resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us }));
+      }
+    }
+    let h = 0x811c9dc5;
+    const t = JSON.stringify(out);
+    for (let i = 0; i < t.length; i++) {
+      h ^= t.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    // computed on the commit before Potential M1 (same script, same 456 resolutions)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:9c7c19b9');
+  });
+
+  test('Aoi P6: damage ×1.02×1.03, rate ×1.02, range ×1.03, crit +0.03; P4 has no crit yet', () => {
+    const p1 = resolveStats(REAL.aoi, { unitStats: { potential: 1 } });
+    const p6 = resolveStats(REAL.aoi, { unitStats: { potential: 6 } });
+    expect(p6.damage).toBeCloseTo(p1.damage * 1.02 * 1.03, 12);
+    expect(p6.rate).toBeCloseTo(p1.rate * 1.02, 12);
+    expect(p6.range).toBeCloseTo(p1.range * 1.03, 12);
+    expect(p6.crit.chance).toBeCloseTo(p1.crit.chance + 0.03, 12);
+    expect(resolveStats(REAL.aoi, { unitStats: { potential: 4 } }).crit.chance).toBe(p1.crit.chance);
+  });
+
+  test('Potential multiplies on top of level and gear (one product with damageMul)', () => {
+    const s = resolveStats(REAL.aoi, { unitStats: { damageMul: 1.5, potential: 2 } });
+    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.02, 12);
+  });
+
+  test('Chika: drones get damage, speed and range', () => {
+    const a = resolveStats(REAL.chika, { unitStats: { potential: 1 } }).turret;
+    const b = resolveStats(REAL.chika, { unitStats: { potential: 6 } }).turret;
+    expect(b.range).toBeCloseTo(a.range * 1.03, 12);
+    expect(b.rate).toBeCloseTo(a.rate * 1.02 * 1.02 * 1.03, 12);
+    expect(b.damage).toBeCloseTo(a.damage * 1.03, 12);
+  });
+
+  test('Suzu: trap damage', () => {
+    const a = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 1 } }).trap;
+    const b = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 6 } }).trap;
+    expect(b.damage).toBeCloseTo(a.damage * 1.03 * 1.03, 12);
+  });
+
+  test('Momo: coins per wave 30 → 31.518 at P6 (after upgrades too)', () => {
+    expect(resolveStats(REAL.momo, { unitStats: { potential: 6 } }).income.perWave).toBeCloseTo(31.518, 9);
+    const t = resolveStats(REAL.momo, { tiers: [0, 0, 3], unitStats: { potential: 1 } }).income.perWave;
+    expect(resolveStats(REAL.momo, { tiers: [0, 0, 3], unitStats: { potential: 6 } }).income.perWave).toBeCloseTo(t * 1.02 * 1.03, 9);
+  });
+
+  test('auras: Miko dmgMul ×1.0201, Umeko tier-0 speed aura 1 → 1.0201', () => {
+    const m1 = resolveStats(REAL.miko, { unitStats: { potential: 1 } }).aura.dmgMul;
+    expect(resolveStats(REAL.miko, { unitStats: { potential: 6 } }).aura.dmgMul).toBeCloseTo(m1 * 1.0201, 12);
+    expect(resolveStats(REAL.umeko, { unitStats: { potential: 1 } }).aura.rateMul).toBe(1);
+    expect(resolveStats(REAL.umeko, { unitStats: { potential: 6 } }).aura.rateMul).toBeCloseTo(1.0201, 12);
+  });
+
+  test('Hotaru silence +0.1 s, Kaede focus cap +0.05, Shiro boss ×1.05, Luna elite ×1.05', () => {
+    const d = (id, p, f) => f(resolveStats(REAL[id], { unitStats: { potential: p } }));
+    expect(d('hotaru', 6, (s) => s.silence) - d('hotaru', 5, (s) => s.silence)).toBeCloseTo(0.1, 12);
+    expect(d('kaede', 6, (s) => s.ramp.max) - d('kaede', 5, (s) => s.ramp.max)).toBeCloseTo(0.05, 12);
+    expect(d('shiro', 6, (s) => s.bossMul) / d('shiro', 5, (s) => s.bossMul)).toBeCloseTo(1.05, 12);
+    expect(d('luna', 6, (s) => s.eliteMul) / d('luna', 5, (s) => s.eliteMul)).toBeCloseTo(1.05, 12);
+  });
+
+  test('a claimed Potential above 6 or a non-number cannot do more than P6 / P1', () => {
+    expect(resolveStats(REAL.aoi, { unitStats: { potential: 50 } })).toEqual(resolveStats(REAL.aoi, { unitStats: { potential: 6 } }));
+    expect(resolveStats(REAL.aoi, { unitStats: { potential: '6' } })).toEqual(resolveStats(REAL.aoi));
+  });
+});

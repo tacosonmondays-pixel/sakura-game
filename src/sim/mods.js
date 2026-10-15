@@ -1,9 +1,10 @@
 // Tower stat resolution: BaseStats + ModSets (upgrade tiers, hero milestones, awaken
-// passive) + profile battle stats. Implements the ModSet table in CONTRACTS.md §3 exactly:
+// passive, Potential steps) + profile battle stats. Implements the ModSet table in CONTRACTS.md §3 exactly:
 // add keys are summed, mul keys multiplied, grants OR-ed, replace keys take the last
 // value, status lists merge by type keeping the stronger numbers.
 
 import { DEFAULT_UNIT_STATS } from './constants.js';
+import { potentialFold } from '../data/potential.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
@@ -223,15 +224,21 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
 /**
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
- * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts
+ * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts unitStats.potential
+ *   (1…6) adds her Potential steps
  */
 export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive)) applyModSet(s, m, acc);
+  // Potential (src/data/potential.js): its ModSets after the awaken passive, its whole-girl
+  // multipliers folded into the unit stats like level and gear. P1 changes nothing.
+  const pot = potentialFold(def, us.potential);
+  for (const m of pot.sets) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
-  applyUnitStats(s, us);
+  applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   s.projectiles = Math.max(1, Math.round(s.projectiles));
   s.pierce = Math.max(1, Math.round(s.pierce));
   s.chain = Math.max(0, Math.round(s.chain));
@@ -242,7 +249,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
 }
 
 /**
- * BTD6 crosspath rule: at most two paths may have tiers > 0 and only one path may go
+ * Crosspath rule: at most two paths may have tiers > 0 and only one path may go
  * above tier 2; tier N requires tier N-1 (implicit: tiers only ever increase by one).
  * @returns {null|'max'|'crosspath'} reason the next tier of `path` is unavailable
  */

@@ -91,4 +91,5 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   awakenPassive: false,
   level: 1,
   awaken: 0,
+  potential: 1,
 });

@@ -12,6 +12,7 @@ import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
 import { gearStatTotals } from './gear.js';
 import { track } from './missions.js';
+import { potentialLevel, potentialPowerFactor } from './potential.js';
 
 export const MAX_LEVEL = 60;
 export const MAX_BREAKTHROUGH = 5;
@@ -260,7 +261,8 @@ export function awaken(profile, unitId) {
 /**
  * Multipliers fed into the sim (CONTRACTS §5 / INTEGRATION_NOTES [sim]).
  * Unowned units get neutral level-1 stats so previews still work.
- * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive, level, awaken, breakthrough }}
+ * `potential` (1…6) is her Potential (src/systems/potential.js); the sim adds its steps.
+ * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive, level, awaken, breakthrough, potential }}
  */
 export function unitBattleStats(profile, unitId) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
@@ -282,11 +284,13 @@ export function unitBattleStats(profile, unitId) {
     level,
     awaken: stars,
     breakthrough: gates,
+    potential: potentialLevel(profile?.units?.[unitId]),
   };
 }
 
 /**
- * Single number for sorting/UI: base DPS × multipliers × range factor, plus a small rarity weight.
+ * Single number for sorting/UI: base DPS × multipliers × range factor, plus a small rarity weight;
+ * Potential multiplies in its whole-girl steps and adds 20 per step (so every girl's Power moves).
  * @returns {number}
  */
 export function unitPower(profile, unitId) {
@@ -299,5 +303,6 @@ export function unitPower(profile, unitId) {
   const crit = 1 + s.critChance * ((b.crit?.mul || 1.5) * s.critMul - 1);
   const range = Math.sqrt(Math.max(1, (b.range || 1) * s.rangeMul));
   const rarity = { R: 1, SR: 1.1, SSR: 1.2 }[def.rarity] || 1;
-  return Math.round(dps * s.damageMul * s.rateMul * crit * range * rarity * 10 + s.level * 5 + s.awaken * 50);
+  const pot = potentialPowerFactor(def, s.potential);
+  return Math.round(dps * s.damageMul * s.rateMul * crit * range * rarity * pot * 10 + s.level * 5 + s.awaken * 50 + (s.potential - 1) * 20);
 }

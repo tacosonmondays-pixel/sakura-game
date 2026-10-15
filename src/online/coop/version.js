@@ -6,7 +6,8 @@
 //   sim    hash of every source file the lockstep battle runs on (tools/simId.mjs via
 //          vite.config.js): deploys that only touch art, audio, menus or the renderer keep it,
 //          so those players can still play together
-//   data   a hash of the battle data both sims read (girls, enemies, stages, maps, rules, freeplay)
+//   data   a hash of the battle data both sims read (girls, enemies, stages, maps, rules, freeplay,
+//          Potential steps)
 //   build  the git commit; label the player-facing version (shown in the mismatch message)
 // Older clients send no `sim`: with them only the identical build is compatible.
 import { UNITS } from '../../data/units.js';
@@ -16,6 +17,7 @@ import { MAPS } from '../../data/maps.js';
 import { BATTLE, DIFFICULTIES, TYPE_CHART } from '../../data/types.js';
 import { COOP } from '../../data/coop.js';
 import { FREEPLAY } from '../../data/freeplay.js';
+import { POTENTIAL_LADDERS, POTENTIAL_SIGNATURE_DEFAULT, POTENTIAL_GIRLS } from '../../data/potential.js';
 import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 
 // 3: co-op freeplay (start.freeplay, the 'end' Finish vote, the freeplay goal event)
@@ -37,7 +39,7 @@ let cached = null;
 /** @returns {{ proto: number, build: string, sim: string, data: string, label: string }} (computed once, ~ms) */
 export function coopVersion() {
   if (!cached) {
-    const data = fnv(JSON.stringify([UNITS, ENEMIES, STAGES, MAPS, BATTLE, DIFFICULTIES, TYPE_CHART, COOP, FREEPLAY]));
+    const data = fnv(JSON.stringify([UNITS, ENEMIES, STAGES, MAPS, BATTLE, DIFFICULTIES, TYPE_CHART, COOP, FREEPLAY, POTENTIAL_LADDERS, POTENTIAL_SIGNATURE_DEFAULT, POTENTIAL_GIRLS]));
     cached = Object.freeze({ proto: COOP_PROTOCOL, build: BUILD_ID, sim: SIM_ID, data, label: APP_VERSION });
   }
   return cached;
