@@ -7,6 +7,8 @@
 // Every one-shot effect is keyed in the battle's payout ledger (rewards.js freeplayLedger), which
 // lives on the co-op session: a resync remounts the battle and replays its events, and nothing
 // here may show or pay twice. The HUD pill, the clear card and the scout are derived from state.
+// Solo freeplay uses the same module without a session: its ledger and its bank (a normal solo
+// win, src/systems/freeplayRewards.js) come in as options, and Finish ends the run at once.
 import { h, enemyDef } from './util.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -47,15 +49,17 @@ function familiesOf(ids) {
 
 /**
  * @param {object} ctx battle context (controller.js): sim, feed, shell, layer, coop
- * @param {{ session: object, lockstep: object, homeFamilies: string[] }} o
+ * @param {{ session?: object, lockstep?: object, homeFamilies: string[], ledger?: object,
+ *   bank?: () => object|null }} o  co-op: session + lockstep; solo: ledger + bank (returns the
+ *   banked outcome, or null when it failed)
  */
-export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies = [] }) {
+export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null, homeFamilies = [], ledger: soloLedger = null, bank: soloBank = null }) {
   const { sim } = ctx;
   const fp = sim.stage.freeplay;
   const G = sim.totalWaves;
-  const ledger = freeplayLedger(session, ls.start.seed);
-  const mySlot = ls.mySlot;
-  const allyName = () => session.player(1 - mySlot)?.name || 'Your ally';
+  const ledger = ls ? freeplayLedger(session, ls.start.seed) : soloLedger;
+  const mySlot = ls ? ls.mySlot : 0;
+  const allyName = () => session?.player(1 - mySlot)?.name || 'Your ally';
   /** true the first time `key` is seen in this battle (across remounts) */
   const once = (key) => {
     if (ledger.fx.has(key)) return false;
@@ -69,6 +73,11 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   // ---- the bank: the clear, saved the moment the goal is cleared ---------------------------------
   function bank() {
     if (ledger.bank || !(sim.wavesCleared >= G)) return;
+    if (!ls) {
+      const out = soloBank?.();
+      if (out) ctx.feed.push(out.newMedal ? `Clear rewards saved ✓ — ${sim.diff?.name || ''} medal earned!` : 'Clear rewards saved ✓', 'good', { key: 'fp-bank', ms: 3600 });
+      return;
+    }
     const result = sim.result();
     const rng = createRng(hashString(`${sim.stage.id}:${sim.difficulty}:${sim.seed}:fp-bank:${Date.now()}`));
     try {
@@ -86,13 +95,18 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   const prompt = h('div.bt-vote-prompt', { 'data-testid': 'finish-prompt' });
   prompt.hidden = true;
   ctx.layer.append(prompt);
-  const appliedVote = (slot) => !!ls.coop.endVotes?.()[slot];
+  const appliedVote = (slot) => !!ls?.coop.endVotes?.()[slot];
   const afterGoal = () => sim.wavesCleared >= G && !ctx.ended;
   function myVote() {
     return pendingVote ?? appliedVote(mySlot);
   }
   function vote(v) {
     if (!afterGoal()) return;
+    if (!ls) {
+      // solo: Finish ends the run now (the results follow from the 'won' event)
+      if (v) sim.finish();
+      return;
+    }
     // (while the battle re-syncs no order can go out: say so instead of showing a vote nobody gets)
     if (!ls.queue('end', [!!v])) {
       ctx.feed.push('Re-syncing with your ally — vote again in a moment.', 'warn', { key: 'fp-vote-wait', ms: 2400 });
@@ -240,6 +254,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
 
   /** The run ended: remember it on the session for the room ("Last run: 147/15 · Tempest · fell to …"). */
   function onEnd() {
+    if (!session) return;
     const killer = sim.state === 'lost' ? fellTo(sim) : null;
     session.lastRun = {
       stageId: sim.stage.id, tier: fp.id, wave: sim.wavesCleared, goal: G,
@@ -259,7 +274,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
     handle(ev) {
       switch (ev.type) {
         case 'goal':
-          if (once('goal')) ctx.feed.announce('STAGE CLEAR!', 'Rewards saved ✓ · Freeplay ready', 'good', 2600);
+          if (once('goal')) ctx.feed.announce('STAGE CLEAR!', ls ? 'Rewards saved ✓ · Freeplay ready' : `Rewards saved ✓ · ${fp.name} freeplay next`, 'good', 2600);
           bank();
           break;
         case 'waveStart':

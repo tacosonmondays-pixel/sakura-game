@@ -457,8 +457,8 @@ GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs:
 
 ```js
 export const RECORD_V, SNAP_V, MAX_BATTLE_SAVES /*5*/;
-export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map; 'challenge' stays
-export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice
+export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map (none since Freeplay: cleanBattleSaves drops them); 'challenge' stays
+export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice / solo freeplay (req.freeplay)
 export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the least play past the cap*/
 export function savesByWorth(profile) /*least play first; endless last*/, saveToEvict(profile, slot) /*null when there is room*/
 export function clearBattleSave(profile, slot, runId?) /*with runId: only that run*/, saveTitle(rec) /*{ name, mode }*/
@@ -925,15 +925,28 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1][&resume=<run id>][&evict=<run id>]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
+Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1][&resume=<run id>][&evict=<run id>]`
+(`freeplay` / `endless` only where `canPlayEndless`; a locked stage plays as a practice run that saves
+nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
 gets `&resume=<run id>` (history.replaceState) once it has a save, so a reload continues it; a
 `resume` that no longer matches the slot's save shows "already finished or was replaced"; a battle
 link without `resume` for a slot that has a save goes to stage prep (it never overwrites a save);
 `evict` is the saved battle the player chose to replace when 5 are kept (deleted on this run's first
 save; without it a 6th run is not saved).
-Pause menu: Resume · Restart · Save & quit (End run for endless runs); co-op, clan boss, tutorial and
-practice keep Quit / Leave co-op. Builds the Sim from the profile formation
+Pause menu: Resume · Restart · Save & quit (End run for endless runs); co-op, clan boss, tutorial,
+practice and solo freeplay keep Quit / Leave co-op. **Solo freeplay**
+(docs/FREEPLAY.md): `freeplay=blossom|tempest|crimson` on a campaign stage builds the Sim with
+`options.freeplay` and `soloFreeplayStage(id, tier)` (`src/data/freeplaySolo.js`: the stage's own HP plus
+the co-op freeplay table); `endless=1` on a campaign map is freeplay now (that tier, or Blossom; only the
+Colosseum stays endless). A normal campaign run that wins can **Keep going** (`ctx.keepGoing(tier)`,
+`continueIntoFreeplay(sim, tier)` in `src/ui/battle/soloFreeplay.js`: the won Sim goes on in place as a
+freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a normal solo win at the goal,
+`paySoloFreeplay` = the co-op freeplay payout with coins per wave capped at the stage's normal rate,
+`progress.stages[id].freeplayBest[tier]`). **Solo freeplay is never saved** (`isSavableRun` is false for
+`req.freeplay`; a Keep going run's save is deleted by the win it continues): its clear is banked at the
+goal and its freeplay part is paid on leaving or at the next app start, so a continued copy would pay
+twice. Quit returns to the run's prep with its tier picked. A `resume` link never turns freeplay on
+(`parseBattleParams`): Continue plays the save as it was saved. Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy

@@ -35,12 +35,14 @@ export function slotKey(stageId, endless = false) {
 
 /**
  * Which battles save: campaign, Bounty, solo Total Assault, the Colosseum and endless runs.
- * Never co-op, the clan boss (a server-timed attempt), the scripted tutorial or a practice run
- * (a deep link to a locked stage, which saves nothing by design).
+ * Never co-op, the clan boss (a server-timed attempt), the scripted tutorial, a practice run
+ * (a deep link to a locked stage, which saves nothing by design) or a solo freeplay run
+ * (`req.freeplay`: its clear is banked at the goal and its freeplay part is paid when it is left
+ * or at the next app start, src/systems/freeplayRewards.js, so a continued copy would pay twice).
  * @param {object} params route params
- * @param {{ practice?: boolean, error?: string|null }} req parsed battle request (setup.js)
+ * @param {{ practice?: boolean, error?: string|null, freeplay?: string|null }} req parsed battle request (setup.js)
  */
-export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !req.practice && !req.error;
+export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !req.practice && !req.error && !req.freeplay;
 
 /** @returns {object} profile.battleSaves (created on demand) */
 function saves(profile) {
@@ -182,6 +184,9 @@ function cleanRecord(slot, r) {
   if (!isObj(r) || typeof r.id !== 'string' || !r.id) return null;
   const stage = STAGE_MAP[r.stageId];
   if (!stage || slotKey(r.stageId, !!r.endless) !== slot || r.slot !== slot) return null;
+  // an endless run on a campaign map (a build before Freeplay): that mode is Freeplay now, which
+  // never saves, so nothing can continue it (dropped with the notice)
+  if (r.endless && stage.kind !== 'challenge') return null;
   if (!DIFFICULTIES[r.difficulty] || !isUint32(r.seed)) return null;
   if (!finite(r.v) || r.v > RECORD_V) return null;
   const s = r.snap;

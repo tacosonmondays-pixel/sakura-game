@@ -95,8 +95,11 @@ describe('profile.battleSaves', () => {
     // the good one next to them stays
     const good = rec({ id: 'ok', slot: '1-2', stageId: '1-2' });
     expect(Object.keys(cleanBattleSaves({ ...saves(good), 'bad': 7, '1-1': rec({ difficulty: 'x' }) }))).toEqual(['1-2']);
-    // endless slots: a campaign map's endless run has its own slot, the Colosseum keeps its id
-    expect(Object.keys(cleanBattleSaves(saves(rec({ slot: '1-1:endless', endless: true }))))).toEqual(['1-1:endless']);
+    // endless slots: the Colosseum keeps its id; a campaign map's old endless run (its own slot,
+    // from a build before Freeplay) is Freeplay now, which never saves: nothing can continue it
+    expect(Object.keys(cleanBattleSaves(saves(rec({ id: 'col', slot: 'challenge', stageId: 'challenge', endless: true }))))).toEqual(['challenge']);
+    expect(cleanBattleSaves(saves(rec({ slot: '1-1:endless', endless: true })))).toEqual({});
+    expect(droppedBattleSaveNames({ battleSaves: saves(rec({ slot: '1-1:endless', endless: true })) })).toEqual(['Endless 1-1 (wave 3)']);
     expect(cleanBattleSaves({ '1-1': rec({ endless: true }) })).toEqual({});
   });
 
@@ -144,11 +147,16 @@ describe('battle save slots and modes', () => {
     expect(slotKey('res-books-2')).toBe('res-books-2');
   });
 
-  it('isSavableRun: campaign / Bounty / Assault / Colosseum / endless yes; co-op, clan boss, tutorial, practice no', () => {
+  it('isSavableRun: campaign / Bounty / Assault / Colosseum / endless yes; co-op, clan boss, tutorial, practice, solo freeplay no', () => {
     const ok = { practice: false, error: null };
     expect(isSavableRun({ stage: '1-1' }, ok)).toBe(true);
     expect(isSavableRun({ stage: 'challenge' }, ok)).toBe(true);
     expect(isSavableRun({ stage: '1-1', endless: '1' }, ok)).toBe(true);
+    // a normal run that may Keep going is saved; a solo freeplay run (freeplay=<tier>, or endless=1
+    // on a cleared campaign map) never is
+    expect(isSavableRun({ stage: '1-1' }, { ...ok, freeplay: null, keepGoing: true })).toBe(true);
+    expect(isSavableRun({ stage: '1-1', freeplay: 'tempest' }, { ...ok, freeplay: 'tempest' })).toBe(false);
+    expect(isSavableRun({ stage: '1-1', endless: '1' }, { ...ok, freeplay: 'blossom' })).toBe(false);
     expect(isSavableRun({ coop: 'ABCD' }, ok)).toBe(false);
     expect(isSavableRun({ stage: 'boss-lych', clanBoss: '42' }, ok)).toBe(false);
     expect(isSavableRun({ stage: '1-1', tutorial: '1' }, ok)).toBe(false);
