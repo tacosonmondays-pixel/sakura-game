@@ -7,13 +7,15 @@
 // Every one-shot effect is keyed in the battle's payout ledger (rewards.js freeplayLedger), which
 // lives on the co-op session: a resync remounts the battle and replays its events, and nothing
 // here may show or pay twice. The HUD pill, the clear card and the scout are derived from state.
+// Solo freeplay uses the same module without a session: its ledger and its bank (a normal solo
+// win, src/systems/freeplayRewards.js) come in as options, and Finish ends the run at once.
 import { h, enemyDef } from './util.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
 import { preloadEnemies } from '../../models/index.js';
-import { freeplayLedger, bankFreeplayClear } from '../../online/coop/rewards.js';
+import { freeplayLedger, bankFreeplayClear, rememberFreeplayRun } from '../../online/coop/rewards.js';
 import { AFFIX_TEXT } from './scout.js';
 
 /** Absolute-wave milestone banners. */
@@ -47,15 +49,17 @@ function familiesOf(ids) {
 
 /**
  * @param {object} ctx battle context (controller.js): sim, feed, shell, layer, coop
- * @param {{ session: object, lockstep: object, homeFamilies: string[] }} o
+ * @param {{ session?: object, lockstep?: object, homeFamilies: string[], ledger?: object,
+ *   bank?: () => object|null }} o  co-op: session + lockstep; solo: ledger + bank (returns the
+ *   banked outcome, or null when it failed)
  */
-export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies = [] }) {
+export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null, homeFamilies = [], ledger: soloLedger = null, bank: soloBank = null }) {
   const { sim } = ctx;
   const fp = sim.stage.freeplay;
   const G = sim.totalWaves;
-  const ledger = freeplayLedger(session, ls.start.seed);
-  const mySlot = ls.mySlot;
-  const allyName = () => session.player(1 - mySlot)?.name || 'Your ally';
+  const ledger = ls ? freeplayLedger(session, ls.start.seed) : soloLedger;
+  const mySlot = ls ? ls.mySlot : 0;
+  const allyName = () => session?.player(1 - mySlot)?.name || 'Your ally';
   /** true the first time `key` is seen in this battle (across remounts) */
   const once = (key) => {
     if (ledger.fx.has(key)) return false;
@@ -69,6 +73,11 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   // ---- the bank: the clear, saved the moment the goal is cleared ---------------------------------
   function bank() {
     if (ledger.bank || !(sim.wavesCleared >= G)) return;
+    if (!ls) {
+      const out = soloBank?.();
+      if (out) ctx.feed.push(out.newMedal ? `Clear rewards saved ✓ — ${sim.diff?.name || ''} medal earned!` : 'Clear rewards saved ✓', 'good', { key: 'fp-bank', ms: 3600 });
+      return;
+    }
     const result = sim.result();
     const rng = createRng(hashString(`${sim.stage.id}:${sim.difficulty}:${sim.seed}:fp-bank:${Date.now()}`));
     try {
@@ -86,21 +95,30 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   const prompt = h('div.bt-vote-prompt', { 'data-testid': 'finish-prompt' });
   prompt.hidden = true;
   ctx.layer.append(prompt);
-  const appliedVote = (slot) => !!ls.coop.endVotes?.()[slot];
+  const appliedVote = (slot) => !!ls?.coop.endVotes?.()[slot];
   const afterGoal = () => sim.wavesCleared >= G && !ctx.ended;
   function myVote() {
     return pendingVote ?? appliedVote(mySlot);
   }
   function vote(v) {
     if (!afterGoal()) return;
+    if (!ls) {
+      // solo: Finish ends the run now (the results follow from the 'won' event)
+      if (v) sim.finish();
+      return;
+    }
+    // (while the battle re-syncs no order can go out: say so instead of showing a vote nobody gets)
+    if (!ls.queue('end', [!!v])) {
+      ctx.feed.push('Re-syncing with your ally — vote again in a moment.', 'warn', { key: 'fp-vote-wait', ms: 2400 });
+      return;
+    }
     pendingVote = !!v;
-    ls.queue('end', [!!v]);
     prompt.hidden = true;
     if (v && !ls.peers.values().next().value?.gone) ctx.feed.push(`Finish vote cast — the run ends once ${allyName()} agrees.`, 'info', { key: 'fp-vote', ms: 2600 });
   }
   function showPrompt() {
     prompt.replaceChildren(
-      h('span', h('b', allyName()), ' wants to finish here'),
+      h('span.bt-vote-text', h('b.bt-vote-name', allyName()), ' wants to finish here'),
       h('button.bt-vote-yes', { 'data-testid': 'finish-agree', onclick: () => vote(true) }, 'Finish'),
       h('button.bt-vote-no', { onclick: () => { prompt.hidden = true; } }, 'Keep going'),
     );
@@ -119,12 +137,13 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
 
   // ---- banners and toasts --------------------------------------------------------------------------
-  function edgeFlash() {
-    ctx.shell.classList.remove('bt-free-flash');
+  function edgeFlash(red = false) {
+    ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red');
     void ctx.shell.offsetWidth;
     ctx.shell.classList.add('bt-free-flash');
+    ctx.shell.classList.toggle('bt-flash-red', red);
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash'), 700);
+    flashTimer = setTimeout(() => ctx.shell.classList.remove('bt-free-flash', 'bt-flash-red'), 700);
   }
 
   function visitorToast(info) {
@@ -172,10 +191,12 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
       const split = def?.traits?.splitter;
       const inner = split?.spawn ? enemyDef(split.spawn) : null;
       const sub = !inner ? 'A giant that holds giants.' : (split.count ?? 2) === 1 ? `Breaks open into the ${inner.name}!` : `Breaks into two ${plural(inner.name)}!`;
-      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'boss', 3000);
+      ctx.feed.announce(`TITAN — ${def?.name || id}`, sub, 'titan', 3000);
+      edgeFlash(true);
       announcedAtStart.add(id);
     } else if (info?.boss?.kind === 'boss' && info.boss.bosses.length > 1 && info.boss.bosses.every((id) => enemyDef(id)?.tier === 'boss') && once('twin')) {
-      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'boss', 2800);
+      ctx.feed.announce('TWIN BOSSES', info.boss.bosses.map((id) => enemyDef(id)?.name || id).join(' & '), 'titan', 2800);
+      edgeFlash(true);
       for (const id of info.boss.bosses) announcedAtStart.add(id);
     } else if (!shortScreen()) {
       // routine freeplay waves: a short ribbon (short screens: the pill's slam is enough)
@@ -214,6 +235,13 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
   }
 
   function onWaveEnd() {
+    // what the end payout needs, in the save after every freeplay wave: a reload, a closed tab or
+    // a phone that throws the background tab away still pays the run at the next app start
+    try {
+      if (rememberFreeplayRun(store.profile, ledger, sim.result())) store.commit('freeplay-wave');
+    } catch (e) {
+      console.warn('[battle] freeplay progress not saved', e);
+    }
     // the next wave's visitors: their models load while the board is quiet (no placeholder pop-in)
     try {
       const ids = sim.waveInfo(sim.wave + 1).map((r) => r.enemyId);
@@ -226,6 +254,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
 
   /** The run ended: remember it on the session for the room ("Last run: 147/15 · Tempest · fell to …"). */
   function onEnd() {
+    if (!session) return;
     const killer = sim.state === 'lost' ? fellTo(sim) : null;
     session.lastRun = {
       stageId: sim.stage.id, tier: fp.id, wave: sim.wavesCleared, goal: G,
@@ -245,7 +274,7 @@ export function createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies 
     handle(ev) {
       switch (ev.type) {
         case 'goal':
-          if (once('goal')) ctx.feed.announce('STAGE CLEAR!', 'Rewards saved ✓ · Freeplay ready', 'good', 2600);
+          if (once('goal')) ctx.feed.announce('STAGE CLEAR!', ls ? 'Rewards saved ✓ · Freeplay ready' : `Rewards saved ✓ · ${fp.name} freeplay next`, 'good', 2600);
           bank();
           break;
         case 'waveStart':

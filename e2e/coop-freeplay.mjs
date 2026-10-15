@@ -469,8 +469,8 @@ try {
     reached: document.querySelector('[data-testid="freeplay-reached"]')?.innerText.replace(/\s+/g, '') || '',
     best: document.querySelector('[data-testid="freeplay-best"]')?.innerText || '',
   }))));
-  check(results.every(Boolean) && sheet.every((s) => /FREEPLAY COMPLETE/.test(s.text) && s.reached === `${BOSS_WAVE}/${GOAL}` && new RegExp(`Reached wave ${BOSS_WAVE} / ${GOAL}`).test(s.text) && /Finished (together )?after wave 20/.test(s.text)),
-    `results: FREEPLAY COMPLETE, the big pill "${sheet[0].reached}", "Reached wave ${BOSS_WAVE} / ${GOAL}", "Finished together" on both`);
+  check(results.every(Boolean) && sheet.every((s) => /FREEPLAY COMPLETE/.test(s.text) && s.reached === `${BOSS_WAVE}/${GOAL}` && new RegExp(`Cleared wave ${BOSS_WAVE} / ${GOAL}`).test(s.text) && /Finished (together )?after wave 20/.test(s.text)),
+    `results: FREEPLAY COMPLETE, the big pill "${sheet[0].reached}", "Cleared wave ${BOSS_WAVE} / ${GOAL}", "Finished together" on both`);
   check(sheet.every((s) => /New best on 1-1 \(Blossom\)/.test(s.best)), `results: "${sheet[0].best}" on both`);
   check(sheet.every((s) => /Stage clear · saved at 12\/12/.test(s.text) && /Freeplay bonus/.test(s.text) && /8 freeplay waves/.test(s.text)), 'results: the Stage clear (banked) and Freeplay bonus sections');
   // rewards: the freeplay part paid once, the best wave saved

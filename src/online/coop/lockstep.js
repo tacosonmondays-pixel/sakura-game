@@ -3,13 +3,15 @@
 // few frames in the future (input delay) and executed on every client at exactly that tick.
 //
 // Messages (any transport that delivers JSON objects; order and loss are tolerated):
-//   { type: 'in', from, horizon, ack, cmds, live, hs }  right after a command, and otherwise
+//   { type: 'in', from, n, horizon, ack, cmds, live, hs, done? }  right after a command, and otherwise
 //        only as often as the peer needs it (see beat()):
 //        "I will send no more commands with t <= horizon; I executed every tick < ack + 1".
 //        cmds = my commands the peer has not executed yet (re-sent until acked → lossy links ok)
 //        live = my battle is running (before that the peer allows COOP.loadTimeoutMs of silence)
 //        hs   = my last state hashes [[t, h], …] (one every COOP.hashEvery ticks; the last two
 //               ride along on every beat, so a lost packet costs nothing)
+//        done = my battle is over (won / lost): a host that dropped me offers no rejoin, and a
+//               finished guest ignores one (its result is shown and paid)
 //   { type: 'resync?', from }                  guest saw a hash mismatch: please send state
 //   { type: 'resync', from, start, T, w, cmds, ck }  host: rebuild from start (or from the
 //                                              checkpoint ck), replay cmds up to tick T (wave w)
@@ -17,8 +19,9 @@
 //                                              'desync': "our battles disagree", final)
 //   { type: 'rejoin', from, ep, start, T, w, cmds, ck }  host → a dropped guest that is alive
 //                                              again: adopt my timeline (rebuild, replay to T)
-//   { type: 'busy', from, at, of, w }          I am rebuilding (at of `of` ticks replayed, wave w):
+//   { type: 'busy', from, n, at, of, w }       I am rebuilding (at of `of` ticks replayed, wave w):
 //                                              my timeout clock stops, my offer is taken
+//        (n numbers 'in' / 'busy' beats: whether the sender is live or rebuilding comes from the newest)
 //   { type: 'part', from, id, i, n, d }        part i of n of a message too big for the transport
 //                                              (d = a slice of its JSON; see maxMessageBytes)
 // Every message carries `ep` (the timeline epoch, bumped by each rejoin) so packets from a
@@ -163,6 +166,7 @@ export class Lockstep {
     /** A rebuild / catch-up in progress (see startRebuild); null when the battle runs live. */
     this.job = null;
     this.lastBusy = -Infinity;
+    this.beatSeq = 0; // numbers my 'in' / 'busy' beats (the peer keeps the newest one's state)
     this.deferredMarks = []; // drop / return markers that happened during a rebuild
     /** The last finished rebuild: { kind, from, T, ticks, ms, slices, maxSliceMs, restoreMs, restored }. */
     this.lastRebuild = null;
@@ -172,7 +176,7 @@ export class Lockstep {
     this.trace = [];
     this.peers = new Map();
     for (const p of start.players) {
-      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, offerParts: 1, rejoinAfter: 0, failedOffers: 0, goneAt: 0, busy: null, rebuilt: false });
+      if (p.slot !== mySlot) this.peers.set(p.slot, { slot: p.slot, horizon: -1, ack: -1, lastHeard: now(), gone: false, why: null, ready: false, jitter: 0, offer: null, offerAt: 0, offerSince: 0, offerParts: 1, rejoinAfter: 0, failedOffers: 0, goneAt: 0, busy: null, rebuilt: false, beatSeq: -1 });
     }
   }
 
@@ -346,7 +350,8 @@ export class Lockstep {
     this.sentLive = this.running;
     // live: my battle screen is up and ticking (until then the ally allows the long load timeout)
     const gone = [...this.peers.values()].filter((p) => p.gone).map((p) => p.slot);
-    this.send({ type: 'in', horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2) });
+    // done: my battle is over (won / lost) — a host that dropped me must not offer a rejoin
+    this.send({ type: 'in', n: ++this.beatSeq, horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2), ...(this.finished ? { done: true } : {}) });
   }
 
   /** While rebuilding: "still here, rebuilding (at / of ticks)" once a second (and at the start). */
@@ -354,7 +359,7 @@ export class Lockstep {
     if (!force && t - this.lastBusy < BUSY_BEAT_MS) return;
     this.lastBusy = t;
     const j = this.job;
-    this.send({ type: 'busy', at: j.done, of: Math.max(1, j.T - j.from), w: j.coop.sim.wave });
+    this.send({ type: 'busy', n: ++this.beatSeq, at: j.done, of: Math.max(1, j.T - j.from), w: j.coop.sim.wave });
   }
 
   /** Handles one message from a peer. */
@@ -367,9 +372,10 @@ export class Lockstep {
       this.receivePart(msg);
       return;
     }
-    // the host offers a dropped guest its timeline (a newer epoch than the guest's)
+    // the host offers a dropped guest its timeline (a newer epoch than the guest's); a battle that
+    // already ended here stays ended (its result is on screen and paid: never pulled back into a run)
     if (msg.type === 'rejoin') {
-      if (!this.isHost && ep > this.epoch && !this.desynced && (!peer.gone || REJOINABLE.has(peer.why))) this.applyRejoin(peer, msg);
+      if (!this.isHost && ep > this.epoch && !this.desynced && !this.finished && (!peer.gone || REJOINABLE.has(peer.why))) this.applyRejoin(peer, msg);
       return;
     }
     if (msg.type === 'bye') {
@@ -388,8 +394,9 @@ export class Lockstep {
       return;
     }
     if (peer.gone) {
-      // a dropped guest is talking again (it was frozen or cut off, not gone): re-admit it
-      if (msg.type === 'in' && this.isHost && REJOINABLE.has(peer.why) && !this.desynced && !this.finished && this.now() >= peer.rejoinAfter) this.rejoin(peer);
+      // a dropped guest is talking again (it was frozen or cut off, not gone): re-admit it —
+      // unless its battle ended while we were apart (done: e.g. it finished the run alone)
+      if (msg.type === 'in' && this.isHost && REJOINABLE.has(peer.why) && !msg.done && !this.desynced && !this.finished && this.now() >= peer.rejoinAfter) this.rejoin(peer);
       return;
     }
     const t = this.now();
@@ -408,17 +415,24 @@ export class Lockstep {
         if (Array.isArray(msg.gone) && msg.gone.includes(this.mySlot)) {
           // it lost me (one-way silence) while I still heard it: split up, then the host re-admits
           this.dropPeer(peer, 'lost');
-          if (this.isHost && !this.desynced && !this.finished) this.rejoin(peer);
+          if (this.isHost && !msg.done && !this.desynced && !this.finished) this.rejoin(peer);
           break;
         }
         if (peer.offer) {
           peer.offer = null; // the guest took my rejoin offer
           peer.failedOffers = 0;
         }
-        peer.busy = null;
-        if (msg.live) {
-          peer.ready = true;
-          peer.rebuilt = false;
+        // (live / busy only from the newest beat: a late one from before a rebuild says nothing)
+        if (this.freshBeat(peer, msg)) {
+          peer.busy = null;
+          if (msg.live) {
+            peer.ready = true;
+            peer.rebuilt = false;
+          } else if (peer.ready && Number.isInteger(msg.n)) {
+            // it was live and is not any more: its battle screen is reloading after a rebuild
+            peer.ready = false;
+            peer.rebuilt = true;
+          }
         }
         if (Number.isInteger(msg.horizon)) peer.horizon = Math.max(peer.horizon, msg.horizon);
         if (Number.isInteger(msg.ack)) peer.ack = Math.max(peer.ack, msg.ack);
@@ -446,6 +460,7 @@ export class Lockstep {
           peer.offer = null;
           peer.failedOffers = 0;
         }
+        if (!this.freshBeat(peer, msg)) break;
         peer.busy = { at: Number(msg.at) || 0, of: Math.max(1, Number(msg.of) || 1), w: Number.isInteger(msg.w) ? msg.w : null, t };
         // its battle screen reloads once the rebuild is done: a long allowance until it is live
         peer.ready = false;
@@ -463,6 +478,14 @@ export class Lockstep {
       default:
         break;
     }
+  }
+
+  /** Is this beat ('in' / 'busy') newer than every one heard from `peer` before (beats can overtake)? */
+  freshBeat(peer, msg) {
+    if (!Number.isInteger(msg.n)) return true;
+    if (msg.n < peer.beatSeq) return false;
+    peer.beatSeq = msg.n;
+    return true;
   }
 
   /** A part of a big message: kept until all its parts are in, then handled as the whole. */

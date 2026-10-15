@@ -1,6 +1,7 @@
 // Top HUD: pause, lives, cash, wave counter, next-wave scout strip and speed toggle.
 // Co-op freeplay past the goal: the wave counter overflows ("16/15") in the tier's colours with a
 // slam on every new wave — the owner's "cool text effect going past like 16/15" (spec §10.3).
+// Solo freeplay shows the same counter.
 import { h, icon, fmtCoins } from './util.js';
 import { createScout } from './scout.js';
 import { svgEl } from '../components.js';
@@ -24,16 +25,28 @@ export function createHud(ctx) {
   const pauseBtn = h('button.bt-round.bt-pause', { 'data-testid': 'pause', title: 'Pause', onclick: () => ctx.openPause() }, icon('pause'));
   const scout = createScout(ctx);
   const diff = DIFFICULTIES[sim.difficulty];
-  /** the freeplay tier's table when this battle goes past its goal (co-op freeplay), else null */
-  const fp = sim.freeplay ? sim.stage.freeplay : null;
+  /** the freeplay tier's table when this battle goes past its goal, else null (read live: a solo
+   *  run that won its last wave can Keep going into freeplay) */
+  const fpOf = () => (sim.freeplay ? sim.stage.freeplay : null);
+  const fpChip = h('span.bt-fp-chip', { 'data-testid': 'hud-freeplay' });
   const stageLabel = h(
     'div.bt-stage-label',
     h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.name),
     h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),
     ctx.modes?.chip || null,
     ctx.req.practice ? h('span.bt-practice', 'Practice') : null,
-    fp ? h(`span.bt-fp-chip.bt-fp-${fp.id}`, { 'data-testid': 'hud-freeplay' }, `Freeplay · ${fp.name}`) : null,
+    fpChip,
   );
+  let chipFor = undefined;
+  function paintChip() {
+    const fp = fpOf();
+    if (chipFor === (fp?.id ?? null)) return;
+    chipFor = fp?.id ?? null;
+    fpChip.hidden = !fp;
+    fpChip.className = `bt-fp-chip${fp ? ` bt-fp-${fp.id}` : ''}`;
+    fpChip.textContent = fp ? `Freeplay · ${fp.name}` : '';
+  }
+  paintChip();
   // the label reads BEYOND past the goal (OVERTIME after the Matriarch's wave) on wide screens;
   // narrow phones keep WAVE (no room next to lives and coins), the colours carry the meaning
   const labelWide = h('span.bt-wave-label-wide', 'WAVE');
@@ -48,6 +61,7 @@ export function createHud(ctx) {
 
   let last = { lives: null, cash: null, wave: null, speed: null, state: null };
   function update() {
+    paintChip();
     if (sim.lives !== last.lives) {
       if (last.lives != null && sim.lives < last.lives) {
         livesBox.classList.remove('bt-hit');
@@ -71,6 +85,7 @@ export function createHud(ctx) {
     if (sim.wave !== last.wave) {
       const total = Number.isFinite(sim.totalWaves) ? sim.totalWaves : '∞';
       // recomputed from the state on every change, so a remount (resync) is always right
+      const fp = fpOf();
       const over = !!fp && sim.wave > sim.totalWaves;
       if (over) {
         waveVal.replaceChildren(h('b.bt-wave-n', String(sim.wave)), h('span.bt-wave-goal', `/${total}`));

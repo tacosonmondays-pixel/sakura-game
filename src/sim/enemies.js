@@ -503,7 +503,11 @@ export function onEnemyDeath(sim, e) {
     const children = [];
     for (let i = 0; i < n; i++) {
       const offset = (i - (n - 1) / 2) * 0.3;
-      const c = sim.spawnEnemy(b.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist + offset), hpMul: b.inherit != null ? e.hpMul * b.inherit : e.childHpMul, leak: b.leak, parent: e });
+      // a giant that holds giants (freeplay titans, `inherit`): the bosses inside get a share of its
+      // HP, but what THEY summon or brood still gets the wave's pool HP (its childHpMul), never a boss factor
+      const c = b.inherit != null
+        ? sim.spawnEnemy(b.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist + offset), hpMul: e.hpMul * b.inherit, childHpMul: e.childHpMul, leak: b.leak, parent: e })
+        : sim.spawnEnemy(b.spawn, { pathIndex: e.pathIndex, dist: Math.max(0, e.dist + offset), hpMul: e.childHpMul, leak: b.leak, parent: e });
       if (c) children.push(c.uid);
     }
     if (children.length) sim._emit('split', { uid: e.uid, children });

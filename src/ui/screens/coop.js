@@ -16,9 +16,9 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { enemyToken } from '../battle/util.js';
 import { getMap } from '../../data/maps.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { COOP, coopStages, coopStartCash, coopStage } from '../../data/coop.js';
+import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
 import { freeplayTier, freeplayTable, FREEPLAY_TIERS } from '../../data/freeplay.js';
-import { freeplayBosses } from '../../sim/freeplay.js';
+import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked, modesUnlocked } from '../../systems/unlocks.js';
@@ -99,41 +99,29 @@ function modeSeg(stageId, value, freeplay, onPick) {
     why ? h('small.muted.ol-fp-hint', { 'data-testid': 'coop-mode-note' }, why) : null);
 }
 
-/** Room text per freeplay tier (spec §3.1). */
-const TIER_PITCH = {
-  blossom: 'Petals and pressure — the classic climb to the Matriarch.',
-  tempest: 'Storm season: bosses come early and hit hard.',
-  crimson: 'Under the red moon nothing holds for long.',
-};
+/** How hard each tier is, in words (the pips say it at a glance). */
+const TIER_LEVEL = { blossom: 'Classic', tempest: 'Harder', crimson: 'Hardest' };
 
-/** The freeplay segment of the stage picker: Off · Blossom · Tempest · Crimson Moon. */
-function freeplaySeg(value, onPick) {
-  return h('div.ol-seg.ol-fp-seg', { 'data-testid': 'coop-freeplay' },
-    h(`button.ol-seg-btn${!value ? '.on' : ''}`, { type: 'button', 'data-tier': 'off', onclick: () => onPick(null) }, 'Off'),
-    ...FREEPLAY_TIERS.map((id) => h(`button.ol-seg-btn.ol-fp-btn.ol-fp-${id}${value === id ? '.on' : ''}`, { type: 'button', 'data-tier': id, title: TIER_PITCH[id], onclick: () => onPick(id) }, freeplayTable(id).name)));
+/** "Hardest — Under the red moon nothing holds for long. Freeplay rewards ×2." */
+function tierLine(id) {
+  const t = freeplayTable(id);
+  if (!t) return '';
+  const mul = t.rewardMul ?? 1;
+  return `${TIER_LEVEL[id] || t.name} — ${TIER_PITCH[id]}${mul > 1 ? ` Freeplay rewards ×${mul}.` : ''}`;
 }
 
-/**
- * What freeplay brings on this stage and tier, from the same pure schedule the battle uses:
- * "15 waves, then freeplay (Tempest): visitors from every chapter, bosses every 10 waves (every 5
- * deep in), titans from wave 170, the Ashwing Matriarch at 200."
- */
-export function freeplaySummary(stageId, tier) {
-  const st = coopStage(stageId, { freeplay: tier });
-  const fp = st?.freeplay;
-  if (!fp || !Number.isFinite(st.waves)) return null;
-  let titan = null;
-  let boss = null;
-  for (let w = st.waves + 1; w <= (fp.finale?.wave ?? 200) && !titan; w++) {
-    const b = freeplayBosses(st, w);
-    if (!boss && b && b.kind !== 'miniboss') boss = w;
-    if (b?.kind === 'titan') titan = w;
-  }
-  const bits = ['visitors from every chapter', 'bosses every 10 waves (every 5 deep in)'];
-  if (boss) bits.push(`big bosses from wave ${boss}`);
-  if (titan) bits.push(`titans from wave ${titan}`);
-  bits.push(`the Ashwing Matriarch at ${fp.finale?.wave ?? 200}`);
-  return `${st.waves} waves, then freeplay (${fp.name}): ${bits.join(', ')}.`;
+/** The freeplay segment: Off · Blossom ★ · Tempest ★★ ×1.5 · Crimson Moon ★★★ ×2 (pips = difficulty). */
+function freeplaySeg(value, onPick, testid = 'coop-freeplay') {
+  return h('div.ol-seg.ol-fp-seg', { 'data-testid': testid },
+    h(`button.ol-seg-btn${!value ? '.on' : ''}`, { type: 'button', 'data-tier': 'off', onclick: () => onPick(null) }, 'Off'),
+    ...FREEPLAY_TIERS.map((id) => {
+      const t = freeplayTable(id);
+      const mul = t.rewardMul ?? 1;
+      return h(`button.ol-seg-btn.ol-fp-btn.ol-fp-${id}${value === id ? '.on' : ''}`, { type: 'button', 'data-tier': id, title: tierLine(id), 'aria-label': `${t.name}: ${TIER_LEVEL[id]}${mul > 1 ? `, rewards ×${mul}` : ''}`, onclick: () => onPick(id) },
+        h('span', t.name),
+        h('small.ol-fp-pips', { 'aria-hidden': 'true' }, '★'.repeat((t.order ?? 0) + 1)),
+        mul > 1 ? h('small.ol-fp-mul', `×${mul}`) : null);
+    }));
 }
 
 function stageLabel(id) {
@@ -176,7 +164,7 @@ function pickStage(current, difficulty, freeplay = null, mode = 'standard') {
       fpRow.replaceChildren(
         h('span.ol-fp-label', 'Freeplay'),
         freeplaySeg(fp, (v) => { fp = v; paint(); }),
-        h('small.muted.ol-fp-hint', fp ? `${TIER_PITCH[fp]} Keep going after the last wave until you fall or both finish.${diff === 'nightmare' ? ' 1 life — the first leak ends freeplay.' : ''}` : 'Off: the battle ends at the stage\'s last wave, as usual.'));
+        h('small.muted.ol-fp-hint', fp ? `${tierLine(fp)} Keep going after the last wave until you fall or both finish.${diff === 'nightmare' ? ' 1 life — the first leak ends freeplay.' : ''}` : 'Off: the battle ends at the stage\'s last wave, as usual.'));
     };
     paint();
     let done = false;
@@ -308,6 +296,15 @@ export function render(root, params = {}) {
             writePref(r);
             paintStage();
           } })),
+        // freeplay right here (not only inside Change stage): Off or a difficulty tier
+        h('div.ol-fp-row.ol-fp-row-hub',
+          h('span.ol-fp-label', 'Freeplay'),
+          freeplaySeg(freeplay, (v) => {
+            freeplay = v;
+            writePref({ stageId, difficulty, freeplay });
+            paintStage();
+          }, 'coop-hub-freeplay'),
+          h('small.muted.ol-fp-hint', freeplay ? `${tierLine(freeplay)} Keep going after wave ${s?.waves} until you fall or both finish.` : 'Off: the battle ends at the stage\'s last wave.')),
       );
     };
     paintStage();
@@ -549,10 +546,11 @@ export function render(root, params = {}) {
       const best = coopBestWaves(profile, s.stageId)[t.id];
       const last = session.lastRun && session.lastRun.stageId === s.stageId ? session.lastRun : null;
       const caps = ['detection', 'antiAir', 'armorPen'].map((k) => CAPABILITIES[k]?.name).filter(Boolean);
+      // (the record and the last run first: the most rewarding part, and on a phone the first read)
       return h(`div.ol-field-fp.ol-fp-${t.id}`, { 'data-testid': 'coop-field-freeplay' },
-        h('p', h('b', `Freeplay · ${t.name}`), ' — ', freeplaySummary(s.stageId, t.id) || ''),
         h('p.ol-field-fp-best', best ? `Your best: ${best}/${st.waves} (${t.name})` : `No ${t.name} run on ${s.stageId} yet.`),
         last ? h('p.ol-field-fp-last', { 'data-testid': 'coop-last-run' }, `Last run: ${last.wave}/${last.goal} · ${freeplayTable(last.tier)?.name || ''} · ${last.text}`) : null,
+        h('p', h('b', `Freeplay · ${t.name}`), ' — ', freeplaySummary(s.stageId, t.id) || ''),
         h('p.muted', `Bring ${caps.join(', ')} and a boss killer.`),
         s.difficulty === 'nightmare' ? h('p.ol-field-fp-warn', '1 life — the first leak ends freeplay.') : null);
     }
@@ -691,7 +689,7 @@ export function render(root, params = {}) {
             h('button.ol-copy', { onclick: copy, title: 'Copy', 'aria-label': 'Copy the room code' }, 'Copy')),
           h('div.ol-room-stage',
             thumb(s.stageId, 'ol-room-thumb'),
-            h('div',
+            h('div.ol-room-stage-info',
               h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
               h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
               s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
@@ -700,7 +698,14 @@ export function render(root, params = {}) {
                   writePref(r);
                   s.setStage(r.stageId, r.difficulty, r.freeplay, r.mode);
                 }
-              } }) : null)),
+              } }) : null),
+            // the host can switch freeplay here too, under the stage (the guest's Ready is taken
+            // back: Ready is consent)
+            s.isHost ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
+              if (v === s.freeplay) return;
+              writePref({ freeplay: v });
+              s.setStage(s.stageId, s.difficulty, v);
+            }, 'coop-room-freeplay')) : null),
           h('div.ol-room-acts',
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),

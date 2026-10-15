@@ -47,8 +47,20 @@ export function freeplayPressureInfo(sim, n) {
   };
 }
 
-/** "×353", "×2.5k" */
+/** "×353", "×3,004", "×2.19M" (the explanation) */
 const fmtMul = (x) => `×${x < 10 ? x.toFixed(1).replace(/\.0$/, '') : fmtBig(Math.round(x))}`;
+
+/** "×353", "×3k", "×16k", "×2.2M": the chip's short form (the strip leaves the room to the enemies) */
+export function fmtMulShort(x) {
+  if (x < 1000) return fmtMul(x);
+  for (const [u, sfx] of [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']]) {
+    if (x >= u) {
+      const v = x / u;
+      return `×${v < 10 ? v.toFixed(1).replace(/\.0$/, '') : Math.round(v)}${sfx}`;
+    }
+  }
+  return fmtMul(x);
+}
 
 /** The plain-language explanation of a pressure (popover, tooltip). */
 export function pressureText(pr) {
@@ -96,7 +108,7 @@ export function createScout(ctx) {
     const pr = freeplayPressureInfo(sim, n);
     if (!pr) return null;
     return h(`span.bt-chip.bt-pressure${pr.warn ? '.warn' : ''}`, { 'data-testid': 'scout-pressure', title: pressureText(pr) },
-      h('span.bt-pr', icon('heart', 'bt-pr-ico'), fmtMul(pr.hp)),
+      h('span.bt-pr', icon('heart', 'bt-pr-ico'), fmtMulShort(pr.hp)),
       pr.armor ? h('span.bt-pr', icon('shield', 'bt-pr-ico'), `+${pr.armor}`) : null,
       pr.speedPct ? h('span.bt-pr', icon('ff', 'bt-pr-ico'), `+${pr.speedPct}%`) : null,
       h('span.bt-pr', icon('lock', 'bt-pr-ico'), `${pr.cc}s`));

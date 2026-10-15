@@ -911,13 +911,23 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&mode=rush][&endless=1]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing; `mode` only on a campaign stage cleared once, never in endless or
-practice runs, and Nightmare × Last Petal plays Standard — `parseBattleParams` forces Standard otherwise; prep
-`#/stage/<id>?difficulty=hard&mode=rush` remembers it). Battle modes and map rules in battle live in
-`src/ui/battle/modes.js` (mode chip, rule pill + popover, `ruleWarnings(sim, n)`, toasts, banners, scout ⇄, pause row,
-results ribbons) and `src/render/ruleDecals.js` (pads, vents, rifts); the renderer's `setRouteFlipped(flipped,
-reversed)` turns the gate arrows (relative) and junction chevrons (absolute). Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1]` (`freeplay` / `endless` only
+where `canPlayEndless`; a locked stage plays as a practice run that saves nothing). **Solo freeplay**
+(docs/FREEPLAY.md): `freeplay=blossom|tempest|crimson` on a campaign stage builds the Sim with
+`options.freeplay` and `soloFreeplayStage(id, tier)` (`src/data/freeplaySolo.js`: the stage's own HP plus
+the co-op freeplay table); `endless=1` on a campaign map is freeplay now (that tier, or Blossom; only the
+Colosseum stays endless). A normal campaign run that wins can **Keep going** (`ctx.keepGoing(tier)`,
+`continueIntoFreeplay(sim, tier)` in `src/ui/battle/soloFreeplay.js`: the won Sim goes on in place as a
+freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a normal solo win at the goal,
+`paySoloFreeplay` = the co-op freeplay payout with coins per wave capped at the stage's normal rate,
+`progress.stages[id].freeplayBest[tier]`). **Battle modes** (docs/specs/CODEX_MODES.md): `mode` only on a campaign
+stage cleared once, never in endless, freeplay or practice runs, and Nightmare × Last Petal plays Standard —
+`parseBattleParams` forces Standard otherwise, and a mode run is never offered Keep going (freeplay runs in Standard
+in v1); prep `#/stage/<id>?difficulty=hard&mode=rush` remembers it, and picking a mode turns prep's Freeplay off (and
+the other way round). Battle modes and map rules in battle live in `src/ui/battle/modes.js` (mode chip, rule pill +
+popover, `ruleWarnings(sim, n)`, toasts, banners, scout ⇄, pause row, results ribbons) and `src/render/ruleDecals.js`
+(pads, vents, rifts); the renderer's `setRouteFlipped(flipped, reversed)` turns the gate arrows (relative) and junction
+chevrons (absolute). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy

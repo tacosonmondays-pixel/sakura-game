@@ -9,9 +9,12 @@
 //      applyCoopFreeplayEnd): coins per freeplay wave × the tier's multiplier, a freeplay cache
 //      every 25 freeplay waves, Assault Tokens for boss-rank kills (capped), the per-tier best
 //      wave, one-time milestones, and only the kills / sightings made since the bank.
-// About 30–60 % of normal co-op farming per minute (spec §11): freeplay is played for the record
-// and the bosses, not the farm. Not part of the co-op compatibility id (tools/simId.mjs): these
-// numbers can change in any deploy without splitting players.
+// Freeplay is played for the record and the bosses, not the farm. Measured (bot runs at 3×, coins
+// per real minute): the waves pay 125–210 (Blossom), 185–300 (Tempest), 230–370 (Crimson Moon); a
+// cache every 25 waves adds about 170–450 more (it carries the stage's own coin drop) — together
+// up to ~80 % of farming normal co-op clears of the same stage (660–1,050 a minute), never more, and
+// no path pays a wave twice (the bank and the end each pay once per battle). Not part of the co-op
+// compatibility id (tools/simId.mjs): these numbers can change in any deploy without splitting players.
 import { rollStageDrops, rewardDifficulty } from '../../systems/rewards.js';
 import { addItems } from '../../systems/inventory.js';
 import { track } from '../../systems/missions.js';
@@ -115,7 +118,7 @@ export function applyCoopClear(profile, result, rng) {
  */
 export function freeplayLedger(holder, seed) {
   const all = (holder.freeplayRuns ||= {});
-  return (all[seed] ||= { fx: new Set(), bank: null, end: null });
+  return (all[seed] ||= { seed, fx: new Set(), bank: null, end: null });
 }
 
 /** Banks the clear once per ledger (later calls return the same outcome and pay nothing). */
@@ -127,8 +130,76 @@ export function bankFreeplayClear(ledger, profile, result, rng) {
 /** Pays the end of the run once per ledger (banking the clear first if that never happened). */
 export function payFreeplayEnd(ledger, profile, result, rng) {
   bankFreeplayClear(ledger, profile, result, rng);
-  if (!ledger.end) ledger.end = applyCoopFreeplayEnd(profile, result, rng, { banked: ledger.bank.banked });
+  if (!ledger.end) {
+    ledger.end = applyCoopFreeplayEnd(profile, result, rng, { banked: ledger.bank.banked });
+    dropPendingFreeplay(profile, ledger.seed);
+  }
   return ledger.end;
+}
+
+// ---- a run the page never got to pay (reloaded, closed, or discarded by the phone) -------------
+// The ledger lives in memory; on an iPhone the most common end of an hour-long run is a reload or
+// a background tab the browser threw away. So after every freeplay wave the battle keeps what the
+// end payout needs in the save (progress.freeplayPending[seed]); payFreeplayEnd removes it, and
+// the next app start pays whatever is still there (payPendingFreeplayRuns).
+
+/** The most runs kept waiting (the oldest goes first). */
+const PENDING_MAX = 3;
+
+/** Saves (in the profile) what the end payout of this run needs, as of now. Call after each freeplay wave. */
+export function rememberFreeplayRun(profile, ledger, result) {
+  if (!ledger?.bank || ledger.end || ledger.seed == null || !result?.freeplay) return false;
+  if (count(result.wavesCleared) <= count(ledger.bank.banked?.goal)) return false;
+  const progress = (profile.progress ||= { stages: {} });
+  const all = (progress.freeplayPending = isObj(progress.freeplayPending) ? progress.freeplayPending : {});
+  const key = String(ledger.seed);
+  delete all[key]; // (re-added last: the newest run is the last key)
+  all[key] = {
+    stageId: result.stageId, difficulty: result.difficulty, freeplay: result.freeplay, goal: count(result.goal),
+    wavesCleared: count(result.wavesCleared), kills: { ...(result.kills || {}) }, encountered: [...(result.encountered || [])],
+    banked: { goal: count(ledger.bank.banked?.goal), kills: { ...(ledger.bank.banked?.kills || {}) }, encountered: [...(ledger.bank.banked?.encountered || [])] },
+    // solo freeplay (src/systems/freeplayRewards.js): its best field and its capped coins per wave
+    ...(ledger.payout?.bestKey ? { bestKey: ledger.payout.bestKey } : {}),
+    ...(ledger.payout?.waveCoins != null ? { waveCoins: count(ledger.payout.waveCoins) } : {}),
+  };
+  const keys = Object.keys(all);
+  for (const k of keys.slice(0, Math.max(0, keys.length - PENDING_MAX))) delete all[k];
+  return true;
+}
+
+/** Forgets a pending run (it was paid). */
+export function dropPendingFreeplay(profile, seed) {
+  const all = profile?.progress?.freeplayPending;
+  if (!isObj(all) || seed == null) return;
+  delete all[String(seed)];
+  if (!Object.keys(all).length) delete profile.progress.freeplayPending;
+}
+
+/**
+ * App start: pays every freeplay run the last session could not (its freeplay part, from the
+ * last wave it saved) and forgets them. @param {(seed: string) => { next(): number }} rngFor
+ * @returns {object[]} applyCoopFreeplayEnd's outcomes, + stageId
+ */
+export function payPendingFreeplayRuns(profile, rngFor) {
+  const all = profile?.progress?.freeplayPending;
+  if (!isObj(all)) return [];
+  const out = [];
+  for (const [seed, rec] of Object.entries(all)) {
+    delete all[seed]; // first: a run that fails to pay is never paid twice
+    if (!isObj(rec)) continue;
+    try {
+      const res = applyCoopFreeplayEnd(profile, { ...rec, won: false, finished: false }, rngFor(seed), {
+        banked: rec.banked,
+        ...(rec.bestKey === 'freeplayBest' ? { bestKey: 'freeplayBest' } : {}),
+        ...(rec.waveCoins != null ? { waveCoins: count(rec.waveCoins) } : {}),
+      });
+      if (res.freeplay) out.push({ ...res, stageId: rec.stageId });
+    } catch (e) {
+      console.warn('[coop] a pending freeplay run could not be paid', e);
+    }
+  }
+  delete profile.progress.freeplayPending;
+  return out;
 }
 
 /** Kills since the bank: result.kills − banked.kills, per id (never negative). */
@@ -155,8 +226,19 @@ export function freeplayRecords(profile) {
   const p = (profile.progress ||= { stages: {} });
   const r = (p.freeplay = isObj(p.freeplay) ? p.freeplay : {});
   for (const k of ['done', 'titles', 'frames']) if (!Array.isArray(r[k])) r[k] = [];
+  // the once-per-account milestones are mirrored into missions.counters, which every older build
+  // keeps when it saves: an old cached tab that drops progress.freeplay can't make them pay twice
+  const counters = profile.missions?.counters;
+  if (isObj(counters)) {
+    for (const [k, v] of Object.entries(counters)) {
+      if (k.startsWith(MILESTONE_MARK) && v > 0 && !r.done.includes(k.slice(MILESTONE_MARK.length))) r.done.push(k.slice(MILESTONE_MARK.length));
+    }
+  }
   return r;
 }
+
+/** missions.counters key prefix of a paid freeplay milestone ('fpm:' + 'tier:id'). */
+export const MILESTONE_MARK = 'fpm:';
 
 /** Best freeplay wave on a stage per tier: { blossom?, tempest?, crimson? } (absolute waves). */
 export function coopBestWaves(profile, stageId) {
@@ -171,11 +253,14 @@ export function coopBestWaves(profile, stageId) {
  * @param {object} profile
  * @param {object} result Sim.result() (result.freeplay = tier id, result.goal, result.wavesCleared)
  * @param {{ next(): number }} rng
- * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null }} [opts]
+ * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null, bestKey?: string }} [opts]
+ *   bestKey: the stage-entry field holding the per-tier best (co-op `coopBestWave`; solo freeplay,
+ *   src/systems/freeplayRewards.js, uses `freeplayBest` with these same payouts); waveCoins: coins per
+ *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage)
  * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tokens,
  *   best, prevBest, newBest, milestones: [{ id, label, gems, title?, frame? }] }`
  */
-export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {}) {
+export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null } = {}) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
@@ -193,7 +278,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
   const killed = addSightings(profile, newlySeen, kills);
   if (killed) track(profile, 'kill', killed);
 
-  const coins = Math.round(R.coinsPerWave * waves * (table.rewardMul ?? 1));
+  const coins = Math.round((waveCoins ?? R.coinsPerWave * (table.rewardMul ?? 1)) * waves);
   if (coins > 0) rewards.push({ id: 'coins', count: coins });
   const caches = Math.floor(waves / R.cacheEvery);
   for (let i = 0; i < caches; i++) rewards.push(...rollFreeplayCache(stage.id, result.difficulty, rng));
@@ -204,7 +289,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
 
   // the per-tier best (absolute waves cleared: "147/15")
   const entry = ((profile.progress ||= { stages: {} }).stages ||= {})[stage.id] ||= { easy: false, normal: false, hard: false, nightmare: false, clears: 0 };
-  const bests = (entry.coopBestWave = isObj(entry.coopBestWave) ? entry.coopBestWave : {});
+  const bests = (entry[bestKey] = isObj(entry[bestKey]) ? entry[bestKey] : {});
   const prevBest = count(bests[table.id]);
   const newBest = cleared > prevBest;
   if (newBest) bests[table.id] = cleared;
@@ -218,6 +303,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null } = {
     const hit = m.wave != null ? cleared >= m.wave : count(kills[m.kill]) > 0;
     if (!hit) continue;
     rec.done.push(key);
+    ((profile.missions ||= {}).counters ||= {})[MILESTONE_MARK + key] = 1;
     const title = table.id === 'crimson' && m.crimsonTitle ? m.crimsonTitle : m.title || null;
     if (title && !rec.titles.includes(title)) rec.titles.push(title);
     if (m.frame && !rec.frames.includes(m.frame)) rec.frames.push(m.frame);

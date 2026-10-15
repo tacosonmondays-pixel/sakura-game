@@ -45,6 +45,15 @@ export function createPauseMenu(ctx) {
     if (!ctx.freeplayAfterGoal?.()) return null;
     const voted = !!ctx.myFinishVote?.();
     const waves = Math.max(0, ctx.sim.wavesCleared - ctx.sim.totalWaves);
+    if (!ctx.coop) {
+      // solo: Finish ends the run now (the FREEPLAY COMPLETE sheet)
+      return h('div.bt-pause-free', { 'data-testid': 'pause-freeplay' },
+        h('div.bt-sheet-section', `Freeplay · ${ctx.sim.wavesCleared}/${ctx.sim.totalWaves}`),
+        h('p.bt-pause-free-text', 'Finish run ends the run here and counts your best wave. Your clear rewards are already saved.'),
+        h('div.bt-pause-actions',
+          h('button.bt-cta', { 'data-testid': 'pause-finish', onclick: () => { ctx.closePause(); ctx.voteFinish(true); } }, icon('check', 'bt-ico-sm'), 'Finish run')),
+        h('small.bt-pause-free-note', `Quitting pays the freeplay bonus for ${waves} wave${waves === 1 ? '' : 's'} too.`));
+    }
     return h('div.bt-pause-free', { 'data-testid': 'pause-freeplay' },
       h('div.bt-sheet-section', `Freeplay · ${ctx.sim.wavesCleared}/${ctx.sim.totalWaves}`),
       h('p.bt-pause-free-text', allyGone()
@@ -109,7 +118,8 @@ export function createPauseMenu(ctx) {
   function leaveText() {
     if (ctx.freeplayAfterGoal?.()) {
       const waves = Math.max(0, ctx.sim.wavesCleared - ctx.sim.totalWaves);
-      return `Your clear rewards are saved; you'll get the freeplay bonus for ${waves} wave${waves === 1 ? '' : 's'}. Your girls stay with ${ally()}.`;
+      const bonus = `Your clear rewards are saved; you'll get the freeplay bonus for ${waves} wave${waves === 1 ? '' : 's'}.`;
+      return ctx.coop ? `${bonus} Your girls stay with ${ally()}.` : bonus;
     }
     return ctx.coop ? 'Leave the co-op battle? Your girls stay to help your ally, but you will not receive rewards.' : 'Leave the battle? You will not receive rewards for this run.';
   }

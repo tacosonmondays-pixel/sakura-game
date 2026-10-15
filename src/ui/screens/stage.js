@@ -1,4 +1,9 @@
-// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&mode=rush][&endless=1]
+// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1]
+// Solo Freeplay: on a cleared campaign stage a Freeplay row (Off · Blossom · Tempest · Crimson
+// Moon) turns the run into a freeplay run, with the best wave per tier. endless=1 (the Tactical
+// Challenge cards, the old endless runs) opens the same prep with freeplay on.
+// Battle modes (docs/specs/CODEX_MODES.md): picked next to the difficulty once the stage is cleared;
+// a mode and freeplay exclude each other (freeplay runs in Standard in v1).
 // Map preview, wave info, enemy scouting chips, recommended counters with one-tap
 // "Add to formation", formation strip, difficulty picker with medals, drop table,
 // first-clear rewards, Start and Sweep.
@@ -29,6 +34,11 @@ import { describeStat } from '../../systems/gear.js';
 import {
   initialMode, playMode, startLabel, livesFor, modeSubLine, ribbonCorner, firstClearNote, rulePanel, modePanel, withRuleMarks,
 } from './stageModes.js';
+import { FREEPLAY_TIERS, freeplayTable, freeplayTier } from '../../data/freeplay.js';
+import { hasSoloFreeplay } from '../../data/freeplaySolo.js';
+import { soloBestLines } from '../../systems/freeplayRewards.js';
+import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
+import { lastSoloTier, rememberSoloTier } from '../battle/soloFreeplay.js';
 import { rarityInfo } from '../rarity.js';
 
 // ---------------------------------------------------------------------------
@@ -346,14 +356,17 @@ export function render(root, params = {}) {
     root.appendChild(el);
     return;
   }
-  // endless on a map only where the Tactical Challenge screen offers it (cleared maps)
-  const endless = (params.endless === '1' || params.endless === 1 || params.endless === true) && canPlayEndless(store.profile, stage.id);
+  // freeplay (and the old endless=1) on a map only where it is offered: cleared campaign maps
+  const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === true;
+  const fpOk = hasSoloFreeplay(stage.id) && canPlayEndless(store.profile, stage.id);
+  const endless = wantsEndless && fpOk; // Tactical Challenge's map cards: freeplay prep, never Off
   const title = stage.kind === 'campaign' ? `${stage.id} ${stage.name}` : stage.name;
-  const { el, body } = screen(endless ? `Endless · ${title}` : title, { cls: 'ma-stage-screen' });
+  const { el, body } = screen(endless ? `Freeplay · ${title}` : title, { cls: 'ma-stage-screen' });
   root.appendChild(el);
 
   const state = {
     difficulty: DIFFICULTIES[params.difficulty] ? params.difficulty : defaultDifficulty(store.profile, stage),
+    freeplay: fpOk ? freeplayTier(params.freeplay) || (endless ? lastSoloTier() : null) : null,
   };
   if (endless || stage.kind === 'challenge') state.difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
   // battle mode (docs/specs/CODEX_MODES.md §8.1): remembered in the route like the difficulty
@@ -396,7 +409,10 @@ function buildPrep(stage, state, { endless, redraw }) {
   const dropMul = event.stageIds.includes(stage.id) ? event.dropMul : 1;
   const medals = stageMedals(profile, stage.id);
   const entry = profile.progress?.stages?.[stage.id];
-  const isEndless = endless || stage.kind === 'challenge';
+  // only the colosseum is endless now; campaign maps play freeplay (state.freeplay)
+  const isEndless = stage.kind === 'challenge';
+  const fpOk = hasSoloFreeplay(stage.id) && unlocked;
+  const fpOn = !!state.freeplay && canPlayEndless(profile, stage.id);
 
   const wrap = h('div.ma-prep');
 
@@ -413,12 +429,13 @@ function buildPrep(stage, state, { endless, redraw }) {
       tier ? h('span.ma-tier-badge', { style: { background: tier.color } }, tier.name) : null,
       dropMul > 1 ? h('span.ma-event-badge', `${dropMul}× drops`) : null,
       isEndless ? h('span.ma-endless-badge', 'Endless') : null,
+      fpOn ? h(`span.ma-fp-badge.ma-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${freeplayTable(state.freeplay).name}`) : null,
     ),
     h('div.ma-prep-name',
       h('span.ma-prep-id', stage.kind === 'campaign' ? stage.id : stageLabel(stage)),
       h('span.ma-prep-title', stage.name),
     ),
-    stage.kind !== 'challenge' && !endless ? medalRow(profile, stage.id, { size: 26, cls: 'ma-prep-medals' }) : null,
+    stage.kind !== 'challenge' ? medalRow(profile, stage.id, { size: 26, cls: 'ma-prep-medals' }) : null,
   );
   left.appendChild(hero);
 
@@ -427,7 +444,7 @@ function buildPrep(stage, state, { endless, redraw }) {
     stageLabel(stage),
     h('p.ma-stage-desc', stage.desc),
     h('div.ma-facts',
-      fact('Waves', isEndless ? '∞' : String(stage.waves)),
+      fact('Waves', isEndless ? '∞' : fpOn ? `${stage.waves} + ∞` : String(stage.waves)),
       fact('Lives', String(livesFor(state.difficulty, state.mode))),
       fact('Start cash', formatNumber(Math.round(stage.startCash))),
       fact('Map', map?.name || stage.mapId),
@@ -456,10 +473,19 @@ function buildPrep(stage, state, { endless, redraw }) {
   const right = h('div.ma-prep-col.right');
 
   if (!isEndless) right.appendChild(panel('Difficulty', difficultyPicker(stage, state, medals, redraw)));
-  if (!isEndless && stage.kind === 'campaign') {
-    right.appendChild(modePanel(profile, stage, state, (m) => { state.mode = m; rememberParams('stage', { mode: m }); redraw(); }));
+  if (!isEndless && !endless && stage.kind === 'campaign') {
+    // a mode turns freeplay off (freeplay runs in Standard in v1)
+    right.appendChild(modePanel(profile, stage, state, (m) => {
+      state.mode = m;
+      rememberParams('stage', { mode: m });
+      if (m !== 'standard' && state.freeplay) {
+        state.freeplay = null;
+        rememberFreeplay(null);
+      }
+      redraw();
+    }));
   }
-  else if (endless) right.appendChild(panel('Endless mode', h('p', 'Waves keep coming after the map\'s last wave — survive as long as you can. Your best wave on this map is recorded. Medals are not awarded in endless runs.')));
+  if (fpOk) right.appendChild(freeplayPanel(stage, state, { endless, redraw }));
 
   right.appendChild(countersPanel(stage));
   right.appendChild(formationPanel());
@@ -467,7 +493,8 @@ function buildPrep(stage, state, { endless, redraw }) {
   const dropsPanel = panel(
     stage.kind === 'challenge' ? 'Rewards per run' : 'Drops',
     dropMul > 1 ? h('div.ma-event-note', h('span.ma-event-badge', `${dropMul}×`), `${event.name}: drop counts doubled this week.`) : null,
-    endless ? h('p.muted', 'Endless runs pay coins for every wave survived instead of drops.') : dropGrid(stage, state.difficulty, { dropMul }),
+    dropGrid(stage, state.difficulty, { dropMul }),
+    fpOn ? h('p.muted.ma-hint', 'Freeplay: these drop at the stage clear; past it, coins every wave and a freeplay cache every 25 waves.') : null,
   );
   right.appendChild(dropsPanel);
 
@@ -482,7 +509,7 @@ function buildPrep(stage, state, { endless, redraw }) {
     if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
     if (!isEndless) actions.appendChild(sweepControls(stage, state));
-    const start = button(isEndless ? 'Start endless' : startLabel(state.difficulty, state.mode), {
+    const start = button(isEndless ? 'Start endless' : fpOn ? `Start · ${DIFFICULTIES[state.difficulty].name} · ${freeplayTable(state.freeplay).name}` : startLabel(state.difficulty, state.mode), {
       kind: 'yellow',
       icon: 'play',
       testid: 'stage-start',
@@ -490,8 +517,9 @@ function buildPrep(stage, state, { endless, redraw }) {
       onClick: () => {
         const p = { stage: stage.id, difficulty: state.difficulty };
         const mode = playMode(state.difficulty, state.mode);
-        if (!isEndless && mode !== 'standard') p.mode = mode;
+        if (!isEndless && !fpOn && mode !== 'standard') p.mode = mode;
         if (endless) p.endless = 1;
+        if (fpOn) p.freeplay = state.freeplay;
         navigate('battle', p);
       },
     });
@@ -510,6 +538,61 @@ function safeMap(id) {
   } catch {
     return null;
   }
+}
+
+/** Keeps the freeplay pick in the URL (null removes it), so Retry / Quit come back to it. */
+function rememberFreeplay(tier) {
+  const route = currentRoute();
+  if (route.name !== 'stage' || !route.params) return;
+  if (tier) route.params.freeplay = tier;
+  else delete route.params.freeplay;
+  try {
+    history.replaceState(history.state, '', buildHash('stage', route.params));
+  } catch {
+    /* not in a browser */
+  }
+}
+
+/**
+ * Solo Freeplay: Off · Blossom · Tempest · Crimson Moon (the co-op tiers), what freeplay brings on
+ * this stage, the best wave per tier ("Best: wave 87 (Tempest)"), or how to unlock it.
+ */
+function freeplayPanel(stage, state, { endless, redraw }) {
+  const profile = store.profile;
+  const cleared = canPlayEndless(profile, stage.id);
+  const bests = soloBestLines(profile, stage.id);
+  const bestBox = bests.length
+    ? h('div.ma-fp-bests', { 'data-testid': 'prep-fp-best' }, bests.map((b) => h(`span.ma-fp-best.ma-fp-${b.tier}`, b.text)))
+    : null;
+  if (!cleared) {
+    return panel('Freeplay', h('p.muted', { 'data-testid': 'prep-fp-locked' }, `Clear ${stage.id} once to start it in Freeplay — or tap Keep going on the victory screen to go past wave ${stage.waves}.`), bestBox);
+  }
+  const pick = (tier) => {
+    state.freeplay = tier;
+    if (tier) rememberSoloTier(tier);
+    // freeplay runs in Standard (v1): turning it on sets the battle mode back to Standard
+    if (tier && state.mode !== 'standard') {
+      state.mode = 'standard';
+      rememberParams('stage', { mode: 'standard' });
+    }
+    rememberFreeplay(tier);
+    redraw();
+  };
+  const seg = h('div.ma-fp-seg', { role: 'radiogroup', 'data-testid': 'prep-freeplay' },
+    endless ? null : h(`button.ma-fp-btn${!state.freeplay ? '.on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': !state.freeplay ? 'true' : 'false', 'data-tier': 'off', onclick: () => pick(null) }, 'Off'),
+    ...FREEPLAY_TIERS.map((id) => h(`button.ma-fp-btn.ma-fp-btn-${id}${state.freeplay === id ? '.on' : ''}`, {
+      type: 'button', role: 'radio', 'aria-checked': state.freeplay === id ? 'true' : 'false', 'data-tier': id, 'data-testid': `prep-fp-${id}`, title: TIER_PITCH[id], onclick: () => pick(id),
+    }, freeplayTable(id).name)));
+  const t = freeplayTable(state.freeplay);
+  return panel('Freeplay',
+    seg,
+    t
+      ? h(`div.ma-fp-info.ma-fp-${t.id}`, { 'data-testid': 'prep-fp-info' },
+        h('p', h('b', TIER_PITCH[t.id]), ' ', freeplaySummary(stage.id, t.id) || ''),
+        h('p.muted', 'Rewards for the clear are saved at the last stage wave; past it you earn coins every wave, a cache every 25 waves and boss tokens. Finish any time from the pause menu.'),
+        state.difficulty === 'nightmare' ? h('p.ma-fp-warn', '1 life — the first leak ends freeplay.') : null)
+      : h('p.muted', `Off: the battle ends at wave ${stage.waves}. You can still Keep going from the victory screen.`),
+    bestBox);
 }
 
 function fact(label, value) {

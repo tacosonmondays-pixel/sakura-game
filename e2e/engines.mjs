@@ -2,7 +2,8 @@
 // every JS engine computes the battle to the same bit, so this runs ONE scripted co-op battle
 // (e2e/engines/scriptedBattle.js: two Lockstep clients, both players' commands, to the end) and
 // ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
-// ended by both players' Finish vote) in every engine it can find and compares the results:
+// ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
+// at 250, every enemy's bits) in every engine it can find and compares the results:
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
 //   JavaScriptCore  Bun and WebKit (iPhone / iPad Safari)
 //   SpiderMonkey    Firefox
@@ -151,6 +152,20 @@ for (const { name, r } of results) {
   for (const k of ['ruleState', 'ruleBonus', 'rift', 'ruleCash']) if (!ev.includes(k)) failures.push(`the mode battles never produced a ${k} event`);
   const ck = ref.modes.battles.reduce((a, b) => a + b.checkpoints, 0);
   log(`  ${ck} hash checkpoints across the mode battles`);
+}
+// deep freeplay: a battle jumped to wave 250 on 8-5 (the Eclipse Wyrm wave), raw bits of every enemy
+const DEEP_KEYS = ['towers', 'wave', 'cleared', 'lives', 'maxAlive', 'maxHp', 'bad', 'bosses', 'digest', 'final'];
+log('\nDeep freeplay (8-5 Blossom jumped to wave 250: the Eclipse Wyrm + Gloom Regent, every enemy\'s bits every 60 ticks):');
+for (const { name, r } of results) {
+  const d = r.freeplay.deep;
+  log(`  ${name.padEnd(46)} wave ${d.wave} · ${d.towers} towers · up to ${d.maxAlive} alive · max HP ${d.maxHp.toExponential(3)} · bosses ${d.bosses} · non-finite ${d.bad} · digest ${d.digest} · final ${d.final} · ${d.ms} ms`);
+  for (const k of DEEP_KEYS) if (d[k] !== ref.freeplay.deep[k]) failures.push(`${name}: deep freeplay ${k} ${d[k]} ≠ ${ref.freeplay.deep[k]} (${results[0].name})`);
+}
+{
+  const d = ref.freeplay.deep;
+  if (d.bad) failures.push(`deep freeplay: ${d.bad} non-finite enemy values`);
+  if (!(d.maxHp < 2 ** 53)) failures.push(`deep freeplay: an enemy HP of ${d.maxHp} is past 2^53`);
+  if (!d.bosses.includes('fp_eclipse_wyrm')) failures.push(`deep freeplay: the Eclipse Wyrm never came (bosses ${d.bosses})`);
 }
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
