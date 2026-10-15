@@ -156,15 +156,12 @@ export function installAchievementToasts(store) {
     check();
     flush();
   }, 400));
-  // overlays come and go on <body>: withdraw a showing toast when one opens, show the queue when the last closes
-  let raf = 0;
+  // overlays come and go on <body>: withdraw a showing toast when one opens, show the queue when the last closes.
+  // Acted on in the observer itself (one call per batch of mutations), not on the next frame: a busy page can
+  // delay a frame long enough for the toast to stay on top of what just opened.
   new MutationObserver(() => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      if (blocked()) withdraw();
-      else flush();
-    });
+    if (blocked()) withdraw();
+    else flush();
   }).observe(document.body, { childList: true, subtree: true }); // story overlays mount inside screens
 }
 

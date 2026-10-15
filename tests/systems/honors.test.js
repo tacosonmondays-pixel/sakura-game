@@ -49,9 +49,9 @@ describe('the tables (stable interface for the profile)', () => {
     expect(TITLE_MAP.fp_crimson).toMatchObject({ name: 'Crimson Slayer', plate: 'prism' });
   });
 
-  it('launch counts: 32 ribbons and 37 titles in this build', () => {
-    expect(liveRibbons()).toHaveLength(32);
-    expect(liveTitles()).toHaveLength(37);
+  it('this build: 33 ribbons and 38 titles (launch 32 / 37 + the social wave)', () => {
+    expect(liveRibbons()).toHaveLength(33);
+    expect(liveTitles()).toHaveLength(38);
   });
 
   it('exports the functions the profile uses', () => {
@@ -96,7 +96,7 @@ describe('ownership comes from the claims alone', () => {
   });
 
   it('ignores unknown ids, falsy claims, NO_COSMETIC rows and rows whose feature has not shipped', () => {
-    const p = claimed('a_from_the_future', 'a_pulls_300', 'a_units_all', 'a_reroll_10', 'a_mr_800', 'a_donate_10');
+    const p = claimed('a_from_the_future', 'a_pulls_300', 'a_units_all', 'a_reroll_10', 'a_mr_800', 'a_rev_80');
     p.missions.achievements.a_chapter_1 = false;
     p.missions.achievements.a_chapter_2 = 1; // only `true` counts
     expect(ownedRibbons(p)).toEqual([]);
@@ -116,7 +116,7 @@ describe('ownership comes from the claims alone', () => {
 
   it('honorCount is the public card count, clamped to 999', () => {
     const p = claimed(...HONOR_RIBBONS.map((h) => h.id));
-    expect(honorCount(p)).toBe(32); // social and Codex ribbons are not in this build yet
+    expect(honorCount(p)).toBe(33); // the Codex ribbon is not in this build yet
   });
 });
 

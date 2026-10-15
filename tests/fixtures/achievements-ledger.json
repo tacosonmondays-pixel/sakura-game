@@ -116,6 +116,8 @@
    "a_room_view": [{"id":"coins", "count": 5000}],
    "a_gold_rush": [{"id":"coins", "count": 50000}],
    "a_not_fooled": [{"id":"gearbox_superRare", "count": 1}],
-   "a_mirror_mirror": [{"id":"gearbox_superRare", "count": 1}, {"id":"dice_prism", "count": 1}]
+   "a_mirror_mirror": [{"id":"gearbox_superRare", "count": 1}, {"id":"dice_prism", "count": 1}],
+  "a_donate_1": [{"id":"gearbox_superRare", "count": 1}],
+  "a_donate_10": [{"id":"gearbox_superRare", "count": 2}]
  }
 }
