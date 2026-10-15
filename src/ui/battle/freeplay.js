@@ -20,9 +20,9 @@ import { AFFIX_TEXT } from './scout.js';
 
 /** Absolute-wave milestone banners. */
 const MILESTONES = {
-  50: ['WAVE 50 — CROWN HUNT', 'Minibosses every 10 waves'],
+  50: ['WAVE 50 — CROWN HUNT', 'A boss every 5 waves from here'],
   100: ['WAVE 100 — BOSS RUSH', 'The Grave Lych and the Iron Colossus join the hunt'],
-  150: ['WAVE 150 — THE PEAKS TREMBLE', 'A boss and a miniboss every 10 waves'],
+  150: ['WAVE 150 — THE PEAKS TREMBLE', 'Titans scout between the big bosses'],
 };
 /** "Iron Colossus" → "Iron Colossi", "Grave Lych" → "Grave Lychs" */
 const plural = (name) => (/us$/.test(name) ? name.replace(/us$/, 'i') : /s$/.test(name) ? name : `${name}s`);

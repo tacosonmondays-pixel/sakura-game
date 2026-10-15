@@ -156,9 +156,15 @@ export function initTraitState(e) {
   if (!t.blink) e.blinkWarned = false;
 }
 
-/** Freeplay affix on a wave spawn: + flat armor, × walk speed, extra traits, a barrier of pct × base HP. */
+/**
+ * Freeplay affix / elite modifier on a wave spawn: + flat armor, × walk speed, extra traits, a
+ * barrier of pct × base HP; elites may also carry a smaller Resolve CC budget (ccMul, read by
+ * applyPressure) and the modifier's id (eliteMod, for the name plate).
+ */
 export function applySpawnMods(e, m) {
   if (m.armor) { e.armor += m.armor; e.armorBonus = (e.armorBonus || 0) + m.armor; }
+  if (m.ccMul) e.ccMul = m.ccMul;
+  if (m.eliteMod) e.eliteMod = m.eliteMod;
   if (m.speed && m.speed !== 1) {
     e.speedMul *= m.speed;
     e.baseSpeed = (e.def.speed ?? 1) * e.speedMul;

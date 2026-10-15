@@ -6,7 +6,7 @@
 // build bit-identical waves. stage.freeplay is the tier's table (src/data/freeplay.js).
 import { createRng, hashString } from '../core/rng.js';
 import { powInt, groupSpacing } from './waves.js';
-import { WAVE_HP_RAMP, GROUP_OVERLAP, DEFAULT_SPACING } from './constants.js';
+import { WAVE_HP_RAMP, GROUP_OVERLAP, DEFAULT_SPACING, FREEPLAY_ARMOR_FLOOR } from './constants.js';
 
 /**
  * HP multiplier of freeplay wave `wave` (excludes stage hpScale and difficulty): the goal wave's
@@ -31,15 +31,18 @@ export function freeplaySpeed(stage, wave) {
   return Math.min(s.max, 1 + s.slope * Math.max(0, wave - stage.waves));
 }
 
-/** Pressure every enemy entering during this wave carries: + flat armor, Resolve budgets (whole numbers). */
+/**
+ * Pressure every enemy entering during this wave carries: + flat armor (fractional: it grows a
+ * little every wave instead of in +1 steps) and the Resolve budgets (whole numbers).
+ */
 export function freeplayPressure(stage, wave) {
   const fp = stage.freeplay;
   const d = Math.max(0, wave - stage.waves);
   const r = fp.resolve;
-  const armor = Math.min(fp.armor.max, Math.floor(d / fp.armor.every));
+  const armor = Math.min(fp.armor.max, d / fp.armor.every);
   return {
     armor,                                              // normal and elite enemies
-    bossArmor: Math.floor(armor * fp.armor.bossMul),    // minibosses, bosses, titans (0 = exempt)
+    bossArmor: armor * fp.armor.bossMul,                // minibosses, bosses, titans (0 = exempt)
     cc: Math.max(1, r.cc - Math.floor(d / r.ccEvery)),
     bossCc: r.bossCc,                                   // minibosses, bosses, titans: a fixed budget
     kb: Math.max(1, r.kb - Math.floor(d / r.kbEvery)),
@@ -49,6 +52,17 @@ export function freeplayPressure(stage, wave) {
 function sharesAt(fp, d) {
   for (const row of fp.shares) if (d <= row[0]) return row;
   return fp.shares[fp.shares.length - 1];
+}
+
+/**
+ * The elite share the smoothing target uses: the shares table's elite column as a ramp (it reaches
+ * the next row's share where a row ends) instead of steps, so a new row never makes a wave jump.
+ */
+function eliteShareRamp(fp, d) {
+  const rows = fp.shares;
+  const pts = [[0, rows[0][3]]];
+  for (let i = 0; i + 1 < rows.length; i++) pts.push([rows[i][0], rows[i + 1][3]]);
+  return lerpTable(pts, d);
 }
 
 /** Visiting chapters for a stage: nearest to the home chapter first (ties: lower first). */
@@ -72,13 +86,15 @@ export function freeplayFirstBossWave(stage) {
 }
 
 /**
- * Boss-wave content (absolute wave numbers), or null. Ladder level L = wave + tier bossShift:
- *   L < 100 one miniboss · 100–149 boss / two minibosses alternating · 150–159 both bosses ·
- *   160–199 boss + miniboss · 200+ a titan (+ a boss from 260).
- * Boss waves every 10, every 5 once L ≥ fastFrom (the 5s: a miniboss, a boss from L 200).
+ * Boss-wave content (absolute wave numbers), or null. Ladder level L = wave + tier bossShift.
+ * The tens: L < 100 one miniboss · 100–149 boss / two minibosses alternating · 150–159 both
+ * bosses · 160–199 boss + miniboss · 200+ a titan (+ a boss from 260).
+ * Boss waves every 10, every 5 once L ≥ fastFrom. The fives are smaller visitors (`small: true`,
+ * HP from bossHpSmall): L < 100 the next miniboss on the ladder · 100–149 a miniboss ·
+ * 150–199 the other boss or a titan, alternating · 200+ a boss.
  * Wave 200: the Ashwing Matriarch on every tier; after it every finale.every waves Matriarch + titan,
  * and from calamity.wave every calamity.every waves the Eclipse Wyrm + titan.
- * @returns {null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: string[] }}
+ * @returns {null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: string[], small?: true }}
  */
 export function freeplayBosses(stage, wave) {
   const fp = stage.freeplay;
@@ -101,13 +117,82 @@ export function freeplayBosses(stage, wave) {
   const L = wave + fp.bossShift;
   const period = L >= fp.fastFrom ? 5 : 10;
   if (wave % period !== 0 || wave < first) return null;
-  if (wave % 10 !== 0) return L >= 200 ? { kind: 'boss', bosses: [boss(n)] } : { kind: 'miniboss', bosses: [mini(j + 2)] };
+  if (wave % 10 !== 0) {
+    if (L >= 200) return { kind: 'boss', bosses: [boss(n)], small: true };
+    if (L >= 150) return n % 2 === 0 ? { kind: 'boss', bosses: [boss(n + 1)], small: true } : { kind: 'titan', bosses: [titan(n)], small: true };
+    return { kind: 'miniboss', bosses: [mini(L >= 100 ? j + 1 : j + 2)], small: true };
+  }
   if (L < 100) return { kind: 'miniboss', bosses: [mini(j)] };
   if (L < 150) return n % 2 === 0 ? { kind: 'boss', bosses: [boss(n >> 1)] } : { kind: 'miniboss', bosses: [mini(j), mini(j + 1)] };
   if (L < 160) return { kind: 'boss', bosses: [...fp.bosses] };
   if (L < 200) return { kind: 'boss', bosses: [boss(n), mini(j)] };
   if (L < 260) return { kind: 'titan', bosses: [titan(n)] };
   return { kind: 'titan', bosses: [titan(n), boss(n)] };
+}
+
+/** Piecewise-linear lookup in [[x, y], …] (flat before the first and after the last point). */
+function lerpTable(pts, x) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (x < pts[i][0]) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
+/** The value of the last [from, value] row with from ≤ x (null below the first row). */
+function stepTable(rows, x) {
+  let v = null;
+  for (const r of rows || []) if (x >= r[0]) v = r[1];
+  return v;
+}
+
+/** Extra armor elites carry on freeplay wave `wave` (fractional, on top of the pressure armor). */
+export function freeplayEliteArmor(stage, wave) {
+  const b = stage.freeplay.eliteBand;
+  if (!b) return 0;
+  const d = Math.max(0, wave - stage.waves);
+  return Math.min(b.max, Math.max(0, d - b.from) / b.every);
+}
+
+/** HP factor elites carry on freeplay wave `wave` (× the wave's ramp, by depth). */
+export function freeplayEliteHp(stage, wave) {
+  return stepTable(stage.freeplay.eliteHp, wave - stage.waves) ?? 1;
+}
+
+/**
+ * HP factor (× the wave's ramp) of a boss-wave enemy of rank `rank`: the finale / calamity's own,
+ * the fives' bossHpSmall band, the early tens' bossHpEarly, else bossHp by rank.
+ */
+export function freeplayBossFactor(stage, wave, bossWave, rank) {
+  const fp = stage.freeplay;
+  if (rank === 'finale') return fp.finale.hp;
+  if (rank === 'calamity') return fp.calamity.hp;
+  const L = wave + fp.bossShift;
+  if (bossWave?.small) {
+    const band = stepTable(fp.bossHpSmall, L);
+    if (band && band[rank] != null) return band[rank];
+  } else if (fp.bossHpEarly && L < fp.bossHpEarly.until && fp.bossHpEarly[rank] != null) {
+    return fp.bossHpEarly[rank];
+  }
+  return fp.bossHp[rank] ?? 1;
+}
+
+/**
+ * The modifier an elite group rolls (or null): from depth eliteMods.from, eliteMods.chance per
+ * group, from its own rng (`stage|fp-elite|wave|slot`) so the wave's own picks never move. A
+ * modifier the enemy (or the rotation's affix) already has is skipped.
+ */
+function eliteModFor(stage, wave, slot, def, affix) {
+  const em = stage.freeplay.eliteMods;
+  if (!em || wave - stage.waves < em.from) return null;
+  const rng = createRng(hashString(`${stage.id}|fp-elite|${wave}|${slot}`));
+  if (rng.next() >= em.chance) return null;
+  const open = em.list.filter((m) => !(m.barrierPct && def.traits?.barrier) && !(m.regen && (def.traits?.regen || affix?.traits?.regen)));
+  return open.length ? open[Math.floor(rng.next() * open.length)] : null;
 }
 
 /** What freeplay wave `wave` is made of (shared by the generator, the scout and the banners). */
@@ -179,7 +264,9 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
   const speed = info.speed;
   const bossWave = info.boss;
   const big = bossWave && (bossWave.kind === 'finale' || bossWave.kind === 'calamity');
-  const regular = budget * (bossWave ? (big ? 0.5 : 0.75) : 1);
+  // a boss wave's regular groups keep a share of the budget by what rides with them
+  const bw = fp.bossWaveBudget || { big: 0.5, boss: 0.75, titan: 0.75, miniboss: 0.75 };
+  const regular = budget * (bossWave ? (big ? bw.big : bw[bossWave.kind] ?? bw.boss) : 1);
   const [homeShare, visitShare, eliteShare] = info.shares;
   const baseSpacing = (gen.spacing ?? DEFAULT_SPACING) * fp.spacingMul;
   const threatOf = (def) => Math.max(0.25, def.threat ?? 1);
@@ -200,12 +287,13 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     for (const id of chap(c).elites) if (lookupEnemy(id)) eliteCands.push({ enemy: id, w: vis.includes(c) ? 4 : 1 });
   }
   const nElite = d > 80 ? 2 : 1;
-  for (let i = 0; i < nElite; i++) slots.push({ share: eliteShare / nElite, cands: eliteCands });
+  for (let i = 0; i < nElite; i++) slots.push({ share: eliteShare / nElite, cands: eliteCands, elite: true });
 
   const groups = [];
   const used = new Set();
   let carry = 0;
-  for (const slot of slots) {
+  for (let si = 0; si < slots.length; si++) {
+    const slot = slots[si];
     const gb = regular * slot.share * rng.range(0.85, 1.15) + carry;
     const cands = slot.cands.filter((c) => !used.has(c.enemy) && threatOf(lookupEnemy(c.enemy)) <= gb);
     if (!cands.length) {
@@ -217,7 +305,9 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     const count = Math.floor(gb / threatOf(def));
     carry = gb - count * threatOf(def);
     used.add(pick.enemy);
-    groups.push({ enemyId: pick.enemy, def, count, spacing: groupSpacing(baseSpacing, def), start: 0, fixed: false });
+    const elite = def.tier === 'elite';
+    const eliteMod = elite ? eliteModFor(stage, wave, si, def, info.affix) : null;
+    groups.push({ enemyId: pick.enemy, def, count, spacing: groupSpacing(baseSpacing, def), start: 0, fixed: false, elite, eliteMod });
   }
   groups.sort((a, b) => (a.def.speed ?? 1) - (b.def.speed ?? 1) || (b.def.threat ?? 1) - (a.def.threat ?? 1));
   // Lay the groups out like waves.js: slow, tough groups lead; each next group starts once the
@@ -242,12 +332,52 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
   }
   const regularEnd = t;
   const mods = info.affix ? { armor: info.affix.armor || 0, speed: info.affix.speed || 1, traits: info.affix.traits || null, barrierPct: info.affix.barrierPct || 0 } : null;
+  // elites: the armor band on top of the pressure armor, and their modifier
+  const eliteArmor = freeplayEliteArmor(stage, wave);
+  const eliteHp = freeplayEliteHp(stage, wave);
   for (const g of groups) {
-    g.hpMul = ramp;
-    g.speedMul = speed;
     g.mods = mods;
+    if (!g.elite || (!eliteArmor && !g.eliteMod)) continue;
+    const m = g.eliteMod || {};
+    const em = {
+      armor: (mods?.armor || 0) + eliteArmor + (m.armor || 0),
+      speed: (mods?.speed || 1) * (m.speed || 1),
+      traits: m.regen ? { ...(mods?.traits || {}), regen: m.regen } : mods?.traits || null,
+      barrierPct: Math.max(mods?.barrierPct || 0, m.barrierPct || 0),
+    };
+    if (m.ccMul) em.ccMul = m.ccMul;
+    if (m.id) em.eliteMod = m.id;
+    g.mods = em;
+  }
+  // Ramp smoothing: the regular groups' effective HP (a refHit hit at refPen pen; barrier, affix,
+  // pressure armor, elite band and HP all counted, armor taking at most 1 − FREEPLAY_ARMOR_FLOOR of
+  // the hit as in combat) is scaled to the regular budget × refN (swarm) / refE (elite share, as a
+  // ramp) × refMul(depth), so a wave's size follows the budget instead of the picks' HP-to-threat
+  // ratio, the rotation's affix or the armor. Stronger elites shift HP from the swarm to the
+  // elites; the total stays on the curve.
+  let k = 1;
+  const sm = fp.smooth;
+  if (sm && groups.length) {
+    const H = sm.refHit;
+    const P = sm.refPen;
+    const pa = info.pressure.armor;
+    let actual = 0;
+    for (const g of groups) {
+      const tr = g.def.traits || {};
+      const hp = (g.def.hp || 1) * (tr.barrier ? 1 : 1 + (g.mods?.barrierPct || 0)) + (tr.barrier?.hp || 0);
+      const armor = (g.def.armor || 0) + (g.mods?.armor || 0) + pa;
+      actual += (g.count * hp * H) / Math.max(1, H - Math.max(0, armor - P), H * FREEPLAY_ARMOR_FLOOR) * (g.elite ? eliteHp : 1);
+    }
+    const es = eliteShareRamp(fp, d);
+    const target = regular * (sm.refN * (1 - es) + sm.refE * es) * lerpTable(sm.refMul, d);
+    if (actual > 0) k = Math.min(sm.hi, Math.max(sm.lo, target / actual));
+  }
+  for (const g of groups) {
+    g.hpMul = ramp * k * (g.elite ? eliteHp : 1);
+    g.speedMul = speed;
   }
 
+  const bossHpMul = [];
   if (bossWave) {
     const longest = pathLengths?.length > 1 ? pathLengths.indexOf(Math.max(...pathLengths)) : null;
     let bt = 2 + regularEnd * 0.35;
@@ -255,7 +385,8 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
       const def = lookupEnemy(id);
       if (!def) continue;
       const rank = rankOf(fp, id, def);
-      const factor = rank === 'finale' ? fp.finale.hp : rank === 'calamity' ? fp.calamity.hp : fp.bossHp[rank] ?? 1;
+      const factor = freeplayBossFactor(stage, wave, bossWave, rank);
+      bossHpMul.push(ramp * factor);
       const leak = fp.leak[rank] ?? null;
       groups.push({ enemyId: id, def, count: 1, spacing: 1, start: bt, fixed: true, path: longest, hpMul: ramp * factor, speedMul: 1, leak, rank });
       for (const [eid, n] of fp.escorts[id] || []) {
@@ -289,6 +420,10 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     freeplay: {
       tier: fp.id, depth: d, rotation: info.rotation, chapterCap: info.chapterCap, visitors: vis,
       affix: info.affix?.id ?? null, boss: bossWave, speed, pressure: info.pressure,
+      // each boss's HP multiplier (ramp × its factor; aligned with boss.bosses), the smoothing
+      // factor of the regular groups, the elites' extra armor and their modifiers
+      bossHpMul, k, eliteArmor,
+      eliteMods: groups.filter((g) => g.eliteMod).map((g) => ({ enemyId: g.enemyId, mod: g.eliteMod.id })),
     },
   };
 }

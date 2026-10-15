@@ -14,8 +14,8 @@ export const TIER_PITCH = {
 
 /**
  * What freeplay brings on this stage and tier, from the same pure schedule the battle uses:
- * "15 waves, then freeplay (Tempest): visitors from every chapter, bosses every 10 waves (every 5
- * deep in), titans from wave 170, the Ashwing Matriarch at 200."
+ * "15 waves, then freeplay (Tempest): visitors from every chapter, a boss every 5 waves from wave 50
+ * (big ones on the tens), titans from wave 125, the Ashwing Matriarch at 200."
  */
 export function freeplaySummary(stageId, tier) {
   const base = STAGE_MAP[stageId];
@@ -24,12 +24,14 @@ export function freeplaySummary(stageId, tier) {
   const st = { ...base, freeplay: fp };
   let titan = null;
   let boss = null;
+  let five = null;
   for (let w = st.waves + 1; w <= (fp.finale?.wave ?? 200) && !titan; w++) {
     const b = freeplayBosses(st, w);
     if (!boss && b && b.kind !== 'miniboss') boss = w;
+    if (!five && b?.small) five = w;
     if (b?.kind === 'titan') titan = w;
   }
-  const bits = ['visitors from every chapter', 'bosses every 10 waves (every 5 deep in)'];
+  const bits = ['visitors from every chapter', five ? `a boss every 5 waves from wave ${five - 5} (big ones on the tens)` : 'bosses every 10 waves'];
   if (boss) bits.push(`big bosses from wave ${boss}`);
   if (titan) bits.push(`titans from wave ${titan}`);
   bits.push(`the Ashwing Matriarch at ${fp.finale?.wave ?? 200}`);

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   freeplayHpRamp, freeplaySpeed, freeplayPressure, freeplayChapterCap, freeplayFirstBossWave,
-  freeplayBosses, freeplayInfo, generateFreeplayWave,
+  freeplayBosses, freeplayInfo, generateFreeplayWave, freeplayBossFactor, freeplayEliteArmor, freeplayEliteHp,
 } from '../../src/sim/freeplay.js';
 import { powInt, waveHpRamp } from '../../src/sim/waves.js';
 import { Sim } from '../../src/sim/Sim.js';
@@ -156,8 +156,10 @@ describe('HP ramp', () => {
   it('ramps up hard by 200 and harder on harder tiers (the 4k-DPS friend must eventually lose)', () => {
     const at = (tier, w) => freeplayHpRamp(fpStage('1-3', tier), w);
     // the spec's table (§3.1, 1-3, goal 15): Blossom ×31 / ×353 / ×2.5k at 100 / 150 / 200,
-    // Tempest ×46 / ×852 / ×16k, Crimson Moon ×104 / ×2.4k / ×57k
-    const want = { blossom: [31, 353, 2506], tempest: [46, 852, 15695], crimson: [104, 2425, 56508] };
+    // Tempest ×46 / ×852 / ×16k. Crimson Moon ×69 / ×1.3k / ×24k since the path-cap pass (was
+    // ×104 / ×2.4k / ×57k): its bands 1045 / 1060 / 1065 ‰ became 1040 / 1055 / 1060 ‰ so the
+    // smoothed curve stays under 8 % a wave (tools/freeplayCurve.mjs, docs/FREEPLAY.md).
+    const want = { blossom: [31, 353, 2506], tempest: [46, 852, 15695], crimson: [69, 1279, 23559] };
     for (const [tier, [a, b, c]] of Object.entries(want)) {
       expect(Math.round(at(tier, 100)), tier).toBe(a);
       expect(Math.round(at(tier, 150)), tier).toBe(b);
@@ -171,17 +173,21 @@ describe('HP ramp', () => {
 });
 
 describe('armor, speed and Resolve', () => {
-  it('are whole numbers, monotonic and clamped per tier', () => {
-    const want = { blossom: [1, 2, 10], tempest: [1, 2, 12], crimson: [2, 4, 15] };
+  it('armor grows a little every wave (fractional, monotone, capped); Resolve budgets are whole numbers', () => {
+    // depth / every, no floor (the +1 steps were +5–7 % effective HP each; the UI rounds to 0.1)
+    const want = { blossom: [1, 2, 10], tempest: [20 / 15, 40 / 15, 12], crimson: [2, 4, 15] };
     for (const tier of FREEPLAY_TIERS) {
       const st = fpStage('2-3', tier);
       const G = st.waves;
       const fp = st.freeplay;
       expect([20, 40, 200].map((d) => freeplayPressure(st, G + d).armor)).toEqual(want[tier]);
+      expect(freeplayPressure(st, G + 7).armor).toBe(7 / fp.armor.every);
       let prev = freeplayPressure(st, G + 1);
       for (let w = G + 1; w <= G + 400; w++) {
         const p = freeplayPressure(st, w);
-        for (const k of ['armor', 'bossArmor', 'cc', 'bossCc', 'kb']) expect(Number.isInteger(p[k]), `${k} @${w}`).toBe(true);
+        for (const k of ['cc', 'bossCc', 'kb']) expect(Number.isInteger(p[k]), `${k} @${w}`).toBe(true);
+        expect(p.bossArmor).toBe(0); // bossMul 0: bosses keep their own armor and phases
+        if (w > G + 1 && p.armor < fp.armor.max) expect(p.armor).toBeGreaterThan(prev.armor);
         expect(p.armor).toBeGreaterThanOrEqual(prev.armor);
         expect(p.armor).toBeLessThanOrEqual(fp.armor.max);
         expect(p.cc).toBeLessThanOrEqual(prev.cc);
@@ -231,8 +237,9 @@ describe('boss ladder', () => {
     expect(b13[30].bosses).toEqual(['slime_prince']);
   }, 120000);
 
-  it('shifts by tier: twin bosses at 150 / 120 / 90 and the first titan at 210 / 170 / 140 on 1-3', () => {
+  it('shifts by tier: twin bosses at 150 / 120 / 90, titan scouts at 155 / 135 / 95, big titans at 210 / 170 / 140 on 1-3', () => {
     const twin = { blossom: 150, tempest: 120, crimson: 90 };
+    const scout = { blossom: 155, tempest: 135, crimson: 95 };
     const titan = { blossom: 210, tempest: 170, crimson: 140 };
     for (const tier of FREEPLAY_TIERS) {
       const st = fpStage('1-3', tier);
@@ -240,9 +247,15 @@ describe('boss ladder', () => {
       const twins = Object.entries(all).filter(([, b]) => b.kind === 'boss' && b.bosses.length === 2 && b.bosses.every((x) => st.freeplay.bosses.includes(x)));
       expect(Number(twins[0][0]), tier).toBe(twin[tier]);
       const titans = Object.entries(all).filter(([, b]) => b.bosses.some((x) => st.freeplay.titans.includes(x)));
-      expect(Number(titans[0][0]), tier).toBe(titan[tier]);
-      // titans only once the ladder level reaches 200 (or riding with the Matriarch / Wyrm after 200)
-      for (const [w, b] of titans) if (Number(w) < 200) expect(Number(w) + st.freeplay.bossShift).toBeGreaterThanOrEqual(200);
+      expect(Number(titans[0][0]), tier).toBe(scout[tier]);
+      expect(Number(titans.find(([, b]) => !b.small)[0]), tier).toBe(titan[tier]);
+      // small titans visit the fives from ladder level 150; the full ones come at 200 (or ride with
+      // the Matriarch / Wyrm after 200)
+      for (const [w, b] of titans) {
+        const L = Number(w) + st.freeplay.bossShift;
+        if (Number(w) < 200) expect(L).toBeGreaterThanOrEqual(b.small ? 150 : 200);
+        if (b.small) expect(Number(w) % 10).toBe(5);
+      }
       expect(all[200]).toEqual({ kind: 'finale', bosses: ['dragon_ashwing'] });
       expect(all[250].kind).toBe('calamity');
       expect(all[250].bosses[0]).toBe('fp_eclipse_wyrm');
@@ -255,6 +268,116 @@ describe('boss ladder', () => {
 
   it('the Matriarch is wave 200 on every stage and tier', () => {
     for (const id of CAMPAIGN_IDS) for (const tier of FREEPLAY_TIERS) expect(freeplayBosses(fpStage(id, tier), 200).bosses).toEqual(['dragon_ashwing']);
+  });
+});
+
+describe('boss cadence: a boss every 5 waves from ladder level 50 (path-cap pass)', () => {
+  it('the fives are smaller visitors; the tens keep their content (the first big boss lighter)', () => {
+    for (const tier of FREEPLAY_TIERS) {
+      const st = fpStage('4-5', tier);
+      const fp = st.freeplay;
+      expect(fp.fastFrom).toBe(50);
+      for (let w = freeplayFirstBossWave(st); w < 200; w += 5) {
+        const b = freeplayBosses(st, w);
+        const L = w + fp.bossShift;
+        if (L < 50 && w % 10 !== 0) {
+          expect(b, `${tier} ${w}`).toBe(null);
+          continue;
+        }
+        expect(b, `${tier} ${w}`).toBeTruthy();
+        expect(!!b.small, `${tier} ${w}`).toBe(w % 10 !== 0);
+        const wd = generateFreeplayWave(st, w, look, OPTS);
+        const ramp = wd.hpMul;
+        b.bosses.forEach((id, i) => {
+          const rank = fp.titans.includes(id) ? 'titan' : look(id).tier;
+          const f = wd.freeplay.bossHpMul[i] / ramp;
+          if (b.small) {
+            // bossHpSmall: L 50–99 miniboss ×0.6, 100–149 ×0.8, 150–199 boss ×0.45 / titan ×0.35,
+            // 200+ boss ×0.75
+            const want = L < 100 ? 0.6 : L < 150 ? 0.8 : L >= 200 ? 0.75 : rank === 'titan' ? 0.35 : 0.45;
+            expect(f, `${tier} ${w} ${id}`).toBeCloseTo(want, 12);
+          } else if (rank === 'boss' && L < 150) expect(f, `${tier} ${w}`).toBeCloseTo(0.6, 12);
+          else expect(f, `${tier} ${w} ${id}`).toBeCloseTo(fp.bossHp[rank], 12);
+          expect(freeplayBossFactor(st, w, b, rank)).toBeCloseTo(f, 12);
+        });
+      }
+      // past 200: the fives are a boss ×0.75, the tens titans ×1 (as before)
+      expect(freeplayBossFactor(st, 215, freeplayBosses(st, 215), 'boss')).toBe(0.75);
+      expect(freeplayBosses(st, 215).small).toBe(true);
+      expect(freeplayBossFactor(st, 200, freeplayBosses(st, 200), 'finale')).toBe(fp.finale.hp);
+    }
+  });
+
+  it('smaller leaks (twice the checks), and a boss wave keeps more of its swarm the smaller the boss', () => {
+    const fp = FREEPLAY.blossom;
+    expect(fp.leak).toEqual({ boss: 25, titan: 40, miniboss: 15 });
+    const st = fpStage('4-5', 'blossom');
+    const mini = generateFreeplayWave(st, 55, look, OPTS);
+    const boss = generateFreeplayWave(st, 170, look, OPTS);
+    const fin = generateFreeplayWave(st, 200, look, OPTS);
+    const leakOf = (wd, id) => wd.spawns.find((sp) => sp.enemyId === id)?.leak;
+    expect(leakOf(mini, mini.freeplay.boss.bosses[0])).toBe(15);
+    expect(leakOf(boss, 'grave_lych') ?? leakOf(boss, 'iron_colossus')).toBe(25);
+    expect(leakOf(fin, 'dragon_ashwing')).toBeUndefined(); // her own leak: every life
+    // the regular budget share: miniboss only 0.9, boss or titan 0.75, finale / calamity 0.5
+    expect(fp.bossWaveBudget).toEqual({ big: 0.5, boss: 0.75, titan: 0.75, miniboss: 0.9 });
+  });
+});
+
+describe('elites: armor band, HP and modifiers (path-cap pass)', () => {
+  it('the band is fractional per tier, elites get ×1.25 / ×1.5 HP by depth', () => {
+    const at = (tier, d) => {
+      const st = fpStage('4-5', tier);
+      return freeplayEliteArmor(st, st.waves + d);
+    };
+    expect([20, 34, 48, 200].map((d) => at('blossom', d))).toEqual([0, 1, 2, 10]);
+    expect([20, 32, 200].map((d) => at('tempest', d))).toEqual([0, 1, 12]);
+    expect([20, 30, 70, 200].map((d) => at('crimson', d))).toEqual([0, 1, 5, 10]);
+    const st = fpStage('4-5', 'blossom');
+    expect([39, 40, 119, 120].map((d) => freeplayEliteHp(st, st.waves + d))).toEqual([1, 1.25, 1.25, 1.5]);
+  });
+
+  it('modifiers come from their own rng: the wave\'s picks and counts never move', () => {
+    for (const tier of FREEPLAY_TIERS) {
+      const st = fpStage('4-5', tier);
+      const bare = { ...st, freeplay: { ...st.freeplay, eliteMods: null } };
+      const seen = new Set();
+      for (let w = st.waves + 30; w <= 230; w += 7) {
+        const a = generateFreeplayWave(st, w, look, OPTS);
+        const b = generateFreeplayWave(bare, w, look, OPTS);
+        expect(a.groups, `${tier} ${w}`).toEqual(b.groups);
+        expect(b.freeplay.eliteMods).toEqual([]);
+        for (const m of a.freeplay.eliteMods) {
+          seen.add(m.mod);
+          expect(look(m.enemyId).tier).toBe('elite');
+          const sp = a.spawns.find((x) => x.enemyId === m.enemyId);
+          expect(sp.mods.eliteMod).toBe(m.mod);
+        }
+        if (w - st.waves < st.freeplay.eliteMods.from) expect(a.freeplay.eliteMods).toEqual([]);
+      }
+      expect(seen.size, tier).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('smoothing: one k for the regular groups (clamped), elites × their HP factor, bosses and escorts untouched', () => {
+    for (const tier of FREEPLAY_TIERS) {
+      const st = fpStage('8-5', tier);
+      const sm = st.freeplay.smooth;
+      for (const w of [st.waves + 1, 60, 99, 150, 177, 200, 233]) {
+        const wd = generateFreeplayWave(st, w, look, OPTS);
+        const { k } = wd.freeplay;
+        expect(k).toBeGreaterThanOrEqual(sm.lo);
+        expect(k).toBeLessThanOrEqual(sm.hi);
+        const eh = freeplayEliteHp(st, w);
+        for (const sp of wd.spawns) {
+          const def = look(sp.enemyId);
+          const fixed = wd.freeplay.boss && (wd.freeplay.boss.bosses.includes(sp.enemyId) || def.tier === 'boss' || def.tier === 'miniboss');
+          if (fixed || sp.leak != null) continue;
+          if (sp.hpMul === wd.hpMul) continue; // an escort: the wave's ramp
+          expect(sp.hpMul, `${tier} ${w} ${sp.enemyId}`).toBeCloseTo(wd.hpMul * k * (def.tier === 'elite' ? eh : 1), 6);
+        }
+      }
+    }
   });
 });
 

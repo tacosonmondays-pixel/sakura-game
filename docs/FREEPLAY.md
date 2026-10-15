@@ -11,7 +11,7 @@ at wave 200. Nothing caps the run.
 
 - **Stage prep** (cleared campaign stages): a **Freeplay** panel under Difficulty: **Off · Blossom ·
   Tempest · Crimson Moon** (the co-op tier colours and pitches), what freeplay brings on this stage
-  ("12 waves, then freeplay (Blossom): visitors from every chapter, bosses every 10 waves …"), the
+  ("12 waves, then freeplay (Blossom): visitors from every chapter, a boss every 5 waves from wave 50 …"), the
   Nightmare warning, and the best wave per tier ("Best: wave 87 (Tempest)"). Start reads
   "Start · Hard · Blossom" and opens `#/battle?stage=…&difficulty=…&freeplay=<tier>`. A stage that is
   not cleared yet says how to unlock it (clear it once, or Keep going from its victory).
@@ -70,6 +70,47 @@ Every build falls on every tier; the tiers stay in order; a single strong player
 150–200 on Blossom (the best run reaches the Matriarch and falls to her), 120–170 on Tempest and
 90–115 on Crimson Moon — the Matriarch (200) is a real goal, not a given. The same bot under co-op HP falls 20–30 waves earlier, which two players' builds
 make up. No enemy ever had a NaN / Infinity HP in any run.
+
+## A steadier curve, more bosses, armored elites (path-cap pass, Oct 15)
+
+Owner, Oct 15: steadier ramp, bosses every 5 waves from about 40–50, stronger and more armored
+elites, keep the 70M+ HP at 166+. All in `src/sim/freeplay.js` and `src/data/freeplay.js`; numbers by
+`tools/freeplayCurve.mjs` (baselines of the tree before the pass in `tools/baselines/curve-*.json`).
+
+- **Ramp smoothing** (`smooth`): after a regular wave's groups are picked, one factor `k` scales their
+  HP so the wave's effective HP (a 30-damage hit at armor pen 10; barriers, affix armor, pressure
+  armor, the elite band and modifiers counted; armor takes at most 75 % of a hit) equals the regular
+  budget × 11 (swarm) / 15.5 (elite share, as a ramp of the shares table) × `refMul(depth)`, clamped
+  to ×0.2–2. Stronger elites or a Fortified rotation shift HP from the swarm to the armored enemies
+  instead of making the wave bigger. Bosses and escorts are never scaled.
+- **Armor**: the pressure armor grows a little every wave (`depth / every`, no +1 steps; the chip
+  shows it to 0.1); elites carry a band on top (Blossom +1 per 14 waves past depth 20 up to +10,
+  Tempest per 12 up to +12, Crimson Moon per 10 up to +10) and ×1.25 HP from depth 40, ×1.5 from 120.
+- **Elite modifiers** (from depth 40, 60 % of elite groups, an own seeded rng so the wave's picks never
+  move): Ironclad +4 armor · Bulwark a 40 % barrier · Quickened ×1.25 speed · Vampiric 1.5 %/s regen
+  (poison stops it) · Unyielding half the stun budget. The scout names them ("Ironclad Orc Warlord").
+- **Bosses every 5 waves** from ladder level 50 (`fastFrom` 50 on every tier). The tens keep their
+  content (the first big boss at level 100–149 ×0.6 instead of ×0.75); the fives are smaller: the next
+  miniboss ×0.6 (level 50–99), a miniboss ×0.8 (100–149), the other big boss ×0.45 or a titan ×0.35
+  (150–199), a boss ×0.75 (200+). Leaks: miniboss 15, boss 25, titan 40 (were 25 / 35 / 50). A boss
+  wave keeps 90 % of its swarm with a miniboss, 75 % with a boss or titan, 50 % with the finale.
+- **Telegraph**: the scout shows `BOSS IN 2` / `BOSS NEXT` with the boss, its HP and its counter.
+- **Crimson Moon** bands 1040 / 1055 / 1060 / 1060 ‰ (were 1045 / 1060 / 1065 / 1065) and count slope
+  0.05 (was 0.06): its own growth was too steep for any smoothing.
+
+Curve check (non-boss waves 31–200, per-wave growth of effective HP over the previous non-boss wave):
+
+| Run | waves over 8 % (before) | worst | mean effective HP vs before |
+|---|---|---|---|
+| 1-5 Blossom | 0 (60) | +6.5 % (+65 %) | ×1.05 |
+| 4-5 Blossom | 0 (64) | +6.9 % (+49 %) | ×1.02 |
+| 8-5 Blossom | 0 (64) | +6.9 % (+89 %) | ×1.04 |
+| 4-5 Tempest | 0 (66) | +7.7 % (+76 %) | ×1.00 |
+| 4-5 Crimson Moon | 6 (68) | +8.2 % (+76 %) | ×0.57 |
+| 4-5 Blossom co-op | 0 (64) | +6.9 % (+49 %) | ×1.02 |
+
+The big enemies at the tens from 166 are unchanged on Blossom and Tempest (8-5 Blossom: 34M / 59M / 75M
+at 170 / 180 / 190, the Matriarch 372M). `tests/sim/freeplayCurve.test.js` keeps the bands.
 
 ## Rewards (never above normal play per minute)
 

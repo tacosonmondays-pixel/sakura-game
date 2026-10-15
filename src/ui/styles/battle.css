@@ -847,6 +847,14 @@ html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
 .bt-pr-ico svg { width: 100%; height: 100%; }
 .bt-pr-pop { margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; background: #f6f0ff; color: #3c2a78; font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
 .bt-pr-pop.warn { background: #fff1e0; color: #8a3d00; }
+/* the boss telegraph: BOSS IN 2 / BOSS NEXT · name · HP (two waves ahead, freeplay) */
+.bt-tele { flex: none; gap: 5px; padding: 0 10px 0 4px; margin: 8px 2px 2px 4px; background: linear-gradient(90deg, #fff0f3, #fff); box-shadow: 0 0 0 2px #ff9fb2, 0 1px 4px rgba(138,21,56,0.18); font-size: 0.72rem; color: #8a1538; white-space: nowrap; }
+.bt-tele.now { background: linear-gradient(90deg, #ffe1e8, #fff6f8); box-shadow: 0 0 0 2px #ff4d6d, 0 1px 6px rgba(255,77,109,0.4); }
+.bt-tele-when { font-weight: 900; font-style: italic; letter-spacing: 0.02em; }
+.bt-tele-name { font-weight: 800; color: var(--navy); }
+.bt-tele-hp { font-weight: 700; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.bt-tele-pop { margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; background: #fff0f3; color: #8a1538; font-size: 0.8rem; font-weight: 800; line-height: 1.35; }
+.bt-scout-mod { margin-top: 3px; font-size: 0.78rem; color: #8a1538; }
 /* the enemies come first: the chips keep room for about two of them, and the pressure chip gives
    way (it clips) before they do — the whole explanation is in the scout popover */
 .bt-scout-chips { flex: 1 1 0; min-width: min(150px, 34%); }
@@ -855,11 +863,15 @@ html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
 @media (max-width: 560px) {
   .bt-pressure { flex: none; padding: 1px 6px; gap: 3px; font-size: 0.66rem; }
   .bt-pressure .bt-pr:not(:first-child) { display: none; }
+  .bt-tele-name, .bt-tele-hp { display: none; }
 }
 /* landscape phones: the strip in the HUD row has room for its label and one or two enemies only —
-   they win; the pressure is a tap away (the scout popover), and the HUD pill wears the tier */
+   they win; the pressure is a tap away (the scout popover), and the HUD pill wears the tier. The
+   telegraph keeps its token and "BOSS IN 2" (name, HP and counter: the tooltip and the popover) */
 @media (max-height: 500px) and (min-width: 701px) {
   .bt-pressure { display: none; }
+  .bt-tele { margin-top: 4px; padding-right: 7px; font-size: 0.64rem; }
+  .bt-tele-name, .bt-tele-hp { display: none; }
 }
 
 /* results: FREEPLAY OVER / FREEPLAY COMPLETE */
