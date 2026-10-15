@@ -881,3 +881,30 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-pause-free { margin-top: 6px; }
 .bt-pause-free-text { margin: 4px 0 8px; font-size: 0.82rem; font-weight: 700; color: var(--ink); text-align: center; }
 .bt-pause-free-note { display: block; margin-top: 6px; text-align: center; color: var(--muted); font-weight: 700; font-size: 0.72rem; }
+
+/* ---------- Solo freeplay: Keep going on the victory / rewards sheets ---------- */
+.bt-keep { margin: 10px 0 4px; padding: 8px 10px; border-radius: 12px; background: linear-gradient(90deg, rgba(123,92,255,0.12), rgba(255,122,168,0.14)); box-shadow: inset 3px 0 0 #b49cff; display: flex; flex-direction: column; gap: 6px; }
+.bt-keep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.bt-keep-head > b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: #6a3fd1; letter-spacing: 0.02em; }
+.bt-keep-tiers { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255,255,255,0.7); border-radius: 10px; padding: 3px; }
+.bt-keep-tier { border: none; background: transparent; padding: 5px 10px; min-height: 32px; border-radius: 8px; font-weight: 900; font-style: italic; color: #5b5f7a; font-size: 0.8rem; cursor: pointer; }
+.bt-keep-tier.on { color: #fff; box-shadow: 0 2px 8px rgba(80,40,140,0.25); }
+.bt-keep-tier.bt-keep-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); }
+.bt-keep-tier.bt-keep-tempest.on { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
+.bt-keep-tier.bt-keep-crimson.on { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
+.bt-keep-hint { color: #5b5f7a; font-size: 0.74rem; line-height: 1.3; }
+.bt-keep-btn { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(100deg, #7b5cff, var(--pink) 60%, #ffcf6b); color: #fff; text-shadow: 0 2px 0 rgba(40,0,40,0.35); box-shadow: 0 4px 16px rgba(255,122,168,0.55); }
+.bt-keep-btn > span { font-weight: 900; letter-spacing: 0.04em; }
+.bt-keep-btn > small { opacity: 0.9; font-weight: 800; }
+@media (max-height: 500px) {
+  /* landscape phones: chips and the button share one row, and the medal shrinks, so the Rewards
+     button stays in view under them */
+  .bt-keep { margin: 4px 0 2px; padding: 5px 8px; flex-direction: row; align-items: center; gap: 8px; }
+  .bt-keep-head > b, .bt-keep-hint { display: none; }
+  .bt-keep-tier { min-height: 30px; padding: 3px 8px; font-size: 0.74rem; }
+  .bt-keep-btn { flex: 1; min-height: 38px; padding: 4px 10px; font-size: 0.92rem; }
+  .bt-win:has(.bt-keep) .bt-medal-row { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-medal-ico { width: 44px; height: 44px; }
+  .bt-win:has(.bt-keep) .bt-result-stage { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-summary { margin-bottom: 4px; }
+}

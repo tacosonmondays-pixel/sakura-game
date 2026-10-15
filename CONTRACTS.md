@@ -866,8 +866,16 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing). Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1]` (`freeplay` / `endless` only
+where `canPlayEndless`; a locked stage plays as a practice run that saves nothing). **Solo freeplay**
+(docs/FREEPLAY.md): `freeplay=blossom|tempest|crimson` on a campaign stage builds the Sim with
+`options.freeplay` and `soloFreeplayStage(id, tier)` (`src/data/freeplaySolo.js`: the stage's own HP plus
+the co-op freeplay table); `endless=1` on a campaign map is freeplay now (that tier, or Blossom; only the
+Colosseum stays endless). A normal campaign run that wins can **Keep going** (`ctx.keepGoing(tier)`,
+`continueIntoFreeplay(sim, tier)` in `src/ui/battle/soloFreeplay.js`: the won Sim goes on in place as a
+freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a normal solo win at the goal,
+`paySoloFreeplay` = the co-op freeplay payout with coins per wave capped at the stage's normal rate,
+`progress.stages[id].freeplayBest[tier]`). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy

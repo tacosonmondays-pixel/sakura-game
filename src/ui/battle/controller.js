@@ -32,6 +32,10 @@ import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { COOP } from '../../data/coop.js';
+import { applyBattleResult } from '../../systems/rewards.js';
+import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } from '../../systems/freeplayRewards.js';
+import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
+import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 
 const RESULT_DELAY_MS = 1700;
@@ -58,7 +62,7 @@ export function mountBattle(root, params, hooks) {
   // is still there, so lead back into it (no code to retype, no new room)
   const coopRoom = params.coop && !ls ? roomByCode(normalizeCode(params.coop)) : null;
   const req = ls
-    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, practice: false, error: null }
+    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null }
     : params.coop
       ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
       : parseBattleParams(params, profile);
@@ -170,6 +174,9 @@ export function mountBattle(root, params, hooks) {
       fpBattle = createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies: stageFamilies() });
       modules.push(fpBattle);
       ctx.freeplay = fpBattle;
+    } else if (soloLedger && sim.freeplay) {
+      // solo freeplay from stage prep: the same banners; the bank is a normal solo win
+      startSoloFreeplay(modules);
     }
 
     let renderer;
@@ -334,8 +341,12 @@ export function mountBattle(root, params, hooks) {
     // every way out of a battle goes through navigate(), which never leaves the battle's history
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
     // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
-    const endlessMap = !!req.endless && stage.kind !== 'challenge';
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
+    // (a campaign map opened from Tactical Challenge with endless=1 is a freeplay run now: it still
+    // belongs to Tactical Challenge)
+    const endlessMap = !ls && !params.clanBoss && (params.endless === '1' || params.endless === 1 || params.endless === 'true') && stage.kind !== 'challenge';
+    // a solo freeplay run's prep comes back with its tier picked
+    const fpParam = req.freeplay ? { freeplay: req.freeplay } : {};
+    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1, ...fpParam } : { id: stage.id, ...fpParam }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       const r = mapRouteFor(stage, { endless: endlessMap });
@@ -507,6 +518,35 @@ export function mountBattle(root, params, hooks) {
       later(() => (fpEnd ? results.showFreeplay() : won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
     }
 
+    // ---- solo: Keep going (a won normal run goes on as freeplay on `tier`) --------------------
+    ctx.canKeepGoing = () => !!soloLedger && req.keepGoing && !sim.freeplay && sim.state === 'won' && sim.wavesCleared === sim.totalWaves;
+    ctx.keepGoing = (tier) => {
+      if (!ctx.canKeepGoing()) return false;
+      const out = results.outcome || results.apply();
+      if (out?.practice || out?.error) return false;
+      if (!continueIntoFreeplay(sim, tier)) return false;
+      rememberSoloTier(tier);
+      // the win just paid is the freeplay bank: the run's end pays only the freeplay part
+      soloLedger.bank = { ...out, clear: true, banked: { goal: sim.totalWaves, kills: { ...sim.kills }, encountered: [...sim.encountered] } };
+      soloLedger.fx.add('goal');
+      results.reset();
+      ctx.ended = false;
+      shell.classList.remove('bt-ended');
+      startSoloFreeplay(ctx.modules);
+      // the victory ended the music: start it again for the run
+      try {
+        ctx.audio?.destroy();
+        ctx.audio = attachBattleAudio(ctx);
+      } catch (e) {
+        console.warn('[battle] audio restart failed', e);
+      }
+      lastT = performance.now();
+      feed.announce('KEEP GOING', `Freeplay · ${sim.stage.freeplay.name} — ${sim.totalWaves + 1}/${sim.totalWaves} next`, 'free', 2200);
+      wave.update();
+      hud.update();
+      return true;
+    };
+
     // ---- main loop ----------------------------------------------------------------------
     let lastT = performance.now();
     function frame(now) {
@@ -563,9 +603,46 @@ export function mountBattle(root, params, hooks) {
   let remounting = false;
   /** A freeplay run past its goal (not a plain victory at exactly the goal). */
   function isFreeplayRun() {
-    if (!ls || !sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
+    if (!sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
     return !(sim.state === 'won' && sim.wavesCleared === sim.totalWaves);
   }
+  // ---- solo freeplay (src/systems/freeplayRewards.js) ---------------------------------------
+  /** the battle's payout ledger: a solo campaign run that is (or may become) a freeplay run */
+  const soloLedger = !ls && !params.clanBoss && !req.practice && (req.freeplay || req.keepGoing) ? soloFreeplayLedger(sim.seed) : null;
+  if (soloLedger) {
+    ctx.applyResult = (p, result, rng) => (result.freeplay && result.goalReached
+      ? paySoloFreeplay(soloLedger, p, result, rng)
+      : applyBattleResult(p, result, rng, { now: new Date() }));
+    // Finish: solo ends the run at once (the pause menu and the clear card's pill)
+    ctx.voteFinish = (v) => fpBattle?.vote(v);
+    ctx.myFinishVote = () => false;
+    ctx.freeplayAfterGoal = () => !!fpBattle?.afterGoal();
+  }
+  /** Solo: banners, the clear card and the bank for a freeplay battle (built or continued). */
+  function startSoloFreeplay(modules) {
+    if (fpBattle || !soloLedger || !sim.freeplay) return;
+    // what a run cut off by a reload is paid at the next app start (the solo coin cap of this tier)
+    soloLedger.payout.waveCoins = soloWaveCoins(sim.stageId, sim.difficulty, sim.stage.freeplay.id);
+    fpBattle = createFreeplayBattle(ctx, {
+      ledger: soloLedger,
+      homeFamilies: stageFamilies(),
+      bank: () => {
+        try {
+          const rng = createRng(hashString(`${sim.stage.id}:${sim.difficulty}:${sim.seed}:fp-bank:${Date.now()}`));
+          const out = bankSoloClear(soloLedger, store.profile, sim.result(), rng);
+          store.commit('battle-result');
+          store.saveNow?.();
+          return out;
+        } catch (e) {
+          console.error('[battle] solo freeplay bank failed', e);
+          return null;
+        }
+      },
+    });
+    modules?.push(fpBattle);
+    ctx.freeplay = fpBattle;
+  }
+
   const pendingUpg = new Set();
   if (ls) {
     ls.note('mount');
@@ -654,7 +731,7 @@ export function mountBattle(root, params, hooks) {
    * clear is already banked); the ally plays on with my girls.
    */
   function payIfLeavingRun() {
-    if (!ctx.ended && ctx.results && !ctx.results.outcome && ls && sim.freeplay && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
+    if (!ctx.ended && ctx.results && !ctx.results.outcome && (ls || soloLedger) && sim.freeplay && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
   }
 
   function leaveCoop(go = true) {
