@@ -2,17 +2,23 @@
 // one by code / from a clan invite. #/coop/<CODE>[?host=1] — the room lobby: both players with
 // their colour, level and girls, the stage, ready checks, Start (host). When the host starts,
 // both screens open #/battle?coop=<CODE>, which runs the room's lockstep battle.
+// Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
+// difficulty: the host picks Off / Blossom / Tempest / Crimson Moon, the guest sees a chip and
+// their Ready is consent. The Battlefield panel says what freeplay brings and the best wave so far.
 import { h, screen, button, svgEl, toast, modal } from '../components.js';
 import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
+import { DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES } from '../../data/types.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { enemyToken } from '../battle/util.js';
 import { getMap } from '../../data/maps.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { COOP, coopStages, coopStartCash } from '../../data/coop.js';
+import { freeplayTier, freeplayTable, FREEPLAY_TIERS } from '../../data/freeplay.js';
+import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
+import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { ensureOnline, onlinePill, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
@@ -56,6 +62,37 @@ function defaultStage(profile) {
   return list[0]?.id || '1-1';
 }
 
+/** The freeplay chip ("FREEPLAY · TEMPEST"), or null when freeplay is off. */
+function freeplayChip(tier, { testid = null } = {}) {
+  const t = freeplayTable(tier);
+  return t ? h(`span.ol-chip-fp.ol-fp-${t.id}`, { 'data-testid': testid, title: TIER_PITCH[t.id] }, `Freeplay · ${t.name}`) : null;
+}
+
+/** How hard each tier is, in words (the pips say it at a glance). */
+const TIER_LEVEL = { blossom: 'Classic', tempest: 'Harder', crimson: 'Hardest' };
+
+/** "Hardest — Under the red moon nothing holds for long. Freeplay rewards ×2." */
+function tierLine(id) {
+  const t = freeplayTable(id);
+  if (!t) return '';
+  const mul = t.rewardMul ?? 1;
+  return `${TIER_LEVEL[id] || t.name} — ${TIER_PITCH[id]}${mul > 1 ? ` Freeplay rewards ×${mul}.` : ''}`;
+}
+
+/** The freeplay segment: Off · Blossom ★ · Tempest ★★ ×1.5 · Crimson Moon ★★★ ×2 (pips = difficulty). */
+function freeplaySeg(value, onPick, testid = 'coop-freeplay') {
+  return h('div.ol-seg.ol-fp-seg', { 'data-testid': testid },
+    h(`button.ol-seg-btn${!value ? '.on' : ''}`, { type: 'button', 'data-tier': 'off', onclick: () => onPick(null) }, 'Off'),
+    ...FREEPLAY_TIERS.map((id) => {
+      const t = freeplayTable(id);
+      const mul = t.rewardMul ?? 1;
+      return h(`button.ol-seg-btn.ol-fp-btn.ol-fp-${id}${value === id ? '.on' : ''}`, { type: 'button', 'data-tier': id, title: tierLine(id), 'aria-label': `${t.name}: ${TIER_LEVEL[id]}${mul > 1 ? `, rewards ×${mul}` : ''}`, onclick: () => onPick(id) },
+        h('span', t.name),
+        h('small.ol-fp-pips', { 'aria-hidden': 'true' }, '★'.repeat((t.order ?? 0) + 1)),
+        mul > 1 ? h('small.ol-fp-mul', `×${mul}`) : null);
+    }));
+}
+
 function stageLabel(id) {
   const s = STAGE_MAP[id];
   return s ? `${s.id} · ${s.name}` : id;
@@ -73,29 +110,35 @@ function unitChip(unitId, { hero = false } = {}) {
   return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: u.name }, avatar(unitId, 30), h('small', u.name));
 }
 
-/** Stage + difficulty picker modal. Resolves { stageId, difficulty } or null. */
-function pickStage(current, difficulty) {
+/** Stage + difficulty + freeplay picker modal. Resolves { stageId, difficulty, freeplay } or null. */
+function pickStage(current, difficulty, freeplay = null) {
   return new Promise((resolve) => {
     const profile = store.profile;
     const stages = hostStages(profile);
     let pick = current;
     let diff = difficulty;
+    let fp = freeplayTier(freeplay);
     const list = h('div.ol-stage-grid');
     const diffs = h('div.ol-seg');
+    const fpRow = h('div.ol-fp-row');
     const paint = () => {
       list.replaceChildren(...stages.map((s) => h(`button.ol-stage-opt${s.id === pick ? '.on' : ''}`, { type: 'button', 'data-stage': s.id, onclick: () => { pick = s.id; paint(); } },
         thumb(s.id, 'ol-stage-opt-thumb'), h('span', h('b', s.id), ` ${s.name}`))));
       diffs.replaceChildren(...DIFFICULTY_ORDER.map((d) => h(`button.ol-seg-btn${d === diff ? '.on' : ''}`, { type: 'button', onclick: () => { diff = d; paint(); } }, DIFFICULTIES[d].name)));
+      fpRow.replaceChildren(
+        h('span.ol-fp-label', 'Freeplay'),
+        freeplaySeg(fp, (v) => { fp = v; paint(); }),
+        h('small.muted.ol-fp-hint', fp ? `${tierLine(fp)} Keep going after the last wave until you fall or both finish.${diff === 'nightmare' ? ' 1 life — the first leak ends freeplay.' : ''}` : 'Off: the battle ends at the stage\'s last wave, as usual.'));
     };
     paint();
     let done = false;
     modal({
       title: 'Co-op stage',
       wide: true,
-      body: h('div.ol-pick', h('p.muted', `Every campaign stage you unlocked. Enemies have ×${COOP.hpMul} HP; each player starts with ${Math.round(COOP.cashShare * 100)}% of the coins.`), diffs, list),
+      body: h('div.ol-pick', h('p.muted', `Every campaign stage you unlocked. Enemies have ×${COOP.hpMul} HP; each player starts with ${Math.round(COOP.cashShare * 100)}% of the coins.`), diffs, fpRow, list),
       actions: [
         { label: 'Cancel', kind: 'ghost' },
-        { label: 'Choose', kind: 'yellow', testid: 'coop-stage-ok', onClick: (close) => { done = true; close(); resolve({ stageId: pick, difficulty: diff }); } },
+        { label: 'Choose', kind: 'yellow', testid: 'coop-stage-ok', onClick: (close) => { done = true; close(); resolve({ stageId: pick, difficulty: diff, freeplay: fp }); } },
       ],
       onClose: () => {
         if (!done) resolve(null);
@@ -196,24 +239,35 @@ export function render(root, params = {}) {
     const profile = store.profile;
     let stageId = defaultStage(profile);
     let difficulty = DIFFICULTIES[readPref().difficulty] ? readPref().difficulty : 'normal';
+    // freeplay: Off on first use, then remembered
+    let freeplay = freeplayTier(readPref().freeplay);
     const stagePane = h('div.ol-coop-stage');
     const paintStage = () => {
       const s = STAGE_MAP[stageId];
       stagePane.replaceChildren(
         thumb(stageId),
         h('div.ol-coop-stage-info',
-          h('div.ol-coop-stage-name', h('b', stageLabel(stageId)), h('span.ol-chip-diff', DIFFICULTIES[difficulty].name)),
+          h('div.ol-coop-stage-name', h('b', stageLabel(stageId)), h('span.ol-chip-diff', DIFFICULTIES[difficulty].name), freeplayChip(freeplay)),
           h('ul.ol-coop-facts',
             h('li', `Enemy HP ×${COOP.hpMul}`),
             h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
-            h('li', 'Coins earned are split between you')),
+            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you')),
           button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
-            const r = await pickStage(stageId, difficulty);
+            const r = await pickStage(stageId, difficulty, freeplay);
             if (!r) return;
-            ({ stageId, difficulty } = r);
+            ({ stageId, difficulty, freeplay } = r);
             writePref(r);
             paintStage();
           } })),
+        // freeplay right here (not only inside Change stage): Off or a difficulty tier
+        h('div.ol-fp-row.ol-fp-row-hub',
+          h('span.ol-fp-label', 'Freeplay'),
+          freeplaySeg(freeplay, (v) => {
+            freeplay = v;
+            writePref({ stageId, difficulty, freeplay });
+            paintStage();
+          }, 'coop-hub-freeplay'),
+          h('small.muted.ol-fp-hint', freeplay ? `${tierLine(freeplay)} Keep going after wave ${s?.waves} until you fall or both finish.` : 'Off: the battle ends at the stage\'s last wave.')),
       );
     };
     paintStage();
@@ -221,8 +275,8 @@ export function render(root, params = {}) {
     const create = button('Create room', {
       kind: 'yellow', icon: 'plus', testid: 'coop-create',
       onClick: () => {
-        writePref({ stageId, difficulty });
-        navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty });
+        writePref({ stageId, difficulty, freeplay });
+        navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}) });
       },
     });
 
@@ -251,7 +305,7 @@ export function render(root, params = {}) {
         h('div.ol-form-row',
           h('div.ol-last-room',
             h('b.ol-last-code', last.code),
-            h('small.muted', `${last.host ? 'You host' : 'You joined'}${STAGE_MAP[last.stageId] ? ` · ${stageLabel(last.stageId)}` : ''}`)),
+            h('small.muted', `${last.host ? 'You host' : 'You joined'}${STAGE_MAP[last.stageId] ? ` · ${stageLabel(last.stageId)}` : ''}${freeplayTable(last.freeplay) ? ` · Freeplay ${freeplayTable(last.freeplay).name}` : ''}`)),
           button('Rejoin', { kind: 'yellow', small: true, icon: 'play', testid: 'coop-rejoin', onClick: () => navigate('coop', roomRoute(last)) })));
     }
 
@@ -321,9 +375,11 @@ export function render(root, params = {}) {
       const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
       const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+      // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
+      const freeplay = isHost ? freeplayTier(params.freeplay) : null;
       try {
         session = openSession({
-          code: roomCode, isHost, backend, stageId, difficulty,
+          code: roomCode, isHost, backend, stageId, difficulty, freeplay,
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
         });
       } catch (e) {
@@ -352,11 +408,20 @@ export function render(root, params = {}) {
           toast('You are not in a clan yet — share the room code instead.', 'info');
           return;
         }
-        await backend.send(`clan:${mine.clan.id}`, `Co-op room ${roomCode}: ${stageLabel(session.stageId)} (${DIFFICULTIES[session.difficulty].name}). Join me!`, { kind: 'invite', meta: { room: roomCode, stage: session.stageId } });
+        await backend.send(`clan:${mine.clan.id}`, `Co-op room ${roomCode}: ${inviteLine(session)}. Join me!`, { kind: 'invite', meta: { room: roomCode, stage: session.stageId } });
         toast(`Invite posted in [${mine.clan.tag}] chat`, 'good');
       } catch (e) {
         showError(e);
       }
+    }
+
+    /** "4-5 Normal · Freeplay Tempest · best 130/26" (the clan invite) */
+    function inviteLine(s) {
+      const st = STAGE_MAP[s.stageId];
+      const t = freeplayTable(s.freeplay);
+      if (!t) return `${stageLabel(s.stageId)} (${DIFFICULTIES[s.difficulty].name})`;
+      const best = coopBestWaves(profile, s.stageId)[t.id];
+      return `${s.stageId} ${DIFFICULTIES[s.difficulty].name} · Freeplay ${t.name}${best ? ` · best ${best}/${st?.waves}` : ''}`;
     }
 
     /** What the empty seat says while we wait: the link first, then who we wait for. */
@@ -366,6 +431,11 @@ export function render(root, params = {}) {
       if (s.returning) {
         // back from a battle: the ally is still on its battle screen (the results, or a battle
         // that runs on), or already back here and pairing
+        if (s.returning.fighting) {
+          // a freeplay run my ally plays on after I came back ("Rin is still fighting — wave 87")
+          const f = s.returning.fighting;
+          return [`${s.returning.name} is still fighting — wave ${f.wave}${f.goal ? `/${f.goal}` : ''}`, 'Your girls are still with them. The room stays open — they come back here when the run ends.'];
+        }
         return s.returning.inRoom
           ? [`${s.returning.name} is back too…`, 'Joining you up again.']
           : [`Waiting for ${s.returning.name}…`, 'They are still on the battle screen. The room stays open — same code, no need to retype it.'];
@@ -423,7 +493,24 @@ export function render(root, params = {}) {
               h('span', h('b', String(st.waves ?? '—')), ' waves'),
               h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
               h('span', h('b', formatNumber(coopStartCash(st))), ' coins each')),
+            freeplayPanel(s, st),
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
+    }
+
+    /** Freeplay on: what it brings, this account's best on this tier, advice, the last run. */
+    function freeplayPanel(s, st) {
+      const t = freeplayTable(s.freeplay);
+      if (!t) return null;
+      const best = coopBestWaves(profile, s.stageId)[t.id];
+      const last = session.lastRun && session.lastRun.stageId === s.stageId ? session.lastRun : null;
+      const caps = ['detection', 'antiAir', 'armorPen'].map((k) => CAPABILITIES[k]?.name).filter(Boolean);
+      // (the record and the last run first: the most rewarding part, and on a phone the first read)
+      return h(`div.ol-field-fp.ol-fp-${t.id}`, { 'data-testid': 'coop-field-freeplay' },
+        h('p.ol-field-fp-best', best ? `Your best: ${best}/${st.waves} (${t.name})` : `No ${t.name} run on ${s.stageId} yet.`),
+        last ? h('p.ol-field-fp-last', { 'data-testid': 'coop-last-run' }, `Last run: ${last.wave}/${last.goal} · ${freeplayTable(last.tier)?.name || ''} · ${last.text}`) : null,
+        h('p', h('b', `Freeplay · ${t.name}`), ' — ', freeplaySummary(s.stageId, t.id) || ''),
+        h('p.muted', `Bring ${caps.join(', ')} and a boss killer.`),
+        s.difficulty === 'nightmare' ? h('p.ol-field-fp-warn', '1 life — the first leak ends freeplay.') : null);
     }
 
     /**
@@ -469,7 +556,7 @@ export function render(root, params = {}) {
 
     function newRoom(s) {
       s.close({ keepRoom: false }); // this code is given up for the new one
-      navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty });
+      navigate('coop', { id: makeRoomCode(), host: '1', stage: s.stageId, difficulty: s.difficulty, ...(s.freeplay ? { freeplay: s.freeplay } : {}) });
     }
 
     /** The room cannot be used (refused, full, closed after idling): what happened + a way on. */
@@ -499,10 +586,21 @@ export function render(root, params = {}) {
 
     const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
     let remembered = '';
+    let seenFreeplay = session.freeplay; // guest: the setting my Ready was given for
+    let wasReady = !!session.me.ready;
     function paint() {
       if (destroyed) return;
       const s = session;
       if (s.phase === 'closed') return;
+      if (!s.isHost && s.phase === 'lobby') {
+        // the host changed freeplay: Ready is consent, so the session took mine back — say so
+        if (s.freeplay !== seenFreeplay && wasReady && !s.me.ready) {
+          const t = freeplayTable(s.freeplay);
+          toast(`The host set freeplay to ${t ? t.name : 'Off'} — tap Ready again if that suits you.`, 'info');
+        }
+        seenFreeplay = s.freeplay;
+        wasReady = !!s.me.ready;
+      }
       if (s.error || s.full) {
         // the server refused the room (wrong code, taken, full, too many) or it closed after
         // idling: nothing else to show (no seats, no Ready). A room that will not come back is
@@ -513,7 +611,7 @@ export function render(root, params = {}) {
       }
       // the co-op menu's "Your last room": only once the server let me in (a mistyped or full
       // code must not replace the room I was really in)
-      const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}`;
+      const key = `${s.code}|${s.isHost}|${s.stageId}|${s.difficulty}|${s.freeplay}`;
       if (s.link === 'connected' && key !== remembered) {
         remembered = key;
         rememberRoom(s);
@@ -549,16 +647,23 @@ export function render(root, params = {}) {
             h('button.ol-copy', { onclick: copy, title: 'Copy', 'aria-label': 'Copy the room code' }, 'Copy')),
           h('div.ol-room-stage',
             thumb(s.stageId, 'ol-room-thumb'),
-            h('div',
-              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || '')),
+            h('div.ol-room-stage-info',
+              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
               h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
               s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
-                const r = await pickStage(s.stageId, s.difficulty);
+                const r = await pickStage(s.stageId, s.difficulty, s.freeplay);
                 if (r) {
                   writePref(r);
-                  s.setStage(r.stageId, r.difficulty);
+                  s.setStage(r.stageId, r.difficulty, r.freeplay);
                 }
-              } }) : null)),
+              } }) : null),
+            // the host can switch freeplay here too, under the stage (the guest's Ready is taken
+            // back: Ready is consent)
+            s.isHost ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
+              if (v === s.freeplay) return;
+              writePref({ freeplay: v });
+              s.setStage(s.stageId, s.difficulty, v);
+            }, 'coop-room-freeplay')) : null),
           h('div.ol-room-acts',
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
             button('Leave', { kind: 'ghost', small: true, icon: 'back', testid: 'coop-leave', onClick: () => { s.close(); navigate('coop'); } }))),
@@ -573,6 +678,9 @@ export function render(root, params = {}) {
         // below the call to action (phones scroll to it): the stage up close and the rules
         h('div.ol-room-more', fieldPanel(s), tipsPanel()),
       ].filter(Boolean)); // replaceChildren(null) would print "null"
+      // the room repaints on every session change (hellos, ready, returning…): only the first paint
+      // slides the panels in, later ones must not restart that animation (a flicker every few seconds)
+      requestAnimationFrame(() => view.classList.add('ol-room-live'));
     }
 
     paint();

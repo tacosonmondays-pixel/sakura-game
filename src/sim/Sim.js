@@ -18,7 +18,7 @@ import {
 import { applyStatus } from './status.js';
 import {
   createEnemy, placeOnPath, updateEnemy, updateEnemyAuras, onEnemyDeath, checkPhases, endPhasing,
-  syncStatusFlags,
+  syncStatusFlags, applySpawnMods, applyPressure,
 } from './enemies.js';
 import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
@@ -28,7 +28,9 @@ import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo,
 } from './hero.js';
 import { generateWave, summarizeWave } from './waves.js';
+import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
+import { snapshotSim, restoreSim } from './snapshot.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -41,7 +43,7 @@ export class Sim {
   /**
    * @param {{ stageId?: string, difficulty?: string, loadout?: {unitId: string, stats?: object}[],
    *   hero?: {unitId: string, stats?: object}|null, seed?: number,
-   *   options?: { endless?: boolean, autoStart?: boolean },
+   *   options?: { endless?: boolean, autoStart?: boolean, freeplay?: boolean },
    *   data?: { stage?, map?, units?, enemies? } }} opts
    */
   constructor({ stageId, difficulty = 'normal', loadout = [], hero = null, seed = 1, options = {}, data = {} } = {}) {
@@ -76,6 +78,16 @@ export class Sim {
 
     this.endless = !!this.options.endless || !Number.isFinite(this.stage.waves);
     this.totalWaves = this.endless ? Infinity : this.stage.waves ?? 10;
+    // Co-op freeplay (options.freeplay + stage.freeplay = the tier's table, src/data/freeplay.js):
+    // totalWaves stays the goal (the "15" of 16/15). Clearing it emits a non-terminal 'goal' event;
+    // waves past it come from generateFreeplayWave, and the run ends on defeat or finish() (a
+    // Finish vote) — there is no last wave unless the table sets maxWave.
+    this.freeplay = !this.endless && !!this.options.freeplay && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
+    this.lastWave = this.freeplay ? Math.max(this.totalWaves, this.stage.freeplay.maxWave ?? Infinity) : this.totalWaves;
+    /** Freeplay pressure of the current wave (flat armor, Resolve budgets) for every enemy entering it. */
+    this._fp = null;
+    /** A freeplay run ended by finish() (state 'won' after the goal), not by defeat. */
+    this.finished = false;
     this.maxLives = this.diff.lives ?? this.stage.lives ?? 100;
     this.lives = this.maxLives;
     this.cash = Math.round(this.stage.startCash ?? 650);
@@ -248,8 +260,14 @@ export class Sim {
 
   /**
    * Spawns an enemy (waves, broods, summons, decoys; also handy for tests/debug).
+   * `hpMul` is absolute (summons, splits); `waveHpMul` replaces the wave's HP multiplier for this
+   * spawn only (freeplay bosses carry their rank factor; what they summon still gets the wave's);
+   * `childHpMul` (absolute) is what this enemy's own summons / brood get (default: hpMul).
+   * The bosses a freeplay titan breaks into carry the titan's pool multiplier on that way.
+   * `speedMul`, `leak` and `mods` (a freeplay affix) come from freeplay wave spawns.
    * @param {string} enemyId
-   * @param {{ pathIndex?: number, dist?: number, hpMul?: number, parent?: object }} o
+   * @param {{ pathIndex?: number, dist?: number, hpMul?: number, waveHpMul?: number, childHpMul?: number, speedMul?: number,
+   *   leak?: number, mods?: object, parent?: object }} o
    * @returns {object|null} EnemyRT
    */
   spawnEnemy(enemyId, o = {}) {
@@ -259,19 +277,25 @@ export class Sim {
       return null;
     }
     const pathIndex = ((o.pathIndex ?? 0) % this.pathData.length + this.pathData.length) % this.pathData.length;
-    const hpMul = o.hpMul ?? (this.stage.hpScale ?? 1) * this.diff.hpMul * this._waveHpMul;
+    const base = (this.stage.hpScale ?? 1) * this.diff.hpMul;
+    const hpMul = o.hpMul ?? base * (o.waveHpMul ?? this._waveHpMul);
+    const childHpMul = o.childHpMul ?? o.hpMul ?? base * this._waveHpMul;
     const e = createEnemy(def, {
       uid: this._nextUid(),
       pathIndex,
       dist: o.dist ?? 0,
       hpMul,
-      speedMul: this.diff.speedMul ?? 1,
+      childHpMul,
+      speedMul: (this.diff.speedMul ?? 1) * (o.speedMul ?? 1),
       cashMul: (this.diff.cashMul ?? 1) * this.cashScale,
       time: this.time,
       rng: this.rng,
       wave: this.wave,
     });
     if (o.parent) e.parentUid = o.parent.uid;
+    if (o.leak != null) e.leak = o.leak;
+    if (o.mods) applySpawnMods(e, o.mods);
+    if (this._fp) applyPressure(e, this._fp);
     placeOnPath(e, this.pathData[pathIndex]);
     this.enemies.push(e);
     this.encountered.add(def.id);
@@ -284,7 +308,7 @@ export class Sim {
     const q = this._spawnQueue;
     while (this._spawnIndex < q.length && q[this._spawnIndex].t <= this._waveTime) {
       const s = q[this._spawnIndex++];
-      this.spawnEnemy(s.enemyId, { pathIndex: s.pathIndex, dist: 0 });
+      this.spawnEnemy(s.enemyId, { pathIndex: s.pathIndex, dist: 0, waveHpMul: s.hpMul, speedMul: s.speedMul, leak: s.leak, mods: s.mods });
     }
   }
 
@@ -340,7 +364,8 @@ export class Sim {
       if (e.traits.field) this._applyStatusEvent(e, { type: 'silence', duration: HOLY_SILENCE }, ctx);
     }
     if (spec.knockback > 0) {
-      const amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
+      let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
+      if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
       if (amt > 0) {
         e.dist = Math.max(0, e.dist - amt);
         placeOnPath(e, this.pathData[e.pathIndex]);
@@ -421,7 +446,8 @@ export class Sim {
   _getWave(n) {
     let w = this._waveCache.get(n);
     if (!w) {
-      w = generateWave(this.stage, n, this.data.enemy, { pathCount: this.pathData.length, pathLengths: this.pathData.map((p) => p.length) });
+      const opts = { pathCount: this.pathData.length, pathLengths: this.pathData.map((p) => p.length) };
+      w = this.freeplay && n > this.totalWaves ? generateFreeplayWave(this.stage, n, this.data.enemy, opts) : generateWave(this.stage, n, this.data.enemy, opts);
       this._waveCache.set(n, w);
     }
     return w;
@@ -430,13 +456,17 @@ export class Sim {
   /** Starts the next wave (only in 'prep' or 'between'). @returns {boolean} */
   startNextWave() {
     if (this.state !== 'prep' && this.state !== 'between') return false;
-    if (!this.endless && this.wave >= this.totalWaves) return false;
+    if (!this.endless && this.wave >= this.lastWave) return false;
     this.wave++;
+    // a long freeplay run would keep every past wave's spawn list: keep only the waves around now
+    // (the cache is a pure function of the wave number, so dropping it changes nothing)
+    if (this.freeplay) for (const k of this._waveCache.keys()) if (k < this.wave - 1) this._waveCache.delete(k);
     const w = this._getWave(this.wave);
     this._spawnQueue = w.spawns;
     this._spawnIndex = 0;
     this._waveTime = 0;
     this._waveHpMul = w.hpMul;
+    this._fp = w.freeplay?.pressure || null;
     this._autoTimer = -1;
     this.state = 'wave';
     this._emit('waveStart', { wave: this.wave });
@@ -462,18 +492,44 @@ export class Sim {
     if (this.hero && !this.hero.removed) gainHeroXp(this, this.hero, heroWaveXp(this.wave));
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
-    if (!this.endless && this.wave >= this.totalWaves) {
+    // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
+    const goal = this.freeplay && this.wave === this.totalWaves;
+    if (goal) this._emit('goal', { wave: this.wave });
+    if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
       return;
     }
     this.state = 'between';
-    if (this.options.autoStart) this._autoTimer = AUTO_START_DELAY;
+    if (this.options.autoStart) this._autoTimer = goal ? this.stage.freeplay.clearPause ?? AUTO_START_DELAY : AUTO_START_DELAY;
+  }
+
+  /**
+   * What freeplay wave n is made of (tier, depth, visitors, affix, boss content, speed and
+   * pressure), for the scout, banners and the pressure chip; null outside freeplay or at/before
+   * the goal.
+   */
+  freeplayInfo(n = this.wave + 1) {
+    return this.freeplay && n > this.totalWaves ? this._getWave(n).freeplay : null;
+  }
+
+  /**
+   * Ends a freeplay run on purpose (every player voted Finish): only once the goal has been
+   * cleared and while the battle is still on. The battle ends 'won' with finished = true.
+   * @returns {boolean}
+   */
+  finish() {
+    if (!this.freeplay || this.wavesCleared < this.totalWaves || this.state === 'won' || this.state === 'lost') return false;
+    this.finished = true;
+    this.state = 'won';
+    this._autoTimer = -1;
+    this._emit('won', { finished: true });
+    return true;
   }
 
   /** Scouting info for wave n: [{ enemyId, count, traits, tier }]. */
   waveInfo(n) {
-    if (!(n >= 1) || (!this.endless && n > this.totalWaves)) return [];
+    if (!(n >= 1) || (!this.endless && n > this.lastWave)) return [];
     return summarizeWave(this._getWave(n), this.data.enemy);
   }
 
@@ -786,6 +842,28 @@ export class Sim {
   }
 
   // -------------------------------------------------------------------------
+  // Snapshots (src/sim/snapshot.js)
+  // -------------------------------------------------------------------------
+
+  /**
+   * The whole battle state as plain JSON (towers, enemies, projectiles, statuses, rng, stats…),
+   * taken between steps. Co-op keeps one at every wave end as a checkpoint.
+   * @returns {{ v: number, root: any, o: any[] }}
+   */
+  snapshot(config) {
+    return snapshotSim(this, config);
+  }
+
+  /**
+   * Continues a battle from snapshot(): call it on a fresh Sim built with the same arguments
+   * (stage, difficulty, loadout, hero, seed, options). `config`: see src/sim/snapshot.js (co-op
+   * passes every player's loadout). @returns {Sim} this
+   */
+  restore(snap, config) {
+    return restoreSim(this, snap, config);
+  }
+
+  // -------------------------------------------------------------------------
   // Result
   // -------------------------------------------------------------------------
 
@@ -813,6 +891,12 @@ export class Sim {
         heroLevel: this.hero ? this.hero.level : 0,
         endless: this.endless,
       },
+      // co-op freeplay: the tier, the goal (the stage's last wave), whether it was cleared, and
+      // whether the run ended on a Finish vote (otherwise it fell)
+      freeplay: this.freeplay ? this.stage.freeplay.id : null,
+      goal: this.freeplay ? this.totalWaves : null,
+      goalReached: this.freeplay && this.wavesCleared >= this.totalWaves,
+      finished: this.finished,
     };
   }
 }

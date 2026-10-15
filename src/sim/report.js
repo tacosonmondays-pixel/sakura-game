@@ -141,9 +141,14 @@ export function buildWaveWarnings(sim, n) {
     if (!def) continue;
     const name = def.name || def.id;
     if (def.tier === 'boss' || def.tier === 'miniboss') {
+      // freeplay titans and the Eclipse Wyrm break open into bosses when they fall
+      const split = def.traits?.splitter;
+      const inner = split?.spawn ? sim.data.enemy(split.spawn) : null;
+      const releases = inner && (inner.tier === 'boss' || inner.tier === 'miniboss')
+        ? ` When it falls it breaks open into ${(split.count ?? 2) > 1 ? `${split.count ?? 2}× ` : ''}${inner.name || inner.id}!` : '';
       out.push({
         kind: 'boss', severity: 'danger', enemyId: def.id,
-        text: `${name} approaches!${def.counters ? ` ${def.counters}` : ''}`,
+        text: `${name} approaches!${releases}${def.counters ? ` ${def.counters}` : ''}`,
       });
     } else if (!sim.encountered.has(def.id) && (introduces.has(def.id) || entry.traits.some((t) => introduces.has(t)))) {
       const t = entry.traits[0];
@@ -171,6 +176,14 @@ export function buildWaveWarnings(sim, n) {
       suggest: [...new Set(sources.map((x) => x.unitId))],
       sources,
       text: `${TRAITS[trait].name} enemies incoming (${names}) — bring ${capList(counters)}.${help ? ` Try: ${help}.` : ''}`,
+    });
+  }
+  // Freeplay: Resolve (each enemy shrugs off stuns after a few seconds in total) once it bites.
+  const fp = sim.freeplayInfo ? sim.freeplayInfo(n) : null;
+  if (fp?.pressure && fp.pressure.cc < 4) {
+    out.push({
+      kind: 'freeplay', severity: 'warn', trait: 'resolve',
+      text: `Resolve: each enemy shrugs off stuns after ${fp.pressure.cc} s in total and knockback after ${fp.pressure.kb} tile${fp.pressure.kb === 1 ? '' : 's'}.`,
     });
   }
   out.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);

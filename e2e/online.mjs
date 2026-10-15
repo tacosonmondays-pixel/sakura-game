@@ -529,6 +529,12 @@ try {
     const ev = (p) => p.evaluate(() => window.__coop.lockstep.trace.map((e) => `${e.ev}@${e.tick}`).join(' ')).catch(() => '?');
     log(`    connection events — host: ${await ev(A)} | guest: ${await ev(B)}`);
   }
+  // (on a loaded machine a battle screen can take longer than the 30 s load allowance: the one
+  // that was ready first drops the other and the host re-admits it — the designed self-healing.
+  // The check below wants both connected, so it waits for that dance to settle, and says so)
+  const settleT0 = Date.now();
+  const settled = await Promise.all([A, B].map((p) => p.waitForFunction(() => window.__coop?.peerGone === false, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false)));
+  if (Date.now() - settleT0 > 1000) log(`    (battle 2's start reconnected after ${Math.round((Date.now() - settleT0) / 1000)} s: ${settled.join('/')})`);
   const fresh = await Promise.all([A, B].map((p) => p.evaluate(() => ({ seed: window.__coop.start.seed, diff: window.__battle.sim.difficulty, state: window.__battle.sim.state, ended: !!window.__battle.ui.ended, peerGone: window.__coop.peerGone }))));
   check(fresh.every((f) => f.seed === fresh[0].seed && f.seed !== seed1 && f.diff === 'normal' && f.state !== 'lost' && !f.ended && !f.peerGone),
     `rematch: battle 2 is a fresh battle on both (${JSON.stringify(fresh)})`);

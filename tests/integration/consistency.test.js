@@ -60,7 +60,8 @@ describe('ids line up across modules', () => {
   });
 
   test('every enemy debuts in a stage that can actually spawn it', () => {
-    for (const e of ENEMIES) {
+    // (the co-op freeplay giants debut in freeplay, past a stage's last wave: src/data/freeplay.js)
+    for (const e of ENEMIES.filter((x) => x.introducedIn !== 'freeplay')) {
       const stage = STAGE_MAP[e.introducedIn];
       expect(stage, `${e.id} introducedIn`).toBeTruthy();
       expect([...stageEnemies(stage)], `${e.id} in ${stage.id}`).toContain(e.id);
@@ -107,7 +108,9 @@ describe('ids line up across modules', () => {
     CAMPAIGN_IDS.forEach((id, i) => expect(followingStage(id)).toBe(CAMPAIGN_IDS[i + 1] ?? null));
     expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }).difficulty).toBe('easy');
     expect(parseBattleParams({ stage: 'nope' }).error).toBeTruthy();
-    expect(parseBattleParams({ stage: '1-1', endless: '1' }).endless).toBe(true);
+    // the old endless runs on campaign maps are freeplay now; the colosseum stays endless
+    expect(parseBattleParams({ stage: '1-1', endless: '1' })).toMatchObject({ endless: false, freeplay: 'blossom' });
+    expect(parseBattleParams({ stage: 'challenge' }).endless).toBe(true);
   });
 });
 

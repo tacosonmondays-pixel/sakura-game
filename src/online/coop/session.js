@@ -4,19 +4,34 @@
 //
 // Room messages (over backend.openRoom(code), i.e. Realtime broadcast or BroadcastChannel; the
 // host registers the code and one guest takes the seat, see open_room / join_room):
-//   { type: 'hello', player, v, sees, room? }
+//   { type: 'hello', player, v, sees, room?, freeplay? }
 //                                    my name / level / avatar / loadout / ready; v = coopVersion()
 //                                    (two different builds never pair up); sees = the uid of the
 //                                    player I see (or null); the host adds room = its stage choice
-//   { type: 'room', stageId, difficulty }   host's stage choice (at once; hellos repeat it)
-//   { type: 'ready', uid, ready }    (at once; hellos repeat it)
+//                                    { stageId, difficulty, freeplay }, the guest adds freeplay =
+//                                    the freeplay setting it sees (what its Ready agrees to)
+//   { type: 'room', stageId, difficulty, freeplay }   host's choice (at once; hellos repeat it)
+//   { type: 'ready', uid, ready, freeplay }   (at once; hellos repeat it)
 //   { type: 'full', uid }            host → a third player: this room already has two
-//   { type: 'start', start }         host → guest: seed, stage, both players' loadouts, version
-//                                    (re-sent until the guest's first lockstep packet arrives)
+//   { type: 'start', start }         host → guest: seed, stage, difficulty, freeplay, both
+//                                    players' loadouts, version (re-sent until the guest's first
+//                                    lockstep packet arrives)
 //   { type: 'ls', m }                lockstep traffic during the battle
-//   { type: 'lobby', uid }           "the battle is over, I am back in the room's lobby" (the
-//                                    room, its code and the seats stay: see backToLobby)
+//   { type: 'lobby', uid }           "I am back in the room's lobby" (the room, its code and the
+//                                    seats stay: see backToLobby), mostly after the battle ended;
+//                                    in freeplay also while the ally plays on (said again while
+//                                    that battle's beats still come: the first one was lost)
+//   { type: 'fighting', uid, wave, goal, over }   my battle runs on while my ally is back in the
+//                                    room (a freeplay run): how far I am, every
+//                                    LOBBY.fightingMs; over = it just ended (results screen);
+//                                    keeps the waiting lobby from its idle close
 //   { type: 'leave', uid }           I left the room (Leave, Home, closing the tab)
+//
+// Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
+// difficulty: off (null) or a tier id. The host picks it (setStage), it rides in room, hello and
+// start, and both clients build their battle from start, so they always agree. The guest's Ready
+// is its consent: a changed setting clears the guest's Ready, and the host can only start once
+// the guest's Ready was given for the setting the host has now (a stale "ready" never counts).
 //
 // The lobby handshake heals itself. Broadcast is lossy (a message sent while the other side is
 // not subscribed yet, or while a channel reconnects, is simply gone), so nothing is said only
@@ -33,6 +48,7 @@
 // LOBBY.idleCloseMs closes. No Realtime presence: see adapters/supabase.js openRoom.
 import { createEmitter } from '../../core/events.js';
 import { COOP, COOP_NET } from '../../data/coop.js';
+import { freeplayTier } from '../../data/freeplay.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
 
@@ -104,27 +120,38 @@ export const LOBBY = Object.freeze({
   /** the battle is over on my screen and my ally has caught up (or is back in the room): a
    *  lockstep beat only this often, which just tells a lobby waiting for me that I am still here */
   restBeatMs: 8000,
+  /** my battle runs on while my ally is back in the room (freeplay): a 'fighting' beacon this
+   *  often instead of lockstep beats (nobody runs that battle with me any more) */
+  fightingMs: 10000,
+  /** back in the room, my ally's battle still beats at me (it missed my one 'lobby' message):
+   *  say 'lobby' again, at most this often */
+  lobbyEchoMs: 2000,
 });
 
 /**
  * @param {{ code: string, isHost: boolean, backend: object, me: object, stageId?: string, difficulty?: string,
- *   timers?: { setInterval: Function, clearInterval: Function }, now?: () => number }} opts
+ *   freeplay?: string|null, timers?: { setInterval: Function, clearInterval: Function }, now?: () => number }} opts
  *   me = { uid, name, level, avatar, loadout: [{unitId, stats}], hero: {unitId, stats}|null }
+ *   freeplay: the host's freeplay setting (a FREEPLAY_TIERS id, or null: off); a guest adopts the host's
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
     code,
     isHost,
     me: { ...me, ready: isHost },
+    /** the ally: { uid, name, level, avatar, loadout, hero, ready, host, freeplay } (freeplay: the
+     *  setting the guest's last hello / ready was for, see canStart) */
     peer: null,
     full: false,
     stageId,
     difficulty,
+    /** co-op freeplay past the stage's last wave: null (off) or a tier id (the host's choice) */
+    freeplay: freeplayTier(freeplay),
     phase: 'lobby',
     start: null,
     lockstep: null,
@@ -132,9 +159,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     mismatch: null, // { uid, name, theirs }: the other player's version differs from mine (no pairing)
     /** the ally who was here and left / went silent ({ name, why }), until someone pairs */
     lastPeer: null,
-    /** back in the room after a battle: the ally from that battle ({ uid, name, inRoom }), until
-     *  they pair again, leave, or go quiet for LOBBY.peerSilentMs. inRoom: they are back in the
-     *  room too (else still on their battle screen: the results, or a battle that runs on) */
+    /** back in the room after a battle: the ally from that battle ({ uid, name, inRoom, fighting }),
+     *  until they pair again, leave, or go quiet for LOBBY.peerSilentMs. inRoom: they are back in
+     *  the room too (else still on their battle screen: the results, or a battle that runs on);
+     *  fighting: { wave, goal } while that battle runs on (a freeplay run I left), else null */
     returning: null,
     peerGone: false,
     /** my link to the room: 'connecting' (never joined yet) | 'connected' | 'reconnecting' */
@@ -170,6 +198,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   let allyLeft = false;
   let restSince = 0; // the battle is over on my screen since (0: not yet)
   let lastRestBeat = -Infinity;
+  let lastFightingAt = -Infinity; // my last 'fighting' beacon (-Infinity: none in this battle)
+  let fightingOver = false; // its last one said my battle is over: no more
+  let lastLobbyEcho = -Infinity; // my last repeated 'lobby' (see case 'ls')
   const hidden = () => doc?.hidden === true;
   /** The other player of the battle that runs (or just ran) here. */
   const isAlly = (uid) => !!uid && uid !== s.me.uid && !!s.start?.players.some((p) => p.uid === uid);
@@ -179,7 +210,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!room || s.phase !== 'lobby') return;
     lastHelloAt = now();
     const msg = { type: 'hello', player: { ...s.me, host: isHost }, v: version, sees: s.peer?.uid ?? null };
-    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty };
+    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay };
+    else msg.freeplay = s.freeplay; // what my ready flag agrees to
     // a hello is state: one sent while the link is down is pointless (every rejoin says hello)
     send(msg, { drop: true });
   }
@@ -239,6 +271,21 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       console.warn('[coop] idle close failed', e);
     }
     changed();
+  }
+
+  /**
+   * Guest: the host's freeplay setting (from its hello or room message). Ready is consent to it,
+   * so a changed setting takes my Ready back (I tap it again for the new one).
+   */
+  function adoptFreeplay(value) {
+    const fp = freeplayTier(value);
+    if (fp === s.freeplay) return;
+    s.freeplay = fp;
+    lastActivity = now();
+    if (s.me.ready) {
+      s.me.ready = false;
+      send({ type: 'ready', uid: s.me.uid, ready: false, freeplay: s.freeplay }, { latest: 'ready' });
+    }
   }
 
   function clearMismatch() {
@@ -302,7 +349,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (isHost ? p.host : !p.host) return; // a host pairs with a guest, a guest with the host
     const isNew = !s.peer;
     if (!isNew && s.peer.ready !== !!p.ready) lastActivity = t; // my ally toggled Ready
-    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host };
+    // freeplay: the setting a guest's ready flag was given for (see canStart)
+    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay) };
     peerHeard = t;
     peerSeesMe = msg.sees === s.me.uid;
     if (peerSeesMe) {
@@ -313,6 +361,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!isHost && msg.room?.stageId) {
       s.stageId = msg.room.stageId;
       s.difficulty = msg.room.difficulty || s.difficulty;
+      adoptFreeplay(msg.room.freeplay);
     }
     if (isNew) {
       s.stuck = null;
@@ -348,6 +397,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (isHost || s.phase !== 'lobby') return;
         s.stageId = msg.stageId;
         s.difficulty = msg.difficulty;
+        adoptFreeplay(msg.freeplay);
         lastActivity = now();
         changed();
         break;
@@ -355,6 +405,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (s.peer && msg.uid === s.peer.uid) {
           if (s.peer.ready !== !!msg.ready) lastActivity = now();
           s.peer.ready = !!msg.ready;
+          s.peer.freeplay = freeplayTier(msg.freeplay);
           changed();
         }
         break;
@@ -368,6 +419,17 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         // lockstep traffic only means something to a running battle: an ally still on its
         // results screen keeps beating into the room after I went back to the lobby (and such
         // a beat must not count as the guest's answer to the next battle's start)
+        if (s.phase === 'lobby') {
+          // …but a battle that runs on and still beats at me never heard my one 'lobby' (lost on
+          // the way): it waits on me until its timeout. Say it again (its beats stop once it hears)
+          const m = msg.m;
+          const running = (m?.type === 'in' || m?.type === 'busy') && !m.done;
+          if (running && s.returning && from === s.returning.uid && !s.returning.inRoom && now() - lastLobbyEcho >= LOBBY.lobbyEchoMs) {
+            lastLobbyEcho = now();
+            send({ type: 'lobby', uid: s.me.uid });
+          }
+          break;
+        }
         if (s.phase !== 'battle' || !s.lockstep) break;
         if (isHost) guestHeard = true;
         s.lockstep.receive(msg.m);
@@ -402,6 +464,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           if (p && !p.gone) s.lockstep.dropPeer(p, 'lobby');
           else if (p && p.why !== 'left') p.why = 'lobby'; // dropped before: no rejoin offer now
           emitter.emit('ally', 'room');
+          changed();
+        }
+        break;
+      case 'fighting':
+        // back in the room while my ally's battle runs on (freeplay): "Rin is still fighting — wave 87"
+        if (s.phase === 'lobby' && s.returning && msg.uid === s.returning.uid && !s.returning.inRoom) {
+          const ok = Number.isInteger(msg.wave) && msg.wave >= 0 && Number.isInteger(msg.goal) && msg.goal >= 0;
+          s.returning.fighting = ok && !msg.over ? { wave: msg.wave, goal: msg.goal } : null;
+          // the room is in use while my ally's run goes on (an hour and more): no idle close
+          lastActivity = now();
           changed();
         }
         break;
@@ -488,13 +560,27 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   };
   doc?.addEventListener?.('visibilitychange', onVisibility);
 
-  const beacon = timers.setInterval(() => {
-    const t = now();
-    if (s.phase === 'lobby') lobbyTick(t);
-    else if (s.phase === 'battle' && isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone && t - lastStartAt >= LOBBY.startResendMs) {
+  /** The battle's clock: the start message until the guest answers; the 'fighting' beacon. */
+  function battleTick(t) {
+    if (isHost && !guestHeard && s.start && !s.lockstep?.peers.get(1)?.gone && t - lastStartAt >= LOBBY.startResendMs) {
       lastStartAt = t;
       send({ type: 'start', start: s.start }, { latest: 'start' });
     }
+    // my ally went back to the room while my battle runs on (a freeplay run they left): tell it
+    // how far I am every LOBBY.fightingMs, and once more when my battle ends
+    const ls = s.lockstep;
+    if (!ls || !allyInRoom || allyLeft || fightingOver) return;
+    const over = ls.finished;
+    if (over ? lastFightingAt === -Infinity : t - lastFightingAt < LOBBY.fightingMs) return;
+    lastFightingAt = t;
+    fightingOver = over;
+    send({ type: 'fighting', uid: s.me.uid, wave: ls.sim.wave, goal: ls.sim.totalWaves, over }, { latest: 'fighting' });
+  }
+
+  const beacon = timers.setInterval(() => {
+    const t = now();
+    if (s.phase === 'lobby') lobbyTick(t);
+    else if (s.phase === 'battle') battleTick(t);
   }, LOBBY.tickMs);
 
   /**
@@ -526,12 +612,19 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     s.start = start;
     s.phase = 'battle';
     s.stuck = null;
+    // the room as this battle was started (a guest that missed the host's last room message
+    // has it now, and "Back to the room" shows the same setting again)
+    if (start.stageId) s.stageId = start.stageId;
+    if (start.difficulty) s.difficulty = start.difficulty;
+    s.freeplay = freeplayTier(start.freeplay);
     // a fresh battle (also after "Back to the room"): nothing from the last one carries over
     guestHeard = false;
     allyInRoom = false;
     allyLeft = false;
     restSince = 0;
     lastRestBeat = -Infinity;
+    lastFightingAt = -Infinity;
+    fightingOver = false;
     const mySlot = start.players.find((p) => p.uid === s.me.uid)?.slot ?? (isHost ? 0 : 1);
     s.lockstep = new Lockstep({
       start,
@@ -540,9 +633,19 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       delay: net.inputDelay,
       heartbeatMs: net.heartbeatMs,
       keepaliveMs: net.keepaliveMs ?? net.heartbeatMs,
+      idleAfterMs: net.idleAfterMs,
+      idleLeadTicks: net.idleLeadTicks,
+      idleKeepaliveMs: net.idleKeepaliveMs,
+      maxMessageBytes: net.maxMessageBytes,
       // while the channel is down only the newest heartbeat is worth keeping (each one carries
-      // the horizon, every unacknowledged command and the last hashes)
-      send: (m) => send({ type: 'ls', m }, m?.type === 'in' ? { latest: 'ls-in' } : undefined),
+      // the horizon, every unacknowledged command and the last hashes). Once my ally is back in
+      // the room while my battle runs on (a freeplay run they left), nobody runs this battle with
+      // me any more: its beats stop (the 'fighting' beacon says I am still here; a finished
+      // battle's rest beats still go out, see restBeat)
+      send: (m) => {
+        if (allyInRoom && m?.type === 'in' && s.lockstep && !s.lockstep.finished) return;
+        send({ type: 'ls', m }, m?.type === 'in' ? { latest: 'ls-in' } : undefined);
+      },
       hooks: {
         onPeerGone: (slot, reason) => {
           s.peerGone = reason || true;
@@ -556,20 +659,25 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         },
         onDesync: (kind) => emitter.emit('desync', kind),
         onResync: () => emitter.emit('resync'),
+        onRebuild: (kind) => emitter.emit('rebuild', kind),
         onApplied: (cmd, res) => emitter.emit('applied', { cmd, res }),
       },
     });
     // Heartbeats keep flowing while the battle screen loads. A hidden tab gets no animation
     // frames, so this timer also advances the battle there (browsers slow it to ~1/s, which
-    // the ally sees as short "Waiting for ally…" pauses instead of a disconnect).
+    // the ally sees as short "Waiting for ally…" pauses instead of a disconnect). A rebuild
+    // (resync / rejoin of a long run) gets slices from here too: a short one between frames, a
+    // long one in a hidden tab (nobody is watching that page).
     let last = typeof performance !== 'undefined' ? performance.now() : Date.now();
     pump = timers.setInterval(() => {
       const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const dt = (t - last) / 1000;
       last = t;
       if (!s.lockstep) return;
-      if (s.lockstep.finished) restBeat();
-      else if (typeof document !== 'undefined' && document.hidden) s.lockstep.advance(Math.min(dt, 1));
+      const hiddenTab = typeof document !== 'undefined' && document.hidden;
+      if (s.lockstep.job) s.lockstep.advance(Math.min(dt, 1), { budgetMs: hiddenTab ? 250 : 6 });
+      else if (s.lockstep.finished) restBeat();
+      else if (hiddenTab) s.lockstep.advance(Math.min(dt, 1));
       else s.lockstep.beat();
     }, net.heartbeatMs);
     emitter.emit('start', s);
@@ -578,18 +686,24 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
 
   Object.assign(s, {
     net,
-    setStage(stage, diff) {
+    /**
+     * Host: the room's stage, difficulty and freeplay setting (a FREEPLAY_TIERS id or null: off;
+     * left out = unchanged). A changed freeplay setting needs the guest's Ready again.
+     */
+    setStage(stage, diff, freeplay = s.freeplay) {
       if (!isHost || s.phase !== 'lobby') return;
       s.stageId = stage;
       s.difficulty = diff;
+      s.freeplay = freeplayTier(freeplay);
       lastActivity = now();
-      send({ type: 'room', stageId: stage, difficulty: diff }, { latest: 'room' });
+      send({ type: 'room', stageId: stage, difficulty: diff, freeplay: s.freeplay }, { latest: 'room' });
       changed();
     },
     setReady(ready) {
       s.me.ready = !!ready;
       lastActivity = now();
-      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready }, { latest: 'ready' });
+      // the freeplay setting this Ready is for (the host starts only when it is still its own)
+      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready, freeplay: s.freeplay }, { latest: 'ready' });
       changed();
     },
     /** Lobby "Retry": the seat again, on a fresh socket and channel; the search clock restarts. */
@@ -612,6 +726,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         seed,
         stageId: s.stageId,
         difficulty: s.difficulty,
+        freeplay: s.freeplay, // null: a normal battle (createCoopSim)
         players: [
           { slot: 0, uid: s.me.uid, name: s.me.name, loadout: s.me.loadout, hero: s.me.hero || null, color: COOP.colors[0] },
           { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: null, color: COOP.colors[1] },
@@ -649,8 +764,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       } else {
         // back in the room already, or still on their battle screen (the results, or a battle
         // that runs on after a split): wait for them while they keep saying they are there
+        // (fighting: { wave, goal } while their battle runs on, from their 'fighting' beacon)
         s.lastPeer = null;
-        s.returning = ally ? { uid: ally.uid, name: ally.name || 'Your ally', inRoom: allyInRoom } : null;
+        s.returning = ally ? { uid: ally.uid, name: ally.name || 'Your ally', inRoom: allyInRoom, fighting: null } : null;
       }
       returningHeard = t;
       allyInRoom = false;
@@ -709,8 +825,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   // itself stays out of enumeration (tests and the e2e reach it as session.room)
   Object.defineProperty(s, 'canStart', {
     // only once both sides see each other: a guest the host hears but who cannot hear the
-    // host would never get the start message
-    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready,
+    // host would never get the start message; and only with the guest's Ready given for the
+    // freeplay setting the room has now (not one from before the host changed it)
+    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay,
     enumerable: true,
   });
   Object.defineProperty(s, 'room', { get: () => room, enumerable: false });

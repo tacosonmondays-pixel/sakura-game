@@ -256,6 +256,19 @@
 .bt-boss-barrier { top: auto; height: 4px; background: #7fe8ff; box-shadow: 0 0 6px #4cc9f0; }
 .bt-boss-ticks { position: absolute; inset: 0; }
 .bt-boss-tick { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,0.6); }
+/* landscape phones: a slim bar (bosses come every 5–10 waves in freeplay; the boss walks under it) */
+@media (max-height: 500px) {
+  .bt-boss { top: calc(var(--bt-hud-h) + var(--safe-top) + 4px); width: min(460px, calc(100% - 24px)); padding: 3px 10px 4px 6px; gap: 6px; }
+  .bt-boss-token .bt-enemy-token, .bt-boss-token svg { width: 28px; height: 28px; }
+  .bt-boss-top { margin-bottom: 2px; }
+  .bt-boss-name { font-size: 0.88rem; }
+  .bt-boss-track { height: 8px; }
+}
+/* narrow portrait: the colour already says boss — the name gets the room (up to ~20 characters) */
+@media (max-width: 440px) {
+  .bt-boss-tag { display: none; }
+  .bt-boss-name { font-size: 0.92rem; }
+}
 
 /* ---------- Feed + banners ---------- */
 .bt-feed { position: absolute; z-index: 6; left: 12px; top: calc(var(--bt-hud-h) + var(--safe-top) + 12px); display: flex; flex-direction: column; gap: 6px; width: min(340px, calc(100% - 24px)); }
@@ -273,6 +286,9 @@
 .bt-toast-n { margin-left: auto; font-weight: 900; color: #ffb3c1; }
 .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 76px); }
 .bt-has-boss .bt-scout-pop { top: calc(var(--bt-hud-h) + var(--safe-top) + 76px); }
+@media (max-height: 500px) {
+  .bt-has-boss .bt-feed, .bt-has-boss .bt-scout-pop { top: calc(var(--bt-hud-h) + var(--safe-top) + 50px); }
+}
 @keyframes bt-slide { from { opacity: 0; transform: translateX(-14px); } }
 .bt-banner-host { position: absolute; inset: 0; z-index: 7; display: grid; place-items: center; }
 .bt-banner {
@@ -283,11 +299,17 @@
 .bt-banner > * { transform: skewX(calc(var(--skew) * -1)); }
 .bt-banner.out { opacity: 0; transform: skewX(var(--skew)) translateX(60px); }
 .bt-banner-title { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 2.1rem; letter-spacing: 0.04em; text-shadow: 0 3px 0 rgba(0,0,0,0.2); }
-.bt-banner-sub { font-weight: 800; font-size: 0.95rem; max-width: 520px; opacity: 0.95; }
+.bt-banner-sub { font-weight: 800; font-size: 0.95rem; max-width: 520px; margin-inline: auto; opacity: 0.95; }
 .bt-banner-boss, .bt-banner-bad { background: linear-gradient(90deg, transparent, rgba(138,21,56,0.94) 18%, rgba(255,77,109,0.94) 82%, transparent); }
 .bt-banner-phase { background: linear-gradient(90deg, transparent, rgba(110,40,160,0.94) 18%, rgba(255,122,168,0.94) 82%, transparent); }
 .bt-banner-good { background: linear-gradient(90deg, transparent, rgba(197,138,0,0.94) 18%, rgba(255,221,74,0.96) 82%, transparent); color: var(--navy); }
 @keyframes bt-banner-in { from { opacity: 0; transform: skewX(var(--skew)) translateX(-80px); } }
+/* freeplay titans and twin bosses: the run is ramping up — a darker, bigger ribbon than BOSS INCOMING */
+.bt-banner-titan { padding: 14px 84px 16px; background: linear-gradient(90deg, transparent, rgba(18,0,6,0.96) 12%, rgba(120,8,40,0.96) 50%, rgba(18,0,6,0.96) 88%, transparent); }
+.bt-banner-titan .bt-banner-title { font-size: 2.6rem; color: #ffe0e6; text-shadow: 0 0 16px rgba(255,31,75,0.85), 0 3px 0 rgba(0,0,0,0.45); }
+.bt-banner-titan .bt-banner-sub { color: #ffc2cd; }
+@media (max-height: 500px) and (min-width: 701px) { .bt-banner-titan .bt-banner-title { font-size: 2rem; } }
+@media (max-width: 700px) { .bt-banner-titan { padding: 12px 40px 14px; } .bt-banner-titan .bt-banner-title { font-size: 1.9rem; } }
 
 /* ---------- Tower panel ---------- */
 .bt-panel {
@@ -688,4 +710,201 @@
   14% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
   78% { opacity: 1; transform: translate(-50%, -100%); }
   100% { opacity: 0; transform: translate(-50%, -130%); }
+}
+
+/* ---------- Co-op freeplay (spec §10): the 16/15 overflow pill, banners, clear card, pressure ---------- */
+/* the wave label: BEYOND / OVERTIME on wide screens, WAVE on narrow phones */
+.bt-wave-label-narrow { display: none; }
+@media (max-width: 440px) {
+  .bt-wave-label-wide { display: none; }
+  .bt-wave-label-narrow { display: inline; }
+}
+.bt-wave.bt-wave-over {
+  background: linear-gradient(100deg, var(--fp-a) 0%, var(--fp-b) 30%, var(--fp-c) 50%, var(--fp-b) 70%, var(--fp-a) 100%);
+  background-size: 300% 100%;
+  animation: bt-over-flow 2.4s linear infinite;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.85), 0 0 14px var(--fp-glow), 0 2px 8px rgba(29,78,137,0.3);
+}
+/* (the lightest stop, --fp-c, stays dark enough for white text: a near-white or pale-gold stop
+   washed the wave number out for a third of every shimmer cycle) */
+.bt-wave-over[data-tier="blossom"], [data-tier="blossom"] { --fp-a: #7b5cff; --fp-b: var(--pink); --fp-c: #e0a020; --fp-glow: rgba(255,122,168,0.75); }
+.bt-wave-over[data-tier="tempest"], [data-tier="tempest"] { --fp-a: #2b2d8f; --fp-b: #4cc9f0; --fp-c: #1f9bd1; --fp-glow: rgba(76,201,240,0.75); }
+.bt-wave-over[data-tier="crimson"], [data-tier="crimson"] { --fp-a: #4a0010; --fp-b: #ff1f4b; --fp-c: #e0a020; --fp-glow: rgba(255,31,75,0.8); }
+/* a thin dark outline under the label and the digits: readable over every stop of the shimmer */
+.bt-wave-over .bt-wave-label { text-shadow: 0 0 2px rgba(20,10,60,0.8), 0 1px 0 rgba(20,10,60,0.6); opacity: 1; }
+.bt-wave-over .bt-wave-n {
+  display: inline-block; /* the outer span already carries the skew counter-transform */
+  background: linear-gradient(90deg, #fff 20%, #fff3b0 50%, #fff 80%) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* chromatic split, then the outline */
+  filter: drop-shadow(1.5px 0 #ff4d6d) drop-shadow(-1.5px 0 #4cc9f0) drop-shadow(0 1px 0 rgba(20,10,60,0.6)) drop-shadow(0 0 1px rgba(20,10,60,0.7));
+  animation: bt-over-shine 1.6s linear infinite;
+}
+.bt-wave-over .bt-wave-goal { font-size: 0.72em; opacity: 0.85; text-shadow: 0 0 2px rgba(20,10,60,0.8), 0 1px 0 rgba(20,10,60,0.5); }
+.bt-wave-over.bt-wave-bump .bt-wave-n { animation: bt-over-slam 0.5s var(--bt-ease), bt-over-shine 1.6s linear infinite; }
+.bt-wave-over.bt-wave-overtime { --fp-a: #8a1538; --fp-b: #ff4d6d; --fp-c: #e0a020; --fp-glow: rgba(255,77,109,0.85); }
+@keyframes bt-over-flow { to { background-position: 300% 0; } }
+@keyframes bt-over-shine { to { background-position: -200% 0; } }
+@keyframes bt-over-slam { 0% { transform: scale(1.7) rotate(-8deg); filter: brightness(2.2) blur(1px); } 55% { transform: scale(0.92) rotate(2deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .bt-wave-over .bt-wave-n { background: none; color: #fff; } }
+html[data-reduce-motion] .bt-wave-over .bt-wave-n { background: none; color: #fff; }
+html[data-reduce-motion] .bt-wave.bt-wave-over { animation: none; background-position: 30% 0; }
+/* the in-game Reduce motion setting: the other freeplay shimmers stand still too */
+html[data-reduce-motion] .bt-free-pill { animation: none; background-position: 30% 0; }
+html[data-reduce-motion] .bt-start.bt-beyond, html[data-reduce-motion] .bt-banner-embers { animation: none; }
+
+/* the tier chip under the stage id */
+.bt-fp-chip { margin-top: 2px; font-size: 0.62rem; font-weight: 900; padding: 1px 8px; border-radius: 999px; color: #fff; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; background: linear-gradient(90deg, #7b5cff, var(--pink)); }
+.bt-fp-tempest { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
+.bt-fp-crimson { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
+
+/* banners: 'free' (violet → pink → gold, glitch on the crossing) and 'finale' (dark red → gold, embers) */
+.bt-banner-free { background: linear-gradient(90deg, transparent, rgba(123,92,255,0.94) 16%, rgba(255,122,168,0.95) 55%, rgba(255,207,107,0.94) 86%, transparent); text-shadow: 0 2px 0 rgba(60,0,60,0.35); }
+.bt-banner-finale { overflow: hidden; background: linear-gradient(90deg, transparent, rgba(58,0,12,0.96) 14%, rgba(138,21,56,0.96) 50%, rgba(201,140,20,0.96) 88%, transparent); }
+.bt-banner-finale .bt-banner-title { color: #ffe9a8; text-shadow: 0 0 14px rgba(255,140,40,0.8), 0 3px 0 rgba(0,0,0,0.35); }
+.bt-banner-embers { position: absolute; inset: 0; pointer-events: none; transform: none !important; background:
+  radial-gradient(2px 2px at 12% 80%, #ffcf3f, transparent), radial-gradient(2px 2px at 30% 60%, #ff7a3d, transparent),
+  radial-gradient(3px 3px at 55% 90%, #ffcf3f, transparent), radial-gradient(2px 2px at 72% 70%, #ff4d6d, transparent),
+  radial-gradient(2px 2px at 88% 85%, #ffcf3f, transparent); background-size: 100% 200%; animation: bt-embers 3s linear infinite; opacity: 0.9; }
+@keyframes bt-embers { from { background-position: 0 0; } to { background-position: 0 -100%; } }
+.bt-banner-glitch .bt-banner-title { position: relative; font-size: 3rem; letter-spacing: 0.06em; }
+.bt-banner-glitch .bt-banner-title::before, .bt-banner-glitch .bt-banner-title::after {
+  content: attr(data-text); position: absolute; inset: 0; pointer-events: none; animation: bt-glitch 0.6s steps(2, end) 2 both;
+}
+.bt-banner-glitch .bt-banner-title::before { color: #ff4d9a; transform: translate(-2px, 0); clip-path: inset(0 0 55% 0); }
+.bt-banner-glitch .bt-banner-title::after { color: #4cc9f0; transform: translate(2px, 0); clip-path: inset(50% 0 0 0); }
+@keyframes bt-glitch {
+  0% { clip-path: inset(10% 0 60% 0); transform: translate(-4px, -1px); }
+  25% { clip-path: inset(60% 0 10% 0); transform: translate(4px, 1px); }
+  50% { clip-path: inset(30% 0 40% 0); transform: translate(-3px, 0); }
+  75% { clip-path: inset(0 0 80% 0); transform: translate(3px, 1px); }
+  100% { clip-path: inset(0 0 100% 0); transform: none; opacity: 0; }
+}
+/* the crossing: one pink edge flash */
+.bt-root.bt-free-flash::after { content: ''; position: absolute; inset: 0; z-index: 6; pointer-events: none; box-shadow: inset 0 0 90px 24px rgba(255,77,154,0.75); animation: bt-free-flash 0.45s ease-out both; }
+@keyframes bt-free-flash { from { opacity: 1; } to { opacity: 0; } }
+html[data-reduce-motion] .bt-root.bt-free-flash::after { display: none; }
+.bt-root.bt-free-flash.bt-flash-red::after { box-shadow: inset 0 0 90px 24px rgba(201,24,74,0.8); }
+@media (prefers-reduced-motion: reduce) { .bt-root.bt-free-flash::after { display: none; } }
+@media (max-height: 500px) and (min-width: 701px) { .bt-banner-glitch .bt-banner-title { font-size: 2rem; } }
+@media (max-width: 700px) { .bt-banner-glitch .bt-banner-title { font-size: 2.3rem; } }
+
+/* the clear card: STAGE CLEAR ✓ over GO BEYOND ▶ 16/15, a Finish pill next to Auto */
+.bt-wavectl-row { display: flex; align-items: center; gap: 6px; }
+.bt-clear-head { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; padding: 4px 12px; border-radius: 8px; transform: skewX(var(--skew)); background: linear-gradient(90deg, #c58a00, #ffdd4a); color: var(--navy); box-shadow: 0 3px 10px rgba(197,138,0,0.45); }
+.bt-clear-head > * { transform: skewX(calc(var(--skew) * -1)); }
+.bt-clear-head b { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1rem; letter-spacing: 0.04em; }
+.bt-clear-head small { font-weight: 800; font-size: 0.68rem; opacity: 0.8; }
+.bt-start { position: relative; }
+.bt-start.bt-beyond { background: linear-gradient(100deg, var(--fp-a, #7b5cff), var(--fp-b, var(--pink)) 60%, var(--fp-c, #ffcf6b)); color: #fff; box-shadow: 0 6px 22px var(--fp-glow, rgba(255,122,168,0.7)), inset 0 -3px 0 rgba(60,0,60,0.25); animation: bt-beyond-glow 1.6s ease-in-out infinite; text-shadow: 0 2px 0 rgba(40,0,40,0.35); }
+@keyframes bt-beyond-glow { 50% { box-shadow: 0 6px 32px var(--fp-glow, rgba(255,122,168,0.95)), inset 0 -3px 0 rgba(60,0,60,0.25); } }
+.bt-start-ring { position: absolute; right: -9px; top: -9px; width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(#fff calc(var(--p, 1) * 360deg), rgba(255,255,255,0.25) 0); box-shadow: 0 2px 6px rgba(40,0,60,0.4); -webkit-mask: radial-gradient(circle, transparent 6px, #000 7px); mask: radial-gradient(circle, transparent 6px, #000 7px); }
+.bt-start-sub-over { color: inherit; opacity: 1; font-weight: 900; }
+.bt-beyond .bt-start-sub { opacity: 0.95; }
+.bt-finish-pill { border: none; border-radius: 999px; padding: 5px 12px; font-weight: 900; font-size: 0.78rem; color: #8a1538; background: rgba(255,255,255,0.94); box-shadow: inset 0 0 0 2px #ff9fb2, 0 2px 6px rgba(29,78,137,0.2); }
+.bt-finish-pill.on { color: #fff; background: linear-gradient(90deg, #8a1538, #ff4d6d); box-shadow: 0 2px 8px rgba(138,21,56,0.4); }
+
+/* the ally's Finish vote */
+.bt-vote-prompt { position: absolute; z-index: 9; left: 50%; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 14px); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(31, 22, 60, 0.92); color: #fff; font-weight: 800; font-size: 0.86rem; box-shadow: 0 6px 18px rgba(0,0,0,0.3); width: max-content; max-width: calc(100% - 24px); animation: bt-rise 0.2s var(--bt-ease); }
+.bt-vote-text { min-width: 0; white-space: nowrap; }
+/* a long name (up to 16 characters) never pushes the buttons off the screen (inline: the line still
+   reads as one sentence, also to screen readers and innerText) */
+.bt-vote-name { display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.bt-vote-prompt button { flex: none; border: none; border-radius: 999px; padding: 5px 12px; font-weight: 900; font-size: 0.8rem; }
+/* portrait: above the hero / ULT row, the text on top and the two buttons under it */
+@media (max-width: 560px) {
+  .bt-vote-prompt { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 96px); flex-wrap: wrap; justify-content: center; row-gap: 6px; padding: 8px 10px; border-radius: 16px; }
+  .bt-vote-text { flex: 1 1 100%; text-align: center; }
+}
+.bt-vote-yes { background: linear-gradient(90deg, #ff7aa8, #ff4d6d); color: #fff; }
+.bt-vote-no { background: rgba(255,255,255,0.9); color: var(--navy); }
+
+/* scout: NEXT 16/15 in the tier's colours + the pressure chip */
+.bt-scout-over .bt-scout-label { background: linear-gradient(90deg, var(--fp-a), var(--fp-b)); }
+.bt-scout-over.bt-scout-boss .bt-scout-label { background: linear-gradient(90deg, #8a1538, #ff4d6d); }
+.bt-scout-goal { font-size: 0.7em; opacity: 0.8; }
+.bt-pressure { gap: 6px; padding: 2px 10px; background: linear-gradient(90deg, #f6f0ff, #fff); box-shadow: 0 0 0 2px #c8b6ff, 0 1px 4px rgba(29,78,137,0.15); font-size: 0.74rem; }
+.bt-pressure.warn { background: linear-gradient(90deg, #fff1e0, #fff); box-shadow: 0 0 0 2px #ff9f43, 0 1px 4px rgba(255,140,40,0.3); color: #a04a00; }
+.bt-pr { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.bt-pr-ico { width: 13px; height: 13px; display: inline-flex; line-height: 0; }
+.bt-pr-ico svg { width: 100%; height: 100%; }
+.bt-pr-pop { margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; background: #f6f0ff; color: #3c2a78; font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
+.bt-pr-pop.warn { background: #fff1e0; color: #8a3d00; }
+/* the enemies come first: the chips keep room for about two of them, and the pressure chip gives
+   way (it clips) before they do — the whole explanation is in the scout popover */
+.bt-scout-chips { flex: 1 1 0; min-width: min(150px, 34%); }
+.bt-pressure { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+/* portrait phones (a full-width strip): the chip keeps only HP ×, short ("♡×3k") */
+@media (max-width: 560px) {
+  .bt-pressure { flex: none; padding: 1px 6px; gap: 3px; font-size: 0.66rem; }
+  .bt-pressure .bt-pr:not(:first-child) { display: none; }
+}
+/* landscape phones: the strip in the HUD row has room for its label and one or two enemies only —
+   they win; the pressure is a tap away (the scout popover), and the HUD pill wears the tier */
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-pressure { display: none; }
+}
+
+/* results: FREEPLAY OVER / FREEPLAY COMPLETE */
+.bt-free .bt-result-ribbon { background: linear-gradient(100deg, var(--fp-a), var(--fp-b) 55%, var(--fp-c)); text-shadow: 0 3px 0 rgba(40,0,40,0.3); }
+.bt-free-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 2px 0 8px; flex-wrap: wrap; }
+.bt-free-pill { display: inline-flex; align-items: baseline; padding: 6px 18px; border-radius: 10px; transform: skewX(var(--skew)); color: #fff; font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 2.4rem; font-variant-numeric: tabular-nums;
+  background: linear-gradient(100deg, var(--fp-a) 0%, var(--fp-b) 30%, var(--fp-c) 50%, var(--fp-b) 70%, var(--fp-a) 100%); background-size: 300% 100%; animation: bt-over-flow 2.4s linear infinite;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.85), 0 0 18px var(--fp-glow), 0 3px 10px rgba(29,78,137,0.3); }
+.bt-free-pill > * { transform: skewX(calc(var(--skew) * -1)); }
+.bt-free-pill .bt-wave-n { display: inline-block; background: linear-gradient(90deg, #fff 20%, #fff3b0 50%, #fff 80%) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(2px 0 #ff4d6d) drop-shadow(-2px 0 #4cc9f0) drop-shadow(0 1px 0 rgba(20,10,60,0.6)) drop-shadow(0 0 1px rgba(20,10,60,0.7)); animation: bt-over-shine 1.6s linear infinite; }
+.bt-free-pill .bt-wave-goal { font-size: 0.6em; opacity: 0.85; text-shadow: 0 0 2px rgba(20,10,60,0.8), 0 1px 0 rgba(20,10,60,0.5); }
+html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .bt-free-pill .bt-wave-n { background: none; color: #fff; } }
+.bt-free-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bt-free-meta b { font-family: var(--font-head); font-style: italic; color: var(--navy); font-size: 1.05rem; }
+.bt-free-meta span { font-weight: 800; color: var(--ink); font-size: 0.86rem; }
+.bt-free-meta small { color: var(--muted); font-weight: 700; font-size: 0.72rem; }
+.bt-free-best { margin: 0 auto 10px; width: fit-content; padding: 4px 14px; border-radius: 999px; font-weight: 900; font-style: italic; color: #fff; background: linear-gradient(90deg, #ff7aa8, #ff4d6d); box-shadow: 0 3px 10px rgba(255,77,109,0.4); }
+.bt-free-best.old { background: var(--sky-1); color: var(--muted); box-shadow: none; font-style: normal; font-size: 0.8rem; }
+.bt-free-bosses { display: flex; flex-wrap: wrap; gap: 8px; }
+.bt-free-boss { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 70px; text-align: center; }
+.bt-free-boss small { font-size: 0.66rem; font-weight: 800; color: var(--navy); line-height: 1.15; }
+.bt-free-lines { margin: 0 0 6px; padding-left: 18px; font-size: 0.8rem; font-weight: 700; color: var(--ink); }
+.bt-free-milestones { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.bt-free-ms { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; background: linear-gradient(90deg, #fff7d6, #fff); box-shadow: inset 0 0 0 1px #ffd86b; font-size: 0.8rem; }
+.bt-free-ms b { color: var(--navy); }
+.bt-free-ms span { color: #a06d00; font-weight: 800; }
+.bt-sum.bt-sum-over b { color: #c2185b; }
+.bt-free .bt-result-actions { position: sticky; bottom: -16px; z-index: 2; margin: 10px -18px -16px; padding: 10px 12px 12px; background: linear-gradient(180deg, rgba(255,255,255,0.85), #fff 30%); box-shadow: 0 -6px 14px rgba(29,78,137,0.10); }
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-free-pill { font-size: 1.7rem; padding: 3px 14px; }
+  .bt-free-head { margin-bottom: 4px; }
+}
+
+/* pause menu: Finish run / Back to the room after the goal */
+.bt-pause-free { margin-top: 6px; }
+.bt-pause-free-text { margin: 4px 0 8px; font-size: 0.82rem; font-weight: 700; color: var(--ink); text-align: center; }
+.bt-pause-free-note { display: block; margin-top: 6px; text-align: center; color: var(--muted); font-weight: 700; font-size: 0.72rem; }
+
+/* ---------- Solo freeplay: Keep going on the victory / rewards sheets ---------- */
+.bt-keep { margin: 10px 0 4px; padding: 8px 10px; border-radius: 12px; background: linear-gradient(90deg, rgba(123,92,255,0.12), rgba(255,122,168,0.14)); box-shadow: inset 3px 0 0 #b49cff; display: flex; flex-direction: column; gap: 6px; }
+.bt-keep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.bt-keep-head > b { font-family: var(--font-head); font-style: italic; font-weight: 900; color: #6a3fd1; letter-spacing: 0.02em; }
+.bt-keep-tiers { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255,255,255,0.7); border-radius: 10px; padding: 3px; }
+.bt-keep-tier { border: none; background: transparent; padding: 5px 10px; min-height: 32px; border-radius: 8px; font-weight: 900; font-style: italic; color: #5b5f7a; font-size: 0.8rem; cursor: pointer; }
+.bt-keep-tier.on { color: #fff; box-shadow: 0 2px 8px rgba(80,40,140,0.25); }
+.bt-keep-tier.bt-keep-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); }
+.bt-keep-tier.bt-keep-tempest.on { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
+.bt-keep-tier.bt-keep-crimson.on { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
+.bt-keep-hint { color: #5b5f7a; font-size: 0.74rem; line-height: 1.3; }
+.bt-keep-btn { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(100deg, #7b5cff, var(--pink) 60%, #ffcf6b); color: #fff; text-shadow: 0 2px 0 rgba(40,0,40,0.35); box-shadow: 0 4px 16px rgba(255,122,168,0.55); }
+.bt-keep-btn > span { font-weight: 900; letter-spacing: 0.04em; }
+.bt-keep-btn > small { opacity: 0.9; font-weight: 800; }
+@media (max-height: 500px) {
+  /* landscape phones: chips and the button share one row, and the medal shrinks, so the Rewards
+     button stays in view under them */
+  .bt-keep { margin: 4px 0 2px; padding: 5px 8px; flex-direction: row; align-items: center; gap: 8px; }
+  .bt-keep-head > b, .bt-keep-hint { display: none; }
+  .bt-keep-tier { min-height: 30px; padding: 3px 8px; font-size: 0.74rem; }
+  .bt-keep-btn { flex: 1; min-height: 38px; padding: 4px 10px; font-size: 0.92rem; }
+  .bt-win:has(.bt-keep) .bt-medal-row { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-medal-ico { width: 44px; height: 44px; }
+  .bt-win:has(.bt-keep) .bt-result-stage { margin-bottom: 4px; }
+  .bt-win:has(.bt-keep) .bt-summary { margin-bottom: 4px; }
 }

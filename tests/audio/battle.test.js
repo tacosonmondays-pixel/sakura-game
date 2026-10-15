@@ -25,7 +25,7 @@ describe('battle music state machine', () => {
     const { actions } = run([{ type: 'mount' }], {}, 'lake');
     expect(actions[0]).toEqual([{ do: 'play', track: 'battle_moonlit', stems: { base: 1, intensity: 0 }, transition: 'bar' }]);
   });
-  test('wave start: no sting (silent like Bloons), intensity fades in on the next beat; wave end calms down after 2 s', () => {
+  test('wave start: no sting (silent), intensity fades in on the next beat; wave end calms down after 2 s', () => {
     const { state, actions } = run([{ type: 'mount' }, { type: 'waveStart', wave: 1 }, { type: 'waveEnd', wave: 1 }]);
     expect(actions[1].some((a) => a.do === 'stinger')).toBe(false);
     expect(actions[1]).toContainEqual({ do: 'stems', levels: { intensity: 1 }, quantize: 'beat', fadeBars: 1 });
@@ -75,6 +75,14 @@ describe('battle music state machine', () => {
     expect(won.actions[2]).toEqual([]);
     const lost = run([{ type: 'mount' }, { type: 'lost' }]);
     expect(lost.actions[1]).toContainEqual({ do: 'jingle', id: 'defeat', then: 'results_lose' });
+  });
+  test('co-op freeplay: the goal plays the victory sting without ending the music; the crossing a riser', () => {
+    const { state, actions } = run([{ type: 'mount' }, { type: 'waveEnd', wave: 15 }, { type: 'goal', wave: 15 }, { type: 'waveStart', wave: 16 }]);
+    expect(actions[2]).toEqual([{ do: 'stinger', id: 'victory', duck: -10 }]);
+    expect(state.ended).toBe(false);
+    expect(actions[3]).toContainEqual({ do: 'stems', levels: { intensity: 1 }, quantize: 'beat', fadeBars: 1 });
+    const cross = battleMusicStep(initialBattleMusic({}), { type: 'waveStart', wave: 16 }, { crossing: true });
+    expect(cross.actions).toContainEqual({ do: 'stinger', id: 'final_wave', duck: -6 });
   });
   test('pause ducks and muffles, resume restores (idempotent)', () => {
     const { actions } = run([{ type: 'pause' }, { type: 'pause' }, { type: 'resume' }, { type: 'resume' }]);

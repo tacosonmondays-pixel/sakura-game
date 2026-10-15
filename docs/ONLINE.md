@@ -312,8 +312,104 @@ room". Nobody retypes a code or makes a new room to play again:
   A guest always frees its seat.
 - **Your last room.** The co-op menu remembers the room you were last let into (for two hours, per
   player, `src/online/coop/lastRoom.js`, saved only once the server accepted the seat) and offers **Rejoin**:
-  the host opens it again with its stage, a guest joins it. A reloaded co-op battle page leads back
-  into the same room too ("Back to the room").
+  the host opens it again with its stage (and its freeplay setting), a guest joins it. A reloaded co-op
+  battle page leads back into the same room too ("Back to the room").
+
+### Co-op freeplay: the room setting
+
+Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past what you need like 15/15
+… 16/15". Freeplay is a room setting next to the difficulty: **Off**, **Blossom**, **Tempest** or
+**Crimson Moon** (`session.freeplay`: `null` or a tier id; the waves past the goal come from
+`src/data/freeplay.js` and `src/sim/freeplay.js`, see CONTRACTS §6).
+
+- **The host picks it**, the guest's **Ready is consent.** It rides in the `room` message, the host's
+  hellos and the `start` message, and the guest takes it from each, so a lost `room` message fixes
+  itself with the next hello. A guest's hello and `ready` say which setting its Ready was given for: a
+  changed setting clears the guest's Ready, and Start stays locked until the guest has readied for the
+  setting the host has now (a stale "ready" sent before the change never counts). A stage change alone
+  keeps the Ready, as before.
+- **Both build the same run.** The battle is built from the start message (`start.freeplay`), and so is
+  every resync and rejoin (they rebuild from it), so both clients always agree on the mode and the
+  waves past the goal.
+- **The Finish vote** is a lockstep command, `end[true]` (or `end[false]` to take it back). It counts
+  only after the goal; the run ends (a win, `finished`) on the tick every player still in the battle has
+  voted. A player who drops out or leaves no longer blocks it (the drop is a `gone` marker in the
+  command log, so a replay agrees), and one who comes back keeps her vote.
+- **Leaving a run for the room.** "Back to the room" also works while the battle still runs: the ally
+  plays on alone (her drop marker lets her finish alone), and instead of lockstep beats nobody needs
+  she sends `{ type: 'fighting', wave, goal }` every 10 s (`LOBBY.fightingMs`) and once more when her
+  run ends. The one waiting reads it as `session.returning.fighting` ("Rin is still fighting — wave
+  87") and keeps waiting while it comes; each beacon also counts as room activity, so the room's
+  30-minute idle close never fires during an hour-long run. The `lobby` message that tells her is said
+  again (at most every 2 s, `LOBBY.lobbyEchoMs`) while her battle's beats still arrive, so a lost one
+  costs no 12 s stall. "Back to the room" keeps the setting on both sides.
+- **A battle that ended stays ended.** A client whose run finished (or fell) while the two were cut
+  off — e.g. her Finish vote counted alone after the drop — says `done` in her beats: the host offers
+  her no rejoin, and a finished guest ignores any offer, so the results screen (already paid) is never
+  pulled back into the run.
+- **Compatibility.** `COOP_PROTOCOL` is 3 (the `start.freeplay` field, the `end` command, the goal
+  event) and the freeplay table is part of the battle-data hash, so a build from before freeplay and
+  one with it refuse to pair (the version banner).
+
+### Co-op freeplay: the room, the battle, the rewards
+
+- **Room.** The host's stage picker (hub "Host a room" → Change stage, and the room's Change) has a
+  **Freeplay: Off · Blossom · Tempest · Crimson Moon** row (pink / storm-indigo / crimson; remembered in
+  the co-op prefs and by "Your last room"). The guest sees a **FREEPLAY · TEMPEST** chip next to the
+  difficulty and cannot change it; a toast tells the guest when the host's change took their Ready back.
+  The Battlefield panel says what freeplay brings on this stage and tier ("15 waves, then freeplay
+  (Tempest): visitors from every chapter, bosses every 10 waves (every 5 deep in), big bosses from wave
+  80, titans from wave 170, the Ashwing Matriarch at 200." — from the same pure schedule the battle
+  uses), "Your best: 87/15 (Tempest)", advice ("Bring Veil Sight, Anti-Air, Armor Pierce and a boss
+  killer"), the Nightmare warning ("1 life — the first leak ends freeplay"), and after a run "Last run:
+  147/15 · Tempest · fell to the Grave Lych". The clan invite reads "4-5 Normal · Freeplay Tempest ·
+  best 130/26". While the ally's run goes on after you came back: "Rin is still fighting — wave 87/15".
+- **The clear (the goal wave cleared).** STAGE CLEAR! — "Rewards saved ✓ · Freeplay ready", the victory
+  sting over the music (the battle goes on), the clear banked and saved at once (toast "Clear rewards
+  saved ✓ — drops for both"), and the wave button becomes the clear card: **STAGE CLEAR ✓** over a
+  violet → pink **GO BEYOND ▶ Wave 16/15** (the normal `wave` command, either player; with Auto on a
+  ring counts the 8 s pause down) and a small **Finish here** pill (this player's Finish vote).
+- **16/15.** Past the goal the HUD wave pill overflows: the number in a shimmering white with pink and
+  cyan edges over a flowing tier gradient (Blossom violet → pink → gold, Tempest indigo → cyan,
+  Crimson Moon deep red → gold), the "/15" dimmed, a slam on every new wave, the label BEYOND
+  (OVERTIME past wave 200; WAVE on narrow phones). Reduced motion keeps the static colours and edges.
+  The first wave past the goal brings a glitch banner "16/15 — BEYOND THE LAST WAVE · Blossom", a pink
+  edge flash and a riser sting; later waves a short "WAVE 37 · 37/15 · Beyond" ribbon (skipped on short
+  screens), milestones at 50 / 100 / 150, TWIN BOSSES, TITAN — "Breaks into two Iron Colossi!", the
+  countdown to the Matriarch (195–199), "WAVE 200 — THE ASHWING MATRIARCH", "MATRIARCH DOWN!", "LAST
+  LIGHT — THE ECLIPSE WYRM", visitor toasts ("Visitors from Chapter 5 (Gloomfen Marsh): Ghouls & Plants ·
+  Swift") and HP surges at each band edge. A boss gets the big ribbon on its first appearance only
+  ("Grave Lych returns!" after that). The scout strip reads "NEXT 16/15" and ends in a pressure chip
+  (HP ×, +armor, +speed, Resolve; orange once Resolve is 4 s or less; tap for the full explanation).
+  Boss bars use k / M / B / T ("132M / 132M"). The next wave's visiting families load between waves.
+- **Finish and leaving.** The co-op MENU after the goal has **Finish run** (my vote; "Ends the run for
+  both of you once Rin agrees") and **Back to the room**. The ally's vote shows a prompt "Rin wants to
+  finish here — Finish / Keep going" and a flag on her HUD chip. Leaving after the goal says "Your clear
+  rewards are saved; you'll get the freeplay bonus for 37 waves. Your girls stay with Rin." and pays it.
+- **Results.** A run that went past the goal ends on a third sheet: **FREEPLAY OVER** (fell) or
+  **FREEPLAY COMPLETE** (the Finish vote), the big overflow pill "147/15", "Cleared wave 147 / 15",
+  "Fell on wave 148 to the Grave Lych" / "Finished together after wave 147", "New best on 1-3
+  (Tempest)!", the bosses beaten, the Stage clear (saved at 15/15), the Freeplay bonus, Top damage and
+  the debrief. Finishing right at the goal is today's VICTORY sheet; falling before it is a DEFEAT.
+- **Rewards** (`src/online/coop/rewards.js`, outside the co-op id). At the goal: the normal co-op win
+  (stage drops without gear, 300 + 40 × goal coins, sightings, kills, kill missions), banked once and
+  saved. At the end (fell, Finish, or leaving after the goal): 40 coins × freeplay waves × the tier
+  (Blossom ×1, Tempest ×1.5, Crimson Moon ×2), a freeplay cache every 25 freeplay waves (a stage drop
+  roll without gear, crowns or tokens), one Assault Token per boss-rank kill since the clear (minibosses
+  none, at most 10 a run), only the kills and sightings since the bank, the best wave per stage and
+  tier (`progress.stages[id].coopBestWave = { blossom, tempest, crimson }`), and once per account and
+  tier: wave 100 → 50 gems, wave 150 → 100 gems, the Matriarch → 200 gems and the title "Ashwing
+  Slayer" ("Crimson Slayer" on Crimson Moon), the Eclipse Wyrm → a profile frame
+  (`progress.freeplay = { done, titles, frames }`; titles and frames have no display yet). Measured
+  per real minute at 3×: the waves pay 125–210 coins (Blossom), 185–300 (Tempest), 230–370 (Crimson
+  Moon), the caches about 170–450 more — at most ~80 % of farming normal co-op clears (660–1,050 a
+  minute), so freeplay is never the better farm. A battle's
+  payout ledger lives on the co-op session (`session.freeplayRuns[seed]`: one-shot effects shown, the
+  bank, the end), so a resync remount neither shows nor pays anything twice. That ledger is in memory,
+  so after every freeplay wave the save also keeps what the end payout needs
+  (`progress.freeplayPending[seed]`, at most 3 runs; `payFreeplayEnd` removes it): a run whose page was
+  reloaded, closed or thrown away by the phone mid-run is paid at the next app start, from the last
+  wave it saved, with a toast ("Freeplay run paid: 1-3 · Blossom · 87/15 · +2,880 coins").
 
 ### Co-op lockstep
 
@@ -375,6 +471,10 @@ room". Nobody retypes a code or makes a new room to play again:
   - A heartbeat goes out at once when the player gives an order; otherwise only when the promise has
     moved on by half an input delay (local: every 50 ms; Supabase: at most every 250 ms) or, when
     nothing changes, as a keepalive (Supabase: once a second).
+  - Idle saver (Supabase rooms): after 10 s without an order a client promises its horizon 1 s ahead,
+    a new hash waits for the next beat, and the keepalive is every 2 s — about 2 messages a second
+    instead of ~4 (measured: 3.84 → 2.00 per client in `lockstep.test.js`). The next order lands up
+    to 1 s later, then the normal delay applies again.
   - Unacknowledged commands are re-sent with every heartbeat, so a lossy link is fine.
 - **Wallets.**
   - Each player starts with 60% of the stage's coins.
@@ -384,8 +484,29 @@ room". Nobody retypes a code or makes a new room to play again:
   - Only a girl's owner can upgrade, retarget or sell her.
 - **Desync check.** Both clients compute a state hash every 120 ticks; the last two ride along on every
   heartbeat.
-  - On a mismatch the guest asks the host for its command log and replays it from the start.
+  - On a mismatch the guest asks the host for its state: the host answers with its newest wave-end
+    checkpoint and its command log, and the guest restores the checkpoint and replays only the commands
+    since (one wave, not the whole run). It asks again every 4 s until the answer arrives.
   - A second mismatch within 30 s ends the link. Both players continue solo.
+- **Long runs (co-op freeplay goes on for an hour and more).**
+  - Checkpoints: at every wave end the host keeps a snapshot of the whole battle (`src/sim/snapshot.js`:
+    towers, enemies, projectiles, statuses, the rng, wallets, owners, votes — ~100–150 KB of JSON with
+    60 girls). Resyncs and rejoins carry it.
+  - Rebuilds never freeze the page: a resync, a rejoin and a catch-up replay as a background job, about
+    10 ms per frame, while the old battle stays on screen under a "Re-syncing with Aiko… Wave 12 of 150"
+    card. Orders wait until it is done. A `busy` beat every second keeps the ally from dropping the
+    rebuilding player, and the ally's chip says "Bea is re-syncing… 45%".
+  - Messages bigger than 24 000 characters (a checkpoint) travel in parts on Supabase rooms (Realtime
+    limits a message's size) and are put back together on arrival.
+  - A player who rebuilt reloads her battle screen; the ally waits up to 60 s for it (instead of the
+    normal 12–20 s drop timeout), showing "Bea is re-syncing…".
+  - Measured (`node e2e/coop-longrun.mjs`, a strong scripted pair on Blossom 1-3, cut past the drop
+    timeout at wave 150 = 413k ticks): the rejoin restored the host's checkpoint (51 KB with 17 girls; a
+    60-girl board is ~140 KB) in 7–13 ms and replayed 2 412 ticks in 236–824 ms of CPU — about 0.25–0.45 s
+    at 60 frames a second, slices of 19 ms at most in Chromium — in Node, Bun and Chromium alike. The old
+    rebuild replayed the whole run from tick 0 in one go: 12–15 s of frozen page (16–36 s under heavier
+    load), longer than the drop timeout. Two pages (`node e2e/coop-rejoin.mjs`): a rejoin and a resync
+    at wave 16 each replayed under 700 ticks with the guest's page never blocked more than ~120 ms.
 - **Disconnect.** A peer is dropped when it says bye (Leave, closing the tab) or is silent for 12–20 s.
   It gets longer (30 s) while the ally's battle is still loading.
   - The ally's girls stay on the map and keep fighting.
@@ -398,9 +519,10 @@ room". Nobody retypes a code or makes a new room to play again:
   - A guest that was only frozen (its battle never ran on alone: a long load, a phone switching
     apps) is still on the host's timeline: it keeps its battle screen, takes the host's newer
     commands and fast-forwards in place.
-  - A guest that played on alone meanwhile rebuilds the battle from that log (its battle screen
-    reloads), fast-forwards to the host's tick, and both continue in lockstep. Orders the guest gave
-    while it was cut off are lost.
+  - A guest that played on alone meanwhile rebuilds the battle from the host's newest checkpoint and
+    the log since (its battle screen reloads), catches up to the host's tick, and both continue in
+    lockstep. Orders the guest gave while it was cut off are lost. A guest that was only frozen also
+    restores the checkpoint instead of fast-forwarding in place when that replays clearly less.
   - Every packet carries the timeline's epoch, so stale packets from before the rejoin are ignored.
   - An offer that is not taken within 6 s (a one-way link) is withdrawn and retried later with a
     doubling pause (8 s … 60 s), so the host never waits long.
@@ -415,6 +537,8 @@ npx vitest run tests/online
 node e2e/online.mjs
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
 node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
+node e2e/coop-rejoin.mjs      # two pages: a freeplay run past the goal, a cut link, a rejoin and a resync through the checkpoint
+node e2e/coop-longrun.mjs     # a rejoin at freeplay wave 150, timed in Node, Bun and Chromium
 ```
 
 The vitest suite covers:
@@ -429,6 +553,23 @@ The vitest suite covers:
   covers loss, desync repair, a disconnect, slow devices and reconnecting (a frozen guest, a cut in
   both directions, a one-way cut, a deliberate leave, and the replayed drop/return markers), the
   Supabase message budget (about 4 packets a second, hashes folded in), forged or junk commands.
+  Freeplay: both clients play 1-1 Crimson Moon through the goal and 20 waves past it (two boss waves) in
+  sync, the Finish vote refused before the goal, one vote not enough, both votes ending the run on the
+  same tick; a resync after the goal (the votes come back with the log), an ally dropping out (the one
+  left finishes alone; the replayed log agrees), a frozen guest re-admitted with her earlier vote.
+  Long runs: a resync deep in freeplay restores the host's checkpoint and replays one wave, then 10
+  waves in sync; a network cut deep in freeplay ends in a rejoin through the checkpoint and 10 waves in
+  sync; a rebuild runs in many short slices and reaches the same battle as replaying in one go (from tick
+  0 or the checkpoint); a slow rebuild longer than the drop timeout keeps the host waiting (busy beats);
+  a resync in parts with one part lost (the guest asks again); the idle saver's message rate.
+- `tests/sim/snapshot.test.js`: battle snapshots restored into fresh Sims run 20 000 ticks against the
+  original without drifting; the co-op checkpoint (wallets, owners, votes) and 10 more waves.
+- `coopFreeplay.test.js`: `start.freeplay` → the freeplay Sim (only for a real tier), the `end` command's
+  rules, protocol 3.
+- `coopRewards.test.js`: the freeplay payouts — the bank pays exactly the normal co-op win, the end pays
+  only the freeplay part and only kills since the bank, the tier multiplier, caches without gear /
+  crowns / tokens, the token cap, the best wave per tier (kept by the save), milestones once per tier,
+  and the ledger: banked once per battle even across a remount, the end paid once.
 - `detMath.test.js`: the deterministic sin / cos / atan2 / hypot / … stay within 2 ulp of the engine's own,
   are swapped in only while a co-op call runs, and keep a battle bit-identical when Math is perturbed.
 - `engines.test.js`: keeps the cross-engine battle (`e2e/engines/scriptedBattle.js`) finishing in sync
@@ -446,7 +587,13 @@ The vitest suite covers:
   battle 2 (start re-sent even after a results screen kept beating into the room), the host or the
   guest going Home, the "lobby" drop, waiting while the ally's battle screen still talks and the
   silence rule after that, a desync that is not a departure, the slow beat of a finished battle, and
-  which closes keep the host's room.
+  which closes keep the host's room. Freeplay: the setting in hello / room / start (a lost `room`
+  message healed by the next hello), Ready as consent (a stale ready never starts the battle), a
+  protocol-2 hello or start refused, the setting kept through "Back to the room" (and Off again a plain
+  battle), and a run one player leaves for the room: the other plays on with a `fighting` beacon instead
+  of lockstep beats, finishes alone, and they pair again.
+- `lastRoom.test.js`: "Your last room" (two hours, per player, forgotten only by its own code), and a
+  freeplay room reopened as one by its host.
 - `supabaseRoom.test.js`: the Supabase room channel against a scriptable fake: no presence, the outbox
   flushed at the join, status reports, realtime-js's own rejoin, a fresh channel after `CLOSED` or when
   stuck (with backoff, and not while the socket itself is down), Retry (seat + socket) and the one-way

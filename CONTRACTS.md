@@ -625,7 +625,7 @@ const sim = new Sim({
   loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
   hero: { unitId, stats } | null,
   seed,               // number
-  options: { endless: false, autoStart: false },
+  options: { endless: false, autoStart: false, freeplay: false }, // freeplay: co-op freeplay (needs stage.freeplay)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -683,7 +683,46 @@ SimEvent = { type, ...payload } with types:
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
+  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)   'won' {finished: true} (freeplay Finish)
 ```
+
+**Co-op freeplay** (`src/sim/freeplay.js`, table `src/data/freeplay.js`, `coopStage(id, { freeplay: tier })`):
+with `options.freeplay` and `stage.freeplay` (the tier's table) set, `sim.freeplay` is true and the
+battle does not end at the stage's last wave. `sim.totalWaves` stays the goal (the "15" of 16/15),
+`sim.lastWave` is `Infinity` (no cap). Clearing the goal emits `waveEnd` then `goal {wave}` and the
+state goes to 'between' (auto-start waits `stage.freeplay.clearPause` = 8 s there, 1 s otherwise);
+waves past it come from `generateFreeplayWave` (pure and seeded like `waves.js`; every spawn carries
+its own `hpMul`, `speedMul`, `leak` and affix `mods`). The run ends on defeat or `sim.finish()` (only
+after the goal; state 'won', `sim.finished = true`, event `won {finished: true}`; co-op calls it when
+every player still in the room has sent the `end` command).
+```js
+sim.freeplay, sim.lastWave, sim.finished
+sim.freeplayInfo(n)   // n > goal: { tier, depth, rotation, chapterCap, visitors: [chapter], affix: id|null,
+                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId] },
+                      //   speed, pressure: { armor, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
+sim.finish()          // -> boolean
+sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
+EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
+                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
+```
+
+**Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
+checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is
+stored except the ones its constructor rebuilds (`REBUILT`: data, stage, map, paths, placement, the wave
+cache, the event queue, scratch arrays, loadout and hero config), so a new field is saved without anyone
+listing it. Game data (unit / enemy definitions and anything inside them, the difficulty, the stage) and the
+battle's configuration (the players' loadout stats) are stored as paths and resolved in the restoring Sim;
+shared objects stay shared; ±Infinity / NaN / -0 are tagged; the current wave's spawn list is regenerated.
+JSON spells every other double exactly, so a snapshot from one JS engine restores bit-identical in another.
+```js
+sim.snapshot(config?)        // -> { v, root, o }  (take it between steps; config: see simConfig)
+sim.restore(snap, config?)   // on a FRESH Sim built with the same arguments -> the same battle, continuing
+snapshotDigest(snap)         // FNV-1a over the JSON: equal digests = equal states
+```
+`tests/sim/snapshot.test.js` is the self-test: restore into a fresh Sim, run both copies on 20 000 ticks with
+the same orders and compare their full snapshots all the way (a campaign stage between waves, a crowded
+wave mid-fight, freeplay wave 200 with the Matriarch). Anything that cannot be stored (a function, an unknown
+class) throws.
 
 Also export `runHeadless({ stageId, difficulty, plan, seed, maxTime })` from `src/sim/headless.js`
 for tests/balance: `plan` = list of `{ at: waveNumber, action: 'place'|'upgrade', unitId, x, y, uid?, path }`
@@ -827,8 +866,16 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&endless=1]` (`endless` only where `canPlayEndless`; a locked
-stage plays as a practice run that saves nothing). Builds the Sim from the profile formation
+Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1]` (`freeplay` / `endless` only
+where `canPlayEndless`; a locked stage plays as a practice run that saves nothing). **Solo freeplay**
+(docs/FREEPLAY.md): `freeplay=blossom|tempest|crimson` on a campaign stage builds the Sim with
+`options.freeplay` and `soloFreeplayStage(id, tier)` (`src/data/freeplaySolo.js`: the stage's own HP plus
+the co-op freeplay table); `endless=1` on a campaign map is freeplay now (that tier, or Blossom; only the
+Colosseum stays endless). A normal campaign run that wins can **Keep going** (`ctx.keepGoing(tier)`,
+`continueIntoFreeplay(sim, tier)` in `src/ui/battle/soloFreeplay.js`: the won Sim goes on in place as a
+freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a normal solo win at the goal,
+`paySoloFreeplay` = the co-op freeplay payout with coins per wave capped at the stage's normal rate,
+`progress.stages[id].freeplayBest[tier]`). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
@@ -1058,28 +1105,69 @@ a NEW migration file, never by editing the applied one in a way that breaks re-r
 **Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
 Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
 with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
-* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty })`, `getSession()`,
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay })`, `getSession()`,
   `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
-  `room`, `ready`, `start`, `ls`, `leave`).
-* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, hooks })`: `queue(kind, args)`
+  `room`, `ready`, `start`, `ls`, `lobby`, `fighting`, `leave`). `session.freeplay` is the room's freeplay
+  setting (`null` = off, or a `FREEPLAY_TIERS` id; `freeplayTier(v)` in `src/data/freeplay.js` normalizes
+  anything else to `null`): the host sets it with `setStage(stageId, difficulty, freeplay)` (left out =
+  unchanged), it rides in `room`, the host's `hello.room` and `start.freeplay`, and the guest adopts it.
+  The guest's Ready is its consent: its `hello` / `ready` carry the setting they were given for, a changed
+  setting clears the guest's Ready, and `canStart` needs `peer.freeplay === session.freeplay`.
+  `backToLobby()` keeps the setting (and works while the battle still runs: the ally plays on alone and
+  sends `{ type: 'fighting', uid, wave, goal, over }` every `LOBBY.fightingMs` instead of lockstep beats;
+  the returner reads it as `session.returning.fighting = { wave, goal } | null`).
+* `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, keepaliveMs, idleAfterMs,
+  idleLeadTicks, idleKeepaliveMs, maxMessageBytes, hooks })`: `queue(kind, args)`
   stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
   horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
   command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
   survivor) and can be re-admitted while the host is still playing.
+  Long runs (spec §12): the host keeps `ls.ck = { t, wave, snap }`, a `CoopSim.snapshot()` taken at every
+  wave end; `resync` and `rejoin` messages carry it (`ck`) with the command log, and the guest restores it
+  and replays only the commands since. Every rebuild (resync, rejoin, an in-place catch-up) is a background
+  job (`ls.job`, progress in `ls.rebuilding = { kind, done, total, wave, target }`): `advance(dt, {
+  budgetMs })` replays a slice (10 ms by default; the session's pump gives 6 ms between frames, 250 ms in a
+  hidden tab) while the old battle stays on screen, `queue()` returns null meanwhile, and a `busy` beat a
+  second (`peer.busy = { at, of, w }` on the other side) keeps the ally waiting: a peer that said it is
+  rebuilding gets `REBUILD_TIMEOUT_MS` (60 s) until its reloaded battle screen is live. `hooks.onRebuild(
+  kind)` (session event `rebuild`) fires when one starts. Done: the new CoopSim is swapped in, `onResync`
+  remounts the battle screen; `ls.lastRebuild = { kind, from, T, ticks, ms, slices, maxSliceMs,
+  restoreMs, restored }`. `rebuild(start, cmds, T, ck?)` still does it in one go (tests,
+  tools). Messages over `maxMessageBytes` (Supabase: 24 000 characters) go as `part` messages and are
+  reassembled; a guest whose resync does not arrive asks again every 4 s. Idle saver (Supabase rooms,
+  `COOP_NET.supabase`): after `idleAfterMs` (10 s) without an order the horizon reaches `idleLeadTicks`
+  (1 s) ahead and beats come about twice a second instead of four times.
+* `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
+  the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
+  stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n]`, positions quantized to 1/1024 tile, per-player
-  wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed network input.
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
+  network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
+  `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
+  (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
+  votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
+  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
-* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`).
-The Sim itself is unchanged: co-op is data (`hpScale`) plus command routing.
+* `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:
+  `applyCoopClear` banks the normal co-op win at the goal, `applyCoopFreeplayEnd(profile, result, rng,
+  { banked })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
+  gear / crowns / tokens, ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
+  `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
+  session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
+Co-op is data (`hpScale`) plus command routing; the Sim only gained `snapshot()` / `restore()`.
 
 **Battle UI hooks (battle-ui owns these files; online only added to them)** — `mountBattle(root, params,
 hooks)` takes `hooks.coop` (the session) for `#/battle?coop=<CODE>` and `params.clanBoss` for a clan boss
 attempt. `ctx.act.{place, upgrade, sell, target}` is the Sim in solo and lockstep commands in co-op;
 placement and the tower panel must go through `ctx.act`. `ctx.applyResult` / `ctx.extraActions` /
 `out.note` let co-op and the clan boss replace the solo result handling. Solo battles must behave exactly
-as before when neither is set.
+as before when neither is set. Co-op freeplay (`sim.freeplay`): `src/ui/battle/freeplay.js` (banners, the
+bank at the goal, the Finish vote prompt, preloading the next wave's families; one-shot effects keyed in
+the session's payout ledger), `ctx.voteFinish(v)` / `ctx.myFinishVote()` / `ctx.freeplayAfterGoal()` /
+`ctx.leaveToRoom()` (pause menu, clear card), `results.showFreeplay()` (FREEPLAY OVER / COMPLETE), the HUD
+overflow pill (`.bt-wave-over[data-tier]`), `fmtBig` (util.js) for boss bars and totals.
 
 **Routes** — `#/chat[?tab=clan]`, `#/clan[/<id>]` (incl. clan boss and, in the dev clan, the Supply Bot),
 `#/coop[/<CODE>]`. Entry points: lobby chat bubble (drawer) + Menu (Clan / Co-op / Chat), Missions → Co-op,

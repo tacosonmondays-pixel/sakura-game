@@ -237,7 +237,7 @@ export function targetScore(mode, x, y, e) {
     case 'last':
       return e.remaining;
     case 'strong':
-      return (TIER_RANK[e.tier] || 0) * 1e8 + e.maxHp * 10 - e.remaining * 1e-3;
+      return (TIER_RANK[e.tier] || 0) * 1e8 + Math.min(e.maxHp, 9.99e6) * 10 - e.remaining * 1e-3;
     case 'close': {
       const dx = e.x - x;
       const dy = e.y - y;

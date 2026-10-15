@@ -18,6 +18,25 @@ export function fmtCoins(n) {
   return v.toLocaleString('en-US');
 }
 
+/**
+ * Big numbers with k / M / B / T (freeplay HP: "132.3M", not "132300k"): plain below 100,000,
+ * then three significant digits at most.
+ */
+export function fmtBig(n) {
+  const v = Math.floor(Number(n) || 0);
+  if (Math.abs(v) < 100000) return v.toLocaleString('en-US');
+  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
+  for (const [u, s] of units) {
+    if (Math.abs(v) >= u) {
+      const x = v / u;
+      const digits = x >= 100 ? 0 : x >= 10 ? 1 : 2;
+      const txt = x.toFixed(digits);
+      return `${digits ? txt.replace(/0+$/, '').replace(/\.$/, '') : txt}${s}`;
+    }
+  }
+  return String(v);
+}
+
 /** Short decimal formatting for stats (1 → "1", 1.25 → "1.25", 0.333 → "0.33"). */
 export function fmtNum(n, digits = 2) {
   if (n == null || !Number.isFinite(n)) return '–';

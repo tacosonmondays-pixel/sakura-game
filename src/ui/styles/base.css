@@ -370,4 +370,6 @@ p { margin: 0 0 8px; line-height: 1.45; }
   .btn, .tab, .icon-btn, .unit-card, .item-tile { transition: none !important; }
 }
 html[data-reduce-motion] .screen-enter, html[data-reduce-motion] .panel, html[data-reduce-motion] .modal, html[data-reduce-motion] .toast, html[data-reduce-motion] .rotate-phone { animation: none !important; }
-html[data-reduce-motion] * { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+/* (iteration count 1 as well: an infinite animation squeezed to 1 ms lands on a random phase every
+   frame — a strobe — instead of standing still) */
+html[data-reduce-motion] *, html[data-reduce-motion] *::before, html[data-reduce-motion] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }

@@ -130,7 +130,8 @@ function ultSpec(h, effect, damage) {
 }
 
 function pushBack(e, tiles, path) {
-  const amt = tiles * (KNOCKBACK_RESIST[e.tier] ?? 1);
+  let amt = tiles * (KNOCKBACK_RESIST[e.tier] ?? 1);
+  if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
   if (amt <= 0) return;
   e.dist = Math.max(0, e.dist - amt);
   placeOnPath(e, path);

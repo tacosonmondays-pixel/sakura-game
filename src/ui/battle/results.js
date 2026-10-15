@@ -1,7 +1,10 @@
 // End of battle: victory / defeat modal (applies the result once with a seeded rng and
 // persists via store.commit), then the rewards view: medal, first-clear gems, item tiles,
 // gear cards, unlocked girls (card art celebration) and new bestiary entries.
-import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtTime } from './util.js';
+// Co-op freeplay past the goal gets a third sheet (FREEPLAY OVER / FREEPLAY COMPLETE): the big
+// overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
+// goal) and the freeplay bonus.
+import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
 import { svgEl, itemTile } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -14,6 +17,10 @@ import { getUnit } from '../../data/units.js';
 import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
+import { fellTo } from './freeplay.js';
+import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
+import { lastSoloTier } from './soloFreeplay.js';
+import { TIER_PITCH } from '../freeplayText.js';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -97,6 +104,31 @@ function practiceNote() {
 }
 
 /**
+ * Solo "Keep going" on the victory and rewards sheets: the tier chips (Blossom · Tempest · Crimson
+ * Moon, the last one picked first) and a violet → pink KEEP GOING ▶ 16/15 button.
+ */
+function keepGoingBlock(ctx) {
+  if (!ctx.canKeepGoing?.()) return null;
+  const G = ctx.sim.totalWaves;
+  let tier = lastSoloTier();
+  const hint = h('small.bt-keep-hint');
+  const chips = h('div.bt-keep-tiers', { role: 'radiogroup' });
+  const paint = () => {
+    chips.replaceChildren(...FREEPLAY_TIERS.map((id) => h(`button.bt-keep-tier.bt-keep-${id}${id === tier ? '.on' : ''}`, {
+      role: 'radio', 'aria-checked': id === tier ? 'true' : 'false', 'data-testid': `keep-tier-${id}`, 'data-tier': id,
+      onclick: () => { tier = id; paint(); },
+    }, freeplayTable(id).name)));
+    hint.textContent = `${TIER_PITCH[tier]} Your clear is saved; the run goes on until you fall or finish.`;
+  };
+  paint();
+  return h('div.bt-keep', { 'data-testid': 'keep-going-block' },
+    h('div.bt-keep-head', h('b', 'Keep going?'), chips),
+    hint,
+    h('button.bt-cta.bt-keep-btn', { 'data-testid': 'keep-going', onclick: () => ctx.keepGoing(tier) },
+      h('span', 'KEEP GOING'), h('small', `Wave ${G + 1}/${G}`), icon('play', 'bt-ico-sm')));
+}
+
+/**
  * @param {object} ctx battle context
  */
 export function createResults(ctx) {
@@ -142,13 +174,14 @@ export function createResults(ctx) {
 
   function summary() {
     const r = sim.result();
+    const over = !!r.freeplay && r.wavesCleared > sim.totalWaves;
     const items = [
       ['Waves', Number.isFinite(sim.totalWaves) ? `${r.wavesCleared}/${sim.totalWaves}` : `${r.wavesCleared}`],
       ['Lives', `${r.livesLeft}/${r.maxLives}`],
-      ['Defeated', fmtCoins(Object.values(r.kills).reduce((a, b) => a + b, 0))],
+      ['Defeated', fmtBig(Object.values(r.kills).reduce((a, b) => a + b, 0))],
       ['Time', fmtTime(r.stats.time)],
     ];
-    return h('div.bt-summary', items.map(([k, v]) => h('div.bt-sum', h('span', k), h('b', v))));
+    return h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v))));
   }
 
   function mvp() {
@@ -188,6 +221,7 @@ export function createResults(ctx) {
           out.firstClear ? h('div.bt-first', 'FIRST CLEAR') : null,
         ),
       summary(),
+      out.practice ? null : keepGoingBlock(ctx),
       out.practice
         ? actions(true)
         : h('div.bt-result-actions', h('button.bt-cta.bt-cta-big', { 'data-testid': 'view-rewards', onclick: () => showRewards() }, 'Rewards', icon('gift', 'bt-ico-sm'))),
@@ -260,7 +294,72 @@ export function createResults(ctx) {
       h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
       ctx.resultLine?.() || null,
       h('div.bt-rewards-body', blocks),
+      out.practice ? null : keepGoingBlock(ctx),
       actions(true),
+    );
+    open(card);
+  }
+
+  /** Co-op freeplay past the goal: FREEPLAY OVER (fell) or FREEPLAY COMPLETE (the Finish vote). */
+  function showFreeplay() {
+    const out = apply();
+    const r = sim.result();
+    const fp = out.freeplay || {};
+    const table = sim.stage.freeplay;
+    const won = r.won;
+    const diff = DIFFICULTIES[sim.difficulty];
+    const killer = won ? null : fellTo(sim);
+    // finished with the ally still there (both voted), or alone after the ally left the run
+    const alone = !ctx.coop || [...ctx.coop.lockstep.peers.values()].every((p) => p.gone);
+    const subline = won
+      ? (alone ? `Finished after wave ${r.wavesCleared}` : `Finished together after wave ${r.wavesCleared}`)
+      : `Fell on wave ${sim.wave}${killer ? ` to the ${killer.name}` : ''}`;
+    const bosses = Object.entries(r.kills || {}).filter(([id]) => ['boss', 'miniboss'].includes(enemyDef(id)?.tier))
+      .sort(([a], [b]) => (enemyDef(a).tier === 'boss' ? 0 : 1) - (enemyDef(b).tier === 'boss' ? 0 : 1));
+    const bankRewards = out.bank?.rewards || [];
+    const fpRewards = out.freeplayRewards || [];
+    const tiles = (list) => (list.length ? h('div.bt-tiles', list.map((x) => rewardTile(x.id, x.count, 56))) : h('p.muted.bt-empty', 'Nothing this time.'));
+    const bonusLines = [
+      !fp.waves ? 'No freeplay waves cleared yet.'
+        : fp.waveCoins != null ? `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(fp.waveCoins)} coins (${table.name} on ${stage.id})`
+          : `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(40)} coins${table.rewardMul !== 1 ? ` × ${table.rewardMul} (${table.name})` : ''}`,
+      fp.caches ? `${fp.caches} freeplay cache${fp.caches === 1 ? '' : 's'} (one every 25 waves)` : null,
+      fp.tokens ? `${fp.tokens} Assault Token${fp.tokens === 1 ? '' : 's'} for bosses beaten` : null,
+    ].filter(Boolean);
+    const card = h(
+      `div.bt-sheet.bt-result.bt-free${won ? '.bt-free-done' : ''}`,
+      { 'data-testid': 'freeplay-result', 'data-tier': table.id },
+      h('div.bt-result-ribbon', won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER'),
+      h('div.bt-free-head',
+        h(`div.bt-free-pill`, { 'data-tier': table.id, 'data-testid': 'freeplay-reached' }, h('b.bt-wave-n', String(r.wavesCleared)), h('span.bt-wave-goal', `/${sim.totalWaves}`)),
+        h('div.bt-free-meta',
+          h('b', `Cleared wave ${r.wavesCleared} / ${sim.totalWaves}`),
+          h('span', subline),
+          h('small', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name} · Freeplay ${table.name}`))),
+      fp.newBest
+        ? h('div.bt-free-best', { 'data-testid': 'freeplay-best' }, `New best on ${stage.id} (${table.name})!`)
+        : fp.best ? h('div.bt-free-best.old', `Your best on ${stage.id} (${table.name}): ${fp.best}/${sim.totalWaves}`) : null,
+      out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
+      ctx.resultLine?.() || null,
+      bosses.length ? section('Bosses beaten', h('div.bt-free-bosses', bosses.map(([id, n]) => h('div.bt-free-boss', { title: enemyDef(id)?.name || id }, enemyToken(id, { size: 40 }), h('small', `${enemyDef(id)?.name || id}${n > 1 ? ` ×${n}` : ''}`))))) : null,
+      summary(),
+      section(`Stage clear · saved at ${sim.totalWaves}/${sim.totalWaves}`, tiles(bankRewards)),
+      section('Freeplay bonus', h('ul.bt-free-lines', bonusLines.map((l) => h('li', l))), tiles(fpRewards),
+        (fp.milestones || []).length ? h('div.bt-free-milestones', fp.milestones.map((m) => h('div.bt-free-ms', h('b', m.label), h('span', [m.gems ? `+${m.gems} gems` : '', m.title ? `Title: ${m.title}` : '', m.frame ? 'New profile frame' : ''].filter(Boolean).join(' · '))))) : null),
+      (() => {
+        const m = mvp();
+        return m ? section('Top damage', m) : null;
+      })(),
+      (() => {
+        let d = null;
+        try {
+          d = sim.debrief();
+        } catch {
+          d = null;
+        }
+        return d?.lines?.length ? section('Debrief', h('ul.bt-debrief', d.lines.slice(0, 3).map((l) => h('li', l)))) : null;
+      })(),
+      actions(won),
     );
     open(card);
   }
@@ -281,6 +380,14 @@ export function createResults(ctx) {
     showVictory,
     showDefeat,
     showRewards,
+    showFreeplay,
+    /** Solo Keep going: the battle goes on, so the next end applies (and shows) its own result. */
+    reset() {
+      applied = false;
+      outcome = null;
+      el.hidden = true;
+      el.replaceChildren();
+    },
     get outcome() {
       return outcome;
     },

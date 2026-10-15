@@ -149,7 +149,10 @@ export function initialBattleMusic({ theme = 'sakura' } = {}) {
  *   { do: 'cancel', tag }
  * @param {object} s state
  * @param {object} ev
- * @param {{ tierOf?: (id) => string|undefined, final?: boolean }} [info]
+ * Co-op freeplay: 'goal' (the stage's last wave cleared, the battle goes on) plays the victory
+ * sting over the music without ending it; info.crossing (the first wave past the goal) plays the
+ * final-wave sting as a riser.
+ * @param {{ tierOf?: (id) => string|undefined, final?: boolean, crossing?: boolean }} [info]
  */
 export function battleMusicStep(s, ev, info = {}) {
   const st = { ...s, minis: [...s.minis] };
@@ -166,8 +169,14 @@ export function battleMusicStep(s, ev, info = {}) {
     case 'waveStart':
       st.phase = 'wave';
       a.push({ do: 'cancel', tag: 'calm' });
-      // no wave-start sting (owner, Oct 13: like Bloons, the next wave starts silently; only the music lifts)
+      // no wave-start sting (owner, Oct 13: the next wave starts silently; only the music lifts)
       if (!st.boss && st.intensity !== 1) toIntensity(1, 'beat', 1);
+      // …except the step past a freeplay goal ("16/15"): one riser
+      if (info.crossing) a.push({ do: 'stinger', id: 'final_wave', duck: -6 });
+      break;
+    case 'goal':
+      // freeplay: the clear without the end (no st.ended — only 'won' / 'lost' end the music)
+      a.push({ do: 'stinger', id: 'victory', duck: -10 });
       break;
     case 'waveEnd':
       st.phase = 'between';
@@ -233,7 +242,7 @@ export function battleMusicStep(s, ev, info = {}) {
   return { state: st, actions: a };
 }
 
-const MUSIC_EVENTS = new Set(['waveStart', 'waveEnd', 'spawn', 'death', 'bossPhase', 'won', 'lost']);
+const MUSIC_EVENTS = new Set(['waveStart', 'waveEnd', 'spawn', 'death', 'bossPhase', 'won', 'lost', 'goal']);
 
 // ------------------------------------------------------------------------------------- adapter
 /**
@@ -374,7 +383,9 @@ export function attachBattleAudio(ctx) {
       if (destroyed || !evts || !evts.length) return;
       for (const ev of evts) {
         if (!MUSIC_EVENTS.has(ev.type)) continue;
-        const info = ev.type === 'waveStart' ? { final: Number.isFinite(sim?.totalWaves) && ev.wave === sim.totalWaves } : {};
+        const info = ev.type === 'waveStart'
+          ? { final: Number.isFinite(sim?.totalWaves) && ev.wave === sim.totalWaves && !sim?.freeplay, crossing: !!sim?.freeplay && ev.wave === sim.totalWaves + 1 }
+          : {};
         step(ev, info);
       }
       const audio = A();

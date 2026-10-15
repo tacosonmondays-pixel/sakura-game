@@ -12,7 +12,7 @@ export function hashString(str) {
 
 /**
  * @param {number|string} seed
- * @returns {{ next(): number, int(min: number, max: number): number, range(min: number, max: number): number, pick<T>(arr: T[]): T, chance(p: number): boolean, weighted<T>(items: T[], weightFn: (t: T) => number): T, fork(label: string): any, seed: number }}
+ * @returns {{ next(): number, int(min: number, max: number): number, range(min: number, max: number): number, pick<T>(arr: T[]): T, chance(p: number): boolean, weighted<T>(items: T[], weightFn: (t: T) => number): T, fork(label: string): any, seed: number, getState(): number, setState(v: number): void }}
  */
 export function createRng(seed = Date.now()) {
   let s = (typeof seed === 'string' ? hashString(seed) : seed >>> 0) || 1;
@@ -41,6 +41,12 @@ export function createRng(seed = Date.now()) {
       return items[items.length - 1];
     },
     fork: (label) => createRng(hashString(`${initial}:${label}`)),
+    /** The generator's whole state (a uint32), for battle snapshots (src/sim/snapshot.js). */
+    getState: () => s,
+    /** Continues from a state getState() returned. */
+    setState(v) {
+      s = v >>> 0;
+    },
   };
   return rng;
 }

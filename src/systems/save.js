@@ -362,7 +362,42 @@ export function migrateProfile(raw) {
     const entry = { clears: int(s.clears, 0, 0) };
     for (const d of DIFFICULTY_ORDER) entry[d] = bool(s[d]);
     if (s.bestWave != null) entry.bestWave = int(s.bestWave, 0, 0);
+    // co-op freeplay: best wave per freeplay tier ({ blossom, tempest, crimson }, src/online/coop/rewards.js)
+    if (isObj(s.coopBestWave)) {
+      const best = cleanCounts(s.coopBestWave, (k) => /^[a-z]{1,16}$/.test(k));
+      if (Object.keys(best).length) entry.coopBestWave = best;
+    }
+    // solo freeplay: the same per-tier best (src/systems/freeplayRewards.js)
+    if (isObj(s.freeplayBest)) {
+      const best = cleanCounts(s.freeplayBest, (k) => /^[a-z]{1,16}$/.test(k));
+      if (Object.keys(best).length) entry.freeplayBest = best;
+    }
     p.progress.stages[id] = entry;
+  }
+  // co-op freeplay one-time milestones ('tier:id'), titles and profile frames earned there
+  if (isObj(raw.progress) && isObj(raw.progress.freeplay)) {
+    const fp = raw.progress.freeplay;
+    p.progress.freeplay = { done: strList(fp.done, 200), titles: strList(fp.titles, 50), frames: strList(fp.frames, 50) };
+  }
+  // co-op freeplay runs the page never got to pay (reload / closed tab), by start seed: paid at
+  // the next app start (src/online/coop/rewards.js payPendingFreeplayRuns)
+  if (isObj(raw.progress) && isObj(raw.progress.freeplayPending)) {
+    const id = (k) => /^[a-z0-9_]{1,40}$/.test(k);
+    const runs = {};
+    for (const [seed, r] of Object.entries(raw.progress.freeplayPending).slice(-3)) {
+      if (!isObj(r) || !/^[\w-]{1,40}$/.test(seed) || typeof r.stageId !== 'string' || r.stageId.length > 16) continue;
+      if (!DIFFICULTY_ORDER.includes(r.difficulty) || typeof r.freeplay !== 'string' || !/^[a-z]{1,16}$/.test(r.freeplay)) continue;
+      const b = isObj(r.banked) ? r.banked : {};
+      runs[seed] = {
+        stageId: r.stageId, difficulty: r.difficulty, freeplay: r.freeplay, goal: int(r.goal, 0, 0), wavesCleared: int(r.wavesCleared, 0, 0),
+        kills: cleanCounts(r.kills, id), encountered: strList(r.encountered, 200).filter(id),
+        banked: { goal: int(b.goal, 0, 0), kills: cleanCounts(b.kills, id), encountered: strList(b.encountered, 200).filter(id) },
+      };
+      // a solo run (src/systems/freeplayRewards.js): its best field and capped coins per wave
+      if (r.bestKey === 'freeplayBest') runs[seed].bestKey = 'freeplayBest';
+      if (r.waveCoins != null) runs[seed].waveCoins = int(r.waveCoins, 0, 0, 1000);
+    }
+    if (Object.keys(runs).length) p.progress.freeplayPending = runs;
   }
 
   // Bestiary.

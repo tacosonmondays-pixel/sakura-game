@@ -31,7 +31,10 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const tier = enemy.tier || 'normal';
   let duration = spec.duration ?? 1;
-  if (CC_TYPES[type]) duration *= CC_RESIST[tier] ?? 1;
+  if (CC_TYPES[type]) {
+    duration *= CC_RESIST[tier] ?? 1;
+    if (enemy.ccLeft != null) { duration = Math.min(duration, enemy.ccLeft); enemy.ccLeft -= duration; }
+  }
   if (duration <= 0) return null;
 
   const incoming = { type, duration, left: duration };
