@@ -41,9 +41,9 @@ const tap = async (sel) => {
 const headText = () => page.evaluate(() => document.querySelector('.mb-lv-head')?.parentElement?.innerText || '');
 
 try {
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 15000 }).catch(() => null);
   if (later) {
     await later.click({ force: true });

@@ -249,7 +249,7 @@ try {
   await A.close();
 
   // ---- 4. co-op: one player a deploy behind -----------------------------------------------------
-  const local = `${base}?online=local`;
+  const local = `${base}?online=local&onboarding=0`;
   A = await openPage('A');
   await A.goto(`${local}#/lobby`, { waitUntil: 'load' });
   await A.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });

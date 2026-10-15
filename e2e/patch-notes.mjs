@@ -27,9 +27,9 @@ try {
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
     const tap = async (loc) => { await (touch ? loc.tap({ timeout: 15000 }) : loc.click({ timeout: 15000 })); await page.waitForTimeout(150); };
-    await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
     await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-    await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
     const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 20000 }).catch(() => null);
     if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 10000 }).catch(() => {}); }
     const { notes, gift } = await page.evaluate(async () => {

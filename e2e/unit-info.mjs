@@ -129,7 +129,7 @@ async function runViewport(vp) {
   const formation = () => page.evaluate(() => JSON.stringify(window.__sakura.store.profile.formation));
 
   // ---- boot straight into a menu screen (no title), fresh save + every girl ----------------
-  await page.goto(`${base}#/formation`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0#/formation`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'load' });
@@ -740,7 +740,7 @@ async function runPortrait() {
     return { fits: r.left >= -0.5 && r.right <= innerWidth + 0.5 && el.scrollWidth <= el.clientWidth + 1, w: Math.round(r.width), iw: innerWidth };
   }, sel);
   try {
-    await page.goto(`${base}#/formation`, { waitUntil: 'load' });
+    await page.goto(`${base}?onboarding=0#/formation`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__sakura && document.documentElement.dataset.holdInfo === 'on', null, { timeout: 30000 });
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: 'load' });
@@ -826,7 +826,7 @@ async function runCoop() {
     await p.click('[data-testid="name-save"]');
     await p.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 10000 }).catch(() => null);
   };
-  const online = `${base}?online=local`;
+  const online = `${base}?online=local&onboarding=0`;
   const A = await openPage('A');
   try {
     await A.goto(`${online}#/formation`, { waitUntil: 'load' });

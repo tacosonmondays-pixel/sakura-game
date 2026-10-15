@@ -25,7 +25,7 @@ async function dismissGift(page) {
 }
 
 async function load(page, hash = '#/lobby') {
-  await page.goto(`${base}${hash}`, { waitUntil: 'load' });
+  await page.goto(`${base}?onboarding=0${hash}`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });
 }
 

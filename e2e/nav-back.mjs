@@ -66,7 +66,7 @@ if (args.includes('--prod')) {
 }
 const { port } = server.httpServer.address();
 const origin = `http://127.0.0.1:${port}/`;
-const base = `${origin}?online=local`;
+const base = `${origin}?online=local&onboarding=0`;
 const { browser, label } = await launchChromium();
 log(`browser: ${label} · viewport ${W}x${H}`);
 const errors = [];
