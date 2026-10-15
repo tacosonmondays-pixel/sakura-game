@@ -2,7 +2,7 @@
 // level and awakening), 999,999 battle coins, spawn controls, and nothing is ever saved from it —
 // no clears, medals, drops, bestiary, mission or achievement progress (rewards.js skips a result
 // that carries `sandbox: true`, and the battle never calls applyBattleResult for one).
-// Route: #/sandbox (map + squad), then #/battle?stage=<host stage>&difficulty=…&sandbox=1&team=a.b&hero=x
+// Route: #/sandbox (map), #/sandbox/team (squad), then #/battle?stage=<host stage>&difficulty=…&sandbox=1&team=a.b&hero=x
 
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { STAGES, CAMPAIGN_IDS } from '../data/stages.js';

@@ -108,7 +108,7 @@ function tile({ id, title, art, kicker = null, sub = null, short = null, meta = 
     `button.ma-hub-tile.ma-hub-${id}${locked ? '.locked' : ''}${soon ? '.soon' : ''}`,
     { onclick: () => (locked ? toast(lockHint || lockText, 'info') : onClick()), 'data-testid': `hub-${id}`, title: locked ? lockHint || lockText : null },
     art?.svg
-      ? h(`div.ma-hub-art.scene.scene-${art.theme}`, { html: art.svg })
+      ? h(`div.ma-hub-art.scene.scene-${art.theme}`, { html: art.svg, 'aria-hidden': 'true' })
       : h(`div.ma-hub-art.${art?.kind || 'paint'}`, art?.src ? h('img', { src: art.src, alt: '', loading: 'lazy', decoding: 'async', draggable: false }) : null),
     h('div.ma-hub-shade'),
     h('div.ma-hub-text',

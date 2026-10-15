@@ -16,7 +16,7 @@ describe('parentRoute: the back arrow target', () => {
       expect(parentRoute('missions', {}, prev)).toEqual(r('lobby'));
       for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'sandbox', 'coop']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
       expect(parentRoute('commissions', {}, prev)).toEqual(r('lobby')); // a lobby screen (Tasks / dock)
-      expect(parentRoute('sandbox', { step: 'team' }, prev)).toEqual(r('sandbox')); // the squad step → the map step
+      expect(parentRoute('sandbox', { id: 'team' }, prev)).toEqual(r('sandbox')); // the squad step → the map step
       expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, prev)).toEqual(r('coop'));
     }
   });

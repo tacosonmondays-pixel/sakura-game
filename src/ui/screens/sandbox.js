@@ -1,4 +1,4 @@
-// Sandbox (owner: meta-a). Route: #/sandbox (pick a map + difficulty), #/sandbox?step=team (pick any
+// Sandbox (owner: meta-a). Route: #/sandbox (pick a map + difficulty), #/sandbox/team (pick any
 // girl, owned or not — she joins at max level and awakening), then the battle:
 // #/battle?stage=<host stage>&difficulty=…&sandbox=1&team=a.b.c&hero=x
 // Solo only. Opens after SANDBOX_UNLOCK_CLEARS campaign clears; nothing from a sandbox run is saved.
@@ -36,7 +36,7 @@ function loadChoice(profile) {
   const mapId = maps.some((m) => m.map.id === saved?.mapId) ? saved.mapId : maps[0]?.map.id;
   const difficulty = DIFFICULTIES[saved?.difficulty] ? saved.difficulty : 'normal';
   let f = saved ? sandboxFormation(saved.towers, saved.hero) : null;
-  if (!f || (!f.towers.length && !f.hero)) {
+  if (!f) {
     // first visit: the saved formation (owned girls), else the first four students
     const pf = profile.formation || {};
     f = sandboxFormation(pf.towers || [], pf.hero || null);
@@ -54,7 +54,7 @@ function saveChoice(c) {
 }
 
 export function render(root, params = {}) {
-  const step = params.step === 'team' ? 'team' : 'map';
+  const step = params.id === 'team' ? 'team' : 'map';
   const { el, body } = screen(step === 'team' ? 'Sandbox · Squad' : 'Sandbox', { cls: 'ma-sandbox-screen' });
   root.appendChild(el);
   const choice = loadChoice(store.profile);
@@ -98,7 +98,7 @@ function mapStep(choice, redraw) {
     'data-testid': `sandbox-diff-${d}`,
     onclick: () => { choice.difficulty = d; saveChoice(choice); redraw(); },
   }, DIFFICULTIES[d].name)));
-  const next = button('Next: Squad', { kind: 'yellow', icon: 'formation', testid: 'sandbox-next', onClick: () => { saveChoice(choice); navigate('sandbox', { step: 'team' }); } });
+  const next = button('Next: Squad', { kind: 'yellow', icon: 'formation', testid: 'sandbox-next', onClick: () => { saveChoice(choice); navigate('sandbox', { id: 'team' }); } });
   const head = h('section.sbx-head',
     h('div.sbx-head-text',
       h('div.sbx-head-line', h('span.sbx-badge', 'SANDBOX'), h('h2.sbx-title', current?.map.name || 'Pick a map')),

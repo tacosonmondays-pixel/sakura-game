@@ -117,7 +117,7 @@ async function run(vp) {
   await page.waitForSelector('[data-testid="sandbox-roster"]', { timeout: T });
   await tap(`[data-testid="sandbox-unit-${unowned}"]`);
   await page.waitForTimeout(300);
-  check(await page.evaluate((id) => !!document.querySelector(`.sbx-squad [data-unit="${id}"]`), unowned), `squad: ${unowned} joined the squad (Trial)`);
+  check(await page.evaluate((id) => !!document.querySelector(`.sbx-squad [data-unit="${id}"]`) && document.querySelectorAll('.sbx-squad .mb-fslot.filled').length === 1, unowned), `squad: just ${unowned} (Trial), the cleared squad stayed cleared`);
   await shot('formation');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'squad: no horizontal overflow');
   const before = await page.evaluate(SAVED);
@@ -210,7 +210,16 @@ async function run(vp) {
   const total = spawned.alive + Object.values(spawned.kills).reduce((a, b) => a + b, 0) + spawned.leaked;
   check(spawned.encountered.includes('dragon_ashwing') && total >= 21, `spawned 20 + the Ashwing Matriarch (${total} seen, max ${maxSeen} on the board, ${JSON.stringify(spawned.kills)})`);
   check(minCash > 900000, `coins never ran low (lowest ${minCash})`);
-  check(spawned.lives === spawned.max && !spawned.ended && spawned.state !== 'lost', `unlimited lives: still ${spawned.lives}/${spawned.max} after ${spawned.leaked} leaks`);
+  // unlimited lives, proven with real leaks: runners on the other path, where nobody stands
+  const otherPath = await page.evaluate(() => (window.__battle.sim.pathData.length > 1 ? 1 : 0));
+  await page.selectOption('[data-testid="sandbox-enemy"]', 'goblin_runner');
+  await tap('[data-testid="sandbox-count-5"]');
+  if (otherPath) await tap('[data-testid="sandbox-path-1"]');
+  await tap('[data-testid="sandbox-spawn"]');
+  const leaked = await page.waitForFunction(() => window.__battle.sim.stats.enemiesLeaked >= 1, null, { timeout: 120000 }).then(() => true).catch(() => false);
+  const lives = await page.evaluate(() => { const { sim, ui } = window.__battle; return { lives: sim.lives, max: sim.maxLives, leaked: sim.stats.enemiesLeaked, state: sim.state, ended: ui.ended, hud: document.querySelector('[data-testid="hud-lives"]')?.textContent }; });
+  check(leaked && lives.lives === lives.max && !lives.ended && lives.state !== 'lost' && lives.hud === '∞', `unlimited lives: ${lives.leaked} leaks, still ${lives.lives}/${lives.max} (HUD ${lives.hud})`);
+  if (otherPath) await tap('[data-testid="sandbox-path-0"]');
   const c0 = await page.evaluate(() => window.__battle.sim.cash);
   await tap('[data-testid="sandbox-coins"]');
   const c1 = await page.evaluate(() => window.__battle.sim.cash);
@@ -261,7 +270,14 @@ async function run(vp) {
   check(await page.evaluate((id) => !window.__sakura.store.profile.units[id], unowned), `${unowned} is still not owned`);
   await tap('[data-testid="sandbox-back"]');
   await page.waitForFunction(() => location.hash.startsWith('#/sandbox'), null, { timeout: 15000 }).catch(() => null);
-  check(await page.evaluate(() => location.hash.startsWith('#/sandbox') && !window.__battle), `Back leads to the Sandbox squad (${await page.evaluate(() => location.hash)})`);
+  check(await page.evaluate(() => location.hash === '#/sandbox/team' && !window.__battle), `Back leads to the Sandbox squad (${await page.evaluate(() => location.hash)})`);
+  // the squad step's back arrow lands on the map step (its own screen), then Missions
+  await tap('.topbar-back');
+  await page.waitForFunction(() => location.hash === '#/sandbox', null, { timeout: 15000 }).catch(() => null);
+  check(await page.evaluate(() => location.hash === '#/sandbox'), `back arrow: squad → maps (${await page.evaluate(() => location.hash)})`);
+  await tap('.topbar-back');
+  await page.waitForFunction(() => location.hash.startsWith('#/missions'), null, { timeout: 15000 }).catch(() => null);
+  check(await page.evaluate(() => location.hash.startsWith('#/missions')), `back arrow: maps → Missions (${await page.evaluate(() => location.hash)})`);
 
   check(!errors.length, `no page errors${errors.length ? `\n       ${errors.slice(0, 6).join('\n       ')}` : ''}`);
   await context.close();

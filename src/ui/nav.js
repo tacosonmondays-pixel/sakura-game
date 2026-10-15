@@ -27,7 +27,7 @@ const PARENTS = {
   bounty: 'missions',
   assault: 'missions',
   challenge: 'missions',
-  sandbox: (p) => (p.step === 'team' ? 'sandbox' : 'missions'), // the squad step → the map step → Missions
+  sandbox: (p) => (p.id ? 'sandbox' : 'missions'), // the squad step (#/sandbox/team) → the map step → Missions
   commissions: 'lobby', // the lobby's Tasks shortcut / dock button (not on the Missions hub)
   coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
 };

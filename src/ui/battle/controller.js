@@ -342,7 +342,7 @@ export function mountBattle(root, params, hooks) {
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here
     // an endless run on a campaign map: its prep and its map are the endless ones (Tactical Challenge)
     const endlessMap = !!req.endless && stage.kind !== 'challenge';
-    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { step: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
+    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', endlessMap ? { id: stage.id, endless: 1 } : { id: stage.id }));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       if (req.sandbox) return navigate('sandbox');
