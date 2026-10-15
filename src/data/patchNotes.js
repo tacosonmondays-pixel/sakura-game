@@ -34,6 +34,7 @@ export const PATCH_NOTES = [
     ],
     fixed: [
       'Playing on one save in two tabs no longer lets one tab overwrite the other: the older tab stops saving and asks you to reload.',
+      'Tapping a girl in battle to select her no longer washes her in blue: she keeps her own colours, a little brighter, with a soft glow around her edges.',
     ],
   },
   {
