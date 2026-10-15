@@ -154,6 +154,8 @@ async function runViewport(vp) {
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'load' });
+  // the reload aborts the first page's lobby model textures mid-decode: its errors belong to a page that is gone
+  errors.splice(0);
   await page.waitForFunction(() => window.__sakura && document.documentElement.dataset.holdInfo === 'on', null, { timeout: 30000 });
   await seed(page);
   await page.evaluate(() => { location.hash = '#/missions'; });
@@ -521,6 +523,7 @@ async function runVisit(vp) {
   await A.goto(`${vbase}#/lobby`, { waitUntil: 'load' });
   await A.evaluate(() => localStorage.clear());
   await A.reload({ waitUntil: 'load' });
+  errors.splice(0); // the first page's aborted lobby loads (see runViewport)
   await A.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   await go(A, '#/clan');
   await setName(A, 'Aiko');
