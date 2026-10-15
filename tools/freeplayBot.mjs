@@ -94,6 +94,8 @@ export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', m
         for (const [path, cap] of [[plan[0], 5], [plan[1], 2]]) {
           if ((t.tiers?.[path] ?? 0) >= cap) continue;
           const st = sim.upgradeStatus(t.uid, path);
+          // one final tier per path: a copy whose main path's tier 5 is held finishes her crosspath
+          if (st.reason === 'onePerPath') continue;
           if (st.next && !(st.locked && st.reason !== 'cash')) opts.push({ cost: st.cost, go: () => sim.upgradeTower(t.uid, path) });
           break; // main first, then cross
         }

@@ -59,6 +59,7 @@ export function createTower(def, o) {
     ty: Math.floor(y),
     radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
+    owner: o.owner ?? 0, // player index (co-op; set by the 'place' command); 0 solo
     tiers: [0, 0, 0],
     targetMode: def.role === 'sniper' ? 'elite' : 'first',
     targetUid: null,

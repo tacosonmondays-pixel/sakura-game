@@ -22,6 +22,8 @@ import { withDetMath } from './detMath.js';
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
  * speed[n] end[bool] (freeplay: this player's Finish vote; the run ends when everyone still in
  * the room has voted, and only after the stage's goal wave).
+ * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
+ * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
  */
 export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end'];
 const Q = 1024;
@@ -156,6 +158,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           const t = sim.placeTower(unitId, x, y);
           if (t) {
             owners.set(t.uid, slot);
+            t.owner = slot;
             res = { ok: true, tower: t };
           }
           break;
@@ -163,7 +166,11 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
         case 'upg':
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
           else if (!UPGRADE_PATHS.includes(a[1])) res = { ok: false, reason: 'invalid' };
-          else res = sim.upgradeTower(a[0], a[1]) ? { ok: true } : { ok: false, reason: 'cash' };
+          else {
+            // that player's view (cash, owner), the same on every client; never options from the network
+            const st = sim.upgradeStatus(a[0], a[1]);
+            res = st.locked ? { ok: false, reason: st.reason, holder: st.holder ?? null } : { ok: sim.upgradeTower(a[0], a[1]) };
+          }
           break;
         case 'sell':
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
