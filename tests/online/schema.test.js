@@ -343,8 +343,8 @@ describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants 
   });
 
   it('clan creation is limited to 1 per 10 minutes; requests need an officer; joins 10 per hour', async () => {
-    await refused(as(A, `select * from create_clan('Too Soon', 'TS', 'wiki', 'open', '')`), /^rate_limited:\d+$/);
-    const [rq] = await as(D, `select * from create_clan('Quiet Garden', 'QG', 'wiki', 'request', '')`);
+    await refused(as(A, `select * from create_clan('Too Soon', 'TS', 'gems', 'open', '')`), /^rate_limited:\d+$/);
+    const [rq] = await as(D, `select * from create_clan('Quiet Garden', 'QG', 'gems', 'request', '')`);
     await refused(as(B, 'select join_clan($1)', [rq.id]), /forbidden/);
     await as(B, 'select request_join($1)', [rq.id]);
     expect((await as(D, 'select count(*)::int as n from clan_requests where clan_id = $1', [rq.id]))[0].n).toBe(1);

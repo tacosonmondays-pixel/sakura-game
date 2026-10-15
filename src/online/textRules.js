@@ -13,16 +13,23 @@
  */
 export const MESSAGE_INVISIBLE = /[\u0001-\u001f\u007f-\u009f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890-\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\u{110bd}\u{110cd}\u{13430}-\u{1343f}\u{1bca0}-\u{1bca3}\u{1d159}\u{1d173}-\u{1d17a}\u{e0000}-\u{e007f}]/u;
 /**
+ * Combining marks that stack on a letter (a regex class body): Latin / Greek / Cyrillic accents,
+ * Hebrew points and cantillation, Arabic harakat, Thai and Lao vowel and tone marks, and the other
+ * combining blocks. SQL: the same set in valid_dm_body / visible_name / name_words.
+ */
+export const MARK_SET = String.raw`\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f`;
+/**
  * A VISIBLE character: anything but a space of any kind (NBSP, U+2000–U+200A, the ideographic
- * space…), a joiner, a variation selector or an accent. A message or name needs at least one.
+ * space…), a joiner, a variation selector or a mark. A message or name needs at least one.
  * Spelled out as code points like the SQL (valid_dm_body / visible_name), never \s or a locale class.
  */
-export const VISIBLE_CHAR = /[^\u0009-\u000d\u0020\u0085\u00a0\u0300-\u036f\u1680\u180b-\u180f\u1ab0-\u1aff\u1dc0-\u1dff\u2000-\u200f\u2028\u2029\u202f\u205f\u20d0-\u20ff\u3000\ufe00-\ufe0f\ufe20-\ufe2f\u{e0100}-\u{e01ef}]/u;
+export const VISIBLE_CHAR = /[^\u0009-\u000d\u0020\u0085\u00a0\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0ebc\u0ec8-\u0ece\u1680\u180b-\u180f\u1ab0-\u1aff\u1dc0-\u1dff\u2000-\u200f\u2028\u2029\u202f\u205f\u20d0-\u20ff\u3000\ufe00-\ufe0f\ufe20-\ufe2f\u{e0100}-\u{e01ef}]/u;
 const VISIBLE = VISIBLE_CHAR;
 /** Spaces at either end of a name (SQL visible_name; btrim() only trims ASCII spaces). */
 const NAME_EDGE_SPACE = /^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]|[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]$/u;
-/** Stacked combining marks ("Zalgo"): at most 4 in a row. SQL: the same ranges. */
-export const COMBINING_RUN = /[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]{5,}/u;
+/** Stacked combining marks ("Zalgo", a wall of Thai tone marks): at most 4 in a row. SQL: the same ranges. */
+export const COMBINING_RUN = new RegExp(`[${MARK_SET}]{5,}`, 'u');
+const MARKS_G = new RegExp(`[${MARK_SET}]`, 'gu');
 /** Characters that make a display name look empty (SQL: visible_name, the profiles_name_rules trigger). */
 export const NAME_BLANKS = /[\u034f\u115f\u1160\u17b4\u17b5\u2028\u2029\u2800\u3164\uffa0\u{1d159}]/u;
 
@@ -49,4 +56,13 @@ const LOOKALIKE = new Map([...LOOKALIKE_FROM].map((ch, i) => [ch, LOOKALIKE_TO[i
  */
 export function nameKey(name) {
   return [...String(name ?? '').normalize('NFKD')].map((ch) => LOOKALIKE.get(ch) ?? ch).join('').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * nameKey() with the word breaks kept (one space between words) for whole-word checks; marks are
+ * dropped, never a break (SQL name_words()): 'GM Rosie' → 'gm rosie', 'Modé' → 'mode'.
+ */
+export function nameWords(name) {
+  return [...String(name ?? '').normalize('NFKD')].map((ch) => LOOKALIKE.get(ch) ?? ch).join('').toLowerCase()
+    .replace(MARKS_G, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }

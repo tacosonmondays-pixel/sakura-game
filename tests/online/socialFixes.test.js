@@ -11,14 +11,23 @@
 //   #7 blank-looking bodies and names, look-alikes of reserved names (and JS ↔ SQL parity)
 //   #8 the friend caps take advisory locks (real concurrency: the verifier's p11 on Postgres 16)
 //   UX expire_coop_invites(); 'stranger' + myPrivacy on the card
+// and the judge's re-verification (REVERIFY.md), each failing on the file before the fix:
+//   H1/F1 the evidence counts the whole DM conversation (dmsTotal / dmsFromTarget), which is kept
+//         while the report is open (≤ 90 days); a repeat report adds to the evidence, never replaces it
+//   M1/F2 a block frees the co-op seat both ways and changes the room secret; join_room 'full' either way
+//   M2/F3 clan text rules (invisible tricks, staff / developer look, look-alike of an existing clan);
+//         live clans from before the paste survive, and the re-paste order keeps triggers and grants
+//   M3/F4 a kick bans a self-join for 7 days (open and code), an officer's accept lifts it
+//   M4    Friends only by default · L1 (#6) a blocker's request is gone · L2 a block swallows the
+//         blocked player's request · L3 marks of every script · L4 staff words inside names
 // tests/online/localSocial.test.js runs the same scenarios against the local mirror.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MIGRATIONS_DIR, MIGRATION_FILES, PGlite, createDb, refused } from './pgHarness.js';
 import { validMessageBody } from '../../src/online/socialRules.js';
-import { validateName, RESERVED_NAMES } from '../../src/online/clanRules.js';
-import { nameKey, LOOKALIKE_FROM, LOOKALIKE_TO, nameLooksBlank } from '../../src/online/textRules.js';
+import { validateName, validateClan, reservedName, reservedClanName, reservedClanTag, RESERVED_NAMES } from '../../src/online/clanRules.js';
+import { nameKey, nameWords, LOOKALIKE_FROM, LOOKALIKE_TO, nameLooksBlank } from '../../src/online/textRules.js';
 import { VOID_KEY_KEEP_DAYS, VOID_KEY_MAX } from '../../src/online/donateRules.js';
 
 const FIRST = readFileSync(join(MIGRATIONS_DIR, MIGRATION_FILES[0]), 'utf8');
@@ -71,6 +80,31 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
     // a NEW account with such a name is refused at once
     await db.exec(`insert into auth.users values ('${U(9)}')`);
     await refused(as(U(9), 'insert into profiles (id, name) values ($1, $2)', [U(9), `Supply B${cp(0x43e)}t`]), /invalid: that name is reserved/);
+  }, 60000);
+
+  it('F3/F4 the paste: live clans from before the social SQL (a look-alike pair, a wiki emblem) keep working; online → social → online → social keeps every trigger and grant', async () => {
+    const [G, L] = [U(11), U(12)];
+    const { db, as } = await createDb({ defaultGrants: true, sql: FIRST, runs: 1 });
+    await db.exec(`insert into auth.users values ('${G}'), ('${L}')`);
+    for (const [id, name] of [[G, 'Gary'], [L, 'Lena']]) await as(id, 'insert into profiles (id, name) values ($1, $2)', [id, name]);
+    const [moon] = await as(G, `select * from create_clan('Moon Clan', 'MOON', 'wiki', 'open', 'old')`);
+    await as(L, `select * from create_clan('MoonClan', 'MNC', 'assault', 'open', '')`);
+    await db.exec(SOCIAL);
+    await db.exec(SOCIAL);
+    await as(G, `insert into messages (channel, user_id, body) values ($1, $2, 'old clan still chats')`, [`clan:${moon.id}`, G]);
+    expect((await db.query('select emblem, xp > 0 as xp from clans where id = $1', [moon.id])).rows[0]).toEqual({ emblem: 'wiki', xp: true });
+    const acl = async () => (await db.query(`select count(*)::int as n, string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text) as s
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')`)).rows[0];
+    const before = await acl();
+    expect(before.n).toBe(57);
+    await db.exec(FIRST);
+    await db.exec(SOCIAL);
+    expect(await acl()).toEqual(before);
+    const trig = (await db.query(`select string_agg(tgname, ',' order by tgname) as t from pg_trigger
+      where tgname in ('clans_text_rules', 'clan_members_kick_ban', 'clan_members_ban_check', 'clan_members_dev_lab')`)).rows[0].t;
+    expect(trig).toBe('clan_members_ban_check,clan_members_dev_lab,clan_members_kick_ban,clans_text_rules');
+    expect((await db.query(`select pg_get_functiondef('public.join_room(text)'::regprocedure) as d`)).rows[0].d).toContain('social_is_blocked(r.host_id, auth.uid())');
+    expect((await db.query(`select count(*)::int as n from clans where name in ('Moon Clan', 'MoonClan')`)).rows[0].n).toBe(2);
   }, 60000);
 
   describe('one database', () => {
@@ -197,7 +231,7 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
       expect(await incoming(C)).toEqual([]);
     });
 
-    it('#6 a block is never revealed: closed request, full room; the blocker no longer sees the blocked player\'s request', async () => {
+    it('#6 a block is never revealed: the request is gone (L1), full room; the blocker no longer sees the blocked player\'s request', async () => {
       const [A, B, C] = [P(11), P(12), P(13)];
       const [clan] = await as(B, `select * from create_clan('Quiet Pond', 'QP', 'gems', 'open', '')`);
       for (const who of [A, C]) await as(who, 'select join_clan($1)', [clan.id]);
@@ -205,7 +239,8 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
       for (const who of [A, B, C]) await age(who, 10);
       const r = await one(B, `select request_materials('mat_feather_rare') as r`);
       await as(B, 'select block_player($1)', [A]);
-      expect((await one(A, 'select donation_state() as r')).requests.map((x) => [x.id, x.open])).toEqual([[r.id, false]]);
+      // (L1) gone like a filled one — never "closed" while the others see it open
+      expect((await one(A, 'select donation_state() as r')).requests).toEqual([]);
       expect((await one(C, 'select donation_state() as r')).requests.map((x) => [x.id, x.open])).toEqual([[r.id, true]]);
       await refused(as(A, 'select donate($1, 1, $2)', [r.id, KEY(7000)]), /^invalid: that request is closed$/);
       const ra = await one(A, `select request_materials('mat_blade_rare') as r`);
@@ -270,10 +305,242 @@ describe.skipIf(!PGlite)('social migration fixes (run on Postgres)', () => {
       expect(await one(B, 'select invite_state($1) as r', [inv.id])).toBe('expired');
       expect(await one(C, `select expire_coop_invites('EXPR1') as r`)).toBe(0); // only my own invites
       const card = await one(A, 'select player_card($1) as r', [C]);
-      expect(card).toMatchObject({ why: 'stranger', myPrivacy: 'friends_clan' });
+      expect(card).toMatchObject({ why: 'stranger', myPrivacy: 'friends' });
       expect(card).not.toHaveProperty('privacy');
       await as(C, `select set_dm_privacy('nobody')`);
-      expect((await one(A, 'select player_card($1) as r', [C])).myPrivacy).toBe('friends_clan');
+      expect((await one(A, 'select player_card($1) as r', [C])).myPrivacy).toBe('friends');
+    });
+
+    // ---- the judge's re-verification (REVERIFY: H1 / M1–M5 / L1–L4), each shown fixed ------------
+    const evidenceOf = async (reporter, target) => (await sup('select evidence, message_id from reports where reporter_id = $1 and target_id = $2 and status = $3', [reporter, target, 'open'])).rows[0];
+    const newestFrom = async (who) => (await sup('select max(id)::int as id from direct_messages where sender_id = $1', [who])).rows[0].id;
+    const dmCount = async (users, like = '%') => (await sup('select count(*)::int as n from direct_messages where (sender_id = any($1) or recipient_id = any($1)) and body like $2', [users, like])).rows[0].n;
+
+    it('H1/F1 a report from the DM screen: the evidence counts the whole conversation, which is kept while the report is open (≤ 90 days)', async () => {
+      const [K, X, O] = [P(20), P(21), P(22)];
+      for (const u of [K, X, O]) await age(u, 30);
+      await befriend(K, X);
+      await befriend(K, O);
+      await dm(X, K, 'ABUSIVE: send me a photo, dont tell your parents');
+      for (let i = 1; i <= 10; i++) {
+        await dm(K, X, `ok ${i}`);
+        await dm(X, K, `cool ${i}`);
+      }
+      await dm(O, K, 'an unrelated old line');
+      // what the DM screen used to send: the peer's newest message
+      await report(K, X, 'inappropriate', 'dm', await newestFrom(X));
+      const { evidence } = await evidenceOf(K, X);
+      expect(evidence.dms).toHaveLength(20);
+      expect(JSON.stringify(evidence.dms)).not.toContain('ABUSIVE'); // the snapshot is the newest part…
+      expect(evidence).toMatchObject({ dmsTotal: 21, dmsFromTarget: 11 }); // …and says so
+      // day 15: the 1% housekeeping keeps the reported pair's conversation (the other pair's goes)
+      await sup(`update direct_messages set created_at = created_at - interval '15 days' where sender_id = any($1) or recipient_id = any($1)`, [[K, X, O]]);
+      await sup('select social_housekeeping()');
+      expect(await dmCount([K, X], 'ABUSIVE%')).toBe(1);
+      expect(await dmCount([O])).toBe(0);
+      // the owner's runbook query (docs/ONLINE.md) shows the whole conversation behind the report
+      const thread = (await sup(`select case when m.sender_id = r.target_id then 'TARGET' else 'reporter' end as who, m.body
+        from reports r join direct_messages m
+          on (m.sender_id = r.target_id and m.recipient_id = r.reporter_id) or (m.sender_id = r.reporter_id and m.recipient_id = r.target_id)
+        where r.reporter_id = $1 and r.target_id = $2 order by m.id`, [K, X])).rows;
+      expect(thread).toHaveLength(21);
+      expect(thread[0]).toEqual({ who: 'TARGET', body: 'ABUSIVE: send me a photo, dont tell your parents' });
+      // reviewed: the next housekeeping lets the old lines go
+      await sup(`update reports set status = 'reviewed' where reporter_id = $1 and target_id = $2`, [K, X]);
+      await sup('select social_housekeeping()');
+      expect(await dmCount([K, X])).toBe(0);
+      // an open report keeps a conversation at most 90 days
+      await dm(X, K, 'ABUSIVE again');
+      await report(K, X, 'bullying', 'dm', await newestFrom(X));
+      await sup(`update direct_messages set created_at = now() - interval '91 days' where sender_id = $1`, [X]);
+      await sup('select social_housekeeping()');
+      expect(await dmCount([K, X])).toBe(0);
+    });
+
+    it('H1/F1 a repeat report adds to the evidence: the message reported first and its lines are never replaced', async () => {
+      const [K, X] = [P(23), P(24)];
+      await age(K, 30);
+      await befriend(K, X);
+      const bad = await dm(X, K, 'ABUSIVE: whats your address');
+      await report(K, X, 'personal_info', 'dm', bad.id);
+      for (let i = 0; i < 25; i++) await dm(X, K, `spam ${i}`);
+      const newest = await newestFrom(X);
+      await report(K, X, 'spam', 'dm', newest);
+      let { evidence, message_id: mid } = await evidenceOf(K, X);
+      expect(evidence.message.body).toBe('spam 24');
+      expect(evidence.earlier.map((m) => m.body)).toEqual(['ABUSIVE: whats your address']);
+      expect(evidence.dms.some((d) => d.body.startsWith('ABUSIVE'))).toBe(true); // the first snapshot's line stays
+      expect(evidence.dms.at(-1).body).toBe('spam 24'); // and the newest lines join it
+      expect(evidence.dms.map((d) => d.id)).toEqual([...evidence.dms.map((d) => d.id)].sort((a, b) => a - b));
+      expect(evidence.dmsTotal).toBe(26);
+      expect(Number(mid)).toBe(newest);
+      // a third report from the profile (no message): the reported messages stay
+      await report(K, X, 'other', 'profile', null);
+      ({ evidence, message_id: mid } = await evidenceOf(K, X));
+      expect(evidence.message.body).toBe('spam 24');
+      expect(evidence.earlier.map((m) => m.body)).toEqual(['ABUSIVE: whats your address']);
+      expect(Number(mid)).toBe(newest);
+      expect((await sup('select count(*)::int as n from reports where reporter_id = $1 and target_id = $2', [K, X])).rows[0].n).toBe(1);
+    });
+
+    it('M1/F2 blocking a co-op partner frees the seat both ways and changes the room secret; a block either way reads "full"', async () => {
+      const [K, Q, O] = [P(25), P(26), P(27)];
+      const s1 = (await one(K, `select open_room('KRM01') as r`)).secret;
+      expect((await one(Q, `select join_room('KRM01') as r`)).host).toBe(false);
+      await as(K, 'select block_player($1)', [Q]);
+      const row = (await sup(`select guest_id, secret from coop_rooms where code = 'KRM01'`)).rows[0];
+      expect(row.guest_id).toBeNull();
+      expect(row.secret).not.toBe(s1); // the channel the blocked player knows is dead
+      await clearRate(K, 'room');
+      expect((await one(K, `select open_room('KRM01') as r`)).secret).toBe(row.secret); // the host's reopen gets the new one
+      await clearRate(Q, 'room');
+      expect(await one(Q, `select join_room('KRM01') as r`)).toEqual({ error: 'full' });
+      await clearRate(O, 'room');
+      expect((await one(O, `select join_room('KRM01') as r`)).host).toBe(false); // anyone else may take the seat
+      // the kid is the guest and blocks the host: the kid's seat is freed, a rejoin reads full
+      await clearRate(O, 'room');
+      await as(O, `select leave_room('KRM01')`);
+      await one(O, `select open_room('ORM01') as r`);
+      await clearRate(K, 'room');
+      expect((await one(K, `select join_room('ORM01') as r`)).host).toBe(false);
+      await as(K, 'select block_player($1)', [O]);
+      expect((await sup(`select guest_id from coop_rooms where code = 'ORM01'`)).rows[0].guest_id).toBeNull();
+      await clearRate(K, 'room');
+      expect(await one(K, `select join_room('ORM01') as r`)).toEqual({ error: 'full' });
+    });
+
+    it('L2 a block swallows the blocked player\'s pending friend request: they still see "Requested", as after a decline', async () => {
+      const [K, Q] = [P(28), P(29)];
+      const { code } = await one(K, 'select my_friend_code() as r');
+      expect((await one(Q, 'select add_friend_by_code($1) as r', [code])).state).toBe('requested');
+      await as(K, 'select block_player($1)', [Q]);
+      expect((await one(Q, 'select player_card($1) as r', [K])).friend).toBe('requested');
+      expect((await one(Q, 'select list_friend_requests() as r')).outgoing).toHaveLength(1);
+      expect((await one(K, 'select list_friend_requests() as r')).incoming).toEqual([]);
+      expect(await as(K, 'select id from friend_requests')).toEqual([]); // nothing for Realtime
+      // unblocking drops the swallowed request: they may ask again
+      await as(K, 'select unblock_player($1)', [Q]);
+      expect((await one(Q, 'select player_card($1) as r', [K])).friend).toBe('none');
+    });
+
+    it('M2/F3 new clans follow the text rules: no invisible tricks, no staff or developer look, no look-alike of an existing clan', async () => {
+      const [G, G2] = [P(30), P(31)];
+      const make = async (who, name, tag, emblem = 'assault', desc = '') => {
+        await sup('delete from rate_events where user_id = $1', [who]);
+        await sup('delete from clans where leader_id = $1', [who]);
+        return as(who, 'select name from create_clan($1, $2, $3, $4, $5)', [name, tag, emblem, 'open', desc]);
+      };
+      const refusedClans = [
+        ['Sakura Dev Lab​', 'XX', 'assault', '', /invalid: clan names need visible letters/],
+        ['Admin‮ nalc', 'XX', 'assault', '', /invalid: clan names need visible letters/],
+        ['Sakura Dev Labs', 'XX', 'assault', '', /invalid: that clan name is reserved/],
+        ['Sakura Devs', 'XX', 'assault', '', /invalid: that clan name is reserved/],
+        ['GM Rosie Club', 'RC', 'assault', '', /invalid: that clan name is reserved/],
+        ['Staff Room', 'SR', 'assault', '', /invalid: that clan name is reserved/],
+        ['Fun Clan', 'DEV', 'assault', '', /invalid: that clan tag is reserved/],
+        ['Fun Clan', 'D3V', 'assault', '', /invalid: that clan tag is reserved/],
+        ['Fun Clan', 'FUN', 'wiki', '', /invalid: that emblem is reserved/],
+        ['Fun Clan', 'FUN', 'assault', '​​', /invalid: clan descriptions can't contain invisible characters/],
+      ];
+      for (const [name, tag, emblem, desc, re] of refusedClans) {
+        await refused(make(G, name, tag, emblem, desc), re);
+        expect(validateClan({ name, tag, emblem, description: desc }), name).toBeTruthy(); // the client says so first
+      }
+      // look-alikes of an existing clan's name (no unique index: old pairs keep working)
+      expect((await make(G, 'Moon Clan', 'MOON'))[0].name).toBe('Moon Clan');
+      for (const n of ['MOON-CLAN', 'Moon Clan', 'Ｍｏｏｎ Ｃｌａｎ', 'Mооn Clan']) await refused(make(G2, n, 'MC'), /name_taken: a clan with that name already exists/);
+      // fine: names without Latin letters (only compared exactly), plain new names, a description
+      for (const [n, t] of [['さくら組', 'JP'], ['ひまわり組', 'JP2'], ['Fun Clan', 'FUN']]) {
+        expect((await make(G2, n, t, 'assault', '  Be kind!  '))[0].name).toBe(n);
+        expect(validateClan({ name: n, tag: t })).toBeNull();
+      }
+      expect((await sup(`select description from clans where name = 'Fun Clan'`)).rows[0].description).toBe('Be kind!');
+      // the developer clan itself is exempt and untouched
+      expect((await sup(`select name, tag, emblem from clans where is_dev`)).rows).toEqual([{ name: 'Sakura Dev Lab', tag: 'DEV', emblem: 'wiki' }]);
+    });
+
+    it('M3/F4 a kick keeps the player out for 7 days (open and code joins), leaving bans nobody, an officer\'s accept lets them back', async () => {
+      const [K, Q, S] = [P(32), P(33), P(34)];
+      const [c] = await as(K, `select * from create_clan('Kids Club', 'KID', 'assault', 'open', '')`);
+      await as(Q, 'select join_clan($1)', [c.id]);
+      await as(K, 'select kick($1)', [Q]);
+      await clearRate(Q, 'clan_join');
+      await refused(as(Q, 'select join_clan($1)', [c.id]), /forbidden: you can't join this clan right now/);
+      await sup(`update clans set join_mode = 'code' where id = $1`, [c.id]);
+      await sup(`insert into clan_codes (clan_id, code) values ($1, 'KIDS1234') on conflict (clan_id) do update set code = excluded.code`, [c.id]);
+      await clearRate(Q, 'clan_join');
+      await refused(as(Q, `select join_clan_by_code('KIDS1234')`), /forbidden: you can't join this clan right now/);
+      // the clan chat got one notice for the kick, no join / leave loop
+      const notices = (await sup(`select body from messages where channel = $1 and user_id is null and body like 'P133%' order by id`, [`clan:${c.id}`])).rows.map((r) => r.body);
+      expect(notices).toEqual(['P133 joined the clan.', 'P133 was removed from the clan.']);
+      // someone else joins; leaving by yourself is no ban
+      await sup(`update clans set join_mode = 'open' where id = $1`, [c.id]);
+      await as(S, 'select join_clan($1)', [c.id]);
+      await clearRate(S, 'clan_join');
+      await as(S, 'select leave_clan()');
+      await clearRate(S, 'clan_join');
+      expect((await one(S, 'select (join_clan($1)).tag as r', [c.id]))).toBe('KID');
+      // a leader / officer accepting their request lets them back in (and ends the ban)
+      await sup(`update clans set join_mode = 'request' where id = $1`, [c.id]);
+      await clearRate(Q, 'clan_join');
+      await as(Q, 'select request_join($1)', [c.id]);
+      await as(K, 'select answer_request($1, $2, true)', [c.id, Q]);
+      expect((await sup('select count(*)::int as n from clan_bans where user_id = $1', [Q])).rows[0].n).toBe(0);
+      // kicked again: the ban ends after 7 days (and housekeeping clears it)
+      await as(K, 'select kick($1)', [Q]);
+      await sup(`update clans set join_mode = 'open' where id = $1`, [c.id]);
+      await sup(`update clan_bans set until = now() - interval '1 minute' where user_id = $1`, [Q]);
+      await clearRate(Q, 'clan_join');
+      expect(await one(Q, 'select (join_clan($1)).tag as r', [c.id])).toBe('KID');
+      await sup('select social_housekeeping()');
+      expect((await sup('select count(*)::int as n from clan_bans where user_id = $1', [Q])).rows[0].n).toBe(0);
+      await refused(as(Q, 'select * from clan_bans'), /permission denied/);
+    });
+
+    it('M4 the default is Friends only: a stranger who joins a kid\'s open clan cannot DM after 72 h; the kid may opt in', async () => {
+      const [K, S] = [P(35), P(36)];
+      for (const u of [K, S]) await age(u, 30);
+      expect((await sup(`select column_default from information_schema.columns where table_name = 'social_settings' and column_name = 'dm_privacy'`)).rows[0].column_default).toMatch(/^'friends'/);
+      const [c] = await as(K, `select * from create_clan('Kids Den', 'KDN', 'assault', 'open', '')`);
+      await as(S, 'select join_clan($1)', [c.id]);
+      await sup(`update clan_members set joined_at = now() - interval '80 hours' where clan_id = $1`, [c.id]);
+      await as(S, `select set_dm_privacy('friends_clan')`); // the stranger allows it on their side…
+      await refused(dm(S, K, 'hello'), /forbidden: they can't get messages from you yet/); // …the kid's default does not
+      expect(await one(K, 'select social_summary() as r')).toMatchObject({ privacy: 'friends' });
+      expect(await one(K, 'select player_card($1) as r', [S])).toMatchObject({ why: 'my_setting', myPrivacy: 'friends' });
+      await as(K, `select set_dm_privacy('friends_clan')`);
+      expect((await dm(S, K, 'hello')).body).toBe('hello');
+    });
+
+    it('L3 stacked marks of every script are capped and never count as visible (JS and SQL agree)', async () => {
+      const cases = [`ส${cp(0xe49).repeat(150)}`, `a${cp(0x301).repeat(5)}`, cp(0x5b0, 0x5b0), `Ж${cp(0x483).repeat(5)}`, cp(0x64b, 0x64b, 0x64b),
+        'นี้คือภาษาไทย', 'שָׁלוֹם', 'مَرْحَبًا', 'ສະບາຍດີ', `a${cp(0x301).repeat(4)}`];
+      const rows = (await sup('select x, public.valid_dm_body(x) as b, public.visible_name(x) as v from unnest($1::text[]) x', [cases])).rows;
+      for (const { x, b, v } of rows) {
+        expect([JSON.stringify(x), b]).toEqual([JSON.stringify(x), validMessageBody(x)]);
+        expect([JSON.stringify(x), v]).toEqual([JSON.stringify(x), !nameLooksBlank(x)]);
+      }
+      expect(rows.map((r) => r.b)).toEqual([false, false, false, false, false, true, true, true, true, true]);
+      expect(rows[2].v).toBe(false); // Hebrew vowel marks alone: a blank name
+    });
+
+    it('L4 staff words inside names and gm / dev / mod as words are reserved, digits read as letters (JS and SQL agree)', async () => {
+      const names = ['GM Rosie', 'Staff Hana', 'SupplyB0t', 'Adm1n', 'Dev Rosie', 'System', 'Systemic', 'Sakura Sentine1s', 'M0D Kai', 'Ｄｅｖ　Ｒｏｓｉｅ', 'Unofficial',
+        'Aiko', 'Modé', 'Devi', 'Badminton Kid', 'Mika-chan 2', '桜ミカ', 'Sensei7051', 'DevTester', 'Rosie777'];
+      const rows = (await sup('select x, public.reserved_name(x) as r, public.name_words(x) as w, public.social_name_ok(x) as ok, public.reserved_clan_name(x) as c from unnest($1::text[]) x', [names])).rows;
+      for (const { x, r, w, ok, c } of rows) {
+        expect([x, w]).toEqual([x, nameWords(x)]);
+        expect([x, r]).toEqual([x, reservedName(x)]);
+        expect([x, ok]).toEqual([x, !validateName(x)]);
+        expect([x, c]).toEqual([x, reservedClanName(x)]);
+      }
+      expect(rows.filter((x) => x.r).map((x) => x.x)).toEqual(names.slice(0, 11));
+      const tags = ['DEV', 'D3V', 'M0D', 'GM', 'B0T', 'PS', 'KID', 'MOON', 'GMR'];
+      const tagRows = (await sup('select x, public.reserved_clan_tag(x) as r from unnest($1::text[]) x', [tags])).rows;
+      for (const { x, r } of tagRows) expect([x, r]).toEqual([x, reservedClanTag(x)]);
+      expect(tagRows.filter((x) => x.r).map((x) => x.x)).toEqual(['DEV', 'D3V', 'M0D', 'GM', 'B0T']);
+      // the profile trigger refuses them as new names
+      await refused(as(P(37), 'update profiles set name = $2 where id = $1', [P(37), 'Staff Hana']), /invalid: that name is reserved/);
     });
   });
 });

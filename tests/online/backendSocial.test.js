@@ -49,7 +49,7 @@ describe('backend facade: social calls and the deploy order', () => {
   it('with the social update: ready, and the calls reach the server', async () => {
     const be = await freshBackend('?online=local');
     expect(await be.socialStatus()).toBe('ready');
-    expect(await be.socialSummary()).toEqual({ unreadDms: 0, friendRequests: 0, donationsReady: 0, privacy: 'friends_clan' });
+    expect(await be.socialSummary()).toEqual({ unreadDms: 0, friendRequests: 0, donationsReady: 0, privacy: 'friends' });
     const card = await be.playerCard(be.uid);
     expect(card).toMatchObject({ isSelf: true, canMessage: false, why: 'self' });
     // a refusal from the server is definitive and does not cost a client-limiter slot

@@ -1,7 +1,7 @@
 // Pure clan rules shared by both backend adapters, the UI and tests: roles and permissions,
 // clan level from XP, the weekly clan boss, reward tiers and the developer clan code.
 // (supabase/migrations/*_online.sql mirrors the numbers marked "SQL".)
-import { nameLooksBlank, nameKey } from './textRules.js';
+import { nameLooksBlank, nameKey, nameWords, MESSAGE_INVISIBLE, VISIBLE_CHAR, COMBINING_RUN } from './textRules.js';
 
 export const ROLES = ['leader', 'officer', 'member'];
 export const ROLE_NAMES = { leader: 'Leader', officer: 'Officer', member: 'Member' };
@@ -11,16 +11,41 @@ export const JOIN_MODES = { open: 'Open', request: 'By request', code: 'Invite c
 /** Developer clan join code (owner request): its members get the Supply Bot sandbox. */
 export const DEV_CODE = 'Rosie777';
 export const DEV_CLAN = Object.freeze({ name: 'Sakura Dev Lab', tag: 'DEV', emblem: 'wiki', description: 'Developer sandbox. The Supply Bot here grants any item — for testing only.' });
-/** Emblems = existing illustrated lobby icon names (src/art/lobbyIcons.js). */
-export const EMBLEMS = ['assault', 'gems', 'recruit', 'students', 'formation', 'bestiary', 'wiki', 'mall', 'gift', 'chest', 'tasks', 'calendar'];
+/**
+ * Emblems a player clan may pick = existing illustrated lobby icon names (src/art/lobbyIcons.js).
+ * 'wiki' is the developer clan's (RESERVED_EMBLEMS): the picker never offers it and the server
+ * refuses it for new clans (SQL clans_text_rules); old clans that took it keep it.
+ */
+export const EMBLEMS = ['assault', 'gems', 'recruit', 'students', 'formation', 'bestiary', 'mall', 'gift', 'chest', 'tasks', 'calendar'];
+export const RESERVED_EMBLEMS = ['wiki'];
+/** Tags of staff and of the developer clan, digits read as letters ('D3V', 'M0D'). SQL: reserved_clan_tag(). */
+export const RESERVED_TAGS = ['DEV', 'DEVS', 'GM', 'GMS', 'MOD', 'MODS', 'ADM', 'ADMN', 'ADMI', 'STAF', 'SYS', 'SYST', 'BOT', 'BOTS'];
 
-/** Name 3–20 characters, tag 2–4 of A–Z / 0–9 (SQL check constraints). */
-export function validateClan({ name, tag, description = '' } = {}) {
+/** SQL btrim() / trim(): ASCII spaces only (a fullwidth space at an edge stays and is refused). */
+const trimSpaces = (x) => String(x ?? '').replace(/^ +| +$/g, '');
+/** SQL valid_dm_body(): no invisible characters, something visible, at most 4 stacked marks. */
+const textOk = (x) => !MESSAGE_INVISIBLE.test(x) && VISIBLE_CHAR.test(x) && !COMBINING_RUN.test(x);
+
+/**
+ * A new clan (SQL: the clans check constraints + the social migration's clans_text_rules trigger):
+ * a name of 3–20 characters with visible letters (the DM text rule: no zero-width or right-to-left
+ * tricks), not reserved and not staff-looking (reservedClanName), a tag of 2–4 A–Z / 0–9 that is
+ * not reserved, no 'wiki' emblem, a description of at most 140 characters with no invisible
+ * characters. (A look-alike of an existing clan's name is refused by the server / localDb.)
+ */
+export function validateClan({ name, tag, emblem = 'assault', description = '' } = {}) {
   const n = String(name ?? '').trim();
   const t = String(tag ?? '').trim().toUpperCase();
   if (n.length < 3 || n.length > 20) return 'Clan names are 3–20 characters.';
   if (!/^[A-Z0-9]{2,4}$/.test(t)) return 'Tags are 2–4 letters or digits.';
-  if (String(description).length > 140) return 'Keep the description under 140 characters.';
+  if (String(description ?? '').length > 140) return 'Keep the description under 140 characters.';
+  const raw = trimSpaces(name);
+  if (/[<>]/.test(raw) || !textOk(raw) || nameLooksBlank(raw)) return 'Clan names need visible letters.';
+  if (reservedClanName(raw)) return 'That clan name is reserved.';
+  if (reservedClanTag(t)) return 'That tag is reserved.';
+  if (RESERVED_EMBLEMS.includes(emblem)) return 'That emblem is reserved.';
+  const d = trimSpaces(String(description ?? '').slice(0, 140));
+  if (d && !textOk(d)) return 'Clan descriptions can\'t contain invisible characters.';
   return null;
 }
 
@@ -31,6 +56,35 @@ export function validateClan({ name, tag, description = '' } = {}) {
  * SQL: valid_display_name() + reserved_name() of the social migration.
  */
 export const RESERVED_NAMES = ['system', 'supplybot', 'admin', 'administrator', 'moderator', 'mod', 'developer', 'dev', 'staff', 'official', 'gm', 'sakurasentinels', 'sakuradevlab'];
+/** Staff words refused anywhere in a name ('Staff Hana', 'Adm1n', 'SupplyB0t'). SQL: reserved_name(). */
+export const RESERVED_PARTS = ['admin', 'moderator', 'staff', 'official', 'developer', 'supplybot', 'system', 'sakurasentinel', 'devlab'];
+/** Refused as a word of their own ('GM Rosie', 'Dev Rosie'; 'Devi', 'Modé' are fine). SQL: reserved_name(). */
+export const RESERVED_WORDS = ['gm', 'gms', 'dev', 'devs', 'mod', 'mods'];
+/** Digits read as letters (SQL translate(…, '013457', 'oieast') and, for 1, 'oleast' too). */
+const asLetters = (x, one = 'i') => x.replace(/[013457]/g, (d) => ({ 0: 'o', 1: one, 3: 'e', 4: 'a', 5: 's', 7: 't' })[d]);
+
+/**
+ * Is this name reserved (SQL reserved_name())? A reserved name itself (by nameKey), a staff word
+ * anywhere in it with digits read as letters ('badminton' is no 'admin'), or gm / dev / mod as a
+ * word of its own.
+ */
+export function reservedName(name) {
+  const k = nameKey(name);
+  if (RESERVED_NAMES.includes(k)) return true;
+  const part = k.replaceAll('badminton', '');
+  if (RESERVED_PARTS.some((w) => asLetters(part).includes(w) || asLetters(part, 'l').includes(w))) return true;
+  return asLetters(nameWords(name)).split(' ').some((w) => RESERVED_WORDS.includes(w));
+}
+
+/** A clan name nobody may take (SQL reserved_clan_name()): a reserved name, or one that reads as the developer clan. */
+export function reservedClanName(name) {
+  return reservedName(name) || /sakura.*dev/.test(asLetters(nameKey(name)));
+}
+
+/** SQL reserved_clan_tag(). */
+export function reservedClanTag(tag) {
+  return RESERVED_TAGS.includes(String(tag ?? '').trim().toUpperCase().replace(/[013457]/g, (d) => 'OIEAST'['013457'.indexOf(d)]));
+}
 const INVISIBLE = /[\p{Cf}\p{Cc}]/u; // bidi overrides, zero-width joiners, soft hyphens, control characters
 
 /**
@@ -44,7 +98,7 @@ export function validateName(name) {
   if (/[<>]/.test(n)) return 'Names cannot contain < or >.';
   if (INVISIBLE.test(n)) return 'Names cannot contain invisible or control characters.';
   if (nameLooksBlank(n)) return 'Names need visible letters.';
-  if (RESERVED_NAMES.includes(nameKey(n))) return 'That name is reserved.';
+  if (reservedName(n)) return 'That name is reserved.';
   return null;
 }
 

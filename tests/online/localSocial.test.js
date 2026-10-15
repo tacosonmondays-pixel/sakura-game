@@ -15,7 +15,11 @@ const H = 3600000;
 const DAY = 24 * H;
 const KEY = (n) => `${String(n).padStart(8, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-function setup({ social = true, at = '2026-10-13T18:00:00Z' } = {}) {
+/**
+ * privacy: the "Who can message me" every player picks first. The scenarios below are players who
+ * chose Friends & clan (they test the clan rules); null keeps the default (Friends only, M4).
+ */
+function setup({ social = true, at = '2026-10-13T18:00:00Z', privacy = 'friends_clan' } = {}) {
   let stored = null;
   const clock = { t: Date.parse(at) }; // 1 PM Central (CDT): six hours before the 7 PM reset
   const topics = [];
@@ -35,6 +39,7 @@ function setup({ social = true, at = '2026-10-13T18:00:00Z' } = {}) {
     stored = JSON.stringify(s);
   };
   for (const [id, name] of [['A', 'Aiko'], ['B', 'Bea'], ['C', 'Cleo'], ['D', 'Dara'], ['E', 'Emi'], ['F', 'Fumi']]) db.signIn(id, { name, level: 5, avatar: 'aoi' });
+  if (social && privacy) for (const id of ['A', 'B', 'C', 'D', 'E', 'F']) db.setPrivacy(id, privacy);
   return { db, clock, topics, edit, features };
 }
 
@@ -80,10 +85,11 @@ describe('local social server: deploy order', () => {
 
 describe('local social server: privacy, friends, blocks', () => {
   it('no settings row and no clan never fails open; clanmates need 72 h each; the dev clan never counts', () => {
-    const env = setup();
+    const env = setup({ privacy: null });
     const { db } = env;
     let card = db.playerCard('A', 'B');
-    expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends_clan', friend: 'none', canFriend: false, friendWhy: 'context', clan: null });
+    // no settings row: the default, Friends only (M4)
+    expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: false, friendWhy: 'context', clan: null });
     expect(err(() => db.sendDm('A', 'B', 'hi')).code).toBe('forbidden');
     // the developer clan: no DMs, no friend context
     db.joinByCode('A', 'Rosie777');
@@ -97,6 +103,10 @@ describe('local social server: privacy, friends, blocks', () => {
     // a fresh clan: "clan_new" until both spent 72 h in it
     const c = db.createClan('A', { name: 'Petal Squad', tag: 'PS', emblem: 'assault', joinMode: 'open' });
     db.joinClan('B', c.id);
+    // the default (Friends only): a clanmate is no friend — my own setting says no
+    expect(db.playerCard('A', 'B')).toMatchObject({ canMessage: false, why: 'my_setting', myPrivacy: 'friends', clanmate: true, canFriend: true });
+    db.setPrivacy('A', 'friends_clan');
+    db.setPrivacy('B', 'friends_clan');
     card = db.playerCard('A', 'B');
     expect(card).toMatchObject({ canMessage: false, why: 'clan_new', clanmate: true, canFriend: true });
     env.clock.t += 71 * H;
@@ -557,14 +567,14 @@ describe('local social server: verifier fixes', () => {
     expect(db.reports()[0].evidence.message).toMatchObject({ kind: 'dm', body: 'tell me your address and school' });
   });
 
-  it('#6 a block is never revealed: the requester who blocked me shows, closed; the room reads full', () => {
+  it('#6 a block is never revealed: the request of a requester who blocked me is gone (L1); the room reads full', () => {
     const env = setup();
     const { db } = env;
     clan(env, ['A', 'B', 'C']);
     const r = db.requestMaterials('B', 'mat_feather_rare');
     db.block('B', 'A');
-    const forA = db.donationState('A').requests;
-    expect(forA.map((x) => [x.id, x.open])).toEqual([[r.id, false]]);
+    // gone like a filled one — never "closed" while the others see it open
+    expect(db.donationState('A').requests).toEqual([]);
     expect(db.donationState('C').requests.map((x) => [x.id, x.open])).toEqual([[r.id, true]]);
     const e = err(() => db.donate('A', r.id, 1, KEY(1)));
     expect([e.code, e.message]).toEqual(['invalid', 'that request is closed']);
@@ -625,5 +635,147 @@ describe('local social server: verifier fixes', () => {
     expect(db.send('B', 'global', 'hello').body).toBe('hello');
     expect(err(() => db.sendDm('B', 'A', 'hi')).message).toMatch(/change your online name first/);
     expect(db.playerCard('B', 'A').why).toBe('name');
+  });
+});
+
+// The judge's re-verification (REVERIFY: H1 / M1–M4 / L1–L4) on the local "server": the same rules
+// as tests/online/socialFixes.test.js on Postgres.
+describe('local social server: judge re-verification fixes', () => {
+  const befriend = (env, x, y) => env.edit((s) => {
+    s.social.friends[x] = { ...(s.social.friends[x] || {}), [y]: env.clock.t };
+    s.social.friends[y] = { ...(s.social.friends[y] || {}), [x]: env.clock.t };
+  });
+  const send = (env, from, to, body) => {
+    env.clock.t += 3100;
+    return env.db.sendDm(from, to, body);
+  };
+
+  it('H1/F1 evidence counts the conversation; it is kept while the report is open (≤ 90 days); a repeat report adds to the evidence', () => {
+    const env = setup();
+    const { db, clock } = env;
+    befriend(env, 'A', 'B');
+    befriend(env, 'C', 'B');
+    const bad = send(env, 'A', 'B', 'ABUSIVE: whats your address');
+    for (let i = 1; i <= 10; i++) {
+      send(env, 'B', 'A', `ok ${i}`);
+      send(env, 'A', 'B', `cool ${i}`);
+    }
+    send(env, 'C', 'B', 'an unrelated line');
+    const newest = db.dmHistory('B', db.inbox('B').threads.find((t) => t.peer.userId === 'A').id, { limit: 1 }).messages[0];
+    clock.t += 11000;
+    db.report('B', 'A', { reason: 'inappropriate', context: 'dm', messageId: newest.id });
+    let ev = db.reports()[0].evidence;
+    expect(ev.dms).toHaveLength(20);
+    expect(JSON.stringify(ev.dms)).not.toContain('ABUSIVE');
+    expect(ev).toMatchObject({ dmsTotal: 21, dmsFromTarget: 11 });
+    // a repeat report with the abusive message itself, then one from the profile: nothing is lost
+    clock.t += 11000;
+    db.report('B', 'A', { reason: 'personal_info', context: 'dm', messageId: bad.id });
+    clock.t += 11000;
+    db.report('B', 'A', { reason: 'other', context: 'profile' });
+    ev = db.reports()[0].evidence;
+    expect(db.reports()).toHaveLength(1);
+    expect(ev.message.body).toBe('ABUSIVE: whats your address');
+    expect(ev.earlier.map((m) => m.body)).toEqual(['cool 10']);
+    expect(ev.dms).toHaveLength(20); // the same newest lines: the merge adds no duplicate
+    // day 15: the next housekeeping (any DM) keeps the reported pair's conversation, not the others'
+    clock.t += 15 * DAY;
+    befriend(env, 'D', 'E');
+    send(env, 'D', 'E', 'a new day');
+    const thread = (x, y) => db.inbox(x).threads.find((t) => t.peer.userId === y);
+    expect(db.dmHistory('B', thread('B', 'A').id, { limit: 50 }).messages).toHaveLength(21);
+    expect(thread('B', 'C')).toBeUndefined();
+    // at most 90 days
+    clock.t += 76 * DAY;
+    send(env, 'D', 'E', 'later');
+    expect(thread('B', 'A')).toBeUndefined();
+  });
+
+  it('M1/F2 a block frees the co-op seat both ways and changes the room secret; a block either way reads "full"', () => {
+    const env = setup();
+    const { db, clock } = env;
+    const tick = () => { clock.t += 1100; }; // (room calls: 1 a second)
+    const s1 = db.openRoom('A', 'KRM01').secret;
+    expect(db.joinRoom('B', 'KRM01').host).toBe(false);
+    db.block('A', 'B');
+    tick();
+    const s2 = db.openRoom('A', 'KRM01').secret; // the host's reopen
+    expect(s2).not.toBe(s1);
+    expect(db.roomMembers('KRM01')).toEqual(['A']);
+    tick();
+    expect(err(() => db.joinRoom('B', 'KRM01')).code).toBe('full');
+    expect(db.joinRoom('C', 'KRM01').host).toBe(false);
+    // the guest blocks the host: the guest's seat goes, a rejoin reads full
+    db.openRoom('D', 'DRM01');
+    expect(db.joinRoom('E', 'DRM01').host).toBe(false);
+    db.block('E', 'D');
+    expect(db.roomMembers('DRM01')).toEqual(['D']);
+    tick();
+    expect(err(() => db.joinRoom('E', 'DRM01')).code).toBe('full');
+  });
+
+  it('L2 a block swallows the blocked player\'s pending request (they still see "Requested"); unblock drops it', () => {
+    const env = setup();
+    const { db } = env;
+    const { code } = db.myFriendCode('A');
+    expect(db.addFriendByCode('B', code).state).toBe('requested');
+    db.block('A', 'B');
+    expect(db.playerCard('B', 'A').friend).toBe('requested');
+    expect(db.friendRequests('B').outgoing).toHaveLength(1);
+    expect(db.friendRequests('A').incoming).toEqual([]);
+    db.unblock('A', 'B');
+    expect(db.playerCard('B', 'A').friend).toBe('none');
+  });
+
+  it('M2/F3 clans: text rules, reserved names / tags / emblem, and no look-alike of an existing clan', () => {
+    const env = setup();
+    const { db, clock } = env;
+    for (const [name, tag, emblem, description] of [['Sakura Dev Lab​', 'XX', 'assault', ''], ['Admin‮ nalc', 'XX', 'assault', ''], ['Sakura Devs', 'XX', 'assault', ''],
+      ['GM Rosie Club', 'RC', 'assault', ''], ['Fun Clan', 'D3V', 'assault', ''], ['Fun Clan', 'FUN', 'wiki', ''], ['Fun Clan', 'FUN', 'assault', '​​']]) {
+      expect(err(() => db.createClan('A', { name, tag, emblem, description, joinMode: 'open' })).code, name).toBe('invalid');
+    }
+    db.createClan('A', { name: 'Moon Clan', tag: 'MOON', emblem: 'assault', joinMode: 'open' });
+    for (const name of ['MOON-CLAN', 'Ｍｏｏｎ Ｃｌａｎ', 'Mооn Clan']) expect(err(() => db.createClan('B', { name, tag: 'MC' })).code, name).toBe('name_taken');
+    expect(db.createClan('B', { name: 'さくら組', tag: 'JP', description: '  Be kind!  ' }).description).toBe('Be kind!');
+    db.leaveClan('B');
+    clock.t += 11 * 60000;
+    expect(db.createClan('B', { name: 'ひまわり組', tag: 'JP2' }).name).toBe('ひまわり組');
+  });
+
+  it('M3/F4 a kick keeps the player out for 7 days (open and code joins); leaving bans nobody; an accepted request lets them back', () => {
+    const env = setup();
+    const { db, clock } = env;
+    const c = db.createClan('A', { name: 'Kids Club', tag: 'KID', joinMode: 'open' });
+    db.joinClan('B', c.id);
+    db.kick('A', 'B');
+    expect(err(() => db.joinClan('B', c.id)).message).toBe('you can\'t join this clan right now');
+    env.edit((s) => { Object.assign(s.clans[c.id], { joinMode: 'code', joinCode: 'KIDS1234' }); });
+    expect(err(() => db.joinByCode('B', 'KIDS1234')).message).toBe('you can\'t join this clan right now');
+    expect(db.history('A', `clan:${c.id}`).filter((m) => m.kind === 'system' && /^Bea /.test(m.body)).map((m) => m.body))
+      .toEqual(['Bea joined the clan.', 'Bea was removed from the clan.']);
+    env.edit((s) => { Object.assign(s.clans[c.id], { joinMode: 'open', joinCode: null }); });
+    db.joinClan('C', c.id);
+    db.leaveClan('C');
+    expect(db.joinClan('C', c.id).id).toBe(c.id); // leaving is no ban
+    env.edit((s) => { s.clans[c.id].joinMode = 'request'; });
+    db.requestJoin('B', c.id);
+    db.answerRequest('A', c.id, 'B', true);
+    expect(db.myClan('B').clan.id).toBe(c.id);
+    db.kick('A', 'B');
+    env.edit((s) => { s.clans[c.id].joinMode = 'open'; });
+    clock.t += 7 * DAY + 1000;
+    expect(db.joinClan('B', c.id).id).toBe(c.id); // the ban ended
+  });
+
+  it('M4 the default is Friends only: a stranger in the kid\'s open clan cannot DM after 72 h; the kid may opt in', () => {
+    const env = setup({ privacy: null });
+    const { db } = env;
+    expect(db.socialSummary('A').privacy).toBe('friends');
+    clan(env, ['A', 'B']);
+    db.setPrivacy('B', 'friends_clan');
+    expect(err(() => db.sendDm('B', 'A', 'hello')).message).toBe('they can\'t get messages from you yet');
+    expect(db.playerCard('A', 'B')).toMatchObject({ why: 'my_setting', myPrivacy: 'friends' });
+    db.setPrivacy('A', 'friends_clan');
+    expect(db.sendDm('B', 'A', 'hello').body).toBe('hello');
   });
 });

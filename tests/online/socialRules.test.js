@@ -1,7 +1,7 @@
 // src/online/socialRules.js + donateRules.js — the pure rules both adapters and the SQL share.
 import { describe, it, expect } from 'vitest';
 import {
-  bodyError, validMessageBody, validDmMeta, dmAllows, inviteBody, inviteStateOf, formatFriendCode, normalizeFriendCode, DM_PRIVACY,
+  bodyError, validMessageBody, validDmMeta, dmAllows, inviteBody, inviteStateOf, formatFriendCode, normalizeFriendCode, DM_PRIVACY, DM_PRIVACY_DEFAULT,
   MESSAGE_INVISIBLE, nameLooksBlank, whyText, presenceText,
 } from '../../src/online/socialRules.js';
 import { validateName } from '../../src/online/clanRules.js';
@@ -54,7 +54,9 @@ describe('message text rules (SQL: valid_dm_body; the chat guard trigger)', () =
       expect(validateName(bad), JSON.stringify(bad)).toBe('That name is reserved.');
     }
     expect(nameLooksBlank(`Aiko${cp(0x3000)}`)).toBe(true); // (validateName trims it away first)
-    for (const ok of ['Aiko', '桜ミカ', 'Mika-chan 2', 'Modé', 'Systemic']) expect(validateName(ok), ok).toBeNull();
+    for (const ok of ['Aiko', '桜ミカ', 'Mika-chan 2', 'Modé', 'Devi', 'Badminton Kid']) expect(validateName(ok), ok).toBeNull();
+    // (L4) a staff word inside a name, digits read as letters, gm / dev / mod as a word of their own
+    for (const bad of ['Systemic', 'Staff Hana', 'SupplyB0t', 'Adm1n', 'GM Rosie', 'Dev Rosie', 'M0D Kai']) expect(validateName(bad), bad).toBe('That name is reserved.');
   });
 
   it('names must look like names', () => {
@@ -75,11 +77,14 @@ describe('message text rules (SQL: valid_dm_body; the chat guard trigger)', () =
     expect(inviteBody('1-3', 'hard')).toBe('Co-op invite: stage 1-3 (Hard)');
   });
 
-  it('privacy: no Everyone; a missing setting is the default; Nobody is nobody', () => {
+  it('privacy: no Everyone; a missing setting is the default (Friends only, M4); Nobody is nobody', () => {
     expect(DM_PRIVACY).toEqual(['friends_clan', 'friends', 'nobody']);
+    expect(DM_PRIVACY_DEFAULT).toBe('friends');
     expect(dmAllows(undefined, {})).toBe(false);
-    expect(dmAllows(undefined, { clanmates: true })).toBe(true);
-    expect(dmAllows('everyone', {})).toBe(false); // unknown → default
+    expect(dmAllows(undefined, { clanmates: true })).toBe(false); // a clanmate is no friend
+    expect(dmAllows(undefined, { friends: true })).toBe(true);
+    expect(dmAllows('friends_clan', { clanmates: true })).toBe(true);
+    expect(dmAllows('everyone', { clanmates: true })).toBe(false); // unknown → default
     expect(dmAllows('friends', { clanmates: true })).toBe(false);
     expect(dmAllows('friends', { friends: true })).toBe(true);
     expect(dmAllows('nobody', { friends: true, clanmates: true })).toBe(false);

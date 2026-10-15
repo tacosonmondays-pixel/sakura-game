@@ -11,6 +11,7 @@ import {
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
   bossHitCap, bossAllowance, BOSS_ATTEMPT_TTL_MS, MESSAGE_MAX,
 } from '../clanRules.js';
+import { nameKey } from '../textRules.js';
 
 const HISTORY_KEEP = 200;
 const TRANSFER_TTL = 24 * 3600 * 1000;
@@ -130,9 +131,13 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     return { userId: m.userId, clanId: m.clanId, role: m.role, joinedAt: m.joinedAt, lastActive: u.lastActive || m.joinedAt, name: u.name || 'Sensei', level: u.level || 1, avatar: u.avatar || 'hikari' };
   }
 
-  function addMember(state, uid, clan, role, topics) {
+  /** SQL add_member(). `by`: who adds the player (a leader or officer accepting a request lifts a kick ban). */
+  function addMember(state, uid, clan, role, topics, by = uid) {
     const count = Object.values(state.members).filter((m) => m.clanId === clan.id).length;
     if (count >= clan.maxMembers) fail('full');
+    // [social] SQL clan_members_ban_check: a kicked player can't join by themselves for 7 days
+    if (by !== uid) liftClanBan(state, clan.id, uid);
+    else if (clanBanned(state, clan.id, uid)) fail('forbidden', 'you can\'t join this clan right now');
     state.members[uid] = { userId: uid, clanId: clan.id, role, joinedAt: now() };
     state.users[uid].clanId = clan.id;
     state.requests = state.requests.filter((r) => r.userId !== uid);
@@ -210,7 +215,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
   const social = createLocalSocial({
     tx, rate, retry, now, rand, code, systemMessage, devClanId: DEV_CLAN_ID, enabled: () => features.social !== false,
   });
-  const { guardChat, roomBlocked, recordPartners, leftDevLab, ...socialApi } = social;
+  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, ...socialApi } = social;
 
   return {
     ...socialApi,
@@ -317,13 +322,15 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const err = validateClan(spec);
         if (err) fail('invalid', err);
         const name = String(spec.name).trim();
-        if (Object.values(s.clans).some((c) => c.name.toLowerCase() === name.toLowerCase())) fail('name_taken', 'A clan with that name exists.');
+        // the same name in another spelling counts too ('Moon-Clan' next to 'Moon Clan'; SQL clans_text_rules)
+        const key = nameKey(name);
+        if (Object.values(s.clans).some((c) => c.name.toLowerCase() === name.toLowerCase() || (key && nameKey(c.name) === key))) fail('name_taken', 'A clan with that name exists.');
         rate(s, uid, 'clan_create');
         const joinMode = ['open', 'request', 'code'].includes(spec.joinMode) ? spec.joinMode : 'open';
         const c = {
           id: id('c'), name, tag: String(spec.tag).trim().toUpperCase(), emblem: EMBLEMS.includes(spec.emblem) ? spec.emblem : 'assault', joinMode,
           joinCode: joinMode === 'code' ? code(8) : null,
-          description: String(spec.description || '').slice(0, 140), leaderId: uid, xp: 0, maxMembers: CLAN_MAX_MEMBERS, isDev: false, createdAt: now(),
+          description: String(spec.description || '').slice(0, 140).replace(/^ +| +$/g, ''), leaderId: uid, xp: 0, maxMembers: CLAN_MAX_MEMBERS, isDev: false, createdAt: now(),
         };
         s.clans[c.id] = c;
         addMember(s, uid, c, 'leader', topics);
@@ -388,7 +395,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         if (!had) fail('not_found', 'That request is gone.');
         if (accept) {
           if (s.members[userId]) fail('already_member', 'They joined another clan.');
-          addMember(s, userId, s.clans[clanId], 'member', topics);
+          addMember(s, userId, s.clans[clanId], 'member', topics, uid);
         }
         topics.add(`clan:${clanId}`);
         return true;
@@ -444,6 +451,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         if (!can(m.role, 'kick', target.role) || userId === uid) fail('forbidden');
         delete s.members[userId];
         if (s.users[userId]) s.users[userId].clanId = null;
+        kickBan(s, m.clanId, userId); // [social] no rejoining by themselves for 7 days
         systemMessage(s, `clan:${m.clanId}`, `${s.users[userId]?.name || 'A member'} was removed from the clan.`, topics);
         topics.add(`clan:${m.clanId}`).add('clans');
         return true;

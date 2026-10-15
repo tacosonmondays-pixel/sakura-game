@@ -9,6 +9,7 @@ import {
   DM_PRIVACY, DM_PRIVACY_DEFAULT, FRIEND_MAX, FRIEND_PENDING_MAX, FRIEND_DAILY_WEIGHT, BLOCK_MAX, DM_KEEP_DAYS, DM_CLAN_MIN_HOURS,
   INVITE_TTL_MS, INVITE_PAIR_PER_HOUR, INVITE_DIFFICULTIES, INVITE_STAGE_RE, REPORT_REASONS, REPORT_CONTEXTS, REPORT_NOTE_MAX, AUTO_MUTE,
   COOP_PARTNER_DAYS, FRIEND_DECLINE_DAYS, FRIEND_CODE_LENGTH, FRIEND_CANCEL_HOURS, validMessageBody, inviteBody, normalizeFriendCode, nameLooksBlank,
+  DM_REPORT_KEEP_DAYS, REPORT_DMS, CLAN_BAN_DAYS,
 } from '../socialRules.js';
 import {
   requestRule, DONOR_DAILY_POINTS, DONOR_COINS_PER_POINT, CLAN_XP_PER_POINT, DONOR_MIN_TENURE_HOURS, DONOR_MIN_ACCOUNT_DAYS,
@@ -33,8 +34,35 @@ const WHY_TEXT = {
 function freshSocial() {
   return {
     seq: 1, settings: {}, codes: {}, requests: [], friends: {}, blocks: {}, partners: {}, threads: {}, dms: [], dmState: {},
-    reports: [], mutes: {}, donReqs: [], donations: [], keys: {}, devVisits: {},
+    reports: [], mutes: {}, donReqs: [], donations: [], keys: {}, devVisits: {}, clanBans: {},
   };
+}
+
+/** JSON size of a value (the local stand-in for pg_column_size). */
+const sizeOf = (v) => JSON.stringify(v ?? null).length;
+
+/**
+ * SQL social_merge_evidence: a repeat report keeps what the earlier one stored — 'message' is the
+ * newest reported message, 'earlier' the ones reported before it (up to 10, once each), 'dms' every
+ * line of the earlier snapshot plus the newest lines of this one (halved until it fits in 16 KB).
+ */
+export function mergeEvidence(old, next) {
+  if (!old || typeof old !== 'object') return next;
+  if (!next || typeof next !== 'object') return old;
+  const msg = next.message || old.message || null;
+  const same = (a, b) => !!a && !!b && a.kind === b.kind && a.id === b.id;
+  const seen = new Set();
+  const earlier = [...(Array.isArray(old.earlier) ? old.earlier : []), old.message, next.message]
+    .filter((m) => m && typeof m === 'object' && !same(m, msg) && !seen.has(`${m.kind}|${m.id}`) && seen.add(`${m.kind}|${m.id}`))
+    .sort((a, b) => (a.at || 0) - (b.at || 0) || a.id - b.id).slice(-10);
+  const oldDms = Array.isArray(old.dms) ? old.dms : [];
+  const oldIds = new Set(oldDms.map((d) => d.id));
+  const fresh = (Array.isArray(next.dms) ? next.dms : []).filter((d) => !oldIds.has(d.id)).sort((a, b) => b.id - a.id);
+  for (let n = fresh.length; ; n = Math.floor(n / 2)) {
+    const dms = [...oldDms, ...fresh.slice(0, n)].sort((a, b) => a.id - b.id);
+    const v = { ...next, message: msg, earlier, dms };
+    if (sizeOf(v) <= 16384 || n === 0) return v;
+  }
 }
 
 /**
@@ -190,14 +218,18 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
     const u = s.users[uid] || {};
     return { userId: uid, name: u.name || 'Sensei', level: u.level || 1, avatar: u.avatar || 'hikari' };
   };
+  /** SQL social_housekeeping: DMs of a pair with an OPEN report (either way round) stay up to 90 days. */
   function housekeeping(s, x) {
     const t = now();
-    x.dms = x.dms.filter((m) => m.createdAt >= t - DM_KEEP_DAYS * DAY);
+    const reported = new Set(x.reports.filter((r) => r.status === 'open').map((r) => pairKey(r.reporterId, r.targetId)));
+    x.dms = x.dms.filter((m) => m.createdAt >= t - DM_KEEP_DAYS * DAY
+      || (m.createdAt >= t - DM_REPORT_KEEP_DAYS * DAY && reported.has(pairKey(m.senderId, m.recipientId))));
     for (const [id, th] of Object.entries(x.threads)) if (th.lastAt < t - DM_KEEP_DAYS * DAY && !x.dms.some((m) => m.threadId === id)) delete x.threads[id];
     x.requests = x.requests.filter((r) => r.at >= t - FRIEND_DECLINE_DAYS * DAY);
     x.donations = x.donations.filter((d) => !((!d.claimKey && d.createdAt < t - CLAIM_KEEP_DAYS * DAY) || (d.claimedAt && d.claimedAt < t - 30 * DAY)));
     x.donReqs = x.donReqs.filter((r) => r.createdAt >= t - 14 * DAY);
     for (const [k, v] of Object.entries(x.keys)) if (v.at < t - (v.state === 'voided' ? VOID_KEY_KEEP_DAYS : KEY_KEEP_DAYS) * DAY) delete x.keys[k];
+    for (const [k, until] of Object.entries(x.clanBans)) if (until < t) delete x.clanBans[k];
   }
   // (no per-conversation trim: a flood must never push a reported message out of the evidence)
   function afterDm(s, x, m, topics) {
@@ -272,9 +304,21 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
       if (text.length <= MESSAGE_MAX && !validMessageBody(text)) fail('invalid', 'Messages can\'t contain invisible characters');
       if (kind === 'invite' && meta?.stage != null && !INVITE_STAGE_RE.test(meta.stage)) fail('invalid', 'That invite is not for a campaign stage');
     },
-    /** SQL: join_room's [social] additions. True when the host blocked the guest (answered like a full room). */
+    /** SQL: join_room's [social] additions. True when either blocked the other (answered like a full room). */
     roomBlocked(s, hostId, uid) {
-      return enabled() && !!S(s).blocks[hostId]?.[uid];
+      return enabled() && isBlocked(S(s), hostId, uid);
+    },
+    /** SQL: the clan_members_kick_ban trigger (a kick bans the player from that clan for 7 days). */
+    kickBan(s, clanId, uid) {
+      if (enabled()) S(s).clanBans[`${clanId}|${uid}`] = now() + CLAN_BAN_DAYS * DAY;
+    },
+    /** SQL: the clan_members_ban_check trigger. True while a self-join of that clan is refused. */
+    clanBanned(s, clanId, uid) {
+      return enabled() && (S(s).clanBans[`${clanId}|${uid}`] || 0) > now();
+    },
+    /** A leader or officer accepted their join request: the ban ends. */
+    liftClanBan(s, clanId, uid) {
+      if (enabled()) delete S(s).clanBans[`${clanId}|${uid}`];
     },
     recordPartners(s, a, b) {
       if (!enabled()) return;
@@ -477,9 +521,18 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
         mine[userId] ||= now();
         if (x.friends[uid]) delete x.friends[uid][userId];
         if (x.friends[userId]) delete x.friends[userId][uid];
-        // their requests go; mine (pending) becomes a tombstone; every tombstone stays
-        x.requests = x.requests.filter((r) => !(r.fromId === userId && r.toId === uid && (r.status === 'pending' || r.status === 'shadow')));
-        for (const r of x.requests) if (r.fromId === uid && r.toId === userId && r.status === 'pending') Object.assign(r, { status: 'cancelled', senderHidden: true, at: now() });
+        // their pending request is swallowed (a shadow: they still see "Requested", as after a
+        // decline); mine (pending) becomes a tombstone; every tombstone stays
+        for (const r of x.requests) {
+          if (r.fromId === userId && r.toId === uid && r.status === 'pending') r.status = 'shadow';
+          else if (r.fromId === uid && r.toId === userId && r.status === 'pending') Object.assign(r, { status: 'cancelled', senderHidden: true, at: now() });
+        }
+        // co-op (SQL block_player): my room frees their seat and changes its secret (their channel
+        // goes dead); in their room I give up my seat
+        for (const room of Object.values(s.rooms || {})) {
+          if (room.hostId === uid && room.guestId === userId) Object.assign(room, { guestId: null, secret: code(16) });
+          else if (room.hostId === userId && room.guestId === uid) room.guestId = null;
+        }
         return true;
       });
     },
@@ -520,16 +573,26 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           }
         }
         const th = threadOf(x, uid, target);
-        const dms = th ? x.dms.filter((d) => d.threadId === th.id).sort((a, b) => a.id - b.id).slice(-20)
-          .map((d) => ({ id: d.id, from: d.senderId === target ? 'target' : 'reporter', name: d.name, body: d.body, kind: d.kind, at: d.createdAt })) : [];
-        const evidence = { target: { id: target, name: p.name, level: p.level || 1, createdAt: p.createdAt }, message, dms };
+        const all = th ? x.dms.filter((d) => d.threadId === th.id).sort((a, b) => a.id - b.id) : [];
+        const line = (d) => ({ id: d.id, from: d.senderId === target ? 'target' : 'reporter', name: d.name, body: d.body, kind: d.kind, at: d.createdAt });
+        let evidence;
+        for (let n = REPORT_DMS; ; n = Math.floor(n / 2)) {
+          // the newest lines (≤ 8 KB) + how many DMs the two have in all: the owner reads the whole
+          // conversation when the snapshot is partial (it is kept while the report is open)
+          evidence = {
+            target: { id: target, name: p.name, level: p.level || 1, createdAt: p.createdAt }, message, dms: n ? all.slice(-n).map(line) : [],
+            dmsTotal: all.length, dmsFromTarget: all.filter((d) => d.senderId === target).length,
+          };
+          if (sizeOf(evidence) <= 8192 || n === 0) break;
+        }
         // backed by contact (recomputed every time); counts toward a mute again only after NEW contact
         const open = x.reports.find((r) => r.reporterId === uid && r.targetId === target && r.status === 'open');
         const prev = open?.qualifiedAt ?? null;
         const recent = contactSince(s, x, uid, target, null);
         const fresh = recent && (prev == null || contactSince(s, x, uid, target, prev));
         const qualifiedAt = fresh ? now() : prev;
-        if (open) Object.assign(open, { reason, note: n, context, messageId, evidence, qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name });
+        // a repeat report adds its evidence to the earlier one's (never replaces it)
+        if (open) Object.assign(open, { reason, note: n, context, messageId: messageId ?? open.messageId, evidence: mergeEvidence(open.evidence, evidence), qualified: recent, qualifiedAt, updatedAt: now(), targetName: p.name });
         else x.reports.push({ id: x.seq++, reporterId: uid, reporterName: me.name, targetId: target, targetName: p.name, reason, note: n, context, messageId, evidence, qualified: recent, qualifiedAt, status: 'open', createdAt: now(), updatedAt: now() });
         // SQL: social_maybe_auto_mute
         const reporters = new Set(x.reports.filter((r) => r.targetId === target && r.status === 'open' && r.qualifiedAt != null && r.qualifiedAt > now() - AUTO_MUTE.windowHours * H).map((r) => r.reporterId));
@@ -717,9 +780,9 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
           mythicOpen: !!live && clanEstablished(s, c.id),
           weekly: { superRare: weeklyCount(x, uid, 'superRare'), mythic: weeklyCount(x, uid, 'mythic') },
           myRequest: mine ? reqOut(x, mine, uid) : null,
-          // only players I blocked are hidden; a requester who blocked me shows, closed
+          // a block either way hides the request (one whose requester blocked me is simply gone, like a filled one)
           requests: live ? x.donReqs.filter((r) => r.clanId === c.id && r.gameDay === today() && r.status === 'open' && r.userId !== uid
-            && s.members[r.userId]?.clanId === c.id && !blockedByMe(x, uid, r.userId)).sort((a, b) => a.createdAt - b.createdAt).map((r) => reqOut(x, r, uid)) : [],
+            && s.members[r.userId]?.clanId === c.id && !isBlocked(x, uid, r.userId)).sort((a, b) => a.createdAt - b.createdAt).map((r) => reqOut(x, r, uid)) : [],
           collectable: collectable(x, uid),
         };
       }, { save: false });

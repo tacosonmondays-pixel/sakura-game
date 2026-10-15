@@ -12,7 +12,7 @@ import { FRIEND_MAX, INVITE_TTL_MS } from '../../src/online/socialRules.js';
 import { MIGRATION_SQL as sql, PGlite, createDb, refused } from './pgHarness.js';
 
 const SOCIAL_TABLES = ['social_settings', 'friend_codes', 'friend_requests', 'friends', 'blocks', 'coop_partners', 'dm_threads', 'direct_messages',
-  'dm_state', 'reports', 'social_mutes', 'donate_items', 'donation_requests', 'donations', 'donation_keys', 'dev_lab_visits'];
+  'dm_state', 'reports', 'social_mutes', 'donate_items', 'donation_requests', 'donations', 'donation_keys', 'dev_lab_visits', 'clan_bans'];
 
 // every function a signed-in player may execute (the first migration's entry points + the social ones)
 const ALLOWED = new Set([
@@ -99,9 +99,9 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     for (const f of ['social_report_evidence', 'social_thread_for', 'social_maybe_auto_mute', 'social_dm_why', 'social_housekeeping']) {
       await refused(as(A, `select ${f}(${f === 'social_housekeeping' ? '' : f === 'social_maybe_auto_mute' ? `'${B}'` : f === 'social_report_evidence' ? `'${A}', '${B}', 'dm', null` : `'${A}', '${B}'`})`), /permission denied/);
     }
-    // the re-created join_room keeps the block check (a re-run of the first migration would lose it)
+    // the re-created join_room keeps the block check, either way (a re-run of the first migration would lose it)
     const def = (await sup(`select pg_get_functiondef('public.join_room(text)'::regprocedure) as d`)).rows[0].d;
-    expect(def).toMatch(/blocker_id = r\.host_id/);
+    expect(def).toMatch(/social_is_blocked\(r\.host_id, auth\.uid\(\)\)/);
     expect(def).toMatch(/coop_partners/);
     const pub = (await sup(`select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1`)).rows.map((r) => r.tablename);
     expect(pub).toEqual(['clan_boss', 'clan_members', 'direct_messages', 'donation_requests', 'friend_requests', 'messages']);
@@ -149,7 +149,8 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     // strangers: the same answer whatever either side chose (no setting allows strangers)
     await refused(dm(A, B, 'hi stranger'), /forbidden: only friends and clanmates can message each other/);
     const c = await card(A, B);
-    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'stranger', myPrivacy: 'friends_clan', friend: 'none', canFriend: false, friendWhy: 'context', isSelf: false, lastActive: null });
+    // (no settings row: the default, Friends only)
+    expect(c).toMatchObject({ userId: B, name: 'Bea', canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: false, friendWhy: 'context', isSelf: false, lastActive: null });
     expect(c).not.toHaveProperty('privacy');
     await refused(as(A, 'select send_friend_request($1)', [B]), /forbidden: ask for their friend code/);
     await refused(as(A, 'select player_card($1)', ['deadbeef-0000-4000-8000-000000000000']), /not_found/);
@@ -180,7 +181,7 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     const inbox = await one(A, 'select dm_inbox(50) as r');
     expect(inbox.threads).toHaveLength(1);
     expect(inbox.threads[0]).toMatchObject({ peer: { userId: B, name: 'Bea' }, unread: 1, canMessage: true });
-    expect((await one(A, 'select social_summary() as r'))).toMatchObject({ unreadDms: 1, friendRequests: 0, privacy: 'friends_clan' });
+    expect((await one(A, 'select social_summary() as r'))).toMatchObject({ unreadDms: 1, friendRequests: 0, privacy: 'friends' });
     await as(A, 'select dm_mark_read($1, $2)', [inbox.threads[0].id, 9e15]); // clamped to the last message
     expect((await one(A, 'select social_summary() as r')).unreadDms).toBe(0);
     const hist = await one(B, 'select dm_history($1, null, 30) as r', [inbox.threads[0].id]);
@@ -237,7 +238,16 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     const [clan] = await as(C, `select * from create_clan('Moon Garden', 'MG', 'gems', 'open', '')`);
     await as(D, 'select join_clan($1)', [clan.id]);
     await refused(dm(C, D, 'hi clanmate'), /forbidden/); // both joined just now
-    await tenure(C, 73);
+    // the default is Friends only: clanmates of 3+ days still need to be friends (M4)
+    await tenure(C, 80);
+    await tenure(D, 80);
+    await refused(dm(C, D, 'default'), /forbidden: your "Who can message me" setting doesn't include them/);
+    expect(await card(C, D)).toMatchObject({ why: 'my_setting', myPrivacy: 'friends', canMessage: false });
+    // both choose Friends & clan: clanmates after 72 h each
+    await as(C, `select set_dm_privacy('friends_clan')`);
+    await as(D, `select set_dm_privacy('friends_clan')`);
+    await tenure(D, 0);
+    await clearRate(C, 'dm');
     await refused(dm(C, D, 'still too new'), /forbidden: clanmates can message each other after 3 days/); // D: 0 h
     expect((await card(C, D)).why).toBe('clan_new');
     await tenure(D, 73);
@@ -596,12 +606,20 @@ describe.skipIf(!PGlite)(`social migration (run on Postgres, ${defaultGrants ? '
     await clearRate(G, 'block');
     await as(G, 'select block_player($1)', [E]);
     await clearRate(E, 'donate');
-    // the blocked donor is never told: the request shows, closed, and donate() says "closed"
+    // the blocked donor is never told: the request is simply gone (like a filled one; L1), and donate() says "closed"
     await refused(as(E, 'select donate($1, 1, $2)', [r.id, KEY(60)]), /^invalid: that request is closed$/);
-    expect((await one(E, 'select donation_state() as r')).requests.map((x) => [x.id, x.open])).toEqual([[r.id, false]]);
-    // housekeeping
+    expect((await one(E, 'select donation_state() as r')).requests.map((x) => x.id)).not.toContain(r.id);
+    // housekeeping: DMs go after 14 days, except the conversations of pairs with an OPEN report
+    // (the owner reads them; up to 90 days)
     await sup(`update direct_messages set created_at = now() - interval '15 days'`);
     await sup(`update donation_keys set created_at = now() - interval '30 days'`);
+    await sup('select social_housekeeping()');
+    const left = (await sup(`select count(*)::int as n, count(*) filter (where not exists (select 1 from reports r where r.status = 'open'
+      and ((r.reporter_id = m.sender_id and r.target_id = m.recipient_id) or (r.reporter_id = m.recipient_id and r.target_id = m.sender_id))))::int as loose
+      from direct_messages m`)).rows[0];
+    expect(left.n).toBeGreaterThan(0);
+    expect(left.loose).toBe(0);
+    await sup(`update direct_messages set created_at = now() - interval '91 days'`);
     await sup('select social_housekeeping()');
     expect((await sup('select count(*)::int as n from direct_messages')).rows[0].n).toBe(0);
     expect((await sup('select count(*)::int as n from donation_keys')).rows[0].n).toBeGreaterThan(0);

@@ -4,16 +4,19 @@
 import { MESSAGE_MAX } from './clanRules.js';
 import { MESSAGE_INVISIBLE, VISIBLE_CHAR as VISIBLE, COMBINING_RUN } from './textRules.js';
 
-export { MESSAGE_INVISIBLE, VISIBLE_CHAR, COMBINING_RUN, NAME_BLANKS, nameLooksBlank, nameKey } from './textRules.js';
+export { MESSAGE_INVISIBLE, VISIBLE_CHAR, COMBINING_RUN, NAME_BLANKS, MARK_SET, nameLooksBlank, nameKey, nameWords } from './textRules.js';
 
 /**
  * "Who can message me". There is deliberately no "Everyone": the game's players may be young,
  * accounts are free and anonymous, and a stranger setting would let anyone with alts find and DM
  * the players who accept strangers (SOCIAL_CRITIC #6). Strangers become friends with a friend code.
  * SQL: social_settings.dm_privacy check.
+ * The default is Friends only (SQL: the column default and social_privacy()): a friendship needs the
+ * player to accept it, while any stranger can join an open clan and wait 3 days. A player may still
+ * choose Friends & clan (or Nobody).
  */
 export const DM_PRIVACY = ['friends_clan', 'friends', 'nobody'];
-export const DM_PRIVACY_DEFAULT = 'friends_clan';
+export const DM_PRIVACY_DEFAULT = 'friends';
 export const PRIVACY_LABELS = Object.freeze({ friends_clan: 'Friends & clan', friends: 'Friends only', nobody: 'Nobody' });
 export const PRIVACY_HELP = Object.freeze({
   friends_clan: 'Friends, and clanmates after you have both been in the clan for 3 days.',
@@ -36,6 +39,12 @@ export const BLOCK_MAX = 200;
  * conversation can never push an abusive message out of a report's evidence (SECURITY #4). SQL.
  */
 export const DM_KEEP_DAYS = 14;
+/** While a report between two players is open their whole conversation is kept, up to this long. SQL: social_housekeeping. */
+export const DM_REPORT_KEEP_DAYS = 90;
+/** DM lines a report's evidence snapshot holds (fewer when long: ≤ 8 KB; a repeat adds to it, ≤ 16 KB). SQL. */
+export const REPORT_DMS = 20;
+/** A kicked player can't join that clan again by themselves for this long. SQL: clan_members_kick_ban. */
+export const CLAN_BAN_DAYS = 7;
 /** Asking again within this long after cancelling a friend request is swallowed (no new pop-up). SQL. */
 export const FRIEND_CANCEL_HOURS = 24;
 /** Clanmates count for "Friends & clan" only after both have been in the clan this long. SQL. */
