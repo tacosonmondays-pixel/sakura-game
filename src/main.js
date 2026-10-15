@@ -21,6 +21,7 @@ registerRoute('backpack', () => import('./ui/screens/backpack.js'));
 registerRoute('bounty', () => import('./ui/screens/bounty.js'));
 registerRoute('assault', () => import('./ui/screens/assault.js'));
 registerRoute('challenge', () => import('./ui/screens/challenge.js'));
+registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
 registerRoute('rewards', () => import('./ui/screens/rewards.js'));

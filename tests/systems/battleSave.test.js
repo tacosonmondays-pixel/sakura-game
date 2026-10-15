@@ -162,6 +162,8 @@ describe('battle save slots and modes', () => {
     expect(isSavableRun({ stage: '1-1', tutorial: '1' }, ok)).toBe(false);
     expect(isSavableRun({ stage: '8-5' }, { practice: true, error: null })).toBe(false);
     expect(isSavableRun({ stage: 'nope' }, { practice: false, error: 'Unknown stage' })).toBe(false);
+    // a Sandbox run (endless on a host stage) never saves: it would take that stage's real slot
+    expect(isSavableRun({ stage: '1-1', sandbox: '1', team: 'kage' }, { ...ok, endless: true, sandbox: true })).toBe(false);
   });
 });
 

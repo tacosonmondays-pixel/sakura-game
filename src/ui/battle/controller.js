@@ -25,6 +25,8 @@ import { createWaveControl } from './waveControl.js';
 import { createPauseMenu } from './pauseMenu.js';
 import { createResults } from './results.js';
 import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-view upgrade tree
+import { createSandboxPanel } from './sandboxPanel.js';
+import { sandboxOutcome } from '../../systems/sandbox.js';
 import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
 import { svgEl, toast } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -270,6 +272,20 @@ export function mountBattle(root, params, hooks) {
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
     const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree];
+    ctx.wave = wave;
+    let sandbox = null;
+    if (req.sandbox) {
+      // Sandbox: spawn controls + unlimited lives; nothing from this battle is ever saved
+      ctx.preloadEnemies = (fams) => settle(preloadEnemies(fams), MODEL_TIMEOUT_MS);
+      ctx.applyResult = () => sandboxOutcome();
+      ctx.endSandbox = () => endBattle(false);
+      ctx.extraActions = () => [
+        { label: 'Back', testid: 'sandbox-back', cta: true, icon: 'back', onClick: () => ctx.quit() },
+        { label: 'Retry', testid: 'retry', icon: 'refresh', onClick: () => ctx.restart() },
+      ];
+      sandbox = createSandboxPanel(ctx);
+      modules.push(sandbox);
+    }
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
@@ -396,6 +412,11 @@ export function mountBattle(root, params, hooks) {
       if (ls) ls.queue('speed', [next]); // shared: both players switch at the same tick
       else ctx.speed = next;
     };
+    // a set speed (the Sandbox panel's 0.5-5×); attachBattleAudio follows it like cycleSpeed
+    ctx.setSpeed = (s) => {
+      if (ls) ls.queue('speed', [s]);
+      else ctx.speed = s;
+    };
     ctx.setAutoStart = (v) => {
       store.profile.settings.autoStart = !!v;
       store.commit('settings');
@@ -476,10 +497,12 @@ export function mountBattle(root, params, hooks) {
     // every way out of a battle goes through navigate(), which never leaves the battle's history
     // entry behind (src/ui/router.js): neither the back arrow nor the back gesture returns here.
     // Leaving saves the battle (destroy() → saver.flush()); a solo freeplay run is never saved and
-    // is paid on the way out once past its goal (destroy() → payIfLeavingRun()).
-    ctx.quit = () => (ls ? leaveCoop() : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', prepRoute));
+    // is paid on the way out once past its goal (destroy() → payIfLeavingRun()). A Sandbox run
+    // (never saved) goes back to its squad screen.
+    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', prepRoute));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
+      if (req.sandbox) return navigate('sandbox');
       const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
@@ -498,7 +521,8 @@ export function mountBattle(root, params, hooks) {
     renderer.canvas.addEventListener('pointermove', onCanvasMove);
     cleanups.push(() => renderer.canvas.removeEventListener('pointermove', onCanvasMove));
     const onKey = (e) => {
-      if (e.target instanceof HTMLInputElement || document.querySelector('.modal-overlay')) return;
+      // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
+      if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
         if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
@@ -565,6 +589,7 @@ export function mountBattle(root, params, hooks) {
     // ---- events from the sim (via renderer.update) ------------------------------------------
     // (Continue: enemies met before the save are not "new" again)
     const announcedNew = new Set(restored ? sim.encountered : []);
+    let lastWaveEnd = 0;
     function warnFor(n) {
       let list = [];
       try {
@@ -611,7 +636,10 @@ export function mountBattle(root, params, hooks) {
             feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
             break;
           case 'waveEnd':
-            feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            // a sandbox spawn between waves runs as a wave of its own (the counter stays)
+            if (req.sandbox && ev.wave === lastWaveEnd) feed.push('Sandbox group cleared', 'good', { key: 'sbx-group', ms: 1600 });
+            else feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
             break;
           case 'bossPhase':
@@ -667,6 +695,13 @@ export function mountBattle(root, params, hooks) {
       pause.hide();
       ctx.paused = false;
       shell.classList.add('bt-ended');
+      if (req.sandbox) {
+        // ended from the panel, or the lives ran out with lives switched on (nothing is saved)
+        results.apply();
+        feed.announce('SANDBOX', sim.state === 'lost' ? `Fell on wave ${sim.wave}` : 'Session over', 'wave', 900);
+        later(() => results.showSandbox(), 700);
+        return;
+      }
       // co-op freeplay past the goal: its own sheet (finishing right at the goal is a plain victory)
       const fpEnd = isFreeplayRun();
       if (fpEnd) fpBattle?.onEnd();
@@ -752,6 +787,7 @@ export function mountBattle(root, params, hooks) {
       heroW.update();
       boss.update(dt);
       wave.update();
+      sandbox?.update();
     }
     raf = requestAnimationFrame(frame);
 

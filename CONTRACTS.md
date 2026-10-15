@@ -460,7 +460,7 @@ GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs:
 ```js
 export const RECORD_V, SNAP_V, MAX_BATTLE_SAVES /*5*/;
 export function slotKey(stageId, endless)        // stageId; '<id>:endless' for an endless run on a campaign map (none since Freeplay: cleanBattleSaves drops them); 'challenge' stays
-export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice / solo freeplay (req.freeplay)
+export function isSavableRun(params, req)        // campaign, Bounty, solo Total Assault, Colosseum, endless — never co-op / clan boss / tutorial / practice / solo freeplay (req.freeplay) / Sandbox (req.sandbox)
 export function getBattleSave(profile, slot), listBattleSaves(profile) /*newest first*/, putBattleSave(profile, rec) /*evicts the least play past the cap*/
 export function savesByWorth(profile) /*least play first; endless last*/, saveToEvict(profile, slot) /*null when there is room*/
 export function clearBattleSave(profile, slot, runId?) /*with runId: only that run*/, saveTitle(rec) /*{ name, mode }*/

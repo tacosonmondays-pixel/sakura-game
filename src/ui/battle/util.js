@@ -11,10 +11,11 @@ export function setVar(el, name, value) {
   return el;
 }
 
-/** Compact number: 1234 -> "1,234", 12500 -> "12.5k" (only above 100k). */
+/** Compact number: 1234 -> "1,234", 125000 -> "125k" (only above 100k). Rounds down, so 999,999 reads "999.9k", never more than there is. */
 export function fmtCoins(n) {
   const v = Math.floor(n || 0);
-  if (v >= 100000) return `${(v / 1000).toFixed(v >= 1e6 ? 0 : 1).replace(/\.0$/, '')}k`;
+  if (v >= 1e6) return `${Math.floor(v / 1000)}k`;
+  if (v >= 100000) return `${(Math.floor(v / 100) / 10).toFixed(1).replace(/\.0$/, '')}k`;
   return v.toLocaleString('en-US');
 }
 

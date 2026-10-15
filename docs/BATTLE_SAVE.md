@@ -23,7 +23,7 @@ running), with Start waiting.
 | Saved battles full | Start on a stage without a save, with 5 kept, opens **Saved battles full**: the 5 saves, least play first (a finite stage by the share of waves cleared, endless runs last), the first one picked; **Delete & start** (red) or Cancel. The pick travels as `&evict=<run id>` and is only deleted when the new battle first saves (backing out keeps it). A battle reached without that choice (a deep link) is not saved and says so; its pause menu offers a plain Quit. |
 
 Saves: campaign, Bounty, solo Total Assault, the Colosseum and endless runs (`isSavableRun`). Never:
-practice (a locked stage), the tutorial, the clan boss, co-op, solo freeplay. One save per slot (a
+practice (a locked stage), the tutorial, the clan boss, co-op, solo freeplay, Sandbox. One save per slot (a
 stage; the Colosseum is `challenge`), at most 5 (`MAX_BATTLE_SAVES`, spec §14 default; a 6th asks
 which one to replace). The old endless runs on campaign maps (their own slot `<id>:endless`) are
 Freeplay now; a save of one from an earlier build is dropped with the update notice.

@@ -492,10 +492,10 @@ async function shortcutsFlow() {
   // opened from Missions: back to Missions
   await tap(S, '[data-testid="tile-mission"]');
   await onScreen(S, 'missions');
-  await tap(S, '[data-testid="hub-commissions"]');
-  await onScreen(S, 'commissions');
+  await tap(S, '[data-testid="hub-bounty"]');
+  await onScreen(S, 'bounty');
   await arrow(S);
-  check(await onScreen(S, 'missions'), `shortcuts: Commissions opened from Missions arrows back to Missions (now ${(await where(S)).hash})`);
+  check(await onScreen(S, 'missions'), `shortcuts: Bounty opened from Missions arrows back to Missions (now ${(await where(S)).hash})`);
   await arrow(S);
   check(await onScreen(S, 'lobby'), `shortcuts: then Missions → the lobby (now ${(await where(S)).hash})`);
   await walkHistory(S, 'shortcuts');

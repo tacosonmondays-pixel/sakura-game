@@ -200,7 +200,10 @@ export function battleMusicStep(s, ev, info = {}) {
       }
       break;
     }
+    // a boss or miniboss gone off the board, defeated or leaked (a Sandbox run with unlimited lives
+    // survives a boss leak), stops holding the music
     case 'death':
+    case 'leak':
       if (st.minis.includes(ev.uid)) {
         st.minis = st.minis.filter((u) => u !== ev.uid);
         if (!st.minis.length && st.phase !== 'wave' && !st.boss) toIntensity(0, 'bar', 2);
@@ -242,7 +245,7 @@ export function battleMusicStep(s, ev, info = {}) {
   return { state: st, actions: a };
 }
 
-const MUSIC_EVENTS = new Set(['waveStart', 'waveEnd', 'spawn', 'death', 'bossPhase', 'won', 'lost', 'goal']);
+const MUSIC_EVENTS = new Set(['waveStart', 'waveEnd', 'spawn', 'death', 'leak', 'bossPhase', 'won', 'lost', 'goal']);
 
 // ------------------------------------------------------------------------------------- adapter
 /**
@@ -327,6 +330,7 @@ export function attachBattleAudio(ctx) {
     A()?.setBattleSpeed?.(ctx.speed);
     A()?.sfx('ui.tick', { rate: 0.9 + 0.1 * ctx.speed });
   });
+  wrap(ctx, 'setSpeed', () => A()?.setBattleSpeed?.(ctx.speed));
   wrap(ctx, 'bump', () => A()?.sfx('bt.deny'));
   wrap(ctx, 'select', (uid) => {
     if (uid != null) A()?.sfx('ui.select');
@@ -383,6 +387,8 @@ export function attachBattleAudio(ctx) {
       if (destroyed || !evts || !evts.length) return;
       for (const ev of evts) {
         if (!MUSIC_EVENTS.has(ev.type)) continue;
+        // a leak that ended the battle: the defeat jingle follows, the music must not switch first
+        if (ev.type === 'leak' && sim?.state === 'lost') continue;
         const info = ev.type === 'waveStart'
           ? { final: Number.isFinite(sim?.totalWaves) && ev.wave === sim.totalWaves && !sim?.freeplay, crossing: !!sim?.freeplay && ev.wave === sim.totalWaves + 1 }
           : {};

@@ -3,9 +3,9 @@
 // gear cards, unlocked girls (card art celebration) and new bestiary entries.
 // Co-op freeplay past the goal gets a third sheet (FREEPLAY OVER / FREEPLAY COMPLETE): the big
 // overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
-// goal) and the freeplay bonus.
+// goal) and the freeplay bonus. A Sandbox run gets one line and the way back (nothing earned or saved).
 import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
-import { svgEl, itemTile } from '../components.js';
+import { svgEl, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { applyBattleResult, battleDropSeed } from '../../systems/rewards.js';
@@ -149,6 +149,7 @@ export function createResults(ctx) {
     if (applied) return outcome;
     applied = true;
     const result = sim.result();
+    if (ctx.req?.sandbox) result.sandbox = true;
     const saver = ctx.saver || null;
     const rng = createRng(saver ? battleDropSeed(stage.id, sim.difficulty, saver.seed) : hashString(`${stage.id}:${sim.difficulty}:${sim.seed}:${Date.now()}`));
     try {
@@ -160,11 +161,15 @@ export function createResults(ctx) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
     }
-    saver?.finish(store.profile);
-    store.commit('battle-result');
-    // the result sheet says so when the payout could not be written (storage full, saving
-    // paused, or another tab moved on): a reload would bring the old state back
-    if (!store.saveNow()) outcome.saveFailed = store.lastSaveError || 'quota';
+    saver?.finish(store.profile); // (a sandbox run never has a saver: isSavableRun)
+    // a sandbox run changes nothing, so there is nothing to save
+    if (!outcome.sandbox && !ctx.req?.sandbox) {
+      store.commit('battle-result');
+      // the result sheet says so when the payout could not be written (storage full, saving
+      // paused, or another tab moved on): a reload would bring the old state back
+      if (!store.saveNow()) outcome.saveFailed = store.lastSaveError || 'quota';
+    }
+    if (outcome.sandboxUnlocked) toast('Sandbox unlocked! Find it on the Missions screen.', 'good', 4200);
     ctx.onResultApplied?.(outcome);
     return outcome;
   }
@@ -177,6 +182,20 @@ export function createResults(ctx) {
   /** A line on the result sheet when the payout was not written. */
   function saveFailedNote(out) {
     return out.saveFailed ? h('p.bt-save-failed', { 'data-testid': 'result-save-failed' }, SAVE_FAILED[out.saveFailed] || SAVE_FAILED.quota) : null;
+  }
+
+  /** Sandbox: one line and the way back (nothing was earned or saved). */
+  function showSandbox() {
+    apply();
+    const card = h(
+      'div.bt-sheet.bt-result.bt-sandbox-result',
+      { 'data-testid': 'sandbox-result' },
+      h('div.bt-result-ribbon', 'SANDBOX'),
+      h('p.bt-sandbox-line', 'Sandbox: no rewards'),
+      summary(),
+      actions(false),
+    );
+    open(card);
   }
 
   function actions(won) {
@@ -406,6 +425,7 @@ export function createResults(ctx) {
     showDefeat,
     showRewards,
     showFreeplay,
+    showSandbox,
     /** Solo Keep going: the battle goes on, so the next end applies (and shows) its own result. */
     reset() {
       applied = false;

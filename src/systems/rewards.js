@@ -10,6 +10,7 @@ import { rollGear, addGear } from './gear.js';
 import { grantUnit, isOwned, stageMedals, isPracticeRun } from './unlocks.js';
 import { track, currentEvent } from './missions.js';
 import { hashString } from '../core/rng.js';
+import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
 export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare: 1.5 };
@@ -106,6 +107,8 @@ export function battleDropSeed(stageId, difficulty, seed) {
  * - stats, kills and mission tracking (battleWin/battleWinHard/kill/bossKill) are handled here
  * - practice run (the stage is still locked on the map, see isPracticeRun): the profile is not
  *   touched at all and the result comes back with `practice: true`
+ * - sandbox run (`result.sandbox`): the profile is not touched at all (`sandbox: true` comes back)
+ * - `sandboxUnlocked` is true on the one result whose clear opened Sandbox (the 7th campaign clear)
  * @param {object} profile
  * @param {{ stageId, difficulty, won, wave, wavesCleared?, livesLeft, encountered, kills, stats }} result
  * @param {object} rng
@@ -116,7 +119,9 @@ export function battleDropSeed(stageId, difficulty, seed) {
  */
 export function applyBattleResult(profile, result, rng, { now = new Date(), eventAt = null } = {}) {
   const stage = STAGE_MAP[result?.stageId];
-  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false };
+  // Sandbox: no clears, medals, gems, unlocks, drops, bestiary, missions or achievements.
+  if (result?.sandbox) return sandboxOutcome();
+  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false, sandboxUnlocked: false };
   if (!stage) return out;
   // Deep link to a locked stage: no clears, medals, gems, unlocks, drops, bestiary or missions.
   if (isPracticeRun(profile, stage.id)) {
@@ -159,6 +164,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   if (stage.kind === 'challenge' || result.wavesCleared != null) entry.bestWave = Math.max(entry.bestWave || 0, wavesCleared);
 
   const rewards = [];
+  const clearsBefore = campaignClears(profile);
   if (won) {
     const wasCleared = DIFFICULTY_ORDER.some((d) => entry[d]);
     out.firstClear = !wasCleared;
@@ -188,6 +194,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   if (totalKills) track(profile, 'kill', totalKills);
   if (bossKills) track(profile, 'bossKill', bossKills);
 
+  out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
   return out;
