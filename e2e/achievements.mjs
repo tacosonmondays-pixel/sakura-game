@@ -1,7 +1,7 @@
 // Achievements expansion e2e (docs/specs/ACHIEVEMENTS.md §7.3): the tab on a seeded late save, Claim all through the
 // special fanfare into the rewards modal, Open N gear boxes → the summary, a reload keeps the claims, the Honor
 // Ribbon Case (32 cells at launch) and its detail, a new save's locked and secret rows, the unlock toast AFTER a
-// battle's results (never during it), and the effect budgets (≤ 3 live specials and ≤ 6 running infinite animations
+// battle's results (never during it) or over the recruit results / a modal, and the effect budgets (≤ 3 live specials and ≤ 6 running infinite animations
 // on the list, 0 under Reduce Motion, no horizontal overflow). Screenshots: e2e/out/achievements/.
 //
 //   node e2e/achievements.mjs                       # 1280x720 and 844x390
@@ -222,6 +222,53 @@ async function runViewport(vp) {
   const t = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 15000 }).catch(() => null);
   check(!!t && (await t.getAttribute('data-id')) === 'a_wins_100', '7: the toast shows on the next screen (Patrol Veteran)');
   await shot(page, 'toast');
+  if (touch) {
+    // on a phone the card never takes a tap meant for what is underneath; only Claim › does
+    const hit = await page.evaluate(() => {
+      const card = document.querySelector('[data-testid="ach-toast"]');
+      const r = card.getBoundingClientRect();
+      const under = document.elementFromPoint(r.left + r.width * 0.3, r.top + r.height / 2);
+      const go = card.querySelector('.ach-toast-go').getBoundingClientRect();
+      const onGo = document.elementFromPoint(go.left + go.width / 2, go.top + go.height / 2);
+      return { passes: !card.contains(under), claim: card.contains(onGo) };
+    });
+    check(hit.passes && hit.claim, `9: phone toast: taps pass through the card (${hit.passes}), Claim › still works (${hit.claim})`);
+  }
+  check(!errors.length, `no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await context.close();
+
+  // ---- 9. a toast never sits on the recruit results (or any modal): it waits until they close ----
+  context = await newContext();
+  ({ page, errors } = await openWith(context, oneWinShort(), '#/recruit'));
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()); });
+  await page.waitForTimeout(400);
+  // the recruit results are up (the overlay a 10-pull opens), then an achievement becomes ready
+  await page.evaluate(() => {
+    const o = document.createElement('div');
+    o.className = 'ma-gacha';
+    o.dataset.testid = 'fake-results';
+    document.body.appendChild(o);
+    const s = window.__sakura.store;
+    s.profile.missions.counters.battleWin = 100;
+    s.commit('missions');
+  });
+  await page.waitForTimeout(1200);
+  check(!(await page.$('[data-testid="ach-toast"]')), '9: no toast while the recruit results are open');
+  await page.evaluate(() => document.querySelector('[data-testid="fake-results"]').remove());
+  const later = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null);
+  check(!!later, '9: the toast shows once the results close');
+  // and a toast already showing steps aside when a modal opens
+  await page.evaluate(() => {
+    const o = document.createElement('div');
+    o.className = 'modal-overlay';
+    o.dataset.testid = 'fake-modal';
+    document.body.appendChild(o);
+  });
+  await page.waitForTimeout(400);
+  check(!(await page.$('[data-testid="ach-toast"]')), '9: a showing toast steps aside when a modal opens');
+  await page.evaluate(() => document.querySelector('[data-testid="fake-modal"]').remove());
+  check(!!(await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null)), '9: … and comes back when it closes');
   check(!errors.length, `no console errors (${errors.slice(0, 3).join(' | ')})`);
   await context.close();
 }

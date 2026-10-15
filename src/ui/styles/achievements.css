@@ -396,7 +396,13 @@
   .ach-ff-name { font-size: 1.4rem; }
   .ach-ff-from { font-size: 0.78rem; }
   .ach-ff-grid { grid-template-columns: repeat(4, 96px); }
-  .ach-toast { width: 400px; height: 56px; }
+  /* short screens: smaller, and taps pass through to what is underneath except on Claim › */
+  .ach-toast { width: 380px; height: 50px; gap: 8px; pointer-events: none; }
+  .toast.toast-ach { pointer-events: none; }
+  .ach-toast-go { pointer-events: auto; padding: 7px 10px; font-size: 0.78rem; }
+  .ach-toast-ico { width: 36px; }
+  .ach-toast-ico .rb { --s: 36px !important; }
+  .ach-toast-rew { display: none; }
   .toast-host.has-ach { top: calc(48px + var(--safe-top)); }
   .ach-sheet-stage { width: 150px; height: 150px; }
   .ach-claimall { width: auto; }

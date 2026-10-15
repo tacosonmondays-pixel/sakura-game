@@ -18,6 +18,14 @@ import { formatNumber } from '../core/util.js';
 
 /** Screens that hold toasts back: a battle (and its result sheet), a story scene, the title. */
 const HOLD = new Set(['battle', 'scene', 'title']);
+/**
+ * Full-screen moments that hold toasts back too (a toast must never sit on what the player is tapping): the recruit
+ * results, any modal (rewards, the awaken ascension, the unit sheet), the special fanfare, a story scene played over
+ * a screen, the bestiary sheet and the chat drawer. Queued toasts show once the last one closes.
+ */
+export const HOLD_OVERLAYS = '.ma-gacha, .modal-overlay, .ach-fanfare, .sp-overlay, .mb-sheet-overlay, .ol-drawer-overlay';
+const blocked = () => HOLD.has(currentRoute().name) || (typeof document !== 'undefined' && !!document.querySelector(HOLD_OVERLAYS));
+let current = null; // { id, el } of the toast on screen
 const TOAST_MS = 3200;
 /** Commits that never toast (a whole new profile, or nothing achievement-related). */
 const QUIET = new Set(['replace', 'app-start', 'settings', 'honors-seen', 'titles-seen']);
@@ -60,15 +68,28 @@ function card(id, more) {
 
 function flush() {
   if (showing || !pending.length) return;
-  if (HOLD.has(currentRoute().name)) return;
+  if (blocked()) return;
   const [first, ...rest] = pending;
   pending = [];
   showing = true;
-  toast(card(first, rest.length), 'ach', TOAST_MS);
+  const el = toast(card(first, rest.length), 'ach', TOAST_MS);
+  current = { id: first, rest, el };
   setTimeout(() => {
+    if (current && current.el !== el) return; // withdrawn, and a newer toast is up
+    current = null;
     showing = false;
     flush();
   }, TOAST_MS + 450);
+}
+
+/** A blocking overlay opened while a toast was showing: take it down and show it again once the overlay closes. */
+function withdraw() {
+  if (!current || !current.el?.isConnected) return;
+  const { id, rest, el } = current;
+  current = null;
+  el.remove();
+  pending = [id, ...rest.filter((x) => !pending.includes(x)), ...pending.filter((x) => x !== id && !rest.includes(x))];
+  showing = false;
 }
 
 /** Queue toasts for these newly ready ids (shown when the current screen allows). */
@@ -135,10 +156,21 @@ export function installAchievementToasts(store) {
     check();
     flush();
   }, 400));
+  // overlays come and go on <body>: withdraw a showing toast when one opens, show the queue when the last closes
+  let raf = 0;
+  new MutationObserver(() => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (blocked()) withdraw();
+      else flush();
+    });
+  }).observe(document.body, { childList: true, subtree: true }); // story overlays mount inside screens
 }
 
 /** Tests: forget the baseline and the queue. */
 export function resetAchievementToasts() {
+  current = null;
   baseline = null;
   pending = [];
   showing = false;
