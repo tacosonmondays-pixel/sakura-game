@@ -267,7 +267,8 @@ try {
   // ---- developer clan (third tab) -------------------------------------------------------
   const C = await openPage('C');
   await C.goto(`${base}#/clan`, { waitUntil: 'load' });
-  await setName(C, 'DevTester');
+  // (not 'DevTester': since the social update "dev" as a word of its own is a reserved name, clanRules.reservedName)
+  await setName(C, 'Tester');
   await C.waitForSelector('[data-testid="clan-code"]', { timeout: 10000 });
   await C.fill('[data-testid="clan-code"]', 'Rosie777');
   await tap(C, '[data-testid="clan-code-join"]');
