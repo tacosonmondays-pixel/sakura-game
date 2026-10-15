@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sensei Profile mock-up</title>
+<!-- The game's real tokens + components (copied from src/ui/styles) and its two web fonts (latin subset). -->
+<link rel="stylesheet" href="css/fonts.css" />
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/ur.css" />
+<link rel="stylesheet" href="css/profile.css" />
+<script src="js/glyphs.js"></script>
+</head>
+<body>
+<!--
+  Sensei Profile — static mock-up (no game code). States, picked with ?state=…:
+    own    — my profile (default)
+    build  — my profile + the hold-for-build sheet of showcase girl #1
+    visit  — someone else's profile (opened from chat / clan / co-op / friends)
+    vbuild — someone else's profile + the build sheet
+  Data below is made up; names and numbers follow the game's real rules (caps, medals, ribbons, Potential).
+-->
+<div id="app"></div>
+<script>
+const P = 'art/portraits/';
+const ic = (name, cls = 'ico') => `<span class="${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${G[name] || ''}</svg></span>`;
+const stars = (n, max = 5) => `<span class="pf-stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(max - n)}</span></span>`;
+const ur = () => '<span class="ur-badge"><span class="ur-text">UR</span></span>';
+const urFrame = () => '<span class="ur-ring" aria-hidden="true"></span><span class="ur-sparkles" aria-hidden="true"><i class="s0"></i><i class="s1"></i><i class="s2"></i></span>';
+const RAR = { SSR: '#ff7ad9', SR: '#ffc94d', R: '#7aa7d9', UR: '#b78bff' };
+const pot = (n) => `<span class="pf-pot${n === 6 ? ' p6' : ''}">P${n}</span>`;
+
+const params = new URLSearchParams(location.search);
+const STATE = params.get('state') || 'own';
+const VISIT = STATE === 'visit' || STATE === 'vbuild';
+const BUILD = STATE === 'build' || STATE === 'vbuild';
+const EDIT = STATE === 'edit';
+const EDITP = STATE === 'editp';
+
+const ME = {
+  name: VISIT ? 'Hoshino' : 'Mika', level: VISIT ? 52 : 47, title: 'Ashwing Slayer', clan: { tag: 'SKR', name: 'Sakura Club' }, since: 'Oct 2026',
+  avatar: 'hikari', frame: 'Eclipse',
+  bio: 'Luna main! Chasing every ribbon, one stage at a time. Crimson Moon co-op anyone?',
+  fav: { id: 'luna', name: 'Luna', title: 'Moonlit Archmage', rar: 'UR', lv: 60, st: 5, p: 4 },
+  banner: 'art/lobby/academy.webp',
+};
+const SHOW = [
+  { id: 'luna', name: 'Luna', rar: 'UR', lv: 60, st: 5, p: 4 },
+  { id: 'hikari', name: 'Hikari', rar: 'UR', lv: 60, st: 5, p: 2 },
+  { id: 'kaede', name: 'Kaede', rar: 'SSR', lv: 55, st: 3, p: 1 },
+  { id: 'chika', name: 'Chika', rar: 'SSR', lv: 50, st: 4, p: 3 },
+  { id: 'nami', name: 'Nami', rar: 'SR', lv: 60, st: 5, p: 6 },
+  { id: 'sango', name: 'Sango', rar: 'SR', lv: 50, st: 3, p: 5 },
+  { id: 'miko', name: 'Miko', rar: 'SR', lv: 45, st: 2, p: 2 },
+  { id: 'raika', name: 'Raika', rar: 'SR', lv: 40, st: 2, p: 1 },
+];
+
+// Eclipse avatar frame (the freeplay Eclipse Wyrm reward — the game has no art for it yet: drawn here)
+const eclipseFrame = `<svg class="pf-ava-frame" viewBox="0 0 100 100" aria-hidden="true">
+  <defs>
+    <linearGradient id="ef-r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.35" stop-color="#b38bff"/><stop offset="0.7" stop-color="#3a2a7a"/><stop offset="1" stop-color="#f2c94c"/></linearGradient>
+    <radialGradient id="ef-c" cx="0.5" cy="0.5" r="0.5"><stop offset="0.55" stop-color="#fff3c4"/><stop offset="0.8" stop-color="#f2b705" stop-opacity="0.85"/><stop offset="1" stop-color="#f2b705" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="none" stroke="url(#ef-r)" stroke-width="7"/>
+  <circle cx="50" cy="50" r="40.6" fill="none" stroke="#f2c94c" stroke-width="1.4"/>
+  <circle cx="50" cy="50" r="48.6" fill="none" stroke="#2a1d5c" stroke-width="1.2" opacity="0.7"/>
+  <circle cx="80" cy="18" r="13" fill="url(#ef-c)"/>
+  <circle cx="80" cy="18" r="8.2" fill="#241a46" stroke="#ffe08a" stroke-width="1.4"/>
+  <path d="M74.5 14.5a6.5 6.5 0 0 0 9 8.6 7.5 7.5 0 1 1-9-8.6z" fill="#ffe08a"/>
+  <path d="M14 30l1.6 3.4 3.4 1.6-3.4 1.6L14 40l-1.6-3.4L9 35l3.4-1.6z" fill="#fff3c4"/>
+  <path d="M89 66l1.2 2.6 2.6 1.2-2.6 1.2L89 73.6l-1.2-2.6-2.6-1.2 2.6-1.2z" fill="#fff3c4"/>
+  <path d="M24 86l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" fill="#ffe08a"/>
+</svg>`;
+const frameChip = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#b38bff" stroke-width="12"/><circle cx="50" cy="50" r="22" fill="#241a46" stroke="#ffe08a" stroke-width="5"/><path d="M40 40a14 14 0 0 0 20 20 16 16 0 1 1-20-20z" fill="#ffe08a"/></svg>`;
+
+// "All 20 ribbons on a stage" rosette (new art: the five mode colours around a gold star)
+const rosette = `<svg viewBox="0 0 64 64" aria-hidden="true">
+  <path d="M22 40l-7 20 8-4 5 7 5-19z" fill="#ff4d8d" stroke="#b0245c" stroke-width="1.4"/>
+  <path d="M42 40l7 20-8-4-5 7-5-19z" fill="#2bb6a8" stroke="#1b7d74" stroke-width="1.4"/>
+  ${['#2bb6a8', '#ff9f1c', '#6c7a96', '#e0a800', '#ff4d8d'].map((c, i) => {
+    const a0 = (-90 + i * 72) * Math.PI / 180, a1 = (-90 + (i + 1) * 72) * Math.PI / 180, R = 22, cx = 32, cy = 28;
+    return `<path d="M${cx} ${cy}L${(cx + R * Math.cos(a0)).toFixed(1)} ${(cy + R * Math.sin(a0)).toFixed(1)}A${R} ${R} 0 0 1 ${(cx + R * Math.cos(a1)).toFixed(1)} ${(cy + R * Math.sin(a1)).toFixed(1)}z" fill="${c}" stroke="#fff" stroke-width="1.6"/>`;
+  }).join('')}
+  <circle cx="32" cy="28" r="13" fill="#fff8dc" stroke="#c99700" stroke-width="2"/>
+  <polygon points="32,19.5 34.6,25.2 40.6,25.6 36,29.6 37.4,35.5 32,32.3 26.6,35.5 28,29.6 23.4,25.6 29.4,25.2" fill="#ffc300" stroke="#8a5a00" stroke-width="1.2"/>
+</svg>`;
+
+function slot(g, i) {
+  const r = RAR[g.rar];
+  const isUr = g.rar === 'UR';
+  return `<button class="pf-slot${isUr ? ' is-ur' : ''}" style="--rarity:${r}" data-unit="${g.id}" data-hold-info="off" title="${g.name} · hold for build">
+    <img src="${P}${g.id}-card.webp" alt="">
+    <span class="rar">${isUr ? ur() : g.rar}</span>
+    ${g.p > 1 ? `<span class="pot">${pot(g.p)}</span>` : ''}
+    <span class="nm">${g.id === ME.fav.id ? `<span class="fav"><svg viewBox="0 0 24 24">${G.heart}</svg></span>` : ''}${g.name}</span>
+    <span class="ft"><span class="lv">Lv.<b>${g.lv}</b></span>${stars(g.st)}</span>
+    ${isUr ? urFrame() : ''}
+  </button>`;
+}
+
+const medal = (d, n, max) => `<div class="pf-tc"><img src="icons/medal-${d}.svg" alt=""><b>${n}<small>/${max}</small></b></div>`;
+const rib = (m, n) => `<div class="pf-tc rib"><img src="icons/mode-${m}.svg" alt=""><b>${n}</b></div>`;
+const plaque = (cls, art, t, s) => `<div class="pf-plaque ${cls}"><span class="pin"></span><span class="art">${art}</span><span class="tx"><b>${t}</b><span>${s}</span></span></div>`;
+const stat = (icon, color, val, max, label) => `<div class="pf-stat"><span class="ico" style="background:${color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${G[icon]}</svg></span><span><b>${val}${max ? `<small> /${max}</small>` : ''}</b><span>${label}</span></span></div>`;
+const STATS = [
+  stat('students', '#2b7fff', 15, 19, 'Students'),
+  stat('map', '#2bb673', 59, 59, 'Stages cleared'),
+  stat('bestiary', '#ff9f1c', '72%', '', 'Bestiary'),
+  stat('sword', '#ff7aa8', '25.3k', '', 'Enemies defeated'),
+].join('');
+
+function profile() {
+  const topActs = VISIT
+    ? `<button class="btn btn-primary btn-small">${ic('chat')}<span>Message</span></button>
+       <button class="btn btn-yellow btn-small">${ic('play')}<span><span class="pf-long">Invite to co-op</span><span class="pf-short">Co-op</span></span></button>
+       <button class="btn btn-ghost btn-small" title="Add friend">${ic('friend')}<span class="pf-long">Add friend</span></button>
+       <button class="btn btn-pink btn-small" title="Send a cheer stamp">${ic('stamp')}<span class="pf-long">Cheer</span></button>
+       <button class="topbar-icon" title="More: block, report">${ic('more', 'btn-icon')}</button>`
+    : `<button class="btn btn-ghost btn-small">${ic('eye')}<span>Preview</span></button><button class="btn btn-yellow btn-small">${ic('edit')}<span>Edit profile</span></button>`;
+  const ownHint = VISIT ? `${ic('hold')}Hold a girl to see her build` : `${ic('hold')}Tap to swap · hold for build`;
+  return `<div class="screen pf" data-screen="profile">
+  <div class="pf-banner"><img src="${ME.banner}" alt=""></div>
+  ${VISIT ? '' : `<button class="pf-onart pf-banner-edit">${ic('edit')}Banner</button>`}
+  <header class="topbar">
+    <button class="topbar-back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${G.back}</svg></button>
+    <div class="topbar-title">${VISIT ? `${ME.name}'s Profile` : 'Sensei Profile'}</div>
+    <div class="topbar-spacer"></div>
+    <div class="pf-top-acts">${topActs}</div>
+  </header>
+
+  <aside class="pf-fav">
+    <div class="pf-fav-halo"></div>
+    <div class="pf-fav-ring"></div>
+    ${[[8,18,20],[78,12,-30],[86,46,60],[14,62,-10],[70,74,35],[30,8,80]].map(([x,y,r])=>`<i class="pf-petal" style="left:${x}%;top:${y}%;transform:rotate(${r}deg)"></i>`).join('')}
+    <img class="pf-fav-cut" src="${P}${ME.fav.id}-cut.webp" alt="${ME.fav.name}">
+    <div class="pf-fav-plate">
+      <span class="pf-fav-kicker"><span class="tag-ribbon"><span>♥ Favorite</span></span></span>
+      ${VISIT ? '' : `<button class="pf-fav-swap" title="Choose your favorite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${G.refresh}</svg></button>`}
+      <div class="pf-fav-name">${ur()}<b>${ME.fav.name}</b></div>
+      <div class="pf-fav-sub">${ME.fav.title}</div>
+      <div class="pf-fav-meta"><span class="lv">Lv.<b>${ME.fav.lv}</b></span>${stars(ME.fav.st)}${pot(ME.fav.p)}</div>
+    </div>
+  </aside>
+
+  <main class="pf-main">
+    <section class="panel pf-id">
+      <div>
+        <div class="pf-ava">
+          <div class="pf-ava-img"><img src="${P}${ME.avatar}-thumb.webp" alt=""></div>
+          ${eclipseFrame}
+          ${VISIT ? '' : `<button class="pf-ava-edit" title="Picture and frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${G.edit}</svg></button>`}
+        </div>
+        <div class="pf-ava-cap">${ME.frame} frame</div>
+      </div>
+      <div class="pf-who">
+        <div class="pf-name-row"><span class="pf-name">${ME.name}</span><span class="pf-lv"><span><small>Lv.</small><b>${ME.level}</b></span></span></div>
+        <div class="pf-tags">
+          <span class="tag-ribbon pf-title"><span>${ME.title}</span></span>
+          <span class="pf-clan"><i>${ME.clan.tag}</i>${ME.clan.name}</span>
+          <span class="pf-since">Sensei since ${ME.since}</span>
+        </div>
+        <div class="pf-bio">${ME.bio}${VISIT ? '' : `<button class="pf-bio-edit" title="Edit bio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${G.edit}</svg></button>`}</div>
+
+      </div>
+      <div class="pf-stats">${STATS}</div>
+    </section>
+
+    <section class="panel pf-show">
+      <div class="panel-title pf-ph"><span>Showcase</span><span class="pf-count">8 / 8</span><span class="pf-hint">${ownHint}</span>${VISIT ? '' : '<button class="btn btn-ghost btn-small"><span>Edit</span></button>'}</div>
+      <div class="pf-show-row">${SHOW.map(slot).join('')}</div>
+    </section>
+
+    <div class="pf-grid2">
+      <section class="panel pf-trophy">
+        <div class="panel-title pf-ph"><span>Medals &amp; Ribbons</span><span class="pf-hint">${ic('trophy')}171 medals · 150 ribbons</span>${VISIT ? '' : '<button class="btn btn-ghost btn-small"><span>Pin</span></button>'}</div>
+        <div class="pf-tally">
+          <div class="pf-tally-grp"><div class="pf-tally-lbl">Medals <b>171 / 236</b></div>
+            <div class="pf-tally-row">${medal('easy', 59, 59)}${medal('normal', 59, 59)}${medal('hard', 41, 59)}${medal('nightmare', 12, 59)}</div></div>
+          <div class="pf-tally-sep"></div>
+          <div class="pf-tally-grp"><div class="pf-tally-lbl">Ribbons <b>150 / 800</b></div>
+            <div class="pf-tally-row">${rib('reverse', 48)}${rib('rush', 40)}${rib('ironclad', 22)}${rib('frugal', 31)}${rib('laststand', 9)}</div></div>
+        </div>
+        <div class="pf-shelf">
+          ${plaque('pink', '<img src="icons/medal-nightmare.svg" alt="">', 'Sakura Medal', 'Stage 8-5')}
+          ${plaque('', rosette, 'All 20 Ribbons', 'Stage 3-2')}
+          ${plaque('violet', '<img src="icons/mode-laststand.svg" alt="">', 'Last Petal', 'Nightmare 7-3')}
+          ${plaque('sky', '<img src="icons/medal-hard.svg" alt="">', 'Valedictorian', 'Achievement')}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-title pf-ph"><span>Freeplay Records</span></div>
+        <div class="pf-fp">
+          <div class="pf-fp-row"><span class="pf-tier blossom"><span>Blossom</span></span><span class="pf-fp-stage">5-4 Congregation</span><span class="pf-fp-wave">Wave <b>212</b></span></div>
+          <div class="pf-fp-row"><span class="pf-tier tempest"><span>Tempest</span></span><span class="pf-fp-stage">8-1 Wings over the Ascent</span><span class="pf-fp-wave">Wave <b>168</b></span></div>
+          <div class="pf-fp-row"><span class="pf-tier crimson"><span>Crimson Moon</span></span><span class="pf-fp-stage">7-3 Mirror Parade</span><span class="pf-fp-wave">Wave <b>121</b></span></div>
+          <div class="pf-fp-earned"><span class="pf-chip-title">✦ Ashwing Slayer</span><span class="pf-chip-title">✦ Crimson Slayer</span><span class="pf-chip-frame">${frameChip}Eclipse</span></div>
+        </div>
+      </section>
+    </div>
+    <section class="panel pf-records"><div class="panel-title pf-ph"><span>Records</span></div><div class="pf-mstats">${STATS}</div></section>
+  </main>
+</div>`;
+}
+
+// ---------------- Build sheet ----------------
+const GEAR = [
+  { slot: 'Charm', icon: 'gear-charm-legendary', rar: 'Legendary', color: '#ffb627', lv: 10, name: 'Fierce Pendant of the Eternal Sakura', main: ['ATK', '+24.2%'],
+    subs: [['Crit Rate', '+5.6%', 2], ['Crit DMG', '+14.2%', 1], ['Attack Speed', '+4.1%', 0], ['Armor Pierce', '+2', 0]] },
+  { slot: 'Ribbon', icon: 'gear-ribbon-mythic', rar: 'Mythic', color: '#ff5a7a', lv: 9, name: 'Clover Hairpin of the Crimson Moon', main: ['Crit Rate', '+11.8%'],
+    subs: [['ATK', '+5.5%', 1], ['Crit DMG', '+13.0%', 2], ['Range', '+3.4%', 0], ['Ult Haste', '+6.1%', 0]] },
+  { slot: 'Shoes', icon: 'gear-shoes-legendary', rar: 'Legendary', color: '#ffb627', lv: 10, name: 'Swift Sneakers of the Eternal Sakura', main: ['Attack Speed', '+16.4%'],
+    subs: [['ATK', '+6.2%', 1], ['Range', '+4.8%', 1], ['Crit Rate', '+4.4%', 1], ['Cost Reduction', '+3.1%', 0]] },
+];
+const gearCard = (g) => `<div class="bs-gc" style="--rarity:${g.color}">
+  <div class="bs-gc-head"><span class="bs-gc-ico"><img src="icons/${g.icon}.svg" alt=""></span>
+    <span class="bs-gc-tt"><span class="bs-gc-slot">${g.slot}<span class="bs-gc-rar">${g.rar}</span><span class="bs-gc-lv">+${g.lv}</span></span></span></div>
+  <div class="bs-gc-main"><span>${g.main[0]}</span><b>${g.main[1]}</b></div>
+  <ul class="bs-gc-subs">${g.subs.map(([s, v, u]) => `<li><span>${s}</span><b>${v}</b>${u ? `<em>${'▲'.repeat(u)}</em>` : ''}</li>`).join('')}</ul>
+</div>`;
+
+function buildSheet() {
+  const owner = VISIT ? ME.name : 'Mika';
+  return `<div class="bs-overlay"><div class="bs-sheet" role="dialog" aria-label="Luna — ${owner}'s build">
+  <div class="bs-head">
+    ${ur()}<span class="bs-name">Luna</span><span class="bs-sub">Moonlit Archmage</span>
+    <span class="bs-owner"><img src="${P}hikari-thumb.webp" alt="">${owner}'s build</span>
+    <div class="bs-meta"><span class="lv">Lv.<b>60</b><span class="muted"> / 60</span></span>${stars(5)}${pot(4)}<span class="bs-pow">${ic('sword')}1,312</span></div>
+    <button class="bs-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">${G.close}</svg></button>
+  </div>
+  <div class="bs-main">
+    <div class="bs-left">
+      <div class="bs-art"><img src="${P}luna-card.webp" alt="">${urFrame()}</div>
+      <div class="bs-outfit"><span>Outfit</span><b>Classic</b></div>
+      <div class="bs-sig"><b>✦ Silver Thread</b>+5% damage to elites<br><span>Signature · unlocks at P6</span></div>
+      <button class="bs-compare"><span>${VISIT ? 'Compare with mine' : 'Open her page'}</span></button>
+    </div>
+    <div class="bs-right">
+      <div class="bs-tabs"><button class="bs-tab on"><span>Build</span></button><button class="bs-tab"><span>Info</span></button><button class="bs-tab"><span>Upgrades</span></button></div>
+      <div class="bs-body">
+        <div class="bs-sec"><div class="bs-sec-t">Growth</div>
+          <div class="bs-growth">
+            <div class="bs-g"><span class="k">Breakthrough · Level</span><b>60<small> / 60</small></b><div class="bs-pips">${'<i class="on"></i>'.repeat(5)}</div></div>
+            <div class="bs-g"><span class="k">Awakening ${ur()}</span>${stars(5)}<span class="yours">Fully awakened</span></div>
+            <div class="bs-g"><span class="k">Potential</span><b>P4<small> / 6</small></b><div class="bs-pot-track"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="sig"></i></div></div>
+            <div class="bs-g"><span class="k">Power</span><b>1,312</b>${VISIT ? '<span class="yours">Your Luna: <b>Lv.40 · 940</b></span>' : '<span class="yours">Top of your showcase</span>'}</div>
+          </div>
+        </div>
+        <div class="bs-sec"><div class="bs-sec-t">Equipment<small>3 / 3 equipped</small></div>
+          <div class="bs-gear">${GEAR.map(gearCard).join('')}</div>
+        </div>
+        <div class="bs-sec"><div class="bs-sec-t">Gear totals</div>
+          <div class="bs-tot"><span>ATK <b>+35.9%</b></span><span>Crit Rate <b>+21.8%</b></span><span>Crit DMG <b>+27.2%</b></span><span>Attack Speed <b>+20.5%</b></span><span>Range <b>+8.2%</b></span><span>Ult Haste <b>+6.1%</b></span><span>Cost Reduction <b>+3.1%</b></span><span>Armor Pierce <b>+2</b></span></div>
+        </div>
+        <div class="bs-sec"><div class="bs-sec-t">Battle stats<small>before in-battle upgrades</small></div>
+          <div class="bs-stats">
+            <div class="bs-st"><span>Damage</span><b>418</b><em>+142%</em></div>
+            <div class="bs-st"><span>Attack speed</span><b>0.95/s</b><em>+24%</em></div>
+            <div class="bs-st"><span>Range</span><b>5.6</b><em>+11%</em></div>
+            <div class="bs-st"><span>Crit</span><b>29%</b><em>×1.77 dmg</em></div>
+            <div class="bs-st"><span>Cost</span><b>548</b><em>−3%</em></div>
+          </div>
+        </div>
+        <div class="bs-foot">${ic('info')}Shared from ${owner}'s save on Oct 15 · numbers are what her game reported</div>
+      </div>
+    </div>
+  </div>
+</div></div>`;
+}
+
+
+// ---------------- Edit Showcase sheet (own profile → Showcase "Edit") ----------------
+const OWNED = [
+  ['luna', 'UR', 60, 1312], ['hikari', 'UR', 60, 1240], ['nami', 'SR', 60, 1105], ['kaede', 'SSR', 55, 1080], ['chika', 'SSR', 50, 990],
+  ['hotaru', 'SSR', 50, 970], ['sango', 'SR', 50, 902], ['miko', 'SR', 45, 820], ['shiro', 'SR', 45, 805], ['raika', 'SR', 40, 760],
+  ['akane', 'SR', 40, 742], ['aoi', 'R', 50, 690], ['yuki', 'R', 45, 640], ['rei', 'R', 40, 600], ['momo', 'R', 30, 470],
+];
+const NAMES = { luna: 'Luna', hikari: 'Hikari', nami: 'Nami', kaede: 'Kaede', chika: 'Chika', hotaru: 'Hotaru', sango: 'Sango', miko: 'Miko', shiro: 'Shiro', raika: 'Raika', akane: 'Akane', aoi: 'Aoi', yuki: 'Yuki', rei: 'Rei', momo: 'Momo' };
+function editSheet() {
+  const picked = ['luna', 'hikari', 'kaede', 'chika', 'nami', 'sango'];
+  const slots = Array.from({ length: 8 }, (_, i) => picked[i] || null);
+  const eslot = (id, i) => id ? `<div class="es-slot" style="--rarity:${RAR[OWNED.find((o) => o[0] === id)[1]]}">
+      <img src="${P}${id}-thumb.webp" alt=""><span class="es-n">${i + 1}</span>
+      <button class="es-x" aria-label="Remove">${ic('close')}</button><span class="es-grip"><i></i><i></i><i></i></span>
+      <span class="es-nm">${NAMES[id]}</span></div>`
+    : `<div class="es-slot empty"><span class="es-n">${i + 1}</span>${ic('plus')}<span class="es-nm">Add</span></div>`;
+  const pick = ([id, r, lv, pw]) => {
+    const at = picked.indexOf(id);
+    return `<button class="es-pick${at >= 0 ? ' on' : ''}" style="--rarity:${RAR[r]}"><img src="${P}${id}-thumb.webp" alt="">
+      <span class="es-lv">Lv.${lv}</span>${at >= 0 ? `<span class="es-on">${at + 1}</span>` : ''}<span class="es-pw">${ic('sword')}${pw}</span></button>`;
+  };
+  return `<div class="bs-overlay"><div class="bs-sheet es-sheet" role="dialog" aria-label="Edit showcase">
+    <div class="bs-head"><span class="bs-name">Edit Showcase</span><span class="pf-count es-count">6 / 8</span>
+      <span class="es-tip">${ic('hold')}Drag to reorder · × to remove · tap a girl to add · hold for her build</span>
+      <button class="bs-x" aria-label="Close" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">${G.close}</svg></button></div>
+    <div class="es-body">
+      <div class="es-row">${slots.map(eslot).join('')}</div>
+      <div class="es-bar"><span class="es-bar-t">Your students</span>
+        <span class="es-sort"><button class="on">Power</button><button>Rarity</button><button>Level</button></span>
+        <span class="es-note">Only girls you own · the picture is taken when you save</span></div>
+      <div class="es-grid">${OWNED.map(pick).join('')}</div>
+    </div>
+    <div class="es-foot"><button class="btn btn-ghost btn-small"><span>Auto-fill by power</span></button><span class="es-spacer"></span><button class="btn btn-ghost btn-small"><span>Cancel</span></button><button class="btn btn-yellow"><span>Save showcase</span></button></div>
+  </div></div>`;
+}
+
+// ---------------- Edit Profile sheet (top bar "Edit profile"; Bio tab shown) ----------------
+function editProfile() {
+  const nav = [['edit', 'Bio', 1], ['students', 'Picture'], ['map', 'Banner'], ['sparkle', 'Title'], ['heart', 'Favorite'], ['eye', 'Privacy']];
+  return `<div class="bs-overlay"><div class="bs-sheet ep-sheet" role="dialog" aria-label="Edit profile">
+    <div class="bs-head"><span class="bs-name">Edit Profile</span><button class="bs-x" aria-label="Close" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">${G.close}</svg></button></div>
+    <div class="ep-main">
+      <nav class="ep-nav">${nav.map(([i, t, on]) => `<button class="${on ? 'on' : ''}">${ic(i)}<span>${t}</span></button>`).join('')}</nav>
+      <div class="ep-body">
+        <div class="ep-lbl">Bio<small>Shown on your profile to other Senseis</small></div>
+        <div class="ep-text">Luna main! Chasing every ribbon, one stage at a time. Crimson Moon co-op anyone?<span class="caret"></span><span class="cnt">80 / 80</span></div>
+        <div class="ep-warn">${ic('info')}<span>No links, emails, phone numbers or social handles, and no real names or school names. Be kind: other Senseis can report a bio.</span></div>
+        <div class="ep-sec"><div class="ep-lbl">Quick lines<small>Tap one to use it</small></div>
+          <div class="ep-chips"><button>Looking for co-op buddies!</button><button>Collecting every ribbon ✦</button><button>Say hi in clan chat!</button><button>Nightmare grinder</button><button>New Sensei, be nice ♥</button><button>Freeplay forever</button></div></div>
+        <div class="ep-sec"><div class="ep-lbl">Name<small>Your online name · 3 changes a day</small></div>
+          <div class="ep-card-row"><span class="pf-clan" style="padding:4px 12px">Mika</span><button class="btn btn-ghost btn-small"><span>Change name</span></button></div></div>
+      </div>
+      <aside class="ep-prev"><span class="ep-prev-t">Preview</span>
+        <div class="ep-card"><div class="ep-card-bn"><img src="${ME.banner}" alt=""></div>
+          <div class="ep-card-in">
+            <div class="ep-card-row"><div class="pf-ava"><div class="pf-ava-img"><img src="${P}${ME.avatar}-thumb.webp" alt=""></div>${eclipseFrame}</div>
+              <div style="min-width:0"><div class="pf-name-row"><span class="pf-name">Mika</span><span class="pf-lv"><span><small>Lv.</small><b>47</b></span></span></div></div></div>
+            <div class="pf-tags"><span class="tag-ribbon pf-title"><span>Ashwing Slayer</span></span></div>
+            <div class="pf-bio">Luna main! Chasing every ribbon, one stage at a time. Crimson Moon co-op anyone?</div>
+          </div></div>
+        <span class="ep-help">Others see this after you save. Your gems, pulls, mail, friend code and saves are never shown.</span>
+      </aside>
+    </div>
+    <div class="ep-foot"><span class="muted">Saved to your game; published when you are online</span><span class="es-spacer"></span><button class="btn btn-ghost btn-small"><span>Cancel</span></button><button class="btn btn-yellow"><span>Save</span></button></div>
+  </div></div>`;
+}
+
+document.getElementById('app').innerHTML = profile() + (BUILD ? buildSheet() : '') + (EDIT ? editSheet() : '') + (EDITP ? editProfile() : '');
+</script>
+</body>
+</html>
