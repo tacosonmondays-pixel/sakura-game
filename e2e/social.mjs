@@ -530,6 +530,15 @@ try {
   await shot(A, 'menu-messages');
   await A.keyboard.press('Escape').catch(() => {});
   await A.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+  // the lobby chat drawer: its Messages button (no unread now) reads "Messages", never "Messagesnull"
+  await tap(A, '[data-testid="top-chat"]');
+  const dmBtn = await A.waitForFunction(() => {
+    const b = document.querySelector('[data-testid="drawer-messages"]');
+    return b && !b.hidden ? b.innerText.trim() : null;
+  }, null, { timeout: 10000 }).then((hnd) => hnd.jsonValue()).catch(() => '');
+  check(dmBtn !== '' && !/null|undefined/i.test(dmBtn), `chat drawer: the Messages button reads "${dmBtn}" (no "null")`);
+  await shot(A, 'chat-drawer-messages');
+  await tap(A, '[data-testid="drawer-close"]').catch(() => {});
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
 

@@ -232,7 +232,8 @@ export async function openChatDrawer() {
   const dms = h('button.ol-drawer-full.sc-drawer-dm', { 'data-testid': 'drawer-messages', hidden: !hub.ready, onclick: () => { close(); navigate('messages'); }, title: 'Private messages' }, 'Messages');
   const paintDms = () => {
     dms.hidden = !hub.ready;
-    dms.replaceChildren('Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null);
+    // replaceChildren(null) would print the word "null" next to Messages
+    dms.replaceChildren(...['Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null].filter(Boolean));
   };
   paintDms();
   const offDms = [hub.on('badges', paintDms), hub.on('status', paintDms)];

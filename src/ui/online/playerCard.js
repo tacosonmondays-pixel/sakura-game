@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { getBackend } from '../../online/backend.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
+import { DEV_CLAN } from '../../online/clanRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
 import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
 import { makeRoomCode, getSession } from '../../online/coop/session.js';
@@ -91,7 +92,9 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       paintSelf();
       return;
     }
-    const why = c.canMessage ? null : whyText(c.why, c.name, { myPrivacy: c.myPrivacy, friend: c.friend === 'friends' });
+    // the server shows the developer clan only to a viewer inside it, and never counts it as a clan for contact
+    const devClan = !!c.clan && c.clan.tag === DEV_CLAN.tag && c.clan.name === DEV_CLAN.name;
+    const why = c.canMessage ? null : whyText(c.why, c.name, { myPrivacy: c.myPrivacy, friend: c.friend === 'friends', devClan });
     const msg = button('Message', { kind: 'primary', icon: 'chat', testid: 'card-message', disabled: !c.canMessage && !c.threadId, onClick: () => { m.close(); openConversation(c); } });
     // already my ally in the co-op room I am in: no second room (that would leave this one)
     const s = getSession();
@@ -109,7 +112,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     acts.replaceChildren(...[
       h('div.sc-card-row', msg, coop),
       why ? h('p.sc-card-why', { 'data-testid': 'card-why' }, why) : null,
-      friendRow(c),
+      friendRow(c, devClan),
       h('div.sc-card-foot',
         c.blockedByMe
           ? button('Unblock', { kind: 'ghost', small: true, testid: 'card-unblock', onClick: () => act(() => getBackend().unblock(c.userId), () => setBlocked(c.userId, false), `${c.name} is unblocked.`) })
@@ -118,7 +121,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     ].filter(Boolean));
   }
 
-  function friendRow(c) {
+  function friendRow(c, devClan = false) {
     const b = getBackend();
     let el;
     if (c.friend === 'friends') {
@@ -144,8 +147,12 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       el = button('Add friend', { kind: 'pink', small: true, icon: 'plus', testid: 'card-add-friend', disabled: !c.canFriend, onClick: () => act(() => b.addFriend(c.userId), null, 'Friend request sent.') });
     }
     // (a block is said once, by the message line above: never twice)
-    const fwhy = c.friend === 'none' && !c.canFriend && c.friendWhy !== 'blocked_by_me' ? friendWhyText(c.friendWhy, c.name) : '';
-    return h('div.sc-card-friend', el, fwhy ? h('p.sc-card-why', { 'data-testid': 'card-friend-why' }, fwhy) : null);
+    const fwhy = c.friend === 'none' && !c.canFriend && c.friendWhy !== 'blocked_by_me' ? friendWhyText(c.friendWhy, c.name, { devClan }) : '';
+    // no direct way to add them: something to tap instead of a greyed-out card (Messages → Friends has the code box)
+    const byCode = c.friend === 'none' && c.friendWhy === 'context'
+      ? button('Add with a friend code', { kind: 'ghost', small: true, icon: 'plus', testid: 'card-add-by-code', onClick: () => { m.close(); navigate('messages', { tab: 'friends' }); } })
+      : null;
+    return h('div.sc-card-friend', byCode ? h('div.sc-card-row.sc-card-friend-row', el, byCode) : el, fwhy ? h('p.sc-card-why', { 'data-testid': 'card-friend-why' }, fwhy) : null);
   }
 
   async function paintSelf() {
