@@ -1,5 +1,5 @@
 // Missions hub (owner: ui). Route: #/missions — opened by the lobby's Campaign button.
-// Blue Archive mission-menu layout: the secretary's drawn stand bottom-left (bleeding off the
+// Academy-style mission-menu layout: the secretary's drawn stand bottom-left (bleeding off the
 // edge) over the painted academy (dimmed, blurred), and a grid of slanted tiles on the right, each
 // filled with a scenic backdrop (no girls on the tiles): Mission (the painted academy · chapter,
 // next stage, quick start), Bounty (this week's double-drop arena), Total Assault, Tactical
