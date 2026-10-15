@@ -33,9 +33,10 @@ export const PATCH_NOTES = [
       'The pause menu’s Save & quit keeps your battle for later. Endless runs can also End run, which pays what a defeat at that wave would.',
       'New accounts get their free 10-pull from Hikari in the Mail after clearing 1-3. On new accounts, Equipment and Awakening open later in the campaign, each with a lesson from Hikari.',
       'The Notice shows a red dot while a patch gift is waiting for you.',
+      'Duplicate recruits of a girl you already have are now counted for her (your earlier recruits too), ready for Potential in a coming update. Nothing changes in battle yet.',
     ],
     fixed: [
-      'On stage prep, the rarity, level and name on the small team cards no longer overlap.',
+      'On stage prep, the rarity, level and name on the small team cards (UR girls’ too) no longer overlap.',
     ],
   },
   {
