@@ -53,7 +53,11 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
   (the 'stale' event's reason is `'battle-save'`: a modal in main.js). Since v0.1.29 every save also
   carries a revision (`saveRev`, src/core/store.js): any save by another tab stops an older tab's
   writes too, with the "Open in another tab" pill instead of the modal (reason `'another-tab'`). The
-  run check still covers a write without a revision (a tab on an older build).
+  run check still covers a write without a revision (a tab on an older build). During an update such
+  a tab writes its whole older profile when it is hidden or closed: a tab on this build that saved with
+  revisions puts its own save back at once (storage event), and a tab that loaded that older save and
+  saved revision 1, 2, … below another tab's revision turns that other tab stale instead of being
+  overwritten by it.
 - **No rerolls.** Each wave of a saved run plays on its own random stream `hash(run seed, wave)`
   (`useWaveStream`), so continuing at a wave start replays the same luck; drops come from
   `battleDropSeed(stage, difficulty, run seed)`, so finishing the same run twice (an older copy of the

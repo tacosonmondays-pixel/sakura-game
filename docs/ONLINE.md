@@ -920,7 +920,8 @@ The vitest suite covers:
   including the same verifier and judge scenarios.
 - `tests/core/storeTabs.test.js`: two open tabs on one save (two stores, one storage, the real
   donation ledger): an older tab never writes over a newer save (it turns stale and shows "Open in
-  another tab — reload"), the donation ledger re-reads the newest save, one tab alone is unchanged.
+  another tab — reload"), the donation ledger re-reads the newest save, one tab alone is unchanged;
+  during an update a tab still on the older build (no revisions) can no longer roll the ledger back.
 - `socialRules.test.js`, `donateLedger.test.js` (escrow / refund / settle / claim replay after a crash at
   every step), `backendSocial.test.js` (the deploy order: `needs_update` without a request, chat and clans
   unaffected), `tests/core/reset.test.js` (the game clock) and `tests/ui/social.test.js` (pop-up rules,
