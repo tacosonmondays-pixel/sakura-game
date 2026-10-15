@@ -217,7 +217,7 @@ Save these for later because I’m almost out of usage!! I want the chibi to loo
 
 Owner asked for: Blue Archive–style UI overhaul (menus, transitions, animations); brand-new music
 (orchestral to cute); audit that every earlier request was really implemented; global chat, transfer
-codes, clans, and a dev clan joinable with code **Rosie777** whose bot grants materials in any quantity;
+codes, clans, and a dev clan joinable with the developer clan's private code (set by the owner in the database) whose bot grants materials in any quantity;
 proper icons for every material; backpack organised by item category instead of rarity; Chibis v2
 following the reference videos (third link = dinosaur-hoodie chibi modeling time-lapse is the main
 target); Maps v2 as vibrant and alive as Bloons TD6 with better shaders/animation; harder difficulty
@@ -240,14 +240,14 @@ Recommendations from that chat worth building (owner asked "any other mechanics?
 - Roguelite expeditions with run-only modifiers and temporary recruits.
 - Equal-roster puzzle challenges with share codes; tactical lab sandbox with damage breakdowns; formation blueprints.
 - Progression planner (pin goals, see missing materials and conflicts); sweep for mastered farm stages; fast restart.
-- Dev clan Rosie777 as a clearly marked developer sandbox; transfer codes treated like account access.
+- Dev clan (joined with the developer clan's private code (set by the owner in the database)) as a clearly marked developer sandbox; transfer codes treated like account access.
 
 ## Phase 2 backlog (not in the first rebuild pass)
 - Kawaii tutorial with Hikari in a text box; start with one tower, unlock more gradually; free 10-pull after a few stages; mechanic tutorials (upgrades, bestiary, awakening) at the right moments.
 - City hub (large, walkable) where girls appear as you unlock them; buildings as icons that teleport you inside; pick up girls (they wriggle); decor customisation; "play mode" with UI hidden.
 - Original WebAudio soundtrack + SFX; settings for graphics/sound.
 - Energy for resource/boss stages (owner asked for it) with generous regen; banner rotation daily at 7pm CST; separate tower and hero banners.
-- Redemption/dev codes: the developer gem code (removed; summon currency), reset 67 (reset progress → tutorial), Rosie777 dev clan supply bot.
+- Redemption/dev codes: the developer gem code (removed; summon currency), reset 67 (reset progress → tutorial), dev clan supply bot (joined with the developer clan's private code (set by the owner in the database)).
 - Anti-tamper save (checksum/signature; honest note: client-only games cannot be fully cheat-proof).
 - PWA install (home-screen app), friends can play without sign-in (GitHub Pages).
 - Events: login rewards, event stages with temporary currency, visual-novel mini stories (beach day, wholesome comedy), event boss, event shop, event outfits (cute summer outfits; no sexualised swimsuits for the academy girls).

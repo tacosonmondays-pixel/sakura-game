@@ -295,7 +295,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | L-06 | Super-hard event boss, F2P-possible, play-tested, top-percent reward (C40) | MISSING | DONE Seaglass Leviathan 12 waves, needs 20 clears; automated F2P clear at Lv28 (`summer-content.js` L154; HO L123-126) | P2 | |
 | L-07 | "Sexy bikini" outfits/hero, "Japanese summer fan service" (C40; CL 10-05 09:09) | DECLINED for students and any chibi body (see §3) | old shipped 3 beach GLBs | — | |
 | L-08 | Global chat, transfer codes, clans (RM L8) | MISSING (only manual save export/import code in Settings) | MISSING (server recovery code only, `req-pretty/app.js` L2746) | P2 | Needs a backend (ChatGPT suggested Nakama). |
-| L-09 | Dev clan joinable with code **Rosie777**; bot grants materials in any quantity (RM L8) | MISSING | MISSING | P2 | Until a backend exists: a clearly marked local dev panel behind ROSIE777, separate from normal progression — needs owner OK. |
+| L-09 | Dev clan joinable with the developer clan's private code (set by the owner in the database); bot grants materials in any quantity (RM L8) | MISSING | MISSING | P2 | Until a backend exists: a clearly marked local dev panel behind that code, separate from normal progression — needs owner OK. |
 | L-10 | Clan expeditions, live co-op (REC) | MISSING | MISSING | P2 | |
 
 ### 2.10 Story & tutorial
@@ -312,7 +312,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 |---|---|---|---|---|---|
 | K-01 | The developer gem code (removed) → 999,999 summon currency (C6), once per save (HO L65) | REMOVED 2026-10-15 (was `src/data/missions.js`, 999,999 gems, once; `src/systems/missions.js` L261-279, case/space-insensitive) | DONE (999,999 Starlight once) | P1 test | See G-03. |
 | K-02 | `reset 67` → reset progress, back to main menu **and tutorial** (C30); keep device settings (HO L87-92) | PARTIAL: `RESET67` resets and goes to the lobby (`commissions.js` L294-303); there is no tutorial; `store.reset()` = `createProfile()` (`src/core/store.js` L108-110) also wipes graphics/audio settings | DONE (`oldgame/reset-code.js`; returns to Hikari's tutorial; keeps device settings) | P1 | Preserve `settings` on reset; route to the tutorial. |
-| K-03 | `Rosie777` dev clan (RM L8) → L-09 | | | P2 | |
+| K-03 | Dev clan with the developer clan's private code (set by the owner in the database) (RM L8) → L-09 | | | P2 | |
 
 ### 2.12 Audio
 
@@ -370,7 +370,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | V2 Blender girls as the roster | V2 | Superseded: old characters main, V2 = skins/future units (O7 17:01, 17:25). |
 | Old enemies | Codex | Superseded by NEW's 74 GLB enemies (owner left it open; combat report recommends). |
 | Unity / engine switch | O7 16:44-16:45; RM L14 | Not now. |
-| Global chat / clans / transfer codes / Rosie777 bot | RM L8 | Need a backend; told to the owner CL 10-05 08:58. |
+| Global chat / clans / transfer codes / dev clan bot | RM L8 | Need a backend; told to the owner CL 10-05 08:58. |
 | Energy | C15 | NEW silently dropped it; OLD has it → ask the owner (D-d). |
 
 **Decisions the lead must make (or ask the owner):**

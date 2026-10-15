@@ -187,8 +187,8 @@ Requested next work includes a Blue Archive-inspired full interface/motion
 overhaul, icons for all resources, category-first backpack organization,
 Hikari matching the third video, better map art/shaders/animation, difficulty
 and economy diagnosis, new cute/orchestral music, and improved connected systems.
-Accounts, transfer-code policy, global/clan chat, moderation and the Rosie777
-developer-clan material bot remain roadmap items, not certified live features.
+Accounts, transfer-code policy, global/clan chat, moderation and the developer-clan
+material bot (joined with the developer clan's private code (set by the owner in the database)) remain roadmap items, not certified live features.
 The suggested developer-sandbox separation is a design recommendation in the
 audit; it was not an implemented change or an additional user approval here.
 Use source inspection and actual interaction evidence to mark each request done.
