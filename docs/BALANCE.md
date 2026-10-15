@@ -84,7 +84,9 @@ bot (as today; it is won when the bot buys hero levels, spec §6.1).
 | Hard | 30/40 | **26/40** | — | 2-3, 2-4, 7-3, 7-5 |
 | Nightmare | 0/40 | **3/40** | 1-1, 1-2, 1-3 | — |
 
-**First-clear gems reachable earlier for a free player (Q2, shipped as measured, the default):**
+**Owner, 2026-10-15: approved ("Sure ship"); the Hard change (30 → 26 wins) accepted; one HP-pass re-fit at the train-C combined pass is fine.**
+
+**First-clear gems reachable earlier for a free player (Q2, shipped as measured):**
 Nightmare +3 stages × 100 = **+300 gems** reachable earlier (and sweeping of those stages); Hard 4 stages
 × 60 = 240 gems now need more levels or gear than before. Once per account; the medal budget
 (220 gems × 40 stages) is unchanged. The spec measured the rework **without** the HP pass at +760
