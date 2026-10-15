@@ -1,7 +1,7 @@
 // The local adapter's social "server" (adapters/localSocial.js, mixed into localDb) runs the same
 // scenarios as the PGlite run of supabase/migrations/20261013000000_social.sql
 // (socialSchema.test.js): privacy with no settings row / no clan, the 72 h clan rule, friends need
-// a shared context or the code, blocks look like privacy, DMs + invites, reports + qualified
+// anyone may ask (or use the code), blocks look like privacy, DMs + invites, reports + qualified
 // auto-mute, and the material requests / donations on the 7 PM Central game day with key
 // idempotency. Plus the "server not updated yet" switch (features.social = false).
 import { describe, it, expect } from 'vitest';
@@ -89,7 +89,8 @@ describe('local social server: privacy, friends, blocks', () => {
     const { db } = env;
     let card = db.playerCard('A', 'B');
     // no settings row: the default, Friends only (M4)
-    expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: false, friendWhy: 'context', clan: null });
+    // anyone may ask to be friends (owner, 2026-10-15); messages still need a friendship
+    expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: true, friendWhy: null, clan: null });
     expect(err(() => db.sendDm('A', 'B', 'hi')).code).toBe('forbidden');
     // the developer clan: no DMs, no friend context
     db.joinByCode('A', 'Rosie777');
@@ -97,7 +98,7 @@ describe('local social server: privacy, friends, blocks', () => {
     env.edit((s) => { for (const m of Object.values(s.members)) m.joinedAt -= 200 * H; });
     card = db.playerCard('A', 'B');
     expect(card.canMessage).toBe(false);
-    expect(card.friendWhy).toBe('context');
+    expect(card.canFriend).toBe(true);
     db.leaveClan('A');
     db.leaveClan('B');
     // a fresh clan: "clan_new" until both spent 72 h in it
@@ -134,10 +135,22 @@ describe('local social server: privacy, friends, blocks', () => {
     expect(err(() => db.setPrivacy('A', 'everyone')).code).toBe('invalid');
   });
 
-  it('friend requests need a shared context or the code; declines swallow repeats; outgoing hides ids', () => {
+  it('anyone may ask to be friends (no clan, co-op or code needed); the other player still decides', () => {
+    const { db } = setup();
+    expect(db.playerCard('C', 'D')).toMatchObject({ friend: 'none', canFriend: true, friendWhy: null });
+    expect(db.addFriend('C', 'D').state).toBe('requested');
+    const inc = db.friendRequests('D').incoming;
+    expect(inc).toHaveLength(1);
+    expect(inc[0]).toMatchObject({ userId: 'C', name: 'Cleo', via: 'any' });
+    // still no DMs until D accepts
+    expect(err(() => db.sendDm('C', 'D', 'hi')).code).toBe('forbidden');
+    db.answerFriend('D', inc[0].id, true);
+    expect(db.playerCard('C', 'D').friend).toBe('friends');
+  });
+
+  it('friend codes; declines swallow repeats; outgoing hides ids', () => {
     const env = setup();
     const { db } = env;
-    expect(err(() => db.addFriend('C', 'D')).message).toMatch(/friend code/);
     const { code } = db.myFriendCode('D');
     expect(code).toMatch(/^[A-Z2-9]{8}$/);
     const r = db.addFriendByCode('C', ` ${code.slice(0, 4).toLowerCase()}-${code.slice(4)} `);
@@ -170,7 +183,7 @@ describe('local social server: privacy, friends, blocks', () => {
     expect(db.playerCard('B', 'A').canFriend).toBe(true);
     expect(db.addFriend('B', 'A').state).toBe('requested');
     env.clock.t += 8 * DAY;
-    expect(db.playerCard('E', 'A').friendWhy).toBe('context');
+    expect(db.playerCard('E', 'A').canFriend).toBe(true);
   });
 
   it('blocking: hides the conversation, refuses rooms, swallows requests, and only the blocker can undo it', () => {

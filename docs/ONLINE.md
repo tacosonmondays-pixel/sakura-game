@@ -13,7 +13,7 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Developer clan | Clan → Join with a code → `Rosie777` | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
 | Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
-| Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends (and, for players who choose Friends & clan, clanmates after 3 days in the same clan), unread badges, live delivery, block, report (press and hold a message to report that one), "Who can message me" (Friends only — the default · Friends & clan · Nobody). Friends by request (clanmates, recent co-op partners) or by friend code (`K7Q2-ZP4M`) |
+| Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends (and, for players who choose Friends & clan, clanmates after 3 days in the same clan), unread badges, live delivery, block, report (press and hold a message to report that one), "Who can message me" (Friends only — the default · Friends & clan · Nobody). Friends by request (from any player card, global chat included) or by friend code (`K7Q2-ZP4M`) |
 | Co-op invites by DM | a conversation's **Invite to co-op**, a player card, or the room lobby's **Invite a friend** | Opens a room for you as host and sends the invite once the server registered it; the friend gets a pop-up on any screen with **Join** (no code typing). Invites expire after 15 min or when the room closes or fills (a host's **Leave** keeps the room for "Your last room", so an invite into it stays good until it expires) |
 | Clan requests | Clan → Requests | Once per game day ask your clan for one material; clanmates donate from their own backpacks (30 donation points a day each, +50 coins and +1 clan XP per point); collect what arrived with one tap. Everything resets at **7 PM Central** |
 
@@ -236,8 +236,10 @@ young, so the defaults are the safe ones.
     clanmates can message each other" (strangers — no setting allows them), the viewer's *own* setting
     (Friends only / Nobody, sent as `myPrivacy`), "clanmates after 3 days", or "X isn't taking messages
     right now" for a friend whose side says no (a block and a setting read the same).
-- **Friends.** Mutual (request → accept). A request needs a shared context: the same clan, a co-op game
-  together in the last 7 days, or the friend code. Requests carry no text, only the sender's name as it
+- **Friends.** Mutual (request → accept). Anyone may ask from a player card anywhere, global chat
+  included (owner, 2026-10-15: `20261015000000_social_open_friends.sql`; before it a request needed the
+  same clan, a co-op game in the last 7 days, or the friend code). The request is stored with how it came
+  (`clan`, `coop`, `code`, or `any`). Requests carry no text, only the sender's name as it
   was when sent (names can change 3 times a day). A declined, blocked or "Nobody" request is silently
   swallowed for 30 days (the sender still sees "Requested"); a full queue (30) drops its oldest request.
   A cancelled request stays as a tombstone: asking again within a day is swallowed too (request → cancel
