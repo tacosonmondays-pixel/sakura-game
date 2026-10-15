@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createLocalDb } from '../../src/online/adapters/localDb.js';
 import { OnlineError } from '../../src/online/errors.js';
-import { weekKey, bossHitCap, bossMaxHp, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS } from '../../src/online/clanRules.js';
+import { weekKey, bossHitCap, bossMaxHp, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS, LOCAL_DEV_CODE } from '../../src/online/clanRules.js';
 
 function setup() {
   let stored = null;
@@ -131,9 +131,9 @@ describe('local adapter db', () => {
     expect(e.retryMs).toBeGreaterThan(9 * 60000);
   });
 
-  it('Rosie777 joins the hidden developer clan', async () => {
+  it('the local test code joins the hidden developer clan', async () => {
     expect(db.listClans('A').some((c) => c.isDev)).toBe(false);
-    const c = db.joinByCode('A', 'rosie777');
+    const c = db.joinByCode('A', LOCAL_DEV_CODE.toLowerCase());
     expect(c.isDev).toBe(true);
     expect(c.name).toBe('Sakura Dev Lab');
     expect(db.myClan('A').clan.isDev).toBe(true);
@@ -142,10 +142,30 @@ describe('local adapter db', () => {
 
   it('invite codes cannot be brute-forced: wrong guesses count (and are saved)', async () => {
     for (let i = 0; i < 10; i++) expect((await code(() => db.joinByCode('B', `GUESS${i}`))).code).toBe('not_found');
-    const e = await code(() => db.joinByCode('B', 'Rosie777')); // the 11th try, even the right code
+    const e = await code(() => db.joinByCode('B', LOCAL_DEV_CODE)); // the 11th try, even the right code
     expect(e.code).toBe('rate_limited');
     clock.t += 3600 * 1000 + 1;
-    expect(db.joinByCode('B', 'Rosie777').isDev).toBe(true);
+    expect(db.joinByCode('B', LOCAL_DEV_CODE).isDev).toBe(true);
+  });
+
+  it('the developer clan code: this build\'s only (a stored older code is replaced), none in production', async () => {
+    let stored = null;
+    const io = { read: () => (stored ? JSON.parse(stored) : null), write: (s) => { stored = JSON.stringify(s); } };
+    const dev = createLocalDb(io);
+    dev.signIn('A', { name: 'Aiko', level: 1, avatar: 'aoi' });
+    // a browser that stored an older code: the next transaction puts this build's code back
+    const s = JSON.parse(stored);
+    s.clans['dev-lab'].joinCode = 'OLD-LOCAL';
+    stored = JSON.stringify(s);
+    expect((await code(() => dev.joinByCode('A', 'old-local'))).code).toBe('not_found');
+    expect(dev.joinByCode('A', LOCAL_DEV_CODE).isDev).toBe(true);
+    // a production build (devCode null): the local backend's developer clan has no code at all,
+    // so ?online=local on the live site cannot open the Supply Bot
+    const prod = createLocalDb({ ...io, devCode: null });
+    prod.signIn('B', { name: 'Bea', level: 1, avatar: 'rei' });
+    expect((await code(() => prod.joinByCode('B', LOCAL_DEV_CODE))).code).toBe('not_found');
+    expect((await code(() => prod.joinByCode('B', ''))).code).toBe('not_found');
+    expect(prod.listClans('B').some((c) => c.isDev)).toBe(false);
   });
 
   /** Starts a clan boss battle, lets `secs` of it run, submits `dmg`. */

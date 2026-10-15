@@ -1,5 +1,6 @@
-// #/clan — clans. Without a clan: browse / search, create, join by code (Rosie777 opens the
-// developer clan), and "Donations waiting for you" when a former clan left some. With a clan
+// #/clan — clans. Without a clan: browse / search, create, join by code (the developer clan's
+// private code, set by the owner in the database, opens the developer clan), and "Donations
+// waiting for you" when a former clan left some. With a clan
 // (#/clan or #/clan/<id>?tab=…): header with level and XP, and tabs Members · Chat · Requests
 // (tab id 'donate': material requests + donations) · Clan Boss · Applicants (leaders/officers;
 // tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).

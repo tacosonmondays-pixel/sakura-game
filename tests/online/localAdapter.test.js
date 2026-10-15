@@ -4,6 +4,7 @@
 // girl, and their state hashes must match.
 import { describe, it, expect, vi } from 'vitest';
 import { createLocalAdapter } from '../../src/online/adapters/local.js';
+import { LOCAL_DEV_CODE } from '../../src/online/clanRules.js';
 import { openSession } from '../../src/online/coop/session.js';
 import { quantize } from '../../src/online/coop/commands.js';
 import { COOP, COOP_NET } from '../../src/data/coop.js';
@@ -94,7 +95,7 @@ describe('local adapter (two tabs of one browser)', () => {
     expect((await tabA.members(clan.id)).map((m) => m.name).sort()).toEqual(['Aiko', 'Bea']);
     expect((await tabB.myClan()).clan.memberCount).toBe(2);
     await tabB.leaveClan();
-    const dev = await tabB.joinByCode('ROSIE777');
+    const dev = await tabB.joinByCode(LOCAL_DEV_CODE.toLowerCase());
     expect(dev.isDev).toBe(true);
     expect((await tabA.listClans()).some((c) => c.isDev)).toBe(false);
   });

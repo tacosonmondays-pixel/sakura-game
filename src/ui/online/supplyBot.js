@@ -1,4 +1,4 @@
-// Supply Bot — the developer clan's sandbox (owner request: the Rosie777 clan's bot grants
+// Supply Bot — the developer clan's sandbox (owner request: the developer clan's bot grants
 // materials in any quantity). Clearly labelled as a developer tool; grants go straight into the
 // local save (addItems + store.commit), like every other reward.
 import '../styles/online.css';
