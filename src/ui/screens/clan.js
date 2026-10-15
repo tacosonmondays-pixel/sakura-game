@@ -414,9 +414,15 @@ function bossTab(backend, clan, pane) {
       });
       async function claimWeek(week) {
         try {
+          // the server pays a week once: the reward goes into the NEWEST save (another tab may have
+          // saved since this one loaded it, M5) and is written at once — never into an old copy
+          // this tab can no longer save
+          store.refresh();
           const r = await backend.claimBossReward(week);
+          store.refresh();
           addItems(store.profile, r.rewards);
           store.commit('clan-boss');
+          store.saveNow();
           toast(`Tier ${r.tier} rewards claimed!`, 'good');
           if (alive) bossTab(backend, clan, pane);
         } catch (e) {

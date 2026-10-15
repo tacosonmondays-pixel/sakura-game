@@ -4,11 +4,13 @@
 //
 // Two open tabs share one save (one localStorage key) but each holds its own copy of the profile
 // in memory, so the tab saved last used to win: an older tab could hand donated pieces back or
-// drop collected ones. Every save therefore carries a revision ({"saveRev":N,…}, written in the
-// same single setItem as the save itself). A tab only writes over the revision it loaded or wrote
-// last; when another tab saved since, this tab is STALE: it never writes again (the newer save
-// stays), emits 'stale' and the game shows "open in another tab — reload" (main.js). One tab alone
-// behaves exactly as before (an unchanged save is not rewritten, so hiding a tab bumps nothing).
+// drop collected ones. Every save therefore carries a revision and the tab that wrote it
+// ({"saveRev":N,"saveBy":"<tab>",…}, written in the same single setItem as the save itself). A tab
+// only writes over the revision it loaded or wrote last; when another tab saved since — a higher
+// revision, or the same revision by another tab (both saved at the same instant) — this tab is
+// STALE: it never writes again (the newer save stays), emits 'stale' and the game shows "open in
+// another tab — reload" (main.js). One tab alone behaves exactly as before (an unchanged save is
+// not rewritten, so hiding a tab bumps nothing).
 import { createEmitter } from './events.js';
 import {
   createProfile, migrateProfile, loadSaveText, backupNotice, SAVE_KEY, BACKUP_KEY, MAX_BACKUPS, serializeProfile, deserializeProfile,
@@ -30,16 +32,31 @@ function safeSet(key, value) {
   }
 }
 
-const REV_RE = /^\{"saveRev":(\d+),/;
+const REV_RE = /^\{"saveRev":(\d+)(?:,"saveBy":"([0-9a-z]{1,32})")?[,}]/;
 /** The revision a stored save text carries (0: none — a save from before revisions, or nothing). */
 export function saveRevOf(text) {
   const m = typeof text === 'string' ? REV_RE.exec(text) : null;
   return m ? Number(m[1]) : 0;
 }
-/** The stored text of `profile` at revision `rev` (the revision first, so reading it needs no parse). */
-export function saveText(profile, rev) {
+/** The tab that wrote a stored save text ('' when it does not say: an older save). */
+export function saveByOf(text) {
+  const m = typeof text === 'string' ? REV_RE.exec(text) : null;
+  return m?.[2] || '';
+}
+/** The stored text of `profile` at revision `rev` written by tab `by` (both first, so reading them needs no parse). */
+export function saveText(profile, rev, by = '') {
   const body = JSON.stringify(profile);
-  return body.length > 2 ? `{"saveRev":${rev},${body.slice(1)}` : `{"saveRev":${rev}}`;
+  const head = by ? `{"saveRev":${rev},"saveBy":"${by}"` : `{"saveRev":${rev}`;
+  return body.length > 2 ? `${head},${body.slice(1)}` : `${head}}`;
+}
+/** A new id for this tab's writes (a–z / 0–9). */
+function newTabId() {
+  try {
+    const b = globalThis.crypto.getRandomValues(new Uint8Array(8));
+    return [...b].map((x) => x.toString(36).padStart(2, '0')).join('').slice(0, 12);
+  } catch {
+    return (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 12);
+  }
 }
 
 /**
@@ -77,8 +94,16 @@ export function createStore({ debounceMs = 150 } = {}) {
   let notice = null;
   /** The stored save needed a backup that could not be written: never overwrite it this session. */
   let holdSaves = false;
-  /** The save revision this tab loaded or wrote last. */
+  /** The save revision this tab loaded or wrote last, and the tab that wrote it. */
   let rev = 0;
+  let by = '';
+  /** This tab's id: written next to the revision of every save it writes. */
+  const tabId = newTabId();
+  /** Did another tab save after the revision this tab holds? (a higher revision, or the same one by another tab) */
+  const newerThanMine = (text) => {
+    const r = saveRevOf(text);
+    return r > rev || (r === rev && rev > 0 && saveByOf(text) !== by);
+  };
   /** Another tab saved after this one loaded / last saved: this tab never writes again. */
   let stale = false;
 
@@ -86,7 +111,8 @@ export function createStore({ debounceMs = 150 } = {}) {
     if (stale) return;
     stale = true;
     console.warn('[store] the save was changed by another tab: this tab stops saving (reload to continue here)');
-    emitter.emit('stale', { rev, stored: saveRevOf(safeGet(SAVE_KEY)) });
+    const stored = safeGet(SAVE_KEY);
+    emitter.emit('stale', { rev, stored: saveRevOf(stored), by: saveByOf(stored) });
   }
 
   const s = {
@@ -106,12 +132,18 @@ export function createStore({ debounceMs = 150 } = {}) {
       return rev;
     },
 
+    /** This tab's id, written next to its revisions (tests, diagnostics). */
+    get tabId() {
+      return tabId;
+    },
+
     load() {
       const raw = safeGet(SAVE_KEY);
       const res = loadSaveText(raw);
       holdSaves = false;
       stale = false;
       rev = saveRevOf(raw);
+      by = saveByOf(raw);
       if (res.backup) {
         // unreadable, newer-build or lossy save: keep the untouched text before anything saves over it
         const kept = keepBackup(raw, res.backup, res.version);
@@ -150,13 +182,14 @@ export function createStore({ debounceMs = 150 } = {}) {
       if (!profile || holdSaves) return false;
       if (stale) return false;
       const stored = safeGet(SAVE_KEY);
-      if (saveRevOf(stored) > rev) {
+      if (newerThanMine(stored)) {
         markStale();
         return false;
       }
-      if (stored === saveText(profile, rev)) return true; // nothing changed since this tab's last write
-      if (!safeSet(SAVE_KEY, saveText(profile, rev + 1))) return false;
+      if (stored === saveText(profile, rev, by)) return true; // nothing changed since this tab's last write
+      if (!safeSet(SAVE_KEY, saveText(profile, rev + 1, tabId))) return false;
       rev += 1;
+      by = tabId;
       return true;
     },
 
@@ -167,7 +200,7 @@ export function createStore({ debounceMs = 150 } = {}) {
      * @returns {boolean} the profile was reloaded
      */
     refresh() {
-      if (saveRevOf(safeGet(SAVE_KEY)) <= rev && !stale) return false;
+      if (!newerThanMine(safeGet(SAVE_KEY)) && !stale) return false;
       clearTimeout(saveTimer);
       s.load();
       emitter.emit('change', { reason: 'reload' });
@@ -176,7 +209,7 @@ export function createStore({ debounceMs = 150 } = {}) {
 
     /** The storage event of another tab (or a check before a write): did someone save after me? */
     checkStale() {
-      if (!stale && profile && saveRevOf(safeGet(SAVE_KEY)) > rev) markStale();
+      if (!stale && profile && newerThanMine(safeGet(SAVE_KEY))) markStale();
       return stale;
     },
 
@@ -186,7 +219,11 @@ export function createStore({ debounceMs = 150 } = {}) {
       holdSaves = false;
       // an explicit choice in this tab wins over another tab's save
       stale = false;
-      rev = Math.max(rev, saveRevOf(safeGet(SAVE_KEY)));
+      const stored = safeGet(SAVE_KEY);
+      if (saveRevOf(stored) >= rev) {
+        rev = saveRevOf(stored);
+        by = saveByOf(stored);
+      }
       s.saveNow();
       emitter.emit('change', { reason: 'replace' });
     },

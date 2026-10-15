@@ -386,6 +386,8 @@ export function render(root, params = {}) {
     }
 
     const view = h('div.ol-room', { 'data-testid': 'coop-room' });
+    /** [social] who was blocked when this lobby opened (dropBlockedAlly: who was blocked since). */
+    let knownBlocked = social.blockedIds;
     body.replaceChildren(view);
 
     const copy = async () => {
@@ -592,20 +594,28 @@ export function render(root, params = {}) {
      * seat and gave my room a new secret (block_player), so as the host I open the same room again
      * on the new channel, which they cannot reach (join_room answers them "full"); as a guest I
      * leave (my seat in their room is gone too). Also on coming back from a battle with them.
+     * `blocked`: the blocked list of a 'blocked' event (who was blocked just now).
      */
-    function dropBlockedAlly() {
+    function dropBlockedAlly(blocked = null) {
       const s = session;
       if (destroyed || s.phase !== 'lobby') return;
+      const fresh = blocked ? [...blocked].filter((u) => !knownBlocked.has(u)) : [];
+      if (blocked) knownBlocked = new Set(blocked);
       const ally = s.peer?.uid || s.returning?.uid || null;
-      if (!ally || !social.isBlocked(ally)) return;
-      if (s.isHost) {
-        toast('The player you blocked is out of your room. Same code, new connection.', 'info', 3200);
-        reopen(s);
-      } else {
-        s.close();
-        toast('You left the room.', 'info');
-        navigate('coop');
+      if (ally && social.isBlocked(ally)) {
+        if (s.isHost) {
+          toast('The player you blocked is out of your room. Same code, new connection.', 'info', 3200);
+          reopen(s);
+        } else {
+          s.close();
+          toast('You left the room.', 'info');
+          navigate('coop');
+        }
+        return;
       }
+      // someone who sat in my room earlier still knows its secret: the server gave my empty room a
+      // new one (block_player), so I open it again on the new channel (nobody is waiting in it)
+      if (fresh.length && s.isHost && !s.peer) reopen(s);
     }
 
     function newRoom(s) {
@@ -736,7 +746,7 @@ export function render(root, params = {}) {
       session.on('change', paint),
       session.on('seated', () => sendPending()),
       social.on('status', () => paint()),
-      social.on('blocked', () => dropBlockedAlly()),
+      social.on('blocked', (set) => dropBlockedAlly(set)),
       session.on('start', () => {
         keepSession = true;
         navigate('battle', { coop: roomCode });

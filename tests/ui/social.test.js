@@ -4,7 +4,8 @@
 // the inbox texts. The screens themselves are driven by e2e/social.mjs.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { parentRoute } from '../../src/ui/nav.js';
-import { popupFor, afterBattle, addPendingInvite, takePendingInvites, liveInvites, inviteSummary, noticeNamesBlocked } from '../../src/ui/online/socialHub.js';
+import { popupFor, afterBattle, addPendingInvite, takePendingInvites, liveInvites, inviteSummary, noticeNamesBlocked, noticeNames, noticeHidden } from '../../src/ui/online/socialHub.js';
+import { aboutList } from '../../src/online/adapters/supabase.js';
 import { preview, dayLabel, joinsNewThread, onLongPress, HOLD_MS } from '../../src/ui/screens/messages.js';
 import { whyText, friendWhyText, presenceText } from '../../src/online/socialRules.js';
 
@@ -164,6 +165,27 @@ describe('clan system notices about a blocked player (M3)', () => {
     }
     expect(noticeNamesBlocked('Pete joined the clan.', [])).toBe(false);
     expect(noticeNamesBlocked('', ['Pete'])).toBe(false);
+    // exact names only: blocking "Mia" never hides "Mia Rose"
+    expect(noticeNamesBlocked('Mia Rose joined the clan.', ['Mia'])).toBe(false);
+    expect(noticeNames('Ann\'s request is filled — thanks Bo, Pete +2!')).toEqual(['Ann', 'Bo', 'Pete']);
+    expect(noticeNames('Mia Rose is now officer.')).toEqual(['Mia Rose']);
+    expect(noticeNames('hello')).toEqual([]);
+  });
+
+  it('by account when the notice says who it is about: a rename (or a reload) changes nothing', () => {
+    const blocked = new Set(['u-pax']);
+    // the blocked player renamed and joins again: the server names the account
+    expect(noticeHidden({ body: 'PaxNew joined the clan.', about: ['u-pax'] }, blocked, ['Pax'])).toBe(true);
+    expect(noticeHidden({ body: 'Ann\'s request is filled — thanks Bo, PaxNew!', about: ['u-ann', 'u-bo', 'u-pax'] }, blocked, [])).toBe(true);
+    // someone else who happens to have the blocked player's old name stays visible
+    expect(noticeHidden({ body: 'Pax joined the clan.', about: ['u-other'] }, blocked, ['Pax'])).toBe(false);
+    // a notice from before the social update (no about): the exact names they were seen with
+    expect(noticeHidden({ body: 'Pax left the clan.', about: null }, blocked, ['Pax', 'PaxNew'])).toBe(true);
+    expect(noticeHidden({ body: 'Pax left the clan.' }, new Set(), [])).toBe(false);
+    // the column as the API / Realtime deliver it (or as Postgres array text)
+    expect(aboutList(['a', 'b'])).toEqual(['a', 'b']);
+    expect(aboutList('{a,"b"}')).toEqual(['a', 'b']);
+    expect(aboutList(null)).toBeNull();
   });
 });
 

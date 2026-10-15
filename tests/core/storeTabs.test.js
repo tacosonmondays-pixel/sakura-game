@@ -3,7 +3,7 @@
 // ones would vanish. Two createStore() instances on one storage play the two tabs, with the real
 // donation ledger (src/online/donateLedger.js). One tab alone behaves exactly as before.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createStore, saveRevOf } from '../../src/core/store.js';
+import { createStore, saveRevOf, saveByOf } from '../../src/core/store.js';
 import { createProfile, SAVE_KEY } from '../../src/systems/save.js';
 import { itemCount } from '../../src/systems/inventory.js';
 import { newKey, holdDonation, finalizeDonation, beginClaim, applyClaim } from '../../src/online/donateLedger.js';
@@ -157,5 +157,59 @@ describe('store: two tabs on one save (M5)', () => {
     expect(B.stale).toBe(false);
     expect(feathers(stored())).toBe(42);
     expect(A.saveNow()).toBe(false); // A is the older one now
+  });
+});
+
+describe('store: two tabs saving at the same instant (final verification)', () => {
+  it('the tab whose write was overwritten turns stale (banner) and never writes over the winner', () => {
+    seed();
+    const a = createStore();
+    const b = createStore();
+    a.load();
+    b.load();
+    a.profile.items.mat_feather_common = 7;
+    b.profile.items.mat_feather_common = 3;
+    // B reads the stored save, A writes, then B writes: both wrote revision 1
+    const get = ls.getItem;
+    let once = true;
+    ls.getItem = (k) => {
+      const v = get(k);
+      if (once && k === SAVE_KEY) {
+        once = false;
+        a.saveNow();
+      }
+      return v;
+    };
+    expect(b.saveNow()).toBe(true);
+    ls.getItem = get;
+    expect(saveRevOf(ls.getItem(SAVE_KEY))).toBe(1);
+    expect(saveByOf(ls.getItem(SAVE_KEY))).toBe(b.tabId);
+    expect(a.rev).toBe(1);
+    // A sees the same revision written by another tab: stale at once (storage event), no write
+    expect(a.checkStale()).toBe(true);
+    a.profile.items.mat_feather_common = 1;
+    expect(a.saveNow()).toBe(false);
+    expect(feathers(stored())).toBe(3);
+    expect(b.stale).toBe(false);
+    // A reloads and continues from the winner's save
+    expect(a.refresh()).toBe(true);
+    expect(feathers(a.profile)).toBe(3);
+    a.profile.items.mat_feather_common = 2;
+    expect(a.saveNow()).toBe(true);
+    expect(b.checkStale()).toBe(true);
+  });
+
+  it('one tab alone: its own writes never make it stale, an old save without a writer loads fine', () => {
+    seed();
+    const t = createStore();
+    t.load();
+    for (let i = 0; i < 3; i++) {
+      t.profile.items.mat_feather_common = i;
+      expect(t.saveNow()).toBe(true);
+      expect(t.checkStale()).toBe(false);
+    }
+    expect(saveByOf(ls.getItem(SAVE_KEY))).toBe(t.tabId);
+    expect(JSON.parse(ls.getItem(SAVE_KEY)).items.mat_feather_common).toBe(2);
+    expect(Object.keys(createStore().load())).not.toContain('saveBy'); // the profile never keeps it
   });
 });

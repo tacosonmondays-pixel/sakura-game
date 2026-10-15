@@ -26,7 +26,7 @@ const state = {
   badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0 },
   privacy: null,
   blocked: new Set(),
-  blockedNames: new Map(), // uid → their current name (clan system notices that name them are hidden)
+  blockedNames: new Map(), // uid → every name this tab saw them use (old clan notices without `about` that name them are hidden)
   viewing: null, // thread id open on the Messages screen
   invites: new Map(), // message id → a DM co-op invite this tab saw (Co-op → Invites)
   queue: [], // pop-ups waiting for the battle to end
@@ -63,9 +63,18 @@ export const hub = {
   isBlocked(uid) {
     return !!uid && state.blocked.has(uid);
   },
-  /** A clan system notice about a player I blocked ("X joined the clan.") is not shown (M3). */
-  hidesNotice(body) {
-    return noticeNamesBlocked(body, [...state.blockedNames.values()]);
+  /** A copy of the account ids I blocked. */
+  get blockedIds() {
+    return new Set(state.blocked);
+  },
+  /**
+   * A clan system notice about a player I blocked ("X joined the clan.") is not shown (M3): by
+   * account (`about`, whatever their name is now), or — a notice from before the social update has
+   * none — by the exact names they had. `m`: the message (or its text).
+   */
+  hidesNotice(m) {
+    const msg = typeof m === 'string' ? { body: m } : m || {};
+    return noticeHidden(msg, state.blocked, [...state.blockedNames.values()].flatMap((names) => [...names]));
   },
   /** DM co-op invites this tab received and that may still be open: the newest per sender (newest first). */
   get invites() {
@@ -93,19 +102,47 @@ export function forgetInvite(id) {
   if (state.invites.delete(id)) emitter.emit('invites', hub.invites);
 }
 
+/** The clan system notices (SQL: the first migration's add_member / leave_clan / set_role / kick, the social request notices). */
+const NOTICE_SUBJECT = [
+  /^(.+) joined the clan\.$/, /^(.+) left the clan\.$/, /^(.+) was removed from the clan\.$/, /^(.+) is the new leader\.$/,
+  /^(.+) is now (?:leader|officer|member)\.$/, /^(.+?) asks for \d+ × .+\. Clan → Requests to help!$/,
+];
+const NOTICE_FILLED = /^(.+?)'s request is filled — thanks (.+?)(?: \+\d+)?!$/;
+
+/** The names a clan system notice names (pure; tests): its subject, and the donors a filled request thanks. */
+export function noticeNames(body) {
+  const b = String(body || '');
+  for (const re of NOTICE_SUBJECT) {
+    const m = re.exec(b);
+    if (m) return [m[1]];
+  }
+  const f = NOTICE_FILLED.exec(b);
+  return f ? [f[1], ...f[2].split(', ')] : [];
+}
+
 /**
- * Does this clan system notice name one of `names` (pure; tests)? The notices start with the
- * player's name ("X joined the clan.", "X left the clan.", "X was removed from the clan.", "X is the
- * new leader.", "X asks for 6 × …", "X's request is filled — thanks …") or thank donors at the end
- * ("… — thanks A, B +2!"). A kicked-and-blocked player could otherwise keep posting their name
- * (a new one each time) into the kid's clan chat by joining and leaving.
+ * Does this clan system notice name one of `names` exactly (pure; tests)? Only for notices without
+ * `about` (from before the social update): blocking "Mia" never hides "Mia Rose joined the clan.".
  * @param {string} body
- * @param {string[]} names current names of the players I blocked
+ * @param {string[]} names every name the players I blocked were seen with
  */
 export function noticeNamesBlocked(body, names) {
-  const b = String(body || '');
-  const thanks = /— thanks (.*?)(?: \+\d+)?!$/.exec(b)?.[1]?.split(', ') || [];
-  return names.some((n) => !!n && (b.startsWith(`${n} `) || b.startsWith(`${n}'s `) || thanks.includes(n)));
+  const set = new Set(names.filter(Boolean));
+  return noticeNames(body).some((n) => set.has(n));
+}
+
+/**
+ * Is this clan system notice about a player I blocked (pure; tests)? By account when the server
+ * says who it is about (messages.about: a rename or a reload changes nothing), else by name. A
+ * kicked-and-blocked player could otherwise keep posting their name (a new one each time) into the
+ * kid's clan chat by joining and leaving.
+ * @param {{ body?: string, about?: string[]|null }} m
+ * @param {Set<string>} blocked account ids I blocked
+ * @param {string[]} names every name they were seen with
+ */
+export function noticeHidden(m, blocked, names) {
+  if (Array.isArray(m?.about) && m.about.length) return m.about.some((u) => blocked.has(u));
+  return noticeNamesBlocked(m?.body, names);
 }
 
 /** "1-1 · First Petals · Normal" — the same words as the stage picker and the room lobby. */
@@ -201,7 +238,10 @@ export async function refreshBlocked() {
   try {
     const list = await getBackend().blocked();
     state.blocked = new Set(list.map((b) => b.userId));
-    state.blockedNames = new Map(list.map((b) => [b.userId, b.name]));
+    // every name seen stays (an old notice may carry the name they had before a rename)
+    const names = new Map();
+    for (const b of list) names.set(b.userId, new Set([...(state.blockedNames.get(b.userId) || []), b.name].filter(Boolean)));
+    state.blockedNames = names;
     emitter.emit('blocked', state.blocked);
   } catch {
     /* keep the old list */
@@ -215,7 +255,7 @@ export async function refreshBlocked() {
 export function setBlocked(uid, on, name = null) {
   if (on) {
     state.blocked.add(uid);
-    if (name) state.blockedNames.set(uid, name);
+    if (name) state.blockedNames.set(uid, new Set([...(state.blockedNames.get(uid) || []), name]));
   } else {
     state.blocked.delete(uid);
     state.blockedNames.delete(uid);
