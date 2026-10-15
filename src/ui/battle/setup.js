@@ -8,6 +8,7 @@ import { isOwned, isPracticeRun, canPlayEndless } from '../../systems/unlocks.js
 import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
+import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -40,15 +41,24 @@ export function resolveFormation(profile) {
  * to `resume` a `freeplay` / `endless=1` param never turns freeplay on.
  * The coached first battle (`tutorial=1`, STORY_SPEC §2.3) is a plain run: no freeplay and no
  * "Keep going" on its victory sheet (a brand-new player's first win ends there).
+ * `sandbox=1` (with `team=a.b.c` and `hero=x`) is a Sandbox run on the stage's map: any girl, endless
+ * waves, nothing saved (never a battle save, never freeplay, `resume` ignored). With a profile it
+ * needs Sandbox unlocked (systems/sandbox.js).
  * @returns {{ stageId: string|null, difficulty: string, endless: boolean, freeplay: string|null,
- *   keepGoing: boolean, practice: boolean, error: string|null, resume: string|null }}
+ *   keepGoing: boolean, practice: boolean, sandbox: boolean, team?: string[], hero?: string|null,
+ *   error: string|null, resume: string|null }}
  *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
  */
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
-  if (!stage) return { stageId, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
+  if (!stage) return { stageId, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
   const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  if (params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true') {
+    if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
+    const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
+    return { stageId, difficulty, endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, team: towers, hero, error: null, resume: null };
+  }
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
   const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
@@ -60,7 +70,7 @@ export function parseBattleParams(params = {}, profile = null) {
   let freeplay = fpStage && allowed && !resume ? freeplayTier(params.freeplay) : null;
   if (fpStage && allowed && !resume && wantsEndless && !freeplay) freeplay = 'blossom';
   const endless = stage.kind === 'challenge' || (wantsEndless && allowed && !hasSoloFreeplay(stageId));
-  return { stageId, difficulty, endless, freeplay, keepGoing: fpStage && !freeplay && !endless, practice, error: null, resume };
+  return { stageId, difficulty, endless, freeplay, keepGoing: fpStage && !freeplay && !endless, practice, sandbox: false, error: null, resume };
 }
 
 /**
@@ -70,8 +80,9 @@ export function parseBattleParams(params = {}, profile = null) {
  * @param {{ stageId: string, difficulty: string, endless?: boolean, freeplay?: string|null, seed?: number }} req
  */
 export function createBattleSim(profile, req) {
-  const { towers, hero } = resolveFormation(profile);
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
+  if (req.sandbox) return createSandboxSim(req, seed);
+  const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
   // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js)
@@ -98,6 +109,25 @@ export function resumeBattleSim(profile, rec) {
   const towers = [...new Set((rec.loadout || []).map((e) => e.unitId).filter((id) => UNIT_MAP[id]))];
   const hero = rec.hero?.unitId && UNIT_MAP[rec.hero.unitId] ? rec.hero.unitId : null;
   return { sim, towers, hero, refunded, dropped };
+}
+
+/**
+ * Sandbox: the chosen girls at their best (owned or not), endless waves that only start when asked,
+ * and a 999,999-coin purse.
+ */
+function createSandboxSim(req, seed) {
+  const { towers, hero } = sandboxFormation(req.team, req.hero);
+  const sim = new Sim({
+    stageId: req.stageId,
+    difficulty: req.difficulty,
+    loadout: towers.map((unitId) => ({ unitId, stats: sandboxUnitStats(unitId) })),
+    hero: hero ? { unitId: hero, stats: sandboxUnitStats(hero) } : null,
+    seed,
+    options: { endless: true, autoStart: false },
+  });
+  sim.cash = SANDBOX_COINS;
+  // (cfg is what a battle save would freeze; a sandbox run is never saved, isSavableRun)
+  return { sim, towers, hero, seed, cfg: null };
 }
 
 /** The campaign stage after `stageId` (null for the last stage / non-campaign stages). */

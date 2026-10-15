@@ -11,6 +11,7 @@ import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
+import { newSocial, cleanSocial } from '../online/socialSave.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -117,6 +118,8 @@ export function createProfile() {
     /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
     battleSaves: {},
     story: newStory(), // [story] opening, tutorial, journal, episodes (src/systems/story.js)
+    // [social] clan donation / collect ledgers (src/online/donateLedger.js)
+    social: newSocial(),
   };
 }
 
@@ -459,6 +462,7 @@ export function migrateProfile(raw) {
   // back from their marks too, and the block's state is marked again
   p.story = restoreStory(raw.story, p.missions.counters, p.mail.delivered);
   markStory(p);
+  p.social = cleanSocial(raw.social);
   p.version = SAVE_VERSION;
   return p;
 }

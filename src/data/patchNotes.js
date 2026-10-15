@@ -20,6 +20,24 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.29', version: '0.1.29', date: '2026-10-15', title: 'Friends, messages & Sandbox',
+    added: [
+      'Friends: tap a player’s name in chat, your clan or co-op to open their card, then Add friend. You can also share your friend code (Settings → Online).',
+      'Private messages (Menu → Messages). Only your friends can message you at first; change it under Who can message me in Settings.',
+      'Block or Report from any player’s card. A blocked player can’t message you, invite you or send you a friend request, and you no longer see their chat.',
+      'Clan Requests (Clan → Requests): ask your clan for one material a day, donate to your clanmates’ requests for coins and clan XP, and collect what they sent you.',
+      'Invite a friend to co-op by message: Invite to co-op on their card or in your private chat sends them an invite to your room.',
+      'Sandbox (Missions → Sandbox, opens after you clear 7 stages): any map, any girl at max level, 999,999 coins, and spawn any enemy you like. Nothing is earned or saved there, so test away.',
+    ],
+    changed: [
+      'The Missions screen has a fresh look: every tile shows its own scenery. Commissions live on the lobby’s Tasks button, and sweeps on each stage’s prep screen.',
+    ],
+    fixed: [
+      'Playing on one save in two tabs no longer lets one tab overwrite the other: the older tab stops saving and asks you to reload.',
+      'Tapping a girl in battle to select her no longer washes her in blue: she keeps her own colours, a little brighter, with a soft glow around her edges.',
+    ],
+  },
+  {
     id: 'v0.1.28', version: '0.1.28', date: '2026-10-15', title: 'Battle saves, attacks & Hikari’s welcome',
     added: [
       'Every girl now has her own attack animation that grows with her upgrades. Chika’s drones circle above her, chase the enemy she is shooting and fly back.',

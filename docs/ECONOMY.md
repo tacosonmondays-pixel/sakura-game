@@ -74,6 +74,13 @@ excluded from the chart.
 * **Codes:** `SAKURA2026`, `WELCOME`, `TACOTUESDAY` (once per account, case/space-insensitive).
 * **Weekly event:** double drops in one Bounty arena, chosen from the ISO week key
   (`currentEvent()`; books → coins → gear → materials A/B rotate pseudo-randomly).
+* **Clan requests / donations** (online, `src/online/donateRules.js`; game day resets at 7 PM Central):
+  a player receives at most **one request a day** (10 common / 6 rare / 3 super rare / 1 mythic of one
+  material; super rare ≤ 3 and mythic ≤ 1 per 7 days; mythic only in an established clan; never
+  legendary). Donors give their own pieces, up to **30 points a day** (common 1, rare 2, super rare 5,
+  mythic 10 per piece) and earn **+50 coins per point (≤ 1,500 coins / day)** and +1 clan XP per point.
+  Pieces move from the donor's save to the requester's; the server cannot see backpacks, so these caps
+  (not the donor's honesty) bound what anyone can receive.
 
 ## 5. Progression costs
 

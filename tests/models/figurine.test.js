@@ -81,8 +81,12 @@ describe('figurine shading', () => {
     const open = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.open });
     const blink = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.blink });
     const hurt = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.hurt, highlight: true });
+    const happy = figurineMaterial({ map }, { eyes, eyeMode: EYE_MODES.happy, highlight: true });
     expect(open.customProgramCacheKey()).toBe(blink.customProgramCacheKey());
-    expect(hurt.customProgramCacheKey()).toBe(blink.customProgramCacheKey());
+    // the selected look (highlight.js) is one more program, shared by every eye state
+    expect(hurt.customProgramCacheKey()).toBe(happy.customProgramCacheKey());
+    expect(hurt.customProgramCacheKey()).not.toBe(blink.customProgramCacheKey());
+    expect(fakeShader(hurt).fragmentShader).toContain('figCloseEyes( diffuseColor.rgb, sampledDiffuseColor.rgb )');
     const sh = fakeShader(blink);
     expect(sh.fragmentShader).toContain('figCloseEyes( diffuseColor.rgb, sampledDiffuseColor.rgb )');
     expect(sh.fragmentShader).toContain('roughnessFactor = mix( roughnessFactor, figEyeRough, figEyeM )');

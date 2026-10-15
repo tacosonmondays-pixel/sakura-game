@@ -23,7 +23,7 @@ running), with Start waiting.
 | Saved battles full | Start on a stage without a save, with 5 kept, opens **Saved battles full**: the 5 saves, least play first (a finite stage by the share of waves cleared, endless runs last), the first one picked; **Delete & start** (red) or Cancel. The pick travels as `&evict=<run id>` and is only deleted when the new battle first saves (backing out keeps it). A battle reached without that choice (a deep link) is not saved and says so; its pause menu offers a plain Quit. |
 
 Saves: campaign, Bounty, solo Total Assault, the Colosseum and endless runs (`isSavableRun`). Never:
-practice (a locked stage), the tutorial, the clan boss, co-op, solo freeplay. One save per slot (a
+practice (a locked stage), the tutorial, the clan boss, co-op, solo freeplay, Sandbox. One save per slot (a
 stage; the Colosseum is `challenge`), at most 5 (`MAX_BATTLE_SAVES`, spec §14 default; a 6th asks
 which one to replace). The old endless runs on campaign maps (their own slot `<id>:endless`) are
 Freeplay now; a save of one from an earlier build is dropped with the update notice.
@@ -49,8 +49,15 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
   reached the controller (a render error) is ended at the next frame or on leave, never saved.
 - **Other tabs.** `store.saveNow()` compares the stored save with what this tab last read or wrote:
   when another tab finished, restarted or replaced a saved battle this tab still holds, this tab stops
-  writing (it would bring that run back and erase the other tab's payout) and asks for a reload.
-  Tabs that only share a save (two players in local co-op test mode, a setting) keep last-writer-wins.
+  writing (it would bring that run back and erase the other tab's payout) and asks for a reload
+  (the 'stale' event's reason is `'battle-save'`: a modal in main.js). Since v0.1.29 every save also
+  carries a revision (`saveRev`, src/core/store.js): any save by another tab stops an older tab's
+  writes too, with the "Open in another tab" pill instead of the modal (reason `'another-tab'`). The
+  run check still covers a write without a revision (a tab on an older build). During an update such
+  a tab writes its whole older profile when it is hidden or closed: a tab on this build that saved with
+  revisions puts its own save back at once (storage event), and a tab that loaded that older save and
+  saved revision 1, 2, … below another tab's revision turns that other tab stale instead of being
+  overwritten by it.
 - **No rerolls.** Each wave of a saved run plays on its own random stream `hash(run seed, wave)`
   (`useWaveStream`), so continuing at a wave start replays the same luck; drops come from
   `battleDropSeed(stage, difficulty, run seed)`, so finishing the same run twice (an older copy of the
@@ -132,8 +139,8 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
   `results.apply()` (one write with the payout and no save; a second apply changes nothing; a throwing
   apply still deletes the save).
 - `tests/core/store.test.js`: two copies of the game over one storage: a tab still playing a run
-  another tab paid out never brings it back nor erases the payout; tabs that only share a save keep
-  last-writer-wins.
+  another tab paid out never brings it back nor erases the payout (also when an older build's tab
+  wrote it, without a revision); a tab that only shares a save stops saving without the modal.
 - `tests/battle-ui/snapshot.test.js` also checks a 120-wave run with ~1000 leaks stays under 8 KB and
   keeps the debrief.
 - `e2e/battle-save.mjs`: the whole flow in a browser at 844×390 and 1280×720, including an app kill

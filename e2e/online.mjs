@@ -34,7 +34,7 @@
 // when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
-import { launchChromium } from './browser.mjs';
+import { launchChromium, ownSave } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -74,6 +74,7 @@ const context = await browser.newContext({ viewport: { width: W, height: H }, de
 const errors = [];
 async function openPage(name) {
   const page = await context.newPage();
+  await ownSave(page, name); // each page is its own device: its own game save (a shared one would go stale)
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const t = m.text();
@@ -266,7 +267,8 @@ try {
   // ---- developer clan (third tab) -------------------------------------------------------
   const C = await openPage('C');
   await C.goto(`${base}#/clan`, { waitUntil: 'load' });
-  await setName(C, 'DevTester');
+  // (not 'DevTester': since the social update "dev" as a word of its own is a reserved name, clanRules.reservedName)
+  await setName(C, 'Tester');
   await C.waitForSelector('[data-testid="clan-code"]', { timeout: 10000 });
   await C.fill('[data-testid="clan-code"]', 'Rosie777');
   await tap(C, '[data-testid="clan-code-join"]');

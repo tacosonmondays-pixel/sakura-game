@@ -58,6 +58,18 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
   `AnimationMixer` with crossfades, one-shot attacks layered over idle, blinking + expression cells
   via texture offset (`userData.setExpression('happy'|...|null)`).
 * Draw calls per girl: body + head + halo (+ 3 outlines).
+* Selected look (`highlight.js`, `userData.setHighlight(true)` while she is tapped in battle): she keeps
+  her own colours. `SELECT_HIGHLIGHT`: a neutral white emissive at 0.15 that the shader multiplies by her
+  own albedo (+15 % of her own colour as self-light, so hue and saturation stay as painted) and a soft
+  white rim along her silhouette, 0.35 × smoothstep(0.6, 1, 1 − N·V): nothing where she faces the 48°
+  battle camera (her front and top sit at N·V ≈ 0.67–0.74; a (1 − N·V)^2.5 rim tried first washed her
+  whole front pale). One look for the procedural chibis, the GLB girls (body and painted face) and the
+  painted figurines; the selection ring under her says which girl is selected. The toon highlight is
+  cached and shared (`selectToonMaterial`, never disposed by an instance), the face gets its own twin
+  per instance, and the figurine has one highlight program shared by every eye state; each kind
+  compiles its highlight program on the first tap. It replaced a blue wash (`#4d6dff` × 0.35) that
+  turned Chika's brown hair and orange suit purple / lavender; `tests/models/highlight.test.js` guards
+  the hue.
 
 ## Adding a character
 
@@ -128,7 +140,8 @@ owner's lighting study:
   hair-pink texels such as bangs crossing the eye) the texture becomes matte eyelid skin with a
   dark lid line — `blink` (relaxed ‿, on the usual 0.12 s blink timer; also `wink`), `happy` (^ ^, for
   cheer / victory) and `hurt` (> <, for hurt / disabled / dizzy). Each state is its own material
-  sharing one program; the instance swaps its body material, like the highlight.
+  sharing one program; the instance swaps its body material, like the highlight (the selected
+  look is one more program, shared by every eye state).
 - props (the sword) use the vertex-colour toon material with a thinner plain outline. `victory` and
   `pickup` fall back to `cheer`. Battle size: height 1.224 (`GAME_HEIGHT`, ≈ 66 px at 1280×720
   default zoom), versus 0.98 for the cage heroes and 0.9 for the students. The first Meshy tests

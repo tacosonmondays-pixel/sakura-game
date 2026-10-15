@@ -66,6 +66,10 @@ const EXTRA_GLYPHS = {
   chevron: '<path d="M9 5l7 7-7 7"/>',
   account: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16.5c.5-1.8 1.9-2.8 3.5-2.8s3 1 3.5 2.8M14.5 9.5h4M14.5 12.5h4"/>',
   expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>',
+  // [social]
+  chat: '<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 9h8M8 12.2h5"/>',
+  people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><circle cx="16.8" cy="9.5" r="2.5"/><path d="M15.5 14.5c2.4 0 4.3 1.5 4.9 4"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/>',
 };
 
 /** SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. */
@@ -253,6 +257,15 @@ export function tabs(items, activeId, onChange) {
 }
 
 let modalStack = [];
+const modalClosers = new Map(); // overlay → its close()
+
+/**
+ * Closes every open window (menus, gifts, cards, confirmations). A social pop-up's Reply / Join /
+ * View calls it before it opens another screen, so nothing stays on top of that screen.
+ */
+export function closeAllModals() {
+  for (const close of [...modalClosers.values()].reverse()) close();
+}
 /**
  * modal({title, body: Node|string, actions:[{label, kind, onClick(close)}], wide, onClose})
  * @returns {{close: () => void, el: HTMLElement}}
@@ -265,6 +278,7 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 160);
     modalStack = modalStack.filter((m) => m !== overlay);
+    modalClosers.delete(overlay);
     onClose?.();
   };
   const dialog = h(
@@ -279,6 +293,7 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
   const overlay = h('div.modal-overlay', { onclick: (e) => { if (dismissable && e.target === overlay) close(); } }, dialog);
   document.body.appendChild(overlay);
   modalStack.push(overlay);
+  modalClosers.set(overlay, close);
   return { close, el: dialog };
 }
 
@@ -311,7 +326,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
  * X, then a 2-column grid of light buttons with illustrated icons — Options, Account,
  * Equipment, Items, Bestiary, Wiki, Fullscreen, plus any `extra` entries a screen adds
  * (the lobby adds Secretary and Notice).
- * @param {{ extra?: {icon: string, label: string, testid?: string, go: () => void}[] }} [opts]
+ * @param {{ extra?: {icon: string, label: string, testid?: string, badge?: number|boolean, go: () => void}[] }} [opts]
  */
 export function menuTabModal({ extra = [] } = {}) {
   const entries = [
@@ -333,7 +348,9 @@ export function menuTabModal({ extra = [] } = {}) {
   const ico = (name, key) => svgEl(lobbyIcon(name, { uid: `menu-${key}`, shadow: false }), 'menu-tab-icon');
   for (const e of entries) {
     const key = e.label.toLowerCase();
-    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), e.dot ? h('span.notif-dot') : null));
+    // badge: a number (pink pill) or true (a dot), e.g. unread messages; `dot` is a plain dot
+    const badge = e.badge ? (e.badge === true ? h('span.notif-dot') : h('span.menu-tab-badge', String(e.badge))) : (e.dot ? h('span.notif-dot') : null);
+    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), badge));
   }
   const fs = h('button.menu-tab-btn', { 'data-testid': 'menu-fullscreen' }, ico('fullscreen', 'fullscreen'), h('span', 'Fullscreen'));
   fs.addEventListener('click', async () => {

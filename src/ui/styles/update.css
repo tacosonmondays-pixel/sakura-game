@@ -31,3 +31,14 @@
 
 /* co-op mismatch banner: which version parts differ (for bug reports) */
 .ol-version-diag { font-weight: 600; opacity: 0.7; font-size: 0.78em; word-break: break-all; }
+
+/* "Open in another tab — reload" (src/ui/staleBanner.js): bottom centre, above screens. */
+.upd-bar.save-stale { top: auto; bottom: calc(14px + var(--safe-bottom, 0px)); background: rgba(122, 32, 52, 0.95); }
+@media (max-height: 420px) {
+  .upd-bar.save-stale .upd-text { position: static; width: auto; height: auto; clip: auto; }
+  .upd-bar.save-stale .upd-text small { display: none; }
+}
+/* While it shows, sheets and dialogs (battle results / pause, modals) end above it: their action
+   buttons (Next Stage, Back to the room, OK…) sit at the bottom and must stay tappable. */
+body.has-save-stale .bt-overlay,
+body.has-save-stale .modal-overlay { padding-bottom: calc(66px + var(--safe-bottom, 0px)); }
