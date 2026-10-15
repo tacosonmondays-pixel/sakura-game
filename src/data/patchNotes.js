@@ -25,7 +25,7 @@ export const PATCH_NOTES = [
       'Your Sensei Profile: tap your name badge in the lobby. Choose a picture, frame, banner, title and favorite girl, show off 8 girls (hold one to see her build), pin your best ribbons and see your Freeplay records. Visiting other players’ profiles comes in a later update.',
       'Achievements now has 116 goals in tidy categories, and Claim all collects everything that’s ready in one tap. Many goals pay gear boxes alongside gems.',
       'Honor Ribbons: achievements award ribbons for your Ribbon Case, and you can pin your favorites to your profile. The special ribbons have their own animated effects.',
-      'Titles: 45 titles on standard, gold and rare rainbow plates, shown under your name.',
+      'Titles: 37 titles on standard, gold and rare rainbow plates, shown under your name.',
       'Backpack: Open all opens every gear box of a kind at once.',
     ],
     changed: [
