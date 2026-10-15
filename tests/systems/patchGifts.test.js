@@ -4,6 +4,8 @@ import {
   PATCH_GIFT_GEMS, cleanPatchGifts, unclaimedPatchGifts, isPatchGiftClaimed, claimPatchGift, claimAllPatchGifts,
 } from '../../src/systems/patchGifts.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText } from '../../src/systems/save.js';
+import { liveTitles } from '../../src/systems/honors.js';
+import { ACHIEVEMENTS, achievementLive } from '../../src/data/achievements.js';
 
 describe('patch notes data', () => {
   it('has unique ids, valid dates and newest first', () => {
@@ -21,6 +23,14 @@ describe('patch notes data', () => {
     expect(runs).toEqual([...runs].sort((a, b) => b - a));
     const dates = PATCH_NOTES.map((n) => n.date);
     expect(dates).toEqual([...dates].sort().reverse());
+  });
+
+  it('v0.1.30 counts match what players can actually see and earn', () => {
+    const text = PATCH_NOTES.find((n) => n.id === 'v0.1.30').added.join('\n');
+    const titles = text.match(/(\d+) titles/);
+    if (titles) expect(Number(titles[1])).toBe(liveTitles().length);
+    const goals = text.match(/(\d+) goals/);
+    if (goals) expect(Number(goals[1])).toBe(ACHIEVEMENTS.filter((a) => achievementLive(a)).length);
   });
 });
 

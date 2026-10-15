@@ -24,6 +24,11 @@ describe('economyCues', () => {
     expect(up.sfx).toBe('gear.enhance');
     expect(up.rate).toBeGreaterThan(1);
   });
+  test('a claim with a special Honor Ribbon: the claim cue, then the awaken jingle (achievements spec §5.3)', () => {
+    const a = snapshot(P(1, 1));
+    expect(economyCues(a, snapshot(P(9, 9)), 'achievements-special')).toEqual([{ sfx: 'eco.claim', delay: 0 }, { music: 'awaken', delay: 240 }]);
+    expect(economyCues(a, snapshot(P(9, 9)), 'achievements')[0]).toEqual({ sfx: 'eco.claim', delay: 0 });
+  });
   test('pulls, battle results and app start are silent here (other systems own them)', () => {
     const a = snapshot(P(1, 1));
     for (const r of ['pull', 'spark', 'battle-result', 'app-start', 'settings', 'change']) expect(economyCues(a, snapshot(P(9, 9, { a: 1 })), r)).toEqual([]);

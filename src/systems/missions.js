@@ -3,7 +3,10 @@
 
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS, REDEEM_CODES, WEEKLY_EVENTS } from '../data/missions.js';
 import { SHOP_OFFERS } from '../data/shop.js';
-import { STAGES, CAMPAIGN_IDS, bountyArenas, stageEnemies } from '../data/stages.js';
+import { STAGES, bountyArenas } from '../data/stages.js';
+import { ACHIEVEMENT_MAP, ACHIEVEMENT_CATEGORIES, ACH_V2_LIVE, NO_COSMETIC, achievementLive } from '../data/achievements.js';
+import { achievementContext, metricValue } from './achievementMetrics.js';
+import { featureOpen } from './story.js';
 import { UNITS } from '../data/units.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, GACHA } from '../data/types.js';
 import { dayKey, weekKey } from '../core/util.js';
@@ -119,6 +122,7 @@ export function claimMission(profile, kind, id) {
   m[`${kind}Claimed`].push(id);
   const rewards = addItems(profile, mission.rewards);
   if (kind === 'daily' && DAILY_MISSIONS.every((x) => m.dailyClaimed.includes(x.id))) track(profile, 'dailyDone', 1);
+  if (kind === 'weekly' && WEEKLY_MISSIONS.every((x) => m.weeklyClaimed.includes(x.id))) track(profile, 'weeklyDone', 1);
   return { ok: true, rewards };
 }
 
@@ -189,69 +193,166 @@ export function claimLogin(profile, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
-// Achievements
+// Achievements (docs/specs/ACHIEVEMENTS.md §3, §5). Metrics: src/systems/achievementMetrics.js.
 // ---------------------------------------------------------------------------
 
-let DISCOVERABLE = null;
-/** Enemy ids that can actually be met somewhere (bestiary % denominator). */
-export function discoverableEnemies() {
-  if (!DISCOVERABLE) {
-    const set = new Set();
-    for (const s of STAGES) for (const id of stageEnemies(s)) set.add(id);
-    DISCOVERABLE = [...set];
+export { discoverableEnemies, bestiaryPercent } from './achievementMetrics.js';
+
+/** Reward ids that wait for a feature gate (§3.3): boxes until Equipment opens, crowns until Awakening does. */
+export function achievementGate(profile, a) {
+  for (const r of a.rewards) {
+    if (r.id.startsWith('gearbox_') && !featureOpen(profile, 'gear')) return 'gear';
+    if (r.id.startsWith('crown_') && !featureOpen(profile, 'awaken')) return 'awaken';
   }
-  return DISCOVERABLE;
+  return null;
 }
 
-/** Percentage (0-100, floored) of discoverable enemies discovered. */
-export function bestiaryPercent(profile) {
-  const all = discoverableEnemies();
-  if (!all.length) return 0;
-  const found = all.filter((id) => profile.bestiary?.[id]?.discovered).length;
-  return Math.floor((found / all.length) * 100);
-}
+/** Steps of each series, lowest goal first (for the ladder rows). */
+const SERIES = {};
+for (const a of ACHIEVEMENTS) if (a.series) (SERIES[`${a.cat}:${a.series}`] ||= []).push(a.id);
+for (const ids of Object.values(SERIES)) ids.sort((x, y) => ACHIEVEMENT_MAP[x].goal - ACHIEVEMENT_MAP[y].goal);
 
-const cleared = (entry) => !!entry && DIFFICULTY_ORDER.some((d) => entry[d]);
-
-function metricValue(profile, a) {
-  const stages = profile.progress?.stages || {};
-  const units = Object.values(profile.units || {});
-  switch (a.metric) {
-    case 'stagesCleared': return CAMPAIGN_IDS.filter((id) => cleared(stages[id])).length;
-    case 'chapterClear': return CAMPAIGN_IDS.filter((id) => id.startsWith(`${a.param}-`) && cleared(stages[id])).length;
-    case 'medals': return CAMPAIGN_IDS.filter((id) => stages[id]?.[a.param]).length;
-    case 'bestiaryPct': return bestiaryPercent(profile);
-    case 'pulls': return profile.gacha?.totalPulls || 0;
-    case 'maxLevel': return units.reduce((mx, u) => Math.max(mx, u.level || 1), 0);
-    case 'maxAwaken': return units.reduce((mx, u) => Math.max(mx, u.awaken || 0), 0);
-    case 'unitsOwned': return units.length;
-    case 'kills': return profile.stats?.kills || 0;
-    case 'wins': return profile.stats?.wins || 0;
-    case 'gearRerolls': return profile.missions?.counters?.gearReroll || 0;
-    case 'bossClears': return STAGES.filter((s) => s.kind === 'boss' && cleared(stages[s.id])).length;
-    default: return 0;
-  }
-}
-
-/** @returns {{ id, name, desc, progress, goal, rewards, claimable, claimed }[]} */
-export function achievementList(profile) {
+/**
+ * Every achievement this build lists, with progress and state.
+ * @param {object} profile
+ * @param {{ includeHidden?: boolean, v2?: boolean }} [opts] includeHidden: also rows whose feature wave hasn't
+ *   shipped (tests, tools); v2: override ACH_V2_LIVE (tests)
+ * @returns {{ id, name, desc, progress, goal, rewards, claimable, claimed, cat, tier, series, seriesIds, honor, title,
+ *   hidden, hint, since, locked: 'gear'|'awaken'|null, met, live }[]}
+ */
+export function achievementList(profile, { includeHidden = false, v2 = ACH_V2_LIVE } = {}) {
   const m = ensure(profile);
-  return ACHIEVEMENTS.map((a) => {
-    const progress = Math.min(a.goal, metricValue(profile, a));
+  const ctx = achievementContext(profile);
+  const out = [];
+  for (const a of ACHIEVEMENTS) {
+    const live = achievementLive(a, v2);
+    if (!live && !includeHidden) continue;
+    const progress = Math.min(a.goal, metricValue(profile, a, ctx));
     const claimed = !!m.achievements[a.id];
-    return { id: a.id, name: a.name, desc: a.desc, progress, goal: a.goal, rewards: a.rewards.map((r) => ({ ...r })), claimable: !claimed && progress >= a.goal, claimed };
-  });
+    const met = progress >= a.goal;
+    const locked = met && !claimed ? achievementGate(profile, a) : null;
+    out.push({
+      id: a.id, name: a.name, desc: a.desc, progress, goal: a.goal, rewards: a.rewards.map((r) => ({ ...r })),
+      claimable: live && !claimed && met && !locked, claimed, met, live,
+      cat: a.cat, tier: a.tier ?? null, series: a.series || null, seriesIds: a.series ? SERIES[`${a.cat}:${a.series}`] : null,
+      honor: a.honor && !NO_COSMETIC(a.id) ? { ...a.honor } : null, title: a.title && !NO_COSMETIC(a.id) ? { ...a.title } : null,
+      hidden: !!a.hidden, hint: a.hint || null, since: a.since || null, locked,
+    });
+  }
+  return out;
 }
 
-/** @returns {{ ok: boolean, error?: string, rewards: object[] }} */
-export function claimAchievement(profile, id) {
+/**
+ * Claim one achievement. The claim marker is set BEFORE the payout, so a double tap answers 'claimed'.
+ * @returns {{ ok: boolean, error?: 'unknown'|'notLive'|'retired'|'claimed'|'incomplete'|'locked', feature?: string, rewards: object[] }}
+ */
+export function claimAchievement(profile, id, { v2 = ACH_V2_LIVE } = {}) {
   const m = ensure(profile);
-  const a = ACHIEVEMENTS.find((x) => x.id === id);
+  const a = ACHIEVEMENT_MAP[id];
   if (!a) return { ok: false, error: 'unknown', rewards: [] };
+  if (a.retired) return { ok: false, error: 'retired', rewards: [] };
+  if (!achievementLive(a, v2)) return { ok: false, error: 'notLive', rewards: [] };
   if (m.achievements[id]) return { ok: false, error: 'claimed', rewards: [] };
   if (metricValue(profile, a) < a.goal) return { ok: false, error: 'incomplete', rewards: [] };
+  const feature = achievementGate(profile, a);
+  if (feature) return { ok: false, error: 'locked', feature, rewards: [] };
   m.achievements[id] = true;
+  noticeCache = null;
   return { ok: true, rewards: addItems(profile, a.rewards) };
+}
+
+/**
+ * Claim every claimable achievement in one tap, in category order then list order, repeating until nothing new is
+ * claimable (so Achiever and Hall of Fame count the claims made by the same tap).
+ * @returns {{ ok: boolean, ids: string[], rewards: object[], honors: string[], titles: string[], skipped: string[] }}
+ *   honors / titles: ids of the rows claimed that grant a ribbon / a title; skipped: met but gate-locked
+ */
+export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE } = {}) {
+  const ids = [];
+  const all = [];
+  const catRank = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((c, i) => [c.id, i]));
+  const order = ACHIEVEMENTS.map((a, i) => [a, i]).sort(([x, i], [y, j]) => (catRank[x.cat] ?? 99) - (catRank[y.cat] ?? 99) || i - j).map(([a]) => a);
+  for (let pass = 0; pass < 10; pass++) {
+    let any = false;
+    const list = achievementList(profile, { v2 });
+    const ready = new Set(list.filter((x) => x.claimable).map((x) => x.id));
+    for (const a of order) {
+      if (!ready.has(a.id)) continue;
+      const r = claimAchievement(profile, a.id, { v2 });
+      if (!r.ok) continue;
+      ids.push(a.id);
+      all.push(...r.rewards);
+      any = true;
+    }
+    if (!any) break;
+  }
+  const skipped = achievementList(profile, { v2 }).filter((x) => x.locked).map((x) => x.id);
+  const cosmetic = (id) => !NO_COSMETIC(id);
+  return {
+    ok: ids.length > 0,
+    ids,
+    rewards: normalizeList(all),
+    honors: ids.filter((id) => ACHIEVEMENT_MAP[id].honor && cosmetic(id)),
+    titles: ids.filter((id) => ACHIEVEMENT_MAP[id].title && cosmetic(id)),
+    skipped,
+  };
+}
+
+/** Ids that became ready since the previous check (for the unlock toast): pure diff, in `next` order. */
+export function achievementsReady(prevReadyIds, nextReadyIds) {
+  const prev = new Set(prevReadyIds || []);
+  return (nextReadyIds || []).filter((id) => !prev.has(id));
+}
+
+/** Ids claimable right now (gate-locked rows excluded). */
+export function readyAchievementIds(profile) {
+  return achievementList(profile).filter((a) => a.claimable).map((a) => a.id);
+}
+
+let noticeCache = null;
+/**
+ * Whether the achievements tab deserves a dot, and how many rows are ready. Cached per profile state, because the
+ * lobby asks up to three times per render (§5.1 Badges).
+ * @returns {{ ready: number, dot: boolean }}
+ */
+export function achievementNotice(profile) {
+  const key = noticeKey(profile);
+  if (noticeCache && noticeCache.profile === profile && noticeCache.key === key) return noticeCache.value;
+  const ready = readyAchievementIds(profile).length;
+  const value = { ready, dot: ready > 0 };
+  noticeCache = { profile, key, value };
+  return value;
+}
+
+/** A cheap fingerprint of what achievement progress reads (changes whenever a commit could change the answer). */
+function noticeKey(p) {
+  const c = p.missions?.counters || {};
+  const st = p.progress?.stages || {};
+  let stages = 0;
+  for (const e of Object.values(st)) stages += (e?.clears || 0) + (e?.bestWave || 0) + (e?.easy ? 1 : 0) + (e?.normal ? 2 : 0) + (e?.hard ? 4 : 0) + (e?.nightmare ? 8 : 0)
+    + Object.values(e?.freeplayBest || {}).reduce((x, y) => x + y, 0) + Object.values(e?.coopBestWave || {}).reduce((x, y) => x + y, 0);
+  let counters = 0;
+  for (const v of Object.values(c)) counters += typeof v === 'number' ? v : 0;
+  let units = 0;
+  for (const u of Object.values(p.units || {})) units += (u?.level || 0) + 100 * (u?.awaken || 0) + 1000 * (u?.breakthrough || 0) + (u?.gear?.charm ? 7 : 0) + (u?.gear?.ribbon ? 11 : 0) + (u?.gear?.shoes ? 13 : 0);
+  let gear = 0;
+  for (const g of Object.values(p.gear || {})) gear += 1 + (g?.level || 0);
+  let kills = 0;
+  let found = 0;
+  for (const b of Object.values(p.bestiary || {})) { kills += b?.kills || 0; found += b?.discovered ? 1 : 0; }
+  return [Object.keys(p.missions?.achievements || {}).length, stages, counters, units, gear, kills, found, p.seq?.gear || 0,
+    p.stats?.kills || 0, p.gacha?.totalPulls || 0, Object.keys(p.lobbyBg || {}).length, p.formation?.towers?.length || 0,
+    p.story?.legacy ? 1 : 0, Object.keys(p.story?.lessons || {}).length, Object.keys(p.items || {}).filter((k) => p.items[k] > 0 && /^(gearbox|crown)_/.test(k)).length].join('|');
+}
+
+/** Keep the highest value seen in a counter (e.g. 'heroMax'); a max, not a sum. @returns {boolean} it rose */
+export function recordMax(profile, key, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return false;
+  const c = ensure(profile).counters;
+  if (typeof c[key] === 'number' && c[key] >= v) return false;
+  c[key] = v;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,14 +444,15 @@ export function f2pIncomeSummary() {
   const others = STAGES.filter((s) => s.kind === 'resource' || s.kind === 'boss');
   const diffGems = DIFFICULTY_ORDER.reduce((a, d) => a + DIFFICULTIES[d].firstClearGems, 0);
   const firstClear = (list) => list.flatMap((s) => s.firstClear || []);
-  const achievementRewards = ACHIEVEMENTS.flatMap((a) => a.rewards);
+  const liveAchievements = ACHIEVEMENTS.filter((a) => achievementLive(a));
+  const achievementRewards = liveAchievements.flatMap((a) => a.rewards);
   const codeRewards = Object.values(REDEEM_CODES).filter((c) => !c.dev).flatMap((c) => c.rewards);
   const oneTime = [
     row('Starter gift', 2400, 10, '2,400 gems + one 10× ticket on a new account', 'oneTime'),
     row('Campaign medals (all difficulties)', campaign.length * diffGems, 0, `${diffGems} gems per stage (Easy ${DIFFICULTIES.easy.firstClearGems} / Normal ${DIFFICULTIES.normal.firstClearGems} / Hard ${DIFFICULTIES.hard.firstClearGems} / Nightmare ${DIFFICULTIES.nightmare.firstClearGems}) × ${campaign.length}`, 'oneTime'),
     row('Chapter finales', sumId(firstClear(campaign), 'gems'), ticketPulls(firstClear(campaign)), 'First clear of each x-5 stage', 'oneTime'),
     row('Bounty & Total Assault', sumId(firstClear(others), 'gems') + others.length * diffGems, ticketPulls(firstClear(others)), 'First clears + medals', 'oneTime'),
-    row('Achievements', sumId(achievementRewards, 'gems'), ticketPulls(achievementRewards), `${ACHIEVEMENTS.length} achievements`, 'oneTime'),
+    row('Achievements', sumId(achievementRewards, 'gems'), ticketPulls(achievementRewards), `${liveAchievements.length} achievements`, 'oneTime'),
     row('Redemption codes', sumId(codeRewards, 'gems'), ticketPulls(codeRewards), 'SAKURA2026 · WELCOME · TACOTUESDAY', 'oneTime'),
   ];
   const oneTimeTotals = oneTime.reduce((t, r) => ({ gems: t.gems + r.gems, tickets: t.tickets + r.tickets }), { gems: 0, tickets: 0 });

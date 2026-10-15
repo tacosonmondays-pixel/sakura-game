@@ -39,6 +39,7 @@ registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] juk
 registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene player: #/scene/<id>?next=…
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
+registerRoute('profile', () => import('./ui/screens/profile.js')); // [profile] Sensei Profile: #/profile (yours)
 
 store.load();
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
@@ -50,6 +51,23 @@ try {
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
+// [achievements] Honor Ribbon masks, the unlock toasts (the first check is the baseline: nothing toasts on app start)
+// and the one-time update-day notice on the lobby
+import('./ui/achToast.js').then(async (m) => {
+  (await import('./ui/honorFx.js')).installHonorMasks();
+  m.installAchievementToasts(store);
+  const intro = await import('./ui/achIntro.js');
+  const tryIntro = () => {
+    try {
+      if (intro.maybeShowAchievementIntro(store) || store.profile.seenIntro?.includes(intro.ACH_INTRO_MARK)) window.removeEventListener('hashchange', later);
+    } catch (e) {
+      console.warn('[main] achievements notice failed', e);
+    }
+  };
+  const later = () => setTimeout(tryIntro, 600);
+  window.addEventListener('hashchange', later);
+  later();
+}).catch((e) => console.warn('[main] achievements install failed', e));
 // [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
 import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 

@@ -16,6 +16,7 @@ import { FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
 import { preloadEnemies } from '../../models/index.js';
 import { freeplayLedger, bankFreeplayClear, rememberFreeplayRun } from '../../online/coop/rewards.js';
+import { countCoopWin } from '../../systems/achievementCounters.js';
 import { AFFIX_TEXT } from './scout.js';
 
 /** Absolute-wave milestone banners. */
@@ -82,6 +83,7 @@ export function createFreeplayBattle(ctx, { session = null, lockstep: ls = null,
     const rng = createRng(hashString(`${sim.stage.id}:${sim.difficulty}:${sim.seed}:fp-bank:${Date.now()}`));
     try {
       bankFreeplayClear(ledger, store.profile, result, rng);
+      countCoopWin(store.profile, session, `coop:${ls.start.seed}`); // achievements: the clear is a co-op win (once per battle)
     } catch (e) {
       console.error('[battle] freeplay bank failed', e);
       return;

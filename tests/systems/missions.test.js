@@ -3,7 +3,11 @@ import { createProfile } from '../../src/systems/save.js';
 import {
   onAppStart, track, missionList, claimMission, claimAllMissions, loginCalendar, claimLogin, achievementList, claimAchievement,
   redeemCode, currentEvent, f2pIncomeSummary, bestiaryPercent, discoverableEnemies,
+  claimAllAchievements, achievementsReady, achievementNotice, readyAchievementIds, recordMax, achievementGate,
 } from '../../src/systems/missions.js';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementLive } from '../../src/data/achievements.js';
+import { CAMPAIGN_IDS } from '../../src/data/stages.js';
+import { skipOnboarding, checkLessons, featureOpen } from '../../src/systems/story.js';
 import { shopTabs, buyOffer } from '../../src/systems/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS } from '../../src/data/missions.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
@@ -116,6 +120,182 @@ describe('achievements', () => {
     for (const id of all.slice(0, Math.ceil(all.length / 2))) p.bestiary[id] = { seen: true, discovered: true, kills: 1 };
     expect(bestiaryPercent(p)).toBeGreaterThanOrEqual(50);
     expect(achievementList(p).find((x) => x.id === 'a_bestiary_50').claimable).toBe(true);
+  });
+});
+
+describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', () => {
+  /** A veteran (legacy) save: every feature open, as on update day. */
+  const veteran = () => {
+    const p = createProfile();
+    p.story.legacy = true;
+    return p;
+  };
+  const clearStages = (p, ids, d = 'normal') => { for (const id of ids) p.progress.stages[id] = { easy: false, normal: false, hard: false, nightmare: false, clears: 1, ...p.progress.stages[id], [d]: true }; };
+
+  it('claim cycle per metric kind: incomplete → claimable → ok → claimed; marker and payout in one call', () => {
+    const cases = [
+      ['a_clear_10', (p) => clearStages(p, CAMPAIGN_IDS.slice(0, 10))],
+      ['a_login_7', (p) => { p.missions.counters.login = 7; }],
+      ['a_fp_wyrm', (p) => { p.missions.counters['fpm:blossom:wyrm'] = 1; }],
+      ['a_ur_1', (p) => { p.units.hikari.awaken = 5; }],
+      ['a_kills_5k', (p) => { p.missions.counters.kill = 5000; }],
+    ];
+    for (const [id, meet] of cases) {
+      const p = veteran();
+      const row = () => achievementList(p).find((x) => x.id === id);
+      expect(row(), id).toMatchObject({ claimable: false, claimed: false, met: false });
+      expect(claimAchievement(p, id).error, id).toBe('incomplete');
+      meet(p);
+      expect(row(), id).toMatchObject({ claimable: true, met: true, locked: null });
+      const gems = p.currencies.gems;
+      const r = claimAchievement(p, id);
+      expect(r.ok, id).toBe(true);
+      expect(p.missions.achievements[id]).toBe(true);
+      expect(p.currencies.gems - gems).toBe(ACHIEVEMENT_MAP[id].rewards.filter((x) => x.id === 'gems').reduce((n, x) => n + x.count, 0));
+      expect(claimAchievement(p, id).error, id).toBe('claimed');
+    }
+  });
+
+  it('the list carries the display fields', () => {
+    const a = achievementList(createProfile()).find((x) => x.id === 'a_sakura_40');
+    expect(a).toMatchObject({ cat: 'campaign', tier: 5, series: 'sakura', hidden: false, since: null, locked: null, live: true });
+    expect(a.seriesIds).toEqual(['a_sakura_1', 'a_sakura_10', 'a_sakura_20', 'a_sakura_40']);
+    expect(a.honor).toMatchObject({ no: 28, cls: 'special', fx: 'sakura' });
+    expect(a.title).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
+    const secret = achievementList(createProfile()).find((x) => x.id === 'a_close_call');
+    expect(secret).toMatchObject({ hidden: true, since: '0.1.30' });
+    expect(secret.hint).toMatch(/close/);
+    expect(achievementList(createProfile()).find((x) => x.id === 'a_reroll_10')).toMatchObject({ honor: null, title: null, name: 'Keen Tinkerer' });
+  });
+
+  it('gate: a box row on a new save before 2-1 is locked; open after the gear lesson; always open on a legacy save', () => {
+    const p = createProfile();
+    skipOnboarding(p);
+    p.missions.counters.kill = 5000; // a_kills_5k: 20 gems + a Sturdy box
+    expect(featureOpen(p, 'gear')).toBe(false);
+    expect(achievementList(p).find((x) => x.id === 'a_kills_5k')).toMatchObject({ met: true, claimable: false, locked: 'gear' });
+    expect(claimAchievement(p, 'a_kills_5k')).toMatchObject({ ok: false, error: 'locked', feature: 'gear' });
+    expect(p.missions.achievements.a_kills_5k).toBeUndefined();
+    expect(readyAchievementIds(p)).not.toContain('a_kills_5k');
+    expect(claimAllAchievements(p).skipped).toContain('a_kills_5k');
+    clearStages(p, ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1']);
+    checkLessons(p);
+    expect(featureOpen(p, 'gear')).toBe(true);
+    expect(claimAchievement(p, 'a_kills_5k').ok).toBe(true);
+    const legacy = veteran();
+    legacy.missions.counters.kill = 5000;
+    expect(claimAchievement(legacy, 'a_kills_5k').ok).toBe(true);
+  });
+
+  it('crowns wait for Awakening (3-2) the same way', () => {
+    const p = createProfile();
+    skipOnboarding(p);
+    for (const id of ['boss-lych', 'boss-colossus', 'boss-ashwing']) p.progress.stages[id] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+    expect(achievementGate(p, ACHIEVEMENT_MAP.a_boss_3)).toBe('awaken');
+    expect(claimAchievement(p, 'a_boss_3')).toMatchObject({ ok: false, error: 'locked', feature: 'awaken' });
+    p.items.crown_dragon = 1; // evidence of use opens it
+    expect(claimAchievement(p, 'a_boss_3').ok).toBe(true);
+  });
+
+  it('rows whose feature has not shipped are hidden and refuse claims with notLive; M0 mode lists only the shipped 30', () => {
+    const p = veteran();
+    expect(achievementList(p).some((x) => x.id === 'a_mr_800')).toBe(false);
+    expect(achievementList(p, { includeHidden: true }).find((x) => x.id === 'a_mr_800')).toMatchObject({ live: false, claimable: false });
+    expect(claimAchievement(p, 'a_donate_1').error).toBe('notLive');
+    expect(achievementList(p, { v2: false })).toHaveLength(30);
+    p.missions.counters.login = 7;
+    expect(claimAchievement(p, 'a_login_7', { v2: false }).error).toBe('notLive');
+    expect(claimAchievement(p, 'a_login_7').ok).toBe(true);
+    expect(claimAchievement(p, 'a_nope').error).toBe('unknown');
+  });
+
+  it('retired rows refuse claims and leave the list', () => {
+    const a = ACHIEVEMENT_MAP.a_login_7;
+    a.retired = true;
+    try {
+      const p = veteran();
+      p.missions.counters.login = 9;
+      expect(claimAchievement(p, 'a_login_7').error).toBe('retired');
+      expect(achievementList(p).some((x) => x.id === 'a_login_7')).toBe(false);
+    } finally {
+      delete a.retired;
+    }
+  });
+
+  it('Claim all = the sum of single claims, in category order; a second Claim all pays 0', () => {
+    const setup = () => {
+      const p = veteran();
+      clearStages(p, CAMPAIGN_IDS.slice(0, 26));
+      p.missions.counters = { ...p.missions.counters, login: 31, kill: 6000, dailyDone: 11 };
+      p.gacha.totalPulls = 15;
+      return p;
+    };
+    const a = setup();
+    const ids = readyAchievementIds(a);
+    let gems = 0;
+    for (const id of ids) gems += claimAchievement(a, id).rewards.filter((r) => r.id === 'gems').reduce((n, r) => n + r.count, 0);
+    const b = setup();
+    const all = claimAllAchievements(b);
+    expect(new Set(all.ids)).toEqual(new Set(ids));
+    expect(all.rewards.find((r) => r.id === 'gems').count).toBe(gems);
+    expect(all.honors).toContain('a_chapter_1');
+    expect(all.titles).toContain('a_first_win');
+    expect(all.ids.indexOf('a_first_win')).toBeLessThan(all.ids.indexOf('a_kills_5k')); // Campaign before Battles
+    expect(claimAllAchievements(b)).toMatchObject({ ok: false, ids: [], rewards: [] });
+  });
+
+  it('Claim all repeats until nothing is left, so Achiever counts the claims of the same tap', () => {
+    const p = veteran();
+    clearStages(p, CAMPAIGN_IDS);
+    clearStages(p, CAMPAIGN_IDS, 'hard');
+    p.missions.counters = { login: 120, kill: 30000, dailyDone: 55, battleWin: 120 };
+    p.gacha.totalPulls = 120;
+    const r = claimAllAchievements(p);
+    expect(r.ids.length).toBeGreaterThanOrEqual(25);
+    expect(r.ids).toContain('a_ach_25');
+  });
+
+  it('shipped fixes: a_units_all needs 19; a_kills_* count co-op kills', () => {
+    expect(ACHIEVEMENT_MAP.a_units_all.goal).toBe(19);
+    const p = veteran();
+    p.missions.counters.kill = 1000; // co-op kills land only in the counter
+    expect(achievementList(p).find((x) => x.id === 'a_kills_1000').claimable).toBe(true);
+  });
+
+  it('achievementsReady: the toast diff', () => {
+    expect(achievementsReady(['a', 'b'], ['b', 'c', 'd'])).toEqual(['c', 'd']);
+    expect(achievementsReady(null, ['x'])).toEqual(['x']);
+    expect(achievementsReady(['x'], [])).toEqual([]);
+  });
+
+  it('achievementNotice is cached and follows the save', () => {
+    const p = veteran();
+    expect(achievementNotice(p)).toEqual({ ready: 0, dot: false });
+    expect(achievementNotice(p)).toBe(achievementNotice(p));
+    p.missions.counters.login = 7;
+    expect(achievementNotice(p)).toEqual({ ready: 1, dot: true });
+    claimAchievement(p, 'a_login_7');
+    expect(achievementNotice(p)).toEqual({ ready: 0, dot: false });
+  });
+
+  it('recordMax keeps the highest value', () => {
+    const p = createProfile();
+    expect(recordMax(p, 'heroMax', 12)).toBe(true);
+    expect(recordMax(p, 'heroMax', 9)).toBe(false);
+    expect(recordMax(p, 'heroMax', 'x')).toBe(false);
+    expect(p.missions.counters.heroMax).toBe(12);
+  });
+
+  it('the F2P one-time Achievements row equals the sum of the live defs (116 at launch)', () => {
+    const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
+    const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
+    const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
+    expect(live).toHaveLength(116);
+    expect(row.gems).toBe(sum('gems'));
+    expect(row.gems).toBe(13000);
+    expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
+    expect(row.tickets).toBe(23);
+    expect(row.note).toBe('116 achievements');
   });
 });
 

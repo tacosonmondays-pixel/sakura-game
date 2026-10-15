@@ -21,6 +21,8 @@ import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage
 import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
+import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
+import '../styles/achievements.css'; // the gear summary
 
 // ---------------------------------------------------------------------------
 // Shared pieces
@@ -247,8 +249,9 @@ function openBoxes(itemId, n, rerender) {
   modal({
     title: `${getItem(itemId)?.name} ×${n}`,
     wide: res.gear.length > 2,
-    body: h('div.mb-gear-grid.mb-pop', res.gear.map((g) => gearCard(g))),
-    actions: [{ label: 'Nice!', kind: 'yellow' }],
+    // a big pile (achievement boxes add up): counts, the best 6 and the list below
+    body: res.gear.length > SUMMARY_ABOVE ? boxSummary(res.gear) : h('div.mb-gear-grid.mb-pop', res.gear.map((g) => gearCard(g))),
+    actions: [{ label: 'Nice!', kind: 'yellow', testid: 'box-open-ok' }],
   });
   rerender();
 }
@@ -262,7 +265,8 @@ function renderGearSection(host, rerender) {
       h('div.mb-box-row', boxes.map((b) => {
         const n = itemCount(profile, b.id);
         return h('div.mb-box', rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
-          h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null));
+          h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null,
+            n > 10 ? button(`Open all (${n})`, { kind: 'ghost', small: true, testid: `open-all-${b.id}`, onClick: () => openBoxes(b.id, n, rerender) }) : null));
       }))));
   }
   const slotGear = gearList(profile, { slot: state.gearSlot });

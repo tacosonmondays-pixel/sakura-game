@@ -1,0 +1,22 @@
+// Read-only fact dump from the live game for the final spec.
+const LIVE = '/home/user/sakura-game';
+const { STAGES, CAMPAIGN_IDS, CHAPTERS, stageEnemies } = await import(`${LIVE}/src/data/stages.js`);
+const { UNITS } = await import(`${LIVE}/src/data/units.js`);
+const { ENEMIES } = await import(`${LIVE}/src/data/enemies.js`);
+const { discoverableEnemies } = await import(`${LIVE}/src/systems/missions.js`);
+const E = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));
+const disc = discoverableEnemies();
+const fam = {};
+for (const id of disc) (fam[E[id].family] ||= []).push(id);
+console.log('discoverable', disc.length, 'of', ENEMIES.length);
+console.log('families', Object.fromEntries(Object.entries(fam).map(([k, v]) => [k, v.length])));
+for (const id of ['slime_gold', 'slime_mimic', 'fae_queen', 'grave_lych', 'fp_foundry_titan', 'fp_gloom_regent', 'fp_hyakki_daimyo', 'fp_eclipse_wyrm']) console.log(id, E[id] ? `${E[id].name} fam=${E[id].family} disc=${disc.includes(id)} boss=${E[id].boss||E[id].kind||''}` : 'MISSING');
+const bosses = ENEMIES.filter((e) => e.boss || e.miniboss || /boss/.test(e.kind || '')).map((e) => `${e.id}:${e.name}`);
+console.log('boss-like', bosses.join(', '));
+console.log('stage kinds', STAGES.reduce((o, s) => ((o[s.kind] = (o[s.kind] || 0) + 1), o), {}));
+console.log('chapters', CHAPTERS.map((c) => `${c.id}:${c.name || ''}:${c.theme || ''}:${c.stages.length}`).join(' | '));
+console.log('boss stages', STAGES.filter((s) => s.kind === 'boss').map((s) => `${s.id}:${s.name}`).join(', '));
+const ch = STAGES.find((s) => s.kind === 'challenge');
+console.log('challenge', ch && ch.id, ch && ch.name, ch && (ch.waves?.length ?? ch.waveCount), ch && JSON.stringify(ch.unlock || ch.requires || null));
+console.log('units', UNITS.map((u) => `${u.id}:${u.rarity}:${u.kind||''}`).join(' '));
+console.log('miniboss stages', STAGES.filter((s) => /-5$/.test(s.id) && s.kind === 'campaign').map((s) => `${s.id}:${(s.miniboss||s.boss||'')}`).join(' '));

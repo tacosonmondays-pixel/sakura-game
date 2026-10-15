@@ -10,6 +10,7 @@
 import '../styles/meta-a.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
 import { chatButton } from '../online/lobbyChat.js';
+import { storedName } from '../online/common.js';
 import { hub } from '../online/socialHub.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -26,7 +27,7 @@ import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
 import { ensureBetaGift, unclaimedMailCount } from '../../systems/mail.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
-import { missionList, loginCalendar, achievementList, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
+import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
 import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSave.js';
@@ -44,7 +45,7 @@ export function commissionsNotice(profile) {
     const missions = all.some((m) => m.claimable);
     const claimable = all.filter((m) => m.claimable).length;
     const login = loginCalendar(profile).claimable;
-    const ach = achievementList(profile).filter((a) => a.claimable).length;
+    const ach = achievementNotice(profile).ready; // cached: asked up to 3 times per lobby render
     const dailyDone = ml.daily.filter((m) => m.claimed || m.claimable).length;
     return { any: missions || login || ach > 0, missions, login, ach: ach > 0, count: claimable + ach + (login ? 1 : 0), dailyDone, dailyTotal: ml.daily.length };
   } catch {
@@ -337,7 +338,8 @@ function buildTop(host, { openSecretaryPicker }) {
   const tickets = itemCount(profile, 'ticket_recruit') + 10 * itemCount(profile, 'ticket_recruit10');
   const sep = () => h('i.lb-tr-sep');
   host.append(
-    h('div.lb-top-left', levelBadge(profile, { name: 'Sensei', onClick: () => navigate('commissions', { tab: 'achievements' }) })),
+    // [profile] the badge opens the Sensei Profile (owner, Oct 15); achievements stay in the Missions hub
+    h('div.lb-top-left', levelBadge(profile, { name: storedName() || 'Sensei', onClick: () => navigate('profile') })),
     h('div.lb-pills',
       pill({ iconSvg: itemIcon('ticket_recruit'), value: formatNumber(tickets), testid: 'tickets', title: 'Recruit tickets (pulls)', onPlus: () => navigate('mall', { tab: 'general' }), onClick: () => navigate('recruit') }),
       pill({ iconSvg: currencyIcon('coins'), value: formatNumber(profile.currencies.coins), testid: 'coins', title: 'Coins', onPlus: null }),

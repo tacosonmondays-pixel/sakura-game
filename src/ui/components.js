@@ -66,6 +66,10 @@ const EXTRA_GLYPHS = {
   chevron: '<path d="M9 5l7 7-7 7"/>',
   account: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16.5c.5-1.8 1.9-2.8 3.5-2.8s3 1 3.5 2.8M14.5 9.5h4M14.5 12.5h4"/>',
   expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>',
+  // [profile] Sensei Profile glyphs
+  edit: '<path d="M4.5 19.5l1-4.2L16.2 4.6a1.8 1.8 0 0 1 2.5 0l.7.7a1.8 1.8 0 0 1 0 2.5L8.7 18.5z"/><path d="M14.3 6.5l3.2 3.2"/>',
+  hold: '<circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.8" stroke-dasharray="30 20"/>',
+  friend: '<circle cx="9.5" cy="8.5" r="3.5"/><path d="M3 20c.5-3.8 3.2-6 6.5-6s6 2.2 6.5 6M18.5 8v6M15.5 11h6"/>',
   // [social]
   chat: '<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 9h8M8 12.2h5"/>',
   people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><circle cx="16.8" cy="9.5" r="2.5"/><path d="M15.5 14.5c2.4 0 4.3 1.5 4.9 4"/>',
@@ -367,13 +371,22 @@ export function menuTabModal({ extra = [] } = {}) {
   return m;
 }
 
+/**
+ * A short notice at the top. `message` is text or a node (kind 'ach': the achievement card of src/ui/achToast.js,
+ * which takes taps and sits a little lower).
+ */
 export function toast(message, kind = 'info', ms = 2200) {
   let host = document.querySelector('.toast-host');
   if (!host) document.body.appendChild((host = h('div.toast-host')));
   const t = h(`div.toast.toast-${kind}`, message);
+  if (kind === 'ach') host.classList.add('has-ach');
   host.appendChild(t);
   setTimeout(() => t.classList.add('out'), ms);
-  setTimeout(() => t.remove(), ms + 400);
+  setTimeout(() => {
+    t.remove();
+    if (!host.querySelector('.toast-ach')) host.classList.remove('has-ach');
+  }, ms + 400);
+  return t;
 }
 
 export function stars(n, max = 5) {
@@ -444,9 +457,9 @@ export function showItemInfo(itemId) {
  * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
-export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false } = {}) {
+export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, profile = store.profile } = {}) {
   const u = getUnit(unitId);
-  const shown = owned ? displayRarity(u, store.profile) : u.rarity;
+  const shown = owned ? displayRarity(u, profile) : u.rarity;
   const r = rarityInfo(shown);
   const art = svgEl(portraitHTML(u, variant === 'tall' ? 'card' : 'thumb', { awaken }), 'unit-card-art');
   const el = h(
@@ -460,7 +473,7 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
     owned ? null : h('div.unit-card-lock', svgEl(uiIcon('lock'))),
   );
   el.style.setProperty('--rarity', r.color);
-  if (shown === 'UR') applyUrFrame(el, u, store.profile);
+  if (shown === 'UR') applyUrFrame(el, u, profile);
   return el;
 }
 
