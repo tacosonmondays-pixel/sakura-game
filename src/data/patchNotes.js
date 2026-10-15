@@ -26,6 +26,9 @@ export const PATCH_NOTES = [
       'You can send a friend request to any player from their card, global chat included. They still choose whether to accept.',
       'The chat panel gives Global and your clan their own row, so your clan’s name fits.',
     ],
+    fixed: [
+      'Opening a huge pile of gear boxes no longer freezes the game: one tap opens up to 100, the gear bag holds up to 1,000 pieces, and a full Equipment list loads a page at a time.',
+    ],
   },
   {
     id: 'v0.1.30', version: '0.1.30', date: '2026-10-15', title: 'Sensei Profile & Honors',
