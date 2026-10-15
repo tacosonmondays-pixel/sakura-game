@@ -58,8 +58,7 @@ The chart counts gems and tickets only. The achievements expansion also gives **
 recruits; no box or crown can be claimed before Equipment (2-1) or Awakening (3-2) opens on a new save. The social,
 Codex and later waves add 16 rows (850 gems, 1 ticket) when their features ship.
 
-The owner's developer codes (`VERITY777` = 999,999 gems, `RESET 67` = reset progress) are
-excluded from the chart.
+The action code `RESET 67` (reset progress) grants nothing and is left out of the chart; the developer gem code (removed) is gone.
 
 ## 4. Commissions, login, achievements, codes, events
 

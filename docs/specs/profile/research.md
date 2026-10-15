@@ -27,7 +27,7 @@ Path prefixes used below: `L:` = live, `S:` = wt-social, `T:` = wt-traina, `C:` 
    - `level` is computed by the client and written by the client (1–999).
    - `avatar` is free text of up to 32 characters, set to the lobby secretary's id.
    - The server never sees saves (`S:…social.sql:52-55`).
-   - Every showcase number (units, gear, medals, ribbons) is self-reported, and the dev codes make it easy to inflate: `VERITY777` gives 999,999 gems and the Supply Bot gives any item (`L:src/data/missions.js:89-90`).
+   - Every showcase number (units, gear, medals, ribbons) is self-reported, and dev tools made it easy to inflate: the developer gem code (removed) gave 999,999 gems, and the Supply Bot gives any item.
    - So these numbers are bragging only. The server checks shape and ranges; the viewer's client sanitizes before rendering.
 4. **No link filter exists anywhere.**
    - Chat and DM text rules cover invisible, bidi and control characters, stacked marks, 1–200 characters and visibility (`S:src/online/socialRules.js:83-90`, `S:src/online/textRules.js`, SQL `valid_dm_body` `S:…social.sql:113-120`).

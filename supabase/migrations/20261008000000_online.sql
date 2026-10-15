@@ -26,7 +26,9 @@
 --              Co-op rooms use Realtime broadcast + presence channels 'coop:<CODE>:<secret>':
 --              open_room() / join_room() hand the secret to the host and to ONE guest only, so
 --              nobody else can listen to or write into a room (no realtime policies needed).
---   seed       the developer clan "Sakura Dev Lab" [DEV], join code Rosie777.
+--   seed       the developer clan "Sakura Dev Lab" [DEV], WITHOUT a join code: the owner sets
+--              and rotates it with an UPDATE in the SQL editor (docs/ONLINE.md) and never
+--              commits it. This file never inserts, resets or re-creates that code.
 -- No profanity filter (not wanted for now). No keys or secrets live in this file: the game
 -- only ever uses the project's public anon key, and these policies are what protect the data.
 
@@ -852,10 +854,12 @@ begin
   end loop;
 end $$;
 
--- Developer clan (owner request): join with code Rosie777 → the Supply Bot sandbox in the game.
+-- Developer clan (owner request): its members get the Supply Bot sandbox in the game. Only the
+-- clan row is seeded. Its join code is private: the owner sets / rotates it with an UPDATE (or
+-- the first time an insert) on public.clan_codes in the SQL editor — docs/ONLINE.md, "Rotate the
+-- developer clan code" — and never commits it. Nothing here touches clan_codes, so pasting this
+-- file again never resets or re-creates the code.
 insert into public.clans (id, name, tag, emblem, join_mode, description, max_members, is_dev)
 values ('00000000-0000-4000-8000-000000000777', 'Sakura Dev Lab', 'DEV', 'wiki', 'code',
         'Developer sandbox. The Supply Bot here grants any item — for testing only.', 500, true)
 on conflict (id) do nothing;
-insert into public.clan_codes (clan_id, code) values ('00000000-0000-4000-8000-000000000777', 'Rosie777')
-on conflict (clan_id) do nothing;

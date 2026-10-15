@@ -1,6 +1,7 @@
 // The Supabase migration (supabase/migrations/*.sql), checked two ways:
 //  1. lint: every table has Row Level Security, the chat trigger and the rate limits use the
-//     same numbers as src/online/limits.js, the dev clan is seeded, no secrets in the repo;
+//     same numbers as src/online/limits.js, the dev clan is seeded WITHOUT a join code, no
+//     secrets in the repo;
 //  2. run: the migration is applied (twice — it must be idempotent) to a real Postgres engine
 //     (PGlite, Postgres compiled to WASM) next to a small stub of Supabase's auth schema, roles
 //     and realtime publication, then exercised as several signed-in players: RLS, the clan
@@ -9,8 +10,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { RULES } from '../../src/online/limits.js';
+import { DEV_CLAN_UUID, TEST_DEV_CODE, setDevCode } from './pgHarness.js';
 import {
-  DEV_CODE, BOSS_HITS_PER_DAY, CLAN_MAX_MEMBERS, CLAN_BOSSES, xpForLevel, CLAN_XP, bossHitCap, bossMaxHp, BOSS_POOL_ATTEMPTS,
+  BOSS_HITS_PER_DAY, CLAN_MAX_MEMBERS, CLAN_BOSSES, xpForLevel, CLAN_XP, bossHitCap, bossMaxHp, BOSS_POOL_ATTEMPTS,
   BOSS_MIN_MEMBERS, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS, RESERVED_NAMES, INVITE_META_MAX,
 } from '../../src/online/clanRules.js';
 
@@ -64,8 +66,12 @@ describe('supabase migrations (lint)', () => {
     expect(sql).toContain(`least(${CLAN_XP.bossHitMax}, ${CLAN_XP.bossHitBase} + v_dmg / ${1 / CLAN_XP.bossPerDamage})`);
   });
 
-  it('seed the developer clan with the owner\'s code, hidden from browsing', () => {
-    expect(sql).toContain(`'${DEV_CODE}'`);
+  it('seed the developer clan without a join code (the owner sets it in the database), hidden from browsing', () => {
+    expect(sql).toContain(`values ('${DEV_CLAN_UUID}', 'Sakura Dev Lab', 'DEV'`);
+    // no insert into clan_codes for the dev clan: the code is private and never committed, and
+    // pasting the file again must never reset or re-create it
+    expect(sql).not.toMatch(/insert into (public\.)?clan_codes[^;]*000000000777/i);
+    expect(sql).not.toMatch(/(update|delete from) (public\.)?clan_codes/i);
     expect(sql).toMatch(/is_dev boolean not null default false/);
     expect(sql).toMatch(/create policy clans_read on public\.clans for select to authenticated using \(not is_dev or id = public\.my_clan\(\)\)/);
   });
@@ -149,7 +155,13 @@ describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants 
       create publication supabase_realtime;
     `);
     await db.exec(sql);
+    // a fresh project: the developer clan exists, but nobody can join it until the owner sets a code
+    expect((await db.query(`select count(*)::int as n from clans where id = $1 and is_dev`, [DEV_CLAN_UUID])).rows[0].n).toBe(1);
+    expect((await db.query(`select count(*)::int as n from clan_codes where clan_id = $1`, [DEV_CLAN_UUID])).rows[0].n).toBe(0);
+    await setDevCode(db); // the owner's UPDATE / insert in the SQL editor, with a test-only code
     await db.exec(sql); // must be idempotent (pasting it again in the SQL editor is harmless)
+    // ... and pasting it again keeps the owner's code as it is
+    expect((await db.query(`select code from clan_codes where clan_id = $1`, [DEV_CLAN_UUID])).rows).toEqual([{ code: TEST_DEV_CODE }]);
     await db.exec(`insert into auth.users values ('${A}'), ('${B}'), ('${C}'), ('${D}'), ('${E}'), ('${F}')`);
     for (const [id, name] of [[A, 'Aiko'], [B, 'Bea'], [C, 'Cleo'], [D, 'Dara'], [E, 'Emi'], [F, 'Fumi']]) await as(id, 'insert into profiles (id, name) values ($1, $2)', [id, name]);
   }, 60000);
@@ -245,9 +257,9 @@ describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants 
     expect((await as(A, 'select role from clan_members where user_id = $1', [B]))[0].role).toBe('officer');
   });
 
-  it('the developer clan: join with Rosie777 (any case), invisible to everyone else', async () => {
+  it('the developer clan: join with the code the owner set (any case), invisible to everyone else', async () => {
     expect((await as(C, `select join_clan_by_code('nope') as r`))[0].r).toEqual({ error: 'not_found' });
-    const [{ r }] = await as(C, `select join_clan_by_code('rosie777') as r`);
+    const [{ r }] = await as(C, `select join_clan_by_code($1) as r`, [TEST_DEV_CODE.toLowerCase()]);
     const [dev] = await as(C, 'select * from clans where id = $1', [r.id]);
     expect(dev.is_dev).toBe(true);
     expect(dev.name).toBe('Sakura Dev Lab');
@@ -270,7 +282,7 @@ describe.skipIf(!PGlite)(`supabase migrations (run on Postgres, ${defaultGrants 
     expect(misses).toBe(10);
     expect(limited?.message).toMatch(/^rate_limited:\d+$/);
     // even the right code is refused now: the limit is per player, not per wrong code
-    await refused(as(E, `select join_clan_by_code('Rosie777')`), /^rate_limited:\d+$/);
+    await refused(as(E, 'select join_clan_by_code($1)', [TEST_DEV_CODE]), /^rate_limited:\d+$/);
     expect((await db.query(`select count(*)::int as n from rate_events where user_id = $1 and action = 'clan_join'`, [E])).rows[0].n).toBe(10);
     // codes for 'code' clans are 8 characters of a 32-letter alphabet (40 random bits)
     const [cc] = await as(F, `select * from create_clan('Code Club', 'CC', 'gems', 'code', '')`);

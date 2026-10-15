@@ -1,5 +1,5 @@
 // Pure clan rules shared by both backend adapters, the UI and tests: roles and permissions,
-// clan level from XP, the weekly clan boss, reward tiers and the developer clan code.
+// clan level from XP, the weekly clan boss, reward tiers and the offline test backend's developer clan code.
 // (supabase/migrations/*_online.sql mirrors the numbers marked "SQL".)
 import { nameLooksBlank, nameKey, nameWords, nameCamel, mixesLookalikes, MESSAGE_INVISIBLE, VISIBLE_CHAR, COMBINING_RUN } from './textRules.js';
 
@@ -8,8 +8,13 @@ export const ROLE_NAMES = { leader: 'Leader', officer: 'Officer', member: 'Membe
 /** SQL: clans.max_members default. */
 export const CLAN_MAX_MEMBERS = 30;
 export const JOIN_MODES = { open: 'Open', request: 'By request', code: 'Invite code' };
-/** Developer clan join code (owner request): its members get the Supply Bot sandbox. */
-export const DEV_CODE = 'Rosie777';
+/**
+ * The developer clan's join code for the OFFLINE TEST BACKEND ONLY (adapters/localDb.js, which
+ * keeps everything in this browser), and only in dev builds and tests. It is public on purpose
+ * and opens nothing on the live server: the live developer clan's code is set by the owner in
+ * the database (docs/ONLINE.md, "Rotate the developer clan code") and is never in the repo.
+ */
+export const LOCAL_DEV_CODE = 'LOCAL-DEV-LAB';
 export const DEV_CLAN = Object.freeze({ name: 'Sakura Dev Lab', tag: 'DEV', emblem: 'wiki', description: 'Developer sandbox. The Supply Bot here grants any item — for testing only.' });
 /**
  * Emblems a player clan may pick = existing illustrated lobby icon names (src/art/lobbyIcons.js).

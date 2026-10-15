@@ -45,13 +45,17 @@ export { ACHIEVEMENTS } from './achievements.js';
 /**
  * Redemption codes (case-insensitive, spaces ignored). `action` codes do not grant items;
  * the UI performs the action after confirmation (e.g. resetting progress).
+ * This file ships in the public bundle, so every code here is public. A code marked
+ * `dev: true` only works in a local dev build (import.meta.env.DEV, see redeemCode); never put a
+ * real developer cheat code here.
  */
 export const REDEEM_CODES = {
   SAKURA2026: { rewards: [{ id: 'gems', count: 300 }, { id: 'ticket_recruit', count: 2 }], desc: 'Launch celebration!' },
   WELCOME: { rewards: [{ id: 'gems', count: 500 }, { id: 'coins', count: 20000 }, { id: 'book_rare', count: 10 }], desc: 'Welcome to Sakura Academy.' },
   TACOTUESDAY: { rewards: [{ id: 'gems', count: 240 }, { id: 'coins', count: 15000 }, { id: 'ticket_recruit', count: 1 }], desc: 'Tacos for everyone (every day of the week).' },
-  VERITY777: { rewards: [{ id: 'gems', count: 999999 }], desc: 'Owner\'s developer code: a mountain of gems.', dev: true },
-  RESET67: { rewards: [], action: 'resetProgress', repeatable: true, desc: 'Resets ALL progress and returns to the title screen.', dev: true },
+  // Player-facing: it only wipes the redeemer's own save (like Settings → reset), so it is not
+  // dev-gated and keeps working on the live site.
+  RESET67: { rewards: [], action: 'resetProgress', repeatable: true, desc: 'Resets ALL progress and returns to the title screen.' },
 };
 
 /** Weekly rotating events: double drops on one Bounty arena (chosen by weekKey). */
