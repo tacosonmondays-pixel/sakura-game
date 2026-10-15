@@ -25,6 +25,7 @@ import { TITLES } from '../../data/profileArt.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName } from '../online/common.js';
+import { tagChips } from '../online/tagChip.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -221,7 +222,10 @@ function profileView(m, ctx) {
   const idPanel = h('section.panel.pf-id', { 'data-testid': 'profile-identity' },
     h('div.pf-ava-col', avatarEl(m.avatar, m.frame, { onEdit: own ? () => actions.editProfile('picture') : null }), m.frame ? h('div.pf-ava-cap', frameName(m.frame)) : null),
     h('div.pf-who',
-      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
+      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name),
+        // player tags (DEV · ALPHA · BETA): every chip, from the server (yours, and the Preview of what others see)
+        own || preview ? tagChips(null, { self: true, all: true, size: 'lg' }) : null,
+        h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
       tags,
       bio),
     h('div.pf-stats', statTiles(m.st)));

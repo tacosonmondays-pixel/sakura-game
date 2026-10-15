@@ -10,6 +10,7 @@ import { errorText, toOnlineError } from '../../online/errors.js';
 import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
 import { DEV_CLAN } from '../../online/clanRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
+import { tagChips } from './tagChip.js';
 import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
 import { makeRoomCode, getSession } from '../../online/coop/session.js';
 
@@ -43,7 +44,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
   const acts = h('div.sc-card-acts', { 'data-testid': 'card-actions' }, h('div.ol-connecting.sc-card-wait', h('i.ol-spinner')));
   const av = h('span.sc-card-av', avatar(hint.avatar || 'hikari', 64));
   const body = h('div.sc-card', { 'data-testid': 'player-card' },
-    h('div.sc-card-head', av, h('div.sc-card-id', h('div.sc-card-line', name, lv), clanLine, presence)),
+    h('div.sc-card-head', av, h('div.sc-card-id', h('div.sc-card-line', name, tagChips(userId, { all: true, size: 'md' }), lv), clanLine, presence)),
     acts);
   const m = modal({ title: 'Player', body, actions: [], cls: 'sc-card-modal' });
   m.el.querySelector('.modal-title')?.appendChild(h('button.menu-tab-x.sc-card-x', { onclick: () => m.close(), 'aria-label': 'Close', 'data-testid': 'card-close' }, '×'));

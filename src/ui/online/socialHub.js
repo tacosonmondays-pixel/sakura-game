@@ -12,6 +12,8 @@ import { navigate, currentRoute } from '../router.js';
 import { closeAllModals } from '../components.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { DIFFICULTIES } from '../../data/types.js';
+import { store } from '../../core/store.js';
+import { setSelfId, loadTags, recordTagMarks } from '../../online/tags.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PENDING_KEY = 'ss-social-pending-invites';
@@ -169,6 +171,8 @@ export function startSocialHub({ force = false } = {}) {
       setStatus('offline');
       return state.status;
     }
+    // [tags] once per tab, whatever the social update's state (a separate table)
+    syncOwnTags(backend);
     const st = await backend.socialStatus();
     setStatus(st);
     state.started = true;
@@ -183,6 +187,20 @@ export function startSocialHub({ force = false } = {}) {
     state.starting = null;
   });
   return state.starting;
+}
+
+/**
+ * [tags] This account's own tags, once per tab: the own profile header shows them, and the save keeps
+ * them as missions.counters marks ('tag:dev' …) that unlock the tag titles. Saved through the store
+ * (never a raw storage write); the existing new-title dot announces a new one. Marks are only added.
+ */
+export async function syncOwnTags(backend) {
+  const uid = backend?.uid;
+  if (!uid) return null;
+  setSelfId(uid);
+  const tags = await loadTags(uid).catch(() => null);
+  if (tags && store.profile && recordTagMarks(store.profile, tags)) store.commit('tags');
+  return tags;
 }
 
 async function recheck() {

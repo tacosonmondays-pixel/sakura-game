@@ -10,6 +10,7 @@ import { toOnlineError } from '../../online/errors.js';
 import { bodyError } from '../../online/socialRules.js';
 import { hub } from './socialHub.js';
 import { openPlayerCard } from './playerCard.js';
+import { tagChips } from './tagChip.js';
 
 const MAX = 200;
 const SEEN_KEY = 'ss-online-seen';
@@ -69,7 +70,8 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
       { 'data-id': m.id, 'data-testid': 'chat-msg', 'data-user': m.userId || '' },
       mine ? null : h('button.ol-msg-av', { type: 'button', 'aria-label': `${m.name || 'Sensei'}: player card`, 'data-testid': 'chat-avatar', onclick: () => openCard(m) }, avatar(m.avatar, compact ? 28 : 34)),
       h('div.ol-msg-col',
-        h('div.ol-msg-head', mine ? name : h('button.ol-msg-who', { type: 'button', 'data-testid': 'chat-name', onclick: () => openCard(m) }, name), levelChip(m.level), h('time', clock(m.createdAt))),
+        h('div.ol-msg-head', mine ? name : h('button.ol-msg-who', { type: 'button', 'data-testid': 'chat-name', onclick: () => openCard(m) }, name),
+          m.userId ? tagChips(m.userId) : null, levelChip(m.level), h('time', clock(m.createdAt))),
         h('div.ol-bubble', m.body,
           invite ? h('button.ol-invite-btn', { 'data-testid': 'invite-join', onclick: () => navigate('coop', { id: m.meta.room }) }, 'Join co-op') : null)),
     );

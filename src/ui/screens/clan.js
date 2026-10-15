@@ -23,6 +23,7 @@ import { bossPortrait } from '../online/bossArt.js';
 import { makeRoomCode } from '../../online/coop/session.js';
 import { onlineHeadExtra } from '../online/inboxButton.js';
 import { openPlayerCard } from '../online/playerCard.js';
+import { tagChips } from '../online/tagChip.js';
 import { createDonatePanel, collectCard } from '../online/donatePanel.js';
 import { hub } from '../online/socialHub.js';
 
@@ -327,7 +328,7 @@ function membersTab(backend, clan, role, pane) {
           h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card, 'aria-label': `${m.name}: player card` },
             avatar(m.avatar, 40),
             h('div.ol-member-info',
-              h('div.ol-member-name', h('b', m.name), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
+              h('div.ol-member-name', h('b', m.name), tagChips(m.userId), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
               h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`))),
           h('div.ol-member-acts', acts));
       }));
@@ -356,7 +357,7 @@ function requestsTab(backend, clan, pane) {
       const reqs = await backend.listRequests(clan.id);
       if (!alive) return;
       list.replaceChildren(...(reqs.length ? reqs.map((r) => h('div.ol-member', avatar(r.avatar, 40),
-        h('div.ol-member-info', h('div.ol-member-name', h('b', r.name), levelChip(r.level)), h('small.muted', `Asked ${agoText(r.at)}`)),
+        h('div.ol-member-info', h('div.ol-member-name', h('b', r.name), tagChips(r.userId), levelChip(r.level)), h('small.muted', `Asked ${agoText(r.at)}`)),
         h('div.ol-member-acts',
           button('Accept', { kind: 'yellow', small: true, onClick: () => answer(r, true) }),
           button('Decline', { kind: 'ghost', small: true, onClick: () => answer(r, false) })))) : [h('div.ol-empty', h('b', 'No requests'), h('p.muted', clan.joinMode === 'open' ? 'Your clan is open: players join directly.' : 'New requests appear here.'))]));

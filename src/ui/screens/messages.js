@@ -10,6 +10,7 @@ import { buildHash } from '../router.js';
 import { ensureOnline, onlinePill, avatar, levelChip, clock, connecting, showError } from '../online/common.js';
 import { needsUpdateCard } from '../online/needsUpdate.js';
 import { openPlayerCard, NEW_PEER_KEY } from '../online/playerCard.js';
+import { tagChips } from '../online/tagChip.js';
 import { hub, startSocialHub, setViewing, refreshSoon, setBlocked, joinInvite, setPrivacyCache, inviteSummary } from '../online/socialHub.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { formatRetry } from '../../online/limits.js';
@@ -205,7 +206,7 @@ export function render(root, params = {}) {
       'data-testid': 'thread-row', 'data-thread': t.id, onclick: () => openThread(t.id),
     },
     avatar(t.peer.avatar, 40),
-    h('span.sc-row-main', h('span.sc-row-top', h('b', t.peer.name), h('time', t.last ? clock(t.last.createdAt) : '')), h('span.sc-row-sub', preview(t.last))),
+    h('span.sc-row-main', h('span.sc-row-top', h('b', t.peer.name), tagChips(t.peer.userId), h('time', t.last ? clock(t.last.createdAt) : '')), h('span.sc-row-sub', preview(t.last))),
     t.unread ? h('span.sc-pill', { 'data-testid': 'thread-unread' }, String(t.unread)) : null)));
   }
 
@@ -257,7 +258,7 @@ export function render(root, params = {}) {
     const rows = friends.length
       ? friends.map((f) => h('div.sc-row.sc-friend', { 'data-testid': 'friend-row' },
         h('button.sc-row-tap', { onclick: () => openPlayerCard(f.userId, f, { context: 'profile' }) }, avatar(f.avatar, 38),
-          h('span.sc-row-main', h('span.sc-row-top', h('b', f.name), levelChip(f.level)), h('span.sc-row-sub', h(`span${f.online ? '.ol-online-dot' : ''}`, presenceText(f.lastActive) || 'Friend')))),
+          h('span.sc-row-main', h('span.sc-row-top', h('b', f.name), tagChips(f.userId), levelChip(f.level)), h('span.sc-row-sub', h(`span${f.online ? '.ol-online-dot' : ''}`, presenceText(f.lastActive) || 'Friend')))),
         f.canMessage ? h('button.sc-mini.sc-mini-blue', { 'data-testid': 'friend-message', onclick: () => messagePeer(f) }, 'Message') : null))
       : [h('div.ol-empty.sc-empty', h('b', 'No friends yet'), h('p.muted', 'Add clanmates and co-op partners from their name, or swap friend codes.'))];
     return h('div.sc-rows', head, ...rows);
@@ -267,12 +268,12 @@ export function render(root, params = {}) {
     const r = await backend.friendRequests();
     const inc = r.incoming.map((q) => h('div.sc-row.sc-req', { 'data-testid': 'request-row' },
       avatar(q.avatar, 38),
-      h('span.sc-row-main', h('span.sc-row-top', h('b', q.name), levelChip(q.level)), h('span.sc-row-sub', VIA[q.via] || 'wants to be friends')),
+      h('span.sc-row-main', h('span.sc-row-top', h('b', q.name), tagChips(q.userId), levelChip(q.level)), h('span.sc-row-sub', VIA[q.via] || 'wants to be friends')),
       h('span.sc-req-acts',
         button('Accept', { kind: 'yellow', small: true, testid: 'request-accept', onClick: () => answer(q, true) }),
         button('Decline', { kind: 'ghost', small: true, testid: 'request-decline', onClick: () => answer(q, false) }))));
     const out = r.outgoing.map((q) => h('div.sc-row.sc-req.out', avatar(q.avatar, 32),
-      h('span.sc-row-main', h('span.sc-row-top', h('b', q.name)), h('span.sc-row-sub', 'Waiting for an answer')),
+      h('span.sc-row-main', h('span.sc-row-top', h('b', q.name), q.userId ? tagChips(q.userId) : null), h('span.sc-row-sub', 'Waiting for an answer')),
       button('Cancel', { kind: 'ghost', small: true, onClick: async () => { try { await backend.cancelFriendRequest(q.id); paintList(); } catch (e) { showError(e); } } })));
     return h('div.sc-rows',
       h('div.sc-sec', 'Asked you'),
@@ -378,7 +379,7 @@ export function render(root, params = {}) {
       const p = info.peer;
       head.replaceChildren(
         h('button.sc-back', { 'aria-label': 'Back to the list', 'data-testid': 'thread-back', onclick: () => { selected = null; setHash({ tab: tab === 'chats' ? undefined : tab }); paintEmptyThread(); paintList(); } }, svgEl(glyph('back'), 'sc-icon')),
-        h('button.sc-thread-who', { 'data-testid': 'thread-peer', onclick: () => openPlayerCard(p.userId, p, { context: 'dm' }) }, avatar(p.avatar, 36), h('span', h('b', p.name), levelChip(p.level))),
+        h('button.sc-thread-who', { 'data-testid': 'thread-peer', onclick: () => openPlayerCard(p.userId, p, { context: 'dm' }) }, avatar(p.avatar, 36), h('span', h('b', p.name), p.userId ? tagChips(p.userId) : null, levelChip(p.level))),
         h('span.sc-grow'),
         button('Invite to co-op', {
           kind: 'yellow', small: true, icon: 'play', testid: 'thread-invite', disabled: !info.canMessage,
