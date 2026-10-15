@@ -323,7 +323,7 @@ export function createResults(ctx) {
     open(card);
   }
 
-  /** Co-op freeplay past the goal: FREEPLAY OVER (fell) or FREEPLAY COMPLETE (the Finish vote). */
+  /** Freeplay past the goal (co-op or solo): FREEPLAY OVER (fell) or FREEPLAY COMPLETE (Finish). */
   function showFreeplay() {
     const out = apply();
     const r = sim.result();
@@ -362,6 +362,8 @@ export function createResults(ctx) {
       fp.newBest
         ? h('div.bt-free-best', { 'data-testid': 'freeplay-best' }, `New best on ${stage.id} (${table.name})!`)
         : fp.best ? h('div.bt-free-best.old', `Your best on ${stage.id} (${table.name}): ${fp.best}/${sim.totalWaves}`) : null,
+      // as on the victory and defeat sheets: the freeplay payout could not be written
+      saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       bosses.length ? section('Bosses beaten', h('div.bt-free-bosses', bosses.map(([id, n]) => h('div.bt-free-boss', { title: enemyDef(id)?.name || id }, enemyToken(id, { size: 40 }), h('small', `${enemyDef(id)?.name || id}${n > 1 ? ` ×${n}` : ''}`))))) : null,
