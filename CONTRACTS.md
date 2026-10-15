@@ -432,13 +432,13 @@ Profile = {
   version, createdAt,
   currencies: { coins, gems },
   items: { [itemId]: count },
-  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite? } },
+  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave? } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js); the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -447,7 +447,7 @@ Profile = {
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
   mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
-  seenIntro: string[],
+  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save
   battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
 }
 GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
@@ -476,6 +476,17 @@ again; a full set of saves is only replaced by the player's choice (stage prep �
 removed a saved battle this tab still holds. A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
 ignores it: no whole-save backup).
 
+### `src/systems/potential.js` (Potential M0: counting only; spec `docs/specs/POTENTIAL.md`)
+
+```js
+export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
+export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
+export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
+export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
+```
+Not read by any screen or by the sim yet (M1–M3). Not in the co-op graph.
+
 ### `src/systems/mail.js` (first impressions)
 
 ```js
@@ -489,7 +500,7 @@ export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < B
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
 // src/systems/gacha.js
-export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments }
+export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
 
 ### `src/systems/progression.js`
@@ -577,7 +588,7 @@ export function canSweep(profile, stageId)
 ```js
 export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
-export function grantUnit(profile, unitId)   // -> { isNew, fragments }
+export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments
 export function isStageUnlocked(profile, stageId)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared

@@ -117,8 +117,10 @@ export function spark(profile, unitId) {
   if (!POOL.SSR.includes(unitId)) return { ok: false, error: 'notSSR' };
   if (!canSpark(profile)) return { ok: false, error: 'points' };
   profile.gacha.recruitPoints -= GACHA.sparkCost;
-  const grant = grantUnit(profile, unitId);
-  profile.gacha.history.push({ unitId, rarity: UNIT_MAP[unitId].rarity, at: Date.now(), spark: true });
+  // one timestamp for the grant and the history entry (Potential's shadow and backfill compare them)
+  const now = Date.now();
+  const grant = grantUnit(profile, unitId, now);
+  profile.gacha.history.push({ unitId, rarity: UNIT_MAP[unitId].rarity, at: now, spark: true });
   if (profile.gacha.history.length > HISTORY_LIMIT) profile.gacha.history.shift();
   return { ok: true, unitId, ...grant };
 }
@@ -128,15 +130,16 @@ export const SSR_SELECT_TICKET = 'ticket_ssr_select';
 
 /**
  * Redeem an SSR Select Ticket for the SSR of the player's choice. New girls join; owned girls
- * convert into Star Fragments (like any duplicate).
+ * count as a duplicate (Potential +1 and Star Fragments, like any duplicate).
  * @returns {{ ok: boolean, error?: 'notSSR'|'noTicket', unitId?: string, isNew?: boolean, fragments?: number }}
  */
 export function redeemSelectTicket(profile, unitId) {
   if (!POOL.SSR.includes(unitId)) return { ok: false, error: 'notSSR' };
   if (!consumeItems(profile, [{ id: SSR_SELECT_TICKET, count: 1 }])) return { ok: false, error: 'noTicket' };
-  const grant = grantUnit(profile, unitId);
+  const now = Date.now();
+  const grant = grantUnit(profile, unitId, now);
   const state = ensureState(profile.gacha ||= {});
-  state.history.push({ unitId, rarity: UNIT_MAP[unitId].rarity, at: Date.now(), select: true });
+  state.history.push({ unitId, rarity: UNIT_MAP[unitId].rarity, at: now, select: true });
   if (state.history.length > HISTORY_LIMIT) state.history.shift();
   return { ok: true, unitId, ...grant };
 }
