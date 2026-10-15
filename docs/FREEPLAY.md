@@ -112,6 +112,42 @@ Curve check (non-boss waves 31–200, per-wave growth of effective HP over the p
 The big enemies at the tens from 166 are unchanged on Blossom and Tempest (8-5 Blossom: 34M / 59M / 75M
 at 170 / 180 / 190, the Matriarch 372M). `tests/sim/freeplayCurve.test.js` keeps the bands.
 
+## Balance after the path-cap pass (bots, Oct 15)
+
+`tools/capBot.mjs` plays the spec's scripted builds with the one-final-tier rule: MAXED profile, Normal, hero
+Hikari 5-0-2, run until it falls; every copy of a girl type has its own plan and a refused tier 5 finishes her
+crosspath instead. Seeds only move the bot's timing (the Freeplay waves are seeded by the stage), so seeds 7 and 11
+land on the same wave. Live (`fddf01c`) numbers are the research runs.
+
+| Run | Fell on | Target | Live |
+|---|---|---|---|
+| A, smart mixed team (32 girls, 18 final tiers), 4-5 Blossom, seeds 7 / 11 | **178 / 178** | 180–220 | std team 150 |
+| A, 1-5 / 8-5 Blossom | 195 / 170 | within ±20 of 4-5 | 200 / 160 |
+| A, 4-5 Tempest / Crimson Moon | 154 / 140 | 140–180 / 110–140, Blossom > Tempest > Crimson | 120 / 90 |
+| B, Kage army (28 Kages, the 3 final tiers + 25 at 4-0-2), 4-5 seeds 7 / 11 | **130 / 130** | 130–170, never 200 | 99 (Kage only) |
+| B, 8-5 Blossom | 122 | < 200 | 170 (62 final tiers, no cap) |
+| A2, Chika (tune-up 0-5-2) for Momo, 4-5 | 190 | ≤ 225 | — |
+| C, the research's std team (cheapest step first, cap-aware), 4-5 | 160 | report | 150 |
+| A on the co-op stage (HP ×1.6), one bot, one wallet | 172 | 20–30 below solo | 130 (std team) |
+| A, two bots on a CoopSim (two wallets, per-player caps) | 178 | −10…+5 of solo | — |
+
+- **Kage army** fell at 125–129 with live tier 4; Blade Rain (Storm of Steel tier 4) now ignores 5 armor (was 3):
+  130 on both seeds. It falls to the boss at 120 and the minibosses after it: a pure Kage army has no boss damage
+  past Thousand Shadows. (Blade Rain stays below Kunai Craft in autoPlan's path score, so the campaign plans are
+  unchanged.)
+- **Mixed team, 2 short of 180.** All 32 girls, 18 final tiers and ~290k coins unspent by wave 140; the run ends at
+  175–178 on elites, not bosses: siphoning Grave Priests (they drain their crowd, so the swarm's HP walks out in
+  one body; Quickened ones at 175–176) and Mirror Queens with their decoys at ~17 armor. It does not move with
+  damage: every normal-class tier 5 at +0.1 `damageMul` (the spec's first knob) gave 178 on 4-5, 198 on 1-5 and
+  pushed Crimson Moon to 145 (reverted); +25 % damage on the whole profile gave 180; elite HP ×1.35 instead of ×1.5
+  from depth 120 and splitting the elite share's 35 → 45 % step at depth 150 into two steps both gave 178. The
+  spec's other knobs (boss damage on area tier 5s, the level 100–149 boss factor) act on bosses, which this team
+  does not lose to. The counters are poison (it stops the siphon) and Priority targeting, which the scripted bot
+  does not play; a re-fit at train C (spec §6.5) should look at the siphon in dense late waves first.
+- **Co-op:** one bot on the ×1.6 stage falls only 6 waves earlier than solo (its first leak is 10 earlier); the
+  owner's ×1.6 stays. Two bots with two wallets reach the solo wave (P1's Shiro and Kage hold their own final
+  tiers: 23 in total).
+
 ## Rewards (never above normal play per minute)
 
 `src/systems/freeplayRewards.js`, the co-op rule (`src/online/coop/rewards.js`) applied to solo:

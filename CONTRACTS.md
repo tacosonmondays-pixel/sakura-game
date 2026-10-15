@@ -140,7 +140,10 @@ BaseStats = {
   status: StatusSpec[],   // applied on hit
   crit: { chance: 0, mul: 1.5 },
   eliteMul: 1, bossMul: 1, barrierMul: 1,
-  aura?: { range, dmgMul?, rateMul?, rangeMul?, detection?, costCut?, cleanse? }, // buffs towers within range
+  aura?: { range, dmgMul?, rateMul?, rangeMul?, detection?, costCut?, cleanse?, armorPen?, critChance? }, // buffs towers within range
+  brew?: { targets, dmgMul?, rateMul?, armorPen?, critChance? },  // limited buff (Midori): a few girls in her range, src/sim/buffs.js
+  link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
+  hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
   turret?: { max, damage, rate, range, attackType?, status? },  // drones spawned near the tower, 1 per attack until max
@@ -153,7 +156,7 @@ BaseStats = {
 
 StatusSpec = { type: 'slow', amount: 0.3, duration: 1.5 }
            | { type: 'freeze'|'stun'|'shock'|'silence'|'reveal', duration }
-           | { type: 'burn'|'poison', dps, duration }
+           | { type: 'burn'|'poison', dps, duration, pct? }   // pct: + that share of max HP per second (×0.1 on bosses)
            | { type: 'shred', amount, duration }       // flat armor, stacks ×3
            | { type: 'mark'|'vulnerable', bonus, duration }
            | { type: 'soak', duration }
@@ -179,7 +182,9 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | status (StatusSpec[] append; same type → keep stronger values) | |
 | crit: {chance (add), mul (max)} | |
 | eliteMul, bossMul, barrierMul (mul) | |
-| aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse} | |
+| aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
+| brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
+| hpPct: {pct, boss, cap} (max) | % of current HP per hit |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
 | turret: {max, damage, range (add); rate (mul)} | |
@@ -187,8 +192,11 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
 
-Upgrade rules (BTD6-style crosspathing): at most two paths may have tiers > 0, and only one
-path may go above tier 2. Tier N requires tier N-1 in that path.
+Upgrade rules (crosspathing): at most two paths may have tiers > 0, and only one path may go above
+tier 2. Tier N requires tier N-1 in that path. **One final tier per path** (src/sim/finalTier.js): per
+girl type and per player (`TowerRT.owner`, the co-op slot; 0 in solo) only one copy may hold each path's
+tier 5 (`FINAL_TIER`); tier 4 is unlimited; selling or losing the holder frees it; every mode; heroes are
+exempt. A refused tier 5 is `upgradeStatus(...).reason === 'onePerPath'` with the holder's uid.
 
 ```js
 HeroDef = {
@@ -591,7 +599,8 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 * Tile = 1 world unit. Ranges: melee 1.6–2.2, normal ranged 2.8–3.6, sniper 8–12.
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
-* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000 (Bloons-like).
+* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 12000–36000 (one girl
+  per path holds it, so it is priced and tuned as a one-of-a-kind centrepiece; heroes' tier 5: 7000–16000).
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -651,8 +660,17 @@ sim.towerAt(x, y)                   // -> nearest TowerRT whose footprint contai
 sim.placementReason(unitId, x, y)   // geometry-only reason (ignores cash/loadout/hero) | null — autoPlan, tests
 sim.footprintRadius(unitId)         // 0.42 towers, 0.5 heroes
 sim.canPlaceTile(unitId, tx, ty) / sim.placeTowerTile(unitId, tx, ty)   // legacy: tile centre
-sim.upgradeStatus(uid, path)        // -> { tier /*current*/, next: TierDef|null, cost, locked, reason: 'max'|'crosspath'|'cash'|null }
-sim.upgradeTower(uid, path)         // -> boolean
+sim.upgradeStatus(uid, path, { restoring }?)  // -> { tier /*current*/, next: TierDef|null, cost, locked,
+                                    //   reason: 'max'|'crosspath'|'onePerPath'|'cash'|null, holder: uid|null }
+                                    //   (checked in that order; restoring: a battle save's own record, no onePerPath)
+sim.upgradeTower(uid, path, opts?)  // -> boolean
+sim.finalTierHolder(uid, path)      // -> the uid of another copy (same type, same owner) holding that path's tier 5 | null
+sim.finalTierHolders(unitId, owner) // -> [uid|null ×3] by path
+sim.buffSources(uid)                // -> [{ key: 'dmg'|'rate'|'range'|'pen'|'crit'|'det'|'cost'|'cleanse', value,
+                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map', src: uid|-1, unitId, left }]
+sim.buffTargets(uid)                // -> [{ uid, kinds: [...], keys: [...] }] the girls she buffs (limited first)
+sim.aurasCovering(uid)              // -> [{ src, unitId, keys, won }] every aura in reach, losers included
+sim.setBuffPick(uid, targetUid)     // Midori / Chika: who to buff first (-1 = auto) -> { ok, reason: 'noBuff'|'self'|'gone'|'range'|null }
 sim.sellTower(uid)                  // -> refund coins
 sim.sellValue(uid)
 sim.setTargetMode(uid, mode)
@@ -672,7 +690,10 @@ EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
-            spent /*coins invested*/, turrets: [{ uid, x, y, facing }] }
+            spent /*coins invested*/, turrets: [{ uid, x, y, facing }],
+            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse }: the winning aura's uid or -1*/,
+            buffPick /*limited buff pin, -1 auto*/, lim /*her brew / link state*/, limIn /*{ brew, brewLeft, link, oc } she holds*/,
+            recentDps /*damage per second over the last DPS_WINDOW, picks*/ }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
 SimEvent = { type, ...payload } with types:
   'spawn' {uid,id} 'death' {uid,id,x,y,bounty} 'leak' {uid,id,lives} 'hit' {uid,x,y,amount,crit,attackType,effective}
@@ -698,12 +719,14 @@ every player still in the room has sent the `end` command).
 ```js
 sim.freeplay, sim.lastWave, sim.finished
 sim.freeplayInfo(n)   // n > goal: { tier, depth, rotation, chapterCap, visitors: [chapter], affix: id|null,
-                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId] },
-                      //   speed, pressure: { armor, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
+                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId], small?: true },
+                      //   bossHpMul: [× per boss], k /*ramp smoothing*/, eliteArmor, eliteMods: [{ enemyId, mod }],
+                      //   speed, pressure: { armor /*fractional*/, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
 sim.finish()          // -> boolean
 sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
 EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
-                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
+                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP),
+                      //   armorFloor (0.25: armor never takes more than 75 % of a hit), ccMul / eliteMod (elite modifiers)
 ```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
@@ -1141,7 +1164,11 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] pick[uid,targetUid]`, positions quantized to 1/1024 tile,
+  `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
+  with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
+  does); two tier-5 orders in one tick resolve in command order on every client; `pick` (Midori / Chika's
+  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`,
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
