@@ -87,7 +87,8 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       h('div.ep-titles', { 'data-testid': 'edit-titles' },
         h(`button.ep-title.none${draft.title == null ? '.on' : ''}`, { type: 'button', 'data-title': '', onclick: () => set('title', null) }, h('span.ep-title-none', 'None'), draft.title == null ? h('i.ep-check', '✓') : null),
         TIERS.map(([tier, name]) => {
-          const ids = choices.filter((id) => TITLES[id].tier === tier);
+          // owned first (like the Achievements tab's Titles sheet): a new title is never buried under locked rows
+          const ids = choices.filter((id) => TITLES[id].tier === tier).sort((a, b) => Number(titles.has(b)) - Number(titles.has(a)));
           if (!ids.length) return null;
           return h('div.ep-title-grp',
             h('div.ep-title-head', name, h('small', `${ids.filter((id) => titles.has(id)).length} / ${ids.length}`)),
