@@ -20,6 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.33', version: '0.1.33', date: '2026-10-15', title: 'Dev & Alpha Tester tags',
+    added: [
+      'A pink DEV tag next to the names of the people who make the game, in chat, on player cards, in Messages and in clans.',
+      'An ALPHA tag for everyone who played during the alpha, plus the Alpha Tester title to wear under your name. New players who join during the alpha get it too.',
+      'A BETA tag and a Beta Tester title will come later, for players who join during the beta.',
+    ],
+  },
+  {
     id: 'v0.1.32', version: '0.1.32', date: '2026-10-15', title: 'Stability update',
     fixed: [
       'Behind-the-scenes stability fixes.',
