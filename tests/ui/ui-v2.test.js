@@ -123,7 +123,7 @@ import { lobbyRoomSVG } from '../../src/art/backdrops.js';
 
 describe('lobby v3 art', () => {
   it('draws every illustrated lobby icon: glossy gradients, white outline, drop shadow, unique ids', () => {
-    for (const name of ['students', 'formation', 'backpack', 'bestiary', 'wiki', 'commissions', 'mall', 'recruit', 'notice', 'tasks', 'gift', 'gems', 'assault', 'options', 'account', 'equipment', 'items', 'secretary', 'fullscreen', 'close', 'mail', 'chest', 'calendar']) {
+    for (const name of ['students', 'formation', 'backpack', 'bestiary', 'wiki', 'clan', 'commissions', 'mall', 'recruit', 'notice', 'tasks', 'gift', 'gems', 'assault', 'options', 'account', 'equipment', 'items', 'secretary', 'fullscreen', 'close', 'mail', 'chest', 'calendar']) {
       expect(LOBBY_ICON_NAMES).toContain(name);
       const a = lobbyIcon(name, { uid: 'a' });
       expect(a.startsWith('<svg')).toBe(true);
