@@ -79,6 +79,11 @@ it, Messages, the player card's buttons, Settings → Online → "Who can messag
    The file is idempotent: running it again is safe. (If the GitHub integration is connected, merging
    to `main` already applied it; check Integrations → GitHub's log.) Never paste a service-role key
    anywhere: nothing here needs one.
+   **Running the social SQL** while players play is fine: the file runs as one transaction and first
+   waits for a quiet moment to lock the tables it changes all at once (players' requests wait the
+   second or two it needs; no "deadlock detected"). If it stops with **"The game is busy right now, so
+   nothing was changed"** — or any other error — nothing at all was applied: press **Run** again (a
+   minute later, or at a quieter time).
 4. Check: run `select public.social_version();` in the SQL Editor. It returns `1`.
 5. Reload the game. Settings → Online shows "Who can message me" and your friend code; Menu → Messages
    opens; Clan → Requests shows "Ask for materials". Open screens notice by themselves within 5 minutes.
@@ -255,17 +260,22 @@ young, so the defaults are the safe ones.
   name accepted before the social SQL never locks its player out of chat, clans or co-op): visible
   letters, no space of any kind at either end, and no look-alike of a reserved name (fullwidth letters,
   accents, Cyrillic / Greek look-alikes such as "Ѕystem" or "Supply Bоt" are compared as plain Latin:
-  `name_key()` = `nameKey()` in `src/online/textRules.js`), no staff word anywhere in it with digits read
-  as letters ("Staff Hana", "Adm1n", "SupplyB0t", "Sakura Sentine1s"; "Badminton" is fine) and no gm /
-  dev / mod as a word of its own ("GM Rosie", "Dev Rosie"; "Devi" and "Modé" are fine) —
-  `reserved_name()` = `reservedName()` in `src/online/clanRules.js`. A player who kept such an old name
+  `name_key()` = `nameKey()` in `src/online/textRules.js`; so are Cherokee, Lisu, Armenian, Coptic,
+  small-capital, "fancy text" syllabics, stroked and boxed look-alikes such as "Ꭺdmin" or "ᴅᴇᴠ", and
+  invisible characters inside a word are dropped first), no Latin letters mixed with letters of those
+  look-alike alphabets ("ᎠEV Rosie": `lookalike_mix()` = `mixesLookalikes()`), no staff word anywhere
+  in it with digits read as letters ("Staff Hana", "Adm1n", "SupplyB0t", "Sakura Sentine1s";
+  "Badminton" is fine) and no gm / dev / mod as a word of its own ("GM Rosie", "Dev Rosie", "D.E.V.
+  Team", "GMRosie", "DevTeam"; "Devi", "Devon" and "Modé" are fine) — `reserved_name()` =
+  `reservedName()` in `src/online/clanRules.js`. A player who kept such an old name
   can still chat and play co-op; DMs, invites and friend requests ask them to change it first.
 - **Clans** (new and changed ones only — a trigger, `clans_text_rules`; clans from before the social
   SQL are untouched and the paste never fails on them): the name follows the DM text rule with
-  visible letters (no zero-width or right-to-left tricks), is not reserved or staff-looking, never
-  reads as the developer clan ("Sakura Devs") and is not another clan's name in a different spelling
-  ("Moon-Clan" next to "Moon Clan": `name_key()`; names without Latin letters or digits are only
-  compared exactly); the description follows the DM text rule; the tags DEV, GM, MOD, ADM, STAF, SYS,
+  visible letters (no zero-width or right-to-left tricks), mixes no look-alike alphabet into Latin
+  letters ("Sakura ᎠEV Lab"), is not reserved or staff-looking, never reads as the developer clan
+  ("Sakura Devs") and is not another clan's name in a different spelling ("Moon-Clan" next to "Moon
+  Clan", "さくら組" with an invisible joiner next to "さくら組": `clan_name_key()` = `clanNameKey()`;
+  "さくら Clan" and "ひまわり Clan" are different names); the description follows the DM text rule; the tags DEV, GM, MOD, ADM, STAF, SYS,
   BOT (and their plurals / digit spellings such as D3V) and the `wiki` emblem belong to the developer
   clan. `validateClan()` says the same in the game first. A **kicked** player cannot join that clan
   again by themselves (open or by code) for 7 days (`clan_bans`, no player access); a leader or
@@ -285,9 +295,13 @@ young, so the defaults are the safe ones.
 - **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship
   goes, the blocked player's pending request is swallowed (they keep seeing "Requested", as after a
   decline), the conversation leaves the blocker's inbox, the blocker no longer sees their chat lines,
-  their clan requests or the clan's system notices that name them ("X joined the clan."). Co-op: a
-  block frees the blocked player's seat in the blocker's room and changes the room's secret (their
-  Realtime channel goes dead; the blocker's lobby reopens the room on the new one by itself), a
+  their clan requests or the clan's system notices about them ("X joined the clan."): each notice
+  carries who it is about (`messages.about`, written only by the server), so a rename changes nothing;
+  older notices are matched by the exact names the blocked player was seen with. Co-op: a block frees
+  the blocked player's seat in the blocker's room and changes the room's secret (their Realtime
+  channel goes dead; the blocker's lobby reopens the room on the new one by itself) — also when they
+  sat in that room earlier and left (they still know its secret), unless someone else has the seat
+  now — a
   blocker who sat in the blocked player's room leaves it, and `join_room` answers "full" when either
   player blocked the other. The lobby never pairs with a player you blocked.
 - **Report**: reason chips (bullying, inappropriate words, spam, asked for personal info, something
@@ -299,7 +313,10 @@ young, so the defaults are the safe ones.
   **open** the whole conversation of the two is kept (up to 90 days), so the owner reads all of it
   (Moderation below) before marking it reviewed. One open report per reporter and target: a repeat
   *adds* to the evidence (`message` is the newest reported one, `earlier` the ones reported before,
-  and every line of the first snapshot stays).
+  and every line of the first snapshot stays), "Asked for personal info" stays the reason, an empty
+  note never replaces the child's note, and every earlier reason / note / place is kept in
+  `evidence->'earlierReports'` (the newest 10). `reports.message_id` is the message the server found
+  and checked (`evidence->'message'`), never the number the game sent.
 - **Auto-mute**: 3 reporters within 24 h whose report *counts* — online accounts at least 7 days old that
   the target reached through what the mute silences (a DM, a co-op invite or a friend request in the
   last 7 days) — mute the target from DMs, invites and friend requests for 24 h. Seeing one public chat
@@ -383,9 +400,10 @@ info". Optional: a Database Webhook (Database → Webhooks, or Integrations → 
 the repository).
 
 ```sql
--- open reports, newest first
-select r.id, r.created_at, r.reason, r.note, r.context, r.reporter_name, r.target_name, r.qualified, r.target_id, r.evidence
-from reports r where r.status = 'open' order by r.created_at desc;
+-- open reports, "Asked for personal info" first, then newest; earlier = what the child said in earlier reports
+select r.id, r.created_at, r.reason, r.note, r.context, r.reporter_name, r.target_name, r.qualified, r.target_id,
+  r.evidence -> 'earlierReports' as earlier, r.evidence
+from reports r where r.status = 'open' order by (r.reason = 'personal_info') desc, r.created_at desc;
 
 -- the whole conversation behind a report (kept while the report is open; evidence->'dmsTotal'
 -- says how many lines there are when the stored snapshot holds only the newest ones)
@@ -415,7 +433,7 @@ delete from direct_messages where sender_id = '<target uuid>';
 
 -- clans that look like staff or the developer clan (new ones are refused; this finds older ones)
 select id, name, tag, emblem from clans where not is_dev
-  and (emblem = 'wiki' or reserved_clan_tag(tag) or reserved_clan_name(name)
+  and (emblem = 'wiki' or reserved_clan_tag(tag) or reserved_clan_name(name) or lookalike_mix(name)
        or name_key(name) ~ 'devlab|admin|staff|official|developer');
 -- update clans set emblem = 'assault' where id = '<clan uuid>';   -- (the trigger checks a new name / tag)
 
@@ -745,7 +763,10 @@ The vitest suite covers:
   frees the co-op seat both ways and changes the room secret, the clan text rules (live look-alike
   clans survive the paste; online → social → online → social keeps the triggers and the 57 player
   functions), the 7-day kick ban, Friends only by default, a blocker's request gone, the blocked
-  player's request swallowed, stacked marks of every script, staff words inside names. (The concurrency of
+  player's request swallowed, stacked marks of every script, staff words inside names; and the final
+  verification (R1–R5): a repeat report keeps the child's reason and note, look-alike alphabets /
+  letters one by one / camel case / invisible characters never pass for staff, blocking an ex-guest
+  changes the room secret, clan notices carry who they are about, the paste locks first. (The concurrency of
   #8 needs real parallel connections: the verifier's probe p11 on Postgres 16 — 50 friends and 10
   requests a day hold.)
 - `localSocial.test.js`: the same rules on the local adapter with an injected clock (the 7 PM rollover),
