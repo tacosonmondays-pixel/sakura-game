@@ -294,11 +294,37 @@ async function runViewport(vp) {
     for (let i = 1; i <= steps; i++) await page.mouse.move(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps);
     await page.mouse.up();
   };
+  // A real tap on a bar card. Under SwiftShader each CDP touch event can take seconds to land, and
+  // a press that reaches the page as longer than 550 ms is a hold, which opens her Upgrade Tree
+  // (unit info) instead of starting tap-to-place. So the 3D draw is paused and the lift is sent
+  // right behind the press (not after the press was acknowledged).
   const tapCard = async (unitId) => {
     const card = await page.locator(`[data-testid="card-${unitId}"]`).boundingBox();
-    await touch('touchStart', [[card.x + card.width / 2, card.y + card.height / 2]]);
-    await touch('touchEnd');
-    return page.waitForFunction((id) => window.__battle.ui.placement.unitId === id && window.__battle.ui.placement.mode === 'tap', unitId, { timeout: 10000 }).then(() => true, () => false);
+    const openBefore = await page.evaluate(() => {
+      window.__tapLog = [];
+      window.__tapOff?.();
+      const f = (e) => window.__tapLog.push([e.type, Math.round(performance.now())]);
+      document.addEventListener('pointerdown', f, true);
+      document.addEventListener('pointerup', f, true);
+      window.__tapOff = () => {
+        document.removeEventListener('pointerdown', f, true);
+        document.removeEventListener('pointerup', f, true);
+      };
+      return !!window.__battle.ui.tree?.isOpen;
+    });
+    await cam('freeze');
+    await Promise.all([touch('touchStart', [[card.x + card.width / 2, card.y + card.height / 2]]), touch('touchEnd')]);
+    await cam('thaw');
+    const ok = await page.waitForFunction((id) => window.__battle.ui.placement.unitId === id && window.__battle.ui.placement.mode === 'tap', unitId, { timeout: 10000 }).then(() => true, () => false);
+    const why = await page.evaluate(() => {
+      window.__tapOff?.();
+      const l = window.__tapLog || [];
+      const d = l.find((x) => x[0] === 'pointerdown');
+      const u = l.find((x) => x[0] === 'pointerup');
+      return { pressMs: d && u ? u[1] - d[1] : null, treeOpen: !!window.__battle.ui.tree?.isOpen };
+    });
+    if (!ok) log(`  (card tap: ${JSON.stringify({ ...why, treeOpenBefore: openBefore })})`);
+    return ok;
   };
 
   /** A real one-finger tap through the browser's input pipeline. */
@@ -433,6 +459,9 @@ async function runViewport(vp) {
     const lp = await page.evaluate(() => window.__lp);
     check(lp?.towerUid === uid, `${label}: a long press on her fires the long-press callback (${JSON.stringify(lp)})`);
     check(await page.evaluate(() => window.__battle.ui.selectedUid == null), `${label}: the long press is not also a tap`);
+    // unit info: holding a placed girl opens her Upgrade Tree; close it before the next checks
+    check(await page.evaluate(() => window.__battle.ui.tree?.isOpen === true), `${label}: the long press opens her Upgrade Tree`);
+    await page.evaluate(() => window.__battle.ui.tree?.close()); // synchronous: the overlay is hidden at once
   };
   await tapAndHold('locked', lockedUid);
 
@@ -677,6 +706,11 @@ async function runViewport(vp) {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('sakura-sentinels-save-v1'));
     delete raw.settings.camera;
+    // leaving the 1-1 battle above saved it (battle save), and a battle link for a stage with a
+    // saved battle opens its prep instead: this check wants the battle itself. The live profile
+    // drops it too (the goto below only changes the hash, so the store is not reloaded).
+    delete raw.battleSaves;
+    delete window.__sakura.store.profile.battleSaves;
     localStorage.setItem('sakura-sentinels-save-v1', JSON.stringify(raw));
   });
   await page.goto(`${base}#/battle?stage=1-1&difficulty=easy`, { waitUntil: 'load' });
