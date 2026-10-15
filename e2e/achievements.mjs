@@ -266,6 +266,9 @@ async function runViewport(vp) {
     document.body.appendChild(o);
   });
   await page.waitForTimeout(400);
+  // the toast steps aside on the next animation frame (src/ui/achToast.js); under software GL the recruit screen at
+  // 1280×720 can go 1–3 s without a frame, so wait until two frames have actually been drawn, not a fixed time
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   check(!(await page.$('[data-testid="ach-toast"]')), '9: a showing toast steps aside when a modal opens');
   await page.evaluate(() => document.querySelector('[data-testid="fake-modal"]').remove());
   check(!!(await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null)), '9: … and comes back when it closes');
