@@ -50,6 +50,8 @@ yet". Do the next step first.
       integration applies the migration; its log is under Integrations → GitHub).
 - [ ] **Run the social update** once the game update with Messages is live (see "Run the social
       update" below). Until then those features say "Needs the latest server update".
+- [ ] **Run the profile update** after the Sensei Profile game update is live (see "Run the profile
+      update" below). Until then visiting a profile says "Profiles need the latest server update".
 - [ ] Quick server check without the game (optional): open
       `https://<ref>.supabase.co/rest/v1/clans?select=id&limit=1` with header `apikey: <publishable key>`
       (or `curl -H "apikey: …" …`). `PGRST205 … Could not find the table` = migration not run yet;
@@ -91,6 +93,36 @@ it, Messages, the player card's buttons, Settings → Online → "Who can messag
 **Important:** if `20261008000000_online.sql` is ever pasted again, paste `20261013000000_social.sql`
 again right after it (the old file resets every function grant and restores the old `join_room()`
 without the block check).
+
+### Run the profile update (Sensei Profiles: visiting, bios, "Who can see my profile")
+
+The game update with Sensei Profiles goes live **before** its database part, like the social update.
+Until the owner runs it, your own profile works fully from the save; visiting another Sensei's profile
+shows **"Profiles need the latest server update"**, and Edit Profile shows Bio and Privacy read-only
+("Opens with the next server update"). Chat, clans, co-op, messages and friends keep working.
+
+**What to paste:** `supabase/migrations/20261016000000_profile.sql`, once, **after**
+`20261013000000_social.sql` and `20261015000000_social_open_friends.sql` (run those first if they
+haven't been yet).
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open the raw file on GitHub:
+   <https://raw.githubusercontent.com/tacosonmondays-pixel/sakura-game/main/supabase/migrations/20261016000000_profile.sql>
+   (or open `supabase/migrations/20261016000000_profile.sql` on GitHub and press **Raw**). Select all
+   (Ctrl+A / ⌘A) and copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The
+   file runs as one transaction: on any error nothing at all was applied, so press **Run** again. Safe
+   to run more than once. No key of any kind is needed or should be pasted anywhere.
+   If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
+   (see above), then this file again.
+4. **Check query:** run `select public.profile_version();` in the SQL Editor. It returns `1`.
+5. **What success looks like:** reload the game. Your profile shows your clan chip and "Sensei since
+   <month year>"; Edit Profile → Bio has a text box with Quick lines and Privacy has three choices
+   (Everyone, the default · Friends & clan · Only me). Tap any player's name in chat (or a clanmate,
+   a friend, a co-op ally) → **View profile** opens their profile with their girls, medals and bio.
+
+**Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
+`20261016000000_profile.sql` again right after them (the first file resets every function grant).
 
 ### Fresh project (or checking the settings)
 

@@ -1,33 +1,20 @@
 // The player card: tap a name in global / clan chat, the clan roster, the co-op room lobby, the
 // friends list or a conversation. Shows name, level, clan and (friends / clanmates only) when they
-// were last active, with Message · Invite to co-op · Add friend · Block · Report. Nothing about
-// the other player's settings or blocks is shown: a refusal reads the same either way.
+// were last active, with View profile · Message · Invite to co-op · Add friend · Block · Report (the
+// rules live in playerActions.js, shared with the Sensei Profile). Nothing about the other player's
+// settings or blocks is shown: a refusal reads the same either way.
 import '../styles/social.css';
-import { h, modal, button, toast, confirmDialog } from '../components.js';
+import { h, modal, button } from '../components.js';
 import { navigate } from '../router.js';
 import { getBackend } from '../../online/backend.js';
-import { errorText, toOnlineError } from '../../online/errors.js';
-import { whyText, friendWhyText, presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
-import { DEV_CLAN } from '../../online/clanRules.js';
+import { errorText } from '../../online/errors.js';
+import { presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
-import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
-import { makeRoomCode, getSession } from '../../online/coop/session.js';
+import { startSocialHub } from './socialHub.js';
+import { makeRoomCode } from '../../online/coop/session.js';
+import { playerActions, openConversation, NEW_PEER_KEY } from './playerActions.js';
 
-export const NEW_PEER_KEY = 'ss-social-new-peer';
-
-/** Open (or start) the conversation with a player. The address carries a thread id, never an account id. */
-export function openConversation(card) {
-  if (card.threadId) {
-    navigate('messages', { id: card.threadId });
-    return;
-  }
-  try {
-    sessionStorage.setItem(NEW_PEER_KEY, JSON.stringify({ userId: card.userId, name: card.name, level: card.level, avatar: card.avatar }));
-  } catch {
-    /* the screen falls back to the list */
-  }
-  navigate('messages', { id: 'new' });
-}
+export { openConversation, NEW_PEER_KEY };
 
 /**
  * @param {string} userId
@@ -41,7 +28,12 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
   const clanLine = h('div.sc-card-clan');
   const presence = h('small.sc-card-presence');
   const acts = h('div.sc-card-acts', { 'data-testid': 'card-actions' }, h('div.ol-connecting.sc-card-wait', h('i.ol-spinner')));
-  const av = h('span.sc-card-av', avatar(hint.avatar || 'hikari', 64));
+  // [profile] tapping the picture opens their Sensei Profile too (not while I block them)
+  const av = h('button.sc-card-av', { type: 'button', 'aria-label': 'View profile', 'data-testid': 'card-avatar', onclick: () => { if (!card?.blockedByMe) viewProfile(); } }, avatar(hint.avatar || 'hikari', 64));
+  const viewProfile = () => {
+    m.close();
+    navigate('profile', card?.isSelf ? {} : { id: userId });
+  };
   const body = h('div.sc-card', { 'data-testid': 'player-card' },
     h('div.sc-card-head', av, h('div.sc-card-id', h('div.sc-card-line', name, lv), clanLine, presence)),
     acts);
@@ -92,72 +84,24 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       paintSelf();
       return;
     }
-    // the server shows the developer clan only to a viewer inside it, and never counts it as a clan for contact
-    const devClan = !!c.clan && c.clan.tag === DEV_CLAN.tag && c.clan.name === DEV_CLAN.name;
-    const why = c.canMessage ? null : whyText(c.why, c.name, { myPrivacy: c.myPrivacy, friend: c.friend === 'friends', devClan });
-    const msg = button('Message', { kind: 'primary', icon: 'chat', testid: 'card-message', disabled: !c.canMessage && !c.threadId, onClick: () => { m.close(); openConversation(c); } });
-    // already my ally in the co-op room I am in: no second room (that would leave this one)
-    const s = getSession();
-    const ally = !!s && s.phase === 'lobby' && s.peer?.uid === c.userId;
-    const coop = ally
-      ? button('In your co-op room', { kind: 'ghost', icon: 'play', testid: 'card-coop-ally', onClick: () => { m.close(); navigate('coop', { id: s.code, ...(s.isHost ? { host: '1' } : {}) }); } })
-      : button('Invite to co-op', {
-        kind: 'yellow', icon: 'play', testid: 'card-coop', disabled: !c.canMessage,
-        onClick: async () => {
-          m.close();
-          const { startCoopInvite } = await import('./coopInvite.js');
-          startCoopInvite(c);
-        },
-      });
+    const a = playerActions(c, {
+      context: ctx.context || 'profile', messageId: ctx.messageId ?? null, close: () => m.close(),
+      reload: () => getBackend().playerCard(userId),
+      repaint: (next) => { card = next; paint(); },
+    });
     acts.replaceChildren(...[
-      h('div.sc-card-row', msg, coop),
-      why ? h('p.sc-card-why', { 'data-testid': 'card-why' }, why) : null,
-      friendRow(c, devClan),
-      h('div.sc-card-foot',
-        c.blockedByMe
-          ? button('Unblock', { kind: 'ghost', small: true, testid: 'card-unblock', onClick: () => act(() => getBackend().unblock(c.userId), () => setBlocked(c.userId, false), `${c.name} is unblocked.`) })
-          : button('Block', { kind: 'ghost', small: true, icon: 'close', testid: 'card-block', onClick: block }),
-        button('Report', { kind: 'ghost', small: true, testid: 'card-report', onClick: report })),
+      // [profile] their Sensei Profile (hidden while I block them)
+      c.blockedByMe ? null : button('View profile', { kind: 'ghost', small: true, icon: 'eye', testid: 'card-view-profile', onClick: viewProfile }),
+      h('div.sc-card-row', a.message, a.coop),
+      a.why,
+      a.friend,
+      h('div.sc-card-foot', a.block, a.report),
     ].filter(Boolean));
-  }
-
-  function friendRow(c, devClan = false) {
-    const b = getBackend();
-    let el;
-    if (c.friend === 'friends') {
-      el = button('Friends ✓', {
-        kind: 'ghost', small: true, testid: 'card-friends',
-        onClick: async () => {
-          if (await confirmDialog(`Remove ${c.name} from your friends?`, { title: 'Remove friend', ok: 'Remove', danger: true })) act(() => b.removeFriend(c.userId), null, `${c.name} is no longer your friend.`);
-        },
-      });
-    } else if (c.friend === 'incoming') {
-      el = h('div.sc-card-row',
-        h('span.sc-card-ask', `${c.name} asked to be friends`),
-        button('Accept', { kind: 'yellow', small: true, testid: 'card-accept', onClick: () => act(() => b.answerFriend(c.requestId, true), null, `You and ${c.name} are friends!`) }),
-        button('Decline', { kind: 'ghost', small: true, testid: 'card-decline', onClick: () => act(() => b.answerFriend(c.requestId, false), null, 'Request declined.') }));
-    } else if (c.friend === 'requested') {
-      el = button('Requested', {
-        kind: 'ghost', small: true, testid: 'card-requested',
-        onClick: async () => {
-          if (await confirmDialog('Cancel your friend request?', { title: 'Friend request', ok: 'Cancel request', cancel: 'Keep it' })) act(() => b.cancelFriendRequest(c.requestId), null, 'Request cancelled.');
-        },
-      });
-    } else {
-      el = button('Add friend', { kind: 'pink', small: true, icon: 'plus', testid: 'card-add-friend', disabled: !c.canFriend, onClick: () => act(() => b.addFriend(c.userId), null, 'Friend request sent.') });
-    }
-    // (a block is said once, by the message line above: never twice)
-    const fwhy = c.friend === 'none' && !c.canFriend && c.friendWhy !== 'blocked_by_me' ? friendWhyText(c.friendWhy, c.name, { devClan }) : '';
-    // no direct way to add them: something to tap instead of a greyed-out card (Messages → Friends has the code box)
-    const byCode = c.friend === 'none' && c.friendWhy === 'context'
-      ? button('Add with a friend code', { kind: 'ghost', small: true, icon: 'plus', testid: 'card-add-by-code', onClick: () => { m.close(); navigate('messages', { tab: 'friends' }); } })
-      : null;
-    return h('div.sc-card-friend', byCode ? h('div.sc-card-row.sc-card-friend-row', el, byCode) : el, fwhy ? h('p.sc-card-why', { 'data-testid': 'card-friend-why' }, fwhy) : null);
   }
 
   async function paintSelf() {
     const b = getBackend();
-    acts.replaceChildren(h('p.sc-card-note', 'This is you.'));
+    acts.replaceChildren(h('p.sc-card-note', 'This is you.'), button('View my profile', { kind: 'ghost', small: true, icon: 'eye', testid: 'card-view-profile', onClick: viewProfile }));
     try {
       const [{ code }, sum] = await Promise.all([b.myFriendCode(), b.socialSummary()]);
       acts.append(
@@ -166,36 +110,6 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
         button('Online settings', { kind: 'ghost', small: true, icon: 'settings', onClick: () => { m.close(); navigate('settings', { section: 'online' }); } }));
     } catch (e) {
       acts.append(h('p.ol-error', errorText(e)));
-    }
-  }
-
-  async function act(fn, after, msg) {
-    try {
-      await fn();
-      after?.();
-      if (msg) toast(msg, 'good');
-      refreshSoon();
-      card = await getBackend().playerCard(userId);
-      paint();
-    } catch (e) {
-      const err = toOnlineError(e);
-      toast(errorText(err), 'bad', 3000);
-    }
-  }
-
-  async function block() {
-    const c = card;
-    const ok = await confirmDialog(`${c.name} won't be able to message, invite or friend you, and you won't see their chat messages.`, { title: `Block ${c.name}?`, ok: 'Block', danger: true });
-    if (ok) act(() => getBackend().block(c.userId), () => setBlocked(c.userId, true, c.name), `${c.name} is blocked.`);
-  }
-
-  async function report() {
-    const c = card;
-    const { openReportDialog } = await import('./reportDialog.js');
-    const r = await openReportDialog({ userId: c.userId, name: c.name, context: ctx.context || 'profile', messageId: ctx.messageId ?? null, blocked: c.blockedByMe });
-    if (r.reported) {
-      card = await getBackend().playerCard(userId).catch(() => card);
-      paint();
     }
   }
 
