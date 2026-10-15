@@ -93,6 +93,22 @@ it, Messages, the player card's buttons, Settings → Online → "Who can messag
 again right after it (the old file resets every function grant and restores the old `join_room()`
 without the block check).
 
+### Run the player tags SQL (DEV, ALPHA and BETA chips)
+
+The game update with the chips (v0.1.33) works before and after this SQL: until it runs nobody has a
+chip and everything else is unchanged.
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open `supabase/migrations/20261017000000_player_tags.sql` on GitHub → **Raw** → select all → copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. It is
+   safe to run again, and it needs only the first migration (`20261008000000_online.sql`).
+4. What the first run does by itself: everyone who has a profile now gets **ALPHA** (and the Alpha
+   Tester title), every new player during the alpha gets ALPHA too, and **everyone who is in the
+   developer clan right now gets DEV**. Later runs never add developers: after the first run the
+   developer list is yours to edit (the one-liners in "Player tags" below).
+5. Check: `select count(*) from public.player_tags where staff = 'dev';` returns the number of people in
+   the developer clan. Reload the game: chips appear next to names within a few seconds.
+
 ### Fresh project (or checking the settings)
 
 1. **Create a project** at <https://supabase.com/dashboard> (the free plan is enough). Pick the region
@@ -243,6 +259,51 @@ order by m.joined_at;
 delete from public.clan_members
 where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their user_id>';
 ```
+
+### Player tags (DEV, ALPHA, BETA)
+
+`supabase/migrations/20261017000000_player_tags.sql`; the client is `src/online/tags.js` (a batched,
+10-minute cache) and `src/ui/online/tagChip.js`. Every signed-in player can **read** `public.player_tags`
+(tags are public, like names); **no player can write it**: `staff = 'dev'` is set only here, in the SQL
+Editor, and `tester` is stamped by a trigger when a profile is created, from the private
+`public.server_settings` row `tester_phase` (`alpha` now, `beta` later, `none` to stop). The chips: DEV
+(sakura pink) beats ALPHA (lilac) beats BETA (teal) in chat lines and lists; the player card and the
+own profile header show every chip. A player's own tags also unlock the Developer / Alpha Tester /
+Beta Tester titles (their save keeps them as `missions.counters` marks `tag:dev` …); other players
+only ever see a tag title the server backs.
+
+Owner one-liners (SQL Editor). Replace the placeholder, keep the quotes, and **never commit a real
+name, account id or code**. Names are not unique: run the first query and check it finds exactly one
+player before changing anything.
+
+```sql
+-- find the player (one row expected)
+select id, name, created_at from public.profiles where name = '<PLAYER NAME>';
+
+-- make them a developer (DEV chip + Developer title)
+insert into public.player_tags (user_id, staff)
+select id, 'dev' from public.profiles where name = '<PLAYER NAME>'
+on conflict (user_id) do update set staff = 'dev', updated_at = now();
+
+-- remove the DEV chip (their ALPHA / BETA chip stays; a title they already saw stays in their own save,
+-- but nobody else sees it any more)
+update public.player_tags set staff = null, updated_at = now()
+where user_id = (select id from public.profiles where name = '<PLAYER NAME>');
+
+-- who has the DEV chip
+select p.name, t.staff, t.tester, t.updated_at
+from public.player_tags t join public.profiles p on p.id = t.user_id
+where t.staff is not null order by p.name;
+
+-- the beta starts: new players get BETA from now on (alpha testers keep ALPHA)
+update public.server_settings set value = 'beta' where key = 'tester_phase';
+
+-- stop giving a tester chip to new players
+update public.server_settings set value = 'none' where key = 'tester_phase';
+```
+
+If the same name matches more than one player, use the id from the first query instead:
+`... where user_id = '<their user_id>'` (and `values ('<their user_id>', 'dev')` for the insert).
 
 ### Messages, friends, co-op invites and clan requests (the social update)
 
@@ -846,7 +907,7 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
 ```bash
 npx vitest run tests/online
 node e2e/online.mjs
-node e2e/social.mjs           # DMs, friends, invites by DM, clan requests, block / report, needs-update
+node e2e/social.mjs           # DMs, friends, invites by DM, clan requests, block / report, needs-update, DEV / ALPHA chips
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
 node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
 node e2e/coop-rejoin.mjs      # two pages: a freeplay run past the goal, a cut link, a rejoin and a resync through the checkpoint
@@ -854,6 +915,11 @@ node e2e/coop-longrun.mjs     # a rejoin at freeplay wave 150, timed in Node, Bu
 ```
 
 The vitest suite covers:
+
+- `tagsSchema.test.js`, `tags.test.js` and `tagsAdapters.test.js`: the player tags migration on Postgres
+  (the phases, the alpha-only backfill, the one-time developer seed, read-only tags for players, the
+  private settings, and the table ACL allow-list of every migration), the client cache (batches of at
+  most 100, 10-minute answers, a missing table = no chips for the session) and both adapters.
 
 - `limits.test.js`: rate limiter.
 - `localDb.test.js` and `localAdapter.test.js`: the local server, and two tabs chatting, joining clans
