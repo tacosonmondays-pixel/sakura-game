@@ -624,6 +624,9 @@
 .lb-patch-intro { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .lb-patch-intro p { flex: 1 1 200px; margin: 0; font-size: 0.8rem; color: var(--muted); }
 .lb-patch-intro .btn { flex: none; }
+/* the gem currency icon inside a line of text or a button label (patch-note gifts) */
+.gem-inline { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.25em; line-height: 0; }
+.gem-inline svg { width: 100%; height: 100%; display: block; }
 .lb-patch-list { display: flex; flex-direction: column; gap: 8px; }
 .lb-patch { padding: 8px 10px 6px; border: 1px solid #dde7f2; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 #dbe6f3; }
 .lb-patch-head { display: flex; align-items: center; gap: 8px; }
@@ -1948,6 +1951,10 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-save-btns .ma-continue-btn { flex: 0 1 auto; min-width: 0; }
 .ma-save-btns .btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ma-save-btns .btn-icon { flex: none; }
+/* with a Freeplay tier picked, the freeplay start sits where New game was: "FREEPLAY" over the tier */
+.ma-fp-start-text { display: inline-flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; line-height: 1.05; }
+.ma-fp-start-text small { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+.ma-fp-start-text b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 560px) {
   /* narrow: Continue on top, New game under it, both full width (the block leads the page here) */
   .ma-save-btns { flex-direction: column-reverse; gap: 6px; }

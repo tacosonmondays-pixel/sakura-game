@@ -39,6 +39,8 @@ export function resolveFormation(profile) {
  * `resume` is a battle save's run id (Continue; src/systems/battleSave.js), or null. A Continue
  * plays the saved run as it was saved, and freeplay runs are never saved (isSavableRun), so next
  * to `resume` a `freeplay` / `endless=1` param never turns freeplay on.
+ * The coached first battle (`tutorial=1`, STORY_SPEC §2.3) is a plain run: no freeplay and no
+ * "Keep going" on its victory sheet (a brand-new player's first win ends there).
  * `sandbox=1` (with `team=a.b.c` and `hero=x`) is a Sandbox run on the stage's map: any girl, endless
  * waves, nothing saved (never a battle save, never freeplay, `resume` ignored). With a profile it
  * needs Sandbox unlocked (systems/sandbox.js).
@@ -63,7 +65,8 @@ export function parseBattleParams(params = {}, profile = null) {
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
   const practice = !!profile && isPracticeRun(profile, stageId);
   const resume = typeof params.resume === 'string' && params.resume ? params.resume : null;
-  const fpStage = hasSoloFreeplay(stageId) && !practice;
+  const tutorial = String(params.tutorial ?? '') === '1';
+  const fpStage = hasSoloFreeplay(stageId) && !practice && !tutorial;
   let freeplay = fpStage && allowed && !resume ? freeplayTier(params.freeplay) : null;
   if (fpStage && allowed && !resume && wantsEndless && !freeplay) freeplay = 'blossom';
   const endless = stage.kind === 'challenge' || (wantsEndless && allowed && !hasSoloFreeplay(stageId));

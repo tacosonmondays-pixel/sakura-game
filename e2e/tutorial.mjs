@@ -3,7 +3,8 @@
 //   · fresh save: TAP TO START → "Meet Hikari" → Skip → the 1-1 Easy battle with Hikari's coach: the drag hand
 //     shows where to drop Aoi, a REAL drag completes step 1, Start wave step 2, then Hikari, Aoi's first upgrade
 //     (through the bubble's "Show Aoi"), speed and the encouragement; the win plays "First Petals" over the victory
-//     sheet, Hikari points at Rewards then Home; Home → the lobby; the tutorial is done and never comes back
+//     sheet (with no freeplay "Keep going" block), Hikari points at Rewards then Home; Home → the lobby; the
+//     tutorial is done and never comes back
 //   · Skip tutorial (asks first) → the battle goes on without the coach, tutorial skipped for good
 //   · a defeat: Hikari's card on the defeat sheet → Retry with Hikari remounts the coached battle
 //   · 1-1 stage prep after an unfinished tutorial: "Shall we finish our first lesson together?" → Start / Not now
@@ -290,11 +291,35 @@ async function runViewport(vp) {
     await page.waitForFunction(() => window.__battle.sim.towers.some((t) => !t.isHero && t.tiers.some((n) => n > 0)), null, { timeout: 5000, polling: 200 }).catch(() => null);
     await page.click('[data-testid="panel-close"]', { force: true }).catch(() => {});
     // step 5: speed (from wave 2). On a loaded machine wave 1 may still be running here: wait for the button, and
-    // skip the tap if the next wave is already under way
+    // skip the tap if the next wave is already under way. The tip's 8 s window starts once the page has wave 2
+    // running. The fast-forward above moved the sim to 'between' outside the battle's frame loop, and only a
+    // rendered frame shows NEXT WAVE: at 1280x720 under SwiftShader on a loaded machine that frame can come
+    // 8–15+ s late (seen in gate runs), so when the tap has not started wave 2 the test starts it through the
+    // battle's own Start wave handler (the button's onclick; the tap itself is checked in step 2) and says so.
     const startBtn = await page.waitForSelector('[data-testid="start-wave"]:not([hidden])', { timeout: 15000 }).catch(() => null);
     if (startBtn && (await page.evaluate(() => window.__battle.sim.wave < 2))) await startBtn.click({ force: true }).catch(() => {});
+    const tapped = await page.waitForFunction(() => window.__battle.sim.wave >= 2, null, { timeout: 8000, polling: 200 }).then(() => true, () => false);
+    if (!tapped) {
+      const why = await page.evaluate(() => ({ startShown: !document.querySelector('[data-testid="start-wave"]')?.hidden, wave: window.__battle.sim.wave, state: window.__battle.sim.state }));
+      log(`  note step 5: NEXT WAVE ${startBtn ? 'tap did not start' : 'did not show within 15 s for'} wave 2 (${JSON.stringify(why)}): starting it through the battle's Start wave handler`);
+      await page.evaluate(() => { if (window.__battle.sim.wave < 2) window.__battle.ui.startWave(); });
+      await page.waitForFunction(() => window.__battle.sim.wave >= 2, null, { timeout: 10000, polling: 200 }).catch(() => null);
+    }
     const spOk = await waitStep(page, 'speed', 8000);
-    check(spOk, 'step 5: from wave 2, the speed button is lit');
+    const sp = await page.evaluate(() => {
+      const { sim, ui } = window.__battle;
+      const r = window.__ringBox();
+      const q = document.querySelector('[data-testid="speed"]')?.getBoundingClientRect();
+      const cx = q ? q.left + q.width / 2 : NaN;
+      const cy = q ? q.top + q.height / 2 : NaN;
+      return {
+        step: document.querySelector('[data-testid="coach"]')?.dataset.step,
+        bubbleOn: !!document.querySelector('[data-testid="coach-bubble"]')?.classList.contains('on'),
+        ringOnSpeed: r.on && r.left <= cx && cx <= r.right && r.top <= cy && cy <= r.bottom,
+        wave: sim.wave, state: sim.state, hero: !!sim.hero, paused: !!ui.paused,
+      };
+    }).catch((e) => ({ error: e.message }));
+    check(spOk && sp.ringOnSpeed, `step 5: from wave 2, the speed button is lit${spOk && sp.ringOnSpeed ? '' : ` (${JSON.stringify(sp)})`}`);
     await shot(page, 'coach-5-speed');
     await page.click('[data-testid="speed"]', { force: true });
     const freeOk = await waitStep(page, 'free', 5000);
@@ -342,10 +367,15 @@ async function runViewport(vp) {
     await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000, polling: 200 }).catch(() => null);
     const ptr = await page.waitForSelector('[data-testid="coach-inline-rewards"]', { timeout: 6000 }).catch(() => null);
     check(!!ptr && await page.evaluate(() => document.querySelector('[data-testid="view-rewards"]')?.classList.contains('tc-pulse')), 'after the outro Hikari points at Rewards on the sheet');
+    // a brand-new player's first win ends here: no freeplay "Keep going" block on the coached victory sheet
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="result"]') && !document.querySelector('[data-testid="keep-going-block"], [data-testid="keep-going"]')),
+      'the coached victory sheet has no "Keep going" (freeplay) block');
     await shot(page, 'pointer-rewards');
     await page.click('[data-testid="view-rewards"]', { force: true });
     const homePtr = await page.waitForSelector('[data-testid="coach-inline-home"]', { timeout: 6000 }).catch(() => null);
     check(!!homePtr && await page.evaluate(() => document.querySelector('[data-testid="home"]')?.classList.contains('tc-pulse')), '…then at Home on the rewards sheet');
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="rewards"]') && !document.querySelector('[data-testid="keep-going-block"], [data-testid="keep-going"]')),
+      '…and the coached rewards sheet has no "Keep going" block either');
     await shot(page, 'pointer-home');
     const s1 = await story(page);
     check(s1.seen.includes('tut.outro') && s1.tutorial === 'done', `the outro counts as seen (${s1.tutorial}, seen: ${s1.seen.join(', ')})`);

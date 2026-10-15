@@ -42,7 +42,7 @@ export const PATCH_NOTES = [
       'Every girl now has her own attack animation that grows with her upgrades. Chika’s drones circle above her, chase the enemy she is shooting and fly back.',
       'Leaving a battle saves it. Its stage then offers Continue (from the start of the wave you were on, with the same team, coins and lives) or New game. You can keep up to 5 saved battles, and the lobby shows a Continue shortcut. (Freeplay runs aren’t saved; a stage with a saved battle can still start one.)',
       'New players meet Hikari first: a short opening scene, then a first battle where she shows you around. Skip tutorial is always one tap away.',
-      'Captain’s Journal (Menu → Captain’s Journal): lessons from Hikari that unlock as you clear stages, each with a small reward. Story scenes play as you clear chapter 1, and the Story archive lets you watch them again.',
+      'Captain’s Journal (Menu → Captain’s Journal): lessons from Hikari that unlock as you clear stages, each with a small reward. Story scenes play through all 8 chapters as you clear their stages (each pays 20 gems the first time), and the Story archive lets you watch them again.',
       'Hold a girl’s card (or right-click it) to see her info sheet. Every upgrade is tagged Self, Allies or Enemies, and in battle you can hold a girl to see her whole upgrade tree.',
       'Patch notes in the Notice: every game version with its date and what was added, changed and fixed. Each version comes with a 100-gem gift; claim them one by one or all at once.',
     ],
@@ -50,9 +50,10 @@ export const PATCH_NOTES = [
       'The pause menu’s Save & quit keeps your battle for later. Endless runs can also End run, which pays what a defeat at that wave would.',
       'New accounts get their free 10-pull from Hikari in the Mail after clearing 1-3. On new accounts, Equipment and Awakening open later in the campaign, each with a lesson from Hikari.',
       'The Notice shows a red dot while a patch gift is waiting for you.',
+      'Duplicate recruits of a girl you already have are now counted for her (your earlier recruits too), ready for Potential in a coming update. Nothing changes in battle yet.',
     ],
     fixed: [
-      'On stage prep, the rarity, level and name on the small team cards no longer overlap.',
+      'On stage prep, the rarity, level and name on the small team cards (UR girls’ too) no longer overlap.',
     ],
   },
   {
