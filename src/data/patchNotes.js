@@ -32,6 +32,10 @@ export const PATCH_NOTES = [
       'Goals you already met before this update are ready to claim right away, ribbons and titles included.',
       'A small pop-up tells you when you complete an achievement. It waits until the battle is over, and the results screen shows how many are ready.',
     ],
+    fixed: [
+      'The chat’s Messages button no longer shows the word “null” when you have no unread messages.',
+      'When you can’t add a player as a friend yet, their card says why and gives you an Add with a friend code button.',
+    ],
   },
   {
     id: 'v0.1.29', version: '0.1.29', date: '2026-10-15', title: 'Friends, messages & Sandbox',
