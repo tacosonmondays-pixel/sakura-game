@@ -58,7 +58,8 @@ import('./ui/achToast.js').then(async (m) => {
   const intro = await import('./ui/achIntro.js');
   const tryIntro = () => {
     try {
-      if (intro.maybeShowAchievementIntro(store) || store.profile.seenIntro?.includes(intro.ACH_INTRO_MARK)) window.removeEventListener('hashchange', later);
+      intro.maybeShowAchievementIntro(store);
+      if (intro.allIntrosSeen(store.profile)) window.removeEventListener('hashchange', later);
     } catch (e) {
       console.warn('[main] achievements notice failed', e);
     }

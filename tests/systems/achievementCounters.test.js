@@ -150,3 +150,19 @@ describe('weeklyDone', () => {
     for (const k of ['coopWin', 'ults', 'eventWin', 'weeklyDone', 'salvage', 'clanBossHit', 'donate']) expect(ACH_COUNTERS[k]).not.toContain(':');
   });
 });
+
+describe('donate (social wave)', () => {
+  it('counts once per finalized donation; never on a replayed answer, a refund, or a hold alone', async () => {
+    const { holdDonation, finalizeDonation, refundDonation } = await import('../../src/online/donateLedger.js');
+    const K = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const p = createProfile();
+    p.items.mat_feather_rare = 9;
+    holdDonation(p, { key: K(1), uid: 'u1', requestId: 'r', item: 'mat_feather_rare', count: 1 });
+    holdDonation(p, { key: K(2), uid: 'u1', requestId: 'r', item: 'mat_feather_rare', count: 1 });
+    expect(c(p).donate).toBeUndefined(); // the server has not applied anything yet (e.g. no social SQL): stays 0
+    finalizeDonation(p, K(1), { coins: 100 });
+    finalizeDonation(p, K(1), { coins: 100 }); // a replayed answer
+    refundDonation(p, K(2));
+    expect(c(p).donate).toBe(1);
+  });
+});

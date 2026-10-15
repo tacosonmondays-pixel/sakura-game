@@ -44,6 +44,7 @@ function goRoute(a) {
     case 'counter':
       if (a.param === 'coopWin') return ['coop', {}];
       if (a.param === 'clanBossHit') return ['clan', { tab: 'boss' }];
+      if (a.param === 'donate') return ['clan', {}];
       if (a.param === 'dailyDone') return ['commissions', { tab: 'daily' }];
       if (a.param === 'weeklyDone') return ['commissions', { tab: 'weekly' }];
       if (a.param === 'eventWin') return ['bounty', {}];

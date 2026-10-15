@@ -49,14 +49,15 @@ Target was 70–80 recruits per 28 days — met (76.7), and pinned by a test
 | Campaign medals | 8,800 | 0 | 73.3 | 20 / 40 / 60 / 100 gems for Easy / Normal / Hard / Nightmare on each of 40 stages |
 | Chapter finales | 1,520 | 8 | 20.7 | first clear of each x-5 stage |
 | Bounty & Total Assault | 5,460 | 3 | 48.5 | first clears + medals |
-| Achievements | 13,000 | 23 | 131.3 | 116 achievements at launch (the shipped 30 + 86 new; docs/specs/ACHIEVEMENTS.md) |
+| Achievements | 13,000 | 23 | 131.3 | 118 achievements (the shipped 30 + 86 new at launch + 2 with social; docs/specs/ACHIEVEMENTS.md) |
 | Redemption codes | 1,040 | 3 | 11.7 | SAKURA2026 · WELCOME · TACOTUESDAY |
 | **Total** | **32,220** | **47** | **≈ 316** | |
 
 The chart counts gems and tickets only. The achievements expansion also gives **gear boxes**: 8 Sturdy, 61 Ornate,
 18 Radiant and 4 Celestial at launch (≈ 27,600 gem-equivalent, RE §2.1). Boxes open into gear and never become
-recruits; no box or crown can be claimed before Equipment (2-1) or Awakening (3-2) opens on a new save. The social,
-Codex and later waves add 16 rows (850 gems, 1 ticket) when their features ship.
+recruits; no box or crown can be claimed before Equipment (2-1) or Awakening (3-2) opens on a new save. The social wave
+(2 donation rows, 3 Ornate boxes, no gems) is live; the Codex and later waves add 14 rows (850 gems, 1 ticket) when their
+features ship.
 
 The owner's developer codes (`VERITY777` = 999,999 gems, `RESET 67` = reset progress) are
 excluded from the chart.

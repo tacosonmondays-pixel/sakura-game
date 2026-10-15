@@ -233,7 +233,7 @@ describe('achievements: old-build safety', () => {
 
   it('no new top-level key, no SAVE_VERSION bump, seenIntro "ach2" round-trips', () => {
     expect(SAVE_VERSION).toBe(2);
-    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story']);
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'social']); // social: v0.1.29
     const p = createProfile();
     p.seenIntro.push('ach2');
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');

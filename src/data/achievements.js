@@ -24,7 +24,7 @@
 export const ACH_V2_LIVE = true;
 
 /** Feature waves whose rows are live in this build. Social, Codex and later rows light up with their feature. */
-export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: false, codex: false, later: false });
+export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: false, later: false });
 
 /** The release that starts the new counters (§1.7): new-counter rows read "Counts from v0.1.N". */
 export const COUNTERS_SINCE = '0.1.30';
