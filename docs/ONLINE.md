@@ -13,7 +13,7 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Developer clan | Clan → Join with a code → `Rosie777` | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
 | Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
-| Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends and clanmates (after 3 days in the same clan), unread badges, live delivery, block, report, "Who can message me" (Friends & clan · Friends only · Nobody). Friends by request (clanmates, recent co-op partners) or by friend code (`K7Q2-ZP4M`) |
+| Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends (and, for players who choose Friends & clan, clanmates after 3 days in the same clan), unread badges, live delivery, block, report (press and hold a message to report that one), "Who can message me" (Friends only — the default · Friends & clan · Nobody). Friends by request (clanmates, recent co-op partners) or by friend code (`K7Q2-ZP4M`) |
 | Co-op invites by DM | a conversation's **Invite to co-op**, a player card, or the room lobby's **Invite a friend** | Opens a room for you as host and sends the invite once the server registered it; the friend gets a pop-up on any screen with **Join** (no code typing). Invites expire after 15 min or when the room closes or fills (a host's **Leave** keeps the room for "Your last room", so an invite into it stays good until it expires) |
 | Clan requests | Clan → Requests | Once per game day ask your clan for one material; clanmates donate from their own backpacks (30 donation points a day each, +50 coins and +1 clan XP per point); collect what arrived with one tap. Everything resets at **7 PM Central** |
 
@@ -216,15 +216,17 @@ Everything below is in `supabase/migrations/20261013000000_social.sql`; the clie
 young, so the defaults are the safe ones.
 
 - **Who can message whom.** A DM needs *both* players' "Who can message me" to allow it:
-  - **Friends & clan** (default): friends, and clanmates once *both* have been in the same clan for
-    3 days (the developer clan never counts).
-  - **Friends only**, or **Nobody** (no DMs and no DM invites at all, friends included).
+  - **Friends only** (default): a friendship needs the player to accept a request, while anyone can
+    join an open clan and wait 3 days, so friends are the safe default for young players.
+  - **Friends & clan**: friends, and clanmates once *both* have been in the same clan for 3 days (the
+    developer clan never counts). A player chooses it in Settings → Online or Messages.
+  - **Nobody** (no DMs and no DM invites at all, friends included).
   - Strangers can never message each other; there is no "Everyone". To add someone met in global
     chat, swap friend codes. A missing setting means the default, never "open".
   - Never if either player blocked the other, or the sender is muted. A blocked sender gets exactly the
     same refusal as a privacy refusal ("… can't get messages from you yet"), so a block is never revealed;
-    the same goes for donations (a request of someone who blocked you reads "closed") and co-op rooms (a
-    host who blocked you has a "full" room).
+    the same goes for donations (the request of someone who blocked you is simply not listed, like a
+    filled one, and `donate()` says "closed") and co-op rooms (a block either way reads "full").
   - What the card says when Message is off depends only on what the viewer may know: "Only friends and
     clanmates can message each other" (strangers — no setting allows them), the viewer's *own* setting
     (Friends only / Nobody, sent as `myPrivacy`), "clanmates after 3 days", or "X isn't taking messages
@@ -243,7 +245,9 @@ young, so the defaults are the safe ones.
   HTML). No control / bidi / zero-width / tag characters, no blank-looking fillers, line separators or
   invisible marks (combining grapheme joiner, Khmer inherent vowels, the null notehead), at least one
   *visible* character (spaces of every kind — NBSP, U+2000–U+200A, the ideographic space — joiners,
-  variation selectors and lone accents don't count), at most 4 stacked accents. Emoji sequences (ZWJ),
+  variation selectors and lone marks don't count), at most 4 stacked marks in a row — accents, Hebrew
+  points, Arabic harakat, Thai and Lao vowel / tone marks alike (a wall of 150 Thai tone marks on one
+  letter is refused; chat and DM bubbles also clip anything taller than their text). Emoji sequences (ZWJ),
   Japanese ideographic variants and an ideographic space inside a sentence are fine. The sets are code
   points in SQL and JS alike (never a locale class). The server stamps the sender's name, level and
   avatar. The same rule applies to new chat messages (`messages_social_guard` trigger).
@@ -251,8 +255,21 @@ young, so the defaults are the safe ones.
   name accepted before the social SQL never locks its player out of chat, clans or co-op): visible
   letters, no space of any kind at either end, and no look-alike of a reserved name (fullwidth letters,
   accents, Cyrillic / Greek look-alikes such as "Ѕystem" or "Supply Bоt" are compared as plain Latin:
-  `name_key()` = `nameKey()` in `src/online/textRules.js`). A player who kept such an old name can still
-  chat and play co-op; DMs, invites and friend requests ask them to change it first.
+  `name_key()` = `nameKey()` in `src/online/textRules.js`), no staff word anywhere in it with digits read
+  as letters ("Staff Hana", "Adm1n", "SupplyB0t", "Sakura Sentine1s"; "Badminton" is fine) and no gm /
+  dev / mod as a word of its own ("GM Rosie", "Dev Rosie"; "Devi" and "Modé" are fine) —
+  `reserved_name()` = `reservedName()` in `src/online/clanRules.js`. A player who kept such an old name
+  can still chat and play co-op; DMs, invites and friend requests ask them to change it first.
+- **Clans** (new and changed ones only — a trigger, `clans_text_rules`; clans from before the social
+  SQL are untouched and the paste never fails on them): the name follows the DM text rule with
+  visible letters (no zero-width or right-to-left tricks), is not reserved or staff-looking, never
+  reads as the developer clan ("Sakura Devs") and is not another clan's name in a different spelling
+  ("Moon-Clan" next to "Moon Clan": `name_key()`; names without Latin letters or digits are only
+  compared exactly); the description follows the DM text rule; the tags DEV, GM, MOD, ADM, STAF, SYS,
+  BOT (and their plurals / digit spellings such as D3V) and the `wiki` emblem belong to the developer
+  clan. `validateClan()` says the same in the game first. A **kicked** player cannot join that clan
+  again by themselves (open or by code) for 7 days (`clan_bans`, no player access); a leader or
+  officer accepting their join request lets them back in. Leaving by yourself bans nobody.
 - **Co-op invites by DM** follow the DM rules. Only the host of a room with a free seat can invite; the
   server writes the invite text and its expiry (15 min); one live invite per pair (a new one replaces the
   old) and 4 per hour to the same player. When the host leaves the room lobby (Leave, a new room, or
@@ -265,13 +282,24 @@ young, so the defaults are the safe ones.
   before they open their screen. On a phone held sideways the pop-ups sit on the left under the top bar
   (the coins and the chat drawer stay free). "Invite to co-op" on the card of the ally already in my
   room says "In your co-op room"; leaving a room for a new one is asked first.
-- **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship and
-  pending requests go, the conversation leaves the blocker's inbox, the blocker no longer sees their
-  chat lines (nor their clan requests), and `join_room` answers "full" to a guest the host has blocked.
+- **Block** (≤ 200): no DMs, invites, friend requests or donations between the two, the friendship
+  goes, the blocked player's pending request is swallowed (they keep seeing "Requested", as after a
+  decline), the conversation leaves the blocker's inbox, the blocker no longer sees their chat lines,
+  their clan requests or the clan's system notices that name them ("X joined the clan."). Co-op: a
+  block frees the blocked player's seat in the blocker's room and changes the room's secret (their
+  Realtime channel goes dead; the blocker's lobby reopens the room on the new one by itself), a
+  blocker who sat in the blocked player's room leaves it, and `join_room` answers "full" when either
+  player blocked the other. The lobby never pairs with a player you blocked.
 - **Report**: reason chips (bullying, inappropriate words, spam, asked for personal info, something
-  else), an optional note, "Also block" (on by default). The **server** copies the evidence (the
-  reported message, the last 20 DMs between the two, the target's name; ≤ 8 KB) into `reports`, which
-  no player can read. One open report per reporter and target (a repeat updates it).
+  else), an optional note, "Also block" (on by default). In a conversation, press and hold (or
+  right-click) one of their messages to report exactly that one; the conversation menu's Report sends
+  their newest. The **server** copies the evidence (the reported message, the newest DMs between the
+  two — up to 20, ≤ 8 KB —, `dmsTotal` and `dmsFromTarget`: how many DMs the two have in all and how many
+  the target sent, the target's name) into `reports`, which no player can read. While a report is
+  **open** the whole conversation of the two is kept (up to 90 days), so the owner reads all of it
+  (Moderation below) before marking it reviewed. One open report per reporter and target: a repeat
+  *adds* to the evidence (`message` is the newest reported one, `earlier` the ones reported before,
+  and every line of the first snapshot stays).
 - **Auto-mute**: 3 reporters within 24 h whose report *counts* — online accounts at least 7 days old that
   the target reached through what the mute silences (a DM, a co-op invite or a friend request in the
   last 7 days) — mute the target from DMs, invites and friend requests for 24 h. Seeing one public chat
@@ -327,7 +355,9 @@ young, so the defaults are the safe ones.
 
 - **Retention** (deleted as new rows arrive, no cron): DMs after 14 days — every DM of those 14 days is
   kept (no per-conversation trim: a flood could otherwise push an abusive message out of a report's
-  evidence; 300 DMs a day per sender bound the storage); friend requests after 30 days; donations 7 days
+  evidence; 300 DMs a day per sender bound the storage), and the DMs of two players with an open report
+  between them until the report is reviewed (90 days at most); clan bans when they end; friend
+  requests after 30 days; donations 7 days
   unclaimed / 30 days claimed; donation key tombstones: voided after 2 days (a late donate() can only
   land on the same game day), applied after 90; ended automatic mutes after 30 days; reports and owner
   mutes are kept until the owner deletes them.
@@ -357,7 +387,14 @@ the repository).
 select r.id, r.created_at, r.reason, r.note, r.context, r.reporter_name, r.target_name, r.qualified, r.target_id, r.evidence
 from reports r where r.status = 'open' order by r.created_at desc;
 
--- mark one reviewed (or 'actioned')
+-- the whole conversation behind a report (kept while the report is open; evidence->'dmsTotal'
+-- says how many lines there are when the stored snapshot holds only the newest ones)
+select m.id, m.created_at, case when m.sender_id = r.target_id then 'TARGET' else 'reporter' end as who, m.body
+from reports r join direct_messages m
+  on (m.sender_id = r.target_id and m.recipient_id = r.reporter_id) or (m.sender_id = r.reporter_id and m.recipient_id = r.target_id)
+where r.id = 123 order by m.id;
+
+-- mark one reviewed (or 'actioned'); the next housekeeping lets its conversation go after 14 days
 update reports set status = 'reviewed', updated_at = now() where id = 123;
 
 -- mute a player for 3 days (owner mutes also cover global / clan chat)
@@ -375,6 +412,17 @@ select id, name from profiles where not social_name_ok(name);
 
 -- delete one player's private messages
 delete from direct_messages where sender_id = '<target uuid>';
+
+-- clans that look like staff or the developer clan (new ones are refused; this finds older ones)
+select id, name, tag, emblem from clans where not is_dev
+  and (emblem = 'wiki' or reserved_clan_tag(tag) or reserved_clan_name(name)
+       or name_key(name) ~ 'devlab|admin|staff|official|developer');
+-- update clans set emblem = 'assault' where id = '<clan uuid>';   -- (the trigger checks a new name / tag)
+
+-- kicked players who can't rejoin a clan by themselves yet; lift one
+select b.clan_id, c.name, b.user_id, p.name as player, b.until from clan_bans b
+  join clans c on c.id = b.clan_id join profiles p on p.id = b.user_id order by b.until;
+-- delete from clan_bans where clan_id = '<clan uuid>' and user_id = '<player uuid>';
 
 -- how big the DM table is (the free plan has 500 MB for everything)
 select pg_size_pretty(pg_total_relation_size('direct_messages'));
@@ -691,11 +739,20 @@ The vitest suite covers:
   contact; `settle_donations` is rate-limited and capped; a 200-DM flood keeps the abusive message for
   the report; request → cancel → request and block → unblock cannot ping again; a block reads like a
   closed request / a full room; blank-looking bodies and names and look-alike reserved names (JS and
-  SQL compared on the same strings); the friend caps' locks; `expire_coop_invites`. (The concurrency of
+  SQL compared on the same strings); the friend caps' locks; `expire_coop_invites`; and the judge's
+  re-verification, each failing on the file before the fix: the evidence counts the conversation and
+  it is kept while a report is open (90 days at most), a repeat report adds to the evidence, a block
+  frees the co-op seat both ways and changes the room secret, the clan text rules (live look-alike
+  clans survive the paste; online → social → online → social keeps the triggers and the 57 player
+  functions), the 7-day kick ban, Friends only by default, a blocker's request gone, the blocked
+  player's request swallowed, stacked marks of every script, staff words inside names. (The concurrency of
   #8 needs real parallel connections: the verifier's probe p11 on Postgres 16 — 50 friends and 10
   requests a day hold.)
 - `localSocial.test.js`: the same rules on the local adapter with an injected clock (the 7 PM rollover),
-  including the same verifier scenarios.
+  including the same verifier and judge scenarios.
+- `tests/core/storeTabs.test.js`: two open tabs on one save (two stores, one storage, the real
+  donation ledger): an older tab never writes over a newer save (it turns stale and shows "Open in
+  another tab — reload"), the donation ledger re-reads the newest save, one tab alone is unchanged.
 - `socialRules.test.js`, `donateLedger.test.js` (escrow / refund / settle / claim replay after a crash at
   every step), `backendSocial.test.js` (the deploy order: `needs_update` without a request, chat and clans
   unaffected), `tests/core/reset.test.js` (the game clock) and `tests/ui/social.test.js` (pop-up rules,

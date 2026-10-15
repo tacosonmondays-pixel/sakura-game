@@ -1095,7 +1095,7 @@ be.socialStatus() / be.recheckSocial()   // 'ready' | 'needs_update' | 'offline'
 be.socialSummary()                       // { unreadDms, friendRequests, donationsReady, privacy }
 be.playerCard(userId)                    // { userId, name, level, avatar, clan, clanmate, lastActive (friends/clanmates only), isSelf, friend: 'none'|'requested'|'incoming'|'friends',
                                          //   requestId, blockedByMe, canMessage, why, canFriend, friendWhy, threadId }
-be.setPrivacy('friends_clan'|'friends'|'nobody') be.myFriendCode() be.resetFriendCode()   // { code: 'K7Q2ZP4M' } (formatFriendCode → K7Q2-ZP4M)
+be.setPrivacy('friends_clan'|'friends'|'nobody') be.myFriendCode() be.resetFriendCode()   // default 'friends' (DM_PRIVACY_DEFAULT); { code: 'K7Q2ZP4M' }
 be.friends() be.friendRequests() be.inviteCandidates()      // friends / { incoming, outgoing (no target ids) } / friends + clanmates for "Invite a friend"
 be.addFriend(userId) be.addFriendByCode(code) be.answerFriend(requestId, accept) be.cancelFriendRequest(requestId) be.removeFriend(userId)
 be.block(userId) be.unblock(userId) be.blocked() be.report(userId, { reason, note, context, messageId })
@@ -1118,14 +1118,22 @@ Rules modules: `src/online/socialRules.js` (privacy values, friend / block / DM 
 `validMessageBody()` = SQL `valid_dm_body`, `validDmMeta()`, `inviteBody()`, `whyText(why, name, { myPrivacy,
 friend })` — a block and a setting read the same; why codes self / blocked_by_me / muted / stranger /
 my_setting / clan_new / not_allowed / name), `src/online/textRules.js` (the code-point sets of the text
-rules and `nameKey()` = SQL `name_key()`: names are compared for the reserved list after NFKD + the
+rules — `MARK_SET`: Latin, Cyrillic, Hebrew, Arabic, Thai and Lao marks — and `nameKey()` / `nameWords()`
+= SQL `name_key()` / `name_words()`: names are compared for the reserved list after NFKD + the
 `LOOKALIKE_FROM/TO` table; `clanRules.validateName()` = SQL `valid_display_name()` + `visible_name()` +
-`reserved_name()`, enforced on new / changed names by the `profiles_name_rules` trigger, never a check
-constraint), `src/online/donateRules.js` (`DONATE_RULES` by rarity: size 10/6/3/1, per donor
+`reserved_name()` (`reservedName()`: the exact list, staff words inside a name with digits read as
+letters, gm / dev / mod as words), enforced on new / changed names by the `profiles_name_rules` trigger,
+never a check constraint; `clanRules.validateClan()` = SQL `clans_text_rules` (a trigger on new /
+changed clans: text rules, `reserved_clan_name()` / `reserved_clan_tag()`, no `'wiki'` emblem — not in
+`EMBLEMS` — and no look-alike of an existing clan's `name_key`); a kick bans a self-join for
+`CLAN_BAN_DAYS` 7 (`clan_bans`)), `src/online/donateRules.js` (`DONATE_RULES` by rarity: size 10/6/3/1, per donor
 5/3/2/1, points 1/2/5/10, super rare 3 and mythic 1 per 7 days, mythic only in an established clan;
 `DONOR_DAILY_POINTS` 30, `DONOR_COINS_PER_POINT` 50, `CLAN_XP_PER_POINT` 1), `src/online/donateLedger.js`
 (escrow / finalize / refund / settle / claim, pure over the profile; the caller `store.saveNow()`s; refunds
-only on a `definitive` error or a `voided` key). Save block `profile.social = { escrow, donated, pendingClaim,
+only on a `definitive` error or a `voided` key; the UI runs every step inside `ledgerLock()`, which first
+`store.refresh()`es: the newest save of any tab). Two tabs, one save: every save carries a revision
+(`{"saveRev":N,…}`, `src/core/store.js`); a tab never writes over a newer revision — it turns
+`store.stale`, emits `'stale'` and `src/ui/staleBanner.js` shows "Open in another tab — reload". Save block `profile.social = { escrow, donated, pendingClaim,
 claimed }` (`cleanSocial()` in `src/online/socialSave.js`; no `SAVE_VERSION` bump). Rate limits (`RULES` in
 limits.js, the same literal numbers in the SQL): dm 1/2 s + 20/min, dm_day 300, dm_new 10/day, invite 1/5 s +
 20/h (4/h per pair on the server), friend 10/h, block 30/h, report 1/10 s + 10/day, settings 20/h, card
