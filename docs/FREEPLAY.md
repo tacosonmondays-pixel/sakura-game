@@ -24,7 +24,7 @@ at wave 200. Nothing caps the run.
   banner "16/15 — BEYOND THE LAST WAVE", milestones, visitor toasts, HP surges, boss ribbons, the
   Matriarch countdown, the pressure chip. **Finish run** is in the pause menu (solo: it ends the run at
   once); Quit pays the freeplay bonus for the waves cleared.
-- **Results**: FREEPLAY OVER (fell) / FREEPLAY COMPLETE (Finish), "Reached wave 147 / 15", "Fell on
+- **Results**: FREEPLAY OVER (fell) / FREEPLAY COMPLETE (Finish), "Cleared wave 147 / 15", "Fell on
   wave 148 to the Grave Lych" / "Finished after wave 147", "New best on 1-3 (Tempest)!", the stage clear
   (saved at 15/15) and the freeplay bonus.
 

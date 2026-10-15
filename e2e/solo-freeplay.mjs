@@ -6,7 +6,7 @@
 //   2. 12/12 cleared: the clear card (STAGE CLEAR ✓ / GO BEYOND ▶ Wave 13/12), the clear banked
 //      and saved once (clears + 1). GO BEYOND: the HUD pill overflows "13/12" in the tier colours
 //      (BEYOND), the glitch banner "13/12 — BEYOND THE LAST WAVE".
-//   3. The defence falls a few waves later: FREEPLAY OVER, "Reached wave N / 12", "New best on 1-1
+//   3. The defence falls a few waves later: FREEPLAY OVER, "Cleared wave N / 12", "New best on 1-1
 //      (Blossom)!", the best saved (progress.stages['1-1'].freeplayBest.blossom) and shown back in
 //      stage prep as "Best: wave N (Blossom)".
 //   4. Keep going: a normal 1-2 run wins its last wave; the victory sheet offers KEEP GOING with
@@ -216,7 +216,8 @@ try {
   await page.waitForSelector('[data-testid="freeplay-result"]', { timeout: 30000 }).catch(() => null);
   const res = await textOf('[data-testid="freeplay-result"]');
   check(/FREEPLAY OVER/i.test(res), 'results: FREEPLAY OVER');
-  check(new RegExp(`Reached wave ${lost.cleared ?? f.cleared} / 12`).test(res) || /Reached wave \d+ \/ 12/.test(res), `results: "Reached wave N / 12" (${(res.match(/Reached wave \d+ \/ \d+/) || [''])[0]})`);
+  // (the shared freeplay sheet reads "Cleared wave N / 12": the waves the run actually cleared)
+  check(/Cleared wave \d+ \/ 12/.test(res), `results: "Cleared wave N / 12" (${(res.match(/Cleared wave \d+ \/ \d+/) || [''])[0]})`);
   check(/New best on 1-1 \(Blossom\)!/.test(res), 'results: "New best on 1-1 (Blossom)!"');
   check(/Stage clear · saved at 12\/12/i.test(res) && /Freeplay bonus/i.test(res), 'results: the clear (saved at 12/12) and the freeplay bonus');
   await snapAll('results');
