@@ -93,6 +93,10 @@ export function economyCues(prev, next, reason) {
     case 'secretary':
       out.push({ sfx: 'ui.select', delay: 0 });
       break;
+    case 'achievements-special':
+      // a claim that grants a special Honor Ribbon: the claim cue, then the awaken jingle under the fanfare
+      out.push({ sfx: 'eco.claim', delay: 0 }, { music: 'awaken', delay: 240 });
+      break;
     default:
       if (CLAIM_REASONS.has(reason)) {
         out.push({ sfx: 'eco.claim', delay: 0 }, ...gains(160));

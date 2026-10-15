@@ -150,6 +150,7 @@ export function addGear(profile, gear) {
     do uid = `g${++profile.seq.gear}`; while (profile.gear[uid]);
   }
   profile.gear[uid] = { ...gear, uid, equippedBy: null };
+  if (gear.rarity) track(profile, `gear:${gear.rarity}`, 1); // achievements: gear of a rarity ever obtained
   return uid;
 }
 
@@ -314,6 +315,7 @@ export function enhanceGear(profile, uid) {
   if (!consumeItems(profile, [{ id: 'coins', count: cost }])) return { ok: false, error: 'missing', missing: [{ id: 'coins', need: cost, have: itemCount(profile, 'coins') }] };
   gear.level += 1;
   applyMainLevel(gear.main, gear.level);
+  if (gear.level === MAX_GEAR_LEVEL) track(profile, `gear10:${gear.rarity}`, 1); // achievements: pieces ever at +10
   let grewSub = null;
   if (gear.level % SUB_GROWTH_EVERY === 0 && gear.subs.length) {
     let best = 0;
@@ -351,6 +353,7 @@ export function salvageGear(profile, uid) {
   const rewards = salvageRewards(gear);
   delete profile.gear[uid];
   addItems(profile, rewards);
+  track(profile, 'salvage', 1);
   return { ok: true, rewards };
 }
 

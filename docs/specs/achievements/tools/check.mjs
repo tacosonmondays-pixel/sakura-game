@@ -5,8 +5,11 @@
 //   4. update day: what veteran saves (early / mid / late, research-economy §4.1) can claim at once
 // Archetypes extend _cat/eval.mjs; boss / miniboss / elite and rare-slime kills are set explicitly
 // instead of spreading every kill evenly (that made "defeat X n times" look met on update day).
-// usage: node final/check.mjs [--quiet]
-const LIVE = '/home/user/sakura-game';
+// usage: node docs/specs/achievements/tools/check.mjs [--quiet]
+//   5. shipped data: since the build (feature/achievements), src/data/achievements.js holds the 30 shipped rows AND
+//      the expansion. The "existing" archetype figures read only the shipped 30, and every catalogue row must be in
+//      the game data with the same fields, so the totals of the shipped data equal the catalogue's (exit 1 if not).
+const LIVE = new URL('../../../../', import.meta.url).pathname.replace(/\/$/, '');
 const fs = await import('node:fs');
 const { createProfile } = await import(`${LIVE}/src/systems/save.js`);
 const { achievementList, discoverableEnemies } = await import(`${LIVE}/src/systems/missions.js`);
@@ -14,10 +17,14 @@ const { STAGES, CAMPAIGN_IDS, CHAPTERS, stageEnemies } = await import(`${LIVE}/s
 const { UNITS } = await import(`${LIVE}/src/data/units.js`);
 const { ENEMIES } = await import(`${LIVE}/src/data/enemies.js`);
 const { ITEMS } = await import(`${LIVE}/src/data/items.js`);
-const { ACHIEVEMENTS, DAILY_MISSIONS, WEEKLY_MISSIONS } = await import(`${LIVE}/src/data/missions.js`);
+const { ACHIEVEMENTS: GAME_ROWS, DAILY_MISSIONS, WEEKLY_MISSIONS } = await import(`${LIVE}/src/data/missions.js`);
 const { rollGear, addGear } = await import(`${LIVE}/src/systems/gear.js`);
 const { createRng } = await import(`${LIVE}/src/core/rng.js`);
 const { CATALOG, EXISTING, FREEPLAY_TITLES, NO_COSMETIC } = await import('./catalog.mjs');
+// the shipped 30: every game row that is not a catalogue row (before the build, that is every row)
+const CATALOG_IDS = new Set(CATALOG.map((a) => a.id));
+const ACHIEVEMENTS = GAME_ROWS.filter((a) => !CATALOG_IDS.has(a.id));
+const SHIPPED_IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
 
 const DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
 const range = (a, b) => CAMPAIGN_IDS.slice(CAMPAIGN_IDS.indexOf(a), CAMPAIGN_IDS.indexOf(b) + 1);
@@ -151,7 +158,7 @@ function evaluate(key, mode) {
   const spec = ARCH[key];
   const p = build(spec);
   const x = spec[mode] || {};
-  const existing = achievementList(p).filter((a) => a.progress >= a.goal);
+  const existing = achievementList(p, { includeHidden: true }).filter((a) => SHIPPED_IDS.has(a.id) && a.progress >= a.goal);
   const pool = CATALOG.filter((a) => {
     if (['CX', 'LATER', 'SO'].includes(a.avail)) return false;
     if (mode === 'retro' && a.avail === 'NEW') return false; // new counters start at 0 on update day
@@ -255,6 +262,39 @@ for (const key of ['early', 'mid', 'late']) {
   out.retro[key] = { label: ARCH[key].label, existingMet: r.existing.length, newMet: r.metNew.length, gems: items.gems || 0, daysOfIncome: +((items.gems || 0) / PER_DAY).toFixed(1), tickets: items.ticket_recruit || 0,
     boxes: { sturdy: items.gearbox_rare || 0, ornate: items.gearbox_superRare || 0, radiant: items.gearbox_mythic || 0, celestial: items.gearbox_legendary || 0 }, boxGemEq: boxValue(r.metNew), items, ribbonsLit: ribbons, titlesUnlocked: ttl, ids: r.metNew.map((a) => a.id) };
 }
+// ---- 5. shipped data vs the catalogue -------------------------------------------------------------
+const WAVE = { LIVE: 'launch', NEW: 'launch', TA: 'launch', SO: 'social', CX: 'codex', LATER: 'later' };
+const GAME_MAP = Object.fromEntries(GAME_ROWS.map((a) => [a.id, a]));
+const same = (x, y) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
+const shipped = { rowsInGame: 0, missing: [], differs: [] };
+if (GAME_ROWS.length > ACHIEVEMENTS.length) {
+  for (const a of CATALOG) {
+    const g = GAME_MAP[a.id];
+    if (!g) { shipped.missing.push(a.id); continue; }
+    shipped.rowsInGame += 1;
+    const want = { name: a.name, desc: a.desc, cat: a.cat, metric: a.metric, param: a.param ?? null, goal: a.goal, tier: a.tier, rewards: a.rewards, wave: WAVE[a.avail], series: a.series ?? null, honor: a.honor ?? null, title: a.title ?? null, hidden: !!a.hidden, hint: a.hint ?? null };
+    const have = { name: g.name, desc: g.desc, cat: g.cat, metric: g.metric, param: g.param ?? null, goal: g.goal, tier: g.tier, rewards: g.rewards, wave: g.wave, series: g.series ?? null, honor: g.honor ?? null, title: g.title ?? null, hidden: !!g.hidden, hint: g.hint ?? null };
+    for (const k of Object.keys(want)) if (!same(want[k], have[k])) shipped.differs.push(`${a.id}.${k}`);
+  }
+  // the shipped 30: changes allowed by the spec only (cosmetics, the rename, the goal and metric fixes)
+  for (const [id, e] of Object.entries(EXISTING)) {
+    const g = GAME_MAP[id];
+    if (!g) { shipped.missing.push(id); continue; }
+    if (!same(e.honor ?? null, g.honor ?? null)) shipped.differs.push(`${id}.honor`);
+    if (!same(e.title ?? null, g.title ?? null)) shipped.differs.push(`${id}.title`);
+    if (e.rename && g.name !== e.rename) shipped.differs.push(`${id}.name`);
+    if (e.goalFix && g.goal !== e.goalFix) shipped.differs.push(`${id}.goal`);
+    if (e.metricFix && g.metric !== e.metricFix) shipped.differs.push(`${id}.metric`);
+  }
+  const gameNew = GAME_ROWS.filter((a) => CATALOG_IDS.has(a.id));
+  const gameLaunch = gameNew.filter((a) => a.wave === 'launch');
+  shipped.launch = totals(gameLaunch);
+  shipped.all = totals(gameNew);
+  shipped.totalsMatch = same(shipped.launch, totals(launch)) && same(shipped.all, totals(CATALOG));
+  shipped.ok = !shipped.missing.length && !shipped.differs.length && shipped.totalsMatch;
+}
+out.shipped = shipped;
 fs.writeFileSync(new URL('./out.json', import.meta.url), JSON.stringify(out, null, 1));
 if (!process.argv.includes('--quiet')) console.log(JSON.stringify(out, null, 1));
-else console.log(JSON.stringify({ problems, counts: out.counts, launch: out.launch, all: out.all, retro: Object.fromEntries(Object.entries(out.retro).map(([k, v]) => [k, { newMet: v.newMet, gems: v.gems, tickets: v.tickets, boxes: v.boxes, ribbons: v.ribbonsLit, titles: v.titlesUnlocked }])) }, null, 1));
+else console.log(JSON.stringify({ problems, shipped: { ok: shipped.ok, rowsInGame: shipped.rowsInGame, missing: shipped.missing, differs: shipped.differs }, counts: out.counts, launch: out.launch, all: out.all, retro: Object.fromEntries(Object.entries(out.retro).map(([k, v]) => [k, { newMet: v.newMet, gems: v.gems, tickets: v.tickets, boxes: v.boxes, ribbons: v.ribbonsLit, titles: v.titlesUnlocked }])) }, null, 1));
+if (problems.length || shipped.ok === false) process.exitCode = 1;

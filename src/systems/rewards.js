@@ -9,6 +9,7 @@ import { addItems, normalizeList } from './inventory.js';
 import { rollGear, addGear } from './gear.js';
 import { grantUnit, isOwned, stageMedals, isPracticeRun } from './unlocks.js';
 import { track, currentEvent } from './missions.js';
+import { countSoloBattle } from './achievementCounters.js';
 import { hashString } from '../core/rng.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
@@ -187,6 +188,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   }
   if (totalKills) track(profile, 'kill', totalKills);
   if (bossKills) track(profile, 'bossKill', bossKills);
+  countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
 
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
