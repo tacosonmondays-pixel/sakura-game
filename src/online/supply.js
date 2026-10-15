@@ -1,4 +1,4 @@
-// The developer clan's Supply Bot (owner request: the Rosie777 clan's bot grants materials in
+// The developer clan's Supply Bot (owner request: the developer clan's bot grants materials in
 // any quantity). Pure grant logic, used by the sandbox panel (src/ui/online/supplyBot.js) and
 // tests. Grants go into the local save like any reward; the panel is only reachable for
 // members of the developer clan and is labelled as a developer sandbox.

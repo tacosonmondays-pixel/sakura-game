@@ -43,7 +43,7 @@ The bottom can be the same maybe we can have our own knowledge tree or some sort
 
 You can hide the ui and enter like play mode where you can pick them up or whatever.. 
 
-Also make it so the gacha has animations and 10 pulls or whatever and in the settings make a settings with graphics sounds whatever and a code make the code verity777 for like 999999 summon currency 
+Also make it so the gacha has animations and 10 pulls or whatever and in the settings make a settings with graphics sounds whatever and a code make the code [the developer gem code (removed)] for like 999999 summon currency 
 
 Make a gacha animation like crk or genshin impact!! Cool vfx and shit! 
 
@@ -58,7 +58,7 @@ What else add whatever else you think we need
 [image attached]
 [image attached]
 [image attached]
-give rarities to the towers, and make them progression based! Also when you redeemverity code after one pull your currency goes back down!  make multiple banners for towers, and heroes! Also lets make it so you get items for completeling stages to upgrade units, awaken and equip gear like blue archive.. so we need f2p curency and premium currency. We also need a shop tab where there are ranodm items on rotiation and a team builder like this.. There should also be boss stages, a sandbox mode, also am ap vreview so you know what the level look slike before going into it! also if a uinit is effective on a stage, maybe have a little icon indiocator?... also can you make the chibis look more liek what I am attatching..
+give rarities to the towers, and make them progression based! Also when you redeem [the developer gem code (removed)] after one pull your currency goes back down!  make multiple banners for towers, and heroes! Also lets make it so you get items for completeling stages to upgrade units, awaken and equip gear like blue archive.. so we need f2p curency and premium currency. We also need a shop tab where there are ranodm items on rotiation and a team builder like this.. There should also be boss stages, a sandbox mode, also am ap vreview so you know what the level look slike before going into it! also if a uinit is effective on a stage, maybe have a little icon indiocator?... also can you make the chibis look more liek what I am attatching..
 
 ### Request 8
 [https://github.com/Friedrich-M/UniMate](https://github.com/Friedrich-M/UniMate)
@@ -217,7 +217,7 @@ Save these for later because I’m almost out of usage!! I want the chibi to loo
 
 Owner asked for: Blue Archive–style UI overhaul (menus, transitions, animations); brand-new music
 (orchestral to cute); audit that every earlier request was really implemented; global chat, transfer
-codes, clans, and a dev clan joinable with code **Rosie777** whose bot grants materials in any quantity;
+codes, clans, and a dev clan joinable with the developer clan's private code (set by the owner in the database) whose bot grants materials in any quantity;
 proper icons for every material; backpack organised by item category instead of rarity; Chibis v2
 following the reference videos (third link = dinosaur-hoodie chibi modeling time-lapse is the main
 target); Maps v2 as vibrant and alive as Bloons TD6 with better shaders/animation; harder difficulty
@@ -240,14 +240,14 @@ Recommendations from that chat worth building (owner asked "any other mechanics?
 - Roguelite expeditions with run-only modifiers and temporary recruits.
 - Equal-roster puzzle challenges with share codes; tactical lab sandbox with damage breakdowns; formation blueprints.
 - Progression planner (pin goals, see missing materials and conflicts); sweep for mastered farm stages; fast restart.
-- Dev clan Rosie777 as a clearly marked developer sandbox; transfer codes treated like account access.
+- Dev clan (joined with the developer clan's private code (set by the owner in the database)) as a clearly marked developer sandbox; transfer codes treated like account access.
 
 ## Phase 2 backlog (not in the first rebuild pass)
 - Kawaii tutorial with Hikari in a text box; start with one tower, unlock more gradually; free 10-pull after a few stages; mechanic tutorials (upgrades, bestiary, awakening) at the right moments.
 - City hub (large, walkable) where girls appear as you unlock them; buildings as icons that teleport you inside; pick up girls (they wriggle); decor customisation; "play mode" with UI hidden.
 - Original WebAudio soundtrack + SFX; settings for graphics/sound.
 - Energy for resource/boss stages (owner asked for it) with generous regen; banner rotation daily at 7pm CST; separate tower and hero banners.
-- Redemption/dev codes: verity777 (summon currency), reset 67 (reset progress → tutorial), Rosie777 dev clan supply bot.
+- Redemption/dev codes: the developer gem code (removed; summon currency), reset 67 (reset progress → tutorial), dev clan supply bot (joined with the developer clan's private code (set by the owner in the database)).
 - Anti-tamper save (checksum/signature; honest note: client-only games cannot be fully cheat-proof).
 - PWA install (home-screen app), friends can play without sign-in (GitHub Pages).
 - Events: login rewards, event stages with temporary currency, visual-novel mini stories (beach day, wholesome comedy), event boss, event shop, event outfits (cute summer outfits; no sexualised swimsuits for the academy girls).
@@ -261,7 +261,7 @@ Useful design details from the old build to carry into phase 2 (do not copy code
 - Free Academy 10-pull after 3 distinct campaign clears (introduces upgrading); replayable "Captain's Journal" lessons per system.
 - Feature gates: resource stages after chapter 5, equipment + events after 6, sandbox after 7, bosses at 8/14/20, awakening after 10.
 - Login gifts: repeating 7-step track, one claim per Chicago 7 PM cycle; missing days does NOT reset the track.
-- Codes: verity777 grants 999,999 summon currency once per save; "reset 67" resets the save (recruits, growth, items, currency, records) back to the main menu + tutorial, keeps device settings.
+- Codes: the developer gem code (removed) granted 999,999 summon currency once per save; "reset 67" resets the save (recruits, growth, items, currency, records) back to the main menu + tutorial, keeps device settings.
 - Animated ENTRY/EXIT markers follow the real routes (incl. reversed/alternating lanes); drag-to-deploy places exactly once; camera drags / pinch / off-board releases never place.
 - City residents follow the unlocked roster.
 - Summer event "The Beach Day That Got Away": 10 story chapters, 5 operations, temporary currency + shop, gifts/affection talks, Seaglass Leviathan 12-wave expert boss (needs 20 clears), event-only characters Marina/Amane (keep event outfits within the content rule).

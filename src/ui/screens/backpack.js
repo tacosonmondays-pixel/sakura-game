@@ -14,7 +14,7 @@ import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } 
 import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
-import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL } from '../../systems/gear.js';
+import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
@@ -22,6 +22,9 @@ import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
+
+/** Gear cards drawn per page in the Equipment tab. */
+const GEAR_PAGE = 200;
 import '../styles/achievements.css'; // the gear summary
 
 // ---------------------------------------------------------------------------
@@ -244,10 +247,14 @@ function openGearModal(gear, rerender) {
 
 function openBoxes(itemId, n, rerender) {
   const res = openGearBox(store.profile, itemId, createRng(Date.now() ^ Math.floor(performance.now() * 1000)), n);
-  if (!res.ok) { toast('Could not open the box.', 'bad'); return; }
+  if (!res.ok) {
+    toast(res.error === 'bagFull' ? `Your gear bag is full (${GEAR_BAG_MAX} pieces). Salvage some gear first.` : 'Could not open the box.', res.error === 'bagFull' ? 'info' : 'bad');
+    return;
+  }
   store.commit('gearbox-open');
+  if (res.opened < Math.min(n, OPEN_BATCH_MAX)) toast(`Opened ${res.opened}: your gear bag is full (${GEAR_BAG_MAX} pieces). The rest stay in your backpack.`, 'info', 4200);
   modal({
-    title: `${getItem(itemId)?.name} ×${n}`,
+    title: `${getItem(itemId)?.name} ×${res.opened}`,
     wide: res.gear.length > 2,
     // a big pile (achievement boxes add up): counts, the best 6 and the list below
     body: res.gear.length > SUMMARY_ABOVE ? boxSummary(res.gear) : h('div.mb-gear-grid.mb-pop', res.gear.map((g) => gearCard(g))),
@@ -266,7 +273,7 @@ function renderGearSection(host, rerender) {
         const n = itemCount(profile, b.id);
         return h('div.mb-box', rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
           h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null,
-            n > 10 ? button(`Open all (${n})`, { kind: 'ghost', small: true, testid: `open-all-${b.id}`, onClick: () => openBoxes(b.id, n, rerender) }) : null));
+            n > 10 ? button(n > OPEN_BATCH_MAX ? `Open ${OPEN_BATCH_MAX}` : `Open all (${n})`, { kind: 'ghost', small: true, testid: `open-all-${b.id}`, onClick: () => openBoxes(b.id, Math.min(n, OPEN_BATCH_MAX), rerender) }) : null));
       }))));
   }
   const slotGear = gearList(profile, { slot: state.gearSlot });
@@ -321,8 +328,11 @@ function renderGearSection(host, rerender) {
     else pick.add(g.uid);
     refreshPick();
   };
+  // drawn in pages, so a very full bag never freezes the screen
+  const shownGear = gear.slice(0, state.gearShow || GEAR_PAGE);
+  const more = gear.length - shownGear.length;
   const grid = gear.length
-    ? h(`div.mb-gear-grid${pick ? '.picking' : ''}`, gear.map((g) => {
+    ? h(`div.mb-gear-grid${pick ? '.picking' : ''}`, shownGear.map((g) => {
       const card = gearCard(g, { onClick: () => onCard(g) });
       if (pick) {
         if (salvageBlock(g)) card.classList.add('blocked');
@@ -334,10 +344,13 @@ function renderGearSection(host, rerender) {
       return card;
     }))
     : null;
+  const moreBtn = more > 0
+    ? button(`Show more (${more} left)`, { kind: 'ghost', small: true, testid: 'gear-show-more', onClick: () => { state.gearShow = (state.gearShow || GEAR_PAGE) + GEAR_PAGE; rerender(); } })
+    : null;
   const canSalvage = slotGear.some((g) => !salvageBlock(g));
   host.appendChild(h(`section.mb-section${pick ? '.mb-picking' : ''}`,
     h('div.mb-section-head',
-      h('h3.mb-h', `Gear (${Object.keys(profile.gear).length})`),
+      h('h3.mb-h', `Gear (${gearCount(profile)}/${GEAR_BAG_MAX})`),
       chipRow(slotOpts, state.gearSlot, (id) => { state.gearSlot = id; rerender(); }),
       pick || canSalvage ? button(pick ? 'Done' : 'Multi-salvage', {
         kind: pick ? 'primary' : 'ghost',
@@ -351,6 +364,7 @@ function renderGearSection(host, rerender) {
     grid || (slotGear.length
       ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.')
       : emptyState('No gear yet', 'Gear drops as boxes from Bounty · Workshop Yard and bosses, and the Mall sells boxes for tokens.', button('Go to Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') }))),
+    moreBtn ? h('div.mb-more', moreBtn) : null,
     pickBar));
   if (pick) refreshPick();
 }

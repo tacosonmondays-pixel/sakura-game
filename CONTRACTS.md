@@ -1180,11 +1180,11 @@ in-game result, relevant tests, and evidence against the original request."
   Hikari guiding in a text box, city hub where unlocked girls walk around, original soundtrack (WebAudio,
   recurring sakura melody in different arrangements), commander tool per mission, Link Arts team
   combos, interactive map mechanisms, mission contracts, tactical lab, roguelite expeditions, events
-  with visual-novel mini stories, dev clan `Rosie777` supply bot, anti-tamper saves, PWA install.
+  with visual-novel mini stories, dev clan supply bot (joined with the developer clan's private code (set by the owner in the database)), anti-tamper saves, PWA install.
 
 ## 13. Online — `src/online/**`, `src/ui/online/**`, `supabase/**` (owner: online)
 
-Chat, clans, clan boss, the `Rosie777` developer clan, 2-player co-op and transfer codes. Player-facing
+Chat, clans, clan boss, the developer clan (joined with the developer clan's private code (set by the owner in the database)), 2-player co-op and transfer codes. Player-facing
 description and the owner's setup steps: `docs/ONLINE.md`. The game must keep working with no server:
 saves stay local (the save format is unchanged; the online name lives in its own key `ss-online-v1`).
 
@@ -1223,7 +1223,7 @@ adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cove
 
 **Rules shared by client and server** — `src/online/limits.js` (`RULES`, `verdict`, `createLimiter`,
 `formatRetry`) and `src/online/clanRules.js` (roles + `can()`, name / tag / message validation, reserved
-names, `DEV_CODE = 'Rosie777'`, emblems, clan XP / level curve, weekly boss table, per-attempt damage
+names, `LOCAL_DEV_CODE` (the offline test backend's developer clan code, dev builds and tests only; the live code is set by the owner in the database and never committed), emblems, clan XP / level curve, weekly boss table, per-attempt damage
 allowance, reward tiers). The numbers marked in these files are repeated in the SQL;
 `tests/online/schema.test.js` fails when they drift. Rate limits: chat 1 per 2 s and 20 per minute; clan
 create 1 per 10 min and 3 per day; join / request / leave / code try 10 per hour; transfer 5 per hour;
@@ -1389,7 +1389,7 @@ Chat / Messages), Missions → Co-op, a name in chat / roster / co-op room → p
 (`src/ui/online/playerCard.js`), Settings → Online (name, status, transfer codes, Who can message me,
 friend code, blocked players).
 
-**Supply Bot** (`src/online/supply.js`, `src/ui/online/supplyBot.js`) — only inside the `Rosie777` dev clan,
+**Supply Bot** (`src/online/supply.js`, `src/ui/online/supplyBot.js`) — only inside the developer clan (joined with the developer clan's private code (set by the owner in the database)),
 always labelled DEVELOPER SANDBOX; grants any item or currency (up to `SUPPLY_MAX`) to the player's own
 local save. It never touches the server.
 

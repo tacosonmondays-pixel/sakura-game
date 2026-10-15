@@ -4,7 +4,7 @@
 // the toasts introduce everything as they play.
 
 import { h } from './dom.js';
-import { modal } from './components.js';
+import { modal, toast } from './components.js';
 import { navigate, currentRoute } from './router.js';
 import { achievementList } from '../systems/missions.js';
 import { ownedRibbons } from '../systems/honors.js';
@@ -12,6 +12,12 @@ import { ACHIEVEMENTS } from '../data/achievements.js';
 import { ribbonArt } from './honorFx.js';
 
 export const ACH_INTRO_MARK = 'ach2';
+/** Each later wave gets its own one-line notice (seenIntro mark → the line). */
+export const WAVE_NOTICES = Object.freeze({
+  'ach-social': '2 new Co-op & Clan achievements: help clanmates with the gear they ask for!',
+});
+/** Every achievements notice was seen (or skipped): nothing left to show. */
+export const allIntrosSeen = (profile) => [ACH_INTRO_MARK, ...Object.keys(WAVE_NOTICES)].every((m) => profile.seenIntro?.includes(m));
 /** The rows this notice announces: the launch wave (each later wave gets its own one-line notice). */
 const LAUNCH_NEW = ACHIEVEMENTS.filter((a) => !a.shipped && a.wave === 'launch').length;
 
@@ -19,11 +25,13 @@ const LAUNCH_NEW = ACHIEVEMENTS.filter((a) => !a.shipped && a.wave === 'launch')
 export function maybeShowAchievementIntro(store) {
   const p = store.profile;
   p.seenIntro ||= [];
-  if (p.seenIntro.includes(ACH_INTRO_MARK)) return false;
+  if (allIntrosSeen(p)) return false;
   if (currentRoute().name !== 'lobby') return false;
   // never on top of another notice (patch notes, a gift): it waits for the next lobby visit
   if (document.querySelector('.modal-overlay, .ach-fanfare')) return false;
-  p.seenIntro.push(ACH_INTRO_MARK);
+  if (p.seenIntro.includes(ACH_INTRO_MARK)) return showWaveNotices(store);
+  // the big notice covers every wave already in this build
+  p.seenIntro.push(ACH_INTRO_MARK, ...Object.keys(WAVE_NOTICES).filter((m) => !p.seenIntro.includes(m)));
   const veteran = (p.stats?.battles || 0) > 0 || Object.keys(p.missions?.achievements || {}).length > 0;
   store.commit('settings', { quiet: true });
   if (!veteran) return false;
@@ -41,5 +49,16 @@ export function maybeShowAchievementIntro(store) {
     cls: 'ach-modal',
     actions: [{ label: 'Later', testid: 'ach-intro-later' }, { label: 'Open Achievements', kind: 'yellow', testid: 'ach-intro-open', onClick: (close) => { close(); navigate('commissions', { tab: 'achievements' }); } }],
   });
+  return true;
+}
+
+/** A player who saw the launch notice gets one line per wave that shipped since. */
+function showWaveNotices(store) {
+  const p = store.profile;
+  const due = Object.keys(WAVE_NOTICES).filter((m) => !p.seenIntro.includes(m));
+  if (!due.length) return false;
+  p.seenIntro.push(...due);
+  store.commit('settings', { quiet: true });
+  for (const m of due) toast(WAVE_NOTICES[m], 'good', 4200);
   return true;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  levelFromXp, xpForLevel, weekKey, bossFor, rewardTier, can, validateClan, validateName, CLAN_BOSSES, DEV_CODE, msToWeekReset, agoText,
+  levelFromXp, xpForLevel, weekKey, bossFor, rewardTier, can, validateClan, validateName, CLAN_BOSSES, LOCAL_DEV_CODE, msToWeekReset, agoText,
   autoName, validMessageMeta, bossAllowance, bossMaxHp, BOSS_FULL_RUN_SECONDS, BOSS_MIN_SECONDS,
 } from '../../src/online/clanRules.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -73,7 +73,8 @@ describe('clan rules', () => {
     expect(autoName('local-9f3ce79a')).toMatch(/^Sensei\d{4}$/);
     expect(autoName('local-9f3ce79a')).toBe(autoName('local-9f3ce79a'));
     expect(validateName(autoName('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'))).toBe(null);
-    expect(DEV_CODE).toBe('Rosie777');
+    // the offline test backend's code only: the live code is set by the owner in the database
+    expect(LOCAL_DEV_CODE).toBe('LOCAL-DEV-LAB');
     expect(agoText(Date.now() - 3 * 3600 * 1000)).toBe('3 h ago');
   });
 

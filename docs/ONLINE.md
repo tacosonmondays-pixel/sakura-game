@@ -10,7 +10,7 @@ game itself never needs the server: saves stay on the device, and every screen w
 | Global chat | chat bubble at the top right of the lobby (slide-in drawer), or `#/chat` | Last 50 messages live, names, levels, avatars and times; "Slow down — 1.4 s" feedback |
 | Clans | Menu → Clan, or `#/clan` | Create (name, TAG, emblem, open / request / invite code), search, join or request, leave; leader / officer / member roles; member list with last active; clan chat; clan level from members' activity |
 | Clan boss | Clan → Clan Boss | Weekly boss with one shared HP pool. Every member's battle damage counts (3 attempts per 24 h). Damage ranking and claimable reward tiers S / A / B / C |
-| Developer clan | Clan → Join with a code → `Rosie777` | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
+| Developer clan | Clan → Join with a code → the developer clan's private code (set by the owner in the database) | "Sakura Dev Lab" [DEV] with the **Supply Bot**, a clearly labelled DEVELOPER SANDBOX that grants any item or currency in any quantity to *your own local save* |
 | Co-op | Missions → Co-op, Menu → Co-op, a clanmate's Co-op button, or `#/coop` | 2-player real-time battle on any unlocked campaign stage with enemy HP ×1.6. Each player has their own coins, girls and colour. Create a room, then join by its 5-letter code or from a clan invite |
 | Transfer codes | Settings → Online | Copy your save to another device with a one-time code (`XXXX-XXXX-XXXX`, 60 random bits) that expires after 24 h. One live code per player: a new code replaces the last |
 | Messages (DMs) and friends | tap a name (chat, clan roster, clan chat, co-op room, friends list) → player card; Menu → Messages; `#/messages` | Private text messages between friends (and, for players who choose Friends & clan, clanmates after 3 days in the same clan), unread badges, live delivery, block, report (press and hold a message to report that one), "Who can message me" (Friends only — the default · Friends & clan · Nobody). Friends by request (from any player card, global chat included) or by friend code (`K7Q2-ZP4M`) |
@@ -64,7 +64,8 @@ yet". Do the next step first.
   4. If the chat says **"The game server is not set up yet"**, the migration has not run: open
      Supabase → SQL Editor → New query, paste all of `supabase/migrations/20261008000000_online.sql`,
      and Run. Reload the game.
-  5. Optional: Clan → Join with a code → `Rosie777` opens the developer clan and its Supply Bot.
+  5. Optional: set the developer clan's code (see "Rotate the developer clan code" below); then
+     Clan → Join with a code → that code opens the developer clan and its Supply Bot.
 
 ### Run the social update (messages, friends, co-op invites by DM, clan requests)
 
@@ -230,21 +231,50 @@ and co-op says that messages, clans and rooms only reach other tabs of this brow
   | Transfer code (create or redeem, a wrong code too) | 5 per hour |
   | Co-op room (open or join, a wrong code too) | 1 per second, 20 per hour |
 
-- **Developer clan.** It is invisible when browsing, and only the code joins it. The code `Rosie777` is
-  in this public repository, so treat the dev clan as a toy. The Supply Bot only changes the player's own
-  local save. There is no server-side economy for it to break. To change the code, run this in the SQL
-  editor:
-
-  ```sql
-  update clan_codes set code = 'NewCode' where clan_id = '00000000-0000-4000-8000-000000000777';
-  ```
-
-  Then change `DEV_CODE` in `src/online/clanRules.js` too, for local mode.
+- **Developer clan.** It is invisible when browsing, and only the developer clan's private code (set
+  by the owner in the database) joins it. That code is never in this public repository: the migration
+  seeds the clan without a code, and pasting the migration again never resets or re-creates it. The
+  owner sets and rotates it in the SQL editor (see "Rotate the developer clan code" below). The Supply
+  Bot only changes the player's own local save. The offline test backend (local mode, everything in
+  one browser) has its own public test code, `LOCAL_DEV_CODE` in `src/online/clanRules.js`, which
+  works only there and only in dev builds and tests; a production build's local mode has no developer
+  clan code at all.
 - **Transfer codes** work like a password for your save. Each code works once and expires after 24 h,
   and creating a new one deletes your previous unused one. The payload is a copy of the save; the
   original stays on the device.
 - **Housekeeping.** Chat older than 14 days and rate-limit records older than 25 hours are deleted as
   new rows arrive. There is no cron job.
+
+### Rotate the developer clan code
+
+Only for the owner, in Supabase → SQL Editor. Pick a new code (up to 16 characters, the game's input
+limit; long and random is best), and **never commit it** or write it in an issue, a doc or a chat.
+Codes are matched without regard to case.
+
+```sql
+-- set / rotate the code (replace the placeholder; keep the quotes)
+update public.clan_codes set code = '<NEW-DEV-CODE>'
+where clan_id = '00000000-0000-4000-8000-000000000777';
+
+-- a brand-new project has no code row yet (the update above says "UPDATE 0"): insert it once instead
+insert into public.clan_codes (clan_id, code)
+values ('00000000-0000-4000-8000-000000000777', '<NEW-DEV-CODE>')
+on conflict (clan_id) do update set code = excluded.code;
+```
+
+Rotating the code does not remove anyone. Members stay until they leave or are removed:
+
+```sql
+-- who is in the developer clan
+select m.user_id, p.name, m.joined_at
+from public.clan_members m join public.profiles p on p.id = m.user_id
+where m.clan_id = '00000000-0000-4000-8000-000000000777'
+order by m.joined_at;
+
+-- remove one member (rotate the code first, or they can join again)
+delete from public.clan_members
+where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their user_id>';
+```
 
 ### Messages, friends, co-op invites and clan requests (the social update)
 
@@ -512,7 +542,7 @@ select pg_size_pretty(pg_total_relation_size('direct_messages'));
 src/online/backend.js            picks the adapter, signs in, runs the client limiter, normalizes errors
 src/online/limits.js             rate-limit table (shared numbers with the SQL) + sliding-window limiter
 src/online/errors.js             OnlineError codes: rate_limited (retryMs), offline, not_member, name_taken, forbidden, …
-src/online/clanRules.js          roles, clan XP → level, ISO week, weekly boss rotation, reward tiers, DEV_CODE
+src/online/clanRules.js          roles, clan XP → level, ISO week, weekly boss rotation, reward tiers, LOCAL_DEV_CODE (offline test backend only)
 src/online/identity.js           online name (own storage key ss-online-v1, outside the save), level, avatar
 src/online/supply.js             Supply Bot grants (developer clan)
 src/online/adapters/supabase.js  supabase-js (loaded only when an online screen opens)
@@ -531,7 +561,7 @@ src/core/reset.js                the 7 PM Central game day: gameDay(), nextDaily
 src/ui/online/socialHub.js       [social] badges, the live inbox subscription, DM / friend / invite pop-ups (held during a battle)
 src/ui/online/{playerCard,reportDialog,inviteToast,coopInvite,donatePanel,needsUpdate,inboxButton}.js
 src/ui/screens/messages.js       #/messages, #/messages/<threadId> (conversations, friends + friend code, requests, blocked)
-supabase/migrations/*.sql        tables, RLS, functions, rate limits, realtime publication, dev clan seed
+supabase/migrations/*.sql        tables, RLS, functions, rate limits, realtime publication, dev clan seed (no code)
 supabase/config.toml             Supabase CLI config (anonymous sign-ins, realtime) for local stacks / preview branches
 ```
 
@@ -968,7 +998,7 @@ The e2e test opens two pages of one browser in local mode. It checks:
 - chat delivery and rate-limit feedback, the local-mode banner, and the lobby's chat bubble drawer;
 - clan create and join;
 - the clan boss, including one attempt through a real battle that lands on the damage ranking;
-- the Rosie777 Supply Bot;
+- the developer clan's Supply Bot, joined with the offline backend's test code (`LOCAL_DEV_CODE`);
 - the co-op lobby with faked connection faults (`window.__coop.room._cut()` / `_heal()` in local mode):
   a code with a typo, a mute host that shows "Connecting to Bea…" with Start locked and heals its
   one-way link by itself, the guest leaving ("Bea left the room" + New room), a host whose link is dead

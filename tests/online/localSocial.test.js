@@ -6,6 +6,7 @@
 // idempotency. Plus the "server not updated yet" switch (features.social = false).
 import { describe, it, expect } from 'vitest';
 import { createLocalDb } from '../../src/online/adapters/localDb.js';
+import { LOCAL_DEV_CODE } from '../../src/online/clanRules.js';
 import { OnlineError } from '../../src/online/errors.js';
 import { gameDay, nextDailyReset } from '../../src/core/reset.js';
 import { INVITE_TTL_MS } from '../../src/online/socialRules.js';
@@ -93,8 +94,8 @@ describe('local social server: privacy, friends, blocks', () => {
     expect(card).toMatchObject({ canMessage: false, why: 'stranger', myPrivacy: 'friends', friend: 'none', canFriend: true, friendWhy: null, clan: null });
     expect(err(() => db.sendDm('A', 'B', 'hi')).code).toBe('forbidden');
     // the developer clan: no DMs, no friend context
-    db.joinByCode('A', 'Rosie777');
-    db.joinByCode('B', 'Rosie777');
+    db.joinByCode('A', LOCAL_DEV_CODE);
+    db.joinByCode('B', LOCAL_DEV_CODE);
     env.edit((s) => { for (const m of Object.values(s.members)) m.joinedAt -= 200 * H; });
     card = db.playerCard('A', 'B');
     expect(card.canMessage).toBe(false);

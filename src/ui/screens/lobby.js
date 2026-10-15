@@ -361,6 +361,7 @@ function buildTop(host, { openSecretaryPicker }) {
         { icon: 'notice', label: "Captain's Journal", testid: 'menu-journal', dot: journalDot(profile), go: () => navigate('journal') }, // [story]
         // [online]
         { icon: 'students', label: 'Clan', testid: 'menu-clan', badge: hub.badges.donationsReady > 0, go: () => navigate('clan') },
+        { icon: 'wiki', label: 'Wiki', testid: 'menu-wiki', go: () => navigate('wiki') },
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
         { icon: 'chat', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
         // [social] private messages (shown once the server has the social update)
@@ -569,7 +570,8 @@ function buildDock(host) {
     { id: 'formation', label: 'Formation', icon: 'formation' },
     { id: 'backpack', label: 'Backpack', icon: 'backpack' },
     { id: 'bestiary', label: 'Bestiary', icon: 'bestiary' },
-    { id: 'wiki', label: 'Wiki', icon: 'wiki' },
+    // [online] Clan took the Wiki's place (owner, 2026-10-15); the Wiki moved into the Menu
+    { id: 'clan', label: 'Clan', icon: 'clan', dot: hub.badges.donationsReady > 0 },
     { id: 'commissions', label: 'Commissions', short: 'Tasks', icon: 'commissions', dot: notice.any },
     { id: 'mall', label: 'Mall', icon: 'mall' },
     { id: 'recruit', label: 'Recruit', icon: 'recruit', dot: recruitNotice(profile), tag: itemCount(profile, 'ticket_recruit10') > 0 ? 'Free 10×!' : null },

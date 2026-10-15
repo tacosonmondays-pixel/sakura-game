@@ -8,7 +8,7 @@ import { OnlineError } from '../errors.js';
 import { createLocalSocial } from './localSocial.js';
 import { createLocalProfile } from './localProfile.js';
 import {
-  CLAN_MAX_MEMBERS, DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
+  CLAN_MAX_MEMBERS, LOCAL_DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
   bossHitCap, bossAllowance, BOSS_ATTEMPT_TTL_MS, MESSAGE_MAX,
 } from '../clanRules.js';
@@ -18,6 +18,11 @@ const HISTORY_KEEP = 200;
 const TRANSFER_TTL = 24 * 3600 * 1000;
 const TRANSFER_MAX = 300 * 1024;
 const DEV_CLAN_ID = 'dev-lab';
+/**
+ * The developer clan's code in this offline backend: LOCAL_DEV_CODE in dev builds and tests, none
+ * at all in a production build, so ?online=local on the live site cannot open the Supply Bot.
+ */
+const DEFAULT_DEV_CODE = import.meta.env?.DEV ? LOCAL_DEV_CODE : null;
 const ROOM_TTL = 24 * 3600 * 1000;
 const ROOM_TAKEN = 6 * 3600 * 1000;
 /** Code alphabet of the SQL random_code(): 32 letters/digits without 0/O and 1/I. */
@@ -25,14 +30,14 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** A miss that must still save the state (its rate-limit hit counts): tx() saves, then throws. */
 const COMMIT_FAIL = Symbol.for('ss.localDb.commitFail');
 
-function freshState() {
+function freshState(devCode = null) {
   return {
     v: 1,
     seq: 1,
     users: {},
     clans: {
       [DEV_CLAN_ID]: {
-        id: DEV_CLAN_ID, name: DEV_CLAN.name, tag: DEV_CLAN.tag, emblem: DEV_CLAN.emblem, joinMode: 'code', joinCode: DEV_CODE,
+        id: DEV_CLAN_ID, name: DEV_CLAN.name, tag: DEV_CLAN.tag, emblem: DEV_CLAN.emblem, joinMode: 'code', joinCode: devCode,
         description: DEV_CLAN.description, leaderId: null, xp: 0, maxMembers: 500, isDev: true, createdAt: 0,
       },
     },
@@ -52,13 +57,17 @@ function freshState() {
  *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean, profile?: boolean } }} io
  *   features.social = false: the "server" has no social functions yet (like the live project
  *   before the owner runs the social migration): every social call throws needs_update
+ * @param {string|null} [io.devCode] the developer clan's join code here (tests only; defaults to
+ *   LOCAL_DEV_CODE in dev builds and to none in production builds)
  */
-export function createLocalDb({ read, write, now = () => Date.now(), rand = Math.random, emit = () => {}, features = {} }) {
+export function createLocalDb({ read, write, now = () => Date.now(), rand = Math.random, emit = () => {}, features = {}, devCode = DEFAULT_DEV_CODE }) {
   /** Runs `fn(state)` on a fresh copy of the stored state and saves it when `save`. */
   function tx(fn, { save = true } = {}) {
     let state = read();
-    if (!state || state.v !== 1) state = freshState();
-    if (!state.clans[DEV_CLAN_ID]) state.clans[DEV_CLAN_ID] = freshState().clans[DEV_CLAN_ID];
+    if (!state || state.v !== 1) state = freshState(devCode);
+    if (!state.clans[DEV_CLAN_ID]) state.clans[DEV_CLAN_ID] = freshState(devCode).clans[DEV_CLAN_ID];
+    // always this build's code: a browser that stored an older code (or a dev build's) gets this one
+    state.clans[DEV_CLAN_ID].joinCode = devCode || null;
     state.attempts ||= {};
     state.rooms ||= {};
     const topics = new Set();

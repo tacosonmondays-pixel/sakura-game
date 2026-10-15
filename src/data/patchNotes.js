@@ -20,6 +20,23 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.32', version: '0.1.32', date: '2026-10-15', title: 'Stability update',
+    fixed: [
+      'Behind-the-scenes stability fixes.',
+    ],
+  },
+  {
+    id: 'v0.1.31', version: '0.1.31', date: '2026-10-15', title: 'Clan button & friendlier friends',
+    changed: [
+      'The lobby’s bottom bar has a Clan button where the Wiki was. The Wiki is now in the Menu.',
+      'You can send a friend request to any player from their card, global chat included. They still choose whether to accept.',
+      'The chat panel gives Global and your clan their own row, so your clan’s name fits.',
+    ],
+    fixed: [
+      'Opening a huge pile of gear boxes no longer freezes the game: one tap opens up to 100, the gear bag holds up to 1,000 pieces, and a full Equipment list loads a page at a time.',
+    ],
+  },
+  {
     id: 'v0.1.30', version: '0.1.30', date: '2026-10-15', title: 'Sensei Profile & Honors',
     added: [
       'Your Sensei Profile: tap your name badge in the lobby. Choose a picture, frame, banner, title and favorite girl, show off 8 girls (hold one to see her build), pin your best ribbons and see your Freeplay records. Visiting other players’ profiles comes in a later update.',
