@@ -233,8 +233,9 @@ describe('achievements: old-build safety', () => {
 
   it('no new top-level key, no SAVE_VERSION bump, seenIntro "ach2" round-trips', () => {
     expect(SAVE_VERSION).toBe(2);
-    // the achievements add no key; 'sensei' is the Sensei Profile's block (docs/specs/PROFILE.md §2)
-    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei']);
+    // the achievements add no key; the only additive blocks are 'sensei' (the Sensei Profile, docs/specs/PROFILE.md §2)
+    // and 'social' (v0.1.29's friends/messages/block list, already live)
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social']);
     const p = createProfile();
     p.seenIntro.push('ach2');
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');
