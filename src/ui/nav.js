@@ -28,8 +28,11 @@ const PARENTS = {
   bounty: 'missions',
   assault: 'missions',
   challenge: 'missions',
-  commissions: 'missions',
+  sandbox: (p) => (p.id ? 'sandbox' : 'missions'), // the squad step (#/sandbox/team) → the map step → Missions
+  commissions: 'lobby', // the lobby's Tasks shortcut / dock button (not on the Missions hub)
   coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
+  // [social] a conversation (#/messages/<threadId> or /new) → the Messages list → the lobby
+  messages: (p) => (p.id ? 'messages' : 'lobby'),
 };
 
 const fixedParent = (name, params = {}) => {

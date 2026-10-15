@@ -27,12 +27,21 @@ function randomId(prefix) {
 }
 
 /**
- * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel }} [env]
+ * `?social=0` in the address simulates the live project before the owner runs the social
+ * migration: every social call answers needs_update (e2e + manual checks of that state).
+ */
+export function socialFeatureFlag(search = globalThis.location?.search || '') {
+  return new URLSearchParams(search).get('social') !== '0';
+}
+
+/**
+ * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean } }} [env]
  */
 export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
+  const features = env.features || { social: socialFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -54,6 +63,7 @@ export function createLocalAdapter(env = {}) {
       notifyLocal(topic);
       safe(() => bus?.postMessage({ topic }));
     },
+    features,
   });
 
   function on(topic, fn) {
@@ -72,7 +82,15 @@ export function createLocalAdapter(env = {}) {
     async init() {
       if (BC && !bus) {
         bus = new BC(BUS);
-        bus.onmessage = (e) => e.data?.topic && notifyLocal(e.data.topic);
+        // Another tab's write to localStorage can reach this tab a moment AFTER its
+        // BroadcastChannel ping (separate processes): look again shortly. Every listener is
+        // idempotent (chat by message id, the inbox by cursor, clans by a debounced refresh).
+        bus.onmessage = (e) => {
+          const topic = e.data?.topic;
+          if (!topic) return;
+          notifyLocal(topic);
+          setTimeout(() => notifyLocal(topic), 400);
+        };
       }
       // storage events also reach other tabs when BroadcastChannel is missing
       globalThis.addEventListener?.('storage', (e) => {
@@ -193,6 +211,127 @@ export function createLocalAdapter(env = {}) {
       return db.claimBossReward(me(), week);
     },
 
+    // ---- [social] DMs, friends, blocks, reports, co-op invites, clan donations (localSocial.js)
+    async socialProbe() {
+      return db.socialProbe();
+    },
+    async socialSummary() {
+      return db.socialSummary(me());
+    },
+    async playerCard(userId) {
+      return db.playerCard(me(), userId);
+    },
+    async setPrivacy(value) {
+      return db.setPrivacy(me(), value);
+    },
+    async myFriendCode() {
+      return db.myFriendCode(me());
+    },
+    async resetFriendCode() {
+      return db.resetFriendCode(me());
+    },
+    async friends() {
+      return db.friends(me());
+    },
+    async friendRequests() {
+      return db.friendRequests(me());
+    },
+    async inviteCandidates() {
+      return db.inviteCandidates(me());
+    },
+    async addFriend(userId) {
+      return db.addFriend(me(), userId);
+    },
+    async addFriendByCode(code) {
+      return db.addFriendByCode(me(), code);
+    },
+    async answerFriend(requestId, accept) {
+      return db.answerFriend(me(), requestId, accept);
+    },
+    async cancelFriendRequest(requestId) {
+      return db.cancelFriendRequest(me(), requestId);
+    },
+    async removeFriend(userId) {
+      return db.removeFriend(me(), userId);
+    },
+    async block(userId) {
+      return db.block(me(), userId);
+    },
+    async unblock(userId) {
+      return db.unblock(me(), userId);
+    },
+    async blocked() {
+      return db.blocked(me());
+    },
+    async report(userId, opts) {
+      return db.report(me(), userId, opts);
+    },
+    async inbox() {
+      return db.inbox(me());
+    },
+    async dmHistory(threadId, opts) {
+      return db.dmHistory(me(), threadId, opts);
+    },
+    async sendDm(userId, body) {
+      return db.sendDm(me(), userId, body);
+    },
+    async sendCoopInvite(userId, opts) {
+      return db.sendCoopInvite(me(), userId, opts);
+    },
+    async inviteState(messageId) {
+      return db.inviteState(me(), messageId);
+    },
+    async expireCoopInvites(room) {
+      return db.expireCoopInvites(me(), room);
+    },
+    async markRead(threadId, lastId) {
+      return db.markRead(me(), threadId, lastId);
+    },
+    async clearThread(threadId) {
+      return db.clearThread(me(), threadId);
+    },
+    async donationState() {
+      return db.donationState(me());
+    },
+    async requestMaterials(itemId) {
+      return db.requestMaterials(me(), itemId);
+    },
+    async cancelMaterialRequest() {
+      return db.cancelMaterialRequest(me());
+    },
+    async donate(requestId, count, key) {
+      return db.donate(me(), requestId, count, key);
+    },
+    async settleDonations(keys) {
+      return db.settleDonations(me(), keys);
+    },
+    async claimDonations(key) {
+      return db.claimDonations(me(), key);
+    },
+    /** New DMs, friend requests and donation changes for this tab's player (BroadcastChannel). */
+    subscribeInbox(cb) {
+      const self = me();
+      let cursor = safe(() => db.inboxEvents(self).cursor);
+      return on(`inbox:${self}`, () => {
+        let r;
+        try {
+          r = db.inboxEvents(self, cursor);
+        } catch {
+          return;
+        }
+        cursor = r.cursor;
+        for (const e of r.events) cb(e);
+      });
+    },
+    /** Clan material requests changed (Clan → Requests refreshes). */
+    subscribeDonations(clanId, cb) {
+      return on(`donate:${clanId}`, cb);
+    },
+    /** Local test mode only: e2e / manual checks of the needs-update state and backdating. */
+    get features() {
+      return features;
+    },
+
     // transfer codes
     async createTransfer(text) {
       return db.createTransfer(me(), text);
@@ -213,7 +352,7 @@ export function createLocalAdapter(env = {}) {
     // Like the Supabase adapter: reconnect({ seat: true }) takes the seat again (the room may be
     // gone: onError; or reopened under a new secret: a new channel), and close({ keep }) lets a
     // host step away without giving up its room.
-    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {}, onStatus = () => {} } = {}) {
+    openRoom(code, { host = false, meta = {}, onMessage = () => {}, onPresence = () => {}, onError = () => {}, onStatus = () => {}, onSeated = () => {} } = {}) {
       const self = me();
       if (!BC) throw Object.assign(new Error('offline: this browser cannot open local rooms'), { code: 'offline' });
       const takeSeat = () => (host ? db.openRoom(self, code) : db.joinRoom(self, code));
@@ -224,6 +363,8 @@ export function createLocalAdapter(env = {}) {
         setTimeout(() => onError(e), 0); // like the Supabase adapter: errors arrive after openRoom returns
         return { net: COOP_NET.local, status: 'connecting', connected: false, send: () => false, peers: () => [], track() {}, reconnect() {}, close() {} };
       }
+      // [social] the server registered the seat (a DM invite for this room can be sent now)
+      setTimeout(() => safe(() => onSeated({ code: taken.code, host: taken.host })), 0);
       let secret = taken.secret;
       let ch = null;
       const peers = new Map(); // uid -> { meta, seen }

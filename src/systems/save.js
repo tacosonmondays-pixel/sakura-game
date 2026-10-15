@@ -12,6 +12,7 @@ import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHA
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
+import { newSocial, cleanSocial } from '../online/socialSave.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -119,6 +120,8 @@ export function createProfile() {
     battleSaves: {},
     story: newStory(), // [story] opening, tutorial, journal, episodes (src/systems/story.js)
     sensei: newSensei(), // [profile] Sensei Profile picks (src/systems/senseiSave.js)
+    // [social] clan donation / collect ledgers (src/online/donateLedger.js)
+    social: newSocial(),
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   return p;
@@ -467,6 +470,7 @@ export function migrateProfile(raw) {
   // picks come back from their 'pfs:' shadows in missions.counters, else once from the server card
   // (`lost`, PROFILE.md §2.4). Cosmetic drops inside it never count as lossy (migrationDropsData).
   restoreSensei(raw.sensei, p);
+  p.social = cleanSocial(raw.social);
   p.version = SAVE_VERSION;
   return p;
 }

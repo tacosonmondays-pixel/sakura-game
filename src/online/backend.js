@@ -26,9 +26,26 @@ export function onlineConfig(env = import.meta.env || {}, search = globalThis.lo
 const LIMITED = {
   send: 'chat', createClan: 'clan_create', joinClan: 'clan_join', joinByCode: 'clan_join', requestJoin: 'clan_join', leaveClan: 'clan_join',
   startBossAttempt: 'boss_start', createTransfer: 'transfer', redeemTransfer: 'transfer',
+  // [social]
+  sendDm: 'dm', sendCoopInvite: 'invite', addFriend: 'friend', addFriendByCode: 'friend', block: 'block', unblock: 'block', report: 'report',
+  setPrivacy: 'settings', resetFriendCode: 'settings', donate: 'donate', playerCard: 'card', settleDonations: 'settle',
 };
 // a wrong code is a counted try on the server too (not undone like other refusals)
 const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
+const COUNTED_CALLS = new Set(['joinByCode', 'redeemTransfer', 'addFriendByCode']);
+
+/**
+ * [social] calls (supabase/migrations/20261013000000_social.sql). Each first checks that the
+ * server has the social functions (socialStatus) and throws needs_update without a request when
+ * it does not: the frontend deploys before the owner runs the new SQL.
+ */
+export const SOCIAL_METHODS = [
+  'socialSummary', 'playerCard', 'setPrivacy', 'myFriendCode', 'resetFriendCode', 'friends', 'friendRequests', 'addFriend', 'addFriendByCode',
+  'answerFriend', 'cancelFriendRequest', 'removeFriend', 'inviteCandidates', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
+  'inviteState', 'expireCoopInvites', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
+];
+/** How long a "needs update" answer is trusted before asking the server again. */
+const SOCIAL_RETRY_MS = 5 * 60 * 1000;
 
 let instance = null;
 
@@ -43,7 +60,9 @@ export function getBackend() {
   let adapter = null;
   let ready = null;
   let user = null;
-  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null };
+  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null };
+  let socialCache = null; // { status: 'ready'|'needs_update', at }
+  let socialProbe = null;
 
   async function load() {
     if (cfg.mode === 'supabase') {
@@ -115,7 +134,66 @@ export function getBackend() {
       return adapter ? adapter.subscribe(channel, cb) : () => {};
     },
     subscribeClan(id, cb) {
-      return adapter ? adapter.subscribeClan(id, cb) : () => {};
+      if (!adapter) return () => {};
+      const off = adapter.subscribeClan(id, cb);
+      // [social] clan material requests: a separate subscription, added only when the server has
+      // the social tables (an unknown table must never break the clan's own live updates)
+      let offDonations = null;
+      let dead = false;
+      api.socialStatus().then((st) => {
+        if (st === 'ready' && !dead && adapter.subscribeDonations) offDonations = adapter.subscribeDonations(id, cb);
+      });
+      return () => {
+        dead = true;
+        off();
+        offDonations?.();
+      };
+    },
+    /**
+     * [social] 'ready' | 'needs_update' | 'offline'. Never throws. 'ready' is remembered for the
+     * session, 'needs_update' for 5 minutes, 'offline' not at all. status.social mirrors it.
+     */
+    async socialStatus() {
+      try {
+        await api.init();
+      } catch {
+        return 'offline';
+      }
+      if (socialCache && (socialCache.status === 'ready' || Date.now() - socialCache.at < SOCIAL_RETRY_MS)) return socialCache.status;
+      if (!socialProbe) {
+        socialProbe = (async () => {
+          let st = 'offline';
+          try {
+            st = adapter.socialProbe ? await adapter.socialProbe() : 'needs_update';
+          } catch {
+            st = 'offline';
+          }
+          socialCache = st === 'offline' ? null : { status: st, at: Date.now() };
+          if (status.social !== st) setStatus({ social: st });
+          return st;
+        })().finally(() => {
+          socialProbe = null;
+        });
+      }
+      return socialProbe;
+    },
+    /** Forget the cached answer (the "Retry" button of the needs-update card). */
+    recheckSocial() {
+      socialCache = null;
+      return api.socialStatus();
+    },
+    /** [social] live DMs / friend requests / donation changes for this player, once the server has them. */
+    subscribeInbox(cb) {
+      if (!adapter?.subscribeInbox) return () => {};
+      let off = null;
+      let dead = false;
+      api.socialStatus().then((st) => {
+        if (st === 'ready' && !dead) off = adapter.subscribeInbox(cb);
+      });
+      return () => {
+        dead = true;
+        off?.();
+      };
     },
     openRoom(code, handlers) {
       if (!adapter) throw new OnlineError('offline', 'Online features are not ready yet.');
@@ -130,7 +208,7 @@ export function getBackend() {
     const action = LIMITED[name];
     if (action) {
       const v = limiter.hit(action);
-      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs });
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
     }
     try {
       const out = await adapter[name](...args);
@@ -141,9 +219,23 @@ export function getBackend() {
       const err = toOnlineError(e);
       // the server refused it for another reason: do not count it against the client limit
       // (except a wrong code, which the server counts as a try as well)
-      if (action && err.code !== 'rate_limited' && !(COUNTED_MISSES.has(err.code) && (name === 'joinByCode' || name === 'redeemTransfer'))) limiter.undo(action);
+      if (action && err.code !== 'rate_limited' && !(COUNTED_MISSES.has(err.code) && COUNTED_CALLS.has(name))) limiter.undo(action);
+      // the functions went missing after all (a reset project): ask again next time
+      if (err.code === 'needs_update') socialCache = { status: 'needs_update', at: Date.now() };
       throw err;
     }
+  }
+
+  async function socialCall(name, args) {
+    const st = await api.socialStatus();
+    if (st === 'needs_update') throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+    if (st !== 'ready') throw new OnlineError('offline', 'Cannot reach the server.');
+    const action = LIMITED[name];
+    if (action) {
+      const v = limiter.check(action);
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
+    }
+    return call(name, args);
   }
 
   for (const name of ['me', 'touch', 'history', 'send', 'listClans', 'getClan', 'myClan', 'createClan', 'joinClan', 'joinByCode', 'requestJoin',
@@ -151,6 +243,7 @@ export function getBackend() {
     'createTransfer', 'redeemTransfer']) {
     api[name] = (...args) => call(name, args);
   }
+  for (const name of SOCIAL_METHODS) api[name] = (...args) => socialCall(name, args);
 
   instance = api;
   if (typeof window !== 'undefined') window.__online = api; // e2e / debug hook

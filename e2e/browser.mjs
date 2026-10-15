@@ -67,3 +67,23 @@ export async function launchChromium({ args = [] } = {}) {
   }
   throw new Error(`No browser could be launched. Install Chrome or Edge, or set CHROME_PATH.\n  ${errors.join('\n  ')}`);
 }
+
+/**
+ * The e2e pages of one browser context play DIFFERENT players (the local adapter gives every tab
+ * its own identity) but would share one game save. Since a tab stops saving once another tab
+ * saved over it (src/core/store.js, "Open in another tab — reload"), each page gets its own save
+ * key here, like a separate device. The local online "server" (ss-online-db) and BroadcastChannel
+ * stay shared.
+ * @param {import('playwright').Page} page
+ * @param {string} id
+ */
+export async function ownSave(page, id) {
+  await page.addInitScript((tag) => {
+    const KEY = 'sakura-sentinels-save-v1';
+    const mine = (k) => (k === KEY || k === `${KEY}.backup` ? `${k}#${tag}` : k);
+    const { getItem, setItem, removeItem } = Storage.prototype;
+    Storage.prototype.getItem = function (k) { return getItem.call(this, this === window.localStorage ? mine(k) : k); };
+    Storage.prototype.setItem = function (k, v) { return setItem.call(this, this === window.localStorage ? mine(k) : k, v); };
+    Storage.prototype.removeItem = function (k) { return removeItem.call(this, this === window.localStorage ? mine(k) : k); };
+  }, id);
+}

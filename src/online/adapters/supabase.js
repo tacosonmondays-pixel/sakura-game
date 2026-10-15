@@ -3,11 +3,38 @@
 // Realtime postgres_changes for chat / clan updates and broadcast-only channels for co-op rooms.
 // @supabase/supabase-js is imported on first use, so players who never open an online screen
 // never download it.
-import { BOSS_REWARDS, bossFor, rewardTier, autoName } from '../clanRules.js';
-import { OnlineError, toOnlineError } from '../errors.js';
+import { BOSS_REWARDS, bossFor, rewardTier, autoName, validateName } from '../clanRules.js';
+import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
 import { COOP_NET } from '../../data/coop.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
+const tsOrNull = (v) => (v ? new Date(v).getTime() : null);
+
+// ---- [social] row / json mappers (the same shapes the local adapter returns) ---------------------
+/** A DM from an RPC (camelCase JSON). */
+function mapDm(m) {
+  if (!m) return null;
+  return {
+    id: Number(m.id), threadId: m.threadId, senderId: m.senderId, recipientId: m.recipientId, name: m.name, level: m.level, avatar: m.avatar,
+    body: m.body, kind: m.kind, meta: m.meta || null, createdAt: ts(m.createdAt), mine: !!m.mine, inviteState: m.inviteState || null,
+  };
+}
+/** A direct_messages row from Realtime (snake_case). */
+function mapDmRow(r, uid) {
+  return {
+    id: Number(r.id), threadId: r.thread_id, senderId: r.sender_id, recipientId: r.recipient_id, name: r.name, level: r.level, avatar: r.avatar,
+    body: r.body, kind: r.kind, meta: r.meta || null, createdAt: ts(r.created_at), mine: r.sender_id === uid, inviteState: r.kind === 'invite' ? 'open' : null,
+  };
+}
+const mapPeer = (p) => (p ? { userId: p.userId, name: p.name, level: p.level, avatar: p.avatar } : null);
+function mapRequest(r) {
+  if (!r) return null;
+  return {
+    id: r.id, clanId: r.clanId, userId: r.userId, name: r.name, avatar: r.avatar, item: r.item, wanted: r.wanted, received: r.received,
+    status: r.status, gameDay: r.gameDay, createdAt: ts(r.createdAt), open: !!r.open, perDonor: r.perDonor, points: r.points,
+    myGiven: Number(r.myGiven) || 0, donors: r.donors || [],
+  };
+}
 
 /** A room channel not joined this long after a (re)join began is replaced by a fresh one. */
 export const ROOM_STUCK_MS = 12000;
@@ -23,8 +50,19 @@ export const SOCKET_PROBE_MS = 4000;
 function mapMessage(r) {
   return {
     id: r.id, channel: r.channel, userId: r.user_id, name: r.name, level: r.level, avatar: r.avatar,
-    body: r.body, kind: r.kind, meta: r.meta || null, createdAt: ts(r.created_at),
+    body: r.body, kind: r.kind, meta: r.meta || null, about: aboutList(r.about), createdAt: ts(r.created_at),
   };
+}
+
+/**
+ * [social] messages.about (uuid[]): who a clan system notice is about — a JSON array from the API
+ * and Realtime, or Postgres array text ("{a,b}") — or null (a player's line, a notice from before
+ * the social SQL, or a server without it).
+ */
+export function aboutList(v) {
+  if (Array.isArray(v)) return v.filter((x) => typeof x === 'string' && x).map(String);
+  if (typeof v === 'string' && /^\{.*\}$/.test(v)) return v.slice(1, -1).split(',').map((x) => x.replace(/"/g, '').trim()).filter(Boolean);
+  return null;
 }
 
 function mapClan(r, memberCount = null, joinCode = null) {
@@ -115,6 +153,33 @@ export function createSupabaseAdapter({ url, key }) {
   }
 
   const rpc = async (fn, args = {}) => q((await sb()).rpc(fn, args));
+  /**
+   * [social] RPC: a function the server does not have yet (the owner has not run the social
+   * migration: PGRST202 / 42883 / HTTP 404) becomes needs_update, never "offline", so chat,
+   * clans and co-op keep their own error texts.
+   */
+  async function srpc(fn, args = {}) {
+    const c = await sb();
+    let res;
+    try {
+      res = await c.rpc(fn, args);
+    } catch (e) {
+      throw toOnlineError(e);
+    }
+    if (res?.error) {
+      if (isMissingFeature(res.error) || res.status === 404 || lostGrant(res.error)) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+      throw toOnlineError(res.error);
+    }
+    return res?.data;
+  }
+  /**
+   * A social function players may not execute: the first migration was pasted again after the
+   * social one (it revokes every function grant). Pasting the social SQL again fixes it, so this
+   * is "needs the latest server update" too, never a scary "not allowed".
+   */
+  function lostGrant(err) {
+    return err?.code === '42501' && /permission denied for function/i.test(String(err.message || ''));
+  }
   const need = () => {
     if (!uid) throw new OnlineError('forbidden', 'Sign in first.');
     return uid;
@@ -138,10 +203,11 @@ export function createSupabaseAdapter({ url, key }) {
       }
       if (!user) throw new OnlineError('offline', 'Sign-in failed.');
       uid = user.id;
-      const existing = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
+      const existing = await q(c.from('profiles').select('id').eq('id', uid).maybeSingle());
       if (!existing) {
         // two tabs signing in at once share one account: the second insert must not fail
-        await q(c.from('profiles').upsert({ id: uid, name: name || autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
+        // (a stored name the rules no longer accept starts as the automatic name instead)
+        await q(c.from('profiles').upsert({ id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar }, { onConflict: 'id', ignoreDuplicates: true }));
       } else {
         // the server stamps last_active on every profile write
         await q(c.from('profiles').update({ level, avatar }).eq('id', uid));
@@ -154,7 +220,8 @@ export function createSupabaseAdapter({ url, key }) {
     async me() {
       if (!uid) return null;
       const c = await sb();
-      const p = await q(c.from('profiles').select('*').eq('id', uid).maybeSingle());
+      // explicit columns (never profiles.*): a later migration can then hide other columns
+      const p = await q(c.from('profiles').select('id,name,level,avatar,last_active').eq('id', uid).maybeSingle());
       const m = await q(c.from('clan_members').select('clan_id').eq('user_id', uid).maybeSingle());
       return p ? { id: p.id, name: p.name, level: p.level, avatar: p.avatar, clanId: m?.clan_id || null, lastActive: ts(p.last_active) } : null;
     },
@@ -319,6 +386,193 @@ export function createSupabaseAdapter({ url, key }) {
       return r.payload;
     },
 
+    // ---- [social] supabase/migrations/20261013000000_social.sql ------------------------------
+    /** 'ready' | 'needs_update' | 'offline': is the social migration installed? */
+    async socialProbe() {
+      try {
+        await srpc('social_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async socialSummary() {
+      const r = await srpc('social_summary');
+      return { unreadDms: Number(r.unreadDms) || 0, friendRequests: Number(r.friendRequests) || 0, donationsReady: Number(r.donationsReady) || 0, privacy: r.privacy };
+    },
+    async playerCard(userId) {
+      const r = await srpc('player_card', { p_user: userId });
+      return { ...r, lastActive: tsOrNull(r.lastActive), requestId: r.requestId ?? null, threadId: r.threadId ?? null };
+    },
+    async setPrivacy(value) {
+      await srpc('set_dm_privacy', { p_value: value });
+      return true;
+    },
+    async myFriendCode() {
+      const r = await srpc('my_friend_code');
+      return { code: r.code };
+    },
+    async resetFriendCode() {
+      const r = await srpc('reset_friend_code');
+      return { code: r.code };
+    },
+    async friends() {
+      return ((await srpc('list_friends')) || []).map((f) => ({ ...f, lastActive: ts(f.lastActive), since: ts(f.since) }));
+    },
+    async inviteCandidates() {
+      return ((await srpc('invite_candidates')) || []).map((f) => ({ ...f, lastActive: ts(f.lastActive), online: !!f.online, friend: !!f.friend, canMessage: !!f.canMessage }));
+    },
+    async friendRequests() {
+      const r = await srpc('list_friend_requests');
+      return {
+        incoming: (r.incoming || []).map((x) => ({ ...x, id: Number(x.id), at: ts(x.at) })),
+        outgoing: (r.outgoing || []).map((x) => ({ ...x, id: Number(x.id), at: ts(x.at) })),
+      };
+    },
+    async addFriend(userId) {
+      return srpc('send_friend_request', { p_user: userId });
+    },
+    async addFriendByCode(code) {
+      // a wrong code comes back as { error } (raising would undo the counted try)
+      const r = await srpc('add_friend_by_code', { p_code: code });
+      if (r?.error === 'not_found') throw new OnlineError('not_found', 'No player uses that friend code.', { definitive: true });
+      if (r?.error === 'self') throw new OnlineError('invalid', 'That is your own friend code.', { definitive: true });
+      if (r?.error) throw new OnlineError('invalid', 'You blocked the owner of that code. Unblock them first.', { definitive: true });
+      return r;
+    },
+    async answerFriend(requestId, accept) {
+      await srpc('answer_friend_request', { p_id: Number(requestId), p_accept: !!accept });
+      return true;
+    },
+    async cancelFriendRequest(requestId) {
+      await srpc('cancel_friend_request', { p_id: Number(requestId) });
+      return true;
+    },
+    async removeFriend(userId) {
+      await srpc('remove_friend', { p_user: userId });
+      return true;
+    },
+    async block(userId) {
+      await srpc('block_player', { p_user: userId });
+      return true;
+    },
+    async unblock(userId) {
+      await srpc('unblock_player', { p_user: userId });
+      return true;
+    },
+    async blocked() {
+      return ((await srpc('list_blocked')) || []).map((b) => ({ ...b, at: ts(b.at) }));
+    },
+    async report(userId, { reason, note = '', context = 'profile', messageId = null } = {}) {
+      await srpc('report_player', { p_target: userId, p_reason: reason, p_note: note || '', p_context: context, p_message: messageId == null ? null : Number(messageId) });
+      return true;
+    },
+    async inbox() {
+      const r = await srpc('dm_inbox', { p_limit: 50 });
+      return {
+        unread: Number(r.unread) || 0,
+        threads: (r.threads || []).map((t) => ({ id: t.id, peer: mapPeer(t.peer), last: mapDm(t.last), unread: Number(t.unread) || 0, canMessage: !!t.canMessage, lastAt: ts(t.lastAt) })),
+      };
+    },
+    async dmHistory(threadId, { before = null, limit = 30 } = {}) {
+      const r = await srpc('dm_history', { p_thread: threadId, p_before: before == null ? null : Number(before), p_limit: limit });
+      return {
+        threadId: r.threadId, peer: mapPeer(r.peer), canMessage: !!r.canMessage, why: r.why || null, myPrivacy: r.myPrivacy || null, friend: !!r.friend,
+        messages: (r.messages || []).map(mapDm), hasMore: !!r.hasMore,
+      };
+    },
+    async sendDm(userId, body) {
+      return mapDm(await srpc('send_dm', { p_to: userId, p_body: String(body ?? '').trim() }));
+    },
+    async sendCoopInvite(userId, { room, stage, difficulty } = {}) {
+      return mapDm(await srpc('send_coop_invite', { p_to: userId, p_room: room, p_stage: stage, p_difficulty: difficulty }));
+    },
+    async inviteState(messageId) {
+      return srpc('invite_state', { p_message: Number(messageId) });
+    },
+    async expireCoopInvites(room) {
+      return Number(await srpc('expire_coop_invites', { p_room: String(room || '') })) || 0;
+    },
+    async markRead(threadId, lastId) {
+      await srpc('dm_mark_read', { p_thread: threadId, p_last: Number(lastId) || 0 });
+      return true;
+    },
+    async clearThread(threadId) {
+      await srpc('dm_clear', { p_thread: threadId });
+      return true;
+    },
+    async donationState() {
+      const r = await srpc('donation_state');
+      return {
+        ...r, nextReset: Number(r.nextReset), serverNow: Number(r.serverNow), donatedToday: Number(r.donatedToday) || 0,
+        tenureReadyAt: tsOrNull(r.tenureReadyAt), requestReadyAt: tsOrNull(r.requestReadyAt),
+        weekly: { superRare: Number(r.weekly?.superRare) || 0, mythic: Number(r.weekly?.mythic) || 0 },
+        myRequest: mapRequest(r.myRequest), requests: (r.requests || []).map(mapRequest), collectable: r.collectable || [],
+      };
+    },
+    async requestMaterials(itemId) {
+      return mapRequest(await srpc('request_materials', { p_item: itemId }));
+    },
+    async cancelMaterialRequest() {
+      await srpc('cancel_material_request');
+      return true;
+    },
+    async donate(requestId, count, key) {
+      const r = await srpc('donate', { p_request: requestId, p_count: count, p_key: key });
+      return r?.voided ? { key: r.key, voided: true } : { ...r, request: mapRequest(r.request), donatedToday: Number(r.donatedToday) || 0 };
+    },
+    async settleDonations(keys) {
+      return (await srpc('settle_donations', { p_keys: keys })) || [];
+    },
+    async claimDonations(key) {
+      return srpc('claim_donations', { p_key: key });
+    },
+    /**
+     * One channel for this player's live social events: new DMs (and DM co-op invites), friend
+     * requests sent to me, and changes to my own material requests (donations arrived). RLS
+     * filters every row per subscriber; DELETE events are never listened to.
+     */
+    subscribeInbox(cb) {
+      const self = need();
+      let ch = null;
+      let dead = false;
+      sb().then((c) => {
+        if (dead) return;
+        ch = c.channel(`inbox:${self}:${Math.random().toString(36).slice(2, 8)}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${self}` }, (p) => cb({ type: 'dm', row: mapDmRow(p.new, self) }))
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `to_id=eq.${self}` }, (p) => cb({
+            type: 'friend_request', row: { id: Number(p.new.id), userId: p.new.from_id, name: p.new.from_name, level: p.new.from_level, avatar: p.new.from_avatar, via: p.new.via, at: ts(p.new.created_at) },
+          }))
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'donation_requests', filter: `user_id=eq.${self}` }, () => cb({ type: 'donation', row: null }))
+          .subscribe();
+      });
+      return () => {
+        dead = true;
+        if (ch) client?.removeChannel(ch);
+      };
+    },
+    /**
+     * Clan material requests (Clan → Requests). Its own channel, so a server without the social
+     * tables can never break the clan's live updates; INSERT / UPDATE filtered by clan only
+     * (DELETE events cannot be filtered and would reach every clan screen in the game).
+     */
+    subscribeDonations(clanId, cb) {
+      if (!/^[0-9a-f-]{36}$/i.test(String(clanId))) return () => {};
+      let ch = null;
+      let dead = false;
+      sb().then((c) => {
+        if (dead) return;
+        ch = c.channel(`donate:${clanId}:${Math.random().toString(36).slice(2, 8)}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'donation_requests', filter: `clan_id=eq.${clanId}` }, () => cb())
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'donation_requests', filter: `clan_id=eq.${clanId}` }, () => cb())
+          .subscribe();
+      });
+      return () => {
+        dead = true;
+        if (ch) client?.removeChannel(ch);
+      };
+    },
+
     // ---- co-op rooms (Realtime broadcast; open_room / join_room hand out the secret) ---------
     // Broadcast only, no Realtime presence, on purpose. On some Realtime server nodes a presence
     // track() took longer than the server's 5 s limit (measured 2026-10-13 on about half of all
@@ -341,7 +595,8 @@ export function createSupabaseAdapter({ url, key }) {
     // close({ keep }): a host that only steps away (Leave, Home, a reload) keeps its room
     // registered: open_room hands it the same secret again ("my room"), so an ally still waiting
     // in the channel hears it at once. Without keep (New room, an idle lobby) the code is freed.
-    openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onUnload = null } = {}) {
+    // onSeated: [social] called once the server registered the seat (a DM invite can go out).
+    openRoom(code, { host = false, onMessage = () => {}, onError = () => {}, onStatus = () => {}, onUnload = null, onSeated = () => {} } = {}) {
       const self = need();
       let c = null;
       let secret = null;
@@ -540,6 +795,12 @@ export function createSupabaseAdapter({ url, key }) {
         if (closed) {
           if (!(host && keepRoom)) rpc('leave_room', { p_code: code }).catch(() => {});
           return;
+        }
+        // [social] the room exists on the server now: a DM invite for it can be sent
+        try {
+          onSeated({ code, host: !!host });
+        } catch (e) {
+          console.warn('[online] onSeated failed', e);
         }
         join();
       });

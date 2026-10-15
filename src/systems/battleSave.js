@@ -38,11 +38,13 @@ export function slotKey(stageId, endless = false) {
  * Never co-op, the clan boss (a server-timed attempt), the scripted tutorial, a practice run
  * (a deep link to a locked stage, which saves nothing by design) or a solo freeplay run
  * (`req.freeplay`: its clear is banked at the goal and its freeplay part is paid when it is left
- * or at the next app start, src/systems/freeplayRewards.js, so a continued copy would pay twice).
+ * or at the next app start, src/systems/freeplayRewards.js, so a continued copy would pay twice),
+ * nor a Sandbox run (`req.sandbox`: nothing from it is ever saved, and it plays on a host stage
+ * whose slot holds the real run of that stage).
  * @param {object} params route params
- * @param {{ practice?: boolean, error?: string|null, freeplay?: string|null }} req parsed battle request (setup.js)
+ * @param {{ practice?: boolean, error?: string|null, freeplay?: string|null, sandbox?: boolean }} req parsed battle request (setup.js)
  */
-export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !req.practice && !req.error && !req.freeplay;
+export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !params.sandbox && !req.sandbox && !req.practice && !req.error && !req.freeplay;
 
 /** @returns {object} profile.battleSaves (created on demand) */
 function saves(profile) {

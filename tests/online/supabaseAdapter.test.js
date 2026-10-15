@@ -25,15 +25,17 @@ const FUNCS = {};
 for (const m of sql.matchAll(/create or replace function public\.(\w+)\(([^)]*)\)/g)) {
   FUNCS[m[1]] = m[2].trim() ? m[2].split(',').map((p) => p.trim().split(/\s+/)[0]) : [];
 }
-const grant = sql.match(/grant execute on function([\s\S]*?)to authenticated;/)[1];
-const GRANTED = new Set([...grant.matchAll(/public\.(\w+)\(/g)].map((m) => m[1]));
+// every grant block of every migration (the social update adds its own)
+const GRANTED = new Set([...sql.matchAll(/grant execute on function([\s\S]*?)to authenticated;/g)].flatMap((g) => [...g[1].matchAll(/public\.(\w+)\(/g)].map((m) => m[1])));
 // table privileges: which tables players may read, and which columns they may insert / update
-const SELECTABLE = new Set([...sql.match(/grant select on ([\s\S]*?) to authenticated;/)[1].matchAll(/public\.(\w+)/g)].map((m) => m[1]));
+const SELECTABLE = new Set([...sql.matchAll(/grant select on ([\s\S]*?) to authenticated;/g)].flatMap((g) => [...g[1].matchAll(/public\.(\w+)/g)].map((m) => m[1])));
 const WRITABLE = {};
 for (const m of sql.matchAll(/grant (insert|update) \(([^)]+)\) on public\.(\w+) to authenticated;/g)) {
   WRITABLE[`${m[1]} ${m[3]}`] = new Set(m[2].split(',').map((c) => c.trim()));
 }
-const PUBLISHED = new Set(sql.match(/foreach t in array array\[([^\]]+)\]/)[1].split(',').map((s) => s.trim().replace(/'/g, '')));
+// the realtime publication blocks (a foreach that adds tables to supabase_realtime)
+const PUBLISHED = new Set([...sql.matchAll(/foreach t in array array\[([^\]]+)\] loop\s+if not exists \(select 1 from pg_publication_tables/g)]
+  .flatMap((m) => m[1].split(',').map((x) => x.trim().replace(/'/g, ''))));
 
 // ---- a recording stand-in for @supabase/supabase-js ----------------------------------------
 const UID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -83,8 +85,38 @@ function answer(call) {
 
 const SECRET = 'K7Q2ZPMN4XW8TR6H';
 const rpcOverride = {};
+// [social] a failing call: { fn: { error, status } } (e.g. the function does not exist yet)
+const rpcFail = {};
+const BID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const TID = '77777777-7777-4777-8777-777777777777';
+const RID = '99999999-9999-4999-8999-999999999999';
+const KEY1 = '11111111-0000-4000-8000-000000000001';
+const dmJson = { id: 41, threadId: TID, senderId: UID, recipientId: BID, name: 'Aiko', level: 7, avatar: 'aoi', body: 'hi', kind: 'text', meta: null, createdAt: '2026-10-13T20:00:00Z', mine: true, inviteState: null };
+const reqJson = { id: RID, clanId: CID, userId: BID, name: 'Bea', avatar: 'rei', item: 'mat_feather_rare', wanted: 6, received: 2, status: 'open', gameDay: '2026-10-14', createdAt: '2026-10-13T19:00:00Z', open: true, perDonor: 3, points: 2, myGiven: 2, donors: ['Aiko'] };
+const SOCIAL_ANSWERS = {
+  social_version: 1,
+  social_summary: { unreadDms: 2, friendRequests: 1, donationsReady: 6, privacy: 'friends_clan' },
+  player_card: { userId: BID, name: 'Bea', level: 3, avatar: 'rei', clan: { id: CID, name: 'Petal Squad', tag: 'PS' }, clanmate: true, lastActive: '2026-10-13T20:00:00Z', isSelf: false, friend: 'none', requestId: null, blockedByMe: false, canMessage: true, why: null, canFriend: true, friendWhy: null, threadId: TID },
+  my_friend_code: { code: 'K7Q2ZP4M' }, reset_friend_code: { code: 'Z9Y8X7W6' },
+  list_friends: [{ userId: BID, name: 'Bea', level: 3, avatar: 'rei', lastActive: '2026-10-13T20:00:00Z', online: true, since: '2026-10-12T00:00:00Z', canMessage: true }],
+  invite_candidates: [{ userId: BID, name: 'Bea', level: 3, avatar: 'rei', lastActive: '2026-10-13T20:00:00Z', online: true, friend: true, canMessage: true }],
+  list_friend_requests: { incoming: [{ id: 5, userId: BID, name: 'Bea', level: 3, avatar: 'rei', via: 'clan', at: '2026-10-13T20:00:00Z' }], outgoing: [{ id: 6, name: 'Cleo', level: 4, avatar: 'aoi', at: '2026-10-13T20:00:00Z' }] },
+  send_friend_request: { state: 'requested' }, add_friend_by_code: { name: 'Dee', level: 2, avatar: 'yuki', state: 'requested' },
+  list_blocked: [{ userId: BID, name: 'Bea', level: 3, avatar: 'rei', at: '2026-10-13T20:00:00Z' }],
+  dm_inbox: { threads: [{ id: TID, peer: { userId: BID, name: 'Bea', level: 3, avatar: 'rei' }, last: dmJson, unread: 2, canMessage: true, lastAt: '2026-10-13T20:00:00Z' }], unread: 2 },
+  dm_history: { threadId: TID, peer: { userId: BID, name: 'Bea', level: 3, avatar: 'rei' }, canMessage: true, why: null, messages: [dmJson], hasMore: false },
+  send_dm: dmJson,
+  send_coop_invite: { ...dmJson, id: 42, kind: 'invite', body: 'Co-op invite: stage 1-3 (Hard)', meta: { room: 'K7Q2Z', stage: '1-3', difficulty: 'hard', expires: 1792000000000 }, inviteState: 'open' },
+  invite_state: 'open',
+  donation_state: { today: '2026-10-14', nextReset: 1792000000000, serverNow: 1791990000000, cap: 30, donatedToday: 4, clanId: CID, clanLevel: 3, canRequest: false, requestWhy: 'used', canDonate: true, donateWhy: null, tenureReadyAt: '2026-10-10T00:00:00Z', requestReadyAt: '2026-10-09T00:00:00Z', mythicOpen: false, weekly: { superRare: 1, mythic: 0 }, myRequest: null, requests: [reqJson], collectable: [{ item: 'mat_feather_rare', count: 6 }] },
+  request_materials: reqJson,
+  donate: { key: KEY1, item: 'mat_feather_rare', count: 1, points: 2, reward: { coins: 100 }, replayed: false, request: reqJson, donatedToday: 6, cap: 30 },
+  settle_donations: [{ key: KEY1, state: 'applied', item: 'mat_feather_rare', count: 1, coins: 100 }],
+  claim_donations: { key: KEY1, replayed: false, items: [{ item: 'mat_feather_rare', count: 6, from: ['Aiko'] }] },
+};
 function rpcAnswer(fn) {
   if (fn in rpcOverride) return rpcOverride[fn];
+  if (fn in SOCIAL_ANSWERS) return SOCIAL_ANSWERS[fn];
   return {
     create_clan: { ...clanRow }, join_clan: { ...clanRow }, join_clan_by_code: { id: CID },
     boss_state: bossJson, start_boss_attempt: { attemptId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', bossId: 'ashwing', cap: 195000 },
@@ -147,6 +179,7 @@ vi.mock('@supabase/supabase-js', () => ({
       from: (t) => builder(t),
       rpc: (fn, args) => {
         rec.rpc.push({ fn, args });
+        if (rpcFail[fn]) return Promise.resolve({ data: null, ...rpcFail[fn] });
         return Promise.resolve({ data: rpcAnswer(fn), error: null });
       },
       channel: (name, opts) => fakeChannel(name, opts),
@@ -232,6 +265,41 @@ beforeAll(async () => {
   results.room = adapter.openRoom('K7Q2Z', { host: true, meta: { name: 'Aiko', host: true }, onMessage: () => {}, onPresence: () => {} });
   results.roomErrors = [];
   results.fullRoom = adapter.openRoom('QQQQQ', { meta: { name: 'Aiko' }, onError: (e) => results.roomErrors.push(e.code) });
+  // [social] every method once
+  const so = (results.social = {});
+  so.probe = await adapter.socialProbe();
+  so.summary = await adapter.socialSummary();
+  so.card = await adapter.playerCard(BID);
+  await adapter.setPrivacy('friends');
+  so.code = await adapter.myFriendCode();
+  so.reset = await adapter.resetFriendCode();
+  so.friends = await adapter.friends();
+  so.candidates = await adapter.inviteCandidates();
+  so.requests = await adapter.friendRequests();
+  so.add = await adapter.addFriend(BID);
+  so.byCode = await adapter.addFriendByCode('k7q2-zp4m');
+  await adapter.answerFriend('5', true);
+  await adapter.cancelFriendRequest(6);
+  await adapter.removeFriend(BID);
+  await adapter.block(BID);
+  await adapter.unblock(BID);
+  so.blocked = await adapter.blocked();
+  await adapter.report(BID, { reason: 'spam', note: 'hm', context: 'dm', messageId: '41' });
+  so.inbox = await adapter.inbox();
+  so.history = await adapter.dmHistory(TID, { before: 50, limit: 30 });
+  so.sent = await adapter.sendDm(BID, '  hi  ');
+  so.invite = await adapter.sendCoopInvite(BID, { room: 'K7Q2Z', stage: '1-3', difficulty: 'hard' });
+  so.inviteState = await adapter.inviteState(42);
+  await adapter.markRead(TID, 41);
+  await adapter.clearThread(TID);
+  so.state = await adapter.donationState();
+  so.req = await adapter.requestMaterials('mat_feather_rare');
+  await adapter.cancelMaterialRequest();
+  so.donate = await adapter.donate(RID, 1, KEY1);
+  so.settle = await adapter.settleDonations([KEY1]);
+  so.claim = await adapter.claimDonations(KEY1);
+  so.offInbox = adapter.subscribeInbox(() => {});
+  so.offDonations = adapter.subscribeDonations(CID, () => {});
   await new Promise((r) => setTimeout(r, 10));
 });
 
@@ -375,5 +443,70 @@ describe('server errors → player-facing codes', () => {
     // the project exists but the migration has not run yet
     expect(toOnlineError({ code: 'PGRST205', message: "Could not find the table 'public.profiles' in the schema cache" }).code).toBe('offline');
     expect(toOnlineError(new TypeError('Failed to fetch')).code).toBe('offline');
+  });
+});
+
+describe('supabase adapter: the social update', () => {
+  it('calls only granted social functions with their exact parameters', () => {
+    const social = rec.rpc.filter((r) => r.fn in SOCIAL_ANSWERS || ['set_dm_privacy', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'block_player', 'unblock_player', 'report_player', 'dm_mark_read', 'dm_clear', 'cancel_material_request'].includes(r.fn));
+    expect(new Set(social.map((r) => r.fn)).size).toBe(31); // every social entry point
+    expect(rec.rpc.find((r) => r.fn === 'send_dm').args).toEqual({ p_to: BID, p_body: 'hi' });
+    expect(rec.rpc.find((r) => r.fn === 'answer_friend_request').args).toEqual({ p_id: 5, p_accept: true });
+    expect(rec.rpc.find((r) => r.fn === 'report_player').args).toEqual({ p_target: BID, p_reason: 'spam', p_note: 'hm', p_context: 'dm', p_message: 41 });
+    // the server writes the invite text: the client sends only the room, stage and difficulty
+    expect(rec.rpc.find((r) => r.fn === 'send_coop_invite').args).toEqual({ p_to: BID, p_room: 'K7Q2Z', p_stage: '1-3', p_difficulty: 'hard' });
+    expect(rec.rpc.find((r) => r.fn === 'donate').args).toEqual({ p_request: RID, p_count: 1, p_key: KEY1 });
+  });
+
+  it('maps the answers into the local adapter\'s shapes', () => {
+    const so = results.social;
+    expect(so.probe).toBe('ready');
+    expect(so.summary).toEqual({ unreadDms: 2, friendRequests: 1, donationsReady: 6, privacy: 'friends_clan' });
+    expect(so.card).toMatchObject({ userId: BID, canMessage: true, lastActive: Date.parse('2026-10-13T20:00:00Z'), threadId: TID });
+    expect(so.requests.incoming[0]).toMatchObject({ id: 5, userId: BID, at: Date.parse('2026-10-13T20:00:00Z') });
+    expect(so.requests.outgoing[0]).not.toHaveProperty('userId');
+    expect(so.candidates[0]).toMatchObject({ userId: BID, friend: true, canMessage: true });
+    expect(so.inbox.threads[0]).toMatchObject({ id: TID, unread: 2, last: { id: 41, mine: true, createdAt: Date.parse('2026-10-13T20:00:00Z') } });
+    expect(so.history.messages[0].body).toBe('hi');
+    expect(so.invite).toMatchObject({ kind: 'invite', meta: { room: 'K7Q2Z' }, inviteState: 'open' });
+    expect(so.state).toMatchObject({ nextReset: 1792000000000, donatedToday: 4, requests: [{ id: RID, myGiven: 2, createdAt: Date.parse('2026-10-13T19:00:00Z') }] });
+    expect(so.donate).toMatchObject({ key: KEY1, reward: { coins: 100 }, request: { received: 2 } });
+    expect(so.claim.items[0]).toMatchObject({ item: 'mat_feather_rare', count: 6 });
+  });
+
+  it('live DMs, friend requests and clan requests: INSERT / UPDATE only, filtered to me / my clan', () => {
+    const inbox = rec.channels.find((c) => c.name.startsWith(`inbox:${UID}:`));
+    expect(inbox.listeners.map((l) => [l.filter.table, l.filter.event, l.filter.filter])).toEqual([
+      ['direct_messages', 'INSERT', `recipient_id=eq.${UID}`],
+      ['friend_requests', 'INSERT', `to_id=eq.${UID}`],
+      ['donation_requests', 'UPDATE', `user_id=eq.${UID}`],
+    ]);
+    const don = rec.channels.find((c) => c.name.startsWith(`donate:${CID}:`));
+    expect(don.listeners.map((l) => l.filter.event)).toEqual(['INSERT', 'UPDATE']);
+    expect(don.listeners.every((l) => l.filter.filter === `clan_id=eq.${CID}`)).toBe(true);
+    // the clan's own channel never listens to a social table (an unknown table would break it)
+    const clanCh = rec.channels.filter((c) => c.name.startsWith('clan:'));
+    expect(clanCh.flatMap((c) => c.listeners).some((l) => ['donation_requests', 'direct_messages', 'friend_requests'].includes(l.filter?.table))).toBe(false);
+    results.social.offInbox();
+    results.social.offDonations();
+    expect(inbox.removed).toBe(true);
+    expect(don.removed).toBe(true);
+  });
+
+  it('a server without the social migration answers needs_update for social calls only', async () => {
+    const missing = { error: { code: 'PGRST202', message: 'Could not find the function public.social_version without parameters in the schema cache' }, status: 404 };
+    rpcFail.social_version = missing;
+    rpcFail.send_dm = { error: { code: 'PGRST202', message: 'Could not find the function public.send_dm(p_body, p_to) in the schema cache' }, status: 404 };
+    rpcFail.create_clan = missing;
+    expect(await adapter.socialProbe()).toBe('needs_update');
+    await expect(adapter.sendDm(BID, 'hi')).rejects.toMatchObject({ code: 'needs_update', definitive: true });
+    // core calls keep their own errors (never "needs the social update")
+    await expect(adapter.createClan({ name: 'X', tag: 'X' })).rejects.not.toMatchObject({ code: 'needs_update' });
+    // a definitive server refusal vs an ambiguous gateway error (donations refund only on the first)
+    rpcFail.donate = { error: { code: 'P0001', message: 'daily_limit:3600000' } };
+    await expect(adapter.donate(RID, 1, KEY1)).rejects.toMatchObject({ code: 'daily_limit', retryMs: 3600000, definitive: true });
+    rpcFail.donate = { error: { message: '<html>502 Bad Gateway</html>' }, status: 502 };
+    await expect(adapter.donate(RID, 1, KEY1)).rejects.toMatchObject({ definitive: false });
+    for (const k of Object.keys(rpcFail)) delete rpcFail[k];
   });
 });
