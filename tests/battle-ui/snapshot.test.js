@@ -562,6 +562,101 @@ describe('battle save: Chika\'s roaming drones and flight modes (Chika rework M6
   });
 });
 
+describe('battle save and the path cap (one final tier per path, brews, tune-up links)', SLOW, () => {
+  it('a save from before the one-final-tier-per-path rule keeps both copies\' tier 5 (no refund, nothing dropped)', () => {
+    // a checkpoint with two copies of one girl (autoPlan places up to 3 of a kind)
+    let found = null;
+    for (const name of Object.keys(SCEN)) {
+      for (const cp of fullRun(name).cps) {
+        const snap = JSON.parse(cp.json);
+        const groups = new Map();
+        for (const t of snap.towers.filter((x) => x.xp == null)) groups.set(t.u, [...(groups.get(t.u) || []), t]);
+        const pair = [...groups.values()].find((g) => g.length >= 2);
+        if (pair) {
+          found = { c: SCEN[name], snap, pair };
+          break;
+        }
+      }
+      if (found) break;
+    }
+    expect(found, 'two copies of one girl in a checkpoint').toBeTruthy();
+    const { c, snap, pair: [a, b] } = found;
+    // both 5-x-0 on the same path: legal before the rule, refused by it now
+    a.tiers = [5, 2, 0];
+    b.tiers = [5, 0, 2];
+    const { sim, dropped, refunded } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+    expect(dropped).toEqual([]);
+    expect(refunded).toBe(0);
+    expect(sim.getTower(a.uid).tiers).toEqual([5, 2, 0]);
+    expect(sim.getTower(b.uid).tiers).toEqual([5, 0, 2]);
+    // play goes on under the rule: each holds it for the other
+    expect(sim.finalTierHolder(a.uid, 0)?.uid).toBe(b.uid);
+    expect(sim.finalTierHolder(b.uid, 0)?.uid).toBe(a.uid);
+    // an edited save (a crosspath break) is still refused while restoring
+    const bad = JSON.parse(JSON.stringify(snap));
+    bad.towers.find((t) => t.uid === a.uid).tiers = [5, 3, 0];
+    expect(restoreSim(recordOf(c, bad)).dropped).toEqual([a.u]);
+  });
+
+  it('Midori\'s brews and Chika\'s tune-up links (overclock included) come back exactly and play on the same', () => {
+    const c = { stageId: '2-5', difficulty: 'normal', towers: ['midori', 'chika', 'kage', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 3, rateMul: 1.2 }, seed: 2468 };
+    const sim = makeSim(c);
+    sim.cash = 5e6;
+    const placed = {};
+    for (const p of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) {
+      if (p.action !== 'place' || placed[p.unitId]) continue;
+      placed[p.unitId] = sim.placeTower(p.unitId, p.x, p.y);
+    }
+    for (const id of c.towers) expect(placed[id], id).toBeTruthy();
+    // Chika on Repair Bay to tier 5 (two links + overclock), Midori brewing 2 girls, a pick pinned
+    for (let k = 0; k < 5; k++) expect(sim.upgradeTower(placed.chika.uid, 1)).toBe(true);
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(placed.midori.uid, 0)).toBe(true);
+    expect(sim.setBuffPick(placed.midori.uid, placed.aoi.uid).ok || sim.setBuffPick(placed.midori.uid, placed.kage.uid).ok).toBe(true);
+    wrapWaves(sim, c.seed);
+    let held = 0;
+    for (let w = 0; w < 6 && sim.state !== 'lost'; w++) {
+      sim.startNextWave();
+      for (let i = 0; i < 60 * 600 && sim.state === 'wave'; i++) sim.update(STEP);
+      // the controller saves at the next wave's start: no shot still in flight by then
+      for (let i = 0; i < 60 * 5 && sim.state === 'between' && sim.projectiles.length; i++) sim.update(STEP);
+      sim.drainEvents();
+      // a calm point: check what the save carries, then restore and compare everything
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      held += snap.towers.filter((t) => t.li).length;
+      const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      expect(diffPaths(digest(sim, { calm: true }), digest(back, { calm: true })), `wave ${sim.wave}`).toEqual([]);
+      expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    }
+    expect(held).toBeGreaterThan(0);
+    const ch = sim.getTower(placed.chika.uid);
+    expect(ch.lim?.kind).toBe('link');
+    expect(ch.lim.targets.length).toBeGreaterThan(0);
+    expect(sim.getTower(placed.midori.uid).lim?.kind).toBe('brew');
+    // the same future from the last calm point
+    const { sim: rest } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snapshotSim(sim)))), { settings: { autoStart: false } });
+    wrapWaves(rest, c.seed);
+    autoplay(sim, sim.wave + 3);
+    autoplay(rest, rest.wave + 3);
+    expect(diffPaths(digest(sim), digest(rest))).toEqual([]);
+    expect(hashSim(rest)).toBe(hashSim(sim));
+  });
+
+  it('an older save without the brew / link fields restores with nothing held and the window at its start', () => {
+    const c = SCEN['3-5 normal'];
+    const snap = JSON.parse(fullRun('3-5 normal').cps.find((x) => x.wave === 6).json);
+    for (const t of snap.towers) for (const k of ['pk', 'lm', 'li', 'rd']) delete t[k];
+    delete snap.dps;
+    snap.buffs = (snap.buffs || []).map((b) => b.slice(0, 2));
+    const { sim, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    for (const t of sim.towers) {
+      expect([t.buffPick, t.lim, t.limIn, t.recentDps, t._dmgMark]).toEqual([-1, null, null, 0, 0]);
+    }
+    for (const b of sim._globalBuffs) expect(b.src).toBe(-1);
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)

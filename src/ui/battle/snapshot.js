@@ -14,6 +14,13 @@
 // slot, counters, the wave it was built in and a running jam; the girl's drone totals and serial
 // (`ds`) and her wing's flight mode (`fl`, absent = Hover) come along. Older 5-field rows restore
 // with zero counters, numbered by position.
+// Path cap (same format 2, additive; src/sim/buffs.js): tiers are replayed with `{ restoring: true }`,
+// so a save made before the one-final-tier-per-path rule keeps every tier 5 it had. The limited
+// buffs travel with the girls: Midori's / Chika's pick (`pk`), what her brew / tune-up is doing
+// (`lm`: timers and targets), the brew / link a girl holds (`li`), and the recent-DPS window that
+// picks the strongest girl (`rd`, the Sim's `dps` timer), so the first re-pick after Continue is
+// the one the run would have made. Global rate buffs keep who cast them (the buff icons). A save
+// without these fields restores with no brew / link held and the window at its start.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
@@ -21,7 +28,7 @@
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
-import { restoreDrone } from '../../sim/towers.js';
+import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
 import { FLIGHT_MODES } from '../../sim/constants.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -89,6 +96,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   lives: 'snap', cash: 'snap', state: 'snap', wave: 'snap', wavesCleared: 'snap', time: 'snap', towers: 'snap', traps: 'snap',
   heroes: 'snap', encountered: 'snap', kills: 'snap', stats: 'snap', _uid: 'snap', _cashCarry: 'snap', _globalBuffs: 'snap',
   _towerByUid: 'snap',
+  // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
+  _dpsTimer: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -119,6 +128,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // (a pool of dead enemies is never reused, so it is moot at a calm point)
   droneDmg: 'snap', droneKills: 'snap', droneShots: 'snap', droneSerial: 'snap', flight: 'snap',
   _pool: 'scratch', _poolS: 'scratch', _poolLeft: 'calm', _poolMode: 'calm',
+  // path cap (src/sim/buffs.js): her co-op owner (0 solo), the aura winner per buff key (recomputed),
+  // her pick, her own brew / link state, the brew / link she holds, her recent-DPS window
+  owner: 'config', buffBy: 'derived', buffPick: 'snap', lim: 'snap', limIn: 'snap', recentDps: 'snap', _dmgMark: 'snap',
   def: 'config', isHero: 'config', heroIndex: 'config', unitStats: 'config', radius: 'config', tx: 'derived', ty: 'derived',
   stats: 'derived', eff: 'derived', buff: 'derived', buffed: 'derived', trapSpec: 'derived', turretSpec: 'derived',
   projKind: 'derived', removed: 'derived', _globalRate: 'derived', mastery: 'derived',
@@ -172,7 +184,8 @@ export function snapshotSim(sim) {
     carry: sim._cashCarry,
     lives: sim.lives,
     uid: sim._uid,
-    buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left]),
+    buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left, b.src ?? -1]),
+    dps: sim._dpsTimer,
     towers: sim.towers.map((t) => {
       const o = {
         uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
@@ -191,6 +204,11 @@ export function snapshotSim(sim) {
       }
       const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
       if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
+      // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
+      if (t.buffPick >= 0) o.pk = t.buffPick;
+      if (t.lim) o.lm = packLim(t.lim);
+      if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
+      if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
       return o;
     }),
     kills: { ...sim.kills },
@@ -198,6 +216,21 @@ export function snapshotSim(sim) {
     stats,
     leakGroups: packLeaks(leakLog),
   };
+}
+
+/** A brewer's / linker's own state (src/sim/buffs.js brewTick / linkTick) as a short row. */
+function packLim(l) {
+  if (l.kind === 'brew') return ['b', l.cd, l.repick ? 1 : 0, ...l.targets];
+  return ['l', l.scan, l.ocCd, l.ocLeft, l.repick ? 1 : 0, ...l.targets];
+}
+
+/** The row of packLim back as the object brewTick / linkTick keep (same key order), or null. */
+function unpackLim(row) {
+  if (!Array.isArray(row)) return null;
+  const ids = (a) => a.filter((v) => Number.isInteger(v));
+  if (row[0] === 'b') return { kind: 'brew', cd: r(row[1]), repick: !!row[2], targets: ids(row.slice(3)) };
+  if (row[0] === 'l') return { kind: 'link', targets: ids(row.slice(5)), repick: !!row[4], scan: r(row[1]), ocCd: r(row[2]), ocLeft: r(row[3]) };
+  return null;
 }
 
 /** A frozen team entry with every stat key this build knows (a newer key gets its neutral value). */
@@ -244,7 +277,8 @@ export function restoreSim(rec, profile = null) {
   const oldHeroes = !(s.v >= 2);
   const migrated = [];
   sim.cash = Number.MAX_SAFE_INTEGER; // costs do not matter while rebuilding: `spent` comes back below
-  for (const b of s.buffs || []) if (b?.[1] > 0) sim.addGlobalRateBuff(b[0], b[1]);
+  // (who cast it: an older save has no caster, as the restore had none placed yet)
+  for (const b of s.buffs || []) if (b?.[1] > 0) sim.addGlobalRateBuff(b[0], b[1], Number.isInteger(b[2]) ? b[2] : -1);
   const drop = (o) => {
     dropped.push(o.u);
     // (a hero's levels bought with coins come back too: her placement was free)
@@ -267,7 +301,9 @@ export function restoreSim(rec, profile = null) {
       const tiers = Array.isArray(o.tiers) ? o.tiers : [0, 0, 0];
       const order = [0, 1, 2].sort((p, q) => r(tiers[q]) - r(tiers[p]));
       let ok = true;
-      for (const p of order) for (let k = 0; k < r(tiers[p]) && ok; k++) ok = sim.upgradeTower(t.uid, p);
+      // { restoring: true }: a save from before the one-final-tier-per-path rule keeps every tier 5
+      // it had (crosspath and the tier order are still checked, so an edited save stays refused)
+      for (const p of order) for (let k = 0; k < r(tiers[p]) && ok; k++) ok = sim.upgradeTower(t.uid, p, { restoring: true });
       if (!ok) {
         sim.sellTower(t.uid); // all or nothing per girl
         drop(o);
@@ -333,6 +369,20 @@ export function restoreSim(rec, profile = null) {
     }
   }
   sim.traps.sort((a, b) => a.uid - b.uid); // the order they were laid in (uids only grow)
+  // limited buffs (path cap), once every girl is back (they name each other by uid): a uid of a girl
+  // who could not return is harmless (the sim skips and clears it on the next step)
+  for (const o of s.towers) {
+    const t = sim.getTower(o.uid);
+    if (!t || t.unitId !== o.u) continue;
+    t.buffPick = Number.isInteger(o.pk) ? o.pk : -1;
+    t.lim = unpackLim(o.lm);
+    t.limIn = Array.isArray(o.li) ? { brew: Number.isInteger(o.li[0]) ? o.li[0] : -1, brewLeft: r(o.li[1]), link: Number.isInteger(o.li[2]) ? o.li[2] : -1, oc: !!o.li[3] } : null;
+    const rd = Array.isArray(o.rd) ? o.rd : [];
+    t.recentDps = r(rd[0]);
+    t._dmgMark = r(rd[1]);
+  }
+  if (typeof s.dps === 'number' && Number.isFinite(s.dps)) sim._dpsTimer = s.dps;
+  recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;
   sim._cashCarry = r(s.carry);

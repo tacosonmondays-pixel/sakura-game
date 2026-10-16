@@ -122,6 +122,19 @@ drone damage then counts as hers until the battle ends). `KNOWN_DRONE_KEYS` clas
 field (`hx`, `hy` derived from the slot; `tgt`, `targetUid`, `moving`, `px`, `py` reset at a calm
 point); a girl's drone target pool is scratch (a pool of dead enemies is never reused).
 
+**Path cap: one final tier per path, brews and tune-ups (format 2, additive).** A save made before
+the one-final-tier-per-path rule keeps every tier 5 it had: the restore replays tiers with
+`sim.upgradeTower(uid, path, { restoring: true })` (crosspath and the tier order are still checked,
+so an edited save stays refused); after it, both copies hold their tier 5 and a third copy sees the
+lock. The limited buffs travel with the girls, because they decide what the next wave does
+(classifying them `calm` breaks "same future after Continue"): `pk` (Midori's / Chika's pick, when
+pinned), `lm` (what her brew / tune-up is doing: `['b', cd, repick, …targets]` or `['l', scan, ocCd,
+ocLeft, repick, …targets]`), `li` (the brew / link a girl holds: `[brew, brewLeft, link, oc]`), `rd`
+(`[recentDps, _dmgMark]`, the window that picks the strongest girl) and the Sim's `dps` timer; global
+rate buffs keep who cast them (`buffs: [mul, left, src]`, the buff icons). The buffs are recomputed
+once every girl is back. A save without these fields restores with nothing held and the window at
+its start (the next brew / link picks again). `owner` is config (always 0 in solo), `buffBy` derived.
+
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).
 
@@ -154,8 +167,10 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
 - `tests/battle-ui/snapshot.test.js`: round trip at every wave start (3-5, 8-5 Hard with drones, 4-5
   with traps, the Colosseum to wave 30), identical re-snapshots under 8 KB, "same future" splits with
   and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, Chika's
-  drones and flight modes (the driver flies her wing through Hover / Hold / Patrol / Pursuit), and
-  the guards (Sim, girl and drone fields).
+  drones and flight modes (the driver flies her wing through Hover / Hold / Patrol / Pursuit), the
+  path cap (a pre-rule save with two copies at the same tier 5; Midori's brews and Chika's tune-up
+  links round-trip and play on the same; an older save without the brew / link fields), and the
+  guards (Sim, girl and drone fields).
 - `tests/systems/battleSave.test.js`: profile field, migrate allowlist, each sanitiser rule (including
   a save past the end and a missing start time), the cap and its order, titles, slots and modes,
   run-scoped clears, drop seed, event bonus by start time and its 48 h window.
