@@ -52,8 +52,8 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     expect(l?.id).toBe(POTENTIAL_V3_LETTER_ID);
     expect(l.title).toBe('Potential grew!');
     expect(l.rewards).toEqual([]);
-    // highest first: Kage P5, Kaede P3, Aoi P2 (a stat step: what it raises)
-    expect(l.body).toContain('Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage)');
+    // highest first: Kage P5, Kaede P3, Aoi P2 (a stat step: what it raises), each with her new level cap
+    expect(l.body).toContain('Kage P5 ✦ Moonpiercer · level cap 78, Kaede P3 ✦ Breeze Step · level cap 67, Aoi P2 (+4% damage) · level cap 63');
     expect(l.body).toContain('Nothing got weaker: P1 is exactly the girl you know.');
     expect(l.body).toContain('Info tab');
     // v1's letter already told this save how its duplicates were counted

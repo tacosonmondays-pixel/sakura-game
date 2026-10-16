@@ -6,7 +6,7 @@ import { CAMPAIGN_IDS, stageEnemies } from '../../src/data/stages.js';
 import { MAPS } from '../../src/data/maps.js';
 import { UNITS } from '../../src/data/units.js';
 import { BATTLE } from '../../src/data/types.js';
-import { MAX_LEVEL, MAX_AWAKEN, MAX_BREAKTHROUGH, unitBattleStats } from '../../src/systems/progression.js';
+import { BREAKTHROUGH_LEVEL_CAP, MAX_AWAKEN, MAX_BREAKTHROUGH, unitBattleStats } from '../../src/systems/progression.js';
 import {
   SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS, campaignClears, isSandboxUnlocked, sandboxLockText, sandboxMaps, sandboxStageFor,
   sandboxUnitStats, sandboxFormation, sandboxBattleParams, parseTeam, sandboxOutcome,
@@ -97,10 +97,12 @@ describe('sandbox loadout', () => {
     expect(sandboxFormation([tower, tower, 'nobody', hero], tower)).toEqual({ towers: [tower], hero: null });
   });
 
-  it('every girl fights at max level, breakthrough and awakening', () => {
+  it('every girl fights at her P1 level cap (60), every breakthrough and full awakening', () => {
     for (const u of UNITS) {
       const s = sandboxUnitStats(u.id);
-      expect(s.level).toBe(MAX_LEVEL);
+      expect(s.level).toBe(BREAKTHROUGH_LEVEL_CAP);
+      expect(s.level).toBe(60);
+      expect(s.potential).toBe(1);
       expect(s.awaken).toBe(MAX_AWAKEN);
       expect(s.breakthrough).toBe(MAX_BREAKTHROUGH);
       expect(s.awakenPassive).toBe(true);

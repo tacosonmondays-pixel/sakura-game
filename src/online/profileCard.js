@@ -117,7 +117,9 @@ function viewUnits(list) {
     if (!isObj(u) || typeof u.id !== 'string' || !UNIT_MAP[u.id] || seen.has(u.id)) continue;
     seen.add(u.id);
     const bt = whole(u.bt, 0, MAX_BREAKTHROUGH, 0);
-    const v = { id: u.id, bt, aw: whole(u.aw, 0, MAX_AWAKEN, 0), lv: whole(u.lv, 1, levelCap({ breakthrough: bt }), 1), p: whole(u.p, 1, MAX_POTENTIAL, 1) };
+    const p = whole(u.p, 1, MAX_POTENTIAL, 1);
+    // her cap from her gates and her Potential (P6 = 85); an older viewer clamps to 60 (display only)
+    const v = { id: u.id, bt, aw: whole(u.aw, 0, MAX_AWAKEN, 0), lv: whole(u.lv, 1, levelCap({ breakthrough: bt, dupes: p - 1 }), 1), p };
     // outfits: no skins table in this build yet, so an outfit id is never shown (dropped)
     const g = viewGear(u.g, v.lv);
     if (g.length) v.g = g;
@@ -194,7 +196,8 @@ export function snapshotToMiniProfile(u) {
 /** A co-op ally's loadout entry ({ level, breakthrough, awaken, … }) → the same shape, no gear. */
 export function loadoutToMiniProfile(id, stats = {}) {
   const bt = whole(stats.breakthrough, 0, MAX_BREAKTHROUGH, 0);
-  return snapshotToMiniProfile({ id, bt, aw: whole(stats.awaken, 0, MAX_AWAKEN, 0), lv: whole(stats.level, 1, levelCap({ breakthrough: bt }), 1), p: whole(stats.potential, 1, MAX_POTENTIAL, 1) });
+  const p = whole(stats.potential, 1, MAX_POTENTIAL, 1);
+  return snapshotToMiniProfile({ id, bt, aw: whole(stats.awaken, 0, MAX_AWAKEN, 0), lv: whole(stats.level, 1, levelCap({ breakthrough: bt, dupes: p - 1 }), 1), p });
 }
 
 /**
