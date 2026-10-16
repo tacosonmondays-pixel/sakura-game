@@ -67,6 +67,9 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
   started with."). That includes gear: moving or salvaging it later does not change a saved run
   (as in the reference game, which locks the loadout when the save is made; up to 5 runs can carry
   the same gear's stats). Accepted for v1; locking gear used by a save is a possible later rule.
+  Potential travels the same way (`stats.potential`, no new snapshot key): a girl saved at P6 comes
+  back at P6 even after more duplicates, and a record frozen before Potential (no `potential` key)
+  restores her at P1 through the neutral merge with `DEFAULT_UNIT_STATS`.
 - **Event bonus** is judged by when the run started (`applyBattleResult(…, { eventAt })`, `battleEventMul`),
   so nearly finished saves cannot be stockpiled for a 2× week, and a run started during an event only
   gets it while it finishes within 48 h of that week's end (`EVENT_GRACE_MS`). A record without a start

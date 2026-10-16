@@ -392,12 +392,38 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
   it('a frozen stats object missing a key (added by a later build) gets the neutral value', () => {
     const snap = cpAt(4);
     const rec = recordOf(c, snap);
-    for (const e of [...rec.loadout, rec.hero]) delete e.stats.critMul;
+    // critMul, and potential (Potential M1, landing plan §8): a record frozen before Potential restores her at P1
+    for (const e of [...rec.loadout, rec.hero]) {
+      delete e.stats.critMul;
+      delete e.stats.potential;
+    }
     const { sim } = restoreSim(rec);
+    const ref = restoreSim(recordOf(c, cpAt(4))).sim;
     for (const t of sim.towers) {
       expect(t.unitStats.critMul).toBe(1);
+      expect(t.unitStats.potential).toBe(1);
       expect(t.unitStats.damageMul).toBe(c.stats.damageMul);
+      // P1 = no Potential: the same resolved stats as the record that carries potential: 1
+      expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
     }
+  });
+
+  it('Potential travels in the frozen stats: a girl saved at P6 comes back at P6', () => {
+    const snap = cpAt(4);
+    const rec = recordOf(c, snap);
+    const aoi = rec.loadout.find((e) => e.unitId === 'aoi');
+    aoi.stats = { ...aoi.stats, potential: 6 };
+    const { sim } = restoreSim(rec);
+    const ref = restoreSim(recordOf(c, cpAt(4))).sim;
+    const mine = sim.towers.filter((t) => t.def.id === 'aoi');
+    expect(mine.length).toBeGreaterThan(0);
+    for (const t of mine) {
+      const p1 = ref.towers.find((x) => x.uid === t.uid);
+      expect(t.unitStats.potential).toBe(6);
+      expect(t.stats.damage).toBeCloseTo(p1.stats.damage * 1.02 * 1.03, 9);
+      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.03, 9);
+    }
+    for (const t of sim.towers.filter((x) => x.def.id !== 'aoi')) expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
   });
 
   it('a long endless run with hundreds of leaks stays small and keeps the defeat debrief exact', () => {
