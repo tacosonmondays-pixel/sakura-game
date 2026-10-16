@@ -362,4 +362,6 @@ html[data-reduce-motion] .sc-toast, html[data-reduce-motion] .sc-req-card, html[
 .sc-clan-inv .ol-emblem { flex: none; }
 .sc-clan-inv .ol-tag { font-size: 0.78rem; }
 .sc-card-clan-inv:empty, .sc-menu-slot:empty { display: none; }
-.sc-clan-inv .sc-row-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+/* (a clan invite's line wraps freely: not the friend request rows' two-line clamp) */
+.sc-clan-inv .sc-row-sub { display: block; -webkit-line-clamp: unset; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+.sc-clan-inv .sc-row-sub .tg-chips { margin-left: 4px; vertical-align: 1px; }

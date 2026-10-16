@@ -125,6 +125,10 @@ describe('tag chip holders', () => {
     expect(mod._tagChipState().early).toBeLessThanOrEqual(201);
     await settle();
     expect(mod._tagChipState().early).toBeLessThanOrEqual(201);
+    // all 50 batches asked (and failed) before the next test resets the fake network: a late batch would
+    // otherwise succeed there and repaint that test's page from this test's module
+    await vi.waitFor(() => expect(net.calls).toBe(50), { timeout: 4000, interval: 20 });
+    await settle();
   });
 
   it('a batch costs one page query, whatever was built and dropped before', async () => {

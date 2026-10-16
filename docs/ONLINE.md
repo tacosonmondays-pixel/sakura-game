@@ -361,10 +361,12 @@ where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their use
 (tags are public, like names); **no player can write it**: `staff = 'dev'` is set only here, in the SQL
 Editor, and `tester` is stamped by a trigger when a profile is created, from the private
 `public.server_settings` row `tester_phase` (`alpha` now, `beta` later, `none` to stop). The chips: DEV
-(sakura pink) beats ALPHA (lilac) beats BETA (teal) in chat lines and lists; the player card and the
-own profile header show every chip. A player's own tags also unlock the Developer / Alpha Tester /
-Beta Tester titles (their save keeps them as `missions.counters` marks `tag:dev` …); other players
-only ever see a tag title the server backs.
+(sakura pink) beats ALPHA (lilac) beats BETA (teal) in chat lines and lists; the player card, the
+own profile header and a visited Sensei's profile show every chip. A player's own tags also unlock the
+Developer / Alpha Tester / Beta Tester titles (their save keeps them as `missions.counters` marks
+`tag:dev` …); other players only ever see a tag title the server backs: a visited profile waits for
+that Sensei's tags (`loadTags`, up to 4 seconds) before it shows a tag title, and hides it when they are
+unknown (no table yet, offline, no answer in time) or don't include it.
 
 Owner one-liners (SQL Editor). Replace the placeholder, keep the quotes, and **never commit a real
 name, account id or code**. Names are not unique: run the first query and check it finds exactly one
@@ -403,8 +405,10 @@ user_id"); nothing is changed. Use the id from the first query instead: `values 
 'dev')` for the add, `... where user_id = '<their user_id>'` for the remove.
 
 Where chips show: chat lines, the player card, Messages (conversations, the conversation header,
-friends, friend requests that asked you), the clan roster and clan join requests, and your own profile
-header. Requests **you** sent show no chip: the server never tells the sender the other player's
+friends, friend requests that asked you, clan invites next to the inviter's name), the clan roster and
+clan join requests, your own profile header and a visited Sensei's profile (the private / no-profile
+card too). A clan's recruiting card names no player: the chip is on the chat line's name above it.
+Requests **you** sent show no chip: the server never tells the sender the other player's
 account id. A tab running on the stand-in server ("Online features offline") shows no chip and never
 records a tag in the save; only the real server's tags count.
 
@@ -672,7 +676,9 @@ select pg_size_pretty(pg_total_relation_size('direct_messages'));
 
 Everything below is in `supabase/migrations/20261018000000_clan_invites.sql`; the client rules live in
 `src/online/clanInviteRules.js`, the local mirror in `src/online/adapters/localClanInvites.js`, the UI in
-`src/ui/online/clanInvite.js`.
+`src/ui/online/clanInvite.js`. "Invite to [TAG]" is one of the shared player actions
+(`src/ui/online/playerActions.js`, `clanInvite`): the player card shows it, and so does a visited
+Sensei Profile's More sheet (and its private / no-profile card), so the two never disagree.
 
 - **Who invites:** the leader and officers of a clan; in an **open** clan every member (anyone could join
   it anyway). Never the developer clan.

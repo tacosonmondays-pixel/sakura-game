@@ -216,12 +216,17 @@ export function createTagCache({
 let shared = null;
 let selfUid = null;
 const selfListeners = new Set();
+/** The backend module, imported once: a burst of batches awaits the same import. */
+let backendModule = null;
 
 function tabCache() {
   if (!shared) {
     shared = createTagCache({
       fetch: async (ids) => {
-        const { getBackend } = await import('./backend.js');
+        const { getBackend } = await (backendModule ||= import('./backend.js').catch((e) => {
+          backendModule = null; // a failed load is asked again by the next batch
+          throw e;
+        }));
         return getBackend().getTags(ids);
       },
     });

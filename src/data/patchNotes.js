@@ -20,11 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.33', version: '0.1.33', date: '2026-10-15', title: 'Dev & Alpha Tester tags',
+    id: 'v0.1.33', version: '0.1.33', date: '2026-10-16', title: 'Visit profiles, clan invites & tags',
     added: [
-      'A pink DEV tag next to the names of the people who make the game, in chat, on player cards, in Messages and in clans.',
-      'An ALPHA tag for everyone who played during the alpha, plus the Alpha Tester title to wear under your name. New players who join during the alpha get it too.',
-      'A BETA tag and a Beta Tester title will come later, for players who join during the beta.',
+      'Visit other players’ profiles: tap a name in chat, your clan or Messages, then View profile on their card. You can see their bio, favorite girl, top 8 girls and medals.',
+      'Write a short bio on your profile and choose who can see your profile: Everyone, Friends & clan, or Only me.',
+      'Invite to clan: clan leaders and officers (and everyone in an open clan) can invite a player who has no clan, from their card or from your private chat with them. The invite waits in their Messages → Requests with Join and Decline.',
+      'A recruiting post once a day: clan leaders and officers can share a card for their clan in global chat, so new players can find it and join.',
+      'Tags next to names: a pink DEV tag for the people who make the game, and an ALPHA tag for everyone who played during the alpha (new players who join during the alpha get it too). Wear the Developer or Alpha Tester title under your name. A BETA tag comes later.',
+      'Two new achievements for helping your clan: Lending a Hand (help a clanmate with something they asked for in Clan Requests) and Generous Heart (help 10 times), which brings the Kind Heart Ribbon and the Helping Hands title.',
     ],
   },
   {

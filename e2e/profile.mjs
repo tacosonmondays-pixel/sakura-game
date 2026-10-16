@@ -607,6 +607,41 @@ async function runVisit(vp) {
   await B.click('[data-testid="unit-sheet-close"]', { timeout: 4000 }).catch(() => {});
   noErrors('visit');
 
+  // ---- 7b. player tags on the visited profile: every chip next to the name; a tag title only while
+  // the visited Sensei's SERVER tags back it (the local "server" stamps every new player ALPHA)
+  log('-- 7b. tags on a visited profile');
+  const chipsOf = (page) => page.evaluate(() => document.querySelector('[data-testid="profile-identity"] [data-testid="tag-chips"]')?.dataset.tags || '');
+  const titleOf = (page) => page.evaluate(() => document.querySelector('[data-testid="profile-identity"] [data-testid="profile-title"]')?.textContent || '');
+  const setTags = (page, uid, patch) => page.evaluate(([u, x]) => {
+    const st = JSON.parse(localStorage.getItem('ss-online-db'));
+    st.tags[u] = { ...st.tags[u], ...x };
+    localStorage.setItem('ss-online-db', JSON.stringify(st));
+  }, [uid, patch]);
+  const revisit = async () => {
+    await B.reload({ waitUntil: 'load' });
+    // the reload aborts the old page's model textures mid-decode (see runViewport): those errors belong to a
+    // page that is gone; every other error still counts
+    for (let i = errors.length - 1; i >= 0; i--) if (/GLTFLoader: Couldn't load texture blob:/.test(errors[i])) errors.splice(i, 1);
+    return has(B, '[data-testid="profile-slot"]', 15000);
+  };
+  check(await B.waitForFunction(() => document.querySelector('[data-testid="profile-identity"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha', null, { timeout: 10000, polling: 200 }).then(() => true).catch(() => false),
+    `visitor: A's ALPHA chip next to their name (${await chipsOf(B)})`);
+  // A learns their own tags (the save marks tag:alpha) and wears the Alpha Tester title
+  check(await A.waitForFunction(() => window.__sakura.store.profile.missions?.counters?.['tag:alpha'] === 1, null, { timeout: 10000, polling: 300 }).then(() => true).catch(() => false), 'tags: A\'s save marks tag:alpha');
+  await go(A, '#/profile?edit=title&title=tag_alpha');
+  await wait(A, '[data-testid="edit-titles"]', { timeout: 10000 });
+  await tap(A, '[data-testid="edit-profile-save"]');
+  await wait(A, '[data-testid="edit-profile"]', { state: 'detached', timeout: 8000 }).catch(() => {});
+  check(await A.waitForFunction((u) => JSON.parse(localStorage.getItem('ss-online-db') || '{}').profileCards?.[u]?.card?.ttl === 'tag_alpha', uidA, { timeout: 10000, polling: 300 }).then(() => true).catch(() => false), 'tags: A\'s card is published with the Alpha Tester title');
+  check(await revisit() && /Alpha Tester/.test(await titleOf(B)), `visitor: A's Alpha Tester title shows (the server backs it: "${await titleOf(B)}")`);
+  await shot(B, 'visit-tags');
+  // the owner takes A's tester tag away: visitors stop seeing the title (and the chip); A's save keeps it
+  await setTags(A, uidA, { tester: null });
+  check(await revisit() && (await titleOf(B)) === '' && (await chipsOf(B)) === '', `visitor: tag taken away on the server: no Alpha Tester title, no chip ("${await titleOf(B)}", "${await chipsOf(B)}")`);
+  await setTags(A, uidA, { tester: 'alpha' });
+  check(await revisit() && /Alpha Tester/.test(await titleOf(B)) && (await chipsOf(B)) === 'alpha', 'visitor: tag given back: the title and the chip return');
+  noErrors('visit tags');
+
   // ---- 8. Only me → private; block → the same private screen
   log('-- 8. privacy and blocks');
   await go(A, '#/profile?edit=privacy');

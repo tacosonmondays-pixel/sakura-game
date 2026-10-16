@@ -244,8 +244,9 @@ function profileView(m, ctx) {
     h('div.pf-ava-col', avatarEl(m.avatar, m.frame, { onEdit: own ? () => actions.editProfile('picture') : null }), m.frame ? h('div.pf-ava-cap', frameName(m.frame)) : null),
     h('div.pf-who',
       h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name),
-        // player tags (DEV · ALPHA · BETA): every chip, from the server (yours, and the Preview of what others see)
-        own || preview ? tagChips(null, { self: true, all: true, size: 'lg' }) : null,
+        // player tags (DEV · ALPHA · BETA): every chip, from the server (yours, the Preview of what others
+        // see, and the Sensei you are visiting)
+        own || preview ? tagChips(null, { self: true, all: true, size: 'lg' }) : visit?.userId ? tagChips(visit.userId, { all: true, size: 'lg' }) : null,
         h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
       tags,
       bio,
@@ -334,6 +335,14 @@ function profileView(m, ctx) {
 // Someone else's profile (#/profile/<userId>)
 // ---------------------------------------------------------------------------
 
+/**
+ * How long a tag title waits for the server's word: the Preview for this account's id (the social hub
+ * starts after boot) and its tags, a visit for the visited Sensei's tags.
+ */
+const OWN_TAGS_WAIT_MS = 4000;
+
+const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback()), ms))]);
+
 const WHY_TEXT = {
   private: () => 'This Sensei keeps their profile private.',
   blocked_by_me: () => 'You blocked this Sensei.',
@@ -354,7 +363,7 @@ function renderVisit(root, userId) {
       who ? h('div.pf-basic',
         avatarEl(who.avatar, null),
         h('div.pf-basic-who',
-          h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
+          h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), tagChips(userId, { all: true, size: 'lg' }), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
           who.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', who.clan.tag), who.clan.name) : null)) : null,
       text ? h('b', { 'data-testid': 'profile-state' }, text) : null,
       buttons.length ? h('div.pf-basic-acts', buttons) : null);
@@ -431,10 +440,15 @@ function renderVisit(root, userId) {
       });
       return;
     }
+    // [tags] their equipped tag title (Developer, Alpha / Beta Tester) shows only while their SERVER tags
+    // back it: wait for those (loadTags, never the cache as it is now); unknown (no table, offline,
+    // too slow: null) hides it. Any other title needs no tags.
+    const tags = isTagTitle(view.profile.card?.ttl) ? await within(loadTags(userId), OWN_TAGS_WAIT_MS, () => null) : null;
+    if (disposed) return;
     clearDetach();
-    const card = cleanViewedCard(view.profile.card);
+    const card = cleanViewedCard(view.profile.card, { tags });
     const m = cardModel(card, { ...who, bio: view.profile.bio || '' });
-    host.replaceChildren(profileView(m, { detach, visit: { acts: top } }));
+    host.replaceChildren(profileView(m, { detach, visit: { acts: top, userId } }));
     detach.push(liveHonors(host.querySelector('.pf-shelf') || host, { budget: 4 }));
   }
 
@@ -452,10 +466,6 @@ function renderVisit(root, userId) {
 
 let closePreview = null;
 let previewSeq = 0;
-/** How long the Preview waits for this account's id (the social hub starts after boot) and for its tags. */
-const OWN_TAGS_WAIT_MS = 4000;
-
-const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback()), ms))]);
 
 /**
  * This account's tags from the server, for the Preview. Awaited (never read from the cache as it is

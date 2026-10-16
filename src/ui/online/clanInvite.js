@@ -13,6 +13,7 @@ import { EMBLEMS, JOIN_MODES, validMessageMeta } from '../../online/clanRules.js
 import { canInviteToClan, canRecruit, joinModeWords, recruitWhyText } from '../../online/clanInviteRules.js';
 import { lobbyIcon } from '../../art/lobbyIcons.js';
 import { refreshSoon } from './socialHub.js';
+import { tagChips } from './tagChip.js';
 
 /** A clan's emblem (the clan screen, invite cards, the recruiting card). */
 export function clanEmblem(name, size = 56) {
@@ -110,7 +111,9 @@ export async function clanInviteRows({ onChange, onJoined = () => navigate('clan
         clanEmblem(c.emblem, 38),
         h('span.sc-row-main',
           h('span.sc-row-top', h('b', c.name), h('span.ol-tag', `[${c.tag}]`)),
-          h('span.sc-row-sub', `${inv.fromName || 'A clan member'} invited you · ${c.memberCount}/${c.maxMembers} members · ${JOIN_MODES[c.joinMode] || ''}`)),
+          // who invited me, with their tag chip (one, like every list)
+          h('span.sc-row-sub', inv.fromName || 'A clan member', inv.fromName && inv.fromId ? tagChips(inv.fromId) : null,
+            ` invited you · ${c.memberCount}/${c.maxMembers} members · ${JOIN_MODES[c.joinMode] || ''}`)),
         h('span.sc-req-acts',
           button(full ? 'Full' : 'Join', { kind: 'yellow', small: true, testid: 'clan-invite-join', disabled: full, onClick: () => answer(inv, true, el) }),
           button('Decline', { kind: 'ghost', small: true, testid: 'clan-invite-decline', onClick: () => answer(inv, false, el) })));

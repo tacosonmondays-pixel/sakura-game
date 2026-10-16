@@ -608,7 +608,9 @@ try {
   await go(C, '#/messages?tab=requests');
   await closeIntro(C);
   await wait(C, '[data-testid="clan-invite-row"]', { timeout: 10000 });
-  check(/Aiko invited you/.test(await text(C, '[data-testid="clan-invite-row"]')), 'clan invite: the card says who invited her');
+  // (Aiko's tag chip sits between their name and "invited you")
+  check(/Aiko\s*(?:DEV|ALPHA|BETA)?\s*invited you/.test(await text(C, '[data-testid="clan-invite-row"]')), 'clan invite: the card says who invited them');
+  check(await until(C, () => document.querySelector('[data-testid="clan-invite-row"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha', null, 12000), 'tags: the clan invite card shows Aiko\'s ALPHA chip next to their name');
   check(await until(C, () => Number(document.querySelector('[data-testid="msg-tab-requests"] .sc-pill')?.textContent || 0) >= 1, null, 12000), 'clan invite: the Requests tab counts it');
   await shot(C, 'clan-invite-requests');
   await tap(C, '[data-testid="clan-invite-join"]');
