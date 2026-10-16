@@ -1,6 +1,6 @@
 // Achievements expansion e2e (docs/specs/ACHIEVEMENTS.md §7.3): the tab on a seeded late save, Claim all through the
 // special fanfare into the rewards modal, Open N gear boxes → the summary, a reload keeps the claims, the Honor
-// Ribbon Case (32 cells at launch) and its detail, a new save's locked and secret rows, the unlock toast AFTER a
+// Ribbon Case (32 cells at launch, 33 with social) and its detail, a new save's locked and secret rows, the unlock toast AFTER a
 // battle's results (never during it) or over the recruit results / a modal, and the effect budgets (≤ 3 live specials and ≤ 6 running infinite animations
 // on the list, 0 under Reduce Motion, no horizontal overflow). Screenshots: e2e/out/achievements/.
 //
@@ -136,7 +136,8 @@ async function runViewport(vp) {
   await page.click('[data-testid="ach-claim-all"]');
   const ff = await page.waitForSelector('[data-testid="ach-fanfare"]', { timeout: 10000 }).catch(() => null);
   check(!!ff, '2: Claim all opens the special fanfare first');
-  await page.waitForTimeout(700);
+  // the governor runs on IntersectionObserver callbacks: wait for it (a loaded machine delays them)
+  await page.waitForFunction(() => document.querySelectorAll('.ach-fanfare .rb.live').length === 1, null, { timeout: 3000 }).catch(() => null);
   const ffLive = await page.evaluate(() => document.querySelectorAll('.ach-fanfare .rb.live').length);
   const listLive = await page.evaluate(() => document.querySelectorAll('.ach-list .rb.live').length);
   check(ffLive === 1 && listLive === 0, `8: fanfare: 1 large live ribbon, the list drops to 0 (${ffLive}, ${listLive})`);
@@ -169,12 +170,12 @@ async function runViewport(vp) {
   const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, disabled: document.querySelector('[data-testid="ach-claim-all"]')?.disabled }));
   check(after.n === claimed && after.disabled === true, `4: after a reload the claims stay (${after.n}) and Claim all is disabled (${after.disabled})`);
 
-  // ---- 5. the Case: 32 cells, the detail ----
+  // ---- 5. the Case: 33 cells, the detail ----
   await page.click('[data-testid="ach-case"]');
   await page.waitForSelector('[data-testid="ach-case-view"]', { timeout: 10000 });
   await page.waitForTimeout(800);
   const cells = await page.$$eval('[data-testid^="ach-cell-"]', (els) => els.length);
-  check(cells === 32, `5: the Case has 32 cells at launch (${cells})`);
+  check(cells === 33, `5: the Case has 33 cells (32 at launch + Kind Heart with social) (${cells})`);
   await page.click('[data-testid="ach-cell-a_ur_1"]');
   await page.waitForTimeout(700);
   const det = await page.evaluate(() => !!document.querySelector('.ach-detail-body .ach-detail-name'));

@@ -6,10 +6,10 @@ import { achievementList } from '../../src/systems/missions.js';
 import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeText, rowState } from '../../src/ui/screens/achievements/model.js';
 
 describe('achievement rows', () => {
-  it('116 defs → 69 rows: 24 series rows + 45 single rows', () => {
+  it('118 defs → 70 rows: 25 series rows + 45 single rows (launch 116 → 69, + the donation series)', () => {
     const rows = buildRows(achievementList(createProfile()));
-    expect(rows).toHaveLength(69);
-    expect(rows.filter((r) => r.steps)).toHaveLength(24);
+    expect(rows).toHaveLength(70);
+    expect(rows.filter((r) => r.steps)).toHaveLength(25);
   });
 
   it('a series shows its lowest unclaimed step and advances in place', () => {
@@ -42,9 +42,9 @@ describe('achievement rows', () => {
     expect(rowState({ hidden: true, met: false })).toBe('secret');
     const list = achievementList(createProfile());
     const stats = categoryStats(list);
-    expect(stats.all.total).toBe(116);
+    expect(stats.all.total).toBe(118);
     expect([stats.campaign.total, stats.assault.total, stats.battle.total, stats.freeplay.total, stats.together.total, stats.students.total,
-      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total]).toEqual([24, 15, 9, 7, 4, 20, 9, 10, 12, 6]);
+      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total]).toEqual([24, 15, 9, 7, 6, 20, 9, 10, 12, 6]);
     expect(visibleCategories(list).map((c) => c.id)).not.toContain('codex');
     expect([badgeText(3), badgeText(12)]).toEqual(['3', '9+']);
   });

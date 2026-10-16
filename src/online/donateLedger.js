@@ -20,6 +20,7 @@
 import { addItems, consumeItems, itemCount } from '../systems/inventory.js';
 import { getItem } from '../data/items.js';
 import { ESCROW_GIVE_UP_DAYS } from './donateRules.js';
+import { track } from '../systems/missions.js';
 import { newSocial, ESCROW_MAX, DONATED_KEEP, CLAIMED_KEEP, isKey } from './socialSave.js';
 
 export { newSocial, cleanSocial } from './socialSave.js';
@@ -82,6 +83,7 @@ export function finalizeDonation(profile, key, { coins = 0 } = {}) {
   const c = Math.max(0, Math.floor(Number(coins) || 0));
   if (c) addItems(profile, [{ id: 'coins', count: c }]);
   s.donated.push(key);
+  track(profile, 'donate', 1); // achievements (Lending a Hand, Generous Heart): once per finalized key
   if (s.donated.length > DONATED_KEEP) s.donated.splice(0, s.donated.length - DONATED_KEEP);
   return true;
 }

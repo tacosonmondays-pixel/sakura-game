@@ -201,7 +201,7 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     const p = veteran();
     expect(achievementList(p).some((x) => x.id === 'a_mr_800')).toBe(false);
     expect(achievementList(p, { includeHidden: true }).find((x) => x.id === 'a_mr_800')).toMatchObject({ live: false, claimable: false });
-    expect(claimAchievement(p, 'a_donate_1').error).toBe('notLive');
+    expect(claimAchievement(p, 'a_rules_15').error).toBe('notLive');
     expect(achievementList(p, { v2: false })).toHaveLength(30);
     p.missions.counters.login = 7;
     expect(claimAchievement(p, 'a_login_7', { v2: false }).error).toBe('notLive');
@@ -286,16 +286,16 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (116 at launch)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (118 with social)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(116);
+    expect(live).toHaveLength(118);
     expect(row.gems).toBe(sum('gems'));
     expect(row.gems).toBe(13000);
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
     expect(row.tickets).toBe(23);
-    expect(row.note).toBe('116 achievements');
+    expect(row.note).toBe('118 achievements');
   });
 });
 

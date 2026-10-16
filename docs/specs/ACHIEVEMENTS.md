@@ -274,8 +274,8 @@ The "Tab total" column counts launch rows only. Co-op & Clan shows 4 because its
 | `a_coop_10` | Team Spirit | Win 10 co-op battles. | `counters.coopWin` ≥ 10 | 2 | **50 gems** + **Ornate box** | — | Live, new counter |
 | `a_coop_50` | Better Together | Win 50 co-op battles. | `counters.coopWin` ≥ 50 | 3 | **100 gems** + **Ornate box** ×2 | HR-16 Friendship Knot Ribbon (plain)<br>Title *Team Player* (std) | Live, new counter |
 | `a_clanboss_10` | Clan Boss Challenger | Battle your clan's boss 10 times. | `counters.clanBossHit` ≥ 10 | 0 | **Ornate box** ×2 | — | Live, new counter |
-| `a_donate_1` | Lending a Hand | Send a clanmate a piece of gear they asked for. | `counters.donate` ≥ 1 | 0 | **Ornate box** | — | Social |
-| `a_donate_10` | Generous Heart | Help clanmates with 10 gear donations. | `counters.donate` ≥ 10 | 0 | **Ornate box** ×2 | HR-18 Kind Heart Ribbon (plain)<br>Title *Helping Hands* (std) | Social |
+| `a_donate_1` | Lending a Hand | Send a clanmate materials they asked for in Clan Requests. | `counters.donate` ≥ 1 | 0 | **Ornate box** | — | Social |
+| `a_donate_10` | Generous Heart | Help clanmates with 10 donations in Clan Requests. | `counters.donate` ≥ 10 | 0 | **Ornate box** ×2 | HR-18 Kind Heart Ribbon (plain)<br>Title *Helping Hands* (std) | Social |
 
 #### Students (12 new)
 

@@ -72,6 +72,8 @@ function answer(call) {
       return single ? clanRow : [clanRow];
     case 'clan_codes':
       return { code: 'K7Q2ZP' };
+    case 'player_tags':
+      return [{ user_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', staff: 'dev', tester: 'alpha' }, { user_id: UID, staff: null, tester: 'alpha' }];
     case 'clan_requests':
       return [{ clan_id: CID, user_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', created_at: '2026-10-08T00:00:00Z', profiles: { name: 'Dee', level: 2, avatar: 'yuki' } }];
     case 'messages':
@@ -126,12 +128,15 @@ function rpcAnswer(fn) {
   }[fn] ?? null;
 }
 
+// [tags] a failing table read: { table: { error, status } } (e.g. the table does not exist yet)
+const tableFail = {};
+
 function builder(table) {
   const call = { table, ops: [] };
   rec.from.push(call);
   const proxy = new Proxy({}, {
     get(_, prop) {
-      if (prop === 'then') return (ok, bad) => Promise.resolve({ data: answer(call), error: null }).then(ok, bad);
+      if (prop === 'then') return (ok, bad) => Promise.resolve(tableFail[table] ? { data: null, ...tableFail[table] } : { data: answer(call), error: null }).then(ok, bad);
       return (...args) => {
         call.ops.push([prop, ...args]);
         return proxy;
@@ -300,6 +305,9 @@ beforeAll(async () => {
   so.claim = await adapter.claimDonations(KEY1);
   so.offInbox = adapter.subscribeInbox(() => {});
   so.offDonations = adapter.subscribeDonations(CID, () => {});
+  // [tags] one batched read (non-uuid ids never reach the uuid filter)
+  results.tags = await adapter.getTags([BID, UID, 'local-abc123', BID, null]);
+  results.noTags = await adapter.getTags(['local-only']);
   await new Promise((r) => setTimeout(r, 10));
 });
 
@@ -325,7 +333,7 @@ describe('supabase adapter ↔ migration', () => {
       expect(SELECTABLE.has(call.table), `${where}: select on ${call.table} is granted`).toBe(true);
       for (const [op, ...args] of call.ops) {
         if (op === 'select' && args[0]) checkColumns(call.table, parseSelect(args[0]), where);
-        if (op === 'eq' || op === 'order') checkColumns(call.table, [args[0]], where);
+        if (op === 'eq' || op === 'order' || op === 'in') checkColumns(call.table, [args[0]], where);
         if (op === 'insert' || op === 'upsert' || op === 'update') {
           checkColumns(call.table, Object.keys(args[0]), where);
           // column-level grants: a write naming any other column is refused by Postgres
@@ -508,5 +516,28 @@ describe('supabase adapter: the social update', () => {
     rpcFail.donate = { error: { message: '<html>502 Bad Gateway</html>' }, status: 502 };
     await expect(adapter.donate(RID, 1, KEY1)).rejects.toMatchObject({ definitive: false });
     for (const k of Object.keys(rpcFail)) delete rpcFail[k];
+  });
+});
+
+describe('supabase adapter: player tags', () => {
+  it('one select of granted columns for the uuids asked (deduped, no local ids), mapped to { userId, staff, tester }', () => {
+    const calls = rec.from.filter((c) => c.table === 'player_tags');
+    expect(calls).toHaveLength(1); // the all-local batch made no request
+    expect(calls[0].ops).toEqual([['select', 'user_id,staff,tester'], ['in', 'user_id', [BID, UID]]]);
+    expect(results.tags).toEqual([{ userId: BID, staff: 'dev', tester: 'alpha' }, { userId: UID, staff: null, tester: 'alpha' }]);
+    expect(results.noTags).toEqual([]);
+  });
+
+  it('no table yet (the owner has not run the SQL): needs_update; other failures keep their own code', async () => {
+    for (const fail of [
+      { error: { code: 'PGRST205', message: 'Could not find the table \'public.player_tags\' in the schema cache' }, status: 404 },
+      { error: { code: '42P01', message: 'relation "public.player_tags" does not exist' }, status: 400 },
+    ]) {
+      tableFail.player_tags = fail;
+      await expect(adapter.getTags([BID])).rejects.toMatchObject({ code: 'needs_update' });
+    }
+    tableFail.player_tags = { error: { message: 'TypeError: Failed to fetch' }, status: 0 };
+    await expect(adapter.getTags([BID])).rejects.not.toMatchObject({ code: 'needs_update' });
+    delete tableFail.player_tags;
   });
 });

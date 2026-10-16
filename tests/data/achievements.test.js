@@ -18,16 +18,22 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('132 rows: the shipped 30 (first, in their order) + 102 new; 116 live at launch', () => {
+  it('132 rows: the shipped 30 (first, in their order) + 102 new; 116 live at launch + 2 with social = 118', () => {
     expect(ACHIEVEMENTS).toHaveLength(132);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
     expect(NEW).toHaveLength(102);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(116);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(118);
+    expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
+    // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
+    for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
+      expect(a.desc, a.id).toMatch(/Clan Requests/);
+      expect(a.desc, a.id).not.toMatch(/\bgear\b/i);
+    }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
-    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: false, codex: false, later: false });
+    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: false, later: false });
   });
 
   it('ids are unique, ^a_[a-z0-9_]+$ and at most 24 characters (valid title ids and ach: pins)', () => {
@@ -114,8 +120,8 @@ describe('rewards', () => {
 });
 
 describe('the frozen ledger (shipped rewards never change)', () => {
-  it('every shipped and launch id is in the ledger with identical rewards', () => {
-    for (const a of ACHIEVEMENTS.filter((x) => x.shipped || x.wave === 'launch')) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
+  it('every shipped id (the shipped 30, launch and social) is in the ledger with identical rewards', () => {
+    for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x))) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
   });
 
   it('no ledger id was removed or renamed', () => {
@@ -170,11 +176,13 @@ describe('cosmetics', () => {
     }
   });
 
-  it('launch counts: 32 ribbons (12 on shipped rows) and 37 titles (9 on shipped rows + 2 freeplay)', () => {
+  it('in this build: 33 ribbons and 38 titles (launch 32 / 37 + Kind Heart and Helping Hands with social)', () => {
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
-    expect(live.filter((a) => a.honor)).toHaveLength(32);
+    expect(live.filter((a) => a.honor)).toHaveLength(33);
+    expect(live.filter((a) => a.honor && a.wave === 'launch')).toHaveLength(32);
     expect(live.filter((a) => a.honor && a.shipped)).toHaveLength(12);
-    expect(live.filter((a) => a.title).length + 2).toBe(37);
+    expect(live.filter((a) => a.title).length + 2).toBe(38);
+    expect(live.filter((a) => a.title && a.wave === 'launch').length + 2).toBe(37);
     expect(live.filter((a) => a.title && a.shipped)).toHaveLength(9);
   });
 });

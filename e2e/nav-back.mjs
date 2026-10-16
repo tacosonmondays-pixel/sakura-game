@@ -142,6 +142,10 @@ async function freshLobby(name, { cleared = null } = {}) {
   if (cleared) {
     await page.reload({ waitUntil: 'load' });
     await lobby();
+    // the reload aborts the first page's lobby model textures mid-decode: those errors belong to a page that is
+    // gone (same rule as e2e/profile.mjs); every other error still counts
+    const gone = `[${name} console] THREE.GLTFLoader: Couldn't load texture blob:`;
+    for (let i = errors.length - 1; i >= 0; i--) if (errors[i].startsWith(gone)) errors.splice(i, 1);
   }
   await dismissGift(page);
   return page;

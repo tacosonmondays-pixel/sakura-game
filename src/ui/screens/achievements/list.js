@@ -12,7 +12,7 @@ import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
 import { formatNumber } from '../../../core/util.js';
 import { achievementList } from '../../../systems/missions.js';
-import { ownedRibbons, liveRibbons, ownedTitles, liveTitles, newTitleCount, newHonorCount } from '../../../systems/honors.js';
+import { ownedRibbons, liveRibbons, ownedTitles, visibleTitles, newTitleCount, newHonorCount } from '../../../systems/honors.js';
 import { featureStage } from '../../../systems/story.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
 import { tile } from '../stage.js';
@@ -44,6 +44,7 @@ function goRoute(a) {
     case 'counter':
       if (a.param === 'coopWin') return ['coop', {}];
       if (a.param === 'clanBossHit') return ['clan', { tab: 'boss' }];
+      if (a.param === 'donate') return ['clan', {}];
       if (a.param === 'dailyDone') return ['commissions', { tab: 'daily' }];
       if (a.param === 'weeklyDone') return ['commissions', { tab: 'weekly' }];
       if (a.param === 'eventWin') return ['bounty', {}];
@@ -266,7 +267,7 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
         small ? null : h('span', 'Ribbon Case'), h('small', `${ribbons.length}/${nRib}`),
         newHonorCount(profile) ? h('i.ach-dot') : null),
       small ? null : h('button.ach-titleschip', { 'data-testid': 'ach-titles', onclick: () => titlesSheet({ onClose: redraw }) },
-        titlePlate('a_gold_40', { small: true, text: 'Titles' }), h('small', `${titlesN}/${liveTitles().length}`), newT ? h('i.ach-dot.pink') : null),
+        titlePlate('a_gold_40', { small: true, text: 'Titles' }), h('small', `${titlesN}/${visibleTitles(profile).length}`), newT ? h('i.ach-dot.pink') : null),
       button(readyAll ? 'Claim all' : 'Claim all', { kind: 'yellow', testid: 'ach-claim-all', disabled: !readyAll, onClick: () => claimAll({ onDone: claimed }) }),
     );
     const claimAllBtn = head.querySelector('[data-testid="ach-claim-all"]');

@@ -25,12 +25,12 @@ describe('patch notes data', () => {
     expect(dates).toEqual([...dates].sort().reverse());
   });
 
-  it('v0.1.30 counts match what players can actually see and earn', () => {
+  it('v0.1.30 counts match what players could see and earn in v0.1.30 (the launch wave; later waves add rows)', () => {
     const text = PATCH_NOTES.find((n) => n.id === 'v0.1.30').added.join('\n');
     const titles = text.match(/(\d+) titles/);
-    if (titles) expect(Number(titles[1])).toBe(liveTitles().length);
+    if (titles) expect(Number(titles[1])).toBe(liveTitles().filter((t) => t.wave === 'launch').length);
     const goals = text.match(/(\d+) goals/);
-    if (goals) expect(Number(goals[1])).toBe(ACHIEVEMENTS.filter((a) => achievementLive(a)).length);
+    if (goals) expect(Number(goals[1])).toBe(ACHIEVEMENTS.filter((a) => achievementLive(a) && (a.shipped || a.wave === 'launch')).length);
   });
 });
 

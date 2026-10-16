@@ -14,9 +14,12 @@ export { NO_COSMETIC, killsAll };
 const TIER = { standard: 'std', gold: 'gold', prism: 'prism' };
 const live = (id) => !ACHIEVEMENT_MAP[id] || achievementLive(ACHIEVEMENT_MAP[id]);
 
-/** { [titleId]: { text, tier: 'std'|'gold'|'prism', how } } for every title this build contains. */
+/**
+ * { [titleId]: { text, tier: 'std'|'gold'|'prism', how, tag? } } for every title this build contains. `tag`: a
+ * player-tag title (owned from the save's 'tag:' marks, listed and counted only for its owners; titleChoices()).
+ */
 export const TITLE_TABLE = Object.freeze(Object.fromEntries(TITLES.filter((t) => live(t.id)).map((t) => [t.id, Object.freeze({
-  text: t.name, tier: TIER[t.plate] || 'std', how: ACHIEVEMENT_MAP[t.id]?.desc || t.source || '',
+  text: t.name, tier: TIER[t.plate] || 'std', how: t.how || ACHIEVEMENT_MAP[t.id]?.desc || t.source || '', ...(t.tag ? { tag: t.tag } : {}),
 })])));
 
 /** Honor Ribbons this build contains (the "n / total" on screens). */

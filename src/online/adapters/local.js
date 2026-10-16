@@ -34,14 +34,29 @@ export function socialFeatureFlag(search = globalThis.location?.search || '') {
   return new URLSearchParams(search).get('social') !== '0';
 }
 
+/** `?profile=0` simulates the project before the profile SQL is pasted (`?social=0` implies it). */
+export function profileFeatureFlag(search = globalThis.location?.search || '') {
+  return socialFeatureFlag(search) && new URLSearchParams(search).get('profile') !== '0';
+}
+
+/** `?invites=0`: the live project before the owner runs the clan invites migration (needs_update). */
+export function invitesFeatureFlag(search = globalThis.location?.search || '') {
+  return new URLSearchParams(search).get('invites') !== '0';
+}
+
+/** `?tags=0`: the live project before the owner runs the player tags SQL (no table: no chips). */
+export function tagsFeatureFlag(search = globalThis.location?.search || '') {
+  return new URLSearchParams(search).get('tags') !== '0';
+}
+
 /**
- * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean } }} [env]
+ * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean, profile?: boolean, invites?: boolean, tags?: boolean } }} [env]
  */
 export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
-  const features = env.features || { social: socialFeatureFlag() };
+  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag(), tags: tagsFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -115,6 +130,15 @@ export function createLocalAdapter(env = {}) {
     },
     async touch() {
       return uid ? db.touch(uid) : false;
+    },
+
+    // [tags] public player tags
+    async getTags(ids) {
+      return db.getTags(me(), ids);
+    },
+    /** Tests only (never called by the game): the owner's SQL editor setting a player's tags. */
+    _setTags(userId, patch) {
+      return db._setTags(userId, patch);
     },
 
     // chat
@@ -211,6 +235,34 @@ export function createLocalAdapter(env = {}) {
       return db.claimBossReward(me(), week);
     },
 
+    // ---- clan invites + the daily recruiting post (localClanInvites.js) ------------------------
+    async invitesProbe() {
+      return db.invitesProbe();
+    },
+    async clanInvites() {
+      return db.clanInvites(me());
+    },
+    async sendClanInvite(userId) {
+      return db.sendClanInvite(me(), userId);
+    },
+    async answerClanInvite(inviteId, accept) {
+      const r = db.answerClanInvite(me(), inviteId, accept);
+      // the sender can't invite to that clan any more (left, or no longer allowed), or a block stands between
+      // the two: one answer for all of them (a block is never shown)
+      if (r?.error) throw Object.assign(new Error('not_found: That invite is gone.'), { code: 'not_found' });
+      return r;
+    },
+    async recruitState() {
+      return db.recruitState(me());
+    },
+    async postRecruit() {
+      return db.postRecruit(me());
+    },
+    /** A clan invite arrived for this tab's player (BroadcastChannel; the Supabase adapter has none: the hub polls). */
+    subscribeInvites(cb) {
+      return on(`invites:${me()}`, cb);
+    },
+
     // ---- [social] DMs, friends, blocks, reports, co-op invites, clan donations (localSocial.js)
     async socialProbe() {
       return db.socialProbe();
@@ -220,6 +272,25 @@ export function createLocalAdapter(env = {}) {
     },
     async playerCard(userId) {
       return db.playerCard(me(), userId);
+    },
+    // [profile]
+    async profileProbe() {
+      return db.profileProbe();
+    },
+    async profileView(userId) {
+      return db.profileView(me(), userId);
+    },
+    async myProfileCard() {
+      return db.myProfileCard(me());
+    },
+    async setProfileCard(card, hash) {
+      return db.setProfileCard(me(), card, hash);
+    },
+    async setProfileBio(bio) {
+      return db.setProfileBio(me(), bio);
+    },
+    async setProfileVisibility(value) {
+      return db.setProfileVisibility(me(), value);
     },
     async setPrivacy(value) {
       return db.setPrivacy(me(), value);

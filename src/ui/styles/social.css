@@ -81,6 +81,8 @@ body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(96px + va
 .sc-card-x { font-size: 1.5rem; line-height: 1; display: grid; place-items: center; }
 .sc-card { display: flex; flex-direction: column; gap: 12px; }
 .sc-card-head { display: flex; gap: 12px; align-items: center; }
+.sc-card-av { flex: none; border: 0; padding: 0; background: none; border-radius: 50%; line-height: 0; }
+button.sc-card-av { cursor: pointer; } /* [profile] tap = View profile (a plain picture before the profile update) */
 .sc-card-av .ol-avatar { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--pink), 0 4px 12px rgba(29,78,137,0.25); }
 .sc-card-id { min-width: 0; }
 .sc-card-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -141,6 +143,10 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
 .sc-row-top time { margin-left: auto; color: var(--muted); font-size: 0.68rem; font-weight: 700; flex: none; }
 .sc-row-sub { color: var(--muted); font-size: 0.76rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-row.unread .sc-row-sub { color: var(--ink); }
+/* friends and friend requests: the level sits on the second line, so the top line is the name + one tag chip */
+.sc-row-sub .ol-lv { height: 16px; margin: 0 6px 0 2px; font-size: 0.62rem; vertical-align: 1px; }
+/* a request row is as tall as its Accept / Decline pair: "Lv 3 · used your friend code" may take two lines */
+.sc-req .sc-row-sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
 .sc-empty { padding: 18px 10px; }
 .sc-empty p { margin: 0; font-size: 0.8rem; }
 .sc-sec { font-size: 0.7rem; font-weight: 900; font-style: italic; color: var(--blue); letter-spacing: 0.04em; text-transform: uppercase; margin: 8px 6px 2px; }
@@ -352,3 +358,13 @@ html[data-reduce-motion] .sc-toast, html[data-reduce-motion] .sc-req-card, html[
 
 /* [social] Add friend (off) next to "Add with a friend code" on a player card */
 .sc-card-friend-row { align-self: stretch; }
+
+/* ---------- Clan invites (Messages → Requests, the player card, a conversation's menu) ---------- */
+.sc-clan-inv .ol-emblem { flex: none; }
+.sc-clan-inv .ol-tag { font-size: 0.78rem; }
+.sc-card-clan-inv:empty, .sc-menu-slot:empty { display: none; }
+/* the clan's name is never cut: it wraps (names are up to 20 characters; one long word breaks anywhere) */
+.sc-clan-inv .sc-row-top b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2; }
+/* (a clan invite's line wraps freely: not the friend request rows' two-line clamp) */
+.sc-clan-inv .sc-row-sub { display: block; -webkit-line-clamp: unset; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+.sc-clan-inv .sc-row-sub .tg-chips { margin-left: 4px; vertical-align: 1px; }

@@ -8,6 +8,8 @@ import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
 import { COOP_NET } from '../../data/coop.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
+/** An account id (a uuid): anything else in a uuid filter would make Postgres refuse the whole request. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const tsOrNull = (v) => (v ? new Date(v).getTime() : null);
 
 // ---- [social] row / json mappers (the same shapes the local adapter returns) ---------------------
@@ -239,6 +241,29 @@ export function createSupabaseAdapter({ url, key }) {
       return true;
     },
 
+    // ---- [tags] public player tags (20261017000000_player_tags.sql) ---------------------------
+    /**
+     * One select for up to 100 accounts: [{ userId, staff, tester }] (untagged players are simply
+     * not in the table). No table yet (the owner has not run the SQL: PGRST205 / 42P01 / 404) →
+     * needs_update, which src/online/tags.js reads as "no tags this session".
+     */
+    async getTags(ids) {
+      const list = [...new Set((Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && UUID_RE.test(id)))].slice(0, 100);
+      if (!list.length) return [];
+      const c = await sb();
+      let res;
+      try {
+        res = await c.from('player_tags').select('user_id,staff,tester').in('user_id', list);
+      } catch (e) {
+        throw toOnlineError(e);
+      }
+      if (res?.error) {
+        if (isMissingFeature(res.error) || res.status === 404) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+        throw toOnlineError(res.error);
+      }
+      return (res?.data || []).map((r) => ({ userId: r.user_id, staff: r.staff ?? null, tester: r.tester ?? null }));
+    },
+
     // ---- chat -----------------------------------------------------------------------------
     async history(channel, limit = 50) {
       const c = await sb();
@@ -396,6 +421,38 @@ export function createSupabaseAdapter({ url, key }) {
         return e?.code === 'needs_update' ? 'needs_update' : 'offline';
       }
     },
+
+    // ---- supabase/migrations/20261018000000_clan_invites.sql: clan invites + the recruiting post --
+    /** 'ready' | 'needs_update' | 'offline': is the clan invites migration installed? */
+    async invitesProbe() {
+      try {
+        await srpc('clan_invites_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async clanInvites() {
+      return ((await srpc('list_clan_invites')) || []).map((i) => ({ ...i, id: Number(i.id), at: ts(i.at), expiresAt: ts(i.expiresAt) }));
+    },
+    async sendClanInvite(userId) {
+      return srpc('send_clan_invite', { p_user: userId });
+    },
+    async answerClanInvite(inviteId, accept) {
+      const r = await srpc('answer_clan_invite', { p_id: Number(inviteId), p_accept: !!accept });
+      // its sender can't invite to that clan any more (left, or no longer allowed), or a block stands between
+      // the two: the invite was removed (returned, so the removal sticks); one answer for all (a block never shows)
+      if (r?.error) throw new OnlineError('not_found', 'That invite is gone.', { definitive: true });
+      return r;
+    },
+    async recruitState() {
+      const r = await srpc('recruit_state');
+      return { can: !!r?.can, why: r?.why || null, nextAt: tsOrNull(r?.nextAt) };
+    },
+    async postRecruit() {
+      return mapMessage(await srpc('post_clan_recruit'));
+    },
+
     async socialSummary() {
       const r = await srpc('social_summary');
       return { unreadDms: Number(r.unreadDms) || 0, friendRequests: Number(r.friendRequests) || 0, donationsReady: Number(r.donationsReady) || 0, privacy: r.privacy };
@@ -406,6 +463,37 @@ export function createSupabaseAdapter({ url, key }) {
     },
     async setPrivacy(value) {
       await srpc('set_dm_privacy', { p_value: value });
+      return true;
+    },
+
+    // ---- [profile] supabase/migrations/20261016000000_profile.sql ----------------------------
+    /** 'ready' | 'needs_update' | 'offline': is the profile migration installed? */
+    async profileProbe() {
+      try {
+        await srpc('profile_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async profileView(userId) {
+      const r = await srpc('profile_view', { p_user: userId });
+      const own = r.own ? { ...r.own, bioLockedUntil: tsOrNull(r.own.bioLockedUntil), updatedAt: tsOrNull(r.own.updatedAt) } : null;
+      return { ...r, lastActive: tsOrNull(r.lastActive), requestId: r.requestId ?? null, threadId: r.threadId ?? null, own };
+    },
+    async myProfileCard() {
+      const r = await srpc('my_profile_card');
+      return { ...r, bioLockedUntil: tsOrNull(r.bioLockedUntil), updatedAt: tsOrNull(r.updatedAt) };
+    },
+    async setProfileCard(card, hash) {
+      return srpc('set_profile_card', { p_card: card, p_hash: hash });
+    },
+    async setProfileBio(bio) {
+      const r = await srpc('set_profile_bio', { p_bio: String(bio ?? '') });
+      return { ...r, bioLockedUntil: tsOrNull(r.bioLockedUntil), updatedAt: tsOrNull(r.updatedAt) };
+    },
+    async setProfileVisibility(value) {
+      await srpc('set_profile_visibility', { p_value: value });
       return true;
     },
     async myFriendCode() {

@@ -12,6 +12,8 @@ import { navigate, currentRoute } from '../router.js';
 import { closeAllModals } from '../components.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { DIFFICULTIES } from '../../data/types.js';
+import { store } from '../../core/store.js';
+import { setSelfId, loadTags, recordTagMarks } from '../../online/tags.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PENDING_KEY = 'ss-social-pending-invites';
@@ -23,7 +25,7 @@ const state = {
   started: false,
   starting: null,
   status: 'unknown', // 'unknown' (never went online) | 'ready' | 'needs_update' | 'offline'
-  badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0 },
+  badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0, clanInvites: 0 },
   privacy: null,
   blocked: new Set(),
   blockedNames: new Map(), // uid → every name this tab saw them use (old clan notices without `about` that name them are hidden)
@@ -53,9 +55,9 @@ export const hub = {
   get badges() {
     return { ...state.badges };
   },
-  /** Unread DMs + friend requests: the lobby bubble's number. */
+  /** Unread DMs + friend requests + clan invites: the lobby bubble's number. */
   get count() {
-    return state.badges.unreadDms + state.badges.friendRequests;
+    return state.badges.unreadDms + state.badges.friendRequests + state.badges.clanInvites;
   },
   get privacy() {
     return state.privacy;
@@ -169,6 +171,8 @@ export function startSocialHub({ force = false } = {}) {
       setStatus('offline');
       return state.status;
     }
+    // [tags] once per tab, whatever the social update's state (a separate table)
+    syncOwnTags(backend);
     const st = await backend.socialStatus();
     setStatus(st);
     state.started = true;
@@ -185,6 +189,22 @@ export function startSocialHub({ force = false } = {}) {
   return state.starting;
 }
 
+/**
+ * [tags] This account's own tags, once per tab: the own profile header shows them, and the save keeps
+ * them as missions.counters marks ('tag:dev' …) that unlock the tag titles. Saved through the store
+ * (never a raw storage write); the existing new-title dot announces a new one. Marks are only added.
+ * Never from the browser-local stand-in server ("Online features offline": no project configured, or
+ * Supabase could not load): its tags are made up in this browser, and a mark is never taken back.
+ */
+export async function syncOwnTags(backend) {
+  const uid = backend?.uid;
+  if (!uid || backend.offline) return null;
+  setSelfId(uid);
+  const tags = await loadTags(uid).catch(() => null);
+  if (tags && store.profile && recordTagMarks(store.profile, tags)) store.commit('tags');
+  return tags;
+}
+
 async function recheck() {
   const backend = getBackend();
   const st = await backend.recheckSocial().catch(() => 'offline');
@@ -199,9 +219,19 @@ function goLive(backend) {
   refresh();
   refreshBlocked();
   state.offInbox?.();
-  state.offInbox = backend.subscribeInbox((e) => onInbox(e));
+  const offDms = backend.subscribeInbox((e) => onInbox(e));
+  // [clan invites] a new invite (local test mode delivers it live; online the 5-minute refresh does)
+  const offInvites = backend.subscribeInvites?.(() => refreshSoon()) || (() => {});
+  state.offInbox = () => {
+    offDms();
+    offInvites();
+  };
   clearInterval(state.timer);
-  state.timer = setInterval(() => refresh(), REFRESH_MS);
+  state.timer = setInterval(() => {
+    refresh();
+    // [profile] the card follows the save (throttled to 10 min inside the sync)
+    import('../../online/profileSync.js').then((m) => m.syncProfileSoon('tick')).catch(() => {});
+  }, REFRESH_MS);
   if (typeof document !== 'undefined' && !goLive.bound) {
     goLive.bound = true;
     document.addEventListener('visibilitychange', () => {
@@ -217,8 +247,11 @@ function goLive(backend) {
 export async function refresh() {
   if (state.status !== 'ready') return state.badges;
   try {
-    const s = await getBackend().socialSummary();
-    state.badges = { unreadDms: s.unreadDms, friendRequests: s.friendRequests, donationsReady: s.donationsReady };
+    const b = getBackend();
+    const s = await b.socialSummary();
+    // [clan invites] counted from the list (the social summary predates them); 0 before that server update
+    const clanInvites = await b.invitesStatus().then((st) => (st === 'ready' ? b.clanInvites().then((l) => l.length) : 0)).catch(() => 0);
+    state.badges = { unreadDms: s.unreadDms, friendRequests: s.friendRequests, donationsReady: s.donationsReady, clanInvites };
     state.privacy = s.privacy || state.privacy;
     emitter.emit('badges', { ...state.badges });
   } catch (e) {

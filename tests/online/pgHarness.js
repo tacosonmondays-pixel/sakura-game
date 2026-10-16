@@ -10,6 +10,40 @@ export const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 export const MIGRATION_FILES = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
 export const MIGRATION_SQL = MIGRATION_FILES.map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8')).join('\n');
 
+/** One migration file's text. */
+export const migrationText = (file) => readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+/** Every migration before `file` (a project where the owner has not pasted `file` yet). */
+export const migrationsBefore = (file) => MIGRATION_FILES.filter((f) => f < file).map(migrationText).join('\n');
+
+/**
+ * What the client roles may do with each public table: { anon, authenticated } → { table: privileges }.
+ * Table-level privileges (SELECT, INSERT, …) plus 'insert(cols)' / 'update(cols)' for column grants.
+ * Compared against an allow-list by the tests (tagsSchema.test.js), so a new table that forgets to
+ * revoke Supabase's default grants (or grants too much) fails at once.
+ */
+export async function tableAcl(db) {
+  const out = { anon: {}, authenticated: {} };
+  const { rows } = await db.query(`select c.relname as t from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'p') order by 1`);
+  for (const role of Object.keys(out)) {
+    for (const { t } of rows) {
+      const privs = [];
+      for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) {
+        const [{ ok }] = (await db.query(`select has_table_privilege($1, $2, $3) as ok`, [role, `public.${t}`, p])).rows;
+        if (ok) privs.push(p);
+      }
+      for (const p of ['INSERT', 'UPDATE']) {
+        if (privs.includes(p)) continue;
+        const cols = (await db.query(`select a.attname as c from pg_attribute a where a.attrelid = $1::regclass and a.attnum > 0 and not a.attisdropped
+          and has_column_privilege($2, a.attrelid, a.attnum, $3) order by a.attnum`, [`public.${t}`, role, p])).rows.map((r) => r.c);
+        if (cols.length) privs.push(`${p.toLowerCase()}(${cols.join(',')})`);
+      }
+      if (privs.length) out[role][t] = privs;
+    }
+  }
+  return out;
+}
+
 let PGliteCtor = null;
 try {
   ({ PGlite: PGliteCtor } = await import('@electric-sql/pglite'));

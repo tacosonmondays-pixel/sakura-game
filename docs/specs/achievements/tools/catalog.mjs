@@ -107,8 +107,8 @@ export const CATALOG = [
   A('together', 'a_coop_10', 'Team Spirit', 'Win 10 co-op battles.', 'counter', 'coopWin', 10, 2, [g(50), O()], 'NEW', { series: 'coop' }),
   A('together', 'a_coop_50', 'Better Together', 'Win 50 co-op battles.', 'counter', 'coopWin', 50, 3, [g(100), O(2)], 'NEW', { series: 'coop', honor: hr(16, 'Friendship Knot Ribbon', 'plain', 'knot'), title: tt('Team Player') }),
   A('together', 'a_clanboss_10', 'Clan Boss Challenger', "Battle your clan's boss 10 times.", 'counter', 'clanBossHit', 10, 0, [O(2)], 'NEW'),
-  A('together', 'a_donate_1', 'Lending a Hand', 'Send a clanmate a piece of gear they asked for.', 'counter', 'donate', 1, 0, [O()], 'SO', { series: 'donate' }),
-  A('together', 'a_donate_10', 'Generous Heart', 'Help clanmates with 10 gear donations.', 'counter', 'donate', 10, 0, [O(2)], 'SO', { series: 'donate', honor: hr(18, 'Kind Heart Ribbon', 'plain', 'heartplus'), title: tt('Helping Hands') }),
+  A('together', 'a_donate_1', 'Lending a Hand', 'Send a clanmate materials they asked for in Clan Requests.', 'counter', 'donate', 1, 0, [O()], 'SO', { series: 'donate' }),
+  A('together', 'a_donate_10', 'Generous Heart', 'Help clanmates with 10 donations in Clan Requests.', 'counter', 'donate', 10, 0, [O(2)], 'SO', { series: 'donate', honor: hr(18, 'Kind Heart Ribbon', 'plain', 'heartplus'), title: tt('Helping Hands') }),
 
   // ------------------------------------------------------------------ Students (nothing recruit-, dupe- or Potential-driven)
   A('students', 'a_formation_8', 'Full Formation', 'Fill all 8 student slots in your formation.', 'formationSize', null, 8, 1, [g(20), it('book_rare', 3)], 'LIVE'),

@@ -55,6 +55,8 @@ export function ensureOnline({ ask = true } = {}) {
     }
     // [social] a player who is online now gets badges, live DMs and invite pop-ups (the hub)
     import('./socialHub.js').then((m) => m.startSocialHub({ force: true })).catch(() => {});
+    // [profile] publish the Sensei Profile card (only when it changed; at most every 10 min unless dirty)
+    import('../../online/profileSync.js').then((m) => m.syncProfileSoon('online')).catch(() => {});
     return backend;
   })();
   pending.catch(() => {}).finally(() => {

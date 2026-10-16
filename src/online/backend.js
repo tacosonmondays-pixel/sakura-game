@@ -29,6 +29,10 @@ const LIMITED = {
   // [social]
   sendDm: 'dm', sendCoopInvite: 'invite', addFriend: 'friend', addFriendByCode: 'friend', block: 'block', unblock: 'block', report: 'report',
   setPrivacy: 'settings', resetFriendCode: 'settings', donate: 'donate', playerCard: 'card', settleDonations: 'settle',
+  // [profile]
+  profileView: 'card', setProfileCard: 'profile', setProfileBio: 'bio', setProfileVisibility: 'settings',
+  // [clan invites]
+  sendClanInvite: 'clan_invite', postRecruit: 'recruit',
 };
 // a wrong code is a counted try on the server too (not undone like other refusals)
 const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
@@ -44,6 +48,16 @@ export const SOCIAL_METHODS = [
   'answerFriend', 'cancelFriendRequest', 'removeFriend', 'inviteCandidates', 'block', 'unblock', 'blocked', 'report', 'inbox', 'dmHistory', 'sendDm', 'sendCoopInvite',
   'inviteState', 'expireCoopInvites', 'markRead', 'clearThread', 'donationState', 'requestMaterials', 'cancelMaterialRequest', 'donate', 'settleDonations', 'claimDonations',
 ];
+/**
+ * [profile] calls (supabase/migrations/20261016000000_profile.sql). needs_update whenever the social
+ * functions are missing too (the profile file needs them), without a request.
+ */
+export const PROFILE_METHODS = ['profileView', 'myProfileCard', 'setProfileCard', 'setProfileBio', 'setProfileVisibility'];
+/**
+ * [clan invites] calls (supabase/migrations/20261018000000_clan_invites.sql): like the social calls,
+ * each first checks the server has them (invitesStatus) and throws needs_update without a request.
+ */
+export const INVITE_METHODS = ['clanInvites', 'sendClanInvite', 'answerClanInvite', 'recruitState', 'postRecruit'];
 /** How long a "needs update" answer is trusted before asking the server again. */
 const SOCIAL_RETRY_MS = 5 * 60 * 1000;
 
@@ -60,9 +74,13 @@ export function getBackend() {
   let adapter = null;
   let ready = null;
   let user = null;
-  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null };
+  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null, profile: null, invites: null };
   let socialCache = null; // { status: 'ready'|'needs_update', at }
   let socialProbe = null;
+  let profileCache = null; // [profile] the same, for the profile migration
+  let profileProbe = null;
+  let invitesCache = null; // [clan invites] the same, for 20261018000000_clan_invites.sql
+  let invitesProbe = null;
 
   async function load() {
     if (cfg.mode === 'supabase') {
@@ -182,6 +200,88 @@ export function getBackend() {
       socialCache = null;
       return api.socialStatus();
     },
+    /**
+     * [profile] 'ready' | 'needs_update' | 'offline'. Never throws. needs_update whenever socialStatus()
+     * is (no request); otherwise probes profile_version, cached like socialStatus. status.profile mirrors it.
+     */
+    async profileStatus() {
+      const social = await api.socialStatus();
+      if (social !== 'ready') {
+        if (status.profile !== social) setStatus({ profile: social });
+        return social;
+      }
+      if (profileCache && (profileCache.status === 'ready' || Date.now() - profileCache.at < SOCIAL_RETRY_MS)) return profileCache.status;
+      if (!profileProbe) {
+        profileProbe = (async () => {
+          let st = 'offline';
+          try {
+            st = adapter.profileProbe ? await adapter.profileProbe() : 'needs_update';
+          } catch {
+            st = 'offline';
+          }
+          profileCache = st === 'offline' ? null : { status: st, at: Date.now() };
+          if (status.profile !== st) setStatus({ profile: st });
+          return st;
+        })().finally(() => {
+          profileProbe = null;
+        });
+      }
+      return profileProbe;
+    },
+    /** [profile] the "Retry" button of the profile's needs-update card. */
+    recheckProfile() {
+      socialCache = socialCache?.status === 'ready' ? socialCache : null;
+      profileCache = null;
+      return api.profileStatus();
+    },
+    /**
+     * [clan invites] 'ready' | 'needs_update' | 'offline' for the clan invites SQL (never throws):
+     * needs_update whenever the social SQL is missing too. Cached like socialStatus.
+     */
+    async invitesStatus() {
+      const social = await api.socialStatus();
+      if (social !== 'ready') return social;
+      if (invitesCache && (invitesCache.status === 'ready' || Date.now() - invitesCache.at < SOCIAL_RETRY_MS)) return invitesCache.status;
+      if (!invitesProbe) {
+        invitesProbe = (async () => {
+          let st = 'offline';
+          try {
+            st = adapter.invitesProbe ? await adapter.invitesProbe() : 'needs_update';
+          } catch {
+            st = 'offline';
+          }
+          invitesCache = st === 'offline' ? null : { status: st, at: Date.now() };
+          if (status.invites !== st) setStatus({ invites: st });
+          return st;
+        })().finally(() => {
+          invitesProbe = null;
+        });
+      }
+      return invitesProbe;
+    },
+    recheckInvites() {
+      invitesCache = null;
+      return api.invitesStatus();
+    },
+    /**
+     * [tags] Public player tags for up to 100 account ids: [{ userId, staff, tester }] (players with
+     * no tag are left out). Never signs in by itself (a tab that never went online gets []). A
+     * server without the player_tags table throws needs_update; src/online/tags.js then stops
+     * asking for the session. Not counted by the client limiter (one batched request at a time).
+     * "Online features offline" (no project, or Supabase could not load): [] — the browser-local
+     * stand-in's tags are made up in this browser (?online=local, the e2e mode, still has them).
+     */
+    async getTags(ids) {
+      if (!ready) return [];
+      await ready;
+      if (api.offline) return [];
+      if (!adapter?.getTags) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+      try {
+        return await adapter.getTags(ids);
+      } catch (e) {
+        throw toOnlineError(e);
+      }
+    },
     /** [social] live DMs / friend requests / donation changes for this player, once the server has them. */
     subscribeInbox(cb) {
       if (!adapter?.subscribeInbox) return () => {};
@@ -189,6 +289,19 @@ export function getBackend() {
       let dead = false;
       api.socialStatus().then((st) => {
         if (st === 'ready' && !dead) off = adapter.subscribeInbox(cb);
+      });
+      return () => {
+        dead = true;
+        off?.();
+      };
+    },
+    /** [clan invites] a new clan invite for this player (local test mode; the hub also polls), once the server has them. */
+    subscribeInvites(cb) {
+      if (!adapter?.subscribeInvites) return () => {};
+      let off = null;
+      let dead = false;
+      api.invitesStatus().then((st) => {
+        if (st === 'ready' && !dead) off = adapter.subscribeInvites(cb);
       });
       return () => {
         dead = true;
@@ -221,7 +334,11 @@ export function getBackend() {
       // (except a wrong code, which the server counts as a try as well)
       if (action && err.code !== 'rate_limited' && !(COUNTED_MISSES.has(err.code) && COUNTED_CALLS.has(name))) limiter.undo(action);
       // the functions went missing after all (a reset project): ask again next time
-      if (err.code === 'needs_update') socialCache = { status: 'needs_update', at: Date.now() };
+      if (err.code === 'needs_update') {
+        if (PROFILE_METHODS.includes(name)) profileCache = { status: 'needs_update', at: Date.now() };
+        else if (INVITE_METHODS.includes(name)) invitesCache = { status: 'needs_update', at: Date.now() };
+        else socialCache = { status: 'needs_update', at: Date.now() };
+      }
       throw err;
     }
   }
@@ -244,6 +361,32 @@ export function getBackend() {
     api[name] = (...args) => call(name, args);
   }
   for (const name of SOCIAL_METHODS) api[name] = (...args) => socialCall(name, args);
+
+  async function profileCall(name, args) {
+    const st = await api.profileStatus();
+    if (st === 'needs_update') throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+    if (st !== 'ready') throw new OnlineError('offline', 'Cannot reach the server.');
+    const action = LIMITED[name];
+    if (action) {
+      const v = limiter.check(action);
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
+    }
+    return call(name, args);
+  }
+  for (const name of PROFILE_METHODS) api[name] = (...args) => profileCall(name, args);
+
+  async function invitesCall(name, args) {
+    const st = await api.invitesStatus();
+    if (st === 'needs_update') throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+    if (st !== 'ready') throw new OnlineError('offline', 'Cannot reach the server.');
+    const action = LIMITED[name];
+    if (action) {
+      const v = limiter.check(action);
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
+    }
+    return call(name, args);
+  }
+  for (const name of INVITE_METHODS) api[name] = (...args) => invitesCall(name, args);
 
   instance = api;
   if (typeof window !== 'undefined') window.__online = api; // e2e / debug hook
