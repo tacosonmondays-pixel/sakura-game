@@ -1,0 +1,14 @@
+/* Battle modes in the co-op room (docs/specs/CODEX_MODES.md §8.5). */
+.ol-chip-mode { color: #fff; font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 1px 8px; border-radius: 4px; transform: skewX(var(--skew)); margin-left: 4px; }
+.ol-mode-holder { margin: 6px 0; }
+.ol-mode-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ol-mode-seg { flex-wrap: wrap; }
+.ol-mode-btn { display: inline-flex; align-items: center; gap: 4px; }
+.ol-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ol-mode-ico { width: 18px; height: 18px; display: inline-flex; }
+.ol-mode-ico svg { width: 100%; height: 100%; }
+.ol-field-rule { margin: 4px 0; font-size: 0.82rem; line-height: 1.3; }
+@media (max-height: 500px) {
+  .ol-mode-btn { font-size: 0.72rem; padding: 4px 7px; }
+  .ol-mode-ico { width: 15px; height: 15px; }
+}

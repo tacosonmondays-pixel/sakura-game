@@ -4,7 +4,8 @@ import { UNIT_MAP } from '../../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
-import { isOwned, isPracticeRun, canPlayEndless } from '../../systems/unlocks.js';
+import { isOwned, isPracticeRun, canPlayEndless, modesUnlocked } from '../../systems/unlocks.js';
+import { modeId } from '../../data/modes.js';
 import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
@@ -38,13 +39,18 @@ export function resolveFormation(profile) {
  * Blossom. The colosseum (kind 'challenge') stays endless.
  * `resume` is a battle save's run id (Continue; src/systems/battleSave.js), or null. A Continue
  * plays the saved run as it was saved, and freeplay runs are never saved (isSavableRun), so next
- * to `resume` a `freeplay` / `endless=1` param never turns freeplay on.
+ * to `resume` a `freeplay` / `endless=1` param never turns freeplay on; its battle mode is the
+ * record's too (the controller takes it from the restored Sim, whatever `mode` the link carries).
  * The coached first battle (`tutorial=1`, STORY_SPEC §2.3) is a plain run: no freeplay and no
  * "Keep going" on its victory sheet (a brand-new player's first win ends there).
  * `sandbox=1` (with `team=a.b.c` and `hero=x`) is a Sandbox run on the stage's map: any girl, endless
  * waves, nothing saved (never a battle save, never freeplay, `resume` ignored). With a profile it
  * needs Sandbox unlocked (systems/sandbox.js).
- * @returns {{ stageId: string|null, difficulty: string, endless: boolean, freeplay: string|null,
+ * `mode` (a battle mode, docs/specs/CODEX_MODES.md) is honoured only on a campaign stage whose modes
+ * are unlocked (cleared once), never in endless, freeplay, practice, tutorial or Sandbox runs;
+ * Nightmare × Last Petal is the same battle as Nightmare Standard. Anything else plays Standard. A
+ * mode run is never offered "Keep going" (freeplay runs in Standard in v1).
+ * @returns {{ stageId: string|null, difficulty: string, mode: string, endless: boolean, freeplay: string|null,
  *   keepGoing: boolean, practice: boolean, sandbox: boolean, team?: string[], hero?: string|null,
  *   error: string|null, resume: string|null }}
  *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
@@ -52,12 +58,12 @@ export function resolveFormation(profile) {
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
-  if (!stage) return { stageId, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
+  if (!stage) return { stageId, difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
   const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
   if (params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true') {
-    if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
+    if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
     const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
-    return { stageId, difficulty, endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, team: towers, hero, error: null, resume: null };
+    return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, team: towers, hero, error: null, resume: null };
   }
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
   const allowed = !profile || canPlayEndless(profile, stageId);
@@ -70,14 +76,17 @@ export function parseBattleParams(params = {}, profile = null) {
   let freeplay = fpStage && allowed && !resume ? freeplayTier(params.freeplay) : null;
   if (fpStage && allowed && !resume && wantsEndless && !freeplay) freeplay = 'blossom';
   const endless = stage.kind === 'challenge' || (wantsEndless && allowed && !hasSoloFreeplay(stageId));
-  return { stageId, difficulty, endless, freeplay, keepGoing: fpStage && !freeplay && !endless, practice, sandbox: false, error: null, resume };
+  let mode = modeId(params.mode);
+  if (stage.kind !== 'campaign' || endless || freeplay || practice || tutorial || (profile && !modesUnlocked(profile, stageId))) mode = 'standard';
+  if (mode === 'laststand' && difficulty === 'nightmare') mode = 'standard';
+  return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, sandbox: false, error: null, resume };
 }
 
 /**
  * Creates the Sim for a battle. `cfg` is what a battle save freezes at New game: the run seed
  * and the team's battle stats as they are now (Continue never reads the live profile again).
  * @param {object} profile
- * @param {{ stageId: string, difficulty: string, endless?: boolean, freeplay?: string|null, seed?: number }} req
+ * @param {{ stageId: string, difficulty: string, mode?: string, endless?: boolean, freeplay?: string|null, seed?: number }} req
  */
 export function createBattleSim(profile, req) {
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
@@ -93,7 +102,7 @@ export function createBattleSim(profile, req) {
     loadout,
     hero: heroEntry,
     seed,
-    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, ...(fpStage ? { freeplay: true } : {}) },
+    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}) },
     ...(fpStage ? { data: { stage: fpStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };

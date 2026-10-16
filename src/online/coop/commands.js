@@ -12,6 +12,7 @@
 // (their cash, their cards), so the single-player HUD, tower bar and panels work unchanged.
 // Every Sim call here runs inside withDetMath() (detMath.js): bit-identical trig and hypot on
 // every JS engine, so an iPhone and an Android phone stay in lockstep too.
+import { modeId } from '../../data/modes.js';
 import { Sim } from '../../sim/Sim.js';
 import { STEP, DEFAULT_UNIT_STATS, FLIGHT_MODES } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
@@ -74,7 +75,7 @@ export function isValidCmd(c, { markers = false } = {}) {
 }
 
 /**
- * @param {{ seed: number, stageId: string, difficulty: string, freeplay?: string|null,
+ * @param {{ seed: number, stageId: string, difficulty: string, freeplay?: string|null, mode?: string,
  *   players: { slot: number, uid: string, name: string, loadout: {unitId: string, stats?: object}[], hero?: {unitId: string, stats?: object}|null }[] }} start
  *   `freeplay` is the room's freeplay tier (FREEPLAY_TIERS) or null/absent for a normal battle.
  * @param {{ mySlot?: number, stage?: object }} [opts]
@@ -93,7 +94,9 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
   }
   const sim = withDetMath(() => new Sim({
     stageId: stageDef.id, difficulty: start.difficulty, loadout: union, heroes: players.map((p) => p.hero || null), seed: start.seed >>> 0,
-    options: { endless: false, autoStart: false, freeplay: !!freeplay }, data: { stage: stageDef },
+    // the battle mode is the only mode/rule field read from the message (the rule rides on the
+    // StageDef; freeplay runs in Standard in v1: docs/specs/CODEX_MODES.md §6.4)
+    options: { endless: false, autoStart: false, freeplay: !!freeplay, mode: modeId(freeplay ? 'standard' : start.mode) }, data: { stage: stageDef },
   }));
   const views = players.map((p, i) => {
     const lo = new Map();

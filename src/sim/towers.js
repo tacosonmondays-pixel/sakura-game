@@ -15,6 +15,7 @@ import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath } from './path.js';
 import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
+import { ruleRangeFor } from './rules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -150,11 +151,15 @@ export function refreshEffective(t, globalRateMul = 1) {
   const s = t.stats;
   const b = t.buff;
   const detection = s.detection || b.detection;
+  // map rule range (blizzard, heat haze, crystal pad): set by recomputeBuffs, absent without a rule
+  const envMul = t.envRangeMul ?? 1;
+  const envAdd = t.envRangeAdd ?? 0;
+  const env = envMul !== 1 || envAdd !== 0;
   t.eff = {
     ...s,
     damage: s.damage * b.dmgMul,
     rate: s.rate * b.rateMul * globalRateMul,
-    range: s.range * b.rangeMul,
+    range: env ? Math.max(1, (s.range + envAdd) * envMul) * b.rangeMul : s.range * b.rangeMul,
     detection,
     critChance: s.crit.chance,
     critMul: s.crit.mul,
@@ -175,10 +180,14 @@ export function refreshEffective(t, globalRateMul = 1) {
   t.turretSpec = s.turret ? hitSpecFrom(s, {
     damage: s.turret.damage * b.dmgMul,
     rate: s.turret.rate * b.rateMul * globalRateMul,
-    range: s.turret.range * b.rangeMul,
+    // map rules (landing plan S4): a roaming wing (leash > 0) takes the rule's additive range once, on
+    // its roam radius, and its guns only the multiplier; anchored turrets use the girl's range formula
+    range: s.turret.leash > 0
+      ? (env ? s.turret.range * envMul * b.rangeMul : s.turret.range * b.rangeMul)
+      : env ? Math.max(1, (s.turret.range + envAdd) * envMul) * b.rangeMul : s.turret.range * b.rangeMul,
     // roaming drones: roam radius, flight speed and seconds per drone, after buffs (build speed
     // follows attack-speed buffs, as it did when it rode on her attack rate)
-    leash: s.turret.leash > 0 ? Math.max(1, s.turret.leash) * b.rangeMul : 0,
+    leash: s.turret.leash > 0 ? Math.max(1, env ? (s.turret.leash + envAdd) * envMul : s.turret.leash) * b.rangeMul : 0,
     speed: s.turret.speed,
     build: s.turret.build > 0 ? s.turret.build / Math.max(0.05, b.rateMul * globalRateMul) : 0,
     attackType: s.turret.attackType || s.attackType,
@@ -232,9 +241,20 @@ export function recomputeBuffs(sim) {
     applyLimited(sim, t, nb);
     if (nb.cleanse && t.disabled > 0) t.disabled = 0;
     const ob = t.buff;
-    const differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
+    let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
       || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
       || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
+    if (sim.rule) {
+      // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
+      const env = ruleRangeFor(sim, t);
+      const mul = env ? env.mul : 1;
+      const add = env ? env.add : 0;
+      if (mul !== (t.envRangeMul ?? 1) || add !== (t.envRangeAdd ?? 0)) {
+        t.envRangeMul = mul;
+        t.envRangeAdd = add;
+        differs = true;
+      }
+    }
     if (differs || t._globalRate !== sim.globalRateMul) {
       t.buff = nb;
       t._globalRate = sim.globalRateMul;

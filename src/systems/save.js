@@ -5,6 +5,7 @@
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
@@ -319,6 +320,17 @@ function isStubSave(raw, version) {
   return version < 2 && !isObj(raw.gacha) && !isObj(raw.progress) && !(isObj(raw.units) && Object.keys(raw.units).length);
 }
 
+/** Valid ribbon keys only: `${difficulty}:${mode}` for the five ribbon modes, value true. */
+export function cleanModeRibbons(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const [k, v] of Object.entries(raw)) {
+    const [d, m] = k.split(':');
+    if (v === true && DIFFICULTY_ORDER.includes(d) && RIBBON_MODES.includes(m) && k === `${d}:${m}`) out[k] = true;
+  }
+  return out;
+}
+
 /**
  * Upgrade/repair any stored profile. Never throws: missing or corrupt fields are replaced
  * with defaults, unknown units/items are dropped, references (formation, gear owners,
@@ -391,6 +403,11 @@ export function migrateProfile(raw) {
     const entry = { clears: int(s.clears, 0, 0) };
     for (const d of DIFFICULTY_ORDER) entry[d] = bool(s[d]);
     if (s.bestWave != null) entry.bestWave = int(s.bestWave, 0, 0);
+    // battle-mode ribbons ('hard:rush': true), docs/specs/CODEX_MODES.md §5.4
+    if (isObj(s.modes)) {
+      const m = cleanModeRibbons(s.modes);
+      if (Object.keys(m).length) entry.modes = m;
+    }
     // co-op freeplay: best wave per freeplay tier ({ blossom, tempest, crimson }, src/online/coop/rewards.js)
     if (isObj(s.coopBestWave)) {
       const best = cleanCounts(s.coopBestWave, (k) => /^[a-z]{1,16}$/.test(k));

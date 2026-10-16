@@ -21,11 +21,14 @@ function fnv(text, h = 0x811c9dc5) {
 const hex = (h) => h.toString(16).padStart(8, '0');
 
 /** A whole headless battle reduced to one digest: its result (kills, leaks, damage per girl, time, cash). */
-function battleDigest(cfg) {
-  const r = runHeadless(cfg);
+// Map rules (docs/specs/CODEX_MODES.md) are always on in campaign battles: these digests run with
+// `rule: null` (Standard without a rule must stay the pre-freeplay battle); RULED below guards the
+// same battles with their rules on.
+function battleDigest(cfg, { rules = false } = {}) {
+  const r = runHeadless(rules ? cfg : { ...cfg, options: { ...(cfg.options || {}), rule: null } });
   // result() gained freeplay-only fields (freeplay, goal, goalReached, finished: null/false
-  // outside freeplay); the digest covers what the battle did, as before.
-  const { freeplay, goal, goalReached, finished, ...res } = r.result;
+  // outside freeplay) and the battle mode and rule; the digest covers what the battle did, as before.
+  const { freeplay, goal, goalReached, finished, mode, rule, ...res } = r.result;
   return { digest: hex(fnv(JSON.stringify({ res, cash: r.cash, lives: r.lives, failed: r.failed.length }))), wave: r.wave, won: r.won };
 }
 
@@ -68,22 +71,36 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     const units = ['aoi', 'rei', 'yuki', 'kage', 'akane', 'shiro'];
     const out = {};
     for (const [stageId, difficulty] of [['1-3', 'normal'], ['4-5', 'hard'], ['8-5', 'normal']]) {
-      const r = runHeadless({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400, hero: null });
-      // the rework added hero-only result fields (empty here); the digest covers what the battle did
-      const { freeplay, goal, goalReached, finished, heroes, ...res } = r.result;
+      // (map rules off, as in battleDigest: Standard without a rule is the battle these were pinned on)
+      const r = runHeadless({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400, hero: null, options: { rule: null } });
+      // the rework added hero-only result fields (empty here), battle modes the mode and rule; the
+      // digest covers what the battle did
+      const { freeplay, goal, goalReached, finished, heroes, mode, rule, ...res } = r.result;
       const { heroXp, heroLevelsBought, heroLevels, ...stats } = res.stats;
       out[stageId] = [hex(fnv(JSON.stringify({ ...res, stats, cash: r.cash, lives: r.lives }))), r.wave, r.won];
     }
+    // (2-3 has a map rule, Changing Tides, which rides on the StageDef: off here, as in the solo runs)
     const c = createCoopSim({ seed: 9, stageId: '2-3', difficulty: 'normal', players: [
       { slot: 0, uid: 'a', name: 'a', loadout: [{ unitId: 'aoi' }, { unitId: 'kage' }], hero: null },
       { slot: 1, uid: 'b', name: 'b', loadout: [{ unitId: 'akane' }], hero: null },
-    ] });
+    ] }, { stage: { ...coopStage('2-3'), rule: null } });
     c.apply({ t: 0, p: 0, s: 0, k: 'place', a: ['aoi', 5000, 3000] });
     c.apply({ t: 0, p: 1, s: 1, k: 'auto', a: [true] });
     c.apply({ t: 0, p: 0, s: 2, k: 'wave', a: [] });
     for (let i = 0; i < 60 * 120; i++) c.step();
     out.coop = [c.hash(), c.sim.wave];
     expect(out).toEqual(HEROLESS);
+  }, 120000);
+
+  it('the same battles with their map rules on (recorded when the rules landed)', () => {
+    const units = ['hikari', 'aoi', 'rei', 'yuki', 'kage', 'akane'];
+    const out = {};
+    for (const [stageId, difficulty] of [['4-2', 'hard'], ['8-5', 'normal']]) {
+      out[stageId] = battleDigest({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400 }, { rules: true });
+    }
+    out.coop = battleDigest({ stageId: '2-4', plan: autoPlan('2-4', units), seed: 5, maxTime: 2400, data: { stage: coopStage('2-4') } }, { rules: true });
+    if (process.env.GOLDEN_PRINT) console.log('RULED', JSON.stringify(out));
+    expect(out).toEqual(RULED);
   }, 120000);
 
   it('createCoopSim without freeplay runs the same battle (hash after 3 waves)', () => {
@@ -141,4 +158,15 @@ const HEROLESS = {
   '4-5': ['15f8aba0', 13, false],
   '8-5': ['61fe353d', 30, false],
   coop: [3341544735, 3],
+};
+
+// Recorded when the map rules landed (feature/codex-modes): 4-2 Rear Ambush, 8-5 Tailwind, 2-4 Supply Ship.
+// Re-pinned at the train-C codex merge (was 4-2 8cf59ba9 wave 19, 8-5 bcfd8d75, co-op 1fa187d2):
+// these battles field Hikari, who levels on her hero track since the hero rework, and the path-cap
+// tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
+// which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
+const RULED = {
+  '4-2': { digest: '887447f2', wave: 12, won: false },
+  '8-5': { digest: 'a1fc2ade', wave: 30, won: false },
+  coop: { digest: 'b8a73060', wave: 22, won: true },
 };

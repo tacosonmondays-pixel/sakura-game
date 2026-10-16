@@ -1,7 +1,9 @@
-// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&freeplay=<tier>][&endless=1]
+// Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1]
 // Solo Freeplay: on a cleared campaign stage a Freeplay row (Off · Blossom · Tempest · Crimson
 // Moon) turns the run into a freeplay run, with the best wave per tier. endless=1 (the Tactical
 // Challenge cards, the old endless runs) opens the same prep with freeplay on.
+// Battle modes (docs/specs/CODEX_MODES.md): picked next to the difficulty once the stage is cleared;
+// a mode and freeplay exclude each other (freeplay runs in Standard in v1).
 // Map preview, wave info, enemy scouting chips, recommended counters with one-tap
 // "Add to formation", formation strip, difficulty picker with medals, drop table,
 // first-clear rewards, Start and Sweep. With a saved battle (Save & quit, src/systems/battleSave.js)
@@ -32,12 +34,17 @@ import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless }
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
+import {
+  initialMode, playMode, startLabel, livesFor, modeSubLine, ribbonCorner, firstClearNote, rulePanel, modePanel, withRuleMarks,
+} from './stageModes.js';
 import { FREEPLAY_TIERS, freeplayTable, freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay } from '../../data/freeplaySolo.js';
 import { soloBestLines } from '../../systems/freeplayRewards.js';
 import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { lastSoloTier, rememberSoloTier } from '../battle/soloFreeplay.js';
 import { rarityInfo } from '../rarity.js';
+import { modeId } from '../../data/modes.js';
+import { modeText } from '../text/modes.js';
 import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES,
 } from '../../systems/battleSave.js';
@@ -102,6 +109,7 @@ export function savedDetail(rec, { ago = true } = {}) {
   return [
     mode,
     sum.endless ? null : DIFFICULTIES[sum.difficulty].name,
+    savedModeName(rec),
     sum.endless ? `wave\u00a0${sum.next}` : `wave\u00a0${sum.next}\u00a0of\u00a0${sum.of}`,
     ago ? sum.ago.replace(/ /g, '\u00a0') : null,
   ].filter(Boolean).join(' · ');
@@ -436,6 +444,8 @@ export function render(root, params = {}) {
   // Tactical Challenge's freeplay prep (the old endless runs there are freeplay now)
   const saved = getBattleSave(store.profile, slotKey(stage.id, stage.kind === 'challenge'));
   if (saved && DIFFICULTIES[saved.difficulty]) state.difficulty = saved.difficulty;
+  // battle mode (docs/specs/CODEX_MODES.md §8.1): remembered in the route like the difficulty
+  state.mode = initialMode(store.profile, stage, params, endless);
 
   const draw = () => {
     clear(body);
@@ -498,7 +508,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   // ----- Left: map + info + enemies ------------------------------------------------
   const left = h('div.ma-prep-col.left');
   const tier = MAP_TIERS[stage.tier];
-  const thumb = h('div.ma-prep-thumb', { html: map ? stageThumbSVG(map, { width: 480, height: 300 }) : '' });
+  const thumb = h('div.ma-prep-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
   // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   const hero = h(
@@ -524,7 +534,7 @@ function buildPrep(stage, state, { endless, redraw }) {
     h('p.ma-stage-desc', stage.desc),
     h('div.ma-facts',
       fact('Waves', isEndless ? '∞' : fpOn ? `${stage.waves} + ∞` : String(stage.waves)),
-      fact('Lives', String(DIFFICULTIES[state.difficulty].lives)),
+      fact('Lives', String(livesFor(state.difficulty, state.mode))),
       fact('Start cash', formatNumber(Math.round(stage.startCash))),
       fact('Map', map?.name || stage.mapId),
       isEndless && entry?.bestWave ? fact('Best wave', String(entry.bestWave)) : null,
@@ -532,6 +542,8 @@ function buildPrep(stage, state, { endless, redraw }) {
     ),
     chapter ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), chapter.mechanic) : null,
   ));
+  const rule = rulePanel(stage);
+  if (rule) left.appendChild(rule);
 
   // Enemies
   const introduces = new Set(stage.introduces || []);
@@ -552,6 +564,19 @@ function buildPrep(stage, state, { endless, redraw }) {
   const rec = unlocked ? getBattleSave(profile, slotKey(stage.id, isEndless)) : null;
   // with a saved battle the picker only sets a new run's difficulty: the save's card says "Saved"
   if (!isEndless) right.appendChild(panel(rec ? (fpOn ? 'Freeplay difficulty' : 'New game difficulty') : 'Difficulty', difficultyPicker(stage, state, medals, redraw, rec ? rec.difficulty : null)));
+  if (!isEndless && !endless && stage.kind === 'campaign') {
+    // a mode turns freeplay off (freeplay runs in Standard in v1); with a saved battle it sets the
+    // New game's mode only (Continue plays the saved run's own mode: the saved line names it)
+    right.appendChild(modePanel(profile, stage, state, (m) => {
+      state.mode = m;
+      rememberParams('stage', { mode: m });
+      if (m !== 'standard' && state.freeplay) {
+        state.freeplay = null;
+        rememberFreeplay(null);
+      }
+      redraw();
+    }));
+  }
   if (fpOk) right.appendChild(freeplayPanel(stage, state, { endless, redraw, saved: rec }));
 
   right.appendChild(countersPanel(stage));
@@ -565,7 +590,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   );
   right.appendChild(dropsPanel);
 
-  if (!isEndless) right.appendChild(firstClearPanel(stage, medals));
+  if (!isEndless) right.appendChild(firstClearPanel(stage, medals, state.mode));
 
   // Actions
   const formationOk = formationIds(profile).length > 0;
@@ -580,8 +605,10 @@ function buildPrep(stage, state, { endless, redraw }) {
     if (!isEndless && (!rec || canSweep(profile, stage.id))) actions.appendChild(sweepControls(stage, state));
     // a new run: Tactical Challenge's map cards keep endless=1 (the run belongs there), a picked
     // tier makes it a solo freeplay run (never saved: src/systems/battleSave.js isSavableRun)
+    const newMode = isEndless || fpOn ? 'standard' : playMode(state.difficulty, state.mode);
     const battleParams = () => {
       const p = { stage: stage.id, difficulty: state.difficulty };
+      if (newMode !== 'standard') p.mode = newMode;
       if (endless) p.endless = 1;
       if (fpOn) p.freeplay = state.freeplay;
       return p;
@@ -605,7 +632,8 @@ function buildPrep(stage, state, { endless, redraw }) {
         });
         other.classList.add('ma-fp-start-btn');
       } else {
-        const newLabel = isEndless ? 'New game' : `New game · ${newDiff}`;
+        // "New game · Hard · Goblin Rush" (codex §8.1): the run the button starts, mode included
+        const newLabel = isEndless ? 'New game' : newMode !== 'standard' ? `New game · ${newDiff} · ${modeText(newMode).name}` : `New game · ${newDiff}`;
         other = button(newLabel, {
           kind: 'ghost',
           title: newLabel,
@@ -614,7 +642,7 @@ function buildPrep(stage, state, { endless, redraw }) {
           onClick: async () => {
             const text = sum.endless
               ? `Start a new run on ${savedStageLabel(rec)}? Your saved run (wave ${sum.next}) will be deleted.`
-              : `Start a new ${newDiff} battle on ${savedStageLabel(rec)}? Your saved ${savedDiff} battle (wave ${sum.next} of ${sum.of}) will be deleted.`;
+              : `Start a new ${newDiff}${newMode !== 'standard' ? ` ${modeText(newMode).name}` : ''} battle on ${savedStageLabel(rec)}? Your saved ${savedDiff}${savedModeName(rec) ? ` ${savedModeName(rec)}` : ''} battle (wave ${sum.next} of ${sum.of}) will be deleted.`;
             const ok = await ask(text, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
             if (!ok) return;
             clearBattleSave(store.profile, rec.slot, rec.id);
@@ -638,7 +666,7 @@ function buildPrep(stage, state, { endless, redraw }) {
       actions.appendChild(h('div.ma-save-btns', other, cont));
       actions.classList.add('has-save');
     } else {
-      const start = button(isEndless ? 'Start endless' : fpOn ? `Start · ${DIFFICULTIES[state.difficulty].name} · ${fpName}` : `Start · ${DIFFICULTIES[state.difficulty].name}`, {
+      const start = button(isEndless ? 'Start endless' : fpOn ? `Start · ${DIFFICULTIES[state.difficulty].name} · ${fpName}` : startLabel(state.difficulty, state.mode), {
         kind: 'yellow',
         icon: 'play',
         testid: 'stage-start',
@@ -679,12 +707,18 @@ function safeMap(id) {
 }
 
 /** "Saved battle · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. */
+/** The battle mode a saved run plays ("Goblin Rush"), or null for Standard (and saves from before modes). */
+function savedModeName(rec) {
+  const m = modeId(rec?.mode);
+  return m === 'standard' ? null : modeText(m).name;
+}
+
 function savedLine(rec) {
   const sum = saveSummary(rec);
-  // each part stays whole when the line wraps ("♥ 63", "12 min ago")
+  // each part stays whole when the line wraps ("♥ 63", "12 min ago"); "Saved battle · Hard · Goblin Rush · …"
   const parts = sum.endless
     ? ['Saved run', `wave ${sum.next}`, `♥ ${sum.lives}`, sum.ago]
-    : ['Saved battle', DIFFICULTIES[sum.difficulty].name, `wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago];
+    : ['Saved battle', DIFFICULTIES[sum.difficulty].name, savedModeName(rec), `wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago].filter(Boolean);
   const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
   const note = 'Continues with the team you started with.';
   return h(
@@ -718,6 +752,11 @@ function freeplayPanel(stage, state, { endless, redraw, saved = null }) {
   const pick = (tier) => {
     state.freeplay = tier;
     if (tier) rememberSoloTier(tier);
+    // freeplay runs in Standard (v1): turning it on sets the battle mode back to Standard
+    if (tier && state.mode !== 'standard') {
+      state.mode = 'standard';
+      rememberParams('stage', { mode: 'standard' });
+    }
     rememberFreeplay(tier);
     redraw();
   };
@@ -758,8 +797,9 @@ function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) 
       },
       svgEl(medalIcon(d, { earned: medals[d] }), 'ma-diff-medal'),
       h('span.ma-diff-name', def.name),
-      h('span.ma-diff-sub', DIFF_SUMMARY[d]),
-      medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`),
+      h('span.ma-diff-sub', modeSubLine(DIFF_SUMMARY[d], d, state.mode)),
+      ribbonCorner(store.profile, stage.id, d, state.mode)
+        ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`)),
       savedDifficulty === d ? h('span.ma-diff-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null,
     );
     row.appendChild(b);
@@ -842,7 +882,7 @@ function formationPanel() {
   );
 }
 
-function firstClearPanel(stage, medals) {
+function firstClearPanel(stage, medals, mode = 'standard') {
   const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
   const medalGems = DIFFICULTY_ORDER.map((d) => h(
     `div.ma-fc-medal${medals[d] ? '.done' : ''}`,
@@ -853,7 +893,7 @@ function firstClearPanel(stage, medals) {
   return panel(
     'First clear',
     h('div.ma-fc', h('div', h('div.ma-sub', cleared ? 'First clear — claimed' : 'First clear (any difficulty)'), h(`div.ma-fc-rewards${cleared ? '.done' : ''}`, rewardTiles(stage.firstClear || []))),
-      h('div', h('div.ma-sub', 'Medal gems (once per difficulty)'), h('div.ma-fc-medals', medalGems))),
+      h('div', h('div.ma-sub', 'Medal gems (once per difficulty)'), h('div.ma-fc-medals', medalGems), firstClearNote(mode))),
     unlocks.length
       ? h('div.ma-unlock-note', unlocks.map((id) => h('div.ma-unlock-unit', card(id, { variant: 'square', owned: isOwned(store.profile, id) }), h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('div.muted', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`)))))
       : null,

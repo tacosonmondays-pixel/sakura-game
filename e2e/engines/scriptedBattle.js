@@ -22,7 +22,10 @@ import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { coopStage } from '../../src/data/coop.js';
 import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
 import { snapshotDigest } from '../../src/sim/snapshot.js';
+import { Sim } from '../../src/sim/Sim.js';
 import { autoPlan } from '../../src/sim/headless.js';
+import { hashSim } from '../../src/online/coop/simHash.js';
+import { stageRule } from '../../src/data/rules.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -896,7 +899,93 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
   };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential, freeplay (scripted and deep), two heroes and drones. */
+// ---------------------------------------------------------------------------
+// Battle modes and map rules (docs/specs/CODEX_MODES.md §6.5, §10 "Engines")
+// ---------------------------------------------------------------------------
+
+const MODE_UNITS = ['aoi', 'rei', 'yuki', 'kage', 'akane', 'chika', 'hikari'];
+
+/**
+ * The MODES_* scenarios: every mode and every rule effect key (vents, pads with a sale of the pad
+ * owner, rifts, affinity, ambush in both modes, range, speed, bonusEvery, the Petal Sanctuary heal
+ * path) and an endless run past the goal. [name, stage, difficulty, mode, extra]
+ */
+export const MODES_SCENARIOS = Object.freeze([
+  ['MODES_VENTS_IRONCLAD', '6-3', 'normal', 'ironclad'],
+  ['MODES_AMBUSH', '4-2', 'hard', 'standard'],
+  ['MODES_AMBUSH_REVERSE', '4-2', 'hard', 'reverse'],
+  ['MODES_PADS_SALE', '6-1', 'hard', 'standard', { padSale: true }],
+  ['MODES_RIFTS_RUSH', '8-4', 'normal', 'rush'],
+  ['MODES_BLIZZARD_FRUGAL', '4-1', 'normal', 'frugal'],
+  ['MODES_MIRAGE', '6-2', 'hard', 'standard'],
+  ['MODES_SUPPLY', '2-4', 'normal', 'standard'],
+  ['MODES_ENCORE', '7-1', 'normal', 'standard'],
+  ['MODES_PETAL_HEAL', '1-4', 'hard', 'standard', { weak: true }],
+  ['MODES_TIDES_RUSH', '2-1', 'hard', 'rush'],
+  ['MODES_ECLIPSE_IRONCLAD', '3-3', 'normal', 'ironclad'],
+  ['MODES_MIST_FRUGAL', '5-1', 'normal', 'frugal'],
+  ['MODES_TAILWIND_REVERSE', '8-1', 'normal', 'reverse'],
+  ['MODES_ENDLESS_PAST_GOAL', '1-4', 'easy', 'standard', { endless: true, waves: 31 }],
+]);
+
+/** One MODES_* battle (inside withDetMath): state hash every 600 steps and the final snapshot digest. */
+export function runModeBattle([name, stageId, difficulty, mode, extra = {}]) {
+  return withDetMath(() => {
+    const units = extra.weak ? ['aoi'] : MODE_UNITS;
+    const sim = new Sim({
+      stageId, difficulty, seed: 31, loadout: units.filter((u) => u !== 'hikari').map((unitId) => ({ unitId })),
+      hero: units.includes('hikari') ? { unitId: 'hikari' } : null, options: { mode, endless: !!extra.endless },
+    });
+    let plan = autoPlan(stageId, units).filter((a) => a.action === 'place' || a.action === 'upgrade');
+    if (extra.weak) plan = plan.slice(0, 2);
+    if (extra.padSale) {
+      const p = stageRule(stageId).pads[0];
+      plan = [{ action: 'place', unitId: 'rei', x: p.x, y: p.y, at: 1 }, { action: 'place', unitId: 'aoi', x: p.x + 0.85, y: p.y, at: 1 }, ...plan];
+      plan.splice(6, 0, { action: 'sell', x: p.x, y: p.y, at: 4 });
+    }
+    const hashes = [];
+    let steps = 0;
+    const kinds = new Set();
+    while (sim.state !== 'won' && sim.state !== 'lost' && steps < 60 * 60 * 40 && !(extra.waves && sim.wave > extra.waves)) {
+      while (plan.length && (plan[0].at ?? 1) <= sim.wave + 1) {
+        const a = plan[0];
+        if (a.action === 'place') {
+          const c = sim.canPlace(a.unitId, a.x, a.y);
+          if (!c.ok && c.reason === 'cash') break;
+          if (c.ok) sim.placeTower(a.unitId, a.x, a.y);
+        } else if (a.action === 'upgrade') {
+          const t = sim.towerAt(a.x, a.y);
+          const st = t && sim.upgradeStatus(t.uid, a.path ?? 0);
+          if (st && st.reason === 'cash') break;
+          if (st && !st.locked) sim.upgradeTower(t.uid, a.path ?? 0);
+        } else if (a.action === 'sell') {
+          const t = sim.towerAt(a.x, a.y);
+          if (t) sim.sellTower(t.uid);
+        }
+        plan.shift();
+      }
+      if (sim.state === 'prep' || sim.state === 'between') sim.startNextWave();
+      if (sim.hero && sim.heroUltStatus().ready) sim.activateUlt();
+      sim.update(1 / 60);
+      steps++;
+      for (const e of sim.drainEvents()) if (e.type === 'ruleState' || e.type === 'ruleBonus' || e.type === 'rift' || (e.type === 'cash' && e.reason === 'rule')) kinds.add(e.type === 'cash' ? 'ruleCash' : e.type);
+      if (steps % 600 === 0) hashes.push(hashSim(sim, { tick: steps }));
+    }
+    return {
+      name, state: sim.state, wave: sim.wave, lives: sim.lives, cash: sim.cash, steps,
+      hashes: bitsHash(hashes), checkpoints: hashes.length, final: snapshotDigest(sim.snapshot()),
+      events: [...kinds].sort().join(','),
+    };
+  });
+}
+
+export function runModeBattles() {
+  const t0 = Date.now();
+  const battles = MODES_SCENARIOS.map(runModeBattle);
+  return { battles, digest: bitsHash(battles.flatMap((b) => [Number.parseInt(b.final, 16) || 0, b.hashes.length ? Number.parseInt(String(b.hashes).slice(0, 8), 16) || 0 : 0, b.steps])), ms: Date.now() - t0 };
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential, freeplay (scripted and deep), two heroes, drones and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -908,5 +997,6 @@ export function runEngineChecks() {
   const deep = runDeepFreeplay();
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
-  return { ...r, potential, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle() };
+  const modes = runModeBattles();
+  return { ...r, potential, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
 }

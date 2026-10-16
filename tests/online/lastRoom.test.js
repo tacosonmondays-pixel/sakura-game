@@ -15,7 +15,7 @@ describe('co-op: your last room', () => {
   it('remembers the room for two hours, then lets it go', () => {
     const t = 1_000_000;
     rememberRoom(session('aiko', 'AB3CD', true, '1-2', 'hard'), t);
-    expect(lastRoom('aiko', t + 60000)).toEqual({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard', freeplay: null, at: t });
+    expect(lastRoom('aiko', t + 60000)).toEqual({ code: 'AB3CD', host: true, stageId: '1-2', difficulty: 'hard', freeplay: null, mode: 'standard', at: t });
     expect(lastRoom('aiko', t + 2 * 3600000 - 1)).not.toBe(null);
     expect(lastRoom('aiko', t + 2 * 3600000)).toBe(null);
   });

@@ -32,7 +32,7 @@ function writeAll(all) {
 export function rememberRoom(s, at = Date.now()) {
   const all = readAll();
   for (const [uid, r] of Object.entries(all)) if (!valid(r, at)) delete all[uid];
-  all[s.me?.uid || '-'] = { code: s.code, host: !!s.isHost, stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay ?? null, at };
+  all[s.me?.uid || '-'] = { code: s.code, host: !!s.isHost, stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay ?? null, mode: s.mode || 'standard', at };
   writeAll(all);
 }
 
@@ -68,5 +68,6 @@ export function roomRoute(r) {
   if (!r.host) return { id: r.code };
   const route = { id: r.code, host: '1', stage: r.stageId, difficulty: r.difficulty };
   if (r.freeplay) route.freeplay = r.freeplay;
+  if (r.mode && r.mode !== 'standard') route.mode = r.mode;
   return route;
 }

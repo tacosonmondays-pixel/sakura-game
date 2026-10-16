@@ -34,6 +34,11 @@ import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
+import { BATTLE_MODES, modeArmor } from '../data/modes.js';
+import {
+  createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
+  ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
+} from './rules.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -46,7 +51,7 @@ export class Sim {
   /**
    * @param {{ stageId?: string, difficulty?: string, loadout?: {unitId: string, stats?: object}[],
    *   hero?: {unitId: string, stats?: object}|null, heroes?: ({unitId: string, stats?: object}|null)[],
-   *   seed?: number, options?: { endless?: boolean, autoStart?: boolean, freeplay?: boolean },
+   *   seed?: number, options?: { endless?: boolean, autoStart?: boolean, freeplay?: boolean, mode?: string, rule?: object|null },
    *   data?: { stage?, map?, units?, enemies? } }} opts
    * `heroes` (co-op): one hero per player, by player index; `hero` is the solo form (= heroes[0]).
    */
@@ -62,11 +67,22 @@ export class Sim {
     this.seed = seed;
     this.rng = createRng(seed);
 
-    this.pathData = buildPaths(this.map);
-    if (!this.pathData.length) throw new Error(`[sim] map "${this.map.id}" has no paths`);
+    // Battle mode (src/data/modes.js) and map rule (src/data/rules.js; options.rule overrides the
+    // stage's for tests and headless runs, null = no rule). docs/specs/CODEX_MODES.md §6.
+    this.mode = BATTLE_MODES[this.options.mode] && Object.hasOwn(BATTLE_MODES, this.options.mode) ? BATTLE_MODES[this.options.mode] : BATTLE_MODES.standard;
+    this.incomeMul = this.mode.incomeMul ?? 1;
+    this._modeArmor = modeArmor(this.mode, this.stage, this.difficulty);
+    this.rule = createRuleRuntime(this.options.rule !== undefined ? this.options.rule : this.stage.rule ?? null);
+    // geometry caches (placement, wave lengths, pads, vents) come from the forward paths; only the
+    // live pathData (what enemies walk) turns with Reverse Route and Rear Ambush
+    this._pathsFwd = buildPaths(this.map);
+    if (!this._pathsFwd.length) throw new Error(`[sim] map "${this.map.id}" has no paths`);
+    this._pathsRev = this.mode.reverse || this.rule?.reverseEvenWaves ? this._pathsFwd.map(reversePath) : null;
+    this.routeReversed = routeReversedFor(this, 1);
+    this.pathData = this.routeReversed ? this._pathsRev : this._pathsFwd;
     this.paths = this.pathData.map((p) => p.points.map((pt) => [pt[0], pt[1]]));
     this.pathTiles = pathTileSet(this.map);
-    this.placement = createPlacementRules(this.map, this.pathData);
+    this.placement = createPlacementRules(this.map, this._pathsFwd);
 
     this.loadout = new Map();
     // Heroes, one per player (co-op: index = player index). heroConfigs[i] = { unitId, stats, index };
@@ -96,11 +112,13 @@ export class Sim {
     // Finish vote) — there is no last wave unless the table sets maxWave.
     this.freeplay = !this.endless && !!this.options.freeplay && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
     this.lastWave = this.freeplay ? Math.max(this.totalWaves, this.stage.freeplay.maxWave ?? Infinity) : this.totalWaves;
+    /** Past this wave (freeplay, solo endless on a campaign map) a rule keeps only its combat effects. */
+    this._ruleGoal = Number.isFinite(this.stage.waves) ? this.stage.waves : Infinity;
     /** Freeplay pressure of the current wave (flat armor, Resolve budgets) for every enemy entering it. */
     this._fp = null;
     /** A freeplay run ended by finish() (state 'won' after the goal), not by defeat. */
     this.finished = false;
-    this.maxLives = this.diff.lives ?? this.stage.lives ?? 100;
+    this.maxLives = this.mode.oneLife ? 1 : this.diff.lives ?? this.stage.lives ?? 100;
     this.lives = this.maxLives;
     this.cash = Math.round(this.stage.startCash ?? 650);
     // Stage economy scale (kill bounties + wave-clear bonus). Late stages pay more so tier 4–5
@@ -149,6 +167,11 @@ export class Sim {
     this._dotOut = {};
     this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null };
     this.grid = new SpatialGrid(-3, -3, (this.map.width || 20) + 3, (this.map.height || 12) + 3, 2);
+    if (this.rule) {
+      this._waveTick = 0;
+      this._bountyAdd = ruleBountyAdd(this.rule.def, this);
+      rebuildRuleTables(this);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -206,6 +229,7 @@ export class Sim {
     this.time += dt;
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
+    if (this.rule) ruleStep(this, dt);
     updateEnemyAuras(this);
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
@@ -335,8 +359,8 @@ export class Sim {
       dist: o.dist ?? 0,
       hpMul,
       childHpMul,
-      speedMul: (this.diff.speedMul ?? 1) * (o.speedMul ?? 1),
-      cashMul: (this.diff.cashMul ?? 1) * this.cashScale,
+      speedMul: (this.diff.speedMul ?? 1) * (o.speedMul ?? 1) * (this.mode.speedMul ?? 1),
+      cashMul: (this.diff.cashMul ?? 1) * this.cashScale * this.incomeMul,
       time: this.time,
       rng: this.rng,
       wave: this.wave,
@@ -345,6 +369,12 @@ export class Sim {
     if (o.leak != null) e.leak = o.leak;
     if (o.mods) applySpawnMods(e, o.mods);
     if (this._fp) applyPressure(e, this._fp);
+    if (this._modeArmor) {
+      const add = e.tier === 'boss' || e.tier === 'miniboss' ? this._modeArmor * (this.mode.bossArmorMul ?? 1) : this._modeArmor;
+      e.armor += add;
+      e.armorBonus = (e.armorBonus || 0) + add;
+    }
+    if (this._bountyAdd && e.bounty > 0 && this.wave <= this._ruleGoal) e.bounty += this._bountyAdd;
     placeOnPath(e, this.pathData[pathIndex]);
     this.enemies.push(e);
     this.encountered.add(def.id);
@@ -369,6 +399,7 @@ export class Sim {
   _hit(e, tower, spec, scale = 1, drone = null) {
     if (e.dead) return -1;
     const roll = spec.critChance > 0 ? this.rng.next() : 1;
+    if (this._ruleMul) scale *= ruleHitScale(this._ruleMul, tower, spec.attackType, spec.element);
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
     const hpBefore = e.hp;
@@ -432,6 +463,8 @@ export class Sim {
   /** Burn/poison tick. */
   _dot(e, kind, amount, status) {
     if (!(amount > 0) || e.dead) return;
+    // rule scaling for girls' burns and poison (a vent's burn has no source and is not scaled)
+    if (this._ruleMul && status.sourceUid != null) amount *= ruleDotScale(this._ruleMul, this._towerByUid.get(status.sourceUid) || null, kind);
     const res = computeDot(e, kind, amount, status.attackType, this._dotOut);
     const hpBefore = e.hp;
     if (res.toBarrier > 0) {
@@ -516,7 +549,7 @@ export class Sim {
   _getWave(n) {
     let w = this._waveCache.get(n);
     if (!w) {
-      const opts = { pathCount: this.pathData.length, pathLengths: this.pathData.map((p) => p.length) };
+      const opts = { pathCount: this._pathsFwd.length, pathLengths: this._pathsFwd.map((p) => p.length), spacingMul: this.mode.spacingMul ?? 1 };
       w = this.freeplay && n > this.totalWaves ? generateFreeplayWave(this.stage, n, this.data.enemy, opts) : generateWave(this.stage, n, this.data.enemy, opts);
       this._waveCache.set(n, w);
     }
@@ -528,6 +561,7 @@ export class Sim {
     if (this.state !== 'prep' && this.state !== 'between') return false;
     if (!this.endless && this.wave >= this.lastWave) return false;
     this.wave++;
+    if (this._pathsRev) this.setRouteOrientation(routeReversedFor(this, this.wave));
     // a long freeplay run would keep every past wave's spawn list: keep only the waves around now
     // (the cache is a pure function of the wave number, so dropping it changes nothing)
     if (this.freeplay) for (const k of this._waveCache.keys()) if (k < this.wave - 1) this._waveCache.delete(k);
@@ -539,7 +573,11 @@ export class Sim {
     this._fp = w.freeplay?.pressure || null;
     this._autoTimer = -1;
     this.state = 'wave';
-    this._emit('waveStart', { wave: this.wave });
+    if (this.rule) {
+      this._waveTick = 0;
+      ruleWaveStart(this);
+    }
+    this._emit('waveStart', { wave: this.wave, reversed: this.routeReversed, flipped: routeFlippedFor(this, this.wave) });
     this._spawnTick(0);
     return true;
   }
@@ -548,14 +586,14 @@ export class Sim {
     if (this.state !== 'wave') return;
     if (this._spawnIndex < this._spawnQueue.length || this.enemies.length > 0) return;
     const cashMul = this.diff.cashMul ?? 1;
-    const bonus = this._gainCash((BATTLE.waveClearBonusBase + 6 * this.wave) * cashMul * this.cashScale);
+    const bonus = this._gainCash((BATTLE.waveClearBonusBase + 6 * this.wave) * cashMul * this.cashScale * this.incomeMul);
     this._emit('cash', { amount: bonus, reason: 'waveBonus' });
     if (!this.diff.noIncome) {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
         const interest = Math.min(150, (inc.interest || 0) * this.cash);
-        const amount = this._gainCash((inc.perWave || 0) * cashMul + interest);
+        const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
       }
     }
@@ -567,6 +605,10 @@ export class Sim {
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
     const goal = this.freeplay && this.wave === this.totalWaves;
     if (goal) this._emit('goal', { wave: this.wave });
+    if (this.rule) {
+      ruleWaveClear(this);
+      ruleWaveEnd(this);
+    }
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -723,6 +765,7 @@ export class Sim {
     refreshTowerStats(t, this.globalRateMul);
     this.towers.push(t);
     this._towerByUid.set(t.uid, t);
+    if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
     this.stats.towersPlaced++;
@@ -909,6 +952,7 @@ export class Sim {
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
     t.turrets = [];
+    if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
     this._emit('sell', { towerUid: uid, refund });
@@ -935,6 +979,8 @@ export class Sim {
       if (typeof d.x === 'number') d.x += dx;
       if (typeof d.y === 'number') d.y += dy;
     }
+    // crystal pads are position-derived (landing plan S5): a hero's Move re-assigns them
+    if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
   }
@@ -1090,6 +1136,63 @@ export class Sim {
   }
 
   // -------------------------------------------------------------------------
+  // Battle mode and map rule (docs/specs/CODEX_MODES.md)
+  // -------------------------------------------------------------------------
+
+  /** The map rule's HUD state (numbers and ids only), or null without a rule. */
+  ruleInfo() {
+    return ruleInfo(this);
+  }
+
+  /** Absolute route orientation of wave n (true = walked backwards). */
+  routeReversedFor(n) {
+    return routeReversedFor(this, n);
+  }
+
+  /** Is wave n flipped relative to this battle's usual direction (Rear Ambush's even waves)? */
+  routeFlippedFor(n) {
+    return routeFlippedFor(this, n);
+  }
+
+  /** Shifting Stars' favoured power on wave n, or null. */
+  ruleAffinityFor(n) {
+    return ruleAffinityFor(this, n);
+  }
+
+  /** Can hearts come back? (Not in Last Petal.) */
+  canHeal() {
+    return !this.mode.noHeal;
+  }
+
+  /**
+   * Sets the route orientation (absolute). Swaps pathData/paths and drops every cache ordered by
+   * the goal direction (trap spots). No-op on a battle without a reversible route.
+   */
+  setRouteOrientation(rev) {
+    if (!this._pathsRev) return;
+    rev = !!rev;
+    const changed = rev !== this.routeReversed;
+    this.routeReversed = rev;
+    this._applyRoute();
+    if (changed) {
+      for (const t of this.towers) {
+        t.trapSpots = null;
+        t.trapSpotsRange = -1;
+      }
+      delete this._relaySamples;
+    }
+  }
+
+  /** pathData/paths for the current orientation (after a restore, which builds wave 1's). */
+  _applyRoute() {
+    if (!this._pathsRev) return;
+    const want = this.routeReversed ? this._pathsRev : this._pathsFwd;
+    if (this.pathData === want) return;
+    this.pathData = want;
+    this.paths = want.map((p) => p.points.map((pt) => [pt[0], pt[1]]));
+  }
+
+  // -------------------------------------------------------------------------
   // Hero
   // -------------------------------------------------------------------------
 
@@ -1207,6 +1310,8 @@ export class Sim {
       goal: this.freeplay ? this.totalWaves : null,
       goalReached: this.freeplay && this.wavesCleared >= this.totalWaves,
       finished: this.finished,
+      mode: this.mode.id,
+      rule: this.rule?.id ?? null,
     };
   }
 }

@@ -33,6 +33,7 @@ export function createPlacement(ctx) {
   let mode = null; // 'tap' | 'drag'
   let last = null; // { x, y, ok, reason }
   let moving = false; // Move mode: the ghost is the placed hero, the drop moves her
+  let padHint = null;
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -55,15 +56,17 @@ export function createPlacement(ctx) {
     if (moving) {
       const wave = sim.state === 'wave';
       hint.classList.toggle('bt-place-water', def.placement === 'water');
-      hint.replaceChildren(
+      hint.replaceChildren(...[
         h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ' · she pauses 3s' : ' · free')),
+        padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
         h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
-      );
+      ].filter(Boolean));
       return;
     }
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
       h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtCoins(cost)}` : ' · free')),
+      padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
   }
@@ -93,6 +96,7 @@ export function createPlacement(ctx) {
   }
 
   function end() {
+    padHint = null;
     unitId = null;
     mode = null;
     last = null;
@@ -110,6 +114,12 @@ export function createPlacement(ctx) {
     const chk = moving ? sim.canMoveHero(x, y) : sim.canPlace(unitId, x, y);
     last = { x, y, ok: chk.ok, reason: chk.reason };
     ctx.renderer.setGhost(unitId, x, y, chk.ok);
+    // crystal pads (map rule): "+25% damage · +0.7 range" on a free pad, "Pad taken by Aoi" on a taken one
+    const ph = ctx.modes?.padHint(chk.x ?? x, chk.y ?? y, moving ? sim.hero?.uid ?? null : null) ?? null;
+    if (ph !== padHint) {
+      padHint = ph;
+      renderHint();
+    }
     return chk;
   }
 

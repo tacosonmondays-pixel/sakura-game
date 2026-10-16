@@ -201,7 +201,10 @@ export function createScout(ctx) {
     const over = sim.freeplay && n > sim.totalWaves;
     strip.classList.toggle('bt-scout-over', !!over);
     if (over) strip.dataset.tier = sim.stage.freeplay.id;
-    strip.append(h('span.bt-scout-label', h('small', 'NEXT'), ` ${n}`, over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null));
+    // map rule: "NEXT 4 ⇄" when the wave comes in through the goal gate (Rear Ambush)
+    const flipped = !!ctx.modes?.flipped(n);
+    strip.title = flipped ? 'Comes in through the goal gate' : 'Next wave — tap for details';
+    strip.append(h('span.bt-scout-label', { 'data-testid': 'scout-label' }, h('small', 'NEXT'), ` ${n}`, over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null, flipped ? h('span.bt-scout-flip', ' ⇄') : null));
     // freeplay: the boss telegraph from two waves ahead
     const tg = over ? freeplayBossTelegraph(sim, n) : null;
     if (tg) {
@@ -228,6 +231,8 @@ export function createScout(ctx) {
     strip.append(chips);
     const pc = over ? pressureChip(n) : null;
     if (pc) strip.append(pc);
+    const ac = ctx.modes?.scoutChip(n);
+    if (ac) strip.append(ac);
     if (popover) renderPopover();
   }
 
@@ -249,7 +254,7 @@ export function createScout(ctx) {
     const rows = hasNext() ? sortRows(sim.nextWavePreview(), isNew) : [];
     let warnings = [];
     try {
-      warnings = hasNext() ? sim.waveWarnings(n) : [];
+      warnings = hasNext() ? [...sim.waveWarnings(n), ...(ctx.modes?.warnings(n) || [])] : [];
     } catch (e) {
       console.warn('[battle] waveWarnings failed', e);
     }

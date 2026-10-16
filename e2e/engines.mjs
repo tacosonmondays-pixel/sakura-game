@@ -155,6 +155,23 @@ for (const { name, r } of results) {
   const [ta, tb] = b.endTicks.split('/');
   if (ta !== tb) failures.push(`the Finish vote ended the run on different ticks (${b.endTicks})`);
 }
+// battle modes and map rules: the MODES_* battles, bit for bit
+log('\nBattle modes + map rules (MODES_* scenarios: every mode and rule effect, a pad sale, endless past the goal):');
+for (const { name, r } of results) {
+  const m = r.modes;
+  log(`  ${name.padEnd(46)} ${m.battles.length} battles · digest ${m.digest} · ${m.ms} ms`);
+  m.battles.forEach((b, i) => {
+    const want = ref.modes.battles[i];
+    if (name === results[0].name) log(`    ${b.name.padEnd(26)} ${b.state} w${b.wave} ♥${b.lives} · ${b.checkpoints} checkpoints ${b.hashes} · final ${b.final} · events ${b.events}`);
+    for (const k of ['state', 'wave', 'lives', 'cash', 'steps', 'hashes', 'checkpoints', 'final']) if (b[k] !== want[k]) failures.push(`${name}: ${b.name} ${k} ${b[k]} ≠ ${want[k]} (${results[0].name})`);
+  });
+}
+{
+  const ev = ref.modes.battles.map((b) => b.events).join(',');
+  for (const k of ['ruleState', 'ruleBonus', 'rift', 'ruleCash']) if (!ev.includes(k)) failures.push(`the mode battles never produced a ${k} event`);
+  const ck = ref.modes.battles.reduce((a, b) => a + b.checkpoints, 0);
+  log(`  ${ck} hash checkpoints across the mode battles`);
+}
 // deep freeplay: a battle jumped to wave 250 on 8-5 (the Eclipse Wyrm wave), raw bits of every enemy
 const DEEP_KEYS = ['towers', 'wave', 'cleared', 'lives', 'maxAlive', 'maxHp', 'bad', 'bosses', 'digest', 'final'];
 log('\nDeep freeplay (8-5 Blossom jumped to wave 250: the Eclipse Wyrm + Gloom Regent, every enemy\'s bits every 60 ticks):');

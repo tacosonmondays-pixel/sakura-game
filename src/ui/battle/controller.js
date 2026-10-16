@@ -45,6 +45,7 @@ import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
 import { sampleDroneRates } from './chikaPanel.js';
 import { createRateMeter } from './util.js';
+import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { applyBattleResult } from '../../systems/rewards.js';
@@ -177,6 +178,12 @@ export function mountBattle(root, params, hooks) {
     }
     : restored || createBattleSim(profile, req);
   const { sim, towers, hero, heroes: heroIds } = made;
+  // a Continue plays the saved run's own battle mode (the record's, whatever the link says), and a
+  // mode run is never offered Keep going (setup.js parseBattleParams)
+  if (restored) {
+    req.mode = sim.mode?.id || 'standard';
+    if (req.mode !== 'standard') req.keepGoing = false;
+  }
   const settings = profile.settings || {};
 
   /** Enemy model families this stage can spawn (pool + fixed + split/brood/summon children). */
@@ -271,6 +278,9 @@ export function mountBattle(root, params, hooks) {
     if (saveWarning) warnSave(saveWarning);
     const tree = createUpgradeTree(ctx); // [unit-info] before the bar: its cards bind tree holds
     ctx.tree = tree;
+    // battle modes + map rules (src/ui/battle/modes.js): the HUD chip and pill, toasts, banners
+    const modesUi = createModesBattle(ctx);
+    ctx.modes = modesUi;
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -290,7 +300,7 @@ export function mountBattle(root, params, hooks) {
     const panel = createTowerPanel(ctx);
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree];
+    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree, modesUi];
     ctx.wave = wave;
     let sandbox = null;
     if (req.sandbox) {
@@ -348,7 +358,9 @@ export function mountBattle(root, params, hooks) {
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
-      for (const [runs, w] of [[spawnRuns, 1], [exitRuns, 0.2]]) {
+      // the live spawn gates: a reversed route (Reverse Route, an ambush wave) comes in at the exits
+      const pairs = sim.routeReversed ? [[exitRuns, 1], [spawnRuns, 0.2]] : [[spawnRuns, 1], [exitRuns, 0.2]];
+      for (const [runs, w] of pairs) {
         for (const run of runs) {
           for (const [x, y] of run) {
             const p = renderer.worldToScreen(x, y, 0);
@@ -684,6 +696,8 @@ export function mountBattle(root, params, hooks) {
     // (Continue: enemies met before the save are not "new" again)
     const announcedNew = new Set(restored ? sim.encountered : []);
     let lastWaveEnd = 0;
+    /** map rule warnings that matter most (route, mode) lead; affinity follows the sim's */
+    const ruleFirst = (ws) => ws.filter((w) => w.kind !== 'affinity').concat(ws.filter((w) => w.kind === 'affinity'));
     function warnFor(n) {
       let list = [];
       try {
@@ -692,6 +706,7 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       for (const w of list) if (w.kind === 'new') for (const id of [w.enemyId, ...(w.enemyIds || [])]) if (id) announcedNew.add(id);
+      list = [...ruleFirst(ctx.modes?.warnings(n) || []), ...list];
       for (const w of list.slice(0, 3)) {
         const kind = w.severity === 'danger' ? 'bad' : w.severity === 'warn' ? 'warn' : 'info';
         feed.push(heroWarnText(sim, w.text), kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
@@ -702,6 +717,7 @@ export function mountBattle(root, params, hooks) {
       heroLevels.handle(events);
       for (const ev of events) {
         fpBattle?.handle(ev);
+        ctx.modes?.handle(ev);
         switch (ev.type) {
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
@@ -728,7 +744,7 @@ export function mountBattle(root, params, hooks) {
           case 'waveStart':
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
-            feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
@@ -870,6 +886,7 @@ export function mountBattle(root, params, hooks) {
       fpBattle?.update();
       sampleDroneRates(sim, ctx.rates);
       ctx.flight.update();
+      ctx.modes?.update();
       hud.update();
       bar.update();
       panel.update();

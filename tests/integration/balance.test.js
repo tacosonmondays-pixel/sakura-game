@@ -7,7 +7,11 @@
 //   npx vitest run tests/integration/balance.test.js                  # Easy gate (fast-ish)
 //   BALANCE=full npx vitest run tests/integration/balance.test.js     # full table, all difficulties
 //   BALANCE=hero npx vitest run tests/integration/balance.test.js     # hero rework: headroom, pace, power, counters
+//   BALANCE=modes npx vitest run tests/integration/balance.test.js    # battle modes × difficulty (rules on)
+//   BALANCE=rules npx vitest run tests/integration/balance.test.js    # Standard, map rules off vs on
+//   BALANCE=fpguard npx vitest run tests/integration/balance.test.js  # co-op freeplay death waves, rules on vs off
 //   BALANCE_OUT=/tmp/table.md also writes the table to a file (vitest hides console of passing tests)
+// The map rules (docs/specs/CODEX_MODES.md) are always on, as shipped: the Easy gate runs with them.
 import { describe, test, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
@@ -24,6 +28,9 @@ import { benchDps, towerBest, median } from '../../tools/balance/bench.js';
 const ready = hasRealData();
 const FULL = process.env.BALANCE === 'full';
 const HERO = process.env.BALANCE === 'hero';
+const MODES = process.env.BALANCE === 'modes';
+const RULES = process.env.BALANCE === 'rules';
+const FPGUARD = process.env.BALANCE === 'fpguard';
 
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
@@ -49,7 +56,7 @@ function statsAtLevel(unitId, level) {
 }
 
 /** Runs one stage with the F2P roster. */
-export function runStage(stageId, difficulty, level, seed = 1, { hpMul = 1, heroId } = {}) {
+export function runStage(stageId, difficulty, level, seed = 1, { hpMul = 1, heroId, ...options } = {}) {
   const d = defaultData();
   const free = freeUnitsBefore(d, stageId);
   const towers = free.towers;
@@ -57,7 +64,7 @@ export function runStage(stageId, difficulty, level, seed = 1, { hpMul = 1, hero
   const plan = autoPlan(stageId, [...towers, ...(hero ? [hero] : [])]);
   const st = d.stages[stageId];
   const r = runHeadless({
-    stageId, difficulty, plan, seed, maxTime: 7200,
+    stageId, difficulty, plan, seed, maxTime: 7200, options,
     data: hpMul === 1 ? undefined : { stage: { ...st, hpScale: (st.hpScale ?? 1) * hpMul } },
     loadout: towers.map((id) => ({ unitId: id, stats: statsAtLevel(id, level) })),
     hero: hero ? { unitId: hero, stats: statsAtLevel(hero, level) } : null,
@@ -107,6 +114,138 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     expect(wins.normal).toBeGreaterThanOrEqual(Math.ceil(campaign.length * 0.6));
     expect(wins.nightmare).toBeLessThanOrEqual(Math.floor(campaign.length * 0.35));
   }, 3600000);
+
+  test.runIf(MODES)('battle modes as shipped (mode + the stage rule), wins out of 40', () => {
+    const d = defaultData();
+    const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
+    const modes = ['standard', 'reverse', 'rush', 'ironclad', 'frugal', 'laststand'];
+    const diffs = (process.env.BALANCE_DIFFS || 'easy,normal,hard').split(',');
+    const out = [];
+    const wins = {};
+    const hearts = {};
+    for (const k of diffs) {
+      wins[k] = Object.fromEntries(modes.map((m) => [m, 0]));
+      hearts[k] = Object.fromEntries(modes.map((m) => [m, 0]));
+      const rows = [`### ${k}`, '', '| Stage | Rule | Standard | Reverse | Rush | Ironclad | Half Income | Last Petal |', '|---|---|---|---|---|---|---|---|'];
+      for (const s of campaign) {
+        const lv = EXPECTED_LEVEL[s.chapter] || 1;
+        const cells = modes.map((m) => {
+          const r = runStage(s.id, k, lv, 1, { mode: m });
+          if (r.won) {
+            wins[k][m]++;
+            hearts[k][m] += r.lives / r.maxLives;
+          }
+          return r.won ? `W${Math.round((100 * r.lives) / r.maxLives)}` : `L${r.wave}`;
+        });
+        rows.push(`| ${s.id} | ${s.rule?.id ?? '—'} | ${cells.join(' | ')} |`);
+      }
+      rows.push(`| **wins** | | ${modes.map((m) => `**${wins[k][m]}/${campaign.length}** (${wins[k][m] ? Math.round((100 * hearts[k][m]) / wins[k][m]) : 0} %)`).join(' | ')} |`, '');
+      out.push(...rows);
+    }
+    console.log(`[balance] modes:\n${out.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, out.join('\n') + '\n');
+    // §10 thresholds (spec measurements in brackets in the comment)
+    if (wins.easy) expect(wins.easy.standard).toBe(campaign.length);
+    if (wins.normal) {
+      const n = wins.normal;
+      expect(n.standard).toBeGreaterThanOrEqual(38); // 39
+      expect(n.reverse).toBeGreaterThanOrEqual(36); // 38
+      expect(n.rush).toBeGreaterThanOrEqual(36); // 38
+      expect(n.ironclad).toBeGreaterThanOrEqual(37); // 39
+      expect(n.frugal).toBeGreaterThanOrEqual(35); // 37
+      expect(n.laststand).toBeGreaterThanOrEqual(10); // 12
+    }
+    if (wins.hard) {
+      const h = wins.hard;
+      expect(h.standard).toBeGreaterThanOrEqual(29); // 31
+      expect(h.reverse).toBeGreaterThanOrEqual(28); // 30
+      expect(h.rush).toBeGreaterThanOrEqual(17); // 20
+      expect(h.ironclad).toBeGreaterThanOrEqual(18); // 21
+      expect(h.frugal).toBeGreaterThanOrEqual(11); // 13
+      expect(h.laststand).toBeGreaterThanOrEqual(2); // 3
+    }
+    // no mode wins more stages than Standard
+    for (const k of diffs) for (const m of modes) expect(wins[k][m], `${k} ${m}`).toBeLessThanOrEqual(wins[k].standard);
+  }, 7200000);
+
+  test.runIf(RULES)('map rules off vs on (Standard), every ruled stage', () => {
+    const d = defaultData();
+    const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign' && s.rule);
+    const diffs = ['easy', 'normal', 'hard'];
+    const rows = ['| Stage | Rule | Easy off → on | Normal off → on | Hard off → on |', '|---|---|---|---|---|'];
+    const flips = [];
+    for (const s of campaign) {
+      const lv = EXPECTED_LEVEL[s.chapter] || 1;
+      const cells = diffs.map((k) => {
+        const off = runStage(s.id, k, lv, 1, { rule: null });
+        const on = runStage(s.id, k, lv, 1);
+        const c = (r) => (r.won ? `W${Math.round((100 * r.lives) / r.maxLives)}` : `L${r.wave}`);
+        if (off.won !== on.won) flips.push(`${s.id} ${k} ${c(off)} → ${c(on)}`);
+        return `${c(off)} → ${c(on)}${off.won !== on.won ? ' **flip**' : ''}`;
+      });
+      rows.push(`| ${s.id} | ${s.rule.id} | ${cells.join(' | ')} |`);
+    }
+    console.log(`[balance] rules:\n${rows.join('\n')}\nflips: ${flips.join('; ') || 'none'}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, `${rows.join('\n')}\n\nflips: ${flips.join('; ') || 'none'}\n`);
+    expect(flips.filter((f) => / (easy|normal) /.test(f))).toEqual([]);
+  }, 3600000);
+
+  // CODEX_MODES.md §9.11 step 4: past the goal a map rule keeps its combat effects; a strong team's
+  // freeplay run (Blossom) must end within ±5 waves of the same run with the rule switched off.
+  test.runIf(FPGUARD)('co-op freeplay with map rules: death wave within ±5 of rules off', async () => {
+    const { coopStage } = await import('../../src/data/coop.js');
+    const { Sim } = await import('../../src/sim/Sim.js');
+    const team = ['kage', 'suzu', 'raika', 'chika', 'yuki', 'momo', 'kaede', 'umeko'];
+    const level = Number(process.env.FP_LEVEL || 60);
+    const stages = (process.env.FP_STAGES || '1-4,4-1,6-5,7-1,8-5').split(',');
+    const rows = ['| Stage | Rule | Rule off: death wave | Rule on | Δ |', '|---|---|---|---|---|'];
+    const bad = [];
+    for (const id of stages) {
+      const stage = coopStage(id, { freeplay: 'blossom' });
+      const run = (rule) => {
+        const plan = autoPlan(id, [...team, 'hikari'], { data: { stage } });
+        const sim = new Sim({
+          stageId: id, difficulty: 'normal', seed: 7, data: { stage },
+          loadout: team.map((u) => ({ unitId: u, stats: statsAtLevel(u, level) })), hero: { unitId: 'hikari', stats: statsAtLevel('hikari', level) },
+          options: { freeplay: true, autoStart: true, ...(rule ? {} : { rule: null }) },
+        });
+        let i = 0;
+        let turn = 0;
+        sim.startNextWave();
+        for (let k = 0; k < 4 * 60 * 60 * 6 && sim.state !== 'lost' && sim.state !== 'won'; k++) {
+          if (k % 4 === 0) {
+            if (i < plan.length) {
+              const a = plan[i];
+              if (a.action === 'place') {
+                if (sim.canPlace(a.unitId, a.x, a.y).ok) { sim.placeTower(a.unitId, a.x, a.y); i++; } else if (sim.placementReason(a.unitId, a.x, a.y)) i++;
+              } else if (a.action === 'upgrade') {
+                const t = sim.towerAt(a.x, a.y);
+                const st = t && sim.upgradeStatus(t.uid, a.path);
+                if (!t || (st.locked && st.reason !== 'cash')) i++;
+                else if (!st.locked) { sim.upgradeTower(t.uid, a.path); i++; }
+              } else i++;
+            } else if (sim.towers.length) {
+              const t = sim.towers[turn++ % sim.towers.length];
+              for (const path of [0, 1, 2]) if (!sim.upgradeStatus(t.uid, path).locked) { sim.upgradeTower(t.uid, path); break; }
+            }
+            if (sim.hero && sim.heroUltStatus().ready) sim.activateUlt();
+          }
+          sim.update(0.25);
+          sim.drainEvents();
+        }
+        return sim.wave;
+      };
+      const off = run(false);
+      const on = run(true);
+      const d = on - off;
+      if (Math.abs(d) > 5) bad.push(`${id} ${d}`);
+      rows.push(`| ${id} | ${stage.rule?.id ?? '—'} | ${off} | ${on} | ${d >= 0 ? '+' : ''}${d} |`);
+      console.log(rows.at(-1));
+    }
+    console.log(`[balance] freeplay guard (Blossom, level ${level}):\n${rows.join('\n')}`);
+    if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, `${rows.join('\n')}\n`);
+    expect(bad).toEqual([]);
+  }, 7200000);
 });
 
 // ---------------------------------------------------------------------------

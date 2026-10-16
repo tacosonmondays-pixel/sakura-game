@@ -968,11 +968,11 @@ describe('co-op freeplay: the room setting', () => {
     W.connect(guest.room);
     W.until(() => host.paired && guest.paired);
     expect(guest.freeplay).toBe('tempest'); // from the host's hello
-    expect(lastMsg(host, 'hello').room).toEqual({ stageId: '1-2', difficulty: 'normal', freeplay: 'tempest' });
+    expect(lastMsg(host, 'hello').room).toEqual({ stageId: '1-2', difficulty: 'normal', freeplay: 'tempest', mode: 'standard' });
     expect(lastMsg(guest, 'hello').freeplay).toBe('tempest'); // what the guest's Ready would agree to
     // a change goes out at once
     host.setStage('1-3', 'hard', 'crimson');
-    expect(lastMsg(host, 'room')).toEqual({ type: 'room', stageId: '1-3', difficulty: 'hard', freeplay: 'crimson' });
+    expect(lastMsg(host, 'room')).toEqual({ type: 'room', stageId: '1-3', difficulty: 'hard', freeplay: 'crimson', mode: 'standard' });
     W.step(200);
     expect([guest.stageId, guest.difficulty, guest.freeplay]).toEqual(['1-3', 'hard', 'crimson']);
     // left out it stays; anything that is not a tier is off
@@ -1196,5 +1196,59 @@ describe('co-op freeplay: the room setting', () => {
     expect(sent(guest, 'lobby')).toBe(2);
     host.close();
     guest.close();
+  });
+});
+
+// Battle modes (docs/specs/CODEX_MODES.md §6.4): the mode travels like freeplay — room, hello,
+// ready and start — and a guest's Ready is consent to it; freeplay runs in Standard.
+describe('co-op battle modes: the room setting', () => {
+  const lastMsg = (s, type) => s.room.log.filter((e) => e.msg.type === type).at(-1)?.msg;
+  function paired(W, hostExtra = {}) {
+    const host = open(W, true, hostExtra);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    expect(W.until(() => host.paired && guest.paired)).not.toBe(null);
+    return { host, guest };
+  }
+
+  it('the mode rides in hello, room, ready and start; a changed mode clears Ready; both build that battle', () => {
+    const W = world();
+    const { host, guest } = paired(W, { mode: 'rush' });
+    expect(host.mode).toBe('rush');
+    expect(guest.mode).toBe('rush');
+    expect(lastMsg(host, 'hello').room.mode).toBe('rush');
+    guest.setReady(true);
+    expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+    expect(lastMsg(guest, 'ready').mode).toBe('rush');
+    host.setStage(host.stageId, host.difficulty, null, 'ironclad');
+    expect(host.canStart).toBe(false);
+    W.step(500);
+    expect(guest.mode).toBe('ironclad');
+    expect(guest.me.ready).toBe(false);
+    guest.setReady(true);
+    expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+    expect(host.startBattle(9)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    expect(guest.lockstep.start.mode).toBe('ironclad');
+    for (const s of [host, guest]) expect(s.lockstep.sim.mode.id).toBe('ironclad');
+    host.close();
+    guest.close();
+  });
+
+  it('(i) setStage resets the mode to Standard on a stage the host has not cleared, and with Freeplay on', () => {
+    const W = world();
+    const host = open(W, true, { stageId: '1-2', mode: 'rush', modesUnlocked: (id) => id === '1-2' });
+    expect(host.mode).toBe('rush');
+    host.setStage('1-3', 'normal', null, 'rush');
+    expect(host.mode).toBe('standard');
+    host.setStage('1-2', 'normal', null, 'reverse');
+    expect(host.mode).toBe('reverse');
+    host.setStage('1-2', 'normal', 'tempest', 'reverse');
+    expect(host.mode).toBe('standard');
+    expect(lastMsg(host, 'room')).toMatchObject({ freeplay: 'tempest', mode: 'standard' });
+    host.setStage('1-2', 'normal', null, 'nope');
+    expect(host.mode).toBe('standard');
+    host.close();
   });
 });

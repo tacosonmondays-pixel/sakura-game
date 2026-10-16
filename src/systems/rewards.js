@@ -7,7 +7,8 @@ import { getItem } from '../data/items.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../data/types.js';
 import { addItems, normalizeList } from './inventory.js';
 import { rollGear, addGear } from './gear.js';
-import { grantUnit, isOwned, stageMedals, isPracticeRun } from './unlocks.js';
+import { grantUnit, isOwned, stageMedals, isPracticeRun, bestDifficulty, modesUnlocked } from './unlocks.js';
+import { modeId } from '../data/modes.js';
 import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString } from '../core/rng.js';
@@ -18,7 +19,29 @@ export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare
 /** Max sweeps per call. */
 export const MAX_SWEEPS = 10;
 
+/** Gems per mode ribbon by difficulty (owner question Q1: 0 in v1; switching on needs a SAVE_VERSION bump). */
+export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nightmare: 0 });
+
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
+
+/**
+ * The difficulty a win pays at: Standard pays the selected one; a battle mode pays at most your
+ * best Standard medal on that stage (docs/specs/CODEX_MODES.md §7.1), so no mode is a cheaper road
+ * to drops than Standard.
+ */
+export function rewardDifficulty(profile, stageId, difficulty, mode) {
+  if (modeId(mode) === 'standard') return difficulty;
+  const best = bestDifficulty(profile, stageId) ?? 'easy';
+  return diffIndex(best) < diffIndex(difficulty) ? best : difficulty;
+}
+
+/** The mode a battle result counts as (Standard when modes are not unlocked there, or Nightmare × Last Petal). */
+export function resultMode(profile, stageId, difficulty, mode) {
+  const m = modeId(mode);
+  if (m === 'standard' || !modesUnlocked(profile, stageId)) return 'standard';
+  if (m === 'laststand' && difficulty === 'nightmare') return 'standard';
+  return m;
+}
 
 /**
  * Roll a stage's drop table. Entries with a `difficulty` only roll at that difficulty or
@@ -122,7 +145,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   const stage = STAGE_MAP[result?.stageId];
   // Sandbox: no clears, medals, gems, unlocks, drops, bestiary, missions or achievements.
   if (result?.sandbox) return sandboxOutcome();
-  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false, sandboxUnlocked: false };
+  const out = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, eventBonus: false, practice: false, sandboxUnlocked: false, mode: 'standard', newRibbon: false, ribbon: null, rewardDifficulty: null };
   if (!stage) return out;
   // Deep link to a locked stage: no clears, medals, gems, unlocks, drops, bestiary or missions.
   if (isPracticeRun(profile, stage.id)) {
@@ -166,13 +189,41 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
 
   const rewards = [];
   const clearsBefore = campaignClears(profile);
-  if (won) {
+  // battle modes: decided before the win changes the medals (a mode only pays up to the best medal held)
+  const mode = resultMode(profile, stage.id, difficulty, result.mode);
+  out.mode = mode;
+  if (won && mode !== 'standard') {
+    const payAt = rewardDifficulty(profile, stage.id, difficulty, mode);
+    out.rewardDifficulty = payAt;
+    const key = `${difficulty}:${mode}`;
+    entry.modes ||= {};
+    out.newRibbon = !entry.modes[key];
+    out.ribbon = key;
+    entry.modes[key] = true;
+    entry.clears += 1;
+    if (out.newRibbon && MODE_RIBBON_GEMS[difficulty] > 0) rewards.push({ id: 'gems', count: MODE_RIBBON_GEMS[difficulty] });
+    // a saved mode run keeps its start week's event (battle save), like a Standard win below
+    const mul = battleEventMul(stage.id, now, eventAt);
+    out.eventBonus = mul > 1;
+    const split = splitDrops(profile, rollStageDrops(stage.id, payAt, rng, { dropMul: mul }));
+    rewards.push(...split.items);
+    out.gear = split.gear;
+    track(profile, 'battleWin', 1);
+    if (diffIndex(payAt) >= diffIndex('hard')) track(profile, 'battleWinHard', 1);
+  } else if (won) {
+    out.rewardDifficulty = difficulty;
     const wasCleared = DIFFICULTY_ORDER.some((d) => entry[d]);
     out.firstClear = !wasCleared;
     out.newMedal = !entry[difficulty];
     out.medal = DIFFICULTIES[difficulty].medal;
     entry[difficulty] = true;
     entry.clears += 1;
+    // Nightmare already has one heart: its Last Petal ribbon is the same battle, earned with the medal
+    if (difficulty === 'nightmare' && stage.kind === 'campaign') {
+      entry.modes ||= {};
+      if (!entry.modes['nightmare:laststand']) out.newRibbon = true;
+      entry.modes['nightmare:laststand'] = true;
+    }
     if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: DIFFICULTIES[difficulty].firstClearGems });
     if (out.firstClear) rewards.push(...(stage.firstClear || []));
     for (const unitId of stage.unlocks?.units || []) {

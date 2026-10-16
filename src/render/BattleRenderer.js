@@ -19,6 +19,7 @@ import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
 import { AmbientSystem } from './ambient.js';
+import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
 import { BuffIcons } from './buffIcons.js';
@@ -156,10 +157,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const batchList = Object.values(batches);
 
   let shadowsOn = false;
-  const terrain = buildTerrain(map, look, scenery, { shadows: false, quality });
+  const terrain = buildTerrain(map, look, scenery, { shadows: false, quality, reverse: !!sim.mode?.reverse });
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -578,6 +580,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     } catch {
       actors.alpha = 1;
     }
+    if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
     actors.sync(d);
     terrain.update(time);
     actors.drawGround(d);
@@ -585,6 +588,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
+    ruleDecals?.update(d, time);
     overlays.update(d);
     actors.drawOverlay();
     // the panel slide runs on real time (a girl can be inspected while the game is paused)
@@ -805,6 +809,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: wobble the ghost (rejected drop feedback). */
     shakeGhost() {
       overlays.shakeGhost();
+    },
+    /** Gate arrows for this wave (relative to the terrain's gates) and the chevrons (absolute direction). */
+    setRouteFlipped(flipped, reversed = flipped) {
+      ambient.setGatesReversed(flipped, reversed);
     },
     /** The selected girl, and (optionally) one of her drones (ring, tether, reticle). */
     setSelected(uid, droneUid = null) {

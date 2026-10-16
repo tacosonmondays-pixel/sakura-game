@@ -39,8 +39,20 @@ export const SNAPSHOT_VERSION = 1;
  */
 // heroConfigs: built from the start arguments; _heroConfig: the VIEWING player's hero (a host's
 // checkpoint must not give the guest the host's hero in the HUD); _stepping: false between steps.
-export const REBUILT = Object.freeze(['data', 'stage', 'map', 'pathData', 'paths', 'pathTiles', 'placement', '_waveCache', 'events', '_scratch', '_scratch2', 'loadout', 'heroConfigs', '_heroConfig', '_stepping', '_capSources']);
+// Battle mode + map rule (docs/specs/CODEX_MODES.md): the mode comes from options, and both route
+// orientations are dense polylines the constructor builds (AFTER_RESTORE picks the live one).
+export const REBUILT = Object.freeze(['data', 'stage', 'map', 'pathData', 'paths', 'pathTiles', 'placement', '_waveCache', 'events', '_scratch', '_scratch2', 'loadout', 'heroConfigs', '_heroConfig', '_stepping', '_capSources',
+  'mode', '_pathsFwd', '_pathsRev']);
 const REBUILT_SET = new Set(REBUILT);
+
+/**
+ * Fixes run after a restore, for state the constructor rebuilt in a form the snapshot does not
+ * match: the live route orientation (pathData/paths are built for wave 1; a Rear Ambush battle
+ * that just played an even wave walks the other way).
+ */
+export const AFTER_RESTORE = Object.freeze([
+  (sim) => sim._applyRoute?.(),
+]);
 
 /** Classes a snapshot may hold (restored with their own prototype, fields as stored). */
 const CLASSES = { SpatialGrid };
@@ -343,6 +355,7 @@ export function restoreSim(sim, snap, config = simConfig(sim)) {
   sim._scratch = [];
   sim._scratch2 = [];
   delete sim._capSources;
+  for (const fix of AFTER_RESTORE) fix(sim);
   return sim;
 }
 
