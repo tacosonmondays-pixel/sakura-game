@@ -612,6 +612,30 @@ describe('co-op lobby handshake', () => {
   });
 });
 
+describe('co-op lobby: the start message is clamped on both clients (statLimits.js)', () => {
+  it('a guest whose hello carries absurd stats fights at the clamp; both build the same battle', () => {
+    const W = world();
+    const host = open(W, true);
+    const cheat = { damageMul: 1000, rateMul: 99, costMul: 0.001, level: 1e9, potential: 99, awakenPassive: true };
+    const guest = open(W, false, { me: { uid: GUEST, name: 'Bea', level: 5, avatar: 'aoi', loadout: [{ unitId: 'yuki', stats: cheat }, { unitId: 'rei', stats: { potential: 6, level: 85 } }], hero: null } });
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4242)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    expect(guest.lockstep.start).toEqual(host.lockstep.start);
+    const g = host.lockstep.start.players.find((p) => p.uid === GUEST);
+    expect(g.loadout[0].stats).toEqual({ damageMul: 10, rateMul: 5, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
+    // an honest L85 P6 girl passes through as she is
+    expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
+    expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+    host.close();
+    guest.close();
+  });
+});
+
 // "When you lose and go back to coop make it so the room stays and you can rejoin the room"
 // (owner, Oct 14). Each battle runs to its end the way the game ends one: both clients' battle
 // screens advance their own lockstep (Nightmare: one life, no girls placed, so the first enemy

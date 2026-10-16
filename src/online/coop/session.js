@@ -54,6 +54,7 @@ import { freeplayTier } from '../../data/freeplay.js';
 import { modeId } from '../../data/modes.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
+import { clampStart } from './statLimits.js';
 
 let current = null;
 
@@ -619,7 +620,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   }
 
   let pump = 0;
-  function begin(start) {
+  function begin(raw) {
+    // every girl's stats clamped to what an honest save reaches (statLimits.js; the identity for an
+    // honest loadout): the host clamps the start it sends, the guest the one it receives
+    const start = clampStart(raw);
     s.start = start;
     s.phase = 'battle';
     s.stuck = null;
