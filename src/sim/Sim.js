@@ -1079,8 +1079,14 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t) return null;
     const e = t.eff;
-    // (Potential N13: Kage's shuriken per throw × (1 + projScale) on average)
-    const dps = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles * (e.projScale > 0 ? 1 + e.projScale : 1));
+    // damage × attacks a second × projectiles (crit and a rhythm's harder hit not included). Potential
+    // adds what changes how many attacks and projectiles she makes: N13 her shuriken per throw
+    // × (1 + projScale) on average, N14 her tempo as it stands now (1 + per × stacks), and a rhythm's
+    // echo volley (N3 / N15: every Nth attack repeats in full or at a share s, × (1 + s / N))
+    let dps = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles * (e.projScale > 0 ? 1 + e.projScale : 1));
+    if (dps > 0 && e.tempo) dps *= 1 + e.tempo.per * (t.tempoStacks || 0);
+    const echo = e.proc && e.proc.of !== 'trap' && e.proc.every > 0 ? (e.proc.echo === true ? 1 : typeof e.proc.echo === 'number' ? e.proc.echo : 0) : 0;
+    if (dps > 0 && echo > 0) dps *= 1 + echo / e.proc.every;
     const ts = t.turretSpec;
     const roam = !!ts && ts.leash > 0;
     let turret = null;

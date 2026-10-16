@@ -562,6 +562,8 @@ describe('N13–N15: more shuriken, tempo, echo shares', () => {
       }
     }
     expect(h2).toBe(450 + Math.floor((450 * 12) / 100));
+    // the battle panel counts the echo volley: every 2nd throw twice → × 1.5
+    expect(s2.towerStats(t2.uid).dps).toBeCloseTo(t2.eff.damage * t2.eff.rate * 3 * 1.12 * 1.5, 9);
   });
 
   test('N14: stacks to 6 on a held target and the rate formula; back to 0 after 60 idle steps; a sabotaged girl decays too', () => {
@@ -571,6 +573,8 @@ describe('N13–N15: more shuriken, tempo, echo shares', () => {
     const e = park(sim, 'tank', 7);
     run(sim, 5);
     expect(t.tempoStacks).toBe(6);
+    // the battle panel's DPS counts her tempo as it stands
+    expect(sim.towerStats(t.uid).dps).toBeCloseTo(t.eff.damage * t.eff.rate * t.eff.projectiles * 1.06, 9);
     // the cooldown she adds per throw: 1 / (rate × 1.06)
     t.cooldown = 0;
     sim.update(STEP);
@@ -581,6 +585,7 @@ describe('N13–N15: more shuriken, tempo, echo shares', () => {
     sim.update(STEP);
     sim.update(STEP);
     expect(t.tempoStacks).toBe(0);
+    expect(sim.towerStats(t.uid).dps).toBeCloseTo(t.eff.damage * t.eff.rate * t.eff.projectiles, 9);
     // sabotaged mid-run: no throws, the idle count still runs
     const s2 = potSim({ archer: def });
     const t2 = s2.placeTower('archer', 6, 5);
@@ -602,6 +607,8 @@ describe('N13–N15: more shuriken, tempo, echo shares', () => {
     run(sim, 1.01);
     const hits = sim.drainEvents().filter((x) => x.type === 'hit' && x.uid === e.uid).map((x) => x.amount);
     expect(hits.slice(0, 3)).toEqual([10, 20, 10]); // the 2nd attack ×2, then its echo at half of that
+    // the battle panel counts the share echo's volley (every 2nd attack, half a volley: × 1.25)
+    expect(sim.towerStats(t.uid).dps).toBeCloseTo(t.eff.damage * t.eff.rate * t.eff.projectiles * 1.25, 9);
     const duel = withPot(UNITS.duelist, { p2: { mods: { proc: { name: 'D', every: 2, echo: 0.3 } } } });
     const s2 = potSim({ duelist: duel });
     const d = s2.placeTower('duelist', 6, 5);
