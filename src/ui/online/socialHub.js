@@ -7,7 +7,7 @@
 // close every open window first, so nothing stays on top of the screen they open.
 import { createEmitter } from '../../core/events.js';
 import { getBackend } from '../../online/backend.js';
-import { ensureOnline, storedName } from './common.js';
+import { ensureOnline, wentOnline } from './common.js';
 import { navigate, currentRoute } from '../router.js';
 import { closeAllModals } from '../components.js';
 import { STAGE_MAP } from '../../data/stages.js';
@@ -162,7 +162,8 @@ export function inviteSummary(meta) {
 export function startSocialHub({ force = false } = {}) {
   if (state.started) return Promise.resolve(state.status);
   if (state.starting) return state.starting;
-  if (!force && !storedName()) return Promise.resolve(state.status);
+  // a player who went online before (a name, or "Not now" with a kept sign-in): never a new account
+  if (!force && !wentOnline()) return Promise.resolve(state.status);
   state.starting = (async () => {
     let backend;
     try {

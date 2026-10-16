@@ -3,7 +3,7 @@ import '../styles/online.css';
 import { h, svgEl, modal, toast, button } from '../components.js';
 import { store } from '../../core/store.js';
 import { getBackend } from '../../online/backend.js';
-import { readIdentity, writeIdentity, profileCard } from '../../online/identity.js';
+import { readIdentity, writeIdentity, profileCard, hasOnlineAccount } from '../../online/identity.js';
 import { validateName } from '../../online/clanRules.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { cardArtSVG } from '../../art/cardArt.js';
@@ -18,6 +18,11 @@ const perTab = () => getBackend().status.mode === 'local';
 /** The player's chosen online name, or ''. */
 export function storedName() {
   return readIdentity(perTab()).name || '';
+}
+
+/** This browser signed in before (a name, or a kept session after "Not now"): safe to go online without asking. */
+export function wentOnline() {
+  return hasOnlineAccount(perTab());
 }
 
 let pending = null;
