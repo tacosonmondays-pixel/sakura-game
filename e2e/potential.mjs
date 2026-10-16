@@ -3,7 +3,7 @@
 // Kaede ×5 (P6) through grantUnit, then
 //   students: card pills (P4 plum, P6 sakura), the Potential sort, the formation and stage-prep slots;
 //   Aoi's page: the showcase pill opens the Info tab at the Potential section (nodes, signature,
-//   footer), "Yours" damage = base × 1.02, no sideways scroll;
+//   footer), "Yours" damage = base × 1.04 × 1.04 (Potential v3), no sideways scroll;
 //   recruit: a real 10-pull of owned R girls (corner tags, "▲ N Potential" on one line), the counts;
 //   spark an owned P6 Kaede (MAX, kicker "SSR · P6 · MAX") and a new Hotaru; an SSR Select Ticket
 //   on the owned Hotaru (confirm "P1 → P2", "Potential 2 ▲"); the first-gain tip points at the Info tab;
@@ -200,10 +200,11 @@ try {
     });
     check(sec.tab === 'tab-info' && sec.hash.includes('focus=potential') && sec.inView, `${tag} Aoi's page: the pill opens the Info tab with the Potential section in view (${sec.tab}, ${sec.hash})`);
     check(sec.on.join() === 'true,true,true,true,false,false' && sec.next[4] === true, `${tag} Aoi's page: nodes P1–P4 on, P5 next (${sec.on.join()})`);
-    check(sec.labels.join('|') === "Base|+2% DMG|+2% SPD|+3% RNG|+3% DMG|+3% CRIT✦", `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
-    check(/Fletcher's Focus — \+3% crit chance/.test(sec.sig) && /Unlocks at P6 \(2 more duplicates\)/.test(sec.sig) && /Active in every battle/.test(sec.sig), `${tag} Aoi's page: signature box "${sec.sig}"`);
+    // Potential v3 (docs/specs/POTENTIAL.md v3 §5.2): her node labels and capstone
+    check(sec.labels.join('|') === "Base|+4% DMG|PIERCE+1|CRIT+6%|TWIN 1/12|HAWK✦", `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
+    check(/Hawk Companion — \+5% damage\. Twin Fletch comes every 10th volley/.test(sec.sig) && /Unlocks at P6 \(2 more duplicates\)/.test(sec.sig) && /Active in every battle/.test(sec.sig), `${tag} Aoi's page: signature box "${sec.sig}"`);
     check(sec.footer === 'Duplicates so far: 3 · Next: P5 with 1 more duplicate', `${tag} Aoi's page: footer "${sec.footer}"`);
-    check(sec.yours?.[1] === '4' && sec.yours?.[2] === '4.08', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.02 (${sec.yours?.join(' / ')})`);
+    check(sec.yours?.[1] === '4' && sec.yours?.[2] === '4.33', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.04 × 1.04 (${sec.yours?.join(' / ')})`);
     check(await noSideScroll(page), `${tag} Aoi's page: no sideways scroll`);
     await shot(page, `student-aoi-potential-${tag}`);
     // an unowned girl still shows her six steps (all locked)
@@ -344,10 +345,10 @@ try {
       return { pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, cls: p.querySelector('[data-testid="panel-pot"]')?.className, title: p.querySelector('[data-testid="panel-pot"]')?.title, overflow: name.scrollWidth > name.clientWidth + 1, dps: st.dps, txt };
     }, placed.aoi);
     check(panel.pill === `P${aoiP}` && /bt-panel-pot/.test(panel.cls), `${tag} battle: Aoi's panel pill "${panel.pill}" (P${aoiP})`);
-    check(/^Potential \d: \+2% damage, \+2% attack speed, \+3% range/.test(panel.title), `${tag} battle: the pill's tooltip "${panel.title}"`);
+    check(/^Potential \d: Dawn Practice, Through-Shot/.test(panel.title), `${tag} battle: the pill's tooltip "${panel.title}"`);
     check(!panel.overflow, `${tag} battle: the name line does not overflow`);
     const aoiSim = await page.evaluate((uid) => { const t = window.__battle.sim.towers.find((x) => x.uid === uid); return { p: t.unitStats.potential, dmg: t.stats.damage, base: t.def.base.damage }; }, placed.aoi);
-    check(aoiSim.p === aoiP && Math.abs(aoiSim.dmg - aoiSim.base * (aoiP >= 5 ? 1.02 * 1.03 : 1.02)) < 1e-9, `${tag} battle: Aoi fights at P${aoiSim.p} (damage ${aoiSim.dmg})`);
+    check(aoiSim.p === aoiP && Math.abs(aoiSim.dmg - aoiSim.base * (aoiP >= 6 ? 1.04 * 1.04 * 1.05 : aoiP >= 4 ? 1.04 * 1.04 : 1.04)) < 1e-9, `${tag} battle: Aoi fights at P${aoiSim.p} (damage ${aoiSim.dmg})`);
     await shot(page, `battle-aoi-${tag}`);
     // the longest name in the panel: Kaede UR + 5-0-2 + P6 (+ the longest girl's name)
     await page.evaluate((uid) => {

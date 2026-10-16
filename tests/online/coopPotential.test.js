@@ -44,8 +44,11 @@ describe('co-op: the same girl at two Potentials', () => {
     const [h, g] = A.sim.towers;
     expect(h.unitStats.potential).toBe(1);
     expect(g.unitStats.potential).toBe(6);
-    expect(g.stats.damage).toBeCloseTo(h.stats.damage * 1.02 * 1.03, 12);
-    expect(g.stats.crit.chance).toBeCloseTo(h.stats.crit.chance + 0.03, 12);
+    // Aoi's v3 ladder at P6: damage ×1.04×1.04×1.05, +6 % crit, her Twin Fletch / hawk rhythm
+    expect(g.stats.damage).toBeCloseTo(h.stats.damage * 1.04 * 1.04 * 1.05, 12);
+    expect(g.stats.crit.chance).toBeCloseTo(h.stats.crit.chance + 0.06, 12);
+    expect(g.stats.proc?.every).toBe(10);
+    expect(h.stats.proc).toBeUndefined();
     expect(A.hash()).toBe(B.hash());
     for (const c of [A, B]) c.apply(cmd(0, 'wave'));
     for (let i = 0; i < 600; i++) {

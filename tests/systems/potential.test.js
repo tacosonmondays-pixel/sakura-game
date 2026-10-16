@@ -460,12 +460,12 @@ describe('M1: pull() result fields', () => {
   });
 });
 
-describe('M1: the describer', () => {
-  it('short labels are ≤ 9 characters and every step has text', () => {
+describe('the describer (v3: src/data/potentialText.js)', () => {
+  it('node labels are ≤ 9 characters and every step has text', () => {
     for (const u of ALL_UNITS) {
       for (const s of potentialSteps(u)) {
         const parts = describePotentialStep(s, u);
-        expect(parts.length, `${u.id} P${s.step}`).toBeGreaterThan(0);
+        expect(parts.length, `${u.id} P${s.step}`).toBe(1);
         for (const x of parts) {
           expect(x.short.length, x.short).toBeLessThanOrEqual(9);
           expect(x.long.length).toBeGreaterThan(4);
@@ -473,31 +473,45 @@ describe('M1: the describer', () => {
       }
     }
   });
-  it('labels as in the spec table', () => {
-    const lbl = (id, step) => describePotentialStep(potentialSteps(UNIT_MAP[id])[step - 2], UNIT_MAP[id]);
-    expect(lbl('aoi', 2)[0]).toEqual({ short: '+2% DMG', long: '+2% damage', who: 'self' });
-    expect(lbl('aoi', 6)[0].long).toBe('+3% crit chance');
-    expect(lbl('momo', 3)[0].short).toBe('+2% COIN');
-    expect(lbl('miko', 4)[0]).toEqual({ short: '+1% AURA', long: 'aura +1% damage', who: 'allies' });
-    expect(lbl('umeko', 6)[0].long).toBe('aura +1% attack speed');
-    expect(lbl('hotaru', 6)[0]).toEqual({ short: '+0.1s SIL', long: 'silence +0.1 s', who: 'enemies' });
-    expect(lbl('kaede', 6)[0].short).toBe('+5% FOCUS');
-    expect(lbl('suzu', 4)[0].long).toBe('+3% damage (traps)');
-    expect(lbl('chika', 2)[0].long).toBe('+3% range (drones too)');
-    expect(lbl('luna', 6)[0].long).toBe('+5% damage to elites');
-    expect(lbl('nami', 6)[0].long).toBe('+5% damage to bosses');
+  it('labels and text as in the spec table; who a step helps', () => {
+    const lbl = (id, step) => describePotentialStep(potentialSteps(UNIT_MAP[id])[step - 2], UNIT_MAP[id])[0];
+    expect(lbl('kage', 2)).toEqual({ short: '+4% SPD', long: '+4% attack speed.', who: 'self' });
+    expect(lbl('kage', 6).short).toBe('STORM');
+    expect(lbl('aoi', 4).long).toMatch(/^\+4% damage; \+6% crit chance/);
+    expect(lbl('umeko', 6)).toMatchObject({ short: 'WAVE 1/3', who: 'allies' });
+    expect(lbl('miko', 5).who).toBe('allies');
+    expect(lbl('luna', 4).who).toBe('allies');
+    expect(lbl('shiro', 6).short).toBe('HERON');
+    // a fixture without a text row: a label from its stat part
+    const fx = { id: 'fx', rarity: 'SR', base: { behavior: 'projectile' } };
+    expect(describePotentialStep(potentialSteps(fx)[0], fx)).toEqual([{ short: '+4% DMG', long: '+4% damage', who: 'self' }]);
   });
-  it('view: six nodes, active up to P, next one marked; unowned shows none active', () => {
+  it('the stat line under each node: her track at that step', () => {
+    const stat = (id) => potentialView(UNIT_MAP[id], { dupes: 5 }).slice(1).map((n) => n.stat);
+    expect(stat('kage')).toEqual(['+4% SPD', '+5% SPD', '+5% SPD', '+6% SPD', '+7% SPD']);
+    expect(stat('umeko')).toEqual(Array(5).fill('+3% AURA'));
+    expect(stat('miko')).toEqual(Array(5).fill('+3% AURA'));
+    expect(stat('momo')).toEqual(['+3% COIN', '+3% COIN', '+4% COIN', '+4% COIN', '+4% COIN']);
+    expect(stat('suzu')[0]).toBe('+4% TRAP');
+    expect(stat('hikari')).toEqual(['+5% DMG', '+7% DMG', '+7% SPD', '+8% DMG', '+9% SPD']);
+  });
+  it('view: six named nodes, active up to P, next one marked; unowned shows none active', () => {
     const v = potentialView(UNIT_MAP.aoi, { dupes: 2 });
     expect(v.map((n) => n.step)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(v.map((n) => n.active)).toEqual([true, true, true, false, false, false]);
     expect(v.map((n) => n.next)).toEqual([false, false, false, true, false, false]);
-    expect(v[5].name).toBe("Fletcher's Focus");
+    expect(v.map((n) => n.name)).toEqual([null, 'Dawn Practice', 'Through-Shot', 'Keen Fletching', 'Twin Fletch', 'Hawk Companion']);
+    expect(v.map((n) => n.kind)).toEqual([null, 'stat', 'kit', 'kit', 'kit', 'cap']);
     expect(potentialView(UNIT_MAP.aoi, null).some((n) => n.active)).toBe(false);
-    expect(potentialSummary(UNIT_MAP.aoi, 4)).toBe('+2% damage, +2% attack speed, +3% range');
+    expect(potentialSummary(UNIT_MAP.aoi, 4)).toBe('Dawn Practice, Through-Shot, Keen Fletching');
     expect(potentialSummary(UNIT_MAP.aoi, 1)).toBe('');
     expect(dupesToNext({ dupes: 2 })).toBe(1);
     expect(dupesToNext({ dupes: 9 })).toBe(0);
     expect(dupesToMax({ dupes: 2 })).toBe(3);
+  });
+  it('Power: the product of her steps\' paper sizes (Kage P6 ≈ ×1.9)', () => {
+    expect(potentialPowerFactor(UNIT_MAP.kage, 1)).toBe(1);
+    expect(potentialPowerFactor(UNIT_MAP.kage, 6)).toBeCloseTo(1.04 * 1.09 * 1.10 * 1.21 * 1.26, 12);
+    expect(potentialPowerFactor(UNIT_MAP.kage, 3)).toBeCloseTo(1.04 * 1.09, 12);
   });
 });

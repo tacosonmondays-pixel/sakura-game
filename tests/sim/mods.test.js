@@ -197,7 +197,7 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 });
 
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
-// and each kind of step lands where the spec says (docs/specs/POTENTIAL.md §11.1).
+// and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
 
 describe('Potential in resolveStats', () => {
@@ -221,54 +221,98 @@ describe('Potential in resolveStats', () => {
     expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:30217027');
   });
 
-  test('Aoi P6: damage ×1.02×1.03, rate ×1.02, range ×1.03, crit +0.03; P4 has no crit yet', () => {
+  // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
+  test('Kage P6: speed × the SR track, pierce 2 → 4, +1 armor ignored, 12 % more shuriken, tempo, the Storm every 6th throw', () => {
+    const p1 = resolveStats(REAL.kage, { unitStats: { potential: 1 } });
+    const p6 = resolveStats(REAL.kage, { unitStats: { potential: 6 } });
+    expect(p6.rate).toBeCloseTo(p1.rate * 1.04 * 1.05 * 1.05 * 1.06 * 1.07, 12);
+    expect(p6.damage).toBe(p1.damage);
+    expect([p1.pierce, p6.pierce]).toEqual([2, 4]);
+    expect(p6.armorPen).toBe(p1.armorPen + 1);
+    expect(p6.projScale).toBe(0.12);
+    expect(p6.tempo).toEqual({ per: 0.01, max: 0.06, idle: 1 });
+    expect(p6.proc).toEqual({ name: 'Shuriken Storm', every: 6, of: 'attack', status: [], echo: true, pierce: 2 });
+    // Thousand Shadows (5-2-0): pierce 5 → 7
+    expect(resolveStats(REAL.kage, { tiers: [5, 2, 0], unitStats: { potential: 6 } }).pierce).toBe(resolveStats(REAL.kage, { tiers: [5, 2, 0] }).pierce + 2);
+  });
+
+  test('Aoi P6: damage ×1.04×1.04×1.05, rate ×1.04², pierce +1, crit +6 %, Twin Fletch every 10th with the hawk', () => {
     const p1 = resolveStats(REAL.aoi, { unitStats: { potential: 1 } });
     const p6 = resolveStats(REAL.aoi, { unitStats: { potential: 6 } });
-    expect(p6.damage).toBeCloseTo(p1.damage * 1.02 * 1.03, 12);
-    expect(p6.rate).toBeCloseTo(p1.rate * 1.02, 12);
-    expect(p6.range).toBeCloseTo(p1.range * 1.03, 12);
-    expect(p6.crit.chance).toBeCloseTo(p1.crit.chance + 0.03, 12);
-    expect(resolveStats(REAL.aoi, { unitStats: { potential: 4 } }).crit.chance).toBe(p1.crit.chance);
+    expect(p6.damage).toBeCloseTo(p1.damage * 1.04 * 1.04 * 1.05, 12);
+    expect(p6.rate).toBeCloseTo(p1.rate * 1.04 * 1.04, 12);
+    expect(p6.range).toBe(p1.range);
+    expect(p6.crit.chance).toBeCloseTo(p1.crit.chance + 0.06, 12);
+    expect(p6.proc).toMatchObject({ name: 'Twin Fletch', every: 10, echo: true, nova: { radius: 0, share: 1, volley: true } });
+    expect(resolveStats(REAL.aoi, { unitStats: { potential: 3 } }).crit.chance).toBe(p1.crit.chance);
   });
 
   test('Potential multiplies on top of level and gear (one product with damageMul)', () => {
     const s = resolveStats(REAL.aoi, { unitStats: { damageMul: 1.5, potential: 2 } });
-    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.02, 12);
+    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.04, 12);
   });
 
-  test('Chika: drones get damage, speed and range', () => {
-    const a = resolveStats(REAL.chika, { unitStats: { potential: 1 } }).turret;
-    const b = resolveStats(REAL.chika, { unitStats: { potential: 6 } }).turret;
-    expect(b.range).toBeCloseTo(a.range * 1.03, 12);
-    expect(b.rate).toBeCloseTo(a.rate * 1.02 * 1.02 * 1.03, 12);
-    expect(b.damage).toBeCloseTo(a.damage * 1.03, 12);
+  test('Chika P6: drones +1, 0.3 tiles more reach, damage and speed from her track, overclock merged, armor crack, +1 linked girl', () => {
+    const a = resolveStats(REAL.chika, { unitStats: { potential: 1 } });
+    const b = resolveStats(REAL.chika, { unitStats: { potential: 6 } });
+    expect(b.turret.max).toBe(a.turret.max + 1);
+    expect(b.turret.range).toBeCloseTo(a.turret.range + 0.3, 12);
+    expect(b.turret.damage).toBeCloseTo(a.turret.damage * 1.05 * 1.07 * 1.09, 12);
+    expect(b.turret.rate).toBeCloseTo(a.turret.rate * 1.07 * 1.08, 12);
+    expect(b.turret.overclock).toEqual({ every: 20, time: 6, rateMul: 1.75 });
+    expect(b.status).toEqual([{ type: 'shred', amount: 1, duration: 3 }]);
+    expect(b.armorPen).toBe(a.armorPen + 1);
+    const l1 = resolveStats(REAL.chika, { tiers: [0, 5, 2], unitStats: { potential: 1 } }).link.targets;
+    expect(resolveStats(REAL.chika, { tiers: [0, 5, 2], unitStats: { potential: 6 } }).link.targets).toBe(l1 + 1);
+    expect(resolveStats(REAL.chika, { tiers: [0, 5, 2], unitStats: { potential: 5 } }).link.targets).toBe(l1);
   });
 
-  test('Suzu: trap damage', () => {
-    const a = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 1 } }).trap;
-    const b = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 6 } }).trap;
-    expect(b.damage).toBeCloseTo(a.damage * 1.03 * 1.03, 12);
+  test('Suzu P6: trap damage × her track, two more traps, a slow on her seals, the Temple Bell every 4th trap', () => {
+    const a = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 1 } });
+    const b = resolveStats(REAL.suzu, { tiers: [3, 0, 0], unitStats: { potential: 6 } });
+    expect(b.trap.damage).toBeCloseTo(a.trap.damage * 1.04 * 1.05 * 1.07, 12);
+    expect(b.trap.max).toBe(a.trap.max + 2);
+    expect(b.status).toEqual([{ type: 'slow', amount: 0.2, duration: 1.5 }]);
+    expect(b.proc).toEqual({ name: 'Temple Bell', every: 4, of: 'trap', damageMul: 1.8, splash: 0.4, silence: 1, status: [{ type: 'vulnerable', bonus: 0.1, duration: 3 }] });
   });
 
-  test('Momo: coins per wave 30 → 31.518 at P6 (after upgrades too)', () => {
-    expect(resolveStats(REAL.momo, { unitStats: { potential: 6 } }).income.perWave).toBeCloseTo(31.518, 9);
+  test('Momo P6: coins per wave × the coins track (30 → 35.80), lucky coins, harvest every 6th clear, bounty aura', () => {
+    expect(resolveStats(REAL.momo, { unitStats: { potential: 6 } }).income.perWave).toBeCloseTo(30 * 1.03 * 1.03 * 1.04 * 1.04 * 1.04, 9);
     const t = resolveStats(REAL.momo, { tiers: [0, 0, 3], unitStats: { potential: 1 } }).income.perWave;
-    expect(resolveStats(REAL.momo, { tiers: [0, 0, 3], unitStats: { potential: 6 } }).income.perWave).toBeCloseTo(t * 1.02 * 1.03, 9);
+    const s = resolveStats(REAL.momo, { tiers: [0, 0, 3], unitStats: { potential: 6 } });
+    expect(s.income.perWave).toBeCloseTo(t * 1.03 * 1.03 * 1.04 * 1.04 * 1.04, 9);
+    expect(s.harvest).toEqual({ share: 1, every: 6 });
+    expect(s.bountyAura).toBe(1.1);
+    expect(s.proc).toMatchObject({ name: 'Fortune Flick', every: 6, damageMul: 4 });
   });
 
-  test('auras: Miko dmgMul ×1.0201, Umeko tier-0 speed aura 1 → 1.0201', () => {
-    const m1 = resolveStats(REAL.miko, { unitStats: { potential: 1 } }).aura.dmgMul;
-    expect(resolveStats(REAL.miko, { unitStats: { potential: 6 } }).aura.dmgMul).toBeCloseTo(m1 * 1.0201, 12);
+  test('auras: Miko ×1.03⁵ damage, +1 pen, 0.4 tiles wider, enemy Brittle; Umeko tier-0 speed aura 1 → 1.03⁵, wider, pen and crit', () => {
+    const m1 = resolveStats(REAL.miko, { unitStats: { potential: 1 } }).aura;
+    const m6 = resolveStats(REAL.miko, { unitStats: { potential: 6 } }).aura;
+    expect(m6.dmgMul).toBeCloseTo(m1.dmgMul * 1.03 ** 5, 12);
+    expect(m6.range).toBeCloseTo(m1.range + 0.4, 12);
+    expect(m6.armorPen).toBe(m1.armorPen + 1);
+    expect(m6.foeVuln).toBe(0.06);
     expect(resolveStats(REAL.umeko, { unitStats: { potential: 1 } }).aura.rateMul).toBe(1);
-    expect(resolveStats(REAL.umeko, { unitStats: { potential: 6 } }).aura.rateMul).toBeCloseTo(1.0201, 12);
+    const u6 = resolveStats(REAL.umeko, { unitStats: { potential: 6 } }).aura;
+    expect(u6.rateMul).toBeCloseTo(1.03 ** 5, 12);
+    expect(u6.range).toBeCloseTo(resolveStats(REAL.umeko).aura.range + 0.7, 12);
+    expect([u6.armorPen, u6.critChance]).toEqual([1, 0.06]);
   });
 
-  test('Hotaru silence +0.1 s, Kaede focus cap +0.05, Shiro boss ×1.05, Luna elite ×1.05', () => {
-    const d = (id, p, f) => f(resolveStats(REAL[id], { unitStats: { potential: p } }));
-    expect(d('hotaru', 6, (s) => s.silence) - d('hotaru', 5, (s) => s.silence)).toBeCloseTo(0.1, 12);
-    expect(d('kaede', 6, (s) => s.ramp.max) - d('kaede', 5, (s) => s.ramp.max)).toBeCloseTo(0.05, 12);
-    expect(d('shiro', 6, (s) => s.bossMul) / d('shiro', 5, (s) => s.bossMul)).toBeCloseTo(1.05, 12);
-    expect(d('luna', 6, (s) => s.eliteMul) / d('luna', 5, (s) => s.eliteMul)).toBeCloseTo(1.05, 12);
+  test('Hotaru: holy ×1.2 vs spectral, 4 more targets, a firefly aura; Kaede: kept focus, +2 % focus, +30 points cap, bosses ×1.2; heroes\' ultimates', () => {
+    const d = (id, p, f, more = {}) => f(resolveStats(REAL[id], { unitStats: { potential: p }, ...more }));
+    expect(d('hotaru', 6, (s) => s.classMul)).toEqual({ spectral: 1.2 });
+    expect(d('hotaru', 6, (s) => s.maxTargets) - d('hotaru', 2, (s) => s.maxTargets)).toBe(4);
+    expect(d('hotaru', 6, (s) => s.aura)).toMatchObject({ range: 2.6 });
+    expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(1.06 * 1.06, 12);
+    expect(d('kaede', 6, (s) => s.keepRamp)).toBe(0.5);
+    expect(d('kaede', 6, (s) => s.ramp.per) - d('kaede', 1, (s) => s.ramp.per)).toBeCloseTo(0.02, 12);
+    expect(d('kaede', 6, (s) => s.ramp.max) - d('kaede', 1, (s) => s.ramp.max)).toBeCloseTo(0.3, 12);
+    expect(d('kaede', 6, (s) => s.bossMul) / d('kaede', 5, (s) => s.bossMul)).toBeCloseTo(1.2, 12);
+    expect(d('luna', 6, (s) => s.ult, { heroLevel: 1 })).toMatchObject({ haste: 0.2, duration: 2, buffDuration: 3, rateBuff: 0.1 });
+    expect(d('hikari', 6, (s) => s.ult, { heroLevel: 1 })).toMatchObject({ haste: 0.2, radius: 1, damageMul: 1.75 });
+    expect(d('nami', 6, (s) => s.ult, { heroLevel: 1 })).toMatchObject({ haste: 0.15, damageMul: 1.5 });
   });
 
   test('a claimed Potential above 6 or a non-number cannot do more than P6 / P1', () => {

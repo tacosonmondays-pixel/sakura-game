@@ -194,6 +194,7 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | ramp: {per, max (add)} | |
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
+| Potential only (src/data/potential.js POTENTIAL_MOD_KEYS; on the stats only when a step sets them): statusAdd, proc, ult, aura.rangeAdd, aura.foeVuln, turret.overclock, brew/link.targetsAdd, bountyAura, harvest, dotSpread, keepRamp, projScale, tempo, classMul | see **Potential steps (v3)** below and src/sim/potential.js (N1–N17) |
 
 Upgrade rules (crosspathing): at most two paths may have tiers > 0, and only one path may go above
 tier 2. Tier N requires tier N-1 in that path. Heroes have no paths (`paths: []`). **One final tier per
@@ -224,26 +225,53 @@ time in a wave, wave clears and damage dealt (in the enemy's base HP), all scale
 +1 % per 2,000 XP (≤ +25 %). Players buy the rest of a level with battle coins. One hero per player
 (co-op: two). Heroes cannot be sold; they can be moved.
 
-**Potential steps** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
-spec `docs/specs/POTENTIAL.md` §3). A duplicate raises a girl's Potential by 1 (P1 → P6); each step P2…P6 is
-one small passive:
+**Potential steps (v3)** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
+spec `docs/specs/POTENTIAL.md`, v3 §3, §5, §7). A duplicate raises a girl's Potential by 1 (P1 → P6); each step
+P2…P6 is a stat buff on her rarity's climbing stat track plus, from P3 (from P2 for SSRs and heroes), a kit buff
+that amplifies what she is good at:
 
 ```js
-Step = { girl?: { damageMul?, rateMul?, rangeMul?, incomeMul? },   // whole-girl: multiply into unitStats like level and gear
-         mods?: ModSet /* only 'crit.chance','eliteMul','bossMul','aura.dmgMul','aura.rateMul','silence','ramp.max' */ }
-POTENTIAL_LADDERS = { dps, frag, hero, control, support, economy }  // P2..P5 by ROLES[role].category (heroes: 'hero')
-POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p6: { name, ...Step }, p2?..p5?: Step } }  // a row for EVERY unit (test)
-POTENTIAL_SIGNATURE_DEFAULT   // fixtures / dev only
-potentialSteps(def)           // [{ step: 2..6, name|null, girl|null, mods|null }]; def.potential (fixtures) wins
-potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+Step = { name, kind: 'stat'|'kit'|'cap',
+         girl: { damageMul?, rateMul?, rangeMul?, incomeMul?, dotMul? } | null,   // whole-girl: multiply into unitStats like level and gear
+         mods: ModSet | null /* only POTENTIAL_MOD_KEYS (below) */ }
+POTENTIAL_LADDERS = { kinds: { R, SR, SSR }, statTrack: { R, SR, SSR, nami, aura, coins }, stepSlot: { R, SR, SSR } }
+POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p2..p6: Step } }   // a full row for EVERY unit (test)
+POTENTIAL_SIGNATURE_DEFAULT = { R, SR, SSR }                      // fixtures / dev only: the stat track as damageMul
+POTENTIAL_GIRL_ONLY = { projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] }
+POTENTIAL_TRACK_OF  = { nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins' }   // else her rarity's track
+potentialSteps(def)           // [{ step: 2..6, name, kind, girl|null, mods|null }]; def.potential (fixtures) wins
+potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, dotMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+potentialRarity(def), potentialTrack(def)
 ```
 
-Rules: every step is relative (no flat range, trap damage, coins or armor ignore: they are huge on a young girl
-and nothing at endgame); `splash`, status lists, `aura.range`, `crit.mul`, `projectiles`, `pierce`, `chain`,
-`maxTargets`, `trap.max`, `turret.max` are banned (a test enforces the allowlist); aura steps are +1 % team-wide;
-each step must change a stat her behaviour reads (effectiveness test); budget Π damage × Π speed ≤ 1.105,
-Π range ≤ 1.075, Π coins ≤ 1.06, crit Σ ≤ 0.05, elite / boss ≤ ×1.05, aura ≤ ×1.0201, silence ≤ 0.1 s,
-focus cap ≤ 0.05. A new girl (roster) adds her row in the same PR.
+`POTENTIAL_MOD_KEYS`: `pierce`, `chain`, `maxTargets`, `armorPen`, `canHitAir`, `silence`, `crit.chance`,
+`ramp.max`, `ramp.per`, `trap.max`, `turret.max`, `turret.range`, `turret.overclock`, `aura.range`, `aura.dmgMul`,
+`aura.rateMul`, `aura.rangeAdd`, `aura.armorPen`, `aura.critChance`, `aura.foeVuln`, `brew.targetsAdd`,
+`link.targetsAdd`, `statusAdd`, `proc`, `ult`, `bountyAura`, `harvest`, `dotSpread`, `keepRamp`, `projScale`,
+`tempo`, `classMul`, `bossMul`. Their battle meaning (N1–N17) is in `src/sim/potential.js`; `mods.js` puts them
+on a girl's stats only when a step sets them, so P1 resolves bit-identically to a girl without Potential:
+
+```js
+statusAdd: StatusSpec[]          // ADDS onto a status she has (her list, traps', drones'), else appends; mark → s.mark
+proc: { name, every, of?: 'attack'|'trap', damageMul?, dotMul?, splash?, pierce?, maxTargets?, range?, silence?,
+        echo?: true | share<1, nova?: { radius, share, volley? }, auraBoost?: { time, dmgMul?, rateMul? }, status?: StatusSpec[] }
+                                 // her rhythm: every Nth successful attack (or trap explosion); steps merge, later fields replace
+ult: { haste, radius, duration, buffDuration, rateBuff, damageMul, status[], statusAdd[] }  // a hero's ultimate (hero.js ultEffect)
+turret.overclock: { every, time, rateMul }   // her own drones, a fixed timer from placement
+bountyAura: m, harvest: { every, share }, dotSpread: { type, radius, depth }, keepRamp: f,
+projScale: f /* integer carry */, tempo: { per, max, idle }, classMul: { [armorClass]: m }
+```
+
+Rules (tests/data/potential.test.js): names unique and unused anywhere else; kinds by rarity (heroes SSR); the
+allowlist and the bans (`behavior`, `attackType`, `element`, `knockback`, `costCut`, `hpPct`, flat `damage`,
+`range`, `projectiles`, `income`, top-level `splash` and `status`, `eliteMul`; `bossMul` Kaede only); every girl
+spends exactly her stat track, one key a step, never shrinking; ceilings per girl (stat product R ≤ 1.23, SR ≤ 1.31,
+SSR ≤ 1.42; pen ≤ +3 / +4; aura pen ≤ +1; Brittle + mark ≤ 15 / 20 points; income, DoT ≤ ×1.20; aura ≤ ×1.16;
+shred ≤ 2; DoT ≤ 0.15 % max HP/s; repeats ≤ 1/4 of her attacks; projScale ≤ 0.35; tempo ≤ +10 %; ult haste ≤ 0.20;
++1 brewed / linked girl, brews ≤ 4; hard CC only on a rhythm, ≥ 0.3 s); one rhythm per girl; echo only on
+projectile / beam / chain / pulse (a duel only at a share < 1, never traps); every step changes her stats and
+every kit part a field her behaviour reads on every reference build. Player text, node labels, Power and FX
+cues: `src/data/potentialText.js` (UI only, not hashed). A new girl (roster) adds both rows in the same PR.
 
 ## 4. World — enemies, maps, stages (owner: world)
 
@@ -543,11 +571,14 @@ export function dupesToNext(unitState), dupesToMax(unitState)
 export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
 export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
 export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
-export function describePotentialStep(step, def?)         // [{ short /*≤ 9 chars*/, long, who: 'self'|'allies'|'enemies' }] — THE describer
-export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, parts, short, long, active, next }]
-export function potentialSummary(def, p)                  // "+2% damage, +2% attack speed, +3% range" (active steps)
-export function potentialPowerFactor(def, p)              // Π damageMul × Π rateMul × √Π rangeMul (unitPower)
+export function describePotentialStep(step, def?)         // [{ short /*node label ≤ 9 chars*/, long, who: 'self'|'allies' }] — THE describer (potentialText.js)
+export function potentialStatLabel(step, def?)            // the stat line under a node: "+4% SPD", "+3% AURA", "+3% COIN"
+export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, kind, parts, short, long, stat, active, next }]
+export function potentialSummary(def, p)                  // "Night Drills, Shadow Edge" (active steps' names)
+export function potentialPowerFactor(def, p)              // Π of her active steps' `power` (potentialText.js; unitPower)
 ```
+`potentialLevel` is the one place that says where Potential comes from (duplicates today): a later source
+(ascension's Essence) swaps in there without touching the ladders.
 Not in the co-op graph (the sim reads `src/data/potential.js` through `mods.js`). Every screen, the wiki and the
 letter take their text from `describePotentialStep`. UI: `src/ui/potential.js` (`potPill`, `potentialSection`,
 `revealTag`) + `src/ui/styles/potential.css`.

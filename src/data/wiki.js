@@ -381,28 +381,29 @@ function gachaArticle() {
 }
 
 function potentialArticle() {
-  const label = (step, def) => describePotentialStep(step, def).map((x) => x.long).join(', ');
-  const ladderName = { dps: 'DPS, Frag and Hero', control: 'Control and Support', economy: 'Economy' };
-  const ladders = Object.entries(ladderName).map(([cat, name]) => [{ text: name, strong: true }, ...POTENTIAL_LADDERS[cat].map((s) => label(s, null))]);
+  const label = (step, def) => describePotentialStep(step, def).map((x) => x.short).join(' ');
+  const pctOf = (m) => `+${Math.round((m - 1) * 100)}%`;
+  const tracks = [['R', 'R girls'], ['SR', 'SR girls'], ['SSR', 'SSR girls, Hikari and Luna'], ['nami', 'Nami'], ['aura', 'Umeko\'s and Miko\'s auras'], ['coins', 'Momo\'s coins']]
+    .map(([k, name]) => [{ text: name, strong: true }, ...POTENTIAL_LADDERS.statTrack[k].map(pctOf)]);
   const rows = UNITS.map((u) => {
     const steps = potentialSteps(u);
-    return [{ text: u.name, icon: `unit:${u.id}`, strong: true }, ...steps.slice(0, 4).map((s) => label(s, u)), `✦ ${steps[4].name}: ${label(steps[4], u)}`];
+    return [{ text: u.name, icon: `unit:${u.id}`, strong: true }, ...steps.slice(0, 4).map((s) => `${s.kind === 'stat' ? '' : '✦ '}${s.name} (${label(s, u)})`), `✦ ${steps[4].name} (${label(steps[4], u)})`];
   });
-  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicate recruits raise a girl\'s Potential to P6; each step is a small passive.', ['potential', 'duplicate', 'dupe', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'fragment'], [
+  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicate recruits raise a girl\'s Potential to P6; every step makes her stronger and teaches her more of what she is good at.', ['potential', 'duplicate', 'dupe', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'fragment', 'rhythm'], [
     sec('How it works',
       list([
         'P1 is a girl\'s base (her first copy). Starters and free girls start at P1 however they joined.',
         `A duplicate is any copy of a girl you already own: a recruit, a spark of an owned SSR, or an SSR Select Ticket used on an owned SSR. Each gives +1 Potential (up to P${MAX_POTENTIAL}) and her usual Star Fragments.`,
         `At P${MAX_POTENTIAL} a duplicate gives Star Fragments only. Her duplicate count keeps going up (shown on her Info tab).`,
         'Potential never goes down and is never spent. It applies in every battle mode, exactly where her level and awakening apply — in co-op, an ally\'s girl fights at her owner\'s Potential.',
-        'Damage and speed steps work like her level: they raise her hits, her traps and her drones.',
+        'Every step is bigger than the one before. Each one raises a stat (damage, attack speed, her aura or her coins), and from P3 (from P2 for SSR girls and heroes) it also teaches her a new trick built on what she is already good at; P6 is her capstone (✦).',
       ]),
       tip('Each girl\'s Info tab shows her six steps, what each does and how many duplicates she has.', 'good')),
-    sec('The steps by role',
-      table(['Role', 'P2', 'P3', 'P4', 'P5'], ladders),
-      p('P6 is each girl\'s own signature (✦). A few girls swap one step for a better fit: melee Rei and sniper Shiro take crit chance at P4, and the aura girls Miko and Umeko strengthen their aura at P4 and P6.')),
+    sec('The stat part of each step',
+      table(['Track', 'P2', 'P3', 'P4', 'P5', 'P6'], tracks),
+      p('Each girl spends her track on her own strength: Kage all on attack speed, Shiro on damage and speed, the support girls on their aura.')),
     sec('Every girl',
-      table(['Girl', 'P2', 'P3', 'P4', 'P5', 'P6 signature'], rows)),
+      table(['Girl', 'P2', 'P3', 'P4', 'P5', 'P6 capstone'], rows)),
   ]);
 }
 

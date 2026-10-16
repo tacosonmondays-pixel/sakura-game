@@ -1,10 +1,13 @@
 // Potential (owner: systems). See docs/specs/POTENTIAL.md.
 //
 // Every duplicate of an owned girl (a recruit, a spark, an SSR Select Ticket) adds 1 to
-// `profile.units[id].dupes`; her Potential is `min(6, 1 + dupes)`. Each step P2…P6 is a small
-// passive from src/data/potential.js, which the battle sim folds in (mods.js resolveStats) from
-// `unitBattleStats().potential`. This file is outside the co-op graph: counting, the backfill and
-// the one describer every screen uses (student page, battle panel, recruit, wiki, letter).
+// `profile.units[id].dupes`; her Potential is `min(6, 1 + dupes)` (potentialLevel: the ONE place
+// that says where Potential comes from, so a later source such as ascension's Essence swaps in here
+// without touching the ladders). Each step P2…P6 (v3: a stat buff plus a kit buff) comes from
+// src/data/potential.js, which the battle sim folds in (mods.js resolveStats) from
+// `unitBattleStats().potential`; its text from src/data/potentialText.js. This file is outside the
+// co-op graph: counting, the backfill and the one describer every screen uses (student page, battle
+// panel, recruit, wiki, letter).
 //
 // The count is mirrored in `missions.counters['pot:<id>']` (with `'pot:at'` = when it last
 // changed) because builds from before M0 drop `dupes` through their `cleanUnit` allowlist but
@@ -14,7 +17,8 @@
 // Pure functions; save.js and unlocks.js call them.
 
 import { UNIT_MAP } from '../data/units.js';
-import { MAX_POTENTIAL, potentialSteps, potentialFold, potentialClamp } from '../data/potential.js';
+import { MAX_POTENTIAL, potentialSteps, potentialFold, potentialClamp, potentialTrack } from '../data/potential.js';
+import { potentialTextRow } from '../data/potentialText.js';
 
 export { MAX_POTENTIAL, potentialSteps, potentialFold };
 
@@ -162,54 +166,67 @@ export function dupesToMax(unitState) {
 }
 
 const pct = (m) => `${Math.round((m - 1) * 1000) / 10}%`;
-const pctAdd = (v) => `${Math.round(v * 1000) / 10}%`;
+
+/** Who a step helps (unit-info's Self / Allies / Enemies tags): an aura or a limited buff helps allies. */
+function stepWho(step) {
+  const m = step?.mods || {};
+  if (m.aura || m.proc?.auraBoost || m.brew || m.link || m.ult?.rateBuff || m.ult?.buffDuration) return 'allies';
+  return 'self';
+}
 
 /**
- * Player-facing text for one step: short labels (≤ 9 characters, for the six-node track and
- * chips), long text (tooltips, wiki, letter) and who it helps (unit-info's Self / Allies tags).
- * @param {{ girl?: object|null, mods?: object|null }} step
- * @param {object} [def] for "(traps)" / "(drones too)"
+ * The stat part of a step as a short label, the line under each node ("+4% SPD", "+3% AURA",
+ * "+3% COIN"): the value of her stat track at that step (src/data/potential.js POTENTIAL_TRACK_OF).
+ * '' when the step has no stat part (fixtures).
+ */
+export function potentialStatLabel(step, def = null) {
+  const g = step?.girl || {};
+  const a = step?.mods?.aura || {};
+  const track = def ? potentialTrack(def) : null;
+  if (track === 'coins' && g.incomeMul) return `+${pct(g.incomeMul)} COIN`;
+  if (track === 'aura' && (a.dmgMul || a.rateMul)) return `+${pct(a.dmgMul || a.rateMul)} AURA`;
+  if (g.damageMul) return `+${pct(g.damageMul)} ${def?.base?.behavior === 'trap' ? 'TRAP' : 'DMG'}`;
+  if (g.rateMul) return `+${pct(g.rateMul)} SPD`;
+  if (g.incomeMul) return `+${pct(g.incomeMul)} COIN`;
+  return '';
+}
+
+/**
+ * Player-facing text for one step (src/data/potentialText.js): the node label (≤ 9 characters, for the
+ * six-node track and chips), the long text (tooltips, wiki, letter) and who it helps. A def without a
+ * text row (fixtures) gets a label from the step's stat part.
+ * @param {{ step: number, girl?: object|null, mods?: object|null }} step
+ * @param {object} [def]
  * @returns {{ short: string, long: string, who: 'self'|'allies'|'enemies' }[]}
  */
 export function describePotentialStep(step, def = null) {
-  const parts = [];
-  const b = def?.base?.behavior;
-  // drones: any kit with a wing (Chika's own bolt + roaming drones since her rework, or an anchored
-  // sentry kit): her whole-girl steps also scale the drones' damage, fire rate, gun range and leash
-  const drones = !!def?.base?.turret && b !== 'trap';
-  const where = b === 'trap' ? ' (traps)' : drones ? ' (drones too)' : '';
-  const g = step?.girl || {};
-  const m = step?.mods || {};
-  if (g.damageMul) parts.push({ short: `+${pct(g.damageMul)} DMG`, long: `+${pct(g.damageMul)} damage${where}`, who: 'self' });
-  if (g.rateMul) parts.push({ short: `+${pct(g.rateMul)} SPD`, long: `+${pct(g.rateMul)} attack speed${drones ? where : ''}`, who: 'self' });
-  if (g.rangeMul) parts.push({ short: `+${pct(g.rangeMul)} RNG`, long: `+${pct(g.rangeMul)} range${drones ? where : ''}`, who: 'self' });
-  if (g.incomeMul) parts.push({ short: `+${pct(g.incomeMul)} COIN`, long: `+${pct(g.incomeMul)} coins per wave`, who: 'self' });
-  if (m.crit?.chance) parts.push({ short: `+${pctAdd(m.crit.chance)} CRIT`, long: `+${pctAdd(m.crit.chance)} crit chance`, who: 'self' });
-  if (m.eliteMul) parts.push({ short: `+${pct(m.eliteMul)} ELITE`, long: `+${pct(m.eliteMul)} damage to elites`, who: 'self' });
-  if (m.bossMul) parts.push({ short: `+${pct(m.bossMul)} BOSS`, long: `+${pct(m.bossMul)} damage to bosses`, who: 'self' });
-  if (m.aura?.dmgMul) parts.push({ short: `+${pct(m.aura.dmgMul)} AURA`, long: `aura +${pct(m.aura.dmgMul)} damage`, who: 'allies' });
-  if (m.aura?.rateMul) parts.push({ short: `+${pct(m.aura.rateMul)} AURA`, long: `aura +${pct(m.aura.rateMul)} attack speed`, who: 'allies' });
-  if (m.silence) parts.push({ short: `+${m.silence}s SIL`, long: `silence +${m.silence} s`, who: 'enemies' });
-  if (m.ramp?.max) parts.push({ short: `+${pctAdd(m.ramp.max)} FOCUS`, long: `focus cap +${pctAdd(m.ramp.max)}`, who: 'self' });
-  return parts;
+  const row = potentialTextRow(def);
+  const txt = row && step?.step >= 2 ? row[step.step - 2] : null;
+  const who = stepWho(step);
+  if (txt) return [{ short: txt.node, long: txt.long, who }];
+  const label = potentialStatLabel(step, def);
+  if (!label) return [];
+  return [{ short: label, long: label.replace(' DMG', ' damage').replace(' SPD', ' attack speed').replace(' COIN', ' coins per wave').replace(' AURA', ' aura').replace(' TRAP', ' trap damage'), who }];
 }
 
 /**
  * The six nodes for the UI (P1 = her base).
- * @returns {{ step: number, name: string|null, parts: object[], short: string, long: string, active: boolean, next: boolean }[]}
+ * @returns {{ step: number, name: string|null, kind: string|null, parts: object[], short: string, long: string, stat: string, active: boolean, next: boolean }[]}
  */
 export function potentialView(def, unitState) {
   const owned = !!unitState;
   const level = owned ? potentialLevel(unitState) : 0;
-  const nodes = [{ step: 1, name: null, parts: [], short: 'Base', long: 'Her base (first copy)', active: owned, next: !owned }];
+  const nodes = [{ step: 1, name: null, kind: null, parts: [], short: 'Base', long: 'Her base (first copy)', stat: '', active: owned, next: !owned }];
   for (const s of potentialSteps(def)) {
     const parts = describePotentialStep(s, def);
     nodes.push({
       step: s.step,
       name: s.name,
+      kind: s.kind,
       parts,
       short: parts.map((p) => p.short).join(' '),
-      long: parts.map((p) => p.long).join(', '),
+      long: parts.map((p) => p.long).join(' '),
+      stat: potentialStatLabel(s, def),
       active: owned && s.step <= level,
       next: owned && s.step === level + 1,
     });
@@ -217,14 +234,24 @@ export function potentialView(def, unitState) {
   return nodes;
 }
 
-/** One line for tooltips: "+2% damage, +2% attack speed, +3% range" (every active step), or ''. */
+/** One line for tooltips: the names of her active steps ("Night Drills, Shadow Edge, Shadow Tempo"), or ''. */
 export function potentialSummary(def, p) {
   const level = potentialClamp(p);
-  return potentialSteps(def).filter((s) => s.step <= level).flatMap((s) => describePotentialStep(s, def).map((x) => x.long)).join(', ');
+  return potentialSteps(def).filter((s) => s.step <= level && s.name).map((s) => s.name).join(', ');
 }
 
-/** Power factor of her active whole-girl steps: Π damageMul × Π rateMul × √Π rangeMul. */
+/**
+ * Power factor of her active steps: Π of each step's `power` (src/data/potentialText.js, her scored
+ * measure's paper size). A def without a text row: Π damageMul × Π rateMul × √Π rangeMul of her fold.
+ */
 export function potentialPowerFactor(def, p) {
+  const level = potentialClamp(p);
+  const row = potentialTextRow(def);
+  if (row) {
+    let f = 1;
+    for (let k = 2; k <= level; k++) f *= row[k - 2]?.power ?? 1;
+    return f;
+  }
   const f = potentialFold(def, p);
   return f.damageMul * f.rateMul * Math.sqrt(f.rangeMul);
 }

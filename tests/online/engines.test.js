@@ -38,8 +38,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // drones: Chika rework) and the path-cap tier data. The same scenario with every girl at P1
     // computes the identical battle on the train head before the merge and after it (28506 ticks,
     // final 3253190631, hashes e88b2bb9): Potential's P1 changes nothing (landing plan §10 #9).
+    // Re-pinned for Potential v3 (was 27433 / '671/920' / 87067914 / '7bb1e107'): the same line-up
+    // now fights with the v3 steps (rhythms, overclock, enemy Brittle, harvest …); START above is
+    // unchanged, so P1 still changes nothing.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 27433, state: 'won', wallets: '671/920', final: 87067914, hashes: '7bb1e107' });
+      .toEqual({ ticks: 22348, state: 'won', wallets: '741/991', final: 3564779976, hashes: 'ff349307' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
