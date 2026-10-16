@@ -1044,14 +1044,14 @@ describe('co-op freeplay: the room setting', () => {
     guest.close();
   });
 
-  it('protocol 3: a hello or a start message from a protocol-2 build is refused (the version banner)', () => {
+  it('protocol 4: a hello or a start message from a protocol-3 build is refused (the version banner)', () => {
     const W = world();
     const { host, guest } = paired(W, { freeplay: 'tempest' });
     const v = coopVersion();
-    expect(v.proto).toBe(3);
-    const old = { ...v, proto: 2 };
+    expect(v.proto).toBe(4);
+    const old = { ...v, proto: 3 };
     host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
-    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 2 } });
+    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 3 } });
     expect(host.peer.uid).toBe(GUEST);
     // a start message from an old host never becomes a battle
     const players = [{ slot: 0, uid: HOST, name: 'Aiko', loadout: [], hero: null }, { slot: 1, uid: GUEST, name: 'Bea', loadout: [], hero: null }];

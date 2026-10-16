@@ -38,8 +38,13 @@ function executeAction(sim, a) {
   if (a.action === 'sell') {
     const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
     if (!t) return 'fail';
-    sim.sellTower(t.uid);
-    return 'done';
+    return sim.sellTower(t.uid) === false ? 'fail' : 'done'; // heroes cannot be sold
+  }
+  if (a.action === 'heroLevel') {
+    // buy the active hero's next level (balance scripts): wait while coins are short
+    const st = sim.heroLevelStatus();
+    if (!st.reason) return sim.buyHeroLevel({ level: st.level + 1, maxPrice: st.price }).ok ? 'done' : 'fail';
+    return st.reason === 'cash' ? 'wait' : 'fail';
   }
   return 'fail';
 }
@@ -195,7 +200,7 @@ function jitter(i, j, salt) {
 /**
  * Greedy plan on a continuous candidate lattice (0.25-tile grid + jitter): best path
  * coverage first, footprints never overlap, then upgrades on each unit's strongest path
- * (BTD6 crosspath respected). Used to sanity-check that stages are beatable.
+ * (the crosspath rule respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
  * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best

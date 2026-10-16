@@ -729,7 +729,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         freeplay: s.freeplay, // null: a normal battle (createCoopSim)
         players: [
           { slot: 0, uid: s.me.uid, name: s.me.name, loadout: s.me.loadout, hero: s.me.hero || null, color: COOP.colors[0] },
-          { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: null, color: COOP.colors[1] },
+          { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: s.peer.hero || null, color: COOP.colors[1] },
         ],
       };
       lastStartAt = now();

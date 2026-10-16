@@ -4,6 +4,7 @@
 // value, status lists merge by type keeping the stronger numbers.
 
 import { DEFAULT_UNIT_STATS } from './constants.js';
+import { HERO_GROWTH } from '../data/heroTracks.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
@@ -175,13 +176,15 @@ export function applyModSet(s, mods, acc) {
 
 /**
  * ModSets that apply to a tower: upgrade tiers (tier 1 of every path, then tier 2, ... so
- * high-tier transformations win), hero milestones up to `level`, then the awaken passive.
+ * high-tier transformations win), hero track levels up to `level` plus her growth (HERO_GROWTH
+ * per level above 1, plus Mastery past Lv 25), then the awaken passive.
  * @param {object} def UnitDef
  * @param {number[]} tiers [a, b, c]
  * @param {number} heroLevel 0 for towers
  * @param {boolean} awakenPassive
+ * @param {number} heroMastery Mastery damage bonus (0 below Lv 25)
  */
-export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPassive = false) {
+export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPassive = false, heroMastery = 0) {
   const sets = [];
   for (let t = 1; t <= 5; t++) {
     for (let p = 0; p < 3; p++) {
@@ -194,6 +197,11 @@ export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPass
   if (heroLevel > 0 && def.hero?.levels) {
     const lv = [...def.hero.levels].sort((a, b) => a.level - b.level);
     for (const m of lv) if (m.level <= heroLevel && m.mods) sets.push(m.mods);
+    const g = def.hero.growth ?? HERO_GROWTH;
+    if (heroLevel > 1 || heroMastery > 0) {
+      const steps = Math.max(0, heroLevel - 1);
+      sets.push({ damageMul: 1 + (g.damage || 0) * steps + (heroMastery || 0), rateMul: 1 + (g.rate || 0) * steps });
+    }
   }
   if (awakenPassive && def.awakenPassive?.mods) sets.push(def.awakenPassive.mods);
   return sets;
@@ -225,11 +233,11 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
  * @param {object} def UnitDef
  * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0 } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
-  for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive)) applyModSet(s, m, acc);
+  for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, us);
   s.projectiles = Math.max(1, Math.round(s.projectiles));
@@ -242,7 +250,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
 }
 
 /**
- * BTD6 crosspath rule: at most two paths may have tiers > 0 and only one path may go
+ * Crosspath rule: at most two paths may have tiers > 0 and only one path may go
  * above tier 2; tier N requires tier N-1 (implicit: tiers only ever increase by one).
  * @returns {null|'max'|'crosspath'} reason the next tier of `path` is unavailable
  */

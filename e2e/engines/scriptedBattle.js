@@ -483,12 +483,153 @@ export function runDeepFreeplay({ stageId = '8-5', tier = 'blossom', fromWave = 
   };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle and freeplay. */
+// ---------------------------------------------------------------------------
+// Two heroes (hero rework): both players bring Hikari
+// ---------------------------------------------------------------------------
+
+const HERO_STATS = { costMul: 0.6 };
+export const HERO2_START = Object.freeze({
+  seed: 313131,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: HERO_STATS }, { unitId: 'kage', stats: HERO_STATS }], hero: { unitId: 'hikari', stats: HERO_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: HERO_STATS }, { unitId: 'yuki', stats: HERO_STATS }], hero: { unitId: 'hikari', stats: { ...HERO_STATS, damageMul: 1.1 } } },
+  ],
+});
+
+/**
+ * A co-op battle where both players bring a hero (the same one): auto-start on, each player buys
+ * her hero's levels with the level and price she saw 270 ticks (4.5 s) earlier (so some buys come
+ * back 'stale'), moves her hero once before the first wave and repeatedly during waves, fires her
+ * ult when it is ready, upgrades her girls and tries to sell her hero (refused). To wave `toWave`.
+ */
+export function runHeroBattle({ toWave = 16, maxFrames = 60 * 60 * 20 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(23);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const counts = { hlv: 0, bought: 0, stale: 0, cash: 0, other: 0, hmv: 0, moved: 0, ult: 0, sell: '' };
+  const mk = (slot) => new Lockstep({
+    start: HERO2_START,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        if (c.k === 'hlv') {
+          counts.hlv++;
+          if (r.ok) counts.bought++;
+          else if (r.reason === 'stale' || r.reason === 'cash') counts[r.reason]++;
+          else counts.other++;
+        } else if (c.k === 'hmv') {
+          counts.hmv++;
+          if (r.ok) counts.moved++;
+        } else if (c.k === 'sell') counts.sell = r.ok ? 'sold' : r.reason;
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const spots = spotsFor(HERO2_START, ['hikari', 'aoi', 'kage', 'rei', 'yuki'], 4);
+  const heroSpots = [[spots.hikari[0], spots.hikari[2]], [spots.hikari[1], spots.hikari[3]]];
+  const want = [[0, 'aoi', spots.aoi[0]], [0, 'kage', spots.kage[0]], [1, 'rei', spots.rei[0]], [1, 'yuki', spots.yuki[0]], [0, 'aoi', spots.aoi[1]], [1, 'rei', spots.rei[1]]];
+  const seenAt = [[], []]; // [frame, level, price] each player saw, queued 270 frames later
+  const moveTurn = [0, 0];
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 4) A.queue('place', ['hikari', ...heroSpots[0][0]]);
+    if (frame === 5) B.queue('place', ['hikari', ...heroSpots[1][0]]);
+    if (frame === 30) B.queue('hmv', heroSpots[1][1]); // a move in prep: free and instant
+    if (frame === 40) A.queue('auto', [true]);
+    if (frame === 41) B.queue('speed', [3]);
+    if (frame === 42) A.queue('wave');
+    if (frame === 600) A.queue('sell', [A.sim.hero?.uid ?? -1]); // refused: heroes cannot be sold
+    if (frame % 20 === 0) {
+      for (let i = want.length - 1; i >= 0; i--) {
+        const [slot, u, [qx, qy]] = want[i];
+        const c = clients[slot];
+        if (c.sim.canPlace(u, qx / 1024, qy / 1024).ok) {
+          c.queue('place', [u, qx, qy]);
+          want.splice(i, 1);
+        }
+      }
+    }
+    clients.forEach((c, i) => {
+      if (frame % 150 === 75 + i * 10) {
+        const st = c.sim.heroLevelStatus();
+        if (!st.reason || st.reason === 'cash') seenAt[i].push([frame + 270, st.level + 1, st.price]);
+      }
+      while (seenAt[i].length && seenAt[i][0][0] <= frame) {
+        const [, level, price] = seenAt[i].shift();
+        c.queue('hlv', [level, price]);
+      }
+      if (frame % 30 === 15 + i && c.sim.hero && c.sim.heroUltStatus().ready) {
+        c.queue('ult');
+        counts.ult++;
+      }
+      if (frame % 700 === 350 + i * 40 && c.sim.hero && c.sim.state === 'wave') {
+        moveTurn[i] ^= 1;
+        c.queue('hmv', heroSpots[i][moveTurn[i]]);
+      }
+      if (frame % 240 === 120 + i * 7) {
+        const own = c.sim.towers.filter((t) => c.coop.isMine(t.uid) && !t.isHero);
+        for (const t of own) {
+          const st = c.sim.upgradeStatus(t.uid, t.uid % 2);
+          if (!st.locked) {
+            c.queue('upg', [t.uid, t.uid % 2]);
+            break;
+          }
+        }
+      }
+    });
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    for (const c of clients) c.advance(1 / 60);
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const pairs = A.hashPairs();
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    levels: A.sim.heroes.map((h) => h?.level ?? 0).join('/'),
+    wallets: A.coop.wallets.join('/'),
+    // the run stops mid-wave, so the two clients may sit a few ticks apart: they are compared at
+    // every tick both hashed (the host's own final hash is what engines compare)
+    final: A.coop.hash(),
+    hashes: bitsHash(pairs.map((p) => Number.parseInt(p.mine, 16) || 0)),
+    checkpoints: pairs.length,
+    agree: pairs.length > 0 && pairs.every((p) => p.mine === p.theirs),
+    buys: `${counts.hlv} hlv: ${counts.bought} bought, ${counts.stale} stale, ${counts.cash} cash, ${counts.other} other`,
+    stale: counts.stale,
+    bought: counts.bought,
+    moves: `${counts.moved}/${counts.hmv}`,
+    moved: counts.moved,
+    ults: counts.ult,
+    sell: counts.sell,
+    ms: Date.now() - t0,
+  };
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, freeplay (scripted and deep) and two heroes. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t0 = Date.now();
   const tables = freeplayTables();
   const battle = runFreeplayBattle();
   const deep = runDeepFreeplay();
-  return { ...r, freeplay: { tables, battle, deep, ms: Date.now() - t0 } };
+  const heroes = runHeroBattle();
+  return { ...r, freeplay: { tables, battle, deep, ms: Date.now() - t0 }, heroes };
 }

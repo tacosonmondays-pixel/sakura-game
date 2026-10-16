@@ -111,11 +111,12 @@ export function render(root, params = {}) {
       return id ? slotTile(id, () => toggle(id), needCapsOf(id)) : h('button.mb-fslot', { onclick: () => { pickState.kind = 'tower'; renderPicker(needs); picker.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, '+');
     });
     if (flashId) for (const t of [heroTile, ...towerTiles]) if (t?.dataset?.unit === flashId) t.classList.add('flash');
-    const deploy = members(f).reduce((a, id) => a + (UNIT_MAP[id].base.cost || 0), 0);
+    // heroes deploy for free: the total counts the students only
+    const deploy = members(f).filter((id) => UNIT_MAP[id].kind !== 'hero').reduce((a, id) => a + (UNIT_MAP[id].base.cost || 0), 0);
     put(squad,
       h('h3.mb-card-title', 'Squad'),
       h('div.mb-squad',
-        h('div.mb-hero-slot', h('div.mb-slot-label', 'Hero'), heroTile),
+        h('div.mb-hero-slot', h('div.mb-slot-label', 'Hero · free in battle'), heroTile),
         h('div', h('div.mb-slot-label', `Students ${f.towers.length} / ${BATTLE.maxTowers}`), h('div.mb-tower-slots', towerTiles))),
       h('div.mb-squad-foot',
         h('div.muted', `Tap a girl to remove her · hold for her info · total deploy cost ${formatNumber(deploy)}`),
@@ -200,7 +201,7 @@ export function render(root, params = {}) {
             card,
             team.includes(u.id) ? h('span.mb-pick-check', svgEl(uiIcon('check'))) : null,
             covers.length ? h('div.mb-pick-need', covers.map((c) => svgEl(capabilityIcon(c)))) : null,
-            h('span.mb-pick-cost', formatNumber(u.base.cost)));
+            h('span.mb-pick-cost', u.kind === 'hero' ? 'Free' : formatNumber(u.base.cost)));
         }))
         : emptyState(pickState.kind === 'hero' ? 'No other heroes yet' : 'No students yet', 'Recruit girls or clear stages to unlock free recruits.', button('Recruit', { kind: 'yellow', icon: 'gacha', onClick: () => navigate('recruit') })));
   }

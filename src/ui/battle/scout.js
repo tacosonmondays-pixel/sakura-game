@@ -5,6 +5,7 @@
 import { h, icon, traitBadge, enemyToken, enemyDef, fmtBig } from './util.js';
 import { TRAITS } from '../../data/types.js';
 import { freeplayHpRamp } from '../../sim/freeplay.js';
+import { heroWarnText } from './heroLevels.js';
 
 /** What each freeplay affix (src/data/freeplay.js) does, for the scout and the visitor toast. */
 export const AFFIX_TEXT = {
@@ -180,7 +181,7 @@ export function createScout(ctx) {
       h('div.bt-pop-head', h('span.bt-pop-title', hasNext() ? `Scouting · Wave ${n}${pr ? `/${sim.totalWaves}` : ''}` : 'Final wave'), h('button.bt-x', { onclick: () => togglePopover(false), title: 'Close' }, '×')),
       pr ? h(`div.bt-pr-pop${pr.warn ? '.warn' : ''}`, { 'data-testid': 'scout-pressure-text' }, pressureText(pr), pr.affix ? h('b', ` ${AFFIX_TEXT[pr.affix]?.[0] || pr.affix}: ${AFFIX_TEXT[pr.affix]?.[1] || ''}.`) : null) : null,
       warnings.length
-        ? h('div.bt-warns', warnings.map((w) => h(`div.bt-warn.bt-warn-${w.severity || 'info'}`, w.text)))
+        ? h('div.bt-warns', warnings.map((w) => h(`div.bt-warn.bt-warn-${w.severity || 'info'}`, heroWarnText(sim, w.text))))
         : null,
       rows.length
         ? h('div.bt-scout-list', rows.map((r) => {

@@ -183,7 +183,7 @@ export const DIFFICULTIES = {
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'nightmare'];
 
-/** Map difficulty tiers (Bloons-style map picker groups). */
+/** Map difficulty tiers (map picker groups). */
 export const MAP_TIERS = {
   beginner: { name: 'Beginner', color: '#7bd389' },
   intermediate: { name: 'Intermediate', color: '#4cc9f0' },
@@ -274,6 +274,6 @@ export const BATTLE = {
   maxTowers: 8, // towers in formation (plus 1 hero)
   sellRefund: 0.7,
   waveClearBonusBase: 80, // coins at end of each wave (+ wave index * 6)
-  maxHeroLevel: 10,
+  maxHeroLevel: 25,
   speeds: [1, 2, 3],
 };

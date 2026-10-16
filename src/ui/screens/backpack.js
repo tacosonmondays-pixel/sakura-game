@@ -136,7 +136,7 @@ export function howToGet(unit) {
 }
 
 /**
- * Crosspath rule diagram (BTD6-style): one path to tier 5, a second to tier 2, the third locked.
+ * Crosspath rule diagram: one path to tier 5, a second to tier 2, the third locked.
  * @param {{ labels?: string[] }} [opts] optional path names
  */
 export function crosspathDiagram({ labels = ['Main path', 'Second path', 'Third path'] } = {}) {

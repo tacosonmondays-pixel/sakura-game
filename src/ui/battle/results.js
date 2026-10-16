@@ -234,7 +234,11 @@ export function createResults(ctx) {
       ['Defeated', fmtBig(Object.values(r.kills).reduce((a, b) => a + b, 0))],
       ['Time', fmtTime(r.stats.time)],
     ];
-    return h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v))));
+    // your own hero only (co-op: her own counters, never the ally's)
+    const mine = sim.hero;
+    const hr = mine ? r.heroes?.[mine.heroIndex] : null;
+    const heroLine = hr ? h('p.bt-sum-hero', { 'data-testid': 'result-hero' }, `${mine.def.name} reached Lv ${hr.level}${hr.levelsBought ? ` (${hr.levelsBought} level${hr.levelsBought === 1 ? '' : 's'} bought)` : ''}`) : null;
+    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine);
   }
 
   function mvp() {

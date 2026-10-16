@@ -1,7 +1,7 @@
 // Pure battle-UI rules (no DOM) shared by the tower panel and tests (owner: battle-ui).
 
 /**
- * Human explanation for a crosspath lock (BTD6-style: two paths at most, only one past tier 2).
+ * Human explanation for a crosspath lock (two paths at most, only one past tier 2).
  * @param {number[]} tiers current tiers [a, b, c]
  * @param {number} path path index 0-2 that is locked
  * @param {string[]} names path names

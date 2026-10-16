@@ -150,6 +150,20 @@ for (const { name, r } of results) {
   if (!(d.maxHp < 2 ** 53)) failures.push(`deep freeplay: an enemy HP of ${d.maxHp} is past 2^53`);
   if (!d.bosses.includes('fp_eclipse_wyrm')) failures.push(`deep freeplay: the Eclipse Wyrm never came (bosses ${d.bosses})`);
 }
+// two heroes (hero rework): both players bring Hikari; delayed level buys, moves, ults
+const H_KEYS = ['ticks', 'state', 'wave', 'levels', 'wallets', 'final', 'hashes', 'checkpoints', 'buys', 'moves', 'ults', 'sell'];
+log('\nScripted co-op battle with TWO HEROES (2-5, both Hikari; level buys from a 4.5 s-old view, moves, ults):');
+for (const { name, r } of results) {
+  const b = r.heroes;
+  log(`  ${name.padEnd(46)} ticks ${b.ticks} · wave ${b.wave} · hero levels ${b.levels} · ${b.buys} · moves ${b.moves} · ults ${b.ults} · hero sell ${b.sell} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · ${b.ms} ms`);
+  if (!b.agree) failures.push(`${name}: its own two clients disagreed in the two-hero battle`);
+  for (const k of H_KEYS) if (b[k] !== ref.heroes[k]) failures.push(`${name}: two-hero ${k} ${b[k]} ≠ ${ref.heroes[k]} (${results[0].name})`);
+}
+{
+  const b = ref.heroes;
+  if (!(b.stale > 0 && b.bought > 0 && b.moved > 0)) failures.push(`the two-hero battle did not exercise stale buys, buys and moves (${b.buys}; moves ${b.moves})`);
+  if (b.sell !== 'hero') failures.push(`the hero sell was not refused (${b.sell})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -164,4 +178,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical two-hero battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

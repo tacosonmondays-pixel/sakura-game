@@ -37,7 +37,9 @@ export const SNAPSHOT_VERSION = 1;
  * carry nothing from one step to the next (the event queue the renderer drains, scratch arrays,
  * caches). Everything else is battle state and goes into the snapshot.
  */
-export const REBUILT = Object.freeze(['data', 'stage', 'map', 'pathData', 'paths', 'pathTiles', 'placement', '_waveCache', 'events', '_scratch', '_scratch2', 'loadout', 'heroConfig', '_capSources']);
+// heroConfigs: built from the start arguments; _heroConfig: the VIEWING player's hero (a host's
+// checkpoint must not give the guest the host's hero in the HUD); _stepping: false between steps.
+export const REBUILT = Object.freeze(['data', 'stage', 'map', 'pathData', 'paths', 'pathTiles', 'placement', '_waveCache', 'events', '_scratch', '_scratch2', 'loadout', 'heroConfigs', '_heroConfig', '_stepping', '_capSources']);
 const REBUILT_SET = new Set(REBUILT);
 
 /** Classes a snapshot may hold (restored with their own prototype, fields as stored). */
@@ -148,7 +150,7 @@ function eachChild(o, fn) {
  * start, so references into it survive a restore.
  */
 export function simConfig(sim) {
-  return { loadout: Object.fromEntries(sim.loadout || []), hero: sim.heroConfig || null };
+  return { loadout: Object.fromEntries(sim.loadout || []), heroes: sim.heroConfigs || [] };
 }
 
 /** Every own field of the Sim but the rebuilt ones, in their own order. */

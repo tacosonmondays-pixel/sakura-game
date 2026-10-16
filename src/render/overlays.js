@@ -1,6 +1,6 @@
-// Placement & selection overlays (free placement, Bloons-style): range circles, the
+// Placement & selection overlays (free placement): range circles, the
 // placement ghost (translucent girl with a small circle under her — white where she can
-// stand, red where she can't; no zone shading, like BTD6) and the selected-tower highlight.
+// stand, red where she can't; no zone shading) and the selected-tower highlight.
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../models/index.js';
 import { footprintRadius } from '../sim/placement.js';
@@ -195,7 +195,7 @@ export class Overlays {
     return (def.base?.range || 0) * (stats.rangeMul || 1);
   }
 
-  /** Kept for API compatibility: BTD6-style placement shows no zone shading (owner request). */
+  /** Kept for API compatibility: free placement shows no zone shading (owner request). */
   showTileHints() {}
 
   refreshHints() {}
@@ -236,7 +236,7 @@ export class Overlays {
       }
       const water = this._waterAt(g.x, g.y);
       const y = (water ? WATER_Y : PATH_H) + 0.035;
-      // small circle under her: white = can stand here, red = can't (BTD6)
+      // small circle under her: white = can stand here, red = can't
       const c = g.valid ? [1, 1, 1] : [1, 0.08, 0.16];
       const d = g.radius * 2;
       const px = g.x + sx;

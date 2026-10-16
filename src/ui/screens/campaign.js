@@ -1,5 +1,5 @@
 // Campaign map picker (owner: meta-a). Route: #/campaign?chapter=3
-// Bloons TD6-style: chapter tabs grouped by map tier, a themed chapter banner and
+// Chapter tabs grouped by map tier, a themed chapter banner and
 // stage cards with stageThumbSVG, a medals row in the corner, lock states with the
 // requirement, "New mechanic" badges and free-recruit badges.
 import '../styles/meta-a.css';

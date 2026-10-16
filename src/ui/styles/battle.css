@@ -994,3 +994,48 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-sbx-open .bt-feed:not(.bt-feed-r):not(.bt-feed-l) { left: auto; }
   .bt-sbx-open .bt-feed.bt-feed-l { left: 250px; }
 }
+
+/* ---------- Hero rework: FREE card, Level up pill, track panel, Move (src/ui/battle/heroLevels.js) ---------- */
+.bt-card-cost.bt-free { background: linear-gradient(90deg, #7ff0c5, #4cd9a8); color: #0f3d2e; letter-spacing: 0.04em; }
+.bt-card-cost.bt-free .bt-card-coin { display: none; }
+.bt-card.bt-poor .bt-card-cost.bt-free { color: #0f3d2e; }
+.bt-card-hero-arm { animation: bt-hero-arm 1.1s ease-in-out infinite; }
+@keyframes bt-hero-arm { 50% { box-shadow: 0 0 0 3px #7ff0c5, 0 0 18px rgba(127,240,197,0.9); transform: translateY(-3px); } }
+.bt-card.bt-deployed .bt-card-deployed { font-size: 0.68rem; text-align: center; line-height: 1.1; padding: 0 2px; }
+.bt-herow-lvup {
+  align-self: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; width: 96px; height: 34px;
+  border: none; border-radius: 9px; padding: 0 6px; color: var(--navy); font-weight: 900; line-height: 1.05;
+  background: linear-gradient(180deg, #fff38a, #f2c14e); box-shadow: 0 3px 8px rgba(242,183,5,0.45), inset 0 0 0 2px #fff;
+}
+.bt-herow-lvup small { font-size: 0.56rem; letter-spacing: 0.08em; font-style: italic; }
+.bt-herow-lvup-cost { display: flex; align-items: center; gap: 2px; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+.bt-herow-lvup.poor { background: linear-gradient(180deg, #e9edf3, #c9d1de); color: #6d7890; box-shadow: inset 0 0 0 2px #fff; }
+.bt-herow-lvup:active { transform: scale(0.95); }
+.bt-hero-buy { margin-top: 6px; }
+.bt-hero-lvup { width: 100%; justify-content: center; }
+.bt-track-nexts { margin-top: 6px; display: grid; gap: 3px; font-size: 0.72rem; color: var(--muted); }
+.bt-track-next b { color: #7a3fd6; }
+.bt-track-next.first { color: var(--navy); }
+.bt-track-toggle { margin-top: 5px; border: none; background: none; padding: 2px 0; font-weight: 900; font-size: 0.72rem; color: #7a3fd6; }
+.bt-track { margin-top: 4px; display: grid; gap: 2px; }
+.bt-track-row { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: start; padding: 3px 4px; border-radius: 6px; font-size: 0.7rem; color: var(--muted); }
+.bt-track-row.on { color: var(--navy); background: rgba(168,107,255,0.08); }
+.bt-track-row.next { box-shadow: inset 0 0 0 1px #c79bff; color: var(--navy); }
+.bt-track-row.rank .bt-track-lv { color: #d18a00; }
+.bt-track-lv { font-weight: 900; font-style: italic; color: #7a3fd6; }
+.bt-track-desc small { display: block; font-size: 0.6rem; opacity: 0.75; }
+.bt-ult-desc small { opacity: 0.8; }
+.bt-move { color: #1d4e89; box-shadow: inset 0 0 0 2px #9fd3ff; }
+.bt-move:disabled { opacity: 0.6; }
+.bt-sum-hero { margin: -6px 0 10px; font-weight: 800; font-size: 0.8rem; color: #7a3fd6; text-align: center; }
+@media (max-width: 700px) {
+  .bt-herow-lvup { width: 80px; height: 30px; }
+}
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-herow { gap: 6px; }
+  .bt-herow-lvup { width: 80px; height: 30px; }
+  .bt-herow-lvup-cost { font-size: 0.76rem; }
+  .bt-card.bt-deployed .bt-card-deployed { font-size: 0.6rem; }
+}
+@media (prefers-reduced-motion: reduce) { .bt-card-hero-arm { animation: none; box-shadow: 0 0 0 3px #7ff0c5; } }
+.bt-herow-lv { white-space: nowrap; }

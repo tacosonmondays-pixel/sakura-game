@@ -64,6 +64,28 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     expect({ coop, endless }).toEqual(GOLDEN.coopEndless);
   }, 120000);
 
+  it('battles without a hero play out exactly as pinned (solo and co-op)', () => {
+    const units = ['aoi', 'rei', 'yuki', 'kage', 'akane', 'shiro'];
+    const out = {};
+    for (const [stageId, difficulty] of [['1-3', 'normal'], ['4-5', 'hard'], ['8-5', 'normal']]) {
+      const r = runHeadless({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400, hero: null });
+      // the rework added hero-only result fields (empty here); the digest covers what the battle did
+      const { freeplay, goal, goalReached, finished, heroes, ...res } = r.result;
+      const { heroXp, heroLevelsBought, heroLevels, ...stats } = res.stats;
+      out[stageId] = [hex(fnv(JSON.stringify({ ...res, stats, cash: r.cash, lives: r.lives }))), r.wave, r.won];
+    }
+    const c = createCoopSim({ seed: 9, stageId: '2-3', difficulty: 'normal', players: [
+      { slot: 0, uid: 'a', name: 'a', loadout: [{ unitId: 'aoi' }, { unitId: 'kage' }], hero: null },
+      { slot: 1, uid: 'b', name: 'b', loadout: [{ unitId: 'akane' }], hero: null },
+    ] });
+    c.apply({ t: 0, p: 0, s: 0, k: 'place', a: ['aoi', 5000, 3000] });
+    c.apply({ t: 0, p: 1, s: 1, k: 'auto', a: [true] });
+    c.apply({ t: 0, p: 0, s: 2, k: 'wave', a: [] });
+    for (let i = 0; i < 60 * 120; i++) c.step();
+    out.coop = [c.hash(), c.sim.wave];
+    expect(out).toEqual(HEROLESS);
+  }, 120000);
+
   it('createCoopSim without freeplay runs the same battle (hash after 3 waves)', () => {
     const start = {
       seed: 99, stageId: '1-3', difficulty: 'normal',
@@ -88,17 +110,29 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 });
 
 // Taken at fb36911 (before freeplay). Never update these to make a test pass: a change here
-// means a battle outside freeplay changed.
+// means a battle outside freeplay changed. Re-pinned once by the hero rework (these battles field
+// Hikari, who now deploys for free and levels on her 25-level track) and once more by its stage-HP
+// pass (HERO_HP_PASS); battles without a hero are pinned below (HEROLESS).
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: 'a1ae7416', wave: 15, won: true },
-    '4-2': { digest: 'fe4e1b42', wave: 19, won: false },
-    '8-5': { digest: '439207b8', wave: 30, won: false },
+    '1-3': { digest: '2a092051', wave: 15, won: true },
+    '4-2': { digest: '7926f22f', wave: 13, won: false },
+    '8-5': { digest: '07c8734a', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '95c63b80', wave: 22, won: true },
-    endless: { digest: 'cb1457ce', wave: 25, won: false },
+    coop: { digest: '86503440', wave: 22, won: true },
+    endless: { digest: 'c754a97f', wave: 25, won: false },
   },
-  coopSim: { hash: 3243583272, wave: 4, state: 'wave', wallets: '184/364', towers: 3 },
+  coopSim: { hash: 57814410, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+};
+
+// Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
+// at 56b521d: 8bbf185c / 53b1e458 / 36f6aec3 / 2155310468); its stage-HP pass (HERO_HP_PASS, data:
+// more enemy HP) moves them, so they were re-pinned once in that commit. From here they must not move.
+const HEROLESS = {
+  '1-3': ['15a8e76f', 15, true],
+  '4-5': ['15f8aba0', 13, false],
+  '8-5': ['2f760744', 30, false],
+  coop: [3341544735, 3],
 };

@@ -35,7 +35,7 @@ const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale'];
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass'];
 const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X']);
 const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
@@ -519,7 +519,7 @@ describe('maps', () => {
     }
   });
 
-  it('has Bloons-style variety: multi-lane, crossings and water maps', () => {
+  it('has map variety: multi-lane, crossings and water maps', () => {
     expect(MAPS.filter((m) => m.paths.length >= 2).length).toBeGreaterThanOrEqual(6);
     expect(MAPS.filter((m) => m.paths.length >= 3).length).toBeGreaterThanOrEqual(1);
     expect(MAPS.filter((m) => isCrossing(m) > 0).length).toBeGreaterThanOrEqual(8);
@@ -633,17 +633,19 @@ describe('stages', () => {
     campaign.forEach((s, i) => {
       expect(s.requires).toBe(i === 0 ? null : campaign[i - 1].id);
       if (i > 0) {
-        expect(s.hpScale, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale);
+        // the base ramp is monotonic; the hero-rework HP pass (hpPass, per stage) sits on top of it
+        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale / campaign[i - 1].hpPass - 0.01);
+        expect(s.hpPass, s.id).toBeGreaterThanOrEqual(1);
         expect(s.waves, s.id).toBeGreaterThanOrEqual(campaign[i - 1].waves - 2);
         expect(s.startCash, s.id).toBeGreaterThanOrEqual(700);
         expect(s.startCash, s.id).toBeLessThanOrEqual(900);
       }
     });
-    expect(campaign[0].hpScale).toBe(1);
+    expect(campaign[0].hpScale / campaign[0].hpPass).toBe(1);
     expect(campaign[0].startCash).toBe(650);
     expect(campaign[0].waves).toBe(12);
-    expect(campaign[39].hpScale).toBeGreaterThanOrEqual(6);
-    expect(campaign[39].hpScale).toBeLessThanOrEqual(7);
+    expect(campaign[39].hpScale / campaign[39].hpPass).toBeGreaterThanOrEqual(6);
+    expect(campaign[39].hpScale / campaign[39].hpPass).toBeLessThanOrEqual(7);
     expect(campaign[39].waves).toBe(30);
     const res = stagesOfKind('resource');
     for (const s of res) {

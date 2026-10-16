@@ -496,6 +496,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
           overlays.refreshHints();
           break;
         }
+        case 'heroMove': {
+          // her view is rebuilt at the new spot by the next sync; a puff where she left and arrived
+          fx.puff(ev.fromX, 0.2, ev.fromY, '#ffffff', 6, 0.4, 0.35);
+          actors.dropTower?.(ev.towerUid);
+          fx.puff(ev.x, 0.1, ev.y, '#ffffff', 6, 0.5, 0.35);
+          fx.ring(ev.x, ev.y, 0.15, 0.75, 0.4, '#ffffff', { additive: false, uv: 'ring', a0: 0.8 });
+          if (ev.downtime > 0) fx.text('…', ev.x, 1.3, ev.y, '#ffffff', 0.3, ev.downtime, 0.2);
+          overlays.refreshHints();
+          break;
+        }
         case 'heroLevel': {
           const v = actors.towerView(ev.towerUid ?? sim.hero?.uid);
           if (v) {
@@ -765,7 +775,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
     },
-    /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
+    /** Legacy no-op: free placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},
     /** Extra: show the range circle around the placement ghost (settings.showRanges). */
     setPlacementRange(on) {

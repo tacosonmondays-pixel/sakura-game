@@ -95,7 +95,7 @@ export function createTower(def, o) {
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
 export function refreshTowerStats(t, globalRateMul = 1) {
-  t.stats = resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats });
+  t.stats = resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
   t.projKind = projectileKind(t.def, t.stats);
   refreshEffective(t, globalRateMul);
 }
@@ -613,6 +613,7 @@ export function updateTower(sim, t, dt) {
     t.disabled = Math.max(0, t.disabled - dt);
     return;
   }
+  if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];

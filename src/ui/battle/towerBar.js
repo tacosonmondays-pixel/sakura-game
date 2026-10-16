@@ -39,12 +39,12 @@ export function createTowerBar(ctx) {
       ur ? h('span.bt-card-ur', urBadge()) : null,
       h('span.bt-card-name', def.name),
       h('span.bt-card-cost', svgEl(currencyIcon('coins'), 'bt-card-coin'), cost),
-      isHero ? h('span.bt-card-deployed', 'Deployed') : null,
+      isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, 'Deployed') : null,
     );
     setVar(card, '--rarity', rarityColor(def, ctx.profile));
     if (ur) applyUrFrame(card, def, ctx.profile);
     bindCard(card, unitId);
-    cards.set(unitId, { card, cost, def, isHero, lastCost: -1, lastAfford: null });
+    cards.set(unitId, { card, cost, def, isHero, lastCost: -1, lastAfford: null, lastLv: -1 });
     scroller.append(card);
   }
 
@@ -117,8 +117,20 @@ export function createTowerBar(ctx) {
       const deployed = c.isHero && !!sim.hero;
       const price = sim.placeCost(unitId);
       if (price !== c.lastCost) {
-        c.cost.textContent = fmtCoins(price);
+        // heroes deploy for free: the price slot says FREE (no coin)
+        c.cost.textContent = price > 0 ? fmtCoins(price) : 'FREE';
+        c.cost.parentElement.classList.toggle('bt-free', !(price > 0));
         c.lastCost = price;
+      }
+      if (c.isHero) {
+        const lv = deployed ? sim.hero.level : 0;
+        if (lv !== c.lastLv) {
+          c.lastLv = lv;
+          const tag = c.card.querySelector('.bt-card-deployed');
+          if (tag) tag.textContent = lv ? `Deployed · Lv ${lv}` : 'Deployed';
+        }
+        // wave 0, not deployed yet: the card pulses (it is armed on load, see controller.js)
+        c.card.classList.toggle('bt-card-hero-arm', !deployed && sim.wave === 0 && sim.state === 'prep');
       }
       const afford = sim.cash >= price;
       if (afford !== c.lastAfford) {

@@ -14,6 +14,7 @@ import { FREEPLAY, FREEPLAY_TIERS, freeplayTable } from '../../src/data/freeplay
 import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { DIFFICULTIES } from '../../src/data/types.js';
+import { STAGE_MAP } from '../../src/data/stages.js';
 import { coopStage } from '../../src/data/coop.js';
 
 const look = (id) => ENEMY_MAP[id] || null;
@@ -74,9 +75,12 @@ describe('freeplay table (src/data/freeplay.js)', () => {
     expect(coopStage('1-3').freeplay).toBeUndefined();
     expect(fpStage('1-3', 'nope').freeplay).toBeUndefined();
     expect(coopStage('1-3', { freeplay: null }).freeplay).toBeUndefined();
-    // the co-op stage itself is unchanged by freeplay (same hpScale, waves, pools)
-    const { freeplay, ...rest } = fpStage('4-2', 'crimson');
-    expect(rest).toEqual(coopStage('4-2'));
+    // the co-op stage itself is unchanged by freeplay (same waves, pools) except that freeplay keeps
+    // the pre-hero-rework HP ramp (the stage's hpPass divided back out)
+    const { freeplay, hpScale, ...rest } = fpStage('4-2', 'crimson');
+    const { hpScale: coopHp, ...coopRest } = coopStage('4-2');
+    expect(rest).toEqual(coopRest);
+    expect(hpScale).toBeCloseTo(coopHp / STAGE_MAP['4-2'].hpPass, 1);
   });
 });
 

@@ -43,6 +43,9 @@ const flatPaths = () => [
   path('c', [tier('c1', 100, {}), tier('c2', 100, {}), tier('c3', 100, {}), tier('c4', 100, {}), tier('c5', 100, {})]),
 ];
 
+/** 25 plain hero levels (+1 damage each from Lv 2) for fixture heroes on the shared XP tables. */
+const TRACK25 = Array.from({ length: 25 }, (_, i) => ({ level: i + 1, from: i ? `L${i + 1}` : 'base', desc: `level ${i + 1}`, mods: i ? { damage: 1 } : {} }));
+
 function unit(id, extra) {
   return {
     id,
@@ -147,11 +150,14 @@ export const UNITS = {
   lancer: unit('lancer', { base: { range: 14, pierce: 3, projectileSpeed: 30 } }),
   triple: unit('triple', { base: { projectiles: 3, range: 4 } }),
   sniper: unit('sniper', { role: 'sniper', look: { weapon: 'rifle' }, base: { damage: 50, rate: 0.5, range: 10, projectileSpeed: 0 } }),
+  // heroine keeps a short own track (10 levels, own levelXp + levelPrices: the override); warper and
+  // tider use the shared 25-level tables
   heroine: unit('heroine', {
-    kind: 'hero', rarity: 'SSR', adult: true, role: 'vanguard', attackType: 'holy',
-    base: { cost: 500, damage: 10, rate: 1, range: 3, detection: true },
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'vanguard', attackType: 'holy', paths: [],
+    base: { cost: 0, damage: 10, rate: 1, range: 3, detection: true },
     hero: {
       levelXp: [100, 200, 300, 400, 500, 600, 700, 800, 900],
+      levelPrices: [100, 200, 300, 400, 500, 600, 700, 800, 900],
       levels: [
         { level: 2, desc: 'sharper', mods: { damage: 5 } },
         { level: 3, desc: 'ult', mods: { rateMul: 1.2 } },
@@ -161,20 +167,18 @@ export const UNITS = {
     },
   }),
   warper: unit('warper', {
-    kind: 'hero', rarity: 'SSR', adult: true, role: 'mystic', attackType: 'mystic',
-    base: { cost: 500, damage: 10, rate: 1, range: 3 },
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'mystic', attackType: 'mystic', paths: [],
+    base: { cost: 0, damage: 10, rate: 1, range: 3 },
     hero: {
-      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
-      levels: [],
+      levels: TRACK25,
       ult: { name: 'Moonfall', desc: 'warp', unlockLevel: 1, cooldown: 20, effect: { type: 'timeWarp', slow: 0.5, duration: 3, rateBuff: 0.5, buffDuration: 4 } },
     },
   }),
   tider: unit('tider', {
-    kind: 'hero', rarity: 'SR', adult: true, role: 'tideguard', attackType: 'mystic', placement: 'water',
-    base: { cost: 500, damage: 10, rate: 1, range: 3 },
+    kind: 'hero', rarity: 'SR', adult: true, role: 'tideguard', attackType: 'mystic', paths: [], placement: 'water',
+    base: { cost: 0, damage: 10, rate: 1, range: 3 },
     hero: {
-      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
-      levels: [],
+      levels: TRACK25,
       ult: { name: 'Tidal Wave', desc: 'tide', unlockLevel: 1, cooldown: 20, effect: { type: 'tide', damage: 5, pushback: 3, slow: 0.3, duration: 2 } },
     },
   }),

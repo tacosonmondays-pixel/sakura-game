@@ -11,7 +11,7 @@
 //         | { type: 'tip', text, tone?: 'info'|'warn'|'good' }
 //         | { type: 'table', head: Cell[], rows: Cell[][], caption? }
 //         | { type: 'typeChart' }                      // coloured attack × armor matrix
-//         | { type: 'crosspath' }                      // BTD6-style crosspath diagram
+//         | { type: 'crosspath' }                      // crosspath diagram
 //         | { type: 'upgradeTags' }                    // Self / Allies / Enemies / Coins legend
 //         | { type: 'units', ids: unitId[], caption? } // tappable portrait chips
 //         | { type: 'items', ids: itemId[], caption? } // tappable item tiles
@@ -34,7 +34,7 @@ import { expectedSSRRate } from '../systems/gacha.js';
 import { f2pIncomeSummary } from '../systems/missions.js';
 
 // ---------------------------------------------------------------------------
-// Role subclasses (Bloons-style "what kind of tower is this" labels)
+// Role subclasses (short "what kind of girl is this" labels)
 // ---------------------------------------------------------------------------
 
 /** Short subclass label per role, used on the student Info tab and in the wiki. */
@@ -155,7 +155,9 @@ function controls() {
         ['Zoom (Camera: Free)', 'Pinch', 'Mouse wheel'],
         ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
-        ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button'],
+        ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button (or Q)'],
+        ['Hero level up', 'Level up pill next to the hero portrait', 'Level up pill (or L)'],
+        ['Move hero', 'Move in her panel', 'Move in her panel'],
       ]),
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
       p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
@@ -209,7 +211,7 @@ function rolesArticle() {
         UNITS.filter((u) => u.role === id).map((u) => u.name).join(', ') || '—',
       ])));
   });
-  return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, Bloons-style: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
+  return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, at a glance: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
     sec('How roles work',
       p('Like monkey classes in tower defense classics, every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
       p('A good formation covers several roles: someone to thin swarms, someone to break armor, someone to see veiled enemies, and someone to stop leaks.')),
@@ -329,7 +331,7 @@ function levelingArticle() {
         'Attack speed +0.4% per level.',
         'Level 60, 5 gates, ★5 ≈ ×2.4 damage before gear — strong, but never a replacement for the right counters.',
       ]),
-      tip('Heroes use the same scaling; they were toned down so a hero supports your team rather than carrying it.', 'info')),
+      tip('Heroes deploy for free and grow from Lv 1 to 25 during each battle. Early on she is one more defender on the field; by the last waves she is your strongest.', 'info')),
   ]);
 }
 

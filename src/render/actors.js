@@ -347,7 +347,7 @@ export class Actors {
     const ground = (this.terrain.isPath(tx, tz) ? PATH_H : 0) + (e.elev || 0);
     v.ground = ground;
     // inside a tunnel: out of sight (the sim also makes it untargetable); under an overpass
-    // deck: ground walkers pass out of sight beneath it (still targetable, like BTD6)
+    // deck: ground walkers pass out of sight beneath it (still targetable)
     v.hidden = !!e.hidden || (!!e.underDeck && !v.airborne && !(e.alt > 0.3));
     m.visible = !v.hidden;
     const alt = (e.alt || 0) + ground;
@@ -397,6 +397,15 @@ export class Actors {
 
   towerView(uid) {
     return this.towers.get(uid) || null;
+  }
+
+  /** Drops a girl's view (a hero's Move): the next sync() recreates it where she stands now. */
+  dropTower(uid) {
+    const v = this.towers.get(uid);
+    if (!v) return;
+    this._disposeView(v);
+    this.towers.delete(uid);
+    this.releaseDecor(v.decorKey);
   }
 
   hitFlash(uid) {

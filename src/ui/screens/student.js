@@ -174,9 +174,15 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   const b = unit.base;
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
-  dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
-  // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
-  if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
+  if (unit.kind === 'hero') {
+    // heroes deploy for free; gear Cost Reduction discounts her battle level prices instead
+    rows.push(['Deploy cost', 'Free', null]);
+    if (owned && battle.costMul < 1) rows.push(['Level prices', `−${Math.round((1 - battle.costMul) * 100)}%`, null]);
+  } else {
+    dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+    // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
+    if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
+  }
   rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
   if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
   if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
@@ -375,14 +381,32 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
 
 function heroSection(unit) {
   const hero = unit.hero;
+  const ranks = (hero.ult.ranks || []).map((r, i) => `Rank ${i + 2} at Lv ${r.level}`).join(' · ');
   return section('Hero',
     h('div.mb-ult',
       h('div.mb-ult-badge', 'ULT'),
-      h('div', h('b', hero.ult.name), h('div', hero.ult.desc), h('div.muted', `Unlocks at hero level ${hero.ult.unlockLevel} · cooldown ${hero.ult.cooldown}s`))),
-    h('div.mb-sub-title', 'In-battle levels'),
-    h('ol.mb-hero-levels', hero.levels.map((l) => h('li', h('span.mb-hl-num', String(l.level)), h('span', l.desc)))),
-    h('p.muted', 'Heroes level up inside each battle from damage dealt and waves cleared (max 10). Only one hero per battle.'));
+      h('div', h('b', hero.ult.name), h('div', hero.ult.desc),
+        h('div.muted', `Unlocks at hero level ${hero.ult.unlockLevel} · cooldown ${hero.ult.cooldown}s${ranks ? ` · ${ranks}` : ''}`),
+        (hero.ult.ranks || []).map((r) => h('div.muted', r.desc)))),
+    h('div.mb-sub-title', 'Battle levels (1–25)'),
+    h('ol.mb-hero-levels', { 'data-testid': 'hero-track-list' }, hero.levels.map((l) => h('li', h('span.mb-hl-num', String(l.level)),
+      h('span', l.desc, l.from && l.from !== 'base' ? h('small.mb-hl-from', ` ${heroSourceText(unit, l.from)}`) : null)))),
+    h('p.muted', 'Heroes deploy for free and level up inside each battle — from time in the wave, waves cleared and the damage they deal. Buy the next level with battle coins any time. One hero per player.'));
 }
+
+/** "from Radiant Edge T3" / "from the old Lv 5 milestone" for a track level. */
+function heroSourceText(unit, from) {
+  if (/^L\d+$/.test(from)) return `· from the old Lv ${from.slice(1)} milestone`;
+  const [key, tier] = from.split('.');
+  return `· from ${HERO_PATH_NAMES[unit.id]?.[key] || key} T${tier}`;
+}
+
+/** Names of the old hero upgrade paths (their tiers live on in the battle levels). */
+const HERO_PATH_NAMES = {
+  hikari: { radiant: 'Radiant Edge', sanctuary: 'Sanctuary', lightbringer: 'Lightbringer' },
+  luna: { lances: 'Lunar Lances', gravity: 'Night Gravity', court: 'Astral Court' },
+  nami: { frostbrand: 'Frostbrand', undertow: 'Undertow', harbor: 'Harbor Watch' },
+};
 
 function levelTab(unit, ctx) {
   const profile = store.profile;
@@ -723,6 +747,12 @@ function gearTab(unit, ctx) {
 // ----- Tree ----------------------------------------------------------------
 
 export function treeTab(unit) {
+  // heroes have no upgrade paths: their tree is the 25-level battle track
+  if (unit.kind === 'hero') {
+    return h('div.mb-tab-body',
+      section('One track, 25 levels', h('p.muted', 'Every old upgrade tier and level milestone is one battle level now. She earns them during the battle, or you buy the next level with battle coins. At Lv 25 she has all three capstones at once.')),
+      heroSection(unit));
+  }
   const cols = unit.paths.map((p, pi) => h(`div.mb-path.p${pi}`,
     h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus), pathSummaryChips(unit, pi, { size: 'sm' })),
     p.tiers.map((t, ti) => {

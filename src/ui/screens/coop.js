@@ -390,7 +390,7 @@ export function render(root, params = {}) {
           svgEl(PEOPLE_GLYPH, 'ol-coop-big-ico'),
           h('div',
             h('p', 'Two senseis, one map. Each of you places your own girls with your own coins; enemies are tougher to match.'),
-            h('p.muted', `You bring your formation: the host brings the hero and ${COOP.towersPerPlayer} girls, the guest ${COOP.towersPerPlayer + 1} girls. Drops go to both; medals stay solo.`)))),
+            h('p.muted', `You bring your formation: your hero and ${COOP.towersPerPlayer} girls each. Drops go to both; medals stay solo.`)))),
       h('div.ol-coop-cols',
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
@@ -728,6 +728,7 @@ export function render(root, params = {}) {
     function tipsPanel() {
       const tips = [
         ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
+        ['Two heroes', 'Each of you brings your own hero: free to deploy, levelled with your own coins, and you fire her ult.'],
         ['Kills pay both', 'Every coin the defence earns is split between you.'],
         ['Hands off her girls', 'Only the owner can upgrade, sell or retarget a girl (the coloured pin shows whose).'],
         ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
