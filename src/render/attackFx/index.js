@@ -1,7 +1,7 @@
 // Attack FX: unique, readable, purely visual attack animations (docs/ATTACK_FX.md).
 //
 // The sim decides every hit and its timing; this layer only reads sim state + events and draws:
-// Chika's drones flying sorties, origin-blended projectiles, landing reticles, sweeps,
+// Chika's drones drawn where the sim flies them, origin-blended projectiles, landing reticles, sweeps,
 // ripples, familiars… It never writes to a sim object (co-op lockstep stays deterministic).
 //
 // Hooks (BattleRenderer / actors):
@@ -92,8 +92,8 @@ export function createAttackFx(o) {
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
-    drones: 0, dronesOverflow: 0, engaged: 0, passes: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
-    quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxLeash: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
+    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
+    quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
   };
   let frame = 1;
   let msAcc = 0;
@@ -254,7 +254,7 @@ export function createAttackFx(o) {
       rec.blended = false;
       rec.idx = 0;
       rec.n = 1;
-      // sim spawn point S (a drone bullet starts at its turret anchor)
+      // sim spawn point S (a drone bullet starts at its drone)
       rec.sx = p.x;
       rec.sy = p.y;
       rec.sz = PROJECTILE_Z;
@@ -425,14 +425,11 @@ export function createAttackFx(o) {
     msAcc = 0;
     stats.drones = ctx.drones.count;
     stats.dronesOverflow = ctx.drones.overflow;
-    stats.passes = ctx.drones.passes;
+    stats.droneShots = ctx.drones.shots;
     let engaged = 0;
-    for (let i = 0; i < ctx.drones.list.length; i++) {
-      const s = ctx.drones.list[i].state;
-      if (s === 'APPROACH' || s === 'PASS') engaged++;
-    }
+    for (let i = 0; i < ctx.drones.list.length; i++) if (ctx.drones.list[i].state === 'HUNT') engaged++;
     stats.engaged = engaged;
-    stats.maxLeash = ctx.drones.maxLeash;
+    stats.maxDecor = ctx.drones.maxDecor;
     stats.projTracked = recList.length;
     stats.blended = blended;
     stats.segments = ctx.segs.count;

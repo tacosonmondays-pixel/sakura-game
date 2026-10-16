@@ -1,12 +1,12 @@
-// Chika (turret · drones `bullet`, own `bolt`; Tesla T4 → chain).
-// Signature: her drones orbit above her head inside her ring and fly strafing sorties after
-// the enemies the sim shoots (patterns/drones.js). Her own shot is a spinning wrench toss.
-//   P0 Sentry Works   T3 V-trio formation · T4 plasma tint + engine trails + cyan bullets ·
+// Chika (roaming drones `bullet`, own `bolt`; Tesla T4 → chain).
+// Signature: her drones are drawn where the sim flies them (patterns/drones.js: a little orbit at
+// home, a sway while hunting, the sim position at each shot). Her own shot is a spinning wrench toss.
+//   P0 Sentry Works   T3 tighter formation · T4 plasma tint + engine trails + cyan bullets ·
 //                     T5 two counter-rotating layers, gold, a command drone
-//   P1 Repair Bay     T3 the oldest drone patrols the aura edge · T4 beacon ring every 2 s ·
-//                     T5 banner glint on the patrol drone
-//   P2 Tesla          T3 micro-arcs at the nose · T4 docked halo over her coil, chain from the
-//                     halo · T5 faster halo, gold-white bolts
+//   P1 Repair Bay     T3 the oldest drone carries a green work light · T4 beacon ring every 2 s ·
+//                     T5 banner glint on that drone
+//   P2 Tesla          T3 micro-arcs at the nose · T4 drones dock over her coil while home, chain
+//                     from the coil · T5 faster spin, gold-white bolts
 import * as THREE from 'three';
 import { DEFAULT_DRONE_LOOK } from '../patterns/drones.js';
 import { chainBolt } from '../patterns/segments.js';
