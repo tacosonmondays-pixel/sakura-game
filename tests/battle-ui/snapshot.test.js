@@ -31,6 +31,10 @@ const SCEN = {
   '3-5 normal': { stageId: '3-5', difficulty: 'normal', towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 12345, forks: [6, 15] },
   '8-5 hard (drones)': { stageId: '8-5', difficulty: 'hard', towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'luna', stats: { damageMul: 4, rateMul: 1.3 }, seed: 777, forks: [9, 20] },
   '4-5 normal (traps, drones)': { stageId: '4-5', difficulty: 'normal', towers: ['suzu', 'aoi', 'rei', 'akane', 'chika'], hero: 'hikari', stats: { damageMul: 2.5, rateMul: 1.2 }, seed: 99, forks: [5, 12] },
+  // battle modes + map rules: Reverse Route on Rear Ambush (the route turns every wave: `rr`), and
+  // Ironclad on crystal pads (pads follow the girls, the hero's Moves included)
+  '4-2 hard reverse (Rear Ambush)': { stageId: '4-2', difficulty: 'hard', mode: 'reverse', towers: ['aoi', 'rei', 'akane', 'kaede', 'chika'], hero: 'hikari', stats: { damageMul: 3, rateMul: 1.2 }, seed: 4202, forks: [5, 8] },
+  '6-1 normal ironclad (pads)': { stageId: '6-1', difficulty: 'normal', mode: 'ironclad', towers: ['aoi', 'rei', 'akane', 'sango', 'yuki'], hero: 'luna', stats: { damageMul: 3, rateMul: 1.2 }, seed: 6102, forks: [4, 9] },
   'colosseum to wave 30': { stageId: 'challenge', difficulty: 'normal', endless: true, towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'hikari', stats: { damageMul: 6, rateMul: 1.4 }, seed: 4242, maxCopies: 4, maxWave: 30, forks: [10, 22] },
 };
 
@@ -39,10 +43,10 @@ const team = (c) => ({
   loadout: c.towers.map((unitId) => ({ unitId, stats: { ...unitBattleStats(null, unitId), ...c.stats } })),
   hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats } } : null,
 });
-const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false } });
+const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false, mode: c.mode } });
 const recordOf = (c, snap) => ({
   v: RECORD_V, id: 'bs-test', slot: slotKey(c.stageId, !!c.endless), stageId: c.stageId, endless: !!c.endless,
-  difficulty: c.difficulty, seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
+  difficulty: c.difficulty, ...(c.mode ? { mode: c.mode } : {}), seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
 });
 
 /** Applies one command exactly like the solo ctx.act / ctx.* handlers. */
@@ -77,12 +81,16 @@ const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData',
   'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'heroes', 'towers', 'traps',
   'enemies', 'projectiles', 'fields', '_acc', '_stepping']);
 // a calm point resets these anyway (startNextWave overwrites the spawn cursor and timers)
-const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty']);
+// (_waveTick: a map rule's step clock, restarted at every wave start)
+const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty', '_waveTick']);
 // derived per-tower references / caches, and the harmless stale target memory of a calm point
 // (_pool / _poolS: a roaming wing's per-step target pool, enemy references)
 const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange', '_pool', '_poolS']);
 // reset at a calm point: the pool's reuse counter (moot with no enemy alive)
 const TOWER_CALM_SKIP = new Set(['_poolLeft', '_poolMode']);
+// map-rule fields a girl only carries once a pad or the rule's range touched her: absent = neutral
+// (src/sim/rules.js, towers.js), so a girl who had them and is back to neutral equals one who never had them
+const TOWER_NEUTRAL = { padIndex: -1, onPad: false, padMul: 1, padRangeAdd: 0, envRangeMul: 1, envRangeAdd: 0 };
 // a roaming drone at a calm point: its quarry, motion flag and position one step earlier are reset
 const DRONE_CALM_SKIP = new Set(Object.keys(KNOWN_DRONE_KEYS).filter((k) => KNOWN_DRONE_KEYS[k] === 'calm'));
 /** A tower's drones for a digest (a drone's quarry is an enemy: compared by uid). */
@@ -113,6 +121,7 @@ function digest(sim, { calm = false } = {}) {
   out.towers = sim.towers.map((t) => {
     const o = {};
     for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k) && !(calm && TOWER_CALM_SKIP.has(k))) o[k] = plain(t[k]);
+    if (sim.rule) for (const [k, v] of Object.entries(TOWER_NEUTRAL)) o[k] = t[k] ?? v;
     o.turrets = dronesOf(t, calm);
     return o;
   });
@@ -290,12 +299,14 @@ describe('battle save snapshot', SLOW, () => {
         expect(run.cps.length).toBeGreaterThan(5);
         let drones = 0;
         let traps = 0;
+        const rrs = new Set();
         for (const cp of run.cps) {
           expect(cp.proj, `wave ${cp.wave}: shots in flight at a calm point`).toBe(0);
           expect(cp.json.length, `wave ${cp.wave} snapshot size`).toBeLessThan(8 * 1024);
           const snap = JSON.parse(cp.json);
           drones += snap.towers.reduce((a, t) => a + (t.dr?.length || 0), 0);
           traps += snap.towers.reduce((a, t) => a + (t.tr?.length || 0), 0);
+          if (snap.rr != null) rrs.add(snap.rr);
           const { sim, dropped, refunded } = restoreSim(recordOf(c, snap), { settings: { autoStart: cp.autoStart } });
           expect(dropped).toEqual([]);
           expect(refunded).toBe(0);
@@ -306,6 +317,10 @@ describe('battle save snapshot', SLOW, () => {
         }
         if (name.includes('drones')) expect(drones).toBeGreaterThan(0);
         if (name.includes('traps')) expect(traps).toBeGreaterThan(0);
+        // battle modes + map rules: the route turned both ways between checkpoints; a girl held a pad
+        if (name.includes('Rear Ambush')) expect([...rrs].sort()).toEqual([0, 1]);
+        else expect(rrs.size).toBe(0); // (no other scenario has a route that turns: no `rr` in its snapshots)
+        if (name.includes('pads')) expect(run.sim.towers.some((t) => t.onPad)).toBe(true);
       });
 
       it('the wrapper sees auto-starts inside Sim._step', () => {

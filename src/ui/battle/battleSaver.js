@@ -105,6 +105,8 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, evict =
         stageId: req.stageId,
         endless: !!req.endless,
         difficulty: sim.difficulty,
+        // the battle mode (docs/specs/CODEX_MODES.md): Continue rebuilds the run in it (absent = Standard)
+        ...(sim.mode && sim.mode.id !== 'standard' ? { mode: sim.mode.id } : {}),
         seed,
         loadout: cfg?.loadout || [],
         hero: cfg?.hero || null,
@@ -118,7 +120,7 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, evict =
     rec.updatedAt = now;
     lastSnap = `${snap.state}:${snap.wave}`;
     const s = saveSummary(rec, now);
-    rec.view = { next: s.next, of: s.of, lives: s.lives, difficulty: s.difficulty };
+    rec.view = { next: s.next, of: s.of, lives: s.lives, difficulty: s.difficulty, mode: rec.mode || 'standard' };
     if (created) {
       putBattleSave(profile(), rec);
       onCreate?.(rec);

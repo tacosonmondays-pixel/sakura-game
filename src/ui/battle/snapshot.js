@@ -14,6 +14,11 @@
 // slot, counters, the wave it was built in and a running jam; the girl's drone totals and serial
 // (`ds`) and her wing's flight mode (`fl`, absent = Hover) come along. Older 5-field rows restore
 // with zero counters, numbered by position.
+// Battle modes and map rules (same format 2, additive; docs/specs/CODEX_MODES.md): the record names
+// the run's mode (`mode`, absent = Standard) and the Sim is rebuilt in it; the map rule rides on
+// the stage. At a calm point the rule runtime is back to its between-waves state (ruleWaveEnd), so
+// the snapshot only adds the route orientation of the last wave (`rr`, battles with a reversible
+// route only); crystal pads and rule range are derived from the girls' spots.
 // Path cap (same format 2, additive; src/sim/buffs.js): tiers are replayed with `{ restoring: true }`,
 // so a save made before the one-final-tier-per-path rule keeps every tier 5 it had. The limited
 // buffs travel with the girls: Midori's / Chika's pick (`pk`), what her brew / tune-up is doing
@@ -35,6 +40,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, RECORD_V } from '../../systems/battleSave.js';
+import { modeId } from '../../data/modes.js';
 
 /**
  * Leak groups a snapshot keeps (the most recent ones): stats.leakLog is stored grouped by
@@ -115,6 +121,13 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   //        start before its first spawn — null outside freeplay;
   //   finished: set only by finish() (a Finish vote), which ends the battle — false at a calm point.
   freeplay: 'config', lastWave: 'config', _fp: 'calm', finished: 'calm',
+  // Battle modes and map rules (src/sim/rules.js): the mode and the rule runtime come from the record
+  // and the stage (ruleWaveEnd puts the runtime back to its fresh between-waves state), both route
+  // orientations are built by the constructor, and the orientation in use is kept (`rr`); the rule
+  // tables are rebuilt from the runtime, and the rule's step clock restarts at every wave start.
+  mode: 'config', incomeMul: 'config', _modeArmor: 'config', _ruleGoal: 'config', _bountyAdd: 'config',
+  _pathsFwd: 'config', _pathsRev: 'config', rule: 'config', routeReversed: 'snap',
+  _ruleMul: 'derived', _ruleMove: 'derived', _ruleRange: 'derived', _rulePortal: 'derived', _waveTick: 'calm',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -136,6 +149,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   projKind: 'derived', removed: 'derived', _globalRate: 'derived', mastery: 'derived',
   targetUid: 'calm', rampTarget: 'calm', rampStacks: 'calm',
   trapSpots: 'scratch', trapSpotsRange: 'scratch',
+  // map rules: crystal pads follow the girls' spots (assignPads), rule range follows the rule's
+  // state (recomputeBuffs); absent = neutral (no pad, range unchanged)
+  padIndex: 'derived', onPad: 'derived', padMul: 'derived', padRangeAdd: 'derived', envRangeMul: 'derived', envRangeAdd: 'derived',
 });
 
 /**
@@ -215,6 +231,8 @@ export function snapshotSim(sim) {
     enc: [...sim.encountered],
     stats,
     leakGroups: packLeaks(leakLog),
+    // the route orientation of the last wave (Reverse Route, Rear Ambush): only where it can turn
+    ...(sim._pathsRev ? { rr: sim.routeReversed ? 1 : 0 } : {}),
   };
 }
 
@@ -264,8 +282,9 @@ export function restoreSim(rec, profile = null) {
       loadout: (rec.loadout || []).map(teamEntry).filter(Boolean),
       hero: teamEntry(rec.hero),
       seed: rec.seed,
-      // never options.freeplay: freeplay runs (co-op or solo) are never saved
-      options: { endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart },
+      // never options.freeplay: freeplay runs (co-op or solo) are never saved; the run's own battle
+      // mode (a record without one: Standard)
+      options: { endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode) },
     });
   } catch (e) {
     throw new StaleSaveError(`stage cannot be built: ${e.message}`);
@@ -391,6 +410,8 @@ export function restoreSim(rec, profile = null) {
   sim.wavesCleared = r(s.wavesCleared);
   sim.state = sim.wave > 0 ? 'between' : 'prep';
   sim.time = r(s.time);
+  // the route as the last wave walked it (a save without `rr`: that wave's orientation)
+  if (sim._pathsRev) sim.setRouteOrientation(s.rr != null ? !!s.rr : sim.routeReversedFor(Math.max(1, sim.wave)));
   sim.kills = { ...(s.kills || {}) };
   sim.encountered = new Set(s.enc || []);
   if (s.stats && typeof s.stats === 'object') sim.stats = { ...sim.stats, ...JSON.parse(JSON.stringify(s.stats)) };

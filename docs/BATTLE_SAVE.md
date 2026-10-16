@@ -138,6 +138,20 @@ rate buffs keep who cast them (`buffs: [mul, left, src]`, the buff icons). The b
 once every girl is back. A save without these fields restores with nothing held and the window at
 its start (the next brew / link picks again). `owner` is config (always 0 in solo), `buffBy` derived.
 
+**Battle modes and map rules (format 2, additive; Codex modes).** The record names the run's mode
+(`mode: 'rush'`; absent = Standard, so every older record reads as Standard) and `view.mode` repeats it;
+Continue rebuilds the Sim with `options.mode` from the record, whatever `mode` the battle link carries
+(the controller takes `req.mode` from the restored Sim, and a mode run is never offered Keep going).
+A record naming a mode this build does not know is dropped by the sanitiser (it cannot be played as
+saved). The map rule rides on the stage; at a calm point its runtime is back to the between-waves
+state (`ruleWaveEnd`), so the only new snapshot field is `rr` (0 / 1: the route orientation of the
+last wave, written only where the route can turn: Reverse Route, Rear Ambush), restored with
+`setRouteOrientation` (a save without it: that wave's orientation). Crystal pads and the rule's range
+are derived from the girls' spots and the rule (`padIndex`, `onPad`, `padMul`, `padRangeAdd`,
+`envRangeMul`, `envRangeAdd`: absent = neutral); `mode`, `incomeMul`, `_modeArmor`, `_ruleGoal`,
+`_bountyAdd`, `_pathsFwd`, `_pathsRev` and `rule` are config, `_ruleMul` / `_ruleMove` / `_ruleRange` /
+`_rulePortal` derived and `_waveTick` (the rule's step clock) calm.
+
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).
 
@@ -172,8 +186,9 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
   and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, Chika's
   drones and flight modes (the driver flies her wing through Hover / Hold / Patrol / Pursuit), the
   path cap (a pre-rule save with two copies at the same tier 5; Midori's brews and Chika's tune-up
-  links round-trip and play on the same; an older save without the brew / link fields), and the
-  guards (Sim, girl and drone fields).
+  links round-trip and play on the same; an older save without the brew / link fields), battle modes
+  and map rules (Reverse Route on Rear Ambush 4-2 Hard, whose route turns between checkpoints; Ironclad
+  on the crystal pads of 6-1 with a hero who Moves), and the guards (Sim, girl and drone fields).
 - `tests/systems/battleSave.test.js`: profile field, migrate allowlist, each sanitiser rule (including
   a save past the end and a missing start time), the cap and its order, titles, slots and modes,
   run-scoped clears, drop seed, event bonus by start time and its 48 h window.
