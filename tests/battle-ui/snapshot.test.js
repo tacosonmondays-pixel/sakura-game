@@ -601,6 +601,23 @@ describe('battle save: Chika\'s roaming drones and flight modes (Chika rework M6
     expect(t.flight).toBe(null);
     expect(sim.flightInfo(o.uid).mode).toBe('hover');
   });
+
+  it('a hand-edited drone row cannot put non-numbers into the sim (no position: the drone starts on her)', () => {
+    const snap = withDrones().at(-1);
+    const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+    o.dr[0] = [o.dr[0][0], 'x', null, 'f', {}, 'n', null, 'dmg', [], null, 'born', 'jam'];
+    if (o.dr[1]) o.dr[1] = [o.dr[1][0]];
+    const { sim } = restoreSim(recordOf(c, snap));
+    const t = sim.getTower(o.uid);
+    for (const d of t.turrets) {
+      for (const k of ['uid', 'x', 'y', 'px', 'py', 'facing', 'cooldown', 'n', 'slot', 'dmg', 'kills', 'shots', 'born', 'jam']) expect(Number.isFinite(d[k]), `${k}=${d[k]}`).toBe(true);
+    }
+    expect([t.turrets[0].x, t.turrets[0].y, t.turrets[0].n]).toEqual([t.x, t.y, 1]);
+    if (o.dr[1]) expect([t.turrets[1].x, t.turrets[1].y, t.turrets[1].n, t.turrets[1].slot]).toEqual([t.x, t.y, 2, 1]);
+    // and the battle runs on
+    for (let i = 0; i < 600 && sim.state !== 'won' && sim.state !== 'lost'; i++) sim.update(1 / 60);
+    for (const d of t.turrets) expect(Number.isFinite(d.x) && Number.isFinite(d.y)).toBe(true);
+  });
 });
 
 describe('battle save and the path cap (one final tier per path, brews, tune-up links)', SLOW, () => {

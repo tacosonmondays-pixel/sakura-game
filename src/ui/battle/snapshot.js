@@ -362,11 +362,18 @@ export function restoreSim(rec, profile = null) {
     }
     const maxDr = t.stats.turret?.max ?? 0;
     const roam = t.turretSpec?.leash > 0;
-    (o.dr || []).slice(0, maxDr).forEach((d, i) => {
-      if (!Array.isArray(d)) return;
+    (o.dr || []).slice(0, maxDr).forEach((row, i) => {
+      if (!Array.isArray(row) || !Number.isInteger(row[0])) return;
+      // numbers only, like the rest of the restore: a field that is not a number takes its default
+      // (as in an older, shorter row), and a drone with no usable position starts on her
+      const d = Array.from({ length: Math.max(3, Math.min(12, row.length)) }, (_, k) => {
+        const v = row[k];
+        if (k === 1 || k === 2) return Number.isFinite(v) ? v : k === 1 ? t.x : t.y;
+        return Number.isFinite(v) ? v : undefined;
+      });
       // roaming drones keep their number, slot and counters (an old 5-field row: counters 0,
       // numbered by position); anchored drones are plain points
-      t.turrets.push(roam ? restoreDrone(t, d, i) : { uid: d[0], x: d[1], y: d[2], facing: d[3], cooldown: d[4] });
+      t.turrets.push(roam ? restoreDrone(t, d, i) : { uid: d[0], x: d[1] ?? t.x, y: d[2] ?? t.y, facing: d[3] ?? 0, cooldown: d[4] ?? 0 });
     });
     if (roam) {
       const ds = Array.isArray(o.ds) ? o.ds : [];
