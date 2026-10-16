@@ -95,7 +95,7 @@ function showJoined(u, r) {
         h('span.sst-joined-title', u.title),
         h('p', { 'data-testid': 'sst-joined-text' }, r.isNew ? `${u.name} joined the academy!`
           : r.potentialUp ? `${u.name} was already here — Potential ${r.potential} ▲ and +${r.fragments} Star Fragments.`
-            : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments.`),
+            : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments${r.tomes ? ` and ${r.tomes} Akashic Tome${r.tomes === 1 ? '' : 's'}` : ''}.`),
         // the step she just reached (the "Potential up!" card's content, inside this card)
         stepLine(u, r),
         u.quote ? h('q', u.quote) : null,

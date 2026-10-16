@@ -81,6 +81,31 @@ export function potentialLevel(unitState) {
 }
 
 /**
+ * A duplicate past P6 (she was already at MAX_POTENTIAL): Akashic Tomes besides her Star Fragments,
+ * by her rarity (Potential v3 §4.4: SR 1, SSR 5; R overflow is constant, so none). It sits next to
+ * potentialLevel so a later duplicate source (ascension's Essence) changes the duplicate payout in
+ * this one place, without touching the ladders.
+ */
+export const DUPE_PAST_MAX_TOMES = Object.freeze({ R: 0, SR: 1, SSR: 5 });
+/** The book those duplicates pay (one level above 60 each, src/systems/progression.js LEVEL_PAST_GATES). */
+export const DUPE_PAST_MAX_ITEM = 'book_legendary';
+
+/**
+ * @param {object} def UnitDef
+ * @param {number} potentialBefore her Potential before this duplicate
+ * @returns {number} Akashic Tomes this duplicate pays (0 below P6)
+ */
+export function dupePastMaxTomes(def, potentialBefore) {
+  return potentialBefore >= MAX_POTENTIAL ? DUPE_PAST_MAX_TOMES[def?.rarity] || 0 : 0;
+}
+
+/** What her duplicates pay past P6: "Star Fragments and 5 Akashic Tomes" (an R girl: "Star Fragments only"). */
+export function dupePastMaxPay(def) {
+  const t = DUPE_PAST_MAX_TOMES[def?.rarity] || 0;
+  return t ? `Star Fragments and ${t} Akashic Tome${t === 1 ? '' : 's'}` : 'Star Fragments only';
+}
+
+/**
  * Write the shadow copy of one girl's count.
  * @param {object} profile
  * @param {string} unitId
@@ -303,7 +328,8 @@ export function potentialNext(def, unitState) {
  */
 export function potentialDupesRule() {
   const f = (r) => UNIT_RARITIES[r].fragmentsOnDupe;
-  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger, and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`;
+  const t = (r) => DUPE_PAST_MAX_TOMES[r];
+  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger and raises her level cap, and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments plus Akashic Tomes for her levels above 60 (SR ×${t('SR')}, SSR ×${t('SSR')}).`;
 }
 
 /** "1 more duplicate" / "2 more duplicates". */

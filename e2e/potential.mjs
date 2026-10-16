@@ -243,7 +243,7 @@ try {
     check(unowned.on === 0 && unowned.footer === 'Recruit her to start at P1.' && !unowned.pill, `${tag} Raika (not owned): the section previews her steps, all locked`);
     await go(page, '#/student/kaede?tab=info&focus=potential', '[data-testid="potential-section"]');
     const kae = await page.evaluate(() => ({ footer: document.querySelector('[data-testid="potential-footer"]')?.textContent, on: document.querySelectorAll('.pot-node.on').length, steps: document.querySelectorAll('.pot-step.on').length, next: document.querySelectorAll('[data-testid="potential-next"]').length }));
-    check(kae.on === 6 && kae.steps === 5 && kae.next === 0 && /^Potential maxed — duplicates now give Star Fragments only \(\+40 each\)/.test(kae.footer), `${tag} Kaede (P6): six nodes and five steps on, no NEXT, "${kae.footer}"`);
+    check(kae.on === 6 && kae.steps === 5 && kae.next === 0 && /^Potential maxed — duplicates now give Star Fragments \(\+40 each\) and 5 Akashic Tomes/.test(kae.footer), `${tag} Kaede (P6): six nodes and five steps on, no NEXT, "${kae.footer}"`);
     check(await noSideScroll(page), `${tag} Kaede's page: no sideways scroll`);
     await shot(page, `student-kaede-p6-${tag}`);
 

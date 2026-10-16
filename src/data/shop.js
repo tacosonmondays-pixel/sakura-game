@@ -12,7 +12,7 @@ export const SHOP_TABS = [
   { id: 'gems', name: 'Gem Shop', currency: 'gems', desc: 'Premium bundles that save time. Weekly stock.' },
   { id: 'recruit', name: 'Recruit Exchange', currency: 'recruitPoints', desc: 'Every recruit earns 1 point. 200 points spark any SSR of your choice.' },
   { id: 'boss', name: 'Boss Exchange', currency: 'token_boss', desc: 'Assault Tokens from minibosses and Total Assault buy crowns and dice.' },
-  { id: 'bounty', name: 'Bounty Exchange', currency: 'token_bounty', desc: 'Bounty Tokens buy gear boxes and reroll dice.' },
+  { id: 'bounty', name: 'Bounty Exchange', currency: 'token_bounty', desc: 'Bounty Tokens buy gear boxes, books and reroll dice.' },
 ];
 
 const FAMILIES = Object.keys(MATERIAL_FAMILIES);
@@ -59,6 +59,8 @@ export const SHOP_OFFERS = [
   o('bty_gearbox_legendary', 'bounty', 'gearbox_legendary', 1, 200, 1, 'weekly'),
   o('bty_lock', 'bounty', 'lock_pin', 1, 20, 3, 'weekly'),
   o('bty_book_sr', 'bounty', 'book_superRare', 1, 10, 5, 'weekly'),
+  // an Akashic Tome is one level above 60 (Potential v3 §4.4)
+  o('bty_book_tome', 'bounty', 'book_legendary', 1, 40, 2, 'weekly'),
 ];
 
 /** offerId -> offer (with `currency` filled from its tab). */

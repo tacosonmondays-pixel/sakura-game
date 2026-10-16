@@ -4,7 +4,8 @@
 //      (applyBattleResult: medal, first-clear gems, unlocks, drops, missions), saved at once;
 //   2. the run, when it ends (defeat, Finish, or quitting after the goal): the co-op freeplay
 //      payout — 40 coins × freeplay waves × the tier's rewardMul, a freeplay cache every 25 freeplay
-//      waves (no gear, crowns or tokens), ≤ 10 Assault Tokens for boss-rank kills, the one-time
+//      waves (no gear, crowns or tokens; its Akashic Tome shares co-op's 2-a-week cap), ≤ 10
+//      Assault Tokens for boss-rank kills, the one-time
 //      milestones — plus the solo best wave per stage and tier (`progress.stages[id].freeplayBest`)
 //      and only the kills / sightings made since the bank.
 // Coins per freeplay wave are capped at the stage's own normal coins per wave (its drop table's
@@ -76,8 +77,8 @@ export function applySoloClear(profile, result, rng, opts = {}) {
  * Enemies first killed here are added to the bestiary as discovered, like a solo win would.
  * @returns {object} applyCoopFreeplayEnd's shape with `coop: false`
  */
-export function applySoloFreeplayEnd(profile, result, rng, { banked = null } = {}) {
-  const out = applyCoopFreeplayEnd(profile, result, rng, { banked, bestKey: 'freeplayBest', waveCoins: soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay) });
+export function applySoloFreeplayEnd(profile, result, rng, { banked = null, now = new Date() } = {}) {
+  const out = applyCoopFreeplayEnd(profile, result, rng, { banked, bestKey: 'freeplayBest', waveCoins: soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay), now });
   if (out.freeplay) out.freeplay.waveCoins = soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay);
   out.coop = false;
   const kills = killsSince(result?.kills, banked);

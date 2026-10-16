@@ -47,25 +47,26 @@ describe('potentialLevel', () => {
 describe('grantUnit counts duplicates', () => {
   it('new girl: dupes 0, P1, shadow written', () => {
     const p = createProfile();
-    expect(grantUnit(p, 'kaede', 5000)).toEqual({ isNew: true, fragments: 0, potential: 1, potentialUp: false });
+    expect(grantUnit(p, 'kaede', 5000)).toEqual({ isNew: true, fragments: 0, tomes: 0, potential: 1, potentialUp: false });
     expect(p.units.kaede.dupes).toBe(0);
     expect(p.missions.counters['pot:kaede']).toBe(0);
     expect(p.missions.counters[SHADOW_AT]).toBe(5000);
   });
 
-  it('dupes 1…5 → P2…P6 with the same fragments as before; 6+ → fragments only, dupes keeps counting', () => {
+  it('dupes 1…5 → P2…P6 with the same fragments as before; 6+ → fragments plus Akashic Tomes, dupes keeps counting', () => {
     const p = createProfile();
     grantUnit(p, 'kaede');
     for (let n = 1; n <= 5; n++) {
       const r = grantUnit(p, 'kaede', 1000 + n);
-      expect(r).toEqual({ isNew: false, fragments: 40, potential: n + 1, potentialUp: true });
+      expect(r).toEqual({ isNew: false, fragments: 40, tomes: 0, potential: n + 1, potentialUp: true });
       expect(p.units.kaede.dupes).toBe(n);
       expect(p.missions.counters['pot:kaede']).toBe(n);
       expect(p.missions.counters[SHADOW_AT]).toBe(1000 + n);
     }
-    expect(grantUnit(p, 'kaede')).toEqual({ isNew: false, fragments: 40, potential: 6, potentialUp: false });
+    expect(grantUnit(p, 'kaede')).toEqual({ isNew: false, fragments: 40, tomes: 5, potential: 6, potentialUp: false });
     expect(p.units.kaede.dupes).toBe(6);
     expect(p.items.star_fragment).toBe(40 * 6);
+    expect(p.items.book_legendary).toBe(5);
   });
 
   it('fragments per rarity are unchanged (R 2, SR 10, SSR 40)', () => {

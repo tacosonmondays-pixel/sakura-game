@@ -10,9 +10,11 @@ import './styles/potential.css';
 import { h } from './dom.js';
 import {
   MAX_POTENTIAL, potentialLevel, potentialView, dupesToMax, potentialNext, potentialPillTitle, moreDupes, potentialStepInfo,
+  DUPE_PAST_MAX_TOMES, dupePastMaxPay,
 } from '../systems/potential.js';
 import { potentialLevelCap } from '../systems/progression.js';
 import { UNIT_RARITIES } from '../data/types.js';
+import { UNIT_MAP } from '../data/units.js';
 import { portraitHTML } from '../art/portraits.js';
 
 /** Potential of a girl in a profile (unowned → 0). */
@@ -81,7 +83,11 @@ export function potentialSection(def, unitState) {
   const sig = nodes[MAX_POTENTIAL - 1];
   let footer;
   if (!owned) footer = 'Recruit her to start at P1.';
-  else if (p >= MAX_POTENTIAL) footer = `Potential maxed — duplicates now give Star Fragments only (+${frag} each). Duplicates so far: ${dupes}.`;
+  else if (p >= MAX_POTENTIAL) {
+    const tomes = DUPE_PAST_MAX_TOMES[def.rarity] || 0;
+    const pay = tomes ? `Star Fragments (+${frag} each) and ${tomes} Akashic Tome${tomes === 1 ? '' : 's'}` : `Star Fragments only (+${frag} each)`;
+    footer = `Potential maxed — duplicates now give ${pay}. Duplicates so far: ${dupes}.`;
+  }
   else footer = `Duplicates so far: ${dupes} · Next: ${stepPhrase(next)} with ${moreDupes(next.dupes)}`;
   const firstKit = nodes.find((n) => n.kit)?.step ?? 3;
   const track = h('ol.pot-track', nodes.map((n) => h(`li.pot-node${n.active ? '.on' : ''}${n.next ? '.next' : ''}${n.kit ? '.kit' : ''}${n.step === MAX_POTENTIAL ? '.sig' : ''}`,
@@ -106,7 +112,7 @@ export function potentialSection(def, unitState) {
   return h('section.mb-card.pot-section', { 'data-testid': 'potential-section', id: 'potential' },
     h('h3.mb-card-title', owned ? `Potential · P${p} / ${MAX_POTENTIAL}` : 'Potential'),
     h('p.pot-rule', 'Each duplicate recruit raises her Potential by 1 and still gives Star Fragments.'),
-    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone. At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`),
+    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone, and every step raises her level cap. At P${MAX_POTENTIAL}, duplicates give ${dupePastMaxPay(def)}.`),
     track,
     steps,
     h('p.pot-footer.muted', { 'data-testid': 'potential-footer' }, footer),
@@ -117,7 +123,7 @@ export function potentialSection(def, unitState) {
 export function revealTag(r) {
   if (!r || r.isNew || !(r.potential >= 1)) return null;
   if (r.potentialUp) return h(`span.ma-gc-pot${r.potential >= MAX_POTENTIAL ? '.p6' : ''}`, { title: `Potential ${r.potential} of ${MAX_POTENTIAL}` }, `P${r.potential} ▲`);
-  if (r.potential >= MAX_POTENTIAL) return h('span.ma-gc-pot.max', { title: `Potential maxed: Star Fragments only` }, 'MAX');
+  if (r.potential >= MAX_POTENTIAL) return h('span.ma-gc-pot.max', { title: `Potential maxed: ${dupePastMaxPay(UNIT_MAP[r.unitId])}` }, 'MAX');
   return null;
 }
 

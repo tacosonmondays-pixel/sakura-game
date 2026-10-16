@@ -795,7 +795,8 @@ const BOUNTY_DEFS = [
       ? [D(book('common'), 1, 3, 5), D(book('rare'), 0.6, 1, 2), D(book('superRare'), 0.15, 1, 1, 'hard'), D('token_bounty', 1, 1, 2)]
       : t === 2
         ? [D(book('rare'), 1, 2, 4), D(book('superRare'), 0.4, 1, 1), D(book('mythic'), 0.08, 1, 1, 'hard'), D('token_bounty', 1, 2, 3)]
-        : [D(book('superRare'), 1, 1, 3), D(book('mythic'), 0.3, 1, 1), D(book('legendary'), 0.05, 1, 1, 'nightmare'), D('token_bounty', 1, 3, 4)]),
+        // Akashic Tome 20 % on Nightmare (was 5 %): the levels above 60 cost one each (Potential v3 §4.4)
+        : [D(book('superRare'), 1, 1, 3), D(book('mythic'), 0.3, 1, 1), D(book('legendary'), 0.2, 1, 1, 'nightmare'), D('token_bounty', 1, 3, 4)]),
   },
   {
     id: 'res-coins', name: 'Market Canal', mapId: 'arena_market', scenery: { props: ['stalls', 'boats', 'coinChests', 'lanterns'] },

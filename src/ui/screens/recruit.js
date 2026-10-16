@@ -19,7 +19,7 @@ import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
-import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule } from '../../systems/potential.js';
+import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule, DUPE_PAST_MAX_TOMES } from '../../systems/potential.js';
 import { revealTag, revealRibbon, showPotentialUp } from '../potential.js';
 
 const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
@@ -72,7 +72,7 @@ export function render(root) {
       title: 'Spark — pick any SSR',
       wide: true,
       body: h('div',
-        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`),
+        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments (at P${MAX_POTENTIAL}: ${DUPE_PAST_MAX_TOMES.SSR} Akashic Tomes as well).`),
         h('div.ma-spark-points', svgEl(currencyIcon('recruitPoints'), 'ma-inline-icon'), h('b', formatNumber(profile.gacha?.recruitPoints || 0)), ` / ${GACHA.sparkCost} points`),
         grid),
       actions: [{ label: 'Close', kind: 'ghost' }],
@@ -82,7 +82,7 @@ export function render(root) {
       const owned = !!profile.units[id];
       const p = owned ? potentialLevel(profile.units[id]) : 0;
       // (an owned girl below P6: what her next duplicate unlocks)
-      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments` : `Owned · P${p} → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
+      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments + Tomes` : `Owned · P${p} → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
       grid.appendChild(h('div.ma-spark-cell',
         card(id, { variant: 'tall', owned: true }),
         h('div.ma-spark-meta', h('b', u.name), h('span.muted', { 'data-testid': `spark-meta-${id}` }, meta)),
@@ -99,7 +99,7 @@ export function render(root) {
             }
             store.commit('spark');
             m.close();
-            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, fragments: r.fragments, potential: r.potential, potentialUp: r.potentialUp }], {
+            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, fragments: r.fragments, tomes: r.tomes, potential: r.potential, potentialUp: r.potentialUp }], {
               skipIntro: true,
               onClose: () => { overlay = null; draw(); },
             });
@@ -372,6 +372,8 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     const newCount = results.filter((r) => r.isNew).length;
     cue('gacha.results', { best, newCount }); // [audio]
     const frags = results.reduce((a, r) => a + (r.fragments || 0), 0);
+    // duplicates past P6 also pay Akashic Tomes (SR 1, SSR 5)
+    const tomes = results.reduce((a, r) => a + (r.tomes || 0), 0);
     const ups = results.filter((r) => r.potentialUp).length;
     const rises = potentialRises(results);
     // "Potential up!" cards (one per girl who reached a kit step): after the reveal plays out, not
@@ -387,6 +389,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
           : h('span.ma-sum-pot', { 'data-testid': 'reveal-sum-pot' }, h('span.pot-up', '▲'), ` ${ups} Potential`, tricks)) : null,
         // on phones the words go (icon + number stay) so the line fits on one row at 844×390
         frags ? h('span.ma-sum-frag', svgEl(itemIcon('star_fragment'), 'ma-pay-icon'), `+${frags}`, h('span.pot-hide-phone', ' Star Fragments')) : null,
+        tomes ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-tomes' }, svgEl(itemIcon('book_legendary'), 'ma-pay-icon'), `+${tomes}`, h('span.pot-hide-phone', ` Akashic Tome${tomes === 1 ? '' : 's'}`)) : null,
         h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
       ),
       h('div.ma-gacha-actions',
