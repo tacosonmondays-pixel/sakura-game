@@ -160,11 +160,12 @@ export function recruitSlot({ clan, role }) {
  * The recruiting card inside a chat line (kind 'recruit' with a valid clan card), or null (then the
  * line shows its text, like an older game does).
  * @param {{ kind: string, meta: object }} m
+ * @param {{ mine?: boolean }} [o] my own post: View clan only
  */
-export function recruitCard(m) {
+export function recruitCard(m, { mine = false } = {}) {
   if (m?.kind !== 'recruit' || !validMessageMeta('recruit', m.meta)) return null;
   const c = m.meta;
-  const join = c.mode === 'open'
+  const join = mine ? null : c.mode === 'open'
     ? button('Join', { kind: 'yellow', small: true, testid: 'recruit-join', disabled: c.members >= c.max, onClick: () => act(() => getBackend().joinClan(c.clan), `Welcome to ${c.name}!`, true) })
     : c.mode === 'request'
       ? button('Ask to join', { kind: 'primary', small: true, testid: 'recruit-request', disabled: c.members >= c.max, onClick: () => act(() => getBackend().requestJoin(c.clan), 'Request sent — an officer will answer soon.') })

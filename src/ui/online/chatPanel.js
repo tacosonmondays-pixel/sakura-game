@@ -65,7 +65,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     const mine = backend && m.userId === backend.uid;
     const invite = m.kind === 'invite' && m.meta?.room;
     // [clan invites] a clan's daily recruiting post: its card (else its text, like an older game shows it)
-    const recruit = recruitCard(m);
+    const recruit = recruitCard(m, { mine });
     const name = h('b.ol-msg-name', m.name || 'Sensei');
     return h(
       `div.ol-msg${mine ? '.ol-msg-mine' : ''}`,
