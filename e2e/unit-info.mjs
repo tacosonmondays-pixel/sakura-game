@@ -227,29 +227,59 @@ async function runViewport(vp) {
       check(/Lv\.\s*60/.test(await page.innerText('[data-testid="unit-sheet"] .us-head')), 'sheet header: her level (Lv.60)');
       check(await page.evaluate(() => !!document.querySelector('[data-testid="unit-sheet"] .us-head .ur-badge') && !!document.querySelector('[data-testid="unit-sheet"] .us-art.is-ur .ur-ring')), 'sheet: Hikari at ★5 shows as UR (rainbow badge and frame)');
       await shot('sheet-hikari-info');
+      // a hero has no upgrade paths since the hero rework: her Upgrades tab is her 25-level battle track
       await page.click('[data-testid="unit-sheet-tab-upgrades"]');
-      await page.waitForSelector('[data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
-      const cells = await page.evaluate(() => [...document.querySelectorAll('[data-testid="unit-sheet"] [data-testid^="ut-cell-"]')].map((c) => c.querySelectorAll('.tag-chip').length));
-      check(cells.length === 15 && cells.every((n) => n >= 1), `sheet Upgrades: 15 tier cells, each with a Self/Allies/Enemies/Coins chip (${cells.join(',')})`);
+      await page.waitForSelector('[data-testid="unit-sheet"] .us-levels li', { timeout: 5000 }).catch(() => null);
+      const track = await page.evaluate(() => {
+        const s = document.querySelector('[data-testid="unit-sheet"]');
+        return {
+          rule: s.querySelector('.us-rule')?.textContent || '',
+          levels: s.querySelectorAll('.us-levels li').length,
+          chipped: [...s.querySelectorAll('.us-levels li')].filter((li) => li.querySelector('.tag-chip')).length,
+          ult: !!s.querySelector('.us-ult'),
+          cells: s.querySelectorAll('[data-testid^="ut-cell-"]').length,
+        };
+      });
+      check(/One track, 25 levels/.test(track.rule) && track.levels === 25 && track.ult && track.cells === 0, `sheet Upgrades (hero): her 25-level track and ult, no tier grid (${JSON.stringify(track)})`);
+      check(track.chipped >= 5, `sheet Upgrades (hero): track levels carry Self/Allies/Enemies chips (${track.chipped} of 25)`);
       check(await page.locator('[data-testid="unit-sheet"] [data-testid="tag-legend"] .tag-chip').count() >= 4, 'sheet Upgrades: the tag legend is shown');
-      await page.click('[data-testid="unit-sheet"] [data-testid="ut-cell-1-1"]');
-      const detail = await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-detail"]', { timeout: 4000 }).then((e) => e.innerText()).catch(() => '');
-      check(/Allies/.test(detail) && /tiles/.test(detail), `sheet Upgrades: tapping Sanctuary T1 shows "Allies · … tiles" in the detail`);
-      await page.waitForTimeout(500);
       await shot('sheet-hikari-upgrades');
       await page.click('[data-testid="unit-sheet-open-page"]');
       await page.waitForTimeout(1200);
       check(await page.evaluate(() => location.hash) === '#/student/hikari?tab=tree', `sheet: "Open full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
       check(await sheetGone(), 'sheet: closes when the full page opens');
-      // student page Tree tab carries the chips too
-      await page.waitForSelector('.mb-tier .tag-chip', { timeout: 6000 }).catch(() => null);
-      const tierChips = await page.evaluate(() => [...document.querySelectorAll('.mb-tier')].filter((t) => t.querySelector('.tag-chip')).length);
-      check(tierChips === 15, `student Tree tab: all 15 tiers carry chips (${tierChips})`);
-      check(await page.locator('.mb-path-head .tag-summary .tag-chip').count() >= 3, 'student Tree tab: path summaries ("Allies ×5 · 4 tiles")');
-      await shot('student-tree-chips');
+      await page.waitForSelector('[data-testid="hero-track-list"] li', { timeout: 6000 }).catch(() => null);
+      const heroLevels = await page.locator('[data-testid="hero-track-list"] li').count();
+      check(heroLevels === 25, `student Tree tab (hero): her battle levels 1–25 (${heroLevels})`);
+      await shot('student-tree-hero');
     }
   }
   noErrors('sheet');
+
+  // ---- 3b. a girl with paths (Miko): Upgrades grid with chips, an aura tier's detail, full page --
+  await page.evaluate(async () => (await import('/src/ui/unitSheet.js')).openUnitSheet('miko'));
+  if (check(await sheetOpen(), 'sheet: Miko\'s sheet opens')) {
+    await page.click('[data-testid="unit-sheet-tab-upgrades"]');
+    await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
+    const cells = await page.evaluate(() => [...document.querySelectorAll('[data-testid="unit-sheet"] [data-testid^="ut-cell-"]')].map((c) => c.querySelectorAll('.tag-chip').length));
+    check(cells.length === 15 && cells.every((n) => n >= 1), `sheet Upgrades: 15 tier cells, each with a Self/Allies/Enemies/Coins chip (${cells.join(',')})`);
+    await page.click('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]');
+    const detail = await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-detail"]', { timeout: 4000 }).then((e) => e.innerText()).catch(() => '');
+    check(/Allies/.test(detail) && /tiles/.test(detail), `sheet Upgrades: tapping Blessing T1 shows "Allies · … tiles" in the detail`);
+    await page.waitForTimeout(500);
+    await shot('sheet-miko-upgrades');
+    await page.click('[data-testid="unit-sheet-open-page"]');
+    await page.waitForTimeout(1200);
+    check(await page.evaluate(() => location.hash) === '#/student/miko?tab=tree', `sheet: "Open full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
+    check(await sheetGone(), 'sheet: closes when the full page opens (Miko)');
+    // student page Tree tab carries the chips too
+    await page.waitForSelector('.mb-tier .tag-chip', { timeout: 6000 }).catch(() => null);
+    const tierChips = await page.evaluate(() => [...document.querySelectorAll('.mb-tier')].filter((t) => t.querySelector('.tag-chip')).length);
+    check(tierChips === 15, `student Tree tab: all 15 tiers carry chips (${tierChips})`);
+    check(await page.locator('.mb-path-head .tag-summary .tag-chip').count() >= 3, 'student Tree tab: path summaries ("Allies ×5 · 4.2 tiles")');
+    await shot('student-tree-chips');
+  }
+  noErrors('sheet (Miko)');
 
   // ---- 4. students list: scroll ≠ hold; hold → sheet; tap → student page ---------------------
   await go('#/students', 1200);
@@ -410,6 +440,10 @@ async function runViewport(vp) {
     return true;
   }, null, { timeout: 15000 }).catch(() => null);
   await page.waitForTimeout(600);
+  // the free hero card arms itself at wave 0 (hero rework, ~0.7 s in): let it arm, then put it back,
+  // so the hold checks below start with nothing in hand (as e2e/stat-display does)
+  await page.waitForFunction(() => window.__battle.ui.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
+  await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
   const firstId = await page.evaluate(() => [...window.__battle.sim.loadout.keys()].find((id) => window.__battle.sim.data.unit(id)?.placement === 'land'));
   const cardSelB = `[data-testid="card-${firstId}"]`;
 
