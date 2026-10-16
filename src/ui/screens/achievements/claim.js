@@ -12,7 +12,7 @@ import { createRng } from '../../../core/rng.js';
 import { ACHIEVEMENT_MAP } from '../../../data/achievements.js';
 import { HONOR_MAP, TITLE_MAP, HONOR_CLASSES, HONOR_EFFECTS, EFFECT_LINES } from '../../../data/honors.js';
 import { claimAchievement, claimAllAchievements, achievementList } from '../../../systems/missions.js';
-import { ownedRibbons, ownedTitles, titleGroups, markTitlesSeen } from '../../../systems/honors.js';
+import { ownedRibbons, ownedTitles, titleGroups, markTitlesSeen, titlesFromText } from '../../../systems/honors.js';
 import { openGearBox } from '../../../systems/gear.js';
 import { itemCount } from '../../../systems/inventory.js';
 import { featureStage } from '../../../systems/story.js';
@@ -211,7 +211,7 @@ export function titleInfo(id) {
     title: 'Title',
     cls: 'ach-modal',
     body: h('div.ach-titleinfo', titlePlate(id, { live: true }), h('p.muted', plateName), h('p', a ? [h('b', a.name), ` · ${a.desc}`] : t.source),
-      h('p.ach-titleinfo-note', owned ? '✓ You have this title. It shows under your name on your Sensei Profile.' : 'Titles come from achievements. Nothing you buy gives a title.')),
+      h('p.ach-titleinfo-note', owned ? '✓ You have this title. It shows under your name on your Sensei Profile.' : titlesFromText([id]))),
     actions: [{ label: 'OK', kind: 'yellow' }],
   });
 }
@@ -223,7 +223,7 @@ export function titlesSheet({ onClose = null } = {}) {
   const total = groups.reduce((n, g) => n + g.total, 0);
   const owned = groups.reduce((n, g) => n + g.owned, 0);
   const body = h('div.ach-titles', { 'data-testid': 'ach-titles-sheet' },
-    h('p.ach-titles-sub', `${owned} / ${total} earned · Titles come from achievements. Nothing you buy gives a title.`),
+    h('p.ach-titles-sub', `${owned} / ${total} earned · ${titlesFromText(groups.flatMap((g) => g.titles.map((t) => t.id)))}`),
     groups.map((g) => h('section.ach-titles-group',
       h(`div.ach-titles-k.${g.plate}`, g.label, h('b', `${g.owned} / ${g.total}`)),
       h('div.ach-titles-row', g.titles.map((t) => h(`div.ach-titles-item${t.owned ? '' : '.locked'}`, { title: t.how },

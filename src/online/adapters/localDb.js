@@ -6,6 +6,8 @@
 import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import { createLocalSocial } from './localSocial.js';
+import { createLocalProfile } from './localProfile.js';
+import { createLocalClanInvites } from './localClanInvites.js';
 import {
   CLAN_MAX_MEMBERS, LOCAL_DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
@@ -48,18 +50,23 @@ function freshState(devCode = null) {
     transfers: {},
     rooms: {},
     rate: {},
+    tags: {},
   };
 }
 
 /**
  * @param {{ read: () => object|null, write: (state: object) => void, now?: () => number,
- *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean } }} io
+ *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean, profile?: boolean } }} io
  *   features.social = false: the "server" has no social functions yet (like the live project
  *   before the owner runs the social migration): every social call throws needs_update
  * @param {string|null} [io.devCode] the developer clan's join code here (tests only; defaults to
  *   LOCAL_DEV_CODE in dev builds and to none in production builds)
+ * @param {'alpha'|'beta'|'none'} [io.testerPhase] [tags] what a new profile gets (SQL:
+ *   server_settings.tester_phase); features.tags = false: no player_tags table (needs_update)
  */
-export function createLocalDb({ read, write, now = () => Date.now(), rand = Math.random, emit = () => {}, features = {}, devCode = DEFAULT_DEV_CODE }) {
+export function createLocalDb({
+  read, write, now = () => Date.now(), rand = Math.random, emit = () => {}, features = {}, devCode = DEFAULT_DEV_CODE, testerPhase = 'alpha',
+}) {
   /** Runs `fn(state)` on a fresh copy of the stored state and saves it when `save`. */
   function tx(fn, { save = true } = {}) {
     let state = read();
@@ -69,6 +76,11 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
     state.clans[DEV_CLAN_ID].joinCode = devCode || null;
     state.attempts ||= {};
     state.rooms ||= {};
+    // [tags] a browser from before the tags (SQL: the backfill): every player so far played during the alpha
+    if (!state.tags) {
+      state.tags = {};
+      if (testerPhase === 'alpha') for (const uid of Object.keys(state.users || {})) state.tags[uid] = { staff: null, tester: 'alpha' };
+    }
     const topics = new Set();
     const out = fn(state, topics);
     if (save) write(state);
@@ -222,18 +234,35 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
   }
 
   // [social] DMs, friends, blocks, reports, co-op invites by DM, clan material requests
+  let profile = null;
   const social = createLocalSocial({
     tx, rate, retry, now, rand, code, systemMessage, devClanId: DEV_CLAN_ID, enabled: () => features.social !== false,
+    afterReport: (s, report, oldEvidence) => profile?.afterReport(s, report, oldEvidence),
   });
-  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, ...socialApi } = social;
+  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, relations, ...socialApi } = social;
+  // [profile] profile cards, bios, "Who can see my profile" (needs the social "server" too)
+  profile = createLocalProfile({ tx, rate, now, enabled: () => features.social !== false && features.profile !== false, social: { ...social } });
+  const { afterReport, ...profileApi } = profile;
+  // clan invites + the daily recruiting post (20261018000000_clan_invites.sql)
+  const invitesApi = createLocalClanInvites({
+    tx, rate, now, enabled: () => features.social !== false && features.invites !== false, relations,
+    addMember: (...a) => addMember(...a), clanOut: (...a) => clanOut(...a), liftClanBan, guardChat,
+  });
 
   return {
     ...socialApi,
+    ...profileApi,
+    ...invitesApi,
     // ---- account --------------------------------------------------------------------------
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {
       return tx((s) => {
-        const u = (s.users[uid] ||= { id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar, clanId: null, lastActive: now(), createdAt: now() });
+        if (!s.users[uid]) {
+          s.users[uid] = { id: uid, name: name && !validateName(name) ? String(name).trim() : autoName(uid), level, avatar, clanId: null, lastActive: now(), createdAt: now() };
+          // [tags] SQL: the profiles_player_tags trigger stamps the phase's tester tag on a new profile
+          if (testerPhase === 'alpha' || testerPhase === 'beta') s.tags[uid] ||= { staff: null, tester: testerPhase };
+        }
+        const u = s.users[uid];
         u.lastActive = now();
         u.createdAt ||= now(); // accounts from before the social update
         return { ...u };
@@ -266,6 +295,32 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
       });
     },
 
+    // ---- [tags] public player tags (SQL: player_tags, readable by every signed-in player) -----
+    /** [{ userId, staff, tester }] for up to 100 ids; untagged players are left out. */
+    getTags(uid, ids) {
+      // ?tags=0: the live server before the owner runs the tags SQL (no table)
+      if (features.tags === false) fail('needs_update', 'Needs the latest server update.');
+      return tx((s) => {
+        user(s, uid);
+        const list = [...new Set((Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && id))].slice(0, 100);
+        return list.filter((id) => s.tags[id]?.staff || s.tags[id]?.tester)
+          .map((id) => ({ userId: id, staff: s.tags[id].staff || null, tester: s.tags[id].tester || null }));
+      }, { save: false });
+    },
+    /**
+     * Tests / e2e only, never called by the game: the owner's SQL editor (docs/ONLINE.md, "Player
+     * tags"). patch: { staff: 'dev'|null, tester: 'alpha'|'beta'|null } (a missing key is kept).
+     */
+    _setTags(userId, patch = {}) {
+      return tx((s) => {
+        if (!s.users[userId]) fail('not_found', 'No such player.');
+        const t = (s.tags[userId] ||= { staff: null, tester: null });
+        if ('staff' in patch) t.staff = patch.staff === 'dev' ? 'dev' : null;
+        if ('tester' in patch) t.tester = patch.tester === 'alpha' || patch.tester === 'beta' ? patch.tester : null;
+        return { ...t };
+      });
+    },
+
     // ---- chat -----------------------------------------------------------------------------
     history(uid, channel, limit = 50) {
       return tx((s) => {
@@ -278,6 +333,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const u = user(s, uid);
         const text = String(body ?? '').trim();
         if (!text || text.length > MESSAGE_MAX) fail('invalid', `Messages are 1–${MESSAGE_MAX} characters.`);
+        // ('recruit' lines come only from postRecruit: the server writes their clan card)
         if (!['text', 'invite'].includes(kind)) fail('invalid');
         // SQL: valid_message_meta() — nothing on text, a tiny { room, stage } on invites
         if (!validMessageMeta(kind, meta ?? null)) fail('invalid', 'That message carries data it may not.');

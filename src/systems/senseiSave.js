@@ -10,6 +10,7 @@ import { BANNERS, BANNER_MAP, DEFAULT_BANNER, FRAMES, TITLES } from '../data/pro
 import { hashString } from '../core/rng.js';
 import { BIO_MAX, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { bannerUnlocked, earnedFrames, titleKeepable, pinEarned, pinOptions } from './profileTrophies.js';
+import { TAG_KINDS, TAG_INFO, TAG_OF_TITLE } from '../data/playerTags.js';
 
 export function newSensei() {
   return {
@@ -78,12 +79,30 @@ const ONE = ['avatar', 'favorite', 'banner', 'frame', 'title'];
 const LISTS = { showcase: ['s', SHOWCASE_MAX], pins: ['p', PINS_MAX] };
 const idHash = (id) => hashString(String(id)) || 1;
 
+/**
+ * missions.counters 'tagt:<kind>' = 1 while the equipped title is that tag title (Developer, Alpha /
+ * Beta Tester). An older build (v0.1.32 and before) doesn't know those titles: its clean-up sets the
+ * block's title to none and its own shadow writer drops the 'pfs:title' shadow, but it keeps every
+ * counter and never touches this prefix, so restoreSensei puts the title back on.
+ */
+export const TAG_TITLE_MARK = 'tagt:';
+
+/** The tag title the 'tagt:' shadow says was equipped, or null. */
+export function shadowedTagTitle(p) {
+  const c = p?.missions?.counters;
+  if (!isObj(c)) return null;
+  const kind = TAG_KINDS.find((k) => Number(c[TAG_TITLE_MARK + k]) > 0);
+  return kind ? TAG_INFO[kind].title : null;
+}
+
 /** Writes the 'pfs:' shadows of `p.sensei` (stale ones removed). Call before every commit of a pick. */
 export function markSensei(p) {
   if (!isObj(p?.sensei)) return;
   const c = ((p.missions ||= {}).counters ||= {});
-  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK)) delete c[k];
+  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK) || k.startsWith(TAG_TITLE_MARK)) delete c[k];
   c[`${SENSEI_MARK}v`] = 1;
+  const tagKind = TAG_OF_TITLE[p.sensei.title];
+  if (tagKind) c[TAG_TITLE_MARK + tagKind] = 1;
   for (const k of ONE) if (typeof p.sensei[k] === 'string') c[SENSEI_MARK + k] = idHash(p.sensei[k]);
   for (const [k, [pre]] of Object.entries(LISTS)) {
     (Array.isArray(p.sensei[k]) ? p.sensei[k] : []).forEach((id, i) => { c[`${SENSEI_MARK}${pre}${i}`] = idHash(id); });
@@ -119,12 +138,16 @@ export function senseiFromMarks(p) {
 
 /**
  * The save's block on load (migrateProfile): the stored block cleaned, else the shadows, else an
- * empty block marked `lost` (M2 restores it from the server card). Writes the shadows again.
+ * empty block marked `lost` (M2 restores it from the server card). Writes the shadows again. A tag
+ * title an older build took off (no title now, the 'tagt:' shadow still set, the title still owned)
+ * is put back on. (Taking it off on purpose in an older build looks the same, and comes back too.)
  */
 export function restoreSensei(raw, p) {
+  const wornTag = shadowedTagTitle(p);
   let s;
   if (isObj(raw)) s = cleanSensei(raw, p);
   else s = senseiFromMarks(p) || { ...newSensei(), lost: true };
+  if (s.title == null && wornTag && titleKeepable(p, wornTag)) s.title = wornTag;
   p.sensei = s;
   if (!s.lost || isObj(raw)) markSensei(p);
   return s;

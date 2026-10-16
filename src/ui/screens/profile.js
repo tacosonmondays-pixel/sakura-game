@@ -1,13 +1,15 @@
-// Sensei Profile (docs/specs/PROFILE.md §1). Route: #/profile (yours). M1 is offline-capable: every
-// part of your own profile comes from the save. Seeing someone else's profile (#/profile/<id>) needs
-// the profile server update (M2); until then that route says so.
+// Sensei Profile (docs/specs/PROFILE.md §1). Routes: #/profile (yours) and #/profile/<userId> (someone else's).
+// Your own profile works offline: every part of it comes from the save; online it adds your clan chip, "Sensei
+// since" and the server's word on your bio, and publishes your card (src/online/profileSync.js). Someone else's
+// profile comes from the server (profile_view) and shows every state of §1.11: shown, private (their setting or
+// a block: the same answer), blocked by me, no profile yet, needs the server update, offline, gone, too many.
 //
 // Left: the favorite girl's stand. Right (scrolls): banner, picture + frame, name, level, title, bio,
 // stats; the 8-girl showcase (tap = Edit Showcase, hold = her build); Medals & Ribbons with 4 pins;
 // Freeplay Records. Preview renders the visitor layout from the card this save would publish.
 // The root carries data-hold-info="off": each card wires its own hold (PROFILE.md R17).
 import '../styles/profile.css';
-import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference } from '../components.js';
+import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, modal, button } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate, back } from '../router.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -17,16 +19,21 @@ import { MAX_AWAKEN } from '../../systems/progression.js';
 import { SHOWCASE_MAX } from '../../online/profileRules.js';
 import { buildCard, cleanViewedCard, snapshotToMiniProfile } from '../../online/profileCard.js';
 import {
-  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, STAGE_COUNT,
+  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, titleChoices, STAGE_COUNT,
   RIBBONS_PER_STAGE,
 } from '../../systems/profileTrophies.js';
 import { CAMPAIGN_IDS } from '../../data/stages.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
-import { TITLES } from '../../data/profileArt.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
-import { storedName, askName } from '../online/common.js';
+import { storedName, askName, ensureOnline } from '../online/common.js';
+import { getBackend } from '../../online/backend.js';
+import { errorText, toOnlineError } from '../../online/errors.js';
+import { ownOnline, onOwnOnline, refreshOwnOnline, sinceText } from '../profile/online.js';
+import { playerActions } from '../online/playerActions.js';
+import { tagChips } from '../online/tagChip.js';
+import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, ribbonTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -62,8 +69,14 @@ export function ownModel(p) {
     fp: freeplayByTier(p),
     st,
     earnedTitles: earnedTitles(p),
+    // "All titles n / N": the tag titles count only for a player who owns them (titleChoices)
+    titleTotal: titleChoices(p).length,
     earnedFrames: earnedFrames(p),
     honors: { count: st.h, total: HONOR_TOTAL, latest: earnedHonors(p).slice(-7).reverse() },
+    clan: ownOnline.status === 'ready' ? ownOnline.clan : null,
+    since: ownOnline.status === 'ready' ? ownOnline.since : null,
+    online: ownOnline.status,
+    server: ownOnline.own,
   };
 }
 
@@ -71,7 +84,7 @@ export function ownModel(p) {
  * Someone's profile from their (cleaned) card: what a visitor sees. M1 uses it for Preview with your
  * own card; M2 feeds it the server's `profile_view` answer.
  * @param {object} card cleanViewedCard() output
- * @param {{ name: string, level: number, avatar: string, bio?: string }} who
+ * @param {{ name: string, level: number, avatar: string, bio?: string, clan?: object|null, since?: string|null }} who
  */
 export function cardModel(card, who) {
   const minis = Object.fromEntries(card.units.map((u) => [u.id, snapshotToMiniProfile(u)]));
@@ -93,8 +106,11 @@ export function cardModel(card, who) {
     fp: card.fp,
     st: card.st,
     earnedTitles: [],
+    titleTotal: 0,
     earnedFrames: [],
     honors: card.st.h == null ? null : { count: card.st.h },
+    clan: who.clan || null,
+    since: who.since || null,
   };
 }
 
@@ -112,7 +128,7 @@ const loadEditors = () => (editors ||= Promise.all([
 
 export function render(root, params = {}) {
   applyMotionPreference();
-  if (params.id) return renderVisitPlaceholder(root);
+  if (params.id) return renderVisit(root, String(params.id));
   let disposed = false;
   let raf = 0;
   const detach = [];
@@ -143,25 +159,22 @@ export function render(root, params = {}) {
     if (params.edit) actions.editProfile(params.edit, { title: params.title || null });
     else actions.pinPicker({ pin: params.pin });
   }
-  const offStore = store.on('change', () => {
+  const redraw = () => {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(draw);
-  });
+  };
+  const offStore = store.on('change', redraw);
+  // online: the clan chip, "Sensei since", the server's word on the bio; and publish the card
+  const offOnline = onOwnOnline(redraw);
+  refreshOwnOnline();
   return () => {
     disposed = true;
     cancelAnimationFrame(raf);
     offStore();
+    offOnline();
     for (const off of detach.splice(0)) off();
     closePreview?.();
   };
-}
-
-function renderVisitPlaceholder(root) {
-  const el = h('div.screen.pf.pf-visit-none', { 'data-testid': 'profile-visit-unavailable' },
-    topBar({ title: 'Sensei Profile' }),
-    h('div.pf-empty-card', h('b', 'Profiles of other Senseis need the latest server update.'), h('p', 'Your own profile works right now. Visiting opens after the next server update.'),
-      h('button.btn.btn-yellow', { type: 'button', onclick: () => navigate('profile') }, h('span.btn-label', 'Open my profile'))));
-  root.append(el);
 }
 
 function topBar({ title, acts = null, onBack = () => back() }) {
@@ -181,7 +194,7 @@ const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.b
  * @param {{ actions?: object, detach: Function[], preview?: { onClose: Function } }} ctx
  */
 function profileView(m, ctx) {
-  const { actions = {}, detach, preview = null } = ctx;
+  const { actions = {}, detach, preview = null, visit = null } = ctx;
   const own = m.own;
   const holdOpen = (entry) => (el) => {
     if (own) openSheetFor(entry.id, { tab: 'build', origin: el });
@@ -190,8 +203,9 @@ function profileView(m, ctx) {
 
   // ---- top bar
   const acts = preview
-    ? [h('span.pf-preview-tag', ico('eye'), 'Preview · what other Senseis see'), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
-    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('yellow', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')] : null;
+    ? [h('span.pf-preview-tag', ico('eye'), preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
+    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('yellow', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
+      : visit ? visit.acts : null;
   const title = own ? 'Sensei Profile' : `${m.name}'s Profile`;
 
   // ---- favorite column
@@ -213,19 +227,34 @@ function profileView(m, ctx) {
     favWrap, plate);
 
   // ---- identity panel
-  const tags = h('div.pf-tags', titlePlate(m.title));
+  const tags = h('div.pf-tags', titlePlate(m.title),
+    m.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', m.clan.tag), m.clan.name) : null,
+    m.since ? h('span.pf-since', { 'data-testid': 'profile-since' }, sinceText(m.since)) : null);
+  const hidden = own && m.server?.bioHidden && m.bio;
   const bio = m.bio
-    ? h('div.pf-bio', { 'data-testid': 'profile-bio' }, m.bio)
-    : own ? h('div.pf-bio.empty', { 'data-testid': 'profile-bio' }, 'Your bio opens with the next server update.') : null;
+    ? h(`div.pf-bio${hidden ? '.hidden' : ''}`, { 'data-testid': 'profile-bio' }, m.bio,
+      own ? h('button.pf-bio-edit', { type: 'button', title: 'Edit bio', 'aria-label': 'Edit bio', 'data-testid': 'profile-bio-edit', onclick: () => actions.editProfile('bio') }, ico('edit', 'pf-ico-fill')) : null)
+    : own ? h('button.pf-bio.empty', { type: 'button', 'data-testid': 'profile-bio', onclick: () => actions.editProfile('bio') }, m.online === 'ready' ? 'No bio yet · tap to write one' : m.online === 'needs_update' ? 'Your bio opens with the next server update.' : 'Connect to write your bio.') : null;
+  const bioNote = !own || preview ? null
+    : hidden ? h('p.pf-bio-note', { 'data-testid': 'profile-bio-note' }, 'Your bio is hidden while it\'s checked.')
+      : m.server?.bioLockedUntil ? h('p.pf-bio-note', `You can change your bio again on ${new Date(m.server.bioLockedUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`)
+        : m.server?.muted ? h('p.pf-bio-note', 'You can\'t change your bio right now.') : null;
   const pickName = own && m.noName && !preview
     ? h('button.pf-pick-name', { type: 'button', 'data-testid': 'profile-pick-name', onclick: () => askName().then(() => store.commit('identity')).catch(() => {}) }, ico('edit'), 'Pick an online name to share your profile')
     : null;
   const idPanel = h('section.panel.pf-id', { 'data-testid': 'profile-identity' },
     h('div.pf-ava-col', avatarEl(m.avatar, m.frame, { onEdit: own ? () => actions.editProfile('picture') : null }), m.frame ? h('div.pf-ava-cap', frameName(m.frame)) : null),
     h('div.pf-who',
-      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
+      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name),
+        // player tags (DEV · ALPHA · BETA): every chip, from the server (yours, the Preview of what others
+        // see, and the Sensei you are visiting)
+        own || preview ? tagChips(null, { self: true, all: true, size: 'lg' }) : visit?.userId ? tagChips(visit.userId, { all: true, size: 'lg' }) : null,
+        h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
       tags,
-      bio),
+      bio,
+      bioNote,
+      // a visit: why Message / Invite to co-op (or Add friend) are off, said on the page (the player card's line)
+      visit?.why || null),
     h('div.pf-stats', statTiles(m.st)));
 
   // ---- showcase
@@ -284,7 +313,7 @@ function profileView(m, ctx) {
     ? h('div.pf-fp-earned',
       m.earnedTitles.filter((id) => id.startsWith('fp_')).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
       m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })),
-      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${Object.keys(TITLES).length} ›`) : null)
+      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${m.titleTotal} ›`) : null)
     : !own && (m.title || m.frame)
       ? h('div.pf-fp-earned', m.title ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null)
       : null;
@@ -292,14 +321,18 @@ function profileView(m, ctx) {
     h('div.panel-title.pf-ph', h('span', 'Freeplay Records')),
     h('div.pf-fp', freeplayRows(m.fp), earned));
 
-  // ---- notes: no online name yet; visiting opens with the server update (PROFILE.md §1.11)
-  const note = own && !preview ? h('p.pf-foot-note', { 'data-testid': 'profile-server-note' }, ico('info'), 'Other Senseis will see your profile after the next server update.') : null;
+  // ---- notes (PROFILE.md §1.11): who sees it, or why nobody does yet
+  const noteText = !own || preview ? null
+    : m.online === 'ready' ? (m.server?.visibility === 'nobody' ? 'Only you can see your profile.' : m.server?.visibility === 'friends_clan' ? 'Your friends and clanmates can see your profile.' : null)
+      : m.online === 'needs_update' ? 'Other Senseis will see your profile after the next server update.'
+        : m.online === 'offline' ? 'Online features are offline: your profile is saved in your game.' : null;
+  const note = noteText ? h('p.pf-foot-note', { 'data-testid': 'profile-server-note', 'data-online': m.online }, ico('info'), noteText) : null;
 
   const bannerBtn = own && !preview ? h('button.pf-onart.pf-banner-edit', { type: 'button', 'data-testid': 'profile-banner-edit', onclick: () => actions.editProfile('banner') }, ico('edit'), 'Banner') : null;
   const main = h('main.pf-main', bannerBtn, idPanel, showPanel, h('div.pf-grid2', trophyPanel, fpPanel),
     h('section.panel.pf-records', h('div.panel-title.pf-ph', h('span', 'Records')), h('div.pf-mstats', statTiles(m.st))), note);
 
-  return h(`div.screen.pf${preview ? '.pf-is-preview' : ''}`, { 'data-hold-info': 'off', 'data-testid': preview ? 'profile-preview-view' : 'profile' },
+  return h(`div.screen.pf${preview ? '.pf-is-preview' : ''}`, { 'data-hold-info': 'off', 'data-testid': preview ? 'profile-preview-view' : visit ? 'profile-visit' : 'profile' },
     h('div.pf-banner', bannerArt(m.banner)),
     topBar({ title, acts, onBack: preview ? preview.onClose : () => back() }),
     favCol,
@@ -307,17 +340,208 @@ function profileView(m, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Someone else's profile (#/profile/<userId>)
+// ---------------------------------------------------------------------------
+
+/**
+ * How long a tag title waits for the server's word: the Preview for this account's id (the social hub
+ * starts after boot) and its tags, a visit for the visited Sensei's tags.
+ */
+const OWN_TAGS_WAIT_MS = 4000;
+
+const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback()), ms))]);
+
+const WHY_TEXT = {
+  private: () => 'This Sensei keeps their profile private.',
+  blocked_by_me: () => 'You blocked this Sensei.',
+  none: (name) => `${name} hasn't set up a profile yet.`,
+};
+
+function renderVisit(root, userId) {
+  let disposed = false;
+  let loadSeq = 0;
+  const detach = [];
+  const host = h('div.pf-host');
+  root.append(host);
+  const clearDetach = () => { for (const off of detach.splice(0)) off(); };
+  // the open ⋯ sheet: closed whenever the page redraws or the screen goes away (a system back leaves
+  // nothing over the next screen, and no sheet acts on a page that is gone)
+  let sheet = null;
+  const closeSheet = () => {
+    const s = sheet;
+    sheet = null;
+    s?.close();
+  };
+
+  /** A centred card (loading, a state with no profile to show), with the basic player line when known. */
+  function stateScreen({ title = 'Sensei Profile', who = null, text, testid, buttons = [] }) {
+    closeSheet();
+    clearDetach();
+    const card = h('div.pf-empty-card', { 'data-testid': testid },
+      who ? h('div.pf-basic',
+        avatarEl(who.avatar, null),
+        h('div.pf-basic-who',
+          h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), tagChips(userId, { all: true, size: 'lg' }), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
+          who.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', who.clan.tag), who.clan.name) : null)) : null,
+      text ? h('b', { 'data-testid': 'profile-state' }, text) : null,
+      buttons.length ? h('div.pf-basic-acts', buttons) : null);
+    host.replaceChildren(h('div.screen.pf.pf-visit-state', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
+      h('div.pf-banner', bannerArt('academy:day')), topBar({ title }), card));
+  }
+
+  const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading…', testid: 'profile-loading' }); how().finally(load); } });
+
+  // After an action (friend, block, report…) the page loads again: one profile_view per tap. playerActions
+  // asks reload() for the next card and hands it to repaint(); here reload() fetches nothing and repaint()
+  // runs load(), which fetches once and draws every state (a block turns the page into the blocked card).
+  const actionHooks = (onRepaint = () => {}) => ({ reload: async () => null, repaint: () => { onRepaint(); load(); } });
+
+  /** The visitor's actions: Message, Co-op, Add friend, ⋯ (Invite to [TAG], Block, Report) — the player card's rules. */
+  function visitActs(view) {
+    const a = playerActions(view, { context: 'profile', ...actionHooks() });
+    const more = h('button.topbar-icon.pf-more', {
+      type: 'button', title: 'More: block, report', 'aria-label': 'More', 'data-testid': 'profile-more',
+      onclick: () => {
+        closeSheet();
+        // fresh pieces: the top bar keeps its own (one element can't sit in two places). The friend control
+        // and the why line are on the page already: the sheet holds only what the top bar does not.
+        const x = playerActions(view, { context: 'profile', close: closeSheet, ...actionHooks(closeSheet) });
+        const mm = modal({
+          title: view.name, actions: [], cls: 'sc-card-modal',
+          body: h('div.pf-more-body', { 'data-testid': 'profile-more-sheet' }, x.clanInvite, h('div.sc-card-foot', x.block, x.report)),
+          onClose: () => { if (sheet === mm) sheet = null; },
+        });
+        sheet = mm;
+        mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) closeSheet(); });
+      },
+    }, svgEl(glyph('more'), 'btn-icon'));
+    a.message.classList.add('btn-small');
+    a.coop.classList.add('btn-small');
+    // why Message / Co-op (or Add friend) are off: a note under the bio, tied to the disabled buttons
+    const whyId = `pf-why-${userId}`;
+    const lines = [a.whyText, a.friendWhyText].filter(Boolean);
+    const why = lines.length ? h('div.pf-visit-why', { id: whyId, 'data-testid': 'profile-visit-why' }, lines.map((t) => h('p.sc-card-why', t))) : null;
+    if (why) for (const el of [a.message, a.coop]) if (el.disabled) el.setAttribute('aria-describedby', whyId);
+    return { a, why, top: [a.message, a.coop, h('span.pf-friend-top', a.friend), more] };
+  }
+
+  async function load() {
+    if (disposed) return;
+    const seq = ++loadSeq;
+    const stale = () => disposed || seq !== loadSeq; // left the screen, or a newer load started meanwhile
+    let b;
+    try {
+      b = getBackend();
+      if (b.offline) throw Object.assign(new Error('offline'), { code: 'offline' });
+      b = await ensureOnline({ ask: false });
+    } catch (e) {
+      if (stale()) return;
+      stateScreen({ text: 'Online features are offline right now.', testid: 'profile-offline', buttons: [retry(getBackend(), async () => {})] });
+      return;
+    }
+    if (stale()) return;
+    if (userId === b.uid) {
+      navigate('profile', {}, { replace: true });
+      return;
+    }
+    const st = await b.profileStatus();
+    if (stale()) return;
+    if (st === 'needs_update') {
+      stateScreen({ text: 'Profiles need the latest server update.', testid: 'profile-needs-update', buttons: [retry(b)] });
+      return;
+    }
+    if (st !== 'ready') {
+      stateScreen({ text: 'Online features are offline right now.', testid: 'profile-offline', buttons: [retry(b)] });
+      return;
+    }
+    let view;
+    try {
+      view = await b.profileView(userId);
+    } catch (e) {
+      const err = toOnlineError(e);
+      if (stale()) return;
+      if (err.code === 'not_found') stateScreen({ text: 'This Sensei couldn\'t be found.', testid: 'profile-gone', buttons: [button('Back', { kind: 'ghost', small: true, onClick: () => back() })] });
+      else if (err.code === 'rate_limited') stateScreen({ text: 'Too many profiles opened, try again in a bit.', testid: 'profile-rate-limited', buttons: [retry(b, async () => {})] });
+      else if (err.code === 'needs_update') stateScreen({ text: 'Profiles need the latest server update.', testid: 'profile-needs-update', buttons: [retry(b)] });
+      else stateScreen({ text: errorText(err), testid: 'profile-error', buttons: [retry(b, async () => {})] });
+      return;
+    }
+    if (stale()) return;
+    const who = { name: view.name, level: view.level, avatar: view.avatar, clan: view.clan || null, since: view.since || null };
+    if (view.profileWhy || !view.profile) {
+      const { a } = visitActs(view);
+      const text = (WHY_TEXT[view.profileWhy] || WHY_TEXT.private)(view.name);
+      stateScreen({
+        title: `${view.name}'s Profile`, who, text, testid: `profile-why-${view.profileWhy || 'private'}`,
+        buttons: [a.message, a.coop, a.friend, a.clanInvite, h('div.sc-card-foot', a.block, a.report), a.why].filter(Boolean),
+      });
+      return;
+    }
+    // [tags] their equipped tag title (Developer, Alpha / Beta Tester) shows only while their SERVER tags
+    // back it: wait for those (loadTags, never the cache as it is now); unknown (no table, offline,
+    // too slow: null) hides it. Any other title needs no tags.
+    const tags = isTagTitle(view.profile.card?.ttl) ? await within(loadTags(userId), OWN_TAGS_WAIT_MS, () => null) : null;
+    if (stale()) return;
+    closeSheet();
+    clearDetach();
+    const { why, top } = visitActs(view);
+    const card = cleanViewedCard(view.profile.card, { tags });
+    const m = cardModel(card, { ...who, bio: view.profile.bio || '' });
+    host.replaceChildren(profileView(m, { detach, visit: { acts: top, userId, why } }));
+    detach.push(liveHonors(host.querySelector('.pf-shelf') || host, { budget: 4 }));
+  }
+
+  stateScreen({ text: 'Loading…', testid: 'profile-loading' });
+  load();
+  return () => {
+    disposed = true;
+    closeSheet();
+    clearDetach();
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Preview: the visitor layout from the card this save would publish
 // ---------------------------------------------------------------------------
 
 let closePreview = null;
+let previewSeq = 0;
 
-function openPreview() {
+/**
+ * This account's tags from the server, for the Preview. Awaited (never read from the cache as it is
+ * now: right after boot the hub may not have learned the id yet, or the batch may not have landed),
+ * and only when a tag title is equipped: nothing else on the card depends on them.
+ */
+async function ownServerTags(p) {
+  if (!isTagTitle(p?.sensei?.title)) return null;
+  let uid = selfId();
+  if (!uid && storedName()) {
+    let off = () => {};
+    uid = await within(new Promise((resolve) => {
+      off = onSelfId((u) => {
+        if (u) resolve(u);
+      });
+    }), OWN_TAGS_WAIT_MS, () => selfId());
+    off();
+  }
+  if (!uid) return null;
+  // too slow: unknown (null), like a visit — never the cached tags, which may predate the server's word
+  return within(loadTags(uid), OWN_TAGS_WAIT_MS, () => null);
+}
+
+async function openPreview() {
+  const seq = ++previewSeq;
+  const at = location.hash;
   closePreview?.();
   const p = store.profile;
-  const card = cleanViewedCard(buildCard(p));
+  // What other Senseis see: a tag title only while the server backs it (never this save's own marks).
+  // A viewer of someone else's card does the same with `await loadTags(ownerId)`, never tagsOf().
+  const tags = await ownServerTags(p);
+  if (seq !== previewSeq || location.hash !== at) return; // tapped again, or left the screen, meanwhile
+  const card = cleanViewedCard(buildCard(p), { tags });
   const name = storedName() || 'Sensei';
-  const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: p.sensei.bio });
+  const on = ownOnline.status === 'ready';
+  const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: on && ownOnline.own?.bioHidden ? '' : p.sensei.bio, clan: on ? ownOnline.clan : null, since: on ? ownOnline.since : null });
   const detach = [];
   const overlay = h('div.pf-preview', { 'data-testid': 'profile-preview-overlay' });
   const close = () => {
@@ -327,7 +551,7 @@ function openPreview() {
     overlay.remove();
     if (closePreview === close) closePreview = null;
   };
-  overlay.append(profileView({ ...m, own: false }, { detach, preview: { onClose: close } }));
+  overlay.append(profileView({ ...m, own: false }, { detach, preview: { onClose: close, onlyMe: on && ownOnline.own?.visibility === 'nobody' } }));
   detach.push(liveHonors(overlay, { budget: 4, ignoreOverlays: true }));
   document.body.append(overlay);
   const offEsc = onEscape(close);

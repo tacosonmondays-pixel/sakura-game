@@ -1,6 +1,6 @@
 // Edit Profile (docs/specs/PROFILE.md §1.9): Bio | Picture | Banner | Title | Favorite | Privacy, with a
-// live Preview card on PC. Picture (+ frame), Banner, Title and Favorite save to the game now. Bio and
-// Privacy are the server's: until the profile server update (M2) they show read-only.
+// live Preview card on PC. Picture (+ frame), Banner, Title and Favorite save to the game. Bio and Privacy are the
+// server's: they are live once the profile SQL is in and you're online, and read-only otherwise (never broken).
 import { h, svgEl, toast, accountLevel } from '../components.js';
 import { store } from '../../core/store.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -8,9 +8,13 @@ import { BANNERS, FRAMES, FRAME_IDS, TITLES, QUICK_LINES, bannerLockText } from 
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, bannerUnlocked } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
-import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT } from '../../online/profileRules.js';
+import { titlesFromText } from '../../systems/honors.js';
+import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
+import { getBackend } from '../../online/backend.js';
+import { errorText, toOnlineError } from '../../online/errors.js';
+import { ownOnline, setOwnState, refreshOwnOnline } from './online.js';
 import { storedName, askName } from '../online/common.js';
 import { displayRarity, rarityInfo } from '../rarity.js';
 import { ico, bannerArt, avatarEl, titlePlate, openSheetFrame } from './parts.js';
@@ -19,17 +23,29 @@ const SECTIONS = [['bio', 'edit', 'Bio'], ['picture', 'students', 'Picture'], ['
 const TIERS = [['prism', 'Prism · rarest'], ['gold', 'Gold'], ['std', 'Standard']];
 const PRIVACY = [['everyone', 'Everyone', 'Any Sensei can see your profile.'], ['friends_clan', 'Friends & clan', 'Only friends and clanmates.'], ['nobody', 'Only me', 'Nobody else can see it.']];
 const LATER = 'Opens with the next server update.';
+const lockDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 /** @param {{ section?: string, title?: string|null }} [o] title: preselect an earned title (Equip from the achievements) */
 export function openEditProfile({ section = 'picture', title = null } = {}) {
   const p = store.profile;
   const s = p.sensei;
   const draft = { avatar: s.avatar || p.secretary, frame: s.frame, banner: s.banner, title: s.title, favorite: s.favorite || p.secretary };
+  // the server's side: live only while it answers (status 'ready'); the text field keeps its own value between draws
+  const live = () => ownOnline.status === 'ready';
+  const server = () => ownOnline.own || {};
+  const startBio = () => (live() ? server().bio ?? s.bio ?? '' : s.bio || '');
+  const startVis = () => server().visibility || PROFILE_VISIBILITY_DEFAULT;
+  draft.bio = startBio();
+  draft.visibility = startVis();
+  let bioErr = '';
+  let saving = false;
   let current = SECTIONS.some(([id]) => id === section) ? section : 'picture';
   const nav = h('nav.ep-nav');
   const body = h('div.ep-body', { 'data-testid': 'edit-profile-body' });
   const prev = h('div.ep-card', { 'data-testid': 'edit-profile-preview' });
   const titles = new Set(earnedTitles(p));
+  // every title of this build, except the tag titles this player doesn't own (never an unobtainable row)
+  const choices = titleChoices(p);
   if (title && titles.has(title)) draft.title = title;
   const frames = new Set(earnedFrames(p));
   const ownedIds = Object.keys(p.units).filter((id) => UNIT_MAP[id]).sort((a, b) => unitPower(p, b) - unitPower(p, a) || a.localeCompare(b));
@@ -51,16 +67,42 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   }
 
   const sections = {
-    bio: () => [
-      label('Bio', 'Shown on your profile to other Senseis'),
-      h('div.ep-text.ro', { 'data-testid': 'edit-bio-readonly' }, s.bio || h('span.muted', 'No bio yet.'), h('span.cnt', `${[...(s.bio || '')].length} / ${BIO_MAX}`)),
-      h('div.ep-later', ico('info'), h('span', 'Bios open after the server update. Connect then to write yours.')),
-      h('div.ep-warn', ico('info'), h('span', 'No links, emails, phone numbers or social handles, and no real names or school names. Be kind: other Senseis can report a bio.')),
-      h('div.ep-sec', label('Quick lines', 'Tap one to use it'), h('div.ep-chips', QUICK_LINES.map((q) => h('button', { type: 'button', disabled: true }, q)))),
+    bio: () => {
+      const o = server();
+      const canEdit = live() && !o.muted && !o.bioLockedUntil;
+      const cnt = h('span.cnt', `${[...draft.bio].length} / ${BIO_MAX}`);
+      const err = h('div.ep-err', { 'data-testid': 'edit-bio-error', hidden: !bioErr }, bioErr);
+      let field;
+      if (canEdit) {
+        field = h('textarea.ep-input', { 'data-testid': 'edit-bio', rows: 3, maxlength: BIO_MAX * 2, placeholder: 'Say hello to other Senseis', 'aria-label': 'Bio' });
+        field.value = draft.bio;
+        field.addEventListener('input', () => {
+          draft.bio = field.value.replace(/\n+/g, ' ');
+          cnt.textContent = `${[...draft.bio].length} / ${BIO_MAX}`;
+          bioErr = draft.bio.trim() ? bioError(draft.bio) || '' : '';
+          err.textContent = bioErr;
+          err.hidden = !bioErr;
+          drawPreview();
+        });
+      }
+      const why = !live()
+        ? h('div.ep-later', ico('info'), h('span', ownOnline.status === 'needs_update' ? 'Bios open after the server update. Connect then to write yours.' : ownOnline.status === 'checking' ? 'Checking the server…' : 'Connect to change your bio.'))
+        : o.muted ? h('div.ep-later', ico('info'), h('span', 'You can\'t change your bio while chat is paused for you.'))
+          : o.bioLockedUntil ? h('div.ep-later', ico('info'), h('span', `You can change your bio again on ${lockDate(o.bioLockedUntil)}.`))
+            : o.bioHidden && o.bio ? h('div.ep-later', ico('info'), h('span', 'Your bio is hidden while it\'s checked. Writing a new one shows it again.'))
+              : null;
+      return [
+        label('Bio', 'Shown on your profile to other Senseis'),
+        why,
+        canEdit ? h('div.ep-text.ep-field', field, cnt) : h('div.ep-text.ro', { 'data-testid': 'edit-bio-readonly' }, draft.bio || h('span.muted', 'No bio yet.'), cnt),
+        err,
+        h('div.ep-warn', ico('info'), h('span', 'No links, emails, phone numbers or social handles, and no real names or school names. Be kind: other Senseis can report a bio.')),
+        h('div.ep-sec', label('Quick lines', 'Tap one to use it'), h('div.ep-chips', { 'data-testid': 'edit-quick-lines' }, QUICK_LINES.map((q) => h('button', { type: 'button', disabled: !canEdit, onclick: () => { draft.bio = q; bioErr = ''; draw(); } }, q)))),
       h('div.ep-sec', label('Name', 'Your online name · 3 changes a day'),
         h('div.ep-card-row', h('span.ep-namechip', storedName() || 'Not chosen yet'),
           h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'edit-change-name', onclick: () => { frame.close(); askName({ title: 'Change your name', current: storedName() }).then(() => store.commit('identity')).catch(() => {}); } }, h('span', storedName() ? 'Change name' : 'Pick a name')))),
-    ],
+      ];
+    },
     picture: () => [
       label('Picture', 'Any girl you own'),
       girlGrid('avatar', 'edit-picture-grid'),
@@ -80,12 +122,13 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       })),
     ],
     title: () => [
-      label('Title', `${titles.size} / ${Object.keys(TITLES).length} earned`),
-      h('p.ep-help', 'Titles come from achievements. Nothing you buy gives a title.'),
+      label('Title', `${titles.size} / ${choices.length} earned`),
+      h('p.ep-help', titlesFromText(choices)),
       h('div.ep-titles', { 'data-testid': 'edit-titles' },
         h(`button.ep-title.none${draft.title == null ? '.on' : ''}`, { type: 'button', 'data-title': '', onclick: () => set('title', null) }, h('span.ep-title-none', 'None'), draft.title == null ? h('i.ep-check', '✓') : null),
         TIERS.map(([tier, name]) => {
-          const ids = Object.keys(TITLES).filter((id) => TITLES[id].tier === tier);
+          // owned first (like the Achievements tab's Titles sheet): a new title is never buried under locked rows
+          const ids = choices.filter((id) => TITLES[id].tier === tier).sort((a, b) => Number(titles.has(b)) - Number(titles.has(a)));
           if (!ids.length) return null;
           return h('div.ep-title-grp',
             h('div.ep-title-head', name, h('small', `${ids.filter((id) => titles.has(id)).length} / ${ids.length}`)),
@@ -99,8 +142,11 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     favorite: () => [label('Favorite', 'She stands on the left of your profile'), girlGrid('favorite', 'edit-favorite-grid')],
     privacy: () => [
       label('Privacy', 'Who can see my profile'),
-      h('div.ep-later', ico('info'), h('span', `${LATER} Everyone can see your profile by default.`)),
-      h('div.ep-privacy', PRIVACY.map(([id, name, desc]) => h(`div.ep-priv${id === PROFILE_VISIBILITY_DEFAULT ? '.on' : ''}.ro`, h('i.ep-radio'), h('span', h('b', name), h('small', desc))))),
+      live() ? null : h('div.ep-later', ico('info'), h('span', ownOnline.status === 'needs_update' ? `${LATER} Everyone can see your profile by default.` : 'Connect to change who can see your profile.')),
+      h('div.ep-privacy', { role: 'radiogroup', 'data-testid': 'edit-privacy' }, PRIVACY.map(([id, name, desc]) => (live()
+        ? h(`button.ep-priv${draft.visibility === id ? '.on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': String(draft.visibility === id), 'data-vis': id, onclick: () => set('visibility', id) }, h('i.ep-radio'), h('span', h('b', name), h('small', desc)))
+        : h(`div.ep-priv${id === draft.visibility ? '.on' : ''}.ro`, { 'data-vis': id }, h('i.ep-radio'), h('span', h('b', name), h('small', desc)))))),
+      h('p.ep-help', 'Blocked players never see your profile, whatever you pick.'),
     ],
   };
 
@@ -110,23 +156,67 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       h('div.ep-card-in',
         h('div.ep-card-row', avatarEl(draft.avatar, draft.frame), h('div.ep-card-who', h('div.pf-name-row', h('span.pf-name', storedName() || 'Sensei'), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(accountLevel(p).level))))))),
         h('div.pf-tags', titlePlate(draft.title, { still: true })),
-        s.bio ? h('div.pf-bio', s.bio) : null));
+        draft.bio.trim() ? h('div.pf-bio', draft.bio.trim()) : null));
   }
 
   function draw() {
     nav.replaceChildren(...SECTIONS.map(([id, icon, name]) => h(`button${current === id ? '.on' : ''}`, { type: 'button', 'data-testid': `edit-tab-${id}`, onclick: () => { current = id; draw(); } }, ico(icon), h('span', name),
-      id === 'bio' || id === 'privacy' ? h('i.ep-soon', 'soon') : null)));
+      (id === 'bio' || id === 'privacy') && ownOnline.status === 'needs_update' ? h('i.ep-soon', 'soon') : null)));
     const scroll = body.scrollTop;
-    body.replaceChildren(...sections[current]());
+    body.replaceChildren(...sections[current]().filter(Boolean));
     body.scrollTop = scroll;
     drawPreview();
   }
 
-  const save = () => {
-    setSensei(store.profile, { avatar: draft.avatar === p.secretary && !s.avatar ? null : draft.avatar, frame: draft.frame, banner: draft.banner, title: draft.title, favorite: draft.favorite === p.secretary && !s.favorite ? null : draft.favorite });
-    store.commit('sensei'); // M2: + setProfileBio / setProfileVisibility, then syncProfile({ reason: 'edit' })
-    frame.close();
-    toast('Profile saved');
+  async function saveServer() {
+    if (!live()) return true;
+    const b = getBackend();
+    const bio = draft.bio.trim();
+    const bioChanged = bio !== (server().bio ?? '');
+    const visChanged = draft.visibility !== startVis();
+    if (!bioChanged && !visChanged) return true;
+    if (bioChanged && bio && bioError(bio)) {
+      bioErr = bioError(bio);
+      current = 'bio';
+      draw();
+      return false;
+    }
+    try {
+      if (bioChanged) {
+        const o = await b.setProfileBio(bio);
+        s.bio = o?.bio ?? bio;
+        setOwnState(o || { bio, bioHidden: false });
+      }
+      if (visChanged) {
+        const o = await b.setProfileVisibility(draft.visibility);
+        setOwnState(o?.visibility ? o : { visibility: draft.visibility });
+      }
+      return true;
+    } catch (e) {
+      const msg = errorText(toOnlineError(e));
+      if (bioChanged) {
+        bioErr = msg;
+        current = 'bio';
+        draw();
+      } else toast(msg, 'bad', 3000);
+      return false;
+    }
+  }
+
+  const save = async () => {
+    if (saving) return;
+    saving = true;
+    try {
+      setSensei(store.profile, { avatar: draft.avatar === p.secretary && !s.avatar ? null : draft.avatar, frame: draft.frame, banner: draft.banner, title: draft.title, favorite: draft.favorite === p.secretary && !s.favorite ? null : draft.favorite });
+      const ok = await saveServer();
+      store.commit('sensei');
+      if (!ok) return; // the picks are saved; the sheet stays open on the bio's message
+      if (live()) import('../../online/profileSync.js').then((m) => m.profileSync()).then((ps) => ps.sync({ reason: 'edit' })).catch(() => {});
+      frame.close();
+      toast('Profile saved');
+    } finally {
+      saving = false;
+    }
   };
 
   const frame = openSheetFrame({
@@ -135,11 +225,21 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     testid: 'edit-profile',
     body: h('div.ep-main', nav, body, h('aside.ep-prev', h('span.ep-prev-t', 'Preview'), prev, h('span.ep-help', 'Others see this once profiles go online. Your gems, pulls, mail, friend code and saves are never shown.'))),
     foot: h('div.ep-foot',
-      h('span.muted', 'Saved to your game. Your bio and privacy save when you\'re online.'),
+      h('span.muted', live() ? 'Saved to your game and your online profile.' : 'Saved to your game. Your bio and privacy save when you\'re online.'),
       h('span.es-spacer'),
       h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'edit-profile-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
       h('button.btn.btn-yellow', { type: 'button', 'data-testid': 'edit-profile-save', onclick: save }, h('span', 'Save'))),
   });
   draw();
+  // the server's answer may still be coming: adopt it if nothing was typed yet
+  if (ownOnline.status !== 'ready') {
+    const before = { bio: draft.bio, visibility: draft.visibility };
+    refreshOwnOnline({ sync: false }).then(() => {
+      if (!live() || !body.isConnected) return;
+      if (draft.bio === before.bio) draft.bio = startBio();
+      if (draft.visibility === before.visibility) draft.visibility = startVis();
+      draw();
+    }).catch(() => {});
+  }
   return frame;
 }

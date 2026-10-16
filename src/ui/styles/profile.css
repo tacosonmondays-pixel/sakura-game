@@ -243,8 +243,42 @@
 .pf-preview > .screen.pf { position: absolute; inset: 0; }
 .pf-visit-none { display: flex; align-items: center; justify-content: center; }
 .pf-empty-card { position: relative; z-index: 2; max-width: 420px; padding: 18px 20px; border-radius: 14px; background: #fff; box-shadow: var(--shadow); text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.pf-empty-card b { font: italic 900 1.1rem/1.3 var(--font-head); color: var(--navy); }
+.pf-empty-card > b { font: italic 900 1.1rem/1.3 var(--font-head); color: var(--navy); }
 .pf-empty-card p { margin: 0; color: var(--muted); font-weight: 700; font-size: 0.86rem; }
+
+/* ---------- Visiting (M2): states, the basic card, the top-bar actions, clan + since, bio notes ---------- */
+.pf-visit-state { display: flex; align-items: center; justify-content: center; padding: calc(var(--pf-top) + 12px) 16px 16px; }
+.pf-visit-state .pf-banner { position: absolute; inset: 0; opacity: 0.55; }
+.pf-visit-state .pf-empty-card { max-width: 460px; width: 100%; }
+.pf-basic { display: flex; align-items: center; gap: 12px; align-self: stretch; text-align: left; }
+.pf-basic-who { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.pf-basic-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.pf-basic-acts .sc-card-why, .pf-basic-acts .sc-card-friend { flex-basis: 100%; text-align: center; }
+.pf-clan { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; border-radius: 999px; background: #eef4ff; border: 1px solid #c9dbf5; color: var(--navy); font-size: 0.72rem; font-weight: 800; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pf-clan i { font-style: normal; font-weight: 900; font-size: 0.64rem; letter-spacing: 0.04em; color: #fff; background: var(--blue); border-radius: 999px; padding: 1px 6px; }
+.pf-since { font-size: 0.72rem; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.pf-bio.hidden { opacity: 0.6; border-style: dashed; }
+.pf-bio-edit { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(255,255,255,0.9); color: var(--blue-deep); display: grid; place-items: center; cursor: pointer; }
+.pf-bio:has(.pf-bio-edit) { padding-right: 34px; }
+button.pf-bio.empty { display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit; }
+.pf-bio-note { margin: 4px 0 0; font-size: 0.7rem; font-weight: 800; color: #a35f00; }
+.pf-friend-top { display: inline-flex; }
+.pf-friend-top .sc-card-why, .pf-friend-top .sc-card-row .sc-card-ask { display: none; }
+.pf-friend-top .sc-card-friend-row { display: flex; gap: 6px; }
+.pf-more { width: 34px; height: 34px; }
+.pf-more-body { display: flex; flex-direction: column; gap: 10px; }
+.pf-more-body > .sc-card-clan-inv:empty + .sc-card-foot { border-top: 0; padding-top: 0; } /* nothing above it (no clan invite) */
+/* a visit: why Message / Co-op (or Add friend) are off, under the bio (the player card's line) */
+.pf-visit-why { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.pf-visit-why .sc-card-why { font-size: 0.72rem; padding: 4px 9px; }
+
+/* Edit Profile: the live bio field and privacy radios */
+.ep-field { padding: 0 0 18px; }
+.ep-input { display: block; width: 100%; min-height: 60px; resize: none; border: 0; outline: 0; background: transparent; padding: 9px 11px 0; font: inherit; font-weight: 700; color: var(--ink); }
+.ep-err { margin-top: 6px; padding: 6px 10px; border-radius: 9px; background: #ffecef; border: 1px solid #ffb8c4; color: #b3123a; font-size: 0.76rem; font-weight: 800; }
+.ep-err[hidden] { display: none; }
+button.ep-priv { width: 100%; text-align: left; cursor: pointer; font-family: inherit; }
+button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,0.12); }
 
 /* ======================================================================================
    Editor sheets: one frame (the Unit Sheet's look)
@@ -433,6 +467,8 @@
   .pf-tags .tp.pf-title { font-size: 0.68rem; }
   .pf-bio { margin-top: 5px; font-size: 0.76rem; padding: 4px 12px 4px 24px; line-height: 1.3; }
   .pf-bio::before { font-size: 1.5rem; left: 7px; }
+  .pf-visit-why { margin-top: 4px; }
+  .pf-visit-why .sc-card-why { font-size: 0.66rem; padding: 3px 8px; line-height: 1.25; }
   .pf-ph .pf-hint { font-size: 0.64rem; }
   .pf-ph .pf-auto { display: none; }
   .pf-show-row { gap: 5px; }
@@ -480,6 +516,11 @@
   .ep-nav button .pf-ico { width: 15px; height: 15px; }
   .ep-body { padding: 8px 10px; }
   .ep-text { min-height: 54px; font-size: 0.82rem; padding: 6px 9px 18px; }
+  .ep-field { padding: 0 0 16px; }
+  .ep-input { min-height: 44px; padding: 6px 9px 0; font-size: 0.82rem; }
+  .pf-clan, .pf-since { font-size: 0.64rem; }
+  .pf-more { width: 30px; height: 30px; }
+  .pf-visit-state .pf-empty-card { padding: 12px 14px; gap: 6px; }
   .ep-warn, .ep-later { font-size: 0.66rem; padding: 5px 8px; }
   .ep-sec { margin-top: 8px; }
   .ep-chips button { font-size: 0.68rem; padding: 3px 9px; }

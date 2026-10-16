@@ -23,7 +23,7 @@ export function isTransient(name) {
 const PARENTS = {
   missions: 'lobby',
   clan: 'lobby',
-  profile: 'lobby', // [profile] Sensei Profile
+  profile: (p) => (p.id ? null : 'lobby'), // [profile] yours → the lobby; someone else's → back to where it was opened
   campaign: 'missions',
   bounty: 'missions',
   assault: 'missions',

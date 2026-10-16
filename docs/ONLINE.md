@@ -21,12 +21,21 @@ No profanity filter for now (owner's decision). Client **and** server rate limit
 
 ## Setup (about 5 minutes)
 
-**The schema is two files**, applied in order: `supabase/migrations/20261008000000_online.sql` (chat,
-clans, clan boss, co-op, transfer codes; already applied on the live project — never edit it) and
-`supabase/migrations/20261013000000_social.sql` (messages, friends, co-op invites by DM, clan requests;
-see "Run the social update" below). They are kept in the Supabase CLI layout so that Supabase's GitHub
-integration can apply them. Paste them into the SQL Editor in that order if you set the database up by
-hand; both are idempotent.
+**The schema is six files** in `supabase/migrations/`, kept in the Supabase CLI layout so that Supabase's
+GitHub integration can apply them. Every one is idempotent (safe to paste again). Paste order, and each
+file's check query:
+
+| # | File | What it adds | Needs first | Check query (more in its section) |
+|---|---|---|---|---|
+| 1 | `20261008000000_online.sql` | chat, clans, clan boss, co-op, transfer codes (already applied on the live project — never edit it) | — | `select public.current_week();` → this week, e.g. `2026-W42` ("Verify on the live site" below) |
+| 2 | `20261013000000_social.sql` | messages, friends, co-op invites by DM, clan requests | 1 | `select public.social_version();` → `1` ("Run the social update") |
+| 3 | `20261015000000_social_open_friends.sql` | friend requests from anywhere, global chat included | 2 | `select pg_get_constraintdef(oid) from pg_constraint where conname = 'friend_requests_via_check';` → the list includes `'any'` |
+| 4 | `20261016000000_profile.sql` | Sensei Profiles: visiting, bios, "Who can see my profile" | 2 and 3 | `select public.profile_version();` → `1` ("Run the profile update") |
+| 5 | `20261017000000_player_tags.sql` | DEV / ALPHA / BETA chips and the tester titles | 1 | `select to_regclass('public.player_tags');` → `player_tags` ("Run the player tags SQL": check the developer clan first) |
+| 6 | `20261018000000_clan_invites.sql` | clan invites and the daily recruiting post | 2 and 3 | `select public.clan_invites_version();` → `1` ("Run the clan invites update") |
+
+Files 4, 5 and 6 may go in any order among themselves once the files they need are in: the profile and
+clan invites files after both social files, the tags file any time after the first one.
 
 ### Status for this repository (checklist)
 
@@ -50,6 +59,12 @@ yet". Do the next step first.
       integration applies the migration; its log is under Integrations → GitHub).
 - [ ] **Run the social update** once the game update with Messages is live (see "Run the social
       update" below). Until then those features say "Needs the latest server update".
+- [ ] **Run the profile update** after the Sensei Profile game update is live (see "Run the profile
+      update" below). Until then visiting a profile says "Profiles need the latest server update".
+- [ ] **Run the clan invites update** once the game update with clan invites is live (see "Run the clan
+      invites update" below). Until then "Invite to clan" and the recruiting post stay hidden.
+- [ ] **Run the player tags SQL** once the v0.1.33 game update is live, after checking who is in the
+      developer clan (see "Run the player tags SQL" below). Until then nobody has a DEV / ALPHA chip.
 - [ ] Quick server check without the game (optional): open
       `https://<ref>.supabase.co/rest/v1/clans?select=id&limit=1` with header `apikey: <publishable key>`
       (or `curl -H "apikey: …" …`). `PGRST205 … Could not find the table` = migration not run yet;
@@ -93,6 +108,116 @@ it, Messages, the player card's buttons, Settings → Online → "Who can messag
 again right after it (the old file resets every function grant and restores the old `join_room()`
 without the block check).
 
+### Run the profile update (Sensei Profiles: visiting, bios, "Who can see my profile")
+
+The game update with Sensei Profiles goes live **before** its database part, like the social update.
+Until the owner runs it, your own profile works fully from the save; visiting another Sensei's profile
+shows **"Profiles need the latest server update"**, and Edit Profile shows Bio and Privacy read-only
+("Opens with the next server update"). Chat, clans, co-op, messages and friends keep working.
+
+**What to paste:** `supabase/migrations/20261016000000_profile.sql`, once, **after**
+`20261013000000_social.sql` and `20261015000000_social_open_friends.sql` (run those first if they
+haven't been yet).
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open the raw file on GitHub:
+   <https://raw.githubusercontent.com/tacosonmondays-pixel/sakura-game/main/supabase/migrations/20261016000000_profile.sql>
+   (or open `supabase/migrations/20261016000000_profile.sql` on GitHub and press **Raw**). Select all
+   (Ctrl+A / ⌘A) and copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The
+   file runs as one transaction: on any error nothing at all was applied, so press **Run** again (it first
+   waits up to 30 seconds for a quiet moment to lock the tables it touches all at once; "The game is busy
+   right now" means try again in a minute). Safe to run more than once. No key of any kind is needed or
+   should be pasted anywhere.
+   If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
+   (see above), then this file again.
+4. **Check query:** run `select public.profile_version();` in the SQL Editor. It returns `1`.
+5. **What success looks like:** reload the game. Your profile shows your clan chip and "Sensei since
+   <month year>"; Edit Profile → Bio has a text box with Quick lines and Privacy has three choices
+   (Everyone, the default · Friends & clan · Only me). Tap any player's name in chat (or a clanmate,
+   a friend, a co-op ally) → **View profile** opens their profile with their girls, medals and bio.
+
+**Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
+`20261016000000_profile.sql` again right after them (the first file resets every function grant).
+
+### Run the clan invites update (invite players to your clan, the daily recruiting post)
+
+The game update goes live **before** its database part. Until the owner runs it, nobody sees "Invite to
+clan", invite cards or the "Post to global chat" button; chat, clans, messages, friends and co-op keep
+working exactly as before.
+
+**What to paste:** `supabase/migrations/20261018000000_clan_invites.sql`, once, **after**
+`20261013000000_social.sql` and `20261015000000_social_open_friends.sql` (run those first if they haven't
+been yet). The profile and player-tags files don't matter for it: before or after is fine.
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open the raw file on GitHub:
+   <https://raw.githubusercontent.com/tacosonmondays-pixel/sakura-game/main/supabase/migrations/20261018000000_clan_invites.sql>
+   (or open `supabase/migrations/20261018000000_clan_invites.sql` on GitHub and press **Raw**). Select
+   all (Ctrl+A / ⌘A) and copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The file
+   runs as one transaction: on any error nothing at all was applied, so press **Run** again (it first
+   waits up to 30 seconds for a quiet moment to lock chat, clans and profiles all at once; "The game is
+   busy right now" means try again in a minute). Safe to run more than once. No key of any kind is needed or should be pasted anywhere.
+   If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
+   (see above), then this file again.
+4. **Check query:** run `select public.clan_invites_version();` in the SQL Editor. It returns `1`.
+5. **What success looks like:** reload the game.
+   - As a clan leader or officer, tap the name of a player who is in no clan (in global chat, or open a
+     conversation's ⋯ menu): **Invite to [TAG]** is there. They see the invite in Messages → Requests (and
+     on Clan → Find a clan) with **Join** / **Decline**.
+   - The clan screen shows **Post to global chat** for the leader and officers. After posting, a card with
+     the clan's emblem, name, members and **View clan** / **Join** appears in global chat (the clan's own
+     members see "Your clan" instead of Join; a player in another clan sees View clan only), and the button
+     reads "Posted today" until 7 PM Central.
+
+**Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
+`20261018000000_clan_invites.sql` again right after them (the first file restores the old chat rules, and
+new recruiting posts would be refused until this file runs again).
+
+### Run the player tags SQL (DEV, ALPHA and BETA chips)
+
+The game update with the chips (v0.1.33) works before and after this SQL: until it runs nobody has a
+chip and everything else is unchanged.
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. **Check who is in the developer clan first.** The first run makes every member of the developer
+   clan a developer (DEV chip + Developer title), and the clan's join code used to be public, so a
+   stranger may still be a member. Supabase → **SQL Editor** → **New query**:
+
+   ```sql
+   -- the developer clan's members, by name (everyone listed here gets DEV on the first run)
+   select p.name, m.user_id, m.joined_at
+   from public.clan_members m
+   join public.profiles p on p.id = m.user_id
+   join public.clans c on c.id = m.clan_id
+   where c.is_dev
+   order by p.name;
+   ```
+
+   Remove everyone you don't recognise before step 4 (rotate the code first, see "Rotate the
+   developer clan code" below, or they can join again), one `user_id` at a time:
+
+   ```sql
+   delete from public.clan_members
+   where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their user_id>';
+   ```
+
+   Run the listing again: only your team is left.
+3. Open `supabase/migrations/20261017000000_player_tags.sql` on GitHub → **Raw** → select all → copy.
+4. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. It is
+   safe to run again, and it needs only the first migration (`20261008000000_online.sql`). It runs as one
+   transaction and first waits up to 30 seconds for a quiet moment to lock the tables it touches all at
+   once; **"The game is busy right now"** (or any other error) means nothing was changed: press **Run**
+   again in a minute.
+5. What the first run does by itself: everyone who has a profile now gets **ALPHA** (and the Alpha
+   Tester title), every new player during the alpha gets ALPHA too, and **everyone who is in the
+   developer clan right now gets DEV**. Later runs never add developers: after the first run the
+   developer list is yours to edit (the one-liners in "Player tags" below).
+6. Check: run **who has the DEV chip** from "Player tags" below. It lists exactly the people you kept
+   in step 2. Anyone you don't recognise: take the chip away with **remove the DEV chip** (by their
+   `user_id`). Reload the game: chips appear next to names within a few seconds.
+
 ### Fresh project (or checking the settings)
 
 1. **Create a project** at <https://supabase.com/dashboard> (the free plan is enough). Pick the region
@@ -103,8 +228,14 @@ without the block check).
      and turn on deploying to production. Every migration in `supabase/migrations/` is then applied
      when it reaches `main`.
    - **By hand.** Open SQL Editor → New query, paste all of
-     `supabase/migrations/20261008000000_online.sql`, then Run. The file is idempotent: running it
-     again, or running a newer version of it over an older one, is safe.
+     `supabase/migrations/20261008000000_online.sql`, then Run. Then do the same, one file per query, for
+     the other five in this order: `20261013000000_social.sql`, `20261015000000_social_open_friends.sql`,
+     `20261016000000_profile.sql`, `20261017000000_player_tags.sql`, `20261018000000_clan_invites.sql`
+     (the table under "Setup" says what each needs first; the profile, tags and invites files may go in
+     any order after those). Each file is idempotent: running it again, or running a newer version of it
+     over an older one, is safe. Each "Run the … update" section above has that file's check query. On a
+     fresh project with nobody in it yet, the tags file's step 2 (checking the developer clan) finds no
+     one.
 3. **Allow anonymous sign-ins.** Go to Authentication → Sign In / Providers and switch on **Allow
    anonymous sign-ins**. Players never type an e-mail; the game makes an anonymous account the first
    time they open chat, a clan or co-op.
@@ -243,6 +374,64 @@ order by m.joined_at;
 delete from public.clan_members
 where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their user_id>';
 ```
+
+### Player tags (DEV, ALPHA, BETA)
+
+`supabase/migrations/20261017000000_player_tags.sql`; the client is `src/online/tags.js` (a batched,
+10-minute cache) and `src/ui/online/tagChip.js`. Every signed-in player can **read** `public.player_tags`
+(tags are public, like names); **no player can write it**: `staff = 'dev'` is set only here, in the SQL
+Editor, and `tester` is stamped by a trigger when a profile is created, from the private
+`public.server_settings` row `tester_phase` (`alpha` now, `beta` later, `none` to stop). The chips: DEV
+(sakura pink) beats ALPHA (lilac) beats BETA (teal) in chat lines and lists; the player card, the
+own profile header and a visited Sensei's profile show every chip. A player's own tags also unlock the
+Developer / Alpha Tester / Beta Tester titles (their save keeps them as `missions.counters` marks
+`tag:dev` …); other players only ever see a tag title the server backs: a visited profile waits for
+that Sensei's tags (`loadTags`, up to 4 seconds) before it shows a tag title, and hides it when they are
+unknown (no table yet, offline, no answer in time) or don't include it.
+
+Owner one-liners (SQL Editor). Replace the placeholder, keep the quotes, and **never commit a real
+name, account id or code**. Names are not unique: run the first query and check it finds exactly one
+player before changing anything.
+
+```sql
+-- find the player (one row expected)
+select id, name, created_at from public.profiles where name = '<PLAYER NAME>';
+
+-- make them a developer (DEV chip + Developer title); stops with an error, changing nothing, when the
+-- name matches nobody or more than one player
+insert into public.player_tags (user_id, staff)
+values ((select id from public.profiles where name = '<PLAYER NAME>'), 'dev')
+on conflict (user_id) do update set staff = 'dev', updated_at = now();
+
+-- remove the DEV chip (their ALPHA / BETA chip stays; a title they already saw stays in their own save,
+-- but nobody else sees it any more)
+update public.player_tags set staff = null, updated_at = now()
+where user_id = (select id from public.profiles where name = '<PLAYER NAME>');
+
+-- who has the DEV chip
+select p.name, t.user_id, t.staff, t.tester, t.updated_at
+from public.player_tags t join public.profiles p on p.id = t.user_id
+where t.staff is not null order by p.name;
+
+-- the beta starts: new players get BETA from now on (alpha testers keep ALPHA)
+update public.server_settings set value = 'beta' where key = 'tester_phase';
+
+-- stop giving a tester chip to new players
+update public.server_settings set value = 'none' where key = 'tester_phase';
+```
+
+If the same name matches more than one player, the add and remove one-liners stop with "more than one
+row returned by a subquery" (a name that matches nobody stops the add with "null value in column
+user_id"); nothing is changed. Use the id from the first query instead: `values ('<their user_id>',
+'dev')` for the add, `... where user_id = '<their user_id>'` for the remove.
+
+Where chips show: chat lines, the player card, Messages (conversations, the conversation header,
+friends, friend requests that asked you, clan invites next to the inviter's name), the clan roster and
+clan join requests, your own profile header and a visited Sensei's profile (the private / no-profile
+card too). A clan's recruiting card names no player: the chip is on the chat line's name above it.
+Requests **you** sent show no chip: the server never tells the sender the other player's
+account id. A tab running on the stand-in server ("Online features offline") shows no chip and never
+records a tag in the save; only the real server's tags count.
 
 ### Messages, friends, co-op invites and clan requests (the social update)
 
@@ -503,6 +692,38 @@ select pg_size_pretty(pg_total_relation_size('direct_messages'));
 - **Inactive projects are paused** after a week without traffic. Restore the project in the dashboard;
   until then the online screens show "Online features are offline right now".
 - **Anonymous sign-ins** are limited to 30 per hour per IP by default (Authentication → Rate Limits).
+
+### Clan invites and the daily recruiting post
+
+Everything below is in `supabase/migrations/20261018000000_clan_invites.sql`; the client rules live in
+`src/online/clanInviteRules.js`, the local mirror in `src/online/adapters/localClanInvites.js`, the UI in
+`src/ui/online/clanInvite.js`. "Invite to [TAG]" is one of the shared player actions
+(`src/ui/online/playerActions.js`, `clanInvite`): the player card shows it, and so does a visited
+Sensei Profile's More sheet (and its private / no-profile card), so the two never disagree.
+
+- **Who invites:** the leader and officers of a clan; in an **open** clan every member (anyone could join
+  it anyway). Never the developer clan.
+- **Who can be invited:** a player in no clan. A player who blocked the inviter, whose "Who can message me"
+  is Nobody, or who is in the developer clan gets nothing, and the inviter still sees "Invited" (a block or
+  a setting is never shown). The inviter has to unblock someone before inviting them.
+- **Join:** works whatever the clan's join mode (the invite opens a "By request" or "Invite code" clan for
+  that player), within the member cap. An invite from the leader or an officer also lets a player who was
+  removed come back (like accepting their request); a plain member's invite does not. An invite counts only
+  while its sender could still send it: still in the clan, still allowed to invite to it (an officer made a
+  plain member of a "By request" or "Invite code" clan can't), and no block between the two players either
+  way. Otherwise the card leaves the list and Join says "that invite is gone".
+- **Limits:** one pending invite per clan and player; invites end after 7 days and a declined one swallows
+  repeats from that clan for 7 days; 10 invites a day and 20 pending per invited player; 1 invite per 2 s
+  and 20 an hour per sender; joining counts as a clan join (10 an hour).
+- **Where "Invite to [TAG]" shows:** a player card and a conversation's ⋯ menu, only for a player in no clan
+  (as far as their card shows) and only when I may invite. The recruiting card offers Join / Ask to join only
+  to a player in no clan; the posting clan's members see "Your clan".
+- **Recruiting post:** once per clan per game day (7 PM Central), by the leader or an officer. It is a
+  global chat line of kind `recruit` whose clan card (`meta`: id, tag, name, emblem, members, max, join
+  mode, level) the server writes from the clan row; players can't post that kind themselves. Its text says
+  the same in words ("[PS] Petal Squad is recruiting! 12/30 members · open to all. Find them in Clan → Find
+  a clan."), so an older game shows a readable line. It also counts as a chat message, and 5 a day per
+  player.
 
 ## How it works
 
@@ -846,7 +1067,7 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
 ```bash
 npx vitest run tests/online
 node e2e/online.mjs
-node e2e/social.mjs           # DMs, friends, invites by DM, clan requests, block / report, needs-update
+node e2e/social.mjs           # DMs, friends, invites by DM, clan requests, block / report, needs-update, DEV / ALPHA chips
 node e2e/online.mjs --viewport 844x390 --shots /tmp/online
 node e2e/engines.mjs          # the same co-op battle in V8, JavaScriptCore and SpiderMonkey
 node e2e/coop-rejoin.mjs      # two pages: a freeplay run past the goal, a cut link, a rejoin and a resync through the checkpoint
@@ -854,6 +1075,11 @@ node e2e/coop-longrun.mjs     # a rejoin at freeplay wave 150, timed in Node, Bu
 ```
 
 The vitest suite covers:
+
+- `tagsSchema.test.js`, `tags.test.js` and `tagsAdapters.test.js`: the player tags migration on Postgres
+  (the phases, the alpha-only backfill, the one-time developer seed, read-only tags for players, the
+  private settings, and the table ACL allow-list of every migration), the client cache (batches of at
+  most 100, 10-minute answers, a missing table = no chips for the session) and both adapters.
 
 - `limits.test.js`: rate limiter.
 - `localDb.test.js` and `localAdapter.test.js`: the local server, and two tabs chatting, joining clans
@@ -1011,6 +1237,8 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
 | A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |
 | Messages / Clan → Requests say **Needs the latest server update** | The social SQL has not run: see "Run the social update" above. Chat, clans and co-op are unaffected |
+| The clan screen has no **Post to global chat** / a player card has no **Invite to clan** | The clan invites SQL has not run (see "Run the clan invites update"), or you are a plain member of a clan that isn't open (leaders and officers invite; every member may in an open clan), or that player is already in a clan |
+| "Daily limit reached" on **Post to global chat** | Working as intended: one recruiting post per clan per game day (7 PM Central) |
 | "… can't get messages from you yet" | Their "Who can message me" setting (or yours) does not include the other player, or one blocked the other (deliberately not told apart). Add each other as friends (friend code) |
 | "Daily limit reached — resets at 7 PM Central" | Working as intended: one material request and 30 donation points per game day |
 | "Checking your donation…" stays | The answer to a donation was lost. The game asks the server again on the next visit (Retry appears after two tries); the items come back only if the server never applied it |

@@ -19,6 +19,7 @@ import { itemCount } from '../../systems/inventory.js';
 import { canBreakthrough } from '../../systems/progression.js';
 import { formatCountdown, localResetHint, RESET } from '../../core/reset.js';
 import { avatar } from './common.js';
+import { tagChips } from './tagChip.js';
 import { needsUpdateCard } from './needsUpdate.js';
 import { refreshSoon } from './socialHub.js';
 import {
@@ -301,7 +302,7 @@ export function createDonatePanel({ backend = getBackend(), onBadge = null } = {
       return h('article.sc-req-card', { 'data-testid': 'donate-request', 'data-request': r.id },
         avatar(r.avatar, 34),
         h('div.sc-req-info',
-          h('div.sc-req-who', h('b', r.name), h('small.muted', `asks for ${r.wanted} × ${getItem(r.item)?.name || r.item}`)),
+          h('div.sc-req-who', h('b', r.name), r.userId ? tagChips(r.userId) : null, h('small.muted', `asks for ${r.wanted} × ${getItem(r.item)?.name || r.item}`)),
           h('div.sc-bar.small', h('i', { style: { width: `${pct}%` } }), h('span', `${r.received}/${r.wanted}`)),
           h('small.muted', `You have ${have}${r.myGiven ? ` · you gave ${r.myGiven}` : ''} · ${rule.points} pt each`)),
         itemTile(r.item, null, { size: 44 }),

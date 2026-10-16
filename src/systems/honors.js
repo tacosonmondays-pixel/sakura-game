@@ -5,12 +5,18 @@
 //
 // Stable interface for the Sensei Profile (feature/profile):
 //   ownedRibbons(profile)  → ribbon ids (= achievement ids) in case order
-//   ownedTitles(profile)   → title ids (achievement ids + fp_ashwing / fp_crimson) in plate order
+//   ownedTitles(profile)   → title ids (achievement ids + fp_ashwing / fp_crimson + owned tag titles) in plate order
+//   visibleTitles(profile) → the titles this player can see: every live title + the tag titles they own
+//
+// Tag titles (Developer, Alpha Tester, Beta Tester; src/data/playerTags.js) are owned from the save's 'tag:' marks
+// (missions.counters, which every build keeps). Counting rule: a tag title is listed and counted ONLY for a player
+// who owns it, so every "out of N" stays the same for everyone else (liveTitles() never includes them).
 //   ribbonArt(id, size, opts?) → <span class="rb"> element (SVG + effect layers); honours Reduce Motion
 //   titlePlate(id, opts?)  → <span class="tp"> element on its Standard / Gold / Prism plate
 
 import { ACHIEVEMENT_MAP, achievementLive, NO_COSMETIC } from '../data/achievements.js';
 import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
+import { markedTags, isTagTitle } from '../data/playerTags.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -24,7 +30,17 @@ const claimed = (p, id) => claims(p)[id] === true && !NO_COSMETIC(id) && achieve
 
 /** The rows of this build's list (counts are "out of what the running build contains", §2.2). */
 export const liveRibbons = () => HONOR_RIBBONS.filter((h) => achievementLive(ACHIEVEMENT_MAP[h.id]));
-export const liveTitles = () => TITLES.filter((t) => !ACHIEVEMENT_MAP[t.id] || achievementLive(ACHIEVEMENT_MAP[t.id]));
+/** The titles every player can earn in this build (never the tag titles: those count only for their owners). */
+export const liveTitles = () => TITLES.filter((t) => !t.tag && (!ACHIEVEMENT_MAP[t.id] || achievementLive(ACHIEVEMENT_MAP[t.id])));
+
+/** A tag title is owned while the save holds that tag's mark (missions.counters 'tag:<kind>', set from the server). */
+const tagTitleOwned = (p, t) => markedTags(p).includes(t.tag);
+
+/** Where titles come from, for the pickers: the team / tester titles are mentioned only to a player who has one. */
+export const TITLES_FROM = 'Titles come from achievements. Nothing you buy gives a title.';
+export const TITLES_FROM_TAGS = 'Titles come from achievements, and a few from being on the team or testing the game. Nothing you buy gives a title.';
+/** TITLES_FROM_TAGS when this list of title ids holds a tag title, else TITLES_FROM. */
+export const titlesFromText = (ids) => (ids.some((id) => isTagTitle(id)) ? TITLES_FROM_TAGS : TITLES_FROM);
 
 /** Ribbon ids owned (claimed, known and live in this build), in case order. */
 export function ownedRibbons(profile) {
@@ -40,9 +56,17 @@ function freeplayTitleOwned(p, id) {
   return Array.isArray(titles) && titles.includes(id === 'fp_crimson' ? 'Crimson Slayer' : 'Ashwing Slayer');
 }
 
-/** Title ids owned: claimed achievements with a title + the freeplay titles, in plate order (prism → standard). */
+/** Title ids owned: claimed achievements with a title + the freeplay titles + tag titles, in plate order (prism → standard). */
 export function ownedTitles(profile) {
-  return TITLES.filter((t) => (ACHIEVEMENT_MAP[t.id] ? claimed(profile, t.id) : freeplayTitleOwned(profile, t.id))).map((t) => t.id);
+  return TITLES.filter((t) => {
+    if (t.tag) return tagTitleOwned(profile, t);
+    return ACHIEVEMENT_MAP[t.id] ? claimed(profile, t.id) : freeplayTitleOwned(profile, t.id);
+  }).map((t) => t.id);
+}
+
+/** The titles this player sees in lists and counts: every live title + the tag titles they own, in plate order. */
+export function visibleTitles(profile) {
+  return TITLES.filter((t) => (t.tag ? tagTitleOwned(profile, t) : !ACHIEVEMENT_MAP[t.id] || achievementLive(ACHIEVEMENT_MAP[t.id])));
 }
 
 /** Owned ribbons as HONOR_RIBBONS rows. */
@@ -104,17 +128,18 @@ export function markTitlesSeen(p) {
 
 const PLATE_LABEL = { prism: 'Prism · rarest', gold: 'Gold', standard: 'Standard' };
 /**
- * Title picker data (Edit Profile → Title, the Achievements tab's Titles sheet): the live titles grouped by plate,
- * owned first inside each group, each with its "How:" line.
+ * Title picker data (Edit Profile → Title, the Achievements tab's Titles sheet): the visible titles grouped by plate
+ * (every live title + the tag titles this player owns), owned first inside each group, each with its "How:" line.
  * @returns {{ plate: 'prism'|'gold'|'standard', label: string, owned: number, total: number,
  *   titles: { id, name, plate, owned: boolean, how: string, source: string }[] }[]}
  */
 export function titleGroups(profile) {
   const owned = new Set(ownedTitles(profile));
+  const visible = visibleTitles(profile);
   return ['prism', 'gold', 'standard'].map((plate) => {
-    const titles = liveTitles().filter((t) => t.plate === plate).map((t) => {
+    const titles = visible.filter((t) => t.plate === plate).map((t) => {
       const a = ACHIEVEMENT_MAP[t.id];
-      const how = a ? (a.hidden && !owned.has(t.id) ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`;
+      const how = t.how || (a ? (a.hidden && !owned.has(t.id) ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`);
       return { id: t.id, name: t.name, plate, owned: owned.has(t.id), how, source: t.source };
     }).sort((x, y) => Number(y.owned) - Number(x.owned));
     return { plate, label: PLATE_LABEL[plate], owned: titles.filter((t) => t.owned).length, total: titles.length, titles };
