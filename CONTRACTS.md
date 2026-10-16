@@ -519,7 +519,7 @@ Profile = {
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -626,13 +626,21 @@ export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { o
 ### `src/systems/progression.js`
 
 ```js
-export const MAX_LEVEL = 60;
-export function levelCap(unitState)              // 10 + 10*breakthrough (max 60)
+export const LEVEL_PAST_GATES = { from: 60, caps: [60, 63, 67, 72, 78, 85], exp: 30000, coins: 12000, book: 'book_legendary' }
+  // the ONE table for the levels past gate 5 (Potential v3 §4): her cap per Potential, and each level above 60 = one
+  // Akashic Tome + 12,000 coins; a later ascension (level gates) replaces or extends it and levelCap, never the ladders
+export const BREAKTHROUGH_LEVEL_CAP = 60, POTENTIAL_LEVEL_CAPS, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60
+export const MAX_LEVEL = 85;                     // P6's cap (was 60)
+export function levelCap(unitState)              // gates < 5: 10 + 10*breakthrough; gate 5: POTENTIAL_LEVEL_CAPS[potentialLevel - 1] (P1 60 … P6 85)
+export function levelCapInfo(unitState)          // -> { cap, max, p, by: 'gate'|'potential', next, nextGate?, nextP?, full } (the screens' cap copy)
 export function potentialLevelCap(p)             // levelCap with every gate open at Potential p (the Potential screens' "· 67")
-export function expForLevel(level)               // exp to go from level to level+1
+export function expForLevel(level)               // exp to go from level to level+1 (30,000 from 60; Infinity at 85)
 export function bookExpTotal(books)              // {itemId:count} -> exp
-export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped }
-export function levelUp(profile, unitId, books)  // consumes books+coins; -> { ok, error?, fromLevel, toLevel }
+export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped, wasted, cap }; coins 0.4/EXP (12,000 a level above 60)
+export function levelUp(profile, unitId, books)  // consumes books+coins; -> { ok, error?, fromLevel, toLevel }; writes the level shadow above 60
+export const LEVEL_SHADOW_PREFIX = 'lv:'         // missions.counters['lv:<id>'] = her level once above 60 (an older build clamps to 60)
+export function shadowLevel(profile, unitId)
+export function settleLevels(profile)            // migrateProfile, after creditPotential: lift a 60-clamped girl back to min(shadow, levelCap), clamp all to levelCap
 export function autoSelectBooks(profile, unitId) // books to reach cap or as far as owned -> {itemId:count}
 export function breakthroughCost(unitId, gate)   // gate 1..5 -> [{id,count}] (unit's material family + coins)
 export function canBreakthrough(profile, unitId) // -> { ok, missing: [{id,need,have}] }
@@ -647,7 +655,8 @@ export function unitPower(profile, unitId)       // single number for sorting/UI
 ```
 
 Scaling is deliberately modest (heroes were too strong before): damage +1.8% per level after 1,
-+5% per awaken star, rate +0.4% per level; gear adds on top. Level 60 ★5 ≈ ×2.4 damage.
++5% per awaken star, rate +0.4% per level; gear adds on top. Level 60 ★5 ≈ ×2.4 damage; level 85 (P6) ≈ ×2.86
+damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at their P1 cap (60).
 
 ### `src/systems/gear.js`
 
@@ -717,7 +726,8 @@ export function canSweep(profile, stageId)
 ```js
 export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
-export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments
+export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, tomes, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments;
+  // past P6 it also pays Akashic Tomes (SR 1, SSR 5; potential.js DUPE_PAST_MAX_TOMES / dupePastMaxTomes, next to potentialLevel)
 export function isStageUnlocked(profile, stageId)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
@@ -1506,6 +1516,14 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
 * `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
+* `statLimits.js` — the plausibility clamp (gear-awaken §9.1 + Potential v3 §2.2): `UNIT_STAT_LIMITS` (one rule
+  per unit-stat key: `damageMul` 0–10, `rateMul` 0–5, `rangeMul` 0–3, `critChance` 0–0.75, `critMul` 1–6,
+  `armorPen` 0–50, `costMul` 0.75–1, `ultHaste` 0–0.5, `awakenPassive` bool, `level` int 1–99, `awaken` 0–5,
+  `breakthrough` 0–10, `potential` int 1–6), `clampUnitStats(stats)` (same keys and order, non-numbers →
+  `DEFAULT_UNIT_STATS`, unknown keys dropped; the identity for an honest loadout), `clampPlayer(p)` (at most
+  `LOADOUT_MAX` = towersPerPlayer + 1 girls), `clampStart(start)` (idempotent). `session.js` `begin()` clamps
+  every start message on both clients (the host's own and the guest's received one) before the Lockstep is
+  built; harnesses calling `createCoopSim` / `Lockstep` directly pass their own stats.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
   fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid]` (`fly`: a drone wing's flight mode, owner only like
@@ -1541,8 +1559,10 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:
   `applyCoopClear` banks the normal co-op win at the goal, `applyCoopFreeplayEnd(profile, result, rng,
-  { banked })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
-  gear / crowns / tokens, ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
+  { banked, now? })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
+  gear / crowns / tokens plus one Akashic Tome per cache (`freeplayCacheTomes`: at most
+  `FREEPLAY_REWARDS.cacheTome.weeklyCap` = 2 a week per account, solo and co-op sharing `fpTome:<weekKey>`; added
+  after the cache rolls, so the rng stream is unchanged; `out.freeplay.tomes`), ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
   `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
   session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
 Co-op is data (`hpScale`) plus command routing; the Sim only gained `snapshot()` / `restore()`.

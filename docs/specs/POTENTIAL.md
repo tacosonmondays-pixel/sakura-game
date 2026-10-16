@@ -24,8 +24,8 @@ Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 
 | V0 | Sim mechanics N1–N17 (`src/sim/potential.js`, hooks in `mods.js`, `towers.js`, `Sim.js`, `hero.js`, `combat.js`) | every key absent at P1; brews ≤ 4 girls |
 | V1 | Data v3: the 19 rows (`src/data/potential.js`), the text table (`src/data/potentialText.js`: node label, long text, paper size, FX cue), Power | data, text and sim tests (§13.2) |
 | V2 | Battle saves format 3 (`SNAP_V` 3: `pc`, `tp`, `pj`, `rk`, `rt`, `ab`, `oc`), `POTENTIAL_START` on the v3 line-up and `POTENTIAL_BOSS_START` (Grave Lych), co-op test | `COOP_PROTOCOL` 5, sim id `ff25094d81d8`; Node, Bun, Chromium and Firefox agree |
-| V3–V5 (this) | UI, migration from v1, the letter, docs | below |
-| L0–L2 | Level cap 85 with Akashic Tomes, the Tome sources, the co-op clamp's `potential` rule | not built yet: the screens below read the level rule and light up when it lands |
+| V3–V5 | UI, migration from v1, the letter, docs | below |
+| L0–L2 | Level cap 85 with Akashic Tomes, the Tome sources, the level-cap screens, the co-op plausibility clamp with its `potential` rule | below ("Level cap"); co-op sim id `132be3774582`, `COOP_PROTOCOL` still 5, `SNAP_V` still 3 |
 
 **UI (v3 §11, v2 §7).**
 - **Pills** (`src/ui/potential.js potPill`): P6 wears the five-petal Full-Potential crown (our own SVG); the title
@@ -76,13 +76,55 @@ so every girl keeps her P and fights with the v3 steps of it at once.
 - **Battle saves** from before v3 (format 1–2) restore with the v3 steps of the saved P (their counters at 0);
   when a girl in one is at P2+, Continue says "This run continues with Potential's new effects."
 
+**Level cap (L0–L2, v3 §4).**
+- **The rule** (`src/systems/progression.js`): `LEVEL_PAST_GATES` is the one table for the levels past gate 5 — her
+  cap at P1…P6 (60 · 63 · 67 · 72 · 78 · 85) and the price of each level above 60 (30,000 EXP, i.e. one Akashic
+  Tome, and 12,000 coins). `levelCap` = 10 + 10 × gates below gate 5, else her Potential's cap (a P6 girl at gate 3
+  stays at 40; there is no gate 6: the duplicate is the gate). `expForLevel` is 30,000 from 60 to 84; `MAX_LEVEL`
+  85. Her growth continues (L85 ★5 gate 5: damage ×2.862, rate ×1.336; ×1.283 her L60 DPS). Coins are charged per
+  band (0.4 per EXP up to 60, 12,000 per 30,000 EXP above). A later ascension (level gates paid with family
+  materials and a crown) replaces or extends this table and `levelCap`; the duplicate → Potential source stays
+  `potentialLevel`, and the duplicate-past-P6 payout `DUPE_PAST_MAX_TOMES` sits next to it. Not co-op hashed.
+- **Saves** (no `SAVE_VERSION` bump): `cleanUnit` lets a girl past gate 5 keep any level up to 85 (her duplicates
+  may not be known yet); `migrateProfile` runs `settleLevels` after `creditPotential`: it lifts a girl an older
+  build clamped to 60 back to `min(lv:<id>, levelCap)` (the level shadow in `missions.counters`, written by
+  `levelUp` above 60) and clamps every girl to `levelCap` (EXP 0 when clamped). A hostile shadow never lifts above
+  the cap, and only a girl at 60+ is lifted. The profile card viewer and the co-op ally mini profile clamp to
+  `levelCap({ breakthrough, dupes: p − 1 })`. Sandbox girls fight at their P1 cap (60).
+- **Akashic Tome sources** (none sold for gems): Library Courtyard III on Nightmare 5 % → 20 % (`STAGES`: the co-op
+  data id changes); a freeplay cache adds one Tome, at most 2 a week per account, solo and co-op sharing
+  `fpTome:<weekKey>` (added after the cache rolls, so every other drop is unchanged; a new week's key deletes the
+  old); the Bounty Exchange row `bty_book_tome` (40 Bounty Tokens, 2 a week); duplicates past P6 pay SR 1 / SSR 5
+  Tomes (R none) besides their fragments. Item info lists all four.
+- **Screens**: the Level Up tab's "Cap 72 · P4 · max 85", at the cap "P5 raises it to 78 (1 more duplicate)", above 60
+  "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"; at gate 5 the breakthrough card is the Potential cap
+  card ("Level cap 72 · Next: 78 at P5 (1 more duplicate)", "Level cap 85 · Full Potential", the six caps); gate 5's
+  text names the cap her Potential opens. The Info tab's `stat · cap` lines, each step's "Level cap 72", the "Level
+  cap 72 → 78" line on a "Potential up!" card and the letter's " · level cap 78" light up from the rule. Recruit
+  summary "+5 Akashic Tomes", spark / select-ticket / P6 footer copy ("Star Fragments (+40 each) and 5 Akashic
+  Tomes"), the wiki (Leveling: the table to 85 and "Above 60: one Akashic Tome per level"; Potential: the level-cap
+  row and the four sources).
+- **Co-op** (`src/online/coop/statLimits.js`, hashed): the plausibility clamp with gear's ceilings (`damageMul` ≤ 10,
+  `rateMul` ≤ 5, `level` 1–99, …) and the `potential` rule (integer 1–6), one rule per unit-stat key, at most
+  towersPerPlayer + 1 girls a player; `session.js` `begin()` clamps the start message on both clients. Honest L85 P6
+  loadouts pass through unchanged.
+- **Tests**: `tests/systems/progression.test.js` (the table, `levelCap` gates 0–4 × P1–P6 and gate 5 × P1–P6,
+  `expForLevel(59)` 50,300 / 60…84 30,000 / 85 ∞, `totalExpToLevel(85)` 1,856,630, 12,000 coins a level, the band
+  split across 60, overflow at the cap, Auto Select to 85, L85 stats, the shadow, `settleLevels`, `levelCapInfo`),
+  `tests/systems/save.test.js` (L60 P1 unchanged, L72 P4 round trip, `dupes: null` kept then re-clamped, an older
+  build's clamp restored, hostile shadows), `tests/systems/levelTomes.test.js` (the four sources, the weekly cap
+  shared by solo and co-op, the rng stream), `tests/online/coopStatLimits.test.js` and the lobby case in
+  `tests/online/coopSession.test.js`, `tests/online/profileCard.test.js`, `tests/integration/missionCounters.test.js`
+  (the `lv:` / `fpTome:` prefixes), `e2e/potential.mjs` (the cap line, both cap cards, a level-up past 60 with a Tome,
+  the "Level cap 63 → 67" card line).
+
 **Patch note draft (train C; the shipping stage adds it to `src/data/patchNotes.js` under the deploy's number):**
 "Potential got much bigger! Every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly
 stronger: a stat boost at every step and, from P3 (P2 for SSR girls and heroes), a new trick built on what she does
 best, up to a capstone at P6 with a Full Potential crown. Your girls keep their Potential and get every step they
-have earned right away. Nothing got weaker: P1 is exactly the girl you know." With L0–L1: "Every step also raises her
-level cap, up to level 85 at P6. Levels above 60 use Akashic Tomes, now found more often in Library Courtyard III on
-Nightmare, in Freeplay caches (up to 2 a week), in the Bounty Exchange, and from duplicates past P6."
+have earned right away. Every step also raises her level cap, up to level 85 at P6. Levels above 60 use Akashic
+Tomes, now found more often in Library Courtyard III on Nightmare, in Freeplay caches (up to 2 a week), in the Bounty
+Exchange, and from duplicates past P6. Nothing got weaker: P1 is exactly the girl you know."
 
 **Tests.** `tests/integration/potential.balance.test.js` (B6 and the campaign, opt-in), `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
 rising cap rule, `potentialLevelCap`, recruit rises, the duplicates rule), `tests/systems/mail.test.js` (a v1 save,
@@ -91,9 +133,8 @@ a pre-M0 save, a v3-born save, an all-P1 save, the 12-name list, the cap phrase,
 a P1 girl without rows, in a real battle), `tests/battle-ui/snapshot.test.js` (`potentialNew` on a format-2 save),
 `e2e/potential.mjs` at 844×390 touch and 1280×720 (every screen above, the letter, the badges, no sideways scroll).
 
-**Not built here (next stages):** L0–L2 (level cap 85, Tomes, their screens: the student level block "Cap 72 · P4 ·
-max 85", the Potential cap card at gate 5, the level-up sheet above 60, the wiki's level-cap row and Tome sources,
-the co-op clamp's `potential` rule); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
+**Not built here (next stages):** the clan-boss constant (gate CB: needs P6 L85 UR rows, UR gear is the next
+build); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
 volleys) and the crown ring on the field (render, v2 §7.8); the Sandbox P1–P6 picker (v2 §7.7); the §13.1
 measurement gates (B1–B8, T1, H1, C1, K1, F1–F6, P1, CB, E1) on the integrated train C tree.
 
