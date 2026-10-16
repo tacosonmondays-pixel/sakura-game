@@ -71,7 +71,13 @@ describe('freeplay curve (d): steady growth after wave 30', () => {
 
   it('the big enemies at the tens from 166 keep the HP the owner likes (8-5 Blossom)', () => {
     const { rows } = curve('8-5', 'blossom');
-    const at = (n) => rows.find((r) => r.n === n).big;
+    // Solo Freeplay plays the stage as its campaign run, so the hero rework's stage HP pass
+    // (HERO_HP_PASS, ×1.1 on 8-5) reaches it; co-op Freeplay divides it back out (src/data/coop.js).
+    // The numbers below are the ramp itself (pass divided out). Whether solo Freeplay should match
+    // co-op is open for the train-C balance pass (owner decision); today solo is ×hpPass on top.
+    const pass = soloFreeplayStage('8-5', 'blossom').hpPass || 1;
+    expect(pass).toBeCloseTo(1.1, 9);
+    const at = (n) => rows.find((r) => r.n === n).big / pass;
     // same as before the pass (tools/baselines/curve-8-5-blossom.json): 70M+ from 190, the Matriarch 372M
     expect(Math.round(at(170) / 1e4) / 100).toBe(34.41);
     expect(Math.round(at(180) / 1e4) / 100).toBe(59.43);
