@@ -43,5 +43,5 @@ describe.skipIf(!hasRealData())('Standard without a rule is the pre-modes sim', 
     const got = digest(r);
     if (process.env.GOLDEN_PRINT) console.log(`GOLDEN '${stageId}:${difficulty}': '${got}',`);
     expect(got).toBe(GOLDEN[`${stageId}:${difficulty}`]);
-  });
+  }, 120000); // a whole bot battle each: past vitest's 5 s default on a loaded machine
 });
