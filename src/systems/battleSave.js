@@ -13,8 +13,12 @@ import { DIFFICULTIES } from '../data/types.js';
 
 /** Record format this build writes (and the newest it can read). */
 export const RECORD_V = 1;
-/** Snapshot format this build writes (and the newest it can read). */
-export const SNAP_V = 1;
+/**
+ * Snapshot format this build writes (and the newest it can read). 2: the hero rework (a hero has
+ * no tiers; her bought levels and Move cooldown are kept). A format-1 snapshot is still restored
+ * (src/ui/battle/snapshot.js restoreSim migrates its hero).
+ */
+export const SNAP_V = 2;
 /** Saved battles kept at once; starting another one asks which one to delete (stage prep). */
 export const MAX_BATTLE_SAVES = 5;
 

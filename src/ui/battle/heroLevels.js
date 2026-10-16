@@ -93,6 +93,7 @@ export function createHeroLevels(ctx, ls) {
     }
     const r = sim.buyHeroLevel(want);
     if (!r.ok) explain(r.reason, cur);
+    else ctx.saver?.markProgress(); // a solo command like any other: the battle save keeps it
     return r.ok;
   }
 
@@ -110,7 +111,9 @@ export function createHeroLevels(ctx, ls) {
       ls.queue('hmv', quantize(x, y));
       return true;
     }
-    return sim.moveHero(x, y).ok;
+    const ok = sim.moveHero(x, y).ok;
+    if (ok) ctx.saver?.markProgress();
+    return ok;
   }
 
   /** Move button state for her panel: { label, disabled, reason }. */

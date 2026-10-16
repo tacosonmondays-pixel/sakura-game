@@ -3,15 +3,21 @@
 //
 // A calm point is 'prep' or 'between' waves: no enemies (a wave ends only when the field is
 // empty), no shots in flight, aura fields rebuilt every tick, ult cooldowns frozen. So the
-// snapshot only carries the player's build (girls, tiers, targeting, hero XP, drones, traps) and
-// the run's counters; everything else is empty or reset there and is rebuilt.
+// snapshot only carries the player's build (girls, tiers, targeting, hero XP and bought levels,
+// drones, traps) and the run's counters; everything else is empty or reset there and is rebuilt.
+//
+// Format 2 (the hero rework): a hero has no tiers and is never sold; she comes back by her XP
+// (her level and Mastery follow), with the coins she spent on levels and her Move timers.
+// A format-1 save holds a hero of the old 10-level scale with path tiers: she is restored at her
+// old level on the new track (bar empty) and everything she cost comes back as coins.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
 import { Sim } from '../../sim/Sim.js';
-import { gainHeroXp } from '../../sim/hero.js';
+import { gainHeroXp, xpToReach } from '../../sim/hero.js';
+import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
@@ -72,16 +78,18 @@ export class StaleSaveError extends Error {
 export const KNOWN_SIM_KEYS = Object.freeze({
   data: 'config', stage: 'config', stageId: 'config', map: 'config', difficulty: 'config', diff: 'config', options: 'config',
   seed: 'config', pathData: 'config', paths: 'config', pathTiles: 'config', placement: 'config', loadout: 'config',
-  heroConfig: 'config', endless: 'config', totalWaves: 'config', maxLives: 'config', cashScale: 'config', grid: 'config',
+  heroConfigs: 'config', _heroConfig: 'config', endless: 'config', totalWaves: 'config', maxLives: 'config', cashScale: 'config', grid: 'config',
   rng: 'stream', _statusCtx: 'stream',
   lives: 'snap', cash: 'snap', state: 'snap', wave: 'snap', wavesCleared: 'snap', time: 'snap', towers: 'snap', traps: 'snap',
-  hero: 'snap', encountered: 'snap', kills: 'snap', stats: 'snap', _uid: 'snap', _cashCarry: 'snap', _globalBuffs: 'snap',
+  heroes: 'snap', encountered: 'snap', kills: 'snap', stats: 'snap', _uid: 'snap', _cashCarry: 'snap', _globalBuffs: 'snap',
   _towerByUid: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
   events: 'scratch', _waveCache: 'scratch', _scratch: 'scratch', _scratch2: 'scratch', _hitOut: 'scratch', _dotOut: 'scratch',
-  _capSources: 'scratch',
+  _capSources: 'scratch', _stepping: 'scratch',
+  // Heroes (hero rework): `hero` / `heroConfig` are prototype getters on `heroes` / `_heroConfig`
+  // (the viewing player's), not own fields; `heroes` is rebuilt by placing her (restoreSim).
   // Freeplay (src/sim/freeplay.js): co-op, and solo freeplay (freeplay=<tier>, Keep going). Neither
   // is ever saved (co-op battles never save; isSavableRun is false for a solo freeplay run, and a
   // Keep going run's save is deleted by its win), so none of this is saved: snapshotSim refuses a
@@ -99,9 +107,10 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   uid: 'snap', unitId: 'snap', x: 'snap', y: 'snap', tiers: 'snap', targetMode: 'snap', spent: 'snap', kills: 'snap',
   damageDealt: 'snap', cooldown: 'snap', disabled: 'snap', facing: 'snap', buildTimer: 'snap', xp: 'snap', level: 'snap',
   ultUnlocked: 'snap', ultCooldown: 'snap', turrets: 'snap', trapCount: 'snap',
-  def: 'config', isHero: 'config', unitStats: 'config', radius: 'config', tx: 'derived', ty: 'derived',
+  levelSpent: 'snap', levelsBought: 'snap', moveCd: 'snap', moveLock: 'snap',
+  def: 'config', isHero: 'config', heroIndex: 'config', unitStats: 'config', radius: 'config', tx: 'derived', ty: 'derived',
   stats: 'derived', eff: 'derived', buff: 'derived', buffed: 'derived', trapSpec: 'derived', turretSpec: 'derived',
-  projKind: 'derived', removed: 'derived', _globalRate: 'derived',
+  projKind: 'derived', removed: 'derived', _globalRate: 'derived', mastery: 'derived',
   targetUid: 'calm', rampTarget: 'calm', rampStacks: 'calm',
   trapSpots: 'scratch', trapSpotsRange: 'scratch',
 });
@@ -145,7 +154,7 @@ export function snapshotSim(sim) {
         uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
         kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
       };
-      if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown });
+      if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
       if (t.turrets.length) o.dr = t.turrets.map((d) => [d.uid, d.x, d.y, d.facing, d.cooldown]);
       const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
       if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
@@ -169,10 +178,11 @@ function teamEntry(e) {
  * girls on the same spots with the same tiers, targeting, hero XP, drones and traps, coins,
  * lives and counters, in state 'between' (or 'prep' before the first wave) with no FX pending.
  * A girl who cannot return after an update (unit gone, spot or tiers no longer valid) is left out
- * and what was spent on her is refunded.
+ * and what was spent on her is refunded. A hero from a format-1 save (before the hero rework)
+ * returns at her old level and what she cost is refunded too (`heroes`, for the notice).
  * @param {object} rec battle save record
  * @param {object} [profile] for settings.autoStart
- * @returns {{ sim: Sim, refunded: number, dropped: string[] }}
+ * @returns {{ sim: Sim, refunded: number, dropped: string[], heroes: { unitId: string, level: number, refunded: number }[] }}
  * @throws {StaleSaveError}
  */
 export function restoreSim(rec, profile = null) {
@@ -197,11 +207,15 @@ export function restoreSim(rec, profile = null) {
   if (!sim.endless && s.wave >= sim.totalWaves) throw new StaleSaveError(`wave ${s.wave} is past the end (${sim.totalWaves})`);
   const dropped = [];
   let refunded = 0;
+  // format 1: heroes of the old scale (10 levels, XP 1 per HP, path tiers bought with coins)
+  const oldHeroes = !(s.v >= 2);
+  const migrated = [];
   sim.cash = Number.MAX_SAFE_INTEGER; // costs do not matter while rebuilding: `spent` comes back below
   for (const b of s.buffs || []) if (b?.[1] > 0) sim.addGlobalRateBuff(b[0], b[1]);
   const drop = (o) => {
     dropped.push(o.u);
-    refunded += Math.max(0, Math.floor(r(o.spent)));
+    // (a hero's levels bought with coins come back too: her placement was free)
+    refunded += Math.max(0, Math.floor(r(o.spent))) + Math.max(0, Math.floor(r(o.ls)));
   };
   for (const o of [...s.towers].sort((a, b) => a.uid - b.uid)) {
     sim._uid = o.uid; // the same uids: stats.damageByTower / towerUnits and drone / trap owners stay valid
@@ -215,14 +229,17 @@ export function restoreSim(rec, profile = null) {
       drop(o);
       continue;
     }
-    const tiers = Array.isArray(o.tiers) ? o.tiers : [0, 0, 0];
-    const order = [0, 1, 2].sort((p, q) => r(tiers[q]) - r(tiers[p]));
-    let ok = true;
-    for (const p of order) for (let k = 0; k < r(tiers[p]) && ok; k++) ok = sim.upgradeTower(t.uid, p);
-    if (!ok) {
-      sim.sellTower(t.uid); // all or nothing per girl
-      drop(o);
-      continue;
+    if (!t.isHero) {
+      // (a hero has no tiers and is never sold: sellTower refuses her)
+      const tiers = Array.isArray(o.tiers) ? o.tiers : [0, 0, 0];
+      const order = [0, 1, 2].sort((p, q) => r(tiers[q]) - r(tiers[p]));
+      let ok = true;
+      for (const p of order) for (let k = 0; k < r(tiers[p]) && ok; k++) ok = sim.upgradeTower(t.uid, p);
+      if (!ok) {
+        sim.sellTower(t.uid); // all or nothing per girl
+        drop(o);
+        continue;
+      }
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     t.spent = r(o.spent);
@@ -232,10 +249,28 @@ export function restoreSim(rec, profile = null) {
     t.disabled = r(o.dis);
     t.facing = r(o.face);
     t.buildTimer = r(o.bt);
-    if (t.isHero) {
-      if (o.xp > 0) gainHeroXp(sim, t, o.xp);
+    if (t.isHero && oldHeroes) {
+      // her old level on the new track, bar empty (old XP is on another scale); she deploys free
+      // now, so her placement and tiers come back as coins
+      const level = Math.max(1, Math.min(BATTLE.maxHeroLevel, Math.floor(r(o.lvl)) || 1));
+      if (level > 1) gainHeroXp(sim, t, xpToReach(t.def.hero, level), 'restore');
+      const back = Math.max(0, Math.floor(r(o.spent)));
+      t.spent = 0;
+      refunded += back;
+      migrated.push({ unitId: t.unitId, level: t.level, refunded: back });
+      if (o.ultOn) {
+        t.ultUnlocked = true;
+        t.ultCooldown = r(o.ult);
+      }
+    } else if (t.isHero) {
+      if (o.xp > 0) gainHeroXp(sim, t, o.xp, 'restore');
       t.ultUnlocked = !!o.ultOn;
       t.ultCooldown = r(o.ult);
+      t.levelSpent = r(o.ls);
+      t.levelsBought = r(o.lb);
+      t.moveCd = r(o.mc);
+      // (a Move late in a wave can still be pausing her when the next one is started)
+      t.moveLock = r(o.ml);
     }
     const maxDr = t.stats.turret?.max ?? 0;
     for (const d of (o.dr || []).slice(0, maxDr)) t.turrets.push({ uid: d[0], x: d[1], y: d[2], facing: d[3], cooldown: d[4] });
@@ -260,5 +295,5 @@ export function restoreSim(rec, profile = null) {
   if (Array.isArray(s.leakGroups)) sim.stats.leakLog = unpackLeaks(s.leakGroups);
   if (!Array.isArray(sim.stats.leakLog)) sim.stats.leakLog = [];
   sim.drainEvents(); // no placement, upgrade or level-up FX / audio for the rebuild
-  return { sim, refunded, dropped };
+  return { sim, refunded, dropped, heroes: migrated };
 }

@@ -93,11 +93,22 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
 The calm point (prep, or between waves) is clean by construction: a wave only ends when the field is
 empty, so there are no enemies, statuses, shots or aura fields to carry; ult cooldowns only tick
 during waves. The snapshot (0.7–6 KB; 5 KB at wave 122 of a Colosseum run with ~1000 leaks) carries the girls (uid, unit, spot, tiers, target mode, spent,
-kills, damage, cooldown, disable, facing, build timer; hero XP / ult), drones, armed traps, coins
+kills, damage, cooldown, disable, facing, build timer; hero XP / ult, levels bought and their coins, Move timers), drones, armed traps, coins
 (+ fractional carry), lives, wave counters, time, active ult rate buffs, kills, encountered enemies
 and battle stats; the leak log is kept as (wave, enemy, lives, count) groups (`packLeaks`, the newest
 160), which keeps everything the defeat debrief reads. Restoring places and upgrades each girl through the normal Sim calls with the same
 uids, then assigns the plain fields and drains the events.
+
+**Snapshot format 2 (`SNAP_V` 2, the hero rework).** A hero has no tiers and is never sold: she is
+placed (free), then given her saved XP (her level and Mastery follow), ult state, `levelSpent`
+(`ls`), `levelsBought` (`lb`) and Move timers (`mc`, `ml`). A hero who cannot return is dropped
+like any girl, and the coins of her bought levels are refunded. A **format-1** snapshot (written
+before the rework) holds an old-scale hero (10 levels, path tiers bought with coins): she is
+restored on her spot at her old level on the new track (`xpToReach(level)`, bar empty), her tiers
+are ignored, and everything she cost (`spent`) is refunded; the battle shows "Heroes changed: Hikari
+keeps Lv 7 and her upgrades came back as 1,240 coins." The next write is format 2. Later Train C
+fields (Chika's roaming drones, Codex modes, path-cap buffs) are added to format 2 before it ships:
+it is bumped once for the whole train.
 
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).

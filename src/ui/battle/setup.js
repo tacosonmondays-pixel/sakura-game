@@ -101,14 +101,17 @@ export function createBattleSim(profile, req) {
 
 /**
  * Rebuilds the Sim of a saved battle (Continue) with the team frozen in its record.
- * @returns {{ sim: Sim, towers: string[], hero: string|null, refunded: number, dropped: string[] }}
+ * `heroRefunds`: a hero from a save made before the hero rework (her level, and her placement and
+ * upgrades as coins; already inside `refunded`).
+ * @returns {{ sim: Sim, towers: string[], hero: string|null, refunded: number, dropped: string[],
+ *   heroRefunds: { unitId: string, level: number, refunded: number }[] }}
  * @throws {import('./snapshot.js').StaleSaveError} the save cannot be restored by this build
  */
 export function resumeBattleSim(profile, rec) {
-  const { sim, refunded, dropped } = restoreSim(rec, profile);
+  const { sim, refunded, dropped, heroes: heroRefunds = [] } = restoreSim(rec, profile);
   const towers = [...new Set((rec.loadout || []).map((e) => e.unitId).filter((id) => UNIT_MAP[id]))];
   const hero = rec.hero?.unitId && UNIT_MAP[rec.hero.unitId] ? rec.hero.unitId : null;
-  return { sim, towers, hero, refunded, dropped };
+  return { sim, towers, hero, refunded, dropped, heroRefunds };
 }
 
 /**

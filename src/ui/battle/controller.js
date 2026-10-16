@@ -812,10 +812,17 @@ export function mountBattle(root, params, hooks) {
     later(armHero, 700);
     if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
+      // a hero saved before the hero rework: back at her level, what she cost back as coins
+      const heroBack = (restored.heroRefunds || []).reduce((a, x) => a + x.refunded, 0);
       if (restored.dropped.length) {
         const names = [...new Set(restored.dropped.map((id) => UNIT_MAP[id]?.name || id))];
         const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded - heroBack)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+      }
+      for (const x of restored.heroRefunds || []) {
+        const name = UNIT_MAP[x.unitId]?.name || x.unitId;
+        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtCoins(x.refunded)} coins` : '';
+        feed.push(`Heroes changed: ${name} keeps Lv ${x.level}${coins}.`, 'info', { key: 'save-hero', ms: 8000, sticky: true });
       }
       feed.push(`Welcome back! Wave ${sim.wave + 1} is next. Tap Start when you're ready.`, 'good', { key: 'welcome-back', ms: 4200, sticky: true });
     }

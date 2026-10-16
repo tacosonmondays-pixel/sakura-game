@@ -4,8 +4,10 @@
 // guards fail as soon as the Sim grows state the snapshot does not classify.
 //
 // The driver plays like the battle controller: random 7–45 ms frames at speeds 1/2/3, autoPlan
-// placements and upgrades, target changes, the ult, a sell, manual waves and then auto-start, with
-// sim.startNextWave wrapped on the instance (the controller's battleSaver does the same).
+// placements and upgrades, target changes, the ult, hero level buys and Moves, a sell, manual waves
+// and then auto-start, with sim.startNextWave wrapped on the instance (the controller's
+// battleSaver does the same). The checkpoint digest reads sim.heroes, never the view getter
+// sim.hero: an auto-start snapshot is taken inside the step, where the view trap throws.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -16,7 +18,8 @@ import { STAGE_MAP } from '../../src/data/stages.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
-import { RECORD_V, slotKey } from '../../src/systems/battleSave.js';
+import { RECORD_V, SNAP_V, slotKey } from '../../src/systems/battleSave.js';
+import { xpToReach } from '../../src/sim/hero.js';
 import {
   snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS,
 } from '../../src/ui/battle/snapshot.js';
@@ -47,6 +50,8 @@ function exec(sim, k, a) {
     case 'sell': return sim.sellTower(a[0]) > 0;
     case 'tgt': return sim.setTargetMode(a[0], a[1]);
     case 'ult': return !!sim.activateUlt();
+    case 'hlv': return sim.buyHeroLevel().ok;
+    case 'hmv': return sim.moveHero(a[0], a[1]).ok;
     case 'wave': return sim.startNextWave();
     case 'auto':
       sim.options.autoStart = !!a[0];
@@ -63,9 +68,10 @@ const plain = (v) => {
 };
 // references and per-step scratch (the round trip compares state, not identity)
 // (own functions are the test's and the controller's instance wrappers: _step, startNextWave)
-const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData', 'paths', 'pathTiles', 'placement', 'loadout', 'heroConfig', 'grid',
-  'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'hero', 'towers', 'traps',
-  'enemies', 'projectiles', 'fields', '_acc']);
+// (heroes: tower references, compared below by uid; _stepping is true for a snapshot taken inside the step)
+const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData', 'paths', 'pathTiles', 'placement', 'loadout', 'heroConfigs', '_heroConfig', 'grid',
+  'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'heroes', 'towers', 'traps',
+  'enemies', 'projectiles', 'fields', '_acc', '_stepping']);
 // a calm point resets these anyway (startNextWave overwrites the spawn cursor and timers)
 const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty']);
 // derived per-tower references / caches, and the harmless stale target memory of a calm point
@@ -98,7 +104,7 @@ function digest(sim, { calm = false } = {}) {
   out.enemies = sim.enemies.map((e) => ({ uid: e.uid, id: e.id, x: e.x, y: e.y, hp: e.hp, dist: e.dist, barrier: e.barrier }));
   out.projectiles = sim.projectiles.length;
   out.fields = sim.fields.length;
-  out.hero = sim.hero?.uid ?? null;
+  out.heroes = sim.heroes.map((h) => h?.uid ?? null);
   return out;
 }
 
@@ -197,6 +203,14 @@ function play(c, { stopAt = Infinity } = {}) {
       }
       if (fr.chance(0.002) && sim.towers.length) issue('tgt', sim.towers[fr.int(0, sim.towers.length - 1)].uid, modes[fr.int(0, modes.length - 1)]);
       if (sim.hero && sim.heroUltStatus().ready && fr.chance(0.03)) issue('ult');
+      // hero rework: buy her next level now and then, and Move her (between waves: free; in a wave:
+      // a pause and a cooldown) to a free spot a tile or two away
+      if (sim.hero && !sim.heroLevelStatus().reason && fr.chance(0.004)) issue('hlv');
+      if (sim.hero && fr.chance(0.002)) {
+        const h = sim.hero;
+        const [dx, dy] = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [2, 1], [-2, -1]][fr.int(0, 5)];
+        if (sim.canMoveHero(h.x + dx, h.y + dy).ok) issue('hmv', h.x + dx, h.y + dy);
+      }
       if (!sold && sim.wave === 6 && sim.state === 'between' && sim.towers.length > 3) {
         sold = true;
         issue('sell', sim.towers[sim.towers.length - 1].uid);
@@ -398,7 +412,78 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     expect(sim.hero.level).toBeGreaterThan(1);
     expect(sim.hero.ultUnlocked).toBe(true);
     expect(sim.hero.ultCooldown).toBe(h.ult);
+    expect(sim.hero.spent).toBe(0);
+    expect(sim.hero.levelSpent).toBe(h.ls);
+    expect(sim.hero.levelsBought).toBe(h.lb);
+    expect(sim.hero.moveCd).toBe(h.mc);
     expect(sim.drainEvents()).toEqual([]);
+  });
+
+  it('the scenarios bought hero levels and moved her (so the round trips above cover it)', () => {
+    let bought = 0;
+    let moved = 0;
+    for (const name of Object.keys(SCEN)) {
+      const run = fullRun(name);
+      bought += run.log.filter((x) => x.k === 'hlv').length;
+      moved += run.log.filter((x) => x.k === 'hmv').length;
+    }
+    expect(bought).toBeGreaterThan(0);
+    expect(moved).toBeGreaterThan(0);
+    const snaps = Object.keys(SCEN).flatMap((name) => fullRun(name).cps.map((cp) => JSON.parse(cp.json)));
+    const heroes = snaps.flatMap((sn) => sn.towers.filter((t) => t.xp != null));
+    expect(heroes.some((t) => t.lb > 0 && t.ls > 0)).toBe(true);
+    for (const t of heroes) expect(t.tiers).toEqual([0, 0, 0]);
+  });
+
+  it('a hero is never sold to undo a restore, and a hero who cannot return refunds her bought levels', () => {
+    const snap = cpAt(10);
+    const h = snap.towers.find((t) => t.xp != null);
+    expect(h).toBeTruthy();
+    h.ls = 500;
+    // her old tiers in an edited save are ignored (heroes have none): she comes back
+    h.tiers = [5, 5, 5];
+    const back = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+    expect(back.dropped).toEqual([]);
+    expect(back.sim.hero?.uid).toBe(h.uid);
+    expect(back.sim.hero.tiers).toEqual([0, 0, 0]);
+    // her unit is gone from the team after an update: dropped, the coins of her levels come back
+    const rec = recordOf(c, JSON.parse(JSON.stringify(snap)));
+    rec.hero = null;
+    const { sim, dropped, refunded } = restoreSim(rec);
+    expect(dropped).toEqual([h.u]);
+    expect(refunded).toBe(500);
+    expect(sim.cash).toBe(snap.cash + 500);
+    expect(sim.hero).toBe(null);
+  });
+
+  it(`a format-1 save (before the hero rework): her old level, tiers ignored, never dropped, all she cost refunded (now ${SNAP_V})`, () => {
+    expect(SNAP_V).toBe(2);
+    const snap = cpAt(10);
+    snap.v = 1;
+    const h = snap.towers.find((t) => t.xp != null);
+    // an old-scale Lv 7 hero (XP 1 per HP) with tiers 2/1/0 bought, 1,240 coins in her, ult charging
+    Object.assign(h, { lvl: 7, xp: 2480, tiers: [2, 1, 0], spent: 1240, ultOn: true, ult: 12.5 });
+    for (const k of ['ls', 'lb', 'mc', 'ml']) delete h[k];
+    const { sim, dropped, refunded, heroes } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    expect(refunded).toBe(1240);
+    expect(heroes).toEqual([{ unitId: h.u, level: 7, refunded: 1240 }]);
+    expect(sim.cash).toBe(snap.cash + 1240);
+    const hero = sim.hero;
+    expect(hero.uid).toBe(h.uid);
+    expect([hero.x, hero.y]).toEqual([h.x, h.y]);
+    expect(hero.level).toBe(7);
+    expect(hero.xp).toBe(xpToReach(hero.def.hero, 7));
+    expect(hero.tiers).toEqual([0, 0, 0]);
+    expect(hero.spent).toBe(0);
+    expect(hero.levelSpent).toBe(0);
+    expect(hero.ultUnlocked).toBe(true);
+    expect(hero.ultCooldown).toBe(12.5);
+    expect(sim.drainEvents()).toEqual([]);
+    // the others come back exactly as saved
+    for (const t of sim.towers.filter((x) => !x.isHero)) expect(t.spent).toBe(snap.towers.find((x) => x.uid === t.uid).spent);
+    // and the next snapshot is format 2
+    expect(snapshotSim(sim).v).toBe(SNAP_V);
   });
 });
 
