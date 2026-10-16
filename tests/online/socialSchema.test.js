@@ -23,6 +23,8 @@ const ALLOWED = new Set([
   'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests', 'invite_candidates', 'block_player',
   'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read', 'dm_clear', 'invite_state',
   'expire_coop_invites', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations',
+  // 20261018000000_clan_invites.sql
+  'clan_invites_version', 'send_clan_invite', 'list_clan_invites', 'answer_clan_invite', 'recruit_state', 'post_clan_recruit',
 ]);
 
 describe('social migration (lint)', () => {
