@@ -81,6 +81,7 @@ body:has(.sc-toast-host > .sc-toast:not(.out)) .toast-host { top: calc(96px + va
 .sc-card-x { font-size: 1.5rem; line-height: 1; display: grid; place-items: center; }
 .sc-card { display: flex; flex-direction: column; gap: 12px; }
 .sc-card-head { display: flex; gap: 12px; align-items: center; }
+.sc-card-av { flex: none; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; line-height: 0; } /* [profile] tap = View profile */
 .sc-card-av .ol-avatar { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--pink), 0 4px 12px rgba(29,78,137,0.25); }
 .sc-card-id { min-width: 0; }
 .sc-card-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

@@ -6,6 +6,7 @@
 import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import { createLocalSocial } from './localSocial.js';
+import { createLocalProfile } from './localProfile.js';
 import {
   CLAN_MAX_MEMBERS, LOCAL_DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
@@ -53,7 +54,7 @@ function freshState(devCode = null) {
 
 /**
  * @param {{ read: () => object|null, write: (state: object) => void, now?: () => number,
- *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean } }} io
+ *   rand?: () => number, emit?: (topic: string) => void, features?: { social?: boolean, profile?: boolean } }} io
  *   features.social = false: the "server" has no social functions yet (like the live project
  *   before the owner runs the social migration): every social call throws needs_update
  * @param {string|null} [io.devCode] the developer clan's join code here (tests only; defaults to
@@ -222,13 +223,19 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
   }
 
   // [social] DMs, friends, blocks, reports, co-op invites by DM, clan material requests
+  let profile = null;
   const social = createLocalSocial({
     tx, rate, retry, now, rand, code, systemMessage, devClanId: DEV_CLAN_ID, enabled: () => features.social !== false,
+    afterReport: (s, report, oldEvidence) => profile?.afterReport(s, report, oldEvidence),
   });
-  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, ...socialApi } = social;
+  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, relations, ...socialApi } = social;
+  // [profile] profile cards, bios, "Who can see my profile" (needs the social "server" too)
+  profile = createLocalProfile({ tx, rate, now, enabled: () => features.social !== false && features.profile !== false, social: { ...social } });
+  const { afterReport, ...profileApi } = profile;
 
   return {
     ...socialApi,
+    ...profileApi,
     // ---- account --------------------------------------------------------------------------
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {

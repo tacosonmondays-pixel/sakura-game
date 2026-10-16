@@ -34,14 +34,19 @@ export function socialFeatureFlag(search = globalThis.location?.search || '') {
   return new URLSearchParams(search).get('social') !== '0';
 }
 
+/** `?profile=0` simulates the project before the profile SQL is pasted (`?social=0` implies it). */
+export function profileFeatureFlag(search = globalThis.location?.search || '') {
+  return socialFeatureFlag(search) && new URLSearchParams(search).get('profile') !== '0';
+}
+
 /**
- * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean } }} [env]
+ * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean, profile?: boolean } }} [env]
  */
 export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
-  const features = env.features || { social: socialFeatureFlag() };
+  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -220,6 +225,25 @@ export function createLocalAdapter(env = {}) {
     },
     async playerCard(userId) {
       return db.playerCard(me(), userId);
+    },
+    // [profile]
+    async profileProbe() {
+      return db.profileProbe();
+    },
+    async profileView(userId) {
+      return db.profileView(me(), userId);
+    },
+    async myProfileCard() {
+      return db.myProfileCard(me());
+    },
+    async setProfileCard(card, hash) {
+      return db.setProfileCard(me(), card, hash);
+    },
+    async setProfileBio(bio) {
+      return db.setProfileBio(me(), bio);
+    },
+    async setProfileVisibility(value) {
+      return db.setProfileVisibility(me(), value);
     },
     async setPrivacy(value) {
       return db.setPrivacy(me(), value);

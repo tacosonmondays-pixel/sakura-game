@@ -23,6 +23,8 @@ const ALLOWED = new Set([
   'add_friend_by_code', 'answer_friend_request', 'cancel_friend_request', 'remove_friend', 'list_friends', 'list_friend_requests', 'invite_candidates', 'block_player',
   'unblock_player', 'list_blocked', 'send_dm', 'send_coop_invite', 'dm_inbox', 'dm_history', 'dm_mark_read', 'dm_clear', 'invite_state',
   'expire_coop_invites', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations',
+  // [profile] supabase/migrations/20261016000000_profile.sql
+  'profile_version', 'profile_view', 'my_profile_card', 'set_profile_card', 'set_profile_bio', 'set_profile_visibility',
 ]);
 
 describe('social migration (lint)', () => {

@@ -408,6 +408,37 @@ export function createSupabaseAdapter({ url, key }) {
       await srpc('set_dm_privacy', { p_value: value });
       return true;
     },
+
+    // ---- [profile] supabase/migrations/20261016000000_profile.sql ----------------------------
+    /** 'ready' | 'needs_update' | 'offline': is the profile migration installed? */
+    async profileProbe() {
+      try {
+        await srpc('profile_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async profileView(userId) {
+      const r = await srpc('profile_view', { p_user: userId });
+      const own = r.own ? { ...r.own, bioLockedUntil: tsOrNull(r.own.bioLockedUntil), updatedAt: tsOrNull(r.own.updatedAt) } : null;
+      return { ...r, lastActive: tsOrNull(r.lastActive), requestId: r.requestId ?? null, threadId: r.threadId ?? null, own };
+    },
+    async myProfileCard() {
+      const r = await srpc('my_profile_card');
+      return { ...r, bioLockedUntil: tsOrNull(r.bioLockedUntil), updatedAt: tsOrNull(r.updatedAt) };
+    },
+    async setProfileCard(card, hash) {
+      return srpc('set_profile_card', { p_card: card, p_hash: hash });
+    },
+    async setProfileBio(bio) {
+      const r = await srpc('set_profile_bio', { p_bio: String(bio ?? '') });
+      return { ...r, bioLockedUntil: tsOrNull(r.bioLockedUntil), updatedAt: tsOrNull(r.updatedAt) };
+    },
+    async setProfileVisibility(value) {
+      await srpc('set_profile_visibility', { p_value: value });
+      return true;
+    },
     async myFriendCode() {
       const r = await srpc('my_friend_code');
       return { code: r.code };

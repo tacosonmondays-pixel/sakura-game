@@ -7,6 +7,11 @@
 //   6. the achievements' deep links (Equip a title, Pin a ribbon) and the ≤ 4 live special ribbons on the shelf
 // plus: a bio renders as text, the old build drops the block and the picks come back, a reset gives
 // the auto showcase again, Reduce Motion stops every infinite animation, no horizontal overflow.
+// M2, visiting (two players with the local adapter, ?online=local: two pages share the local "server"):
+//   7. A writes a bio (a link is refused inline), B opens A's profile from a player card: bio, favorite,
+//      8 girls, medals, clan chip; holding girl 1 shows A's build (A's level, owner chip)
+//   8. A picks Only me → private for B; Everyone again, then B blocks A → the same private screen
+//   9. &profile=0 (before the profile SQL): the "needs the latest server update" card, chat still works
 //
 //   node e2e/profile.mjs                                  # 1280×720 (mouse) + 844×390 (touch)
 //   node e2e/profile.mjs --viewport 844x390 --shots e2e/out/profile
@@ -14,7 +19,7 @@
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 on a failure.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
-import { launchChromium } from './browser.mjs';
+import { launchChromium, ownSave } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -149,6 +154,8 @@ async function runViewport(vp) {
   await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'load' });
+  // the reload aborts the first page's lobby model textures mid-decode: its errors belong to a page that is gone
+  errors.splice(0);
   await page.waitForFunction(() => window.__sakura && document.documentElement.dataset.holdInfo === 'on', null, { timeout: 30000 });
   await seed(page);
   await page.evaluate(() => { location.hash = '#/missions'; });
@@ -412,8 +419,257 @@ async function runViewport(vp) {
   await context.close();
 }
 
+/** M2: visiting another Sensei, two players (pages) on the local adapter. */
+async function runVisit(vp) {
+  const [W, H] = vp.split('x').map(Number);
+  const touch = Math.min(W, H) < 600;
+  log(`\n=== visiting · viewport ${vp} (${touch ? 'touch' : 'mouse'}) ===`);
+  const vbase = `${base}?online=local&onboarding=0`;
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
+  const errors = [];
+  const noErrors = (what) => {
+    const errs = errors.splice(0);
+    check(!errs.length, `${what}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
+  };
+  async function openPage(name) {
+    const page = await context.newPage();
+    await ownSave(page, name);
+    page.on('console', (m) => {
+      if (m.type() !== 'error') return;
+      const t = m.text();
+      if (!IGNORE.some((re) => re.test(t))) errors.push(`[${name} console] ${t}`);
+    });
+    page.on('pageerror', (e) => errors.push(`[${name} pageerror] ${e.message}`));
+    return page;
+  }
+  // only the page in front gets animation frames: every wait / tap brings its page to the front first
+  let front = null;
+  const toFront = async (page) => {
+    if (front === page) return;
+    front = page;
+    await page.bringToFront().catch(() => {});
+  };
+  const wait = async (page, sel, { timeout = 10000, state = 'visible' } = {}) => {
+    await toFront(page);
+    return page.waitForFunction(([q, st]) => {
+      const el = document.querySelector(q);
+      if (st === 'detached') return !el;
+      if (!el) return false;
+      if (st === 'attached') return true;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    }, [sel, state], { timeout, polling: 200 });
+  };
+  const has = (page, sel, timeout = 10000) => wait(page, sel, { timeout }).then(() => true).catch(() => false);
+  const tap = async (page, sel) => {
+    await toFront(page);
+    const el = page.locator(sel).first();
+    const act = (o) => (touch ? el.tap(o) : el.click(o));
+    await act({ timeout: 15000 }).catch(() => act({ timeout: 15000, force: true }));
+  };
+  const go = (page, hash) => page.evaluate((x) => { location.hash = x; }, hash);
+  const shot = async (page, name) => {
+    await toFront(page);
+    const leaked = await page.evaluate(() => (document.body.innerText.match(/\b(null|undefined|NaN)\b/g) || []).join(', ')).catch(() => '');
+    check(!leaked, `${name}: no "null" / "undefined" / "NaN" on screen${leaked ? ` (${leaked})` : ''}`);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))))).catch(() => {});
+    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png` }).catch(() => {});
+  };
+  const noOverflow = (page, what) => page.evaluate(() => {
+    const els = [document.scrollingElement, ...document.querySelectorAll('.pf-main, .pf-top')].filter(Boolean);
+    return els.every((e) => e.scrollWidth <= e.clientWidth + 1);
+  }).then((ok) => check(ok, `${what}: no horizontal overflow`));
+  const clearModals = (page) => page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  async function setName(page, name) {
+    await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
+    await page.fill('[data-testid="name-input"]', name);
+    await tap(page, '[data-testid="name-save"]');
+    await wait(page, '[data-testid="name-input"]', { state: 'detached', timeout: 10000 });
+    await gift(page);
+  }
+  // the one-time Beta Tester gift, put off ("Later") like a player would
+  async function gift(page) {
+    if (Date.now() >= Date.UTC(2026, 10, 8, 6)) return;
+    if (await has(page, '[data-testid="beta-gift-later"]', 4000)) {
+      await tap(page, '[data-testid="beta-gift-later"]');
+      await wait(page, '.bg-gift-modal', { state: 'detached', timeout: 10000 }).catch(() => null);
+    }
+  }
+  const db = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ss-online-db') || '{}'));
+  const holdFirst = async (page, sel) => {
+    await toFront(page);
+    const el = page.locator(sel).first();
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    const b = await el.boundingBox();
+    if (!b) return;
+    const x = b.x + b.width / 2;
+    const y = b.y + b.height / 2;
+    if (touch) {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      await page.waitForTimeout(700);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach().catch(() => {});
+    } else {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.waitForTimeout(700);
+      await page.mouse.up();
+    }
+  };
+
+  // ---- A: a late save, a name, a clan; B joins it
+  const A = await openPage('A');
+  await A.goto(`${vbase}#/lobby`, { waitUntil: 'load' });
+  await A.evaluate(() => localStorage.clear());
+  await A.reload({ waitUntil: 'load' });
+  errors.splice(0); // the first page's aborted lobby loads (see runViewport)
+  await A.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
+  await go(A, '#/clan');
+  await setName(A, 'Aiko');
+  await wait(A, '[data-testid="clan-create-panel"]', { timeout: 10000 });
+  await A.fill('[data-testid="clan-name"]', 'Petal Squad');
+  await A.fill('[data-testid="clan-tag"]', 'ps');
+  await tap(A, '[data-testid="clan-create"]');
+  await wait(A, '[data-testid="clan-home"]', { timeout: 10000 });
+  await seed(A);
+  const B = await openPage('B');
+  await B.goto(`${vbase}#/clan`, { waitUntil: 'load' });
+  await setName(B, 'Bea');
+  await wait(B, '[data-testid="join-PS"]', { timeout: 10000 });
+  await tap(B, '[data-testid="join-PS"]');
+  await wait(B, '[data-testid="clan-home"]', { timeout: 10000 });
+  const [uidA, uidB] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__online.uid)));
+  check(uidA && uidB && uidA !== uidB, 'visiting: two tabs are two players in one clan');
+
+  // ---- 7. A's own profile goes online: the clan chip, "Sensei since", the card published
+  log('-- 7. A writes a bio; B visits A from a player card');
+  await go(A, '#/profile');
+  await wait(A, '[data-testid="profile"]', { timeout: 15000 });
+  await clearModals(A);
+  check(await has(A, '[data-testid="profile-clan"]'), 'own profile online: the clan chip');
+  check(/^Sensei since [A-Z][a-z]{2} \d{4}$/.test(await A.locator('[data-testid="profile-since"]').innerText().catch(() => '')), 'own profile online: "Sensei since <Mon YYYY>"');
+  check(await A.waitForFunction((u) => !!JSON.parse(localStorage.getItem('ss-online-db') || '{}').profileCards?.[u]?.card?.units, uidA, { timeout: 10000, polling: 300 }).then(() => true).catch(() => false), 'own profile online: the card is published');
+  // the bio: a link is refused inline, a kind line saves
+  await tap(A, '[data-testid="profile-bio"]');
+  await wait(A, '[data-testid="edit-bio"]', { timeout: 8000 });
+  await A.fill('[data-testid="edit-bio"]', 'join discord.gg/x');
+  check(await has(A, '[data-testid="edit-bio-error"]', 3000), 'Edit Profile: a link in the bio shows the rule inline');
+  await shot(A, 'edit-bio-error');
+  await tap(A, '[data-testid="edit-profile-save"]');
+  await A.waitForTimeout(400);
+  check(await has(A, '[data-testid="edit-profile"]', 2000) && !(await db(A)).profileCards?.[uidA]?.bio, 'Edit Profile: a refused bio is never saved (the sheet stays open)');
+  await A.fill('[data-testid="edit-bio"]', 'Hikari is the best!');
+  check(!(await has(A, '[data-testid="edit-bio-error"]', 800)), 'Edit Profile: a kind bio clears the message');
+  await tap(A, '[data-testid="edit-tab-privacy"]');
+  check(await A.locator('[data-testid="edit-privacy"] .ep-priv.on').getAttribute('data-vis').catch(() => '') === 'everyone', 'Privacy: Everyone by default');
+  await tap(A, '[data-testid="edit-profile-save"]');
+  await wait(A, '[data-testid="edit-profile"]', { state: 'detached', timeout: 8000 }).catch(() => {});
+  check((await db(A)).profileCards?.[uidA]?.bio === 'Hikari is the best!', 'Edit Profile: the bio is saved on the server');
+  check(await A.waitForFunction(() => /Hikari is the best!/.test(document.querySelector('[data-testid="profile-bio"]')?.textContent || ''), null, { timeout: 5000, polling: 200 }).then(() => true).catch(() => false), 'own profile: the new bio shows');
+  await shot(A, 'own-online');
+
+  // B: the clan roster → A's card → View profile
+  await go(B, '#/clan?tab=members');
+  await wait(B, '[data-testid="member-card"]', { timeout: 10000 });
+  await tap(B, `[data-testid="member-row"][data-user="${uidA}"] [data-testid="member-card"]`);
+  await wait(B, '[data-testid="card-view-profile"]', { timeout: 10000 });
+  await tap(B, '[data-testid="card-view-profile"]');
+  const shown = await has(B, '[data-testid="profile-slot"]', 15000);
+  const hashB = await B.evaluate(() => location.hash);
+  check(shown && hashB === `#/profile/${uidA}`, `player card → View profile opens #/profile/<id> (${hashB})`);
+  const v = await B.evaluate(() => ({
+    name: document.querySelector('[data-testid="profile-name"]')?.textContent,
+    bio: document.querySelector('[data-testid="profile-bio"]')?.textContent,
+    fav: document.querySelector('[data-testid="profile-fav"]')?.dataset.unit,
+    slots: document.querySelectorAll('[data-testid="profile-slot"]').length,
+    medals: document.querySelectorAll('.pf-tc b').length,
+    clan: document.querySelector('[data-testid="profile-clan"]')?.textContent || '',
+    edit: !!document.querySelector('[data-testid="profile-edit"]'),
+    acts: ['card-message', 'card-coop', 'profile-more'].every((t) => document.querySelector(`[data-testid="${t}"]`)),
+  }));
+  check(v.name === 'Aiko' && v.bio === 'Hikari is the best!', `visitor: A's name and bio (${v.name} · ${v.bio})`);
+  check(v.fav === 'luna' && v.slots === 8 && v.medals > 0, `visitor: favorite, 8 girls and the medals (${v.fav}, ${v.slots}, ${v.medals})`);
+  check(/PS/.test(v.clan) && !v.edit && v.acts, 'visitor: the clan chip, no Edit, Message · Co-op · More');
+  await noOverflow(B, 'visitor');
+  await shot(B, 'visit');
+  // hold girl 1 → A's build in the Unit Sheet: A's level, the owner chip
+  const lvA = await A.evaluate(() => { const p = window.__sakura.store.profile; const id = document.querySelector('[data-testid="profile-slot"]')?.dataset.unit; return { id, lv: p.units[id]?.level }; });
+  await holdFirst(B, '[data-testid="profile-slot"]');
+  const sheet = await has(B, '[data-testid="unit-sheet"]', 8000);
+  const us = await B.evaluate(() => ({
+    owner: document.querySelector('[data-testid="unit-sheet-owner"]')?.textContent || '',
+    lv: document.querySelector('[data-testid="unit-sheet"] .us-level b')?.textContent || '',
+    full: !!document.querySelector('[data-testid="unit-sheet-open-page"]'),
+  }));
+  check(sheet && /Aiko/.test(us.owner) && us.lv === String(lvA.lv) && !us.full, `visitor: hold girl 1 → A's build (owner ${us.owner}, Lv ${us.lv} vs ${lvA.lv}, no full page)`);
+  await shot(B, 'visit-build');
+  await B.click('[data-testid="unit-sheet-close"]', { timeout: 4000 }).catch(() => {});
+  noErrors('visit');
+
+  // ---- 8. Only me → private; block → the same private screen
+  log('-- 8. privacy and blocks');
+  await go(A, '#/profile?edit=privacy');
+  const priv = await has(A, '[data-testid="edit-privacy"] button[data-vis="nobody"]', 8000);
+  if (!priv) {
+    await tap(A, '[data-testid="profile-edit"]');
+    await tap(A, '[data-testid="edit-tab-privacy"]');
+  }
+  await tap(A, '[data-testid="edit-privacy"] button[data-vis="nobody"]');
+  await tap(A, '[data-testid="edit-profile-save"]');
+  await wait(A, '[data-testid="edit-profile"]', { state: 'detached', timeout: 8000 }).catch(() => {});
+  check((await db(A)).profileCards?.[uidA]?.visibility === 'nobody', 'Only me is saved on the server');
+  check(/Only you can see your profile/.test(await A.locator('[data-testid="profile-server-note"]').innerText().catch(() => '')), 'own profile: says only you can see it');
+  await B.reload({ waitUntil: 'load' });
+  const privOk = await has(B, '[data-testid="profile-why-private"]', 15000);
+  const privText = await B.locator('[data-testid="profile-state"]').innerText().catch(() => '');
+  check(privOk && /keeps their profile private/.test(privText) && !(await B.locator('[data-testid="profile-slot"]').count()), `Only me: B sees the private card, no girls (${privText})`);
+  check(await has(B, '[data-testid="profile-why-private"] [data-testid="card-message"]', 2000), 'private card: the player card actions are still there');
+  await shot(B, 'visit-private');
+  // Everyone again, then B blocks A
+  await go(A, '#/profile?edit=privacy');
+  await wait(A, '[data-testid="edit-privacy"] button[data-vis="everyone"]', { timeout: 8000 });
+  await tap(A, '[data-testid="edit-privacy"] button[data-vis="everyone"]');
+  await tap(A, '[data-testid="edit-profile-save"]');
+  await wait(A, '[data-testid="edit-profile"]', { state: 'detached', timeout: 8000 }).catch(() => {});
+  await B.reload({ waitUntil: 'load' });
+  check(await has(B, '[data-testid="profile-slot"]', 15000), 'Everyone again: B sees A\'s girls');
+  await tap(B, '[data-testid="profile-more"]');
+  await wait(B, '[data-testid="card-block"]', { timeout: 6000 });
+  await tap(B, '[data-testid="card-block"]');
+  await wait(B, '.modal-overlay [data-testid="confirm-ok"], .modal-overlay .btn-danger', { timeout: 6000 }).catch(() => {});
+  await tap(B, '.modal-overlay [data-testid="confirm-ok"], .modal-overlay .btn-danger');
+  const blocked = await has(B, '[data-testid="profile-why-blocked_by_me"]', 10000);
+  check(blocked && !(await B.locator('[data-testid="profile-slot"]').count()) && await has(B, '[data-testid="card-unblock"]', 2000), 'B blocks A: the private screen with Unblock');
+  // A, blocked by B, sees B's profile exactly like a private one
+  await go(A, `#/profile/${uidB}`);
+  const fromA = await has(A, '[data-testid="profile-why-private"]', 15000);
+  check(fromA && /keeps their profile private/.test(await A.locator('[data-testid="profile-state"]').innerText().catch(() => '')), 'blocked by B: A sees the same private card (a block never shows)');
+  await tap(B, '[data-testid="card-unblock"]');
+  await has(B, '[data-testid="profile-slot"]', 10000);
+  noErrors('privacy');
+
+  // ---- 9. before the profile SQL: the needs-update card; chat and M1 still work
+  log('-- 9. before the profile SQL (&profile=0)');
+  await B.goto(`${vbase}&profile=0#/profile/${uidA}`, { waitUntil: 'load' });
+  check(await has(B, '[data-testid="profile-needs-update"]', 15000), 'profile=0: visiting shows "needs the latest server update"');
+  await shot(B, 'visit-needs-update');
+  await go(B, '#/profile');
+  check(await has(B, '[data-testid="profile-showcase"]', 15000), 'profile=0: the own profile still works from the save');
+  check(/server update/.test(await B.locator('[data-testid="profile-server-note"]').innerText().catch(() => '')), 'profile=0: the own profile says the server update is next');
+  await go(B, '#/clan?tab=chat');
+  check(await has(B, '[data-testid="chat-panel"][data-ready="1"]', 15000), 'profile=0: clan chat still works');
+  await toFront(B);
+  await B.fill('[data-testid="chat-input"]', 'Still chatting!');
+  await B.press('[data-testid="chat-input"]', 'Enter');
+  check(await B.waitForFunction(() => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => /Still chatting/.test(m.innerText)), null, { timeout: 8000, polling: 200 }).then(() => true).catch(() => false), 'profile=0: a chat line sends');
+  noErrors('needs-update');
+  await context.close();
+}
+
 try {
   for (const vp of viewports) await runViewport(vp);
+  for (const vp of viewports) await runVisit(vp);
 } catch (e) {
   failures.push(`crashed: ${e.stack || e.message}`);
   console.error(e);
