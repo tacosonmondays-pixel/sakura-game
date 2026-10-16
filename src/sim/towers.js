@@ -118,9 +118,17 @@ export function createTower(def, o) {
   return t;
 }
 
+/**
+ * Her stats as her def, tiers, hero level / mastery and unitStats (her player's loadout entry) give
+ * them (pure; no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
+ */
+export function towerResolvedStats(t) {
+  return resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
+}
+
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
 export function refreshTowerStats(t, globalRateMul = 1) {
-  t.stats = resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
+  t.stats = towerResolvedStats(t);
   t.projKind = projectileKind(t.def, t.stats);
   refreshEffective(t, globalRateMul);
 }

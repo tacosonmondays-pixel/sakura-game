@@ -108,8 +108,10 @@ so every girl keeps her P and fights with the v3 steps of it at once.
   row and the four sources).
 - **Co-op** (`src/online/coop/statLimits.js`, hashed): the plausibility clamp with gear's ceilings (`damageMul` ≤ 10,
   `rateMul` ≤ 5, `level` 1–99, …) and the `potential` rule (integer 1–6), one rule per unit-stat key, at most
-  towersPerPlayer + 1 girls a player; `session.js` `begin()` clamps the start message on both clients. Honest L85 P6
-  loadouts pass through unchanged.
+  towersPerPlayer + 1 girls a player; `session.js` `begin()` clamps the start message on both clients, and the
+  lockstep (`clampStarts`) clamps the host's start again in a resync or rejoin and rebuilds any girl whose
+  checkpointed stats are not what her clamped entry gives (`rederiveStats`). Honest L85 P6 loadouts and honest
+  checkpoints pass through unchanged.
 - **Tests**: `tests/systems/progression.test.js` (the table, `levelCap` gates 0–4 × P1–P6 and gate 5 × P1–P6,
   `expForLevel(59)` 50,300 / 60…84 30,000 / 85 ∞, `totalExpToLevel(85)` 1,856,630, 12,000 coins a level, the band
   split across 60, overflow at the cap, Auto Select to 85, L85 stats, the shadow, `settleLevels`, `levelCapInfo`),

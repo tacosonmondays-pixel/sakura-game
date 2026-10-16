@@ -622,7 +622,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   let pump = 0;
   function begin(raw) {
     // every girl's stats clamped to what an honest save reaches (statLimits.js; the identity for an
-    // honest loadout): the host clamps the start it sends, the guest the one it receives
+    // honest loadout): the host clamps the start it sends, the guest the one it receives, and the
+    // lockstep clamps every start a resync or rejoin rebuilds from (clampStarts)
     const start = clampStart(raw);
     s.start = start;
     s.phase = 'battle';
@@ -645,6 +646,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     s.lockstep = new Lockstep({
       start,
       mySlot,
+      // a resync or rejoin rebuilds from the host's start: the same clamp again (statLimits.js)
+      clampStarts: true,
       now,
       delay: net.inputDelay,
       heartbeatMs: net.heartbeatMs,

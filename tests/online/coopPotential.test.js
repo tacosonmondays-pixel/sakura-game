@@ -8,6 +8,8 @@ import { withDetMath } from '../../src/online/coop/detMath.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
 import { ultEffect } from '../../src/sim/hero.js';
 import { bountyMulAt } from '../../src/sim/potential.js';
+import { rederiveStats } from '../../src/online/coop/lockstep.js';
+import { snapshotDigest } from '../../src/sim/snapshot.js';
 
 const start = {
   seed: 91,
@@ -171,5 +173,17 @@ describe('co-op: the same girl at two Potentials', () => {
     expect(gk.projCarry).toBeUndefined();
     expect(A.hash()).toBe(B.hash());
     expect(B.wallets).toEqual(A.wallets);
+    // an honest checkpoint of this battle (Miko's Brittle aura, Kage's tempo and storm, Momo's harvest
+    // mid-run) restores with every girl's stats as her loadout entry gives them: the resync's check
+    // (lockstep.js rederiveStats) rebuilds nobody, and the restored copy stays in lockstep
+    const C = createCoopSim(start2, { mySlot: 1 });
+    C.restore(A.snapshot());
+    expect(rederiveStats(C.sim)).toBe(0);
+    for (let i = 0; i < 1800; i++) {
+      A.step();
+      C.step();
+    }
+    expect(C.hash()).toBe(A.hash());
+    expect(snapshotDigest(C.snapshot())).toBe(snapshotDigest(A.snapshot()));
   });
 });

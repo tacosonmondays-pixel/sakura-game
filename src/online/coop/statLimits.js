@@ -1,9 +1,11 @@
 // Co-op plausibility clamp: every girl's battle stats in a start message are clamped to what an
 // honest save can reach, with wide headroom, before either Sim reads them. The lobby (session.js
 // begin) clamps the start message on both peers — the host's own and the one the guest receives —
-// so both build their CoopSim from the same clamped message and stay in lockstep; resyncs and
-// rejoins carry that clamped start. An honest loadout passes through unchanged (the identity). It
-// closes the hole where a hand-edited peer could send `damageMul: 1000`. (Test harnesses and the
+// so both build their CoopSim from the same clamped message and stay in lockstep. A resync or a
+// rejoin rebuilds from the host's start and checkpoint: the lockstep (clampStarts) clamps that start
+// again and rebuilds any girl whose checkpointed stats are not what her clamped entry gives
+// (lockstep.js rederiveStats). An honest loadout passes through unchanged (the identity). It closes
+// the hole where a hand-edited peer could send `damageMul: 1000`. (Test harnesses and the
 // cross-engine fixtures call createCoopSim / Lockstep directly with deliberately superhuman stats;
 // they are not network input.)
 //

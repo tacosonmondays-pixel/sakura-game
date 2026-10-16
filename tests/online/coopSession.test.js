@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { openSession, LOBBY } from '../../src/online/coop/session.js';
 import { coopVersion } from '../../src/online/coop/version.js';
 import { openSocialSession } from '../../src/online/coop/socialRoom.js';
+import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
+import { clampStart } from '../../src/online/coop/statLimits.js';
 
 function world({ latency = 60 } = {}) {
   const clock = { t: 1_000_000 };
@@ -631,6 +633,56 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     // an honest L85 P6 girl passes through as she is
     expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
     expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+    host.close();
+    guest.close();
+  });
+
+  it('a resync from a hand-edited host fights at the clamp too: its start is clamped again and its checkpoint stats re-derived', () => {
+    const W = world();
+    const host = open(W, true);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4242)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    // the hand-edited host's own battle: its first girl at damageMul 1000, placed, a few seconds in
+    const hostile = JSON.parse(JSON.stringify(host.lockstep.start));
+    const hp = hostile.players.find((p) => p.slot === 0);
+    hp.loadout[0].stats = { ...hp.loadout[0].stats, damageMul: 1000, rateMul: 99 };
+    const unitId = hp.loadout[0].unitId;
+    const C = createCoopSim(hostile, { mySlot: 0 });
+    let spot = null;
+    for (let y = 0.55; y < C.sim.map.height && !spot; y += 0.35) {
+      for (let x = 0.55; x < C.sim.map.width && !spot; x += 0.35) if (!C.sim.placementReason(unitId, x, y)) spot = quantize(x, y);
+    }
+    const cmds = [{ t: 0, p: 0, s: 0, k: 'place', a: [unitId, ...spot] }, { t: 1, p: 0, s: 1, k: 'wave', a: [] }];
+    for (const c of cmds) {
+      while (C.tick < c.t) C.step();
+      expect(C.apply(c).ok).toBe(true);
+    }
+    for (let i = 0; i < 120; i++) C.step();
+    const cheat = C.sim.towers[0];
+    expect(cheat.unitStats.damageMul).toBe(1000);
+    // the guest rebuilds from that start and that checkpoint (applyResync, as a 'resync' message does)
+    const ls = guest.lockstep;
+    ls.applyResync({ start: hostile, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
+    while (ls.job) ls.runJob(Infinity);
+    const t = ls.coop.sim.getTower(cheat.uid);
+    expect(t.unitStats).toMatchObject({ damageMul: 10, rateMul: 5 });
+    // her stats and effective stats come from the clamped entry, not from the checkpoint's numbers
+    const honest = createCoopSim(clampStart(hostile), { mySlot: 1 });
+    for (const c of cmds) {
+      while (honest.tick < c.t) honest.step();
+      honest.apply(c);
+    }
+    const h = honest.sim.towers[0];
+    expect(t.stats.damage).toBe(h.stats.damage);
+    expect(t.stats.rate).toBe(h.stats.rate);
+    expect(t.stats.damage).toBeLessThan(cheat.stats.damage / 50);
+    expect(t.eff.damage).toBeLessThan(cheat.eff.damage / 50);
     host.close();
     guest.close();
   });
