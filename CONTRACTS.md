@@ -598,7 +598,7 @@ letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `
 `revealTag`, `revealRibbon`, `showPotentialUp` (the "Potential up!" cards after a recruit), `nextLine`,
 `stepPhrase`) + `src/ui/styles/potential.css`; the battle panel's live rows (rhythm and tempo pips, shuriken per
 throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
-asked of `progression.potentialLevelCap(p)` (= `levelCap` with every gate open), never stored here.
+asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open), never stored here.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -631,9 +631,10 @@ export const LEVEL_PAST_GATES = { from: 60, caps: [60, 63, 67, 72, 78, 85], exp:
   // Akashic Tome + 12,000 coins; a later ascension (level gates) replaces or extends it and levelCap, never the ladders
 export const BREAKTHROUGH_LEVEL_CAP = 60, POTENTIAL_LEVEL_CAPS, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60
 export const MAX_LEVEL = 85;                     // P6's cap (was 60)
-export function levelCap(unitState)              // gates < 5: 10 + 10*breakthrough; gate 5: POTENTIAL_LEVEL_CAPS[potentialLevel - 1] (P1 60 … P6 85)
+export function levelCapAt(gates, p)             // the rule with her P given: gates < 5: 10 + 10*gates; gate 5: POTENTIAL_LEVEL_CAPS[p - 1] (P1 60 … P6 85)
+export function levelCap(unitState)              // levelCapAt(her gates, potentialLevel(unitState))
 export function levelCapInfo(unitState)          // -> { cap, max, p, by: 'gate'|'potential', next, nextGate?, nextP?, full } (the screens' cap copy)
-export function potentialLevelCap(p)             // levelCap with every gate open at Potential p (the Potential screens' "· 67")
+export function potentialLevelCap(p)             // levelCapAt(5, p): every gate open at Potential p (the Potential screens' "· 67")
 export function expForLevel(level)               // exp to go from level to level+1 (30,000 from 60; Infinity at 85)
 export function bookExpTotal(books)              // {itemId:count} -> exp
 export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped, wasted, cap }; coins 0.4/EXP (12,000 a level above 60)

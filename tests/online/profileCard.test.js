@@ -115,7 +115,7 @@ describe('snapshots', () => {
     expect(m.units.aoi).toMatchObject({ level: 40, breakthrough: 3, awaken: 2 });
     expect(m.gear).toEqual({});
   });
-  it('levels above 60 follow her Potential: the viewer and the co-op ally clamp to levelCap({ bt, dupes: p − 1 })', () => {
+  it('levels above 60 follow her Potential: the viewer and the co-op ally clamp to levelCapAt(bt, p)', () => {
     const v = cleanViewedCard({ v: 1, units: [{ id: 'aoi', lv: 72, bt: 5, aw: 5, p: 4 }, { id: 'rei', lv: 72, bt: 5, aw: 5, p: 1 }, { id: 'kage', lv: 99, bt: 5, aw: 5, p: 6 }, { id: 'yuki', lv: 85, bt: 3, aw: 0, p: 6 }] });
     expect(v.units.map((u) => [u.id, u.lv])).toEqual([['aoi', 72], ['rei', 60], ['kage', 85], ['yuki', 40]]);
     expect(snapshotToMiniProfile(v.units[0]).units.aoi).toMatchObject({ level: 72, dupes: 3 });

@@ -81,6 +81,18 @@ export function potentialLevel(unitState) {
 }
 
 /**
+ * The unit-state fields that put a girl at Potential `p`: potentialLevel's inverse, kept beside it.
+ * A screen that knows only her P (a profile card's showcase entry, a co-op ally's loadout) builds her
+ * state from this, so a later Potential source (ascension's Essence) changes both directions here.
+ * Her level cap needs no state at all: src/systems/progression.js levelCapAt(gates, p).
+ * @param {number} p 1…6 (anything else counts as P1)
+ * @returns {{ dupes: number }}
+ */
+export function potentialState(p) {
+  return { dupes: Math.max(1, Math.min(MAX_POTENTIAL, Math.floor(Number(p) || 1))) - 1 };
+}
+
+/**
  * A duplicate past P6 (she was already at MAX_POTENTIAL): Akashic Tomes besides her Star Fragments,
  * by her rarity (Potential v3 §4.4: SR 1, SSR 5; R overflow is constant, so none). It sits next to
  * potentialLevel so a later duplicate source (ascension's Essence) changes the duplicate payout in

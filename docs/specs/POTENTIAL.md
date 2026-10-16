@@ -35,7 +35,7 @@ Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 
   each node (`+4% SPD`); the step list replaces v1's signature box (owned ✓, the next one with "NEXT · 1 more
   duplicate", later ones muted, Allies / Enemies / Coins chips, the capstone with the crown); the footer names the
   next step ("Next: P5 ✦ Moonpiercer with 1 more duplicate") and the capstone. The cap part of each line (`· 67`)
-  and each row's "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCap` with every gate open)
+  and each row's "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open)
   and show only where Potential raises the cap above P1's, so today (cap 60 at every P) they are hidden and L0
   turns them on without touching the UI.
 - **Previews**: spark grid ("Owned · P4 → P5 ✦ Moonpiercer"), SSR Select Ticket confirm ("P1 → P2: ✦ Firefly
@@ -83,14 +83,16 @@ so every girl keeps her P and fights with the v3 steps of it at once.
   stays at 40; there is no gate 6: the duplicate is the gate). `expForLevel` is 30,000 from 60 to 84; `MAX_LEVEL`
   85. Her growth continues (L85 ★5 gate 5: damage ×2.862, rate ×1.336; ×1.283 her L60 DPS). Coins are charged per
   band (0.4 per EXP up to 60, 12,000 per 30,000 EXP above). A later ascension (level gates paid with family
-  materials and a crown) replaces or extends this table and `levelCap`; the duplicate → Potential source stays
-  `potentialLevel`, and the duplicate-past-P6 payout `DUPE_PAST_MAX_TOMES` sits next to it. Not co-op hashed.
+  materials and a crown) replaces or extends this table and `levelCapAt` (the rule, with her P passed in;
+  `levelCap(state)` = `levelCapAt(gates, potentialLevel(state))`); the duplicate → Potential source stays
+  `potentialLevel`, with its inverse `potentialState(p)` and the duplicate-past-P6 payout `DUPE_PAST_MAX_TOMES` next
+  to it, so no other code says P = 1 + duplicates. Not co-op hashed.
 - **Saves** (no `SAVE_VERSION` bump): `cleanUnit` lets a girl past gate 5 keep any level up to 85 (her duplicates
   may not be known yet); `migrateProfile` runs `settleLevels` after `creditPotential`: it lifts a girl an older
   build clamped to 60 back to `min(lv:<id>, levelCap)` (the level shadow in `missions.counters`, written by
   `levelUp` above 60) and clamps every girl to `levelCap` (EXP 0 when clamped). A hostile shadow never lifts above
   the cap, and only a girl at 60+ is lifted. The profile card viewer and the co-op ally mini profile clamp to
-  `levelCap({ breakthrough, dupes: p − 1 })`. Sandbox girls fight at their P1 cap (60).
+  `levelCapAt(breakthrough, p)`. Sandbox girls fight at their P1 cap (60).
 - **Akashic Tome sources** (none sold for gems): Library Courtyard III on Nightmare 5 % → 20 % (`STAGES`: the co-op
   data id changes); a freeplay cache adds one Tome, at most 2 a week per account, solo and co-op sharing
   `fpTome:<weekKey>` (added after the cache rolls, so every other drop is unchanged; a new week's key deletes the

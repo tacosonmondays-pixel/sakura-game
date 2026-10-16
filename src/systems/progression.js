@@ -56,14 +56,24 @@ const PER_STAR_DAMAGE = 0.05;
 const PER_LEVEL_RATE = 0.004;
 
 /**
- * Level cap for a unit state: 10 + 10 × breakthrough below gate 5; with every gate open, her
- * Potential's cap (P1 60 · P2 63 · P3 67 · P4 72 · P5 78 · P6 85). A P6 girl at gate 3 is capped at
- * 40: the gates come first, and there is no gate 6 (the duplicate is the gate).
+ * The level-cap rule with her gates and her Potential given: 10 + 10 × gates below gate 5; with
+ * every gate open, her Potential's cap (P1 60 · P2 63 · P3 67 · P4 72 · P5 78 · P6 85). A P6 girl at
+ * gate 3 is capped at 40: the gates come first, and there is no gate 6 (the duplicate is the gate).
+ * Callers that already know her P (a profile card, a co-op loadout, the Potential screens) pass it
+ * here, so nothing outside src/systems/potential.js potentialLevel says where P comes from.
+ * @param {number} gates breakthrough gates open (0…5)
+ * @param {number} p her Potential (1…6)
  */
+export function levelCapAt(gates, p) {
+  const g = Math.max(0, Math.floor(Number(gates) || 0));
+  if (g < MAX_BREAKTHROUGH) return 10 + 10 * g;
+  const i = Math.max(1, Math.min(POTENTIAL_LEVEL_CAPS.length, Math.floor(Number(p) || 1))) - 1;
+  return POTENTIAL_LEVEL_CAPS[i];
+}
+
+/** Level cap for a unit state: levelCapAt(her gates, potentialLevel(her state)). */
 export function levelCap(unitState) {
-  const gates = Math.max(0, Math.floor(Number(unitState?.breakthrough) || 0));
-  if (gates < MAX_BREAKTHROUGH) return 10 + 10 * gates;
-  return POTENTIAL_LEVEL_CAPS[potentialLevel(unitState) - 1];
+  return levelCapAt(unitState?.breakthrough, potentialLevel(unitState));
 }
 
 /**
@@ -84,13 +94,12 @@ export function levelCapInfo(unitState) {
 /**
  * Her level cap at Potential `p` once every breakthrough gate is open: what the Potential screens
  * show next to each step ("+4% SPD · 67"; they show it only where it rises above the P1 cap). It
- * asks levelCap itself, so the screens follow whatever the level rule says (and an ascension that
- * moves the caps moves them here too).
+ * asks levelCapAt, so the screens follow whatever the level rule says (and an ascension that moves
+ * the caps moves them here too).
  * @param {number} p 1…6
  */
 export function potentialLevelCap(p) {
-  const dupes = Math.max(0, Math.min(5, Math.floor(Number(p) || 1) - 1));
-  return levelCap({ breakthrough: MAX_BREAKTHROUGH, dupes });
+  return levelCapAt(MAX_BREAKTHROUGH, p);
 }
 
 /** EXP to go from `level` to `level + 1` (Infinity at max; one Akashic Tome per level from 60). */

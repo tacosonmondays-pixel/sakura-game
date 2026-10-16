@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  potentialLevel, backfillDupes, restoreFromShadow, poissonQuantile, shadowPotential,
+  potentialLevel, potentialState, backfillDupes, restoreFromShadow, poissonQuantile, shadowPotential,
   POOL_SIZE_V0125, RARITY_SHARE, MAX_POTENTIAL, BACKFILL_MARKER, SHADOW_AT,
 } from '../../src/systems/potential.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
@@ -33,6 +33,9 @@ describe('potentialLevel', () => {
   it('is 1 + dupes, capped at 6, and 1 for anything odd', () => {
     expect(MAX_POTENTIAL).toBe(6);
     expect(potentialLevel(undefined)).toBe(1);
+    // potentialState is its inverse (the cards and co-op allies that know only her P build her state from it)
+    for (let p = 1; p <= 6; p++) expect(potentialLevel(potentialState(p))).toBe(p);
+    expect([potentialState(0), potentialState(NaN), potentialState(9)]).toEqual([{ dupes: 0 }, { dupes: 0 }, { dupes: 5 }]);
     expect(potentialLevel({})).toBe(1);
     expect(potentialLevel({ dupes: null })).toBe(1);
     expect(potentialLevel({ dupes: NaN })).toBe(1);

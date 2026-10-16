@@ -4,7 +4,7 @@ import {
   MAX_LEVEL, levelCap, expForLevel, totalExpToLevel, bookExpTotal, previewLevelUp, levelUp, autoSelectBooks,
   breakthroughCost, canBreakthrough, breakthrough, awakenCost, canAwaken, awaken, unitBattleStats, unitPower, COINS_PER_EXP,
   BREAKTHROUGH_LEVEL_CAP, POTENTIAL_LEVEL_CAPS, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60, LEVEL_PAST_GATES,
-  potentialLevelCap, LEVEL_SHADOW_PREFIX, settleLevels, levelCapInfo,
+  potentialLevelCap, levelCapAt, LEVEL_SHADOW_PREFIX, settleLevels, levelCapInfo,
 } from '../../src/systems/progression.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
@@ -171,6 +171,15 @@ describe('levels past 60 (Potential raises the cap; docs/specs/POTENTIAL.md v3 �
     expect(levelCap({ breakthrough: 5, dupes: 40 })).toBe(85);
     expect(levelCap({ breakthrough: 5, dupes: null })).toBe(60);
     expect(levelCap(undefined)).toBe(10);
+  });
+
+  it('levelCapAt takes her P directly (the card, the co-op ally and the Potential screens never rebuild a state from P)', () => {
+    for (let gates = 0; gates < 5; gates++) for (let p = 1; p <= 6; p++) expect(levelCapAt(gates, p)).toBe(10 + 10 * gates);
+    expect([1, 2, 3, 4, 5, 6].map((p) => levelCapAt(5, p))).toEqual([60, 63, 67, 72, 78, 85]);
+    // levelCap is levelCapAt(her gates, her Potential) for any state
+    for (let gates = 0; gates <= 5; gates++) for (let p = 1; p <= 6; p++) expect(levelCap(girl(1, gates, p))).toBe(levelCapAt(gates, p));
+    // out-of-range input: P below 1 / not a number → P1, above 6 → P6; gates past 5 count as 5
+    expect([levelCapAt(5, 0), levelCapAt(5, NaN), levelCapAt(5, 9), levelCapAt(9, 4), levelCapAt(undefined, 6)]).toEqual([60, 60, 85, 72, 10]);
   });
 
   it('levelCapInfo says what raises her cap next (the screens\' copy)', () => {
