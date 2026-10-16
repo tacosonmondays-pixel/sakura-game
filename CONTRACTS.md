@@ -520,9 +520,9 @@ export function clearBattleSave(profile, slot, runId?) /*with runId: only that r
 export function droppedBattleSaves(raw), droppedBattleSaveNames(raw) // the one-time notice after an update
 export function saveSummary(rec, now)            // -> { next /*the wave fought next*/, of /*null when endless*/, lives, difficulty, endless, ago }
 export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore or a wave past a shortened stage, keeps the newest 5)
-BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, seed /*uint32 run seed*/,
+BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, mode? /*a battle mode; absent = Standard*/, seed /*uint32 run seed*/,
   loadout: [{ unitId, stats }], hero: { unitId, stats }|null /*unitBattleStats frozen at New game*/,
-  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty }, snap /*src/ui/battle/snapshot.js*/ }
+  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty, mode }, snap /*src/ui/battle/snapshot.js; rr: route orientation where it can turn*/ }
 ```
 Rules: rewards, medals, first clears, stats, missions and drops only on a real end (`results.apply()`),
 which deletes the run's save in the same synchronous write; a closed or replaced run never writes
