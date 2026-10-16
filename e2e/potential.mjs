@@ -240,7 +240,9 @@ try {
     await shot(page, `recruit-10-${tag}`);
     await closeReveal(page);
     // 6. the first-gain tip (once)
-    const tip = await page.waitForSelector('.toast', { timeout: 4000 }).then((e) => e.textContent()).catch(() => '');
+    // (other toasts may stand with it, e.g. an achievement completed by this pull)
+    const tip = await page.waitForFunction(() => [...document.querySelectorAll('.toast')].map((e) => e.textContent).find((t) => /See her Info tab/.test(t)) || null, null, { timeout: 4000 })
+      .then((h) => h.jsonValue()).catch(() => page.evaluate(() => [...document.querySelectorAll('.toast')].map((e) => e.textContent).join(' | ')));
     check(/See her Info tab/.test(tip), `${tag} recruit: the first Potential gain shows the tip "${tip}"`);
     const seen = await profileOf(page);
     check(seen.seenIntro.includes('potential-tip'), `${tag} recruit: the tip is remembered`);
@@ -311,6 +313,10 @@ try {
     const aoiP = P(counts.dupes.aoi);
     await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
     await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.select && document.querySelector('[data-testid="card-aoi"]'), null, { timeout: 90000 });
+    // the free hero card arms itself at wave 0 (hero rework, ~0.7 s in), which would close the
+    // panel we open: let it arm, then put it back
+    await page.waitForFunction(() => window.__battle.ui.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
     await page.waitForTimeout(800);
     const placed = await page.evaluate(() => {
       const { sim, ui } = window.__battle;

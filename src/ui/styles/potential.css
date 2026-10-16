@@ -33,9 +33,13 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 /* formation slots: the level sits at the bottom right (on phones it goes back to the top right and
    the rarity text is hidden, so the pill takes the rarity's corner) */
 @media (max-height: 480px) {
-  .ma-fslot .unit-card-pot { right: auto; left: 3px; }
-  /* ~40 px cards: the pill and the level share the top row, so the level drops its "Lv." */
+  .ma-fslot .unit-card-pot { right: auto; left: 2px; }
+  /* ~40 px cards: the pill and the level share the top row, so the level drops its "Lv." and both
+     move 1 px further out, the pill a little narrower ("P6" and "30" touched on the train-C stage
+     prep, where nine slots share the row) */
   .ma-fslot .unit-card.has-pot .unit-card-lv { display: none; }
+  .ma-fslot .unit-card.has-pot .unit-card-level { right: 2px; }
+  .ma-fslot .unit-card-pot .pot-pill { min-width: 14px; padding: 0 2px; letter-spacing: 0; }
 }
 
 /* ---------- student page: the Info tab section ---------- */
