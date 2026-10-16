@@ -49,6 +49,10 @@ try {
     });
     await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
     await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.select, null, { timeout: 60000 });
+    // the free hero card arms itself at wave 0 (hero rework, ~0.7 s in), which would close the
+    // panel we open: let it arm, then put it back
+    await page.waitForFunction(() => window.__battle.ui.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
     const placed = await page.evaluate(() => {
       const { sim, ui } = window.__battle;
       sim.cash = 1e6;
@@ -68,7 +72,8 @@ try {
     });
     check(placed && placed.costMul === 0.8, `${W}x${H} Chika placed with gear costMul ${placed?.costMul}`);
     // her panel opens on Overall; the upgrade buttons are on the Upgrades tab
-    await page.waitForSelector('[data-testid="tower-panel"] [data-testid="stats-overall"]', { timeout: 15000 });
+    await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden && el.querySelector('[data-testid="stats-overall"]'); }, null, { timeout: 15000 });
+    await page.waitForTimeout(300);
     const overall0 = await page.locator('[data-testid="tower-panel"]').innerText();
     check(/Upgrades\s*20% cheaper \(gear 20%\)/i.test(overall0), `${W}x${H} Overall says "Upgrades 20% cheaper (gear 20%)"`);
     await page.locator('[data-testid="tab-upgrades"]').click({ force: true });
