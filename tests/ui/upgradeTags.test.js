@@ -13,21 +13,26 @@ import {
 } from '../../src/ui/upgradeTags.js';
 
 // The reviewed tag combinations of every path tier (update on purpose when units.js changes).
+// (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
+// gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
 const COMBOS = {
-  self: 115,
-  'enemies + self': 34,
+  self: 111,
+  'enemies* + self': 26,
+  'enemies + self': 23,
   allies: 23,
-  'enemies* + self': 22,
-  enemies: 15,
-  'enemies*': 7,
+  enemies: 14,
   coins: 7,
-  'allies + enemies*': 4,
-  'allies + self': 2,
+  'allies + self': 6,
+  'allies + enemies + self': 6,
+  'allies + enemies*': 5,
+  'enemies*': 4,
+  'allies + enemies* + self': 4,
   'self+X': 3,
-  'enemies + self+X': 3,
   'allies + coins': 2,
   'coins + self': 2,
-  'allies + enemies* + self': 1,
+  'enemies + self+X': 2,
+  'enemies* + self+X': 1,
+  'allies + enemies': 1,
 };
 
 const tiersOf = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ u, pi, ti, t })));
@@ -122,6 +127,22 @@ describe('every tier of every girl is classified', () => {
 });
 
 describe('spot checks', () => {
+  it('path cap: Midori\'s brews (her range) and Chika\'s tune-up links (her aura) are Allies; an execution shot is Self', () => {
+    const conc = tierByName('midori', 'Concentrate');
+    const t = tierTags(conc.u, conc.pi, conc.tier);
+    expect(ids(t)).toEqual(['allies', 'enemies']);
+    expect(t[0]).toMatchObject({ limited: true, keys: ['brew'] });
+    expect(t[0].radius).toBe(UNIT_MAP.midori.base.range);
+    const sig = tierByName('chika', 'Signal Tower');
+    const link = tierTags(sig.u, sig.pi, sig.tier).find((x) => x.id === 'allies');
+    expect(link.keys).toEqual(['aura', 'link']);
+    expect(link.radius).toBe(3);
+    const ex = tierByName('shiro', 'Cross-Map Execution');
+    expect(tierTags(ex.u, ex.pi, ex.tier).find((x) => x.id === 'self').keys).toContain('hpPct');
+    expect(shortEffect({ hpPct: { pct: 0.03 } })).toBe('Takes 3% HP a shot');
+    expect(shortEffect(conc.u.paths[conc.pi].tiers[0].mods)).toMatch(/Brews 1 girl/);
+  });
+
   const hikari = UNIT_MAP.hikari;
   // heroes level along one track (hero rework): each level's tags come from its own mods
   const level = (u, n) => u.hero.levels.find((l) => l.level === n);
@@ -246,7 +267,7 @@ describe('notes and naming', () => {
     }
   });
   it('every MOD_TAGS rule is one the classifier knows', () => {
-    const rules = new Set(['self', 'transform', 'drones', 'traps', 'allies', 'status', 'enemies', 'team', 'coins']);
+    const rules = new Set(['self', 'transform', 'drones', 'traps', 'allies', 'limited', 'status', 'enemies', 'team', 'coins']);
     for (const [k, r] of Object.entries(MOD_TAGS)) expect(rules.has(r), k).toBe(true);
   });
   // spelled in pieces so this guard is not itself a hit for a repository-wide search

@@ -49,6 +49,26 @@ describe('buildTreeModel', () => {
     expect(treeSignature(m)).not.toBe(treeSignature(buildTreeModel({ def: hikari, mode: 'live', heroLevel: 13 })));
   });
 
+  it('path cap: a tier 5 another copy holds is blocked, names her, and moves the signature', () => {
+    const held = { uid: 7, label: 'Umeko 5-0-2 · top left' };
+    const free = buildTreeModel({ def: girl, mode: 'live', tiers: [4, 0, 2], cash: 1e6 });
+    const m = buildTreeModel({ def: girl, mode: 'live', tiers: [4, 0, 2], cash: 1e6, finals: [held, null, null] });
+    expect(states(free.rows[0])).toEqual(['owned', 'owned', 'owned', 'owned', 'next']);
+    expect(states(m.rows[0])).toEqual(['owned', 'owned', 'owned', 'owned', 'blocked']);
+    expect(m.rows[0].cells[4].holder).toEqual(held);
+    expect(m.rows[0].cells[4].reason).toBe(`Only one Umeko can hold ${girl.paths[0].name} V. Sell or upgrade that one.`);
+    expect(m.rows[0].finalHeld).toEqual(held);
+    expect(m.rows[0].reason).toBeNull(); // the crosspath line stays for crosspath locks
+    expect(treeSignature(m)).not.toBe(treeSignature(free));
+    // a path she already owns to tier 5 is never shown as held; the card preview shows the lock too
+    expect(buildTreeModel({ def: girl, mode: 'live', tiers: [5, 0, 2], finals: [held, null, null] }).rows[0].cells[4].state).toBe('owned');
+    const pv = buildTreeModel({ def: girl, mode: 'preview', finals: [null, held, null] });
+    expect(states(pv.rows[1])).toEqual(['later', 'later', 'later', 'later', 'blocked']);
+    // the static sheet never shows a holder
+    expect(states(buildTreeModel({ def: girl, finals: [held, held, held] }).rows[0])).toEqual(['later', 'later', 'later', 'later', 'later']);
+    expect(RULE_TEXT).toMatch(/T5 is one girl at a time/);
+  });
+
   it('live 2-0-3: capped row, locked row, owned + next + later', () => {
     const m = buildTreeModel({ def: girl, mode: 'live', tiers: [2, 0, 3], cash: 1e6 });
     expect(m.tiersLabel).toBe('2-0-3');

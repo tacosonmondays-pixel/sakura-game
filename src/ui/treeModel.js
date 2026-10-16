@@ -1,10 +1,12 @@
 // Upgrade-tree view model (pure, no DOM): 3 paths × 5 tiers with owned / next / later / blocked
 // states, the crosspath cap per path, costs and Self / Allies / Enemies / Coins tags. Shared by
 // the Unit Sheet (static mode) and the in-battle Upgrade Tree (live / ally / preview modes).
-import { pathCap } from './battle/rules.js';
+// Path cap: a path's tier 5 that another copy of hers holds (same player) is a blocked cell that
+// names the holder (`finals`).
+import { pathCap, onePerPathReason, ONE_PER_PATH_RULE } from './battle/rules.js';
 import { tierTags, shortEffect, tierIcon, pathSummary, tierNote, modsTags, ultTags, passiveTags } from './upgradeTags.js';
 
-export const RULE_TEXT = 'Pick one path up to T5 and one other up to T2 — the third path locks.';
+export const RULE_TEXT = `Pick one path up to T5 and one other up to T2 — the third path locks. ${ONE_PER_PATH_RULE}`;
 
 /** @typedef {'owned'|'next'|'later'|'blocked'} CellState */
 
@@ -25,11 +27,12 @@ export function capReason(tiers, path, names) {
  * @param {{ def: object, mode?: 'static'|'preview'|'live'|'ally', tiers?: number[],
  *   costOf?: ((tierDef: object) => number)|null, cash?: number|null, auraRange?: number,
  *   heroLevel?: number|null, passiveActive?: boolean|null, ownerName?: string|null,
- *   deployCost?: number|null }} o
+ *   deployCost?: number|null, finals?: ({ uid: number, label: string }|null)[]|null }} o
+ *   finals: per path, the other copy (same girl, same player) holding that path's tier 5
  */
 export function buildTreeModel({
   def, mode = 'static', tiers = [0, 0, 0], costOf = null, cash = null, auraRange = 0,
-  heroLevel = null, passiveActive = null, ownerName = null, deployCost = null,
+  heroLevel = null, passiveActive = null, ownerName = null, deployCost = null, finals = null,
 }) {
   const live = mode === 'live' || mode === 'ally';
   const t3 = [0, 1, 2].map((p) => (live ? tiers[p] || 0 : 0));
@@ -39,11 +42,16 @@ export function buildTreeModel({
     const cap = live ? pathCap(t3, pi) : 5;
     const current = t3[pi];
     const reason = live ? capReason(t3, pi, names) : null;
+    // one final tier per path: held by another copy of hers (live / ally / preview; never static)
+    const held = mode !== 'static' && finals?.[pi] ? finals[pi] : null;
+    const last = Math.min(5, p.tiers.length) - 1;
     const cells = p.tiers.slice(0, 5).map((td, k) => {
       let state;
-      if (!live) state = 'later';
+      const heldHere = !!held && k === last && k >= current;
+      if (!live) state = heldHere ? 'blocked' : 'later';
       else if (k < current) state = 'owned';
       else if (k >= cap) state = 'blocked';
+      else if (heldHere) state = 'blocked';
       else if (k === current) state = 'next';
       else state = 'later';
       const cost = costOf ? costOf(td) : td.cost;
@@ -63,10 +71,13 @@ export function buildTreeModel({
         short: shortEffect(td.mods),
         icon: tierIcon(td.mods),
         note: tierNote(def, pi, k + 1),
-        reason: state === 'blocked' ? reason : null,
+        // the crosspath lock first; otherwise the copy holding this final tier
+        reason: state === 'blocked' ? (k >= cap ? reason : null) || (heldHere ? onePerPathReason(def.name, p.name) : null) : null,
+        holder: heldHere && state === 'blocked' ? held : null,
       };
     });
-    return { index: pi, id: p.id, name: p.name, focus: p.focus || '', cap, current, reason, summary: pathSummary(def, pi), cells };
+    const finalHeld = held && cells[last]?.holder ? held : null;
+    return { index: pi, id: p.id, name: p.name, focus: p.focus || '', cap, current, reason, finalHeld, summary: pathSummary(def, pi), cells };
   });
   const hero = def.hero
     ? {
@@ -105,7 +116,7 @@ export function treeSignature(model) {
   if (!model) return '';
   let s = `${model.unitId}|${model.mode}|${model.tiersLabel}|${model.hero?.level ?? ''}|${model.passive?.active ?? ''}|${model.deployCost ?? ''}`;
   for (const r of model.rows) {
-    s += `|${r.cap}`;
+    s += `|${r.cap}${r.finalHeld ? `h${r.finalHeld.uid}:${r.finalHeld.label}` : ''}`;
     for (const c of r.cells) {
       const ally = c.tags.find((t) => t.id === 'allies');
       s += `${c.state[0]}${c.cost}${c.afford == null ? '' : c.afford ? '+' : '-'}${ally?.radius || ''}`;

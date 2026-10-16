@@ -13,6 +13,7 @@ import { roleIcon, uiIcon } from '../../art/icons.js';
 import { ROLES, BATTLE } from '../../data/types.js';
 import { rarityColor, applyUrFrame } from '../rarity.js';
 import { roundCost } from '../../sim/Sim.js';
+import { finalHolderLine, whereOnMap } from './rules.js';
 import { buildTreeModel, treeSignature, RULE_TEXT } from '../treeModel.js';
 import { upgradeGrid, tierDetail } from '../upgradeGrid.js';
 import { tagChips, tagLegend } from '../tagChips.js';
@@ -51,10 +52,18 @@ export function previewCostOf(sim, unitId) {
  * @param {{ uid?: number, unitId?: string }} target
  * @param {{ coop?: object|null }} [o]
  */
+/** A final-tier holder for the tree: her uid and "Aoi 5-0-2 · top left". */
+function holderInfo(sim, holder) {
+  if (!holder) return null;
+  return { uid: holder.uid, label: finalHolderLine(holder, whereOnMap(holder.x, holder.y, sim.map?.width, sim.map?.height)).replace(/^Held by /, '') };
+}
+
 export function treeArgs(sim, target, { coop = null } = {}) {
   const t = target.uid != null ? sim.getTower(target.uid) : null;
   if (t) {
     const ally = !!coop && !coop.isMine(t.uid);
+    // one final tier per path: the other copy (same girl, same player) holding each path's tier 5
+    const finals = t.isHero ? null : [0, 1, 2].map((p) => holderInfo(sim, sim.finalTierHolder?.(t.uid, p)));
     return {
       def: t.def,
       mode: ally ? 'ally' : 'live',
@@ -65,6 +74,7 @@ export function treeArgs(sim, target, { coop = null } = {}) {
       heroLevel: t.isHero ? t.level : null,
       passiveActive: !!t.unitStats?.awakenPassive,
       ownerName: ally ? coop.ownerName(t.uid) : null,
+      finals,
     };
   }
   const unitId = target.unitId ?? null;
@@ -79,6 +89,8 @@ export function treeArgs(sim, target, { coop = null } = {}) {
     cash: sim.cash,
     passiveActive: us ? !!us.awakenPassive : null,
     deployCost: sim.placeCost(unitId),
+    // a card not deployed yet: "held by your Aoi 5-0-2" before she is placed
+    finals: def.kind === 'hero' || !sim.finalTierHolders ? null : sim.finalTierHolders(unitId, coop?.mySlot ?? 0).map((uid) => holderInfo(sim, uid != null ? sim.getTower(uid) : null)),
   };
 }
 
@@ -300,6 +312,10 @@ export function createUpgradeTree(ctx) {
 
   function actionsFor(cell) {
     const out = [];
+    if (cell.holder && sim.getTower(cell.holder.uid)) {
+      // path cap: the copy holding this tier 5 — select her and pulse her ring
+      out.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-show-holder', onclick: () => showHolder(cell.holder.uid) }, 'Show her ›'));
+    }
     if (model.mode === 'live' && cell.state === 'next') {
       out.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-goto-panel', onclick: () => gotoPanel(cell.path) }, 'Upgrade in panel ›'));
     }
@@ -384,6 +400,12 @@ export function createUpgradeTree(ctx) {
   // prices or affordability change, so the row asks decoratePathRow() (towerPanel hook) and a
   // rebuilt row picks the animation up where it was (negative delay) instead of losing it.
   let flash = null; // { uid, path, t0 }
+  function showHolder(uid) {
+    close();
+    ctx.select?.(uid);
+    ctx.renderer?.pulseTower?.(uid);
+  }
+
   function gotoPanel(path) {
     const uid = target.uid;
     close();

@@ -84,7 +84,7 @@ export const LESSONS = [
     id: 'paths', oldId: 'talents', title: 'Two kinds of growing', icon: 'upgrade',
     unlock: { stage: '1-4' },
     body: [
-      'In battle, every girl has three upgrade paths with five tiers. Two paths at most, and only one past tier 2.',
+      'In battle, every girl has three upgrade paths. Two at most, only one past tier 2, and each tier 5 is one girl at a time.',
       'The Tree tab shows how they combine.',
       'Heroes level up during the fight, and at level 3 their ultimate unlocks. Save it for a crowd!',
     ],
