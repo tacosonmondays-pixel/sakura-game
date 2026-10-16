@@ -16,10 +16,12 @@ import { BATTLE_MODES } from '../data/modes.js';
 export const RECORD_V = 1;
 /**
  * Snapshot format this build writes (and the newest it can read). 2: the hero rework (a hero has
- * no tiers; her bought levels and Move cooldown are kept). A format-1 snapshot is still restored
- * (src/ui/battle/snapshot.js restoreSim migrates its hero).
+ * no tiers; her bought levels and Move cooldown are kept). 3: Potential v3 (a saved girl at P2+
+ * fights with the v3 steps and their rhythm / tempo / overclock state; an older build, which would
+ * replay her with the old steps, refuses the save as "from a newer build"). Format-1 and format-2
+ * snapshots are still restored (src/ui/battle/snapshot.js restoreSim migrates a format-1 hero).
  */
-export const SNAP_V = 2;
+export const SNAP_V = 3;
 /** Saved battles kept at once; starting another one asks which one to delete (stage prep). */
 export const MAX_BATTLE_SAVES = 5;
 

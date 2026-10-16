@@ -527,7 +527,7 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
   });
 
   it(`a format-1 save (before the hero rework): her old level, tiers ignored, never dropped, all she cost refunded (now ${SNAP_V})`, () => {
-    expect(SNAP_V).toBe(2);
+    expect(SNAP_V).toBe(3); // 3: Potential v3 (a format-2 save restores the same way, its heroes on the new track)
     const snap = cpAt(10);
     snap.v = 1;
     const h = snap.towers.find((t) => t.xp != null);
@@ -552,7 +552,7 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     expect(sim.drainEvents()).toEqual([]);
     // the others come back exactly as saved
     for (const t of sim.towers.filter((x) => !x.isHero)) expect(t.spent).toBe(snap.towers.find((x) => x.uid === t.uid).spent);
-    // and the next snapshot is format 2
+    // and the next snapshot is the current format
     expect(snapshotSim(sim).v).toBe(SNAP_V);
   });
 });
