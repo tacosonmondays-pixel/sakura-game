@@ -5,13 +5,31 @@
 // the tags but never write them, nor touch server_settings or the trigger function. Also the table
 // ACL allow-list of every migration (what anon / authenticated may do with each table).
 import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { PGlite, createDb, refused, migrationText, migrationsBefore, tableAcl, TEST_DEV_CODE } from './pgHarness.js';
 
 const FILE = '20261017000000_player_tags.sql';
 const TAGS_SQL = migrationText(FILE);
+const DOC = readFileSync(new URL('../../docs/ONLINE.md', import.meta.url), 'utf8');
+
+/**
+ * The owner's SQL Editor statement under a `-- <heading>` comment in docs/ONLINE.md (to its `;`),
+ * its placeholders filled in: the tests run the very text the owner pastes.
+ */
+function docSql(heading, fill = {}) {
+  const at = DOC.indexOf(`-- ${heading}`);
+  if (at < 0) throw new Error(`docs/ONLINE.md has no "-- ${heading}"`);
+  const lines = [];
+  for (const l of DOC.slice(at).split('\n')) {
+    if (l.trim().startsWith('--')) continue;
+    lines.push(l);
+    if (l.trim().endsWith(';')) break;
+  }
+  return Object.entries(fill).reduce((q, [k, v]) => q.split(k).join(v), lines.join('\n'));
+}
 
 const U = (n) => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
-const [A, B, C, D, E, F, G] = [1, 2, 3, 4, 5, 6, 7].map(U);
+const [A, B, C, D, E, F, G, H, I] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(U);
 
 /**
  * Everything players may do with a table, across every migration (tableAcl in pgHarness.js). anon:
@@ -154,6 +172,10 @@ describe.skipIf(!PGlite)(`player tags: the developers are seeded once (${default
 
   it('the first paste: everyone is an alpha tester, the developer clan\'s members are developers', async () => {
     expect((await sup(`select to_regclass('public.player_tags') as t`)).rows[0].t).toBeNull();
+    // the run guide's check before the first paste lists exactly who would become a developer
+    const members = (await sup(docSql('the developer clan\'s members, by name'))).rows;
+    expect(members.map((r) => r.name)).toEqual(['Aiko', 'Bea']);
+    expect(members.map((r) => r.user_id).sort()).toEqual([A, B].sort());
     await db.exec(TAGS_SQL);
     expect(await tagsOf(A)).toEqual({ staff: 'dev', tester: 'alpha' });
     expect(await tagsOf(B)).toEqual({ staff: 'dev', tester: 'alpha' });
@@ -183,11 +205,28 @@ describe.skipIf(!PGlite)(`player tags: the developers are seeded once (${default
     await sup(`update server_settings set value = 'none' where key = 'tester_phase'`);
     await as(G, 'insert into profiles (id, name) values ($1, $2)', [G, 'Gin']);
     expect(await tagsOf(G)).toBeNull();
-    await sup(`insert into public.player_tags (user_id, staff)
-      select id, 'dev' from public.profiles where name = 'Gin'
-      on conflict (user_id) do update set staff = 'dev', updated_at = now();`);
+    await sup(docSql('make them a developer', { '<PLAYER NAME>': 'Gin' }));
     expect(await tagsOf(G)).toEqual({ staff: 'dev', tester: null });
     await refused(sup(`update player_tags set staff = 'admin' where user_id = $1`, [G]), /check constraint/);
     await refused(sup(`update player_tags set tester = 'gamma' where user_id = $1`, [G]), /check constraint/);
+    // who has the DEV chip: the listing the run guide checks after the first paste
+    const devs = (await sup(docSql('who has the DEV chip'))).rows;
+    expect(devs.map((r) => [r.name, r.user_id])).toEqual([['Aiko', A], ['Gin', G]]);
+  });
+
+  it('names are not unique: the add and remove one-liners change nothing unless the name matches exactly one player', async () => {
+    for (const uid of [H, I]) {
+      await sup(`insert into auth.users values ($1)`, [uid]);
+      await as(uid, 'insert into profiles (id, name) values ($1, $2)', [uid, 'Hana']);
+    }
+    const before = (await sup('select user_id, staff from player_tags order by user_id')).rows;
+    // a copycat with a developer's name never becomes one too
+    await refused(sup(docSql('make them a developer', { '<PLAYER NAME>': 'Hana' })), /more than one row/);
+    await refused(sup(docSql('make them a developer', { '<PLAYER NAME>': 'Nobody' })), /null value/);
+    await refused(sup(docSql('remove the DEV chip', { '<PLAYER NAME>': 'Hana' })), /more than one row/);
+    expect((await sup('select user_id, staff from player_tags order by user_id')).rows).toEqual(before);
+    // removing by a unique name works
+    await sup(docSql('remove the DEV chip', { '<PLAYER NAME>': 'Gin' }));
+    expect(await tagsOf(G)).toEqual({ staff: null, tester: null });
   });
 });

@@ -99,15 +99,39 @@ The game update with the chips (v0.1.33) works before and after this SQL: until 
 chip and everything else is unchanged.
 
 1. Wait until the game update is live (the Pages workflow is green).
-2. Open `supabase/migrations/20261017000000_player_tags.sql` on GitHub → **Raw** → select all → copy.
-3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. It is
+2. **Check who is in the developer clan first.** The first run makes every member of the developer
+   clan a developer (DEV chip + Developer title), and the clan's join code used to be public, so a
+   stranger may still be a member. Supabase → **SQL Editor** → **New query**:
+
+   ```sql
+   -- the developer clan's members, by name (everyone listed here gets DEV on the first run)
+   select p.name, m.user_id, m.joined_at
+   from public.clan_members m
+   join public.profiles p on p.id = m.user_id
+   join public.clans c on c.id = m.clan_id
+   where c.is_dev
+   order by p.name;
+   ```
+
+   Remove everyone you don't recognise before step 4 (rotate the code first, see "Rotate the
+   developer clan code" below, or they can join again), one `user_id` at a time:
+
+   ```sql
+   delete from public.clan_members
+   where clan_id = '00000000-0000-4000-8000-000000000777' and user_id = '<their user_id>';
+   ```
+
+   Run the listing again: only your team is left.
+3. Open `supabase/migrations/20261017000000_player_tags.sql` on GitHub → **Raw** → select all → copy.
+4. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. It is
    safe to run again, and it needs only the first migration (`20261008000000_online.sql`).
-4. What the first run does by itself: everyone who has a profile now gets **ALPHA** (and the Alpha
+5. What the first run does by itself: everyone who has a profile now gets **ALPHA** (and the Alpha
    Tester title), every new player during the alpha gets ALPHA too, and **everyone who is in the
    developer clan right now gets DEV**. Later runs never add developers: after the first run the
    developer list is yours to edit (the one-liners in "Player tags" below).
-5. Check: `select count(*) from public.player_tags where staff = 'dev';` returns the number of people in
-   the developer clan. Reload the game: chips appear next to names within a few seconds.
+6. Check: run **who has the DEV chip** from "Player tags" below. It lists exactly the people you kept
+   in step 2. Anyone you don't recognise: take the chip away with **remove the DEV chip** (by their
+   `user_id`). Reload the game: chips appear next to names within a few seconds.
 
 ### Fresh project (or checking the settings)
 
@@ -280,9 +304,10 @@ player before changing anything.
 -- find the player (one row expected)
 select id, name, created_at from public.profiles where name = '<PLAYER NAME>';
 
--- make them a developer (DEV chip + Developer title)
+-- make them a developer (DEV chip + Developer title); stops with an error, changing nothing, when the
+-- name matches nobody or more than one player
 insert into public.player_tags (user_id, staff)
-select id, 'dev' from public.profiles where name = '<PLAYER NAME>'
+values ((select id from public.profiles where name = '<PLAYER NAME>'), 'dev')
 on conflict (user_id) do update set staff = 'dev', updated_at = now();
 
 -- remove the DEV chip (their ALPHA / BETA chip stays; a title they already saw stays in their own save,
@@ -291,7 +316,7 @@ update public.player_tags set staff = null, updated_at = now()
 where user_id = (select id from public.profiles where name = '<PLAYER NAME>');
 
 -- who has the DEV chip
-select p.name, t.staff, t.tester, t.updated_at
+select p.name, t.user_id, t.staff, t.tester, t.updated_at
 from public.player_tags t join public.profiles p on p.id = t.user_id
 where t.staff is not null order by p.name;
 
@@ -302,8 +327,16 @@ update public.server_settings set value = 'beta' where key = 'tester_phase';
 update public.server_settings set value = 'none' where key = 'tester_phase';
 ```
 
-If the same name matches more than one player, use the id from the first query instead:
-`... where user_id = '<their user_id>'` (and `values ('<their user_id>', 'dev')` for the insert).
+If the same name matches more than one player, the add and remove one-liners stop with "more than one
+row returned by a subquery" (a name that matches nobody stops the add with "null value in column
+user_id"); nothing is changed. Use the id from the first query instead: `values ('<their user_id>',
+'dev')` for the add, `... where user_id = '<their user_id>'` for the remove.
+
+Where chips show: chat lines, the player card, Messages (conversations, the conversation header,
+friends, friend requests that asked you), the clan roster and clan join requests, and your own profile
+header. Requests **you** sent show no chip: the server never tells the sender the other player's
+account id. A tab running on the stand-in server ("Online features offline") shows no chip and never
+records a tag in the save; only the real server's tags count.
 
 ### Messages, friends, co-op invites and clan requests (the social update)
 
