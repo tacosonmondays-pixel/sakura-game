@@ -141,6 +141,10 @@ button.sc-row:hover, .sc-row-tap:hover { background: #f1f6fd; }
 .sc-row-top time { margin-left: auto; color: var(--muted); font-size: 0.68rem; font-weight: 700; flex: none; }
 .sc-row-sub { color: var(--muted); font-size: 0.76rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-row.unread .sc-row-sub { color: var(--ink); }
+/* friends and friend requests: the level sits on the second line, so the top line is the name + one tag chip */
+.sc-row-sub .ol-lv { height: 16px; margin: 0 6px 0 2px; font-size: 0.62rem; vertical-align: 1px; }
+/* a request row is as tall as its Accept / Decline pair: "Lv 3 · used your friend code" may take two lines */
+.sc-req .sc-row-sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
 .sc-empty { padding: 18px 10px; }
 .sc-empty p { margin: 0; font-size: 0.8rem; }
 .sc-sec { font-size: 0.7rem; font-weight: 900; font-style: italic; color: var(--blue); letter-spacing: 0.04em; text-transform: uppercase; margin: 8px 6px 2px; }

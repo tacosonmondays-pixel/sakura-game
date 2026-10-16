@@ -31,6 +31,8 @@
 .ol-chip-btn:active { transform: scale(0.93); }
 .ol-lv { display: inline-flex; align-items: center; padding: 0 7px; height: 18px; border-radius: 5px; background: var(--navy); color: var(--yellow); font-size: 0.66rem; font-weight: 900; font-style: italic; transform: skewX(var(--skew)); flex: none; }
 .ol-tag { font-weight: 900; font-style: italic; color: var(--blue); letter-spacing: 0.04em; }
+/* read by screen readers, never seen */
+.ol-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 /* ---------- Player tag chips (src/ui/online/tagChip.js): DEV sakura pink · ALPHA lilac · BETA teal ---------- */
 .tg-chips { display: inline-flex; align-items: center; gap: 3px; flex: none; vertical-align: middle; line-height: 1; }

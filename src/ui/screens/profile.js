@@ -25,7 +25,7 @@ import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName } from '../online/common.js';
 import { tagChips } from '../online/tagChip.js';
-import { tagsOf, selfId } from '../../online/tags.js';
+import { tagsOf, loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -312,12 +312,43 @@ function profileView(m, ctx) {
 // ---------------------------------------------------------------------------
 
 let closePreview = null;
+let previewSeq = 0;
+/** How long the Preview waits for this account's id (the social hub starts after boot) and for its tags. */
+const OWN_TAGS_WAIT_MS = 4000;
 
-function openPreview() {
+const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback()), ms))]);
+
+/**
+ * This account's tags from the server, for the Preview. Awaited (never read from the cache as it is
+ * now: right after boot the hub may not have learned the id yet, or the batch may not have landed),
+ * and only when a tag title is equipped: nothing else on the card depends on them.
+ */
+async function ownServerTags(p) {
+  if (!isTagTitle(p?.sensei?.title)) return null;
+  let uid = selfId();
+  if (!uid && storedName()) {
+    let off = () => {};
+    uid = await within(new Promise((resolve) => {
+      off = onSelfId((u) => {
+        if (u) resolve(u);
+      });
+    }), OWN_TAGS_WAIT_MS, () => selfId());
+    off();
+  }
+  if (!uid) return null;
+  return within(loadTags(uid), OWN_TAGS_WAIT_MS, () => tagsOf(uid));
+}
+
+async function openPreview() {
+  const seq = ++previewSeq;
+  const at = location.hash;
   closePreview?.();
   const p = store.profile;
-  // what other Senseis see: a tag title only while the server backs it (never this save's own marks)
-  const card = cleanViewedCard(buildCard(p), { tags: tagsOf(selfId()) });
+  // What other Senseis see: a tag title only while the server backs it (never this save's own marks).
+  // A viewer of someone else's card does the same with `await loadTags(ownerId)`, never tagsOf().
+  const tags = await ownServerTags(p);
+  if (seq !== previewSeq || location.hash !== at) return; // tapped again, or left the screen, meanwhile
+  const card = cleanViewedCard(buildCard(p), { tags });
   const name = storedName() || 'Sensei';
   const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: p.sensei.bio });
   const detach = [];

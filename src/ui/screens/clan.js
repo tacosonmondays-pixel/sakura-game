@@ -325,11 +325,13 @@ function membersTab(backend, clan, role, pane) {
         // [social] tap a member: their player card (Message, Invite to co-op, Add friend, Block, Report)
         const card = () => openPlayerCard(m.userId, { name: m.name, level: m.level, avatar: m.avatar }, { context: 'clan', clanmate: !me });
         return h(`div.ol-member${me ? '.me' : ''}`, { 'data-testid': 'member-row', 'data-user': m.userId },
-          h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card, 'aria-label': `${m.name}: player card` },
+          // no aria-label: screen readers read the row itself (name, the tag chip's "Developer", level, role), then "player card"
+          h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card },
             avatar(m.avatar, 40),
             h('div.ol-member-info',
               h('div.ol-member-name', h('b', m.name), tagChips(m.userId), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
-              h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`))),
+              h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`)),
+            h('span.ol-sr', ': player card')),
           h('div.ol-member-acts', acts));
       }));
     } catch (e) {
