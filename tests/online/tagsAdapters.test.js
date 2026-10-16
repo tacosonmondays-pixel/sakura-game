@@ -124,6 +124,14 @@ describe('backend facade: getTags', () => {
     expect(await be.getTags([be.uid])).toEqual([{ userId: be.uid, staff: null, tester: 'alpha' }]);
   });
 
+  it('"Online features offline" (no project): the stand-in server\'s made-up tags never leave it', async () => {
+    const be = await fresh('');
+    expect(be.offline).toBe(true);
+    await be.init({ name: 'Aiko' });
+    expect(be.uid).toBeTruthy();
+    expect(await be.getTags([be.uid])).toEqual([]);
+  });
+
   it('no table (?tags=0): needs_update for tags only; the social update stays ready', async () => {
     const be = await fresh('?online=local&tags=0');
     await be.init({ name: 'Aiko' });

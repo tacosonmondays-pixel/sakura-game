@@ -187,10 +187,13 @@ export function getBackend() {
      * no tag are left out). Never signs in by itself (a tab that never went online gets []). A
      * server without the player_tags table throws needs_update; src/online/tags.js then stops
      * asking for the session. Not counted by the client limiter (one batched request at a time).
+     * "Online features offline" (no project, or Supabase could not load): [] — the browser-local
+     * stand-in's tags are made up in this browser (?online=local, the e2e mode, still has them).
      */
     async getTags(ids) {
       if (!ready) return [];
       await ready;
+      if (api.offline) return [];
       if (!adapter?.getTags) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
       try {
         return await adapter.getTags(ids);

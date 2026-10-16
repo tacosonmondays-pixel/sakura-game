@@ -193,10 +193,12 @@ export function startSocialHub({ force = false } = {}) {
  * [tags] This account's own tags, once per tab: the own profile header shows them, and the save keeps
  * them as missions.counters marks ('tag:dev' …) that unlock the tag titles. Saved through the store
  * (never a raw storage write); the existing new-title dot announces a new one. Marks are only added.
+ * Never from the browser-local stand-in server ("Online features offline": no project configured, or
+ * Supabase could not load): its tags are made up in this browser, and a mark is never taken back.
  */
 export async function syncOwnTags(backend) {
   const uid = backend?.uid;
-  if (!uid) return null;
+  if (!uid || backend.offline) return null;
   setSelfId(uid);
   const tags = await loadTags(uid).catch(() => null);
   if (tags && store.profile && recordTagMarks(store.profile, tags)) store.commit('tags');
