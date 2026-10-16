@@ -15,6 +15,7 @@ import { ROLES, ATTACK_TYPES, ELEMENTS, TARGET_MODES, STATUSES } from '../../dat
 import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
 import { potPill } from '../potential.js';
 import { potentialSummary } from '../../systems/potential.js';
+import { potentialRows, potentialRowText } from './potentialRows.js';
 import { roundCost } from '../../sim/Sim.js';
 import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies chips + tree button
 import { tierTags } from '../upgradeTags.js';
@@ -242,7 +243,10 @@ export function createTowerPanel(ctx) {
     for (const s of st.status || []) chips.push(h('span.bt-cap.bt-cap-status', statusLabel(s)));
     if (st.disabled > 0) chips.push(h('span.bt-cap.bt-cap-bad', `Disabled ${fmtNum(st.disabled, 1)}s`));
     const stats = h('div.bt-stats-grid', rows);
-    const caps = chips.length ? h('div.bt-caps', chips) : null;
+    const capsRow = chips.length ? h('div.bt-caps', chips) : null;
+    // Potential (v3 §11): her rhythm and tempo pips, shuriken per throw, her drones' overclock (live)
+    const potBlock = potentialBlock(t, st);
+    const caps = potBlock ? h('div.bt-caps-wrap', capsRow, potBlock) : capsRow;
 
     // ---- upgrade paths (heroes have none: they level along their track)
     const paths = def.paths.length ? h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames, st.aura?.range || 0))) : null;
@@ -306,6 +310,41 @@ export function createTowerPanel(ctx) {
     if (prevScroll && el.dataset.uid === String(t.uid) && !toTop) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);
     updateLive(t, st);
+  }
+
+  /**
+   * Potential's live rows (src/ui/battle/potentialRows.js): built with the panel, their pips and
+   * words refreshed every frame by paintPot. None at P1.
+   */
+  function potentialBlock(t, st) {
+    const rows = potentialRows(t, st);
+    if (!rows.length) {
+      live.pot = null;
+      return null;
+    }
+    live.pot = rows.map((r) => {
+      const n = r.key === 'rhythm' ? r.every : r.key === 'tempo' ? r.max : 0;
+      const pips = Array.from({ length: n }, () => h('span.bt-pot-pip'));
+      const text = h('small');
+      const el = h(`div.bt-pot-row.${r.key}`, { 'data-testid': `pot-${r.key}`, title: r.key === 'rhythm' ? `${r.name}: every ${r.every} ${r.of === 'trap' ? 'traps' : 'attacks'}` : '' },
+        h('b', r.key === 'shots' ? r.label : r.name), n ? h(`span.bt-pot-pips${n > 8 ? '.many' : ''}`, pips) : null, text);
+      return { key: r.key, el, pips, text };
+    });
+    paintPot(t, st);
+    return h('div.bt-pot', { 'data-testid': 'panel-potential' }, live.pot.map((x) => x.el));
+  }
+
+  function paintPot(t, st = null) {
+    if (!live?.pot) return;
+    const rows = potentialRows(t, st || sim.towerStats(t.uid));
+    for (const x of live.pot) {
+      const r = rows.find((y) => y.key === x.key);
+      if (!r) continue;
+      const on = r.key === 'rhythm' ? r.count : r.key === 'tempo' ? r.stacks : 0;
+      x.pips.forEach((p, i) => p.classList.toggle('on', i < on));
+      const words = potentialRowText(r);
+      if (x.text.textContent !== words) x.text.textContent = words;
+    }
   }
 
   /** A girl's name, with her owner's in co-op when she is an ally's ("Rosie's Miko"). */
@@ -564,6 +603,7 @@ export function createTowerPanel(ctx) {
     live.kills.textContent = fmtCoins(t.kills || 0);
     live.dmg.textContent = fmtCoins(t.damageDealt || 0);
     drones.updateLive();
+    if (live.pot) paintPot(t, st);
     if (live.buffKinds?.length) {
       // brew / ultimate seconds tick down without a re-render
       const now = sim.buffSources?.(t.uid) || [];

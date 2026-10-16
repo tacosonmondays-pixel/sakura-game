@@ -515,3 +515,123 @@ describe('the describer (v3: src/data/potentialText.js)', () => {
     expect(potentialPowerFactor(UNIT_MAP.kage, 3)).toBeCloseTo(1.04 * 1.09, 12);
   });
 });
+
+// ---------------------------------------------------------------------------
+// v3 UI model (docs/specs/POTENTIAL.md v3 §11, v2 §7): step info for previews and cards, the next
+// step, the pill title, who a step reaches, the stat · cap line, the "Potential up!" rises
+// ---------------------------------------------------------------------------
+import {
+  potentialStepInfo, potentialNext, potentialPillTitle, potentialStepTags, potentialRises, potentialDupesRule, moreDupes, isKitStep,
+} from '../../src/systems/potential.js';
+import { potentialLevelCap, levelCap, MAX_BREAKTHROUGH } from '../../src/systems/progression.js';
+
+describe('v3 UI model', () => {
+  it('step info: a kit step reads "✦ <name>", a stat step what it raises; P6 wears the crown', () => {
+    expect(potentialStepInfo(UNIT_MAP.kage, 5)).toMatchObject({ step: 5, name: 'Moonpiercer', kind: 'kit', kit: true, crown: false, node: 'MOONPIERC', brief: '✦ Moonpiercer', stat: '+6% SPD' });
+    expect(potentialStepInfo(UNIT_MAP.kage, 2)).toMatchObject({ kit: false, brief: '+4% attack speed', node: '+4% SPD' });
+    expect(potentialStepInfo(UNIT_MAP.kage, 6)).toMatchObject({ kind: 'cap', kit: true, crown: true, brief: '✦ Shuriken Storm' });
+    // SSRs and heroes: a trick from P2
+    expect(potentialStepInfo(UNIT_MAP.hotaru, 2)).toMatchObject({ kit: true, brief: '✦ Firefly Lamps' });
+    expect(potentialStepInfo(UNIT_MAP.nami, 2).kit).toBe(true);
+    expect(potentialStepInfo(UNIT_MAP.kage, 1)).toBeNull();
+    expect(potentialStepInfo(UNIT_MAP.kage, 7)).toBeNull();
+    for (const u of ALL_UNITS) {
+      for (let p = 2; p <= 6; p++) {
+        const info = potentialStepInfo(u, p);
+        expect(info.long, `${u.id} P${p}`).toBe(describePotentialStep(potentialSteps(u)[p - 2], u)[0].long);
+        expect(info.kit).toBe(isKitStep(potentialSteps(u)[p - 2]));
+        expect(info.brief.length).toBeGreaterThan(3);
+      }
+    }
+  });
+
+  it('the next step and the pill title', () => {
+    expect(potentialNext(UNIT_MAP.kage, { dupes: 3 })).toMatchObject({ step: 5, brief: '✦ Moonpiercer', dupes: 1 });
+    expect(potentialNext(UNIT_MAP.kage, { dupes: 5 })).toBeNull();
+    expect(potentialNext(UNIT_MAP.kage, null)).toBeNull();
+    expect(potentialPillTitle(UNIT_MAP.kage, 5)).toBe('Potential 5 of 6 — Moonpiercer');
+    expect(potentialPillTitle(UNIT_MAP.kage, 1)).toBe('Potential 1 of 6');
+    expect(potentialPillTitle(UNIT_MAP.kage, 9)).toBe('Potential 6 of 6 — Shuriken Storm');
+    expect(moreDupes(1)).toBe('1 more duplicate');
+    expect(moreDupes(3)).toBe('3 more duplicates');
+  });
+
+  it('who a step reaches: auras and team buffs → Allies, statuses on foes → Enemies, coins → Coins', () => {
+    const tags = (id, p) => potentialStepTags(potentialSteps(UNIT_MAP[id])[p - 2]);
+    expect(tags('kage', 2)).toEqual([]);
+    expect(tags('umeko', 2)).toEqual(['allies']);
+    expect(tags('umeko', 6)).toEqual(['allies']);
+    expect(tags('miko', 5)).toEqual(['allies', 'enemies']); // Brittle inside her aura
+    expect(tags('yuki', 4)).toEqual(['enemies']);
+    expect(tags('rei', 3)).toEqual(['enemies']); // the stagger
+    expect(tags('momo', 2)).toEqual(['coins']);
+    expect(tags('momo', 5)).toEqual(['coins']);
+    expect(tags('akane', 3)).toEqual(['enemies']); // the leaping burn
+    expect(tags('luna', 4)).toEqual(['allies']);
+    expect(tags('midori', 6)).toEqual(['allies']); // one more brewed girl
+  });
+
+  it('the line under each node: her stat, and her level cap only where Potential raises it', () => {
+    const v = potentialView(UNIT_MAP.kage, { dupes: 2 }, { capAt: potentialLevelCap });
+    const raised = (p) => potentialLevelCap(p) > potentialLevelCap(1);
+    for (const n of v.slice(1)) {
+      expect(n.cap).toBe(raised(n.step) ? potentialLevelCap(n.step) : null);
+      expect(n.line).toBe(raised(n.step) ? `${n.stat} · ${potentialLevelCap(n.step)}` : n.stat);
+    }
+    expect(v[0].line).toBe('');
+    // a level rule that rises with Potential (the spec's v3 caps) reads "+4% SPD · 63"
+    const caps = [60, 63, 67, 72, 78, 85];
+    const w = potentialView(UNIT_MAP.kage, { dupes: 2 }, { capAt: (p) => caps[p - 1] });
+    expect(w.slice(1).map((n) => n.line)).toEqual(['+4% SPD · 63', '+5% SPD · 67', '+5% SPD · 72', '+6% SPD · 78', '+7% SPD · 85']);
+    expect(w.map((n) => n.kit)).toEqual([false, false, true, true, true, true]);
+    // without capAt (the describer's other callers): the stat alone
+    expect(potentialView(UNIT_MAP.kage, { dupes: 2 })[2].line).toBe('+5% SPD');
+  });
+
+  it('potentialLevelCap asks the level rule with every gate open (P1 = the gate-5 cap)', () => {
+    for (let p = 1; p <= 6; p++) expect(potentialLevelCap(p)).toBe(levelCap({ breakthrough: MAX_BREAKTHROUGH, dupes: p - 1 }));
+    expect(potentialLevelCap(1)).toBe(60);
+    expect(potentialLevelCap(0)).toBe(potentialLevelCap(1));
+    expect(potentialLevelCap(99)).toBe(potentialLevelCap(6));
+  });
+
+  it('rises: per girl from → to, kit steps make cards (highest rarity first), stat-only rises one line', () => {
+    const r = potentialRises([
+      { unitId: 'aoi', isNew: false, potential: 2, potentialUp: true },
+      { unitId: 'kage', isNew: false, potential: 4, potentialUp: true },
+      { unitId: 'aoi', isNew: false, potential: 3, potentialUp: true },
+      { unitId: 'rei', isNew: false, potential: 2, potentialUp: true },
+      { unitId: 'hotaru', isNew: true, potential: 1, potentialUp: false },
+      { unitId: 'hotaru', isNew: false, potential: 2, potentialUp: true },
+      { unitId: 'kage', isNew: false, potential: 5, potentialUp: true },
+      { unitId: 'kaede', isNew: false, potential: 6, potentialUp: false }, // already P6: fragments only
+    ]);
+    expect(r.steps).toBe(6);
+    expect(r.cards.map((g) => g.unitId)).toEqual(['hotaru', 'kage', 'aoi']);
+    expect(r.statOnly.map((g) => g.unitId)).toEqual(['rei']);
+    const kage = r.cards[1];
+    expect([kage.from, kage.to]).toEqual([3, 5]);
+    expect(kage.steps.map((s) => s.name)).toEqual(['Shadow Tempo', 'Moonpiercer']);
+    expect(kage.shown.name).toBe('Moonpiercer');
+    expect(kage.next).toMatchObject({ step: 6, brief: '✦ Shuriken Storm' });
+    expect(kage.full).toBe(false);
+    const aoi = r.cards[2];
+    expect([aoi.from, aoi.to, aoi.shown.name]).toEqual([1, 3, 'Through-Shot']);
+    expect(aoi.kit.map((s) => s.step)).toEqual([3]);
+    expect(r.tricks).toBe(4); // Hotaru P2, Kage P4 and P5, Aoi P3
+    expect(r.statOnly[0].newest.brief).toBe('+4% damage');
+    // a girl who reached P6 in this recruit
+    const full = potentialRises([{ unitId: 'shiro', potential: 6, potentialUp: true }]);
+    expect(full.cards[0]).toMatchObject({ full: true, next: null });
+    expect(full.cards[0].shown.crown).toBe(true);
+    expect(potentialRises([]).cards).toEqual([]);
+    expect(potentialRises([{ unitId: 'nobody', potential: 3, potentialUp: true }]).girls).toEqual([]);
+  });
+
+  it('the duplicates rule (one sentence, one place)', () => {
+    const t = potentialDupesRule();
+    expect(t).toMatch(/^\+1 Potential \(P1 → P6: every step makes her stronger/);
+    expect(t).toContain('R ×2, SR ×10, SSR ×40');
+    expect(t).not.toMatch(/small passive/);
+  });
+});

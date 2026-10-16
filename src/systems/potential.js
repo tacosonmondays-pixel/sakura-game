@@ -19,6 +19,7 @@
 import { UNIT_MAP } from '../data/units.js';
 import { MAX_POTENTIAL, potentialSteps, potentialFold, potentialClamp, potentialTrack } from '../data/potential.js';
 import { potentialTextRow } from '../data/potentialText.js';
+import { UNIT_RARITIES } from '../data/types.js';
 
 export { MAX_POTENTIAL, potentialSteps, potentialFold };
 
@@ -40,6 +41,31 @@ export const SHADOW_AT = 'pot:at';
 
 /** Marker in `seenIntro`: the one-time backfill ran on an existing save. */
 export const BACKFILL_MARKER = 'potential-backfilled';
+
+/**
+ * Marker in `seenIntro`: this save has met Potential v3 (src/systems/mail.js ensurePotentialLetter
+ * sets it on the first app start of a v3 build, with the "Potential grew!" letter for a save that
+ * already had a girl at P2+). `NEW_PREFIX + id` entries: girls whose v3 steps she has not looked
+ * at yet (the NEW badge on her card; opening her Info tab clears it). Both are strings in a list
+ * every build keeps word for word.
+ */
+export const V3_MARKER = 'potential-v3';
+export const NEW_PREFIX = 'pot3-new:';
+
+/** @returns {boolean} her card shows the one-time NEW badge (a girl at P2+ when v3 arrived, not looked at yet) */
+export function hasPotentialNew(profile, unitId) {
+  return !!profile?.seenIntro?.includes(NEW_PREFIX + unitId);
+}
+
+/** Her Info tab was opened: clear her NEW badge. @returns {boolean} something changed */
+export function clearPotentialNew(profile, unitId) {
+  const list = profile?.seenIntro;
+  if (!Array.isArray(list)) return false;
+  const i = list.indexOf(NEW_PREFIX + unitId);
+  if (i < 0) return false;
+  list.splice(i, 1);
+  return true;
+}
 
 /** Starters are owned from the start; no history entry can be their first copy. */
 const STARTERS = ['hikari', 'aoi', 'rei'];
@@ -209,29 +235,175 @@ export function describePotentialStep(step, def = null) {
   return [{ short: label, long: label.replace(' DMG', ' damage').replace(' SPD', ' attack speed').replace(' COIN', ' coins per wave').replace(' AURA', ' aura').replace(' TRAP', ' trap damage'), who }];
 }
 
+/** A kit step (stat + kit, or the capstone) teaches her a trick; a 'stat' step only raises a number. */
+export const isKitStep = (step) => !!step && step.kind != null && step.kind !== 'stat';
+
+const TAG_ORDER = ['allies', 'enemies', 'coins'];
+const ENEMY_STATUS = (m) => [...(m.statusAdd || []), ...(m.proc?.status || []), ...(m.ult?.status || []), ...(m.ult?.statusAdd || [])];
+
 /**
- * The six nodes for the UI (P1 = her base).
- * @returns {{ step: number, name: string|null, kind: string|null, parts: object[], short: string, long: string, stat: string, active: boolean, next: boolean }[]}
+ * Who a step reaches besides her own attacks (the Info tab's chips): 'allies' (an aura, a rhythm's
+ * aura boost, a brew or link, a hero's team-wide haste), 'enemies' (a status or silence she puts on
+ * them, Brittle inside her aura, a burn that leaps), 'coins' (wave income, loot, a harvest).
+ * @returns {('allies'|'enemies'|'coins')[]}
  */
-export function potentialView(def, unitState) {
+export function potentialStepTags(step) {
+  const m = step?.mods || {};
+  const g = step?.girl || {};
+  const out = new Set();
+  if (stepWho(step) === 'allies') out.add('allies');
+  if (ENEMY_STATUS(m).length || m.silence || m.proc?.silence || m.aura?.foeVuln || m.dotSpread) out.add('enemies');
+  if (g.incomeMul || m.bountyAura || m.harvest) out.add('coins');
+  return TAG_ORDER.filter((t) => out.has(t));
+}
+
+/**
+ * One step for previews, cards, the letter and the Info tab's step list:
+ *   brief  "✦ Moonpiercer" on a kit step; on a stat step what it raises ("+4% attack speed")
+ * @param {object} def
+ * @param {number} p 2…6
+ * @returns {{ step: number, name: string|null, kind: string, kit: boolean, crown: boolean, node: string, long: string, brief: string, stat: string, tags: string[] }|null}
+ */
+export function potentialStepInfo(def, p) {
+  const s = potentialSteps(def).find((x) => x.step === p);
+  if (!s) return null;
+  const parts = describePotentialStep(s, def);
+  const long = parts.map((x) => x.long).join(' ');
+  const kit = isKitStep(s);
+  return {
+    step: s.step,
+    name: s.name,
+    kind: s.kind,
+    kit,
+    crown: s.step === MAX_POTENTIAL,
+    node: parts.map((x) => x.short).join(' '),
+    long,
+    brief: kit && s.name ? `✦ ${s.name}` : long.replace(/\.\s*$/, ''),
+    stat: potentialStatLabel(s, def),
+    tags: potentialStepTags(s),
+  };
+}
+
+/**
+ * The step her next duplicate unlocks, with what it takes (always 1 duplicate today: the source
+ * lives in potentialLevel / dupesToNext). Null at P6 and for a girl not owned.
+ * @returns {(ReturnType<typeof potentialStepInfo> & { dupes: number })|null}
+ */
+export function potentialNext(def, unitState) {
+  if (!unitState) return null;
+  const p = potentialLevel(unitState);
+  if (p >= MAX_POTENTIAL) return null;
+  const info = potentialStepInfo(def, p + 1);
+  return info ? { ...info, dupes: dupesToNext(unitState) } : null;
+}
+
+/**
+ * The duplicates rule in one sentence (the recruit rates, the wiki): where Potential comes from and
+ * what a step gives. One place, so a later source (ascension's Essence) rewrites it here.
+ */
+export function potentialDupesRule() {
+  const f = (r) => UNIT_RARITIES[r].fragmentsOnDupe;
+  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger, and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`;
+}
+
+/** "1 more duplicate" / "2 more duplicates". */
+export const moreDupes = (n) => `${n} more duplicate${n === 1 ? '' : 's'}`;
+
+/** The pill's tooltip: "Potential 5 of 6 — Moonpiercer" (her newest step), "Potential 1 of 6" at P1. */
+export function potentialPillTitle(def, p) {
+  const level = potentialClamp(p);
+  const newest = level >= 2 ? potentialSteps(def)[level - 2]?.name : null;
+  return `Potential ${level} of ${MAX_POTENTIAL}${newest ? ` — ${newest}` : ''}`;
+}
+
+/**
+ * The six nodes for the UI (P1 = her base). `capAt(p)` (optional, src/systems/progression.js
+ * potentialLevelCap) is her level cap at P: a node shows it under its stat (`+4% SPD · 67`) only
+ * when Potential raises it above her P1 cap, so the line reads the level rule as it is.
+ * @param {object} def
+ * @param {object|null} unitState
+ * @param {{ capAt?: (p: number) => number }} [o]
+ * @returns {{ step: number, name: string|null, kind: string|null, kit: boolean, parts: object[], short: string, long: string, stat: string, cap: number|null, line: string, tags: string[], active: boolean, next: boolean }[]}
+ */
+export function potentialView(def, unitState, { capAt = null } = {}) {
   const owned = !!unitState;
   const level = owned ? potentialLevel(unitState) : 0;
-  const nodes = [{ step: 1, name: null, kind: null, parts: [], short: 'Base', long: 'Her base (first copy)', stat: '', active: owned, next: !owned }];
+  const base = capAt ? capAt(1) : null;
+  const capOf = (p) => {
+    const c = capAt ? capAt(p) : null;
+    return typeof c === 'number' && typeof base === 'number' && c > base ? c : null;
+  };
+  const nodes = [{ step: 1, name: null, kind: null, kit: false, parts: [], short: 'Base', long: 'Her base (first copy)', stat: '', cap: null, line: '', tags: [], active: owned, next: !owned }];
   for (const s of potentialSteps(def)) {
     const parts = describePotentialStep(s, def);
+    const stat = potentialStatLabel(s, def);
+    const cap = capOf(s.step);
     nodes.push({
       step: s.step,
       name: s.name,
       kind: s.kind,
+      kit: isKitStep(s),
       parts,
       short: parts.map((p) => p.short).join(' '),
       long: parts.map((p) => p.long).join(' '),
-      stat: potentialStatLabel(s, def),
+      stat,
+      cap,
+      line: [stat, cap != null ? String(cap) : ''].filter(Boolean).join(' · '),
+      tags: potentialStepTags(s),
       active: owned && s.step <= level,
       next: owned && s.step === level + 1,
     });
   }
   return nodes;
+}
+
+const RARITY_RANK = { UR: 3, SSR: 2, SR: 1, R: 0 };
+
+/**
+ * What a recruit raised (a 10-pull, a spark, an SSR Select Ticket, a Mall exchange): per girl whose
+ * Potential rose, from → to and the steps she reached. `cards`: the girls who reached a kit step
+ * (the "Potential up!" cards), highest rarity first, then the highest P; `statOnly`: girls whose
+ * rises were all stat steps (one "Also:" line).
+ * @param {{ unitId: string, potential?: number, potentialUp?: boolean }[]} results in recruit order
+ * @returns {{ girls: object[], cards: object[], statOnly: object[], steps: number, tricks: number }}
+ */
+export function potentialRises(results) {
+  const by = new Map();
+  (results || []).forEach((r, i) => {
+    if (!r?.potentialUp || !(r.potential >= 2) || !UNIT_MAP[r.unitId]) return;
+    const g = by.get(r.unitId) || { unitId: r.unitId, def: UNIT_MAP[r.unitId], from: MAX_POTENTIAL, to: 1, order: i };
+    g.from = Math.min(g.from, potentialClamp(r.potential) - 1);
+    g.to = Math.max(g.to, potentialClamp(r.potential));
+    by.set(r.unitId, g);
+  });
+  const girls = [...by.values()].map((g) => {
+    const steps = [];
+    for (let p = g.from + 1; p <= g.to; p++) {
+      const info = potentialStepInfo(g.def, p);
+      if (info) steps.push(info);
+    }
+    const kit = steps.filter((s) => s.kit);
+    return {
+      ...g,
+      steps,
+      kit,
+      newest: steps[steps.length - 1] || null,
+      // the trick on her card: the newest kit step she reached
+      shown: kit[kit.length - 1] || null,
+      next: g.to < MAX_POTENTIAL ? potentialStepInfo(g.def, g.to + 1) : null,
+      full: g.to >= MAX_POTENTIAL,
+    };
+  });
+  const rank = (g) => RARITY_RANK[g.def.rarity] ?? 0;
+  const cards = girls.filter((g) => g.kit.length).sort((a, b) => rank(b) - rank(a) || b.to - a.to || a.order - b.order);
+  const statOnly = girls.filter((g) => !g.kit.length).sort((a, b) => a.order - b.order);
+  return {
+    girls,
+    cards,
+    statOnly,
+    steps: girls.reduce((a, g) => a + g.steps.length, 0),
+    tricks: girls.reduce((a, g) => a + g.kit.length, 0),
+  };
 }
 
 /** One line for tooltips: the names of her active steps ("Night Drills, Shadow Edge, Shadow Tempo"), or ''. */

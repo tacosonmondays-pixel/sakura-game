@@ -38,8 +38,8 @@ import { featureOpen, featureLockText, featureStage } from '../../systems/story.
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { resolveText } from '../../data/story/tokens.js';
 import { resolveStats } from '../../sim/mods.js';
-import { potentialLevel } from '../../systems/potential.js';
-import { potPill, potentialSection } from '../potential.js';
+import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../systems/potential.js';
+import { potPill, potentialSection, nextLine } from '../potential.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -298,7 +298,7 @@ function buildShowcase(unit, onCycle, onPotential) {
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
         stars(st?.awaken || 0, MAX_AWAKEN),
-        st ? potPill(potentialLevel(st), { tag: 'button', min: 1, testid: 'show-potential', title: `Potential ${potentialLevel(st)} of 6 — see her Info tab`, onClick: onPotential }) : null,
+        st ? potPill(potentialLevel(st), { tag: 'button', min: 1, testid: 'show-potential', title: `${potentialPillTitle(unit, potentialLevel(st))}. ${nextLine(unit, st)} — see her Info tab`, onClick: onPotential }) : null,
         st ? h('div.mb-show-power', svgEl(uiIcon('sword')), formatNumber(unitPower(store.profile, unit.id))) : null),
     );
   };
@@ -869,7 +869,10 @@ export function render(root, params = {}) {
       case 'awaken': content = awakenTab(unit, ctx); break;
       case 'gear': content = gearTab(unit, ctx); break;
       case 'tree': content = treeTab(unit); break;
-      default: content = infoTab(unit);
+      default:
+        content = infoTab(unit);
+        // her Potential steps are on screen now: the one-time NEW badge on her card goes
+        if (clearPotentialNew(store.profile, unit.id)) store.commit('potential-seen', { quiet: true });
     }
     tabHost.appendChild(content);
     if (animate) {

@@ -31,7 +31,7 @@ import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
 import { breakthroughCost, awakenCost, totalExpToLevel, COINS_PER_EXP } from '../systems/progression.js';
 import { expectedSSRRate } from '../systems/gacha.js';
-import { MAX_POTENTIAL, potentialSteps, describePotentialStep } from '../systems/potential.js';
+import { MAX_POTENTIAL, potentialSteps, describePotentialStep, potentialDupesRule } from '../systems/potential.js';
 import { POTENTIAL_LADDERS } from './potential.js';
 import { f2pIncomeSummary } from '../systems/missions.js';
 
@@ -364,7 +364,7 @@ function gachaArticle() {
   return article('gacha', 'Recruit Rates, Pity & Spark', 'economy', 'gacha', 'Exact recruit odds, the 90-pull pity and the 200-point spark.', ['gacha', 'recruit', 'pull', 'rates', 'pity', 'spark', 'ssr', 'sr', 'duplicate', 'fragment', 'ticket'], [
     sec('Rates',
       table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `+1 Potential and ${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
-      p(`Duplicates: +1 Potential (P1 → P${MAX_POTENTIAL}; each step adds a small passive) and Star Fragments for awakening (R ×${UNIT_RARITIES.R.fragmentsOnDupe}, SR ×${UNIT_RARITIES.SR.fragmentsOnDupe}, SSR ×${UNIT_RARITIES.SSR.fragmentsOnDupe}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`),
+      p(`Duplicates: ${potentialDupesRule()}`),
       p(`Consolidated SSR rate including pity: ≈ ${pct(ssr, 2)} (about one SSR every ${Math.round(1 / ssr)} recruits).`)),
     sec('Pity and guarantees',
       list([

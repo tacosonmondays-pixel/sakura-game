@@ -30,6 +30,18 @@ export function levelCap(unitState) {
   return Math.min(MAX_LEVEL, 10 + 10 * (unitState?.breakthrough || 0));
 }
 
+/**
+ * Her level cap at Potential `p` once every breakthrough gate is open: what the Potential screens
+ * show next to each step ("+4% SPD · 67"; they show it only where it rises above the P1 cap). It
+ * asks levelCap itself, so the screens follow whatever the level rule says (and an ascension that
+ * moves the caps moves them here too).
+ * @param {number} p 1…6
+ */
+export function potentialLevelCap(p) {
+  const dupes = Math.max(0, Math.min(5, Math.floor(Number(p) || 1) - 1));
+  return levelCap({ breakthrough: MAX_BREAKTHROUGH, dupes });
+}
+
 /** EXP to go from `level` to `level + 1` (Infinity at max). */
 export function expForLevel(level) {
   if (level >= MAX_LEVEL) return Infinity;

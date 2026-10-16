@@ -11,7 +11,7 @@ import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
 import { isUR, urBadge, applyUrFrame } from './rarity.js';
-import { MAX_POTENTIAL, potentialLevel } from '../systems/potential.js';
+import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialStepInfo } from '../systems/potential.js';
 
 /**
  * After a claim: "Choose your SSR now?"
@@ -50,7 +50,7 @@ export function openSelectTicket() {
         const p = owned ? potentialLevel(store.profile.units[id]) : 0;
         const text = !owned ? `Recruit ${u.name}, ${u.title}?`
           : p >= MAX_POTENTIAL ? `${u.name} is at P${MAX_POTENTIAL}: the ticket becomes ${frag} Star Fragments. Use it?`
-            : `${u.name} is already in your academy: she gains +1 Potential (P${p} → P${p + 1}) and ${frag} Star Fragments. Use it?`;
+            : `${u.name} is already in your academy: she gains +1 Potential (P${p} → P${p + 1}: ${potentialNext(u, store.profile.units[id])?.brief || ''}) and ${frag} Star Fragments. Use it?`;
         const ok = await confirmDialog(text, { title: 'Use SSR Select Ticket', ok: !owned ? `Choose ${u.name}` : p >= MAX_POTENTIAL ? 'Convert' : 'Use ticket', okKind: 'yellow' });
         if (!ok) return;
         const r = redeemSelectTicket(store.profile, id);
@@ -73,6 +73,16 @@ export function openSelectTicket() {
   return m;
 }
 
+/** "P2 unlocked: ✦ Firefly Lamps" and what it does, after a duplicate. */
+function stepLine(u, r) {
+  if (r.isNew || !r.potentialUp) return null;
+  const info = potentialStepInfo(u, r.potential);
+  if (!info) return null;
+  return h('div.sst-joined-step', { 'data-testid': 'sst-joined-step' },
+    h('b', `P${info.step} unlocked: ${info.brief}`),
+    info.kit ? h('span', info.long) : null);
+}
+
 function showJoined(u, r) {
   modal({
     title: '',
@@ -86,6 +96,8 @@ function showJoined(u, r) {
         h('p', { 'data-testid': 'sst-joined-text' }, r.isNew ? `${u.name} joined the academy!`
           : r.potentialUp ? `${u.name} was already here — Potential ${r.potential} ▲ and +${r.fragments} Star Fragments.`
             : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments.`),
+        // the step she just reached (the "Potential up!" card's content, inside this card)
+        stepLine(u, r),
         u.quote ? h('q', u.quote) : null,
       ),
     ),
