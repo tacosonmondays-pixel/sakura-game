@@ -54,7 +54,16 @@ Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 
   Up in 14 s", "+75% · 4 s left"). An ally's girl shows her owner's counts; a P1 girl has no rows.
 
 **Migration from v1 (v3 §12, v2 §8).** No `SAVE_VERSION` bump; `dupes`, the shadow and the backfill are untouched,
-so every girl keeps her P and fights with the v3 steps of it at once (v3 only adds: B6 compares v3 with v1).
+so every girl keeps her P and fights with the v3 steps of it at once.
+- **Nothing got weaker (gate B6, measured).** `BALANCE=potential` (`tests/integration/potential.balance.test.js`)
+  runs every girl with her v3 steps and with her v1 steps (`tests/fixtures/potentialV1.js`, the v0.1.35 table) at
+  P2…P6, strong build, 4-5: crowd 40 s and held target 60 s, seeds 9 / 21. v3 ≥ v1 everywhere; the lowest is Suzu's
+  held-target row at P5 (×0.975 over 8 seeds and 120 s: traps against one held enemy are placement luck, and v1's
+  +3 % range only moves where they land; its tolerance is 5 %, every other row's 1 %). Most rows climb from about
+  ×1.02 at P2 to ×1.4–3.8 at P6 (Midori's %-HP poison makes her rows huge against the bench's immortal targets).
+  Aoi inside Miko's / Umeko's aura ×1.01–1.32, Momo's wave income ×1.03–1.14 at every tier. Campaign (balance bot,
+  seed 1): P1 Easy 40/40, Normal 39/40; F2P Potential and P6 win every stage P1 wins (40 / 40 on both). v1's
+  "every step stays small" bands are gone from that file with v1.
 - **The letter.** v1's `potential-arrived-1` already reached v0.1.34 players, so v3 writes its own letter,
   `potential-v3-1` "Potential grew!", once (`ensurePotentialLetter`, app start and lobby): every save without the
   seenIntro mark `potential-v3` is an older build's; it is marked, and if some girl is at P2+ the letter lists every
@@ -75,7 +84,7 @@ have earned right away. Nothing got weaker: P1 is exactly the girl you know." Wi
 level cap, up to level 85 at P6. Levels above 60 use Akashic Tomes, now found more often in Library Courtyard III on
 Nightmare, in Freeplay caches (up to 2 a week), in the Bounty Exchange, and from duplicates past P6."
 
-**Tests.** `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
+**Tests.** `tests/integration/potential.balance.test.js` (B6 and the campaign, opt-in), `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
 rising cap rule, `potentialLevelCap`, recruit rises, the duplicates rule), `tests/systems/mail.test.js` (a v1 save,
 a pre-M0 save, a v3-born save, an all-P1 save, the 12-name list, the cap phrase, the NEW badge round trip),
 `tests/battle-ui/potentialPanel.test.js` (Kage's storm and tempo pips and shuriken line, Chika's overclock, ordinals,

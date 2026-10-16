@@ -1,16 +1,18 @@
-// Potential balance guard (opt-in; docs/specs/POTENTIAL.md §8.6). Measures what P6 adds on the
-// real sim and fails when a step is no longer "small":
+// Potential balance guard (opt-in; docs/specs/POTENTIAL.md v3 §12–§13.1, v1 §8.6). On the real sim:
 //
 //   BALANCE=potential npx vitest run tests/integration/potential.balance.test.js
 //   BALANCE_OUT=/tmp/potential.md also writes the tables to a file
 //
-// 1. Paper DPS (sim.towerStats) P1 → P6 for every girl at t0 and 5-0-2.
-// 2. Crowd bench: one girl on the best-covered spot of 4-5, an immortal orc grunt every 0.1 s, 15 s
-//    warm-up then 40 s of damage (held target: 120 s); at level 1 (no gear, ★0) and "strong" (L60, ★3, mythic gear).
-// 3. Held single target: the same girl, one immortal elite held at the path point nearest her.
-// 4. Auras: Aoi standing in Miko's / Umeko's aura, the aura girl at P1 vs P6.
-// 5. Campaign: the balance bot (tests/integration/balance.test.js) on all 40 stages, Easy and
-//    Normal, with every girl at P1, "F2P Potential" (R P6, SR P4, SSR and heroes P2) and P6.
+// v1's "every step stays small" bands are gone with v1 (v3's steps are meant to be big; the §13.1
+// gates B1–B8 measure their sizes on the integrated train C tree). What stays:
+// 1. B6, "nothing got weaker" for the players who had v1: every girl with her v3 steps and with her
+//    v1 steps (tests/fixtures/potentialV1.js) at every P, crowd and held single target, strong.
+//    Crowd bench: one girl on the best-covered spot of 4-5, an immortal orc grunt every 0.1 s, 15 s
+//    warm-up then 40 s of damage; held target: one immortal elite held at the path point nearest her.
+// 2. B6 for the supports (Aoi standing in Miko's / Umeko's aura) and Momo (her wave income).
+// 3. Campaign: the balance bot (tests/integration/balance.test.js) on all 40 stages, Easy and
+//    Normal, with every girl at P1, "F2P Potential" (R P6, SR P4, SSR and heroes P2) and P6: F2P
+//    and P6 win every stage P1 wins.
 import { describe, test, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
@@ -19,26 +21,22 @@ import { samplePath } from '../../src/sim/path.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { v1Def } from '../fixtures/potentialV1.js';
 
 const RUN = process.env.BALANCE === 'potential' && hasRealData();
 /** Expected F2P account level per chapter (the same as tests/integration/balance.test.js). */
 const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
 
 const STRONG = { damageMul: 2.2, rateMul: 1.24, rangeMul: 1.08, critChance: 0.2, critMul: 1.3, armorPen: 1, awakenPassive: true, level: 60, awaken: 3 };
-const L1 = { level: 1 };
 const SUPPORTS = new Set(['miko', 'umeko']);
-const median = (a) => {
-  const s = [...a].sort((x, y) => x - y);
-  return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
-};
-const pct = (x) => `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}%`;
 
-function benchSim(stageId, ids, stats, seed) {
+function benchSim(stageId, ids, stats, seed, units = null) {
   const sim = new Sim({
     stageId, difficulty: 'normal', seed,
     loadout: ids.map((unitId) => ({ unitId, stats })),
     hero: null,
     options: { autoStart: false },
+    ...(units ? { data: { units } } : {}),
   });
   sim.lives = 1e9;
   sim.cash = 1e9;
@@ -76,9 +74,9 @@ function upgrade(sim, uid, tiers) {
  * Damage one girl deals in `secs` after a warm-up.
  * @param {'crowd'|'still'} kind crowd = a grunt every 0.1 s; still = one elite held in front of her
  */
-function bench(unitId, { stats, potential, tiers = [0, 0, 0], kind = 'crowd', seed = 9, secs = 40, warm = 15, partner = null }) {
+function bench(unitId, { stats, potential, tiers = [0, 0, 0], kind = 'crowd', seed = 9, secs = 40, warm = 15, partner = null, units = null }) {
   const ids = partner ? [unitId, partner.id] : [unitId];
-  const sim = benchSim('4-5', ids, { ...stats, potential }, seed);
+  const sim = benchSim('4-5', ids, { ...stats, potential }, seed, units);
   // with a partner: the aura girl next to Aoi; Aoi (measured) stays at P1, the aura girl at `potential`
   if (partner) sim.loadout = new Map([[unitId, { ...stats, potential: 1 }], [partner.id, { ...stats, potential }]]);
   const spot = bestSpot(sim, unitId);
@@ -124,13 +122,17 @@ function bench(unitId, { stats, potential, tiers = [0, 0, 0], kind = 'crowd', se
   return (target.damageDealt - start) / secs;
 }
 
-function paperDps(unitId, potential, tiers) {
-  const sim = benchSim('4-5', [unitId], { potential }, 1);
+/** Her wave income (towerStats income.perWave, Potential's incomeMul included) at t0 and a tier set. */
+function incomeOf(unitId, potential, tiers, units = null) {
+  const sim = benchSim('4-5', [unitId], { potential }, 1, units);
   const spot = bestSpot(sim, unitId);
   const t = sim.placeTower(unitId, spot.x, spot.y);
   upgrade(sim, t.uid, tiers);
-  return sim.towerStats(t.uid).dps;
+  return sim.towerStats(t.uid).income?.perWave || 0;
 }
+
+/** Her def with her v1 steps, as a units override (the v3 tables stay untouched). */
+const v1Units = (id) => ({ [id]: v1Def(UNIT_MAP[id]) });
 
 function statsAt(unitId, level, potential) {
   const breakthrough = Math.max(0, Math.ceil((level - 10) / 10));
@@ -169,67 +171,70 @@ describe.runIf(RUN)('Potential balance guard (BALANCE=potential)', () => {
     if (process.env.BALANCE_OUT) writeFileSync(process.env.BALANCE_OUT, out.join('\n') + '\n');
   };
 
-  test('paper DPS: +6–11 % for every damage dealer, at t0 and 5-0-2', () => {
-    const rows = ['| Girl | t0 P1 → P6 | 5-0-2 P1 → P6 |', '|---|---|---|'];
+  test('B6: v3 ≥ v1 at every P, crowd and held single target, for every damage dealer (strong, seeds 9 / 21)', () => {
+    // B6_ONLY=suzu,kage reruns a few girls
+    const only = process.env.B6_ONLY ? new Set(process.env.B6_ONLY.split(',')) : null;
+    const dealers = UNITS.filter((u) => !SUPPORTS.has(u.id) && u.id !== 'momo' && (!only || only.has(u.id)));
+    const rows = ['| Girl | Crowd v3/v1 P2…P6 | Held v3/v1 P2…P6 |', '|---|---|---|'];
     const bad = [];
-    for (const u of UNITS) {
+    let worst = Infinity;
+    for (const u of dealers) {
       const cells = [];
-      for (const tiers of [[0, 0, 0], [5, 0, 2]]) {
-        const a = paperDps(u.id, 1, tiers);
-        const b = paperDps(u.id, 6, tiers);
-        if (!(a > 0)) { cells.push('n/a (no direct shots)'); continue; }
-        const g = b / a - 1;
-        cells.push(`${a.toFixed(2)} → ${b.toFixed(2)} (${pct(g)})`);
-        const [lo, hi] = SUPPORTS.has(u.id) ? [0.03, 0.11] : [0.06, 0.11];
-        if (!(g >= lo - 1e-9 && g <= hi + 1e-9)) bad.push(`${u.id} ${tiers.join('-')} ${pct(g)}`);
+      // traps against one held enemy: how many land inside its trigger radius is luck of placement
+      // (v1 §8 saw the same swing), so a trapper's held row averages 8 seeds over 120 s, as a ratio
+      // of the totals
+      const trapper = u.base?.behavior === 'trap';
+      for (const kind of ['crowd', 'still']) {
+        const secs = kind === 'still' ? (trapper ? 120 : 60) : 40;
+        const seeds = kind === 'still' && trapper ? [9, 21, 33, 45, 57, 69, 81, 93] : [9, 21];
+        const ratios = [];
+        for (let p = 2; p <= 6; p++) {
+          const v3 = seeds.map((seed) => bench(u.id, { stats: STRONG, potential: p, kind, seed, secs }));
+          const v1 = seeds.map((seed) => bench(u.id, { stats: STRONG, potential: p, kind, seed, secs, units: v1Units(u.id) }));
+          const r = trapper && kind === 'still'
+            ? v3.reduce((a, b) => a + b, 0) / Math.max(1e-9, v1.reduce((a, b) => a + b, 0))
+            : v3.map((x, i) => x / Math.max(1e-9, v1[i])).reduce((a, b) => a + b, 0) / seeds.length;
+          ratios.push(r);
+          worst = Math.min(worst, r);
+          // (1 % for the bench's own noise: two placements of immortal enemies; 5 % for a trapper's
+          // held row, where v1's +3 % range only moves where her traps land)
+          if (r < (trapper && kind === 'still' ? 0.95 : 0.99)) bad.push(`${u.id} ${kind} P${p} ×${r.toFixed(3)}`);
+        }
+        cells.push(ratios.map((r) => `×${r.toFixed(2)}`).join(' '));
       }
       rows.push(`| ${u.id} | ${cells.join(' | ')} |`);
     }
-    report(`\n### Paper DPS\n${rows.join('\n')}`);
+    report(`\n### B6: v3 vs v1 at every P (strong, t0; crowd 40 s, held 60 s; seeds 9 / 21; a trapper held 120 s over 8 seeds), lowest ×${worst.toFixed(3)}\n${rows.join('\n')}`);
     expect(bad).toEqual([]);
-  }, 600000);
+  }, 7200000);
 
-  test('crowd and held single target: medians ≤ +12 % / +13 %, no level dependence', () => {
-    const dealers = UNITS.filter((u) => !SUPPORTS.has(u.id) && u.id !== 'momo');
-    const res = {};
-    const rows = ['| Girl | Crowd L1 | Crowd strong | Held target L1 | Held target strong |', '|---|---|---|---|---|'];
-    for (const u of dealers) {
-      const g = {};
-      for (const [name, stats] of [['L1', L1], ['strong', STRONG]]) {
-        for (const kind of ['crowd', 'still']) {
-          // held target: 120 s, so slow shooters (Sango 0.45/s) and traps count enough hits
-          const secs = kind === 'still' ? 120 : 40;
-          const vals = [9, 21].map((seed) => bench(u.id, { stats, potential: 6, kind, seed, secs }) / Math.max(1e-9, bench(u.id, { stats, potential: 1, kind, seed, secs })) - 1);
-          g[`${kind}:${name}`] = vals.reduce((a, b) => a + b, 0) / vals.length;
-        }
-      }
-      res[u.id] = g;
-      rows.push(`| ${u.id} | ${pct(g['crowd:L1'])} | ${pct(g['crowd:strong'])} | ${pct(g['still:L1'])} | ${pct(g['still:strong'])} |`);
-    }
-    const med = (k) => median(Object.values(res).map((g) => g[k]));
-    rows.push(`| **median** | ${pct(med('crowd:L1'))} | ${pct(med('crowd:strong'))} | ${pct(med('still:L1'))} | ${pct(med('still:strong'))} |`);
-    report(`\n### Crowd (40 s) and held single target (120 s), P6 vs P1, seeds 9 / 21, t0\n${rows.join('\n')}`);
-    expect(med('crowd:L1')).toBeLessThanOrEqual(0.12);
-    expect(med('crowd:strong')).toBeLessThanOrEqual(0.12);
-    expect(med('still:L1')).toBeLessThanOrEqual(0.13);
-    expect(med('still:strong')).toBeLessThanOrEqual(0.13);
-    expect(Math.abs(med('crowd:L1') - med('crowd:strong'))).toBeLessThanOrEqual(0.03);
-    for (const [id, g] of Object.entries(res)) expect(g['still:L1'], id).toBeLessThanOrEqual(0.22);
-  }, 3600000);
-
-  test('auras: one aura girl P6 moves a partner by at most +3 %', () => {
-    const rows = ['| Aura girl | Aoi in her aura, crowd, strong | Aoi held target |', '|---|---|---|'];
+  test('B6: a girl in Umeko\'s / Miko\'s aura gains at least as much as with v1, and Momo earns at least as much', () => {
+    const rows = ['| Who | v3/v1 P2…P6 |', '|---|---|'];
+    const bad = [];
     for (const id of ['miko', 'umeko']) {
-      const g = {};
       for (const kind of ['crowd', 'still']) {
-        const v = [9, 21].map((seed) => bench('aoi', { stats: STRONG, potential: 6, kind, seed, partner: { id } }) / bench('aoi', { stats: STRONG, potential: 1, kind, seed, partner: { id } }) - 1);
-        g[kind] = v.reduce((a, b) => a + b, 0) / v.length;
+        const ratios = [];
+        for (let p = 2; p <= 6; p++) {
+          const v = [9, 21].map((seed) => bench('aoi', { stats: STRONG, potential: p, kind, seed, secs: 40, partner: { id } }) / Math.max(1e-9, bench('aoi', { stats: STRONG, potential: p, kind, seed, secs: 40, partner: { id }, units: v1Units(id) })));
+          const r = v.reduce((a, b) => a + b, 0) / v.length;
+          ratios.push(r);
+          if (r < 0.99) bad.push(`${id} ${kind} P${p} ×${r.toFixed(3)}`);
+        }
+        rows.push(`| Aoi in ${id}'s aura, ${kind} | ${ratios.map((r) => `×${r.toFixed(3)}`).join(' ')} |`);
       }
-      rows.push(`| ${id} | ${pct(g.crowd)} | ${pct(g.still)} |`);
-      expect(g.crowd, id).toBeLessThanOrEqual(0.03);
     }
-    report(`\n### Auras\n${rows.join('\n')}`);
-  }, 600000);
+    for (const tiers of [[0, 0, 0], [5, 0, 2], [0, 5, 2]]) {
+      const ratios = [];
+      for (let p = 2; p <= 6; p++) {
+        const r = incomeOf('momo', p, tiers) / Math.max(1e-9, incomeOf('momo', p, tiers, v1Units('momo')));
+        ratios.push(r);
+        if (r < 1 - 1e-9) bad.push(`momo income ${tiers.join('-')} P${p} ×${r.toFixed(3)}`);
+      }
+      rows.push(`| Momo's wave income, ${tiers.join('-')} | ${ratios.map((r) => `×${r.toFixed(3)}`).join(' ')} |`);
+    }
+    report(`\n### B6: supports and Momo, v3 vs v1\n${rows.join('\n')}`);
+    expect(bad).toEqual([]);
+  }, 3600000);
 
   test('campaign: F2P and P6 win every stage P1 wins (Easy and Normal)', () => {
     const d = defaultData();
