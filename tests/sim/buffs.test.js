@@ -249,6 +249,28 @@ describe('sources and targets (read-only, for the buff icons)', () => {
   });
 });
 
+describe('hero ultimate as a buff source', () => {
+  test('a time-warp ultimate is tinted by the hero who cast it (her uid, not the view getter)', () => {
+    const sim = new Sim({ stageId: 'test-1', loadout: [{ unitId: 'archer' }], hero: { unitId: 'warper' }, seed: 5, data: testData({ units: XUNITS }) });
+    sim.cash = 1e9;
+    const x = place(sim, 'archer', 'c');
+    const h = place(sim, 'warper', 'a');
+    expect(h.isHero).toBe(true);
+    startEmptyWave(sim);
+    h.ultCooldown = 0; // charged
+    expect(sim.activateUlt()).toBe(true);
+    expect(sim._globalBuffs.map((b) => b.src)).toEqual([h.uid]);
+    run(sim, 0.1);
+    expect(sim.buffSources(x.uid).at(-1)).toMatchObject({ key: 'rate', kind: 'ult', src: h.uid, unitId: 'warper' });
+  });
+
+  test('a global rate buff without a caster names nobody', () => {
+    const sim = sim0();
+    sim.addGlobalRateBuff(1.5, 4);
+    expect(sim._globalBuffs.map((b) => b.src)).toEqual([-1]);
+  });
+});
+
 describe('determinism', () => {
   test('snapshot round trip with brews, links and overclock: both copies stay identical', () => {
     const sim = sim0();

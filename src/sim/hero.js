@@ -362,7 +362,8 @@ export function activateUlt(sim) {
       applyStatus(e, { type: 'slow', amount: effect.slow ?? 0.4, duration: effect.duration ?? 4 }, ctx);
     }
     const rb = effect.rateBuff ?? 0.25;
-    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, effect.buffDuration ?? effect.duration ?? 6);
+    // the caster's uid (the buff icons tint the ultimate by her; nothing reads the view getter)
+    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, effect.buffDuration ?? effect.duration ?? 6, h.uid);
   } else if (effect.type === 'tide') {
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
     for (const e of victims) {

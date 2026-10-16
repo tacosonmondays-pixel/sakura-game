@@ -259,9 +259,10 @@ export class Sim {
 
   /**
    * Multiplies every tower's attack rate for `duration` seconds (strongest active buff wins). `src` = the
-   * girl who cast it (the buff icons; default the hero).
+   * uid of the girl who cast it (the buff icons; the hero ultimate passes its caster), -1 = nobody. No
+   * default from the view getter `sim.hero`: in co-op both players' heroes can cast it.
    */
-  addGlobalRateBuff(mul, duration, src = this.hero?.uid ?? -1) {
+  addGlobalRateBuff(mul, duration, src = -1) {
     this._globalBuffs.push({ mul, left: duration, src });
     this.globalRateMul = Math.max(this.globalRateMul, mul);
     this._buffsDirty = true;

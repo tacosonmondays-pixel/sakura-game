@@ -89,12 +89,20 @@ describe('one final tier per path per girl type', () => {
   });
 
   test('heroes are exempt', () => {
+    // since the hero rework a hero has no paths (she levels on her 25-level track), so there is no
+    // final tier to hold or to be refused; the isHero check stays as a safety net
     const sim = makeSim({ cash: 1e9, hero: 'heroine' });
     const h = sim.placeTower('heroine', 8.5, 5.6);
     expect(h.isHero).toBe(true);
-    buy(sim, h, 0, 5);
-    expect(sim.finalTierHolder(h.uid, 0)).toBe(null);
-    // a hero copy (impossible in play: one hero per battle) never holds or is blocked
+    expect(h.def.paths).toEqual([]);
+    for (const p of [0, 1, 2]) {
+      expect(finalTierOf(h.def, p)).toBe(0);
+      expect(sim.upgradeStatus(h.uid, p)).toMatchObject({ locked: true, reason: 'max', holder: null });
+      expect(sim.upgradeTower(h.uid, p)).toBe(false);
+      expect(sim.finalTierHolder(h.uid, p)).toBe(null);
+    }
+    expect(sim.finalTierHolders('heroine', 0)).toEqual([null, null, null]);
+    // a hero copy with tiers (impossible in play: heroes have none, one hero per player) never holds
     const fake = { ...h, uid: 999, tiers: [5, 0, 0] };
     expect(findFinalHolder([h, fake], 'heroine', 0, 0)).toBe(null);
   });
