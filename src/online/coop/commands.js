@@ -28,8 +28,12 @@ import { withDetMath } from './detMath.js';
  * `maxPrice`) hmv[qx,qy] (move her hero)
  * fly[uid, mode, qx1?, qy1?, qx2?, qy2?] (a drone wing's flight mode, owner only like tgt: Hold
  * takes point 1, Patrol points 1 and 2, in 1/1024 tiles; docs/specs/CHIKA_REWORK.md §16).
+ * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
+ * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
+ * pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
+ * target may be an ally's girl (Sim.setBuffPick).
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -169,6 +173,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           const t = sim.placeTower(unitId, x, y);
           if (t) {
             owners.set(t.uid, slot);
+            t.owner = slot;
             res = { ok: true, tower: t };
           }
           break;
@@ -176,7 +181,11 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
         case 'upg':
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
           else if (!UPGRADE_PATHS.includes(a[1])) res = { ok: false, reason: 'invalid' };
-          else res = sim.upgradeTower(a[0], a[1]) ? { ok: true } : { ok: false, reason: 'cash' };
+          else {
+            // that player's view (cash, owner), the same on every client; never options from the network
+            const st = sim.upgradeStatus(a[0], a[1]);
+            res = st.locked ? { ok: false, reason: st.reason, holder: st.holder ?? null } : { ok: sim.upgradeTower(a[0], a[1]) };
+          }
           break;
         case 'sell':
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
@@ -240,6 +249,12 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
             checkEndVotes();
             res = { ok: true };
           }
+          break;
+        case 'pick':
+          // limited buffs (src/sim/buffs.js): my brewer / linker, any girl as the target (teamwork)
+          if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
+          else if (!Number.isInteger(a[1])) res = { ok: false, reason: 'invalid' };
+          else res = sim.setBuffPick(a[0], a[1]);
           break;
         default:
           break;

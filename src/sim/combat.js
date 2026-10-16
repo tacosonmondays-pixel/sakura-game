@@ -1,8 +1,9 @@
 // Pure damage pipeline (CONTRACTS.md §6). Order:
 // eligibility (tunnel / veil / phasing / air) → type multiplier → element ward (×0.5) → soak bonus →
 // mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
-// barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; min 1
-// except crystal) → hp. Burn/poison ticks skip crit, crystal and flat armor.
+// barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; in freeplay at
+// most 75% of the hit, enemy.armorFloor; min 1 except crystal) → % of current HP (hpPct, capped)
+// → hp. Burn/poison ticks skip crit, crystal and flat armor.
 //
 // Tower tier bonuses (eliteMul applies to elite/miniboss/boss, bossMul to miniboss/boss)
 // are part of the hit's base damage and are applied before the type multiplier.
@@ -103,7 +104,15 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
       if (dmg > enemy.crystalCap) dmg = enemy.crystalCap;
     }
     toHp = dmg - effectiveArmor(enemy, hit.armorPen || 0);
+    // freeplay armor floor: armor never removes more than (1 − floor) of a hit
+    if (enemy.armorFloor && !shellHit) toHp = Math.max(toHp, dmg * enemy.armorFloor);
     toHp = shellHit ? Math.max(0, toHp) : Math.max(1, toHp);
+    // execution shot: + a share of the enemy's current HP (bosses a smaller one), at most cap × the hit
+    const hp = hit.hpPct;
+    if (hp && !shellHit && toHp > 0) {
+      const boss = enemy.tier === 'boss' || enemy.tier === 'miniboss';
+      toHp += Math.min((boss ? hp.boss : hp.pct) * Math.max(0, enemy.hp), hp.cap * toHp);
+    }
   }
 
   out.toBarrier = toBarrier;

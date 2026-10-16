@@ -7,6 +7,7 @@ import { createDataSource } from './data.js';
 import { buildPaths, samplePath } from './path.js';
 import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placement.js';
 import { resolveStats, crosspathBlock } from './mods.js';
+import { finalTierOf } from './finalTier.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
 
 /**
@@ -320,10 +321,17 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     placed.push(rec);
     return rec;
   };
+  // one final tier per path per girl type (a plan is one player's): a later copy stops at tier 4
+  const finals = new Set();
   const upgrade = (rec, path, uptoTier) => {
     const tiers = rec.def.paths?.[path]?.tiers || [];
     while (rec.tiers[path] < Math.min(uptoTier, tiers.length)) {
       if (crosspathBlock(rec.tiers, path, tiers.length)) return;
+      if (rec.role !== 'hero' && rec.tiers[path] + 1 >= finalTierOf(rec.def, path)) {
+        const key = `${rec.def.id}:${path}`;
+        if (finals.has(key)) return;
+        finals.add(key);
+      }
       rec.tiers[path]++;
       plan.push({ at: 1, action: 'upgrade', unitId: rec.def.id, x: rec.x, y: rec.y, tx: rec.tx, ty: rec.ty, path });
     }

@@ -27,6 +27,10 @@ export const BARRIER_BLAST_MUL = 1.5;
 export const SHRED_MAX_STACKS = 3;
 /** Max damage reduction a shield field / guardian can grant. */
 export const MAX_REDUCTION = 0.9;
+/** Burn / poison `pct` (fraction of max HP per second) on minibosses and bosses (titans are bosses). */
+export const DOT_PCT_BOSS_MUL = 0.1;
+/** Freeplay: armor never removes more than (1 − this) of a hit (applyPressure sets enemy.armorFloor). */
+export const FREEPLAY_ARMOR_FLOOR = 0.25;
 
 /** Silence applied to field casters by any holy hit (seconds). */
 export const HOLY_SILENCE = 2;
@@ -117,6 +121,16 @@ export const ULT_INITIAL_CHARGE = 0.5;
 export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */
 export const BUFF_REFRESH = 0.2;
+
+/** Limited buffs (src/sim/buffs.js): Midori re-brews every BREW_EVERY s; a brew lasts BREW_TIME s (re-brewed
+ *  before it runs out); a girl she stops brewing keeps it at most BREW_DROP s more. */
+export const BREW_EVERY = 6;
+export const BREW_TIME = 6.5;
+export const BREW_DROP = 0.5;
+/** Window (s) of a girl's recent DPS (what the limited buffs pick by). */
+export const DPS_WINDOW = 2;
+/** How often a Chika with a free link slot looks for a girl to link (s). */
+export const LINK_SCAN = 0.25;
 
 /** Neutral unit battle stats (when no profile stats are supplied). */
 export const DEFAULT_UNIT_STATS = Object.freeze({

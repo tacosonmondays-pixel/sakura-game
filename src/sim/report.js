@@ -32,7 +32,8 @@ const CAP_TESTS = {
   priority: (s) => attacks(s) && s.range >= 6,
   trap: (s) => s.behavior === 'trap',
   cleanse: (s) => !!s.aura?.cleanse,
-  buff: (s) => !!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1),
+  buff: (s) => (!!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1 || s.aura.armorPen > 0 || s.aura.critChance > 0))
+    || !!s.brew || !!s.link,
   income: (s) => !!s.income,
   summon: (s) => (s.turret?.max || 0) > 0,
 };

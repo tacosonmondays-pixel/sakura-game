@@ -500,10 +500,10 @@ function tipsArticle() {
 }
 
 function crosspathArticle() {
-  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'self', 'allies', 'aura', 'enemies', 'buff'], [
+  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'self', 'allies', 'aura', 'enemies', 'buff', 'final', 'tier 5', 'one per path', 'copies', 'limit'], [
     sec('Three paths',
-      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone.'),
-      table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '7,000–16,000']])),
+      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone — one girl per path at a time.'),
+      table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '13,000–35,000']])),
     sec('The crosspath rule',
       { type: 'crosspath' },
       list([
@@ -517,12 +517,52 @@ function crosspathArticle() {
       p('Every tier carries coloured chips that say who it helps. Self makes her own attacks stronger. Allies is an aura: it buffs the other girls standing inside her circle (the chip shows the radius), never herself, and auras of the same kind do not stack. Enemies slows, stops or weakens what she hits; "helps all" means the debuff (a mark, Brittle, shred or reveal) makes every girl\'s hits better. Coins pays your wallet each wave. A violet New attack chip marks a tier that changes how she attacks.'),
       { type: 'upgradeTags' },
       tip('Hold any girl\'s card to see her info; in battle, hold a girl or her card to see her whole upgrade tree.', 'good')),
+    sec('One final tier per path',
+      p('Deploy as many copies of a girl as you like, but each path\'s tier 5 is one girl at a time: one Aoi can be 5-x-x, another x-5-x and a third x-x-5, but two Aois can never hold the same tier 5.'),
+      list([
+        'Tier 4 has no limit: a late army is mostly tier 4s plus one tier 5 per path.',
+        'Selling the girl who holds it frees it: another copy can then buy that tier 5.',
+        'In co-op each player has her own: your ally\'s Aoi never blocks yours.',
+        'It applies everywhere: campaign, Freeplay, Tactical Challenge, Total Assault, Bounty, Codex modes and Sandbox. Heroes are not affected.',
+        'Because a tier 5 is now a one-of-a-kind centrepiece, it costs more and hits much harder (bosses, armor, a signature trick).',
+      ]),
+      tip('A locked tier 5 names the girl who holds it and where she stands — tap Show to jump to her.', 'info')),
+  ]);
+}
+
+function buffsArticle() {
+  return article('buffs', 'Buffs: auras, brews and tune-ups', 'combat', 'buff', 'Who makes whom stronger, why auras never stack, and what the little icons over a girl mean.', ['buff', 'aura', 'brew', 'tune-up', 'link', 'overclock', 'icon', 'support', 'midori', 'chika', 'pick', 'stack', 'armor pen', 'crit'], [
+    sec('Auras',
+      p('Support girls (Miko, Umeko, Hotaru, Momo, Shiro\'s Overwatch…) give every girl in their aura more damage, attack speed, range, armor pen, crit chance, Veil Sight, cheaper upgrades or a cleanse.'),
+      list([
+        'Auras never stack: of each kind the strongest one in reach wins. Two +20 % damage auras still give +20 %.',
+        'Different kinds do add up: one girl\'s damage aura and another\'s attack speed aura both count.',
+        'The panel says "2 weaker auras here don\'t stack" when more auras reach a girl than can help her.',
+      ])),
+    sec('Brews and tune-ups (limited, strong)',
+      p('Midori brews potions and Chika\'s Repair Bay tunes up girls: only a few girls at a time, but much stronger than an aura, and they multiply on top of auras. A girl holds one brew and one tune-up at most.'),
+      list([
+        'They pick the strongest girl in reach by themselves (who dealt the most damage lately).',
+        'Tap Midori or Chika, then Pick a girl, and tap the girl she should help first. Auto goes back to the strongest.',
+        'Chika\'s Overclock (Repair Bay tier 5) speeds her linked girls up even more for a few seconds every so often.',
+        'In co-op you can brew or tune up your ally\'s girls; only the owner of Midori or Chika picks for her.',
+      ]),
+      tip('Her brews pick the strongest girl in range — tap Pick to choose.', 'good')),
+    sec('The icons over the girls',
+      p('A buffed girl shows a row of small icons over her head, one per kind of buff: sword = damage, double chevron = attack speed, arrow through a plate = armor pen, star burst = crit, rings = range, eye = Veil Sight, coin = cheaper upgrades, drop = cleanse.'),
+      list([
+        'The rim colour is the girl who gives the buff (Midori green, Chika amber, Miko red, Umeko violet…).',
+        'A thick rim with a flask or gear badge marks a brew or tune-up; a bolt badge pulses during an overclock; a crown is a hero ultimate; a pin is a map rule.',
+        'Tap a girl to see lines to everyone who buffs her and everyone she buffs, and the full list in her panel ("Buffed by" / "Buffing").',
+        'Settings → Battle → Buff icons: All, Selected (only the selected girl and her links) or Off.',
+      ]),
+      { type: 'links', ids: ['crosspath', 'roles'] }),
   ]);
 }
 
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

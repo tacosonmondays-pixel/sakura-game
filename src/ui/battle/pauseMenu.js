@@ -1,7 +1,7 @@
 // Pause menu: resume, restart, save & quit (end run for endless runs) and in-battle settings
-// (quality, placement range, auto-start, default speed, camera locked / free, reduce motion).
-// Settings persist through store.commit(). Battles that save (ctx.saver: campaign, Bounty, solo
-// Total Assault, the Colosseum, endless) say what Save & quit keeps; the others (practice,
+// (quality, placement range, auto-start, default speed, camera locked / free, buff icons, reduce
+// motion). Settings persist through store.commit(). Battles that save (ctx.saver: campaign, Bounty,
+// solo Total Assault, the Colosseum, endless) say what Save & quit keeps; the others (practice,
 // tutorial, clan boss, co-op) keep their Quit / Leave co-op wording.
 // Colours follow the risk: in a battle that saves, Save & quit keeps everything (a plain button)
 // and Restart throws the run away (red); where leaving loses the run, Quit is the red one.
@@ -96,6 +96,8 @@ export function createPauseMenu(ctx) {
       h('div.bt-set-row', h('span.bt-set-label', 'Default speed'), seg([[1, '1×'], [2, '2×'], [3, '3×']], s.defaultSpeed || 1, (v) => save({ defaultSpeed: Number(v) }))),
       // applies at once: the controller hands every settings change to the renderer
       h('div.bt-set-row', { 'data-testid': 'set-camera' }, h('span.bt-set-label', 'Camera'), seg([['locked', 'Locked'], ['free', 'Free']], s.camera === 'free' ? 'free' : 'locked', (v) => save({ camera: v }))),
+      h('div.bt-set-row', { 'data-testid': 'set-bufficons', title: 'Small icons over buffed girls; their rim colour shows who gives the buff.' }, h('span.bt-set-label', 'Buff icons'),
+        seg([['all', 'All'], ['selected', 'Selected'], ['off', 'Off']], ['selected', 'off'].includes(s.buffIcons) ? s.buffIcons : 'all', (v) => save({ buffIcons: v }))),
       toggle('Placement range', 'Show her attack range while you drag a girl onto the field', s.showRanges !== false, (v) => save({ showRanges: v }), 'set-hints'),
       toggle('Auto-start waves', 'Next wave starts by itself', !!ctx.sim.options.autoStart, (v) => {
         ctx.setAutoStart(v);
@@ -106,7 +108,8 @@ export function createPauseMenu(ctx) {
       h(
         'ul.bt-help',
         h('li', h('b', 'Deploy: '), 'drag a card onto the map and let go, or tap a card and then the ground. Red shading marks where she cannot stand.'),
-        h('li', h('b', 'Upgrade: '), 'tap a girl. Two paths max; only one may pass tier 2.'),
+        h('li', h('b', 'Upgrade: '), 'tap a girl. Two paths max; only one may pass tier 2; each path\'s tier 5 is one girl of a kind at a time.'),
+        h('li', h('b', 'Buffs: '), 'the icons over a girl show her buffs; the rim colour is the girl who gives it. Tap Midori or Chika, then Pick a girl to choose who she brews or tunes up.'),
         h('li', h('b', 'Camera: '), s.camera === 'free'
           ? 'drag to pan, pinch or scroll to zoom, double-tap to reset. It holds still while you place a girl.'
           : 'locked — the whole map stays framed and never moves when you drag. Pick Free above to pan and zoom.'),

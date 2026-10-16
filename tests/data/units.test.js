@@ -59,10 +59,16 @@ const BASE_REQUIRED = [
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
 ];
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback'];
-const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse'];
+const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
+// limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
+const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
 
 // Tier cost windows from CONTRACTS.md §5b.
-const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [7000, 16000]];
+// Tier 5 (the final tier: one girl per path at a time) costs 1.6–2.5× its old price (owner, Oct 15).
+const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [12000, 36000]];
+// heroes are exempt from the one-per-path rule and keep their prices (their paths become a level track
+// in the hero rework)
+const HERO_TIER5_COST = [7000, 16000];
 
 // ---------------------------------------------------------------------------
 // Validators
@@ -93,7 +99,9 @@ function statusErrors(list, where) {
   if (!Array.isArray(list)) return [`${where}: status must be an array`];
   for (const s of list) {
     if (!s || !STATUSES[s.type] || !STATUS_FIELDS[s.type]) { errs.push(`${where}: unknown status ${JSON.stringify(s)}`); continue; }
-    const allowed = ['type', 'chance', ...STATUS_FIELDS[s.type]];
+    // burn / poison may also eat a share of max HP per second (`pct`)
+    const allowed = ['type', 'chance', ...STATUS_FIELDS[s.type], ...(s.type === 'burn' || s.type === 'poison' ? ['pct'] : [])];
+    if ('pct' in s && !(isPos(s.pct) && s.pct < 0.05)) errs.push(`${where}: status ${s.type}.pct must be in (0, 0.05)`);
     for (const k of Object.keys(s)) if (!allowed.includes(k)) errs.push(`${where}: status ${s.type} has unknown key ${k}`);
     for (const f of STATUS_FIELDS[s.type]) if (!isPos(s[f])) errs.push(`${where}: status ${s.type}.${f} must be > 0`);
     if (s.type === 'slow' && s.amount >= 1) errs.push(`${where}: slow amount must be < 1`);
@@ -144,6 +152,9 @@ function modSetErrors(mods, where) {
     turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate', 'leash', 'speed'], w, numCheck),
     ramp: (k, v, w) => objErrors(v, ['per', 'max'], w, numCheck),
     mark: (k, v, w) => objErrors(v, ['bonus', 'duration'], w, numCheck),
+    brew: (k, v, w) => objErrors(v, LIMITED_KEYS.filter((x) => x !== 'overclock'), w, numCheck),
+    link: (k, v, w) => objErrors(v, LIMITED_KEYS, w, (kk, vv, ww) => (kk === 'overclock' ? objErrors(vv, ['every', 'time', 'rateMul'], ww, numCheck) : numCheck(kk, vv, ww))),
+    hpPct: (k, v, w) => objErrors(v, ['pct', 'boss', 'cap'], w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -197,7 +208,9 @@ function derivedCaps(m, acc = new Set()) {
   if ((m.silence ?? 0) > 0) acc.add('silence');
   if ((m.reveal ?? 0) > 0) acc.add('reveal');
   if (m.mark) acc.add('priority');
-  if (m.aura && ((m.aura.dmgMul ?? 1) > 1 || (m.aura.rateMul ?? 1) > 1 || (m.aura.rangeMul ?? 1) > 1 || (m.aura.costCut ?? 0) > 0)) acc.add('buff');
+  if (m.aura && ((m.aura.dmgMul ?? 1) > 1 || (m.aura.rateMul ?? 1) > 1 || (m.aura.rangeMul ?? 1) > 1 || (m.aura.costCut ?? 0) > 0
+    || (m.aura.armorPen ?? 0) > 0 || (m.aura.critChance ?? 0) > 0)) acc.add('buff');
+  if (m.brew || m.link) acc.add('buff');
   if (m.aura?.cleanse) acc.add('cleanse');
   if (m.income) acc.add('income');
   if (m.turret) acc.add('summon');
@@ -328,8 +341,9 @@ describe('upgrade paths', () => {
       const costs = p.tiers.map((t) => t.cost);
       for (let i = 0; i < 5; i++) {
         expect(Number.isInteger(costs[i]), `${id}.${p.id} t${i + 1}`).toBe(true);
-        expect(costs[i], `${id}.${p.id} t${i + 1} min`).toBeGreaterThanOrEqual(TIER_COST[i][0]);
-        expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(TIER_COST[i][1]);
+        const win = i === 4 && u.kind === 'hero' ? HERO_TIER5_COST : TIER_COST[i];
+        expect(costs[i], `${id}.${p.id} t${i + 1} min`).toBeGreaterThanOrEqual(win[0]);
+        expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(win[1]);
         if (i > 0) expect(costs[i], `${id}.${p.id} t${i + 1} increases`).toBeGreaterThan(costs[i - 1]);
       }
     }

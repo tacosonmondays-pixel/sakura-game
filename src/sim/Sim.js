@@ -5,13 +5,15 @@ import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
-  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL,
+  BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
 import { createPlacementRules, footprintRadius, footprintAt, isTileCall } from './placement.js';
 import { SpatialGrid } from './grid.js';
 import { crosspathBlock } from './mods.js';
+import { finalTierOf, findFinalHolder } from './finalTier.js';
+import { updateLimited, limitedRange, buffSources, buffTargets, aurasCovering } from './buffs.js';
 import {
   computeHit, applyHitResult, computeDot, BARRIER_BROKE, SHELL_BROKE,
 } from './combat.js';
@@ -139,6 +141,8 @@ export class Sim {
     this._buffTimer = 0;
     this._buffsDirty = true;
     this._globalBuffs = [];
+    /** Seconds until every girl's recentDps is re-measured (src/sim/buffs.js). */
+    this._dpsTimer = DPS_WINDOW;
     this._scratch = [];
     this._scratch2 = [];
     this._hitOut = {};
@@ -232,6 +236,7 @@ export class Sim {
   }
 
   _updateBuffs(dt) {
+    updateLimited(this, dt);
     if (this._globalBuffs.length) {
       let mul = 1;
       for (const b of this._globalBuffs) {
@@ -252,9 +257,12 @@ export class Sim {
     }
   }
 
-  /** Multiplies every tower's attack rate for `duration` seconds (strongest active buff wins). */
-  addGlobalRateBuff(mul, duration) {
-    this._globalBuffs.push({ mul, left: duration });
+  /**
+   * Multiplies every tower's attack rate for `duration` seconds (strongest active buff wins). `src` = the
+   * girl who cast it (the buff icons; default the hero).
+   */
+  addGlobalRateBuff(mul, duration, src = this.hero?.uid ?? -1) {
+    this._globalBuffs.push({ mul, left: duration, src });
     this.globalRateMul = Math.max(this.globalRateMul, mul);
     this._buffsDirty = true;
   }
@@ -752,6 +760,68 @@ export class Sim {
     return this._towerByUid.get(uid) || null;
   }
 
+  /**
+   * One final tier per path (src/sim/finalTier.js): the OTHER girl of this girl's type and player
+   * that holds `path`'s final tier, or null (always null for heroes).
+   * @returns {object|null} TowerRT
+   */
+  finalTierHolder(uid, path) {
+    const t = this.getTower(uid);
+    if (!t || t.isHero) return null;
+    return findFinalHolder(this.towers, t.unitId, t.owner ?? 0, path, t.uid);
+  }
+
+  /**
+   * Who holds each path's final tier for a girl type and player (a card not placed yet: the tree
+   * says "held by your Chika 5-0-2" before she is deployed). @returns {(number|null)[]} uids by path
+   */
+  finalTierHolders(unitId, owner = 0) {
+    return [0, 1, 2].map((p) => findFinalHolder(this.towers, unitId, owner, p)?.uid ?? null);
+  }
+
+  /** Every buff a girl has and who gives it (src/sim/buffs.js buffSources; read-only, for the UI). */
+  buffSources(uid) {
+    return buffSources(this, uid);
+  }
+
+  /** The girls a girl currently buffs (brew / link targets first, then aura winners; read-only). */
+  buffTargets(uid) {
+    return buffTargets(this, uid);
+  }
+
+  /** Every aura in range of a girl, the weaker ones that do not stack included (read-only). */
+  aurasCovering(uid) {
+    return aurasCovering(this, uid);
+  }
+
+  /**
+   * Pins the girl Midori brews / Chika links first (the pick command). `targetUid` -1 = back to auto
+   * (the strongest girl in reach). The target must be another placed girl in reach now (brew: Midori's
+   * range; link: Chika's aura); selling her clears the pin, leaving reach only skips her.
+   * @returns {{ ok: boolean, reason: null|'noBuff'|'self'|'gone'|'range' }}
+   */
+  setBuffPick(uid, targetUid) {
+    const t = this.getTower(uid);
+    if (!t || (!t.stats?.brew && !t.stats?.link)) return { ok: false, reason: 'noBuff' };
+    if (targetUid == null || targetUid === -1) {
+      t.buffPick = -1;
+      if (t.lim) t.lim.repick = true;
+      this._buffsDirty = true;
+      return { ok: true, reason: null };
+    }
+    if (targetUid === uid) return { ok: false, reason: 'self' };
+    const o = this.getTower(targetUid);
+    if (!o) return { ok: false, reason: 'gone' };
+    const r = limitedRange(t);
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy > r * r) return { ok: false, reason: 'range' };
+    t.buffPick = targetUid;
+    if (t.lim) t.lim.repick = true;
+    this._buffsDirty = true;
+    return { ok: true, reason: null };
+  }
+
   /** Upgrade cost for the next tier of a path (applies difficulty, profile and cost-cut auras). */
   _upgradeCost(t, tier) {
     const us = t.unitStats || DEFAULT_UNIT_STATS;
@@ -760,27 +830,42 @@ export class Sim {
   }
 
   /**
-   * @returns {{ tier: number, next: object|null, cost: number, locked: boolean, reason: null|'max'|'crosspath'|'cash' }}
+   * Can this girl buy the next tier of `path`? Reasons, in order: 'max' → 'crosspath' → 'onePerPath'
+   * (another girl of her type and player holds this path's final tier: `holder` is her uid) → 'cash'.
+   * `restoring` (a battle-save restore only, never from the network) skips 'onePerPath' so a save from
+   * before the rule keeps every final tier it had.
+   * @param {number} uid
+   * @param {number} path
+   * @param {{ restoring?: boolean }} [opts]
+   * @returns {{ tier: number, next: object|null, cost: number, locked: boolean,
+   *   reason: null|'max'|'crosspath'|'onePerPath'|'cash', holder: number|null }}
    */
-  upgradeStatus(uid, path) {
+  upgradeStatus(uid, path, { restoring = false } = {}) {
     const t = this.getTower(uid);
-    if (!t || !(path >= 0 && path <= 2)) return { tier: 0, next: null, cost: 0, locked: true, reason: 'max' };
+    if (!t || !(path >= 0 && path <= 2)) return { tier: 0, next: null, cost: 0, locked: true, reason: 'max', holder: null };
     const tier = t.tiers[path];
     const tiersDef = t.def.paths?.[path]?.tiers || [];
-    if (!tiersDef.length) return { tier, next: null, cost: 0, locked: true, reason: 'max' };
+    if (!tiersDef.length) return { tier, next: null, cost: 0, locked: true, reason: 'max', holder: null };
     const block = crosspathBlock(t.tiers, path, Math.min(5, tiersDef.length));
     const next = tiersDef[tier] || null;
-    if (block === 'max' || !next) return { tier, next: null, cost: 0, locked: true, reason: 'max' };
+    if (block === 'max' || !next) return { tier, next: null, cost: 0, locked: true, reason: 'max', holder: null };
     const cost = this._upgradeCost(t, next);
-    if (block) return { tier, next, cost, locked: true, reason: block };
-    if (this.cash < cost) return { tier, next, cost, locked: true, reason: 'cash' };
-    return { tier, next, cost, locked: false, reason: null };
+    if (block) return { tier, next, cost, locked: true, reason: block, holder: null };
+    if (!restoring && !t.isHero && tier + 1 >= finalTierOf(t.def, path)) {
+      const holder = findFinalHolder(this.towers, t.unitId, t.owner ?? 0, path, t.uid);
+      if (holder) return { tier, next, cost, locked: true, reason: 'onePerPath', holder: holder.uid };
+    }
+    if (this.cash < cost) return { tier, next, cost, locked: true, reason: 'cash', holder: null };
+    return { tier, next, cost, locked: false, reason: null, holder: null };
   }
 
-  /** @returns {boolean} */
-  upgradeTower(uid, path) {
+  /**
+   * Buys the next tier of `path`. `opts.restoring`: see upgradeStatus (battle-save restore only).
+   * @returns {boolean}
+   */
+  upgradeTower(uid, path, opts = {}) {
     if (this.state === 'won' || this.state === 'lost') return false;
-    const st = this.upgradeStatus(uid, path);
+    const st = this.upgradeStatus(uid, path, opts);
     if (st.locked) return false;
     const t = this.getTower(uid);
     this._spend(st.cost);

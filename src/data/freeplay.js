@@ -7,8 +7,10 @@
 // Freeplay has three difficulties the host picks (Blossom / Tempest / Crimson Moon). The stage
 // plays as normal up to its goal (the "15" of 16/15); past it, enemy HP grows every wave by a
 // band table, every enemy gets flat armor and walks faster, visitors from every chapter rotate in,
-// an affix rides each rotation, bosses come on an escalating schedule up to the titans, the
-// Ashwing Matriarch at wave 200 and the Eclipse Wyrm from 250, and nothing caps the counts.
+// an affix rides each rotation, elites grow armored and carry modifiers, bosses come on an
+// escalating schedule (every 5 waves from ladder level 50) up to the titans, the Ashwing Matriarch
+// at wave 200 and the Eclipse Wyrm from 250, and nothing caps the counts. Every regular wave's
+// effective HP follows a smooth curve (`smooth`), whatever enemies it happened to pick.
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { ENEMY_MAP } from './enemies.js';
 
@@ -59,8 +61,34 @@ const COMMON = {
   titans: ['fp_foundry_titan', 'fp_gloom_regent', 'fp_hyakki_daimyo'],
   /** HP factor × the wave's ramp, by rank (children of a titan/calamity: see the split's `inherit`). */
   bossHp: { miniboss: 1, boss: 0.75, titan: 1 },
-  /** Lives taken when it breaks through (minibosses keep their 25; the finale and calamity take all). */
-  leak: { boss: 35, titan: 50 },
+  /** Tens below ladder level `until`: the first big boss is lighter (it was every team's first leak). */
+  bossHpEarly: { boss: 0.6, until: 150 },
+  /** The fives (smaller visitors between the tens), by ladder level: the last band with L ≥ its first
+   *  number applies; a rank it does not name falls back to bossHp. */
+  bossHpSmall: [[50, { miniboss: 0.6 }], [100, { miniboss: 0.8 }], [150, { boss: 0.45, titan: 0.35 }], [200, { boss: 0.75 }]],
+  /** Share of the threat budget the regular groups keep on a boss wave, by its content. */
+  bossWaveBudget: { big: 0.5, boss: 0.75, titan: 0.75, miniboss: 0.9 },
+  /** Lives taken when it breaks through (twice the checks from wave 50, so each miss is a setback;
+   *  the finale and calamity take all). */
+  leak: { boss: 25, titan: 40, miniboss: 15 },
+  // ---- ramp smoothing: every regular wave's effective HP (a refHit hit at refPen pen, every armor
+  // source counted) is scaled to the threat budget × refN (normal slots) / refE (elite slots) ×
+  // refMul(depth), clamped to [lo, hi] × the picks' own HP; bosses and escorts are untouched.
+  smooth: { refN: 11, refE: 15.5, refHit: 30, refPen: 10, lo: 0.2, hi: 2, refMul: [[0, 1.04], [25, 0.92], [60, 0.96], [120, 1.17], [200, 1.17], [240, 1.05]] },
+  // ---- elites: × HP by depth ([fromDepth, ×]), and from depth `from` a `chance` per elite group of
+  // one modifier (own seeded rng, so the wave's own picks never move)
+  eliteHp: [[40, 1.25], [120, 1.5]],
+  eliteMods: {
+    from: 40,
+    chance: 0.6,
+    list: [
+      { id: 'ironclad', armor: 4 },
+      { id: 'bulwark', barrierPct: 0.4 },
+      { id: 'quickened', speed: 1.25 },
+      { id: 'vampiric', regen: { pct: 0.015, delay: 2 } },
+      { id: 'unyielding', ccMul: 0.5 },
+    ],
+  },
   escorts: {
     slime_prince: [['slime_courtier', 2]],
     orc_general: [['orc_shieldbearer', 4]],
@@ -92,15 +120,17 @@ const TIERS = {
     name: 'Blossom', order: 0,
     /** HP growth per wave by ABSOLUTE wave: [firstWave, growth ‰]. Exact integer ‰, powInt compounding. */
     hpBands: [[1, 1030], [51, 1045], [101, 1050], [151, 1040], [201, 1100]],
-    /** + flat armor every `every` waves past the goal, up to `max`, on normal and elite enemies;
+    /** + depth / every flat armor (fractional, smooth) up to `max`, on normal and elite enemies;
      *  minibosses, bosses and titans get armor × bossMul (0: their own armor and phases only). */
     armor: { every: 20, max: 10, bossMul: 0 },
+    /** Elites only, on top: + min(max, (depth − from) / every) armor. */
+    eliteBand: { from: 20, every: 14, max: 10 },
     /** Pool walk speed × min(max, 1 + slope × depth); bosses unaffected. */
     speed: { slope: 0.0015, max: 1.25 },
     /** Threat budget = the goal wave's budget × (1 + countSlope × depth). No cap. */
     countSlope: 0.04,
     /** Boss ladder level = wave + bossShift; boss waves every 10, every 5 once the level reaches fastFrom. */
-    bossShift: 0, fastFrom: 170,
+    bossShift: 0, fastFrom: 50,
     chapterEvery: 12, affixFrom: 20,
     /** Resolve (stall guard): hard-CC seconds / knockback tiles one enemy can be held, by depth;
      *  minibosses, bosses and titans a fixed bossCc seconds. */
@@ -111,20 +141,24 @@ const TIERS = {
     name: 'Tempest', order: 1,
     hpBands: [[1, 1035], [51, 1050], [101, 1060], [151, 1060], [201, 1100]],
     armor: { every: 15, max: 12, bossMul: 0 },
+    eliteBand: { from: 20, every: 12, max: 12 },
     speed: { slope: 0.002, max: 1.3 },
     countSlope: 0.05,
-    bossShift: 30, fastFrom: 170,
+    bossShift: 30, fastFrom: 50,
     chapterEvery: 9, affixFrom: 10,
     resolve: { cc: 8, ccEvery: 12, kb: 10, kbEvery: 8, bossCc: 20 },
     rewardMul: 1.5,
   },
   crimson: {
     name: 'Crimson Moon', order: 2,
-    hpBands: [[1, 1045], [51, 1060], [101, 1065], [151, 1065], [201, 1100]],
+    /** 1040 / 1055 / 1060 ‰ (was 1045 / 1060 / 1065) and countSlope 0.05 (was 0.06): its
+     *  structural growth was 7.6 % a wave, too steep for any smoothing. */
+    hpBands: [[1, 1040], [51, 1055], [101, 1060], [151, 1060], [201, 1100]],
     armor: { every: 10, max: 15, bossMul: 0 },
+    eliteBand: { from: 20, every: 10, max: 10 },
     speed: { slope: 0.003, max: 1.35 },
-    countSlope: 0.06,
-    bossShift: 60, fastFrom: 170,
+    countSlope: 0.05,
+    bossShift: 60, fastFrom: 50,
     chapterEvery: 6, affixFrom: 5,
     resolve: { cc: 6, ccEvery: 10, kb: 8, kbEvery: 6, bossCc: 12 },
     rewardMul: 2,

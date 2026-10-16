@@ -19,6 +19,20 @@ function normAura(a = {}) {
     detection: !!a.detection,
     costCut: a.costCut ?? 0,
     cleanse: !!a.cleanse,
+    armorPen: a.armorPen ?? 0,
+    critChance: a.critChance ?? 0,
+  };
+}
+
+/** A limited buff (Midori's brew, Chika's tune-up link): `targets` girls, ×dmgMul ×rateMul, +armorPen +critChance. */
+function normLimited(b = {}) {
+  return {
+    targets: b.targets ?? 0,
+    dmgMul: b.dmgMul ?? 1,
+    rateMul: b.rateMul ?? 1,
+    armorPen: b.armorPen ?? 0,
+    critChance: b.critChance ?? 0,
+    overclock: b.overclock ? { every: b.overclock.every ?? 20, time: b.overclock.time ?? 6, rateMul: b.overclock.rateMul ?? 1 } : null,
   };
 }
 
@@ -109,6 +123,9 @@ export function normalizeBase(base = {}, unitDef = {}) {
     turret: b.turret ? normTurret(b.turret) : null,
     ramp: b.ramp ? { per: b.ramp.per ?? 0, max: b.ramp.max ?? 0 } : null,
     mark: b.mark ? { bonus: b.mark.bonus ?? 0, duration: b.mark.duration ?? 0 } : null,
+    brew: b.brew ? normLimited(b.brew) : null,
+    link: b.link ? normLimited(b.link) : null,
+    hpPct: b.hpPct ? { pct: b.hpPct.pct ?? 0, boss: b.hpPct.boss ?? 0, cap: b.hpPct.cap ?? 0 } : null,
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
@@ -146,6 +163,8 @@ export function applyModSet(s, mods, acc) {
       if (v.detection) s.aura.detection = true;
       if (v.costCut != null) s.aura.costCut += v.costCut;
       if (v.cleanse) s.aura.cleanse = true;
+      if (v.armorPen != null) s.aura.armorPen += v.armorPen;
+      if (v.critChance != null) s.aura.critChance += v.critChance;
     } else if (key === 'income') {
       if (!s.income) s.income = { perWave: 0, interest: 0 };
       s.income.perWave += v.perWave ?? 0;
@@ -174,6 +193,23 @@ export function applyModSet(s, mods, acc) {
       if (!s.mark) s.mark = { bonus: 0, duration: 0 };
       s.mark.bonus = Math.max(s.mark.bonus, v.bonus ?? 0);
       s.mark.duration = Math.max(s.mark.duration, v.duration ?? 0);
+    } else if (key === 'brew' || key === 'link') {
+      // limited buffs (src/sim/buffs.js): targets = max, multipliers multiply, pen and crit add, overclock replaces
+      if (!s[key]) s[key] = normLimited();
+      const l = s[key];
+      l.targets = Math.max(l.targets, v.targets ?? 0);
+      if (v.dmgMul != null) l.dmgMul *= v.dmgMul;
+      if (v.rateMul != null) l.rateMul *= v.rateMul;
+      if (v.armorPen != null) l.armorPen += v.armorPen;
+      if (v.critChance != null) l.critChance += v.critChance;
+      if (v.overclock) l.overclock = { every: v.overclock.every ?? 20, time: v.overclock.time ?? 6, rateMul: v.overclock.rateMul ?? 1 };
+    } else if (key === 'hpPct') {
+      // execution shot (src/sim/combat.js): + pct of the target's current HP (boss on minibosses / bosses),
+      // at most cap × the hit; the strongest numbers win
+      if (!s.hpPct) s.hpPct = { pct: 0, boss: 0, cap: 0 };
+      s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
+      s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
+      s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
     }
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

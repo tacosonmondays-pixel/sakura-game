@@ -47,9 +47,12 @@ export const DEFAULT_SETTINGS = {
   reduceMotion: false,
   /** Battle camera: 'locked' holds the fitted map view; 'free' = drag to pan, pinch / wheel to zoom. */
   camera: 'locked',
+  /** Buff icons over the girls: 'all', 'selected' (the selected girl and her links) or 'off'. */
+  buffIcons: 'all',
 };
 
 const CAMERA_MODES = ['locked', 'free'];
+const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 
 /** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
 export function newUnitState(now = Date.now()) {
@@ -240,6 +243,8 @@ function cleanSettings(raw) {
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
     // older saves have no camera setting: they get the locked camera too
     camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
+    // older saves have no buff icon setting: every buffed girl shows hers
+    buffIcons: BUFF_ICON_MODES.includes(s.buffIcons) ? s.buffIcons : d.buffIcons,
   };
 }
 

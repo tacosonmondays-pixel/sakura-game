@@ -150,7 +150,7 @@ export function crosspathDiagram({ labels = ['Main path', 'Second path', 'Third 
       h('div.mb-cp-label', labels[i] || ''),
       h('div.mb-cp-pips', [1, 2, 3, 4, 5].map((t) => h(`span.mb-cp-pip${t <= r.tiers ? '.on' : ''}${t > r.max ? '.cap' : ''}`, t <= r.tiers ? String(t) : r.cls === 'locked' ? '' : ''))),
       h('div.mb-cp-note', r.cls === 'locked' ? svgEl(uiIcon('lock'), 'mb-cp-lock') : null, r.note))),
-    h('div.mb-cp-foot', 'Valid: 5-2-0, 2-0-4, 0-3-2 · Not allowed: 3-3-0, 1-1-1'));
+    h('div.mb-cp-foot', 'Valid: 5-2-0, 2-0-4, 0-3-2 · Not allowed: 3-3-0, 1-1-1 · Each tier 5: one girl per path'));
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ export {
 } from './combat.js';
 export { applyStatus, statusElement, isImmobile, slowAmount } from './status.js';
 export { resolveStats, normalizeBase, applyModSet, collectModSets, mergeStatusList, crosspathBlock } from './mods.js';
+export { FINAL_TIER, finalTierOf, findFinalHolder } from './finalTier.js';
 export { buildPath, buildPaths, pointAt, pathTileSet, samplePath } from './path.js';
 export {
   createPlacementRules, footprintRadius, footprintAt, isTileCall, TOWER_RADIUS, HERO_RADIUS, PATH_HALF_WIDTH, TREE_RADIUS,

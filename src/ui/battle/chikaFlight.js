@@ -49,6 +49,7 @@ export function createFlightControl(ctx) {
       return;
     }
     ctx.placement?.cancel?.();
+    ctx.cancelPick?.(); // a brew / tune-up pick in progress ends: one board tap mode at a time
     picking = { uid, mode, step: 0, a: null };
     preview();
   }

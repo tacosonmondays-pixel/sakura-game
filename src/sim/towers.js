@@ -14,6 +14,7 @@ import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath } from './path.js';
+import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -37,7 +38,7 @@ export function hitRadius(e) {
 }
 
 function emptyBuff() {
-  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false };
+  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0 };
 }
 
 /**
@@ -60,6 +61,15 @@ export function createTower(def, o) {
     ty: Math.floor(y),
     radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
+    owner: o.owner ?? 0, // player index (co-op; set by the 'place' command); 0 solo
+    // buffs (src/sim/buffs.js): aura winner uid per key, the girl her brew / link should pick first (-1 auto),
+    // what her own limited buff is doing, the brew / link she holds, her DPS over the last DPS_WINDOW s
+    buffBy: emptyBuffBy(),
+    buffPick: -1,
+    lim: null,
+    limIn: null,
+    recentDps: 0,
+    _dmgMark: 0,
     tiers: [0, 0, 0],
     targetMode: def.role === 'sniper' ? 'elite' : 'first',
     targetUid: null,
@@ -179,6 +189,7 @@ export function refreshEffective(t, globalRateMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  applyBuffExtras(t, b);
 }
 
 function mergeLists(a, b) {
@@ -198,23 +209,32 @@ export function recomputeBuffs(sim) {
   let changed = false;
   for (const t of towers) {
     const nb = emptyBuff();
+    // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
+    // girl placed first
+    const by = t.buffBy || (t.buffBy = emptyBuffBy());
+    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = -1;
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
       const au = a.stats.aura;
       const dx = a.x - t.x;
       const dy = a.y - t.y;
       if (dx * dx + dy * dy > au.range * au.range) continue;
-      nb.dmgMul = Math.max(nb.dmgMul, au.dmgMul);
-      nb.rateMul = Math.max(nb.rateMul, au.rateMul);
-      nb.rangeMul = Math.max(nb.rangeMul, au.rangeMul);
-      nb.detection = nb.detection || au.detection;
-      nb.costCut = Math.max(nb.costCut, au.costCut);
-      nb.cleanse = nb.cleanse || au.cleanse;
+      if (au.dmgMul > nb.dmgMul) { nb.dmgMul = au.dmgMul; by.dmg = a.uid; }
+      if (au.rateMul > nb.rateMul) { nb.rateMul = au.rateMul; by.rate = a.uid; }
+      if (au.rangeMul > nb.rangeMul) { nb.rangeMul = au.rangeMul; by.range = a.uid; }
+      if (au.detection && !nb.detection) { nb.detection = true; by.det = a.uid; }
+      if (au.costCut > nb.costCut) { nb.costCut = au.costCut; by.cost = a.uid; }
+      if (au.cleanse && !nb.cleanse) { nb.cleanse = true; by.cleanse = a.uid; }
+      if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
+      if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
+    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras
+    applyLimited(sim, t, nb);
     if (nb.cleanse && t.disabled > 0) t.disabled = 0;
     const ob = t.buff;
     const differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
-      || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse;
+      || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
     if (differs || t._globalRate !== sim.globalRateMul) {
       t.buff = nb;
       t._globalRate = sim.globalRateMul;
@@ -222,7 +242,7 @@ export function recomputeBuffs(sim) {
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || sim.globalRateMul > 1;
+      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
   }
   return changed;
 }

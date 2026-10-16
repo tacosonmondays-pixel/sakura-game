@@ -201,7 +201,8 @@ export function createDronePanel(ctx, { rerender }) {
     );
     if (cells.aura) rows.push(cells.aura);
     const behaviour = st.behavior === 'chain' ? 'Her Tesla coil chains lightning on its own.' : 'Her wrench bolt fires on its own. Tesla Engineering turns it into a lightning coil.';
-    return h('div', { 'data-testid': 'stats-chika' }, h('div.bt-stats-grid', rows), cells.ownCaps, h('p.bt-dr-note', behaviour));
+    // who buffs her and whom she buffs (her Repair Bay tune-up and its Pick control): path cap §4.4
+    return h('div', { 'data-testid': 'stats-chika' }, h('div.bt-stats-grid', rows), cells.ownCaps, h('p.bt-dr-note', behaviour), cells.buffs?.() || null);
   }
 
   function dronesTab(t, st) {
@@ -319,7 +320,8 @@ export function createDronePanel(ctx, { rerender }) {
 
   /**
    * Builds the sections for girl `t`. `parts` come from the panel: the upgrade paths, today's
-   * stat cells (without DPS and the drone line), the Aura cell and the capability chips.
+   * stat cells (without DPS and the drone line), the Aura cell, the capability chips and `buffs()`
+   * (her "Buffed by" / "Buffing" sections, built only when her own tab shows).
    */
   function sections(t, st, parts, { mine, affordable }) {
     live = [];

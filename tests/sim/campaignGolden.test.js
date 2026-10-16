@@ -113,12 +113,16 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // means a battle outside freeplay changed. Re-pinned once by the hero rework (these battles field
 // Hikari, who now deploys for free and levels on her 25-level track) and once more by its stage-HP
 // pass (HERO_HP_PASS); battles without a hero are pinned below (HEROLESS).
+// Re-pinned at the path-cap merge (tier 4 / 5 first pass, data only): solo['8-5'] only. That battle's
+// autoPlan buys tier 4s (Yuki 2-4-0 with Frostbite's Shatter Point: Brittle 25 → 30 %, +25 % damage,
+// and others whose rows the pass changed); with the pre-merge units.js the merged sim reproduces every
+// digest here. The outcome is the same (lost on wave 30).
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
     '1-3': { digest: '2a092051', wave: 15, won: true },
     '4-2': { digest: '7926f22f', wave: 13, won: false },
-    '8-5': { digest: '07c8734a', wave: 30, won: false },
+    '8-5': { digest: '0281ca62', wave: 30, won: false },
   },
   coopEndless: {
     coop: { digest: '86503440', wave: 22, won: true },
@@ -130,9 +134,11 @@ const GOLDEN = {
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
 // at 56b521d: 8bbf185c / 53b1e458 / 36f6aec3 / 2155310468); its stage-HP pass (HERO_HP_PASS, data:
 // more enemy HP) moves them, so they were re-pinned once in that commit. From here they must not move.
+// Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
+// the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
 const HEROLESS = {
   '1-3': ['15a8e76f', 15, true],
   '4-5': ['15f8aba0', 13, false],
-  '8-5': ['2f760744', 30, false],
+  '8-5': ['61fe353d', 30, false],
   coop: [3341544735, 3],
 };
