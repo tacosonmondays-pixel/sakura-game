@@ -396,6 +396,37 @@ export function createSupabaseAdapter({ url, key }) {
         return e?.code === 'needs_update' ? 'needs_update' : 'offline';
       }
     },
+
+    // ---- supabase/migrations/20261018000000_clan_invites.sql: clan invites + the recruiting post --
+    /** 'ready' | 'needs_update' | 'offline': is the clan invites migration installed? */
+    async invitesProbe() {
+      try {
+        await srpc('clan_invites_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async clanInvites() {
+      return ((await srpc('list_clan_invites')) || []).map((i) => ({ ...i, id: Number(i.id), at: ts(i.at), expiresAt: ts(i.expiresAt) }));
+    },
+    async sendClanInvite(userId) {
+      return srpc('send_clan_invite', { p_user: userId });
+    },
+    async answerClanInvite(inviteId, accept) {
+      const r = await srpc('answer_clan_invite', { p_id: Number(inviteId), p_accept: !!accept });
+      // an inviter who left the clan: the invite was removed (returned, so the removal sticks)
+      if (r?.error) throw new OnlineError('not_found', 'That invite is gone: the player who sent it left the clan.', { definitive: true });
+      return r;
+    },
+    async recruitState() {
+      const r = await srpc('recruit_state');
+      return { can: !!r?.can, why: r?.why || null, nextAt: tsOrNull(r?.nextAt) };
+    },
+    async postRecruit() {
+      return mapMessage(await srpc('post_clan_recruit'));
+    },
+
     async socialSummary() {
       const r = await srpc('social_summary');
       return { unreadDms: Number(r.unreadDms) || 0, friendRequests: Number(r.friendRequests) || 0, donationsReady: Number(r.donationsReady) || 0, privacy: r.privacy };

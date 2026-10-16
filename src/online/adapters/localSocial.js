@@ -299,6 +299,8 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
   };
 
   return {
+    /** The relation helpers, for the other local mirrors (clan invites); localDb keeps them out of the API. */
+    relations: { S, isBlocked, blockedByMe, privacy, muted, nameOk },
     /** The deploy probe (SQL: social_version()). */
     socialProbe() {
       return enabled() ? 'ready' : 'needs_update';

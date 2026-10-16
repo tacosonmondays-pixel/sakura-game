@@ -6,6 +6,7 @@
 import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import { createLocalSocial } from './localSocial.js';
+import { createLocalClanInvites } from './localClanInvites.js';
 import {
   CLAN_MAX_MEMBERS, LOCAL_DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
   bossFor, bossHitXp, rewardTier, BOSS_REWARDS, ROLES, EMBLEMS, prevWeekKey, autoName, validMessageMeta,
@@ -225,10 +226,16 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
   const social = createLocalSocial({
     tx, rate, retry, now, rand, code, systemMessage, devClanId: DEV_CLAN_ID, enabled: () => features.social !== false,
   });
-  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, ...socialApi } = social;
+  const { guardChat, roomBlocked, recordPartners, leftDevLab, kickBan, clanBanned, liftClanBan, relations, ...socialApi } = social;
+  // clan invites + the daily recruiting post (20261018000000_clan_invites.sql)
+  const invitesApi = createLocalClanInvites({
+    tx, rate, now, enabled: () => features.social !== false && features.invites !== false, relations,
+    addMember: (...a) => addMember(...a), clanOut: (...a) => clanOut(...a), liftClanBan, guardChat,
+  });
 
   return {
     ...socialApi,
+    ...invitesApi,
     // ---- account --------------------------------------------------------------------------
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {
@@ -278,6 +285,7 @@ export function createLocalDb({ read, write, now = () => Date.now(), rand = Math
         const u = user(s, uid);
         const text = String(body ?? '').trim();
         if (!text || text.length > MESSAGE_MAX) fail('invalid', `Messages are 1–${MESSAGE_MAX} characters.`);
+        // ('recruit' lines come only from postRecruit: the server writes their clan card)
         if (!['text', 'invite'].includes(kind)) fail('invalid');
         // SQL: valid_message_meta() — nothing on text, a tiny { room, stage } on invites
         if (!validMessageMeta(kind, meta ?? null)) fail('invalid', 'That message carries data it may not.');
