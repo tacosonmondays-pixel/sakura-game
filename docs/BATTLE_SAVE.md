@@ -152,6 +152,25 @@ are derived from the girls' spots and the rule (`padIndex`, `onPad`, `padMul`, `
 `_bountyAdd`, `_pathsFwd`, `_pathsRev` and `rule` are config, `_ruleMul` / `_ruleMove` / `_ruleRange` /
 `_rulePortal` derived and `_waveTick` (the rule's step clock) calm.
 
+**Snapshot format 3 (`SNAP_V` 3, Potential v3; `docs/specs/POTENTIAL.md`).** A girl at P2+ fights
+with the v3 steps (`src/sim/potential.js`), whose counters and timers run on between waves, so they
+travel with her, each only when she has it (a field she has is kept even at 0, so the restored girl
+carries exactly the fields the saved one did): `pc` her rhythm's count (`potCount`), `tp` tempo
+`[tempoIdle, tempoStacks]` (Kage between throws: stacks still up, idle under a second), `pj` the
+projectile carry (`projCarry`, hundredths of a shuriken), `rk` a kept focus (`rampKeep`), `rt`
+`[fell, rampStacks]` when a duelist's last target is gone and her next swing has not yet carried part
+of her focus over (the restore puts back a stand-in that reads as fallen or leaked, so that swing
+does the same), `ab` an aura boost's time left (`auraBoostLeft`) and `oc` her drones' overclock
+`[cd, left]` (`potOc`). The rhythm's specs (`effProc`, `effEcho`, `trapSpecProc`) are derived from
+her stats and buffs. Numbers only on restore (whole counters ≥ 0). A format-1 or format-2 save has
+none of these and restores with every counter at its start; an older build refuses a format-3 save
+("from a newer build") instead of replaying her with the old steps. Her Potential itself rides in
+the record's frozen stats (`potential`), like her level and gear.
+
+A wave can end while shots are still flying at the last enemy's spot (Kage's storm makes it common);
+the snapshot does not carry them (they have nothing left to hit unless the next wave's first enemy
+walks into one), so a Start tapped before they land can play a hair differently after Continue.
+
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).
 

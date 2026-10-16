@@ -543,8 +543,8 @@ function attackDuel(sim, t) {
   let tgt = t.rampTarget;
   if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.x, tgt.y - t.y) > spec.range) {
     // Potential N10 (Kaede): a target that FELL leaves part of her focus for the next one; one that
-    // walked off or turned ineligible alive clears it (a gap with no enemy in reach keeps it)
-    if (tgt && spec.keepRamp > 0) t.rampKeep = tgt.dead ? Math.floor(t.rampStacks * spec.keepRamp) : 0;
+    // leaked, walked off or turned ineligible alive clears it (a gap with no enemy in reach keeps it)
+    if (tgt && spec.keepRamp > 0) t.rampKeep = tgt.dead && !tgt.leaked ? Math.floor(t.rampStacks * spec.keepRamp) : 0;
     tgt = bestTarget(sim, t.x, t.y, spec.range, spec, t.targetMode);
   }
   if (!tgt) {

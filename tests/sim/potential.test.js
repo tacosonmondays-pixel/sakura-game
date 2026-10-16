@@ -439,6 +439,20 @@ describe('N10–N12: kept focus, drone overclock, one more brewed / linked girl'
     expect(t.rampKeep).toBe(0);
   });
 
+  test('N10: a target that leaked (gone, but it did not fall) clears her kept focus', () => {
+    const def = withPot(UNITS.duelist, { p2: { mods: { keepRamp: 0.5 } } });
+    const sim = potSim({ duelist: def });
+    const t = sim.placeTower('duelist', 6, 5);
+    const a = park(sim, 'tank', 7);
+    run(sim, 2.01);
+    expect(t.rampTarget).toBe(a);
+    expect(t.rampStacks).toBeGreaterThanOrEqual(4);
+    sim._leak(a);
+    expect(a.dead).toBe(true);
+    run(sim, 0.6);
+    expect(t.rampKeep).toBe(0);
+  });
+
   test('N11: her own drones fire × rateMul for `time` s, first after every − time s, then every `every` s; steps merge (later fields replace)', () => {
     const def = withPot(UNITS.engineer, {
       p2: { mods: { turret: { overclock: { every: 3, time: 1, rateMul: 2 } } } },

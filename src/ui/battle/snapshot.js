@@ -26,6 +26,13 @@
 // picks the strongest girl (`rd`, the Sim's `dps` timer), so the first re-pick after Continue is
 // the one the run would have made. Global rate buffs keep who cast them (the buff icons). A save
 // without these fields restores with no brew / link held and the window at its start.
+// Format 3 (Potential v3, src/sim/potential.js): a girl at P2+ fights with rhythms, tempo, extra
+// projectiles, a kept focus, aura boosts and drone overclocks, whose counters and timers run on
+// between waves; they travel with her (`pc` rhythm count, `tp` tempo idle steps and stacks, `pj`
+// projectile carry, `rk` kept focus, `rt` a fallen target's focus not yet carried over, `ab` aura
+// boost left, `oc` overclock timers), each only when she has it. The specs they build (`effProc`,
+// `effEcho`, `trapSpecProc`) are derived from her stats. A format-1 or format-2 save (no such
+// fields) restores with every counter at its start.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
@@ -152,7 +159,20 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // map rules: crystal pads follow the girls' spots (assignPads), rule range follows the rule's
   // state (recomputeBuffs); absent = neutral (no pad, range unchanged)
   padIndex: 'derived', onPad: 'derived', padMul: 'derived', padRangeAdd: 'derived', envRangeMul: 'derived', envRangeAdd: 'derived',
+  // Potential v3 (format 3; only on a girl whose steps use them): her rhythm's count, tempo, the
+  // projectile carry, a kept focus, an aura boost and her drones' overclock run on between waves;
+  // the rhythm's specs follow her stats and buffs (refreshEffective)
+  potCount: 'snap', tempoStacks: 'snap', tempoIdle: 'snap', projCarry: 'snap', rampKeep: 'snap', auraBoostLeft: 'snap', potOc: 'snap',
+  effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
 });
+
+/**
+ * Where a duelist's target was at a calm point (no enemy left: it fell or leaked) and her keepRamp
+ * has not yet carried part of her focus over: her next attack does that (src/sim/towers.js
+ * attackDuel), so the restore puts back a stand-in that reads as gone the same way.
+ */
+const GONE_TARGET = Object.freeze({ dead: true, leaked: false });
+const LEAKED_TARGET = Object.freeze({ dead: true, leaked: true });
 
 /**
  * Every own field of a roaming drone (src/sim/towers.js makeDrone), classified like the tables
@@ -225,6 +245,7 @@ export function snapshotSim(sim) {
       if (t.lim) o.lm = packLim(t.lim);
       if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
       if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
+      packPotential(t, o);
       return o;
     }),
     kills: { ...sim.kills },
@@ -234,6 +255,38 @@ export function snapshotSim(sim) {
     // the route orientation of the last wave (Reverse Route, Rear Ambush): only where it can turn
     ...(sim._pathsRev ? { rr: sim.routeReversed ? 1 : 0 } : {}),
   };
+}
+
+/**
+ * A girl's Potential counters and timers (format 3), each only when she has it (a field she has is
+ * kept even at 0, so the restored girl carries exactly the fields the saved one did).
+ */
+function packPotential(t, o) {
+  if (t.potCount != null) o.pc = t.potCount;
+  if (t.tempoIdle != null || t.tempoStacks != null) o.tp = t.tempoStacks != null ? [t.tempoIdle ?? -1, t.tempoStacks] : [t.tempoIdle];
+  if (t.projCarry != null) o.pj = t.projCarry;
+  if (t.rampKeep != null) o.rk = t.rampKeep;
+  if (t.rampTarget && t.stats?.keepRamp > 0) o.rt = [t.rampTarget.leaked ? 0 : 1, t.rampStacks];
+  if (t.auraBoostLeft != null) o.ab = t.auraBoostLeft;
+  if (t.potOc) o.oc = [t.potOc.cd, t.potOc.left];
+}
+
+/** packPotential's fields back on a restored girl (numbers only; whole counters as integers). */
+function unpackPotential(t, o) {
+  const whole = (v) => Math.max(0, Math.floor(r(v)));
+  if (o.pc != null) t.potCount = whole(o.pc);
+  if (Array.isArray(o.tp)) {
+    if (o.tp[0] >= 0) t.tempoIdle = whole(o.tp[0]);
+    if (o.tp.length > 1) t.tempoStacks = whole(o.tp[1]);
+  }
+  if (o.pj != null) t.projCarry = whole(o.pj);
+  if (o.rk != null) t.rampKeep = whole(o.rk);
+  if (Array.isArray(o.rt)) {
+    t.rampTarget = o.rt[0] ? GONE_TARGET : LEAKED_TARGET;
+    t.rampStacks = whole(o.rt[1]);
+  }
+  if (o.ab != null) t.auraBoostLeft = Math.max(0, r(o.ab));
+  if (Array.isArray(o.oc)) t.potOc = { cd: r(o.oc[0]), left: Math.max(0, r(o.oc[1])) };
 }
 
 /** A brewer's / linker's own state (src/sim/buffs.js brewTick / linkTick) as a short row. */
@@ -337,6 +390,7 @@ export function restoreSim(rec, profile = null) {
     t.disabled = r(o.dis);
     t.facing = r(o.face);
     t.buildTimer = r(o.bt);
+    unpackPotential(t, o);
     if (t.isHero && oldHeroes) {
       // her old level on the new track, bar empty (old XP is on another scale); she deploys free
       // now, so her placement and tiers come back as coins

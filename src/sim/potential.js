@@ -16,7 +16,7 @@
 //   N7  bountyAura           kills inside her range pay more (bountyMulAt)
 //   N8  harvest              every Nth wave clear pays her wave income again (Sim._checkWaveEnd)
 //   N9  dotSpread            her burn leaps from a fallen enemy to the nearest one (spreadDot)
-//   N10 keepRamp             a duelist keeps part of her focus when her target falls (towers.js attackDuel)
+//   N10 keepRamp             a duelist keeps part of her focus when her target falls, not when it leaks (towers.js attackDuel)
 //   N11 turret.overclock     her own drones fire faster for a while, on a fixed timer (towers.js)
 //   N12 brew / link targetsAdd one more girl (mods.js; brews never above BREW_TARGETS_MAX)
 //   N13 projScale            more projectiles per attack through an integer carry (towers.js)
