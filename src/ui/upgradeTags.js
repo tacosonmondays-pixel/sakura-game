@@ -55,7 +55,8 @@ export const MOD_TAGS = {
 const SUB_KEYS = {
   aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse']),
   trap: new Set(['max', 'damage', 'splash', 'status', 'triggerRadius', 'armTime']),
-  turret: new Set(['max', 'damage', 'rate', 'range', 'attackType', 'status']),
+  // (leash / speed / build: roaming drones, the Chika rework — how far and fast they fly, build time)
+  turret: new Set(['max', 'damage', 'rate', 'range', 'attackType', 'status', 'leash', 'speed', 'build']),
   income: new Set(['perWave', 'interest']),
   crit: new Set(['chance', 'mul']),
   ramp: new Set(['per', 'max']),
@@ -67,10 +68,11 @@ const TEAM_STATUS = new Set(['vulnerable', 'shred', 'mark', 'reveal']);
 /** Strongest-first order for the tier icon of a status tier. */
 const STATUS_STRENGTH = ['stun', 'freeze', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
 
-/** Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based). */
-export const TIER_NOTES = {
-  'chika.2.3': 'In battle Chika keeps her drones and keeps building them; the coil fires alongside them. Attack speed ×4.',
-};
+/**
+ * Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based).
+ * (Chika's Tesla Tower had one until her rework: its text now says her drones keep flying.)
+ */
+export const TIER_NOTES = {};
 
 const present = (v) => v != null && v !== false && !(typeof v === 'number' && v === 0) && !(Array.isArray(v) && v.length === 0);
 const round1 = (v) => String(Math.round(v * 10) / 10);
