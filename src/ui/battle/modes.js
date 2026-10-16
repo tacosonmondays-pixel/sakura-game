@@ -167,6 +167,12 @@ export function createModesBattle(ctx) {
   }
 
   function update() {
+    // board: gate arrows for the running wave, or the coming one between waves. Reverse Route turns
+    // the junction chevrons on any stage, so this runs with or without a map rule (pill)
+    if (sim._pathsRev) {
+      const next = sim.state === 'wave' ? sim.wave : sim.wave + 1;
+      ctx.renderer?.setRouteFlipped?.(!!sim.routeFlippedFor?.(next), !!sim.routeReversedFor?.(next));
+    }
     if (!pill) return;
     const info = sim.ruleInfo();
     const s = info.cycle ? Math.ceil(info.secondsToFlip - 1e-6) : 0;
@@ -187,9 +193,6 @@ export function createModesBattle(ctx) {
       last = { active: on, s, inWave: info.inWave, wave: sim.wave };
       renderPop();
     }
-    // board: gate arrows for the running wave, or the coming one between waves
-    const next = sim.state === 'wave' ? sim.wave : sim.wave + 1;
-    ctx.renderer?.setRouteFlipped?.(!!sim.routeFlippedFor?.(next), !!sim.routeReversedFor?.(next));
   }
 
   /** Toasts and banners for the sim's rule events. */
