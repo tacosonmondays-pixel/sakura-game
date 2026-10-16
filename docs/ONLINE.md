@@ -52,6 +52,8 @@ yet". Do the next step first.
       update" below). Until then those features say "Needs the latest server update".
 - [ ] **Run the profile update** after the Sensei Profile game update is live (see "Run the profile
       update" below). Until then visiting a profile says "Profiles need the latest server update".
+- [ ] **Run the clan invites update** once the game update with clan invites is live (see "Run the clan
+      invites update" below). Until then "Invite to clan" and the recruiting post stay hidden.
 - [ ] Quick server check without the game (optional): open
       `https://<ref>.supabase.co/rest/v1/clans?select=id&limit=1` with header `apikey: <publishable key>`
       (or `curl -H "apikey: …" …`). `PGRST205 … Could not find the table` = migration not run yet;
@@ -124,6 +126,40 @@ haven't been yet).
 
 **Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
 `20261016000000_profile.sql` again right after them (the first file resets every function grant).
+
+### Run the clan invites update (invite players to your clan, the daily recruiting post)
+
+The game update goes live **before** its database part. Until the owner runs it, nobody sees "Invite to
+clan", invite cards or the "Post to global chat" button; chat, clans, messages, friends and co-op keep
+working exactly as before.
+
+**What to paste:** `supabase/migrations/20261018000000_clan_invites.sql`, once, **after**
+`20261013000000_social.sql` and `20261015000000_social_open_friends.sql` (run those first if they haven't
+been yet). The profile and player-tags files don't matter for it: before or after is fine.
+
+1. Wait until the game update is live (the Pages workflow is green).
+2. Open the raw file on GitHub:
+   <https://raw.githubusercontent.com/tacosonmondays-pixel/sakura-game/main/supabase/migrations/20261018000000_clan_invites.sql>
+   (or open `supabase/migrations/20261018000000_clan_invites.sql` on GitHub and press **Raw**). Select
+   all (Ctrl+A / ⌘A) and copy.
+3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The file
+   runs as one transaction: on any error nothing at all was applied, so press **Run** again (it first
+   waits up to 30 seconds for a quiet moment in chat; "The game is busy right now" means try again in a
+   minute). Safe to run more than once. No key of any kind is needed or should be pasted anywhere.
+   If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
+   (see above), then this file again.
+4. **Check query:** run `select public.clan_invites_version();` in the SQL Editor. It returns `1`.
+5. **What success looks like:** reload the game.
+   - As a clan leader or officer, tap the name of a player who is in no clan (in global chat, or open a
+     conversation's ⋯ menu): **Invite to [TAG]** is there. They see the invite in Messages → Requests (and
+     on Clan → Find a clan) with **Join** / **Decline**.
+   - The clan screen shows **Post to global chat** for the leader and officers. After posting, a card with
+     the clan's emblem, name, members and **View clan** / **Join** appears in global chat, and the button
+     reads "Posted today" until 7 PM Central.
+
+**Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
+`20261018000000_clan_invites.sql` again right after them (the first file restores the old chat rules, and
+new recruiting posts would be refused until this file runs again).
 
 ### Fresh project (or checking the settings)
 
@@ -535,6 +571,31 @@ select pg_size_pretty(pg_total_relation_size('direct_messages'));
 - **Inactive projects are paused** after a week without traffic. Restore the project in the dashboard;
   until then the online screens show "Online features are offline right now".
 - **Anonymous sign-ins** are limited to 30 per hour per IP by default (Authentication → Rate Limits).
+
+### Clan invites and the daily recruiting post
+
+Everything below is in `supabase/migrations/20261018000000_clan_invites.sql`; the client rules live in
+`src/online/clanInviteRules.js`, the local mirror in `src/online/adapters/localClanInvites.js`, the UI in
+`src/ui/online/clanInvite.js`.
+
+- **Who invites:** the leader and officers of a clan; in an **open** clan every member (anyone could join
+  it anyway). Never the developer clan.
+- **Who can be invited:** a player in no clan. A player who blocked the inviter, whose "Who can message me"
+  is Nobody, or who is in the developer clan gets nothing, and the inviter still sees "Invited" (a block or
+  a setting is never shown). The inviter has to unblock someone before inviting them.
+- **Join:** works whatever the clan's join mode (the invite opens a "By request" or "Invite code" clan for
+  that player), within the member cap. An invite from the leader or an officer also lets a player who was
+  removed come back (like accepting their request); a plain member's invite does not. The inviter must
+  still be in the clan.
+- **Limits:** one pending invite per clan and player; invites end after 7 days and a declined one swallows
+  repeats from that clan for 7 days; 10 invites a day and 20 pending per invited player; 1 invite per 2 s
+  and 20 an hour per sender; joining counts as a clan join (10 an hour).
+- **Recruiting post:** once per clan per game day (7 PM Central), by the leader or an officer. It is a
+  global chat line of kind `recruit` whose clan card (`meta`: id, tag, name, emblem, members, max, join
+  mode, level) the server writes from the clan row; players can't post that kind themselves. Its text says
+  the same in words ("[PS] Petal Squad is recruiting! 12/30 members · open to all. Find them in Clan → Find
+  a clan."), so an older game shows a readable line. It also counts as a chat message, and 5 a day per
+  player.
 
 ## How it works
 
@@ -1043,6 +1104,8 @@ needs all). Install the extra browsers with `npx playwright install --with-deps 
 | Chat says "Slow down" | Working as intended: 1 message per 2 s and 20 per minute |
 | A transfer code is refused with "try again in …" | 5 tries an hour, wrong codes included. Wait, then type the code again carefully (`XXXX-XXXX-XXXX`) |
 | Messages / Clan → Requests say **Needs the latest server update** | The social SQL has not run: see "Run the social update" above. Chat, clans and co-op are unaffected |
+| The clan screen has no **Post to global chat** / a player card has no **Invite to clan** | The clan invites SQL has not run (see "Run the clan invites update"), or you are a plain member of a clan that isn't open (leaders and officers invite; every member may in an open clan), or that player is already in a clan |
+| "Daily limit reached" on **Post to global chat** | Working as intended: one recruiting post per clan per game day (7 PM Central) |
 | "… can't get messages from you yet" | Their "Who can message me" setting (or yours) does not include the other player, or one blocked the other (deliberately not told apart). Add each other as friends (friend code) |
 | "Daily limit reached — resets at 7 PM Central" | Working as intended: one material request and 30 donation points per game day |
 | "Checking your donation…" stays | The answer to a donation was lost. The game asks the server again on the next visit (Retry appears after two tries); the items come back only if the server never applied it |

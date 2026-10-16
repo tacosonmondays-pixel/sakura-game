@@ -301,9 +301,12 @@ export function createLocalSocial({ tx, rate, now, rand, code, systemMessage, de
   };
 
   return {
-    /** [profile] the relation helpers the profile mirror shares (SQL: social_is_blocked, social_are_friends, …). */
+    /**
+     * The relation helpers the other local mirrors share (SQL: social_is_blocked, social_are_friends, …):
+     * the profile mirror and the clan invites mirror. localDb keeps them out of the public API.
+     */
     relations: {
-      S, isBlocked, blockedByMe, areFriends, clanmates, muted,
+      S, isBlocked, blockedByMe, areFriends, clanmates, muted, privacy, nameOk,
       ownerMuted: (x, u) => x.mutes[u]?.by === 'owner' && (x.mutes[u]?.until || 0) > now(),
     },
     /** The deploy probe (SQL: social_version()). */

@@ -10,6 +10,7 @@ import { toOnlineError } from '../../online/errors.js';
 import { bodyError } from '../../online/socialRules.js';
 import { hub } from './socialHub.js';
 import { openPlayerCard } from './playerCard.js';
+import { recruitCard } from './clanInvite.js';
 
 const MAX = 200;
 const SEEN_KEY = 'ss-online-seen';
@@ -63,6 +64,8 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     }
     const mine = backend && m.userId === backend.uid;
     const invite = m.kind === 'invite' && m.meta?.room;
+    // [clan invites] a clan's daily recruiting post: its card (else its text, like an older game shows it)
+    const recruit = recruitCard(m, { mine });
     const name = h('b.ol-msg-name', m.name || 'Sensei');
     return h(
       `div.ol-msg${mine ? '.ol-msg-mine' : ''}`,
@@ -70,7 +73,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
       mine ? null : h('button.ol-msg-av', { type: 'button', 'aria-label': `${m.name || 'Sensei'}: player card`, 'data-testid': 'chat-avatar', onclick: () => openCard(m) }, avatar(m.avatar, compact ? 28 : 34)),
       h('div.ol-msg-col',
         h('div.ol-msg-head', mine ? name : h('button.ol-msg-who', { type: 'button', 'data-testid': 'chat-name', onclick: () => openCard(m) }, name), levelChip(m.level), h('time', clock(m.createdAt))),
-        h('div.ol-bubble', m.body,
+        recruit ? h('div.ol-bubble.ol-bubble-recruit', { 'data-testid': 'chat-recruit' }, h('span.ol-recruit-kicker', 'Recruiting!'), recruit) : h('div.ol-bubble', m.body,
           invite ? h('button.ol-invite-btn', { 'data-testid': 'invite-join', onclick: () => navigate('coop', { id: m.meta.room }) }, 'Join co-op') : null)),
     );
   }

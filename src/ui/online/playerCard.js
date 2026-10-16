@@ -95,6 +95,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       h('div.sc-card-row', a.message, a.coop),
       a.why,
       a.friend,
+      a.clanInvite, // [clan invites] "Invite to [TAG]" when I may and they are in no clan
       h('div.sc-card-foot', a.block, a.report),
     ].filter(Boolean));
   }

@@ -54,10 +54,15 @@ export const RULES = Object.freeze({
   profile: { gapMs: 1 * SEC, max: 60, windowMs: HOUR, label: 'profile update' },
   // bio changes
   bio: { gapMs: 0, max: 10, windowMs: DAY, label: 'bio change' },
+  // ---- supabase/migrations/20261018000000_clan_invites.sql -----------------------------------
+  // inviting players to my clan (plus at most 10 a day per invited player, checked on the server)
+  clan_invite: { gapMs: 2 * SEC, max: 20, windowMs: HOUR, label: 'clan invite' },
+  // the clan recruiting post (the real cap: once per clan per game day, on the server)
+  recruit: { gapMs: 0, max: 5, windowMs: DAY, label: 'recruiting post' },
 });
 
 /** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */
-export const ROLLING_DAILY = ['dm_day', 'dm_new', 'report', 'rename', 'clan_create', 'boss_hit', 'bio'];
+export const ROLLING_DAILY = ['dm_day', 'dm_new', 'report', 'rename', 'clan_create', 'boss_hit', 'bio', 'recruit'];
 
 /**
  * Pure verdict for one action given the earlier hit times (ms, any order).

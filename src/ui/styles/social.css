@@ -353,3 +353,9 @@ html[data-reduce-motion] .sc-toast, html[data-reduce-motion] .sc-req-card, html[
 
 /* [social] Add friend (off) next to "Add with a friend code" on a player card */
 .sc-card-friend-row { align-self: stretch; }
+
+/* ---------- Clan invites (Messages → Requests, the player card, a conversation's menu) ---------- */
+.sc-clan-inv .ol-emblem { flex: none; }
+.sc-clan-inv .ol-tag { font-size: 0.78rem; }
+.sc-card-clan-inv:empty, .sc-menu-slot:empty { display: none; }
+.sc-clan-inv .sc-row-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }

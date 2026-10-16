@@ -25,6 +25,8 @@ const ALLOWED = new Set([
   'expire_coop_invites', 'report_player', 'donation_state', 'request_materials', 'cancel_material_request', 'donate', 'settle_donations', 'claim_donations',
   // [profile] supabase/migrations/20261016000000_profile.sql
   'profile_version', 'profile_view', 'my_profile_card', 'set_profile_card', 'set_profile_bio', 'set_profile_visibility',
+  // 20261018000000_clan_invites.sql
+  'clan_invites_version', 'send_clan_invite', 'list_clan_invites', 'answer_clan_invite', 'recruit_state', 'post_clan_recruit',
 ]);
 
 describe('social migration (lint)', () => {

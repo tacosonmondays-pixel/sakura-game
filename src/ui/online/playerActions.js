@@ -1,5 +1,5 @@
 // What you can do with another player, from their player card (src/online … player_card): Message · Invite to
-// co-op · Add friend (or Friends ✓ / Accept · Decline / Requested) · Block / Unblock · Report. Shared by the player
+// co-op · Add friend (or Friends ✓ / Accept · Decline / Requested) · Invite to [TAG] · Block / Unblock · Report. Shared by the player
 // card and the Sensei Profile's visitor view (docs/specs/PROFILE.md §1.10) so the two can never disagree. Nothing
 // about the other player's settings or blocks is shown: a refusal reads the same either way.
 import { h, button, toast, confirmDialog } from '../components.js';
@@ -10,6 +10,7 @@ import { whyText, friendWhyText } from '../../online/socialRules.js';
 import { DEV_CLAN } from '../../online/clanRules.js';
 import { setBlocked, refreshSoon } from './socialHub.js';
 import { getSession } from '../../online/coop/session.js';
+import { clanInviteSlot } from './clanInvite.js';
 
 export const NEW_PEER_KEY = 'ss-social-new-peer';
 
@@ -35,7 +36,8 @@ export const isDevClan = (c) => !!c?.clan && c.clan.tag === DEV_CLAN.tag && c.cl
  * @param {object} c player_card (or profile_view, which carries it)
  * @param {{ context?: string, messageId?: number|null, close?: Function, reload: () => Promise<object>, repaint: (card: object) => void }} o
  *   close: leaves the surface first (the card's modal); reload: fetches the card again; repaint: draws it
- * @returns {{ message: HTMLElement, coop: HTMLElement, why: HTMLElement|null, friend: HTMLElement, block: HTMLElement, report: HTMLElement }}
+ * @returns {{ message: HTMLElement, coop: HTMLElement, why: HTMLElement|null, friend: HTMLElement, clanInvite: HTMLElement, block: HTMLElement, report: HTMLElement }}
+ *   clanInvite: [clan invites] "Invite to [TAG]" (a slot that fills itself; it asks the server only when read)
  */
 export function playerActions(c, { context = 'profile', messageId = null, close = () => {}, reload, repaint }) {
   const b = getBackend();
@@ -117,5 +119,11 @@ export function playerActions(c, { context = 'profile', messageId = null, close 
       if (r.reported) repaint(await reload().catch(() => c));
     },
   });
-  return { message, coop, why: whyLine ? h('p.sc-card-why', { 'data-testid': 'card-why' }, whyLine) : null, friend, block, report };
+  let clanInvite = null;
+  return {
+    message, coop, why: whyLine ? h('p.sc-card-why', { 'data-testid': 'card-why' }, whyLine) : null, friend, block, report,
+    get clanInvite() {
+      return (clanInvite ||= clanInviteSlot(c));
+    },
+  };
 }

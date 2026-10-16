@@ -23,7 +23,7 @@ const state = {
   started: false,
   starting: null,
   status: 'unknown', // 'unknown' (never went online) | 'ready' | 'needs_update' | 'offline'
-  badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0 },
+  badges: { unreadDms: 0, friendRequests: 0, donationsReady: 0, clanInvites: 0 },
   privacy: null,
   blocked: new Set(),
   blockedNames: new Map(), // uid → every name this tab saw them use (old clan notices without `about` that name them are hidden)
@@ -53,9 +53,9 @@ export const hub = {
   get badges() {
     return { ...state.badges };
   },
-  /** Unread DMs + friend requests: the lobby bubble's number. */
+  /** Unread DMs + friend requests + clan invites: the lobby bubble's number. */
   get count() {
-    return state.badges.unreadDms + state.badges.friendRequests;
+    return state.badges.unreadDms + state.badges.friendRequests + state.badges.clanInvites;
   },
   get privacy() {
     return state.privacy;
@@ -199,7 +199,13 @@ function goLive(backend) {
   refresh();
   refreshBlocked();
   state.offInbox?.();
-  state.offInbox = backend.subscribeInbox((e) => onInbox(e));
+  const offDms = backend.subscribeInbox((e) => onInbox(e));
+  // [clan invites] a new invite (local test mode delivers it live; online the 5-minute refresh does)
+  const offInvites = backend.subscribeInvites?.(() => refreshSoon()) || (() => {});
+  state.offInbox = () => {
+    offDms();
+    offInvites();
+  };
   clearInterval(state.timer);
   state.timer = setInterval(() => {
     refresh();
@@ -221,8 +227,11 @@ function goLive(backend) {
 export async function refresh() {
   if (state.status !== 'ready') return state.badges;
   try {
-    const s = await getBackend().socialSummary();
-    state.badges = { unreadDms: s.unreadDms, friendRequests: s.friendRequests, donationsReady: s.donationsReady };
+    const b = getBackend();
+    const s = await b.socialSummary();
+    // [clan invites] counted from the list (the social summary predates them); 0 before that server update
+    const clanInvites = await b.invitesStatus().then((st) => (st === 'ready' ? b.clanInvites().then((l) => l.length) : 0)).catch(() => 0);
+    state.badges = { unreadDms: s.unreadDms, friendRequests: s.friendRequests, donationsReady: s.donationsReady, clanInvites };
     state.privacy = s.privacy || state.privacy;
     emitter.emit('badges', { ...state.badges });
   } catch (e) {

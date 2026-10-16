@@ -357,7 +357,7 @@ function renderVisit(root, userId) {
 
   const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading…', testid: 'profile-loading' }); how().finally(load); } });
 
-  /** The visitor's actions: Message, Co-op, Add friend, ⋯ (Block, Report) — the player card's rules. */
+  /** The visitor's actions: Message, Co-op, Add friend, ⋯ (Invite to [TAG], Block, Report) — the player card's rules. */
   function visitActs(view, b, reloadView) {
     const a = playerActions(view, { context: 'profile', reload: reloadView, repaint: () => load() });
     const more = h('button.topbar-icon.pf-more', {
@@ -365,7 +365,7 @@ function renderVisit(root, userId) {
       onclick: () => {
         // fresh pieces: the top bar keeps its own (one element can't sit in two places)
         const x = playerActions(view, { context: 'profile', reload: reloadView, repaint: () => load() });
-        const mm = modal({ title: view.name, body: h('div.pf-more-body', h('div.pf-more-friend', x.friend), h('div.sc-card-foot', x.block, x.report), x.why), actions: [], cls: 'sc-card-modal' });
+        const mm = modal({ title: view.name, body: h('div.pf-more-body', h('div.pf-more-friend', x.friend), x.clanInvite, h('div.sc-card-foot', x.block, x.report), x.why), actions: [], cls: 'sc-card-modal' });
         mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) mm.close(); });
       },
     }, svgEl(glyph('more'), 'btn-icon'));
@@ -420,7 +420,7 @@ function renderVisit(root, userId) {
       const text = (WHY_TEXT[view.profileWhy] || WHY_TEXT.private)(view.name);
       stateScreen({
         title: `${view.name}'s Profile`, who, text, testid: `profile-why-${view.profileWhy || 'private'}`,
-        buttons: [a.message, a.coop, a.friend, h('div.sc-card-foot', a.block, a.report), a.why].filter(Boolean),
+        buttons: [a.message, a.coop, a.friend, a.clanInvite, h('div.sc-card-foot', a.block, a.report), a.why].filter(Boolean),
       });
       return;
     }

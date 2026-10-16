@@ -39,6 +39,11 @@ export function profileFeatureFlag(search = globalThis.location?.search || '') {
   return socialFeatureFlag(search) && new URLSearchParams(search).get('profile') !== '0';
 }
 
+/** `?invites=0`: the live project before the owner runs the clan invites migration (needs_update). */
+export function invitesFeatureFlag(search = globalThis.location?.search || '') {
+  return new URLSearchParams(search).get('invites') !== '0';
+}
+
 /**
  * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean, profile?: boolean } }} [env]
  */
@@ -46,7 +51,7 @@ export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
-  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag() };
+  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -214,6 +219,32 @@ export function createLocalAdapter(env = {}) {
     },
     async claimBossReward(week) {
       return db.claimBossReward(me(), week);
+    },
+
+    // ---- clan invites + the daily recruiting post (localClanInvites.js) ------------------------
+    async invitesProbe() {
+      return db.invitesProbe();
+    },
+    async clanInvites() {
+      return db.clanInvites(me());
+    },
+    async sendClanInvite(userId) {
+      return db.sendClanInvite(me(), userId);
+    },
+    async answerClanInvite(inviteId, accept) {
+      const r = db.answerClanInvite(me(), inviteId, accept);
+      if (r?.error) throw Object.assign(new Error('not_found: That invite is gone: the player who sent it left the clan.'), { code: 'not_found' });
+      return r;
+    },
+    async recruitState() {
+      return db.recruitState(me());
+    },
+    async postRecruit() {
+      return db.postRecruit(me());
+    },
+    /** A clan invite arrived for this tab's player (BroadcastChannel; the Supabase adapter has none: the hub polls). */
+    subscribeInvites(cb) {
+      return on(`invites:${me()}`, cb);
     },
 
     // ---- [social] DMs, friends, blocks, reports, co-op invites, clan donations (localSocial.js)

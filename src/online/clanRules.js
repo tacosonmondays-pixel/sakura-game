@@ -129,12 +129,30 @@ export const MESSAGE_MAX = 200;
 /** Co-op invite payload: only the room code and the stage id, at most this many bytes (SQL: valid_message_meta()). */
 export const INVITE_META_MAX = 256;
 
+/** A recruiting post's clan card, at most this many bytes (SQL: valid_message_meta(), 20261018000000_clan_invites.sql). */
+export const RECRUIT_META_MAX = 512;
+const RECRUIT_KEYS = ['clan', 'tag', 'name', 'emblem', 'members', 'max', 'mode', 'level'];
+const numIn = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+
 /**
  * The `meta` a chat message may carry (SQL: valid_message_meta(), the messages check):
- * none on text, and on an invite exactly { room: 5 letters/digits, stage?: up to 16 characters }.
+ * none on text, on an invite exactly { room: 5 letters/digits, stage?: up to 16 characters }, and on
+ * a clan recruiting post exactly { clan, tag, name, emblem, members, max, mode, level } (the server
+ * writes it from the clan row).
  * @returns {boolean}
  */
 export function validMessageMeta(kind, meta) {
+  if (kind === 'recruit') {
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return false;
+    if (Object.keys(meta).some((k) => !RECRUIT_KEYS.includes(k))) return false;
+    if (typeof meta.clan !== 'string' || !/^[0-9a-z-]{1,36}$/.test(meta.clan)) return false;
+    if (typeof meta.tag !== 'string' || !/^[A-Z0-9]{2,4}$/.test(meta.tag)) return false;
+    if (typeof meta.name !== 'string' || meta.name.length < 1 || meta.name.length > 20) return false;
+    if (typeof meta.emblem !== 'string' || meta.emblem.length > 24) return false;
+    if (!numIn(meta.members, 0, 1000) || !numIn(meta.max, 1, 1000) || !numIn(meta.level, 1, 20)) return false;
+    if (!['open', 'request', 'code'].includes(meta.mode)) return false;
+    return JSON.stringify(meta).length <= RECRUIT_META_MAX;
+  }
   if (kind !== 'invite') return meta == null;
   if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return false;
   if (Object.keys(meta).some((k) => k !== 'room' && k !== 'stage')) return false;
