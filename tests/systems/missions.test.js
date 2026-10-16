@@ -3,7 +3,7 @@ import { createProfile } from '../../src/systems/save.js';
 import {
   onAppStart, track, missionList, claimMission, claimAllMissions, loginCalendar, claimLogin, achievementList, claimAchievement,
   redeemCode, currentEvent, f2pIncomeSummary, bestiaryPercent, discoverableEnemies,
-  claimAllAchievements, achievementsReady, achievementNotice, readyAchievementIds, recordMax, achievementGate,
+  claimAllAchievements, claimAllCount, achievementsReady, achievementNotice, readyAchievementIds, recordMax, achievementGate,
 } from '../../src/systems/missions.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementLive } from '../../src/data/achievements.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
@@ -253,6 +253,20 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     const r = claimAllAchievements(p);
     expect(r.ids.length).toBeGreaterThanOrEqual(25);
     expect(r.ids).toContain('a_ach_25');
+  });
+
+  it('claimAllCount = what Claim all will claim (Achiever included), and leaves the save untouched', () => {
+    const p = veteran();
+    clearStages(p, CAMPAIGN_IDS);
+    clearStages(p, CAMPAIGN_IDS, 'hard');
+    p.missions.counters = { login: 120, kill: 30000, dailyDone: 55, battleWin: 120 };
+    p.gacha.totalPulls = 120;
+    const before = JSON.stringify(p);
+    const n = claimAllCount(p);
+    expect(JSON.stringify(p)).toBe(before);
+    expect(n).toBeGreaterThan(readyAchievementIds(p).length); // a_ach_25 is not ready until the others are claimed
+    expect(claimAllAchievements(p).ids.length).toBe(n);
+    expect(claimAllCount(p)).toBe(0);
   });
 
   it('shipped fixes: a_units_all needs 19; a_kills_* count co-op kills', () => {

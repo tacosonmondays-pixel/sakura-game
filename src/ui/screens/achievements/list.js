@@ -11,7 +11,7 @@ import { uiIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
 import { formatNumber } from '../../../core/util.js';
-import { achievementList } from '../../../systems/missions.js';
+import { achievementList, claimAllCount } from '../../../systems/missions.js';
 import { ownedRibbons, liveRibbons, ownedTitles, liveTitles, newTitleCount, newHonorCount } from '../../../systems/honors.js';
 import { featureStage } from '../../../systems/story.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
@@ -230,7 +230,8 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
     const small = phone();
     const cats = visibleCategories(list);
     const stats = categoryStats(list);
-    const readyAll = list.filter((a) => a.claimable).length;
+    // what Claim all will claim (its passes include Achiever rows the same tap completes), not just the ready rows
+    const readyAll = list.some((a) => a.claimable) ? claimAllCount(profile) : 0;
     const ribbons = ownedRibbons(profile);
     const nRib = liveRibbons().length;
 
@@ -268,7 +269,7 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
         newHonorCount(profile) ? h('i.ach-dot') : null),
       small ? null : h('button.ach-titleschip', { 'data-testid': 'ach-titles', onclick: () => titlesSheet({ onClose: redraw }) },
         titlePlate('a_gold_40', { small: true, text: 'Titles' }), h('small', `${titlesN}/${liveTitles().length}`), newT ? h('i.ach-dot.pink') : null),
-      button(readyAll ? 'Claim all' : 'Claim all', { kind: 'yellow', testid: 'ach-claim-all', disabled: !readyAll, onClick: () => claimAll({ onDone: claimed }) }),
+      button('Claim all', { kind: 'yellow', testid: 'ach-claim-all', disabled: !readyAll, onClick: () => claimAll({ onDone: claimed }) }),
     );
     const claimAllBtn = head.querySelector('[data-testid="ach-claim-all"]');
     if (readyAll) claimAllBtn.appendChild(h('span.ach-claimall-n', String(readyAll)));

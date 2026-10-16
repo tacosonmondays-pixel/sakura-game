@@ -265,6 +265,15 @@ async function runViewport(vp) {
   log('-- 4. Edit Profile + pins');
   await tap('[data-testid="profile-edit"]');
   check(await page.waitForSelector('[data-testid="edit-profile"]', { timeout: 8000 }).then(() => true).catch(() => false), 'Edit Profile opens');
+  // the "soon" badges stay inside their tab buttons, and the labels are not cut (phones: a 124px column)
+  const soon = await page.evaluate(() => [...document.querySelectorAll('.ep-nav button')].map((b) => {
+    const s = b.querySelector('.ep-soon');
+    const label = b.querySelector(':scope > span');
+    const br = b.getBoundingClientRect();
+    const sr = s?.getBoundingClientRect();
+    return { tab: b.dataset.testid, inside: !sr || (sr.left >= br.left - 0.5 && sr.right <= br.right + 0.5), cut: !!label && label.scrollWidth > label.clientWidth + 1 };
+  }));
+  check(soon.length === 6 && soon.every((x) => x.inside && !x.cut), `Edit Profile tabs: "soon" badges inside, no cut labels (${JSON.stringify(soon.filter((x) => !x.inside || x.cut))})`);
   await tap('[data-testid="edit-tab-banner"]');
   await tap('[data-testid="edit-banners"] [data-banner="theme:festival"]');
   await tap('[data-testid="edit-tab-favorite"]');
