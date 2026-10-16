@@ -164,6 +164,19 @@ for (const { name, r } of results) {
   if (!(b.stale > 0 && b.bought > 0 && b.moved > 0)) failures.push(`the two-hero battle did not exercise stale buys, buys and moves (${b.buys}; moves ${b.moves})`);
   if (b.sell !== 'hero') failures.push(`the hero sell was not refused (${b.sell})`);
 }
+// roaming drones and flight modes: the same drone battle everywhere (DRONES_START)
+const DR_KEYS = ['ticks', 'state', 'wave', 'towers', 'drones', 'droneDmg', 'droneShots', 'tiers', 'flies', 'jams', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op DRONES battle (two Chikas on 6-5, every flight mode, sappers):');
+for (const { name, r } of results) {
+  const d = r.drones;
+  log(`  ${name.padEnd(46)} ticks ${d.ticks} · ${d.state} · wave ${d.wave} · Chikas ${d.tiers} · ${d.drones} drones · drone dmg ${d.droneDmg} · ${d.flies} fly · ${d.jams} jams · final ${d.final} · ${d.checkpoints} hash checkpoints → ${d.hashes} · checkpoint w${d.ckWave} ${d.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${d.ms} ms`);
+  if (!d.agree) failures.push(`${name}: its own two drones-battle clients disagreed`);
+  if (!d.ckSame) failures.push(`${name}: the drones battle's wave-${d.ckWave} checkpoint did not replay to the run`);
+  if (d.refused) failures.push(`${name}: fly command(s) refused: ${d.refused}`);
+  for (const k of DR_KEYS) if (d[k] !== ref.drones[k]) failures.push(`${name}: drones ${k} ${d[k]} ≠ ${ref.drones[k]} (${results[0].name})`);
+}
+if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
+if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();

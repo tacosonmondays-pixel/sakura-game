@@ -1256,22 +1256,25 @@ const CHIKA = {
   personality: 'Fast-talking and endlessly inventive; names every drone and grieves each one dramatically.',
   quote: 'Give me ten seconds and a wrench!',
   tips: [
-    'She builds drones over time — place her early beside a long straight.',
+    'Her drones fly out to hunt up to 4 tiles away — tap one to see its stats.',
+    'Flight modes: Hover near her, Hold a point, Patrol between two points, or Pursuit anywhere on the map.',
     'Repair Bay tier 3 cleanses sabotage for every girl in her aura.',
-    'Tesla Tower (tier 4) trades drone building for a chain-lightning coil.',
+    'Tesla Tower (tier 4) turns her wrench bolt into a chain-lightning coil; her drones keep flying.',
   ],
   base: stats({
-    cost: 650, behavior: 'turret', damage: 3, rate: 0.25, range: 3.0, projectileSpeed: 16,
+    cost: 650, behavior: 'projectile', damage: 2, rate: 0.8, range: 3.0, projectileSpeed: 16,
     canHitAir: true,
-    turret: { max: 2, damage: 3, rate: 1.5, range: 2.6, attackType: 'pierce', status: [S.shock(0.1, 0.15)] },
+    turret: {
+      max: 2, damage: 3, rate: 1.5, range: 1.0, leash: 4.0, speed: 3.5, build: 4, attackType: 'pierce', status: [S.shock(0.1, 0.15)],
+    },
   }),
   paths: [
     path('sentry', 'Sentry Works', 'More and better drones', [
       tier('Spare Parts', 160, '+1 drone (3 at once).', { turret: { max: 1 } }),
       tier('Better Barrels', 380, 'Drones +2 damage.', { turret: { damage: 2 } }),
-      tier('Sentry Grid', 1200, '+2 drones, +0.5 drone range, drones fire 20% faster.', { turret: { max: 2, range: 0.5, rate: 1.2 } }),
+      tier('Sentry Grid', 1200, '+2 drones; drones fire 20% faster and fly 0.25 tiles farther.', { turret: { max: 2, leash: 0.25, rate: 1.2 } }),
       tier('Plasma Sentries', 3600, 'Drones +5 damage and fire 25% faster.', { turret: { damage: 5, rate: 1.25 } }),
-      tier('Mecha-Fortress Protocol', 13000, '+4 drones (9 at once), +12 drone damage, +30% fire rate, +1 drone range.', { turret: { max: 4, damage: 12, rate: 1.3, range: 1 } }),
+      tier('Mecha-Fortress Protocol', 13000, '+4 drones (9 at once), +12 drone damage, +30% fire rate; drones fly 0.5 tiles farther and faster.', { turret: { max: 4, damage: 12, rate: 1.3, leash: 0.5, speed: 1 } }),
     ]),
     path('repair', 'Repair Bay', 'Cleanse and buffs', [
       tier('Toolbelt', 140, 'Girls within 2.6 tiles attack 5% faster.', { aura: { range: 2.6, rateMul: 1.05 } }),
@@ -1283,8 +1286,8 @@ const CHIKA = {
     path('tesla', 'Tesla Engineering', 'Lightning conversion', [
       tier('Copper Coils', 130, 'Drones +1 damage.', { turret: { damage: 1 } }),
       tier('Arc Capacitors', 300, 'Drones fire 20% faster.', { turret: { rate: 1.2 } }),
-      tier('Storm Battery', 1000, 'Drones +3 damage and +0.5 range; Chika\'s own shots shock (25%).', { turret: { damage: 3, range: 0.5 }, status: [S.shock(0.25, 0.25)] }),
-      tier('Tesla Tower', 3300, 'Stops building drones and becomes a tesla coil: mystic lightning chains through 5 enemies, ignoring 2 armor.', { behavior: 'chain', attackType: 'mystic', rateMul: 4, chain: 4, damage: 6, armorPen: 2 }),
+      tier('Storm Battery', 1000, 'Drones +3 damage and fly 0.25 tiles farther; Chika\'s own shots shock (25%).', { turret: { damage: 3, leash: 0.25 }, status: [S.shock(0.25, 0.25)] }),
+      tier('Tesla Tower', 3300, 'Her wrench bolt becomes a tesla coil: mystic lightning chains through 5 enemies, ignoring 2 armor. Her drones keep flying.', { behavior: 'chain', attackType: 'mystic', rateMul: 1.25, chain: 4, damage: 7, armorPen: 2 }),
       tier('Thunderforge Reactor', 12500, '+6 jumps, +24 damage, +50% attack speed, 30% stun for 0.5s.', { chain: 6, damage: 24, rateMul: 1.5, status: [S.stun(0.5, 0.3)] }),
     ]),
   ],

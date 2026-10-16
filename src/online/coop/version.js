@@ -19,8 +19,9 @@ import { FREEPLAY } from '../../data/freeplay.js';
 import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 
 // 3: co-op freeplay (start.freeplay, the 'end' Finish vote, the freeplay goal event)
-// 4: battle train (hero rework: start.players[i].hero for both players, the 'hlv' and 'hmv' commands,
-//    a hero 'sell' refused; later train features share this bump)
+// 4: battle train C (set once for the whole train; docs/specs/LANDING_PLAN.md S9): the hero rework
+//    (start.players[i].hero for both players, the 'hlv' and 'hmv' commands, a hero 'sell' refused) and
+//    Chika's `fly` command (a drone wing's flight mode, up to 6 arguments); later train features share it
 export const COOP_PROTOCOL = 4;
 export { BUILD_ID };
 

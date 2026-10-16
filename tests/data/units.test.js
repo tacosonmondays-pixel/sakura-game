@@ -141,7 +141,7 @@ function modSetErrors(mods, where) {
     aura: (k, v, w) => objErrors(v, AURA_KEYS, w, (kk, vv, ww) => (['detection', 'cleanse'].includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww))),
     income: (k, v, w) => objErrors(v, ['perWave', 'interest'], w, numCheck),
     trap: (k, v, w) => objErrors(v, ['max', 'damage', 'splash', 'status'], w, (kk, vv, ww) => (kk === 'status' ? statusErrors(vv, ww) : numCheck(kk, vv, ww))),
-    turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate'], w, numCheck),
+    turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate', 'leash', 'speed'], w, numCheck),
     ramp: (k, v, w) => objErrors(v, ['per', 'max'], w, numCheck),
     mark: (k, v, w) => objErrors(v, ['bonus', 'duration'], w, numCheck),
   };
@@ -176,7 +176,7 @@ function baseErrors(b, where) {
     for (const k of ['max', 'damage', 'triggerRadius', 'armTime', 'splash', 'status']) if (!(k in b.trap)) errs.push(`${where}: trap missing ${k}`);
   }
   if (b.turret) {
-    errs.push(...objErrors(b.turret, ['max', 'damage', 'rate', 'range', 'attackType', 'status'], `${where}.turret`, (k, v, w) => {
+    errs.push(...objErrors(b.turret, ['max', 'damage', 'rate', 'range', 'leash', 'speed', 'build', 'attackType', 'status'], `${where}.turret`, (k, v, w) => {
       if (k === 'status') return statusErrors(v, w);
       if (k === 'attackType') return ATTACK_TYPES[v] ? [] : [`${w} unknown attack type`];
       return numCheck(k, v, w);
@@ -437,8 +437,15 @@ describe('design requirements', () => {
     expect(umeko.base.aura.detection).toBe(true);
     expect(umeko.placement).toBe('water');
     const chika = getUnit('chika');
-    expect(chika.base.behavior).toBe('turret');
+    // her own weak wrench bolt, plus a wing of roaming drones that fly past her range ring
+    expect(chika.base.behavior).toBe('projectile');
     expect(chika.base.turret.max).toBeGreaterThan(0);
+    expect(chika.base.turret.leash).toBeGreaterThan(chika.base.range);
+    const tesla = chika.paths[2].tiers[3];
+    expect(tesla.desc).not.toMatch(/Stops building/);
+    // the coil keeps 9 damage × 1.0/s: (2 + 7) damage, 0.8 × 1.25 rate
+    expect(chika.base.damage + tesla.mods.damage).toBe(9);
+    expect(chika.base.rate * tesla.mods.rateMul).toBeCloseTo(1, 9);
     expect(chika.paths.some((p) => p.tiers.some((t) => t.mods.aura?.cleanse))).toBe(true);
     expect(getUnit('suzu').base.behavior).toBe('trap');
     const kaede = getUnit('kaede');

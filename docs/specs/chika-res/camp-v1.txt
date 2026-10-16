@@ -1,0 +1,43 @@
+{"test":"campaign","stageId":"1-5","difficulty":"normal","hover":"W68 W69 W69","hoverShare":19,"hold":"W68 W69 W70","holdShare":18,"patrol":"W70 W69 W68","patrolShare":16,"pursuit":"W71 W72 W73","pursuitShare":39}
+{"test":"campaign","stageId":"1-5","difficulty":"hard","hover":"W20 W18 W18","hoverShare":17,"hold":"W18 W16 W16","holdShare":15,"patrol":"W16 W16 W16","patrolShare":12,"pursuit":"W16 W16 W19","pursuitShare":29}
+{"test":"campaign","stageId":"2-3","difficulty":"normal","hover":"W97 W97 W97","hoverShare":40,"hold":"W97 W97 W97","holdShare":43,"patrol":"W97 W97 W97","patrolShare":39,"pursuit":"W97 W97 W97","pursuitShare":53}
+{"test":"campaign","stageId":"2-3","difficulty":"hard","hover":"L19 L19 L19","hoverShare":28,"hold":"L19 L19 L19","holdShare":30,"patrol":"L19 L19 L19","patrolShare":27,"pursuit":"L19 L19 L19","pursuitShare":36}
+{"test":"campaign","stageId":"2-5","difficulty":"normal","hover":"W80 W80 W80","hoverShare":22,"hold":"W70 W80 W70","holdShare":37,"patrol":"W70 W80 W80","patrolShare":22,"pursuit":"W90 W85 W90","pursuitShare":48}
+{"test":"campaign","stageId":"2-5","difficulty":"hard","hover":"L21 L21 L21","hoverShare":22,"hold":"L22 L21 L21","holdShare":31,"patrol":"L21 L21 L21","patrolShare":20,"pursuit":"L22 L21 L21","pursuitShare":40}
+{"test":"campaign","stageId":"3-5","difficulty":"normal","hover":"W75 W72 W69","hoverShare":19,"hold":"W80 W76 W81","holdShare":19,"patrol":"W75 W81 W81","patrolShare":19,"pursuit":"W80 W82 W81","pursuitShare":26}
+{"test":"campaign","stageId":"3-5","difficulty":"hard","hover":"L25 L25 L25","hoverShare":11,"hold":"L25 L25 L25","holdShare":12,"patrol":"L25 L25 L25","patrolShare":12,"pursuit":"L25 L25 L25","pursuitShare":17}
+{"test":"campaign","stageId":"4-3","difficulty":"normal","hover":"W80 W78 W82","hoverShare":31,"hold":"W80 W85 W83","holdShare":32,"patrol":"W69 W73 W73","patrolShare":30,"pursuit":"W93 W94 W95","pursuitShare":33}
+{"test":"campaign","stageId":"4-3","difficulty":"hard","hover":"L18 L17 L17","hoverShare":27,"hold":"L17 L17 L17","holdShare":26,"patrol":"L16 L17 L17","patrolShare":24,"pursuit":"L19 L19 L19","pursuitShare":32}
+{"test":"campaign","stageId":"4-5","difficulty":"normal","hover":"L26 L26 L26","hoverShare":50,"hold":"L26 L26 L26","holdShare":49,"patrol":"L24 L24 L24","patrolShare":44,"pursuit":"L26 L26 L26","pursuitShare":52}
+{"test":"campaign","stageId":"4-5","difficulty":"hard","hover":"L13 L13 L13","hoverShare":34,"hold":"L14 L13 L13","holdShare":32,"patrol":"L13 L13 L13","patrolShare":29,"pursuit":"L15 L15 L15","pursuitShare":40}
+{"test":"campaign","stageId":"5-5","difficulty":"normal","hover":"W1 W9 W19","hoverShare":39,"hold":"W12 L25 W2","holdShare":41,"patrol":"L25 W12 W2","patrolShare":39,"pursuit":"W27 W39 W42","pursuitShare":48}
+{"test":"campaign","stageId":"5-5","difficulty":"hard","hover":"L22 L22 L22","hoverShare":29,"hold":"L22 L22 L22","holdShare":35,"patrol":"L22 L22 L22","patrolShare":32,"pursuit":"L22 L25 L22","pursuitShare":38}
+{"test":"campaign","stageId":"6-5","difficulty":"normal","hover":"L27 L27 L27","hoverShare":25,"hold":"L27 L27 L27","holdShare":25,"patrol":"L27 L27 L27","patrolShare":25,"pursuit":"L28 L28 L27","pursuitShare":33}
+{"test":"campaign","stageId":"6-5","difficulty":"hard","hover":"L17 L17 L17","hoverShare":34,"hold":"L17 L17 L17","holdShare":33,"patrol":"L17 L17 L17","patrolShare":32,"pursuit":"L17 L17 L17","pursuitShare":39}
+{"test":"campaign","stageId":"7-5","difficulty":"normal","hover":"W12 W12 W17","hoverShare":29,"hold":"W11 W14 W7","holdShare":28,"patrol":"W15 W8 W8","patrolShare":28,"pursuit":"W27 W28 W30","pursuitShare":35}
+{"test":"campaign","stageId":"7-5","difficulty":"hard","hover":"L20 L20 L20","hoverShare":32,"hold":"L19 L20 L20","holdShare":31,"patrol":"L19 L20 L20","patrolShare":30,"pursuit":"L22 L24 L21","pursuitShare":41}
+{"test":"campaign","stageId":"8-5","difficulty":"normal","hover":"L30 L30 L30","hoverShare":49,"hold":"L30 L30 L30","holdShare":49,"patrol":"L30 L30 L30","patrolShare":47,"pursuit":"L30 L30 L30","pursuitShare":52}
+{"test":"campaign","stageId":"8-5","difficulty":"hard","hover":"L15 L15 L15","hoverShare":63,"hold":"L15 L15 L15","holdShare":62,"patrol":"L15 L15 L15","patrolShare":60,"pursuit":"L15 L15 L15","pursuitShare":68}
+
+| Stage | Diff | hover (W lives / L wave; Chika share) | hold (W lives / L wave; Chika share) | patrol (W lives / L wave; Chika share) | pursuit (W lives / L wave; Chika share) |
+|---|---|---|---|---|---|
+| 1-5 | normal | W68 W69 W69 (19%) | W68 W69 W70 (18%) | W70 W69 W68 (16%) | W71 W72 W73 (39%) |
+| 1-5 | hard | W20 W18 W18 (17%) | W18 W16 W16 (15%) | W16 W16 W16 (12%) | W16 W16 W19 (29%) |
+| 2-3 | normal | W97 W97 W97 (40%) | W97 W97 W97 (43%) | W97 W97 W97 (39%) | W97 W97 W97 (53%) |
+| 2-3 | hard | L19 L19 L19 (28%) | L19 L19 L19 (30%) | L19 L19 L19 (27%) | L19 L19 L19 (36%) |
+| 2-5 | normal | W80 W80 W80 (22%) | W70 W80 W70 (37%) | W70 W80 W80 (22%) | W90 W85 W90 (48%) |
+| 2-5 | hard | L21 L21 L21 (22%) | L22 L21 L21 (31%) | L21 L21 L21 (20%) | L22 L21 L21 (40%) |
+| 3-5 | normal | W75 W72 W69 (19%) | W80 W76 W81 (19%) | W75 W81 W81 (19%) | W80 W82 W81 (26%) |
+| 3-5 | hard | L25 L25 L25 (11%) | L25 L25 L25 (12%) | L25 L25 L25 (12%) | L25 L25 L25 (17%) |
+| 4-3 | normal | W80 W78 W82 (31%) | W80 W85 W83 (32%) | W69 W73 W73 (30%) | W93 W94 W95 (33%) |
+| 4-3 | hard | L18 L17 L17 (27%) | L17 L17 L17 (26%) | L16 L17 L17 (24%) | L19 L19 L19 (32%) |
+| 4-5 | normal | L26 L26 L26 (50%) | L26 L26 L26 (49%) | L24 L24 L24 (44%) | L26 L26 L26 (52%) |
+| 4-5 | hard | L13 L13 L13 (34%) | L14 L13 L13 (32%) | L13 L13 L13 (29%) | L15 L15 L15 (40%) |
+| 5-5 | normal | W1 W9 W19 (39%) | W12 L25 W2 (41%) | L25 W12 W2 (39%) | W27 W39 W42 (48%) |
+| 5-5 | hard | L22 L22 L22 (29%) | L22 L22 L22 (35%) | L22 L22 L22 (32%) | L22 L25 L22 (38%) |
+| 6-5 | normal | L27 L27 L27 (25%) | L27 L27 L27 (25%) | L27 L27 L27 (25%) | L28 L28 L27 (33%) |
+| 6-5 | hard | L17 L17 L17 (34%) | L17 L17 L17 (33%) | L17 L17 L17 (32%) | L17 L17 L17 (39%) |
+| 7-5 | normal | W12 W12 W17 (29%) | W11 W14 W7 (28%) | W15 W8 W8 (28%) | W27 W28 W30 (35%) |
+| 7-5 | hard | L20 L20 L20 (32%) | L19 L20 L20 (31%) | L19 L20 L20 (30%) | L22 L24 L21 (41%) |
+| 8-5 | normal | L30 L30 L30 (49%) | L30 L30 L30 (49%) | L30 L30 L30 (47%) | L30 L30 L30 (52%) |
+| 8-5 | hard | L15 L15 L15 (63%) | L15 L15 L15 (62%) | L15 L15 L15 (60%) | L15 L15 L15 (68%) |

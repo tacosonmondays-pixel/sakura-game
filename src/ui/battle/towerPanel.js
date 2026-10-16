@@ -1,8 +1,10 @@
 // Selected-girl panel: portrait, role, target mode, effective stats, 3 upgrade paths with
 // tier pips / next tier / crosspath locks / buy buttons, sell, close. Heroes instead: level, XP
 // bar, Level up, the next levels and the full 25-level track, the ultimate and its rank, and
-// Move (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet.
+// Move (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet. Girls with
+// roaming drones (Chika) also get a split bar, a Flight row and tabs (chikaPanel.js).
 import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
+import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { crosspathReason, pathCap } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -47,6 +49,7 @@ export function createTowerPanel(ctx) {
   let sellTimer = 0;
   let trackOpen = false;
   let heroShown = null; // the level status the Level up button shows (a tap buys exactly this)
+  const drones = createDronePanel(ctx, { rerender: () => { sig = ''; update(true); } });
 
   /** Hero part of the signature: level, the price bucket (≤ 2 repaints/s), the reason, the move state. */
   function heroSig(t) {
@@ -63,11 +66,18 @@ export function createTowerPanel(ctx) {
       const st = sim.upgradeStatus(t.uid, p);
       return `${st.tier}${st.reason || 'ok'}${st.cost}`;
     }).join(',');
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}${heroSig(t)}`;
+    const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}`;
   }
 
-  function open(towerUid) {
+  /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field) */
+  function open(towerUid, opts = {}) {
+    if (uid === towerUid && opts.drone != null && el.hidden === false) {
+      drones.showDrone(opts.drone, drones.tab === 'drone' ? undefined : drones.tab);
+      return;
+    }
     uid = towerUid;
+    drones.open(towerUid, opts);
     sig = '';
     sellArmed = 0;
     trackOpen = false;
@@ -80,6 +90,7 @@ export function createTowerPanel(ctx) {
 
   function close() {
     uid = null;
+    drones.close();
     el.hidden = true;
     live = null;
     clearTimeout(sellTimer);
@@ -138,13 +149,19 @@ export function createTowerPanel(ctx) {
 
     // ---- stats
     const rows = [];
-    const add = (label, value, cls = '') => rows.push(h(`div.bt-stat-cell${cls}`, h('span', label), h('b', value)));
-    // Drone carriers (Chika): the drones do the shooting (her own shots only start once every
-    // drone is out), so her DPS is the full drone wing plus her own; her "attack rate" is how
-    // fast she builds drones
-    const drones = st.turret && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
-    const dps = st.dps + (drones ? drones.each * st.turret.max : 0);
-    if (dps > 0) add('DPS', fmtNum(dps, 1), '.bt-stat-main');
+    const keyed = {};
+    const add = (label, value, cls = '', key = null) => {
+      const c = h(`div.bt-stat-cell${cls}`, h('span', label), h('b', value));
+      rows.push(c);
+      if (key) keyed[key] = c;
+    };
+    // Roaming drones (Chika): her split bar and Overall / Chika / Drones tabs show her own DPS and
+    // the wing's apart (chikaPanel.js), so the DPS row is hers. An anchored drone kit (none in the
+    // roster today; the old turret behaviour) keeps the summed row: the wing plus her own, and her
+    // "attack rate" is how fast she builds drones.
+    const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
+    const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
+    if (dps > 0) add('DPS', fmtNum(dps, 1), '.bt-stat-main', 'dps');
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 1)}s`);
     } else {
@@ -169,7 +186,7 @@ export function createTowerPanel(ctx) {
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
     if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');
-    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg × ${fmtNum(drones?.rate ?? 0, 2)}/s each`, '.bt-stat-wide');
+    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg × ${fmtNum(anchored?.rate ?? t.turretSpec?.rate ?? 0, 2)}/s each`, '.bt-stat-wide', 'turret');
     // gear Cost Reduction (and cost-cut auras) make her upgrades cheaper: say so, with the total
     const gearCut = 1 - (t.unitStats?.costMul ?? 1);
     const auraCut = Math.min(0.5, t.buff?.costCut || 0);
@@ -190,7 +207,7 @@ export function createTowerPanel(ctx) {
       if (a.costCut > 0) bits.push(`-${Math.round(a.costCut * 100)}% cost`);
       if (a.detection) bits.push('Veil Sight');
       if (a.cleanse) bits.push('Cleanse');
-      add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide');
+      add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide', 'aura');
     }
     const chips = [];
     const cap = (key, label) => chips.push(h('span.bt-cap', svgEl(capabilityIcon(key), 'bt-cap-ico'), label));
@@ -233,20 +250,35 @@ export function createTowerPanel(ctx) {
     const owner = ally ? ctx.coop.ownerName(t.uid) : '';
     const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, t.isHero ? `${owner}'s hero — only ${owner} can level her up, retarget or move her.` : `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`) : null;
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
-    const scroll = h(
-      'div.bt-panel-scroll',
-      head,
-      allyNote,
-      heroBlock,
-      target,
-      paths ? h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades') : null,
-      paths,
-      h('div.bt-section-label', icon('info', 'bt-ico-sm'), 'Stats'),
-      stats,
-      caps,
-    );
+    let scroll;
+    let toTop = false;
+    el.classList.toggle('bt-panel-drones', hasDroneTabs(st));
+    if (hasDroneTabs(st)) {
+      // drone owner: split bar, Flight row and the tab row on top; the tab's content below
+      const rest = rows.filter((c) => c !== keyed.dps && c !== keyed.turret);
+      const own = [];
+      for (const s0 of st.status || []) own.push(h('span.bt-cap.bt-cap-status', statusLabel(s0)));
+      if (st.canHitAir) own.push(h('span.bt-cap', svgEl(capabilityIcon('antiAir'), 'bt-cap-ico'), 'Hits air'));
+      const affordable = [0, 1, 2].some((p) => !sim.upgradeStatus(t.uid, p).locked);
+      const dv = drones.sections(t, st, { paths, rest, caps, aura: keyed.aura?.cloneNode(true) || null, ownCaps: own.length ? h('div.bt-caps', own) : null }, { mine: !ally, affordable });
+      scroll = h('div.bt-panel-scroll', head, dv.split, allyNote, heroBlock, target, dv.flight, dv.tabs, dv.content);
+      toTop = dv.toTop;
+    } else {
+      scroll = h(
+        'div.bt-panel-scroll',
+        head,
+        allyNote,
+        heroBlock,
+        target,
+        paths ? h('div.bt-section-label', icon('upgrade', 'bt-ico-sm'), 'Upgrades') : null,
+        paths,
+        h('div.bt-section-label', icon('info', 'bt-ico-sm'), 'Stats'),
+        stats,
+        caps,
+      );
+    }
     el.replaceChildren(scroll, foot);
-    if (prevScroll && el.dataset.uid === String(t.uid)) scroll.scrollTop = prevScroll;
+    if (prevScroll && el.dataset.uid === String(t.uid) && !toTop) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);
     updateLive(t, st);
   }
@@ -386,6 +418,7 @@ export function createTowerPanel(ctx) {
     if (!live) return;
     live.kills.textContent = fmtCoins(t.kills || 0);
     live.dmg.textContent = fmtCoins(t.damageDealt || 0);
+    drones.updateLive();
     if (t.isHero && live.xpFill) {
       const s = st || sim.towerStats(t.uid);
       const xp = s?.xp;
@@ -420,6 +453,14 @@ export function createTowerPanel(ctx) {
     update: () => update(false),
     get uid() {
       return uid;
+    },
+    /** The drone shown on the drone card, or null. */
+    get droneUid() {
+      return uid != null ? drones.droneUid : null;
+    },
+    /** 'upgrades' | 'overall' | 'chika' | 'drones' | 'drone' (drone owners only). */
+    get tab() {
+      return drones.tab;
     },
     destroy() {
       clearTimeout(sellTimer);

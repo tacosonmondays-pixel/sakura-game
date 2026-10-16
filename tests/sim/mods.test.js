@@ -62,6 +62,22 @@ describe('ModSet application', () => {
     expect([s.silence, s.reveal, s.knockback]).toEqual([1, 2, 0.5]);
   });
 
+  test('roaming drones: leash and speed add, unit rangeMul scales leash, build divides by rateMul, defaults', () => {
+    const s = normalizeBase({ turret: { max: 1, damage: 2, rate: 1, range: 1 } });
+    expect([s.turret.leash, s.turret.speed, s.turret.build]).toEqual([0, 3, 0]); // anchored by default
+    const acc = { damageAdd: 0, damageMul: 1 };
+    const r = normalizeBase({ turret: { max: 2, damage: 3, rate: 1.5, range: 1, leash: 4, speed: 3.5, build: 4 } });
+    applyModSet(r, { turret: { leash: 0.25, speed: 1 } }, acc);
+    applyModSet(r, { turret: { leash: 0.5 } }, acc);
+    expect(r.turret.leash).toBeCloseTo(4.75, 9);
+    expect(r.turret.speed).toBeCloseTo(4.5, 9);
+    const def = { ...UNITS.roamer };
+    const st = resolveStats(def, { unitStats: { rangeMul: 1.1, rateMul: 2 } });
+    expect(st.turret.leash).toBeCloseTo(3 * 1.1, 9);
+    expect(st.turret.range).toBeCloseTo(1 * 1.1, 9);
+    expect(st.turret.build).toBeCloseTo(0.5, 9);
+  });
+
   test('unit battle stats from the profile scale the result', () => {
     const s = resolveStats(UNITS.archer, { unitStats: { damageMul: 2, rateMul: 1.5, rangeMul: 1.1, critChance: 0.1, critMul: 1.2, armorPen: 1, awakenPassive: true } });
     expect(s.damage).toBeCloseTo(10 * 1.1 * 2, 6);

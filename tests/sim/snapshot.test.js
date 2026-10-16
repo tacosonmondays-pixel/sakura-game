@@ -3,6 +3,7 @@
 // orders for 20 000 ticks and compare their full state (the snapshot JSON) all the way. A field
 // that is not stored, stored by value where it must stay shared, or rebuilt differently makes the
 // copies drift apart within a few hundred ticks.
+// The bot also switches Chika's flight mode every 10 s (Hold / Patrol / Pursuit / Hover).
 // Three moments: a campaign stage between waves, the middle of a crowded wave (enemies with
 // statuses, projectiles in flight, traps and drones out), and a deep co-op freeplay wave (the
 // Ashwing Matriarch at wave 200 with her summons, visitors with affixes, Resolve budgets).
@@ -22,6 +23,7 @@ function makeBot(stageId, units, data) {
   const plan = autoPlan(stageId, units, { data });
   let i = 0;
   let turn = 0;
+  let calls = 0;
   return (sim) => {
     const out = [];
     if (i < plan.length) {
@@ -51,6 +53,11 @@ function makeBot(stageId, units, data) {
       // now and then a different targeting mode (strong / last / first)
       if (turn % 7 === 0) out.push(['tgt', t.uid, ['strong', 'last', 'first'][turn % 3]]);
     }
+    // every 10 s Chika's wing changes flight mode (Hold / Patrol points around her)
+    if (++calls % 30 === 0) {
+      const mode = ['patrol', 'pursuit', 'hold', 'hover'][(calls / 30) % 4];
+      for (const t of sim.towers) if (sim.flightInfo(t.uid)) out.push(['fly', t.uid, mode, t.x + 2.5, t.y - 1.5, t.x - 3, t.y + 2]);
+    }
     if (sim.hero && sim.heroUltStatus().ready) out.push(['ult']);
     return out;
   };
@@ -62,6 +69,7 @@ function apply(sim, c) {
     case 'upg': return sim.upgradeTower(c[1], c[2]);
     case 'tgt': return sim.setTargetMode(c[1], c[2]);
     case 'ult': return !!sim.activateUlt();
+    case 'fly': return sim.setFlight(c[1], c[2], c[3], c[4], c[5], c[6]);
     case 'wave': return sim.startNextWave();
     default: throw new Error(c[0]);
   }

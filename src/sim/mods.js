@@ -39,6 +39,10 @@ function normTurret(t = {}) {
     damage: t.damage ?? 0,
     rate: t.rate ?? 1,
     range: t.range ?? 3,
+    // roaming drones: roam radius (0 = anchored), flight speed (tiles/s), seconds per drone (0 = 1 / base rate)
+    leash: t.leash ?? 0,
+    speed: t.speed ?? 3,
+    build: t.build ?? 0,
     attackType: t.attackType ?? null,
     status: (t.status || []).map((s) => ({ ...s })),
   };
@@ -157,6 +161,8 @@ export function applyModSet(s, mods, acc) {
       s.turret.max += v.max ?? 0;
       s.turret.damage += v.damage ?? 0;
       s.turret.range += v.range ?? 0;
+      s.turret.leash += v.leash ?? 0;
+      s.turret.speed += v.speed ?? 0;
       if (v.rate != null) s.turret.rate *= v.rate;
       if (v.attackType) s.turret.attackType = v.attackType;
       if (v.status) mergeStatusList(s.turret.status, v.status);
@@ -224,6 +230,8 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;
     s.turret.range *= u.rangeMul;
+    s.turret.leash *= u.rangeMul;
+    if (s.turret.build > 0) s.turret.build /= u.rateMul;
   }
   return s;
 }

@@ -106,6 +106,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let cameraMode = cameraModeOf(settings);
   rig.setLocked(cameraMode === 'locked', false);
   const isPlacing = typeof opts.isPlacing === 'function' ? opts.isPlacing : () => false;
+  // how far between two sim steps this frame is (0..1): roaming drones are drawn in between
+  const renderAlpha = typeof opts.renderAlpha === 'function' ? opts.renderAlpha : () => 1;
 
   if (look.fog) scene.fog = new THREE.Fog(look.fogColor, rig.dist - 1, rig.dist + 40);
 
@@ -566,6 +568,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
     handleEvents(events);
+    try {
+      actors.alpha = renderAlpha();
+    } catch {
+      actors.alpha = 1;
+    }
     actors.sync(d);
     terrain.update(time);
     actors.drawGround(d);
@@ -605,10 +612,43 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const hitP = new THREE.Vector3();
   const tmpV = new THREE.Vector3();
 
+  /** Pixels per tile at a world point (for tap radii). */
+  function pxPerTile(x, y, rect) {
+    const a = projectPx(x, y, 0, rect);
+    const b = projectPx(x + 1, y, 0, rect);
+    return Math.hypot(b.x - a.x, b.y - a.y) || 40;
+  }
+
+  /**
+   * The roaming drone drawn nearest the tap within 22 CSS px (or 0.3 tiles, whichever is larger):
+   * flying ones only, or (flying = false) any. @returns {number|null} drone uid
+   */
+  function pickDrone(px, py, rect, flying) {
+    let best = null;
+    let bestD = Infinity;
+    for (const t of sim.towers) {
+      if (!(t.turretSpec?.leash > 0)) continue;
+      for (const d of t.turrets) {
+        if (flying && !(d.tgt || d.moving)) continue;
+        const at = actors.droneDrawn.get(d.uid) || { x: d.x, h: 0.62, y: d.y };
+        const s = projectPx(at.x, at.y, at.h, rect);
+        const r = Math.max(22, 0.3 * pxPerTile(at.x, at.y, rect));
+        const dd = (s.x - px) ** 2 + (s.y - py) ** 2;
+        if (dd <= r * r && dd < bestD) {
+          bestD = dd;
+          best = d.uid;
+        }
+      }
+    }
+    return best;
+  }
+
   /**
    * Screen → board. Returns the continuous world point under the pointer (`x`, `y`, free
    * placement — nothing snaps), the tile under it (`tx`, `ty`, legacy), the girl whose
-   * footprint or body is there, and whether the point lies inside the map.
+   * footprint or body is there, the roaming drone tapped (`droneUid`: a flying drone wins over
+   * everything, a drone at home only when no girl is there) and whether the point lies inside
+   * the map.
    */
   function pick(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -627,6 +667,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     const inBounds = hit && x >= 0 && y >= 0 && x < map.width && y < map.height;
     let towerUid = null;
+    let droneUid = pickDrone(clientX - rect.left, clientY - rect.top, rect, true);
+    if (droneUid != null) return { x, y, tx, ty, towerUid: null, droneUid, inBounds };
     if (hit) {
       // exact integers would be read as a tile by the sim's legacy rule; nudge them
       const px0 = Number.isInteger(x) ? x + 1e-6 : x;
@@ -648,7 +690,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
       }
     }
-    return { x, y, tx, ty, towerUid, inBounds };
+    if (towerUid == null) droneUid = pickDrone(clientX - rect.left, clientY - rect.top, rect, false);
+    return { x, y, tx, ty, towerUid, droneUid, inBounds };
   }
 
   function projectPx(x, y, z, rect = canvas.getBoundingClientRect()) {
@@ -757,11 +800,26 @@ export function createBattleRenderer(container, sim, opts = {}) {
     shakeGhost() {
       overlays.shakeGhost();
     },
-    setSelected(uid) {
+    /** The selected girl, and (optionally) one of her drones (ring, tether, reticle). */
+    setSelected(uid, droneUid = null) {
       if ((uid ?? null) !== selectedUid) selectedAtMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
       selectedUid = uid ?? null;
-      overlays.setSelected(uid ?? null);
+      overlays.setSelected(uid ?? null, droneUid ?? null);
       attackFx?.setSelected(uid ?? null);
+    },
+    /** Flight points being picked: { uid, mode, a } (her signal ring and the points so far), or null. */
+    setFlightPreview(p) {
+      overlays.flightPreview = p || null;
+    },
+    /** Where a drone is drawn on screen (CSS px) — e2e and the attack-FX hook. */
+    droneScreen(uid) {
+      const at = actors.droneDrawn.get(uid);
+      if (!at) return null;
+      return worldToScreen(at.x, at.y, at.h);
+    },
+    /** Where each roaming drone is drawn this frame: uid -> { x, h, y } (world; read-only). */
+    get drawnDrones() {
+      return actors.droneDrawn;
     },
     /**
      * Extra: the screen the selected girl's info panel covers, in CSS px from the board's right
