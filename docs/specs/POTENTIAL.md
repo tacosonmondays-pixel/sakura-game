@@ -95,9 +95,12 @@ so every girl keeps her P and fights with the v3 steps of it at once.
   `potential-v3-1` "Potential grew!", once (`ensurePotentialLetter`, app start and lobby): every save without the
   seenIntro mark `potential-v3` is an older build's; it is marked, and if some girl is at P2+ the letter lists every
   such girl highest first with her newest step ("Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4%
-  damage)", 12 names then "and N more", " · level cap 78" once caps rise), says nothing got weaker and points to the
-  Info tab. A save that was backfilled and never got v1's letter also reads how its duplicates were counted. New
-  saves are born with the mark (`createProfile`), so they never get it. v1's letter is not sent any more.
+  damage)", 12 names then "and N more", " · level cap 78" for a girl whose five gates are open), says the cap rises
+  with Potential once all five gates are open (up to 85 at P6) and that each level above 60 uses one Akashic Tome
+  (the four sources), says nothing got weaker and points to the Info tab. A save that was backfilled and never got
+  v1's letter also reads how its duplicates were counted. New saves are born with the mark (`createProfile`), so
+  they never get it. v1's letter is not sent any more: a backfilled save gets `potential-arrived-1` in
+  `mail.delivered` (marked, never sent), so an older build's tab does not mail its outdated text either.
 - **NEW badge.** Each girl at P2+ when the letter came gets `pot3-new:<id>` in seenIntro: a NEW badge on her card
   until her Info tab (student page or unit sheet) is opened.
 - **Battle saves** from before v3 (format 1–2) restore with the v3 steps of the saved P (their counters at 0);

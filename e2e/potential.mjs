@@ -563,6 +563,8 @@ try {
     check(mig.seenIntro.includes('potential-backfilled'), `${tag} old save: backfilled once`);
     check(P(mig.dupes.aoi) === 6 && P(mig.dupes.rei) === 3 && P(mig.dupes.yuki) === 2 && P(mig.dupes.kaede) === 2, `${tag} old save: Aoi P${P(mig.dupes.aoi)}, Rei P${P(mig.dupes.rei)}, Yuki P${P(mig.dupes.yuki)}, Kaede P${P(mig.dupes.kaede)} from the history`);
     check(mig.letters.filter((id) => id === 'potential-v3-1').length === 1 && !mig.letters.includes('potential-arrived-1'), `${tag} old save: one "Potential grew!" letter (v1's letter is not sent any more)`);
+    // (and v1's letter counts as delivered, so an older build's tab never sends it to this backfilled save)
+    check(mig.delivered.includes('potential-arrived-1') && mig.delivered.includes('potential-v3-1'), `${tag} old save: v1's letter marked delivered ${JSON.stringify(mig.delivered)}`);
     check(mig.seenIntro.includes('potential-v3') && ['aoi', 'rei', 'yuki', 'kaede'].every((id) => mig.seenIntro.includes(`pot3-new:${id}`)), `${tag} old save: marked for v3, NEW for each girl at P2+`);
     await go(page2, '#/students', '.unit-card[data-unit="aoi"]');
     const migCards = await page2.evaluate(() => Object.fromEntries(['aoi', 'rei', 'yuki', 'kaede'].map((id) => [id, document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-pot"]`)?.textContent || null])));
@@ -577,7 +579,7 @@ try {
     // the letter in the mailbox
     await page2.evaluate(async () => (await import('/src/ui/lobby/mailbox.js')).openMailbox());
     const letter = await page2.waitForSelector('[data-testid="mail-potential-v3-1"]', { timeout: 15000 }).then((e) => e.textContent()).catch(() => '');
-    check(/Potential grew!/.test(letter) && /Aoi P6 ✦ Hawk Companion(?: · level cap \d+)?, Rei P3 ✦ Third Step/.test(letter) && /we estimated/.test(letter) && /Nothing got weaker/.test(letter) && /Info tab/.test(letter) && !/small passive/.test(letter), `${tag} old save: the letter reads "${letter.replace(/\s+/g, ' ')}"`);
+    check(/Potential grew!/.test(letter) && /Aoi P6 ✦ Hawk Companion, Rei P3 ✦ Third Step/.test(letter) && /we estimated/.test(letter) && /Every step also raises her level cap once all five breakthrough gates are open, up to level 85 at P6; each level above 60 uses one Akashic Tome \(from Library Courtyard III on Nightmare, Freeplay caches \(up to 2 a week\), the Bounty Exchange, and duplicates past P6\)/.test(letter) && /Nothing got weaker/.test(letter) && /Info tab/.test(letter) && !/small passive/.test(letter), `${tag} old save: the letter reads "${letter.replace(/\s+/g, ' ')}"`);
     await page2.click('[data-testid="mail-potential-v3-1"] .mbx-letter-body', { force: true });
     await page2.waitForTimeout(250);
     const full = await page2.evaluate(() => { const b = document.querySelector('[data-testid="mail-potential-v3-1"] .mbx-letter-body'); return b.scrollHeight <= b.clientHeight + 1; });

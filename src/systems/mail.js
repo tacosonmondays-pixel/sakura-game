@@ -14,7 +14,8 @@ import { materialId, bookId } from '../data/items.js';
 import { MATERIAL_FAMILIES } from '../data/types.js';
 import { UNITS } from '../data/units.js';
 import { potentialLevel, potentialStepInfo, BACKFILL_MARKER, MAX_POTENTIAL, V3_MARKER, NEW_PREFIX } from './potential.js';
-import { potentialLevelCap } from './progression.js';
+import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, MAX_LEVEL, BREAKTHROUGH_LEVEL_CAP } from './progression.js';
+import { FREEPLAY_REWARDS } from '../online/coop/rewards.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
 export const MAIL_LIMIT = 60;
@@ -199,12 +200,17 @@ export const POTENTIAL_LETTER_ID = 'potential-arrived-1';
 export const POTENTIAL_V3_LETTER_ID = 'potential-v3-1';
 const POTENTIAL_LETTER_NAMES = 12;
 
-/** One girl's line: "Kage P5 ✦ Moonpiercer", plus " · level cap 78" once Potential raises her cap. */
-export function potentialLetterLine(def, p) {
+/**
+ * One girl's line: "Kage P5 ✦ Moonpiercer", plus " · level cap 78" where her own cap is that: all five
+ * breakthrough gates open (below gate 5 her cap is the gates' 10 + 10 × gates, so no cap is named) and
+ * Potential raising it above P1's. `unitState` is her save state (none: every gate counts as open).
+ */
+export function potentialLetterLine(def, p, unitState = null) {
   const info = p >= 2 ? potentialStepInfo(def, p) : null;
-  const cap = potentialLevelCap(p);
+  const gates = unitState ? Math.max(0, Math.floor(Number(unitState.breakthrough) || 0)) : MAX_BREAKTHROUGH;
+  const cap = gates >= MAX_BREAKTHROUGH ? levelCapAt(gates, p) : null;
   const step = info ? (info.kit ? ` ${info.brief}` : ` (${info.brief})`) : '';
-  return `${def.name} P${p}${step}${cap > potentialLevelCap(1) ? ` · level cap ${cap}` : ''}`;
+  return `${def.name} P${p}${step}${cap != null && cap > potentialLevelCap(1) ? ` · level cap ${cap}` : ''}`;
 }
 
 /**
@@ -218,7 +224,7 @@ export function potentialLetter(profile) {
     .filter((g) => g.p >= 2)
     .sort((a, b) => b.p - a.p || a.i - b.i);
   if (!girls.length) return null;
-  const names = girls.slice(0, POTENTIAL_LETTER_NAMES).map((g) => potentialLetterLine(g.u, g.p));
+  const names = girls.slice(0, POTENTIAL_LETTER_NAMES).map((g) => potentialLetterLine(g.u, g.p, profile.units[g.u.id]));
   const more = girls.length - names.length;
   const estimated = profile.seenIntro?.includes(BACKFILL_MARKER) && !profile.mail?.delivered?.includes(POTENTIAL_LETTER_ID);
   return {
@@ -230,6 +236,9 @@ export function potentialLetter(profile) {
       + `does best, up to her capstone at P${MAX_POTENTIAL}. Your girls keep their Potential and have every step they earned, right away: `
       + `${names.join(', ')}${more > 0 ? `, and ${more} more` : ''}. `
       + (estimated ? 'We counted the duplicates in your recruit history; for recruits older than your last 100 we estimated (average luck for R and SR girls, a cautious guess for SSR girls). ' : '')
+      + `Every step also raises her level cap once all five breakthrough gates are open, up to level ${MAX_LEVEL} at P${MAX_POTENTIAL}; `
+      + `each level above ${BREAKTHROUGH_LEVEL_CAP} uses one Akashic Tome (from Library Courtyard III on Nightmare, Freeplay caches (up to ${FREEPLAY_REWARDS.cacheTome.weeklyCap} a week), `
+      + `the Bounty Exchange, and duplicates past P${MAX_POTENTIAL}). `
       + 'Nothing got weaker: P1 is exactly the girl you know. You can see each girl\'s steps on her Info tab.',
     rewards: [],
     expiresAt: null,
@@ -247,10 +256,16 @@ export function potentialLetter(profile) {
 export function ensurePotentialLetter(profile, now = Date.now()) {
   if (!profile) return null;
   const seen = (profile.seenIntro ||= []);
-  if (seen.includes(V3_MARKER)) return null;
+  const fresh = !seen.includes(V3_MARKER);
+  const delivered = box(profile).delivered;
+  // (the letter reads whether v1's letter came, for its "we counted" sentence, before the mark below)
+  const letter = fresh && !delivered.includes(POTENTIAL_V3_LETTER_ID) ? potentialLetter(profile) : null;
+  // a backfilled save never gets v1's letter now: mark it sent (on every call, so a save backfilled
+  // after its v3 mark is covered too), or a build from before v3 (which mails it to every backfilled
+  // save without it) would send the outdated "small passive" text after ours
+  if (seen.includes(BACKFILL_MARKER) && !delivered.includes(POTENTIAL_LETTER_ID)) delivered.push(POTENTIAL_LETTER_ID);
+  if (!fresh) return null;
   seen.push(V3_MARKER);
-  if (profile.mail?.delivered?.includes(POTENTIAL_V3_LETTER_ID)) return null;
-  const letter = potentialLetter(profile);
   if (!letter) return null;
   for (const u of UNITS) {
     const st = profile.units?.[u.id];

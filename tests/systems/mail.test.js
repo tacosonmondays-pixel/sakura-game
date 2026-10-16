@@ -52,8 +52,12 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     expect(l?.id).toBe(POTENTIAL_V3_LETTER_ID);
     expect(l.title).toBe('Potential grew!');
     expect(l.rewards).toEqual([]);
-    // highest first: Kage P5, Kaede P3, Aoi P2 (a stat step: what it raises), each with her new level cap
-    expect(l.body).toContain('Kage P5 ✦ Moonpiercer · level cap 78, Kaede P3 ✦ Breeze Step · level cap 67, Aoi P2 (+4% damage) · level cap 63');
+    // highest first: Kage P5, Kaede P3, Aoi P2 (a stat step: what it raises); fresh recruits below
+    // breakthrough gate 5, so no level cap is named (theirs is the gates': 10)
+    expect(l.body).toContain('Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage). ');
+    expect(l.body).not.toMatch(/level cap \d/);
+    // how her cap rises and what pays for the levels above 60
+    expect(l.body).toContain('Every step also raises her level cap once all five breakthrough gates are open, up to level 85 at P6; each level above 60 uses one Akashic Tome (from Library Courtyard III on Nightmare, Freeplay caches (up to 2 a week), the Bounty Exchange, and duplicates past P6). Nothing got weaker');
     expect(l.body).toContain('Nothing got weaker: P1 is exactly the girl you know.');
     expect(l.body).toContain('Info tab');
     // v1's letter already told this save how its duplicates were counted
@@ -108,12 +112,51 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     expect(body).toContain(`and ${UNITS.length - 12} more`);
   });
 
-  it('a girl\'s line carries her level cap only where Potential raises it (the level rule as it is)', () => {
+  it('a girl\'s line carries her level cap only where it is hers: all five gates open and Potential raising it (the level rule as it is)', () => {
     for (const p of [2, 3, 4, 5, 6]) {
       const line = potentialLetterLine(UNIT_MAP.kage, p);
       expect(line.startsWith(`Kage P${p}`)).toBe(true);
       expect(line.includes(`level cap ${potentialLevelCap(p)}`)).toBe(potentialLevelCap(p) > potentialLevelCap(1));
+      // her own state: below gate 5 her cap is the gates' (a Lv 1, gate-0 girl is capped at 10), so none is named
+      for (const gates of [0, 3, 4]) expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 1, breakthrough: gates, dupes: p - 1 })).not.toMatch(/level cap/);
+      expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 60, breakthrough: 5, dupes: p - 1 })).toBe(line);
     }
+  });
+
+  it('a girl at gate 5 gets her cap in the letter', () => {
+    const p = v1Profile();
+    p.units.kage.breakthrough = 5;
+    p.units.kage.level = 60;
+    expect(ensurePotentialLetter(p).body).toContain('Kage P5 ✦ Moonpiercer · level cap 78, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage)');
+  });
+
+  it('a backfilled save is marked as having had v1\'s letter, so a build from before v3 never mails the outdated one after ours', () => {
+    // v0.1.34/35's rule (its ensurePotentialLetter): a backfilled save without 'potential-arrived-1' and a girl at P2+ gets v1's letter
+    const olderBuildSends = (q) => q.seenIntro.includes(BACKFILL_MARKER) && !q.mail.delivered.includes(POTENTIAL_LETTER_ID) && Object.values(q.units).some((u) => (u.dupes || 0) >= 1);
+    const p = backfilledProfile();
+    expect(olderBuildSends(p)).toBe(true);
+    const l = ensurePotentialLetter(p);
+    expect(l.body).toMatch(/we estimated/); // our letter still says how they were counted
+    expect(p.mail.delivered).toEqual(expect.arrayContaining([POTENTIAL_V3_LETTER_ID, POTENTIAL_LETTER_ID]));
+    expect(mailList(p).some((x) => x.id === POTENTIAL_LETTER_ID)).toBe(false); // marked, never sent
+    expect(olderBuildSends(deserializeProfile(serializeProfile(p)))).toBe(false);
+    // the same with every girl still at P1 (no v3 letter): later duplicates bring no v1 letter either
+    const q = backfilledProfile();
+    for (const u of Object.values(q.units)) u.dupes = 0;
+    expect(ensurePotentialLetter(q)).toBeNull();
+    q.units.aoi.dupes = 2;
+    expect(olderBuildSends(q)).toBe(false);
+    // a backfilled save that already carries the v3 mark (no letter now) is marked on the next call too
+    const m = backfilledProfile();
+    m.seenIntro.push(V3_MARKER);
+    expect(ensurePotentialLetter(m)).toBeNull();
+    expect(m.mail.delivered).toContain(POTENTIAL_LETTER_ID);
+    expect(olderBuildSends(m)).toBe(false);
+    // a save that never was backfilled stays as it was
+    const v1 = v1Profile();
+    const before = [...v1.mail.delivered];
+    ensurePotentialLetter(v1);
+    expect(v1.mail.delivered.filter((x) => x === POTENTIAL_LETTER_ID)).toHaveLength(before.filter((x) => x === POTENTIAL_LETTER_ID).length);
   });
 });
 
