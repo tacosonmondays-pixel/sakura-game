@@ -81,10 +81,23 @@ async function waitBattle(page, mode = null) {
   await page.waitForTimeout(900);
 }
 
-/** Opens a battle route from the campaign map (a fresh mount every time). */
-async function openBattle(page, hash, mode) {
+/**
+ * Opens a battle route from the campaign map (a fresh mount every time). The battles here make
+ * progress, so leaving one keeps a battle save (docs/BATTLE_SAVE.md), and a battle link without
+ * `resume` for a stage with a save goes to stage prep instead: a fresh open drops the saves first
+ * (`keepSaves` for the Continue check).
+ */
+async function openBattle(page, hash, mode, { keepSaves = false } = {}) {
   await go(page, '#/campaign');
   await page.waitForFunction(() => !window.__battle, null, { timeout: 20000 }).catch(() => null);
+  if (!keepSaves) {
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.battleSaves = {};
+      store.commit('battle-save');
+      store.saveNow();
+    });
+  }
   await go(page, hash);
   await waitBattle(page, mode);
 }
@@ -206,6 +219,20 @@ for (const vp of viewports) {
       check(!/rear ambush/i.test(banners[0]) && /rear ambush/i.test(banners[1]), `${mode}: wave 1 banner without "REAR AMBUSH", wave 2 with it (${JSON.stringify(banners)})`);
       check(!scout[0].includes('⇄') && scout[1].includes('⇄'), `${mode}: scout ⇄ only before the even wave (${JSON.stringify(scout)})`);
       if (mode === 'reverse') await shot(page, vp, 'ambush-reverse-w2');
+    }
+    // battle save: leaving the Reverse Route run keeps it; Continue (a resume link without `mode`)
+    // plays it as Reverse Route again, from the wave it was saved at
+    await go(page, '#/campaign');
+    await page.waitForFunction(() => !window.__battle, null, { timeout: 20000 }).catch(() => null);
+    const rec = await page.evaluate(() => {
+      const r = window.__sakura.store.profile.battleSaves?.['4-2'];
+      return r ? { id: r.id, mode: r.mode ?? null, view: r.view?.mode ?? null, wave: r.snap?.wave ?? -1, rr: r.snap?.rr ?? null } : null;
+    });
+    check(rec?.mode === 'reverse' && rec?.view === 'reverse', `battle save names the mode (${JSON.stringify(rec)})`);
+    if (rec) {
+      await openBattle(page, `#/battle?stage=4-2&difficulty=easy&resume=${rec.id}`, 'reverse', { keepSaves: true });
+      const back = await page.evaluate(() => ({ mode: window.__battle.sim.mode?.id, wave: window.__battle.sim.wave, rr: window.__battle.sim.routeReversed }));
+      check(back.mode === 'reverse' && back.wave === rec.wave && (rec.rr == null || back.rr === !!rec.rr), `Continue plays the saved Reverse Route run (${JSON.stringify(back)})`);
     }
   }
 
