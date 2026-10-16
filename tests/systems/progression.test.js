@@ -4,7 +4,7 @@ import {
   MAX_LEVEL, levelCap, expForLevel, totalExpToLevel, bookExpTotal, previewLevelUp, levelUp, autoSelectBooks,
   breakthroughCost, canBreakthrough, breakthrough, awakenCost, canAwaken, awaken, unitBattleStats, unitPower, COINS_PER_EXP,
   BREAKTHROUGH_LEVEL_CAP, POTENTIAL_LEVEL_CAPS, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60, LEVEL_PAST_GATES,
-  potentialLevelCap, LEVEL_SHADOW_PREFIX, settleLevels,
+  potentialLevelCap, LEVEL_SHADOW_PREFIX, settleLevels, levelCapInfo,
 } from '../../src/systems/progression.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
@@ -171,6 +171,15 @@ describe('levels past 60 (Potential raises the cap; docs/specs/POTENTIAL.md v3 �
     expect(levelCap({ breakthrough: 5, dupes: 40 })).toBe(85);
     expect(levelCap({ breakthrough: 5, dupes: null })).toBe(60);
     expect(levelCap(undefined)).toBe(10);
+  });
+
+  it('levelCapInfo says what raises her cap next (the screens\' copy)', () => {
+    expect(levelCapInfo(girl(30, 2, 6))).toEqual({ cap: 30, max: 85, p: 6, by: 'gate', next: 40, nextGate: 3, full: false });
+    // gate 5 opens her Potential's cap at once: a P4 girl at gate 4 goes from 50 to 72
+    expect(levelCap({ ...girl(50, 4, 4), breakthrough: 5 })).toBe(72);
+    expect(levelCapInfo(girl(72, 5, 4))).toEqual({ cap: 72, max: 85, p: 4, by: 'potential', next: 78, nextP: 5, full: false });
+    expect(levelCapInfo(girl(60, 5, 1))).toMatchObject({ cap: 60, next: 63, nextP: 2 });
+    expect(levelCapInfo(girl(85, 5, 6))).toEqual({ cap: 85, max: 85, p: 6, by: 'potential', next: null, nextP: null, full: true });
   });
 
   it('60 → 85 is 750,000 EXP (25 Tomes); 1 → 85 is 1,856,630', () => {

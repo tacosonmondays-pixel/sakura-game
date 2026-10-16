@@ -67,6 +67,21 @@ export function levelCap(unitState) {
 }
 
 /**
+ * Her level cap and what raises it next, for the screens. Below gate 5: the next breakthrough
+ * gate (+10). With every gate open: her next Potential step (`next` at `nextP`, one duplicate
+ * away), or `full` at P6.
+ * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate?: number, nextP?: number|null, full: boolean }}
+ */
+export function levelCapInfo(unitState) {
+  const cap = levelCap(unitState);
+  const gates = Math.max(0, Math.floor(Number(unitState?.breakthrough) || 0));
+  const p = potentialLevel(unitState);
+  if (gates < MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: cap + 10, nextGate: gates + 1, full: false };
+  const full = p >= POTENTIAL_LEVEL_CAPS.length;
+  return { cap, max: MAX_LEVEL, p, by: 'potential', next: full ? null : POTENTIAL_LEVEL_CAPS[p], nextP: full ? null : p + 1, full };
+}
+
+/**
  * Her level cap at Potential `p` once every breakthrough gate is open: what the Potential screens
  * show next to each step ("+4% SPD · 67"; they show it only where it rises above the P1 cap). It
  * asks levelCap itself, so the screens follow whatever the level rule says (and an ascension that

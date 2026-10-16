@@ -287,7 +287,7 @@ try {
     await page.click('[data-testid="spark"]');
     await page.waitForSelector('[data-testid="spark-kaede"]');
     const meta = await page.evaluate(() => ({ kaede: document.querySelector('[data-testid="spark-meta-kaede"]')?.textContent, hotaru: document.querySelector('[data-testid="spark-meta-hotaru"]')?.textContent, text: document.querySelector('.modal p')?.textContent }));
-    check(meta.kaede === 'P6 → fragments' && /she gains \+1 Potential \(up to P6\)/.test(meta.text), `${tag} spark: grid "${meta.kaede}", text "${meta.text}"`);
+    check(meta.kaede === 'P6 → fragments + Tomes' && /she gains \+1 Potential \(up to P6\)/.test(meta.text) && /at P6: 5 Akashic Tomes as well/.test(meta.text), `${tag} spark: grid "${meta.kaede}", text "${meta.text}"`);
     await shot(page, `spark-grid-${tag}`);
     await page.click('[data-testid="spark-kaede"]');
     let r = await revealToResults(page);
@@ -355,12 +355,14 @@ try {
       const r = c.getBoundingClientRect();
       return {
         trick: c.querySelector('[data-testid="pot-up-trick"]')?.textContent, next: c.querySelector('[data-testid="pot-up-next"]')?.textContent,
+        cap: c.querySelector('[data-testid="pot-up-cap"]')?.textContent || null,
         who: c.querySelector('.pot-up-who')?.textContent, inView: r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.left >= 0 && r.right <= window.innerWidth + 1,
         closeCovered: (() => { const b = document.querySelector('[data-testid="reveal-close"]'); if (!b) return true; const q = b.getBoundingClientRect(); const top = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return !b.contains(top); })(),
       };
     })).catch(() => null);
     check(up && up.trick === '✦ Firefly Parade' && up.next === 'Next: P4 ✦ Lantern Rite — 1 more duplicate' && /Hotaru · P3/.test(up.who), `${tag} spark played out: "Potential up!" card ${JSON.stringify(up)}`);
     check(up?.inView && up.closeCovered, `${tag} spark: the card fits the screen and sits over the results`);
+    check(up?.cap === 'Level cap 63 → 67', `${tag} spark: the "Potential up!" card's level-cap line "${up?.cap}"`);
     await page.waitForTimeout(700); // its fade-in
     await shot(page, `potential-up-${tag}`);
     await page.click('[data-testid="pot-up-go"]');
@@ -464,6 +466,66 @@ try {
     check(!wide.overflow && wide.pillIn, `${tag} battle: "${wide.text}" fits the name line, the P6 pill inside`);
     await shot(page, `battle-longname-${tag}`);
     await page.evaluate(() => { window.__sakura.store.profile.units.kaede.awaken = 0; });
+
+    // 7b. levels above 60 (v3 §4): the cap line, the Potential cap card at gate 5, a level-up past 60 with an Akashic Tome
+    const keep = await page.evaluate(() => {
+      const { store } = window.__sakura;
+      const p = store.profile;
+      const pick = (u) => ({ level: u.level, exp: u.exp, breakthrough: u.breakthrough, dupes: u.dupes });
+      const k = { aoi: pick(p.units.aoi), kaede: pick(p.units.kaede), tomes: p.items.book_legendary || 0, coins: p.currencies.coins };
+      Object.assign(p.units.aoi, { level: 60, exp: 0, breakthrough: 5, dupes: 3 });
+      p.items.book_legendary = 2;
+      p.currencies.coins = 50000;
+      store.commit('test');
+      return k;
+    });
+    await go(page, '#/student/aoi?tab=level', '[data-testid="potential-cap-card"]');
+    const lv = await page.evaluate(() => {
+      const card = document.querySelector('[data-testid="potential-cap-card"]').getBoundingClientRect();
+      return {
+        cap: document.querySelector('[data-testid="level-cap"]')?.textContent,
+        line: document.querySelector('[data-testid="potential-cap-line"]')?.textContent,
+        price: document.querySelector('[data-testid="level-tome-price"]')?.textContent,
+        steps: [...document.querySelectorAll('.mb-potcap-steps .mb-gate')].map((e) => `${e.textContent}${e.classList.contains('on') ? '*' : ''}`),
+        fits: card.left >= 0 && card.right <= window.innerWidth + 1,
+      };
+    });
+    check(lv.cap === 'Cap 72 · P4 · max 85', `${tag} levels: Aoi P4 at gate 5 "${lv.cap}"`);
+    check(lv.line === 'Level cap 72 · Next: 78 at P5 (1 more duplicate)', `${tag} levels: the Potential cap card "${lv.line}"`);
+    check(lv.steps.join('|') === 'P1 · 60*|P2 · 63*|P3 · 67*|P4 · 72*|P5 · 78|P6 · 85' && lv.fits, `${tag} levels: the card's six caps ${lv.steps.join(' | ')}`);
+    check(lv.price === 'Lv 60 → 61 · 30,000 EXP (1 Akashic Tome) · 12,000 coins', `${tag} levels: the price of a level above 60 "${lv.price}"`);
+    await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.mb-book')].find((r) => r.querySelector('.mb-book-name')?.textContent === 'Akashic Tome');
+      row.querySelectorAll('.mb-step')[1].click();
+    });
+    await page.waitForTimeout(150);
+    const pv = await page.evaluate(() => [...document.querySelectorAll('.mb-pv-line b')].map((b) => b.textContent));
+    check(pv[1] === '60 → 61' && pv[2] === '12,000', `${tag} levels: one Tome previews "${pv.join(' / ')}"`);
+    await page.click('[data-testid="level-up"]');
+    await page.waitForTimeout(400);
+    const lvUp = await page.evaluate(() => {
+      const p = window.__sakura.store.profile;
+      return { level: p.units.aoi.level, tomes: p.items.book_legendary || 0, coins: p.currencies.coins, shadow: p.missions.counters['lv:aoi'], big: document.querySelector('.mb-lv-big b')?.textContent };
+    });
+    check(lvUp.level === 61 && lvUp.big === '61' && lvUp.tomes === 1 && lvUp.coins === 50000 - 12000 && lvUp.shadow === 61, `${tag} levels: Aoi levels 60 → 61 with one Akashic Tome and 12,000 coins ${JSON.stringify(lvUp)}`);
+    check(await noSideScroll(page), `${tag} levels: no sideways scroll`);
+    await shot(page, `level-cap-${tag}`);
+    await page.evaluate(() => { const { store } = window.__sakura; Object.assign(store.profile.units.kaede, { level: 85, exp: 0, breakthrough: 5 }); store.commit('test'); });
+    await go(page, '#/student/kaede?tab=level', '[data-testid="potential-cap-card"]');
+    const kc = await page.evaluate(() => ({ cap: document.querySelector('[data-testid="level-cap"]')?.textContent, line: document.querySelector('[data-testid="potential-cap-line"]')?.textContent, exp: document.querySelector('.mb-lv-exp')?.textContent }));
+    check(kc.cap === 'Cap 85 · P6 · max 85' && kc.line === 'Level cap 85 · Full Potential' && kc.exp === 'Max level reached', `${tag} levels: Kaede P6 at 85 ${JSON.stringify(kc)}`);
+    await shot(page, `level-cap-full-${tag}`);
+    await page.evaluate((k) => {
+      const { store } = window.__sakura;
+      const p = store.profile;
+      Object.assign(p.units.aoi, k.aoi);
+      Object.assign(p.units.kaede, k.kaede);
+      p.items.book_legendary = k.tomes;
+      p.currencies.coins = k.coins;
+      delete p.missions.counters['lv:aoi'];
+      delete p.missions.counters['lv:kaede'];
+      store.commit('test');
+    }, keep);
 
     // 8. a save from before Potential: no dupes, 40 history entries, an old createdAt
     const t0 = Date.now() - 30 * 86400000;

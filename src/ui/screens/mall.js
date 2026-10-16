@@ -85,7 +85,7 @@ function nextStepText(unitId) {
 /** Recruit Exchange stock line: a spark of an owned girl is a duplicate (+1 Potential up to P6, the step it unlocks). */
 function unitStockText(o) {
   if (!o.owned) return 'Spark';
-  return potentialLevel(store.profile.units[o.unitId]) >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments` : `Owned → ${nextStepText(o.unitId)} & fragments`;
+  return potentialLevel(store.profile.units[o.unitId]) >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments + Tomes` : `Owned → ${nextStepText(o.unitId)} & fragments`;
 }
 
 function offerCard(o, redraw) {
