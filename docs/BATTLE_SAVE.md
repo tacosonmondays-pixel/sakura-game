@@ -110,6 +110,18 @@ keeps Lv 7 and her upgrades came back as 1,240 coins." The next write is format 
 fields (Chika's roaming drones, Codex modes, path-cap buffs) are added to format 2 before it ships:
 it is bumped once for the whole train.
 
+**Chika's roaming drones (format 2, additive; Chika rework M6).** A drone row is
+`[uid, x, y, facing, cooldown, n, slot, dmg, kills, shots, born, jam]` (its number, home slot,
+counters, the wave it was built in and a jam still running); the girl adds `ds: [droneDmg,
+droneKills, droneShots, droneSerial]` and, when her wing is not plain Hover, `fl: [mode, ax, ay,
+bx, by, cx, cy, leg]` (the flight mode, its Hold / Patrol points and the patrol position). Restore
+goes through `restoreDrone()` (`src/sim/towers.js`), sets the flight mode before the first step and
+raises `droneSerial` to at least the highest drone number, so no number is handed out twice. An
+older 5-field row restores with zero counters, numbered by position, and the wing as Hover (its past
+drone damage then counts as hers until the battle ends). `KNOWN_DRONE_KEYS` classifies every drone
+field (`hx`, `hy` derived from the slot; `tgt`, `targetUid`, `moving`, `px`, `py` reset at a calm
+point); a girl's drone target pool is scratch (a pool of dead enemies is never reused).
+
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).
 
@@ -141,7 +153,9 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
 
 - `tests/battle-ui/snapshot.test.js`: round trip at every wave start (3-5, 8-5 Hard with drones, 4-5
   with traps, the Colosseum to wave 30), identical re-snapshots under 8 KB, "same future" splits with
-  and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, and the guards.
+  and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, Chika's
+  drones and flight modes (the driver flies her wing through Hover / Hold / Patrol / Pursuit), and
+  the guards (Sim, girl and drone fields).
 - `tests/systems/battleSave.test.js`: profile field, migrate allowlist, each sanitiser rule (including
   a save past the end and a missing start time), the cap and its order, titles, slots and modes,
   run-scoped clears, drop seed, event bonus by start time and its 48 h window.

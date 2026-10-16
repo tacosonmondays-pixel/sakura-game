@@ -8,6 +8,8 @@
 // and then auto-start, with sim.startNextWave wrapped on the instance (the controller's
 // battleSaver does the same). The checkpoint digest reads sim.heroes, never the view getter
 // sim.hero: an auto-start snapshot is taken inside the step, where the view trap throws.
+// Chika rework (M6): her roaming drones fly through every flight mode (the `fly` command:
+// Hover, Hold, Patrol, Pursuit), so the checkpoints catch drones flying home, jammed or far out.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -20,8 +22,9 @@ import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
 import { RECORD_V, SNAP_V, slotKey } from '../../src/systems/battleSave.js';
 import { xpToReach } from '../../src/sim/hero.js';
+import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import {
-  snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS,
+  snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS, KNOWN_DRONE_KEYS,
 } from '../../src/ui/battle/snapshot.js';
 
 const SCEN = {
@@ -52,6 +55,7 @@ function exec(sim, k, a) {
     case 'ult': return !!sim.activateUlt();
     case 'hlv': return sim.buyHeroLevel().ok;
     case 'hmv': return sim.moveHero(a[0], a[1]).ok;
+    case 'fly': return sim.setFlight(a[0], a[1], a[2], a[3], a[4], a[5]);
     case 'wave': return sim.startNextWave();
     case 'auto':
       sim.options.autoStart = !!a[0];
@@ -75,7 +79,18 @@ const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData',
 // a calm point resets these anyway (startNextWave overwrites the spawn cursor and timers)
 const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty']);
 // derived per-tower references / caches, and the harmless stale target memory of a calm point
-const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange']);
+// (_pool / _poolS: a roaming wing's per-step target pool, enemy references)
+const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange', '_pool', '_poolS']);
+// reset at a calm point: the pool's reuse counter (moot with no enemy alive)
+const TOWER_CALM_SKIP = new Set(['_poolLeft', '_poolMode']);
+// a roaming drone at a calm point: its quarry, motion flag and position one step earlier are reset
+const DRONE_CALM_SKIP = new Set(Object.keys(KNOWN_DRONE_KEYS).filter((k) => KNOWN_DRONE_KEYS[k] === 'calm'));
+/** A tower's drones for a digest (a drone's quarry is an enemy: compared by uid). */
+const dronesOf = (t, calm) => t.turrets.map((d) => {
+  const o = {};
+  for (const k of Object.keys(d)) if (!(calm && DRONE_CALM_SKIP.has(k))) o[k] = k === 'tgt' ? d.tgt?.uid ?? null : plain(d[k]);
+  return o;
+});
 
 /**
  * stats.leakLog as the debrief reads it: counts per (wave, enemy, lives) in first-seen order (a
@@ -97,7 +112,8 @@ function digest(sim, { calm = false } = {}) {
   if (out.stats) out.stats.leakLog = leakDigest(out.stats.leakLog);
   out.towers = sim.towers.map((t) => {
     const o = {};
-    for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k)) o[k] = plain(t[k]);
+    for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k) && !(calm && TOWER_CALM_SKIP.has(k))) o[k] = plain(t[k]);
+    o.turrets = dronesOf(t, calm);
     return o;
   });
   out.traps = sim.traps.map(({ owner, ...tr }) => ({ ...tr, owner: owner?.uid ?? null }));
@@ -210,6 +226,17 @@ function play(c, { stopAt = Infinity } = {}) {
         const h = sim.hero;
         const [dx, dy] = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [2, 1], [-2, -1]][fr.int(0, 5)];
         if (sim.canMoveHero(h.x + dx, h.y + dy).ok) issue('hmv', h.x + dx, h.y + dy);
+      }
+      // Chika's wing: now and then a new flight mode (Hold / Patrol points a few tiles from her)
+      if (fr.chance(0.004)) {
+        const ch = sim.towers.find((t) => t.turretSpec?.leash > 0);
+        if (ch) {
+          const mode = FLIGHT_MODES[fr.int(0, FLIGHT_MODES.length - 1)];
+          const pt = () => [ch.x + fr.range(-3, 3), ch.y + fr.range(-3, 3)];
+          const [ax, ay] = pt();
+          const [bx, by] = pt();
+          issue('fly', ch.uid, mode, ax, ay, bx, by);
+        }
       }
       if (!sold && sim.wave === 6 && sim.state === 'between' && sim.towers.length > 3) {
         sold = true;
@@ -487,6 +514,54 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
   });
 });
 
+describe('battle save: Chika\'s roaming drones and flight modes (Chika rework M6)', SLOW, () => {
+  const name = '8-5 hard (drones)';
+  const c = SCEN[name];
+  /** Checkpoints whose Chika has drones (and, when asked, a flight mode other than plain Hover). */
+  const withDrones = (flight = false) => fullRun(name).cps.map((cp) => JSON.parse(cp.json)).filter((sn) => sn.towers.some((t) => t.u === 'chika' && t.dr?.length && (!flight || t.fl)));
+
+  it('the run flew her wing through the flight modes and saved them', () => {
+    const run = fullRun(name);
+    const modes = new Set(run.log.filter((x) => x.k === 'fly').map((x) => x.a[1]));
+    expect(modes.size).toBeGreaterThanOrEqual(3);
+    expect(withDrones(true).length).toBeGreaterThan(0);
+  });
+
+  it('restores every drone (number, slot, counters, wave built, jam) and her totals, serial and flight mode', () => {
+    for (const snap of withDrones()) {
+      const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+      for (const row of o.dr) expect(row).toHaveLength(12);
+      const { sim } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+      const t = sim.getTower(o.uid);
+      expect(t.turrets.map((d) => [d.uid, d.x, d.y, d.facing, d.cooldown, d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam])).toEqual(o.dr);
+      for (const d of t.turrets) {
+        expect([d.px, d.py, d.moving, d.tgt]).toEqual([d.x, d.y, false, null]);
+        expect(d.hx ** 2 + d.hy ** 2).toBeGreaterThan(0);
+      }
+      expect([t.droneDmg, t.droneKills, t.droneShots, t.droneSerial]).toEqual(o.ds);
+      expect(t.flight ? [t.flight.mode, t.flight.ax, t.flight.ay, t.flight.bx, t.flight.by, t.flight.cx, t.flight.cy, t.flight.leg] : undefined).toEqual(o.fl);
+    }
+  });
+
+  it('an older save (5-field drone rows, no totals, no flight) restores with zero counters, numbered by position, as Hover', () => {
+    const snap = withDrones().at(-1);
+    const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+    o.dr = o.dr.map((row) => row.slice(0, 5));
+    delete o.ds;
+    delete o.fl;
+    const { sim, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const t = sim.getTower(o.uid);
+    expect(t.turrets.map((d) => [d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam])).toEqual(o.dr.map((_, i) => [i + 1, i, 0, 0, 0, 0, 0]));
+    expect(t.turrets.map((d) => [d.uid, d.x, d.y])).toEqual(o.dr.map((row) => [row[0], row[1], row[2]]));
+    // the next drone she builds gets a fresh number
+    expect(t.droneSerial).toBe(o.dr.length);
+    expect([t.droneDmg, t.droneKills, t.droneShots]).toEqual([0, 0, 0]);
+    expect(t.flight).toBe(null);
+    expect(sim.flightInfo(o.uid).mode).toBe('hover');
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)
@@ -504,6 +579,21 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     const keys = new Set();
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
+  });
+
+  it('every own field of a roaming drone is classified in KNOWN_DRONE_KEYS', () => {
+    const keys = new Set();
+    let n = 0;
+    for (const name of Object.keys(SCEN)) {
+      for (const t of fullRun(name).sim.towers) {
+        for (const d of t.turrets) {
+          n++;
+          for (const k of Object.keys(d)) keys.add(k);
+        }
+      }
+    }
+    expect(n).toBeGreaterThan(0);
+    expect([...keys].sort()).toEqual(Object.keys(KNOWN_DRONE_KEYS).sort());
   });
 
   it('useWaveStream replaces every reference to the old stream (one level deep)', () => {

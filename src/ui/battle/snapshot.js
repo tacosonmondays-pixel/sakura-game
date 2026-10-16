@@ -10,6 +10,10 @@
 // (her level and Mastery follow), with the coins she spent on levels and her Move timers.
 // A format-1 save holds a hero of the old 10-level scale with path tiers: she is restored at her
 // old level on the new track (bar empty) and everything she cost comes back as coins.
+// Roaming drones (Chika rework, same format 2, additive): a drone row carries its number, home
+// slot, counters, the wave it was built in and a running jam; the girl's drone totals and serial
+// (`ds`) and her wing's flight mode (`fl`, absent = Hover) come along. Older 5-field rows restore
+// with zero counters, numbered by position.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
@@ -17,6 +21,8 @@
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
+import { restoreDrone } from '../../sim/towers.js';
+import { FLIGHT_MODES } from '../../sim/constants.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
@@ -108,11 +114,29 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   damageDealt: 'snap', cooldown: 'snap', disabled: 'snap', facing: 'snap', buildTimer: 'snap', xp: 'snap', level: 'snap',
   ultUnlocked: 'snap', ultCooldown: 'snap', turrets: 'snap', trapCount: 'snap',
   levelSpent: 'snap', levelsBought: 'snap', moveCd: 'snap', moveLock: 'snap',
+  // roaming drones (Chika rework): the drone totals and numbering, the wing's flight mode; the
+  // target pool is per-step scratch, and its reuse counter only matters while enemies are alive
+  // (a pool of dead enemies is never reused, so it is moot at a calm point)
+  droneDmg: 'snap', droneKills: 'snap', droneShots: 'snap', droneSerial: 'snap', flight: 'snap',
+  _pool: 'scratch', _poolS: 'scratch', _poolLeft: 'calm', _poolMode: 'calm',
   def: 'config', isHero: 'config', heroIndex: 'config', unitStats: 'config', radius: 'config', tx: 'derived', ty: 'derived',
   stats: 'derived', eff: 'derived', buff: 'derived', buffed: 'derived', trapSpec: 'derived', turretSpec: 'derived',
   projKind: 'derived', removed: 'derived', _globalRate: 'derived', mastery: 'derived',
   targetUid: 'calm', rampTarget: 'calm', rampStacks: 'calm',
   trapSpots: 'scratch', trapSpotsRange: 'scratch',
+});
+
+/**
+ * Every own field of a roaming drone (src/sim/towers.js makeDrone), classified like the tables
+ * above: its home offset follows from its slot; its quarry, motion flag and position one step
+ * earlier are reset at a calm point (there is no enemy left to chase and the next step overwrites
+ * them). A jam can still be running at a calm point, so it is kept.
+ */
+export const KNOWN_DRONE_KEYS = Object.freeze({
+  uid: 'snap', n: 'snap', slot: 'snap', x: 'snap', y: 'snap', facing: 'snap', cooldown: 'snap',
+  dmg: 'snap', kills: 'snap', shots: 'snap', born: 'snap', jam: 'snap',
+  hx: 'derived', hy: 'derived',
+  tgt: 'calm', targetUid: 'calm', moving: 'calm', px: 'calm', py: 'calm',
 });
 
 /**
@@ -155,7 +179,16 @@ export function snapshotSim(sim) {
         kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
       };
       if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
-      if (t.turrets.length) o.dr = t.turrets.map((d) => [d.uid, d.x, d.y, d.facing, d.cooldown]);
+      if (t.turrets.length) {
+        o.dr = t.turrets.map((d) => (d.n != null
+          ? [d.uid, d.x, d.y, d.facing, d.cooldown, d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam]
+          : [d.uid, d.x, d.y, d.facing, d.cooldown]));
+      }
+      if (t.droneDmg || t.droneKills || t.droneShots || t.droneSerial) o.ds = [t.droneDmg, t.droneKills, t.droneShots, t.droneSerial];
+      if (t.flight) {
+        const f = t.flight;
+        o.fl = [f.mode, f.ax, f.ay, f.bx, f.by, f.cx, f.cy, f.leg];
+      }
       const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
       if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
       return o;
@@ -273,7 +306,26 @@ export function restoreSim(rec, profile = null) {
       t.moveLock = r(o.ml);
     }
     const maxDr = t.stats.turret?.max ?? 0;
-    for (const d of (o.dr || []).slice(0, maxDr)) t.turrets.push({ uid: d[0], x: d[1], y: d[2], facing: d[3], cooldown: d[4] });
+    const roam = t.turretSpec?.leash > 0;
+    (o.dr || []).slice(0, maxDr).forEach((d, i) => {
+      if (!Array.isArray(d)) return;
+      // roaming drones keep their number, slot and counters (an old 5-field row: counters 0,
+      // numbered by position); anchored drones are plain points
+      t.turrets.push(roam ? restoreDrone(t, d, i) : { uid: d[0], x: d[1], y: d[2], facing: d[3], cooldown: d[4] });
+    });
+    if (roam) {
+      const ds = Array.isArray(o.ds) ? o.ds : [];
+      t.droneDmg = r(ds[0]);
+      t.droneKills = r(ds[1]);
+      t.droneShots = r(ds[2]);
+      // never hand out a drone number twice (an old save has no serial)
+      t.droneSerial = Math.max(Math.floor(r(ds[3])), ...t.turrets.map((d) => Math.floor(r(d.n))), 0);
+      // her wing's flight mode, before the first step (an older save: Hover)
+      const fl = o.fl;
+      if (Array.isArray(fl) && FLIGHT_MODES.includes(fl[0])) {
+        t.flight = { mode: fl[0], ax: r(fl[1]), ay: r(fl[2]), bx: r(fl[3]), by: r(fl[4]), cx: r(fl[5]), cy: r(fl[6]), leg: fl[7] ? 1 : 0 };
+      }
+    }
     const maxTr = t.stats.trap?.max ?? 0;
     for (const tr of (o.tr || []).slice(0, maxTr)) {
       sim.traps.push({ uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, armed: !!tr[3], armLeft: tr[4], owner: t });
