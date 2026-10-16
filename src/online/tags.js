@@ -237,6 +237,8 @@ export const tagsOf = (id) => tabCache().get(id);
 export const loadTags = (id) => tabCache().load(id);
 /** fn(ids): these players' tags just changed. @returns {Function} off */
 export const onTags = (fn) => tabCache().on(fn);
+/** The server has no player_tags table: no chip will ever show in this tab. */
+export const tagsDisabled = () => tabCache().disabled;
 
 /** This tab's own account id once the social hub learned it (the own profile header uses it). */
 export const selfId = () => selfUid;

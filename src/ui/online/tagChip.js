@@ -4,13 +4,19 @@
 // lands, so a row never waits for its chip. Tight places show one chip (DEV beats ALPHA beats BETA);
 // the player card and the profile header show every chip. No tags (or no player_tags table on the
 // server yet): an empty holder that takes no room.
+//
+// No registry of every holder: when a batch lands, the holders on the page are found in the page
+// (document.querySelectorAll), so a row a screen dropped is never kept alive from here. The only
+// holders kept are the few made before their tags were known that are not on the page yet (rows
+// are built first and attached a moment later): at most EARLY_MAX, for at most GRACE_MS each.
 import '../styles/online.css';
-import { h } from '../components.js';
-import { TAG_INFO, chipKinds, tagsOf, wantTags, onTags, selfId, onSelfId } from '../../online/tags.js';
+import { h } from '../dom.js';
+import { TAG_INFO, chipKinds, tagsOf, wantTags, onTags, selfId, onSelfId, tagsDisabled } from '../../online/tags.js';
 
-/** Rendered holders (dropped once they left the page). */
-const live = new Set();
+/** Holders waiting for their first batch while not on the page (painted even when detached). */
+const early = new Set();
 const GRACE_MS = 15000;
+const EARLY_MAX = 200;
 let wired = false;
 
 function paint(el) {
@@ -21,25 +27,40 @@ function paint(el) {
   el.dataset.tags = kinds.join(' ');
 }
 
+/**
+ * Drops the early holders that are on the page now (the page finds them), already painted from a
+ * batch (their tags are known), or too old; then the oldest past EARLY_MAX.
+ */
+function prune(now = Date.now()) {
+  for (const el of early) {
+    const id = el._tagUid();
+    if (el.isConnected || (id && tagsOf(id)) || now - el._tagBorn > GRACE_MS) early.delete(el);
+  }
+  for (const el of early) {
+    if (early.size <= EARLY_MAX) break;
+    early.delete(el);
+  }
+}
+
+/** Repaints every holder on the page (and every early one) that `test` picks. */
+function repaint(test) {
+  const onPage = typeof document === 'undefined' ? [] : document.querySelectorAll('.tg-chips');
+  for (const el of onPage) if (el._tagUid && test(el)) paint(el);
+  for (const el of early) if (!el.isConnected && test(el)) paint(el);
+  prune();
+}
+
 function wire() {
   if (wired) return;
   wired = true;
   onTags((ids) => {
     const changed = new Set(ids);
-    const now = Date.now();
-    for (const el of [...live]) {
-      if (!el.isConnected) {
-        if (el._tagSeen || now - el._tagBorn > GRACE_MS) live.delete(el);
-        continue;
-      }
-      el._tagSeen = true;
-      if (changed.has(el._tagUid())) paint(el);
-    }
+    repaint((el) => changed.has(el._tagUid()));
   });
   // the own profile header learns its account id a moment after the screen opens
   onSelfId((uid) => {
     if (uid) wantTags([uid]);
-    for (const el of live) if (el._tagSelf && el.isConnected) paint(el);
+    repaint((el) => el._tagSelf);
   });
 }
 
@@ -57,16 +78,27 @@ export function tagChip(kind) {
  * @returns {HTMLElement}
  */
 export function tagChips(userId, { all = false, self = false, size = 'sm' } = {}) {
-  wire();
   const el = h(`span.tg-chips.tg-${size}`, { 'data-testid': 'tag-chips' });
+  el.dataset.tags = '';
+  // a server without the player_tags table: an empty holder, never patched, nothing kept
+  if (tagsDisabled()) return el;
+  wire();
   el._tagUid = () => (self ? selfId() : userId) || null;
   el._tagAll = all;
   el._tagSelf = self;
   el._tagBorn = Date.now();
-  el.dataset.tags = '';
   paint(el);
   const id = el._tagUid();
   if (id) wantTags([id]);
-  live.add(el);
+  // tags not known yet: a batch is on its way and may land before the row is attached
+  if (!id || !tagsOf(id)) {
+    early.add(el);
+    if (early.size > EARLY_MAX) prune();
+  }
   return el;
+}
+
+/** Test hook: how many holders this module keeps. */
+export function _tagChipState() {
+  return { early: early.size };
 }
