@@ -59,6 +59,36 @@ describe('P1 is untouched', () => {
     }
   });
 
+  test('every real girl at P1 in a real battle carries no Potential field and sends no Potential event', async () => {
+    const { UNITS: REAL } = await import('../../src/data/units.js');
+    const { autoPlan } = await import('../../src/sim/headless.js');
+    const ids = REAL.filter((u) => u.kind !== 'hero').map((u) => u.id);
+    const heroes = REAL.filter((u) => u.kind === 'hero').map((u) => u.id);
+    const FIELDS = ['potCount', 'effProc', 'effEcho', 'trapSpecProc', 'tempoStacks', 'tempoIdle', 'projCarry', 'potOc', 'auraBoostLeft', 'rampKeep'];
+    const STATS = ['proc', 'ult', 'tempo', 'projScale', 'classMul', 'keepRamp', 'bountyAura', 'harvest', 'dotSpread'];
+    for (const hero of heroes) {
+      const sim = new Sim({ stageId: '2-5', loadout: ids.map((unitId) => ({ unitId, stats: { potential: 1, costMul: 0.2 } })), hero: { unitId: hero, stats: { potential: 1 } }, seed: 3 });
+      sim.cash = 1e6;
+      for (const a of autoPlan('2-5', [...ids, hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+      const kinds = new Set();
+      for (let w = 0; w < 4 && sim.state !== 'lost'; w++) {
+        sim.startNextWave();
+        for (let i = 0; i < 60 * 120 && sim.state === 'wave'; i++) {
+          sim.update(STEP);
+          if (sim.hero && sim.heroUltStatus().ready) sim.activateUlt();
+          for (const e of sim.drainEvents()) if (['proc', 'nova', 'tempo', 'dotSpread'].includes(e.type) || (e.type === 'attack' && e.echo) || (e.type === 'cash' && e.reason === 'harvest')) kinds.add(e.type);
+        }
+      }
+      expect(sim.towers.length).toBeGreaterThan(10);
+      for (const t of sim.towers) {
+        for (const k of FIELDS) expect(k in t, `${hero}: ${t.unitId}.${k}`).toBe(false);
+        for (const k of STATS) expect(k in t.stats, `${hero}: ${t.unitId}.stats.${k}`).toBe(false);
+        expect(t.stats.aura ? 'foeVuln' in t.stats.aura : false, t.unitId).toBe(false);
+      }
+      expect([...kinds], hero).toEqual([]);
+    }
+  });
+
   test('a P1 girl in battle carries no Potential field', () => {
     const def = withPot(UNITS.archer, { p2: { mods: { proc: { name: 'R', every: 2, echo: true }, tempo: { per: 0.01, max: 0.05, idle: 1 }, projScale: 0.5 } } });
     const sim = potSim({ archer: def }, { pot: 1 });
