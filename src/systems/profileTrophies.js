@@ -1,6 +1,8 @@
 // Sensei Profile: what a save has earned and shows (docs/specs/PROFILE.md §4, ACHIEVEMENTS.md §6).
 // Pure; reads the profile, never writes it.
-import { STAGES, STAGE_MAP, CHAPTERS } from '../data/stages.js';
+import { STAGES, STAGE_MAP, CHAPTERS, CAMPAIGN_IDS } from '../data/stages.js';
+import { RIBBON_MODES } from '../data/modes.js';
+import { modeRibbons, ribbonCount } from './unlocks.js';
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
@@ -88,10 +90,28 @@ export function medalTally(p) {
   return DIFFICULTY_ORDER.map((d) => STAGES.filter((s) => p?.progress?.stages?.[s.id]?.[d] === true).length);
 }
 
-/** Ribbon counts per Codex mode: null until the Codex modes ship (PROFILE.md §5.3). */
-export function ribbonTally() {
-  return null;
+/** Battle-mode ribbons a campaign stage can hold (4 difficulties × 5 modes). */
+export const RIBBONS_PER_STAGE = DIFFICULTY_ORDER.length * RIBBON_MODES.length;
+
+/**
+ * Ribbon counts per battle mode over the campaign, in RIBBON_MODES order (reverse, rush, ironclad,
+ * frugal, laststand), PROFILE.md §5.3. A Nightmare medal holds that stage's Last Petal ribbon too
+ * (the same battle, src/systems/unlocks.js modeRibbons).
+ * @returns {number[]}
+ */
+export function ribbonTally(p) {
+  const out = RIBBON_MODES.map(() => 0);
+  if (!p) return out;
+  for (const id of CAMPAIGN_IDS) {
+    const r = modeRibbons(p, id);
+    RIBBON_MODES.forEach((m, i) => {
+      for (const d of DIFFICULTY_ORDER) if (r[`${d}:${m}`]) out[i]++;
+    });
+  }
+  return out;
 }
+
+const isCampaign = (id) => STAGE_MAP[id]?.kind === 'campaign';
 
 /** @returns {{ kind: 'medal'|'ribbon'|'perfect'|'ach', stage?: string, diff?: string, mode?: string, id?: string }|null} */
 export function parsePin(pin) {
@@ -104,13 +124,17 @@ export function parsePin(pin) {
 
 /**
  * Medal: that medal is on the save. Achievement: claimed and not NO_COSMETIC (an id this build
- * doesn't know is kept the same way). Ribbon and perfect pins: never before the Codex modes ship.
+ * doesn't know is kept the same way). Ribbon: that mode ribbon on a campaign stage
+ * (unlocks.js modeRibbons). Perfect: all 20 ribbons of a campaign stage.
  */
 export function pinEarned(p, pin) {
   const x = parsePin(pin);
   if (!x) return false;
   if (x.kind === 'medal') return !!STAGE_MAP[x.stage] && p?.progress?.stages?.[x.stage]?.[x.diff] === true;
   if (x.kind === 'ach') return ID_RE.test(x.id) && claimed(p, x.id) && !NO_COSMETIC(x.id);
+  if (!p || !isCampaign(x.stage)) return false;
+  if (x.kind === 'ribbon') return RIBBON_MODES.includes(x.mode) && modeRibbons(p, x.stage)[`${x.diff}:${x.mode}`] === true;
+  if (x.kind === 'perfect') return ribbonCount(p, x.stage).have === RIBBONS_PER_STAGE;
   return false;
 }
 
@@ -147,9 +171,34 @@ function achievementPins(p) {
     .map(({ id }) => `ach:${id}`);
 }
 
+/**
+ * Earned ribbon pins, best first: perfect stages (all 20 ribbons), then mode ribbons by difficulty
+ * (Nightmare first), later campaign stages first, in mode order.
+ */
+function ribbonPins(p) {
+  if (!p) return [];
+  const perfect = [];
+  const out = [];
+  CAMPAIGN_IDS.forEach((id, i) => {
+    const r = modeRibbons(p, id);
+    let have = 0;
+    for (const d of DIFFICULTY_ORDER) {
+      RIBBON_MODES.forEach((m, k) => {
+        if (!r[`${d}:${m}`]) return;
+        have++;
+        out.push({ pin: `${id}:${d}:${m}`, d, i, k });
+      });
+    }
+    if (have === RIBBONS_PER_STAGE) perfect.push({ pin: `${id}:perfect`, i });
+  });
+  perfect.sort((a, b) => b.i - a.i);
+  out.sort((a, b) => DIFF_RANK[b.d] - DIFF_RANK[a.d] || b.i - a.i || a.k - b.k);
+  return [...perfect.map((x) => x.pin), ...out.map((x) => x.pin)];
+}
+
 /** Everything this save could pin, best first, by picker tab. */
 export function pinOptions(p) {
-  return { medals: medalPins(p), ribbons: [], achievements: achievementPins(p) };
+  return { medals: medalPins(p), ribbons: ribbonPins(p), achievements: achievementPins(p) };
 }
 
 /** The best 4 medals (what an empty `sensei.pins` shows). */

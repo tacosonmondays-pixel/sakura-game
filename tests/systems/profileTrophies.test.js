@@ -71,7 +71,16 @@ describe('medals and pins', () => {
     expect(medalTally(freshSave())).toEqual([0, 0, 0, 0]);
     expect(medalTally(lateSave())).toEqual([59, 59, 59, 59]);
   });
-  it('ribbonTally is null before the Codex modes', () => expect(ribbonTally(lateSave())).toBeNull());
+  it('ribbonTally counts mode ribbons over the campaign, per mode (a Nightmare medal holds Last Petal)', () => {
+    expect(ribbonTally(freshSave())).toEqual([0, 0, 0, 0, 0]);
+    const p = freshSave();
+    p.progress.stages['3-2'] = { clears: 4, hard: true, nightmare: true, modes: { 'hard:rush': true, 'easy:rush': true, 'normal:frugal': true } };
+    p.progress.stages['8-5'] = { clears: 1, nightmare: true };
+    // [reverse, rush, ironclad, frugal, laststand]
+    expect(ribbonTally(p)).toEqual([0, 2, 0, 1, 2]);
+    // a late save holds every medal: 40 campaign stages' Nightmare Last Petal ribbons
+    expect(ribbonTally(lateSave())[4]).toBe(40);
+  });
   it('pinEarned per kind', () => {
     const p = freshSave();
     p.progress.stages['8-5'] = { clears: 1, nightmare: true };
@@ -82,8 +91,22 @@ describe('medals and pins', () => {
     expect(pinEarned(p, 'ach:a_gold_40')).toBe(true);
     expect(pinEarned(p, 'ach:a_pulls_10')).toBe(false);
     expect(pinEarned(p, 'ach:a_future')).toBe(true); // forward compatible
-    expect(pinEarned(p, '8-5:nightmare:laststand')).toBe(false);
+    // battle-mode ribbons: Nightmare × Last Petal is the Nightmare medal's battle (unlocks.js modeRibbons)
+    expect(pinEarned(p, '8-5:nightmare:laststand')).toBe(true);
+    expect(pinEarned(p, '8-5:hard:rush')).toBe(false);
     expect(pinEarned(p, '8-5:perfect')).toBe(false);
+    p.progress.stages['8-5'].modes = { 'hard:rush': true };
+    expect(pinEarned(p, '8-5:hard:rush')).toBe(true);
+    expect(pinEarned(p, '8-5:hard:standard')).toBe(false);
+    expect(pinEarned(p, 'boss-colossus:hard:rush')).toBe(false); // ribbons are campaign-only
+    const modes = {};
+    for (const d of ['easy', 'normal', 'hard', 'nightmare']) for (const m of ['reverse', 'rush', 'ironclad', 'frugal', 'laststand']) modes[`${d}:${m}`] = true;
+    p.progress.stages['8-5'].modes = modes;
+    expect(pinEarned(p, '8-5:perfect')).toBe(true);
+    const o = pinOptions(p);
+    expect(o.ribbons[0]).toBe('8-5:perfect');
+    expect(o.ribbons.length).toBe(1 + 20);
+    expect(o.ribbons[1]).toBe('8-5:nightmare:reverse');
   });
   it('picker lists best first; recruiting never', () => {
     const p = lateSave();
