@@ -5,8 +5,13 @@
 //
 //   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|B|C --stage 4-5 --tier blossom
 //        [--seed 7] [--maxWave 260] [--coop 1|2] [--difficulty normal] [--log]
+//        [--profile p1|f2p-steady|f2p-late|whale] [--potential p1|f2p-steady|whale|1…6]
+//        [--level 60|75|85] [--gear maxed|late|urLate]
 //
-// Profile: MAXED (tools/freeplayBot.mjs: ★5, legendary +10, average rolls), hero Hikari (5-0-2).
+// Profile (tools/potentialProfiles.mjs): default p1 = MAXED (tools/freeplayBot.mjs: ★5, legendary +10,
+// average rolls) at level 60 and P1; the Potential v3 profiles change Potential, level and gear for
+// every girl (both players in --coop 2). Hero Hikari (she levels in battle; the hero rework took her
+// tiers away). tools/killcap.mjs runs the same bot and then measures the board's kill capacity.
 // Builds (each copy of a girl type has its own plan; a refused tier 5 finishes her crosspath):
 //   A  "smart mixed team", 32 girls: Shiro, Kage, Aoi, Akane, Sango (carries), Miko, Midori, Momo.
 //      Order: Momo copy 1 to 3-0-0 → one of each → every copy 1 to main 3 + cross 2 → main tier 4
@@ -28,10 +33,15 @@ import { coopStage, COOP } from '../src/data/coop.js';
 import { createCoopSim, quantize } from '../src/online/coop/commands.js';
 import { withDetMath } from '../src/core/detMath.js';
 import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
-import { MAXED, runBot } from './freeplayBot.mjs';
+import { pathToFileURL } from 'node:url';
+import { runBot } from './freeplayBot.mjs';
+import { profileFromArgs, profileStats } from './potentialProfiles.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
+/** The stat profile every girl fights with (tools/potentialProfiles.mjs). */
+export const PROFILE = profileFromArgs(opt);
+const statsOf = (unitId) => profileStats(unitId, PROFILE);
 const build = opt('build', 'A');
 const stageId = opt('stage', '4-5');
 const tier = opt('tier', 'blossom');
@@ -146,7 +156,9 @@ function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash,
   }
   function heroStep(n) {
     const h = heroUid != null ? sim.getTower(heroUid) : null;
-    if (!h) return null;
+    // the hero rework: a hero has no tiers (she levels in battle), so never ask for one (a refused
+    // hero step is not recorded anywhere, so asking stalled the whole build at "one of each")
+    if (!h || !h.def.paths?.some((p) => p?.tiers?.length)) return null;
     const p = planOf(HERO_PLAN);
     return n === 'base' ? upTo(h, p.main, 3) || upTo(h, p.cross, p.t[p.cross]) : upTo(h, p.main, n);
   }
@@ -311,11 +323,15 @@ function summarize(sim, extra) {
   };
 }
 
-function runSolo() {
+/**
+ * One solo run (or --coop 1: the co-op stage with one bot and one wallet). `data` adds sim data (the
+ * kill-capacity dummies); `after(sim)` runs on the board as the run ends and its result rides as `kc`.
+ */
+export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave } = {}) {
   const cfg = buildConfig(build);
   const stage = coop === 1 ? coopStage(stageId, { freeplay: tier }) : soloFreeplayStage(stageId, tier);
-  const loadout = cfg.types.map((unitId) => ({ unitId, stats: MAXED }));
-  const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: HERO, stats: MAXED }, options: { freeplay: true, autoStart: false }, data: { stage } }));
+  const loadout = cfg.types.map((unitId) => ({ unitId, stats: statsOf(unitId) }));
+  const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: HERO, stats: statsOf(HERO) }, options: { freeplay: true, autoStart: false }, data: { ...data, stage } }));
   if (coop === 1) sim.cash = Math.round(sim.cash * COOP.cashShare * 2);
   const act = (k, a, b) => {
     if (k === 'place') return sim.placeTower(a, b.x, b.y);
@@ -327,10 +343,10 @@ function runSolo() {
   const spend = build === 'B' ? kageArmySpend(sim, brain, act) : brain.spend;
   const t0 = Date.now();
   withDetMath(() => {
-    while (sim.state !== 'lost' && sim.state !== 'won' && sim.wave <= maxWave) {
+    while (sim.state !== 'lost' && sim.state !== 'won' && sim.wave <= lastWave) {
       spend();
       if (sim.state === 'prep' || sim.state === 'between') {
-        if (sim.wavesCleared >= maxWave) break;
+        if (sim.wavesCleared >= lastWave) break;
         sim.startNextWave();
       }
       sim.update(0.5);
@@ -338,7 +354,8 @@ function runSolo() {
       if (verbose && sim.state === 'between') process.stderr.write(`w${sim.wave} lives ${sim.lives} girls ${sim.towers.length} cash ${Math.round(sim.cash)}\n`);
     }
   });
-  return summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000) });
+  const sum = summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000) });
+  return after ? { ...sum, kc: withDetMath(() => after(sim)) } : sum;
 }
 
 /** Build B's order on top of the generic placement / upgrade steps. */
@@ -452,19 +469,24 @@ function kageArmySpend(sim, brain, act) {
   };
 }
 
-/** --coop 2: two bots on a CoopSim, two wallets, per-player caps, income split. */
-function runCoop2() {
+/** --coop 2: two bots on a CoopSim, two wallets, per-player caps, income split; `after(sim)` as in runSolo. */
+export function runCoop2({ data = {}, after = null, maxWave: lastWave = maxWave } = {}) {
   const P0 = ['shiro', 'kage', 'aoi', 'akane', 'momo'];
   const P1 = ['sango', 'miko', 'midori', 'shiro', 'kage'];
   const start = {
     seed, stageId, difficulty, freeplay: tier,
     players: [
-      { slot: 0, uid: 'a', name: 'A', loadout: P0.map((unitId) => ({ unitId, stats: MAXED })), hero: { unitId: HERO, stats: MAXED } },
-      { slot: 1, uid: 'b', name: 'B', loadout: P1.map((unitId) => ({ unitId, stats: MAXED })), hero: null },
+      { slot: 0, uid: 'a', name: 'A', loadout: P0.map((unitId) => ({ unitId, stats: statsOf(unitId) })), hero: { unitId: HERO, stats: statsOf(HERO) } },
+      { slot: 1, uid: 'b', name: 'B', loadout: P1.map((unitId) => ({ unitId, stats: statsOf(unitId) })), hero: null },
     ],
   };
   const C = createCoopSim(start, { mySlot: 0 });
   const sim = C.sim;
+  if (data.enemies) {
+    // extra enemy defs (the kill-capacity dummies) beside the stage's own
+    const own = sim.data.enemy.bind(sim.data);
+    sim.data.enemy = (id) => data.enemies[id] || own(id);
+  }
   let seq = 0;
   const mkAct = (slot) => (k, a, b) => {
     const cmd = (kind, args) => C.apply({ t: C.tick, p: slot, s: seq++, k: kind, a: args });
@@ -479,7 +501,7 @@ function runCoop2() {
   // each brain reads the Sim through her own view (wallet, loadout, hero): CoopSim.apply() switches
   // the view for a command and back to slot 0 after it, so the brain sets hers before every read
   const heroCfg = sim.heroConfig;
-  const loadouts = [P0, P1].map((ids) => new Map(ids.map((u) => [u, { ...DEFAULT_UNIT_STATS, ...MAXED }])));
+  const loadouts = [P0, P1].map((ids) => new Map(ids.map((u) => [u, { ...DEFAULT_UNIT_STATS, ...statsOf(u) }])));
   const brains = [0, 1].map((slot) => {
     const types = slot === 0 ? P0 : P1;
     return makeBrain({
@@ -503,24 +525,30 @@ function runCoop2() {
     }
   };
   const t0 = Date.now();
-  while (sim.state !== 'lost' && sim.state !== 'won' && sim.wave <= maxWave) {
+  while (sim.state !== 'lost' && sim.state !== 'won' && sim.wave <= lastWave) {
     think(0);
     think(1);
     if (sim.state === 'prep' || sim.state === 'between') {
-      if (sim.wavesCleared >= maxWave) break;
+      if (sim.wavesCleared >= lastWave) break;
       C.apply({ t: C.tick, p: 0, s: seq++, k: 'wave', a: [] });
     }
     for (let i = 0; i < 30; i++) C.step();
     sim.drainEvents();
   }
-  return summarize(sim, { wallets: C.wallets, wallSec: Math.round((Date.now() - t0) / 1000) });
+  const sum = summarize(sim, { wallets: C.wallets, wallSec: Math.round((Date.now() - t0) / 1000) });
+  return after ? { ...sum, kc: withDetMath(() => after(sim)) } : sum;
 }
 
-let out;
-if (build === 'C') {
-  const r = runBot({ stageId, tier, build: 'team', difficulty, maxWave, seed, towers: 60, coop: coop === 1 });
-  const { waves, ...rest } = r;
-  out = { build: 'C', stage: stageId, tier, seed, coop, ...rest };
-} else if (coop === 2) out = runCoop2();
-else out = runSolo();
-console.log(JSON.stringify(out));
+/** The run the command line asks for (Build C: tools/freeplayBot.mjs's own bot, P1 MAXED only). */
+export function runCapBot(hooks = {}) {
+  if (build === 'C') {
+    if (PROFILE.potential !== 'p1' || PROFILE.level !== 60 || PROFILE.gear !== 'maxed' || hooks.after) throw new Error('Build C runs tools/freeplayBot.mjs at P1 MAXED only');
+    const r = runBot({ stageId, tier, build: 'team', difficulty, maxWave, seed, towers: 60, coop: coop === 1 });
+    const { waves, ...rest } = r;
+    return { build: 'C', stage: stageId, tier, seed, coop, ...rest };
+  }
+  const out = coop === 2 ? runCoop2(hooks) : runSolo(hooks);
+  return { profile: PROFILE, ...out };
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) console.log(JSON.stringify(runCapBot()));
