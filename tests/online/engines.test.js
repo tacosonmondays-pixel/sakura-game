@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -22,15 +22,20 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
       .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3018:9657f4ba' });
   }, 120000);
 
-  it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest) in sync', () => {
+  it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
     const r = runPotentialBattle();
     expect(r.refused).toBe('');
     expect(r.agree).toBe(true);
     expect(['won', 'lost']).toContain(r.state);
     expect(r.checkpoints).toBeGreaterThanOrEqual(20);
-    expect((r.towers.match(/:P/g) || []).length).toBe(11);
+    expect((r.towers.match(/:P/g) || []).length).toBe(12);
     const [guest, host] = r.aoi.split(' | ');
     expect(guest).not.toBe(host); // the same girl, two owners, two Potentials
+    // Kage's tempo stacks and shuriken carry and the rhythms ran (v3 §6.3: N13, N14, N3)
+    expect(r.mech.tempo).toBeGreaterThan(0);
+    expect(r.mech.carry).toBeGreaterThan(0);
+    expect(r.mech.proc).toBeGreaterThan(0);
+    expect(r.tiers.split(' ')[r.towers.split(' ').findIndex((t) => t === 'rei:P6')]).toBe('040'); // Duelist Stance
     expect(runPotentialBattle().final).toBe(r.final);
     // pinned when Potential M1 landed (change only with a deliberate sim / data change, and say why).
     // Re-pinned at the train-C Potential merge (was 28390 / '334/918' / 471369358 / '7d947497'):
@@ -38,11 +43,31 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // drones: Chika rework) and the path-cap tier data. The same scenario with every girl at P1
     // computes the identical battle on the train head before the merge and after it (28506 ticks,
     // final 3253190631, hashes e88b2bb9): Potential's P1 changes nothing (landing plan §10 #9).
-    // Re-pinned for Potential v3 (was 27433 / '671/920' / 87067914 / '7bb1e107'): the same line-up
-    // now fights with the v3 steps (rhythms, overclock, enemy Brittle, harvest …); START above is
-    // unchanged, so P1 still changes nothing.
+    // Re-pinned for Potential v3 V1 (was 27433 / '671/920' / 87067914 / '7bb1e107'), then once more
+    // in V2 (was 22348 / '741/991' / 3564779976 / 'ff349307') for the v3 §6.3 line-up: Kage P6 and Rei
+    // P6 in Duelist Stance join (Shiro leaves), Kaede P5 → P6, the v3 girls get the spots nearest the
+    // path and every upgrade waits for its girl and her coins. START above is unchanged, so P1 still
+    // changes nothing.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 22348, state: 'won', wallets: '741/991', final: 3564779976, hashes: 'ff349307' });
+      .toEqual({ ticks: 23827, state: 'won', wallets: '317/222', final: 3070688707, hashes: '975e4e34' });
+  }, 120000);
+
+  it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
+    const r = runPotentialBossBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(['won', 'lost']).toContain(r.state);
+    expect(r.wave).toBe(15); // the Lych's wave
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    // v3 §6.3: N16 (×spectral), N17 (×boss), N15 on a duel (an echo at a share), the rhythms
+    expect(r.mech.spectral).toBeGreaterThan(0);
+    expect(r.mech.boss).toBeGreaterThan(0);
+    expect(r.mech.echo).toBeGreaterThan(0);
+    expect(r.mech.proc).toBeGreaterThan(0);
+    expect(runPotentialBossBattle().final).toBe(r.final);
+    // pinned in Potential v3 V2 (change only with a deliberate sim / data change, and say why)
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
+      .toEqual({ ticks: 35232, state: 'lost', wallets: '6768/4510', final: 2047586365, hashes: 'a01bc9ff' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {

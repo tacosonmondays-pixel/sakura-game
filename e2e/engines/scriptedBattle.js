@@ -775,30 +775,64 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 
 const P = (potential, more = {}) => ({ ...CHEAP, potential, ...more });
 /**
- * Potential's scenario (docs/specs/POTENTIAL.md §11.2): drones (Chika), traps (Suzu), an aura
- * (Miko), the focus cap (Kaede), elites (hero Luna), coins (Momo), silence (Hotaru), crit (Shiro
- * P4), range (Yuki), and the SAME girl at two Potentials: host Aoi P1, guest Aoi P6. (Umeko's
- * aura-speed step needs water, which 1-3 lacks; tests/sim/mods.test.js covers it.) START stays
- * as it is, so its digest keeps meaning "P1 changes nothing".
+ * Potential's scenario (docs/specs/POTENTIAL.md v3 §6.3, §13.3): drones and their overclock
+ * (Chika), traps and a trap rhythm (Suzu), an aura, its Brittle and aura boost (Miko), a kept focus
+ * (Kaede), Moonfall with its Brittle (hero Luna), coins and harvest (Momo), silence (Hotaru), range
+ * (Yuki), Kage at P6 (more shuriken per throw through the carry, tempo, the storm's echo volley),
+ * Rei at P6 in Duelist Stance (the echo at a share of a duel strike), and the SAME girl at two
+ * Potentials: host Aoi P1, guest Aoi P6. Stage 1-3 has no spectral enemy and no boss: Hotaru's
+ * ×spectral and Kaede's ×boss fight in POTENTIAL_BOSS_START below. (Umeko's aura steps need water,
+ * which 1-3 lacks; tests/sim/mods.test.js covers them.) START stays as it is, so its digest keeps
+ * meaning "P1 changes nothing".
  */
 export const POTENTIAL_START = Object.freeze({
   seed: 616161,
   stageId: '1-3',
   difficulty: 'hard',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: P(1) }, { unitId: 'chika', stats: P(6) }, { unitId: 'suzu', stats: P(6) }, { unitId: 'miko', stats: P(6) }, { unitId: 'kaede', stats: P(5) }], hero: { unitId: 'luna', stats: P(6) } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'aoi', stats: P(6, { damageMul: 1.1 }) }, { unitId: 'momo', stats: P(6) }, { unitId: 'hotaru', stats: P(6) }, { unitId: 'shiro', stats: P(4) }, { unitId: 'yuki', stats: P(6) }], hero: null },
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'kaede', stats: P(6) }, { unitId: 'chika', stats: P(6) }, { unitId: 'miko', stats: P(6) }, { unitId: 'suzu', stats: P(6) }, { unitId: 'aoi', stats: P(1) }], hero: { unitId: 'luna', stats: P(6) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'kage', stats: P(6) }, { unitId: 'rei', stats: P(6, { costMul: 0.08 }) }, { unitId: 'aoi', stats: P(6, { damageMul: 1.1 }) }, { unitId: 'hotaru', stats: P(6) }, { unitId: 'momo', stats: P(6) }, { unitId: 'yuki', stats: P(6) }], hero: null },
   ],
 });
+/** Who gets the spots nearest the path first (the girls whose v3 mechanics this battle is about). */
+const POTENTIAL_SPOTS_FIRST = Object.freeze(['kage', 'kaede', 'rei', 'miko', 'hotaru', 'suzu', 'chika']);
+/** Upgrades [slot, girl, path] in order, each once its player can pay (Rei: four on path 1 = Duelist Stance). */
+const POTENTIAL_UPGRADES = Object.freeze([
+  [1, 'rei', 1], [1, 'rei', 1], [1, 'rei', 1], [1, 'rei', 1], [0, 'chika', 0], [0, 'suzu', 0], [1, 'aoi', 0],
+  [0, 'miko', 1], [1, 'kage', 0], [1, 'momo', 2], [1, 'aoi', 1],
+]);
+
+const PB = (potential, more = {}) => ({ costMul: 0.4, damageMul: 4, rateMul: 1.2, potential, ...more });
+/**
+ * Potential against a spectral boss (v3 §6.3): Total Assault: Grave Lych (every wave spectral
+ * ghouls, the Lych a spectral boss at wave 15), so Hotaru's Lantern Rite (×1.2 vs spectral) and
+ * Kaede's One Blade, One Foe (×1.2 vs bosses) fight; Kage, Rei (Duelist Stance) and Akane (an echo
+ * at half a Grand Starburst, leaping burns) at P6 too, hero Hikari P6 (her rhythm, a wider Bloom).
+ */
+export const POTENTIAL_BOSS_START = Object.freeze({
+  seed: 717171,
+  stageId: 'boss-lych',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'hotaru', stats: PB(6) }, { unitId: 'kaede', stats: PB(6) }, { unitId: 'kage', stats: PB(6) }, { unitId: 'miko', stats: PB(6) }, { unitId: 'chika', stats: PB(6) }], hero: { unitId: 'hikari', stats: PB(6) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: PB(6) }, { unitId: 'akane', stats: PB(6) }, { unitId: 'hotaru', stats: PB(2) }, { unitId: 'kaede', stats: PB(1) }, { unitId: 'aoi', stats: PB(6) }, { unitId: 'yuki', stats: PB(6) }], hero: null },
+  ],
+});
+const POTENTIAL_BOSS_UPGRADES = Object.freeze([
+  [1, 'rei', 1], [1, 'rei', 1], [1, 'rei', 1], [1, 'rei', 1], [0, 'kage', 0], [0, 'kage', 0], [0, 'hotaru', 0], [0, 'kaede', 1],
+  [1, 'akane', 0], [1, 'akane', 0], [0, 'miko', 1], [1, 'aoi', 0], [0, 'chika', 0], [1, 'hotaru', 0], [1, 'kaede', 1],
+]);
 
 /**
- * POTENTIAL_START to the end: each player places her girls as her own coins allow (in list
- * order), upgrades two of them, auto-start and 2× speed; the host fires Luna's ult when ready.
- * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats)
+ * A Potential start to the end: each player places her girls as her own coins allow (in list
+ * order), then upgrades them in `upgrades` order as her coins allow, auto-start and 2× speed; the
+ * host fires her hero's ult when ready. Counts what the v3 mechanics did on the host's client
+ * (rhythms, echo volleys, tempo changes, shuriken carried over, hits on spectral enemies and bosses
+ * by Hotaru / Kaede at P6).
+ * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14 } = {}) {
   const t0 = Date.now();
-  const start = POTENTIAL_START;
   const rng = createRng(11);
   const clock = { t: 0 };
   const queue = [];
@@ -813,9 +847,8 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const host = ['luna', 'aoi', 'chika', 'suzu', 'miko', 'kaede'];
-  const guest = ['aoi', 'momo', 'hotaru', 'shiro', 'yuki'];
-  const all = [...new Set([...host, ...guest])];
+  const units = start.players.map((p) => [...(p.hero ? [p.hero.unitId] : []), ...p.loadout.map((e) => e.unitId)]);
+  const all = [...new Set([...spotsFirst.filter((u) => units.flat().includes(u)), ...units.flat()])];
   const sp = spotsFor(start, all, 2);
   const used = new Set();
   const spotOf = (u) => {
@@ -823,11 +856,28 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
     if (q) used.add(q.join());
     return q;
   };
-  const later = [...host.map((u) => [A, u, spotOf(u)]), ...guest.map((u) => [B, u, spotOf(u)])].filter((x) => x[2]);
-  const upgrades = [[A, 'chika', 0], [A, 'suzu', 0], [B, 'aoi', 0], [B, 'momo', 2], [B, 'aoi', 1], [A, 'miko', 1]];
+  const later = units.flatMap((list, i) => list.map((u) => [clients[i], u, spotOf(u)])).filter((x) => x[2]);
+  const todo = upgrades.map(([slot, unit, path]) => [clients[slot], unit, path]);
   let ults = 0;
   let lastUlt = -1e9;
   let aoi = '';
+  const mech = { proc: 0, echo: 0, tempo: 0, carry: 0, spectral: 0, boss: 0 };
+  const hostOf = (id) => A.sim.towers.find((t) => t.def.id === id && t.unitStats?.potential === 6);
+  // (hits by Hotaru's ×spectral and Kaede's ×boss at P6, counted on the host's copy; the call itself
+  // is untouched, and the counter is not an own enumerable field, so checkpoints never see it)
+  const hit0 = A.sim._hit;
+  Object.defineProperty(A.sim, '_hit', {
+    configurable: true,
+    writable: true,
+    enumerable: false,
+    value: function hit(e, tower, spec, ...rest) {
+      if (tower?.unitStats?.potential === 6 && e && !e.dead) {
+        if (tower.def.id === 'hotaru' && spec?.classMul?.[e.armorClass] > 1) mech.spectral++;
+        if (tower.def.id === 'kaede' && spec?.bossMul > 1 && (e.tier === 'boss' || e.tier === 'miniboss')) mech.boss++;
+      }
+      return hit0.call(this, e, tower, spec, ...rest);
+    },
+  });
   while (frame < maxFrames && !(A.finished && B.finished)) {
     if (frame === 20) A.queue('wave');
     if (frame === 30) A.queue('auto', [true]);
@@ -848,13 +898,19 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
         later[i][3] = frame;
       }
     }
-    if (!later.length && upgrades.length && frame % 60 === 0) {
-      const [c, unit, path] = upgrades[0];
+    // the next upgrade once its girl stands and her player can pay for it (one in flight); a girl
+    // still waiting for her spot keeps her upgrades waiting, one that never gets one drops them
+    if (todo.length && frame % 60 === 0) {
+      const [c, unit, path, sent] = todo[0];
       const t = c.sim.towers.find((x) => x.def.id === unit && c.coop.isMine(x.uid));
-      if (t && c.sim.coins >= 0) {
+      const st = t ? c.sim.upgradeStatus(t.uid, path) : null;
+      const waiting = !t && later.some((x) => x[0] === c && x[1] === unit);
+      if (sent != null) {
+        if (frame - sent >= 120) todo.shift();
+      } else if (st && !st.locked) {
         c.queue('upg', [t.uid, path]);
-        upgrades.shift();
-      }
+        todo[0][3] = frame;
+      } else if (!waiting && (!st || st.reason !== 'cash')) todo.shift(); // never placed, maxed or locked: skip
     }
     if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120) {
       lastUlt = A.tick;
@@ -872,7 +928,17 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
       queue.splice(queue.indexOf(m), 1);
       clients[m.to].receive(m.msg);
     }
+    const kage = hostOf('kage');
+    const carry0 = kage?.projCarry;
     for (const c of clients) c.advance(1 / 60);
+    // what the v3 mechanics did, from the host's client (its events; the guest's are dropped)
+    for (const ev of A.sim.events) {
+      if (ev.type === 'proc') mech.proc++;
+      else if (ev.type === 'attack' && ev.echo) mech.echo++;
+      else if (ev.type === 'tempo') mech.tempo++;
+    }
+    if (kage && carry0 != null && kage.projCarry < carry0) mech.carry++;
+    for (const c of clients) c.sim.events.length = 0;
   }
   for (let f = 0; f < 30; f++) {
     frame++;
@@ -886,6 +952,9 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
     state: A.sim.state,
     wave: A.sim.wave,
     towers: A.sim.towers.map((t) => `${t.def.id}:P${t.unitStats?.potential ?? 1}`).join(' '),
+    tiers: A.sim.towers.map((t) => t.tiers.join('')).join(' '),
+    // damage and rhythm count per girl (information: who fought)
+    dealt: A.sim.towers.map((t) => `${t.def.id}:${Math.round(t.damageDealt)}/${t.potCount || 0}`).join(' '),
     wallets: A.coop.wallets.join('/'),
     final: A.coop.hash(),
     hashes: bitsHash(pairs.map((p) => Number.parseInt(p.mine, 16) || 0)),
@@ -893,10 +962,16 @@ export function runPotentialBattle({ maxFrames = 60 * 60 * 14 } = {}) {
     agree: pairs.every((p) => p.mine === p.theirs) && A.coop.hash() === B.coop.hash(),
     ults,
     aoi,
+    mech,
     failed: refused.length,
     refused: refused.join(' '),
     ms: Date.now() - t0,
   };
+}
+
+/** POTENTIAL_BOSS_START to the end (Hotaru vs spectral, Kaede vs the Lych). */
+export function runPotentialBossBattle({ maxFrames = 60 * 60 * 20 } = {}) {
+  return runPotentialBattle({ start: POTENTIAL_BOSS_START, upgrades: POTENTIAL_BOSS_UPGRADES, spotsFirst: ['kaede', 'hotaru', 'rei', 'kage', 'akane'], maxFrames });
 }
 
 // ---------------------------------------------------------------------------
@@ -985,12 +1060,13 @@ export function runModeBattles() {
   return { battles, digest: bitsHash(battles.flatMap((b) => [Number.parseInt(b.final, 16) || 0, b.hashes.length ? Number.parseInt(String(b.hashes).slice(0, 8), 16) || 0 : 0, b.steps])), ms: Date.now() - t0 };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential, freeplay (scripted and deep), two heroes, drones and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
   const potential = runPotentialBattle();
   potential.ms = Date.now() - t1;
+  const potentialBoss = runPotentialBossBattle();
   const t0 = Date.now();
   const tables = freeplayTables();
   const battle = runFreeplayBattle();
@@ -998,5 +1074,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
+  return { ...r, potential, potentialBoss, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
 }
