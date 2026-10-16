@@ -89,6 +89,10 @@ tile), so even 0-0-0 reads in a crowd.
 Upgrades: T1–T2 add an accent (tint, trail, size) — two paths may have accents; T3 on the committed
 path switches on that path's look; T4 escalates; T5 adds a capstone flourish. Looks key on path
 **index** + tier and on the sim's effective stats (behaviour transforms), never on path names.
+Heroes (hero rework) have no paths: each track level remembers the old path tier it came from, so
+`heroLookTiers(def, level)` (`src/sim/hero.js`) gives her per-path tiers and `tierLook(…, { multi: true })`
+lets every path at T3+ show at once (a Lv 25 hero has all three capstones); hero intensity grows
++0.04 a level, capped at 1.6 like the girls'.
 
 | Girl | Sim | Signature | Path looks (T3+) |
 |---|---|---|---|

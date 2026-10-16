@@ -20,6 +20,7 @@ import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
 import { hitRadius } from '../../sim/towers.js';
+import { heroLookTiers } from '../../sim/hero.js';
 import { PROJECTILE_Z } from '../../sim/constants.js';
 
 const DEFAULT_HR = 0.36;
@@ -44,7 +45,7 @@ export function createAttackFx(o) {
   function ensureTw(t) {
     let tw = tws.get(t.uid);
     if (tw) return tw;
-    tw = twFree.pop() || { look: { accent: [0, 0, 0], look: -1, lookTier: 0, capstone: false } };
+    tw = twFree.pop() || { look: { accent: [0, 0, 0], look: -1, lookTier: 0, capstone: false, multi: false, tiers: [0, 0, 0] } };
     tw.uid = t.uid;
     tw.unitId = t.unitId;
     tw.style = resolveStyle(t);
@@ -73,7 +74,9 @@ export function createAttackFx(o) {
     if (key === tw.key && beh === tw.behavior) return;
     tw.key = key;
     tw.behavior = beh;
-    tierLook(t.tiers, tw.look);
+    // a hero's tiers stay [0,0,0]: her track level says which old path tiers she has reached
+    if (t.isHero) tierLook(heroLookTiers(t.def, t.level), tw.look, { multi: true });
+    else tierLook(t.tiers, tw.look);
     tw.intensity = intensity(t);
     tw.style.onUpgrade?.(tw, view(t), ctx);
   }
