@@ -10,9 +10,10 @@ import { h } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon } from '../../art/icons.js';
-import { ROLES } from '../../data/types.js';
+import { ROLES, BATTLE } from '../../data/types.js';
 import { rarityColor, applyUrFrame } from '../rarity.js';
 import { roundCost } from '../../sim/Sim.js';
+import { finalHolderLine, whereOnMap } from './rules.js';
 import { buildTreeModel, treeSignature, RULE_TEXT } from '../treeModel.js';
 import { upgradeGrid, tierDetail } from '../upgradeGrid.js';
 import { tagChips, tagLegend } from '../tagChips.js';
@@ -51,10 +52,18 @@ export function previewCostOf(sim, unitId) {
  * @param {{ uid?: number, unitId?: string }} target
  * @param {{ coop?: object|null }} [o]
  */
+/** A final-tier holder for the tree: her uid and "Aoi 5-0-2 · top left". */
+function holderInfo(sim, holder) {
+  if (!holder) return null;
+  return { uid: holder.uid, label: finalHolderLine(holder, whereOnMap(holder.x, holder.y, sim.map?.width, sim.map?.height)).replace(/^Held by /, '') };
+}
+
 export function treeArgs(sim, target, { coop = null } = {}) {
   const t = target.uid != null ? sim.getTower(target.uid) : null;
   if (t) {
     const ally = !!coop && !coop.isMine(t.uid);
+    // one final tier per path: the other copy (same girl, same player) holding each path's tier 5
+    const finals = t.isHero ? null : [0, 1, 2].map((p) => holderInfo(sim, sim.finalTierHolder?.(t.uid, p)));
     return {
       def: t.def,
       mode: ally ? 'ally' : 'live',
@@ -65,6 +74,7 @@ export function treeArgs(sim, target, { coop = null } = {}) {
       heroLevel: t.isHero ? t.level : null,
       passiveActive: !!t.unitStats?.awakenPassive,
       ownerName: ally ? coop.ownerName(t.uid) : null,
+      finals,
     };
   }
   const unitId = target.unitId ?? null;
@@ -79,6 +89,8 @@ export function treeArgs(sim, target, { coop = null } = {}) {
     cash: sim.cash,
     passiveActive: us ? !!us.awakenPassive : null,
     deployCost: sim.placeCost(unitId),
+    // a card not deployed yet: "held by your Aoi 5-0-2" before she is placed
+    finals: def.kind === 'hero' || !sim.finalTierHolders ? null : sim.finalTierHolders(unitId, coop?.mySlot ?? 0).map((uid) => holderInfo(sim, uid != null ? sim.getTower(uid) : null)),
   };
 }
 
@@ -212,7 +224,8 @@ export function createUpgradeTree(ctx) {
     if (s === sig) return;
     sig = s;
     model = next;
-    grid?.update(model);
+    if (isTrack()) renderTrack();
+    else grid?.update(model);
     renderHead();
     renderSide();
   }
@@ -224,10 +237,24 @@ export function createUpgradeTree(ctx) {
   const sheet = h('div.ut-sheet', head, h('div.ut-main', side, gridWrap));
   overlay.append(sheet);
 
+  /** A hero has no paths (hero rework): her tree is the battle track, levels reached marked. */
+  const isTrack = () => !!model?.hero && !model.rows.length;
+  function renderTrack() {
+    const hero = model.hero;
+    gridWrap.replaceChildren(
+      h('p.ut-rule', `One track, ${BATTLE.maxHeroLevel} levels: she earns them in battle, or buy the next one with battle coins.`),
+      h('ol.ut-levels.ut-track', { 'data-testid': 'ut-track' }, hero.levels.map((l) => h(`li${l.reached ? '.on' : ''}`, h('span.ut-lv-num', l.reached ? '✓' : String(l.level)), h('span.ut-lv-desc', l.desc), l.tags.length ? tagChips(l.tags, { size: 'xs' }) : null))));
+  }
+
   function render() {
     renderHead();
-    gridWrap.replaceChildren(h('p.ut-rule', RULE_TEXT), (grid = upgradeGrid(model, { unit: model && sim.data.unit(model.unitId), onPick })));
-    grid.select(null);
+    if (isTrack()) {
+      grid = null;
+      renderTrack();
+    } else {
+      gridWrap.replaceChildren(h('p.ut-rule', RULE_TEXT), (grid = upgradeGrid(model, { unit: model && sim.data.unit(model.unitId), onPick })));
+      grid.select(null);
+    }
     renderSide();
     gridWrap.scrollTop = 0;
     side.scrollTop = 0;
@@ -257,7 +284,7 @@ export function createUpgradeTree(ctx) {
     head.replaceChildren(
       art,
       h('div.ut-head-id',
-        h('div.ut-head-name', def.name, h('span.ut-head-tiers', model.mode === 'preview' ? 'not placed' : model.tiersLabel)),
+        h('div.ut-head-name', def.name, h('span.ut-head-tiers', model.mode === 'preview' ? 'not placed' : isTrack() ? `Lv ${model.hero.level ?? 1}` : model.tiersLabel)),
         h('div.ut-head-role', svgEl(roleIcon(def.role), 'ut-role-ico'), ROLES[def.role]?.name || def.role)),
       h('div.ut-head-chips',
         modeChip(),
@@ -285,6 +312,10 @@ export function createUpgradeTree(ctx) {
 
   function actionsFor(cell) {
     const out = [];
+    if (cell.holder && sim.getTower(cell.holder.uid)) {
+      // path cap: the copy holding this tier 5 — select her and pulse her ring
+      out.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-show-holder', onclick: () => showHolder(cell.holder.uid) }, 'Show her ›'));
+    }
     if (model.mode === 'live' && cell.state === 'next') {
       out.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-goto-panel', onclick: () => gotoPanel(cell.path) }, 'Upgrade in panel ›'));
     }
@@ -328,11 +359,11 @@ export function createUpgradeTree(ctx) {
       h('div.ut-side-name', h('b', def.name), h('span', def.title || '')),
     ];
     if (model.mode === 'preview') {
-      parts.push(h('div.ut-side-line', `Deploy · ${fmt(model.deployCost)} coins`));
+      parts.push(h('div.ut-side-line', model.deployCost > 0 ? `Deploy · ${fmt(model.deployCost)} coins` : 'Deploy · Free'));
       if (!(sim.heroConfig?.unitId === model.unitId && sim.hero)) parts.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-deploy-side', onclick: () => deploy() }, 'Deploy her ›'));
     }
     if (hero) {
-      parts.push(h('div.ut-side-line', hero.level != null ? `Hero Lv ${hero.level} / 10` : 'Hero · levels up in battle'));
+      parts.push(h('div.ut-side-line', hero.level != null ? `Hero Lv ${hero.level} / ${BATTLE.maxHeroLevel}` : 'Hero · levels up in battle'));
       parts.push(h('button.ut-ult', { type: 'button', 'data-testid': 'ut-ult', onclick: () => pick('ult') },
         h('span.ut-ult-badge', 'ULT'),
         h('span.ut-ult-text', h('b', hero.ult.name), tagChips(hero.ult.tags, { size: 'xs' }),
@@ -345,11 +376,11 @@ export function createUpgradeTree(ctx) {
         h('span.ut-passive-text', h('b', model.passive.name), tagChips(model.passive.tags, { size: 'xs' }),
           h('small', on == null ? model.passive.desc : on ? `Active · ${model.passive.desc}` : `Locked (awaken ★3) · ${model.passive.desc}`))));
     }
-    parts.push(h('p.ut-side-rule', RULE_TEXT));
+    if (!isTrack()) parts.push(h('p.ut-side-rule', RULE_TEXT));
     parts.push(tagLegend({ size: 'xs' }));
     parts.push(h('div.ut-side-acts',
       h('button.ut-act.ut-act-ghost', { type: 'button', 'data-testid': 'ut-her-info', onclick: () => openSheetFor(model.unitId, { allowFullPage: false }) }, 'Her info')));
-    parts.push(h('p.ut-side-hint', 'Tap a tier to see exactly what it does.'));
+    parts.push(h('p.ut-side-hint', isTrack() ? 'Tap ULT for her ultimate and its ranks.' : 'Tap a tier to see exactly what it does.'));
     return h('div.ut-card-panel', parts);
   }
 
@@ -369,6 +400,12 @@ export function createUpgradeTree(ctx) {
   // prices or affordability change, so the row asks decoratePathRow() (towerPanel hook) and a
   // rebuilt row picks the animation up where it was (negative delay) instead of losing it.
   let flash = null; // { uid, path, t0 }
+  function showHolder(uid) {
+    close();
+    ctx.select?.(uid);
+    ctx.renderer?.pulseTower?.(uid);
+  }
+
   function gotoPanel(path) {
     const uid = target.uid;
     close();

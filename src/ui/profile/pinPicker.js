@@ -18,7 +18,7 @@ export function openPinPicker({ pin: want = null } = {}) {
   let pins = p.sensei.pins.length ? [...p.sensei.pins] : [];
   let tab = 'medals';
   if (want && pinEarned(p, want)) {
-    tab = want.startsWith('ach:') ? 'achievements' : 'medals';
+    tab = want.startsWith('ach:') ? 'achievements' : want.endsWith(':perfect') || want.split(':').length === 3 ? 'ribbons' : 'medals';
     if (!pins.includes(want)) {
       if (pins.length < PINS_MAX) pins.push(want);
       else setTimeout(() => toast(`Up to ${PINS_MAX} pins: remove one to add it.`), 0);
@@ -53,7 +53,7 @@ export function openPinPicker({ pin: want = null } = {}) {
     tabs.replaceChildren(...TABS.map(([id, label]) => h(`button${tab === id ? '.on' : ''}`, { type: 'button', 'data-testid': `pin-tab-${id}`, onclick: () => { tab = id; shown = PAGE; draw(); } }, `${label} ${opts[id].length}`)));
     const items = opts[tab];
     if (!items.length) {
-      list.replaceChildren(h('p.pp-empty', tab === 'ribbons' ? 'Mode ribbons arrive with the Codex modes.' : tab === 'medals' ? 'Clear stages to earn medals.' : 'Claim achievements in Missions to pin them.'));
+      list.replaceChildren(h('p.pp-empty', tab === 'ribbons' ? 'Win a battle mode on a cleared stage to earn ribbons.' : tab === 'medals' ? 'Clear stages to earn medals.' : 'Claim achievements in Missions to pin them.'));
       return;
     }
     list.replaceChildren(...[...items.slice(0, shown).map((pin) => {

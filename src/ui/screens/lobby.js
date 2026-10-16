@@ -24,7 +24,7 @@ import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
-import { ensureBetaGift, unclaimedMailCount } from '../../systems/mail.js';
+import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
@@ -265,6 +265,7 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js) — also after a reset/import here —
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
+  if (ensurePotentialLetter(store.profile)) store.commit('mail');
   // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
   const betaGift = () => {
     if (!el.isConnected) return;

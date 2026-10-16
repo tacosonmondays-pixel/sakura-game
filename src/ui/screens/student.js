@@ -37,6 +37,9 @@ import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, i
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { resolveText } from '../../data/story/tokens.js';
+import { resolveStats } from '../../sim/mods.js';
+import { potentialLevel } from '../../systems/potential.js';
+import { potPill, potentialSection } from '../potential.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -122,10 +125,12 @@ export function describeMods(mods = {}) {
   }
   if (mods.turret) {
     const t = mods.turret;
-    if (t.max) out.push(`+${t.max} sentry`);
-    if (t.damage) out.push(`+${n1(t.damage)} sentry damage`);
-    if (t.range) out.push(`+${n1(t.range)} sentry range`);
-    if (t.rate && t.rate !== 1) out.push(`+${pctOf(t.rate)} sentry fire rate`);
+    if (t.max) out.push(`+${t.max} drone${t.max === 1 ? '' : 's'}`);
+    if (t.damage) out.push(`+${n1(t.damage)} drone damage`);
+    if (t.range) out.push(`+${n1(t.range)} drone range`);
+    if (t.rate && t.rate !== 1) out.push(`+${pctOf(t.rate)} drone fire rate`);
+    if (t.leash) out.push(`drones fly +${n1(t.leash)} tiles farther`);
+    if (t.speed) out.push(`+${n1(t.speed)} drone speed`);
   }
   if (mods.ramp) out.push(`Damage ramps +${Math.round((mods.ramp.per || 0) * 100)}% per hit on the same target (up to +${Math.round((mods.ramp.max || 0) * 100)}% more)`);
   if (mods.mark) out.push(`Marks targets: +${Math.round((mods.mark.bonus || 0) * 100)}% damage from everyone for ${n1(mods.mark.duration || 0)}s`);
@@ -172,26 +177,36 @@ export function effectivenessRow(attackType) {
 /** Base stats next to hers (`label`: 'yours' on your own save, 'theirs' on someone's build snapshot). */
 function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   const b = unit.base;
+  // Yours / theirs = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential
+  const y = resolveStats(unit, { unitStats: battle });
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
-  dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
-  // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
-  if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
-  rows.push(['Attack style', BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
-  if (b.damage) dual('Damage per hit', b.damage, b.damage * battle.damageMul);
-  if (b.rate) dual('Attacks / sec', b.rate, b.rate * battle.rateMul);
-  if (b.damage && b.rate) {
-    const hits = b.behavior === 'pulse' ? 1 : Math.max(1, b.projectiles || 1);
-    dual('Single-target DPS', b.damage * b.rate * hits, b.damage * b.rate * hits * battle.damageMul * battle.rateMul, (v) => n1(Math.round(v * 10) / 10));
+  if (unit.kind === 'hero') {
+    // heroes deploy for free; gear Cost Reduction discounts her battle level prices instead
+    rows.push(['Deploy cost', 'Free', null]);
+    if (owned && battle.costMul < 1) rows.push(['Level prices', `−${Math.round((1 - battle.costMul) * 100)}%`, null]);
+  } else {
+    dual('Deploy cost', b.cost, Math.round(b.cost * battle.costMul), (v) => formatNumber(v));
+    // gear Cost Reduction makes her upgrades cheaper in battle too (same discount)
+    if (owned && battle.costMul < 0.996) rows.push(['Upgrade costs', 'Full price', `${Math.round((1 - battle.costMul) * 100)}% cheaper`]);
   }
-  dual('Range (tiles)', b.range, b.range * battle.rangeMul);
+  rows.push(['Attack style', b.turret && b.behavior !== 'turret' ? `${BEHAVIOR_NAMES[b.behavior] || b.behavior} + Drones` : BEHAVIOR_NAMES[b.behavior] || b.behavior, null]);
+  if (b.damage) dual('Damage per hit', b.damage, y.damage);
+  if (b.rate) dual('Attacks / sec', b.rate, y.rate);
+  if (b.damage && b.rate) {
+    const hits = (beh) => (beh === 'pulse' ? 1 : null);
+    const bh = hits(b.behavior) ?? Math.max(1, b.projectiles || 1);
+    const yh = hits(y.behavior) ?? Math.max(1, y.projectiles || 1);
+    dual('Single-target DPS', b.damage * b.rate * bh, y.damage * y.rate * yh, (v) => n1(Math.round(v * 10) / 10));
+  }
+  dual('Range (tiles)', b.range, y.range);
   if (b.behavior === 'pulse') rows.push(['Targets per pulse', b.maxTargets >= 99 ? 'All in range' : String(b.maxTargets), null]);
   if (b.projectiles > 1) rows.push(['Projectiles', String(b.projectiles), null]);
   if (b.pierce > 1) rows.push(['Pierce', String(b.pierce), null]);
   if (b.splash) rows.push(['Splash radius', n1(b.splash), null]);
   if (b.chain) rows.push(['Chain jumps', String(b.chain), null]);
-  dual('Armor pierce', b.armorPen, b.armorPen + battle.armorPen);
-  dual('Crit chance', b.crit.chance, b.crit.chance + battle.critChance, (v) => formatPct(v));
+  dual('Armor pierce', b.armorPen, y.armorPen);
+  dual('Crit chance', b.crit.chance, y.crit.chance, (v) => formatPct(v));
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
@@ -199,17 +214,23 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);
   }
   if (b.trap) rows.push(['Traps', `up to ${b.trap.max}, ${n1(b.trap.damage)} damage each`, null]);
-  if (b.turret) rows.push(['Sentries', `up to ${b.turret.max}, ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s`, null]);
-  return h('table.stat-table.mb-stats',
-    owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', label[0].toUpperCase() + label.slice(1)))) : null,
-    h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null))));
+  if (b.turret) {
+    const fly = b.turret.leash > 0 ? ` · fly up to ${n1(b.turret.leash)} tiles · Hover, Hold, Patrol or Pursuit` : '';
+    rows.push([b.turret.leash > 0 ? 'Drones' : 'Sentries', `up to ${b.turret.max} · ${n1(b.turret.damage)} dmg × ${n1(b.turret.rate)}/s${fly}`, null]);
+  }
+  const who = label[0].toUpperCase() + label.slice(1);
+  return h('div',
+    h('table.stat-table.mb-stats',
+      owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', who))) : null,
+      h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null)))),
+    owned ? h('p.muted.mb-stats-note', `${who} = level, gear, awakening and Potential, before upgrades.`) : null);
 }
 
 // ---------------------------------------------------------------------------
 // Showcase (left column) — stays mounted while tabs change
 // ---------------------------------------------------------------------------
 
-function buildShowcase(unit, onCycle) {
+function buildShowcase(unit, onCycle, onPotential) {
   let viewer = null;
   let model = null;
   let disposed = false;
@@ -277,6 +298,7 @@ function buildShowcase(unit, onCycle) {
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
         stars(st?.awaken || 0, MAX_AWAKEN),
+        st ? potPill(potentialLevel(st), { tag: 'button', min: 1, testid: 'show-potential', title: `Potential ${potentialLevel(st)} of 6 — see her Info tab`, onClick: onPotential }) : null,
         st ? h('div.mb-show-power', svgEl(uiIcon('sword')), formatNumber(unitPower(store.profile, unit.id))) : null),
     );
   };
@@ -370,19 +392,38 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
+    potentialSection(unit, st),
   );
 }
 
 function heroSection(unit) {
   const hero = unit.hero;
+  const ranks = (hero.ult.ranks || []).map((r, i) => `Rank ${i + 2} at Lv ${r.level}`).join(' · ');
   return section('Hero',
     h('div.mb-ult',
       h('div.mb-ult-badge', 'ULT'),
-      h('div', h('b', hero.ult.name), h('div', hero.ult.desc), h('div.muted', `Unlocks at hero level ${hero.ult.unlockLevel} · cooldown ${hero.ult.cooldown}s`))),
-    h('div.mb-sub-title', 'In-battle levels'),
-    h('ol.mb-hero-levels', hero.levels.map((l) => h('li', h('span.mb-hl-num', String(l.level)), h('span', l.desc)))),
-    h('p.muted', 'Heroes level up inside each battle from damage dealt and waves cleared (max 10). Only one hero per battle.'));
+      h('div', h('b', hero.ult.name), h('div', hero.ult.desc),
+        h('div.muted', `Unlocks at hero level ${hero.ult.unlockLevel} · cooldown ${hero.ult.cooldown}s${ranks ? ` · ${ranks}` : ''}`),
+        (hero.ult.ranks || []).map((r) => h('div.muted', r.desc)))),
+    h('div.mb-sub-title', 'Battle levels (1–25)'),
+    h('ol.mb-hero-levels', { 'data-testid': 'hero-track-list' }, hero.levels.map((l) => h('li', h('span.mb-hl-num', String(l.level)),
+      h('span', l.desc, l.from && l.from !== 'base' ? h('small.mb-hl-from', ` ${heroSourceText(unit, l.from)}`) : null)))),
+    h('p.muted', 'Heroes deploy for free and level up inside each battle — from time in the wave, waves cleared and the damage they deal. Buy the next level with battle coins any time. One hero per player.'));
 }
+
+/** "from Radiant Edge T3" / "from the old Lv 5 milestone" for a track level. */
+function heroSourceText(unit, from) {
+  if (/^L\d+$/.test(from)) return `· from the old Lv ${from.slice(1)} milestone`;
+  const [key, tier] = from.split('.');
+  return `· from ${HERO_PATH_NAMES[unit.id]?.[key] || key} T${tier}`;
+}
+
+/** Names of the old hero upgrade paths (their tiers live on in the battle levels). */
+const HERO_PATH_NAMES = {
+  hikari: { radiant: 'Radiant Edge', sanctuary: 'Sanctuary', lightbringer: 'Lightbringer' },
+  luna: { lances: 'Lunar Lances', gravity: 'Night Gravity', court: 'Astral Court' },
+  nami: { frostbrand: 'Frostbrand', undertow: 'Undertow', harbor: 'Harbor Watch' },
+};
 
 function levelTab(unit, ctx) {
   const profile = store.profile;
@@ -723,6 +764,12 @@ function gearTab(unit, ctx) {
 // ----- Tree ----------------------------------------------------------------
 
 export function treeTab(unit) {
+  // heroes have no upgrade paths: their tree is the 25-level battle track
+  if (unit.kind === 'hero') {
+    return h('div.mb-tab-body',
+      section('One track, 25 levels', h('p.muted', 'Every old upgrade tier and level milestone is one battle level now. She earns them during the battle, or you buy the next level with battle coins. At Lv 25 she has all three capstones at once.')),
+      heroSection(unit));
+  }
   const cols = unit.paths.map((p, pi) => h(`div.mb-path.p${pi}`,
     h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus), pathSummaryChips(unit, pi, { size: 'sm' })),
     p.tiers.map((t, ti) => {
@@ -747,7 +794,7 @@ export function treeTab(unit) {
   }, { passive: true });
   return h('div.mb-tab-body',
     section('How upgrades combine',
-      h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone.'),
+      h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone, and only one copy of her can hold each path\'s tier 5.'),
       tagLegend({ size: 'sm' }),
       crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
     switcher,
@@ -773,7 +820,18 @@ export function render(root, params = {}) {
     navigate('student', { id: next.id, tab }, { replace: true });
   };
 
-  const showcase = buildShowcase(unit, cycle);
+  // the showcase's P pill: the Info tab (never locked), scrolled to the Potential section
+  const focusPotential = () => requestAnimationFrame(() => tabHost.querySelector('#potential')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
+  const goPotential = () => {
+    history.replaceState(history.state, '', `#/student/${unit.id}?tab=info&focus=potential`);
+    if (tab !== 'info') {
+      tab = 'info';
+      renderTabs();
+      renderTab(true);
+    }
+    focusPotential();
+  };
+  const showcase = buildShowcase(unit, cycle, goPotential);
   const tabBar = h('nav.mb-tabs.mb-detail-tabs');
   const tabHost = h('div.mb-tab-host');
   const ctx = {
@@ -824,6 +882,7 @@ export function render(root, params = {}) {
   body.appendChild(h('div.mb-detail', showcase.el, h('div.mb-detail-right', tabBar, tabHost)));
   renderTabs();
   renderTab(true);
+  if (params.focus === 'potential' && tab === 'info') focusPotential();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') { showcase.refresh(); renderTab(false); } });
   return () => { off(); showcase.dispose(); };
 }

@@ -83,6 +83,38 @@ unlocked by earlier stages — `tests/data/world.test.js` enforces this ("free-c
 with detection before any veiled enemy, anti-air before any airborne enemy and a water girl
 before chapter 2.
 
+## Map rules and battle modes (docs/specs/CODEX_MODES.md)
+
+Every campaign stage from 1-4 on has one **map rule**, always on (every mode, difficulty, co-op and past the
+goal, where only its combat effects remain). Cycled rules restart with every wave and open resting.
+
+| Ch | Stage → rule |
+|---|---|
+| 1 | 1-1, 1-2, 1-3 none · 1-4 Petal Sanctuary · 1-5 Firefly Chorus |
+| 2 | 2-1 Changing Tides · 2-2 Firefly Chorus · 2-3 Changing Tides · 2-4 Supply Ship · 2-5 Changing Tides |
+| 3 | 3-1 Moonlit Blessing · 3-2 Moonlit Blessing · 3-3 Lunar Eclipse · 3-4 Moonlit Blessing · 3-5 Lunar Eclipse |
+| 4 | 4-1 Snowbell Blizzard · 4-2 Rear Ambush · 4-3 Supply Ship · 4-4 Tailwind · 4-5 Snowbell Blizzard |
+| 5 | 5-1 Alchemist's Mist · 5-2 Changing Tides · 5-3 Firefly Chorus · 5-4 Alchemist's Mist · 5-5 Lunar Eclipse |
+| 6 | 6-1 Prism Conduits (3 pads) · 6-2 Heat Mirage · 6-3 Forge Vents (5.5, 4.25) · 6-4 Forge Vents (9.5, 6.25) · 6-5 Prism Conduits (3 pads) |
+| 7 | 7-1 Festival Encore · 7-2 Rear Ambush · 7-3 Moonlit Blessing · 7-4 Lunar Eclipse · 7-5 Festival Encore |
+| 8 | 8-1 Tailwind · 8-2 Snowbell Blizzard · 8-3 Heat Mirage · 8-4 Shifting Stars · 8-5 Tailwind |
+
+**Battle modes** (picked next to the difficulty once a stage is cleared once): Standard, Reverse Route, Goblin Rush
+(×1.3 speed, ×0.7 spacing), Ironclad (+armor by chapter: Easy/Normal 3·3·1·3·3·6·6·6, Hard/Nightmare 2·2·1·2·2·4·4·4,
+bosses ×2), Half Income (×0.5 income), Last Petal (1 heart, no healing). Mode wins earn ribbons (20 per stage); only
+Standard wins earn medals, and a mode win's drops are capped at your best Standard medal on the stage.
+
+Measured as shipped (mode + rule), balance bot at the expected level, wins out of 40 (mean hearts on wins),
+`BALANCE=modes`:
+
+| | Standard | Reverse | Rush | Ironclad | Half Income | Last Petal |
+|---|---|---|---|---|---|---|
+| Easy | 40 (96 %) | 39 (95 %) | 39 (93 %) | 39 (91 %) | 39 (91 %) | 16 |
+| Normal | 39 (89 %) | 38 (91 %) | 38 (80 %) | 39 (73 %) | 37 (79 %) | 12 |
+| Hard | 31 (69 %) | 29 (70 %) | 21 (54 %) | 22 (53 %) | 13 (60 %) | 3 |
+
+Rules off → on (Standard, `BALANCE=rules`): the only win/loss flip is 2-2 Hard L18 → W20; the Easy gate stays 40/40.
+
 ## Track notes (Tracks v3)
 
 The owner's feedback on the V2 maps was "the maps themselves look nice but the tracks are linear
@@ -169,7 +201,7 @@ Ashwing 70). Rewards are bounty tokens and coins; the UI records the best wave p
 ## Balance notes
 
 * Bounty ≈ 1 coin per 10 *effective* HP in the chapter where an enemy debuts (late monsters carry
-  more loot), so the economy keeps pace with `hpScale` the way Bloons pays $1 per RBE. The green
+  more loot), so the economy keeps pace with `hpScale` the way a bounty-per-HP economy does. The green
   slime keeps the §5b anchor (14 HP, 1 coin).
 * Wave budgets are tuned with the sim's `autoPlan` bot using free units only and modest expected
   levels per chapter. The bot spreads its coins over many low-tier girls, so it is a

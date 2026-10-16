@@ -1,0 +1,7 @@
+{"test":"freeplay","stageId":"1-3","tier":"blossom","noChika":112,"pursuit":121,"pursuitLeak":115,"pursuitShare":59,"pursuitChikas":39}
+{"test":"freeplay","stageId":"8-5","tier":"blossom","noChika":116,"pursuit":110,"pursuitLeak":100,"pursuitShare":53,"pursuitChikas":60}
+
+| Stage | Tier | no Chika | pursuit: dies at (first leak, Chika share) |
+|---|---|---|---|
+| 1-3 | blossom | 112 | 121 (115, 59%) |
+| 8-5 | blossom | 116 | 110 (100, 53%) |

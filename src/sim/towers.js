@@ -7,12 +7,15 @@
 import { ATTACK_TYPES, ELEMENTS } from '../data/types.js';
 import {
   TIER_RANK, CHAIN_JUMP_RANGE, BEAM_HALF_WIDTH, LINE_HALF_WIDTH, TURRET_PROJECTILE_SPEED, TURRET_RING,
-  PROJECTILE_Z,
+  PROJECTILE_Z, STEP, DRONE_SLOTS, DRONE_STANDOFF, DRONE_RETHINK_STEPS, DRONE_IDLE_STEPS, DRONE_OPP_STEPS,
+  DRONE_POOL_STEPS, FLIGHT_MODES, FLIGHT_SIGNAL_MUL, FLIGHT_POINT_ROAM_MUL, FLIGHT_PATROL_SPEED_MUL, FLIGHT_PURSUIT_RATE_MUL,
 } from './constants.js';
 import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath } from './path.js';
+import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
+import { ruleRangeFor } from './rules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -36,7 +39,7 @@ export function hitRadius(e) {
 }
 
 function emptyBuff() {
-  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false };
+  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0 };
 }
 
 /**
@@ -59,6 +62,15 @@ export function createTower(def, o) {
     ty: Math.floor(y),
     radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
+    owner: o.owner ?? 0, // player index (co-op; set by the 'place' command); 0 solo
+    // buffs (src/sim/buffs.js): aura winner uid per key, the girl her brew / link should pick first (-1 auto),
+    // what her own limited buff is doing, the brew / link she holds, her DPS over the last DPS_WINDOW s
+    buffBy: emptyBuffBy(),
+    buffPick: -1,
+    lim: null,
+    limIn: null,
+    recentDps: 0,
+    _dmgMark: 0,
     tiers: [0, 0, 0],
     targetMode: def.role === 'sniper' ? 'elite' : 'first',
     targetUid: null,
@@ -72,6 +84,13 @@ export function createTower(def, o) {
     damageDealt: 0,
     spent: o.cost || 0,
     turrets: [],
+    // roaming drones: totals of every drone's hits (her own = damageDealt − droneDmg), the drone
+    // numbering, and the wing's flight mode (null = Hover; setFlight / the co-op `fly` command)
+    droneDmg: 0,
+    droneKills: 0,
+    droneShots: 0,
+    droneSerial: 0,
+    flight: null,
     // internals
     unitStats: o.unitStats,
     stats: null,
@@ -85,6 +104,11 @@ export function createTower(def, o) {
     rampTarget: null,
     rampStacks: 0,
     buildTimer: 0,
+    // drone target pool (top candidates, reused for a few steps)
+    _pool: null,
+    _poolS: null,
+    _poolLeft: 0,
+    _poolMode: null,
     projKind: 'arrow',
     ultUnlocked: false,
     ultCooldown: 0,
@@ -95,7 +119,7 @@ export function createTower(def, o) {
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
 export function refreshTowerStats(t, globalRateMul = 1) {
-  t.stats = resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats });
+  t.stats = resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
   t.projKind = projectileKind(t.def, t.stats);
   refreshEffective(t, globalRateMul);
 }
@@ -127,11 +151,15 @@ export function refreshEffective(t, globalRateMul = 1) {
   const s = t.stats;
   const b = t.buff;
   const detection = s.detection || b.detection;
+  // map rule range (blizzard, heat haze, crystal pad): set by recomputeBuffs, absent without a rule
+  const envMul = t.envRangeMul ?? 1;
+  const envAdd = t.envRangeAdd ?? 0;
+  const env = envMul !== 1 || envAdd !== 0;
   t.eff = {
     ...s,
     damage: s.damage * b.dmgMul,
     rate: s.rate * b.rateMul * globalRateMul,
-    range: s.range * b.rangeMul,
+    range: env ? Math.max(1, (s.range + envAdd) * envMul) * b.rangeMul : s.range * b.rangeMul,
     detection,
     critChance: s.crit.chance,
     critMul: s.crit.mul,
@@ -152,7 +180,16 @@ export function refreshEffective(t, globalRateMul = 1) {
   t.turretSpec = s.turret ? hitSpecFrom(s, {
     damage: s.turret.damage * b.dmgMul,
     rate: s.turret.rate * b.rateMul * globalRateMul,
-    range: s.turret.range * b.rangeMul,
+    // map rules (landing plan S4): a roaming wing (leash > 0) takes the rule's additive range once, on
+    // its roam radius, and its guns only the multiplier; anchored turrets use the girl's range formula
+    range: s.turret.leash > 0
+      ? (env ? s.turret.range * envMul * b.rangeMul : s.turret.range * b.rangeMul)
+      : env ? Math.max(1, (s.turret.range + envAdd) * envMul) * b.rangeMul : s.turret.range * b.rangeMul,
+    // roaming drones: roam radius, flight speed and seconds per drone, after buffs (build speed
+    // follows attack-speed buffs, as it did when it rode on her attack rate)
+    leash: s.turret.leash > 0 ? Math.max(1, env ? (s.turret.leash + envAdd) * envMul : s.turret.leash) * b.rangeMul : 0,
+    speed: s.turret.speed,
+    build: s.turret.build > 0 ? s.turret.build / Math.max(0.05, b.rateMul * globalRateMul) : 0,
     attackType: s.turret.attackType || s.attackType,
     detection,
     canHitAir: true,
@@ -161,6 +198,7 @@ export function refreshEffective(t, globalRateMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  applyBuffExtras(t, b);
 }
 
 function mergeLists(a, b) {
@@ -180,23 +218,43 @@ export function recomputeBuffs(sim) {
   let changed = false;
   for (const t of towers) {
     const nb = emptyBuff();
+    // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
+    // girl placed first
+    const by = t.buffBy || (t.buffBy = emptyBuffBy());
+    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = -1;
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
       const au = a.stats.aura;
       const dx = a.x - t.x;
       const dy = a.y - t.y;
       if (dx * dx + dy * dy > au.range * au.range) continue;
-      nb.dmgMul = Math.max(nb.dmgMul, au.dmgMul);
-      nb.rateMul = Math.max(nb.rateMul, au.rateMul);
-      nb.rangeMul = Math.max(nb.rangeMul, au.rangeMul);
-      nb.detection = nb.detection || au.detection;
-      nb.costCut = Math.max(nb.costCut, au.costCut);
-      nb.cleanse = nb.cleanse || au.cleanse;
+      if (au.dmgMul > nb.dmgMul) { nb.dmgMul = au.dmgMul; by.dmg = a.uid; }
+      if (au.rateMul > nb.rateMul) { nb.rateMul = au.rateMul; by.rate = a.uid; }
+      if (au.rangeMul > nb.rangeMul) { nb.rangeMul = au.rangeMul; by.range = a.uid; }
+      if (au.detection && !nb.detection) { nb.detection = true; by.det = a.uid; }
+      if (au.costCut > nb.costCut) { nb.costCut = au.costCut; by.cost = a.uid; }
+      if (au.cleanse && !nb.cleanse) { nb.cleanse = true; by.cleanse = a.uid; }
+      if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
+      if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
+    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras
+    applyLimited(sim, t, nb);
     if (nb.cleanse && t.disabled > 0) t.disabled = 0;
     const ob = t.buff;
-    const differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
-      || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse;
+    let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
+      || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
+    if (sim.rule) {
+      // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
+      const env = ruleRangeFor(sim, t);
+      const mul = env ? env.mul : 1;
+      const add = env ? env.add : 0;
+      if (mul !== (t.envRangeMul ?? 1) || add !== (t.envRangeAdd ?? 0)) {
+        t.envRangeMul = mul;
+        t.envRangeAdd = add;
+        differs = true;
+      }
+    }
     if (differs || t._globalRate !== sim.globalRateMul) {
       t.buff = nb;
       t._globalRate = sim.globalRateMul;
@@ -204,7 +262,7 @@ export function recomputeBuffs(sim) {
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || sim.globalRateMul > 1;
+      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
   }
   return changed;
 }
@@ -288,6 +346,37 @@ export function selectTargets(sim, x, y, range, spec, mode, n) {
   return arr;
 }
 
+/**
+ * The best `k` eligible enemies within `reach` of (x, y) (Infinity = the whole map), best first,
+ * written into `out` with their scores in `outS`: exactly what a stable sort + truncate of
+ * gatherTargets gives (selectTargets), in O(N·k) and without allocating.
+ */
+export function topTargets(sim, x, y, reach, spec, mode, k, out, outS) {
+  out.length = 0;
+  outS.length = 0;
+  const c = gatherTargets(sim, x, y, reach, spec, sim._scratch);
+  for (let i = 0; i < c.length; i++) {
+    const e = c[i];
+    const sc = targetScore(mode, x, y, e);
+    let j = out.length;
+    if (j < k) {
+      out.push(e);
+      outS.push(sc);
+    } else if (sc > outS[k - 1]) j = k - 1;
+    else continue;
+    // shift down past every entry scoring < sc (stable: an earlier candidate wins a tie)
+    while (j > 0 && outS[j - 1] < sc) {
+      out[j] = out[j - 1];
+      outS[j] = outS[j - 1];
+      j--;
+    }
+    out[j] = e;
+    outS[j] = sc;
+  }
+  c.length = 0;
+  return out;
+}
+
 function face(t, e) {
   t.facing = Math.atan2(e.x - t.x, e.y - t.y);
   t.targetUid = e.uid;
@@ -338,6 +427,8 @@ function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
     turretUid: opts.turretUid ?? null,
     // internals
     owner: t,
+    drone: opts.drone ?? null, // the roaming drone that fired it (per-drone credit)
+    guided: !!opts.guided, // hits only its own target; fizzles when that target is gone
     spec,
     target,
     tx: target.x,
@@ -548,10 +639,69 @@ function placeTrap(sim, t) {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Drones. Anchored turrets (turret.leash 0: the test engineer) sit on a ring around their girl
+// and shoot from there. Roaming drones (leash > 0: Chika) fly in the sim: each one hunts its own
+// quarry inside the wing's roam area, follows it and shoots it with guided bullets. Where the
+// wing roams is the girl's flight mode (setFlight, the co-op `fly` command):
+//   hover   (default) within `leash` of her
+//   hold    within leash × FLIGHT_POINT_ROAM_MUL of a point inside her signal range
+//   patrol  the same, around a position travelling between two points
+//   pursuit anywhere on the map, chasing her target mode's best enemies
+// No rng, no per-drone timers (schedules come from the step number), only + − × ÷ and sqrt in
+// the flight maths, so every JS engine flies them the same (atan2 only sets the facing).
+// docs/specs/CHIKA_REWORK.md §3 and §16 (flight modes).
+// ---------------------------------------------------------------------------
+
+/** One factory for roaming drones: building, battle-save restore and tests use it. */
+export function makeDrone(t, uid, n, slot, born = 0) {
+  const s = DRONE_SLOTS[slot % DRONE_SLOTS.length];
+  const ring = TURRET_RING * (1 + 0.5 * Math.floor(slot / DRONE_SLOTS.length));
+  const hx = s[0] * ring;
+  const hy = s[1] * ring;
+  const x = t.x + hx;
+  const y = t.y + hy;
+  return {
+    uid, n, slot, x, y, px: x, py: y, hx, hy, facing: 0, cooldown: 0.3,
+    jam: 0, // seconds left jammed by a sapper
+    tgt: null, targetUid: null, moving: false,
+    dmg: 0, kills: 0, shots: 0, born, // per-drone stats (born = the wave it was built in)
+  };
+}
+
+/**
+ * A drone from a battle-save row [uid, x, y, facing, cooldown, n?, slot?, dmg?, kills?, shots?,
+ * born?, jam?] (old 5-field rows: counters 0, numbered by position).
+ */
+export function restoreDrone(t, row, i) {
+  const [uid, x, y, facing, cooldown, n, slot, dmg, kills, shots, born, jam] = row;
+  const d = makeDrone(t, uid, n ?? i + 1, slot ?? i, born ?? 0);
+  d.x = d.px = x;
+  d.y = d.py = y;
+  d.facing = facing ?? 0;
+  d.cooldown = cooldown ?? 0;
+  d.dmg = dmg ?? 0;
+  d.kills = kills ?? 0;
+  d.shots = shots ?? 0;
+  d.jam = jam ?? 0;
+  return d;
+}
+
+/** Does this girl fly roaming drones (Chika)? */
+export function hasRoamingDrones(t) {
+  return !!t.turretSpec && t.turretSpec.leash > 0;
+}
+
 function spawnTurret(sim, t) {
   const n = t.turrets.length;
-  const ang = n * 2.39996 + 0.6;
-  const tu = { uid: sim._nextUid(), x: t.x + Math.sin(ang) * TURRET_RING, y: t.y + Math.cos(ang) * TURRET_RING, facing: ang, cooldown: 0.3 };
+  let tu;
+  if (hasRoamingDrones(t)) {
+    t.droneSerial++;
+    tu = makeDrone(t, sim._nextUid(), t.droneSerial, n, sim.wave);
+  } else {
+    const ang = n * 2.39996 + 0.6;
+    tu = { uid: sim._nextUid(), x: t.x + Math.sin(ang) * TURRET_RING, y: t.y + Math.cos(ang) * TURRET_RING, facing: ang, cooldown: 0.3 };
+  }
   t.turrets.push(tu);
   sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'build', turretUid: tu.uid });
   return true;
@@ -577,6 +727,10 @@ const BEHAVIORS = {
 function updateTurrets(sim, t, dt) {
   const spec = t.turretSpec;
   if (!spec || !t.turrets.length) return;
+  if (spec.leash > 0) {
+    updateRoamingDrones(sim, t, spec, dt);
+    return;
+  }
   for (const tu of t.turrets) {
     if (tu.cooldown > 0) tu.cooldown -= dt;
     if (tu.cooldown > 0) continue;
@@ -594,9 +748,324 @@ function updateTurrets(sim, t, dt) {
   }
 }
 
+// --- flight modes ----------------------------------------------------------
+
+/** A girl's flight mode ('hover' when none was set). */
+export function flightMode(t) {
+  return t.flight ? t.flight.mode : 'hover';
+}
+
+/** How far from her Hold / Patrol points may be (her signal range, tiles). */
+export function signalRange(t) {
+  return hasRoamingDrones(t) ? t.turretSpec.leash * FLIGHT_SIGNAL_MUL : 0;
+}
+
+/** (x, y) pulled inside her signal range and the map, into out[0..1]. */
+function clampPoint(sim, t, x, y, out) {
+  const sig = signalRange(t);
+  let dx = x - t.x;
+  let dy = y - t.y;
+  const d2 = dx * dx + dy * dy;
+  if (d2 > sig * sig) {
+    const k = sig / Math.sqrt(d2);
+    dx *= k;
+    dy *= k;
+  }
+  const w = sim.map.width || 20;
+  const h = sim.map.height || 12;
+  out[0] = Math.min(w, Math.max(0, t.x + dx));
+  out[1] = Math.min(h, Math.max(0, t.y + dy));
+  return out;
+}
+
 /**
- * Towers that own drones but attack with another behavior (e.g. after a tier-4
- * transformation) keep building drones on their own timer (1 / base rate seconds).
+ * Sets a girl's flight mode. Hold uses (ax, ay); Patrol flies between (ax, ay) and (bx, by);
+ * points are pulled inside her signal range. Hover and Pursuit keep the points last set (so
+ * switching back to Hold returns to the same spot). @returns {boolean}
+ */
+export function setFlight(sim, t, mode, ax, ay, bx, by) {
+  if (!t || !hasRoamingDrones(t) || !FLIGHT_MODES.includes(mode)) return false;
+  const pts = mode === 'hold' || mode === 'patrol';
+  if (pts && !(Number.isFinite(ax) && Number.isFinite(ay))) return false;
+  if (mode === 'patrol' && !(Number.isFinite(bx) && Number.isFinite(by))) return false;
+  const fl = t.flight || (t.flight = { mode: 'hover', ax: t.x, ay: t.y, bx: t.x, by: t.y, cx: t.x, cy: t.y, leg: 1 });
+  const p = [0, 0];
+  if (pts) {
+    clampPoint(sim, t, ax, ay, p);
+    fl.ax = p[0];
+    fl.ay = p[1];
+    if (mode === 'patrol') {
+      clampPoint(sim, t, bx, by, p);
+      fl.bx = p[0];
+      fl.by = p[1];
+    } else {
+      fl.bx = fl.ax;
+      fl.by = fl.ay;
+    }
+    // the wing's centre jumps to the (first) point; the drones themselves fly there at their speed
+    fl.cx = fl.ax;
+    fl.cy = fl.ay;
+    fl.leg = 1;
+  }
+  fl.mode = mode;
+  t._poolLeft = 0;
+  for (const d of t.turrets) {
+    d.tgt = null;
+    d.targetUid = null;
+  }
+  return true;
+}
+
+// Per step: where the wing is (centre), how far drones may roam from it (L) and how far they
+// look for quarries (reach), for one girl. Reused scratch (the sim is single-threaded).
+const FRAME = { cx: 0, cy: 0, L: 0, reach: 0, hx: 0, hy: 0 };
+const PT = [0, 0];
+
+function wingFrame(sim, t, spec, dt) {
+  const f = FRAME;
+  const fl = t.flight;
+  const mode = fl ? fl.mode : 'hover';
+  if (mode === 'hold' || mode === 'patrol') {
+    if (mode === 'patrol') {
+      // the patrol position travels A → B → A …, kept inside the (possibly shrunk) signal range
+      const a = clampPoint(sim, t, fl.ax, fl.ay, PT);
+      const ax = a[0];
+      const ay = a[1];
+      const b = clampPoint(sim, t, fl.bx, fl.by, PT);
+      const tx = fl.leg ? b[0] : ax;
+      const ty = fl.leg ? b[1] : ay;
+      const dx = tx - fl.cx;
+      const dy = ty - fl.cy;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const stepLen = spec.speed * FLIGHT_PATROL_SPEED_MUL * dt;
+      if (d <= stepLen) {
+        fl.cx = tx;
+        fl.cy = ty;
+        fl.leg = fl.leg ? 0 : 1;
+      } else {
+        fl.cx += (dx / d) * stepLen;
+        fl.cy += (dy / d) * stepLen;
+      }
+      f.cx = fl.cx;
+      f.cy = fl.cy;
+    } else {
+      clampPoint(sim, t, fl.ax, fl.ay, PT);
+      f.cx = PT[0];
+      f.cy = PT[1];
+    }
+    f.L = spec.leash * FLIGHT_POINT_ROAM_MUL;
+    f.reach = f.L + spec.range;
+  } else if (mode === 'pursuit') {
+    f.cx = t.x;
+    f.cy = t.y;
+    f.L = Infinity;
+    f.reach = Infinity;
+  } else {
+    f.cx = t.x;
+    f.cy = t.y;
+    f.L = spec.leash;
+    f.reach = f.L + spec.range;
+  }
+  return f;
+}
+
+function validQuarry(e, spec, f) {
+  if (e.dead || !isEligible(e, spec)) return false;
+  if (f.reach === Infinity) return true;
+  const dx = e.x - f.cx;
+  const dy = e.y - f.cy;
+  return dx * dx + dy * dy <= f.reach * f.reach;
+}
+
+/** The girl's target pool for this step: computed at most once per step, reused up to DRONE_POOL_STEPS. */
+function dronePool(sim, t, spec, f, st) {
+  if (st.fresh) return t._pool;
+  const pool = t._pool;
+  if (t._poolLeft > 0 && t._poolMode === t.targetMode) {
+    for (let i = 0; i < pool.length; i++) if (validQuarry(pool[i], spec, f)) return pool;
+  }
+  topTargets(sim, f.cx, f.cy, f.reach, spec, t.targetMode, t.turrets.length + 2, pool, t._poolS);
+  t._poolLeft = DRONE_POOL_STEPS;
+  t._poolMode = t.targetMode;
+  st.fresh = true;
+  return pool;
+}
+
+const POOL_STATE = { fresh: false };
+
+function pickQuarry(sim, t, d, spec, f, focus) {
+  const pool = dronePool(sim, t, spec, f, POOL_STATE);
+  if (focus) {
+    // the wing focuses: everyone on the pool's best valid enemy
+    for (let i = 0; i < pool.length; i++) if (validQuarry(pool[i], spec, f)) return pool[i];
+    return null;
+  }
+  // the wing spreads: keep a quarry still among the first max(2, n) valid entries, else take the
+  // valid entry with the fewest siblings on it (ties: nearest to this drone for First / Close,
+  // better rank otherwise)
+  const keepN = Math.max(2, t.turrets.length);
+  let seen = 0;
+  for (let i = 0; i < pool.length && seen < keepN; i++) {
+    if (!validQuarry(pool[i], spec, f)) continue;
+    if (pool[i] === d.tgt) return d.tgt;
+    seen++;
+  }
+  const near = t.targetMode === 'first' || t.targetMode === 'close';
+  let best = null;
+  let bestN = Infinity;
+  let bestD = Infinity;
+  for (let i = 0; i < pool.length; i++) {
+    const e = pool[i];
+    if (!validQuarry(e, spec, f)) continue;
+    let n = 0;
+    for (const o of t.turrets) if (o !== d && o.tgt === e) n++;
+    let dd = 0;
+    if (near) {
+      const dx = e.x - d.x;
+      const dy = e.y - d.y;
+      dd = dx * dx + dy * dy;
+    }
+    if (n < bestN || (n === bestN && near && dd < bestD)) {
+      best = e;
+      bestN = n;
+      bestD = dd;
+    }
+  }
+  return best;
+}
+
+/** Closest eligible enemy within the gun's range of a drone (a target of opportunity). */
+function opportunity(sim, d, spec) {
+  const c = gatherTargets(sim, d.x, d.y, spec.range, spec, sim._scratch);
+  let best = null;
+  let bestD = Infinity;
+  for (let i = 0; i < c.length; i++) {
+    const dx = c[i].x - d.x;
+    const dy = c[i].y - d.y;
+    const dd = dx * dx + dy * dy;
+    if (dd < bestD) {
+      bestD = dd;
+      best = c[i];
+    }
+  }
+  c.length = 0;
+  return best;
+}
+
+function updateRoamingDrones(sim, t, spec, dt) {
+  if (!t._pool) {
+    t._pool = [];
+    t._poolS = [];
+  }
+  if (t._poolLeft > 0) t._poolLeft--;
+  POOL_STATE.fresh = false;
+  const f = wingFrame(sim, t, spec, dt);
+  const tick = Math.round(sim.time / STEP);
+  const focus = t.targetMode === 'strong' || t.targetMode === 'elite';
+  const R = spec.range;
+  const L = f.L;
+  const standoff = R * DRONE_STANDOFF;
+  const moveLen = spec.speed * dt;
+  const anyEnemy = sim.enemies.length > 0;
+  const reload = 1 / Math.max(0.05, spec.rate * (f.L === Infinity ? FLIGHT_PURSUIT_RATE_MUL : 1));
+  for (const d of t.turrets) {
+    d.px = d.x;
+    d.py = d.y;
+    if (d.cooldown > 0) d.cooldown -= dt;
+    if (d.jam > 0) {
+      d.jam = Math.max(0, d.jam - dt);
+      d.tgt = null;
+      d.targetUid = null;
+      d.moving = false;
+      continue;
+    }
+    // 1. drop a quarry that died, turned ineligible or left the wing's reach
+    let q = d.tgt;
+    if (q && (!anyEnemy || !validQuarry(q, spec, f))) q = null;
+    const lost = !q && !!d.tgt;
+    // 2. look for a quarry on this drone's own schedule
+    if (!lost && anyEnemy) {
+      const look = q
+        ? (tick + 7 * d.slot) % DRONE_RETHINK_STEPS === 0
+        : (tick + d.slot) % DRONE_IDLE_STEPS === 0;
+      if (look) q = pickQuarry(sim, t, d, spec, f, focus);
+    }
+    d.tgt = q;
+    d.targetUid = q ? q.uid : null;
+    // 3. where to be
+    let gx;
+    let gy;
+    let ox = d.x - f.cx;
+    let oy = d.y - f.cy;
+    const od2 = ox * ox + oy * oy;
+    if (od2 > L * L + 1e-9) {
+      // outside the roam area (it moved or shrank): straight back to its edge first
+      const k = L / Math.sqrt(od2);
+      gx = f.cx + ox * k;
+      gy = f.cy + oy * k;
+    } else if (q) {
+      const dx = d.x - q.x;
+      const dy = d.y - q.y;
+      const dq = Math.sqrt(dx * dx + dy * dy);
+      if (dq > standoff) {
+        gx = q.x + (dx / dq) * standoff;
+        gy = q.y + (dy / dq) * standoff;
+        ox = gx - f.cx;
+        oy = gy - f.cy;
+        const g2 = ox * ox + oy * oy;
+        if (g2 > L * L) {
+          const k = L / Math.sqrt(g2);
+          gx = f.cx + ox * k;
+          gy = f.cy + oy * k;
+        }
+      } else {
+        gx = d.x;
+        gy = d.y;
+      }
+    } else {
+      gx = f.cx + d.hx;
+      gy = f.cy + d.hy;
+    }
+    // 4. fly there (straight line, constant speed, exact arrival)
+    const mx = gx - d.x;
+    const my = gy - d.y;
+    const md = Math.sqrt(mx * mx + my * my);
+    if (md <= moveLen) {
+      d.x = gx;
+      d.y = gy;
+    } else {
+      d.x += (mx / md) * moveLen;
+      d.y += (my / md) * moveLen;
+    }
+    d.moving = md > 1e-9;
+    // 5. fire: at the quarry in gun range, else now and then at the closest enemy on the way
+    // (never while the wing flies to a focus target)
+    if (d.cooldown > 0) continue;
+    let shot = null;
+    if (q) {
+      const dx = q.x - d.x;
+      const dy = q.y - d.y;
+      if (dx * dx + dy * dy <= R * R) shot = q;
+    }
+    if (!shot && !(focus && q) && anyEnemy && (tick + d.slot) % DRONE_OPP_STEPS === 0) shot = opportunity(sim, d, spec);
+    if (!shot) {
+      d.cooldown = 0;
+      continue;
+    }
+    d.facing = Math.atan2(shot.x - d.x, shot.y - d.y);
+    spawnProjectile(sim, t, spec, shot, d.x, d.y, {
+      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: R + 1, turretUid: d.uid, drone: d, guided: true,
+    });
+    d.shots++;
+    t.droneShots++;
+    d.cooldown += reload;
+    sim._emit('attack', { towerUid: t.uid, targetUid: shot.uid, kind: 'bullet', turretUid: d.uid });
+  }
+}
+
+/**
+ * Girls with drones whose attack is another behavior (Chika's bolt, her Tesla coil) build them on
+ * their own timer: turret.build seconds (after buffs), else 1 / base rate. Only during waves.
  */
 function buildDrones(sim, t, dt) {
   const tur = t.stats.turret;
@@ -604,7 +1073,7 @@ function buildDrones(sim, t, dt) {
   t.buildTimer -= dt;
   if (t.buildTimer > 0) return;
   spawnTurret(sim, t);
-  t.buildTimer = 1 / Math.max(0.05, t.def.base?.rate || 0.25);
+  t.buildTimer = t.turretSpec.build > 0 ? t.turretSpec.build : 1 / Math.max(0.05, t.def.base?.rate || 0.25);
 }
 
 /** One fixed step of a tower: disable timer, turrets, cooldown and attacks. */
@@ -613,6 +1082,7 @@ export function updateTower(sim, t, dt) {
     t.disabled = Math.max(0, t.disabled - dt);
     return;
   }
+  if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -632,7 +1102,47 @@ export function updateTower(sim, t, dt) {
 // Projectiles and traps
 // ---------------------------------------------------------------------------
 
+/** A guided drone bullet: flies at its own target, can hit only it, fizzles once it is gone. */
+function guidedStep(sim, p, dt) {
+  const tgt = p.target;
+  if (!tgt || tgt.dead || !isEligible(tgt, p.spec)) {
+    p.dead = true;
+    sim._emit('fizzle', { uid: p.uid, x: p.x, y: p.y, turretUid: p.turretUid });
+    return;
+  }
+  const ax = p.x;
+  const ay = p.y;
+  const dx = tgt.x - ax;
+  const dy = tgt.y - ay;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d > 1e-5) {
+    p.vx = (dx / d) * p.speed;
+    p.vy = (dy / d) * p.speed;
+  }
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  p.travel += p.speed * dt;
+  p.targetAlt = tgt.alt || 0;
+  const hr = hitRadius(tgt);
+  if (segDistSq(tgt.x, tgt.y, ax, ay, p.x, p.y) <= hr * hr) {
+    p.dead = true;
+    p.hits.push(tgt.uid);
+    sim._hit(tgt, p.owner, p.spec, 1, p.drone);
+    return;
+  }
+  if (p.travel >= p.maxTravel) {
+    p.dead = true;
+    return;
+  }
+  const f = Math.min(1, p.travel / Math.max(0.5, p.est));
+  p.z = PROJECTILE_Z + p.targetAlt * f;
+}
+
 function projectileStep(sim, p, dt) {
+  if (p.guided) {
+    guidedStep(sim, p, dt);
+    return;
+  }
   const tgt = p.target;
   if (tgt) {
     // Stop homing on targets that died, were already hit, or turned intangible/hidden mid-flight.

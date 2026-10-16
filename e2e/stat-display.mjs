@@ -3,6 +3,8 @@
 // piece: her DPS must include the drone wing, the Drones line shows damage × rate each, the
 // upgrade buttons show the full price struck through next to the cheaper one, the panel says
 // how much cheaper, and buying charges exactly the shown price. Phone and PC sizes.
+// Since the Chika rework her panel has tabs (Upgrades · Overall · Chika · Drones): the buy
+// buttons are on Upgrades, the summed DPS and the Drones line on Overall (her first tab).
 // Usage: node e2e/stat-display.mjs [--shots dir]
 import { createServer } from 'vite';
 import { createRequire } from 'node:module';
@@ -47,6 +49,10 @@ try {
     });
     await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
     await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.select, null, { timeout: 60000 });
+    // the free hero card arms itself at wave 0 (hero rework, ~0.7 s in), which would close the
+    // panel we open: let it arm, then put it back
+    await page.waitForFunction(() => window.__battle.ui.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
     const placed = await page.evaluate(() => {
       const { sim, ui } = window.__battle;
       sim.cash = 1e6;
@@ -65,14 +71,18 @@ try {
       return { uid, costMul: t.unitStats?.costMul, cost: before.cost, full: Math.max(5, Math.round((sim.data.unit('chika').paths[0].tiers[0].cost * (sim.diff.costMul ?? 1)) / 5) * 5) };
     });
     check(placed && placed.costMul === 0.8, `${W}x${H} Chika placed with gear costMul ${placed?.costMul}`);
+    // her panel opens on Overall; the upgrade buttons are on the Upgrades tab
+    await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden && el.querySelector('[data-testid="stats-overall"]'); }, null, { timeout: 15000 });
+    await page.waitForTimeout(300);
+    const overall0 = await page.locator('[data-testid="tower-panel"]').innerText();
+    check(/Upgrades\s*20% cheaper \(gear 20%\)/i.test(overall0), `${W}x${H} Overall says "Upgrades 20% cheaper (gear 20%)"`);
+    await page.locator('[data-testid="tab-upgrades"]').click({ force: true });
     await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden && el.querySelector('[data-testid="buy-0"]'); }, null, { timeout: 15000 });
     await page.waitForTimeout(300);
     const btn = await page.locator('[data-testid="buy-0"]').innerText();
     check(placed.cost < placed.full && btn.includes(String(placed.full)) && btn.includes(String(placed.cost)), `${W}x${H} first upgrade button "${btn.replace(/\s+/g, ' ')}" shows ${placed.full} struck and ${placed.cost}`);
     const was = await page.locator('[data-testid="buy-0"] s.bt-buy-was').count();
     check(was === 1, `${W}x${H} the full price is struck through`);
-    const panel0 = await page.locator('[data-testid="tower-panel"]').innerText();
-    check(/Upgrades\s*20% cheaper \(gear 20%\)/i.test(panel0), `${W}x${H} panel says "Upgrades 20% cheaper (gear 20%)"`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/chika-base-${W}x${H}.png` });
     // buying charges the shown (cheaper) price
     const cash0 = await page.evaluate(() => window.__battle.sim.cash);
@@ -87,6 +97,7 @@ try {
       while (sim.getTower(uid).tiers[1] < 2) sim.upgradeTower(uid, 1);
       ui.select(null);
       ui.select(uid);
+      document.querySelector('[data-testid="tab-overall"]')?.click();
       const t = sim.getTower(uid);
       const st = sim.towerStats(uid);
       return { tiers: t.tiers.join('-'), own: st.dps, droneEach: t.turretSpec.damage * t.turretSpec.rate, max: t.stats.turret.max };
@@ -97,7 +108,7 @@ try {
     const expected = want.own + want.droneEach * want.max;
     check(Math.abs(dpsShown - expected) <= 0.15 && dpsShown > 100, `${W}x${H} Chika ${want.tiers} DPS shown ${dpsShown} = own ${want.own.toFixed(2)} + ${want.max} drones × ${want.droneEach.toFixed(1)} (${expected.toFixed(1)})`);
     check(/Drones\s*\d+\/9 · [\d.]+ dmg × [\d.]+\/s each/i.test(panel), `${W}x${H} Drones line: ${(panel.match(/drones\s*\d+\/9[^\n]*/i) || ['(missing)'])[0]}`);
-    check(/New drone\s*every [\d.]+s/i.test(panel), `${W}x${H} her own rate reads as "New drone every …s"`);
+    check(/Drones fly\s*[\d.]+ tiles/i.test(panel), `${W}x${H} Overall says how far her drones fly: ${(panel.match(/drones fly[^\n]*\n?[^\n]*/i) || ['(missing)'])[0].replace(/\s+/g, ' ')}`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/chika-520-${W}x${H}.png` });
     // the girl page says upgrades are cheaper too
     await page.evaluate(() => { location.hash = '#/student/chika?tab=info'; });

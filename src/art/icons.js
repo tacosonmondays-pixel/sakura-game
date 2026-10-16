@@ -231,3 +231,37 @@ export const UI_ICON_NAMES = [
 export function uiIcon(name) {
   return glyphSVG(name);
 }
+
+// ---------------------------------------------------------------------------------
+// Battle modes and map rules (docs/specs/CODEX_MODES.md §8)
+// ---------------------------------------------------------------------------------
+
+const MODE_GLYPHS = {
+  standard: ['modeStandard', '#24305e'], reverse: ['modeReverse', '#2bb6a8'], rush: ['modeRush', '#ff9f1c'],
+  ironclad: ['modeIronclad', '#6c7a96'], frugal: ['modeFrugal', '#e0a800'], laststand: ['modeLastPetal', '#ff4d8d'],
+};
+
+const RULE_GLYPHS = {
+  petal_sanctuary: ['rulePetal', '#ff7eb6'], firefly_chorus: ['ruleFirefly', '#f2b705'], moonlit_blessing: ['ruleMoon', '#8a9bd6'],
+  changing_tides: ['ruleTide', '#2f8fd8'], snowbell_blizzard: ['ruleSnow', '#5cbbe0'], heat_mirage: ['ruleSun', '#ff8a3d'],
+  forge_vents: ['ruleVent', '#e8590c'], alchemists_mist: ['ruleMist', '#51a66b'], tailwind: ['ruleWind', '#3bb3a6'],
+  supply_ship: ['ruleShip', '#4c6ef5'], prism_conduits: ['rulePrism', '#22b8cf'], rear_ambush: ['ruleAmbush', '#d6336c'],
+  lunar_eclipse: ['ruleEclipse', '#7048e8'], festival_encore: ['ruleEncore', '#f03e3e'], shifting_stars: ['ruleStars', '#9b6bff'],
+};
+
+/** Battle mode badge (circle). */
+export function modeIcon(modeId) {
+  const [g, c] = MODE_GLYPHS[modeId] || MODE_GLYPHS.standard;
+  return badge('mode', g, c, 'circle', { glyphScale: 1.4 });
+}
+
+/** Map rule badge (hexagon). */
+export function ruleIcon(ruleId) {
+  const [g, c] = RULE_GLYPHS[ruleId] || RULE_GLYPHS.petal_sanctuary;
+  return badge('rule', g, c, 'hex', { glyphScale: 1.4 });
+}
+
+/** A rule's badge colour (for chips, decals and the HUD pill). */
+export function ruleColor(ruleId) {
+  return (RULE_GLYPHS[ruleId] || RULE_GLYPHS.petal_sanctuary)[1];
+}

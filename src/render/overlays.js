@@ -1,6 +1,6 @@
-// Placement & selection overlays (free placement, Bloons-style): range circles, the
+// Placement & selection overlays (free placement): range circles, the
 // placement ghost (translucent girl with a small circle under her — white where she can
-// stand, red where she can't; no zone shading, like BTD6) and the selected-tower highlight.
+// stand, red where she can't; no zone shading) and the selected-tower highlight.
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../models/index.js';
 import { footprintRadius } from '../sim/placement.js';
@@ -34,6 +34,12 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+/** Roam ring (how far a girl's drones may fly) and signal ring (where flight points may go). */
+const ROAM_COLOR = '#4cc9f0';
+const SIGNAL_COLOR = '#ffb703';
+
+/** "She is here" pulse ring duration (s). */
+const PULSE_T = 1.2;
 /** Ghost shake duration (s) and amplitude (tiles). */
 const SHAKE_T = 0.42;
 const SHAKE_AMP = 0.085;
@@ -72,13 +78,29 @@ export class Overlays {
     scene.add(this.root);
     this.selRange = rangeCircle();
     this.ghostRange = rangeCircle();
-    this.root.add(this.selRange, this.ghostRange);
+    // drone owners: how far her wing may fly (cyan) and, while flight points are picked, her
+    // signal range (amber)
+    this.roamRing = rangeCircle();
+    this.signalRing = rangeCircle();
+    this.roamRing.material.uniforms.uColor.value.set(ROAM_COLOR);
+    this.roamRing.material.uniforms.uAlpha.value = 0.85;
+    this.signalRing.material.uniforms.uColor.value.set(SIGNAL_COLOR);
+    this.root.add(this.selRange, this.ghostRange, this.roamRing, this.signalRing);
     this.selectedUid = null;
+    this.selectedDrone = null;
+    this.flightPreview = null; // { uid, mode, a } while Hold / Patrol points are picked
     this._hlModel = null;
     this.ghost = null; // { unitId, model, mats, def, x, y, valid, radius }
     this.ghostShake = 0;
     this.showGhostRange = true;
     this.time = 0;
+    /** uid → seconds left of a "she is here" pulse ring (pulseTower). */
+    this.pulses = new Map();
+  }
+
+  /** A 1.2 s pulse ring on a girl (e.g. "Show ›" on a locked final tier). */
+  pulseTower(uid) {
+    if (uid != null) this.pulses.set(uid, PULSE_T);
   }
 
   setQuality(q) {
@@ -98,9 +120,10 @@ export class Overlays {
     return t.eff?.range ?? t.stats?.range ?? t.def?.base?.range ?? 0;
   }
 
-  setSelected(uid) {
+  setSelected(uid, droneUid = null) {
     if (this.selectedUid != null) this.actors.setHighlight(this.selectedUid, false);
     this.selectedUid = uid ?? null;
+    this.selectedDrone = uid != null ? droneUid ?? null : null;
     this._hlModel = null;
     this._applyHighlight();
   }
@@ -195,7 +218,7 @@ export class Overlays {
     return (def.base?.range || 0) * (stats.rangeMul || 1);
   }
 
-  /** Kept for API compatibility: BTD6-style placement shows no zone shading (owner request). */
+  /** Kept for API compatibility: free placement shows no zone shading (owner request). */
   showTileHints() {}
 
   refreshHints() {}
@@ -209,7 +232,13 @@ export class Overlays {
     if (uid != null && !tower) this.setSelected(null);
     if (tower) {
       this._applyHighlight();
-      const range = this._towerRange(uid);
+      // map rules (blizzard, heat haze, crystal pads) change a girl's range mid-wave: the ring eases
+      // to the new radius over about 0.3 s instead of jumping (a new selection snaps)
+      const target = this._towerRange(uid);
+      if (this._ringUid !== uid || !(this._ringRange > 0)) this._ringRange = target;
+      else this._ringRange += (target - this._ringRange) * (1 - Math.exp(-10 * dt));
+      this._ringUid = uid;
+      const range = this._ringRange;
       const v = this.actors.towerView(uid);
       const y = v?.water ? WATER_Y + 0.04 : PATH_H + 0.03;
       this.selRange.visible = range > 0;
@@ -220,8 +249,30 @@ export class Overlays {
       const fr = (tower.radius || 0.42) * 2.3;
       this.b.groundA.push(tower.x, y + 0.01, tower.y, fr, fr, this.R.ringThick, 0.55, 0.85, 1, 0.9, t * 1.5);
       this.b.overlay.push(tower.x, 1.35 + Math.sin(t * 4) * 0.06, tower.y, 0.22, 0.22, this.R.chevron, 1, 0.85, 0.3, 1, -Math.PI / 2);
+      this._drawWing(tower, y, t);
     } else {
       this.selRange.visible = false;
+      this.roamRing.visible = false;
+      this.signalRing.visible = false;
+    }
+    this.roamRing.material.uniforms.uTime.value = t;
+    this.signalRing.material.uniforms.uTime.value = -t;
+    // pulse rings: two expanding rings over 1.2 s on the girl the UI points at
+    for (const [puid, left] of this.pulses) {
+      const pt = this.sim.getTower ? this.sim.getTower(puid) : null;
+      const nl = left - dt;
+      if (!pt || nl <= 0) {
+        this.pulses.delete(puid);
+        continue;
+      }
+      this.pulses.set(puid, nl);
+      const v = this.actors.towerView(puid);
+      const py = (v?.water ? WATER_Y + 0.05 : PATH_H + 0.04);
+      for (const ph of [0, 0.5]) {
+        const k = ((PULSE_T - nl) / PULSE_T * 2 + ph) % 1;
+        const d = (pt.radius || 0.42) * (2 + k * 3.2);
+        this.b.groundA.push(pt.x, py, pt.y, d, d, this.R.ringThick, 1, 0.78, 0.25, (1 - k) * 0.95, 0);
+      }
     }
     this.selRange.material.uniforms.uTime.value = t;
     this.ghostRange.material.uniforms.uTime.value = t;
@@ -236,7 +287,7 @@ export class Overlays {
       }
       const water = this._waterAt(g.x, g.y);
       const y = (water ? WATER_Y : PATH_H) + 0.035;
-      // small circle under her: white = can stand here, red = can't (BTD6)
+      // small circle under her: white = can stand here, red = can't
       const c = g.valid ? [1, 1, 1] : [1, 0.08, 0.16];
       const d = g.radius * 2;
       const px = g.x + sx;
@@ -251,9 +302,69 @@ export class Overlays {
     }
   }
 
+  /**
+   * A selected drone owner: the roam ring (where her wing may fly: around her, the Hold point or
+   * the Patrol position; none in Pursuit), the flight points, her signal ring while points are
+   * picked, and for a selected drone a ring under it, a tether to her and a reticle on its quarry.
+   */
+  _drawWing(tower, y, t) {
+    const info = tower.turretSpec?.leash > 0 ? this.sim.flightInfo?.(tower.uid) : null;
+    if (!info) {
+      this.roamRing.visible = false;
+      this.signalRing.visible = false;
+      return;
+    }
+    const b = this.b;
+    const R = this.R;
+    const ring = (mesh, x, z, r) => {
+      mesh.visible = r > 0 && Number.isFinite(r);
+      if (!mesh.visible) return;
+      mesh.position.set(x, y + 0.005, z);
+      mesh.scale.setScalar(r);
+      mesh.material.uniforms.uRadius.value = r;
+    };
+    if (info.mode === 'pursuit') this.roamRing.visible = false;
+    else ring(this.roamRing, info.at[0], info.at[1], info.roam);
+    const marker = (x, z, label) => {
+      b.groundA.push(x, y + 0.02, z, 0.7, 0.7, R.ringDashed, 0.3, 0.8, 0.95, 0.95, t);
+      b.groundN.push(x, y + 0.015, z, 0.36, 0.36, R.disc, 0.3, 0.8, 0.95, 0.5);
+      if (label) b.overlay.push(x, 0.55, z, 0.2, 0.2, R.chevron, 0.3, 0.8, 0.95, 0.95, -Math.PI / 2);
+    };
+    const dotted = (x0, z0, x1, z1, h, rgb, a) => {
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const n = Math.min(60, Math.floor(len / 0.35));
+      for (let i = 1; i < n; i++) {
+        const f = i / n;
+        b.groundN.push(x0 + (x1 - x0) * f, h, z0 + (z1 - z0) * f, 0.1, 0.1, R.dot, rgb[0], rgb[1], rgb[2], a);
+      }
+    };
+    if (info.mode === 'hold' && info.a) marker(info.a[0], info.a[1], true);
+    if (info.mode === 'patrol' && info.a && info.b) {
+      marker(info.a[0], info.a[1], true);
+      marker(info.b[0], info.b[1], true);
+      dotted(info.a[0], info.a[1], info.b[0], info.b[1], y + 0.02, [0.3, 0.8, 0.95], 0.8);
+    }
+    // picking flight points: her signal ring and the first patrol point
+    const pv = this.flightPreview;
+    if (pv && pv.uid === tower.uid) {
+      ring(this.signalRing, tower.x, tower.y, info.signal);
+      if (pv.a) marker(pv.a[0], pv.a[1], false);
+    } else this.signalRing.visible = false;
+    // a selected drone: her range ring steps back for the roam ring; ring, tether and reticle
+    const d = this.selectedDrone != null ? tower.turrets.find((x) => x.uid === this.selectedDrone) : null;
+    this.selRange.visible = this.selRange.visible && !d;
+    if (d) {
+      const at = this.actors.droneDrawn.get(d.uid) || { x: d.x, y: d.y };
+      b.groundA.push(at.x, y + 0.02, at.y, 0.56, 0.56, R.ringThick, 0.3, 0.8, 0.95, 0.95, t * 2);
+      dotted(tower.x, tower.y, at.x, at.y, y + 0.02, [0.3, 0.8, 0.95], 0.4);
+      const q = d.tgt && !d.tgt.dead ? d.tgt : null;
+      if (q) b.groundA.push(q.x, y + 0.03, q.y, 0.8, 0.8, R.ringDashed, 1, 0.45, 0.35, 0.9, -t * 2);
+    }
+  }
+
   dispose() {
     this._clearGhostModel();
-    for (const r of [this.selRange, this.ghostRange]) {
+    for (const r of [this.selRange, this.ghostRange, this.roamRing, this.signalRing]) {
       r.geometry.dispose();
       r.material.dispose();
     }

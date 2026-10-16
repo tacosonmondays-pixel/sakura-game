@@ -7,6 +7,7 @@ import { createDataSource } from './data.js';
 import { buildPaths, samplePath } from './path.js';
 import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placement.js';
 import { resolveStats, crosspathBlock } from './mods.js';
+import { finalTierOf } from './finalTier.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
 
 /**
@@ -38,8 +39,13 @@ function executeAction(sim, a) {
   if (a.action === 'sell') {
     const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
     if (!t) return 'fail';
-    sim.sellTower(t.uid);
-    return 'done';
+    return sim.sellTower(t.uid) === false ? 'fail' : 'done'; // heroes cannot be sold
+  }
+  if (a.action === 'heroLevel') {
+    // buy the active hero's next level (balance scripts): wait while coins are short
+    const st = sim.heroLevelStatus();
+    if (!st.reason) return sim.buyHeroLevel({ level: st.level + 1, maxPrice: st.price }).ok ? 'done' : 'fail';
+    return st.reason === 'cash' ? 'wait' : 'fail';
   }
   return 'fail';
 }
@@ -195,7 +201,7 @@ function jitter(i, j, salt) {
 /**
  * Greedy plan on a continuous candidate lattice (0.25-tile grid + jitter): best path
  * coverage first, footprints never overlap, then upgrades on each unit's strongest path
- * (BTD6 crosspath respected). Used to sanity-check that stages are beatable.
+ * (the crosspath rule respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
  * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best
@@ -291,7 +297,11 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       else if (info.role === 'support') {
         const ar = info.stats.aura?.range || 2;
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
-      } else s = coverage(c, info.stats.range);
+      } else {
+        // roaming drones (Chika) fight up to roam + gun range from her
+        const tu = info.stats.turret;
+        s = coverage(c, tu && tu.leash > 0 ? Math.max(info.stats.range, tu.leash + tu.range) : info.stats.range);
+      }
       if (s > bestS) {
         bestS = s;
         best = c;
@@ -311,10 +321,17 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     placed.push(rec);
     return rec;
   };
+  // one final tier per path per girl type (a plan is one player's): a later copy stops at tier 4
+  const finals = new Set();
   const upgrade = (rec, path, uptoTier) => {
     const tiers = rec.def.paths?.[path]?.tiers || [];
     while (rec.tiers[path] < Math.min(uptoTier, tiers.length)) {
       if (crosspathBlock(rec.tiers, path, tiers.length)) return;
+      if (rec.role !== 'hero' && rec.tiers[path] + 1 >= finalTierOf(rec.def, path)) {
+        const key = `${rec.def.id}:${path}`;
+        if (finals.has(key)) return;
+        finals.add(key);
+      }
       rec.tiers[path]++;
       plan.push({ at: 1, action: 'upgrade', unitId: rec.def.id, x: rec.x, y: rec.y, tx: rec.tx, ty: rec.ty, path });
     }

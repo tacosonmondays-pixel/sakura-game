@@ -67,6 +67,9 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
   started with."). That includes gear: moving or salvaging it later does not change a saved run
   (as in the reference game, which locks the loadout when the save is made; up to 5 runs can carry
   the same gear's stats). Accepted for v1; locking gear used by a save is a possible later rule.
+  Potential travels the same way (`stats.potential`, no new snapshot key): a girl saved at P6 comes
+  back at P6 even after more duplicates, and a record frozen before Potential (no `potential` key)
+  restores her at P1 through the neutral merge with `DEFAULT_UNIT_STATS`.
 - **Event bonus** is judged by when the run started (`applyBattleResult(…, { eventAt })`, `battleEventMul`),
   so nearly finished saves cannot be stockpiled for a 2× week, and a run started during an event only
   gets it while it finishes within 48 h of that week's end (`EVENT_GRACE_MS`). A record without a start
@@ -93,11 +96,61 @@ save as it was saved: `parseBattleParams` never turns freeplay on next to `resum
 The calm point (prep, or between waves) is clean by construction: a wave only ends when the field is
 empty, so there are no enemies, statuses, shots or aura fields to carry; ult cooldowns only tick
 during waves. The snapshot (0.7–6 KB; 5 KB at wave 122 of a Colosseum run with ~1000 leaks) carries the girls (uid, unit, spot, tiers, target mode, spent,
-kills, damage, cooldown, disable, facing, build timer; hero XP / ult), drones, armed traps, coins
+kills, damage, cooldown, disable, facing, build timer; hero XP / ult, levels bought and their coins, Move timers), drones, armed traps, coins
 (+ fractional carry), lives, wave counters, time, active ult rate buffs, kills, encountered enemies
 and battle stats; the leak log is kept as (wave, enemy, lives, count) groups (`packLeaks`, the newest
 160), which keeps everything the defeat debrief reads. Restoring places and upgrades each girl through the normal Sim calls with the same
 uids, then assigns the plain fields and drains the events.
+
+**Snapshot format 2 (`SNAP_V` 2, the hero rework).** A hero has no tiers and is never sold: she is
+placed (free), then given her saved XP (her level and Mastery follow), ult state, `levelSpent`
+(`ls`), `levelsBought` (`lb`) and Move timers (`mc`, `ml`). A hero who cannot return is dropped
+like any girl, and the coins of her bought levels are refunded. A **format-1** snapshot (written
+before the rework) holds an old-scale hero (10 levels, path tiers bought with coins): she is
+restored on her spot at her old level on the new track (`xpToReach(level)`, bar empty), her tiers
+are ignored, and everything she cost (`spent`) is refunded; the battle shows "Heroes changed: Hikari
+keeps Lv 7 and her upgrades came back as 1,240 coins." The next write is format 2. Later Train C
+fields (Chika's roaming drones, Codex modes, path-cap buffs) are added to format 2 before it ships:
+it is bumped once for the whole train.
+
+**Chika's roaming drones (format 2, additive; Chika rework M6).** A drone row is
+`[uid, x, y, facing, cooldown, n, slot, dmg, kills, shots, born, jam]` (its number, home slot,
+counters, the wave it was built in and a jam still running); the girl adds `ds: [droneDmg,
+droneKills, droneShots, droneSerial]` and, when her wing is not plain Hover, `fl: [mode, ax, ay,
+bx, by, cx, cy, leg]` (the flight mode, its Hold / Patrol points and the patrol position). Restore
+goes through `restoreDrone()` (`src/sim/towers.js`), sets the flight mode before the first step and
+raises `droneSerial` to at least the highest drone number, so no number is handed out twice. An
+older 5-field row restores with zero counters, numbered by position, and the wing as Hover (its past
+drone damage then counts as hers until the battle ends). `KNOWN_DRONE_KEYS` classifies every drone
+field (`hx`, `hy` derived from the slot; `tgt`, `targetUid`, `moving`, `px`, `py` reset at a calm
+point); a girl's drone target pool is scratch (a pool of dead enemies is never reused).
+
+**Path cap: one final tier per path, brews and tune-ups (format 2, additive).** A save made before
+the one-final-tier-per-path rule keeps every tier 5 it had: the restore replays tiers with
+`sim.upgradeTower(uid, path, { restoring: true })` (crosspath and the tier order are still checked,
+so an edited save stays refused); after it, both copies hold their tier 5 and a third copy sees the
+lock. The limited buffs travel with the girls, because they decide what the next wave does
+(classifying them `calm` breaks "same future after Continue"): `pk` (Midori's / Chika's pick, when
+pinned), `lm` (what her brew / tune-up is doing: `['b', cd, repick, …targets]` or `['l', scan, ocCd,
+ocLeft, repick, …targets]`), `li` (the brew / link a girl holds: `[brew, brewLeft, link, oc]`), `rd`
+(`[recentDps, _dmgMark]`, the window that picks the strongest girl) and the Sim's `dps` timer; global
+rate buffs keep who cast them (`buffs: [mul, left, src]`, the buff icons). The buffs are recomputed
+once every girl is back. A save without these fields restores with nothing held and the window at
+its start (the next brew / link picks again). `owner` is config (always 0 in solo), `buffBy` derived.
+
+**Battle modes and map rules (format 2, additive; Codex modes).** The record names the run's mode
+(`mode: 'rush'`; absent = Standard, so every older record reads as Standard) and `view.mode` repeats it;
+Continue rebuilds the Sim with `options.mode` from the record, whatever `mode` the battle link carries
+(the controller takes `req.mode` from the restored Sim, and a mode run is never offered Keep going).
+A record naming a mode this build does not know is dropped by the sanitiser (it cannot be played as
+saved). The map rule rides on the stage; at a calm point its runtime is back to the between-waves
+state (`ruleWaveEnd`), so the only new snapshot field is `rr` (0 / 1: the route orientation of the
+last wave, written only where the route can turn: Reverse Route, Rear Ambush), restored with
+`setRouteOrientation` (a save without it: that wave's orientation). Crystal pads and the rule's range
+are derived from the girls' spots and the rule (`padIndex`, `onPad`, `padMul`, `padRangeAdd`,
+`envRangeMul`, `envRangeAdd`: absent = neutral); `mode`, `incomeMul`, `_modeArmor`, `_ruleGoal`,
+`_bountyAdd`, `_pathsFwd`, `_pathsRev` and `rule` are config, `_ruleMul` / `_ruleMove` / `_ruleRange` /
+`_rulePortal` derived and `_waveTick` (the rule's step clock) calm.
 
 None of these files are in the co-op compatibility graph (`tools/simId.mjs`), so battle saves never
 change which builds can play co-op together (`tests/core/updates.test.js` checks it).
@@ -130,7 +183,12 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
 
 - `tests/battle-ui/snapshot.test.js`: round trip at every wave start (3-5, 8-5 Hard with drones, 4-5
   with traps, the Colosseum to wave 30), identical re-snapshots under 8 KB, "same future" splits with
-  and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, and the guards.
+  and without the same commands (digest + `hashSim`), refunds and stale saves, the hero, Chika's
+  drones and flight modes (the driver flies her wing through Hover / Hold / Patrol / Pursuit), the
+  path cap (a pre-rule save with two copies at the same tier 5; Midori's brews and Chika's tune-up
+  links round-trip and play on the same; an older save without the brew / link fields), battle modes
+  and map rules (Reverse Route on Rear Ambush 4-2 Hard, whose route turns between checkpoints; Ironclad
+  on the crystal pads of 6-1 with a hero who Moves), and the guards (Sim, girl and drone fields).
 - `tests/systems/battleSave.test.js`: profile field, migrate allowlist, each sanitiser rule (including
   a save past the end and a missing start time), the cap and its order, titles, slots and modes,
   run-scoped clears, drop seed, event bonus by start time and its 48 h window.

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { crosspathReason, pathCap } from '../../src/ui/battle/rules.js';
-import { resolveFormation, parseBattleParams, createBattleSim, followingStage, mapRouteFor } from '../../src/ui/battle/setup.js';
+import {
+  crosspathReason, pathCap, onePerPathReason, whereOnMap, finalHolderLine, finalRaceText, heldPipTitle, ONE_PER_PATH_RULE, FINAL_NUMERAL,
+} from '../../src/ui/battle/rules.js';
+import { resolveFormation, parseBattleParams, createBattleSim, resumeBattleSim, followingStage, mapRouteFor } from '../../src/ui/battle/setup.js';
 import { createProfile, SAVE_KEY } from '../../src/systems/save.js';
 import { store } from '../../src/core/store.js';
 import { clearBattleSave } from '../../src/systems/battleSave.js';
@@ -40,6 +42,29 @@ describe('crosspath rules', () => {
       }
       sim.sellTower(t.uid);
     }
+  });
+});
+
+describe('one final tier per path (copy)', () => {
+  it('says who can hold the final tier, in the owner\'s words', () => {
+    expect(FINAL_NUMERAL).toBe('V');
+    expect(onePerPathReason('Chika', 'Sentry Works')).toBe('Only one Chika can hold Sentry Works V. Sell or upgrade that one.');
+    expect(finalRaceText('Kage', 'Storm of Steel')).toBe('Another Kage took Storm of Steel V first.');
+    expect(heldPipTitle('Thousand Shadows', 'Kage')).toBe('T5 Thousand Shadows — held by another Kage');
+    expect(ONE_PER_PATH_RULE).toMatch(/one 5-x-x, one x-5-x and one x-x-5/);
+  });
+  it('names where the holder stands (thirds of the map)', () => {
+    expect(whereOnMap(1, 1, 30, 18)).toBe('top left');
+    expect(whereOnMap(15, 1, 30, 18)).toBe('top');
+    expect(whereOnMap(29, 1, 30, 18)).toBe('top right');
+    expect(whereOnMap(1, 9, 30, 18)).toBe('left');
+    expect(whereOnMap(15, 9, 30, 18)).toBe('centre');
+    expect(whereOnMap(29, 9, 30, 18)).toBe('right');
+    expect(whereOnMap(1, 17, 30, 18)).toBe('bottom left');
+    expect(whereOnMap(15, 17, 30, 18)).toBe('bottom');
+    expect(whereOnMap(29, 17, 30, 18)).toBe('bottom right');
+    expect(whereOnMap(3, 3, 0, 0)).toBe('centre');
+    expect(finalHolderLine({ def: { name: 'Chika' }, tiers: [5, 0, 2] }, 'bottom left')).toBe('Held by Chika 5-0-2 · bottom left');
   });
 });
 
@@ -174,9 +199,9 @@ class FakeNode {
 }
 
 /** A fresh profile in the store, a New game on 1-1 with its saver installed. */
-function newGame(stageId = '1-1') {
+function newGame(stageId = '1-1', { mode } = {}) {
   store.replace(createProfile());
-  const req = { stageId, difficulty: 'normal', endless: false };
+  const req = { stageId, difficulty: 'normal', endless: false, ...(mode ? { mode } : {}) };
   const { sim, cfg } = createBattleSim(store.profile, { ...req, seed: 4242 });
   const ctx = { ended: false };
   const saver = createBattleSaver({ sim, req, cfg, isEnded: () => ctx.ended }).install();
@@ -213,7 +238,22 @@ describe('battle saver', () => {
     expect(rec.snap).toMatchObject({ wave: 0, state: 'prep' });
     expect(rec.snap.towers.map((t) => t.u)).toEqual([unitId]);
     expect(rec.loadout.map((e) => e.unitId)).toEqual([...sim.loadout.keys()]);
-    expect(rec.view).toEqual({ next: 1, of: sim.totalWaves, lives: sim.lives, difficulty: 'normal' });
+    expect(rec.view).toEqual({ next: 1, of: sim.totalWaves, lives: sim.lives, difficulty: 'normal', mode: 'standard' });
+    expect('mode' in rec).toBe(false); // Standard: no mode field (a record from before the modes reads the same)
+  });
+
+  it('a battle-mode run names its mode in the record, and Continue rebuilds the run in it', () => {
+    const { sim, saver } = newGame('1-1', { mode: 'rush' });
+    expect(sim.mode.id).toBe('rush');
+    const unitId = [...sim.loadout.keys()][0];
+    sim.placeTower(unitId, ...spot(sim, unitId));
+    saver.markProgress();
+    const rec = stored(ls).battleSaves['1-1'];
+    expect(rec.mode).toBe('rush');
+    expect(rec.view.mode).toBe('rush');
+    const { sim: back } = resumeBattleSim(store.profile, rec);
+    expect(back.mode.id).toBe('rush');
+    expect(back.towers.map((t) => t.unitId)).toEqual([unitId]);
   });
 
   it('a wave start writes the calm state before it; mid-wave commands never overwrite it; between waves they do (batched)', () => {

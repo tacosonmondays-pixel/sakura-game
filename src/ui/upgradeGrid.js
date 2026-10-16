@@ -84,7 +84,11 @@ export function upgradeGrid(model, { onPick = null, selected = null, unit = null
       const rowEl = rowEls[ri];
       rowEl.classList.toggle('cap0', row.cap === 0 && m.mode !== 'static' && m.mode !== 'preview');
       rowEl.classList.toggle('cap2', row.cap === 2);
-      rowEl._parts.capTag.textContent = row.cap === 2 ? 'cap T2' : row.cap === 0 && (m.mode === 'live' || m.mode === 'ally') ? 'locked' : '';
+      // path cap: "V held" when another copy of hers holds this path's tier 5
+      const capText = row.cap === 2 ? 'cap T2' : row.cap === 0 && (m.mode === 'live' || m.mode === 'ally') ? 'locked' : '';
+      rowEl._parts.capTag.textContent = capText || (row.finalHeld ? 'V held' : '');
+      rowEl._parts.capTag.classList.toggle('ut-row-final', !capText && !!row.finalHeld);
+      rowEl._parts.capTag.title = !capText && row.finalHeld ? `Tier 5 held by ${row.finalHeld.label}` : '';
       rowEl._parts.capTag.hidden = !rowEl._parts.capTag.textContent;
       rowEl._parts.reason.textContent = row.reason || '';
       rowEl._parts.reason.hidden = !row.reason;
@@ -170,7 +174,7 @@ export function tierDetail(cell, model, { describe = null, actions = [], onBack 
 function statusLine(cell, model, row) {
   const cost = `${fmt(cell.cost)} coins`;
   if (cell.state === 'owned') return [svgEl(uiIcon('check'), 'ut-s-ico'), 'Owned'];
-  if (cell.state === 'blocked') return [svgEl(uiIcon('lock'), 'ut-s-ico'), row.reason || 'Locked by the crosspath rule.'];
+  if (cell.state === 'blocked') return [svgEl(uiIcon('lock'), 'ut-s-ico'), cell.reason || row.reason || 'Locked by the crosspath rule.'];
   switch (model.mode) {
     case 'static': return `Base ${cost} · varies with difficulty`;
     case 'preview': return `Not deployed · ${cost} here`;

@@ -23,15 +23,17 @@ Owner reels: `e2e/attack-reel.mjs`.
     the drawn projectile lands where and when the sim resolves it. A lob ("arc bump") is vertical
     only and returns to 0 at contact.
   - T3 No impact flourish without a matching sim `hit` / `explode`; an expired projectile gets none.
-  - T4 Drones stay inside the girl's ring (leash `t.eff.range − 0.2`); decorative familiars never
-    fire; only real projectiles are blended out of a familiar (drones, lances, clones, juggle).
+  - T4 Drones stay inside the roam disc (`turretSpec.leash`, enforced by the sim: the attack FX
+    draws the sim's drones, it never flies its own); decorative familiars never fire; only real
+    projectiles are blended out of a familiar (drones, lances, clones, juggle).
   - T5 Area visuals stay inside the sim radius (`ev.radius`, splash); victim marks only on
     attributed victims.
   - T6 Aura familiars patrol exactly at the aura radius (`t.stats.aura.range`).
   - T7 Landing reticles sit at the sim's live aim point (`p.tx, p.ty`, follows a homing target);
     their diameter is 2·splash capped at 1.6 tiles (a five-shell volley of huge blasts stays
     legible; the explosion itself shows the full radius).
-  - T8 Visual drones = sim turrets, 1:1 by uid.
+  - T8 Visual drones = sim turrets, 1:1 by uid. Drawn drone = sim drone ± 0.35 tiles of
+    decoration (the LAUNCH hop excepted), exactly the sim position at each shot (Chika rework M5).
 - **Wholesome.** Light, petals, paper, water and sparks; "cuts" are light/petal coloured; clones are
   plain silhouettes.
 - **Neutral names.** No third-party game names or art anywhere (code, comments, commits).
@@ -58,28 +60,31 @@ builds 1 s, drone shots never), which removes the clip-restart jitter on fast gi
 
 ## Chika's drones (`patterns/drones.js`)
 
-One drone per sim turret uid. States: `LAUNCH` (Bézier hop from her backpack to its slot when the
-sim builds it) → `ORBIT` (above her head — h 1.25, outer layer 1.5 — at r = min(0.9, 0.45·L), the
-outer layer (6+ drones) 0.85 further out, golden-angle slots, ω 1.2 rad/s in a wave, 0.5 between
-waves) → on every shot the sim reports: `APPROACH` (seek the target + 0.25 s lead + an offset:
-drones sharing a target split the circle around it into lanes — radius 0.45 + 0.08·n, ≤ 0.9 —
-at staggered heights, so a full wing strafes as a squadron instead of one blob) → `PASS`
-(strafe through at 5.2 t/s, exit 1 tile past, the turn-rate cap draws the loop back) → … →
-`RETURN` after max(0.9 s, 2.5 / turret rate) without a shot. `DOCK` (Tesla Tower: a halo over her
-coil), `DIZZY` (sabotaged: they sink and wobble). Caps: 3.6 / 5.2 t/s, 14 t/s², 7.5 rad/s.
-Leash clamp every step. Low quality / reduce motion: no loops — they hover beside the target and
-strafe sideways. The bullet is drawn leaving the drone's nose and blends onto the sim path by
-f′ 0.6. Ground shadows on every preset (the true position from the 55° camera). Body: a light
-dome over a dark belly (reads on grass and keeps its contrast when a tier tints it gold), an
-orange ring, a cyan nose glow facing its flight, a spinning rotor disc on top, banking into turns.
-Selected Chika shows only her own range ring: the drones never leave it. > 128 drones: the rest
-are not drawn (`stats.dronesOverflow`, one warning).
+One drone per sim turret uid, drawn where the **sim** flies it (Chika rework M5,
+`docs/specs/CHIKA_REWORK.md` §6.1): the sim position between its last two steps
+(`p + (x − p) × α`, α = `actors.alpha`, the renderer's step fraction), plus decoration of at most
+0.35 tiles. States read from the sim drone each frame: `LAUNCH` (0.3 s Bézier hop from her
+backpack when the sim builds it, the sim's first cooldown) → `ORBIT` (home, not moving: a 0.18-tile
+orbit around its own home point, h 1.25, the outer layer (6+ drones) 1.5 and counter-rotating) ·
+`HUNT` (the sim drone has a quarry: h 1.1 ± a lane by slot, a sway across the line to its quarry of
+0.25 × clamp(cooldown / 0.15, 0, 1) with phase 0 at each shot, so it is exactly the sim drone when it
+fires) · `RETURN` (flying home, no decoration) · `DOCK` (Tesla Tower, only while home: pulled in
+toward her coil as far as the 0.35 allows, h 1.45, a quick spin) · `DIZZY` (she is sabotaged or this
+drone is jammed: it sinks to 0.6, wobbles, a turning star over it, the odd spark). Drones of one wing
+on (nearly) the same spot fan out (render only). Offsets and heights ease in fixed 1/60 s game-time
+steps; yaw, bank and pitch follow the sim velocity (and snap to the target on a shot). The bullet
+leaves the sim drone (`muzzleFor`) at its drawn height and blends onto the sim path by f′ 0.6.
+Every frame the drawn positions go to `actors.droneDrawn` (uid → `{ x, h, y }`), which tap picking,
+the selected drone's ring / tether and `renderer.droneScreen()` read; with attack FX off,
+`actors._syncDrones` draws the same sim positions with the legacy mesh. Ground shadows on every
+preset. Body: a light dome over a dark belly, an orange ring, a cyan nose glow, a spinning rotor
+disc on top, banking into turns. Selected Chika shows her range ring and the roam ring (overlays).
+> 128 drones: the rest are not drawn (`stats.dronesOverflow`, one warning).
 
-Tier looks: P0 T3 V-trio formation (wingmen 0.28 out / in, 0.45 rad behind the leader; the
-outer layer's trios sit half a slot over), T4 plasma tint + engine trails + cyan bullets, T5 two
-counter-rotating layers, gold, a command drone · P1 T3 the oldest drone patrols the aura edge
-(clamped inside her leash), T4 beacon ring every 2 s, T5 banner glint · P2 T3 micro-arcs at the
-nose, T4 halo + chain lightning from the halo, T5 faster halo, gold-white bolts. Her own shot (when
+Tier looks: P0 T3 formation (a tighter home orbit, trio heights), T4 plasma tint + engine trails +
+cyan bullets, T5 two counter-rotating layers, gold, a command drone · P1 T3 the oldest drone carries
+a green work light, T4 beacon ring every 2 s, T5 banner glint · P2 T3 micro-arcs at the nose, T4
+docked drones + chain lightning from her coil, T5 faster spin, gold-white bolts. Her own shot (when
 the drones are full) is a spinning wrench lobbed from her hand.
 
 ## Every girl's signature (`styles/<girl>.js`)
@@ -89,10 +94,14 @@ tile), so even 0-0-0 reads in a crowd.
 Upgrades: T1–T2 add an accent (tint, trail, size) — two paths may have accents; T3 on the committed
 path switches on that path's look; T4 escalates; T5 adds a capstone flourish. Looks key on path
 **index** + tier and on the sim's effective stats (behaviour transforms), never on path names.
+Heroes (hero rework) have no paths: each track level remembers the old path tier it came from, so
+`heroLookTiers(def, level)` (`src/sim/hero.js`) gives her per-path tiers and `tierLook(…, { multi: true })`
+lets every path at T3+ show at once (a Lv 25 hero has all three capstones); hero intensity grows
++0.04 a level, capped at 1.6 like the girls'.
 
 | Girl | Sim | Signature | Path looks (T3+) |
 |---|---|---|---|
-| Chika | turret + own bolt | drone orbit + strafing sorties | see above |
+| Chika | roaming drones + own bolt | the sim's drones, decorated (orbit at home, sway while hunting) | see above |
 | Hikari ★ | pulse cleave → lances (P2 T4) | Dawn Arc: rays sweep the victims' angular span, crescent, ground fan, a gold star lands on each victim | P0 more rays, T5 second arc + sun flare · P1 light motes on the aura edge, T4 banner · P2 lances fanned above her head, T5 trails + chorus ring |
 | Luna ★ | beam ×3 | Star Lances from a moon familiar: core + sheath, star dots, end star; a repeating beam slides its end | P0 wider, T5 crescent shocks · P1 purple swirl at the ends · P2 star motes on the aura edge, T5 crescent halo |
 | Nami ★ | orb, splash | Tide Trident: the orb swells, a ripple wake, a water crown on impact | P0 icy wake + shards · P1 whirl swirl · P2 gulls circle the aura edge |
@@ -140,7 +149,7 @@ over the `hit` events just before a `pulse` / hitscan `attack` (the sim emits hi
 | aura familiars per girl | 3 (5 lanterns) | 2 (3) | 0 — truth cues only |
 | motes | 1.0 | 0.65 | 0.25 |
 | trails | all | drones only | none |
-| separation / banking / strafing loops | ✓ | ✓ | ✗ (hover-strafe) |
+| drone banking | ✓ | ✓ | ✗ |
 | afterimages / clones | 3 | 1 | 0 |
 
 Shed order past the budget: decor (≥ 60 %) → familiars (≥ 80 %) → motes (≥ 95 %). Never shed:
@@ -149,9 +158,9 @@ event decoration: 24 muzzles, 16 tracers, 16 impacts, 8 sweeps, 8 launches (stat
 +0 draw calls: drones use one instanced mesh (the old drone mesh draws nothing), everything else
 is quads in the existing five batches. No steady-state allocation in the hot paths (pooled
 records, scratch objects, colour cache; the frozen-clone strict mode is test-only).
-`renderer.info.attackFx` = `{ drones, dronesOverflow, engaged, passes, projTracked, blended, segments,
-quads, quadBudget, shed, ms (EMA), msFrame, maxLeash, maxBlendResidual, impacts, matched,
-defaultPulses, styled }`.
+`renderer.info.attackFx` = `{ drones, dronesOverflow, engaged (hunting drones), droneShots, projTracked,
+blended, segments, quads, quadBudget, shed, ms (EMA), msFrame, maxDecor (largest drawn − sim distance,
+tiles), maxBlendResidual, impacts, matched, defaultPulses, styled }`.
 
 ## Tools
 
@@ -171,9 +180,10 @@ defaultPulses, styled }`.
 ## Notes / deviations from the spec
 
 - Drone orbit heights are 1.25 / 1.5 (spec 1.05 / 1.30): at 1.05 they read at chibi head level, not
-  above it. Engage height 1.1, pass 0.95 (lower and they hide behind the enemy sprites).
-- Drones step at a fixed 1/60 s with interpolation (spec: ≤ 1/45 s substeps) — exact frame-rate
-  independence instead of "within 0.05 tiles".
-- The Repair-Bay patrol drone circles at min(aura radius, leash): Chika's aura (3.0) is wider than
-  her leash (2.8), and the leash rule (T4/T8 acceptance) wins.
+  above it. Engage height 1.1 (lower and they hide behind the enemy sprites).
+- Drone decoration eases at a fixed 1/60 s with interpolation (spec: ≤ 1/45 s substeps) — exact
+  frame-rate independence instead of "within 0.05 tiles".
+- Chika rework M5 (train C): the first pass's own steering (APPROACH / PASS strafing loops, the
+  leash at `range − 0.2`, the Repair-Bay drone patrolling the aura edge) is gone; drones are where
+  the sim has them. The jammed drone's mark is a turning star (the atlas has no wrench).
 - The lateral flutter envelope is compressed into f′ 0..0.6 (sin(π·f′/0.6)) so T2 holds exactly.

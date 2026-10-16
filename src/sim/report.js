@@ -32,12 +32,14 @@ const CAP_TESTS = {
   priority: (s) => attacks(s) && s.range >= 6,
   trap: (s) => s.behavior === 'trap',
   cleanse: (s) => !!s.aura?.cleanse,
-  buff: (s) => !!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1),
+  buff: (s) => (!!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1 || s.aura.armorPen > 0 || s.aura.critChance > 0))
+    || !!s.brew || !!s.link,
   income: (s) => !!s.income,
   summon: (s) => (s.turret?.max || 0) > 0,
 };
 
-function statsCapabilities(s) {
+/** Capability keys a resolved stat block provides (CAP_TESTS). */
+export function statsCapabilities(s) {
   const caps = new Set();
   const st = statusTypes(s);
   for (const [cap, test] of Object.entries(CAP_TESTS)) if (test(s, st)) caps.add(cap);
@@ -53,8 +55,9 @@ export function fieldCapabilities(sim) {
 
 /**
  * How each formation unit can provide one of `capabilities`: innately (path null) or via the
- * lowest upgrade tier that grants it. Sorted: innate first, then cheapest tier.
- * @returns {{ unitId: string, path: number|null, tier: number, pathName?: string }[]}
+ * lowest upgrade tier that grants it; a hero via the first track level that grants it
+ * (`heroLevel`). Sorted: innate first, then cheapest tier.
+ * @returns {{ unitId: string, path: number|null, tier: number, pathName?: string, heroLevel?: number }[]}
  */
 export function capabilitySources(sim, capabilities) {
   const key = capabilities.join(',');
@@ -72,6 +75,15 @@ export function capabilitySources(sim, capabilities) {
       out.push({ unitId: id, path: null, tier: 0 });
       continue;
     }
+    if (def.kind === 'hero') {
+      for (let L = 2; L <= (def.hero?.levels?.length || 0); L++) {
+        if (grants(resolveStats(def, { heroLevel: L }))) {
+          out.push({ unitId: id, path: null, tier: 0, heroLevel: L });
+          break;
+        }
+      }
+      continue;
+    }
     let best = null;
     for (let p = 0; p < 3; p++) {
       const n = def.paths?.[p]?.tiers?.length || 0;
@@ -86,7 +98,7 @@ export function capabilitySources(sim, capabilities) {
     }
     if (best) out.push(best);
   }
-  out.sort((a, b) => a.tier - b.tier);
+  out.sort((a, b) => a.tier - b.tier || (a.heroLevel || 0) - (b.heroLevel || 0));
   sim._capSources.set(key, out);
   return out;
 }
@@ -97,7 +109,10 @@ function helpText(sim, sources) {
   const parts = [];
   for (const src of sources) {
     const name = sim.data.unit(src.unitId)?.name || src.unitId;
-    if (src.path == null) {
+    if (src.heroLevel) {
+      const h = sim.towers.find((t) => t.isHero && t.unitId === src.unitId);
+      parts.push(h && h.level >= src.heroLevel ? `${name} (Lv ${src.heroLevel} ✓)` : `${name} at Lv ${src.heroLevel}`);
+    } else if (src.path == null) {
       if (!placed.has(src.unitId)) parts.push(`place ${name}`);
     } else parts.push(`${name}'s ${src.pathName} path (tier ${src.tier})`);
     if (parts.length >= 2) break;

@@ -67,6 +67,8 @@
 .ut-row-focus { flex: 1 1 auto; min-width: 30px; font-size: 0.72rem; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ut-row-cap { flex: none; font: 900 10px/1 var(--font); color: #a35f00; background: #fff3bf; border-radius: 6px; padding: 3px 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .ut-row.cap0 .ut-row-cap { color: #5c6b7a; background: #e9edf3; }
+/* path cap: another copy of hers holds this path's tier 5 */
+.ut-row-cap.ut-row-final { color: #5f3dc4; background: #f3f0ff; }
 .ut-row-reason { flex: 0 1 auto; min-width: 0; font-size: 0.7rem; font-weight: 800; color: #a35f00; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ut-row.cap0 .ut-row-reason { color: #5c6b7a; }
 .ut-row-head > .tag-summary { flex: none; margin-left: auto; flex-wrap: nowrap; }

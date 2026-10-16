@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { ROLES, ROLE_CATEGORIES, ATTACK_TYPES, UNIT_RARITIES } from '../../data/types.js';
 import { UNITS } from '../../data/units.js';
 import { unitPower } from '../../systems/progression.js';
+import { potentialLevel } from '../../systems/potential.js';
 import { roleIcon, attackTypeIcon, uiIcon } from '../../art/icons.js';
 import { howToGet, cssVars, put } from './backpack.js';
 import { displayRarity, rarityColor, DISPLAY_RARITY_RANK } from '../rarity.js';
@@ -19,6 +20,7 @@ const SORTS = [
   { id: 'power', label: 'Power' },
   { id: 'level', label: 'Level' },
   { id: 'rarity', label: 'Rarity' },
+  { id: 'potential', label: 'Potential' },
   { id: 'name', label: 'Name' },
 ];
 
@@ -41,6 +43,8 @@ function sortList(list, profile) {
     power: (u) => (profile.units[u.id] ? unitPower(profile, u.id) : -1),
     level: (u) => profile.units[u.id]?.level ?? 0,
     rarity: (u) => RARITY_RANK[displayRarity(u, profile)] * 1000 + (profile.units[u.id]?.level ?? 0),
+    // P6 first, then Power
+    potential: (u) => (profile.units[u.id] ? potentialLevel(profile.units[u.id]) * 1e7 + unitPower(profile, u.id) : -1),
     name: (u) => u.name,
   }[state.sort];
   const dir = state.desc ? -1 : 1;

@@ -6,8 +6,9 @@
 // canvas and do not depend on the viewport, so they run once (first viewport) unless
 // --matrix-every:
 //   1. the co-op sim id is unchanged (renderer-only work never touches the lockstep code)
-//   2. Chika truth at 1× and 3×: drones 1:1 with turrets, inside her leash, targets = the sim's
-//      shot targets, blended bullets land exactly on the sim path, sorties reach strafing passes
+//   2. Chika truth at 1× and 3× (Chika rework M5): drones 1:1 with turrets, each drawn on its sim
+//      drone (± 0.35 tiles of decoration), chasing the sim's quarry, blended bullets land exactly
+//      on the sim path, and they really fly (the sim's drones leave her)
 //   3. launch + sell: a new drone starts in LAUNCH at her backpack; selling removes them at once
 //   4. every girl × every build (gallery) at high and low: no console errors, quads within the
 //      budget, no extra draw calls vs FX off, no default pulse rings left for styled pulse girls
@@ -101,26 +102,23 @@ async function open(ctxB, query, errors) {
 async function chikaTruth(page, n, speed) {
   return page.evaluate(([n, speed]) => {
     window.__setSpeed(speed);
-    const out = { frames: 0, mismatch: 0, maxLeash: 0, wrongTarget: 0, engagedT: 0, passes0: null, passes: 0, overflow: 0, maxRes: 0, shots: 0, states: {} };
+    const out = { frames: 0, mismatch: 0, maxDecor: 0, wrongTarget: 0, engagedT: 0, maxOut: 0, overflow: 0, maxRes: 0, shots0: null, shots: 0, states: {} };
     const sim = window.__sim;
-    let prevShots = new Map();
     for (let k = 0; k < n; k++) {
       window.__advance(1);
       const p = window.__fxProbe();
       out.frames++;
       if (p.drones.length !== p.turrets) out.mismatch++;
       for (const d of p.drones) {
-        out.maxLeash = Math.max(out.maxLeash, d.leash);
         out.states[d.state] = (out.states[d.state] || 0) + 1;
-        if (d.state === 'APPROACH' || d.state === 'PASS') {
-          out.engagedT += (1 / 60) * speed;
-          if (d.targetUid !== d.lastShotTarget) out.wrongTarget++;
-        }
-        if (prevShots.get(d.uid) !== d.lastShotTarget) out.shots++;
-        prevShots.set(d.uid, d.lastShotTarget);
+        if (d.state !== 'LAUNCH') out.maxDecor = Math.max(out.maxDecor, d.decor);
+        if (d.targetUid !== d.simTarget) out.wrongTarget++;
+        if (d.state === 'HUNT') out.engagedT += (1 / 60) * speed;
+        const t = sim.getTower(d.towerUid);
+        if (t && d.simX != null) out.maxOut = Math.max(out.maxOut, Math.hypot(d.simX - t.x, d.simY - t.y));
       }
-      if (out.passes0 == null) out.passes0 = p.stats.passes;
-      out.passes = p.stats.passes - out.passes0;
+      if (out.shots0 == null) out.shots0 = p.stats.droneShots;
+      out.shots = p.stats.droneShots - out.shots0;
       out.overflow = p.stats.dronesOverflow;
       out.maxRes = Math.max(out.maxRes, p.stats.maxBlendResidual);
     }
@@ -141,12 +139,13 @@ async function runViewport(vp) {
     const page = await open(ctxB, 'mode=focus&unit=chika&build=5-2-0&quality=high&seed=3&speed=1&tiny=1', errors);
     for (const speed of [1, 3]) {
       const r = await chikaTruth(page, quick ? 150 : 360, speed);
-      log(`  chika ${speed}×: ${r.turrets} drones, states ${JSON.stringify(r.states)}, passes ${r.passes}, engaged ${r.engagedT.toFixed(1)} drone-s`);
+      log(`  chika ${speed}×: ${r.turrets} drones, states ${JSON.stringify(r.states)}, ${r.shots} drone shots, hunting ${r.engagedT.toFixed(1)} drone-s, sim drones up to ${r.maxOut.toFixed(2)} tiles out`);
       check(r.turrets >= 9 && r.mismatch === 0, `chika ${speed}×: drones 1:1 with sim turrets every frame (${r.turrets})`);
-      check(r.maxLeash <= 1.001, `chika ${speed}×: drones stay inside her ring (max ${r.maxLeash.toFixed(3)} of leash)`);
-      check(r.wrongTarget === 0, `chika ${speed}×: engaged drones chase the sim's shot target`);
+      check(r.maxDecor <= 0.35 + 1e-6, `chika ${speed}×: drawn drones stay on their sim drones (max ${r.maxDecor.toFixed(3)} tiles of decoration)`);
+      check(r.wrongTarget === 0, `chika ${speed}×: every drawn drone chases its sim drone's quarry`);
       check(r.maxRes < 1e-6, `chika ${speed}×: blended bullets sit exactly on the sim path from f′ 0.6 (residual ${r.maxRes})`);
-      check(r.engagedT < 1 || r.passes >= (r.engagedT / 2) * 0.8, `chika ${speed}×: sorties reach a strafing pass about every 2 s per engaged drone (${r.passes} in ${r.engagedT.toFixed(1)} drone-s)`);
+      check(r.shots > 0 && r.engagedT > 0, `chika ${speed}×: the wing hunts and fires (${r.shots} shots)`);
+      check(r.maxOut > 1.2, `chika ${speed}×: the sim's drones roam away from her and are drawn there (${r.maxOut.toFixed(2)} tiles)`);
       check(r.overflow === 0, `chika ${speed}×: no drone overflow`);
     }
     const launch = await page.evaluate(() => {

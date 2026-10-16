@@ -10,11 +10,16 @@
 
 import { STAGE_MAP } from '../data/stages.js';
 import { DIFFICULTIES } from '../data/types.js';
+import { BATTLE_MODES } from '../data/modes.js';
 
 /** Record format this build writes (and the newest it can read). */
 export const RECORD_V = 1;
-/** Snapshot format this build writes (and the newest it can read). */
-export const SNAP_V = 1;
+/**
+ * Snapshot format this build writes (and the newest it can read). 2: the hero rework (a hero has
+ * no tiers; her bought levels and Move cooldown are kept). A format-1 snapshot is still restored
+ * (src/ui/battle/snapshot.js restoreSim migrates its hero).
+ */
+export const SNAP_V = 2;
 /** Saved battles kept at once; starting another one asks which one to delete (stage prep). */
 export const MAX_BATTLE_SAVES = 5;
 
@@ -190,6 +195,8 @@ function cleanRecord(slot, r) {
   // never saves, so nothing can continue it (dropped with the notice)
   if (r.endless && stage.kind !== 'challenge') return null;
   if (!DIFFICULTIES[r.difficulty] || !isUint32(r.seed)) return null;
+  // a battle mode this build does not know cannot be played as saved (absent = Standard)
+  if (r.mode != null && !(typeof r.mode === 'string' && Object.hasOwn(BATTLE_MODES, r.mode))) return null;
   if (!finite(r.v) || r.v > RECORD_V) return null;
   const s = r.snap;
   if (!isObj(s) || !finite(s.v) || s.v > SNAP_V) return null;
@@ -205,8 +212,10 @@ function cleanRecord(slot, r) {
   const hero = cleanEntry(r.hero);
   if (!loadout.length && !hero) return null;
   const updatedAt = finite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0;
+  const { mode, ...rest } = r;
   return {
-    ...r,
+    ...rest,
+    ...(mode && mode !== 'standard' ? { mode } : {}),
     loadout,
     hero,
     endless: !!r.endless,

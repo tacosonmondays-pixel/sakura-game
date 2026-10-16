@@ -396,3 +396,108 @@ describe('backfillDupes', () => {
     for (const id of Object.keys(UNIT_MAP)) expect(POOL_SIZE_V0125[UNIT_MAP[id].rarity]).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// M1: battle stats, Power, pull() fields and the describer
+// ---------------------------------------------------------------------------
+import { unitBattleStats, unitPower } from '../../src/systems/progression.js';
+import { describePotentialStep, potentialView, potentialSummary, potentialPowerFactor, dupesToNext, dupesToMax, potentialSteps } from '../../src/systems/potential.js';
+import { UNITS as ALL_UNITS } from '../../src/data/units.js';
+
+describe('M1: unitBattleStats().potential and unitPower', () => {
+  it('carries P (unowned → 1, capped at 6)', () => {
+    const p = createProfile();
+    expect(unitBattleStats(p, 'aoi').potential).toBe(1);
+    expect(unitBattleStats(p, 'kaede').potential).toBe(1);
+    p.units.aoi.dupes = 3;
+    expect(unitBattleStats(p, 'aoi').potential).toBe(4);
+    p.units.aoi.dupes = 40;
+    expect(unitBattleStats(p, 'aoi').potential).toBe(6);
+    expect(unitBattleStats(null, 'aoi').potential).toBe(1);
+  });
+
+  it('Power grows with every step for every girl (supports and economy included)', () => {
+    for (const u of ALL_UNITS) {
+      const p = createProfile();
+      p.units[u.id] ||= newUnitState(0);
+      let prev = unitPower(p, u.id);
+      for (let d = 1; d <= 5; d++) {
+        p.units[u.id].dupes = d;
+        const cur = unitPower(p, u.id);
+        expect(cur, `${u.id} P${d + 1}`).toBeGreaterThan(prev);
+        prev = cur;
+      }
+    }
+  });
+
+  it('P1 Power is unchanged by Potential', () => {
+    const p = createProfile();
+    p.units.aoi.dupes = 0;
+    const s = unitBattleStats(p, 'aoi');
+    expect(s.potential).toBe(1);
+    expect(potentialPowerFactor(UNIT_MAP.aoi, 1)).toBe(1);
+  });
+});
+
+describe('M1: pull() result fields', () => {
+  it('a 10-pull of an owned R girl reports P and ▲ per result, fragments unchanged', () => {
+    const p = createProfile();
+    p.items.ticket_recruit10 = 1;
+    const r = pull(p, 10, rngFor(R_ROLL, 'aoi'));
+    expect(r.ok).toBe(true);
+    // nine Aoi, then the ten-pull guarantee's SR (a new girl)
+    const aoi = r.results.slice(0, 9);
+    expect(aoi.map((x) => x.potential)).toEqual([2, 3, 4, 5, 6, 6, 6, 6, 6]);
+    expect(aoi.map((x) => x.potentialUp)).toEqual([true, true, true, true, true, false, false, false, false]);
+    expect(aoi.every((x) => x.fragments === 2)).toBe(true);
+    expect(r.results[9]).toMatchObject({ isNew: true, potential: 1, potentialUp: false });
+  });
+  it('a new girl is P1 without ▲', () => {
+    const p = createProfile();
+    p.items.gems = 100000;
+    const r = pull(p, 1, rngFor(SSR_ROLL, 'kaede'));
+    expect(r.results[0]).toMatchObject({ unitId: 'kaede', isNew: true, potential: 1, potentialUp: false, fragments: 0 });
+  });
+});
+
+describe('M1: the describer', () => {
+  it('short labels are ≤ 9 characters and every step has text', () => {
+    for (const u of ALL_UNITS) {
+      for (const s of potentialSteps(u)) {
+        const parts = describePotentialStep(s, u);
+        expect(parts.length, `${u.id} P${s.step}`).toBeGreaterThan(0);
+        for (const x of parts) {
+          expect(x.short.length, x.short).toBeLessThanOrEqual(9);
+          expect(x.long.length).toBeGreaterThan(4);
+        }
+      }
+    }
+  });
+  it('labels as in the spec table', () => {
+    const lbl = (id, step) => describePotentialStep(potentialSteps(UNIT_MAP[id])[step - 2], UNIT_MAP[id]);
+    expect(lbl('aoi', 2)[0]).toEqual({ short: '+2% DMG', long: '+2% damage', who: 'self' });
+    expect(lbl('aoi', 6)[0].long).toBe('+3% crit chance');
+    expect(lbl('momo', 3)[0].short).toBe('+2% COIN');
+    expect(lbl('miko', 4)[0]).toEqual({ short: '+1% AURA', long: 'aura +1% damage', who: 'allies' });
+    expect(lbl('umeko', 6)[0].long).toBe('aura +1% attack speed');
+    expect(lbl('hotaru', 6)[0]).toEqual({ short: '+0.1s SIL', long: 'silence +0.1 s', who: 'enemies' });
+    expect(lbl('kaede', 6)[0].short).toBe('+5% FOCUS');
+    expect(lbl('suzu', 4)[0].long).toBe('+3% damage (traps)');
+    expect(lbl('chika', 2)[0].long).toBe('+3% range (drones too)');
+    expect(lbl('luna', 6)[0].long).toBe('+5% damage to elites');
+    expect(lbl('nami', 6)[0].long).toBe('+5% damage to bosses');
+  });
+  it('view: six nodes, active up to P, next one marked; unowned shows none active', () => {
+    const v = potentialView(UNIT_MAP.aoi, { dupes: 2 });
+    expect(v.map((n) => n.step)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(v.map((n) => n.active)).toEqual([true, true, true, false, false, false]);
+    expect(v.map((n) => n.next)).toEqual([false, false, false, true, false, false]);
+    expect(v[5].name).toBe("Fletcher's Focus");
+    expect(potentialView(UNIT_MAP.aoi, null).some((n) => n.active)).toBe(false);
+    expect(potentialSummary(UNIT_MAP.aoi, 4)).toBe('+2% damage, +2% attack speed, +3% range');
+    expect(potentialSummary(UNIT_MAP.aoi, 1)).toBe('');
+    expect(dupesToNext({ dupes: 2 })).toBe(1);
+    expect(dupesToNext({ dupes: 9 })).toBe(0);
+    expect(dupesToMax({ dupes: 2 })).toBe(3);
+  });
+});

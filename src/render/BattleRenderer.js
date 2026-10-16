@@ -19,8 +19,10 @@ import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
 import { AmbientSystem } from './ambient.js';
+import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
+import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
@@ -106,6 +108,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let cameraMode = cameraModeOf(settings);
   rig.setLocked(cameraMode === 'locked', false);
   const isPlacing = typeof opts.isPlacing === 'function' ? opts.isPlacing : () => false;
+  // how far between two sim steps this frame is (0..1): roaming drones are drawn in between
+  const renderAlpha = typeof opts.renderAlpha === 'function' ? opts.renderAlpha : () => 1;
 
   if (look.fog) scene.fog = new THREE.Fog(look.fogColor, rig.dist - 1, rig.dist + 40);
 
@@ -146,15 +150,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     bbN: new QuadBatch({ texture: atlas.texture, max: 3000, renderOrder: 20 }),
     bbA: new QuadBatch({ texture: atlas.texture, max: 4000, blending: 'additive', renderOrder: 21 }),
     overlay: new QuadBatch({ texture: atlas.texture, max: 5000, depthTest: false, renderOrder: 30 }),
+    // buff links of the selected girl: on the ground plane but over the models (src/render/buffIcons.js)
+    links: new QuadBatch({ texture: atlas.texture, max: 800, mode: 'ground', depthTest: false, renderOrder: 25 }),
   };
   for (const b of Object.values(batches)) scene.add(b.mesh);
   const batchList = Object.values(batches);
 
   let shadowsOn = false;
-  const terrain = buildTerrain(map, look, scenery, { shadows: false, quality });
+  const terrain = buildTerrain(map, look, scenery, { shadows: false, quality, reverse: !!sim.mode?.reverse });
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -179,6 +186,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return false;
     }
   }
+  const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
+  buffIcons.setMode(settings.buffIcons);
 
   // ----- post-processing -------------------------------------------------------------------
   let composer = null;
@@ -496,6 +505,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
           overlays.refreshHints();
           break;
         }
+        case 'heroMove': {
+          // her view is rebuilt at the new spot by the next sync; a puff where she left and arrived
+          fx.puff(ev.fromX, 0.2, ev.fromY, '#ffffff', 6, 0.4, 0.35);
+          actors.dropTower?.(ev.towerUid);
+          fx.puff(ev.x, 0.1, ev.y, '#ffffff', 6, 0.5, 0.35);
+          fx.ring(ev.x, ev.y, 0.15, 0.75, 0.4, '#ffffff', { additive: false, uv: 'ring', a0: 0.8 });
+          if (ev.downtime > 0) fx.text('…', ev.x, 1.3, ev.y, '#ffffff', 0.3, ev.downtime, 0.2);
+          overlays.refreshHints();
+          break;
+        }
         case 'heroLevel': {
           const v = actors.towerView(ev.towerUid ?? sim.hero?.uid);
           if (v) {
@@ -556,6 +575,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
     handleEvents(events);
+    try {
+      actors.alpha = renderAlpha();
+    } catch {
+      actors.alpha = 1;
+    }
+    if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
     actors.sync(d);
     terrain.update(time);
     actors.drawGround(d);
@@ -563,6 +588,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
+    ruleDecals?.update(d, time);
     overlays.update(d);
     actors.drawOverlay();
     // the panel slide runs on real time (a girl can be inspected while the game is paused)
@@ -570,6 +596,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const realDt = lastFrameMs ? Math.min(0.1, Math.max(0, (nowMs - lastFrameMs) / 1000)) : 0;
     lastFrameMs = nowMs;
     keepSelectedInView(nowMs);
+    buffIcons.update(d, { worldPerPx: rig.scale, shortSide: Math.min(rig.viewW || 800, rig.viewH || 800) });
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
     rig.apply(d, realDt);
@@ -595,10 +622,43 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const hitP = new THREE.Vector3();
   const tmpV = new THREE.Vector3();
 
+  /** Pixels per tile at a world point (for tap radii). */
+  function pxPerTile(x, y, rect) {
+    const a = projectPx(x, y, 0, rect);
+    const b = projectPx(x + 1, y, 0, rect);
+    return Math.hypot(b.x - a.x, b.y - a.y) || 40;
+  }
+
+  /**
+   * The roaming drone drawn nearest the tap within 22 CSS px (or 0.3 tiles, whichever is larger):
+   * flying ones only, or (flying = false) any. @returns {number|null} drone uid
+   */
+  function pickDrone(px, py, rect, flying) {
+    let best = null;
+    let bestD = Infinity;
+    for (const t of sim.towers) {
+      if (!(t.turretSpec?.leash > 0)) continue;
+      for (const d of t.turrets) {
+        if (flying && !(d.tgt || d.moving)) continue;
+        const at = actors.droneDrawn.get(d.uid) || { x: d.x, h: 0.62, y: d.y };
+        const s = projectPx(at.x, at.y, at.h, rect);
+        const r = Math.max(22, 0.3 * pxPerTile(at.x, at.y, rect));
+        const dd = (s.x - px) ** 2 + (s.y - py) ** 2;
+        if (dd <= r * r && dd < bestD) {
+          bestD = dd;
+          best = d.uid;
+        }
+      }
+    }
+    return best;
+  }
+
   /**
    * Screen → board. Returns the continuous world point under the pointer (`x`, `y`, free
    * placement — nothing snaps), the tile under it (`tx`, `ty`, legacy), the girl whose
-   * footprint or body is there, and whether the point lies inside the map.
+   * footprint or body is there, the roaming drone tapped (`droneUid`: a flying drone wins over
+   * everything, a drone at home only when no girl is there) and whether the point lies inside
+   * the map.
    */
   function pick(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -617,6 +677,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     const inBounds = hit && x >= 0 && y >= 0 && x < map.width && y < map.height;
     let towerUid = null;
+    let droneUid = pickDrone(clientX - rect.left, clientY - rect.top, rect, true);
+    if (droneUid != null) return { x, y, tx, ty, towerUid: null, droneUid, inBounds };
     if (hit) {
       // exact integers would be read as a tile by the sim's legacy rule; nudge them
       const px0 = Number.isInteger(x) ? x + 1e-6 : x;
@@ -638,7 +700,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
       }
     }
-    return { x, y, tx, ty, towerUid, inBounds };
+    if (towerUid == null) droneUid = pickDrone(clientX - rect.left, clientY - rect.top, rect, false);
+    return { x, y, tx, ty, towerUid, droneUid, inBounds };
   }
 
   function projectPx(x, y, z, rect = canvas.getBoundingClientRect()) {
@@ -747,11 +810,31 @@ export function createBattleRenderer(container, sim, opts = {}) {
     shakeGhost() {
       overlays.shakeGhost();
     },
-    setSelected(uid) {
+    /** Gate arrows for this wave (relative to the terrain's gates) and the chevrons (absolute direction). */
+    setRouteFlipped(flipped, reversed = flipped) {
+      ambient.setGatesReversed(flipped, reversed);
+    },
+    /** The selected girl, and (optionally) one of her drones (ring, tether, reticle). */
+    setSelected(uid, droneUid = null) {
       if ((uid ?? null) !== selectedUid) selectedAtMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
       selectedUid = uid ?? null;
-      overlays.setSelected(uid ?? null);
+      overlays.setSelected(uid ?? null, droneUid ?? null);
       attackFx?.setSelected(uid ?? null);
+      buffIcons.setSelected(uid ?? null);
+    },
+    /** Flight points being picked: { uid, mode, a } (her signal ring and the points so far), or null. */
+    setFlightPreview(p) {
+      overlays.flightPreview = p || null;
+    },
+    /** Where a drone is drawn on screen (CSS px) — e2e and the attack-FX hook. */
+    droneScreen(uid) {
+      const at = actors.droneDrawn.get(uid);
+      if (!at) return null;
+      return worldToScreen(at.x, at.y, at.h);
+    },
+    /** Where each roaming drone is drawn this frame: uid -> { x, h, y } (world; read-only). */
+    get drawnDrones() {
+      return actors.droneDrawn;
     },
     /**
      * Extra: the screen the selected girl's info panel covers, in CSS px from the board's right
@@ -765,7 +848,23 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
     },
-    /** Legacy no-op: BTD6-style placement shows no forbidden-zone shading (owner request). */
+    /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
+    setBuffIcons(mode) {
+      buffIcons.setMode(mode);
+    },
+    /** Extra: pick mode rings on the girls `srcUid` can brew / tune up (null ends it). */
+    setBuffPick(srcUid, candidates = []) {
+      buffIcons.setPick(srcUid ?? null, candidates);
+    },
+    /** Extra: what the buff layer drew last frame ({ rows, icons, links, pick }; e2e / debugging). */
+    get buffIconStats() {
+      return { ...buffIcons.stats, mode: buffIcons.mode };
+    },
+    /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
+    pulseTower(uid) {
+      overlays.pulseTower(uid);
+    },
+    /** Legacy no-op: free placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},
     /** Extra: show the range circle around the placement ghost (settings.showRanges). */
     setPlacementRange(on) {

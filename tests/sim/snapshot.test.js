@@ -3,6 +3,7 @@
 // orders for 20 000 ticks and compare their full state (the snapshot JSON) all the way. A field
 // that is not stored, stored by value where it must stay shared, or rebuilt differently makes the
 // copies drift apart within a few hundred ticks.
+// The bot also switches Chika's flight mode every 10 s (Hold / Patrol / Pursuit / Hover).
 // Three moments: a campaign stage between waves, the middle of a crowded wave (enemies with
 // statuses, projectiles in flight, traps and drones out), and a deep co-op freeplay wave (the
 // Ashwing Matriarch at wave 200 with her summons, visitors with affixes, Resolve budgets).
@@ -22,6 +23,7 @@ function makeBot(stageId, units, data) {
   const plan = autoPlan(stageId, units, { data });
   let i = 0;
   let turn = 0;
+  let calls = 0;
   return (sim) => {
     const out = [];
     if (i < plan.length) {
@@ -51,6 +53,11 @@ function makeBot(stageId, units, data) {
       // now and then a different targeting mode (strong / last / first)
       if (turn % 7 === 0) out.push(['tgt', t.uid, ['strong', 'last', 'first'][turn % 3]]);
     }
+    // every 10 s Chika's wing changes flight mode (Hold / Patrol points around her)
+    if (++calls % 30 === 0) {
+      const mode = ['patrol', 'pursuit', 'hold', 'hover'][(calls / 30) % 4];
+      for (const t of sim.towers) if (sim.flightInfo(t.uid)) out.push(['fly', t.uid, mode, t.x + 2.5, t.y - 1.5, t.x - 3, t.y + 2]);
+    }
     if (sim.hero && sim.heroUltStatus().ready) out.push(['ult']);
     return out;
   };
@@ -62,6 +69,7 @@ function apply(sim, c) {
     case 'upg': return sim.upgradeTower(c[1], c[2]);
     case 'tgt': return sim.setTargetMode(c[1], c[2]);
     case 'ult': return !!sim.activateUlt();
+    case 'fly': return sim.setFlight(c[1], c[2], c[3], c[4], c[5], c[6]);
     case 'wave': return sim.startNextWave();
     default: throw new Error(c[0]);
   }
@@ -164,6 +172,58 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     expect(sim.freeplayInfo(200)).toBeTruthy();
     const r = twin(sim, args, bot, 12000);
     expect(r.compared).toBeGreaterThan(5);
+  });
+});
+
+// Battle modes and map rules (docs/specs/CODEX_MODES.md §6.5, docs/specs/LANDING_PLAN.md §8): the
+// route orientation is carried (routeReversed), both orientations are rebuilt (REBUILT), and the live
+// one is put back after a restore (AFTER_RESTORE).
+describe('battle snapshots with map rules and battle modes', { timeout: 240000 }, () => {
+  it('4-2 co-op freeplay (Rear Ambush): a checkpoint right after an even wave, walking the other way', () => {
+    const stage = coopStage('4-2', { freeplay: 'blossom' });
+    const args = { stageId: '4-2', difficulty: 'normal', loadout: TEAM.map((unitId) => ({ unitId })), hero: { unitId: 'hikari' }, seed: 42, options: { autoStart: true, freeplay: true }, data: { stage } };
+    const sim = fresh(args);
+    expect(sim.rule?.id).toBe('rear_ambush');
+    const bot = makeBot('4-2', [...TEAM, 'hikari'], { stage });
+    sim.cash += 6000;
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wavesCleared >= 4 && s.state === 'between' && s.routeReversed, 60 * 60 * 20);
+    expect(sim.routeReversed).toBe(true);
+    const copy = fresh(args).restore(wire(sim.snapshot()));
+    expect(copy.pathData).toBe(copy._pathsRev);
+    const r = twin(sim, args, bot);
+    expect(r.compared).toBeGreaterThan(20);
+    // the dense polylines of both orientations never travel in a checkpoint
+    expect(REBUILT).toEqual(expect.arrayContaining(['_pathsFwd', '_pathsRev', 'mode']));
+    expect(r.snap.root._pathsFwd).toBeUndefined();
+  });
+
+  it('6-1 (Prism Conduits): after the pad owner is sold, the next girl on the pad owns it', () => {
+    const args = { stageId: '6-1', difficulty: 'hard', loadout: TEAM.map((unitId) => ({ unitId })), seed: 9, options: { autoStart: true } };
+    const sim = fresh(args);
+    sim.cash += 20000;
+    const pad = sim.rule.pads[0];
+    const a = sim.placeTower('kage', pad.x, pad.y);
+    let b = null;
+    for (const [dx, dy] of [[0.85, 0], [-0.85, 0], [0, 0.85], [0, -0.85]]) if (!b) b = sim.placeTower('yuki', pad.x + dx, pad.y + dy);
+    expect(a?.onPad && b && !b.onPad).toBe(true);
+    const bot = makeBot('6-1', TEAM);
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wavesCleared >= 3 && s.state === 'between', 60 * 60 * 20);
+    sim.sellTower(a.uid);
+    expect(b.onPad).toBe(true);
+    twin(sim, args, bot);
+  });
+
+  it('6-3 Ironclad with vents, mid-wave while the vents burn', () => {
+    const args = { stageId: '6-3', difficulty: 'normal', loadout: TEAM.map((unitId) => ({ unitId })), seed: 5, options: { autoStart: true, mode: 'ironclad' } };
+    const sim = fresh(args);
+    const bot = makeBot('6-3', TEAM);
+    sim.cash += 8000;
+    sim.startNextWave();
+    play(sim, bot, (s) => s.wave >= 5 && s.state === 'wave' && s.rule.active && s.enemies.length > 3, 60 * 60 * 20);
+    expect(sim.rule.active).toBe(true);
+    twin(sim, args, bot, 12000);
   });
 });
 

@@ -1,4 +1,4 @@
-// Free (Bloons-style) placement: continuous positions, circular footprints, path band,
+// Free placement: continuous positions, circular footprints, path band,
 // obstacles, terrain under the centre, overlap, legacy tile wrappers and autoPlan.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';

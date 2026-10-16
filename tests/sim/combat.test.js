@@ -189,3 +189,52 @@ describe('damage over time', () => {
     expect(r.toHp).toBe(6);
   });
 });
+
+describe('armor floor, % max HP damage over time, execution shot', () => {
+  test('the armor floor (freeplay only) keeps 25% of a hit through armor', () => {
+    const plain = fakeEnemy({ armor: 30 });
+    expect(computeHit(plain, hitSpec({ damage: 20 })).toHp).toBe(1); // campaign: min 1
+    const fp = fakeEnemy({ armor: 30, armorFloor: 0.25 });
+    expect(computeHit(fp, hitSpec({ damage: 20 })).toHp).toBe(5);
+    expect(computeHit(fp, hitSpec({ damage: 100 })).toHp).toBe(70); // armor 30 < 75%: unchanged
+    // a crystal shell is untouched (no floor, no min 1)
+    const shell = fakeEnemy({ armor: 30, armorFloor: 0.25, crystalHits: 3, crystalCap: 5 });
+    expect(computeHit(shell, hitSpec({ damage: 20 })).toHp).toBe(0);
+  });
+
+  test('burn / poison pct: share of max HP per second, ×0.1 on bosses, through ward and barrier', async () => {
+    const { Sim } = await import('../../src/sim/Sim.js');
+    const { makeSim, startEmptyWave } = await import('./fixtures.js');
+    const sim = makeSim();
+    startEmptyWave(sim);
+    const e = sim.spawnEnemy('tank', { dist: 3 });
+    e.statuses.poison = { type: 'poison', dps: 10, pct: 0.01, duration: 100, left: 100 };
+    const hp0 = e.hp;
+    sim.update(1);
+    expect(hp0 - e.hp).toBeCloseTo((10 + 0.01 * e.maxHp) * 1, 3);
+    const b = sim.spawnEnemy('boss', { dist: 2 });
+    b.statuses.burn = { type: 'burn', dps: 0, pct: 0.01, duration: 100, left: 100, attackType: 'mystic' };
+    const bh = b.hp;
+    sim.update(1 / 60);
+    expect(bh - b.hp).toBeCloseTo(0.01 * 0.1 * b.maxHp / 60 * TYPE_CHART.mystic[b.armorClass], 6);
+    expect(Sim).toBeTruthy();
+  });
+
+  test('status merge keeps the stronger pct (one burn / one poison per enemy)', () => {
+    const e = fakeEnemy();
+    applyStatus(e, { type: 'poison', dps: 40, duration: 5 }, {});
+    applyStatus(e, { type: 'poison', dps: 10, pct: 0.0025, duration: 7 }, {});
+    expect(e.statuses.poison).toMatchObject({ dps: 40, pct: 0.0025, duration: 7 });
+    applyStatus(e, { type: 'poison', dps: 5, pct: 0.001, duration: 1 }, {});
+    expect(e.statuses.poison.pct).toBe(0.0025);
+  });
+
+  test('hpPct adds a share of current HP, capped at cap × the hit; bosses take the boss rate', () => {
+    const spec = hitSpec({ damage: 100, hpPct: { pct: 0.03, boss: 0.003, cap: 2 } });
+    expect(computeHit(fakeEnemy({ hp: 1000, maxHp: 1000 }), spec).toHp).toBe(130);
+    expect(computeHit(fakeEnemy({ hp: 1e6, maxHp: 1e6 }), spec).toHp).toBe(300); // capped at 2 × 100
+    expect(computeHit(fakeEnemy({ hp: 1e5, maxHp: 1e5, tier: 'boss' }), spec).toHp).toBe(300); // 100 + min(0.3% × 1e5, 2 × 100)
+    expect(computeHit(fakeEnemy({ hp: 2e4, maxHp: 1e5, tier: 'boss' }), spec).toHp).toBe(160); // current HP, not max
+    expect(computeHit(fakeEnemy({ hp: 1000, maxHp: 1000, crystalHits: 2, crystalCap: 50 }), spec).toHp).toBe(50);
+  });
+});

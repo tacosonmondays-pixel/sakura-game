@@ -4,6 +4,7 @@
 import { UNIT_MAP, UNITS, hasCapability } from '../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS, CHAPTERS } from '../data/stages.js';
 import { DIFFICULTY_ORDER, UNIT_RARITIES } from '../data/types.js';
+import { RIBBON_MODES, MODE_ORDER } from '../data/modes.js';
 import { newUnitState } from './save.js';
 import { addItems } from './inventory.js';
 import { potentialLevel, shadowPotential } from './potential.js';
@@ -61,6 +62,91 @@ export function isStageCleared(profile, stageId) {
 export function bestDifficulty(profile, stageId) {
   const m = stageMedals(profile, stageId);
   return [...DIFFICULTY_ORDER].reverse().find((d) => m[d]) || null;
+}
+
+// ---------------------------------------------------------------------------
+// Battle modes (docs/specs/CODEX_MODES.md §7.1): ribbons per difficulty × mode
+// ---------------------------------------------------------------------------
+
+/** Battle modes unlock on a campaign stage after its first clear (any difficulty). */
+export function modesUnlocked(profile, stageId) {
+  return STAGE_MAP[stageId]?.kind === 'campaign' && isStageCleared(profile, stageId);
+}
+
+/**
+ * The 20 ribbons of a stage: { 'easy:reverse': bool, … }. Nightmare × Last Petal is the same battle
+ * as Nightmare Standard, so the Nightmare medal earns it too.
+ * @returns {Object<string, boolean>}
+ */
+export function modeRibbons(profile, stageId) {
+  const e = profile.progress?.stages?.[stageId] || {};
+  const got = e.modes || {};
+  const out = {};
+  for (const d of DIFFICULTY_ORDER) for (const m of RIBBON_MODES) out[`${d}:${m}`] = !!got[`${d}:${m}`];
+  out['nightmare:laststand'] = !!(e.nightmare || got['nightmare:laststand']);
+  return out;
+}
+
+/** @returns {{ have: number, total: number }} */
+export function ribbonCount(profile, stageId) {
+  const r = modeRibbons(profile, stageId);
+  const keys = Object.keys(r);
+  return { have: keys.filter((k) => r[k]).length, total: keys.length };
+}
+
+/** @returns {{ have: number, total: number }} over the chapter's stages */
+export function chapterRibbons(profile, chapterId) {
+  const chapter = CHAPTERS.find((c) => c.id === Number(chapterId));
+  let have = 0;
+  let total = 0;
+  for (const id of chapter ? chapter.stages : []) {
+    const c = ribbonCount(profile, id);
+    have += c.have;
+    total += c.total;
+  }
+  return { have, total };
+}
+
+/**
+ * The medal and ribbon showcase of one stage: one grid of mode × difficulty. The Standard row is the
+ * difficulty medals; every other row is that mode's ribbons. Nightmare × Last Petal is earned with
+ * the Nightmare medal (the same battle), so it is marked `merged`.
+ * @returns {{ stageId: string, chapter: number|null, cleared: boolean, modesUnlocked: boolean,
+ *   grid: { [mode: string]: { [difficulty: string]: { earned: boolean, kind: 'medal'|'ribbon', merged?: true } } },
+ *   medals: { have: number, total: 4 }, ribbons: { have: number, total: 20 } }}
+ */
+export function stageShowcase(profile, stageId) {
+  const medals = stageMedals(profile, stageId);
+  const ribbons = modeRibbons(profile, stageId);
+  const grid = {};
+  for (const m of MODE_ORDER) {
+    grid[m] = {};
+    for (const d of DIFFICULTY_ORDER) {
+      if (m === 'standard') grid[m][d] = { earned: medals[d], kind: 'medal' };
+      else {
+        const cell = { earned: !!ribbons[`${d}:${m}`], kind: 'ribbon' };
+        if (m === 'laststand' && d === 'nightmare') cell.merged = true;
+        grid[m][d] = cell;
+      }
+    }
+  }
+  const r = ribbonCount(profile, stageId);
+  return {
+    stageId,
+    chapter: STAGE_MAP[stageId]?.chapter ?? null,
+    cleared: isStageCleared(profile, stageId),
+    modesUnlocked: modesUnlocked(profile, stageId),
+    grid,
+    medals: { have: DIFFICULTY_ORDER.filter((d) => medals[d]).length, total: DIFFICULTY_ORDER.length },
+    ribbons: r,
+  };
+}
+
+/** The whole campaign's showcase (stageShowcase for every campaign stage, in campaign order) and its totals. */
+export function campaignShowcase(profile) {
+  const stages = CAMPAIGN_IDS.map((id) => stageShowcase(profile, id));
+  const sum = (k) => stages.reduce((a, s) => ({ have: a.have + s[k].have, total: a.total + s[k].total }), { have: 0, total: 0 });
+  return { stages, medals: sum('medals'), ribbons: sum('ribbons') };
 }
 
 /** @returns {boolean} the stage's `requires` is cleared (or it has none) */

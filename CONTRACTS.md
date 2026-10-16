@@ -22,8 +22,8 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
   wholesome/non-sexual (cute, cool, stylish). The three heroes (Hikari, Luna, Nami) are
   adult guardians: elegant, glamorous, grown-up designs are OK, but no body-focused framing,
   no lingerie/swimsuits, no suggestive poses.
-* Do not copy copyrighted characters, names or assets (no Blue Archive/Bloons/Uma Musume
-  assets). Inspired-by is fine; everything we ship is original.
+* Do not copy copyrighted characters, names or assets: nothing from other games, and never name
+  another game in code, comments, tests, commits or UI text. Inspired-by is fine; everything we ship is original.
 * Do not edit files you do not own (see §1). `src/data/types.js`, `src/core/**`,
   `src/ui/router.js`, `src/ui/dom.js`, `src/ui/components.js`, `src/ui/styles/base.css`,
   `src/main.js`, `index.html` belong to the lead; ask via INTEGRATION_NOTES instead.
@@ -140,10 +140,16 @@ BaseStats = {
   status: StatusSpec[],   // applied on hit
   crit: { chance: 0, mul: 1.5 },
   eliteMul: 1, bossMul: 1, barrierMul: 1,
-  aura?: { range, dmgMul?, rateMul?, rangeMul?, detection?, costCut?, cleanse? }, // buffs towers within range
+  aura?: { range, dmgMul?, rateMul?, rangeMul?, detection?, costCut?, cleanse?, armorPen?, critChance? }, // buffs towers within range
+  brew?: { targets, dmgMul?, rateMul?, armorPen?, critChance? },  // limited buff (Midori): a few girls in her range, src/sim/buffs.js
+  link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
+  hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
-  turret?: { max, damage, rate, range, attackType?, status? },  // drones spawned near the tower, 1 per attack until max
+  turret?: { max, damage, rate, range, leash?, speed?, build?, attackType?, status? },
+           // drones. leash 0 (default): anchored near the tower, 1 per attack until max (behavior 'turret').
+           // leash > 0: ROAMING drones (Chika) — fly up to `leash` tiles from her (flight modes, §6), gun `range`,
+           // `speed` tiles/s (default 3), one built every `build` s during waves (default 1 / base rate)
   ramp?: { per, max },     // duel: +per damage fraction per consecutive hit on same target, up to +max
   mark?: { bonus, duration }, // marks target (all sources +bonus)
   silence?: number,          // seconds of silence applied on hit
@@ -153,7 +159,7 @@ BaseStats = {
 
 StatusSpec = { type: 'slow', amount: 0.3, duration: 1.5 }
            | { type: 'freeze'|'stun'|'shock'|'silence'|'reveal', duration }
-           | { type: 'burn'|'poison', dps, duration }
+           | { type: 'burn'|'poison', dps, duration, pct? }   // pct: + that share of max HP per second (×0.1 on bosses)
            | { type: 'shred', amount, duration }       // flat armor, stacks ×3
            | { type: 'mark'|'vulnerable', bonus, duration }
            | { type: 'soak', duration }
@@ -179,29 +185,65 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | status (StatusSpec[] append; same type → keep stronger values) | |
 | crit: {chance (add), mul (max)} | |
 | eliteMul, bossMul, barrierMul (mul) | |
-| aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse} | |
+| aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
+| brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
+| hpPct: {pct, boss, cap} (max) | % of current HP per hit |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
-| turret: {max, damage, range (add); rate (mul)} | |
+| turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
 | ramp: {per, max (add)} | |
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
 
-Upgrade rules (BTD6-style crosspathing): at most two paths may have tiers > 0, and only one
-path may go above tier 2. Tier N requires tier N-1 in that path.
+Upgrade rules (crosspathing): at most two paths may have tiers > 0, and only one path may go above
+tier 2. Tier N requires tier N-1 in that path. Heroes have no paths (`paths: []`). **One final tier per
+path** (src/sim/finalTier.js): per girl type and per player (`TowerRT.owner`, the co-op slot; 0 in solo)
+only one copy may hold each path's tier 5 (`FINAL_TIER`); tier 4 is unlimited; selling or losing the
+holder frees it; every mode; heroes are exempt. A refused tier 5 is `upgradeStatus(...).reason ===
+'onePerPath'` with the holder's uid.
 
 ```js
-HeroDef = {
-  levelXp: number[],     // XP needed for levels 2..10 (length 9)
-  levels: [{ level, desc, mods: ModSet }],  // milestones applied when reached
-  ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect },
+HeroDef = {                       // src/data/heroTracks.js (hero rework, docs/specs/HERO_REWORK.md)
+  levels: [{ level /*1..25*/, from /*'base' | '<pathKey>.<tier>' | 'L<n>'*/, also?: string[], desc, mods: ModSet }],
+                                  // one 25-level track: every reached level's mods apply (+ growth, below)
+  pathKeys: [a, b, c],            // the old path ids `from` refers to (attack looks; the sim ignores them)
+  levelXp?: number[],             // optional own XP table (24 entries, Lv 2..25) — requires levelPrices
+  levelPrices?: number[],         // optional own price table (24 entries); default HERO_XP_STEPS / HERO_LEVEL_PRICES
+  growth?: { damage, rate },      // default HERO_GROWTH { damage: 0.03, rate: 0 } per level above 1
+  ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect,
+         ranks: [{ level, desc, effect: Partial<UltEffect>, cooldownMul }] },  // rank 2 at Lv 10, rank 3 at Lv 20
 }
 UltEffect = { type: 'nova', damage, radius /*0 = whole map*/, attackType, status?: StatusSpec[], reveal?: seconds }
           | { type: 'timeWarp', slow, duration, rateBuff, buffDuration }
           | { type: 'tide', damage, pushback /*tiles*/, slow, duration }
 ```
 
-Heroes gain XP from damage dealt and wave clears inside a battle; only one hero per battle.
+Heroes deploy for free (`base.cost` 0) and level 1–25 (`BATTLE.maxHeroLevel`) inside each battle from
+time in a wave, wave clears and damage dealt (in the enemy's base HP), all scaled by the stage pace
+`k = clamp(22 / totalWaves, 1, 2)` (`HERO_XP`). Each level adds +3 % damage; past Lv 25 Mastery adds
++1 % per 2,000 XP (≤ +25 %). Players buy the rest of a level with battle coins. One hero per player
+(co-op: two). Heroes cannot be sold; they can be moved.
+
+**Potential steps** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
+spec `docs/specs/POTENTIAL.md` §3). A duplicate raises a girl's Potential by 1 (P1 → P6); each step P2…P6 is
+one small passive:
+
+```js
+Step = { girl?: { damageMul?, rateMul?, rangeMul?, incomeMul? },   // whole-girl: multiply into unitStats like level and gear
+         mods?: ModSet /* only 'crit.chance','eliteMul','bossMul','aura.dmgMul','aura.rateMul','silence','ramp.max' */ }
+POTENTIAL_LADDERS = { dps, frag, hero, control, support, economy }  // P2..P5 by ROLES[role].category (heroes: 'hero')
+POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p6: { name, ...Step }, p2?..p5?: Step } }  // a row for EVERY unit (test)
+POTENTIAL_SIGNATURE_DEFAULT   // fixtures / dev only
+potentialSteps(def)           // [{ step: 2..6, name|null, girl|null, mods|null }]; def.potential (fixtures) wins
+potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+```
+
+Rules: every step is relative (no flat range, trap damage, coins or armor ignore: they are huge on a young girl
+and nothing at endgame); `splash`, status lists, `aura.range`, `crit.mul`, `projectiles`, `pierce`, `chain`,
+`maxTargets`, `trap.max`, `turret.max` are banned (a test enforces the allowlist); aura steps are +1 % team-wide;
+each step must change a stat her behaviour reads (effectiveness test); budget Π damage × Π speed ≤ 1.105,
+Π range ≤ 1.075, Π coins ≤ 1.06, crit Σ ≤ 0.05, elite / boss ≤ ×1.05, aura ≤ ×1.0201, silence ≤ 0.1 s,
+focus cap ≤ 0.05. A new girl (roster) adds her row in the same PR.
 
 ## 4. World — enemies, maps, stages (owner: world)
 
@@ -265,7 +307,7 @@ summons + phasing), Iron Colossus, Ashwing Matriarch.
 ### `src/data/maps.js`
 
 ```js
-export const MAPS = [MapDef...]   // ≥ 24 maps, Bloons-like variety (loops, crossings,
+export const MAPS = [MapDef...]   // ≥ 24 maps, wide variety (loops, crossings,
                                    // spirals, two lanes, water lakes, islands, figure-8...)
 export function getMap(id)
 export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
@@ -334,14 +376,14 @@ ends on a bank (short dry gaps are decked over). Every flat junction gets painte
 chevrons a tile before and after it on both passes (src/render/groundFeatures.js).
 
 Path tiles are NOT buildable even if the row says otherwise. Spawn / exit control points sit
-just outside the grid (off-screen). Placement is FREE (Bloons-style, see §6): girls
+just outside the grid (off-screen). Placement is FREE (see §6): girls
 stand at continuous positions, so `rows` only describes terrain and obstacles — the sim turns
 'T' into a blocking disc (r 0.45 at the tile centre), 'R' / 'H' / 'X' into blocking squares, and
 the path into a band 0.55 tiles either side of its centre line (`BAND_HALF_WIDTH`). A 'B' tile
 is any water tile the road band touches; the open water of a 'B' tile off the band still takes
 water girls (a curved road often only grazes the tile).
 
-Tunnels (Bloons-style): between `IN` and `OUT` the road is drawn under a hill / hall / cave and
+Tunnels: between `IN` and `OUT` the road is drawn under a hill / hall / cave and
 enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
 are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
 already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
@@ -379,8 +421,19 @@ StageDef = {
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
   tier: MapTierKey,
+  rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
 ```
+
+**Battle modes and map rules** (`docs/specs/CODEX_MODES.md`): `src/data/modes.js` `BATTLE_MODES` (standard,
+reverse, rush, ironclad, frugal, laststand; numbers and ids only), `MODE_ORDER`, `RIBBON_MODES`, `modeId(id)`,
+`modeArmor(mode, stage, difficulty)`. `src/data/rules.js` `MAP_RULES[id] = { id, cycle: [period s, active s]|null,
+active: {...}, always: {...}, pastGoal: 'combat'|'off' }` in a fixed effect vocabulary (dmgMul, typeMul, elementMul,
+enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € livesPerWave, € bonusEvery, zoneDps + zones,
+padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
+zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
+1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
+(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`).
 
 Free recruits arrive one stage **before** their mechanic (see roster table). Chapters:
 1 Sakura Gardens (basics, slimes, hasty goblins; 1-5 Slime Prince), 2 Moonlit Lakeshore
@@ -435,7 +488,7 @@ Profile = {
   units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
-  progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave? } } },
+  progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
   missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
@@ -467,9 +520,9 @@ export function clearBattleSave(profile, slot, runId?) /*with runId: only that r
 export function droppedBattleSaves(raw), droppedBattleSaveNames(raw) // the one-time notice after an update
 export function saveSummary(rec, now)            // -> { next /*the wave fought next*/, of /*null when endless*/, lives, difficulty, endless, ago }
 export function cleanBattleSaves(raw)            // migrateProfile's sanitiser (drops what this build cannot restore or a wave past a shortened stage, keeps the newest 5)
-BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, seed /*uint32 run seed*/,
+BattleSaveRecord = { v, id /*run id, &resume=<id>*/, slot, stageId, endless, difficulty, mode? /*a battle mode; absent = Standard*/, seed /*uint32 run seed*/,
   loadout: [{ unitId, stats }], hero: { unitId, stats }|null /*unitBattleStats frozen at New game*/,
-  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty }, snap /*src/ui/battle/snapshot.js*/ }
+  createdAt /*New game mount: event bonus*/, updatedAt, build: { app, sim }, resumes, view: { next, of, lives, difficulty, mode }, snap /*src/ui/battle/snapshot.js; rr: route orientation where it can turn*/ }
 ```
 Rules: rewards, medals, first clears, stats, missions and drops only on a real end (`results.apply()`),
 which deletes the run's save in the same synchronous write; a closed or replaced run never writes
@@ -480,16 +533,24 @@ again; a full set of saves is only replaced by the player's choice (stage prep �
 too (reason `'another-tab'`: the stale pill, §13). A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
 ignores it: no whole-save backup).
 
-### `src/systems/potential.js` (Potential M0: counting only; spec `docs/specs/POTENTIAL.md`)
+### `src/systems/potential.js` (Potential; spec `docs/specs/POTENTIAL.md`)
 
 ```js
 export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export { potentialSteps, potentialFold } from '../data/potential.js'
 export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
+export function dupesToNext(unitState), dupesToMax(unitState)
 export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
 export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
 export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
+export function describePotentialStep(step, def?)         // [{ short /*≤ 9 chars*/, long, who: 'self'|'allies'|'enemies' }] — THE describer
+export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, parts, short, long, active, next }]
+export function potentialSummary(def, p)                  // "+2% damage, +2% attack speed, +3% range" (active steps)
+export function potentialPowerFactor(def, p)              // Π damageMul × Π rateMul × √Π rangeMul (unitPower)
 ```
-Not read by any screen or by the sim yet (M1–M3). Not in the co-op graph.
+Not in the co-op graph (the sim reads `src/data/potential.js` through `mods.js`). Every screen, the wiki and the
+letter take their text from `describePotentialStep`. UI: `src/ui/potential.js` (`potPill`, `potentialSection`,
+`revealTag`) + `src/ui/styles/potential.css`.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -503,6 +564,8 @@ export function claimAllMail(profile, now?), unclaimedMailCount(profile, now?)
 export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < BETA_DEADLINE
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
+export function ensurePotentialLetter(profile, now?) // main.js + lobby: 'potential-arrived-1' once, only when seenIntro has
+  // 'potential-backfilled' and some girl is P2+; no rewards; lists every P2+ girl (12 names, then "and N more")
 // src/systems/gacha.js
 export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
@@ -524,8 +587,9 @@ export function awakenCost(unitId, star)         // star 1..5 -> [{id,count}] cr
 export function canAwaken(profile, unitId)
 export function awaken(profile, unitId)
 export function unitBattleStats(profile, unitId) // multipliers fed into the sim:
-  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken }
-export function unitPower(profile, unitId)       // single number for sorting/UI
+  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken, breakthrough,
+  //      potential /*1..6; the sim adds her Potential steps; travels in the co-op loadout, so an ally's girl fights at HER owner's P*/ }
+export function unitPower(profile, unitId)       // single number for sorting/UI; × potentialPowerFactor + 20 per Potential step
 ```
 
 Scaling is deliberately modest (heroes were too strong before): damage +1.8% per level after 1,
@@ -566,9 +630,9 @@ export function itemCount(profile, id)
 export const POOL                       // { R: unitId[], SR: [...], SSR: [...] }
 export function rollOnce(state /*profile.gacha*/, rng)  // -> { unitId, rarity } (updates pity)
 export function pull(profile, count /*1|10*/, rng, { useTickets = true } = {})
-  // -> { ok, error?, results: [{ unitId, rarity, isNew, fragments }], spent: {gems, tickets} }
+  // -> { ok, error?, results: [{ unitId, rarity, isNew, fragments, pity, potential, potentialUp }], spent: {gems, tickets} }
 export function canSpark(profile)        // recruitPoints >= GACHA.sparkCost
-export function spark(profile, unitId)   // exchange recruit points for an SSR
+export function spark(profile, unitId)   // exchange recruit points for an SSR; an owned one is a duplicate (+1 Potential, fragments)
 export function expectedSSRRate()        // for the rates screen (includes pity)
 ```
 
@@ -579,10 +643,17 @@ export function rollStageDrops(stageId, difficulty, rng)        // -> [{id,count
 export function battleDropSeed(stageId, difficulty, runSeed)    // drop rng seed of a saved run (no Date.now(): no reroll by finishing twice)
 export function eventMul(stageId, now)                          // this week's event drop multiplier
 export function battleEventMul(stageId, now, eventAt?)          // a saved run: its start week's event, while it finishes within EVENT_GRACE_MS (48 h) of that week
-export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) // eventAt: when a saved run started (event bonus)
-  // result = { stageId, difficulty, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
-  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice }
+export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) // eventAt: when a saved run started (event bonus; Standard and mode wins alike)
+  // result = { stageId, difficulty, mode?, won, wave, livesLeft, encountered: enemyId[], kills: {enemyId: n}, stats: {...} }
+  // -> { firstClear, medal, rewards: [{id,count}], gear: GearInstance[], unlockedUnits: unitId[], discovered: enemyId[], gemsEarned, practice,
+  //      mode, newRibbon, ribbon /*'hard:rush'*/, rewardDifficulty }
   // practice = the stage is still locked (isPracticeRun): nothing is recorded, the profile is untouched
+  // Battle modes: only Standard wins earn medals, medal gems and first clears; a mode win sets the ribbon
+  // modes['<difficulty>:<mode>'], clears + 1, and rolls drops / drop coins / battleWinHard at the reward difficulty.
+  // A Standard Nightmare win also sets modes['nightmare:laststand'] (the same battle).
+export function rewardDifficulty(profile, stageId, difficulty, mode) // Standard: difficulty; a mode: min(difficulty, best Standard medal here)
+export function resultMode(profile, stageId, difficulty, mode)       // the mode a result counts as (Standard when locked / Nightmare × Last Petal)
+export const MODE_RIBBON_GEMS  // { easy: 0, normal: 0, hard: 0, nightmare: 0 } (owner Q1; switching on needs a SAVE_VERSION bump)
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -600,6 +671,16 @@ export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightm
 export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
 export function nextStage(profile)           // first uncleared campaign stage
 export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[], ownedCounters: {cap: unitId[]}, missing: cap[] }
+export function modesUnlocked(profile, stageId)  // a campaign stage cleared once (any difficulty)
+export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
+export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
+export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
+export function stageShowcase(profile, stageId)  // the medal and ribbon showcase of a stage (the profile showcase reads this):
+  // -> { stageId, chapter, cleared, modesUnlocked, medals: { have, total: 4 }, ribbons: { have, total: 20 },
+  //      grid: { [mode in MODE_ORDER]: { [difficulty in DIFFICULTY_ORDER]: { earned, kind: 'medal'|'ribbon', merged? } } } }
+  // the 'standard' row is the difficulty medals; the other five rows are ribbons; nightmare × laststand is merged
+  // (earned with the Nightmare medal). Read-only; never writes the profile.
+export function campaignShowcase(profile)        // -> { stages: stageShowcase[] in campaign order, medals: { have, total: 160 }, ribbons: { have, total: 800 } }
 ```
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
@@ -653,7 +734,9 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 * Tile = 1 world unit. Ranges: melee 1.6–2.2, normal ranged 2.8–3.6, sniper 8–12.
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
-* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 7000–16000 (Bloons-like).
+* Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 12000–36000 (one girl
+  per path holds it, so it is priced and tuned as a one-of-a-kind centrepiece). Heroes have no tiers:
+  they buy levels on their track (hero rework).
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -667,7 +750,7 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 Pure JS. World units = tiles; tile (tx,ty) covers [tx,tx+1)×[ty,ty+1); centre = (tx+0.5, ty+0.5).
 The 3D renderer maps sim (x, y) → three.js (x, 0, y) (y-down on the grid = +z in 3D).
 
-**Free placement (V2, Bloons-style — `src/sim/placement.js`, `docs/PLACEMENT.md`).** Girls stand
+**Free placement (V2 — `src/sim/placement.js`, `docs/PLACEMENT.md`).** Girls stand
 at continuous (x, y) and own a circular footprint: towers r = 0.42, heroes r = 0.5 (`footprintRadius(def)`;
 a UnitDef may override with `footprint`). A spot is legal when the centre is inside the map, no other
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
@@ -684,10 +767,17 @@ import { Sim } from './sim/Sim.js';
 const sim = new Sim({
   stageId,            // looks up stage + map from data
   difficulty,         // 'easy'|'normal'|'hard'|'nightmare'
-  loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
+  loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...)); stats.potential 1..6 adds her
+                                  // Potential steps in mods.js resolveStats: paths → hero levels, growth and Mastery →
+                                  // awaken passive →
+                                  // Potential ModSets → applyUnitStats(level/gear × Potential's whole-girl multipliers);
+                                  // income × incomeMul after upgrades. P1 / absent = bit-identical to no Potential.
   hero: { unitId, stats } | null,
+  heroes: [{ unitId, stats } | null, …],  // co-op: one per player, by player index (instead of `hero`)
   seed,               // number
-  options: { endless: false, autoStart: false, freeplay: false }, // freeplay: co-op freeplay (needs stage.freeplay)
+  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined },
+  // freeplay: co-op freeplay (needs stage.freeplay); mode: a BATTLE_MODES id (unknown → standard);
+  // rule: overrides stage.rule (tests and headless only; null = no rule)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -701,7 +791,11 @@ sim.towers            // TowerRT[] (includes hero)
 sim.projectiles       // ProjectileRT[]
 sim.traps             // [{ uid, x, y, ownerUid, armed }]
 sim.fields            // [{ uid, x, y, radius, kind, silenced }]  (oni fields, for rings)
-sim.hero              // TowerRT|null
+sim.hero              // TowerRT|null — the ACTIVE player's hero (getter; co-op: the viewing / commanding player)
+sim.heroConfig        // { unitId, stats, index }|null — the active player's hero config (getter + setter)
+sim.heroes, sim.heroConfigs   // every player's placed hero / config, by player index
+                      // VIEW RULE: nothing inside the step reads sim.hero / sim.heroConfig (they follow the
+                      // view); with globalThis.__SIM_VIEW_TRAP__ set (tests) such a read throws
 sim.encountered       // Set<enemyId> seen this battle
 sim.kills             // { enemyId: count }
 sim.stats             // { damageByTower: {uid: n}, leaks, cashEarned }
@@ -713,13 +807,29 @@ sim.towerAt(x, y)                   // -> nearest TowerRT whose footprint contai
 sim.placementReason(unitId, x, y)   // geometry-only reason (ignores cash/loadout/hero) | null — autoPlan, tests
 sim.footprintRadius(unitId)         // 0.42 towers, 0.5 heroes
 sim.canPlaceTile(unitId, tx, ty) / sim.placeTowerTile(unitId, tx, ty)   // legacy: tile centre
-sim.upgradeStatus(uid, path)        // -> { tier /*current*/, next: TierDef|null, cost, locked, reason: 'max'|'crosspath'|'cash'|null }
-sim.upgradeTower(uid, path)         // -> boolean
-sim.sellTower(uid)                  // -> refund coins
+sim.upgradeStatus(uid, path, { restoring }?)  // -> { tier /*current*/, next: TierDef|null, cost, locked,
+                                    //   reason: 'max'|'crosspath'|'onePerPath'|'cash'|null, holder: uid|null }
+                                    //   (checked in that order; restoring: a battle save's own record, no onePerPath)
+sim.upgradeTower(uid, path, opts?)  // -> boolean
+sim.finalTierHolder(uid, path)      // -> the uid of another copy (same type, same owner) holding that path's tier 5 | null
+sim.finalTierHolders(unitId, owner) // -> [uid|null ×3] by path
+sim.buffSources(uid)                // -> [{ key: 'dmg'|'rate'|'range'|'pen'|'crit'|'det'|'cost'|'cleanse', value,
+                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map', src: uid|-1, unitId, left }]
+sim.buffTargets(uid)                // -> [{ uid, kinds: [...], keys: [...] }] the girls she buffs (limited first)
+sim.aurasCovering(uid)              // -> [{ src, unitId, keys, won }] every aura in reach, losers included
+sim.setBuffPick(uid, targetUid)     // Midori / Chika: who to buff first (-1 = auto) -> { ok, reason: 'noBuff'|'self'|'gone'|'range'|null }
+sim.sellTower(uid)                  // -> refund coins; false for a hero (heroes cannot be sold); 0 unknown / ended
+sim.canSell(uid)                    // -> { ok, reason: null|'none'|'hero'|'ended' }
 sim.sellValue(uid)
 sim.setTargetMode(uid, mode)
 sim.activateUlt()                   // hero ult -> boolean
-sim.heroUltStatus()                 // -> { unlocked, ready, cooldownLeft, cooldown }
+sim.heroUltStatus()                 // -> { unlocked, ready, cooldownLeft, cooldown, unlockLevel, name, rank }
+sim.heroLevelStatus(want?)          // -> { level, max, next, price, xpLeft, reason: null|'noHero'|'ended'|'max'|'stale'|'cash' }
+sim.buyHeroLevel(want?)             // -> { ok, reason, price } — buys the rest of her level (exactly the missing XP).
+                                    //    want = { level, maxPrice }: refused 'stale' if she already levelled past it
+                                    //    or it now costs more (what the button showed; co-op safe)
+sim.canMoveHero(x, y) / sim.moveHero(x, y)  // -> { ok, reason } — free and instant before / between waves; in a
+                                    //    wave she pauses 3 s (moveLock) and Move recharges 15 s (moveCd)
 sim.nextWavePreview()               // -> [{ enemyId, count, traits: TraitKey[] }]
 sim.waveInfo(n)                     // same for any wave
 sim.drainEvents()                   // -> SimEvent[] since last call (renderer/UI consume; then cleared)
@@ -734,18 +844,31 @@ EnemyRT = { uid, id /*enemyId*/, def, x, y, alt /*height for airborne*/, dist /*
 TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*footprint*/, tx, ty /*tile under the centre*/,
             isHero, tiers: [a,b,c], targetMode, targetUid, facing,
             cooldown, disabled /*seconds left*/, buffed, level /*hero*/, xp, kills, damageDealt,
-            spent /*coins invested*/, turrets: [{ uid, x, y, facing }] }
+            /*heroes:*/ heroIndex, levelSpent, levelsBought, mastery, moveCd, moveLock, ultUnlocked, ultCooldown,
+            spent /*coins invested*/, turrets: [{ uid, x, y, facing }],
+            // roaming drones (turretSpec.leash > 0): each drone also has n (1, 2, …), slot, px/py (position one
+            // step earlier: draw between), jam (s), tgt/targetUid, moving, dmg, kills, shots, born (wave);
+            // the girl: droneDmg, droneKills, droneShots, droneSerial, flight (null = hover)
+            flight: null | { mode: 'hover'|'hold'|'patrol'|'pursuit', ax, ay, bx, by, cx, cy /*wing centre*/, leg },
+            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse }: the winning aura's uid or -1*/,
+            buffPick /*limited buff pin, -1 auto*/, lim /*her brew / link state*/, limIn /*{ brew, brewLeft, link, oc } she holds*/,
+            recentDps /*damage per second over the last DPS_WINDOW, picks*/ }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
 SimEvent = { type, ...payload } with types:
   'spawn' {uid,id} 'death' {uid,id,x,y,bounty} 'leak' {uid,id,lives} 'hit' {uid,x,y,amount,crit,attackType,effective}
   'attack' {towerUid, targetUid, kind} 'explode' {x,y,radius,element} 'chain' {points:[[x,y]...]}
   'beam' {from:[x,y], to:[x,y], width, color} 'pulse' {x,y,radius,element} 'status' {uid,status}
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
-  'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
+  'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid, turretUid? /*a jammed drone*/} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
+  'fizzle' {uid,x,y,turretUid} (a guided drone bullet whose target is gone)
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
-  'heroLevel' {level} 'ult' {name,effect,x,y} 'waveStart' {wave} 'waveEnd' {wave,bonus}
+  'heroLevel' {level,towerUid} 'ult' {name,effect,x,y,towerUid,rank} 'waveStart' {wave} 'waveEnd' {wave,bonus}
+  'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
-  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)   'won' {finished: true} (freeplay Finish)
+  'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
+  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
+  'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
+  'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
 
 **Co-op freeplay** (`src/sim/freeplay.js`, table `src/data/freeplay.js`, `coopStage(id, { freeplay: tier })`):
@@ -760,12 +883,35 @@ every player still in the room has sent the `end` command).
 ```js
 sim.freeplay, sim.lastWave, sim.finished
 sim.freeplayInfo(n)   // n > goal: { tier, depth, rotation, chapterCap, visitors: [chapter], affix: id|null,
-                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId] },
-                      //   speed, pressure: { armor, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
+                      //   boss: null|{ kind: 'miniboss'|'boss'|'titan'|'finale'|'calamity', bosses: [enemyId], small?: true },
+                      //   bossHpMul: [× per boss], k /*ramp smoothing*/, eliteArmor, eliteMods: [{ enemyId, mod }],
+                      //   speed, pressure: { armor /*fractional*/, bossArmor, cc, bossCc, kb } }   (null at/before the goal)
 sim.finish()          // -> boolean
-sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean }
+sim.result()          // + { freeplay: tierId|null, goal: n|null, goalReached: boolean, finished: boolean, mode, rule: ruleId|null }
 EnemyRT (freeplay)    // + armorBonus (kept through boss phases), ccLeft / kbLeft (Resolve: hard-CC seconds
-                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP)
+                      //   and knockback tiles this enemy can still be held for), childHpMul (summons' HP),
+                      //   armorFloor (0.25: armor never takes more than 75 % of a hit), ccMul / eliteMod (elite modifiers)
+```
+
+**Roaming drones and flight modes** (Chika; docs/specs/CHIKA_REWORK.md §3, §16). A girl whose
+`turret.leash > 0` builds drones on her own timer during waves (`turret.build` s, faster with attack-speed
+buffs) while her own attack (`base.behavior`, Chika's wrench bolt or Tesla coil) fires as usual. Each drone
+hunts its own quarry inside the wing's roam area, follows it at `speed` and shoots it from `range` with
+**guided** bullets (they hit only their target and fizzle when it is gone). Strong / Elite focus the wing on
+one enemy; First / Last / Close spread it. Flight mode (a player choice, co-op command `fly`):
+`hover` (default: within `leash` of her) · `hold` (within `leash` of point A) · `patrol` (around a position
+travelling A ↔ B at 0.6 × speed) · `pursuit` (anywhere on the map, fire rate × 0.85). Hold / Patrol points are
+pulled inside her signal range (2 × leash). A sapper with no girl in reach jams the nearest drone (3 s).
+Credit: `_hit(e, tower, spec, scale = 1, drone = null)`, `_credit(tower, dealt, e = null, drone = null)`,
+`_killEnemy(e, tower, drone = null)` (LANDING_PLAN S1); her own numbers = totals − drone totals.
+```js
+sim.setFlight(uid, mode, ax?, ay?, bx?, by?) // -> boolean (only roaming-drone girls; points pulled into range)
+sim.flightInfo(uid)   // -> { mode, a: [x,y]|null, b, at: [x,y] /*wing centre*/, signal, roam } | null
+sim.droneStats(uid)   // -> [{ uid, n, x, y, px, py, facing, state, jam, targetUid, targetId, dmg, kills, shots, born }]
+                      //    state: 'hunting'|'returning'|'home'|'jammed'|'stalled' (UI only; allocates)
+sim.findDrone(uid)    // -> { tower, drone } | null
+sim.towerStats(uid)   // + own: { dps, dealt, kills } (her own attack); turret + { leash, speed, build, rate,
+                      //   range (after buffs), dealt, kills, shots, nextIn, flight } for roaming drones
 ```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
@@ -805,6 +951,18 @@ Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multipl
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg
 except crystal) → hp. Burn/poison ticks skip flat armor; poison blocks regen and siphon healing.
+
+**Battle modes and map rules** (`src/sim/rules.js`, docs/specs/CODEX_MODES.md §6): `sim.mode` (a BATTLE_MODES
+entry), `sim.rule` (the rule runtime or null), `sim.ruleInfo()` → `{ id, cycle, period, active, inWave, secondsToFlip,
+affinity, zones, pads: [{x, y, r, ownerUid}], portals, pastGoal, neutral }` (numbers and ids only),
+`sim.routeReversedFor(n)` (absolute), `sim.routeFlippedFor(n)` (relative to this battle's usual direction: Rear
+Ambush's even waves in any mode; every UI "goal gate" signal uses this), `sim.ruleAffinityFor(n)`, `sim.canHeal()`,
+`sim.setRouteOrientation(rev)`. **Calm-point contract:** a rule's clock restarts at every wave start (each wave opens
+resting) and at every wave end the runtime is canonical (clock 0, resting, vents cold, no affinity, tables rebuilt), so
+a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebuilds `_pathsFwd` / `_pathsRev`
+(`REBUILT`) and `AFTER_RESTORE` puts the live orientation back. Geometry caches (placement, wave lengths, pads, vents)
+come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
+Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
 
 ## 7. Models — `src/models/**` (owner: models)
 
@@ -899,7 +1057,7 @@ r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point
 r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)
 r.shakeGhost()                   // wobble the ghost for a moment (rejected drop feedback)
 r.setSelected(uid|null)          // selected tower: outline + range circle
-r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the owner's request — BTD6 shows none)
+r.showTileHints(unitId|null)     // legacy no-op (zone shading removed at the owner's request)
 r.setQuality('high'|'medium'|'low')
 r.setLighting({ exposure, warmth })
 r.resetCamera()
@@ -949,7 +1107,7 @@ theme. The entrance / exit arrows follow the road's first / last tangent.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
-Route `#/battle?stage=1-1&difficulty=normal[&freeplay=<tier>][&endless=1][&resume=<run id>][&evict=<run id>]`
+Route `#/battle?stage=1-1&difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1][&resume=<run id>][&evict=<run id>]`
 (`freeplay` / `endless` only where `canPlayEndless`; a locked stage plays as a practice run that saves
 nothing). Battle saves (docs/BATTLE_SAVE.md): a savable run
 gets `&resume=<run id>` (history.replaceState) once it has a save, so a reload continues it; a
@@ -970,7 +1128,14 @@ freeplay Sim). Rewards: `src/systems/freeplayRewards.js` (`bankSoloClear` = a no
 `req.freeplay`; a Keep going run's save is deleted by the win it continues): its clear is banked at the
 goal and its freeplay part is paid on leaving or at the next app start, so a continued copy would pay
 twice. Quit returns to the run's prep with its tier picked. A `resume` link never turns freeplay on
-(`parseBattleParams`): Continue plays the save as it was saved. Builds the Sim from the profile formation
+(`parseBattleParams`): Continue plays the save as it was saved. **Battle modes** (docs/specs/CODEX_MODES.md): `mode` only on a campaign
+stage cleared once, never in endless, freeplay, practice, tutorial or Sandbox runs (a Continue plays the record's `mode`, whatever the link says), and Nightmare × Last Petal plays Standard —
+`parseBattleParams` forces Standard otherwise, and a mode run is never offered Keep going (freeplay runs in Standard
+in v1); prep `#/stage/<id>?difficulty=hard&mode=rush` remembers it, and picking a mode turns prep's Freeplay off (and
+the other way round). Battle modes and map rules in battle live in `src/ui/battle/modes.js` (mode chip, rule pill +
+popover, `ruleWarnings(sim, n)`, toasts, banners, scout ⇄, pause row, results ribbons) and `src/render/ruleDecals.js`
+(pads, vents, rifts); the renderer's `setRouteFlipped(flipped, reversed)` turns the gate arrows (relative) and junction
+chevrons (absolute). Builds the Sim from the profile formation
 (`unitBattleStats`), creates the renderer, runs the RAF loop (pause when hidden), HUD (lives,
 cash, wave x/y, speed 1×/2×/3×, pause, start wave / auto-start), tower bar (loadout cards with
 cost & affordability; FREE placement: drag a card and release anywhere on the board to deploy
@@ -1005,11 +1170,22 @@ one style + layout pass inside `open()` (~14 ms on the software-GL test box, les
 girl there), nothing per frame; while open, a 4 Hz signature check rebuilds only on change.
 `e2e/unit-info.mjs` measures it against selecting a girl on the same machine.
 
+**Drone owners (Chika)** — `src/ui/battle/chikaPanel.js`, `chikaFlight.js`: her panel adds a split bar
+(her own damage vs her drones'), a **Flight** row (Hover · Hold · Patrol · Pursuit; Hold = one board tap,
+Patrol = two, with a banner and her signal ring while picking; Esc / Cancel / re-tap cancels) and a tab
+row **Upgrades · Overall · Chika · Drones** (first open = Overall, then the last tab used, per battle). The
+Drones tab lists every drone (`drone-row-<n>`); a row or a tap on a flying drone opens the drone card
+(`drone-card`, ◀ ▶ step through the wing, ‹ goes back). Selection: `ctx.select(uid, { drone })`,
+`ctx.selectedDrone`, `ctx.selectDrone(d)`; `renderer.pick()` returns `droneUid` (a flying drone beats a
+girl, a drone at home loses to her); `renderer.setSelected(uid, droneUid)`, `renderer.setFlightPreview(p)`,
+`renderer.droneScreen(uid)`, `renderer.drawnDrones`. Live rates: `ctx.rates` (`createRateMeter`, 5 s of
+game time). Actions: `ctx.act.fly(uid, mode, a, b)` (solo `sim.setFlight`, co-op `fly`).
+
 ## 11. Meta screens
 
 meta-a: lobby (drawn secretary background — see 11a — + big slanted tiles: Mission, Bounty, Total Assault,
 Tactical Challenge, Recruit, Students, Formation, Backpack, Mall, Commissions, Bestiary, Wiki,
-Events/rewards), campaign (Bloons-style map picker: chapter tabs, map cards with
+Events/rewards), campaign (map picker: chapter tabs, map cards with
 `stageThumbSVG`, medals row in the corner, tier badges), stage prep (map preview, enemies
 incl. "New!", recommended counters with "add to formation" shortcut, difficulty picker with
 medals, drops with item tiles, Start / Sweep), recruit (banner, rates, pity counter, 1/10 pulls,
@@ -1148,7 +1324,7 @@ in-game result, relevant tests, and evidence against the original request."
   weak), Armored (visible protection), Support (helps nearby enemies: fields, siphon, guardian). Slime
   mimics each copy ONE rule from another family. Depth comes from combining simple roles inside waves,
   not from stacking exceptions on one enemy. Every essential counter must be available from free units.
-* **Difficulty:** Bloons TD6 / Battle Cats level. Easy forgiving but not passive; Normal rewards
+* **Difficulty:** at the level of the owner's reference tower-defense games. Easy forgiving but not passive; Normal rewards
   understanding (upgrades + right counters); Hard demands good decisions, never a specific gacha pull.
 * **Pre-wave warnings and defeat debriefs (sim + battle-ui):** before a wave, warn about new or dangerous
   roles ("Armored orcs incoming — bring armor break"). On defeat, explain from recorded events, e.g.
@@ -1170,7 +1346,7 @@ in-game result, relevant tests, and evidence against the original request."
   idle that says something about her, attack with anticipation → strike → recovery, victory pose.
   Owner's primary style reference is a cute dinosaur-hoodie chibi character-modeling time-lapse
   (soft rounded forms, big head, clean toon shading).
-* **Maps v2 (renderer, world):** vibrant and alive like Bloons TD6 but with strong composition — "five
+* **Maps v2 (renderer, world):** vibrant and alive, with strong composition — "five
   beautifully composed features beat fifty random props" (creek banks, bridges/boardwalks, clustered
   vegetation, lanterns, flowing water, gentle foliage motion). Path, buildable tiles and warnings must
   stay instantly readable. Mark entrances/exits with cute animated arrows.
@@ -1241,7 +1417,7 @@ a NEW migration file, never by editing the applied one in a way that breaks re-r
 **Co-op** — `src/data/coop.js` (`COOP` tuning: `hpMul` 1.6, `cashShare`, `inputDelay` 6 ticks local / 30 on
 Supabase, `hashEvery` 120 ticks, timeouts, colours, room-code alphabet; `coopStage(id)` = the campaign stage
 with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
-* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay })`, `getSession()`,
+* `session.js` — `openSession({ code, isHost, backend, me, stageId, difficulty, freeplay, mode, modesUnlocked })`, `getSession()`,
   `battleLockstep(params, session)`; room handshake (`hello` with `coopVersion()`: two builds never pair,
   `room`, `ready`, `start`, `ls`, `lobby`, `fighting`, `leave`). `session.freeplay` is the room's freeplay
   setting (`null` = off, or a `FREEPLAY_TIERS` id; `freeplayTier(v)` in `src/data/freeplay.js` normalizes
@@ -1277,13 +1453,36 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
-  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool]`, positions quantized to 1/1024 tile,
+  sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
+  fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid]` (`fly`: a drone wing's flight mode, owner only like
+  `tgt`, up to 6 arguments; `flyArgs()` builds it), positions quantized to 1/1024 tile,
+  `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
+  with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
+  does); two tier-5 orders in one tick resolve in command order on every client; `pick` (Midori / Chika's
+  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`,
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 3 (`version.js`), and the freeplay table is in the battle-data hash.
+  `COOP_PROTOCOL` 4 (`version.js`; 3 was freeplay; battle train C — the hero rework's commands, Chika's
+  `fly`, the path cap's `pick` and battle modes share the one bump), and the freeplay table, Potential's tables
+  and `BATTLE_MODES` are in the battle-data hash.
+  Heroes (hero rework): every start player carries her own `hero` (a player without one brings a sixth girl,
+  `loadout.js`); the Sim holds both (`heroes`, by player index) and `hero` follows the commanding player, so
+  `ult` fires the commander's own hero. `hlv[level, maxPrice]` buys her next level (refused `stale` when she
+  already levelled or it got dearer; `cash`, `max`, `ended`, `noHero` pass through); `hmv[qx, qy]` moves her
+  (`cooldown`, placement reasons). A hero `sell` is refused `hero` and she stays hers. `hashSim` folds a
+  tower's level and XP for heroes only, and drones (uid, x, y) plus the wing's flight mode only for girls that
+  have drones, so battles without either keep their hash. Map rules never read the view-dependent `sim.hero`
+  inside the step: Festival Encore's ult recharge resets every placed hero (`sim.heroes`), and a hero's Move
+  re-assigns crystal pads like a placement or sale.
+  **Battle modes:** `session.mode` (a BATTLE_MODES id) travels exactly like freeplay — `room`,
+  `hello.room`, the guest's `hello` / `ready`, `start.mode` — a changed mode clears the guest's Ready, `canStart`
+  needs `peer.mode === session.mode`; `setStage(stage, diff, freeplay, mode)` resets it to Standard on a stage the
+  host has not cleared (`modesUnlocked`) and while Freeplay is on. `createCoopSim` reads only
+  `modeId(start.freeplay ? 'standard' : start.mode)`; map rules ride on the StageDef. A co-op mode win pays each player
+  at their own reward difficulty (`applyCoopResult`); no medals or ribbons in co-op.
 * `detMath.js` — `withDetMath(fn)`: bit-identical `sin/cos/tan/atan/atan2/asin/acos/hypot` while the co-op
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:

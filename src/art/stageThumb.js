@@ -1,4 +1,4 @@
-// Top-down mini map for stage / map cards (CONTRACTS §8), Bloons-map-card style:
+// Top-down mini map for stage / map cards (CONTRACTS §8), map-card style:
 // themed ground, light stone road with a border (traced along the map's canonical Tracks v3
 // centrelines: curves, overpasses drawn on top, buried tunnel sections dashed, plank decks
 // over water), water with shine, trees / rocks / buildings as symbols, spawn and exit markers.

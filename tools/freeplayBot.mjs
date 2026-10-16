@@ -4,12 +4,13 @@
 // prints one line per wave plus a final JSON summary.
 //
 //   node tools/freeplayBot.mjs --stage 4-5 --tier blossom --build team [--difficulty normal]
-//        [--maxWave 400] [--seed 7] [--towers 60] [--coop]
+//        [--maxWave 400] [--seed 7] [--towers 60] [--coop] [--potential 6]
 //
 // Builds: team  = 8 girls (Kage, Shiro, Aoi, Akane, Miko, Momo, Sango, Yuki) + Hikari, all maxed
 //         kage  = Kage only (+ Hikari), all maxed: the "one carry, all in" build
 // "Maxed" = ★5, legendary +10 gear, average rolls (the same build tests/sim/perf.freeplay.test.js
 // uses). --coop runs the co-op stage (HP ×1.6) with the same single bot, for comparison only.
+// --potential N puts every girl at Potential N (1…6, src/data/potential.js; default 1 = as before).
 import { Sim } from '../src/sim/Sim.js';
 import { samplePath } from '../src/sim/path.js';
 import { STAGE_MAP } from '../src/data/stages.js';
@@ -40,14 +41,15 @@ function arg(name, def) {
   return v == null || v.startsWith('--') ? true : v;
 }
 
-export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', maxWave = 400, seed = 7, towers = 60, coop = false, log = () => {} }) {
+export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', maxWave = 400, seed = 7, towers = 60, coop = false, potential = 1, log = () => {} }) {
   const b = BUILDS[build];
+  const stats = potential > 1 ? { ...MAXED, potential } : MAXED;
   const stage = coop ? coopStage(stageId, { freeplay: tier }) : soloFreeplayStage(stageId, tier);
   if (!stage?.freeplay) throw new Error(`no freeplay for ${stageId}/${tier}`);
   const sim = new Sim({
     stageId, difficulty, seed,
-    loadout: b.girls.map((unitId) => ({ unitId, stats: MAXED })),
-    hero: b.hero ? { unitId: b.hero, stats: MAXED } : null,
+    loadout: b.girls.map((unitId) => ({ unitId, stats })),
+    hero: b.hero ? { unitId: b.hero, stats } : null,
     options: { freeplay: true, autoStart: false },
     data: { stage },
   });
@@ -94,6 +96,8 @@ export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', m
         for (const [path, cap] of [[plan[0], 5], [plan[1], 2]]) {
           if ((t.tiers?.[path] ?? 0) >= cap) continue;
           const st = sim.upgradeStatus(t.uid, path);
+          // one final tier per path: a copy whose main path's tier 5 is held finishes her crosspath
+          if (st.reason === 'onePerPath') continue;
           if (st.next && !(st.locked && st.reason !== 'cash')) opts.push({ cost: st.cost, go: () => sim.upgradeTower(t.uid, path) });
           break; // main first, then cross
         }
@@ -137,7 +141,7 @@ export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', m
   }
   const r = sim.result();
   return {
-    stageId, tier, build, difficulty, coop,
+    stageId, tier, build, difficulty, coop, potential,
     fell: sim.state === 'lost' ? sim.wave : null, cleared: sim.wavesCleared, goal: sim.totalWaves,
     towers: sim.towers.length, simTime: Math.round(sim.time), wallSec: Math.round((Date.now() - t0) / 1000),
     maxStepMs: +maxStepMs.toFixed(2), bad, cashEarned: Math.round(r.stats?.cashEarned || 0), waves,
@@ -149,7 +153,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!STAGE_MAP[stageId] || !freeplayTable(arg('tier', 'blossom'))) throw new Error('bad --stage / --tier');
   const out = runBot({
     stageId, tier: arg('tier', 'blossom'), build: arg('build', 'team'), difficulty: arg('difficulty', 'normal'),
-    maxWave: Number(arg('maxWave', 400)), seed: Number(arg('seed', 7)), towers: Number(arg('towers', 60)), coop: !!arg('coop', false),
+    maxWave: Number(arg('maxWave', 400)), seed: Number(arg('seed', 7)), towers: Number(arg('towers', 60)), coop: !!arg('coop', false), potential: Number(arg('potential', 1)),
     log: arg('quiet', false) ? () => {} : (row) => console.log(JSON.stringify(row)),
   });
   const { waves, ...summary } = out;

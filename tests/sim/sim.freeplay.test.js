@@ -9,6 +9,7 @@ import { applyStatus } from '../../src/sim/status.js';
 import { activateUlt } from '../../src/sim/hero.js';
 import { coopStage } from '../../src/data/coop.js';
 import { FREEPLAY } from '../../src/data/freeplay.js';
+import { freeplayEliteArmor, freeplayEliteHp } from '../../src/sim/freeplay.js';
 import { AUTO_START_DELAY } from '../../src/sim/constants.js';
 
 function fpSim(stageId = '1-3', tier = 'blossom', extra = {}) {
@@ -124,23 +125,54 @@ describe('finish()', { timeout: 60000 }, () => {
 });
 
 describe('freeplay spawns', { timeout: 60000 }, () => {
-  it('carry the wave ramp, flat armor, speed, Resolve budgets and the affix', () => {
+  it('carry the smoothed wave ramp, flat armor, speed, Resolve budgets, the affix and the elite band / modifiers', () => {
     const sim = fpSim('1-3', 'crimson');
-    jumpTo(sim, 95); // depth 80: +8 armor on Crimson Moon
+    jumpTo(sim, 95); // depth 81: +8.1 armor on Crimson Moon, elites +6.1 more and ×1.25 HP
     sim.startNextWave();
-    sim.update(2);
+    sim.update(6);
     const info = sim.freeplayInfo(96);
+    const st = sim.stage;
+    expect(info.pressure.armor).toBeCloseTo(8.1, 12);
+    expect(info.eliteArmor).toBe(freeplayEliteArmor(st, 96));
+    expect(info.eliteArmor).toBeCloseTo(6.1, 12);
+    expect(freeplayEliteHp(st, 96)).toBe(1.25);
     const pool = sim.enemies.filter((e) => e.tier === 'normal' || e.tier === 'elite');
-    expect(pool.length).toBeGreaterThan(0);
+    expect(pool.some((e) => e.tier === 'elite')).toBe(true);
+    const mods = Object.fromEntries(FREEPLAY.crimson.eliteMods.list.map((m) => [m.id, m]));
     for (const e of pool) {
-      const affixArmor = info.affix?.armor || 0;
-      expect(e.armor).toBe((e.def.armor || 0) + info.pressure.armor + affixArmor);
-      expect(e.armorBonus).toBe(info.pressure.armor + affixArmor);
-      expect(e.ccLeft).toBe(info.pressure.cc);
+      const elite = e.tier === 'elite';
+      const mod = elite ? mods[info.eliteMods.find((m) => m.enemyId === e.id)?.mod] : null;
+      expect(e.eliteMod ?? null).toBe(mod?.id ?? null);
+      const extra = (info.affix?.armor || 0) + (elite ? info.eliteArmor + (mod?.armor || 0) : 0);
+      expect(e.armor).toBeCloseTo((e.def.armor || 0) + info.pressure.armor + extra, 12);
+      expect(e.armorBonus).toBeCloseTo(info.pressure.armor + extra, 12);
+      expect(e.ccLeft).toBe(info.pressure.cc * (mod?.ccMul || 1));
       expect(e.kbLeft).toBe(info.pressure.kb);
-      expect(e.speedMul).toBeCloseTo(info.speed * (info.affix?.speed || 1), 12);
-      expect(e.hpMul).toBe(sim.stage.hpScale * sim.diff.hpMul * sim._getWave(96).hpMul);
+      expect(e.armorFloor).toBe(0.25);
+      expect(e.speedMul).toBeCloseTo(info.speed * (info.affix?.speed || 1) * (mod?.speed || 1), 12);
+      const hpMul = sim._getWave(96).hpMul * info.k * (elite ? 1.25 : 1);
+      expect(e.hpMul).toBeCloseTo(sim.stage.hpScale * sim.diff.hpMul * hpMul, 6);
     }
+  });
+
+  it('an Unyielding elite has half the stun budget; a Vampiric one regenerates until poisoned', () => {
+    const sim = fpSim('1-3', 'blossom');
+    jumpTo(sim, 80);
+    sim.startNextWave();
+    const p = sim._fp;
+    const u = sim.spawnEnemy('orc_warlord', { mods: { armor: 0, speed: 1, traits: null, barrierPct: 0, ccMul: 0.5, eliteMod: 'unyielding' } });
+    expect(u.eliteMod).toBe('unyielding');
+    expect(u.ccLeft).toBe(p.cc * 0.5);
+    const v = sim.spawnEnemy('orc_warlord', { mods: { armor: 0, speed: 1, traits: { regen: { pct: 0.015, delay: 2 } }, barrierPct: 0, eliteMod: 'vampiric' } });
+    v.hp = v.maxHp * 0.5;
+    v.lastDamageAt = sim.time - 10;
+    sim.update(1);
+    expect(v.hp).toBeGreaterThan(v.maxHp * 0.5);
+    const hp = v.hp;
+    applyStatus(v, { type: 'poison', dps: 0, pct: 0, duration: 5 }, { rng: sim.rng });
+    v.lastDamageAt = sim.time - 10;
+    sim.update(1);
+    expect(v.hp).toBeLessThanOrEqual(hp);
   });
 
   it('bosses get their rank HP and freeplay leak; what they summon gets the wave HP, not ×3', () => {
@@ -169,7 +201,7 @@ describe('freeplay spawns', { timeout: 60000 }, () => {
     for (const k of kids) expect(k.hpMul).toBe(base * ramp);
   });
 
-  it('a titan breaks open into two bosses with inherited HP and 35-life leaks; the Wyrm releases the Matriarch', () => {
+  it('a titan breaks open into two bosses with inherited HP and their own leaks; the Wyrm releases the Matriarch', () => {
     const sim = fpSim('1-3', 'crimson');
     jumpTo(sim, 139);
     sim.startNextWave(); // Crimson Moon 1-3: the first titan at 140

@@ -1,4 +1,4 @@
-// Free (Bloons-style) placement geometry. Girls stand at continuous world positions and
+// Free placement geometry. Girls stand at continuous world positions and
 // own a circular footprint; nothing snaps to tiles. Pure functions — shared by Sim.canPlace,
 // headless.autoPlan, the renderer's forbidden-zone overlay and the tests.
 //

@@ -530,6 +530,184 @@ export function createAtlas(extra = []) {
     ctx.fill();
   });
 
+  // Buff icons (src/render/buffIcons.js): white glyphs on transparent, drawn on a dark plate with a
+  // rim in the source girl's tint; rims sized for 13–16 px icons; badges white with a dark outline.
+  const bf = (name, draw) => add(name, 64, 64, (ctx, w, h) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    draw(ctx, w, h);
+  });
+  bf('bf_dmg', (ctx, w, h) => { // sword
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.24, h * 0.76);
+    ctx.lineTo(w * 0.74, h * 0.26);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.7, h * 0.18);
+    ctx.lineTo(w * 0.84, h * 0.16);
+    ctx.lineTo(w * 0.82, h * 0.3);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.56);
+    ctx.lineTo(w * 0.44, h * 0.78);
+    ctx.stroke();
+  });
+  bf('bf_rate', (ctx, w, h) => { // double chevron
+    ctx.lineWidth = 7;
+    for (const x0 of [0.22, 0.48]) {
+      ctx.beginPath();
+      ctx.moveTo(w * x0, h * 0.24);
+      ctx.lineTo(w * (x0 + 0.24), h * 0.5);
+      ctx.lineTo(w * x0, h * 0.76);
+      ctx.stroke();
+    }
+  });
+  bf('bf_range', (ctx, w, h) => { // target rings
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  bf('bf_pen', (ctx, w, h) => { // an arrow through a plate
+    ctx.fillRect(w * 0.44, h * 0.18, w * 0.12, h * 0.64);
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.14, h * 0.5);
+    ctx.lineTo(w * 0.78, h * 0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(w * 0.88, h * 0.5);
+    ctx.lineTo(w * 0.72, h * 0.38);
+    ctx.lineTo(w * 0.72, h * 0.62);
+    ctx.closePath();
+    ctx.fill();
+  });
+  bf('bf_crit', (ctx, w, h) => { // star burst
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = -Math.PI / 2 + (i / 16) * Math.PI * 2;
+      const r = i % 2 === 0 ? w * 0.38 : w * 0.17;
+      ctx.lineTo(w / 2 + Math.cos(a) * r, h / 2 + Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+  });
+  bf('bf_det', (ctx, w, h) => { // eye
+    ctx.beginPath();
+    ctx.moveTo(w * 0.12, h / 2);
+    ctx.quadraticCurveTo(w / 2, h * 0.12, w * 0.88, h / 2);
+    ctx.quadraticCurveTo(w / 2, h * 0.88, w * 0.12, h / 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  bf('bf_cost', (ctx, w, h) => { // a coin with a minus
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.36, h / 2);
+    ctx.lineTo(w * 0.64, h / 2);
+    ctx.stroke();
+  });
+  bf('bf_cleanse', (ctx, w, h) => { // a drop with a sparkle
+    ctx.beginPath();
+    ctx.moveTo(w * 0.42, h * 0.14);
+    ctx.bezierCurveTo(w * 0.7, h * 0.48, w * 0.68, h * 0.84, w * 0.42, h * 0.84);
+    ctx.bezierCurveTo(w * 0.16, h * 0.84, w * 0.14, h * 0.48, w * 0.42, h * 0.14);
+    ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const r = i % 2 === 0 ? w * 0.13 : w * 0.04;
+      ctx.lineTo(w * 0.76 + Math.cos(a) * r, h * 0.26 + Math.sin(a) * r);
+    }
+    ctx.fill();
+  });
+  const rim = (lw, half = false) => (ctx, w) => {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.arc(w / 2, w / 2, w / 2 - lw / 2 - 1, half ? Math.PI : 0, half ? Math.PI * 2 : Math.PI * 2);
+    ctx.stroke();
+  };
+  add('bfRim', 64, 64, rim(7));
+  add('bfRimThick', 64, 64, rim(11));
+  add('bfRimHalf', 64, 64, rim(11, true));
+  const badge = (name, draw) => add(name, 40, 40, (ctx, w, h) => {
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const path = new Path2D();
+    draw(path, w, h);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#141a2e';
+    ctx.stroke(path);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill(path);
+  });
+  badge('bfb_brew', (p, w, h) => { // flask
+    p.moveTo(w * 0.4, h * 0.14);
+    p.lineTo(w * 0.6, h * 0.14);
+    p.lineTo(w * 0.6, h * 0.38);
+    p.lineTo(w * 0.84, h * 0.82);
+    p.lineTo(w * 0.16, h * 0.82);
+    p.lineTo(w * 0.4, h * 0.38);
+    p.closePath();
+  });
+  badge('bfb_link', (p, w, h) => { // gear
+    const n = 8;
+    for (let i = 0; i < n * 2; i++) {
+      const a = (i / (n * 2)) * Math.PI * 2;
+      const r = i % 2 === 0 ? w * 0.4 : w * 0.3;
+      p.lineTo(w / 2 + Math.cos(a) * r, h / 2 + Math.sin(a) * r);
+    }
+    p.closePath();
+  });
+  badge('bfb_oc', (p, w, h) => { // bolt
+    p.moveTo(w * 0.58, h * 0.1);
+    p.lineTo(w * 0.24, h * 0.56);
+    p.lineTo(w * 0.48, h * 0.56);
+    p.lineTo(w * 0.4, h * 0.9);
+    p.lineTo(w * 0.76, h * 0.42);
+    p.lineTo(w * 0.52, h * 0.42);
+    p.closePath();
+  });
+  badge('bfb_ult', (p, w, h) => { // crown
+    p.moveTo(w * 0.14, h * 0.76);
+    p.lineTo(w * 0.14, h * 0.3);
+    p.lineTo(w * 0.34, h * 0.52);
+    p.lineTo(w * 0.5, h * 0.22);
+    p.lineTo(w * 0.66, h * 0.52);
+    p.lineTo(w * 0.86, h * 0.3);
+    p.lineTo(w * 0.86, h * 0.76);
+    p.closePath();
+  });
+  badge('bfb_map', (p, w, h) => { // map pin
+    p.moveTo(w / 2, h * 0.9);
+    p.bezierCurveTo(w * 0.2, h * 0.56, w * 0.2, h * 0.14, w / 2, h * 0.14);
+    p.bezierCurveTo(w * 0.8, h * 0.14, w * 0.8, h * 0.56, w / 2, h * 0.9);
+    p.closePath();
+  });
+
   // Glyphs: bold white with a navy outline (tint multiplies the fill; outline stays dark).
   const glyphW = 40;
   const glyphH = 56;

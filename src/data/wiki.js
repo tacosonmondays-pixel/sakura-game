@@ -11,7 +11,7 @@
 //         | { type: 'tip', text, tone?: 'info'|'warn'|'good' }
 //         | { type: 'table', head: Cell[], rows: Cell[][], caption? }
 //         | { type: 'typeChart' }                      // coloured attack × armor matrix
-//         | { type: 'crosspath' }                      // BTD6-style crosspath diagram
+//         | { type: 'crosspath' }                      // crosspath diagram
 //         | { type: 'upgradeTags' }                    // Self / Allies / Enemies / Coins legend
 //         | { type: 'units', ids: unitId[], caption? } // tappable portrait chips
 //         | { type: 'items', ids: itemId[], caption? } // tappable item tiles
@@ -31,10 +31,12 @@ import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
 import { breakthroughCost, awakenCost, totalExpToLevel, COINS_PER_EXP } from '../systems/progression.js';
 import { expectedSSRRate } from '../systems/gacha.js';
+import { MAX_POTENTIAL, potentialSteps, describePotentialStep } from '../systems/potential.js';
+import { POTENTIAL_LADDERS } from './potential.js';
 import { f2pIncomeSummary } from '../systems/missions.js';
 
 // ---------------------------------------------------------------------------
-// Role subclasses (Bloons-style "what kind of tower is this" labels)
+// Role subclasses (short "what kind of girl is this" labels)
 // ---------------------------------------------------------------------------
 
 /** Short subclass label per role, used on the student Info tab and in the wiki. */
@@ -155,7 +157,9 @@ function controls() {
         ['Zoom (Camera: Free)', 'Pinch', 'Mouse wheel'],
         ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
-        ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button'],
+        ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button (or Q)'],
+        ['Hero level up', 'Level up pill next to the hero portrait', 'Level up pill (or L)'],
+        ['Move hero', 'Move in her panel', 'Move in her panel'],
       ]),
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
       p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
@@ -209,7 +213,7 @@ function rolesArticle() {
         UNITS.filter((u) => u.role === id).map((u) => u.name).join(', ') || '—',
       ])));
   });
-  return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, Bloons-style: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
+  return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, at a glance: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
     sec('How roles work',
       p('Like monkey classes in tower defense classics, every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
       p('A good formation covers several roles: someone to thin swarms, someone to break armor, someone to see veiled enemies, and someone to stop leaks.')),
@@ -321,7 +325,7 @@ function levelingArticle() {
       p('The cap starts at 10 and rises by 10 with each breakthrough gate (max 60). Gates cost materials of the girl\'s own family plus coins.'),
       table(['Gate', 'Cap', 'Cost'], gates)),
     sec('Awakening',
-      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments from duplicate recruits, and coins. ★3 unlocks the girl\'s awaken passive.'),
+      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments from duplicate recruits, and coins. ★3 unlocks the girl\'s awaken passive. Duplicates also raise her Potential (see Potential).'),
       table(['Star', 'Cost', 'Reward'], stars)),
     sec('How strong does this make her?',
       list([
@@ -329,7 +333,7 @@ function levelingArticle() {
         'Attack speed +0.4% per level.',
         'Level 60, 5 gates, ★5 ≈ ×2.4 damage before gear — strong, but never a replacement for the right counters.',
       ]),
-      tip('Heroes use the same scaling; they were toned down so a hero supports your team rather than carrying it.', 'info')),
+      tip('Heroes deploy for free and grow from Lv 1 to 25 during each battle. Early on she is one more defender on the field; by the last waves she is your strongest.', 'info')),
   ]);
 }
 
@@ -359,7 +363,8 @@ function gachaArticle() {
   const ssr = expectedSSRRate();
   return article('gacha', 'Recruit Rates, Pity & Spark', 'economy', 'gacha', 'Exact recruit odds, the 90-pull pity and the 200-point spark.', ['gacha', 'recruit', 'pull', 'rates', 'pity', 'spark', 'ssr', 'sr', 'duplicate', 'fragment', 'ticket'], [
     sec('Rates',
-      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
+      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `+1 Potential and ${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
+      p(`Duplicates: +1 Potential (P1 → P${MAX_POTENTIAL}; each step adds a small passive) and Star Fragments for awakening (R ×${UNIT_RARITIES.R.fragmentsOnDupe}, SR ×${UNIT_RARITIES.SR.fragmentsOnDupe}, SSR ×${UNIT_RARITIES.SSR.fragmentsOnDupe}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`),
       p(`Consolidated SSR rate including pity: ≈ ${pct(ssr, 2)} (about one SSR every ${Math.round(1 / ssr)} recruits).`)),
     sec('Pity and guarantees',
       list([
@@ -370,7 +375,34 @@ function gachaArticle() {
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so free girls you already own become Star Fragments for awakening.')),
+      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Potential and Star Fragments from a duplicate.'),
+      { type: 'links', ids: ['potential'] }),
+  ]);
+}
+
+function potentialArticle() {
+  const label = (step, def) => describePotentialStep(step, def).map((x) => x.long).join(', ');
+  const ladderName = { dps: 'DPS, Frag and Hero', control: 'Control and Support', economy: 'Economy' };
+  const ladders = Object.entries(ladderName).map(([cat, name]) => [{ text: name, strong: true }, ...POTENTIAL_LADDERS[cat].map((s) => label(s, null))]);
+  const rows = UNITS.map((u) => {
+    const steps = potentialSteps(u);
+    return [{ text: u.name, icon: `unit:${u.id}`, strong: true }, ...steps.slice(0, 4).map((s) => label(s, u)), `✦ ${steps[4].name}: ${label(steps[4], u)}`];
+  });
+  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicate recruits raise a girl\'s Potential to P6; each step is a small passive.', ['potential', 'duplicate', 'dupe', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'fragment'], [
+    sec('How it works',
+      list([
+        'P1 is a girl\'s base (her first copy). Starters and free girls start at P1 however they joined.',
+        `A duplicate is any copy of a girl you already own: a recruit, a spark of an owned SSR, or an SSR Select Ticket used on an owned SSR. Each gives +1 Potential (up to P${MAX_POTENTIAL}) and her usual Star Fragments.`,
+        `At P${MAX_POTENTIAL} a duplicate gives Star Fragments only. Her duplicate count keeps going up (shown on her Info tab).`,
+        'Potential never goes down and is never spent. It applies in every battle mode, exactly where her level and awakening apply — in co-op, an ally\'s girl fights at her owner\'s Potential.',
+        'Damage and speed steps work like her level: they raise her hits, her traps and her drones.',
+      ]),
+      tip('Each girl\'s Info tab shows her six steps, what each does and how many duplicates she has.', 'good')),
+    sec('The steps by role',
+      table(['Role', 'P2', 'P3', 'P4', 'P5'], ladders),
+      p('P6 is each girl\'s own signature (✦). A few girls swap one step for a better fit: melee Rei and sniper Shiro take crit chance at P4, and the aura girls Miko and Umeko strengthen their aura at P4 and P6.')),
+    sec('Every girl',
+      table(['Girl', 'P2', 'P3', 'P4', 'P5', 'P6 signature'], rows)),
   ]);
 }
 
@@ -498,10 +530,10 @@ function tipsArticle() {
 }
 
 function crosspathArticle() {
-  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'self', 'allies', 'aura', 'enemies', 'buff'], [
+  return article('crosspath', 'Upgrade Paths & Crosspathing', 'students', 'upgrade', 'Three paths of five tiers each — and the rule for combining them.', ['upgrade', 'path', 'tier', 'crosspath', 'tree', 'battle', 'cost', 'sell', 'self', 'allies', 'aura', 'enemies', 'buff', 'final', 'tier 5', 'one per path', 'copies', 'limit'], [
     sec('Three paths',
-      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone.'),
-      table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '7,000–16,000']])),
+      p('Every girl has three upgrade paths of five tiers, bought with battle coins during a stage. Tiers 1–2 are cheap improvements, tier 3 changes her job, tier 4 is a power spike, and tier 5 is a game-changing capstone — one girl per path at a time.'),
+      table(['Tier', 'Typical cost'], [['1–2', '80–450'], ['3', '500–1,400'], ['4', '1,800–4,500'], ['5', '13,000–35,000']])),
     sec('The crosspath rule',
       { type: 'crosspath' },
       list([
@@ -515,13 +547,53 @@ function crosspathArticle() {
       p('Every tier carries coloured chips that say who it helps. Self makes her own attacks stronger. Allies is an aura: it buffs the other girls standing inside her circle (the chip shows the radius), never herself, and auras of the same kind do not stack. Enemies slows, stops or weakens what she hits; "helps all" means the debuff (a mark, Brittle, shred or reveal) makes every girl\'s hits better. Coins pays your wallet each wave. A violet New attack chip marks a tier that changes how she attacks.'),
       { type: 'upgradeTags' },
       tip('Hold any girl\'s card to see her info; in battle, hold a girl or her card to see her whole upgrade tree.', 'good')),
+    sec('One final tier per path',
+      p('Deploy as many copies of a girl as you like, but each path\'s tier 5 is one girl at a time: one Aoi can be 5-x-x, another x-5-x and a third x-x-5, but two Aois can never hold the same tier 5.'),
+      list([
+        'Tier 4 has no limit: a late army is mostly tier 4s plus one tier 5 per path.',
+        'Selling the girl who holds it frees it: another copy can then buy that tier 5.',
+        'In co-op each player has her own: your ally\'s Aoi never blocks yours.',
+        'It applies everywhere: campaign, Freeplay, Tactical Challenge, Total Assault, Bounty, Codex modes and Sandbox. Heroes are not affected.',
+        'Because a tier 5 is now a one-of-a-kind centrepiece, it costs more and hits much harder (bosses, armor, a signature trick).',
+      ]),
+      tip('A locked tier 5 names the girl who holds it and where she stands — tap Show to jump to her.', 'info')),
+  ]);
+}
+
+function buffsArticle() {
+  return article('buffs', 'Buffs: auras, brews and tune-ups', 'combat', 'buff', 'Who makes whom stronger, why auras never stack, and what the little icons over a girl mean.', ['buff', 'aura', 'brew', 'tune-up', 'link', 'overclock', 'icon', 'support', 'midori', 'chika', 'pick', 'stack', 'armor pen', 'crit'], [
+    sec('Auras',
+      p('Support girls (Miko, Umeko, Hotaru, Momo, Shiro\'s Overwatch…) give every girl in their aura more damage, attack speed, range, armor pen, crit chance, Veil Sight, cheaper upgrades or a cleanse.'),
+      list([
+        'Auras never stack: of each kind the strongest one in reach wins. Two +20 % damage auras still give +20 %.',
+        'Different kinds do add up: one girl\'s damage aura and another\'s attack speed aura both count.',
+        'The panel says "2 weaker auras here don\'t stack" when more auras reach a girl than can help her.',
+      ])),
+    sec('Brews and tune-ups (limited, strong)',
+      p('Midori brews potions and Chika\'s Repair Bay tunes up girls: only a few girls at a time, but much stronger than an aura, and they multiply on top of auras. A girl holds one brew and one tune-up at most.'),
+      list([
+        'They pick the strongest girl in reach by themselves (who dealt the most damage lately).',
+        'Tap Midori or Chika, then Pick a girl, and tap the girl she should help first. Auto goes back to the strongest.',
+        'Chika\'s Overclock (Repair Bay tier 5) speeds her linked girls up even more for a few seconds every so often.',
+        'In co-op you can brew or tune up your ally\'s girls; only the owner of Midori or Chika picks for her.',
+      ]),
+      tip('Her brews pick the strongest girl in range — tap Pick to choose.', 'good')),
+    sec('The icons over the girls',
+      p('A buffed girl shows a row of small icons over her head, one per kind of buff: sword = damage, double chevron = attack speed, arrow through a plate = armor pen, star burst = crit, rings = range, eye = Veil Sight, coin = cheaper upgrades, drop = cleanse.'),
+      list([
+        'The rim colour is the girl who gives the buff (Midori green, Chika amber, Miko red, Umeko violet…).',
+        'A thick rim with a flask or gear badge marks a brew or tune-up; a bolt badge pulses during an overclock; a crown is a hero ultimate; a pin is a map rule.',
+        'Tap a girl to see lines to everyone who buffs her and everyone she buffs, and the full list in her panel ("Buffed by" / "Buffing").',
+        'Settings → Battle → Buff icons: All, Selected (only the selected girl and her links) or Off.',
+      ]),
+      { type: 'links', ids: ['crosspath', 'roles'] }),
   ]);
 }
 
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), traitsArticle(), statusesArticle(),
-    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), medalsArticle(), mapsArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
 }

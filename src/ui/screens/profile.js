@@ -13,14 +13,16 @@ import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, modal, but
 import { store } from '../../core/store.js';
 import { navigate, back } from '../router.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { ROLES } from '../../data/types.js';
+import { ROLES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { MAX_AWAKEN } from '../../systems/progression.js';
 import { SHOWCASE_MAX } from '../../online/profileRules.js';
 import { buildCard, cleanViewedCard, snapshotToMiniProfile } from '../../online/profileCard.js';
 import {
   autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, titleChoices, STAGE_COUNT,
+  RIBBONS_PER_STAGE,
 } from '../../systems/profileTrophies.js';
+import { CAMPAIGN_IDS } from '../../data/stages.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
 import { openSheetFor, onEscape } from '../hold.js';
@@ -33,7 +35,7 @@ import { playerActions } from '../online/playerActions.js';
 import { tagChips } from '../online/tagChip.js';
 import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
-  ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
+  ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, ribbonTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
 
 const PETALS = [[8, 18, 20], [78, 12, -30], [86, 46, 60], [14, 62, -10], [70, 74, 35], [30, 8, 80]];
@@ -299,6 +301,10 @@ function profileView(m, ctx) {
     h('div.pf-tally', h('div.pf-tally-grp',
       h('div.pf-tally-lbl', 'Medals', h('b', `${totalMedals} / ${STAGE_COUNT * 4}`)),
       medalTallyRow(m.medals))),
+    // battle-mode ribbons (a card from a build before the modes has none: the row stays out)
+    Array.isArray(m.ribbons) ? h('div.pf-tally', h('div.pf-tally-grp',
+      h('div.pf-tally-lbl', 'Ribbons', h('b', `${m.ribbons.reduce((a, b) => a + (b || 0), 0)} / ${CAMPAIGN_IDS.length * RIBBONS_PER_STAGE}`)),
+      ribbonTallyRow(m.ribbons, CAMPAIGN_IDS.length * DIFFICULTY_ORDER.length))) : null,
     shelf,
     honors);
 

@@ -5,6 +5,8 @@ import { steerToward, arriveVelocity, seekVelocity, leash, separation, clampToDi
 import { progress, blendWeight, bump, bend, drawnPosition, BLEND_END, smoothstep } from '../../src/render/attackFx/math/blend.js';
 import { victimsFor, EventRing, matchImpact } from '../../src/render/attackFx/math/victims.js';
 import { tierLook, lookAt, intensity } from '../../src/render/attackFx/flair.js';
+import { heroLookTiers } from '../../src/sim/hero.js';
+import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 
 const body = (x = 0, y = 0, heading = 0, speed = 0) => ({ x, y, vx: 0, vy: 0, heading, speed, turn: 0 });
 
@@ -178,5 +180,34 @@ describe('tier looks', () => {
     expect(tierLook([0, 2, 4]).lookTier).toBe(4);
     expect(intensity({ tiers: [5, 5, 5] })).toBeLessThanOrEqual(1.6);
     expect(intensity({ isHero: true, level: 10 })).toBeCloseTo(1.36);
+  });
+
+  it('heroes: track levels map back to old path tiers, several looks at once, intensity capped', () => {
+    const hikari = UNIT_MAP.hikari;
+    expect(hikari.paths).toEqual([]);
+    expect(heroLookTiers(hikari, 1)).toEqual([0, 0, 0]);
+    const at = (lv) => tierLook(heroLookTiers(hikari, lv), undefined, { multi: true });
+    // nothing reached at T3+ yet: no look, accents only
+    const lv9 = at(9);
+    expect([0, 1, 2].map((i) => lookAt(lv9, i))).toEqual(heroLookTiers(hikari, 9).map((t) => (t >= 3 ? t : 0)));
+    // Lv 25: all three capstones at once (a girl can only ever have one look path)
+    const lv25 = at(25);
+    expect(heroLookTiers(hikari, 25)).toEqual([5, 5, 5]);
+    expect([0, 1, 2].map((i) => lookAt(lv25, i))).toEqual([5, 5, 5]);
+    expect(lv25.capstone).toBe(true);
+    // the tiers only ever grow with her level, and a later level never loses a look
+    for (const u of UNITS.filter((x) => x.kind === 'hero')) {
+      let prev = [0, 0, 0];
+      for (let lv = 1; lv <= 25; lv++) {
+        const cur = heroLookTiers(u, lv);
+        for (let i = 0; i < 3; i++) expect(cur[i], `${u.id} Lv ${lv}`).toBeGreaterThanOrEqual(prev[i]);
+        prev = cur;
+      }
+      expect(prev.filter((t) => t >= 3).length, u.id).toBeGreaterThan(1);
+    }
+    // a girl keeps the one-look rule
+    expect(lookAt(tierLook([5, 4, 0]), 1)).toBe(0);
+    for (const lv of [1, 10, 15, 22, 25]) expect(intensity({ isHero: true, level: lv })).toBeLessThanOrEqual(1.6);
+    expect(intensity({ isHero: true, level: 25 })).toBe(1.6);
   });
 });

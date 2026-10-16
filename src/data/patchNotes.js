@@ -20,6 +20,21 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.34', version: '0.1.34', date: '2026-10-16', title: 'The combat update',
+    added: [
+      'Heroes are free to place and level up during the battle, from 1 to 25. Each hero has one 25-level track instead of upgrade paths, and you can buy levels with coins.',
+      'Chika’s drones now roam and hunt across the map, she fires her own bolt, and she has four flight modes to choose from in her panel.',
+      'Codex battle modes are back: six modes with their own ribbons, plus 15 map rules such as Reverse Route.',
+      'Buff icons: see which girls are buffed and by whom. Midori brews strong potions for a few chosen girls, and Chika can tune up one or two girls.',
+      'Potential: duplicate girls now raise her Potential (P1 to P6) with small bonuses in battle.',
+    ],
+    changed: [
+      'Only one copy of each girl can own each path’s final upgrade (one 5-x-x, one x-5-x, one x-x-5). Tier 4 is still unlimited, and tier 4 and tier 5 are much stronger to make up for it.',
+      'Freeplay ramps up more smoothly, a boss shows up every 5 waves from wave 50, and elites are tougher with more armor.',
+      'Co-op: both players need this update to play together.',
+    ],
+  },
+  {
     id: 'v0.1.33', version: '0.1.33', date: '2026-10-16', title: 'Visit profiles, clan invites & tags',
     added: [
       'Visit other players’ profiles: tap a name in chat, your clan or Messages, then View profile on their card. You can see their bio, favorite girl, top 8 girls and medals.',

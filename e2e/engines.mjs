@@ -1,7 +1,8 @@
 // Cross-engine determinism check for co-op lockstep. Two players' clients only stay in sync if
 // every JS engine computes the battle to the same bit, so this runs ONE scripted co-op battle
 // (e2e/engines/scriptedBattle.js: two Lockstep clients, both players' commands, to the end) and
-// ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
+// ONE scripted co-op POTENTIAL battle (POTENTIAL_START: every kind of Potential step, the same girl
+// at P1 and P6) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
 // ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
 // at 250, every enemy's bits) in every engine it can find and compares the results:
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
@@ -113,6 +114,24 @@ for (const { name, r } of results) {
 if (ref.state !== 'won' && ref.state !== 'lost') failures.push(`the scripted battle did not finish (state ${ref.state})`);
 if (ref.checkpoints < 20) failures.push(`only ${ref.checkpoints} hash checkpoints`);
 
+// Potential: every kind of step, and the same girl at P1 (host) and P6 (guest), in one battle
+const POT_KEYS = ['ticks', 'state', 'wave', 'towers', 'wallets', 'ults', 'aoi', 'final', 'hashes', 'checkpoints'];
+log('\nScripted co-op POTENTIAL battle (stage 1-3 Hard, POTENTIAL_START: drones, traps, aura, coins, silence, crit, elites, host Aoi P1 + guest Aoi P6):');
+for (const { name, r } of results) {
+  const p = r.potential;
+  log(`  ${name.padEnd(46)} ticks ${p.ticks} · ${p.state} · wave ${p.wave} · ults ${p.ults} · coins ${p.wallets} · final ${p.final} · ${p.checkpoints} hash checkpoints → ${p.hashes} · ${p.ms} ms`);
+  if (!p.agree) failures.push(`${name}: its own two Potential clients disagreed`);
+  if (p.failed) failures.push(`${name}: ${p.failed} Potential command(s) refused: ${p.refused}`);
+  for (const k of POT_KEYS) if (p[k] !== ref.potential[k]) failures.push(`${name}: potential ${k} ${p[k]} ≠ ${ref.potential[k]} (${results[0].name})`);
+}
+{
+  const p = ref.potential;
+  log(`  towers: ${p.towers}\n  Aoi damage/rate/range/crit (guest P6 | host P1): ${p.aoi}`);
+  if (p.state !== 'won' && p.state !== 'lost') failures.push(`the Potential battle did not finish (state ${p.state})`);
+  if (!p.aoi || p.aoi.split(' | ')[0] === p.aoi.split(' | ')[1]) failures.push('the Potential battle: the two Aois resolved to the same stats');
+  if ((p.towers.match(/:P/g) || []).length < 10) failures.push(`the Potential battle placed only: ${p.towers}`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -136,6 +155,23 @@ for (const { name, r } of results) {
   const [ta, tb] = b.endTicks.split('/');
   if (ta !== tb) failures.push(`the Finish vote ended the run on different ticks (${b.endTicks})`);
 }
+// battle modes and map rules: the MODES_* battles, bit for bit
+log('\nBattle modes + map rules (MODES_* scenarios: every mode and rule effect, a pad sale, endless past the goal):');
+for (const { name, r } of results) {
+  const m = r.modes;
+  log(`  ${name.padEnd(46)} ${m.battles.length} battles · digest ${m.digest} · ${m.ms} ms`);
+  m.battles.forEach((b, i) => {
+    const want = ref.modes.battles[i];
+    if (name === results[0].name) log(`    ${b.name.padEnd(26)} ${b.state} w${b.wave} ♥${b.lives} · ${b.checkpoints} checkpoints ${b.hashes} · final ${b.final} · events ${b.events}`);
+    for (const k of ['state', 'wave', 'lives', 'cash', 'steps', 'hashes', 'checkpoints', 'final']) if (b[k] !== want[k]) failures.push(`${name}: ${b.name} ${k} ${b[k]} ≠ ${want[k]} (${results[0].name})`);
+  });
+}
+{
+  const ev = ref.modes.battles.map((b) => b.events).join(',');
+  for (const k of ['ruleState', 'ruleBonus', 'rift', 'ruleCash']) if (!ev.includes(k)) failures.push(`the mode battles never produced a ${k} event`);
+  const ck = ref.modes.battles.reduce((a, b) => a + b.checkpoints, 0);
+  log(`  ${ck} hash checkpoints across the mode battles`);
+}
 // deep freeplay: a battle jumped to wave 250 on 8-5 (the Eclipse Wyrm wave), raw bits of every enemy
 const DEEP_KEYS = ['towers', 'wave', 'cleared', 'lives', 'maxAlive', 'maxHp', 'bad', 'bosses', 'digest', 'final'];
 log('\nDeep freeplay (8-5 Blossom jumped to wave 250: the Eclipse Wyrm + Gloom Regent, every enemy\'s bits every 60 ticks):');
@@ -150,6 +186,33 @@ for (const { name, r } of results) {
   if (!(d.maxHp < 2 ** 53)) failures.push(`deep freeplay: an enemy HP of ${d.maxHp} is past 2^53`);
   if (!d.bosses.includes('fp_eclipse_wyrm')) failures.push(`deep freeplay: the Eclipse Wyrm never came (bosses ${d.bosses})`);
 }
+// two heroes (hero rework): both players bring Hikari; delayed level buys, moves, ults
+const H_KEYS = ['ticks', 'state', 'wave', 'levels', 'wallets', 'final', 'hashes', 'checkpoints', 'buys', 'moves', 'ults', 'sell'];
+log('\nScripted co-op battle with TWO HEROES (2-5, both Hikari; level buys from a 4.5 s-old view, moves, ults):');
+for (const { name, r } of results) {
+  const b = r.heroes;
+  log(`  ${name.padEnd(46)} ticks ${b.ticks} · wave ${b.wave} · hero levels ${b.levels} · ${b.buys} · moves ${b.moves} · ults ${b.ults} · hero sell ${b.sell} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · ${b.ms} ms`);
+  if (!b.agree) failures.push(`${name}: its own two clients disagreed in the two-hero battle`);
+  for (const k of H_KEYS) if (b[k] !== ref.heroes[k]) failures.push(`${name}: two-hero ${k} ${b[k]} ≠ ${ref.heroes[k]} (${results[0].name})`);
+}
+{
+  const b = ref.heroes;
+  if (!(b.stale > 0 && b.bought > 0 && b.moved > 0)) failures.push(`the two-hero battle did not exercise stale buys, buys and moves (${b.buys}; moves ${b.moves})`);
+  if (b.sell !== 'hero') failures.push(`the hero sell was not refused (${b.sell})`);
+}
+// roaming drones and flight modes: the same drone battle everywhere (DRONES_START)
+const DR_KEYS = ['ticks', 'state', 'wave', 'towers', 'drones', 'droneDmg', 'droneShots', 'tiers', 'flies', 'jams', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op DRONES battle (two Chikas on 6-5, every flight mode, sappers):');
+for (const { name, r } of results) {
+  const d = r.drones;
+  log(`  ${name.padEnd(46)} ticks ${d.ticks} · ${d.state} · wave ${d.wave} · Chikas ${d.tiers} · ${d.drones} drones · drone dmg ${d.droneDmg} · ${d.flies} fly · ${d.jams} jams · final ${d.final} · ${d.checkpoints} hash checkpoints → ${d.hashes} · checkpoint w${d.ckWave} ${d.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${d.ms} ms`);
+  if (!d.agree) failures.push(`${name}: its own two drones-battle clients disagreed`);
+  if (!d.ckSame) failures.push(`${name}: the drones battle's wave-${d.ckWave} checkpoint did not replay to the run`);
+  if (d.refused) failures.push(`${name}: fly command(s) refused: ${d.refused}`);
+  for (const k of DR_KEYS) if (d[k] !== ref.drones[k]) failures.push(`${name}: drones ${k} ${d[k]} ≠ ${ref.drones[k]} (${results[0].name})`);
+}
+if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
+if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -164,4 +227,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battle, the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

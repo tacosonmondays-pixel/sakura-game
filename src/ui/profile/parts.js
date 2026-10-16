@@ -6,12 +6,14 @@ import { h, svgEl, glyph, stars } from '../components.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { DIFFICULTY_ORDER } from '../../data/types.js';
+import { RIBBON_MODES } from '../../data/modes.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { BANNER_MAP, DEFAULT_BANNER, TITLES, FRAMES } from '../../data/profileArt.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { medalIcon, uiIcon } from '../../art/icons.js';
+import { medalIcon, uiIcon, modeIcon } from '../../art/icons.js';
+import { modeText } from '../text/modes.js';
 import { eclipseFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.js';
 import { levelCap, MAX_AWAKEN } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
@@ -146,10 +148,24 @@ export function plaqueEl(pin, { size = phone() ? 36 : 40 } = {}) {
   } else if (info.kind === 'ach' && !info.unknown) {
     cls = 'sky';
     art = svgEl(trophySVG(), 'pf-pl-art');
+  } else if (info.kind === 'ribbon' && !info.unknown) {
+    // "Last Petal" · "Nightmare 7-3", in the difficulty's colours with the mode's badge
+    cls = MEDAL_CLS[info.diff] || 'gold';
+    art = svgEl(modeIcon(info.mode), 'pf-pl-art');
+    return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', modeText(info.mode).name), h('span', info.sub)));
+  } else if (info.kind === 'perfect' && !info.unknown) {
+    cls = 'violet';
+    art = svgEl(trophySVG(), 'pf-pl-art');
   } else {
     art = svgEl(trophySVG({ unknown: true }), 'pf-pl-art');
   }
   return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', info.title), h('span', info.sub)));
+}
+
+/** Ribbon counts per battle mode (reverse, rush, ironclad, frugal, laststand), each out of the campaign's 40 × 4. */
+export function ribbonTallyRow(r, total) {
+  return h('div.pf-tally-row', { 'data-testid': 'profile-ribbon-tally' }, RIBBON_MODES.map((m, i) => h('div.pf-tc', { 'data-mode': m, title: `${modeText(m).name} ribbons` },
+    svgEl(modeIcon(m), 'pf-tc-ico'), h('b', String(r[i] || 0), h('small', `/${total}`)))));
 }
 
 /** Medal counts per difficulty, each out of the 59 stages. */

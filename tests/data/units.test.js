@@ -3,6 +3,10 @@ import {
   UNITS, UNIT_MAP, UNIT_IDS, getUnit, towers, heroes, unitsByRarity, freeUnlocksByStage,
   hasCapability, unitsWithCapability, tierCost, pathCostTo,
 } from '../../src/data/units.js';
+import { HERO_TRACKS, HERO_XP_STEPS, HERO_LEVEL_PRICES } from '../../src/data/heroTracks.js';
+import { BATTLE } from '../../src/data/types.js';
+import { resolveStats } from '../../src/sim/mods.js';
+import { statsCapabilities } from '../../src/sim/report.js';
 import {
   ATTACK_TYPES, ELEMENTS, STATUSES, ROLES, CAPABILITIES, PLACEMENT, UNIT_RARITIES, MATERIAL_FAMILIES,
 } from '../../src/data/types.js';
@@ -55,10 +59,16 @@ const BASE_REQUIRED = [
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
 ];
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback'];
-const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse'];
+const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
+// limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
+const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
 
 // Tier cost windows from CONTRACTS.md §5b.
-const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [7000, 16000]];
+// Tier 5 (the final tier: one girl per path at a time) costs 1.6–2.5× its old price (owner, Oct 15).
+const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [12000, 36000]];
+// heroes are exempt from the one-per-path rule and keep their prices (their paths become a level track
+// in the hero rework)
+const HERO_TIER5_COST = [7000, 16000];
 
 // ---------------------------------------------------------------------------
 // Validators
@@ -89,7 +99,9 @@ function statusErrors(list, where) {
   if (!Array.isArray(list)) return [`${where}: status must be an array`];
   for (const s of list) {
     if (!s || !STATUSES[s.type] || !STATUS_FIELDS[s.type]) { errs.push(`${where}: unknown status ${JSON.stringify(s)}`); continue; }
-    const allowed = ['type', 'chance', ...STATUS_FIELDS[s.type]];
+    // burn / poison may also eat a share of max HP per second (`pct`)
+    const allowed = ['type', 'chance', ...STATUS_FIELDS[s.type], ...(s.type === 'burn' || s.type === 'poison' ? ['pct'] : [])];
+    if ('pct' in s && !(isPos(s.pct) && s.pct < 0.05)) errs.push(`${where}: status ${s.type}.pct must be in (0, 0.05)`);
     for (const k of Object.keys(s)) if (!allowed.includes(k)) errs.push(`${where}: status ${s.type} has unknown key ${k}`);
     for (const f of STATUS_FIELDS[s.type]) if (!isPos(s[f])) errs.push(`${where}: status ${s.type}.${f} must be > 0`);
     if (s.type === 'slow' && s.amount >= 1) errs.push(`${where}: slow amount must be < 1`);
@@ -137,9 +149,12 @@ function modSetErrors(mods, where) {
     aura: (k, v, w) => objErrors(v, AURA_KEYS, w, (kk, vv, ww) => (['detection', 'cleanse'].includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww))),
     income: (k, v, w) => objErrors(v, ['perWave', 'interest'], w, numCheck),
     trap: (k, v, w) => objErrors(v, ['max', 'damage', 'splash', 'status'], w, (kk, vv, ww) => (kk === 'status' ? statusErrors(vv, ww) : numCheck(kk, vv, ww))),
-    turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate'], w, numCheck),
+    turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate', 'leash', 'speed'], w, numCheck),
     ramp: (k, v, w) => objErrors(v, ['per', 'max'], w, numCheck),
     mark: (k, v, w) => objErrors(v, ['bonus', 'duration'], w, numCheck),
+    brew: (k, v, w) => objErrors(v, LIMITED_KEYS.filter((x) => x !== 'overclock'), w, numCheck),
+    link: (k, v, w) => objErrors(v, LIMITED_KEYS, w, (kk, vv, ww) => (kk === 'overclock' ? objErrors(vv, ['every', 'time', 'rateMul'], ww, numCheck) : numCheck(kk, vv, ww))),
+    hpPct: (k, v, w) => objErrors(v, ['pct', 'boss', 'cap'], w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -153,7 +168,8 @@ function baseErrors(b, where) {
   for (const k of BASE_REQUIRED) if (!(k in b)) errs.push(`${where}: missing ${k}`);
   for (const k of Object.keys(b)) if (!BASE_REQUIRED.includes(k) && !BASE_OPTIONAL.includes(k)) errs.push(`${where}: unknown key ${k}`);
   if (!BEHAVIORS.includes(b.behavior)) errs.push(`${where}: bad behavior`);
-  for (const k of ['cost', 'rate', 'range', 'projectiles', 'pierce', 'maxTargets']) if (!isPos(b[k])) errs.push(`${where}: ${k} must be > 0`);
+  if (!(isNum(b.cost) && b.cost >= 0)) errs.push(`${where}: cost must be >= 0`);
+  for (const k of ['rate', 'range', 'projectiles', 'pierce', 'maxTargets']) if (!isPos(b[k])) errs.push(`${where}: ${k} must be > 0`);
   for (const k of ['damage', 'splash', 'chain', 'projectileSpeed', 'armorPen']) if (!(isNum(b[k]) && b[k] >= 0)) errs.push(`${where}: ${k} must be >= 0`);
   for (const k of ['eliteMul', 'bossMul', 'barrierMul']) if (!isPos(b[k])) errs.push(`${where}: ${k} must be > 0`);
   if (typeof b.canHitAir !== 'boolean' || typeof b.detection !== 'boolean') errs.push(`${where}: canHitAir/detection must be booleans`);
@@ -171,7 +187,7 @@ function baseErrors(b, where) {
     for (const k of ['max', 'damage', 'triggerRadius', 'armTime', 'splash', 'status']) if (!(k in b.trap)) errs.push(`${where}: trap missing ${k}`);
   }
   if (b.turret) {
-    errs.push(...objErrors(b.turret, ['max', 'damage', 'rate', 'range', 'attackType', 'status'], `${where}.turret`, (k, v, w) => {
+    errs.push(...objErrors(b.turret, ['max', 'damage', 'rate', 'range', 'leash', 'speed', 'build', 'attackType', 'status'], `${where}.turret`, (k, v, w) => {
       if (k === 'status') return statusErrors(v, w);
       if (k === 'attackType') return ATTACK_TYPES[v] ? [] : [`${w} unknown attack type`];
       return numCheck(k, v, w);
@@ -192,7 +208,9 @@ function derivedCaps(m, acc = new Set()) {
   if ((m.silence ?? 0) > 0) acc.add('silence');
   if ((m.reveal ?? 0) > 0) acc.add('reveal');
   if (m.mark) acc.add('priority');
-  if (m.aura && ((m.aura.dmgMul ?? 1) > 1 || (m.aura.rateMul ?? 1) > 1 || (m.aura.rangeMul ?? 1) > 1 || (m.aura.costCut ?? 0) > 0)) acc.add('buff');
+  if (m.aura && ((m.aura.dmgMul ?? 1) > 1 || (m.aura.rateMul ?? 1) > 1 || (m.aura.rangeMul ?? 1) > 1 || (m.aura.costCut ?? 0) > 0
+    || (m.aura.armorPen ?? 0) > 0 || (m.aura.critChance ?? 0) > 0)) acc.add('buff');
+  if (m.brew || m.link) acc.add('buff');
   if (m.aura?.cleanse) acc.add('cleanse');
   if (m.income) acc.add('income');
   if (m.turret) acc.add('summon');
@@ -295,7 +313,11 @@ describe('UnitDef schema', () => {
 });
 
 describe('upgrade paths', () => {
-  it.each(UNITS.map((u) => [u.id, u]))('%s has 3 paths × 5 tiers with valid ModSets', (id, u) => {
+  it('heroes have no upgrade paths (they level along their track)', () => {
+    for (const u of heroes()) expect(u.paths, u.id).toEqual([]);
+  });
+
+  it.each(towers().map((u) => [u.id, u]))('%s has 3 paths × 5 tiers with valid ModSets', (id, u) => {
     expect(u.paths).toHaveLength(3);
     expect(new Set(u.paths.map((p) => p.id)).size).toBe(3);
     for (const p of u.paths) {
@@ -319,8 +341,9 @@ describe('upgrade paths', () => {
       const costs = p.tiers.map((t) => t.cost);
       for (let i = 0; i < 5; i++) {
         expect(Number.isInteger(costs[i]), `${id}.${p.id} t${i + 1}`).toBe(true);
-        expect(costs[i], `${id}.${p.id} t${i + 1} min`).toBeGreaterThanOrEqual(TIER_COST[i][0]);
-        expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(TIER_COST[i][1]);
+        const win = i === 4 && u.kind === 'hero' ? HERO_TIER5_COST : TIER_COST[i];
+        expect(costs[i], `${id}.${p.id} t${i + 1} min`).toBeGreaterThanOrEqual(win[0]);
+        expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(win[1]);
         if (i > 0) expect(costs[i], `${id}.${p.id} t${i + 1} increases`).toBeGreaterThan(costs[i - 1]);
       }
     }
@@ -428,8 +451,15 @@ describe('design requirements', () => {
     expect(umeko.base.aura.detection).toBe(true);
     expect(umeko.placement).toBe('water');
     const chika = getUnit('chika');
-    expect(chika.base.behavior).toBe('turret');
+    // her own weak wrench bolt, plus a wing of roaming drones that fly past her range ring
+    expect(chika.base.behavior).toBe('projectile');
     expect(chika.base.turret.max).toBeGreaterThan(0);
+    expect(chika.base.turret.leash).toBeGreaterThan(chika.base.range);
+    const tesla = chika.paths[2].tiers[3];
+    expect(tesla.desc).not.toMatch(/Stops building/);
+    // the coil keeps 9 damage × 1.0/s: (2 + 7) damage, 0.8 × 1.25 rate
+    expect(chika.base.damage + tesla.mods.damage).toBe(9);
+    expect(chika.base.rate * tesla.mods.rateMul).toBeCloseTo(1, 9);
     expect(chika.paths.some((p) => p.tiers.some((t) => t.mods.aura?.cleanse))).toBe(true);
     expect(getUnit('suzu').base.behavior).toBe('trap');
     const kaede = getUnit('kaede');
@@ -451,10 +481,10 @@ describe('design requirements', () => {
     expect(rei.paths.some((p) => p.tiers.some((t) => t.mods.behavior === 'duel'))).toBe(true);
   });
 
-  it('the free cleanse (vs sabotage) is reachable below tier 5', () => {
+  it('the free cleanse (vs sabotage) is reachable by Lv 10 of the starter hero', () => {
     const hikari = getUnit('hikari');
-    const tierOf = hikari.paths.flatMap((p) => p.tiers.map((t, i) => (t.mods.aura?.cleanse ? i + 1 : 99)));
-    expect(Math.min(...tierOf)).toBeLessThanOrEqual(4);
+    const first = hikari.hero.levels.find((l) => l.mods.aura?.cleanse);
+    expect(first.level).toBeLessThanOrEqual(10);
   });
 
   it('water units exist: two towers and a hero', () => {
@@ -469,10 +499,7 @@ describe('design requirements', () => {
       expect(u.base.cost, u.id).toBeGreaterThanOrEqual(150);
       expect(u.base.cost, u.id).toBeLessThanOrEqual(900);
     }
-    for (const u of heroes()) {
-      expect(u.base.cost, u.id).toBeGreaterThanOrEqual(450);
-      expect(u.base.cost, u.id).toBeLessThanOrEqual(650);
-    }
+    for (const u of heroes()) expect(u.base.cost, u.id).toBe(0); // heroes deploy for free
     const shiro = getUnit('shiro').base.range;
     expect(shiro).toBeGreaterThanOrEqual(8);
     expect(shiro).toBeLessThanOrEqual(12);
@@ -496,56 +523,115 @@ describe('design requirements', () => {
 
 describe('hero definitions', () => {
   const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide' };
+  // Every old upgrade tier and level milestone, frozen: the 25-level track must carry each exactly once.
+  const OLD_REFS = {
+    hikari: ['radiant', 'sanctuary', 'lightbringer'],
+    luna: ['lances', 'gravity', 'court'],
+    nami: ['frostbrand', 'undertow', 'harbor'],
+  };
+  // Live (pre-rework) price of the cheapest path source of each capability (tiers 1..n summed);
+  // 'T5' = only a tier 5 granted it (exempt from rule 5, it stays on its tier-5 level).
+  const OLD_CHEAPEST = {
+    hikari: { armorPen: 1420, reveal: 4740, silence: 1540, buff: 140, cleanse: 4740, antiAir: 1400, stun: 'T5' },
+    luna: { armorPen: 1600, slow: 140, stun: 4840, buff: 150, detection: 1670 },
+    nami: { armorPen: 1380, stun: 460, buff: 120 },
+  };
+  const priceTo = (level) => HERO_LEVEL_PRICES.slice(0, level - 1).reduce((a, b) => a + b, 0);
 
-  it.each(heroes().map((u) => [u.id, u]))('%s HeroDef is complete', (id, u) => {
-    const h = u.hero;
-    expect(Object.keys(h).sort()).toEqual(['levelXp', 'levels', 'ult']);
-    expect(h.levelXp).toHaveLength(9);
-    for (let i = 0; i < 9; i++) {
-      expect(isPos(h.levelXp[i])).toBe(true);
-      if (i > 0) expect(h.levelXp[i]).toBeGreaterThan(h.levelXp[i - 1]);
+  it('the cap is 25 and the shared XP / price tables have 24 positive, non-decreasing entries', () => {
+    expect(BATTLE.maxHeroLevel).toBe(25);
+    for (const t of [HERO_XP_STEPS, HERO_LEVEL_PRICES]) {
+      expect(t).toHaveLength(24);
+      for (let i = 0; i < 24; i++) {
+        expect(isPos(t[i])).toBe(true);
+        if (i > 0) expect(t[i]).toBeGreaterThanOrEqual(t[i - 1]);
+      }
     }
-    expect(h.levels.map((l) => l.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(HERO_XP_STEPS.reduce((a, b) => a + b, 0)).toBe(24280);
+    expect(priceTo(25)).toBe(40285);
+  });
+
+  it.each(heroes().map((u) => [u.id, u]))('%s HeroDef is a complete 25-level track', (id, u) => {
+    const h = u.hero;
+    expect(u.base.cost).toBe(0);
+    expect(u.paths).toEqual([]);
+    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'ult']);
+    expect(h.levels).toBe(HERO_TRACKS[id].levels);
+    expect(h.pathKeys).toEqual(OLD_REFS[id]);
+    expect(h.levels.map((l) => l.level)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
     for (const l of h.levels) {
-      expect(Object.keys(l).sort()).toEqual(['desc', 'level', 'mods']);
+      expect(['desc', 'from', 'level', 'mods'].every((k) => k in l), `${id}.L${l.level}`).toBe(true);
+      expect(Object.keys(l).every((k) => ['also', 'desc', 'from', 'level', 'mods'].includes(k))).toBe(true);
       expect(l.desc.length).toBeGreaterThan(5);
       expect(modSetErrors(l.mods, `${id}.L${l.level}`)).toEqual([]);
+      if (l.level > 1) expect(Object.keys(l.mods).length, `${id}.L${l.level} must give something`).toBeGreaterThan(0);
+    }
+    // `from` covers every old tier and milestone exactly once
+    const want = ['base', ...OLD_REFS[id].flatMap((p) => [1, 2, 3, 4, 5].map((t) => `${p}.${t}`)),
+      ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `L${n}`)].sort();
+    expect(h.levels.map((l) => l.from).sort()).toEqual(want);
+    // `also` points at a later level's `from`
+    for (const l of h.levels) for (const ref of l.also || []) {
+      const target = h.levels.find((x) => x.from === ref);
+      expect(target && target.level > l.level, `${id}.L${l.level} also ${ref}`).toBe(true);
     }
     const ult = h.ult;
-    expect(Object.keys(ult).sort()).toEqual(['cooldown', 'desc', 'effect', 'name', 'unlockLevel']);
+    expect(Object.keys(ult).sort()).toEqual(['cooldown', 'desc', 'effect', 'name', 'ranks', 'unlockLevel']);
     expect(ult.unlockLevel).toBe(3);
     expect(ult.cooldown).toBeGreaterThanOrEqual(30);
     expect(ult.effect.type).toBe(ULT[id]);
-    const e = ult.effect;
-    if (e.type === 'nova') {
-      expect(isPos(e.damage) && isNum(e.radius) && e.radius >= 0 && !!ATTACK_TYPES[e.attackType]).toBe(true);
+    expect(ult.ranks.map((r) => r.level)).toEqual([10, 20]);
+    for (const r of ult.ranks) {
+      expect(r.level > 3 && r.level <= 25).toBe(true);
+      expect(r.cooldownMul > 0 && r.cooldownMul <= 1).toBe(true);
+      expect(r.desc.length).toBeGreaterThan(5);
+    }
+    let e = ult.effect;
+    for (const r of [null, ...ult.ranks]) {
+      if (r) e = { ...e, ...r.effect };
+      expect(e.type).toBe(ULT[id]);
+      if (e.type === 'nova') {
+        expect(isPos(e.damage) && isNum(e.radius) && e.radius >= 0 && !!ATTACK_TYPES[e.attackType]).toBe(true);
+      } else if (e.type === 'timeWarp') {
+        expect(e.slow > 0 && e.slow < 1 && isPos(e.duration) && e.rateBuff > 1 && isPos(e.buffDuration)).toBe(true);
+      } else {
+        expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
+      }
       if (e.status) expect(statusErrors(e.status, `${id}.ult`)).toEqual([]);
-    } else if (e.type === 'timeWarp') {
-      expect(e.slow > 0 && e.slow < 1 && isPos(e.duration) && e.rateBuff > 1 && isPos(e.buffDuration)).toBe(true);
-    } else {
-      expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
+    }
+  });
+
+  it.each(heroes().map((u) => [u.id, u]))('%s: counters come early (rule 5)', (id, u) => {
+    for (const cap of u.pathCapabilities) {
+      let first = 0;
+      const grants = (st) => statsCapabilities(st).has(cap) || (cap === 'detection' && !!st.aura?.detection); // Veil Sight aura
+      for (let L = 1; L <= 25 && !first; L++) if (grants(resolveStats(u, { heroLevel: L }))) first = L;
+      expect(first, `${id} never grants ${cap}`).toBeGreaterThan(0);
+      const old = OLD_CHEAPEST[id][cap];
+      expect(old, `${id} ${cap} needs a frozen old price`).toBeDefined();
+      if (old === 'T5') {
+        expect(u.hero.levels[first - 1].from.endsWith('.5'), `${id} ${cap} stays on its tier 5`).toBe(true);
+      } else {
+        expect(first <= 10 || priceTo(first) <= 1.5 * old, `${id} ${cap} first at Lv ${first} (${priceTo(first)} coins)`).toBe(true);
+      }
+    }
+  });
+
+  it.each(heroes().map((u) => [u.id, u]))('%s Lv 25 stats are frozen (catches accidental power changes)', (id, u) => {
+    expect(resolveStats(u, { heroLevel: 25 })).toMatchSnapshot();
+  });
+
+  it('a hero with her own levelXp must carry levelPrices of the same length', () => {
+    for (const u of heroes()) {
+      if (u.hero.levelXp) {
+        expect(u.hero.levelXp).toHaveLength(24);
+        expect(u.hero.levelPrices).toHaveLength(24);
+      } else expect(u.hero.levelPrices).toBeUndefined();
     }
   });
 
   it('towers carry no HeroDef', () => {
     for (const u of towers()) expect(u.hero).toBeUndefined();
-  });
-
-  it('heroes are nerfed: level 10 ≈ a strong tier-4 tower, not a carry', () => {
-    // Fold level milestones into base damage/rate and compare raw single-target DPS with Aoi tier 4.
-    const aoi = getUnit('aoi');
-    const aoiT4 = (aoi.base.damage + 1 + 1 * 0 + 2 + 6) * aoi.base.rate; // Piercing Arrows 1-4 (per target)
-    for (const u of heroes()) {
-      let dmg = u.base.damage; let dmgMul = 1; let rate = u.base.rate;
-      for (const l of u.hero.levels) {
-        dmg += l.mods.damage || 0;
-        dmgMul *= l.mods.damageMul || 1;
-        rate *= l.mods.rateMul || 1;
-      }
-      const dps = dmg * dmgMul * rate;
-      expect(dps, u.id).toBeGreaterThan(aoiT4 * 0.4);
-      expect(dps, u.id).toBeLessThan(aoiT4 * 1.5);
-    }
   });
 });
 

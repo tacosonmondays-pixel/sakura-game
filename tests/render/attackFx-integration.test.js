@@ -1,5 +1,5 @@
 // Attack FX over a real Sim (node, no WebGL): purely visual (identical sim digest with FX on
-// and off), drones 1:1 with turrets and leashed, targets follow the sim, blended projectiles
+// and off), drones 1:1 with turrets and drawn on the sim's drones, targets follow the sim, blended projectiles
 // land exactly on the sim path, flourishes only on real hits, no leaks after selling.
 import { describe, it, expect } from 'vitest';
 import { harness, gallerySim, streamer } from './attackFxHarness.js';
@@ -45,48 +45,64 @@ describe('attack FX over a real sim', { timeout: 180000 }, () => {
     expect(a.sim.towers.reduce((s, t) => s + t.turrets.length, 0)).toBeGreaterThan(4);
   });
 
-  it('drones: 1:1 with turrets, leashed, retarget on every shot, blend residual 0', () => {
-    const ids = ['chika', 'chika', 'momo', 'miko'];
-    const builds = [[5, 2, 0], [0, 2, 4], [0, 0, 0], [0, 0, 0]];
-    let maxLeash = 0;
-    let shots = 0;
-    let wrong = 0;
-    run(ids, builds, {
-      frames: 2400,
-      check(sim, h, events) {
-        const drones = h.fxa.ctx.drones;
-        let turrets = 0;
-        for (const t of sim.towers) turrets += t.turrets.length;
-        expect(drones.count).toBe(turrets);
-        for (const t of sim.towers) for (const tu of t.turrets) expect(drones.map.has(tu.uid)).toBe(true);
-        const st = h.fxa.stats();
-        maxLeash = Math.max(maxLeash, st.maxLeash);
-        for (const v of drones.list) {
-          const g = drones.groups.get(v.towerUid);
-          const L = g.L;
-          expect(Math.hypot(v.x - g.tower.x, v.y - g.tower.y)).toBeLessThanOrEqual(L + 1e-3);
-        }
-        for (const ev of events) {
-          if (ev.type !== 'attack' || ev.kind !== 'bullet' || ev.turretUid == null) continue;
-          shots++;
-          const v = drones.map.get(ev.turretUid);
-          if (!v || v.shotTarget !== ev.targetUid) wrong++;
-        }
-        expect(st.maxBlendResidual).toBeLessThan(1e-9);
-      },
-    });
-    expect(shots).toBeGreaterThan(50);
-    expect(wrong).toBe(0);
-    expect(maxLeash).toBeLessThanOrEqual(1 + 1e-6);
+  // Chika rework M5: the layer draws the sim's roaming drones (it never steers its own)
+  it('drones: 1:1 with turrets, drawn on their sim drones (± 0.35 tiles), the sim\'s quarry, the sim position at each shot, blend residual 0', () => {
+    for (const speed of [1, 3]) {
+      const ids = ['chika', 'chika', 'momo', 'miko'];
+      const builds = [[5, 2, 0], [0, 2, 4], [0, 0, 0], [0, 0, 0]];
+      let maxDecor = 0;
+      let shots = 0;
+      let wrong = 0;
+      let maxOut = 0;
+      let atShot = 0;
+      run(ids, builds, {
+        frames: 2400,
+        speed,
+        check(sim, h, events) {
+          const drones = h.fxa.ctx.drones;
+          let turrets = 0;
+          for (const t of sim.towers) turrets += t.turrets.length;
+          expect(drones.count).toBe(turrets);
+          for (const t of sim.towers) {
+            for (const tu of t.turrets) {
+              const v = drones.map.get(tu.uid);
+              expect(v).toBeTruthy();
+              // the harness draws at α = 1: the base is the sim drone itself
+              expect(Math.hypot(v.bx - tu.x, v.by - tu.y)).toBeLessThan(1e-9);
+              expect(v.targetUid).toBe(tu.targetUid ?? null);
+              maxOut = Math.max(maxOut, Math.hypot(tu.x - t.x, tu.y - t.y));
+              if (v.state !== 'LAUNCH') maxDecor = Math.max(maxDecor, Math.hypot(v.dx - tu.x, v.dy - tu.y));
+            }
+          }
+          for (const ev of events) {
+            if (ev.type !== 'attack' || ev.kind !== 'bullet' || ev.turretUid == null) continue;
+            shots++;
+            const v = drones.map.get(ev.turretUid);
+            if (!v || v.shotTarget !== ev.targetUid) wrong++;
+            // the bullet leaves the sim drone; the drawn drone is on it (the decoration of a
+            // hunting drone is 0 at the shot and has had one frame of game time to grow back)
+            expect([v.muzzleX, v.muzzleY]).toEqual([v.tu.x, v.tu.y]);
+            if (v.state === 'HUNT') atShot = Math.max(atShot, v.decor);
+          }
+          expect(h.fxa.stats().maxBlendResidual).toBeLessThan(1e-9);
+        },
+      });
+      expect(shots, `${speed}×`).toBeGreaterThan(50);
+      expect(wrong, `${speed}×`).toBe(0);
+      expect(maxDecor, `${speed}×`).toBeLessThanOrEqual(0.35 + 1e-9);
+      // smoothstep(game time of one frame / 0.15 s) × 0.35: ≈ 0.012 tiles at 1×, ≈ 0.09 at 3×
+      expect(atShot, `${speed}×`).toBeLessThan(speed === 1 ? 0.015 : 0.1);
+      // the sim's drones really leave her (the old layer kept them inside her ring)
+      expect(maxOut, `${speed}×`).toBeGreaterThan(1.5);
+    }
   });
 
-  it('a full wing reads as separate drones: lanes on a shared target, spread out, rarely touching', () => {
+  it('a full wing reads as separate drones (fanned out by slot, spread across the field)', () => {
     for (const quality of ['high', 'low']) {
       let frames = 0;
       let spread = 0;
       let pairs = 0;
       let close = 0;
-      let badLanes = 0;
       run(['chika'], [[5, 2, 0]], {
         frames: 2400,
         quality,
@@ -107,20 +123,12 @@ describe('attack FX over a real sim', { timeout: 180000 }, () => {
               if (Math.hypot(list[i].dx - list[j].dx, list[i].dy - list[j].dy, (list[i].dh - list[j].dh) * 0.7) < 0.25) close++;
             }
           }
-          // drones sharing a target hold distinct lanes 0..n-1
-          const byTarget = new Map();
-          for (const v of list) if (v.targetUid != null) byTarget.set(v.targetUid, [...(byTarget.get(v.targetUid) || []), v]);
-          for (const vs of byTarget.values()) {
-            const lanes = vs.map((v) => v.lane).sort((a, b) => a - b);
-            if (vs.some((v) => v.laneN !== vs.length) || lanes.some((l, k) => l !== k)) badLanes++;
-          }
         },
       });
       expect(frames, quality).toBeGreaterThan(600);
-      expect(badLanes, quality).toBe(0);
-      // before the lanes: high 0.80 tiles / 4.2 % of pairs touching, low 0.53 / 28 %
-      expect(spread / frames, quality).toBeGreaterThan(quality === 'high' ? 1.0 : 0.8);
-      expect(close / pairs, quality).toBeLessThan(quality === 'high' ? 0.025 : 0.08);
+      // measured (M5): spread 2.2 tiles, 1.4 % of pairs within 0.25 tiles at 3×
+      expect(spread / frames, quality).toBeGreaterThan(1.0);
+      expect(close / pairs, quality).toBeLessThan(0.05);
     }
   });
 

@@ -714,6 +714,55 @@ try {
   await shot(A, 'coop-battle');
   await shot(B, 'coop-battle-guest');
 
+  // ---- hero rework: each player deploys her own hero (free), the guest buys a level ----------
+  // (the guest searches from the opposite corner and after the host's hero stands, so the two
+  // orders never race for the same spot)
+  async function placeHero(page, fromEnd) {
+    return page.evaluate((rev) => {
+      const { sim, ui } = window.__battle;
+      const id = sim.heroConfig?.unitId;
+      if (!id || sim.hero) return id ? 'already' : null;
+      const ys = [];
+      // a centre right on the map's edge can round out of bounds on the 1/1024 command grid: stay 1 tile in
+      for (let y = 1; y < sim.map.height - 1; y += 0.35) ys.push(y);
+      const xs = [];
+      for (let x = 1; x < sim.map.width - 1; x += 0.35) xs.push(x);
+      if (rev) {
+        ys.reverse();
+        xs.reverse();
+      }
+      for (const y of ys) {
+        for (const x of xs) {
+          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) return ui.act.place(id, x, y) ? id : null;
+        }
+      }
+      return null;
+    }, fromEnd);
+  }
+  const heroA = await placeHero(A, false);
+  await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
+  const heroB = await placeHero(B, true);
+  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB})`);
+  const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
+  if (!check(await twoHeroes(A) && await twoHeroes(B), 'co-op heroes: both heroes stand on both screens')) await dump('lockstep state');
+  await A.evaluate(() => window.__battle.ui.feed.clear?.());
+  const before = await B.evaluate(() => ({ lv: window.__battle.sim.hero?.level, st: window.__battle.sim.heroLevelStatus(), wallet: window.__battle.sim.cash }));
+  const bought = await B.waitForFunction(() => {
+    const { sim, ui } = window.__battle;
+    const st = sim.heroLevelStatus();
+    if (st.reason) return false;
+    return ui.levelUpHero(st);
+  }, null, { timeout: 120000, polling: 500 }).then(() => true).catch(() => false);
+  check(bought, `co-op heroes: the guest buys a level from her own wallet (Lv ${before.lv}, ${before.st.price} coins)`);
+  const guestUp = (p) => p.waitForFunction((lv) => (window.__battle.sim.heroes[1]?.level || 0) > lv, before.lv, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
+  check(await guestUp(A) && await guestUp(B), 'co-op heroes: the guest\'s hero is a level up on both screens');
+  const chip = await A.waitForFunction(() => [...document.querySelectorAll('.bt-toast-text')].some((t) => /Bea's \w+ Lv \d+/.test(t.textContent)), null, { timeout: 30000, polling: 250 }).then(() => true).catch(() => false);
+  check(chip, 'co-op heroes: the host sees the ally chip ("Bea\'s Hikari Lv n"), not her own toast');
+  await shot(A, 'coop-two-heroes');
+  await shot(B, 'coop-two-heroes-guest');
+  const hh = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
+  check(hh.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op heroes: hashes still equal on both (${hh.map((l) => l.length).join(' / ')} checkpoints)`);
+
   // a network cut longer than the timeout: both play on alone; when the link is back the host
   // re-admits the guest, whose battle screen rebuilds from the host's log, and the hashes agree
   await B.evaluate(() => {

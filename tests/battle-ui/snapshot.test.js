@@ -4,8 +4,12 @@
 // guards fail as soon as the Sim grows state the snapshot does not classify.
 //
 // The driver plays like the battle controller: random 7–45 ms frames at speeds 1/2/3, autoPlan
-// placements and upgrades, target changes, the ult, a sell, manual waves and then auto-start, with
-// sim.startNextWave wrapped on the instance (the controller's battleSaver does the same).
+// placements and upgrades, target changes, the ult, hero level buys and Moves, a sell, manual waves
+// and then auto-start, with sim.startNextWave wrapped on the instance (the controller's
+// battleSaver does the same). The checkpoint digest reads sim.heroes, never the view getter
+// sim.hero: an auto-start snapshot is taken inside the step, where the view trap throws.
+// Chika rework (M6): her roaming drones fly through every flight mode (the `fly` command:
+// Hover, Hold, Patrol, Pursuit), so the checkpoints catch drones flying home, jammed or far out.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -16,15 +20,21 @@ import { STAGE_MAP } from '../../src/data/stages.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
-import { RECORD_V, slotKey } from '../../src/systems/battleSave.js';
+import { RECORD_V, SNAP_V, slotKey } from '../../src/systems/battleSave.js';
+import { xpToReach } from '../../src/sim/hero.js';
+import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import {
-  snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS,
+  snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS, KNOWN_DRONE_KEYS,
 } from '../../src/ui/battle/snapshot.js';
 
 const SCEN = {
   '3-5 normal': { stageId: '3-5', difficulty: 'normal', towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 12345, forks: [6, 15] },
   '8-5 hard (drones)': { stageId: '8-5', difficulty: 'hard', towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'luna', stats: { damageMul: 4, rateMul: 1.3 }, seed: 777, forks: [9, 20] },
   '4-5 normal (traps, drones)': { stageId: '4-5', difficulty: 'normal', towers: ['suzu', 'aoi', 'rei', 'akane', 'chika'], hero: 'hikari', stats: { damageMul: 2.5, rateMul: 1.2 }, seed: 99, forks: [5, 12] },
+  // battle modes + map rules: Reverse Route on Rear Ambush (the route turns every wave: `rr`), and
+  // Ironclad on crystal pads (pads follow the girls, the hero's Moves included)
+  '4-2 hard reverse (Rear Ambush)': { stageId: '4-2', difficulty: 'hard', mode: 'reverse', towers: ['aoi', 'rei', 'akane', 'kaede', 'chika'], hero: 'hikari', stats: { damageMul: 3, rateMul: 1.2 }, seed: 4202, forks: [5, 8] },
+  '6-1 normal ironclad (pads)': { stageId: '6-1', difficulty: 'normal', mode: 'ironclad', towers: ['aoi', 'rei', 'akane', 'sango', 'yuki'], hero: 'luna', stats: { damageMul: 3, rateMul: 1.2 }, seed: 6102, forks: [4, 9] },
   'colosseum to wave 30': { stageId: 'challenge', difficulty: 'normal', endless: true, towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'hikari', stats: { damageMul: 6, rateMul: 1.4 }, seed: 4242, maxCopies: 4, maxWave: 30, forks: [10, 22] },
 };
 
@@ -33,10 +43,10 @@ const team = (c) => ({
   loadout: c.towers.map((unitId) => ({ unitId, stats: { ...unitBattleStats(null, unitId), ...c.stats } })),
   hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats } } : null,
 });
-const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false } });
+const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false, mode: c.mode } });
 const recordOf = (c, snap) => ({
   v: RECORD_V, id: 'bs-test', slot: slotKey(c.stageId, !!c.endless), stageId: c.stageId, endless: !!c.endless,
-  difficulty: c.difficulty, seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
+  difficulty: c.difficulty, ...(c.mode ? { mode: c.mode } : {}), seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
 });
 
 /** Applies one command exactly like the solo ctx.act / ctx.* handlers. */
@@ -47,6 +57,9 @@ function exec(sim, k, a) {
     case 'sell': return sim.sellTower(a[0]) > 0;
     case 'tgt': return sim.setTargetMode(a[0], a[1]);
     case 'ult': return !!sim.activateUlt();
+    case 'hlv': return sim.buyHeroLevel().ok;
+    case 'hmv': return sim.moveHero(a[0], a[1]).ok;
+    case 'fly': return sim.setFlight(a[0], a[1], a[2], a[3], a[4], a[5]);
     case 'wave': return sim.startNextWave();
     case 'auto':
       sim.options.autoStart = !!a[0];
@@ -63,13 +76,29 @@ const plain = (v) => {
 };
 // references and per-step scratch (the round trip compares state, not identity)
 // (own functions are the test's and the controller's instance wrappers: _step, startNextWave)
-const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData', 'paths', 'pathTiles', 'placement', 'loadout', 'heroConfig', 'grid',
-  'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'hero', 'towers', 'traps',
-  'enemies', 'projectiles', 'fields', '_acc']);
+// (heroes: tower references, compared below by uid; _stepping is true for a snapshot taken inside the step)
+const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData', 'paths', 'pathTiles', 'placement', 'loadout', 'heroConfigs', '_heroConfig', 'grid',
+  'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'heroes', 'towers', 'traps',
+  'enemies', 'projectiles', 'fields', '_acc', '_stepping']);
 // a calm point resets these anyway (startNextWave overwrites the spawn cursor and timers)
-const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty']);
+// (_waveTick: a map rule's step clock, restarted at every wave start)
+const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty', '_waveTick']);
 // derived per-tower references / caches, and the harmless stale target memory of a calm point
-const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange']);
+// (_pool / _poolS: a roaming wing's per-step target pool, enemy references)
+const TOWER_SKIP = new Set(['def', 'targetUid', 'rampTarget', 'rampStacks', 'trapSpots', 'trapSpotsRange', '_pool', '_poolS']);
+// reset at a calm point: the pool's reuse counter (moot with no enemy alive)
+const TOWER_CALM_SKIP = new Set(['_poolLeft', '_poolMode']);
+// map-rule fields a girl only carries once a pad or the rule's range touched her: absent = neutral
+// (src/sim/rules.js, towers.js), so a girl who had them and is back to neutral equals one who never had them
+const TOWER_NEUTRAL = { padIndex: -1, onPad: false, padMul: 1, padRangeAdd: 0, envRangeMul: 1, envRangeAdd: 0 };
+// a roaming drone at a calm point: its quarry, motion flag and position one step earlier are reset
+const DRONE_CALM_SKIP = new Set(Object.keys(KNOWN_DRONE_KEYS).filter((k) => KNOWN_DRONE_KEYS[k] === 'calm'));
+/** A tower's drones for a digest (a drone's quarry is an enemy: compared by uid). */
+const dronesOf = (t, calm) => t.turrets.map((d) => {
+  const o = {};
+  for (const k of Object.keys(d)) if (!(calm && DRONE_CALM_SKIP.has(k))) o[k] = k === 'tgt' ? d.tgt?.uid ?? null : plain(d[k]);
+  return o;
+});
 
 /**
  * stats.leakLog as the debrief reads it: counts per (wave, enemy, lives) in first-seen order (a
@@ -91,14 +120,16 @@ function digest(sim, { calm = false } = {}) {
   if (out.stats) out.stats.leakLog = leakDigest(out.stats.leakLog);
   out.towers = sim.towers.map((t) => {
     const o = {};
-    for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k)) o[k] = plain(t[k]);
+    for (const k of Object.keys(t)) if (!TOWER_SKIP.has(k) && !(calm && TOWER_CALM_SKIP.has(k))) o[k] = plain(t[k]);
+    if (sim.rule) for (const [k, v] of Object.entries(TOWER_NEUTRAL)) o[k] = t[k] ?? v;
+    o.turrets = dronesOf(t, calm);
     return o;
   });
   out.traps = sim.traps.map(({ owner, ...tr }) => ({ ...tr, owner: owner?.uid ?? null }));
   out.enemies = sim.enemies.map((e) => ({ uid: e.uid, id: e.id, x: e.x, y: e.y, hp: e.hp, dist: e.dist, barrier: e.barrier }));
   out.projectiles = sim.projectiles.length;
   out.fields = sim.fields.length;
-  out.hero = sim.hero?.uid ?? null;
+  out.heroes = sim.heroes.map((h) => h?.uid ?? null);
   return out;
 }
 
@@ -197,6 +228,25 @@ function play(c, { stopAt = Infinity } = {}) {
       }
       if (fr.chance(0.002) && sim.towers.length) issue('tgt', sim.towers[fr.int(0, sim.towers.length - 1)].uid, modes[fr.int(0, modes.length - 1)]);
       if (sim.hero && sim.heroUltStatus().ready && fr.chance(0.03)) issue('ult');
+      // hero rework: buy her next level now and then, and Move her (between waves: free; in a wave:
+      // a pause and a cooldown) to a free spot a tile or two away
+      if (sim.hero && !sim.heroLevelStatus().reason && fr.chance(0.004)) issue('hlv');
+      if (sim.hero && fr.chance(0.002)) {
+        const h = sim.hero;
+        const [dx, dy] = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [2, 1], [-2, -1]][fr.int(0, 5)];
+        if (sim.canMoveHero(h.x + dx, h.y + dy).ok) issue('hmv', h.x + dx, h.y + dy);
+      }
+      // Chika's wing: now and then a new flight mode (Hold / Patrol points a few tiles from her)
+      if (fr.chance(0.004)) {
+        const ch = sim.towers.find((t) => t.turretSpec?.leash > 0);
+        if (ch) {
+          const mode = FLIGHT_MODES[fr.int(0, FLIGHT_MODES.length - 1)];
+          const pt = () => [ch.x + fr.range(-3, 3), ch.y + fr.range(-3, 3)];
+          const [ax, ay] = pt();
+          const [bx, by] = pt();
+          issue('fly', ch.uid, mode, ax, ay, bx, by);
+        }
+      }
       if (!sold && sim.wave === 6 && sim.state === 'between' && sim.towers.length > 3) {
         sold = true;
         issue('sell', sim.towers[sim.towers.length - 1].uid);
@@ -249,12 +299,14 @@ describe('battle save snapshot', SLOW, () => {
         expect(run.cps.length).toBeGreaterThan(5);
         let drones = 0;
         let traps = 0;
+        const rrs = new Set();
         for (const cp of run.cps) {
           expect(cp.proj, `wave ${cp.wave}: shots in flight at a calm point`).toBe(0);
           expect(cp.json.length, `wave ${cp.wave} snapshot size`).toBeLessThan(8 * 1024);
           const snap = JSON.parse(cp.json);
           drones += snap.towers.reduce((a, t) => a + (t.dr?.length || 0), 0);
           traps += snap.towers.reduce((a, t) => a + (t.tr?.length || 0), 0);
+          if (snap.rr != null) rrs.add(snap.rr);
           const { sim, dropped, refunded } = restoreSim(recordOf(c, snap), { settings: { autoStart: cp.autoStart } });
           expect(dropped).toEqual([]);
           expect(refunded).toBe(0);
@@ -265,6 +317,10 @@ describe('battle save snapshot', SLOW, () => {
         }
         if (name.includes('drones')) expect(drones).toBeGreaterThan(0);
         if (name.includes('traps')) expect(traps).toBeGreaterThan(0);
+        // battle modes + map rules: the route turned both ways between checkpoints; a girl held a pad
+        if (name.includes('Rear Ambush')) expect([...rrs].sort()).toEqual([0, 1]);
+        else expect(rrs.size).toBe(0); // (no other scenario has a route that turns: no `rr` in its snapshots)
+        if (name.includes('pads')) expect(run.sim.towers.some((t) => t.onPad)).toBe(true);
       });
 
       it('the wrapper sees auto-starts inside Sim._step', () => {
@@ -351,12 +407,38 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
   it('a frozen stats object missing a key (added by a later build) gets the neutral value', () => {
     const snap = cpAt(4);
     const rec = recordOf(c, snap);
-    for (const e of [...rec.loadout, rec.hero]) delete e.stats.critMul;
+    // critMul, and potential (Potential M1, landing plan §8): a record frozen before Potential restores her at P1
+    for (const e of [...rec.loadout, rec.hero]) {
+      delete e.stats.critMul;
+      delete e.stats.potential;
+    }
     const { sim } = restoreSim(rec);
+    const ref = restoreSim(recordOf(c, cpAt(4))).sim;
     for (const t of sim.towers) {
       expect(t.unitStats.critMul).toBe(1);
+      expect(t.unitStats.potential).toBe(1);
       expect(t.unitStats.damageMul).toBe(c.stats.damageMul);
+      // P1 = no Potential: the same resolved stats as the record that carries potential: 1
+      expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
     }
+  });
+
+  it('Potential travels in the frozen stats: a girl saved at P6 comes back at P6', () => {
+    const snap = cpAt(4);
+    const rec = recordOf(c, snap);
+    const aoi = rec.loadout.find((e) => e.unitId === 'aoi');
+    aoi.stats = { ...aoi.stats, potential: 6 };
+    const { sim } = restoreSim(rec);
+    const ref = restoreSim(recordOf(c, cpAt(4))).sim;
+    const mine = sim.towers.filter((t) => t.def.id === 'aoi');
+    expect(mine.length).toBeGreaterThan(0);
+    for (const t of mine) {
+      const p1 = ref.towers.find((x) => x.uid === t.uid);
+      expect(t.unitStats.potential).toBe(6);
+      expect(t.stats.damage).toBeCloseTo(p1.stats.damage * 1.02 * 1.03, 9);
+      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.03, 9);
+    }
+    for (const t of sim.towers.filter((x) => x.def.id !== 'aoi')) expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
   });
 
   it('a long endless run with hundreds of leaks stays small and keeps the defeat debrief exact', () => {
@@ -398,7 +480,238 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     expect(sim.hero.level).toBeGreaterThan(1);
     expect(sim.hero.ultUnlocked).toBe(true);
     expect(sim.hero.ultCooldown).toBe(h.ult);
+    expect(sim.hero.spent).toBe(0);
+    expect(sim.hero.levelSpent).toBe(h.ls);
+    expect(sim.hero.levelsBought).toBe(h.lb);
+    expect(sim.hero.moveCd).toBe(h.mc);
     expect(sim.drainEvents()).toEqual([]);
+  });
+
+  it('the scenarios bought hero levels and moved her (so the round trips above cover it)', () => {
+    let bought = 0;
+    let moved = 0;
+    for (const name of Object.keys(SCEN)) {
+      const run = fullRun(name);
+      bought += run.log.filter((x) => x.k === 'hlv').length;
+      moved += run.log.filter((x) => x.k === 'hmv').length;
+    }
+    expect(bought).toBeGreaterThan(0);
+    expect(moved).toBeGreaterThan(0);
+    const snaps = Object.keys(SCEN).flatMap((name) => fullRun(name).cps.map((cp) => JSON.parse(cp.json)));
+    const heroes = snaps.flatMap((sn) => sn.towers.filter((t) => t.xp != null));
+    expect(heroes.some((t) => t.lb > 0 && t.ls > 0)).toBe(true);
+    for (const t of heroes) expect(t.tiers).toEqual([0, 0, 0]);
+  });
+
+  it('a hero is never sold to undo a restore, and a hero who cannot return refunds her bought levels', () => {
+    const snap = cpAt(10);
+    const h = snap.towers.find((t) => t.xp != null);
+    expect(h).toBeTruthy();
+    h.ls = 500;
+    // her old tiers in an edited save are ignored (heroes have none): she comes back
+    h.tiers = [5, 5, 5];
+    const back = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+    expect(back.dropped).toEqual([]);
+    expect(back.sim.hero?.uid).toBe(h.uid);
+    expect(back.sim.hero.tiers).toEqual([0, 0, 0]);
+    // her unit is gone from the team after an update: dropped, the coins of her levels come back
+    const rec = recordOf(c, JSON.parse(JSON.stringify(snap)));
+    rec.hero = null;
+    const { sim, dropped, refunded } = restoreSim(rec);
+    expect(dropped).toEqual([h.u]);
+    expect(refunded).toBe(500);
+    expect(sim.cash).toBe(snap.cash + 500);
+    expect(sim.hero).toBe(null);
+  });
+
+  it(`a format-1 save (before the hero rework): her old level, tiers ignored, never dropped, all she cost refunded (now ${SNAP_V})`, () => {
+    expect(SNAP_V).toBe(2);
+    const snap = cpAt(10);
+    snap.v = 1;
+    const h = snap.towers.find((t) => t.xp != null);
+    // an old-scale Lv 7 hero (XP 1 per HP) with tiers 2/1/0 bought, 1,240 coins in her, ult charging
+    Object.assign(h, { lvl: 7, xp: 2480, tiers: [2, 1, 0], spent: 1240, ultOn: true, ult: 12.5 });
+    for (const k of ['ls', 'lb', 'mc', 'ml']) delete h[k];
+    const { sim, dropped, refunded, heroes } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    expect(refunded).toBe(1240);
+    expect(heroes).toEqual([{ unitId: h.u, level: 7, refunded: 1240 }]);
+    expect(sim.cash).toBe(snap.cash + 1240);
+    const hero = sim.hero;
+    expect(hero.uid).toBe(h.uid);
+    expect([hero.x, hero.y]).toEqual([h.x, h.y]);
+    expect(hero.level).toBe(7);
+    expect(hero.xp).toBe(xpToReach(hero.def.hero, 7));
+    expect(hero.tiers).toEqual([0, 0, 0]);
+    expect(hero.spent).toBe(0);
+    expect(hero.levelSpent).toBe(0);
+    expect(hero.ultUnlocked).toBe(true);
+    expect(hero.ultCooldown).toBe(12.5);
+    expect(sim.drainEvents()).toEqual([]);
+    // the others come back exactly as saved
+    for (const t of sim.towers.filter((x) => !x.isHero)) expect(t.spent).toBe(snap.towers.find((x) => x.uid === t.uid).spent);
+    // and the next snapshot is format 2
+    expect(snapshotSim(sim).v).toBe(SNAP_V);
+  });
+});
+
+describe('battle save: Chika\'s roaming drones and flight modes (Chika rework M6)', SLOW, () => {
+  const name = '8-5 hard (drones)';
+  const c = SCEN[name];
+  /** Checkpoints whose Chika has drones (and, when asked, a flight mode other than plain Hover). */
+  const withDrones = (flight = false) => fullRun(name).cps.map((cp) => JSON.parse(cp.json)).filter((sn) => sn.towers.some((t) => t.u === 'chika' && t.dr?.length && (!flight || t.fl)));
+
+  it('the run flew her wing through the flight modes and saved them', () => {
+    const run = fullRun(name);
+    const modes = new Set(run.log.filter((x) => x.k === 'fly').map((x) => x.a[1]));
+    expect(modes.size).toBeGreaterThanOrEqual(3);
+    expect(withDrones(true).length).toBeGreaterThan(0);
+  });
+
+  it('restores every drone (number, slot, counters, wave built, jam) and her totals, serial and flight mode', () => {
+    for (const snap of withDrones()) {
+      const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+      for (const row of o.dr) expect(row).toHaveLength(12);
+      const { sim } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+      const t = sim.getTower(o.uid);
+      expect(t.turrets.map((d) => [d.uid, d.x, d.y, d.facing, d.cooldown, d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam])).toEqual(o.dr);
+      for (const d of t.turrets) {
+        expect([d.px, d.py, d.moving, d.tgt]).toEqual([d.x, d.y, false, null]);
+        expect(d.hx ** 2 + d.hy ** 2).toBeGreaterThan(0);
+      }
+      expect([t.droneDmg, t.droneKills, t.droneShots, t.droneSerial]).toEqual(o.ds);
+      expect(t.flight ? [t.flight.mode, t.flight.ax, t.flight.ay, t.flight.bx, t.flight.by, t.flight.cx, t.flight.cy, t.flight.leg] : undefined).toEqual(o.fl);
+    }
+  });
+
+  it('an older save (5-field drone rows, no totals, no flight) restores with zero counters, numbered by position, as Hover', () => {
+    const snap = withDrones().at(-1);
+    const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+    o.dr = o.dr.map((row) => row.slice(0, 5));
+    delete o.ds;
+    delete o.fl;
+    const { sim, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const t = sim.getTower(o.uid);
+    expect(t.turrets.map((d) => [d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam])).toEqual(o.dr.map((_, i) => [i + 1, i, 0, 0, 0, 0, 0]));
+    expect(t.turrets.map((d) => [d.uid, d.x, d.y])).toEqual(o.dr.map((row) => [row[0], row[1], row[2]]));
+    // the next drone she builds gets a fresh number
+    expect(t.droneSerial).toBe(o.dr.length);
+    expect([t.droneDmg, t.droneKills, t.droneShots]).toEqual([0, 0, 0]);
+    expect(t.flight).toBe(null);
+    expect(sim.flightInfo(o.uid).mode).toBe('hover');
+  });
+
+  it('a hand-edited drone row cannot put non-numbers into the sim (no position: the drone starts on her)', () => {
+    const snap = withDrones().at(-1);
+    const o = snap.towers.find((t) => t.u === 'chika' && t.dr?.length);
+    o.dr[0] = [o.dr[0][0], 'x', null, 'f', {}, 'n', null, 'dmg', [], null, 'born', 'jam'];
+    if (o.dr[1]) o.dr[1] = [o.dr[1][0]];
+    const { sim } = restoreSim(recordOf(c, snap));
+    const t = sim.getTower(o.uid);
+    for (const d of t.turrets) {
+      for (const k of ['uid', 'x', 'y', 'px', 'py', 'facing', 'cooldown', 'n', 'slot', 'dmg', 'kills', 'shots', 'born', 'jam']) expect(Number.isFinite(d[k]), `${k}=${d[k]}`).toBe(true);
+    }
+    expect([t.turrets[0].x, t.turrets[0].y, t.turrets[0].n]).toEqual([t.x, t.y, 1]);
+    if (o.dr[1]) expect([t.turrets[1].x, t.turrets[1].y, t.turrets[1].n, t.turrets[1].slot]).toEqual([t.x, t.y, 2, 1]);
+    // and the battle runs on
+    for (let i = 0; i < 600 && sim.state !== 'won' && sim.state !== 'lost'; i++) sim.update(1 / 60);
+    for (const d of t.turrets) expect(Number.isFinite(d.x) && Number.isFinite(d.y)).toBe(true);
+  });
+});
+
+describe('battle save and the path cap (one final tier per path, brews, tune-up links)', SLOW, () => {
+  it('a save from before the one-final-tier-per-path rule keeps both copies\' tier 5 (no refund, nothing dropped)', () => {
+    // a checkpoint with two copies of one girl (autoPlan places up to 3 of a kind)
+    let found = null;
+    for (const name of Object.keys(SCEN)) {
+      for (const cp of fullRun(name).cps) {
+        const snap = JSON.parse(cp.json);
+        const groups = new Map();
+        for (const t of snap.towers.filter((x) => x.xp == null)) groups.set(t.u, [...(groups.get(t.u) || []), t]);
+        const pair = [...groups.values()].find((g) => g.length >= 2);
+        if (pair) {
+          found = { c: SCEN[name], snap, pair };
+          break;
+        }
+      }
+      if (found) break;
+    }
+    expect(found, 'two copies of one girl in a checkpoint').toBeTruthy();
+    const { c, snap, pair: [a, b] } = found;
+    // both 5-x-0 on the same path: legal before the rule, refused by it now
+    a.tiers = [5, 2, 0];
+    b.tiers = [5, 0, 2];
+    const { sim, dropped, refunded } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snap))));
+    expect(dropped).toEqual([]);
+    expect(refunded).toBe(0);
+    expect(sim.getTower(a.uid).tiers).toEqual([5, 2, 0]);
+    expect(sim.getTower(b.uid).tiers).toEqual([5, 0, 2]);
+    // play goes on under the rule: each holds it for the other
+    expect(sim.finalTierHolder(a.uid, 0)?.uid).toBe(b.uid);
+    expect(sim.finalTierHolder(b.uid, 0)?.uid).toBe(a.uid);
+    // an edited save (a crosspath break) is still refused while restoring
+    const bad = JSON.parse(JSON.stringify(snap));
+    bad.towers.find((t) => t.uid === a.uid).tiers = [5, 3, 0];
+    expect(restoreSim(recordOf(c, bad)).dropped).toEqual([a.u]);
+  });
+
+  it('Midori\'s brews and Chika\'s tune-up links (overclock included) come back exactly and play on the same', () => {
+    const c = { stageId: '2-5', difficulty: 'normal', towers: ['midori', 'chika', 'kage', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 3, rateMul: 1.2 }, seed: 2468 };
+    const sim = makeSim(c);
+    sim.cash = 5e6;
+    const placed = {};
+    for (const p of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) {
+      if (p.action !== 'place' || placed[p.unitId]) continue;
+      placed[p.unitId] = sim.placeTower(p.unitId, p.x, p.y);
+    }
+    for (const id of c.towers) expect(placed[id], id).toBeTruthy();
+    // Chika on Repair Bay to tier 5 (two links + overclock), Midori brewing 2 girls, a pick pinned
+    for (let k = 0; k < 5; k++) expect(sim.upgradeTower(placed.chika.uid, 1)).toBe(true);
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(placed.midori.uid, 0)).toBe(true);
+    expect(sim.setBuffPick(placed.midori.uid, placed.aoi.uid).ok || sim.setBuffPick(placed.midori.uid, placed.kage.uid).ok).toBe(true);
+    wrapWaves(sim, c.seed);
+    let held = 0;
+    for (let w = 0; w < 6 && sim.state !== 'lost'; w++) {
+      sim.startNextWave();
+      for (let i = 0; i < 60 * 600 && sim.state === 'wave'; i++) sim.update(STEP);
+      // the controller saves at the next wave's start: no shot still in flight by then
+      for (let i = 0; i < 60 * 5 && sim.state === 'between' && sim.projectiles.length; i++) sim.update(STEP);
+      sim.drainEvents();
+      // a calm point: check what the save carries, then restore and compare everything
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      held += snap.towers.filter((t) => t.li).length;
+      const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      expect(diffPaths(digest(sim, { calm: true }), digest(back, { calm: true })), `wave ${sim.wave}`).toEqual([]);
+      expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    }
+    expect(held).toBeGreaterThan(0);
+    const ch = sim.getTower(placed.chika.uid);
+    expect(ch.lim?.kind).toBe('link');
+    expect(ch.lim.targets.length).toBeGreaterThan(0);
+    expect(sim.getTower(placed.midori.uid).lim?.kind).toBe('brew');
+    // the same future from the last calm point
+    const { sim: rest } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snapshotSim(sim)))), { settings: { autoStart: false } });
+    wrapWaves(rest, c.seed);
+    autoplay(sim, sim.wave + 3);
+    autoplay(rest, rest.wave + 3);
+    expect(diffPaths(digest(sim), digest(rest))).toEqual([]);
+    expect(hashSim(rest)).toBe(hashSim(sim));
+  });
+
+  it('an older save without the brew / link fields restores with nothing held and the window at its start', () => {
+    const c = SCEN['3-5 normal'];
+    const snap = JSON.parse(fullRun('3-5 normal').cps.find((x) => x.wave === 6).json);
+    for (const t of snap.towers) for (const k of ['pk', 'lm', 'li', 'rd']) delete t[k];
+    delete snap.dps;
+    snap.buffs = (snap.buffs || []).map((b) => b.slice(0, 2));
+    const { sim, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    for (const t of sim.towers) {
+      expect([t.buffPick, t.lim, t.limIn, t.recentDps, t._dmgMark]).toEqual([-1, null, null, 0, 0]);
+    }
+    for (const b of sim._globalBuffs) expect(b.src).toBe(-1);
   });
 });
 
@@ -419,6 +732,21 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     const keys = new Set();
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
+  });
+
+  it('every own field of a roaming drone is classified in KNOWN_DRONE_KEYS', () => {
+    const keys = new Set();
+    let n = 0;
+    for (const name of Object.keys(SCEN)) {
+      for (const t of fullRun(name).sim.towers) {
+        for (const d of t.turrets) {
+          n++;
+          for (const k of Object.keys(d)) keys.add(k);
+        }
+      }
+    }
+    expect(n).toBeGreaterThan(0);
+    expect([...keys].sort()).toEqual(Object.keys(KNOWN_DRONE_KEYS).sort());
   });
 
   it('useWaveStream replaces every reference to the old stream (one level deep)', () => {

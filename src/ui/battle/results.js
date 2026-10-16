@@ -12,6 +12,7 @@ import { applyBattleResult, battleDropSeed } from '../../systems/rewards.js';
 import { describeStat } from '../../systems/gear.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, gearIcon, traitIcon } from '../../art/icons.js';
+import { resultRibbonRow, dropsTitle } from './modes.js';
 import { getItem } from '../../data/items.js';
 import { getUnit } from '../../data/units.js';
 import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
@@ -234,7 +235,11 @@ export function createResults(ctx) {
       ['Defeated', fmtBig(Object.values(r.kills).reduce((a, b) => a + b, 0))],
       ['Time', fmtTime(r.stats.time)],
     ];
-    return h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v))));
+    // your own hero only (co-op: her own counters, never the ally's)
+    const mine = sim.hero;
+    const hr = mine ? r.heroes?.[mine.heroIndex] : null;
+    const heroLine = hr ? h('p.bt-sum-hero', { 'data-testid': 'result-hero' }, `${mine.def.name} reached Lv ${hr.level}${hr.levelsBought ? ` (${hr.levelsBought} level${hr.levelsBought === 1 ? '' : 's'} bought)` : ''}`) : null;
+    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine);
   }
 
   function mvp() {
@@ -270,11 +275,12 @@ export function createResults(ctx) {
       achLine(),
       out.practice || out.coop
         ? (out.practice ? practiceNote() : null)
-        : h(
+        : out.mode && out.mode !== 'standard' ? resultRibbonRow(out, sim, store.profile) : h(
           'div.bt-medal-row',
           h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
           out.firstClear ? h('div.bt-first', 'FIRST CLEAR') : null,
         ),
+      out.mode === 'standard' ? resultRibbonRow(out, sim, store.profile) : null,
       summary(),
       out.practice ? null : keepGoingBlock(ctx),
       out.practice
@@ -333,7 +339,7 @@ export function createResults(ctx) {
     }
     if (!out.practice) {
       blocks.push(section(
-        out.eventBonus ? 'Drops · event 2×' : 'Drops',
+        dropsTitle(out, sim, out.eventBonus ? 'Drops · event 2×' : 'Drops'),
         others.length || out.gear.length
           ? h('div.bt-tiles', others.map((r) => rewardTile(r.id, r.count, 64)))
           : h('p.muted.bt-empty', 'No drops this time — harder difficulties roll more items.'),
@@ -348,7 +354,9 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },
       h('div.bt-result-ribbon', 'REWARDS'),
-      h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
+      out.mode && out.mode !== 'standard' && !out.coop && !out.practice
+        ? resultRibbonRow(out, sim, store.profile)
+        : h('div.bt-medal-row.small', svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), h('span', out.coop ? `Co-op · ${DIFFICULTIES[sim.difficulty].name} cleared together` : out.practice ? `${DIFFICULTIES[sim.difficulty].name} practice run` : out.newMedal ? `${DIFFICULTIES[sim.difficulty].name} medal earned!` : `${DIFFICULTIES[sim.difficulty].name} cleared`)),
       ctx.resultLine?.() || null,
       achLine(),
       h('div.bt-rewards-body', blocks),

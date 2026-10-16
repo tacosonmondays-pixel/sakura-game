@@ -59,5 +59,5 @@ export async function startCoopInvite(peer) {
   }
   const code = makeRoomCode();
   addPendingInvite(code, peer);
-  navigate('coop', { id: code, host: '1', stage: pick.stageId, difficulty: pick.difficulty, ...(pick.freeplay ? { freeplay: pick.freeplay } : {}) });
+  navigate('coop', { id: code, host: '1', stage: pick.stageId, difficulty: pick.difficulty, ...(pick.freeplay ? { freeplay: pick.freeplay } : {}), ...(pick.mode && pick.mode !== 'standard' ? { mode: pick.mode } : {}) });
 }

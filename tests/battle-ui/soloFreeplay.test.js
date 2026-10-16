@@ -34,11 +34,16 @@ function clearWave(sim) {
 }
 
 describe('solo freeplay stages', () => {
-  it('are the campaign stage with the tier table and the stage HP (co-op adds ×1.6)', () => {
+  it('are the campaign stage with the tier table and the stage HP (co-op freeplay: the pre-hero-rework HP ×1.6)', () => {
     const s = soloFreeplayStage('1-3', 'tempest');
     expect(s.freeplay).toBe(FREEPLAY.tempest);
+    // solo: the stage exactly as its campaign run (its waves up to the goal are that run; the hero
+    // rework's HP pass included)
     expect(s.hpScale).toBe(STAGE_MAP['1-3'].hpScale);
-    expect(coopStage('1-3', { freeplay: 'tempest' }).hpScale).toBeCloseTo((STAGE_MAP['1-3'].hpScale ?? 1) * COOP.hpMul);
+    expect(STAGE_MAP['1-3'].hpPass).toBeGreaterThan(1);
+    // co-op freeplay keeps the HP ramp its bands were calibrated on: the pass divided back out
+    // (src/data/coop.js); whether solo freeplay should match is for the Train C balance pass
+    expect(coopStage('1-3', { freeplay: 'tempest' }).hpScale).toBeCloseTo(Math.round((STAGE_MAP['1-3'].hpScale / STAGE_MAP['1-3'].hpPass) * 100) / 100 * COOP.hpMul);
     expect(soloFreeplayStage('challenge', 'blossom')).toBe(null);
     expect(soloFreeplayStage('1-3', 'nope')).toBe(null);
     expect(hasSoloFreeplay('challenge')).toBe(false);

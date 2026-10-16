@@ -1,0 +1,7 @@
+{"test":"freeplay","stageId":"1-3","tier":"blossom","noChika":112,"hover":120,"hoverLeak":114,"hoverShare":50,"hoverChikas":39,"hold":120,"holdLeak":115,"holdShare":42,"holdChikas":39,"patrol":120,"patrolLeak":115,"patrolShare":47,"patrolChikas":41,"pursuit":122,"pursuitLeak":115,"pursuitShare":61,"pursuitChikas":41}
+{"test":"freeplay","stageId":"8-5","tier":"blossom","noChika":116,"hover":110,"hoverLeak":100,"hoverShare":41,"hoverChikas":60,"hold":110,"holdLeak":100,"holdShare":29,"holdChikas":60,"patrol":110,"patrolLeak":100,"patrolShare":33,"patrolChikas":60,"pursuit":116,"pursuitLeak":100,"pursuitShare":56,"pursuitChikas":60}
+
+| Stage | Tier | no Chika | hover: dies at (first leak, Chika share) | hold: dies at (first leak, Chika share) | patrol: dies at (first leak, Chika share) | pursuit: dies at (first leak, Chika share) |
+|---|---|---|---|---|---|---|
+| 1-3 | blossom | 112 | 120 (114, 50%) | 120 (115, 42%) | 120 (115, 47%) | 122 (115, 61%) |
+| 8-5 | blossom | 116 | 110 (100, 41%) | 110 (100, 29%) | 110 (100, 33%) | 116 (100, 56%) |

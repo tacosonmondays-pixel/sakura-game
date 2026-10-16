@@ -16,6 +16,7 @@
 //
 // Item ids follow CONTRACTS §5. Gear boxes use `gearbox_<rarity>` (category 'gearbox').
 
+import { stageRule } from './rules.js';
 import { ENEMY_MAP } from './enemies.js';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,21 @@ const round = (v, step = 1) => Math.round(v / step) * step;
 // Campaign index 0..39 → hpScale 1.0 … 6.5 (smooth exponential ramp).
 const HP_TOP = 6.5;
 const hpScaleAt = (i) => Math.round(HP_TOP ** (i / 39) * 100) / 100;
+// Stage-HP pass for the hero rework (docs/BALANCE.md, docs/specs/HERO_REWORK.md build notes): free
+// heroes that level 1–25 roughly doubled the F2P bot's Normal headroom (geomean ×1.98 over the 40
+// stages). These multipliers bring it back to ≈ ×1.15 of the pre-rework campaign: per chapter, the
+// chapter's gain ÷ 1.05, capped per stage so no stage ends harder than before for the bot, floor 1.
+// Enemy HP only: cashScale is computed from the pre-pass hpScale, so the economy does not move.
+export const HERO_HP_PASS = Object.freeze({
+  '1-1': 1.75, '1-2': 1.75, '1-3': 1.55, '1-4': 1.65, '1-5': 1.75,
+  '2-1': 1.5, '2-2': 1.95, '2-3': 1.95, '2-4': 1.5, '2-5': 1.95,
+  '3-1': 1.45, '3-2': 1.45, '3-3': 1.25, '3-4': 1.4, '3-5': 1.45,
+  '4-1': 2.3, '4-2': 2.3, '4-3': 2.3, '4-4': 1.85, '4-5': 2,
+  '5-1': 2.1, '5-2': 1.65, '5-3': 1.85, '5-4': 2.1, '5-5': 1.9,
+  '6-1': 1.35, '6-2': 1.95, '6-3': 1.65, '6-4': 1.95, '6-5': 1.95,
+  '7-1': 1.55, '7-2': 2.4, '7-3': 2.2, '7-4': 2.4, '7-5': 2.4,
+  '8-1': 1.3, '8-2': 1.25, '8-3': 1.3, '8-4': 1.3, '8-5': 1.1,
+});
 // Economy scale (kill bounties + wave-clear bonus, applied by the sim) grows with enemy HP so
 // late chapters can afford tier 4–5 upgrades: hpScale^0.6 (1.0 at 1-1 → ≈3.1 at 8-5).
 const cashScaleFor = (hpScale) => Math.round(hpScale ** 0.6 * 100) / 100;
@@ -126,7 +142,10 @@ function campaign(o) {
       groups: o.groups ?? 3,
       fixed: o.fixed || [],
     },
-    hpScale: o.hpScale ?? hpScaleAt(index),
+    hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * 100) / 100,
+    // the hero-rework HP multiplier inside hpScale (co-op freeplay divides it back out: its HP bands
+    // were calibrated on the pre-pass ramp; the train-C combined pass re-checks them)
+    hpPass: HERO_HP_PASS[o.id] ?? 1,
     cashScale: o.cashScale ?? cashScaleFor(o.hpScale ?? hpScaleAt(index)),
     startCash: o.startCash ?? startCashAt(index),
     lives: 100,
@@ -138,6 +157,7 @@ function campaign(o) {
     firstClear: campaignFirstClear(chapter, finale),
     scenery: o.scenery,
     tier: o.tier,
+    rule: stageRule(o.id),
   };
 }
 

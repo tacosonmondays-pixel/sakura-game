@@ -4,7 +4,9 @@
 //
 // Pure (no DOM). Derived from the data at runtime: nothing in src/data changes, so the co-op
 // sim id stays the same. A new mod key (a future roster mechanic) must be added to MOD_TAGS,
-// SHORT_ORDER and ICON_RULES here; tests/ui/upgradeTags.test.js fails until it is.
+// SHORT_ORDER and ICON_RULES here; tests/ui/upgradeTags.test.js fails until it is. Path cap:
+// Midori's brews and Chika's tune-up links are Allies (a few picked girls, `limited`), an
+// execution shot (hpPct) is Self, aura armor pen / crit are Allies.
 import { ATTACK_TYPES, ELEMENTS, STATUSES } from '../data/types.js';
 
 /** @typedef {'self'|'allies'|'enemies'|'coins'} TagId */
@@ -40,11 +42,13 @@ export const TRANSFORM_TAG = { id: 'transform', label: 'New attack', letter: '�
 export const MOD_TAGS = {
   damage: 'self', damageMul: 'self', rateMul: 'self', range: 'self', projectiles: 'self', pierce: 'self', chain: 'self',
   maxTargets: 'self', splash: 'self', armorPen: 'self', projectileSpeed: 'self', canHitAir: 'self', detection: 'self',
-  crit: 'self', eliteMul: 'self', bossMul: 'self', barrierMul: 'self', ramp: 'self',
+  crit: 'self', eliteMul: 'self', bossMul: 'self', barrierMul: 'self', ramp: 'self', hpPct: 'self',
   behavior: 'transform', attackType: 'transform', element: 'transform',
   turret: 'drones',
   trap: 'traps',
   aura: 'allies',
+  // limited buffs (path cap): Midori's brews and Chika's tune-up links make a few picked girls stronger
+  brew: 'limited', link: 'limited',
   status: 'status',
   silence: 'enemies', knockback: 'enemies',
   mark: 'team', reveal: 'team',
@@ -53,9 +57,14 @@ export const MOD_TAGS = {
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
 const SUB_KEYS = {
-  aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse']),
+  aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance']),
+  brew: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance']),
+  link: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock']),
+  // execution shot (path cap): % of the target's current HP, bosses, cap in shots
+  hpPct: new Set(['pct', 'boss', 'cap']),
   trap: new Set(['max', 'damage', 'splash', 'status', 'triggerRadius', 'armTime']),
-  turret: new Set(['max', 'damage', 'rate', 'range', 'attackType', 'status']),
+  // (leash / speed / build: roaming drones, the Chika rework — how far and fast they fly, build time)
+  turret: new Set(['max', 'damage', 'rate', 'range', 'attackType', 'status', 'leash', 'speed', 'build']),
   income: new Set(['perWave', 'interest']),
   crit: new Set(['chance', 'mul']),
   ramp: new Set(['per', 'max']),
@@ -67,10 +76,11 @@ const TEAM_STATUS = new Set(['vulnerable', 'shred', 'mark', 'reveal']);
 /** Strongest-first order for the tier icon of a status tier. */
 const STATUS_STRENGTH = ['stun', 'freeze', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
 
-/** Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based). */
-export const TIER_NOTES = {
-  'chika.2.3': 'In battle Chika keeps her drones and keeps building them; the coil fires alongside them. Attack speed ×4.',
-};
+/**
+ * Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based).
+ * (Chika's Tesla Tower had one until her rework: its text now says her drones keep flying.)
+ */
+export const TIER_NOTES = {};
 
 const present = (v) => v != null && v !== false && !(typeof v === 'number' && v === 0) && !(Array.isArray(v) && v.length === 0);
 const round1 = (v) => String(Math.round(v * 10) / 10);
@@ -106,10 +116,11 @@ export function unknownModKeys(mods = {}) {
 /**
  * Tags for one ModSet (a tier, an awakening passive or a hero level), in TAG_ORDER.
  * @param {object} mods
- * @param {{ radius?: number }} [opts] aura radius to report on an Allies tag
+ * @param {{ radius?: number, reach?: number }} [opts] aura radius to report on an Allies tag; her
+ *   attack range (a brew reaches the girls in her range, a tune-up link those in her aura)
  * @returns {Tag[]}
  */
-export function modsTags(mods = {}, { radius = 0 } = {}) {
+export function modsTags(mods = {}, { radius = 0, reach = 0 } = {}) {
   const by = {};
   const tag = (id) => (by[id] ||= { id, keys: [] });
   for (const [k, v] of Object.entries(mods || {})) {
@@ -139,6 +150,15 @@ export function modsTags(mods = {}, { radius = 0 } = {}) {
         if (radius > 0) t.radius = radius;
         else if (v?.range) t.radius = v.range;
         if (v?.costCut) t.discount = (t.discount || 0) + v.costCut;
+        break;
+      }
+      case 'limited': {
+        // a brew (her range) or a tune-up link (her aura): a few picked girls, not everyone in reach
+        const t = tag('allies');
+        t.keys.push(k);
+        t.limited = true;
+        const r = k === 'link' ? radius || reach : reach || radius;
+        if (r > 0) t.radius = Math.max(t.radius || 0, r);
         break;
       }
       case 'status': {
@@ -172,13 +192,24 @@ export function auraRadius(unit, path, tier, { current = 0 } = {}) {
 }
 
 /**
+ * Her attack range once she owns `tier` tiers of `path` (base + that path's flat range), the reach
+ * of a brew.
+ */
+export function rangeAt(unit, path, tier) {
+  let r = unit?.base?.range ?? 0;
+  const tiers = unit?.paths?.[path]?.tiers || [];
+  for (let k = 0; k < Math.min(tier, tiers.length); k++) r += tiers[k]?.mods?.range ?? 0;
+  return r;
+}
+
+/**
  * Tags of one tier (1-based), with the aura radius she would have once it is bought.
  * @returns {Tag[]}
  */
 export function tierTags(unit, path, tier, { current = 0 } = {}) {
   const def = unit?.paths?.[path]?.tiers?.[tier - 1];
   if (!def) return [];
-  return modsTags(def.mods, { radius: auraRadius(unit, path, tier, { current }) });
+  return modsTags(def.mods, { radius: auraRadius(unit, path, tier, { current }), reach: rangeAt(unit, path, tier) });
 }
 
 /** Tags of her awakening passive (her base aura radius for an aura passive). */
@@ -250,11 +281,23 @@ const strongest = (list) => [...list].sort((a, b) => STATUS_STRENGTH.indexOf(a.t
 function auraShort(a) {
   if (a.dmgMul) return `Allies +${pct(a.dmgMul)} dmg`;
   if (a.rateMul) return `Allies +${pct(a.rateMul)} speed`;
+  if (a.armorPen) return `Allies ignore ${round1(a.armorPen)} armor`;
+  if (a.critChance) return `Allies +${Math.round(a.critChance * 100)}% crit`;
   if (a.rangeMul) return `Allies +${pct(a.rangeMul)} range`;
   if (a.detection) return 'Allies Veil Sight';
   if (a.costCut) return `Allies −${Math.round(a.costCut * 100)}% cost`;
   if (a.cleanse) return 'Allies cleanse';
   return a.range ? `Aura ${tilesText(a.range)}` : 'Aura';
+}
+
+/** "Brews 2 girls" / "Brew +15% dmg" / "Tune-up 1 girl" (a limited buff tier). */
+function limitedShort(l, word) {
+  if (l.targets) return `${word === 'Brew' ? 'Brews' : 'Tune-up'} ${l.targets} ${l.targets === 1 ? 'girl' : 'girls'}`;
+  if (l.dmgMul && l.dmgMul !== 1) return `${word} +${pct(l.dmgMul)} dmg`;
+  if (l.rateMul && l.rateMul !== 1) return `${word} +${pct(l.rateMul)} speed`;
+  if (l.armorPen) return `${word} pen +${round1(l.armorPen)}`;
+  if (l.overclock) return 'Overclock';
+  return word;
 }
 
 function trapShort(t) {
@@ -282,6 +325,8 @@ const SHORT_ORDER = [
   ['attackType', (m) => `${ATTACK_TYPES[m.attackType]?.name || m.attackType} attacks`],
   ['element', (m) => `${ELEMENTS[m.element]?.name || m.element} element`],
   ['aura', (m) => auraShort(m.aura)],
+  ['brew', (m) => limitedShort(m.brew, 'Brew')],
+  ['link', (m) => limitedShort(m.link, 'Tune-up')],
   ['turret', (m) => turretShort(m.turret)],
   ['trap', (m) => trapShort(m.trap)],
   ['status', (m) => statusShort(strongest(m.status))],
@@ -301,6 +346,7 @@ const SHORT_ORDER = [
   ['projectiles', (m) => `+${m.projectiles} ${m.projectiles === 1 ? 'shot' : 'shots'}`],
   ['maxTargets', (m) => `+${m.maxTargets} ${m.maxTargets === 1 ? 'target' : 'targets'}`],
   ['armorPen', (m) => `Ignores ${round1(m.armorPen)} armor`],
+  ['hpPct', (m) => `Takes ${round1((m.hpPct.pct || 0) * 100)}% HP a shot`],
   ['eliteMul', (m) => `+${pct(m.eliteMul)} vs elites`],
   ['bossMul', (m) => `+${pct(m.bossMul)} vs bosses`],
   ['barrierMul', (m) => `+${pct(m.barrierMul)} vs barriers`],
@@ -315,8 +361,8 @@ export const SHORT_KEYS = SHORT_ORDER.map(([k]) => k);
  * varied icons (a sword only when damage is all the tier does).
  */
 const ICON_ORDER = [
-  'behavior', 'attackType', 'element', 'aura', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'income',
-  'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'eliteMul', 'bossMul',
+  'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'income',
+  'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
 ];
 const SHORT_MAX = 34;
@@ -355,6 +401,8 @@ const ICON_RULES = {
     if (keys.length === 1 && keys[0] === 'detection') return { set: 'cap', key: 'detection' };
     return { set: 'cap', key: 'buff' };
   },
+  brew: () => ({ set: 'cap', key: 'buff' }),
+  link: () => ({ set: 'cap', key: 'buff' }),
   turret: () => ({ set: 'cap', key: 'summon' }),
   trap: () => ({ set: 'cap', key: 'trap' }),
   status: (m) => ({ set: 'status', key: strongest(m.status).type }),
@@ -372,6 +420,7 @@ const ICON_RULES = {
   projectiles: () => ({ set: 'ui', key: 'plus' }),
   maxTargets: () => ({ set: 'ui', key: 'plus' }),
   armorPen: () => ({ set: 'cap', key: 'armorPen' }),
+  hpPct: () => ({ set: 'ui', key: 'trophy' }),
   eliteMul: () => ({ set: 'ui', key: 'trophy' }),
   bossMul: () => ({ set: 'ui', key: 'trophy' }),
   barrierMul: () => ({ set: 'cap', key: 'barrierBreak' }),
@@ -438,7 +487,13 @@ export function tagText(tag, { long = false, compact = false, tight = false } = 
     case 'allies': {
       if (tag.global) return `Every girl on the field, herself included${tag.globalFor ? `, for ${round1(tag.globalFor)}s` : ''}.`;
       const where = tag.radius ? ` (${tilesText(tag.radius)})` : '';
+      // a brew / tune-up (path cap): a few picked girls, strong, on top of the auras
+      const auraKeys = (tag.keys || []).filter((k) => k !== 'brew' && k !== 'link');
+      if (tag.limited && !auraKeys.length) {
+        return `Brews or tunes up a few girls within reach${where}: the strongest by herself, or the one you pick. Never herself. Much stronger than an aura, and it adds on top of auras.`;
+      }
       let s = `Buffs the other girls standing inside her aura circle${where}. Never herself. Auras of the same kind don't stack: each girl gets the strongest one.`;
+      if (tag.limited) s += ' Her tune-up also links a few picked girls for a much stronger boost.';
       if (tag.discount) {
         const p = `${Math.round(tag.discount * 100)}%`;
         s += ` Girls in her aura pay ${p} less for upgrades, and new girls placed inside it cost ${p} less too. She doesn't discount herself.`;

@@ -19,6 +19,7 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
+import { createHeroLevels, heroWarnText } from './heroLevels.js';
 import { createBossBar } from './bossBar.js';
 import { createFeed } from './feed.js';
 import { createWaveControl } from './waveControl.js';
@@ -28,15 +29,23 @@ import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-vie
 import { createSandboxPanel } from './sandboxPanel.js';
 import { sandboxOutcome } from '../../systems/sandbox.js';
 import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
+import { finalRaceText } from './rules.js';
+import { PICK_REFUSED, pickText } from './buffs.js';
+import { limitedRange } from '../../sim/buffs.js';
 import { svgEl, toast } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { quantize } from '../../online/coop/commands.js';
+import { quantize, flyArgs } from '../../online/coop/commands.js';
+import { STEP } from '../../sim/constants.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
 import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
 import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/coop/rewards.js';
 import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
+import { createFlightControl } from './chikaFlight.js';
+import { sampleDroneRates } from './chikaPanel.js';
+import { createRateMeter } from './util.js';
+import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { applyBattleResult } from '../../systems/rewards.js';
@@ -163,10 +172,18 @@ export function mountBattle(root, params, hooks) {
     ? {
       sim: ls.sim,
       towers: [...new Set(ls.start.players.flatMap((p) => (p.loadout || []).map((e) => e.unitId)))],
-      hero: ls.start.players.find((p) => p.slot === 0)?.hero?.unitId || null,
+      // every player's hero (each brings her own); preloaded like the girls
+      hero: null,
+      heroes: ls.start.players.map((p) => p.hero?.unitId).filter(Boolean),
     }
     : restored || createBattleSim(profile, req);
-  const { sim, towers, hero } = made;
+  const { sim, towers, hero, heroes: heroIds } = made;
+  // a Continue plays the saved run's own battle mode (the record's, whatever the link says), and a
+  // mode run is never offered Keep going (setup.js parseBattleParams)
+  if (restored) {
+    req.mode = sim.mode?.id || 'standard';
+    if (req.mode !== 'standard') req.keepGoing = false;
+  }
   const settings = profile.settings || {};
 
   /** Enemy model families this stage can spawn (pool + fixed + split/brood/summon children). */
@@ -201,6 +218,8 @@ export function mountBattle(root, params, hooks) {
     saver: null,
     // [story] the coached first battle: no hold-to-view tree there (src/ui/battle/upgradeTree.js)
     tutorial: params.tutorial === '1',
+    selectedDrone: null,
+    rates: createRateMeter(5), // live damage rates of drone owners (chikaPanel.js)
   };
 
   // a battle-save warning raised before the feed exists (the first write can come before build())
@@ -237,7 +256,7 @@ export function mountBattle(root, params, hooks) {
   const ready = (async () => {
     // chibis-v2: only the formation (+ hero) at the detail this quality needs (phones get the
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
-    const ids = [...towers, ...(hero ? [hero] : [])];
+    const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
     await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
@@ -259,6 +278,9 @@ export function mountBattle(root, params, hooks) {
     if (saveWarning) warnSave(saveWarning);
     const tree = createUpgradeTree(ctx); // [unit-info] before the bar: its cards bind tree holds
     ctx.tree = tree;
+    // battle modes + map rules (src/ui/battle/modes.js): the HUD chip and pill, toasts, banners
+    const modesUi = createModesBattle(ctx);
+    ctx.modes = modesUi;
     const hud = createHud(ctx);
     const bar = createTowerBar(ctx);
     ctx.bar = bar;
@@ -266,6 +288,11 @@ export function mountBattle(root, params, hooks) {
     layer.append(bar.el);
     const placement = createPlacement(ctx);
     ctx.placement = placement;
+    // hero rework: level buys, Move, hero event toasts (src/ui/battle/heroLevels.js)
+    const heroLevels = createHeroLevels(ctx, ls);
+    ctx.heroLevels = heroLevels;
+    ctx.levelUpHero = (shown) => heroLevels.levelUp(shown);
+    ctx.startHeroMove = () => placement.startMove();
     const heroW = createHeroWidget(ctx);
     layer.append(heroW.el);
     const boss = createBossBar(ctx);
@@ -273,7 +300,7 @@ export function mountBattle(root, params, hooks) {
     const panel = createTowerPanel(ctx);
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree];
+    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree, modesUi];
     ctx.wave = wave;
     let sandbox = null;
     if (req.sandbox) {
@@ -305,7 +332,11 @@ export function mountBattle(root, params, hooks) {
     let renderer;
     try {
       // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
-      renderer = createBattleRenderer(stageEl, sim, { quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId });
+      renderer = createBattleRenderer(stageEl, sim, {
+        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId,
+        // how far between two sim steps this frame is (drones are drawn between their positions)
+        renderAlpha: () => (ls ? Math.min(1, ls.acc) : Math.min(1, sim._acc / STEP)),
+      });
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
@@ -314,7 +345,11 @@ export function mountBattle(root, params, hooks) {
     ctx.renderer = renderer;
     cleanups.push(renderer.onLongPress((p) => tree.onLongPress(p))); // [unit-info] hold a placed girl → her tree
     // Settings → Battle → Camera (or the pause menu) applies to the open battle at once
-    cleanups.push(store.on('change', () => renderer.setCameraMode(cameraModeOf(store.profile.settings))));
+    cleanups.push(store.on('change', () => {
+      renderer.setCameraMode(cameraModeOf(store.profile.settings));
+      renderer.setBuffIcons?.(store.profile.settings.buffIcons);
+    }));
+    renderer.setBuffIcons?.(settings.buffIcons);
     // keep the toast feed off the spawn gates and the first tiles of road behind them (and,
     // as a tie-break, off the exit gates and the last tiles of road before them)
     const tracks = sim.map?.tracks || [];
@@ -323,7 +358,9 @@ export function mountBattle(root, params, hooks) {
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
-      for (const [runs, w] of [[spawnRuns, 1], [exitRuns, 0.2]]) {
+      // the live spawn gates: a reversed route (Reverse Route, an ambush wave) comes in at the exits
+      const pairs = sim.routeReversed ? [[exitRuns, 1], [spawnRuns, 0.2]] : [[spawnRuns, 1], [exitRuns, 0.2]];
+      for (const [runs, w] of pairs) {
         for (const run of runs) {
           for (const [x, y] of run) {
             const p = renderer.worldToScreen(x, y, 0);
@@ -346,15 +383,67 @@ export function mountBattle(root, params, hooks) {
       upgrade: (uid, path) => progress(sim.upgradeTower(uid, path)),
       sell: (uid) => progress(sim.sellTower(uid)),
       target: (uid, mode) => progress(sim.setTargetMode(uid, mode)),
+      fly: (uid, mode, a, b) => progress(sim.setFlight(uid, mode, a?.[0], a?.[1], b?.[0], b?.[1])),
+      pick: (uid, target) => {
+        const r = sim.setBuffPick(uid, target);
+        if (r?.ok) saver?.markProgress();
+        return r;
+      },
+    };
+    ctx.flight = createFlightControl(ctx);
+    modules.push(ctx.flight);
+
+    // ---- pick mode: choose who Midori brews / Chika tunes up first (spec §4.4) ------------
+    ctx.picking = null;
+    ctx.startPick = (srcUid) => {
+      const src = sim.getTower(srcUid);
+      if (!src || ctx.ended) return;
+      if (ctx.coop && !ctx.coop.isMine(srcUid)) {
+        feed.push(PICK_REFUSED.notYours, 'warn', { key: 'pick-refused', ms: 1600 });
+        return;
+      }
+      if (ctx.flight.active) ctx.flight.cancel();
+      const r = limitedRange(src);
+      const cands = sim.towers.filter((o) => o.uid !== srcUid && !o.removed && (o.x - src.x) ** 2 + (o.y - src.y) ** 2 <= r * r).map((o) => o.uid);
+      ctx.picking = srcUid;
+      renderer.setBuffPick?.(srcUid, cands);
+      shell.classList.add('bt-picking');
+      feed.push(cands.length ? `Tap the girl ${src.def.name} should ${src.stats?.brew ? 'brew' : 'tune up'} first.` : 'No girl in her reach yet.', 'info', { key: 'pick-mode', ms: 2000 });
+      panel.update();
+    };
+    ctx.cancelPick = () => {
+      if (ctx.picking == null) return;
+      ctx.picking = null;
+      renderer.setBuffPick?.(null);
+      shell.classList.remove('bt-picking');
+      panel.update();
+    };
+    /** Sends a pick (solo: at once; co-op: the 'pick' command) and says what happened. */
+    ctx.sendPick = (srcUid, targetUid) => {
+      const src = sim.getTower(srcUid);
+      const tgt = targetUid >= 0 ? sim.getTower(targetUid) : null;
+      const res = ctx.act.pick?.(srcUid, targetUid);
+      if (res === 'queued') return true;
+      if (!res?.ok) {
+        feed.push(PICK_REFUSED[res?.reason] || 'She cannot pick that girl.', 'warn', { key: 'pick-refused', ms: 1800 });
+        return false;
+      }
+      if (src && tgt) feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
+      else if (src) feed.push(`${src.def.name} picks the strongest girl again.`, 'info', { key: 'pick-ok', ms: 1600 });
+      panel.update();
+      return true;
     };
 
-    ctx.select = (uid) => {
+    // select(girl, { drone }): a drone of hers can be shown too (tapped on the field or in her list)
+    ctx.select = (uid, { drone = null } = {}) => {
       if (ctx.ended && uid != null) return;
+      if (ctx.picking != null && uid !== ctx.selectedUid) ctx.cancelPick();
       if (uid != null && placement.unitId) placement.cancel();
       ctx.selectedUid = uid ?? null;
-      renderer.setSelected(ctx.selectedUid);
+      ctx.selectedDrone = ctx.selectedUid != null ? drone : null;
+      renderer.setSelected(ctx.selectedUid, ctx.selectedDrone);
       if (ctx.selectedUid == null) panel.close();
-      else panel.open(ctx.selectedUid);
+      else panel.open(ctx.selectedUid, { drone: ctx.selectedDrone });
       shell.classList.toggle('bt-has-panel', ctx.selectedUid != null);
       renderer.setPanelCover?.(panelCover());
     };
@@ -374,6 +463,10 @@ export function mountBattle(root, params, hooks) {
       if (el.offsetWidth < board.width * 0.75) return { right: Math.max(0, board.right - left), bottom: 0 };
       return { right: 0, bottom: Math.max(0, board.bottom - top) };
     }
+    ctx.selectDrone = (d) => {
+      ctx.selectedDrone = d ?? null;
+      renderer.setSelected(ctx.selectedUid, ctx.selectedDrone);
+    };
     ctx.onCardTap = (unitId) => {
       if (ctx.ended || ctx.paused) return;
       if (placement.unitId === unitId) placement.cancel();
@@ -382,7 +475,7 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.onPlaced = (t) => {
       navigator.vibrate?.(12);
-      if (t.isHero) feed.push(`${t.def.name} takes the field! She levels up as she fights.`, 'good', { ms: 2400 });
+      if (t.isHero) feed.push(`${t.def.name} takes the field! She levels up through the battle. Tap her to buy levels.`, 'good', { ms: 2600 });
       bar.update();
       // connect the drawn card to her chibi: the card glows and a name tag with her drawn bust
       // pops over the spot where she landed
@@ -459,11 +552,7 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       if (ls) {
-        if (!sim.heroConfig) {
-          feed.push(`Only ${session.player(0)?.name || 'the host'} commands the hero.`, 'warn', { key: 'ult-ally', ms: 1600 });
-          return;
-        }
-        ls.queue('ult', []);
+        ls.queue('ult', []); // each player fires her own hero's ult
         return;
       }
       if (sim.activateUlt()) saver?.markProgress();
@@ -514,8 +603,18 @@ export function mountBattle(root, params, hooks) {
     cleanups.push(renderer.onTap((p) => {
       if (ctx.paused || ctx.ended) return;
       hud.scout.destroy();
-      if (placement.handleTap(p)) return;
-      ctx.select(p.towerUid != null ? p.towerUid : null);
+      const drone = p.droneUid != null ? sim.findDrone(p.droneUid) : null;
+      const tapped = drone ? drone.tower.uid : p.towerUid != null ? p.towerUid : null;
+      if (ctx.picking != null) {
+        // pick mode: a girl (or one of her drones) → she is the pick; empty ground → leave pick mode
+        const src = ctx.picking;
+        ctx.cancelPick();
+        if (tapped != null && tapped !== src) ctx.sendPick(src, tapped);
+        else if (tapped === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
+        return;
+      }
+      if (ctx.flight.handleTap(p) || placement.handleTap(p)) return;
+      ctx.select(tapped, { drone: drone ? p.droneUid : null });
     }));
     const onCanvasMove = (e) => {
       if (e.pointerType === 'mouse' && !e.buttons) placement.hover(e.clientX, e.clientY);
@@ -526,7 +625,9 @@ export function mountBattle(root, params, hooks) {
       // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
       if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
-        if (placement.unitId) placement.cancel();
+        if (ctx.picking != null) ctx.cancelPick();
+        else if (ctx.flight.active) ctx.flight.cancel();
+        else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
         else if (ctx.paused) ctx.closePause();
         else ctx.openPause();
@@ -534,6 +635,9 @@ export function mountBattle(root, params, hooks) {
         e.preventDefault();
         ctx.startWave();
       } else if ((e.key === 'f' || e.key === 'F') && !ctx.paused) ctx.cycleSpeed();
+      else if ((e.key === 'q' || e.key === 'Q') && !ctx.paused) ctx.fireUlt();
+      // L buys the level the pill shows (its level and price), so a held key cannot overshoot
+      else if ((e.key === 'l' || e.key === 'L') && !ctx.paused && sim.hero && !e.repeat) ctx.levelUpHero(heroW.shown);
       else if (/^[1-9]$/.test(e.key) && !ctx.paused) {
         const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
         const id = ids[Number(e.key) - 1];
@@ -592,6 +696,8 @@ export function mountBattle(root, params, hooks) {
     // (Continue: enemies met before the save are not "new" again)
     const announcedNew = new Set(restored ? sim.encountered : []);
     let lastWaveEnd = 0;
+    /** map rule warnings that matter most (route, mode) lead; affinity follows the sim's */
+    const ruleFirst = (ws) => ws.filter((w) => w.kind !== 'affinity').concat(ws.filter((w) => w.kind === 'affinity'));
     function warnFor(n) {
       let list = [];
       try {
@@ -600,15 +706,18 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       for (const w of list) if (w.kind === 'new') for (const id of [w.enemyId, ...(w.enemyIds || [])]) if (id) announcedNew.add(id);
+      list = [...ruleFirst(ctx.modes?.warnings(n) || []), ...list];
       for (const w of list.slice(0, 3)) {
         const kind = w.severity === 'danger' ? 'bad' : w.severity === 'warn' ? 'warn' : 'info';
-        feed.push(w.text, kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
+        feed.push(heroWarnText(sim, w.text), kind, { key: `warn-${n}-${w.kind}-${w.enemyId || w.trait || ''}`, ms: 5200, icon: w.trait && TRAITS[w.trait] ? traitBadge(w.trait, 'bt-toast-ico') : null });
       }
     }
 
     function handle(events) {
+      heroLevels.handle(events);
       for (const ev of events) {
         fpBattle?.handle(ev);
+        ctx.modes?.handle(ev);
         switch (ev.type) {
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
@@ -635,7 +744,7 @@ export function mountBattle(root, params, hooks) {
           case 'waveStart':
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
-            feed.announce(`WAVE ${ev.wave}`, Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless', 'wave', 1300);
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
@@ -647,22 +756,14 @@ export function mountBattle(root, params, hooks) {
           case 'bossPhase':
             feed.announce('PHASE SHIFT', ev.announce || '', 'phase', 3200);
             break;
-          case 'heroLevel': {
-            const name = sim.hero?.def.name || 'Hero';
-            const ult = sim.hero?.def.hero?.ult;
-            const unlock = ult && ev.level === (ult.unlockLevel ?? 3);
-            feed.push(unlock ? `${name} reached Lv ${ev.level} — ${ult.name} unlocked!` : `${name} reached Lv ${ev.level}`, 'good', { ms: 2400 });
-            break;
-          }
-          case 'ult':
-            feed.announce(ev.name || 'Ultimate', sim.hero?.def.name || '', 'good', 1500);
-            break;
+          // heroLevel / heroBuy / heroMastery / ult: heroLevels.handle (attributed by towerUid)
           case 'teleportWarn':
             feed.push('A ghoul is about to blink forward — slow or stun it!', 'warn', { key: 'blink', ms: 2000 });
             break;
           case 'sabotage': {
             const t = sim.getTower(ev.towerUid);
-            feed.push(`${t?.def.name || 'A girl'} was sabotaged! Cleanse auras protect.`, 'warn', { key: 'sabotage', ms: 2200 });
+            if (ev.turretUid != null) feed.push(`A saboteur jammed one of ${t?.def.name || 'her'}'s drones!`, 'warn', { key: 'jam', ms: 1800 });
+            else feed.push(`${t?.def.name || 'A girl'} was sabotaged! Cleanse auras protect.`, 'warn', { key: 'sabotage', ms: 2200 });
             break;
           }
           case 'sell':
@@ -783,6 +884,9 @@ export function mountBattle(root, params, hooks) {
       ctx.audio?.events(events); // [audio]
       handle(events);
       fpBattle?.update();
+      sampleDroneRates(sim, ctx.rates);
+      ctx.flight.update();
+      ctx.modes?.update();
       hud.update();
       bar.update();
       panel.update();
@@ -796,12 +900,34 @@ export function mountBattle(root, params, hooks) {
     // first-wave scouting + practice notice (Continue: a welcome back first, kept on screen
     // (sticky), then the next wave's scouting once it has been read; the NEXT strip has it too)
     later(() => warnFor(restored ? sim.wave + 1 : 1), restored ? 4600 : 600);
+    // wave 0: her card is armed, so one tap on the grass places her (co-op: once the room ticks).
+    // Not in the coached tutorial (its coach places Aoi first and Hikari after wave 1).
+    const heroId = sim.heroConfig?.unitId;
+    const armHero = () => {
+      if (!heroId || sim.hero || ctx.ended || ctx.tutorial || sim.wave > 0 || placement.unitId) return;
+      if (ls && ls.tick <= 0) {
+        later(armHero, 300);
+        return;
+      }
+      if (placement.start(heroId)) {
+        bar.update();
+        feed.push(`${sim.data.unit(heroId)?.name || 'Your hero'} deploys free — tap the grass!`, 'info', { key: 'hero-free', ms: 3400 });
+      }
+    };
+    later(armHero, 700);
     if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
+      // a hero saved before the hero rework: back at her level, what she cost back as coins
+      const heroBack = (restored.heroRefunds || []).reduce((a, x) => a + x.refunded, 0);
       if (restored.dropped.length) {
         const names = [...new Set(restored.dropped.map((id) => UNIT_MAP[id]?.name || id))];
         const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded - heroBack)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+      }
+      for (const x of restored.heroRefunds || []) {
+        const name = UNIT_MAP[x.unitId]?.name || x.unitId;
+        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtCoins(x.refunded)} coins` : '';
+        feed.push(`Heroes changed: ${name} keeps Lv ${x.level}${coins}.`, 'info', { key: 'save-hero', ms: 8000, sticky: true });
       }
       feed.push(`Welcome back! Wave ${sim.wave + 1} is next. Tap Start when you're ready.`, 'good', { key: 'welcome-back', ms: 4200, sticky: true });
     }
@@ -1009,6 +1135,17 @@ export function mountBattle(root, params, hooks) {
         ls.queue('tgt', [uid, mode]);
         return true;
       },
+      fly(uid, mode, a, b) {
+        if (ls.job || !mine(uid)) return false;
+        ls.queue('fly', flyArgs(uid, mode, a, b));
+        return true;
+      },
+      pick(uid, target) {
+        if (ls.job) return { ok: false, reason: 'busy' };
+        if (!mine(uid)) return { ok: false, reason: 'notYours' };
+        ls.queue('pick', [uid, target]);
+        return 'queued';
+      },
     };
   }
 
@@ -1016,6 +1153,7 @@ export function mountBattle(root, params, hooks) {
   function onApplied(cmd, res) {
     if (destroyed || !ctx.feed) return;
     fpBattle?.onApplied(cmd, res);
+    ctx.heroLevels?.onApplied(cmd, res);
     const minePlayer = cmd.p === ls.mySlot;
     if (cmd.k === 'upg') pendingUpg.delete(`${cmd.a[0]}:${cmd.a[1]}`);
     if (cmd.k === 'place') {
@@ -1025,6 +1163,16 @@ export function mountBattle(root, params, hooks) {
     } else if (cmd.k === 'upg' && res.ok && minePlayer) {
       const t = sim.getTower(cmd.a[0]);
       if (t) ctx.onUpgraded(t, cmd.a[1]);
+    } else if (cmd.k === 'upg' && !res.ok && minePlayer && res.reason === 'onePerPath') {
+      // two copies ordered the same final tier: the first order won on every client
+      const t = sim.getTower(cmd.a[0]);
+      if (t) ctx.feed.push(finalRaceText(t.def.name, t.def.paths[cmd.a[1]]?.name || ''), 'warn', { key: 'final-race', ms: 1800 });
+    } else if (cmd.k === 'pick' && minePlayer) {
+      // my pick ran on every client: say what happened (a refusal comes back the same everywhere)
+      const src = sim.getTower(cmd.a[0]);
+      const tgt = cmd.a[1] >= 0 ? sim.getTower(cmd.a[1]) : null;
+      if (!res.ok) ctx.feed.push(PICK_REFUSED[res.reason] || 'She cannot pick that girl.', 'warn', { key: 'pick-refused', ms: 1800 });
+      else if (src && tgt) ctx.feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
     } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
     }

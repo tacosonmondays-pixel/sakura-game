@@ -12,6 +12,29 @@ import {
   tierIcon, pathSummary, tagText, unknownModKeys, tierNote,
 } from '../../src/ui/upgradeTags.js';
 
+// The reviewed tag combinations of every path tier (update on purpose when units.js changes).
+// (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
+// gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
+const COMBOS = {
+  self: 111,
+  'enemies* + self': 26,
+  'enemies + self': 23,
+  allies: 23,
+  enemies: 14,
+  coins: 7,
+  'allies + self': 6,
+  'allies + enemies + self': 6,
+  'allies + enemies*': 5,
+  'enemies*': 4,
+  'allies + enemies* + self': 4,
+  'self+X': 3,
+  'allies + coins': 2,
+  'coins + self': 2,
+  'enemies + self+X': 2,
+  'enemies* + self+X': 1,
+  'allies + enemies': 1,
+};
+
 const tiersOf = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ u, pi, ti, t })));
 const ALL = UNITS.flatMap(tiersOf);
 const ids = (tags) => tags.map((t) => t.id);
@@ -29,9 +52,15 @@ const tagsOf = (unitId, name) => {
 };
 
 describe('every tier of every girl is classified', () => {
-  it('covers the whole roster (3 paths × 5 tiers each)', () => {
+  it('covers the whole roster (3 paths × 5 tiers each; heroes: one 25-level track, no paths)', () => {
     expect(UNITS.length).toBeGreaterThanOrEqual(19);
-    expect(ALL.length).toBe(UNITS.length * 15);
+    const heroes = UNITS.filter((u) => u.kind === 'hero');
+    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'luna', 'nami']);
+    for (const u of heroes) {
+      expect(u.paths, u.id).toEqual([]);
+      expect(u.hero.levels.map((l) => l.level), u.id).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
+    }
+    expect(ALL.length).toBe((UNITS.length - heroes.length) * 15);
   });
 
   it('knows every mod key of every tier and gives each tier at least one tag', () => {
@@ -92,38 +121,51 @@ describe('every tier of every girl is classified', () => {
       const key = tierTags(u, pi, ti + 1).map((x) => x.id + (x.team ? '*' : '') + (x.transform ? '+X' : '')).sort().join(' + ');
       combos[key] = (combos[key] || 0) + 1;
     }
-    expect(combos).toEqual({
-      self: 132,
-      'enemies + self': 40,
-      allies: 31,
-      'enemies* + self': 25,
-      enemies: 18,
-      'enemies*': 8,
-      coins: 7,
-      'allies + enemies*': 5,
-      'allies + self': 5,
-      'self+X': 4,
-      'enemies + self+X': 3,
-      'allies + enemies': 2,
-      'allies + coins': 2,
-      'coins + self': 2,
-      'allies + enemies* + self': 1,
-    });
+    // (the hero rework moved Hikari's, Luna's and Nami's 45 tiers onto their level tracks)
+    expect(combos).toEqual(COMBOS);
   });
 });
 
 describe('spot checks', () => {
-  const hikari = UNIT_MAP.hikari;
-  it('Hikari Sanctuary: Allies with the aura radius growing with the path', () => {
-    const t1 = tierTags(hikari, 1, 1);
-    expect(ids(t1)).toEqual(['allies']);
-    expect(t1[0].radius).toBe(2.6);
-    expect(tierTags(hikari, 1, 4).find((t) => t.id === 'allies').radius).toBe(3.2);
-    expect(auraRadius(hikari, 1, 5)).toBe(4);
-    expect(auraRadius(hikari, 1, 1, { current: 3.5 })).toBe(3.5);
+  it('path cap: Midori\'s brews (her range) and Chika\'s tune-up links (her aura) are Allies; an execution shot is Self', () => {
+    const conc = tierByName('midori', 'Concentrate');
+    const t = tierTags(conc.u, conc.pi, conc.tier);
+    expect(ids(t)).toEqual(['allies', 'enemies']);
+    expect(t[0]).toMatchObject({ limited: true, keys: ['brew'] });
+    expect(t[0].radius).toBe(UNIT_MAP.midori.base.range);
+    const sig = tierByName('chika', 'Signal Tower');
+    const link = tierTags(sig.u, sig.pi, sig.tier).find((x) => x.id === 'allies');
+    expect(link.keys).toEqual(['aura', 'link']);
+    expect(link.radius).toBe(3);
+    const ex = tierByName('shiro', 'Cross-Map Execution');
+    expect(tierTags(ex.u, ex.pi, ex.tier).find((x) => x.id === 'self').keys).toContain('hpPct');
+    expect(shortEffect({ hpPct: { pct: 0.03 } })).toBe('Takes 3% HP a shot');
+    expect(shortEffect(conc.u.paths[conc.pi].tiers[0].mods)).toMatch(/Brews 1 girl/);
   });
-  it('Hikari Blessed Ground: Allies + Enemies', () => {
-    expect(ids(tagsOf('hikari', 'Blessed Ground'))).toEqual(['allies', 'enemies']);
+
+  const hikari = UNIT_MAP.hikari;
+  // heroes level along one track (hero rework): each level's tags come from its own mods
+  const level = (u, n) => u.hero.levels.find((l) => l.level === n);
+  it('Hikari\'s track: the old Sanctuary levels are Allies, the aura radius growing with them', () => {
+    const lv5 = modsTags(level(hikari, 5).mods);
+    expect(level(hikari, 5).from).toBe('sanctuary.1');
+    expect(ids(lv5)).toEqual(['allies']);
+    expect(lv5[0].radius).toBe(2.6);
+    expect(modsTags(level(hikari, 19).mods).find((t) => t.id === 'allies').radius).toBe(3.2);
+    expect(modsTags(level(hikari, 23).mods).find((t) => t.id === 'allies').radius).toBe(4);
+  });
+  it('Hikari Blessed Ground (Lv 14): Allies + Enemies', () => {
+    expect(level(hikari, 14).desc).toMatch(/^Blessed Ground/);
+    expect(ids(modsTags(level(hikari, 14).mods))).toEqual(['allies', 'enemies']);
+  });
+  it('a girl\'s aura path: Allies with the radius growing with the path (Miko Blessing)', () => {
+    const miko = UNIT_MAP.miko;
+    const t1 = tierTags(miko, 0, 1);
+    expect(ids(t1)).toEqual(['allies']);
+    expect(t1[0].radius).toBe(2.5);
+    expect(tierTags(miko, 0, 4).find((t) => t.id === 'allies').radius).toBe(3.5);
+    expect(auraRadius(miko, 0, 5)).toBe(4.2);
+    expect(auraRadius(miko, 0, 1, { current: 3.5 })).toBe(3.5);
   });
   it('Sango Fortress Fall is a team debuff on enemies, not an aura', () => {
     const tags = tagsOf('sango', 'Fortress Fall');
@@ -170,11 +212,11 @@ describe('spot checks', () => {
     expect(umeko[0].radius).toBe(3);
     expect(ids(passiveTags(UNIT_MAP.momo))).toEqual(['coins']);
   });
-  it('path summary: Hikari Sanctuary = Allies ×5 (4 tiles) · Enemies ×3 (1 helps all)', () => {
-    expect(pathSummary(hikari, 1)).toEqual([
-      { id: 'allies', count: 5, team: 0, radius: 4, transform: 0 },
-      { id: 'enemies', count: 3, team: 1, radius: 0, transform: 0 },
+  it('path summary: Miko Blessing = Allies ×5 (4.2 tiles); a hero has no paths to sum', () => {
+    expect(pathSummary(UNIT_MAP.miko, 0)).toEqual([
+      { id: 'allies', count: 5, team: 0, radius: 4.2, transform: 0 },
     ]);
+    expect(hikari.paths).toEqual([]);
   });
   it('chip text', () => {
     expect(tagText({ id: 'allies', radius: 2.6 })).toBe('Allies · 2.6 tiles');
@@ -225,7 +267,7 @@ describe('notes and naming', () => {
     }
   });
   it('every MOD_TAGS rule is one the classifier knows', () => {
-    const rules = new Set(['self', 'transform', 'drones', 'traps', 'allies', 'status', 'enemies', 'team', 'coins']);
+    const rules = new Set(['self', 'transform', 'drones', 'traps', 'allies', 'limited', 'status', 'enemies', 'team', 'coins']);
     for (const [k, r] of Object.entries(MOD_TAGS)) expect(rules.has(r), k).toBe(true);
   });
   // spelled in pieces so this guard is not itself a hit for a repository-wide search

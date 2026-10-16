@@ -119,6 +119,15 @@ describe('profile.battleSaves', () => {
     expect(cleanBattleSaves(saves(col)).challenge).toBeTruthy();
   });
 
+  it('a battle mode travels with its record; Standard is the absent field; a mode this build does not know drops the record', () => {
+    expect(cleanBattleSaves(saves(rec({ mode: 'rush' })))['1-1'].mode).toBe('rush');
+    expect('mode' in cleanBattleSaves(saves(rec({ mode: 'standard' })))['1-1']).toBe(false);
+    expect('mode' in cleanBattleSaves(saves(rec()))['1-1']).toBe(false);
+    expect(cleanBattleSaves(saves(rec({ mode: 'turbo' })))).toEqual({});
+    expect(cleanBattleSaves(saves(rec({ mode: 7 })))).toEqual({});
+    expect(roundTrip({ ...createProfile(), battleSaves: saves(rec({ mode: 'laststand' })) }).battleSaves['1-1'].mode).toBe('laststand');
+  });
+
   it('a record without a start time counts from its last play (never the 1970 event week)', () => {
     expect(cleanBattleSaves(saves(rec({ createdAt: undefined, updatedAt: 5000 })))['1-1'].createdAt).toBe(5000);
     expect(cleanBattleSaves(saves(rec({ createdAt: 0, updatedAt: 0 })))['1-1'].createdAt).toBeGreaterThan(1e12);

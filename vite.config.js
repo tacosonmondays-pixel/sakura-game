@@ -72,5 +72,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],
+    // co-op view rule: sim.hero / sim.heroConfig must not be read inside the step (throws under tests)
+    setupFiles: ['tests/setup.js'],
   },
 });

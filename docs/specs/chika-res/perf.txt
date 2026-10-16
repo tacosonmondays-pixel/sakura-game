@@ -1,0 +1,4 @@
+{"test":"perf","mode":"hover","rounds":[{"mean":742,"median":709,"alive":2400},{"mean":627,"median":594,"alive":2400},{"mean":797,"median":704,"alive":2400}]}
+{"test":"perf","mode":"hold","rounds":[{"mean":831,"median":655,"alive":2400},{"mean":650,"median":583,"alive":2400},{"mean":674,"median":604,"alive":2400}]}
+{"test":"perf","mode":"patrol","rounds":[{"mean":806,"median":798,"alive":2400},{"mean":600,"median":550,"alive":2400},{"mean":805,"median":749,"alive":2400}]}
+{"test":"perf","mode":"pursuit","rounds":[{"mean":766,"median":629,"alive":2400},{"mean":597,"median":517,"alive":2400},{"mean":785,"median":677,"alive":2400}]}

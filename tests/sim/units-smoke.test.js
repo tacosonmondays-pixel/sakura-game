@@ -30,7 +30,7 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
           const tiers = [0, 0, 0];
           tiers[p] = t;
           tiers[(p + 1) % 3] = Math.min(2, t);
-          for (const level of def.kind === 'hero' ? [1, 10] : [0]) {
+          for (const level of def.kind === 'hero' ? [1, 10, 25] : [0]) {
             const s = resolveStats(def, { tiers, heroLevel: level, unitStats: { awakenPassive: true } });
             const bad = finiteDeep(s);
             expect(bad, `${id} ${tiers} L${level}: ${bad}`).toBe(null);
@@ -41,10 +41,11 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
     }
   });
 
-  test.each(ids)('%s fights at every top tier', (id) => {
+  test.each(ids)('%s fights at every top tier (heroes: Lv 1, 10 and 25)', (id) => {
     const def = units[id];
     const isHero = def.kind === 'hero';
     for (let p = 0; p < 3; p++) {
+      if (isHero && p > 0) break;
       const sim = new Sim({
         stageId: STAGE.id,
         loadout: isHero ? [] : [{ unitId: id }],
@@ -57,10 +58,15 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       // free placement: heroes (footprint 0.5) need 1.05 tiles of clearance from the path centre line
       const t = water ? sim.placeTower(id, 5.5, 2.5) : sim.placeTower(id, isHero ? 8.5 : 6.5, isHero ? 5.6 : 5.5);
       expect(t, `${id} placed`).toBeTruthy();
-      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p);
-      sim.upgradeTower(t.uid, (p + 1) % 3);
-      sim.upgradeTower(t.uid, (p + 1) % 3);
-      expect(t.tiers[p]).toBe(5);
+      if (isHero) {
+        sim._credit(t, 1e9); // straight to Lv 25 + full Mastery
+        expect(t.level).toBe(25);
+      } else {
+        for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p);
+        sim.upgradeTower(t.uid, (p + 1) % 3);
+        sim.upgradeTower(t.uid, (p + 1) % 3);
+        expect(t.tiers[p]).toBe(5);
+      }
       sim.state = 'wave';
       sim.wave = 1;
       sim._spawnQueue = [];

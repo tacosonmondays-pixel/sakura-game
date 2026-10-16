@@ -8,9 +8,11 @@
 //   _leak(enemy), _isCleansed(tower)
 
 import {
-  AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK,
+  AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK, DOT_PCT_BOSS_MUL,
+  FREEPLAY_ARMOR_FLOOR,
 } from './constants.js';
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
+import { ruleMoveMul, ruleRift } from './rules.js';
 import {
   tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
@@ -155,9 +157,15 @@ export function initTraitState(e) {
   if (!t.blink) e.blinkWarned = false;
 }
 
-/** Freeplay affix on a wave spawn: + flat armor, × walk speed, extra traits, a barrier of pct × base HP. */
+/**
+ * Freeplay affix / elite modifier on a wave spawn: + flat armor, × walk speed, extra traits, a
+ * barrier of pct × base HP; elites may also carry a smaller Resolve CC budget (ccMul, read by
+ * applyPressure) and the modifier's id (eliteMod, for the name plate).
+ */
 export function applySpawnMods(e, m) {
   if (m.armor) { e.armor += m.armor; e.armorBonus = (e.armorBonus || 0) + m.armor; }
+  if (m.ccMul) e.ccMul = m.ccMul;
+  if (m.eliteMod) e.eliteMod = m.eliteMod;
   if (m.speed && m.speed !== 1) {
     e.speedMul *= m.speed;
     e.baseSpeed = (e.def.speed ?? 1) * e.speedMul;
@@ -174,8 +182,18 @@ export function applySpawnMods(e, m) {
 export function applyPressure(e, p) {
   const add = e.tier === 'normal' || e.tier === 'elite' ? p.armor : p.bossArmor || 0;
   if (add) { e.armor += add; e.armorBonus = (e.armorBonus || 0) + add; }
-  e.ccLeft = e.tier === 'normal' || e.tier === 'elite' ? p.cc : p.bossCc;
+  e.ccLeft = (e.tier === 'normal' || e.tier === 'elite' ? p.cc : p.bossCc) * (e.ccMul ?? 1);
   e.kbLeft = p.kb;
+  // armor never removes more than 75% of a hit in freeplay (campaign enemies never carry the field)
+  e.armorFloor = FREEPLAY_ARMOR_FLOOR;
+}
+
+/** Burn / poison damage this tick: flat dps + `pct` of max HP per second (×0.1 on minibosses and bosses). */
+function dotAmount(e, st, dt) {
+  const pct = st.pct;
+  if (!pct) return st.dps * dt;
+  const boss = e.tier === 'boss' || e.tier === 'miniboss';
+  return (st.dps + pct * e.maxHp * (boss ? DOT_PCT_BOSS_MUL : 1)) * dt;
 }
 
 /** Places the enemy at its current path distance (position, facing, tunnel + overpass state). */
@@ -413,6 +431,32 @@ function updateAbilities(sim, e, path, dt) {
         best.disabled = Math.max(best.disabled, t.sabotage.duration ?? 3);
         e.sabotageCd = t.sabotage.cooldown ?? 6;
         sim._emit('sabotage', { towerUid: best.uid, enemyUid: e.uid });
+      } else {
+        // no girl in reach: jam the nearest roaming drone (of a girl neither sabotaged nor cleansed)
+        let drone = null;
+        let owner = null;
+        bestD = r * r;
+        for (const tw of sim.towers) {
+          if (!tw.turretSpec || !(tw.turretSpec.leash > 0) || tw.disabled > 0 || sim._isCleansed(tw)) continue;
+          for (const d of tw.turrets) {
+            if (d.jam > 0) continue;
+            const dx = d.x - e.x;
+            const dy = d.y - e.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 <= bestD) {
+              bestD = d2;
+              drone = d;
+              owner = tw;
+            }
+          }
+        }
+        if (drone) {
+          drone.jam = t.sabotage.duration ?? 3;
+          drone.tgt = null;
+          drone.targetUid = null;
+          e.sabotageCd = t.sabotage.cooldown ?? 6;
+          sim._emit('sabotage', { towerUid: owner.uid, enemyUid: e.uid, turretUid: drone.uid });
+        }
       }
     }
   }
@@ -439,8 +483,8 @@ export function syncStatusFlags(e) {
  */
 export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
-  if (st.burn) sim._dot(e, 'burn', st.burn.dps * dt, st.burn);
-  if (!e.dead && st.poison) sim._dot(e, 'poison', st.poison.dps * dt, st.poison);
+  if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
+  if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
   if (e.dead) return;
   tickStatusDurations(e, dt);
   syncStatusFlags(e);
@@ -469,6 +513,7 @@ export function updateEnemy(sim, e, dt) {
     if (e.hastyLeft > 0) mul *= t.hasty?.mul ?? 2;
     if (t.enrage && e.enrageStacks > 0) mul *= 1 + enrageBonus(t.enrage, e.enrageStacks);
   }
+  if (sim._ruleMove) mul *= ruleMoveMul(sim._ruleMove, e);
   e.speed = e.baseSpeed * mul;
   e.dist += e.speed * dt;
   if (e.dist >= path.length) {
@@ -476,6 +521,7 @@ export function updateEnemy(sim, e, dt) {
     return;
   }
   placeOnPath(e, path);
+  if (sim._rulePortal) ruleRift(sim, e, path);
   if (e.flash > 0) e.flash = Math.max(0, e.flash - dt * 6);
 }
 

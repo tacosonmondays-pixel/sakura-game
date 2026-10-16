@@ -5,6 +5,7 @@
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
 // difficulty: the host picks Off / Blossom / Tempest / Crimson Moon, the guest sees a chip and
 // their Ready is consent. The Battlefield panel says what freeplay brings and the best wave so far.
+import '../styles/coop-modes.css';
 import { h, screen, button, svgEl, toast, modal } from '../components.js';
 import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
@@ -20,7 +21,11 @@ import { freeplayTier, freeplayTable, FREEPLAY_TIERS } from '../../data/freeplay
 import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
-import { isStageUnlocked } from '../../systems/unlocks.js';
+import { isStageUnlocked, modesUnlocked } from '../../systems/unlocks.js';
+import { MODE_ORDER, modeId } from '../../data/modes.js';
+import { MODE_TEXT } from '../text/modes.js';
+import { RULE_TEXT } from '../text/rules.js';
+import { modeIcon } from '../../art/icons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
@@ -75,6 +80,32 @@ function freeplayChip(tier, { testid = null } = {}) {
   return t ? h(`span.ol-chip-fp.ol-fp-${t.id}`, { 'data-testid': testid, title: TIER_PITCH[t.id] }, `Freeplay · ${t.name}`) : null;
 }
 
+/** The battle-mode chip ("Rush"), or null for Standard (docs/specs/CODEX_MODES.md §8.5). */
+function modeChip(mode, { testid = 'coop-mode-chip' } = {}) {
+  const id = modeId(mode);
+  if (id === 'standard') return null;
+  const chip = h('span.ol-chip-mode', { 'data-testid': testid, title: MODE_TEXT[id].name }, MODE_TEXT[id].short);
+  chip.style.background = MODE_TEXT[id].color;
+  return chip;
+}
+
+/**
+ * The Mode segment of the stage picker: six chips, disabled until the host cleared the stage
+ * (and while Freeplay is on: freeplay runs in Standard in v1).
+ */
+function modeSeg(stageId, value, freeplay, onPick) {
+  const unlocked = modesUnlocked(store.profile, stageId);
+  const off = !unlocked || !!freeplay;
+  const why = freeplay ? 'Freeplay runs in Standard' : unlocked ? null : `Clear ${stageId} once to unlock modes`;
+  return h('div.ol-mode-row',
+    h('span.ol-fp-label', 'Mode'),
+    h(`div.ol-seg.ol-mode-seg${off ? '.off' : ''}`, { 'data-testid': 'coop-mode' },
+      ...MODE_ORDER.map((id) => h(`button.ol-seg-btn.ol-mode-btn${value === id ? '.on' : ''}`, {
+        type: 'button', 'data-mode': id, disabled: off && id !== 'standard', title: why || MODE_TEXT[id].name, onclick: () => onPick(id),
+      }, svgEl(modeIcon(id), 'ol-mode-ico'), MODE_TEXT[id].short))),
+    why ? h('small.muted.ol-fp-hint', { 'data-testid': 'coop-mode-note' }, why) : null);
+}
+
 /** How hard each tier is, in words (the pips say it at a glance). */
 const TIER_LEVEL = { blossom: 'Classic', tempest: 'Harder', crimson: 'Hardest' };
 
@@ -117,18 +148,23 @@ function unitChip(unitId, { hero = false } = {}) {
   return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: `${u.name} — hold for her info`, 'data-unit': unitId }, avatar(unitId, 30), h('small', u.name));
 }
 
-/** Stage + difficulty + freeplay picker modal. Resolves { stageId, difficulty, freeplay } or null. */
-export function pickStage(current, difficulty, freeplay = null) {
+/** Stage + difficulty + freeplay + mode picker modal. Resolves { stageId, difficulty, freeplay, mode } or null. */
+export function pickStage(current, difficulty, freeplay = null, mode = 'standard') {
   return new Promise((resolve) => {
     const profile = store.profile;
     const stages = hostStages(profile);
     let pick = current;
     let diff = difficulty;
     let fp = freeplayTier(freeplay);
+    let md = modeId(mode);
+    const modeRow = h('div.ol-mode-holder');
     const list = h('div.ol-stage-grid');
     const diffs = h('div.ol-seg');
     const fpRow = h('div.ol-fp-row');
     const paint = () => {
+      // modes: Standard on a stage the host has not cleared, and while Freeplay is on
+      if (fp || !modesUnlocked(profile, pick)) md = 'standard';
+      modeRow.replaceChildren(modeSeg(pick, md, fp, (v) => { md = v; paint(); }));
       list.replaceChildren(...stages.map((s) => h(`button.ol-stage-opt${s.id === pick ? '.on' : ''}`, { type: 'button', 'data-stage': s.id, onclick: () => { pick = s.id; paint(); } },
         thumb(s.id, 'ol-stage-opt-thumb'), h('span', h('b', s.id), ` ${s.name}`))));
       diffs.replaceChildren(...DIFFICULTY_ORDER.map((d) => h(`button.ol-seg-btn${d === diff ? '.on' : ''}`, { type: 'button', onclick: () => { diff = d; paint(); } }, DIFFICULTIES[d].name)));
@@ -142,10 +178,10 @@ export function pickStage(current, difficulty, freeplay = null) {
     modal({
       title: 'Co-op stage',
       wide: true,
-      body: h('div.ol-pick', h('p.muted', `Every campaign stage you unlocked. Enemies have ×${COOP.hpMul} HP; each player starts with ${Math.round(COOP.cashShare * 100)}% of the coins.`), diffs, fpRow, list),
+      body: h('div.ol-pick', h('p.muted', `Every campaign stage you unlocked. Enemies have ×${COOP.hpMul} HP; each player starts with ${Math.round(COOP.cashShare * 100)}% of the coins. Modes change the battle for both of you. Ribbons are solo only.`), diffs, fpRow, modeRow, list),
       actions: [
         { label: 'Cancel', kind: 'ghost' },
-        { label: 'Choose', kind: 'yellow', testid: 'coop-stage-ok', onClick: (close) => { done = true; close(); resolve({ stageId: pick, difficulty: diff, freeplay: fp }); } },
+        { label: 'Choose', kind: 'yellow', testid: 'coop-stage-ok', onClick: (close) => { done = true; close(); resolve({ stageId: pick, difficulty: diff, freeplay: fp, mode: fp ? 'standard' : md }); } },
       ],
       onClose: () => {
         if (!done) resolve(null);
@@ -157,7 +193,7 @@ export function pickStage(current, difficulty, freeplay = null) {
 /** [social] The stage picker with the player's last choice (Invite to co-op from a card / DM). */
 export async function pickCoopStage() {
   const pref = readPref();
-  const r = await pickStage(defaultStage(store.profile), DIFFICULTIES[pref.difficulty] ? pref.difficulty : 'normal', freeplayTier(pref.freeplay));
+  const r = await pickStage(defaultStage(store.profile), DIFFICULTIES[pref.difficulty] ? pref.difficulty : 'normal', freeplayTier(pref.freeplay), modeId(pref.mode));
   if (r) writePref(r);
   return r;
 }
@@ -265,21 +301,22 @@ export function render(root, params = {}) {
     let difficulty = DIFFICULTIES[readPref().difficulty] ? readPref().difficulty : 'normal';
     // freeplay: Off on first use, then remembered
     let freeplay = freeplayTier(readPref().freeplay);
+    let mode = !freeplay && modesUnlocked(profile, stageId) ? modeId(readPref().mode) : 'standard';
     const stagePane = h('div.ol-coop-stage');
     const paintStage = () => {
       const s = STAGE_MAP[stageId];
       stagePane.replaceChildren(
         thumb(stageId),
         h('div.ol-coop-stage-info',
-          h('div.ol-coop-stage-name', h('b', stageLabel(stageId)), h('span.ol-chip-diff', DIFFICULTIES[difficulty].name), freeplayChip(freeplay)),
+          h('div.ol-coop-stage-name', h('b', stageLabel(stageId)), h('span.ol-chip-diff', DIFFICULTIES[difficulty].name), modeChip(mode), freeplayChip(freeplay)),
           h('ul.ol-coop-facts',
             h('li', `Enemy HP ×${COOP.hpMul}`),
             h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
             h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you')),
           button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
-            const r = await pickStage(stageId, difficulty, freeplay);
+            const r = await pickStage(stageId, difficulty, freeplay, mode);
             if (!r) return;
-            ({ stageId, difficulty, freeplay } = r);
+            ({ stageId, difficulty, freeplay, mode } = r);
             writePref(r);
             paintStage();
           } })),
@@ -299,8 +336,8 @@ export function render(root, params = {}) {
     const create = button('Create room', {
       kind: 'yellow', icon: 'plus', testid: 'coop-create',
       onClick: () => {
-        writePref({ stageId, difficulty, freeplay });
-        navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}) });
+        writePref({ stageId, difficulty, freeplay, mode });
+        navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}), ...(mode !== 'standard' ? { mode } : {}) });
       },
     });
 
@@ -390,7 +427,7 @@ export function render(root, params = {}) {
           svgEl(PEOPLE_GLYPH, 'ol-coop-big-ico'),
           h('div',
             h('p', 'Two senseis, one map. Each of you places your own girls with your own coins; enemies are tougher to match.'),
-            h('p.muted', `You bring your formation: the host brings the hero and ${COOP.towersPerPlayer} girls, the guest ${COOP.towersPerPlayer + 1} girls. Drops go to both; medals stay solo.`)))),
+            h('p.muted', `You bring your formation: your hero and ${COOP.towersPerPlayer} girls each. Drops go to both; medals stay solo.`)))),
       h('div.ol-coop-cols',
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
@@ -429,9 +466,12 @@ export function render(root, params = {}) {
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
       // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
       const freeplay = isHost ? freeplayTier(params.freeplay) : null;
+      const mode = isHost ? modeId(params.mode) : 'standard';
       try {
         session = openSocialSession({
-          code: roomCode, isHost, backend, stageId, difficulty, freeplay,
+          code: roomCode, isHost, backend, stageId, difficulty, freeplay, mode,
+          // battle modes need the host's own clear of the stage (docs/specs/CODEX_MODES.md §2)
+          modesUnlocked: (id) => modesUnlocked(store.profile, id),
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
         }, { isBlocked: (uid) => social.isBlocked(uid) }); // [social] never pair with a player I blocked; session.seated
       } catch (e) {
@@ -539,7 +579,8 @@ export function render(root, params = {}) {
     function inviteLine(s) {
       const st = STAGE_MAP[s.stageId];
       const t = freeplayTable(s.freeplay);
-      if (!t) return `${stageLabel(s.stageId)} (${DIFFICULTIES[s.difficulty].name})`;
+      const m = modeId(s.mode);
+      if (!t) return `${stageLabel(s.stageId)} (${DIFFICULTIES[s.difficulty].name}${m !== 'standard' ? ` · ${MODE_TEXT[m].name}` : ''})`;
       const best = coopBestWaves(profile, s.stageId)[t.id];
       return `${s.stageId} ${DIFFICULTIES[s.difficulty].name} · Freeplay ${t.name}${best ? ` · best ${best}/${st?.waves}` : ''}`;
     }
@@ -609,8 +650,9 @@ export function render(root, params = {}) {
         h('div.ol-field-body',
           thumb(s.stageId, 'ol-field-thumb'),
           h('div.ol-field-info',
-            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || '')),
+            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode, { testid: 'coop-field-mode' })),
             st.desc ? h('p.ol-field-desc', st.desc) : null,
+            st.rule && RULE_TEXT[st.rule.id] ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', RULE_TEXT[st.rule.id].name), `: ${RULE_TEXT[st.rule.id].desc}`) : null,
             h('div.ol-field-stats',
               h('span', h('b', String(st.waves ?? '—')), ' waves'),
               h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
@@ -728,6 +770,7 @@ export function render(root, params = {}) {
     function tipsPanel() {
       const tips = [
         ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
+        ['Two heroes', 'Each of you brings your own hero: free to deploy, levelled with your own coins, and you fire her ult.'],
         ['Kills pay both', 'Every coin the defence earns is split between you.'],
         ['Hands off her girls', 'Only the owner can upgrade, sell or retarget a girl (the coloured pin shows whose).'],
         ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
@@ -800,13 +843,13 @@ export function render(root, params = {}) {
           h('div.ol-room-stage',
             thumb(s.stageId, 'ol-room-thumb'),
             h('div.ol-room-stage-info',
-              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
+              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
               h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
               s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
-                const r = await pickStage(s.stageId, s.difficulty, s.freeplay);
+                const r = await pickStage(s.stageId, s.difficulty, s.freeplay, s.mode);
                 if (r) {
                   writePref(r);
-                  s.setStage(r.stageId, r.difficulty, r.freeplay);
+                  s.setStage(r.stageId, r.difficulty, r.freeplay, r.mode);
                 }
               } }) : null),
             // the host can switch freeplay here too, under the stage (the guest's Ready is taken

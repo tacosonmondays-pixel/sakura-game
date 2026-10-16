@@ -114,12 +114,54 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 3: a protocol-2 build is refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(3);
+  it('protocol 4 (battle train C, battle modes included; freeplay was 3): protocol-2 and -3 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(4);
     const v = coopVersion();
-    expect(v.proto).toBe(3);
+    expect(v.proto).toBe(4);
+    expect(sameVersion(v, { ...v, proto: 3 })).toBe(false);
     expect(sameVersion(v, { ...v, proto: 2 })).toBe(false);
     expect(sameVersion({ ...v, proto: 2 }, v)).toBe(false);
     expect(sameVersion(v, { ...v })).toBe(true);
+  });
+});
+
+// Battle modes in co-op (docs/specs/CODEX_MODES.md §6.4, §10 "Co-op" (j)).
+describe('co-op battle modes: the start message', () => {
+  const base = (extra) => ({ ...start(undefined), stageId: '6-3', ...extra });
+  it('a start without mode is Standard; only `mode` is read (rule, modeDef, ruleGoal, autoGeometry are ignored)', () => {
+    expect(createCoopSim(base({})).sim.mode.id).toBe('standard');
+    const a = createCoopSim(base({ mode: 'ironclad' }));
+    const b = createCoopSim(base({ mode: 'ironclad', rule: null, modeDef: { armorByChapter: [9, 9, 9, 9, 9, 9, 9, 9, 9] }, ruleGoal: 1, autoGeometry: true }));
+    expect(a.sim.mode.id).toBe('ironclad');
+    expect(b.sim.rule.id).toBe('forge_vents');
+    for (let i = 0; i < 60 * 40; i++) {
+      if (a.sim.state !== 'wave') { a.sim.startNextWave(); b.sim.startNextWave(); }
+      a.step();
+      b.step();
+    }
+    expect(b.hash()).toBe(a.hash());
+  });
+
+  it('start.freeplay + start.mode = rush builds a Standard sim', () => {
+    const c = createCoopSim({ ...start('blossom'), mode: 'rush' });
+    expect(c.sim.freeplay).toBe(true);
+    expect(c.sim.mode.id).toBe('standard');
+  });
+
+  it('two clients on 4-2 Reverse Route (Rear Ambush) and 6-3 Ironclad (vents) give equal hashes for 10 waves', () => {
+    for (const [stageId, mode] of [['4-2', 'reverse'], ['6-3', 'ironclad']]) {
+      const st = { ...start(undefined), stageId, mode, difficulty: 'easy' };
+      const A = createCoopSim(st);
+      const B = createCoopSim(JSON.parse(JSON.stringify(st)));
+      let n = 0;
+      while (A.sim.wave <= 10 && A.sim.state !== 'lost' && n++ < 60 * 60 * 20) {
+        if (A.sim.state === 'prep' || A.sim.state === 'between') { A.sim.startNextWave(); B.sim.startNextWave(); }
+        A.step();
+        B.step();
+        if (n % 600 === 0) expect(B.hash(), `${stageId} tick ${n}`).toBe(A.hash());
+      }
+      expect(A.sim.wave).toBeGreaterThan(3);
+      expect(B.hash()).toBe(A.hash());
+    }
   });
 });

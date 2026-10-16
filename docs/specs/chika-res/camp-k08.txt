@@ -1,0 +1,43 @@
+{"test":"campaign","stageId":"1-5","difficulty":"normal","pursuit":"W73 W73 W71","pursuitShare":33}
+{"test":"campaign","stageId":"1-5","difficulty":"hard","pursuit":"W18 W17 W18","pursuitShare":24}
+{"test":"campaign","stageId":"2-3","difficulty":"normal","pursuit":"W97 W96 W97","pursuitShare":43}
+{"test":"campaign","stageId":"2-3","difficulty":"hard","pursuit":"L19 L19 L19","pursuitShare":30}
+{"test":"campaign","stageId":"2-5","difficulty":"normal","pursuit":"W85 W85 W85","pursuitShare":42}
+{"test":"campaign","stageId":"2-5","difficulty":"hard","pursuit":"L21 L21 L21","pursuitShare":34}
+{"test":"campaign","stageId":"3-5","difficulty":"normal","pursuit":"W75 W71 W75","pursuitShare":22}
+{"test":"campaign","stageId":"3-5","difficulty":"hard","pursuit":"L25 L25 L25","pursuitShare":14}
+{"test":"campaign","stageId":"4-3","difficulty":"normal","pursuit":"W90 W85 W87","pursuitShare":31}
+{"test":"campaign","stageId":"4-3","difficulty":"hard","pursuit":"L18 L18 L18","pursuitShare":29}
+{"test":"campaign","stageId":"4-5","difficulty":"normal","pursuit":"L26 L26 L26","pursuitShare":48}
+{"test":"campaign","stageId":"4-5","difficulty":"hard","pursuit":"L14 L14 L14","pursuitShare":35}
+{"test":"campaign","stageId":"5-5","difficulty":"normal","pursuit":"W23 W28 W23","pursuitShare":46}
+{"test":"campaign","stageId":"5-5","difficulty":"hard","pursuit":"L22 L25 L25","pursuitShare":33}
+{"test":"campaign","stageId":"6-5","difficulty":"normal","pursuit":"L27 L27 L27","pursuitShare":26}
+{"test":"campaign","stageId":"6-5","difficulty":"hard","pursuit":"L17 L17 L17","pursuitShare":34}
+{"test":"campaign","stageId":"7-5","difficulty":"normal","pursuit":"W11 W17 W17","pursuitShare":32}
+{"test":"campaign","stageId":"7-5","difficulty":"hard","pursuit":"L20 L21 L21","pursuitShare":37}
+{"test":"campaign","stageId":"8-5","difficulty":"normal","pursuit":"L30 L30 L30","pursuitShare":48}
+{"test":"campaign","stageId":"8-5","difficulty":"hard","pursuit":"L15 L15 L15","pursuitShare":62}
+
+| Stage | Diff | pursuit (W lives / L wave; Chika share) |
+|---|---|---|
+| 1-5 | normal | W73 W73 W71 (33%) |
+| 1-5 | hard | W18 W17 W18 (24%) |
+| 2-3 | normal | W97 W96 W97 (43%) |
+| 2-3 | hard | L19 L19 L19 (30%) |
+| 2-5 | normal | W85 W85 W85 (42%) |
+| 2-5 | hard | L21 L21 L21 (34%) |
+| 3-5 | normal | W75 W71 W75 (22%) |
+| 3-5 | hard | L25 L25 L25 (14%) |
+| 4-3 | normal | W90 W85 W87 (31%) |
+| 4-3 | hard | L18 L18 L18 (29%) |
+| 4-5 | normal | L26 L26 L26 (48%) |
+| 4-5 | hard | L14 L14 L14 (35%) |
+| 5-5 | normal | W23 W28 W23 (46%) |
+| 5-5 | hard | L22 L25 L25 (33%) |
+| 6-5 | normal | L27 L27 L27 (26%) |
+| 6-5 | hard | L17 L17 L17 (34%) |
+| 7-5 | normal | W11 W17 W17 (32%) |
+| 7-5 | hard | L20 L21 L21 (37%) |
+| 8-5 | normal | L30 L30 L30 (48%) |
+| 8-5 | hard | L15 L15 L15 (62%) |

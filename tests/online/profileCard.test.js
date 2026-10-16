@@ -12,12 +12,12 @@ describe('buildCard', () => {
     const c = buildCard(freshSave());
     expect(validCard(c)).toBe(true);
     expect(c.units.map((u) => u.id).sort()).toEqual(['aoi', 'hikari', 'rei']);
-    expect(c.med).toEqual({ a: [0, 0, 0, 0], pins: [] });
+    expect(c.med).toEqual({ a: [0, 0, 0, 0], r: [0, 0, 0, 0, 0], pins: [] });
     expect(c.fp).toBeUndefined();
     expect(c.fav).toBe('hikari');
   });
 
-  it('a late save → valid, under budget, auto pins, st.h, no ribbons before the Codex modes', () => {
+  it('a late save → valid, under budget, auto pins, st.h, ribbon counts per mode', () => {
     const p = lateSave();
     const c = buildCard(p);
     expect(validCard(c)).toBe(true);
@@ -26,7 +26,8 @@ describe('buildCard', () => {
     expect(c.units[0].g).toHaveLength(3);
     expect(c.units[0].g[0].x).toHaveLength(4);
     expect(c.med.pins).toHaveLength(4);
-    expect(c.med.r).toBeUndefined();
+    // [reverse, rush, ironclad, frugal, laststand]: every Nightmare medal holds its stage's Last Petal ribbon
+    expect(c.med.r).toEqual([0, 0, 0, 0, 40]);
     expect(c.st.h).toBeGreaterThan(0);
     expect(c.fp.crimson).toEqual({ w: 121, s: '7-3', c: 1 });
   });

@@ -26,7 +26,7 @@ export const COOP = Object.freeze({
   maxTimeoutMs: 20000,
   /** …except while the ally's battle screen is still loading (no lockstep packet yet). */
   loadTimeoutMs: 30000,
-  /** Towers per player (the host also brings the hero; the guest gets one more tower). */
+  /** Towers per player (each also brings her hero; a player without one gets one more tower). */
   towersPerPlayer: 5,
   /** Player colours: slot 0 (host) and slot 1 (guest). */
   colors: ['#4cc9f0', '#ff8fab'],
@@ -65,7 +65,12 @@ export function coopStage(stageId, { freeplay = null } = {}) {
   if (!s) return null;
   const out = { ...s, hpScale: (s.hpScale ?? 1) * COOP.hpMul, coop: true };
   const table = freeplay ? freeplayTable(freeplay) : null;
-  if (table && s.kind === 'campaign' && Number.isFinite(s.waves)) out.freeplay = table;
+  if (table && s.kind === 'campaign' && Number.isFinite(s.waves)) {
+    out.freeplay = table;
+    // freeplay keeps the pre-hero-rework HP ramp (stage hpPass, src/data/stages.js): its HP bands
+    // and numeric bounds were calibrated there
+    out.hpScale = Math.round(((s.hpScale ?? 1) / (s.hpPass || 1)) * 100) / 100 * COOP.hpMul;
+  }
   return out;
 }
 

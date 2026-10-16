@@ -1,0 +1,35 @@
+{"test":"waves","stageId":"1-3","profile":"base","build":"t0","spot":"best","hover":275,"hoverLost":222,"hoverJams":0,"hoverDisabled":0,"pursuit":266,"pursuitLost":231,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"1-3","profile":"base","build":"t0","spot":"far","hover":169,"hoverLost":328,"hoverJams":0,"hoverDisabled":0,"pursuit":237,"pursuitLost":260,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"1-3","profile":"base","build":"0-0-2","spot":"best","hover":415,"hoverLost":82,"hoverJams":0,"hoverDisabled":0,"pursuit":387,"pursuitLost":110,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"1-3","profile":"base","build":"0-0-2","spot":"far","hover":374,"hoverLost":123,"hoverJams":0,"hoverDisabled":0,"pursuit":367,"pursuitLost":130,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"2-5","profile":"base","build":"3-0-0","spot":"best","hover":579,"hoverLost":222,"hoverJams":0,"hoverDisabled":0,"pursuit":708,"pursuitLost":134,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"2-5","profile":"base","build":"0-0-3","spot":"best","hover":342,"hoverLost":408,"hoverJams":0,"hoverDisabled":0,"pursuit":437,"pursuitLost":336,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"3-5","profile":"base","build":"3-0-0","spot":"best","hover":96,"hoverLost":315,"hoverJams":0,"hoverDisabled":0,"pursuit":109,"pursuitLost":302,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"3-5","profile":"base","build":"3-0-0","spot":"far","hover":61,"hoverLost":350,"hoverJams":0,"hoverDisabled":0,"pursuit":107,"pursuitLost":304,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"base","build":"5-0-2","spot":"best","hover":383,"hoverLost":31,"hoverJams":0,"hoverDisabled":0,"pursuit":387,"pursuitLost":27,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"base","build":"5-0-2","spot":"far","hover":389,"hoverLost":25,"hoverJams":0,"hoverDisabled":0,"pursuit":390,"pursuitLost":0,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"base","build":"2-0-5","spot":"best","hover":388,"hoverLost":30,"hoverJams":0,"hoverDisabled":0,"pursuit":389,"pursuitLost":25,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"base","build":"2-0-5","spot":"far","hover":188,"hoverLost":234,"hoverJams":0,"hoverDisabled":0,"pursuit":228,"pursuitLost":194,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"strong","build":"3-0-0","spot":"best","hover":386,"hoverLost":28,"hoverJams":0,"hoverDisabled":0,"pursuit":389,"pursuitLost":25,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"4-5","profile":"strong","build":"3-0-0","spot":"far","hover":387,"hoverLost":27,"hoverJams":0,"hoverDisabled":0,"pursuit":389,"pursuitLost":25,"pursuitJams":0,"pursuitDisabled":0}
+{"test":"waves","stageId":"6-5","profile":"strong","build":"5-0-2","spot":"best","hover":782,"hoverLost":0,"hoverJams":62,"hoverDisabled":0,"pursuit":778,"pursuitLost":0,"pursuitJams":62,"pursuitDisabled":0}
+{"test":"waves","stageId":"6-5","profile":"strong","build":"5-0-2","spot":"far","hover":844,"hoverLost":0,"hoverJams":62,"hoverDisabled":0,"pursuit":778,"pursuitLost":0,"pursuitJams":62,"pursuitDisabled":0}
+
+| Stage | Profile | Build | Spot | hover kills (lives lost) | pursuit kills (lives lost) |
+|---|---|---|---|---|---|
+| 1-3 | base | t0 | best | 275 (222) | 266 -3% (231) |
+| 1-3 | base | t0 | far | 169 (328) | 237 +40% (260) |
+| 1-3 | base | 0-0-2 | best | 415 (82) | 387 -7% (110) |
+| 1-3 | base | 0-0-2 | far | 374 (123) | 367 -2% (130) |
+| 2-5 | base | 3-0-0 | best | 579 (222) | 708 +22% (134) |
+| 2-5 | base | 0-0-3 | best | 342 (408) | 437 +28% (336) |
+| 3-5 | base | 3-0-0 | best | 96 (315) | 109 +14% (302) |
+| 3-5 | base | 3-0-0 | far | 61 (350) | 107 +75% (304) |
+| 4-5 | base | 5-0-2 | best | 383 (31) | 387 +1% (27) |
+| 4-5 | base | 5-0-2 | far | 389 (25) | 390 +0% (0) |
+| 4-5 | base | 2-0-5 | best | 388 (30) | 389 +0% (25) |
+| 4-5 | base | 2-0-5 | far | 188 (234) | 228 +21% (194) |
+| 4-5 | strong | 3-0-0 | best | 386 (28) | 389 +1% (25) |
+| 4-5 | strong | 3-0-0 | far | 387 (27) | 389 +1% (25) |
+| 6-5 | strong | 5-0-2 | best | 782 (0) | 778 -1% (0) |
+| 6-5 | strong | 5-0-2 | far | 844 (0) | 778 -8% (0) |

@@ -1,9 +1,11 @@
 // Tower stat resolution: BaseStats + ModSets (upgrade tiers, hero milestones, awaken
-// passive) + profile battle stats. Implements the ModSet table in CONTRACTS.md §3 exactly:
+// passive, Potential steps) + profile battle stats. Implements the ModSet table in CONTRACTS.md §3 exactly:
 // add keys are summed, mul keys multiplied, grants OR-ed, replace keys take the last
 // value, status lists merge by type keeping the stronger numbers.
 
 import { DEFAULT_UNIT_STATS } from './constants.js';
+import { HERO_GROWTH } from '../data/heroTracks.js';
+import { potentialFold } from '../data/potential.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
@@ -18,6 +20,20 @@ function normAura(a = {}) {
     detection: !!a.detection,
     costCut: a.costCut ?? 0,
     cleanse: !!a.cleanse,
+    armorPen: a.armorPen ?? 0,
+    critChance: a.critChance ?? 0,
+  };
+}
+
+/** A limited buff (Midori's brew, Chika's tune-up link): `targets` girls, ×dmgMul ×rateMul, +armorPen +critChance. */
+function normLimited(b = {}) {
+  return {
+    targets: b.targets ?? 0,
+    dmgMul: b.dmgMul ?? 1,
+    rateMul: b.rateMul ?? 1,
+    armorPen: b.armorPen ?? 0,
+    critChance: b.critChance ?? 0,
+    overclock: b.overclock ? { every: b.overclock.every ?? 20, time: b.overclock.time ?? 6, rateMul: b.overclock.rateMul ?? 1 } : null,
   };
 }
 
@@ -38,6 +54,10 @@ function normTurret(t = {}) {
     damage: t.damage ?? 0,
     rate: t.rate ?? 1,
     range: t.range ?? 3,
+    // roaming drones: roam radius (0 = anchored), flight speed (tiles/s), seconds per drone (0 = 1 / base rate)
+    leash: t.leash ?? 0,
+    speed: t.speed ?? 3,
+    build: t.build ?? 0,
     attackType: t.attackType ?? null,
     status: (t.status || []).map((s) => ({ ...s })),
   };
@@ -104,6 +124,9 @@ export function normalizeBase(base = {}, unitDef = {}) {
     turret: b.turret ? normTurret(b.turret) : null,
     ramp: b.ramp ? { per: b.ramp.per ?? 0, max: b.ramp.max ?? 0 } : null,
     mark: b.mark ? { bonus: b.mark.bonus ?? 0, duration: b.mark.duration ?? 0 } : null,
+    brew: b.brew ? normLimited(b.brew) : null,
+    link: b.link ? normLimited(b.link) : null,
+    hpPct: b.hpPct ? { pct: b.hpPct.pct ?? 0, boss: b.hpPct.boss ?? 0, cap: b.hpPct.cap ?? 0 } : null,
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
@@ -141,6 +164,8 @@ export function applyModSet(s, mods, acc) {
       if (v.detection) s.aura.detection = true;
       if (v.costCut != null) s.aura.costCut += v.costCut;
       if (v.cleanse) s.aura.cleanse = true;
+      if (v.armorPen != null) s.aura.armorPen += v.armorPen;
+      if (v.critChance != null) s.aura.critChance += v.critChance;
     } else if (key === 'income') {
       if (!s.income) s.income = { perWave: 0, interest: 0 };
       s.income.perWave += v.perWave ?? 0;
@@ -156,6 +181,8 @@ export function applyModSet(s, mods, acc) {
       s.turret.max += v.max ?? 0;
       s.turret.damage += v.damage ?? 0;
       s.turret.range += v.range ?? 0;
+      s.turret.leash += v.leash ?? 0;
+      s.turret.speed += v.speed ?? 0;
       if (v.rate != null) s.turret.rate *= v.rate;
       if (v.attackType) s.turret.attackType = v.attackType;
       if (v.status) mergeStatusList(s.turret.status, v.status);
@@ -167,6 +194,23 @@ export function applyModSet(s, mods, acc) {
       if (!s.mark) s.mark = { bonus: 0, duration: 0 };
       s.mark.bonus = Math.max(s.mark.bonus, v.bonus ?? 0);
       s.mark.duration = Math.max(s.mark.duration, v.duration ?? 0);
+    } else if (key === 'brew' || key === 'link') {
+      // limited buffs (src/sim/buffs.js): targets = max, multipliers multiply, pen and crit add, overclock replaces
+      if (!s[key]) s[key] = normLimited();
+      const l = s[key];
+      l.targets = Math.max(l.targets, v.targets ?? 0);
+      if (v.dmgMul != null) l.dmgMul *= v.dmgMul;
+      if (v.rateMul != null) l.rateMul *= v.rateMul;
+      if (v.armorPen != null) l.armorPen += v.armorPen;
+      if (v.critChance != null) l.critChance += v.critChance;
+      if (v.overclock) l.overclock = { every: v.overclock.every ?? 20, time: v.overclock.time ?? 6, rateMul: v.overclock.rateMul ?? 1 };
+    } else if (key === 'hpPct') {
+      // execution shot (src/sim/combat.js): + pct of the target's current HP (boss on minibosses / bosses),
+      // at most cap × the hit; the strongest numbers win
+      if (!s.hpPct) s.hpPct = { pct: 0, boss: 0, cap: 0 };
+      s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
+      s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
+      s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
     }
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }
@@ -175,13 +219,15 @@ export function applyModSet(s, mods, acc) {
 
 /**
  * ModSets that apply to a tower: upgrade tiers (tier 1 of every path, then tier 2, ... so
- * high-tier transformations win), hero milestones up to `level`, then the awaken passive.
+ * high-tier transformations win), hero track levels up to `level` plus her growth (HERO_GROWTH
+ * per level above 1, plus Mastery past Lv 25), then the awaken passive.
  * @param {object} def UnitDef
  * @param {number[]} tiers [a, b, c]
  * @param {number} heroLevel 0 for towers
  * @param {boolean} awakenPassive
+ * @param {number} heroMastery Mastery damage bonus (0 below Lv 25)
  */
-export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPassive = false) {
+export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPassive = false, heroMastery = 0) {
   const sets = [];
   for (let t = 1; t <= 5; t++) {
     for (let p = 0; p < 3; p++) {
@@ -194,6 +240,11 @@ export function collectModSets(def, tiers = [0, 0, 0], heroLevel = 0, awakenPass
   if (heroLevel > 0 && def.hero?.levels) {
     const lv = [...def.hero.levels].sort((a, b) => a.level - b.level);
     for (const m of lv) if (m.level <= heroLevel && m.mods) sets.push(m.mods);
+    const g = def.hero.growth ?? HERO_GROWTH;
+    if (heroLevel > 1 || heroMastery > 0) {
+      const steps = Math.max(0, heroLevel - 1);
+      sets.push({ damageMul: 1 + (g.damage || 0) * steps + (heroMastery || 0), rateMul: 1 + (g.rate || 0) * steps });
+    }
   }
   if (awakenPassive && def.awakenPassive?.mods) sets.push(def.awakenPassive.mods);
   return sets;
@@ -216,6 +267,8 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;
     s.turret.range *= u.rangeMul;
+    s.turret.leash *= u.rangeMul;
+    if (s.turret.build > 0) s.turret.build /= u.rateMul;
   }
   return s;
 }
@@ -223,15 +276,22 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
 /**
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
- * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts
+ * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts unitStats.potential
+ *   (1…6) adds her Potential steps
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0 } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
-  for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive)) applyModSet(s, m, acc);
+  for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
+  // Potential (src/data/potential.js): its ModSets after the awaken passive (and after a hero's
+  // track levels, growth and Mastery), its whole-girl multipliers folded into the unit stats like
+  // level and gear. P1 changes nothing.
+  const pot = potentialFold(def, us.potential);
+  for (const m of pot.sets) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
-  applyUnitStats(s, us);
+  applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   s.projectiles = Math.max(1, Math.round(s.projectiles));
   s.pierce = Math.max(1, Math.round(s.pierce));
   s.chain = Math.max(0, Math.round(s.chain));
@@ -242,7 +302,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
 }
 
 /**
- * BTD6 crosspath rule: at most two paths may have tiers > 0 and only one path may go
+ * Crosspath rule: at most two paths may have tiers > 0 and only one path may go
  * above tier 2; tier N requires tier N-1 (implicit: tiers only ever increase by one).
  * @returns {null|'max'|'crosspath'} reason the next tier of `path` is unavailable
  */

@@ -39,7 +39,10 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const incoming = { type, duration, left: duration };
   if (type === 'slow') incoming.amount = Math.min(MAX_SLOW, (spec.amount ?? 0.3) * (SLOW_RESIST[tier] ?? 1));
-  if (type === 'burn' || type === 'poison') incoming.dps = spec.dps ?? 0;
+  if (type === 'burn' || type === 'poison') {
+    incoming.dps = spec.dps ?? 0;
+    if (spec.pct > 0) incoming.pct = spec.pct; // fraction of max HP per second (src/sim/enemies.js)
+  }
   if (type === 'shred') incoming.amount = spec.amount ?? 0;
   if (type === 'mark' || type === 'vulnerable') incoming.bonus = spec.bonus ?? 0;
   if (ctx.attackType) incoming.attackType = ctx.attackType;
@@ -51,7 +54,7 @@ export function applyStatus(enemy, spec, ctx = {}) {
     enemy.statuses[type] = incoming;
     return 'new';
   }
-  for (const k of ['amount', 'dps', 'bonus']) {
+  for (const k of ['amount', 'dps', 'bonus', 'pct']) {
     if (incoming[k] !== undefined) {
       if (incoming[k] >= (cur[k] ?? 0)) {
         cur[k] = incoming[k];
