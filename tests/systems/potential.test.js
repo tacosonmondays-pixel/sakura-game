@@ -513,10 +513,10 @@ describe('the describer (v3: src/data/potentialText.js)', () => {
     expect(dupesToNext({ dupes: 9 })).toBe(0);
     expect(dupesToMax({ dupes: 2 })).toBe(3);
   });
-  it('Power: the product of her steps\' paper sizes (Kage P6 ≈ ×1.9)', () => {
+  it('Power: the product of her steps\' sizes (Kage P6 ≈ ×1.9, the B1 bench)', () => {
     expect(potentialPowerFactor(UNIT_MAP.kage, 1)).toBe(1);
-    expect(potentialPowerFactor(UNIT_MAP.kage, 6)).toBeCloseTo(1.04 * 1.09 * 1.10 * 1.21 * 1.26, 12);
-    expect(potentialPowerFactor(UNIT_MAP.kage, 3)).toBeCloseTo(1.04 * 1.09, 12);
+    expect(potentialPowerFactor(UNIT_MAP.kage, 6)).toBeCloseTo(1.04 * 1.13 * 1.11 * 1.22 * 1.2, 12);
+    expect(potentialPowerFactor(UNIT_MAP.kage, 3)).toBeCloseTo(1.04 * 1.13, 12);
   });
 });
 
@@ -531,7 +531,7 @@ import { potentialLevelCap, levelCap, MAX_BREAKTHROUGH } from '../../src/systems
 
 describe('v3 UI model', () => {
   it('step info: a kit step reads "✦ <name>", a stat step what it raises; P6 wears the crown', () => {
-    expect(potentialStepInfo(UNIT_MAP.kage, 5)).toMatchObject({ step: 5, name: 'Moonpiercer', kind: 'kit', kit: true, crown: false, node: 'MOONPIERC', brief: '✦ Moonpiercer', stat: '+6% SPD' });
+    expect(potentialStepInfo(UNIT_MAP.kage, 5)).toMatchObject({ step: 5, name: 'Moonpiercer', kind: 'kit', kit: true, crown: false, node: 'PIERCE+1', brief: '✦ Moonpiercer', stat: '+6% SPD' });
     expect(potentialStepInfo(UNIT_MAP.kage, 2)).toMatchObject({ kit: false, brief: '+4% attack speed', node: '+4% SPD' });
     expect(potentialStepInfo(UNIT_MAP.kage, 6)).toMatchObject({ kind: 'cap', kit: true, crown: true, brief: '✦ Shuriken Storm' });
     // SSRs and heroes: a trick from P2

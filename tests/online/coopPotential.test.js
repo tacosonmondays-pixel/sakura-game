@@ -51,9 +51,9 @@ describe('co-op: the same girl at two Potentials', () => {
     const [h, g] = A.sim.towers;
     expect(h.unitStats.potential).toBe(1);
     expect(g.unitStats.potential).toBe(6);
-    // Aoi's v3 ladder at P6: damage ×1.04×1.04×1.05, +6 % crit, her Twin Fletch / hawk rhythm
+    // Aoi's v3 ladder at P6: damage ×1.04×1.04×1.05, +3 % and +6 % crit, her Twin Fletch / hawk rhythm
     expect(g.stats.damage).toBeCloseTo(h.stats.damage * 1.04 * 1.04 * 1.05, 12);
-    expect(g.stats.crit.chance).toBeCloseTo(h.stats.crit.chance + 0.06, 12);
+    expect(g.stats.crit.chance).toBeCloseTo(h.stats.crit.chance + 0.03 + 0.06, 12);
     expect(g.stats.proc?.every).toBe(10);
     expect(h.stats.proc).toBeUndefined();
     expect(A.hash()).toBe(B.hash());
@@ -103,14 +103,14 @@ describe('co-op: the same girl at two Potentials', () => {
     for (const c of [A, B]) expect(c.apply(cmd(0, 'place', ['luna', ...lunaAt])).ok).toBe(true);
     const of = (c, id, slot) => c.sim.towers.find((t) => t.unitId === id && c.ownerOf(t.uid) === slot);
     const [hk, gk, miko, momo, luna] = [of(A, 'kage', 0), of(A, 'kage', 1), of(A, 'miko', 0), of(A, 'momo', 1), of(A, 'luna', 0)];
-    // her owner's level and Potential: the host's Kage has tempo, more shuriken and +2 pierce; the guest's only her P2 speed
+    // her owner's level and Potential: the host's Kage has tempo, more shuriken and +1 pierce; the guest's only her P2 speed
     expect([hk.unitStats.level, hk.unitStats.potential, gk.unitStats.level, gk.unitStats.potential]).toEqual([60, 6, 20, 2]);
     expect(hk.stats.tempo).toEqual({ per: 0.01, max: 0.06, idle: 1 });
-    expect(hk.stats.projScale).toBeCloseTo(0.12, 12);
+    expect(hk.stats.projScale).toBeCloseTo(0.08, 12);
     expect(hk.stats.proc?.name).toBe('Shuriken Storm');
     expect(gk.stats.tempo).toBeUndefined();
     expect(gk.stats.proc).toBeUndefined();
-    expect(hk.stats.pierce - gk.stats.pierce).toBe(2);
+    expect(hk.stats.pierce - gk.stats.pierce).toBe(1);
     expect(hk.stats.rate / gk.stats.rate).toBeCloseTo((unitBattleStats(host, 'kage').rateMul * 1.04 * 1.05 * 1.05 * 1.06 * 1.07) / (unitBattleStats(guest, 'kage').rateMul * 1.04), 9);
     // the host's Miko P6 lifts the guest's Kage (her aura, her five aura steps)
     A.step();

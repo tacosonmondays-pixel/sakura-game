@@ -98,7 +98,7 @@ describe('Potential text', () => {
       });
     }
     // the stat steps open with their stat; Kage's labels as in the spec table
-    expect(POTENTIAL_TEXT.kage.map((t) => t.node)).toEqual(['+4% SPD', 'PIERCE+1', 'TEMPO', 'MOONPIERC', 'STORM']);
+    expect(POTENTIAL_TEXT.kage.map((t) => t.node)).toEqual(['+4% SPD', 'SHURIKEN+', 'TEMPO', 'PIERCE+1', 'STORM']);
     expect(POTENTIAL_TEXT.shiro[4].node).toBe('HERON');
   });
 
@@ -117,7 +117,7 @@ describe('Potential text', () => {
     }
   });
 
-  test('Power per girl: the paper sizes multiply to her §3.2 band (spec Appendix B)', () => {
+  test('Power per girl: the step sizes multiply to her §3.2 band (B1-measured; gate B5)', () => {
     const band = { R: [1.33, 1.70], SR: [1.30, 1.95], SSR: [1.44, 2.45] };
     for (const u of UNITS) {
       const p = POTENTIAL_TEXT[u.id].reduce((a, t) => a * t.power, 1);
@@ -126,8 +126,14 @@ describe('Potential text', () => {
       expect(p, u.id).toBeLessThanOrEqual(hi);
     }
     const prod = (id) => POTENTIAL_TEXT[id].reduce((a, t) => a * t.power, 1);
-    expect(prod('kage')).toBeCloseTo(1.89, 1);
-    expect(prod('aoi')).toBeCloseTo(1.59, 1);
-    expect(prod('kaede')).toBeCloseTo(2.11, 1);
+    // the B1 bench's E(P6)/E(P1) (docs/specs/POTENTIAL.md v3 build notes, "B1 / B5"): within ±10 %
+    expect(prod('kage') / 1.93).toBeGreaterThan(0.9);
+    expect(prod('kage') / 1.93).toBeLessThan(1.1);
+    expect(prod('aoi') / 1.52).toBeGreaterThan(0.9);
+    expect(prod('aoi') / 1.52).toBeLessThan(1.1);
+    expect(prod('kaede') / 2.25).toBeGreaterThan(0.9);
+    expect(prod('kaede') / 2.25).toBeLessThan(1.1);
+    expect(prod('shiro') / 1.84).toBeGreaterThan(0.9);
+    expect(prod('shiro') / 1.84).toBeLessThan(1.1);
   });
 });

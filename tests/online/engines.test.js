@@ -47,9 +47,12 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // in V2 (was 22348 / '741/991' / 3564779976 / 'ff349307') for the v3 §6.3 line-up: Kage P6 and Rei
     // P6 in Duelist Stance join (Shiro leaves), Kaede P5 → P6, the v3 girls get the spots nearest the
     // path and every upgrade waits for its girl and her coins. START above is unchanged, so P1 still
-    // changes nothing.
+    // changes nothing. Re-pinned for the B1 re-price (was 23827 / '317/222' / 3070688707 / '975e4e34'):
+    // Kage's storm every 8th throw and her one pierce step at P5, Shiro's Silver Line rhythm, Kaede's
+    // 0.1-tile Maple Gale at her plain hit, Aoi's crit, Raika's and Hotaru's trims; an upgrade also
+    // waits while its player's placement is in flight (it arrived unaffordable once).
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23827, state: 'won', wallets: '317/222', final: 3070688707, hashes: '975e4e34' });
+      .toEqual({ ticks: 23752, state: 'won', wallets: '317/222', final: 4242036526, hashes: '57997ea1' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -65,9 +68,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.mech.echo).toBeGreaterThan(0);
     expect(r.mech.proc).toBeGreaterThan(0);
     expect(runPotentialBossBattle().final).toBe(r.final);
-    // pinned in Potential v3 V2 (change only with a deliberate sim / data change, and say why)
+    // pinned in Potential v3 V2 (change only with a deliberate sim / data change, and say why).
+    // Re-pinned for the B1 re-price (was 35232 / '6768/4510' / 2047586365 / 'a01bc9ff'): see above
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 35232, state: 'lost', wallets: '6768/4510', final: 2047586365, hashes: 'a01bc9ff' });
+      .toEqual({ ticks: 35101, state: 'lost', wallets: '6568/4679', final: 3492961063, hashes: 'b2b2f34d' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {

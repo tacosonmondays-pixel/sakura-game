@@ -2,8 +2,10 @@
 //   node   the six-node track's label (≤ 9 characters; the Info tab adds `stat · cap` under it)
 //   long   what she gains, in full (tooltips, wiki, letter); it states every number in the step's data
 //          (tests/data/potentialText.test.js)
-//   power  the step's size on her scored measure (the paper sizes of spec Appendix B; Power multiplies
-//          them, gate B5 compares them with the bench)
+//   power  the step's size on her scored measure: the median step E of the B1 bench
+//          (tools/potentialBench.mjs) for the damage girls, the paper size of spec Appendix B where the
+//          bench cannot see a step (a kept focus, an aura for others, Momo's coins); Power multiplies
+//          them, gate B5 compares their product with the bench (±10 %)
 //   fx     the render cue (attack FX, V4)
 // UI-only: imported by src/systems/potential.js and the screens, never by the sim, so it is outside
 // the co-op graph and the data hash (a wording fix never changes the co-op id).
@@ -14,17 +16,17 @@ const row = (...steps) => Object.freeze(steps);
 export const POTENTIAL_TEXT = Object.freeze({
   kage: row(
     t('+4% SPD', '+4% attack speed.', 1.04, 'rim'),
-    t('PIERCE+1', '+5% attack speed. Every shuriken passes through 1 more enemy (2 → 3; Kusarigama 6 → 7; Thousand Shadows 5 → 6) and ignores 1 more armor.', 1.09, 'kage.edge'),
-    t('TEMPO', '+5% attack speed. Every throw in an unbroken run makes the next one 1% faster, up to +6% after 6 throws; it fades after 1 s without a throw.', 1.10, 'kage.tempo'),
-    t('MOONPIERC', '+6% attack speed. Every shuriken pierces 1 more enemy again (2 → 4 with Shadow Edge; Thousand Shadows 5 → 7), and every throw carries 12% more shuriken (Thousand Shadows 13 → 14.56 on average; Blade Rain 7 → 7.84; on a 2-shuriken build a 3rd shuriken about every 4th throw).', 1.21, 'kage.moon'),
-    t('STORM', '+7% attack speed. Every 6th throw is a Shuriken Storm: a ring of shadow clones throws the whole volley again at once, and storm shuriken pierce 2 more enemies.', 1.26, 'kage.storm'),
+    t('SHURIKEN+', '+5% attack speed. Every throw carries 8% more shuriken (Thousand Shadows 13 → 14.04 on average; Blade Rain 7 → 7.56; on a 2-shuriken build a 3rd shuriken about every 6th throw), and they ignore 1 more armor.', 1.13, 'kage.moon'),
+    t('TEMPO', '+5% attack speed. Every throw in an unbroken run makes the next one 1% faster, up to +6% after 6 throws; it fades after 1 s without a throw.', 1.11, 'kage.tempo'),
+    t('PIERCE+1', '+6% attack speed. Every shuriken passes through 1 more enemy (2 → 3; Kusarigama 6 → 7; Thousand Shadows 5 → 6).', 1.22, 'kage.edge'),
+    t('STORM', '+7% attack speed. Every 8th throw is a Shuriken Storm: a ring of shadow clones throws the whole volley again at once.', 1.20, 'kage.storm'),
   ),
   aoi: row(
     t('+4% DMG', '+4% damage.', 1.04, 'rim'),
-    t('PIERCE+1', '+4% attack speed. Every arrow passes through 1 more enemy (1 → 2; Skyline Breaker 17 → 18) and ignores 1 more armor.', 1.07, 'aoi.through'),
-    t('CRIT+6%', '+4% damage; +6% crit chance (5 → 11% at tier 0; Apex Huntress 25 → 31% at ×3).', 1.09, 'aoi.crit'),
-    t('TWIN 1/12', '+4% attack speed. Every 12th volley she looses the whole volley twice (1 arrow → 2; Thousand Feathers 6 → 12).', 1.13, 'aoi.twin'),
-    t('HAWK', '+5% damage. Twin Fletch comes every 10th volley, and on it her hawk dives on her first target for one more volley\'s damage (her hit × her arrows; it can crit).', 1.16, 'aoi.hawk'),
+    t('PEN+CRIT', '+4% attack speed. Her arrows ignore 1 more armor and crit 3% more often (5 → 8% at tier 0).', 1.06, 'aoi.through'),
+    t('CRIT+6%', '+4% damage; +6% crit chance (8 → 14% at tier 0; Apex Huntress 28 → 34% at ×3).', 1.09, 'aoi.crit'),
+    t('TWIN 1/12', '+4% attack speed. Every 12th volley she looses the whole volley twice (1 arrow → 2; Thousand Feathers 6 → 12).', 1.12, 'aoi.twin'),
+    t('HAWK', '+5% damage. Twin Fletch comes every 10th volley, and on it her hawk dives on her first target for one more volley\'s damage (her hit × her arrows; it can crit).', 1.12, 'aoi.hawk'),
   ),
   rei: row(
     t('+4% DMG', '+4% damage.', 1.04, 'rim'),
@@ -70,10 +72,10 @@ export const POTENTIAL_TEXT = Object.freeze({
   ),
   shiro: row(
     t('+4% DMG', '+4% damage.', 1.04, 'rim'),
-    t('MARK+6%', '+5% damage. Her shots mark: the target takes +6% damage from everyone for 3 s (on Spotter\'s Mark it adds 6 points: Overwatch 50 → 56%).', 1.10, 'shiro.scope'),
-    t('CRIT+5%', '+5% attack speed; +5% crit chance (20 → 25% with her awakening).', 1.11, 'shiro.crit'),
-    t('OVERPEN', '+6% damage. Her round goes through 2 more enemies and ignores 2 more armor.', 1.15, 'shiro.line'),
-    t('HERON', '+7% attack speed. Every 5th shot is a White Heron round: 60% harder, and it passes through 6 more enemies.', 1.21, 'shiro.heron'),
+    t('MARK+6%', '+5% damage. Her shots mark: the target takes +6% damage from everyone for 3 s (on Spotter\'s Mark it adds 6 points: Overwatch 50 → 56%).', 1.09, 'shiro.scope'),
+    t('CRIT+5%', '+5% attack speed; +5% crit chance (20 → 25% with her awakening).', 1.09, 'shiro.crit'),
+    t('OVERPEN', '+6% damage. Her rounds ignore 2 more armor, and every 5th shot is a Silver Line round that goes through 2 more enemies.', 1.17, 'shiro.line'),
+    t('HERON', '+7% attack speed. Silver Line comes every 4th shot as a White Heron round: 50% harder, and it still goes through 2 more enemies.', 1.27, 'shiro.heron'),
   ),
   midori: row(
     t('+4% DMG', '+4% damage, flask and poison.', 1.04, 'rim'),
@@ -91,10 +93,10 @@ export const POTENTIAL_TEXT = Object.freeze({
   ),
   raika: row(
     t('+4% DMG', '+4% damage.', 1.04, 'rim'),
-    t('+1 JUMP', '+5% attack speed. One more jump (4 → 5 with her awakening); her lightning lance pierces 1 more enemy.', 1.09, 'raika.branch'),
-    t('COLUMN', '+5% damage. Every 6th cast drops a thunder column on her first target: 35% of her hit to everything within 0.9 tiles.', 1.13, 'raika.column'),
-    t('THUNDER', '+6% attack speed. The column comes every 5th cast, hits for 70% within 1 tile, and stuns for 0.3 s (sure; bosses take a quarter).', 1.16, 'raika.thunderhead'),
-    t('MONSOON', '+7% damage. One more jump again; Thunderhead every 4th cast, and it Soaks what it hits for 3 s (Soaked foes take +15% lightning and frost, her own chain included).', 1.25, 'raika.monsoon'),
+    t('+1 JUMP', '+5% attack speed. One more jump (4 → 5 with her awakening), and her lightning ignores 1 more armor.', 1.08, 'raika.branch'),
+    t('COLUMN', '+5% damage. Every 6th cast drops a thunder column on her first target: 25% of her hit to everything within 0.9 tiles.', 1.13, 'raika.column'),
+    t('THUNDER', '+6% attack speed. The column comes every 5th cast, hits for 40% within 0.8 tiles, and stuns for 0.3 s (sure; bosses take a quarter).', 1.14, 'raika.thunderhead'),
+    t('MONSOON', '+7% damage. One more jump again; Thunderhead every 4th cast, and it Soaks what it hits for 3 s (Soaked foes take +15% lightning and frost, her own chain included).', 1.26, 'raika.monsoon'),
   ),
   miko: row(
     t('+3% AURA', 'Her aura\'s damage bonus grows by 3% (+10% → +13.3% at tier 0), and her talismans hit 4% harder.', 1.03, 'rim'),
@@ -112,17 +114,17 @@ export const POTENTIAL_TEXT = Object.freeze({
   ),
   hotaru: row(
     t('FIREFLIES', '+5% damage. On every path, girls within 2.6 tiles deal +6% damage (her own aura multiplies: Guiding Lights 5\'s +38% → +46%).', 1.05, 'hotaru.lamps'),
-    t('+4 & MARK', '+7% attack speed. Her pulse hits 4 more enemies (8 → 12) and marks them: +5% damage from everyone for 3 s.', 1.14, 'hotaru.parade'),
-    t('HOLY×1.2', '+7% damage. Her pulses deal 20% more to spectral enemies (ghosts, wraiths, the Grave Lych, the Gloom Regent: holy ×2 → ×2.4) and leave struck foes Brittle +6% for 3 s.', 1.13, 'hotaru.rite'),
-    t('HUNDRED', '+8% attack speed. Every 4th pulse reaches 1 tile further, hits 40% harder and silences 1 s longer.', 1.22, 'hotaru.hundred'),
-    t('MIDNIGHT', '+9% damage. Her firefly aura gains another 6% (to +12%; Guiding Lights 5: +55%); Hundred Lanterns comes every 3rd pulse, hits 60% harder, and leaves everything Brittle +8% for 3 s.', 1.23, 'hotaru.midnight'),
+    t('+1 & MARK', '+7% attack speed. Her pulse hits 1 more enemy (8 → 9) and marks them: +5% damage from everyone for 3 s.', 1.16, 'hotaru.parade'),
+    t('HOLY×1.2', '+7% damage. Her pulses deal 20% more to spectral enemies (ghosts, wraiths, the Grave Lych, the Gloom Regent: holy ×2 → ×2.4) and leave struck foes Brittle +6% for 3 s.', 1.11, 'hotaru.rite'),
+    t('HUNDRED', '+8% attack speed. Every 4th pulse reaches 1 tile further, hits 40% harder and silences 1 s longer.', 1.20, 'hotaru.hundred'),
+    t('MIDNIGHT', '+9% damage. Her firefly aura gains another 6% (to +12%; Guiding Lights 5: +55%); Hundred Lanterns comes every 3rd pulse, hits 80% harder, and leaves everything Brittle +8% for 3 s.', 1.27, 'hotaru.midnight'),
   ),
   kaede: row(
     t('LEAF MEM', '+5% damage. When her target falls she keeps half her focus for the next one; switching targets by choice still resets it.', 1.13, 'kaede.memory'),
-    t('FOCUS+2%', '+7% attack speed. Her focus builds 2% faster per strike (12 → 14% per hit with her awakening).', 1.10, 'kaede.breeze'),
-    t('SCARLET', '+7% damage. Her focus cap rises 30 points (+100 → +130% at tier 0; Crimson Eternity +320 → +350%), and +5% crit chance.', 1.14, 'kaede.scarlet'),
-    t('MAPLEGALE', '+8% attack speed. Every 4th strike also cuts every enemy within 0.6 tiles of her target (an unfocused hit, like her duel splash).', 1.21, 'kaede.gale'),
-    t('ONE FOE', '+9% damage. She deals 20% more to bosses and minibosses (Crimson Eternity ×1.5 → ×1.8). Maple Gale comes every 3rd strike, and the Gale strike hits 50% harder (her focus still counts).', 1.24, 'kaede.onefoe'),
+    t('FOCUS+2%', '+7% attack speed. Her focus builds 2% faster per strike (12 → 14% per hit with her awakening).', 1.09, 'kaede.breeze'),
+    t('SCARLET', '+7% damage. Her focus cap rises 30 points (+100 → +130% at tier 0; Crimson Eternity +320 → +350%), and +5% crit chance.', 1.17, 'kaede.scarlet'),
+    t('MAPLEGALE', '+8% attack speed. Every 4th strike also cuts the enemies right beside her target (within 0.1 tiles; an unfocused hit at her plain damage, like her duel splash).', 1.28, 'kaede.gale'),
+    t('ONE FOE', '+9% damage. She deals 20% more to bosses and minibosses (Crimson Eternity ×1.5 → ×1.8). Maple Gale comes every 3rd strike, and the Gale strike on her target hits 50% harder (her focus still counts; the cut beside it stays at her plain damage).', 1.31, 'kaede.onefoe'),
   ),
   chika: row(
     t('THROTTLE', '+5% damage (drones and bolt). Every 30 s from when she is placed, her drones fire 50% faster for 4 s.', 1.12, 'chika.throttle'),

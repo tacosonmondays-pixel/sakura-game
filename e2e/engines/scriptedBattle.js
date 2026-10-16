@@ -899,14 +899,19 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
       }
     }
     // the next upgrade once its girl stands and her player can pay for it (one in flight); a girl
-    // still waiting for her spot keeps her upgrades waiting, one that never gets one drops them
+    // still waiting for her spot keeps her upgrades waiting, one that never gets one drops them. A
+    // player with a girl's placement still in flight waits too: that placement spends her coins first
+    // (both orders execute after the input delay), so an upgrade sent now could arrive unaffordable
     if (todo.length && frame % 60 === 0) {
       const [c, unit, path, sent] = todo[0];
       const t = c.sim.towers.find((x) => x.def.id === unit && c.coop.isMine(x.uid));
       const st = t ? c.sim.upgradeStatus(t.uid, path) : null;
       const waiting = !t && later.some((x) => x[0] === c && x[1] === unit);
+      const placing = later.some((x) => x[0] === c && x[3] != null && frame - x[3] < 120);
       if (sent != null) {
         if (frame - sent >= 120) todo.shift();
+      } else if (placing) {
+        // (her placement lands first)
       } else if (st && !st.locked) {
         c.queue('upg', [t.uid, path]);
         todo[0][3] = frame;

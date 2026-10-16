@@ -94,18 +94,19 @@ const step = (name, kind, girl = null, mods = null) => ({ name, kind, girl, mods
  */
 export const POTENTIAL_GIRLS = deepFreeze({
   // §5.1 Kage, SR skirmisher: every shuriken pierces, very fast → attack speed (all five stat steps),
-  // pierce, shuriken per throw (N13), tempo (N14), a storm of clone volleys (N3 echo)
+  // shuriken per throw (N13), tempo (N14), pierce, a storm of clone volleys (N3 echo). Re-priced on the
+  // B1 bench (spec §9.4's knobs: the storm every 8th throw, projScale 0.08; one pierce step, at P5)
   kage: {
     p2: step('Night Drills', 'stat', { rateMul: 1.04 }),
-    p3: step('Shadow Edge', 'kit', { rateMul: 1.05 }, { pierce: 1, armorPen: 1 }),
+    p3: step('Shadow Edge', 'kit', { rateMul: 1.05 }, { projScale: 0.08, armorPen: 1 }),
     p4: step('Shadow Tempo', 'kit', { rateMul: 1.05 }, { tempo: { per: 0.01, max: 0.06, idle: 1 } }),
-    p5: step('Moonpiercer', 'kit', { rateMul: 1.06 }, { pierce: 1, projScale: 0.12 }),
-    p6: step('Shuriken Storm', 'cap', { rateMul: 1.07 }, { proc: { name: 'Shuriken Storm', every: 6, echo: true, pierce: 2 } }),
+    p5: step('Moonpiercer', 'kit', { rateMul: 1.06 }, { pierce: 1 }),
+    p6: step('Shuriken Storm', 'cap', { rateMul: 1.07 }, { proc: { name: 'Shuriken Storm', every: 8, echo: true } }),
   },
   // §5.2 Aoi, R marksman
   aoi: {
     p2: step('Dawn Practice', 'stat', { damageMul: 1.04 }),
-    p3: step('Through-Shot', 'kit', { rateMul: 1.04 }, { pierce: 1, armorPen: 1 }),
+    p3: step('Through-Shot', 'kit', { rateMul: 1.04 }, { armorPen: 1, crit: { chance: 0.03 } }),
     p4: step('Keen Fletching', 'kit', { damageMul: 1.04 }, { crit: { chance: 0.06 } }),
     p5: step('Twin Fletch', 'kit', { rateMul: 1.04 }, { proc: { name: 'Twin Fletch', every: 12, echo: true } }),
     p6: step('Hawk Companion', 'cap', { damageMul: 1.05 }, { proc: { every: 10, nova: { radius: 0, share: 1, volley: true } } }),
@@ -158,13 +159,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Petal Drizzle', 'kit', null, { aura: { rateMul: 1.03, critChance: 0.06 } }),
     p6: step('Blessing Wave', 'cap', null, { aura: { rateMul: 1.03 }, proc: { name: 'Blessing Wave', every: 3, auraBoost: { time: 3, rateMul: 1.15 } } }),
   },
-  // §5.9 Shiro, SR sniper (the free-wall knob: held boss ≤ ×1.75)
+  // §5.9 Shiro, SR sniper (the free-wall knob: held boss ≤ ×1.75). Her over-penetration rides on a
+  // rhythm (every 5th, then every 4th shot), so a crowd does not multiply every shot (B1 bench)
   shiro: {
     p2: step('Range Day', 'stat', { damageMul: 1.04 }),
     p3: step('Keen Scope', 'kit', { damageMul: 1.05 }, { statusAdd: [{ type: 'mark', bonus: 0.06, duration: 3 }] }),
     p4: step('Steady Breath', 'kit', { rateMul: 1.05 }, { crit: { chance: 0.05 } }),
-    p5: step('Silver Line', 'kit', { damageMul: 1.06 }, { pierce: 2, armorPen: 2 }),
-    p6: step('White Heron', 'cap', { rateMul: 1.07 }, { proc: { name: 'White Heron', every: 5, damageMul: 1.6, pierce: 6 } }),
+    p5: step('Silver Line', 'kit', { damageMul: 1.06 }, { armorPen: 2, proc: { name: 'Silver Line', every: 5, pierce: 2 } }),
+    p6: step('White Heron', 'cap', { rateMul: 1.07 }, { proc: { every: 4, damageMul: 1.5 } }),
   },
   // §5.10 Midori, SR alchemist
   midori: {
@@ -185,9 +187,9 @@ export const POTENTIAL_GIRLS = deepFreeze({
   // §5.12 Raika, SR chain
   raika: {
     p2: step('Drum Practice', 'stat', { damageMul: 1.04 }),
-    p3: step('Branching Bolt', 'kit', { rateMul: 1.05 }, { chain: 1, pierce: 1 }),
-    p4: step('Thunder Column', 'kit', { damageMul: 1.05 }, { proc: { name: 'Thunderhead', every: 6, nova: { radius: 0.9, share: 0.35 } } }),
-    p5: step('Thunderhead', 'kit', { rateMul: 1.06 }, { proc: { every: 5, nova: { radius: 1, share: 0.7 }, status: [S.stun(0.3)] } }),
+    p3: step('Branching Bolt', 'kit', { rateMul: 1.05 }, { chain: 1, armorPen: 1 }),
+    p4: step('Thunder Column', 'kit', { damageMul: 1.05 }, { proc: { name: 'Thunderhead', every: 6, nova: { radius: 0.9, share: 0.25 } } }),
+    p5: step('Thunderhead', 'kit', { rateMul: 1.06 }, { proc: { every: 5, nova: { radius: 0.8, share: 0.4 }, status: [S.stun(0.3)] } }),
     p6: step('Monsoon Drum', 'cap', { damageMul: 1.07 }, { chain: 1, proc: { every: 4, status: [S.soak(3)] } }),
   },
   // §5.13 Miko, SR enchanter (the aura track on her aura; her own talismans take the SR track)
@@ -209,17 +211,18 @@ export const POTENTIAL_GIRLS = deepFreeze({
   // §5.15 Hotaru, SSR exorcist (the whales' spectral-wall knob)
   hotaru: {
     p2: step('Firefly Lamps', 'kit', { damageMul: 1.05 }, { aura: { range: 2.6, dmgMul: 1.06 } }),
-    p3: step('Firefly Parade', 'kit', { rateMul: 1.07 }, { maxTargets: 4, statusAdd: [{ type: 'mark', bonus: 0.05, duration: 3 }] }),
+    p3: step('Firefly Parade', 'kit', { rateMul: 1.07 }, { maxTargets: 1, statusAdd: [{ type: 'mark', bonus: 0.05, duration: 3 }] }),
     p4: step('Lantern Rite', 'kit', { damageMul: 1.07 }, { classMul: { spectral: 1.2 }, statusAdd: [S.vulnerable(0.06, 3)] }),
     p5: step('Hundred Lanterns', 'kit', { rateMul: 1.08 }, { proc: { name: 'Hundred Lanterns', every: 4, range: 1, damageMul: 1.4, silence: 1 } }),
-    p6: step('Midnight Lanterns', 'cap', { damageMul: 1.09 }, { aura: { dmgMul: 1.06 }, proc: { every: 3, damageMul: 1.6, status: [S.vulnerable(0.08, 3)] } }),
+    p6: step('Midnight Lanterns', 'cap', { damageMul: 1.09 }, { aura: { dmgMul: 1.06 }, proc: { every: 3, damageMul: 1.8, status: [S.vulnerable(0.08, 3)] } }),
   },
-  // §5.16 Kaede, SSR duelist (the AoE rework PR owns her P5 row)
+  // §5.16 Kaede, SSR duelist (the AoE rework PR owns her P5 row; until then Maple Gale cuts only the
+  // enemies right beside her target, at her plain hit: towers.js attackDuel)
   kaede: {
     p2: step('Leaf Memory', 'kit', { damageMul: 1.05 }, { keepRamp: 0.5 }),
     p3: step('Breeze Step', 'kit', { rateMul: 1.07 }, { ramp: { per: 0.02 } }),
     p4: step('Scarlet Focus', 'kit', { damageMul: 1.07 }, { ramp: { max: 0.3 }, crit: { chance: 0.05 } }),
-    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { proc: { name: 'Maple Gale', every: 4, splash: 0.6 } }),
+    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { proc: { name: 'Maple Gale', every: 4, splash: 0.1 } }),
     p6: step('One Blade, One Foe', 'cap', { damageMul: 1.09 }, { bossMul: 1.2, proc: { every: 3, damageMul: 1.5 } }),
   },
   // §5.17 Chika, SSR engineer (turret.overclock merges in step order: P6 keeps P4's 6 s)

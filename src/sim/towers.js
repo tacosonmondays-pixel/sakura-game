@@ -396,6 +396,9 @@ export function topTargets(sim, x, y, reach, spec, mode, k, out, outS) {
 // purpose: set and read inside one synchronous attack, never across steps, so nothing to save.
 let lastFaced = null;
 let echoing = false;
+// The girl's own effective spec while one of her rhythm attacks runs with t.effProc (null otherwise):
+// a duel's splash victims take her plain hit, not the rhythm's harder one (attackDuel).
+let procBase = null;
 /** Fan offset (rad) of an echo's projectiles, alternating sides. */
 const ECHO_FAN = 0.18;
 
@@ -576,8 +579,11 @@ function attackDuel(sim, t) {
   sim._hit(tgt, t, spec, scale);
   t.rampStacks++;
   if (spec.splash > 0) {
+    // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
+    // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
+    const cut = procBase && spec === t.effProc ? procBase : spec;
     const near = sim.grid.query(tx, ty, spec.splash, []);
-    for (const e of near) if (e !== tgt && !e.dead && isEligible(e, spec)) sim._hit(e, t, spec, 1);
+    for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks });
   return true;
@@ -1155,9 +1161,15 @@ function attackWithProc(sim, t, fn, p) {
   if (due) {
     t.eff = t.effProc;
     lastFaced = null;
+    procBase = saved;
   }
   const used = t.eff;
-  const ok = fn(sim, t);
+  let ok;
+  try {
+    ok = fn(sim, t);
+  } finally {
+    procBase = null;
+  }
   if (t.eff === used) t.eff = saved;
   if (!ok) return false;
   t.potCount = n;

@@ -13,8 +13,8 @@ one place that says where Potential comes from). Each step is now bigger than th
 rarity's climbing track (R +4/+4/+4/+4/+5 %, SR +4/+5/+5/+6/+7 %, SSR and heroes +5/+7/+7/+8/+9 %; the two supports
 spend an aura track, Momo a coins track, Nami her own), spent on her own axis, and from P3 (from P2 for SSR girls
 and the three heroes) a kit step (✦) that amplifies what she is good at, up to a capstone at P6. Kage: all five
-stat steps are attack speed, +1 pierce at P3 and P5, Shadow Tempo (P4), 12 % more shuriken per throw (P5,
-Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 `resolveStats` hash `456:30217027`,
+stat steps are attack speed, 8 % more shuriken per throw and 1 more armor ignored (P3, Shadow Edge), Shadow Tempo
+(P4), +1 pierce (P5, Moonpiercer) and the Shuriken Storm every 8th throw (P6). P1 is bit-identical to before (the P1 `resolveStats` hash `456:30217027`,
 `START`, every campaign golden).
 
 **Stages (each committed on the branch).**
@@ -49,9 +49,36 @@ Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 
   Potential (✦ N new tricks)" chip opens them again. The first-gain tip and the recruit rules / wiki rule
   (`potentialDupesRule`, one place) drop "small passives".
 - **Battle panel** (`src/ui/battle/potentialRows.js`, drawn by `towerPanel.js`, refreshed every frame): the rhythm
-  pips ("Shuriken Storm ●●●○○○ every 6th"; a trap rhythm "every 4th trap"), Kage's tempo pips (6, "+4%"), her
-  shuriken per throw ("2 → 2.24 / throw"; Thousand Shadows "13 → 14.56") and Chika's drone overclock ("Throttle
+  pips ("Shuriken Storm ●●●○○○○○ every 8th"; a trap rhythm "every 4th trap"), Kage's tempo pips (6, "+4%"), her
+  shuriken per throw ("2 → 2.16 / throw"; Thousand Shadows "13 → 14.04") and Chika's drone overclock ("Throttle
   Up in 14 s", "+75% · 4 s left"). An ally's girl shows her owner's counts; a P1 girl has no rows.
+
+**Gates B1 / B5 (measured, `tools/potentialBench.mjs`, seeds 9 / 21).** One girl on 4-5's best-covered spot,
+strong stats, P1…P6 on the seven reference builds (0-0-0; x-0-2, 2-x-0, 2-0-x at 4 and at 5), against a crowd (an
+immortal Orc Grunt every 0.1 s) and a held elite; E = √(crowd × held), the median over her builds. Six ladders sat
+above their band or had a spike, mostly pierce and splash that multiplied every shot in a crowd. They are re-priced
+with spec §9.4's knobs, and every step's `power` (`potentialText`) is now the bench's median step:
+
+| Girl | E P6/P1 before → after (band) | What changed |
+|---|---|---|
+| Shiro | ×3.29 → ×1.84 (1.72–1.95) | Silver Line (P5): 2 more armor ignored on every shot, +2 pierce only on every 5th (a Silver Line round); White Heron (P6): every 4th shot, 50 % harder, no extra pierce |
+| Kaede | ×4.63 → ×2.25 (2.1–2.45) | Maple Gale (P5) cuts within 0.1 tiles (was 0.6), at her plain damage: One Foe's +50 % lands on her target only (`towers.js` `procBase`) |
+| Kage | ×2.45 → ×1.93 (1.72–1.95) | P3 8 % more shuriken + 1 armor (was +1 pierce), P5 +1 pierce (was pierce + 12 % shuriken), the Storm every 8th throw (was 6th, with +2 pierce) |
+| Raika | ×2.29 → ×1.90 (1.72–1.95) | P3 1 armor instead of the lance's pierce; the column 25 % (was 35 %), Thunderhead 40 % within 0.8 tiles (was 70 % within 1) |
+| Hotaru | ×2.11 → ×2.02 (1.85–2.15) | Firefly Parade +1 target (was +4, the P3 spike); Midnight Lanterns 80 % harder (was 60 %) |
+| Aoi | ×1.57 → ×1.52 (1.5–1.68) | Through-Shot (P3): +3 % crit instead of the pierce (the P3 spike) |
+
+B5 for the six: Power against the bench Shiro 0 %, Aoi −1 %, Kaede +8 %, Kage −1 %, Raika −4 %, Hotaru +2 % (±10 %).
+Left as measured (bench limits, not ladder faults): Kaede's and Hotaru's P2 (a kept focus and an aura for others,
+which one girl against immortal targets cannot show), Shiro's P4 on the Execution builds (their crit is already
+high), Akane P3, Sango P3 / P5 and Chika P3 / P6 just outside ±30 % of the slot while in band, Rei's spread 1.36,
+Yuki (frost is control), Suzu (trap placement) and Midori (%-HP poison on immortal targets). B6 re-measured for the
+six: v3 ≥ v1 on every row (lowest ×1.016); the campaign is unchanged (P1 Easy 40/40, Normal 39/40; F2P and P6 win
+every stage P1 wins). Kage's battle panel at P6 L85 inside Miko 5 + Umeko 5, full tempo: MAXED 53.0k, best gold
+69.3k, UR 83.9k (spec §8.1's 57.0 / 74.6 / 90.3k were the old ladder). Co-op sim id `bfd51a8d8cc4`,
+`COOP_PROTOCOL` still 5; `POTENTIAL_START` and `POTENTIAL_BOSS_START` re-pinned (the scripted player now waits for
+a placement in flight before it queues an upgrade). Bench: `node --import ./tools/simLoader.mjs
+tools/potentialBench.mjs --girls kage,shiro --out b1.jsonl`, then `node tools/potentialBench.mjs --report b1.jsonl`.
 
 **Migration from v1 (v3 §12, v2 §8).** No `SAVE_VERSION` bump; `dupes`, the shadow and the backfill are untouched,
 so every girl keeps her P and fights with the v3 steps of it at once.
@@ -140,7 +167,7 @@ a P1 girl without rows, in a real battle), `tests/battle-ui/snapshot.test.js` (`
 **Not built here (next stages):** the clan-boss constant (gate CB: needs P6 L85 UR rows, UR gear is the next
 build); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
 volleys) and the crown ring on the field (render, v2 §7.8); the Sandbox P1–P6 picker (v2 §7.7); the §13.1
-measurement gates (B1–B8, T1, H1, C1, K1, F1–F6, P1, CB, E1) on the integrated train C tree.
+measurement gates not run above (B2–B4, B7, B8, T1, H1, C1, F2–F6, P1, CB, E1) on the integrated train C tree.
 
 ---
 

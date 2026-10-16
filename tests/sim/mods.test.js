@@ -222,29 +222,49 @@ describe('Potential in resolveStats', () => {
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
-  test('Kage P6: speed × the SR track, pierce 2 → 4, +1 armor ignored, 12 % more shuriken, tempo, the Storm every 6th throw', () => {
+  test('Kage P6: speed × the SR track, 8 % more shuriken and +1 armor ignored (P3), tempo, pierce 2 → 3 (P5), the Storm every 8th throw', () => {
     const p1 = resolveStats(REAL.kage, { unitStats: { potential: 1 } });
     const p6 = resolveStats(REAL.kage, { unitStats: { potential: 6 } });
     expect(p6.rate).toBeCloseTo(p1.rate * 1.04 * 1.05 * 1.05 * 1.06 * 1.07, 12);
     expect(p6.damage).toBe(p1.damage);
-    expect([p1.pierce, p6.pierce]).toEqual([2, 4]);
+    expect([p1.pierce, p6.pierce]).toEqual([2, 3]);
+    expect(resolveStats(REAL.kage, { unitStats: { potential: 4 } }).pierce).toBe(2);
     expect(p6.armorPen).toBe(p1.armorPen + 1);
-    expect(p6.projScale).toBe(0.12);
+    expect(p6.projScale).toBe(0.08);
+    expect(resolveStats(REAL.kage, { unitStats: { potential: 3 } }).projScale).toBe(0.08);
     expect(p6.tempo).toEqual({ per: 0.01, max: 0.06, idle: 1 });
-    expect(p6.proc).toEqual({ name: 'Shuriken Storm', every: 6, of: 'attack', status: [], echo: true, pierce: 2 });
-    // Thousand Shadows (5-2-0): pierce 5 → 7
-    expect(resolveStats(REAL.kage, { tiers: [5, 2, 0], unitStats: { potential: 6 } }).pierce).toBe(resolveStats(REAL.kage, { tiers: [5, 2, 0] }).pierce + 2);
+    expect(p6.proc).toEqual({ name: 'Shuriken Storm', every: 8, of: 'attack', status: [], echo: true });
+    // Thousand Shadows (5-2-0): pierce 5 → 6
+    expect(resolveStats(REAL.kage, { tiers: [5, 2, 0], unitStats: { potential: 6 } }).pierce).toBe(resolveStats(REAL.kage, { tiers: [5, 2, 0] }).pierce + 1);
   });
 
-  test('Aoi P6: damage ×1.04×1.04×1.05, rate ×1.04², pierce +1, crit +6 %, Twin Fletch every 10th with the hawk', () => {
+  test('Shiro P6: Silver Line every 4th shot (pierce +2) as a White Heron round ×1.5; her other shots never pierce more', () => {
+    const p1 = resolveStats(REAL.shiro, { unitStats: { potential: 1 } });
+    const p5 = resolveStats(REAL.shiro, { unitStats: { potential: 5 } });
+    const p6 = resolveStats(REAL.shiro, { unitStats: { potential: 6 } });
+    expect([p5.pierce, p6.pierce]).toEqual([p1.pierce, p1.pierce]);
+    expect(p6.armorPen).toBe(p1.armorPen + 2);
+    expect(p5.proc).toEqual({ name: 'Silver Line', every: 5, of: 'attack', status: [], pierce: 2 });
+    expect(p6.proc).toEqual({ name: 'Silver Line', every: 4, of: 'attack', status: [], pierce: 2, damageMul: 1.5 });
+  });
+
+  test('Kaede P6: Maple Gale every 3rd strike ×1.5, its cut 0.1 tiles around her target', () => {
+    const p6 = resolveStats(REAL.kaede, { unitStats: { potential: 6 } });
+    expect(p6.proc).toEqual({ name: 'Maple Gale', every: 3, of: 'attack', status: [], splash: 0.1, damageMul: 1.5 });
+    expect(p6.bossMul).toBeCloseTo(resolveStats(REAL.kaede).bossMul * 1.2, 12);
+  });
+
+  test('Aoi P6: damage ×1.04×1.04×1.05, rate ×1.04², +1 armor ignored, crit +3 % +6 %, Twin Fletch every 10th with the hawk', () => {
     const p1 = resolveStats(REAL.aoi, { unitStats: { potential: 1 } });
     const p6 = resolveStats(REAL.aoi, { unitStats: { potential: 6 } });
     expect(p6.damage).toBeCloseTo(p1.damage * 1.04 * 1.04 * 1.05, 12);
     expect(p6.rate).toBeCloseTo(p1.rate * 1.04 * 1.04, 12);
     expect(p6.range).toBe(p1.range);
-    expect(p6.crit.chance).toBeCloseTo(p1.crit.chance + 0.06, 12);
+    expect(p6.crit.chance).toBeCloseTo(p1.crit.chance + 0.03 + 0.06, 12);
+    expect([p1.pierce, p6.pierce]).toEqual([1, 1]);
+    expect(p6.armorPen).toBe(p1.armorPen + 1);
     expect(p6.proc).toMatchObject({ name: 'Twin Fletch', every: 10, echo: true, nova: { radius: 0, share: 1, volley: true } });
-    expect(resolveStats(REAL.aoi, { unitStats: { potential: 3 } }).crit.chance).toBe(p1.crit.chance);
+    expect(resolveStats(REAL.aoi, { unitStats: { potential: 3 } }).crit.chance).toBeCloseTo(p1.crit.chance + 0.03, 12);
   });
 
   test('Potential multiplies on top of level and gear (one product with damageMul)', () => {
@@ -300,10 +320,10 @@ describe('Potential in resolveStats', () => {
     expect([u6.armorPen, u6.critChance]).toEqual([1, 0.06]);
   });
 
-  test('Hotaru: holy ×1.2 vs spectral, 4 more targets, a firefly aura; Kaede: kept focus, +2 % focus, +30 points cap, bosses ×1.2; heroes\' ultimates', () => {
+  test('Hotaru: holy ×1.2 vs spectral, 1 more target, a firefly aura; Kaede: kept focus, +2 % focus, +30 points cap, bosses ×1.2; heroes\' ultimates', () => {
     const d = (id, p, f, more = {}) => f(resolveStats(REAL[id], { unitStats: { potential: p }, ...more }));
     expect(d('hotaru', 6, (s) => s.classMul)).toEqual({ spectral: 1.2 });
-    expect(d('hotaru', 6, (s) => s.maxTargets) - d('hotaru', 2, (s) => s.maxTargets)).toBe(4);
+    expect(d('hotaru', 6, (s) => s.maxTargets) - d('hotaru', 2, (s) => s.maxTargets)).toBe(1);
     expect(d('hotaru', 6, (s) => s.aura)).toMatchObject({ range: 2.6 });
     expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(1.06 * 1.06, 12);
     expect(d('kaede', 6, (s) => s.keepRamp)).toBe(0.5);

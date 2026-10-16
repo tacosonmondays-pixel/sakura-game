@@ -39,18 +39,18 @@ function battle() {
 }
 
 describe('battle panel: Potential rows', () => {
-  it('Kage P6: storm pips (every 6th), tempo pips (6), shuriken per throw with the carry; Aoi P1: none', () => {
+  it('Kage P6: storm pips (every 8th), tempo pips (6), shuriken per throw with the carry; Aoi P1: none', () => {
     const { sim, kage, aoi } = battle();
     expect(kage && aoi).toBeTruthy();
     const st0 = sim.towerStats(kage.uid);
     const rows0 = potentialRows(kage, st0);
     expect(rows0.map((r) => r.key)).toEqual(['rhythm', 'tempo', 'shots']);
-    expect(rows0[0]).toMatchObject({ name: 'Shuriken Storm', every: 6, count: 0, of: 'attack' });
+    expect(rows0[0]).toMatchObject({ name: 'Shuriken Storm', every: 8, count: 0, of: 'attack' });
     expect(rows0[1]).toMatchObject({ name: 'Shadow Tempo', stacks: 0, max: 6, bonus: 0 });
     expect(rows0[2]).toMatchObject({ label: 'Shuriken', base: st0.projectiles });
-    expect(rows0[2].avg).toBeCloseTo(st0.projectiles * 1.12, 12);
-    expect(potentialRowText(rows0[0])).toBe('every 6th');
-    expect(potentialRowText(rows0[2])).toBe(`${st0.projectiles} → ${+(st0.projectiles * 1.12).toFixed(2)} / throw`);
+    expect(rows0[2].avg).toBeCloseTo(st0.projectiles * 1.08, 12);
+    expect(potentialRowText(rows0[0])).toBe('every 8th');
+    expect(potentialRowText(rows0[2])).toBe(`${st0.projectiles} → ${+(st0.projectiles * 1.08).toFixed(2)} / throw`);
     expect(potentialRows(aoi, sim.towerStats(aoi.uid))).toEqual([]);
 
     // (a moment inside an unbroken run: tempo fades after 1 s without a throw)
@@ -58,7 +58,7 @@ describe('battle panel: Potential rows', () => {
     const st = sim.towerStats(kage.uid);
     const rows = potentialRows(kage, st);
     // the pips are her throws since the last storm; the tempo pips her unbroken run
-    expect(rows[0].count).toBe(kage.potCount % 6);
+    expect(rows[0].count).toBe(kage.potCount % 8);
     expect(rows[1].stacks).toBe(kage.tempoStacks);
     expect(rows[1].stacks).toBeGreaterThan(0);
     expect(rows[1].stacks).toBeLessThanOrEqual(6);

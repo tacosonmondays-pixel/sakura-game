@@ -440,9 +440,9 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     for (const t of mine) {
       const p1 = ref.towers.find((x) => x.uid === t.uid);
       expect(t.unitStats.potential).toBe(6);
-      // Aoi's v3 ladder: damage ×1.04×1.04×1.05, +6 % crit, her rhythm
+      // Aoi's v3 ladder: damage ×1.04×1.04×1.05, +3 % and +6 % crit, her rhythm
       expect(t.stats.damage).toBeCloseTo(p1.stats.damage * 1.04 * 1.04 * 1.05, 9);
-      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.06, 9);
+      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.03 + 0.06, 9);
       expect(t.stats.proc?.name).toBe('Twin Fletch');
     }
     for (const t of sim.towers.filter((x) => x.def.id !== 'aoi')) expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);

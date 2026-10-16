@@ -219,7 +219,7 @@ try {
     check(sec.tab === 'tab-info' && sec.hash.includes('focus=potential') && sec.inView, `${tag} Aoi's page: the pill opens the Info tab with the Potential section in view (${sec.tab}, ${sec.hash})`);
     check(sec.on.join() === 'true,true,true,true,false,false' && sec.next[4] === true, `${tag} Aoi's page: nodes P1–P4 on, P5 next (${sec.on.join()})`);
     // Potential v3 (docs/specs/POTENTIAL.md v3 §5.2): her node labels and capstone
-    check(sec.labels.join('|') === 'Base|+4% DMG|PIERCE+1|CRIT+6%|TWIN 1/12|HAWK', `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
+    check(sec.labels.join('|') === 'Base|+4% DMG|PEN+CRIT|CRIT+6%|TWIN 1/12|HAWK', `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
     check(sec.kit.join() === 'false,false,true,true,true,true' && sec.crownNode, `${tag} Aoi's page: ✦ on her kit nodes (P3–P6), the crown on P6`);
     // the stat line under each node: her R track (and her level cap, once Potential raises it)
     const caps = await page.evaluate(async () => { const m = await import('/src/systems/progression.js'); return [1, 2, 3, 4, 5, 6].map((p) => m.potentialLevelCap(p)); });
@@ -442,11 +442,11 @@ try {
       const row = (k) => { const e = p.querySelector(`[data-testid="pot-${k}"]`); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length, on: e.querySelectorAll('.bt-pot-pip.on').length, text: e.querySelector('small')?.textContent, fits: e.scrollWidth <= e.clientWidth + 1 } : null; };
       const t = window.__battle.sim.towers.find((x) => x.uid === uid);
       const nm = p.querySelector('.bt-panel-nm');
-      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: t.potCount % 6, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1 };
+      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: t.potCount % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1 };
     }, placed.kage);
-    check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 6 && kp.rhythm.text === 'every 6th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
+    check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 8 && kp.rhythm.text === 'every 8th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
     check(kp.tempo?.name === 'Shadow Tempo' && kp.tempo.pips === 6 && kp.tempo.on === kp.stacks && kp.tempo.text === `+${kp.stacks}%`, `${tag} battle: Kage's tempo pips ${JSON.stringify(kp.tempo)} (stacks ${kp.stacks})`);
-    check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.12).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);
+    check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.08).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);
     check(kp.pill === 'P6' && kp.crown && [kp.rhythm, kp.tempo, kp.shots].every((r) => r?.fits), `${tag} battle: Kage's P6 pill wears the crown, the rows fit the panel`);
     check(kp.nameFull, `${tag} battle: "Kage" is not cut short beside 0-0-0 and the crowned P6 pill`);
     await shot(page, `battle-kage-p6-${tag}`);
