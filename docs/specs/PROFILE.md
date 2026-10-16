@@ -253,7 +253,7 @@ Opened from "Edit profile" in the top bar (`mock/shots/*-editp.png`). Left nav s
 | **Other, shown** | `profileWhy === null` | Full visitor view |
 | **Other, private** | `'private'` (their setting excludes you, **or they blocked you**: the same answer) | Basic card (picture, name, level, clan) + "This Sensei keeps their profile private." + actions per `player_card` |
 | **Other, you blocked them** | `'blocked_by_me'` | Basic card + "You blocked this Sensei." + Unblock (social's existing unblock) |
-| **Other, no profile yet** | `'none'` | Basic card + "<Name> hasn't set up a profile yet." |
+| **Other, no profile yet** | `'none'` (or a row with no card: `{ v: 1 }` only) | A basic profile from `player_card`: picture, name, tag chips, level, clan, "Sensei since", last active (when the card shows it), the visit's top-bar actions (Message · Co-op · friend · ⋯ Invite / Block / Report) + "Their girls and medals show up here after they open the game again." Private and blocked keep their own screens. |
 | **Other, needs update / offline** | status | "Profiles need the latest server update" (Retry → `recheckProfile`) / the offline pill |
 | **Other, gone** | `not_found` from `player_card` | "This Sensei couldn't be found." + Back |
 | **Other, rate limited** | `rate_limited` ('card' 120/h) | "Too many profiles opened, try again in a bit." |
@@ -662,7 +662,7 @@ These ceilings sit a little above today's game, so new girls, outfits, titles, b
 
   | Trigger | Reason | Throttle |
   |---|---|---|
-  | End of `ensureOnline()` (`src/ui/online/common.js`) | `online` | 10 min unless dirty |
+  | End of `ensureOnline()` (`src/ui/online/common.js`); the boot reaches it for every player with an account (a stored name, or a kept sign-in after "Not now": `src/main.js` → `startSocialHub`), so no one has to open Profile | `online` | 10 min unless dirty |
   | Social hub refresh tick | `tick` | 10 min |
   | Opening your own profile | `online` | 10 min unless dirty |
   | Edit Showcase / Edit Profile save | `edit` | none (the server's 1/s still applies) |

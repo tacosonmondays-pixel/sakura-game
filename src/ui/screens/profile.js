@@ -2,7 +2,8 @@
 // Your own profile works offline: every part of it comes from the save; online it adds your clan chip, "Sensei
 // since" and the server's word on your bio, and publishes your card (src/online/profileSync.js). Someone else's
 // profile comes from the server (profile_view) and shows every state of §1.11: shown, private (their setting or
-// a block: the same answer), blocked by me, no profile yet, needs the server update, offline, gone, too many.
+// a block: the same answer), blocked by me, needs the server update, offline, gone, too many. No card yet (their
+// game hasn't published one: they haven't opened this version since) shows a basic profile from the player card.
 //
 // Left: the favorite girl's stand. Right (scrolls): banner, picture + frame, name, level, title, bio,
 // stats; the 8-girl showcase (tap = Edit Showcase, hold = her build); Medals & Ribbons with 4 pins;
@@ -30,6 +31,7 @@ import { urBadge } from '../rarity.js';
 import { storedName, askName, ensureOnline } from '../online/common.js';
 import { getBackend } from '../../online/backend.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
+import { presenceText } from '../../online/socialRules.js';
 import { ownOnline, onOwnOnline, refreshOwnOnline, sinceText } from '../profile/online.js';
 import { playerActions } from '../online/playerActions.js';
 import { tagChips } from '../online/tagChip.js';
@@ -354,8 +356,11 @@ const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r)
 const WHY_TEXT = {
   private: () => 'This Sensei keeps their profile private.',
   blocked_by_me: () => 'You blocked this Sensei.',
-  none: (name) => `${name} hasn't set up a profile yet.`,
 };
+export const BASIC_NOTE = 'Their girls and medals show up here after they open the game again.';
+
+/** A card their game published (a row made only by a bio or a privacy change holds just { v: 1 }). */
+const hasCard = (card) => !!card && typeof card === 'object' && Object.keys(card).some((k) => k !== 'v');
 
 function renderVisit(root, userId) {
   let disposed = false;
@@ -387,6 +392,32 @@ function renderVisit(root, userId) {
       buttons.length ? h('div.pf-basic-acts', buttons) : null);
     host.replaceChildren(h('div.screen.pf.pf-visit-state', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
       h('div.pf-banner', bannerArt('academy:day')), topBar({ title }), card));
+  }
+
+  /**
+   * No card yet ('none': their game hasn't published one): a basic profile from what the player card already
+   * shows (name, level, picture, tags, clan, "Sensei since", last active) with the visit's usual actions.
+   * Private and blocked keep their own screens: the server only answers 'none' when neither applies.
+   */
+  function basicScreen(view, who, bio = '') {
+    closeSheet();
+    clearDetach();
+    const { why, top } = visitActs(view);
+    const seen = presenceText(view.lastActive || 0);
+    const card = h('section.pf-empty-card.pf-basic-card', { 'data-testid': 'profile-basic' },
+      h('div.pf-basic',
+        avatarEl(who.avatar, null),
+        h('div.pf-basic-who',
+          h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), tagChips(userId, { all: true, size: 'lg' }), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
+          h('div.pf-tags',
+            who.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', who.clan.tag), who.clan.name) : null,
+            who.since ? h('span.pf-since', { 'data-testid': 'profile-since' }, sinceText(who.since)) : null,
+            seen ? h(`span.pf-since.pf-seen${seen === 'Online' ? '.on' : ''}`, { 'data-testid': 'profile-last-active' }, seen) : null))),
+      bio ? h('div.pf-bio', { 'data-testid': 'profile-bio' }, bio) : null,
+      h('p.pf-basic-note', { 'data-testid': 'profile-basic-note' }, ico('info'), BASIC_NOTE),
+      why);
+    host.replaceChildren(h('div.screen.pf.pf-visit-state.pf-visit-basic', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
+      h('div.pf-banner', bannerArt('academy:day')), topBar({ title: `${view.name}'s Profile`, acts: top }), card));
   }
 
   const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading…', testid: 'profile-loading' }); how().finally(load); } });
@@ -468,6 +499,10 @@ function renderVisit(root, userId) {
     }
     if (stale()) return;
     const who = { name: view.name, level: view.level, avatar: view.avatar, clan: view.clan || null, since: view.since || null };
+    if (view.profileWhy === 'none' || (!view.profileWhy && view.profile && !hasCard(view.profile.card))) {
+      basicScreen(view, who, view.profile?.bio || '');
+      return;
+    }
     if (view.profileWhy || !view.profile) {
       const { a } = visitActs(view);
       const text = (WHY_TEXT[view.profileWhy] || WHY_TEXT.private)(view.name);

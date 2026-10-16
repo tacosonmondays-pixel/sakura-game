@@ -8,6 +8,8 @@
 // plus: a bio renders as text, the old build drops the block and the picks come back, a reset gives
 // the auto showcase again, Reduce Motion stops every infinite animation, no horizontal overflow.
 // M2, visiting (two players with the local adapter, ?online=local: two pages share the local "server"):
+//   6b. every card goes up on its own (B never opens Profile; C taps "Not now" on the name and only reboots);
+//      a Sensei with no card yet shows a basic profile (name, chips, level, clan, since, last active, actions)
 //   7. A writes a bio (a link is refused inline), B opens A's profile from a player card: bio, favorite,
 //      8 girls, medals, clan chip; holding girl 1 shows A's build (A's level, owner chip)
 //   8. A picks Only me → private for B; Everyone again, then B blocks A → the same private screen
@@ -182,7 +184,7 @@ async function runViewport(vp) {
     favImg: !!document.querySelector('[data-testid="profile-fav"] img.pt-cut'),
     slots: document.querySelectorAll('[data-testid="profile-slot"]').length,
     auto: document.querySelector('[data-testid="profile-showcase"]')?.dataset.auto,
-    medals: [...document.querySelectorAll('.pf-tc b')].map((b) => b.textContent),
+    medals: [...document.querySelectorAll('.pf-tc[data-diff] b')].map((b) => b.textContent),
     pins: document.querySelectorAll('[data-testid="profile-plaque"]').length,
     fp: [...document.querySelectorAll('.pf-fp-wave b')].map((b) => b.textContent),
     hold: document.querySelector('[data-testid="profile"]')?.dataset.holdInfo,
@@ -319,7 +321,7 @@ async function runViewport(vp) {
   await page.waitForSelector('[data-testid="pin-picker"]', { state: 'detached', timeout: 4000 }).catch(() => {});
   const s4b = await sensei();
   check(s4b.pins.length === 2 && s4b.pins[1].startsWith('ach:'), `2 pins saved, a medal and an achievement (${s4b.pins.join(', ')})`);
-  check(await page.evaluate(() => document.querySelectorAll('[data-testid="profile-plaque"]').length) === 2, 'the shelf shows the 2 pins');
+  check(await page.waitForFunction(() => document.querySelectorAll('[data-testid="profile-plaque"]').length === 2, null, { timeout: 4000, polling: 100 }).then(() => true).catch(() => false), 'the shelf shows the 2 pins');
   await shot('own-picked');
   noErrors('edit profile + pins');
 
@@ -562,6 +564,70 @@ async function runVisit(vp) {
   await wait(B, '[data-testid="clan-home"]', { timeout: 10000 });
   const [uidA, uidB] = await Promise.all([A, B].map((p) => p.evaluate(() => window.__online.uid)));
   check(uidA && uidB && uidA !== uidB, 'visiting: two tabs are two players in one clan');
+
+  // ---- 6b. cards go up on their own (nobody opens Profile); before a card exists, a basic profile
+  log('-- 6b. auto-published cards; the basic profile of a Sensei with no card yet');
+  const cardOf = (page, uid) => page.waitForFunction((u) => {
+    const c = JSON.parse(localStorage.getItem('ss-online-db') || '{}').profileCards?.[u]?.card;
+    return !!c && Object.keys(c).some((k) => k !== 'v');
+  }, uid, { timeout: 15000, polling: 300 }).then(() => true).catch(() => false);
+  const dropCard = (page, uid) => page.evaluate((u) => {
+    const st = JSON.parse(localStorage.getItem('ss-online-db'));
+    if (st.profileCards) delete st.profileCards[u];
+    localStorage.setItem('ss-online-db', JSON.stringify(st));
+  }, uid);
+  const dropReloadNoise = () => { for (let i = errors.length - 1; i >= 0; i--) if (/GLTFLoader: Couldn't load texture blob:/.test(errors[i])) errors.splice(i, 1); };
+  check(await cardOf(B, uidB), 'auto-publish: B\'s card is on the server, B never opened Profile');
+  // B's game hasn't published a card (an older build, a sync that never ran): A sees a basic profile
+  await dropCard(B, uidB);
+  await go(A, `#/profile/${uidB}`);
+  const basic = await has(A, '[data-testid="profile-basic"]', 15000);
+  const bv = await A.evaluate(() => {
+    const q = (s) => document.querySelector(`[data-testid="profile-basic"] [data-testid="${s}"]`)?.textContent || '';
+    return {
+      name: q('profile-name'), clan: q('profile-clan'), since: q('profile-since'), seen: q('profile-last-active'), note: q('profile-basic-note'),
+      chips: document.querySelector('[data-testid="profile-basic"] [data-testid="tag-chips"]')?.dataset.tags || '',
+      acts: ['card-message', 'card-coop', 'profile-more'].every((t) => document.querySelector(`.pf-top [data-testid="${t}"]`)),
+      friend: !!document.querySelector('.pf-friend-top [data-testid="card-add-friend"]'),
+      old: !!document.querySelector('[data-testid="profile-why-none"]') || /hasn't set up a profile/.test(document.body.innerText),
+      slots: document.querySelectorAll('[data-testid="profile-slot"]').length,
+    };
+  });
+  check(basic && bv.name === 'Bea' && !bv.old && !bv.slots, `no card yet: a basic profile, not the old dead end (${bv.name}, old ${bv.old}, ${bv.slots} girls)`);
+  check(/PS/.test(bv.clan) && /^Sensei since [A-Z][a-z]{2} \d{4}$/.test(bv.since) && /Online|Active/.test(bv.seen), `basic profile: clan, "Sensei since", last active (${bv.clan} · ${bv.since} · ${bv.seen})`);
+  check(await A.waitForFunction(() => document.querySelector('[data-testid="profile-basic"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha', null, { timeout: 10000, polling: 200 }).then(() => true).catch(() => false), 'basic profile: the ALPHA chip next to the name');
+  check(/Their girls and medals show up here after they open the game again\./.test(bv.note) && bv.acts && bv.friend, `basic profile: the friendly line, Message · Co-op · Add friend · More (${bv.note})`);
+  await noOverflow(A, 'basic profile');
+  await shot(A, 'visit-basic');
+  await tap(A, '[data-testid="profile-more"]');
+  await wait(A, '[data-testid="profile-more-sheet"]', { timeout: 6000 });
+  check(await A.evaluate(() => ['card-block', 'card-report'].every((t) => document.querySelector(`[data-testid="profile-more-sheet"] [data-testid="${t}"]`))), 'basic profile: the ⋯ sheet holds Block and Report');
+  await A.keyboard.press('Escape').catch(() => {});
+  await clearModals(A);
+  // B opens the game again (a reboot, no online screen): the card goes up, A sees the full profile
+  await go(B, '#/lobby');
+  await B.reload({ waitUntil: 'load' });
+  dropReloadNoise();
+  await gift(B);
+  check(await cardOf(B, uidB), 'auto-publish at boot: B\'s card is back after a reboot on the lobby');
+  await A.reload({ waitUntil: 'load' });
+  dropReloadNoise();
+  check(await has(A, '[data-testid="profile-slot"]', 15000) && !(await A.locator('[data-testid="profile-basic"]').count()), 'after B opened the game again: A sees B\'s full profile');
+  // C taps "Not now" on the name (an automatic name, a kept sign-in): the boot still brings them online
+  const C = await openPage('C');
+  await C.goto(`${vbase}#/clan`, { waitUntil: 'load' });
+  await wait(C, '[data-testid="name-later"]', { timeout: 20000 });
+  await tap(C, '[data-testid="name-later"]');
+  await gift(C);
+  const uidC = await C.waitForFunction(() => window.__online?.uid, null, { timeout: 15000, polling: 200 }).then((x) => x.jsonValue()).catch(() => null);
+  check(!!uidC && await cardOf(C, uidC), 'auto-publish: "Not now" on the name still publishes C\'s card');
+  await dropCard(C, uidC);
+  await go(C, '#/lobby');
+  await C.reload({ waitUntil: 'load' });
+  dropReloadNoise();
+  check(await cardOf(C, uidC), 'auto-publish at boot: C (no name, a kept sign-in) gets a card back without any online screen');
+  await C.close();
+  noErrors('auto-publish + basic profile');
 
   // ---- 7. A's own profile goes online: the clan chip, "Sensei since", the card published
   log('-- 7. A writes a bio; B visits A from a player card');

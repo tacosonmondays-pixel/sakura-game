@@ -254,6 +254,17 @@
 .pf-basic-who { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .pf-basic-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
 .pf-basic-acts .sc-card-why, .pf-basic-acts .sc-card-friend { flex-basis: 100%; text-align: center; }
+/* the basic profile (no card published yet): the player card's facts, the visit's actions in the top bar */
+.pf-visit-basic .pf-empty-card { max-width: 560px; padding: 16px 20px 16px; align-items: stretch; text-align: left; gap: 10px; }
+.pf-basic-card .pf-ava { width: 88px; height: 88px; margin-top: 0; flex: none; }
+.pf-basic-card .pf-name { font-size: 1.6rem; }
+.pf-basic-card .pf-tags { margin-top: 2px; gap: 6px; }
+.pf-basic-card .pf-bio { margin-top: 0; }
+.pf-seen.on { color: var(--good); }
+.pf-seen.on::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 4px; vertical-align: 1px; }
+.pf-empty-card p.pf-basic-note { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: #f3f7ff; border: 1px dashed #c9dbf5; color: var(--navy); font-size: 0.84rem; }
+.pf-basic-note .pf-ico { width: 18px; height: 18px; color: var(--blue); }
+.pf-basic-card .pf-visit-why { margin-top: 0; }
 .pf-clan { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; border-radius: 999px; background: #eef4ff; border: 1px solid #c9dbf5; color: var(--navy); font-size: 0.72rem; font-weight: 800; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .pf-clan i { font-style: normal; font-weight: 900; font-size: 0.64rem; letter-spacing: 0.04em; color: #fff; background: var(--blue); border-radius: 999px; padding: 1px 6px; }
 .pf-since { font-size: 0.72rem; font-weight: 800; color: var(--muted); white-space: nowrap; }
@@ -525,6 +536,9 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-clan, .pf-since { font-size: 0.64rem; }
   .pf-more { width: 30px; height: 30px; }
   .pf-visit-state .pf-empty-card { padding: 12px 14px; gap: 6px; }
+  .pf-basic-card .pf-ava { width: 64px; height: 64px; }
+  .pf-basic-card .pf-name { font-size: 1.25rem; }
+  .pf-empty-card p.pf-basic-note { font-size: 0.74rem; padding: 6px 10px; }
   .ep-warn, .ep-later { font-size: 0.66rem; padding: 5px 8px; }
   .ep-sec { margin-top: 8px; }
   .ep-chips button { font-size: 0.68rem; padding: 3px 9px; }
