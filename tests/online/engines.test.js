@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -20,6 +20,26 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // on her track; landing plan S12) together with its stage-HP pass
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
       .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3018:9657f4ba' });
+  }, 120000);
+
+  it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest) in sync', () => {
+    const r = runPotentialBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(['won', 'lost']).toContain(r.state);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    expect((r.towers.match(/:P/g) || []).length).toBe(11);
+    const [guest, host] = r.aoi.split(' | ');
+    expect(guest).not.toBe(host); // the same girl, two owners, two Potentials
+    expect(runPotentialBattle().final).toBe(r.final);
+    // pinned when Potential M1 landed (change only with a deliberate sim / data change, and say why).
+    // Re-pinned at the train-C Potential merge (was 28390 / '334/918' / 471369358 / '7d947497'):
+    // its line-up fields hero Luna (free, levelling on her track: hero rework), Chika (roaming
+    // drones: Chika rework) and the path-cap tier data. The same scenario with every girl at P1
+    // computes the identical battle on the train head before the merge and after it (28506 ticks,
+    // final 3253190631, hashes e88b2bb9): Potential's P1 changes nothing (landing plan §10 #9).
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
+      .toEqual({ ticks: 27433, state: 'won', wallets: '671/920', final: 87067914, hashes: '7bb1e107' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {

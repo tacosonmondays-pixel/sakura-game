@@ -18,6 +18,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { unitMini, howToGet, put, emptyState } from './backpack.js';
 import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { potentialLevel } from '../../systems/potential.js';
+import { potPill } from '../potential.js';
 
 const pickState = { kind: 'tower' };
 
@@ -56,6 +58,7 @@ function slotTile(unitId, onRemove, needCaps) {
     needCaps.length ? h('div.mb-fslot-caps', needCaps.map((c) => svgEl(capabilityIcon(c)))) : null,
     h('span.mb-fslot-x', '×'),
     ur ? h('span.mb-fslot-ur', urBadge()) : null,
+    st && potentialLevel(st) >= 2 ? h('span.mb-fslot-pot', { 'data-testid': 'fslot-pot' }, potPill(potentialLevel(st), { compact: true })) : null,
     h('div.mb-fslot-name', u.name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${st?.level || 1}`)));
   if (ur) applyUrFrame(el, u, store.profile);
   return el;

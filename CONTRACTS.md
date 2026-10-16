@@ -224,6 +224,27 @@ time in a wave, wave clears and damage dealt (in the enemy's base HP), all scale
 +1 % per 2,000 XP (≤ +25 %). Players buy the rest of a level with battle coins. One hero per player
 (co-op: two). Heroes cannot be sold; they can be moved.
 
+**Potential steps** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
+spec `docs/specs/POTENTIAL.md` §3). A duplicate raises a girl's Potential by 1 (P1 → P6); each step P2…P6 is
+one small passive:
+
+```js
+Step = { girl?: { damageMul?, rateMul?, rangeMul?, incomeMul? },   // whole-girl: multiply into unitStats like level and gear
+         mods?: ModSet /* only 'crit.chance','eliteMul','bossMul','aura.dmgMul','aura.rateMul','silence','ramp.max' */ }
+POTENTIAL_LADDERS = { dps, frag, hero, control, support, economy }  // P2..P5 by ROLES[role].category (heroes: 'hero')
+POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p6: { name, ...Step }, p2?..p5?: Step } }  // a row for EVERY unit (test)
+POTENTIAL_SIGNATURE_DEFAULT   // fixtures / dev only
+potentialSteps(def)           // [{ step: 2..6, name|null, girl|null, mods|null }]; def.potential (fixtures) wins
+potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+```
+
+Rules: every step is relative (no flat range, trap damage, coins or armor ignore: they are huge on a young girl
+and nothing at endgame); `splash`, status lists, `aura.range`, `crit.mul`, `projectiles`, `pierce`, `chain`,
+`maxTargets`, `trap.max`, `turret.max` are banned (a test enforces the allowlist); aura steps are +1 % team-wide;
+each step must change a stat her behaviour reads (effectiveness test); budget Π damage × Π speed ≤ 1.105,
+Π range ≤ 1.075, Π coins ≤ 1.06, crit Σ ≤ 0.05, elite / boss ≤ ×1.05, aura ≤ ×1.0201, silence ≤ 0.1 s,
+focus cap ≤ 0.05. A new girl (roster) adds her row in the same PR.
+
 ## 4. World — enemies, maps, stages (owner: world)
 
 ### `src/data/enemies.js`
@@ -501,16 +522,24 @@ again; a full set of saves is only replaced by the player's choice (stage prep �
 too (reason `'another-tab'`: the stale pill, §13). A record that cannot be kept is dropped alone with a one-time notice (`migrationDropsData`
 ignores it: no whole-save backup).
 
-### `src/systems/potential.js` (Potential M0: counting only; spec `docs/specs/POTENTIAL.md`)
+### `src/systems/potential.js` (Potential; spec `docs/specs/POTENTIAL.md`)
 
 ```js
 export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export { potentialSteps, potentialFold } from '../data/potential.js'
 export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
+export function dupesToNext(unitState), dupesToMax(unitState)
 export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
 export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
 export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
+export function describePotentialStep(step, def?)         // [{ short /*≤ 9 chars*/, long, who: 'self'|'allies'|'enemies' }] — THE describer
+export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, parts, short, long, active, next }]
+export function potentialSummary(def, p)                  // "+2% damage, +2% attack speed, +3% range" (active steps)
+export function potentialPowerFactor(def, p)              // Π damageMul × Π rateMul × √Π rangeMul (unitPower)
 ```
-Not read by any screen or by the sim yet (M1–M3). Not in the co-op graph.
+Not in the co-op graph (the sim reads `src/data/potential.js` through `mods.js`). Every screen, the wiki and the
+letter take their text from `describePotentialStep`. UI: `src/ui/potential.js` (`potPill`, `potentialSection`,
+`revealTag`) + `src/ui/styles/potential.css`.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -524,6 +553,8 @@ export function claimAllMail(profile, now?), unclaimedMailCount(profile, now?)
 export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < BETA_DEADLINE
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
+export function ensurePotentialLetter(profile, now?) // main.js + lobby: 'potential-arrived-1' once, only when seenIntro has
+  // 'potential-backfilled' and some girl is P2+; no rewards; lists every P2+ girl (12 names, then "and N more")
 // src/systems/gacha.js
 export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
@@ -545,8 +576,9 @@ export function awakenCost(unitId, star)         // star 1..5 -> [{id,count}] cr
 export function canAwaken(profile, unitId)
 export function awaken(profile, unitId)
 export function unitBattleStats(profile, unitId) // multipliers fed into the sim:
-  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken }
-export function unitPower(profile, unitId)       // single number for sorting/UI
+  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken, breakthrough,
+  //      potential /*1..6; the sim adds her Potential steps; travels in the co-op loadout, so an ally's girl fights at HER owner's P*/ }
+export function unitPower(profile, unitId)       // single number for sorting/UI; × potentialPowerFactor + 20 per Potential step
 ```
 
 Scaling is deliberately modest (heroes were too strong before): damage +1.8% per level after 1,
@@ -587,9 +619,9 @@ export function itemCount(profile, id)
 export const POOL                       // { R: unitId[], SR: [...], SSR: [...] }
 export function rollOnce(state /*profile.gacha*/, rng)  // -> { unitId, rarity } (updates pity)
 export function pull(profile, count /*1|10*/, rng, { useTickets = true } = {})
-  // -> { ok, error?, results: [{ unitId, rarity, isNew, fragments }], spent: {gems, tickets} }
+  // -> { ok, error?, results: [{ unitId, rarity, isNew, fragments, pity, potential, potentialUp }], spent: {gems, tickets} }
 export function canSpark(profile)        // recruitPoints >= GACHA.sparkCost
-export function spark(profile, unitId)   // exchange recruit points for an SSR
+export function spark(profile, unitId)   // exchange recruit points for an SSR; an owned one is a duplicate (+1 Potential, fragments)
 export function expectedSSRRate()        // for the rates screen (includes pity)
 ```
 
@@ -707,7 +739,11 @@ import { Sim } from './sim/Sim.js';
 const sim = new Sim({
   stageId,            // looks up stage + map from data
   difficulty,         // 'easy'|'normal'|'hard'|'nightmare'
-  loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...))
+  loadout: [{ unitId, stats }],   // towers allowed (stats = unitBattleStats(...)); stats.potential 1..6 adds her
+                                  // Potential steps in mods.js resolveStats: paths → hero levels, growth and Mastery →
+                                  // awaken passive →
+                                  // Potential ModSets → applyUnitStats(level/gear × Potential's whole-girl multipliers);
+                                  // income × incomeMul after upgrades. P1 / absent = bit-identical to no Potential.
   hero: { unitId, stats } | null,
   heroes: [{ unitId, stats } | null, …],  // co-op: one per player, by player index (instead of `hero`)
   seed,               // number

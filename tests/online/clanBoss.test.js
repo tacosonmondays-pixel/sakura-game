@@ -25,5 +25,18 @@ describe('clan boss caps fit the real battles', () => {
       expect(dealt).toBeGreaterThanOrEqual(boss.hitCap * 0.75);
       expect(r.time / Math.max(...(BATTLE.speeds || [1, 2, 3]))).toBeGreaterThanOrEqual(BOSS_FULL_RUN_SECONDS);
     }, 60000);
+
+    // Potential (src/data/potential.js): the same maxed team with every girl at P6 still fits the cap and
+    // still takes the full-run allowance
+    it(`${boss.id}: the same clear with every girl at Potential 6 stays under the cap and ≥ ${BOSS_FULL_RUN_SECONDS} s`, () => {
+      const P6 = { ...MAXED, potential: 6 };
+      const plan = autoPlan(boss.stageId, [...towers.slice(0, 14), hero].filter(Boolean));
+      const loadout = [...new Set(plan.filter((a) => a.action === 'place').map((a) => a.unitId))].filter((id) => id !== hero).map((unitId) => ({ unitId, stats: P6 }));
+      const r = runHeadless({ stageId: boss.stageId, difficulty: 'normal', plan, loadout, hero: hero ? { unitId: hero, stats: P6 } : null, seed: 1 });
+      const dealt = Object.values(r.sim.stats.damageByTower).reduce((a, b) => a + b, 0);
+      expect(r.won, `${boss.id} cleared`).toBe(true);
+      expect(dealt).toBeLessThanOrEqual(boss.hitCap);
+      expect(r.time / Math.max(...(BATTLE.speeds || [1, 2, 3]))).toBeGreaterThanOrEqual(BOSS_FULL_RUN_SECONDS);
+    }, 60000);
   }
 });

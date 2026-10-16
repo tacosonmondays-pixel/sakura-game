@@ -62,6 +62,97 @@ M0 is built: counting starts, nothing on screen or in the battle changes.
   cautious SSR rule under-credits here, as §6.3 predicts. At 200 recruits SR girls land within ±1 step.
 
 
+## M1–M3 build notes (branch `feature/potential`, from `claude/sakura-sentinels` `fddf01c` + M0)
+
+M1 (data + sim), M2 (UI) and M3 (letter, docs) are built. Co-op compatibility id **`ff514386004d` (37 graph files) →
+`da374934b0c3` (38 files: + `src/data/potential.js`)**; `COOP_PROTOCOL` unchanged (hero's 4 covers train C).
+
+**Seams (LANDING_PLAN §4):** S7 `resolveStats` order is paths → hero levels → awaken passive → Potential ModSets →
+`applyUnitStats` with the whole-girl multipliers folded into the unit stats; hero growth/Mastery (hero branch) slots in
+before the awaken passive unchanged. S9 the data hash list ends `…, COOP, FREEPLAY, POTENTIAL_LADDERS,
+POTENTIAL_SIGNATURE_DEFAULT, POTENTIAL_GIRLS` (codex appends `BATTLE_MODES` after). S12 a named `POTENTIAL_START`;
+`START` untouched (still `411300916` / `5b904cb9`, so P1 = the train head before the merge). S14: one stylesheet
+(`src/ui/styles/potential.css`), one UI helper (`src/ui/potential.js`), and `towerPanel.js` gets one pill in the header.
+Cross-spec fix 3: Luna **Moonwake**, Nami **Neap Tide**, and Hikari **First Light** (the plan's "consider renaming
+Dawn's Resolve"); all three checked unused in `units.js`, the hero, Chika and codex branches.
+
+**Gates run:** vitest (full), `vite build`, `e2e/engines.mjs` (Node V8, Bun JSC, Chromium V8 agree on START,
+POTENTIAL_START and both freeplay battles; Firefox and WebKit are not installed in this container, so
+`--require-all` could not run here), `e2e/potential.mjs` at 844×390 and 1280×720, `smoke`, `coop-freeplay`,
+`ur-awaken`, `stat-display`, `potential-m0`, `BALANCE=potential`, the freeplay rows below.
+
+**`POTENTIAL_START`** (1-3 **Hard**, seed 616161): host Aoi P1, Chika P6, Suzu P6, Miko P6, Kaede P5, hero Luna P6; guest
+Aoi P6 (×1.1 gear), Momo P6, Hotaru P6, Shiro P4, **Yuki P6** (Umeko needs water, 1-3 has none; her aura-speed step is
+covered by `tests/sim/mods.test.js`). Each player places her girls as her own coins allow and upgrades a few. Won,
+28,390 ticks, final `471369358`, 64 checkpoints → `7d947497` (pinned in `tests/online/engines.test.js`); the guest's Aoi
+resolves to damage 4.62264 / rate 1.428 / range 3.296 / crit 0.08, the host's to 4 / 1.4 / 3.2 / 0.05.
+
+**`BALANCE=potential`** (`tests/integration/potential.balance.test.js`, self-contained: the `exp/r2` scripts are not in
+the repo). Paper DPS (sim `towerStats`) P1 → P6: +7.2 % for every damage dealer with a conditional signature, +10.4 % with
+an unconditional one, +6.1 % Momo, +4.0 % Miko / Umeko (own shots; their value is the aura) — the §3.3 column exactly.
+Crowd (40 s) and held single target (120 s), one girl on 4-5, seeds 9 / 21, t0:
+
+| | Crowd L1 | Crowd strong | Held target L1 | Held target strong |
+|---|---|---|---|---|
+| median (16 damage dealers) | +7.3 % | +7.8 % | +10.1 % | +9.5 % |
+| largest (girl) | +14.9 % (Nami) | +17.2 % (Nami) | +16.2 % (Kage, vs-elite signature) | Suzu +112 % † |
+
+† Suzu's traps against one held enemy: how many traps land inside its trigger radius is luck of placement, so the
+row swings (the spec saw −7.7 % at L14 the same way); it is not gated. Auras (Aoi standing in the aura, the aura girl
+P1 → P6, strong): Miko −2.4 % / −2.0 %, Umeko −0.4 % / −0.3 % (noise level, ≤ +3 % as required). Campaign (the balance
+bot, expected level per chapter, seed 1): **Easy 40 / 40 / 40, Normal 39 / 39 / 39 at P1 / F2P (R P6, SR P4, SSR and
+heroes P2) / P6**; lives on the stages P1 won 5,752 → 5,767 → 5,779 (Easy) and 3,437 → 3,507 → 3,551 (Normal) — the
+spec's §8.4 numbers. Clan boss: a P6 row in `tests/online/clanBoss.test.js` (under every cap, ≥ 50 s at 3×).
+
+**Freeplay P6 rows** (`tools/freeplayBot.mjs --potential 6`: the solo freeplay calibration bot, "maxed" builds = ★5 legendary
++10 gear, every girl at P1 vs P6; the spec's `fp/bot.mjs` co-op presets are not in the repo). Wave the run falls on:
+
+| Stage · tier · build | P1 falls on (seeds 3 / 5 / 7) | P6 falls on (seeds 3 / 5 / 7) | Mean Δ |
+|---|---|---|---|
+| 1-5 · blossom · max Kage | 120 / 119 / 121 | 123 / 121 / 123 | +2.3 |
+| 1-5 · blossom · strong team | 204 / 204 / 200 | 207 / 207 / 207 | +4.3 |
+| 1-5 · crimson · strong team | 114 / 114 / 114 | 140 / 120 / 140 | +19.3 |
+| 1-5 · tempest · strong team | 171 / 171 / 171 | 173 / 173 / 173 | +2.0 |
+| 4-5 · blossom · max Kage | 99 / 99 / 99 | 110 / 112 / 112 | +12.3 |
+| 4-5 · blossom · strong team | 150 / 150 / 150 | 150 / 150 / 150 | +0.0 |
+| 4-5 · blossom · strong team · co-op HP | 130 / 130 / 130 | 130 / 140 / 130 | +3.3 |
+| 4-5 · crimson · strong team | 90 / 90 / 90 | 90 / 90 / 90 | +0.0 |
+| 4-5 · tempest · strong team | 120 / 120 / 120 | 120 / 120 / 120 | +0.0 |
+| 8-5 · blossom · strong team | 160 / 160 / 160 | 160 / 160 / 160 | +0.0 |
+| 8-5 · crimson · strong team | 90 / 90 / 90 | 130 / 130 / 130 | +40.0 |
+
+- Most rows move 0 to +4 waves; the max-Kage rows move +2 (1-5) and about one boss wall (4-5: 99 → 110–112).
+- **Crimson Moon is a life-buffer knife edge for a maxed team**: only its boss walls cost lives, and on 8-5 the P1 team
+  reaches the wave-90 boss with 61 lives and loses them all there, while the P6 team arrives with 96 (it lost fewer at
+  the earlier walls), keeps 59, survives 100 and 110 and falls at 130. 1-5 Crimson moves 114 → 120–140 the same way.
+  The spec's guards hold (Crimson ends before 160; the god Kage army at most about one wall past P1), but this is more
+  than "0 to +4 waves" for a maxed team on Crimson. Left as data for the train-C combined pass (LANDING_PLAN §9.2 step 7
+  re-checks freeplay with everything on and retunes `hpBands`); see owner question 5 below.
+
+**Deviations from this spec:**
+- Signature names (above). Every other step is the §3.3 table (the wiki article and `docs/ROSTER.md` are generated from
+  the data and match it).
+- Formation slots: the formation screen's squad slots (`.mb-fslot`) get a compact pill under the ×; on the ~40 px
+  phone stage-prep slots the pill takes the top-left corner (the rarity text is hidden there) and the level drops its
+  "Lv." prefix, because pill + level + name do not fit three rows in 40 px.
+- Reveal card: the fragment chip already owns the top-right corner, so "P4 ▲" / "MAX" sits under it.
+- The mailbox clamps letters to two lines on phones; a tap now shows the whole letter (so the girl list is readable).
+- `unitPower` adds 20 per step and multiplies `potentialPowerFactor` into the DPS term, as §4.4 says.
+- Hero ults: `hero.js` scales ult damage by `unitStats.damageMul` (level and gear), which Potential does not touch, so
+  a hero's ult is not raised by her Potential (only her attacks). The spec did not say; the hero rework can decide.
+- Not in this branch (not merged yet): the unit-info sheet hook (§7.7), story lesson 3 (§7.9), battle save's neutral-key
+  test (§5). Their branches add the hook when they land second (`describePotentialStep`, `potentialView`, `potPill` are
+  the shared pieces).
+- Firefox's engine: not available here; the cross-engine run covered V8 (Node, Chromium) and JavaScriptCore (Bun).
+- `BALANCE=full` did not gain F2P / P6 columns; the same comparison (Easy and Normal) is in `BALANCE=potential`.
+
+**Owner questions still open (defaults shipped):** Q1 (a) cautious SSR backfill; Q2 yes (sparks and Select Tickets on
+an owned girl count); Q3 yes (M0 counted early). New: **5. Freeplay on Crimson Moon** — a maxed team at P6 can last 1–4
+boss walls longer on Crimson (8-5: 90 → 130) because it reaches the boss walls with more lives; keep it, or ask the
+train-C pass to tighten Crimson's boss walls? Default: keep, re-check in the combined pass. **6. Hikari's signature
+renamed "First Light"** (from "Dawn's Resolve", to keep "Resolve" for freeplay's mechanic) — fine?
+
+
 ---
 
 ## 0. Decisions in one page
@@ -197,9 +288,9 @@ chips show; the long text is the tooltip, the wiki and the letter.
 
 | Girl | Rarity | Category | P2 | P3 | P4 | P5 | P6 signature | Paper DPS at P6 |
 |---|---|---|---|---|---|---|---|---|
-| Hikari | SSR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **Dawn's Resolve**: +3% crit chance | ×1.072 |
-| Luna | SSR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **Silver Thread**: +5% damage to elites | ×1.072 |
-| Nami | SR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **Riptide**: +5% damage to bosses | ×1.072 |
+| Hikari | SSR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **First Light**: +3% crit chance | ×1.072 |
+| Luna | SSR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **Moonwake**: +5% damage to elites | ×1.072 |
+| Nami | SR | hero | +2% damage | +2% attack speed | +3% range | +3% damage | **Neap Tide**: +5% damage to bosses | ×1.072 |
 | Aoi | R | dps | +2% damage | +2% attack speed | +3% range | +3% damage | **Fletcher's Focus**: +3% crit chance | ×1.072 |
 | Rei | R | dps | +2% damage | +2% attack speed | +2% crit chance | +3% damage | **Iron Edge**: +5% damage to elites | ×1.072 |
 | Yuki | R | control | +3% range | +2% attack speed | +3% damage | +2% attack speed | **Powder Snow**: +4% range | ×1.072 |

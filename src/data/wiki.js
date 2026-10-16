@@ -31,6 +31,8 @@ import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
 import { breakthroughCost, awakenCost, totalExpToLevel, COINS_PER_EXP } from '../systems/progression.js';
 import { expectedSSRRate } from '../systems/gacha.js';
+import { MAX_POTENTIAL, potentialSteps, describePotentialStep } from '../systems/potential.js';
+import { POTENTIAL_LADDERS } from './potential.js';
 import { f2pIncomeSummary } from '../systems/missions.js';
 
 // ---------------------------------------------------------------------------
@@ -323,7 +325,7 @@ function levelingArticle() {
       p('The cap starts at 10 and rises by 10 with each breakthrough gate (max 60). Gates cost materials of the girl\'s own family plus coins.'),
       table(['Gate', 'Cap', 'Cost'], gates)),
     sec('Awakening',
-      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments from duplicate recruits, and coins. ★3 unlocks the girl\'s awaken passive.'),
+      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments from duplicate recruits, and coins. ★3 unlocks the girl\'s awaken passive. Duplicates also raise her Potential (see Potential).'),
       table(['Star', 'Cost', 'Reward'], stars)),
     sec('How strong does this make her?',
       list([
@@ -361,7 +363,8 @@ function gachaArticle() {
   const ssr = expectedSSRRate();
   return article('gacha', 'Recruit Rates, Pity & Spark', 'economy', 'gacha', 'Exact recruit odds, the 90-pull pity and the 200-point spark.', ['gacha', 'recruit', 'pull', 'rates', 'pity', 'spark', 'ssr', 'sr', 'duplicate', 'fragment', 'ticket'], [
     sec('Rates',
-      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
+      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `+1 Potential and ${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
+      p(`Duplicates: +1 Potential (P1 → P${MAX_POTENTIAL}; each step adds a small passive) and Star Fragments for awakening (R ×${UNIT_RARITIES.R.fragmentsOnDupe}, SR ×${UNIT_RARITIES.SR.fragmentsOnDupe}, SSR ×${UNIT_RARITIES.SSR.fragmentsOnDupe}). At P${MAX_POTENTIAL}, duplicates give Star Fragments only.`),
       p(`Consolidated SSR rate including pity: ≈ ${pct(ssr, 2)} (about one SSR every ${Math.round(1 / ssr)} recruits).`)),
     sec('Pity and guarantees',
       list([
@@ -372,7 +375,34 @@ function gachaArticle() {
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so free girls you already own become Star Fragments for awakening.')),
+      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Potential and Star Fragments from a duplicate.'),
+      { type: 'links', ids: ['potential'] }),
+  ]);
+}
+
+function potentialArticle() {
+  const label = (step, def) => describePotentialStep(step, def).map((x) => x.long).join(', ');
+  const ladderName = { dps: 'DPS, Frag and Hero', control: 'Control and Support', economy: 'Economy' };
+  const ladders = Object.entries(ladderName).map(([cat, name]) => [{ text: name, strong: true }, ...POTENTIAL_LADDERS[cat].map((s) => label(s, null))]);
+  const rows = UNITS.map((u) => {
+    const steps = potentialSteps(u);
+    return [{ text: u.name, icon: `unit:${u.id}`, strong: true }, ...steps.slice(0, 4).map((s) => label(s, u)), `✦ ${steps[4].name}: ${label(steps[4], u)}`];
+  });
+  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicate recruits raise a girl\'s Potential to P6; each step is a small passive.', ['potential', 'duplicate', 'dupe', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'fragment'], [
+    sec('How it works',
+      list([
+        'P1 is a girl\'s base (her first copy). Starters and free girls start at P1 however they joined.',
+        `A duplicate is any copy of a girl you already own: a recruit, a spark of an owned SSR, or an SSR Select Ticket used on an owned SSR. Each gives +1 Potential (up to P${MAX_POTENTIAL}) and her usual Star Fragments.`,
+        `At P${MAX_POTENTIAL} a duplicate gives Star Fragments only. Her duplicate count keeps going up (shown on her Info tab).`,
+        'Potential never goes down and is never spent. It applies in every battle mode, exactly where her level and awakening apply — in co-op, an ally\'s girl fights at her owner\'s Potential.',
+        'Damage and speed steps work like her level: they raise her hits, her traps and her drones.',
+      ]),
+      tip('Each girl\'s Info tab shows her six steps, what each does and how many duplicates she has.', 'good')),
+    sec('The steps by role',
+      table(['Role', 'P2', 'P3', 'P4', 'P5'], ladders),
+      p('P6 is each girl\'s own signature (✦). A few girls swap one step for a better fit: melee Rei and sniper Shiro take crit chance at P4, and the aura girls Miko and Umeko strengthen their aura at P4 and P6.')),
+    sec('Every girl',
+      table(['Girl', 'P2', 'P3', 'P4', 'P5', 'P6 signature'], rows)),
   ]);
 }
 
@@ -563,7 +593,7 @@ function buffsArticle() {
 function buildArticles() {
   return [
     gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
-    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), medalsArticle(), mapsArticle(),
+    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
 }
