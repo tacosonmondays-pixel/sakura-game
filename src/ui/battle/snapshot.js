@@ -319,7 +319,8 @@ function teamEntry(e) {
  * returns at her old level and what she cost is refunded too (`heroes`, for the notice).
  * @param {object} rec battle save record
  * @param {object} [profile] for settings.autoStart
- * @returns {{ sim: Sim, refunded: number, dropped: string[], heroes: { unitId: string, level: number, refunded: number }[] }}
+ * `potentialNew`: the save is from before Potential v3 and a girl in it is at P2+.
+ * @returns {{ sim: Sim, refunded: number, dropped: string[], heroes: { unitId: string, level: number, refunded: number }[], potentialNew: boolean }}
  * @throws {StaleSaveError}
  */
 export function restoreSim(rec, profile = null) {
@@ -479,5 +480,8 @@ export function restoreSim(rec, profile = null) {
   if (Array.isArray(s.leakGroups)) sim.stats.leakLog = unpackLeaks(s.leakGroups);
   if (!Array.isArray(sim.stats.leakLog)) sim.stats.leakLog = [];
   sim.drainEvents(); // no placement, upgrade or level-up FX / audio for the rebuild
-  return { sim, refunded, dropped, heroes: migrated };
+  // a save from before Potential v3 (format 1–2) with a girl at P2+: her frozen Potential now has
+  // the v3 steps (the Continue notice says so, docs/specs/POTENTIAL.md v2 §8)
+  const potentialNew = !(s.v >= 3) && [...(rec.loadout || []), rec.hero].some((e) => (e?.stats?.potential || 1) >= 2);
+  return { sim, refunded, dropped, heroes: migrated, potentialNew };
 }

@@ -1,15 +1,22 @@
-// Potential (owner, Oct 14: "add potential levels when you get dupes, perhaps they get small
-// passives … max 6"; spec docs/specs/POTENTIAL.md §11.3). On a fresh save: Aoi ×3 (P4) and
-// Kaede ×5 (P6) through grantUnit, then
-//   students: card pills (P4 plum, P6 sakura), the Potential sort, the formation and stage-prep slots;
-//   Aoi's page: the showcase pill opens the Info tab at the Potential section (nodes, signature,
-//   footer), "Yours" damage = base × 1.04 × 1.04 (Potential v3), no sideways scroll;
-//   recruit: a real 10-pull of owned R girls (corner tags, "▲ N Potential" on one line), the counts;
-//   spark an owned P6 Kaede (MAX, kicker "SSR · P6 · MAX") and a new Hotaru; an SSR Select Ticket
-//   on the owned Hotaru (confirm "P1 → P2", "Potential 2 ▲"); the first-gain tip points at the Info tab;
-//   battle 1-1: Aoi's panel pill P4 and the panel DPS = the sim's; the longest name line fits;
-//   a save from before Potential (no dupes, 40 history entries) → its pills, one letter, a reload
-//   keeps one letter and the same Potential.
+// Potential (owner, Oct 14: "add potential levels when you get dupes … max 6"; Oct 15: "the more
+// levels you have the better they should be"; spec docs/specs/POTENTIAL.md v3 §11–§13.3, v2 §7, §11.3).
+// On a fresh save: Aoi ×3 (P4) and Kaede ×5 (P6) through grantUnit, then
+//   students: card pills (P4 plum, P6 sakura with the crown), the Potential sort, the formation and
+//   stage-prep slots;
+//   Aoi's page: the showcase pill (its title names the next step) opens the Info tab at the Potential
+//   section: six nodes with the stat line under each (`stat · cap` once Potential raises her cap),
+//   the five-step list (owned ✓, NEXT · 1 more duplicate, later muted, the P6 crown), the footer,
+//   "Yours" damage = base × 1.04 × 1.04, no sideways scroll;
+//   recruit: a real 10-pull of owned R girls (corner tags, the step ribbon under each duplicate's
+//   name, "▲ N Potential" on one line), the counts; spark an owned P6 Kaede (MAX, kicker "SSR · P6 ·
+//   MAX") and a new Hotaru; an SSR Select Ticket on the owned Hotaru (confirm "P1 → P2: ✦ Firefly
+//   Lamps", the unlocked step); a spark of the P2 Hotaru played out: the "Potential up!" card (her
+//   trick, Next) before the results, and the summary chip opens it again; the first-gain tip;
+//   battle 1-1: Aoi's panel pill P4 and the panel DPS = the sim's; Kage P6's rhythm pips, tempo pips
+//   and shuriken per throw; the longest name line fits;
+//   a save from an older build (no dupes, 40 history entries, no v3 mark) → its pills, one "Potential
+//   grew!" letter with each girl's newest step and how her duplicates were counted, the NEW badge on
+//   each P2+ card until her Info tab is opened, a reload keeps one letter and the same Potential.
 // Phone (844×390, touch) and PC (1280×720). Screenshots: --shots <dir> (default $SCR/potential).
 // Usage: node e2e/potential.mjs [--shots dir]
 import { createServer } from 'vite';
@@ -74,6 +81,7 @@ async function revealToResults(page) {
   await page.waitForTimeout(400);
   return page.evaluate(() => {
     const sum = document.querySelector('[data-testid="reveal-summary"]');
+    const ribbons = [...document.querySelectorAll('[data-testid="reveal-potstep"]')];
     const spans = sum ? [...sum.children].filter((c) => getComputedStyle(c).display !== 'none') : [];
     const tops = new Set(spans.map((c) => Math.round(c.getBoundingClientRect().top)));
     return {
@@ -81,6 +89,8 @@ async function revealToResults(page) {
       summary: sum?.textContent.replace(/\s+/g, ' ').trim() || '',
       oneLine: tops.size <= 1,
       kicker: document.querySelector('[data-testid="showcase-kicker"]')?.textContent || null,
+      ribbons: ribbons.map((e) => ({ text: e.textContent, title: e.title, fits: e.scrollWidth <= e.clientWidth + 1 || getComputedStyle(e).textOverflow === 'ellipsis' })),
+      cards: document.querySelectorAll('[data-testid="pot-up"]').length,
     };
   });
 }
@@ -92,7 +102,7 @@ async function closeReveal(page) {
 
 const profileOf = (page) => page.evaluate(() => {
   const p = window.__sakura.store.profile;
-  return { dupes: Object.fromEntries(Object.entries(p.units).map(([id, u]) => [id, u.dupes])), seenIntro: p.seenIntro, letters: (p.mail?.letters || []).map((l) => l.id) };
+  return { dupes: Object.fromEntries(Object.entries(p.units).map(([id, u]) => [id, u.dupes])), seenIntro: p.seenIntro, letters: (p.mail?.letters || []).map((l) => l.id), delivered: p.mail?.delivered || [] };
 });
 const P = (d) => Math.min(6, 1 + (d || 0));
 
@@ -133,12 +143,14 @@ try {
         const e = document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-pot"] .pot-pill`);
         if (!e) return null;
         const cs = getComputedStyle(e);
-        return { text: e.textContent, p6: e.classList.contains('p6'), color: cs.color, title: e.getAttribute('title') };
+        return { text: e.textContent, p6: e.classList.contains('p6'), color: cs.color, title: e.getAttribute('title'), crown: !!e.querySelector('.pot-pill-crown svg') };
       };
       return { aoi: pill('aoi'), kaede: pill('kaede'), rei: pill('rei') };
     });
     check(cards.aoi?.text === 'P4' && !cards.aoi.p6 && cards.aoi.color === 'rgb(255, 255, 255)', `${tag} students: Aoi's card pill "P4" (plum, white text): ${JSON.stringify(cards.aoi)}`);
-    check(cards.kaede?.text === 'P6' && cards.kaede.p6 && cards.kaede.color === 'rgb(59, 35, 80)', `${tag} students: Kaede's card pill "P6" (sakura, dark plum text): ${JSON.stringify(cards.kaede)}`);
+    check(cards.kaede?.text === 'P6' && cards.kaede.p6 && cards.kaede.color === 'rgb(59, 35, 80)' && cards.kaede.crown, `${tag} students: Kaede's card pill "P6" (sakura, dark plum text, the crown): ${JSON.stringify(cards.kaede)}`);
+    check(cards.aoi?.title === 'Potential 4 of 6 — Keen Fletching' && !cards.aoi.crown, `${tag} students: Aoi's pill title names her newest step ("${cards.aoi?.title}")`);
+    check(!(await page.$('[data-testid="card-potnew"]')), `${tag} students: no NEW badge on a save made by this build`);
     check(cards.rei === null, `${tag} students: no pill at P1 (Rei)`);
     const kCard = await rectOf(page, '.unit-card[data-unit="kaede"]');
     const kPill = await rectOf(page, '.unit-card[data-unit="kaede"] [data-testid="card-pot"]');
@@ -176,8 +188,8 @@ try {
 
     // 3. Aoi's page: showcase pill → Info tab at the Potential section
     await go(page, '#/student/aoi?tab=level', '[data-testid="show-potential"]');
-    const showPill = await page.evaluate(() => document.querySelector('[data-testid="show-potential"]').textContent);
-    check(showPill === 'P4', `${tag} Aoi's page: showcase pill "${showPill}"`);
+    const showPill = await page.evaluate(() => { const e = document.querySelector('[data-testid="show-potential"]'); return { text: e.textContent, title: e.title }; });
+    check(showPill.text === 'P4' && showPill.title === 'Potential 4 of 6 — Keen Fletching. Next: P5 unlocks ✦ Twin Fletch (1 more duplicate) — see her Info tab', `${tag} Aoi's page: showcase pill "${showPill.text}" titled "${showPill.title}"`);
     await page.click('[data-testid="show-potential"]');
     await page.waitForSelector('[data-testid="potential-section"]', { timeout: T });
     await page.waitForTimeout(900);
@@ -193,7 +205,13 @@ try {
         on: nodes.map((n) => n?.classList.contains('on')),
         next: nodes.map((n) => n?.classList.contains('next')),
         labels: nodes.map((n) => n?.querySelector('.pot-node-label')?.textContent),
-        sig: document.querySelector('[data-testid="potential-signature"]')?.textContent.replace(/\s+/g, ' ').trim(),
+        lines: nodes.map((n) => n?.querySelector('.pot-node-line')?.textContent || ''),
+        kit: nodes.map((n) => !!n?.querySelector('.pot-node-kit')),
+        nodeFits: nodes.every((n) => { const l = n?.querySelector('.pot-node-line'); return !l || l.scrollWidth <= l.clientWidth + 1; }),
+        crownNode: !!nodes[5]?.querySelector('.pot-node-crown svg'),
+        steps: [2, 3, 4, 5, 6].map((k) => { const e = document.querySelector(`[data-testid="potential-step-${k}"]`); return e ? { cls: e.className, mark: e.querySelector('.pot-step-mark')?.textContent, name: e.querySelector('.pot-step-name')?.textContent, long: e.querySelector('.pot-step-long')?.textContent, crown: !!e.querySelector('.pot-step-crown svg'), cap: e.querySelector('.pot-step-cap')?.textContent || null } : null; }),
+        nextTags: [...document.querySelectorAll('[data-testid="potential-next"]')].map((e) => ({ text: e.textContent, step: e.closest('[data-testid^="potential-step-"]')?.dataset.testid })),
+        oldSig: !!document.querySelector('[data-testid="potential-signature"]'),
         footer: document.querySelector('[data-testid="potential-footer"]')?.textContent,
         yours: dmgRow ? [...dmgRow.children].map((c) => c.textContent) : null,
       };
@@ -201,9 +219,21 @@ try {
     check(sec.tab === 'tab-info' && sec.hash.includes('focus=potential') && sec.inView, `${tag} Aoi's page: the pill opens the Info tab with the Potential section in view (${sec.tab}, ${sec.hash})`);
     check(sec.on.join() === 'true,true,true,true,false,false' && sec.next[4] === true, `${tag} Aoi's page: nodes P1–P4 on, P5 next (${sec.on.join()})`);
     // Potential v3 (docs/specs/POTENTIAL.md v3 §5.2): her node labels and capstone
-    check(sec.labels.join('|') === "Base|+4% DMG|PIERCE+1|CRIT+6%|TWIN 1/12|HAWK✦", `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
-    check(/Hawk Companion — \+5% damage\. Twin Fletch comes every 10th volley/.test(sec.sig) && /Unlocks at P6 \(2 more duplicates\)/.test(sec.sig) && /Active in every battle/.test(sec.sig), `${tag} Aoi's page: signature box "${sec.sig}"`);
-    check(sec.footer === 'Duplicates so far: 3 · Next: P5 with 1 more duplicate', `${tag} Aoi's page: footer "${sec.footer}"`);
+    check(sec.labels.join('|') === 'Base|+4% DMG|PIERCE+1|CRIT+6%|TWIN 1/12|HAWK', `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
+    check(sec.kit.join() === 'false,false,true,true,true,true' && sec.crownNode, `${tag} Aoi's page: ✦ on her kit nodes (P3–P6), the crown on P6`);
+    // the stat line under each node: her R track (and her level cap, once Potential raises it)
+    const caps = await page.evaluate(async () => { const m = await import('/src/systems/progression.js'); return [1, 2, 3, 4, 5, 6].map((p) => m.potentialLevelCap(p)); });
+    const stat = ['', '+4% DMG', '+4% SPD', '+4% DMG', '+4% SPD', '+5% DMG'];
+    // (P2 is a stat step: its label is her stat, so its line only adds the cap)
+    const wantLines = stat.map((x, i) => (i === 0 ? '' : caps[i] > caps[0] ? `${x} · ${caps[i]}` : i === 1 ? '' : x));
+    check(sec.lines.join('|') === wantLines.join('|') && sec.nodeFits, `${tag} Aoi's page: the line under each node "${sec.lines.join(' | ')}" (caps ${caps.join('/')}), fits its node`);
+    check(sec.steps.every(Boolean) && sec.steps.slice(0, 3).every((x) => /\bon\b/.test(x.cls) && x.mark === '✓') && /\bnext\b/.test(sec.steps[3].cls) && /\blater\b/.test(sec.steps[4].cls), `${tag} Aoi's page: steps P2–P4 ✓, P5 next, P6 later`);
+    check(sec.nextTags.length === 1 && sec.nextTags[0].text === 'NEXT · 1 more duplicate' && sec.nextTags[0].step === 'potential-step-5', `${tag} Aoi's page: one NEXT tag, on P5 (${JSON.stringify(sec.nextTags)})`);
+    check(sec.steps[4].name === '✦ Hawk Companion' && sec.steps[4].crown && /^\+5% damage\. Twin Fletch comes every 10th volley/.test(sec.steps[4].long), `${tag} Aoi's page: the P6 capstone row "${sec.steps[4].name}" with the crown`);
+    check(sec.steps[0].name === 'Dawn Practice' && sec.steps[0].long === '+4% damage.', `${tag} Aoi's page: her P2 stat step "${sec.steps[0].name}: ${sec.steps[0].long}"`);
+    check(sec.steps.every((x, i) => (caps[i + 1] > caps[0] ? x.cap === `Level cap ${caps[i + 1]}` : x.cap === null)), `${tag} Aoi's page: each step's level-cap line follows the level rule`);
+    check(!sec.oldSig, `${tag} Aoi's page: the step list replaces v1's signature box`);
+    check(sec.footer === 'Duplicates so far: 3 · Next: P5 ✦ Twin Fletch with 1 more duplicate', `${tag} Aoi's page: footer "${sec.footer}"`);
     check(sec.yours?.[1] === '4' && sec.yours?.[2] === '4.33', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.04 × 1.04 (${sec.yours?.join(' / ')})`);
     check(await noSideScroll(page), `${tag} Aoi's page: no sideways scroll`);
     await shot(page, `student-aoi-potential-${tag}`);
@@ -212,8 +242,9 @@ try {
     const unowned = await page.evaluate(() => ({ on: document.querySelectorAll('.pot-node.on').length, footer: document.querySelector('[data-testid="potential-footer"]')?.textContent, pill: !!document.querySelector('[data-testid="show-potential"]') }));
     check(unowned.on === 0 && unowned.footer === 'Recruit her to start at P1.' && !unowned.pill, `${tag} Raika (not owned): the section previews her steps, all locked`);
     await go(page, '#/student/kaede?tab=info&focus=potential', '[data-testid="potential-section"]');
-    const kae = await page.evaluate(() => ({ footer: document.querySelector('[data-testid="potential-footer"]')?.textContent, on: document.querySelectorAll('.pot-node.on').length, sig: document.querySelector('[data-testid="potential-signature"]')?.classList.contains('on') }));
-    check(kae.on === 6 && kae.sig && /^Potential maxed — duplicates now give Star Fragments only \(\+40 each\)/.test(kae.footer), `${tag} Kaede (P6): six nodes on, "${kae.footer}"`);
+    const kae = await page.evaluate(() => ({ footer: document.querySelector('[data-testid="potential-footer"]')?.textContent, on: document.querySelectorAll('.pot-node.on').length, steps: document.querySelectorAll('.pot-step.on').length, next: document.querySelectorAll('[data-testid="potential-next"]').length }));
+    check(kae.on === 6 && kae.steps === 5 && kae.next === 0 && /^Potential maxed — duplicates now give Star Fragments only \(\+40 each\)/.test(kae.footer), `${tag} Kaede (P6): six nodes and five steps on, no NEXT, "${kae.footer}"`);
+    check(await noSideScroll(page), `${tag} Kaede's page: no sideways scroll`);
     await shot(page, `student-kaede-p6-${tag}`);
 
     // 4. recruit: all four R girls owned below P6, a real 10-pull
@@ -237,6 +268,8 @@ try {
     check(pull.tags.length >= 1 && pull.tags.every((t) => /^P[2-6] ▲$|^MAX$/.test(t)), `${tag} recruit: corner tags on duplicates (${pull.tags.join(', ')})`);
     check(pull.summary.includes(`▲ ${rises} Potential`) && rises >= 1, `${tag} recruit: summary "${pull.summary}" counts the ${rises} steps (${ups} girls)`);
     check(pull.oneLine, `${tag} recruit: the summary stays on one line`);
+    check(pull.ribbons.length === pull.tags.filter((t) => t !== 'MAX').length && pull.ribbons.every((r) => /^P[2-6] unlocked: /.test(r.title) && r.text.length > 2 && r.fits), `${tag} recruit: a step ribbon under each duplicate that rose (${pull.ribbons.map((r) => r.text).join(', ')})`);
+    check(pull.cards === 0, `${tag} recruit: Skip goes straight to the results (no "Potential up!" card)`);
     check(W > 1000 ? pull.summary.includes('Star Fragments') : !/Star Fragments/.test(await page.evaluate(() => document.querySelector('[data-testid="reveal-summary"]').innerText)), `${tag} recruit: "Star Fragments" ${W > 1000 ? 'spelled out on PC' : 'hidden on the phone (icon + number stay)'}`);
     await shot(page, `recruit-10-${tag}`);
     await closeReveal(page);
@@ -297,19 +330,64 @@ try {
     await page.click('[data-testid="sst-hotaru"]');
     await page.waitForSelector('[data-testid="confirm-ok"]');
     const conf = await page.evaluate(() => [...document.querySelectorAll('.modal')].pop()?.textContent.replace(/\s+/g, ' '));
-    check(/Hotaru is already in your academy: she gains \+1 Potential \(P1 → P2\) and 40 Star Fragments\. Use it\?/.test(conf) && /Use ticket/.test(conf), `${tag} select ticket: confirm "${conf?.slice(0, 120)}"`);
+    check(/Hotaru is already in your academy: she gains \+1 Potential \(P1 → P2: ✦ Firefly Lamps\) and 40 Star Fragments\. Use it\?/.test(conf) && /Use ticket/.test(conf), `${tag} select ticket: confirm "${conf?.slice(0, 140)}"`);
     await page.click('[data-testid="confirm-ok"]');
     const joined = await page.waitForSelector('[data-testid="sst-joined-text"]').then((e) => e.textContent());
     check(joined === 'Hotaru was already here — Potential 2 ▲ and +40 Star Fragments.', `${tag} select ticket: "${joined}"`);
+    const unlocked = await page.evaluate(() => document.querySelector('[data-testid="sst-joined-step"]')?.textContent || '');
+    check(/^P2 unlocked: ✦ Firefly Lamps\+5% damage\. On every path, girls within 2\.6 tiles deal \+6% damage/.test(unlocked), `${tag} select ticket: the unlocked step "${unlocked.slice(0, 80)}"`);
     await shot(page, `select-ticket-${tag}`);
     await page.click('[data-testid="sst-ok"]', { force: true });
+
+    // a spark of the P2 Hotaru, played out: the "Potential up!" card before the results
+    await page.evaluate(() => { const p = window.__sakura.store.profile; p.gacha.recruitPoints = 200; window.__sakura.store.commit('test'); });
+    await go(page, '#/recruit', '[data-testid="spark"]');
+    await page.click('[data-testid="spark"]');
+    await page.waitForSelector('[data-testid="spark-hotaru"]');
+    const hoMeta = await page.evaluate(() => document.querySelector('[data-testid="spark-meta-hotaru"]')?.textContent);
+    check(hoMeta === 'Owned · P2 → P3 ✦ Firefly Parade', `${tag} spark: grid "${hoMeta}"`);
+    await page.click('[data-testid="spark-hotaru"]');
+    await page.waitForSelector('.ma-showcase', { timeout: 20000 });
+    await page.waitForTimeout(600);
+    await page.click('.ma-showcase', { force: true });
+    const up = await page.waitForSelector('[data-testid="pot-up-card"]', { timeout: 15000 }).then(() => page.evaluate(() => {
+      const c = document.querySelector('[data-testid="pot-up-card"]');
+      const r = c.getBoundingClientRect();
+      return {
+        trick: c.querySelector('[data-testid="pot-up-trick"]')?.textContent, next: c.querySelector('[data-testid="pot-up-next"]')?.textContent,
+        who: c.querySelector('.pot-up-who')?.textContent, inView: r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.left >= 0 && r.right <= window.innerWidth + 1,
+        closeCovered: (() => { const b = document.querySelector('[data-testid="reveal-close"]'); if (!b) return true; const q = b.getBoundingClientRect(); const top = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return !b.contains(top); })(),
+      };
+    })).catch(() => null);
+    check(up && up.trick === '✦ Firefly Parade' && up.next === 'Next: P4 ✦ Lantern Rite — 1 more duplicate' && /Hotaru · P3/.test(up.who), `${tag} spark played out: "Potential up!" card ${JSON.stringify(up)}`);
+    check(up?.inView && up.closeCovered, `${tag} spark: the card fits the screen and sits over the results`);
+    await page.waitForTimeout(700); // its fade-in
+    await shot(page, `potential-up-${tag}`);
+    await page.click('[data-testid="pot-up-go"]');
+    await page.waitForTimeout(300);
+    const after2 = await page.evaluate(() => ({ cards: document.querySelectorAll('[data-testid="pot-up"]').length, sum: document.querySelector('[data-testid="reveal-sum-pot"]')?.tagName, tricks: document.querySelector('[data-testid="reveal-sum-pot"]')?.textContent }));
+    check(after2.cards === 0 && after2.sum === 'BUTTON', `${tag} spark: Done closes the card, the results stay (${JSON.stringify(after2)})`);
+    await page.click('[data-testid="reveal-sum-pot"]');
+    const reopened = await page.waitForSelector('[data-testid="pot-up-card"]', { timeout: 5000 }).then(() => true).catch(() => false);
+    check(reopened, `${tag} spark: the summary's Potential chip opens the card again`);
+    await page.click('[data-testid="pot-up-skip"]');
+    await page.waitForTimeout(200);
+    await closeReveal(page);
 
     // mall: the Recruit Exchange stock line
     await go(page, '#/mall?tab=recruit', '.ma-offer');
     const stock = await page.evaluate(() => [...document.querySelectorAll('.ma-offer.unit')].map((o) => o.textContent).join(' | '));
-    check(/P6 → fragments/.test(stock) && /Owned → P\+1 & fragments/.test(stock), `${tag} mall: Recruit Exchange stock reads "P6 → fragments" / "Owned → P+1 & fragments"`);
+    check(/P6 → fragments/.test(stock) && /Owned → P[2-6] ✦ [A-Z][\w' ]+ & fragments/.test(stock), `${tag} mall: Recruit Exchange stock reads "P6 → fragments" / "Owned → P3 ✦ <step> & fragments" (${stock.slice(0, 160)})`);
 
-    // 7. battle 1-1: Aoi's panel
+    // 7. battle 1-1: Aoi's panel, and Kage at P6 (her rhythm, tempo and shuriken rows)
+    await page.evaluate(async () => {
+      const { store } = window.__sakura;
+      const { grantUnit } = await import('/src/systems/unlocks.js');
+      const p = store.profile;
+      for (let i = 0; i < 6; i++) grantUnit(p, 'kage');
+      p.formation = { hero: 'hikari', towers: ['aoi', 'kaede', 'rei', 'kage'] };
+      store.commit('test');
+    });
     const counts = await profileOf(page);
     const aoiP = P(counts.dupes.aoi);
     await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
@@ -323,7 +401,7 @@ try {
       const { sim, ui } = window.__battle;
       sim.cash = 1e6;
       const out = {};
-      for (const id of ['aoi', 'kaede']) {
+      for (const id of ['aoi', 'kaede', 'kage']) {
         for (let y = 0.5; y < sim.map.height && out[id] == null; y += 0.5) {
           for (let x = 0.5; x < sim.map.width && out[id] == null; x += 0.5) {
             if (!sim.canPlace(id, x, y).ok) continue;
@@ -350,6 +428,26 @@ try {
     const aoiSim = await page.evaluate((uid) => { const t = window.__battle.sim.towers.find((x) => x.uid === uid); return { p: t.unitStats.potential, dmg: t.stats.damage, base: t.def.base.damage }; }, placed.aoi);
     check(aoiSim.p === aoiP && Math.abs(aoiSim.dmg - aoiSim.base * (aoiP >= 6 ? 1.04 * 1.04 * 1.05 : aoiP >= 4 ? 1.04 * 1.04 : 1.04)) < 1e-9, `${tag} battle: Aoi fights at P${aoiSim.p} (damage ${aoiSim.dmg})`);
     await shot(page, `battle-aoi-${tag}`);
+    // her rhythm (Twin Fletch) comes at P5: every 12th volley, every 10th from P6; below P5 no row
+    const aoiRow = await page.evaluate(() => { const e = document.querySelector('[data-testid="tower-panel"] [data-testid="pot-rhythm"]'); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length } : null; });
+    check(aoiP >= 5 ? aoiRow?.name === 'Twin Fletch' && aoiRow.pips === (aoiP >= 6 ? 10 : 12) : aoiRow === null, `${tag} battle: Aoi P${aoiP} rhythm row ${JSON.stringify(aoiRow)}`);
+    // Kage P6: start the wave, let her throw, open her panel
+    await page.evaluate((uid) => { const { sim, ui } = window.__battle; ui.select(uid); if (sim.state !== 'wave') sim.startNextWave(); }, placed.kage);
+    await page.waitForFunction((uid) => (window.__battle.sim.towers.find((x) => x.uid === uid)?.potCount || 0) >= 2, placed.kage, { timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    const kp = await page.evaluate((uid) => {
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      const row = (k) => { const e = p.querySelector(`[data-testid="pot-${k}"]`); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length, on: e.querySelectorAll('.bt-pot-pip.on').length, text: e.querySelector('small')?.textContent, fits: e.scrollWidth <= e.clientWidth + 1 } : null; };
+      const t = window.__battle.sim.towers.find((x) => x.uid === uid);
+      const nm = p.querySelector('.bt-panel-nm');
+      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: t.potCount % 6, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1 };
+    }, placed.kage);
+    check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 6 && kp.rhythm.text === 'every 6th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
+    check(kp.tempo?.name === 'Shadow Tempo' && kp.tempo.pips === 6 && kp.tempo.on === kp.stacks && kp.tempo.text === `+${kp.stacks}%`, `${tag} battle: Kage's tempo pips ${JSON.stringify(kp.tempo)} (stacks ${kp.stacks})`);
+    check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.12).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);
+    check(kp.pill === 'P6' && kp.crown && [kp.rhythm, kp.tempo, kp.shots].every((r) => r?.fits), `${tag} battle: Kage's P6 pill wears the crown, the rows fit the panel`);
+    check(kp.nameFull, `${tag} battle: "Kage" is not cut short beside 0-0-0 and the crowned P6 pill`);
+    await shot(page, `battle-kage-p6-${tag}`);
     // the longest name in the panel: Kaede UR + 5-0-2 + P6 (+ the longest girl's name)
     await page.evaluate((uid) => {
       const { sim, ui } = window.__battle;
@@ -375,9 +473,10 @@ try {
       p.createdAt = t0;
       for (const u of Object.values(p.units)) { delete u.dupes; u.obtainedAt = t0; }
       for (const k of Object.keys(p.missions.counters)) if (k.startsWith('pot:')) delete p.missions.counters[k];
-      p.seenIntro = p.seenIntro.filter((s) => s !== 'potential-backfilled' && s !== 'potential-tip');
-      p.mail.delivered = p.mail.delivered.filter((d) => d !== 'potential-arrived-1');
-      p.mail.letters = p.mail.letters.filter((l) => l.id !== 'potential-arrived-1');
+      // (an older build: no v3 mark, no letter yet)
+      p.seenIntro = p.seenIntro.filter((s) => s !== 'potential-backfilled' && s !== 'potential-tip' && s !== 'potential-v3' && !s.startsWith('pot3-new:'));
+      p.mail.delivered = p.mail.delivered.filter((d) => d !== 'potential-arrived-1' && d !== 'potential-v3-1');
+      p.mail.letters = p.mail.letters.filter((l) => l.id !== 'potential-arrived-1' && l.id !== 'potential-v3-1');
       const hist = [];
       const at = (i) => t0 + 3600000 + i * 60000;
       // Aoi 12 (P6), Rei 2 (P3), Yuki 1 (P2), Kaede 1 (P2), and 24 recruits of a girl not owned (Shiro)
@@ -387,7 +486,7 @@ try {
       for (let i = 0; i < 24; i++) hist.push({ unitId: 'shiro', rarity: 'SR', at: at(40 + i) });
       p.gacha.history = hist;
       p.gacha.totalPulls = hist.length;
-      for (const id of ['momo', 'hotaru', 'shiro']) delete p.units[id];
+      for (const id of ['momo', 'hotaru', 'shiro', 'kage']) delete p.units[id];
       store.saveNow = () => {};
       window.onbeforeunload = null;
       localStorage.setItem(key, JSON.stringify(p));
@@ -401,25 +500,38 @@ try {
     const mig = await profileOf(page2);
     check(mig.seenIntro.includes('potential-backfilled'), `${tag} old save: backfilled once`);
     check(P(mig.dupes.aoi) === 6 && P(mig.dupes.rei) === 3 && P(mig.dupes.yuki) === 2 && P(mig.dupes.kaede) === 2, `${tag} old save: Aoi P${P(mig.dupes.aoi)}, Rei P${P(mig.dupes.rei)}, Yuki P${P(mig.dupes.yuki)}, Kaede P${P(mig.dupes.kaede)} from the history`);
-    check(mig.letters.filter((id) => id === 'potential-arrived-1').length === 1, `${tag} old save: one "New: Potential!" letter`);
+    check(mig.letters.filter((id) => id === 'potential-v3-1').length === 1 && !mig.letters.includes('potential-arrived-1'), `${tag} old save: one "Potential grew!" letter (v1's letter is not sent any more)`);
+    check(mig.seenIntro.includes('potential-v3') && ['aoi', 'rei', 'yuki', 'kaede'].every((id) => mig.seenIntro.includes(`pot3-new:${id}`)), `${tag} old save: marked for v3, NEW for each girl at P2+`);
     await go(page2, '#/students', '.unit-card[data-unit="aoi"]');
     const migCards = await page2.evaluate(() => Object.fromEntries(['aoi', 'rei', 'yuki', 'kaede'].map((id) => [id, document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-pot"]`)?.textContent || null])));
     check(migCards.aoi === 'P6' && migCards.rei === 'P3' && migCards.yuki === 'P2' && migCards.kaede === 'P2', `${tag} old save: cards ${JSON.stringify(migCards)}`);
+    const badges = await page2.evaluate(() => Object.fromEntries(['aoi', 'rei', 'yuki', 'kaede', 'hikari'].map((id) => [id, !!document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-potnew"]`)])));
+    check(badges.aoi && badges.rei && badges.yuki && badges.kaede && !badges.hikari, `${tag} old save: NEW on each P2+ card ${JSON.stringify(badges)}`);
+    const bAoi = await rectOf(page2, '.unit-card[data-unit="aoi"] [data-testid="card-potnew"]');
+    const cAoi = await rectOf(page2, '.unit-card[data-unit="aoi"]');
+    const pAoi = await rectOf(page2, '.unit-card[data-unit="aoi"] [data-testid="card-pot"]');
+    check(inside(bAoi, cAoi) && overlap(bAoi, pAoi) === 0, `${tag} old save: the badge sits inside the card, clear of the pill`);
+    await shot(page2, `old-save-new-badges-${tag}`);
     // the letter in the mailbox
     await page2.evaluate(async () => (await import('/src/ui/lobby/mailbox.js')).openMailbox());
-    const letter = await page2.waitForSelector('[data-testid="mail-potential-arrived-1"]', { timeout: 15000 }).then((e) => e.textContent()).catch(() => '');
-    check(/New: Potential!/.test(letter) && /Aoi P6, Rei P3/.test(letter) && /Info tab/.test(letter), `${tag} old save: the letter reads "${letter.replace(/\s+/g, ' ')}"`);
-    await page2.click('[data-testid="mail-potential-arrived-1"] .mbx-letter-body', { force: true });
+    const letter = await page2.waitForSelector('[data-testid="mail-potential-v3-1"]', { timeout: 15000 }).then((e) => e.textContent()).catch(() => '');
+    check(/Potential grew!/.test(letter) && /Aoi P6 ✦ Hawk Companion(?: · level cap \d+)?, Rei P3 ✦ Third Step/.test(letter) && /we estimated/.test(letter) && /Nothing got weaker/.test(letter) && /Info tab/.test(letter) && !/small passive/.test(letter), `${tag} old save: the letter reads "${letter.replace(/\s+/g, ' ')}"`);
+    await page2.click('[data-testid="mail-potential-v3-1"] .mbx-letter-body', { force: true });
     await page2.waitForTimeout(250);
-    const full = await page2.evaluate(() => { const b = document.querySelector('[data-testid="mail-potential-arrived-1"] .mbx-letter-body'); return b.scrollHeight <= b.clientHeight + 1; });
+    const full = await page2.evaluate(() => { const b = document.querySelector('[data-testid="mail-potential-v3-1"] .mbx-letter-body'); return b.scrollHeight <= b.clientHeight + 1; });
     check(full, `${tag} old save: a tap shows the whole letter`);
     await shot(page2, `letter-${tag}`);
     await page2.click('[data-testid="mail-close"]', { force: true }).catch(() => {});
+    // her Info tab clears her NEW badge (the others keep theirs)
+    await go(page2, '#/student/aoi?tab=info', '[data-testid="potential-section"]');
+    await go(page2, '#/students', '.unit-card[data-unit="aoi"]');
+    const badges2 = await page2.evaluate(() => Object.fromEntries(['aoi', 'rei'].map((id) => [id, !!document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-potnew"]`)])));
+    check(!badges2.aoi && badges2.rei, `${tag} old save: opening Aoi's Info tab clears her NEW, Rei keeps hers ${JSON.stringify(badges2)}`);
     await page2.evaluate(() => window.__sakura.store.saveNow?.());
     await page2.waitForTimeout(300);
     await load(page2);
     const again = await profileOf(page2);
-    check(again.letters.filter((id) => id === 'potential-arrived-1').length === 1 && JSON.stringify(again.dupes) === JSON.stringify(mig.dupes), `${tag} reload: still one letter and the same Potential`);
+    check(again.letters.filter((id) => id === 'potential-v3-1').length === 1 && JSON.stringify(again.dupes) === JSON.stringify(mig.dupes) && !again.seenIntro.includes('pot3-new:aoi') && again.seenIntro.includes('pot3-new:rei'), `${tag} reload: still one letter, the same Potential, Aoi's badge stays cleared`);
     check(!errs.length, `${tag} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await ctx2.close();
   }

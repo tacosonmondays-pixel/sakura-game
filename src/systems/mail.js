@@ -13,7 +13,8 @@ import { addItems, normalizeList } from './inventory.js';
 import { materialId, bookId } from '../data/items.js';
 import { MATERIAL_FAMILIES } from '../data/types.js';
 import { UNITS } from '../data/units.js';
-import { potentialLevel, BACKFILL_MARKER, MAX_POTENTIAL } from './potential.js';
+import { potentialLevel, potentialStepInfo, BACKFILL_MARKER, MAX_POTENTIAL, V3_MARKER, NEW_PREFIX } from './potential.js';
+import { potentialLevelCap } from './progression.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
 export const MAIL_LIMIT = 60;
@@ -189,12 +190,27 @@ export function betaNoticeState(profile, now = Date.now()) {
   return pendingBetaGift(profile, now) ? 'unclaimed' : 'ended';
 }
 
-/** One-time letter for players whose duplicates were counted from their history (Potential M3). */
+/**
+ * v1's one-time letter ("New: Potential!", v0.1.34, to saves whose duplicates were counted from the
+ * recruit history). Not sent any more; its id stays because old saves list it in `delivered`.
+ */
 export const POTENTIAL_LETTER_ID = 'potential-arrived-1';
+/** The one-time Potential v3 letter ("Potential grew!", docs/specs/POTENTIAL.md v3 §12). */
+export const POTENTIAL_V3_LETTER_ID = 'potential-v3-1';
 const POTENTIAL_LETTER_NAMES = 12;
 
+/** One girl's line: "Kage P5 ✦ Moonpiercer", plus " · level cap 78" once Potential raises her cap. */
+export function potentialLetterLine(def, p) {
+  const info = p >= 2 ? potentialStepInfo(def, p) : null;
+  const cap = potentialLevelCap(p);
+  const step = info ? (info.kit ? ` ${info.brief}` : ` (${info.brief})`) : '';
+  return `${def.name} P${p}${step}${cap > potentialLevelCap(1) ? ` · level cap ${cap}` : ''}`;
+}
+
 /**
- * The Potential letter's text: every girl at P2+, highest first (12 names, then "and N more").
+ * The Potential v3 letter's text (v3 §12): every girl at P2+, highest first (12 names, then "and N
+ * more"), each with her newest step and her level cap. A save whose duplicates were counted from
+ * the recruit history and never got v1's letter also reads how they were counted.
  * @returns {object|null} the letter, or null when no girl is at P2+
  */
 export function potentialLetter(profile) {
@@ -202,29 +218,43 @@ export function potentialLetter(profile) {
     .filter((g) => g.p >= 2)
     .sort((a, b) => b.p - a.p || a.i - b.i);
   if (!girls.length) return null;
-  const names = girls.slice(0, POTENTIAL_LETTER_NAMES).map((g) => `${g.u.name} P${g.p}`);
+  const names = girls.slice(0, POTENTIAL_LETTER_NAMES).map((g) => potentialLetterLine(g.u, g.p));
   const more = girls.length - names.length;
+  const estimated = profile.seenIntro?.includes(BACKFILL_MARKER) && !profile.mail?.delivered?.includes(POTENTIAL_LETTER_ID);
   return {
-    id: POTENTIAL_LETTER_ID,
+    id: POTENTIAL_V3_LETTER_ID,
     from: 'Sakura Academy Staff',
-    title: 'New: Potential!',
-    body: `From today, every duplicate recruit raises a girl's Potential by 1, from P1 up to P${MAX_POTENTIAL}, and each step gives her `
-      + 'a small passive. Duplicates still give their Star Fragments. We counted the duplicates in your recruit history; for '
-      + 'recruits older than your last 100 we estimated (average luck for R and SR girls, a cautious guess for SSR girls): '
-      + `${names.join(', ')}${more > 0 ? `, and ${more} more` : ''}. You can see each girl's passives on her Info tab.`,
+    title: 'Potential grew!',
+    body: `Every duplicate recruit still raises a girl's Potential by 1, from P1 up to P${MAX_POTENTIAL}, and from today every step makes her `
+      + 'much stronger: a stat boost at every step and, from P3 (from P2 for SSR girls and heroes), a new trick built on what she '
+      + `does best, up to her capstone at P${MAX_POTENTIAL}. Your girls keep their Potential and have every step they earned, right away: `
+      + `${names.join(', ')}${more > 0 ? `, and ${more} more` : ''}. `
+      + (estimated ? 'We counted the duplicates in your recruit history; for recruits older than your last 100 we estimated (average luck for R and SR girls, a cautious guess for SSR girls). ' : '')
+      + 'Nothing got weaker: P1 is exactly the girl you know. You can see each girl\'s steps on her Info tab.',
     rewards: [],
     expiresAt: null,
   };
 }
 
 /**
- * Deliver the Potential letter once (call on app start, next to ensureBetaGift): only to saves the
- * one-time backfill credited (seenIntro 'potential-backfilled') with some girl at P2+. No rewards.
+ * The first app start of a v3 build (call on app start, next to ensureBetaGift, and after a reset or
+ * an import): marks the save (seenIntro 'potential-v3'; createProfile marks new saves, so only a
+ * save made by an older build reaches the rest) and, when some girl is at P2+, delivers the
+ * "Potential grew!" letter once and gives each of those girls the one-time NEW badge on her card.
+ * No rewards.
  * @returns {object|null} the delivered letter
  */
 export function ensurePotentialLetter(profile, now = Date.now()) {
-  if (!profile?.seenIntro?.includes(BACKFILL_MARKER)) return null;
-  if (profile.mail?.delivered?.includes(POTENTIAL_LETTER_ID)) return null;
+  if (!profile) return null;
+  const seen = (profile.seenIntro ||= []);
+  if (seen.includes(V3_MARKER)) return null;
+  seen.push(V3_MARKER);
+  if (profile.mail?.delivered?.includes(POTENTIAL_V3_LETTER_ID)) return null;
   const letter = potentialLetter(profile);
-  return letter ? deliverMail(profile, letter, now) : null;
+  if (!letter) return null;
+  for (const u of UNITS) {
+    const st = profile.units?.[u.id];
+    if (st && potentialLevel(st) >= 2 && !seen.includes(NEW_PREFIX + u.id)) seen.push(NEW_PREFIX + u.id);
+  }
+  return deliverMail(profile, letter, now);
 }

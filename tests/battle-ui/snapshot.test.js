@@ -448,6 +448,20 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     for (const t of sim.towers.filter((x) => x.def.id !== 'aoi')) expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
   });
 
+  it('a save from before Potential v3 with a girl at P2+ says so on Continue (potentialNew); none otherwise', () => {
+    const at = (v, pot) => {
+      const snap = cpAt(4);
+      snap.v = v;
+      const rec = recordOf(c, snap);
+      const aoi = rec.loadout.find((e) => e.unitId === 'aoi');
+      aoi.stats = { ...aoi.stats, potential: pot };
+      return restoreSim(rec).potentialNew;
+    };
+    expect(at(2, 4)).toBe(true);
+    expect(at(SNAP_V, 4)).toBe(false); // saved by a v3 build: her steps were already the v3 ones
+    expect(at(2, 1)).toBe(false); // nobody at P2+: nothing changed for this run
+  });
+
   it('a long endless run with hundreds of leaks stays small and keeps the defeat debrief exact', () => {
     const col = SCEN['colosseum to wave 30'];
     const cp = fullRun('colosseum to wave 30').cps.at(-1);
