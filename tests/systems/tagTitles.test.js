@@ -11,10 +11,12 @@ import {
 import { earnedTitles, titleChoices, titleKeepable } from '../../src/systems/profileTrophies.js';
 import { TITLE_TABLE } from '../../src/systems/profileHonors.js';
 import { TITLES } from '../../src/data/profileArt.js';
-import { cleanSensei } from '../../src/systems/senseiSave.js';
+import { cleanSensei, setSensei, TAG_TITLE_MARK } from '../../src/systems/senseiSave.js';
+import { titlesFromText, TITLES_FROM, TITLES_FROM_TAGS } from '../../src/systems/honors.js';
 import { buildCard, cleanViewedCard } from '../../src/online/profileCard.js';
 import { recordTagMarks } from '../../src/online/tags.js';
 import { freshSave, lateSave } from './profileFixtures.js';
+import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
 
 const tagged = (tags, base = createProfile()) => {
   recordTagMarks(base, tags);
@@ -119,6 +121,44 @@ describe('equipping and showing', () => {
     expect(cleanSensei({ title: 'tag_alpha' }, createProfile()).title).toBeNull();
   });
 
+  it('an older build takes an equipped tag title off: the next load in this build puts it back on', () => {
+    const p = tagged({ staff: 'dev', tester: 'alpha' });
+    setSensei(p, { title: 'tag_alpha' });
+    expect(p.missions.counters[`${TAG_TITLE_MARK}alpha`]).toBe(1);
+    // v0.1.32 opens the save: its titleKeepable doesn't know 'tag_alpha' (not a title, not a claimed
+    // achievement), so its clean-up sets none, and its shadow writer rewrites only the 'pfs:' keys
+    const old = JSON.parse(JSON.stringify(p));
+    old.sensei.title = null;
+    delete old.missions.counters['pfs:title'];
+    const m = migrateProfile(old);
+    expect(m.sensei.title).toBe('tag_alpha');
+    expect(m.missions.counters[`${TAG_TITLE_MARK}alpha`]).toBe(1);
+    expect(m.missions.counters['pfs:title']).toBeGreaterThan(0);
+    expect(buildCard(m).ttl).toBe('tag_alpha');
+    // a different title picked in the older build wins
+    const other = JSON.parse(JSON.stringify(p));
+    other.sensei.title = 'fp_ashwing';
+    other.missions.counters[`fpm:${FREEPLAY_TIERS[0]}:matriarch`] = 1;
+    const m2 = migrateProfile(other);
+    expect(m2.sensei.title).toBe('fp_ashwing');
+    expect(Object.keys(m2.missions.counters).some((k) => k.startsWith(TAG_TITLE_MARK))).toBe(false);
+  });
+
+  it('the \'tagt:\' shadow follows this build\'s own picks, and never equips a title the save does not own', () => {
+    const p = tagged({ staff: 'dev', tester: 'alpha' });
+    setSensei(p, { title: 'tag_alpha' });
+    setSensei(p, { title: 'tag_dev' });
+    expect(Object.keys(p.missions.counters).filter((k) => k.startsWith(TAG_TITLE_MARK))).toEqual([`${TAG_TITLE_MARK}dev`]);
+    // taken off here: an older build's "none" afterwards stays none
+    setSensei(p, { title: null });
+    expect(Object.keys(p.missions.counters).some((k) => k.startsWith(TAG_TITLE_MARK))).toBe(false);
+    expect(migrateProfile(JSON.parse(JSON.stringify(p))).sensei.title).toBeNull();
+    // a shadow without the tag's own mark (never set by the game) equips nothing
+    const q = createProfile();
+    q.missions.counters[`${TAG_TITLE_MARK}dev`] = 1;
+    expect(migrateProfile(JSON.parse(JSON.stringify(q))).sensei.title).toBeNull();
+  });
+
   it('someone else\'s card: a tag title shows only when their server tags include it', () => {
     const p = tagged({ staff: 'dev', tester: 'alpha' });
     p.sensei.title = 'tag_dev';
@@ -131,5 +171,20 @@ describe('equipping and showing', () => {
     expect(cleanViewedCard({ ...card, ttl: 'tag_beta' }, { tags: { tester: 'alpha' } }).ttl).toBeNull();
     // ordinary titles never depend on tags
     expect(cleanViewedCard({ ...card, ttl: 'a_gold_40' }).ttl).toBe('a_gold_40');
+  });
+});
+
+describe('where titles come from (the pickers\' help line)', () => {
+  it('names the team / tester titles only for a player who has one', () => {
+    for (const p of [freshSave(), lateSave()]) {
+      expect(titlesFromText(titleChoices(p))).toBe(TITLES_FROM);
+      expect(titlesFromText(titleGroups(p).flatMap((g) => g.titles.map((t) => t.id)))).toBe(TITLES_FROM);
+    }
+    const p = tagged({ tester: 'alpha' });
+    expect(titlesFromText(titleChoices(p))).toBe(TITLES_FROM_TAGS);
+    expect(titlesFromText(titleGroups(p).flatMap((g) => g.titles.map((t) => t.id)))).toBe(TITLES_FROM_TAGS);
+    expect(TITLES_FROM_TAGS).toMatch(/Nothing you buy gives a title\.$/);
+    expect(titlesFromText(['tag_beta'])).toBe(TITLES_FROM_TAGS);
+    expect(titlesFromText(['a_gold_40'])).toBe(TITLES_FROM);
   });
 });

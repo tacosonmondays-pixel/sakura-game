@@ -16,7 +16,7 @@
 
 import { ACHIEVEMENT_MAP, achievementLive, NO_COSMETIC } from '../data/achievements.js';
 import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
-import { markedTags } from '../data/playerTags.js';
+import { markedTags, isTagTitle } from '../data/playerTags.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -35,6 +35,12 @@ export const liveTitles = () => TITLES.filter((t) => !t.tag && (!ACHIEVEMENT_MAP
 
 /** A tag title is owned while the save holds that tag's mark (missions.counters 'tag:<kind>', set from the server). */
 const tagTitleOwned = (p, t) => markedTags(p).includes(t.tag);
+
+/** Where titles come from, for the pickers: the team / tester titles are mentioned only to a player who has one. */
+export const TITLES_FROM = 'Titles come from achievements. Nothing you buy gives a title.';
+export const TITLES_FROM_TAGS = 'Titles come from achievements, and a few from being on the team or testing the game. Nothing you buy gives a title.';
+/** TITLES_FROM_TAGS when this list of title ids holds a tag title, else TITLES_FROM. */
+export const titlesFromText = (ids) => (ids.some((id) => isTagTitle(id)) ? TITLES_FROM_TAGS : TITLES_FROM);
 
 /** Ribbon ids owned (claimed, known and live in this build), in case order. */
 export function ownedRibbons(profile) {

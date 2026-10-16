@@ -10,6 +10,7 @@ import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
 import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
+import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT } from '../../online/profileRules.js';
 import { storedName, askName } from '../online/common.js';
 import { displayRarity, rarityInfo } from '../rarity.js';
@@ -83,7 +84,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     ],
     title: () => [
       label('Title', `${titles.size} / ${choices.length} earned`),
-      h('p.ep-help', 'Titles come from achievements. Nothing you buy gives a title.'),
+      h('p.ep-help', titlesFromText(choices)),
       h('div.ep-titles', { 'data-testid': 'edit-titles' },
         h(`button.ep-title.none${draft.title == null ? '.on' : ''}`, { type: 'button', 'data-title': '', onclick: () => set('title', null) }, h('span.ep-title-none', 'None'), draft.title == null ? h('i.ep-check', '✓') : null),
         TIERS.map(([tier, name]) => {
