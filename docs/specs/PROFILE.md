@@ -510,6 +510,7 @@ create table if not exists public.profile_cards (
   bio_changed_at timestamptz, bio_hidden boolean not null default false,
   bio_strikes int not null default 0, bio_strike_at timestamptz, bio_locked_until timestamptz,
   updated_at timestamptz not null default now(), created_at timestamptz not null default now());
+alter table public.profile_cards add column if not exists bio_hidden_text text; -- the text reports hid
 alter table public.profile_cards enable row level security;   -- no policies: functions only
 revoke all on public.profile_cards from anon, authenticated;
 ```
@@ -527,7 +528,7 @@ All are SECURITY DEFINER, identify the caller with `social_me()`, and are grante
 | `profile_view(p_user uuid) → json` | `player_card(p_user)` + `since` ('YYYY-MM') + `profileWhy` + `profile: { bio, card }` when shown + `own` (your own profile only) | `card` 120/h (through `player_card`) |
 | `my_profile_card() → json` | `{ exists, bio, visibility, card, hash, bioHidden, bioLockedUntil, muted, updatedAt }` | — |
 | `set_profile_card(p_card jsonb, p_hash text) → { hash }` | `valid_profile_card`, then upsert | `profile` 1/s, 60/h |
-| `set_profile_bio(p_bio text) → own json` | Trims. `''` is always allowed. Otherwise ≤ 80 chars, `valid_dm_body`, `profile_contact_free`; refused while muted or locked. The same text again is no change (a hidden bio stays hidden); new text shows again. | `bio` 10/day |
+| `set_profile_bio(p_bio text) → own json` | Trims. `''` is always allowed. Otherwise ≤ 80 chars, `valid_dm_body`, `profile_contact_free`; refused while muted or locked. The same text again is no change (a hidden bio stays hidden); new text shows again. The text reports hid stays hidden whenever it is set again, also after clearing the bio (`bio_hidden_text`). | `bio` 10/day |
 | `set_profile_visibility(p_value text)` | `everyone` / `friends_clan` / `nobody` | `settings` 20/h |
 
 **`profileWhy` (checked in this order):**
@@ -570,7 +571,7 @@ These ceilings sit a little above today's game, so new girls, outfits, titles, b
   - social's evidence is untouched.
 - **Trigger `reports_profile_hide`** (AFTER INSERT, or UPDATE OF context, updated_at) → `profile_maybe_hide`:
   - **Counting:** distinct reporters with an open `'profile'` report filed or repeated since the bio's last change, whose accounts are ≥ 24 h old.
-  - **3 or more** → `bio_hidden` + one strike.
+  - **3 or more** → `bio_hidden` + one strike; `bio_hidden_text` remembers the text, so setting it again (also after clearing the bio, or another bio in between) keeps it hidden, with its change time unchanged.
   - **A second strike within 30 days** → bio edits locked for 7 days (clearing still allowed).
 - **Known limitation:** reports from the player card (chat, roster) also use context `'profile'`, so they count too. Adding a `'bio'` context would mean re-creating `report_player`; not worth it.
 - **Mutes:**

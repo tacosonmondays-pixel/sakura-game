@@ -1,9 +1,9 @@
 // The local adapter's clan invites "server" (adapters/localClanInvites.js, mixed into localDb) runs the
 // scenarios of the PGlite run of supabase/migrations/20261018000000_clan_invites.sql
 // (clanInvitesSchema.test.js): who may invite / be invited, the invite card, Join whatever the join mode,
-// blocks and "Nobody" swallowed, decline tombstones, expiry, the member cap, an inviter who left, kick bans,
-// the developer clan, the daily and pending caps, the rate limit, the once-a-day recruiting post, and the
-// "server not updated yet" switch (features.invites = false).
+// blocks and "Nobody" swallowed, decline tombstones, expiry, the member cap, an inviter who left (or who can't
+// invite any more, or a block since), kick bans, the developer clan, the daily and pending caps, the rate limit,
+// the once-a-day recruiting post, and the "server not updated yet" switch (features.invites = false).
 import { describe, it, expect } from 'vitest';
 import { createLocalDb } from '../../src/online/adapters/localDb.js';
 import { LOCAL_DEV_CODE, validMessageMeta } from '../../src/online/clanRules.js';
@@ -149,6 +149,41 @@ describe('local clan invites', () => {
     expect(env.answer('K', byLeader.id, true)).toEqual({ id: env.oc.id });
   });
 
+  it('an invite counts only while its sender could send it: an officer made a member, or a block either way, makes it gone', () => {
+    const env = setup();
+    const inClan = (uid) => env.db.myClan(uid)?.clan?.id ?? null;
+    env.db.setRole('A', 'D', 'officer');
+    env.invite('D', 'K');
+    const [byD] = env.db.clanInvites('K');
+    expect(byD.fromId).toBe('D');
+    env.db.setRole('A', 'D', 'member'); // a plain member of a 'request' clan can't invite
+    expect(env.db.clanInvites('K')).toEqual([]);
+    expect(env.answer('K', byD.id, true)).toEqual({ error: 'gone' }); // a stale card or a direct call
+    expect(inClan('K')).toBeNull();
+    // the inviter blocks the invitee after inviting
+    env.invite('A', 'K');
+    const [fromA] = env.db.clanInvites('K');
+    expect(fromA.fromId).toBe('A');
+    env.db.block('A', 'K');
+    expect(env.db.clanInvites('K')).toEqual([]);
+    expect(env.answer('K', fromA.id, true)).toEqual({ error: 'gone' });
+    expect(inClan('K')).toBeNull();
+    env.db.unblock('A', 'K');
+    // the invitee blocks the inviter
+    env.invite('F', 'K');
+    const [fromF] = env.db.clanInvites('K');
+    expect(fromF.fromId).toBe('F');
+    env.db.block('K', 'F');
+    expect(env.answer('K', fromF.id, true)).toEqual({ error: 'gone' });
+    expect(inClan('K')).toBeNull();
+    env.db.unblock('K', 'F');
+    expect(env.db.clanInvites('K')).toEqual([]);
+    // a plain member of an open clan may invite, and that invite stands
+    env.invite('G', 'K');
+    const [byG] = env.db.clanInvites('K');
+    expect(env.answer('K', byG.id, true)).toEqual({ id: env.oc.id });
+  });
+
   it('the developer clan: its members are never invited, and it invites nobody', () => {
     const env = setup();
     env.db.joinByCode('E', LOCAL_DEV_CODE);
@@ -170,8 +205,13 @@ describe('local clan invites', () => {
       for (let i = 10; i < 20; i++) s.clanInvites.push({ id: 900 + i, clanId: `q${i}`, fromId: null, toId: 'E', fromName: '', status: 'pending', createdAt: env.clock.t - 3 * DAY });
     });
     expect(env.invite('A', 'E')).toEqual({ state: 'invited' });
-    // (the housekeeping keeps 30 days; every one of these is still there)
-    expect(env.db.clanInvites('E').length).toBe(CLAN_INVITE_PENDING_MAX);
+    // (the housekeeping keeps 30 days; every one of these is still there; the seeded ones have no sender, so
+    // only the stored rows count them, not the list)
+    let pending = [];
+    env.edit((s) => { pending = s.clanInvites.filter((i) => i.toId === 'E' && i.status === 'pending').map((i) => i.clanId); });
+    expect(pending).toHaveLength(CLAN_INVITE_PENDING_MAX);
+    expect(pending).toContain(env.ps.id);
+    expect(env.db.clanInvites('E').map((i) => i.clan.id)).toEqual([env.ps.id]);
     env.clearRate('clan_invite');
     env.db.sendClanInvite('A', 'B');
     expect(err(() => env.db.sendClanInvite('A', 'K')).code).toBe('rate_limited');

@@ -249,6 +249,18 @@ describe.skipIf(!PGlite)(`profile migration (run on Postgres, ${defaultGrants ? 
     expect((await view(E, A)).profile.bio).toBe('');
     expect((await one(A, 'select my_profile_card() as r')).bioHidden).toBe(true);
     expect((await one(A, 'select set_profile_bio($1) as r', ['Second bio'])).bioHidden).toBe(true);
+    // clearing it and saving the same text again (what Edit Profile allows) keeps it hidden; so does
+    // another bio in between
+    await clearRate('bio', A);
+    expect((await one(A, `select set_profile_bio('') as r`)).bioHidden).toBe(false);
+    expect((await one(A, 'select set_profile_bio($1) as r', ['Second bio'])).bioHidden).toBe(true);
+    expect((await view(E, A)).profile.bio).toBe('');
+    expect((await one(A, 'select my_profile_card() as r')).bioHidden).toBe(true);
+    await one(A, 'select set_profile_bio($1) as r', ['Interim bio']);
+    expect((await view(E, A)).profile.bio).toBe('Interim bio');
+    expect((await one(A, 'select set_profile_bio($1) as r', ['Second bio'])).bioHidden).toBe(true);
+    expect((await view(E, A)).profile.bio).toBe('');
+    expect((await sup('select bio_strikes, bio_locked_until from profile_cards where user_id = $1', [A])).rows[0]).toEqual({ bio_strikes: 1, bio_locked_until: null });
     await one(A, 'select set_profile_bio($1) as r', ['Third bio']);
     expect((await view(E, A)).profile.bio).toBe('Third bio');
     for (const who of [B, C, D]) {

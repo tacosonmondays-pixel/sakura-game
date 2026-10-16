@@ -440,8 +440,9 @@ export function createSupabaseAdapter({ url, key }) {
     },
     async answerClanInvite(inviteId, accept) {
       const r = await srpc('answer_clan_invite', { p_id: Number(inviteId), p_accept: !!accept });
-      // an inviter who left the clan: the invite was removed (returned, so the removal sticks)
-      if (r?.error) throw new OnlineError('not_found', 'That invite is gone: the player who sent it left the clan.', { definitive: true });
+      // its sender can't invite to that clan any more (left, or no longer allowed), or a block stands between
+      // the two: the invite was removed (returned, so the removal sticks); one answer for all (a block never shows)
+      if (r?.error) throw new OnlineError('not_found', 'That invite is gone.', { definitive: true });
       return r;
     },
     async recruitState() {

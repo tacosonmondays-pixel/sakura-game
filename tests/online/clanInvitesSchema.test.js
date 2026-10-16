@@ -2,8 +2,9 @@
 // Postgres (PGlite): every migration applied twice, with and without Supabase's default grants. Lint (RLS, no
 // grants, the client's rate numbers and rules in the SQL), the order guard, the ACL allow-list, the JS mirror ≡
 // SQL (recruiting card, recruiting text), who may invite / be invited, blocks and "Nobody" swallowed, decline
-// tombstones, expiry, member caps, kick bans, an inviter who left, the daily and pending caps, rate limits,
-// the once-a-day recruiting post on the game day, older-client inserts refused, and a re-paste of the first file.
+// tombstones, expiry, member caps, kick bans, an inviter who left (or can't invite any more, or a block since),
+// the daily and pending caps, rate limits, the once-a-day recruiting post on the game day, older-client inserts
+// refused, and a re-paste of the first file.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -227,12 +228,51 @@ describe.skipIf(!PGlite)(`clan invites migration (run on Postgres, ${defaultGran
     await leave(K);
   });
 
+  it('an invite counts only while its sender could send it today: an officer made a member, or a block either way, makes it gone', async () => {
+    // D invited H as an officer (the first test) and is a plain member of a 'request' clan now
+    const byD = (await sup(`select id from clan_invites where to_id = $1 and from_id = $2 and status = 'pending'`, [H, D])).rows[0];
+    expect(byD).toBeTruthy();
+    expect(await list(H)).toEqual([]); // the card is gone from the list
+    expect(await answer(H, byD.id, true)).toEqual({ error: 'gone' }); // a stale card or a direct call
+    expect(await clanOf(H)).toBeNull();
+    expect((await sup('select count(*)::int as n from clan_invites where id = $1', [byD.id])).rows[0].n).toBe(0);
+    // an officer again, in a 'code' clan: the invite stands; demoted once more, it is gone at once
+    await as(A, 'select set_role($1, $2)', [D, 'officer']);
+    await sup(`update clans set join_mode = 'code' where id = $1`, [ps.id]);
+    expect(await invite(D, H)).toEqual({ state: 'invited' });
+    const [again] = await list(H);
+    expect(again).toMatchObject({ fromId: D, clan: { id: ps.id, joinMode: 'code' } });
+    await as(A, 'select set_role($1, $2)', [D, 'member']);
+    expect(await list(H)).toEqual([]);
+    expect(await answer(H, again.id, true)).toEqual({ error: 'gone' });
+    expect(await clanOf(H)).toBeNull();
+    await sup(`update clans set join_mode = 'request' where id = $1`, [ps.id]);
+    // the inviter blocks the invitee after inviting: hidden, and Join is refused as gone
+    expect(await invite(A, H)).toEqual({ state: 'invited' });
+    const [fromA] = await list(H);
+    expect(fromA.fromId).toBe(A);
+    await as(A, 'select block_player($1)', [H]);
+    expect(await list(H)).toEqual([]);
+    expect(await answer(H, fromA.id, true)).toEqual({ error: 'gone' });
+    expect(await clanOf(H)).toBeNull();
+    await as(A, 'select unblock_player($1)', [H]);
+    // the invitee blocks the inviter: the same
+    expect(await invite(F, H)).toEqual({ state: 'invited' });
+    const [fromF] = await list(H);
+    expect(fromF.fromId).toBe(F);
+    await as(H, 'select block_player($1)', [F]);
+    expect(await answer(H, fromF.id, true)).toEqual({ error: 'gone' });
+    expect(await clanOf(H)).toBeNull();
+    await as(H, 'select unblock_player($1)', [F]);
+    expect(await list(H)).toEqual([]);
+  });
+
   it('the developer clan: its members are never invited (swallowed), and it invites nobody', async () => {
     await clearRate('clan_join');
     await as(H, `select join_clan_by_code('${TEST_DEV_CODE}')`);
     expect(await invite(A, H)).toEqual({ state: 'invited' });
     await leave(H);
-    expect((await list(H)).map((i) => i.clan.tag)).toEqual(['PS']); // the officer's earlier invite; not a new one
+    expect(await list(H)).toEqual([]); // swallowed: no invite card after leaving the developer clan
     await sup('delete from clan_invites where to_id = $1', [H]);
     await clearRate('clan_join');
     await as(H, `select join_clan_by_code('${TEST_DEV_CODE}')`);

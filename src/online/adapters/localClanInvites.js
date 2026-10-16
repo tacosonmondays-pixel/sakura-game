@@ -43,6 +43,11 @@ export function createLocalClanInvites({ tx, rate, now, enabled, relations: R, a
     const c = m && s.clans[m.clanId];
     return c && canInviteToClan(m.role, c) ? c : null;
   };
+  /**
+   * An invite counts only while its sender could send it today (SQL: clan_invite_clan(from) = the
+   * invite's clan): still in the clan and still allowed to invite to it, and no block either way.
+   */
+  const standing = (s, x, uid, i) => !!i.fromId && inviteClan(s, i.fromId)?.id === i.clanId && !R.isBlocked(x, uid, i.fromId);
   const housekeeping = (s) => {
     const cut = now() - CLAN_INVITE_KEEP_DAYS * DAY;
     s.clanInvites = s.clanInvites.filter((i) => i.createdAt >= cut);
@@ -103,7 +108,7 @@ export function createLocalClanInvites({ tx, rate, now, enabled, relations: R, a
         if (memberOf(s, uid)) return [];
         const x = R.S(s);
         return s.clanInvites
-          .filter((i) => i.toId === uid && i.status === 'pending' && live(i) && s.clans[i.clanId] && !s.clans[i.clanId].isDev && !(i.fromId && R.isBlocked(x, uid, i.fromId)))
+          .filter((i) => i.toId === uid && i.status === 'pending' && live(i) && s.clans[i.clanId] && !s.clans[i.clanId].isDev && standing(s, x, uid, i))
           .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)
           .slice(0, 20)
           .map((i) => {
@@ -129,12 +134,14 @@ export function createLocalClanInvites({ tx, rate, now, enabled, relations: R, a
         if (memberOf(s, uid)) fail('already_member');
         const c = s.clans[inv.clanId];
         if (!c || c.isDev) fail('not_found', 'that clan is gone');
-        const from = memberOf(s, inv.fromId);
-        if (!from || from.clanId !== c.id) {
+        // the sender could no longer send it (left, or may not invite to this clan any more), or a block
+        // stands between us: gone (SQL: returned, not raised, so the removal sticks; the adapters say
+        // "that invite is gone")
+        if (!standing(s, R.S(s), uid, inv)) {
           s.clanInvites = s.clanInvites.filter((i) => i !== inv);
-          // SQL: returned (not raised) so the removal sticks; the adapters say "that invite is gone"
           return { error: 'gone' };
         }
+        const from = memberOf(s, inv.fromId);
         rate(s, uid, 'clan_join');
         // the leader's or an officer's invite lets a kicked player back in, like accepting their request
         if (from.role === 'leader' || from.role === 'officer') liftClanBan(s, c.id, uid);

@@ -18,10 +18,29 @@
 --     (docs/ONLINE.md), never "whoever is in the developer clan today".
 --
 -- Paste AFTER 20261008000000_online.sql (it needs the profiles and clans tables); the social files
--- are not needed for it. Safe to run more than once. The game needs no update: until this runs
+-- are not needed for it. Safe to run more than once. It runs as ONE transaction: on any error (or "The
+-- game is busy right now") nothing at all was changed — press Run again. The game needs no update: until this runs
 -- nobody has a chip, and afterwards the chips appear the next time a screen shows names.
 
 begin;
+
+-- One quiet moment for every live table this file touches, all locked at once (the new table points at
+-- profiles and a trigger goes on it; the first run reads the developer clan): players' requests wait the
+-- second this file needs, and no chat line or clan join can hold one of them while waiting for another
+-- ("deadlock detected"). If the game stays busy for 30 seconds it stops and nothing was changed — press
+-- Run again.
+do $$
+begin
+  for i in 1..600 loop
+    begin
+      lock table public.profiles, public.clans, public.clan_members in access exclusive mode nowait;
+      return;
+    exception when lock_not_available then
+      perform pg_sleep(0.05);
+    end;
+  end loop;
+  raise exception 'The game is busy right now, so nothing was changed. Press Run again in a minute.';
+end $$;
 
 -- ---- private server settings (no policies, no grants: only this file and the owner read it) ----
 create table if not exists public.server_settings (

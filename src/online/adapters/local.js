@@ -247,7 +247,9 @@ export function createLocalAdapter(env = {}) {
     },
     async answerClanInvite(inviteId, accept) {
       const r = db.answerClanInvite(me(), inviteId, accept);
-      if (r?.error) throw Object.assign(new Error('not_found: That invite is gone: the player who sent it left the clan.'), { code: 'not_found' });
+      // the sender can't invite to that clan any more (left, or no longer allowed), or a block stands between
+      // the two: one answer for all of them (a block is never shown)
+      if (r?.error) throw Object.assign(new Error('not_found: That invite is gone.'), { code: 'not_found' });
       return r;
     },
     async recruitState() {

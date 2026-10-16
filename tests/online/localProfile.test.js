@@ -140,6 +140,17 @@ describe('local profile server', () => {
     expect(db.profileView('E', 'A').profile.bio).toBe('');
     expect(db.myProfileCard('A').bioHidden).toBe(true);
     expect(db.setProfileBio('A', 'Second bio').bioHidden).toBe(true);
+    // clearing it and saving the same text again (what Edit Profile allows) keeps it hidden; so does
+    // another bio in between
+    tick(1000);
+    expect(db.setProfileBio('A', '').bioHidden).toBe(false);
+    expect(db.setProfileBio('A', 'Second bio').bioHidden).toBe(true);
+    expect(db.profileView('E', 'A').profile.bio).toBe('');
+    db.setProfileBio('A', 'Interim bio');
+    expect(db.profileView('E', 'A').profile.bio).toBe('Interim bio');
+    expect(db.setProfileBio('A', 'Second bio').bioHidden).toBe(true);
+    expect(db.profileView('E', 'A').profile.bio).toBe('');
+    expect(db.myProfileCard('A').bioLockedUntil).toBeNull();
     tick(1000);
     db.setProfileBio('A', 'Third bio');
     expect(db.profileView('E', 'A').profile.bio).toBe('Third bio');

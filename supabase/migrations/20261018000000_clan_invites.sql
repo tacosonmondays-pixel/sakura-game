@@ -25,7 +25,10 @@
 --              join mode (that one invite opens a 'request' or 'code' clan) and still respects the member
 --              cap; an invite from the leader or an officer also lifts a kick ban (like accepting a join
 --              request), a plain member's does not. Invites end after 7 days; a declined one swallows
---              repeats from that clan for 7 days; the inviter must still be in the clan when it is used.
+--              repeats from that clan for 7 days. An invite counts only while its sender could send it
+--              today: still in the clan, still allowed to invite to it (an officer made a plain member
+--              of a 'request' or 'code' clan can't), and no block between the two players either way;
+--              otherwise it leaves the list and Join answers "that invite is gone".
 --   limits     enforce_rate() (same numbers as src/online/limits.js RULES): clan invite 1 per 2 s, 20 per
 --              hour per sender; at most 10 invites a day per invited player (more are refused: "they got a
 --              lot of clan invites today"), at most 20 pending per player (a full list drops its oldest).
@@ -55,13 +58,15 @@ begin
   end if;
 end $$;
 
--- One quiet moment for the chat table (its kind check changes): players' messages wait the second this
--- file needs. If chat stays busy for 30 seconds it stops and nothing was changed — press Run again.
+-- One quiet moment for every live table this file touches, all locked at once (chat's kind check changes;
+-- the new tables point at clans and profiles): players' requests wait the second this file needs, and no
+-- clan join or chat line can hold one of them while waiting for another ("deadlock detected"). If the game
+-- stays busy for 30 seconds it stops and nothing was changed — press Run again.
 do $$
 begin
   for i in 1..600 loop
     begin
-      lock table public.messages in access exclusive mode nowait;
+      lock table public.messages, public.clans, public.profiles in access exclusive mode nowait;
       return;
     exception when lock_not_available then
       perform pg_sleep(0.05);
@@ -245,7 +250,8 @@ begin
         'memberCount', (select count(*) from clan_members m where m.clan_id = c.id), 'maxMembers', c.max_members) as clan
     from clan_invites i join clans c on c.id = i.clan_id
     where i.to_id = v_me and i.status = 'pending' and i.created_at > now() - interval '7 days' and not c.is_dev
-      and (i.from_id is null or not social_is_blocked(v_me, i.from_id))
+      -- only while its sender could send it today (in the clan, allowed to invite) and no block stands between us
+      and clan_invite_clan(i.from_id) = i.clan_id and not social_is_blocked(v_me, i.from_id)
     order by i.created_at desc limit 20) x);
 end $$;
 
@@ -267,12 +273,14 @@ begin
   if exists (select 1 from clan_members where user_id = v_me) then raise exception 'already_member'; end if;
   select * into c from clans where id = inv.clan_id and not is_dev;
   if not found then raise exception 'not_found: that clan is gone'; end if;
-  -- the inviter must still be in the clan (an invite from someone who left is gone)
-  select role into v_role from clan_members where user_id = inv.from_id and clan_id = c.id;
-  if v_role is null then
+  -- the invite counts only while its sender could send it today: still in the clan and still allowed to
+  -- invite to it (an officer made a plain member of a 'request' or 'code' clan can't), and no block
+  -- between us either way. Otherwise it is gone (returned, not raised, so the removal sticks).
+  if inv.from_id is null or clan_invite_clan(inv.from_id) is distinct from c.id or social_is_blocked(v_me, inv.from_id) then
     delete from clan_invites where id = inv.id;
     return json_build_object('error', 'gone');
   end if;
+  select role into v_role from clan_members where user_id = inv.from_id and clan_id = c.id;
   perform enforce_rate('clan_join', 0, 10, interval '1 hour');
   -- the leader's or an officer's invite lets a kicked player back in, like accepting their request
   if v_role in ('leader', 'officer') then delete from clan_bans where clan_id = c.id and user_id = v_me; end if;

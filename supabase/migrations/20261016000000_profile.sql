@@ -5,6 +5,8 @@
 -- HOW TO RUN IT (owner): AFTER 20261013000000_social.sql (and 20261015000000_social_open_friends.sql).
 -- Open this file on GitHub → Raw → select all → copy; Supabase → SQL Editor → New query → paste → Run.
 -- Safe to run more than once. Check afterwards: `select public.profile_version();` → 1.
+-- It runs as ONE transaction: on any error (or "The game is busy right now") nothing at all was
+-- changed — press Run again.
 -- ORDER: online (first migration) → social → open friends → THIS file. If the first migration is ever
 -- pasted again, paste the social files and then THIS file again right after them (the first file
 -- revokes every function grant). Pasting the social files again does not touch this one.
@@ -31,7 +33,8 @@
 --   reports    report_player(…, 'profile', …) as before; a trigger adds the target's bio and card
 --              ids to the evidence (earlier bios kept on a repeat report). 3 reporters (accounts ≥ 1
 --              day old) after the bio's last change hide it; a second hide within 30 days locks
---              bio edits for 7 days. A new bio shows again; the same bio stays hidden.
+--              bio edits for 7 days. A new bio shows again; the same bio stays hidden, also when it is
+--              set again after clearing the bio (bio_hidden_text remembers the text that was hidden).
 --   limits     enforce_rate (same numbers as src/online/limits.js):
 --                profile card update   1 per second, 60 per hour
 --                bio change            10 per day          visibility   'settings' (20 per hour)
@@ -44,6 +47,23 @@ begin
   if to_regprocedure('public.social_version()') is null or to_regclass('public.reports') is null then
     raise exception 'Run 20261013000000_social.sql first: this file needs its blocks, reports and text rules';
   end if;
+end $$;
+
+-- One quiet moment for every live table this file touches, all locked at once (the new table points at
+-- profiles; triggers go on reports): players' requests wait the second this file needs, and no chat line
+-- or report can hold one of them while waiting for another ("deadlock detected"). If the game stays busy
+-- for 30 seconds it stops and nothing was changed — press Run again.
+do $$
+begin
+  for i in 1..600 loop
+    begin
+      lock table public.profiles, public.reports in access exclusive mode nowait;
+      return;
+    exception when lock_not_available then
+      perform pg_sleep(0.05);
+    end;
+  end loop;
+  raise exception 'The game is busy right now, so nothing was changed. Press Run again in a minute.';
 end $$;
 
 -- =============================================================================================
@@ -241,6 +261,9 @@ create table if not exists public.profile_cards (
 -- (no check constraint on bio or card: a NOT VALID check still runs on every UPDATE of an old row,
 --  so a stricter rule later would lock players out of publishing — the social file's lesson. The
 --  functions check what CHANGES, and profile_view re-checks the bio when it is read.)
+-- The text reports hid: setting that same text again (even after clearing the bio, or another bio in
+-- between) keeps it hidden. Safe to paste again.
+alter table public.profile_cards add column if not exists bio_hidden_text text;
 
 alter table public.profile_cards enable row level security;
 -- no policies: functions only
@@ -289,7 +312,8 @@ language sql stable security invoker set search_path = public, pg_temp as $$
 $$;
 
 -- 3 reporters (accounts ≥ 1 day old) with an open 'profile' report filed or repeated after the
--- bio's last change → the bio is hidden; a second hide within 30 days locks bio edits 7 days.
+-- bio's last change → the bio is hidden (and its text remembered: the same text stays hidden when set
+-- again); a second hide within 30 days locks bio edits 7 days.
 create or replace function public.profile_maybe_hide(p_target uuid) returns void
 language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
@@ -305,7 +329,7 @@ begin
       and p.created_at <= now() - interval '24 hours';
   if v_n < 3 then return; end if;
   v_strikes := case when c.bio_strike_at > now() - interval '30 days' then c.bio_strikes + 1 else 1 end;
-  update profile_cards set bio_hidden = true, bio_strikes = v_strikes, bio_strike_at = now(),
+  update profile_cards set bio_hidden = true, bio_hidden_text = c.bio, bio_strikes = v_strikes, bio_strike_at = now(),
     bio_locked_until = case when v_strikes >= 2 then now() + interval '7 days' else bio_locked_until end
     where user_id = p_target;
 end $$;
@@ -420,7 +444,9 @@ begin
 end $$;
 
 -- Change my bio. '' clears it (always allowed, even muted or locked). The same text again is no
--- change (a hidden bio stays hidden); a new one is shown again.
+-- change (a hidden bio stays hidden); a new one is shown again. The text reports hid stays hidden
+-- whenever it is set again (clearing the bio first, or another bio in between, changes nothing), and
+-- for it the time of the last change stays as it was.
 create or replace function public.set_profile_bio(p_bio text) returns json
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -438,7 +464,11 @@ begin
   end if;
   perform enforce_rate('bio', 0, 10, interval '1 day');
   insert into profile_cards (user_id, bio, bio_changed_at) values (v_me, v_bio, now())
-    on conflict (user_id) do update set bio = excluded.bio, bio_changed_at = now(), bio_hidden = false, updated_at = now();
+    on conflict (user_id) do update set bio = excluded.bio,
+      bio_hidden = (excluded.bio <> '' and excluded.bio is not distinct from profile_cards.bio_hidden_text),
+      bio_changed_at = case when excluded.bio <> '' and excluded.bio is not distinct from profile_cards.bio_hidden_text
+        then profile_cards.bio_changed_at else now() end,
+      updated_at = now();
   return profile_own_json(v_me)::json;
 end $$;
 

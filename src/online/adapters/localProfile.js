@@ -11,7 +11,7 @@ const HASH_RE = /^[0-9a-z]{1,16}$/;
 
 function freshCard(now) {
   return {
-    bio: '', visibility: PROFILE_VISIBILITY_DEFAULT, card: { v: 1 }, hash: '', bioChangedAt: null, bioHidden: false,
+    bio: '', visibility: PROFILE_VISIBILITY_DEFAULT, card: { v: 1 }, hash: '', bioChangedAt: null, bioHidden: false, bioHiddenText: null,
     bioStrikes: 0, bioStrikeAt: null, bioLockedUntil: null, updatedAt: now, createdAt: now,
   };
 }
@@ -79,7 +79,7 @@ export function createLocalProfile({ tx, rate, now, enabled, social }) {
       && r.updatedAt >= (c.bioChangedAt ?? -Infinity) && (s.users[r.reporterId]?.createdAt || now()) <= now() - BIO_HIDE.minAccountHours * H).map((r) => r.reporterId));
     if (reporters.size < BIO_HIDE.reporters) return;
     const strikes = c.bioStrikeAt > now() - BIO_HIDE.strikeWindowDays * DAY ? c.bioStrikes + 1 : 1;
-    Object.assign(c, { bioHidden: true, bioStrikes: strikes, bioStrikeAt: now() });
+    Object.assign(c, { bioHidden: true, bioHiddenText: c.bio, bioStrikes: strikes, bioStrikeAt: now() });
     if (strikes >= BIO_HIDE.lockStrikes) c.bioLockedUntil = now() + BIO_HIDE.lockDays * DAY;
   }
 
@@ -161,7 +161,9 @@ export function createLocalProfile({ tx, rate, now, enabled, social }) {
         }
         rate(s, uid, 'bio');
         const c = (cards(s)[uid] ||= freshCard(now()));
-        Object.assign(c, { bio: b, bioChangedAt: now(), bioHidden: false, updatedAt: now() });
+        // the text reports hid stays hidden whenever it is set again (its change time stays too)
+        const again = b !== '' && b === (c.bioHiddenText ?? null);
+        Object.assign(c, { bio: b, bioChangedAt: again ? c.bioChangedAt : now(), bioHidden: again, updatedAt: now() });
         return ownJson(s, uid);
       });
     },

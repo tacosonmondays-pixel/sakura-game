@@ -21,12 +21,21 @@ No profanity filter for now (owner's decision). Client **and** server rate limit
 
 ## Setup (about 5 minutes)
 
-**The schema is two files**, applied in order: `supabase/migrations/20261008000000_online.sql` (chat,
-clans, clan boss, co-op, transfer codes; already applied on the live project — never edit it) and
-`supabase/migrations/20261013000000_social.sql` (messages, friends, co-op invites by DM, clan requests;
-see "Run the social update" below). They are kept in the Supabase CLI layout so that Supabase's GitHub
-integration can apply them. Paste them into the SQL Editor in that order if you set the database up by
-hand; both are idempotent.
+**The schema is six files** in `supabase/migrations/`, kept in the Supabase CLI layout so that Supabase's
+GitHub integration can apply them. Every one is idempotent (safe to paste again). Paste order, and each
+file's check query:
+
+| # | File | What it adds | Needs first | Check query (more in its section) |
+|---|---|---|---|---|
+| 1 | `20261008000000_online.sql` | chat, clans, clan boss, co-op, transfer codes (already applied on the live project — never edit it) | — | `select public.current_week();` → this week, e.g. `2026-W42` ("Verify on the live site" below) |
+| 2 | `20261013000000_social.sql` | messages, friends, co-op invites by DM, clan requests | 1 | `select public.social_version();` → `1` ("Run the social update") |
+| 3 | `20261015000000_social_open_friends.sql` | friend requests from anywhere, global chat included | 2 | `select pg_get_constraintdef(oid) from pg_constraint where conname = 'friend_requests_via_check';` → the list includes `'any'` |
+| 4 | `20261016000000_profile.sql` | Sensei Profiles: visiting, bios, "Who can see my profile" | 2 and 3 | `select public.profile_version();` → `1` ("Run the profile update") |
+| 5 | `20261017000000_player_tags.sql` | DEV / ALPHA / BETA chips and the tester titles | 1 | `select to_regclass('public.player_tags');` → `player_tags` ("Run the player tags SQL": check the developer clan first) |
+| 6 | `20261018000000_clan_invites.sql` | clan invites and the daily recruiting post | 2 and 3 | `select public.clan_invites_version();` → `1` ("Run the clan invites update") |
+
+Files 4, 5 and 6 may go in any order among themselves once the files they need are in: the profile and
+clan invites files after both social files, the tags file any time after the first one.
 
 ### Status for this repository (checklist)
 
@@ -116,8 +125,10 @@ haven't been yet).
    (or open `supabase/migrations/20261016000000_profile.sql` on GitHub and press **Raw**). Select all
    (Ctrl+A / ⌘A) and copy.
 3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The
-   file runs as one transaction: on any error nothing at all was applied, so press **Run** again. Safe
-   to run more than once. No key of any kind is needed or should be pasted anywhere.
+   file runs as one transaction: on any error nothing at all was applied, so press **Run** again (it first
+   waits up to 30 seconds for a quiet moment to lock the tables it touches all at once; "The game is busy
+   right now" means try again in a minute). Safe to run more than once. No key of any kind is needed or
+   should be pasted anywhere.
    If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
    (see above), then this file again.
 4. **Check query:** run `select public.profile_version();` in the SQL Editor. It returns `1`.
@@ -146,8 +157,8 @@ been yet). The profile and player-tags files don't matter for it: before or afte
    all (Ctrl+A / ⌘A) and copy.
 3. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. The file
    runs as one transaction: on any error nothing at all was applied, so press **Run** again (it first
-   waits up to 30 seconds for a quiet moment in chat; "The game is busy right now" means try again in a
-   minute). Safe to run more than once. No key of any kind is needed or should be pasted anywhere.
+   waits up to 30 seconds for a quiet moment to lock chat, clans and profiles all at once; "The game is
+   busy right now" means try again in a minute). Safe to run more than once. No key of any kind is needed or should be pasted anywhere.
    If it stops with **"Run 20261013000000_social.sql first"**, the social update is missing: run that
    (see above), then this file again.
 4. **Check query:** run `select public.clan_invites_version();` in the SQL Editor. It returns `1`.
@@ -194,7 +205,10 @@ chip and everything else is unchanged.
    Run the listing again: only your team is left.
 3. Open `supabase/migrations/20261017000000_player_tags.sql` on GitHub → **Raw** → select all → copy.
 4. Supabase → **SQL Editor** → **New query** → paste → **Run**. It should end with **Success**. It is
-   safe to run again, and it needs only the first migration (`20261008000000_online.sql`).
+   safe to run again, and it needs only the first migration (`20261008000000_online.sql`). It runs as one
+   transaction and first waits up to 30 seconds for a quiet moment to lock the tables it touches all at
+   once; **"The game is busy right now"** (or any other error) means nothing was changed: press **Run**
+   again in a minute.
 5. What the first run does by itself: everyone who has a profile now gets **ALPHA** (and the Alpha
    Tester title), every new player during the alpha gets ALPHA too, and **everyone who is in the
    developer clan right now gets DEV**. Later runs never add developers: after the first run the
@@ -213,8 +227,14 @@ chip and everything else is unchanged.
      and turn on deploying to production. Every migration in `supabase/migrations/` is then applied
      when it reaches `main`.
    - **By hand.** Open SQL Editor → New query, paste all of
-     `supabase/migrations/20261008000000_online.sql`, then Run. The file is idempotent: running it
-     again, or running a newer version of it over an older one, is safe.
+     `supabase/migrations/20261008000000_online.sql`, then Run. Then do the same, one file per query, for
+     the other five in this order: `20261013000000_social.sql`, `20261015000000_social_open_friends.sql`,
+     `20261016000000_profile.sql`, `20261017000000_player_tags.sql`, `20261018000000_clan_invites.sql`
+     (the table under "Setup" says what each needs first; the profile, tags and invites files may go in
+     any order after those). Each file is idempotent: running it again, or running a newer version of it
+     over an older one, is safe. Each "Run the … update" section above has that file's check query. On a
+     fresh project with nobody in it yet, the tags file's step 2 (checking the developer clan) finds no
+     one.
 3. **Allow anonymous sign-ins.** Go to Authentication → Sign In / Providers and switch on **Allow
    anonymous sign-ins**. Players never type an e-mail; the game makes an anonymous account the first
    time they open chat, a clan or co-op.
@@ -687,8 +707,10 @@ Sensei Profile's More sheet (and its private / no-profile card), so the two neve
   a setting is never shown). The inviter has to unblock someone before inviting them.
 - **Join:** works whatever the clan's join mode (the invite opens a "By request" or "Invite code" clan for
   that player), within the member cap. An invite from the leader or an officer also lets a player who was
-  removed come back (like accepting their request); a plain member's invite does not. The inviter must
-  still be in the clan.
+  removed come back (like accepting their request); a plain member's invite does not. An invite counts only
+  while its sender could still send it: still in the clan, still allowed to invite to it (an officer made a
+  plain member of a "By request" or "Invite code" clan can't), and no block between the two players either
+  way. Otherwise the card leaves the list and Join says "that invite is gone".
 - **Limits:** one pending invite per clan and player; invites end after 7 days and a declined one swallows
   repeats from that clan for 7 days; 10 invites a day and 20 pending per invited player; 1 invite per 2 s
   and 20 an hour per sender; joining counts as a clan join (10 an hour).
