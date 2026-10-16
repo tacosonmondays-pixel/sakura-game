@@ -165,7 +165,9 @@ does the same), `ab` an aura boost's time left (`auraBoostLeft`) and `oc` her dr
 her stats and buffs. Numbers only on restore (whole counters ≥ 0). A format-1 or format-2 save has
 none of these and restores with every counter at its start; an older build refuses a format-3 save
 ("from a newer build") instead of replaying her with the old steps. Her Potential itself rides in
-the record's frozen stats (`potential`), like her level and gear.
+the record's frozen stats (`potential`), like her level and gear. A format-1 or format-2 save with a
+girl at P2+ continues with the v3 steps of her saved P: `restoreSim` returns `potentialNew: true` and
+Continue says "This run continues with Potential's new effects." (POTENTIAL.md v2 §8).
 
 A wave can end while shots are still flying at the last enemy's spot (Kage's storm makes it common);
 the snapshot does not carry them (they have nothing left to hit unless the next wave's first enemy

@@ -20,7 +20,8 @@ Owner: systems. Source of truth is the data (`src/data/items.js`, `src/data/shop
 * Rates: **SSR 1.5% · SR 18.5% · R 80%**. Every unit (free recruits and heroes included) is in its rarity's pool.
 * **Pity:** the 90th recruit without an SSR is an SSR. Consolidated SSR rate ≈ **2.02%** (1 SSR per ≈ 49.6 recruits on average).
 * **10× guarantee:** at least one SR or better in every 10×.
-* Duplicates → **+1 Potential** (P1 → P6, a small passive per step) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
+* Duplicates → **+1 Potential** (P1 → P6; v3: every step a stat boost, and from P3 (P2 for SSRs and heroes) a new
+  trick, up to a P6 capstone; `docs/specs/POTENTIAL.md`) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
   At P6 a duplicate gives the fragments only. Sparks and SSR Select Tickets on an owned girl count as duplicates.
   Potential adds no currency, item, price, reward or drop (§5, Potential).
 * **Spark:** 200 recruit points → any SSR (Recruit Exchange or `spark()`).

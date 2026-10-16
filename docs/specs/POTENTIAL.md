@@ -1,4 +1,96 @@
-# Potential: duplicate recruits raise a girl to P6 (build spec, revision 2)
+# Potential: duplicate recruits raise a girl to P6 (build spec, revision 2; v3 on top)
+
+> **v3 is what ships in train C** (the section right below). Revision 2 and its M0–M3 notes further down
+> describe v1, the "small passives" ladder that went live in v0.1.34; everything they say about counting
+> duplicates, the backfill and the shadow still holds, while v1's step table (§3.3), its signature box (§7.3)
+> and its letter (§7.8) are replaced. The full v3 design (sizes, every ladder, mechanics N1–N17, the level cap
+> and the DPS ladder) is the v3 spec in the design folder (`scratchpad/potential3/SPEC.md`), a delta on v2.
+
+## v3 build notes (branch `feature/potential-v3`, from `origin/release/next` `c4f2220`, v0.1.35)
+
+**What changes for players.** Every duplicate still adds 1 to a girl's Potential (P1 → P6, `potentialLevel`, the
+one place that says where Potential comes from). Each step is now bigger than the one before: a stat boost on her
+rarity's climbing track (R +4/+4/+4/+4/+5 %, SR +4/+5/+5/+6/+7 %, SSR and heroes +5/+7/+7/+8/+9 %; the two supports
+spend an aura track, Momo a coins track, Nami her own), spent on her own axis, and from P3 (from P2 for SSR girls
+and the three heroes) a kit step (✦) that amplifies what she is good at, up to a capstone at P6. Kage: all five
+stat steps are attack speed, +1 pierce at P3 and P5, Shadow Tempo (P4), 12 % more shuriken per throw (P5,
+Moonpiercer) and the Shuriken Storm (P6). P1 is bit-identical to before (the P1 `resolveStats` hash `456:30217027`,
+`START`, every campaign golden).
+
+**Stages (each committed on the branch).**
+
+| Stage | What | Notes |
+|---|---|---|
+| V0 | Sim mechanics N1–N17 (`src/sim/potential.js`, hooks in `mods.js`, `towers.js`, `Sim.js`, `hero.js`, `combat.js`) | every key absent at P1; brews ≤ 4 girls |
+| V1 | Data v3: the 19 rows (`src/data/potential.js`), the text table (`src/data/potentialText.js`: node label, long text, paper size, FX cue), Power | data, text and sim tests (§13.2) |
+| V2 | Battle saves format 3 (`SNAP_V` 3: `pc`, `tp`, `pj`, `rk`, `rt`, `ab`, `oc`), `POTENTIAL_START` on the v3 line-up and `POTENTIAL_BOSS_START` (Grave Lych), co-op test | `COOP_PROTOCOL` 5, sim id `ff25094d81d8`; Node, Bun, Chromium and Firefox agree |
+| V3–V5 (this) | UI, migration from v1, the letter, docs | below |
+| L0–L2 | Level cap 85 with Akashic Tomes, the Tome sources, the co-op clamp's `potential` rule | not built yet: the screens below read the level rule and light up when it lands |
+
+**UI (v3 §11, v2 §7).**
+- **Pills** (`src/ui/potential.js potPill`): P6 wears the five-petal Full-Potential crown (our own SVG); the title
+  names her newest step ("Potential 5 of 6 — Moonpiercer") on cards, the unit sheet and the student page, whose
+  showcase pill adds the next step ("Next: P5 unlocks ✦ Moonpiercer (1 more duplicate)").
+- **Info tab** (`potentialSection`): the six-node track with ✦ on kit nodes, the crown on P6 and the stat line under
+  each node (`+4% SPD`); the step list replaces v1's signature box (owned ✓, the next one with "NEXT · 1 more
+  duplicate", later ones muted, Allies / Enemies / Coins chips, the capstone with the crown); the footer names the
+  next step ("Next: P5 ✦ Moonpiercer with 1 more duplicate") and the capstone. The cap part of each line (`· 67`)
+  and each row's "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCap` with every gate open)
+  and show only where Potential raises the cap above P1's, so today (cap 60 at every P) they are hidden and L0
+  turns them on without touching the UI.
+- **Previews**: spark grid ("Owned · P4 → P5 ✦ Moonpiercer"), SSR Select Ticket confirm ("P1 → P2: ✦ Firefly
+  Lamps") and its result card (the unlocked step and what it does), Mall Recruit Exchange ("Owned → P5 ✦ Maple
+  Gale & fragments"), the reveal's duplicate card (a ribbon under her name: "✦ Moonpiercer", title "P5 unlocked: …").
+- **"Potential up!" cards** (`showPotentialUp`, from `potentialRises`): after a reveal plays out, one card per
+  girl who reached a kit step (highest rarity first, at most 3, then "And N more"): her art, "Kage · P5", the
+  trick and its text, other tricks reached in the same recruit, "Level cap 72 → 78" once caps rise, "Next: P6 ✦
+  Shuriken Storm — 1 more duplicate" or the crown and "Full Potential!", and stat-only rises as one "Also:" line.
+  Next / Done, Skip all. **Skip** on the reveal goes straight to the results (no cards); the summary's "▲ N
+  Potential (✦ N new tricks)" chip opens them again. The first-gain tip and the recruit rules / wiki rule
+  (`potentialDupesRule`, one place) drop "small passives".
+- **Battle panel** (`src/ui/battle/potentialRows.js`, drawn by `towerPanel.js`, refreshed every frame): the rhythm
+  pips ("Shuriken Storm ●●●○○○ every 6th"; a trap rhythm "every 4th trap"), Kage's tempo pips (6, "+4%"), her
+  shuriken per throw ("2 → 2.24 / throw"; Thousand Shadows "13 → 14.56") and Chika's drone overclock ("Throttle
+  Up in 14 s", "+75% · 4 s left"). An ally's girl shows her owner's counts; a P1 girl has no rows.
+
+**Migration from v1 (v3 §12, v2 §8).** No `SAVE_VERSION` bump; `dupes`, the shadow and the backfill are untouched,
+so every girl keeps her P and fights with the v3 steps of it at once (v3 only adds: B6 compares v3 with v1).
+- **The letter.** v1's `potential-arrived-1` already reached v0.1.34 players, so v3 writes its own letter,
+  `potential-v3-1` "Potential grew!", once (`ensurePotentialLetter`, app start and lobby): every save without the
+  seenIntro mark `potential-v3` is an older build's; it is marked, and if some girl is at P2+ the letter lists every
+  such girl highest first with her newest step ("Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4%
+  damage)", 12 names then "and N more", " · level cap 78" once caps rise), says nothing got weaker and points to the
+  Info tab. A save that was backfilled and never got v1's letter also reads how its duplicates were counted. New
+  saves are born with the mark (`createProfile`), so they never get it. v1's letter is not sent any more.
+- **NEW badge.** Each girl at P2+ when the letter came gets `pot3-new:<id>` in seenIntro: a NEW badge on her card
+  until her Info tab (student page or unit sheet) is opened.
+- **Battle saves** from before v3 (format 1–2) restore with the v3 steps of the saved P (their counters at 0);
+  when a girl in one is at P2+, Continue says "This run continues with Potential's new effects."
+
+**Patch note draft (train C; the shipping stage adds it to `src/data/patchNotes.js` under the deploy's number):**
+"Potential got much bigger! Every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly
+stronger: a stat boost at every step and, from P3 (P2 for SSR girls and heroes), a new trick built on what she does
+best, up to a capstone at P6 with a Full Potential crown. Your girls keep their Potential and get every step they
+have earned right away. Nothing got weaker: P1 is exactly the girl you know." With L0–L1: "Every step also raises her
+level cap, up to level 85 at P6. Levels above 60 use Akashic Tomes, now found more often in Library Courtyard III on
+Nightmare, in Freeplay caches (up to 2 a week), in the Bounty Exchange, and from duplicates past P6."
+
+**Tests.** `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
+rising cap rule, `potentialLevelCap`, recruit rises, the duplicates rule), `tests/systems/mail.test.js` (a v1 save,
+a pre-M0 save, a v3-born save, an all-P1 save, the 12-name list, the cap phrase, the NEW badge round trip),
+`tests/battle-ui/potentialPanel.test.js` (Kage's storm and tempo pips and shuriken line, Chika's overclock, ordinals,
+a P1 girl without rows, in a real battle), `tests/battle-ui/snapshot.test.js` (`potentialNew` on a format-2 save),
+`e2e/potential.mjs` at 844×390 touch and 1280×720 (every screen above, the letter, the badges, no sideways scroll).
+
+**Not built here (next stages):** L0–L2 (level cap 85, Tomes, their screens: the student level block "Cap 72 · P4 ·
+max 85", the Potential cap card at gate 5, the level-up sheet above 60, the wiki's level-cap row and Tome sources,
+the co-op clamp's `potential` rule); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
+volleys) and the crown ring on the field (render, v2 §7.8); the Sandbox P1–P6 picker (v2 §7.7); the §13.1
+measurement gates (B1–B8, T1, H1, C1, K1, F1–F6, P1, CB, E1) on the integrated train C tree.
+
+---
+
+## Revision 2 (v1, live in v0.1.34)
 
 Sakura Sentinels. Live branch read-only at `ffc4d23` (v0.1.25 + the UR awakening merge; the sim is unchanged since
 `9bede1e`). Written 2026-10-14; revision 2 answers every issue in `CRITIC.md` (§15). Roadmap task #165.
@@ -81,7 +173,7 @@ POTENTIAL_START and both freeplay battles; Firefox and WebKit are not installed 
 `--require-all` could not run here), `e2e/potential.mjs` at 844×390 and 1280×720, `smoke`, `coop-freeplay`,
 `ur-awaken`, `stat-display`, `potential-m0`, `BALANCE=potential`, the freeplay rows below.
 
-**`POTENTIAL_START`** (1-3 **Hard**, seed 616161): host Aoi P1, Chika P6, Suzu P6, Miko P6, Kaede P5, hero Luna P6; guest
+**`POTENTIAL_START`** (v1; superseded by the v3 line-up, see the v3 build notes) (1-3 **Hard**, seed 616161): host Aoi P1, Chika P6, Suzu P6, Miko P6, Kaede P5, hero Luna P6; guest
 Aoi P6 (×1.1 gear), Momo P6, Hotaru P6, Shiro P4, **Yuki P6** (Umeko needs water, 1-3 has none; her aura-speed step is
 covered by `tests/sim/mods.test.js`). Each player places her girls as her own coins allow and upgrades a few. Won,
 28,390 ticks, final `471369358`, 64 checkpoints → `7d947497` (pinned in `tests/online/engines.test.js`); the guest's Aoi

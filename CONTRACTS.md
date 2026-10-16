@@ -528,7 +528,9 @@ Profile = {
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
   mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
-  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save
+  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save;
+                                           // 'potential-v3': the save met Potential v3 (createProfile writes it; an older build's save gets
+                                           // it with the "Potential grew!" letter); 'pot3-new:<unitId>': her one-time NEW badge (cleared by her Info tab)
   battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
   patchGifts: { [noteId]: true },          // claimed patch-note gifts (src/systems/patchGifts.js); also marked 'pg:<noteId>' in missions.counters
   story: StoryBlock,                       // src/systems/story.js (newStory / legacyStory / restoreStory): no block and no 'story:new' mark = legacy save
@@ -565,6 +567,7 @@ ignores it: no whole-save backup).
 
 ```js
 export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export const V3_MARKER = 'potential-v3', NEW_PREFIX = 'pot3-new:'   // seenIntro marks (v3 migration, the NEW badge)
 export { potentialSteps, potentialFold } from '../data/potential.js'
 export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
 export function dupesToNext(unitState), dupesToMax(unitState)
@@ -573,15 +576,29 @@ export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes
 export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
 export function describePotentialStep(step, def?)         // [{ short /*node label ≤ 9 chars*/, long, who: 'self'|'allies' }] — THE describer (potentialText.js)
 export function potentialStatLabel(step, def?)            // the stat line under a node: "+4% SPD", "+3% AURA", "+3% COIN"
-export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, kind, parts, short, long, stat, active, next }]
+export function potentialView(def, unitState, { capAt? }) // six nodes for the UI: [{ step, name, kind, kit, parts, short, long, stat,
+  // cap /*her level cap at that P when capAt (progression potentialLevelCap) raises it above P1's, else null*/,
+  // line /*"+4% SPD" or "+4% SPD · 67"*/, tags, active, next }]
+export function potentialStepInfo(def, p)                 // { step, name, kind, kit, crown, node, long, brief /*"✦ Moonpiercer" | "+4% attack speed"*/, stat, tags }
+export function potentialNext(def, unitState)             // the step her next duplicate unlocks (+ dupes), null at P6 / not owned
+export function potentialPillTitle(def, p)                // "Potential 5 of 6 — Moonpiercer"
+export function potentialStepTags(step)                   // ['allies'|'enemies'|'coins'] (the Info tab's chips)
+export function potentialRises(results)                   // a recruit's rises per girl: { girls, cards /*kit steps, rarity first*/, statOnly, steps, tricks }
+export function potentialDupesRule()                      // the duplicates rule in one sentence (recruit rates, wiki)
+export function isKitStep(step), moreDupes(n)
+export function hasPotentialNew(profile, unitId), clearPotentialNew(profile, unitId) // the one-time NEW badge
 export function potentialSummary(def, p)                  // "Night Drills, Shadow Edge" (active steps' names)
 export function potentialPowerFactor(def, p)              // Π of her active steps' `power` (potentialText.js; unitPower)
 ```
 `potentialLevel` is the one place that says where Potential comes from (duplicates today): a later source
 (ascension's Essence) swaps in there without touching the ladders.
 Not in the co-op graph (the sim reads `src/data/potential.js` through `mods.js`). Every screen, the wiki and the
-letter take their text from `describePotentialStep`. UI: `src/ui/potential.js` (`potPill`, `potentialSection`,
-`revealTag`) + `src/ui/styles/potential.css`.
+letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `src/ui/potential.js` (`potPill`
+(P6: the five-petal crown), `potentialSection` (six nodes with the `stat · cap` line, the five-step list),
+`revealTag`, `revealRibbon`, `showPotentialUp` (the "Potential up!" cards after a recruit), `nextLine`,
+`stepPhrase`) + `src/ui/styles/potential.css`; the battle panel's live rows (rhythm and tempo pips, shuriken per
+throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
+asked of `progression.potentialLevelCap(p)` (= `levelCap` with every gate open), never stored here.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -595,8 +612,13 @@ export function claimAllMail(profile, now?), unclaimedMailCount(profile, now?)
 export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < BETA_DEADLINE
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
-export function ensurePotentialLetter(profile, now?) // main.js + lobby: 'potential-arrived-1' once, only when seenIntro has
-  // 'potential-backfilled' and some girl is P2+; no rewards; lists every P2+ girl (12 names, then "and N more")
+export const POTENTIAL_LETTER_ID = 'potential-arrived-1' // v1's letter (v0.1.34): not sent any more; old saves list it in delivered
+export const POTENTIAL_V3_LETTER_ID = 'potential-v3-1'
+export function ensurePotentialLetter(profile, now?) // main.js + lobby: once per save without seenIntro 'potential-v3' (an older
+  // build's save): marks it, and when some girl is P2+ delivers "Potential grew!" (no rewards; every P2+ girl with her newest
+  // step and her level cap, 12 names then "and N more"; how duplicates were counted when the save was backfilled and never
+  // got v1's letter) and gives each of those girls 'pot3-new:<id>'
+export function potentialLetter(profile), potentialLetterLine(def, p) // "Kage P5 ✦ Moonpiercer · level cap 78" 
 // src/systems/gacha.js
 export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
@@ -606,6 +628,7 @@ export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { o
 ```js
 export const MAX_LEVEL = 60;
 export function levelCap(unitState)              // 10 + 10*breakthrough (max 60)
+export function potentialLevelCap(p)             // levelCap with every gate open at Potential p (the Potential screens' "· 67")
 export function expForLevel(level)               // exp to go from level to level+1
 export function bookExpTotal(books)              // {itemId:count} -> exp
 export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped }
