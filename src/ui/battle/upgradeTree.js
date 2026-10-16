@@ -10,7 +10,7 @@ import { h } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon } from '../../art/icons.js';
-import { ROLES } from '../../data/types.js';
+import { ROLES, BATTLE } from '../../data/types.js';
 import { rarityColor, applyUrFrame } from '../rarity.js';
 import { roundCost } from '../../sim/Sim.js';
 import { buildTreeModel, treeSignature, RULE_TEXT } from '../treeModel.js';
@@ -212,7 +212,8 @@ export function createUpgradeTree(ctx) {
     if (s === sig) return;
     sig = s;
     model = next;
-    grid?.update(model);
+    if (isTrack()) renderTrack();
+    else grid?.update(model);
     renderHead();
     renderSide();
   }
@@ -224,10 +225,24 @@ export function createUpgradeTree(ctx) {
   const sheet = h('div.ut-sheet', head, h('div.ut-main', side, gridWrap));
   overlay.append(sheet);
 
+  /** A hero has no paths (hero rework): her tree is the battle track, levels reached marked. */
+  const isTrack = () => !!model?.hero && !model.rows.length;
+  function renderTrack() {
+    const hero = model.hero;
+    gridWrap.replaceChildren(
+      h('p.ut-rule', `One track, ${BATTLE.maxHeroLevel} levels: she earns them in battle, or buy the next one with battle coins.`),
+      h('ol.ut-levels.ut-track', { 'data-testid': 'ut-track' }, hero.levels.map((l) => h(`li${l.reached ? '.on' : ''}`, h('span.ut-lv-num', l.reached ? '✓' : String(l.level)), h('span.ut-lv-desc', l.desc), l.tags.length ? tagChips(l.tags, { size: 'xs' }) : null))));
+  }
+
   function render() {
     renderHead();
-    gridWrap.replaceChildren(h('p.ut-rule', RULE_TEXT), (grid = upgradeGrid(model, { unit: model && sim.data.unit(model.unitId), onPick })));
-    grid.select(null);
+    if (isTrack()) {
+      grid = null;
+      renderTrack();
+    } else {
+      gridWrap.replaceChildren(h('p.ut-rule', RULE_TEXT), (grid = upgradeGrid(model, { unit: model && sim.data.unit(model.unitId), onPick })));
+      grid.select(null);
+    }
     renderSide();
     gridWrap.scrollTop = 0;
     side.scrollTop = 0;
@@ -257,7 +272,7 @@ export function createUpgradeTree(ctx) {
     head.replaceChildren(
       art,
       h('div.ut-head-id',
-        h('div.ut-head-name', def.name, h('span.ut-head-tiers', model.mode === 'preview' ? 'not placed' : model.tiersLabel)),
+        h('div.ut-head-name', def.name, h('span.ut-head-tiers', model.mode === 'preview' ? 'not placed' : isTrack() ? `Lv ${model.hero.level ?? 1}` : model.tiersLabel)),
         h('div.ut-head-role', svgEl(roleIcon(def.role), 'ut-role-ico'), ROLES[def.role]?.name || def.role)),
       h('div.ut-head-chips',
         modeChip(),
@@ -328,11 +343,11 @@ export function createUpgradeTree(ctx) {
       h('div.ut-side-name', h('b', def.name), h('span', def.title || '')),
     ];
     if (model.mode === 'preview') {
-      parts.push(h('div.ut-side-line', `Deploy · ${fmt(model.deployCost)} coins`));
+      parts.push(h('div.ut-side-line', model.deployCost > 0 ? `Deploy · ${fmt(model.deployCost)} coins` : 'Deploy · Free'));
       if (!(sim.heroConfig?.unitId === model.unitId && sim.hero)) parts.push(h('button.ut-act', { type: 'button', 'data-testid': 'ut-deploy-side', onclick: () => deploy() }, 'Deploy her ›'));
     }
     if (hero) {
-      parts.push(h('div.ut-side-line', hero.level != null ? `Hero Lv ${hero.level} / 10` : 'Hero · levels up in battle'));
+      parts.push(h('div.ut-side-line', hero.level != null ? `Hero Lv ${hero.level} / ${BATTLE.maxHeroLevel}` : 'Hero · levels up in battle'));
       parts.push(h('button.ut-ult', { type: 'button', 'data-testid': 'ut-ult', onclick: () => pick('ult') },
         h('span.ut-ult-badge', 'ULT'),
         h('span.ut-ult-text', h('b', hero.ult.name), tagChips(hero.ult.tags, { size: 'xs' }),
@@ -345,11 +360,11 @@ export function createUpgradeTree(ctx) {
         h('span.ut-passive-text', h('b', model.passive.name), tagChips(model.passive.tags, { size: 'xs' }),
           h('small', on == null ? model.passive.desc : on ? `Active · ${model.passive.desc}` : `Locked (awaken ★3) · ${model.passive.desc}`))));
     }
-    parts.push(h('p.ut-side-rule', RULE_TEXT));
+    if (!isTrack()) parts.push(h('p.ut-side-rule', RULE_TEXT));
     parts.push(tagLegend({ size: 'xs' }));
     parts.push(h('div.ut-side-acts',
       h('button.ut-act.ut-act-ghost', { type: 'button', 'data-testid': 'ut-her-info', onclick: () => openSheetFor(model.unitId, { allowFullPage: false }) }, 'Her info')));
-    parts.push(h('p.ut-side-hint', 'Tap a tier to see exactly what it does.'));
+    parts.push(h('p.ut-side-hint', isTrack() ? 'Tap ULT for her ultimate and its ranks.' : 'Tap a tier to see exactly what it does.'));
     return h('div.ut-card-panel', parts);
   }
 

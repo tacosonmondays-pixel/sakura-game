@@ -193,11 +193,15 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
       if (selected && !closed) renderDetail();
     }).catch(() => {});
     renderDetail();
+    // a hero has no paths (hero rework): her levels below are the whole tree
+    const track = !model.rows.length && !!model.hero;
     const body = h('div.us-upgrades',
       tagLegend({ size: 'sm' }),
-      h('p.us-rule', model.rule, ' Prices are the base cost; difficulty changes them.'),
-      grid,
-      detailHost,
+      track
+        ? h('p.us-rule', `One track, ${model.hero.levels.length} levels: she earns them in battle, or buy the next one with battle coins.`)
+        : h('p.us-rule', model.rule, ' Prices are the base cost; difficulty changes them.'),
+      track ? null : grid,
+      track ? null : detailHost,
       model.hero ? heroBlock(model.hero) : null,
       model.passive ? h('div.us-passive', h('div.us-sub', '★3 awakening passive'), h('div.us-passive-row', h('b', model.passive.name), tagChips(model.passive.tags, { size: 'xs' })), h('div.us-muted', model.passive.desc)) : null);
     return body;
