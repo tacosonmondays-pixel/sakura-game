@@ -28,14 +28,15 @@ export function gearCounts(gear) {
 
 /**
  * @param {object[]} gear the opened pieces
- * @param {{ onSeeAll?: () => void }} [opts]
+ * @param {{ onSeeAll?: () => void, title?: boolean }} [opts] title: false when the window around it already
+ *   says "N pieces of gear" (the Achievements' Claim all), so the count is never shown twice
  * @returns {HTMLElement}
  */
-export function boxSummary(gear, { onSeeAll = null } = {}) {
+export function boxSummary(gear, { onSeeAll = null, title = true } = {}) {
   const { rarity, slot } = gearCounts(gear);
   const rarities = [...ITEM_RARITY_ORDER].reverse().filter((r) => rarity[r]);
   return h('div.gear-summary', { 'data-testid': 'gear-summary' },
-    h('div.gear-summary-head', h('b', `${gear.length} pieces of gear`), h('span.muted', ' · the best 6 below')),
+    h('div.gear-summary-head', title ? [h('b', `${gear.length} pieces of gear`), h('span.muted', ' · the best 6 below')] : h('span.muted', 'The best 6 below')),
     h('div.gear-summary-counts',
       rarities.map((r) => {
         const chip = h('span.gear-summary-chip', h('i'), `${ITEM_RARITIES[r]?.name || r} ×${rarity[r]}`);

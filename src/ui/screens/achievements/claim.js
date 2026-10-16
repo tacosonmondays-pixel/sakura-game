@@ -105,7 +105,7 @@ export function openClaimedBoxes(granted, { onDone = null } = {}) {
   const seeAll = (close) => { close(); navigate('backpack', { tab: 'equipment' }); };
   let m;
   const body = gear.length > SUMMARY_ABOVE
-    ? boxSummary(gear)
+    ? boxSummary(gear, { title: false }) // the window's title says "N pieces of gear"
     : h('div.ach-gear-grid', gear.map((g) => h('div.item-tile-wrap', gearTile(g, { size: 60 }), h('div.item-tile-name', g.name))));
   m = modal({ title: `${gear.length} pieces of gear`, body, wide: true, cls: 'ach-modal', actions: [{ label: 'See all in Equipment', onClick: seeAll }, { label: 'Nice!', kind: 'yellow', testid: 'ach-gear-ok' }], onClose: onDone });
   return m;

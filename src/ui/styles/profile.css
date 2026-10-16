@@ -514,6 +514,10 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .ep-nav { padding: 6px; gap: 2px; }
   .ep-nav button { padding: 5px 8px; font-size: 0.74rem; gap: 6px; }
   .ep-nav button .pf-ico { width: 15px; height: 15px; }
+  /* the "soon" badge stays inside its button: the label gives way first (124px column) */
+  .ep-nav button { min-width: 0; }
+  .ep-nav button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ep-soon { flex: none; padding: 1px 4px; font-size: 0.5rem; letter-spacing: 0.03em; }
   .ep-body { padding: 8px 10px; }
   .ep-text { min-height: 54px; font-size: 0.82rem; padding: 6px 9px 18px; }
   .ep-field { padding: 0 0 16px; }

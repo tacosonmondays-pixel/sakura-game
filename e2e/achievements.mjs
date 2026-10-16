@@ -133,6 +133,7 @@ async function runViewport(vp) {
 
   // ---- 2. Claim all → the fanfare → Skip → the modal's strips ----
   await page.evaluate(() => { document.querySelector('.ach-list').scrollTop = 0; });
+  const before = await page.evaluate(() => ({ n: Number(document.querySelector('[data-testid="ach-claim-all"] .ach-claimall-n')?.textContent || 0), had: Object.keys(window.__sakura.store.profile.missions.achievements).length }));
   await page.click('[data-testid="ach-claim-all"]');
   const ff = await page.waitForSelector('[data-testid="ach-fanfare"]', { timeout: 10000 }).catch(() => null);
   check(!!ff, '2: Claim all opens the special fanfare first');
@@ -148,6 +149,7 @@ async function runViewport(vp) {
   check(strips.every(Boolean), `2: the modal shows New Honor Ribbons, New Titles and Rewards (${strips})`);
   const claimed = await page.evaluate(() => Object.keys(window.__sakura.store.profile.missions.achievements).length);
   check(claimed > 70, `2: the claims are in the save (${claimed})`);
+  check(before.n === claimed - before.had, `2: the Claim all number is what it claims (${before.n} shown, ${claimed - before.had} claimed)`);
   await page.waitForTimeout(500);
   await shot(page, 'claimall');
 
@@ -158,6 +160,8 @@ async function runViewport(vp) {
     await openBtn.click();
     const sum = await page.waitForSelector('[data-testid="gear-summary"]', { timeout: 10000 }).catch(() => null);
     check(!!sum, '3: more than 12 pieces → the summary');
+    const titles = await page.evaluate(() => [...document.querySelectorAll('.modal-overlay')].pop()?.innerText.match(/\d+ pieces of gear/g) || []);
+    check(titles.length === 1, `3: "N pieces of gear" shows once (${titles.join(' | ')})`);
     await page.waitForTimeout(300);
     await shot(page, 'boxes');
     await page.click('[data-testid="ach-gear-ok"]').catch(() => {});
@@ -273,6 +277,44 @@ async function runViewport(vp) {
   check(!(await page.$('[data-testid="ach-toast"]')), '9: a showing toast steps aside when a modal opens');
   await page.evaluate(() => document.querySelector('[data-testid="fake-modal"]').remove());
   check(!!(await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null)), '9: … and comes back when it closes');
+  check(!errors.length, `no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await context.close();
+
+  // ---- 10. the lobby: a toast never covers the secretary's speech bubble (phones: the bubble steps aside) ----
+  context = await newContext();
+  ({ page, errors } = await openWith(context, oneWinShort(), '#/lobby'));
+  await page.waitForSelector('[data-testid="secretary-art"]', { timeout: 20000 }).catch(() => null);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()); });
+  await page.evaluate(() => {
+    const s = window.__sakura.store;
+    s.profile.missions.counters.battleWin = 100;
+    s.commit('missions');
+  });
+  const lobbyToast = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null);
+  // she talks while the toast is up (a tap on her)
+  await page.click('[data-testid="secretary-art"]', { position: { x: 60, y: 200 }, force: true }).catch(() => {});
+  await page.waitForTimeout(700);
+  const cover = () => page.evaluate(() => {
+    const bub = document.querySelector('[data-testid="secretary-bubble"]');
+    const t = document.querySelector('.toast-ach');
+    if (!bub?.classList.contains('show')) return { shown: false };
+    // (the end state, not a transition still waiting for frames: a starved 1280×720 page may not draw any)
+    const tr = bub.style.transition;
+    bub.style.transition = 'none';
+    const visible = getComputedStyle(bub).opacity !== '0';
+    bub.style.transition = tr;
+    const a = bub.getBoundingClientRect();
+    const c = t?.getBoundingClientRect();
+    const overlap = !!c && visible && !(a.right <= c.left || c.right <= a.left || a.bottom <= c.top || c.bottom <= a.top);
+    return { shown: true, visible, overlap };
+  });
+  const withToast = await cover();
+  check(!!lobbyToast && withToast.shown && !withToast.overlap, `10: the toast and her speech bubble never overlap (${JSON.stringify(withToast)})`);
+  await page.waitForSelector('.toast-ach', { state: 'detached', timeout: 6000 }).catch(() => null);
+  await page.waitForTimeout(500);
+  const afterToast = await cover();
+  check(!afterToast.shown || afterToast.visible, `10: her bubble is back once the toast leaves (${JSON.stringify(afterToast)})`);
   check(!errors.length, `no console errors (${errors.slice(0, 3).join(' | ')})`);
   await context.close();
 }
