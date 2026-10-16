@@ -44,14 +44,19 @@ export function invitesFeatureFlag(search = globalThis.location?.search || '') {
   return new URLSearchParams(search).get('invites') !== '0';
 }
 
+/** `?tags=0`: the live project before the owner runs the player tags SQL (no table: no chips). */
+export function tagsFeatureFlag(search = globalThis.location?.search || '') {
+  return new URLSearchParams(search).get('tags') !== '0';
+}
+
 /**
- * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean, profile?: boolean } }} [env]
+ * @param {{ storage?: Storage, session?: Storage, BC?: typeof BroadcastChannel, features?: { social?: boolean, profile?: boolean, invites?: boolean, tags?: boolean } }} [env]
  */
 export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
-  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag() };
+  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag(), tags: tagsFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -125,6 +130,15 @@ export function createLocalAdapter(env = {}) {
     },
     async touch() {
       return uid ? db.touch(uid) : false;
+    },
+
+    // [tags] public player tags
+    async getTags(ids) {
+      return db.getTags(me(), ids);
+    },
+    /** Tests only (never called by the game): the owner's SQL editor setting a player's tags. */
+    _setTags(userId, patch) {
+      return db._setTags(userId, patch);
     },
 
     // chat

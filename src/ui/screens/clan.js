@@ -22,6 +22,7 @@ import { bossPortrait } from '../online/bossArt.js';
 import { makeRoomCode } from '../../online/coop/session.js';
 import { onlineHeadExtra } from '../online/inboxButton.js';
 import { openPlayerCard } from '../online/playerCard.js';
+import { tagChips } from '../online/tagChip.js';
 import { createDonatePanel, collectCard } from '../online/donatePanel.js';
 import { hub } from '../online/socialHub.js';
 import { clanEmblem as emblem, recruitSlot, clanInviteRows } from '../online/clanInvite.js';
@@ -332,11 +333,13 @@ function membersTab(backend, clan, role, pane) {
         // [social] tap a member: their player card (Message, Invite to co-op, Add friend, Block, Report)
         const card = () => openPlayerCard(m.userId, { name: m.name, level: m.level, avatar: m.avatar }, { context: 'clan', clanmate: !me });
         return h(`div.ol-member${me ? '.me' : ''}`, { 'data-testid': 'member-row', 'data-user': m.userId },
-          h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card, 'aria-label': `${m.name}: player card` },
+          // no aria-label: screen readers read the row itself (name, the tag chip's "Developer", level, role), then "player card"
+          h('button.ol-member-tap', { type: 'button', 'data-testid': 'member-card', onclick: card },
             avatar(m.avatar, 40),
             h('div.ol-member-info',
-              h('div.ol-member-name', h('b', m.name), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
-              h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`))),
+              h('div.ol-member-name', h('b', m.name), tagChips(m.userId), levelChip(m.level), h(`span.ol-role-badge.ol-role-${m.role}`, ROLE_NAMES[m.role])),
+              h('small.muted', recent ? h('span.ol-online-dot', 'Online') : `Active ${agoText(m.lastActive)}`)),
+            h('span.ol-sr', ': player card')),
           h('div.ol-member-acts', acts));
       }));
     } catch (e) {
@@ -364,7 +367,7 @@ function requestsTab(backend, clan, pane) {
       const reqs = await backend.listRequests(clan.id);
       if (!alive) return;
       list.replaceChildren(...(reqs.length ? reqs.map((r) => h('div.ol-member', avatar(r.avatar, 40),
-        h('div.ol-member-info', h('div.ol-member-name', h('b', r.name), levelChip(r.level)), h('small.muted', `Asked ${agoText(r.at)}`)),
+        h('div.ol-member-info', h('div.ol-member-name', h('b', r.name), tagChips(r.userId), levelChip(r.level)), h('small.muted', `Asked ${agoText(r.at)}`)),
         h('div.ol-member-acts',
           button('Accept', { kind: 'yellow', small: true, onClick: () => answer(r, true) }),
           button('Decline', { kind: 'ghost', small: true, onClick: () => answer(r, false) })))) : [h('div.ol-empty', h('b', 'No requests'), h('p.muted', clan.joinMode === 'open' ? 'Your clan is open: players join directly.' : 'New requests appear here.'))]));

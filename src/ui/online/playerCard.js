@@ -10,6 +10,7 @@ import { getBackend } from '../../online/backend.js';
 import { errorText } from '../../online/errors.js';
 import { presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
+import { tagChips } from './tagChip.js';
 import { startSocialHub } from './socialHub.js';
 import { makeRoomCode } from '../../online/coop/session.js';
 import { playerActions, openConversation, NEW_PEER_KEY } from './playerActions.js';
@@ -35,7 +36,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     navigate('profile', card?.isSelf ? {} : { id: userId });
   };
   const body = h('div.sc-card', { 'data-testid': 'player-card' },
-    h('div.sc-card-head', av, h('div.sc-card-id', h('div.sc-card-line', name, lv), clanLine, presence)),
+    h('div.sc-card-head', av, h('div.sc-card-id', h('div.sc-card-line', name, tagChips(userId, { all: true, size: 'md' }), lv), clanLine, presence)),
     acts);
   const m = modal({ title: 'Player', body, actions: [], cls: 'sc-card-modal' });
   m.el.querySelector('.modal-title')?.appendChild(h('button.menu-tab-x.sc-card-x', { onclick: () => m.close(), 'aria-label': 'Close', 'data-testid': 'card-close' }, '×'));

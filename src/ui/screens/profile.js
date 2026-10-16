@@ -19,11 +19,10 @@ import { MAX_AWAKEN } from '../../systems/progression.js';
 import { SHOWCASE_MAX } from '../../online/profileRules.js';
 import { buildCard, cleanViewedCard, snapshotToMiniProfile } from '../../online/profileCard.js';
 import {
-  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, STAGE_COUNT,
+  autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, earnedTitles, earnedFrames, titleChoices, STAGE_COUNT,
 } from '../../systems/profileTrophies.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
-import { TITLES } from '../../data/profileArt.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName, ensureOnline } from '../online/common.js';
@@ -31,6 +30,8 @@ import { getBackend } from '../../online/backend.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { ownOnline, onOwnOnline, refreshOwnOnline, sinceText } from '../profile/online.js';
 import { playerActions } from '../online/playerActions.js';
+import { tagChips } from '../online/tagChip.js';
+import { tagsOf, loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -66,6 +67,8 @@ export function ownModel(p) {
     fp: freeplayByTier(p),
     st,
     earnedTitles: earnedTitles(p),
+    // "All titles n / N": the tag titles count only for a player who owns them (titleChoices)
+    titleTotal: titleChoices(p).length,
     earnedFrames: earnedFrames(p),
     honors: { count: st.h, total: HONOR_TOTAL, latest: earnedHonors(p).slice(-7).reverse() },
     clan: ownOnline.status === 'ready' ? ownOnline.clan : null,
@@ -101,6 +104,7 @@ export function cardModel(card, who) {
     fp: card.fp,
     st: card.st,
     earnedTitles: [],
+    titleTotal: 0,
     earnedFrames: [],
     honors: card.st.h == null ? null : { count: card.st.h },
     clan: who.clan || null,
@@ -239,7 +243,10 @@ function profileView(m, ctx) {
   const idPanel = h('section.panel.pf-id', { 'data-testid': 'profile-identity' },
     h('div.pf-ava-col', avatarEl(m.avatar, m.frame, { onEdit: own ? () => actions.editProfile('picture') : null }), m.frame ? h('div.pf-ava-cap', frameName(m.frame)) : null),
     h('div.pf-who',
-      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
+      h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, m.name),
+        // player tags (DEV · ALPHA · BETA): every chip, from the server (yours, and the Preview of what others see)
+        own || preview ? tagChips(null, { self: true, all: true, size: 'lg' }) : null,
+        h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
       tags,
       bio,
       bioNote),
@@ -297,7 +304,7 @@ function profileView(m, ctx) {
     ? h('div.pf-fp-earned',
       m.earnedTitles.filter((id) => id.startsWith('fp_')).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
       m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })),
-      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${Object.keys(TITLES).length} ›`) : null)
+      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${m.titleTotal} ›`) : null)
     : !own && (m.title || m.frame)
       ? h('div.pf-fp-earned', m.title ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null)
       : null;
@@ -444,11 +451,43 @@ function renderVisit(root, userId) {
 // ---------------------------------------------------------------------------
 
 let closePreview = null;
+let previewSeq = 0;
+/** How long the Preview waits for this account's id (the social hub starts after boot) and for its tags. */
+const OWN_TAGS_WAIT_MS = 4000;
 
-function openPreview() {
+const within = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback()), ms))]);
+
+/**
+ * This account's tags from the server, for the Preview. Awaited (never read from the cache as it is
+ * now: right after boot the hub may not have learned the id yet, or the batch may not have landed),
+ * and only when a tag title is equipped: nothing else on the card depends on them.
+ */
+async function ownServerTags(p) {
+  if (!isTagTitle(p?.sensei?.title)) return null;
+  let uid = selfId();
+  if (!uid && storedName()) {
+    let off = () => {};
+    uid = await within(new Promise((resolve) => {
+      off = onSelfId((u) => {
+        if (u) resolve(u);
+      });
+    }), OWN_TAGS_WAIT_MS, () => selfId());
+    off();
+  }
+  if (!uid) return null;
+  return within(loadTags(uid), OWN_TAGS_WAIT_MS, () => tagsOf(uid));
+}
+
+async function openPreview() {
+  const seq = ++previewSeq;
+  const at = location.hash;
   closePreview?.();
   const p = store.profile;
-  const card = cleanViewedCard(buildCard(p));
+  // What other Senseis see: a tag title only while the server backs it (never this save's own marks).
+  // A viewer of someone else's card does the same with `await loadTags(ownerId)`, never tagsOf().
+  const tags = await ownServerTags(p);
+  if (seq !== previewSeq || location.hash !== at) return; // tapped again, or left the screen, meanwhile
+  const card = cleanViewedCard(buildCard(p), { tags });
   const name = storedName() || 'Sensei';
   const on = ownOnline.status === 'ready';
   const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: on && ownOnline.own?.bioHidden ? '' : p.sensei.bio, clan: on ? ownOnline.clan : null, since: on ? ownOnline.since : null });

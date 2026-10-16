@@ -14,6 +14,13 @@
 //      clan notices naming A are hidden for B
 //   7. a third tab with &social=0 (the live server before the owner runs the SQL) shows
 //      "Needs the latest server update" on Messages and Clan → Requests while chat still delivers
+//   + player tags: B is made a developer in the local "server" (the owner's SQL editor); both are
+//     alpha testers (stamped at sign-up). Clan chat shows one chip per line (B: DEV, A's own line:
+//     ALPHA), B's card shows DEV + ALPHA, the roster / Messages rows / chat drawer show chips, B's
+//     own profile header shows DEV + ALPHA and B's title picker lists Developer + Alpha Tester while
+//     A's lists only Alpha Tester; a tab against a server without the table (&tags=0) shows no chip;
+//     friend / request / roster rows keep short names whole next to the chip; B wears Developer and the
+//     Preview (what others see) shows it only while the server backs it (taken away, given back)
 //   + the verifier fixes: Join on a pop-up closes the open Menu first; the ally's card in the room
 //     says "In your co-op room"; the host's Leave expires its invites (card "Expired", Co-op →
 //     Invites empty); a brand-new conversation shows the other player's first message at once
@@ -206,6 +213,27 @@ try {
   await editDb(A, `for (const m of Object.values(s.members)) m.joinedAt -= 96 * 3600e3;
     for (const u of Object.values(s.users)) u.createdAt = Date.now() - 10 * 86400e3;
     for (const c of Object.values(s.clans)) if (!c.isDev) c.createdAt = Date.now() - 20 * 86400e3;`);
+  // ---- player tags: both signed up during the alpha; B is made a developer (the owner's SQL editor) ----
+  const tagRows = await A.evaluate(([a, b]) => (JSON.parse(localStorage.getItem('ss-online-db')).tags || {}), [uidA, uidB]);
+  check(tagRows[uidA]?.tester === 'alpha' && tagRows[uidB]?.tester === 'alpha' && !tagRows[uidA]?.staff, 'tags: a new player during the alpha is an alpha tester');
+  await editDb(A, 's.tags[a] = { ...s.tags[a], staff: \'dev\' };', uidB);
+  // fresh tabs: the tag cache keeps an answer for 10 minutes, and each tab learns its own tags once
+  for (const p of [A, B]) {
+    await toFront(p);
+    await p.reload({ waitUntil: 'load' });
+    await wait(p, '[data-testid="clan-home"]', { timeout: 45000 });
+  }
+  const chipTags = (page, sel) => page.evaluate((x) => [...document.querySelectorAll(`${x} [data-testid="tag-chip"]`)].map((c) => c.dataset.tag).join(','), sel);
+  /** Rows matching `sel`: the name is shown whole (a short name never squeezed by the chips) and every part of the top line stays inside the row. */
+  const namesWhole = (page, sel) => page.evaluate((x) => {
+    const rows = [...document.querySelectorAll(x)];
+    return rows.length > 0 && rows.every((row) => {
+      const b = row.querySelector('.sc-row-top b, .ol-member-name b');
+      const r = row.getBoundingClientRect();
+      const inside = [...row.querySelectorAll('[data-testid="tag-chips"], .ol-lv, button')].every((c) => { const q = c.getBoundingClientRect(); return q.width === 0 || (q.right <= r.right + 1 && q.left >= r.left - 1); });
+      return b && b.scrollWidth <= b.clientWidth && inside;
+    });
+  }, sel);
 
   // ---- player card from clan chat → friends ---------------------------------------------
   await go(B, '#/clan?tab=chat');
@@ -216,9 +244,29 @@ try {
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => /Bea here/.test(m.innerText))), 'clan chat: A sees B\'s line');
+  // tags in chat: one chip per line, DEV beats ALPHA; A's own line shows A's ALPHA chip
+  check(await until(A, (b) => document.querySelector(`[data-testid="chat-msg"][data-user="${b}"] [data-testid="tag-chips"]`)?.dataset.tags === 'dev', uidB),
+    'tags: B\'s chat line shows one chip, DEV (a developer who is also an alpha tester)');
+  await toFront(A);
+  await A.fill('[data-testid="chat-input"]', 'Hi Bea, Aiko here 🌸');
+  await A.press('[data-testid="chat-input"]', 'Enter');
+  check(await until(A, (a) => [...document.querySelectorAll(`[data-testid="chat-msg"][data-user="${a}"]`)].some((m) => /Aiko here/.test(m.innerText) && m.querySelector('[data-testid="tag-chips"]')?.dataset.tags === 'alpha'), uidA),
+    'tags: A\'s own chat line shows A\'s ALPHA chip');
+  check(await until(B, (a) => [...document.querySelectorAll(`[data-testid="chat-msg"][data-user="${a}"]`)].some((m) => /Aiko here/.test(m.innerText) && m.querySelector('[data-testid="tag-chip"]')?.getAttribute('aria-label') === 'Alpha Tester'), uidA, 12000),
+    'tags: B sees A\'s line with the ALPHA chip (aria-label "Alpha Tester")');
+  check(await A.evaluate(() => [...document.querySelectorAll('[data-testid="chat-msg"]')].every((m) => {
+    const head = m.querySelector('.ol-msg-head');
+    const r = head.getBoundingClientRect();
+    return [...head.children].every((c) => { const q = c.getBoundingClientRect(); return q.right <= r.right + 1 && q.left >= r.left - 1; });
+  })), 'tags: the chips never push the level chip or the time off the line');
+  await shot(A, 'tags-chat');
   await tap(A, '[data-testid="chat-msg"]:has-text("Bea here") [data-testid="chat-name"]');
   await wait(A, '[data-testid="player-card"] [data-testid="card-message"]', { timeout: 10000 });
   check(/Bea/.test(await text(A, '[data-testid="card-name"]')), 'player card: tapping B\'s name opens B\'s card');
+  check(await until(A, () => document.querySelector('[data-testid="player-card"] [data-testid="tag-chips"]')?.dataset.tags === 'dev alpha'), 'tags: B\'s card shows every chip: DEV + ALPHA');
+  check((await chipTags(A, '[data-testid="player-card"]')) === 'dev,alpha' && await A.evaluate(() => document.querySelector('[data-testid="player-card"] [data-tag="dev"]')?.title === 'Developer'),
+    'tags: the card\'s DEV chip says "Developer"');
+  await shot(A, 'tags-card');
   // the default "Who can message me" is Friends only (REVERIFY M4): a clanmate of 3+ days is no friend yet
   check(!(await A.locator('[data-testid="card-message"]').isEnabled()), 'player card: Message waits for a friendship (the default is Friends only)');
   check(/Friends only/.test(await text(A, '[data-testid="card-why"]')), 'player card: says why (my own setting, Friends only)');
@@ -230,15 +278,90 @@ try {
   await go(B, '#/messages?tab=requests');
   await closeIntro(B);
   await wait(B, '[data-testid="request-accept"]', { timeout: 10000 });
+  check(await until(B, () => document.querySelector('[data-testid="request-row"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha'), 'tags: the friend request that asked B shows A\'s ALPHA chip');
+  check(await namesWhole(B, '[data-testid="request-row"]'), 'tags: the request row keeps A\'s name whole next to the chip and Accept / Decline');
+  await shot(B, 'tags-requests');
   await tap(B, '[data-testid="request-accept"]');
   await tap(B, '[data-testid="msg-tab-friends"]');
   check(await until(B, () => /Aiko/.test(document.querySelector('[data-testid="friend-row"]')?.innerText || '')), 'friends: B accepted, A is on B\'s friends list');
+  check(await until(B, () => document.querySelector('[data-testid="friend-row"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha'), 'tags: the friends list shows A\'s ALPHA chip');
+  check(await namesWhole(B, '[data-testid="friend-row"]'), 'tags: the friend row keeps A\'s name whole next to the chip and Message');
   await shot(B, 'friends');
 
-  // ---- DMs both ways ---------------------------------------------------------------------
+  // ---- player tags: B's own profile header, B's and A's title pickers ------------------------------
   await tap(A, '[data-testid="card-close"]').catch(() => {});
+  await wait(A, '[data-testid="player-card"]', { state: 'detached', timeout: 5000 }).catch(() => null);
+  await go(B, '#/profile');
+  await wait(B, '[data-testid="profile-identity"]', { timeout: 15000 });
+  check(await until(B, () => document.querySelector('[data-testid="profile-identity"] [data-testid="tag-chips"]')?.dataset.tags === 'dev alpha'),
+    'tags: B\'s own profile header shows every chip: DEV + ALPHA');
+  check(await B.evaluate(() => { const c = window.__sakura.store.profile.missions.counters; return c['tag:dev'] === 1 && c['tag:alpha'] === 1 && !c['tag:beta']; }),
+    'tags: B\'s save keeps its own tags as marks (tag:dev, tag:alpha)');
+  check(await A.evaluate(() => { const c = window.__sakura.store.profile.missions.counters; return c['tag:alpha'] === 1 && !c['tag:dev']; }), 'tags: A\'s save marks only tag:alpha');
+  await shot(B, 'tags-profile');
+  await go(B, '#/profile?edit=title');
+  await wait(B, '[data-testid="edit-titles"]', { timeout: 10000 });
+  const bTitles = await B.evaluate(() => [...document.querySelectorAll('[data-testid="edit-titles"] button[data-title^="tag_"]')].map((b) => `${b.dataset.title}${b.disabled ? ':locked' : ''}`).join(','));
+  check(bTitles === 'tag_dev,tag_alpha', `tags: B's title picker lists Developer + Alpha Tester, never Beta Tester (${bTitles})`);
+  await shot(B, 'tags-titles');
+  // B wears the Developer title. Others see it only while the server backs it: the Preview (what other
+  // Senseis see) reads B's tags from the server, never B's own marks
+  await tap(B, '[data-testid="edit-titles"] button[data-title="tag_dev"]');
+  await tap(B, '[data-testid="edit-profile-save"]');
+  await wait(B, '[data-testid="edit-profile-body"]', { state: 'detached', timeout: 10000 });
+  const ownPlate = () => until(B, () => /Developer/.test(document.querySelector('[data-testid="profile-identity"] [data-testid="profile-title"]')?.innerText || ''), null, 15000);
+  const previewPlate = async () => {
+    await wait(B, '[data-testid="profile-preview"]', { timeout: 45000 });
+    await tap(B, '[data-testid="profile-preview"]'); // straight away: right after a reload the hub has not learned B's id yet
+    await wait(B, '[data-testid="profile-preview-overlay"] [data-testid="profile-identity"]', { timeout: 15000 });
+    const plate = await B.evaluate(() => document.querySelector('[data-testid="profile-preview-overlay"] [data-testid="profile-title"]')?.innerText || '');
+    await tap(B, '[data-testid="profile-preview-close"]');
+    await wait(B, '[data-testid="profile-preview-overlay"]', { state: 'detached', timeout: 5000 }).catch(() => null);
+    return plate;
+  };
+  const reloadB = async () => {
+    await go(B, '#/profile');
+    await toFront(B);
+    await B.reload({ waitUntil: 'load' });
+  };
+  await go(B, '#/profile');
+  check(await ownPlate(), 'tags: B wears the Developer title on their own profile');
+  check(/Developer/.test(await previewPlate()), 'tags: B\'s Preview shows the Developer title (the server backs it)');
+  // the owner takes B's DEV tag away in the SQL editor
+  await editDb(A, 's.tags[a] = { ...s.tags[a], staff: null };', uidB);
+  await reloadB();
+  check(await previewPlate() === '', 'tags: DEV taken away on the server: B\'s Preview shows no title plate');
+  check(await ownPlate(), 'tags: ... while B\'s own profile still wears Developer (their save keeps it)');
+  await shot(B, 'tags-profile-undev');
+  // ... and gives it back
+  await editDb(A, 's.tags[a] = { ...s.tags[a], staff: \'dev\' };', uidB);
+  await reloadB();
+  check(/Developer/.test(await previewPlate()), 'tags: DEV given back: B\'s Preview shows the Developer title again');
+  await go(A, '#/profile?edit=title');
+  await wait(A, '[data-testid="edit-titles"]', { timeout: 15000 });
+  const aTitles = await A.evaluate(() => [...document.querySelectorAll('[data-testid="edit-titles"] button[data-title^="tag_"]')].map((b) => b.dataset.title).join(','));
+  const aCount = await A.evaluate(() => document.querySelector('.ep-lbl small')?.textContent || '');
+  // 38 titles in this build (37 at launch + Helping Hands) + the Alpha Tester title A owns
+  check(aTitles === 'tag_alpha' && / \/ 39 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
+  await tap(A, '[data-testid="edit-profile-cancel"]');
+  await go(A, '#/clan?tab=chat');
+  await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
+
+  // ---- DMs both ways ---------------------------------------------------------------------
+  if (await A.locator('[data-testid="card-close"]').count()) await tap(A, '[data-testid="card-close"]').catch(() => {});
   await go(A, '#/clan?tab=members');
   await wait(A, '[data-testid="member-card"]', { timeout: 10000 });
+  check(await until(A, ([a, b]) => {
+    const tags = (u) => document.querySelector(`[data-testid="member-row"][data-user="${u}"] [data-testid="tag-chips"]`)?.dataset.tags;
+    return tags(b) === 'dev' && tags(a) === 'alpha';
+  }, [uidA, uidB]) && (await chipTags(A, `[data-testid="member-row"][data-user="${uidB}"]`)) === 'dev',
+  'tags: the clan roster shows one chip per member (B: DEV, A: ALPHA)');
+  check(await namesWhole(A, '[data-testid="member-row"]'), 'tags: the roster keeps every name whole next to its chip');
+  check(await A.evaluate((b) => {
+    const btn = document.querySelector(`[data-testid="member-row"][data-user="${b}"] [data-testid="member-card"]`);
+    return !btn.hasAttribute('aria-label') && btn.querySelector('[data-testid="tag-chip"]')?.getAttribute('aria-label') === 'Developer';
+  }, uidB), 'tags: the roster button is read from its content, so screen readers hear "Developer"');
+  await shot(A, 'tags-roster');
   await tap(A, `[data-testid="member-row"][data-user="${uidB}"] [data-testid="member-card"]`);
   await wait(A, '[data-testid="card-friends"]', { timeout: 10000 });
   check(true, 'clan roster: B\'s card says Friends ✓');
@@ -260,6 +383,7 @@ try {
   await go(B, '#/messages');
   await wait(B, '[data-testid="thread-row"]', { timeout: 10000 });
   check(/1/.test(await text(B, '[data-testid="thread-unread"]')), 'inbox: the conversation shows 1 unread');
+  check(await until(B, () => document.querySelector('[data-testid="thread-row"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha'), 'tags: the inbox row shows A\'s ALPHA chip');
   await shot(B, 'inbox');
   await tap(B, '[data-testid="thread-row"]');
   check(await until(B, () => [...document.querySelectorAll('[data-testid="dm-msg"]')].some((m) => /Want to play co-op/.test(m.innerText))), 'DM: B reads A\'s message');
@@ -267,6 +391,7 @@ try {
   await B.fill('[data-testid="dm-input"]', 'Yes please! 🌸');
   await B.press('[data-testid="dm-input"]', 'Enter');
   check(await until(A, () => [...document.querySelectorAll('[data-testid="dm-msg"]')].some((m) => /Yes please/.test(m.innerText)), null, 12000), 'DM: B\'s reply appears live in A\'s conversation');
+  check(await until(A, () => document.querySelector('[data-testid="thread-peer"] [data-testid="tag-chips"]')?.dataset.tags === 'dev'), 'tags: the conversation header shows B\'s DEV chip');
   check(await until(B, () => !document.querySelector('[data-testid="thread-unread"]'), null, 8000), 'inbox: reading the conversation clears the unread number');
   // text rules on the client before the server (invisible characters)
   await toFront(B);
@@ -581,13 +706,20 @@ try {
   }, null, { timeout: 10000 }).then((hnd) => hnd.jsonValue()).catch(() => '');
   check(dmBtn !== '' && !/null|undefined/i.test(dmBtn), `chat drawer: the Messages button reads "${dmBtn}" (no "null")`);
   await shot(A, 'chat-drawer-messages');
+  // the lobby chat drawer's clan tab: the same chips (A blocked nobody; B blocked A, so this is A's view)
+  await tap(A, '[data-testid="drawer-clan"]');
+  check(await until(A, (b) => document.querySelector(`[data-testid="chat-drawer"] [data-testid="chat-msg"][data-user="${b}"] [data-testid="tag-chips"]`)?.dataset.tags === 'dev', uidB, 12000),
+    'tags: the lobby chat drawer shows B\'s DEV chip');
+  // B's last line in the middle of the drawer (it is above the fold under the newer notices)
+  await A.evaluate((b) => [...document.querySelectorAll(`[data-testid="chat-drawer"] [data-testid="chat-msg"][data-user="${b}"]`)].pop()?.scrollIntoView({ block: 'center' }), uidB);
+  await shot(A, 'tags-drawer');
   await tap(A, '[data-testid="drawer-close"]').catch(() => {});
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
 
   // ---- the server before the owner runs the SQL (&social=0) ---------------------------------
   const D = await openPage('D');
-  await D.goto(`${base}&social=0#/messages`, { waitUntil: 'load' });
+  await D.goto(`${base}&social=0&tags=0#/messages`, { waitUntil: 'load' });
   await setName(D, 'Dara');
   check(await wait(D, '[data-testid="needs-update"]', { timeout: 15000 }).then(() => true).catch(() => false), 'needs update: Messages shows "Needs the latest server update"');
   check(/Messages need the latest server update/.test(await text(D, '[data-testid="needs-update"]')), 'needs update: the card names the feature');
@@ -612,6 +744,9 @@ try {
   await D.fill('[data-testid="chat-input"]', 'Dara says hi without the update');
   await D.press('[data-testid="chat-input"]', 'Enter');
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => /without the update/.test(m.innerText)), null, 10000), 'needs update: clan chat still delivers');
+  // no player_tags table on this "server" (&tags=0): no chip anywhere, no error (the page-error check below)
+  await D.waitForTimeout(1500);
+  check(await D.locator('[data-testid="chat-msg"]').count() > 1 && !(await D.locator('[data-testid="tag-chip"]').count()), 'tags: a server without the tags table shows no chip and no error');
   // the player card of a clanmate: actions wait for the update; clan-chat co-op invite instead
   await tap(D, '[data-testid="chat-msg"]:has-text("after the block") [data-testid="chat-name"]').catch(() => {});
   const cardNu = await wait(D, '[data-testid="card-needs-update"]', { timeout: 8000 }).then(() => true).catch(() => false);

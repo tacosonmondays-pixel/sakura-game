@@ -8,6 +8,8 @@ import { OnlineError, toOnlineError, isMissingFeature } from '../errors.js';
 import { COOP_NET } from '../../data/coop.js';
 
 const ts = (v) => (v ? new Date(v).getTime() : 0);
+/** An account id (a uuid): anything else in a uuid filter would make Postgres refuse the whole request. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const tsOrNull = (v) => (v ? new Date(v).getTime() : null);
 
 // ---- [social] row / json mappers (the same shapes the local adapter returns) ---------------------
@@ -237,6 +239,29 @@ export function createSupabaseAdapter({ url, key }) {
     async touch() {
       if (uid) await rpc('touch_active');
       return true;
+    },
+
+    // ---- [tags] public player tags (20261017000000_player_tags.sql) ---------------------------
+    /**
+     * One select for up to 100 accounts: [{ userId, staff, tester }] (untagged players are simply
+     * not in the table). No table yet (the owner has not run the SQL: PGRST205 / 42P01 / 404) →
+     * needs_update, which src/online/tags.js reads as "no tags this session".
+     */
+    async getTags(ids) {
+      const list = [...new Set((Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && UUID_RE.test(id)))].slice(0, 100);
+      if (!list.length) return [];
+      const c = await sb();
+      let res;
+      try {
+        res = await c.from('player_tags').select('user_id,staff,tester').in('user_id', list);
+      } catch (e) {
+        throw toOnlineError(e);
+      }
+      if (res?.error) {
+        if (isMissingFeature(res.error) || res.status === 404) throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+        throw toOnlineError(res.error);
+      }
+      return (res?.data || []).map((r) => ({ userId: r.user_id, staff: r.staff ?? null, tester: r.tester ?? null }));
     },
 
     // ---- chat -----------------------------------------------------------------------------
