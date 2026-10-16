@@ -20,7 +20,7 @@ import { STAGE_MAP } from '../../src/data/stages.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
-import { RECORD_V, SNAP_V, slotKey } from '../../src/systems/battleSave.js';
+import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
 import { xpToReach } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import {
@@ -571,8 +571,28 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     expect(sim.drainEvents()).toEqual([]);
     // the others come back exactly as saved
     for (const t of sim.towers.filter((x) => !x.isHero)) expect(t.spent).toBe(snap.towers.find((x) => x.uid === t.uid).spent);
-    // and the next snapshot is the current format
-    expect(snapshotSim(sim).v).toBe(SNAP_V);
+    // and the next snapshot is the current format for an all-P1 team (format 2: see below)
+    expect(snapshotSim(sim).v).toBe(SNAP_V_P1);
+  });
+
+  it('an all-P1 run is written as format 2, which a build from before Potential v3 continues; a girl at P2+ makes it format 3', () => {
+    // v0.1.35's rule (its battleSave.js cleanRecord): a snapshot newer than its SNAP_V 2 is dropped on load
+    const keptByOlderBuild = (snap) => snap.v <= 2;
+    const fresh = (edit = () => {}) => {
+      const rec = recordOf(c, cpAt(4));
+      edit(rec);
+      return JSON.parse(JSON.stringify(snapshotSim(restoreSim(rec).sim)));
+    };
+    const p1 = fresh();
+    expect([SNAP_V_P1, p1.v, keptByOlderBuild(p1)]).toEqual([2, 2, true]);
+    // and this build continues its own format-2 save exactly as it was
+    const again = restoreSim(recordOf(c, p1)).sim;
+    expect(JSON.stringify(snapshotSim(again))).toBe(JSON.stringify(p1));
+    // a girl at P2+ in the loadout (placed or not) or as the hero: format 3, which an older build drops
+    const p2 = fresh((rec) => { rec.loadout.find((e) => e.unitId === 'kaede').stats.potential = 2; });
+    expect([p2.v, keptByOlderBuild(p2)]).toEqual([SNAP_V, false]);
+    expect(fresh((rec) => { rec.hero.stats.potential = 3; }).v).toBe(SNAP_V);
+    expect(fresh((rec) => { rec.loadout.forEach((e) => { e.stats.potential = 1; }); }).v).toBe(SNAP_V_P1);
   });
 });
 

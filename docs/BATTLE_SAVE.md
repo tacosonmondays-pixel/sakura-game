@@ -163,8 +163,11 @@ of her focus over (the restore puts back a stand-in that reads as fallen or leak
 does the same), `ab` an aura boost's time left (`auraBoostLeft`) and `oc` her drones' overclock
 `[cd, left]` (`potOc`). The rhythm's specs (`effProc`, `effEcho`, `trapSpecProc`) are derived from
 her stats and buffs. Numbers only on restore (whole counters ≥ 0). A format-1 or format-2 save has
-none of these and restores with every counter at its start; an older build refuses a format-3 save
-("from a newer build") instead of replaying her with the old steps. Her Potential itself rides in
+none of these and restores with every counter at its start. A run whose team is all P1 (no loadout
+or hero entry at P2+, no girl carrying one of these fields) is still written as format 2 (`SNAP_V_P1`):
+P1 fights bit-identically, so a build from before v3 continues it exactly. An older build drops a
+format-3 save when it loads the profile (its `cleanRecord` keeps no snapshot newer than its `SNAP_V`),
+with its dropped-save notice, instead of replaying a P2+ girl with the old steps. Her Potential itself rides in
 the record's frozen stats (`potential`), like her level and gear. A format-1 or format-2 save with a
 girl at P2+ continues with the v3 steps of her saved P: `restoreSim` returns `potentialNew: true` and
 Continue says "This run continues with Potential's new effects." (POTENTIAL.md v2 §8).

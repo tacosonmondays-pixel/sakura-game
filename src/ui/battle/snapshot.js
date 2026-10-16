@@ -46,7 +46,7 @@ import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
-import { SNAP_V, RECORD_V } from '../../systems/battleSave.js';
+import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
 import { modeId } from '../../data/modes.js';
 
 /**
@@ -210,8 +210,9 @@ export function snapshotSim(sim) {
   // freeplay state (goal, pressure, Finish) has no place in a battle save (see KNOWN_SIM_KEYS)
   if (sim.freeplay) throw new Error('[battleSave] a freeplay battle (co-op or solo) is never saved');
   const { leakLog, ...stats } = JSON.parse(JSON.stringify(sim.stats));
+  const towers = sim.towers.map((t) => packTower(sim, t));
   return {
-    v: SNAP_V,
+    v: snapFormat(sim, towers),
     wave: sim.wave,
     wavesCleared: sim.wavesCleared,
     state: sim.state,
@@ -222,32 +223,7 @@ export function snapshotSim(sim) {
     uid: sim._uid,
     buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left, b.src ?? -1]),
     dps: sim._dpsTimer,
-    towers: sim.towers.map((t) => {
-      const o = {
-        uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
-        kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
-      };
-      if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
-      if (t.turrets.length) {
-        o.dr = t.turrets.map((d) => (d.n != null
-          ? [d.uid, d.x, d.y, d.facing, d.cooldown, d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam]
-          : [d.uid, d.x, d.y, d.facing, d.cooldown]));
-      }
-      if (t.droneDmg || t.droneKills || t.droneShots || t.droneSerial) o.ds = [t.droneDmg, t.droneKills, t.droneShots, t.droneSerial];
-      if (t.flight) {
-        const f = t.flight;
-        o.fl = [f.mode, f.ax, f.ay, f.bx, f.by, f.cx, f.cy, f.leg];
-      }
-      const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
-      if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
-      // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
-      if (t.buffPick >= 0) o.pk = t.buffPick;
-      if (t.lim) o.lm = packLim(t.lim);
-      if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
-      if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
-      packPotential(t, o);
-      return o;
-    }),
+    towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
     stats,
@@ -255,6 +231,53 @@ export function snapshotSim(sim) {
     // the route orientation of the last wave (Reverse Route, Rear Ambush): only where it can turn
     ...(sim._pathsRev ? { rr: sim.routeReversed ? 1 : 0 } : {}),
   };
+}
+
+/** One girl's row of the snapshot. */
+function packTower(sim, t) {
+  const o = {
+    uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
+    kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
+  };
+  if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
+  if (t.turrets.length) {
+    o.dr = t.turrets.map((d) => (d.n != null
+      ? [d.uid, d.x, d.y, d.facing, d.cooldown, d.n, d.slot, d.dmg, d.kills, d.shots, d.born, d.jam]
+      : [d.uid, d.x, d.y, d.facing, d.cooldown]));
+  }
+  if (t.droneDmg || t.droneKills || t.droneShots || t.droneSerial) o.ds = [t.droneDmg, t.droneKills, t.droneShots, t.droneSerial];
+  if (t.flight) {
+    const f = t.flight;
+    o.fl = [f.mode, f.ax, f.ay, f.bx, f.by, f.cx, f.cy, f.leg];
+  }
+  const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
+  if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
+  // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
+  if (t.buffPick >= 0) o.pk = t.buffPick;
+  if (t.lim) o.lm = packLim(t.lim);
+  if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
+  if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
+  packPotential(t, o);
+  return o;
+}
+
+/** The fields format 3 adds on a girl's row (packPotential). */
+const POTENTIAL_FIELDS = ['pc', 'tp', 'pj', 'rk', 'rt', 'ab', 'oc'];
+
+/**
+ * The format a snapshot is written in: 3 (SNAP_V) when some girl of the run's team (her loadout or
+ * hero entry, or a placed girl) is at P2+ or a row carries a Potential counter; else 2 (SNAP_V_P1).
+ * Format 3 only adds Potential's fields and P1 fights bit-identically, so an all-P1 run written as
+ * format 2 is one a build from before Potential v3 continues exactly; that build drops a format-3
+ * record when it loads the save (cleanRecord, with its dropped-save notice).
+ */
+function snapFormat(sim, rows) {
+  const atP2 = (st) => (Number(st?.potential) || 1) >= 2;
+  if ([...sim.loadout.values()].some(atP2)) return SNAP_V;
+  if ((sim.heroConfigs || []).some((c) => atP2(c?.stats))) return SNAP_V;
+  if (sim.towers.some((t) => atP2(t.unitStats))) return SNAP_V;
+  if (rows.some((o) => POTENTIAL_FIELDS.some((k) => k in o))) return SNAP_V;
+  return SNAP_V_P1;
 }
 
 /**

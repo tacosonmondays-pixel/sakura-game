@@ -17,11 +17,16 @@ export const RECORD_V = 1;
 /**
  * Snapshot format this build writes (and the newest it can read). 2: the hero rework (a hero has
  * no tiers; her bought levels and Move cooldown are kept). 3: Potential v3 (a saved girl at P2+
- * fights with the v3 steps and their rhythm / tempo / overclock state; an older build, which would
- * replay her with the old steps, refuses the save as "from a newer build"). Format-1 and format-2
- * snapshots are still restored (src/ui/battle/snapshot.js restoreSim migrates a format-1 hero).
+ * fights with the v3 steps and their rhythm / tempo / overclock state). A run whose team is all
+ * P1 is still written as format 2 (SNAP_V_P1): format 3 only adds Potential's fields and P1 fights
+ * bit-identically, so a build from before v3 continues it exactly; that build drops a format-3
+ * record when it loads (cleanRecord below, its own copy), with the dropped-save notice, rather
+ * than replay a P2+ girl with the old steps. Format-1 and format-2 snapshots are still restored
+ * (src/ui/battle/snapshot.js restoreSim migrates a format-1 hero).
  */
 export const SNAP_V = 3;
+/** The format an all-P1 run is written in (the format before Potential v3). */
+export const SNAP_V_P1 = 2;
 /** Saved battles kept at once; starting another one asks which one to delete (stage prep). */
 export const MAX_BATTLE_SAVES = 5;
 
