@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.35', version: '0.1.35', date: '2026-10-16', title: 'Little fixes',
+    fixed: [
+      'Edit Profile on phones: the “soon” badge no longer pokes out of its tab.',
+      'Opening gear boxes from Achievements no longer shows “pieces of gear” twice.',
+      'Claim all now shows exactly how many rewards it will collect.',
+      'On phones, achievement pop-ups no longer cover the secretary’s speech bubble in the lobby.',
+    ],
+  },
+  {
     id: 'v0.1.34', version: '0.1.34', date: '2026-10-16', title: 'The combat update',
     added: [
       'Heroes are free to place and level up during the battle, from 1 to 25. Each hero has one 25-level track instead of upgrade paths, and you can buy levels with coins.',

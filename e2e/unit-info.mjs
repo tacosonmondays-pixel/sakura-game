@@ -35,6 +35,14 @@ const IGNORE = [
 
 const failures = [];
 const log = (...a) => console.log(...a);
+/**
+ * A page error with where it came from: its message and the top of its stack (src file:line), so a rare one
+ * (a co-op run under load once hit "Cannot read properties of undefined (reading 'sim')") names its source.
+ */
+const where = (e) => {
+  const at = String(e?.stack || '').split('\n').filter((l) => /^\s*at /.test(l)).slice(0, 4).map((l) => l.trim().replace(/https?:\/\/[^/]+\//, '')).join(' ← ');
+  return at ? `${e.message} (${at})` : e.message;
+};
 function check(cond, msg) {
   log(`  ${cond ? 'ok  ' : 'FAIL'} ${msg}`);
   if (!cond) failures.push(msg);
@@ -80,7 +88,7 @@ async function runViewport(vp) {
     const t = m.text();
     if (!IGNORE.some((re) => re.test(t))) errors.push(`[console] ${t}`);
   });
-  page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+  page.on('pageerror', (e) => errors.push(`[pageerror] ${where(e)}`));
   const takeErrors = () => errors.splice(0);
   const noErrors = (what) => {
     const errs = takeErrors();
@@ -749,7 +757,7 @@ async function runPortrait() {
     const t = m.text();
     if (!IGNORE.some((re) => re.test(t))) errors.push(`[console] ${t}`);
   });
-  page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+  page.on('pageerror', (e) => errors.push(`[pageerror] ${where(e)}`));
   const cdp = await context.newCDPSession(page);
   const holdAt = async ({ x, y }, ms = 750) => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
@@ -844,7 +852,7 @@ async function runCoop() {
       const t = m.text();
       if (!IGNORE.some((re) => re.test(t))) errors.push(`[${name} console] ${t}`);
     });
-    p.on('pageerror', (e) => errors.push(`[${name} pageerror] ${e.message}`));
+    p.on('pageerror', (e) => errors.push(`[${name} pageerror] ${where(e)}`));
     return p;
   };
   const shot = async (p, name) => {

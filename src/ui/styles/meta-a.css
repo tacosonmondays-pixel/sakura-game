@@ -1555,6 +1555,11 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .lb-art-host .lb-bubble { position: absolute; z-index: 4; }
 .lb-art-host .lb-bubble { transform-origin: 100% 50%; }
 .lb-art-host .lb-bubble::before { left: auto; right: -9px; border-right: 0; border-left: 9px solid rgba(255,255,255,0.96); filter: drop-shadow(1px 0 0 rgba(29,78,137,0.12)); }
+/* short screens: an achievement toast sits where her speech bubble is, so the bubble steps aside (fades out) while
+   the toast is up and comes back with its line when the toast leaves */
+@media (max-height: 480px) {
+  body:has(.toast-host.has-ach) .lb-bubble.show { opacity: 0; transform: translateY(6px) scale(0.96); }
+}
 @media (min-width: 1000px) and (min-height: 600px) { .lb-art-girl { height: 142%; left: 54%; } }
 @media (prefers-reduced-motion: reduce) { .lb-art-layer.scene .lb-art-scene, .lb-art-girl { animation: none; } .lb-art { transition: none; } }
 

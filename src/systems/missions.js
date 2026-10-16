@@ -304,6 +304,15 @@ export function achievementsReady(prevReadyIds, nextReadyIds) {
   return (nextReadyIds || []).filter((id) => !prev.has(id));
 }
 
+/**
+ * How many achievements Claim all would claim right now: its repeated passes run on a copy of the save, so an
+ * Achiever row that the same tap completes is counted too (the button's number = the modal's "N claimed").
+ */
+export function claimAllCount(profile, { v2 = ACH_V2_LIVE } = {}) {
+  if (!achievementList(profile, { v2 }).some((x) => x.claimable)) return 0;
+  return claimAllAchievements(JSON.parse(JSON.stringify(profile)), { v2 }).ids.length;
+}
+
 /** Ids claimable right now (gate-locked rows excluded). */
 export function readyAchievementIds(profile) {
   return achievementList(profile).filter((a) => a.claimable).map((a) => a.id);
