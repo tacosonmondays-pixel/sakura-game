@@ -34,9 +34,11 @@ export function render(root, params = {}) {
 
   (async () => {
     let clan = null;
+    let known = false; // (unknown after an error: the panel asks again for the recruiting cards)
     try {
       const backend = await ensureOnline();
       clan = (await backend.myClan())?.clan || null;
+      known = true;
     } catch {
       /* the panel shows the error */
     }
@@ -45,7 +47,7 @@ export function render(root, params = {}) {
     const tab = params.tab === 'clan' && clan ? 'clan' : 'global';
     const items = [{ id: 'global', label: 'Global' }];
     if (clan) items.push({ id: 'clan', label: `[${clan.tag}] ${clan.name}` });
-    panel = createChatPanel({ channel: tab === 'clan' ? `clan:${clan.id}` : 'global' });
+    panel = createChatPanel({ channel: tab === 'clan' ? `clan:${clan.id}` : 'global', ...(known ? { myClanId: clan?.id || null } : {}) });
     main.append(tabBar(items, tab, (id) => {
       panel.setChannel(id === 'clan' ? `clan:${clan.id}` : 'global');
       navigate('chat', { tab: id }, { replace: true });

@@ -26,6 +26,11 @@ describe('ids and names', () => {
     expect(LAUNCH).toHaveLength(86);
     expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(118);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
+    // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
+    for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
+      expect(a.desc, a.id).toMatch(/Clan Requests/);
+      expect(a.desc, a.id).not.toMatch(/\bgear\b/i);
+    }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
     expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: false, later: false });

@@ -235,9 +235,11 @@ Opened from "Edit profile" in the top bar (`mock/shots/*-editp.png`). Left nav s
 | Message | primary | "Message" | `canMessage` / `why` from `player_card` (same texts as the card, `whyText`) |
 | Invite to co-op | yellow | "Co-op" | social's co-op invite rules |
 | Add friend | ghost | icon | `canFriend` / `friendWhy`, `friend` state |
-| ⋯ | Block, Report | same | Report → `openReportDialog(userId, { context: 'profile' })` with the existing reasons (bullying, inappropriate, spam, personal_info, other) |
+| ⋯ | Invite to [TAG], Block, Report | same | Report → `openReportDialog(userId, { context: 'profile' })` with the existing reasons (bullying, inappropriate, spam, personal_info, other). No friend control (the top bar has it). Closes after an action that reloads the page, and when the page is left (also by a system back). |
 
-- Factor the action rules out of `playerCard.js` into `playerActions(card)` so the card and the profile can never disagree.
+- Why Message / Co-op (or Add friend) are off is said on the page, under the bio (the card's `whyText` / `friendWhyText`), and the disabled buttons point to it (`aria-describedby`).
+- After an action the page loads once (one `profile_view` per tap).
+- Factor the action rules out of `playerCard.js` into `playerActions(card)` so the card and the profile can never disagree. `playerActions.js` imports `social.css` itself (the visit loads it without the player card).
 - Not shown on someone else's profile: last active, earned title/frame lists, pin popovers, cheers.
 
 ### 1.11 States

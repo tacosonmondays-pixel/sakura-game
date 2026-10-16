@@ -33,10 +33,11 @@ function markSeen(id) {
 }
 
 /**
- * @param {{ channel?: string, title?: string, compact?: boolean, emptyText?: string }} opts
+ * @param {{ channel?: string, title?: string, compact?: boolean, emptyText?: string, myClanId?: string|null }} opts
+ *   myClanId: the clan the viewer is in (null: none), when the caller already asked; left out, the panel asks
  * @returns {{ el: HTMLElement, destroy(): void, setChannel(ch: string): void }}
  */
-export function createChatPanel({ channel = 'global', compact = false, emptyText = 'No messages yet — say hello!' } = {}) {
+export function createChatPanel({ channel = 'global', compact = false, emptyText = 'No messages yet — say hello!', myClanId: knownClanId } = {}) {
   const list = h('div.ol-chat-list', { 'data-testid': 'chat-list', role: 'log', 'aria-live': 'polite' });
   const input = h('input.ol-input.ol-chat-input', { type: 'text', maxlength: MAX, placeholder: 'Message…', 'data-testid': 'chat-input', autocomplete: 'off', enterkeyhint: 'send' });
   const count = h('span.ol-chat-count');
@@ -48,6 +49,9 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   let unsub = () => {};
   let destroyed = false;
   let backend = null;
+  // [clan invites] the clan I am in (from the caller, else asked once per load of global chat): a recruiting
+  // card of my own clan says "Your clan", and no card offers Join while I am in a clan
+  let myClanId = knownClanId ?? null;
   let shown = new Set();
   let cooldown = 0;
   let statusTimer = 0;
@@ -66,7 +70,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     const mine = backend && m.userId === backend.uid;
     const invite = m.kind === 'invite' && m.meta?.room;
     // [clan invites] a clan's daily recruiting post: its card (else its text, like an older game shows it)
-    const recruit = recruitCard(m, { mine });
+    const recruit = recruitCard(m, { mine, myClanId });
     const name = h('b.ol-msg-name', m.name || 'Sensei');
     return h(
       `div.ol-msg${mine ? '.ol-msg-mine' : ''}`,
@@ -126,8 +130,10 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     try {
       backend = await ensureOnline();
       if (destroyed) return;
-      const history = await backend.history(channel, 50);
+      const ask = channel === 'global' && knownClanId === undefined;
+      const [history, mine] = await Promise.all([backend.history(channel, 50), ask ? backend.myClan().catch(() => null) : null]);
       if (destroyed) return;
+      if (ask) myClanId = mine?.clan?.id || null;
       list.replaceChildren();
       // local mode: say plainly that these messages stay in this browser
       el.querySelector('.ol-local-note')?.remove();
@@ -218,7 +224,7 @@ export async function openChatDrawer() {
     showError(e);
     return null;
   }
-  const panel = createChatPanel({ channel: 'global', compact: true });
+  const panel = createChatPanel({ channel: 'global', compact: true, myClanId: clan?.id || null });
   const tabs = h('div.ol-drawer-tabs');
   // (replaceChildren would print a null as the text "null": only pass real tabs)
   const paintTabs = () => tabs.replaceChildren(...[

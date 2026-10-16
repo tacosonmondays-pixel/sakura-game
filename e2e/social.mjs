@@ -21,6 +21,8 @@
 //     A's lists only Alpha Tester; a tab against a server without the table (&tags=0) shows no chip;
 //     friend / request / roster rows keep short names whole next to the chip; B wears Developer and the
 //     Preview (what others see) shows it only while the server backs it (taken away, given back)
+//   + clan invites: a clanmate's conversation menu offers no "Invite to [TAG]"; invite rows keep the clan
+//     name whole; a clanmate's recruiting card says "Your clan" with no Join
 //   + the verifier fixes: Join on a pop-up closes the open Menu first; the ally's card in the room
 //     says "In your co-op room"; the host's Leave expires its invites (card "Expired", Co-op →
 //     Invites empty); a brand-new conversation shows the other player's first message at once
@@ -585,6 +587,15 @@ try {
   // from their conversation's menu; the leader's invite also lifts the 7-day kick ban
   await go(A, '#/messages');
   await wait(A, '[data-testid="thread-row"]', { timeout: 10000 });
+  // a clanmate's conversation offers no "Invite to [PS]" (their player card shows the clan)
+  await tap(A, '[data-testid="thread-row"]:has-text("Bea")');
+  await wait(A, '[data-testid="thread-menu"]', { timeout: 10000 });
+  await tap(A, '[data-testid="thread-menu"]');
+  await wait(A, '[data-testid="thread-card"]', { timeout: 8000 });
+  await A.waitForTimeout(2500); // (the item would appear once the clan and the card are known)
+  check(!(await A.locator('[data-testid="thread-clan-invite"]').count()), 'clan invite: a clanmate\'s conversation menu has no "Invite to [PS]"');
+  await A.keyboard.press('Escape').catch(() => {});
+  await A.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
   await tap(A, '[data-testid="thread-row"]:has-text("Cleo")');
   await wait(A, '[data-testid="thread-menu"]', { timeout: 10000 });
   await tap(A, '[data-testid="thread-menu"]');
@@ -605,12 +616,14 @@ try {
   await go(C, '#/lobby');
   await go(C, '#/clan');
   check(await wait(C, '[data-testid="clan-invites"] [data-testid="clan-invite-row"][data-clan="PS"]', { timeout: 15000 }).then(() => true).catch(() => false), 'clan invite: Cleo sees it on the clan list');
+  check(await namesWhole(C, '[data-testid="clan-invites"] [data-testid="clan-invite-row"]'), 'clan invite: the clan list\'s invite row keeps "Petal Squad" whole next to Join / Decline');
   await go(C, '#/messages?tab=requests');
   await closeIntro(C);
   await wait(C, '[data-testid="clan-invite-row"]', { timeout: 10000 });
   // (Aiko's tag chip sits between their name and "invited you")
   check(/Aiko\s*(?:DEV|ALPHA|BETA)?\s*invited you/.test(await text(C, '[data-testid="clan-invite-row"]')), 'clan invite: the card says who invited them');
   check(await until(C, () => document.querySelector('[data-testid="clan-invite-row"] [data-testid="tag-chips"]')?.dataset.tags === 'alpha', null, 12000), 'tags: the clan invite card shows Aiko\'s ALPHA chip next to their name');
+  check(await namesWhole(C, '[data-testid="clan-invite-row"]') && (await text(C, '[data-testid="clan-invite-name"]')) === 'Petal Squad', 'clan invite: the Requests row keeps "Petal Squad" whole next to the tag, the chip and Join / Decline');
   check(await until(C, () => Number(document.querySelector('[data-testid="msg-tab-requests"] .sc-pill')?.textContent || 0) >= 1, null, 12000), 'clan invite: the Requests tab counts it');
   await shot(C, 'clan-invite-requests');
   await tap(C, '[data-testid="clan-invite-join"]');
@@ -625,6 +638,11 @@ try {
   check(await until(A, () => document.querySelector('[data-testid="clan-recruit"]')?.disabled === true, null, 8000), 'recruit: then "Posted today ✓" until the 7 PM Central reset');
   check(!(await C.locator('[data-testid="clan-recruit"]').count()), 'recruit: a plain member gets no button');
   await shot(A, 'recruit-posted');
+  // a clanmate in global chat: their own clan's card says "Your clan", with no Join / Ask to join
+  await go(C, '#/chat');
+  check(await wait(C, '[data-testid="recruit-card"][data-clan="PS"] [data-testid="recruit-yours"]', { timeout: 15000 }).then(() => true).catch(() => false), 'recruit: a clanmate sees "Your clan" on their clan\'s card');
+  check(!(await C.locator('[data-testid="recruit-card"][data-clan="PS"] [data-testid="recruit-join"], [data-testid="recruit-card"][data-clan="PS"] [data-testid="recruit-request"]').count()), 'recruit: a clanmate\'s card has no Join / Ask to join');
+  await shot(C, 'recruit-card-clanmate');
   await C.close();
 
   // ---- report + block ----------------------------------------------------------------------

@@ -2,6 +2,9 @@
 // co-op · Add friend (or Friends ✓ / Accept · Decline / Requested) · Invite to [TAG] · Block / Unblock · Report. Shared by the player
 // card and the Sensei Profile's visitor view (docs/specs/PROFILE.md §1.10) so the two can never disagree. Nothing
 // about the other player's settings or blocks is shown: a refusal reads the same either way.
+// It builds the sc-card-* markup, so it brings its stylesheet: the Sensei Profile's visitor view imports this
+// module without playerCard.js (a reload or deep link of #/profile/<id> must not depend on another screen).
+import '../styles/social.css';
 import { h, button, toast, confirmDialog } from '../components.js';
 import { navigate } from '../router.js';
 import { getBackend } from '../../online/backend.js';
@@ -36,8 +39,10 @@ export const isDevClan = (c) => !!c?.clan && c.clan.tag === DEV_CLAN.tag && c.cl
  * @param {object} c player_card (or profile_view, which carries it)
  * @param {{ context?: string, messageId?: number|null, close?: Function, reload: () => Promise<object>, repaint: (card: object) => void }} o
  *   close: leaves the surface first (the card's modal); reload: fetches the card again; repaint: draws it
- * @returns {{ message: HTMLElement, coop: HTMLElement, why: HTMLElement|null, friend: HTMLElement, clanInvite: HTMLElement, block: HTMLElement, report: HTMLElement }}
+ * @returns {{ message: HTMLElement, coop: HTMLElement, why: HTMLElement|null, whyText: string, friendWhyText: string, friend: HTMLElement, clanInvite: HTMLElement, block: HTMLElement, report: HTMLElement }}
  *   clanInvite: [clan invites] "Invite to [TAG]" (a slot that fills itself; it asks the server only when read)
+ *   whyText / friendWhyText: why Message (and co-op) / Add friend are off ('' when they are on), for a
+ *   surface that shows them elsewhere (the visited profile's note under the bio)
  */
 export function playerActions(c, { context = 'profile', messageId = null, close = () => {}, reload, repaint }) {
   const b = getBackend();
@@ -57,6 +62,8 @@ export function playerActions(c, { context = 'profile', messageId = null, close 
 
   const whyLine = c.canMessage ? null : whyText(c.why, c.name, { myPrivacy: c.myPrivacy, friend: c.friend === 'friends', devClan });
   const message = button('Message', { kind: 'primary', icon: 'chat', testid: 'card-message', disabled: !c.canMessage && !c.threadId, onClick: () => { close(); openConversation(c); } });
+  // a disabled button says why on hover / to a screen reader too (the line itself sits next to it)
+  if (whyLine && message.disabled) message.title = whyLine;
   // already my ally in the co-op room I am in: no second room (that would leave this one)
   const s = getSession();
   const ally = !!s && s.phase === 'lobby' && s.peer?.uid === c.userId;
@@ -70,6 +77,7 @@ export function playerActions(c, { context = 'profile', messageId = null, close 
         startCoopInvite(c);
       },
     });
+  if (whyLine && coop.disabled) coop.title = whyLine;
 
   let el;
   if (c.friend === 'friends') {
@@ -121,7 +129,7 @@ export function playerActions(c, { context = 'profile', messageId = null, close 
   });
   let clanInvite = null;
   return {
-    message, coop, why: whyLine ? h('p.sc-card-why', { 'data-testid': 'card-why' }, whyLine) : null, friend, block, report,
+    message, coop, why: whyLine ? h('p.sc-card-why', { 'data-testid': 'card-why' }, whyLine) : null, whyText: whyLine || '', friendWhyText: fwhy, friend, block, report,
     get clanInvite() {
       return (clanInvite ||= clanInviteSlot(c));
     },

@@ -669,11 +669,15 @@ export function render(root, params = {}) {
     function threadMenu() {
       const p = info.peer;
       const blocked = hub.isBlocked(p.userId);
-      // [clan invites] "Invite to [TAG]" once it is known I may (the server says if they are in a clan)
+      // [clan invites] "Invite to [TAG]" once it is known I may, and that they are in no clan (as far as their
+      // player card shows: a clanmate or a member of another clan never gets the item). The card is asked
+      // only when I may invite at all.
       const clanItem = h('div.sc-menu-slot', { 'data-testid': 'thread-clan-slot' });
       if (!blocked) {
-        myInviteClan().then((clan) => {
+        myInviteClan().then(async (clan) => {
           if (!clan) return;
+          const card = await backend.playerCard(p.userId).catch(() => null);
+          if (!card || card.clan || card.isSelf || card.blockedByMe) return;
           clanItem.replaceChildren(h('button.sc-menu-btn', { 'data-testid': 'thread-clan-invite', onclick: () => { m.close(); inviteToClan(p.userId, p.name); } }, `Invite to [${clan.tag}]`));
         });
       }

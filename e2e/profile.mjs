@@ -11,7 +11,10 @@
 //   7. A writes a bio (a link is refused inline), B opens A's profile from a player card: bio, favorite,
 //      8 girls, medals, clan chip; holding girl 1 shows A's build (A's level, owner chip)
 //   8. A picks Only me → private for B; Everyone again, then B blocks A → the same private screen
-//   9. &profile=0 (before the profile SQL): the "needs the latest server update" card, chat still works
+//   9. &profile=0 (before the profile SQL): the "needs the latest server update" card, no View profile on a
+//      player card, chat still works
+//   + the visit's ⋯ sheet (no second friend control, styled after a reload, gone when leaving the page or
+//     after Block), the reason Message is off under the bio, one profile_view per action
 //
 //   node e2e/profile.mjs                                  # 1280×720 (mouse) + 844×390 (touch)
 //   node e2e/profile.mjs --viewport 844x390 --shots e2e/out/profile
@@ -480,6 +483,15 @@ async function runVisit(vp) {
     return els.every((e) => e.scrollWidth <= e.clientWidth + 1);
   }).then((ok) => check(ok, `${what}: no horizontal overflow`));
   const clearModals = (page) => page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  /** Counts this page's profile_view calls from now on (window.__pvCalls; again after every reload). */
+  const countViews = (page) => page.evaluate(() => {
+    window.__pvCalls = 0;
+    const o = window.__online;
+    if (o.__pvWrapped) return;
+    const f = o.profileView;
+    o.profileView = (...x) => { window.__pvCalls++; return f.apply(o, x); };
+    o.__pvWrapped = true;
+  });
   async function setName(page, name) {
     await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
     await page.fill('[data-testid="name-input"]', name);
@@ -574,6 +586,7 @@ async function runVisit(vp) {
   await wait(B, '[data-testid="member-card"]', { timeout: 10000 });
   await tap(B, `[data-testid="member-row"][data-user="${uidA}"] [data-testid="member-card"]`);
   await wait(B, '[data-testid="card-view-profile"]', { timeout: 10000 });
+  check(await B.evaluate(() => document.querySelector('[data-testid="card-avatar"]')?.tagName) === 'BUTTON', 'player card: the picture opens the profile too (the server has the profile update)');
   await tap(B, '[data-testid="card-view-profile"]');
   const shown = await has(B, '[data-testid="profile-slot"]', 15000);
   const hashB = await B.evaluate(() => location.hash);
@@ -592,7 +605,34 @@ async function runVisit(vp) {
   check(v.fav === 'luna' && v.slots === 8 && v.medals > 0, `visitor: favorite, 8 girls and the medals (${v.fav}, ${v.slots}, ${v.medals})`);
   check(/PS/.test(v.clan) && !v.edit && v.acts, 'visitor: the clan chip, no Edit, Message · Co-op · More');
   await noOverflow(B, 'visitor');
+  // why Message / Co-op are off is said on the page (under the bio), not only in the ⋯ sheet
+  const whyState = await B.evaluate(() => {
+    const msg = document.querySelector('[data-testid="profile-visit"] .pf-top [data-testid="card-message"]');
+    const why = document.querySelector('[data-testid="profile-identity"] [data-testid="profile-visit-why"]');
+    return { off: !!msg?.disabled, text: why?.innerText || '', described: msg?.getAttribute('aria-describedby') || '', id: why?.id || '' };
+  });
+  check(whyState.off && whyState.text.length > 10 && whyState.described === whyState.id, `visitor: Message is off and the page says why, under the bio ("${whyState.text}")`);
   await shot(B, 'visit');
+  // the ⋯ sheet: Invite to clan, Block, Report — no second friend control (the top bar has it), styled
+  await tap(B, '[data-testid="profile-more"]');
+  await wait(B, '[data-testid="profile-more-sheet"]', { timeout: 6000 });
+  const sh = await B.evaluate(() => {
+    const el = document.querySelector('[data-testid="profile-more-sheet"]');
+    return {
+      friend: !!el.querySelector('[data-testid="card-add-friend"], [data-testid="card-friends"], [data-testid="card-requested"], [data-testid="card-accept"]'),
+      block: !!el.querySelector('[data-testid="card-block"]'), report: !!el.querySelector('[data-testid="card-report"]'),
+      foot: getComputedStyle(el.querySelector('.sc-card-foot')).display,
+    };
+  });
+  check(!sh.friend && sh.block && sh.report && sh.foot === 'flex', `visitor: the ⋯ sheet holds Block and Report, no friend button, styled (${JSON.stringify(sh)})`);
+  await shot(B, 'visit-more');
+  // leaving with the sheet open (a system back) takes the sheet away too
+  await go(B, '#/clan?tab=members');
+  await wait(B, '[data-testid="member-card"]', { timeout: 10000 });
+  await B.waitForTimeout(400);
+  check(await B.evaluate(() => !document.querySelector('.pf-more-body') && !document.querySelector('.modal-overlay:not(.closing)')), 'visitor: leaving the profile with the ⋯ sheet open closes it');
+  await go(B, `#/profile/${uidA}`);
+  await has(B, '[data-testid="profile-slot"]', 15000);
   // hold girl 1 → A's build in the Unit Sheet: A's level, the owner chip
   const lvA = await A.evaluate(() => { const p = window.__sakura.store.profile; const id = document.querySelector('[data-testid="profile-slot"]')?.dataset.unit; return { id, lv: p.units[id]?.level }; });
   await holdFirst(B, '[data-testid="profile-slot"]');
@@ -605,6 +645,19 @@ async function runVisit(vp) {
   check(sheet && /Aiko/.test(us.owner) && us.lv === String(lvA.lv) && !us.full, `visitor: hold girl 1 → A's build (owner ${us.owner}, Lv ${us.lv} vs ${lvA.lv}, no full page)`);
   await shot(B, 'visit-build');
   await B.click('[data-testid="unit-sheet-close"]', { timeout: 4000 }).catch(() => {});
+  await wait(B, '[data-testid="unit-sheet"]', { state: 'detached', timeout: 4000 }).catch(() => {});
+  // Add friend in the top bar: the bar says Requested, with ONE profile_view for the tap (then cancel it)
+  await countViews(B);
+  await tap(B, '.pf-friend-top [data-testid="card-add-friend"]');
+  check(await has(B, '.pf-friend-top [data-testid="card-requested"]', 8000), 'visitor: Add friend in the top bar → "Requested"');
+  await B.waitForTimeout(600);
+  const pv = await B.evaluate(() => window.__pvCalls);
+  check(pv === 1, `visitor: one profile_view per action (${pv})`);
+  await tap(B, '.pf-friend-top [data-testid="card-requested"]');
+  await wait(B, '.modal-overlay [data-testid="confirm-ok"]', { timeout: 6000 });
+  await tap(B, '.modal-overlay [data-testid="confirm-ok"]');
+  check(await has(B, '.pf-friend-top [data-testid="card-add-friend"]', 8000), 'visitor: request cancelled → "Add friend" again');
+  await wait(B, '.modal-overlay', { state: 'detached', timeout: 4000 }).catch(() => {});
   noErrors('visit');
 
   // ---- 7b. player tags on the visited profile: every chip next to the name; a tag title only while
@@ -635,6 +688,16 @@ async function runVisit(vp) {
   check(await A.waitForFunction((u) => JSON.parse(localStorage.getItem('ss-online-db') || '{}').profileCards?.[u]?.card?.ttl === 'tag_alpha', uidA, { timeout: 10000, polling: 300 }).then(() => true).catch(() => false), 'tags: A\'s card is published with the Alpha Tester title');
   check(await revisit() && /Alpha Tester/.test(await titleOf(B)), `visitor: A's Alpha Tester title shows (the server backs it: "${await titleOf(B)}")`);
   await shot(B, 'visit-tags');
+  // a reload (a deep link) of the visit: the sheet's card styles come with it (playerActions brings social.css)
+  await tap(B, '[data-testid="profile-more"]');
+  await wait(B, '[data-testid="profile-more-sheet"]', { timeout: 6000 });
+  const styled = await B.evaluate(() => ({
+    foot: getComputedStyle(document.querySelector('[data-testid="profile-more-sheet"] .sc-card-foot')).display,
+    width: document.querySelector('.modal.sc-card-modal')?.getBoundingClientRect().width || 0,
+  }));
+  check(styled.foot === 'flex' && styled.width > 0 && styled.width <= 641, `visitor after a reload: the ⋯ sheet is styled (${JSON.stringify(styled)})`);
+  await B.keyboard.press('Escape').catch(() => {});
+  await clearModals(B);
   // the owner takes A's tester tag away: visitors stop seeing the title (and the chip); A's save keeps it
   await setTags(A, uidA, { tester: null });
   check(await revisit() && (await titleOf(B)) === '' && (await chipsOf(B)) === '', `visitor: tag taken away on the server: no Alpha Tester title, no chip ("${await titleOf(B)}", "${await chipsOf(B)}")`);
@@ -671,11 +734,15 @@ async function runVisit(vp) {
   check(await has(B, '[data-testid="profile-slot"]', 15000), 'Everyone again: B sees A\'s girls');
   await tap(B, '[data-testid="profile-more"]');
   await wait(B, '[data-testid="card-block"]', { timeout: 6000 });
+  await countViews(B);
   await tap(B, '[data-testid="card-block"]');
   await wait(B, '.modal-overlay [data-testid="confirm-ok"], .modal-overlay .btn-danger', { timeout: 6000 }).catch(() => {});
   await tap(B, '.modal-overlay [data-testid="confirm-ok"], .modal-overlay .btn-danger');
   const blocked = await has(B, '[data-testid="profile-why-blocked_by_me"]', 10000);
   check(blocked && !(await B.locator('[data-testid="profile-slot"]').count()) && await has(B, '[data-testid="card-unblock"]', 2000), 'B blocks A: the private screen with Unblock');
+  await B.waitForTimeout(400);
+  const afterBlock = await B.evaluate(() => ({ calls: window.__pvCalls, sheet: !!document.querySelector('.pf-more-body') }));
+  check(afterBlock.calls === 1 && !afterBlock.sheet, `B blocks A from the ⋯ sheet: the sheet is gone, one profile_view (${JSON.stringify(afterBlock)})`);
   // A, blocked by B, sees B's profile exactly like a private one
   await go(A, `#/profile/${uidB}`);
   const fromA = await has(A, '[data-testid="profile-why-private"]', 15000);
@@ -692,6 +759,15 @@ async function runVisit(vp) {
   await go(B, '#/profile');
   check(await has(B, '[data-testid="profile-showcase"]', 15000), 'profile=0: the own profile still works from the save');
   check(/server update/.test(await B.locator('[data-testid="profile-server-note"]').innerText().catch(() => '')), 'profile=0: the own profile says the server update is next');
+  // the player card: no View profile and a plain picture (every visit would end on the update card)
+  await go(B, '#/clan?tab=members');
+  await wait(B, '[data-testid="member-card"]', { timeout: 10000 });
+  await tap(B, `[data-testid="member-row"][data-user="${uidA}"] [data-testid="member-card"]`);
+  await wait(B, '[data-testid="card-message"]', { timeout: 10000 });
+  const nu = await B.evaluate(() => ({ view: !!document.querySelector('[data-testid="card-view-profile"]'), av: document.querySelector('[data-testid="card-avatar"]')?.tagName }));
+  check(!nu.view && nu.av === 'SPAN', `profile=0: the player card offers no View profile and its picture is not a link (${JSON.stringify(nu)})`);
+  await shot(B, 'card-needs-profile-update');
+  await clearModals(B);
   await go(B, '#/clan?tab=chat');
   check(await has(B, '[data-testid="chat-panel"][data-ready="1"]', 15000), 'profile=0: clan chat still works');
   await toFront(B);

@@ -31,7 +31,7 @@ import { errorText, toOnlineError } from '../../online/errors.js';
 import { ownOnline, onOwnOnline, refreshOwnOnline, sinceText } from '../profile/online.js';
 import { playerActions } from '../online/playerActions.js';
 import { tagChips } from '../online/tagChip.js';
-import { tagsOf, loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
+import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
@@ -250,7 +250,9 @@ function profileView(m, ctx) {
         h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(m.level)))), pickName),
       tags,
       bio,
-      bioNote),
+      bioNote,
+      // a visit: why Message / Invite to co-op (or Add friend) are off, said on the page (the player card's line)
+      visit?.why || null),
     h('div.pf-stats', statTiles(m.st)));
 
   // ---- showcase
@@ -351,13 +353,23 @@ const WHY_TEXT = {
 
 function renderVisit(root, userId) {
   let disposed = false;
+  let loadSeq = 0;
   const detach = [];
   const host = h('div.pf-host');
   root.append(host);
   const clearDetach = () => { for (const off of detach.splice(0)) off(); };
+  // the open ⋯ sheet: closed whenever the page redraws or the screen goes away (a system back leaves
+  // nothing over the next screen, and no sheet acts on a page that is gone)
+  let sheet = null;
+  const closeSheet = () => {
+    const s = sheet;
+    sheet = null;
+    s?.close();
+  };
 
   /** A centred card (loading, a state with no profile to show), with the basic player line when known. */
   function stateScreen({ title = 'Sensei Profile', who = null, text, testid, buttons = [] }) {
+    closeSheet();
     clearDetach();
     const card = h('div.pf-empty-card', { 'data-testid': testid },
       who ? h('div.pf-basic',
@@ -373,41 +385,61 @@ function renderVisit(root, userId) {
 
   const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading…', testid: 'profile-loading' }); how().finally(load); } });
 
+  // After an action (friend, block, report…) the page loads again: one profile_view per tap. playerActions
+  // asks reload() for the next card and hands it to repaint(); here reload() fetches nothing and repaint()
+  // runs load(), which fetches once and draws every state (a block turns the page into the blocked card).
+  const actionHooks = (onRepaint = () => {}) => ({ reload: async () => null, repaint: () => { onRepaint(); load(); } });
+
   /** The visitor's actions: Message, Co-op, Add friend, ⋯ (Invite to [TAG], Block, Report) — the player card's rules. */
-  function visitActs(view, b, reloadView) {
-    const a = playerActions(view, { context: 'profile', reload: reloadView, repaint: () => load() });
+  function visitActs(view) {
+    const a = playerActions(view, { context: 'profile', ...actionHooks() });
     const more = h('button.topbar-icon.pf-more', {
       type: 'button', title: 'More: block, report', 'aria-label': 'More', 'data-testid': 'profile-more',
       onclick: () => {
-        // fresh pieces: the top bar keeps its own (one element can't sit in two places)
-        const x = playerActions(view, { context: 'profile', reload: reloadView, repaint: () => load() });
-        const mm = modal({ title: view.name, body: h('div.pf-more-body', h('div.pf-more-friend', x.friend), x.clanInvite, h('div.sc-card-foot', x.block, x.report), x.why), actions: [], cls: 'sc-card-modal' });
-        mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) mm.close(); });
+        closeSheet();
+        // fresh pieces: the top bar keeps its own (one element can't sit in two places). The friend control
+        // and the why line are on the page already: the sheet holds only what the top bar does not.
+        const x = playerActions(view, { context: 'profile', close: closeSheet, ...actionHooks(closeSheet) });
+        const mm = modal({
+          title: view.name, actions: [], cls: 'sc-card-modal',
+          body: h('div.pf-more-body', { 'data-testid': 'profile-more-sheet' }, x.clanInvite, h('div.sc-card-foot', x.block, x.report)),
+          onClose: () => { if (sheet === mm) sheet = null; },
+        });
+        sheet = mm;
+        mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) closeSheet(); });
       },
     }, svgEl(glyph('more'), 'btn-icon'));
     a.message.classList.add('btn-small');
     a.coop.classList.add('btn-small');
-    return { a, top: [a.message, a.coop, h('span.pf-friend-top', a.friend), more] };
+    // why Message / Co-op (or Add friend) are off: a note under the bio, tied to the disabled buttons
+    const whyId = `pf-why-${userId}`;
+    const lines = [a.whyText, a.friendWhyText].filter(Boolean);
+    const why = lines.length ? h('div.pf-visit-why', { id: whyId, 'data-testid': 'profile-visit-why' }, lines.map((t) => h('p.sc-card-why', t))) : null;
+    if (why) for (const el of [a.message, a.coop]) if (el.disabled) el.setAttribute('aria-describedby', whyId);
+    return { a, why, top: [a.message, a.coop, h('span.pf-friend-top', a.friend), more] };
   }
 
   async function load() {
     if (disposed) return;
+    const seq = ++loadSeq;
+    const stale = () => disposed || seq !== loadSeq; // left the screen, or a newer load started meanwhile
     let b;
     try {
       b = getBackend();
       if (b.offline) throw Object.assign(new Error('offline'), { code: 'offline' });
       b = await ensureOnline({ ask: false });
     } catch (e) {
+      if (stale()) return;
       stateScreen({ text: 'Online features are offline right now.', testid: 'profile-offline', buttons: [retry(getBackend(), async () => {})] });
       return;
     }
-    if (disposed) return;
+    if (stale()) return;
     if (userId === b.uid) {
       navigate('profile', {}, { replace: true });
       return;
     }
     const st = await b.profileStatus();
-    if (disposed) return;
+    if (stale()) return;
     if (st === 'needs_update') {
       stateScreen({ text: 'Profiles need the latest server update.', testid: 'profile-needs-update', buttons: [retry(b)] });
       return;
@@ -417,22 +449,21 @@ function renderVisit(root, userId) {
       return;
     }
     let view;
-    const reloadView = () => b.profileView(userId);
     try {
-      view = await reloadView();
+      view = await b.profileView(userId);
     } catch (e) {
       const err = toOnlineError(e);
-      if (disposed) return;
+      if (stale()) return;
       if (err.code === 'not_found') stateScreen({ text: 'This Sensei couldn\'t be found.', testid: 'profile-gone', buttons: [button('Back', { kind: 'ghost', small: true, onClick: () => back() })] });
       else if (err.code === 'rate_limited') stateScreen({ text: 'Too many profiles opened, try again in a bit.', testid: 'profile-rate-limited', buttons: [retry(b, async () => {})] });
       else if (err.code === 'needs_update') stateScreen({ text: 'Profiles need the latest server update.', testid: 'profile-needs-update', buttons: [retry(b)] });
       else stateScreen({ text: errorText(err), testid: 'profile-error', buttons: [retry(b, async () => {})] });
       return;
     }
-    if (disposed) return;
+    if (stale()) return;
     const who = { name: view.name, level: view.level, avatar: view.avatar, clan: view.clan || null, since: view.since || null };
-    const { a, top } = visitActs(view, b, reloadView);
     if (view.profileWhy || !view.profile) {
+      const { a } = visitActs(view);
       const text = (WHY_TEXT[view.profileWhy] || WHY_TEXT.private)(view.name);
       stateScreen({
         title: `${view.name}'s Profile`, who, text, testid: `profile-why-${view.profileWhy || 'private'}`,
@@ -444,11 +475,13 @@ function renderVisit(root, userId) {
     // back it: wait for those (loadTags, never the cache as it is now); unknown (no table, offline,
     // too slow: null) hides it. Any other title needs no tags.
     const tags = isTagTitle(view.profile.card?.ttl) ? await within(loadTags(userId), OWN_TAGS_WAIT_MS, () => null) : null;
-    if (disposed) return;
+    if (stale()) return;
+    closeSheet();
     clearDetach();
+    const { why, top } = visitActs(view);
     const card = cleanViewedCard(view.profile.card, { tags });
     const m = cardModel(card, { ...who, bio: view.profile.bio || '' });
-    host.replaceChildren(profileView(m, { detach, visit: { acts: top, userId } }));
+    host.replaceChildren(profileView(m, { detach, visit: { acts: top, userId, why } }));
     detach.push(liveHonors(host.querySelector('.pf-shelf') || host, { budget: 4 }));
   }
 
@@ -456,6 +489,7 @@ function renderVisit(root, userId) {
   load();
   return () => {
     disposed = true;
+    closeSheet();
     clearDetach();
   };
 }
@@ -485,7 +519,8 @@ async function ownServerTags(p) {
     off();
   }
   if (!uid) return null;
-  return within(loadTags(uid), OWN_TAGS_WAIT_MS, () => tagsOf(uid));
+  // too slow: unknown (null), like a visit — never the cached tags, which may predate the server's word
+  return within(loadTags(uid), OWN_TAGS_WAIT_MS, () => null);
 }
 
 async function openPreview() {

@@ -110,9 +110,10 @@ export async function clanInviteRows({ onChange, onJoined = () => navigate('clan
       const el = h('div.sc-row.sc-req.sc-clan-inv', { 'data-testid': 'clan-invite-row', 'data-clan': c.tag },
         clanEmblem(c.emblem, 38),
         h('span.sc-row-main',
-          h('span.sc-row-top', h('b', c.name), h('span.ol-tag', `[${c.tag}]`)),
-          // who invited me, with their tag chip (one, like every list)
-          h('span.sc-row-sub', inv.fromName || 'A clan member', inv.fromName && inv.fromId ? tagChips(inv.fromId) : null,
+          // the clan's name whole (it may wrap): its [TAG] leads the line below, next to the Join / Decline column
+          h('span.sc-row-top', h('b', { 'data-testid': 'clan-invite-name' }, c.name)),
+          // the tag, then who invited me, with their tag chip (one, like every list)
+          h('span.sc-row-sub', h('span.ol-tag', `[${c.tag}]`), ' ', inv.fromName || 'A clan member', inv.fromName && inv.fromId ? tagChips(inv.fromId) : null,
             ` invited you · ${c.memberCount}/${c.maxMembers} members · ${JOIN_MODES[c.joinMode] || ''}`)),
         h('span.sc-req-acts',
           button(full ? 'Full' : 'Join', { kind: 'yellow', small: true, testid: 'clan-invite-join', disabled: full, onClick: () => answer(inv, true, el) }),
@@ -163,12 +164,15 @@ export function recruitSlot({ clan, role }) {
  * The recruiting card inside a chat line (kind 'recruit' with a valid clan card), or null (then the
  * line shows its text, like an older game does).
  * @param {{ kind: string, meta: object }} m
- * @param {{ mine?: boolean }} [o] my own post: View clan only
+ * @param {{ mine?: boolean, myClanId?: string|null }} [o] mine: my own post; myClanId: the clan I am in
+ *   (null: none, or not known). My own post or my own clan's: View clan with "Your clan". In another clan:
+ *   View clan only (Join would only answer "Leave your current clan first").
  */
-export function recruitCard(m, { mine = false } = {}) {
+export function recruitCard(m, { mine = false, myClanId = null } = {}) {
   if (m?.kind !== 'recruit' || !validMessageMeta('recruit', m.meta)) return null;
   const c = m.meta;
-  const join = mine ? null : c.mode === 'open'
+  const ours = mine || (!!myClanId && c.clan === myClanId);
+  const join = ours || myClanId ? null : c.mode === 'open'
     ? button('Join', { kind: 'yellow', small: true, testid: 'recruit-join', disabled: c.members >= c.max, onClick: () => act(() => getBackend().joinClan(c.clan), `Welcome to ${c.name}!`, true) })
     : c.mode === 'request'
       ? button('Ask to join', { kind: 'primary', small: true, testid: 'recruit-request', disabled: c.members >= c.max, onClick: () => act(() => getBackend().requestJoin(c.clan), 'Request sent — an officer will answer soon.') })
@@ -179,7 +183,8 @@ export function recruitCard(m, { mine = false } = {}) {
         h('small', `Lv ${c.level} · ${c.members}/${c.max} members · ${joinModeWords(c.mode)}`))),
     h('div.ol-recruit-acts',
       button('View clan', { kind: 'ghost', small: true, testid: 'recruit-view', onClick: () => navigate('clan', { find: c.tag }) }),
-      join));
+      join,
+      ours ? h('small.ol-recruit-yours', { 'data-testid': 'recruit-yours' }, 'Your clan') : null));
 }
 
 async function act(fn, msg, go = false) {

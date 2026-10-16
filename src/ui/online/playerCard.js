@@ -29,8 +29,20 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
   const clanLine = h('div.sc-card-clan');
   const presence = h('small.sc-card-presence');
   const acts = h('div.sc-card-acts', { 'data-testid': 'card-actions' }, h('div.ol-connecting.sc-card-wait', h('i.ol-spinner')));
-  // [profile] tapping the picture opens their Sensei Profile too (not while I block them)
-  const av = h('button.sc-card-av', { type: 'button', 'aria-label': 'View profile', 'data-testid': 'card-avatar', onclick: () => { if (!card?.blockedByMe) viewProfile(); } }, avatar(hint.avatar || 'hikari', 64));
+  // [profile] tapping the picture opens their Sensei Profile too (not while I block them, and only once the
+  // server has the profile update: before it, every visit would end on "Profiles need the latest server update")
+  let profilesReady = false;
+  const canVisit = () => !!card && (card.isSelf || (profilesReady && !card.blockedByMe));
+  let av = h('span.sc-card-av', { 'data-testid': 'card-avatar' }, avatar(hint.avatar || 'hikari', 64));
+  /** The picture: a button to their profile when it leads somewhere, else a plain picture. */
+  const paintAvatar = (c) => {
+    const pic = avatar(c.avatar, 64);
+    const next = canVisit()
+      ? h('button.sc-card-av', { type: 'button', 'aria-label': c.isSelf ? 'View my profile' : 'View profile', 'data-testid': 'card-avatar', onclick: () => viewProfile() }, pic)
+      : h('span.sc-card-av', { 'data-testid': 'card-avatar' }, pic);
+    av.replaceWith(next);
+    av = next;
+  };
   const viewProfile = () => {
     m.close();
     navigate('profile', card?.isSelf ? {} : { id: userId });
@@ -57,7 +69,8 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     }
     startSocialHub({ force: true });
     try {
-      card = await backend.playerCard(userId);
+      // (profileStatus is cached by the backend: no extra request once known)
+      [card, profilesReady] = await Promise.all([backend.playerCard(userId), backend.profileStatus().then((x) => x === 'ready').catch(() => false)]);
     } catch (e) {
       acts.replaceChildren(h('p.ol-error', errorText(e)));
       return;
@@ -77,7 +90,8 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
     const c = card;
     name.textContent = c.name;
     lv.replaceChildren(levelChip(c.level));
-    av.replaceChildren(avatar(c.avatar, 64));
+    // a plain picture unless it leads somewhere (your own profile always works, from your save)
+    paintAvatar(c);
     clanLine.textContent = c.clan ? `[${c.clan.tag}] ${c.clan.name}` : '';
     presence.textContent = c.lastActive ? presenceText(c.lastActive) : '';
     presence.classList.toggle('on', presenceText(c.lastActive || 0) === 'Online');
@@ -91,8 +105,8 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       repaint: (next) => { card = next; paint(); },
     });
     acts.replaceChildren(...[
-      // [profile] their Sensei Profile (hidden while I block them)
-      c.blockedByMe ? null : button('View profile', { kind: 'ghost', small: true, icon: 'eye', testid: 'card-view-profile', onClick: viewProfile }),
+      // [profile] their Sensei Profile (hidden while I block them, and before the server has the profile update)
+      canVisit() ? button('View profile', { kind: 'ghost', small: true, icon: 'eye', testid: 'card-view-profile', onClick: viewProfile }) : null,
       h('div.sc-card-row', a.message, a.coop),
       a.why,
       a.friend,

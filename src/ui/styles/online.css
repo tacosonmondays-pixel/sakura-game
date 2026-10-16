@@ -619,6 +619,8 @@
 .ol-recruit-id small { color: var(--muted); font-weight: 800; font-size: 0.7rem; }
 .ol-recruit-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .ol-recruit-acts .btn-small { min-height: 28px; padding: 3px 10px; }
+.ol-recruit-acts { align-items: center; }
+.ol-recruit-yours { padding: 1px 8px; border-radius: 999px; background: #eef4ff; border: 1px solid #c9dbf5; color: var(--navy); font-size: 0.66rem; font-weight: 900; }
 .ol-clan-invites { display: flex; flex-direction: column; gap: 6px; }
 .ol-clan-invites:empty { display: none; }
 .ol-clan-invites .sc-sec { margin: 0; }

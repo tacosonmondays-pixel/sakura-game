@@ -167,7 +167,8 @@ been yet). The profile and player-tags files don't matter for it: before or afte
      conversation's ⋯ menu): **Invite to [TAG]** is there. They see the invite in Messages → Requests (and
      on Clan → Find a clan) with **Join** / **Decline**.
    - The clan screen shows **Post to global chat** for the leader and officers. After posting, a card with
-     the clan's emblem, name, members and **View clan** / **Join** appears in global chat, and the button
+     the clan's emblem, name, members and **View clan** / **Join** appears in global chat (the clan's own
+     members see "Your clan" instead of Join; a player in another clan sees View clan only), and the button
      reads "Posted today" until 7 PM Central.
 
 **Important:** if `20261008000000_online.sql` is ever pasted again, paste the social files and then
@@ -714,6 +715,9 @@ Sensei Profile's More sheet (and its private / no-profile card), so the two neve
 - **Limits:** one pending invite per clan and player; invites end after 7 days and a declined one swallows
   repeats from that clan for 7 days; 10 invites a day and 20 pending per invited player; 1 invite per 2 s
   and 20 an hour per sender; joining counts as a clan join (10 an hour).
+- **Where "Invite to [TAG]" shows:** a player card and a conversation's ⋯ menu, only for a player in no clan
+  (as far as their card shows) and only when I may invite. The recruiting card offers Join / Ask to join only
+  to a player in no clan; the posting clan's members see "Your clan".
 - **Recruiting post:** once per clan per game day (7 PM Central), by the leader or an officer. It is a
   global chat line of kind `recruit` whose clan card (`meta`: id, tag, name, emblem, members, max, join
   mode, level) the server writes from the clan row; players can't post that kind themselves. Its text says
