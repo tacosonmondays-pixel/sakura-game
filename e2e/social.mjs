@@ -455,6 +455,49 @@ try {
   const c0 = await items(C, 'mat_feather_rare');
   await tap(C, '[data-testid="collect-browse"]');
   check(await until(C, (n) => (window.__sakura.store.profile.items?.mat_feather_rare || 0) === n + 3, c0, 10000), `collect: Cleo received 3 Swallow Plumes without a clan (${c0} → ${c0 + 3})`);
+
+  // ---- clan invites (20261018000000_clan_invites.sql): the leader invites Cleo back ---------------
+  // from their conversation's menu; the leader's invite also lifts the 7-day kick ban
+  await go(A, '#/messages');
+  await wait(A, '[data-testid="thread-row"]', { timeout: 10000 });
+  await tap(A, '[data-testid="thread-row"]:has-text("Cleo")');
+  await wait(A, '[data-testid="thread-menu"]', { timeout: 10000 });
+  await tap(A, '[data-testid="thread-menu"]');
+  check(await wait(A, '[data-testid="thread-clan-invite"]', { timeout: 8000 }).then(() => true).catch(() => false), 'clan invite: the conversation menu offers "Invite to [PS]"');
+  check(/Invite to \[PS\]/.test(await text(A, '[data-testid="thread-clan-invite"]')), 'clan invite: the menu names the clan tag');
+  await shot(A, 'clan-invite-menu');
+  await tap(A, '[data-testid="thread-clan-invite"]');
+  check(await until(A, () => /Clan invite sent to Cleo/.test(document.querySelector('.toast-host')?.innerText || ''), null, 8000), 'clan invite: "Clan invite sent to Cleo."');
+  // the player card offers it too (a repeat sends nothing new)
+  await tap(A, '[data-testid="thread-peer"]');
+  check(await wait(A, '[data-testid="card-clan-invite"]', { timeout: 10000 }).then(() => true).catch(() => false), 'clan invite: Cleo\'s player card offers "Invite to [PS]"');
+  await shot(A, 'clan-invite-card');
+  await A.waitForTimeout(2100); // (clan invites: 1 per 2 s)
+  await tap(A, '[data-testid="card-clan-invite"]');
+  check(await wait(A, '[data-testid="card-clan-invited"]', { timeout: 8000 }).then(() => true).catch(() => false), 'clan invite: the card says "Clan invite sent ✓"');
+  await tap(A, '[data-testid="card-close"]').catch(() => {});
+  // Cleo: the invite card on the clan list and in Messages → Requests, with the badge
+  await go(C, '#/lobby');
+  await go(C, '#/clan');
+  check(await wait(C, '[data-testid="clan-invites"] [data-testid="clan-invite-row"][data-clan="PS"]', { timeout: 15000 }).then(() => true).catch(() => false), 'clan invite: Cleo sees it on the clan list');
+  await go(C, '#/messages?tab=requests');
+  await closeIntro(C);
+  await wait(C, '[data-testid="clan-invite-row"]', { timeout: 10000 });
+  check(/Aiko invited you/.test(await text(C, '[data-testid="clan-invite-row"]')), 'clan invite: the card says who invited her');
+  check(await until(C, () => Number(document.querySelector('[data-testid="msg-tab-requests"] .sc-pill')?.textContent || 0) >= 1, null, 12000), 'clan invite: the Requests tab counts it');
+  await shot(C, 'clan-invite-requests');
+  await tap(C, '[data-testid="clan-invite-join"]');
+  check(await wait(C, '[data-testid="clan-home"]', { timeout: 10000 }).then(() => true).catch(() => false), 'clan invite: Join → Cleo is back in Petal Squad (the kick ban lifted by the leader\'s invite)');
+  check(/Petal Squad/.test(await text(C, '[data-testid="clan-title"]')), 'clan invite: the clan screen is Petal Squad\'s');
+  // the daily recruiting post: the leader posts once; the button then says it is done for today
+  await go(A, '#/clan?tab=members');
+  await wait(A, '[data-testid="clan-recruit"]', { timeout: 10000 });
+  check(/Once a day/.test(await text(A, '[data-testid="clan-recruit-note"]')), 'recruit: the leader sees "Post to global chat" (once a day)');
+  await tap(A, '[data-testid="clan-recruit"]');
+  check(await until(A, () => /in global chat/.test(document.querySelector('.toast-host')?.innerText || ''), null, 8000), 'recruit: "Your clan is in global chat!"');
+  check(await until(A, () => document.querySelector('[data-testid="clan-recruit"]')?.disabled === true, null, 8000), 'recruit: then "Posted today ✓" until the 7 PM Central reset');
+  check(!(await C.locator('[data-testid="clan-recruit"]').count()), 'recruit: a plain member gets no button');
+  await shot(A, 'recruit-posted');
   await C.close();
 
   // ---- report + block ----------------------------------------------------------------------
@@ -549,7 +592,14 @@ try {
   check(await wait(D, '[data-testid="needs-update"]', { timeout: 15000 }).then(() => true).catch(() => false), 'needs update: Messages shows "Needs the latest server update"');
   check(/Messages need the latest server update/.test(await text(D, '[data-testid="needs-update"]')), 'needs update: the card names the feature');
   await shot(D, 'needs-update-messages');
-  await go(D, '#/clan');
+  // the recruiting card in global chat (drawn from its card; the needs-update server changes nothing for it)
+  await go(D, '#/chat');
+  check(await wait(D, '[data-testid="recruit-card"][data-clan="PS"]', { timeout: 15000 }).then(() => true).catch(() => false), 'recruit: global chat shows Petal Squad\'s recruiting card');
+  check(/Petal Squad[\s\S]*members/.test(await text(D, '[data-testid="recruit-card"]')), 'recruit: the card shows the clan and its members');
+  await shot(D, 'recruit-card');
+  await tap(D, '[data-testid="recruit-view"]');
+  check(await D.waitForFunction(() => /#\/clan\?find=PS/.test(location.hash), null, { timeout: 8000 }).then(() => true).catch(() => false), 'recruit: View clan opens the clan list on that tag');
+  check(await D.locator('[data-testid="clan-search"]').inputValue().catch(() => '') === 'PS', 'recruit: the search is filled with the tag');
   await wait(D, '[data-testid="join-PS"]', { timeout: 10000 });
   await tap(D, '[data-testid="join-PS"]');
   await wait(D, '[data-testid="clan-home"]', { timeout: 10000 });

@@ -583,3 +583,26 @@
 /* the ally's chip once they are gone (the state line says why for a few seconds, then hides) */
 .ol-coop-p.gone { opacity: 0.55; }
 .ol-coop-p.gone .ol-coop-dot { background: transparent; }
+
+/* ---------- Clan invites + the daily recruiting post (20261018000000_clan_invites.sql) ---------- */
+.ol-recruit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; }
+.ol-recruit:empty { display: none; }
+.ol-recruit-note { color: var(--muted); font-weight: 700; font-size: 0.7rem; }
+.ol-bubble.ol-bubble-recruit { padding: 6px 8px 8px; white-space: normal; background: linear-gradient(180deg, #fff, #fff4f8); border-color: #ffd0e0; min-width: 200px; }
+.ol-msg-mine .ol-bubble.ol-bubble-recruit { color: var(--ink); background: linear-gradient(180deg, #fff, #eef6ff); border: 1px solid #bcd8f7; }
+.ol-recruit-kicker { display: inline-block; margin-bottom: 4px; padding: 1px 8px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 0.62rem; font-weight: 900; font-style: italic; letter-spacing: 0.05em; text-transform: uppercase; }
+.ol-recruit-card { display: flex; flex-direction: column; gap: 6px; }
+.ol-recruit-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ol-recruit-id { display: flex; flex-direction: column; min-width: 0; }
+.ol-recruit-id > div { display: flex; gap: 5px; align-items: baseline; min-width: 0; }
+.ol-recruit-id b { color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ol-recruit-id small { color: var(--muted); font-weight: 800; font-size: 0.7rem; }
+.ol-recruit-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.ol-recruit-acts .btn-small { min-height: 28px; padding: 3px 10px; }
+.ol-clan-invites { display: flex; flex-direction: column; gap: 6px; }
+.ol-clan-invites:empty { display: none; }
+.ol-clan-invites .sc-sec { margin: 0; }
+@media (max-height: 480px) {
+  .ol-bubble.ol-bubble-recruit { min-width: 170px; }
+  .ol-recruit-note { font-size: 0.64rem; }
+}

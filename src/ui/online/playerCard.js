@@ -12,6 +12,7 @@ import { DEV_CLAN } from '../../online/clanRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
 import { setBlocked, refreshSoon, startSocialHub } from './socialHub.js';
 import { makeRoomCode, getSession } from '../../online/coop/session.js';
+import { clanInviteSlot } from './clanInvite.js';
 
 export const NEW_PEER_KEY = 'ss-social-new-peer';
 
@@ -113,6 +114,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
       h('div.sc-card-row', msg, coop),
       why ? h('p.sc-card-why', { 'data-testid': 'card-why' }, why) : null,
       friendRow(c, devClan),
+      clanInviteSlot(c), // [clan invites] "Invite to [TAG]" when I may and they are in no clan
       h('div.sc-card-foot',
         c.blockedByMe
           ? button('Unblock', { kind: 'ghost', small: true, testid: 'card-unblock', onClick: () => act(() => getBackend().unblock(c.userId), () => setBlocked(c.userId, false), `${c.name} is unblocked.`) })

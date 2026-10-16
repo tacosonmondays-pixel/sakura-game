@@ -9,6 +9,7 @@ import { h, screen, button, toast, modal, confirmDialog, svgEl, glyph } from '..
 import { buildHash } from '../router.js';
 import { ensureOnline, onlinePill, avatar, levelChip, clock, connecting, showError } from '../online/common.js';
 import { needsUpdateCard } from '../online/needsUpdate.js';
+import { clanInviteRows, myInviteClan, inviteToClan } from '../online/clanInvite.js';
 import { openPlayerCard, NEW_PEER_KEY } from '../online/playerCard.js';
 import { hub, startSocialHub, setViewing, refreshSoon, setBlocked, joinInvite, setPrivacyCache, inviteSummary } from '../online/socialHub.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
@@ -163,7 +164,7 @@ export function render(root, params = {}) {
   function paintTabs() {
     const n = hub.badges;
     // (Blocked is a list of its own, opened from the settings button or Settings → Online)
-    const items = [['chats', 'Chats', n.unreadDms], ['friends', 'Friends', 0], ['requests', 'Requests', n.friendRequests]];
+    const items = [['chats', 'Chats', n.unreadDms], ['friends', 'Friends', 0], ['requests', 'Requests', n.friendRequests + (n.clanInvites || 0)]];
     tabBar.replaceChildren(...items.map(([id, label, count]) => h(`button.tab${id === tab ? '.active' : ''}`, {
       role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', 'data-testid': `msg-tab-${id}`,
       onclick: () => {
@@ -264,7 +265,8 @@ export function render(root, params = {}) {
   }
 
   async function requestsList() {
-    const r = await backend.friendRequests();
+    // [clan invites] first: Join / Decline (none while in a clan or before the server update)
+    const [r, clanRows] = await Promise.all([backend.friendRequests(), clanInviteRows({ onChange: () => paintList() }).catch(() => [])]);
     const inc = r.incoming.map((q) => h('div.sc-row.sc-req', { 'data-testid': 'request-row' },
       avatar(q.avatar, 38),
       h('span.sc-row-main', h('span.sc-row-top', h('b', q.name), levelChip(q.level)), h('span.sc-row-sub', VIA[q.via] || 'wants to be friends')),
@@ -275,6 +277,7 @@ export function render(root, params = {}) {
       h('span.sc-row-main', h('span.sc-row-top', h('b', q.name)), h('span.sc-row-sub', 'Waiting for an answer')),
       button('Cancel', { kind: 'ghost', small: true, onClick: async () => { try { await backend.cancelFriendRequest(q.id); paintList(); } catch (e) { showError(e); } } })));
     return h('div.sc-rows',
+      ...clanRows,
       h('div.sc-sec', 'Asked you'),
       ...(inc.length ? inc : [h('p.muted.sc-none', 'No friend requests right now.')]),
       out.length ? h('div.sc-sec', 'You asked') : null,
@@ -663,11 +666,20 @@ export function render(root, params = {}) {
     function threadMenu() {
       const p = info.peer;
       const blocked = hub.isBlocked(p.userId);
+      // [clan invites] "Invite to [TAG]" once it is known I may (the server says if they are in a clan)
+      const clanItem = h('div.sc-menu-slot', { 'data-testid': 'thread-clan-slot' });
+      if (!blocked) {
+        myInviteClan().then((clan) => {
+          if (!clan) return;
+          clanItem.replaceChildren(h('button.sc-menu-btn', { 'data-testid': 'thread-clan-invite', onclick: () => { m.close(); inviteToClan(p.userId, p.name); } }, `Invite to [${clan.tag}]`));
+        });
+      }
       const m = modal({
         title: p.name,
         cls: 'sc-menu',
         body: h('div.sc-menu-list',
           h('button.sc-menu-btn', { 'data-testid': 'thread-card', onclick: () => { m.close(); openPlayerCard(p.userId, p, { context: 'dm' }); } }, 'View player card'),
+          clanItem,
           h('button.sc-menu-btn', {
             'data-testid': 'thread-block',
             onclick: async () => {

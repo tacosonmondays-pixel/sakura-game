@@ -4,11 +4,10 @@
 // (#/clan or #/clan/<id>?tab=…): header with level and XP, and tabs Members · Chat · Requests
 // (tab id 'donate': material requests + donations) · Clan Boss · Applicants (leaders/officers;
 // tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).
-import { h, screen, button, svgEl, toast, confirmDialog, tabs as tabBar } from '../components.js';
+import { h, screen, button, toast, confirmDialog, tabs as tabBar } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { lobbyIcon } from '../../art/lobbyIcons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { createSupplyBot } from '../online/supplyBot.js';
@@ -25,12 +24,7 @@ import { onlineHeadExtra } from '../online/inboxButton.js';
 import { openPlayerCard } from '../online/playerCard.js';
 import { createDonatePanel, collectCard } from '../online/donatePanel.js';
 import { hub } from '../online/socialHub.js';
-
-function emblem(name, size = 56) {
-  const el = svgEl(lobbyIcon(EMBLEMS.includes(name) || name === 'wiki' ? name : 'assault', { uid: `emb-${name}-${size}`, shadow: false }), 'ol-emblem');
-  el.style.setProperty('--size', `${size}px`);
-  return el;
-}
+import { clanEmblem as emblem, recruitSlot, clanInviteRows } from '../online/clanInvite.js';
 
 export function render(root, params = {}) {
   const { el, body } = screen('Clan', { cls: 'ol-screen', extra: onlineHeadExtra() });
@@ -56,6 +50,19 @@ export function render(root, params = {}) {
   // ---------------------------------------------------------------------------------------
   function browse(backend) {
     const search = h('input.ol-input', { type: 'search', placeholder: 'Search clans by name or tag', 'data-testid': 'clan-search' });
+    // a recruiting card's "View clan" opens this list on that clan (#/clan?find=TAG)
+    if (params.find) search.value = String(params.find).slice(0, 20);
+    // [clan invites] invites waiting for me (also in Messages → Requests)
+    const invitesBox = h('div.ol-clan-invites', { 'data-testid': 'clan-invites' });
+    const paintInvites = async () => {
+      try {
+        const rows = await clanInviteRows({ onChange: paintInvites, onJoined: () => start() });
+        if (!destroyed) invitesBox.replaceChildren(...rows);
+      } catch {
+        /* the list stays as it was */
+      }
+    };
+    paintInvites();
     const list = h('div.ol-clan-list', { 'data-testid': 'clan-list' });
     let timer = 0;
     const refresh = async () => {
@@ -137,7 +144,7 @@ export function render(root, params = {}) {
       h('div.ol-main',
         h('section.panel.ol-browse',
           h('h3.panel-title', 'Find a clan'),
-          h('div.ol-browse-body', ...[localNotice('clan'), search, list].filter(Boolean)))),
+          h('div.ol-browse-body', ...[localNotice('clan'), invitesBox, search, list].filter(Boolean)))),
       h('aside.ol-side',
         collectCard(backend), // [social] donations from a clan you left
         h('section.panel.ol-create', { 'data-testid': 'clan-create-panel' },
@@ -210,7 +217,8 @@ export function render(root, params = {}) {
             h('span', { 'data-testid': 'clan-count' }, `${clan.memberCount}/${clan.maxMembers} members`),
             h('span.ol-mode', JOIN_MODES[clan.joinMode]),
             clan.joinCode ? h('span.ol-code', 'Code ', h('b', { 'data-testid': 'clan-join-code' }, clan.joinCode)) : null),
-          clan.description ? h('p.ol-clan-desc', clan.description) : null),
+          clan.description ? h('p.ol-clan-desc', clan.description) : null,
+          recruitSlot({ clan, role })), // [clan invites] the daily recruiting post (leader / officers)
         h('div.ol-clan-level',
           h('div.ol-lvl-big', h('small', 'CLAN LV'), h('b', String(lv.level))),
           h('div.ol-xp', h('i', { style: { width: `${Math.round(lv.pct * 100)}%` } })),
