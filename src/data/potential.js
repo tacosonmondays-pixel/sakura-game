@@ -19,7 +19,7 @@
 import { ROLES } from './types.js';
 
 export const MAX_POTENTIAL = 6;
-export const POTENTIAL_GIRL_KEYS = Object.freeze(['damageMul', 'rateMul', 'rangeMul', 'incomeMul']);
+export const POTENTIAL_GIRL_KEYS = Object.freeze(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul']);
 export const POTENTIAL_MOD_KEYS = Object.freeze(['crit.chance', 'eliteMul', 'bossMul', 'aura.dmgMul', 'aura.rateMul', 'silence', 'ramp.max']);
 
 function deepFreeze(o) {
@@ -124,13 +124,13 @@ export function potentialClamp(p) {
   return Math.min(MAX_POTENTIAL, Math.max(1, Math.floor(p)));
 }
 
-const NEUTRAL = Object.freeze({ level: 1, damageMul: 1, rateMul: 1, rangeMul: 1, incomeMul: 1, sets: Object.freeze([]) });
+const NEUTRAL = Object.freeze({ level: 1, damageMul: 1, rateMul: 1, rangeMul: 1, incomeMul: 1, dotMul: 1, sets: Object.freeze([]) });
 const memo = new WeakMap();
 
 /**
  * Everything P2…P(p) adds, folded: the whole-girl multipliers multiplied together (in step order)
  * and the ModSets in step order. P1 and anything that is not a number → neutral.
- * @returns {{ level: number, damageMul: number, rateMul: number, rangeMul: number, incomeMul: number, sets: object[] }}
+ * @returns {{ level: number, damageMul: number, rateMul: number, rangeMul: number, incomeMul: number, dotMul: number, sets: object[] }}
  */
 export function potentialFold(def, p) {
   const level = potentialClamp(p);
@@ -138,7 +138,7 @@ export function potentialFold(def, p) {
   let slots = memo.get(def);
   if (!slots) memo.set(def, (slots = new Array(MAX_POTENTIAL + 1).fill(null)));
   if (slots[level]) return slots[level];
-  const f = { level, damageMul: 1, rateMul: 1, rangeMul: 1, incomeMul: 1, sets: [] };
+  const f = { level, damageMul: 1, rateMul: 1, rangeMul: 1, incomeMul: 1, dotMul: 1, sets: [] };
   for (const s of potentialSteps(def)) {
     if (s.step > level) break;
     if (s.girl) for (const k of POTENTIAL_GIRL_KEYS) if (typeof s.girl[k] === 'number') f[k] *= s.girl[k];

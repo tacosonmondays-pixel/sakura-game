@@ -34,6 +34,7 @@ import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
+import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
@@ -278,6 +279,8 @@ export class Sim {
       recomputeBuffs(this);
       this._buffsDirty = false;
       this._buffTimer = BUFF_REFRESH;
+      // Potential N6 (Miko's Shimenawa Circle): enemies inside her aura turn Brittle, on every refresh
+      applyFoeVuln(this);
     }
   }
 
@@ -437,6 +440,10 @@ export class Sim {
     ctx.sourceUid = tower ? tower.uid : null;
     const list = spec.status;
     if (list) for (let i = 0; i < list.length; i++) this._applyStatusEvent(e, list[i], ctx);
+    // a Potential rhythm's own statuses (src/sim/potential.js N3): after hers and never merged into
+    // them, so a rhythm freeze is sure while her own chance freeze still rolls
+    const pst = spec.procStatus;
+    if (pst) for (let i = 0; i < pst.length; i++) this._applyStatusEvent(e, pst[i], ctx);
     if (spec.mark && spec.mark.bonus > 0) this._applyStatusEvent(e, { type: 'mark', bonus: spec.mark.bonus, duration: spec.mark.duration || 3 }, ctx);
     if (spec.silence > 0) this._applyStatusEvent(e, { type: 'silence', duration: spec.silence }, ctx);
     if (spec.reveal > 0) this._applyStatusEvent(e, { type: 'reveal', duration: spec.reveal }, ctx);
@@ -504,7 +511,9 @@ export class Sim {
     if (e.dead) return;
     e.dead = true;
     e.hp = 0;
-    const bounty = this._gainCash(e.bounty);
+    // Potential N7 (Momo's Lucky Pouch): a kill inside her range pays × her bounty aura (1 = none)
+    const bm = bountyMulAt(this, e.x, e.y);
+    const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (tower && !tower.removed) {
       tower.kills++;
@@ -514,6 +523,8 @@ export class Sim {
       }
     }
     this._emit('death', { uid: e.uid, id: e.id, x: e.x, y: e.y, bounty });
+    // Potential N9 (Akane's Ember Leap): her burn leaps on to the nearest enemy
+    if (e.statuses.burn || e.statuses.poison) spreadDot(this, e);
     onEnemyDeath(this, e);
   }
 
@@ -595,6 +606,12 @@ export class Sim {
         const interest = Math.min(150, (inc.interest || 0) * this.cash);
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
+        // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
+        const hv = t.stats.harvest;
+        if (hv && hv.every > 0 && this.wave % hv.every === 0) {
+          const extra = this._gainCash((inc.perWave || 0) * cashMul * (hv.share ?? 1) * this.incomeMul);
+          if (extra > 0) this._emit('cash', { amount: extra, reason: 'harvest', towerUid: t.uid });
+        }
       }
     }
     // every placed hero (both players' in co-op), never the view-dependent sim.hero
@@ -991,6 +1008,7 @@ export class Sim {
     t.targetMode = mode;
     t.rampTarget = null;
     t.rampStacks = 0;
+    if (t.rampKeep) t.rampKeep = 0; // switching by choice drops a kept focus too (Potential N10)
     return true;
   }
 
@@ -1061,7 +1079,8 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t) return null;
     const e = t.eff;
-    const dps = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles);
+    // (Potential N13: Kage's shuriken per throw × (1 + projScale) on average)
+    const dps = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles * (e.projScale > 0 ? 1 + e.projScale : 1));
     const ts = t.turretSpec;
     const roam = !!ts && ts.leash > 0;
     let turret = null;
@@ -1132,6 +1151,10 @@ export class Sim {
       levelSpent: t.isHero ? t.levelSpent || 0 : 0,
       moveCd: t.isHero ? t.moveCd || 0 : 0,
       moveLock: t.isHero ? t.moveLock || 0 : 0,
+      // Potential (only on a girl whose steps have them): her rhythm and its count, tempo, extra projectiles
+      ...(e.proc ? { proc: { name: e.proc.name, every: e.proc.every, of: e.proc.of, count: t.potCount || 0 } } : null),
+      ...(e.tempo ? { tempo: { stacks: t.tempoStacks || 0, max: Math.round(e.tempo.max / e.tempo.per), per: e.tempo.per } } : null),
+      ...(e.projScale > 0 ? { projScale: e.projScale } : null),
     };
   }
 

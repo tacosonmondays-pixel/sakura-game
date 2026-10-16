@@ -6,7 +6,8 @@
 // → hp. Burn/poison ticks skip crit, crystal and flat armor.
 //
 // Tower tier bonuses (eliteMul applies to elite/miniboss/boss, bossMul to miniboss/boss)
-// are part of the hit's base damage and are applied before the type multiplier.
+// are part of the hit's base damage and are applied before the type multiplier. A Potential
+// `classMul` (one girl, one armour class) multiplies the type multiplier.
 
 import { typeMultiplier } from '../data/types.js';
 import { WARD_MUL, SOAK_BONUS, BARRIER_BLAST_MUL, SHRED_MAX_STACKS, MAX_REDUCTION } from './constants.js';
@@ -73,7 +74,9 @@ function reduceByModifiers(enemy, dmg, attackType) {
  */
 export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   if (!isEligible(enemy, hit)) return null;
-  const typeMul = typeMultiplier(hit.attackType, enemy.armorClass);
+  let typeMul = typeMultiplier(hit.attackType, enemy.armorClass);
+  // Potential N16 (Hotaru's Lantern Rite): × vs one armour class, after the type chart
+  if (hit.classMul) typeMul *= hit.classMul[enemy.armorClass] ?? 1;
   let dmg = (hit.damage || 0) * scale * tierMultiplier(enemy, hit) * typeMul;
   const warded = !!hit.element && enemy.ward === hit.element;
   if (warded) dmg *= WARD_MUL;

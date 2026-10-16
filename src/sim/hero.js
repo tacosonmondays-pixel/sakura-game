@@ -14,6 +14,7 @@ import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS } from './cons
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
+import { ultWithPotential } from './potential.js';
 
 /** XP for each level-up 2..25 (a hero's own `levelXp`, else the shared table). */
 export function heroSteps(heroDef) {
@@ -83,21 +84,26 @@ export function ultRank(hero) {
   return r;
 }
 
-/** The ult effect at her current rank (each reached rank's partial effect merged over the base). */
+/**
+ * The ult effect at her current rank (each reached rank's partial effect merged over the base), then
+ * her Potential `ult` steps (src/sim/potential.js N4; absent at P1).
+ */
 export function ultEffect(hero) {
   const ult = hero.def.hero.ult;
   let e = ult.effect || { type: 'nova', damage: 0, radius: 0 };
   for (const k of ult.ranks || []) if (hero.level >= k.level && k.effect) e = { ...e, ...k.effect };
-  return e;
+  const pu = hero.stats?.ult;
+  return pu ? ultWithPotential(e, pu) : e;
 }
 
-/** Effective ult cooldown: reached ranks' cooldownMul, then ultHaste (capped at -50%). */
+/** Effective ult cooldown: reached ranks' cooldownMul, then ultHaste plus her Potential haste (capped at -50%). */
 export function ultCooldown(hero) {
   const ult = hero.def.hero?.ult;
   if (!ult) return Infinity;
   let cd = ult.cooldown ?? 60;
   for (const k of ult.ranks || []) if (hero.level >= k.level && k.cooldownMul > 0) cd *= k.cooldownMul;
-  const haste = Math.min(0.5, Math.max(0, hero.unitStats?.ultHaste || 0));
+  const pot = hero.stats?.ult?.haste || 0;
+  const haste = Math.min(0.5, Math.max(0, pot > 0 ? (hero.unitStats?.ultHaste || 0) + pot : hero.unitStats?.ultHaste || 0));
   return cd * (1 - haste);
 }
 
@@ -360,6 +366,8 @@ export function activateUlt(sim) {
   } else if (effect.type === 'timeWarp') {
     for (const e of victims) {
       applyStatus(e, { type: 'slow', amount: effect.slow ?? 0.4, duration: effect.duration ?? 4 }, ctx);
+      // (a Potential step's statuses on her Moonfall, e.g. Luna's Brittle: every victim; none at P1)
+      if (effect.status) for (const st of effect.status) applyStatus(e, st, ctx);
     }
     const rb = effect.rateBuff ?? 0.25;
     // the caster's uid (the buff icons tint the ultimate by her; nothing reads the view getter)

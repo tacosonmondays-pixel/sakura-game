@@ -2,10 +2,16 @@
 // passive, Potential steps) + profile battle stats. Implements the ModSet table in CONTRACTS.md §3 exactly:
 // add keys are summed, mul keys multiplied, grants OR-ed, replace keys take the last
 // value, status lists merge by type keeping the stronger numbers.
+// Potential v3 keys (src/data/potential.js; mechanics in src/sim/potential.js) are understood here
+// too and appear on the stats ONLY when a step sets them, so a girl at P1 resolves exactly as before:
+// statusAdd (adds onto a status she has), proc (her rhythm), ult (a hero's ultimate), aura.rangeAdd /
+// aura.foeVuln, turret.overclock, brew / link targetsAdd, bountyAura, harvest, dotSpread, keepRamp,
+// projScale, tempo, classMul.
 
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
+import { BREW_TARGETS_MAX } from './constants.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
@@ -133,6 +139,80 @@ export function normalizeBase(base = {}, unitDef = {}) {
   };
 }
 
+/** Numeric StatusSpec fields statusAdd adds (N2). */
+const ADD_FIELDS = ['amount', 'dps', 'pct', 'bonus', 'duration'];
+
+function addStatusFields(cur, spec) {
+  for (const k of ADD_FIELDS) if (typeof spec[k] === 'number') cur[k] = (typeof cur[k] === 'number' ? cur[k] : 0) + spec[k];
+  // a missing chance means "always" and stays so; a chance adds, capped at 1
+  if (typeof spec.chance === 'number' && typeof cur.chance === 'number') cur.chance = Math.min(1, cur.chance + spec.chance);
+}
+
+/**
+ * N2 statusAdd: wherever she already has the status type (her own list, her traps', her drones'),
+ * ADD its numbers; if she has it nowhere, append a copy to her own list (traps and drones copy it).
+ * `mark` adds to her mark (creating it). Never the keep-stronger merge, which would hide a weaker step.
+ */
+export function addStatuses(s, specs) {
+  for (const spec of specs || []) {
+    if (!spec || !spec.type) continue;
+    if (spec.type === 'mark') {
+      if (!s.mark) s.mark = { bonus: 0, duration: 0 };
+      s.mark.bonus += spec.bonus || 0;
+      s.mark.duration += spec.duration || 0;
+      continue;
+    }
+    let found = false;
+    for (const list of [s.status, s.trap?.status, s.turret?.status]) {
+      const cur = list?.find((x) => x.type === spec.type);
+      if (cur) {
+        addStatusFields(cur, spec);
+        found = true;
+      }
+    }
+    if (!found) s.status.push({ ...spec });
+  }
+}
+
+/** N3: two rhythm ModSets merge in step order: later fields replace, status lists merge by type. */
+function mergeProc(cur, v) {
+  const out = cur ? { ...cur, status: cur.status.map((x) => ({ ...x })) } : { name: null, every: 0, of: 'attack', status: [] };
+  for (const k of Object.keys(v)) {
+    if (k === 'status') mergeStatusList(out.status, v.status);
+    else if (v[k] && typeof v[k] === 'object') out[k] = { ...v[k] };
+    else out[k] = v[k];
+  }
+  return out;
+}
+
+/** N4: a hero's ultimate (src/sim/hero.js ultEffect): numbers add, damageMul multiplies, lists append. */
+function mergeUlt(cur, v) {
+  const u = cur || { haste: 0, radius: 0, duration: 0, buffDuration: 0, rateBuff: 0, damageMul: 1, status: [], statusAdd: [] };
+  for (const k of ['haste', 'radius', 'duration', 'buffDuration', 'rateBuff']) if (typeof v[k] === 'number') u[k] += v[k];
+  if (typeof v.damageMul === 'number') u.damageMul *= v.damageMul;
+  for (const x of v.status || []) u.status.push({ ...x });
+  for (const x of v.statusAdd || []) u.statusAdd.push({ ...x });
+  return u;
+}
+
+/** Potential v3 keys (absent at P1: nothing here runs for a girl without the step). */
+const POTENTIAL_KEYS = {
+  statusAdd: (s, v) => addStatuses(s, Array.isArray(v) ? v : [v]),
+  proc: (s, v) => { s.proc = mergeProc(s.proc, v); },
+  ult: (s, v) => { s.ult = mergeUlt(s.ult, v); },
+  bountyAura: (s, v) => { s.bountyAura = Math.max(s.bountyAura || 1, v); },
+  harvest: (s, v) => { s.harvest = { share: 1, ...(s.harvest || {}), ...v }; },
+  dotSpread: (s, v) => { s.dotSpread = { ...v }; },
+  keepRamp: (s, v) => { s.keepRamp = Math.max(s.keepRamp || 0, v); },
+  projScale: (s, v) => { s.projScale = (s.projScale || 0) + v; },
+  tempo: (s, v) => { s.tempo = { ...(s.tempo || {}), ...v }; },
+  classMul: (s, v) => {
+    const m = { ...(s.classMul || {}) };
+    for (const [k, x] of Object.entries(v)) m[k] = (m[k] ?? 1) * x;
+    s.classMul = m;
+  },
+};
+
 /**
  * Applies one ModSet to normalized stats in place. Damage add/mul are accumulated in
  * `acc` and resolved by resolveStats as (base + Σadd) × Πmul.
@@ -166,6 +246,9 @@ export function applyModSet(s, mods, acc) {
       if (v.cleanse) s.aura.cleanse = true;
       if (v.armorPen != null) s.aura.armorPen += v.armorPen;
       if (v.critChance != null) s.aura.critChance += v.critChance;
+      // Potential: reach added after every max rule (resolveStats), enemy Brittle inside her aura (N5, N6)
+      if (v.rangeAdd != null && acc) acc.auraRangeAdd = (acc.auraRangeAdd || 0) + v.rangeAdd;
+      if (v.foeVuln != null) s.aura.foeVuln = (s.aura.foeVuln || 0) + v.foeVuln;
     } else if (key === 'income') {
       if (!s.income) s.income = { perWave: 0, interest: 0 };
       s.income.perWave += v.perWave ?? 0;
@@ -186,6 +269,8 @@ export function applyModSet(s, mods, acc) {
       if (v.rate != null) s.turret.rate *= v.rate;
       if (v.attackType) s.turret.attackType = v.attackType;
       if (v.status) mergeStatusList(s.turret.status, v.status);
+      // Potential (N11): her drones' own overclock timer; a later step's fields replace earlier ones
+      if (v.overclock) s.turret.overclock = { ...(s.turret.overclock || {}), ...v.overclock };
     } else if (key === 'ramp') {
       if (!s.ramp) s.ramp = { per: 0, max: 0 };
       s.ramp.per += v.per ?? 0;
@@ -195,6 +280,9 @@ export function applyModSet(s, mods, acc) {
       s.mark.bonus = Math.max(s.mark.bonus, v.bonus ?? 0);
       s.mark.duration = Math.max(s.mark.duration, v.duration ?? 0);
     } else if (key === 'brew' || key === 'link') {
+      // Potential (N12): one more girl, added after the max rule (resolveStats); never creates a brew / link
+      if (v.targetsAdd != null && acc) acc[`${key}Add`] = (acc[`${key}Add`] || 0) + v.targetsAdd;
+      if (!Object.keys(v).some((k) => k !== 'targetsAdd')) continue;
       // limited buffs (src/sim/buffs.js): targets = max, multipliers multiply, pen and crit add, overclock replaces
       if (!s[key]) s[key] = normLimited();
       const l = s[key];
@@ -211,7 +299,7 @@ export function applyModSet(s, mods, acc) {
       s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
       s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
       s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
-    }
+    } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }
   return s;
@@ -274,6 +362,26 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
 }
 
 /**
+ * After her unit stats: Potential's whole-girl DoT multiplier on every burn / poison she applies (N1),
+ * her aura's added reach after every max rule (N5), and one more brewed / linked girl (N12; brews
+ * never above BREW_TARGETS_MAX, and nothing where she has no brew / link).
+ */
+function potentialTail(s, pot, acc) {
+  if (pot.dotMul !== 1) {
+    for (const list of [s.status, s.trap?.status, s.turret?.status]) {
+      for (const st of list || []) {
+        if (st.type !== 'burn' && st.type !== 'poison') continue;
+        if (typeof st.dps === 'number') st.dps *= pot.dotMul;
+        if (typeof st.pct === 'number') st.pct *= pot.dotMul;
+      }
+    }
+  }
+  if (acc.auraRangeAdd && s.aura) s.aura.range += acc.auraRangeAdd;
+  if (acc.brewAdd && s.brew) s.brew.targets = Math.min(BREW_TARGETS_MAX, s.brew.targets + acc.brewAdd);
+  if (acc.linkAdd && s.link) s.link.targets += acc.linkAdd;
+}
+
+/**
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
  * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts unitStats.potential
@@ -292,6 +400,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
+  if (pot.level > 1) potentialTail(s, pot, acc);
   s.projectiles = Math.max(1, Math.round(s.projectiles));
   s.pierce = Math.max(1, Math.round(s.pierce));
   s.chain = Math.max(0, Math.round(s.chain));

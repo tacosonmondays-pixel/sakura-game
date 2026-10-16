@@ -16,6 +16,7 @@ import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath } from './path.js';
 import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
+import { buildProcSpecs, boostedAura } from './potential.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -142,6 +143,8 @@ function hitSpecFrom(s, extra) {
     silence: s.silence,
     reveal: s.reveal,
     knockback: s.knockback,
+    // Potential N16 (Hotaru): × vs one armour class; only on a girl whose step sets it
+    ...(s.classMul ? { classMul: s.classMul } : null),
     ...extra,
   };
 }
@@ -199,6 +202,8 @@ export function refreshEffective(t, globalRateMul = 1) {
     splash: 0,
   }) : null;
   applyBuffExtras(t, b);
+  // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
+  if (s.proc) buildProcSpecs(t);
 }
 
 function mergeLists(a, b) {
@@ -224,7 +229,8 @@ export function recomputeBuffs(sim) {
     by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = -1;
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
-      const au = a.stats.aura;
+      // (a Potential rhythm's aura boost runs: her aura numbers × the boost, src/sim/potential.js)
+      const au = a.auraBoostLeft > 0 ? boostedAura(a) : a.stats.aura;
       const dx = a.x - t.x;
       const dy = a.y - t.y;
       if (dx * dx + dy * dy > au.range * au.range) continue;
@@ -377,9 +383,18 @@ export function topTargets(sim, x, y, reach, spec, mode, k, out, outS) {
   return out;
 }
 
+// The first target of the attack running now (a rhythm's nova reads it right after the call), and
+// whether that call is a rhythm's echo (its projectiles fan out as a second volley). Module state on
+// purpose: set and read inside one synchronous attack, never across steps, so nothing to save.
+let lastFaced = null;
+let echoing = false;
+/** Fan offset (rad) of an echo's projectiles, alternating sides. */
+const ECHO_FAN = 0.18;
+
 function face(t, e) {
   t.facing = Math.atan2(e.x - t.x, e.y - t.y);
   t.targetUid = e.uid;
+  lastFaced = e;
 }
 
 function attackColor(spec) {
@@ -467,11 +482,25 @@ function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
   return { hits, ex, ey };
 }
 
+/**
+ * Potential N13 (Kage): projectiles × (1 + f) through an integer carry: k = round(f × 100) hundredths
+ * per projectile accumulate in t.projCarry and every full 100 is one more (so every client throws the
+ * same extra shuriken on the same throws). @returns {number} extra projectiles this attack
+ */
+function projExtra(t, n, f) {
+  const k = Math.round(f * 100);
+  t.projCarry = (t.projCarry || 0) + n * k;
+  const extra = Math.floor(t.projCarry / 100);
+  t.projCarry -= extra * 100;
+  return extra;
+}
+
 function attackProjectile(sim, t) {
   const spec = t.eff;
-  const n = spec.projectiles;
+  let n = spec.projectiles;
   const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, n);
   if (!targets.length) return false;
+  if (spec.projScale > 0) n += projExtra(t, n, spec.projScale);
   face(t, targets[0]);
   for (let i = 0; i < n; i++) {
     const tgt = targets[i % targets.length];
@@ -484,7 +513,8 @@ function attackProjectile(sim, t) {
         for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
       } else sim._hit(tgt, t, spec, 1);
     } else {
-      const spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
+      let spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
+      if (echoing) spread += i % 2 ? -ECHO_FAN : ECHO_FAN;
       spawnProjectile(sim, t, spec, tgt, t.x, t.y, { spread });
     }
   }
@@ -512,6 +542,9 @@ function attackDuel(sim, t) {
   const spec = t.eff;
   let tgt = t.rampTarget;
   if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.x, tgt.y - t.y) > spec.range) {
+    // Potential N10 (Kaede): a target that FELL leaves part of her focus for the next one; one that
+    // walked off or turned ineligible alive clears it (a gap with no enemy in reach keeps it)
+    if (tgt && spec.keepRamp > 0) t.rampKeep = tgt.dead ? Math.floor(t.rampStacks * spec.keepRamp) : 0;
     tgt = bestTarget(sim, t.x, t.y, spec.range, spec, t.targetMode);
   }
   if (!tgt) {
@@ -522,6 +555,10 @@ function attackDuel(sim, t) {
   if (tgt !== t.rampTarget) {
     t.rampTarget = tgt;
     t.rampStacks = 0;
+    if (t.rampKeep > 0) {
+      t.rampStacks = t.rampKeep;
+      t.rampKeep = 0;
+    }
   }
   face(t, tgt);
   const ramp = spec.ramp;
@@ -535,6 +572,21 @@ function attackDuel(sim, t) {
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, spec)) sim._hit(e, t, spec, 1);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks });
+  return true;
+}
+
+/**
+ * Potential N15 on a duel (Rei's Twin Crescent): one follow-up strike on her current target at the
+ * echo spec's damage and her current focus, adding no focus stack and never changing her target.
+ */
+function duelEcho(sim, t) {
+  const spec = t.eff;
+  const tgt = t.rampTarget;
+  if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.x, tgt.y - t.y) > spec.range) return false;
+  const ramp = spec.ramp;
+  const scale = 1 + (ramp ? Math.min(ramp.per * t.rampStacks, ramp.max) : 0);
+  sim._hit(tgt, t, spec, scale);
+  sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks, echo: true });
   return true;
 }
 
@@ -727,8 +779,10 @@ const BEHAVIORS = {
 function updateTurrets(sim, t, dt) {
   const spec = t.turretSpec;
   if (!spec || !t.turrets.length) return;
+  // Potential N11 (Chika): her own drones fire × rateMul while her overclock runs (1 otherwise)
+  const ocMul = t.potOc && t.potOc.left > 0 ? t.stats.turret.overclock.rateMul : 1;
   if (spec.leash > 0) {
-    updateRoamingDrones(sim, t, spec, dt);
+    updateRoamingDrones(sim, t, spec, dt, ocMul);
     return;
   }
   for (const tu of t.turrets) {
@@ -743,7 +797,7 @@ function updateTurrets(sim, t, dt) {
     spawnProjectile(sim, t, spec, tgt, tu.x, tu.y, {
       kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: spec.range, turretUid: tu.uid,
     });
-    tu.cooldown += 1 / Math.max(0.05, spec.rate);
+    tu.cooldown += 1 / Math.max(0.05, spec.rate * ocMul);
     sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'bullet', turretUid: tu.uid });
   }
 }
@@ -952,7 +1006,7 @@ function opportunity(sim, d, spec) {
   return best;
 }
 
-function updateRoamingDrones(sim, t, spec, dt) {
+function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
   if (!t._pool) {
     t._pool = [];
     t._poolS = [];
@@ -967,7 +1021,7 @@ function updateRoamingDrones(sim, t, spec, dt) {
   const standoff = R * DRONE_STANDOFF;
   const moveLen = spec.speed * dt;
   const anyEnemy = sim.enemies.length > 0;
-  const reload = 1 / Math.max(0.05, spec.rate * (f.L === Infinity ? FLIGHT_PURSUIT_RATE_MUL : 1));
+  const reload = 1 / Math.max(0.05, spec.rate * ocMul * (f.L === Infinity ? FLIGHT_PURSUIT_RATE_MUL : 1));
   for (const d of t.turrets) {
     d.px = d.x;
     d.py = d.y;
@@ -1076,25 +1130,137 @@ function buildDrones(sim, t, dt) {
   t.buildTimer = t.turretSpec.build > 0 ? t.turretSpec.build : 1 / Math.max(0.05, t.def.base?.rate || 0.25);
 }
 
+// ---------------------------------------------------------------------------
+// Potential (src/sim/potential.js): the rhythm (N3, N15), tempo (N14) and her drones' overclock (N11).
+// Every field here is created on a girl only once her step uses it, so a P1 girl never carries one.
+// ---------------------------------------------------------------------------
+
+/**
+ * One attack call of a girl with a rhythm: every Nth successful call (t.potCount counts them; a call
+ * with no target does not count) runs with t.effProc, then its extras. A hero who levels up inside
+ * the call keeps the fresh stats it built (her eff is only put back when it is still the swapped one).
+ */
+function attackWithProc(sim, t, fn, p) {
+  const n = (t.potCount || 0) + 1;
+  const due = p.every > 0 && n % p.every === 0 && !!t.effProc;
+  const saved = t.eff;
+  if (due) {
+    t.eff = t.effProc;
+    lastFaced = null;
+  }
+  const used = t.eff;
+  const ok = fn(sim, t);
+  if (t.eff === used) t.eff = saved;
+  if (!ok) return false;
+  t.potCount = n;
+  if (due) procExtras(sim, t, fn, p, lastFaced);
+  return true;
+}
+
+/** A rhythm's extras after its attack: the event, the echo volley, the nova, the aura boost. */
+function procExtras(sim, t, fn, p, first) {
+  sim._emit('proc', { towerUid: t.uid, name: p.name || null, of: 'attack', n: t.potCount });
+  if (p.echo) {
+    // N3 / N15: the behaviour once more (not counted, no tempo stack), the full rhythm or a share of it
+    const spec = p.echo === true ? t.effProc : t.effEcho;
+    if (spec) {
+      const normal = t.eff;
+      t.eff = spec;
+      echoing = true;
+      try {
+        if (spec.behavior === 'duel') duelEcho(sim, t);
+        else fn(sim, t);
+      } finally {
+        echoing = false;
+      }
+      if (t.eff === spec) t.eff = normal;
+    }
+  }
+  if (p.nova && first && t.effProc) {
+    // N3 nova: share × her rhythm hit (× her projectiles for a volley) on everything within `radius`
+    // of her first target, ascending uid (radius 0: the target only); can crit, carries procStatus
+    const nv = p.nova;
+    const base = t.effProc;
+    const hit = { ...base, damage: base.damage * (nv.share ?? 1) * (nv.volley ? base.projectiles : 1), splash: 0 };
+    const victims = nv.radius > 0 ? sim.grid.query(first.x, first.y, nv.radius, []).sort((a, b) => a.uid - b.uid) : [first];
+    for (const e of victims) if (!e.dead && isEligible(e, hit)) sim._hit(e, t, hit, 1);
+    sim._emit('nova', { towerUid: t.uid, x: first.x, y: first.y, radius: nv.radius || 0 });
+  }
+  if (p.auraBoost) {
+    // N3 auraBoost: her aura × the boost for `time` s (recomputeBuffs reads it; updateTower counts down)
+    t.auraBoostLeft = p.auraBoost.time;
+    sim._buffsDirty = true;
+  }
+}
+
+/** N14: a step without a successful attack; `idle` s of them and her tempo stacks return to 0. */
+function tempoIdle(sim, t, tempo) {
+  const limit = Math.round(tempo.idle / STEP);
+  if ((t.tempoIdle || 0) < limit) t.tempoIdle = (t.tempoIdle || 0) + 1;
+  if (t.tempoStacks > 0 && t.tempoIdle >= limit) {
+    t.tempoStacks = 0;
+    sim._emit('tempo', { towerUid: t.uid, stacks: 0 });
+  }
+}
+
+/** N14: a successful attack (never an echo) adds a stack up to round(max / per) and resets the idle count. */
+function tempoStack(sim, t, tempo) {
+  t.tempoIdle = 0;
+  const stacks = t.tempoStacks || 0;
+  if (stacks < Math.round(tempo.max / tempo.per)) {
+    t.tempoStacks = stacks + 1;
+    sim._emit('tempo', { towerUid: t.uid, stacks: t.tempoStacks });
+  } else if (t.tempoStacks == null) t.tempoStacks = stacks;
+}
+
+/**
+ * N11: her drones' overclock. The timer starts when she is placed: the first one comes after
+ * every − time s, then one every `every` s, each lasting `time` s.
+ */
+function tickOverclock(sim, t, oc, dt) {
+  const o = t.potOc || (t.potOc = { cd: oc.every - (oc.time ?? 0), left: 0 });
+  if (o.left > 0) o.left = Math.max(0, o.left - dt);
+  o.cd -= dt;
+  if (o.cd <= 0) {
+    o.cd += oc.every;
+    o.left = oc.time ?? 0;
+    sim._emit('proc', { towerUid: t.uid, name: null, of: 'overclock', time: o.left });
+  }
+}
+
 /** One fixed step of a tower: disable timer, turrets, cooldown and attacks. */
 export function updateTower(sim, t, dt) {
+  const s = t.stats;
+  // Potential timers that run even while she is sabotaged: her tempo's idle count, an aura boost
+  if (s.tempo) tempoIdle(sim, t, s.tempo);
+  if (t.auraBoostLeft > 0) {
+    t.auraBoostLeft -= dt;
+    if (t.auraBoostLeft <= 0) {
+      t.auraBoostLeft = 0;
+      sim._buffsDirty = true;
+    }
+  }
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
     return;
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
+  if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
   if (!fn) return;
   if (t.cooldown > 0) t.cooldown -= dt;
+  const proc = s.proc && s.proc.of !== 'trap' ? s.proc : null;
+  const tempo = s.tempo || null;
   let guard = 0;
   while (t.cooldown <= 0 && guard++ < 4) {
-    if (!fn(sim, t)) {
+    if (!(proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t))) {
       t.cooldown = 0;
       break;
     }
-    t.cooldown += 1 / Math.max(0.05, t.eff.rate);
+    if (tempo) tempoStack(sim, t, tempo);
+    t.cooldown += 1 / Math.max(0.05, tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate);
   }
 }
 
@@ -1259,9 +1425,20 @@ export function updateTraps(sim, dt) {
     if (!trigger) continue;
     tr.dead = true;
     removedAny = true;
-    tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+    const owner = tr.owner;
+    owner.trapCount = Math.max(0, owner.trapCount - 1);
     sim._emit('trapTriggered', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
-    explode(sim, tr.owner, spec, tr.x, tr.y, Math.max(spec.splash, spec.triggerRadius));
+    // Potential N3 on traps (Suzu): every Nth of her traps that goes off is the rhythm's
+    const p = owner.stats?.proc;
+    let boom = spec;
+    if (p && p.of === 'trap') {
+      owner.potCount = (owner.potCount || 0) + 1;
+      if (p.every > 0 && owner.potCount % p.every === 0 && owner.trapSpecProc) {
+        boom = owner.trapSpecProc;
+        sim._emit('proc', { towerUid: owner.uid, name: p.name || null, of: 'trap', n: owner.potCount, x: tr.x, y: tr.y });
+      }
+    }
+    explode(sim, owner, boom, tr.x, tr.y, Math.max(boom.splash, boom.triggerRadius));
   }
   if (removedAny) {
     let n = 0;
