@@ -84,6 +84,55 @@ every stage P1 wins). Kage's battle panel at P6 L85 inside Miko 5 + Umeko 5, ful
 a placement in flight before it queues an upgrade). Bench: `node --import ./tools/simLoader.mjs
 tools/potentialBench.mjs --girls kage,shiro --out b1.jsonl`, then `node tools/potentialBench.mjs --report b1.jsonl`.
 
+**Gates K1 / F1 (measured after the B1 trims, `tools/killcap.mjs` and `tools/capBot.mjs --profile`).** Kill
+capacity is the biggest lone boss-rank dummy a board kills on every path before it walks off (armor 4 neutral, 6
+heavy, 3 spectral, 4 scaled): capBot builds Build A on Blossom to wave 150 at P1 (seed 7), then every girl on that
+same board takes each profile's stats. These numbers replace the design spec's §8.4 / §8.5 model; F2P-late was
++31 to +35 % over the model before the B1 trims and is +18 to +26 % now (P1 reproduces the spec's measurement).
+
+| Board, 4-5 solo | neutral | heavy | spectral | scaled | team DPS (neutral / scaled) | vs the model |
+|---|---:|---:|---:|---:|---:|---|
+| P1, L60, MAXED | 35.2M | 28.4M | 17.8M | 50.5M | 0.54 / 0.79M/s | the spec measured 34.0 / 28.4 / 17.2 / 50.5 |
+| F2P-steady (R/SR P6, SSR P2, Nami 6, Hikari 3, Luna 2; L75, MAXED) | 93.1M | 75.0M | 47.0M | 138.2M | 1.44 / 2.19M/s | +29 / +25 / +31 / +29 % |
+| F2P-late (the same, L85, best gold) | 154.0M | 124.1M | 77.7M | 228.8M | 2.77 / 4.06M/s | +18 / +22 / +18 / +26 % |
+| Whale A (Build A all P6, L85, UR) | 339.8M | 264.2M | 159.6M | 469.8M | 5.33 / 7.78M/s | +26 / +22 / +22 / +27 % |
+
+| Board | neutral | heavy | spectral | scaled |
+|---|---:|---:|---:|---:|
+| 8-5 solo: P1 / F2P-steady / F2P-late / whale A | 43.7 / 100.0 / 184.3 / 378.6M | 35.2 / 86.6 / 154.0 / 327.8M | 22.1 / 52.3 / 96.5 / 205.4M | 60.4 / 138.2 / 273.8 / 542.5M |
+| 4-5 co-op, two bots: F2P-steady / F2P-late / whale A | 165.5 / 283.9 / 582.9M | 128.6 / 228.8 / 437.1M | 75.0 / 148.6 / 283.9M | 237.1 / 437.1 / 866.0M |
+| 8-5 co-op, two bots: F2P-steady / F2P-late / whale A | 198.1 / 352.3 / 649.4M | 154.0 / 264.2 / 504.8M | 96.5 / 171.5 / 327.8M | 273.8 / 504.8 / 964.7M |
+
+The ladder these give (capacity against the boss's HP; ✓ the margin, ✗ the multiplier still missing):
+
+| Boss | P1 | F2P-steady | F2P-late | Whale A |
+|---|---|---|---|---|
+| 4-5 solo 190 Grave Lych 31.1M | ✗ ×1.75 | ✓ ×1.5 | ✓ ×2.5 | ✓ ×5.1 |
+| 4-5 solo 200 Ashwing Matriarch 154M | ✗ ×3.0 | ✗ ×1.11 (month 3) | ✓ ×1.49 (about 38 s) | ✓ ×3.05 (about 20 s) |
+| 4-5 solo 210 Gloom Regent 239M | — | — | ✗ ×3.1 | ✗ ×1.5 |
+| 4-5 solo 250 Eclipse Wyrm 28.9B | — | — | — | ✗ ×61 |
+| 4-5 co-op 190 Lych 49.8M (+ Oni 17.7M) / 200 Matriarch 246M | — | ✓ ×1.5 / ✗ ×1.04 | ✓ / ✓ ×1.78 | ✓ / ✓ ×3.5 |
+| 4-5 co-op 210 Gloom Regent 383M | — | — | ✗ ×2.6 | ✗ ×1.35 |
+| 8-5 solo 170 Lych 34.4M / 190 Lych 75.4M / 200 Matriarch 372M | ✗ ×1.56 / — / — | ✓ ×1.5 / ✗ ×1.44 / ✗ ×2.7 | ✓ / ✓ ×1.28 / ✗ ×1.36 | ✓ / ✓ / ✓ ×1.46 |
+
+Freeplay fall waves (capBot Build A, Blossom; seeds 7 / 11 where two are given):
+
+| Profile | 4-5 | 1-5 | 8-5 | Band |
+|---|---|---|---|---|
+| P1 | 170 / 170 | 190 | 174 | PC1 floor ≥ 170 ✓ |
+| F2P-steady | 190 / 190 | 214 / 214 | 195 | 4-5 185–200 ✓; PC2 1-5 +24 over 4-5 ✗ (±20), 8-5 +5 ✓, one run past 200 and one before ✓ |
+| F2P-late | 205 / 205 | 218 | 200 (falls to the Matriarch) | PC6 195–210 ✓; beats the Matriarch on 2 of the 3 ✓ |
+| Whale A | 212 / 213 | 225 | 210 | ≤ 225 on 4-5 ✓; whale − F2P-late +7.5 on 4-5, +7 on 1-5, +10 on 8-5 (PC7 is Build W's: not run) |
+
+Free players beat the solo 4-5 Matriarch at F2P-late (month 6) and are ×1.11 short at month 3; wave 250 stays out of
+reach (the whale is ×61 short of the Wyrm). **Open:** PC2's 1-5 spread at F2P-steady. P1 already sits at the band's
+edge (1-5 190 against 4-5 170, +20): 1-5 runs past wave 200 while 4-5 stops at its elite wall, and the gap is +13 at
+F2P-late and +12.5 for the whale, so a Potential trim (which moves both stages) does not close it; it is 1-5's own
+curve, path-cap's band (M7b), for the owner or the path-cap tuner. Not run: K1's Build W row and PC7 (capBot has no
+Build W yet). Runs: `node --import ./tools/simLoader.mjs tools/killcap.mjs --stage 4-5 --tier blossom --seed 7
+[--coop 2 --blocks f2p-steady,f2p-late,whale]`, `node --import ./tools/simLoader.mjs tools/capBot.mjs --build A
+--tier blossom --stage 4-5 --seed 7 --profile f2p-steady`.
+
 **Migration from v1 (v3 §12, v2 §8).** No `SAVE_VERSION` bump; `dupes`, the shadow and the backfill are untouched,
 so every girl keeps her P and fights with the v3 steps of it at once.
 - **Nothing got weaker (gate B6, measured).** `BALANCE=potential` (`tests/integration/potential.balance.test.js`)
@@ -175,7 +224,7 @@ a P1 girl without rows, in a real battle), `tests/battle-ui/snapshot.test.js` (`
 **Not built here (next stages):** the clan-boss constant (gate CB: needs P6 L85 UR rows, UR gear is the next
 build); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
 volleys) and the crown ring on the field (render, v2 §7.8); the Sandbox P1–P6 picker (v2 §7.7); the §13.1
-measurement gates not run above (B2–B4, B7, B8, T1, H1, C1, F2–F6, P1, CB, E1) on the integrated train C tree.
+measurement gates not run above (B2–B4, B7, B8, T1, H1, C1, F2–F6 beyond the Build A falls, K1 Build W, P1, CB, E1) on the integrated train C tree.
 
 ---
 
