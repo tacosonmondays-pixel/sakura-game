@@ -770,6 +770,146 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 }
 
 // ---------------------------------------------------------------------------
+// The returning girls (roster B3, track 5): relay origins, two firing points, grounding + Air,
+// gather and the push lock, curse spread with the burst budget, the sky-dragon runner, the hexing
+// tide and the co-op `aim` command, in one co-op battle on a flyer stage
+// ---------------------------------------------------------------------------
+
+const ROSTER_STATS = { costMul: 0.2, damageMul: 3, rateMul: 1.2 };
+export const ROSTER_START = Object.freeze({
+  seed: 525252,
+  stageId: '8-1',
+  difficulty: 'easy',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: ['iroha', 'ena', 'ruri', 'hana'].map((unitId) => ({ unitId, stats: ROSTER_STATS })), hero: { unitId: 'seiran', stats: ROSTER_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: ['fuu', 'noa', 'ena'].map((unitId) => ({ unitId, stats: ROSTER_STATS })), hero: { unitId: 'yoriko', stats: ROSTER_STATS } },
+  ],
+});
+
+/**
+ * A co-op battle with the returning girls (8-1 Easy, wyverns): the host aims Iroha's mirror and
+ * Seiran's dragon and casts Dragonflight whenever it is ready; the guest's Fuu gathers and pushes,
+ * Ena curses, Yoriko's Dream Detour hexes. Two Lockstep clients over a seeded fake network; the
+ * host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
+ */
+export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 * 60 * 14 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(23);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const mk = (slot) => new Lockstep({
+    start: ROSTER_START,
+    mySlot: slot,
+    now: () => clock.t,
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const ids = ['seiran', 'iroha', 'ena', 'ruri', 'hana', 'yoriko', 'fuu', 'noa'];
+  const spots = spotsFor(ROSTER_START, ids, 2);
+  const want = [[0, 'seiran', spots.seiran[0]], [0, 'iroha', spots.iroha[0]], [0, 'ena', spots.ena[0]], [0, 'ruri', spots.ruri[0]], [0, 'hana', spots.hana[0]],
+    [1, 'yoriko', spots.yoriko[0]], [1, 'fuu', spots.fuu[0]], [1, 'noa', spots.noa[0]], [1, 'ena', spots.ena[1]]];
+  const seen = [new Map(), new Map()];
+  let ck = null;
+  let aims = 0;
+  let ults = 0;
+  const mech = { curseBurst: 0, runner: 0, relay: 0 };
+  const mine = (c, u) => c.sim.towers.find((t) => t.unitId === u && c.coop.isMine(t.uid));
+  while (frame < maxFrames && !(A.finished && B.finished) && A.sim.wave < toWave) {
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 21) B.queue('speed', [3]);
+    if (frame === 22) A.queue('wave');
+    if (frame % 15 === 0) {
+      for (let i = want.length - 1; i >= 0; i--) {
+        const [slot, u, [qx, qy]] = want[i];
+        const c = clients[slot];
+        if (c.sim.canPlace(u, qx / 1024, qy / 1024).ok) {
+          c.queue('place', [u, qx, qy]);
+          want.splice(i, 1);
+        }
+      }
+    }
+    if (frame % 90 === 45) {
+      clients.forEach((c) => {
+        for (const t of c.sim.towers.filter((x) => c.coop.isMine(x.uid) && !x.isHero)) {
+          const path = t.tiers[0] < 3 ? 0 : t.tiers[2] < 2 ? 2 : null;
+          if (path == null || c.sim.upgradeStatus(t.uid, path).locked) continue;
+          c.queue('upg', [t.uid, path]);
+          break;
+        }
+      });
+    }
+    const iroha = mine(A, 'iroha');
+    if (iroha && frame % 1300 === 400) {
+      A.queue('aim', [iroha.uid, Math.round((iroha.x + (frame % 2600 === 400 ? 2.5 : -2.5)) * 1024), Math.round((iroha.y + 1.25) * 1024)]);
+      aims++;
+    }
+    const seiran = A.sim.heroes?.[0];
+    if (seiran && frame % 1700 === 800) {
+      const e = A.sim.enemies.find((x) => !x.dead && !x.hidden);
+      A.queue('aim', e ? [seiran.uid, Math.round(e.x * 1024), Math.round(e.y * 1024)] : [seiran.uid, null]);
+      aims++;
+    }
+    if (frame % 240 === 120) {
+      A.queue('ult');
+      B.queue('ult');
+      ults++;
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) for (const ev of c.sim.events) if (mech[ev.type] != null) mech[ev.type]++;
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start: ROSTER_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(ROSTER_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    towers: A.sim.towers.length,
+    damage: Math.round(A.sim.towers.reduce((a, t) => a + t.damageDealt, 0)),
+    aims,
+    ults,
+    curseBursts: mech.curseBurst,
+    runners: mech.runner,
+    relays: mech.relay,
+    lives: A.sim.lives,
+    wallets: A.coop.wallets.join('/'),
+    final: A.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    // (stopped mid-battle: the guest may be a few ticks behind, so the hashes both clients took agree)
+    agree: ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && (A.tick !== B.tick || A.coop.hash() === B.coop.hash()),
+    agreeTicks: ticks.every((t) => seen[0].get(t) === seen[1].get(t)),
+    tickGap: A.tick - B.tick,
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Potential (src/data/potential.js): every kind of step in one co-op battle
 // ---------------------------------------------------------------------------
 
@@ -1120,5 +1260,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), modes };
 }

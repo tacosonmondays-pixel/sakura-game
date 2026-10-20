@@ -1,7 +1,9 @@
-// Student detail (owner: meta-b). Route: #/student/<id>?tab=info|level|awaken|gear|tree
+// Student detail (owner: meta-b). Route: #/student/<id>?tab=info|level|awaken|gear|tree[&skin=<skinId>]
 //
-// Left: a stable showcase (Card Art ⇄ 3D Chibi toggle, name, rarity, stars, level) that never
-// re-renders when tabs change. Right: tabs Info / Level Up / Awakening / Equipment / Tree.
+// Left: a stable showcase (Card Art ⇄ 3D Chibi toggle, name, rarity, stars, level, Outfit pill)
+// that never re-renders when tabs change. Right: tabs Info / Level Up / Awakening / Equipment / Tree.
+// Outfits (skins) dress only the 3D chibi: the Outfit sheet lists them with Wear / Try on, and
+// `?skin=` deep-links a try-on.
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
 import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
@@ -30,6 +32,10 @@ import { itemCount } from '../../systems/inventory.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
+import { SKIN_MAP, resolveSkin } from '../../data/skins.js';
+import { legacyKit } from '../../data/legacy.js';
+import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
+import { artUrl } from '../../art/portraits.js';
 import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { tierTags, tierNote } from '../upgradeTags.js';
@@ -50,8 +56,11 @@ const TABS = [
   { id: 'gear', label: 'Equipment' },
   { id: 'tree', label: 'Tree' },
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', none: 'Support' };
-const view = { mode: 'card', gearSlot: 'charm' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+// skin: outfit being tried on in the showcase (not saved), null = the equipped one
+const view = { mode: 'card', gearSlot: 'charm', skin: null };
+/** seenIntro key: the Outfit pill shows a NEW dot until the outfit sheet was opened once. */
+const OUTFIT_INTRO = 'outfits';
 
 // ---------------------------------------------------------------------------
 // Plain-language descriptions (also used by the formation and wiki screens)
@@ -70,6 +79,9 @@ export function describeStatus(s) {
     case 'burn': case 'poison': core = `${name} ${n1(s.dps)}/s for ${n1(s.duration)}s`; break;
     case 'shred': core = `Armor −${n1(s.amount)} for ${n1(s.duration)}s (stacks ×3)`; break;
     case 'mark': case 'vulnerable': core = `${name}: +${Math.round(s.bonus * 100)}% damage taken for ${n1(s.duration)}s`; break;
+    case 'curse': core = `Curse: bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
+    case 'hex': core = `Hex ${n1(s.pct * 100)}% max HP/s for ${n1(s.duration)}s, no regen`; break;
+    case 'ground': core = `Grounds flyers for ${n1(s.duration)}s`; break;
     default: core = `${name} ${n1(s.duration)}s`;
   }
   return chancePrefix(s) + core;
@@ -103,6 +115,10 @@ export function describeMods(mods = {}) {
   add(mods.eliteMul && mods.eliteMul !== 1, `+${pctOf(mods.eliteMul)} vs elites`);
   add(mods.bossMul && mods.bossMul !== 1, `+${pctOf(mods.bossMul)} vs bosses`);
   add(mods.barrierMul && mods.barrierMul !== 1, `+${pctOf(mods.barrierMul)} vs barriers`);
+  // roster B3
+  add(mods.airMul && mods.airMul !== 1, `×${n1(mods.airMul)} vs flyers`);
+  add(mods.gather, 'Pulls the enemies ahead back together');
+  add(mods.relay?.reach, `${mods.relay?.kind === 'mirror' ? 'Mirror' : 'Familiar'} reach +${n1(mods.relay?.reach || 0)}`);
   if (mods.aura) {
     const a = mods.aura;
     const parts = [];
@@ -211,6 +227,8 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   dual('Crit chance', b.crit.chance, y.crit.chance, (v) => formatPct(v));
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
+  if (b.airMul && b.airMul !== 1) rows.push(['Vs flyers', `×${n1(b.airMul)}`, null]);
+  if (b.relay) rows.push([b.relay.kind === 'mirror' ? 'Mirror panel' : 'Familiar', `reach ${n1(b.relay.reach)} tiles${b.relay.both ? ' · fires from both' : ''}`, null]);
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
   for (const k of ['aura', 'income', 'trap', 'turret', 'ramp', 'mark']) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);
@@ -232,10 +250,14 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
 // Showcase (left column) — stays mounted while tabs change
 // ---------------------------------------------------------------------------
 
+/** The outfit the showcase shows: a try-on preview, else her equipped one. */
+const shownSkinId = (unit) => (view.skin && SKIN_MAP[view.skin]?.unitId === unit.id ? view.skin : equippedSkinId(store.profile, unit.id));
+
 function buildShowcase(unit, onCycle, onPotential) {
   let viewer = null;
   let model = null;
   let disposed = false;
+  let stageSkin = null; // outfit of the 3D model on stage
   const stageEl = h('div.mb-show-stage');
   const toggle = h('div.mb-seg', { role: 'tablist' });
   const actRow = h('div.mb-show-acts');
@@ -255,6 +277,8 @@ function buildShowcase(unit, onCycle, onPotential) {
     stageEl.classList.toggle('is-3d', view.mode === '3d');
     stageEl.classList.remove('is-ur');
     const st = store.profile.units[unit.id];
+    stageSkin = shownSkinId(unit);
+    const skin = stageSkin;
     if (view.mode === 'card') {
       stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'mb-show-card'));
     } else {
@@ -264,9 +288,9 @@ function buildShowcase(unit, onCycle, onPotential) {
       // She faces the player (no auto-spin): the close-up is a portrait, dragging turns her.
       viewer = createModelViewer(holder, { background: null, autoRotate: false });
       // close-up viewer: full-detail GLB regardless of the quality setting (chibis-v2)
-      preloadModels([unit.id], { detail: 'full' }).then(() => {
-        if (disposed || !viewer || view.mode !== '3d') return;
-        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high', detail: 'full' });
+      preloadModels([unit.id], { detail: 'full', skins: { [unit.id]: skin } }).then(() => {
+        if (disposed || !viewer || view.mode !== '3d' || stageSkin !== skin) return;
+        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high', detail: 'full', skin });
         viewer.setObject(model);
       });
       for (const [state, label] of [['idle', 'Idle'], ['attack', 'Attack'], ['cheer', 'Cheer'], ['victory', 'Victory']]) {
@@ -289,6 +313,9 @@ function buildShowcase(unit, onCycle, onPotential) {
   const renderInfo = () => {
     clear(info);
     const st = store.profile.units[unit.id];
+    const skin = resolveSkin(unit.id, shownSkinId(unit));
+    const trying = skin.id !== equippedSkinId(store.profile, unit.id);
+    const isNew = choicesCount(unit) > 1 && !store.profile.seenIntro?.includes(OUTFIT_INTRO);
     const shown = displayRarity(unit, store.profile);
     const r = rarityInfo(shown);
     put(info,
@@ -296,7 +323,12 @@ function buildShowcase(unit, onCycle, onPotential) {
         shown === 'UR'
           ? h('span.mb-rarity-tag.is-ur', { 'data-testid': 'rarity-tag', title: 'UR — every awaken star' }, h('span.ur-text', 'UR'), urRing())
           : h('span.mb-rarity-tag', { 'data-testid': 'rarity-tag', style: cssVars({ '--rarity': r.color }) }, r.name),
-        h('div.mb-show-names', h('div.mb-show-name', unit.name), h('div.mb-show-title', unit.title))),
+        h('div.mb-show-names', h('div.mb-show-name', unit.name), h('div.mb-show-title', unit.title)),
+        h(`button.mb-outfit-pill${trying ? '.trying' : ''}`, {
+          'data-testid': 'outfit-open', title: trying ? `Trying on: ${skin.name}` : `Outfit: ${skin.name}`, onclick: () => openOutfits(unit, api),
+        }, svgEl(uiIcon('hanger')), h('span.mb-outfit-pill-name', skin.name),
+        // corner tag: a try-on (not saved) wins over the one-time NEW
+        trying ? h('span.mb-outfit-new.try', 'TRY-ON') : isNew ? h('span.mb-outfit-new', 'NEW') : null)),
       h('div.mb-show-meta',
         st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
         stars(st?.awaken || 0, MAX_AWAKEN),
@@ -314,11 +346,87 @@ function buildShowcase(unit, onCycle, onPotential) {
     info);
   renderStage();
   renderInfo();
-  return {
+  const api = {
     el,
-    refresh() { renderInfo(); if (view.mode === 'card') renderStage(); },
+    /** Re-render the info row, and the stage when it shows card art or a different outfit. */
+    refresh() { renderInfo(); if (view.mode === 'card' || stageSkin !== shownSkinId(unit)) renderStage(); },
+    /** Switch to the 3D chibi (outfit try-on / wear). */
+    show3D() { if (view.mode !== '3d') { view.mode = '3d'; renderStage(); } else api.refresh(); renderInfo(); },
     dispose() { disposed = true; destroy3D(); },
   };
+  return api;
+}
+
+// ---------------------------------------------------------------------------
+// Outfits (skins) — 3D only: her drawn portraits keep her main design
+// ---------------------------------------------------------------------------
+
+const choicesCount = (unit) => skinChoices(store.profile, unit.id).length;
+
+/** Outfit sheet: every outfit of the girl with Wear (saved) and Try on (showcase preview). */
+function openOutfits(unit, showcase) {
+  const profile = store.profile;
+  if (!profile.seenIntro.includes(OUTFIT_INTRO)) {
+    profile.seenIntro.push(OUTFIT_INTRO);
+    store.commit('intro');
+    showcase.refresh(); // drop the pill's NEW tag
+  }
+  const owned = !!profile.units[unit.id];
+  let dlg = null;
+  const card = (c) => {
+    const { skin } = c;
+    const thumb = skin.kind === 'default' || !skin.thumb
+      ? svgEl(portraitHTML(unit, 'bust'), 'mb-outfit-art')
+      : h('img.mb-outfit-art', { src: artUrl(skin.thumb), alt: `${unit.name} — ${skin.name}`, loading: 'lazy', draggable: 'false' });
+    const previewing = shownSkinId(unit) === skin.id;
+    // a girl not recruited yet has every outfit locked (her default included)
+    const wearing = c.equipped && c.owned;
+    const state = wearing ? ['Equipped', '.on'] : c.owned ? ['Owned', ''] : ['Locked', '.locked'];
+    return h(`div.mb-outfit-card${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
+      h('div.mb-outfit-thumb', thumb, skin.kind !== 'default' ? h('span.mb-outfit-kind', '3D') : null),
+      h('div.mb-outfit-text',
+        h('div.mb-outfit-name', skin.name),
+        h('div.mb-outfit-desc', skin.kind === 'default' ? `Her main look as the ${skin.desc}.` : skin.desc),
+        h('div.mb-outfit-chips',
+          h(`span.mb-outfit-chip${state[1]}`, state[0] === 'Locked' ? svgEl(uiIcon('lock')) : null, state[0]),
+          c.how.short && skin.kind !== 'default' ? h('span.mb-outfit-how', { title: c.how.long }, c.how.short) : null),
+        h('div.mb-outfit-btns',
+          button(previewing && !c.equipped ? 'Trying on' : 'Try on', {
+            kind: 'ghost', small: true, testid: `outfit-try-${skin.id}`, disabled: previewing && view.mode === '3d',
+            onClick: () => {
+              view.skin = c.equipped ? null : skin.id;
+              dlg?.close();
+              showcase.show3D();
+            },
+          }),
+          button(wearing ? 'Wearing' : 'Wear', {
+            kind: 'yellow', small: true, testid: `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
+            onClick: () => {
+              const res = setSkin(store.profile, unit.id, skin.id);
+              if (!res.ok) {
+                toast(res.error === 'unitNotOwned' ? `Recruit ${unit.name} first.` : 'This outfit is locked.', 'bad');
+                return;
+              }
+              view.skin = null;
+              store.commit('skin');
+              dlg?.close();
+              toast(`${unit.name} now wears ${skin.name}.`, 'good');
+              showcase.show3D();
+            },
+          }))));
+  };
+  const choices = skinChoices(profile, unit.id);
+  dlg = modal({
+    title: `Outfits · ${unit.name}`,
+    wide: true,
+    cls: 'mb-outfit-modal',
+    body: h('div.mb-outfit-body',
+      h('div.mb-outfit-grid', choices.map(card)),
+      h('p.mb-outfit-note.muted', owned
+        ? 'Outfits dress her 3D chibi in battle and here; her drawn portraits keep her main look.'
+        : `Recruit ${unit.name} to wear her outfits — you can still try them on.`)),
+    actions: [{ label: 'Close', kind: 'ghost', testid: 'outfit-close' }],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -365,6 +473,7 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
           h('div.mb-role-name', role?.name || unit.role, cat ? h('span.mb-cat', { style: { background: cat.color } }, cat.name) : null),
           h('div.mb-subclass', unitSubclassLabel(unit, { maxCaps: 3 })))),
       h('p.mb-role-desc', ROLE_SUBCLASS[unit.role]?.desc || role?.desc || ''),
+      codexLine(unit),
       h('div.mb-good-bad',
         h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
         h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || ''))),
@@ -397,6 +506,16 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
     // her own page: the Raise Potential row (docs/specs/ASCENSION.md §D.2); a friend's card: view only
     potentialSection(unit, st, { profile: label === 'yours' ? profile : null }),
   );
+}
+
+/** The girl's old Codex kit (ROSTER_SPEC §4.4b): her trait line and the three upgrade names her paths carry. */
+function codexLine(unit) {
+  const k = legacyKit(unit.id);
+  if (!k) return null;
+  return h('div.mb-codex', { 'data-testid': 'codex-kit' },
+    h('span.mb-codex-tag', 'Codex kit'),
+    h('span.mb-codex-trait', k.trait),
+    k.upgrades.length ? h('span.mb-codex-ups', k.upgrades.join(' · ')) : null);
 }
 
 function heroSection(unit) {
@@ -779,6 +898,9 @@ export function treeTab(unit) {
 export function render(root, params = {}) {
   const unit = UNIT_MAP[params.id] || UNIT_MAP[store.profile.secretary] || UNITS[0];
   let tab = TABS.some((t) => t.id === params.tab) ? params.tab : 'info';
+  // a try-on never outlives the page; ?skin=<id> deep-links one (3D view)
+  view.skin = params.skin && SKIN_MAP[params.skin]?.unitId === unit.id ? params.skin : null;
+  if (view.skin) view.mode = '3d';
   const { el, body } = screen(unit.name);
   el.classList.add('mb-screen', 'mb-student-screen');
   root.appendChild(el);
@@ -858,6 +980,8 @@ export function render(root, params = {}) {
   renderTabs();
   renderTab(true);
   if (params.focus === 'potential' && tab === 'info') focusPotential();
-  const off = store.on('change', (e) => { if (e?.reason === 'replace') { showcase.refresh(); renderTab(false); } });
+  const off = store.on('change', (e) => {
+    if (e?.reason === 'replace') { showcase.refresh(); renderTab(false); } else if (e?.reason === 'skin') showcase.refresh();
+  });
   return () => { off(); showcase.dispose(); };
 }

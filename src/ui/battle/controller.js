@@ -45,6 +45,7 @@ import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
+import { createAimControl } from './aimControl.js';
 import { sampleDroneRates } from './chikaPanel.js';
 import { createRateMeter } from './util.js';
 import { createModesBattle } from './modes.js';
@@ -58,6 +59,7 @@ import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { eventNow } from '../events/clock.js'; // [events]
+import { formationSkins } from '../../systems/skins.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -266,7 +268,8 @@ export function mountBattle(root, params, hooks) {
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
     const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
-    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
+    ctx.skins = formationSkins(profile, ids);
+    await settle(Promise.all([preloadModels(ids, { detail, skins: ctx.skins }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
     build();
     loading.classList.add('out');
@@ -341,7 +344,7 @@ export function mountBattle(root, params, hooks) {
     try {
       // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
       renderer = createBattleRenderer(stageEl, sim, {
-        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId,
+        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId, skins: ctx.skins,
         // how far between two sim steps this frame is (drones are drawn between their positions)
         renderAlpha: () => (ls ? Math.min(1, ls.acc) : Math.min(1, sim._acc / STEP)),
       });
@@ -392,6 +395,8 @@ export function mountBattle(root, params, hooks) {
       sell: (uid) => progress(sim.sellTower(uid)),
       target: (uid, mode) => progress(sim.setTargetMode(uid, mode)),
       fly: (uid, mode, a, b) => progress(sim.setFlight(uid, mode, a?.[0], a?.[1], b?.[0], b?.[1])),
+      // an aim point (x, y), or null to go back to automatic aim
+      aim: (uid, x, y) => progress(x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y)),
       pick: (uid, target) => {
         const r = sim.setBuffPick(uid, target);
         if (r?.ok) saver?.markProgress();
@@ -400,6 +405,9 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
+    // aim mode (roster B3): a mortar / mirror girl's or Seiran's aim point, one board tap
+    ctx.aim = createAimControl(ctx);
+    modules.push(ctx.aim);
 
     // ---- pick mode: choose who Midori brews / Chika tunes up first (spec §4.4) ------------
     ctx.picking = null;
@@ -622,7 +630,7 @@ export function mountBattle(root, params, hooks) {
         else if (tapped === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
         return;
       }
-      if (ctx.flight.handleTap(p) || placement.handleTap(p)) return;
+      if (ctx.aim.handleTap(p) || ctx.flight.handleTap(p) || placement.handleTap(p)) return;
       ctx.select(tapped, { drone: drone ? p.droneUid : null });
     }));
     const onCanvasMove = (e) => {
@@ -635,6 +643,7 @@ export function mountBattle(root, params, hooks) {
       if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
         if (ctx.picking != null) ctx.cancelPick();
+        else if (ctx.aim.active) ctx.aim.cancel();
         else if (ctx.flight.active) ctx.flight.cancel();
         else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
@@ -1136,6 +1145,9 @@ export function mountBattle(root, params, hooks) {
     navigate('coop', session.isHost ? { id: session.code, host: '1' } : { id: session.code });
   }
 
+  /** The co-op `aim` command's arguments: a world point in 1/1024 tiles, or null (automatic aim). */
+  const aimArgs = (uid, x, y) => (x == null || y == null ? [uid, null] : [uid, Math.round(x * 1024), Math.round(y * 1024)]);
+
   function coopActions() {
     const mine = (uid) => {
       if (ls.coop.ownerOf(uid) === ls.mySlot) return true;
@@ -1172,6 +1184,11 @@ export function mountBattle(root, params, hooks) {
       fly(uid, mode, a, b) {
         if (ls.job || !mine(uid)) return false;
         ls.queue('fly', flyArgs(uid, mode, a, b));
+        return true;
+      },
+      aim(uid, x, y) {
+        if (ls.job || !mine(uid)) return false;
+        ls.queue('aim', aimArgs(uid, x, y));
         return true;
       },
       pick(uid, target) {

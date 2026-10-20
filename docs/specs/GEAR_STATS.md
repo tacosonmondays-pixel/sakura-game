@@ -356,6 +356,10 @@ stream" is a situation and gets no fill-in). The card can therefore show the res
 | Miko (aura girl) | ATK, Attack Speed, Crit Rate, Crit DMG, Armor Pierce, Pierce (+ Purification), Skill Haste (Shrine Chorus is not hasted) | aura (M1) | her own shots deal 2 damage; the partner's DPS was identical under every gear variant (RS §1.7 note) |
 | Umeko (aura girl) | ATK, Crit Rate, Crit DMG, Armor Pierce, Pierce, Skill Haste (Lantern Flare is not hasted); Aura Power until ★3 (+ Plum Rain, Lighthouse T4) | aura (M1) | her own 1-damage pulse is not her job (RS §1.7 note); base aura is detection only (`units.js:837`) |
 
+| Kanna, Yoriko, Seiran (returning staff heroes) | Aura Power (+ her level-track aura) | ATK | no aura on the base kit (`src/data/unitsExpansion.js`); Yoriko's stage aura comes from her level track |
+| Fuu, Hana, Ruri, Iroha, Ena (returning students) | Skill Haste (+ ⚡ at half from M2), Aura Power | ATK | no ult reader; no aura on the base kit |
+| Noa (returning student) | Skill Haste (+ ⚡ at half from M2) | ATK | her base sanctuary aura has +8 % damage (`unitsExpansion.js`), so Aura Power is real |
+
 New girls (train D) each declare their `GEAR_FIT` row; a data test fails if a playable girl has no row.
 
 ### B.3 The two reach rules (M1, sim)

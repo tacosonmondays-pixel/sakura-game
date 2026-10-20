@@ -82,6 +82,18 @@ export const GEAR_FIT = Object.freeze({
   hotaru: { fill: ['ultHaste', 'auraPct'], until: { auraPct: { potential: 2 } } },
   miko: { fillTo: 'aura', fill: ['atkPct', 'ratePct', 'critChance', 'critDmg', 'armorPen', 'piercePct', 'ultHaste'] },
   umeko: { fillTo: 'aura', fill: ['atkPct', 'critChance', 'critDmg', 'armorPen', 'piercePct', 'ultHaste', 'auraPct'], until: { auraPct: { awaken: 3 } } },
+  // the returning girls (roster wave, src/data/unitsExpansion.js): the three staff heroes as Hikari and Nami (no
+  // aura on the base kit; Yoriko's stage aura is on her level track), the students as the live towers (no ult
+  // reader, no base aura), except Noa, whose sanctuary carries +8 % damage, so her Aura Power is real
+  kanna: { fill: ['auraPct'] },
+  yoriko: { fill: ['auraPct'] },
+  seiran: { fill: ['auraPct'] },
+  fuu: { fill: DEAD_TOWER },
+  hana: { fill: DEAD_TOWER },
+  ruri: { fill: DEAD_TOWER },
+  noa: { fill: ['ultHaste'] },
+  iroha: { fill: DEAD_TOWER },
+  ena: { fill: DEAD_TOWER },
 });
 
 /**

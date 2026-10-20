@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
 } from '../../src/systems/save.js';
+import { SKIN_MAP } from '../../src/data/skins.js';
+import { setSkin, equippedSkinId } from '../../src/systems/skins.js';
 import { addGear, equipGear, rollGear, enhanceGear, awakenGear, stitchSub, openRainbowBox, RAINBOW_BOX_ID } from '../../src/systems/gear.js';
 import { writeGearMarks } from '../../src/systems/gearMarks.js';
 import { createRng } from '../../src/core/rng.js';
@@ -246,8 +248,8 @@ describe('achievements: old-build safety', () => {
   it('no new top-level key, no SAVE_VERSION bump, seenIntro "ach2" round-trips', () => {
     expect(SAVE_VERSION).toBe(2);
     // the achievements add no key; the only additive blocks are 'sensei' (the Sensei Profile, docs/specs/PROFILE.md §2)
-    // and 'social' (v0.1.29's friends/messages/block list, already live), and 'events' (limited events, EVENT_SPEC §3.5)
-    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events']);
+    // and 'social' (v0.1.29's friends/messages/block list, already live), 'events' (limited events, EVENT_SPEC §3.5), plus 'skins' (shop/event outfits owned; empty today)
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events', 'skins']);
     const p = createProfile();
     p.seenIntro.push('ach2');
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');
@@ -516,5 +518,112 @@ describe('one save with UR gear and Ascension together (the merged migrateProfil
       // and another v3 trip after it changes nothing either
       expect(JSON.parse(JSON.stringify(migrateProfile(potentialV3Build(back)))).units.aoi).toEqual(back.units.aoi);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Outfits (units[id].skin, profile.skins): additive v2 fields — docs/merge/ROSTER_WAVE_NOTES.md
+// ---------------------------------------------------------------------------
+
+/** A save as the build before outfits wrote it (no outfit fields). */
+function v2Save() {
+  const p = JSON.parse(JSON.stringify(createProfile()));
+  p.version = 2;
+  delete p.skins;
+  for (const u of Object.values(p.units)) delete u.skin;
+  p.units.yuki = { level: 12, exp: 3, breakthrough: 1, awaken: 1, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: 5, favorite: true };
+  p.stats.battles = 9;
+  return p;
+}
+
+describe('save outfits (additive, no version bump)', () => {
+  it('stays version 2 and new profiles start with no stored outfits', () => {
+    expect(SAVE_VERSION).toBe(2);
+    const p = createProfile();
+    expect(p.skins).toEqual([]);
+    for (const u of Object.values(p.units)) expect(u.skin).toBeNull();
+  });
+
+  it('a save from before outfits loads with outfits defaulted and nothing else lost', () => {
+    const raw = v2Save();
+    expect(migrationDropsData(raw)).toBe(false);
+    const r = loadSaveText(JSON.stringify(raw));
+    expect(r.backup).toBeNull();
+    expect(r.version).toBe(2);
+    const p = r.profile;
+    expect(p.version).toBe(2);
+    expect(p.skins).toEqual([]);
+    for (const [id, u] of Object.entries(p.units)) {
+      expect(u.skin, id).toBeNull();
+      expect(equippedSkinId(p, id)).toBe(`${id}_default`);
+    }
+    expect(p.units.yuki).toMatchObject({ level: 12, breakthrough: 1, awaken: 1, favorite: true });
+    expect(p.stats.battles).toBe(9);
+  });
+
+  it('a save keeps an equipped Sentinel Style through save, load and save codes', () => {
+    const p = createProfile();
+    expect(setSkin(p, 'aoi', 'aoi_sentinel').ok).toBe(true);
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBeNull();
+    expect(r.profile.units.aoi.skin).toBe('aoi_sentinel');
+    expect(r.profile.units.rei.skin).toBeNull();
+    const back = deserializeProfile(serializeProfile(r.profile));
+    expect(back.units.aoi.skin).toBe('aoi_sentinel');
+    expect(back).toEqual(r.profile);
+  });
+
+  it('the default row is stored as null; another girl\'s or a withUnit id in skins is dropped quietly', () => {
+    const p = createProfile();
+    p.units.aoi.skin = 'aoi_default';
+    p.units.rei.skin = 'aoi_sentinel'; // another girl's outfit
+    p.units.hikari.skin = 42;
+    p.skins = ['aoi_sentinel', 'aoi_default', 7, 'aoi_sentinel'];
+    expect(migrationDropsData(p)).toBe(false); // all known ids: nothing the player owned is lost
+    const m = migrateProfile(JSON.parse(JSON.stringify(p)));
+    expect(m.units.aoi.skin).toBeNull();
+    expect(m.units.rei.skin).toBeNull();
+    expect(m.units.hikari.skin).toBeNull();
+    expect(m.skins).toEqual([]); // with-unit/default outfits are never stored
+  });
+
+  it('unknown outfit ids are cleared and count as lossy (backup kept)', () => {
+    const p = createProfile();
+    p.units.aoi.skin = 'aoi_summer2027';
+    expect(migrationDropsData(p)).toBe(true);
+    const r = loadSaveText(JSON.stringify(p));
+    expect(r.backup).toBe('lossy');
+    expect(r.profile.units.aoi.skin).toBeNull();
+
+    const q = createProfile();
+    q.skins = ['hikari_gala'];
+    expect(migrationDropsData(q)).toBe(true);
+    expect(migrateProfile(q).skins).toEqual([]);
+  });
+
+  it('keeps owned shop outfits and unequips ones the player does not own', () => {
+    const SHOP = { id: 'aoi_testshop', unitId: 'aoi', name: 'Test', desc: '', kind: 'shop', asset: 'sentinel-aoi', acquisition: { type: 'shop' }, order: 20 };
+    SKIN_MAP[SHOP.id] = SHOP;
+    try {
+      const p = createProfile();
+      p.units.aoi.skin = SHOP.id; // equipped but not owned
+      expect(migrateProfile(JSON.parse(JSON.stringify(p))).units.aoi.skin).toBeNull();
+      p.skins = [SHOP.id, SHOP.id];
+      const m = migrateProfile(JSON.parse(JSON.stringify(p)));
+      expect(m.skins).toEqual([SHOP.id]);
+      expect(m.units.aoi.skin).toBe(SHOP.id);
+    } finally {
+      delete SKIN_MAP[SHOP.id];
+    }
+  });
+
+  it('is idempotent with outfits', () => {
+    const p = createProfile();
+    setSkin(p, 'aoi', 'aoi_sentinel');
+    setSkin(p, 'hikari', 'hikari_sentinel');
+    const once = migrateProfile(JSON.parse(JSON.stringify(p)));
+    const twice = migrateProfile(JSON.parse(JSON.stringify(once)));
+    expect(twice).toEqual(once);
+    expect(once.units.hikari.skin).toBe('hikari_sentinel');
   });
 });

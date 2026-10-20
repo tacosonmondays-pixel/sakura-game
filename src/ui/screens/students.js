@@ -9,6 +9,7 @@ import { ROLES, ROLE_CATEGORIES, ATTACK_TYPES, UNIT_RARITIES } from '../../data/
 import { UNITS } from '../../data/units.js';
 import { unitPower } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
+import { hasOutfitOn, equippedSkin } from '../../systems/skins.js';
 import { roleIcon, attackTypeIcon, uiIcon } from '../../art/icons.js';
 import { howToGet, cssVars, put } from './backpack.js';
 import { displayRarity, rarityColor, DISPLAY_RARITY_RANK } from '../rarity.js';
@@ -77,7 +78,8 @@ function studentCard(u, profile) {
     h('div.mb-card-badges',
       svgEl(roleIcon(u.role), 'mb-card-badge'),
       svgEl(attackTypeIcon(u.attackType), 'mb-card-badge'),
-      u.placement !== 'land' ? h('span.mb-card-water', svgEl(uiIcon('water'))) : null),
+      u.placement !== 'land' ? h('span.mb-card-water', svgEl(uiIcon('water'))) : null,
+      st && hasOutfitOn(profile, u.id) ? h('span.mb-card-outfit', { title: `Wearing ${equippedSkin(profile, u.id).name}` }, svgEl(uiIcon('hanger'))) : null),
     u.kind === 'hero' ? h('div.mb-card-hero', 'HERO') : null,
     how ? h('div.mb-card-how', how.short) : null,
     st ? h('div.mb-card-role', ROLES[u.role]?.name) : null,

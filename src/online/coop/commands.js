@@ -34,7 +34,7 @@ import { withDetMath } from './detMath.js';
  * pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
  * target may be an ally's girl (Sim.setBuffPick).
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -259,6 +259,20 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           else if (!Number.isInteger(a[1])) res = { ok: false, reason: 'invalid' };
           else res = sim.setBuffPick(a[0], a[1]);
           break;
+        // ---- aim[uid, qx, qy] / aim[uid, null] (roster B3, track 5; GAPS P-2) ----------------
+        // An aim point for a girl of this player that has one (a mortar's centre, a mirror's spot,
+        // an aimed hero ult): whole 1/1024 tiles, like `place`; [uid, null] clears it (automatic
+        // aim). The Sim quantises, clamps into the map (a mirror into her reach) and refuses girls
+        // without an aim mode. Owner only, like tgt.
+        case 'aim': {
+          const [uid, qx, qy] = a;
+          if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else if (qx === null && a.length <= 2) res = { ok: sim.clearAim(uid) };
+          else if (!Number.isInteger(qx) || !Number.isInteger(qy)) res = { ok: false, reason: 'invalid' };
+          else res = { ok: sim.setAim(uid, qx / Q, qy / Q) };
+          break;
+        }
+        // ---- end aim ------------------------------------------------------------------------
         default:
           break;
       }

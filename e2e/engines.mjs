@@ -244,6 +244,19 @@ for (const { name, r } of results) {
   if (d.refused) failures.push(`${name}: fly command(s) refused: ${d.refused}`);
   for (const k of DR_KEYS) if (d[k] !== ref.drones[k]) failures.push(`${name}: drones ${k} ${d[k]} ≠ ${ref.drones[k]} (${results[0].name})`);
 }
+// the returning girls (roster B3): the same battle everywhere (ROSTER_START)
+const RO_KEYS = ['ticks', 'state', 'wave', 'towers', 'damage', 'aims', 'ults', 'curseBursts', 'runners', 'relays', 'lives', 'wallets', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op RETURNING GIRLS battle (8-1 Easy: mirror + Seiran aims, sky dragon, curses, gather, hexing tide):');
+for (const { name, r } of results) {
+  const d = r.roster;
+  log(`  ${name.padEnd(46)} ticks ${d.ticks} · ${d.state} · wave ${d.wave} · ${d.towers} girls · dmg ${d.damage} · ${d.aims} aims · ${d.runners} dragons · ${d.curseBursts} curse bursts · ${d.relays} relay moves · ${d.checkpoints} hash checkpoints → ${d.hashes} · checkpoint w${d.ckWave} ${d.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${d.ms} ms`);
+  if (!d.agree) failures.push(`${name}: its own two roster-battle clients disagreed`);
+  if (!d.ckSame) failures.push(`${name}: the roster battle's wave-${d.ckWave} checkpoint did not replay to the run`);
+  for (const k of RO_KEYS) if (d[k] !== ref.roster[k]) failures.push(`${name}: roster ${k} ${d[k]} ≠ ${ref.roster[k]} (${results[0].name})`);
+}
+if (ref.roster.towers < 8) failures.push(`the roster battle placed only ${ref.roster.towers} girls`);
+if (ref.roster.runners < 1) failures.push('the roster battle never flew the sky dragon');
+if (ref.roster.curseBursts < 5) failures.push(`the roster battle burst only ${ref.roster.curseBursts} curses`);
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
@@ -260,4 +273,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battle, the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

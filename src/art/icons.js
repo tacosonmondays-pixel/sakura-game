@@ -162,7 +162,7 @@ const CAP_COLORS = {
   detection: '#7048e8', antiAir: '#4aa3df', armorPen: '#5c6b7a', armorShred: '#e8590c', barrierBreak: '#1c9fd6',
   slow: '#3bc9db', stun: '#fab005', silence: '#9c36b5', antiHeal: '#c2255c', reveal: '#f08c00', buff: '#2bb673',
   income: '#e0a800', cleanse: '#20c997', summon: '#868e96', trap: '#a0522d', water: '#228be6', multiHit: '#f03e3e',
-  priority: '#d6336c',
+  priority: '#d6336c', grounding: '#3d8bd4',
 };
 
 /** Capability badge (rounded square). */
@@ -180,6 +180,7 @@ export function elementIcon(element) {
 const STATUS_COLORS = {
   slow: '#3bc9db', freeze: '#74c0fc', stun: '#fab005', burn: '#ff6b35', poison: '#51cf66', shock: '#f2c200',
   soak: '#339af0', shred: '#e8590c', mark: '#f03e3e', vulnerable: '#7950f2', silence: '#9c36b5', reveal: '#f08c00',
+  ground: '#3d8bd4', curse: '#a61e4d',
 };
 const STATUS_GLYPH = { slow: 'hourglass', stun: 'stun', silence: 'silence', reveal: 'reveal' };
 
@@ -232,7 +233,7 @@ export const UI_ICON_NAMES = [
   'back', 'home', 'settings', 'lock', 'star', 'heart', 'coin', 'play', 'pause', 'ff', 'ff2', 'ff3', 'sell', 'target',
   'teleport', 'upgrade', 'info', 'close', 'check', 'plus', 'minus', 'refresh', 'dice', 'backpack', 'wiki',
   'bestiary', 'gacha', 'formation', 'students', 'mission', 'bounty', 'assault', 'challenge', 'mall',
-  'gift', 'calendar', 'trophy', 'map', 'sword', 'shield', 'eye', 'water', 'sparkle', 'filter', 'sort',
+  'gift', 'calendar', 'trophy', 'map', 'sword', 'shield', 'eye', 'water', 'sparkle', 'filter', 'sort', 'hanger',
 ];
 
 /** Monochrome UI icon (24×24, currentColor). Unknown names fall back to a neutral dot. */

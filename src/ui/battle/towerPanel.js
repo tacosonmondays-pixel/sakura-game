@@ -21,6 +21,7 @@ import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / All
 import { tierTags } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
+import { aimMode } from '../../sim/towers.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
 
 /** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
@@ -33,6 +34,7 @@ const MODE_HELP = {
   strong: 'Highest HP',
   close: 'Nearest to her',
   elite: 'Casters, siphoners, elites, bosses first',
+  air: 'Flyers first, then the leader',
 };
 
 function statusLabel(s) {
@@ -89,7 +91,7 @@ export function createTowerPanel(ctx) {
       return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
     }).join(',');
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field) */
@@ -165,12 +167,27 @@ export function createTowerPanel(ctx) {
       target = h(
         'div.bt-target',
         h('span.bt-section-label', icon('target', 'bt-ico-sm'), 'Target'),
-        h('div.bt-seg', Object.entries(TARGET_MODES).map(([k, name]) => h(
+        // (Air only for a girl who can hit flyers)
+        h('div.bt-seg', Object.entries(TARGET_MODES).filter(([k]) => k !== 'air' || st.canHitAir).map(([k, name]) => h(
           `button.bt-seg-btn${t.targetMode === k ? '.on' : ''}`,
           { 'data-mode': k, title: MODE_HELP[k], onclick: () => { (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k)); sig = ''; update(true); } },
           name,
         ))),
       );
+    }
+
+    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    const am = aimMode(t);
+    if (am) {
+      const aiming = ctx.aim?.uid === t.uid;
+      const aimRow = h(
+        'div.bt-target.bt-aim',
+        h('span.bt-section-label', icon('target', 'bt-ico-sm'), am === 'mirror' ? 'Mirror' : 'Aim'),
+        h('div.bt-seg',
+          h(`button.bt-seg-btn${!t.aim && !aiming ? '.on' : ''}`, { 'data-testid': 'aim-auto', title: 'She picks the spot herself', onclick: () => { ctx.aim?.clear(t.uid); sig = ''; update(true); } }, 'Auto'),
+          h(`button.bt-seg-btn${t.aim || aiming ? '.on' : ''}`, { 'data-testid': 'aim-set', title: 'Tap the map to aim', onclick: () => { ctx.aim?.start(t.uid); sig = ''; update(true); } }, aiming ? 'Tap map…' : t.aim ? 'Re-aim' : 'Set aim')),
+      );
+      target = target ? h('div', target, aimRow) : aimRow;
     }
 
     // ---- stats

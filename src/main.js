@@ -7,6 +7,7 @@ import { ensureBetaGift, ensurePotentialLetter, ensureEssenceLetter } from './sy
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
+import { formationSkins } from './systems/skins.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -169,9 +170,9 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
   const p = store.profile || {};
   const f = p.formation || {};
   const detail = m.detailFor(p.settings?.quality || 'high');
-  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full' });
+  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full', skins: formationSkins(p, [p.secretary]) });
   const ids = [f.hero, ...(f.towers || [])].filter(Boolean);
-  if (ids.length) await m.preloadModels(ids, { detail });
+  if (ids.length) await m.preloadModels(ids, { detail, skins: formationSkins(p, ids) });
   else await m.preloadModels([], { detail });
 }).catch((e) => console.warn('[main] model preload failed', e));
 if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });

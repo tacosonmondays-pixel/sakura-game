@@ -22,9 +22,14 @@ import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
 import { newSocial, cleanSocial } from '../online/socialSave.js';
 import { newEvents, cleanEvents } from './events.js';
+import { SKIN_MAP } from '../data/skins.js';
+import { ownsSkin, isStoredSkin } from './skins.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
-/** v1 = pre-release stub profile, v2 = full systems profile. */
+/**
+ * v1 = pre-release stub profile, v2 = full systems profile. Outfits (units[id].skin, skins) are
+ * additive v2 fields (roster merge, ROSTER_WAVE_NOTES.md): an older build simply drops them.
+ */
 export const SAVE_VERSION = 2;
 /**
  * Where store.js keeps safety copies of stored saves it could not load as they were: a JSON
@@ -68,7 +73,7 @@ const BUFF_ICON_MODES = ['all', 'selected', 'off'];
  * her bought Potential (src/systems/essence.js).
  */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1 };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1, skin: null };
 }
 
 function emptyMissions() {
@@ -140,6 +145,7 @@ export function createProfile() {
     social: newSocial(),
     // [events] limited events: currency lives in items, this block keeps progress (src/systems/events.js)
     events: newEvents(),
+    skins: [],
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
@@ -185,7 +191,16 @@ function cleanNumberMap(obj) {
   return out;
 }
 
-function cleanUnit(raw, now) {
+/**
+ * Outfits (v3). With a unitId: that girl's equipped skin id, kept only when it is one of her
+ * non-default outfits (her default is stored as null). Without: the shop/event outfits owned.
+ */
+function cleanSkins(raw, unitId = null) {
+  if (unitId) return typeof raw === 'string' && SKIN_MAP[raw]?.unitId === unitId && SKIN_MAP[raw].kind !== 'default' ? raw : null;
+  return strList(raw).filter((id) => isStoredSkin(id));
+}
+
+function cleanUnit(raw, now, unitId) {
   const base = newUnitState(now);
   if (!isObj(raw)) return base;
   // gates 6–10 (ASCENSION.md §B) are kept here even before this build can break them
@@ -207,6 +222,7 @@ function cleanUnit(raw, now) {
     dupes: 'dupes' in raw ? int(raw.dupes, 0, 0, 1e6) : null,
     // bought Potential (ASCENSION.md §A.1); absent = not bought yet (an older build drops it: 'pl:' brings it back)
     ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
+    skin: cleanSkins(raw.skin, unitId),
   };
 }
 
@@ -389,7 +405,7 @@ export function migrateProfile(raw) {
 
   // Units (only known ids). Starters are always owned.
   p.units = {};
-  if (isObj(raw.units)) for (const [id, u] of Object.entries(raw.units)) if (UNIT_MAP[id]) p.units[id] = cleanUnit(u, now);
+  if (isObj(raw.units)) for (const [id, u] of Object.entries(raw.units)) if (UNIT_MAP[id]) p.units[id] = cleanUnit(u, now, id);
   for (const id of STARTER_UNITS) if (!p.units[id]) p.units[id] = newUnitState(now);
 
   // Gear + equip consistency.
@@ -542,6 +558,8 @@ export function migrateProfile(raw) {
   // [events] limited events (EVENT_SPEC §3.5): additive; the counters' shadows keep settles final,
   // stock limits and one-time claims, and the Mailbox's delivered list keeps the login gifts sent
   p.events = cleanEvents(raw.events, p.missions.counters, p.mail);
+  p.skins = cleanSkins(raw.skins);
+  for (const u of Object.values(p.units)) if (u.skin && !ownsSkin(p, u.skin)) u.skin = null;
   p.version = SAVE_VERSION;
   return p;
 }
@@ -575,6 +593,7 @@ export function migrationDropsData(raw) {
   if (isStubSave(raw, int(raw.version, 0, 0))) return Object.keys(raw).some((k) => k !== 'version');
   if (isObj(raw.units) && Object.keys(raw.units).some((id) => !UNIT_MAP[id])) return true;
   if (isObj(raw.items) && Object.entries(raw.items).some(([id, n]) => !ITEMS[id] && int(n, 0, 0) > 0)) return true;
+  if (strList(raw.skins).some((id) => !SKIN_MAP[id]) || (isObj(raw.units) && Object.values(raw.units).some((u) => isObj(u) && typeof u.skin === 'string' && !SKIN_MAP[u.skin]))) return true;
   return isObj(raw.gear) && Object.entries(raw.gear).some(([uid, g]) => !cleanGear(g, uid));
 }
 
