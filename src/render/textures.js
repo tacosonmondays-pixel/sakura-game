@@ -859,6 +859,8 @@ const GROUND_STYLES = {
   snow: { mottle: 0.22, patch: 0.7, cloverScale: 0.45, cloverAmt: 0.55, flowers: 0.15, wet: 0 },
   ash: { mottle: 0.3, patch: 1.0, cloverScale: 0.5, cloverAmt: 0.5, flowers: 0.1, wet: 0, cracks: 1 },
   metal: { mottle: 0.2, patch: 1.2, cloverScale: 0.7, cloverAmt: 0.45, flowers: 0.05, wet: 0.3, plates: 1 },
+  // modern city (prototype): pale paving slabs, no worn dirt or pebbles beside the road
+  paving: { mottle: 0.18, patch: 1.0, patchAmt: 0.3, cloverScale: 0.5, cloverAmt: 0, flowers: 0, wet: 0, slabs: 1, urban: 1 },
 };
 
 /**
@@ -878,6 +880,7 @@ const GROUND_STYLES = {
  * @param {number[][][]} o.roads road centrelines in world coords, [[x, z], ...] per road
  * @param {number} [o.px=32] pixels per tile
  * @param {number} [o.seed=1]
+ * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number, rnd: Function) => void} [o.extra] painter run last
  * @returns {{ texture: THREE.CanvasTexture, canvas: HTMLCanvasElement }}
  */
 export function paintGround(o) {
@@ -914,8 +917,9 @@ export function paintGround(o) {
       const n2 = noise.fbm(wx * style.patch + 50, wz * style.patch + 50, 2);
       const n3 = noise.at(wx * 5.3 + 11, wz * 5.3 + 7);
       let col = mix3(cA, cB, n1);
-      col = mix3(col, cLight, Math.max(0, n2 - 0.52) * 1.5);
-      col = mix3(col, cShade, Math.max(0, 0.46 - n2) * 1.4);
+      const pk = style.patchAmt ?? 1;
+      col = mix3(col, cLight, Math.max(0, n2 - 0.52) * 1.5 * pk);
+      col = mix3(col, cShade, Math.max(0, 0.46 - n2) * 1.4 * pk);
       const grain = 0.95 + n3 * 0.1;
       col = [col[0] * grain, col[1] * grain, col[2] * grain];
       if (style.cloverAmt > 0) {
@@ -934,6 +938,15 @@ export function paintGround(o) {
         const heat = noise.at(wx * 0.5 + 900, wz * 0.5 + 900);
         col = mix3(col, heat > 0.5 ? cCrackHot : cCrack, glow * 0.95);
         col = mix3(col, cShade, smooth(0.12, 0.04, d) * 0.5 * (1 - glow));
+      }
+      if (style.slabs) {
+        // paving slabs: a faint seam grid every half tile, a brighter slab here and there
+        const gx = Math.abs(((wx * 2 + 1) % 2) - 1);
+        const gz = Math.abs(((wz * 2 + 1) % 2) - 1);
+        const seam = 1 - smooth(0.0, 0.07, Math.min(gx, gz));
+        col = mix3(col, cShade, seam * 0.45);
+        const slab = noise.at(Math.floor(wx * 2) * 3.1 + 900, Math.floor(wz * 2) * 3.1 + 900);
+        col = mix3(col, cLight, smooth(0.7, 0.85, slab) * 0.5);
       }
       if (style.plates) {
         // concrete slabs: a faint seam grid every 2 tiles with rust bleeding along it
@@ -1001,11 +1014,13 @@ export function paintGround(o) {
         wg.stroke();
       }
     };
-    stroke(px * 2.3, look.dirt || '#b89a6a', 0.55);
-    g.drawImage(blurCanvas(wear, px * 0.5), 0, 0);
-    wg.clearRect(0, 0, W, H);
-    stroke(px * 1.55, look.dirt || '#b89a6a', 0.5);
-    g.drawImage(blurCanvas(wear, px * 0.18), 0, 0);
+    if (!style.urban) {
+      stroke(px * 2.3, look.dirt || '#b89a6a', 0.55);
+      g.drawImage(blurCanvas(wear, px * 0.5), 0, 0);
+      wg.clearRect(0, 0, W, H);
+      stroke(px * 1.55, look.dirt || '#b89a6a', 0.5);
+      g.drawImage(blurCanvas(wear, px * 0.18), 0, 0);
+    }
     // slab base (the ribbon mesh bevels down onto this)
     g.lineCap = 'round';
     g.lineJoin = 'round';
@@ -1023,7 +1038,7 @@ export function paintGround(o) {
     // pebbles along both edges
     const pebble = look.pebble || '#b8b0a4';
     const pebbleDark = darken(pebble, 0.78);
-    for (const road of roads) {
+    for (const road of style.urban ? [] : roads) {
       let acc = 0;
       for (let i = 1; i < road.length; i++) {
         const [ax, az] = road[i - 1];
@@ -1157,6 +1172,9 @@ export function paintGround(o) {
     }
   }
 
+  // --- 5. theme painter on top (city kit: lawns, plazas, sports field; src/render/city/) --
+  if (o.extra) o.extra(g, toPx, px, rnd);
+
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -1206,7 +1224,7 @@ export function detailTexture(style = 'grass', seed = 7) {
     const x = rnd() * size;
     const y = rnd() * size;
     const r = 20 + rnd() * 50;
-    const v = rnd() > 0.5 ? 255 : 212;
+    const v = rnd() > 0.5 ? 255 : (style === 'paving' ? 240 : 212);
     wrapDraw(() => {
       const gr = g.createRadialGradient(x, y, 0, x, y, r);
       gr.addColorStop(0, `rgba(${v},${v},${v},0.22)`);
@@ -1362,6 +1380,49 @@ export function pathTexture(style = 'flagstone', seed = 3) {
         wrap(() => stoneShape(cx, cy, size / cols * 0.5, size / rows * 0.46, rnd(), v));
       }
     }
+  } else if (style === 'asphalt' || style === 'asphaltCracked') {
+    // modern city (prototype): the texture carries the colour (the road's vertex colour is
+    // white); values are LINEAR (the road texture has no colour space). u runs along the road
+    // (1 tile per repeat), v across it: white edge lines and a dashed centre line.
+    const war = style === 'asphaltCracked';
+    const base = war ? [118, 114, 124] : [56, 66, 88];
+    g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+    g.fillRect(0, 0, size, size);
+    for (let i = 0; i < 1400; i++) {
+      const k = rnd() > 0.5 ? 1.18 : 0.84;
+      g.fillStyle = `rgba(${Math.round(base[0] * k)},${Math.round(base[1] * k)},${Math.round(base[2] * k)},0.7)`;
+      g.fillRect(rnd() * size, rnd() * size, 2, 2);
+    }
+    const line = war ? 'rgb(176,170,160)' : 'rgb(228,232,240)';
+    g.fillStyle = line;
+    // edge lines (v ≈ 0.07 / 0.93), centre dashes (half the repeat)
+    g.fillRect(0, size * 0.065, size, size * 0.035);
+    g.fillRect(0, size * 0.9, size, size * 0.035);
+    g.fillRect(size * 0.08, size * 0.48, size * 0.42, size * 0.04);
+    if (war) {
+      // scuffed paint + cracks + a pothole patch
+      g.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},0.75)`;
+      for (let i = 0; i < 6; i++) g.fillRect(rnd() * size, size * (rnd() > 0.5 ? 0.06 : 0.89), 10 + rnd() * 30, size * 0.05);
+      g.strokeStyle = 'rgba(28,26,32,0.85)';
+      g.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        let x = rnd() * size;
+        let y = rnd() * size;
+        g.beginPath();
+        g.moveTo(x, y);
+        for (let k = 0; k < 6; k++) {
+          x += (rnd() - 0.3) * 40;
+          y += (rnd() - 0.5) * 40;
+          g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      g.fillStyle = 'rgba(40,36,44,0.6)';
+      g.beginPath();
+      g.ellipse(size * 0.72, size * 0.3, 18, 11, 0.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    return finishTileTex(c);
   } else if (style === 'cobble') {
     g.fillStyle = 'rgb(150,150,150)';
     g.fillRect(0, 0, size, size);

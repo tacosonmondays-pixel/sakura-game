@@ -586,6 +586,10 @@ export function buildTunnels(map, look) {
   const hallTiles = new Set();
   const cWall = new THREE.Color(tl.hall || tl.portal || '#cfc6b8');
   const cRoof = new THREE.Color(tl.roof || '#8a4b3c');
+  // modern city (prototype): a subway — a low station block over the buried road, square portals
+  const subway = tl.style === 'subway';
+  const cStripe = new THREE.Color(tl.stripe || '#ff8fb8');
+  const cGlass = new THREE.Color(tl.glass || '#9fd6f2');
   tracks.forEach((t) => {
     for (const [d0, d1] of t.tunnels || []) {
       // A tunnel under buildings ('H' tiles beside it) becomes ONE composed hall / gatehouse set
@@ -599,7 +603,7 @@ export function buildTunnels(map, look) {
           }
         }
       }
-      if (near.size >= 2) {
+      if (near.size >= 2 && !subway) {
         for (const k of near) hallTiles.add(k);
         const a = d0 + 0.3;
         const b = d1 - 0.3;
@@ -627,9 +631,21 @@ export function buildTunnels(map, look) {
         // ridge finials at both gable ends
         for (const [x, z, dx, dz] of [P[0], P[P.length - 1]]) acc.box(x, 1.22, z, 0.08, 0.08, 0.08, dx, dz, cRoof);
       }
-      const hall = near.size >= 2;
+      const hall = near.size >= 2 && !subway;
+      if (subway) {
+        const m = Math.max(2, Math.round((d1 - d0) / 0.25));
+        for (let k = 1; k <= m; k++) {
+          pointAtDistance(t.points, t.cum, d0 + ((d1 - d0) * (k - 0.5)) / m, tmp);
+          const { x, y, dx, dy } = tmp;
+          const half = (d1 - d0) / m / 2 + 0.01;
+          acc.box(x, 0.25, y, half, 0.25, 0.9, dx, dy, cSide);
+          acc.box(x, 0.515, y, half, 0.015, 0.84, dx, dy, cTop);
+          acc.box(x, 0.535, y, half, 0.012, 0.16, dx, dy, cGlass);
+          acc.box(x, 0.36, y, half, 0.025, 0.905, dx, dy, cStripe);
+        }
+      }
       // mound: arch cross-sections every 0.2 along the buried section (gaps where a road crosses over)
-      const n = hall ? 0 : Math.max(2, Math.round((d1 - d0) / 0.2));
+      const n = hall || subway ? 0 : Math.max(2, Math.round((d1 - d0) / 0.2));
       let prev = null;
       for (let k = 0; k <= n; k++) {
         const d = d0 + ((d1 - d0) * k) / n;
@@ -691,6 +707,23 @@ export function buildTunnels(map, look) {
         portals.push({ x: px, z: pz, dir: [dx, dy], end });
         const nx = -dy;
         const nz = dx;
+        if (subway) {
+          // square mouth: dark opening, white frame, a coloured stripe
+          const w = 0.47;
+          const top = 0.44;
+          const a0 = [px + nx * w, 0.03, pz + nz * w];
+          const a1 = [px - nx * w, 0.03, pz - nz * w];
+          const b1 = [px - nx * w, top, pz - nz * w];
+          const b0 = [px + nx * w, top, pz + nz * w];
+          acc.tri(a0, a1, b1, cDark);
+          acc.tri(a0, b1, b0, cDark);
+          acc.tri(a0, b1, a1, cDark);
+          acc.tri(a0, b0, b1, cDark);
+          for (const s of [-1, 1]) acc.box(px + nx * s * 0.53, 0.25, pz + nz * s * 0.53, 0.06, 0.25, 0.06, dx, dy, cPortal);
+          acc.box(px, 0.48, pz, 0.07, 0.04, 0.6, dx, dy, cPortal);
+          acc.box(px + dx * sgn * 0.005, 0.45, pz + dy * sgn * 0.005, 0.07, 0.012, 0.58, dx, dy, cStripe);
+          continue;
+        }
         const AR = 0.62;
         const steps = 10;
         // dark opening (a half disc facing along the road)

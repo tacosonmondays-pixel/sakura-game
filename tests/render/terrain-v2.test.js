@@ -14,7 +14,7 @@ import { STAGES } from '../../src/data/stages.js';
 import { getEnemy } from '../../src/data/enemies.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
-const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal'];
+const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paving'];
 
 describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', () => {
   const close = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;

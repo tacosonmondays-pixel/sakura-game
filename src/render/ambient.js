@@ -440,6 +440,12 @@ export class AmbientSystem {
     switch (e.kind) {
       case 'smoke':
         e.timer = 0.45;
+        if (this.look.city?.war) {
+          // war-torn city (prototype): heavier, darker columns that climb higher
+          e.timer = 0.24;
+          fx.spawn({ batch: 'bbN', uv: R.smoke, x: e.x + (r() - 0.5) * 0.1, y: e.y, z: e.z, vx: 0.12 + this.gust.value * 0.3, vy: 0.75, drag: 0.12, s0: 0.45, s1: 2.1, life: 4.5, color: r() > 0.5 ? '#a9a1a8' : '#cfc7cc', a0: 0.85, fadeIn: 0.25, rot: r() * TAU, vrot: 0.25 });
+          break;
+        }
         fx.spawn({ batch: 'bbN', uv: R.smoke, x: e.x, y: e.y, z: e.z, vx: 0.15 + this.gust.value * 0.4, vy: 0.45, drag: 0.3, s0: 0.25, s1: 0.9, life: 2.4, color: this.look.night ? '#6a7090' : '#d8d4d0', a0: 0.55, fadeIn: 0.3, rot: r() * TAU, vrot: 0.3 });
         break;
       case 'steam':

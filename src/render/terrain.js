@@ -18,6 +18,8 @@ import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
+import { buildCity } from './city/cityKit.js';
+import { cityGroundPainter } from './city/cityGround.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
@@ -277,6 +279,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const px = quality === 'low' ? 20 : quality === 'medium' ? 26 : 32;
   const painted = paintGround({
     look, x0: X0, y0: Y0, w: EW, h: EH, charAt, isPath, isWater, roads, px, seed: hash(map.id, 'paint') % 100000,
+    // the modern-city kit (prototype) paints lawns, plazas and sports fields on top
+    extra: look.city ? cityGroundPainter(map, look, charAt, isPath) : null,
   });
   disposables.push(painted.texture);
   const groundGeo = new THREE.PlaneGeometry(EW, EH, EW, EH);
@@ -326,7 +330,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   plan.roads.forEach((r, ri) => {
     buildRibbon(road, r.pts, {
       half: ROAD_HALF, bevel: ROAD_BEVEL, h: PATH_H + ri * 0.004, seed: hash(map.id, 'road', ri),
-      elev: r.elev, lift: r.lift, noSide: r.noSide,
+      elev: r.elev, lift: r.lift, noSide: r.noSide, wobble: look.path.crisp ? 0 : 1,
       skip: (i) => r.tunnel[i] || decks.waterSections.has(`${r.index}:${i}`),
       colorTop: (x, z, s) => fade(tmp.copy(cPath).multiplyScalar(0.97 + 0.03 * Math.sin(s * 1.3 + ri)).clone(), x, z),
       colorSide: (x, z, e) => fade(tmp.copy(e > 0.05 ? cBridgeSide : cPathSide).clone(), x, z),
@@ -491,9 +495,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       } else if (c === 'R') {
         let n = 0;
         for (const [dx, dy] of DIRS) if (inMap(x + dx, y + dy) && rows[y + dy][x + dx] === 'R') n++;
-        place(n >= 2 ? 'boulder' : 'rock', cx, 0, cz, r01 * 6.28, 1, h % 5);
+        const rocks = look.rocks || ['rock', 'boulder'];
+        place(n >= 2 ? rocks[1] : rocks[0], cx, 0, cz, r01 * 6.28, 1, h % 5);
         occupied.add(key);
-      } else if (c === 'H' && tunnels.hallTiles.has(key)) {
+      } else if (c === 'H' && (tunnels.hallTiles.has(key) || look.city)) {
+        // (city looks: the city kit draws one building per block of H tiles)
         occupied.add(key);
       } else if (c === 'H') {
         const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
@@ -581,15 +587,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   };
   for (const e of entrances) {
     const gi = gateInfo(e, false);
+    // a big gate (city kit: the ring portal) can stand a little inside the board so the camera
+    // frames all of it; the map keeps the tiles round it blocked
+    const inset = look.spawnGateInset || 0;
+    gi.x += gi.dir[0] * inset;
+    gi.z += gi.dir[1] * inset;
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
-    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : 'spawnGate';
+    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : (look.spawnGate || 'spawnGate');
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
     gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
-    place('goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
+    place(map.city?.goalGate || look.goalGate || 'goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
     gates.push({ kind: 'goal', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.goal });
   }
 
@@ -725,6 +736,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     return out;
   }
 
+  // ----- modern city kit (prototype): buildings, sidewalks, street furniture, maglev, gate --
+  const city = look.city ? buildCity({
+    map, look, plan, isPath, occupied, gates, portals: tunnels.portals, place, glowParts, quality, shadows,
+  }) : null;
+  if (city) {
+    for (const m of city.meshes) {
+      m.receiveShadow = shadows && m.userData.cast !== false;
+      m.castShadow = shadows && !!m.userData.cast;
+      group.add(m);
+    }
+    glows.push(...city.glows);
+    emitters.push(...city.emitters);
+  }
+
   // puddles as flat glossy discs
   if (puddles.length) {
     const pb = new MeshData(false);
@@ -748,13 +773,15 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     mats.foliage.userData.uTime.value = time;
     if (waterMat) waterMat.uniforms.uTime.value = time;
     if (lavaMat) lavaMat.uniforms.uTime.value = time;
+    city?.update(time);
   };
 
   const setShadows = (on) => {
     group.traverse((o) => {
       if (!o.isMesh) return;
       o.receiveShadow = on && o.name !== 'water' && o.name !== 'glowProps' && o.name !== 'lava';
-      o.castShadow = on && (o.name === 'props' || o.name === 'foliage' || o.parent !== group);
+      o.castShadow = on && (o.name === 'props' || o.name === 'foliage' || o.userData.cast === true || (o.parent !== group && !o.name.startsWith('city')));
+      if (o.name.startsWith('city')) o.receiveShadow = on && o.userData.cast !== false;
     });
   };
 
@@ -788,6 +815,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     waterMaterial: waterMat,
     dispose() {
       for (const d of disposables) d.dispose?.();
+      city?.dispose();
       group.clear();
     },
   };
@@ -831,7 +859,8 @@ export function buildRibbon(md, pts, o) {
   if (pts.length < 2) return;
   const r = makeRand(o.seed || 1);
   const ph = [r() * 6.28, r() * 6.28, r() * 6.28, r() * 6.28];
-  const wob = (s, k) => 0.03 * Math.sin(s * 1.9 + ph[k]) + 0.022 * Math.sin(s * 4.1 + ph[k + 2]);
+  const wk = o.wobble ?? 1;
+  const wob = (s, k) => wk * (0.03 * Math.sin(s * 1.9 + ph[k]) + 0.022 * Math.sin(s * 4.1 + ph[k + 2]));
   const up = [0, 1, 0];
   const sections = [];
   let s = 0;

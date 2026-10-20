@@ -4,6 +4,7 @@
 // Origin = tile centre on the ground, +y up, footprint ≈ 1 tile.
 import * as THREE from 'three';
 import { GeoBuilder, makeRand, hash } from './geo.js';
+import { CITY_BUILDERS } from './city/cityProps.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
 
@@ -1003,3 +1004,6 @@ const BUILDERS = {
     }
   },
 };
+
+// modern-city kit (prototype): street furniture, the gate ring, crystals, surge wreckage
+Object.assign(BUILDERS, CITY_BUILDERS);
