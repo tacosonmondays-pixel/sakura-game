@@ -592,11 +592,12 @@ def build(u):
     full, face = compose(u, stand, head_c, r, 768, 1024, top_units - span * 0.06, bot_units + span * 0.42,
                          name_px=92, title_px=30, badge=96)
     save_webp(full, p('full'), 86)
-    # card 300x500: head top ~8%, bottom at the hips
-    card, _ = compose(u, stand, head_c, r, 300, 500, -1.95, 3.45, name_px=44, title_px=15, badge=48)
+    # card 300x500: head top ~8%, bottom at the hips; no baked text or badge (every list card draws
+    # her rarity, level, role and name on top of it)
+    card, _ = compose(u, stand, head_c, r, 300, 500, -1.95, 3.45, tag=False)
     save_webp(card, p('card'), 82, 78_000)
     # bust 512: head and shoulders, face in the upper third
-    bust, _ = compose(u, stand, head_c, r, 512, 512, -1.95, 2.6, name_px=58, title_px=0, badge=0)
+    bust, _ = compose(u, stand, head_c, r, 512, 512, -1.95, 2.6, tag=False)
     save_webp(bust, p('bust'), 84)
     # thumb 160: same framing, no text (too small to read), no tag
     thumb_src, _ = compose(u, stand, head_c, r, 320, 320, -1.95, 2.6, tag=False)
