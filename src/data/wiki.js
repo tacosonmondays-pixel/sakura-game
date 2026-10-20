@@ -31,8 +31,8 @@ import { CLUBS, LIVE_CLUBS } from './clubs.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
-import { breakthroughCost, awakenCost, totalExpToLevel, COINS_PER_EXP, POTENTIAL_LEVEL_CAPS, LEVEL_PAST_GATES, MAX_LEVEL } from '../systems/progression.js';
-import { DUPE_PAST_MAX_TOMES } from '../systems/potential.js';
+import { breakthroughCost, awakenCost, totalExpToLevel, COINS_PER_EXP, LEVEL_PAST_GATES, MAX_LEVEL, GATE_CAPS, BASE_GATES, MAX_BREAKTHROUGH, gatePotential, gatesAllowed } from '../systems/progression.js';
+import { POTENTIAL_STEP_COINS, SPARE_PAY, SHARDS_PER_WHOLE } from '../systems/essence.js';
 import { SHOP_OFFER_MAP } from './shop.js';
 import { FREEPLAY_REWARDS } from '../online/coop/rewards.js';
 import { expectedSSRRate } from '../systems/gacha.js';
@@ -278,7 +278,7 @@ function itemsArticle() {
         ['Books', 'Student EXP (Level Up tab)', { text: itemName('book_rare'), icon: 'item:book_rare' }],
         ['Materials', 'Breakthroughs that raise the level cap (one family per girl)', { text: itemName(materialId('feather', 'common')), icon: `item:${materialId('feather', 'common')}` }],
         ['Crowns', 'Awakening stars, dropped by minibosses and bosses', { text: itemName('crown_slime'), icon: 'item:crown_slime' }],
-        ['Star Fragments', 'Awakening; from duplicate recruits', { text: itemName('star_fragment'), icon: 'item:star_fragment' }],
+        ['Star Fragments', 'Awakening; from Titan Trials, exchanges and commissions', { text: itemName('star_fragment'), icon: 'item:star_fragment' }],
         ['Dice & pins', 'Gear rerolls (substats, main stat, lock one substat)', { text: itemName('dice_reroll'), icon: 'item:dice_reroll' }],
         ['Gear boxes', 'Open into gear of their rarity', { text: itemName('gearbox_rare'), icon: 'item:gearbox_rare' }],
         ['Tickets', 'Recruits (used before gems)', { text: itemName('ticket_recruit'), icon: 'item:ticket_recruit' }],
@@ -317,21 +317,29 @@ function materialsArticle() {
 }
 
 function levelingArticle() {
-  // Generic wording: "Rare material ×5" instead of one family's item names.
-  const genericCost = (cost) => cost.map((c) => (c.id === 'coins' ? `${fmt(c.count)} coins` : `${ITEM_RARITIES[ITEMS[c.id]?.rarity]?.name || ''} material ×${c.count}`)).join(', ');
-  const gates = [1, 2, 3, 4, 5].map((g) => [`Gate ${g}`, `Lv ${10 * g} → cap ${10 * g + 10}`, genericCost(breakthroughCost('aoi', g))]);
+  // Generic wording: "Rare material ×5" / "Zenith material ×2" instead of one family's item names.
+  const genericCost = (cost) => cost.map((c) => {
+    if (c.id === 'coins') return `${fmt(c.count)} coins`;
+    const it = ITEMS[c.id];
+    if (it?.category === 'material' && it.family) return `${it.tier === 'zenith' ? 'Zenith' : ITEM_RARITIES[it.rarity]?.name || ''} material ×${c.count}`;
+    return `${it?.name || c.id} ×${c.count}`;
+  }).join(', ');
+  const gateList = Array.from({ length: MAX_BREAKTHROUGH }, (_, i) => i + 1);
+  const gates = gateList.map((g) => [`Gate ${g}`, `Lv ${GATE_CAPS[g - 1]} → cap ${GATE_CAPS[g]}`, g > BASE_GATES ? `P${gatePotential(g)}` : '—', genericCost(breakthroughCost('aoi', g))]);
+  const pastCaps = GATE_CAPS.slice(BASE_GATES + 1).join(' · ');
   const stars = [1, 2, 3, 4, 5].map((s) => [`★${s}`, costText(awakenCost('aoi', s)), s === 3 ? 'Unlocks the awaken passive' : '+5% damage']);
   return article('leveling', 'Level, Breakthrough & Awakening', 'progress', 'upgrade', 'How students grow: books, level caps, materials, crowns and stars.', ['level', 'exp', 'book', 'breakthrough', 'cap', 'awaken', 'awakening', 'star', 'crown', 'passive', 'scaling'], [
     sec('Levels',
       p(`Students gain EXP from books. Each EXP point applied costs ${COINS_PER_EXP} coins. EXP past the level cap is wasted and not charged.`),
       table(['Reach level', 'Total EXP'], [10, 20, 30, 40, 50, 60, MAX_LEVEL].map((l) => [`Lv ${l}`, fmt(totalExpToLevel(l))])),
-      p(`Above ${LEVEL_PAST_GATES.from}: one ${tomeName} per level (${fmt(LEVEL_PAST_GATES.exp)} EXP and ${fmt(LEVEL_PAST_GATES.coins)} coins), unlocked by Potential: each duplicate raises her level cap, up to ${MAX_LEVEL} at P${MAX_POTENTIAL} (see Potential).`),
+      p(`Above ${LEVEL_PAST_GATES.from}: one ${tomeName} per level (${fmt(LEVEL_PAST_GATES.exp)} EXP and ${fmt(LEVEL_PAST_GATES.coins)} coins), as far as her breakthrough gates 6–${MAX_BREAKTHROUGH} allow, up to ${MAX_LEVEL} at gate ${MAX_BREAKTHROUGH} (see Breakthrough and Potential).`),
       tip('Auto Select picks books to reach the cap with as little waste as possible, using big books first.', 'good')),
     sec('Breakthrough',
-      p(`The cap starts at 10 and rises by 10 with each breakthrough gate, to ${LEVEL_PAST_GATES.from} at gate 5. Past gate 5 her Potential raises it (${POTENTIAL_LEVEL_CAPS.map((c, i) => `P${i + 1} ${c}`).join(' · ')}). Gates cost materials of the girl's own family plus coins.`),
-      table(['Gate', 'Cap', 'Cost'], gates)),
+      p(`The cap starts at 10 and rises by 10 with each breakthrough gate, to ${LEVEL_PAST_GATES.from} at gate ${BASE_GATES}. Gates 6–${MAX_BREAKTHROUGH} raise it further (${pastCaps}), and each needs a Potential step: gate 6 needs P2, and so on up to gate ${MAX_BREAKTHROUGH} at P${MAX_POTENTIAL}. Gates cost materials of the girl's own family plus coins; from gate 7 also her family's Zenith material (Titan Trials, the Titan shelf, the Craft Room), and gates 9 and 10 a ${itemName('crown_rainbow')}.`),
+      table(['Gate', 'Cap', 'Needs', 'Cost'], gates),
+      tip(`A girl at P1 stays at ${LEVEL_PAST_GATES.from} after gate ${BASE_GATES}: raise her Potential first (see Potential).`, 'info')),
     sec('Awakening',
-      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments from duplicate recruits, and coins. ★3 unlocks the girl\'s awaken passive. Duplicates also raise her Potential (see Potential).'),
+      p('Awakening adds stars (max ★5) using crowns from bosses, Star Fragments (Titan Trials, exchanges and commissions), and coins. ★3 unlocks the girl\'s awaken passive. Duplicates give her Essence for Potential instead (see Potential).'),
       table(['Star', 'Cost', 'Reward'], stars)),
     sec('How strong does this make her?',
       list([
@@ -383,7 +391,7 @@ function gachaArticle() {
   const ssr = expectedSSRRate();
   return article('gacha', 'Recruit Rates, Pity & Spark', 'economy', 'gacha', 'Exact recruit odds, the 90-pull pity and the 200-point spark.', ['gacha', 'recruit', 'pull', 'rates', 'pity', 'spark', 'ssr', 'sr', 'duplicate', 'fragment', 'ticket'], [
     sec('Rates',
-      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `+1 Potential and ${UNIT_RARITIES[r].fragmentsOnDupe} Star Fragments`])),
+      table(['Rarity', 'Rate', 'Duplicate →'], ['SSR', 'SR', 'R'].map((r) => [{ text: r, color: UNIT_RARITIES[r].color, strong: true }, pct(GACHA.rates[r]), `+1 Essence (past her hold cap: ${spareText(r)})`])),
       p(`Duplicates: ${potentialDupesRule()}`),
       p(`Consolidated SSR rate including pity: ≈ ${pct(ssr, 2)} (about one SSR every ${Math.round(1 / ssr)} recruits).`)),
     sec('Pity and guarantees',
@@ -395,12 +403,21 @@ function gachaArticle() {
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Potential and Star Fragments from a duplicate.'),
+      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).'),
       { type: 'links', ids: ['potential'] }),
   ]);
 }
 
 const tomeName = ITEMS[LEVEL_PAST_GATES.book].name;
+/** What a spare copy of a girl of this rarity pays (ASCENSION.md §A.3): '2 Mementos, ⅕ recruit point'. */
+function spareText(r) {
+  const s = SPARE_PAY[r];
+  const parts = [];
+  if (s.memento) parts.push(`${s.memento} ${itemName('memento')}s`);
+  if (s.moonpearl) parts.push(`${s.moonpearl} ${itemName('moonpearl')}${s.moonpearl > 1 ? 's' : ''}`);
+  if (s.fifths) parts.push(s.fifths % 5 ? `${s.fifths}/5 recruit point` : `${s.fifths / 5} recruit point${s.fifths > 5 ? 's' : ''}`);
+  return parts.join(', ');
+}
 const pctText = (x) => `${Math.round(x * 100)}%`;
 /** Library Courtyard III's Nightmare Tome chance (the stage table is the source). */
 function tomeDrop() {
@@ -416,26 +433,35 @@ function potentialArticle() {
     const steps = potentialSteps(u);
     return [{ text: u.name, icon: `unit:${u.id}`, strong: true }, ...steps.slice(0, 4).map((s) => `${s.kind === 'stat' ? '' : '✦ '}${s.name} (${label(s, u)})`), `✦ ${steps[4].name} (${label(steps[4], u)})`];
   });
-  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicate recruits raise a girl\'s Potential to P6; every step makes her stronger and teaches her more of what she is good at.', ['potential', 'duplicate', 'dupe', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'fragment', 'rhythm'], [
+  const raiseRows = [['R', 'R girls'], ['SR', 'SR girls and Nami'], ['SSR', 'SSR girls, Hikari and Luna']]
+    .map(([r, name]) => [{ text: name, strong: true }, ...POTENTIAL_STEP_COINS[r].map((c) => fmt(c))]);
+  return article('potential', 'Potential (P1–P6)', 'students', 'sparkle', 'Duplicates give a girl Essence; 1 Essence and coins raise her Potential to P6. Every step makes her stronger, opens her next level gate and teaches her more of what she is good at.', ['potential', 'duplicate', 'dupe', 'essence', 'raise', 'p6', 'passive', 'signature', 'spark', 'select ticket', 'kindred', 'memento', 'moonpearl', 'spare', 'rhythm'], [
     sec('How it works',
       list([
         'P1 is a girl\'s base (her first copy). Starters and free girls start at P1 however they joined.',
-        `A duplicate is any copy of a girl you already own: a recruit, a spark of an owned SSR, or an SSR Select Ticket used on an owned SSR. Each gives +1 Potential (up to P${MAX_POTENTIAL}) and her usual Star Fragments.`,
-        `At P${MAX_POTENTIAL} a duplicate gives Star Fragments plus Akashic Tomes (SR ×${DUPE_PAST_MAX_TOMES.SR}, SSR ×${DUPE_PAST_MAX_TOMES.SSR}; R girls: fragments only). Her duplicate count keeps going up (shown on her Info tab).`,
-        'Potential never goes down and is never spent. It applies in every battle mode, exactly where her level and awakening apply — in co-op, an ally\'s girl fights at her owner\'s Potential.',
+        'A duplicate is any copy of a girl you already own: a recruit, a spark of an owned SSR, or an SSR Select Ticket used on an owned SSR. Each gives her 1 Essence (duplicates no longer give Star Fragments).',
+        `Raise Potential on her page: 1 Essence and coins (table below) take her one step, up to P${MAX_POTENTIAL}. Coins are only charged when you press it, and Essence never expires.`,
+        `She holds at most ${MAX_POTENTIAL} − P Essence (${MAX_POTENTIAL - 1} at P1, none at P${MAX_POTENTIAL}). A copy past that is a spare and pays at once — R: ${spareText('R')}; SR: ${spareText('SR')}; SSR: ${spareText('SSR')}. Mementos and Moonpearls buy from the Memento Exchange.`,
+        `Kindred Essence stands in for her own Essence when she has none: ${itemName('kindred_r')} works on R girls, ${itemName('kindred_sr')} on SR and R girls, ${itemName('kindred_ssr')} on any girl (${SHARDS_PER_WHOLE} × ${itemName('kindred_shard_ssr')} fuse into one). From Titan Trials, the Titan shelf and the Memento Exchange.`,
+        'Potential never goes down. It applies in every battle mode, exactly where her level and awakening apply — in co-op, an ally\'s girl fights at her owner\'s Potential.',
         'Every step is bigger than the one before. Each one raises a stat (damage, attack speed, her aura or her coins), and from P3 (from P2 for SSR girls and heroes) it also teaches her a new trick built on what she is already good at; P6 is her capstone (✦).',
       ]),
-      tip('Each girl\'s Info tab shows her six steps, what each does and how many duplicates she has.', 'good')),
+      tip('Each girl\'s Info tab shows her six steps, what each does and how much Essence she holds.', 'good')),
+    sec('Raise Potential (coins per step, with 1 Essence)',
+      table(['', 'P1 → P2', 'P2 → P3', 'P3 → P4', 'P4 → P5', 'P5 → P6'], raiseRows)),
     sec('Level cap',
-      p(`Every step also raises her level cap once all five breakthrough gates are open. Each level above ${LEVEL_PAST_GATES.from} costs one ${tomeName} (${fmt(LEVEL_PAST_GATES.exp)} EXP) and ${fmt(LEVEL_PAST_GATES.coins)} coins; her growth simply continues.`),
-      table(['', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6'], [[{ text: 'Level cap', strong: true }, ...POTENTIAL_LEVEL_CAPS.map(String)]]),
+      p(`Each step opens her next breakthrough gate past ${LEVEL_PAST_GATES.from} (gate 6 at P2 … gate ${MAX_BREAKTHROUGH} at P${MAX_POTENTIAL}); break it with her family's materials and coins on her Level Up tab to raise the cap (see Level, Breakthrough & Awakening). Each level above ${LEVEL_PAST_GATES.from} costs one ${tomeName} (${fmt(LEVEL_PAST_GATES.exp)} EXP) and ${fmt(LEVEL_PAST_GATES.coins)} coins; her growth simply continues.`),
+      table(['', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6'], [
+        [{ text: 'Gates open', strong: true }, ...[1, 2, 3, 4, 5, 6].map((pl) => String(gatesAllowed(pl)))],
+        [{ text: 'Level cap (gates broken)', strong: true }, ...[1, 2, 3, 4, 5, 6].map((pl) => String(GATE_CAPS[gatesAllowed(pl)]))],
+      ]),
       list([
         `Library Courtyard III on Nightmare: ${pctText(tomeDrop())} per run.`,
         `Freeplay caches (every ${FREEPLAY_REWARDS.cacheEvery} freeplay waves): one each, up to ${FREEPLAY_REWARDS.cacheTome.weeklyCap} a week, solo and co-op together.`,
         `Bounty Exchange: ${SHOP_OFFER_MAP.bty_book_tome.price} Bounty Tokens each, ${SHOP_OFFER_MAP.bty_book_tome.stock} a week.`,
-        `Duplicates of a girl already at P${MAX_POTENTIAL}: SR ×${DUPE_PAST_MAX_TOMES.SR}, SSR ×${DUPE_PAST_MAX_TOMES.SSR}.`,
+        `Titan shelf: ${SHOP_OFFER_MAP.ts_tome.price} Assault Tokens each, ${SHOP_OFFER_MAP.ts_tome.stock} a week; Memento Exchange: ${SHOP_OFFER_MAP.mem_tome.price} Mementos each, ${SHOP_OFFER_MAP.mem_tome.stock} a week; Titan Trials drops (Nightmare and Mayhem).`,
       ]),
-      tip(`A girl at P1 stays capped at ${LEVEL_PAST_GATES.from}: nothing changes for her until her first duplicate.`, 'info')),
+      tip(`A girl at P1 stays capped at ${LEVEL_PAST_GATES.from}: raise her Potential with 1 Essence and coins, then break gate 6.`, 'info')),
     sec('The stat part of each step',
       table(['Track', 'P2', 'P3', 'P4', 'P5', 'P6'], tracks),
       p('Each girl spends her track on her own strength: Kage all on attack speed, Shiro on damage and speed, the support girls on their aura.')),
