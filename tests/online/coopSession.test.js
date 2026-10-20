@@ -614,6 +614,31 @@ describe('co-op lobby handshake', () => {
   });
 });
 
+describe('co-op lobby: each player\'s Auto-cast abilities setting rides in the start message', () => {
+  it('the guest\'s autoAbil (her hello) and the host\'s (his own) reach both battles; off is left out', () => {
+    for (const [hostOn, guestOn] of [[false, true], [true, false], [false, false]]) {
+      const W = world();
+      const host = open(W, true, { me: { ...meOf(HOST, 'Aiko', ['aoi', 'rei']), ...(hostOn ? { autoAbil: true } : null) } });
+      const guest = open(W, false, { me: { ...meOf(GUEST, 'Bea', ['yuki', 'rei']), autoAbil: guestOn } });
+      W.connect(host.room);
+      W.connect(guest.room);
+      W.until(() => host.paired && guest.paired);
+      expect(host.peer.autoAbil).toBe(guestOn);
+      guest.setReady(true);
+      W.until(() => host.canStart);
+      expect(host.startBattle(77)).toBe(true);
+      expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+      const players = host.lockstep.start.players;
+      expect(players.map((p) => p.autoAbil)).toEqual([hostOn ? true : undefined, guestOn ? true : undefined]);
+      expect(guest.lockstep.start).toEqual(host.lockstep.start);
+      for (const s of [host, guest]) expect(s.lockstep.sim.abilityAutoDefault).toEqual([hostOn, guestOn]);
+      expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+      host.close();
+      guest.close();
+    }
+  });
+});
+
 describe('co-op lobby: the start message is clamped on both clients (statLimits.js)', () => {
   it('a guest whose hello carries absurd stats fights at the clamp; both build the same battle', () => {
     const W = world();

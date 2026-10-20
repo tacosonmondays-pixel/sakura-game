@@ -192,7 +192,7 @@ const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
   boost: ['mods'],
-  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
+  rally: ['radius', 'inAura', 'target', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
   debuff: ['pick', 'count', 'casterStatus', 'rally', ...STATUS_LIST],
   econ: ['coins'],
   deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm'],
@@ -266,11 +266,13 @@ function defErrors(d, where) {
     if (!(d.duration > 0)) errs.push(`${where}: a boost lasts > 0 s`);
   }
   if (d.kind === 'rally') {
-    if (!(e.radius > 0) && e.inAura !== true) errs.push(`${where}: a rally needs a radius`);
+    // a rally on one girl (target 'girl': the girl-target rule, spec §7.2) has no radius
+    if ('target' in e && e.target !== 'girl') errs.push(`${where}: target is 'girl'`);
+    if (!(e.radius > 0) && e.inAura !== true && e.target !== 'girl') errs.push(`${where}: a rally needs a radius`);
     if (!(d.duration > 0)) errs.push(`${where}: a rally lasts > 0 s`);
   }
   if (e.rally) {
-    for (const k of Object.keys(e.rally)) if (!EFFECT_KEYS.rally.includes(k)) errs.push(`${where}: rally rider key ${k}`);
+    for (const k of Object.keys(e.rally)) if (!EFFECT_KEYS.rally.includes(k) || k === 'target') errs.push(`${where}: rally rider key ${k}`);
     if (!(d.duration > 0)) errs.push(`${where}: a rally rider lasts > 0 s`);
   }
   for (const k of ['dmgMul', 'rateMul', 'rangeMul']) {
@@ -307,7 +309,7 @@ describe('ability rules and vocabulary', () => {
   test('rules (spec §3.2, §6.1; Skill Haste at half rate, GEAR_STATS §B.4)', () => {
     expect(ABILITY_RULES).toEqual({
       ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6, econCapPerWave: 2,
-      densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'],
+      densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'], girlAimRadius: 0.6,
     });
     // a 40 s cooldown is 240,000 charge points; the CC guard is 4 s
     expect(40 * ABILITY_RULES.ticksPerSecond * ABILITY_RULES.chargePerTick).toBe(240000);
@@ -321,6 +323,15 @@ describe('ability rules and vocabulary', () => {
     expect(ABILITY_KINDS).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
     expect(ABILITY_SCOPES).toEqual(['local', 'map', 'player']);
     expect(AUTO_WHEN).toEqual(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready']);
+  });
+
+  test('a rally on one girl (target: girl, the girl-target rule of spec §7.2) needs no radius; nothing else does', () => {
+    const rally = (effect) => ({ id: 'x.y', kind: 'rally', scope: 'local', cooldown: 45, duration: 12, effect });
+    expect(defErrors(rally({ target: 'girl', rateMul: 1.8, rangeMul: 1.2 }), 'one girl')).toEqual([]);
+    expect(defErrors(rally({ rateMul: 1.8 }), 'no radius')).toEqual(['no radius: a rally needs a radius']);
+    expect(defErrors(rally({ target: 'lane', rateMul: 1.8 }), 'bad target')).toEqual(["bad target: target is 'girl'", 'bad target: a rally needs a radius']);
+    const rider = { id: 'x.z', kind: 'debuff', scope: 'map', cooldown: 40, duration: 8, effect: { pick: 'all', status: [{ type: 'reveal', duration: 8 }], rally: { target: 'girl', rateMul: 1.2 } } };
+    expect(defErrors(rider, 'rider')).toEqual(['rider: rally rider key target']);
   });
 
   test('every table is deep-frozen', () => {

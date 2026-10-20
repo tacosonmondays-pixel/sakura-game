@@ -63,7 +63,7 @@ export function createTower(def, o) {
     ty: Math.floor(y),
     radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
-    owner: o.owner ?? 0, // player index (co-op; set by the 'place' command); 0 solo
+    owner: o.owner ?? 0, // player index (co-op: the 'place' command's slot, through placeTower's owner); 0 solo
     // buffs (src/sim/buffs.js): aura winner uid per key, the girl her brew / link should pick first (-1 auto),
     // what her own limited buff is doing, the brew / link she holds, her DPS over the last DPS_WINDOW s
     buffBy: emptyBuffBy(),

@@ -59,6 +59,27 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       for (const d of t.turrets) h.int(d.uid).int(d.x * 256).int(d.y * 256);
       if (t.flight) h.str(t.flight.mode).int(t.flight.cx * 256).int(t.flight.cy * 256);
     }
+    // her ⚡ ability only once it was cast or switched to Auto (integers: charge points, ticks): a battle
+    // that never casts keeps its digest (modesGolden pins bot battles with tier-3 girls)
+    const a = t.abil;
+    if (a && (a.n > 0 || a.auto)) h.int(a.cd).int(a.active).int(a.auto ? 1 : 0).int(a.n);
   }
+  // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
+  if (sim.abilGroups?.size) {
+    h.int(sim.abilGroups.size);
+    for (const k of [...sim.abilGroups.keys()].sort()) h.str(k).int(sim.abilGroups.get(k).cd);
+  }
+  const rallies = sim._rallies;
+  const queue = sim._abilQueue;
+  if (rallies?.length || queue?.length) {
+    h.int(rallies.length);
+    for (const r of rallies) h.int(r.src).int(r.left).int(r.on ?? -1);
+    h.int(queue.length);
+    for (const it of queue) h.int(it.src).int(it.left);
+  }
+  const ad = sim.abilityAutoDefault;
+  if (ad && (ad[0] || ad[1])) h.int(ad[0] ? 1 : 0).int(ad[1] ? 1 : 0);
+  const uses = sim.abilUses;
+  if (uses && (uses[0] || uses[1])) h.int(uses[0]).int(uses[1]);
   return h.value;
 }

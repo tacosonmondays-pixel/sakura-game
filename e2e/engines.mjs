@@ -5,7 +5,9 @@
 // at P1 and P6, Kage's tempo and shuriken carry) and ONE against a spectral boss (POTENTIAL_BOSS_START:
 // Hotaru's ×spectral, Kaede's ×boss, Rei's duel echo) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
 // ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
-// at 250, every enemy's bits) in every engine it can find and compares the results:
+// at 250, every enemy's bits) and ONE co-op ABILITIES battle (ABILITIES_START: every live ability kind,
+// manual taps, Auto-cast and owner coins, its wave-8 checkpoint replayed) in every engine it can find and
+// compares the results:
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
 //   JavaScriptCore  Bun and WebKit (iPhone / iPad Safari)
 //   SpiderMonkey    Firefox
@@ -235,6 +237,24 @@ for (const { name, r } of results) {
 }
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
+// abilities: every live kind, manual taps (some refused), Auto-cast, owner coins, the checkpoint replay
+const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 5 girls + Luna, the guest on Auto-cast + taps, to wave 12):');
+for (const { name, r } of results) {
+  const b = r.abilities;
+  log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · ${b.casts} casts (${b.byKind}; host/guest ${b.byOwner}) · ${b.taps} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);
+  if (!b.agree) failures.push(`${name}: its own two abilities-battle clients disagreed`);
+  if (!b.ckSame) failures.push(`${name}: the abilities battle's wave-${b.ckWave} checkpoint did not replay to the run`);
+  if (b.refused) failures.push(`${name}: abilities battle command(s) refused for an unknown reason: ${b.refused}`);
+  for (const k of AB_KEYS) if (b[k] !== ref.abilities[k]) failures.push(`${name}: abilities ${k} ${b[k]} ≠ ${ref.abilities[k]} (${results[0].name})`);
+}
+{
+  const b = ref.abilities;
+  log(`  towers: ${b.towers}`);
+  if (b.casts < 30) failures.push(`the abilities battle cast only ${b.casts} abilities`);
+  if (b.kinds.split(',').length < 6) failures.push(`the abilities battle cast only these kinds: ${b.kinds}`);
+  if (b.cleared < 12) failures.push(`the abilities battle cleared only ${b.cleared} waves`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -249,4 +269,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical two-hero battle, the identical drones battle, the identical abilities battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

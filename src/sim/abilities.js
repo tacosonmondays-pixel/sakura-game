@@ -17,6 +17,10 @@
 //     a calm point between waves never holds one (battle saves and co-op checkpoints stay simple).
 //   - Minibosses and bosses shrug off ability freezes and stuns for ccGuardTicks after one lands.
 //   - Coins go to the caster's owner (sim._gainCashFor: owner-credited coins, GAPS P-16).
+//   - An ability that acts on one girl (a rally with `target: 'girl'`) takes the cast's aim point: the
+//     girl nearest it within ABILITY_RULES.girlAimRadius (any player's, never the caster; ties: the
+//     lower uid), else its own pick rule (the girl in her range who dealt the most damage). Co-op's
+//     `abil` command carries the aim quantized, so every client resolves the same girl (spec §7.2).
 //   - Auto-cast (per girl; the setting is sim.abilityAutoDefault, default Off) runs inside the step.
 //
 // Determinism (co-op lockstep): integer ticks and charge points, no rng (ability hits never crit,
@@ -30,7 +34,8 @@
 //   t.abilMods  a running boost's ModSet (null otherwise; resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
 //   sim.abilUses    econ casts per player this wave
-//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left }]
+//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, on? }]
+//                   (on: the one girl a girl-target rally reaches)
 //   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell', … }]  delayed hits and shells, FIFO
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
@@ -192,7 +197,7 @@ export function abilityReach(t, def) {
     case 'strike': return e.reach === 'map' ? Infinity : (e.reachMul ?? 1) * t.eff.range;
     case 'burst': return e.at === 'self' ? burstRadius(t, e) : (e.reachMul ?? 1) * t.eff.range;
     case 'boost': return t.eff.range + (e.mods?.range || 0);
-    case 'rally': return rallyRadius(t, e);
+    case 'rally': return e.target === 'girl' ? t.eff.range : rallyRadius(t, e);
     case 'debuff': return t.eff.range;
     default: return t.eff.range;
   }
@@ -377,13 +382,61 @@ function catalyst(sim, t, def, spec, targets, step) {
   }
 }
 
-/** A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). */
-function addRally(sim, t, e, radius, left) {
+/**
+ * A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). `on`: the
+ * uid of the one girl a girl-target rally reaches (radius 0; the record has no `on` otherwise).
+ */
+function addRally(sim, t, e, radius, left, on = null) {
   sim._rallies.push({
     src: t.uid, owner: t.owner ?? 0, r2: radius * radius, map: false,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     detection: !!e.detection, ward: !!e.ward, left,
+    ...(on != null ? { on } : null),
   });
+}
+
+/**
+ * The girl-target rule (spec §7.2): the girl nearest the aim point (x, y) within
+ * ABILITY_RULES.girlAimRadius, any player's, never `exceptUid` (the caster); ties go to the lower uid.
+ * No aim, or nobody there: null. Squared distances only.
+ * @param {number[]|null} aim [x, y] in tiles
+ */
+export function aimedGirl(sim, aim, exceptUid = -1) {
+  if (!aim) return null;
+  const r2 = R.girlAimRadius * R.girlAimRadius;
+  let best = null;
+  let bestD = Infinity;
+  for (const o of sim.towers) {
+    if (o.removed || o.uid === exceptUid) continue;
+    const dx = o.x - aim[0];
+    const dy = o.y - aim[1];
+    const d = dx * dx + dy * dy;
+    if (d > r2) continue;
+    if (d < bestD || (d === bestD && o.uid < best.uid)) {
+      best = o;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** A girl-target ability's own pick: the other girl within her range who dealt the most damage (ties: the lower uid). */
+function topDamageGirl(sim, t) {
+  const r2 = t.eff.range * t.eff.range;
+  let best = null;
+  for (const o of sim.towers) {
+    if (o === t || o.removed) continue;
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy > r2) continue;
+    if (!best || o.damageDealt > best.damageDealt || (o.damageDealt === best.damageDealt && o.uid < best.uid)) best = o;
+  }
+  return best;
+}
+
+/** A cast's aim point: [x, y] with both finite, else null (no aim). */
+function aimOf(aim) {
+  return Array.isArray(aim) && aim.length >= 2 && Number.isFinite(aim[0]) && Number.isFinite(aim[1]) ? aim : null;
 }
 
 /** The other girls within `radius` of her (placement order). */
@@ -416,9 +469,10 @@ function strikeTargets(sim, t, def, spec) {
 }
 
 /**
- * The kinds A1 runs: cast(sim, t, def, step) does the effect and returns what the `ability` event
+ * The kinds A1 runs: cast(sim, t, def, step, aim) does the effect and returns what the `ability` event
  * shows ({ x, y, radius, targets }), or null when there is nothing to act on (refused `noTarget`, no
- * side effect); end(sim, t) undoes a lasting one.
+ * side effect); end(sim, t) undoes a lasting one. `aim` ([x, y] or null) matters only to an ability on
+ * one girl today (the girl-target rule); A6 adds aimed points.
  */
 const KINDS = {
   strike: {
@@ -503,8 +557,17 @@ const KINDS = {
   },
 
   rally: {
-    cast(sim, t, def) {
+    cast(sim, t, def, step, aim) {
       const e = def.effect;
+      if (e.target === 'girl') {
+        // one girl: the aimed one (spec §7.2), else her own pick; she follows that girl, not a radius
+        const g = aimedGirl(sim, aim, t.uid) || topDamageGirl(sim, t);
+        if (!g) return null;
+        if (e.cleanse && g.disabled > 0) g.disabled = 0;
+        addRally(sim, t, e, 0, ticks(def.duration), g.uid);
+        recomputeBuffs(sim);
+        return { x: g.x, y: g.y, radius: 0, targets: [g.uid] };
+      }
       const r = rallyRadius(t, e);
       const allies = alliesIn(sim, t, r);
       if (!allies.length) return null;
@@ -610,14 +673,14 @@ const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
 
 /**
  * Fires her ability. `group`: the best ready copy of her player's (see pickCaster); `owner`: the
- * commanding player (co-op; a girl of another player is refused `notYours`); `auto`: an auto-cast.
- * A refusal spends nothing.
+ * commanding player (co-op; a girl of another player is refused `notYours`); `auto`: an auto-cast;
+ * `aim`: a point [x, y] (an ability on one girl takes the girl there: aimedGirl). A refusal spends nothing.
  * @param {import('./Sim.js').Sim} sim
  * @param {object|null} t0 TowerRT
  * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
  * @returns {{ ok: boolean, reason: string|null, casterUid: number|null }}
  */
-export function castAbility(sim, t0, { group = false, owner = null, auto = false } = {}) {
+export function castAbility(sim, t0, { group = false, owner = null, auto = false, aim = null } = {}) {
   if (sim.state === 'won' || sim.state === 'lost') return no('ended');
   if (!t0 || t0.removed) return no('locked');
   // a group cast looks for a ready copy before it calls the selected one locked (pickCaster: no side effect)
@@ -628,7 +691,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
   const step = stepNo(sim);
-  const fx = KINDS[def.kind].cast(sim, t, def, step);
+  const fx = KINDS[def.kind].cast(sim, t, def, step, aimOf(aim));
   if (!fx) return no('noTarget', t.uid);
   const a = t.abil;
   a.cd = a.cdMax;

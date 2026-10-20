@@ -1028,11 +1028,17 @@ miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.ab
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
 fold into `t.buff` after the limited buffs (strongest per key, both players' girls, never the caster). Coins go to
 the caster's owner: `sim._gainCashFor(owner, n)` (solo: cash; co-op: `sim.ownerCash[owner]`, moved into that
-player's wallet by the command layer, A2). Auto-cast (per girl, default Off; `sim.abilityAutoDefault[owner]` for
-later unlocks) runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds.
+player's wallet by the command layer after every command and step, A2). Auto-cast (per girl, default Off;
+`sim.abilityAutoDefault[owner]` for later unlocks; co-op: the start message's `players[i].autoAbil` and `acast`)
+runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds. **Girl-target rule**
+(spec §7.2): an ability on one girl (a rally with `effect.target: 'girl'`, no radius) takes the cast's `aim`: the
+girl nearest it within `ABILITY_RULES.girlAimRadius` (0.6 tiles; any player's, never the caster; ties: the lower
+uid), else the girl in the caster's range who dealt the most damage (ties: the lower uid); none: `noTarget`. The
+rally record carries `on: uid` and reaches only her. `placeTower(unitId, x, y, { owner })` sets her player before
+her ability syncs.
 ```js
 t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
-sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
+sim.castAbility(uid, { group?, owner?, auto?, aim? })  // -> { ok, reason, casterUid }; aim [x, y] (girl-target rule); group: the selected copy if ready, else her
                     //   player's ready copy with the most enemies in reach (ties: lower uid), even while the selected
                     //   copy is locked; none ready: the selected copy's refusal (locked: her first copy that has it)
 sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
@@ -1602,7 +1608,18 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
   with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
   does); two tier-5 orders in one tick resolve in command order on every client; `pick` (Midori / Chika's
-  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`,
+  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`;
+  **abilities** (A2): `abil[uid, group 0|1, qx, qy]` fires her own girl's or hero's ⚡ ability (`qx, qy` an aim in
+  1/1024 tiles, or -1, -1 for none; `abilArgs(uid, { group, aim })` builds it) → `{ ok: true, casterUid }` or
+  `{ ok: false, reason, casterUid? }` with `'invalid'|'notYours'` or the sim's reason at the command's tick (a tap
+  behind an auto-cast is `'cooldown'`, one after the clear `'notWave'`; nothing is spent); `acast[uid, on 0|1]` sets
+  her Auto switch (`uid` 0: every girl she owns and her default, `sim.setAbilityAutoAll`); `start.players[i].autoAbil`
+  (only `true`; the lobby sends it only when on) is her Auto-cast setting from tick 0; owner-credited coins
+  (`sim.ownerCash`, an econ cast auto or manual) go into their owner's wallet after every command and step, never
+  into the pooled split; `hashSim` folds a girl's ability (cd, active, auto, casts) only once she cast or is on Auto,
+  and `abilGroups`, rallies / queued shots, the Auto defaults and the econ counts only while non-empty, so battles
+  that never cast keep their hash. `COOP_PROTOCOL` stays 5: the sim id and the data hash already keep apart builds
+  that differ;
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends

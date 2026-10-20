@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runPotentialBattle, runPotentialBossBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -113,6 +113,26 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.ckSame).toBe(true);
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runDronesBattle().final).toBe(r.final);
+  }, 240000);
+
+  it('runs a co-op battle with abilities in sync: ≥ 30 casts of ≥ 6 kinds, every tap accepted or refused for a known reason, its checkpoint replaying', () => {
+    const r = runAbilitiesBattle();
+    expect(r.agree).toBe(true);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBeGreaterThanOrEqual(12);
+    expect(r.casts).toBeGreaterThanOrEqual(30);
+    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'econ', 'rally', 'strike']); // no deploy (A4)
+    // both players cast, and some host taps met a recharging girl (the late-tap rule)
+    expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
+    expect(r.taps).toMatch(/ cooldown/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runAbilitiesBattle().final).toBe(r.final);
+    // pinned when the scenario landed (A2; V8, JSC and SpiderMonkey gave these): change only with a
+    // deliberate sim / data / ability change, and say why
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
+      .toEqual({ ticks: 40227, state: 'between', wallets: '636/487', final: 2145385076, hashes: '5726405e', casts: 46, byKind: 'boost 2 · burst 18 · debuff 12 · econ 2 · rally 5 · strike 7' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

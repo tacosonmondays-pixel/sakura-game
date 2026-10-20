@@ -799,10 +799,13 @@ export class Sim {
 
   /**
    * Places a girl with her footprint centred at world (x, y). Two integer arguments are a
-   * tile (legacy) and resolve to its centre.
+   * tile (legacy) and resolve to its centre. `owner`: her player (co-op's `place` command passes the
+   * slot), set before anything reads it — her ability's Auto default and unlock event (a fixture that
+   * unlocks at tier 0) already see it.
+   * @param {{ owner?: number }} [opts]
    * @returns {object|null} TowerRT
    */
-  placeTower(unitId, x, y) {
+  placeTower(unitId, x, y, { owner = 0 } = {}) {
     if (this.state === 'won' || this.state === 'lost') return null;
     const chk = this.canPlace(unitId, x, y);
     if (!chk.ok) return null;
@@ -811,7 +814,7 @@ export class Sim {
     const def = this.data.unit(unitId);
     const isHero = !!this.heroConfig && unitId === this.heroConfig.unitId;
     this._spend(chk.cost);
-    const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost });
+    const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost, owner });
     if (isHero) {
       initHero(t);
       t.heroIndex = this._heroConfig.index;

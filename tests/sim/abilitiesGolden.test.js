@@ -9,10 +9,14 @@ import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 
+// Re-pinned in A2 (hashSim only; was f5875291 / 1c3a6fcc / e5394bdb): the co-op hash now folds each girl's
+// ability state once she cast or is on Auto, the map-scope groups, rallies and queued shots, and the Auto
+// default (src/online/coop/simHash.js). The battles themselves are unchanged: same waves, lives, steps,
+// coins and casts.
 const GOLDEN = {
-  '1-3:normal': 'W15/100/20746/864/f5875291/4',
-  '4-5:hard': 'L26/0/67651/3566/1c3a6fcc/20',
-  '8-5:normal': 'L30/0/40233/8036/e5394bdb/30',
+  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
+  '4-5:hard': 'L26/0/67651/3566/3decde6a/20',
+  '8-5:normal': 'L30/0/40233/8036/a5d9340a/30',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

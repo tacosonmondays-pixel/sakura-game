@@ -296,11 +296,15 @@ export function ralliesOn(sim, t) {
   return out;
 }
 
-/** Does rally `r` reach girl `t`? Never its caster; within its radius of her (squared), or anywhere for a map rally. */
+/**
+ * Does rally `r` reach girl `t`? Never its caster; a girl-target rally (`on`) only its one girl; else within
+ * its radius of her (squared), or anywhere for a map rally.
+ */
 function rallyReaches(sim, r, t) {
   if (r.src === t.uid) return false;
   const c = sim.getTower(r.src);
   if (!c || c.removed) return false;
+  if (r.on != null) return r.on === t.uid;
   if (r.map) return true;
   const dx = c.x - t.x;
   const dy = c.y - t.y;

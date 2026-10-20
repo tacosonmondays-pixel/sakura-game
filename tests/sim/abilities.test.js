@@ -122,6 +122,11 @@ const XU = {
     id: 'cheer3.call', kind: 'rally', cooldown: 40, duration: 5,
     effect: { radius: 3, rateMul: 1.1, cleanse: true }, auto: { when: 'enemies', min: 2 },
   }),
+  // a rally on one girl (the girl-target rule, spec §7.2: Time Out!'s shape)
+  coach: girl('coach', 'archer', {
+    id: 'coach.timeout', kind: 'rally', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2, cleanse: true }, auto: { when: 'enemies', min: 1 },
+  }),
   // the leak rules: `orLeak` beside a crowd count, and `leak` alone (its default share, 0.7)
   sentry: girl('sentry', 'archer', {
     id: 'sentry.shot', kind: 'strike', cooldown: 30,
@@ -853,6 +858,114 @@ describe('rally', () => {
     expect(g.buff.rateMul).toBeCloseTo(1.1, 9);
     expect(g.buff.cleanse).toBe(false);
     expect(sim._isCleansed(g)).toBe(false);
+  });
+});
+
+describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
+  /** The coach at `a` (tier 3), girls at b (hers), c (her partner's) and f; a wave running. */
+  function team() {
+    const sim = mk();
+    const coach = unlocked(sim, 'coach', 'a');
+    const b = place(sim, 'archer', 'b');
+    const c = place(sim, 'archer', 'c');
+    c.owner = 1;
+    const f = place(sim, 'archer', 'f');
+    wave(sim);
+    run(sim, STEP);
+    coach.abil.cd = 0;
+    sim.drainEvents();
+    return { sim, coach, b, c, f };
+  }
+  const rate = (t) => +t.buff.rateMul.toFixed(9);
+
+  test('the girl nearest the aim point within 0.6 tiles gets it, alone, for its duration; a partner\'s girl may be chosen', () => {
+    const { sim, coach, b, c, f } = team();
+    expect(ABILITY_RULES.girlAimRadius).toBe(0.6);
+    const r = sim.castAbility(coach.uid, { aim: [b.x + 0.25, b.y + 0.25] });
+    expect(r).toEqual({ ok: true, reason: null, casterUid: coach.uid });
+    expect([rate(b), rate(c), rate(f), rate(coach)]).toEqual([1.8, 1, 1, 1]);
+    expect(b.buffBy.rally).toBe(coach.uid);
+    expect(sim._rallies).toHaveLength(1);
+    expect(sim._rallies[0]).toMatchObject({ src: coach.uid, on: b.uid, r2: 0 });
+    expect(events(sim, 'ability')).toEqual([expect.objectContaining({ towerUid: coach.uid, kind: 'rally', x: b.x, y: b.y, radius: 0, targets: [b.uid] })]);
+    run(sim, 12 - STEP);
+    expect(rate(b)).toBe(1.8);
+    run(sim, 2 * STEP);
+    expect(sim._rallies).toEqual([]);
+    expect(rate(b)).toBe(1);
+    // her partner's girl, aimed at exactly
+    run(sim, 45);
+    expect(sim.castAbility(coach.uid, { aim: [c.x, c.y] }).ok).toBe(true);
+    expect([rate(b), rate(c), rate(f)]).toEqual([1, 1.8, 1]);
+  });
+
+  test('ties go to the lower uid; the caster is never her own target; a sabotaged target is cleansed', () => {
+    const sim = mk();
+    const coach = unlocked(sim, 'coach', 'a');
+    const g = sim.placeTower('archer', 10.5, 3.4);
+    const h = sim.placeTower('archer', 11.5, 3.4);
+    expect(g && h && g.uid < h.uid).toBe(true);
+    wave(sim);
+    run(sim, STEP);
+    coach.abil.cd = 0;
+    h.disabled = 3;
+    // exactly 0.5 from both: the lower uid
+    expect(sim.castAbility(coach.uid, { aim: [11, 3.4] }).ok).toBe(true);
+    expect(sim._rallies[0].on).toBe(g.uid);
+    expect(h.disabled).toBe(3);
+    run(sim, 13);
+    run(sim, 45);
+    // 0.49 from h, 0.51 from g: the nearer one (and her sabotage is cleared)
+    expect(sim.castAbility(coach.uid, { aim: [11.01, 3.4] }).ok).toBe(true);
+    expect(sim._rallies[0].on).toBe(h.uid);
+    expect(h.disabled).toBe(0);
+    run(sim, 13);
+    run(sim, 45);
+    // aimed at the caster herself: she is skipped, and with nobody else within 0.6 the pick rule decides
+    g.damageDealt = 10;
+    h.damageDealt = 20;
+    expect(sim.castAbility(coach.uid, { aim: [coach.x, coach.y] }).ok).toBe(true);
+    expect(sim._rallies[0].on).toBe(h.uid);
+  });
+
+  test('no aim, or no girl within 0.6: the girl in her range who dealt the most damage (ties: the lower uid); nobody is noTarget', () => {
+    const { sim, coach, b, c, f } = team();
+    b.damageDealt = 50;
+    c.damageDealt = 80;
+    f.damageDealt = 80;
+    expect(sim.castAbility(coach.uid).ok).toBe(true);
+    expect(sim._rallies[0].on).toBe(c.uid); // c and f tie at 80: c has the lower uid
+    run(sim, 13);
+    run(sim, 45);
+    c.damageDealt = 10;
+    expect(sim.castAbility(coach.uid, { aim: [AT.far[0] + 2, AT.far[1]] }).ok).toBe(true); // nobody within 0.6
+    expect(sim._rallies[0].on).toBe(f.uid);
+    // a malformed aim counts as none
+    run(sim, 13);
+    run(sim, 45);
+    expect(sim.castAbility(coach.uid, { aim: [Number.NaN, 3] }).ok).toBe(true);
+    expect(sim._rallies[0].on).toBe(f.uid);
+    // a girl out of her range is never the pick; alone, she is refused and keeps her charge
+    const solo = mk();
+    const lone = unlocked(solo, 'coach', 'a');
+    const away = place(solo, 'archer', 'far');
+    away.damageDealt = 999;
+    wave(solo);
+    lone.abil.cd = 0;
+    expect(solo.castAbility(lone.uid)).toEqual({ ok: false, reason: 'noTarget', casterUid: lone.uid });
+    expect(lone.abil.cd).toBe(0);
+    // ... but an aim right on her still reaches her (the aim rule has no range)
+    expect(solo.castAbility(lone.uid, { aim: [away.x, away.y] }).ok).toBe(true);
+    expect(solo._rallies[0].on).toBe(away.uid);
+  });
+
+  test('her target sold mid-rally: nobody else picks it up', () => {
+    const { sim, coach, b, f } = team();
+    expect(sim.castAbility(coach.uid, { aim: [b.x, b.y] }).ok).toBe(true);
+    sim.sellTower(b.uid);
+    run(sim, STEP);
+    expect(rate(f)).toBe(1);
+    expect(f.buffBy.rally).toBe(-1);
   });
 });
 

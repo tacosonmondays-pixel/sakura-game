@@ -11,7 +11,7 @@
 // Plain ES module: no Vite-only imports, so Node and Bun can import it straight from disk and a
 // browser through the Vite dev server.
 import { Lockstep } from '../../src/online/coop/lockstep.js';
-import { createCoopSim, quantize, flyArgs } from '../../src/online/coop/commands.js';
+import { createCoopSim, quantize, flyArgs, abilArgs } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
 import { createRng } from '../../src/core/rng.js';
 import { coopVersion } from '../../src/online/coop/version.js';
@@ -26,6 +26,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
+import { abilityPathOf } from '../../src/sim/abilities.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -770,6 +771,213 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 }
 
 // ---------------------------------------------------------------------------
+// Abilities (src/sim/abilities.js; ABILITIES_SPEC §7.4, BUILD_PLAN §4.5): every live kind in one battle
+// ---------------------------------------------------------------------------
+
+// cheap girls (every one reaches her ⚡ tier 3 early) at half damage (so crowds form and Auto's rules hold)
+const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
+const abilLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: ABIL_STATS }));
+/** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
+export const ABILITIES_START = Object.freeze({
+  seed: 454545,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro']), hero: { unitId: 'nami', stats: ABIL_STATS } },
+  ],
+});
+/** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
+const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget', 'cap', 'disabled', 'moving']);
+
+/**
+ * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
+ * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
+ * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * (Lv 7, Frost Net; she and Sango stand on the water) with `acast[0, 1]` (everything on Auto), taps one
+ * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
+ * the seeded fake network; every state hash collected (they fold the ability state once cast or on
+ * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
+ * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual).
+ */
+export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(29);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const taps = { abil: 0, ok: 0, acast: 0, reasons: {} };
+  const odd = [];
+  const mk = (slot) => new Lockstep({
+    start: ABILITIES_START,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        if (c.k === 'abil') {
+          taps.abil++;
+          if (r.ok) taps.ok++;
+          else {
+            taps.reasons[r.reason] = (taps.reasons[r.reason] || 0) + 1;
+            if (!ABIL_REASONS.includes(r.reason)) odd.push(`abil@${c.t}:${r.reason}`);
+          }
+        } else if (c.k === 'acast') {
+          taps.acast++;
+          if (!r.ok) odd.push(`acast@${c.t}:${r.reason}`);
+        } else if (!r.ok && c.k !== 'hlv' && c.k !== 'upg' && !(c.k === 'place' && r.reason === 'cash')) odd.push(`${c.k}@${c.t}:${r.reason}`);
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2) };
+  // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
+  // changed by its tick (refused 'cash'): she is tried again until she stands
+  const want = [];
+  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  const seen = [new Map(), new Map()];
+  const byKind = {};
+  const byOwner = [0, 0];
+  let ck = null;
+  let turn = 0;
+  let guestTurn = 0;
+  const toggles = { momo: false, off: false, on: false };
+  const mine = (c) => c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 4) A.queue('place', ['luna', ...spots.luna[0]]);
+    if (frame === 5) B.queue('place', ['nami', ...spots.nami[0]]);
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 21) B.queue('acast', [0, 1]);
+    if (frame === 24) A.queue('wave');
+    if (frame % 15 === 0) {
+      for (let i = want.length - 1; i >= 0; i--) if (mine(clients[want[i][0]]).some((t) => t.unitId === want[i][1])) want.splice(i, 1);
+      for (const w of want) {
+        const [slot, u, list, next] = w;
+        const c = clients[slot];
+        if (frame < next) break;
+        const q = list.find(([qx, qy]) => !c.sim.placementReason(u, qx / 1024, qy / 1024));
+        if (q && c.sim.canPlace(u, q[0] / 1024, q[1] / 1024).ok) {
+          c.queue('place', [u, ...q]);
+          w[3] = frame + 120;
+          break;
+        }
+      }
+    }
+    clients.forEach((c, slot) => {
+      // one ⚡-path tier at a time, each girl to tier 3
+      if (frame % 60 === 30 + slot * 7) {
+        for (const t of mine(c)) {
+          if (t.isHero) continue;
+          const path = abilityPathOf(t.def);
+          if (t.tiers[path] >= 3 || c.sim.upgradeStatus(t.uid, path).locked) continue;
+          c.queue('upg', [t.uid, path]);
+          break;
+        }
+      }
+      // her hero to Lv 8 (her skill at Lv 7)
+      if (frame % 150 === 75 + slot * 10 && c.sim.hero && c.sim.hero.level < 8) {
+        const st = c.sim.heroLevelStatus();
+        if (!st.reason) c.queue('hlv', [st.level + 1, st.price]);
+      }
+    });
+    // the host taps a girl every 7 s, round robin; some group taps, some aimed at the girl herself
+    if (frame % 420 === 210 && A.sim.state === 'wave') {
+      const casters = mine(A).filter((t) => t.abil).sort((p, q) => p.uid - q.uid);
+      if (casters.length) {
+        const t = casters[turn % casters.length];
+        A.queue('abil', abilArgs(t.uid, { group: turn % 3 === 1, aim: turn % 4 === 2 ? [t.x, t.y] : null }));
+        turn++;
+      }
+    }
+    // the guest taps too, every 4 s, one of her girls her view shows ready (Auto waits for its own
+    // moment; a tap fires whenever there is a target)
+    if (frame % 240 === 120 && B.sim.state === 'wave') {
+      const ready = mine(B).filter((t) => t.abil && !t.isHero && B.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
+      if (ready.length) B.queue('abil', abilArgs(ready[guestTurn++ % ready.length].uid));
+    }
+    // switches: from wave 4 the host's Momo on Auto; the guest's Shiro off after wave 5, on again after wave 7
+    if (frame % 60 === 0) {
+      const momo = mine(A).find((t) => t.unitId === 'momo' && t.abil);
+      if (momo && !toggles.momo && A.sim.wavesCleared >= 4) {
+        A.queue('acast', [momo.uid, 1]);
+        toggles.momo = true;
+      }
+      const shiro = mine(B).find((t) => t.unitId === 'shiro' && t.abil);
+      if (shiro && !toggles.off && B.sim.wavesCleared >= 5) {
+        B.queue('acast', [shiro.uid, 0]);
+        toggles.off = true;
+      }
+      if (shiro && toggles.off && !toggles.on && B.sim.wavesCleared >= 7) {
+        B.queue('acast', [shiro.uid, 1]);
+        toggles.on = true;
+      }
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) {
+          if (ev.type !== 'ability') continue;
+          byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
+          byOwner[ev.owner]++;
+        }
+      }
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start: ABILITIES_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(ABILITIES_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  const kinds = Object.keys(byKind).sort();
+  const casts = kinds.reduce((a, k) => a + byKind[k], 0);
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    towers: A.sim.towers.map((t) => `${t.unitId}:${t.isHero ? `Lv${t.level}` : t.tiers.join('')}${t.abil ? `+${t.abil.n}` : ''}`).join(' '),
+    casts,
+    kinds: kinds.join(','),
+    byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
+    byOwner: byOwner.join('/'),
+    taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
+    refused: odd.join(' '),
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    final: A.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.length > 0 && ticks.every((t) => seen[0].get(t) === seen[1].get(t)),
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Potential (src/data/potential.js): every kind of step in one co-op battle
 // ---------------------------------------------------------------------------
 
@@ -1065,7 +1273,7 @@ export function runModeBattles() {
   return { battles, digest: bitsHash(battles.flatMap((b) => [Number.parseInt(b.final, 16) || 0, b.hashes.length ? Number.parseInt(String(b.hashes).slice(0, 8), 16) || 0 : 0, b.steps])), ms: Date.now() - t0 };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones, abilities and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -1079,5 +1287,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
+  return { ...r, potential, potentialBoss, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), abilities: runAbilitiesBattle(), modes };
 }

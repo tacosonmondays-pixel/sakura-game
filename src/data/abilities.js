@@ -37,7 +37,10 @@
 //           hitsAir, status
 //   boost   mods: a ModSet on the caster for `duration` (CONTRACTS §3; resolved after every other set)
 //   rally   radius | inAura (her aura's reach), dmgMul, rateMul, rangeMul, detection, cleanse,
-//           ward (blocks new sabotage while it lasts); both players' girls, strongest per key wins
+//           ward (blocks new sabotage while it lasts); both players' girls, strongest per key wins;
+//           target: 'girl' = a rally on ONE girl (no radius): the girl nearest the cast's aim point
+//           within ABILITY_RULES.girlAimRadius (any player's, never the caster; ties: the lower uid),
+//           else the girl in the caster's range who dealt the most damage (ties: the lower uid)
 //   debuff  pick ('all' | 'veiled' | 'strong'), count, status, casterStatus (casters only),
 //           rally (a rally rider for `duration`)
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
@@ -59,6 +62,7 @@ export const ABILITY_RULES = Object.freeze({
   densestCap: 60, // candidates the densest-crowd scan looks at
   hasteShare: 0.5, hasteCap: 0.5, // Skill Haste speeds abilities at half rate: 100 / (1 − 0.5 × min(0.5, h))
   unhastedKinds: Object.freeze(['rally', 'debuff']),
+  girlAimRadius: 0.6, // a girl-target ability picks the girl nearest its aim point within 0.6 tiles (spec §7.2)
 });
 
 export const ABILITY_KINDS = Object.freeze(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
