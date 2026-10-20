@@ -235,6 +235,22 @@ describe('Craft Room (§B.6)', () => {
     expect(WEEKLY_CAP.combine.zenith).toBe(3);
   });
 
+  it('a clock set back a week never clears the weekly caps (W → W-1 → W; ASC-1)', () => {
+    const p = ready();
+    addItems(p, [{ id: 'mat_feather_legendary', count: 60 }]);
+    expect(craft(p, 'combine', 'mat_feather_legendary', 3, null, T0).ok).toBe(true);
+    expect(craftPreview(p, 'combine', 'mat_feather_legendary', 1, null, T0)).toMatchObject({ ok: false, reason: 'weekly' });
+    for (const t of [T0 - 7 * DAY, T0, T0 - 7 * DAY, T0]) {
+      expect(craftPreview(p, 'combine', 'mat_feather_legendary', 1, null, t), new Date(t).toISOString()).toMatchObject({ ok: false, reason: 'weekly' });
+      expect(craft(p, 'combine', 'mat_feather_legendary', 1, null, t).ok).toBe(false);
+    }
+    expect(itemCount(p, 'mat_feather_zenith')).toBe(3);
+    expect(p.missions.counters['craft:wk']).toBe(gameWeekNumber(T0));
+    // the real next week still opens the caps
+    expect(craft(p, 'combine', 'mat_feather_legendary', 3, null, T0 + 7 * DAY).ok).toBe(true);
+    expect(itemCount(p, 'mat_feather_zenith')).toBe(6);
+  });
+
   it('never beats the Mall: 3 commons + the fee cost what the Mall asks for one rare', () => {
     expect(3 * 1000 + COMBINE_FEE.rare).toBe(8000);
     const mallRare = SHOP_OFFERS.find((o) => o.id === 'gen_mat_feather_rare');
@@ -298,6 +314,24 @@ describe('weekly stores (§A.5, §C.10)', () => {
     refreshShop(p, next);
     expect(p.missions.counters[ASC_SHOP_MARK]).toBe(gameWeekNumber(+next));
     expect(buyOffer(p, 'ts_crown_shard', 1, next).ok).toBe(true);
+  });
+
+  it('a clock set back a week never restocks the game-week rows (W → W-1 → W; ASC-1)', () => {
+    const p = ready();
+    p.missions.counters['tbest:regent'] = 3; // a Nightmare clear: the SSR shard row shows
+    addItems(p, [{ id: 'token_boss', count: 1e5 }, { id: 'moonpearl', count: 1e5 }]);
+    p.currencies.gems = 1e6;
+    // gts_kindred_shard is on sale every other game week: start on a week it is
+    const w0 = [T0, T0 + 7 * DAY].find((t) => gameWeekNumber(t) % 2 === 0);
+    const rows = ['ts_crown_shard', 'mp_ticket10', 'gts_kindred_shard'];
+    for (const id of rows) expect(buyOffer(p, id, 1, new Date(w0)).ok, id).toBe(true);
+    for (const t of [w0 - 7 * DAY, w0, w0 - 7 * DAY, w0, w0 - 14 * DAY, w0]) {
+      for (const id of rows) expect(buyOffer(p, id, 1, new Date(t)).ok, `${id} ${new Date(t).toISOString()}`).toBe(false);
+    }
+    expect(itemCount(p, 'crown_rainbow_shard')).toBe(1);
+    expect(p.missions.counters[ASC_SHOP_MARK]).toBe(gameWeekNumber(w0));
+    // the real next week restocks
+    expect(buyOffer(p, 'ts_crown_shard', 1, new Date(w0 + 7 * DAY)).ok).toBe(true);
   });
 
   it('crown shards bought in the shelves fuse at 10', () => {

@@ -2,9 +2,10 @@
 // and src/data/shop.js.
 //
 // Ascension's rows (docs/specs/ASCENSION.md §A.5, §C.10) run on the GAME week (Sunday 7 PM Central,
-// src/core/reset.js) with their own marker 'shopwk:asc' in missions.counters: when it differs from
-// this game week, their counts (and their groups') are cleared. An older tab that rolls the local
-// week first therefore never leaves them sold out, and the local-week reset below never touches them.
+// src/core/reset.js) with their own marker 'shopwk:asc' in missions.counters: when this game week is
+// past it, their counts (and their groups') are cleared. An older tab that rolls the local week first
+// therefore never leaves them sold out, and the local-week reset below never touches them. Forward
+// only, like the Titan keys (ENERGY_RESET A10 / R-5): a clock set back never restocks a week twice.
 
 import { SHOP_TABS, SHOP_OFFERS, SHOP_OFFER_MAP, stockKey } from '../data/shop.js';
 import { UNIT_MAP } from '../data/units.js';
@@ -37,7 +38,8 @@ export function refreshShop(profile, now = new Date()) {
   }
   const c = ((profile.missions ||= {}).counters ||= {});
   const gw = gameWeekNumber(+now);
-  if (c[ASC_SHOP_MARK] !== gw) {
+  const was = c[ASC_SHOP_MARK];
+  if (typeof was !== 'number' || !Number.isFinite(was) || gw > was) {
     for (const o of SHOP_OFFERS) if (isGameClock(o)) delete shop.bought[stockKey(o)];
     c[ASC_SHOP_MARK] = gw;
   }

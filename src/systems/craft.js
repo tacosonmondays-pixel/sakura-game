@@ -4,6 +4,7 @@
 //
 // The top steps are weekly-capped (counters 'craft:<kind>:<tier>' with 'craft:wk' = the game week):
 // combining legendary → Zenith 3 a week, mythic → legendary 10; swapping legendary 5, Zenith 2.
+// The week only moves forward (like the Titan keys): a clock set back never clears the caps.
 // Crowns, books, fragments and Essence never go through it.
 
 import { MATERIAL_FAMILIES, ITEM_RARITY_ORDER } from '../data/types.js';
@@ -38,7 +39,8 @@ export function craftInfo(itemId) {
 function weekCounts(profile, now) {
   const c = ((profile.missions ||= {}).counters ||= {});
   const week = gameWeekNumber(+now);
-  if (c['craft:wk'] !== week) {
+  const was = c['craft:wk'];
+  if (typeof was !== 'number' || !Number.isFinite(was) || week > was) {
     for (const k of Object.keys(c)) if (k.startsWith('craft:') && k !== 'craft:wk') delete c[k];
     c['craft:wk'] = week;
   }
