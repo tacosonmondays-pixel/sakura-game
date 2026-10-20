@@ -109,6 +109,13 @@ view and in the formation / lobby. The list lives in `src/models/standins.js` (`
   `STANDIN_UNITS` and from the test's list, and bump the GLB count in `glb.test.js`. The glb test fails while a
   stand-in id has a manifest entry, so the list cannot go stale.
 
+## Figure options (tools-only)
+
+`FIGURE_OPTIONS` in `tools/blender/build_characters.py` (keyed by unit id, like `EXTRA_PARTS`):
+`head_pitch` adds that many degrees to the head's pitch in every clip (negative = chin up). The new girls
+use -12 so their faces, not just their bangs, read at the 48 degree battle camera. A unit not listed
+builds byte-identically to before (checked: Aoi, Kanna and Momo rebuild to the same bytes).
+
 ## Adding a character
 
 1. Add the unit to `src/data/units.js` with `palette` + `look` (any combination of the existing

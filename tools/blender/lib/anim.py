@@ -16,9 +16,12 @@ D = math.radians
 
 
 class Poser:
-    def __init__(self, arm_obj, loc_scale=1.0):
+    def __init__(self, arm_obj, loc_scale=1.0, head_pitch=0.0):
         self.arm = arm_obj
         self.loc_scale = loc_scale
+        # degrees added to the head's pitch in every key (negative = chin up, so the face reads at the
+        # 48 degree battle camera); 0 keeps the old clips exactly
+        self.head_pitch = head_pitch
         self.names = [b.name for b in arm_obj.data.bones]
         self.ad = arm_obj.animation_data or arm_obj.animation_data_create()
         self.action = None
@@ -41,6 +44,9 @@ class Poser:
             if pb is None:
                 continue
             r = pose.get(name)
+            if self.head_pitch and name == 'head':
+                a = r if r is not None else (0, 0, 0)
+                r = (a[0] + self.head_pitch, a[1], a[2])
             if r is not None or name in self.touched:
                 rx, ry, rz = r if r is not None else (0, 0, 0)
                 q = Euler((D(rx), D(ry), D(rz)), 'ZXY').to_quaternion()
@@ -110,7 +116,7 @@ def merge(*poses):
 
 
 def build_all(arm_obj, ctx, loc_scale=1.0):
-    poser = Poser(arm_obj, loc_scale=loc_scale)
+    poser = Poser(arm_obj, loc_scale=loc_scale, head_pitch=ctx.get('head_pitch', 0.0))
     kind = ctx['weapon_kind']
     expr = ctx['look'].get('expression', 'smile')
     hold = rest_hold(poser, kind)

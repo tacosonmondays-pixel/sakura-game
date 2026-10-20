@@ -42,6 +42,10 @@ DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit=
 EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoDrum'],
                    tsubaki=['mortarTube'], kohaku=['monocle'])
 HORN_SHAPE = dict(raika='curl', seiran='dragon')
+# Per-unit figure options (tools-only, keyed by unit id). head_pitch: degrees added to the head's pitch in
+# every clip (negative = chin up) so the face, not just the bangs, reads at the 48 degree battle camera.
+# A unit not listed builds exactly as before (byte-identical GLBs).
+FIGURE_OPTIONS = {uid: dict(head_pitch=-12.0) for uid in ('azami', 'kinu', 'wakaba', 'yuzuha', 'ouka')}
 
 
 def load_units(path=None):
@@ -84,7 +88,8 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     P = proportions(adult)
     spec = outfit.spec(look, pal)
     ctx = dict(unit=unit, pal=pal, look=look, P=P, spec=spec, parts=[], hair_bones=[], H=Head(P), adult=adult,
-               weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']))
+               weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']),
+               **FIGURE_OPTIONS.get(unit['id'], {}))
 
     # --- face atlas ---
     atlas_path = os.path.join(tmpdir, f'{unit["id"]}_face.png')
