@@ -3,7 +3,9 @@
 // the rainbow dot and the Awaken button, the Awaken modal (before → after, Power), "Awakened to UR!",
 // the rainbow card and slot; a gold ✦ and a rainbow ✦ stitched on one line, then one taken back; the
 // Armband moves the charm into the Taiko Club and the strip lights the 2-piece stat and the trick. In
-// the Backpack a spare gold +10 can awaken from its modal. No horizontal overflow; every modal fits.
+// the Backpack a spare gold +10 can awaken from its modal, and a Rainbow Gear Box opens through its slot
+// picker (rainbow-box-open → rainbow-box-<slot>, ASCENSION.md §C.8) into rainbow UR gear at +0 with four
+// substats. No horizontal overflow; every modal fits.
 // Phone (844x390) first, then PC (1280x720).
 // Usage: node e2e/ur-gear.mjs [--shots dir]
 import { createServer } from 'vite';
@@ -36,7 +38,7 @@ async function openGame(page) {
     const { createRng } = await import('/src/core/rng.js');
     const p = store.profile;
     p.currencies.coins = 5_000_000;
-    Object.assign(p.items, { seed_rainbow: 2, needle_star: 3, club_band: 2, dice_reroll: 20, dice_prism: 5 });
+    Object.assign(p.items, { seed_rainbow: 2, needle_star: 3, club_band: 2, dice_reroll: 20, dice_prism: 5, gearbox_rainbow: 1 });
     const mk = (seed, slot, club = null) => gear.addGear(p, gear.rollGear(createRng(seed), { slot, rarity: 'legendary', level: 10, club }));
     const charm = mk(11, 'charm');
     gear.equipGear(p, 'aoi', charm);
@@ -192,6 +194,45 @@ try {
     check((await layout(page)).fits, `${tag} the Backpack gear modal fits the screen`);
     await shot(page, `${tag}-backpack-modal`);
     await closeModals(page);
+
+    // ---- Backpack: the Rainbow Gear Box opens only through its slot picker, into rainbow UR gear at +0
+    await page.waitForSelector('[data-testid="box-gearbox_rainbow"] [data-testid="rainbow-box-open"]');
+    const gear0 = await page.evaluate(() => Object.keys(window.__sakura.store.profile.gear));
+    const seeds0 = await count(page, 'seed_rainbow');
+    check(await page.locator('[data-testid="open-all-gearbox_rainbow"]').count() === 0, `${tag} the Rainbow Gear Box has no Open all`);
+    await tap(page, '[data-testid="rainbow-box-open"]');
+    await page.waitForSelector('[data-testid="rainbow-box-modal"]');
+    const picks = await page.evaluate(() => ['charm', 'ribbon', 'shoes'].map((s) => !!document.querySelector(`[data-testid="rainbow-box-${s}"]`)));
+    check(picks.every(Boolean), `${tag} the slot picker offers charm, ribbon and shoes (${JSON.stringify(picks)})`);
+    check((await layout(page)).fits, `${tag} the Rainbow Gear Box picker fits the screen`);
+    await shot(page, `${tag}-rainbow-box-picker`);
+    await tap(page, '[data-testid="rainbow-box-shoes"]');
+    await page.waitForSelector('[data-testid="gear-ascend"]');
+    // the picker fades out (160 ms) while the UR moment opens
+    const pickerGone = await page.waitForSelector('[data-testid="rainbow-box-modal"]', { state: 'detached', timeout: 5000 }).then(() => true, () => false);
+    check(pickerGone, `${tag} picking a slot closes the picker and plays the UR moment`);
+    await page.waitForTimeout(1200);
+    await shot(page, `${tag}-rainbow-box-moment`);
+    const born = await page.evaluate((before) => {
+      const p = window.__sakura.store.profile;
+      const uid = Object.keys(p.gear).find((u) => !before.includes(u));
+      const g = uid ? p.gear[uid] : null;
+      return { uid, slot: g?.slot, rarity: g?.rarity, ur: g?.ur, level: g?.level, subs: g?.subs?.length, locked: g?.locked, boxes: p.items.gearbox_rainbow || 0, mark: p.missions.counters[`gbx:${uid}`] || 0, n: Object.keys(p.gear).length - before.length };
+    }, gear0);
+    check(born.n === 1 && born.slot === 'shoes' && born.rarity === 'legendary' && born.ur === 1 && born.level === 0 && born.subs === 4 && born.locked,
+      `${tag} the box became one rainbow UR shoes piece at +0 with four substats, locked (${JSON.stringify(born)})`);
+    check(born.boxes === 0 && born.mark > 0, `${tag} the box is spent and the piece carries its gbx: mark`);
+    check(await count(page, 'seed_rainbow') === seeds0, `${tag} opening the box spends no Rainbow Seed`);
+    await tap(page, '[data-testid="gear-ascend-ok"]');
+    await page.waitForSelector('[data-testid="gear-ascend"]', { state: 'detached' });
+    await page.waitForTimeout(300);
+    const card = await page.evaluate((uid) => {
+      const el = document.querySelector(`.mb-gear[data-gear="${uid}"]`);
+      return { card: !!el, ur: !!el?.classList.contains('is-ur'), box: !!document.querySelector('[data-testid="box-gearbox_rainbow"]') };
+    }, born.uid);
+    check(card.card && card.ur && !card.box, `${tag} the Backpack lists the new rainbow piece and the box row is gone (${JSON.stringify(card)})`);
+    const blay = await layout(page);
+    check(blay.over <= 1, `${tag} no horizontal overflow in the Backpack (${blay.over}px)`);
 
     // ---- reduced motion: no running ring animation on a gear card
     await page.emulateMedia({ reducedMotion: 'reduce' });
