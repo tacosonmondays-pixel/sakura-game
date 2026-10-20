@@ -57,13 +57,14 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
 - 13 days, not 9: nothing counts "day N of the event". Episodes and operations unlock by the story chain, dailies roll
   on the game day, and login gifts are the nth gift on the nth day the player visits (nine in all; the ninth letter
   says it is the last, days 10–13 still count the daily Roll Call). Candy: 2,990 once (episodes 150, first clears
-  1,040, one-time missions 1,250, login gifts 550) plus 120 a day from dailies; the limited stock costs 7,550. With no
+  1,040, one-time missions 1,250, login gifts 550) plus 120 a day from dailies; the limited stock costs 7,550 (15,800
+  since the Oct 20 price rise, below). With no
   energy, operations sweep free (10 a tap, Op 4 = 900 candy a tap), so a farmer can empty the stock on the first day
   either way; a player who only does the three daily wins reaches it around day 12 of 13 (it was out of reach in 9).
   The unlimited Doodle Notes offer is the sink.
 - 3 episodes, 8 spoken lines each (the story lint's minimum; the brief said 4–8), Hikari leads with Aoi, Yuki,
   Sango; read = +50 candy (episode 3 also +50 gems). Unlock chain: Ep 1 → Op 1 → Op 2 → Ep 2 → Op 3 → Op 4 → boss → Ep 3.
-- 4 operations (Normal only, free, sweepable once cleared) + the Gourdlight Golem (Normal / Hard) on existing maps
+- 4 operations (Normal only, free, sweepable once cleared; Nightmare added Oct 20, below) + the Gourdlight Golem (Normal / Hard; Nightmare added Oct 20) on existing maps
   (`shrine_gate`, `festival_street`, `shrine_steps`, `marsh_boardwalk`, boss on `shrine_sanctum`), tuned like
   2-1 / 2-3 / 3-1 / 3-3 / 3-5. Event stages are not in `STAGES`/`ENEMIES` (E9) and not in co-op (E11).
 - The Golem: an original pumpkin-headed construct (render-only head), one phase change at 50 % (shell drops,
@@ -94,3 +95,142 @@ No energy (not built): stages are free. Login gifts are "the nth gift on the nth
 read, daily: { day, progress, claimed }, total: { progress, claimed }, bought, owned, login: { days, last },
 settled } } }`; `missions.counters` shadows `evs:<id>:<run>`, `evo:<kind>:<id>`, `evr:<episodeId>`; the item
 `evt_halloween_candy`; mail ids `ev:halloween-2026:1:login:<n>|unclaimed|leftover`.
+
+## Nightmare, the title fix and the raised prices (owner, Oct 20, 18:00 UTC)
+
+> "pumpkin patroller title doesnt work, also can you add nightmare modes for the event stages with the final one
+> being really hard, and increase how much it costs to buy items in the event shop to make grinding worth it!"
+
+Built on `feature/event-nightmare` from v0.1.38 (`26c0de1`). Client only, no SQL, no SAVE_VERSION bump, sim id
+unchanged (`37b5428d7657`), COOP_PROTOCOL untouched. This replaces the "one fixed difficulty for operations; the boss
+has Normal and Hard" line of the brief above, and the 7,550-candy stock of the build notes.
+
+### The title
+
+**Cause.** `src/ui/profile/parts.js` `titlePlate()` passed `text: TITLES[id] ? null : '—'` to `src/ui/honorFx.js`
+`titlePlate()`, which reads the name and the plate from `TITLE_MAP` (`src/data/honors.js`): achievement, freeplay and
+tag titles only. The event titles live only in the profile's own table (`src/data/profileArt.js` `TITLES`), so a bought
+and equipped Pumpkin Patroller read "✦ —" on the Standard plate in the picker, the editor preview, the plate under the
+name, Preview and a visitor's view. Ownership, the save, the online card (`ttl`) and the server were fine; the frame
+was fine everywhere.
+
+**Fix.** `parts.titlePlate` passes the name and the tier's plate from the profile table (`honorFx.titlePlate` takes a
+`plate` option): "★ Pumpkin Patroller" on the Gold plate everywhere. Nothing to buy again: a v0.1.38 purchase is
+already owned (`evo:` mark) and equipped (`sensei.title`), and simply renders now. The picker's help line names the
+event exchanges to an owner ("Titles come from achievements and limited-event exchanges (event candy, never real
+money).") instead of "Nothing you buy gives a title". A new `evt:<titleId>` worn-title shadow (`src/systems/senseiSave.js`,
+like `tagt:`) puts the title back on after a v0.1.37-or-older tab, which doesn't know the id, took it off. Tests:
+`tests/ui/eventTitle.test.js`, `tests/systems/eventTitleSave.test.js`, `e2e/event-title.mjs` (buy → equip → profile,
+Preview, reload, the online card, a second player's visit), and the equip steps in `e2e/halloween.mjs`.
+
+### Nightmare
+
+The campaign's Nightmare (`DIFFICULTIES.nightmare`: +75 % HP, ×1.15 speed, ×0.9 cash, ×1.2 upgrade cost, 1 life, no
+girl income, the Sakura medal and its 100 gems once), with no new sim code (EVENT_SPEC E8 update, §3.6).
+
+| Stage | Nightmare | Opens after | Candy per win / sweep (Normal → Nightmare) | Extra Nightmare drops |
+|---|---|---|---|---|
+| Op 1 Pumpkin Patch Path | its own waves | Normal medal | 60 → 120 | Super Rare book 25 % |
+| Op 2 Candle Lane Costume Walk | its own waves | Normal medal | 70 → 140 | Super Rare book 25 % |
+| Op 3 Ghost Lantern Steps | its own waves | Normal medal | 80 → 160 | Super Rare book 25 % |
+| Op 4 Hayride Through the Fen | its own waves | Normal medal | 90 → 180 | Super Rare book 25 % |
+| The Gourdlight Golem | **"Lantern Night Never Ends"** | Hard medal | 150 / 220 (Hard) → 500 | Mythic gear box 20 % |
+
+**"Lantern Night Never Ends"** (`variants.nightmare` of the boss, `src/data/events/wire.js` `eventBattleStage`): 20 waves
+instead of 15, budget 7 → 260 in 3 groups, chapter-8 coins (`tuneLike` 8-5: cash ×3.07, start 900), HP ×12 (Normal and
+Hard ×2.84). Pool: ghost_wisp, goblin_dasher, slime_pearl, goblin_smoke (wave 4+), slime_violet (4+), ghoul_shambler
+(5+), ghost_veilwraith (6+), ghost_phantom (8+), orc_ironhide (9+), ghost_hollowknight (12+), ghoul_gravepriest (14+).
+Scripted: a lantern bearer at wave 8, two at 12, two hollow knights at 16, and **two Gourdlight Golems at wave 20**
+(8 s apart, 6 s delay; their 50 % phase unchanged). A Golem has 32,382 HP there (4,124 on Normal, 5,567 on Hard).
+Existing enemies, traits and difficulty rules only; no map rule. It wants Veil Sight, holy / mystic hits on the
+ghosts, splash for the wisps and armor pierce for the shells. Stage prep shows its waves, enemies, HP, start cash and
+name; its saved battles are record format 2 (v0.1.38 drops them with its notice instead of replaying the base waves).
+
+**Bench** (autoPlan, the generic placement bot, over 3 seeds with the build-A team — Shiro, Kage, Aoi, Akane, Sango,
+Miko, Midori, Momo + Hikari — on the shipped stages, `tests/integration/event-balance.test.js` EB-3 / EB-4; capBot's
+smart mixed team (A2) and Kage army (B) from the design study, on identical stage data):
+
+| Who | Golem Nightmare | Op 4 Nightmare | Op 2 Nightmare |
+|---|---|---|---|
+| Level 40, no gear | lost, wave 1 ×3 | **won ×3** | lost, wave 1 ×3 |
+| Level 60, maxed gear, P1 | lost, wave 8 ×3 (capBot A2 / B at L60–70: lost by wave 8) | — | **won ×3** |
+| Level 75, maxed gear, R/SR at P6 | lost, wave 8 ×3 (capBot A2: won 2 of 3; B: lost 3 of 3) | — | — |
+| Level 85, late gear | **won ×3** (capBot: won 3 of 3 with every build) | — | — |
+
+Operations (design study): Op 1 — smart builds win at L20, the generic bot needs L40; Op 2 is the hardest (two lanes of
+runners from wave 1 on one heart: every L20–40 account without gear loses at wave 1; L60 with maxed gear wins); Op 3 —
+smart builds win at L20–30, the free roster loses (no detection or holy / mystic damage); Op 4 — smart builds win at
+L30, the generic bot at L40: the farm. HP ×15 on the boss was too hard (the L75 smart team lost); ×7–9 let L75 win with
+the generic bot. Bots are pessimistic on one-life openings; a skilled mid player may do better on Ops 1, 3 and 4.
+
+**Sweeps.** As before: up to your best medal on that stage, 10 per tap, operations only (never the boss), refused
+once the operations close. Nightmare sweeps open after that operation's Nightmare medal.
+
+**Missions** (one-time only; no new dailies, whose claims have no shadow mark):
+
+| id | Name | Goal | Reward |
+|---|---|---|---|
+| hw_t_nm1 | Night Shift: Pumpkin Patch Path | clear Op 1 on Nightmare | 150 candy |
+| hw_t_nm2 | Night Shift: Candle Lane | clear Op 2 on Nightmare | 200 candy |
+| hw_t_nm3 | Night Shift: Ghost Lantern Steps | clear Op 3 on Nightmare | 250 candy |
+| hw_t_nm4 | Night Shift: Hayride | clear Op 4 on Nightmare | 300 candy |
+| hw_t_boss_nm | Lights Out (Nightmare) | the Golems on Nightmare | 1,000 candy + mythic gear box |
+| hw_t_nm_clear15 | Sleepless Patrol | win or sweep 15 Nightmare operations | 400 candy + mythic book |
+
+**Gems.** EVENT_SPEC sets no cap (medal gems come from `DIFFICULTIES[d].firstClearGems`, §3.6; the summer tally of
+550 is the reference). Halloween's free gems go from 610 (episode 3: 50, Hard boss mission 100, read mission 50,
+login gifts 150, medals 260) to **1,110** with the five Sakura medals (+500); the new missions give none. Plus the
+200 gems you can buy with candy. If that is too many, a per-stage medal-gem override is a small change.
+
+### Exchange prices (stock limits unchanged)
+
+| Offer | Limit | v0.1.38 | Now |
+|---|---|---|---|
+| Pumpkin Patroller (title) | 1 | 300 | **900** |
+| Pumpkin Lantern (frame) | 1 | 600 | **1,500** |
+| Recruit ticket | 2 | 500 | **1,100** |
+| 100 gems | 2 | 300 | **700** |
+| Mythic gear box | 1 | 450 | **1,000** |
+| Super Rare gear box | 4 | 150 | **300** |
+| Mythic book | 2 | 300 | **650** |
+| Super Rare book | 8 | 80 | **160** |
+| 5 rare books | 10 | 40 | **70** |
+| 2 Super Rare charm mats | 4 | 120 | **240** |
+| 2 Super Rare rune mats | 4 | 120 | **240** |
+| 10 star fragments | 4 | 150 | **300** |
+| 10,000 coins | 20 | 40 | **60** |
+| 5 Doodle Notes (sink) | ∞ | 30 | **40** |
+| **Limited stock** | | **7,550** | **15,800** |
+
+### Economy (13 game days, Oct 20 – Nov 1; Nightmare live for about 10 of them)
+
+No energy (stages are free) and sweeps are free and unlimited at 10 a tap, so price is the only lever. Fixed candy:
+episodes 150, first clears 1,040, one-time missions 1,250 (+2,300 Nightmare), login gifts 550, dailies 120 a day
+(1,560 max). Per win or sweep: operations 60 / 70 / 80 / 90 (Nightmare 120 / 140 / 160 / 180); the boss 150 / 220 /
+500 (never swept). Sweep ×10 = 900 candy on Op 4 Normal, 1,800 on Nightmare.
+
+- **Before (7,550 stock):** a casual player (10 of 13 days, all dailies, one Op 4 battle and 3 sweeps a day, the boss
+  on Normal) earns about 7,640: the whole stock. A grinder bought everything on day 1–2.
+- **After (15,800 stock):** the same casual player (no Nightmare) affords the title + frame + both tickets + 200 gems +
+  the mythic box (7,000) with 640 left: the cosmetics and a handful of picks, about 44 % of the stock (one Sweep ×10
+  a day instead brings it to about 13,900). A grinder who clears Nightmare has 6,850 fixed (2,990 + 2,300 + 1,560)
+  and needs about 50 Op 4 Nightmare sweeps (5 taps) or about 100 Normal sweeps for the rest; the boss's Nightmare adds
+  500 a win. A mid grinder (Ops 1 / 3 / 4 Nightmare) has about 5,700 fixed and needs about 56 Op 4 Nightmare sweeps.
+  Everything stays reachable before Nov 8.
+- **Owner caveat:** grinding here costs taps, not time. If "grinding" should mean playing, the lever is a daily sweep
+  allowance (EVENT_SPEC E7 planned energy for event operations); an owner decision, not in this build (v0.1.38 tabs
+  would bypass it).
+
+### Stale tabs (v0.1.38 open next to the new build)
+
+Checked against the real v0.1.38 code (`26c0de1`) on a save the new build wrote, and back:
+- v0.1.38 keeps every Nightmare medal (`progress.stages[id].nightmare`) and turns a Nightmare battle or sweep into
+  practice (its `eventDifficultyOk`): it can neither earn nor erase one.
+- It drops the new missions from its block but keeps their `evp:` / `evm:` marks; the new build restores progress and
+  claims from them. Nothing pays twice.
+- It still charges its own old prices until reloaded; stock limits and cosmetics hold across both builds (`bought` +
+  `evb:` / `evo:` marks): nobody exceeds a limit, gets a cosmetic twice or pays twice. Earlier purchases are not refunded.
+- A saved Golem Nightmare battle (record format 2) is dropped by v0.1.38 with its notice: that one in-progress run is
+  lost if the old tab writes the save. An operation's Nightmare save stays format 1 (same waves); continued in v0.1.38
+  it pays nothing (practice).
+- A v0.1.37-or-older tab takes an equipped event title off; the `evt:` mark puts it back on.

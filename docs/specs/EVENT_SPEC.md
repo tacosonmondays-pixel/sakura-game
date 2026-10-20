@@ -81,7 +81,7 @@ Branch to create: **`feature/events`**, cut from live `claude/sakura-sentinels` 
 | E5 | Who can join | Clear **1-5** (end of chapter 1; Nami, who appears in the story, joins at 1-5). The old game asked for 6 chapters. | Ours |
 | E6 | Event girls | Marina and Amane are **limited**: not in the gacha pool, not sparkable, not on featured banners, and not needed for "Full Roster". They are permanent once earned. | Ours |
 | E7 | Event stages and energy | Operations cost energy through `stage.energy` (ENERGY_RESET §3.4 `energyCost` honours it): 10/10/12/12/15, boss 20. First clears stay free. Operations can be swept once cleared; the boss cannot. | Ours |
-| E8 | Difficulty | Operations have one fixed difficulty (**Normal**). The Leviathan has **Normal** (story) and **Hard** (challenge). | Ours |
+| E8 | Difficulty | Operations have one fixed difficulty (**Normal**). The Leviathan has **Normal** (story) and **Hard** (challenge). **Update (owner, Oct 20, Halloween 2026: "add nightmare modes for the event stages with the final one being really hard"):** an event stage may add **Nightmare** (the campaign's `DIFFICULTIES.nightmare`, no new rules), gated by a medal on the same stage (`unlockAfter`: an operation's Nightmare after its Normal medal, the boss's after its Hard medal). A difficulty may play its own waves (`variants`, §3.6): Halloween's boss Nightmare does. | Ours → Owner |
 | E9 | Where event data lives | Event stages and enemies are **not** added to `STAGES`/`ENEMIES` (59 and 74 stay; many tests count them). They are merged only into the lookup maps `STAGE_MAP`/`ENEMY_MAP`, which is all the sim and the battle UI read. | Ours |
 | E10 | Story episodes | Event episodes use the story scene format and the story scene player (`playStoryScene`). If feature/story is not on main when Builder 2 starts, a small fallback reader ships instead (§3.9). | Ours |
 | E11 | Co-op | Event stages are **not** offered in co-op v1 (`coopStages` stays campaign only). | Ours |
@@ -207,6 +207,12 @@ recommended, unlocks, requires, drops, firstClear, scenery, tier) plus the event
   eventReward: { firstClearGear: { slot: 'charm', rarity: 'mythic', name: 'Seaglass Focus' } } }
 ```
 
+Two optional fields (Halloween 2026, E8 update): `unlockAfter: { nightmare: 'hard' }` names the medal a difficulty
+waits for on the same stage (`src/systems/events.js eventDifficultyStatus`), and `variants: { nightmare: eventVariant({…}) }`
+gives one difficulty its own waves (`name`, `desc`, `sub`, `tuneLike`, optional `hpScale` / `cashScale` / `startCash` /
+`tier`, `waves`, `budget`, `groups`, `pool`, `fixed`; built like the stage's own). `validateEvent` checks both against
+`difficulties` and the ladder; `tests/data/events.test.js` EV-2b checks the variant's enemies and builds its Sim.
+
 `hpScale`, `cashScale`, `startCash` and `budget` are **not written in the event file**. `src/data/stages.js` copies
 them from the `tuneLike` campaign stage while it builds `STAGE_MAP` (new internal `resolveEventStage(def)`), so event
 difficulty follows the balance branch's re-tuning automatically. A def may override any of them.
@@ -297,6 +303,30 @@ and the rewards view adds one line for `out.event.newEpisodes` ("New episode unl
 
 **Sweeps.** `canSweep`: an event operation (not the boss) is sweepable once cleared on its difficulty. `sweep`
 returns `{ ok: false, error: 'event' }` when the phase is not `active` and calls `trackEvent(..., 'eventClear', n)`.
+As everywhere, a difficulty sweeps only up to the best medal held there (an operation's Nightmare after its
+Nightmare medal), 10 per tap (`MAX_SWEEPS`); `trackEvent` gets the difficulty.
+
+**More difficulties on an event stage (E8 update; Halloween 2026).** `stage.difficulties` lists them all
+(`['normal', 'nightmare']`, the boss `['normal', 'hard', 'nightmare']`); `unlockAfter` gates one behind a medal.
+* `src/systems/events.js` `eventDifficultyStatus(profile, stageId, d)` → `{ ok, reason: null | 'difficulty' | 'medal',
+  needs, text: 'Clear Hard first' }`.
+* `applyBattleResult`: a locked difficulty (a hand-made link) is practice, like a difficulty the stage doesn't offer
+  ("Nightmare opens here after a Hard clear — this run was practice, no rewards."). `sweep` refuses it
+  (`error: 'difficulty'`). `parseBattleParams` marks such a run `practice` (never saved).
+* Stage prep: the picker shows every difficulty of the stage; a locked one shows a lock and "Clear Hard first", can be
+  picked to look at its waves and rewards, and Start / New game stay off with the lock note. The first-clear panel
+  lists the medal gems of the stage's own difficulties only. Drop entries with a `difficulty` roll at that difficulty
+  or harder (`rollStageDrops`), so a Nightmare drop row adds to the Normal one.
+* **Variants.** `src/data/events/wire.js` `eventBattleStage(stageId, d)` returns the registered stage with the
+  variant's waves, wave generator, HP and economy (frozen, cached, same id), or null. `createBattleSim` passes it as
+  `data.stage` (like solo freeplay's stage) and `restoreSim` does the same on Continue, so the wave tables match.
+  Rewards, medals, drops and the save slot stay the stage's own. Stage prep shows the variant's waves, enemy chips,
+  HP and start cash, its name and description, and its `sub` line in the picker. The battle preloads the variant's
+  enemy families. Nothing in `src/sim/**` changes (the co-op id stays; event stages never run in co-op, E11).
+* **Battle saves.** A run on a variant is written as record format 2 (`RECORD_V` 2, `recordVersion`); every other run
+  stays format 1. A build from before variants (v0.1.38: `RECORD_V` 1) drops a format-2 record on load with its
+  dropped-save notice instead of replaying the base waves. `cleanRecord` and `saveSummary` measure a variant run by
+  its own waves (Continue · Wave 17/20).
 
 ### 3.7 Missions
 
@@ -312,12 +342,24 @@ battles still count for normal Commissions through the existing `track(profile, 
   sent to your Mail."
 * "Claim all" (`claimAllEventMissions`) claims dailies first, then one-time missions.
 * Daily progress resets on the 7 PM Central game day (§3.2).
+* `eventStage` counts a stage's first clear **and each new medal** on it, with the difficulty, so a one-time mission
+  can ask for one difficulty (`mission({ on: 'eventStage', stage, difficulty: 'nightmare' })`). `eventClear` (wins and
+  sweeps) and `eventBoss` carry the difficulty too (`mission({ on: 'eventClear', difficulty: 'nightmare' })`).
+* **Missions added while an event runs** (Halloween's Nightmare missions): one-time (`total`) only. Their progress and
+  claims are shadowed by the `evp:` / `evm:` marks, so an older tab that drops the unknown ids from the block never
+  makes them pay twice (`cleanEvents` restores the larger of block and mark). Never add **dailies** mid-event: daily
+  claims have no shadow, so an older build's save would reopen them the same day.
 
 ### 3.8 Exchange (event shop)
 
 Offer def: `offer({ id, item, count, price, limit | null, gear?: { slot, rarity, name }, requires?: { stage } })`.
 `price` is in the event currency. `limit: null` = unlimited (the coin/book sink). `requires` hides an offer until a
 campaign stage is cleared (the Festival Ribbon waits for 2-1, the Equipment lesson in STORY_SPEC §3.3).
+
+**Changing prices while an event runs** (Halloween 2026, owner Oct 20): prices may change in a new build; stock limits
+may not. Limits are shared with older tabs and earlier buyers through `bought` and the `evb:` marks, so a player never
+exceeds a limit or gets a cosmetic twice across builds. An older tab keeps charging its own (old) prices until it
+reloads; nothing bought earlier is refunded, and the patch note says the prices changed.
 
 `buyEventOffer(profile, eventId, offerId, qty, rng, now)`: allowed in `active` and `exchange`; checks stock and funds
 before changing anything (like `buyOffer` in `src/systems/shop.js`), pays with `consumeItems`, grants with `addItems`,
@@ -932,6 +974,10 @@ story (Builder 2 WIP), roster (Builder 3 running), balance r3 (running), kit sty
 of seed + plan + data. Event gating, missions and rewards run after `sim.result()`, in systems code. Marina's and
 Amane's kits use existing behaviours, ModSets and the existing `nova` ult only.
 
+A difficulty's own waves (§3.6 variants) reach the Sim as `data.stage`, built by `src/data/events/wire.js` (outside the
+sim's source hash, `tools/simId.mjs`), the same way solo freeplay's stage does: the battle is still a pure function of
+seed + plan + data.
+
 **Co-op.** Event stages are not offered (`coopStages` in `src/data/coop.js` stays campaign-only), so no co-op battle can
 run event data. `coopVersion` (`src/online/coop/version.js`) hashes `UNITS, ENEMIES, STAGES, MAPS, …`: Marina and Amane
 change the hash (both peers run the same build, as for any update); `EVENT_STAGES`/`EVENT_ENEMIES` are not in it
@@ -980,6 +1026,18 @@ battles like any owned girl (`coopLoadout`). If co-op event stages are added lat
   * ES-11 `cleanEvents` drops unknown events/missions/offers, clamps numbers, keeps `settled`; an old save without
     `events` loads; `SAVE_VERSION` unchanged.
   * ES-12 gacha `POOL`, spark offers and `a_units_all` exclude event units (B2).
+* `tests/systems/events-nightmare.test.js` (Halloween 2026, E8 update)
+  * NM-1 data: difficulties, `unlockAfter`, candy per win (operations ×2 on Nightmare, the boss 150 / 220 / 500), the
+    boss variant (20 waves, HP ×12, chapter-8 coins, two Golems; frozen, cached, rewards unchanged).
+  * NM-2 the gate: operations after Normal, the boss after Hard (not Normal); a locked Nightmare is practice.
+  * NM-3 a win: Sakura medal + 100 gems once, double candy, the mission; NM-4 sweeps: Nightmare after its medal,
+    10 a tap, boss never, refused after the end; NM-5 the one-time missions (2,300 candy, no gems, no new dailies).
+  * NM-6 a v0.1.38 tab: it drops the new missions from the block, the marks bring progress and claims back, nothing
+    pays twice; its Nightmare runs and sweeps pay nothing; the medal map survives.
+  * `tests/battle-ui/eventBattleSave.test.js` NM-7: createBattleSim / restoreSim use the variant; its save is format 2
+    and kept past the base 15 waves; every other run stays format 1.
+  * `tests/integration/event-balance.test.js` EB-3 (the boss Nightmare: mid and level-60 P1 teams lose, the late
+    free-player profile wins) and EB-4 (Op 4 Nightmare: a smart level-40 team wins).
 * `tests/systems/events-settle.test.js`
   * ST-1 at `endAt`: one "unclaimed" letter with exactly the completed unclaimed rewards, expiring at `exchangeEndAt`;
     claimed missions not repeated; running settle twice delivers nothing new.
