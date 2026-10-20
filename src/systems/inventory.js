@@ -9,6 +9,7 @@ import { SHOP_OFFERS, SHOP_TABS } from '../data/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS } from '../data/missions.js';
 import { achievementLive } from '../data/achievements.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, ITEM_RARITIES } from '../data/types.js';
+import { mirrorItem } from './ascensionSave.js';
 
 /** Merge duplicate ids and drop non-positive counts. */
 export function normalizeList(list) {
@@ -40,6 +41,8 @@ function setCount(profile, id, value) {
   else if (id === 'recruitPoints') profile.gacha.recruitPoints = v;
   else if (v > 0) profile.items[id] = v;
   else delete profile.items[id];
+  // Ascension's 16 items: a copy in missions.counters that an older build keeps (ascensionSave.js)
+  mirrorItem(profile, id, v);
 }
 
 /**

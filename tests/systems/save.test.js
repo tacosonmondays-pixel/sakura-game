@@ -58,7 +58,8 @@ describe('migrateProfile', () => {
     delete base.settings;
     delete base.missions;
     const p = migrateProfile(base);
-    expect(p.units.yuki).toMatchObject({ level: 60, exp: 0, breakthrough: 5, awaken: 2 });
+    // gates 6–10 are kept (ASCENSION.md §F.1); her level still stops at her cap (60 at P1)
+    expect(p.units.yuki).toMatchObject({ level: 60, exp: 0, breakthrough: 9, awaken: 2 });
     expect(p.units.notAUnit).toBeUndefined();
     expect(p.items).toEqual({ book_rare: 3 });
     expect(p.currencies).toEqual({ coins: 0, gems: 500 });

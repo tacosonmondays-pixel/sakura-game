@@ -86,10 +86,11 @@ export function potentialLevel(unitState) {
  * state from this, so a later Potential source (ascension's Essence) changes both directions here.
  * Her level cap needs no state at all: src/systems/progression.js levelCapAt(gates, p).
  * @param {number} p 1…6 (anything else counts as P1)
- * @returns {{ dupes: number }}
+ * @returns {{ dupes: number, pl: number }} (`pl`: bought Potential, ASCENSION.md §A.1)
  */
 export function potentialState(p) {
-  return { dupes: Math.max(1, Math.min(MAX_POTENTIAL, Math.floor(Number(p) || 1))) - 1 };
+  const pl = Math.max(1, Math.min(MAX_POTENTIAL, Math.floor(Number(p) || 1)));
+  return { dupes: pl - 1, pl };
 }
 
 /**

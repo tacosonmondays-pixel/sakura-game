@@ -271,6 +271,12 @@ function renderGearSection(host, rerender) {
       h('h3.mb-h', 'Gear boxes'),
       h('div.mb-box-row', boxes.map((b) => {
         const n = itemCount(profile, b.id);
+        // the Rainbow Gear Box opens through a slot picker into rainbow (UR) gear (ASCENSION.md §C.8);
+        // TODO(track 2, feature/ur-gear): wire its picker to the UR gear writer at merge
+        if (b.pickSlot) {
+          return h('div.mb-box', { 'data-testid': `box-${b.id}` }, rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
+            h('div.row', button('Open', { kind: 'yellow', small: true, disabled: true, testid: 'rainbow-box-open' })), h('div.mb-box-note.muted', 'Opens when rainbow gear arrives'));
+        }
         return h('div.mb-box', rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
           h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null,
             n > 10 ? button(n > OPEN_BATCH_MAX ? `Open ${OPEN_BATCH_MAX}` : `Open all (${n})`, { kind: 'ghost', small: true, testid: `open-all-${b.id}`, onClick: () => openBoxes(b.id, Math.min(n, OPEN_BATCH_MAX), rerender) }) : null));

@@ -179,6 +179,8 @@ export const gearRoom = (profile) => Math.max(0, GEAR_BAG_MAX - gearCount(profil
 export function openGearBox(profile, itemId, rng, count = 1) {
   const item = getItem(itemId);
   if (!item || item.category !== 'gearbox') return { ok: false, error: 'notGearBox', gear: [] };
+  // the Rainbow Gear Box opens only through its slot picker, into rainbow (UR) gear (ASCENSION.md §C.8)
+  if (item.pickSlot) return { ok: false, error: 'pickSlot', gear: [] };
   const wanted = Math.max(1, Math.floor(count));
   const n = Math.min(wanted, OPEN_BATCH_MAX, gearRoom(profile));
   if (n <= 0) return { ok: false, error: 'bagFull', gear: [], opened: 0, wanted };

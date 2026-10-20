@@ -7,7 +7,7 @@ import { STAGE_MAP } from '../data/stages.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
 import { GEAR_SLOTS, GEAR_STATS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES } from '../data/types.js';
 import { BANNER_MAP, DEFAULT_BANNER, FRAME_IDS, TITLES } from '../data/profileArt.js';
-import { levelCapAt, MAX_BREAKTHROUGH, MAX_AWAKEN } from '../systems/progression.js';
+import { levelCapAt, MAX_AWAKEN } from '../systems/progression.js';
 import { potentialLevel, potentialState, MAX_POTENTIAL } from '../systems/potential.js';
 import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax } from '../systems/gear.js';
 import { autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, STAGE_COUNT, UNIT_COUNT } from '../systems/profileTrophies.js';
@@ -18,6 +18,11 @@ import { tagTitleAllowed } from './tags.js';
 export { cardHash, validCard } from './profileRules.js';
 
 const SLOTS = Object.keys(GEAR_SLOTS);
+/**
+ * Gates a card carries: at most 5. Gates 6–10 never raise a girl's cap above her Potential's
+ * (gate k needs P(k − 4)), so 5 gates + her P give a viewer her real cap (levelCapAt(5, p)).
+ */
+export const CARD_GATES = 5;
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const r4 = (v) => Math.round(v * 10000) / 10000;
 const whole = (v, lo, hi, def = lo) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : def);
@@ -43,7 +48,9 @@ function cardGear(p, st) {
 /** One showcase entry: { id, lv, bt, aw, p, sk?, g? } (never uid, locked, name, exp, obtainedAt, bond). */
 export function cardUnit(p, id) {
   const st = p.units[id];
-  const u = { id, lv: st.level || 1, bt: st.breakthrough || 0, aw: st.awaken || 0, p: potentialLevel(st) };
+  // the card format allows gates 0–9 only (profileRules.js validCard): past gate 5 a card says 5, and
+  // the viewer's cap comes from her Potential (CARD_GATES, ASCENSION.md §F.4)
+  const u = { id, lv: st.level || 1, bt: Math.min(CARD_GATES, st.breakthrough || 0), aw: st.awaken || 0, p: potentialLevel(st) };
   if (typeof st.skin === 'string' && st.skin) u.sk = st.skin;
   const g = cardGear(p, st);
   if (g.length) u.g = g;
@@ -116,7 +123,7 @@ function viewUnits(list) {
     if (out.length >= SHOWCASE_MAX) break;
     if (!isObj(u) || typeof u.id !== 'string' || !UNIT_MAP[u.id] || seen.has(u.id)) continue;
     seen.add(u.id);
-    const bt = whole(u.bt, 0, MAX_BREAKTHROUGH, 0);
+    const bt = whole(u.bt, 0, CARD_GATES, 0);
     const p = whole(u.p, 1, MAX_POTENTIAL, 1);
     // her cap from her gates and her Potential (P6 = 85); an older viewer clamps to 60 (display only)
     const v = { id: u.id, bt, aw: whole(u.aw, 0, MAX_AWAKEN, 0), lv: whole(u.lv, 1, levelCapAt(bt, p), 1), p };
@@ -195,7 +202,7 @@ export function snapshotToMiniProfile(u) {
 
 /** A co-op ally's loadout entry ({ level, breakthrough, awaken, … }) → the same shape, no gear. */
 export function loadoutToMiniProfile(id, stats = {}) {
-  const bt = whole(stats.breakthrough, 0, MAX_BREAKTHROUGH, 0);
+  const bt = whole(stats.breakthrough, 0, CARD_GATES, 0);
   const p = whole(stats.potential, 1, MAX_POTENTIAL, 1);
   return snapshotToMiniProfile({ id, bt, aw: whole(stats.awaken, 0, MAX_AWAKEN, 0), lv: whole(stats.level, 1, levelCapAt(bt, p), 1), p });
 }

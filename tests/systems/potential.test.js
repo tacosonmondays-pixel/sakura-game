@@ -35,7 +35,7 @@ describe('potentialLevel', () => {
     expect(potentialLevel(undefined)).toBe(1);
     // potentialState is its inverse (the cards and co-op allies that know only her P build her state from it)
     for (let p = 1; p <= 6; p++) expect(potentialLevel(potentialState(p))).toBe(p);
-    expect([potentialState(0), potentialState(NaN), potentialState(9)]).toEqual([{ dupes: 0 }, { dupes: 0 }, { dupes: 5 }]);
+    expect([potentialState(0), potentialState(NaN), potentialState(9)]).toEqual([{ dupes: 0, pl: 1 }, { dupes: 0, pl: 1 }, { dupes: 5, pl: 6 }]);
     expect(potentialLevel({})).toBe(1);
     expect(potentialLevel({ dupes: null })).toBe(1);
     expect(potentialLevel({ dupes: NaN })).toBe(1);
