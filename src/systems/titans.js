@@ -217,7 +217,10 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
   // the bestiary: titans become seen; kills go to tkill:, never to bestiary kills (§C.2)
   profile.bestiary ||= {};
   for (const id of r.encountered || []) (profile.bestiary[id] ||= { seen: false, discovered: false, kills: 0 }).seen = true;
-  if (r.practice || out.keysLeft < 1 || !tierOpen(profile, titanId, tier, rank)) {
+  // a co-op run counts by the co-op rule (§C.11: a guest one step above her solo best, which includes
+  // everything the host has open solo), a solo run by the solo one: a room a guest may join always pays
+  const open = r.coop ? coopTierAllowed(profile, titanId, tier, rank) : tierOpen(profile, titanId, tier, rank);
+  if (r.practice || out.keysLeft < 1 || !open) {
     out.practice = true;
     return out;
   }

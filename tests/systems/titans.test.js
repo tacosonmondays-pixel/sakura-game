@@ -384,6 +384,25 @@ describe('co-op titans (M2 rules, §C.11)', () => {
     expect(coopTierAllowed(p, 'wyrm', 'nightmare', 0, { host: true })).toBe(false);
   });
 
+  it('a guest the co-op rule lets in is paid by it: one step above her best without that tier\'s stage clear (ASC-4)', async () => {
+    const { coopTierAllowed } = await import('../../src/systems/titans.js');
+    const p = createProfile();
+    p.progress.stages['3-5'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 }; // not 6-5
+    p.missions.counters['tbest:wyrm'] = 1; // Normal won solo
+    expect(tierOpen(p, 'wyrm', 'hard')).toBe(false);
+    expect(coopTierAllowed(p, 'wyrm', 'hard')).toBe(true);
+    const r = fight(p, 'wyrm', 'hard', win, { coop: true });
+    expect(r).toMatchObject({ practice: false, counted: true, firstClear: null });
+    expect(r.rewards.length).toBeGreaterThan(0);
+    expect(r.together?.length).toBeGreaterThan(0);
+    expect(bestStep(p, 'wyrm')).toBe(0); // co-op never raises it
+    // two steps above her best: the co-op rule refuses it, and so does the result
+    expect(coopTierAllowed(p, 'wyrm', 'nightmare')).toBe(false);
+    expect(fight(p, 'wyrm', 'nightmare', win, { coop: true })).toMatchObject({ practice: true, counted: false });
+    // solo, the stage gate still holds
+    expect(fight(p, 'wyrm', 'hard', win)).toMatchObject({ practice: true, counted: false });
+  });
+
   it('the clan board pays by rank (#1 30 tokens, #2 20, #3 10, a Bronze 5)', async () => {
     const { boardReward, boardSubmission } = await import('../../src/online/titanBoardRules.js');
     expect(boardReward(1, true)).toEqual({ tokens: 30, title: 'Titan Ace' });
