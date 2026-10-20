@@ -462,7 +462,8 @@ export function render(root, params = {}) {
       const isHost = params.host === '1';
       const card = profileCard(profile);
       const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
-      const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
+      // a room link may name any campaign stage, never an event stage (EVENT_SPEC E11)
+      const stageId = isHost && STAGE_MAP[params.stage] && STAGE_MAP[params.stage].kind !== 'event' ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
       // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
       const freeplay = isHost ? freeplayTier(params.freeplay) : null;
