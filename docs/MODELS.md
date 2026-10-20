@@ -258,6 +258,15 @@ HSV) tells the closed-eye shader which texels are her honey-brown bangs (kept as
 keeps Hikari's pink-hair rule, so Hikari is unchanged (`figGuard` uniform in `figurine.js`). Known: no secondary
 motion on her buns or skirt (humanoid rig); thin hull slivers by the loafers at ≥ 4× zoom, as on Hikari's boots.
 
+Proportions (owner's pick, Oct 20: variant A, "bigger head only"): her head (face, hair, buns, clips, painted eyes) is
+17 % bigger, scaled from her chin, so it is 44.0 % of her height (Hikari 44.7 %, before 40.1 %); only the top of the
+neck stretches to meet it. The skeleton, skin weights, inverse binds, all five clips, UVs, textures and materials
+are byte-identical to the import before; only positions, the normals around the neck and `extras` (`unitScale`
+1.44 → 1.34806, the moved eye boxes, `proportions: 'noa-A'`) change. She keeps the 1.224 battle height, so her body
+is about 6 % smaller on screen. Files 1,227,116 / 570,536 B (+28 B each). The step is `tools/meshy/lib/proportions.py`
+(presets `noa-A`, `noa-B`): `--proportions noa-A` on `build_meshy_chibi.py`, or `tools/meshy/reproportion.py` on a
+build's kept `--raw-dir` exports, which gives these files byte for byte.
+
 ### Hana (art wave, Oct 2026)
 
 Same pipeline with her own profile: `hana.glb` 1.24 MB (20.5k tris incl. bow) / `hana.lod.glb` 0.57 MB (9.5k tris),

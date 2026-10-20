@@ -360,7 +360,7 @@
  },
  "noa": {
   "file": "noa.glb",
-  "size": 1227088,
+  "size": 1227116,
   "animations": [
    "attack_smash",
    "cheer",
@@ -372,7 +372,7 @@
   "triangles": 19996,
   "source": "meshy",
   "lod": "noa.lod.glb",
-  "lodSize": 570508,
+  "lodSize": 570536,
   "lodVertices": 9341,
   "lodTriangles": 8995
  },
