@@ -64,6 +64,28 @@ function makeBot(stageId, units, data) {
   };
 }
 
+/** A player who buys every girl's ⚡ path to tier 3 (abilities on Auto do the rest). */
+function makeAbilityBot(stageId, units) {
+  const plan = autoPlan(stageId, units).filter((a) => a.action === 'place');
+  let i = 0;
+  return (sim) => {
+    if (i < plan.length) {
+      const a = plan[i];
+      if (sim.canPlace(a.unitId, a.x, a.y).ok) {
+        i++;
+        return [['place', a.unitId, a.x, a.y]];
+      }
+      if (sim.placementReason(a.unitId, a.x, a.y)) i++;
+      return [];
+    }
+    for (const t of sim.towers) {
+      const p = t.isHero ? -1 : t.def.paths.findIndex((q) => q.ability);
+      if (p >= 0 && t.tiers[p] < 3 && !sim.upgradeStatus(t.uid, p).locked) return [['upg', t.uid, p]];
+    }
+    return [];
+  };
+}
+
 function apply(sim, c) {
   switch (c[0]) {
     case 'place': return !!sim.placeTower(c[1], c[2], c[3]);
@@ -174,6 +196,41 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     // the Potential state rode in the checkpoint (the generic serializer stores every tower field)
     const json = JSON.stringify(r.snap);
     for (const k of ['tempoStacks', 'tempoIdle', 'projCarry', 'potCount', 'potOc', 'effProc', 'effEcho', 'trapSpecProc']) expect(json, k).toContain(`"${k}"`);
+  });
+
+  it('abilities mid-wave: a running boost, a rally, queued shells, a telegraphed shot and a map-scope cooldown', () => {
+    // every girl buys her ⚡ path to tier 3 and fires on Auto; then four casts are forced so the
+    // snapshot holds every kind of lasting ability state at once (src/sim/abilities.js)
+    const team = ['rei', 'miko', 'akane', 'hotaru', 'shiro', 'aoi', 'sango', 'raika'];
+    const stats = { costMul: 0.3 };
+    const args = { stageId: '4-3', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'luna' }, seed: 4141, options: { autoStart: true, autoAbilities: true } };
+    const sim = fresh(args);
+    const bot = makeAbilityBot('4-3', [...team, 'luna']);
+    sim.cash += 20000;
+    sim.startNextWave();
+    const ready = (s) => s.wave >= 3 && s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 10 && team.every((id) => s.towers.find((t) => t.unitId === id)?.abil);
+    play(sim, bot, ready, 60 * 60 * 25);
+    expect(ready(sim)).toBe(true);
+    const held = (s) => s.towers.some((t) => t.abilMods) && s._rallies.length > 0 && s._abilQueue.some((q) => q.kind === 'shell')
+      && s._abilQueue.some((q) => q.kind === 'hit') && s.abilGroups.size > 0;
+    for (let tries = 0; tries < 3000 && !held(sim); tries++) {
+      for (const id of ['rei', 'raika', 'miko', 'akane', 'shiro', 'hotaru']) {
+        const copies = sim.towers.filter((t) => t.unitId === id && t.abil);
+        if (copies.some((t) => t.abil.active > 0)) continue;
+        for (const t of copies) t.abil.cd = 0;
+        sim.abilGroups.delete(`0|${copies[0].abil.id}`);
+        sim.castAbility(copies[0].uid, { group: true }); // the copy with the most enemies in reach
+      }
+      if (!held(sim)) {
+        sim.update(STEP);
+        sim.drainEvents();
+      }
+    }
+    expect(held(sim)).toBe(true);
+    const r = twin(sim, args, bot, 9000);
+    expect(r.compared).toBeGreaterThan(5);
+    const json = JSON.stringify(r.snap);
+    for (const k of ['abil', 'abilMods', '_rallies', '_abilQueue', 'abilGroups', 'abilityAutoDefault']) expect(json, k).toContain(`"${k}"`);
   });
 
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {

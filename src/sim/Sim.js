@@ -34,6 +34,10 @@ import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
+import {
+  syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
+  setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
+} from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import {
@@ -160,6 +164,18 @@ export class Sim {
     this._buffTimer = 0;
     this._buffsDirty = true;
     this._globalBuffs = [];
+    // Abilities (src/sim/abilities.js): map-scope cooldowns per player ("<owner>|<id>" → { cd, cdMax,
+    // rate }), econ casts per player this wave, running rallies and queued hits / shells (both empty at
+    // every calm point), owner-credited coins (null solo: straight to cash; co-op sets [0, 0] and moves
+    // them into the wallets after every command and step), each player's Auto-cast setting (default
+    // Off) and how many girls have an ability (0: the step skips it all).
+    this.abilGroups = new Map();
+    this.abilUses = [0, 0];
+    this._rallies = [];
+    this._abilQueue = [];
+    this.ownerCash = null;
+    this.abilityAutoDefault = [!!this.options.autoAbilities, false];
+    this._abilOn = 0;
     /** Seconds until every girl's recentDps is re-measured (src/sim/buffs.js). */
     this._dpsTimer = DPS_WINDOW;
     this._scratch = [];
@@ -238,6 +254,9 @@ export class Sim {
       if (this.state === 'lost') return;
     }
     this._updateBuffs(dt);
+    // abilities: charge, expire, queued shells, auto-cast — before the girls attack, so a boost or a
+    // rally cast this step applies this step
+    if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
@@ -322,6 +341,22 @@ export class Sim {
     this._cashCarry -= whole;
     this.cash += whole;
     this.stats.cashEarned += whole;
+    return whole;
+  }
+
+  /**
+   * Owner-credited coins (an econ ability; GAPS P-16): whole coins for player `owner`. Solo: straight
+   * into cash. Co-op (ownerCash set): into ownerCash[owner], which the command layer moves into that
+   * player's wallet, never into the pooled cash a step splits between the players.
+   * @returns {number} coins credited
+   */
+  _gainCashFor(owner, amount) {
+    if (!(amount > 0)) return 0;
+    const whole = Math.floor(amount + 1e-9);
+    if (!(whole > 0)) return 0;
+    this.stats.cashEarned += whole;
+    if (this.ownerCash) this.ownerCash[owner] = (this.ownerCash[owner] || 0) + whole;
+    else this.cash += whole;
     return whole;
   }
 
@@ -584,6 +619,7 @@ export class Sim {
     this._fp = w.freeplay?.pressure || null;
     this._autoTimer = -1;
     this.state = 'wave';
+    startAbilityWave(this);
     if (this.rule) {
       this._waveTick = 0;
       ruleWaveStart(this);
@@ -626,6 +662,8 @@ export class Sim {
       ruleWaveClear(this);
       ruleWaveEnd(this);
     }
+    // every lasting ability effect ends with the wave (the calm point holds none)
+    endAbilityWave(this);
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -788,6 +826,7 @@ export class Sim {
     this.stats.towersPlaced++;
     this.stats.towerUnits[t.uid] = unitId;
     this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
+    syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
     return t;
   }
 
@@ -800,6 +839,8 @@ export class Sim {
   _refreshTower(t) {
     refreshTowerStats(t, this.globalRateMul);
     this._buffsDirty = true;
+    // an upgrade or a hero level: her ability unlocks (tier 3 / Lv 7) or upgrades (tier 5 / Lv 17)
+    syncAbility(this, t);
   }
 
   /**
@@ -964,6 +1005,7 @@ export class Sim {
     if (!t || this.state === 'won' || this.state === 'lost') return 0;
     const refund = this.sellValue(uid);
     this.cash += refund;
+    clearAbilityEffects(this, t);
     t.removed = true;
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);
@@ -1157,6 +1199,8 @@ export class Sim {
       levelSpent: t.isHero ? t.levelSpent || 0 : 0,
       moveCd: t.isHero ? t.moveCd || 0 : 0,
       moveLock: t.isHero ? t.moveLock || 0 : 0,
+      // her ⚡ ability (null without one; a locked one is the teaser): src/sim/abilities.js abilityStatus
+      ability: abilityStatusOf(this, t),
       // Potential (only on a girl whose steps have them): her rhythm and its count, tempo, extra projectiles
       ...(e.proc ? { proc: { name: e.proc.name, every: e.proc.every, of: e.proc.of, count: t.potCount || 0 } } : null),
       ...(e.tempo ? { tempo: { stacks: t.tempoStacks || 0, max: Math.round(e.tempo.max / e.tempo.per), per: e.tempo.per } } : null),
@@ -1262,6 +1306,41 @@ export class Sim {
   }
 
   // -------------------------------------------------------------------------
+  // Abilities (src/sim/abilities.js; co-op: the abil / acast commands)
+  // -------------------------------------------------------------------------
+
+  /** A girl's ability for the UI (null: she has none; a locked one is the teaser). */
+  abilityStatus(uid) {
+    return abilityStatusOf(this, this.getTower(uid));
+  }
+
+  /**
+   * Fires a girl's ability (only during a wave). `group`: the best ready copy of the same girl and
+   * player; `owner`: the commanding player (co-op), refused `notYours` for another player's girl.
+   * @param {number} uid
+   * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
+   * @returns {{ ok: boolean, reason: null|'ended'|'locked'|'notYours'|'notWave'|'disabled'|'moving'|'active'|'cooldown'|'cap'|'noIncome'|'noTarget', casterUid: number|null }}
+   */
+  castAbility(uid, opts = {}) {
+    return castAbilityOn(this, this.getTower(uid), opts);
+  }
+
+  /** A girl's Auto switch. @returns {{ ok: boolean, reason: null|'locked' }} */
+  setAbilityAuto(uid, on) {
+    return setAbilityAutoOn(this, this.getTower(uid), on);
+  }
+
+  /** A player's Auto-cast setting: every girl of hers now, and the default for later unlocks. */
+  setAbilityAutoAll(owner, on) {
+    return setAbilityAutoAllOn(this, owner, on);
+  }
+
+  /** A player's ability bar (UI only; allocates): one slot per ability, copies grouped. */
+  abilitySlots(owner = 0) {
+    return abilitySlotsOf(this, owner);
+  }
+
+  // -------------------------------------------------------------------------
   // Scouting warnings and debrief
   // -------------------------------------------------------------------------
 
@@ -1326,6 +1405,8 @@ export class Sim {
         leaksByEnemy: { ...this.stats.leaksByEnemy },
         leaksByWave: { ...this.stats.leaksByWave },
         towerUnits: { ...this.stats.towerUnits },
+        // abilities (only once one was cast: a battle without casts keeps its result exactly)
+        ...(this.stats.abilityByTower ? { abilityByTower: { ...this.stats.abilityByTower } } : null),
         time: this.time,
         heroLevel: this.hero ? this.hero.level : 0,
         heroLevels: this.heroes.map((h) => (h ? h.level : 0)),

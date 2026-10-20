@@ -2,7 +2,7 @@
 // §13): one ⚡ path per tower that unlocks at tier 3 and upgrades at tier 5, one Lv 7 skill per hero
 // that ranks up at Lv 17, the shared vocabulary, cooldowns and durations in whole ticks, a text row
 // for every ability whose templates fill completely, names that clash with nothing, our own words
-// only, a ⚡ tip per girl, and the attach hook. A0 ships data only: nothing in src/sim reads it yet.
+// only, a ⚡ tip per girl, and the attach hook. The sim reads it in one place, src/sim/abilities.js (A1).
 import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -675,13 +675,18 @@ describe('attachAbilities', () => {
   });
 });
 
-describe('A0 changes no behaviour', () => {
-  test('nothing in the sim reads ability or skill data yet', () => {
+describe('the sim reads ability data in one place', () => {
+  test('only src/sim/abilities.js reads paths[k].ability / hero.skill and imports the data file', () => {
     const files = readdirSync(join(ROOT, 'src/sim')).filter((f) => f.endsWith('.js'));
+    expect(files).toContain('abilities.js');
     for (const f of files) {
+      if (f === 'abilities.js') continue;
       const src = readFileSync(join(ROOT, 'src/sim', f), 'utf8');
-      expect(/\.ability\b|\.skill\b|abilities\.js/.test(src), f).toBe(false);
+      expect(/\.ability\b|\.skill\b|data\/abilities\.js/.test(src), f).toBe(false);
     }
+    const ab = readFileSync(join(ROOT, 'src/sim/abilities.js'), 'utf8');
+    expect(ab).toContain("from '../data/abilities.js'");
+    expect(ab).not.toMatch(/abilityText/);
   });
 
   test('the text file stays outside the co-op graph (a wording fix never changes the co-op id)', async () => {

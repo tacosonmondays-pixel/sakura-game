@@ -896,6 +896,106 @@ describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry
   });
 });
 
+describe('abilities in a battle save (src/sim/abilities.js)', SLOW, () => {
+  const c = { stageId: '3-5', difficulty: 'normal', towers: ['aoi', 'hotaru', 'momo', 'rei'], hero: 'hikari', stats: { damageMul: 2, rateMul: 1.2 }, seed: 3355 };
+  /** Every girl on her ⚡ path to tier 3, Aoi on Auto, waves 1–3 played; Aoi fires by hand in wave 2, Hotaru in wave 3. */
+  function build() {
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    for (const t of sim.towers) {
+      const p = t.isHero ? -1 : t.def.paths.findIndex((q) => q.ability);
+      for (let k = 0; k < 3 && p >= 0; k++) expect(sim.upgradeTower(t.uid, p), t.unitId).toBe(true);
+    }
+    const of = (id) => sim.towers.find((t) => t.unitId === id);
+    sim.setAbilityAuto(of('aoi').uid, true);
+    for (let w = 1; w <= 3; w++) {
+      sim.startNextWave();
+      let fired = false;
+      let aoi = false;
+      while (sim.state === 'wave') {
+        sim.update(STEP);
+        sim.drainEvents();
+        if (w === 2 && !aoi && sim.enemies.length) {
+          of('aoi').abil.cd = 0;
+          aoi = sim.castAbility(of('aoi').uid).ok;
+        }
+        if (w === 3 && !fired && sim.enemies.length) {
+          of('hotaru').abil.cd = 0;
+          fired = sim.castAbility(of('hotaru').uid).ok;
+        }
+      }
+      // (the calm point a save is taken at: the last shots have landed)
+      for (let k = 0; k < 600 && sim.projectiles.length; k++) sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(sim.state).toBe('between');
+    return { sim, of };
+  }
+
+  it('cooldowns left, Auto, casts and map-scope cooldowns come back exactly, and the run plays on the same', () => {
+    const { sim, of } = build();
+    expect(of('aoi').abil.n).toBeGreaterThan(0);
+    expect(of('aoi').abil.auto).toBe(true);
+    expect(of('hotaru').abil.n).toBe(1);
+    expect(sim.abilGroups.has('0|hotaru.hush')).toBe(true);
+    expect(sim.result().stats.abilitiesUsed).toBeGreaterThan(1);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    expect(snap.ag).toEqual([...sim.abilGroups].map(([k, g]) => [k, g.cd, g.cdMax, g.rate]));
+    for (const row of snap.towers) {
+      const t = sim.getTower(row.uid);
+      expect(row.ak, t.unitId).toEqual(t.abil ? [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n] : undefined);
+    }
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of sim.towers) expect(back.getTower(t.uid).abil, t.unitId).toEqual(t.abil);
+    expect([...back.abilGroups]).toEqual([...sim.abilGroups]);
+    expect(back._abilOn).toBe(sim._abilOn);
+    expect(back.result().stats.abilityByTower).toEqual(sim.result().stats.abilityByTower);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    wrapWaves(back, c.seed);
+    autoplay(sim, 6);
+    autoplay(back, 6);
+    expect(diffPaths(digest(back), digest(sim))).toEqual([]);
+  });
+
+  it('a save without the ability fields restores every ability at its first charge (econ empty)', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    for (const row of snap.towers) delete row.ak;
+    delete snap.ag;
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of back.towers) {
+      if (!t.abil) continue;
+      expect(t.abil.cd, t.unitId).toBe(t.abil.kind === 'econ' ? t.abil.cdMax : Math.round(t.abil.cdMax / 3));
+      expect(t.abil.auto).toBe(false);
+    }
+    expect(back.abilGroups.size).toBe(0);
+  });
+
+  it('a hand-edited ability row cannot put non-numbers or out-of-range cooldowns into the sim', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    for (const row of snap.towers) if (row.ak) row.ak = ['x', 'yes', -4];
+    snap.ag = [['0|hotaru.hush', 1e12, 'q', null], ['bad key', 5, 5, 5], 'nope'];
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of back.towers) {
+      if (!t.abil) continue;
+      expect(t.abil.cd).toBe(0);
+      expect(t.abil.auto).toBe(true);
+      expect(t.abil.n).toBe(0);
+    }
+    expect([...back.abilGroups.keys()]).toEqual([]);
+  });
+
+  it('the Auto-cast setting reaches a continued run (abilities unlocked later start on Auto)', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap), { settings: { autoCastAbilities: true } });
+    expect(back.abilityAutoDefault).toEqual([true, false]);
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)

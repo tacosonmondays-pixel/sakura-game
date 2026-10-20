@@ -1,0 +1,903 @@
+// Activated abilities in battle: "ults for towers" (docs: ABILITIES_SPEC §3–§6, milestone A1).
+//
+// Every tower girl learns one ability at tier 3 of her ⚡ path (tier 5 upgrades it) and every hero a
+// quick skill at Lv 7 (ranked up at Lv 17); the numbers are data (src/data/abilities.js, attached as
+// paths[k].ability / hero.skill). This file is the only sim code that reads them.
+//
+// Rules (spec §3):
+//   - Cooldowns charge only while a wave runs, in integer charge points (ABILITY_RULES.chargePerTick a
+//     tick; Skill Haste speeds every kind but rally and debuff at half rate). A fresh ability starts with
+//     1/3 of its cooldown left; an econ ability starts empty.
+//   - Casting works only in a wave. A refusal never spends the cooldown; its reason, in order:
+//     ended, locked, notYours, notWave, disabled, moving, active, cooldown, cap, noIncome, noTarget.
+//   - Local abilities have one cooldown per girl; map-scope ones one per player for that ability too
+//     (sim.abilGroups, key "<owner>|<id>"). A group cast fires the best ready copy of her player's.
+//   - Lasting effects (boosts, rallies, queued shells) end at the wave clear and when she is sold, so
+//     a calm point between waves never holds one (battle saves and co-op checkpoints stay simple).
+//   - Minibosses and bosses shrug off ability freezes and stuns for ccGuardTicks after one lands.
+//   - Coins go to the caster's owner (sim._gainCashFor: owner-credited coins, GAPS P-16).
+//   - Auto-cast (per girl; the setting is sim.abilityAutoDefault, default Off) runs inside the step.
+//
+// Determinism (co-op lockstep): integer ticks and charge points, no rng (ability hits never crit,
+// their statuses never roll), stable target orders (grid cell order, stable sorts, uid tie breaks),
+// only + − × ÷, floor / round / ceil / min / max and squared distances. Lifetimes are countdowns; the
+// step number (auto-cast stagger, the CC guard) is round(sim.time / STEP), the drones' precedent.
+// Nothing here reads the view getters sim.hero / sim.heroConfig: a girl's player is t.owner.
+//
+// State (all plain data, so the generic snapshot stores it):
+//   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
+//   t.abilMods  a running boost's ModSet (null otherwise; resolved last, src/sim/mods.js `extra`)
+//   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
+//   sim.abilUses    econ casts per player this wave
+//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left }]
+//   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell', … }]  delayed hits and shells, FIFO
+//   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
+//   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
+
+import { ABILITY_RULES, abilityAtTier, skillAtLevel } from '../data/abilities.js';
+import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
+import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs } from './towers.js';
+import { isEligible } from './combat.js';
+import { isCaster, syncStatusFlags } from './enemies.js';
+
+const R = ABILITY_RULES;
+
+/** Seconds → whole ticks. */
+const ticks = (s) => Math.round((s || 0) * R.ticksPerSecond);
+/** Seconds → charge points. */
+const points = (s) => ticks(s) * R.chargePerTick;
+/** The current step number (the auto-cast stagger and the CC guard). */
+const stepNo = (sim) => Math.round(sim.time / STEP);
+const isBig = (e) => e.tier === 'boss' || e.tier === 'miniboss';
+const isEliteUp = (e) => e.tier === 'elite' || e.tier === 'miniboss' || e.tier === 'boss';
+/** Most target uids an `ability` event lists. */
+const MAX_LISTED = 12;
+/** Refusals a plan action or a later tap can wait out (the rest are final). */
+export const TRANSIENT_REFUSALS = Object.freeze(['notWave', 'disabled', 'moving', 'active', 'cooldown', 'cap', 'noTarget']);
+
+// ---------------------------------------------------------------------------
+// Definitions
+// ---------------------------------------------------------------------------
+
+const T5_CACHE = new WeakMap();
+const RANK_CACHE = new WeakMap();
+
+function mergedTower(entry, tier) {
+  if (!(tier >= 5) || !entry.t5) return entry;
+  let m = T5_CACHE.get(entry);
+  if (!m) T5_CACHE.set(entry, (m = Object.freeze(abilityAtTier(entry, 5))));
+  return m;
+}
+
+function mergedSkill(skill, level) {
+  let n = 0;
+  for (const r of skill.ranks || []) if (level >= r.level) n++;
+  if (!n) return skill;
+  let arr = RANK_CACHE.get(skill);
+  if (!arr) RANK_CACHE.set(skill, (arr = []));
+  return arr[n] || (arr[n] = Object.freeze(skillAtLevel(skill, level)));
+}
+
+/**
+ * Where a girl's ability comes from: her ⚡ path entry (the first path whose tier reached its unlock
+ * tier, else the first ⚡ path: the teaser) or a hero's skill.
+ * @returns {{ entry: object, path: number, tier: number, unlockAt: number, unlocked: boolean }|null}
+ */
+export function abilitySource(t) {
+  if (!t?.def) return null;
+  if (t.isHero) {
+    const skill = t.def.hero?.skill;
+    if (!skill) return null;
+    const at = skill.unlockLevel ?? 7;
+    return { entry: skill, path: -1, tier: t.level || 0, unlockAt: at, unlocked: (t.level || 0) >= at };
+  }
+  const paths = t.def.paths || [];
+  let first = null;
+  for (let p = 0; p < paths.length; p++) {
+    const entry = paths[p]?.ability;
+    if (!entry) continue;
+    const tier = t.tiers?.[p] || 0;
+    const at = entry.unlockTier ?? 3;
+    if (tier >= at) return { entry, path: p, tier, unlockAt: at, unlocked: true };
+    if (!first) first = { entry, path: p, tier, unlockAt: at, unlocked: false };
+  }
+  return first;
+}
+
+/** The first path of a unit definition that carries a ⚡ ability (-1: none; heroes have none). */
+export function abilityPathOf(def) {
+  return (def?.paths || []).findIndex((p) => !!p?.ability);
+}
+
+/** Her ability as she has it now (the tier-5 / rank upgrade merged in), or null while it is locked. */
+export function abilityDef(t) {
+  const src = abilitySource(t);
+  if (!src || !src.unlocked) return null;
+  return t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
+}
+
+/** Charge points a tick: Skill Haste (gear ultHaste) at half rate, never for rallies and debuffs. */
+export function chargeRate(t, kind) {
+  if (R.unhastedKinds.includes(kind)) return R.chargePerTick;
+  const h = Math.min(R.hasteCap, Math.max(0, t.unitStats?.ultHaste || 0));
+  return Math.round(R.chargePerTick / (1 - R.hasteShare * h));
+}
+
+const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
+
+function groupOf(sim, t) {
+  const a = t.abil;
+  return a && a.scope === 'map' ? sim.abilGroups.get(groupKey(t, a.id)) || null : null;
+}
+
+/**
+ * Unlocks her ability (an `abilityUnlock` event; 1/3 of the cooldown left, econ empty) or keeps it up to
+ * date after an upgrade or a hero level (tier 5 / rank: the cooldown left becomes min(left, new full)).
+ * Kinds this build does not run yet (deploy: A4) stay locked. Called on placement and _refreshTower.
+ */
+export function syncAbility(sim, t) {
+  const src = abilitySource(t);
+  if (!src || !src.unlocked) return;
+  const def = t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
+  if (!KINDS[def.kind]) return;
+  const cdMax = points(def.cooldown);
+  const rate = chargeRate(t, def.kind);
+  const up = def !== src.entry;
+  const a = t.abil;
+  if (!a) {
+    t.abil = {
+      id: def.id, kind: def.kind, scope: def.scope, cdMax,
+      cd: def.kind === 'econ' ? cdMax : Math.round(cdMax / R.initialShare),
+      rate, active: 0, auto: !!sim.abilityAutoDefault?.[t.owner ?? 0], t5: up, n: 0,
+    };
+    t.abilMods = null;
+    sim._abilOn++;
+    sim._emit('abilityUnlock', { towerUid: t.uid, id: def.id, kind: def.kind, owner: t.owner ?? 0 });
+    return;
+  }
+  a.rate = rate;
+  if (a.cdMax !== cdMax) {
+    a.cdMax = cdMax;
+    if (a.cd > cdMax) a.cd = cdMax;
+    const g = groupOf(sim, t);
+    if (g && g.cd > cdMax) g.cd = cdMax;
+  }
+  if (up && !a.t5) {
+    a.t5 = true;
+    sim._emit('abilityUpgrade', { towerUid: t.uid, id: a.id });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reach, targets and the hit spec
+// ---------------------------------------------------------------------------
+
+/** Radius of a rally (her aura's reach for `inAura`). */
+function rallyRadius(t, e) {
+  if (!e) return 0;
+  return e.inAura ? t.stats?.aura?.range || 0 : e.radius || 0;
+}
+
+/** A burst's blast radius. */
+function burstRadius(t, e) {
+  return e.radiusMul ? e.radiusMul * t.eff.range : e.radius || 0;
+}
+
+/** How far an ability looks for enemies (Infinity = the whole map): auto-cast counts and group picks use it. */
+export function abilityReach(t, def) {
+  if (def.scope === 'map') return Infinity;
+  const e = def.effect || {};
+  switch (def.kind) {
+    case 'strike': return e.reach === 'map' ? Infinity : (e.reachMul ?? 1) * t.eff.range;
+    case 'burst': return e.at === 'self' ? burstRadius(t, e) : (e.reachMul ?? 1) * t.eff.range;
+    case 'boost': return t.eff.range + (e.mods?.range || 0);
+    case 'rally': return rallyRadius(t, e);
+    case 'debuff': return t.eff.range;
+    default: return t.eff.range;
+  }
+}
+
+/**
+ * Her ability's hit spec, modelled on the hero ult's: dmgMul × her current hit, no crit, her armor pen
+ * plus the effect's (99 = ignores armor), her elite / boss / barrier multipliers, Veil Sight for map
+ * scope or when she has it. Statuses are applied apart (certain, through the CC guard).
+ */
+export function abilitySpec(t, def) {
+  const s = t.eff;
+  const e = def.effect || {};
+  return {
+    damage: (e.dmgMul || 0) * s.damage,
+    attackType: s.attackType,
+    element: s.element || null,
+    critChance: 0,
+    critMul: 1,
+    armorPen: (s.armorPen || 0) + (e.armorPen || 0),
+    eliteMul: s.eliteMul ?? 1,
+    bossMul: s.bossMul ?? 1,
+    barrierMul: s.barrierMul ?? 1,
+    detection: def.scope === 'map' || !!s.detection,
+    canHitAir: e.hitsAir ?? s.canHitAir,
+    status: [],
+    mark: null,
+    silence: 0,
+    reveal: 0,
+    knockback: e.knockback || 0,
+  };
+}
+
+/** Every live enemy outside the tunnels (map-wide debuffs ignore veils, like the hero ult). */
+function mapPool(sim) {
+  const out = [];
+  for (const e of sim.enemies) if (!e.dead && !e.hidden) out.push(e);
+  return out;
+}
+
+/** Enemies within `reach` of (x, y): eligible for `spec`, or every one outside the tunnels without one. */
+function poolIn(sim, x, y, reach, spec) {
+  if (reach === Infinity && !spec) return mapPool(sim);
+  if (spec) return gatherTargets(sim, x, y, reach, spec, []);
+  const out = sim.grid.query(x, y, reach, []);
+  let n = 0;
+  for (let i = 0; i < out.length; i++) if (!out[i].dead && !out[i].hidden) out[n++] = out[i];
+  out.length = n;
+  return out;
+}
+
+/** The best `k` of `list` by a target mode (stable: an earlier enemy wins a tie). */
+function topOf(list, mode, x, y, k) {
+  const out = [];
+  const sc = [];
+  for (const e of list) {
+    const s = targetScore(mode, x, y, e);
+    let j = out.length;
+    if (j < k) {
+      out.push(e);
+      sc.push(s);
+    } else if (s > sc[k - 1]) j = k - 1;
+    else continue;
+    while (j > 0 && sc[j - 1] < s) {
+      out[j] = out[j - 1];
+      sc[j] = sc[j - 1];
+      j--;
+    }
+    out[j] = e;
+    sc[j] = s;
+  }
+  return out;
+}
+
+/**
+ * The densest crowd within `reach` of (x, y): of the first densestCap eligible enemies (grid order),
+ * the one with the most of the others within r of it (ties: the smaller `remaining`, then the lower uid).
+ * @returns {{ x: number, y: number, n: number }|null}
+ */
+export function densestPoint(sim, x, y, reach, spec, r) {
+  const cands = gatherTargets(sim, x, y, reach, spec, []);
+  if (!cands.length) return null;
+  const n = Math.min(cands.length, R.densestCap);
+  const r2 = r * r;
+  let best = null;
+  let bestN = -1;
+  for (let i = 0; i < n; i++) {
+    const a = cands[i];
+    let k = 0;
+    for (let j = 0; j < n; j++) {
+      const dx = cands[j].x - a.x;
+      const dy = cands[j].y - a.y;
+      if (dx * dx + dy * dy <= r2) k++;
+    }
+    if (k > bestN || (k === bestN && (a.remaining < best.remaining || (a.remaining === best.remaining && a.uid < best.uid)))) {
+      best = a;
+      bestN = k;
+    }
+  }
+  return { x: best.x, y: best.y, n: bestN };
+}
+
+/** At most MAX_LISTED uids (the `ability` event). */
+const listed = (list) => list.slice(0, MAX_LISTED).map((e) => e.uid);
+
+// ---------------------------------------------------------------------------
+// Effects
+// ---------------------------------------------------------------------------
+
+/**
+ * An ability's statuses on one enemy (certain: no StatusSpec of an ability has a chance). A miniboss or
+ * boss whose CC guard runs skips freeze and stun; one that lands starts the guard.
+ */
+function applyStatuses(sim, e, t, list, spec, step) {
+  if (!list || !list.length || e.dead) return;
+  const ctx = sim._statusCtx;
+  ctx.element = spec.element || null;
+  ctx.attackType = spec.attackType;
+  ctx.sourceUid = t.uid;
+  const big = isBig(e);
+  const guarded = big && (e.abilCc ?? -1) > step;
+  let landed = false;
+  for (const s of list) {
+    const cc = s.type === 'freeze' || s.type === 'stun';
+    if (cc && guarded) continue;
+    if (sim._applyStatusEvent(e, s, ctx) && cc) landed = true;
+  }
+  if (big && landed) e.abilCc = step + R.ccGuardTicks;
+  syncStatusFlags(e);
+}
+
+/** `hits` strikes on one enemy (each at `scale`), then the statuses if it still stands. */
+function strikeOne(sim, t, e, spec, hits, scale, status, step) {
+  for (let k = 0; k < hits && !e.dead; k++) sim._hit(e, t, spec, scale);
+  if (!e.dead) applyStatuses(sim, e, t, status, spec, step);
+}
+
+/** One area hit (a burst's shell): damage and knockback through _hit, then the statuses. */
+function shellAt(sim, t, def, spec, x, y, r, step) {
+  const victims = sim.grid.query(x, y, r, []);
+  const dmg = spec.damage > 0;
+  const status = def.effect.status;
+  let n = 0;
+  for (const v of victims) {
+    if (v.dead || !isEligible(v, spec)) continue;
+    n++;
+    if (dmg) sim._hit(v, t, spec, 1);
+    applyStatuses(sim, v, t, status, spec, step);
+  }
+  sim._emit('abilityShell', { towerUid: t.uid, id: def.id, x, y, radius: r, hits: n });
+  if (dmg) sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType });
+  return n;
+}
+
+/** Midori's Catalyst Burst: every poisoned target takes its remaining poison at once (× poisonMul) and the poison ends. */
+function catalyst(sim, t, def, spec, targets, step) {
+  const e = def.effect;
+  const mul = e.poisonMul ?? 1;
+  const share = e.splashShare ?? 0.5;
+  const r = e.splash || 0;
+  const credit = { attackType: spec.attackType, sourceUid: t.uid };
+  let spread = null;
+  if (e.spreadPoison > 0) {
+    const own = (t.eff.status || []).find((s) => s.type === 'poison');
+    if (own) spread = [{ type: 'poison', dps: own.dps || 0, ...(own.pct > 0 ? { pct: own.pct } : null), duration: e.spreadPoison }];
+  }
+  for (const v of targets) {
+    const p = v.statuses.poison;
+    if (v.dead || !p) continue;
+    const per = (p.dps || 0) + (p.pct || 0) * v.maxHp * (isBig(v) ? DOT_PCT_BOSS_MUL : 1);
+    const amount = per * Math.max(0, p.left) * mul;
+    const x = v.x;
+    const y = v.y;
+    delete v.statuses.poison; // the poison ends (and cannot leap on from this kill)
+    sim._dot(v, 'poison', amount, credit);
+    if (!(r > 0)) continue;
+    for (const o of sim.grid.query(x, y, r, [])) {
+      if (o === v || o.dead || !isEligible(o, spec)) continue;
+      sim._dot(o, 'poison', amount * share, credit);
+      if (spread && !o.dead) applyStatuses(sim, o, t, spread, spec, step);
+    }
+  }
+}
+
+/** A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). */
+function addRally(sim, t, e, radius, left) {
+  sim._rallies.push({
+    src: t.uid, owner: t.owner ?? 0, r2: radius * radius, map: false,
+    dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
+    detection: !!e.detection, ward: !!e.ward, left,
+  });
+}
+
+/** The other girls within `radius` of her (placement order). */
+function alliesIn(sim, t, radius) {
+  const r2 = radius * radius;
+  const out = [];
+  for (const o of sim.towers) {
+    if (o === t || o.removed) continue;
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy <= r2) out.push(o);
+  }
+  return out;
+}
+
+function strikeTargets(sim, t, def, spec) {
+  const e = def.effect;
+  const reach = abilityReach(t, def);
+  const count = e.count ?? Infinity;
+  if (e.pick === 'poisoned') {
+    const all = gatherTargets(sim, t.x, t.y, reach, spec, []);
+    let n = 0;
+    for (let i = 0; i < all.length; i++) if (all[i].statuses.poison) all[n++] = all[i];
+    all.length = Math.min(n, count);
+    return all;
+  }
+  const mode = e.pick === 'strong' ? 'strong' : e.pick === 'priority' ? 'elite' : t.targetMode;
+  if (reach === Infinity) return topTargets(sim, t.x, t.y, Infinity, spec, mode, Number.isFinite(count) ? count : 9999, [], []);
+  return selectTargets(sim, t.x, t.y, reach, spec, mode, Number.isFinite(count) ? count : 9999);
+}
+
+/**
+ * The kinds A1 runs: cast(sim, t, def, step) does the effect and returns what the `ability` event
+ * shows ({ x, y, radius, targets }), or null when there is nothing to act on (refused `noTarget`, no
+ * side effect); end(sim, t) undoes a lasting one.
+ */
+const KINDS = {
+  strike: {
+    cast(sim, t, def, step) {
+      const e = def.effect;
+      const spec = abilitySpec(t, def);
+      const targets = strikeTargets(sim, t, def, spec);
+      if (!targets.length) return null;
+      const fx = { x: t.x, y: t.y, radius: abilityReach(t, def), targets: listed(targets) };
+      if (e.pick === 'poisoned') {
+        catalyst(sim, t, def, spec, targets, step);
+        return fx;
+      }
+      const ramp = t.eff.ramp;
+      const scale = e.fullRamp && ramp ? 1 + ramp.max : 1;
+      const hits = Math.max(1, e.hits || 1);
+      const delay = ticks(e.delay);
+      if (delay > 0) {
+        // a telegraph: the reticles now, the shots `delay` later (on the same enemies, if they still stand)
+        for (const v of targets) sim._abilQueue.push({ left: delay, src: t.uid, id: def.id, kind: 'hit', target: v, spec, hits, scale });
+        sim._emit('abilityWarn', { towerUid: t.uid, id: def.id, x: targets[0].x, y: targets[0].y, radius: 0, delay: e.delay, targets: listed(targets) });
+        return fx;
+      }
+      for (const v of targets) strikeOne(sim, t, v, spec, hits, scale, e.status, step);
+      if (e.keepRamp && ramp && ramp.per > 0) {
+        // her focus stays on the enemy she struck, at full ramp (src/sim/towers.js attackDuel)
+        const v = targets[0];
+        if (!v.dead) {
+          const full = Math.ceil(ramp.max / ramp.per - 1e-9);
+          t.rampStacks = t.rampTarget === v ? Math.max(t.rampStacks, full) : full;
+          t.rampTarget = v;
+        }
+      }
+      return fx;
+    },
+  },
+
+  burst: {
+    cast(sim, t, def, step) {
+      const e = def.effect;
+      const spec = abilitySpec(t, def);
+      const r = burstRadius(t, e);
+      let p;
+      if (e.at === 'self') {
+        if (!gatherTargets(sim, t.x, t.y, r, spec, []).length) return null;
+        p = { x: t.x, y: t.y };
+      } else {
+        p = densestPoint(sim, t.x, t.y, abilityReach(t, def), spec, r);
+        if (!p) return null;
+      }
+      const fx = { x: p.x, y: p.y, radius: r, targets: listed(gatherTargets(sim, p.x, p.y, r, spec, [])) };
+      const shells = Math.max(1, e.shells || 1);
+      const delay = ticks(e.delay);
+      const every = ticks(e.every);
+      const scatter = shells > 1 && !e.reaim;
+      if (delay > 0 || shells > 1) sim._emit('abilityWarn', { towerUid: t.uid, id: def.id, x: p.x, y: p.y, radius: r, delay: e.delay || 0, shells });
+      for (let i = 0; i < shells; i++) {
+        const off = scatter ? ABILITY_SCATTER[i % ABILITY_SCATTER.length] : ABILITY_SCATTER[0];
+        const x = p.x + off[0];
+        const y = p.y + off[1];
+        const left = delay + i * every;
+        if (left > 0) sim._abilQueue.push({ left, src: t.uid, id: def.id, kind: 'shell', x, y, r, spec, reaim: !!e.reaim && i > 0 });
+        else shellAt(sim, t, def, spec, x, y, r, step);
+      }
+      return fx;
+    },
+  },
+
+  boost: {
+    cast(sim, t, def) {
+      const mods = def.effect.mods;
+      const reach = abilityReach(t, def);
+      if (!mods || !gatherTargets(sim, t.x, t.y, reach, t.eff, []).length) return null;
+      t.abilMods = mods;
+      sim._refreshTower(t);
+      return { x: t.x, y: t.y, radius: t.eff.range, targets: [] };
+    },
+    end(sim, t) {
+      t.abilMods = null;
+      sim._refreshTower(t);
+    },
+  },
+
+  rally: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const r = rallyRadius(t, e);
+      const allies = alliesIn(sim, t, r);
+      if (!allies.length) return null;
+      // a cleanse clears sabotage now; a ward (in the rally) blocks new sabotage while it lasts
+      if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
+      addRally(sim, t, e, r, ticks(def.duration));
+      recomputeBuffs(sim);
+      return { x: t.x, y: t.y, radius: r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
+    },
+  },
+
+  debuff: {
+    cast(sim, t, def, step) {
+      const e = def.effect;
+      const spec = abilitySpec(t, def);
+      const map = def.scope === 'map';
+      let pool = map ? mapPool(sim) : poolIn(sim, t.x, t.y, abilityReach(t, def), null);
+      if (e.pick === 'veiled') pool = pool.filter((v) => v.veiled);
+      else if (e.pick === 'strong') pool = topOf(pool, 'strong', t.x, t.y, e.count ?? 9999);
+      else if (e.count != null && pool.length > e.count) pool = topOf(pool, t.targetMode, t.x, t.y, e.count);
+      if (!pool.length) return null;
+      for (const v of pool) {
+        applyStatuses(sim, v, t, e.status, spec, step);
+        if (e.casterStatus && isCaster(v)) applyStatuses(sim, v, t, e.casterStatus, spec, step);
+      }
+      if (e.rally) {
+        addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration));
+        recomputeBuffs(sim);
+      }
+      return { x: t.x, y: t.y, radius: map ? 0 : abilityReach(t, def), targets: listed(pool) };
+    },
+  },
+
+  econ: {
+    cast(sim, t, def) {
+      const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
+      const amount = sim._gainCashFor(t.owner ?? 0, coins);
+      sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: t.owner ?? 0 });
+      return { x: t.x, y: t.y, radius: 0, targets: [], coins: amount };
+    },
+  },
+};
+
+/** The kinds this build runs (the others stay locked: their ⚡ teaser says they come later). */
+export const ABILITY_KINDS_LIVE = Object.freeze(Object.keys(KINDS));
+
+// ---------------------------------------------------------------------------
+// Casting
+// ---------------------------------------------------------------------------
+
+/** Why she cannot cast now (null = ready). The cast-time `noTarget` is the kind's to say. */
+function refusal(sim, t) {
+  if (sim.state === 'won' || sim.state === 'lost') return 'ended';
+  const a = t?.abil;
+  if (!a || t.removed) return 'locked';
+  if (sim.state !== 'wave') return 'notWave';
+  if (t.disabled > 0) return 'disabled';
+  if (t.moveLock > 0) return 'moving';
+  if (a.active > 0) return 'active';
+  if (a.cd > 0 || (groupOf(sim, t)?.cd || 0) > 0) return 'cooldown';
+  if (a.kind === 'econ') {
+    if ((sim.abilUses[t.owner ?? 0] || 0) >= R.econCapPerWave) return 'cap';
+    if (sim.diff.noIncome) return 'noIncome';
+  }
+  return null;
+}
+
+/** Enemies her ability would find now (the group pick's measure). */
+function enemiesInReach(sim, t, def) {
+  const reach = abilityReach(t, def);
+  if (reach === Infinity) return mapPool(sim).length;
+  return poolIn(sim, t.x, t.y, reach, def.kind === 'rally' ? null : abilitySpec(t, def)).length;
+}
+
+/**
+ * A group cast (one button for every copy): the selected copy when she is ready, else her player's
+ * ready copy of the same girl with the most enemies in reach (ties: the lower uid), else her.
+ */
+function pickCaster(sim, t) {
+  if (!refusal(sim, t)) return t;
+  const owner = t.owner ?? 0;
+  let best = null;
+  let bestN = -1;
+  for (const o of sim.towers) {
+    if (o === t || o.unitId !== t.unitId || (o.owner ?? 0) !== owner || refusal(sim, o)) continue;
+    const n = enemiesInReach(sim, o, abilityDef(o));
+    if (n > bestN || (n === bestN && o.uid < best.uid)) {
+      best = o;
+      bestN = n;
+    }
+  }
+  return best || t;
+}
+
+const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
+
+/**
+ * Fires her ability. `group`: the best ready copy of her player's (see pickCaster); `owner`: the
+ * commanding player (co-op; a girl of another player is refused `notYours`); `auto`: an auto-cast.
+ * A refusal spends nothing.
+ * @param {import('./Sim.js').Sim} sim
+ * @param {object|null} t0 TowerRT
+ * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
+ * @returns {{ ok: boolean, reason: string|null, casterUid: number|null }}
+ */
+export function castAbility(sim, t0, { group = false, owner = null, auto = false } = {}) {
+  if (sim.state === 'won' || sim.state === 'lost') return no('ended');
+  if (!t0 || t0.removed || !t0.abil) return no('locked');
+  if (owner != null && (t0.owner ?? 0) !== owner) return no('notYours');
+  const t = group ? pickCaster(sim, t0) : t0;
+  const why = refusal(sim, t);
+  if (why) return no(why, t.uid);
+  const def = abilityDef(t);
+  const step = stepNo(sim);
+  const fx = KINDS[def.kind].cast(sim, t, def, step);
+  if (!fx) return no('noTarget', t.uid);
+  const a = t.abil;
+  a.cd = a.cdMax;
+  if (def.scope === 'map') sim.abilGroups.set(groupKey(t, a.id), { cd: a.cdMax, cdMax: a.cdMax, rate: a.rate });
+  a.n++;
+  const dur = ticks(def.duration);
+  if (dur > 0) a.active = dur;
+  if (def.kind === 'econ') sim.abilUses[t.owner ?? 0] = (sim.abilUses[t.owner ?? 0] || 0) + 1;
+  // results (created on the first cast, so a battle without one keeps its result() exactly)
+  sim.stats.abilitiesUsed = (sim.stats.abilitiesUsed || 0) + 1;
+  const by = sim.stats.abilityByTower || (sim.stats.abilityByTower = {});
+  by[t.uid] = (by[t.uid] || 0) + 1;
+  sim._emit('ability', {
+    towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: t.owner ?? 0, auto: !!auto,
+    x: fx.x, y: fx.y, radius: fx.radius, targets: fx.targets, ...(fx.coins != null ? { coins: fx.coins } : null),
+  });
+  return { ok: true, reason: null, casterUid: t.uid };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-cast
+// ---------------------------------------------------------------------------
+
+const progress = (sim, e) => {
+  const len = sim.pathData[e.pathIndex]?.length || 1;
+  return e.dist / len;
+};
+
+/** Is now a decent moment (the ability's `auto` rule)? Decent, not perfect: manual timing is better. */
+export function autoWants(sim, t, def) {
+  const au = def.auto;
+  if (!au) return false;
+  if (au.when === 'ready') return true;
+  const reach = abilityReach(t, def);
+  const pool = reach === Infinity ? mapPool(sim) : poolIn(sim, t.x, t.y, reach, def.kind === 'rally' ? null : abilitySpec(t, def));
+  if (!pool.length) return false;
+  const elite = () => pool.some(isEliteUp);
+  const caster = () => pool.some(isCaster);
+  const veiled = () => pool.some((e) => e.veiled && !e.revealed);
+  const leak = (f) => pool.some((e) => progress(sim, e) >= f);
+  switch (au.when) {
+    case 'enemies':
+      return pool.length >= (au.min ?? 1) || (!!au.orElite && elite()) || (au.orLeak != null && leak(au.orLeak))
+        || (!!au.orCaster && caster()) || (!!au.orVeiled && veiled());
+    case 'elite': return elite() || (!!au.orCaster && caster()) || (!!au.orVeiled && veiled());
+    case 'caster': return caster() || (!!au.orVeiled && veiled()) || (!!au.orElite && elite());
+    case 'veiled': return veiled();
+    case 'poisoned': {
+      let n = 0;
+      for (const e of pool) if (e.statuses.poison) n++;
+      return n >= (au.min ?? 1);
+    }
+    case 'leak': return leak(au.min ?? 0.7);
+    default: return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The step, wave start / end, selling
+// ---------------------------------------------------------------------------
+
+function fireQueued(sim, it, step) {
+  const t = sim.getTower(it.src);
+  if (!t || t.removed) return;
+  if (it.kind === 'hit') {
+    const v = it.target;
+    if (!v || v.dead || !isEligible(v, it.spec)) {
+      sim._emit('abilityFizzle', { towerUid: t.uid, id: it.id, uid: v ? v.uid : -1 });
+      return;
+    }
+    const def = abilityDef(t);
+    strikeOne(sim, t, v, it.spec, it.hits, it.scale, def?.effect?.status, step);
+    return;
+  }
+  // a shell: on its spot, or re-aimed at the densest crowd now (Sango's Carpet Bombardment)
+  const def = abilityDef(t);
+  if (!def) return;
+  let x = it.x;
+  let y = it.y;
+  if (it.reaim) {
+    const p = densestPoint(sim, t.x, t.y, abilityReach(t, def), it.spec, it.r);
+    if (!p) {
+      sim._emit('abilityFizzle', { towerUid: t.uid, id: it.id, uid: -1 });
+      return;
+    }
+    x = p.x;
+    y = p.y;
+  }
+  shellAt(sim, t, def, it.spec, x, y, it.r, step);
+}
+
+/**
+ * One step of abilities (Sim._step1, right after the buffs and before the girls attack; only in a
+ * wave): 1. charge, 2. expire lasting effects, 3. run due queued hits and shells, 4. auto-cast.
+ */
+export function tickAbilities(sim) {
+  if (sim.state !== 'wave') return;
+  const step = stepNo(sim);
+  for (const t of sim.towers) {
+    const a = t.abil;
+    if (!a || !(a.cd > 0)) continue;
+    a.cd = Math.max(0, a.cd - a.rate);
+    if (a.cd === 0 && !((groupOf(sim, t)?.cd || 0) > 0)) sim._emit('abilityReady', { towerUid: t.uid, id: a.id });
+  }
+  if (sim.abilGroups.size) {
+    for (const [k, g] of sim.abilGroups) {
+      g.cd = Math.max(0, g.cd - g.rate);
+      if (g.cd === 0) {
+        sim.abilGroups.delete(k);
+        sim._emit('abilityReady', { group: k, id: k.slice(k.indexOf('|') + 1), owner: Number(k.slice(0, k.indexOf('|'))) });
+      }
+    }
+  }
+  for (const t of sim.towers) {
+    const a = t.abil;
+    if (!a || !(a.active > 0)) continue;
+    a.active--;
+    if (a.active === 0) {
+      KINDS[a.kind]?.end?.(sim, t);
+      sim._emit('abilityEnd', { towerUid: t.uid, id: a.id });
+    }
+  }
+  if (sim._rallies.length) {
+    let gone = false;
+    for (const r of sim._rallies) if (--r.left <= 0) gone = true;
+    if (gone) {
+      sim._rallies = sim._rallies.filter((r) => r.left > 0);
+      recomputeBuffs(sim);
+    }
+  }
+  if (sim._abilQueue.length) {
+    const keep = [];
+    const due = [];
+    for (const it of sim._abilQueue) (--it.left <= 0 ? due : keep).push(it);
+    sim._abilQueue = keep;
+    for (const it of due) fireQueued(sim, it, step);
+  }
+  for (const t of sim.towers) {
+    const a = t.abil;
+    if (!a || !a.auto || (step + t.uid) % R.autoEvery !== 0 || refusal(sim, t)) continue;
+    const def = abilityDef(t);
+    if (def && autoWants(sim, t, def)) castAbility(sim, t, { auto: true });
+  }
+}
+
+/** First Bell (Bell Club gear set, track 2): charge points a girl gains when a wave starts. 0 until it lands. */
+export function waveStartCharge(sim, t) { // eslint-disable-line no-unused-vars
+  return 0;
+}
+
+/** Wave start (Sim.startNextWave): every player's econ casts back to 0; the First Bell seam. */
+export function startAbilityWave(sim) {
+  for (let i = 0; i < sim.abilUses.length; i++) sim.abilUses[i] = 0;
+  if (!sim._abilOn) return;
+  for (const t of sim.towers) {
+    const a = t.abil;
+    if (!a || !(a.cd > 0)) continue;
+    const pts = waveStartCharge(sim, t);
+    if (pts > 0) a.cd = Math.max(0, a.cd - Math.round(pts));
+  }
+}
+
+/**
+ * Wave clear (Sim._checkWaveEnd, before 'between' / 'won'): every lasting effect ends (boosts give her
+ * stats back, rallies and queued shells are dropped) and the buffs are rebuilt at once, so the calm
+ * point holds none of it (battle saves, co-op checkpoints and their rederiveStats check).
+ */
+export function endAbilityWave(sim) {
+  let touched = false;
+  for (const t of sim.towers) {
+    const a = t.abil;
+    if (a && a.active > 0) {
+      a.active = 0;
+      KINDS[a.kind]?.end?.(sim, t);
+      sim._emit('abilityEnd', { towerUid: t.uid, id: a.id, wave: true });
+      touched = true;
+    }
+    if (t.abilMods) {
+      t.abilMods = null;
+      sim._refreshTower(t);
+      touched = true;
+    }
+  }
+  if (sim._rallies.length) {
+    sim._rallies = [];
+    touched = true;
+  }
+  if (sim._abilQueue.length) sim._abilQueue = [];
+  if (touched) recomputeBuffs(sim);
+}
+
+/** A girl leaves (sold): her rallies and queued shots end with her. sellTower rebuilds the buffs after. */
+export function clearAbilityEffects(sim, t) {
+  if (sim._rallies.length) sim._rallies = sim._rallies.filter((r) => r.src !== t.uid);
+  if (sim._abilQueue.length) sim._abilQueue = sim._abilQueue.filter((it) => it.src !== t.uid);
+  if (t.abilMods) t.abilMods = null;
+  if (t.abil) {
+    t.abil.active = 0;
+    sim._abilOn = Math.max(0, sim._abilOn - 1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto switches and the UI's read-only view
+// ---------------------------------------------------------------------------
+
+/** Her Auto switch. @returns {{ ok: boolean, reason: null|'locked' }} */
+export function setAbilityAuto(sim, t, on) {
+  if (!t?.abil || t.removed) return { ok: false, reason: 'locked' };
+  t.abil.auto = !!on;
+  return { ok: true, reason: null };
+}
+
+/**
+ * A player's Auto-cast setting: every girl of hers with an ability (uids ascending) and the default
+ * for the ones that unlock later. @returns {{ ok: true, reason: null, n: number }}
+ */
+export function setAbilityAutoAll(sim, owner, on) {
+  const slot = owner ?? 0;
+  sim.abilityAutoDefault[slot] = !!on;
+  let n = 0;
+  for (const t of [...sim.towers].sort((p, q) => p.uid - q.uid)) {
+    if (!t.abil || (t.owner ?? 0) !== slot) continue;
+    t.abil.auto = !!on;
+    n++;
+  }
+  return { ok: true, reason: null, n };
+}
+
+const secs = (pts, rate) => (pts > 0 ? pts / (Math.max(1, rate) * R.ticksPerSecond) : 0);
+
+/**
+ * Her ability for the UI (read-only; allocates): null when she has none. A locked one is the teaser
+ * (`unlocked: false`, the tier or level it needs; `later` for a kind this build does not run yet).
+ */
+export function abilityStatus(sim, t) {
+  const src = abilitySource(t);
+  if (!src) return null;
+  const a = t.abil;
+  if (!a) {
+    const def = src.unlocked ? (t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier)) : src.entry;
+    return {
+      id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !KINDS[def.kind],
+      path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
+      cooldown: def.cooldown, cooldownLeft: def.cooldown, duration: def.duration || 0, activeLeft: 0, auto: false, t5: false, uses: 0,
+    };
+  }
+  const def = abilityDef(t);
+  const g = groupOf(sim, t);
+  const reason = refusal(sim, t);
+  return {
+    id: a.id, kind: a.kind, scope: a.scope, unlocked: true, ready: !reason, reason, later: false,
+    path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
+    cooldown: secs(a.cdMax, a.rate), cooldownLeft: Math.max(secs(a.cd, a.rate), g ? secs(g.cd, g.rate) : 0),
+    duration: def?.duration || 0, activeLeft: a.active / R.ticksPerSecond, auto: a.auto, t5: a.t5, uses: a.n,
+    group: a.scope === 'map', charge: a.cdMax > 0 ? 1 - Math.max(a.cd, g?.cd || 0) / a.cdMax : 1,
+  };
+}
+
+/**
+ * The ability bar of a player (UI only; allocates): one slot per ability id, her tower girls only (a
+ * hero's skill lives in the hero widget), in loadout order then placement order, copies grouped.
+ * @returns {{ id: string, unitId: string, kind: string, scope: string, casters: number[], ready: number, best: object }[]}
+ */
+export function abilitySlots(sim, owner = 0) {
+  const order = [...(sim.loadout?.keys?.() || [])];
+  const slots = new Map();
+  for (const t of sim.towers) {
+    if (t.isHero || (t.owner ?? 0) !== owner || !t.abil) continue;
+    let s = slots.get(t.abil.id);
+    if (!s) slots.set(t.abil.id, (s = { id: t.abil.id, unitId: t.unitId, kind: t.abil.kind, scope: t.abil.scope, casters: [], ready: 0, best: null, firstUid: t.uid }));
+    s.casters.push(t.uid);
+    const st = abilityStatus(sim, t);
+    if (st.ready) s.ready++;
+    if (!s.best || (st.ready && !s.best.ready) || (!st.ready && !s.best.ready && st.cooldownLeft < s.best.cooldownLeft)) s.best = { ...st, towerUid: t.uid };
+  }
+  const idx = (u) => {
+    const i = order.indexOf(u);
+    return i < 0 ? order.length : i;
+  };
+  return [...slots.values()].sort((p, q) => idx(p.unitId) - idx(q.unitId) || p.firstUid - q.firstUid).map(({ firstUid, ...s }) => s);
+}

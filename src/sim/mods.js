@@ -384,10 +384,12 @@ function potentialTail(s, pot, acc) {
 /**
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
- * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts unitStats.potential
- *   (1…6) adds her Potential steps
+ * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object, heroMastery?: number,
+ *   extra?: object|object[]|null }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
+ *   (a ModSet or a list of them: a running ability boost, src/sim/abilities.js) applies after every
+ *   other set and before the damage is resolved. No `extra`: bit-identical to before it existed.
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0 } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
@@ -397,6 +399,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   // level and gear. P1 changes nothing.
   const pot = potentialFold(def, us.potential);
   for (const m of pot.sets) applyModSet(s, m, acc);
+  if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;

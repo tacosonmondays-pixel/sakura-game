@@ -117,6 +117,15 @@ export const HERO_PUSH_LOCK = 0.5;
 /** Fraction of the ult cooldown that must still charge when the ult unlocks. */
 export const ULT_INITIAL_CHARGE = 0.5;
 
+/**
+ * Offsets (tiles) of the shells of a multi-shell ability burst around its aim point (src/sim/abilities.js;
+ * Akane's Starmine Barrage). Fixed literals, so no trig runs and every JS engine drops the same shells.
+ */
+export const ABILITY_SCATTER = Object.freeze([
+  [0, 0], [0.45, 0], [-0.22, 0.39], [-0.22, -0.39], [0, 0.62], [0.54, -0.31],
+  [-0.54, -0.31], [0.7, 0.35], [-0.7, 0.35], [0, -0.78], [0.36, 0.7], [-0.36, -0.7],
+].map((p) => Object.freeze(p)));
+
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */

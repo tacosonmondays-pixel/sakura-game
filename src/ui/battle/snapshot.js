@@ -33,6 +33,11 @@
 // boost left, `oc` overclock timers), each only when she has it. The specs they build (`effProc`,
 // `effEcho`, `trapSpecProc`) are derived from her stats. A format-1 or format-2 save (no such
 // fields) restores with every counter at its start.
+// Abilities (src/sim/abilities.js; same formats, additive): a girl's ability row (`ak`: cooldown left in
+// charge points, Auto, casts) and the map-scope cooldowns of the run (`ag`). Lasting effects (boosts,
+// rallies, queued shells) end at every wave clear, so a calm point has none; the tier replay unlocks
+// each ability (with its first charge) before `ak` puts the saved state back. A save without them
+// restores every ability at its first charge, Auto from the setting.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
@@ -135,6 +140,11 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   mode: 'config', incomeMul: 'config', _modeArmor: 'config', _ruleGoal: 'config', _bountyAdd: 'config',
   _pathsFwd: 'config', _pathsRev: 'config', rule: 'config', routeReversed: 'snap',
   _ruleMul: 'derived', _ruleMove: 'derived', _ruleRange: 'derived', _rulePortal: 'derived', _waveTick: 'calm',
+  // abilities (src/sim/abilities.js): map-scope cooldowns travel (`ag`); econ casts per wave restart at
+  // every wave start; rallies, queued shells and owner coins (co-op only) are empty at a calm point; the
+  // Auto-cast setting comes from the profile; the count of girls with an ability follows the tier replay
+  abilGroups: 'snap', abilUses: 'calm', _rallies: 'calm', _abilQueue: 'calm', ownerCash: 'calm',
+  abilityAutoDefault: 'config', _abilOn: 'derived',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -164,6 +174,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the rhythm's specs follow her stats and buffs (refreshEffective)
   potCount: 'snap', tempoStacks: 'snap', tempoIdle: 'snap', projCarry: 'snap', rampKeep: 'snap', auraBoostLeft: 'snap', potOc: 'snap',
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
+  // abilities: her ability's state (`ak`); a boost runs only during a wave
+  abil: 'snap', abilMods: 'calm',
 });
 
 /**
@@ -230,6 +242,8 @@ export function snapshotSim(sim) {
     leakGroups: packLeaks(leakLog),
     // the route orientation of the last wave (Reverse Route, Rear Ambush): only where it can turn
     ...(sim._pathsRev ? { rr: sim.routeReversed ? 1 : 0 } : {}),
+    // map-scope ability cooldowns still charging (frozen between waves)
+    ...(sim.abilGroups?.size ? { ag: [...sim.abilGroups].map(([k, g]) => [k, g.cd, g.cdMax, g.rate]) } : {}),
   };
 }
 
@@ -258,6 +272,8 @@ function packTower(sim, t) {
   if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
   packPotential(t, o);
+  // her ability: cooldown left (charge points), Auto, casts this battle
+  if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
   return o;
 }
 
@@ -360,8 +376,11 @@ export function restoreSim(rec, profile = null) {
       hero: teamEntry(rec.hero),
       seed: rec.seed,
       // never options.freeplay: freeplay runs (co-op or solo) are never saved; the run's own battle
-      // mode (a record without one: Standard)
-      options: { endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode) },
+      // mode (a record without one: Standard); the Auto-cast setting for abilities unlocked later
+      options: {
+        endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode),
+        ...(profile?.settings?.autoCastAbilities ? { autoAbilities: true } : null),
+      },
     });
   } catch (e) {
     throw new StaleSaveError(`stage cannot be built: ${e.message}`);
@@ -438,6 +457,12 @@ export function restoreSim(rec, profile = null) {
       // (a Move late in a wave can still be pausing her when the next one is started)
       t.moveLock = r(o.ml);
     }
+    // her ability (the tier replay / hero XP above unlocked it at its first charge): the saved state
+    if (t.abil && Array.isArray(o.ak)) {
+      t.abil.cd = Math.min(t.abil.cdMax, Math.max(0, Math.floor(r(o.ak[0]))));
+      t.abil.auto = !!o.ak[1];
+      t.abil.n = Math.max(0, Math.floor(r(o.ak[2])));
+    }
     const maxDr = t.stats.turret?.max ?? 0;
     const roam = t.turretSpec?.leash > 0;
     (o.dr || []).slice(0, maxDr).forEach((row, i) => {
@@ -486,6 +511,14 @@ export function restoreSim(rec, profile = null) {
     t._dmgMark = r(rd[1]);
   }
   if (typeof s.dps === 'number' && Number.isFinite(s.dps)) sim._dpsTimer = s.dps;
+  // map-scope ability cooldowns ("<owner>|<id>" → points left, full, points a tick)
+  for (const g of Array.isArray(s.ag) ? s.ag : []) {
+    if (!Array.isArray(g) || typeof g[0] !== 'string' || !/^\d+\|[\w.]+$/.test(g[0])) continue;
+    const cdMax = Math.max(0, Math.floor(r(g[2])));
+    const cd = Math.min(cdMax, Math.max(0, Math.floor(r(g[1]))));
+    const rate = Math.max(1, Math.floor(r(g[3])) || 100);
+    if (cd > 0) sim.abilGroups.set(g[0], { cd, cdMax, rate });
+  }
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

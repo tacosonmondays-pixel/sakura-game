@@ -340,3 +340,30 @@ describe('Potential in resolveStats', () => {
     expect(resolveStats(REAL.aoi, { unitStats: { potential: '6' } })).toEqual(resolveStats(REAL.aoi));
   });
 });
+
+describe('resolveStats `extra` (a running ability boost, src/sim/abilities.js)', () => {
+  test('no `extra` (or null) resolves bit-identically to before it existed', () => {
+    for (const id of ['aoi', 'rei', 'raika', 'chika']) {
+      const u = REAL[id];
+      const tiers = [3, 0, 2];
+      expect(resolveStats(u, { tiers, extra: null })).toEqual(resolveStats(u, { tiers }));
+      expect(resolveStats(u, { tiers, unitStats: { potential: 6 }, extra: undefined })).toEqual(resolveStats(u, { tiers, unitStats: { potential: 6 } }));
+    }
+  });
+
+  test('applies last: after the tiers, the awaken passive and Potential, before the damage and the unit stats', () => {
+    const u = REAL.rei;
+    const us = { awakenPassive: true, potential: 4, rateMul: 1.2, rangeMul: 1.1, damageMul: 1.5 };
+    const plain = resolveStats(u, { tiers: [3, 0, 0], unitStats: us });
+    const boosted = resolveStats(u, { tiers: [3, 0, 0], unitStats: us, extra: { rateMul: 2.5, range: 0.6, maxTargets: 99, damage: 2 } });
+    expect(boosted.rate).toBeCloseTo(plain.rate * 2.5, 9);
+    expect(boosted.range).toBeCloseTo(plain.range + 0.6 * 1.1, 9); // the add is scaled by her gear range like a tier's
+    expect(boosted.maxTargets).toBe(plain.maxTargets + 99);
+    expect(boosted.damage).toBeGreaterThan(plain.damage);
+    // a list applies in order; a status merges like a tier's (certain: a missing chance wins)
+    const raika = resolveStats(REAL.raika, { tiers: [0, 0, 3], extra: [{ rateMul: 1.6 }, { chain: 2, status: [{ type: 'shock', duration: 0.25 }] }] });
+    const base = resolveStats(REAL.raika, { tiers: [0, 0, 3] });
+    expect(raika.chain).toBe(base.chain + 2);
+    expect(raika.status.find((s) => s.type === 'shock')).toEqual({ type: 'shock', duration: 0.25 });
+  });
+});

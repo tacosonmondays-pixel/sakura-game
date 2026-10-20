@@ -14,7 +14,7 @@ import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath } from './path.js';
-import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
+import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
 
@@ -119,11 +119,14 @@ export function createTower(def, o) {
 }
 
 /**
- * Her stats as her def, tiers, hero level / mastery and unitStats (her player's loadout entry) give
- * them (pure; no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
+ * Her stats as her def, tiers, hero level / mastery, unitStats (her player's loadout entry) and a
+ * running ability boost (`abilMods`, src/sim/abilities.js; null at every calm point) give them (pure;
+ * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  return resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
+  return resolveStats(t.def, {
+    tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null,
+  });
 }
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
@@ -234,7 +237,7 @@ export function recomputeBuffs(sim) {
     // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
     // girl placed first
     const by = t.buffBy || (t.buffBy = emptyBuffBy());
-    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = -1;
+    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = by.rally = -1;
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
       // (a Potential rhythm's aura boost runs: her aura numbers × the boost, src/sim/potential.js)
@@ -251,8 +254,10 @@ export function recomputeBuffs(sim) {
       if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
       if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
-    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras
+    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras, then ability rallies
+    // (strongest per key; both players' girls), so a rally's ward clears sabotage below
     applyLimited(sim, t, nb);
+    if (sim._rallies?.length) applyRallies(sim, t, nb, by);
     if (nb.cleanse && t.disabled > 0) t.disabled = 0;
     const ob = t.buff;
     let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul

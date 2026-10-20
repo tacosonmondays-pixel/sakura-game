@@ -174,7 +174,7 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 (design scratch). `units.js` calls `attachAbilities(UNITS)` once: every tower's ⚡ path gets a frozen
 `ability` (it unlocks at tier 3; tier 5 upgrades it), every hero gets `hero.skill` (Lv 7, rank 2 at Lv 17).
 `attachAbilities` throws on a row for an unknown girl or a path id she does not have. A kit variant's row is
-`id@kitStyle` (`abilityRow(def)`). The sim does not read abilities yet (milestone A1).
+`id@kitStyle` (`abilityRow(def)`). The sim reads them in one place, `src/sim/abilities.js` (§6 Abilities).
 
 ```js
 AbilityDef = { path, unlockTier: 3, id /* 'aoi.skyfall' */, kind, scope, cooldown /* s of wave time */,
@@ -870,9 +870,10 @@ const sim = new Sim({
   hero: { unitId, stats } | null,
   heroes: [{ unitId, stats } | null, …],  // co-op: one per player, by player index (instead of `hero`)
   seed,               // number
-  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined },
+  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined, autoAbilities: false },
   // freeplay: co-op freeplay (needs stage.freeplay); mode: a BATTLE_MODES id (unknown → standard);
-  // rule: overrides stage.rule (tests and headless only; null = no rule)
+  // rule: overrides stage.rule (tests and headless only; null = no rule); autoAbilities: player 0's
+  // Auto-cast setting (sim.abilityAutoDefault[0]; default Off)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -909,7 +910,7 @@ sim.upgradeTower(uid, path, opts?)  // -> boolean
 sim.finalTierHolder(uid, path)      // -> the uid of another copy (same type, same owner) holding that path's tier 5 | null
 sim.finalTierHolders(unitId, owner) // -> [uid|null ×3] by path
 sim.buffSources(uid)                // -> [{ key: 'dmg'|'rate'|'range'|'pen'|'crit'|'det'|'cost'|'cleanse', value,
-                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map', src: uid|-1, unitId, left }]
+                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map'|'rally', src: uid|-1, unitId, left }]
 sim.buffTargets(uid)                // -> [{ uid, kinds: [...], keys: [...] }] the girls she buffs (limited first)
 sim.aurasCovering(uid)              // -> [{ src, unitId, keys, won }] every aura in reach, losers included
 sim.setBuffPick(uid, targetUid)     // Midori / Chika: who to buff first (-1 = auto) -> { ok, reason: 'noBuff'|'self'|'gone'|'range'|null }
@@ -945,7 +946,8 @@ TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*foo
             // step earlier: draw between), jam (s), tgt/targetUid, moving, dmg, kills, shots, born (wave);
             // the girl: droneDmg, droneKills, droneShots, droneSerial, flight (null = hover)
             flight: null | { mode: 'hover'|'hold'|'patrol'|'pursuit', ax, ay, bx, by, cx, cy /*wing centre*/, leg },
-            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse }: the winning aura's uid or -1*/,
+            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse, rally }: the winning aura's (rally's) uid or -1*/,
+            abil?, abilMods? /*her ability (below), only once it unlocked*/,
             buffPick /*limited buff pin, -1 auto*/, lim /*her brew / link state*/, limIn /*{ brew, brewLeft, link, oc } she holds*/,
             recentDps /*damage per second over the last DPS_WINDOW, picks*/ }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
@@ -959,7 +961,10 @@ SimEvent = { type, ...payload } with types:
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level,towerUid} 'ult' {name,effect,x,y,towerUid,rank} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
-  'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
+  'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
+  'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
@@ -1008,6 +1013,36 @@ sim.findDrone(uid)    // -> { tower, drone } | null
 sim.towerStats(uid)   // + own: { dps, dealt, kills } (her own attack); turret + { leash, speed, build, rate,
                       //   range (after buffs), dealt, kills, shots, nextIn, flight } for roaming drones
 ```
+
+**Abilities** (`src/sim/abilities.js`; data §3 Abilities; spec ABILITIES_SPEC §3–§6, milestone A1). A tower girl's
+⚡ ability unlocks at tier 3 of its path (tier 5 upgrades it: the cooldown left becomes min(left, new full)); a
+hero's skill at Lv 7 (rank 2 at Lv 17). Kinds live in A1: strike, burst, boost, rally, debuff, econ; deploy (Kage,
+Suzu, Chika) stays locked until A4 (`abilityStatus` → `later: true`). Rules: cooldowns are integer charge points
+(100 a tick; Skill Haste = gear `ultHaste` at half rate, never for rally / debuff) and charge only in 'wave'; a
+fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in a wave; refusals (none spends
+the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
+(econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
+(`sim.abilGroups`, key "owner|id"). Ability hits never crit and their statuses are certain (no rng draw); a
+miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
+`abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
+calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
+fold into `t.buff` after the limited buffs (strongest per key, both players' girls, never the caster). Coins go to
+the caster's owner: `sim._gainCashFor(owner, n)` (solo: cash; co-op: `sim.ownerCash[owner]`, moved into that
+player's wallet by the command layer, A2). Auto-cast (per girl, default Off; `sim.abilityAutoDefault[owner]` for
+later unlocks) runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds.
+```js
+t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
+sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
+                    //   player's ready copy with the most enemies in reach (ties: lower uid)
+sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
+                         //   cooldownLeft (s), duration, activeLeft, auto, t5, uses, group, charge (0..1) }   (also towerStats().ability)
+sim.setAbilityAuto(uid, on) / sim.setAbilityAutoAll(owner, on)   // the switch / the player's setting (+ every girl of hers)
+sim.abilitySlots(owner)  // -> [{ id, unitId, kind, scope, casters: [uid], ready: n, best: status }] (towers only; UI, allocates)
+sim.result().stats       // + abilitiesUsed, abilityByTower {uid: n} — created on the first cast (no cast: result unchanged)
+```
+Headless: `runHeadless({ …, autoAbilities })`, plan action `{ action: 'ability', uid | x, y, group? }` (waits on a
+refusal a later moment can lift), `autoPlan(stageId, units, { ability: true })` (every girl's main path = her ⚡ path).
+Bench: `tools/abilityBench.mjs` (spec §11).
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
 checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is

@@ -11,9 +11,9 @@
 // reads a view slot, the clock or Math.random. The pick command (setBuffPick) is the only player input.
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
 
-/** Aura winner uid per buff key (-1: none). */
+/** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
-  return { dmg: -1, rate: -1, range: -1, pen: -1, crit: -1, det: -1, cost: -1, cleanse: -1 };
+  return { dmg: -1, rate: -1, range: -1, pen: -1, crit: -1, det: -1, cost: -1, cleanse: -1, rally: -1 };
 }
 
 /** What a girl holds: the brew (source uid, seconds left), the link (source uid) and overclock. */
@@ -272,6 +272,52 @@ export function applyLimited(sim, t, nb) {
   }
 }
 
+/**
+ * The ability rallies that reach a girl (src/sim/abilities.js: Miko's Shrine Chorus, Hikari's Morning
+ * Rally, Umeko's Lantern Flare rider), every rally in sim._rallies order: within its radius of its
+ * caster (never the caster herself, like an aura), or anywhere for a map rally. Strongest per key
+ * wins across both players' rallies.
+ * @param {(key: string, value: number|boolean, r: object) => void} [each] called for every key the
+ *   winning rallies give (UI rows); absent in recomputeBuffs
+ * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, detection: boolean, ward: boolean, src: number }|null}
+ */
+export function ralliesOn(sim, t) {
+  let out = null;
+  for (const r of sim._rallies) {
+    if (r.src === t.uid) continue;
+    const c = sim.getTower(r.src);
+    if (!c || c.removed) continue;
+    if (!r.map) {
+      const dx = c.x - t.x;
+      const dy = c.y - t.y;
+      if (dx * dx + dy * dy > r.r2) continue;
+    }
+    if (!out) out = { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, ward: false, src: r.src, by: { dmg: -1, rate: -1, range: -1, det: -1, ward: -1 }, left: {} };
+    const o = out;
+    if (r.dmgMul > o.dmgMul) { o.dmgMul = r.dmgMul; o.by.dmg = r.src; o.left.dmg = r.left; }
+    if (r.rateMul > o.rateMul) { o.rateMul = r.rateMul; o.by.rate = r.src; o.left.rate = r.left; }
+    if (r.rangeMul > o.rangeMul) { o.rangeMul = r.rangeMul; o.by.range = r.src; o.left.range = r.left; }
+    if (r.detection && !o.detection) { o.detection = true; o.by.det = r.src; o.left.det = r.left; }
+    if (r.ward && !o.ward) { o.ward = true; o.by.ward = r.src; o.left.ward = r.left; }
+  }
+  return out;
+}
+
+/**
+ * recomputeBuffs, after the limited buffs: the strongest rally per key multiplies her damage, attack
+ * speed and range, and a rally's Veil Sight and ward (blocks sabotage, like a cleanse aura) are OR-ed in.
+ */
+export function applyRallies(sim, t, nb, by) {
+  const r = ralliesOn(sim, t);
+  if (!r) return;
+  nb.dmgMul *= r.dmgMul;
+  nb.rateMul *= r.rateMul;
+  nb.rangeMul *= r.rangeMul;
+  if (r.detection) nb.detection = true;
+  if (r.ward) nb.cleanse = true;
+  if (by) by.rally = r.src;
+}
+
 const KEY_OF = { dmgMul: 'dmg', rateMul: 'rate', armorPen: 'pen', critChance: 'crit' };
 
 function limitedRows(sim, src, set, kind, left, rows, oc = 1) {
@@ -330,6 +376,20 @@ export function buffSources(sim, uid) {
     rows.push({ key: 'rate', value: sim.globalRateMul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
   }
   if (t.envRangeMul > 1) rows.push({ key: 'range', value: t.envRangeMul - 1, kind: 'map', src: -1, unitId: null, left: null });
+  // ability rallies (src/sim/abilities.js), seconds left from their tick countdowns
+  const ra = sim._rallies?.length ? ralliesOn(sim, t) : null;
+  if (ra) {
+    const row = (key, k, value) => {
+      const uidSrc = ra.by[k];
+      if (uidSrc < 0) return;
+      rows.push({ key, value, kind: 'rally', src: uidSrc, unitId: sim.getTower(uidSrc)?.unitId ?? null, left: ra.left[k] / 60 });
+    };
+    row('dmg', 'dmg', ra.dmgMul - 1);
+    row('rate', 'rate', ra.rateMul - 1);
+    row('range', 'range', ra.rangeMul - 1);
+    row('det', 'det', true);
+    row('cleanse', 'ward', true);
+  }
   return rows;
 }
 
@@ -368,7 +428,7 @@ export function buffTargets(sim, uid) {
   for (const o of sim.towers) {
     const by = o.buffBy;
     if (!by || o === t) continue;
-    for (const key of Object.keys(by)) if (by[key] === uid) add(o, 'aura', key);
+    for (const key of Object.keys(by)) if (by[key] === uid) add(o, key === 'rally' ? 'rally' : 'aura', key === 'rally' ? null : key);
   }
   return [...out.values()];
 }

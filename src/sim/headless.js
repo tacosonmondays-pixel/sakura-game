@@ -9,12 +9,15 @@ import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placem
 import { resolveStats, crosspathBlock } from './mods.js';
 import { finalTierOf } from './finalTier.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
+import { TRANSIENT_REFUSALS, abilityPathOf } from './abilities.js';
 
 /**
  * A plan action. Positions are continuous world coordinates `x`/`y` (free placement);
  * `tx`/`ty` (tile) are still accepted for old plans and resolve to the tile centre.
- * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell', unitId?: string, x?: number, y?: number,
- *   tx?: number, ty?: number, uid?: number, path?: number }} PlanAction
+ * `ability` fires the girl's ability (by `uid` or her spot; `group`: the best ready copy): it waits
+ * while the refusal is one a later moment can lift (cooldown, no wave, no target …) and fails otherwise.
+ * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell'|'heroLevel'|'ability', unitId?: string, x?: number, y?: number,
+ *   tx?: number, ty?: number, uid?: number, path?: number, group?: boolean }} PlanAction
  */
 
 /** Position of a plan action as (x, y) arguments for the Sim (continuous wins over tile). */
@@ -47,6 +50,13 @@ function executeAction(sim, a) {
     if (!st.reason) return sim.buyHeroLevel({ level: st.level + 1, maxPrice: st.price }).ok ? 'done' : 'fail';
     return st.reason === 'cash' ? 'wait' : 'fail';
   }
+  if (a.action === 'ability') {
+    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
+    if (!t) return 'fail';
+    const r = sim.castAbility(t.uid, { group: !!a.group });
+    if (r.ok) return 'done';
+    return TRANSIENT_REFUSALS.includes(r.reason) ? 'wait' : 'fail';
+  }
   return 'fail';
 }
 
@@ -54,15 +64,17 @@ function executeAction(sim, a) {
  * Runs a whole battle without rendering. Plan actions execute in order once their wave is
  * reached (`at` = the wave they should be in place for) and as soon as they are affordable;
  * waves start automatically.
+ * `autoAbilities` (bots and benches): every girl's ability auto-casts (the Auto-cast setting; default Off,
+ * which keeps every existing bot battle exactly as before abilities).
  * @param {{ stageId: string, difficulty?: string, plan?: PlanAction[], seed?: number, maxTime?: number,
- *   loadout?: {unitId, stats?}[], hero?: {unitId, stats?}|null, data?: object, options?: object }} cfg
+ *   loadout?: {unitId, stats?}[], hero?: {unitId, stats?}|null, data?: object, options?: object, autoAbilities?: boolean }} cfg
  * @returns {{ won: boolean, lost: boolean, wave: number, wavesCleared: number, lives: number,
  *   maxLives: number, time: number, cash: number, failed: PlanAction[], pendingLeft: number,
  *   result: object, sim: Sim }}
  */
 export function runHeadless({
   stageId, difficulty = 'normal', plan = [], seed = 1, maxTime = 3600, loadout = null, hero = undefined,
-  data = undefined, options = {},
+  data = undefined, options = {}, autoAbilities = false,
 } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   let lo = loadout;
@@ -76,7 +88,7 @@ export function runHeadless({
       heroCfg = h ? { unitId: h.id, stats: { ...DEFAULT_UNIT_STATS } } : null;
     }
   }
-  const sim = new Sim({ stageId: ds.stage.id, difficulty, loadout: lo, hero: heroCfg, seed, options: { autoStart: false, ...options }, data: { ...(data || {}), stage: ds.stage, map: ds.map } });
+  const sim = new Sim({ stageId: ds.stage.id, difficulty, loadout: lo, hero: heroCfg, seed, options: { autoStart: false, ...options, ...(autoAbilities ? { autoAbilities: true } : null) }, data: { ...(data || {}), stage: ds.stage, map: ds.map } });
   const pending = plan.slice();
   const failed = [];
   const tryActions = () => {
@@ -204,11 +216,12 @@ function jitter(i, j, salt) {
  * (the crosspath rule respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
- * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best
- *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly.
+ * @param {{ data?: object, maxCopies?: number, focus?: boolean, ability?: boolean }} opts  focus = push the best
+ *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly;
+ *   ability = every girl's main path is her ⚡ path (the one her ability unlocks on), for ability bots and benches.
  * @returns {PlanAction[]} place actions carry continuous `x`/`y` plus the tile `tx`/`ty` under them
  */
-export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true } = {}) {
+export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true, ability = false } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   const { stage, map } = ds;
   const paths = buildPaths(map);
@@ -264,7 +277,8 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   const infos = defs.filter((d) => d.kind !== 'hero').map((def) => {
     const stats = resolveStats(def);
     const scores = [0, 1, 2].map((p) => pathScore(def, p, needs));
-    const main = scores.indexOf(Math.max(...scores));
+    const zap = ability ? abilityPathOf(def) : -1;
+    const main = zap >= 0 ? zap : scores.indexOf(Math.max(...scores));
     const subScores = [0, 1, 2].map((p) => (p === main ? -Infinity : pathScore(def, p, needs, 2)));
     const sub = subScores.indexOf(Math.max(...subScores));
     return { def, stats, role: unitRole(stats), main, sub, detect: detectionRoute(def), cost: stats.cost };
