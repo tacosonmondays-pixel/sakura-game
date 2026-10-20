@@ -20,6 +20,7 @@ import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
 import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
+import { FREEPLAY_REWARDS, freeplayTomeLine } from '../../online/coop/rewards.js';
 import { lastSoloTier } from './soloFreeplay.js';
 import { TIER_PITCH } from '../freeplayText.js';
 import { newlyReadyIds } from '../achToast.js';
@@ -389,7 +390,9 @@ export function createResults(ctx) {
       !fp.waves ? 'No freeplay waves cleared yet.'
         : fp.waveCoins != null ? `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(fp.waveCoins)} coins (${table.name} on ${stage.id})`
           : `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(40)} coins${table.rewardMul !== 1 ? ` × ${table.rewardMul} (${table.name})` : ''}`,
-      fp.caches ? `${fp.caches} freeplay cache${fp.caches === 1 ? '' : 's'} (one every 25 waves)` : null,
+      fp.caches ? `${fp.caches} freeplay cache${fp.caches === 1 ? '' : 's'} (one every ${FREEPLAY_REWARDS.cacheEvery} waves)` : null,
+      // a cache's Akashic Tome, or why none came (the week's limit, solo and co-op together)
+      freeplayTomeLine(store.profile, fp),
       fp.tokens ? `${fp.tokens} Assault Token${fp.tokens === 1 ? '' : 's'} for bosses beaten` : null,
     ].filter(Boolean);
     const card = h(

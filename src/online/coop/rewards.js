@@ -251,6 +251,22 @@ export function freeplayCacheTomes(profile, caches, now = new Date()) {
   return n;
 }
 
+/**
+ * The freeplay results line for the caches' Akashic Tomes (read after the run was applied): "+1
+ * Akashic Tome (2 of 2 this week)" when the caches paid some, "Akashic Tomes: weekly limit reached (2
+ * a week, back next week)" when caches came but the week's Tomes were already paid, null without
+ * a cache. `fp` is applyCoopFreeplayEnd's `freeplay` ({ caches, tomes }).
+ * @returns {string|null}
+ */
+export function freeplayTomeLine(profile, fp, now = new Date()) {
+  const T = FREEPLAY_REWARDS.cacheTome;
+  if (!count(fp?.caches)) return null;
+  const tomes = count(fp?.tomes);
+  if (!tomes) return `Akashic Tomes: weekly limit reached (${T.weeklyCap} a week, back next week)`;
+  const used = Math.min(T.weeklyCap, Math.max(tomes, count(profile?.missions?.counters?.[FP_TOME_PREFIX + weekKey(now)])));
+  return `+${tomes} Akashic Tome${tomes === 1 ? '' : 's'} (${used} of ${T.weeklyCap} this week)`;
+}
+
 /** This account's freeplay records: { done: ['blossom:w100', …], titles: [...], frames: [...] }. */
 export function freeplayRecords(profile) {
   const p = (profile.progress ||= { stages: {} });

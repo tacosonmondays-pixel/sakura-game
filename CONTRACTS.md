@@ -1566,7 +1566,9 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   { banked, now? })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
   gear / crowns / tokens plus one Akashic Tome per cache (`freeplayCacheTomes`: at most
   `FREEPLAY_REWARDS.cacheTome.weeklyCap` = 2 a week per account, solo and co-op sharing `fpTome:<weekKey>`; added
-  after the cache rolls, so the rng stream is unchanged; `out.freeplay.tomes`), ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
+  after the cache rolls, so the rng stream is unchanged; `out.freeplay.tomes`; `freeplayTomeLine(profile,
+  out.freeplay)` is the results sheet's line: "+1 Akashic Tome (2 of 2 this week)" or "Akashic Tomes: weekly
+  limit reached (2 a week, back next week)"), ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
   `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
   session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
 Co-op is data (`hpScale`) plus command routing; the Sim only gained `snapshot()` / `restore()`.

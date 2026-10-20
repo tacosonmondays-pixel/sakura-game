@@ -14,7 +14,7 @@ import { grantUnit } from '../../src/systems/unlocks.js';
 import { pull, spark, POOL } from '../../src/systems/gacha.js';
 import { DUPE_PAST_MAX_TOMES, dupePastMaxTomes, potentialDupesRule } from '../../src/systems/potential.js';
 import { LEVEL_PAST_GATES } from '../../src/systems/progression.js';
-import { applyCoopFreeplayEnd, freeplayCacheTomes, FREEPLAY_REWARDS, FP_TOME_PREFIX } from '../../src/online/coop/rewards.js';
+import { applyCoopFreeplayEnd, freeplayCacheTomes, freeplayTomeLine, FREEPLAY_REWARDS, FP_TOME_PREFIX } from '../../src/online/coop/rewards.js';
 import { applySoloFreeplayEnd } from '../../src/systems/freeplayRewards.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
@@ -77,6 +77,22 @@ describe('freeplay caches', () => {
     const out = applyCoopFreeplayEnd(p, fp({ wavesCleared: 15 + 200 }), createRng(4), { banked, now: week });
     expect(out.freeplay).toMatchObject({ caches: 8, tomes: 2 });
     expect(out.rewards.filter((r) => r.id === TOME).reduce((n, r) => n + r.count, 0)).toBeLessThanOrEqual(2 + 8); // cache rolls of a book stage aside
+  });
+
+  it('the freeplay results line names the cache Tome and the week, or why none came', () => {
+    const p = createProfile();
+    const a = applyCoopFreeplayEnd(p, fp({ wavesCleared: 40 }), createRng(1), { banked, now: week });
+    expect(freeplayTomeLine(p, a.freeplay, week)).toBe('+1 Akashic Tome (1 of 2 this week)');
+    const b = applySoloFreeplayEnd(p, fp({ wavesCleared: 15 + 75 }), createRng(2), { banked, now: week });
+    expect(b.freeplay).toMatchObject({ caches: 3, tomes: 1 });
+    expect(freeplayTomeLine(p, b.freeplay, week)).toBe('+1 Akashic Tome (2 of 2 this week)');
+    const c = applyCoopFreeplayEnd(p, fp({ wavesCleared: 40 }), createRng(3), { banked, now: week });
+    expect(freeplayTomeLine(p, c.freeplay, week)).toBe('Akashic Tomes: weekly limit reached (2 a week, back next week)');
+    // two Tomes in one run; no cache: no line
+    const q = createProfile();
+    const d = applyCoopFreeplayEnd(q, fp({ wavesCleared: 15 + 50 }), createRng(4), { banked, now: week });
+    expect(freeplayTomeLine(q, d.freeplay, week)).toBe('+2 Akashic Tomes (2 of 2 this week)');
+    expect(freeplayTomeLine(q, applyCoopFreeplayEnd(q, fp({ wavesCleared: 30 }), createRng(5), { banked, now: week }).freeplay, week)).toBe(null);
   });
 
   it('solo and co-op share the counter', () => {

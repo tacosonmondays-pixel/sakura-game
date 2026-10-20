@@ -130,7 +130,8 @@ so every girl keeps her P and fights with the v3 steps of it at once.
 - **Akashic Tome sources** (none sold for gems): Library Courtyard III on Nightmare 5 % → 20 % (`STAGES`: the co-op
   data id changes); a freeplay cache adds one Tome, at most 2 a week per account, solo and co-op sharing
   `fpTome:<weekKey>` (added after the cache rolls, so every other drop is unchanged; a new week's key deletes the
-  old); the Bounty Exchange row `bty_book_tome` (40 Bounty Tokens, 2 a week); duplicates past P6 pay SR 1 / SSR 5
+  old; the freeplay results sheet says "+1 Akashic Tome (2 of 2 this week)", or "Akashic Tomes: weekly limit
+  reached (2 a week, back next week)" when caches came without one); the Bounty Exchange row `bty_book_tome` (40 Bounty Tokens, 2 a week); duplicates past P6 pay SR 1 / SSR 5
   Tomes (R none) besides their fragments. Item info lists all four.
 - **Screens**: the Level Up tab's "Cap 72 · P4 · max 85", at the cap "P5 raises it to 78 (1 more duplicate)", above 60
   "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"; at gate 5 the breakthrough card is the Potential cap
