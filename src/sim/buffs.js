@@ -276,22 +276,15 @@ export function applyLimited(sim, t, nb) {
  * The ability rallies that reach a girl (src/sim/abilities.js: Miko's Shrine Chorus, Hikari's Morning
  * Rally, Umeko's Lantern Flare rider), every rally in sim._rallies order: within its radius of its
  * caster (never the caster herself, like an aura), or anywhere for a map rally. Strongest per key
- * wins across both players' rallies.
- * @param {(key: string, value: number|boolean, r: object) => void} [each] called for every key the
- *   winning rallies give (UI rows); absent in recomputeBuffs
- * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, detection: boolean, ward: boolean, src: number }|null}
+ * wins across both players' rallies. UI only (buffSources' rows: `by` / `left` name each key's winner);
+ * recomputeBuffs folds the same maxima in through applyRallies without allocating.
+ * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, detection: boolean, ward: boolean, src: number,
+ *   by: object, left: object }|null}
  */
 export function ralliesOn(sim, t) {
   let out = null;
   for (const r of sim._rallies) {
-    if (r.src === t.uid) continue;
-    const c = sim.getTower(r.src);
-    if (!c || c.removed) continue;
-    if (!r.map) {
-      const dx = c.x - t.x;
-      const dy = c.y - t.y;
-      if (dx * dx + dy * dy > r.r2) continue;
-    }
+    if (!rallyReaches(sim, r, t)) continue;
     if (!out) out = { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, ward: false, src: r.src, by: { dmg: -1, rate: -1, range: -1, det: -1, ward: -1 }, left: {} };
     const o = out;
     if (r.dmgMul > o.dmgMul) { o.dmgMul = r.dmgMul; o.by.dmg = r.src; o.left.dmg = r.left; }
@@ -303,19 +296,48 @@ export function ralliesOn(sim, t) {
   return out;
 }
 
+/** Does rally `r` reach girl `t`? Never its caster; within its radius of her (squared), or anywhere for a map rally. */
+function rallyReaches(sim, r, t) {
+  if (r.src === t.uid) return false;
+  const c = sim.getTower(r.src);
+  if (!c || c.removed) return false;
+  if (r.map) return true;
+  const dx = c.x - t.x;
+  const dy = c.y - t.y;
+  return !(dx * dx + dy * dy > r.r2);
+}
+
 /**
  * recomputeBuffs, after the limited buffs: the strongest rally per key multiplies her damage, attack
  * speed and range, and a rally's Veil Sight and ward (blocks sabotage, like a cleanse aura) are OR-ed in.
+ * The same maxima as ralliesOn, without its UI rows (no allocation: this runs for every girl on every
+ * rebuild while a rally lasts).
  */
 export function applyRallies(sim, t, nb, by) {
-  const r = ralliesOn(sim, t);
-  if (!r) return;
-  nb.dmgMul *= r.dmgMul;
-  nb.rateMul *= r.rateMul;
-  nb.rangeMul *= r.rangeMul;
-  if (r.detection) nb.detection = true;
-  if (r.ward) nb.cleanse = true;
-  if (by) by.rally = r.src;
+  const list = sim._rallies;
+  let src = -1;
+  let dmgMul = 1;
+  let rateMul = 1;
+  let rangeMul = 1;
+  let detection = false;
+  let ward = false;
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    if (!rallyReaches(sim, r, t)) continue;
+    if (src < 0) src = r.src;
+    if (r.dmgMul > dmgMul) dmgMul = r.dmgMul;
+    if (r.rateMul > rateMul) rateMul = r.rateMul;
+    if (r.rangeMul > rangeMul) rangeMul = r.rangeMul;
+    if (r.detection) detection = true;
+    if (r.ward) ward = true;
+  }
+  if (src < 0) return;
+  nb.dmgMul *= dmgMul;
+  nb.rateMul *= rateMul;
+  nb.rangeMul *= rangeMul;
+  if (detection) nb.detection = true;
+  if (ward) nb.cleanse = true;
+  if (by) by.rally = src;
 }
 
 const KEY_OF = { dmgMul: 'dmg', rateMul: 'rate', armorPen: 'pen', critChance: 'crit' };

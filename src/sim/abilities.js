@@ -11,7 +11,8 @@
 //   - Casting works only in a wave. A refusal never spends the cooldown; its reason, in order:
 //     ended, locked, notYours, notWave, disabled, moving, active, cooldown, cap, noIncome, noTarget.
 //   - Local abilities have one cooldown per girl; map-scope ones one per player for that ability too
-//     (sim.abilGroups, key "<owner>|<id>"). A group cast fires the best ready copy of her player's.
+//     (sim.abilGroups, key "<owner>|<id>"). A group cast fires the best ready copy of her player's,
+//     even while the selected copy is still locked.
 //   - Lasting effects (boosts, rallies, queued shells) end at the wave clear and when she is sold, so
 //     a calm point between waves never holds one (battle saves and co-op checkpoints stay simple).
 //   - Minibosses and bosses shrug off ability freezes and stuns for ccGuardTicks after one lands.
@@ -580,22 +581,29 @@ function enemiesInReach(sim, t, def) {
 
 /**
  * A group cast (one button for every copy): the selected copy when she is ready, else her player's
- * ready copy of the same girl with the most enemies in reach (ties: the lower uid), else her.
+ * ready copy of the same girl with the most enemies in reach (ties: the lower uid). With no copy ready:
+ * the selected copy (her refusal), or, while she is still locked, her player's first copy (placement
+ * order) that has the ability; the selected copy (`locked`) only when no copy has it (spec §3.3).
  */
 function pickCaster(sim, t) {
   if (!refusal(sim, t)) return t;
   const owner = t.owner ?? 0;
   let best = null;
   let bestN = -1;
+  let held = t.abil ? t : null;
   for (const o of sim.towers) {
-    if (o === t || o.unitId !== t.unitId || (o.owner ?? 0) !== owner || refusal(sim, o)) continue;
+    if (o === t || o.removed || !o.abil || o.unitId !== t.unitId || (o.owner ?? 0) !== owner) continue;
+    if (refusal(sim, o)) {
+      if (!held) held = o;
+      continue;
+    }
     const n = enemiesInReach(sim, o, abilityDef(o));
     if (n > bestN || (n === bestN && o.uid < best.uid)) {
       best = o;
       bestN = n;
     }
   }
-  return best || t;
+  return best || held || t;
 }
 
 const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
@@ -611,9 +619,11 @@ const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
  */
 export function castAbility(sim, t0, { group = false, owner = null, auto = false } = {}) {
   if (sim.state === 'won' || sim.state === 'lost') return no('ended');
-  if (!t0 || t0.removed || !t0.abil) return no('locked');
-  if (owner != null && (t0.owner ?? 0) !== owner) return no('notYours');
+  if (!t0 || t0.removed) return no('locked');
+  // a group cast looks for a ready copy before it calls the selected one locked (pickCaster: no side effect)
   const t = group ? pickCaster(sim, t0) : t0;
+  if (!t.abil) return no('locked');
+  if (owner != null && (t0.owner ?? 0) !== owner) return no('notYours');
   const why = refusal(sim, t);
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
@@ -633,7 +643,9 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   by[t.uid] = (by[t.uid] || 0) + 1;
   sim._emit('ability', {
     towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: t.owner ?? 0, auto: !!auto,
-    x: fx.x, y: fx.y, radius: fx.radius, targets: fx.targets, ...(fx.coins != null ? { coins: fx.coins } : null),
+    // a map-wide reach is Infinity: the event says 0 (no ring), so JSON and the FX never see Infinity / NaN
+    x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
+    ...(fx.coins != null ? { coins: fx.coins } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }
@@ -647,31 +659,64 @@ const progress = (sim, e) => {
   return e.dist / len;
 };
 
-/** Is now a decent moment (the ability's `auto` rule)? Decent, not perfect: manual timing is better. */
+/** autoWants' grid scratch (module level: emptied before and after each use, never held between calls). */
+const AUTO_NEAR = [];
+/** The fields isEligible reads of her ability's hit spec (abilitySpec), refilled per call: no spec is built. */
+const AUTO_ELIG = { attackType: null, detection: false, canHitAir: true };
+
+/**
+ * Is now a decent moment (the ability's `auto` rule)? Decent, not perfect: manual timing is better.
+ * The pool (map reach: every enemy outside the tunnels; else the enemies within reach her ability can hit,
+ * a rally's any outside the tunnels) is counted in place: this runs every 6th step for each auto girl
+ * that is ready, so it allocates nothing.
+ */
 export function autoWants(sim, t, def) {
   const au = def.auto;
   if (!au) return false;
-  if (au.when === 'ready') return true;
+  const when = au.when;
+  if (when === 'ready') return true;
   const reach = abilityReach(t, def);
-  const pool = reach === Infinity ? mapPool(sim) : poolIn(sim, t.x, t.y, reach, def.kind === 'rally' ? null : abilitySpec(t, def));
-  if (!pool.length) return false;
-  const elite = () => pool.some(isEliteUp);
-  const caster = () => pool.some(isCaster);
-  const veiled = () => pool.some((e) => e.veiled && !e.revealed);
-  const leak = (f) => pool.some((e) => progress(sim, e) >= f);
-  switch (au.when) {
-    case 'enemies':
-      return pool.length >= (au.min ?? 1) || (!!au.orElite && elite()) || (au.orLeak != null && leak(au.orLeak))
-        || (!!au.orCaster && caster()) || (!!au.orVeiled && veiled());
-    case 'elite': return elite() || (!!au.orCaster && caster()) || (!!au.orVeiled && veiled());
-    case 'caster': return caster() || (!!au.orVeiled && veiled()) || (!!au.orElite && elite());
-    case 'veiled': return veiled();
-    case 'poisoned': {
-      let n = 0;
-      for (const e of pool) if (e.statuses.poison) n++;
-      return n >= (au.min ?? 1);
+  let list = sim.enemies;
+  let elig = null;
+  if (reach !== Infinity) {
+    AUTO_NEAR.length = 0;
+    list = sim.grid.query(t.x, t.y, reach, AUTO_NEAR);
+    if (def.kind !== 'rally') {
+      // abilitySpec's eligibility fields (a finite reach is never map scope: no free Veil Sight)
+      AUTO_ELIG.attackType = t.eff.attackType;
+      AUTO_ELIG.detection = !!t.eff.detection;
+      AUTO_ELIG.canHitAir = def.effect?.hitsAir ?? t.eff.canHitAir;
+      elig = AUTO_ELIG;
     }
-    case 'leak': return leak(au.min ?? 0.7);
+  }
+  const leakAt = when === 'leak' ? au.min ?? 0.7 : au.orLeak ?? null;
+  let n = 0;
+  let poisoned = 0;
+  let elite = false;
+  let caster = false;
+  let veiled = false;
+  let leak = false;
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (e.dead || e.hidden || (elig && !isEligible(e, elig))) continue;
+    n++;
+    if (!elite && isEliteUp(e)) elite = true;
+    if (!caster && isCaster(e)) caster = true;
+    if (!veiled && e.veiled && !e.revealed) veiled = true;
+    if (e.statuses.poison) poisoned++;
+    if (!leak && leakAt != null && progress(sim, e) >= leakAt) leak = true;
+  }
+  AUTO_NEAR.length = 0;
+  if (!n) return false;
+  switch (when) {
+    case 'enemies':
+      return n >= (au.min ?? 1) || (!!au.orElite && elite) || (au.orLeak != null && leak)
+        || (!!au.orCaster && caster) || (!!au.orVeiled && veiled);
+    case 'elite': return elite || (!!au.orCaster && caster) || (!!au.orVeiled && veiled);
+    case 'caster': return caster || (!!au.orVeiled && veiled) || (!!au.orElite && elite);
+    case 'veiled': return veiled;
+    case 'poisoned': return poisoned >= (au.min ?? 1);
+    case 'leak': return leak;
     default: return false;
   }
 }
@@ -709,6 +754,9 @@ function fireQueued(sim, it, step) {
   }
   shellAt(sim, t, def, it.spec, x, y, it.r, step);
 }
+
+/** tickAbilities' due hits and shells (module level: emptied before and after each use, never held between steps). */
+const DUE = [];
 
 /**
  * One step of abilities (Sim._step1, right after the buffs and before the girls attack; only in a
@@ -750,11 +798,18 @@ export function tickAbilities(sim) {
     }
   }
   if (sim._abilQueue.length) {
-    const keep = [];
-    const due = [];
-    for (const it of sim._abilQueue) (--it.left <= 0 ? due : keep).push(it);
-    sim._abilQueue = keep;
-    for (const it of due) fireQueued(sim, it, step);
+    // every countdown, the queue closes up in place (FIFO kept), then the due ones fire in queue order
+    const q = sim._abilQueue;
+    DUE.length = 0;
+    let n = 0;
+    for (let i = 0; i < q.length; i++) {
+      const it = q[i];
+      if (--it.left <= 0) DUE.push(it);
+      else q[n++] = it;
+    }
+    q.length = n;
+    for (let i = 0; i < DUE.length; i++) fireQueued(sim, DUE[i], step);
+    DUE.length = 0;
   }
   for (const t of sim.towers) {
     const a = t.abil;

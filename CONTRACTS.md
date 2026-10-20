@@ -963,7 +963,7 @@ SimEvent = { type, ...payload } with types:
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
   'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
-  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
@@ -1033,7 +1033,8 @@ later unlocks) runs inside the step on each girl's 6th step (staggered by uid) w
 ```js
 t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
 sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
-                    //   player's ready copy with the most enemies in reach (ties: lower uid)
+                    //   player's ready copy with the most enemies in reach (ties: lower uid), even while the selected
+                    //   copy is locked; none ready: the selected copy's refusal (locked: her first copy that has it)
 sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
                          //   cooldownLeft (s), duration, activeLeft, auto, t5, uses, group, charge (0..1) }   (also towerStats().ability)
 sim.setAbilityAuto(uid, on) / sim.setAbilityAutoAll(owner, on)   // the switch / the player's setting (+ every girl of hers)
