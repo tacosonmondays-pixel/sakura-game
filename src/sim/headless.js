@@ -289,12 +289,16 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     return true;
   };
 
-  const bestSpot = (info) => {
+  // an amphibious girl takes the best water spot whenever one is free and only falls back to land
+  // without one: the girls who were water-only on live (Nami, Sango, Umeko) are placed exactly as
+  // before, and the land spots stay free for the girls who need them (roster wave)
+  const bestSpot = (info) => (placement(info.def) === 'amphibious' ? bestIn(info, true) ?? bestIn(info, false) : bestIn(info, false));
+  const bestIn = (info, waterOnly) => {
     const r = footprintRadius(info.def);
     let best = null;
     let bestS = -Infinity;
     for (const c of cands) {
-      if (!fits(info.def, c) || !free(c, r)) continue;
+      if (!(waterOnly ? c.water : fits(info.def, c)) || !free(c, r)) continue;
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {
@@ -305,9 +309,6 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
         const tu = info.stats.turret;
         s = coverage(c, tu && tu.leash > 0 ? Math.max(info.stats.range, tu.leash + tu.range) : info.stats.range);
       }
-      // an amphibious girl takes a water spot when one covers as well (within 15%), so the land
-      // spots stay free for the girls who need them (her tip says the same; roster wave)
-      if (c.water && placement(info.def) === 'amphibious') s = s >= 0 ? s * 1.15 : s * 0.85;
       if (s > bestS) {
         bestS = s;
         best = c;

@@ -32,9 +32,6 @@ const MODES = process.env.BALANCE === 'modes';
 const RULES = process.env.BALANCE === 'rules';
 const FPGUARD = process.env.BALANCE === 'fpguard';
 
-/** Easy losses accepted until the owner's balance pass (docs/BALANCE.md "Roster wave"). */
-const KNOWN_EASY_FLIPS = ['8-5'];
-
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
 
@@ -89,12 +86,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     }
     console.log(`[balance] easy sweep:\n${rows.join('\n')}`);
     if (process.env.BALANCE_OUT && !FULL) writeFileSync(process.env.BALANCE_OUT, rows.join('\n') + '\n');
-    // KNOWN_EASY_FLIPS: stages the bot lost on Easy after a design change the owner's balance pass
-    // decides on, each documented in docs/BALANCE.md. Roster wave: 8-5 (the Ashwing Matriarch's final
-    // flight leaks with ~10% HP): the 1.5 s push lock (ROSTER_SPEC §1.2 #10) takes the margin the
-    // bot's Aoi build had, and with Noa / Hana in the free team the bot is short as well. Nothing
-    // else may flip.
-    expect(lost.filter((id) => !KNOWN_EASY_FLIPS.includes(id))).toEqual([]);
+    expect(lost).toEqual([]);
   }, 600000);
 
   test.runIf(FULL)('full difficulty table', () => {

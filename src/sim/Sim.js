@@ -8,7 +8,7 @@ import {
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -489,19 +489,20 @@ export class Sim {
       if (e.phasing) endPhasing(this, e);
       if (e.traits.field) this._applyStatusEvent(e, { type: 'silence', duration: HOLY_SILENCE }, ctx);
     }
-    // push lock (roster B3): a girl's push moves an enemy at most once per PUSH_LOCK window; a hero's
-    // own push-back has its own shorter lock (HERO_PUSH_LOCK, hero rework), so the two never block
-    // each other (pushers still cannot stall a lane)
+    // push lock (roster B3): a girl in PUSH_LOCK_KITS (Fuu; or a spec with `pushLock`) moves an enemy at most once
+    // per PUSH_LOCK window; a hero's own push-back has its own shorter lock (HERO_PUSH_LOCK, hero
+    // rework). The two never block each other, and the live girls' pushes stay unlocked, as on live.
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
-      if (!(hero ? e.heroPushLock > this.time : e.pushLock > 0)) {
+      const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
+      if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
         if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
-          else e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+          else if (locks) e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
         }
       }
     }

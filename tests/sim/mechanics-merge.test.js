@@ -6,7 +6,7 @@
 import { describe, test, expect } from 'vitest';
 import { makeSim, startEmptyWave, run, MECH_TOWER_IDS, TOWER_IDS } from './fixtures.js';
 import { activateUlt } from '../../src/sim/hero.js';
-import { CURSE_BURSTS_PER_TICK, PUSH_LOCK, HEX_BOSS_CAP, MORTAR_DELAY, STEP } from '../../src/sim/constants.js';
+import { CURSE_BURSTS_PER_TICK, PUSH_LOCK, PUSH_LOCK_KITS, HEX_BOSS_CAP, MORTAR_DELAY, STEP } from '../../src/sim/constants.js';
 import { aimMode, relayOrigin } from '../../src/sim/towers.js';
 import { runnerSegment } from '../../src/sim/runners.js';
 
@@ -163,7 +163,7 @@ describe('push lock and gather', () => {
   test('a second push within the lock does nothing; it works again after; bosses never move', () => {
     const s = sim();
     const e = spawn(s, 'tank', 8);
-    const spec = { knockback: 1, attackType: 'mystic' };
+    const spec = { knockback: 1, attackType: 'mystic', pushLock: true };
     s._onHitEffects(e, null, spec);
     const d1 = e.dist;
     s._onHitEffects(e, null, spec);
@@ -175,6 +175,21 @@ describe('push lock and gather', () => {
     const boss = spawn(s, 'bigboss', 8);
     s._onHitEffects(boss, null, spec);
     expect(boss.dist).toBe(8);
+  });
+
+  test('only a kit that opts in locks: the live girls push every hit, as on live', () => {
+    const s = sim();
+    const e = spawn(s, 'tank', 8);
+    s._onHitEffects(e, null, { knockback: 1, attackType: 'blast' });
+    const k = 8 - e.dist;
+    expect(k).toBeGreaterThan(0);
+    s._onHitEffects(e, { unitId: 'aoi' }, { knockback: 1, attackType: 'blast' });
+    expect(e.dist).toBeCloseTo(8 - 2 * k, 9);
+    expect(e.pushLock).toBe(0);
+    s._onHitEffects(e, { unitId: 'fuu' }, { knockback: 1, attackType: 'blast' });
+    s._onHitEffects(e, { unitId: 'fuu' }, { knockback: 1, attackType: 'blast' });
+    expect(e.dist).toBeCloseTo(8 - 3 * k, 9);
+    expect(PUSH_LOCK_KITS).toEqual(['fuu']);
   });
 
   test('gather pulls only enemies ahead on the same path, never past the target, never minibosses', () => {

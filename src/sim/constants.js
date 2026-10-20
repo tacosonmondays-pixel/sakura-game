@@ -169,6 +169,8 @@ export const FAMILIAR_STANDOFF = 0.7;
 export const RELAY_SAMPLE_STEP = 0.25;
 /** Seconds an enemy cannot be knocked back / gathered again after it was moved (bosses never move). */
 export const PUSH_LOCK = { normal: 1.5, elite: 1.5, miniboss: 3.0, boss: 3.0 };
+/** Girls whose pushes take the push lock (roster wave: the live girls' pushes stay unlocked, as on live). */
+export const PUSH_LOCK_KITS = Object.freeze(['fuu']);
 /** Gather: radius around the hit enemy and the strongest pull fraction. */
 export const GATHER_RADIUS = 1.6;
 export const GATHER_MAX = 0.6;

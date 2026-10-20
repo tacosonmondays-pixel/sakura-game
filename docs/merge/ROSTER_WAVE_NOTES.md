@@ -23,7 +23,7 @@ mechanics), so all three come in; what today's systems replaced is dropped or re
 | `src/main.js` | Today's imports (`ensurePotentialLetter`, rng) + `formationSkins` for the model preload; the restore modal is dropped. |
 | `src/sim/mods.js` | Both: Potential's keys and the B3 `relay` reach key. |
 | `src/sim/status.js` | B3's curse refresh rule, then today's key list (with Potential's `pct`). |
-| `src/sim/Sim.js` | `addGlobalRateBuff` keeps today's caster `src` and gains B3's `kind: 'rate'`; `addGlobalDamageBuff` also takes a caster `src`. **Knockback**: two locks that never block each other. A girl's push or gather uses B3's countdown `e.pushLock` (`PUSH_LOCK[tier]`: 1.5 s, 3.0 s minibosses; `updateEnemy` counts it down); a hero's own push-back keeps today's hero-rework lock, now in its own field `e.heroPushLock` (absolute time, `HERO_PUSH_LOCK` 0.5 s), so Nami plays exactly as on live. Freeplay's Resolve `kbLeft` cap still applies to both. (A first version shared one field; it changed hero battles, so it was split.) `placeTower` keeps today's hero slots (`heroIndex`, `heroes`) and passes `globalDmgMul`. `_relocate` (a hero's Move) keeps today's body and also updates the attack origin (`updateRelayOrigin`); B3's `setAim` / `clearAim` sit after it. `setRouteOrientation` clears `_relaySamples` to `null` (was `delete`: the battle save compares fields). |
+| `src/sim/Sim.js` | `addGlobalRateBuff` keeps today's caster `src` and gains B3's `kind: 'rate'`; `addGlobalDamageBuff` also takes a caster `src`. **Knockback**: two locks that never block each other. Gathers and the pushes of the girls in `PUSH_LOCK_KITS` (Fuu) use B3's countdown `e.pushLock` (`PUSH_LOCK[tier]`: 1.5 s, 3.0 s minibosses; `updateEnemy` counts it down); a hero's own push-back keeps today's hero-rework lock, now in its own field `e.heroPushLock` (absolute time, `HERO_PUSH_LOCK` 0.5 s), so Nami plays exactly as on live. The live girls' pushes (Shiro, Sango, Umeko, …) take no lock, exactly as on live (§5: a lock on every girl flipped 8-5 Easy for the old roster). Freeplay's Resolve `kbLeft` cap still applies to all. (A first version shared one field; it changed hero battles, so it was split.) `placeTower` keeps today's hero slots (`heroIndex`, `heroes`) and passes `globalDmgMul`. `_relocate` (a hero's Move) keeps today's body and also updates the attack origin (`updateRelayOrigin`); B3's `setAim` / `clearAim` sit after it. `setRouteOrientation` clears `_relaySamples` to `null` (was `delete`: the battle save compares fields). |
 | `src/sim/hero.js` | Today's header plus one line on the ult shapes; both import sets; the `'ult'` event carries B3's `x, y` (where it lands) and `fromX, fromY` plus today's `rank`. |
 | `src/sim/towers.js` | Both constant import lists; `pointAt` added to today's path import; `refreshTowerStats` resolves through today's `towerResolvedStats` (Potential) and passes `globalDmgMul`; `hitSpecFrom` passes today's `classMul` and B3's `airMul` / `gather`; `refreshEffective` keeps today's map-rule range and multiplies damage by `buff.dmgMul × globalDmgMul`; `recomputeBuffs` keeps today's rule range inputs and also refreshes on a `globalDmgMul` change; today's `topTargets` / echo state stay; the projectile and duel attacks keep today's logic (echo fan, Potential `keepRamp`) but measure from the origin `t.ox, t.oy`. Relay samples come from `sim._pathsFwd ?? sim.pathData` (CODEX_MODES §6.3 asked whichever branch lands second to do it). |
 | `src/online/coop/lockstep.js` | (no conflict) `effMatches` passes `globalDmgMul`, or a resync would rebuild every girl while a team damage buff runs. |
@@ -37,7 +37,6 @@ mechanics), so all three come in; what today's systems replaced is dropped or re
 | `src/ui/screens/formation.js`, `students.js` | Both badges / imports (UR, Potential, outfit hanger). |
 | `CONTRACTS.md`, `docs/INTEGRATION_NOTES.md`, `docs/ROSTER.md` | Both; the save text says "additive, no bump"; the roster table keeps today's descriptions with B2's names and titles. |
 | `tests/systems/save.test.js` | Today's tests + B1's outfit tests rewritten for "version 2, additive" (`skins` joins the `createProfile` key list); the restore tests are dropped. |
-| `tests/sim/sim.freeplay.test.js` | The Resolve test hits one enemy five times in one step; with the push lock it clears `pushLock` between hits, so it still measures the Resolve cap. |
 | `tests/sim/mods.test.js` | The pinned P1 hash leaves out the three neutral roster keys (`airMul` 1, `gather` 0, `relay` null) and the returning girls: with them stripped, the 19 girls hash exactly as before (`456:30217027`), so the merge changes no stat. |
 | `tests/data/units.test.js` (snapshots) | The three hero Lv 25 snapshots gain only `airMul`, `gather`, `relay`. |
 
@@ -51,7 +50,7 @@ Golden and balance moves from the merge are in §4.
 | Mortar shells | `towers.js attackMortar / updateShells` | Fixed scatter table, fire-time spec snapshot; shells end at the wave clear. No returning girl uses it (Tsubaki is track 1's duo). |
 | Relay origins | `towers.js relayOrigin / updateRelayOrigin` | Samples from `_pathsFwd`; `relay.both` (Iroha) fires from the panel and from her spot. A hero's Move updates the origin. |
 | Grounding, flyer bonus, Air | `status.js`, `combat.js`, `enemies.js`, `towers.js targetScore('air')` | Air button only for girls who hit flyers. |
-| Push lock + gather | `Sim._onHitEffects / _gather` | See §1 (girls' lock and the hero's own lock). |
+| Push lock + gather | `Sim._onHitEffects / _gather` | See §1: gathers and `PUSH_LOCK_KITS` (Fuu) lock, the hero has her own lock, the live girls stay unlocked. |
 | Curse spread + budget | `Sim._killEnemy / _flushCurses` | `CURSE_BURSTS_PER_TICK` 32, FIFO spill to the next step, queue dropped at the wave clear. |
 | Hex (P-15) | `status.js`, `enemies.js`, `Sim._hex` | pct × max HP × tier factor per second, ≤ 10 % per application on minibosses / bosses, no regen. |
 | Beam ramp | `towers.js attackBeam` | (no returning girl uses it: Kohaku is track 1's) |
@@ -72,6 +71,37 @@ Golden and balance moves from the merge are in §4.
 ## 4. Measurements
 
 - Balance: `docs/BALANCE.md` "Roster wave" (tables per girl, the 8-5 known flip).
-- Goldens: `tests/sim/modesGolden.test.js` re-pinned (3-3 … 8-5 move with the girls' push lock and the bot's water preference).
+- Goldens: `tests/sim/modesGolden.test.js`: 1-1 … 6-1 keep v0.1.37's digests; 6-3 … 8-5 are re-pinned because the bot's free team there includes Noa and Hana; a second block runs those stages with the 19 live girls only and must give v0.1.37's digests (§5).
 - Engines: `BUN=/root/.bun/bin/bun node e2e/engines.mjs` OK (V8 + JavaScriptCore, with the returning-girls battle).
 - Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump.
+
+## 5. 8-5 Easy (coordinator follow-up)
+
+The first push had 8-5 Easy as a known flip. The coordinator did not accept it: live players must not find a
+stage harder. Measured with the Easy gate's bot (free units, expected level, seed 1), on the head and on
+`origin/main` (v0.1.37), with the free pool limited to the 19 live girls ("old roster") and with everyone ("full"):
+
+| | old roster | full |
+|---|---|---|
+| `origin/main` v0.1.37 | won 144 / 150 | (same team) won 144 / 150 |
+| head `fdf741d` | **lost** 0 / 150 | **lost** 0 / 150 |
+| girl push lock off | won 144 / 150 | lost 0 / 150 |
+| this fix | won 144 / 150 | won 145 / 150 |
+
+1. **Old roster (a blocker, fixed).** The same 8 live girls lost on the head. Toggling each merged change
+   found the cause: B3's push lock on **every** girl's knockback. It slowed the live pushers (Shiro's
+   Leviathan Cannon, Umeko's Whirl Ward, …), which never had a lock on live. Fix: the lock applies only to
+   gathers and to the girls in `PUSH_LOCK_KITS` (`['fuu']`, `constants.js`); the hero's own lock is
+   unchanged. The amphibious girls (Nami, Sango, Umeko; owner request) also moved the bot's spots, so the bot
+   now takes the best water spot for an amphibious girl whenever one is free and uses land only without one,
+   which is exactly what it did when they were water-only. Result: with the returning girls left out, all
+   20 modes goldens and all 40 Easy rows are **bit-identical to v0.1.37**. Pinned by the new
+   "19 live girls" block in `modesGolden.test.js`.
+2. **Full pool (new-girl tuning).** The full pool still lost 8-5: from 7-5 on, Hana and Noa take the last
+   two of the 8 slots from Yuki and Aoi. 8-5 Easy is a near coin flip for this bot. Over seeds 1-9 the live
+   team (Yuki, Aoi) wins 2 / 9 and v0.1.37 passes on seed 1. Hana + Noa win 3 / 9, Hana + Yuki 3 / 9, Hana + Aoi
+   2 / 9, Noa + Yuki 2 / 9, Noa + Aoi 1 / 9. Shiro deals about 90 % of the Matriarch's damage either way.
+   Hana's damage or armour pierce barely moves the result (4 / 9 at most). **Noa's base aura +5 % → +8 %
+   damage** (still under Miko's +10 %; ROSTER.md updated) wins 6 / 9 seeds including seed 1, so the gate is
+   strict again: `KNOWN_EASY_FLIPS` is gone and `balance.test.js` is identical to v0.1.37.
+3. Easy gate before / after, all 40 stages, both roster modes: `docs/BALANCE.md` "Roster wave".

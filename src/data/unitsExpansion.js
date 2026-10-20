@@ -402,7 +402,7 @@ const NOA = {
   ],
   base: stats({
     cost: 360, behavior: 'pulse', damage: 1, rate: 0.5, range: 2.4, maxTargets: 4, projectileSpeed: 0, canHitAir: true,
-    aura: { range: 2.6, cleanse: true, dmgMul: 1.05 },
+    aura: { range: 2.6, cleanse: true, dmgMul: 1.08 },
   }),
   paths: [
     path('sanctuary', 'Pure Sanctuary', 'Cleansing aura', [

@@ -1144,7 +1144,8 @@ sim.shells                                   // mortar shells: 'mortarWarn' / 's
 sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
 sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
-PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // girls' pushes and gathers; a hero's own push keeps HERO_PUSH_LOCK (0.5 s, separate)
+PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
+                                                     // unlocked, as on live; a hero's own push keeps HERO_PUSH_LOCK (0.5 s, separate)
 HEX_TIER_MUL, HEX_BOSS_CAP                   // hex: pct × maxHp × tier factor per second, ≤ 10% per application on minibosses / bosses, no regen
 ```
 Battle UI: `src/ui/battle/aimControl.js` (Set aim / Auto in the panel, one board tap); `ctx.act.aim(uid, x, y)`

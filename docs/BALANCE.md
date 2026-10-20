@@ -43,14 +43,74 @@ burst when nothing died); Fuu, Hana and Ruri more tier 4-5 damage; Yoriko 4 → 
 damage (hero Lv 10 guard). Yoriko still misses the Lv 10 guard (32 < 46): a control hero, like Nami's
 Lv 25 miss; left for the owner's pass.
 
-**The campaign (Easy gate, `tests/integration/balance.test.js`).** 39 / 40 stages win. **8-5 now loses
-for the bot** (the Ashwing Matriarch's final flight leaks with ~10 % HP) and is listed in
-`KNOWN_EASY_FLIPS`. Measured causes: with the old free team (Aoi, Yuki) it loses only because of the
-girls' 1.5 s push lock (ROSTER_SPEC §1.2 #10; with no girl lock it wins 144 / 150 exactly as before);
-with Noa and Hana in the free team (the bot takes the 8 most recent free girls) it loses even without
-the lock. Not changed: 8-5's stage-HP pass (1.0 instead of 1.1 does not save it), Hana's numbers (×3
-against flyers does not save it either). Bot fixes kept: a token-damage aura girl is a support (no more
-three Noas), and amphibious girls take a water spot when it covers as well. Modes goldens re-pinned.
+**The campaign (Easy gate, `tests/integration/balance.test.js`): 40 / 40, strict.** The first push lost
+8-5 Easy (the Ashwing Matriarch's final flight leaked) and listed it in `KNOWN_EASY_FLIPS`; that list is
+gone and the test is identical to v0.1.37's again. Full analysis in `docs/merge/ROSTER_WAVE_NOTES.md` §5:
+
+- **Old roster (the 19 live girls only).** It lost 8-5 on the head because B3's push lock applied to every
+  girl's knockback (Shiro, Sango, Umeko, …). The lock now applies only to gathers and to `PUSH_LOCK_KITS`
+  (Fuu). The bot also places an amphibious girl on water whenever a water spot is free, as it did when she
+  was water-only. With the returning girls left out, every row below and every modes golden is
+  bit-identical to v0.1.37.
+- **Full pool.** From 7-5 on, Hana and Noa take the last two slots from Yuki and Aoi. 8-5 Easy is a near
+  coin flip for this bot: over seeds 1-9 v0.1.37's team wins 2 / 9 (seed 1 is a win) and Hana + Noa 3 / 9.
+  Hana's numbers barely matter there (Shiro deals ~90 % of the boss damage). **Noa's base aura +5 % → +8 %
+  damage** (Miko's is +10 %) lifts it to 6 / 9, seed 1 included.
+
+Bot fixes kept: a token-damage aura girl is a support (no more three Noas); amphibious girls water-first.
+Modes goldens: 1-1 … 6-1 unchanged; 6-3 … 8-5 re-pinned (Noa and Hana in the bot's free team), plus a
+"19 live girls" block pinned to v0.1.37's digests.
+
+Easy gate, seed 1, lives left. "Before" = head `fdf741d`; "old roster" = free pool without the nine
+returning girls; "full" = everyone free at that point (Noa after 6-2, Hana after 7-5).
+
+| Stage | v0.1.37 (main) | before, old roster | before, full | after, old roster | after, full |
+|---|---|---|---|---|---|
+| 1-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-2 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-4 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-5 | won 121/150 | won 121/150 | won 121/150 | won 121/150 | won 121/150 |
+| 2-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 2-2 | won 148/150 | won 148/150 | won 148/150 | won 148/150 | won 148/150 |
+| 2-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 2-4 | won 149/150 | won 149/150 | won 149/150 | won 149/150 | won 149/150 |
+| 2-5 | won 145/150 | won 145/150 | won 145/150 | won 145/150 | won 145/150 |
+| 3-1 | won 102/150 | won 102/150 | won 102/150 | won 102/150 | won 102/150 |
+| 3-2 | won 93/150 | won 128/150 | won 128/150 | won 93/150 | won 93/150 |
+| 3-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 3-4 | won 136/150 | won 141/150 | won 141/150 | won 136/150 | won 136/150 |
+| 3-5 | won 111/150 | won 140/150 | won 140/150 | won 111/150 | won 111/150 |
+| 4-1 | won 148/150 | won 131/150 | won 131/150 | won 148/150 | won 148/150 |
+| 4-2 | won 144/150 | won 143/150 | won 143/150 | won 144/150 | won 144/150 |
+| 4-3 | won 148/150 | won 148/150 | won 148/150 | won 148/150 | won 148/150 |
+| 4-4 | won 141/150 | won 141/150 | won 141/150 | won 141/150 | won 141/150 |
+| 4-5 | won 140/150 | won 140/150 | won 140/150 | won 140/150 | won 140/150 |
+| 5-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 5-2 | won 143/150 | won 143/150 | won 143/150 | won 143/150 | won 143/150 |
+| 5-3 | won 116/150 | won 116/150 | won 116/150 | won 116/150 | won 116/150 |
+| 5-4 | won 141/150 | won 143/150 | won 143/150 | won 141/150 | won 141/150 |
+| 5-5 | won 150/150 | won 149/150 | won 149/150 | won 150/150 | won 150/150 |
+| 6-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 6-2 | won 146/150 | won 146/150 | won 146/150 | won 146/150 | won 146/150 |
+| 6-3 | won 147/150 | won 147/150 | won 148/150 | won 147/150 | won 148/150 |
+| 6-4 | won 149/150 | won 150/150 | won 150/150 | won 149/150 | won 150/150 |
+| 6-5 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 7-1 | won 146/150 | won 146/150 | won 145/150 | won 146/150 | won 145/150 |
+| 7-2 | won 147/150 | won 147/150 | won 145/150 | won 147/150 | won 145/150 |
+| 7-3 | won 139/150 | won 137/150 | won 139/150 | won 139/150 | won 143/150 |
+| 7-4 | won 122/150 | won 138/150 | won 135/150 | won 122/150 | won 119/150 |
+| 7-5 | won 117/150 | won 147/150 | won 144/150 | won 117/150 | won 113/150 |
+| 8-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 8-2 | won 148/150 | won 150/150 | won 150/150 | won 148/150 | won 149/150 |
+| 8-3 | won 149/150 | won 150/150 | won 150/150 | won 149/150 | won 150/150 |
+| 8-4 | won 145/150 | won 145/150 | won 150/150 | won 145/150 | won 150/150 |
+| 8-5 | won 144/150 | **lost** 0/150 | **lost** 0/150 | won 144/150 | won 145/150 |
+| **wins** | 40/40 | 39/40 | 39/40 | 40/40 | 40/40 |
+
+"Before, old roster" also differed from v0.1.37 on 13 more stages (lives only: the girls' push lock),
+all back to v0.1.37's numbers now. Run: a scratch copy of the gate with the free pool filtered
+(`freeUnitsBefore` minus `EXPANSION_IDS`), on both checkouts.
 
 ## Hero rework (2026-10-14, `feature/hero-rework`; spec `docs/specs/HERO_REWORK.md`)
 
