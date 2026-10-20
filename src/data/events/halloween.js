@@ -186,7 +186,7 @@ export default {
       mission({ id: 'hw_t_nm3', kind: 'total', name: 'Night Shift: Ghost Lantern Steps', desc: 'Clear Ghost Lantern Steps on Nightmare.', on: 'eventStage', stage: 'ev-halloween-3', difficulty: 'nightmare', goal: 1, rewards: [{ id: CANDY, count: 250 }] }),
       mission({ id: 'hw_t_nm4', kind: 'total', name: 'Night Shift: Hayride', desc: 'Clear Hayride Through the Fen on Nightmare.', on: 'eventStage', stage: 'ev-halloween-4', difficulty: 'nightmare', goal: 1, rewards: [{ id: CANDY, count: 300 }] }),
       mission({ id: 'hw_t_boss_nm', kind: 'total', name: 'Lights Out (Nightmare)', desc: 'Calm both Gourdlight Golems on Nightmare: Lantern Night Never Ends.', on: 'eventBoss', difficulty: 'nightmare', goal: 1, rewards: [{ id: CANDY, count: 1000 }, { id: 'gearbox_mythic', count: 1 }] }),
-      mission({ id: 'hw_t_nm_clear15', kind: 'total', name: 'Sleepless Patrol', desc: 'Win or sweep 15 event operations on Nightmare.', on: 'eventClear', difficulty: 'nightmare', goal: 15, rewards: [{ id: CANDY, count: 400 }, { id: 'book_mythic', count: 1 }] }),
+      mission({ id: 'hw_t_nm_clear15', kind: 'total', name: 'Sleepless Patrol', desc: 'Win or sweep 15 event stages on Nightmare.', on: 'eventClear', difficulty: 'nightmare', goal: 15, rewards: [{ id: CANDY, count: 400 }, { id: 'book_mythic', count: 1 }] }),
     ],
   },
 

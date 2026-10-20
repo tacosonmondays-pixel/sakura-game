@@ -60,7 +60,8 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
   1,040, one-time missions 1,250, login gifts 550) plus 120 a day from dailies; the limited stock costs 7,550 (15,800
   since the Oct 20 price rise, below). With no
   energy, operations sweep free (10 a tap, Op 4 = 900 candy a tap), so a farmer can empty the stock on the first day
-  either way; a player who only does the three daily wins reaches it around day 12 of 13 (it was out of reach in 9).
+  either way. In v0.1.38 (7,550) a player who only did the three daily wins reached the stock around day 12 of 13 (it
+  was out of reach in 9); at 15,800 that player ends the event with about half of it (Economy, below).
   The unlimited Doodle Notes offer is the sink.
 - 3 episodes, 8 spoken lines each (the story lint's minimum; the brief said 4–8), Hikari leads with Aoi, Yuki,
   Sango; read = +50 candy (episode 3 also +50 gems). Unlock chain: Ep 1 → Op 1 → Op 2 → Ep 2 → Op 3 → Op 4 → boss → Ep 3.
@@ -71,7 +72,7 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
   candle wisps, it hurries). Balance (`tests/integration/event-balance.test.js`, autoPlan bot, free units only):
   every operation won on Normal at its tuneLike roster and level (3/3 seeds); boss Normal won by the end-of-chapter-3
   free team at level 20 (3/3); boss Hard lost at level 20, won at level 50.
-- Pumpkin Candy (`evt_halloween_candy`), missions (3 daily, 9 one-time), the Candy Exchange (title "Pumpkin
+- Pumpkin Candy (`evt_halloween_candy`), missions (3 daily, 15 one-time: 6 Nightmare added Oct 20), the Candy Exchange (title "Pumpkin
   Patroller", the Pumpkin Lantern profile frame, gear boxes, books, materials, 2 recruit tickets, 2 × 100 gems,
   coins, an unlimited Doodle Notes sink), 9 daily login gifts by mail, leftover candy → 50 coins each by mail at the
   exchange end. Settling is final (E12; shadowed in `missions.counters`).
@@ -175,7 +176,7 @@ once the operations close. Nightmare sweeps open after that operation's Nightmar
 | hw_t_nm3 | Night Shift: Ghost Lantern Steps | clear Op 3 on Nightmare | 250 candy |
 | hw_t_nm4 | Night Shift: Hayride | clear Op 4 on Nightmare | 300 candy |
 | hw_t_boss_nm | Lights Out (Nightmare) | the Golems on Nightmare | 1,000 candy + mythic gear box |
-| hw_t_nm_clear15 | Sleepless Patrol | win or sweep 15 Nightmare operations | 400 candy + mythic book |
+| hw_t_nm_clear15 | Sleepless Patrol | win or sweep 15 event stages on Nightmare (the Golem's count too) | 400 candy + mythic book |
 
 **Gems.** EVENT_SPEC sets no cap (medal gems come from `DIFFICULTIES[d].firstClearGems`, §3.6; the summer tally of
 550 is the reference). Halloween's free gems go from 610 (episode 3: 50, Hard boss mission 100, read mission 50,
@@ -219,7 +220,10 @@ episodes 150, first clears 1,040, one-time missions 1,250 (+2,300 Nightmare), lo
   Everything stays reachable before Nov 8.
 - **Owner caveat:** grinding here costs taps, not time. If "grinding" should mean playing, the lever is a daily sweep
   allowance (EVENT_SPEC E7 planned energy for event operations); an owner decision, not in this build (v0.1.38 tabs
-  would bypass it).
+  would bypass it). For anyone who sweeps, Nightmare's doubled candy cancels the rise: the whole stock was 84 Op 4
+  Normal sweeps (7,550 / 90) and is 88 Op 4 Nightmare sweeps now (15,800 / 180), about 9 taps either way (about 50
+  sweeps after the fixed income), and a level-40 team without gear clears Op 4's Nightmare. So the higher prices
+  mostly slow down players who don't sweep. Each Nightmare sweep also rolls the 25 % Super Rare book.
 
 ### Stale tabs (v0.1.38 open next to the new build)
 
@@ -234,3 +238,18 @@ Checked against the real v0.1.38 code (`26c0de1`) on a save the new build wrote,
   lost if the old tab writes the save. An operation's Nightmare save stays format 1 (same waves); continued in v0.1.38
   it pays nothing (practice).
 - A v0.1.37-or-older tab takes an equipped event title off; the `evt:` mark puts it back on.
+- The end-of-event letter: if v0.1.38 is the first to load the save after Nov 1, 7 PM Central, its
+  `ev:halloween-2026:1:unclaimed` letter holds only the missions it knows and claims only those. The new build then
+  mails the finished but unclaimed Nightmare missions once in a follow-up letter, `ev:halloween-2026:1:unclaimed:2`
+  (same rules: it expires with the exchange when it holds candy; first back after Nov 8, its candy joins the leftover
+  coins and the rest has no expiry; claimed in the block and by `evm:` marks, so it is sent once). Tested in
+  `tests/systems/events-nightmare.test.js` NM-7. (An already-open v0.1.38 tab can't get there: the store's revision
+  guard stops it writing once the new build has saved. It takes a fresh v0.1.38 load: a rollback, a cached
+  index.html or an imported save.)
+- Not recoverable: if a v0.1.38 tab is the one that closes the run after the exchange (Nov 8, 7 PM Central: the
+  leftover settle), any Nightmare mission still unclaimed then is lost. v0.1.38 drops those missions' progress from
+  its block and removes the run's `evp:` / `evm:` marks when it settles, so no later build can tell what was earned or
+  already paid, and the run is final (`evs:`).
+- An in-progress Nightmare run: finish it on the updated build. A Golem Nightmare save (format 2) is dropped by
+  v0.1.38; an operation's (format 1) can be continued there but pays nothing, and the record is then gone. The patch
+  note can say "reload open tabs before you continue a Nightmare battle".
