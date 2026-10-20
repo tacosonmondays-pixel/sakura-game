@@ -1,23 +1,29 @@
-// Transitions + the loading slime e2e (owner: "cleaner and animated menu transitions, loading screens,
-// like black with a cute something like slime in the corner and loading"). With the real UI, at
-// 844×390 (landscape phone, touch) and 1280×720:
-//   1. boot: the black loader is in the very first HTML; its slime turns visible only after 150 ms
-//      and, once visible, stays at least 450 ms; it leaves for a drawn lobby
+// Transitions + Mochi, the loading slime e2e (owner: "cleaner and animated menu transitions, loading
+// screens, like black with a cute something like slime in the corner and loading"; then "just black or
+// colored ... it saying loading is enough" and "try both!! We'll pick the loading screen after"). With
+// the real UI, at 844×390 (landscape phone, touch) and 1280×720:
+//   1. boot: the black loader is in the very first HTML and says "Loading" (nothing else); Mochi turns
+//      visible only after 150 ms and, once visible, stays at least 450 ms; it leaves for a drawn lobby
 //   2. lobby → Students → a girl → the back arrow → Students: slide / slide / slide-back; a quick
 //      change never shows the corner chip; the old screen leaves in place (never a second copy of
 //      it, the lobby never loses its art while it is still on show); nothing is left half-faded
-//   3. stage prep → Start → battle: a cut, the black loader shows ("Deploying · 1-1 …" from its
-//      first frame, a tip, the progress line reaching the end) and leaves only once the battle HUD
-//      is up. Seen in the compositor's own frames (a screencast: the page's main thread is stuck in
-//      the scene build, so a script can't watch it): the slime is on screen, and once it has shown,
-//      the screen is never bare black (no slime) for long before the reveal. Then Pause → Quit →
+//   3. stage prep → Start → battle: a cut, the black loader shows ("Loading" + Mochi and nothing else:
+//      no tip, no destination line; the progress line reaching the end) and leaves only once the
+//      battle HUD is up. Seen in the compositor's own frames (a screencast: the page's main thread is
+//      stuck in the scene build, so a script can't watch it): Mochi is on screen, and once it has
+//      shown, the screen is never bare black (no Mochi) for long before the reveal. Then Pause → Quit →
 //      stage prep through the cut again
 //   4. a closing dialog lets taps through at once; reduced motion: only opacity moves
+//   5. the look (Settings → Loading screen): the row is in Graphics with Mint / Pink and Black /
+//      Colour (mint on black by default); a pick saves in the settings and recolours every Mochi at
+//      once; after a reload the boot loader already wears it when it is parsed (index.html's inline
+//      script), in all four combinations, and the game never shows the name "Mochi"
 // Frames of each kind are saved for review (--shots <dir>, default: no shots).
 //
 //   node e2e/transitions.mjs                       # 844x390 then 1280x720 (dev server)
 //   node e2e/transitions.mjs --viewport 844x390 --shots /tmp/tx
 //   node e2e/transitions.mjs --prod                # the production build in dist/ (npm run build first)
+//   node e2e/transitions.mjs --only looks          # only section 5 (the loading screen's looks)
 // Playwright / browser discovery: e2e/browser.mjs. The game runs with the local online adapter.
 import { createServer, preview } from 'vite';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -63,7 +69,7 @@ log(`browser: ${label}`);
  */
 function recorder() {
   const t = () => Math.round(performance.now());
-  const rec = { ld: [], chip: [], ghost: [], anims: [], maxP: 0, bootStart: null, outWithHud: [], dupBack: 0, bareLobby: [], ctxAtShow: [] };
+  const rec = { ld: [], chip: [], ghost: [], anims: [], maxP: 0, bootStart: null, outWithHud: [], dupBack: 0, bareLobby: [], textAtShow: [], lookAtBoot: null };
   window.__rec = rec;
   const orig = Element.prototype.animate;
   Element.prototype.animate = function (kf, o) {
@@ -90,8 +96,8 @@ function recorder() {
       const last = rec.ld.at(-1);
       const row = { t: t(), on, out: ld.classList.contains('out'), cls: ld.className, vis: on && getComputedStyle(ld).visibility === 'visible' && op > 0.02 };
       if (!last || last.cls !== row.cls || last.vis !== row.vis) rec.ld.push(row);
-      // what the loader says the moment it turns visible (the destination is there from the start)
-      if (row.vis && (!last || !last.vis)) rec.ctxAtShow.push(ld.querySelector('.ld-ctx')?.hidden ? '' : ld.querySelector('.ld-ctx')?.textContent || '');
+      // what the loader says the moment it turns visible: "Loading", nothing else
+      if (row.vis && (!last || !last.vis)) rec.textAtShow.push(ld.textContent.replace(/\s+/g, ' ').trim());
       const p = Number(ld.querySelector('.ld-bar')?.style.getPropertyValue('--p') || 0);
       if (p > rec.maxP) rec.maxP = p;
     }
@@ -126,6 +132,19 @@ function recorder() {
     }
     sample();
   });
+  // (the document node exists before its <html>: this one sees the parser add the boot loader)
+  const bootMo = new MutationObserver((list) => {
+    for (const m of list) {
+      for (const n of m.addedNodes || []) {
+        if (n.nodeType === 1 && n.id === 'ld' && !rec.lookAtBoot) {
+          const html = document.documentElement;
+          rec.lookAtBoot = { mochi: html.getAttribute('data-mochi'), bg: html.getAttribute('data-loader-bg'), modulesRan: !!window.__sakura };
+          bootMo.disconnect();
+        }
+      }
+    }
+  });
+  bootMo.observe(document, { subtree: true, childList: true });
   const start = () => mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
   if (document.documentElement) start();
   else document.addEventListener('readystatechange', start, { once: true });
@@ -151,12 +170,12 @@ async function screencast(page, W, H) {
 
 /**
  * Reads the screencast frames (decoded in a page of their own): a frame is "loader" when the middle
- * of the screen is black and the bottom-right corner holds the bright "Loading" + slime, "black"
- * when everything is black (the cover without the slime).
- * @returns {{ loaderFrames: number, firstLoader: number|null, bareAfter: number, coverToSlime: number|null }}
+ * of the screen is black and the bottom-right corner holds the bright "Loading" + Mochi, "black"
+ * when everything is black (the cover without Mochi).
+ * @returns {{ loaderFrames: number, firstLoader: number|null, bareAfter: number, coverToMochi: number|null }}
  */
 async function loaderPixels(frames, W, H) {
-  if (!frames.length) return { loaderFrames: 0, firstLoader: null, bareAfter: 0, coverToSlime: null };
+  if (!frames.length) return { loaderFrames: 0, firstLoader: null, bareAfter: 0, coverToMochi: null };
   const ctx = await browser.newContext({ viewport: { width: 320, height: 200 } });
   const p = await ctx.newPage();
   const kinds = [];
@@ -197,7 +216,7 @@ async function loaderPixels(frames, W, H) {
     const k = kinds[i];
     if (k === 'black' && firstBlack == null) firstBlack = frames[i].t;
     if (k === 'loader' && firstLoader == null) firstLoader = frames[i].t;
-    // bare black once the slime has been up (until the next frame shows something else)
+    // bare black once Mochi has been up (until the next frame shows something else)
     if (firstLoader != null && k === 'black') {
       run += (frames[i + 1]?.t ?? frames[i].t) - frames[i].t;
       if (run > bareAfter) bareAfter = run;
@@ -208,7 +227,7 @@ async function loaderPixels(frames, W, H) {
     loaderFrames: kinds.filter((k) => k === 'loader').length,
     firstLoader: firstLoader == null ? null : Math.round(firstLoader - t0),
     bareAfter: Math.round(bareAfter),
-    coverToSlime: firstLoader != null && firstBlack != null ? Math.round(firstLoader - firstBlack) : null,
+    coverToMochi: firstLoader != null && firstBlack != null ? Math.round(firstLoader - firstBlack) : null,
   };
 }
 
@@ -270,6 +289,8 @@ async function run(vp, { reduced = false } = {}) {
   const resp = await page.goto(`${base}#/lobby`, { waitUntil: 'commit' });
   const html = await resp.text().catch(() => '');
   check(/<div id="ld" class="ld on boot wait"/.test(html) && html.indexOf('id="ld"') < html.indexOf('id="app"'), 'boot: the black loader is in the first HTML, before the game root');
+  const bootHtml = html.slice(html.indexOf('<div id="ld"'), html.indexOf('<div id="app"'));
+  check(bootHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() === 'Loading' && !/ld-tip|ld-ctx|TIP/.test(bootHtml), 'boot: it says "Loading" and nothing else (no tip, no destination)');
   await page.waitForTimeout(80);
   await shot('boot-early');
   await page.waitForFunction(() => window.__rec?.ld.some((r) => r.vis), null, { timeout: 15000 }).catch(() => null);
@@ -280,10 +301,11 @@ async function run(vp, { reduced = false } = {}) {
   const out = rec.ld.find((r) => r.out) || rec.ld.find((r, i) => i > 0 && !r.on);
   const visibleAt = (rec.bootStart ?? 0) + 150;
   if (firstVis) {
-    check(firstVis.t >= 150, `boot: the slime turns visible only after 150 ms (first seen at ${firstVis.t} ms)`);
+    check(firstVis.t >= 150, `boot: Mochi turns visible only after 150 ms (first seen at ${firstVis.t} ms)`);
     check(out && out.t - visibleAt >= 445, `boot: once visible it stays ≥ 450 ms (visible from ${Math.round(visibleAt)} ms, leaves at ${out?.t} ms)`);
-  } else check(true, 'boot: the page was ready within 150 ms, the slime never showed (allowed)');
+  } else check(true, 'boot: the page was ready within 150 ms, Mochi never showed (allowed)');
   check(rec.ld.every((r, i) => i === 0 || !rec.ld[i - 1].out || !r.vis || r.on), 'boot: no flicker (never visible again after leaving)');
+  check(rec.lookAtBoot?.mochi === 'mint' && rec.lookAtBoot?.bg === 'black' && !rec.lookAtBoot.modulesRan, `boot: a new player gets mint on black, set before any module script (${JSON.stringify(rec.lookAtBoot)})`);
   const boot = await lastTx();
   check(boot?.kind === 'boot', `boot: the first change is the boot hold (${boot?.kind})`);
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
@@ -340,7 +362,7 @@ async function run(vp, { reduced = false } = {}) {
   check(await settled('stage'), 'Students → stage prep 1-1');
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   await page.waitForTimeout(500);
-  await page.evaluate(() => { window.__rec.ld.length = 0; window.__rec.maxP = 0; window.__rec.outWithHud.length = 0; window.__rec.ctxAtShow.length = 0; });
+  await page.evaluate(() => { window.__rec.ld.length = 0; window.__rec.maxP = 0; window.__rec.outWithHud.length = 0; window.__rec.textAtShow.length = 0; });
   const cast = await screencast(page, W, H);
   await tap('[data-testid="stage-start"]');
   await page.waitForFunction(() => document.querySelector('.tx-cut.on'), null, { timeout: 15000 }).catch(() => null);
@@ -355,7 +377,7 @@ async function run(vp, { reduced = false } = {}) {
   const castFrames = await cast.stop();
   rec = await page.evaluate(() => window.__rec);
   const pix = await loaderPixels(castFrames, W, H);
-  log(`    (screencast: ${castFrames.length} frames, loader in ${pix.loaderFrames}, first at +${pix.firstLoader} ms, bare black after it ${pix.bareAfter} ms, cover→slime ${pix.coverToSlime} ms)`);
+  log(`    (screencast: ${castFrames.length} frames, loader in ${pix.loaderFrames}, first at +${pix.firstLoader} ms, bare black after it ${pix.bareAfter} ms, cover→Mochi ${pix.coverToMochi} ms)`);
   log(`    (frames: ${pix.seq.slice(0, 600)})`);
   if (shotsDir) castFrames.forEach((f, i) => writeFileSync(`${shotsDir}/${tag}-cast-${String(i).padStart(3, '0')}.jpg`, Buffer.from(f.data, 'base64')));
   // (the gate's own record and the compositor's frames; the rAF sampler is blind while the main thread builds the scene)
@@ -363,11 +385,11 @@ async function run(vp, { reduced = false } = {}) {
   const ranAtOut = Math.max(-1, ...rec.outWithHud.map((o) => o.ran ?? -1));
   const seen = pix.loaderFrames > 0 || (castFrames.length < 20 && ranAtOut > 150 + 160);
   check(tx?.loader && seen, `the black loader showed for the battle load (gate: ${tx?.loader}, in ${pix.loaderFrames} of ${castFrames.length} compositor frames, entrance ran ${ranAtOut} ms)`);
-  check(pix.bareAfter <= 350, `once the slime is up, the screen is never bare black for long before the reveal (${pix.bareAfter} ms)`);
-  const ctxText = await page.evaluate(() => document.querySelector('#ld .ld-ctx')?.textContent || '');
-  check(/Deploying/i.test(ctxText) && /1-1/.test(ctxText), `the loader names the destination ("${ctxText}")`);
-  check(rec.ctxAtShow.length === 0 || rec.ctxAtShow.every((c) => /Deploying/i.test(c) && /1-1/.test(c)), `the destination is on the loader from its first visible frame (${JSON.stringify(rec.ctxAtShow)})`);
-  check(rec.maxP >= 0.999, `the progress line reached the end (max ${rec.maxP})`);
+  check(pix.bareAfter <= 350, `once Mochi is up, the screen is never bare black for long before the reveal (${pix.bareAfter} ms)`);
+  const ldText = await page.evaluate(() => ({ text: document.querySelector('#ld')?.textContent.replace(/\s+/g, ' ').trim(), extra: document.querySelectorAll('#ld .ld-tip, #ld .ld-ctx, #ld .ld-left').length }));
+  check(ldText.text === 'Loading' && ldText.extra === 0, `the battle loader says "Loading" and nothing else: no tip, no destination ("${ldText.text}", ${ldText.extra} extra lines)`);
+  check(rec.textAtShow.every((c) => c === 'Loading'), `from its first visible frame too (${JSON.stringify(rec.textAtShow)})`);
+  check(rec.maxP >= 0.999, `the progress line reached the end: the battle counts its models (max ${rec.maxP})`);
   check(rec.outWithHud.length > 0 && rec.outWithHud.every((o) => o.hud), `the loader left only once the battle HUD was up (${JSON.stringify(rec.outWithHud)})`);
   left = await clean();
   check(left.length === 0, `battle: no cover / loader left, nothing half-faded (${left.join('; ') || 'clean'})`);
@@ -398,16 +420,130 @@ async function run(vp, { reduced = false } = {}) {
   const durations = rec.anims.map((a) => a.duration).filter((d) => typeof d === 'number');
   check(durations.every((d) => d <= 320), `every transition animation is ≤ 320 ms (max ${Math.max(0, ...durations)})`);
   if (reduced) {
-    const slimeRunning = await page.evaluate(() => document.querySelectorAll('.sl *').length === 0 || [...document.querySelectorAll('.sl *')].every((el) => getComputedStyle(el).animationName === 'none'));
-    check(slimeRunning, 'reduced motion: the slime stands still');
+    const still = await page.evaluate(() => document.querySelectorAll('.mochi *').length === 0 || [...document.querySelectorAll('.mochi *')].every((el) => getComputedStyle(el).animationName === 'none'));
+    check(still, 'reduced motion: Mochi stands still');
   }
+  check(!(await page.evaluate(() => /mochi/i.test(document.body.innerText))), 'the game never shows the name "Mochi"');
   check(!errors.length, `no page / console errors${errors.length ? `\n       ${errors.slice(0, 6).join('\n       ')}` : ''}`);
   await context.close();
 }
 
+/**
+ * 5. The loading screen's look: Settings → Loading screen (Mint / Pink, Black / Colour), saved in the
+ * settings, on <html> at once, and read by index.html's inline script before the boot loader is parsed.
+ */
+async function looks(vp) {
+  const [W, H] = vp.split('x').map(Number);
+  const touch = Math.min(W, H) < 600;
+  log(`\n=== ${vp} looks ===`);
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch });
+  const errors = [];
+  await context.addInitScript(() => {
+    try { sessionStorage.setItem('sakura-beta-gift-shown', '1'); } catch { /* no storage */ }
+  });
+  await context.addInitScript(recorder);
+  /** A page of this context (one storage): the reloads below each get a fresh one. */
+  const openPage = async () => {
+    const p = await context.newPage();
+    p.on('console', (m) => {
+      if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(`[console] ${m.text()}`);
+    });
+    p.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+    return p;
+  };
+  let page = await openPage();
+  const settled = (name, timeout = 60000) => page.waitForFunction((n) => document.querySelector('#app')?.dataset.screen === n && !document.documentElement.dataset.tx, name, { timeout, polling: 100 }).then(() => true, () => false);
+  const tapSeg = async (testid, text) => {
+    const el = page.locator(`[data-testid="${testid}"] .ma-seg-btn`, { hasText: text }).first();
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    await (touch ? el.tap({ timeout: 20000 }) : el.click({ timeout: 20000 }));
+  };
+  const lookOnHtml = () => page.evaluate(() => ({ mochi: document.documentElement.getAttribute('data-mochi'), bg: document.documentElement.getAttribute('data-loader-bg') }));
+  /** What the page draws for the look: the boot loader's background colour, the jelly and the sprig shown. */
+  const drawn = (sel = '#ld .mochi') => page.evaluate((s) => {
+    const m = document.querySelector(s);
+    const ld = document.getElementById('ld');
+    const stop = document.querySelector('#mochi-jelly stop:nth-child(3)');
+    return {
+      bg: ld ? getComputedStyle(ld).backgroundColor : null,
+      bgImage: ld ? getComputedStyle(ld).backgroundImage : null,
+      jelly: stop ? getComputedStyle(stop).stopColor : null,
+      jellyVar: m ? getComputedStyle(m).getPropertyValue('--mochi-jelly-3').trim() : null,
+      petal: m ? getComputedStyle(m.querySelector('.mochi-petal')).display : null,
+      leaf: m ? getComputedStyle(m.querySelector('.mochi-leaf')).display : null,
+    };
+  }, sel);
+
+  await page.goto(`${base}#/settings`, { waitUntil: 'commit' });
+  check(await settled('settings'), 'looks: Settings opens');
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  const row = await page.evaluate(() => {
+    const g = document.querySelector('[data-section="graphics"]');
+    const r = g?.querySelector('[data-testid="set-loadingMochi"]')?.closest('.ma-set-row');
+    const seg = (id) => [...(r?.querySelectorAll(`[data-testid="${id}"] .ma-seg-btn`) || [])].map((b) => `${b.textContent}${b.classList.contains('active') ? '*' : ''}`);
+    return { label: r?.querySelector('.ma-set-label')?.textContent, mochi: seg('set-loadingMochi'), bg: seg('set-loadingBg'), preview: !!r?.querySelector('[data-testid="set-loading-preview"] .mochi') };
+  });
+  check(row.label === 'Loading screen' && row.preview, `looks: the "Loading screen" row is in Graphics, with a preview (${JSON.stringify(row)})`);
+  check(row.mochi.join() === 'Mint*,Pink' && row.bg.join() === 'Black*,Colour', `looks: slime Mint / Pink, background Black / Colour, Mint + Black picked (${row.mochi.join(' ')} · ${row.bg.join(' ')})`);
+  const def = await lookOnHtml();
+  check(def.mochi === 'mint' && def.bg === 'black', `looks: <html> wears the default (${JSON.stringify(def)})`);
+
+  await tapSeg('set-loadingMochi', 'Pink');
+  await page.waitForTimeout(200);
+  let now = await lookOnHtml();
+  let pv = await drawn('[data-testid="set-loading-preview"] .mochi');
+  check(now.mochi === 'sakura' && now.bg === 'black', `looks: Pink puts data-mochi="sakura" on <html> at once (${JSON.stringify(now)})`);
+  check(pv.jellyVar === '#ff9cbf' && pv.petal === 'none' && pv.leaf !== 'none', `looks: every Mochi turns pink with a mint leaf (preview: jelly ${pv.jellyVar}, petal ${pv.petal}, leaf ${pv.leaf})`);
+  await tapSeg('set-loadingBg', 'Colour');
+  await page.waitForTimeout(200);
+  now = await lookOnHtml();
+  pv = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="set-loading-preview"]')).backgroundImage);
+  check(now.bg === 'colour', `looks: Colour puts data-loader-bg="colour" on <html> (${JSON.stringify(now)})`);
+  check(/radial-gradient/.test(pv), 'looks: the preview shows the night-navy background with its glow');
+  const saved = await page.waitForFunction(() => {
+    const t = localStorage.getItem('sakura-sentinels-save-v1') || '';
+    return t.includes('"loadingMochi":"sakura"') && t.includes('"loadingBg":"colour"');
+  }, null, { timeout: 10000 }).then(() => true, () => false);
+  const st = await page.evaluate(() => ({ ...window.__sakura.store.profile.settings }));
+  check(saved && st.loadingMochi === 'sakura' && st.loadingBg === 'colour', `looks: the pick is saved in the settings (${st.loadingMochi} + ${st.loadingBg})`);
+  check(!(await page.evaluate(() => /mochi/i.test(document.body.innerText))), 'looks: Settings never shows the name "Mochi"');
+
+  // after a reload: the boot loader wears the saved look from its first parse, in all four combinations
+  const COLORS = { mint: 'rgb(118, 218, 156)', sakura: 'rgb(255, 156, 191)' };
+  const BG = { black: 'rgb(5, 6, 8)', colour: 'rgb(11, 22, 48)' };
+  for (const [mochi, bg] of [['mint', 'black'], ['sakura', 'black'], ['mint', 'colour'], ['sakura', 'colour']]) {
+    await page.evaluate(([m, b]) => {
+      const { store } = window.__sakura;
+      Object.assign(store.profile.settings, { loadingMochi: m, loadingBg: b });
+      store.commit('settings');
+      store.saveNow();
+    }, [mochi, bg]);
+    // a fresh page of the same context (the same storage), once the old one has stopped loading;
+    // a URL of its own: going to the same URL with only a hash would not load the page again
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.close();
+    page = await openPage();
+    await page.goto(`${base}&look=${mochi}-${bg}#/lobby`, { waitUntil: 'commit' });
+    await page.waitForFunction(() => window.__rec?.lookAtBoot, null, { timeout: 30000 }).catch(() => null);
+    const at = await page.evaluate(() => window.__rec.lookAtBoot);
+    const d = await drawn();
+    check(at?.mochi === mochi && at?.bg === bg && !at.modulesRan, `looks: ${mochi} + ${bg}: on <html> when the boot loader is parsed, before any module script (${JSON.stringify(at)})`);
+    check(d.jelly === COLORS[mochi] && d.bg === BG[bg] && (bg === 'colour') === /radial-gradient/.test(d.bgImage) && (mochi === 'sakura') === (d.petal === 'none'), `looks: ${mochi} + ${bg}: the boot loader draws it (jelly ${d.jelly}, background ${d.bg}${/radial/.test(d.bgImage) ? ' + glow' : ''}, petal ${d.petal}, leaf ${d.leaf})`);
+    check(await settled('lobby'), `looks: ${mochi} + ${bg}: the lobby comes up`);
+    if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-look-${mochi}-${bg}.png` }).catch(() => {});
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  }
+  check(!errors.length, `looks: no page / console errors${errors.length ? `\n       ${errors.slice(0, 6).join('\n       ')}` : ''}`);
+  await context.close();
+}
+
+const only = opt('only', null);
 try {
-  for (const vp of viewports) await run(vp);
-  await run(viewports[0], { reduced: true });
+  if (!only) {
+    for (const vp of viewports) await run(vp);
+    await run(viewports[0], { reduced: true });
+  }
+  await looks(viewports[0]);
 } finally {
   await browser.close();
   await (server.close ? server.close() : new Promise((r) => server.httpServer.close(r)));
