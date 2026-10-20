@@ -252,6 +252,14 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
         if (next && tierOpen(profile, titanId, next.tier, next.rank)) out.unlocked = tierLabel(next.tier, next.rank);
       }
     }
+    // co-op (M2): the Together Chest, at most 3 a week
+    if (r.coop) {
+      const tog = payTogetherChest(profile, tier, rng);
+      if (tog) {
+        items.push(...tog);
+        out.together = tog;
+      }
+    }
     c[`tkill:${titanId}`] = whole(c[`tkill:${titanId}`]) + 1;
     track(profile, 'battleWin', 1);
     track(profile, 'bossKill', 1);
@@ -270,6 +278,36 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
   out.fused = g.fused;
   out.meter = cnt(profile, METER_KEY);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Co-op titans (M2, §C.11): the rules that need no battle wiring
+// ---------------------------------------------------------------------------
+
+/** Together Chests a player can open a week (missions.weekly['tk:tog'], wiped with the weekly commissions). */
+export const TOGETHER_WEEKLY = 3;
+
+/**
+ * The Together Chest of a co-op Victory: 10 Assault Tokens, 5 Star Fragments and, from Hard, a Rainbow
+ * Crown Shard half the time; at most 3 a week. Returns the rolled items (not added) or null.
+ */
+export function payTogetherChest(profile, tier, rng) {
+  const w = ((profile.missions ||= {}).weekly ||= {});
+  if (whole(w['tk:tog']) >= TOGETHER_WEEKLY) return null;
+  w['tk:tog'] = whole(w['tk:tog']) + 1;
+  const items = [{ id: 'token_boss', count: 10 }, { id: 'star_fragment', count: 5 }];
+  if (tierIndex(tier) >= tierIndex('hard') && rng.next() < 0.5) items.push({ id: 'crown_rainbow_shard', count: 1 });
+  return items;
+}
+
+/**
+ * May this player join a co-op titan room at this tier? The host must have it open solo; a guest may
+ * join at most one step above their own solo best (a strong friend helps, never carries you past it).
+ */
+export function coopTierAllowed(profile, titanId, tier, rank = 0, { host = false } = {}) {
+  if (host) return tierOpen(profile, titanId, tier, rank);
+  const step = tierStep(tier, rank);
+  return step >= 0 && step <= bestStep(profile, titanId) + 1 && isStageCleared(profile, TIER_STAGE.normal);
 }
 
 /** @returns {{ ok: boolean, reason?: string, step: number }} can this titan be swept (a solo Victory, a key)? */

@@ -20,6 +20,9 @@ import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
 import { uiIcon } from '../../art/icons.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { currentEvent } from '../../systems/missions.js';
+import { titansUnlocked, TIER_STAGE } from '../../systems/titans.js';
+
+const TITAN_STAGE = TIER_STAGE.normal;
 import { isSandboxUnlocked, sandboxLockText, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
 import { requirementText } from './stage.js';
 import { campaignStatus } from './lobby.js';
@@ -74,6 +77,8 @@ function build() {
     mission,
     tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
+    // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
+    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly bosses', short: 'Weekly', lockText: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`, onClick: () => navigate('titans') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     // [online] 2-player real-time co-op on any unlocked campaign stage
     tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
@@ -103,7 +108,7 @@ function bestWaveLine(profile) {
 }
 
 /** Bottom-row tiles: full-colour scenery with a name plate at the bottom. */
-const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story']);
+const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story', 'titans']);
 
 /**
  * One slanted hub tile. sub/short: the subtitle, and a shorter one for phone widths (CSS picks).

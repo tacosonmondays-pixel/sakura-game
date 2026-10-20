@@ -17,7 +17,7 @@ import { MATERIAL_FAMILIES, ITEM_RARITIES, ITEM_RARITY_ORDER } from './types.js'
 /** Backpack tabs (CONTRACTS §12 — category, not rarity). */
 export const BACKPACK_TABS = [
   { id: 'enhancement', name: 'Enhancement', desc: 'Books and upgrade materials.', categories: ['book', 'material'] },
-  { id: 'awakening', name: 'Awakening', desc: 'Crowns and Star Fragments.', categories: ['crown', 'fragment'] },
+  { id: 'awakening', name: 'Awakening', desc: 'Crowns, Star Fragments and Essence.', categories: ['crown', 'fragment'] },
   { id: 'equipment', name: 'Equipment', desc: 'Gear, gear boxes, dice and pins.', categories: ['gearbox', 'dice'] },
   { id: 'tickets', name: 'Tickets', desc: 'Recruitment tickets.', categories: ['ticket'] },
   { id: 'tokens', name: 'Tokens & Currency', desc: 'Exchange tokens, coins and gems.', categories: ['token', 'currency'] },

@@ -11,7 +11,9 @@ import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
-import { createBattleSim, resumeBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
+import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor } from './setup.js';
+import { createTitanTracker } from '../../data/titans.js';
+import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
 import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
@@ -85,18 +87,19 @@ export function mountBattle(root, params, hooks) {
     ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null }
     : params.coop
       ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
-      : parseBattleParams(params, profile);
+      : params.titan ? parseTitanParams(params, profile) : parseBattleParams(params, profile);
   const shell = h('div.bt-root', { 'data-testid': 'battle' });
   root.append(shell);
 
   if (req.error) {
-    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : () => navigate('campaign');
+    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : params.titan ? () => navigate('titans') : () => navigate('campaign');
     const label = coopRoom ? 'Back to the room' : params.coop ? 'Back to co-op' : 'Back to the map';
     shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { 'data-testid': coopRoom ? 'coop-room-again' : 'battle-unavailable-back', onclick: back }, label))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
   }
 
-  const stage = STAGE_MAP[req.stageId];
+  // a Titan Trials battle brings its own stage (src/data/titans.js; not in STAGE_MAP)
+  const stage = req.stageDef || STAGE_MAP[req.stageId];
   // a campaign map opened from Tactical Challenge (endless=1): its prep and its map are Tactical
   // Challenge's (endless=1 on a campaign map is a freeplay run now: it still belongs there)
   const endlessMap = !ls && !params.clanBoss && (params.endless === '1' || params.endless === 1 || params.endless === 'true') && stage.kind !== 'challenge';
@@ -590,10 +593,11 @@ export function mountBattle(root, params, hooks) {
     // Leaving saves the battle (destroy() → saver.flush()); a solo freeplay run is never saved and
     // is paid on the way out once past its goal (destroy() → payIfLeavingRun()). A Sandbox run
     // (never saved) goes back to its squad screen.
-    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', prepRoute));
+    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : req.titan ? navigate('titans', { id: req.titan.id }) : navigate('stage', prepRoute));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       if (req.sandbox) return navigate('sandbox');
+      if (req.titan) return navigate('titans', { id: req.titan.id });
       const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
@@ -811,6 +815,13 @@ export function mountBattle(root, params, hooks) {
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
+      if (req.titan) {
+        // Titan Trials: the result is the titan's damage notch, read outside the sim
+        titanTracker.consume(sim.drainEvents(), sim);
+        results.apply();
+        later(() => results.showTitan(), RESULT_DELAY_MS);
+        return;
+      }
       results.apply();
       if (params.clanBoss) submitClanBoss();
       later(() => (fpEnd ? results.showFreeplay() : won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
@@ -882,6 +893,8 @@ export function mountBattle(root, params, hooks) {
         console.error('[battle] render failed', e);
       }
       ctx.audio?.events(events); // [audio]
+      // (before handle(): a 'won' / 'lost' in this batch ends the battle and pays the titan's notch)
+      titanTracker?.consume(events, sim);
       handle(events);
       fpBattle?.update();
       sampleDroneRates(sim, ctx.rates);
@@ -1070,6 +1083,21 @@ export function mountBattle(root, params, hooks) {
       }),
     ];
     cleanups.push(() => offs.forEach((off) => off()));
+  }
+  // ---- Titan Trials (docs/specs/ASCENSION.md §C) -----------------------------------------
+  /** reads the titan's damage from the event stream (the titan and her splitter children) */
+  const titanTracker = req.titan ? createTitanTracker(req.titan.battle) : null;
+  if (req.titan) {
+    ctx.titan = { ...req.titan, tracker: titanTracker, practice: !!req.practice };
+    ctx.applyResult = (p, result) => applyTitanResult(p, {
+      titanId: req.titan.id, tier: req.titan.tier, rank: req.titan.rank, seed: sim.seed, read: titanTracker.read(),
+      kills: result.kills, encountered: result.encountered, practice: !!req.practice,
+    });
+    ctx.extraActions = () => [
+      { label: 'Titan Trials', testid: 'titan-back', cta: true, icon: 'back', onClick: () => navigate('titans', { id: req.titan.id }) },
+      { label: 'Retry', testid: 'retry', icon: 'refresh', onClick: () => ctx.restart() },
+      { label: 'Home', testid: 'home', icon: 'home', onClick: () => navigate('lobby') },
+    ];
   }
   if (params.clanBoss) {
     ctx.extraActions = () => [

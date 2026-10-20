@@ -27,6 +27,9 @@ import { newlyReadyIds } from '../achToast.js';
 import { ribbonArt } from '../honorFx.js';
 import { HONOR_MAP } from '../../data/honors.js';
 import { navigate } from '../router.js';
+import { TITAN_MAP, tierLabel } from '../../data/titans.js';
+import { RAINBOW_METER } from '../../systems/titanRewards.js';
+import '../styles/titans.css';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -436,6 +439,60 @@ export function createResults(ctx) {
     open(card);
   }
 
+  /**
+   * Titan Trials (docs/specs/ASCENSION.md §C.5): the damage notch on her HP bar, then what it paid,
+   * the Victory Chest on a win (its gear box first), a first clear, and the Rainbow Meter.
+   */
+  function showTitan() {
+    const out = apply();
+    const t = ctx.titan || {};
+    const read = t.tracker?.read() || { share: 0, victory: false, leaked: false };
+    const name = TITAN_MAP[t.id]?.name || 'The titan';
+    const pct = Math.round(Math.min(1, read.share) * 100);
+    const notch = out.notch;
+    const ribbon = out.practice ? 'PRACTICE' : notch ? (notch.id === 'victory' ? 'VICTORY!' : notch.name.toUpperCase()) : 'NOT COUNTED';
+    const line = out.practice
+      ? 'Practice run: no Trial Key used and no rewards.'
+      : !notch ? 'This one didn\'t count — try again! Your Trial Key was not used.'
+        : notch.id === 'victory' ? `${name} defeated!`
+          : read.leaked ? `${name} got away! You reached ${notch.name}.` : `You reached ${notch.name}.`;
+    const bar = h('div.tt-hpbar', { 'data-testid': 'titan-bar', style: { '--fill': `${pct}%` } },
+      h('div.tt-hpfill'),
+      [25, 50, 75].map((at) => h(`span.tt-notch${pct >= at ? '.hit' : ''}`, { style: { left: `${at}%` } })),
+      h('b.tt-hppct', `${pct}%`));
+    const chestIds = new Set((out.chest?.items || []).map((x) => x.id));
+    const tableTiles = out.rewards.filter((r) => !chestIds.has(r.id) && r.id !== 'gearbox_rainbow');
+    const chestTiles = out.rewards.filter((r) => chestIds.has(r.id) || r.id === 'gearbox_rainbow');
+    const blocks = [];
+    if (out.firstClear) blocks.push(section('First clear', h('div.bt-tiles', [...out.firstClear.items].map((r) => rewardTile(r.id, r.count, 56)))));
+    if (notch?.id === 'victory') {
+      const boxLine = out.box === 'rainbow'
+        ? h('p.tt-rainbow', { 'data-testid': 'titan-rainbow' }, out.rainbowForced ? 'Rainbow Meter full: a Rainbow Gear Box!' : 'A Rainbow Gear Box! Open it in the Backpack.')
+        : null;
+      blocks.push(section('Victory Chest', boxLine, chestTiles.length ? h('div.bt-tiles', chestTiles.map((r) => rewardTile(r.id, r.count, 56))) : null));
+    }
+    if (tableTiles.length) blocks.push(section(notch?.id === 'victory' ? 'Damage rewards' : `${notch?.name || ''} rewards`, h('div.bt-tiles', tableTiles.map((r) => rewardTile(r.id, r.count, 56)))));
+    if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
+    const m = mvp();
+    if (m) blocks.push(section('Top damage', m));
+    for (const f of out.fused || []) toast(f.id === 'crown_rainbow' ? 'A Rainbow Crown! Gate 9 or 10 can open.' : `${getItem(f.id)?.name || f.id} fused!`, 'good', 4200);
+    const card = h(
+      `div.bt-sheet.bt-result.bt-titan${notch?.id === 'victory' ? '.bt-win' : ''}`,
+      { 'data-testid': 'titan-result', 'data-notch': notch?.id || (out.practice ? 'practice' : 'none') },
+      h('div.bt-result-ribbon', ribbon),
+      h('div.bt-result-stage', `${name} — ${tierLabel(t.tier, t.rank)}`),
+      bar,
+      h('p.tt-result-line', { 'data-testid': 'titan-line' }, line),
+      out.unlocked ? h('p.tt-unlocked', { 'data-testid': 'titan-unlocked' }, `${out.unlocked} unlocked!`) : null,
+      saveFailedNote(out),
+      achLine(),
+      h('div.bt-rewards-body', blocks),
+      !out.practice ? h('p.muted.tt-keys', `Trial Keys left: ${out.keysLeft}${out.meter != null && t.tier === 'mayhem' ? ` · Rainbow Meter ${out.meter}/${RAINBOW_METER}` : ''}`) : null,
+      actions(!!read.victory),
+    );
+    open(card);
+  }
+
   function open(card, extra = null) {
     el.replaceChildren(...[extra, card].filter(Boolean));
     // a victory stand takes the left side: the sheet moves right so it never covers her or her bubble
@@ -454,6 +511,7 @@ export function createResults(ctx) {
     showRewards,
     showFreeplay,
     showSandbox,
+    showTitan,
     /** Solo Keep going: the battle goes on, so the next end applies (and shows) its own result. */
     reset() {
       applied = false;

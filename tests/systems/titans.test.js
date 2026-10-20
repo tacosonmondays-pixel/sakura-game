@@ -308,3 +308,36 @@ describe('weekly stores (§A.5, §C.10)', () => {
     expect(itemCount(p, 'crown_rainbow')).toBe(1);
   });
 });
+
+describe('co-op titans (M2 rules, §C.11)', () => {
+  it('a co-op Victory pays the Together Chest, at most 3 a week', async () => {
+    const p = ready();
+    p.missions.counters['tbest:wyrm'] = 2; // Hard won solo
+    const got = [];
+    for (let i = 0; i < 4; i++) got.push(fight(p, 'wyrm', 'hard', win, { coop: true, seed: i }).together);
+    expect(got.slice(0, 3).every((t) => t && t.some((x) => x.id === 'token_boss' && x.count === 10))).toBe(true);
+    expect(got[3]).toBeUndefined();
+    expect(bestStep(p, 'wyrm')).toBe(1); // co-op never raises it
+  });
+
+  it('a guest may join at most one step above their own solo best; the host only what is open solo', async () => {
+    const { coopTierAllowed } = await import('../../src/systems/titans.js');
+    const p = ready();
+    expect(coopTierAllowed(p, 'wyrm', 'normal')).toBe(true);
+    expect(coopTierAllowed(p, 'wyrm', 'hard')).toBe(false);
+    p.missions.counters['tbest:wyrm'] = 1; // Normal won
+    expect(coopTierAllowed(p, 'wyrm', 'hard')).toBe(true);
+    expect(coopTierAllowed(p, 'wyrm', 'nightmare')).toBe(false);
+    expect(coopTierAllowed(p, 'wyrm', 'nightmare', 0, { host: true })).toBe(false);
+  });
+
+  it('the clan board pays by rank (#1 30 tokens, #2 20, #3 10, a Bronze 5)', async () => {
+    const { boardReward, boardSubmission } = await import('../../src/online/titanBoardRules.js');
+    expect(boardReward(1, true)).toEqual({ tokens: 30, title: 'Titan Ace' });
+    expect(boardReward(3, false).tokens).toBe(10);
+    expect(boardReward(7, true).tokens).toBe(5);
+    expect(boardReward(null, false).tokens).toBe(0);
+    expect(boardSubmission({ titanId: 'wyrm', tier: 'mayhem', rank: 2, damage: 1e8, seconds: 9 })).toBeNull();
+    expect(boardSubmission({ titanId: 'wyrm', tier: 'mayhem', rank: 2, damage: 1e8, seconds: 90 })).toMatchObject({ titan: 'wyrm', step: 5 });
+  });
+});

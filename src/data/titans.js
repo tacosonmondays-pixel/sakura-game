@@ -191,7 +191,7 @@ export function titanBattle(titanId, tier, rank = 0) {
  * Reads a titan battle's damage OUTSIDE the sim, from its event stream (spawn / death / leak): the
  * titan and every splitter child that came out of her (summons and brood never count). Feed it every
  * batch of events the battle produces (`consume(events, sim)`), then `read(sim)`.
- * @param {{ titanEnemy: string, child: string|null, count: number, inherit: number }} battle titanBattle()'s result
+ * @param {{ titanEnemy: string, child: string|null, count: number, inherit: number, poolHp: number }} battle titanBattle()'s result
  */
 export function createTitanTracker(battle) {
   const members = new Map(); // uid → { id, maxHp, hp, dead, leaked }
@@ -205,7 +205,9 @@ export function createTitanTracker(battle) {
           const isChild = ev.id === battle.child && ev.parentUid != null && members.has(ev.parentUid);
           if (!isRoot && !isChild) continue;
           const e = find(sim, ev.uid);
-          const maxHp = e?.maxHp ?? (isChild && root ? root.maxHp * battle.inherit : 0);
+          // (a titan killed in the frame she arrived is gone already: her HP comes from the battle's pool)
+          const rootHp = battle.poolHp / (1 + (battle.child ? battle.count * battle.inherit : 0));
+          const maxHp = e?.maxHp ?? (isRoot ? rootHp : (root?.maxHp ?? rootHp) * battle.inherit);
           const m = { id: ev.id, maxHp, hp: e?.hp ?? maxHp, dead: false, leaked: false };
           members.set(ev.uid, m);
           if (isRoot) root = m;
