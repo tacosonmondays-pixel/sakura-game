@@ -11,8 +11,8 @@ import { gearStatTotals } from '../systems/gear.js';
 import { potentialLevel, MAX_POTENTIAL } from '../systems/potential.js';
 import { gearIcon, uiIcon } from '../art/icons.js';
 import { displayRarity, urBadge } from './rarity.js';
+import { fmtNum } from './format.js';
 
-const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const r1 = (v) => Math.round(v * 10) / 10;
 
 /** '+24.2%' for a fraction stat, '+2' for a flat one. */
@@ -47,11 +47,11 @@ export function buildModel(unit, prof) {
   const b = unit.base;
   const critMul = (b.crit?.mul || 1.5) * s.critMul;
   const stats = [
-    b.damage ? { label: 'Damage', value: fmt(b.damage * s.damageMul), delta: pctDelta(s.damageMul) } : null,
+    b.damage ? { label: 'Damage', value: fmtNum(b.damage * s.damageMul), delta: pctDelta(s.damageMul) } : null,
     b.rate ? { label: 'Attack speed', value: `${(b.rate * s.rateMul).toFixed(2)}/s`, delta: pctDelta(s.rateMul) } : null,
     { label: 'Range', value: (b.range * s.rangeMul).toFixed(1), delta: pctDelta(s.rangeMul) },
     { label: 'Crit', value: `${Math.round(((b.crit?.chance || 0) + s.critChance) * 100)}%`, delta: `×${critMul.toFixed(2)} dmg` },
-    { label: 'Cost', value: fmt(b.cost * s.costMul), delta: pctDelta(s.costMul) },
+    { label: 'Cost', value: fmtNum(b.cost * s.costMul, 'money', { round: 'up' }), delta: pctDelta(s.costMul) },
   ].filter(Boolean);
   return {
     level: st.level || 1,
@@ -107,7 +107,7 @@ export function buildTab(unit, prof, { snapshotOwner = null, gearText = null } =
         tile('Breakthrough · Level', h('b', String(m.level), h('small', ` / ${m.cap}`)), pips),
         tile(['Awakening', m.ur ? urBadge() : null], stars(m.awaken, MAX_AWAKEN), h('span.ub-sub', m.awaken >= MAX_AWAKEN ? 'Fully awakened' : `★${m.awaken} of ${MAX_AWAKEN}`)),
         tile('Potential', h('b', `P${m.potential}`, h('small', ` / ${MAX_POTENTIAL}`)), track),
-        tile('Power', h('b', { 'data-testid': 'build-power' }, fmt(m.power)), h('span.ub-sub', 'Before in-battle upgrades')))),
+        tile('Power', h('b', { 'data-testid': 'build-power' }, fmtNum(m.power)), h('span.ub-sub', 'Before in-battle upgrades')))),
     h('section.ub-sec',
       h('div.ub-sec-t', 'Equipment', h('small', `${m.equipped} / 3 equipped`)),
       h('div.ub-gear', m.gear.map((g) => gearCard(g, gearText)))),

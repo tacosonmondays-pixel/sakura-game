@@ -1,0 +1,58 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battle: girl drawer</title>
+<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="components.css"><link rel="stylesheet" href="screens.css">
+</head><body><div class="screen battle-screen"><div class="sky"></div>
+<div class="map" style="background-image:url(img/battle-bg-844x390.png)"></div>
+<div class="map hi" style="background-image:url(img/battle-bg-1280x720.png)"></div>
+<div class="range"></div>
+
+<div class="hud-top">
+  <div class="rbtn pause"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/></svg></div>
+  <div class="hpill"><img src="img/cur-coins.svg" class="hide" alt=""><span class="hrt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.2s-8-4.8-8-10.4a4.3 4.3 0 0 1 8-2.2 4.3 4.3 0 0 1 8 2.2c0 5.6-8 10.4-8 10.4z"/></svg></span><b class="num">100</b></div>
+  <div class="hpill"><img src="img/cur-coins.svg" alt=""><b class="num">1,850</b></div>
+  <div class="wave"><span class="lbl">Wave</span><b class="num">1/20</b></div>
+  <div class="nextw"><span class="lbl">Next</span><img src="img/enemy-slime_green.svg" class="en" alt=""><img src="img/enemy-slime_prism.svg" class="en" alt=""><span class="sticker y nw">New</span></div>
+  <div class="rulei"><img src="img/rule-changing_tides.svg" alt=""></div>
+  <div class="speed"><b class="num">2×</b></div>
+</div>
+
+<div class="cards">
+  <div class="card hero"><img src="img/hikari-card.webp" class="cimg" alt=""><span class="ult"><i></i></span><span class="rtag ur">UR</span>
+    <span class="ccost herotag"><svg viewBox="0 0 24 24"><path d="M12 4l7 9h-4.5v7h-5v-7H5z" fill="currentColor"/></svg>Hero</span></div>
+  <div class="card placed"><img src="img/aoi-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">175</b></span></div>
+  <div class="card"><img src="img/rei-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">230</b></span></div>
+  <div class="card"><img src="img/yuki-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">220</b></span></div>
+  <div class="card"><img src="img/momo-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">300</b></span></div>
+  <div class="card"><img src="img/akane-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">480</b></span></div>
+</div>
+<aside class="drawer">
+  <div class="drawer-head"><div class="halftone" style="right:0;top:0;width:55%;height:100%"></div>
+    <span class="dportrait fr fr-r"><img src="img/aoi-thumb.webp" alt=""></span>
+    <span class="dh-text"><span class="dh-name">Aoi</span><span class="dh-icons"><img src="img/role-marksman.svg" alt=""><img src="img/atk-pierce.svg" alt=""><span class="sticker y code">2-0-1</span></span></span>
+    <span class="rbtn tree-b"><svg viewBox="0 0 24 24"><circle cx="3" cy="5" r="2.1" fill="currentColor"/><circle cx="7.5" cy="5" r="2.1" fill="currentColor"/><circle cx="12" cy="5" r="2.1" fill="currentColor"/><circle cx="16.5" cy="5" r="2.1" fill="currentColor"/><circle cx="21" cy="5" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="3" cy="12" r="2.1" fill="currentColor"/><circle cx="7.5" cy="12" r="2.1" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="16.5" cy="12" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="21" cy="12" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="3" cy="19" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="7.5" cy="19" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="12" cy="19" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="16.5" cy="19" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><circle cx="21" cy="19" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/></svg></span>
+    <span class="rbtn close-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+  </div>
+  <div class="dbody">
+    <div class="target"><span class="kicker">Target</span><span class="stepper"><span class="sb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><b>First</b><span class="sb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span></span></div>
+    
+  <div class="dpath">
+    <span class="dpic ring sm" style="--pc:#ff5d7a"><img src="img/tier-aoi-0-2.svg" alt=""></span>
+    <span class="dpt"><span class="dpn">Piercing Arrows</span><span class="pips5"><i class="on" style="background:#ff5d7a"></i><i class="on" style="background:#ff5d7a"></i><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i></span></span>
+    <span class="btn cost sm"><span><img src="img/cur-coins.svg" alt=""><b class="num">565</b></span></span>
+  </div>
+    <div class="dexp"><b>Steel Broadheads</b><span class="chip"><b class="num">+2</b><span class="lbl">DMG</span></span><span class="chip"><img src="img/cap-armorPen.svg" alt=""><span class="lbl">Ignore</span><b class="num">2</b><span class="lbl">armor</span></span></div>
+    
+  <div class="dpath locked">
+    <span class="dpic ring sm" style="--pc:#3b8cff"><span class="glyph" style="background:#3b8cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5l10 7-10 7z" fill="currentColor" stroke="none"/></svg></span></span>
+    <span class="dpt"><span class="dpn">Rapid Volley</span><span class="pips5"><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i></span></span>
+    <span class="dlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.8" y="10.5" width="14.4" height="10" rx="2.4"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>Locked</span>
+  </div>
+    
+  <div class="dpath">
+    <span class="dpic ring sm" style="--pc:#9b6bff"><span class="glyph" style="background:#9b6bff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12,3.1 14.5,9.2 21,9.7 16,13.9 17.6,20.3 12,16.8 6.4,20.3 8,13.9 3,9.7 9.5,9.2" fill="currentColor" stroke="none"/></svg></span></span>
+    <span class="dpt"><span class="dpn">Sky Hunter</span><span class="pips5"><i class="on" style="background:#9b6bff"></i><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i><i class="" style=""></i></span></span>
+    <span class="btn cost sm"><span><img src="img/cur-coins.svg" alt=""><b class="num">175</b></span></span>
+  </div>
+    <div class="dfoot"><span class="btn danger sm"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5l9-9h8v8l-9 9z"/><circle cx="16" cy="8" r="1.6" fill="currentColor"/><path d="M9 13.5l2 2" stroke-width="1.6"/></svg><span class="bl">Sell</span><b class="num">364</b></span></span><span class="sticker y more">More ▸</span></div>
+  </div>
+</aside></div></body></html>

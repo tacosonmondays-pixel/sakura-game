@@ -1,0 +1,540 @@
+[
+ {
+  "id": "aoi",
+  "name": "Aoi",
+  "title": "Sky Archer",
+  "rarity": "R",
+  "role": "marksman",
+  "attackType": "pierce",
+  "base": {
+   "cost": 200,
+   "behavior": "projectile",
+   "damage": 4,
+   "rate": 1.4,
+   "range": 3.2,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 16,
+   "armorPen": 0,
+   "canHitAir": true,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "crit": {
+    "chance": 0.05,
+    "mul": 1.5
+   },
+   "status": []
+  },
+  "cost": 200,
+  "passive": {
+   "name": "Clear Skies",
+   "desc": "+10% damage and +0.3 range.",
+   "mods": {
+    "damageMul": 1.1,
+    "range": 0.3
+   }
+  },
+  "caps": [
+   "antiAir",
+   "multiHit"
+  ],
+  "pathCaps": [
+   "armorPen",
+   "detection",
+   "priority",
+   "stun"
+  ]
+ },
+ {
+  "id": "kage",
+  "name": "Kage",
+  "title": "Shadow Courier",
+  "rarity": "SR",
+  "role": "skirmisher",
+  "attackType": "pierce",
+  "base": {
+   "cost": 400,
+   "behavior": "projectile",
+   "damage": 3,
+   "rate": 2,
+   "range": 3,
+   "projectiles": 2,
+   "pierce": 2,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 18,
+   "armorPen": 0,
+   "canHitAir": true,
+   "detection": true,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "status": [],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 400,
+  "passive": {
+   "name": "Moonless Night",
+   "desc": "Hits reveal veiled foes for 1.5s; +8% attack speed.",
+   "mods": {
+    "reveal": 1.5,
+    "rateMul": 1.08
+   }
+  },
+  "caps": [
+   "detection",
+   "antiAir",
+   "multiHit"
+  ],
+  "pathCaps": [
+   "reveal",
+   "priority",
+   "armorPen",
+   "stun"
+  ]
+ },
+ {
+  "id": "hikari",
+  "name": "Hikari",
+  "title": "Dawnblade Captain",
+  "rarity": "SSR",
+  "role": "vanguard",
+  "attackType": "holy",
+  "base": {
+   "cost": 0,
+   "behavior": "pulse",
+   "damage": 6,
+   "rate": 1,
+   "range": 2.1,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 3,
+   "projectileSpeed": 0,
+   "armorPen": 0,
+   "canHitAir": false,
+   "detection": true,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "crit": {
+    "chance": 0.05,
+    "mul": 1.5
+   },
+   "status": []
+  },
+  "cost": 0,
+  "passive": {
+   "name": "Unbroken Dawn",
+   "desc": "+8% damage, and her strikes reveal veiled enemies for 1.5s.",
+   "mods": {
+    "damageMul": 1.08,
+    "reveal": 1.5
+   }
+  },
+  "caps": [
+   "detection"
+  ],
+  "pathCaps": [
+   "armorPen",
+   "reveal",
+   "silence",
+   "buff",
+   "cleanse",
+   "antiAir",
+   "stun"
+  ]
+ },
+ {
+  "id": "rei",
+  "name": "Rei",
+  "title": "Crescent Cleaver",
+  "rarity": "R",
+  "role": "cleaver",
+  "attackType": "slash",
+  "base": {
+   "cost": 240,
+   "behavior": "pulse",
+   "damage": 4,
+   "rate": 0.9,
+   "range": 1.8,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 3,
+   "projectileSpeed": 0,
+   "armorPen": 0,
+   "canHitAir": false,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "status": [],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 240,
+  "passive": {
+   "name": "Iron Focus",
+   "desc": "Sweeps hit 1 more enemy and deal +8% damage.",
+   "mods": {
+    "maxTargets": 1,
+    "damageMul": 1.08
+   }
+  },
+  "caps": [
+   "multiHit"
+  ],
+  "pathCaps": [
+   "armorPen",
+   "stun",
+   "silence",
+   "armorShred"
+  ]
+ },
+ {
+  "id": "yuki",
+  "name": "Yuki",
+  "title": "Snowdrift Mage",
+  "rarity": "R",
+  "role": "controller",
+  "attackType": "mystic",
+  "base": {
+   "cost": 220,
+   "behavior": "projectile",
+   "damage": 2,
+   "rate": 1,
+   "range": 3,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0.6,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 10,
+   "armorPen": 0,
+   "canHitAir": true,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "status": [
+    {
+     "type": "slow",
+     "amount": 0.3,
+     "duration": 1.5
+    }
+   ],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 220,
+  "passive": {
+   "name": "First Snow",
+   "desc": "Slow strengthened to 35% and +0.2 range.",
+   "mods": {
+    "status": [
+     {
+      "type": "slow",
+      "amount": 0.35,
+      "duration": 1.6
+     }
+    ],
+    "range": 0.2
+   }
+  },
+  "caps": [
+   "slow",
+   "antiAir"
+  ],
+  "pathCaps": [
+   "stun",
+   "armorShred",
+   "silence",
+   "armorPen"
+  ]
+ },
+ {
+  "id": "momo",
+  "name": "Momo",
+  "title": "Peach Merchant",
+  "rarity": "R",
+  "role": "economy",
+  "attackType": "pierce",
+  "base": {
+   "cost": 300,
+   "behavior": "projectile",
+   "damage": 2,
+   "rate": 0.8,
+   "range": 2.8,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 12,
+   "armorPen": 0,
+   "canHitAir": true,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "income": {
+    "perWave": 30,
+    "interest": 0
+   },
+   "status": [],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 300,
+  "passive": {
+   "name": "Lucky Peach",
+   "desc": "+25 coins per wave.",
+   "mods": {
+    "income": {
+     "perWave": 25
+    }
+   }
+  },
+  "caps": [
+   "income",
+   "antiAir"
+  ],
+  "pathCaps": [
+   "buff",
+   "armorPen"
+  ]
+ },
+ {
+  "id": "akane",
+  "name": "Akane",
+  "title": "Firework Demolitionist",
+  "rarity": "SR",
+  "role": "bombardment",
+  "attackType": "blast",
+  "base": {
+   "cost": 480,
+   "behavior": "projectile",
+   "damage": 6,
+   "rate": 0.7,
+   "range": 3.1,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 1,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 9,
+   "armorPen": 0,
+   "canHitAir": false,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "status": [
+    {
+     "type": "burn",
+     "dps": 2,
+     "duration": 2
+    }
+   ],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 480,
+  "passive": {
+   "name": "Ember Heart",
+   "desc": "Burns deal 4/s for 2.5s; +0.2 explosion radius.",
+   "mods": {
+    "status": [
+     {
+      "type": "burn",
+      "dps": 4,
+      "duration": 2.5
+     }
+    ],
+    "splash": 0.2
+   }
+  },
+  "caps": [],
+  "pathCaps": [
+   "antiAir",
+   "stun",
+   "armorPen",
+   "armorShred",
+   "barrierBreak"
+  ]
+ },
+ {
+  "id": "sango",
+  "name": "Sango",
+  "title": "Coral Battery",
+  "rarity": "SR",
+  "role": "artillery",
+  "attackType": "blast",
+  "base": {
+   "cost": 560,
+   "behavior": "projectile",
+   "damage": 14,
+   "rate": 0.45,
+   "range": 4.2,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0.8,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 8,
+   "armorPen": 0,
+   "canHitAir": false,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1.25,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "status": [
+    {
+     "type": "soak",
+     "duration": 2
+    }
+   ],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 560,
+  "passive": {
+   "name": "Coral Bastion",
+   "desc": "Ignores 2 armor and deals +15% to barriers.",
+   "mods": {
+    "armorPen": 2,
+    "barrierMul": 1.15
+   }
+  },
+  "caps": [
+   "water",
+   "barrierBreak"
+  ],
+  "pathCaps": [
+   "armorPen",
+   "armorShred",
+   "antiAir",
+   "stun"
+  ]
+ },
+ {
+  "id": "chika",
+  "name": "Chika",
+  "title": "Gadget Prodigy",
+  "rarity": "SSR",
+  "role": "engineer",
+  "attackType": "pierce",
+  "base": {
+   "cost": 650,
+   "behavior": "projectile",
+   "damage": 2,
+   "rate": 0.8,
+   "range": 3,
+   "projectiles": 1,
+   "pierce": 1,
+   "splash": 0,
+   "chain": 0,
+   "maxTargets": 99,
+   "projectileSpeed": 16,
+   "armorPen": 0,
+   "canHitAir": true,
+   "detection": false,
+   "eliteMul": 1,
+   "bossMul": 1,
+   "barrierMul": 1,
+   "silence": 0,
+   "reveal": 0,
+   "knockback": 0,
+   "turret": {
+    "max": 2,
+    "damage": 3,
+    "rate": 1.5,
+    "range": 1,
+    "leash": 4,
+    "speed": 3.5,
+    "build": 4,
+    "attackType": "pierce",
+    "status": [
+     {
+      "type": "shock",
+      "duration": 0.1,
+      "chance": 0.15
+     }
+    ]
+   },
+   "status": [],
+   "crit": {
+    "chance": 0,
+    "mul": 1.5
+   }
+  },
+  "cost": 650,
+  "passive": {
+   "name": "Prototype Mk-II",
+   "desc": "+1 drone; drones +2 damage.",
+   "mods": {
+    "turret": {
+     "max": 1,
+     "damage": 2
+    }
+   }
+  },
+  "caps": [
+   "summon",
+   "antiAir"
+  ],
+  "pathCaps": [
+   "buff",
+   "cleanse",
+   "detection",
+   "armorPen",
+   "stun"
+  ]
+ }
+]

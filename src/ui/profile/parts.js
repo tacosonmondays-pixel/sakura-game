@@ -18,18 +18,12 @@ import { eclipseFrameSVG, pumpkinFrameSVG, frameChipSVG, trophySVG } from '../..
 import { levelCap, MAX_AWAKEN } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/profileTrophies.js';
+import { fmtNum } from '../format.js';
 import { ribbonArt, titlePlate as honorPlate } from '../honorFx.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles } from '../rarity.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS, RING_DELAY_MS } from '../hold.js';
 
 export const ico = (name, cls = 'pf-ico') => svgEl(glyph(name), cls);
-
-/** 25310 → '25.3k', 1250000 → '1.3M'. */
-export function shortNumber(n) {
-  if (n >= 1e6) return `${Math.round(n / 1e5) / 10}M`;
-  if (n >= 1e4) return `${Math.round(n / 100) / 10}k`;
-  return Math.round(n).toLocaleString('en-US');
-}
 
 // ---------------------------------------------------------------------------
 // Banner, picture, title
@@ -196,7 +190,7 @@ export function statTiles(st) {
     tile('students', '#2b7fff', String(st.u), String(UNIT_COUNT), 'Students', 'u'),
     tile('map', '#2bb673', String(st.s), String(STAGE_COUNT), 'Stages cleared', 's'),
     tile('bestiary', '#ff9f1c', `${st.b}%`, '', 'Bestiary', 'b'),
-    tile('sword', '#ff7aa8', shortNumber(st.k), '', 'Enemies defeated', 'k'),
+    tile('sword', '#ff7aa8', fmtNum(st.k, 'count', { round: 'down' }), '', 'Enemies defeated', 'k'),
   ];
 }
 

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tactical HUD mock</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="tactical-kit.css">
+<style>
+  /* the live game's base tokens (src/ui/styles/base.css:7-44), copied for the mock */
+  :root { --sky-1:#eaf6ff; --blue:#2b7fff; --blue-deep:#1d4e89; --navy:#22385c; --ink:#1f2a44; --muted:#6b7a99;
+    --yellow:#ffdd4a; --yellow-deep:#f2b705; --pink:#ff7aa8; --bad:#ff4d6d; --skew:-8deg;
+    --font:'M PLUS Rounded 1c','Nunito',system-ui,sans-serif; --font-head:'Nunito','M PLUS Rounded 1c',system-ui,sans-serif;
+    --hud-h: 52px; --bar-h: 96px; --panel-w: 340px; }
+  @media (max-height: 500px) { :root { --hud-h: 44px; --bar-h: 72px; --panel-w: 300px; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--font); background: #9fd0ff; }
+  .map { position: fixed; inset: 0; background: center / cover no-repeat; }
+
+  /* ---------- HUD: floating readouts, no full-width white bar ---------- */
+  .hud { position: fixed; left: 0; right: 0; top: 0; height: var(--hud-h); display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+    background: linear-gradient(180deg, rgba(14,25,48,0.55), rgba(14,25,48,0)); }
+  .ro { --cut: 7px; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 12px 0 8px; }
+  .ro .ico { width: 20px; height: 20px; flex: none; }
+  .ro .stack { display: flex; flex-direction: column; gap: 3px; }
+  .ro .tx-num { font-size: 17px; color: var(--tx-text); }
+  .sq { width: calc(var(--hud-h) - 12px); justify-content: center; padding: 0; }
+  .sq svg { width: 18px; height: 18px; }
+  .wave { padding-right: 14px; }
+  .wave .tx-num b { color: var(--tx-accent); }
+  .wave .tx-seg { width: 132px; height: 5px; --n: 15; }
+  .intel { flex: 1; min-width: 0; display: flex; justify-content: center; }
+  .intel .tx-panel { --cut: 7px; display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 10px 0 0; max-width: 100%; }
+  .intel-tag { align-self: stretch; display: flex; align-items: center; padding: 0 12px 0 10px; font: 700 12px/1 var(--tx-font-label); letter-spacing: .14em; color: var(--tx-ink);
+    background: var(--tx-accent); clip-path: polygon(0 0, 100% 0, calc(100% - 7px) 100%, 0 100%); }
+  .foe { display: flex; align-items: center; gap: 3px; padding: 2px 7px 2px 2px; border-radius: 2px; background: rgba(255,255,255,0.07); box-shadow: inset 0 0 0 1px var(--tx-line); color: var(--tx-text); font: 700 12px/1 var(--tx-font-data); }
+  .foe i { width: 22px; height: 22px; border-radius: 50%; display: block; background: radial-gradient(circle at 40% 35%, #b8f0a8, #4fae63); }
+  .foe.arm i { background: radial-gradient(circle at 40% 35%, #e1e7ef, #7b8aa3); }
+  .foe.run i { background: radial-gradient(circle at 40% 35%, #ffd7a6, #f08a3c); }
+  .foe .trait { width: 14px; height: 14px; display: grid; place-items: center; background: var(--tx-warn); color: var(--tx-ink); font: 800 9px/1 var(--tx-font-label); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .stage { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding: 0 4px; }
+  .stage .tx-num { font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .diff { font: 700 10px/1 var(--tx-font-label); letter-spacing: .14em; color: var(--tx-ink); background: #3ee8a0; padding: 2px 6px; transform: skewX(var(--skew)); }
+  .speed { font: 700 15px/1 var(--tx-font-data); color: var(--tx-ink); background: var(--yellow); }
+  .speed.tx-panel { background: linear-gradient(180deg, #fff07a, var(--yellow)); --edge: rgba(160,110,0,0.6); }
+
+  /* ---------- selected girl panel ---------- */
+  .panel { position: fixed; right: 8px; top: calc(var(--hud-h) + 4px); bottom: calc(var(--bar-h) + 6px); width: var(--panel-w); display: flex; flex-direction: column; --cut: 14px; }
+  .p-head { display: flex; gap: 10px; align-items: center; padding: 10px 10px 8px 10px; position: relative; }
+  .p-port { width: 58px; height: 58px; flex: none; position: relative; clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+    background: linear-gradient(160deg, #dbeeff, #b9d8f5); box-shadow: inset 0 -3px 0 #ff9fd2; }
+  .p-port img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; }
+  .p-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .p-name { display: flex; align-items: center; gap: 8px; font: italic 900 21px/1 var(--font-head); color: #fff; }
+  .p-tiers { font: 700 12px/1 var(--tx-font-data); color: var(--tx-ink); background: var(--tx-accent); padding: 3px 6px; letter-spacing: .04em; }
+  .p-role { display: flex; gap: 6px; align-items: center; }
+  .p-role .tx-chip { font-size: 10.5px; padding: 3px 8px 3px 6px; }
+  .p-x { position: absolute; right: 8px; top: 8px; width: 28px; height: 28px; display: grid; place-items: center; color: var(--tx-dim); box-shadow: inset 0 0 0 1px var(--tx-line-hi); }
+  .p-x svg { width: 14px; height: 14px; }
+  .p-scroll { flex: 1; overflow: hidden; padding: 0 10px; display: flex; flex-direction: column; gap: 8px; }
+  .sec { display: flex; align-items: center; gap: 8px; }
+  .sec .tx-label { color: var(--tx-accent); flex: none; }
+  .sec .line { flex: 1; height: 5px; }
+  .tgt { display: flex; gap: 3px; flex-wrap: wrap; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--tx-line); border-bottom: 1px solid var(--tx-line); }
+  .stats > div { padding: 5px 7px 6px; display: flex; flex-direction: column; gap: 4px; }
+  .stats > div + div { border-left: 1px solid var(--tx-line); }
+  .stats .tx-num { font-size: 16px; color: #fff; }
+  .stats .tx-num small { font-size: 10px; color: var(--tx-dim); margin-left: 1px; }
+  .stats .main .tx-num { color: var(--tx-accent); }
+  .path { display: grid; grid-template-columns: 4px 1fr auto; gap: 0 9px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--tx-line); }
+  .path .tab { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; background: linear-gradient(180deg, var(--pa), var(--pb)); }
+  .p0 { --pa: #ff5d73; --pb: #ff9f7a; } .p1 { --pa: #2b7fff; --pb: #4cc9f0; } .p2 { --pa: #8b5cf6; --pb: #c77dff; }
+  .path-top { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .path-name { font: italic 900 13.5px/1.1 var(--font-head); color: #fff; white-space: nowrap; }
+  .path .tx-seg { width: 74px; height: 6px; margin-left: auto; }
+  .path-next { grid-column: 2; grid-row: 2; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .path-next b { font: 700 12px/1.1 var(--tx-font-label); letter-spacing: .06em; text-transform: uppercase; color: var(--tx-text); }
+  .path-next b em { font-style: normal; color: var(--tx-warn); font-family: var(--tx-font-data); margin-right: 4px; }
+  .path-next span { font-size: 11px; line-height: 1.25; color: var(--tx-dim); }
+  .buy { grid-column: 3; grid-row: 1 / span 2; display: flex; align-items: center; gap: 4px; padding: 7px 12px; border: 0; transform: skewX(var(--skew)); border-radius: 4px;
+    background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--navy); font: 700 14px/1 var(--tx-font-data); box-shadow: 0 2px 8px rgba(242,183,5,.45); }
+  .buy > * { transform: skewX(calc(var(--skew) * -1)); }
+  .coin { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2a8, #f2b705 60%, #c58a00); box-shadow: inset 0 0 0 1.5px #a86f00; display: inline-block; }
+  .locked .path-next span { color: #ff8fa3; }
+  .lockico { width: 12px; height: 12px; display: inline-block; vertical-align: -1px; margin-right: 3px; }
+  .p-foot { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 9px; border-top: 1px solid var(--tx-line); background: rgba(255,255,255,0.03); }
+  .p-foot .tx-num { font-size: 13px; color: var(--tx-text); }
+  .sell { font: 700 12px/1 var(--tx-font-label); letter-spacing: .12em; color: #ff8fa3; padding: 7px 12px; box-shadow: inset 0 0 0 1px rgba(255,77,109,.7); background: rgba(255,77,109,.08); }
+  .sell b { font-family: var(--tx-font-data); color: #fff; margin-left: 6px; letter-spacing: 0; }
+
+  /* ---------- tower bar ---------- */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--bar-h); display: flex; gap: 8px; align-items: flex-end; justify-content: center; padding: 0 12px 8px;
+    background: linear-gradient(0deg, rgba(14,25,48,.78), rgba(14,25,48,.35) 70%, transparent); }
+  .card { --cut: 10px; width: 70px; height: calc(var(--bar-h) - 14px); position: relative; overflow: hidden; background: var(--tx-ink);
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+  .card img { position: absolute; inset: 0 0 18px 0; width: 100%; height: calc(100% - 18px); object-fit: cover; object-position: 50% 10%; }
+  .card .cost { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; display: flex; align-items: center; justify-content: center; gap: 3px; background: var(--tx-ink);
+    color: var(--yellow); font: 700 12px/1 var(--tx-font-data); border-top: 2px solid var(--r, #7aa7d9); }
+  .card .role { position: absolute; left: 0; top: 0; width: 18px; height: 18px; display: grid; place-items: center; background: rgba(14,25,48,.85); color: #fff; font: 700 10px/1 var(--tx-font-label); }
+  .card.dep::after { content: 'ON FIELD'; position: absolute; left: 0; right: 0; bottom: 18px; padding: 2px 0; text-align: center; font: 700 9.5px/1 var(--tx-font-label); letter-spacing: .14em; color: var(--tx-ink); background: var(--tx-accent); }
+  .card.sel { box-shadow: none; outline: 0; }
+  .card.sel::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 0 2px var(--tx-accent); }
+  @media (max-height: 500px) { .panel { bottom: 6px; z-index: 5; } .p-head { padding: 8px 10px 6px; } .sec .tx-code { display: none; } .card { width: 56px; } .p-port { width: 46px; height: 46px; } .p-name { font-size: 18px; } .stats .tx-num { font-size: 14px; } .path { padding: 4px 0; } .path-next span { display: none; } .locked .path-next span { display: block; font-size: 10px; } .stats > div { padding: 3px 7px 4px; } .p-port { width: 40px; height: 40px; } .p-head { padding: 6px 10px 5px; } .tgt .tx-chip { padding: 2px 7px 2px 6px; } .buy { padding: 5px 10px; font-size: 13px; } .p-scroll { gap: 6px; } .wave .tx-seg { width: 100px; } .ro .tx-num { font-size: 15px; } .foe:nth-child(n+5) { display: none; } }
+
+  /* ---------- ability bar (per-path cooldown abilities, owner request) ---------- */
+  .abil { position: fixed; right: calc(var(--panel-w) + 18px); bottom: calc(var(--bar-h) + 8px); display: flex; gap: 6px; }
+  .ab { --cut: 8px; width: 48px; height: 48px; position: relative; display: grid; place-items: center; }
+  .ab img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+  .ab .cd { position: absolute; inset: 0; background: conic-gradient(rgba(14,25,48,.78) calc(var(--p) * 360deg), transparent 0); }
+  .ab .t { position: absolute; inset: auto 0 2px 0; text-align: center; font: 700 12px/1 var(--tx-font-data); color: #fff; text-shadow: 0 1px 2px #000; }
+  .ab .k { position: absolute; left: 2px; top: 2px; font: 700 9px/1 var(--tx-font-data); color: var(--tx-ink); background: var(--tx-accent); padding: 1px 3px; }
+  .ab.ready { box-shadow: 0 0 0 2px var(--tx-warn), 0 0 14px rgba(255,210,63,.7); }
+  @media (max-height: 500px) { .ab { width: 40px; height: 40px; } }
+
+  /* ---------- range ring (renderer idea, drawn here in CSS) ---------- */
+  .ring { position: fixed; border-radius: 50%; pointer-events: none; border: 1.5px dashed rgba(76,214,255,.9); background: radial-gradient(circle, rgba(76,214,255,.0) 60%, rgba(76,214,255,.16)); }
+  .ring::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: repeating-conic-gradient(rgba(76,214,255,.95) 0 1.2deg, transparent 1.2deg 15deg);
+    -webkit-mask: radial-gradient(circle, transparent calc(50% - 5px), #000 calc(50% - 5px) 50%, transparent 50%); mask: radial-gradient(circle, transparent calc(50% - 5px), #000 calc(50% - 5px) 50%, transparent 50%); }
+</style>
+</head>
+<body>
+<div class="map" id="map"></div>
+<div class="ring" id="ring" hidden></div>
+
+<header class="hud">
+  <div class="tx-panel ro sq" title="Pause"><svg viewBox="0 0 24 24" fill="#eaf3ff"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></div>
+  <div class="tx-panel ro"><svg class="ico" viewBox="0 0 24 24"><path fill="#ff7aa8" d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.6 5c2.1 0 3.6 1.2 5.4 3.1C13.8 6.2 15.3 5 17.4 5c3.3 0 5.4 3.4 4.1 6.7C19.5 16.4 12 21 12 21z"/></svg>
+    <div class="stack"><span class="tx-label">Lives</span><span class="tx-num">150</span></div></div>
+  <div class="tx-panel ro"><span class="coin ico" style="width:18px;height:18px"></span>
+    <div class="stack"><span class="tx-label">Coins</span><span class="tx-num">1,250</span></div></div>
+  <div class="tx-panel ro wave"><div class="stack"><span class="tx-label">Wave <span class="tx-code" style="margin-left:6px">eta 00:12</span></span>
+    <span class="tx-num"><b>07</b>/12</span></div>
+    <div class="tx-seg" id="waveseg"></div></div>
+  <div class="intel"><div class="tx-panel"><span class="intel-tag">INTEL</span>
+    <span class="foe"><i></i>×12</span><span class="foe run"><i></i><span class="trait">!</span>×6</span><span class="foe arm"><i></i><span class="trait">A</span>×3</span><span class="foe"><i></i>×8</span><span class="foe run"><i></i>×4</span></div></div>
+  <div class="stage"><span class="tx-num">1-1 · FIRST PETALS</span><span class="diff">EASY</span></div>
+  <div class="tx-panel ro sq speed">2×</div>
+</header>
+
+<aside class="tx-panel panel tx-in tx-sweep" style="--sweep-w: 360px">
+  <div class="p-head">
+    <div class="p-port" style="box-shadow: inset 0 -3px 0 #7aa7d9"><img src="img/aoi-bust.webp" alt=""></div>
+    <div class="p-id">
+      <div class="p-name">Aoi <span class="p-tiers">2-0-1</span></div>
+      <div class="p-role"><span class="tx-chip">Marksman</span><span class="tx-chip">Pierce</span><span class="tx-code">SNT-02 · R</span></div>
+    </div>
+    <div class="p-x"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M5 5l14 14M19 5L5 19"/></svg></div>
+  </div>
+  <div class="p-scroll">
+    <div class="sec"><span class="tx-label">Target</span><div class="tgt"><span class="tx-chip on">First</span><span class="tx-chip">Last</span><span class="tx-chip">Strong</span><span class="tx-chip">Close</span></div></div>
+    <div class="stats">
+      <div class="main"><span class="tx-label">Dmg</span><span class="tx-num">5</span></div>
+      <div><span class="tx-label">Rate</span><span class="tx-num">1.40<small>/s</small></span></div>
+      <div><span class="tx-label">Range</span><span class="tx-num">4.0</span></div>
+      <div><span class="tx-label">Pierce</span><span class="tx-num">3</span></div>
+    </div>
+    <div class="sec"><span class="tx-label">Upgrades</span><span class="tx-rule line"></span><span class="tx-code">kills 34 · dmg 2,140</span></div>
+    <div class="path p0"><span class="tab"></span>
+      <div class="path-top"><span class="path-name">Piercing Arrows</span><span class="tx-seg" data-v="2" data-next="1"></span></div>
+      <div class="path-next"><b><em>T3</em>Steel Broadheads</b><span>Arrows punch through armor</span></div>
+      <button class="buy"><span class="coin"></span><span>650</span></button></div>
+    <div class="path p1 locked"><span class="tab"></span>
+      <div class="path-top"><span class="path-name">Rapid Volley</span><span class="tx-seg" data-v="0" data-lock="1"></span></div>
+      <div class="path-next"><b><em>T1</em>Quick Draw</b><span><svg class="lockico" viewBox="0 0 24 24" fill="#ff8fa3"><path d="M7 10V7a5 5 0 0 1 10 0v3h1v11H6V10zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>Two paths already upgraded</span></div>
+      <span></span></div>
+    <div class="path p2"><span class="tab"></span>
+      <div class="path-top"><span class="path-name">Sky Hunter</span><span class="tx-seg" data-v="1" data-next="1" data-cap="2"></span></div>
+      <div class="path-next"><b><em>T2</em>Wind Reading</b><span>Sees further; marks elites</span></div>
+      <button class="buy"><span class="coin"></span><span>200</span></button></div>
+  </div>
+  <div class="p-foot"><span><span class="tx-label">Invested</span> <span class="tx-num">600</span></span><span class="sell">SELL<b>+420</b></span></div>
+</aside>
+
+<div class="abil">
+  <div class="tx-panel ab ready"><img src="img/hikari-thumb.webp" alt=""><span class="k">1</span></div>
+  <div class="tx-panel ab"><img src="img/chika-thumb.webp" alt=""><span class="cd" style="--p:.62"></span><span class="t">18s</span><span class="k">2</span></div>
+</div>
+
+<nav class="bar" id="bar"></nav>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('map').style.backgroundImage = `url(${q.get('bg')})`;
+  // segmented bars
+  const seg = (el, n, v, next = -1, cap = 99, lock = false) => {
+    el.style.setProperty('--n', n);
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('i');
+      if (lock && i >= v) s.className = 'lock'; else if (i < v) s.className = 'on'; else if (i === next) s.className = 'next'; else if (i >= cap) s.className = 'cap';
+      el.appendChild(s);
+    }
+  };
+  seg(document.getElementById('waveseg'), 12, 7);
+  for (const el of document.querySelectorAll('.path .tx-seg')) {
+    const v = +el.dataset.v; const cap = el.dataset.cap ? +el.dataset.cap : 99;
+    seg(el, 5, v, el.dataset.next ? v : -1, cap, !!el.dataset.lock);
+  }
+  // tower bar
+  const girls = [['hikari', 'V', '#ff9fd2', 1], ['aoi', 'M', '#7aa7d9', 1], ['akane', 'B', '#7aa7d9', 1], ['chika', 'D', '#ff9fd2'], ['miko', 'H', '#ffd166'], ['sango', 'W', '#7aa7d9']];
+  const costs = [520, 200, 480, 650, 450, 560]; // live base costs (units.js, Normal)
+  const bar = document.getElementById('bar');
+  girls.forEach(([id, role, r, dep], i) => {
+    const c = document.createElement('div');
+    c.className = 'card' + (dep ? ' dep' : '') + (id === 'aoi' ? ' sel' : '');
+    c.style.setProperty('--r', r);
+    c.innerHTML = `<img src="img/${id}-thumb.webp" alt=""><span class="role">${role}</span><span class="cost"><span class="coin" style="width:11px;height:11px"></span>${costs[i]}</span>`;
+    bar.appendChild(c);
+  });
+  if (q.get('ring')) { const r = document.getElementById('ring'); const [x, y, d] = q.get('ring').split(',').map(Number); Object.assign(r.style, { left: `${x - d / 2}px`, top: `${y - d / 2}px`, width: `${d}px`, height: `${d}px` }); r.hidden = false; }
+</script>
+</body>
+</html>
