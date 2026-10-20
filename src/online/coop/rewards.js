@@ -79,7 +79,8 @@ function addSightings(profile, encountered, kills) {
 export function applyCoopResult(profile, result, rng) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
-  if (!stage) return out;
+  // event stages never run in co-op (EVENT_SPEC E11): a hand-edited room link pays nothing
+  if (!stage || stage.kind === 'event') return out;
   const kills = addSightings(profile, result.encountered, result.kills);
   const rewards = [];
   if (result.won) {
@@ -310,7 +311,7 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
-  if (!stage || !table) return out;
+  if (!stage || stage.kind === 'event' || !table) return out;
   const goal = count(result.goal ?? stage.waves);
   const cleared = count(result.wavesCleared);
   const waves = Math.max(0, cleared - goal);

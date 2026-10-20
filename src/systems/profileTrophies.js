@@ -13,6 +13,7 @@ import { bestiaryPercent } from './missions.js';
 import { NO_COSMETIC, honorOf, earnedAchievementTitles, honorCount, killsAll } from './profileHonors.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { markedTags } from '../data/playerTags.js';
+import { eventCosmetics } from './events.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const counters = (p) => (isObj(p?.missions?.counters) ? p.missions.counters : {});
@@ -44,6 +45,7 @@ export function earnedTitles(p) {
     const fp = FREEPLAY_TITLES[id];
     if (fp) return fp.tiers.some((t) => c[`fpm:${t}:matriarch`] > 0) || legacy.includes(fp.legacy);
     if (TITLES[id].tag) return tags.includes(TITLES[id].tag);
+    if (TITLES[id].event) return eventCosmetics(p).titles.includes(id);
     return ach.has(id);
   });
 }
@@ -54,7 +56,7 @@ export function earnedTitles(p) {
  */
 export function titleChoices(p) {
   const earned = new Set(earnedTitles(p));
-  return Object.keys(TITLES).filter((id) => !TITLES[id].tag || earned.has(id));
+  return Object.keys(TITLES).filter((id) => (!TITLES[id].tag && !TITLES[id].event) || earned.has(id));
 }
 
 /**
@@ -76,6 +78,7 @@ export function earnedFrames(p) {
     ur: ownsUR(p),
     eclipse: FREEPLAY_TIERS.some((t) => c[`fpm:${t}:wyrm`] > 0) || fpLegacy(p, 'frames').includes('eclipse'),
   };
+  for (const id of eventCosmetics(p).frames) earned[id] = true; // bought in a limited-event exchange
   return FRAME_IDS.filter((id) => earned[id]);
 }
 

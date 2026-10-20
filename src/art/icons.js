@@ -12,8 +12,9 @@ import { n, lighten, darken, linGrad, starPoints, blossom, slug } from './svgUti
 import { GLYPHS, glyphSVG } from './icons/glyphs.js';
 import {
   icon64, materialBody, bookBody, crownBody, diceBody, starFragmentBody, gearboxBody, ticketBody,
-  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody,
+  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, eventCurrencyBody,
 } from './icons/items.js';
+import { eventOfItem } from '../data/events/index.js';
 import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
 
 // ---------------------------------------------------------------------------------
@@ -41,6 +42,8 @@ function itemBody(itemId) {
   const id = String(itemId || '');
   if (SPECIAL_ITEMS[id]) return SPECIAL_ITEMS[id]();
   if (CROWN_IDS.includes(id)) return crownBody(id);
+  const ev = eventOfItem(id);
+  if (ev) return eventCurrencyBody(ev.currency.icon.shape, ev.currency.icon.color, ev.currency.icon.accent);
   let m = /^mat_([a-z]+)_([a-zA-Z]+)$/.exec(id);
   if (m && MATERIAL_FAMILIES[m[1]] && ITEM_RARITIES[m[2]]) return materialBody(m[1], m[2]);
   m = /^book_([a-zA-Z]+)$/.exec(id);

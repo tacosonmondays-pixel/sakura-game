@@ -4,6 +4,7 @@
 // Origin = tile centre on the ground, +y up, footprint ≈ 1 tile.
 import * as THREE from 'three';
 import { GeoBuilder, makeRand, hash } from './geo.js';
+import { addPumpkin, PUMPKIN_COLORS } from './pumpkin.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
 
@@ -397,6 +398,20 @@ const BUILDERS = {
     c.solid.cyl(0.04, 0.045, 0.16, 6, { color: '#e8eef8' });
     c.glow.sphere(0.04, 8, 6, { y: 0.21, sy: 1.6, color: '#9fdcff' });
     glowPoint(c, 0, 0.22, 0, '#8fd0ff', 0.6, 0.3);
+  },
+  /** Halloween event: a carved jack-o'-lantern with a warm glowing face, plus a smaller buddy or two. */
+  pumpkin(c) {
+    const v = c.variant % 4;
+    const big = 0.22 + c.rand() * 0.03;
+    addPumpkin(c.solid, c.glow, { r: big, ry: (c.rand() - 0.5) * 0.5, face: v % 2 ? 'grin' : 'smile', leaf: v !== 2, ws: 14, hs: 9 });
+    glowPoint(c, 0, big * 0.7, big * 0.9, '#ffa040', c.look.night ? 0.95 : 0.6, 0.25);
+    const buddies = v === 3 ? 2 : 1;
+    for (let i = 0; i < buddies; i++) {
+      // tucked behind the big one (toward the tree / rock it leans on), not out into the tile next door
+      const a = Math.PI * 1.5 + (i - (buddies - 1) / 2) * 1.1 + (c.rand() - 0.5) * 0.3;
+      const r = 0.1 + c.rand() * 0.04;
+      addPumpkin(c.solid, null, { r, x: Math.cos(a) * (big + r * 0.7), z: Math.sin(a) * (big + r * 0.7), ry: c.rand() * 6.28, color: i % 2 ? '#f6a33b' : PUMPKIN_COLORS.skinDark, ws: 10, hs: 7 });
+    }
   },
   bogLight(c) {
     c.solid.cyl(0.02, 0.03, 0.35, 4, { color: '#4d4236' });
