@@ -540,11 +540,17 @@ export class Drones {
     const look = g.look;
     let hT = DRONE.H_ORB;
     if (v.state === ST_LAUNCH) {
-      v.launchT += dt;
-      v.grow = 0.35 + 0.65 * Math.min(1.1, easeOutBack(Math.min(1, v.launchT / DRONE.LAUNCH_T)));
-      if (v.launchT >= DRONE.LAUNCH_T) {
-        v.launchT = -1;
-        v.grow = 1;
+      // The hop ends on one fixed sub-step, but update() only re-reads the state next frame: the
+      // frame's later sub-steps still see LAUNCH with launchT = -1 (done). Counting on from -1 fed
+      // easeOutBack a negative time and set grow to about -107 for good (the owner's giant drone at
+      // 3x, Sandbox, 5-0-2), so only a running hop advances, and grow stays within the hop's range.
+      if (v.launchT >= 0) {
+        v.launchT += dt;
+        v.grow = 0.35 + 0.65 * Math.min(1.1, easeOutBack(clamp01(v.launchT / DRONE.LAUNCH_T)));
+        if (v.launchT >= DRONE.LAUNCH_T) {
+          v.launchT = -1;
+          v.grow = 1;
+        }
       }
       hT = DRONE.H_ORB;
     } else if (v.state === ST_ORBIT) {

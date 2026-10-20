@@ -23,6 +23,22 @@ export function readIdentity(perTab = false) {
   }
 }
 
+/**
+ * True once this browser has an online account: a chosen name, or a kept sign-in (the Supabase session in
+ * localStorage, 'ss-online-auth' in adapters/supabase.js; the local test server's per-tab id, 'ss-online-tab' in
+ * adapters/local.js). A player who tapped "Not now" on the name prompt has the session but no name: the boot
+ * still brings them online (badges, their profile card published) without asking anything.
+ * @param {boolean} perTab store per tab (local adapter)
+ */
+export function hasOnlineAccount(perTab = false) {
+  if (readIdentity(perTab).name) return true;
+  try {
+    return !!(perTab ? globalThis.sessionStorage?.getItem('ss-online-tab') : globalThis.localStorage?.getItem('ss-online-auth'));
+  } catch {
+    return false;
+  }
+}
+
 export function writeIdentity(patch, perTab = false) {
   const next = { ...readIdentity(perTab), ...patch };
   try {

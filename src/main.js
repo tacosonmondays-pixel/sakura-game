@@ -170,10 +170,13 @@ if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 
 else setTimeout(warmModels, 1200);
 
 // [social] badges, live DMs and invite pop-ups for players who already went online (a stored
-// online name; the hub never creates an account). Lazy, after the first screen.
+// online name, or a kept sign-in after "Not now"; the hub never creates an account). It also publishes
+// their Sensei Profile card (ensureOnline → profileSync) without the Profile screen ever being opened.
+// Lazy, after the first screen.
 try {
-  // (local mode keeps the name per tab; startSocialHub() checks the right one)
-  if ([localStorage, sessionStorage].some((st) => st.getItem('ss-online-v1')?.includes('"name"'))) {
+  // (local mode keeps the name and the account per tab; startSocialHub() checks the right one)
+  if ([localStorage, sessionStorage].some((st) => st.getItem('ss-online-v1')?.includes('"name"'))
+    || localStorage.getItem('ss-online-auth') || sessionStorage.getItem('ss-online-tab')) {
     setTimeout(() => import('./ui/online/socialHub.js').then((m) => m.startSocialHub()).catch((e) => console.warn('[main] social hub unavailable', e)), 1500);
   }
 } catch {

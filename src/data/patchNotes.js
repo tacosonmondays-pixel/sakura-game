@@ -20,6 +20,16 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.36', version: '0.1.36', date: '2026-10-16', title: 'Drone fix & profiles for everyone',
+    fixed: [
+      'Fixed a giant Chika drone that could appear and cover the map at 3x speed.',
+      'Every player’s profile is now ready to visit as soon as they’re online, even if they never opened their Profile screen.',
+    ],
+    changed: [
+      'Visiting someone who hasn’t opened the new version yet now shows a basic profile with their name, level, clan and tags instead of a dead end.',
+    ],
+  },
+  {
     id: 'v0.1.35', version: '0.1.35', date: '2026-10-16', title: 'Little fixes',
     fixed: [
       'Edit Profile on phones: the “soon” badge no longer pokes out of its tab.',
