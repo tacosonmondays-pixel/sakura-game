@@ -7,8 +7,10 @@ import { svgEl } from './components.js';
 import { uiIcon } from '../art/icons.js';
 import { tagChips, tagChip, tierIconEl, pathSummaryChips } from './tagChips.js';
 import { tagText, TRANSFORM_TAG } from './upgradeTags.js';
+import { fmtNum } from './format.js';
 
-const fmt = (n) => (n == null ? '–' : Math.round(n).toLocaleString('en-US'));
+/** A price or a shortfall: money, rounded up ('–' when unknown). */
+const fmt = (n) => fmtNum(n, 'money', { round: 'up' });
 const STATE_WORD = { owned: 'owned', next: 'next', later: 'later', blocked: 'locked' };
 
 function costText(cell) {
