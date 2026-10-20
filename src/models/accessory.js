@@ -1,5 +1,5 @@
 // Head accessories: ribbon, bunny/cat/fox ears, hairpin, beret, witch hat, horns, flower,
-// goggles, hood, headband, crown.
+// goggles, hood, headband, crown, cap.
 import * as THREE from 'three';
 import { BONES, LM } from './body.js';
 import {
@@ -249,6 +249,17 @@ export function buildAccessory(ctx) {
         const pts = smoothPath([k, k.clone().add(V(side * 0.18, -0.2, -0.2)), k.clone().add(V(side * 0.35, -0.6, -0.35))], 8);
         add(part(strand(pts, (t) => [0.08 - 0.02 * t, 0.025], { radial: 6, up: () => V(0, 0, -1) }), { color: acc, bone: BONES.tailB }));
       }
+      break;
+    }
+    case 'cap': {
+      // Peaked captain's cap (roster merge): crown in the accent colour, dark band and visor, gold badge.
+      const top = onHead(ctx, 0.06 * Math.PI, 0, 0.12);
+      const dark = col(pal.outfit).lerp(col('#000000'), 0.3);
+      const crownG = lathe([[0.0, 0.36], [0.95, 0.34], [1.02, 0.26], [0.86, 0.06], [0.84, 0.0], [0.0, 0.0]], s * 2);
+      add(part(crownG, { pos: [top.x, top.y - 0.12, top.z - 0.04], rot: [-0.15, 0, 0], color: acc, bone: BONES.head }));
+      add(part(cyl(0.87, 0.87, 0.12, s * 2), { pos: [top.x, top.y - 0.08, top.z - 0.04], rot: [-0.15, 0, 0], color: dark, bone: BONES.head }));
+      add(part(ellipsoid(0.62, 0.05, 0.42, s, 6), { pos: [top.x, top.y - 0.16, top.z + 0.62], rot: [0.12, 0, 0], color: dark, bone: BONES.head }));
+      add(part(sphere(0.1, 8, 6), { pos: [top.x, top.y + 0.06, top.z + 0.8], color: col('#ffd45e'), bone: BONES.head }));
       break;
     }
     case 'crown': {

@@ -199,14 +199,20 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
 // and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
+import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
 
 describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
     const TIERS = [[0, 0, 0], [5, 0, 2], [2, 5, 0], [0, 2, 5]];
     const out = [];
-    for (const u of REAL_UNITS) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
+    for (const u of REAL_UNITS.filter((d) => !EXPANSION_IDS.includes(d.id))) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
       for (const us of [null, { damageMul: 1.3, rateMul: 1.1, rangeMul: 1.05, critChance: 0.1, awakenPassive: true, potential: 1 }]) {
-        out.push(resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us }));
+        const st = resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us });
+        // the roster merge's neutral keys (airMul 1, gather 0, relay null) are not part of the pinned hash
+        delete st.airMul;
+        delete st.gather;
+        delete st.relay;
+        out.push(st);
       }
     }
     let h = 0x811c9dc5;
@@ -365,5 +371,22 @@ describe('resolveStats `extra` (a running ability boost, src/sim/abilities.js)',
     const base = resolveStats(REAL.raika, { tiers: [0, 0, 3] });
     expect(raika.chain).toBe(base.chain + 2);
     expect(raika.status.find((s) => s.type === 'shock')).toEqual({ type: 'shock', duration: 0.25 });
+  });
+});
+
+// Roster B3 keys (ROSTER_SPEC §6.2): airMul multiplies, gather adds, relay reach adds (only for a relay
+// girl), and the neutral defaults.
+describe('roster B3 mod keys', () => {
+  test('defaults, airMul (mul), gather (add), relay reach (add, relay girls only), both', () => {
+    const s = normalizeBase({});
+    expect([s.airMul, s.gather, s.relay]).toEqual([1, 0, null]);
+    const r = normalizeBase({ airMul: 2, relay: { kind: 'mirror', reach: 3, both: true } });
+    applyModSet(r, { airMul: 1.5, gather: 0.2, relay: { reach: 0.5 } }, { damageAdd: 0, damageMul: 1 });
+    expect(r.airMul).toBe(3);
+    expect(r.gather).toBeCloseTo(0.2, 12);
+    expect(r.relay).toEqual({ kind: 'mirror', reach: 3.5, both: true });
+    const n = normalizeBase({});
+    applyModSet(n, { relay: { reach: 1 } }, { damageAdd: 0, damageMul: 1 });
+    expect(n.relay).toBe(null);
   });
 });

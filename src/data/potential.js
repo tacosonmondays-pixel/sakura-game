@@ -61,7 +61,7 @@ export const POTENTIAL_LADDERS = deepFreeze({
 });
 
 /** The stat track a girl spends (default: her rarity's): Nami's own, the two supports' aura track, Momo's coins. */
-export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins' });
+export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura' });
 
 /** Rows for defs without one (fixtures, dev units only; a test requires every shipped girl's own row). */
 const fixtureRow = (track, kinds) => ({
@@ -248,6 +248,81 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Starlit Pace', 'kit', { rateMul: 1.07 }, { ult: { buffDuration: 3, rateBuff: 0.05 } }),
     p5: step('Tidelocked Moon', 'kit', { damageMul: 1.08 }, { ult: { haste: 0.1, duration: 2, status: [S.vulnerable(0.15, 8)] } }),
     p6: step('Eclipse Crown', 'cap', { rateMul: 1.09 }, { ult: { rateBuff: 0.05 }, aura: { range: 3, dmgMul: 1.08, rateMul: 1.08 } }),
+  },
+  // Roster wave (track 5): the nine returning girls. First-pass rows on safe kit keys (pierce, armor
+  // pen, crit, a named rhythm, statusAdd onto a status she has, her ultimate), inside the §3.4 ceilings;
+  // re-measured in the owner's balance pass with the B1 bench.
+  // Fuu, R displacement
+  fuu: {
+    p2: step('Warm-up Spin', 'stat', { damageMul: 1.04 }),
+    p3: step('Through Gust', 'kit', { rateMul: 1.04 }, { pierce: 1 }),
+    p4: step('Turbine Kick', 'kit', { damageMul: 1.04 }, { proc: { name: 'Turbine Kick', every: 6, damageMul: 1.3, splash: 0.3 } }),
+    p5: step('Clean Lines', 'kit', { rateMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p6: step('Gale Finale', 'cap', { damageMul: 1.05 }, { proc: { every: 4, damageMul: 1.5, status: [S.stun(0.3)] } }),
+  },
+  // Hana, R falconer
+  hana: {
+    p2: step('Field Practice', 'stat', { damageMul: 1.04 }),
+    p3: step('Sight Tune', 'kit', { rateMul: 1.04 }, { armorPen: 1, crit: { chance: 0.03 } }),
+    p4: step('Kaze Patrol', 'kit', { damageMul: 1.04 }, { proc: { name: 'Kaze Dive', every: 8, damageMul: 2 } }),
+    p5: step('Steady Glove', 'kit', { rateMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p6: step('Falcon Sky', 'cap', { damageMul: 1.05 }, { proc: { every: 6, damageMul: 2.5 } }),
+  },
+  // Ruri, SR summoner (her bolts leave Kon, the holo familiar)
+  ruri: {
+    p2: step('Bookmark Charm', 'stat', { damageMul: 1.04 }),
+    p3: step('Page Turn', 'kit', { rateMul: 1.05 }, { pierce: 1 }),
+    p4: step('Kon\'s Pounce', 'kit', { damageMul: 1.05 }, { proc: { name: 'Kon Pounce', every: 6, damageMul: 1.6, splash: 0.3 } }),
+    p5: step('Holo Sigil', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
+    p6: step('Spirit Library', 'cap', { damageMul: 1.07 }, { proc: { every: 4, damageMul: 2 } }),
+  },
+  // Noa, SR purifier (the aura track, like Umeko)
+  noa: {
+    p2: step('Spring Check', 'stat', null, { aura: { rateMul: 1.03 } }),
+    p3: step('Wide Field', 'kit', null, { aura: { rateMul: 1.03, rangeAdd: 0.4 } }),
+    p4: step('Steady Hands', 'kit', null, { aura: { rateMul: 1.03, critChance: 0.04 } }),
+    p5: step('Clear Mind', 'kit', null, { aura: { rateMul: 1.03, armorPen: 1 } }),
+    p6: step('Sakura Shield', 'cap', null, { aura: { rateMul: 1.03 }, proc: { name: 'Sakura Pulse', every: 3, auraBoost: { time: 3, rateMul: 1.1 } } }),
+  },
+  // Iroha, SSR mirror (two firing points)
+  iroha: {
+    p2: step('Polished Pane', 'kit', { damageMul: 1.05 }, { pierce: 1 }),
+    p3: step('Drone Easel', 'kit', { rateMul: 1.07 }, { armorPen: 1 }),
+    p4: step('Twin Gleam', 'kit', { damageMul: 1.07 }, { proc: { name: 'Twin Gleam', every: 6, damageMul: 1.5 } }),
+    p5: step('Silver Focus', 'kit', { rateMul: 1.08 }, { crit: { chance: 0.06 } }),
+    p6: step('Hall of Light', 'cap', { damageMul: 1.09 }, { proc: { every: 4, damageMul: 2 } }),
+  },
+  // Ena, SSR hexer
+  ena: {
+    p2: step('Marked Deck', 'kit', { damageMul: 1.05 }, { statusAdd: [{ type: 'curse', duration: 1 }] }),
+    p3: step('Quick Shuffle', 'kit', { rateMul: 1.07 }, { crit: { chance: 0.05 } }),
+    p4: step('Bad Omen', 'kit', { damageMul: 1.07 }, { proc: { name: 'Bad Omen', every: 5, damageMul: 1.6 } }),
+    p5: step('Thread Weave', 'kit', { rateMul: 1.08 }, { armorPen: 1 }),
+    p6: step('Full House', 'cap', { damageMul: 1.09 }, { proc: { every: 4, damageMul: 2, status: [S.vulnerable(0.1, 3)] } }),
+  },
+  // Kanna, SSR hero (P3 and P5 live in her ultimate)
+  kanna: {
+    p2: step('Drum Warm-up', 'kit', { damageMul: 1.05 }, { proc: { name: 'Big Beat', every: 6, damageMul: 1.5 } }),
+    p3: step('Festival Tempo', 'kit', { damageMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Crowd Roar', 'kit', { rateMul: 1.07 }, { proc: { every: 5, damageMul: 1.75 } }),
+    p5: step('Encore Drumfall', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [S.vulnerable(0.12, 6)] } }),
+    p6: step('Grand Matsuri', 'cap', { rateMul: 1.09 }, { ult: { haste: 0.1 }, proc: { every: 4, damageMul: 2, status: [S.stun(0.3)] } }),
+  },
+  // Yoriko, SSR hero
+  yoriko: {
+    p2: step('Fine Strings', 'kit', { damageMul: 1.05 }, { statusAdd: [{ type: 'slow', amount: 0.05 }] }),
+    p3: step('Stage Cue', 'kit', { rateMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Dream Hex', 'kit', { damageMul: 1.07 }, { ult: { statusAdd: [{ type: 'hex', pct: 0.005 }] } }),
+    p5: step('Curtain Rise', 'kit', { rateMul: 1.08 }, { proc: { name: 'Curtain Rise', every: 5, damageMul: 1.5, status: [S.stun(0.3)] } }),
+    p6: step('Midnight Encore', 'cap', { damageMul: 1.09 }, { ult: { haste: 0.1 }, proc: { every: 4, damageMul: 1.8 } }),
+  },
+  // Seiran, SSR hero
+  seiran: {
+    p2: step('Spark Drill', 'kit', { damageMul: 1.05 }, { chain: 1 }),
+    p3: step('Flight Plan', 'kit', { damageMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Thunder Lance', 'kit', { rateMul: 1.07 }, { proc: { name: 'Thunder Lance', every: 6, nova: { radius: 0.8, share: 0.3 } } }),
+    p5: step('Dragon Wake', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [{ type: 'mark', bonus: 0.05 }] } }),
+    p6: step('Storm Crown', 'cap', { rateMul: 1.09 }, { chain: 1, ult: { haste: 0.1 } }),
   },
 });
 

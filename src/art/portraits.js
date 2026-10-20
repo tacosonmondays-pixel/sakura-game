@@ -62,6 +62,18 @@ export const PORTRAIT_DATA = {
   miko: { face: [46, 21], cut: 0.538 },
   midori: { face: [46, 21], cut: 0.552 },
   momo: { face: [46, 22], cut: 0.579 },
+  // the returning girls (roster wave): clean PLACEHOLDER sets (palette gradient, simple chibi figure,
+  // name, "Art coming soon") drawn by tools/art/placeholder_portraits.py until the owner approves
+  // their painted art; regenerate or replace the files, then update face / cut here.
+  kanna: { face: [50, 24], cut: 0.552 },
+  yoriko: { face: [50, 24], cut: 0.448 },
+  seiran: { face: [50, 24], cut: 0.406 },
+  fuu: { face: [50, 25], cut: 0.586 },
+  hana: { face: [50, 25], cut: 0.385 },
+  ruri: { face: [50, 25], cut: 0.385 },
+  noa: { face: [50, 25], cut: 0.385 },
+  iroha: { face: [50, 25], cut: 0.385 },
+  ena: { face: [50, 25], cut: 0.385 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

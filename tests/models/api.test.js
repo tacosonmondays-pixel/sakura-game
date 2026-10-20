@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildChibi, preloadModels, buildEnemy, makeSilhouette, disposeObject, CHIBI_HEIGHT, FACE_CELLS, characterUrl } from '../../src/models/index.js';
 import { UNITS, getUnit } from '../../src/data/units.js';
+import { SKINS, SKIN_MAP } from '../../src/data/skins.js';
 
 describe('models api (node fallback)', () => {
   it('preloadModels resolves false without a browser', async () => {
@@ -29,6 +30,26 @@ describe('models api (node fallback)', () => {
       disposeObject(g);
       expect(g.userData.disposed).toBe(true);
     }
+  });
+
+  it('buildChibi dresses a girl in any of her outfits (procedural placeholder in the outfit colours)', () => {
+    for (const s of SKINS) {
+      const u = getUnit(s.unitId);
+      const g = buildChibi(u, { quality: 'low', skin: s.id });
+      expect(g).toBeInstanceOf(THREE.Group);
+      expect(g.userData.unitId, s.id).toBe(s.unitId);
+      expect(g.userData.skinId, s.id).toBe(s.id);
+      disposeObject(g);
+    }
+    // a SkinDef works too; another girl's / unknown outfits fall back to her default
+    expect(buildChibi(getUnit('aoi'), { skin: SKIN_MAP.aoi_sentinel }).userData.skinId).toBe('aoi_sentinel');
+    expect(buildChibi(getUnit('aoi'), { skin: 'yuki_sentinel' }).userData.skinId).toBe('aoi_default');
+    expect(buildChibi(getUnit('aoi'), { skin: 'nope' }).userData.skinId).toBe('aoi_default');
+    expect(buildChibi(getUnit('aoi')).userData.skinId).toBe('aoi_default');
+  });
+
+  it('preloadModels accepts an outfit map', async () => {
+    expect(await preloadModels(['aoi', 'hikari'], { detail: 'lod', skins: { aoi: 'aoi_sentinel' } })).toBe(false);
   });
 
   it('exposes the face cells and character urls', () => {

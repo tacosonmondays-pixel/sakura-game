@@ -21,9 +21,20 @@ import { raika } from './styles/raika.js';
 import { miko } from './styles/miko.js';
 import { hotaru } from './styles/hotaru.js';
 import { kaede } from './styles/kaede.js';
+// the returning girls (roster wave, src/data/unitsExpansion.js)
+import { kanna } from './styles/kanna.js';
+import { yoriko } from './styles/yoriko.js';
+import { seiran } from './styles/seiran.js';
+import { fuu } from './styles/fuu.js';
+import { hana } from './styles/hana.js';
+import { ruri } from './styles/ruri.js';
+import { noa } from './styles/noa.js';
+import { iroha } from './styles/iroha.js';
+import { ena } from './styles/ena.js';
 
 export const STYLE_BY_UNIT = {
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
+  kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */

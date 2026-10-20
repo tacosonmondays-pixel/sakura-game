@@ -120,9 +120,18 @@ lets every path at T3+ show at once (a Lv 25 hero has all three capstones); hero
 | Miko | spark talisman + aura → beam (P1 T5) | fluttering ofuda talismans, confetti + holy flash | P0 bells on the aura edge, T5 ribbon ring · P1 bigger talismans + ring, T5 sun mirror (the beam shines from it) · P2 notes on the aura edge |
 | Hotaru | pulse holy | firefly swarm; one firefly streaks to every victim and bursts | P0 more / gold fireflies · P1 hush ripple on silence · P2 a firefly over each ally in her aura |
 | Kaede | duel ramp | maple lunge (step + rapier glint) + thrust line + ramp-sized slash, maple leaves orbit (1 per 2 hits), scatter on reset | P0 up to 8 / glowing leaves · P1 afterimage streak, T5 leaf burst · P2 pommel shock ring on stun |
+| Kanna ★ | duel ramp + shred | the usual slash + a coral drum ring popping out of her target; 2 rings at ramp 3, 3 at ramp 6 | (hero: no path looks) · ult Festival Drumfall → rosterFx |
+| Yoriko ★ | needles ×2, slow | each needle stays tied to her hand by a fine lilac thread while it flies; lilac ring on a real hit | (hero) · ult Dream Detour keeps the tide look |
+| Seiran ★ | chain, air bonus | light-blue chain lightning from her lance tip, a gold star at every node | (hero) · ult Dragonflight → rosterFx sky dragon |
+| Fuu | gusts ×3, knock-back | a mint swirl spins at her fan on each sweep; every gust flies as a spinning mint swirl + wind streak; small swirl on a hit | P1 T3 landing swirl = splash radius · P2 T3 downdraft streak on the hit |
+| Hana | arrow, air ×2, grounding | gold arrow streak; on a flyer her falcon drone dives from above onto the same enemy (hawk + white streak); dust ring on `ground` | P0 T3 the falcon dives on every shot · P2 T3 longer streaks |
+| Ruri | bolt from her familiar (relay) | every bolt leaves Kon (the holo fox at her origin): blue flash at the fox, blue holo bolt + trail, ring on a hit | P0 T3 bite slash · P1 T3 feather flick · P2 T3 water ripple |
+| Noa | pulse holy + sanctuary | two soft sakura-pink rings to the radius, a chime note over her, a petal flick off every attributed victim | P0 T3 pink aura edge while selected · P1 T3 gold note |
+| Iroha | bolts ×2 from mirror + herself | silver star glint with a plum trail; the mirror flashes on each volley (her hand too when both fire) | P1 T3 a second, wider plum trail |
+| Ena | curse cards | a spinning crimson holo card with a red thread of light back toward her hand; crimson flash on a hit | P0 T3 petal flick |
 
-Unknown girls (roster B3 and later) get `generic` (today's look) or their behaviour's default
-(`turret` → drones). Add a style with one line: `registerStyle('newGirl', style)`; new sim events
+The nine returning girls (roster wave) have their own styles too. Unknown girls (later waves) get
+`generic` (today's look) or their behaviour's default (`turret` → drones). Add a style with one line: `registerStyle('newGirl', style)`; new sim events
 that name a girl (`towerUid` / `ownerUid`) reach `style.onOther(ev, tw, t, ctx, i, events)`.
 
 ### Style hooks (all optional)
@@ -140,6 +149,24 @@ ripples, drum beats, double rings), `motes` (swarms), `patrol` (aura-edge famili
 `spotter` (hawk), `lunge` (model offsets), `toss` (seal toss), `clones` (afterimages, shadow
 clones), `bursts` (impact flourishes). Hit attribution for area girls: `math/victims.js` walks back
 over the `hit` events just before a `pulse` / hitscan `attack` (the sim emits hits → pulse → attack).
+
+## Roster mechanics on the board (`src/render/rosterFx.js`)
+
+Not attack styles: one small renderer system for the roster B3 sim mechanics, fed every drained
+event after the attack FX (`roster.handle(ev)`, true = drawn) and updated once per frame after the
+attack FX. Read-only like everything here (sim events, `sim.towers`, `sim.runners`, `sim.time`).
+
+| Sim | Drawn |
+|---|---|
+| `mortarWarn` / `shellLand` | a thin orange ring of the shell radius that fills (disc) over `delay` (sim time), a dot at the centre and a small shell lobbing from her firing point; `shellLand` removes it (the `explode` event draws the blast). A ring with no `shellLand` (wave clear, sold girl) times out 0.25 s after its delay. Max 48. |
+| relay origin (`t.origin`, `t.ox/oy`, `stats.relay`; `relay` event) | familiar = Kon, a little low-poly holo fox (emissive pale blue, glow + ring under it, bobbing); mirror = an oval glass panel in a plum frame leaning back on a tripod easel, with a sheen and a sweeping glint. A dashed tether flows from the girl to the prop. Props glide to a moved origin (a puff + ring when it jumps), and go on `sell` / when the girl is gone. On her own spot the prop steps aside 0.34 tiles. One draw call each (merged, vertex coloured), max 24. |
+| selected relay girl | the range ring is centred on her origin (`overlays.js`). |
+| `aim` / `t.aim` + `aimMode(t)` | a reticle decal at the aim point: always for mortar girls (orange), only while selected for mirror (lilac) and aimed-ult heroes (light blue); a small shrinking ring when an aim is set. |
+| `curseBurst` | a purple ring to the burst radius, a soft disc, a flash and a few petals + sparks; each deeper generation ~20% smaller and fainter. Max 10 per frame. |
+| `ult` effect `strike` (Kanna) | a coral light pillar on the struck enemy, a flash and three concentric coral shockwaves (+ a faint white one), shards, a short beat line from her. The renderer keeps its screen flash (softer) but skips the map-wide ring and the flash on every enemy. |
+| `ult` effect `runner` + `sim.runners` (Seiran) | entry ring + gold sparkle; then a sky dragon every frame: one head + body beads along the road from `runnerSegment(sim, r, k)`, light blue with gold horns / fins, a soft glow, bobbing in a wave, tapering to the tail, shedding gold sparkles. Two instanced meshes (max 6 heads / 48 beads). Gone when the runner leaves `sim.runners`; `runnerEnd` sparkles at the head. |
+| statuses `curse`, `hex`, `ground` | enemy status icons (`actors.js`): a hex sigil (purple), a spiral (violet), an arrow onto a line (sand); `status` events flash in the same colours. Grounded flyers already drop to altitude 0 through `e.alt`. |
+
 
 ## Budgets
 

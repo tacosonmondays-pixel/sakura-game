@@ -13,8 +13,8 @@ import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX } from './constants.js';
 
-const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
-const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
+const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
+const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
 const REPLACE_KEYS = ['attackType', 'element', 'behavior'];
 
 function normAura(a = {}) {
@@ -136,6 +136,11 @@ export function normalizeBase(base = {}, unitDef = {}) {
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
+    // roster merge (ROSTER_SPEC §6.2): flyer damage multiplier, gather pull, relay origin
+    airMul: b.airMul ?? 1,
+    gather: b.gather ?? 0,
+    // both: she also fires from her own spot (Iroha's two firing points)
+    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
   };
 }
 
@@ -299,6 +304,9 @@ export function applyModSet(s, mods, acc) {
       s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
       s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
       s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
+    } else if (key === 'relay') {
+      // only a girl who already has a familiar / mirror can extend its reach
+      if (s.relay) s.relay.reach += v.reach ?? 0;
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

@@ -26,6 +26,8 @@ import {
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { UNITS } from './units.js';
+import { LEGACY, LEGACY_IDS } from './legacy.js';
+import { EXPANSION_IDS } from './unitsExpansion.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -63,6 +65,17 @@ export const ROLE_SUBCLASS = {
   support: { label: 'Utility Aura', desc: 'Detection and range aura (water).' },
   trapper: { label: 'Traps', desc: 'Rune traps near the exit.' },
   engineer: { label: 'Builder', desc: 'Sentries and cleanse vs sabotage.' },
+  displacement: { label: 'Push-back', desc: 'Pushes enemies back and gathers them into clumps.' },
+  falconer: { label: 'Anti-Air', desc: 'Hunts flyers first and grounds them for the team.' },
+  summoner: { label: 'Familiar', desc: 'A familiar fights from the edge of the nearest lane.' },
+  purifier: { label: 'Cleanser', desc: 'Sanctuary that stops sabotage and volatile stuns.' },
+  mortar: { label: 'Aimed Bombardment', desc: 'Map-wide shells that land 1 s after a warning ring.' },
+  prism: { label: 'Line Pierce', desc: 'Prism beams pierce a whole line and build focus.' },
+  mirror: { label: 'Relay Caster', desc: 'Bolts fire from a mirror placed beside a far lane.' },
+  hexer: { label: 'Chain Curse', desc: 'Cursed enemies burst on death and pass the curse on.' },
+  champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
+  puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
+  stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
 };
 
 /**
@@ -165,7 +178,7 @@ function controls() {
         ['Move hero', 'Move in her panel', 'Move in her panel'],
       ]),
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
-      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
+      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first; "Air" shoots flyers first (then the leader).`)),
     sec('Menus',
       list([
         'The back arrow (top left) returns to the previous screen; the house icon goes to the lobby.',
@@ -473,7 +486,7 @@ function mapsArticle() {
       ])),
     sec('Placement',
       table(['Placement', 'Rule'], Object.values(PLACEMENT).map((x) => [{ text: x.name, strong: true }, x.desc])),
-      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Water girls' }),
+      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Girls who can stand on water' }),
   ]);
 }
 
@@ -613,9 +626,51 @@ function buffsArticle() {
   ]);
 }
 
+function codexArticle() {
+  const girls = LEGACY_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  const towersOnly = girls.filter((u) => u.kind === 'tower');
+  return article('codex', 'Codex Kits', 'students', 'wiki', 'The original Sakura Sentinels Codex: every returning girl\'s old title, trait and upgrades.', ['codex', 'legacy', 'classic', 'old', 'original', 'trait', 'upgrade', 'amphibious'], [
+    sec('Returning girls',
+      p('The nineteen original Sentinels came back with their Codex looks and titles. Their old one-line trait and their three old upgrades are shown as the "Codex kit" line on each Info tab. Their upgrade paths and numbers are today\'s academy kits.'),
+      table(['Girl', 'Codex title', 'Codex kit'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].title, LEGACY[u.id].trait,
+      ]))),
+    sec('Codex upgrades',
+      table(['Girl', 'Codex upgrades', 'Today\'s paths'], towersOnly.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].upgrades.join(' · '), u.paths.map((path) => path.name).join(' · '),
+      ])),
+      tip('Heroes levelled up automatically in the Codex and had no upgrades.', 'info')),
+    sec('Land and water',
+      p('Girls who fought from land and water in the Codex are amphibious again: they deploy on open ground or on water.'),
+      { type: 'units', ids: girls.filter((u) => u.placement === 'amphibious').map((u) => u.id), caption: 'Amphibious girls' }),
+  ]);
+}
+
+function returningArticle() {
+  const girls = EXPANSION_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  return article('returning', 'Returning Girls', 'students', 'wiki', 'Nine girls from the older build are back in academy uniforms with tech gear, with their own tricks: aimed shots, familiars, mirrors, grounding, gusts and curses.', ['returning', 'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena', 'aim', 'mirror', 'familiar', 'curse', 'hex', 'ground', 'grounded', 'push', 'gather'], [
+    sec('Who is back',
+      p('Kanna, Yoriko and Seiran are adult staff heroes; Fuu, Hana, Ruri, Noa, Iroha and Ena are students. Noa joins free after 6-2 and Hana after 7-5; the others come from recruiting. Their art is a placeholder until the real portraits and chibis are drawn.'),
+      table(['Girl', 'Role', 'What she does'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
+      ]))),
+    sec('Aim points',
+      p('Some girls have an aim point: Iroha\'s mirror panel and Seiran\'s Dragonflight. Select her and tap Set aim, then tap the map; Auto lets her choose again. In co-op only her owner can aim her.'),
+      tip('Without an aim, the mirror goes to the nearest lane edge and the dragon enters at the exit end of the busiest path.', 'info')),
+    sec('Familiars and mirrors',
+      p('Ruri attacks from Kon, a holo fox who stands at the edge of the nearest lane; her range ring is centred on Kon. Iroha fires from her own spot and from her mirror panel at once.')),
+    sec('Flyers and grounding',
+      p('Grounded flyers drop out of the sky for a moment, and ground-only girls such as Rei, Akane and Sango can hit them. Hana, Fuu (Grounding Breeze), Ruri (Star Falcon) and Seiran ground flyers. Bosses stay down a quarter as long. The Air target mode shoots flyers first.')),
+    sec('Push-back and gathering',
+      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so pushers cannot stall a lane forever. Bosses never move. A hero\'s own push-back has its own shorter lock.')),
+    sec('Curses and hexes',
+      p('Ena\'s curses burst when the enemy falls: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

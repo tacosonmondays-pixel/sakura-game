@@ -25,6 +25,8 @@
 // 17 A4 · 18 M8 · 19 B4 · 20 C4 (+ult rank 3) · 21 M9 · 22 A5 · 23 B5 · 24 C5 · 25 M10; then
 // rule 5 moves counters forward. `node tools/heroTrack.mjs <heroId>` prints the rule-5 report.
 
+import { RETURNING_HERO_TRACKS } from './heroTracksReturning.js';
+
 const withChance = (spec, chance) => (chance != null && chance < 1 ? { ...spec, chance } : spec);
 const S = {
   slow: (amount, duration, chance) => withChance({ type: 'slow', amount, duration }, chance),
@@ -180,5 +182,5 @@ function deepFreeze(o) {
   return o;
 }
 
-/** HERO_TRACKS[heroId] = { pathKeys, levels[25], ultRanks[] }. */
-export const HERO_TRACKS = deepFreeze({ hikari: HIKARI, luna: LUNA, nami: NAMI });
+/** HERO_TRACKS[heroId] = { pathKeys, levels[25], ultRanks[] } (the returning heroes: heroTracksReturning.js). */
+export const HERO_TRACKS = deepFreeze({ hikari: HIKARI, luna: LUNA, nami: NAMI, ...RETURNING_HERO_TRACKS });

@@ -13,7 +13,7 @@ import {
 import {
   ABILITY_TEXT, ABILITY_COPY, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
 } from '../../src/data/abilityText.js';
-import { UNITS, UNIT_MAP, towers, heroes } from '../../src/data/units.js';
+import { UNITS as ALL_UNITS, UNIT_MAP, towers as allTowers, heroes as allHeroes } from '../../src/data/units.js';
 import { POTENTIAL_GIRLS } from '../../src/data/potential.js';
 import { ENEMIES } from '../../src/data/enemies.js';
 import { STAGES } from '../../src/data/stages.js';
@@ -21,6 +21,12 @@ import { BATTLE_MODES } from '../../src/data/modes.js';
 import { STATUSES } from '../../src/data/types.js';
 import { GLYPHS } from '../../src/art/icons/glyphs.js';
 import { resolveStats } from '../../src/sim/mods.js';
+
+// The girls this table covers: every girl with a row in ABILITIES. The returning girls (roster wave,
+// src/data/unitsExpansion.js) keep theirs in RETURNING_ABILITIES until the ability track attaches them.
+const UNITS = ALL_UNITS.filter((u) => !!abilityRow(u));
+const towers = () => allTowers().filter((u) => !!abilityRow(u));
+const heroes = () => allHeroes().filter((u) => !!abilityRow(u));
 
 const ROOT = join(import.meta.dirname, '../..');
 

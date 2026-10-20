@@ -417,3 +417,14 @@ Ships in train C. Other-game references in the messages are replaced by `[…]`.
 
 Owner confirmed (2026-10-15): difficulty medals only from Standard wins, other modes give ribbons (no ribbon gems); mode drops are capped at your best Standard medal; modes unlock after one clear. Still on its default: co-op freeplay stays Standard, with map rules keeping only their combat effects past the goal.
 Later (owner wish): a "medal and ribbon showcase" on the player's profile. The data is ready: `stageShowcase(profile, stageId)` / `campaignShowcase(profile)` in `src/systems/unlocks.js` (CONTRACTS §5).
+
+## The returning girls (owner, Oct 14 / Oct 20) — track 5, branch `feature/roster-wave`
+
+| Request (verbatim or from the decisions log) | Status |
+|---|---|
+| "Codex expansion girls such as Ruri, Iroha, Ena, Yoriko and Seiran" (OWNER_DECISIONS_OCT14 #6) | **Built** with Kanna, Fuu, Hana and Noa: kits, hero tracks, Potential rows, wiki article "Returning Girls", tips. Kohaku and Tsubaki come back as one duo unit (track 1). |
+| "New units from now on: Codex-inspired kits, but … school uniforms (no fantasy or traditional East-Asian outfits)" (#4); Oct 20: school uniforms with modern tech gear | **Done in data**: every returning student wears an academy uniform with tech gear (fan turbine, falcon drone, holo-familiar tablet, ward shield, mirror drone easel, holo card launcher); the three heroes are adult staff in staff / officer coats. A look guard test keeps fantasy outfits out. |
+| Real portraits and 3D chibis "after the owner approves the first art test" | **Waiting for approval**: placeholder portrait cards in each girl's palette and procedural stand-in chibis. No art credits spent. |
+| Noa free after 6-2, Hana free after 7-5 (roster spec D2) | **Done** (stage unlocks; 8-1 now also recommends Grounding). |
+| Aimed girls in co-op | **Done**: the co-op `aim` command; Set aim / Auto in the battle panel. |
+| Each girl's ⚡ ability | **Data only** (`RETURNING_ABILITIES`, ABILITIES.md §5.2 shape) for track 1's ability system. |

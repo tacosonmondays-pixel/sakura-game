@@ -8,10 +8,17 @@ import { describe, it, expect } from 'vitest';
 import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
+import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
 
 const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/f5875291/4',
   '4-5:hard': 'L26/0/67651/3566/1c3a6fcc/20',
+  // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
+  // stays below, with the returning girls left out)
+  '8-5:normal': 'L30/0/39114/7321/5ea79a66/18',
+};
+// The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
+const LIVE_GOLDEN = {
   '8-5:normal': 'L30/0/40233/8036/e5394bdb/30',
 };
 
@@ -25,4 +32,11 @@ describe.skipIf(!hasRealData())('battles with abilities on Auto', () => {
     expect(r.result.stats.abilitiesUsed).toBeGreaterThan(0);
     expect(got).toBe(GOLDEN[`${stageId}:${difficulty}`]);
   }, 180000); // a whole bot battle each: past vitest's 5 s default on a loaded machine
+});
+
+describe.skipIf(!hasRealData())('battles with abilities on Auto, the 19 girls of A1', () => {
+  it.each(Object.keys(LIVE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
+    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: EXPANSION_IDS });
+    expect(digest(r)).toBe(LIVE_GOLDEN[`${stageId}:${difficulty}`]);
+  }, 180000);
 });

@@ -9,7 +9,7 @@ import { STEP, KNOCKBACK_RESIST, CC_RESIST, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } 
 import { ABILITY_RULES } from '../../src/data/abilities.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { refreshEffective, towerResolvedStats } from '../../src/sim/towers.js';
-import { abilityDef, abilityPathOf, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
+import { abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { samplePath } from '../../src/sim/path.js';
 import { defaultData } from '../../src/sim/data.js';
@@ -1387,7 +1387,8 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
   test('every girl but the three deploy ones (A4) learns hers at tier 3 of her ⚡ path; every hero at Lv 7', () => {
     const live = [];
     const later = [];
-    for (const u of Object.values(defaultData().units)) {
+    // (the girls with an ability row; the returning girls' rows wait in RETURNING_ABILITIES)
+    for (const u of Object.values(defaultData().units).filter((d) => abilitySource({ def: d, isHero: d.kind === 'hero', tiers: [0, 0, 0], level: 0 }))) {
       const sim = new Sim({ stageId: '1-1', loadout: u.kind === 'hero' ? [] : [{ unitId: u.id }], hero: u.kind === 'hero' ? { unitId: u.id } : null, seed: 1 });
       sim.cash = 1e9;
       const spot = autoPlan('1-1', [u.id]).find((a) => a.action === 'place');

@@ -391,11 +391,13 @@ export function buffSources(sim, uid) {
   if (by.det >= 0) aura('det', by.det, true);
   if (by.cost >= 0) aura('cost', by.cost, au(by.cost)?.costCut ?? 0);
   if (by.cleanse >= 0) aura('cleanse', by.cleanse, true);
-  if (sim.globalRateMul > 1) {
+  // the hero ultimates' team buffs: haste ('rate') and the roster's team damage buff ('dmg')
+  for (const [key, mul] of [['rate', sim.globalRateMul], ['dmg', sim.globalDmgMul ?? 1]]) {
+    if (!(mul > 1)) continue;
     let best = null;
-    for (const g of sim._globalBuffs) if (g.left > 0 && (!best || g.mul > best.mul)) best = g;
+    for (const g of sim._globalBuffs) if (g.left > 0 && (g.kind ?? 'rate') === key && (!best || g.mul > best.mul)) best = g;
     const src = best && best.src >= 0 ? sim.getTower(best.src) : null;
-    rows.push({ key: 'rate', value: sim.globalRateMul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
+    rows.push({ key, value: mul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
   }
   if (t.envRangeMul > 1) rows.push({ key: 'range', value: t.envRangeMul - 1, kind: 'map', src: -1, unitId: null, left: null });
   // ability rallies (src/sim/abilities.js), seconds left from their tick countdowns
