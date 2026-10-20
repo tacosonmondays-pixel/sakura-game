@@ -733,6 +733,23 @@
   "lodSize": 205616,
   "lodVertices": 2877
  },
+ "yoriko": {
+  "file": "yoriko.glb",
+  "size": 443296,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8940,
+  "lod": "yoriko.lod.glb",
+  "lodSize": 232268,
+  "lodVertices": 3061
+ },
  "yuki": {
   "file": "yuki.glb",
   "size": 422356,

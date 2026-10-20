@@ -91,7 +91,7 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 ## Stand-ins for the returning girls
 
 The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
-(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures"; Fuu, Iroha, Ena and Kanna have temporary Blender chibis, see "Temporary Blender chibis") are drawn by
+(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures"; Fuu, Iroha, Ena, Kanna and Yoriko have temporary Blender chibis, see "Temporary Blender chibis") are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -143,6 +143,7 @@ for id in fuu iroha ena kanna yoriko seiran; do python3 tools/blender/build_char
 | Iroha | 469,720 / 221,356 B (10,192 / 3,284 verts) | 56 px | a plum-black bob with two high buns and a silver mirror ornament on the left one, a blunt fringe, a charcoal sailor top and plum scarf under a long open plum cardigan, black tights, loafers, her hand mirror; round lilac eyes; chin-up 14° (neck / head 60 / 40, `chinSplit`) | from the front her brows read a little serious |
 | Ena | 485,084 / 240,076 B (10,550 / 3,737 verts) | 50 px | rose-pink layers and one thick braid over her left shoulder tied with a crimson ribbon, a crimson rose, a black blazer piped in crimson over a long black cardigan, a red tartan skirt, black tights, a fan of five pearl cards held up in her right hand (`holdPose`), a wrist card dealer; chin-up 12° | about 6 KiB under both budgets, so a new part needs a trim elsewhere; `walk` ignores the hold, so the card fan hangs flat there; the shared `moon` halo has mixed face winding and reads dark from the battle camera (Luna and Kage too; `crescent` is the fixed copy) |
 | Kanna | 460,552 / 232,888 B (9,494 / 3,146 verts) | 67 px | high coral-rose twin-tails with gold cuffs, tall ivory oni horns, a crimson staff track jacket with black panels and gold piping, black slacks, crimson high-tops, carbon bachi with glowing tips, her taiko on a stand at her front-left (weighted to `root`, so it stays put in every clip); chin-up 16° | `attack_smash` leans her forward and hides her face for a few frames; the sticks strike forward, not on the drum |
+| Yoriko | 443,296 / 232,268 B (8,940 / 3,061 verts) | 64 px | a lilac high ponytail tied on her right, a navy cat-ear headset with glowing ears and a mic, an indigo stage frock coat over a lilac waistcoat with gold edging and long tails, navy gloves, trousers and boots, the marionette bar with a dancing doll held up in her left hand (`pin`), the crescent halo; chin-up 20° | the bar arm stays up in every clip, cheer and victory included; the bind pose stores the prop pre-rotated (no runtime path shows it) |
 
 ## Adding a character
 
