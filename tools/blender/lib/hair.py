@@ -474,20 +474,23 @@ def style_buns(H, hair, shade, ctx):
 
 
 def style_buns_bob(H, hair, shade, ctx):
-    """Bob with two high round buns (Iroha): a soft curtain over the nape, chin-length side locks that
-    curl in, and two big buns high on the back of the head, untied (an accessory such as
-    'mirrorOrnament' decorates one). The bun centres and radii are left in ctx['buns']."""
+    """Bob with high round buns (Iroha): a soft curtain over the nape, chin-length side locks that
+    curl in, and big buns high on the back of the head (both sides, or the look's bunSides), untied (an
+    accessory such as 'mirrorOrnament' decorates the left one). The bun centres and radii are left in ctx['buns']."""
     # eight slightly broader locks than 'bob' so no scalp shows between them at the nape
     out = back_locks(H, ctx, 8, H.R.z * 0.95, 0.088, hair, shade, az_span=(80, 280), el_start=-18, flare=0.022, curl_in=0.03, bone='head')
     ctx['buns'] = []
+    # look.bunSides (opt-in): which sides get a bun (1 = her left, -1 = her right; default both)
+    bun_sides = tuple(ctx['look'].get('bunSides') or (1, -1))
     for s in (1, -1):
-        c = H.surf(s * 100, 50, 0.24)
-        r = (0.068, 0.066, 0.064)
-        v, f = M.sphere(c, r)
-        b = M.new_object(f'bun{s}', v, f, color=hair, bone='head')
-        M.finish(b, levels=1)
-        out.append(b)
-        ctx['buns'].append((s, c, r))
+        if s in bun_sides:
+            c = H.surf(s * 100, 50, 0.24)
+            r = (0.068, 0.066, 0.064)
+            v, f = M.sphere(c, r)
+            b = M.new_object(f'bun{s}', v, f, color=hair, bone='head')
+            M.finish(b, levels=1)
+            out.append(b)
+            ctx['buns'].append((s, c, r))
         out.append(side_lock(H, s, H.R.z * 0.9, 0.058, hair, az=60, flare=0.008, curl_in=0.45, name=f'side{s}'))
     # the halo floats a little higher so it clears the buns
     ctx['halo_lift'] = max(ctx.get('halo_lift', 0.0), 0.035)

@@ -66,9 +66,10 @@ LOOK_OVERRIDES = dict(
     fuu=dict(accessory='leafClip', outfit='trackJacket', weapon='turbineFan',
              tailEl=36, tailAz=106, tailLen=0.82, tailR=0.044, tailOut=0.11, tailCurl=0.045,
              bangRaise=10, chinUp=20, softFace=True, **BATTLE_FACE),
-    # Iroha (portrait): plum-black bob with two high buns + a round silver ornament on the left bun, blunt fringe,
-    # charcoal sailor top + plum scarf under a long open dusky-plum cardigan, black tights, loafers
-    iroha=dict(hairStyle='bunsBob', bangs='blunt', accessory='mirrorOrnament', outfit='sailorCardigan', eyeStyle='round', **BATTLE_FACE,
+    # Iroha (portrait): plum-black bob with ONE high bun on her left + a round silver ornament on it (two buns read
+    # as bear ears and are not in her painting), blunt fringe, charcoal sailor top + plum scarf under a long open
+    # dusky-plum cardigan, black tights, loafers
+    iroha=dict(hairStyle='bunsBob', bunSides=(1,), bangs='blunt', accessory='mirrorOrnament', outfit='sailorCardigan', eyeStyle='round', **BATTLE_FACE,
                bangRaise=8, browTone=0.55, chinUp=20, chinSplit=(0.6, 0.4)),
     # Ena (portrait): dusty rose-pink layers + ONE thick braid over her left shoulder with a crimson rose and ribbon,
     # black blazer piped in crimson over a long black cardigan, crimson tie, red tartan skirt, black tights,

@@ -207,7 +207,7 @@
  },
  "iroha": {
   "file": "iroha.glb",
-  "size": 469796,
+  "size": 466292,
   "animations": [
    "attack_cast",
    "cheer",
@@ -217,10 +217,10 @@
    "victory",
    "walk"
   ],
-  "vertices": 10192,
+  "vertices": 10094,
   "lod": "iroha.lod.glb",
-  "lodSize": 221432,
-  "lodVertices": 3284
+  "lodSize": 220520,
+  "lodVertices": 3258
  },
  "kaede": {
   "file": "kaede.glb",
