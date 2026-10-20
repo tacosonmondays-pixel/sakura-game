@@ -75,11 +75,13 @@ describe('settle', () => {
   it('ST-4 an offline player first back after the exchange end settles in one pass; mailed candy expired', () => {
     const p = joined();
     markEventLogin(p, MID); // login gift letter: 100 candy + 50 gems, unclaimed
-    trackEvent(p, EV.id, 'eventKill', 3000, { now: MID }); // hw_t_kill done, unclaimed
+    trackEvent(p, EV.id, 'eventKill', 3000, { now: MID }); // hw_t_kill done, unclaimed (200 candy, nothing else)
     p.items[CANDY] = 12;
     const { letters } = settleEvents(p, XEND + 86400000);
-    expect(letters.map((l) => l.id)).toEqual(['ev:halloween-2026:1:unclaimed', 'ev:halloween-2026:1:leftover']);
-    expect(letters[1].rewards).toEqual([{ id: 'coins', count: 600 }]);
+    // the unclaimed mission held only candy: no letter, its 200 candy joins the 12 leftover (HW-3)
+    expect(letters.map((l) => l.id)).toEqual(['ev:halloween-2026:1:leftover']);
+    expect(letters[0].rewards).toEqual([{ id: 'coins', count: (12 + 200) * 50 }]);
+    expect(eventState(p, EV.id).settled.currency).toBe(212);
     const gift = mailList(p, XEND + 86400000).find((l) => l.id === 'ev:halloween-2026:1:login:1');
     expect(gift.expired).toBe(true);
   });

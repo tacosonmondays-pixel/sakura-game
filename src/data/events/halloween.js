@@ -192,7 +192,12 @@ export default {
   mail: {
     from: 'Festival Committee',
     login: { title: 'Festival gift · day {n}', body: 'Happy Pumpkin Lantern Night, Sensei! Here is today\'s festival gift. Come back tomorrow for another one.' },
-    unclaimed: { title: 'You left these at the candy table!', body: 'The operations are over, but some finished missions still had rewards waiting. Here they are. The Exchange stays open until Nov 8, 7 PM Central.' },
+    unclaimed: {
+      title: 'You left these at the candy table!',
+      body: 'The operations are over, but some finished missions still had rewards waiting. Here they are. The Exchange stays open until Nov 8, 7 PM Central.',
+      // a player first back after the Exchange closed: the missions' candy joined the leftover coins
+      lateBody: 'The festival is over, but some finished missions still had rewards waiting. Here they are. The Exchange has closed, so their Pumpkin Candy went into your leftover candy and became coins.',
+    },
     leftover: { title: 'Thanks for the lantern night', body: 'The Candy Exchange has closed. Your {n} leftover Pumpkin Candy became {coins} coins. Everything you earned is yours to keep.' },
   },
 };

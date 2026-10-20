@@ -595,7 +595,10 @@ function fill(text, vars) {
 
 /**
  * Idempotent end-of-event work, from app start and the reset clock:
- * - at endAt: one letter with every finished but unclaimed mission reward (expires with the exchange)
+ * - at endAt: one letter with every finished but unclaimed mission reward (expires with the exchange
+ *   when it holds event currency). A player first back after exchangeEndAt gets it without the
+ *   currency and without an expiry: that currency joins the leftover count below instead, so the
+ *   letter is never born expired and nothing in it is lost.
  * - at exchangeEndAt: the leftover currency is removed and mailed back as coins; `settled` is set
  *   (final: a clock rolled back never reopens it) and the state is pruned.
  * @returns {{ letters: object[], settled: string[] }}
@@ -610,21 +613,29 @@ export function settleEvents(profile, now = Date.now()) {
     if (st?.settled) continue;
     const w = eventWindow(ev);
     const cur = ev.currency.id;
+    let lateCurrency = 0; // the unclaimed missions' currency when the exchange had already closed
     if (t >= w.endAt && st) {
       const rows = missionRows(profile, ev, Math.min(t, w.endAt - 1));
       const list = [...rows.daily, ...rows.total].filter((m) => m.done && !m.claimed);
       const bucketOf = (m) => (m.kind === 'daily' ? st.daily : st.total);
       const rewards = normalizeList(list.flatMap((m) => m.rewards));
-      if (rewards.length) {
+      const id = `ev:${ev.id}:${st.run}:unclaimed`;
+      if (rewards.length && !profile.mail?.delivered?.includes(id)) {
         const tpl = ev.mail?.unclaimed || {};
-        const holdsCurrency = rewards.some((r) => r.id === cur);
-        const l = deliverMail(profile, {
-          id: `ev:${ev.id}:${st.run}:unclaimed`, from: ev.mail?.from || ev.name,
-          title: tpl.title || 'Unclaimed event rewards', body: tpl.body || '', rewards,
-          expiresAt: holdsCurrency ? w.exchangeEndAt : null,
-        }, t);
-        if (l) {
-          letters.push(l);
+        const late = t >= w.exchangeEndAt;
+        const currency = rewards.filter((r) => r.id === cur).reduce((a, r) => a + r.count, 0);
+        const sent = late ? rewards.filter((r) => r.id !== cur) : rewards;
+        const name = getItem(cur)?.name || 'event currency';
+        const l = sent.length ? deliverMail(profile, {
+          id, from: ev.mail?.from || ev.name,
+          title: tpl.title || 'Unclaimed event rewards',
+          body: late ? fill(tpl.lateBody || 'The event is over, but some finished missions still had rewards waiting. Here they are. Their {currency} went into your leftover {currency}, which became coins.', { currency: name }) : tpl.body || '',
+          rewards: sent,
+          expiresAt: !late && currency > 0 ? w.exchangeEndAt : null,
+        }, t) : null;
+        if (l || !sent.length) {
+          if (l) letters.push(l);
+          if (late) lateCurrency = currency;
           for (const m of list) {
             bucketOf(m).claimed.push(m.id);
             if (m.kind !== 'daily') mark(profile, runKey(CLAIM_MARK, ev.id, st.run, m.id));
@@ -633,13 +644,14 @@ export function settleEvents(profile, now = Date.now()) {
       }
     }
     if (t >= w.exchangeEndAt) {
-      const n = itemCount(profile, cur);
+      const held = itemCount(profile, cur);
+      const n = held + lateCurrency;
       if (!st && n <= 0) continue;
       const state = eventState(profile, ev.id);
       const rate = ev.currency.leftover?.rate ?? 0;
       const coins = n * rate;
       if (n > 0) {
-        consumeItems(profile, [{ id: cur, count: n }]);
+        if (held > 0) consumeItems(profile, [{ id: cur, count: held }]);
         if (coins > 0) {
           const tpl = ev.mail?.leftover || {};
           const l = deliverMail(profile, {

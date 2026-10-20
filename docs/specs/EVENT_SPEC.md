@@ -368,7 +368,7 @@ read-only replay mode. (A later story change may add an "Events" tab to `#/story
 | When | What (once per event per save) | Letter |
 |---|---|---|
 | `now ≥ startAt` and joined-eligible | optional welcome gift (`mail.welcome`) | "A postcard from Seaglass Bay" — 100 Shell Tickets + 3 Study Guides, `expiresAt: exchangeEndAt` |
-| `now ≥ endAt` | completed, unclaimed mission rewards; daily + total | "You left these on the beach!" — `expiresAt: exchangeEndAt` when it holds event currency, else `null` |
+| `now ≥ endAt` | completed, unclaimed mission rewards; daily + total | "You left these on the beach!" — `expiresAt: exchangeEndAt` when it holds event currency, else `null`. First settled at or after `exchangeEndAt` (an offline player): the currency is left out of the letter and counted in the leftover below, the rest has no expiry (`mail.unclaimed.lateBody`), so the letter is never born expired |
 | `now ≥ exchangeEndAt` | `n = itemCount(currency)`; remove it; also leftover gifts (100 coins each); mark `settled`; prune state | "Thanks for visiting Seaglass Bay" — `coins: n × 50 + gifts × 100`; no expiry; skipped when 0 |
 
 Letters use `deliverMail` (`src/systems/mail.js`), ids `ev:<eventId>:<run>:welcome|unclaimed|leftover`, so

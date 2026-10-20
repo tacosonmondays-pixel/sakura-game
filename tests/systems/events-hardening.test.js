@@ -4,7 +4,8 @@ import { createProfile, migrateProfile } from '../../src/systems/save.js';
 import {
   readEpisode, eventState, peekState, markEventLogin, claimEventMission, buyEventOffer, trackEvent, settleEvents, loginRows,
 } from '../../src/systems/events.js';
-import { mailList } from '../../src/systems/mail.js';
+import { mailList, claimMail } from '../../src/systems/mail.js';
+import { itemCount } from '../../src/systems/inventory.js';
 import { applyBattleResult, sweep } from '../../src/systems/rewards.js';
 import { parseBattleParams } from '../../src/ui/battle/setup.js';
 import { EVENT_MAP } from '../../src/data/events/index.js';
@@ -175,5 +176,63 @@ describe('HW-2 a dropped events block keeps stock limits, one-time claims, progr
     expect(keys()).toEqual([]);
     expect(p.missions.counters['evs:halloween-2026:1']).toBe(1);
     expect(peekState(dropBlock(p), EV.id).settled).toBeTruthy();
+  });
+});
+
+describe('HW-3 an unclaimed-missions letter is never born expired', () => {
+  const NOV1 = T('2026-11-01T18:00:00Z');
+  /** Ops 1-4 and the boss on Normal and Hard, 20 operation wins on Nov 1, nothing claimed, candy spent. */
+  function leftUnclaimed() {
+    const p = joined();
+    const at = (s, d) => play(p, s, d, NOV1);
+    readEpisode(p, EV.id, 'ev.halloween.01', NOV1);
+    at('ev-halloween-1', 'normal');
+    at('ev-halloween-2', 'normal');
+    readEpisode(p, EV.id, 'ev.halloween.02', NOV1);
+    at('ev-halloween-3', 'normal');
+    at('ev-halloween-4', 'normal');
+    at('ev-halloween-boss', 'normal');
+    at('ev-halloween-boss', 'hard');
+    for (let i = 0; i < 14; i++) at('ev-halloween-1', 'normal');
+    p.items[CANDY] = 0;
+    return p;
+  }
+  const unclaimed = (p, at) => mailList(p, at).find((l) => l.id === 'ev:halloween-2026:1:unclaimed');
+
+  it('back during the exchange: one letter with candy, gems, book and ticket, expiring with the exchange', () => {
+    const p = leftUnclaimed();
+    const at = T('2026-11-03T18:00:00Z');
+    settleEvents(p, at);
+    const l = unclaimed(p, at);
+    expect(l.expiresAt).toBe(XEND);
+    expect(l.rewards.map((r) => r.id).sort()).toEqual(['book_mythic', CANDY, 'gems', 'ticket_recruit'].sort());
+    expect(l.claimable).toBe(true);
+  });
+
+  it('first back after the exchange closed: the letter keeps gems, book and ticket with no expiry; its candy becomes coins', () => {
+    const ref = leftUnclaimed();
+    settleEvents(ref, T('2026-11-03T18:00:00Z'));
+    const candy = unclaimed(ref, T('2026-11-03T18:00:00Z')).rewards.find((r) => r.id === CANDY).count;
+    expect(candy).toBeGreaterThan(0);
+
+    const p = leftUnclaimed();
+    const at = T('2026-11-10T18:00:00Z');
+    const gems = p.currencies.gems;
+    const { letters, settled } = settleEvents(p, at);
+    expect(settled).toEqual(['halloween-2026']);
+    expect(letters.map((x) => x.id)).toEqual(['ev:halloween-2026:1:unclaimed', 'ev:halloween-2026:1:leftover']);
+    const l = unclaimed(p, at);
+    expect(l.expiresAt).toBe(null);
+    expect(l.expired).toBe(false);
+    expect(l.rewards.some((r) => r.id === CANDY)).toBe(false);
+    expect(l.rewards).toEqual(expect.arrayContaining([{ id: 'gems', count: 100 }, { id: 'book_mythic', count: 1 }, { id: 'ticket_recruit', count: 1 }]));
+    expect(l.body).toMatch(/Exchange has closed/);
+    expect(claimMail(p, l.id, at).ok).toBe(true);
+    expect(p.currencies.gems - gems).toBe(100);
+    expect(eventState(p, EV.id).settled).toMatchObject({ currency: candy, coins: candy * 50 });
+    expect(letters[1].rewards).toEqual([{ id: 'coins', count: candy * 50 }]);
+    expect(itemCount(p, CANDY)).toBe(0);
+    // idempotent: a second pass sends nothing
+    expect(settleEvents(p, at + 1000).letters).toEqual([]);
   });
 });
