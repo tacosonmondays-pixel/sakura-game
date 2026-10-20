@@ -1065,6 +1065,47 @@ export function runModeBattles() {
   return { battles, digest: bitsHash(battles.flatMap((b) => [Number.parseInt(b.final, 16) || 0, b.hashes.length ? Number.parseInt(String(b.hashes).slice(0, 8), 16) || 0 : 0, b.steps])), ms: Date.now() - t0 };
 }
 
+// ---------------------------------------------------------------------------
+// Gear (docs/specs/GEAR_STATS.md §F.4): GEAR_START, the clubs lineup with Pierce and Aura Power
+// ---------------------------------------------------------------------------
+
+const G = (more = {}) => ({ costMul: 0.4, damageMul: 3, rateMul: 1.2, ...more });
+/**
+ * Every gear rule in one co-op battle (4-5, crowds and a Matriarch-free wave table): Pierce on shots
+ * (Archery Aoi with Follow-Through), a sweep (Fencing Rei: Finishing Thrust), blasts (Pyrotechnics
+ * Akane: Finale Pop and the pop budget, her burn × dotMul), traps (Taiko Suzu: Big Beat on traps),
+ * drones (Taiko Chika: drone Pierce and Big Beat on drone shots), a half-rate sniper (Shiro), an aura
+ * with Aura Power and the fill-in radius (Tea Miko: Second Cup), and a duel with a club (Kaede).
+ */
+export const GEAR_START = Object.freeze({
+  seed: 818181,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [
+      { unitId: 'aoi', stats: G({ pierceK: 76, club: 'archery', clubN: 3 }) },
+      { unitId: 'akane', stats: G({ pierceK: 46, dotMul: 1.25, club: 'pyro', clubN: 3 }) },
+      { unitId: 'miko', stats: G({ auraPct: 0.2, auraRangeMul: 1.05, club: 'tea', clubN: 3 }) },
+      { unitId: 'suzu', stats: G({ pierceK: 30, club: 'taiko', clubN: 3 }) },
+    ], hero: { unitId: 'hikari', stats: G({ pierceK: 46 }) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [
+      { unitId: 'rei', stats: G({ pierceK: 46, club: 'fencing', clubN: 3 }) },
+      { unitId: 'chika', stats: G({ pierceK: 100, club: 'taiko', clubN: 3 }) },
+      { unitId: 'shiro', stats: G({ pierceK: 150, club: 'fencing', clubN: 2 }) },
+      { unitId: 'kaede', stats: G({ club: 'fencing', clubN: 3 }) },
+    ], hero: null },
+  ],
+});
+const GEAR_UPGRADES = Object.freeze([[0, 'aoi', 0], [0, 'akane', 0], [1, 'chika', 0], [1, 'rei', 0], [0, 'suzu', 0], [1, 'shiro', 0]]);
+
+/** GEAR_START to the end (or 14 minutes): the same fields as runPotentialBattle. */
+export function runGearBattle({ maxFrames = 60 * 60 * 14 } = {}) {
+  const t0 = Date.now();
+  const r = runPotentialBattle({ start: GEAR_START, upgrades: GEAR_UPGRADES, spotsFirst: ['aoi', 'rei', 'akane', 'chika', 'suzu', 'miko', 'shiro', 'kaede'], maxFrames });
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
@@ -1079,5 +1120,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), modes };
 }
