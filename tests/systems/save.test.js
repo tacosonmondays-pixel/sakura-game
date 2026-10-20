@@ -2,10 +2,16 @@ import { describe, it, expect } from 'vitest';
 import {
   createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
 } from '../../src/systems/save.js';
-import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
+import { addGear, equipGear, rollGear, enhanceGear, awakenGear, stitchSub, openRainbowBox, RAINBOW_BOX_ID } from '../../src/systems/gear.js';
+import { writeGearMarks } from '../../src/systems/gearMarks.js';
 import { createRng } from '../../src/core/rng.js';
 import { potentialState } from '../../src/systems/potential.js';
 import { mirrorUnit } from '../../src/systems/ascensionSave.js';
+import { raisePotential, essenceBalance } from '../../src/systems/essence.js';
+import { addItems } from '../../src/systems/inventory.js';
+import { ASCENSION_ITEM_IDS } from '../../src/data/items.js';
+import { BASE_STAT_KEYS } from '../../src/data/gearStats.js';
+import { SEED_ID, NEEDLE_ID, MIRRORED_ITEMS } from '../../src/data/gearAwaken.js';
 
 describe('createProfile', () => {
   it('starts with the starters, formation, gems and a 10x ticket', () => {
@@ -338,5 +344,101 @@ describe('levels above 60 (Potential v3 §4.6, gates 6–10: ASCENSION.md §B.1,
     const edited = save(60, 3);
     edited.units.aoi.level = 99;
     expect(migrateProfile(edited).units.aoi).toMatchObject({ level: 67, exp: 0 });
+  });
+});
+
+describe('one save with UR gear and Ascension together (the merged migrateProfile chain, ASCENSION.md §F.2)', () => {
+  // creditPotential → restoreGearMarks → restoreAscension → migrateEssence → settleSpares → fuseShards → settleLevels
+  /** A store write + reload: the gear mirrors are written first (store.js), then the load migrates. */
+  const reload = (p) => {
+    writeGearMarks(p);
+    return JSON.parse(JSON.stringify(migrateProfile(JSON.parse(JSON.stringify(p)))));
+  };
+  /** A build from before both tracks loads and saves it: unit and gear allowlists, unknown items dropped,
+   *  missions.counters kept word for word. */
+  const olderBuild = (raw) => {
+    const q = JSON.parse(JSON.stringify(raw));
+    for (const u of Object.values(q.units)) {
+      delete u.pl;
+      u.breakthrough = Math.min(5, u.breakthrough);
+      u.level = Math.min(u.level, 60, 10 + 10 * u.breakthrough);
+    }
+    for (const g of Object.values(q.gear)) {
+      delete g.ur;
+      delete g.club;
+      g.level = Math.min(10, g.level);
+      g.subs = g.subs.filter((s) => BASE_STAT_KEYS.includes(s.stat)).map(({ tuned, ...s }) => s);
+    }
+    for (const id of [...ASCENSION_ITEM_IDS, ...MIRRORED_ITEMS]) delete q.items[id];
+    return q;
+  };
+
+  function bothTracks() {
+    const p = createProfile();
+    p.currencies.coins = 5e7;
+    addItems(p, [{ id: SEED_ID, count: 2 }, { id: NEEDLE_ID, count: 4 }, { id: RAINBOW_BOX_ID, count: 1 }, { id: 'kindred_r', count: 2 }]);
+    // UR gear: an awakened club piece at +11 with a gold and a rainbow ✦ (gur: / gtn: / gcl:), worn by Aoi
+    const a = addGear(p, rollGear(createRng(41), { slot: 'charm', rarity: 'legendary', level: 10, club: 'archery' }));
+    expect(stitchSub(p, a, 0).ok).toBe(true);
+    expect(awakenGear(p, a).ok).toBe(true);
+    expect(stitchSub(p, a, 1).ok).toBe(true);
+    expect(enhanceGear(p, a).ok).toBe(true);
+    equipGear(p, 'aoi', a);
+    // a box-born UR piece at +3 (gbx: / gbl:, `ur: 1` below +10)
+    const b = openRainbowBox(p, 'ribbon', createRng(42)).gear.uid;
+    for (let i = 0; i < 3; i++) expect(enhanceGear(p, b).ok).toBe(true);
+    // Ascension: Aoi raised to P4, two steps with her own Essence and one with a Kindred (essU:), gate 8 at L72
+    p.units.aoi.dupes = 2;
+    expect(raisePotential(p, 'aoi', 'own').ok).toBe(true);
+    expect(raisePotential(p, 'aoi', 'own').ok).toBe(true);
+    expect(raisePotential(p, 'aoi', 'kindred_r').ok).toBe(true);
+    Object.assign(p.units.aoi, { breakthrough: 8, level: 72 });
+    mirrorUnit(p, 'aoi');
+    return { p, a, b };
+  }
+
+  it('carries every mark of both tracks, and a second load changes nothing', () => {
+    const { p, a, b } = bothTracks();
+    const want = reload(p);
+    const c = want.missions.counters;
+    expect(want.gear[a]).toMatchObject({ ur: 1, level: 11, club: 'archery', equippedBy: 'aoi' });
+    expect(want.gear[a].subs.filter((s) => s.tuned)).toHaveLength(2);
+    expect(want.gear[b]).toMatchObject({ ur: 1, level: 3 });
+    expect(c[`gur:${a}`]).toBe(11);
+    expect(c[`gtn:${a}`]).toBeGreaterThan(0);
+    expect(c[`gbx:${b}`]).toBeGreaterThan(0);
+    expect(c[`gbl:${b}`]).toBe(0b111);
+    expect(want.units.aoi).toMatchObject({ pl: 4, breakthrough: 8, level: 72, dupes: 2 });
+    expect(c['pl:aoi']).toBe(4);
+    expect(c['bt:aoi']).toBe(8);
+    expect(c['essU:aoi']).toBe(1);
+    expect(essenceBalance(want, 'aoi')).toBe(0);
+    expect(reload(want)).toEqual(want);
+  });
+
+  it('an older build that saves over it loses nothing, and the load after it pays nothing twice', () => {
+    const { p, a, b } = bothTracks();
+    const want = reload(p);
+    const stale = olderBuild(want);
+    expect(stale.gear[a].ur).toBeUndefined();
+    expect(stale.gear[b].ur).toBeUndefined();
+    expect(stale.units.aoi).toMatchObject({ breakthrough: 5, level: 60 });
+    expect(stale.units.aoi.pl).toBeUndefined();
+    const back = JSON.parse(JSON.stringify(migrateProfile(stale)));
+    // gear, girls, items, coins, mail and every counter exactly as before: no refund, no welcome pouch, no letter
+    expect(back.gear).toEqual(want.gear);
+    // (a P1 girl's `pl: 1` comes back as no `pl`, which is the same P1: potentialLevel, ASCENSION.md §A.1)
+    const p1 = (units) => Object.fromEntries(Object.entries(units).map(([id, { pl, ...u }]) => [id, pl > 1 ? { ...u, pl } : u]));
+    expect(p1(back.units)).toEqual(p1(want.units));
+    expect(back.units.aoi).toMatchObject({ pl: 4, breakthrough: 8, level: 72, dupes: 2 });
+    expect(back.items).toEqual(want.items);
+    expect(back.currencies).toEqual(want.currencies);
+    expect(back.mail).toEqual(want.mail);
+    expect(back.missions.counters).toEqual(want.missions.counters);
+    expect(essenceBalance(back, 'aoi')).toBe(0);
+    // and the next loads stay put
+    expect(reload(back)).toEqual(back);
+    const twice = JSON.parse(JSON.stringify(migrateProfile(olderBuild(back))));
+    expect({ ...twice, units: p1(twice.units) }).toEqual({ ...back, units: p1(back.units) });
   });
 });
