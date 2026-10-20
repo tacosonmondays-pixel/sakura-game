@@ -690,8 +690,10 @@ free player wins Mayhem +1 … +3 like Whale A (§C.3) and earns close to the sp
   ("Open it in the latest version"), so a stale tab cannot turn it into an ordinary Legendary piece. Tests in §H.2.
 - **Box-born UR survives older builds:** an older `cleanGear` is an allowlist that drops `ur` (`src/systems/save.js:197-221`),
   and GA's `gur:` mirror restores only pieces at +10 or more (GA §8.3, on purpose). So opening the box writes
-  **`gbx:<uid>`** = slot index × 100 + main-stat index + 1 in `missions.counters`; load restores `ur: 1` when a piece with
-  that uid, slot and main stat is present at any level; salvage writes 0 (§K item 10).
+  **`gbx:<uid>`** = slot index × 100 + main-stat index + 1 in `missions.counters`; load restores `ur: 1` when a Legendary
+  with that uid and slot is present at any level (not the main stat: an older build's Prism Dice changes it on what it
+  sees as a plain Legendary, and the next write moves the mark to the new main stat; uids are never reused); salvage
+  writes 0 (§K item 10).
 - **Overrides GA R20** ("UR never drops; no UR gear box") at the owner's request. **Needs GA's R1 reader on players'
   devices first** (older builds delete unknown gear fields).
 - **If GA's writer (R2) is not live when M1 ships:** the Rainbow share of every roll goes to Celestial, the Meter is
@@ -959,7 +961,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | Keys | `tk:left`, `tk:week` | itself | kept |
 | Titan progress | `tbest:<titan>` (solo only; tier × 100 + rank), `tfc:<titan>:<tier>` (solo only), `ttgt:<titan>`, `tkill:<titan>`, `tatt` (attempt counter for the drop seed) | itself | kept |
 | Rainbow Meter / owed box | `pity:rain`, `rbx:owed` | itself | kept |
-| Box-born UR flag | gear `ur: 1` | `gbx:<uid>` = slot index × 100 + main-stat index + 1 (0 after salvage) | drops `ur` → restored when that uid, slot and main stat are present, at any level (§C.8) |
+| Box-born UR flag | gear `ur: 1` | `gbx:<uid>` = slot index × 100 + main-stat index + 1 (0 after salvage) | drops `ur` → restored when a Legendary with that uid and slot is present, at any level; an older tab's Prism Dice changes the main stat, so it is not matched (the next write moves the mark) (§C.8) |
 | Box-born UR levels paid at UR prices | counter `gbl:<uid>`: bit L = +L → +L+1 (below +10) cost UR prices; removed at salvage | itself | kept; a level it sells writes no bit (salvage counts it at the Legendary price); its salvage of the piece gets the missing UR half of those levels on the next load, once (§C.8) |
 | New shop offers + `group` stock | `profile.shop.bought` | `shopwk:asc` (game week as a number) | an older tab rolling the week first keeps their counts → M1 clears its own ids and group keys when `shopwk:asc` ≠ this week (§C.10) |
 | Welcome pouch | `profile.items` (`memento`, `moonpearl`), paid during migration | `inv:` | dropped → restored from `inv:`; never sent by mail (§A.7) |
@@ -1179,7 +1181,7 @@ K1–K2, S1, C1, e2e.
 8. **§6.3 achievements:** titan achievement rows pay items only (the ACH new-row gem cap is at 6,980 with GA's wave).
 9. **§8.3 `inv:`:** the mirror helper also covers the 16 new ids (§F.3).
 10. **R16 (mirrors):** add `gbx:<uid>` for box-born UR from +0 (slot index × 100 + main-stat index + 1; 0 after salvage).
-    `gur:` keeps its +10 rule; `gbx:` restores `ur: 1` at any level when that uid, slot and main stat are present
+    `gur:` keeps its +10 rule; `gbx:` restores `ur: 1` at any level when a Legendary with that uid and slot is present
     (§C.8, §F.1).
 
 ---------------------------------------------------------------------------------------------------

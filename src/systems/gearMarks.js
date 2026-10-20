@@ -6,11 +6,12 @@
 // Mirrors (missions.counters):
 //   gur:<uid>  UR level 10–12            gtn:<uid>  ✦ bits, 2 per stat in TUNE_BITS order
 //   gbx:<uid>  box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): slot × 100 + main stat + 1, 0 after salvage
+//              (restored on uid + slot: an older build's Prism Dice changes the main stat)
 //   gbl:<uid>  box-born UR: bit L = its +L → +L+1 (below +10) was paid at UR prices (salvage refunds by it)
 //   gcl:<uid>  club index (1…)           gnx:<uid>  a Pierce / Aura Power line   gnf:<uid>  fingerprint of the other subs
 //   inv:<id>   item count (0 included) for the Seed, the Needle and the Armband
 //   ga:gift / gc:gift  the one-time Seed and Armband gifts
-import { GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
+import { GEAR_SLOTS, GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
 import { NEW_STAT_SLOT } from '../data/gearStats.js';
 import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
 import { TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL, MILESTONE_ITEMS, MILESTONE_MARK, MILESTONE_ITEMS_MARK } from '../data/gearAwaken.js';
@@ -18,6 +19,8 @@ import { createRng } from '../core/rng.js';
 import { armbandWelcome, isUrGear, urName, recomputeGear, rollFreshSub, tuneCount, boxMark, boxPaidBits, boxPaidShortfall, SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex } from './gear.js';
 
 const ITEM_MAX = 9999;
+/** Slot order of a `gbx:` mark (gear.js boxMark: slot index × 100 + main-stat index + 1). */
+const SLOT_IDS = Object.keys(GEAR_SLOTS);
 const NEW_STATS = ['piercePct', 'auraPct'];
 const counters = (p) => ((p.missions ||= {}).counters ||= {});
 const whole = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : 0);
@@ -121,8 +124,11 @@ export function restoreGearMarks(p) {
     const v = Math.min(ITEM_MAX, whole(c[MARK.inv + id]));
     if (v > 0 && !p.items[id]) p.items[id] = v;
   }
-  // 1b. box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): `ur` back at any level when that uid, slot and
-  //     main stat are present. A missing piece was salvaged by an older build: its Seed (step 2 pays it
+  // 1b. box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): `ur` back at any level when a Legendary with that
+  //     uid and slot is present. Its main stat need not match: an older build's Prism Dice (rerollMainStat, no
+  //     lock check there) changes it on what that build sees as a plain Legendary and leaves `gbx:` as it was;
+  //     uids are never reused (p.seq.gear only grows) and a slot never changes, and writeGearMarks then moves
+  //     the mark to the new main stat. A missing piece was salvaged by an older build: its Seed (step 2 pays it
   //     instead when the piece also had a `gur:` mark), the coins that build's Legendary-priced refund missed
   //     on its UR-priced levels (`gbl:`), and the mark becomes 0
   for (const key of Object.keys(c).filter((k) => k.startsWith(MARK.box))) {
@@ -131,7 +137,7 @@ export function restoreGearMarks(p) {
     const uid = key.slice(MARK.box.length);
     const g = p.gear[uid];
     if (g) {
-      if (g.rarity === 'legendary' && boxMark(g) === v) g.ur = 1;
+      if (g.rarity === 'legendary' && Math.floor((v - 1) / 100) === SLOT_IDS.indexOf(g.slot)) g.ur = 1;
       continue;
     }
     if (!(MARK.ur + uid in c)) refund(SEED_ID, 1);

@@ -144,6 +144,42 @@ describe('box-born UR survives saves (gbx: mirror)', () => {
     expect(back.gear[gear.uid].ur).toBe(1);
   });
 
+  it("an older build's Prism Dice on a box piece below +10 keeps it UR: uid + slot match, the mark follows the new main stat", () => {
+    const p = ready();
+    addItems(p, [{ id: RAINBOW_BOX_ID, count: 1 }]);
+    const { gear } = openRainbowBox(p, 'ribbon', createRng(8));
+    for (let i = 0; i < 3; i++) expect(enhanceGear(p, gear.uid).ok).toBe(true);
+    writeGearMarks(p);
+    const key = `${MARK.box}${gear.uid}`;
+    const mark = p.missions.counters[key];
+    const ref = reload(p);
+    setGearLocked(ref, gear.uid, false);
+    const refRewards = salvageRewards(ref.gear[gear.uid], ref);
+    expect(refRewards).toContainEqual({ id: SEED_ID, count: 1 });
+    // the older build sees a plain Legendary +3 and rerolls its main stat (it has no lock check), leaving gbx: as it was
+    const old = olderBuild(p);
+    addItems(old, [{ id: 'dice_prism', count: 1 }]);
+    const stat = old.gear[gear.uid].main.stat;
+    expect(rerollMainStat(old, gear.uid, createRng(2)).ok).toBe(true);
+    expect(old.gear[gear.uid].main.stat).not.toBe(stat);
+    expect(old.missions.counters[key]).toBe(mark);
+    expect(boxMark(old.gear[gear.uid])).not.toBe(mark);
+    const back = migrateProfile(JSON.parse(JSON.stringify(old)));
+    const g = back.gear[gear.uid];
+    expect(g).toMatchObject({ ur: 1, level: 3, slot: 'ribbon', rarity: 'legendary' });
+    expect(g.main.stat).toBe(old.gear[gear.uid].main.stat);
+    expect(back.missions.counters[key]).toBe(boxMark(g));
+    // still a UR: its salvage returns the Seed and counts its UR-priced levels (gbl:) as before the reroll
+    setGearLocked(back, gear.uid, false);
+    expect(salvageRewards(back.gear[gear.uid], back)).toEqual(refRewards);
+    // idempotent, and a mark for another slot never makes a Legendary UR
+    expect(reload(back).gear[gear.uid]).toEqual(back.gear[gear.uid]);
+    const wrong = olderBuild(p);
+    wrong.missions.counters[key] = ((mark + 99) % 300) + 1;
+    expect(Math.floor((wrong.missions.counters[key] - 1) / 100)).not.toBe(Math.floor((mark - 1) / 100));
+    expect(migrateProfile(wrong).gear[gear.uid].ur).toBeUndefined();
+  });
+
   it('a hostile ur flag on a +0 Legendary without the mark is dropped', () => {
     const p = ready();
     addItems(p, [{ id: RAINBOW_BOX_ID, count: 1 }]);
