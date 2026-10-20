@@ -1203,7 +1203,7 @@ Standard with `options.rule = null` is bit-identical to the pre-modes sim (`test
 ### 3d. The new girls — `src/data/unitsNewGirls.js` (owner: units; UNIT_GAPS §5, wave 1)
 
 ```js
-export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA]; units.js appends them after the returning girls
+export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA]; units.js appends them after the returning girls
 export const NEW_GIRL_IDS   // their ids (goldens pin a "base roster" block with them left out)
 ```
 New BaseStats blocks, each present ONLY on a girl whose base declares it (`mods.js normalizeBase`), so
@@ -1215,14 +1215,21 @@ detection, cleanse, permanent, season, towel, towelDmg, life), `sentry` (Yuzuha:
 damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` (Ouka: a tier states the
 new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
-cutAdd add on top; her `range` is set to the radius). Behaviours `strip`, `ring`, `drink` (Ouka uses
-`none`). Roles spiker, ring, manager, builder, council. Weapons `strip`, `needle`, `tablet`, `banner`.
+cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
+bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add). Behaviours `strip`, `ring`, `drink` (Ouka uses
+`none`). Roles spiker, ring, manager, builder, council, botanist. Weapons `strip`, `needle`, `tablet`, `banner`,
+`wateringCan`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
+immune; `isHeld`).
 
 ```js
 strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
 rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
+vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
+  Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
+  (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
+  abilities.js debuff: pick 'ground' (non-boss walkers, lead first), dmgMul (a hit each), reachMul
 hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner, clearBanners          // t.rules, t.banners
   recomputeBuffs folds a hub's costCut / rateMul / rangeMul / dmgMul / detection / cleanse into t.buff
   (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,

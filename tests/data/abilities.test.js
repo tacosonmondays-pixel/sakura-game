@@ -38,7 +38,7 @@ const LIGHTNING = {
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls (UNIT_GAPS §5)
-  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090],
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -49,7 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
-  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally',
+  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -199,6 +199,12 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 10 },
     t5: { cooldown: 40, duration: 15, effect: { rateMul: 1.5, pierceAdd: 2 } },
   },
+  chigusa: {
+    path: 'greenhouse', id: 'chigusa.overgrowth', kind: 'debuff', scope: 'local', cooldown: 35, duration: 3,
+    effect: { pick: 'ground', count: 8, dmgMul: 5, status: [{ type: 'hold', duration: 3 }] },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [{ type: 'hold', duration: 4 }] } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -234,11 +240,11 @@ const EFFECT_KEYS = {
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
   boost: ['mods'],
   rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd'],
-  debuff: ['pick', 'count', 'casterStatus', 'rally', ...STATUS_LIST],
+  debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', ...STATUS_LIST],
   econ: ['coins'],
   deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
 };
-const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong'] };
+const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong', 'ground'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
 // the ModSet keys a boost may change (src/sim/mods.js applyModSet; CONTRACTS §3)
 const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit',

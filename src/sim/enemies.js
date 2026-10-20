@@ -14,7 +14,7 @@ import {
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import { ruleMoveMul, ruleRift } from './rules.js';
 import {
-  tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
+  tickStatusDurations, isImmobile, isHeld, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
 
 const TRAIT_ORDER = [
@@ -512,7 +512,7 @@ export function updateEnemy(sim, e, dt) {
   if (e.dead) return;
 
   let mul;
-  if (isImmobile(e)) mul = 0;
+  if (isImmobile(e) || isHeld(e)) mul = 0;
   else {
     mul = 1 - slowAmount(e);
     if (e.fieldHaste > 0) mul *= 1 + e.fieldHaste;

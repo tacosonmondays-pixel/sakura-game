@@ -10,7 +10,7 @@ KIND = dict(bow='bow', katana='slash', sword='slash', rapier='thrust', staff='ca
             cannon='cannon', rifle='rifle', shuriken='throw', flask='throw', coinPurse='throw', trident='thrust', wrench='smash', fan='sweep',
             parasol='sweep', mic='cast', shield='smash', mirror='cast', spear='thrust', mallet='smash', puppet='cast', cards='throw',
             # the new girls (UNIT_GAPS §5)
-            strip='throw', needle='cast', tablet='cast', banner='cast')
+            strip='throw', needle='cast', tablet='cast', banner='cast', wateringCan='cast')
 
 
 def kind_of(weapon):
@@ -677,7 +677,28 @@ def banner(ctx):
     return parts
 
 
+def watering_can(ctx):
+    """Chigusa: a watering can held at the side, with a long spout and a rose on the end."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + down * 0.05 + out * 0.01
+    v, f, r = M.tube([c + down * 0.035, c - down * 0.035], [0.042, 0.038], sides=12)
+    body = M.new_object('can', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(body, levels=1)
+    parts = [body]
+    handle = [c - down * 0.035 - fwd * 0.03, c - down * 0.07, c - down * 0.035 + fwd * 0.03]
+    parts.append(_rod(ctx, handle, 0.005, darken(pal['weapon'], 0.3), 'hand_R', sides=5, levels=0))
+    s0 = c + fwd * 0.035 + down * 0.01
+    s1 = s0 + fwd * 0.07 - down * 0.05
+    parts.append(_rod(ctx, [s0, s1], [0.008, 0.006], pal['weapon'], 'hand_R', sides=6, levels=0))
+    v, f = M.sphere(s1 + fwd * 0.006 - down * 0.004, (0.012, 0.012, 0.012))
+    rose = M.new_object('rose', v, f, color='#d9e6f2', bone='hand_R')
+    M.finish(rose, levels=0)
+    parts.append(rose)
+    return parts
+
+
 WEAPONS = dict(bow=bow, katana=katana, staff=staff, cannon=cannon, rifle=rifle, shuriken=shuriken, tome=tome, bell=bell, wrench=wrench,
                lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword,
                mic=mic, shield=shield, mirror=mirror, spear=spear, mallet=mallet, puppet=puppet, cards=cards,
-               strip=strip, needle=needle, tablet=tablet, banner=banner)
+               strip=strip, needle=needle, tablet=tablet, banner=banner, wateringCan=watering_can)

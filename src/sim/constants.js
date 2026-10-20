@@ -250,3 +250,9 @@ export const SENTRIES_PER_SIM = 40;
 export const NET_RADIUS = 0.5;
 export const NET_SPACING = 1.0;
 export const NET_COIN_BONUS = 0.5;
+/** Chigusa's thorn beds (src/sim/vines.js): hit radius, per girl and per sim caps (oldest first). */
+export const BED_RADIUS = 0.45;
+export const BEDS_PER_GIRL = 6;
+export const BEDS_PER_SIM = 40;
+/** Chigusa's vines: a held enemy takes the vine's damage once a second (the first at the grab). */
+export const VINE_TICK = 1;

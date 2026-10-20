@@ -27,6 +27,7 @@ import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
+import { vineTick } from './vines.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -265,6 +266,12 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  // Chigusa's vine and thorn beds (src/sim/vines.js): ground-only hits from her stats, no crits or statuses
+  if (s.vine) {
+    const plain = { critChance: 0, canHitAir: false, status: [], splash: 0, knockback: 0, gather: 0, pierce: 1, mark: null, silence: 0, reveal: 0 };
+    t.vineSpec = { ...t.eff, ...plain, damage: s.vine.dps * dmgMul };
+    t.bedSpec = { ...t.eff, ...plain, damage: s.vine.bedDmg * dmgMul };
+  }
   // Towel Snap (src/sim/drinks.js): a light flick that slows (her own hit is no drink at all)
   if (s.drink) t.towelSpec = s.drink.towel ? { ...t.eff, damage: s.drink.towelDmg * dmgMul, critChance: 0, status: [{ type: 'slow', amount: 0.3, duration: 1.5 }] } : null;
   // Yuzuha's sentries (src/sim/sentries.js): their guns follow her buffs; one spec per Specialist Kit
@@ -1572,6 +1579,7 @@ export function updateTower(sim, t, dt) {
   if (s.ring) ringTick(sim, t, dt);
   if (s.drink) drinkTick(sim, t);
   if (s.sentry) sentryTick(sim, t, dt);
+  if (s.vine) vineTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -1587,7 +1595,10 @@ export function updateTower(sim, t, dt) {
     }
     if (tempo) tempoStack(sim, t, tempo);
     if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
-    t.cooldown += 1 / Math.max(0.05, tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate);
+    // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
+    const bloom = s.vine?.bloom > 0 ? 1 + Math.min(s.vine.bloom, s.vine.bloomPer * (t.bloomT || 0)) : 1;
+    if (s.vine?.bloom > 0) t.bloomIdle = 0;
+    t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
 }
 

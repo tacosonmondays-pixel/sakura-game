@@ -430,6 +430,16 @@ function weaponParts(ctx, kind) {
       P.push(part(sphere(0.03, 6, 4), { pos: [0.2, 0.56, 0], color: col('#ff5d5d') }));
       break;
     }
+    case 'wateringCan': {
+      // a watering can with a long spout and a rose on the end
+      rot = [0.2, 0, 0.3];
+      offset = [0, 0.05, 0.05];
+      P.push(part(cyl(0.16, 0.18, 0.26, 10), { pos: [0, 0.18, 0], color: w }));
+      P.push(part(torus(0.1, 0.02, 5, 10), { pos: [0, 0.36, 0], rot: [0, 0, Math.PI / 2], color: dark }));
+      P.push(part(cyl(0.025, 0.035, 0.42, 6), { pos: [0.24, 0.3, 0], rot: [0, 0, -0.9], color: w }));
+      P.push(part(cyl(0.06, 0.03, 0.05, 8), { pos: [0.42, 0.43, 0], rot: [0, 0, -0.9], color: col('#d9e6f2') }));
+      break;
+    }
     case 'banner': {
       // a folding "COUNCIL HQ" banner stand: a pole with a gold finial and a white flag with a pink crest
       rot = [0.12, 0, 0.1];

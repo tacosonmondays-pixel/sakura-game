@@ -111,6 +111,10 @@ export const ABILITY_TEXT = Object.freeze({
     'Every girl on the map, your ally\'s too, attacks +{rateMulPct}% faster and pierces {pierceAdd} more enemy for {dur}s, on top of auras.',
     'a short map-wide team rally',
     'Festival of Clubs: Assembly Bell gives +{rateMulPct}% speed and {pierceAdd} more pierce for {dur}s, and recharges in {cd}s.'),
+  'chigusa.overgrowth': t('Overgrowth', 'botanist',
+    'Vines hold up to {count} walkers in her range for {hold}s (minibosses for less; bosses and flyers shrug them off) and squeeze each for {dmgMul}× her hit.',
+    'vines that hold a whole group of walkers',
+    'Forest Corridor: Overgrowth holds up to {count} walkers within {reachMul}× her range for {hold}s, squeezes for {dmgMul}×, and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */

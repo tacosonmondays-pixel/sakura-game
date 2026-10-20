@@ -37,6 +37,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
   // Ouka's office (radius and discount on top of her tiers)
   'hub.radiusAdd', 'hub.cutAdd',
+  // Chigusa's vine and thorns
+  'vine.hold', 'vine.bedDmg', 'vine.every',
   // Yuzuha's sentries
   'sentry.max', 'sentry.damage', 'sentry.ttl',
 ]);
@@ -363,6 +365,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
     p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
     p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
+  },
+  // Chigusa, SR nature caster: her seeds, her vine and her thorns
+  chigusa: {
+    p2: step('Morning Watering', 'stat', { damageMul: 1.04 }),
+    p3: step('Deep Roots', 'kit', { rateMul: 1.05 }, { vine: { hold: 0.2 } }),
+    p4: step('Sharp Thorns', 'kit', { damageMul: 1.05 }, { vine: { bedDmg: 1 } }),
+    p5: step('Quick Sprouts', 'kit', { rateMul: 1.06 }, { vine: { every: -0.5 } }),
+    p6: step('Evergreen', 'cap', { damageMul: 1.07 }, { pierce: 1, vine: { hold: 0.3, every: -0.5 } }),
   },
   // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
   // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)

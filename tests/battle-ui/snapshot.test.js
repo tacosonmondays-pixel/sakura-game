@@ -1125,6 +1125,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Ouka's banners and the rules she gives)
     for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Chigusa mid-wave: a held enemy, thorn beds, Bloom Rush; all of it ends at the wave clear)
+    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: {}, seed: 12 });
+    cg.cash = 1e6;
+    for (const a of autoPlan('1-1', ['chigusa', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') cg.placeTower(a.unitId, a.x, a.y);
+    const ch = cg.towers.find((t) => t.unitId === 'chigusa');
+    for (const [p, n] of [[0, 3], [1, 2]]) for (let k = 0; k < n; k++) expect(cg.upgradeTower(ch.uid, p)).toBe(true);
+    cg.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(ch.vineHold && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
+    expect(!!(ch.vineHold && ch.beds?.length && ch.bloomT > 0)).toBe(true);
+    for (const t of cg.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

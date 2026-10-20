@@ -240,6 +240,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('PEN+1', '+6% attack speed. Her darts ignore 1 more armor.', 1.08, 'rim'),
     t('DEPLOYED', '+7% damage. 1 more sentry at a time, and her sentries deal 2 more damage.', 1.20, 'rim'),
   ),
+  chigusa: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('HOLD+0.2', '+5% attack speed. Her vine holds 0.2 s longer.', 1.10, 'rim'),
+    t('THORNS+1', '+5% damage. Her thorn beds deal 1 more damage.', 1.10, 'rim'),
+    t('VINE-0.5', '+6% attack speed. Her vine comes 0.5 s sooner.', 1.12, 'rim'),
+    t('EVERGREEN', '+7% damage. Seeds pierce 1 more; her vine holds 0.3 s longer and comes 0.5 s sooner.', 1.18, 'rim'),
+  ),
   ouka: row(
     t('CUT ×1.03', 'Her upgrade discounts are 3% deeper (5% off → 5.15% off).', 1.03, 'rim'),
     t('CUT+2%', 'Her discounts are 3% deeper, and upgrades in her radius cost 2% less on top.', 1.06, 'rim'),

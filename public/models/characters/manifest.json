@@ -50,6 +50,23 @@
   "lodSize": 198276,
   "lodVertices": 2734
  },
+ "chigusa": {
+  "file": "chigusa.glb",
+  "size": 475172,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10335,
+  "lod": "chigusa.lod.glb",
+  "lodSize": 223728,
+  "lodVertices": 3343
+ },
  "chika": {
   "file": "chika.glb",
   "size": 374744,

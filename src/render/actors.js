@@ -23,8 +23,10 @@ const STATUS_ICONS = {
   vulnerable: ['st_mark', '#9fd8ff'], silence: ['st_silence', '#c4a6ff'], reveal: ['st_reveal', '#ffe066'], soak: ['st_soak', '#4cc9f0'],
   // roster B3: Ena's curse (bursts on death), Yoriko's hex, grounded flyers
   curse: ['st_curse', '#b46cff'], hex: ['st_hex', '#d77bff'], ground: ['st_ground', '#d8c8a0'],
+  // Chigusa's vines
+  hold: ['st_hold', '#6fcf5e'],
 };
-const STATUS_ORDER = ['freeze', 'stun', 'shock', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
+const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
 const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
 const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
@@ -602,6 +604,15 @@ export class Actors {
       }
       for (const n of tw.nets || []) {
         gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
+      }
+    }
+    // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
+    for (const tw of sim.towers) {
+      if (!tw.beds) continue;
+      for (const b of tw.beds) {
+        const a = 0.45 + 0.4 * Math.min(1, b.ttl / 2);
+        gN.push(b.x, 0.063, b.y, 0.8, 0.8, R.disc, 0.25, 0.42, 0.2, a * 0.8, b.uid * 0.9);
+        gN.push(b.x, 0.065, b.y, 0.86, 0.86, R.ringDashed, 0.45, 0.75, 0.32, a, b.uid * 0.9);
       }
     }
     // Ouka's office (a faint gold dashed ring the size of her radius) and her council banners (a white

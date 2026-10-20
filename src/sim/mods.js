@@ -202,6 +202,31 @@ const HUB_MAX = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdC
 const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
 const HUB_ADDS = ['radiusAdd', 'cutAdd'];
 
+/**
+ * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Creeping Vine, thorn beds, Bloom
+ * Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
+ *   every (s per vine) · hold (s) · dps (vine damage a second while it holds)
+ *   beds (hits per thorn bed; 0 = none) · bedDmg · bedTtl (s)
+ *   bloom (Bloom Rush cap, 0.6 = +60% attack speed) · bloomPer (a second of attacking) · bloomIdle (s)
+ *   lives (a wave cleared) · livesCap (a battle)
+ */
+function normVine(t = {}) {
+  return {
+    every: t.every ?? 6,
+    hold: t.hold ?? 1,
+    dps: t.dps ?? 0,
+    beds: t.beds ?? 0,
+    bedDmg: t.bedDmg ?? 2,
+    bedTtl: t.bedTtl ?? 8,
+    bloom: t.bloom ?? 0,
+    bloomPer: t.bloomPer ?? 0.05,
+    bloomIdle: t.bloomIdle ?? 2,
+    lives: t.lives ?? 0,
+    livesCap: t.livesCap ?? 30,
+  };
+}
+const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+
 const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
 const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
 const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
@@ -300,6 +325,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.drink ? { drink: normDrink(b.drink) } : null),
     ...(b.sentry ? { sentry: normSentry(b.sentry) } : null),
     ...(b.hub ? { hub: normHub(b.hub) } : null),
+    ...(b.vine ? { vine: normVine(b.vine) } : null),
   };
 }
 
@@ -446,6 +472,10 @@ export function applyModSet(s, mods, acc) {
       for (const k of SENTRY_ADDS) if (v[k] != null) s.sentry[k] += v[k];
       for (const k of SENTRY_FLAGS) if (v[k]) s.sentry[k] = true;
       if (v.rate != null) s.sentry.rate *= v.rate;
+    } else if (key === 'vine') {
+      // only a vine girl's vines change (src/sim/vines.js)
+      if (!s.vine) continue;
+      for (const k of VINE_ADDS) if (v[k] != null) s.vine[k] += v[k];
     } else if (key === 'hub') {
       // only a hub girl's rules change (src/sim/hubs.js)
       if (!s.hub) continue;
@@ -549,6 +579,10 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   if (s.trap) s.trap.damage *= u.damageMul;
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.drink) s.drink.towelDmg *= u.damageMul;
+  if (s.vine) {
+    s.vine.dps *= u.damageMul;
+    s.vine.bedDmg *= u.damageMul;
+  }
   if (s.sentry) {
     s.sentry.damage *= u.damageMul;
     s.sentry.burst *= u.damageMul;
@@ -614,6 +648,10 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.maxTargets = Math.max(1, Math.round(s.maxTargets));
   if (s.trap) s.trap.max = Math.max(0, Math.round(s.trap.max));
   if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
+  if (s.vine) {
+    s.vine.every = Math.max(1, s.vine.every);
+    s.vine.beds = Math.max(0, Math.round(s.vine.beds));
+  }
   if (s.hub) {
     // her office: the strongest radius plus its adds; her range is the radius (the ring the board draws)
     const h = s.hub;

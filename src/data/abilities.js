@@ -83,6 +83,7 @@ const S = {
   mark: (bonus, duration) => ({ type: 'mark', bonus, duration }),
   silence: (duration) => ({ type: 'silence', duration }),
   reveal: (duration) => ({ type: 'reveal', duration }),
+  hold: (duration) => ({ type: 'hold', duration }),
 };
 
 /**
@@ -260,6 +261,13 @@ export const ABILITIES = deepFreeze({
     effect: { radius: 'map', rateMul: 1.3, pierceAdd: 1 },
     auto: { when: 'enemies', min: 10 },
     t5: { cooldown: 40, duration: 15, effect: { rateMul: 1.5, pierceAdd: 2 } },
+  }],
+  chigusa: [{
+    // vines hold her lead walkers (never a boss or a flyer) and squeeze each once (src/sim/vines.js `hold`)
+    path: 'greenhouse', unlockTier: 3, id: 'chigusa.overgrowth', kind: 'debuff', scope: 'local', cooldown: 35, duration: 3,
+    effect: { pick: 'ground', count: 8, dmgMul: 5, status: [S.hold(3)] },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [S.hold(4)] } },
   }],
 });
 

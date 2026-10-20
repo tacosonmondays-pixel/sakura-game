@@ -174,6 +174,8 @@ function pathScore(def, p, needs, tiersToCount = 5) {
     // the new girls' own blocks, scored like the turret's (only their tiers carry these keys)
     if (m.sentry) s += (m.sentry.max || 0) * 1.5 + (m.sentry.damage || 0) * 0.3 + (m.sentry.kits ? 4 : 0) + (m.sentry.burst || 0) * 0.02;
     if (m.strip) s += (m.strip.hits || 0) * 0.3 + (m.strip.boom || 0) * 0.02;
+    // Chigusa's vine, thorns and Bloom Rush
+    if (m.vine) s += (m.vine.bloom || 0) * 6 + (m.vine.dps || 0) * 0.1 + (m.vine.beds || 0) * 0.3 - (m.vine.every || 0) * 0.8;
     if (m.hub) {
       // Ouka's rules: for the girls around her
       const h = m.hub;

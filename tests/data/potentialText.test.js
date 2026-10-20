@@ -44,6 +44,7 @@ function candidates(key, v, parent, parentKey) {
     for (const w of WORDS[v] || []) words.push(w);
   } else {
     out.add(fmt(v));
+    if (v < 0) out.add(fmt(-v)); // ("comes 0.5 s sooner" for vine.every -0.5)
     for (const w of WORDS[v] || []) words.push(w);
   }
   return { nums: [...out], words };

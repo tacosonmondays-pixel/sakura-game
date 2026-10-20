@@ -50,6 +50,7 @@ import { endRingWave } from './rings.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
+import { onVineKill, endVineWave } from './vines.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -643,6 +644,7 @@ export class Sim {
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (tower && !tower.removed) {
       tower.kills++;
+      if (!drone && tower.stats?.vine) onVineKill(this, tower, e); // Chigusa's thorn beds (src/sim/vines.js)
       if (drone) {
         drone.kills++;
         tower.droneKills++;
@@ -802,6 +804,8 @@ export class Sim {
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
     endSentryWave(this);
+    // Chigusa's thorn beds and holds end; her harvest gives lives back (src/sim/vines.js)
+    endVineWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });

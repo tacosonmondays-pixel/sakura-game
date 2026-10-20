@@ -103,7 +103,7 @@ view and in the formation / lobby. The list lives in `src/models/standins.js` (`
   blazer, sailor; mallet, puppet, spear, fan, bow, tome, shield, mirror, cards).
 * Tests: `tests/models/standins.test.js` (exactly these nine, procedural at every quality, their weapon and
   accessory are dedicated pieces, nothing fetched in a stubbed browser); `tests/models/glb.test.js` checks
-  the other 24 girls' GLBs as before (with a count guard) and requires the stand-ins to have **no**
+  the other 25 girls' GLBs as before (with a count guard) and requires the stand-ins to have **no**
   manifest entry or file; `tests/data/skins.test.js` accepts a stand-in default row without a manifest model.
 * Real art landing: build / import her GLB (manifest entry + `<id>.glb` + `<id>.lod.glb`), remove her id from
   `STANDIN_UNITS` and from the test's list, and bump the GLB count in `glb.test.js`. The glb test fails while a

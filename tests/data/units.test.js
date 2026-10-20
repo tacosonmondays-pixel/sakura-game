@@ -51,6 +51,7 @@ const ROSTER = [
   ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
   ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '4-2'],
   ['ouka', 'tower', 'SR', 'council', 'holy', null, 'land', 'charm', 'gacha'],
+  ['chigusa', 'tower', 'SR', 'botanist', 'pierce', null, 'land', 'feather', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -68,7 +69,7 @@ const LOOK_ENUMS = {
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip', 'needle', 'tablet', 'banner'],
+    'strip', 'needle', 'tablet', 'banner', 'wateringCan'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
@@ -81,7 +82,7 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring', 'drink', 'sentry', 'hub'];
+  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -192,6 +193,7 @@ function modSetErrors(mods, where) {
     drink: (k, v, w) => drinkErrors(v, w),
     sentry: (k, v, w) => sentryErrors(v, w),
     hub: (k, v, w) => hubErrors(v, w),
+    vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -228,6 +230,9 @@ function sentryErrors(v, w) {
   return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The nature caster (src/sim/mods.js normVine): numbers add.
+const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+
 // The campus hub (src/sim/mods.js normHub).
 const HUB_NUMS = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd'];
 const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
@@ -255,6 +260,7 @@ function baseErrors(b, where) {
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
   if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
+  if (b.vine) errs.push(...objErrors(b.vine, VINE_NUMS, `${where}.vine`, numCheck));
   if (b.hub) {
     errs.push(...hubErrors(b.hub, `${where}.hub`));
     if (b.behavior !== 'none') errs.push(`${where}: a hub never attacks (behavior none)`);
@@ -500,7 +506,8 @@ describe('upgrade paths', () => {
           if (t.mods.mark && !hasMark) { expect(isPos(t.mods.mark.bonus) && isPos(t.mods.mark.duration), `${where} mark`).toBe(true); hasMark = true; }
           if (t.mods.trap) expect(!!u.base.trap, `${where} trap mods need a trap unit`).toBe(true);
           if (t.mods.turret) expect(!!u.base.turret, `${where} turret mods need a turret unit`).toBe(true);
-          if (t.mods.income) expect(!!u.base.income, `${where} income mods need an income unit`).toBe(true);
+          // (Chigusa's Harvest brings her coins with a tier: applyModSet creates the income block)
+          if (t.mods.income) expect(!!u.base.income || !!u.base.vine, `${where} income mods need an income unit`).toBe(true);
           if (t.mods.relay) expect(!!u.base.relay, `${where} relay mods need a familiar / mirror unit`).toBe(true);
         }
       }
@@ -818,7 +825,7 @@ describe('helpers', () => {
     // base owners first
     const firstPathOnly = det.findIndex((id) => !getUnit(id).capabilities.includes('detection'));
     expect(det.slice(firstPathOnly).every((id) => !getUnit(id).capabilities.includes('detection'))).toBe(true);
-    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori', 'ena']);
+    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori', 'ena', 'chigusa']);
   });
 
   it('tier cost helpers add up', () => {

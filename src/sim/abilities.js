@@ -235,7 +235,7 @@ export function abilityReach(t, def) {
     case 'burst': return e.at === 'self' ? burstRadius(t, e) : (e.reachMul ?? 1) * t.eff.range;
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
-    case 'debuff': return t.eff.range;
+    case 'debuff': return (e.reachMul ?? 1) * t.eff.range;
     case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
     default: return t.eff.range;
   }
@@ -359,7 +359,7 @@ function applyStatuses(sim, e, t, list, spec, step) {
   const guarded = big && (e.abilCc ?? -1) > step;
   let landed = false;
   for (const s of list) {
-    const cc = s.type === 'freeze' || s.type === 'stun';
+    const cc = s.type === 'freeze' || s.type === 'stun' || s.type === 'hold';
     if (cc && guarded) continue;
     if (sim._applyStatusEvent(e, s, ctx) && cc) landed = true;
   }
@@ -578,12 +578,18 @@ const KINDS = {
       const map = def.scope === 'map';
       let pool = map ? mapPool(sim) : poolIn(sim, t.x, t.y, abilityReach(t, def), null);
       if (e.pick === 'veiled') pool = pool.filter((v) => v.veiled);
+      else if (e.pick === 'ground') {
+        // (Chigusa's Overgrowth: walkers that are not bosses, her lead ones first)
+        pool = pool.filter((v) => !v.airborne && v.tier !== 'boss');
+        if (e.count != null && pool.length > e.count) pool = topOf(pool, 'first', t.x, t.y, e.count);
+      }
       else if (e.pick === 'strong') pool = topOf(pool, 'strong', t.x, t.y, e.count ?? 9999);
       else if (e.count != null && pool.length > e.count) pool = topOf(pool, t.targetMode, t.x, t.y, e.count);
       if (!pool.length) return null;
       for (const v of pool) {
         applyStatuses(sim, v, t, e.status, spec, step);
         if (e.casterStatus && isCaster(v)) applyStatuses(sim, v, t, e.casterStatus, spec, step);
+        if (e.dmgMul > 0 && !v.dead) sim._hit(v, t, spec, 1); // (Overgrowth: the vines squeeze)
       }
       if (e.rally) {
         addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration));

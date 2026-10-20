@@ -574,6 +574,19 @@ export function createAtlas(extra = []) {
     ctx.stroke();
   });
 
+  icon('st_hold', (ctx, w, h) => {
+    // a vine curling round (Chigusa's hold), with a leaf
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.82);
+    ctx.bezierCurveTo(w * 0.2, h * 0.3, w * 0.8, h * 0.3, w * 0.62, h * 0.58);
+    ctx.bezierCurveTo(w * 0.5, h * 0.74, w * 0.36, h * 0.56, w * 0.5, h * 0.46);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(w * 0.72, h * 0.28, w * 0.1, h * 0.05, -0.6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
   // Buff icons (src/render/buffIcons.js): white glyphs on transparent, drawn on a dark plate with a
   // rim in the source girl's tint; rims sized for 13–16 px icons; badges white with a dark outline.
   const bf = (name, draw) => add(name, 64, 64, (ctx, w, h) => {

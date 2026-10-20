@@ -451,6 +451,13 @@ def emblem(weapon, pal, size):
         pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.55, -0.2), (0.75, 0.4), (-0.5, 0.4)], WHITE)
         pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.72, -0.7), (-0.5, -0.7)], acc)
         star(pen, 0.1, -0.2, 0.26, (242, 155, 184))
+    elif weapon == 'wateringCan':  # a watering can with a long spout and a sprout
+        pen.ell(-0.15, 0.25, 0.55, 0.45, fill=acc)
+        pen.poly([(0.3, 0.2), (0.85, -0.45), (0.95, -0.35), (0.42, 0.38)], acc)
+        pen.arc(-0.15, -0.15, 0.7, 0.6, 180, 360, ink, 0.07)
+        pen.ell(0.9, -0.42, 0.1, 0.1, fill=mix(acc, WHITE, 0.5))
+        pen.line([(-0.15, -0.2), (-0.15, -0.55)], (95, 160, 70), 0.06)
+        pen.ell(-0.27, -0.6, 0.12, 0.06, fill=(111, 207, 94))
     elif weapon == 'needle':  # a big needle with a loop of thread, over a pincushion
         pen.ell(-0.35, 0.45, 0.42, 0.34, fill=acc)
         pen.ell(-0.35, 0.3, 0.12, 0.08, fill=mix(acc, WHITE, 0.5))

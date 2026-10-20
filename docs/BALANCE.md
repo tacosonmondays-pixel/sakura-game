@@ -46,6 +46,14 @@ Hard 21 → 25 lives, 8-4 Hard 37 → 37; Kinu 5-4 Hard 21 → 13, 6-1 Hard 44 �
 for the free team) is lost with any ninth girl the bot adds, either of them: its plan spends on her
 before the second copies it relies on.
 
+**Chigusa** (SR, gacha; Greenhouse Gardener, nature caster). Walking-stream bench (as above): 75 / 278 /
+1422 at 3/2 / 4/2 / 5/2 (SR band: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150). The spec's seeds (2
+damage, Fresh Seeds +1, Full Bloom +4, Season of Plenty +10) benched at 28 / 139 / 550, a third of the
+band: base damage 3, Fresh Seeds +2, Bloom Rush +3, Full Bloom +6, Season of Plenty +30. Forest Corridor
+(her T5, a final tier at 19,200) also raises vine damage to 30/s and thorn beds to 10. Bot goldens (the
+free team plus her): 5-4 Hard 21 → 29 lives, 8-4 Hard 37 → 41. Her Harvest coins use the existing
+`income` (pooled like Momo's wave income); her lives respect healing, income and the 30-a-battle cap.
+
 
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
 

@@ -61,6 +61,8 @@ export const MOD_TAGS = {
   drink: 'limited',
   // Ouka's office rules cover the girls around her
   hub: 'allies',
+  // Chigusa's vine holds enemies; her thorn beds are her traps
+  vine: 'enemies',
   // Yuzuha's lane sentries are her summons
   sentry: 'drones',
 };
@@ -81,6 +83,7 @@ const SUB_KEYS = {
   mark: new Set(['bonus', 'duration']),
   relay: new Set(['reach']),
   sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
+  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
   hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),

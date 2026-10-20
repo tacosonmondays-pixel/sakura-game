@@ -337,7 +337,70 @@ const OUKA = {
   awakenPassive: { name: 'Open Door Policy', desc: 'Her office radius is 0.2 tiles wider.', mods: { hub: { radiusAdd: 0.2 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Chigusa — Greenhouse Gardener (nature caster; UNIT_GAPS §5.7, src/sim/vines.js)
+// ---------------------------------------------------------------------------
+
+const CHIGUSA = {
+  id: 'chigusa',
+  name: 'Chigusa',
+  title: 'Greenhouse Gardener',
+  kind: 'tower',
+  rarity: 'SR',
+  adult: false,
+  role: 'botanist',
+  attackType: 'pierce',
+  element: null,
+  placement: 'land',
+  materialFamily: 'feather',
+  capabilities: ['multiHit'],
+  pathCapabilities: ['slow', 'antiHeal', 'income', 'antiAir', 'buff'],
+  acquisition: GACHA_ONLY,
+  palette: {
+    hair: '#7da35a', hairShade: '#557a3a', eyes: '#8a5a3a', skin: '#ffe6d4',
+    outfit: '#8a8f4a', outfitShade: '#6b4a32', accent: '#f2c94c', halo: '#c8f0a0', weapon: '#5fa8d3',
+  },
+  look: {
+    hairStyle: 'wavy', bangs: 'swept', accessory: 'flower', outfit: 'apron', weapon: 'wateringCan',
+    halo: 'leaf', eyeStyle: 'round', expression: 'smile',
+  },
+  bio: 'The botany club\'s gentle gardener. An olive sweater vest over a white blouse, a brown plaid skirt, a gardening apron with seed pockets, rubber boots, cotton gloves and a school straw sun hat. Wavy moss-green hair with a leaf tie, a watering can in her hand and a potted sprout riding on her shoulder.',
+  personality: 'Gentle and patient. She talks to plants and slimes in exactly the same voice.',
+  quote: 'Slowly now. Everything grows if you give it time.',
+  tips: [
+    'She throws a fan of three thorn seeds, and every 6 seconds a vine holds the lead walker in her range for a moment (bosses and flyers shrug it off).',
+    'Thorn Beds (Greenhouse tier 2): her kills leave thorns on the road that hurt the next few enemies.',
+    '⚡ Greenhouse tier 3 teaches Overgrowth: vines hold a whole group of walkers in her range and squeeze them.',
+    'Harvest grows coins and, from Herb Garden, a life back for every wave cleared (never above your starting lives).',
+  ],
+  base: stats({ cost: 420, damage: 3, rate: 0.8, range: 3, projectiles: 3, pierce: 2, projectileSpeed: 12, canHitAir: false, vine: { every: 6, hold: 1 } }),
+  paths: [
+    path('growth', 'Wild Growth', 'Seeds and Bloom Rush', [
+      tier('Fresh Seeds', 120, '+2 damage.', { damage: 2 }),
+      tier('Sunlight', 300, '+15% attack speed.', { rateMul: 1.15 }),
+      tier('Bloom Rush', 1000, '+3 damage. Her attack speed rises 5% for every second she keeps attacking, up to +60%; 2 seconds without an attack resets it.', { vine: { bloom: 0.6 }, damage: 3 }),
+      tier('Full Bloom', 3000, 'Bloom Rush up to +120%; +6 damage; 5 seeds.', { vine: { bloom: 0.6 }, damage: 6, projectiles: 2 }),
+      tier('Season of Plenty', 17600, 'Bloom Rush up to +200%; 7 seeds; +30 damage; seeds hit flyers.', { vine: { bloom: 0.8 }, projectiles: 2, damage: 30, canHitAir: true }),
+    ]),
+    path('greenhouse', 'Greenhouse', 'Vines and thorns', [
+      tier('Creepers', 130, 'Seeds slow 15% for 1s.', { status: [S.slow(0.15, 1)] }),
+      tier('Thorn Beds', 320, 'Her kills of walkers leave a thorn bed on the road: 4 hits of 2 damage, for 8s.', { vine: { beds: 4 } }),
+      tier('Strangler Vine', 1100, 'A vine every 4s that holds for 2s and deals 10 damage a second.', { vine: { every: -2, hold: 1, dps: 10 } }),
+      tier('Thorn Hedge', 3400, 'A vine every 3s; thorn beds have 8 hits.', { vine: { every: -1, beds: 4 } }),
+      tier('Forest Corridor', 19200, 'A vine every 2.5s; vines deal 30 a second; thorn beds hit for 10.', { vine: { every: -0.5, dps: 20, bedDmg: 8 } }),
+    ]),
+    path('harvest', 'Harvest', 'Coins and lives', [
+      tier('Compost', 100, '+0.4 range.', { range: 0.4 }),
+      tier('Vegetable Patch', 260, '+25 coins per wave.', { income: { perWave: 25 } }),
+      tier('Herb Garden', 900, '+1 life for every wave cleared (at most 30 a battle, never above your starting lives); seeds poison 1 a second for 2s, so enemies stop healing.', { vine: { lives: 1 }, status: [S.poison(1, 2)] }),
+      tier('Bumper Crop', 2800, '120 coins and 2 lives per wave.', { income: { perWave: 95 }, vine: { lives: 1 } }),
+      tier('Golden Fields', 16000, '400 coins and 3 lives per wave; girls within 2 tiles deal 10% more damage.', { income: { perWave: 280 }, vine: { lives: 1 }, aura: { range: 2, dmgMul: 1.1 } }),
+    ]),
+  ],
+  awakenPassive: { name: 'Green Thumb', desc: 'Her vine comes 0.5s sooner.', mods: { vine: { every: -0.5 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA, OUKA];
+export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);
