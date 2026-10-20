@@ -1,0 +1,28 @@
+{
+  "floorPx": 12,
+  "note": "Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update",
+  "files": {
+    "src/ui/styles/achievements.css": 51,
+    "src/ui/styles/base.css": 10,
+    "src/ui/styles/battle-modes.css": 3,
+    "src/ui/styles/battle.css": 86,
+    "src/ui/styles/coach.css": 4,
+    "src/ui/styles/coop-modes.css": 2,
+    "src/ui/styles/gearFilter.css": 1,
+    "src/ui/styles/honors.css": 1,
+    "src/ui/styles/journal.css": 7,
+    "src/ui/styles/meta-a.css": 132,
+    "src/ui/styles/meta-b.css": 47,
+    "src/ui/styles/modes.css": 9,
+    "src/ui/styles/online.css": 41,
+    "src/ui/styles/potential.css": 22,
+    "src/ui/styles/profile.css": 83,
+    "src/ui/styles/sandbox.css": 4,
+    "src/ui/styles/social.css": 29,
+    "src/ui/styles/story.css": 8,
+    "src/ui/styles/title.css": 6,
+    "src/ui/styles/unit-build.css": 20,
+    "src/ui/styles/unit-info.css": 46,
+    "src/ui/styles/ur.css": 6
+  }
+}
