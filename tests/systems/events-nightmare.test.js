@@ -110,7 +110,11 @@ describe('NM-2 the unlock gate', () => {
   it('a locked Nightmare reached by a link plays as practice: no medal, gems, candy, first clear or mission progress', () => {
     const p = atTheBoss();
     play(p, 'ev-halloween-boss', 'normal');
-    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, p)).toMatchObject({ difficulty: 'nightmare', practice: true });
+    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, p)).toMatchObject({
+      difficulty: 'nightmare', practice: true,
+      practiceNote: 'Practice run: Nightmare opens after a Hard clear, so nothing from this battle is saved.', // the HUD line (the stage is open)
+    });
+    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'hard' }, p).practiceNote).toBeUndefined();
     const gems = p.currencies.gems;
     const candy = itemCount(p, CANDY);
     const before = JSON.stringify(eventState(p, EV.id).total.progress);
@@ -125,8 +129,12 @@ describe('NM-2 the unlock gate', () => {
     // an operation's Nightmare before its Normal clear: the same
     const q = joined();
     readEpisode(q, EV.id, 'ev.halloween.01', MID);
+    expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'nightmare' }, q).practiceNote).toMatch(/^Practice run: Nightmare opens after a Normal clear/);
     expect(play(q, 'ev-halloween-1', 'nightmare').practice).toBe(true);
     expect(q.progress.stages['ev-halloween-1']).toBeUndefined();
+    // a stage still locked on the map keeps the HUD's own line
+    expect(parseBattleParams({ stage: 'ev-halloween-4', difficulty: 'nightmare' }, q)).toMatchObject({ practice: true });
+    expect(parseBattleParams({ stage: 'ev-halloween-4', difficulty: 'nightmare' }, q).practiceNote).toBeUndefined();
   });
 });
 

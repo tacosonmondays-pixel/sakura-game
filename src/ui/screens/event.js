@@ -15,7 +15,7 @@ import { STAGE_MAP } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { getItem } from '../../data/items.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { DIFFICULTIES } from '../../data/types.js';
+import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { itemIcon, uiIcon, medalIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -25,6 +25,7 @@ import { itemCount } from '../../systems/inventory.js';
 import {
   eventPhase, eventWindow, eventUnlocked, phaseLabel, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
   claimEventMission, claimAllEventMissions, shopRows, buyEventOffer, loginRows, markEventLogin, settleEvents, endedSummary,
+  eventDifficultyStatus,
 } from '../../systems/events.js';
 import { openMailbox } from '../lobby/mailbox.js';
 import { rewardTiles } from './stage.js';
@@ -204,7 +205,10 @@ function stagesTab(ev, phase) {
     const cleared = stage.difficulties.some((d) => medals[d]);
     let map = null;
     try { map = getMap(stage.mapId); } catch { map = null; }
-    const per = stage.drops.filter((d) => d.item === ev.currency.id && (!d.difficulty || d.difficulty === 'normal')).reduce((a, d) => a + d.min, 0);
+    // candy per win on each difficulty it offers (its sure rolls up to that difficulty: Nightmare's stacks on Normal's)
+    const rank = (d) => DIFFICULTY_ORDER.indexOf(d);
+    const perOf = (d) => stage.drops.filter((x) => x.item === ev.currency.id && x.chance >= 1 && (!x.difficulty || rank(x.difficulty) <= rank(d))).reduce((a, x) => a + x.min, 0);
+    const pers = stage.difficulties.map((d) => perOf(d));
     grid.appendChild(h(`button.ev-op${stage.boss ? '.boss' : ''}${st.ok ? '' : '.locked'}`, {
       'data-testid': `event-op-${s.id}`,
       onclick: () => (st.ok ? navigate('stage', { id: s.id }) : toast(st.text, 'info')),
@@ -214,8 +218,15 @@ function stagesTab(ev, phase) {
       h('div.ev-op-top', h('span.ev-chip', stage.boss ? 'BOSS' : `OP ${s.id.split('-').pop()}`), cleared ? h('span.ev-chip.done', '✓ Cleared') : null),
       h('b.ev-op-name', stage.name),
       h('div.ev-op-meta',
-        stage.difficulties.map((d) => h('span.ev-diff', svgEl(medalIcon(d, { earned: !!medals[d] }), 'ev-diff-medal'), DIFFICULTIES[d].name)),
-        h('span.ev-op-candy', svgEl(itemIcon(ev.currency.id), 'ev-mini'), `×${per}`)),
+        stage.difficulties.map((d) => {
+          // a difficulty still waiting for its medal gate (Nightmare: "Clear Normal first") wears a lock
+          const gate = eventDifficultyStatus(profile, s.id, d);
+          return h(`span.ev-diff${gate.ok ? '' : '.locked'}`, { 'data-testid': `event-op-diff-${s.id}-${d}`, title: gate.ok ? DIFFICULTIES[d].name : gate.text },
+            svgEl(medalIcon(d, { earned: !!medals[d] }), 'ev-diff-medal'), DIFFICULTIES[d].name,
+            gate.ok ? null : svgEl(uiIcon('lock'), 'ev-diff-lock'));
+        }),
+        h('span.ev-op-candy', { title: `${ev.currency.name} per win: ${stage.difficulties.map((d, i) => `${DIFFICULTIES[d].name} ${pers[i]}`).join(' · ')}` },
+          svgEl(itemIcon(ev.currency.id), 'ev-mini'), pers.map((n) => `×${formatNumber(n)}`).join(' / '))),
       st.ok ? null : h('div.ev-op-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), st.text),
     )));
   }

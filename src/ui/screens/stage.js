@@ -290,7 +290,10 @@ export function dropGrid(stage, difficulty, { dropMul = 1, compact = false } = {
   for (const m of list) {
     const active = m.rolls.filter((r) => r.active);
     const chance = 1 - active.reduce((p, r) => p * (1 - r.chance), 1);
-    const min = active.length ? Math.min(...active.map((r) => r.min)) : m.rolls[0].min;
+    // the least it pays: every sure roll stacks (an event's guaranteed candy, base + its Nightmare roll); otherwise
+    // the smallest roll that lands
+    const sure = active.filter((r) => r.chance >= 1);
+    const min = sure.length ? sure.reduce((a, r) => a + r.min, 0) : active.length ? Math.min(...active.map((r) => r.min)) : m.rolls[0].min;
     const max = active.length ? active.reduce((a, r) => a + r.max, 0) : m.rolls[0].max;
     const gated = m.rolls.filter((r) => !r.active);
     const isActive = active.length > 0;

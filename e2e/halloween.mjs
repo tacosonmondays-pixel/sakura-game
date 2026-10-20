@@ -218,6 +218,17 @@ try {
     // ---- 5. Operation 1, played for real -----------------------------------------------------
     await page.locator('[data-testid="tab-stages"]').click();
     await page.waitForSelector('[data-testid="event-op-ev-halloween-1"]', { timeout: T });
+    const opCard = await page.evaluate(() => {
+      const nm = document.querySelector('[data-testid="event-op-diff-ev-halloween-1-nightmare"]');
+      return {
+        locked: !!nm?.classList.contains('locked') && !!nm?.querySelector('.ev-diff-lock'),
+        why: nm?.getAttribute('title') || '',
+        normalLocked: !!document.querySelector('[data-testid="event-op-diff-ev-halloween-1-normal"]')?.classList.contains('locked'),
+        candy: document.querySelector('[data-testid="event-op-ev-halloween-1"] .ev-op-candy')?.textContent || '',
+      };
+    });
+    check(opCard.locked && opCard.why === 'Clear Normal first' && !opCard.normalLocked, `operations tab: Op 1's Nightmare chip wears a lock ("${opCard.why}"), Normal does not`);
+    check(opCard.candy === '×60 / ×120', `operations tab: Op 1's candy per win on Normal / Nightmare (${opCard.candy})`);
     await shot('event-operations');
     await page.locator('[data-testid="event-op-ev-halloween-1"]').click();
     await page.waitForSelector('[data-testid="event-prep"]', { timeout: T });
@@ -321,6 +332,12 @@ try {
     }
 
     // ---- 7b. Nightmare: the Golem's own stage once Hard is cleared; an operation's Nightmare sweep -
+    // a locked Nightmare from a battle link plays as practice, and the HUD says why (the stage itself is open)
+    await page.evaluate(() => { document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()); location.hash = '#/battle?stage=ev-halloween-boss&difficulty=nightmare'; });
+    await page.waitForFunction(() => /Practice run/.test(document.querySelector('[data-testid="battle-feed"]')?.textContent || ''), null, { timeout: 90000 }).catch(() => null);
+    const practiceLine = (await page.textContent('[data-testid="battle-feed"]').catch(() => '')) || '';
+    check(/Practice run: Nightmare opens after a Hard clear, so nothing from this battle is saved\./.test(practiceLine) && !/still locked on your map/.test(practiceLine), `locked Golem Nightmare by link: the HUD says why it is practice ("${practiceLine.slice(0, 90)}")`);
+    await shot('boss-nightmare-practice');
     await page.evaluate(() => {
       const { store } = window.__sakura;
       store.profile.progress.stages['ev-halloween-boss'].hard = true;
@@ -335,10 +352,12 @@ try {
       start: document.querySelector('[data-testid="stage-start"]')?.disabled,
       golem: !!document.querySelector('.ma-enemy[data-enemy="construct_gourdlight"]'),
       knight: !!document.querySelector('.ma-enemy[data-enemy="ghost_hollowknight"]'),
+      drop: [...document.querySelectorAll('.ma-drop')].find((d) => d.querySelector('[data-item="evt_halloween_candy"]'))?.querySelector('.ma-drop-range')?.textContent || '',
     }));
     check(/Lantern Night Never Ends/.test(nmPrep.variant), `boss Nightmare prep: "${nmPrep.variant.slice(0, 60)}…"`);
     check(nmPrep.waves === '20', `boss Nightmare prep: 20 waves (${nmPrep.waves})`);
     check(/×500 per win/.test(nmPrep.candy), 'boss Nightmare prep: Pumpkin Candy ×500 per win');
+    check(nmPrep.drop === '×500', `boss Nightmare prep: the Drops grid shows the sure candy as ×500, not a range (${nmPrep.drop})`);
     check(nmPrep.start === false && nmPrep.golem && nmPrep.knight, 'boss Nightmare prep: Start open, its own enemies scouted (Golem, hollow knights)');
     check(await noOverflow(), 'boss Nightmare prep: no horizontal overflow');
     await page.waitForTimeout(800);

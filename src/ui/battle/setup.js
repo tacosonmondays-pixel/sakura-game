@@ -53,8 +53,9 @@ export function resolveFormation(profile) {
  * Nightmare × Last Petal is the same battle as Nightmare Standard. Anything else plays Standard. A
  * mode run is never offered "Keep going" (freeplay runs in Standard in v1).
  * @returns {{ stageId: string|null, difficulty: string, mode: string, endless: boolean, freeplay: string|null,
- *   keepGoing: boolean, practice: boolean, sandbox: boolean, team?: string[], hero?: string|null,
+ *   keepGoing: boolean, practice: boolean, practiceNote?: string, sandbox: boolean, team?: string[], hero?: string|null,
  *   error: string|null, resume: string|null }}
+ *   practiceNote: the HUD line when the run is practice because an event difficulty is still locked
  *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
  */
 export function parseBattleParams(params = {}, profile = null) {
@@ -74,8 +75,12 @@ export function parseBattleParams(params = {}, profile = null) {
   const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
-  // [events] so does a difficulty still locked on an event stage (Nightmare before its medal gate)
-  const practice = !!profile && (isPracticeRun(profile, stageId) || !eventDifficultyStatus(profile, stageId, difficulty).ok);
+  // [events] so does a difficulty still locked on an event stage (Nightmare before its medal gate); the HUD
+  // then says why (`practiceNote`: the stage itself is open)
+  const stageLocked = !!profile && isPracticeRun(profile, stageId);
+  const evGate = profile && !stageLocked ? eventDifficultyStatus(profile, stageId, difficulty) : null;
+  const practice = stageLocked || (!!evGate && !evGate.ok);
+  const practiceNote = evGate && !evGate.ok ? eventPracticeNote(evGate, difficulty) : null;
   const resume = typeof params.resume === 'string' && params.resume ? params.resume : null;
   const tutorial = String(params.tutorial ?? '') === '1';
   const fpStage = hasSoloFreeplay(stageId) && !practice && !tutorial;
@@ -85,7 +90,14 @@ export function parseBattleParams(params = {}, profile = null) {
   let mode = modeId(params.mode);
   if (stage.kind !== 'campaign' || endless || freeplay || practice || tutorial || (profile && !modesUnlocked(profile, stageId))) mode = 'standard';
   if (mode === 'laststand' && difficulty === 'nightmare') mode = 'standard';
-  return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, sandbox: false, error: null, resume };
+  return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, ...(practiceNote ? { practiceNote } : {}), sandbox: false, error: null, resume };
+}
+
+/** The HUD line of a practice run on an open event stage whose difficulty is still locked (eventDifficultyStatus). */
+function eventPracticeNote(gate, difficulty) {
+  const name = DIFFICULTIES[difficulty]?.name || difficulty;
+  const why = gate.reason === 'medal' && gate.needs ? `${name} opens after a ${DIFFICULTIES[gate.needs]?.name || gate.needs} clear` : `${name} isn't offered on this event stage`;
+  return `Practice run: ${why}, so nothing from this battle is saved.`;
 }
 
 /**

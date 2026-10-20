@@ -921,7 +921,7 @@ export function mountBattle(root, params, hooks) {
       }
     };
     later(armHero, 700);
-    if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
+    if (req.practice) feed.push(req.practiceNote || 'Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
       // a hero saved before the hero rework: back at her level, what she cost back as coins
       const heroBack = (restored.heroRefunds || []).reduce((a, x) => a + x.refunded, 0);
