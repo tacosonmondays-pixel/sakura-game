@@ -10,6 +10,26 @@ import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
 import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
+import { TITAN_MAP, tierIndex, titanBattle, MAX_RANK } from '../../data/titans.js';
+import { tierOpen, refreshKeys } from '../../systems/titans.js';
+
+/**
+ * A Titan Trials battle (`titan=<id>&tier=<tier>[&rank=n][&practice=1]`, docs/specs/ASCENSION.md §C):
+ * its stage and enemy overrides come from src/data/titans.js titanBattle and reach the Sim through
+ * its data hook. A tier that is not open, no Trial Key left, or `practice=1` plays as practice (no
+ * key, no rewards). Never saved, never freeplay, never a battle mode.
+ */
+export function parseTitanParams(params = {}, profile = null) {
+  const titanId = String(params.titan || '');
+  const tier = tierIndex(params.tier) >= 0 ? params.tier : 'normal';
+  const rank = tier === 'mayhem' ? Math.max(0, Math.min(MAX_RANK, Math.floor(Number(params.rank) || 0))) : 0;
+  const base = { difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, sandbox: false, resume: null };
+  if (!TITAN_MAP[titanId]) return { ...base, stageId: null, practice: false, error: 'Unknown titan.' };
+  const battle = titanBattle(titanId, tier, rank);
+  const wantsPractice = String(params.practice ?? '') === '1';
+  const practice = wantsPractice || (profile ? !tierOpen(profile, titanId, tier, rank) || refreshKeys(profile) < 1 : false);
+  return { ...base, stageId: battle.stage.id, stageDef: battle.stage, titan: { id: titanId, tier, rank, battle }, practice, error: null };
+}
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -97,6 +117,12 @@ export function createBattleSim(profile, req) {
   const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
+  if (req.titan) {
+    // Titan Trials: the titan's stage and enemy overrides through the Sim's data hook (no hashed file)
+    const { stage, enemies } = req.titan.battle;
+    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart }, data: { stage, enemies } });
+    return { sim, towers, hero, seed, cfg: null };
+  }
   // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js)
   const fpStage = req.freeplay ? soloFreeplayStage(req.stageId, req.freeplay) : null;
   const sim = new Sim({

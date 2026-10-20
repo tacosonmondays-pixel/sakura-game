@@ -21,9 +21,13 @@ const CARRY = [
   ['aoi', 0, 2], ['akane', 2, 0],
 ];
 
-function lateBoard(stageId, tier, wave, towers) {
+// gear's worst case (docs/specs/GEAR_STATS.md §D.4 perf a): UR_LATE's fastest rate (1.83, gear-awaken §7.5), Pierce at its
+// cap and Pyrotechnics on every girl (Finale Pop everywhere, one battle-wide budget), burns × 1.25
+const UR_CROWD = { ...MAXED, damageMul: 3.97, rateMul: 1.83, rangeMul: 1.3, critChance: 0.58, critMul: 2.23, armorPen: 6.6, pierceK: 150, dotMul: 1.25, club: 'pyro', clubN: 3 };
+
+function lateBoard(stageId, tier, wave, towers, stats = MAXED) {
   const stage = coopStage(stageId, { freeplay: tier });
-  const sim = new Sim({ stageId, loadout: GIRLS.map((unitId) => ({ unitId, stats: MAXED })), hero: { unitId: 'hikari', stats: MAXED }, seed: 5, options: { freeplay: true }, data: { stage } });
+  const sim = new Sim({ stageId, loadout: GIRLS.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari', stats }, seed: 5, options: { freeplay: true }, data: { stage } });
   sim.cash = 1e15;
   const samples = sim.pathData.flatMap((p) => samplePath(p, 0.5)).filter((s) => !s.hidden);
   const lattice = [];
@@ -79,6 +83,14 @@ describe('late freeplay cost (CPU per step)', () => {
     expect(placed).toBe(60);
     const r = measure(sim, 3600);
     console.log(`[perf freeplay] 8-5 wave 200: ${r.msPerStep.toFixed(3)} ms/step over ${r.steps} steps, ${r.maxAlive} alive, ${r.maxProj} projectiles`);
+    expect(r.msPerStep).toBeLessThan(process.env.CI ? 6 : 2);
+  }, 240000);
+
+  it('the same board in rainbow gear, Pierce at its cap and Pyrotechnics on every girl stays under 2 ms a step', () => {
+    const { sim, placed } = lateBoard('8-5', 'blossom', 200, 60, UR_CROWD);
+    expect(placed).toBe(60);
+    const r = measure(sim, 3600);
+    console.log(`[perf freeplay] 8-5 wave 200, UR + Pierce + Pyrotechnics: ${r.msPerStep.toFixed(3)} ms/step over ${r.steps} steps, ${r.maxAlive} alive, ${r.maxProj} projectiles, pop budget ${sim.popBudget}`);
     expect(r.msPerStep).toBeLessThan(process.env.CI ? 6 : 2);
   }, 240000);
 

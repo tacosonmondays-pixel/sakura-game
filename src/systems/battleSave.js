@@ -56,7 +56,7 @@ export function slotKey(stageId, endless = false) {
  * @param {object} params route params
  * @param {{ practice?: boolean, error?: string|null, freeplay?: string|null, sandbox?: boolean }} req parsed battle request (setup.js)
  */
-export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !params.sandbox && !req.sandbox && !req.practice && !req.error && !req.freeplay;
+export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !params.sandbox && !params.titan && !req.titan && !req.sandbox && !req.practice && !req.error && !req.freeplay;
 
 /** @returns {object} profile.battleSaves (created on demand) */
 function saves(profile) {

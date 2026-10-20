@@ -154,6 +154,17 @@ for (const { name, r } of results) {
   if (!(p.mech.spectral > 0 && p.mech.boss > 0 && p.mech.echo > 0)) failures.push(`the Potential boss battle: ×spectral, ×boss or the duel echo never fired (${JSON.stringify(p.mech)})`);
 }
 
+// gear (GEAR_START): Pierce on every kit, Aura Power, every club trick, the Finale Pop budget
+log('\nScripted co-op GEAR battle (4-5, GEAR_START: Pierce on shots, sweeps, blasts, traps, drones and a half-rate sniper; every club trick):');
+for (const { name, r } of results) {
+  const g = r.gear;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two gear clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} gear command(s) refused: ${g.refused}`);
+  for (const k of POT_KEYS.filter((x) => x !== 'aoi')) if (g[k] !== ref.gear[k]) failures.push(`${name}: gear ${k} ${g[k]} ≠ ${ref.gear[k]} (${results[0].name})`);
+}
+if (ref.gear.state !== 'won' && ref.gear.state !== 'lost' && !(ref.gear.wave >= 10)) failures.push(`the gear battle stopped early (state ${ref.gear.state}, wave ${ref.gear.wave})`);
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -249,4 +260,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battle, the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

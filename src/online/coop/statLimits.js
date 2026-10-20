@@ -18,10 +18,12 @@
 import { DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { MAX_POTENTIAL } from '../../data/potential.js';
 import { COOP } from '../../data/coop.js';
+import { SIM_CLUB_IDS, PIERCE_K_MAX } from '../../sim/gearRules.js';
 
 const num = (lo, hi) => Object.freeze({ type: 'num', lo, hi });
 const int = (lo, hi) => Object.freeze({ type: 'int', lo, hi });
 const BOOL = Object.freeze({ type: 'bool' });
+const oneOf = (list) => Object.freeze({ type: 'enum', list: Object.freeze([...list]) });
 
 /** One rule per stat key a loadout may carry (unitBattleStats' keys). */
 export const UNIT_STAT_LIMITS = Object.freeze({
@@ -33,6 +35,16 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   armorPen: num(0, 50),
   costMul: num(0.75, 1),
   ultHaste: num(0, 0.5),
+  // gear (docs/specs/GEAR_STATS.md §F.2): Pierce in hundredths (capped at source at 150), Aura Power
+  // (15 % lines + 5 % fill), the aura girls' fill-in radius, gear ATK's share of burns, her club set,
+  // and the UR pieces she wears (the renderer's rainbow sparkles; the sim never reads it)
+  pierceK: int(0, PIERCE_K_MAX + 50),
+  auraPct: num(0, 0.3),
+  auraRangeMul: num(1, 1.2),
+  dotMul: num(1, 1.5),
+  club: oneOf(SIM_CLUB_IDS),
+  clubN: int(0, 3),
+  rainbow: int(0, 3),
   awakenPassive: BOOL,
   level: int(1, 99),
   awaken: int(0, 5),
@@ -49,6 +61,7 @@ const fallback = (key, rule) => (key in DEFAULT_UNIT_STATS ? DEFAULT_UNIT_STATS[
 
 function clampOne(key, rule, v) {
   if (rule.type === 'bool') return v === true;
+  if (rule.type === 'enum') return rule.list.includes(v) ? v : null;
   let n = typeof v === 'number' ? v : Number.NaN;
   if (!Number.isFinite(n)) return fallback(key, rule);
   if (rule.type === 'int') n = Math.floor(n);

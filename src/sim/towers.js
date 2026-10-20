@@ -17,6 +17,7 @@ import { segDistSq, projectOnSegment, samplePath } from './path.js';
 import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
+import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -40,7 +41,7 @@ export function hitRadius(e) {
 }
 
 function emptyBuff() {
-  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0 };
+  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0, tea: 1 };
 }
 
 /**
@@ -169,7 +170,7 @@ export function refreshEffective(t, globalRateMul = 1) {
   t.eff = {
     ...s,
     damage: s.damage * b.dmgMul,
-    rate: s.rate * b.rateMul * globalRateMul,
+    rate: s.rate * b.rateMul * (b.tea || 1) * globalRateMul,
     range: env ? Math.max(1, (s.range + envAdd) * envMul) * b.rangeMul : s.range * b.rangeMul,
     detection,
     critChance: s.crit.chance,
@@ -190,7 +191,7 @@ export function refreshEffective(t, globalRateMul = 1) {
   }) : null;
   t.turretSpec = s.turret ? hitSpecFrom(s, {
     damage: s.turret.damage * b.dmgMul,
-    rate: s.turret.rate * b.rateMul * globalRateMul,
+    rate: s.turret.rate * b.rateMul * (b.tea || 1) * globalRateMul,
     // map rules (landing plan S4): a roaming wing (leash > 0) takes the rule's additive range once, on
     // its roam radius, and its guns only the multiplier; anchored turrets use the girl's range formula
     range: s.turret.leash > 0
@@ -229,8 +230,10 @@ function mergeLists(a, b) {
 export function recomputeBuffs(sim) {
   const towers = sim.towers;
   let changed = false;
+  const tea = secondCupTargets(towers);
   for (const t of towers) {
     const nb = emptyBuff();
+    if (tea && tea.has(t)) nb.tea = TRICK.secondCup.rateMul;
     // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
     // girl placed first
     const by = t.buffBy || (t.buffBy = emptyBuffBy());
@@ -257,7 +260,7 @@ export function recomputeBuffs(sim) {
     const ob = t.buff;
     let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
       || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
-      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance || (ob.tea || 1) !== nb.tea;
     if (sim.rule) {
       // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
       const env = ruleRangeFor(sim, t);
@@ -276,9 +279,33 @@ export function recomputeBuffs(sim) {
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
+      || nb.armorPen > 0 || nb.critChance > 0 || nb.tea > 1 || sim.globalRateMul > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
   }
   return changed;
+}
+
+/**
+ * Tea Club's Second Cup (gear-stats §C.3): girls in a Tea girl's aura attack 2 % faster (every Tea girl
+ * gives the same, so it never stacks); a Tea girl with no aura serves the 2 nearest girls within 2 tiles
+ * (ties: the lower uid). @returns {Set<object>|null} the girls served
+ */
+function secondCupTargets(towers) {
+  let out = null;
+  for (const a of towers) {
+    if (a.disabled > 0 || trickClub(a.unitStats) !== TRICK.secondCup.club) continue;
+    out ||= new Set();
+    const au = a.stats?.aura;
+    if (au && au.range > 0) {
+      const r2 = au.range * au.range;
+      for (const t of towers) if (t !== a && (t.x - a.x) ** 2 + (t.y - a.y) ** 2 <= r2) out.add(t);
+      continue;
+    }
+    const near = TRICK.secondCup.near * TRICK.secondCup.near;
+    const cands = towers.filter((t) => t !== a && (t.x - a.x) ** 2 + (t.y - a.y) ** 2 <= near);
+    cands.sort((p, q) => ((p.x - a.x) ** 2 + (p.y - a.y) ** 2) - ((q.x - a.x) ** 2 + (q.y - a.y) ** 2) || p.uid - q.uid);
+    for (const t of cands.slice(0, TRICK.secondCup.nearest)) out.add(t);
+  }
+  return out;
 }
 
 /** Strongest cost cut from auras covering tile centre (x, y). */
@@ -399,8 +426,68 @@ let echoing = false;
 // The girl's own effective spec while one of her rhythm attacks runs with t.effProc (null otherwise):
 // a duel's splash victims take her plain hit, not the rhythm's harder one (attackDuel).
 let procBase = null;
+// Gear on the attack running now (set by updateTower around one counted attack, gear-stats §A.3 / §C.3):
+// her Pierce in hundredths for this attack (Follow-Through included) and the trick spec it hits with.
+// Module state like `echoing`: set and cleared inside one synchronous attack. An echo takes neither.
+let gearK = 0;
+let gearTrick = null;
+// Whether this attack is a Follow-Through (Archery's 5th): a blast takes the trick's +100 % Pierce as a
+// wider radius (blastRadius), the way her shots take it as gearK.
+let gearFt = false;
 /** Fan offset (rad) of an echo's projectiles, alternating sides. */
 const ECHO_FAN = 0.18;
+
+/** The spec her hits use this attack: a Finishing Thrust or a Big Beat makes a harder copy. */
+function gearSpec(spec) {
+  if (!gearTrick || echoing) return spec;
+  return { ...spec, damage: spec.damage * gearTrick.mul, ...(gearTrick.pen ? { armorPen: (spec.armorPen || 0) + gearTrick.pen } : null) };
+}
+
+/** Her blast radius this attack: a Follow-Through widens it (none on an echo), else her usual splash. */
+function blastRadius(t, splash) {
+  return gearFt && !echoing ? splash * followThroughBlast(t.unitStats) : splash;
+}
+
+/** Extra targets from gear Pierce for one shot / beam / chain of this attack (none on an echo). */
+function shotPierce(t) {
+  return gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', gearK, pierceMax(t)) : 0;
+}
+
+/**
+ * Before one of her counted attacks: which trick fires on it (her 3-piece club; the Nth attack) and her
+ * Pierce for it. @returns {number} the attack's number in her trick count (0 = no trick club)
+ */
+function beginGear(t) {
+  gearTrick = null;
+  gearK = 0;
+  gearFt = false;
+  // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce
+  if (t.eff.behavior === 'trap') return 0;
+  const club = trickClub(t.unitStats);
+  let n = 0;
+  let ft = false;
+  if (club === TRICK.followThrough.club || club === TRICK.thrust.club || club === TRICK.bigBeat.club) {
+    n = (t.trickN || 0) + 1;
+    if (club === TRICK.followThrough.club) ft = n % TRICK.followThrough.every === 0;
+    else if (club === TRICK.thrust.club && n % TRICK.thrust.every === 0) gearTrick = { mul: TRICK.thrust.mul, pen: THRUST_PEN, kind: 'thrust' };
+    else if (club === TRICK.bigBeat.club && n % TRICK.bigBeat.every === 0) gearTrick = { mul: TRICK.bigBeat.mul, pen: 0, kind: 'bigBeat' };
+  }
+  gearK = t.eff.behavior === 'duel' ? 0 : pierceK(t, ft);
+  gearFt = ft && t.eff.behavior !== 'duel';
+  return n;
+}
+
+/** After the attack: a counted one (it found a target) advances her trick count. */
+function endGear(sim, t, n, ok) {
+  if (ok && n > 0) {
+    const every = { archery: TRICK.followThrough.every, fencing: TRICK.thrust.every, taiko: TRICK.bigBeat.every }[t.unitStats.club];
+    t.trickN = n % every;
+    if (gearTrick || (t.unitStats.club === 'archery' && n % every === 0)) sim._emit('clubTrick', { towerUid: t.uid, kind: gearTrick ? gearTrick.kind : 'followThrough' });
+  }
+  gearK = 0;
+  gearTrick = null;
+  gearFt = false;
+}
 
 function face(t, e) {
   t.facing = Math.atan2(e.x - t.x, e.y - t.y);
@@ -507,7 +594,7 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   let n = spec.projectiles;
   const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, n);
   if (!targets.length) return false;
@@ -518,15 +605,19 @@ function attackProjectile(sim, t) {
     const dup = Math.floor(i / targets.length);
     if (spec.projectileSpeed <= 0) {
       if (tgt.dead) continue;
-      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, spec.splash);
-      else if (spec.pierce > 1) {
-        const { hits } = linePierce(sim, t, spec, tgt, spec.range + 1, LINE_HALF_WIDTH, spec.pierce);
+      const pierce = spec.splash > 0 ? spec.pierce : spec.pierce + shotPierce(t);
+      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, blastRadius(t, spec.splash));
+      else if (pierce > 1) {
+        const { hits } = linePierce(sim, t, spec, tgt, spec.range + 1, LINE_HALF_WIDTH, pierce);
         for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
       } else sim._hit(tgt, t, spec, 1);
     } else {
       let spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
       if (echoing) spread += i % 2 ? -ECHO_FAN : ECHO_FAN;
-      spawnProjectile(sim, t, spec, tgt, t.x, t.y, { spread });
+      const extra = spec.splash > 0 ? 0 : shotPierce(t);
+      const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
+      const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
+      spawnProjectile(sim, t, spec, tgt, t.x, t.y, opts);
     }
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: t.projKind });
@@ -534,13 +625,15 @@ function attackProjectile(sim, t) {
 }
 
 function attackPulse(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   const c = gatherTargets(sim, t.x, t.y, spec.range, spec, sim._scratch);
   if (!c.length) return false;
   let victims = c.slice();
-  if (victims.length > spec.maxTargets) {
+  // gear Pierce: 2 more targets per 100 % (a carry on 2k)
+  const maxTargets = spec.maxTargets + (gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0);
+  if (victims.length > maxTargets) {
     victims.sort((a, b) => targetScore(t.targetMode, t.x, t.y, b) - targetScore(t.targetMode, t.x, t.y, a));
-    victims.length = spec.maxTargets;
+    victims.length = maxTargets;
   }
   face(t, victims[0]);
   for (const e of victims) if (!e.dead) sim._hit(e, t, spec, 1);
@@ -550,7 +643,7 @@ function attackPulse(sim, t) {
 }
 
 function attackDuel(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   let tgt = t.rampTarget;
   if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.x, tgt.y - t.y) > spec.range) {
     // Potential N10 (Kaede): a target that FELL leaves part of her focus for the next one; one that
@@ -581,7 +674,7 @@ function attackDuel(sim, t) {
   if (spec.splash > 0) {
     // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
     // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
-    const cut = procBase && spec === t.effProc ? procBase : spec;
+    const cut = procBase && t.eff === t.effProc ? procBase : spec;
     const near = sim.grid.query(tx, ty, spec.splash, []);
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
@@ -605,7 +698,7 @@ function duelEcho(sim, t) {
 }
 
 function attackBeam(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, spec.projectiles);
   if (!targets.length) return false;
   face(t, targets[0]);
@@ -613,7 +706,7 @@ function attackBeam(sim, t) {
   const width = 0.12 + 0.04 * Math.min(6, spec.pierce);
   for (const tgt of targets) {
     if (tgt.dead) continue;
-    const { hits, ex, ey } = linePierce(sim, t, spec, tgt, spec.range, BEAM_HALF_WIDTH, spec.pierce);
+    const { hits, ex, ey } = linePierce(sim, t, spec, tgt, spec.range, BEAM_HALF_WIDTH, spec.pierce + shotPierce(t));
     for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
     sim._emit('beam', { from: [t.x, t.y], to: [ex, ey], width, color, towerUid: t.uid });
   }
@@ -622,7 +715,7 @@ function attackBeam(sim, t) {
 }
 
 function attackChain(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, spec.projectiles);
   if (!targets.length) return false;
   face(t, targets[0]);
@@ -632,13 +725,14 @@ function attackChain(sim, t) {
     const points = [[t.x, t.y]];
     const hitSet = new Set();
     let cur = start;
-    for (let j = 0; j <= spec.chain && cur; j++) {
+    const chain = spec.chain + shotPierce(t);
+    for (let j = 0; j <= chain && cur; j++) {
       hitSet.add(cur.uid);
       points.push([cur.x, cur.y]);
       const cx = cur.x;
       const cy = cur.y;
       sim._hit(cur, t, spec, 1);
-      if (j === spec.chain) break;
+      if (j === chain) break;
       const near = sim.grid.query(cx, cy, jump, sim._scratch2);
       let next = null;
       let bestD = Infinity;
@@ -790,6 +884,17 @@ const BEHAVIORS = {
   turret: attackTurret,
 };
 
+/**
+ * One drone / turret shot's gear (gear-stats §A.3, §C.3): its Pierce (a carry on the owner, drones do not
+ * take Follow-Through) and Taiko's Big Beat on every 10th drone shot. @returns {{ spec, pierce }}
+ */
+function droneShot(t, spec) {
+  const pierce = 1 + pierceCarry(t, 'droneCarry', pierceK(t), pierceMax(t));
+  if (trickClub(t.unitStats) !== TRICK.bigBeat.club) return { spec, pierce };
+  t.droneBeatN = ((t.droneBeatN || 0) + 1) % TRICK.bigBeat.every;
+  return { spec: t.droneBeatN === 0 ? { ...spec, damage: spec.damage * TRICK.bigBeat.mul } : spec, pierce };
+}
+
 function updateTurrets(sim, t, dt) {
   const spec = t.turretSpec;
   if (!spec || !t.turrets.length) return;
@@ -808,8 +913,9 @@ function updateTurrets(sim, t, dt) {
       continue;
     }
     tu.facing = Math.atan2(tgt.x - tu.x, tgt.y - tu.y);
-    spawnProjectile(sim, t, spec, tgt, tu.x, tu.y, {
-      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: spec.range, turretUid: tu.uid,
+    const shot = droneShot(t, spec);
+    spawnProjectile(sim, t, shot.spec, tgt, tu.x, tu.y, {
+      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: shot.pierce, splash: 0, range: spec.range, turretUid: tu.uid,
     });
     tu.cooldown += 1 / Math.max(0.05, spec.rate * ocMul);
     sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'bullet', turretUid: tu.uid });
@@ -1121,8 +1227,9 @@ function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
       continue;
     }
     d.facing = Math.atan2(shot.x - d.x, shot.y - d.y);
-    spawnProjectile(sim, t, spec, shot, d.x, d.y, {
-      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: R + 1, turretUid: d.uid, drone: d, guided: true,
+    const gs = droneShot(t, spec);
+    spawnProjectile(sim, t, gs.spec, shot, d.x, d.y, {
+      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: gs.pierce, splash: 0, range: R + 1, turretUid: d.uid, drone: d, guided: true,
     });
     d.shots++;
     t.droneShots++;
@@ -1275,7 +1382,10 @@ export function updateTower(sim, t, dt) {
   const tempo = s.tempo || null;
   let guard = 0;
   while (t.cooldown <= 0 && guard++ < 4) {
-    if (!(proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t))) {
+    const gn = beginGear(t);
+    const ok = proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t);
+    endGear(sim, t, gn, ok);
+    if (!ok) {
       t.cooldown = 0;
       break;
     }
@@ -1313,7 +1423,11 @@ function guidedStep(sim, p, dt) {
   if (segDistSq(tgt.x, tgt.y, ax, ay, p.x, p.y) <= hr * hr) {
     p.dead = true;
     p.hits.push(tgt.uid);
+    const hx = tgt.x;
+    const hy = tgt.y;
     sim._hit(tgt, p.owner, p.spec, 1, p.drone);
+    // gear Pierce on a drone bullet: it goes on through the nearest enemies just behind its target
+    if (p.pierce > 1) guidedPierce(sim, p, hx, hy, tgt);
     return;
   }
   if (p.travel >= p.maxTravel) {
@@ -1322,6 +1436,18 @@ function guidedStep(sim, p, dt) {
   }
   const f = Math.min(1, p.travel / Math.max(0.5, p.est));
   p.z = PROJECTILE_Z + p.targetAlt * f;
+}
+
+/** Radius (tiles) a piercing drone bullet carries on through after its target. */
+const DRONE_PIERCE_REACH = 0.6;
+function guidedPierce(sim, p, x, y, first) {
+  const near = sim.grid.query(x, y, DRONE_PIERCE_REACH, []);
+  const c = near.filter((e) => e !== first && !e.dead && isEligible(e, p.spec));
+  c.sort((a, b) => ((a.x - x) ** 2 + (a.y - y) ** 2) - ((b.x - x) ** 2 + (b.y - y) ** 2) || a.uid - b.uid);
+  for (const e of c.slice(0, p.pierce - 1)) {
+    p.hits.push(e.uid);
+    sim._hit(e, p.owner, p.spec, 1, p.drone);
+  }
 }
 
 function projectileStep(sim, p, dt) {
@@ -1458,13 +1584,53 @@ export function updateTraps(sim, dt) {
         sim._emit('proc', { towerUid: owner.uid, name: p.name || null, of: 'trap', n: owner.potCount, x: tr.x, y: tr.y });
       }
     }
-    explode(sim, owner, boom, tr.x, tr.y, Math.max(boom.splash, boom.triggerRadius));
+    // Taiko's Big Beat on traps: every 10th of her traps that goes off hits 50 % harder
+    if (trickClub(owner.unitStats) === TRICK.bigBeat.club) {
+      owner.trapBeatN = ((owner.trapBeatN || 0) + 1) % TRICK.bigBeat.every;
+      if (owner.trapBeatN === 0) {
+        boom = { ...boom, damage: boom.damage * TRICK.bigBeat.mul };
+        sim._emit('clubTrick', { towerUid: owner.uid, kind: 'bigBeat' });
+      }
+    }
+    // Archery's Follow-Through on traps: every 5th of her traps that goes off blasts as with +100 % Pierce
+    let splash = boom.splash;
+    if (trickClub(owner.unitStats) === TRICK.followThrough.club) {
+      owner.trapFtN = ((owner.trapFtN || 0) + 1) % TRICK.followThrough.every;
+      if (owner.trapFtN === 0) {
+        splash *= followThroughBlast(owner.unitStats);
+        sim._emit('clubTrick', { towerUid: owner.uid, kind: 'followThrough' });
+      }
+    }
+    explode(sim, owner, boom, tr.x, tr.y, Math.max(splash, boom.triggerRadius));
   }
   if (removedAny) {
     let n = 0;
     for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
     list.length = n;
   }
+}
+
+let popping = false;
+/**
+ * Pyrotechnics' Finale Pop (gear-stats §C.3): an enemy she defeats bursts for 25 % of her hit within
+ * 0.9 tiles. Pops never pop, never crit and carry no status; one budget for the whole battle
+ * (sim.popBudget, half-pops) keeps a crowd of pyro girls inside the frame budget.
+ */
+export function finalePop(sim, tower, e) {
+  if (popping || !tower || tower.removed || trickClub(tower.unitStats) !== TRICK.finalePop.club) return;
+  if (!(sim.popBudget >= POP_COST) || !tower.eff) return;
+  sim.popBudget -= POP_COST;
+  const spec = {
+    ...tower.eff, damage: tower.eff.damage * TRICK.finalePop.share, critChance: 0, status: [], mark: null, silence: 0, reveal: 0,
+    knockback: 0, hpPct: null,
+  };
+  popping = true;
+  try {
+    explode(sim, tower, spec, e.x, e.y, TRICK.finalePop.radius);
+  } finally {
+    popping = false;
+  }
+  sim._emit('clubTrick', { towerUid: tower.uid, kind: 'finalePop' });
 }
 
 /** Base cost of a unit before difficulty/profile multipliers. */

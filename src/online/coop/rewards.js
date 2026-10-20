@@ -24,6 +24,7 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { getItem } from '../../data/items.js';
 import { freeplayTable } from '../../data/freeplay.js';
 import { weekKey } from '../../core/util.js';
+import { MILESTONE_ITEMS, MILESTONE_ITEMS_MARK } from '../../data/gearAwaken.js';
 
 /** Freeplay payout tuning (outside the co-op id). */
 export const FREEPLAY_REWARDS = Object.freeze({
@@ -37,13 +38,15 @@ export const FREEPLAY_REWARDS = Object.freeze({
    * missions.counters, the shop's week). Uncapped, Freeplay would be the best EXP farm in the game.
    */
   cacheTome: Object.freeze({ item: 'book_legendary', perCache: 1, weeklyCap: 2 }),
+  /** The first freeplay cache of the game week (solo or co-op) also holds a Starlight Needle (gear-awaken §6.2). */
+  weeklyNeedle: Object.freeze({ item: 'needle_star', count: 1, key: 'cap:fpNeedle' }),
   /** Assault Tokens: one per boss-rank kill (bosses, titans, the Matriarch, the Wyrm), at most this many a run */
   tokenCap: 10,
   /** once per account and tier: [id, what unlocks it, gems, title?, frame?] */
   milestones: Object.freeze([
     Object.freeze({ id: 'w100', wave: 100, gems: 50, label: 'Reached wave 100' }),
-    Object.freeze({ id: 'w150', wave: 150, gems: 100, label: 'Reached wave 150' }),
-    Object.freeze({ id: 'matriarch', kill: 'dragon_ashwing', gems: 200, title: 'Ashwing Slayer', crimsonTitle: 'Crimson Slayer', label: 'Ashwing Matriarch defeated' }),
+    Object.freeze({ id: 'w150', wave: 150, gems: 100, items: MILESTONE_ITEMS.w150, label: 'Reached wave 150' }),
+    Object.freeze({ id: 'matriarch', kill: 'dragon_ashwing', gems: 200, items: MILESTONE_ITEMS.matriarch, title: 'Ashwing Slayer', crimsonTitle: 'Crimson Slayer', label: 'Ashwing Matriarch defeated' }),
     Object.freeze({ id: 'wyrm', kill: 'fp_eclipse_wyrm', gems: 0, frame: 'eclipse', label: 'Eclipse Wyrm defeated' }),
   ]),
 });
@@ -284,6 +287,22 @@ export function freeplayRecords(profile) {
   return r;
 }
 
+/** missions.counters key prefix of a milestone's items paid ('fpu:' + 'tier:id'): the load's retro grant pays once (src/systems/gearMarks.js). */
+export { MILESTONE_ITEMS_MARK };
+
+/**
+ * The week's first freeplay cache Needle: 1 the first time this game week (missions.weekly, wiped by the
+ * weekly reset), else 0. @returns {number}
+ */
+export function freeplayWeekNeedle(profile) {
+  const m = (profile.missions ||= {});
+  const w = (m.weekly ||= {});
+  const key = FREEPLAY_REWARDS.weeklyNeedle.key;
+  if (w[key]) return 0;
+  w[key] = 1;
+  return FREEPLAY_REWARDS.weeklyNeedle.count;
+}
+
 /** missions.counters key prefix of a paid freeplay milestone ('fpm:' + 'tier:id'). */
 export const MILESTONE_MARK = 'fpm:';
 
@@ -332,6 +351,8 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   // after the cache rolls, so the rng stream (and every drop) is what it was before the Tomes
   const tomes = freeplayCacheTomes(profile, caches, now);
   if (tomes > 0) rewards.push({ id: R.cacheTome.item, count: tomes });
+  const needle = caches > 0 ? freeplayWeekNeedle(profile) : 0;
+  if (needle > 0) rewards.push({ id: R.weeklyNeedle.item, count: needle });
   let bossKills = 0;
   for (const [id, n] of Object.entries(kills)) if (ENEMY_MAP[id]?.tier === 'boss') bossKills += n;
   const tokens = Math.min(R.tokenCap, bossKills);
@@ -358,11 +379,15 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
     if (title && !rec.titles.includes(title)) rec.titles.push(title);
     if (m.frame && !rec.frames.includes(m.frame)) rec.frames.push(m.frame);
     if (m.gems > 0) rewards.push({ id: 'gems', count: m.gems });
-    milestones.push({ id: m.id, label: m.label, gems: m.gems, title, frame: m.frame || null });
+    if (m.items) {
+      rewards.push(...m.items);
+      profile.missions.counters[MILESTONE_ITEMS_MARK + key] = 1;
+    }
+    milestones.push({ id: m.id, label: m.label, gems: m.gems, title, frame: m.frame || null, items: m.items ? m.items.map((r) => ({ ...r })) : [] });
   }
 
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
-  out.freeplay = { tier: table.id, tierName: table.name, goal, cleared, waves, coins, caches, tomes, tokens, best: Math.max(prevBest, cleared), prevBest, newBest, milestones };
+  out.freeplay = { tier: table.id, tierName: table.name, goal, cleared, waves, coins, caches, tomes, needle, tokens, best: Math.max(prevBest, cleared), prevBest, newBest, milestones };
   return out;
 }

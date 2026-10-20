@@ -23,6 +23,9 @@ import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
 
+/** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
+const CLUB_NAMES = { archery: 'Archery', fencing: 'Fencing', taiko: 'Taiko', pyro: 'Pyrotechnics', tea: 'Tea', bell: 'Bell' };
+
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
   first: 'Closest to the exit',
@@ -194,7 +197,9 @@ export function createTowerPanel(ctx) {
     if (st.range > 0) add('Range', fmtNum(st.range, 1));
     if (st.behavior === 'projectile' && st.projectiles > 1) add('Targets', st.projectiles);
     if (st.behavior === 'beam' && st.projectiles > 1) add('Beams', st.projectiles);
-    if (st.pierce > 1) add('Pierce', st.pierce);
+    // gear Pierce (docs/specs/GEAR_STATS.md §A.3): "Pierce 2 (+46%)" — the % is her chance of one more target
+    const gearPierce = Math.round(t.unitStats?.pierceK || 0);
+    if (st.pierce > 1 || gearPierce > 0) add('Pierce', gearPierce > 0 ? `${st.pierce} (+${gearPierce}%)` : st.pierce);
     if (st.behavior === 'pulse' && st.maxTargets < 99) add('Max hits', st.maxTargets);
     if (st.splash > 0) add('Splash', fmtNum(st.splash, 1));
     if (st.chain > 0) add('Jumps', st.chain);
@@ -206,6 +211,8 @@ export function createTowerPanel(ctx) {
     if (t.isHero && (t.unitStats?.costMul ?? 1) < 1) add('Level prices', `−${Math.round((1 - t.unitStats.costMul) * 100)}%`, '.bt-stat-wide2');
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ×${fmtNum(st.crit.mul, 2)}`, '.bt-stat-wide2');
     if (st.eliteMul > 1) add('vs Elite', `×${fmtNum(st.eliteMul, 2)}`);
+    // her Academy Club set (2 pieces: its stat is in her numbers; 3: the trick runs in battle)
+    if (t.unitStats?.club && t.unitStats.clubN >= 2) add('Club', `${CLUB_NAMES[t.unitStats.club] || t.unitStats.club} ${'●'.repeat(t.unitStats.clubN)}${t.unitStats.clubN >= 3 ? ' · trick on' : ''}`, '.bt-stat-wide2');
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
     if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');

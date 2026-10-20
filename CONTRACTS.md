@@ -535,7 +535,15 @@ Profile = {
   patchGifts: { [noteId]: true },          // claimed patch-note gifts (src/systems/patchGifts.js); also marked 'pg:<noteId>' in missions.counters
   story: StoryBlock,                       // src/systems/story.js (newStory / legacyStory / restoreStory): no block and no 'story:new' mark = legacy save
 }
-GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
+GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, value, base }, subs: [{ stat, value, base, upgrades, tuned? /*✦ bits: 1 gold, 2 rainbow*/ }],
+                 locked: boolean, equippedBy: unitId|null, name, ur? /*1 = rainbow UR (rarity stays 'legendary')*/, club? /*'archery'|'fencing'|'taiko'|'pyro'|'tea'|'bell'*/ }
+  // Values are STORED in Legendary form; a UR piece reads ×urMul(stat) (×8/7, Armor Pierce ×1.105) through
+  // gearLines / effectiveValue only. Pierce ('piercePct', ribbons) and Aura Power ('auraPct', shoes) are substats
+  // of club pieces only, never mains. Old-build mirrors live in missions.counters (gur:, gbx:, gtn:, gcl:, gnx:, gnf:,
+  // inv:seed_rainbow|needle_star|club_band, ga:gift, gc:gift, fpu:, pity:cel), restored by src/systems/gearMarks.js.
+  // Box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): openRainbowBox(profile, slot, rng) makes a Legendary
+  // piece with ur: 1 at +0 (four substats, locked, joins a club); gbx:<uid> = slot index × 100 + main-stat index + 1
+  // brings `ur` back at any level (gur: keeps its +10 rule); salvage pays the Seed and writes gbx: 0.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)
@@ -600,6 +608,43 @@ letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `
 throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
 asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open), never stored here.
 
+### `src/systems/essence.js` (Ascension: Essence; spec `docs/specs/ASCENSION.md` §A)
+
+- A duplicate (`grantUnit`) adds 1 to `dupes` and calls `receiveDuplicate`: 1 Essence, or a spare past her hold cap
+  (6 − P) paid at once (`SPARE_PAY`: Mementos, Moonpearls, recruit points; R ⅕ point in `spk:r`). `grantUnit` returns
+  `{ isNew, essence, spare, potential, essenceHeld, readyStep, potentialUp: false }` (no `fragments` / `tomes`).
+- Potential is the bought field `units[id].pl` (1–6; `potentialLevel` reads it, 1 when absent; mirrored in `pl:<id>`).
+  `raisePotential(profile, id, use?)`: 1 Essence (own, or a Kindred item when she has none) + `POTENTIAL_STEP_COINS`.
+- Balance (derived, monotone): `dupes + essB − (pl − 1 − essU) − essX` (counters `essB:`, `essU:`, `essX:`).
+- `migrateEssence` (once, `ess:mig`; `createProfile` marks new saves): `pl = min(6, 1 + dupes)`, gates past 5 up to her
+  level counted as broken, welcome pouch (60–300 Mementos, 15–60 Moonpearls) into the items. `settleSpares` at load
+  raises `essX` only (pays nothing). `fuseShards`: 10 → 1 for Kindred SSR and the Rainbow Crown.
+
+### `src/systems/ascensionSave.js` (mirrors)
+
+`pl:<id>`, `bt:<id>` (gates > 5) and `inv:<id>` (the 16 Ascension items, written by `inventory.js setCount`) in
+`missions.counters`; `restoreAscension` brings back what an older build dropped (by max; a spent item mirrors 0).
+
+### Titan Trials — `src/data/titans.js`, `src/systems/titans.js`, `src/systems/titanRewards.js` (spec §C)
+
+- `titanBattle(titanId, tier, rank)` → `{ stage, enemies, poolHp, … }`: the Sim gets them through `data: { stage,
+  enemies }` (no new stage or enemy; no co-op-hashed file). `titans.js` imports only enemies, types and
+  `src/sim/waves.js`. `createTitanTracker(battle)` reads the titan's damage from the event stream (spawn / death / leak).
+- `applyTitanResult(profile, { titanId, tier, rank, seed, read, kills, encountered, practice?, coop? })`: notch →
+  the damage table share, a Victory → the Victory Chest, the first clear (solo), the best tier; a key only at Bronze+.
+  `sweepTitan`, `refreshKeys` (12 a week + 6 carried, game week), `tierOpen`, `titanOfWeek`, `setTargetFamily`,
+  `payTogetherChest`, `coopTierAllowed`. Counters: `tk:left`, `tk:week`, `tbest:`, `tfc:`, `ttgt:`, `tkill:`, `tatt`,
+  `pity:rain`. Drops roll from `titanDropSeed` (outside the sim). `grantGearBox(profile, rarity, rng)` is the one gear-box
+  seam: ordinary boxes open at once (a Mythic+ piece joins a random club), the Rainbow box goes to the Backpack, whose
+  slot picker opens it with UR gear's `openRainbowBox` (`src/systems/gear.js`) into a rainbow UR piece at +0.
+- Battle: `#/battle?titan=<id>&tier=<tier>[&rank=n][&practice=1]` (`setup.js parseTitanParams`); never battle-saved.
+- Hub: `#/titans[?id=]` (`src/ui/screens/titans.js`).
+
+### `src/systems/craft.js` (Craft Room, spec §B.6)
+
+`craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
+coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
+
 ### `src/systems/mail.js` (first impressions)
 
 ```js
@@ -650,8 +695,14 @@ export function awakenCost(unitId, star)         // star 1..5 -> [{id,count}] cr
 export function canAwaken(profile, unitId)
 export function awaken(profile, unitId)
 export function unitBattleStats(profile, unitId) // multipliers fed into the sim:
-  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken, breakthrough,
+  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN,
+  //      rainbow, awakenPassive: bool, level, awaken, breakthrough,
   //      potential /*1..6; the sim adds her Potential steps; travels in the co-op loadout, so an ally's girl fights at HER owner's P*/ }
+  // The ONE place gear reaches a tower's battle stats. Gear totals are capped here (BATTLE_CAPS: crit 75%, cost cut 25%,
+  // Skill Haste 50%, Crit DMG +200%, Range +50%, Pierce +150%, Aura Power +15%); Every Line Counts (gearFillIn) adds its fill
+  // to the gear ATK part (Umeko / Miko: auraPct + auraRangeMul). pierceK = Pierce in whole hundredths; dotMul = min(1.25,
+  // 1 + ½ gear ATK) on burns / poisons; club / clubN = her club set (3 = its trick, src/sim/gearRules.js); rainbow = UR pieces
+  // worn (renderer only).
 export function unitPower(profile, unitId)       // single number for sorting/UI; × potentialPowerFactor + 20 per Potential step
 ```
 
@@ -662,19 +713,31 @@ damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at thei
 ### `src/systems/gear.js`
 
 ```js
-export function rollGear(rng, { slot, rarity, level = 0 })      // -> GearInstance (not yet in profile)
-export function addGear(profile, gear)                          // assigns uid if missing, returns uid
+export function rollGear(rng, { slot, rarity, level = 0, club })// -> GearInstance (not yet in profile); club: roll from its pool + favourites
+export function addGear(profile, gear, { club })                // assigns uid if missing, returns uid; club 'random' | id: a fresh Mythic+
+                                                                //   drop joins it (its own rng) — stage drops, boxes, Titan Trials' Club Focus
 export function equipGear(profile, unitId, uid)                 // swaps out previous, handles owner change
 export function unequipGear(profile, unitId, slot)
 export function rerollCost(gear, { lockIndex })                 // -> [{id,count}]
 export function rerollSubstats(profile, uid, rng, { lockIndex = null } = {}) // -> { ok, before, after, error? }
-export function rerollMainStat(profile, uid, rng)
-export function enhanceCost(gear)                               // coins for next level
-export function enhanceGear(profile, uid)                       // +1 level (max 10), main stat grows, every 3 levels a sub grows
-export function salvageGear(profile, uid)                       // -> rewards (dice/coins)
-export function gearStatTotals(profile, unitId)                 // -> { atkPct, ratePct, ... } summed
-export function describeStat(stat, value)                       // '+5.2% ATK'
+export function rerollMainStat(profile, uid, rng, { stat })     // the Prism Dice: `stat` = the player's choice (else random)
+export function enhanceCost(gear)                               // coins for next level (UR +11/+12 at tier-6 prices)
+export function enhanceGear(profile, uid)                       // +1 level (max 10, UR 12), every 3 levels the least-upgraded sub grows;
+                                                                //   the first Legendary +10 pays the first-bloom Seed (`gift`)
+export function salvageGear(profile, uid)                       // -> rewards (dice/coins; + the Seed of a UR piece, + a Needle per ✦)
+export function gearStatTotals(profile, unitId)                 // -> { atkPct, …, piercePct, auraPct } effective sums + club 2-piece + Resonance
+export function gearLines(g) / effectiveValue(g, line)          // the only effective (UR-scaled) reads of stored values
+export function canAwakenGear / awakenGear(profile, uid)        // Rainbow Bloom: Legendary +10, 1 seed_rainbow + 80,000 coins
+export function stitchSlots(g) / canStitch / stitchSub(profile, uid, subIndex) / takeBackStitch(profile, uid, subIndex)
+export function canTieArmband / tieArmband(profile, uid, club)  // Club Armband: 1 club_band + 2,000 × (tier + 1) coins
+export function gearSetInfo(profile, unitId)                    // -> { club, clubN, clubs, ur, resonance }
+export function gearFillIn(profile, unitId)                     // Every Line Counts -> { target, total, cap, lines, over }
+export function describeStat(stat, value)                       // '+5.2% ATK', '+19% Skill Haste' (statName, src/data/gearStats.js)
 ```
+Gear definitions for menus: `src/data/gearStats.js` (GEAR_STAT_DEFS, statName, GEAR_FIT, BATTLE_CAPS), `src/data/clubs.js`,
+`src/data/gearAwaken.js` (none of them in the co-op hash). The sim side is `src/sim/gearRules.js` (hashed): Pierce per kit, the club
+tricks, and the tower abilities' Skill Haste read `abilityHaste(unitStats, kind)` / `abilityChargePerTick(unitStats, kind)` (half of her
+capped Skill Haste; 0 for kinds 'rally' and 'debuff') and `firstBellCharge`.
 
 ### `src/systems/inventory.js`
 
@@ -747,6 +810,13 @@ export function stageShowcase(profile, stageId)  // the medal and ribbon showcas
   // (earned with the Nightmare medal). Read-only; never writes the profile.
 export function campaignShowcase(profile)        // -> { stages: stageShowcase[] in campaign order, medals: { have, total: 160 }, ribbons: { have, total: 800 } }
 ```
+
+### Shop rows of Ascension (`src/data/shop.js`, `src/systems/shop.js`)
+
+Offers may carry their own `currency` (the Memento Exchange: `memento` / `moonpearl`), `section: 'titan'`, `group` +
+`family` (choose-family rows sharing one stock, counted under `group:<id>`), `needs` (hidden with nobody to use it),
+`everyOtherWeek`, `chosenEssence` (`buyOffer(…, { unitId })`). `clock: 'game'` rows reset on the game week through
+`missions.counters['shopwk:asc']`, never by `shop.week`.
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
 

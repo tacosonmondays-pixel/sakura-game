@@ -144,6 +144,14 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   armorPen: 0,
   costMul: 1,
   ultHaste: 0,
+  // gear (docs/specs/GEAR_STATS.md): Pierce in whole hundredths, Aura Power, the aura girls' fill-in
+  // radius, her burns' / poisons' share of gear ATK, and her club set (3 pieces = its trick)
+  pierceK: 0,
+  auraPct: 0,
+  auraRangeMul: 1,
+  dotMul: 1,
+  club: null,
+  clubN: 0,
   awakenPassive: false,
   level: 1,
   awaken: 0,

@@ -42,6 +42,7 @@ import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
 import { FLIGHT_MODES } from '../../sim/constants.js';
+import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
@@ -111,6 +112,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   _towerByUid: 'snap',
   // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
   _dpsTimer: 'snap',
+  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle
+  popBudget: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -164,6 +167,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the rhythm's specs follow her stats and buffs (refreshEffective)
   potCount: 'snap', tempoStacks: 'snap', tempoIdle: 'snap', projCarry: 'snap', rampKeep: 'snap', auraBoostLeft: 'snap', potOc: 'snap',
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
+  // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
+  // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
+  pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
 });
 
 /**
@@ -223,6 +229,7 @@ export function snapshotSim(sim) {
     uid: sim._uid,
     buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left, b.src ?? -1]),
     dps: sim._dpsTimer,
+    ...(sim.popBudget != null && sim.popBudget !== POP_BUDGET_MAX ? { pb: sim.popBudget } : {}),
     towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
@@ -258,6 +265,7 @@ function packTower(sim, t) {
   if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
   packPotential(t, o);
+  packGear(t, o);
   return o;
 }
 
@@ -310,6 +318,22 @@ function unpackPotential(t, o) {
   }
   if (o.ab != null) t.auraBoostLeft = Math.max(0, r(o.ab));
   if (Array.isArray(o.oc)) t.potOc = { cd: r(o.oc[0]), left: Math.max(0, r(o.oc[1])) };
+}
+
+/** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
+// index-coded in the save (`gr`): append only, never reorder
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
+function packGear(t, o) {
+  const gr = [];
+  GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });
+  if (gr.length) o.gr = gr;
+}
+function unpackGear(t, o) {
+  if (!Array.isArray(o.gr)) return;
+  for (let j = 0; j + 1 < o.gr.length; j += 2) {
+    const k = GEAR_FIELDS[o.gr[j]];
+    if (k) t[k] = Math.max(0, Math.floor(r(o.gr[j + 1])));
+  }
 }
 
 /** A brewer's / linker's own state (src/sim/buffs.js brewTick / linkTick) as a short row. */
@@ -415,6 +439,7 @@ export function restoreSim(rec, profile = null) {
     t.facing = r(o.face);
     t.buildTimer = r(o.bt);
     unpackPotential(t, o);
+    unpackGear(t, o);
     if (t.isHero && oldHeroes) {
       // her old level on the new track, bar empty (old XP is on another scale); she deploys free
       // now, so her placement and tiers come back as coins
@@ -486,6 +511,7 @@ export function restoreSim(rec, profile = null) {
     t._dmgMark = r(rd[1]);
   }
   if (typeof s.dps === 'number' && Number.isFinite(s.dps)) sim._dpsTimer = s.dps;
+  sim.popBudget = s.pb != null ? Math.max(0, Math.min(POP_BUDGET_MAX, Math.floor(r(s.pb)))) : POP_BUDGET_MAX;
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

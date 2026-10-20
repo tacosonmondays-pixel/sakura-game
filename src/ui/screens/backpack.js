@@ -5,7 +5,7 @@
 // Also exports small shared pieces used by other meta-b screens: gearCard, requirementRow,
 // requirementList, unitMini.
 import '../styles/meta-b.css';
-import { h, clear, screen, svgEl, button, itemTile, showItemInfo, modal, toast, rarityBadge, confirmDialog } from '../components.js';
+import { h, clear, screen, svgEl, button, itemTile, showItemInfo, modal, toast, confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { createRng } from '../../core/rng.js';
@@ -14,7 +14,7 @@ import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } 
 import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
-import { gearList, describeStat, setGearLocked, salvageGear, salvageRewards, openGearBox, MAX_GEAR_LEVEL, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
+import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
 import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
@@ -22,6 +22,7 @@ import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
+import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
 
 /** Gear cards drawn per page in the Equipment tab. */
 const GEAR_PAGE = 200;
@@ -99,33 +100,8 @@ export function requirementList(costs) {
   return h('div.mb-req-list', costs.map((c) => requirementRow(c)));
 }
 
-/**
- * Gear piece card: icon, name, +level, main stat, substats, owner and lock.
- * @param {object} gear GearInstance
- * @param {{ onClick?: Function, compact?: boolean, highlightSubs?: number[], selected?: boolean, actions?: Node }} [opts]
- */
-export function gearCard(gear, { onClick = null, compact = false, highlightSubs = [], selected = false, actions = null } = {}) {
-  const r = ITEM_RARITIES[gear.rarity];
-  const owner = gear.equippedBy ? UNIT_MAP[gear.equippedBy] : null;
-  const tag = onClick ? 'button' : 'div';
-  return h(
-    `${tag}.mb-gear${compact ? '.compact' : ''}${selected ? '.selected' : ''}`,
-    { style: cssVars({ '--rarity': r?.color || '#999' }), onclick: onClick, 'data-gear': gear.uid },
-    h('div.mb-gear-head',
-      svgEl(gearIcon(gear.slot, gear.rarity), 'mb-gear-icon'),
-      h('div.mb-gear-title',
-        h('div.mb-gear-name', gear.name),
-        h('div.mb-gear-meta', rarityBadge(gear.rarity), h('span.mb-gear-slot', GEAR_SLOTS[gear.slot]?.name || gear.slot), h('span.mb-gear-level', `+${gear.level}`))),
-      gear.locked ? h('span.mb-gear-lock', { title: 'Locked' }, svgEl(uiIcon('lock'))) : null),
-    h('div.mb-gear-main', describeStat(gear.main.stat, gear.main.value)),
-    compact && !gear.subs.length ? null : h('ul.mb-gear-subs',
-      gear.subs.length
-        ? gear.subs.map((s, i) => h(`li${highlightSubs.includes(i) ? '.hl' : ''}`, describeStat(s.stat, s.value), s.upgrades ? h('span.mb-sub-up', '▲'.repeat(s.upgrades)) : null))
-        : h('li.muted', 'No substats (Common)')),
-    owner ? h('div.mb-gear-owner', unitMini(owner.id, { size: 22 }), h('span', owner.name)) : null,
-    actions,
-  );
-}
+/** Gear piece card (rainbow UR, ✦ marks, clubs): src/ui/gearUr.js. */
+export { gearCard };
 
 /** Short "how to get her" line for locked units. */
 export function howToGet(unit) {
@@ -219,21 +195,30 @@ function chipRow(options, active, onPick, cls = '') {
 
 function openGearModal(gear, rerender) {
   const profile = store.profile;
+  // spare pieces can be enhanced, awakened, stitched, rerolled and clubbed here too (gear-awaken R21)
+  let m = null;
+  const bodyEl = h('div.mb-gear-modal');
+  const draw = () => {
+    const g = profile.gear[gear.uid];
+    clear(bodyEl);
+    if (!g) return;
+    put(bodyEl,
+      gearCard(g),
+      gearActions(g, { onChange: () => { draw(); rerender(); } }),
+      g.equippedBy ? null : h('div.mb-salvage-preview', h('div.mb-sub-title', 'Salvage returns'), h('div.reward-row', salvageRewards(g).map((r) => rarityTile(r.id, r.count, { size: 48 })))));
+  };
+  draw();
   const actions = [];
-  const body = h('div.mb-gear-modal',
-    gearCard(gear),
-    h('p.muted', `Enhance and reroll from a student's Equipment tab. Max level +${MAX_GEAR_LEVEL}.`),
-    gear.equippedBy ? null : h('div.mb-salvage-preview', h('div.mb-sub-title', 'Salvage returns'), h('div.reward-row', salvageRewards(gear).map((r) => rarityTile(r.id, r.count, { size: 48 })))),
-  );
-  actions.push({ label: gear.locked ? 'Unlock' : 'Lock', kind: 'ghost', onClick: (close) => { setGearLocked(profile, gear.uid, !gear.locked); store.commit('gear-lock'); close(); rerender(); } });
   if (gear.equippedBy) actions.push({ label: `Open ${UNIT_MAP[gear.equippedBy]?.name || 'owner'}`, kind: 'primary', onClick: (close) => { close(); navigate('student', { id: gear.equippedBy, tab: 'gear' }); } });
   else {
     actions.push({
       label: 'Salvage', kind: 'danger', onClick: async (close) => {
-        if (gear.locked) { toast('Unlock this gear before salvaging it.', 'bad'); return; }
+        const g = profile.gear[gear.uid];
+        if (!g) { close(); return; }
+        if (g.locked) { toast('Unlock this gear before salvaging it.', 'bad'); return; }
         close();
-        if (!(await confirmDialog(`Salvage ${gear.name}? This cannot be undone.`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
-        const res = salvageGear(profile, gear.uid);
+        if (!(await confirmDialog(`Salvage ${g.name}? This cannot be undone.`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
+        const res = salvageGear(profile, g.uid);
         if (!res.ok) { toast(res.error === 'locked' ? 'Gear is locked.' : 'Cannot salvage equipped gear.', 'bad'); return; }
         store.commit('gear-salvage');
         toast(`Salvaged: ${res.rewards.map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ')}`, 'good');
@@ -241,8 +226,9 @@ function openGearModal(gear, rerender) {
       },
     });
   }
-  actions.push({ label: 'Close', kind: 'ghost' });
-  modal({ title: 'Gear', body, actions });
+  actions.push({ label: 'Close', kind: 'ghost', testid: 'gear-modal-close' });
+  m = modal({ title: 'Gear', body: bodyEl, actions, wide: true });
+  return m;
 }
 
 function openBoxes(itemId, n, rerender) {
@@ -271,6 +257,12 @@ function renderGearSection(host, rerender) {
       h('h3.mb-h', 'Gear boxes'),
       h('div.mb-box-row', boxes.map((b) => {
         const n = itemCount(profile, b.id);
+        // the Rainbow Gear Box opens through a slot picker into rainbow (UR) gear (ASCENSION.md §C.8): one at a
+        // time, never in Open all (gearUr.js rainbowBoxModal → systems/gear.js openRainbowBox)
+        if (b.pickSlot) {
+          return h('div.mb-box', { 'data-testid': `box-${b.id}` }, rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
+            h('div.row', button('Open', { kind: 'yellow', small: true, testid: 'rainbow-box-open', onClick: () => rainbowBoxModal(rerender) })), h('div.mb-box-note.muted', 'Pick charm, ribbon or shoes'));
+        }
         return h('div.mb-box', rarityTile(b.id, n, { size: 64 }), h('div.mb-box-name', b.name),
           h('div.row', button('Open', { kind: 'yellow', small: true, onClick: () => openBoxes(b.id, 1, rerender) }), n > 1 ? button(`×${Math.min(10, n)}`, { kind: 'ghost', small: true, onClick: () => openBoxes(b.id, Math.min(10, n), rerender) }) : null,
             n > 10 ? button(n > OPEN_BATCH_MAX ? `Open ${OPEN_BATCH_MAX}` : `Open all (${n})`, { kind: 'ghost', small: true, testid: `open-all-${b.id}`, onClick: () => openBoxes(b.id, Math.min(n, OPEN_BATCH_MAX), rerender) }) : null));
@@ -453,7 +445,11 @@ export function render(root, params = {}) {
           h('div.mb-item-grid', g.ids.map((id) => h('div.mb-item-cell',
             rarityTile(id, itemCount(profile, id), { size: 72 }),
             h('div.mb-item-name', { style: cssVars({ '--rarity': ITEM_RARITIES[ITEMS[id].rarity].color }) }, ITEMS[id].name),
-            ITEMS[id].usable === 'ssrSelect' ? button('Use', { kind: 'yellow', small: true, icon: 'sparkle', testid: `use-${id}`, onClick: () => import('../selectTicket.js').then((m) => m.openSelectTicket()) }) : null)))));
+            ITEMS[id].usable === 'ssrSelect' ? button('Use', { kind: 'yellow', small: true, icon: 'sparkle', testid: `use-${id}`, onClick: () => import('../selectTicket.js').then((m) => m.openSelectTicket()) })
+              // the Seed, the Needle and the Armband: pick a piece, then its Awaken / Stitch / club modal
+              : ['gearAwaken', 'gearStitch', 'gearClub'].includes(ITEMS[id].usable) && itemCount(profile, id) > 0
+                ? button('Use', { kind: 'yellow', small: true, icon: 'sparkle', testid: `use-${id}`, onClick: () => pickGearFor(id, () => { store.commit('gear-use'); rerender(); }) })
+                : null)))));
       }
     } else if (state.tab !== 'equipment') {
       content.appendChild(emptyState(state.rarity ? 'Nothing of that rarity' : 'Nothing here yet', state.tab === 'tickets' ? 'Recruit tickets come from the login calendar, weekly commissions and the Mall.' : 'Clear stages and Bounty arenas to fill your backpack.', button('Go to Mission', { kind: 'yellow', icon: 'map', onClick: () => navigate('campaign') })));

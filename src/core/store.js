@@ -29,6 +29,7 @@ import {
   createProfile, migrateProfile, loadSaveText, backupNotice, SAVE_KEY, BACKUP_KEY, MAX_BACKUPS, serializeProfile, deserializeProfile,
 } from '../systems/save.js';
 import { droppedBattleSaveNames } from '../systems/battleSave.js';
+import { writeGearMarks } from '../systems/gearMarks.js';
 
 function safeGet(key) {
   try {
@@ -59,6 +60,8 @@ export function saveByOf(text) {
 }
 /** The stored text of `profile` at revision `rev` written by tab `by` (both first, so reading them needs no parse). */
 export function saveText(profile, rev, by = '') {
+  // gear mirrors in missions.counters ride every write (an older build keeps counters word for word)
+  if (profile?.gear && profile?.missions) writeGearMarks(profile);
   const body = JSON.stringify(profile);
   const head = by ? `{"saveRev":${rev},"saveBy":"${by}"` : `{"saveRev":${rev}`;
   return body.length > 2 ? `${head},${body.slice(1)}` : `${head}}`;

@@ -5,12 +5,18 @@
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
 import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { GEAR_STAT_DEFS, NEW_STAT_SLOT } from '../data/gearStats.js';
+import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
+import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
+import { restoreGearMarks } from './gearMarks.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
-import { settleLevels, MAX_LEVEL, MAX_BREAKTHROUGH } from './progression.js';
+import { settleLevels, MAX_LEVEL } from './progression.js';
+import { restoreAscension, GATES_MAX } from './ascensionSave.js';
+import { migrateEssence, settleSpares, markEssenceBorn, fuseShards } from './essence.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
@@ -57,9 +63,12 @@ export const DEFAULT_SETTINGS = {
 const CAMERA_MODES = ['locked', 'free'];
 const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 
-/** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
+/**
+ * Fresh per-unit state. `dupes` = duplicates received since she joined (her Essence history), `pl` =
+ * her bought Potential (src/systems/essence.js).
+ */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0 };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1 };
 }
 
 function emptyMissions() {
@@ -133,6 +142,7 @@ export function createProfile() {
     events: newEvents(),
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
+  markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
   return p;
 }
 
@@ -178,10 +188,11 @@ function cleanNumberMap(obj) {
 function cleanUnit(raw, now) {
   const base = newUnitState(now);
   if (!isObj(raw)) return base;
-  const breakthrough = int(raw.breakthrough, 0, 0, MAX_BREAKTHROUGH);
+  // gates 6–10 (ASCENSION.md §B) are kept here even before this build can break them
+  const breakthrough = int(raw.breakthrough, 0, 0, GATES_MAX);
   // her duplicates may not be known yet (`dupes` null until creditPotential restores it), so a girl
   // past gate 5 keeps any level up to MAX_LEVEL here; migrateProfile re-clamps to levelCap after
-  const cap = breakthrough < MAX_BREAKTHROUGH ? 10 + 10 * breakthrough : MAX_LEVEL;
+  const cap = breakthrough < 5 ? 10 + 10 * breakthrough : MAX_LEVEL;
   const gear = { charm: null, ribbon: null, shoes: null };
   if (isObj(raw.gear)) for (const s of SLOTS) gear[s] = str(raw.gear[s]);
   return {
@@ -194,14 +205,20 @@ function cleanUnit(raw, now) {
     favorite: bool(raw.favorite),
     // null = a save from before Potential counted (or an older build dropped it): migrateProfile credits it
     dupes: 'dupes' in raw ? int(raw.dupes, 0, 0, 1e6) : null,
+    // bought Potential (ASCENSION.md §A.1); absent = not bought yet (an older build drops it: 'pl:' brings it back)
+    ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
   };
 }
 
-function cleanStat(raw) {
-  if (!isObj(raw) || !GEAR_STATS[raw.stat]) return null;
+/** A gear line: today's eight stats, plus Pierce / Aura Power as substats (gear-stats §E.2). */
+function cleanStat(raw, { sub = false } = {}) {
+  if (!isObj(raw) || !(sub ? GEAR_STAT_DEFS : GEAR_STATS)[raw.stat]) return null;
   const out = { stat: raw.stat, value: num(raw.value, 0, 0) };
   if (raw.base != null) out.base = num(raw.base, out.value, 0);
   if (raw.upgrades != null) out.upgrades = int(raw.upgrades, 0, 0, 10);
+  // ✦ stitches (gear-awaken §8.1): 1 = gold, 2 = rainbow, 3 = both
+  const tuned = int(raw.tuned, 0, 0, 3);
+  if (sub && tuned) out.tuned = tuned;
   return out;
 }
 
@@ -209,26 +226,35 @@ function cleanGear(raw, uid) {
   if (!isObj(raw) || !GEAR_SLOTS[raw.slot] || !ITEM_RARITIES[raw.rarity]) return null;
   const main = cleanStat(raw.main);
   if (!main) return null;
+  const club = typeof raw.club === 'string' && CLUB_IDS.includes(raw.club) && CLUB_RARITIES.includes(raw.rarity) ? raw.club : null;
   const seen = new Set([main.stat]);
   const subs = [];
   for (const s of Array.isArray(raw.subs) ? raw.subs : []) {
-    const c = cleanStat(s);
+    const c = cleanStat(s, { sub: true });
+    // a Pierce / Aura Power line only on a club piece of its slot
+    if (c && NEW_STAT_SLOT[c.stat] && (NEW_STAT_SLOT[c.stat] !== raw.slot || !club)) continue;
     if (c && !seen.has(c.stat)) {
       seen.add(c.stat);
       subs.push(c);
     }
   }
-  return {
+  const ur = raw.ur === 1 || raw.ur === true ? raw.rarity === 'legendary' : false;
+  const out = {
     uid,
     slot: raw.slot,
     rarity: raw.rarity,
-    level: int(raw.level, 0, 0, 10),
+    level: int(raw.level, 0, 0, ur ? UR_MAX_LEVEL : 10),
     main,
     subs: subs.slice(0, 4),
     locked: bool(raw.locked),
     equippedBy: str(raw.equippedBy),
     name: str(raw.name, `${ITEM_RARITIES[raw.rarity].name} ${GEAR_SLOTS[raw.slot].name}`),
   };
+  // rainbow UR gear (gear-awaken §8.1): only a Legendary at +10 or more; a box-born piece below +10 (the
+  // Rainbow Gear Box, ASCENSION.md §C.8) gets `ur` back from its `gbx:` mirror (gearMarks.js restoreGearMarks)
+  if (ur && out.level >= 10) out.ur = 1;
+  if (club) out.club = club;
+  return out;
 }
 
 function cleanSettings(raw) {
@@ -490,6 +516,16 @@ export function migrateProfile(raw) {
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   creditPotential(p, now);
+  // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
+  // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten
+  restoreGearMarks(p);
+  // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
+  // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
+  restoreAscension(p);
+  migrateEssence(p);
+  // Essence above her hold cap (an older build counted a duplicate): marked as spares, paid nothing
+  settleSpares(p);
+  fuseShards(p);
   // levels above 60 (Potential's cap): only now that her duplicates are known — restore what an
   // older build clamped to 60 from the 'lv:' shadow, then clamp every girl to levelCap
   settleLevels(p);

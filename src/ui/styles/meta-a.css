@@ -1619,8 +1619,9 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.92fr);
   grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
                        'mission mission mission mission mission mission mission assault assault assault assault assault'
-                       'challenge challenge challenge challenge coop coop coop sandbox sandbox sandbox story story';
+                       'challenge challenge challenge titans titans coop coop sandbox sandbox sandbox story story';
 }
+.ma-hub-titans { grid-area: titans; } /* [ascension] Titan Trials */
 .ma-hub-tile { background: #fff; }
 .ma-hub-art { inset: 0; }
 .ma-hub-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; transform: skewX(calc(var(--skew) * -1)) scale(1.08); transition: transform 600ms var(--ease); }
@@ -1633,8 +1634,8 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-hub-mission .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.7) 26%, rgba(255,255,255,0.06) 52%, rgba(255,255,255,0) 100%); }
 /* small bottom-row tiles: the text runs the full width, so the wash runs top-down and titles may wrap */
 .ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.74) 34%, rgba(255,255,255,0.06) 72%, rgba(255,255,255,0) 100%); }
-.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { right: 8px; }
-.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.02; }
+.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { right: 8px; }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.02; }
 .ma-hub-text { right: 34%; }
 .ma-hub-mission .ma-hub-text { right: 12px; }
 .ma-hub-title { text-shadow: 0 1px 0 #fff, 0 0 10px rgba(255,255,255,0.8); }
@@ -1653,25 +1654,25 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .ma-hub { grid-template-columns: 330px minmax(0, 1fr); }
   .ma-hub-char.hub-stand { width: 470px; }
   .ma-hub-story .ma-hub-title { font-size: 1.3rem; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 1.32rem; }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { font-size: 1.32rem; }
   .ma-hub-lock { font-size: 0.74rem; }
 }
 @media (max-height: 480px) {
   .ma-hub-title { font-size: 1.02rem; }
   .ma-hub-mission .ma-hub-title { font-size: 1.8rem; }
   .ma-hub-text { top: 6px; left: 12px; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: 0.9rem; }
-  .ma-hub-challenge .ma-hub-sub, .ma-hub-sandbox .ma-hub-sub, .ma-hub-coop .ma-hub-sub { font-size: 0.62rem; }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { font-size: 0.9rem; }
+  .ma-hub-challenge .ma-hub-sub, .ma-hub-sandbox .ma-hub-sub, .ma-hub-coop .ma-hub-sub, .ma-hub-titans .ma-hub-sub { font-size: 0.62rem; }
 }
 @media (max-aspect-ratio: 1/1) {
-  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge challenge challenge coop coop coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
+  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge titans titans titans titans coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
 }
 /* r2: small bottom-row tiles — her bust in full colour (no white veil), a white name plate at the
    bottom (title + subtitle or lock line), ribbon top-left; phones get the short subtitles */
-.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade, .ma-hub-story .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,34,72,0.28) 100%); }
-.ma-hub-challenge .ma-hub-art > img, .ma-hub-sandbox .ma-hub-art > img, .ma-hub-coop .ma-hub-art > img, .ma-hub-story .ma-hub-art > img { object-position: 50% 20%; filter: none; }
-.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { top: auto; bottom: 7px; left: 8px; right: auto; max-width: calc(100% - 16px); gap: 1px; padding: 3px 10px 4px; border-radius: 7px; background: rgba(255,255,255,0.94); box-shadow: 0 3px 10px rgba(10,30,60,0.28); }
-.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-story .ma-hub-title { text-shadow: none; }
+.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade, .ma-hub-story .ma-hub-shade, .ma-hub-titans .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,34,72,0.28) 100%); }
+.ma-hub-challenge .ma-hub-art > img, .ma-hub-sandbox .ma-hub-art > img, .ma-hub-coop .ma-hub-art > img, .ma-hub-story .ma-hub-art > img, .ma-hub-titans .ma-hub-art > img { object-position: 50% 20%; filter: none; }
+.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { top: auto; bottom: 7px; left: 8px; right: auto; max-width: calc(100% - 16px); gap: 1px; padding: 3px 10px 4px; border-radius: 7px; background: rgba(255,255,255,0.94); box-shadow: 0 3px 10px rgba(10,30,60,0.28); }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title, .ma-hub-story .ma-hub-title, .ma-hub-titans .ma-hub-title { text-shadow: none; }
 .ma-hub-lockline { display: inline-flex; align-items: center; gap: 3px; color: #c2347a; }
 .ma-hub-lockline .ma-inline-icon { width: 11px; height: 11px; flex: none; }
 .ma-hub-lockline > span { overflow: hidden; text-overflow: ellipsis; }
@@ -1680,7 +1681,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-sub-short { display: none; }
 @media (max-width: 900px) { .ma-sub-long { display: none; } .ma-sub-short { display: inline; } }
 @media (max-height: 480px) {
-  .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
+  .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
   .ma-hub-story .ma-hub-title { font-size: 0.95rem; }
 }
 
@@ -1912,10 +1913,10 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 
 /* ==== first impressions r3 ==== */
 /* missions hub: small-tile titles break between words only ("Commissions" never splits) */
-.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { overflow-wrap: normal; word-break: keep-all; hyphens: none; }
+.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { overflow-wrap: normal; word-break: keep-all; hyphens: none; }
 .ma-hub-coop .ma-hub-title { white-space: nowrap; } /* "Co-op" never breaks at its hyphen */
 @media (max-height: 480px) {
-  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title { font-size: clamp(0.74rem, 1.7vw, 0.88rem); }
+  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { font-size: clamp(0.74rem, 1.7vw, 0.88rem); }
   .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text { padding-left: 6px; padding-right: 6px; }
 }
 
@@ -2052,3 +2053,16 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-fp-badge.ma-fp-tempest { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
 .ma-fp-badge.ma-fp-crimson { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
 .ma-ec-fp { font-weight: 900; font-style: italic; color: #7b2cbf; }
+
+/* [ascension] Mall: shelf headers, "choose family" chips, "Needed for" tags (docs/specs/ASCENSION.md §D.5) */
+.ma-shelf-title { margin: 12px 0 6px; font-weight: 900; font-style: italic; color: var(--navy); display: flex; align-items: center; gap: 6px; }
+.ma-shelf-title::before { content: ''; width: 6px; height: 16px; background: linear-gradient(180deg, #ff7ab6, #7ee8fa); transform: skewX(var(--skew)); border-radius: 2px; }
+.ma-fam-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
+.ma-fam-chip { width: 24px; height: 24px; padding: 1px; border-radius: 6px; border: 1.5px solid transparent; background: transparent; cursor: pointer; }
+.ma-fam-chip.on { border-color: var(--blue); background: var(--blue-soft); }
+.ma-fam-ico { width: 100%; height: 100%; }
+.ma-offer-need { font-size: 0.64rem; font-weight: 800; color: var(--blue-deep); text-align: center; line-height: 1.15; }
+.ma-sum-pips { display: inline-flex; gap: 2px; align-items: center; }
+.ma-pip { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.ma-pip.on { background: var(--pink); }
+.ma-gc-pot.ready { background: var(--good); color: #fff; }

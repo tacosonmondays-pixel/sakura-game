@@ -81,6 +81,8 @@ describe('ids line up across modules', () => {
   test('shop, missions, login and achievements only grant known items or units', () => {
     for (const o of SHOP_OFFERS) {
       if (o.item) expect(ITEMS[o.item], `offer ${o.id}`).toBeTruthy();
+      // a Chosen Essence row sells 1 Essence of an owned girl the player picks (ASCENSION.md §A.5)
+      else if (o.chosenEssence) expect(['R', 'SR', 'SSR']).toContain(o.chosenEssence);
       else expect(UNIT_MAP[o.unitId], `offer ${o.id}`).toBeTruthy();
     }
     const lists = [...DAILY_MISSIONS, ...WEEKLY_MISSIONS, ...ACHIEVEMENTS].map((m) => m.rewards);

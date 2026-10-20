@@ -8,7 +8,7 @@ import {
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementLive } from '../../src/data/achievements.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { skipOnboarding, checkLessons, featureOpen } from '../../src/systems/story.js';
-import { shopTabs, buyOffer } from '../../src/systems/shop.js';
+import { shopTabs, buyOffer, refreshShop } from '../../src/systems/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, REDEEM_CODES } from '../../src/data/missions.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
 import { bountyArenas } from '../../src/data/stages.js';
@@ -377,7 +377,7 @@ describe('shop', () => {
   it('lists tabs with offers', () => {
     const p = createProfile();
     const tabs = shopTabs(p, MON);
-    expect(tabs.map((t) => t.id)).toEqual(['general', 'gems', 'recruit', 'boss', 'bounty']);
+    expect(tabs.map((t) => t.id)).toEqual(['general', 'gems', 'recruit', 'boss', 'bounty', 'memento']);
     for (const t of tabs) expect(t.offers.length).toBeGreaterThan(0);
     expect(tabs.find((t) => t.id === 'recruit').offers.some((o) => o.unitId)).toBe(true);
   });
@@ -408,6 +408,7 @@ describe('shop', () => {
 
   it('refuses without funds and changes nothing', () => {
     const p = createProfile();
+    refreshShop(p, MON); // (stamps the day, the week and the game-week marker 'shopwk:asc' first)
     const before = JSON.stringify(p);
     expect(buyOffer(p, 'boss_crown_dragon', 1, MON).error).toBe('funds');
     p.shop = JSON.parse(before).shop; // refreshShop stamps day/week; compare the rest

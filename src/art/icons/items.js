@@ -424,3 +424,69 @@ export function eventCurrencyBody(shape, color = '#f28c28', accent = '#9d4edd') 
   }
   return coin + `<polygon points="${starPoints(32, 32, 12, 5.5)}" fill="${color}" stroke="${darken(color, 0.5)}" stroke-width="2"/>`;
 }
+
+// --- rainbow UR gear and its tools (docs/specs/GEAR_AWAKEN.md §10, GEAR_STATS.md §G) -------------------
+
+const RAINBOW_STOPS = [[0, '#ff7aa8'], [0.2, '#ffd166'], [0.4, '#8be38b'], [0.6, '#7ee8fa'], [0.8, '#a98bff'], [1, '#ff7ad9']];
+
+/** Rainbow halo behind UR art (a still conic-like ring of seven colours). */
+export function urBack(id) {
+  let s = `<defs>${radGrad(`${id}-ug`, [[0, '#fff', 0.9], [0.55, '#ffe3f4', 0.45], [1, '#b28dff', 0]])}</defs>`;
+  const cols = ['#ff7aa8', '#ffd166', '#8be38b', '#7ee8fa', '#a98bff', '#ff7ad9'];
+  let rays = '';
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const b = a + 0.16;
+    rays += `<path d="M32 32L${n(32 + Math.cos(a) * 32)} ${n(32 + Math.sin(a) * 32)}L${n(32 + Math.cos(b) * 32)} ${n(32 + Math.sin(b) * 32)}Z" fill="${cols[i % cols.length]}" opacity="0.5"/>`;
+  }
+  return s + rays + `<circle cx="32" cy="32" r="31" fill="url(#${id}-ug)"/>`;
+}
+
+/** Rainbow sparkles in front of UR art. */
+export function urFront() {
+  const spots = [[51, 13, 5.5, '#ff7aa8'], [12, 18, 3.8, '#7ee8fa'], [53, 46, 3.4, '#ffd166'], [10, 48, 3, '#a98bff']];
+  return spots.map(([x, y, r, c]) => `<path d="${sparklePath(x, y, r)}" fill="#fff" stroke="${c}" stroke-width="1"/>`).join('');
+}
+
+/** A UR (awakened) gear piece: the Legendary shape filled with the rainbow. */
+export function gearBodyUR(slot) {
+  const id = `igr-${slot}-ur`;
+  const base = gearBody(slot, 'legendary').replace(/igr-[a-z]+-4/g, id);
+  // swap the gold fill for the rainbow and the gold glow for the rainbow halo
+  const fill = `<defs>${linGrad(`${id}-rb`, RAINBOW_STOPS, { x1: 0, y1: 0, x2: 1, y2: 1 })}</defs>`;
+  const body = base.replace(new RegExp(`url\\(#${id}-m\\)`, 'g'), `url(#${id}-rb)`);
+  const cut = body.indexOf(`<defs>${linGrad(`${id}-m`, [[0, lighten(ITEM_RARITIES.legendary.color, 0.4)], [1, darken(ITEM_RARITIES.legendary.color, 0.15)]], { x1: 0, y1: 0, x2: 1, y2: 1 })}`);
+  const art = cut >= 0 ? body.slice(cut) : body;
+  return urBack(id) + fill + art.replace(rarityFront('legendary'), '') + urFront();
+}
+
+export function rainbowSeedBody() {
+  const id = 'isr';
+  let s = urBack(id);
+  s += `<defs>${linGrad(`${id}-s`, RAINBOW_STOPS, { x1: 0, y1: 0, x2: 1, y2: 1 })}</defs>`;
+  s += `<path d="M32 10C44 18 50 30 46 42c-3 9-11 13-14 13s-11-4-14-13C14 30 20 18 32 10Z" fill="url(#${id}-s)" stroke="#5a2a8a" stroke-width="2.4"/>`;
+  s += '<path d="M32 14v38" stroke="#fff" stroke-width="1.6" opacity="0.6"/><path d="M25 22q-4 8-2 18" fill="none" stroke="#fff" stroke-width="2.4" opacity="0.7"/>';
+  s += `<path d="M32 10c2-5 7-7 11-6-2 4-6 6-11 6Z" fill="#8be38b" stroke="#2f7a3a" stroke-width="1.6"/>`;
+  return s + urFront();
+}
+
+export function needleBody() {
+  const id = 'ins';
+  let s = rarityBack(id, 'legendary');
+  s += '<path d="M14 52L46 14" stroke="#5a4a2a" stroke-width="5"/><path d="M14 52L46 14" stroke="#f1f3f8" stroke-width="2.6"/>';
+  s += '<ellipse cx="43" cy="17.5" rx="2.6" ry="1.2" transform="rotate(-50 43 17.5)" fill="#5a4a2a"/>';
+  s += '<path d="M43 17C54 20 56 34 46 40S28 44 26 54" fill="none" stroke="#ffd166" stroke-width="2.4"/>';
+  s += `<polygon points="${starPoints(48, 12, 8, 3.4)}" fill="#fff6c4" stroke="#b88a00" stroke-width="1.6"/>`;
+  return s + rarityFront('legendary');
+}
+
+export function armbandBody() {
+  const id = 'icb';
+  let s = rarityBack(id, 'mythic');
+  s += `<defs>${linGrad(`${id}-b`, [[0, '#ffd6e7'], [1, '#ff5a7a']])}</defs>`;
+  s += `<path d="M10 24h44v18H10z" fill="url(#${id}-b)" stroke="#7a1f3a" stroke-width="2.4"/>`;
+  s += '<path d="M10 28h44M10 38h44" stroke="#fff" stroke-width="1.6" opacity="0.7"/>';
+  s += '<circle cx="32" cy="33" r="7.5" fill="#fff" stroke="#7a1f3a" stroke-width="2"/>';
+  s += `<polygon points="${starPoints(32, 33.5, 5, 2.2)}" fill="#ffb627" stroke="#7a1f3a" stroke-width="1"/>`;
+  return s + rarityFront('mythic');
+}
