@@ -16,18 +16,32 @@
 //   A step through the history (popstate onto a stamped entry) is drawn on popstate, so a step
 //   between two entries with the same URL (no hashchange) draws too. A hash the router did not
 //   set (a link, a typed URL, a script) arrives as a hashchange with no state: the next entry.
+//
+// Transitions (src/ui/transitions/): every screen change goes through beginScreenChange() with the
+// kind transitionFor() picks (cut / slide / slide-back / crossfade / boot). The old screen goes
+// inert on the tap that starts the change and is cleaned up only when the new one is ready to
+// take its place (under the cut's cover, or as the slide's outgoing ghost); a newer change
+// supersedes one in flight, so nothing is mounted twice and no screen is left half-faded.
+// Without a DOM (the node tests) a change is an instant swap, exactly as before.
 import { clear } from './dom.js';
 import { recoverFromStaleBuild } from '../core/updates.js';
 import { parentRoute, isTransient, sameScreen } from './nav.js';
+import { transitionFor } from './transitions/kind.js';
+import { beginScreenChange } from './transitions/index.js';
 
 const routes = new Map();
-let current = { name: null, cleanup: null, params: {} };
+/** The screen being opened or on show ({name, params}): currentRoute(), and the check for a superseded show. */
+let current = { name: null, params: {} };
+/** The screen drawn in the root now, and its cleanup (run once, when the next screen takes its place). */
+let drawn = null;
+let liveCleanup = null;
 let root = null;
 /** entries[i] = { name, params } of the history entry with navIdx i (holes: not seen yet). */
 let entries = [];
 let idx = 0;
-/** The hash navigate() just opened (its hashchange draws it). */
+/** The hash navigate() just opened (its hashchange draws it), and which way it goes (-1: back). */
 let fresh = null;
+let freshDir = 0;
 /** A history step the router started, until it lands: a double tap must not step twice. */
 let stepping = null;
 /** A step that has not landed by then (the history is not what the router thinks) gives up. */
@@ -119,7 +133,7 @@ function previousScreen() {
 }
 
 /** Opens `hash` as the next history entry (or in place of this one) and stamps it at once. */
-function open(hash, replace) {
+function open(hash, replace, dir = 0) {
   if (replace) location.replace(hash);
   else {
     location.hash = hash;
@@ -129,13 +143,18 @@ function open(hash, replace) {
   stamp();
   entries[idx] = parseHash(hash);
   fresh = location.hash; // as the browser spelled it (its hashchange compares against this)
+  freshDir = dir;
 }
 
-/** Navigate to a screen. navigate('student', {id:'aoi', tab:'level'}) */
-export function navigate(name, params = {}, { replace = false } = {}) {
+/**
+ * Navigate to a screen. navigate('student', {id:'aoi', tab:'level'})
+ * @param {{ replace?: boolean, back?: boolean }} [opts] back: it goes up the menus (the arrow
+ *   opening a parent in place): the transition runs backwards
+ */
+export function navigate(name, params = {}, { replace = false, back: goingBack = false } = {}) {
   if (stepping) return;
   const hash = buildHash(name, params);
-  if (location.hash === hash) return show(name, params);
+  if (location.hash === hash) return show(name, params, goingBack ? -1 : 0);
   stamp(); // in case a screen replaced this entry's state without passing it on
   // the entry being left, as its URL is now: screens rewrite it in place (a chapter or arena
   // picked, a tab, the difficulty), and the arrow and the back gesture must find it that way
@@ -151,7 +170,7 @@ export function navigate(name, params = {}, { replace = false } = {}) {
         const as = buildHash(name, { ...entries[j].params, ...params });
         history.replaceState(history.state, '', as);
         entries[idx] = parseHash(as);
-        return stepTo(j, { name, params }, () => show(name, params));
+        return stepTo(j, { name, params }, () => show(name, params, -1));
       } catch {
         /* fall through to a replace */
       }
@@ -159,7 +178,7 @@ export function navigate(name, params = {}, { replace = false } = {}) {
     // … otherwise the screen takes this entry's place
     replace = true;
   }
-  open(hash, replace);
+  open(hash, replace, goingBack ? -1 : 0);
 }
 
 /**
@@ -171,7 +190,7 @@ export function back(fallback = 'lobby') {
   const prev = previousScreen();
   const target = parentRoute(current.name, current.params || {}, prev) || { name: fallback, params: {} };
   const j = isTransient(current.name) ? -1 : findBelow(target); // out of a battle: navigate() below
-  const instead = () => navigate(target.name, target.params, { replace: true });
+  const instead = () => navigate(target.name, target.params, { replace: true, back: true });
   // back onto the screen below as it is (a chapter / arena / tab picked there stays picked);
   // a parent the router chose itself (a fixed parent, the stage's own map) brings its params
   if (j >= 0) stepTo(j, target, instead, target === prev);
@@ -214,7 +233,7 @@ function onHashChange(e) {
     if (at === idx && location.hash === fresh) {
       fresh = null;
       const { name, params } = parseHash();
-      show(name, params);
+      show(name, params, freshDir);
     }
     return;
   }
@@ -244,6 +263,7 @@ function onPopState() {
   if (step) clearTimeout(step.timer);
   stepping = null;
   fresh = null;
+  const dir = Math.sign(at - idx);
   idx = at;
   const here = parseHash();
   const { name } = here;
@@ -268,43 +288,72 @@ function onPopState() {
     }
   }
   entries[idx] = { name, params };
-  show(name, params);
+  show(name, params, dir);
 }
 
-async function show(name, params) {
-  const loader = routes.get(name) || routes.get('lobby');
+/** Runs the cleanup of the screen on show, once. */
+function retire() {
+  const fn = liveCleanup;
+  liveCleanup = null;
   try {
-    if (current.cleanup) current.cleanup();
+    fn?.();
   } catch (e) {
     console.error('[router] cleanup failed', e);
   }
-  current = { name, cleanup: null, params };
+}
+
+async function show(name, params, dir = 0) {
+  const loader = routes.get(name) || routes.get('lobby');
+  const target = { name, params };
+  current = target;
+  const kind = transitionFor(drawn, target, { dir, first: !drawn });
+  const tx = beginScreenChange(kind, root, { from: drawn?.name || null, to: name });
   let mod;
   try {
-    mod = await loader();
+    mod = await tx.load(loader());
     if (typeof mod?.render !== 'function') throw new TypeError(`Failed to fetch dynamically imported module for "${name}"`);
   } catch (e) {
     console.error(`[router] failed to load screen "${name}"`, e);
-    if (current.name !== name || current.params !== params) return; // superseded
+    if (current !== target) return; // superseded
     // after a deploy the old screen files are gone: reload into the new build (once)
     if (await recoverFromStaleBuild(e)) return;
-    if (current.name !== name || current.params !== params) return;
+    if (current !== target) return;
+    await tx.covered;
+    if (current !== target) return;
+    retire();
+    tx.swap(root, null);
     showLoadFailure(name, params);
+    drawn = target;
+    tx.enter(root);
     return;
   }
-  if (current.name !== name || current.params !== params) return; // superseded
-  clear(root);
+  if (current !== target) return; // superseded
+  await tx.covered; // a cut: the old screen leaves under the cover
+  if (current !== target) return;
+  retire();
+  tx.swap(root, name);
   root.dataset.screen = name;
-  root.classList.remove('screen-enter');
-  void root.offsetWidth;
-  root.classList.add('screen-enter');
   try {
-    current.cleanup = mod.render(root, params) || null;
+    liveCleanup = mod.render(root, params) || null;
   } catch (e) {
     console.error(`[router] screen "${name}" crashed`, e);
     root.textContent = `Something went wrong opening ${name}. ${e.message}`;
   }
+  drawn = target;
   window.dispatchEvent(new CustomEvent('screenchange', { detail: { name, params } }));
+  tx.enter(root);
+}
+
+/**
+ * Downloads screens' code ahead of time (idle time after the first screen), so a first visit
+ * opens as fast as a second one. Errors are ignored: the real visit reports them.
+ * @param {string[]} names
+ */
+export function prefetchRoutes(names) {
+  for (const n of names) {
+    const loader = routes.get(n);
+    if (loader) Promise.resolve().then(loader).catch(() => {});
+  }
 }
 
 export function startRouter(rootEl) {
@@ -322,6 +371,7 @@ export function startRouter(rootEl) {
 function showLoadFailure(name, params) {
   clear(root);
   root.dataset.screen = name;
+  root.inert = false;
   const box = document.createElement('div');
   box.className = 'panel load-fail';
   box.dataset.testid = 'load-fail';

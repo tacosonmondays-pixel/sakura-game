@@ -1,0 +1,76 @@
+/* Screen transitions + the loaders that live in JS (src/ui/transitions/index.js, src/ui/loading/).
+   The full loader (#ld) and the slime's keyframes are in index.html's inline <style>: they have to
+   exist before any script runs. Everything here animates transform or opacity only, 120–320 ms
+   (the slime's own 1.2 s hop loop and its blink are the only longer, infinite animations). */
+
+/* ---------- cut: the slanted black wipe for big moves ---------- */
+.tx-cut {
+  position: fixed; top: 0; bottom: 0; left: -30%; width: 160%; z-index: 360; pointer-events: none;
+  background: #050608; transform: translateX(110%) skewX(-12deg); visibility: hidden; will-change: transform;
+}
+.tx-cut.on { visibility: visible; }
+.tx-cut.on.covered { transform: translateX(0) skewX(-12deg); opacity: 1; }
+/* accent edges: the left one leads the cover, the right one trails the reveal */
+.tx-cut::before, .tx-cut::after { content: ''; position: absolute; top: 0; bottom: 0; width: 26px; }
+.tx-cut::before { left: -26px; background: linear-gradient(90deg, #7be3a4 0 4px, transparent 4px 9px, #ff7aa8 9px 26px); }
+.tx-cut::after { right: -26px; background: linear-gradient(90deg, #ff7aa8 0 17px, transparent 17px 22px, #7be3a4 22px 26px); }
+
+/* ---------- slide: the outgoing screen for the length of its exit ---------- */
+.tx-ghost { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+/* moving nodes restarts their CSS animations: the ghost shows them as they were, no replays */
+.tx-ghost *, .tx-ghost *::before, .tx-ghost *::after { animation: none !important; transition: none !important; }
+
+/* ---------- corner chip: a menu screen's code still on its way (the old screen stays) ---------- */
+.ld-chip {
+  position: fixed; z-index: 365; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: flex-end; gap: 2px; padding: 4px 14px 6px 10px; border-radius: 8px;
+  background: rgba(8, 10, 16, 0.86); color: #f3f6ff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: skewX(-12deg); visibility: hidden; opacity: 0; pointer-events: none;
+}
+.ld-chip > * { transform: skewX(12deg); }
+.ld-chip.on { visibility: visible; animation: ld-chip-in 160ms ease-out 150ms both; }
+.ld-chip.on.out { animation: ld-chip-out 120ms ease-in both; }
+@keyframes ld-chip-in { from { opacity: 0; transform: skewX(-12deg) translateY(8px); } to { opacity: 1; transform: skewX(-12deg); } }
+@keyframes ld-chip-out { from { opacity: 1; transform: skewX(-12deg); } to { opacity: 0; transform: skewX(-12deg); } }
+.ld-chip .sl { --s: 34px; margin-bottom: 1px; }
+.ld-chip .ld-label { font-size: 12px; padding-bottom: 6px; }
+.ld-chip .ld-dots i { width: 3px; height: 3px; }
+.ld-chip:not(.on) .sl *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
+
+/* ---------- inline: inside a panel that is fetching (chat, clan, profile, co-op) ---------- */
+.ld-inline { display: flex; align-items: flex-end; justify-content: center; gap: 4px; color: var(--navy, #22385c); padding: 14px 0 6px; animation: ld-inline-in 160ms ease-out 150ms both; }
+.ld-inline.dark { color: #f3f6ff; }
+.ld-inline .sl { --s: 40px; }
+.ld-inline .ld-label { font-size: 13px; padding-bottom: 6px; }
+@keyframes ld-inline-in { from { opacity: 0; } to { opacity: 1; } }
+.ld-mini { display: inline-flex; justify-content: center; line-height: 0; }
+/* the content that replaced a slime too early waits invisible under it (loading/loader.js holdInline) */
+.ld-holding > :not(.ld-held) { opacity: 0 !important; }
+.ld-held { position: absolute !important; inset: 0; z-index: 2; }
+
+/* ---------- battle → results: the VICTORY / DEFEAT band ---------- */
+.tx-band-clip { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
+.tx-band {
+  position: absolute; left: -8%; right: -8%; top: 50%; height: clamp(84px, 24vh, 150px); margin-top: calc(clamp(84px, 24vh, 150px) / -2);
+  display: grid; place-items: center; background: #050608; color: #fff;
+  transform: skewX(-12deg); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+.tx-band::before, .tx-band::after { content: ''; position: absolute; left: 0; right: 0; height: 5px; }
+.tx-band::before { top: 0; background: linear-gradient(90deg, #7be3a4 0 38%, transparent 38% 40%, #ff7aa8 40% 100%); }
+.tx-band::after { bottom: 0; background: linear-gradient(90deg, #ff7aa8 0 60%, transparent 60% 62%, #7be3a4 62% 100%); }
+.tx-band.lose::before, .tx-band.lose::after { background: linear-gradient(90deg, #ff4d6d 0 50%, transparent 50% 52%, #8d97ab 52% 100%); }
+.tx-band > b { display: block; transform: skewX(12deg); font: italic 900 clamp(2.1rem, 7vw, 4rem)/1 var(--font-head, 'Nunito', sans-serif); letter-spacing: 0.16em; text-shadow: 0 0 22px rgba(123, 227, 164, 0.35); }
+.tx-band.lose > b { text-shadow: 0 0 22px rgba(255, 77, 109, 0.35); }
+/* the sheet (and the MVP stand) rise once the band has passed */
+.bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 620ms !important; animation-fill-mode: both !important; }
+
+/* ---------- reduced motion (system or the in-game setting) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ld-chip.on { animation: ld-fade-in 1ms linear 150ms both; }
+  .ld-inline { animation: ld-fade-in 1ms linear 150ms both; }
+  .bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 0ms !important; }
+}
+html[data-reduce-motion] .ld-chip.on { animation: ld-fade-in 1ms linear 150ms both; }
+html[data-reduce-motion] .ld-inline { animation: ld-fade-in 1ms linear 150ms both; }
+html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-sheet, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 0ms !important; }
+@keyframes ld-fade-in { from { opacity: 0; } to { opacity: 1; } }
