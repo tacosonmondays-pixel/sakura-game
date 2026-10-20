@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ITEMS, ITEM_IDS, getItem, itemsByCategory, itemsByTab, materialId, bookId, BACKPACK_TABS } from '../../src/data/items.js';
 import { MATERIAL_FAMILIES, ITEM_RARITY_ORDER, ITEM_RARITIES } from '../../src/data/types.js';
+import { EVENT_CURRENCIES } from '../../src/data/events/index.js';
 import { createProfile } from '../../src/systems/save.js';
 import { addItems, hasItems, missingItems, consumeItems, itemSources, itemCount, bestStageFor } from '../../src/systems/inventory.js';
 import { STAGES, STAGE_MAP } from '../../src/data/stages.js';
@@ -13,6 +14,7 @@ describe('items data', () => {
       'crown_slime', 'crown_iron', 'crown_cog', 'crown_oni', 'crown_dragon'];
     for (const f of Object.keys(MATERIAL_FAMILIES)) for (const r of ITEM_RARITY_ORDER) ids.push(materialId(f, r));
     for (const r of ITEM_RARITY_ORDER) ids.push(bookId(r), `gearbox_${r}`);
+    for (const c of EVENT_CURRENCIES) ids.push(c.id); // limited-event currencies (EVENT_SPEC §3.4)
     for (const id of ids) {
       const it = getItem(id);
       expect(it, id).toBeTruthy();

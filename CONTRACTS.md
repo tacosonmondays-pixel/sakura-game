@@ -1705,3 +1705,49 @@ with two simulated clients and delayed / lost / reordered packets, deterministic
 runs twice on PGlite with and without Supabase's default grants, RLS and rate limits exercised);
 `node e2e/online.mjs` (two pages of one browser on the local adapter: chat delivery, clan create / join,
 clan boss, Supply Bot, co-op start with both players placing a girl and matching hashes).
+
+## 14. Limited events — `src/data/events/**`, `src/systems/events.js`, `src/ui/events/**`, `src/ui/screens/event.js` (owner: events)
+
+Spec: `docs/specs/EVENT_SPEC.md` (framework), `docs/specs/HALLOWEEN_2026.md` (the first event).
+
+**Data** — an EventDef (`src/data/events/<key>.js`, registered in `src/data/events/index.js` `ALL_EVENTS`) holds
+`id` (save key forever), `key` (slug for derived ids), `name`, `subtitle`, `window: { opens, lastDay,
+exchangeLastDay }` (game days on the 7 PM Central clock), `unlock: { stage }`, `theme`, `currency`
+(`evt_<key>_<name>`, an ordinary item in category `event`; `leftover: { to: 'coins', rate }`), `stages`
+(`eventStage()`: StageDef + `kind: 'event'`, `event`, `difficulties`, `tuneLike`, `boss`, `gate: { episode }`,
+`look: { night, costumes }`; ids `ev-<key>-<n>` / `ev-<key>-boss`), `enemies` (`eventEnemy()`, the EnemyDef
+shape), `episodes` (meta; scenes in `scenes/<key>.js`, story scene format, loaded lazily), `missions: { daily,
+total }` (`on`: eventLogin / eventClear / eventBoss / eventKill / eventRead / eventStage), `shop` (`offer()`;
+`cosmetic: { kind: 'title'|'frame'|'avatar', id, name }` offers are owned forever), `login` (one reward list per
+visited game day, sent by mail), `notice`, `intro`, `mail`. `validateEvent(def)` checks the structure.
+
+**Tables** — `src/data/events/wire.js` adds event stages / enemies to `STAGE_MAP` / `ENEMY_MAP` at import (never to
+`STAGES` / `ENEMIES`: tests count them, the co-op data hash reads them, and `stages.js` / `enemies.js` are hashed
+sim sources). hpScale / cashScale / startCash come from `tuneLike`. `src/systems/events.js` imports it, so anything
+that imports the event systems (save, rewards) has the stages. Event stages never run in co-op.
+
+**Systems** (`src/systems/events.js`, pure, every function takes `now` in ms): `eventWindow`, `eventPhase`
+(hidden / upcoming / active / exchange / ended; settled = ended forever), `listEvents`, `featuredEvent`,
+`eventStageStatus`, `eventRunGate(profile, stage, startedAt)` (rewards use the battle's start time),
+`eventAfterBattle`, `trackEvent`, `missionRows` / `claimEventMission` / `claimAllEventMissions`, `markEventLogin`
+(login mission + gift letter, once per game day), `shopRows` / `buyEventOffer`, `eventCosmetics`, `episodeRows` /
+`readEpisode`, `settleEvents` (endAt: unclaimed mission rewards by mail; exchangeEndAt: leftover currency →
+coins by mail, `settled`, state pruned). `applyBattleResult(profile, result, rng, { now, eventAt, startedAt })`
+calls the gate and `eventAfterBattle`; `canSweep(profile, id, now)` / `sweep` handle event operations.
+
+**Save** — `profile.events = { v: 1, byId: { [eventId]: { run, joinedAt, read, daily: { day, progress, claimed },
+total: { progress, claimed }, bought, owned, login: { days, last }, settled } } }` (additive, `cleanEvents` in
+`migrateProfile`, no SAVE_VERSION bump). Shadows in `missions.counters`: `evs:<eventId>:<run>` (settled),
+`evo:<kind>:<id>` (owned cosmetic), `evr:<episodeId>` (read). Mail ids `ev:<eventId>:<run>:login:<n>|unclaimed|leftover`.
+
+**UI** — route `#/event/<id>?tab=story|stages|missions|exchange|gifts`; the lobby EVENT card shows `featuredEvent`
+(`data-testid="event-card"`; the weekly card keeps `event-strip`); stage prep shows only `stage.difficulties`
+and an event line (`event-prep`). Times come from `src/ui/events/clock.js` `eventNow()`: `Date.now()` in
+production; in dev builds only, `localStorage['sakura-dev-now']` (an ISO instant) previews the event.
+
+**Render** — `stage.look.night === 'lantern'` (warm lantern night) and `look.costumes` (render-only monster
+costumes, `src/render/costumes.js`; never bosses / minibosses, never over armour or ward signs); scenery
+keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look.
+
+**Tests** — `tests/core/resetBounds.test.js`, `tests/data/events.test.js`, `tests/systems/events*.test.js`,
+`tests/integration/event-balance.test.js`, `tests/render/halloween.test.js`, `node e2e/halloween.mjs`.

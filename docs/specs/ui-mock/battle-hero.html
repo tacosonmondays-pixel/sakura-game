@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battle: hero drawer</title>
+<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="components.css"><link rel="stylesheet" href="screens.css">
+</head><body><div class="screen battle-screen"><div class="sky"></div>
+<div class="map" style="background-image:url(img/battle-bg-844x390.png)"></div>
+<div class="map hi" style="background-image:url(img/battle-bg-1280x720.png)"></div>
+<div class="range hero"></div>
+
+<div class="hud-top">
+  <div class="rbtn pause"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/></svg></div>
+  <div class="hpill"><img src="img/cur-coins.svg" class="hide" alt=""><span class="hrt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.2s-8-4.8-8-10.4a4.3 4.3 0 0 1 8-2.2 4.3 4.3 0 0 1 8 2.2c0 5.6-8 10.4-8 10.4z"/></svg></span><b class="num">100</b></div>
+  <div class="hpill"><img src="img/cur-coins.svg" alt=""><b class="num">1,850</b></div>
+  <div class="wave"><span class="lbl">Wave</span><b class="num">1/20</b></div>
+  <div class="nextw"><span class="lbl">Next</span><img src="img/enemy-slime_green.svg" class="en" alt=""><img src="img/enemy-slime_prism.svg" class="en" alt=""><span class="sticker y nw">New</span></div>
+  <div class="rulei"><img src="img/rule-changing_tides.svg" alt=""></div>
+  <div class="speed"><b class="num">2×</b></div>
+</div>
+
+<div class="cards">
+  <div class="card hero sel"><img src="img/hikari-card.webp" class="cimg" alt=""><span class="ult"><i></i></span><span class="rtag ur">UR</span>
+    <span class="ccost herotag"><svg viewBox="0 0 24 24"><path d="M12 4l7 9h-4.5v7h-5v-7H5z" fill="currentColor"/></svg>Hero</span></div>
+  <div class="card"><img src="img/aoi-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">175</b></span></div>
+  <div class="card"><img src="img/rei-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">230</b></span></div>
+  <div class="card"><img src="img/yuki-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">220</b></span></div>
+  <div class="card"><img src="img/momo-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">300</b></span></div>
+  <div class="card"><img src="img/akane-card.webp" class="cimg" alt=""><span class="ccost"><img src="img/cur-coins.svg" alt=""><b class="num">480</b></span></div>
+</div>
+<aside class="drawer">
+  <div class="drawer-head hero"><div class="halftone" style="right:0;top:0;width:55%;height:100%"></div>
+    <span class="dportrait fr fr-ur"><img src="img/hikari-thumb.webp" alt=""></span>
+    <span class="dh-text"><span class="dh-name">Hikari</span><span class="dh-icons"><span class="rtag ur">UR</span><span class="dh-lv"><span class="lbl">LV</span><b class="num">1</b></span></span></span>
+    <span class="rbtn close-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+  </div>
+  <div class="dbody">
+    <div class="xp"><i style="width:38%"></i></div>
+    <span class="btn cost lvup-btn"><span><svg viewBox="0 0 24 24"><path d="M12 4l7 9h-4.5v7h-5v-7H5z" fill="currentColor"/></svg><span class="bl">Level up</span><img src="img/cur-coins.svg" alt=""><b class="num">145</b></span></span>
+    <p class="hnext"><span class="lbl">Next</span> Steady Guard · <b>+1 DMG</b></p>
+    <div class="ult"><span class="ultic"><img src="img/st-stun.svg" alt=""></span><span class="ultt"><b>Celestial Bloom</b><span class="ulock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.8" y="10.5" width="14.4" height="10" rx="2.4"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>Unlocks at LV 3</span></span></div>
+    <div class="dfoot"><span class="btn secondary sm"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="18.5" rx="7.5" ry="2.6"/><path d="M12 15.5V3.5M8 7.5l4-4 4 4"/><path d="M5 12.5l1 .4M19 12.5l-1 .4" stroke-width="1.6"/></svg><span class="bl">Move</span></span></span><span class="sticker y more">More ▸</span></div>
+  </div>
+</aside></div></body></html>

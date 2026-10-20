@@ -76,6 +76,7 @@ const ROUTES = [
   ['missions', '#/missions'],
   ['campaign', '#/campaign'],
   ['stage 1-1', '#/stage/1-1'],
+  ['event halloween', '#/event/halloween-2026'],
   ['students', '#/students'],
   ['student aoi info', '#/student/aoi?tab=info'],
   ['student aoi level', '#/student/aoi?tab=level'],
@@ -246,6 +247,13 @@ async function runViewport(vp) {
   const after = await page.evaluate(() => ({ pulls: window.__sakura.store.profile.gacha.totalPulls, owned: Object.keys(window.__sakura.store.profile.units).length, hist: window.__sakura.store.profile.gacha.history.length }));
   check(after.pulls === before.pulls + 10, `recruit: 10 pulls recorded (${before.pulls} → ${after.pulls})`);
   check(after.owned >= before.owned, `recruit: roster updated (${before.owned} → ${after.owned} girls)`);
+  // a duplicate in the 10-pull can raise a girl's Potential: its card sits over the results (Skip all)
+  const potSkip = await page.$('[data-testid="pot-up-skip"]');
+  if (potSkip) {
+    log('  info a Potential-up card came with the 10-pull: Skip all');
+    await potSkip.click({ force: true }).catch(() => {});
+    await page.waitForSelector('[data-testid="pot-up"]', { state: 'detached', timeout: 5000 }).catch(() => {});
+  }
   const close = await page.$('[data-testid="reveal-close"]');
   if (close) await close.click();
   await page.waitForTimeout(400);

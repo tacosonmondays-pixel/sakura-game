@@ -303,7 +303,7 @@ win, or unpaid). The first tutorial is a first clear, so it is free.
 Total Assault instead of Bounty (both cost); (3) unlimited sweeps (they cost per run); (4) co-op as a free farm
 (each player pays); (5) clock rollback (resets only move forward); (6) deep links past the gate (they play unpaid).
 
-### 3.5 The once-a-day popup (BA-style, existing components)
+### 3.5 The once-a-day popup (academy style, existing components)
 
 Shown when the player taps **Start** in stage prep (or **Ready** in a co-op room) on an `unpaid` run and the notice
 is due. Built with `ask()` from `src/ui/screens/stage.js` (the shared `confirmDialog` with a yellow OK) plus the

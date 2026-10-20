@@ -20,6 +20,23 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.38', version: '0.1.38', date: '2026-10-20', title: 'Pumpkin Lantern Night',
+    added: [
+      'Pumpkin Lantern Night, our first limited event, is open now until Nov 1 (7 PM Central). Clear 1-5 to join, then tap the EVENT card in the lobby.',
+      'Read three short episodes with Hikari, clear four night operations for Pumpkin Candy, and calm the Gourdlight Golem on Normal or Hard. The monsters came to the festival in costumes!',
+      'Event missions, plus a festival gift in your Mailbox on each day you visit (nine in all).',
+      'The Candy Exchange is open until Nov 8 (7 PM Central): a title, a profile frame, gear boxes, books, recruit tickets and more. Nothing in it costs real money.',
+      'When the operations end, rewards from finished missions you didn’t claim come by mail. Candy left over when the Exchange closes turns into coins.',
+    ],
+    changed: [
+      'Grey text is darker, so it’s easier to read.',
+      'Big numbers are shortened the same way across the menus (12.5k, 3.2M).',
+    ],
+    fixed: [
+      'A girl’s Build tab now shows the exact price she costs to place.',
+    ],
+  },
+  {
     id: 'v0.1.37', version: '0.1.37', date: '2026-10-20', title: 'Bigger Potential & level 85',
     added: [
       'Potential got much bigger: every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly stronger.',

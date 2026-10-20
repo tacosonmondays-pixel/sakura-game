@@ -28,6 +28,8 @@ import { newlyReadyIds } from '../achToast.js';
 import { ribbonArt } from '../honorFx.js';
 import { HONOR_MAP } from '../../data/honors.js';
 import { navigate } from '../router.js';
+import { eventNow } from '../events/clock.js';
+import { eventOfStage } from '../../data/events/index.js';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -106,7 +108,9 @@ function section(title, ...children) {
 }
 
 /** Practice runs (a deep link to a stage still locked on the map) save nothing. */
-function practiceNote() {
+function practiceNote(out = null) {
+  // a practice result with its own reason (a limited event's gate: out.note says why) is not a locked stage
+  if (out?.note) return null;
   return h('p.muted.bt-practice-note', { 'data-testid': 'practice-note' }, 'Practice run — this stage is still locked on your map, so nothing was saved: no clear, medal, drops or unlocks.');
 }
 
@@ -172,7 +176,7 @@ export function createResults(ctx) {
       // co-op / clan boss battles bring their own reward rules (ctx.applyResult)
       outcome = ctx.applyResult
         ? ctx.applyResult(store.profile, result, rng)
-        : applyBattleResult(store.profile, result, rng, { now: new Date(), eventAt: saver ? new Date(saver.createdAt) : null });
+        : applyBattleResult(store.profile, result, rng, { now: new Date(eventNow()), eventAt: saver ? new Date(saver.createdAt) : null, startedAt: ctx.startedAt ?? null });
     } catch (e) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
@@ -276,7 +280,7 @@ export function createResults(ctx) {
       ctx.resultLine?.() || null,
       achLine(),
       out.practice || out.coop
-        ? (out.practice ? practiceNote() : null)
+        ? (out.practice ? practiceNote(out) : null)
         : out.mode && out.mode !== 'standard' ? resultRibbonRow(out, sim, store.profile) : h(
           'div.bt-medal-row',
           h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
@@ -306,7 +310,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-lose',
       h('div.bt-result-ribbon', ctx.endedRun ? 'RUN OVER' : 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
-      out.practice ? practiceNote() : null,
+      out.practice ? practiceNote(out) : null,
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
@@ -331,7 +335,7 @@ export function createResults(ctx) {
     const gems = out.rewards.filter((r) => r.id === 'gems');
     const others = out.rewards.filter((r) => r.id !== 'gems');
     const blocks = [];
-    if (out.practice) blocks.push(practiceNote());
+    if (out.practice && !out.note) blocks.push(practiceNote(out));
     if (out.unlockedUnits.length) blocks.push(section('New student', h('div.bt-unlocks', out.unlockedUnits.map(unlockCard))));
     if (gems.length || out.firstClear) {
       blocks.push(section(
@@ -352,6 +356,11 @@ export function createResults(ctx) {
     if (m) blocks.push(section('Top damage', m));
     if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
     if (out.discovered.length) blocks.push(section('Bestiary updated', discoveredRow(out.discovered)));
+    // [events] a first clear that opened an event episode says so
+    if (out.event?.newEpisodes?.length) {
+      const ev = eventOfStage(stage.id);
+      blocks.push(section('Event story', h('div.bt-event-eps', { 'data-testid': 'result-episodes' }, out.event.newEpisodes.map((id) => h('p', `New episode unlocked: ${ev?.episodes.find((e) => e.id === id)?.title || id}`)))));
+    }
     const card = h(
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },

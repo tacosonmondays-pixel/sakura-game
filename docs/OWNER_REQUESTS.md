@@ -417,3 +417,9 @@ Ships in train C. Other-game references in the messages are replaced by `[…]`.
 
 Owner confirmed (2026-10-15): difficulty medals only from Standard wins, other modes give ribbons (no ribbon gems); mode drops are capped at your best Standard medal; modes unlock after one clear. Still on its default: co-op freeplay stays Standard, with map rules keeping only their combat effects past the goal.
 Later (owner wish): a "medal and ribbon showcase" on the player's profile. The data is ready: `stageShowcase(profile, stageId)` / `campaignShowcase(profile)` in `src/systems/unlocks.js` (CONTRACTS §5).
+
+## Halloween 2026 (owner, 2026-10-20: "This year") — branch `feature/halloween`
+
+| Request (verbatim) | Status |
+|---|---|
+| "Event do it now, we will also want a Halloween event that will run until November 1st!" (D7) and "This year" (Oct 20) | **Built (track 6, waiting to ship).** The limited-events framework (`src/data/events/*`, `src/systems/events.js`, `#/event/<id>`) and **Pumpkin Lantern Night · Trick-or-Treat Patrol** on it: open from the moment v0.1.38 ships (owner, Oct 20: "Open the event as soon it ships pls"; built for Fri Oct 23 7 PM CDT), operations and missions end Sun Nov 1 7 PM CST, the Candy Exchange stays open until Sun Nov 8 7 PM CST, leftover Pumpkin Candy becomes 50 coins each by mail. Three short episodes (Hikari leads), four night operations on existing maps and the Gourdlight Golem boss (Normal / Hard), event missions, nine daily login gifts by mail, the exchange (title, profile frame, gear boxes, books, materials, recruit tickets, a few gems), lobby card + lantern decor, the spooky lantern track. Monsters wear costumes (render-only, never on bosses); the girls stay in uniform. Spec + build notes: `docs/specs/HALLOWEEN_2026.md`. |

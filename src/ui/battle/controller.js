@@ -13,7 +13,7 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
 import { createBattleSim, resumeBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
 import { createBattleSaver } from './battleSaver.js';
-import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
+import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
@@ -57,6 +57,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
 import { battleLoaderTitle } from '../transitions/kind.js';
+import { eventNow } from '../events/clock.js'; // [events]
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -230,6 +231,9 @@ export function mountBattle(root, params, hooks) {
     sim,
     stage,
     req,
+    // [events] a limited-event battle pays by its start time (EVENT_SPEC §3.2): a Continue keeps the
+    // saved run's (src/systems/battleSave.js runStartedAt), never the time it was resumed
+    startedAt: restored ? runStartedAt(saved) : eventNow(),
     profile,
     settings,
     layer,
@@ -264,6 +268,7 @@ export function mountBattle(root, params, hooks) {
       req,
       cfg: made.cfg || null,
       record: restored ? saved : null,
+      startedAt: ctx.startedAt,
       // stage prep's "Saved battles full" sheet: the save the player chose to delete for this one
       evict: !restored && typeof params.evict === 'string' ? params.evict : null,
       isEnded: () => ctx.ended,
@@ -1013,7 +1018,7 @@ export function mountBattle(root, params, hooks) {
       ? paySoloFreeplay(soloLedger, p, result, rng)
       // a normal run (Keep going not taken yet) pays as results.apply() does without a ledger: a
       // saved run gets the event bonus of the week it started in
-      : applyBattleResult(p, result, rng, { now: new Date(), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null }));
+      : applyBattleResult(p, result, rng, { now: new Date(eventNow()), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null, startedAt: ctx.startedAt ?? null }));
     // Finish: solo ends the run at once (the pause menu and the clear card's pill)
     ctx.voteFinish = (v) => fpBattle?.vote(v);
     ctx.myFinishVote = () => false;

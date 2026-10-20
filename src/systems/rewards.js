@@ -13,6 +13,7 @@ import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
+import { eventRunGate, eventAfterBattle, eventStageStatus, trackEvent } from './events.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
 export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare: 1.5 };
@@ -23,6 +24,11 @@ export const MAX_SWEEPS = 10;
 export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nightmare: 0 });
 
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
+
+/** [events] An event stage pays only on its own `difficulties`; every other stage on all four. */
+export function eventDifficultyOk(stage, difficulty) {
+  return stage?.kind !== 'event' || !Array.isArray(stage.difficulties) || stage.difficulties.includes(difficulty);
+}
 
 /**
  * The difficulty a win pays at: Standard pays the selected one; a battle mode pays at most your
@@ -136,12 +142,13 @@ export function battleDropSeed(stageId, difficulty, seed) {
  * @param {object} profile
  * @param {{ stageId, difficulty, won, wave, wavesCleared?, livesLeft, encountered, kills, stats }} result
  * @param {object} rng
- * @param {{ now?: Date, eventAt?: Date }} [opts] `eventAt`: when the run started (a saved run
+ * @param {{ now?: Date, eventAt?: Date, startedAt?: number }} [opts] `eventAt`: when the run started (a saved run
  *   finished later gets the event bonus of the week it began in, and only that one, while it
- *   finishes within EVENT_GRACE_MS of that week's end: battleEventMul)
+ *   finishes within EVENT_GRACE_MS of that week's end: battleEventMul). `startedAt` (ms): when a
+ *   limited-event battle started; its reward gate uses that, not the finish time (EVENT_SPEC §3.2)
  * @returns {{ firstClear: boolean, newMedal: boolean, medal: string|null, rewards: object[], gear: object[], unlockedUnits: string[], discovered: string[], gemsEarned: number, eventBonus: boolean, practice: boolean }}
  */
-export function applyBattleResult(profile, result, rng, { now = new Date(), eventAt = null } = {}) {
+export function applyBattleResult(profile, result, rng, { now = new Date(), eventAt = null, startedAt = null } = {}) {
   const stage = STAGE_MAP[result?.stageId];
   // Sandbox: no clears, medals, gems, unlocks, drops, bestiary, missions or achievements.
   if (result?.sandbox) return sandboxOutcome();
@@ -152,7 +159,13 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     out.practice = true;
     return out;
   }
+  // [events] a limited-event stage pays only when it was open (and its episode read) at the battle's start
+  const gate = eventRunGate(profile, stage, startedAt ?? eventAt?.getTime?.() ?? now.getTime());
+  if (!gate.ok) return { ...out, practice: true, note: gate.text };
   const difficulty = DIFFICULTIES[result.difficulty] ? result.difficulty : 'normal';
+  // [events] and only on its own difficulties (an operation is Normal only, the boss Normal / Hard):
+  // a hand-edited battle link on any other one is practice, never a medal or a first clear
+  if (!eventDifficultyOk(stage, difficulty)) return { ...out, practice: true, note: `${DIFFICULTIES[difficulty].name} isn't offered on this event stage — this run was practice, no rewards.` };
   const won = !!result.won;
   const encountered = [...new Set([...(result.encountered || []), ...Object.keys(result.kills || {})])];
   const kills = result.kills || {};
@@ -248,6 +261,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
 
   out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
+  if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, difficulty, totalKills, now: now.getTime() }));
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
   return out;
@@ -257,10 +271,12 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
  * Sweeping is unlocked once a stage is cleared on Hard or Nightmare (not for the endless challenge).
  * @returns {boolean}
  */
-export function canSweep(profile, stageId) {
+export function canSweep(profile, stageId, now = Date.now()) {
   const stage = STAGE_MAP[stageId];
   if (!stage || stage.kind === 'challenge') return false;
   const m = stageMedals(profile, stageId);
+  // [events] an event operation (never its boss) sweeps once cleared, while the event is open
+  if (stage.kind === 'event') return !stage.boss && m.normal && eventStageStatus(profile, stageId, now).ok;
   return m.hard || m.nightmare;
 }
 
@@ -270,8 +286,11 @@ export function canSweep(profile, stageId) {
  * @returns {{ ok: boolean, error?: string, runs: object[][], rewards: object[], gear: object[] }}
  */
 export function sweep(profile, stageId, difficulty, times, rng, { now = new Date() } = {}) {
-  if (!canSweep(profile, stageId)) return { ok: false, error: 'locked', runs: [], rewards: [], gear: [] };
+  const evStage = STAGE_MAP[stageId]?.kind === 'event';
+  if (evStage && !canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'event', runs: [], rewards: [], gear: [] };
+  if (!canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'locked', runs: [], rewards: [], gear: [] };
   const d = DIFFICULTIES[difficulty] ? difficulty : 'hard';
+  if (!eventDifficultyOk(STAGE_MAP[stageId], d)) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
   const m = stageMedals(profile, stageId);
   const best = Math.max(...DIFFICULTY_ORDER.map((x, i) => (m[x] ? i : -1)));
   if (diffIndex(d) > best) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
@@ -290,5 +309,6 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const entry = stageEntry(profile, stageId);
   entry.clears += n;
   track(profile, 'sweep', n);
+  if (evStage) trackEvent(profile, STAGE_MAP[stageId].event, 'eventClear', n, { now: now.getTime() });
   return { ok: true, runs, rewards, gear: allGear };
 }

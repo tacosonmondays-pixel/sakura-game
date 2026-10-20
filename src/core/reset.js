@@ -102,6 +102,44 @@ export function nextDailyReset(t = Date.now(), opts) {
   return u;
 }
 
+// ---------------------------------------------------------------------------
+// The game week (ENERGY_RESET_SPEC §3.1): weekly things reset on Sunday at 7 PM Central. Same names
+// and signatures as that spec, so the energy build can take these over unchanged.
+// ---------------------------------------------------------------------------
+
+/** Whole days since 1970-01-01 of gameDay(t) (a rotation index; never a date shown to players). */
+export function gameDayNumber(t = Date.now(), opts) {
+  const [y, m, d] = gameDay(t, opts).split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / DAY);
+}
+
+/**
+ * Whole game weeks since the week of 1970-01-01 (Monday-based weeks of the shifted clock, so a week
+ * runs Sunday 7 PM Central → Sunday 7 PM Central). Monotone in `t`; what counters store.
+ */
+export function gameWeekNumber(t = Date.now(), opts) {
+  return Math.floor((gameDayNumber(t, opts) + 3) / 7);
+}
+
+/** 'YYYY-Www': the ISO week of the shifted date (gameDay), so it flips on Sunday at 7 PM Central. */
+export function gameWeek(t = Date.now(), opts) {
+  const [y, m, dd] = gameDay(t, opts).split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1, dd));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const week = Math.ceil(((d - yearStart) / DAY + 1) / 7);
+  return `${d.getUTCFullYear()}-W${pad(week)}`;
+}
+
+/** The first instant after `t` that starts a new game week (a Sunday 19:00:00.000 Chicago). */
+export function nextWeeklyReset(t = Date.now(), opts) {
+  const week = gameWeekNumber(t, opts);
+  let u = nextDailyReset(t, opts);
+  for (let i = 0; i < 7 && gameWeekNumber(u, opts) === week; i++) u = nextDailyReset(u, opts);
+  return u;
+}
+
 /** '2d 4h' | '3h 07m' | '12m' (at least '1m'); ms <= 0 → 'now'. */
 export function formatCountdown(ms) {
   if (!(ms > 0)) return 'now';
@@ -127,4 +165,45 @@ export function localResetHint(t = Date.now()) {
   } catch {
     return '';
   }
+}
+
+// ---------------------------------------------------------------------------
+// Game-day bounds (ENERGY_RESET_SPEC §3.1), for windows written as game days (limited events,
+// EVENT_SPEC §3.2): '2026-11-01' runs from Oct 31 19:00 CDT to Nov 1 19:00 CST.
+// ---------------------------------------------------------------------------
+
+/** The instant whose Chicago wall time is 19:00:00.000 on the calendar date y-m-d (ms). */
+function chicagoSevenPm(y, m, d, opts) {
+  const target = Date.UTC(y, m - 1, d, RESET.hour);
+  let u = target + 6 * HOUR; // CST guess, then correct to the real offset
+  for (let i = 0; i < 3; i++) {
+    const diff = wallMs(u, opts) - target;
+    if (diff === 0) break;
+    u -= diff;
+  }
+  return u;
+}
+
+function parseDayKey(key) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key));
+  if (!m) throw new RangeError(`bad game day key: ${key}`);
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/** The 7 PM Central reset that starts game day `key` ('YYYY-MM-DD'), in ms. gameDay(gameDayStart(k)) === k. */
+export function gameDayStart(key, opts) {
+  const [y, m, d] = parseDayKey(key);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return chicagoSevenPm(prev.getUTCFullYear(), prev.getUTCMonth() + 1, prev.getUTCDate(), opts);
+}
+
+/** The 7 PM Central reset that ends game day `key` ('YYYY-MM-DD'), in ms (exclusive end). */
+export function gameDayEnd(key, opts) {
+  const [y, m, d] = parseDayKey(key);
+  return chicagoSevenPm(y, m, d, opts);
+}
+
+/** True when `current` is a later period key than `stored` (string order; never resets backwards). */
+export function isNewPeriod(stored, current) {
+  return !stored || current > stored;
 }

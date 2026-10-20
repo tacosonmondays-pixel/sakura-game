@@ -21,6 +21,8 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
+import { eventLobbyCard, eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
@@ -111,6 +113,13 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
+  try {
+    lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
+    const decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
+    if (decor) el.insertBefore(decor, nameplate);
+  } catch (e) {
+    console.warn('[lobby] event decor failed', e);
+  }
   root.appendChild(el);
 
   // ---- secretary --------------------------------------------------------------------------
@@ -528,6 +537,12 @@ function continueChip(profile) {
 function buildEventCard(host) {
   const chip = continueChip(store.profile);
   if (chip) host.appendChild(chip);
+  // [events] a running limited event takes the card; the weekly double-drop keeps it otherwise
+  const limited = eventLobbyCard();
+  if (limited) {
+    host.appendChild(limited);
+    return;
+  }
   const event = currentEvent();
   const days = eventDaysLeft();
   const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;

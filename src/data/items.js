@@ -13,6 +13,7 @@
 // `tab` (V2: the backpack is organised by category, rarity is only a sort/filter).
 
 import { MATERIAL_FAMILIES, ITEM_RARITIES, ITEM_RARITY_ORDER } from './types.js';
+import { EVENT_CURRENCIES } from './events/index.js';
 
 /** Backpack tabs (CONTRACTS §12 — category, not rarity). */
 export const BACKPACK_TABS = [
@@ -20,7 +21,7 @@ export const BACKPACK_TABS = [
   { id: 'awakening', name: 'Awakening', desc: 'Crowns and Star Fragments.', categories: ['crown', 'fragment'] },
   { id: 'equipment', name: 'Equipment', desc: 'Gear, gear boxes, dice and pins.', categories: ['gearbox', 'dice'] },
   { id: 'tickets', name: 'Tickets', desc: 'Recruitment tickets.', categories: ['ticket'] },
-  { id: 'tokens', name: 'Tokens & Currency', desc: 'Exchange tokens, coins and gems.', categories: ['token', 'currency'] },
+  { id: 'tokens', name: 'Tokens & Currency', desc: 'Exchange tokens, coins and gems.', categories: ['token', 'event', 'currency'] },
 ];
 
 /** Item categories with display names and the backpack tab they live in. */
@@ -33,6 +34,7 @@ export const ITEM_CATEGORIES = {
   gearbox: { name: 'Gear Box', tab: 'equipment', order: 4 },
   ticket: { name: 'Ticket', tab: 'tickets', order: 6 },
   token: { name: 'Token', tab: 'tokens', order: 7 },
+  event: { name: 'Event Currency', tab: 'tokens', order: 7.5 },
   currency: { name: 'Currency', tab: 'tokens', order: 8 },
 };
 
@@ -183,6 +185,9 @@ function buildItems() {
 
   add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses and Total Assault bosses. Spend it in the Mall\'s Boss Exchange for crowns and dice.', sort: 7000 });
   add({ id: 'token_bounty', name: 'Bounty Token', category: 'token', rarity: 'common', desc: 'Earned in Bounty arenas and the Tactical Challenge. Spend it in the Mall\'s Bounty Exchange for gear boxes and dice.', sort: 7001 });
+
+  // limited-event currencies, past events and drafts included (saves keep them; EVENT_SPEC §3.4)
+  EVENT_CURRENCIES.forEach((c, i) => add({ id: c.id, name: c.name, category: 'event', rarity: 'rare', event: c.event, desc: c.desc, sort: 7100 + i }));
 
   add({ id: 'coins', name: 'Coins', category: 'currency', rarity: 'common', desc: 'Academy coins. Pay for level ups, breakthroughs, awakenings and gear enhancement.', sort: 8000 });
   add({ id: 'gems', name: 'Sakura Gems', category: 'currency', rarity: 'legendary', desc: 'Premium currency earned by playing: 120 gems = 1 recruit.', sort: 8001 });

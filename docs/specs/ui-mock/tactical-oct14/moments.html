@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hype and report mock</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="tactical-kit.css">
+<style>
+  :root { --sky-1:#eaf6ff; --blue:#2b7fff; --blue-deep:#1d4e89; --navy:#22385c; --ink:#1f2a44; --muted:#6b7a99; --line:#d6e6f7;
+    --yellow:#ffdd4a; --yellow-deep:#f2b705; --pink:#ff7aa8; --bad:#ff4d6d; --skew:-8deg;
+    --font:'M PLUS Rounded 1c','Nunito',system-ui,sans-serif; --font-head:'Nunito','M PLUS Rounded 1c',system-ui,sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--font); background: #9fd0ff; }
+  .map { position: fixed; inset: 0; background: center / cover no-repeat; }
+  .dim { position: fixed; inset: 0; background: rgba(20,35,60,.45); }
+  [hidden] { display: none !important; }
+
+  /* ---------- HYPE: wave banner ---------- */
+  .band { position: fixed; left: -4%; right: -4%; top: 50%; height: 30vh; min-height: 110px; translate: 0 -50%; display: flex; align-items: center; gap: 2.5vw; padding: 0 12vw;
+    background: linear-gradient(90deg, rgba(14,25,48,.0), rgba(14,25,48,.92) 14%, rgba(29,78,137,.94) 70%, rgba(14,25,48,0)); }
+  .band::before { content: ''; position: absolute; inset: 0; } /* halftone layer via class */
+  .band .bust { height: 135%; align-self: flex-end; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); position: relative; z-index: 1; }
+  .band .words { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 1vh; }
+  .band .kicker { display: flex; gap: 8px; align-items: center; }
+  .band .kicker .tx-code { font-size: 11px; color: var(--tx-accent); opacity: 1; }
+  .big { font: italic 900 clamp(44px, 11vh, 92px)/0.9 var(--font-head); color: #fff; letter-spacing: .02em; }
+  .big b { color: var(--yellow); }
+  .warnline { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 12px 4px 4px; background: rgba(14,25,48,.85); box-shadow: inset 0 0 0 1px var(--tx-line-hi); }
+  .warnline .hz { width: 34px; align-self: stretch; }
+  .warnline span { font: 700 13px/1 var(--tx-font-label); letter-spacing: .14em; text-transform: uppercase; color: var(--tx-warn); }
+  .band .edge { position: absolute; left: 0; right: 0; height: 3px; background: var(--tx-accent); box-shadow: 0 0 12px var(--tx-accent); }
+  .band .edge.t { top: 0; } .band .edge.b { bottom: 0; }
+  /* boss variant */
+  .band.boss { background: linear-gradient(90deg, rgba(60,8,24,0), rgba(60,8,24,.94) 14%, rgba(150,20,52,.95) 70%, rgba(60,8,24,0)); }
+  .band.boss .edge { height: 12px; box-shadow: none; z-index: 2; background: repeating-linear-gradient(-45deg, var(--tx-warn) 0 7px, var(--tx-ink) 7px 14px); } .band.boss .edge.t { top: 4%; } .band.boss .edge.b { bottom: 4%; }
+  .band.boss .big b { color: #ffd23f; }
+  .ticker { position: fixed; left: 0; right: 0; font: 700 12px/1 var(--tx-font-label); letter-spacing: .4em; color: rgba(255,210,63,.9); white-space: nowrap; overflow: hidden; }
+
+  /* ---------- results: academy celebration + tactical report ---------- */
+  .res { position: fixed; inset: 0; display: grid; place-items: center; padding: 10px 10px 10px min(30vw, 300px); }
+  .stand { position: fixed; left: -40px; bottom: 0; height: 92%; }
+  .sheet { width: min(600px, 100%); background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(29,78,137,.26); position: relative; }
+  .ribbon { padding: 10px 0 9px; text-align: center; font: italic 900 2rem/1 var(--font-head); letter-spacing: .06em; color: var(--navy);
+    background: linear-gradient(90deg, #c58a00, #ffdd4a 50%, #fff3a6); text-shadow: 0 2px 0 rgba(255,255,255,.6); clip-path: polygon(0 0, 100% 0, 100% 84%, 0 100%); }
+  .sub { text-align: center; color: var(--muted); font-weight: 800; margin: 4px 0 8px; }
+  .body { display: grid; grid-template-columns: 1fr 132px; gap: 12px; padding: 0 14px 12px; }
+  .report { --cut: 10px; padding: 0 0 8px; }
+  .report .tx-head { padding: 6px 10px 6px 0; }
+  .report .tx-head .tx-label { color: var(--navy); font-size: 12px; }
+  .report .tx-head .tx-code { margin-left: auto; color: var(--muted); }
+  .ro4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .ro4 > div { padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .ro4 > div + div { border-left: 1px solid rgba(29,78,137,.15); }
+  .ro4 .tx-num { font-size: 18px; color: var(--navy); }
+  .ro4 .tx-num small { font-size: 11px; color: var(--muted); }
+  .dmg { padding: 4px 10px 0; display: flex; flex-direction: column; gap: 5px; }
+  .dmg-row { display: grid; grid-template-columns: 26px 64px 1fr 54px; gap: 8px; align-items: center; }
+  .dmg-row img { width: 26px; height: 26px; object-fit: cover; object-position: 50% 0; clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%); background: #dbeeff; }
+  .dmg-row .nm { font: italic 900 12.5px/1 var(--font-head); color: var(--navy); }
+  .dmg-row .tx-seg { height: 7px; --off: rgba(29,78,137,.12); --on: var(--tx-accent-ink); }
+  .dmg-row.top .tx-seg { --on: var(--yellow-deep); }
+  .dmg-row .tx-num { font-size: 12px; color: var(--navy); text-align: right; }
+  .rank { position: relative; display: grid; place-items: center; align-self: start; height: 132px; }
+  .stamp { width: 112px; height: 112px; display: grid; place-items: center; transform: rotate(-8deg); position: relative;
+    background: linear-gradient(160deg, #fff38a, #ffdd4a 50%, #f2b705); clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px)); }
+  .stamp::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(197,138,0,.45) 1.2px, transparent 1.6px); background-size: 7px 7px; }
+  .stamp b { position: relative; font: italic 900 84px/1 var(--font-head); color: #fff; -webkit-text-stroke: 7px var(--navy); paint-order: stroke fill; }
+  .rank .tx-label { position: absolute; bottom: -2px; color: var(--navy); }
+  .acts { display: flex; justify-content: center; gap: 10px; padding: 0 0 12px; }
+  .cta { border: 0; padding: 10px 30px; border-radius: 8px; transform: skewX(var(--skew)); font: italic 900 1.15rem/1 var(--font-head); color: var(--navy); background: linear-gradient(180deg, #fff38a, var(--yellow) 60%, var(--yellow-deep)); box-shadow: 0 6px 16px rgba(242,183,5,.35); }
+  .ghost { border: 0; padding: 10px 22px; border-radius: 8px; transform: skewX(var(--skew)); font: italic 900 1rem/1 var(--font-head); color: var(--blue-deep); background: #fff; box-shadow: inset 0 0 0 1px var(--line), 0 6px 16px rgba(29,78,137,.16); }
+  .bubble { position: fixed; left: 26px; top: 14px; padding: 8px 12px; background: #fff; border-radius: 14px; box-shadow: 0 6px 16px rgba(10,25,55,.3); font-size: .8rem; font-weight: 800; color: var(--navy); max-width: 190px; }
+  .bubble b { display: block; font: italic 900 .78rem/1.2 var(--font-head); color: #c58a00; }
+  @media (max-height: 500px) {
+    .res { padding-left: 230px; } .stand { height: 84%; left: -50px; } .bubble { top: 6px; left: 20px; font-size: .72rem; max-width: 170px; padding: 6px 10px; }
+    .ribbon { font-size: 1.5rem; padding: 7px 0 6px; } .sub { margin: 2px 0 4px; font-size: .85rem; }
+    .body { grid-template-columns: 1fr 100px; gap: 8px; padding-bottom: 8px; }
+    .rank { height: 100px; } .stamp { width: 86px; height: 86px; } .stamp b { font-size: 62px; -webkit-text-stroke-width: 6px; }
+    .ro4 .tx-num { font-size: 15px; } .dmg-row { grid-template-columns: 22px 56px 1fr 48px; } .dmg-row img { width: 22px; height: 22px; } .dmg { gap: 3px; }
+    .acts { padding-bottom: 8px; } .cta { padding: 8px 24px; font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="map" id="map"></div>
+
+<section id="v-wave" hidden>
+  <div class="band hy-band">
+    <span class="edge t"></span><span class="edge b"></span>
+    <div class="hy-halftone" style="position:absolute;inset:0;opacity:.5"></div>
+    <img class="bust" src="img/aoi-cut-s.webp" alt="">
+    <div class="words">
+      <div class="kicker"><span class="tx-code">SENTINEL NET // INCOMING</span></div>
+      <div class="big hy-outline">WAVE <b>07</b></div>
+      <div class="warnline"><span class="hz tx-hazard"></span><span>Runners incoming — 6 fast · 3 armored</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="v-boss" hidden>
+  <div class="ticker" style="top: calc(35vh - 22px)">WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING</div>
+  <div class="band hy-band boss">
+    <span class="edge t tx-hazard"></span><span class="edge b tx-hazard"></span>
+    <div class="hy-halftone" style="position:absolute;inset:0;opacity:.35"></div>
+    <div class="words" style="margin-left:4vw">
+      <div class="kicker"><span class="tx-code" style="color:#ffd23f">THREAT CLASS: BOSS // PHASE 1/3</span></div>
+      <div class="big hy-outline">ONI <b>WARLORD</b></div>
+      <div class="warnline"><span class="hz tx-hazard"></span><span>Armored · summons guards at 50%</span></div>
+    </div>
+  </div>
+  <div class="ticker" style="top: calc(65vh + 10px)">WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING ▲ WARNING</div>
+</section>
+
+<section id="v-report" hidden>
+  <div class="dim"></div>
+  <img class="stand" src="img/hikari-cut-s.webp" alt="">
+  <div class="bubble"><b>MVP · Hikari</b>We did it, Sensei! Did you see that?</div>
+  <div class="res"><div class="sheet">
+    <div class="ribbon">VICTORY!</div>
+    <div class="sub">1-1 · First Petals — Easy</div>
+    <div class="body">
+      <div class="tx-panel tx-light report">
+        <div class="tx-head"><span class="tx-label">Mission report</span><span class="tx-code">OP 1-1 · 05:58</span></div>
+        <div class="ro4">
+          <div><span class="tx-label">Waves</span><span class="tx-num">12<small>/12</small></span></div>
+          <div><span class="tx-label">Lives</span><span class="tx-num">150<small>/150</small></span></div>
+          <div><span class="tx-label">Defeated</span><span class="tx-num">241</span></div>
+          <div><span class="tx-label">Leaks</span><span class="tx-num">0</span></div>
+        </div>
+        <div class="tx-rule" style="margin: 2px 10px 4px"></div>
+        <div class="dmg" id="dmg"></div>
+      </div>
+      <div class="rank"><div class="stamp"><b>S</b></div><span class="tx-label">Rank · first clear</span></div>
+    </div>
+    <div class="acts"><button class="ghost">Retry</button><button class="cta">Rewards</button></div>
+  </div></div>
+</section>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('map').style.backgroundImage = `url(${q.get('bg')})`;
+  document.getElementById(`v-${q.get('v') || 'wave'}`).hidden = false;
+  const rows = [['hikari', 'Hikari', 41.2, 18], ['aoi', 'Aoi', 27.5, 12], ['akane', 'Akane', 19.8, 9], ['chika', 'Chika', 11.5, 5]];
+  const dmg = document.getElementById('dmg');
+  rows.forEach(([id, name, pct, segs], i) => {
+    const r = document.createElement('div');
+    r.className = 'dmg-row' + (i === 0 ? ' top' : '');
+    r.innerHTML = `<img src="img/${id}-thumb.webp" alt=""><span class="nm">${name}</span><span class="tx-seg" style="--n:20">${Array.from({ length: 20 }, (_, k) => `<i class="${k < segs ? 'on' : ''}"></i>`).join('')}</span><span class="tx-num">${pct.toFixed(1)}%</span>`;
+    dmg.appendChild(r);
+  });
+</script>
+</body>
+</html>

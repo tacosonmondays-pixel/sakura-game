@@ -502,7 +502,7 @@
 .bt-medal.new .bt-medal-ico { animation: bt-medal 0.9s var(--bt-ease); filter: drop-shadow(0 0 12px rgba(255,216,77,0.9)); }
 @keyframes bt-medal { 0% { transform: scale(0) rotate(-30deg); } 60% { transform: scale(1.2) rotate(8deg); } }
 .bt-medal-tag { font-weight: 900; font-style: italic; font-size: 0.8rem; color: #fff; background: var(--pink); padding: 2px 10px; border-radius: 999px; }
-.bt-medal-tag.old { background: #d6deea; color: var(--muted); }
+.bt-medal-tag.old { background: #e6ecf4; color: var(--muted); } /* 5.0:1 (tools/contrast.mjs PAIRS) */
 .bt-first { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 1.1rem; color: #fff; padding: 6px 16px; transform: skewX(var(--skew)) rotate(-4deg); background: linear-gradient(90deg, #ff7aa8, #ff4d6d); box-shadow: 0 3px 10px rgba(255,77,109,0.45); border-radius: 6px; }
 .bt-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
 .bt-sum { background: var(--sky-1); border-radius: 8px; padding: 6px; text-align: center; display: flex; flex-direction: column; }

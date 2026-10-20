@@ -15,6 +15,15 @@ when its gates pass, and the combined balance check runs last, after all of them
 | 3. Ascension: Essence → Potential, level gates 60 → 85 with family materials and UR Crowns, **Titan Trials weekly bosses**, weekly store, duplicate shop | `feature/ascension` | cloud session | `ASCENSION.md` (+ `ENERGY_RESET.md` for the 7 PM Central weekly reset only) |
 | 4. UI: condense stats and info, easier to read, in the academy-anime / sleek-urban art direction | `feature/ui-condense` | coordinating session | design first; mock-ups go to the owner before the build |
 
+| 5. The returning girls: finish roster B3 (their sim mechanics) and Builder 4 for Kanna, Yoriko, Seiran, Fuu, Hana, Ruri, Noa, Iroha and Ena, with stand-in models | `feature/roster-wave` | cloud session | `docs/merge/ROSTER_SPEC.md` (on `feature/roster`), `UNIT_GAPS.md` §4 and §7, `ABILITIES.md` §5.2, `UNITS_BACKLOG.md` CU-3 and CU-4 |
+
+Kohaku and Tsubaki are **not** in track 5: the owner wants them as one **duo unit**, the first to go SSR → UR → **LR**, so track 1
+builds them after Tenka. Track 5 still builds the mechanics they need (mortar shells, the co-op `aim` command).
+
+**Look for every new girl (owner, Oct 20): school uniforms with modern tech gear** (gadgets, rigs, drones, launchers). The 19 current
+girls keep their looks for now. Real portraits and 3D chibis for new girls wait until the owner approves the first art test; until
+then new girls use stand-in models and placeholder portraits.
+
 ## Boundaries, so the merges stay small
 
 - **Track 2 owns gear**: gear data, rolls, substats, sets, awakening, the gear UI (Backpack Equipment tab, a girl's Equipment tab,
@@ -27,6 +36,10 @@ when its gates pass, and the combined balance check runs last, after all of them
   at merge. Do not build UR gear itself.
 - **Track 1 owns abilities and new units**: ability data and sim, the co-op `abil` / `acast` commands, the battle ability bar, and the
   new girls' kits. Tracks 2 and 3 must not edit `src/data/units.js` kits or `src/online/coop/commands.js`.
+- **Track 5 owns the returning girls and roster B3's mechanics**: `src/data/unitsExpansion.js`, `unitKit.js`, the B3 sim mechanics and
+  the co-op `aim` command (the one exception to "track 1 owns commands.js": add `aim` in one contiguous block). Each girl's ability goes
+  in her own data as plain data in the shape of `ABILITIES.md` §5.2; track 1's ability system reads it when the tracks merge. Do not
+  build the ability system itself.
 - **Track 4 owns shared CSS tokens and layout condensing**. Tracks 2 and 3 should build new screens with the existing components and
   tokens, so the restyle can reach them later without rework.
 - **Save format**: if you add save fields, add a migration with a test and list the new keys in your report. Two tracks bumping the save
