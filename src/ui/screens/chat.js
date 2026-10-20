@@ -3,6 +3,7 @@ import { h, screen, tabs as tabBar, svgEl, button, glyph } from '../components.j
 import { navigate } from '../router.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { ensureOnline, onlinePill, avatar, levelChip, askName, storedName, PEOPLE_GLYPH } from '../online/common.js';
+import { inlineLoader } from '../loading/loader.js';
 import { store } from '../../core/store.js';
 import { profileCard } from '../../online/identity.js';
 import { getBackend } from '../../online/backend.js';
@@ -29,7 +30,7 @@ export function render(root, params = {}) {
 
   // the layout is there at once (also behind the first-time name prompt); the chat fills in
   // once the account is ready
-  main.append(h('section.panel.ol-chat-wait', h('div.ol-connecting', h('i.ol-spinner'), h('p.muted', 'Connecting to chat…'))));
+  main.append(h('section.panel.ol-chat-wait', h('div.ol-connecting', inlineLoader('Connecting to chat'))));
   paintSide(null);
 
   (async () => {

@@ -8,6 +8,7 @@ import { validateName } from '../../online/clanRules.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { getUnit } from '../../data/units.js';
+import { inlineLoader, holdInline } from '../loading/loader.js';
 
 /** Chat bubble glyph (24×24 line style, currentColor). */
 export const CHAT_GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 13.5z"/><path d="M8 9h8M8 12.2h5"/></g></svg>';
@@ -208,20 +209,30 @@ export function levelChip(level) {
   return h('span.ol-lv', `Lv ${level || 1}`);
 }
 
-/** Placeholder card while signing in, with a retry on failure. */
+/**
+ * Placeholder while signing in: the little loading slime ("Connecting", shown only if it takes over
+ * 150 ms and then for at least 450 ms), with a retry on failure.
+ */
 export function connecting(host, run) {
-  const status = h('p.muted', 'Connecting…');
-  host.replaceChildren(h('div.ol-connecting', h('i.ol-spinner'), status));
+  const status = h('p.muted.ol-connecting-err');
+  status.hidden = true;
+  const slime = inlineLoader('Connecting');
+  const box = h('div.ol-connecting', slime, status);
+  host.replaceChildren(box);
+  const stopHold = holdInline(host, box, slime);
   run().catch((e) => {
-    const box = host.querySelector('.ol-connecting');
+    const shown = host.querySelector('.ol-connecting');
     // the screen was already drawn (a later step failed): keep it, just say so
-    if (!box) {
+    if (!shown || shown.classList.contains('ld-held')) {
       console.warn('[online] screen step failed', e);
       showError(e);
       return;
     }
+    stopHold();
+    slime.remove();
+    status.hidden = false;
     status.textContent = errorText(e);
-    box.append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
+    shown.append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));
   });
 }
 
