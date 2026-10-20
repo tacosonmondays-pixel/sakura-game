@@ -1,4 +1,5 @@
 import './ui/styles/base.css';
+import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
 import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
