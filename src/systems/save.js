@@ -16,6 +16,7 @@ import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { settleLevels, MAX_LEVEL } from './progression.js';
 import { restoreAscension, GATES_MAX } from './ascensionSave.js';
+import { rosterMark, writeRosterMarks } from './rosterSave.js';
 import { migrateEssence, settleSpares, markEssenceBorn, fuseShards } from './essence.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
@@ -149,6 +150,7 @@ export function createProfile() {
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
+  writeRosterMarks(p); // [roster] every owned girl's 'own:' mark (src/systems/rosterSave.js)
   return p;
 }
 
@@ -406,6 +408,15 @@ export function migrateProfile(raw) {
   // Units (only known ids). Starters are always owned.
   p.units = {};
   if (isObj(raw.units)) for (const [id, u] of Object.entries(raw.units)) if (UNIT_MAP[id]) p.units[id] = cleanUnit(u, now, id);
+  // [roster] a girl an older build left out (it did not know her) comes back from her 'own:' mark: level,
+  // gates, stars and the pieces she wore (put back on below when still free); 'pot:', 'pl:', 'bt:',
+  // 'lv:' / 'lvA:' then restore the rest (src/systems/rosterSave.js)
+  const rawCounters = cleanNumberMap(isObj(raw.missions) ? raw.missions.counters : null);
+  for (const def of UNITS) {
+    if (p.units[def.id]) continue;
+    const kept = rosterMark(rawCounters, def.id);
+    if (kept) p.units[def.id] = cleanUnit(kept, now, def.id);
+  }
   for (const id of STARTER_UNITS) if (!p.units[id]) p.units[id] = newUnitState(now);
 
   // Gear + equip consistency.
@@ -560,6 +571,8 @@ export function migrateProfile(raw) {
   p.events = cleanEvents(raw.events, p.missions.counters, p.mail);
   p.skins = cleanSkins(raw.skins);
   for (const u of Object.values(p.units)) if (u.skin && !ownsSkin(p, u.skin)) u.skin = null;
+  // [roster] every owned girl's 'own:' mark, from her settled state
+  writeRosterMarks(p);
   p.version = SAVE_VERSION;
   return p;
 }

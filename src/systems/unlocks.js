@@ -9,6 +9,7 @@ import { newUnitState } from './save.js';
 import { shadowPotential } from './potential.js';
 import { receiveDuplicate } from './essence.js';
 import { mirrorUnit } from './ascensionSave.js';
+import { writeRosterMark } from './rosterSave.js';
 
 /** @returns {string[]} owned unit ids in roster order */
 export function ownedUnits(profile) {
@@ -39,6 +40,7 @@ export function grantUnit(profile, unitId, now = Date.now()) {
     profile.bond[unitId] ??= 0;
     shadowPotential(profile, unitId, now);
     mirrorUnit(profile, unitId);
+    writeRosterMark(profile, unitId); // her 'own:' mark: an older build that drops her gives her back
     return { isNew: true, essence: 0, spare: null, potential: 1, essenceHeld: 0, readyStep: null, potentialUp: false };
   }
   const st = profile.units[unitId];

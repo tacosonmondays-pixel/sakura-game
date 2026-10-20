@@ -22,6 +22,7 @@ import { createRng } from '../core/rng.js';
 import { consumeItems, addItems, missingItems, itemCount } from './inventory.js';
 import { track } from './missions.js';
 import { potentialLevel } from './potential.js';
+import { writeRosterMark } from './rosterSave.js';
 
 export const MAX_GEAR_LEVEL = 10;
 /** Stat multiplier per gear rarity (UR, the awakened Legendary, is 3.2). */
@@ -372,11 +373,13 @@ export function equipGear(profile, unitId, uid) {
   if (gear.equippedBy && gear.equippedBy !== unitId) {
     const other = profile.units[gear.equippedBy];
     if (other && other.gear[slot] === uid) other.gear[slot] = null;
+    writeRosterMark(profile, gear.equippedBy);
   }
   const previous = unit.gear[slot];
   if (previous && previous !== uid && profile.gear[previous]) profile.gear[previous].equippedBy = null;
   unit.gear[slot] = uid;
   gear.equippedBy = unitId;
+  writeRosterMark(profile, unitId); // [roster] the pieces she wears ride on her 'own:' marks
   noteUrWorn(profile, unitId);
   return { ok: true, previous: previous && previous !== uid ? previous : null };
 }
@@ -388,6 +391,7 @@ export function unequipGear(profile, unitId, slot) {
   const uid = unit.gear[slot];
   if (uid && profile.gear[uid]) profile.gear[uid].equippedBy = null;
   unit.gear[slot] = null;
+  writeRosterMark(profile, unitId);
   return { ok: true, uid: uid || null };
 }
 

@@ -18,6 +18,7 @@ export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
 import { mirrorUnit, LEVEL_MIRROR_PREFIX } from './ascensionSave.js';
+import { writeRosterMark } from './rosterSave.js';
 
 /** Breakthrough gates: 1–5 to level 60, then gates 6–10 (Ascension) to 85. */
 export const MAX_BREAKTHROUGH = 10;
@@ -287,6 +288,7 @@ export function levelUp(profile, unitId, books) {
   unit.level = preview.toLevel;
   unit.exp = preview.expAfter;
   shadowLevel(profile, unitId);
+  writeRosterMark(profile, unitId);
   if (preview.toLevel > fromLevel) track(profile, 'levelUp', preview.toLevel - fromLevel);
   track(profile, 'spendCoins', preview.coinCost);
   return { ok: true, fromLevel, toLevel: unit.level, coinCost: preview.coinCost };
@@ -397,6 +399,7 @@ export function breakthrough(profile, unitId) {
   const unit = profile.units[unitId];
   unit.breakthrough += 1;
   mirrorUnit(profile, unitId);
+  writeRosterMark(profile, unitId);
   track(profile, 'spendCoins', check.cost.find((c) => c.id === 'coins').count);
   return { ok: true, gate: unit.breakthrough, cap: levelCap(unit) };
 }
@@ -443,6 +446,7 @@ export function awaken(profile, unitId) {
   if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
   const unit = profile.units[unitId];
   unit.awaken += 1;
+  writeRosterMark(profile, unitId);
   track(profile, 'spendCoins', check.cost.find((c) => c.id === 'coins').count);
   return { ok: true, star: unit.awaken, passiveUnlocked: unit.awaken === 3 };
 }

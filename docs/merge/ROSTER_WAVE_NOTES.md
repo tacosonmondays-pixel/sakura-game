@@ -75,7 +75,7 @@ Golden and balance moves from the merge are in §4.
 - Balance: `docs/BALANCE.md` "Roster wave" (tables per girl, the 8-5 known flip).
 - Goldens: `tests/sim/modesGolden.test.js`: 1-1 … 6-1 keep v0.1.37's digests; 6-3 … 8-5 are re-pinned because the bot's free team there includes Noa and Hana; a second block runs those stages with the 19 live girls only and must give v0.1.37's digests (§5).
 - Engines: `BUN=/root/.bun/bin/bun node e2e/engines.mjs` OK (V8 + JavaScriptCore, with the returning-girls battle).
-- Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump.
+- Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump. In `missions.counters`, each owned girl's `own:<id>` / `own:<id>:<slot>` marks (`src/systems/rosterSave.js`): an older build that does not know a returning girl leaves her out of the save it writes, and the next load brings her back from them.
 
 ## 5. 8-5 Easy (coordinator follow-up)
 

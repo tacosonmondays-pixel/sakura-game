@@ -601,7 +601,7 @@ Profile = {
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -708,6 +708,18 @@ asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate op
 
 `pl:<id>`, `bt:<id>` (gates > 5) and `inv:<id>` (the 16 Ascension items, written by `inventory.js setCount`) in
 `missions.counters`; `restoreAscension` brings back what an older build dropped (by max; a spent item mirrors 0).
+
+### `src/systems/rosterSave.js` (a girl an older build does not know)
+
+An older build keeps only the unit ids it knows: it leaves a newer girl out of the save it writes (load 'lossy'),
+unequips her gear and drops her bond entry. Her copy in `missions.counters`: `own:<id>` = level × 1000 + gates × 10 +
+stars (≥ 1000 when owned) and `own:<id>:<slot>` = n of the piece `g<n>` she wears there (absent when empty).
+`writeRosterMark(profile, id)` runs at every grant, level-up, gate, star and equip; `writeRosterMarks(profile)` for
+every owned girl at every load (`migrateProfile`, `createProfile`) and every write (`store.js saveText`).
+`migrateProfile` recreates a known girl who has a mark but is missing from the save (`rosterMark(counters, id)` →
+`cleanUnit`, before gear consistency and `creditPotential`): `pot:`, `pl:`, `bt:`, `lv:` / `lvA:` then restore her
+duplicates (Essence), bought Potential, gates and level; her pieces go back on when still free. Lost: the EXP inside
+her level, her formation / secretary place. A girl in the save is never changed by her mark.
 
 ### Titan Trials — `src/data/titans.js`, `src/systems/titans.js`, `src/systems/titanRewards.js` (spec §C)
 
