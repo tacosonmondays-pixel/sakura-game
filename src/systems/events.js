@@ -18,13 +18,17 @@
 // Nightmare (Halloween 2026, Oct 20): its medals are progress.stages[id].nightmare, which every build's migrate keeps;
 // its one-time missions are shadowed like the others, so a v0.1.38 tab that drops their ids from the block never
 // makes them pay twice. Missions added mid-event are one-time only (daily claims have no shadow).
+// Sweep limit (owner, Oct 20: "Sweep limit for now"): EVENT_SWEEPS_PER_DAY sweeps per game day across all of an
+// event's stages together, counted in profile.missions.counters only ('evsw:<eventId>' = sweeps used that game day,
+// 'evswd:<eventId>' = its gameDayNumber), never in the block, so a v0.1.38 tab's cleanEvents can't drop the count and
+// refill it. That tab doesn't know the limit and sweeps as before (accepted); a sweep pays once in either build.
 
 import '../data/events/wire.js';
 import { ALL_EVENTS, EVENTS, EVENT_MAP, eventById, eventOfStage } from '../data/events/index.js';
 import { STAGE_MAP } from '../data/stages.js';
 import { getItem } from '../data/items.js';
 import { DIFFICULTIES } from '../data/types.js';
-import { gameDay, gameDayStart, gameDayEnd, isNewPeriod, formatCountdown } from '../core/reset.js';
+import { gameDay, gameDayNumber, gameDayStart, gameDayEnd, nextDailyReset, isNewPeriod, formatCountdown } from '../core/reset.js';
 import { addItems, consumeItems, itemCount, normalizeList } from './inventory.js';
 import { deliverMail } from './mail.js';
 import { isStageCleared, stageMedals } from './unlocks.js';
@@ -40,6 +44,11 @@ export const READ_MARK = 'evr:';
 export const BOUGHT_MARK = 'evb:';
 export const CLAIM_MARK = 'evm:';
 export const PROGRESS_MARK = 'evp:';
+export const SWEEP_MARK = 'evsw:';
+export const SWEEP_DAY_MARK = 'evswd:';
+
+/** Event sweeps per game day, all of an event's stages together; battles played are never limited. */
+export const EVENT_SWEEPS_PER_DAY = 10;
 
 const runKey = (mark, eventId, run, id) => `${mark}${eventId}:${run}:${id}`;
 const loginId = (eventId, run, n) => `ev:${eventId}:${run}:login:${n}`;
@@ -184,12 +193,14 @@ function lastLoginDay(ev, run, mail) {
   return letter && Number(letter.sentAt) > 0 ? gameDay(Number(letter.sentAt)) : null;
 }
 
-/** Drops a settled run's 'evb:' / 'evm:' / 'evp:' shadows (the 'evs:' mark keeps the settle final). */
+/** Drops a settled run's 'evb:' / 'evm:' / 'evp:' shadows and the sweep count (the 'evs:' mark keeps the settle final). */
 function dropRunShadows(profile, eventId, run) {
   const c = profile.missions?.counters;
   if (!isObj(c)) return;
   const heads = [BOUGHT_MARK, CLAIM_MARK, PROGRESS_MARK].map((m) => `${m}${eventId}:${run}:`);
   for (const k of Object.keys(c)) if (heads.some((h) => k.startsWith(h))) delete c[k];
+  delete c[`${SWEEP_MARK}${eventId}`];
+  delete c[`${SWEEP_DAY_MARK}${eventId}`];
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +371,37 @@ export function eventAfterBattle(profile, stage, { won, firstClear, newMedal = f
   // episodes this first clear opened (their stage gate is this stage)
   const newEpisodes = won && firstClear ? episodeRows(profile, ev, now).filter((r) => r.state === 'new' && r.gate.stage === stage.id).map((r) => r.id) : [];
   return { event: { id: ev.id, newEpisodes } };
+}
+
+// ---------------------------------------------------------------------------
+// Sweep limit (EVENT_SPEC §3.6 "Daily sweep limit")
+// ---------------------------------------------------------------------------
+
+/**
+ * Today's event sweeps: EVENT_SWEEPS_PER_DAY on the 7 PM Central game day, all of the event's stages together.
+ * Forward only (isNewPeriod): a stored day later than the clock (set back) keeps its count, so it never refills early.
+ * @returns {{ limit: number, used: number, left: number, refillsAt: number }} refillsAt: the next 7 PM Central (ms)
+ */
+export function eventSweepsLeft(profile, eventId, now = Date.now()) {
+  const c = profile?.missions?.counters || {};
+  const t = ms(now);
+  const limit = EVENT_SWEEPS_PER_DAY;
+  const used = isNewPeriod(c[`${SWEEP_DAY_MARK}${eventId}`], gameDayNumber(t)) ? 0 : Math.min(limit, intOf(c[`${SWEEP_MARK}${eventId}`]));
+  return { limit, used, left: limit - used, refillsAt: nextDailyReset(t) };
+}
+
+/** Counts `n` event sweeps that just paid (rewards.js sweep: never more than eventSweepsLeft allowed). */
+export function useEventSweeps(profile, eventId, n, now = Date.now()) {
+  const c = ((profile.missions ||= {}).counters ||= {});
+  const today = gameDayNumber(ms(now));
+  const dayKey = `${SWEEP_DAY_MARK}${eventId}`;
+  const key = `${SWEEP_MARK}${eventId}`;
+  if (isNewPeriod(c[dayKey], today)) {
+    c[dayKey] = today;
+    c[key] = 0;
+  }
+  c[key] = intOf(c[key]) + Math.max(0, Math.floor(n) || 0);
+  return eventSweepsLeft(profile, eventId, now);
 }
 
 // ---------------------------------------------------------------------------

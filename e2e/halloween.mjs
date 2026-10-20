@@ -6,7 +6,8 @@
 // monsters; its Nightmare locked until then) → buy in the Candy Exchange, then the Pumpkin
 // Patroller title and the Pumpkin Lantern frame, equipped and shown on the profile and in Preview →
 // the Gourdlight Golem beaten on Normal for real (its Nightmare locked until Hard) → Nightmare: the
-// Golem's own 20-wave stage in prep, an operation's Nightmare sweep → the exchange phase
+// Golem's own 20-wave stage in prep, an operation's Nightmare sweep (the daily sweep limit: "10 left today" on the
+// button, off at 0 with "Sweeps refill at 7 PM Central") → the exchange phase
 // (operations closed) → the event ends: the leftover candy comes back as coins by mail, and the
 // page shows the summary.
 //
@@ -368,16 +369,52 @@ try {
       store.commit('test');
     });
     await go('#/stage/ev-halloween-1?difficulty=nightmare', '[data-testid="sweep-10"]');
+    const sweepBtns = () => page.evaluate(() => ['sweep-1', 'sweep-10'].map((id) => {
+      const b = document.querySelector(`[data-testid="${id}"]`);
+      return { exists: !!b, text: (b?.textContent || '').trim(), disabled: !!b?.disabled, title: b?.title || '' };
+    }));
+    const [one0, ten0] = await sweepBtns();
+    check(ten0.text === 'Sweep ×10 · 10 left today' && !ten0.disabled && !one0.disabled, `daily sweep limit: the button shows what's left ("${ten0.text}")`);
+    check(await noOverflow(), 'daily sweep limit: no horizontal overflow');
+    await shot('sweep-left');
     const c5 = await candy();
     await page.locator('[data-testid="sweep-10"]').click();
     await page.waitForTimeout(600);
     check((await candy()) - c5 === 1200, `Op 1 Nightmare: Sweep ×10 pays 1,200 candy (+${(await candy()) - c5})`);
+    const sweptModal = await page.evaluate(() => {
+      const m = [...document.querySelectorAll('.modal-overlay')].pop();
+      return { text: m?.textContent || '', again: [...(m?.querySelectorAll('button') || [])].some((b) => /Sweep again/.test(b.textContent)) };
+    });
+    check(/Sweeps refill at 7 PM Central/.test(sweptModal.text) && !sweptModal.again, 'daily sweep limit: the rewards say when sweeps refill, no "Sweep again"');
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    const [one1, ten1] = await sweepBtns();
+    check(ten1.disabled && !one1.exists && ten1.text === 'Sweeps refill at 7 PM Central', `daily sweep limit: at 0 the sweep is off, no ×1 ("${ten1.text}")`);
+    check(await noOverflow(), 'daily sweep limit at 0: no horizontal overflow');
+    await shot('sweep-refill');
+    // battles played are never limited: Start stays open
+    check((await page.evaluate(() => document.querySelector('[data-testid="stage-start"]')?.disabled)) === false, 'daily sweep limit: Start (a played battle) stays open');
     const sleepless = await page.evaluate(async (id) => {
       const ev = await import('/src/systems/events.js');
       const { EVENT_MAP } = await import('/src/data/events/index.js');
       return ev.missionRows(window.__sakura.store.profile, EVENT_MAP[id], Date.parse(localStorage.getItem('sakura-dev-now'))).total.find((m) => m.id === 'hw_t_nm_clear15').progress;
     }, EV);
     check(sleepless === 10, `Op 1 Nightmare: the sweeps count for Sleepless Patrol (${sleepless}/15)`);
+    // a partial tap: 3 left (the count as if 7 were used today) → the button says ×3 and pays 3
+    await page.evaluate((id) => {
+      const { store } = window.__sakura;
+      store.profile.missions.counters[`evsw:${id}`] = 7;
+      store.commit('sweep');
+    }, EV);
+    await page.waitForTimeout(300);
+    const [, ten3] = await sweepBtns();
+    check(ten3.text === 'Sweep ×3 · 3 left today' && !ten3.disabled, `daily sweep limit: 3 left reads "${ten3.text}"`);
+    const c6 = await candy();
+    await page.locator('[data-testid="sweep-10"]').click();
+    await page.waitForTimeout(600);
+    check((await candy()) - c6 === 360, `daily sweep limit: that tap sweeps 3 (+${(await candy()) - c6} candy)`);
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    const [, ten4] = await sweepBtns();
+    check(ten4.disabled && ten4.text === 'Sweeps refill at 7 PM Central', 'daily sweep limit: then off again');
     await page.keyboard.press('Escape').catch(() => {});
 
     // ---- 8. the exchange phase ---------------------------------------------------------------

@@ -53,7 +53,8 @@ import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { eventStageStatus, eventPhase, phaseLabel, eventRunGate, eventDifficultyStatus } from '../../systems/events.js';
+import { eventStageStatus, eventPhase, phaseLabel, eventRunGate, eventDifficultyStatus, eventSweepsLeft } from '../../systems/events.js';
+import { RESET, localResetHint } from '../../core/reset.js';
 import { eventOfStage } from '../../data/events/index.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { eventNow } from '../events/clock.js';
@@ -987,26 +988,34 @@ function sweepControls(stage, state) {
     box.appendChild(h('div.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), lockText));
     return box;
   }
+  // [events] the event's daily sweeps (all its stages together): what's left is on the button; none → refill time
+  const refill = `Sweeps refill at ${RESET.label}`;
+  const refillTitle = () => { const hint = localResetHint(eventNow()); return hint ? `${refill} (${hint})` : refill; };
   const doSweep = (times) => {
     const r = sweep(profile, stage.id, state.difficulty, times, uiRng(), { now: new Date(eventNow()) });
     if (!r.ok) {
-      toast(r.error === 'event' ? 'The event operations are closed' : r.error === 'difficulty' ? `Clear ${DIFFICULTIES[state.difficulty].name} first to sweep it` : 'Sweep is locked', 'bad');
+      toast(r.error === 'event' ? 'The event operations are closed' : r.error === 'limit' ? refill : r.error === 'difficulty' ? `Clear ${DIFFICULTIES[state.difficulty].name} first to sweep it` : 'Sweep is locked', 'bad');
       return;
     }
     store.commit('sweep');
+    const evLeft = r.sweepsLeft;
     showRewardsModal({
       title: `Sweep ×${r.runs.length} · ${DIFFICULTIES[state.difficulty].name}`,
       rewards: r.rewards,
       gear: r.gear,
-      note: `${stageLabel(stage)} · ${stage.name}`,
+      note: `${stageLabel(stage)} · ${stage.name}${evLeft == null ? '' : evLeft > 0 ? ` · ${evLeft} left today` : ` · ${refill}`}`,
       actions: [
-        { label: 'Sweep again', kind: 'ghost', onClick: (c) => { c(); doSweep(times); } },
+        evLeft === 0 ? null : { label: 'Sweep again', kind: 'ghost', onClick: (c) => { c(); doSweep(times); } },
         { label: 'OK', kind: 'yellow' },
-      ],
+      ].filter(Boolean),
     });
   };
-  const lockTitle = okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
-  box.appendChild(button('Sweep ×1', { kind: 'ghost', icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1) }));
-  box.appendChild(button(`Sweep ×${MAX_SWEEPS}`, { kind: 'primary', icon: 'ff2', disabled: !okDiff, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS) }));
+  // (×1 only while it differs from the main button: at 1 left that one is "Sweep ×1", at 0 it is the refill time)
+  const left = stage.kind === 'event' ? eventSweepsLeft(profile, stage.event, eventNow()).left : null;
+  const out = left === 0;
+  const lockTitle = out ? refillTitle() : okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
+  const manyLabel = left == null ? `Sweep ×${MAX_SWEEPS}` : out ? refill : `Sweep ×${Math.min(MAX_SWEEPS, left)} · ${left} left today`;
+  if (left == null || left > 1) box.appendChild(button('Sweep ×1', { kind: 'ghost', icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1) }));
+  box.appendChild(button(manyLabel, { kind: 'primary', icon: 'ff2', disabled: !okDiff || out, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS) }));
   return box;
 }

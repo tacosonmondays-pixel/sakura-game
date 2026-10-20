@@ -59,8 +59,8 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
   says it is the last, days 10–13 still count the daily Roll Call). Candy: 2,990 once (episodes 150, first clears
   1,040, one-time missions 1,250, login gifts 550) plus 120 a day from dailies; the limited stock costs 7,550 (15,800
   since the Oct 20 price rise, below). With no
-  energy, operations sweep free (10 a tap, Op 4 = 900 candy a tap), so a farmer can empty the stock on the first day
-  either way. In v0.1.38 (7,550) a player who only did the three daily wins reached the stock around day 12 of 13 (it
+  energy, operations sweep free (10 a tap, Op 4 = 900 candy a tap), so a farmer could empty the stock on the first day
+  either way; since the Oct 20 sweep limit (10 event sweeps a game day, below) that takes about 5 days of sweeps. In v0.1.38 (7,550) a player who only did the three daily wins reached the stock around day 12 of 13 (it
   was out of reach in 9); at 15,800 that player ends the event with about half of it (Economy, below).
   The unlimited Doodle Notes offer is the sink.
 - 3 episodes, 8 spoken lines each (the story lint's minimum; the brief said 4–8), Hikari leads with Aoi, Yuki,
@@ -167,6 +167,19 @@ the generic bot. Bots are pessimistic on one-life openings; a skilled mid player
 **Sweeps.** As before: up to your best medal on that stage, 10 per tap, operations only (never the boss), refused
 once the operations close. Nightmare sweeps open after that operation's Nightmare medal.
 
+**Daily sweep limit** (owner, Oct 20: "Sweep limit for now"; EVENT_SPEC §3.6 "Daily sweep limit"): **10 sweeps per
+game day** across all event operations together, one Sweep ×10 tap's worth (`EVENT_SWEEPS_PER_DAY`). The day is the
+7 PM Central game day and moves forward only, so setting the clock back never refills it. Battles actually played are
+never limited (they pay and count as before); campaign, Bounty and Total Assault sweeps are unchanged.
+- Stage prep: "Sweep ×10 · 10 left today"; with fewer left the tap sweeps what is left ("Sweep ×3 · 3 left today" pays
+  3; the ×1 button shows only while it differs); at 0 the button is off and reads "Sweeps refill at 7 PM Central".
+  The rewards after a sweep say how many are left (or the refill time, and no "Sweep again").
+- Stored in `profile.missions.counters`: `evsw:halloween-2026` = sweeps used that game day, `evswd:halloween-2026` =
+  its day number; never in the event block, which a v0.1.38 tab rewrites. This build removes them when it settles.
+- **Stale tabs:** a v0.1.38 tab doesn't know the limit and sweeps as before until it is reloaded (accepted). It keeps
+  the counters, so it can't reset the count for the new build, and each sweep pays once in either build: nothing pays
+  twice.
+
 **Missions** (one-time only; no new dailies, whose claims have no shadow mark):
 
 | id | Name | Goal | Reward |
@@ -205,7 +218,8 @@ login gifts 150, medals 260) to **1,110** with the five Sakura medals (+500); th
 
 ### Economy (13 game days, Oct 20 – Nov 1; Nightmare live for about 10 of them)
 
-No energy (stages are free) and sweeps are free and unlimited at 10 a tap, so price is the only lever. Fixed candy:
+No energy (stages are free); sweeps are free at 10 a tap and, since the Oct 20 sweep limit, 10 a game day (below).
+Fixed candy:
 episodes 150, first clears 1,040, one-time missions 1,250 (+2,300 Nightmare), login gifts 550, dailies 120 a day
 (1,560 max). Per win or sweep: operations 60 / 70 / 80 / 90 (Nightmare 120 / 140 / 160 / 180); the boss 150 / 220 /
 500 (never swept). Sweep ×10 = 900 candy on Op 4 Normal, 1,800 on Nightmare.
@@ -218,16 +232,28 @@ episodes 150, first clears 1,040, one-time missions 1,250 (+2,300 Nightmare), lo
   and needs about 50 Op 4 Nightmare sweeps (5 taps) or about 100 Normal sweeps for the rest; the boss's Nightmare adds
   500 a win. A mid grinder (Ops 1 / 3 / 4 Nightmare) has about 5,700 fixed and needs about 56 Op 4 Nightmare sweeps.
   Everything stays reachable before Nov 8.
-- **Owner caveat:** grinding here costs taps, not time. If "grinding" should mean playing, the lever is a daily sweep
-  allowance (EVENT_SPEC E7 planned energy for event operations); an owner decision, not in this build (v0.1.38 tabs
-  would bypass it). For anyone who sweeps, Nightmare's doubled candy cancels the rise: the whole stock was 84 Op 4
+- **Owner caveat (answered Oct 20: "Sweep limit for now", next bullet):** grinding here costs taps, not time. If
+  "grinding" should mean playing, the lever is a daily sweep allowance (EVENT_SPEC E7 planned energy for event
+  operations). For anyone who sweeps, Nightmare's doubled candy cancels the rise: the whole stock was 84 Op 4
   Normal sweeps (7,550 / 90) and is 88 Op 4 Nightmare sweeps now (15,800 / 180), about 9 taps either way (about 50
   sweeps after the fixed income), and a level-40 team without gear clears Op 4's Nightmare. So the higher prices
   mostly slow down players who don't sweep. Each Nightmare sweep also rolls the 25 % Super Rare book.
+- **With the sweep limit (10 a game day), checked by `tests/systems/events-sweeps.test.js` SW-8:** counted from the
+  data over the 12 game days Oct 21 – Nov 1 (the first full day this build can have; a later ship leaves unlimited
+  days before it), with one win per medal and one Op 4 win a day (the 250-kill daily needs it), sweeping Op 4:
+  a Nightmare grinder (every Nightmare, the Golem's too) has 10,660 without sweeps and **32,260** with them; a mid
+  grinder (Op 4 Nightmare only, the Golem on Normal and Hard) 8,140 → **29,740**; a player with no Nightmare at all
+  6,180 → **16,980**. All three reach the 15,800 stock before the operations close, so **the limit stays at 10**. The
+  smallest daily limit that would still work: 3 (Nightmare grinder), 4 (mid grinder), 9 (no Nightmare). A Nightmare
+  grinder needs about 5 days of 10 Op 4 Nightmare sweeps (1,800 candy a day) on top of the fixed income. Grinding
+  faster now means playing: each Op 4 Nightmare battle pays 180, with no cap.
 
 ### Stale tabs (v0.1.38 open next to the new build)
 
 Checked against the real v0.1.38 code (`26c0de1`) on a save the new build wrote, and back:
+- The daily sweep limit (Sweeps, above): v0.1.38 doesn't know it and sweeps 10 a tap without a cap until reloaded
+  (accepted). Its `cleanNumberMap` keeps the `evsw:` / `evswd:` counters word for word and it never writes them, so
+  it can't refill the count here; every sweep pays once, in whichever build made it.
 - v0.1.38 keeps every Nightmare medal (`progress.stages[id].nightmare`) and turns a Nightmare battle or sweep into
   practice (its `eventDifficultyOk`): it can neither earn nor erase one.
 - It drops the new missions from its block but keeps their `evp:` / `evm:` marks; the new build restores progress and

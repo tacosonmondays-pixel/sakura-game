@@ -80,7 +80,7 @@ Branch to create: **`feature/events`**, cut from live `claude/sakura-sentinels` 
 | E4 | **Leftover currency** | At the exchange deadline, leftover event currency is removed and mailed back as **coins (1 → 50)**. Not "expire" like the old game (`season-ui.js` shop text: "Unspent tickets then expire"). | **ASSUMPTION → Q3** |
 | E5 | Who can join | Clear **1-5** (end of chapter 1; Nami, who appears in the story, joins at 1-5). The old game asked for 6 chapters. | Ours |
 | E6 | Event girls | Marina and Amane are **limited**: not in the gacha pool, not sparkable, not on featured banners, and not needed for "Full Roster". They are permanent once earned. | Ours |
-| E7 | Event stages and energy | Operations cost energy through `stage.energy` (ENERGY_RESET §3.4 `energyCost` honours it): 10/10/12/12/15, boss 20. First clears stay free. Operations can be swept once cleared; the boss cannot. | Ours |
+| E7 | Event stages and energy | Operations cost energy through `stage.energy` (ENERGY_RESET §3.4 `energyCost` honours it): 10/10/12/12/15, boss 20. First clears stay free. Operations can be swept once cleared; the boss cannot. **Update (owner, Oct 20, Halloween 2026: "Sweep limit for now"):** no energy yet; event sweeps are capped at `EVENT_SWEEPS_PER_DAY` (10) per game day across all of an event's stages together; battles played are never limited (§3.6 "Sweeps"). | Ours → Owner |
 | E8 | Difficulty | Operations have one fixed difficulty (**Normal**). The Leviathan has **Normal** (story) and **Hard** (challenge). **Update (owner, Oct 20, Halloween 2026: "add nightmare modes for the event stages with the final one being really hard"):** an event stage may add **Nightmare** (the campaign's `DIFFICULTIES.nightmare`, no new rules), gated by a medal on the same stage (`unlockAfter`: an operation's Nightmare after its Normal medal, the boss's after its Hard medal). A difficulty may play its own waves (`variants`, §3.6): Halloween's boss Nightmare does. | Ours → Owner |
 | E9 | Where event data lives | Event stages and enemies are **not** added to `STAGES`/`ENEMIES` (59 and 74 stay; many tests count them). They are merged only into the lookup maps `STAGE_MAP`/`ENEMY_MAP`, which is all the sim and the battle UI read. | Ours |
 | E10 | Story episodes | Event episodes use the story scene format and the story scene player (`playStoryScene`). If feature/story is not on main when Builder 2 starts, a small fallback reader ships instead (§3.9). | Ours |
@@ -264,6 +264,10 @@ profile.events = {
   outfits in `profile.skins` (roster save v3), stage medals in `profile.progress.stages`, bestiary in
   `profile.bestiary`. Nothing event-specific is stored twice.
 * After settle the state is pruned to `{ run, joinedAt, read, friends: { outfits }, settled }` (a few hundred bytes).
+* The daily sweep count (§3.6 "Sweeps") is not in the block: `profile.missions.counters['evsw:<eventId>']` = sweeps
+  used that game day and `['evswd:<eventId>']` = its `gameDayNumber` (counters hold numbers only). An older build's
+  `cleanEvents` rewrites the block but keeps the counters word for word, so it can't refill the allowance. Settling
+  removes both.
 
 ### 3.6 Battle flow
 
@@ -305,6 +309,20 @@ and the rewards view adds one line for `out.event.newEpisodes` ("New episode unl
 returns `{ ok: false, error: 'event' }` when the phase is not `active` and calls `trackEvent(..., 'eventClear', n)`.
 As everywhere, a difficulty sweeps only up to the best medal held there (an operation's Nightmare after its
 Nightmare medal), 10 per tap (`MAX_SWEEPS`); `trackEvent` gets the difficulty.
+
+**Daily sweep limit (owner, Oct 20: "Sweep limit for now").** Event sweeps are capped at `EVENT_SWEEPS_PER_DAY` = 10
+per game day (one Sweep ×10 tap's worth), all of an event's stages together; campaign, Bounty and Total Assault sweeps
+and every battle actually played are unchanged. `src/systems/events.js` `eventSweepsLeft(profile, eventId, now)` →
+`{ limit, used, left, refillsAt }` and `useEventSweeps(profile, eventId, n, now)` keep the count in the
+`evsw:` / `evswd:` counters (§3.5). The day is `gameDayNumber` on the 7 PM Central clock and moves forward only
+(`isNewPeriod`): a clock set back keeps the later day's count, so it never refills early. `sweep` checks the limit
+after its other refusals (`'event'`, `'difficulty'`), sweeps `min(times, left)` (a ×10 tap with 4 left sweeps 4 and
+pays 4), counts them in the same call that pays them, and returns `sweepsLeft`; with none left it returns
+`{ ok: false, error: 'limit' }` and changes nothing. Stage prep: the main button reads "Sweep ×10 · 10 left today"
+("Sweep ×3 · 3 left today" with 3 left; the ×1 button only while it differs), and at 0 it is off and reads "Sweeps
+refill at 7 PM Central" (its tooltip adds the local time outside Central); the rewards after a sweep say what is left
+and drop "Sweep again" at 0. A stale v0.1.38 tab doesn't know the limit and sweeps as before until reloaded
+(accepted): it can't reset the count (it keeps the counters) and every sweep pays once in either build.
 
 **More difficulties on an event stage (E8 update; Halloween 2026).** `stage.difficulties` lists them all
 (`['normal', 'nightmare']`, the boss `['normal', 'hard', 'nightmare']`); `unlockAfter` gates one behind a medal.
@@ -1041,6 +1059,12 @@ battles like any owned girl (`coopLoadout`). If co-op event stages are added lat
     and kept past the base 15 waves; every other run stays format 1.
   * `tests/integration/event-balance.test.js` EB-3 (the boss Nightmare: mid and level-60 P1 teams lose, the late
     free-player profile wins) and EB-4 (Op 4 Nightmare: a smart level-40 team wins).
+* `tests/systems/events-sweeps.test.js` (the daily sweep limit, Oct 20)
+  * SW-1 the count (10 a game day, all stages together, in the counters, not the block); SW-2 a partial tap (×10 with
+    4 left sweeps and pays 4; at 0 → `error: 'limit'`, nothing changes; the older refusals come first); SW-3 the 7 PM
+    Central rollover (also the 25-hour Nov 1); SW-4 a clock set back never refills; SW-5 campaign and Bounty sweeps
+    and played battles unlimited; SW-6 a reload or a dropped block keeps the count, garbage reads safely; SW-7 the
+    settle drops the marks; SW-8 the economy (HALLOWEEN_2026.md "Economy"): the limited stock is reachable by Nov 1.
 * `tests/systems/events-settle.test.js`
   * ST-1 at `endAt`: one "unclaimed" letter with exactly the completed unclaimed rewards, expiring at `exchangeEndAt`;
     claimed missions not repeated; running settle twice delivers nothing new.

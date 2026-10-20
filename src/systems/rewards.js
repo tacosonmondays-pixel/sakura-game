@@ -13,7 +13,7 @@ import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
-import { eventRunGate, eventAfterBattle, eventStageStatus, eventDifficultyStatus, trackEvent } from './events.js';
+import { eventRunGate, eventAfterBattle, eventStageStatus, eventDifficultyStatus, trackEvent, eventSweepsLeft, useEventSweeps } from './events.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
 export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare: 1.5 };
@@ -287,11 +287,14 @@ export function canSweep(profile, stageId, now = Date.now()) {
 
 /**
  * Instantly collect drops `times` times (max 10 per call) on a difficulty already cleared
- * (or easier). No medals, first clears or bestiary changes.
- * @returns {{ ok: boolean, error?: string, runs: object[][], rewards: object[], gear: object[] }}
+ * (or easier). No medals, first clears or bestiary changes. [events] An event stage also spends the
+ * event's daily sweeps (events.js eventSweepsLeft): a tap with fewer left sweeps only those, none left →
+ * error 'limit'; `sweepsLeft` is what is left after it.
+ * @returns {{ ok: boolean, error?: string, runs: object[][], rewards: object[], gear: object[], sweepsLeft?: number }}
  */
 export function sweep(profile, stageId, difficulty, times, rng, { now = new Date() } = {}) {
   const evStage = STAGE_MAP[stageId]?.kind === 'event';
+  const evId = evStage ? STAGE_MAP[stageId].event : null;
   if (evStage && !canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'event', runs: [], rewards: [], gear: [] };
   if (!canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'locked', runs: [], rewards: [], gear: [] };
   const d = DIFFICULTIES[difficulty] ? difficulty : 'hard';
@@ -299,7 +302,12 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const m = stageMedals(profile, stageId);
   const best = Math.max(...DIFFICULTY_ORDER.map((x, i) => (m[x] ? i : -1)));
   if (diffIndex(d) > best) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
-  const n = Math.max(1, Math.min(MAX_SWEEPS, Math.floor(times) || 1));
+  let n = Math.max(1, Math.min(MAX_SWEEPS, Math.floor(times) || 1));
+  if (evStage) {
+    const { left } = eventSweepsLeft(profile, evId, now.getTime());
+    if (left <= 0) return { ok: false, error: 'limit', runs: [], rewards: [], gear: [], sweepsLeft: 0 };
+    n = Math.min(n, left);
+  }
   const mul = eventMul(stageId, now);
   const runs = [];
   const allItems = [];
@@ -314,6 +322,8 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const entry = stageEntry(profile, stageId);
   entry.clears += n;
   track(profile, 'sweep', n);
-  if (evStage) trackEvent(profile, STAGE_MAP[stageId].event, 'eventClear', n, { now: now.getTime(), difficulty: d });
-  return { ok: true, runs, rewards, gear: allGear };
+  if (!evStage) return { ok: true, runs, rewards, gear: allGear };
+  const { left } = useEventSweeps(profile, evId, n, now.getTime());
+  trackEvent(profile, evId, 'eventClear', n, { now: now.getTime(), difficulty: d });
+  return { ok: true, runs, rewards, gear: allGear, sweepsLeft: left };
 }

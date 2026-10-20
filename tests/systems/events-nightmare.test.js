@@ -22,6 +22,7 @@ const EV = EVENT_MAP['halloween-2026'];
 const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT
+const NEXT_DAY = MID + 24 * 3600 * 1000; // the next game day: 10 more event sweeps (EVENT_SWEEPS_PER_DAY)
 const END = T('2026-11-02T01:00:00Z'); // Nov 1, 7 PM CST: the operations close
 const XEND = T('2026-11-09T01:00:00Z'); // Nov 8, 7 PM CST: the exchange closes
 const OPS = ['ev-halloween-1', 'ev-halloween-2', 'ev-halloween-3', 'ev-halloween-4'];
@@ -190,7 +191,7 @@ describe('NM-4 sweeps', () => {
     expect(normal.rewards.find((x) => x.id === CANDY).count).toBe(900);
     expect(progress(p, 'hw_t_nm_clear15').progress).toBe(0); // Normal sweeps are not Nightmare clears
     play(p, 'ev-halloween-4', 'nightmare');
-    const nm = sweep(p, 'ev-halloween-4', 'nightmare', 10, createRng(3), { now: at });
+    const nm = sweep(p, 'ev-halloween-4', 'nightmare', 10, createRng(3), { now: new Date(NEXT_DAY) }); // today's 10 are spent
     expect(nm.ok).toBe(true);
     expect(nm.runs).toHaveLength(10);
     expect(nm.rewards.find((x) => x.id === CANDY).count).toBe(1800);
@@ -227,7 +228,7 @@ describe('NM-5 the one-time Nightmare missions', () => {
     const p = atTheBoss();
     play(p, 'ev-halloween-1', 'nightmare');
     sweep(p, 'ev-halloween-1', 'nightmare', 10, createRng(5), { now: new Date(MID) });
-    sweep(p, 'ev-halloween-1', 'nightmare', 10, createRng(5), { now: new Date(MID) });
+    sweep(p, 'ev-halloween-1', 'nightmare', 10, createRng(5), { now: new Date(NEXT_DAY) });
     expect(progress(p, 'hw_t_nm_clear15')).toMatchObject({ progress: 15, done: true });
     const c = itemCount(p, CANDY);
     expect(claimEventMission(p, EV.id, 'hw_t_nm_clear15', MID).ok).toBe(true);
@@ -326,7 +327,7 @@ function nightmareUnclaimed() {
   const p = atTheBoss();
   play(p, 'ev-halloween-1', 'nightmare');
   sweep(p, 'ev-halloween-1', 'nightmare', 10, createRng(5), { now: new Date(MID) });
-  sweep(p, 'ev-halloween-1', 'nightmare', 4, createRng(5), { now: new Date(MID) });
+  sweep(p, 'ev-halloween-1', 'nightmare', 4, createRng(5), { now: new Date(NEXT_DAY) });
   const open = missionRows(p, EV, MID).total.filter((m) => m.done && !m.claimed).map((m) => m.id);
   expect(open).toEqual(['hw_t_op1', 'hw_t_op2', 'hw_t_op3', 'hw_t_op4', 'hw_t_nm1', 'hw_t_nm_clear15']);
   return p;
