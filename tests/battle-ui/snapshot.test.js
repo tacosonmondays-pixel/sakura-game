@@ -39,7 +39,7 @@ const SCEN = {
   // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
   // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
   // the new girls (UNIT_GAPS §5): Azami's strips (Spread / Near exit through the random target modes)
-  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu'] },
+  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'wakaba', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu', 'wakaba'] },
   '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 
@@ -1052,6 +1052,14 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the Potential team: Suzu's trap rhythm, Kage's tempo and carry, Kaede's kept focus …)
     for (const t of potRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and a girl mid-wave with Wakaba's drink: it only exists while a wave runs)
+    const mid = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['wakaba', 'aoi'], hero: null, stats: {}, seed: 11 });
+    mid.cash = 1e6;
+    for (const a of autoPlan('1-1', ['wakaba', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') mid.placeTower(a.unitId, a.x, a.y);
+    mid.startNextWave();
+    for (let i = 0; i < 60 * 20 && !mid.towers.some((t) => t.hydrated); i++) mid.update(STEP);
+    expect(mid.towers.some((t) => t.hydrated)).toBe(true);
+    for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

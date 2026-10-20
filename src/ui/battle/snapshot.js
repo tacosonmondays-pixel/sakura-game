@@ -189,6 +189,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
   // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
+  // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
+  hydrated: 'calm', towelSpec: 'derived',
 });
 
 /**

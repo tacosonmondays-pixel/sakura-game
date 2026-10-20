@@ -111,6 +111,35 @@ function normRing(t = {}) {
   };
 }
 const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+
+/**
+ * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses
+ * add (dmg 0.2 = +20% damage); only a girl whose base declares `drink` carries it.
+ *   splash  tiles around the target girl     shots  attacks a drink lasts
+ *   dmg / rate / range  Hydrated bonuses      pierce  extra pierce while Hydrated
+ *   detection (Coach's Eye) · cleanse (Ice Pack) · permanent (Secret Formula)
+ *   season  every girl within this many tiles carries it at all times (Championship Season)
+ *   towel / towelDmg  Towel Snap flicks       life  a life back after a clean wave (Recovery Plan)
+ */
+function normDrink(t = {}) {
+  return {
+    splash: t.splash ?? 0.8,
+    shots: t.shots ?? 8,
+    dmg: t.dmg ?? 0,
+    rate: t.rate ?? 0.15,
+    range: t.range ?? 0.1,
+    pierce: t.pierce ?? 0,
+    detection: !!t.detection,
+    cleanse: !!t.cleanse,
+    permanent: !!t.permanent,
+    season: t.season ?? 0,
+    towel: !!t.towel,
+    towelDmg: t.towelDmg ?? 2,
+    life: !!t.life,
+  };
+}
+const DRINK_FLAGS = ['detection', 'cleanse', 'permanent', 'towel', 'life'];
+const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
 const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
 const STRIP_ADDS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
 
@@ -204,6 +233,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
     ...(b.strip ? { strip: normStrip(b.strip) } : null),
     ...(b.ring ? { ring: normRing(b.ring) } : null),
+    ...(b.drink ? { drink: normDrink(b.drink) } : null),
   };
 }
 
@@ -339,6 +369,11 @@ export function applyModSet(s, mods, acc) {
       for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
       for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
       if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
+    } else if (key === 'drink') {
+      // only a drink girl's drink changes (src/sim/drinks.js)
+      if (!s.drink) continue;
+      for (const k of DRINK_ADDS) if (v[k] != null) s.drink[k] += v[k];
+      for (const k of DRINK_FLAGS) if (v[k]) s.drink[k] = true;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -435,6 +470,7 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
+  if (s.drink) s.drink.towelDmg *= u.damageMul;
   if (s.turret) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;

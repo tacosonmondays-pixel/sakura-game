@@ -234,5 +234,8 @@ export const SCISSOR_STEPS = 2;
 export const SCISSOR_EVERY = 0.25;
 /** Blade Spiral: a pair of blades every this many seconds. */
 export const SPIRAL_EVERY = 0.1;
+/** Wakaba's Towel Snap: one flick every this many seconds. Recovery Plan: lives back per battle at most. */
+export const TOWEL_EVERY = 1;
+export const MAX_LIVES_RESTORED = 10;
 /** Molten Hem: spark bursts per sim step at most (the rest of that step's kills throw none). */
 export const SPARKS_PER_STEP = 8;

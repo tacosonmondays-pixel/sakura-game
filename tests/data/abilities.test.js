@@ -38,7 +38,7 @@ const LIGHTNING = {
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls (UNIT_GAPS §5)
-  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520],
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -49,7 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
-  azami: 'deploy', kinu: 'boost',
+  azami: 'deploy', kinu: 'boost', wakaba: 'rally',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -181,6 +181,12 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 4 },
     t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
   },
+  wakaba: {
+    path: 'plan', id: 'wakaba.timeOut', kind: 'rally', scope: 'local', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -215,7 +221,7 @@ const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
   boost: ['mods'],
-  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
+  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target'],
   debuff: ['pick', 'count', 'casterStatus', 'rally', ...STATUS_LIST],
   econ: ['coins'],
   deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
@@ -291,7 +297,8 @@ function defErrors(d, where) {
     if (!(d.duration > 0)) errs.push(`${where}: a boost lasts > 0 s`);
   }
   if (d.kind === 'rally') {
-    if (!(e.radius > 0) && e.inAura !== true) errs.push(`${where}: a rally needs a radius`);
+    if (!(e.radius > 0) && e.inAura !== true && e.target !== 'girl') errs.push(`${where}: a rally needs a radius`);
+    if (e.target != null && e.target !== 'girl') errs.push(`${where}: rally target ${e.target}`);
     if (!(d.duration > 0)) errs.push(`${where}: a rally lasts > 0 s`);
   }
   if (e.rally) {

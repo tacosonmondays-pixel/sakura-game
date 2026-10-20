@@ -121,6 +121,7 @@ export const ROLES = {
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
   // the new girls (UNIT_GAPS §5)
+  manager: { name: 'Team Manager', category: 'support', goodAgainst: 'Making the team\'s best girl even better', limitation: 'No attack of her own', desc: 'Throws sports drinks that speed up the girls she picks.' },
   ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },
   spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
   stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },

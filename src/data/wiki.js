@@ -78,6 +78,7 @@ export const ROLE_SUBCLASS = {
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
   // the new girls (UNIT_GAPS §5)
+  manager: { label: 'Buff Thrower', desc: 'Drinks for the hardest-working girl and everyone next to her.' },
   ring: { label: 'Ring Burst', desc: 'Pins in every direction at once; best where the road wraps around her.' },
   spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
 };
@@ -675,7 +676,7 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
@@ -688,6 +689,9 @@ function newGirlsArticle() {
     sec('Rings of pins (Kinu)',
       p('Kinu fires a ring of pins in every direction whenever an enemy is in her short range. The pins fly straight and stop after a short hop, so she shines where the road wraps around her. Twin Spools turns each ring a little to fill the gaps; Iron Ring swaps the pins for an expanding heat ring that hits each enemy once, flyers too.'),
       tip('Orbit Scissors (Pin Cushion tier 4) circle her and cut whatever they touch. Blade Spiral (Spinning Bobbin tier 3) adds a turning spiral of blades for a few seconds.', 'info')),
+    sec('Sports drinks (Wakaba)',
+      p('Wakaba never attacks. Every few seconds she throws a sports drink at the girl in her range who has dealt the most damage (with Big Bottles it also splashes onto the girls next to her). A Hydrated girl attacks faster and reaches further for her next few attacks; drinks stack with auras and end when the wave is cleared.'),
+      tip('Time Out! (Game Plan tier 3) powers up one girl: select Wakaba\'s ability and aim at the girl, or let her pick her top damage dealer.', 'info')),
   ]);
 }
 

@@ -9,7 +9,9 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 /** Keys whose numbers read as "+N %" (a multiplier m → (m − 1) × 100, or "m×"). */
 const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral']);
 /** Keys whose numbers are fractions read as percent or points (× 100). */
-const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp']);
+const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
+  // Wakaba's drink bonuses (drink.dmg 0.03 = 3%)
+  'dmg', 'rate']);
 /** Context keys whose value is not player-facing on its own. */
 const SKIP_KEYS = new Set(['name', 'type', 'of', 'kind', 'volley']);
 const WORDS = { 0.5: ['half'], 1: ['one', 'once'], 2: ['twice', 'two'], 3: ['three'] };

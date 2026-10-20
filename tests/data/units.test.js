@@ -48,6 +48,7 @@ const ROSTER = [
   // the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js)
   ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '2-2'],
   ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
+  ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -70,7 +71,7 @@ const LOOK_ENUMS = {
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'none'];
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'none'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -78,7 +79,7 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring'];
+  'strip', 'ring', 'drink'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -186,6 +187,7 @@ function modSetErrors(mods, where) {
     // the new girls (UNIT_GAPS §5)
     strip: (k, v, w) => stripErrors(v, w),
     ring: (k, v, w) => ringErrors(v, w),
+    drink: (k, v, w) => drinkErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -208,6 +210,13 @@ function ringErrors(v, w) {
   return objErrors(v, [...RING_NUMS, ...RING_FLAGS], w, (kk, vv, ww) => (RING_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The buff thrower's drink (src/sim/mods.js normDrink).
+const DRINK_NUMS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
+const DRINK_FLAGS = ['detection', 'cleanse', 'permanent', 'towel', 'life'];
+function drinkErrors(v, w) {
+  return objErrors(v, [...DRINK_NUMS, ...DRINK_FLAGS], w, (kk, vv, ww) => (DRINK_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
 function baseErrors(b, where) {
   const errs = [];
   for (const k of BASE_REQUIRED) if (!(k in b)) errs.push(`${where}: missing ${k}`);
@@ -227,6 +236,10 @@ function baseErrors(b, where) {
     if (!isPos(b.aura.range)) errs.push(`${where}: aura needs a range`);
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
+  if (b.drink) {
+    errs.push(...drinkErrors(b.drink, `${where}.drink`));
+    if (b.behavior !== 'drink') errs.push(`${where}: drink needs the drink behavior`);
+  }
   if (b.ring) {
     errs.push(...ringErrors(b.ring, `${where}.ring`));
     if (b.behavior !== 'ring') errs.push(`${where}: ring needs the ring behavior`);
@@ -281,6 +294,11 @@ function derivedCaps(m, acc = new Set()) {
   // spike strips: Charged Strips' blast stun, Tall Barbs' flyer share
   if ((m.strip?.boomStun ?? 0) > 0) acc.add('stun');
   if ((m.strip?.air ?? 0) > 0) acc.add('antiAir');
+  // a sports drink buffs girls; Coach's Eye, Ice Pack and Towel Snap
+  if (m.drink && 'splash' in m.drink) acc.add('buff');
+  if (m.drink?.detection) acc.add('detection');
+  if (m.drink?.cleanse) acc.add('cleanse');
+  if (m.drink?.towel) acc.add('slow');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');
@@ -746,7 +764,7 @@ describe('helpers', () => {
   });
 
   it('unitsByRarity builds the gacha pools', () => {
-    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana', 'azami', 'kinu']);
+    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana', 'azami', 'kinu', 'wakaba']);
     expect(unitsByRarity('SSR').map((u) => u.id)).toEqual(['hikari', 'luna', 'hotaru', 'kaede', 'chika', 'kanna', 'yoriko', 'seiran', 'iroha', 'ena']);
     expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toEqual(['hotaru', 'kaede', 'chika', 'iroha', 'ena']);
     const total = ['R', 'SR', 'SSR'].reduce((n, r) => n + unitsByRarity(r).length, 0);
@@ -756,7 +774,7 @@ describe('helpers', () => {
   it('freeUnlocksByStage maps stages to free recruits', () => {
     expect(freeUnlocksByStage()).toEqual({
       '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-2': ['azami'], '2-5': ['kage'], '3-2': ['umeko'],
-      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '7-5': ['hana'],
+      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '6-5': ['wakaba'], '7-5': ['hana'],
     });
   });
 

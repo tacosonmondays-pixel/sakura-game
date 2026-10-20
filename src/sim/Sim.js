@@ -47,6 +47,7 @@ import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
+import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -794,6 +795,8 @@ export class Sim {
     if (this.traps.length) endStripWave(this);
     // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
     endRingWave(this);
+    // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
+    endDrinkWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
@@ -1150,6 +1153,7 @@ export class Sim {
     const refund = this.sellValue(uid);
     this.cash += refund;
     clearAbilityEffects(this, t);
+    clearDrinksFrom(this, t);
     t.removed = true;
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);

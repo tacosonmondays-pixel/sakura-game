@@ -174,10 +174,49 @@ export function syncAbility(sim, t) {
 // Reach, targets and the hit spec
 // ---------------------------------------------------------------------------
 
-/** Radius of a rally (her aura's reach for `inAura`). */
+/** Radius of a rally (her aura's reach for `inAura`; her range for a rally on one girl she picks). */
 function rallyRadius(t, e) {
   if (!e) return 0;
+  if (e.target === 'girl') return t.eff.range;
   return e.inAura ? t.stats?.aura?.range || 0 : e.radius || 0;
+}
+
+/** A girl-targeted rally's girl within this many tiles of the aim point (UNIT_GAPS §5.6). */
+const GIRL_AIM_RADIUS = 0.6;
+
+/**
+ * The girl a rally on one girl goes to (Wakaba's Time Out!): with an aim point, the girl nearest it
+ * within GIRL_AIM_RADIUS (ties: the lower uid; any player's girl, never the caster); without one (or
+ * nobody there), the girl in her range with the highest damageDealt (ties: the lower uid).
+ */
+export function rallyGirl(sim, t, aim = null) {
+  if (aim) {
+    const ax = aim[0] ?? aim.x;
+    const ay = aim[1] ?? aim.y;
+    let best = null;
+    let bestD = GIRL_AIM_RADIUS * GIRL_AIM_RADIUS;
+    for (const o of sim.towers) {
+      if (o === t || o.removed) continue;
+      const dx = o.x - ax;
+      const dy = o.y - ay;
+      const d = dx * dx + dy * dy;
+      if (d < bestD || (d === bestD && best && o.uid < best.uid)) {
+        best = o;
+        bestD = d;
+      }
+    }
+    if (best) return best;
+  }
+  const r2 = t.eff.range * t.eff.range;
+  let best = null;
+  for (const o of sim.towers) {
+    if (o === t || o.removed) continue;
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy > r2) continue;
+    if (!best || o.damageDealt > best.damageDealt || (o.damageDealt === best.damageDealt && o.uid < best.uid)) best = o;
+  }
+  return best;
 }
 
 /** A burst's blast radius. */
@@ -379,12 +418,13 @@ function catalyst(sim, t, def, spec, targets, step) {
   }
 }
 
-/** A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). */
-function addRally(sim, t, e, radius, left) {
+/** A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). `to`: one girl only. */
+function addRally(sim, t, e, radius, left, to = null) {
   sim._rallies.push({
     src: t.uid, owner: t.owner ?? 0, r2: radius * radius, map: false,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     detection: !!e.detection, ward: !!e.ward, left,
+    ...(to != null ? { to } : null),
   });
 }
 
@@ -505,8 +545,17 @@ const KINDS = {
   },
 
   rally: {
-    cast(sim, t, def) {
+    cast(sim, t, def, step, aim) {
       const e = def.effect;
+      if (e.target === 'girl') {
+        // Time Out!: one girl, picked by the aim point or by damage dealt
+        const g = rallyGirl(sim, t, aim);
+        if (!g) return null;
+        if (e.cleanse && g.disabled > 0) g.disabled = 0;
+        addRally(sim, t, e, 0, ticks(def.duration), g.uid);
+        recomputeBuffs(sim);
+        return { x: g.x, y: g.y, radius: 0.5, targets: [g.uid] };
+      }
       const r = rallyRadius(t, e);
       const allies = alliesIn(sim, t, r);
       if (!allies.length) return null;
@@ -648,7 +697,7 @@ const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
  * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
  * @returns {{ ok: boolean, reason: string|null, casterUid: number|null }}
  */
-export function castAbility(sim, t0, { group = false, owner = null, auto = false } = {}) {
+export function castAbility(sim, t0, { group = false, owner = null, auto = false, aim = null } = {}) {
   if (sim.state === 'won' || sim.state === 'lost') return no('ended');
   if (!t0 || t0.removed) return no('locked');
   // a group cast looks for a ready copy before it calls the selected one locked (pickCaster: no side effect)
@@ -659,7 +708,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
   const step = stepNo(sim);
-  const fx = handlerOf(def).cast(sim, t, def, step);
+  const fx = handlerOf(def).cast(sim, t, def, step, aim);
   if (!fx) return no('noTarget', t.uid);
   const a = t.abil;
   a.cd = a.cdMax;
@@ -707,6 +756,17 @@ export function autoWants(sim, t, def) {
   if (!au) return false;
   const when = au.when;
   if (when === 'ready') return true;
+  if (def.effect?.target === 'girl') {
+    // a rally on one girl: enemies she can hit within the reach of the girl it would go to
+    const g = rallyGirl(sim, t);
+    if (!g) return false;
+    AUTO_NEAR.length = 0;
+    const near = sim.grid.query(g.x, g.y, g.eff.range, AUTO_NEAR);
+    let n = 0;
+    for (let i = 0; i < near.length; i++) if (!near[i].dead && isEligible(near[i], g.eff)) n++;
+    AUTO_NEAR.length = 0;
+    return n >= (au.min ?? 1);
+  }
   const reach = abilityReach(t, def);
   let list = sim.enemies;
   let elig = null;

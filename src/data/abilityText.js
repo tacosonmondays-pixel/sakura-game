@@ -99,6 +99,10 @@ export const ABILITY_TEXT = Object.freeze({
     'For {dur}s she also throws two blades every 0.1s along a turning spiral, out to twice her range: each hits like a pin and pierces {spiralPierce} enemies.',
     'a turning spiral of blades on top of her rings',
     'Blade Spiral becomes {spiral} spirals turning opposite ways for {dur}s, blades piercing {spiralPierce}, and recharges in {cd}s.'),
+  'wakaba.timeOut': t('Time Out!', 'buff',
+    'One girl gets {rateMul}× attack speed and +{rangeMulPct}% range for {dur}s: the one you aim at, or the girl in her range who has dealt the most damage. A partner\'s girl may be chosen.',
+    'a big, short power-up on one girl you pick',
+    'Time Out! also gives +{dmgMulPct}% damage, lasts {dur}s and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */

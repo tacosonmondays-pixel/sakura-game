@@ -145,7 +145,70 @@ const KINU = {
   awakenPassive: { name: 'Lucky Thimble', desc: 'One more pin per ring; pins fly 0.2 tiles further.', mods: { projectiles: 1, ring: { travel: 0.2 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Wakaba — Track Team Manager (buff thrower; UNIT_GAPS §5.6, src/sim/drinks.js)
+// ---------------------------------------------------------------------------
+
+const WAKABA = {
+  id: 'wakaba',
+  name: 'Wakaba',
+  title: 'Track Team Manager',
+  kind: 'tower',
+  rarity: 'R',
+  adult: false,
+  role: 'manager',
+  attackType: 'pierce',
+  element: null,
+  placement: 'land',
+  materialFamily: 'charm',
+  capabilities: ['buff'],
+  pathCapabilities: ['detection', 'cleanse', 'slow'],
+  acquisition: free('6-5', 'Joins after 6-5: the athletics club lends you its manager, her crate of sports drinks and her stopwatch.'),
+  palette: {
+    hair: '#6fcf5e', hairShade: '#469c3a', eyes: '#3c8fd6', skin: '#ffe6d6',
+    outfit: '#7ec3ec', outfitShade: '#2d3d6e', accent: '#ffffff', halo: '#bff0ff', weapon: '#59c1e8',
+  },
+  look: {
+    hairStyle: 'short', bangs: 'messy', accessory: 'headband', outfit: 'hoodie', weapon: 'flask',
+    halo: 'wave', eyeStyle: 'sparkle', expression: 'cheerful',
+  },
+  bio: 'The athletics club\'s manager, always at a run. A sky-blue academy track jacket with white stripes over her sailor uniform, a navy skirt over sport leggings and sneakers, a stopwatch on a lanyard and a clipboard. Short green hair under a sweatband, a towel over her shoulder and a crate of sports-drink bottles she tosses to whoever is working hardest.',
+  personality: 'Loud, warm and always running: "Water break! Everyone, hydrate!"',
+  quote: 'Water break! Everyone, hydrate!',
+  tips: [
+    'She never attacks: every 4 seconds she throws a sports drink at the girl in her range who has dealt the most damage.',
+    'Hydrated girls attack faster and reach further for their next few attacks; Big Bottles splashes the drink onto the girls next to her target.',
+    '⚡ Game Plan tier 3 teaches Time Out!: a big, short power-up on one girl you pick.',
+    'Recovery Plan (First Aid tier 4) gives a life back for every wave cleared without a leak (at most 10 per battle).',
+  ],
+  base: stats({ cost: 280, behavior: 'drink', damage: 0, rate: 0.25, range: 2.6, projectileSpeed: 0, canHitAir: false, drink: { splash: 0.8, shots: 8 } }),
+  paths: [
+    path('formula', 'Energy Formula', 'A stronger drink', [
+      tier('Electrolytes', 130, 'Hydrated girls also deal +5% damage.', { drink: { dmg: 0.05 } }),
+      tier('Big Bottles', 300, 'Drinks last 12 attacks and splash 1.2 tiles.', { drink: { shots: 4, splash: 0.4 } }),
+      tier('Special Recipe', 1000, 'Hydrated: +20% damage, +15% attack speed and +10% range.', { drink: { dmg: 0.15 } }),
+      tier('Secret Formula', 3200, 'Her drinks never run out while the wave lasts.', { drink: { permanent: true } }),
+      tier('Championship Blend', 17600, 'Hydrated: +35% damage, +25% attack speed and +1 pierce.', { drink: { dmg: 0.15, rate: 0.1, pierce: 1 } }),
+    ]),
+    path('plan', 'Game Plan', 'Throws and tactics', [
+      tier('Quick Pass', 110, 'Throws 25% faster.', { rateMul: 1.25 }),
+      tier('Sideline Toss', 260, '+0.8 range.', { range: 0.8 }),
+      tier('Coach\'s Eye', 900, 'Hydrated girls gain Veil Sight.', { drink: { detection: true } }),
+      tier('Huddle', 2600, 'Drinks splash 1.4 tiles; Hydrated girls deal +10% damage.', { drink: { splash: 0.6, dmg: 0.1 } }),
+      tier('Star Player', 15200, 'Throws 20% faster; drinks last 4 more attacks.', { rateMul: 1.2, drink: { shots: 4 } }),
+    ]),
+    path('aid', 'First Aid', 'Care for the team', [
+      tier('Ice Pack', 100, 'A drink also cleanses a sabotaged girl.', { drink: { cleanse: true } }),
+      tier('Team Spirit', 240, 'Girls within 1.6 tiles attack 5% faster.', { aura: { range: 1.6, rateMul: 1.05 } }),
+      tier('Towel Snap', 850, 'She also flicks a towel at an enemy every second: a light hit that slows 30% for 1.5s.', { drink: { towel: true } }),
+      tier('Recovery Plan', 2700, '+1 life for each wave cleared without a leak (at most 10 per battle, never above your starting lives, never where hearts cannot come back).', { drink: { life: true } }),
+      tier('Championship Season', 14400, 'Every girl within 3 tiles carries her drink at all times.', { drink: { season: 3 } }),
+    ]),
+  ],
+  awakenPassive: { name: 'Cheer Squad', desc: 'Drinks last 2 more attacks and splash 0.1 tiles wider.', mods: { drink: { shots: 2, splash: 0.1 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI, KINU];
+export const NEW_GIRLS = [AZAMI, KINU, WAKABA];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);

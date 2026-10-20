@@ -88,6 +88,8 @@ function kitFields(s) {
     turret: s.turret && [s.turret.max, s.turret.range, s.turret.status, s.turret.overclock], aura: s.aura, brew: s.brew?.targets, link: s.link?.targets,
     proc: s.proc, ult: s.ult, bountyAura: s.bountyAura, harvest: s.harvest, dotSpread: s.dotSpread, keepRamp: s.keepRamp,
     projScale: s.projScale, tempo: s.tempo, classMul: s.classMul,
+    // the new girls' own blocks (UNIT_GAPS §5)
+    strip: s.strip, ring: s.ring, drink: s.drink,
   };
   return JSON.stringify(f);
 }

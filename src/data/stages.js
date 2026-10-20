@@ -621,6 +621,7 @@ const CAMPAIGN = [
     ],
     fixed: [F(10, 'goblin_chief', 1), F(20, 'construct_warden', 2, 3), F(28, 'goblin_machine', 1, 2, 6)],
     introduces: ['goblin_chief', 'goblin_machine'], recommended: ['barrierBreak', 'armorPen', 'trap', 'cleanse'],
+    unlocks: ['wakaba'],
     fam: ['cog', 'ember'],
     crown: { id: 'crown_cog', chance: 0.3, tokens: 2 },
     scenery: { props: ['hangarDoors', 'cranes', 'gears', 'goblinFlags'], weather: 'embers' },

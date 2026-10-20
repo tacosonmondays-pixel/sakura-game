@@ -239,6 +239,13 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 4 },
     t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
   }],
+  wakaba: [{
+    // a rally on one girl: the one nearest the aim point (0.6 tiles), else her top damage dealer in range
+    path: 'plan', unlockTier: 3, id: 'wakaba.timeOut', kind: 'rally', scope: 'local', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
+  }],
 });
 
 /**

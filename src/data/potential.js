@@ -33,6 +33,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'statusAdd', 'proc', 'ult', 'bountyAura', 'harvest', 'dotSpread', 'keepRamp',
   // v3
   'projScale', 'tempo', 'classMul', 'bossMul', 'ramp.per', 'turret.range',
+  // the new girls (UNIT_GAPS §5): Wakaba's drink
+  'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -340,6 +342,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Even Hem', 'kit', { damageMul: 1.04 }, { crit: { chance: 0.05 } }),
     p5: step('Steel Thimble', 'kit', { rateMul: 1.04 }, { armorPen: 1 }),
     p6: step('Final Fitting', 'cap', { damageMul: 1.05 }, { pierce: 1, statusAdd: [S.vulnerable(0.06, 2)] }),
+  },
+  // Wakaba, R buff thrower (she deals no damage of her own: her stat steps are attack speed, so her
+  // drinks fly sooner; her kit steps make the drink last longer, splash wider and hit harder)
+  wakaba: {
+    p2: step('Warm-up Laps', 'stat', { rateMul: 1.04 }),
+    p3: step('Spare Bottles', 'kit', { rateMul: 1.04 }, { drink: { shots: 2 } }),
+    p4: step('Wide Toss', 'kit', { rateMul: 1.04 }, { drink: { splash: 0.2 } }),
+    p5: step('Honey Lemon', 'kit', { rateMul: 1.04 }, { drink: { dmg: 0.03 } }),
+    p6: step('Team Captain', 'cap', { rateMul: 1.05 }, { drink: { rate: 0.05, shots: 2 } }),
   },
 });
 

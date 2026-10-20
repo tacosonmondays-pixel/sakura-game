@@ -24,6 +24,7 @@ import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
+import { throwDrink, drinkTick, useDrink } from './drinks.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -199,6 +200,15 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // Wakaba's drink (src/sim/drinks.js): on top of auras and rallies, while it lasts
+  const hy = t.hydrated;
+  if (hy) {
+    t.eff.damage *= hy.dmgMul;
+    t.eff.rate *= hy.rateMul;
+    t.eff.range *= hy.rangeMul;
+    t.eff.pierce += hy.pierce;
+    if (hy.detection) t.eff.detection = true;
+  }
   const trapStatus = s.trap ? mergeLists(s.trap.status, s.status) : null;
   t.trapSpec = s.trap ? hitSpecFrom(s, {
     damage: s.trap.damage * dmgMul,
@@ -245,6 +255,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  // Towel Snap (src/sim/drinks.js): a light flick that slows (her own hit is no drink at all)
+  if (s.drink) t.towelSpec = s.drink.towel ? { ...t.eff, damage: s.drink.towelDmg * dmgMul, critChance: 0, status: [{ type: 'slow', amount: 0.3, duration: 1.5 }] } : null;
   // Orbit Scissors (src/sim/rings.js): their cuts follow her buffs like her pins
   if (s.ring && !t.rings) {
     t.rings = []; // her heat rings in flight (src/sim/rings.js)
@@ -322,7 +334,8 @@ export function recomputeBuffs(sim) {
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
+      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0))
+      || !!t.hydrated;
   }
   return changed;
 }
@@ -1036,6 +1049,7 @@ const BEHAVIORS = {
   mortar: attackMortar,
   strip: layStrip,
   ring: attackRing,
+  drink: throwDrink,
 };
 
 function updateTurrets(sim, t, dt) {
@@ -1516,6 +1530,7 @@ export function updateTower(sim, t, dt) {
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   if (s.strip) stripTick(sim, t, dt);
   if (s.ring) ringTick(sim, t, dt);
+  if (s.drink) drinkTick(sim, t);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -1530,6 +1545,7 @@ export function updateTower(sim, t, dt) {
       break;
     }
     if (tempo) tempoStack(sim, t, tempo);
+    if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
     t.cooldown += 1 / Math.max(0.05, tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate);
   }
 }

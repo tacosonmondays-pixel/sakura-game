@@ -193,6 +193,8 @@ function detectionRoute(def) {
 }
 
 function unitRole(stats) {
+  // a buff thrower (Wakaba) is placed for her drinks, never copied as a damage dealer
+  if (stats.behavior === 'drink') return 'support';
   if (stats.income && (stats.behavior === 'none' || stats.damage <= 0)) return 'econ';
   if (stats.behavior === 'none') return stats.aura ? 'support' : 'econ';
   // an aura girl whose own attack is a token chime (Noa: 1 damage every 2 s) is placed for her aura,
@@ -316,7 +318,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {
-        const ar = info.stats.aura?.range || 2;
+        const ar = info.stats.aura?.range || (info.stats.drink ? info.stats.range : 2);
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
       } else {
         // roaming drones (Chika) fight up to roam + gun range from her

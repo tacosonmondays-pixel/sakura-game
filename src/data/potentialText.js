@@ -226,6 +226,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('PEN+1', '+4% attack speed. Her pins ignore 1 more armor.', 1.07, 'rim'),
     t('FITTING', '+5% damage. Pins pierce 1 more and leave enemies Brittle +6% for 2 s.', 1.14, 'rim'),
   ),
+  wakaba: row(
+    t('+4% SPD', '+4% throwing speed.', 1.04, 'rim'),
+    t('SHOTS+2', '+4% throwing speed. Her drinks last 2 more attacks.', 1.08, 'rim'),
+    t('SPLASH+', '+4% throwing speed. Her drinks splash 0.2 tiles wider.', 1.08, 'rim'),
+    t('DMG+3%', '+4% throwing speed. Hydrated girls deal 3% more damage.', 1.08, 'rim'),
+    t('CAPTAIN', '+5% throwing speed. Hydrated girls attack 5% faster, and her drinks last 2 more attacks.', 1.14, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

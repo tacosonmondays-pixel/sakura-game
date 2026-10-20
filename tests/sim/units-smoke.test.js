@@ -83,7 +83,8 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       for (let k = 0; k < 8 * 60; k++) sim.update(1 / 60);
       expect(finiteDeep(t.eff), `${id} p${p}`).toBe(null);
       const st = sim.towerStats(t.uid);
-      if (st.behavior !== 'none') expect(t.damageDealt, `${id} path ${p} dealt damage`).toBeGreaterThan(0);
+      // (a buff thrower never attacks: her drinks go to girls; Towel Snap is her only hit)
+      if (st.behavior !== 'none' && (st.behavior !== 'drink' || def.base.drink?.towel)) expect(t.damageDealt, `${id} path ${p} dealt damage`).toBeGreaterThan(0);
       for (const e of sim.enemies) expect(Number.isFinite(e.hp)).toBe(true);
     }
   });
