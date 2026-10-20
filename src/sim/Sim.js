@@ -8,7 +8,7 @@ import {
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH,
+  AIM_QUANT, PUSH_LOCK, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -30,6 +30,7 @@ import {
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones,
 } from './towers.js';
 import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
+import { updateRunners } from './runners.js';
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
   damageXp, heroLevelStatus, buyHeroLevel, canMoveHero, moveHero, ultRank,
@@ -177,6 +178,9 @@ export class Sim {
     this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
     this._curseQueue = [];
     this._flushingCurses = false;
+    this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
+    this.runners = []; // path runners in flight (Seiran's sky dragon): end with the wave
+    this._leadPt = {}; // scratch point (a mortar's lead)
     this._scratch3 = [];
     this._relaySamples = null;
     this.grid = new SpatialGrid(-3, -3, (this.map.width || 20) + 3, (this.map.height || 12) + 3, 2);
@@ -243,6 +247,9 @@ export class Sim {
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
     if (this.rule) ruleStep(this, dt);
+    // curse bursts that spilled over the last step's budget go first, in FIFO order
+    this._curseBudget = CURSE_BURSTS_PER_TICK;
+    if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     updateEnemyAuras(this);
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
@@ -254,6 +261,7 @@ export class Sim {
     updateProjectiles(this, dt);
     updateTraps(this, dt);
     updateShells(this, dt);
+    if (this.runners.length) updateRunners(this, dt);
     this._removeDead();
     tickHero(this, dt);
     this._checkWaveEnd();
@@ -518,6 +526,26 @@ export class Sim {
     near.length = 0;
   }
 
+  /**
+   * Hex tick (UNIT_GAPS P-15): pct × max HP × the tier factor per second, straight off HP (plain
+   * arithmetic: no armor, barrier or type chart), never more than the application's cap.
+   */
+  _hex(e, st, dt) {
+    let amount = st.pct * e.maxHp * (HEX_TIER_MUL[e.tier] ?? 1) * dt;
+    if (amount > st.cap) amount = st.cap;
+    if (!(amount > 0)) return;
+    st.cap -= amount;
+    const before = e.hp;
+    e.hp -= amount;
+    e.lastDamageAt = this.time;
+    const tower = st.sourceUid != null ? this._towerByUid.get(st.sourceUid) || null : null;
+    const dealt = Math.min(amount, Math.max(0, before));
+    this._credit(tower, dealt, e);
+    this.stats.damageByType.hex = (this.stats.damageByType.hex || 0) + dealt;
+    if (e.hp <= 0) this._killEnemy(e, tower);
+    else checkPhases(this, e);
+  }
+
   /** Burn/poison tick. */
   _dot(e, kind, amount, status) {
     if (!(amount > 0) || e.dead) return;
@@ -589,13 +617,16 @@ export class Sim {
   /**
    * Curse bursts, FIFO: each entry hits every living, visible enemy within its radius for its
    * burst (mystic, ignores veils/air) and survivors catch a CURSE_DECAY-weaker curse while the
-   * generation stays ≤ CURSE_MAX_DEPTH. Kills inside the loop only enqueue (no recursion).
+   * generation stays ≤ CURSE_MAX_DEPTH. Kills inside the loop only enqueue (no recursion). At most
+   * CURSE_BURSTS_PER_TICK bursts per step; the rest wait in the queue for the next step.
    */
   _flushCurses() {
     this._flushingCurses = true;
     const queue = this._curseQueue;
     const ctx = this._curseCtx;
-    for (let i = 0; i < queue.length; i++) {
+    let i = 0;
+    for (; i < queue.length && this._curseBudget > 0; i++) {
+      this._curseBudget--;
       const c = queue[i];
       const src = c.sourceUid != null ? this._towerByUid.get(c.sourceUid) || null : null;
       const spec = {
@@ -616,7 +647,9 @@ export class Sim {
         this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
       }
     }
-    queue.length = 0;
+    // the rest (over this step's budget) waits for the next step, still in FIFO order
+    if (i >= queue.length) queue.length = 0;
+    else queue.splice(0, i);
     this._flushingCurses = false;
   }
 
@@ -709,8 +742,11 @@ export class Sim {
     // every placed hero (both players' in co-op), never the view-dependent sim.hero
     const k = heroPace(this);
     for (const h of this.heroes) if (h && !h.removed) gainHeroXp(this, h, waveClearXp(this.wave, k), 'wave');
-    // shells still falling would land on an empty road: they end with the wave (GAPS §7.3)
+    // shells still falling would land on an empty road, a runner has nothing left to hit and a
+    // queued curse burst nobody to burst on: they end with the wave (GAPS §7.3)
     this.shells.length = 0;
+    this.runners.length = 0;
+    this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.

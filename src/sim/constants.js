@@ -177,3 +177,17 @@ export const CURSE_DECAY = 0.6;
 export const CURSE_MAX_DEPTH = 2;
 /** Default target mode by role (other roles start on 'first'). */
 export const ROLE_TARGET_MODE = { sniper: 'elite', falconer: 'air', stormrider: 'air' };
+/**
+ * Curse bursts resolved per step at most (UNIT_GAPS §4.1): the rest wait in the FIFO queue for the
+ * next step, so a dense cursed wave falling at once never costs O(deaths × victims) in one step.
+ */
+export const CURSE_BURSTS_PER_TICK = 32;
+/**
+ * Hex (UNIT_GAPS P-15): each second a hexed enemy loses pct × its max HP × this tier factor and
+ * cannot regenerate; one application never takes more than HEX_BOSS_CAP of a miniboss's or
+ * boss's max HP. Plain arithmetic on maxHp (no armor, no type chart).
+ */
+export const HEX_TIER_MUL = { normal: 1, elite: 1, miniboss: 2 / 3, boss: 1 / 3 };
+export const HEX_BOSS_CAP = 0.1;
+/** Sky dragon (Seiran's Dragonflight, a path runner): hit radius of each body segment (tiles). */
+export const RUNNER_HIT_RADIUS = 0.6;

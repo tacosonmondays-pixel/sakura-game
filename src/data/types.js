@@ -73,6 +73,7 @@ export const STATUSES = {
   silence: { name: 'Silenced', desc: 'Fields, siphons, blinks and phasing are switched off.' },
   reveal: { name: 'Revealed', desc: 'Veiled enemy can be targeted by anyone.' },
   ground: { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' },
+  hex: { name: 'Hexed', desc: 'Loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses; one hex takes at most 10% of their HP).' },
   curse: { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
 };
 

@@ -18,6 +18,7 @@ import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
 import { ultWithPotential } from './potential.js';
 import { isEligible } from './combat.js';
+import { startRunner, runnerSegment } from './runners.js';
 import { targetScore } from './towers.js';
 
 /** XP for each level-up 2..25 (a hero's own `levelXp`, else the shared table). */
@@ -416,6 +417,16 @@ export function activateUlt(sim) {
       if (e.dead) continue;
       if (effect.pushback) pushBack(e, effect.pushback, sim.pathData[e.pathIndex]);
       if (effect.slow) applyStatus(e, { type: 'slow', amount: effect.slow, duration: effect.duration ?? 3 }, ctx);
+    }
+  } else if (effect.type === 'runner') {
+    // a sky dragon that flies back along the road from her aim point (else a busy path's exit)
+    const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
+    const r = startRunner(sim, h, effect, spec, h.aim);
+    if (!r) return false;
+    const p = runnerSegment(sim, r, 0);
+    if (p) {
+      ux = p.x;
+      uy = p.y;
     }
   } else if (effect.type === 'strike') {
     // one huge blow on the strongest (or first) enemy anywhere, splashing its neighbours

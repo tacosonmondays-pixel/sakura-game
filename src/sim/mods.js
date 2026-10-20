@@ -139,7 +139,8 @@ export function normalizeBase(base = {}, unitDef = {}) {
     // roster merge (ROSTER_SPEC §6.2): flyer damage multiplier, gather pull, relay origin
     airMul: b.airMul ?? 1,
     gather: b.gather ?? 0,
-    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3 } : null,
+    // both: she also fires from her own spot (Iroha's two firing points)
+    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
   };
 }
 

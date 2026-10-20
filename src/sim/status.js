@@ -1,7 +1,7 @@
 // Status effects on enemies: application (with ward immunity, boss resistance, chance
 // rolls and "keep the stronger values" merging), duration ticking and query helpers.
 
-import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS } from './constants.js';
+import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP } from './constants.js';
 
 const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
 // Statuses whose duration bosses/minibosses resist (CC_RESIST). 'ground' is not immobilising.
@@ -50,6 +50,11 @@ export function applyStatus(enemy, spec, ctx = {}) {
   if (type === 'mark' || type === 'vulnerable') incoming.bonus = spec.bonus ?? 0;
   if (ctx.attackType) incoming.attackType = ctx.attackType;
   if (ctx.sourceUid != null) incoming.sourceUid = ctx.sourceUid;
+  if (type === 'hex') {
+    // a share of max HP per second (UNIT_GAPS P-15); `cap` = what one application may still take
+    incoming.pct = spec.pct ?? 0;
+    incoming.cap = tier === 'miniboss' || tier === 'boss' ? HEX_BOSS_CAP * enemy.maxHp : Infinity;
+  }
   if (type === 'curse') {
     // burst = a share of the hit that applied it (spread curses carry an absolute burst)
     incoming.burst = spec.burst ?? (spec.burstMul ?? 0) * (ctx.hitDamage ?? 0);
@@ -62,6 +67,17 @@ export function applyStatus(enemy, spec, ctx = {}) {
     if (type === 'shred') incoming.stacks = 1;
     enemy.statuses[type] = incoming;
     return 'new';
+  }
+  if (type === 'hex') {
+    // a new application: the stronger share, a fresh timer and a fresh per-application cap
+    if (incoming.pct >= cur.pct) {
+      cur.pct = incoming.pct;
+      if (incoming.sourceUid != null) cur.sourceUid = incoming.sourceUid;
+    }
+    cur.cap = incoming.cap;
+    cur.duration = Math.max(cur.duration ?? 0, duration);
+    cur.left = Math.max(cur.left, duration);
+    return 'refresh';
   }
   if (type === 'curse') {
     // keep the larger burst (with its source and generation), the larger radius, the longer timer

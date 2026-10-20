@@ -489,13 +489,14 @@ export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
   if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
   if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
+  if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (e.dead) return;
   tickStatusDurations(e, dt);
   syncStatusFlags(e);
   if (e.pushLock > 0) e.pushLock -= dt;
 
   const t = e.traits;
-  if (!st.poison && e.hp < e.maxHp) {
+  if (!st.poison && !st.hex && e.hp < e.maxHp) {
     let heal = 0;
     if (t.regen && sim.time - e.lastDamageAt >= (t.regen.delay ?? 2)) heal += e.maxHp * (t.regen.pct ?? 0.02) * dt;
     if (e.fieldRegen > 0) heal += e.maxHp * e.fieldRegen * dt;

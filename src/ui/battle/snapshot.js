@@ -139,7 +139,7 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // queue is flushed inside the step, the relay samples are a cache of the forward paths, and the
   // team damage multiplier follows the saved buffs ('db')
   shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
-  _relaySamples: 'scratch', globalDmgMul: 'derived',
+  _relaySamples: 'scratch', globalDmgMul: 'derived', runners: 'calm', _curseBudget: 'calm', _leadPt: 'scratch',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */

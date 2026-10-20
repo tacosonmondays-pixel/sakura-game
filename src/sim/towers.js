@@ -533,10 +533,21 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
+  const first = volleyFrom(sim, t, t.ox, t.oy);
+  // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
+  const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
+  const lead = first || second;
+  if (!lead) return false;
+  sim._emit('attack', { towerUid: t.uid, targetUid: lead.uid, kind: t.projKind });
+  return true;
+}
+
+/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
+function volleyFrom(sim, t, sx, sy) {
   const spec = t.eff;
   let n = spec.projectiles;
-  const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n);
-  if (!targets.length) return false;
+  const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
+  if (!targets.length) return null;
   if (spec.projScale > 0) n += projExtra(t, n, spec.projScale);
   face(t, targets[0]);
   for (let i = 0; i < n; i++) {
@@ -552,11 +563,10 @@ function attackProjectile(sim, t) {
     } else {
       let spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
       if (echoing) spread += i % 2 ? -ECHO_FAN : ECHO_FAN;
-      spawnProjectile(sim, t, spec, tgt, t.ox, t.oy, { spread });
+      spawnProjectile(sim, t, spec, tgt, sx, sy, { spread });
     }
   }
-  sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: t.projKind });
-  return true;
+  return targets[0];
 }
 
 function attackPulse(sim, t) {
@@ -916,7 +926,9 @@ export function aimMode(t) {
   if (!t) return null;
   if (t.eff?.behavior === 'mortar') return 'mortar';
   if (t.stats?.relay?.kind === 'mirror') return 'mirror';
-  if (t.isHero && t.def?.hero?.ult?.effect?.center === 'aim') return 'ult';
+  // an aimed hero ult: a nova centred on her aim, or a runner that enters at it
+  const ue = t.isHero ? t.def?.hero?.ult?.effect : null;
+  if (ue && (ue.center === 'aim' || ue.type === 'runner')) return 'ult';
   return null;
 }
 
