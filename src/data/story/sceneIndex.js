@@ -6,7 +6,7 @@
 
 export const CHAPTER_SCENE_IDS = Object.freeze({
   1: Object.freeze(['ch1.yuki', 'ch1.mid', 'ch1.epi']),
-  2: Object.freeze(['ch2.pro', 'ch2.mid', 'ch2.epi']),
+  2: Object.freeze(['ch2.pro', 'ch2.azami', 'ch2.mid', 'ch2.epi']),
   3: Object.freeze(['ch3.pro', 'ch3.umeko', 'ch3.mid', 'ch3.epi']),
   4: Object.freeze(['ch4.pro', 'ch4.mid', 'ch4.epi']),
   5: Object.freeze(['ch5.pro', 'ch5.mid', 'ch5.epi']),

@@ -39,7 +39,7 @@ const SCEN = {
   // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
   // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
   // the new girls (UNIT_GAPS §5): Azami's strips (Spread / Near exit through the random target modes)
-  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami'] },
+  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu'] },
   '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 

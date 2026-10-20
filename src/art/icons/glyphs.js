@@ -150,6 +150,7 @@ export const GLYPHS = {
   puppeteer: '<path d="M4 4h16M12 2v4.5"/><path d="M6 4v8.5M18 4v8.5M12 6.5v4.2" stroke-width="1.2"/><circle cx="12" cy="12.8" r="2.1"/><path d="M12 14.9v3.4M9 16.6l3-1.2 3 1.2M10 21.5l2-3.2 2 3.2"/>',
   stormrider: '<path d="M3.5 20.5L16.5 7.5"/><path d="M14.5 3.5l6 .5.5 6z" fill="currentColor"/><path d="M8.5 3.5L5.5 8.5h3L7 13" stroke-width="1.6"/>',
   // the new girls (UNIT_GAPS §5)
+  ring: '<circle cx="12" cy="12" r="2.6"/><path d="M12 7V2.5M12 17v4.5M7 12H2.5M17 12h4.5M8.5 8.5L5.3 5.3M15.5 15.5l3.2 3.2M15.5 8.5l3.2-3.2M8.5 15.5l-3.2 3.2" stroke-width="1.6"/>',
   spiker: '<path d="M2.5 16.5h19v3h-19z"/><path d="M4.5 16.5l1.5-4 1.5 4M9.5 16.5l1.5-4 1.5 4M14.5 16.5l1.5-4 1.5 4" stroke-width="1.6"/><circle cx="17.5" cy="5.5" r="2.5"/><path d="M15 5.5H9.5" stroke-width="1.6"/>',
 
   // capabilities

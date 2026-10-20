@@ -438,6 +438,12 @@ def emblem(weapon, pal, size):
         for k in range(4):
             x = 0.15 + k * 0.22
             pen.poly([(x - 0.08, 0.42), (x + 0.08, 0.42), (x, 0.2)], mix(rgb(pal['weapon']), WHITE, 0.3))
+    elif weapon == 'needle':  # a big needle with a loop of thread, over a pincushion
+        pen.ell(-0.35, 0.45, 0.42, 0.34, fill=acc)
+        pen.ell(-0.35, 0.3, 0.12, 0.08, fill=mix(acc, WHITE, 0.5))
+        pen.line([(-0.6, 0.85), (0.75, -0.85)], ink, 0.1)
+        pen.ell(0.68, -0.76, 0.12, 0.12, outline=(*ink, 255), width=0.05)
+        pen.arc(0.35, -0.3, 0.45, 0.6, 300, 120, acc, 0.05)
     else:
         star(pen, 0, 0, 0.8, acc)
     return img.resize((size, size), Image.LANCZOS)

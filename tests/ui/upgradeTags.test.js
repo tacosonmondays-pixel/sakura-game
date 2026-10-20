@@ -18,9 +18,9 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 167, // (+13: Azami)
+  self: 180, // (+13: Azami, +13: Kinu)
   'enemies* + self': 35,
-  'enemies + self': 43,
+  'enemies + self': 45,
   allies: 30,
   enemies: 20,
   coins: 7,

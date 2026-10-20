@@ -13,7 +13,7 @@
 // the factor the owner applied to every live girl. First-pass numbers measured with the balance bot
 // (docs/BALANCE.md "New girls, wave 1").
 
-import { S, stats, tier, path, free } from './unitKit.js';
+import { S, stats, tier, path, free, GACHA_ONLY } from './unitKit.js';
 
 // ---------------------------------------------------------------------------
 // Azami — Checkpoint Prefect (spike strips; UNIT_GAPS §5.3, src/sim/strips.js)
@@ -82,7 +82,70 @@ const AZAMI = {
   awakenPassive: { name: 'Prefect\'s Badge', desc: '+2 hits per strip and one more strip on the road.', mods: { strip: { hits: 2 }, trap: { max: 1 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Kinu — Pin-Burst Seamstress (360° ring shooter; UNIT_GAPS §5.4, src/sim/rings.js)
+// ---------------------------------------------------------------------------
+
+const KINU = {
+  id: 'kinu',
+  name: 'Kinu',
+  title: 'Pin-Burst Seamstress',
+  kind: 'tower',
+  rarity: 'R',
+  adult: false,
+  role: 'ring',
+  attackType: 'pierce',
+  element: null,
+  placement: 'land',
+  materialFamily: 'feather',
+  capabilities: ['multiHit'],
+  pathCapabilities: ['antiAir', 'barrierBreak', 'detection'],
+  acquisition: GACHA_ONLY,
+  palette: {
+    hair: '#e3a57e', hairShade: '#b8785a', eyes: '#5b7fd6', skin: '#ffe9dc',
+    outfit: '#f2e4c4', outfitShade: '#2c3a66', accent: '#e8475f', halo: '#ffe08a', weapon: '#cbd0da',
+  },
+  look: {
+    hairStyle: 'buns', bangs: 'split', accessory: 'ribbon', outfit: 'blazer', weapon: 'needle',
+    halo: 'star', eyeStyle: 'round', expression: 'cheerful',
+  },
+  bio: 'The handicraft club\'s cheerful seamstress. A cream sweater vest over a white short-sleeved school shirt, a navy pleated skirt, glasses on a beaded chain and a tape-measure scarf. Apricot hair in braided buns held with sewing pins, a strawberry pincushion on her wrist, and an oversized needle she twirls like a baton.',
+  personality: 'A cheerful perfectionist who counts every stitch out loud.',
+  quote: 'Eight pins, all around — and a neat finish!',
+  tips: [
+    'She fires a ring of pins in every direction at once: place her where the road wraps around her.',
+    'Her pins fly straight and stop after a short hop, so she wants enemies close on every side.',
+    '⚡ Spinning Bobbin tier 3 teaches Blade Spiral: a few seconds of a turning spiral of blades.',
+    'Iron Ring (Hot Iron tier 3) turns her pins into an expanding heat ring that also hits flyers.',
+  ],
+  base: stats({ cost: 260, behavior: 'ring', damage: 2, rate: 0.8, range: 1.8, projectiles: 8, pierce: 1, projectileSpeed: 12, canHitAir: false, ring: { travel: 1.8 } }),
+  paths: [
+    path('iron', 'Hot Iron', 'Heat and burns', [
+      tier('Warm Pins', 120, '+1 damage; pins burn for 2 damage a second for 1.5s.', { damage: 1, status: [S.burn(2, 1.5)] }),
+      tier('Steam Press', 300, '+0.2 range; +15% attack speed.', { range: 0.2, rateMul: 1.15 }),
+      tier('Iron Ring', 1000, 'Her pins become an expanding heat ring that crosses her whole range and hits each enemy once (flyers too): 8 damage.', { ring: { heat: true }, damage: 5, canHitAir: true }),
+      tier('Scorch Seam', 3000, '+16 damage; burns 8 a second; a ring every 0.6s.', { damage: 16, status: [S.burn(8, 1.5)], rateMul: 1.8 }),
+      tier('Molten Hem', 17600, 'Two rings per attack; +40 damage; ×1.3 against barriers. Burning enemies her ring finishes throw 4 sparks.', { ring: { double: true, sparks: true }, damage: 40, barrierMul: 1.3 }),
+    ]),
+    path('bobbin', 'Spinning Bobbin', 'Blades and pierce', [
+      tier('Quick Stitch', 100, '+20% attack speed.', { rateMul: 1.2 }),
+      tier('Twin Spools', 260, 'Each ring turns a sixteenth from the last, filling the gaps.', { ring: { turn: true } }),
+      tier('Thread Cutter', 900, 'Pins become tiny blades: they pierce 3 enemies; +2 damage.', { pierce: 2, damage: 2 }),
+      tier('Spool Storm', 2400, '+4 damage; blades pierce 1 more; a ring every 0.9s.', { damage: 4, pierce: 1, rateMul: 1.16 }),
+      tier('Grand Spiral', 15200, '+8 damage; blades pierce 2 more; +20% attack speed.', { damage: 8, pierce: 2, rateMul: 1.2 }),
+    ]),
+    path('cushion', 'Pin Cushion', 'More pins, scissors', [
+      tier('Extra Pins', 110, '10 pins per ring.', { projectiles: 2 }),
+      tier('Long Pins', 280, 'Pins fly 0.5 tiles further.', { ring: { travel: 0.5 } }),
+      tier('Sixteen Pins', 950, '16 pins per ring.', { projectiles: 6 }),
+      tier('Orbit Scissors', 2800, '3 pairs of scissors circle her at 1.2 tiles: 8 damage on contact, each enemy at most once every 0.25s.', { ring: { scissors: 3 } }),
+      tier('Needle Storm', 16000, '24 pins; twice the attack speed; scissors deal double; Veil Sight.', { projectiles: 8, rateMul: 2, ring: { scissorMul: 2 }, detection: true }),
+    ]),
+  ],
+  awakenPassive: { name: 'Lucky Thimble', desc: 'One more pin per ring; pins fly 0.2 tiles further.', mods: { projectiles: 1, ring: { travel: 0.2 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI];
+export const NEW_GIRLS = [AZAMI, KINU];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);

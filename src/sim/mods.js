@@ -86,6 +86,32 @@ function normStrip(t = {}) {
 }
 
 const STRIP_FLAGS = ['forever', 'carry', 'aim', 'lanes', 'pair'];
+
+/**
+ * The 360° ring (Kinu, UNIT_GAPS §5.4; src/sim/rings.js): her pins are her projectiles (count) and her
+ * pierce; this block holds the rest. Only a girl whose base declares `ring` carries it.
+ *   travel   tiles a pin flies          turn     each ring turns 1/16 (Twin Spools)
+ *   heat     an expanding heat ring instead of pins (Iron Ring); double: two per attack
+ *   sparks   enemies her heat ring finishes while burning throw 4 sparks (Molten Hem)
+ *   scissors orbiting scissor pairs; scissorDmg each cut (× scissorMul)
+ *   spiral   Blade Spiral spirals (her ⚡ boost sets it); spiralPierce the blades' pierce
+ */
+function normRing(t = {}) {
+  return {
+    travel: t.travel ?? 1.8,
+    turn: !!t.turn,
+    heat: !!t.heat,
+    double: !!t.double,
+    sparks: !!t.sparks,
+    scissors: t.scissors ?? 0,
+    scissorDmg: t.scissorDmg ?? 8,
+    scissorMul: t.scissorMul ?? 1,
+    spiral: t.spiral ?? 0,
+    spiralPierce: t.spiralPierce ?? 0,
+  };
+}
+const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
 const STRIP_ADDS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
 
 function normTurret(t = {}) {
@@ -177,6 +203,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
     // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
     ...(b.strip ? { strip: normStrip(b.strip) } : null),
+    ...(b.ring ? { ring: normRing(b.ring) } : null),
   };
 }
 
@@ -306,6 +333,12 @@ export function applyModSet(s, mods, acc) {
       if (!s.strip) continue;
       for (const k of STRIP_ADDS) if (v[k] != null) s.strip[k] += v[k];
       for (const k of STRIP_FLAGS) if (v[k]) s.strip[k] = true;
+    } else if (key === 'ring') {
+      // only a ring girl's ring changes (src/sim/rings.js)
+      if (!s.ring) continue;
+      for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
+      for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
+      if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -401,6 +434,7 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.turret) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;

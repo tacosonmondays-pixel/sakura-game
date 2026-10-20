@@ -217,3 +217,22 @@ export const STRIP_SPACING = 0.45;
 export const STRIP_AIM_RADIUS = 0.5;
 /** Opening burst: she lays this many times faster in the first strip.opening s of each wave. */
 export const STRIP_OPENING_MUL = 4;
+/** Straight shots (Kinu's pins, blades and sparks; src/sim/rings.js): per girl, per player, per sim. */
+export const STRAIGHT_PER_GIRL = 60;
+export const STRAIGHT_PER_PLAYER = 200;
+export const STRAIGHT_PER_SIM = 400;
+/** Ring directions: one table of this many unit vectors holds 8, 10, 16 and 24-pin rings and 1/16 turns. */
+export const RING_DIRS = 240;
+/** Pin flight speed (tiles/s): a 1.8-tile pin lives about 9 steps. */
+export const RING_PIN_SPEED = 12;
+/** Iron Ring: how fast the heat ring grows (tiles/s). */
+export const HEAT_RING_SPEED = 6;
+/** Orbit Scissors: contact radius, orbit radius, table steps per sim step (one turn in 2 s), re-hit gap (s). */
+export const SCISSOR_RADIUS = 0.35;
+export const SCISSOR_REACH = 1.2;
+export const SCISSOR_STEPS = 2;
+export const SCISSOR_EVERY = 0.25;
+/** Blade Spiral: a pair of blades every this many seconds. */
+export const SPIRAL_EVERY = 0.1;
+/** Molten Hem: spark bursts per sim step at most (the rest of that step's kills throw none). */
+export const SPARKS_PER_STEP = 8;

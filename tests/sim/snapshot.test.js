@@ -16,6 +16,7 @@ import { snapshotDigest, REBUILT } from '../../src/sim/snapshot.js';
 import { coopStage } from '../../src/data/coop.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { createRng } from '../../src/core/rng.js';
+import { spikeRain } from '../../src/sim/strips.js';
 
 const TEAM = ['kage', 'suzu', 'raika', 'chika', 'yuki', 'momo', 'kaede', 'umeko'];
 
@@ -233,10 +234,10 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['abil', 'abilMods', '_rallies', '_abilQueue', 'abilGroups', 'abilityAutoDefault']) expect(json, k).toContain(`"${k}"`);
   });
 
-  it('the new girls mid-wave (UNIT_GAPS §5): strips on the road, Spike Rain, on Auto', () => {
+  it('the new girls mid-wave (UNIT_GAPS §5): strips on the road, Spike Rain, pins in flight, on Auto', () => {
     // every girl buys her ⚡ path to tier 3 and casts on Auto; the snapshot is taken with Azami's
-    // strips (her own and her Spike Rain's) on the road
-    const team = ['azami', 'aoi', 'rei', 'yuki', 'kage', 'sango', 'umeko', 'shiro'];
+    // strips (her own and her Spike Rain's) on the road and Kinu's pins in the air
+    const team = ['azami', 'kinu', 'aoi', 'rei', 'yuki', 'kage', 'sango', 'shiro'];
     const stats = { costMul: 0.3 };
     const args = { stageId: '3-3', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 5151, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
@@ -244,14 +245,16 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     sim.cash += 20000;
     sim.startNextWave();
     const busy = (s) => s.wave >= 3 && s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 6
-      && s.traps.some((tr) => tr.strip && !tr.extra && tr.hitUids.length) && s.traps.some((tr) => tr.extra);
+      && s.traps.some((tr) => tr.strip && !tr.extra) && s.traps.some((tr) => tr.extra)
+      && s.projectiles.some((p) => p.straight);
     for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
       if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
-      // (Spike Rain on its own cooldown; nudged so the checkpoint holds rain strips)
+      // (Spike Rain nudged every 5 s so the checkpoint holds rain strips)
       const az = sim.towers.find((t) => t.unitId === 'azami' && t.abil);
-      if (az && sim.state === 'wave' && k % 600 === 0) {
+      if (az && sim.state === 'wave' && k % 300 === 0) {
         az.abil.cd = 0;
-        sim.castAbility(az.uid);
+        // (this team clears the road before it reaches her: then the rain is laid by hand, the same strips)
+        if (!sim.castAbility(az.uid).ok) spikeRain(sim, az, { count: 6, reach: az.eff.range, hits: 8, ttl: 10, arm: 0.3 });
       }
       sim.update(STEP);
       sim.drainEvents();
@@ -260,7 +263,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     const r = twin(sim, args, bot, 9000);
     expect(r.compared).toBeGreaterThan(5);
     const json = JSON.stringify(r.snap);
-    for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec']) expect(json, k).toContain(`"${k}"`);
+    for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings']) expect(json, k).toContain(`"${k}"`);
   });
 
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {

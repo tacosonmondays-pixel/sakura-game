@@ -9,7 +9,7 @@ import { SKINS } from '../../src/data/skins.js';
 
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 // the new girls drawn procedurally until their Blender figures land (UNIT_GAPS §5)
-const NEW_ART = ['azami'];
+const NEW_ART = ['azami', 'kinu'];
 const STANDINS = [...RETURNING, ...NEW_ART];
 
 function vertexCount(group) {

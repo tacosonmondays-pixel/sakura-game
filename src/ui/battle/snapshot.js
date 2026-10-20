@@ -187,6 +187,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the new girls (UNIT_GAPS §5): Azami's Spread cursor stays ('sc'); her flyer and blast specs follow
   // her stats (refreshEffective). Her carried strips ride in 'tr'.
   stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
+  // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
+  ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
 });
 
 /**
@@ -281,6 +283,7 @@ function packTower(sim, t) {
   // (a spike strip adds its hits and lifetime left; only Sticky Tar strips are on the road at a calm point)
   if (traps.length) o.tr = traps.map((tr) => (tr.strip ? [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft, tr.hits, tr.ttl] : [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]));
   if (t.stripCursor) o.sc = t.stripCursor;
+  if (t.ringTurn) o.rg = t.ringTurn;
   // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
   if (t.buffPick >= 0) o.pk = t.buffPick;
   if (t.lim) o.lm = packLim(t.lim);
@@ -521,6 +524,7 @@ export function restoreSim(rec, profile = null) {
       t.trapCount++;
     }
     if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
+    if (Number.isInteger(o.rg) && o.rg > 0 && o.rg < 16) t.ringTurn = o.rg;
   }
   sim.traps.sort((a, b) => a.uid - b.uid); // the order they were laid in (uids only grow)
   // limited buffs (path cap), once every girl is back (they name each other by uid): a uid of a girl

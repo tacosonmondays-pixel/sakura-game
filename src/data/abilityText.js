@@ -95,6 +95,10 @@ export const ABILITY_TEXT = Object.freeze({
     '{count} extra spike strips land evenly along the road within {reach} tiles, beyond her strip limit: {hits} hits each, armed after {arm}s. They fold up after {dur}s.',
     'a burst of extra strips along her whole road',
     'Spike Rain lays {count} strips within {reach} tiles that last {dur}s, and recharges in {cd}s.'),
+  'kinu.bladeSpiral': t('Blade Spiral', 'spiral',
+    'For {dur}s she also throws two blades every 0.1s along a turning spiral, out to twice her range: each hits like a pin and pierces {spiralPierce} enemies.',
+    'a turning spiral of blades on top of her rings',
+    'Blade Spiral becomes {spiral} spirals turning opposite ways for {dur}s, blades piercing {spiralPierce}, and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */
@@ -150,6 +154,7 @@ export function abilityValues(def, stats = null) {
   const e = def.effect || {};
   flat(e);
   flat(e.mods);
+  flat(e.mods?.ring); // (Kinu's Blade Spiral: spiral, spiralPierce)
   flat(e.rally);
   statuses(e.status);
   statuses(e.mods?.status);

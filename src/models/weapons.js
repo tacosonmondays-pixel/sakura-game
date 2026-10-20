@@ -83,7 +83,7 @@ const WEAPON_STYLE = {
   coinPurse: 'toss', staff: 'cast', lantern: 'cast', tome: 'book', bell: 'shake',
   mic: 'cast', shield: 'slash', mirror: 'cast', spear: 'spear', mallet: 'slash', puppet: 'cast', cards: 'throw',
   // the new girls (UNIT_GAPS §5)
-  strip: 'toss',
+  strip: 'toss', needle: 'cast',
 };
 
 /** Attack style descriptor for a weapon key. */
@@ -416,6 +416,17 @@ function weaponParts(ctx, kind) {
       P.push(part(box(0.14, 0.04, 0.5), { pos: [0, -0.02, 0.22], color: w }));
       for (let i = 0; i < 4; i++) P.push(part(cone(0.03, 0.09, 4), { pos: [0, 0.04, 0.04 + i * 0.12], color: col('#e8ecf2') }));
       P.push(part(cyl(0.035, 0.035, 0.28, 6), { pos: [0, 0.05, -0.05], color: dark }));
+      break;
+    }
+    case 'needle': {
+      // an oversized sewing needle twirled like a baton, with a loop of red thread through the eye
+      rot = [0.35, 0, 0.15];
+      offset = [0, 0.05, 0];
+      P.push(part(cyl(0.035, 0.012, 1.25, 8), { pos: [0, 0.3, 0], color: w }));
+      P.push(part(cone(0.035, 0.12, 8), { pos: [0, -0.37, 0], rot: [Math.PI, 0, 0], color: w }));
+      P.push(part(torus(0.06, 0.016, 5, 10), { pos: [0, 0.86, 0], rot: [0, Math.PI / 2, 0], color: w }));
+      const pts = smoothPath([[0, 0.86, 0], [0.12, 0.7, 0.05], [0.18, 0.4, 0.1], [0.08, 0.1, 0.12]], 8);
+      P.push(part(strand(pts, () => [0.016, 0.016], { radial: 4, up: () => V(0, 0, 1) }), { color: acc }));
       break;
     }
     default:

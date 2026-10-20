@@ -219,6 +219,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('PEN+1', '+4% damage. Her strips ignore 1 more armor.', 1.08, 'rim'),
     t('LOCKDOWN', '+5% damage. 2 more strips on the road at once, and struck enemies are Brittle +8% for 2 s.', 1.14, 'rim'),
   ),
+  kinu: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('PIERCE+1', '+4% attack speed. Every pin passes through 1 more enemy.', 1.07, 'rim'),
+    t('CRIT+5%', '+4% damage; +5% crit chance.', 1.07, 'rim'),
+    t('PEN+1', '+4% attack speed. Her pins ignore 1 more armor.', 1.07, 'rim'),
+    t('FITTING', '+5% damage. Pins pierce 1 more and leave enemies Brittle +6% for 2 s.', 1.14, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

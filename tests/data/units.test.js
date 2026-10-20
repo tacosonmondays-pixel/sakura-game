@@ -47,6 +47,7 @@ const ROSTER = [
   ['ena', 'tower', 'SSR', 'hexer', 'mystic', null, 'land', 'rune', 'gacha'],
   // the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js)
   ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '2-2'],
+  ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -64,20 +65,20 @@ const LOOK_ENUMS = {
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip'],
+    'strip', 'needle'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'none'];
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'none'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
 ];
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
-  // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js)
-  'strip'];
+  // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
+  'strip', 'ring'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -184,6 +185,7 @@ function modSetErrors(mods, where) {
     relay: (k, v, w) => objErrors(v, ['reach'], w, numCheck),
     // the new girls (UNIT_GAPS §5)
     strip: (k, v, w) => stripErrors(v, w),
+    ring: (k, v, w) => ringErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -197,6 +199,13 @@ const STRIP_NUMS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening'
 const STRIP_FLAGS = ['forever', 'carry', 'aim', 'lanes', 'pair'];
 function stripErrors(v, w) {
   return objErrors(v, [...STRIP_NUMS, ...STRIP_FLAGS], w, (kk, vv, ww) => (STRIP_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The 360° ring (src/sim/mods.js normRing).
+const RING_NUMS = ['travel', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce'];
+const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+function ringErrors(v, w) {
+  return objErrors(v, [...RING_NUMS, ...RING_FLAGS], w, (kk, vv, ww) => (RING_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
 function baseErrors(b, where) {
@@ -218,6 +227,10 @@ function baseErrors(b, where) {
     if (!isPos(b.aura.range)) errs.push(`${where}: aura needs a range`);
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
+  if (b.ring) {
+    errs.push(...ringErrors(b.ring, `${where}.ring`));
+    if (b.behavior !== 'ring') errs.push(`${where}: ring needs the ring behavior`);
+  }
   if (b.strip) {
     errs.push(...stripErrors(b.strip, `${where}.strip`));
     if (!b.trap) errs.push(`${where}: a strip girl lays traps (trap)`);
@@ -733,7 +746,7 @@ describe('helpers', () => {
   });
 
   it('unitsByRarity builds the gacha pools', () => {
-    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana', 'azami']);
+    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana', 'azami', 'kinu']);
     expect(unitsByRarity('SSR').map((u) => u.id)).toEqual(['hikari', 'luna', 'hotaru', 'kaede', 'chika', 'kanna', 'yoriko', 'seiran', 'iroha', 'ena']);
     expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toEqual(['hotaru', 'kaede', 'chika', 'iroha', 'ena']);
     const total = ['R', 'SR', 'SSR'].reduce((n, r) => n + unitsByRarity(r).length, 0);

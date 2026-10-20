@@ -6,6 +6,8 @@ import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
+import { scissorPos } from '../sim/rings.js';
+import { STEP } from '../sim/constants.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -570,6 +572,24 @@ export class Actors {
       const s = armed ? 0.62 : 0.45;
       gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
+    }
+    // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame
+    for (const tw of sim.towers) {
+      const rg = tw.stats?.ring;
+      if (!rg) continue;
+      for (const ring of tw.rings || []) {
+        if (ring.r <= 0) continue;
+        const k = ring.r / Math.max(0.01, ring.max);
+        gA.push(ring.x, 0.09, ring.y, ring.r * 2, ring.r * 2, R.ringThick, 1, 0.62, 0.25, 0.85 * (1 - 0.6 * k), 0);
+      }
+      if (rg.scissors > 0) {
+        const step = Math.round(sim.time / STEP);
+        for (let j = 0; j < rg.scissors; j++) {
+          const [sx, sy] = scissorPos(tw, j, rg.scissors, step);
+          gA.push(sx, 0.35, sy, 0.3, 0.3, R.ringSoft, 0.95, 0.95, 1, 0.7, t * 9 + j);
+          gN.push(sx, 0.07, sy, 0.22, 0.22, R.disc, 0.2, 0.2, 0.3, 0.25);
+        }
+      }
     }
     // teleport warnings
     for (const [uid, w] of this.teleports) {

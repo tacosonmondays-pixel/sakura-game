@@ -78,6 +78,7 @@ export const ROLE_SUBCLASS = {
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
   // the new girls (UNIT_GAPS §5)
+  ring: { label: 'Ring Burst', desc: 'Pins in every direction at once; best where the road wraps around her.' },
   spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
 };
 
@@ -674,7 +675,7 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
@@ -684,6 +685,9 @@ function newGirlsArticle() {
       p('Azami lays a spike strip on the road in her range every few seconds. A strip hits each ground enemy that crosses it once, until its hits run out, and folds up after 30 seconds. Flyers pass over unless she has Tall Barbs.'),
       p('Her panel has three placement chips: Near exit (the free spot nearest the exit), Spread (one strip after another along the road) and, from Checkpoint tier 3, Checkpoint: tap the road and her strips land around that point.'),
       tip('Strips end when the wave is cleared, except Sticky Tar strips (Long Watch tier 3), which wait for the next wave. Spike Rain (Checkpoint Duty tier 3) lays a burst of extra strips along her whole road.', 'info')),
+    sec('Rings of pins (Kinu)',
+      p('Kinu fires a ring of pins in every direction whenever an enemy is in her short range. The pins fly straight and stop after a short hop, so she shines where the road wraps around her. Twin Spools turns each ring a little to fill the gaps; Iron Ring swaps the pins for an expanding heat ring that hits each enemy once, flyers too.'),
+      tip('Orbit Scissors (Pin Cushion tier 4) circle her and cut whatever they touch. Blade Spiral (Spinning Bobbin tier 3) adds a turning spiral of blades for a few seconds.', 'info')),
   ]);
 }
 

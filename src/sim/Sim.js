@@ -46,6 +46,7 @@ import {
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
+import { endRingWave } from './rings.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -791,6 +792,8 @@ export class Sim {
     this.runners.length = 0;
     // spike strips end too, except Sticky Tar ones (src/sim/strips.js); Suzu's traps stay
     if (this.traps.length) endStripWave(this);
+    // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
+    endRingWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });

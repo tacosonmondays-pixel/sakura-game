@@ -38,7 +38,7 @@ const LIGHTNING = {
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls (UNIT_GAPS §5)
-  azami: ['checkpoint', 1430],
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -49,7 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
-  azami: 'deploy',
+  azami: 'deploy', kinu: 'boost',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -175,6 +175,12 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
   },
+  kinu: {
+    path: 'bobbin', id: 'kinu.bladeSpiral', kind: 'boost', scope: 'local', cooldown: 25, duration: 4,
+    effect: { mods: { ring: { spiral: 1, spiralPierce: 3 } } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -217,7 +223,9 @@ const EFFECT_KEYS = {
 const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
 // the ModSet keys a boost may change (src/sim/mods.js applyModSet; CONTRACTS §3)
-const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit'];
+const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit',
+  // the new girls: Kinu's Blade Spiral rides on her ring (src/sim/rings.js)
+  'ring'];
 // seconds-valued fields: each must be a whole number of ticks
 const TIME_KEYS = ['duration', 'delay', 'every', 'arm', 'spreadPoison'];
 const TICKS = ABILITY_RULES.ticksPerSecond;

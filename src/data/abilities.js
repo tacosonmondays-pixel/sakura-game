@@ -232,6 +232,13 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
   }],
+  kinu: [{
+    // two blades every 0.1 s along a turning spiral, out to twice her range (src/sim/rings.js)
+    path: 'bobbin', unlockTier: 3, id: 'kinu.bladeSpiral', kind: 'boost', scope: 'local', cooldown: 25, duration: 4,
+    effect: { mods: { ring: { spiral: 1, spiralPierce: 3 } } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
+  }],
 });
 
 /**

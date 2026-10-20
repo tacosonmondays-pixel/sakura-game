@@ -333,6 +333,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Hardened Barbs', 'kit', { damageMul: 1.04 }, { armorPen: 1 }),
     p6: step('Zero Tolerance', 'cap', { damageMul: 1.05 }, { trap: { max: 2 }, statusAdd: [S.vulnerable(0.08, 2)] }),
   },
+  // Kinu, R ring shooter: pierce, crits and armor pen on every pin
+  kinu: {
+    p2: step('Thread Count', 'stat', { damageMul: 1.04 }),
+    p3: step('Sharp Points', 'kit', { rateMul: 1.04 }, { pierce: 1 }),
+    p4: step('Even Hem', 'kit', { damageMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p5: step('Steel Thimble', 'kit', { rateMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Final Fitting', 'cap', { damageMul: 1.05 }, { pierce: 1, statusAdd: [S.vulnerable(0.06, 2)] }),
+  },
 });
 
 /** The rarity whose kinds and step slots a def uses: heroes (Nami too) are 'SSR'. */

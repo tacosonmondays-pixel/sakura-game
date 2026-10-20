@@ -23,12 +23,15 @@ import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buff
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
+import { attackRing, ringTick } from './rings.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
   staff: 'orb', tome: 'orb', lantern: 'spark', bell: 'spark', gohei: 'spark', fan: 'needle', parasol: 'needle',
   trident: 'orb', rapier: 'needle', katana: 'shuriken', sword: 'shuriken', coinPurse: 'bullet',
   mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt', mallet: 'shuriken', puppet: 'needle', cards: 'shuriken',
+  // the new girls (UNIT_GAPS §5)
+  strip: 'arrow', needle: 'needle',
 };
 const TYPE_KIND = { blast: 'shell', pierce: 'arrow', slash: 'shuriken', mystic: 'orb', holy: 'spark' };
 const ARC_KINDS = { shell: true, fireball: true, flask: true };
@@ -242,6 +245,12 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  // Orbit Scissors (src/sim/rings.js): their cuts follow her buffs like her pins
+  if (s.ring && !t.rings) {
+    t.rings = []; // her heat rings in flight (src/sim/rings.js)
+    t.ringTurn = 0; // Twin Spools: sixteenths turned
+  }
+  if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -1026,6 +1035,7 @@ const BEHAVIORS = {
   turret: attackTurret,
   mortar: attackMortar,
   strip: layStrip,
+  ring: attackRing,
 };
 
 function updateTurrets(sim, t, dt) {
@@ -1505,6 +1515,7 @@ export function updateTower(sim, t, dt) {
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   if (s.strip) stripTick(sim, t, dt);
+  if (s.ring) ringTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];

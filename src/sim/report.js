@@ -25,7 +25,7 @@ const CAP_TESTS = {
   armorPen: (s) => s.armorPen > 0,
   armorShred: (s, st) => st.has('shred'),
   barrierBreak: (s) => attacks(s) && (s.attackType === 'blast' || s.barrierMul > 1),
-  multiHit: (s) => attacks(s) && (['pulse', 'chain', 'beam'].includes(s.behavior) || s.rate * s.projectiles >= 2 || (s.turret?.max || 0) > 0),
+  multiHit: (s) => attacks(s) && (['pulse', 'chain', 'beam', 'ring'].includes(s.behavior) || s.rate * s.projectiles >= 2 || (s.turret?.max || 0) > 0),
   slow: (s, st) => st.has('slow') || st.has('freeze'),
   stun: (s, st) => st.has('stun') || st.has('freeze') || st.has('shock') || s.knockback > 0 || s.strip?.boomStun > 0,
   silence: (s, st) => s.silence > 0 || st.has('silence') || (attacks(s) && s.attackType === 'holy'),
