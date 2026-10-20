@@ -10,6 +10,7 @@ const WHAT = {
   mortar: (n) => `Tap where ${n}'s shells should land`,
   mirror: (n) => `Tap where ${n}'s mirror panel should stand`,
   ult: (n) => `Tap where ${n}'s dragon should enter the road`,
+  checkpoint: (n) => `Tap the road where ${n} should set up her checkpoint`,
 };
 
 export function createAimControl(ctx) {

@@ -45,6 +45,7 @@ import {
 } from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
+import { endStripWave } from './strips.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -788,6 +789,8 @@ export class Sim {
     // queued curse burst nobody to burst on: they end with the wave (GAPS §7.3)
     this.shells.length = 0;
     this.runners.length = 0;
+    // spike strips end too, except Sticky Tar ones (src/sim/strips.js); Suzu's traps stay
+    if (this.traps.length) endStripWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
@@ -1199,8 +1202,9 @@ export class Sim {
     let ay = Math.round(y * AIM_QUANT) / AIM_QUANT;
     ax = Math.min(this.map.width || 0, Math.max(0, ax));
     ay = Math.min(this.map.height || 0, Math.max(0, ay));
-    if (mode === 'mirror') {
-      const reach = t.stats.relay.reach;
+    if (mode === 'mirror' || mode === 'checkpoint') {
+      // a mirror stays within its reach, a checkpoint within her range
+      const reach = mode === 'mirror' ? t.stats.relay.reach : t.eff.range;
       const dx = ax - t.x;
       const dy = ay - t.y;
       const d2 = dx * dx + dy * dy;

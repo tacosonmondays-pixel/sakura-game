@@ -20,17 +20,18 @@ function statusTypes(s) {
 const CAP_TESTS = {
   detection: (s) => !!s.detection,
   reveal: (s, st) => s.reveal > 0 || st.has('reveal'),
-  antiAir: (s) => s.canHitAir && attacks(s) && s.behavior !== 'trap',
+  // (spike strips catch flyers only with Tall Barbs: strip.air)
+  antiAir: (s) => (s.canHitAir && attacks(s) && s.behavior !== 'trap' && s.behavior !== 'strip') || (s.strip?.air > 0),
   armorPen: (s) => s.armorPen > 0,
   armorShred: (s, st) => st.has('shred'),
   barrierBreak: (s) => attacks(s) && (s.attackType === 'blast' || s.barrierMul > 1),
   multiHit: (s) => attacks(s) && (['pulse', 'chain', 'beam'].includes(s.behavior) || s.rate * s.projectiles >= 2 || (s.turret?.max || 0) > 0),
   slow: (s, st) => st.has('slow') || st.has('freeze'),
-  stun: (s, st) => st.has('stun') || st.has('freeze') || st.has('shock') || s.knockback > 0,
+  stun: (s, st) => st.has('stun') || st.has('freeze') || st.has('shock') || s.knockback > 0 || s.strip?.boomStun > 0,
   silence: (s, st) => s.silence > 0 || st.has('silence') || (attacks(s) && s.attackType === 'holy'),
   antiHeal: (s, st) => st.has('poison'),
   priority: (s) => attacks(s) && s.range >= 6,
-  trap: (s) => s.behavior === 'trap',
+  trap: (s) => s.behavior === 'trap' || s.behavior === 'strip',
   cleanse: (s) => !!s.aura?.cleanse,
   buff: (s) => (!!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1 || s.aura.armorPen > 0 || s.aura.critChance > 0))
     || !!s.brew || !!s.link,

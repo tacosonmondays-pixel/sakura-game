@@ -82,6 +82,8 @@ const WEAPON_STYLE = {
   trident: 'spear', parasol: 'cast', rifle: 'gun', cannon: 'cannon', shuriken: 'throw', flask: 'throw',
   coinPurse: 'toss', staff: 'cast', lantern: 'cast', tome: 'book', bell: 'shake',
   mic: 'cast', shield: 'slash', mirror: 'cast', spear: 'spear', mallet: 'slash', puppet: 'cast', cards: 'throw',
+  // the new girls (UNIT_GAPS §5)
+  strip: 'toss',
 };
 
 /** Attack style descriptor for a weapon key. */
@@ -399,6 +401,21 @@ function weaponParts(ctx, kind) {
         const a = -0.55 + i * 0.37;
         P.push(part(box(0.26, 0.38, 0.02), { pos: [Math.sin(a) * 0.18, 0.2 + Math.cos(a) * 0.05, i * 0.02], rot: [0, 0, -a], color: i % 2 ? col('#2b1c2a') : acc }));
       }
+      break;
+    }
+    case 'strip': {
+      // a reel of folding spike strips: the drum, a short length unrolled with its barbs, a hand grip
+      rot = [0.2, 0, 0.1];
+      offset = [0, 0.05, 0.1];
+      const reel = cyl(0.24, 0.24, 0.16, s);
+      reel.rotateZ(Math.PI / 2);
+      P.push(part(reel, { pos: [0, 0.22, 0], color: acc }));
+      const hub = cyl(0.08, 0.08, 0.2, 8);
+      hub.rotateZ(Math.PI / 2);
+      P.push(part(hub, { pos: [0, 0.22, 0], color: dark }));
+      P.push(part(box(0.14, 0.04, 0.5), { pos: [0, -0.02, 0.22], color: w }));
+      for (let i = 0; i < 4; i++) P.push(part(cone(0.03, 0.09, 4), { pos: [0, 0.04, 0.04 + i * 0.12], color: col('#e8ecf2') }));
+      P.push(part(cyl(0.035, 0.035, 0.28, 6), { pos: [0, 0.05, -0.05], color: dark }));
       break;
     }
     default:

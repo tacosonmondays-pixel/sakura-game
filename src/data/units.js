@@ -21,6 +21,7 @@
 import { HERO_TRACKS } from './heroTracks.js';
 import { attachAbilities } from './abilities.js';
 import { EXPANSION_UNITS } from './unitsExpansion.js';
+import { NEW_GIRLS } from './unitsNewGirls.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -1325,6 +1326,8 @@ export const UNITS = [
   AOI, REI, YUKI, MOMO, AKANE, SANGO, KAGE, UMEKO, SHIRO, MIDORI, SUZU, RAIKA, MIKO, HOTARU, KAEDE, CHIKA,
   // the returning girls (roster wave): src/data/unitsExpansion.js
   ...EXPANSION_UNITS,
+  // the new girls (UNIT_GAPS §5): src/data/unitsNewGirls.js
+  ...NEW_GIRLS,
 ];
 
 /** id -> UnitDef */

@@ -202,3 +202,18 @@ export const HEX_TIER_MUL = { normal: 1, elite: 1, miniboss: 2 / 3, boss: 1 / 3 
 export const HEX_BOSS_CAP = 0.1;
 /** Sky dragon (Seiran's Dragonflight, a path runner): hit radius of each body segment (tiles). */
 export const RUNNER_HIT_RADIUS = 0.6;
+
+// ---------------------------------------------------------------------------
+// New girls (UNIT_GAPS §5, §7.2): performance caps. When a cap is full the oldest object (lowest uid)
+// goes first, so the totals stay bounded however many copies a player places.
+// ---------------------------------------------------------------------------
+/** Road objects (Azami's strips, her Spike Rain strips): per player and per sim. */
+export const ROAD_OBJECTS_PER_PLAYER = 80;
+export const ROAD_OBJECTS_PER_SIM = 160;
+/** Strip spots: path samples this far apart (tiles); two strips never lie closer than STRIP_SPACING. */
+export const STRIP_SPOT_STEP = 0.5;
+export const STRIP_SPACING = 0.45;
+/** Checkpoint mode: strips land within this many tiles of her aim point. */
+export const STRIP_AIM_RADIUS = 0.5;
+/** Opening burst: she lays this many times faster in the first strip.opening s of each wave. */
+export const STRIP_OPENING_MUL = 4;

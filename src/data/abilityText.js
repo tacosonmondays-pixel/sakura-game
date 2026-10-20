@@ -89,6 +89,12 @@ export const ABILITY_TEXT = Object.freeze({
     '{count} extra drones launch for {dur}s, beyond her limit. They follow her flight mode, then dock and vanish.',
     'a surge of extra drones',
     'Drone Surge launches {count} drones for {dur}s and recharges in {cd}s.'),
+
+  // the new girls (UNIT_GAPS §5)
+  'azami.spikeRain': t('Spike Rain', 'trap',
+    '{count} extra spike strips land evenly along the road within {reach} tiles, beyond her strip limit: {hits} hits each, armed after {arm}s. They fold up after {dur}s.',
+    'a burst of extra strips along her whole road',
+    'Spike Rain lays {count} strips within {reach} tiles that last {dur}s, and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */

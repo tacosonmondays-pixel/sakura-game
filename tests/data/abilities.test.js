@@ -19,6 +19,7 @@ import { ENEMIES } from '../../src/data/enemies.js';
 import { STAGES } from '../../src/data/stages.js';
 import { BATTLE_MODES } from '../../src/data/modes.js';
 import { STATUSES } from '../../src/data/types.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { GLYPHS } from '../../src/art/icons/glyphs.js';
 import { resolveStats } from '../../src/sim/mods.js';
 
@@ -36,6 +37,8 @@ const LIGHTNING = {
   akane: ['bigbang', 1940], sango: ['frag', 2000], kage: ['steel', 1860], umeko: ['lighthouse', 1750],
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
+  // §5.3 the new girls (UNIT_GAPS §5)
+  azami: ['checkpoint', 1430],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -46,6 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
+  azami: 'deploy',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -164,6 +168,13 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
   },
+  // §5.3 the new girls
+  azami: {
+    path: 'checkpoint', id: 'azami.spikeRain', kind: 'deploy', scope: 'local', cooldown: 45, duration: 10,
+    effect: { deploy: 'strips', count: 12, hits: 8, arm: 0.3, reachMul: 1 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -201,7 +212,7 @@ const EFFECT_KEYS = {
   rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
   debuff: ['pick', 'count', 'casterStatus', 'rally', ...STATUS_LIST],
   econ: ['coins'],
-  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm'],
+  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
 };
 const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
@@ -290,7 +301,7 @@ function defErrors(d, where) {
     if (d.duration < (e.delay ?? 0) + (e.shells - 1) * e.every - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the last shell`);
   }
   if (d.kind === 'econ' && d.scope !== 'player') errs.push(`${where}: econ abilities are per player`);
-  if (d.kind === 'deploy' && !['double', 'trap', 'drone'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
+  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
   // time fields in whole ticks; the cooldown in whole charge points
   for (const k of TIME_KEYS) {
     if (k in d && !isWholeTicks(d[k])) errs.push(`${where}: ${k} ${d[k]} is not a whole number of ticks`);
@@ -338,7 +349,7 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
   test('rows exist only for real girls (a kit variant is id@kitStyle)', () => {
     for (const id of Object.keys(ABILITIES)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
     for (const u of UNITS) expect(abilityRow(u), u.id).toBe(ABILITIES[u.id]);
-    expect(Object.keys(ABILITIES).length).toBe(19);
+    expect(Object.keys(ABILITIES).length).toBe(19 + NEW_GIRL_IDS.length);
   });
 
   test.each(towers().map((u) => [u.id, u]))('%s: exactly one ⚡ path, the one the spec names, unlocking at tier 3', (id, u) => {
@@ -364,7 +375,8 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
 
   test('the kind mix matches the spec: strike 4, burst 3, deploy 3, boost 2, debuff 2, rally 1, econ 1', () => {
     const count = {};
-    for (const u of towers()) { const k = u.paths.find((p) => p.ability).ability.kind; count[k] = (count[k] || 0) + 1; }
+    // (the 16 live towers of §5.1; the new girls' kinds are pinned in §5.3's rows)
+    for (const u of towers().filter((x) => !NEW_GIRL_IDS.includes(x.id))) { const k = u.paths.find((p) => p.ability).ability.kind; count[k] = (count[k] || 0) + 1; }
     expect(count).toEqual({ strike: 4, burst: 3, deploy: 3, boost: 2, debuff: 2, rally: 1, econ: 1 });
   });
 
@@ -557,7 +569,7 @@ describe('text (src/data/abilityText.js, UI only)', () => {
 describe('names', () => {
   test('ability names are unique and clash with no other name in the game', () => {
     const names = Object.values(ABILITY_TEXT).map((t) => t.name);
-    expect(names.length).toBe(19);
+    expect(names.length).toBe(19 + NEW_GIRL_IDS.length);
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     const taken = new Set();
     const add = (n) => { if (typeof n === 'string' && n) taken.add(n.toLowerCase()); };

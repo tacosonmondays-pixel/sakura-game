@@ -173,9 +173,31 @@ export function createTowerPanel(ctx) {
       );
     }
 
-    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    // ---- spike strips (Azami, src/sim/strips.js): where she lays them. Near exit and Spread are her
+    // target modes First and Last (the co-op `tgt` command); Checkpoint, from Checkpoint tier 3, is
+    // her aim point (the `aim` command). Picking a mode clears a checkpoint.
     const am = aimMode(t);
-    if (am) {
+    if (st.behavior === 'strip') {
+      const aiming = ctx.aim?.uid === t.uid;
+      const checkpoint = !!t.aim || aiming;
+      const mode = (k) => () => {
+        if (t.aim || aiming) ctx.aim?.clear(t.uid);
+        (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k));
+        sig = '';
+        update(true);
+      };
+      target = h(
+        'div.bt-target',
+        h('span.bt-section-label', icon('trap', 'bt-ico-sm'), 'Strips'),
+        h('div.bt-seg',
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode !== 'last' ? '.on' : ''}`, { 'data-mode': 'first', 'data-testid': 'strip-exit', title: 'On the free road spot nearest the exit', onclick: mode('first') }, 'Near exit'),
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode === 'last' ? '.on' : ''}`, { 'data-mode': 'last', 'data-testid': 'strip-spread', title: 'Spread along the road', onclick: mode('last') }, 'Spread'),
+          am === 'checkpoint' ? h(`button.bt-seg-btn${checkpoint ? '.on' : ''}`, { 'data-testid': 'aim-set', title: 'Tap the road: her strips land around that point', onclick: () => { ctx.aim?.start(t.uid); sig = ''; update(true); } }, aiming ? 'Tap map…' : 'Checkpoint') : null),
+      );
+    }
+
+    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    if (am && am !== 'checkpoint') {
       const aiming = ctx.aim?.uid === t.uid;
       const aimRow = h(
         'div.bt-target.bt-aim',

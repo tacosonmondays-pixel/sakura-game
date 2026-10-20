@@ -7,6 +7,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { UNITS, ENEMIES, STAGE, testData, run } from './fixtures.js';
 import { STEP, KNOCKBACK_RESIST, CC_RESIST, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from '../../src/sim/constants.js';
 import { ABILITY_RULES } from '../../src/data/abilities.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { refreshEffective, towerResolvedStats } from '../../src/sim/towers.js';
 import { abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
@@ -1399,7 +1400,7 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
     expect(later.sort()).toEqual(['chika', 'kage', 'suzu']);
-    expect(live.length).toBe(16);
+    expect(live.length).toBe(16 + NEW_GIRL_IDS.length); // the new girls' abilities all run (Azami's deploy: strips)
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

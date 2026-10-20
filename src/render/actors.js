@@ -556,6 +556,15 @@ export class Actors {
     // traps
     for (const tr of sim.traps) {
       if (this.fxHook?.trapHidden(tr.uid)) continue;
+      if (tr.strip) {
+        // a spike strip (src/sim/strips.js): a flat steel bar with a dashed edge (Spike Rain's in
+        // lilac), fading as its hits run out
+        const c = this._c.set(tr.extra ? '#c9a7ff' : '#d3dae4');
+        const a = tr.armed ? 0.55 + 0.4 * Math.min(1, tr.hits / 6) : 0.35;
+        gN.push(tr.x, 0.066, tr.y, 0.72, 0.24, R.disc, c.r, c.g, c.b, a, tr.uid * 0.7);
+        gN.push(tr.x, 0.068, tr.y, 0.74, 0.28, R.ringDashed, 0.25, 0.27, 0.32, a, tr.uid * 0.7);
+        continue;
+      }
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;

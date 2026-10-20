@@ -15,13 +15,13 @@ Everything is drawn with Pillow from simple shapes: a soft vertical gradient in 
 neutral chibi figure (hair shape hint, school / staff outfit colours, halo), a small emblem of her
 signature gear, her name, her title and an "Art coming soon" tag. No generators, no network.
 
-Names, titles, palettes and looks are read from src/data/unitsExpansion.js through node, so the
-colours are never written twice. Prints the PORTRAIT_DATA lines (face + cut aspect) to paste into
-src/art/portraits.js.
+Names, titles, palettes and looks are read from src/data/unitsExpansion.js (the returning girls)
+and src/data/unitsNewGirls.js (the new girls) through node, so the colours are never written twice.
+Prints the PORTRAIT_DATA lines (face + cut aspect) to paste into src/art/portraits.js.
 
 Usage (from the repo root):
   python3 -I tools/art/placeholder_portraits.py            # the nine returning girls
-  python3 -I tools/art/placeholder_portraits.py ruri noa   # just these
+  python3 -I tools/art/placeholder_portraits.py ruri noa   # just these (returning or new girls)
 """
 
 import json
@@ -48,8 +48,9 @@ R = 220
 def load_units(ids):
     code = (
         "import { EXPANSION_UNITS } from './src/data/unitsExpansion.js';"
-        "console.log(JSON.stringify(EXPANSION_UNITS.map((u) => ({ id: u.id, name: u.name, title: u.title,"
-        " adult: !!u.adult, palette: u.palette, look: u.look }))));"
+        "import { NEW_GIRLS } from './src/data/unitsNewGirls.js';"
+        "const pick = (u, fresh) => ({ id: u.id, name: u.name, title: u.title, adult: !!u.adult, palette: u.palette, look: u.look, fresh });"
+        "console.log(JSON.stringify([...EXPANSION_UNITS.map((u) => pick(u, false)), ...NEW_GIRLS.map((u) => pick(u, true))]));"
     )
     raw = subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT, check=True,
                          capture_output=True, text=True).stdout
@@ -59,6 +60,8 @@ def load_units(ids):
         missing = set(ids) - {u['id'] for u in units}
         if missing:
             sys.exit(f'unknown ids: {", ".join(sorted(missing))}')
+    else:
+        units = [u for u in units if not u['fresh']]  # (the default run stays the nine returning girls)
     return units
 
 
@@ -428,6 +431,13 @@ def emblem(weapon, pal, size):
             star(cp, 0, 0, 0.22, acc)
             card = card.rotate(-ang, resample=Image.BICUBIC, center=(s / 2, s / 2), translate=(dx * s * 0.3, 0))
             img.alpha_composite(card)
+    elif weapon == 'strip':  # a reel of folding spike strips
+        pen.ell(-0.25, 0, 0.62, 0.62, fill=acc)
+        pen.ell(-0.25, 0, 0.22, 0.22, fill=ink)
+        pen.poly([(0.05, 0.42), (0.95, 0.42), (0.95, 0.62), (0.05, 0.62)], ink)
+        for k in range(4):
+            x = 0.15 + k * 0.22
+            pen.poly([(x - 0.08, 0.42), (x + 0.08, 0.42), (x, 0.2)], mix(rgb(pal['weapon']), WHITE, 0.3))
     else:
         star(pen, 0, 0, 0.8, acc)
     return img.resize((size, size), Image.LANCZOS)

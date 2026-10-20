@@ -211,6 +211,14 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('WAKE', '+8% damage. Dragonflight hits 50% harder and its mark is 5 points stronger.', 1.08, 'rim'),
     t('CROWN', '+9% attack speed; one more jump; Dragonflight recharges a further 10%.', 1.14, 'rim'),
   ),
+  // the new girls (UNIT_GAPS §5)
+  azami: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('STRIP+1', '+4% damage. 1 more strip on the road at once.', 1.08, 'rim'),
+    t('SHRED', '+4% damage. Her strips crack 1 armor for 2 s.', 1.09, 'rim'),
+    t('PEN+1', '+4% damage. Her strips ignore 1 more armor.', 1.08, 'rim'),
+    t('LOCKDOWN', '+5% damage. 2 more strips on the road at once, and struck enemies are Brittle +8% for 2 s.', 1.14, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

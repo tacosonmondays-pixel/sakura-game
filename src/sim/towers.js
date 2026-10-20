@@ -22,6 +22,7 @@ import { segDistSq, projectOnSegment, samplePath, pointAt } from './path.js';
 import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
+import { layStrip, stripStep, stripTick } from './strips.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -209,6 +210,16 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     splash: s.trap.splash,
     armTime: s.trap.armTime,
   }) : null;
+  if (s.strip) {
+    // spike strips (src/sim/strips.js): Tall Barbs' flyer spec (the share is the hit's scale) and the
+    // Charged Strips blast (its stun on top of the strip statuses)
+    t.stripAirSpec = s.strip.air > 0 ? { ...t.trapSpec, canHitAir: true } : null;
+    t.stripBoomSpec = s.strip.boom > 0 ? {
+      ...t.trapSpec,
+      damage: s.strip.boom * dmgMul,
+      status: s.strip.boomStun > 0 ? mergeLists([{ type: 'stun', duration: s.strip.boomStun }], trapStatus) : trapStatus,
+    } : null;
+  }
   t.turretSpec = s.turret ? hitSpecFrom(s, {
     damage: s.turret.damage * dmgMul,
     rate: s.turret.rate * b.rateMul * globalRateMul,
@@ -931,6 +942,7 @@ export function aimMode(t) {
   if (!t) return null;
   if (t.eff?.behavior === 'mortar') return 'mortar';
   if (t.stats?.relay?.kind === 'mirror') return 'mirror';
+  if (t.stats?.strip?.aim) return 'checkpoint'; // Azami's Checkpoint mode (src/sim/strips.js)
   // an aimed hero ult: a nova centred on her aim, or a runner that enters at it
   const ue = t.isHero ? t.def?.hero?.ult?.effect : null;
   if (ue && (ue.center === 'aim' || ue.type === 'runner')) return 'ult';
@@ -1013,6 +1025,7 @@ const BEHAVIORS = {
   trap: placeTrap,
   turret: attackTurret,
   mortar: attackMortar,
+  strip: layStrip,
 };
 
 function updateTurrets(sim, t, dt) {
@@ -1491,6 +1504,7 @@ export function updateTower(sim, t, dt) {
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
+  if (s.strip) stripTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -1652,6 +1666,14 @@ export function updateTraps(sim, dt) {
   let removedAny = false;
   for (let i = 0; i < list.length; i++) {
     const tr = list[i];
+    if (tr.strip) {
+      if (stripStep(sim, tr, dt)) {
+        tr.dead = true;
+        removedAny = true;
+        if (!tr.extra) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+      }
+      continue;
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;

@@ -28,6 +28,7 @@ import {
 import { UNITS } from './units.js';
 import { LEGACY, LEGACY_IDS } from './legacy.js';
 import { EXPANSION_IDS } from './unitsExpansion.js';
+import { NEW_GIRL_IDS } from './unitsNewGirls.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -76,6 +77,8 @@ export const ROLE_SUBCLASS = {
   champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
+  // the new girls (UNIT_GAPS §5)
+  spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
 };
 
 /**
@@ -668,9 +671,25 @@ function returningArticle() {
   ]);
 }
 
+function newGirlsArticle() {
+  const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  const free = girls.filter((u) => u.acquisition.type === 'free');
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar'], [
+    sec('Who joined',
+      p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
+      table(['Girl', 'Role', 'What she does'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
+      ]))),
+    sec('Spike strips (Azami)',
+      p('Azami lays a spike strip on the road in her range every few seconds. A strip hits each ground enemy that crosses it once, until its hits run out, and folds up after 30 seconds. Flyers pass over unless she has Tall Barbs.'),
+      p('Her panel has three placement chips: Near exit (the free spot nearest the exit), Spread (one strip after another along the road) and, from Checkpoint tier 3, Checkpoint: tap the road and her strips land around that point.'),
+      tip('Strips end when the wave is cleared, except Sticky Tar strips (Long Watch tier 3), which wait for the next wave. Spike Rain (Checkpoint Duty tier 3) lays a burst of extra strips along her whole road.', 'info')),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

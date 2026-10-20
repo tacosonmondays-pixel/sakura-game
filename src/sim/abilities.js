@@ -40,6 +40,7 @@ import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs } from './towers.js';
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
+import { spikeRain } from './strips.js';
 
 const R = ABILITY_RULES;
 
@@ -140,7 +141,7 @@ export function syncAbility(sim, t) {
   const src = abilitySource(t);
   if (!src || !src.unlocked) return;
   const def = t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
-  if (!KINDS[def.kind]) return;
+  if (!handlerOf(def)) return;
   const cdMax = points(def.cooldown);
   const rate = chargeRate(t, def.kind);
   const up = def !== src.entry;
@@ -194,6 +195,7 @@ export function abilityReach(t, def) {
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return t.eff.range;
+    case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
     default: return t.eff.range;
   }
 }
@@ -551,6 +553,35 @@ const KINDS = {
 /** The kinds this build runs (the others stay locked: their ⚡ teaser says they come later). */
 export const ABILITY_KINDS_LIVE = Object.freeze(Object.keys(KINDS));
 
+/**
+ * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
+ * is not here stays locked (Kage's doubles, Suzu's traps and Chika's drones still wait for A4).
+ */
+const DEPLOYS = {
+  // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
+  // living the ability's duration; refused (nothing spent) with no ground enemy in reach
+  strips: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = abilityReach(t, def);
+      if (!gatherTargets(sim, t.x, t.y, reach, abilitySpec(t, def), []).length) return null;
+      const pts = spikeRain(sim, t, { count: e.count, reach, hits: e.hits, ttl: def.duration, arm: e.arm });
+      if (!pts.length) return null;
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: pts.length };
+    },
+  },
+};
+
+/** The code that runs an ability (null: this build does not run it yet). */
+function handlerOf(def) {
+  if (!def) return null;
+  if (def.kind === 'deploy') return DEPLOYS[def.effect?.deploy] || null;
+  return KINDS[def.kind] || null;
+}
+
+/** Deploy object types this build runs. */
+export const ABILITY_DEPLOYS_LIVE = Object.freeze(Object.keys(DEPLOYS));
+
 // ---------------------------------------------------------------------------
 // Casting
 // ---------------------------------------------------------------------------
@@ -628,7 +659,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
   const step = stepNo(sim);
-  const fx = KINDS[def.kind].cast(sim, t, def, step);
+  const fx = handlerOf(def).cast(sim, t, def, step);
   if (!fx) return no('noTarget', t.uid);
   const a = t.abil;
   a.cd = a.cdMax;
@@ -646,6 +677,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     // a map-wide reach is Infinity: the event says 0 (no ring), so JSON and the FX never see Infinity / NaN
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
+    ...(fx.placed != null ? { placed: fx.placed } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }
@@ -785,7 +817,7 @@ export function tickAbilities(sim) {
     if (!a || !(a.active > 0)) continue;
     a.active--;
     if (a.active === 0) {
-      KINDS[a.kind]?.end?.(sim, t);
+      handlerOf(abilityDef(t))?.end?.(sim, t);
       sim._emit('abilityEnd', { towerUid: t.uid, id: a.id });
     }
   }
@@ -847,7 +879,7 @@ export function endAbilityWave(sim) {
     const a = t.abil;
     if (a && a.active > 0) {
       a.active = 0;
-      KINDS[a.kind]?.end?.(sim, t);
+      handlerOf(abilityDef(t))?.end?.(sim, t);
       sim._emit('abilityEnd', { towerUid: t.uid, id: a.id, wave: true });
       touched = true;
     }
@@ -916,7 +948,7 @@ export function abilityStatus(sim, t) {
   if (!a) {
     const def = src.unlocked ? (t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier)) : src.entry;
     return {
-      id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !KINDS[def.kind],
+      id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !handlerOf(def),
       path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
       cooldown: def.cooldown, cooldownLeft: def.cooldown, duration: def.duration || 0, activeLeft: 0, auto: false, t5: false, uses: 0,
     };

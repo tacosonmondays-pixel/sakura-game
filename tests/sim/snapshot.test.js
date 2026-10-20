@@ -233,6 +233,36 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['abil', 'abilMods', '_rallies', '_abilQueue', 'abilGroups', 'abilityAutoDefault']) expect(json, k).toContain(`"${k}"`);
   });
 
+  it('the new girls mid-wave (UNIT_GAPS §5): strips on the road, Spike Rain, on Auto', () => {
+    // every girl buys her ⚡ path to tier 3 and casts on Auto; the snapshot is taken with Azami's
+    // strips (her own and her Spike Rain's) on the road
+    const team = ['azami', 'aoi', 'rei', 'yuki', 'kage', 'sango', 'umeko', 'shiro'];
+    const stats = { costMul: 0.3 };
+    const args = { stageId: '3-3', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 5151, options: { autoStart: true, autoAbilities: true } };
+    const sim = fresh(args);
+    const bot = makeAbilityBot('3-3', [...team, 'hikari']);
+    sim.cash += 20000;
+    sim.startNextWave();
+    const busy = (s) => s.wave >= 3 && s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 6
+      && s.traps.some((tr) => tr.strip && !tr.extra && tr.hitUids.length) && s.traps.some((tr) => tr.extra);
+    for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
+      if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
+      // (Spike Rain on its own cooldown; nudged so the checkpoint holds rain strips)
+      const az = sim.towers.find((t) => t.unitId === 'azami' && t.abil);
+      if (az && sim.state === 'wave' && k % 600 === 0) {
+        az.abil.cd = 0;
+        sim.castAbility(az.uid);
+      }
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(busy(sim)).toBe(true);
+    const r = twin(sim, args, bot, 9000);
+    expect(r.compared).toBeGreaterThan(5);
+    const json = JSON.stringify(r.snap);
+    for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec']) expect(json, k).toContain(`"${k}"`);
+  });
+
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {
     const stage = coopStage('8-5', { freeplay: 'crimson' });
     const god = { damageMul: 400, rateMul: 1.6, costMul: 0.05 };

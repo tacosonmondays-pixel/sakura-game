@@ -55,6 +55,8 @@ export const MOD_TAGS = {
   income: 'coins',
   // roster B3: the flyer bonus and a familiar / mirror's reach are hers; a gather pulls enemies
   airMul: 'self', relay: 'self', gather: 'enemies',
+  // the new girls (UNIT_GAPS §5): Azami's spike strips are her traps
+  strip: 'traps',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -72,6 +74,7 @@ const SUB_KEYS = {
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
   relay: new Set(['reach']),
+  strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */

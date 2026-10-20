@@ -74,6 +74,8 @@ export const PORTRAIT_DATA = {
   noa: { face: [50, 25], cut: 0.385 },
   iroha: { face: [50, 25], cut: 0.385 },
   ena: { face: [50, 25], cut: 0.385 },
+  // the new girls (UNIT_GAPS §5): placeholder sets from the same tool until their art is drawn
+  azami: { face: [50, 25], cut: 0.476 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

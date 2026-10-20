@@ -72,7 +72,8 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       sim._spawnQueue = [];
       for (let k = 0; k < 6; k++) {
         const e = sim.spawnEnemy(k % 2 ? 'orc' : 'tank', { dist: 4 + k * 0.6 });
-        e.baseSpeed = 0;
+        // (a strip layer lays on the road nearest the exit: her enemies walk onto it)
+        if (def.base.behavior !== 'strip') e.baseSpeed = 0;
       }
       if (isHero) {
         t.ultCooldown = 0;

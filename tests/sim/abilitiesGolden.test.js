@@ -9,8 +9,17 @@ import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 const GOLDEN = {
+  '1-3:normal': 'W15/100/20746/864/f5875291/4',
+  '4-5:hard': 'L26/0/72126/2962/a60ebdf0/23',
+  // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
+  // stays below, with the returning girls left out)
+  '8-5:normal': 'L30/0/41075/8698/6fde250f/17',
+};
+// With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
+const BASE_GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/f5875291/4',
   '4-5:hard': 'L26/0/67651/3566/1c3a6fcc/20',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
@@ -36,7 +45,14 @@ describe.skipIf(!hasRealData())('battles with abilities on Auto', () => {
 
 describe.skipIf(!hasRealData())('battles with abilities on Auto, the 19 girls of A1', () => {
   it.each(Object.keys(LIVE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
-    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: EXPANSION_IDS });
+    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: [...EXPANSION_IDS, ...NEW_GIRL_IDS] });
     expect(digest(r)).toBe(LIVE_GOLDEN[`${stageId}:${difficulty}`]);
+  }, 180000);
+});
+
+describe.skipIf(!hasRealData())('battles with abilities on Auto, the base roster (before the new girls)', () => {
+  it.each(Object.keys(BASE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
+    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: NEW_GIRL_IDS });
+    expect(digest(r)).toBe(BASE_GOLDEN[`${stageId}:${difficulty}`]);
   }, 180000);
 });

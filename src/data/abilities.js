@@ -223,6 +223,15 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
   }],
+
+  // ----- the new girls (ABILITIES_SPEC §5.3; UNIT_GAPS §5) -----
+  azami: [{
+    // extra strips spread evenly along the road in her reach, beyond her strip cap (src/sim/strips.js)
+    path: 'checkpoint', unlockTier: 3, id: 'azami.spikeRain', kind: 'deploy', scope: 'local', cooldown: 45, duration: 10,
+    effect: { deploy: 'strips', count: 12, hits: 8, arm: 0.3, reachMul: 1 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
+  }],
 });
 
 /**

@@ -184,6 +184,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
   // origin follows from it and her spot (updateRelayOrigin)
   aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
+  // the new girls (UNIT_GAPS §5): Azami's Spread cursor stays ('sc'); her flyer and blast specs follow
+  // her stats (refreshEffective). Her carried strips ride in 'tr'.
+  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
 });
 
 /**
@@ -275,7 +278,9 @@ function packTower(sim, t) {
     o.fl = [f.mode, f.ax, f.ay, f.bx, f.by, f.cx, f.cy, f.leg];
   }
   const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
-  if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
+  // (a spike strip adds its hits and lifetime left; only Sticky Tar strips are on the road at a calm point)
+  if (traps.length) o.tr = traps.map((tr) => (tr.strip ? [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft, tr.hits, tr.ttl] : [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]));
+  if (t.stripCursor) o.sc = t.stripCursor;
   // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
   if (t.buffPick >= 0) o.pk = t.buffPick;
   if (t.lim) o.lm = packLim(t.lim);
@@ -506,9 +511,16 @@ export function restoreSim(rec, profile = null) {
     }
     const maxTr = t.stats.trap?.max ?? 0;
     for (const tr of (o.tr || []).slice(0, maxTr)) {
-      sim.traps.push({ uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, armed: !!tr[3], armLeft: tr[4], owner: t });
+      if (t.stats.strip) {
+        // a carried spike strip (src/sim/strips.js): its hits and lifetime left; it forgot who it hit
+        sim.traps.push({
+          uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, owner: t, strip: true, extra: false,
+          armed: !!tr[3], armLeft: r(tr[4]), hits: Math.max(0, Math.floor(r(tr[5]))), ttl: r(tr[6]), hitUids: [],
+        });
+      } else sim.traps.push({ uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, armed: !!tr[3], armLeft: tr[4], owner: t });
       t.trapCount++;
     }
+    if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
   }
   sim.traps.sort((a, b) => a.uid - b.uid); // the order they were laid in (uids only grow)
   // limited buffs (path cap), once every girl is back (they name each other by uid): a uid of a girl

@@ -38,6 +38,8 @@ const SCEN = {
   'colosseum to wave 30': { stageId: 'challenge', difficulty: 'normal', endless: true, towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'hikari', stats: { damageMul: 6, rateMul: 1.4 }, seed: 4242, maxCopies: 4, maxWave: 30, forks: [10, 22] },
   // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
   // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
+  // the new girls (UNIT_GAPS §5): Azami's strips (Spread / Near exit through the random target modes)
+  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami'] },
   '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 
@@ -252,7 +254,9 @@ function play(c, { stopAt = Infinity } = {}) {
       }
       if (!sold && sim.wave === 6 && sim.state === 'between' && sim.towers.length > 3) {
         sold = true;
-        issue('sell', sim.towers[sim.towers.length - 1].uid);
+        // (the newest girl, or the newest one the scenario does not keep for its checks)
+        const keep = c.keep || [];
+        issue('sell', [...sim.towers].reverse().find((t) => !keep.includes(t.unitId))?.uid ?? sim.towers[sim.towers.length - 1].uid);
       }
       // (a wave can end with shots still flying at the last enemy's spot; this player taps Start, or
       // turns Auto on, once they have landed: the calm point the snapshot is defined for)
@@ -993,6 +997,40 @@ describe('abilities in a battle save (src/sim/abilities.js)', SLOW, () => {
     const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
     const { sim: back } = restoreSim(recordOf(c, snap), { settings: { autoCastAbilities: true } });
     expect(back.abilityAutoDefault).toEqual([true, false]);
+  });
+});
+
+describe('the new girls in a battle save (UNIT_GAPS §5, §7.3)', SLOW, () => {
+  it('Azami\'s Sticky Tar strips carry over the calm point with their hits and lifetime; the rest end', () => {
+    const c = { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 2552 };
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const az = sim.towers.find((t) => t.unitId === 'azami');
+    const watch = az.def.paths.findIndex((p) => p.id === 'watch');
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(az.uid, watch)).toBe(true);
+    sim.setTargetMode(az.uid, 'last'); // Spread: her cursor rides in the save too
+    sim.startNextWave();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    const carried = sim.traps.filter((tr) => tr.strip);
+    expect(carried.length).toBeGreaterThan(0);
+    expect(carried.every((tr) => !tr.extra && tr.hitUids.length === 0)).toBe(true);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'azami');
+    expect(row.tr).toHaveLength(carried.length);
+    expect(row.sc).toBe(az.stripCursor);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const strip = (tr) => [tr.uid, tr.x, tr.y, tr.armed, tr.armLeft, tr.hits, tr.ttl, tr.extra, tr.hitUids.length];
+    expect(back.traps.filter((tr) => tr.strip).map(strip)).toEqual(carried.map(strip));
+    const baz = back.towers.find((t) => t.unitId === 'azami');
+    expect(baz.trapCount).toBe(az.trapCount);
+    expect(baz.stripCursor).toBe(az.stripCursor);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
   });
 });
 

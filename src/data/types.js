@@ -120,6 +120,8 @@ export const ROLES = {
   hexer: { name: 'Hex Caster', category: 'dps', goodAgainst: 'Dense waves that fall together', limitation: 'Curses need kills to spread', desc: 'Curses that burst and spread on death.' },
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
+  // the new girls (UNIT_GAPS §5)
+  spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
   stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },
 };
 

@@ -54,6 +54,40 @@ function normTrap(t = {}) {
   };
 }
 
+/**
+ * Spike strips (Azami, UNIT_GAPS §5.3; src/sim/strips.js): a trap girl whose traps are strips with a hit
+ * budget and a lifetime. Only a girl whose base declares `strip` carries this block, so every other
+ * girl resolves exactly as before it existed. Numbers add, flags OR (a ModSet's `strip`).
+ *   hits     hits per strip (an enemy is hit once per strip)     ttl   seconds a strip lives
+ *   forever  strips last until used up                          carry strips carry into the next wave
+ *   boom     damage when a strip runs out or expires (radius boomR, stun boomStun s)
+ *   air      share of the strip's damage on flyers (0 = ground only)
+ *   aim      Checkpoint mode (strips near her aim point)         opening  s of ×4 laying at each wave start
+ *   lanes    Spread mode covers every lane in range              pair  Spread lays 2 at a time
+ *   rain     every `rain` s of wave time a small Spike Rain of rainCount strips lays itself
+ */
+function normStrip(t = {}) {
+  return {
+    hits: t.hits ?? 6,
+    ttl: t.ttl ?? 30,
+    forever: !!t.forever,
+    carry: !!t.carry,
+    boom: t.boom ?? 0,
+    boomR: t.boomR ?? 1,
+    boomStun: t.boomStun ?? 0,
+    air: t.air ?? 0,
+    aim: !!t.aim,
+    opening: t.opening ?? 0,
+    lanes: !!t.lanes,
+    pair: !!t.pair,
+    rain: t.rain ?? 0,
+    rainCount: t.rainCount ?? 0,
+  };
+}
+
+const STRIP_FLAGS = ['forever', 'carry', 'aim', 'lanes', 'pair'];
+const STRIP_ADDS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
+
 function normTurret(t = {}) {
   return {
     max: t.max ?? 0,
@@ -141,6 +175,8 @@ export function normalizeBase(base = {}, unitDef = {}) {
     gather: b.gather ?? 0,
     // both: she also fires from her own spot (Iroha's two firing points)
     relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
+    // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
+    ...(b.strip ? { strip: normStrip(b.strip) } : null),
   };
 }
 
@@ -263,7 +299,13 @@ export function applyModSet(s, mods, acc) {
       s.trap.max += v.max ?? 0;
       s.trap.damage += v.damage ?? 0;
       s.trap.splash += v.splash ?? 0;
+      if (v.triggerRadius != null) s.trap.triggerRadius += v.triggerRadius;
       if (v.status) mergeStatusList(s.trap.status, v.status);
+    } else if (key === 'strip') {
+      // only a strip girl's strips change (src/sim/strips.js)
+      if (!s.strip) continue;
+      for (const k of STRIP_ADDS) if (v[k] != null) s.strip[k] += v[k];
+      for (const k of STRIP_FLAGS) if (v[k]) s.strip[k] = true;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;

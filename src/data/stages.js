@@ -305,6 +305,7 @@ const CAMPAIGN = [
     ],
     fixed: [F(3, 'lizard_hunter', 3, 1.2)],
     introduces: ['lizard_hunter'], recommended: ['water'],
+    unlocks: ['azami'],
     fam: ['charm', 'blade'],
     scenery: { props: ['reeds', 'lizardTotems', 'fishingNets', 'lilyPads'], night: true },
   }),

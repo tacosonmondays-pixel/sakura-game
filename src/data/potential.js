@@ -324,6 +324,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Dragon Wake', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [{ type: 'mark', bonus: 0.05 }] } }),
     p6: step('Storm Crown', 'cap', { rateMul: 1.09 }, { chain: 1, ult: { haste: 0.1 } }),
   },
+  // The new girls (UNIT_GAPS §5). First-pass rows on safe kit keys, inside the §3.4 ceilings.
+  // Azami, R spike layer: more strips on the road, armor cracking and armor pen on every strip
+  azami: {
+    p2: step('Roll Call', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Reel', 'kit', { damageMul: 1.04 }, { trap: { max: 1 } }),
+    p4: step('Hall Patrol', 'kit', { damageMul: 1.04 }, { statusAdd: [S.shred(1, 2)] }),
+    p5: step('Hardened Barbs', 'kit', { damageMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Zero Tolerance', 'cap', { damageMul: 1.05 }, { trap: { max: 2 }, statusAdd: [S.vulnerable(0.08, 2)] }),
+  },
 });
 
 /** The rarity whose kinds and step slots a def uses: heroes (Nami too) are 'SSR'. */
