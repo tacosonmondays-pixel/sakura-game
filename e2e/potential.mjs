@@ -412,7 +412,9 @@ try {
     await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.select && document.querySelector('[data-testid="card-aoi"]'), null, { timeout: 90000 });
     // the free hero card arms itself at wave 0 (hero rework, ~0.7 s in), which would close the
     // panel we open: let it arm, then put it back
-    await page.waitForFunction(() => window.__battle.ui.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
+    // optional chaining all the way: on a slow software-GL frame the 5 s timeout can fire before the
+    // poller's abort reaches the page, and a leftover poller must not throw once the battle is gone
+    await page.waitForFunction(() => window.__battle?.ui?.placement?.unitId, null, { timeout: 5000 }).catch(() => {});
     await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
     await page.waitForTimeout(800);
     const placed = await page.evaluate(() => {
