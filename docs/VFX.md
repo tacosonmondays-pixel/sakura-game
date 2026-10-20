@@ -80,7 +80,7 @@ node tools/vfx/capture.mjs --viewports 844x390 --qualities high --seconds 5 --re
 It stages the same busy Sandbox battle every time (Sakura Court; eight girls at tier 3–5 and a
 level-20 Hikari; ~40 enemies spread along the road with 40× HP, an elite and the Ashwing Matriarch),
 then saves, per viewport and quality, the page and the 3D canvas at frames 120 and 180 (2 s and
-4 s of play), a device-resolution copy on the phone (DPR 3), the renderer's draw calls / triangles /
+3 s of play), a device-resolution copy on the phone (DPR 3), the renderer's draw calls / triangles /
 attack-FX quads at each moment, and ~10 s of real-time frame times (median and p95 frame interval
 and frame-callback CPU time) with a fresh crowd on the board. Output: `capture.json` plus PNGs
 (default `e2e/out/vfx/<label>/`, git-ignored).
