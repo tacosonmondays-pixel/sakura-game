@@ -306,10 +306,10 @@ export const THEMES = {
  * monsters read clearly.
  */
 export const LANTERN_NIGHT = {
-  light: { sky: '#c2a6ff', ground: '#7a4a40', hemi: 0.92, key: '#ffbd7a', keyI: 1.45, fill: '#a98bff', fillI: 0.42 },
+  light: { sky: '#a98ee8', ground: '#6a3c34', hemi: 0.8, key: '#ffb46a', keyI: 1.3, fill: '#8f72f0', fillI: 0.38 },
   bg: '#2a1d4a',
   fogColor: '#4b3670',
-  groundTint: '#7d6a9e',
+  groundTint: '#5e4c84',
   shadeTint: '#3a2856',
   waterDeep: '#22175a',
   waterShallow: '#5a4a9a',
@@ -364,7 +364,7 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     const L = LANTERN_NIGHT;
     look.light = { ...L.light };
     look.bg = L.bg;
-    look.ground = look.ground.map((g) => mixBg(g, L.groundTint, 0.12));
+    look.ground = look.ground.map((g) => mixBg(g, L.groundTint, 0.24));
     look.groundShade = mixBg(look.groundShade, L.shadeTint, 0.18);
     look.shore = mixBg(look.shore, L.shadeTint, 0.2);
     look.water = { ...look.water, deep: mixBg(look.water.deep, L.waterDeep, 0.35), shallow: mixBg(look.water.shallow, L.waterShallow, 0.3) };

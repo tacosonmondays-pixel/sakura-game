@@ -188,8 +188,9 @@ export function requirementText(profile, stageId) {
 /** Row of the four difficulty medals (earned ones in colour). */
 export function medalRow(profile, stageId, { size = 22, cls = '' } = {}) {
   const m = stageMedals(profile, stageId);
-  const row = h(`div.ma-medals${cls ? `.${cls}` : ''}`, { title: DIFFICULTY_ORDER.map((d) => `${DIFFICULTIES[d].name}: ${m[d] ? 'cleared' : '—'}`).join(' · ') });
-  for (const d of DIFFICULTY_ORDER) {
+  const order = STAGE_MAP[stageId]?.difficulties || DIFFICULTY_ORDER; // [events] only the stage's own
+  const row = h(`div.ma-medals${cls ? `.${cls}` : ''}`, { title: order.map((d) => `${DIFFICULTIES[d].name}: ${m[d] ? 'cleared' : '—'}`).join(' · ') });
+  for (const d of order) {
     const span = svgEl(medalIcon(d, { earned: m[d] }), `ma-medal${m[d] ? '.on' : ''}`);
     span.style.width = `${size}px`;
     span.style.height = `${size}px`;

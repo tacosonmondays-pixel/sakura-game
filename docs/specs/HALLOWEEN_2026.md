@@ -41,3 +41,45 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
   (names, signatures, tests) so the two merge mechanically; list any deviation.
 - Don't touch tower kits, `src/online/coop/commands.js`, gear or Ascension systems.
 - Battle-side changes should be data + render only. If the sim id changes, say why.
+
+## Build notes (track 6, `feature/halloween`)
+
+**What shipped.** The framework (`src/data/events/{build,index,wire}.js`, `src/systems/events.js`,
+`src/ui/screens/event.js`, `src/ui/events/*`) and **Pumpkin Lantern Night · Trick-or-Treat Patrol**
+(`src/data/events/halloween.js`, `scenes/halloween.js`):
+- Window (EVENT_SPEC E1), as `src/core/reset.js` computes it: tease `2026-10-21T00:00Z` (Tue Oct 20 7 PM CDT),
+  start `2026-10-24T00:00Z` (Fri Oct 23 7 PM CDT), end `2026-11-02T01:00Z` (Sun Nov 1 7 PM CST), exchange end
+  `2026-11-09T01:00Z` (Sun Nov 8 7 PM CST). Tested in `tests/core/resetBounds.test.js` and `tests/systems/events.test.js`.
+- 3 episodes, 8 spoken lines each (the story lint's minimum; the brief said 4–8), Hikari leads with Aoi, Yuki,
+  Sango; read = +50 candy (episode 3 also +50 gems). Unlock chain: Ep 1 → Op 1 → Op 2 → Ep 2 → Op 3 → Op 4 → boss → Ep 3.
+- 4 operations (Normal only, free, sweepable once cleared) + the Gourdlight Golem (Normal / Hard) on existing maps
+  (`shrine_gate`, `festival_street`, `shrine_steps`, `marsh_boardwalk`, boss on `shrine_sanctum`), tuned like
+  2-1 / 2-3 / 3-1 / 3-3 / 3-5. Event stages are not in `STAGES`/`ENEMIES` (E9) and not in co-op (E11).
+- The Golem: an original pumpkin-headed construct (render-only head), one phase change at 50 % (shell drops,
+  candle wisps, it hurries). Balance (`tests/integration/event-balance.test.js`, autoPlan bot, free units only):
+  every operation won on Normal at its tuneLike roster and level (3/3 seeds); boss Normal won by the end-of-chapter-3
+  free team at level 20 (3/3); boss Hard lost at level 20, won at level 50.
+- Pumpkin Candy (`evt_halloween_candy`), missions (3 daily, 9 one-time), the Candy Exchange (title "Pumpkin
+  Patroller", the Pumpkin Lantern profile frame, gear boxes, books, materials, 2 recruit tickets, 2 × 100 gems,
+  coins, an unlimited Doodle Notes sink), 9 daily login gifts by mail, leftover candy → 50 coins each by mail at the
+  exchange end. Settling is final (E12; shadowed in `missions.counters`).
+- Lobby card + lantern/pumpkin decor, Events page list, stage-prep event line, results "New episode unlocked",
+  the lantern (spooky) battle track on event stages, lantern-night lighting and monster costumes (render-only).
+- Dev preview: `localStorage['sakura-dev-now'] = '<ISO instant>'` in dev builds only (`src/ui/events/clock.js`;
+  not in the production bundle). `e2e/halloween.mjs` plays the whole event with it.
+
+**Cut / later.** The event avatar (avatars are owned-girl portraits; an enemy avatar needs a new picture namespace
+across profile, online card and chat), the one-time intro popup, the Notice article, Festival Friends / outfits
+(none for this event by design), the bestiary event strip.
+
+**Deviations from EVENT_SPEC.** Event stages join `STAGE_MAP`/`ENEMY_MAP` from `src/data/events/wire.js` at import
+instead of edits to `stages.js`/`enemies.js` (both are hashed sim sources: the co-op id stays `37b5428d7657`).
+No energy (not built): stages are free. Login gifts are "the nth gift on the nth day you visit" (never missed).
+`reset.js`: the game-week block is byte-identical to `feature/ascension`; `gameDayStart`, `gameDayEnd`,
+`isNewPeriod` are appended at the end of the file with ENERGY_RESET §3.1 names (`gameDayStart(key, opts)` /
+`gameDayEnd(key, opts)` take the same optional `{ fallback }` as the other functions).
+
+**Save keys (additive, no SAVE_VERSION bump).** `profile.events = { v, byId: { 'halloween-2026': { run, joinedAt,
+read, daily: { day, progress, claimed }, total: { progress, claimed }, bought, owned, login: { days, last },
+settled } } }`; `missions.counters` shadows `evs:<id>:<run>`, `evo:<kind>:<id>`, `evr:<episodeId>`; the item
+`evt_halloween_candy`; mail ids `ev:halloween-2026:1:login:<n>|unclaimed|leftover`.

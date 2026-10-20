@@ -133,3 +133,9 @@
   .ev-mis { grid-template-columns: minmax(0, 1fr) auto; }
   .ev-mis-rw { grid-column: 1; }
 }
+
+/* Events page: the limited events list */
+.ev-list { margin-bottom: 12px; }
+.ev-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.ev-list-row:last-child { border-bottom: none; }
+.ev-list-row .muted { font-size: 0.72rem; }

@@ -35,6 +35,8 @@ const ENDED = '2026-11-09T18:00:00Z'; // Mon Nov 9: the exchange has closed
 
 let page;
 let tag = '';
+let battleN = 0;
+const window_tag = () => `night-${++battleN}`;
 const errors = [];
 
 async function shot(name) {
@@ -55,17 +57,21 @@ async function go(hash, selector) {
 async function reloadAt(iso, hash) {
   await page.evaluate((t) => { window.__sakura.store.saveNow?.(); localStorage.setItem('sakura-dev-now', t); }, iso);
   await page.goto(`${base}?onboarding=0${hash}`, { waitUntil: 'load' });
+  await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });
   await page.waitForTimeout(600);
 }
 
 async function openGame() {
+  // the dev clock must be on: a check that fails loudly instead of testing the wrong day
   await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await page.evaluate((t) => { localStorage.clear(); localStorage.setItem('sakura-dev-now', t); }, OPEN_DAY);
-  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
+  await page.reload({ waitUntil: 'load' }); // a real reload: the dev clock reads the key at start-up
   const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 30000 }).catch(() => null);
   if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 15000 }).catch(() => {}); }
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });
+  const clock = await page.evaluate(async () => new Date((await import('/src/ui/events/clock.js')).eventNow()).toISOString());
+  check(clock.startsWith('2026-10-24'), `dev clock on (${clock})`);
   // a player through chapter 1 (the event's unlock), with a level-45 team
   await page.evaluate(async () => {
     const { store } = window.__sakura;
@@ -120,6 +126,7 @@ async function playBattle({ onBoss = null } = {}) {
     ui.speed = 3;
   });
   await page.waitForTimeout(3500); // the first costumed monsters walk in
+  await shot(`battle-${window_tag()}`);
   let state = 'wave';
   let bossShot = false;
   for (let i = 0; i < 600 && state !== 'won' && state !== 'lost'; i++) {
@@ -158,7 +165,8 @@ try {
     page.on('pageerror', (e) => errors.push(`${vp} pageerror: ${e.message}`));
     await openGame();
 
-    // ---- 1. lobby: the EVENT card and the decor --------------------------------------------
+    // ---- 1. lobby: the EVENT card and the decor (the first lobby visit since 1-5 was cleared) --
+    await go('#/campaign', '#app');
     await go('#/lobby', '[data-testid="lobby"]');
     await page.waitForSelector('[data-testid="event-card"]', { timeout: T }).catch(() => null);
     const card = await page.evaluate(() => document.querySelector('[data-testid="event-card"]')?.textContent || '');
@@ -212,6 +220,7 @@ try {
     const diffs = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="diff-"]')].map((b) => b.dataset.testid));
     check(diffs.join(',') === 'diff-normal', `stage prep: operations offer one difficulty (${diffs.join(',')})`);
     check(await noOverflow(), 'stage prep: no horizontal overflow');
+    await page.waitForTimeout(1200); // the prep page fades in
     await shot('stage-prep');
     const c2 = await candy();
     await page.locator('[data-testid="stage-start"]').click();
@@ -249,6 +258,8 @@ try {
     await page.locator('[data-testid="stage-start"]').click();
     const st2 = await playBattle({ onBoss: async (b) => { console.log(`  info boss on the field: ${b.id} ${Math.round(b.hp)}/${Math.round(b.max)}`); await shot('boss'); } });
     check(st2 === 'won', `boss: the Gourdlight Golem beaten on Normal (${st2})`);
+
+    const ep3 = await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 30000 }).catch(() => null);
     const boss = await page.evaluate(async (id) => {
       const ev = await import('/src/systems/events.js');
       const { EVENT_MAP } = await import('/src/data/events/index.js');
@@ -256,7 +267,6 @@ try {
       return rows.total.find((m) => m.id === 'hw_t_boss_n').done;
     }, EV);
     check(boss, 'boss: "Lights Out, Gently" mission complete');
-    const ep3 = await page.waitForSelector('[data-testid="view-rewards"]', { timeout: 30000 }).catch(() => null);
     if (ep3) {
       await ep3.click();
       await page.waitForSelector('[data-testid="result-episodes"]', { timeout: 8000 }).catch(() => null);
