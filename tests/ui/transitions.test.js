@@ -1,18 +1,23 @@
-// Screen transitions + the loading slime (owner: "cleaner and animated menu transitions, loading
-// screens, like black with a cute something like slime in the corner and loading"). The pure parts
-// run here: which transition a screen change gets, the loader's 150 ms / 450 ms rule, the router's
-// hook into the transitions, the styles (transform / opacity only, 120–320 ms), the slime markup
-// and the loading tips. The browser side is e2e/transitions.mjs.
+// Screen transitions + Mochi, the loading slime (owner: "cleaner and animated menu transitions, loading
+// screens, like black with a cute something like slime in the corner and loading"; then "just black or
+// colored ... it saying loading is enough" and "try both!! We'll pick the loading screen after"). The pure
+// parts run here: which transition a screen change gets, the loader's 150 ms / 450 ms rule, the router's
+// hook into the transitions, the styles (transform / opacity only, 120–320 ms), Mochi's markup and its two
+// looks, the two backgrounds, the setting that picks them and index.html's inline script that reads it
+// before the first paint. The browser side is e2e/transitions.mjs.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { transitionFor, CUT_SCREENS, READY_SIGNALS, readySignalFor, MOTION, loaderInfoFor, battleLoaderTitle, BARLESS_SCREENS } from '../../src/ui/transitions/kind.js';
-import { STAGE_MAP } from '../../src/data/stages.js';
+import { existsSync } from 'node:fs';
+import { transitionFor, CUT_SCREENS, READY_SIGNALS, readySignalFor, MOTION, loaderInfoFor, BARLESS_SCREENS } from '../../src/ui/transitions/kind.js';
 import { createGate, clampProgress, SHOW_AFTER_MS, MIN_SHOWN_MS } from '../../src/ui/loading/gate.js';
-import { SLIME_DEFS, SLIME_INNER, slimeMarkup, SLIME_SIZES } from '../../src/ui/loading/slime.js';
+import {
+  MOCHI_DEFS, MOCHI_INNER, mochiMarkup, MOCHI_SIZES, MOCHI_LOOKS, LOADER_BGS, LOADING_LOOK_DEFAULT, LOOK_SETTINGS, loadingLookOf, applyLoadingLook,
+} from '../../src/ui/loading/mochi.js';
 import { loaderMarkup } from '../../src/ui/loading/loader.js';
-import { LOADING_TIPS, BOOT_TIP, pickTip } from '../../src/data/loadingTips.js';
+import { DEFAULT_SETTINGS, SAVE_KEY, SAVE_VERSION, createProfile, migrateProfile } from '../../src/systems/save.js';
+import { saveText } from '../../src/core/store.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -82,17 +87,23 @@ describe('transitionFor: which transition a screen change gets', () => {
     expect(MOTION.titleIn).toBeLessThanOrEqual(160);
   });
 
-  it('the loading screen names a battle from its route, before the battle mounts', () => {
-    const s = STAGE_MAP['1-1'];
-    expect(battleLoaderTitle(s)).toBe(`1-1 · ${s.name}`);
-    expect(loaderInfoFor('battle', { stage: '1-1', difficulty: 'easy' })).toEqual({ kicker: 'Deploying', title: `1-1 · ${s.name}`, progress: 0 });
-    expect(loaderInfoFor('battle', { stage: '1-1', resume: 'r123' }).kicker).toBe('Resuming');
-    expect(loaderInfoFor('battle', { coop: 'ABCD' })).toEqual({ kicker: 'Co-op', title: '', progress: 0 });
-    expect(loaderInfoFor('battle', { stage: 'nope' }).title).toBe('');
+  it('the loading screen only says "Loading": no destination, no tips; a battle starts its progress line at 0', () => {
+    expect(loaderInfoFor('battle', { stage: '1-1', difficulty: 'easy' })).toEqual({ progress: 0 });
+    expect(loaderInfoFor('battle', { stage: '1-1', resume: 'r123' })).toEqual({ progress: 0 });
+    expect(loaderInfoFor('battle', { coop: 'ABCD' })).toEqual({ progress: 0 });
     expect(loaderInfoFor('stage', { id: '1-1' })).toBeNull();
     expect(loaderInfoFor('lobby')).toBeNull();
-    // the battle itself uses the same words
-    expect(read('src/ui/battle/controller.js')).toMatch(/battleLoaderTitle\(stage\)/);
+    // the tips and the destination line are gone everywhere
+    expect(existsSync(join(ROOT, 'src/data/loadingTips.js'))).toBe(false);
+    for (const f of ['src/ui/loading/loader.js', 'src/ui/transitions/index.js', 'src/ui/transitions/kind.js', 'src/ui/battle/controller.js', 'src/ui/screens/title.js']) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/loadingTips|pickTip|BOOT_TIP|battleLoaderTitle|ld-tip|ld-ctx|kicker/);
+    }
+    expect(read('src/ui/battle/controller.js')).toMatch(/holdLoader\(shown, \{ progress: 0, immediate: true \}\)/);
+    // the loader's markup: "Loading" + Mochi + the progress line, no other text
+    const text = loaderMarkup().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    expect(text).toBe('Loading');
+    expect(loaderMarkup()).not.toMatch(/ld-left|ld-tip|ld-ctx|TIP/);
   });
 
   it('screens without the top bar (a slide into them takes the old bar along)', () => {
@@ -567,7 +578,7 @@ describe('the transition and loader styles', () => {
 
   it('index.html carries the loader styles inline (they exist before any script)', () => {
     expect(INLINE_CSS).toMatch(/\.ld\s*\{/);
-    expect(INLINE_CSS).toMatch(/@keyframes sl-hop/);
+    expect(INLINE_CSS).toMatch(/@keyframes mochi-hop/);
     expect(Object.keys(all).length).toBeGreaterThanOrEqual(14);
   });
 
@@ -579,7 +590,7 @@ describe('the transition and loader styles', () => {
     }
   });
 
-  it('every duration is 120–320 ms, except the slime\'s own loops (1.2 s hop, 2.4 s blink)', () => {
+  it('every duration is 120–320 ms, except Mochi\'s own loops (1.2 s hop, 2.4 s blink)', () => {
     const LOOPS = new Set(['1.2s', '2.4s']);
     for (const [file, css] of [['index.html', stripComments(INLINE_CSS)], ['transitions.css', stripComments(TX_CSS)]]) {
       for (const m of css.matchAll(/(?:animation|transition)(?:-duration)?\s*:\s*([^;}]+)/g)) {
@@ -600,9 +611,9 @@ describe('the transition and loader styles', () => {
     }
   });
 
-  it('reduced motion stills the slime and covers the chip, the inline slime and the band', () => {
-    expect(INLINE_CSS).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.sl, \.sl \*, \.ld-dots i \{ animation: none !important; \} \}/);
-    expect(INLINE_CSS).toMatch(/html\[data-reduce-motion\] \.sl, html\[data-reduce-motion\] \.sl \*/);
+  it('reduced motion stills Mochi and covers the chip, the inline Mochi and the band', () => {
+    expect(INLINE_CSS).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.mochi, \.mochi \*, \.ld-dots i \{ animation: none !important; \} \}/);
+    expect(INLINE_CSS).toMatch(/html\[data-reduce-motion\] \.mochi, html\[data-reduce-motion\] \.mochi \*/);
     for (const sel of ['.ld-chip.on', '.ld-inline', '.bt-result-overlay.bt-banded']) {
       expect(TX_CSS.split('@media (prefers-reduced-motion: reduce)')[1], sel).toContain(sel);
       expect(TX_CSS, sel).toContain(`html[data-reduce-motion] ${sel}`);
@@ -635,68 +646,267 @@ describe('the transition and loader styles', () => {
   });
 });
 
-// ---- the slime --------------------------------------------------------------------------------------
-describe('the loading slime', () => {
+
+// ---- Mochi, the loading slime -------------------------------------------------------------------------
+/** The custom properties a CSS block (by its selector) sets: name → value. */
+function cssVars(css, selector) {
+  const at = css.indexOf(`${selector} {`);
+  if (at < 0) return {};
+  const body = css.slice(at + selector.length + 2, css.indexOf('}', at));
+  return Object.fromEntries([...stripComments(body).matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+}
+const hex = (c) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(c);
+  return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null;
+};
+/** Hue in degrees (0–360) and saturation (0–1) of a #rrggbb colour. */
+function hueSat(c) {
+  const [r, g, b] = hex(c).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (!d) return { h: 0, s: 0 };
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return { h, s: d / (1 - Math.abs(max + min - 1)) };
+}
+const lum = (c) => {
+  const [r, g, b] = hex(c).map((v) => {
+    const x = v / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+
+describe('Mochi, the loading slime', () => {
   it('is plain inline SVG: no script, no external reference, one shared defs block', () => {
-    const all = SLIME_DEFS + slimeMarkup();
+    const all = MOCHI_DEFS + mochiMarkup();
     expect(all).not.toMatch(/<script|on\w+=|javascript:|https?:|xlink:href|<image|<foreignObject/i);
-    for (const ref of all.matchAll(/(?:href|url\()\s*=?\s*"?#([\w-]+)/g)) expect(ref[1]).toMatch(/^ldsl-/);
-    expect(SLIME_DEFS.match(/<defs>/g)).toHaveLength(1);
-    expect(slimeMarkup()).not.toMatch(/<defs>/);
-    for (const id of ['ldsl-g', 'ldsl-core', 'ldsl-iris', 'ldsl-petal', 'ldsl-eye']) expect(SLIME_DEFS).toContain(`id="${id}"`);
+    for (const ref of all.matchAll(/(?:href|url\()\s*=?\s*"?#([\w-]+)/g)) expect(ref[1]).toMatch(/^mochi-/);
+    expect(MOCHI_DEFS.match(/<defs>/g)).toHaveLength(1);
+    expect(mochiMarkup()).not.toMatch(/<defs>/);
+    for (const id of ['mochi-defs', 'mochi-jelly', 'mochi-core', 'mochi-iris', 'mochi-sprig-g', 'mochi-eye']) expect(MOCHI_DEFS).toContain(`id="${id}"`);
   });
 
   it('every moving part is its own HTML layer (the compositor animates it), never an SVG child', () => {
-    for (const cls of ['sl-shadow', 'sl-hop', 'sl-squash', 'sl-body', 'sl-eyes', 'sl-mouth-s', 'sl-mouth-o', 'sl-petal']) {
-      expect(SLIME_INNER, cls).toMatch(new RegExp(`<div class="(sl-layer )?${cls}"`));
+    for (const cls of ['mochi-shadow', 'mochi-hop', 'mochi-squash', 'mochi-body', 'mochi-eyes', 'mochi-mouth-s', 'mochi-mouth-o', 'mochi-sprig']) {
+      expect(MOCHI_INNER, cls).toMatch(new RegExp(`<div class="(mochi-layer )?${cls}"`));
     }
-    expect(SLIME_INNER).not.toMatch(/<animate|<set /);
+    expect(MOCHI_INNER).not.toMatch(/<animate|<set /);
+    // the code and the CSS name it Mochi; nothing of the old names is left
+    expect(MOCHI_DEFS + MOCHI_INNER + INLINE_CSS + TX_CSS).not.toMatch(/ldsl-|\bsl-|class="sl\b|\.sl\b/);
   });
 
-  it('is our own mint slime with a sakura petal (not a blue drop with dot eyes)', () => {
-    expect(SLIME_DEFS).toContain('#76da9c'); // mint jelly (the Green Slime's family colours)
-    expect(SLIME_DEFS).toContain('#ff79a7'); // the petal
-    expect(SLIME_INNER).toContain('sl-petal');
-    expect(SLIME_INNER).toContain('#ff86ad'); // blush
-    expect(SLIME_DEFS).toMatch(/<ellipse rx="8\.6" ry="10\.6"/); // big eyes with highlights, not dots
-    expect(SLIME_DEFS.match(/<circle [^>]*fill="#fff"/g)).toHaveLength(2);
+  it('is our own design: a mint jelly with a sakura petal, big eyes with highlights and blush (not a blue drop with dot eyes)', () => {
+    const mint = cssVars(INLINE_CSS, ':root');
+    expect(mint['mochi-jelly-3']).toBe('#76da9c'); // mint jelly (the Green Slime's family colours)
+    expect(mint['mochi-sprig-3']).toBe('#ff79a7'); // the sakura petal
+    expect(mint['mochi-blush']).toBe('#ff86ad');
+    expect(MOCHI_INNER).toContain('class="mochi-petal"');
+    expect(MOCHI_DEFS).toMatch(/<ellipse rx="8\.6" ry="10\.6"/); // big eyes with highlights, not dots
+    expect(MOCHI_DEFS.match(/<circle [^>]*fill="#fff"/g)).toHaveLength(2);
+    // a rounded mochi body (wider than tall, flat bottom), never a pointed drop
+    expect(MOCHI_INNER).toContain('M22 94C10 94 5 86 7 74C10 50 30 22 60 22C90 22 110 50 113 74C115 86 110 94 98 94Z');
+    // no look of it is blue
+    for (const look of [mint, cssVars(INLINE_CSS, 'html[data-mochi="sakura"]')]) {
+      for (const k of ['mochi-jelly-2', 'mochi-jelly-3', 'mochi-jelly-4']) {
+        const { h } = hueSat(look[k]);
+        expect(h >= 180 && h <= 260, `${k} ${look[k]} hue ${Math.round(h)}`).toBe(false);
+      }
+    }
   });
 
   it('comes in the four sizes; its markup takes a size', () => {
-    expect(SLIME_SIZES).toEqual({ phone: 64, desktop: 80, chip: 34, inline: 40 });
-    for (const s of Object.values(SLIME_SIZES)) expect(slimeMarkup({ size: s })).toContain(`--s:${s}px`);
-    expect(slimeMarkup({ cls: 'on-light' })).toMatch(/^<div class="sl on-light" aria-hidden="true">/);
+    expect(MOCHI_SIZES).toEqual({ phone: 64, desktop: 80, chip: 34, inline: 40 });
+    for (const s of Object.values(MOCHI_SIZES)) expect(mochiMarkup({ size: s })).toContain(`--s:${s}px`);
+    expect(mochiMarkup({ cls: 'on-light' })).toMatch(/^<div class="mochi on-light" aria-hidden="true">/);
   });
 
-  it('index.html draws the same slime and loader before any script (the boot loader)', () => {
-    expect(INDEX).toContain(SLIME_DEFS);
-    expect(INDEX).toContain(loaderMarkup({ tip: BOOT_TIP, cls: 'ld on boot wait' }));
+  it('index.html draws the same Mochi and loader before any script (the boot loader)', () => {
+    expect(INDEX).toContain(MOCHI_DEFS);
+    expect(INDEX).toContain(loaderMarkup({ cls: 'ld on boot wait' }));
     // the boot loader comes before the game's root and its script
     expect(INDEX.indexOf('id="ld"')).toBeLessThan(INDEX.indexOf('id="app"'));
     expect(INDEX.indexOf('<style>')).toBeLessThan(INDEX.indexOf('</head>'));
     expect(loaderMarkup()).toMatch(/role="status" aria-live="polite"/);
+    // the boot loader says "Loading" and nothing else
+    const boot = INDEX.slice(INDEX.indexOf('<div id="ld"'), INDEX.indexOf('<div id="app"'));
+    expect(boot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()).toBe('Loading');
   });
 });
 
-// ---- tips ---------------------------------------------------------------------------------------------
-describe('loading tips', () => {
-  const BANNED = /\b(date|dating|kiss|crush|flirt|romance|sexy|bikini|swimsuit|waifu|kill|blood|die|dead)\b/i;
-  it('ten or more, one line each (≤ 80 characters), unique, wholesome', () => {
-    expect(LOADING_TIPS.length).toBeGreaterThanOrEqual(10);
-    expect(new Set(LOADING_TIPS).size).toBe(LOADING_TIPS.length);
-    for (const t of LOADING_TIPS) {
-      expect(t.length, t).toBeLessThanOrEqual(80);
-      expect(t, t).toMatch(/^[A-Z].*[.!]$/);
-      expect(t.match(BANNED)?.[0] ?? null, t).toBeNull();
+// ---- the two looks and the two backgrounds ---------------------------------------------------------------
+describe('the loading screen looks: Mochi mint / sakura, the background black / colour', () => {
+  const mint = cssVars(INLINE_CSS, ':root');
+  const sakura = cssVars(INLINE_CSS, 'html[data-mochi="sakura"]');
+  const mochiKeys = (o) => Object.keys(o).filter((k) => k.startsWith('mochi-')).sort();
+
+  it('two looks, two backgrounds, mint on black by default', () => {
+    expect(MOCHI_LOOKS).toEqual(['mint', 'sakura']);
+    expect(LOADER_BGS).toEqual(['black', 'colour']);
+    expect(LOADING_LOOK_DEFAULT).toEqual({ mochi: 'mint', bg: 'black' });
+    expect(mint['ld-bg']).toBe('#050608');
+  });
+
+  it('the sakura look recolours every part the mint look colours (same shape, same hop: only colours)', () => {
+    expect(mochiKeys(mint).length).toBeGreaterThanOrEqual(12);
+    expect(mochiKeys(sakura)).toEqual(mochiKeys(mint));
+    for (const k of mochiKeys(mint)) expect(sakura[k], k).not.toBe(mint[k]);
+    // pink jelly, mint leaf
+    for (const k of ['mochi-jelly-2', 'mochi-jelly-3', 'mochi-jelly-4']) {
+      const { h, s } = hueSat(sakura[k]);
+      expect(h >= 320 || h <= 15, `${k} ${sakura[k]} is pink (hue ${Math.round(h)})`).toBe(true);
+      expect(s).toBeGreaterThan(0.4);
+      expect(hueSat(mint[k]).h, `${k} mint`).toBeGreaterThan(100);
+      expect(hueSat(mint[k]).h, `${k} mint`).toBeLessThan(170);
+    }
+    for (const k of ['mochi-sprig-2', 'mochi-sprig-3']) {
+      const { h } = hueSat(sakura[k]);
+      expect(h > 100 && h < 170, `${k} ${sakura[k]} is mint (hue ${Math.round(h)})`).toBe(true);
+    }
+    // the petal becomes a leaf: both grow from the same point, one shows per look
+    expect(MOCHI_INNER).toContain('class="mochi-petal"');
+    expect(MOCHI_INNER).toContain('class="mochi-leaf"');
+    expect(MOCHI_INNER.indexOf('mochi-petal')).toBeGreaterThan(MOCHI_INNER.indexOf('<g transform="translate(76 25) scale(1.15)">'));
+    expect(stripComments(INLINE_CSS)).toMatch(/\.mochi-leaf \{ display: none; \}/);
+    expect(stripComments(INLINE_CSS)).toMatch(/html\[data-mochi="sakura"\] \.mochi-petal \{ display: none; \}/);
+    expect(stripComments(INLINE_CSS)).toMatch(/html\[data-mochi="sakura"\] \.mochi-leaf \{ display: inline; \}/);
+    // the hop, squash, blink and petal keyframes are the same for both looks (no look-specific animation)
+    expect(stripComments(INLINE_CSS)).not.toMatch(/data-mochi[^{]*\{[^}]*animation/);
+  });
+
+  it('every look colour in the markup is a --mochi-* property whose fallback is the mint look', () => {
+    const all = MOCHI_DEFS + MOCHI_INNER;
+    const used = [...all.matchAll(/var\(--(mochi-[\w-]+),(#[0-9a-f]{6})\)/gi)];
+    expect(used.length).toBeGreaterThanOrEqual(12);
+    for (const [, name, fallback] of used) {
+      expect(mint[name], name).toBeDefined();
+      expect(fallback.toLowerCase(), name).toBe(mint[name].toLowerCase());
+    }
+    expect(new Set(used.map((u) => u[1])).size).toBe(mochiKeys(mint).filter((k) => k !== 'mochi-glow').length);
+  });
+
+  it('the colour background is the game\'s night navy with a very soft glow; Mochi and the text stay readable', () => {
+    const colour = cssVars(INLINE_CSS, 'html[data-loader-bg="colour"]')['ld-bg'];
+    expect(colour).toMatch(/#0b1630$/); // the navy (src/art: the card scenes' shade)
+    for (const a of colour.matchAll(/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/g)) expect(Number(a[1]), 'a soft glow').toBeLessThanOrEqual(0.16);
+    expect(stripComments(INLINE_CSS)).toMatch(/\.ld \{[^}]*background: var\(--ld-bg\)/);
+    // the cut's panel and the corner chip follow the same background
+    expect(stripComments(TX_CSS)).toMatch(/html\[data-loader-bg="colour"\] \.tx-cut \{[^}]*#0b1630/);
+    expect(stripComments(TX_CSS)).toMatch(/html\[data-loader-bg="colour"\] \.ld-chip \{/);
+    // "Loading" (#f3f6ff) and both jellies read on both backgrounds
+    for (const bg of ['#050608', '#0b1630']) {
+      expect(contrast('#f3f6ff', bg), `text on ${bg}`).toBeGreaterThanOrEqual(12);
+      for (const look of [mint, sakura]) expect(contrast(look['mochi-jelly-3'], bg), `${look['mochi-jelly-3']} on ${bg}`).toBeGreaterThanOrEqual(5);
     }
   });
 
-  it('the boot loader\'s tip is one of them; a seed always picks the same tip', () => {
-    expect(LOADING_TIPS).toContain(BOOT_TIP);
-    expect(INDEX).toContain(BOOT_TIP.replace(/'/g, "'"));
-    expect(pickTip('1-1')).toBe(pickTip('1-1'));
-    expect(LOADING_TIPS).toContain(pickTip(12345));
-    const seen = new Set(Array.from({ length: 60 }, (_, i) => pickTip(`stage-${i}`)));
-    expect(seen.size).toBeGreaterThan(5);
+  it('the setting: Settings storage (profile.settings), mint + black by default, older saves get the defaults, nothing else changes', () => {
+    expect(LOOK_SETTINGS).toEqual({ mochi: 'loadingMochi', bg: 'loadingBg' });
+    expect(DEFAULT_SETTINGS.loadingMochi).toBe('mint');
+    expect(DEFAULT_SETTINGS.loadingBg).toBe('black');
+    expect(SAVE_VERSION).toBe(2); // additive: no save version bump
+    const p = createProfile();
+    expect(loadingLookOf(p.settings)).toEqual({ mochi: 'mint', bg: 'black' });
+    const old = JSON.parse(JSON.stringify(p));
+    delete old.settings.loadingMochi;
+    delete old.settings.loadingBg;
+    expect(migrateProfile(old).settings).toMatchObject({ loadingMochi: 'mint', loadingBg: 'black' });
+    const picked = migrateProfile({ ...old, settings: { ...old.settings, loadingMochi: 'sakura', loadingBg: 'colour' } });
+    expect(picked.settings).toMatchObject({ loadingMochi: 'sakura', loadingBg: 'colour' });
+    expect(migrateProfile({ ...old, settings: { ...old.settings, loadingMochi: 'blue', loadingBg: 'white' } }).settings).toMatchObject({ loadingMochi: 'mint', loadingBg: 'black' });
+    expect(loadingLookOf(picked.settings)).toEqual({ mochi: 'sakura', bg: 'colour' });
+    for (const bad of [null, undefined, 'x', 7, { loadingMochi: 'pink', loadingBg: 'colour' }]) {
+      const look = loadingLookOf(bad);
+      expect(MOCHI_LOOKS).toContain(look.mochi);
+      expect(LOADER_BGS).toContain(look.bg);
+    }
+    expect(loadingLookOf({ loadingMochi: 'pink', loadingBg: 'colour' })).toEqual({ mochi: 'mint', bg: 'colour' });
+    // the Settings screen offers it in the Graphics section, in its own row style
+    const set = read('src/ui/screens/settings.js');
+    expect(set).toMatch(/row\('Loading screen'/);
+    expect(set).toMatch(/segmented\(\['mint', 'sakura'\], look\.mochi, pick\('loadingMochi'\), \{ mint: 'Mint', sakura: 'Pink' \}, 'loadingMochi'\)/);
+    expect(set).toMatch(/segmented\(\['black', 'colour'\], look\.bg, pick\('loadingBg'\), \{ black: 'Black', colour: 'Colour' \}, 'loadingBg'\)/);
+    const graphics = set.slice(set.indexOf("'data-section': 'graphics'"), set.indexOf("h3.panel-title', 'Lighting'"));
+    expect(graphics).toContain('loadingLookRow(s, redraw)');
+    // the game never shows the name: "Mochi" lives in code and docs only (e2e/transitions.mjs reads the screens' text)
+    const desc = /row\('Loading screen', '([^']*)'/.exec(set)[1];
+    const named = [...set.matchAll(/named\(segmented\([^\n]*\), '([^']*)'\)/g)].map((m) => m[1]);
+    expect(named).toEqual(['Slime colour', 'Background']);
+    for (const t of [desc, ...named]) expect(t).not.toMatch(/mochi/i);
+  });
+
+  it('applyLoadingLook puts the look on <html> (data-mochi, data-loader-bg); no DOM, no harm', () => {
+    const attrs = {};
+    const doc = { documentElement: { getAttribute: (k) => attrs[k] ?? null, setAttribute: (k, v) => { attrs[k] = String(v); } } };
+    expect(applyLoadingLook({ loadingMochi: 'sakura', loadingBg: 'colour' }, doc)).toEqual({ mochi: 'sakura', bg: 'colour' });
+    expect(attrs).toEqual({ 'data-mochi': 'sakura', 'data-loader-bg': 'colour' });
+    applyLoadingLook({}, doc);
+    expect(attrs).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    expect(() => applyLoadingLook({ loadingMochi: 'sakura' }, null)).not.toThrow();
+    expect(() => applyLoadingLook({ loadingMochi: 'sakura' }, { documentElement: { getAttribute() { throw new Error('x'); } } })).not.toThrow();
+    // main.js keeps it in step with the save (a migration, an import, another tab's save)
+    expect(read('src/main.js')).toMatch(/store\.on\('change', \(\) => applyLoadingLook\(store\.profile\.settings\)\)/);
   });
 });
+
+// ---- index.html's inline script: the saved look on <html> before the first paint --------------------------
+describe('the boot loader reads the saved look before any module script', () => {
+  const scripts = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  const code = scripts.find((c) => c.includes('data-mochi')) || '';
+  /** Runs the inline script against a fake <html> and storage; returns the attributes it set. */
+  const runBoot = (storage) => {
+    const attrs = {};
+    const documentElement = { setAttribute: (k, v) => { attrs[k] = v; } };
+    new Function('localStorage', 'document', code)(storage, { documentElement });
+    return attrs;
+  };
+  const stored = (settings) => {
+    const p = createProfile();
+    Object.assign(p.settings, settings);
+    return saveText(p, 3, 'tab1');
+  };
+  const storageWith = (text) => ({ getItem: (k) => (k === SAVE_KEY ? text : null) });
+
+  it('is tiny, comes before every module script and the boot loader, and reads the save key', () => {
+    expect(code.length).toBeGreaterThan(0);
+    expect(code.length).toBeLessThan(1400);
+    const at = INDEX.indexOf(code);
+    expect(at).toBeLessThan(INDEX.indexOf('<script type="module"'));
+    expect(at).toBeLessThan(INDEX.indexOf('<style>'));
+    expect(at).toBeLessThan(INDEX.indexOf('id="ld"'));
+    expect(code).toContain(`'${SAVE_KEY}'`);
+    expect(code).toContain(`"${LOOK_SETTINGS.mochi}"`);
+    expect(code).toContain(`"${LOOK_SETTINGS.bg}"`);
+    expect(code).toMatch(/try \{[\s\S]*localStorage\.getItem[\s\S]*\} catch/);
+  });
+
+  it('defaults: mint on black (nothing saved, an old save without the setting)', () => {
+    expect(runBoot(storageWith(null))).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    const old = createProfile();
+    delete old.settings.loadingMochi;
+    delete old.settings.loadingBg;
+    expect(runBoot(storageWith(saveText(old, 1)))).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    expect(runBoot(storageWith(stored({})))).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+  });
+
+  it('the saved choice, in every combination, from a real stored save', () => {
+    for (const mochi of MOCHI_LOOKS) {
+      for (const bg of LOADER_BGS) {
+        expect(runBoot(storageWith(stored({ loadingMochi: mochi, loadingBg: bg }))), `${mochi} + ${bg}`).toEqual({ 'data-mochi': mochi, 'data-loader-bg': bg });
+      }
+    }
+  });
+
+  it('storage that fails or holds junk gives the defaults, never an error', () => {
+    const throwing = { getItem() { throw new Error('SecurityError: storage blocked'); } };
+    expect(runBoot(throwing)).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    expect(runBoot(undefined)).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' }); // no localStorage at all
+    expect(runBoot(storageWith('not json {"loadingMochi":"blue","loadingBg":"<b>"}'))).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    expect(runBoot(storageWith(12345))).toEqual({ 'data-mochi': 'mint', 'data-loader-bg': 'black' });
+    // no <html> to write on: the CSS defaults (mint on black) stand
+    expect(() => new Function('localStorage', 'document', code)(storageWith(stored({ loadingMochi: 'sakura' })), {})).not.toThrow();
+  });
+});
+

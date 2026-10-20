@@ -1,5 +1,5 @@
 // The loader gate: one timing rule for every loader in the game (the black loading screen, the
-// corner chip, the small slimes inside panels), so none of them ever flashes.
+// corner chip, the small Mochis inside panels), so none of them ever flashes.
 //   · A load that is done within SHOW_AFTER_MS (150 ms) never shows anything.
 //   · Once a loader is visible it stays at least MIN_SHOWN_MS (450 ms).
 // Pure: the clock and the timers are injected, so the tests drive time by hand.

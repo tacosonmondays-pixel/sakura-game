@@ -1,7 +1,8 @@
 // Screen transitions (owner: "cleaner and animated menu transitions"). The router asks for one per
 // screen change (src/ui/router.js); the kind comes from ./kind.js:
-//   cut         a slanted black panel sweeps in from the right with a sakura + mint edge, the
-//               screens swap under it (the full loader shows there once the black lasts 150 ms),
+//   cut         a slanted black (or night-navy: Settings → Loading screen) panel sweeps in from the
+//               right with a sakura + mint edge, the screens swap under it (the full loader shows
+//               there once the cover lasts 150 ms),
 //               then it sweeps out to the left while the new screen drifts in 14 px
 //   slide       shared axis, out then in, all in place (no copy of the old screen): the old body
 //               fades out as it starts to move (90 ms), the screens swap, the new body slides in
@@ -180,11 +181,11 @@ function coverTx(kind, root, prev, info) {
   const tx = baseTx(kind, info);
   const R = reducedMotion();
   root.inert = true;
-  // where it is going ("Deploying · 1-1 · First Petals"): on the loader from its first frame
-  const dest = loaderInfoFor(info?.to, info?.params) || {};
+  // a load that counts (the battle): its progress line from the loader's first frame
+  const dest = loaderInfoFor(info?.to) || {};
   // ONE loader ticket per change, from the moment the screen is black (the boot: from the first
   // paint) until the reveal: a slow download, a long render and a held reveal all count towards the
-  // same 150 ms, so the black never sits there without the slime, and the slime never blinks
+  // same 150 ms, so the cover never sits there without Mochi, and Mochi never blinks
   let ticket = null;
   if (kind === 'boot') {
     const bootAt = bootLoaderStart();
@@ -215,10 +216,10 @@ function coverTx(kind, root, prev, info) {
   }
   tx.covered = tx.coverDone.then(() => {
     if (kind !== 'cut') return undefined;
-    if (!tx.superseded) ticket = armLoader({ bare: true, info: { kicker: '', title: '', ...dest } });
+    if (!tx.superseded) ticket = armLoader({ bare: true, info: dest });
     // one frame draws the armed loader before the swap: its CSS entrance (the 150 ms delay, run by
     // the compositor) starts with that frame, so a long render right after cannot hold it back and
-    // the gate's clock is the slime's own clock (no shorter showing than the 450 ms it counts)
+    // the gate's clock is Mochi's own clock (no shorter showing than the 450 ms it counts)
     return frames(1).then(nextTask);
   });
 
@@ -254,7 +255,7 @@ function coverTx(kind, root, prev, info) {
     tx.collecting = false;
     releaseLoaderInput();
     // a loader on show serves its minimum; then the new screen draws two frames still under the
-    // loader (a slow first frame, e.g. a shader compile, shows the slime, never bare black) …
+    // loader (a slow first frame, e.g. a shader compile, shows Mochi, never a bare cover) …
     if (ticket) await ticket.served();
     if (tx.superseded) return;
     await frames(2);
@@ -459,22 +460,23 @@ function slideTx(kind, root, info) {
  * Keeps the full loader up until `promise` settles: the battle until its first frame is drawn
  * (also on a restart or a co-op rebuild in place), the title until its preload is done.
  * Called while a cut or the boot is swapping screens, it holds that change's reveal (and gives the
- * loader its kicker / destination / progress). Called any other time it puts the black loader over
+ * loader its progress line, when the load counts something). Called any other time it puts the loader over
  * whatever is on screen (visible after 150 ms, or at once with `immediate`: a known long build
  * follows), always with the 450 ms minimum.
  * @param {Promise<any>} promise
- * @param {{ kicker?: string, title?: string, tip?: string, progress?: number|null, cap?: number, immediate?: boolean }} [o]
+ * @param {{ progress?: number|null, cap?: number, immediate?: boolean }} [o] progress: 0..1 when the
+ *   load counts something real (the line stays hidden otherwise: never a fake bar)
  * @returns {{ revealed: Promise<void>, painted: Promise<void>, release: () => void, attached: boolean }}
  *   revealed: the screen is uncovered (the loader gone); painted: the loader has had a frame to
  *   draw itself (await it before a long synchronous build); release(): stop holding (destroyed)
  */
-export function holdLoader(promise, { kicker, title, tip, progress, cap = 30000, immediate = false } = {}) {
+export function holdLoader(promise, { progress, cap = 30000, immediate = false } = {}) {
   if (!domOk()) return { revealed: Promise.resolve(), painted: Promise.resolve(), release() {}, attached: false };
   let release = () => {};
   const released = new Promise((r) => {
     release = r;
   });
-  const info = Object.fromEntries(Object.entries({ kicker, title, tip, progress }).filter(([, v]) => v !== undefined));
+  const info = progress !== undefined ? { progress } : {};
   const p = Promise.race([Promise.resolve(promise).catch(() => {}), released, sleep(cap)]);
   const tx = active;
   if (tx && tx.collecting && !tx.superseded) {

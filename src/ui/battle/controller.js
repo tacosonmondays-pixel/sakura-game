@@ -56,7 +56,6 @@ import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
-import { battleLoaderTitle } from '../transitions/kind.js';
 import { eventNow } from '../events/clock.js'; // [events]
 
 const RESULT_DELAY_MS = 1700;
@@ -164,21 +163,14 @@ export function mountBattle(root, params, hooks) {
   const stageEl = h('div.bt-canvas');
   const layer = h('div.bt-layer');
   shell.append(stageEl, layer);
-  // the black loading screen (src/ui/transitions): up until this battle's first frame is drawn
-  // (behind the cut from stage prep, the lobby or a co-op room; on its own for a restart or a co-op
-  // rebuild in place), its progress line counting the girls' and enemies' models
+  // the loading screen (src/ui/transitions: "Loading" + Mochi, nothing else): up until this battle's
+  // first frame is drawn (behind the cut from stage prep, the lobby or a co-op room; on its own for a
+  // restart or a co-op rebuild in place), its progress line counting the girls' and enemies' models
   let markShown = () => {};
   const shown = new Promise((r) => {
     markShown = r;
   });
-  // (the cut into the battle already shows the same line from the route: transitions/kind.js loaderInfoFor)
-  const stageLabel = battleLoaderTitle(stage);
-  const loader = holdLoader(shown, {
-    kicker: restored ? 'Resuming' : ls ? 'Co-op' : 'Deploying',
-    title: restored ? `${stageLabel} · wave ${restored.sim.wave + 1}` : stageLabel,
-    progress: 0,
-    immediate: true,
-  });
+  const loader = holdLoader(shown, { progress: 0, immediate: true });
 
   let destroyed = false;
   let raf = 0;

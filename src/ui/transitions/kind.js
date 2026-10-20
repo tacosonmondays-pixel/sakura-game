@@ -10,7 +10,6 @@
 // Reduced motion turns the slides into a fade through (opacity only) and the cut into a fade
 // through black.
 import { menuAncestors, sameScreen } from '../nav.js';
-import { STAGE_MAP } from '../../data/stages.js';
 
 export const TRANSITION_KINDS = Object.freeze(['boot', 'cut', 'slide', 'slide-back', 'crossfade', 'none']);
 
@@ -52,22 +51,15 @@ export function readySignalFor(name) {
   return READY_SIGNALS[name] || null;
 }
 
-/** A battle's name on the loading screen: "1-1 · First Petals" (campaign), else the stage's name. */
-export function battleLoaderTitle(stage) {
-  if (!stage) return '';
-  return `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name}`;
-}
-
 /**
- * What the loading screen says about where a cut is going, from the route alone, so the line is
- * there from the loader's first frame (the battle then confirms it while it mounts).
- * @returns {{ kicker: string, title: string, progress: number }|null}
+ * What the loading screen shows for a cut, from the route alone. It only ever says "Loading" (owner:
+ * "it saying loading is enough": no destination, no tips); a screen that really counts its load
+ * (the battle: its girls' and enemies' models) starts the progress line at 0 from the loader's
+ * first frame, and the battle then moves it while it mounts.
+ * @returns {{ progress: number }|null}
  */
-export function loaderInfoFor(name, params = {}) {
-  if (name !== 'battle') return null;
-  const p = params || {};
-  const kicker = p.resume ? 'Resuming' : p.coop ? 'Co-op' : 'Deploying';
-  return { kicker, title: battleLoaderTitle(STAGE_MAP[p.stage || p.id]), progress: 0 };
+export function loaderInfoFor(name) {
+  return name === 'battle' ? { progress: 0 } : null;
 }
 
 /**

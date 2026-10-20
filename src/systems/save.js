@@ -52,10 +52,20 @@ export const DEFAULT_SETTINGS = {
   camera: 'locked',
   /** Buff icons over the girls: 'all', 'selected' (the selected girl and her links) or 'off'. */
   buffIcons: 'all',
+  /**
+   * The loading screen's look (Settings → Loading screen; src/ui/loading/mochi.js): Mochi, the
+   * loading slime, 'mint' (mint jelly + sakura petal) or 'sakura' (sakura-pink jelly + mint leaf), and
+   * the background, 'black' or 'colour' (night navy with a soft glow). index.html's inline script
+   * reads both from the stored save before the first paint. Additive: no save version bump.
+   */
+  loadingMochi: 'mint',
+  loadingBg: 'black',
 };
 
 const CAMERA_MODES = ['locked', 'free'];
 const BUFF_ICON_MODES = ['all', 'selected', 'off'];
+const LOADING_MOCHI_LOOKS = ['mint', 'sakura'];
+const LOADING_BGS = ['black', 'colour'];
 
 /** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
 export function newUnitState(now = Date.now()) {
@@ -253,6 +263,9 @@ function cleanSettings(raw) {
     camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
     // older saves have no buff icon setting: every buffed girl shows hers
     buffIcons: BUFF_ICON_MODES.includes(s.buffIcons) ? s.buffIcons : d.buffIcons,
+    // older saves have no loading screen look: the mint Mochi on black
+    loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
+    loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
   };
 }
 

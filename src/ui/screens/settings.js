@@ -1,6 +1,6 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (placement range, auto start, default speed, camera
-// locked / free) and save data
+// motion, the loading screen's look), audio, battle defaults (placement range, auto start, default
+// speed, camera locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
@@ -15,6 +15,8 @@ import { onlineSection } from '../online/settingsOnline.js';
 import { cue } from '../../audio/cue.js'; // [audio]
 import { buildLine } from '../../core/buildInfo.js';
 import { checkForUpdate, reloadFresh, updateCheckFailed } from '../../core/updates.js';
+import { applyLoadingLook, loadingLookOf } from '../loading/mochi.js';
+import { miniMochi } from '../loading/loader.js';
 
 function settings() {
   const p = store.profile;
@@ -63,6 +65,7 @@ function build(redraw) {
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
     row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); }, 'reduceMotion')),
+    loadingLookRow(s, redraw),
   ));
 
   const preview = h('div.ma-light-preview', { html: themeBackdropSVG('sakura'), title: 'Preview' });
@@ -112,6 +115,33 @@ function build(redraw) {
   wrap.appendChild(versionSection());
   wrap.appendChild(h('p.muted.ma-version', `Sakura Sentinels · save v${SAVE_VERSION} · ${formatNumber(store.profile.stats?.battles || 0)} battles fought`));
   return wrap;
+}
+
+/**
+ * The loading screen's look (owner: "try both!! We'll pick the loading screen after"): the slime
+ * Mint / Pink and the background Black / Colour, with a small live preview. The look sits on <html>
+ * (src/ui/loading/mochi.js applyLoadingLook), so every loader follows at once; index.html reads the
+ * saved choice before the first paint.
+ */
+function loadingLookRow(s, redraw) {
+  const look = loadingLookOf(s);
+  const pick = (key) => (v) => {
+    s[key] = v;
+    save();
+    applyLoadingLook(s);
+    redraw();
+  };
+  const preview = h('div.ma-ld-preview', { 'aria-hidden': 'true', 'data-testid': 'set-loading-preview' }, miniMochi({ dark: true, size: 26 }));
+  return row('Loading screen', 'The little slime in the corner and the screen behind it.',
+    h('div.ma-ld-look',
+      preview,
+      named(segmented(['mint', 'sakura'], look.mochi, pick('loadingMochi'), { mint: 'Mint', sakura: 'Pink' }, 'loadingMochi'), 'Slime colour'),
+      named(segmented(['black', 'colour'], look.bg, pick('loadingBg'), { black: 'Black', colour: 'Colour' }, 'loadingBg'), 'Background')));
+}
+
+function named(el, label) {
+  el.setAttribute('aria-label', label);
+  return el;
 }
 
 function row(label, desc, control) {

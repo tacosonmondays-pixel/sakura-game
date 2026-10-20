@@ -27,7 +27,7 @@ import { MODE_TEXT } from '../text/modes.js';
 import { RULE_TEXT } from '../text/rules.js';
 import { modeIcon } from '../../art/icons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
-import { miniSlime } from '../loading/loader.js';
+import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
@@ -613,13 +613,13 @@ export function render(root, params = {}) {
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] } },
           session.mismatch
             ? h('div.ol-pcard-wait', h('b', `${session.mismatch.name} is here`), h('p.muted', 'Your game versions differ — see above.'))
-            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, miniSlime(), h('b', title), h('p.muted', sub)));
+            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, miniMochi(), h('b', title), h('p.muted', sub)));
       }
       if (!me && !session.paired) {
         // I hear my ally, but it does not hear me yet: no Ready / Start until it does (the
         // lobby fixes a one-way link by itself with a fresh connection)
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] }, 'data-testid': 'coop-connecting', 'data-slot': slot },
-          h('div.ol-pcard-wait', miniSlime(), h('b', `Connecting to ${p.name || 'your ally'}…`),
+          h('div.ol-pcard-wait', miniMochi(), h('b', `Connecting to ${p.name || 'your ally'}…`),
             h('p.muted', 'Making sure you can both hear each other. This fixes itself in a few seconds.')));
       }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);

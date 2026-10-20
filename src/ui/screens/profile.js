@@ -383,20 +383,20 @@ function renderVisit(root, userId) {
   function stateScreen({ title = 'Sensei Profile', who = null, text, testid, buttons = [], loading = false }) {
     closeSheet();
     clearDetach();
-    // loading: the little slime instead of the text (shown after 150 ms, then at least 450 ms)
-    const slime = loading ? inlineLoader(text || 'Loading') : null;
+    // loading: a little Mochi instead of the text (shown after 150 ms, then at least 450 ms)
+    const mochi = loading ? inlineLoader(text || 'Loading') : null;
     const card = h('div.pf-empty-card', { 'data-testid': testid },
       who ? h('div.pf-basic',
         avatarEl(who.avatar, null),
         h('div.pf-basic-who',
           h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), tagChips(userId, { all: true, size: 'lg' }), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
           who.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', who.clan.tag), who.clan.name) : null)) : null,
-      slime || (text ? h('b', { 'data-testid': 'profile-state' }, text) : null),
+      mochi || (text ? h('b', { 'data-testid': 'profile-state' }, text) : null),
       buttons.length ? h('div.pf-basic-acts', buttons) : null);
     const node = h('div.screen.pf.pf-visit-state', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
       h('div.pf-banner', bannerArt('academy:day')), topBar({ title }), card);
     host.replaceChildren(node);
-    if (slime) holdInline(host, node, slime);
+    if (mochi) holdInline(host, node, mochi);
   }
 
   /**

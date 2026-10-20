@@ -1,18 +1,19 @@
 // The loaders (owner: "loading screens, like black with a cute something like slime in the corner
-// and loading"). Three of them, all behind the same gate (./gate.js: visible only after 150 ms,
-// then at least 450 ms):
-//   · the full loader #ld: black, "Loading" + the slime bottom-right, the destination and a tip
-//     bottom-left, a thin progress line along the bottom. index.html draws it from the first byte
-//     (the boot loader); this module adopts that element and reuses it for every later load.
-//   · the corner chip: a small dark slanted pill with the mini slime, while a menu screen's code is
+// and loading"; then "just black or colored ... it saying loading is enough"). Three of them, all
+// behind the same gate (./gate.js: visible only after 150 ms, then at least 450 ms):
+//   · the full loader #ld: black (or the night-navy "colour" background, Settings → Loading
+//     screen), "Loading" + Mochi bottom-right and nothing else, plus a thin progress line along the
+//     bottom only while a load really counts something (the battle's models, the title's preload).
+//     index.html draws it from the first byte (the boot loader); this module adopts that element
+//     and reuses it for every later load.
+//   · the corner chip: a small dark slanted pill with a mini Mochi, while a menu screen's code is
 //     still downloading (the old screen stays on show).
-//   · the inline slime: inside a panel that is fetching (chat, clan, profile, co-op).
+//   · the inline Mochi: inside a panel that is fetching (chat, clan, profile, co-op).
 // Showing is done by CSS: arming a loader sets an animation-delay of 150 ms on its opacity, which
 // the compositor runs even while the main thread is busy, so it appears on time during a long
 // model parse and keeps hopping through it.
 import { createGate, clampProgress, SHOW_AFTER_MS, MIN_SHOWN_MS } from './gate.js';
-import { slimeMarkup, ensureSlimeDefs, LABEL_HTML } from './slime.js';
-import { pickTip } from '../../data/loadingTips.js';
+import { mochiMarkup, ensureMochiDefs, LABEL_HTML } from './mochi.js';
 
 const hasDom = () => typeof document !== 'undefined' && !!document.body;
 const now = () => performance.now();
@@ -44,7 +45,7 @@ function loaderEl() {
   if (ld?.isConnected) return ld;
   ld = document.getElementById('ld');
   if (!ld) {
-    ensureSlimeDefs();
+    ensureMochiDefs();
     const t = document.createElement('template');
     t.innerHTML = loaderMarkup();
     ld = t.content.firstElementChild;
@@ -53,12 +54,10 @@ function loaderEl() {
   return ld;
 }
 
-/** The loader's markup (index.html carries the same, with the boot classes and its first tip). */
-export function loaderMarkup({ tip = '', cls = 'ld' } = {}) {
+/** The loader's markup (index.html carries the same, with the boot classes): "Loading" + Mochi, the progress line. */
+export function loaderMarkup({ cls = 'ld' } = {}) {
   return `<div id="ld" class="${cls}" role="status" aria-live="polite" aria-label="Loading">`
-    + '<div class="ld-left"><div class="ld-ctx" hidden><small></small><b></b></div>'
-    + `<div class="ld-tip"><b>TIP</b><span>${tip}</span></div></div>`
-    + `<div class="ld-corner">${LABEL_HTML('Loading')}${slimeMarkup({ cls: 'pop' })}</div>`
+    + `<div class="ld-corner">${LABEL_HTML('Loading')}${mochiMarkup({ cls: 'pop' })}</div>`
     + '<div class="ld-bar"><i></i></div></div>';
 }
 
@@ -120,8 +119,7 @@ export function armLoader({ bare = false, immediate = false, startAt, info = nul
       el.classList.toggle('bare', bare);
       if (was) void el.offsetWidth;
       el.classList.add('on');
-      setTip(el, pickTip(`${t}`));
-      setInfo(el, { kicker: '', title: '', progress: null, ...(info || {}) });
+      setInfo(el, { progress: null, ...(info || {}) });
     } else if (info) setInfo(el, info);
   } else if (info) setInfo(el, info);
   el.classList.add('wait');
@@ -139,7 +137,7 @@ export function loaderState() {
   return fullGate.state;
 }
 
-/** The kicker / destination / tip / progress shown on the loader. */
+/** What the loader shows besides "Loading" + Mochi: only the progress line ({ progress: 0..1 | null }). */
 export function setLoaderInfo(info = {}) {
   if (!hasDom()) return;
   setInfo(loaderEl(), info);
@@ -163,20 +161,7 @@ function setProgressOn(el, p) {
   } else bar.style.setProperty('--p', '0');
 }
 
-function setTip(el, tip) {
-  const span = el.querySelector('.ld-tip > span');
-  if (span && tip) span.textContent = tip;
-}
-
-function setInfo(el, { kicker, title, tip, progress } = {}) {
-  const ctx = el.querySelector('.ld-ctx');
-  if (ctx && (kicker !== undefined || title !== undefined)) {
-    const has = !!(kicker || title);
-    ctx.hidden = !has;
-    ctx.querySelector('small').textContent = kicker || '';
-    ctx.querySelector('b').textContent = title || '';
-  }
-  if (tip) setTip(el, tip);
+function setInfo(el, { progress } = {}) {
   if (progress !== undefined) setProgressOn(el, progress);
 }
 
@@ -205,9 +190,9 @@ export function bootLoaderStart() {
 let chip = null;
 function chipEl() {
   if (chip?.isConnected) return chip;
-  ensureSlimeDefs();
+  ensureMochiDefs();
   const t = document.createElement('template');
-  t.innerHTML = `<div class="ld-chip" role="status" aria-live="polite" data-testid="loading-chip">${LABEL_HTML('Loading')}${slimeMarkup()}</div>`;
+  t.innerHTML = `<div class="ld-chip" role="status" aria-live="polite" data-testid="loading-chip">${LABEL_HTML('Loading')}${mochiMarkup()}</div>`;
   chip = t.content.firstElementChild;
   document.body.append(chip);
   return chip;
@@ -240,43 +225,43 @@ export function armChip() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The inline slime (inside a panel that is fetching)
+// The inline Mochi (inside a panel that is fetching)
 // ---------------------------------------------------------------------------------------------
 /**
- * A small slime + "Loading" for a panel. It turns visible only after 150 ms (CSS), so a fast fetch
+ * A small Mochi + "Loading" for a panel. It turns visible only after 150 ms (CSS), so a fast fetch
  * never shows it.
  * @param {string} [label] e.g. 'Connecting', 'Loading the boss'
  * @param {{ dark?: boolean, testid?: string }} [o] dark: on a dark background
  * @returns {HTMLElement}
  */
 export function inlineLoader(label = 'Loading', { dark = false, testid = null } = {}) {
-  ensureSlimeDefs();
+  ensureMochiDefs();
   const t = document.createElement('template');
-  t.innerHTML = `<div class="ld-inline${dark ? ' dark' : ''}" role="status" aria-live="polite">${LABEL_HTML(label)}${slimeMarkup({ cls: dark ? '' : 'on-light' })}</div>`;
+  t.innerHTML = `<div class="ld-inline${dark ? ' dark' : ''}" role="status" aria-live="polite">${LABEL_HTML(label)}${mochiMarkup({ cls: dark ? '' : 'on-light' })}</div>`;
   const el = t.content.firstElementChild;
   if (testid) el.dataset.testid = testid;
   el.dataset.since = String(now());
   return el;
 }
 
-/** The mini slime alone (a waiting card: "Waiting for your ally…"), always hopping. */
-export function miniSlime({ dark = false, size = 40 } = {}) {
-  ensureSlimeDefs();
+/** A mini Mochi alone (a waiting card: "Waiting for your ally…"), always hopping. */
+export function miniMochi({ dark = false, size = 40 } = {}) {
+  ensureMochiDefs();
   const t = document.createElement('template');
-  t.innerHTML = `<div class="ld-mini${dark ? ' dark' : ''}" aria-hidden="true">${slimeMarkup({ cls: dark ? '' : 'on-light', size })}</div>`;
+  t.innerHTML = `<div class="ld-mini${dark ? ' dark' : ''}" aria-hidden="true">${mochiMarkup({ cls: dark ? '' : 'on-light', size })}</div>`;
   return t.content.firstElementChild;
 }
 
 /**
- * Keeps an inline slime on screen for its minimum time when the content that replaces it arrives
- * early: `node` (the placeholder holding `slime`) sits in `host`; when the screen's code swaps it
- * out while the slime has been visible for less than 450 ms, the placeholder is put back on top
- * (the new content waits invisible underneath) until the time is up, then the content fades in.
- * Returns a stop() (nothing to undo once the placeholder is gone).
+ * Keeps an inline Mochi on screen for its minimum time when the content that replaces it arrives
+ * early: `node` (the placeholder holding `loader`, an inlineLoader()) sits in `host`; when the
+ * screen's code swaps it out while Mochi has been visible for less than 450 ms, the placeholder is
+ * put back on top (the new content waits invisible underneath) until the time is up, then the
+ * content fades in. Returns a stop() (nothing to undo once the placeholder is gone).
  */
-export function holdInline(host, node, slime = node) {
+export function holdInline(host, node, loader = node) {
   if (!hasDom() || typeof MutationObserver === 'undefined' || !host) return () => {};
-  const since = Number(slime.dataset?.since) || now();
+  const since = Number(loader.dataset?.since) || now();
   let stopped = false;
   const mo = new MutationObserver(() => {
     if (stopped || node.parentNode === host) return;

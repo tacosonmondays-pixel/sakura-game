@@ -1,7 +1,9 @@
 /* Screen transitions + the loaders that live in JS (src/ui/transitions/index.js, src/ui/loading/).
-   The full loader (#ld) and the slime's keyframes are in index.html's inline <style>: they have to
-   exist before any script runs. Everything here animates transform or opacity only, 120–320 ms
-   (the slime's own 1.2 s hop loop and its blink are the only longer, infinite animations). */
+   The full loader (#ld), Mochi's keyframes and its two looks are in index.html's inline <style>: they
+   have to exist before any script runs. Everything here animates transform or opacity only, 120–320 ms
+   (Mochi's own 1.2 s hop loop and its blink are the only longer, infinite animations).
+   Stacking: the cut (360) and the loader (370) sit above every toast and banner (the journal toast
+   350, toasts 200, social 210, the update pill 190): a cover always hides what it covers. */
 
 /* ---------- cut: the slanted black wipe for big moves ---------- */
 .tx-cut {
@@ -10,6 +12,12 @@
 }
 .tx-cut.on { visibility: visible; }
 .tx-cut.on.covered { transform: translateX(0) skewX(-12deg); opacity: 1; }
+/* the "colour" background (Settings → Loading screen): the loader's night navy (#0b1630), with a very
+   soft sakura glow where Mochi sits when covered and a mint one from the top-left (index.html --ld-bg) */
+html[data-loader-bg="colour"] .tx-cut {
+  background: radial-gradient(34% 75% at 84% 100%, rgba(255, 122, 168, 0.13), rgba(255, 122, 168, 0) 72%),
+    radial-gradient(40% 70% at 22% 0%, rgba(123, 227, 164, 0.09), rgba(123, 227, 164, 0) 72%), #0b1630;
+}
 /* accent edges: the left one leads the cover, the right one trails the reveal */
 .tx-cut::before, .tx-cut::after { content: ''; position: absolute; top: 0; bottom: 0; width: 26px; }
 .tx-cut::before { left: -26px; background: linear-gradient(90deg, #7be3a4 0 4px, transparent 4px 9px, #ff7aa8 9px 26px); }
@@ -29,19 +37,20 @@
 .ld-chip.on.out { animation: ld-chip-out 120ms ease-in both; }
 @keyframes ld-chip-in { from { opacity: 0; transform: skewX(-12deg) translateY(8px); } to { opacity: 1; transform: skewX(-12deg); } }
 @keyframes ld-chip-out { from { opacity: 1; transform: skewX(-12deg); } to { opacity: 0; transform: skewX(-12deg); } }
-.ld-chip .sl { --s: 34px; margin-bottom: 1px; }
+html[data-loader-bg="colour"] .ld-chip { background: rgba(11, 22, 48, 0.9); }
+.ld-chip .mochi { --s: 34px; margin-bottom: 1px; }
 .ld-chip .ld-label { font-size: 12px; padding-bottom: 6px; }
 .ld-chip .ld-dots i { width: 3px; height: 3px; }
-.ld-chip:not(.on) .sl *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
+.ld-chip:not(.on) .mochi *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
 
 /* ---------- inline: inside a panel that is fetching (chat, clan, profile, co-op) ---------- */
 .ld-inline { display: flex; align-items: flex-end; justify-content: center; gap: 4px; color: var(--navy, #22385c); padding: 14px 0 6px; animation: ld-inline-in 160ms ease-out 150ms both; }
 .ld-inline.dark { color: #f3f6ff; }
-.ld-inline .sl { --s: 40px; }
+.ld-inline .mochi { --s: 40px; }
 .ld-inline .ld-label { font-size: 13px; padding-bottom: 6px; }
 @keyframes ld-inline-in { from { opacity: 0; } to { opacity: 1; } }
 .ld-mini { display: inline-flex; justify-content: center; line-height: 0; }
-/* the content that replaced a slime too early waits invisible under it (loading/loader.js holdInline) */
+/* the content that replaced Mochi too early waits invisible under it (loading/loader.js holdInline) */
 .ld-holding > :not(.ld-held) { opacity: 0 !important; }
 .ld-held { position: absolute !important; inset: 0; z-index: 2; }
 

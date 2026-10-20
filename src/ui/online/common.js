@@ -210,16 +210,16 @@ export function levelChip(level) {
 }
 
 /**
- * Placeholder while signing in: the little loading slime ("Connecting", shown only if it takes over
+ * Placeholder while signing in: a little Mochi, the loading slime ("Connecting", shown only if it takes over
  * 150 ms and then for at least 450 ms), with a retry on failure.
  */
 export function connecting(host, run) {
   const status = h('p.muted.ol-connecting-err');
   status.hidden = true;
-  const slime = inlineLoader('Connecting');
-  const box = h('div.ol-connecting', slime, status);
+  const mochi = inlineLoader('Connecting');
+  const box = h('div.ol-connecting', mochi, status);
   host.replaceChildren(box);
-  const stopHold = holdInline(host, box, slime);
+  const stopHold = holdInline(host, box, mochi);
   run().catch((e) => {
     const shown = host.querySelector('.ol-connecting');
     // the screen was already drawn (a later step failed): keep it, just say so
@@ -229,7 +229,7 @@ export function connecting(host, run) {
       return;
     }
     stopHold();
-    slime.remove();
+    mochi.remove();
     status.hidden = false;
     status.textContent = errorText(e);
     shown.append(button('Retry', { kind: 'yellow', small: true, icon: 'refresh', onClick: () => connecting(host, run) }));

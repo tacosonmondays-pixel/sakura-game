@@ -8,6 +8,7 @@ import { ensureBetaGift, ensurePotentialLetter } from './systems/mail.js';
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
+import { applyLoadingLook } from './ui/loading/mochi.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -53,6 +54,10 @@ try {
 } catch {
   /* no DOM */
 }
+// the loading screen's look (Settings → Loading screen): index.html's inline script already put the
+// saved one on <html>; this keeps it right after a migration, an import, a reset or another tab's save
+applyLoadingLook(store.profile.settings);
+store.on('change', () => applyLoadingLook(store.profile.settings));
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
 window.__sakura = { store, transitions: { log: txLog, busy: transitionBusy } };
 try {
@@ -114,7 +119,7 @@ try {
 }
 if (!location.hash.replace(/^#\/?/, '') && !titleSeen) history.replaceState(null, '', '#/title');
 
-// The boot loader (index.html: black, the slime bottom-right) stays until the first screen is really
+// The boot loader (index.html: black or colour, Mochi bottom-right) stays until the first screen is really
 // drawn: the router's first change holds it (src/ui/transitions), the lobby until its art has decoded.
 try {
   startRouter(document.getElementById('app'));
