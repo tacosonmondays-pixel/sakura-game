@@ -605,6 +605,42 @@ letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `
 throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
 asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open), never stored here.
 
+### `src/systems/essence.js` (Ascension: Essence; spec `docs/specs/ASCENSION.md` §A)
+
+- A duplicate (`grantUnit`) adds 1 to `dupes` and calls `receiveDuplicate`: 1 Essence, or a spare past her hold cap
+  (6 − P) paid at once (`SPARE_PAY`: Mementos, Moonpearls, recruit points; R ⅕ point in `spk:r`). `grantUnit` returns
+  `{ isNew, essence, spare, potential, essenceHeld, readyStep, potentialUp: false }` (no `fragments` / `tomes`).
+- Potential is the bought field `units[id].pl` (1–6; `potentialLevel` reads it, 1 when absent; mirrored in `pl:<id>`).
+  `raisePotential(profile, id, use?)`: 1 Essence (own, or a Kindred item when she has none) + `POTENTIAL_STEP_COINS`.
+- Balance (derived, monotone): `dupes + essB − (pl − 1 − essU) − essX` (counters `essB:`, `essU:`, `essX:`).
+- `migrateEssence` (once, `ess:mig`; `createProfile` marks new saves): `pl = min(6, 1 + dupes)`, gates past 5 up to her
+  level counted as broken, welcome pouch (60–300 Mementos, 15–60 Moonpearls) into the items. `settleSpares` at load
+  raises `essX` only (pays nothing). `fuseShards`: 10 → 1 for Kindred SSR and the Rainbow Crown.
+
+### `src/systems/ascensionSave.js` (mirrors)
+
+`pl:<id>`, `bt:<id>` (gates > 5) and `inv:<id>` (the 16 Ascension items, written by `inventory.js setCount`) in
+`missions.counters`; `restoreAscension` brings back what an older build dropped (by max; a spent item mirrors 0).
+
+### Titan Trials — `src/data/titans.js`, `src/systems/titans.js`, `src/systems/titanRewards.js` (spec §C)
+
+- `titanBattle(titanId, tier, rank)` → `{ stage, enemies, poolHp, … }`: the Sim gets them through `data: { stage,
+  enemies }` (no new stage or enemy; no co-op-hashed file). `titans.js` imports only enemies, types and
+  `src/sim/waves.js`. `createTitanTracker(battle)` reads the titan's damage from the event stream (spawn / death / leak).
+- `applyTitanResult(profile, { titanId, tier, rank, seed, read, kills, encountered, practice?, coop? })`: notch →
+  the damage table share, a Victory → the Victory Chest, the first clear (solo), the best tier; a key only at Bronze+.
+  `sweepTitan`, `refreshKeys` (12 a week + 6 carried, game week), `tierOpen`, `titanOfWeek`, `setTargetFamily`,
+  `payTogetherChest`, `coopTierAllowed`. Counters: `tk:left`, `tk:week`, `tbest:`, `tfc:`, `ttgt:`, `tkill:`, `tatt`,
+  `pity:rain`. Drops roll from `titanDropSeed` (outside the sim). `grantGearBox(profile, rarity, rng)` is the one gear-box
+  seam (the Rainbow box goes to the Backpack; UR gear joins it from track 2).
+- Battle: `#/battle?titan=<id>&tier=<tier>[&rank=n][&practice=1]` (`setup.js parseTitanParams`); never battle-saved.
+- Hub: `#/titans[?id=]` (`src/ui/screens/titans.js`).
+
+### `src/systems/craft.js` (Craft Room, spec §B.6)
+
+`craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
+coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
+
 ### `src/systems/mail.js` (first impressions)
 
 ```js
@@ -770,6 +806,13 @@ export function stageShowcase(profile, stageId)  // the medal and ribbon showcas
   // (earned with the Nightmare medal). Read-only; never writes the profile.
 export function campaignShowcase(profile)        // -> { stages: stageShowcase[] in campaign order, medals: { have, total: 160 }, ribbons: { have, total: 800 } }
 ```
+
+### Shop rows of Ascension (`src/data/shop.js`, `src/systems/shop.js`)
+
+Offers may carry their own `currency` (the Memento Exchange: `memento` / `moonpearl`), `section: 'titan'`, `group` +
+`family` (choose-family rows sharing one stock, counted under `group:<id>`), `needs` (hidden with nobody to use it),
+`everyOtherWeek`, `chosenEssence` (`buyOffer(…, { unitId })`). `clock: 'game'` rows reset on the game week through
+`missions.counters['shopwk:asc']`, never by `shop.week`.
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
 

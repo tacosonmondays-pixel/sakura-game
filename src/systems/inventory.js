@@ -8,7 +8,8 @@ import { STAGES } from '../data/stages.js';
 import { SHOP_OFFERS, SHOP_TABS } from '../data/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS } from '../data/missions.js';
 import { achievementLive } from '../data/achievements.js';
-import { DIFFICULTIES, DIFFICULTY_ORDER, ITEM_RARITIES } from '../data/types.js';
+import { DIFFICULTIES, DIFFICULTY_ORDER, ITEM_RARITIES, MATERIAL_FAMILIES } from '../data/types.js';
+import { mirrorItem } from './ascensionSave.js';
 
 /** Merge duplicate ids and drop non-positive counts. */
 export function normalizeList(list) {
@@ -40,6 +41,8 @@ function setCount(profile, id, value) {
   else if (id === 'recruitPoints') profile.gacha.recruitPoints = v;
   else if (v > 0) profile.items[id] = v;
   else delete profile.items[id];
+  // Ascension's 16 items: a copy in missions.counters that an older build keeps (ascensionSave.js)
+  mirrorItem(profile, id, v);
 }
 
 /**
@@ -169,11 +172,29 @@ function buildSourceIndex() {
   rewardSource(liveAch, (r) => `Achievements (${achGrants[r.id]})`, (a, r) => `${a.hidden ? 'A secret achievement' : a.name}: ×${r.count} (one-time)`, 'commissions', { tab: 'achievements' });
 
   // Special sources not in any table.
-  push('star_fragment', { kind: 'other', label: 'Recruit duplicates', route: 'recruit', params: {}, note: 'Duplicate R ×2 · SR ×10 · SSR ×40 fragments' });
+  // Ascension (docs/specs/ASCENSION.md): duplicates give Essence now; the titans pay the rest
+  const TITANS_SRC = (note) => ({ kind: 'other', label: 'Titan Trials', route: 'titans', params: {}, note });
+  push('star_fragment', TITANS_SRC('Every titan fight pays fragments; Normal first clears pay 20'));
   // Akashic Tomes pay the levels above 60 (Potential v3 §4.4): besides Library Courtyard III on
-  // Nightmare and the Bounty Exchange (both in the tables above)
+  // Nightmare, the Bounty Exchange, the Titan shelf and the Memento Exchange (all in the tables above)
   push('book_legendary', { kind: 'other', label: 'Freeplay caches', route: 'campaign', params: {}, note: 'One per freeplay cache (every 25 freeplay waves), up to 2 a week, solo and co-op together' });
-  push('book_legendary', { kind: 'other', label: 'Recruit duplicates past P6', route: 'recruit', params: {}, note: 'A duplicate of a girl already at P6: SR ×1 · SSR ×5' });
+  push('book_legendary', TITANS_SRC('Nightmare 20% · Mayhem 30% per fight'));
+  for (const f of Object.keys(MATERIAL_FAMILIES)) {
+    push(`mat_${f}_zenith`, TITANS_SRC('Victory Chest: Nightmare 20% · Mayhem 50%+; the titans that drop this family'));
+    push(`mat_${f}_legendary`, TITANS_SRC('From Hard up; the titans that drop this family'));
+    push(`mat_${f}_mythic`, TITANS_SRC('From Hard up; the titans that drop this family'));
+  }
+  push('crown_rainbow_shard', TITANS_SRC('Victory Chest from Hard · first clears; 10 shards fuse into a Rainbow Crown'));
+  push('crown_rainbow', TITANS_SRC('10 Rainbow Crown Shards fuse into one · Mayhem first clear · rare whole crown from Mayhem'));
+  push('crown_rainbow', { kind: 'other', label: 'Rainbow Crown Shards', route: 'backpack', params: { tab: 'awakening' }, note: '10 shards fuse on their own' });
+  push('kindred_r', TITANS_SRC('Normal first clears: 2 per titan'));
+  push('kindred_sr', TITANS_SRC('Hard first clears: 1 per titan'));
+  push('kindred_shard_ssr', TITANS_SRC('Mayhem Victory Chest 4%'));
+  push('kindred_ssr', { kind: 'other', label: 'Kindred Shards (SSR)', route: 'backpack', params: { tab: 'awakening' }, note: '10 shards fuse on their own' });
+  push('gearbox_rainbow', TITANS_SRC('Mayhem Victory Chest 4% (Rainbow Meter: one by the 40th Mayhem win) · Nightmare 0.5%'));
+  push('memento', { kind: 'other', label: 'Spare duplicates', route: 'recruit', params: {}, note: 'A copy past her Essence cap: R ×2 · SR ×6' });
+  push('moonpearl', { kind: 'other', label: 'Spare duplicates', route: 'recruit', params: {}, note: 'A copy past her Essence cap: SR ×1 · SSR ×10' });
+  push('token_boss', TITANS_SRC('Every fight; the Titan of the Week pays +50%'));
   for (const r of Object.keys(ITEM_RARITIES)) {
     push(`gearbox_${r}`, { kind: 'other', label: 'Bounty · Gear arena', route: 'bounty', params: {}, note: 'Gear boxes open into real gear the moment they drop.' });
   }

@@ -8,7 +8,7 @@
 // Levels above 60 (Potential raises the cap, LEVEL_PAST_GATES) continue the same curve.
 
 import { UNIT_MAP, getUnit } from '../data/units.js';
-import { ITEMS, materialId, bookId } from '../data/items.js';
+import { ITEMS, materialId, bookId, zenithId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
 import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
@@ -17,8 +17,12 @@ import { BATTLE_CAPS } from '../data/gearStats.js';
 export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
+import { mirrorUnit } from './ascensionSave.js';
 
-export const MAX_BREAKTHROUGH = 5;
+/** Breakthrough gates: 1–5 to level 60, then gates 6–10 (Ascension) to 85. */
+export const MAX_BREAKTHROUGH = 10;
+/** The gates every girl breaks with materials alone (gates past it also need Potential). */
+export const BASE_GATES = 5;
 export const MAX_AWAKEN = 5;
 /** Coins charged per point of EXP applied (up to level 60; LEVEL_PAST_GATES prices the levels above). */
 export const COINS_PER_EXP = 0.4;
@@ -59,19 +63,34 @@ const PER_STAR_DAMAGE = 0.05;
 const PER_LEVEL_RATE = 0.004;
 
 /**
- * The level-cap rule with her gates and her Potential given: 10 + 10 × gates below gate 5; with
- * every gate open, her Potential's cap (P1 60 · P2 63 · P3 67 · P4 72 · P5 78 · P6 85). A P6 girl at
- * gate 3 is capped at 40: the gates come first, and there is no gate 6 (the duplicate is the gate).
- * Callers that already know her P (a profile card, a co-op loadout, the Potential screens) pass it
- * here, so nothing outside src/systems/potential.js potentialLevel says where P comes from.
- * @param {number} gates breakthrough gates open (0…5)
+ * Level cap after each number of gates (docs/specs/ASCENSION.md §B.1): 10 + 10 × gates up to gate 5
+ * (60), then gates 6–10: 63 · 67 · 72 · 78 · 85.
+ */
+export const GATE_CAPS = Object.freeze([10, 20, 30, 40, 50, 60, 63, 67, 72, 78, 85]);
+
+/** The Potential gate k (6–10) needs: P(k − 4). Gates 1–5 need none (P1). */
+export function gatePotential(gate) {
+  return gate > BASE_GATES ? gate - 4 : 1;
+}
+
+/** The most gates her Potential allows (P1 → 5 … P6 → 10). */
+export function gatesAllowed(p) {
+  return Math.min(MAX_BREAKTHROUGH, BASE_GATES + Math.max(0, Math.min(5, Math.floor(Number(p) || 1) - 1)));
+}
+
+/**
+ * The level-cap rule with her gates and her Potential given: GATE_CAPS[gates], where gates past what
+ * her Potential allows (a hostile mirror, an old save) do not count. Gate k needs P(k − 4), so the cap
+ * is never above her Potential's cap (POTENTIAL_LEVEL_CAPS[P − 1]): a P6 girl at gate 7 is capped at
+ * 67; a P2 girl stops after gate 6 (63). Callers that already know her P (a co-op loadout, the
+ * Potential screens) pass it here, so nothing outside src/systems/potential.js potentialLevel says
+ * where P comes from.
+ * @param {number} gates breakthrough gates open (0…10)
  * @param {number} p her Potential (1…6)
  */
 export function levelCapAt(gates, p) {
-  const g = Math.max(0, Math.floor(Number(gates) || 0));
-  if (g < MAX_BREAKTHROUGH) return 10 + 10 * g;
-  const i = Math.max(1, Math.min(POTENTIAL_LEVEL_CAPS.length, Math.floor(Number(p) || 1))) - 1;
-  return POTENTIAL_LEVEL_CAPS[i];
+  const g = Math.max(0, Math.min(MAX_BREAKTHROUGH, Math.floor(Number(gates) || 0)));
+  return GATE_CAPS[Math.min(g, gatesAllowed(p))];
 }
 
 /** Level cap for a unit state: levelCapAt(her gates, potentialLevel(her state)). */
@@ -80,18 +99,29 @@ export function levelCap(unitState) {
 }
 
 /**
- * Her level cap and what raises it next, for the screens. Below gate 5: the next breakthrough
- * gate (+10). With every gate open: her next Potential step (`next` at `nextP`, one duplicate
- * away), or `full` at P6.
- * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate?: number, nextP?: number|null, full: boolean }}
+ * The fewest gates (at least 5) that allow `level` at Potential `p`: a viewer that knows only her
+ * level and P (a profile card carries at most 5 gates) rebuilds her state from it.
+ */
+export function gatesForLevel(level, p) {
+  const top = gatesAllowed(p);
+  for (let g = BASE_GATES; g <= top; g++) if (GATE_CAPS[g] >= level) return g;
+  return top;
+}
+
+/**
+ * Her level cap and what raises it next, for the screens: always her next gate (`nextGate`, cap
+ * `next`); a gate her Potential does not open yet sets `by: 'potential'` with `nextP` (the P it needs).
+ * `full` at gate 10.
+ * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate: number|null, nextP: number|null, full: boolean }}
  */
 export function levelCapInfo(unitState) {
   const cap = levelCap(unitState);
-  const gates = Math.max(0, Math.floor(Number(unitState?.breakthrough) || 0));
+  const gates = Math.max(0, Math.min(MAX_BREAKTHROUGH, Math.floor(Number(unitState?.breakthrough) || 0)));
   const p = potentialLevel(unitState);
-  if (gates < MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: cap + 10, nextGate: gates + 1, full: false };
-  const full = p >= POTENTIAL_LEVEL_CAPS.length;
-  return { cap, max: MAX_LEVEL, p, by: 'potential', next: full ? null : POTENTIAL_LEVEL_CAPS[p], nextP: full ? null : p + 1, full };
+  if (gates >= MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: null, nextGate: null, nextP: null, full: true };
+  const gate = gates + 1;
+  const needP = gatePotential(gate);
+  return { cap, max: MAX_LEVEL, p, by: needP > p ? 'potential' : 'gate', next: GATE_CAPS[gate], nextGate: gate, nextP: needP > p ? needP : null, full: false };
 }
 
 /**
@@ -297,28 +327,42 @@ export function autoSelectBooks(profile, unitId) {
 // Breakthrough (level cap gates) — uses the unit's material family
 // ---------------------------------------------------------------------------
 
-/** Per gate: [rarity, count] pairs + coins. Rarity escalates with each gate. */
+/**
+ * Per gate: [rarity, count] pairs (`zenith` = the family's Zenith item) + Rainbow Crowns + coins.
+ * Gates 6–10 are Ascension's (docs/specs/ASCENSION.md §B.2).
+ */
 const GATE_COSTS = [
   { mats: [['common', 8]], coins: 5000 },
   { mats: [['common', 12], ['rare', 5]], coins: 15000 },
   { mats: [['rare', 10], ['superRare', 4]], coins: 40000 },
   { mats: [['superRare', 10], ['mythic', 3]], coins: 100000 },
   { mats: [['mythic', 8], ['legendary', 2]], coins: 250000 },
+  { mats: [['mythic', 8], ['legendary', 2]], coins: 150000 },
+  { mats: [['mythic', 10], ['legendary', 3], ['zenith', 1]], coins: 200000 },
+  { mats: [['legendary', 4], ['zenith', 2]], coins: 300000 },
+  { mats: [['legendary', 5], ['zenith', 3]], crowns: 1, coins: 450000 },
+  { mats: [['legendary', 6], ['zenith', 4]], crowns: 1, coins: 800000 },
 ];
 
+const matFor = (family, tier) => (tier === 'zenith' ? zenithId(family) : materialId(family, tier));
+
 /**
- * Cost of breakthrough gate 1..5 (raises the cap from 10·gate to 10·gate + 10).
+ * Cost of breakthrough gate 1..10.
  * @returns {{id:string,count:number}[]}
  */
 export function breakthroughCost(unitId, gate) {
   const unit = getUnit(unitId);
   const g = GATE_COSTS[gate - 1];
   if (!g) return [];
-  return [...g.mats.map(([r, count]) => ({ id: materialId(unit.materialFamily, r), count })), { id: 'coins', count: g.coins }];
+  return [
+    ...g.mats.map(([r, count]) => ({ id: matFor(unit.materialFamily, r), count })),
+    ...(g.crowns ? [{ id: 'crown_rainbow', count: g.crowns }] : []),
+    { id: 'coins', count: g.coins },
+  ];
 }
 
 /**
- * @returns {{ ok: boolean, reason?: 'notOwned'|'max'|'level'|'missing', missing: {id,need,have}[], gate?: number, cost?: object[] }}
+ * @returns {{ ok: boolean, reason?: 'notOwned'|'max'|'potential'|'level'|'missing', missing: {id,need,have}[], gate?: number, cost?: object[], needP?: number, needLevel?: number }}
  */
 export function canBreakthrough(profile, unitId) {
   const unit = profile.units[unitId];
@@ -327,6 +371,8 @@ export function canBreakthrough(profile, unitId) {
   const gate = unit.breakthrough + 1;
   const cost = breakthroughCost(unitId, gate);
   const missing = missingItems(profile, cost);
+  const needP = gatePotential(gate);
+  if (potentialLevel(unit) < needP) return { ok: false, reason: 'potential', missing, gate, cost, needP };
   if (unit.level < levelCap(unit)) return { ok: false, reason: 'level', missing, gate, cost, needLevel: levelCap(unit) };
   if (missing.length) return { ok: false, reason: 'missing', missing, gate, cost };
   return { ok: true, missing: [], gate, cost };
@@ -339,6 +385,7 @@ export function breakthrough(profile, unitId) {
   if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
   const unit = profile.units[unitId];
   unit.breakthrough += 1;
+  mirrorUnit(profile, unitId);
   track(profile, 'spendCoins', check.cost.find((c) => c.id === 'coins').count);
   return { ok: true, gate: unit.breakthrough, cap: levelCap(unit) };
 }

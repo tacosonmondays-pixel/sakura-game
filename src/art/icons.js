@@ -14,6 +14,7 @@ import {
   icon64, materialBody, bookBody, crownBody, diceBody, starFragmentBody, gearboxBody, ticketBody,
   coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody,
 } from './icons/items.js';
+import { ASCENSION_ICON_BODIES } from './icons/ascension.js';
 import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
 
 // ---------------------------------------------------------------------------------
@@ -43,6 +44,7 @@ const SPECIAL_ITEMS = {
 function itemBody(itemId) {
   const id = String(itemId || '');
   if (SPECIAL_ITEMS[id]) return SPECIAL_ITEMS[id]();
+  if (ASCENSION_ICON_BODIES[id]) return ASCENSION_ICON_BODIES[id]();
   if (CROWN_IDS.includes(id)) return crownBody(id);
   let m = /^mat_([a-z]+)_([a-zA-Z]+)$/.exec(id);
   if (m && MATERIAL_FAMILIES[m[1]] && ITEM_RARITIES[m[2]]) return materialBody(m[1], m[2]);

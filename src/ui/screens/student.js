@@ -18,8 +18,10 @@ import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
   awakenCost, canAwaken, awaken, unitBattleStats, unitPower, MAX_LEVEL, MAX_BREAKTHROUGH, MAX_AWAKEN,
-  levelCapInfo, POTENTIAL_LEVEL_CAPS, BREAKTHROUGH_LEVEL_CAP, LEVEL_PAST_GATES,
+  levelCapInfo, BREAKTHROUGH_LEVEL_CAP, LEVEL_PAST_GATES, GATE_CAPS, BASE_GATES,
 } from '../../systems/progression.js';
+import { TITANS } from '../../data/titans.js';
+import { setTargetFamily } from '../../systems/titans.js';
 import {
   gearList, equipGear, unequipGear, salvageGear, salvageRewards, describeStat, gearLines, isUrGear, awakenReady,
 } from '../../systems/gear.js';
@@ -392,7 +394,8 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
-    potentialSection(unit, st),
+    // her own page: the Raise Potential row (docs/specs/ASCENSION.md §D.2); a friend's card: view only
+    potentialSection(unit, st, { profile: label === 'yours' ? profile : null }),
   );
 }
 
@@ -449,10 +452,10 @@ function levelTab(unit, ctx) {
     const need = expForLevel(st.level);
     const curFrac = atCap ? 1 : st.exp / need;
     const pvFrac = pv.toLevel > st.level ? 1 : pv.exp ? (st.exp + pv.exp) / need : null;
-    // with every gate open her Potential sets the cap: "Cap 72 · P4 · max 85"
-    const capText = info.by === 'potential' ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
-    const capReached = info.by === 'gate' ? 'Level cap reached — break through to continue'
-      : info.full ? 'Max level reached' : `Level cap reached — P${info.nextP} raises it to ${info.next} (1 more duplicate)`;
+    // past gate 5 her Potential decides which gates can open: "Cap 72 · P4 · max 85"
+    const capText = (st.breakthrough || 0) >= BASE_GATES ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
+    const capReached = info.full ? 'Max level reached'
+      : info.by === 'potential' ? `Level cap reached — gate ${info.nextGate} opens at P${info.nextP}` : 'Level cap reached — break through to continue';
     put(head,
       h('div.mb-lv-head',
         h('div.mb-lv-big', h('span', 'Lv.'), h('b', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow', `→ ${pv.toLevel}`) : null),
@@ -466,9 +469,9 @@ function levelTab(unit, ctx) {
 
     clear(bookBox);
     if (atCap) {
-      put(bookBox, h('p.muted', info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
-        : info.full ? `${unit.name} has reached the maximum level.`
-          : `Books are paused at her level cap. Her next duplicate (P${info.nextP}) raises it to ${info.next}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
+      put(bookBox, h('p.muted', info.full ? `${unit.name} has reached the maximum level.`
+        : info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
+          : `Books are paused at her level cap. Raise her to P${info.nextP} (Info tab) to open gate ${info.nextGate}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
     } else {
       const rows = ITEM_RARITY_ORDER.map((r) => {
         const id = bookId(r);
@@ -530,13 +533,24 @@ function breakthroughPanel(unit, ctx, rerender) {
   const gate = st.breakthrough + 1;
   const cost = check.cost || breakthroughCost(unit.id, gate);
   const atCap = st.level >= levelCap(st);
-  return h(`section.mb-card.mb-bt${atCap ? '.ready' : ''}`,
-    h('h3.mb-card-title', 'Breakthrough'),
+  const ascension = gate > BASE_GATES;
+  // gates 6–10 (ASCENSION.md §D.2): "Gate 9 · Level cap 72 → 78", locked until her Potential allows it
+  const potLock = check.reason === 'potential';
+  const missingIds = new Set((check.missing || []).map((m) => m.id));
+  const titan = TITANS.find((t) => t.families[0] === unit.materialFamily) || TITANS.find((t) => t.families.includes(unit.materialFamily));
+  const where = ascension && missingIds.size && !potLock ? h('div.mb-actions.mb-where', { 'data-testid': 'gate-where' },
+    h('span.muted', 'Where to get:'),
+    titan ? button(titan.name, { kind: 'ghost', small: true, icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
+    button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
+    button('Craft Room', { kind: 'ghost', small: true, icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
+  return h(`section.mb-card.mb-bt${atCap && !potLock ? '.ready' : ''}`, { 'data-testid': 'gate-card' },
+    h('h3.mb-card-title', ascension ? `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}` : 'Breakthrough'),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    // gate 5 opens her Potential's cap (60 at P1, up to 85 at P6)
-    h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(levelCap({ ...st, breakthrough: gate }))), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
-    atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
+    ascension ? null : h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(GATE_CAPS[gate])), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
+    potLock ? h('div.mb-note', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} (Info tab: 1 Essence + coins per step).`)
+      : atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
     requirementList(cost),
+    where,
     h('div.mb-actions',
       button('Break Through', {
         kind: 'yellow', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
@@ -544,32 +558,25 @@ function breakthroughPanel(unit, ctx, rerender) {
           const res = breakthrough(profile, unit.id);
           if (!res.ok) { toast('Missing materials.', 'bad'); return; }
           store.commit('breakthrough');
-          toast(`Gate ${res.gate} passed! Level cap is now ${res.cap}.`, 'good');
+          toast(res.gate >= MAX_BREAKTHROUGH ? `Level cap ${res.cap} · Full Potential!` : `Gate ${res.gate} passed! Level cap is now ${res.cap}.`, 'good', res.gate >= MAX_BREAKTHROUGH ? 4200 : 2200);
           ctx.refreshShowcase();
           rerender();
         },
       })));
 }
 
-/**
- * At gate 5 the breakthrough card becomes the Potential cap card: "Level cap 72 · Next: 78 at P5
- * (1 more duplicate)", or "Level cap 85 · Full Potential", with the six caps P1…P6.
- */
+/** Gate 10 broken: "Level cap 85 · Full Potential". */
 function potentialCapCard(st) {
   const info = levelCapInfo(st);
-  const tome = ITEMS[LEVEL_PAST_GATES.book].name;
   return h('section.mb-card.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' },
     h('h3.mb-card-title', 'Level cap'),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, info.full
-      ? ['Level cap ', h('b', String(info.cap)), ' · Full Potential']
-      : ['Level cap ', h('b', String(info.cap)), ' · Next: ', h('b', String(info.next)), ` at P${info.nextP} (1 more duplicate)`]),
-    h('div.mb-bt-gates.mb-potcap-steps', POTENTIAL_LEVEL_CAPS.map((c, i) => h(`span.mb-gate${i < info.p ? '.on' : ''}`, { title: `P${i + 1}: level cap ${c}` }, `P${i + 1} · ${c}`))),
-    h('p.muted', `All five gates passed. Each Potential step raises her level cap, up to ${MAX_LEVEL} at P${POTENTIAL_LEVEL_CAPS.length}; every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${tome} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
+    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
+    h('p.muted', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
 }
 
 function gatePips(passed) {
-  return [1, 2, 3, 4, 5].map((g) => h(`span.mb-gate${g <= passed ? '.on' : ''}`, { title: `Gate ${g}` }, String(10 + 10 * g)));
+  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, { title: `Gate ${i + 1}` }, String(cap)));
 }
 
 function awakenTab(unit, ctx) {

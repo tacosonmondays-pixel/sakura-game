@@ -14,7 +14,9 @@ import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
-import { settleLevels, MAX_LEVEL, MAX_BREAKTHROUGH } from './progression.js';
+import { settleLevels, MAX_LEVEL } from './progression.js';
+import { restoreAscension, GATES_MAX } from './ascensionSave.js';
+import { migrateEssence, settleSpares, markEssenceBorn, fuseShards } from './essence.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
@@ -60,9 +62,12 @@ export const DEFAULT_SETTINGS = {
 const CAMERA_MODES = ['locked', 'free'];
 const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 
-/** Fresh per-unit state. `dupes` = duplicates received since she joined (Potential, src/systems/potential.js). */
+/**
+ * Fresh per-unit state. `dupes` = duplicates received since she joined (her Essence history), `pl` =
+ * her bought Potential (src/systems/essence.js).
+ */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0 };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1 };
 }
 
 function emptyMissions() {
@@ -134,6 +139,7 @@ export function createProfile() {
     social: newSocial(),
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
+  markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
   return p;
 }
 
@@ -179,10 +185,11 @@ function cleanNumberMap(obj) {
 function cleanUnit(raw, now) {
   const base = newUnitState(now);
   if (!isObj(raw)) return base;
-  const breakthrough = int(raw.breakthrough, 0, 0, MAX_BREAKTHROUGH);
+  // gates 6–10 (ASCENSION.md §B) are kept here even before this build can break them
+  const breakthrough = int(raw.breakthrough, 0, 0, GATES_MAX);
   // her duplicates may not be known yet (`dupes` null until creditPotential restores it), so a girl
   // past gate 5 keeps any level up to MAX_LEVEL here; migrateProfile re-clamps to levelCap after
-  const cap = breakthrough < MAX_BREAKTHROUGH ? 10 + 10 * breakthrough : MAX_LEVEL;
+  const cap = breakthrough < 5 ? 10 + 10 * breakthrough : MAX_LEVEL;
   const gear = { charm: null, ribbon: null, shoes: null };
   if (isObj(raw.gear)) for (const s of SLOTS) gear[s] = str(raw.gear[s]);
   return {
@@ -195,6 +202,8 @@ function cleanUnit(raw, now) {
     favorite: bool(raw.favorite),
     // null = a save from before Potential counted (or an older build dropped it): migrateProfile credits it
     dupes: 'dupes' in raw ? int(raw.dupes, 0, 0, 1e6) : null,
+    // bought Potential (ASCENSION.md §A.1); absent = not bought yet (an older build drops it: 'pl:' brings it back)
+    ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
   };
 }
 
@@ -503,9 +512,16 @@ export function migrateProfile(raw) {
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   creditPotential(p, now);
-  // rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back from
-  // their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten
+  // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
+  // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten
   restoreGearMarks(p);
+  // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
+  // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
+  restoreAscension(p);
+  migrateEssence(p);
+  // Essence above her hold cap (an older build counted a duplicate): marked as spares, paid nothing
+  settleSpares(p);
+  fuseShards(p);
   // levels above 60 (Potential's cap): only now that her duplicates are known — restore what an
   // older build clamped to 60 from the 'lv:' shadow, then clamp every girl to levelCap
   settleLevels(p);

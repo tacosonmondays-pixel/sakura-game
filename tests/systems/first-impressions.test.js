@@ -313,9 +313,10 @@ describe('SSR Select Ticket', () => {
     expect(itemCount(p, SSR_SELECT_TICKET)).toBe(1);
     const frag0 = itemCount(p, 'star_fragment');
     const d = redeemSelectTicket(p, target);
-    expect(d).toMatchObject({ ok: true, isNew: false });
-    expect(d.fragments).toBeGreaterThan(0);
-    expect(itemCount(p, 'star_fragment')).toBe(frag0 + d.fragments);
+    // a duplicate: 1 Essence of her (docs/specs/ASCENSION.md §A.6), no Star Fragments
+    expect(d).toMatchObject({ ok: true, isNew: false, essence: 1, spare: null, essenceHeld: 1, readyStep: 2 });
+    expect(p.units[target].dupes).toBe(1);
+    expect(itemCount(p, 'star_fragment')).toBe(frag0);
     expect(itemCount(p, SSR_SELECT_TICKET)).toBe(0);
     expect(p.gacha.history.at(-1)).toMatchObject({ unitId: target, select: true });
     // any SSR can be chosen, including the starter hero

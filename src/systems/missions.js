@@ -448,7 +448,8 @@ export function f2pIncomeSummary() {
   const weeklyRewards = WEEKLY_MISSIONS.flatMap((m) => m.rewards);
   const loginRewards = LOGIN_REWARDS.flatMap((d) => d.rewards);
   const loginCycles = DAYS / LOGIN_REWARDS.length;
-  const weeklyTicketOffers = SHOP_OFFERS.filter((o) => o.item === 'ticket_recruit' && o.resets === 'weekly');
+  // (the Memento Exchange ticket is paid with spare duplicates, not everyday income: ASCENSION.md §A.3 counts it apart)
+  const weeklyTicketOffers = SHOP_OFFERS.filter((o) => o.item === 'ticket_recruit' && o.resets === 'weekly' && o.currency !== 'memento');
 
   const rows = [
     row('Daily Commissions', sumId(dailyRewards, 'gems') * DAYS, ticketPulls(dailyRewards) * DAYS, `${sumId(dailyRewards, 'gems')} gems × ${DAYS} days`),

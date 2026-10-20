@@ -6,6 +6,9 @@
 //   --potential p1|f2p|whale|1…6             overrides the Potential part
 //   --level 60|75|85                         overrides her level (★5, gate 5, the progression curve)
 //   --gear maxed|late|urLate                 overrides the gear block (each measured at level 60)
+//   --gates 5…10                             her breakthrough gates (Ascension, docs/specs/ASCENSION.md
+//                                            §B.1: +2 % damage each, additive in the level term; default
+//                                            5, the Potential v3 measurements; an Ascended L85 girl has 10)
 //
 // | profile    | Potential                                         | level | gear  |
 // |------------|---------------------------------------------------|-------|-------|
@@ -49,7 +52,7 @@ export function potentialFor(unitId, potential) {
 
 const STARS = 5;
 const GATES = 5;
-const levelDamage = (L) => 1 + 0.018 * (L - 1) + 0.02 * GATES + 0.05 * STARS;
+const levelDamage = (L, gates = GATES) => 1 + 0.018 * (L - 1) + 0.02 * gates + 0.05 * STARS;
 const levelRate = (L) => 1 + 0.004 * (L - 1);
 
 /** Battle stats of one girl under a profile ({ potential, level, gear }). */
@@ -60,7 +63,7 @@ export function profileStats(unitId, prof) {
   return {
     ...DEFAULT_UNIT_STATS,
     ...g,
-    damageMul: (g.damageMul * levelDamage(L)) / levelDamage(60),
+    damageMul: (g.damageMul * levelDamage(L, prof.gates ?? GATES)) / levelDamage(60),
     rateMul: (g.rateMul * levelRate(L)) / levelRate(60),
     level: L,
     potential: potentialFor(unitId, prof.potential),
@@ -80,5 +83,7 @@ export function profileFromArgs(opt) {
   if (typeof potential !== 'number' && !['p1', 'f2p', 'whale'].includes(potential)) throw new Error(`unknown --potential ${pot}`);
   const level = Number(opt('level', base.level));
   if (!(level >= 1 && level <= 85)) throw new Error(`--level ${level} is outside 1…85`);
-  return { name, potential, level, gear: opt('gear', base.gear) };
+  const gates = Number(opt('gates', base.gates ?? GATES));
+  if (!(gates >= 0 && gates <= 10)) throw new Error(`--gates ${gates} is outside 0…10`);
+  return { name, potential, level, gear: opt('gear', base.gear), gates };
 }

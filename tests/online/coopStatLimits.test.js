@@ -9,6 +9,7 @@ import { DEFAULT_UNIT_STATS } from '../../src/sim/constants.js';
 import { COOP } from '../../src/data/coop.js';
 import { createProfile } from '../../src/systems/save.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { potentialState } from '../../src/systems/potential.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNITS } from '../../src/data/units.js';
@@ -18,7 +19,7 @@ function maxedProfile() {
   const p = createProfile();
   const rng = createRng(77);
   for (const u of UNITS) {
-    p.units[u.id] = { ...(p.units[u.id] || p.units.aoi), level: 85, exp: 0, breakthrough: 5, awaken: 5, dupes: 5, gear: { charm: null, ribbon: null, shoes: null } };
+    p.units[u.id] = { ...(p.units[u.id] || p.units.aoi), level: 85, exp: 0, breakthrough: 10, awaken: 5, ...potentialState(6), gear: { charm: null, ribbon: null, shoes: null } };
   }
   const piece = (slot, main, subs) => {
     const g = rollGear(rng, { slot, rarity: 'legendary' });
