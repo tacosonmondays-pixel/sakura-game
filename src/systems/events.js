@@ -622,7 +622,12 @@ function fill(text, vars) {
  * - at endAt: one letter with every finished but unclaimed mission reward (expires with the exchange
  *   when it holds event currency). A player first back after exchangeEndAt gets it without the
  *   currency and without an expiry: that currency joins the leftover count below instead, so the
- *   letter is never born expired and nothing in it is lost.
+ *   letter is never born expired and nothing in it is lost. When that letter was already sent by an
+ *   older build that knew fewer one-time missions (a v0.1.38 tab and the Nightmare missions), the
+ *   one-time missions it left finished but unclaimed come in one follow-up letter
+ *   ('ev:<eventId>:<run>:unclaimed:2'), with the same late and expiry rules and the same claims and
+ *   'evm:' marks, so it is sent once. (A v0.1.38 tab that also closes the run after exchangeEndAt
+ *   drops those missions' progress and marks with it: nothing is left to recover then.)
  * - at exchangeEndAt: the leftover currency is removed and mailed back as coins; `settled` is set
  *   (final: a clock rolled back never reopens it) and the state is pruned.
  * @returns {{ letters: object[], settled: string[] }}
@@ -640,11 +645,16 @@ export function settleEvents(profile, now = Date.now()) {
     let lateCurrency = 0; // the unclaimed missions' currency when the exchange had already closed
     if (t >= w.endAt && st) {
       const rows = missionRows(profile, ev, Math.min(t, w.endAt - 1));
-      const list = [...rows.daily, ...rows.total].filter((m) => m.done && !m.claimed);
+      const delivered = Array.isArray(profile.mail?.delivered) ? profile.mail.delivered : [];
+      // An older build that mailed the letter first knew fewer one-time missions (v0.1.38 has no Nightmare ones)
+      // and claimed only its own: the ones still finished but unclaimed go in one follow-up letter, same rules.
+      const firstId = `ev:${ev.id}:${st.run}:unclaimed`;
+      const followUp = delivered.includes(firstId);
+      const id = followUp ? `${firstId}:2` : firstId;
+      const list = (followUp ? rows.total : [...rows.daily, ...rows.total]).filter((m) => m.done && !m.claimed);
       const bucketOf = (m) => (m.kind === 'daily' ? st.daily : st.total);
       const rewards = normalizeList(list.flatMap((m) => m.rewards));
-      const id = `ev:${ev.id}:${st.run}:unclaimed`;
-      if (rewards.length && !profile.mail?.delivered?.includes(id)) {
+      if (rewards.length && !delivered.includes(id)) {
         const tpl = ev.mail?.unclaimed || {};
         const late = t >= w.exchangeEndAt;
         const currency = rewards.filter((r) => r.id === cur).reduce((a, r) => a + r.count, 0);

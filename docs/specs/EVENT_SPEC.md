@@ -414,7 +414,10 @@ read-only replay mode. (A later story change may add an "Events" tab to `#/story
 | `now ≥ exchangeEndAt` | `n = itemCount(currency)`; remove it; also leftover gifts (100 coins each); mark `settled`; prune state | "Thanks for visiting Seaglass Bay" — `coins: n × 50 + gifts × 100`; no expiry; skipped when 0 |
 
 Letters use `deliverMail` (`src/systems/mail.js`), ids `ev:<eventId>:<run>:welcome|unclaimed|leftover`, so
-`delivered` stops any double grant. Letters that still hold event currency at `exchangeEndAt` are already expired
+`delivered` stops any double grant. One-time missions added mid-event (Halloween's Nightmare ones, Oct 20): when the
+`unclaimed` letter was already sent by an older build that didn't know them, the ones still finished but unclaimed
+come once in `ev:<eventId>:<run>:unclaimed:2`, with the same expiry and late rules and the same claims and `evm:`
+marks. Letters that still hold event currency at `exchangeEndAt` are already expired
 (`claimMail` refuses expired letters), so nothing is lost twice. Body copy in §3.13.9.
 
 **Archive.** A finished event's **code stays**: its EventDef, stages (still in `STAGE_MAP`, so old progress and

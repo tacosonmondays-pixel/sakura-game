@@ -1,12 +1,13 @@
 // Limited events: Nightmare on the Halloween stages (owner, Oct 20: "add nightmare modes for the event stages with
 // the final one being really hard"; docs/specs/HALLOWEEN_2026.md "Nightmare"). NM-1 data, NM-2 the unlock gate,
 // NM-3 a Nightmare win, NM-4 sweeps, NM-5 the one-time missions, NM-6 a stale v0.1.38 tab's round trip of the
-// Nightmare marks. Fixed UTC instants, so any TZ works.
+// Nightmare marks, NM-7 a stale v0.1.38 tab that mails the end-of-event letter first. Fixed UTC instants, so any TZ works.
 import { describe, it, expect } from 'vitest';
 import { createProfile, migrateProfile } from '../../src/systems/save.js';
 import {
-  readEpisode, eventState, peekState, eventDifficultyStatus, missionRows, claimEventMission, cleanEvents,
+  readEpisode, eventState, peekState, eventDifficultyStatus, missionRows, claimEventMission, cleanEvents, settleEvents,
 } from '../../src/systems/events.js';
+import { claimMail } from '../../src/systems/mail.js';
 import { applyBattleResult, sweep, canSweep, rollStageDrops, eventDifficultyOk } from '../../src/systems/rewards.js';
 import { parseBattleParams } from '../../src/ui/battle/setup.js';
 import { EVENT_MAP } from '../../src/data/events/index.js';
@@ -21,7 +22,8 @@ const EV = EVENT_MAP['halloween-2026'];
 const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT
-const END = T('2026-11-02T01:00:00Z');
+const END = T('2026-11-02T01:00:00Z'); // Nov 1, 7 PM CST: the operations close
+const XEND = T('2026-11-09T01:00:00Z'); // Nov 8, 7 PM CST: the exchange closes
 const OPS = ['ev-halloween-1', 'ev-halloween-2', 'ev-halloween-3', 'ev-halloween-4'];
 const NM_MISSIONS = ['hw_t_nm1', 'hw_t_nm2', 'hw_t_nm3', 'hw_t_nm4', 'hw_t_boss_nm', 'hw_t_nm_clear15'];
 
@@ -291,5 +293,90 @@ describe('NM-6 a stale v0.1.38 tab and the Nightmare marks', () => {
       expect(st.total.claimed).not.toContain(id);
     }
     expect(st.total.progress).toEqual(eventState(p, EV.id).total.progress);
+  });
+});
+
+/**
+ * v0.1.38 loading a save fresh and running its end-of-event settle. Its cleanEvents, and its settleEvents up to
+ * the follow-up letter (which it doesn't have: it skips the event once its letter id is delivered), are this
+ * build's code with its nine one-time missions, so this runs them with that list (26c0de1).
+ */
+function v0138Settle(save, at) {
+  const all = EV.missions.total;
+  EV.missions.total = all.filter((m) => V0138.totalMissions.includes(m.id));
+  try {
+    const p = migrateProfile(V0138.save(save));
+    const out = settleEvents(p, at);
+    return { save: JSON.parse(JSON.stringify(p)), letters: out.letters, settled: out.settled };
+  } finally {
+    EV.missions.total = all;
+  }
+}
+/** Ops 1-4 cleared on Normal (their missions unclaimed), Op 1's Nightmare won and swept 14 times: Night Shift and
+ * Sleepless Patrol done, nothing claimed. */
+function nightmareUnclaimed() {
+  const p = atTheBoss();
+  play(p, 'ev-halloween-1', 'nightmare');
+  sweep(p, 'ev-halloween-1', 'nightmare', 10, createRng(5), { now: new Date(MID) });
+  sweep(p, 'ev-halloween-1', 'nightmare', 4, createRng(5), { now: new Date(MID) });
+  const open = missionRows(p, EV, MID).total.filter((m) => m.done && !m.claimed).map((m) => m.id);
+  expect(open).toEqual(['hw_t_op1', 'hw_t_op2', 'hw_t_op3', 'hw_t_op4', 'hw_t_nm1', 'hw_t_nm_clear15']);
+  return p;
+}
+const FIRST = 'ev:halloween-2026:1:unclaimed';
+const FOLLOW = 'ev:halloween-2026:1:unclaimed:2';
+const load = (save) => migrateProfile(JSON.parse(JSON.stringify(save)));
+
+describe('NM-7 a stale v0.1.38 tab mails the end-of-event letter first', () => {
+  it('its letter has only the missions it knows; the next load here mails the Nightmare ones once, in a follow-up', () => {
+    const p = nightmareUnclaimed();
+    const old = v0138Settle(p, T('2026-11-02T03:00:00Z'));
+    expect(old.letters.map((l) => [l.id, l.rewards])).toEqual([[FIRST, [{ id: CANDY, count: 200 }]]]);
+    expect(old.save.mail.delivered).toContain(FIRST);
+    const back = load(old.save);
+    expect(missionRows(back, EV, END - 1).total.filter((m) => m.done && !m.claimed).map((m) => m.id)).toEqual(['hw_t_nm1', 'hw_t_nm_clear15']);
+    const { letters } = settleEvents(back, T('2026-11-02T05:00:00Z'));
+    expect(letters.map((l) => l.id)).toEqual([FOLLOW]);
+    expect(letters[0].rewards).toEqual([{ id: CANDY, count: 550 }, { id: 'book_mythic', count: 1 }]);
+    expect(letters[0].expiresAt).toBe(XEND); // it holds candy: it expires with the exchange, like the first one
+    expect(missionRows(back, EV, END - 1).total.every((m) => !m.done || m.claimed)).toBe(true);
+    expect(back.missions.counters['evm:halloween-2026:1:hw_t_nm_clear15']).toBe(1);
+    // once: again here, through v0.1.38 again (it drops the claims from the block, the evm marks bring them back), here again
+    expect(settleEvents(back, T('2026-11-02T06:00:00Z')).letters).toEqual([]);
+    const again = v0138Settle(back, T('2026-11-03T03:00:00Z'));
+    expect(again.letters).toEqual([]);
+    expect(settleEvents(load(again.save), T('2026-11-03T05:00:00Z')).letters).toEqual([]);
+    // the follow-up claims once
+    const c = itemCount(back, CANDY);
+    expect(claimMail(back, FOLLOW, T('2026-11-02T07:00:00Z')).ok).toBe(true);
+    expect(itemCount(back, CANDY) - c).toBe(550);
+    expect(itemCount(back, 'book_mythic')).toBe(1);
+    expect(claimMail(back, FOLLOW, T('2026-11-02T07:00:00Z')).error).toBe('claimed');
+    expect(itemCount(back, CANDY) - c).toBe(550);
+  });
+
+  it('first back here after the exchange closed: the follow-up has no candy and no expiry; its candy joins the leftover coins', () => {
+    const p = nightmareUnclaimed();
+    const held = itemCount(p, CANDY);
+    const old = v0138Settle(p, T('2026-11-02T03:00:00Z')); // v0.1.38's letter (200 candy) is never opened
+    const back = load(old.save);
+    const { letters, settled } = settleEvents(back, XEND + 3600000);
+    expect(settled).toEqual([EV.id]);
+    const follow = letters.find((l) => l.id === FOLLOW);
+    expect(follow.rewards).toEqual([{ id: 'book_mythic', count: 1 }]);
+    expect(follow.expiresAt).toBe(null);
+    const leftover = letters.find((l) => l.id === 'ev:halloween-2026:1:leftover');
+    expect(leftover.rewards).toEqual([{ id: 'coins', count: (held + 550) * 50 }]);
+    expect(settleEvents(back, XEND + 7200000).letters).toEqual([]);
+    expect(settleEvents(load(v0138Settle(back, XEND + 9000000).save), XEND + 10000000).letters).toEqual([]);
+  });
+
+  it('this build first: one letter with everything; v0.1.38 and this build after it mail nothing more', () => {
+    const p = nightmareUnclaimed();
+    const { letters } = settleEvents(p, T('2026-11-02T03:00:00Z'));
+    expect(letters.map((l) => [l.id, l.rewards])).toEqual([[FIRST, [{ id: CANDY, count: 750 }, { id: 'book_mythic', count: 1 }]]]);
+    const old = v0138Settle(p, T('2026-11-02T05:00:00Z'));
+    expect(old.letters).toEqual([]);
+    expect(settleEvents(load(old.save), T('2026-11-02T06:00:00Z')).letters).toEqual([]);
   });
 });
