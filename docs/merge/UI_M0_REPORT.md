@@ -42,7 +42,7 @@ Spec: `docs/specs/UI_DIRECTION.md` §7 M0, built from §2–§5 and the appendix
    There are 22 unit tests in `tests/ui/format.test.js`. The formatters it replaces:
    - `ui/lobby/mailbox.js` `compactCount` (removed). Tiles now show `fmtNum(n, 'stack')`, so "×300K" becomes "×300k";
    - `ui/profile/parts.js` `shortNumber` (removed). The kill count uses `count`, rounding down;
-   - `unitBuild.js` `fmt`: damage and power use `count`, cost uses `money` rounding up;
+   - `unitBuild.js` `fmt`: damage and power use `count`; cost is the battle's own price, `roundCost` from `sim/Sim.js` (nearest 5, as `placeCost` charges on Normal), shown with `money` (train v0.1.38 fix; M0 first rounded the raw product up);
    - `unitSheet.js` `fmt`: power uses `count`;
    - `upgradeGrid.js` `fmt`: prices and shortfalls use `money` rounding up (null still shows "–");
    - `ui/battle/upgradeTree.js` `fmt`: the deploy cost uses `money` rounding up.

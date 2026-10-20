@@ -12,6 +12,7 @@ import { potentialLevel, MAX_POTENTIAL } from '../systems/potential.js';
 import { gearIcon, uiIcon } from '../art/icons.js';
 import { displayRarity, urBadge } from './rarity.js';
 import { fmtNum } from './format.js';
+import { roundCost } from '../sim/Sim.js';
 
 const r1 = (v) => Math.round(v * 10) / 10;
 
@@ -46,12 +47,14 @@ export function buildModel(unit, prof) {
   const s = unitBattleStats(prof, unit.id);
   const b = unit.base;
   const critMul = (b.crit?.mul || 1.5) * s.critMul;
+  // the deploy price the battle charges on Normal (Sim.placeCost rounds to a multiple of 5; a free unit stays 0)
+  const cost = b.cost > 0 ? roundCost(b.cost * s.costMul) : 0;
   const stats = [
     b.damage ? { label: 'Damage', value: fmtNum(b.damage * s.damageMul), delta: pctDelta(s.damageMul) } : null,
     b.rate ? { label: 'Attack speed', value: `${(b.rate * s.rateMul).toFixed(2)}/s`, delta: pctDelta(s.rateMul) } : null,
     { label: 'Range', value: (b.range * s.rangeMul).toFixed(1), delta: pctDelta(s.rangeMul) },
     { label: 'Crit', value: `${Math.round(((b.crit?.chance || 0) + s.critChance) * 100)}%`, delta: `×${critMul.toFixed(2)} dmg` },
-    { label: 'Cost', value: fmtNum(b.cost * s.costMul, 'money', { round: 'up' }), delta: pctDelta(s.costMul) },
+    { label: 'Cost', value: fmtNum(cost, 'money'), delta: pctDelta(s.costMul) },
   ].filter(Boolean);
   return {
     level: st.level || 1,
