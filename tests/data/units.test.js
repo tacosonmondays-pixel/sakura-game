@@ -321,7 +321,8 @@ describe('upgrade paths', () => {
     expect(u.paths).toHaveLength(3);
     expect(new Set(u.paths.map((p) => p.id)).size).toBe(3);
     for (const p of u.paths) {
-      expect(Object.keys(p).sort()).toEqual(['focus', 'id', 'name', 'tiers']);
+      // `ability`: the ⚡ path's ability, attached from src/data/abilities.js (tests/data/abilities.test.js)
+      expect(Object.keys(p).filter((k) => k !== 'ability').sort()).toEqual(['focus', 'id', 'name', 'tiers']);
       expect(p.name.length).toBeGreaterThan(2);
       expect(p.focus.length).toBeGreaterThan(2);
       expect(p.tiers).toHaveLength(5);
@@ -555,7 +556,8 @@ describe('hero definitions', () => {
     const h = u.hero;
     expect(u.base.cost).toBe(0);
     expect(u.paths).toEqual([]);
-    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'ult']);
+    // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js)
+    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'skill', 'ult']);
     expect(h.levels).toBe(HERO_TRACKS[id].levels);
     expect(h.pathKeys).toEqual(OLD_REFS[id]);
     expect(h.levels.map((l) => l.level)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));

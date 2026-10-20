@@ -14,8 +14,12 @@
 //   slow, and so on — the sim never has to guess.
 // * Heroes have no upgrade paths: they deploy for free and level 1–25 inside each battle along one
 //   track (src/data/heroTracks.js). Their `paths` is empty and `hero.levels` holds all 25 levels.
+// * Abilities live in src/data/abilities.js and are attached at the end of this file: one ⚡ path per
+//   girl gets `ability` (it unlocks at tier 3), every hero gets `hero.skill` (Lv 7). Each girl has one
+//   tip starting with ⚡ that names both.
 
 import { HERO_TRACKS } from './heroTracks.js';
+import { attachAbilities } from './abilities.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -279,6 +283,7 @@ const AOI = {
     'Cheap and dependable — a great first placement on any map.',
     'Many small hits crack crystal shells quickly, and she can shoot flyers.',
     'Rapid Volley tier 3 gives her Veil Sight; Piercing Arrows tier 3 lets her ignore armor.',
+    '⚡ Rapid Volley tier 3 teaches Skyfall Volley: an arrow rain that pins the front of a wave.',
   ],
   base: stats({
     cost: 200, behavior: 'projectile', damage: 4, rate: 1.4, range: 3.2, projectileSpeed: 16,
@@ -341,9 +346,9 @@ const REI = {
   personality: 'Blunt, loud and fiercely competitive; secretly feeds every stray cat on campus.',
   quote: 'Line them up. I\'ll take them all at once!',
   tips: [
-    'Put her on the inside of a corner so the path wraps around her.',
+    'Melee, so no flyers: put her on the inside of a corner so the path wraps around her.',
     'Slash shreds light armor but bounces off plate — pair her with an armor breaker.',
-    'Melee: she cannot hit flyers.',
+    '⚡ Whirlwind tier 3 teaches Hurricane Draw: a few seconds of blade storm that hits everything in reach.',
     'Duelist Stance (tier 4) turns her into a single-target boss fighter.',
   ],
   base: stats({
@@ -410,6 +415,7 @@ const YUKI = {
     'Slowed enemies stay in everyone\'s range longer — place her early along the path.',
     'Frostbite makes enemies Brittle so every girl deals more damage to them.',
     'Bosses shrug off most freeze time: lean on slows, not freezes, against them.',
+    '⚡ Deep Freeze tier 3 teaches Whiteout: it freezes every enemy around her, perfect for a wave about to leak.',
   ],
   base: stats({
     cost: 220, behavior: 'projectile', damage: 2, rate: 1.0, range: 3.0, splash: 0.6,
@@ -475,7 +481,7 @@ const MOMO = {
     'Place her early: her income pays out at the end of every wave.',
     'Savings Pact tier 3 makes upgrades cheaper for the girls around her (not hero levels).',
     'Her coin toss is weak — never rely on her to hold a lane alone.',
-    'Nightmare difficulty switches off all wave income, hers included.',
+    '⚡ Peach Orchard tier 3 teaches Market Day: coins on demand, twice per wave (Nightmare switches off all income, hers included).',
   ],
   base: stats({
     cost: 300, behavior: 'projectile', damage: 2, rate: 0.8, range: 2.8, projectileSpeed: 12,
@@ -541,6 +547,7 @@ const AKANE = {
     'Best against tightly packed swarms, splitters and broods.',
     'Burns ignore flat armor, but fire-warded foes resist them.',
     'Fireballs cannot hit flyers until Phoenix Feather (Wildfire tier 4) or a tier 5.',
+    '⚡ Big Bang tier 3 teaches Starmine Barrage: a firework barrage on the thickest crowd in her range.',
   ],
   base: stats({
     cost: 480, behavior: 'projectile', damage: 6, rate: 0.7, range: 3.1, splash: 1.0,
@@ -606,7 +613,7 @@ const SANGO = {
     'Deploys on water only, and her shells reach far.',
     'Blast deals +50% to barriers, and Sango adds even more on top.',
     'Armor-Breaker Shells lower armor for every girl that hits the target afterwards.',
-    'Air-Burst Flak (Wide Fragmentation tier 4) lets her shoot down flyers.',
+    '⚡ Wide Fragmentation tier 3 teaches Tidebreaker Shell, a shell that blasts a crowd back; tier 4 (Air-Burst Flak) shoots down flyers.',
   ],
   base: stats({
     cost: 560, behavior: 'projectile', damage: 14, rate: 0.45, range: 4.2, splash: 0.8,
@@ -672,6 +679,7 @@ const KAGE = {
     'Innate Veil Sight: she hits veiled enemies from the moment she is placed.',
     'Many fast hits shatter crystal shells and pop illusion decoys.',
     'Shadow Mark tier 3 reveals veiled foes for the whole team.',
+    '⚡ Storm of Steel tier 3 teaches Shadow Doubles: two shadows that throw her volley from the road near the exit.',
   ],
   base: stats({
     cost: 400, behavior: 'projectile', damage: 3, rate: 2.0, range: 3.0, projectiles: 2, pierce: 2,
@@ -737,6 +745,7 @@ const UMEKO = {
     'Water only. Every girl inside her aura gains Veil Sight.',
     'She barely attacks — place her where many girls stand within reach of her aura.',
     'Lighthouse tier 3 strips veils for everyone, even girls outside her aura.',
+    '⚡ Lighthouse tier 3 also teaches Lantern Flare: every veiled enemy on the map is revealed at once.',
   ],
   base: stats({
     cost: 380, behavior: 'pulse', damage: 1, rate: 0.6, range: 2.4, maxTargets: 6,
@@ -803,6 +812,7 @@ const SHIRO = {
     'Range 10 covers most of the map — place her anywhere safe.',
     'Set her to Priority to delete casters, siphoners and field oni first.',
     'She ignores armor: the free answer to orc plate.',
+    '⚡ Execution tier 3 teaches Verdict Round: armor-piercing shots on the two biggest threats anywhere on the map.',
   ],
   base: stats({
     cost: 450, behavior: 'projectile', damage: 18, rate: 0.4, range: 10, projectileSpeed: 0,
@@ -866,7 +876,7 @@ const MIDORI = {
   quote: 'Hypothesis: this will melt. Let\'s test it!',
   tips: [
     'Poison ignores armor and stops regeneration and siphon healing.',
-    'Lob flasks where enemies bunch up — poison sticks to everyone in the splash.',
+    '⚡ Toxicology tier 3 teaches Catalyst Burst: lob flasks into a crowd, then detonate every poison at once.',
     'Corrosion shreds armor for the whole team.',
     'Her brews pick the strongest girl in range — tap Pick to choose.',
   ],
@@ -934,6 +944,7 @@ const SUZU = {
     'Traps go on path tiles inside her range — place her near the exit to catch leakers.',
     'Traps catch sappers before they can sabotage your girls.',
     'Spirit Seals tier 3 reveals veiled foes; tier 4 turns her seals holy.',
+    '⚡ Explosive Mines tier 3 teaches Bell Carpet: a carpet of extra mines along the road in her range.',
   ],
   base: stats({
     cost: 380, behavior: 'trap', damage: 12, rate: 0.4, range: 2.6, projectileSpeed: 0,
@@ -1000,6 +1011,7 @@ const RAIKA = {
     'Lightning jumps between enemies — the more spread out the wave, the better.',
     'Soaked enemies take +15% lightning damage: pair her with Sango, Umeko or Nami.',
     'Overcharge tier 4 turns her into a piercing lightning lance.',
+    '⚡ Storm Rhythm tier 3 teaches Drumstorm: a few seconds of faster, wider, shocking lightning.',
   ],
   base: stats({
     cost: 480, behavior: 'chain', damage: 5, rate: 0.9, range: 3.2, chain: 3,
@@ -1065,6 +1077,7 @@ const MIKO = {
     'Every girl within her aura deals +10% damage — place her in the middle of your best girls.',
     'Sacred Grounds gives Veil Sight, cleanses sabotage and makes upgrades cheaper for the whole cluster (not hero levels).',
     'Purification turns her talismans into silencing holy strikes.',
+    '⚡ Blessing tier 3 teaches Shrine Chorus: more damage and speed for every girl near her, your ally\'s too.',
   ],
   base: stats({
     cost: 450, behavior: 'projectile', damage: 2, rate: 0.8, range: 2.8, projectileSpeed: 12,
@@ -1130,6 +1143,7 @@ const HOTARU = {
     'Her pulses reveal veiled foes and silence oni fields, siphons, blinks and phasing.',
     'Holy deals double damage to ghosts and wraiths.',
     'Place her where field casters walk — silenced fields stop buffing the wave.',
+    '⚡ Silent Prayer tier 3 teaches Firefly Hush: every enemy on the map is silenced at once.',
   ],
   base: stats({
     cost: 650, behavior: 'pulse', damage: 6, rate: 0.8, range: 2.6, maxTargets: 8,
@@ -1195,6 +1209,7 @@ const KAEDE = {
     'Her damage builds with every consecutive hit on the same target.',
     'Use Strong or Priority targeting so she locks onto the toughest enemy.',
     'Melee: she cannot hit flyers until Flowing Blade tier 3.',
+    '⚡ Flowing Blade tier 3 teaches Flash Lunge: a flurry of full-ramp strikes on the enemy she targets.',
   ],
   base: stats({
     cost: 600, behavior: 'duel', damage: 10, rate: 1.1, range: 2.0, projectileSpeed: 0,
@@ -1257,7 +1272,7 @@ const CHIKA = {
   personality: 'Fast-talking and endlessly inventive; names every drone and grieves each one dramatically.',
   quote: 'Give me ten seconds and a wrench!',
   tips: [
-    'Her drones fly out to hunt up to 4 tiles away — tap one to see its stats.',
+    '⚡ Sentry Works tier 3 teaches Drone Surge: extra drones for a few seconds. Tap any drone to see its stats.',
     'Flight modes: Hover near her, Hold a point, Patrol between two points, or Pursuit anywhere on the map.',
     'Repair Bay tier 3 cleanses sabotage for every girl in her aura.',
     'Tesla Tower (tier 4) turns her wrench bolt into a chain-lightning coil; her drones keep flying.',
@@ -1311,6 +1326,10 @@ export const UNITS = [
 
 /** id -> UnitDef */
 export const UNIT_MAP = Object.fromEntries(UNITS.map((u) => [u.id, u]));
+
+// Abilities (src/data/abilities.js): a frozen `ability` on each girl's ⚡ path, `hero.skill` on each
+// hero. The sim does not read them yet (ABILITIES_SPEC milestone A1).
+attachAbilities(UNITS);
 
 /** All unit ids in roster order. */
 export const UNIT_IDS = UNITS.map((u) => u.id);

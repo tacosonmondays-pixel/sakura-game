@@ -165,9 +165,38 @@ StatusSpec = { type: 'slow', amount: 0.3, duration: 1.5 }
            | { type: 'soak', duration }
   // any StatusSpec may carry `chance` (0-1, default 1)
 
-PathDef = { id, name, focus, tiers: [TierDef ×5] }
+PathDef = { id, name, focus, tiers: [TierDef ×5], ability?: AbilityDef }   // ability: the ⚡ path (below)
 TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 ```
+
+**Abilities** — `src/data/abilities.js` (numbers; in the co-op graph and the data hash) and
+`src/data/abilityText.js` (name, icon, desc templates; UI only, not hashed). Spec: ABILITIES_SPEC §5–§6
+(design scratch). `units.js` calls `attachAbilities(UNITS)` once: every tower's ⚡ path gets a frozen
+`ability` (it unlocks at tier 3; tier 5 upgrades it), every hero gets `hero.skill` (Lv 7, rank 2 at Lv 17).
+`attachAbilities` throws on a row for an unknown girl or a path id she does not have. A kit variant's row is
+`id@kitStyle` (`abilityRow(def)`). The sim does not read abilities yet (milestone A1).
+
+```js
+AbilityDef = { path, unlockTier: 3, id /* 'aoi.skyfall' */, kind, scope, cooldown /* s of wave time */,
+               duration /* s; 0 = instant */, effect, auto: { when, min?, orElite?, orCaster?, orVeiled?, orLeak?, reach? },
+               t5: { cooldown?, duration?, effect? } }            // merged by spread at tier 5 (abilityAtTier)
+SkillDef   = { unlockLevel: 7, id, kind, scope, cooldown, duration, effect, auto,
+               ranks: [{ level /* 17 */, cooldown?, duration?, effect? }] }   // skillAtLevel
+ABILITIES  = { [id | 'id@kitStyle']: AbilityDef[] /* towers: one per ⚡ path */ | { skill: SkillDef } /* heroes */ }
+ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6,
+                  econCapPerWave: 2, densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'] }
+ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
+ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
+AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready
+ABILITY_TEXT = { [abilityId]: { name, icon /* a glyph key */, desc, short, up } }   // abilityValues + fillAbilityText
+```
+
+Rules (tests/data/abilities.test.js): one ⚡ path per tower (the spec's), the kind mix of §5.1, Momo has
+one ability (Market Day); cooldowns 20–60 s (hero skills 20–45 s), an upgrade never slower; every duration,
+delay and status time a whole number of ticks; no `chance` on an ability status; effect keys from the kind's
+vocabulary (the header of abilities.js); a text row per ability whose templates fill at tier 3 and tier 5 (Lv 7
+and Lv 17); ability names unique and unused anywhere else; no other game's words; one ⚡ tip per girl naming
+her ⚡ path and her ability.
 
 **ModSet** — the only keys the sim understands (add = additive, mul = multiplicative):
 
@@ -213,6 +242,7 @@ HeroDef = {                       // src/data/heroTracks.js (hero rework, docs/s
   growth?: { damage, rate },      // default HERO_GROWTH { damage: 0.03, rate: 0 } per level above 1
   ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect,
          ranks: [{ level, desc, effect: Partial<UltEffect>, cooldownMul }] },  // rank 2 at Lv 10, rank 3 at Lv 20
+  skill?: SkillDef,               // the Lv 7 skill, attached from src/data/abilities.js (see Abilities above)
 }
 UltEffect = { type: 'nova', damage, radius /*0 = whole map*/, attackType, status?: StatusSpec[], reveal?: seconds }
           | { type: 'timeWarp', slow, duration, rateBuff, buffDuration }
