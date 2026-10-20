@@ -2,6 +2,7 @@
 //   resolveStyle(t) = STYLE_BY_UNIT[unitId] → BEHAVIOR_DEFAULT[behavior] → generic
 // New girls (roster B3) plug in with one line: registerStyle('newGirl', style).
 import { generic } from './styles/generic.js';
+import { tenka } from './styles/tenka.js'; // the new girls (stand-in until Tenka's FX milestone)
 import { chika } from './styles/chika.js';
 import { hikari } from './styles/hikari.js';
 import { luna } from './styles/luna.js';
@@ -23,6 +24,7 @@ import { hotaru } from './styles/hotaru.js';
 import { kaede } from './styles/kaede.js';
 
 export const STYLE_BY_UNIT = {
+  tenka,
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
 };
 

@@ -69,6 +69,25 @@ function normTurret(t = {}) {
   };
 }
 
+// Tenka's paths (BUILD_PLAN 6.1; GAPS 5.10). The keys parse, normalise and validate now; what they
+// do arrives with their milestones (Joint Research T2, Gravity Well and Last Line T1), so in T0 they
+// sit on her stats and no sim code reads them. Like the Potential keys they appear on the stats ONLY
+// when a tier sets them: every other girl resolves exactly as before.
+/** Joint Research (P-13): how many times she absorbs (on purchase) and the weapons' strength multiplier. */
+function normLab(l = {}) {
+  return { rounds: l.rounds ?? 0, power: l.power ?? 1 };
+}
+
+/** Gravity Well (P-4): every s of wave time a well opens for `time` s, radius r; pull (tiles/s by path), slow, vuln. */
+function normWell(w = {}) {
+  return { every: w.every ?? 0, time: w.time ?? 0, radius: w.radius ?? 0, pull: w.pull ?? 0, slow: w.slow ?? 0, vuln: w.vuln ?? 0 };
+}
+
+/** Last Line (P-14): a well at the exit that swallows up to `max` enemies over `time` s, then rests `cooldown` s. */
+function normLastLine(l = {}) {
+  return { radius: l.radius ?? 0, max: l.max ?? 0, time: l.time ?? 0, cooldown: l.cooldown ?? 0 };
+}
+
 /**
  * Merges StatusSpecs into a list: a new type is appended, an existing type keeps the
  * stronger value of every numeric field (amount, dps, bonus, duration, chance).
@@ -136,6 +155,10 @@ export function normalizeBase(base = {}, unitDef = {}) {
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
+    // Tenka's keys only when the base has them (no girl does today: no null defaults, see normLab)
+    ...(b.lab ? { lab: normLab(b.lab) } : null),
+    ...(b.well ? { well: normWell(b.well) } : null),
+    ...(b.lastLine ? { lastLine: normLastLine(b.lastLine) } : null),
   };
 }
 
@@ -299,6 +322,17 @@ export function applyModSet(s, mods, acc) {
       s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
       s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
       s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
+    } else if (key === 'lab') {
+      // Joint Research: rounds and power, the strongest wins (Unified Theory: 2 rounds, ×3)
+      const l = s.lab || (s.lab = normLab());
+      l.rounds = Math.max(l.rounds, v.rounds ?? 0);
+      l.power = Math.max(l.power, v.power ?? 1);
+    } else if (key === 'well') {
+      // Gravity Well: every field keeps the strongest value (Deep Well: 6 s, radius 2, +20% damage taken)
+      const w = s.well || (s.well = normWell());
+      for (const f of ['every', 'time', 'radius', 'pull', 'slow', 'vuln']) if (v[f] != null) w[f] = Math.max(w[f], v[f]);
+    } else if (key === 'lastLine') {
+      s.lastLine = normLastLine(v); // replace: one Last Line
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

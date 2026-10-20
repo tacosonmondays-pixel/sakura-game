@@ -30,6 +30,8 @@ const LIGHTNING = {
   akane: ['bigbang', 1940], sango: ['frag', 2000], kage: ['steel', 1860], umeko: ['lighthouse', 1750],
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
+  // §5.3 the new girls: Tenka's Rail Arms, T3 Plasma Rails (5,150)
+  tenka: ['rails', 5150],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -40,7 +42,10 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
+  tenka: 'strike', // §5.3
 };
+// the girls of §5.3 (not part of §5.1's live mix)
+const NEW_GIRLS = ['tenka'];
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
 const MULTI_PATH = {};
@@ -158,6 +163,13 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
   },
+  // §5.3 + BUILD_PLAN 6.1: a strike with a boost tail at tier 5 (Zero Point)
+  tenka: {
+    path: 'rails', id: 'tenka.criticalMass', kind: 'strike', scope: 'local', cooldown: 45, duration: 0,
+    effect: { pick: 'strong', count: 1, reachMul: 1, dmgMul: 40, splash: 2, armorPen: 99 },
+    auto: { when: 'elite' },
+    t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -189,7 +201,7 @@ function specUpgraded(base, { level, effect = {}, ...scalars }) {
 // The effect fields each kind may use (a typo in the data fails here, not silently in the sim).
 const STATUS_LIST = ['status'];
 const EFFECT_KEYS = {
-  strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', ...STATUS_LIST],
+  strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
   boost: ['mods'],
   rally: ['radius', 'inAura', 'target', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
@@ -278,6 +290,16 @@ function defErrors(d, where) {
   for (const k of ['dmgMul', 'rateMul', 'rangeMul']) {
     for (const src of [d.kind === 'rally' ? e : null, e.rally].filter(Boolean)) if (k in src && !(src[k] > 1)) errs.push(`${where}: rally ${k} > 1`);
   }
+  if (e.after) {
+    // a strike's boost tail: a boost ModSet for `duration` s after each cast, shorter than the recharge
+    for (const k of Object.keys(e.after)) if (!['mods', 'duration'].includes(k)) errs.push(`${where}: after key ${k}`);
+    for (const k of Object.keys(e.after.mods || {})) if (!BOOST_MOD_KEYS.includes(k)) errs.push(`${where}: after mod ${k}`);
+    if (!e.after.mods || !Object.keys(e.after.mods).length) errs.push(`${where}: after needs mods`);
+    if (e.after.mods?.status) errs.push(...statusErrors(e.after.mods.status, `${where}.after.mods.status`));
+    if (!(e.after.duration > 0) || !isWholeTicks(e.after.duration)) errs.push(`${where}: after.duration must be > 0 whole ticks`);
+    if (!(e.after.duration < d.cooldown)) errs.push(`${where}: after.duration must be shorter than the cooldown`);
+  }
+  if ('splashShare' in e && !(e.splashShare > 0 && e.splashShare <= 1)) errs.push(`${where}: splashShare in (0, 1]`);
   if (d.kind === 'burst' && !e.at) errs.push(`${where}: a burst needs a point (at)`);
   if (d.kind === 'burst' && !(e.radius > 0) && !(e.radiusMul > 0)) errs.push(`${where}: a burst needs a radius`);
   // a multi-shell burst lasts until its last shell lands
@@ -343,7 +365,7 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
   test('rows exist only for real girls (a kit variant is id@kitStyle)', () => {
     for (const id of Object.keys(ABILITIES)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
     for (const u of UNITS) expect(abilityRow(u), u.id).toBe(ABILITIES[u.id]);
-    expect(Object.keys(ABILITIES).length).toBe(19);
+    expect(Object.keys(ABILITIES).length).toBe(UNITS.length); // one row per girl
   });
 
   test.each(towers().map((u) => [u.id, u]))('%s: exactly one ⚡ path, the one the spec names, unlocking at tier 3', (id, u) => {
@@ -367,10 +389,15 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
     expect(u.hero).toBeUndefined();
   });
 
-  test('the kind mix matches the spec: strike 4, burst 3, deploy 3, boost 2, debuff 2, rally 1, econ 1', () => {
+  test('the kind mix matches the spec: §5.1\'s 16 are strike 4, burst 3, deploy 3, boost 2, debuff 2, rally 1, econ 1; the new girls add theirs', () => {
     const count = {};
     for (const u of towers()) { const k = u.paths.find((p) => p.ability).ability.kind; count[k] = (count[k] || 0) + 1; }
-    expect(count).toEqual({ strike: 4, burst: 3, deploy: 3, boost: 2, debuff: 2, rally: 1, econ: 1 });
+    const want = {};
+    for (const k of Object.values(KIND_OF)) want[k] = (want[k] || 0) + 1;
+    expect(count).toEqual(want);
+    const live = {};
+    for (const [id, k] of Object.entries(KIND_OF)) if (!NEW_GIRLS.includes(id)) live[k] = (live[k] || 0) + 1;
+    expect(live).toEqual({ strike: 4, burst: 3, deploy: 3, boost: 2, debuff: 2, rally: 1, econ: 1 });
   });
 
   test('Momo has exactly one ability, Market Day (spec §16 Q6 default)', () => {
@@ -471,6 +498,10 @@ describe('numbers', () => {
     expect(at3('aoi').dmg).toBe(24); // 6 × 4 at 0-3-0
     expect(at3('shiro').dmg).toBe(295); // 5 × 59 at 3-0-0
     expect(at3('aoi').reach).toBe(5.4); // 1.5 × 3.6 tiles
+    expect(at3('tenka').dmg).toBe(320); // 40 × (3 + 5) at 0-3-0
+    expect(at3('tenka').reach).toBe(3.4);
+    const [, d5, s5] = states(UNIT_MAP.tenka)[1];
+    expect(abilityValues(d5, s5).dmg).toBe(7560); // 120 × (3 + 5 + 15 + 40) at 0-5-0
   });
 
   test('ids are unique and say whose they are', () => {
@@ -540,6 +571,17 @@ describe('text (src/data/abilityText.js, UI only)', () => {
     );
   });
 
+  test('Tenka at 0-3-0 and 0-5-0: Critical Mass, then Zero Point\'s boost tail', () => {
+    const [[, d3, s3], [, d5, s5]] = states(UNIT_MAP.tenka);
+    expect(fillAbilityText(abilityText(d3.id).desc, abilityValues(d3, s3))).toBe(
+      'A plasma blast on the strongest enemy within 3.4 tiles: 320 damage that ignores armor, and every enemy within 2 tiles of it takes the blast too.',
+    );
+    expect(abilityUnlockLine('tenka.criticalMass')).toBe('Unlocks ⚡ Critical Mass: a plasma blast on the strongest enemy in her range.');
+    expect(abilityUpgradeLine('tenka.criticalMass', abilityValues(d5, s5))).toBe(
+      '⚡+ Critical Mass hits for 120× her hit in a 3-tile blast and recharges in 30s; after each cast her bolts fire 2× as fast for 6s.',
+    );
+  });
+
   test('the ⚡ tier-3 / Lv 7 line and the tier-5 / Lv 17 line', () => {
     expect(abilityUnlockLine('aoi.skyfall')).toBe('Unlocks ⚡ Skyfall Volley: an arrow rain that pins the front of a wave.');
     const [, d5, s5] = states(UNIT_MAP.aoi)[1];
@@ -562,7 +604,7 @@ describe('text (src/data/abilityText.js, UI only)', () => {
 describe('names', () => {
   test('ability names are unique and clash with no other name in the game', () => {
     const names = Object.values(ABILITY_TEXT).map((t) => t.name);
-    expect(names.length).toBe(19);
+    expect(names.length).toBe(UNITS.length); // one ability per girl
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     const taken = new Set();
     const add = (n) => { if (typeof n === 'string' && n) taken.add(n.toLowerCase()); };

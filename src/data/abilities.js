@@ -31,7 +31,11 @@
 //           'poisoned' every poisoned enemy), count (absent = every pick), reachMul | reach: 'map',
 //           dmgMul (× her current hit), hits (strikes on each target), fullRamp (each hit at 1 + ramp.max),
 //           keepRamp, delay (s, a telegraph), armorPen (99 = ignores armor), status,
-//           poisonMul / splash / splashShare / spreadPoison (s) for detonating poison
+//           poisonMul / splash / splashShare / spreadPoison (s) for detonating poison;
+//           on any other pick, splash (tiles) makes each strike a blast: every enemy within splash
+//           of the struck one takes the same hit × splashShare (default 1, the full hit);
+//           after: { mods, duration } a boost tail: the ModSet on the caster for `duration` s after
+//           each cast (Tenka's Zero Point)
 //   burst   at ('self' | 'densest' crowd within reachMul × range), radius | radiusMul, shells, delay,
 //           every (s between shells), reaim (each shell picks its point again), dmgMul, knockback,
 //           hitsAir, status
@@ -219,6 +223,14 @@ export const ABILITIES = deepFreeze({
     effect: { pick: 'mode', count: 1, reachMul: 2.5, hits: 5, dmgMul: 1, fullRamp: true, keepRamp: true },
     auto: { when: 'enemies', min: 3, orElite: true },
     t5: { cooldown: 20, effect: { hits: 8 } },
+  }],
+  tenka: [{
+    // a plasma blast on the strongest enemy in her range (every enemy within `splash` of it takes it too);
+    // Zero Point: a far bigger blast, a faster recharge and her bolts ×2 as fast for 6 s after each cast
+    path: 'rails', unlockTier: 3, id: 'tenka.criticalMass', kind: 'strike', scope: 'local', cooldown: 45, duration: 0,
+    effect: { pick: 'strong', count: 1, reachMul: 1, dmgMul: 40, splash: 2, armorPen: 99 },
+    auto: { when: 'elite' },
+    t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
   }],
   chika: [{
     // extra drones beyond her limit; they follow her flight mode, then dock and vanish

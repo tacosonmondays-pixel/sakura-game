@@ -1511,7 +1511,9 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
     expect(later.sort()).toEqual(['chika', 'kage', 'suzu']);
-    expect(live.length).toBe(16);
+    // every other girl of the roster, the new ones too (Tenka's Critical Mass is a strike)
+    expect(live.length).toBe(Object.keys(defaultData().units).length - later.length);
+    expect(live).toContain('tenka');
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

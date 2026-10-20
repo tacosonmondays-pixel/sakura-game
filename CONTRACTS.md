@@ -92,6 +92,7 @@ Roster (ids fixed — other areas rely on them):
 | hotaru | tower | SSR | exorcist | holy | – | land | charm | gacha |
 | kaede | tower | SSR | duelist | slash | – | land | blade | gacha |
 | chika | tower | SSR | engineer | pierce | lightning | land | cog | gacha |
+| tenka | tower | SSR | powerhouse | mystic | – | land | cog | gacha |
 
 Every unit (free ones too) is also in the gacha pool of its rarity (duplicates → Star Fragments).
 
@@ -144,6 +145,12 @@ BaseStats = {
   brew?: { targets, dmgMul?, rateMul?, armorPen?, critChance? },  // limited buff (Midori): a few girls in her range, src/sim/buffs.js
   link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
   hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
+  // Tenka (BUILD_PLAN 6.1). On the stats only once a tier sets them (no null default: every other girl
+  // resolves as before). They parse, normalise and validate from T0; their behaviour lands in T1 (well,
+  // lastLine) and T2 (lab), so until then the sim reads none of them.
+  lab?: { rounds, power },     // Joint Research: absorbs `rounds` times (on purchase), lab weapons × power
+  well?: { every, time, radius, pull, slow, vuln },  // Gravity Well: every s a well for `time` s (P-4 zones)
+  lastLine?: { radius, max, time, cooldown },        // Last Line: a near-exit well that swallows up to `max` (P-14)
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
   turret?: { max, damage, rate, range, leash?, speed?, build?, attackType?, status? },
@@ -217,6 +224,9 @@ her ⚡ path and her ability.
 | aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
 | brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
 | hpPct: {pct, boss, cap} (max) | % of current HP per hit |
+| lab: {rounds (max), power (max)} | Tenka's Joint Research (behaviour in T2; on the stats from T0) |
+| well: {every, time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (behaviour in T1) |
+| lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (behaviour in T1) |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
 | turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
@@ -831,7 +841,12 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
 * Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 12000–36000 (one girl
   per path holds it, so it is priced and tuned as a one-of-a-kind centrepiece). Heroes have no tiers:
-  they buy levels on their track (hero rework).
+  they buy levels on their track (hero rework). Tower base costs: 150–900.
+* **Named price bands** (`PRICE_BANDS` in tests/data/units.test.js). A role may sit outside the windows
+  above only through a named band, and only that role may use it. Today there is one:
+  `powerhouse` (Tenka, BUILD_PLAN 6.2: a deliberate late-game investment unit). Its windows are base
+  1500–2000, tier 1 80–450 (the live window), tier 2 450–900, tier 3 2000–3500, tier 4 6000–10000 and
+  tier 5 20000–36000. Tenka's tier 5 is re-checked at the balance pass (owner: balance LAST).
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -1022,7 +1037,11 @@ Suzu, Chika) stays locked until A4 (`abilityStatus` → `later: true`). Rules: c
 fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in a wave; refusals (none spends
 the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
 (econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
-(`sim.abilGroups`, key "owner|id"). Ability hits never crit and their statuses are certain (no rng draw); a
+(`sim.abilGroups`, key "owner|id"). A strike with `effect.splash` (any pick but `poisoned`, which detonates
+instead) is a blast: every eligible enemy within `splash` of the struck one takes the same hit × `splashShare`
+(default 1) and an `explode` event marks it; `effect.after: { mods, duration }` is a boost tail (Tenka's Zero
+Point): that ModSet rides on her (`abilMods`) for `duration` s after each cast (`active` counts it down; the
+wave clear and a sale end it). Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies

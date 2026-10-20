@@ -49,6 +49,7 @@ export const ROLE_SUBCLASS = {
   tideguard: { label: 'Tidal Frontline', desc: 'Water hero: frost strikes and push-back.' },
   marksman: { label: 'Generalist', desc: 'Cheap, reliable shots; good vs crystal shells.' },
   sniper: { label: 'Precision', desc: 'Removes priority targets: casters, siphoners, elites, bosses.' },
+  powerhouse: { label: 'Late Carry', desc: 'Costly coil bolts that grow into the strongest damage on the field.' },
   cleaver: { label: 'Crowd Melee', desc: 'Sweeps everything at a corner.' },
   duelist: { label: 'Single-Target Melee', desc: 'Damage ramps up on the same target.' },
   skirmisher: { label: 'Rapid Multi-Target', desc: 'Many quick hits; innate detection.' },

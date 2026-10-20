@@ -124,6 +124,7 @@ export const GLYPHS = {
   tideguard: '<path d="M12 21.5V6M7 3.5v4.5a5 5 0 0 0 10 0V3.5M12 3v3"/><path d="M3 20c2-1.5 3.5-1.5 5.3 0s3.5 1.5 5.3 0 3.5-1.5 5.3 0" stroke-width="1.6"/>',
   marksman: '<path d="M6 3.5c7.5 2.5 7.5 14.5 0 17"/><path d="M6 3.5v17M3 12h17M17 9l3 3-3 3"/>',
   sniper: crosshair,
+  powerhouse: '<path d="M2.5 12h19" stroke-width="2.2"/><ellipse cx="7" cy="12" rx="1.8" ry="5"/><ellipse cx="12" cy="12" rx="1.8" ry="6.5"/><ellipse cx="17" cy="12" rx="1.8" ry="5"/>',
   cleaver: '<path d="M4 20C6 11 11 5.5 20 3.5c-1 8-6.5 13-14 15z"/><path d="M4 20l3.5-3.5"/>',
   duelist: '<path d="M4 20L18.5 5.5M20 20L5.5 5.5"/><path d="M3 15.5l5.5 5.5M21 15.5L15.5 21" stroke-width="1.8"/>',
   controller: snow,

@@ -40,6 +40,7 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 | **Hotaru** — Firefly Exorcist | Tower · SSR | Exorcist | Holy | – | Land | Gacha | Holy pulses (8 targets) that **reveal veils and silence** fields, siphons, blinks and phasing. | Ghosts, wraiths, veils, oni field casters | Scaled lizards (holy ×0.75); specialist, not a carry |
 | **Kaede** — Crimson Maple Duelist | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
 | **Chika** — Gadget Prodigy | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | A weak wrench bolt plus a wing of **roaming drones** (2 at base) that fly out up to 4 tiles to hunt; flight modes Hover · Hold · Patrol · Pursuit (map-wide); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil (her bolt becomes the coil; drones keep flying). | Sabotage waves, bosses walking a long lane (Pursuit), lanes out of reach (Hold) | Sappers jam drones far from the team; her own bolt is weak |
+| **Tenka** — Coilgun Physicist | Tower · SSR | Powerhouse | Mystic | – | Land | Gacha (SSR pool, spark, SSR Select Ticket) | The late-game carry (base 1800, a named price band): hitscan coil bolts, 8 a second. Rail Arms ⚡ teaches **Critical Mass** (a 40× plasma blast on the strongest enemy in range; Zero Point: 120×, a 3-tile blast and ×2 bolts for 6 s). Joint Research (your own girls in range join her lab team for the battle) and Singularity (gravity wells, Last Line at the exit) carry their numbers now and play from their milestones (T1, T2). | Late waves, elites, bosses, armor (Plasma Rails) | Very expensive; weak for her price early on |
 
 ## Upgrade paths at a glance
 
@@ -66,6 +67,7 @@ Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 0
 | Hotaru | Lantern Light → *Thousand Souls Festival* (holy nuke) | Silent Prayer → *Absolute Stillness* (long silence, stun) | Guiding Lights → *Night of Fireflies* (aura, cleanse) |
 | Kaede | Unbroken Rhythm → *Crimson Eternity* (ramp +250 %) | Flowing Blade → *Thousand Leaves Draw* (anti-air, crits) | Guard Breaker → *Heaven-Splitting Strike* (shred, stun) |
 | Chika | Sentry Works → *Mecha-Fortress Protocol* (9 drones) | Repair Bay → *Grand Workshop* (cleanse, Veil Sight, buffs) | Tesla Engineering → *Thunderforge Reactor* (becomes a `chain` coil) |
+| Tenka | Joint Research → *Unified Theory* (lab team, ×3 weapons; T2) | Rail Arms ⚡ → *Zero Point* (Critical Mass ⚡+) | Singularity → *Last Line* (wells + an exit well; T1) |
 
 ## Looks (for art & models)
 
@@ -92,6 +94,7 @@ Every girl differs in hair colour and in her hairstyle + accessory combination (
 | Hotaru | midnight blue, glowing tips | wavy · split | sheer veil-hood | white ceremonial robe | firefly lantern | ring | round · calm |
 | Kaede | burgundy | high ponytail · split | maple-orange ribbon | long black duelist's coat | rapier | leaf (maple) | sharp · determined |
 | Chika | chestnut | bob · messy | workshop goggles | sunflower-yellow jumpsuit | giant wrench | gear | sparkle · smile |
+| Tenka | platinum | ponytail · swept | safety goggles (pushed up) | short lab coat over a grey academy blazer (atom patch), plaid skirt | hand-held coilgun | bolt | sharp · smug |
 
 ## Coverage — every enemy mechanic and its counters
 

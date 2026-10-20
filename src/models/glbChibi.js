@@ -12,6 +12,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
 import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
 import { selectToonMaterial, selectTwin } from './highlight.js';
+import { isStandIn } from './standins.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -83,6 +84,8 @@ function loader() {
 
 /** Loads one character GLB at a detail level (cached; resolves null when unavailable). */
 export function loadCharacter(id, detail = 'full') {
+  // stand-ins (standins.js) have no GLB on purpose: never request one
+  if (isStandIn(id)) return Promise.resolve(null);
   // a LOD file that the manifest does not list falls back to the full model
   if (detail === 'lod' && manifestData && manifestData[id] && !manifestData[id].lod) detail = 'full';
   const key = `${id}|${detail}`;
@@ -120,7 +123,7 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   } else {
     await loadManifest();
   }
-  const queue = [...list];
+  const queue = list.filter((id) => !isStandIn(id));
   let any = false;
   const worker = async () => {
     while (queue.length) {

@@ -1,11 +1,14 @@
 // Checks the generated character GLBs (public/models/characters) without WebGL: parses the
 // GLB JSON header in node and verifies every unit ships the actions, bones, materials and
-// face atlas the runtime relies on, within the size budget.
+// face atlas the runtime relies on, within the size budget. The stand-ins (src/models/standins.js:
+// girls whose art is not approved yet) are procedural on purpose: they must NOT ship a GLB or a
+// manifest entry (tests/models/standins.test.js checks they build procedurally instead).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UNITS } from '../../src/data/units.js';
+import { STANDIN_UNITS, isStandIn } from '../../src/models/standins.js';
 import { readGlbHeader } from './glbHeader.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -28,19 +31,32 @@ const MESHY_BONES = [
   'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R',
 ];
 
+// every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
+const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
+const GLB_UNIT_COUNT = 19;
+
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
 describe('character GLBs', () => {
-  it('has a manifest listing every unit', () => {
+  it('has a manifest listing every unit that is not a stand-in', () => {
     expect(manifest).toBeTruthy();
-    for (const u of UNITS) {
+    expect(GLB_UNITS).toHaveLength(GLB_UNIT_COUNT);
+    for (const u of GLB_UNITS) {
       expect(manifest[u.id], u.id).toBeTruthy();
       expect(manifest[u.id].file).toBe(`${u.id}.glb`);
       expect(manifest[u.id].lod).toBe(`${u.id}.lod.glb`);
     }
   });
 
-  for (const u of UNITS) {
+  it('stand-ins are roster units with no GLB file and no manifest entry', () => {
+    for (const id of STANDIN_UNITS) {
+      expect(UNITS.some((u) => u.id === id), id).toBe(true);
+      expect(manifest[id], `${id}: has a manifest entry, remove it from STANDIN_UNITS`).toBeUndefined();
+      expect(existsSync(path.join(dir, `${id}.glb`)), `${id}.glb exists, remove it from STANDIN_UNITS`).toBe(false);
+    }
+  });
+
+  for (const u of GLB_UNITS) {
     if (manifest?.[u.id]?.source === 'meshy') {
       for (const detail of ['full', 'lod']) {
         it(`${u.id} ${detail}: imported Meshy figure with textured body, sword, rig and clips`, () => {
@@ -179,7 +195,7 @@ describe('character GLBs', () => {
   }
 
   it('LOD files are much lighter than the full models', () => {
-    for (const u of UNITS) {
+    for (const u of GLB_UNITS) {
       const full = statSync(path.join(dir, `${u.id}.glb`)).size;
       const lod = statSync(path.join(dir, `${u.id}.lod.glb`)).size;
       expect(lod).toBeLessThan(full * 0.65);

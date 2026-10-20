@@ -44,6 +44,8 @@ export const MOD_TAGS = {
   maxTargets: 'self', splash: 'self', armorPen: 'self', projectileSpeed: 'self', canHitAir: 'self', detection: 'self',
   crit: 'self', eliteMul: 'self', bossMul: 'self', barrierMul: 'self', ramp: 'self', hpPct: 'self',
   behavior: 'transform', attackType: 'transform', element: 'transform',
+  // Tenka: her lab team is her own power; a gravity well and Last Line act on the enemies
+  lab: 'self', well: 'enemies', lastLine: 'enemies',
   turret: 'drones',
   trap: 'traps',
   aura: 'allies',
@@ -58,6 +60,9 @@ export const MOD_TAGS = {
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
 const SUB_KEYS = {
   aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance']),
+  lab: new Set(['rounds', 'power']),
+  well: new Set(['every', 'time', 'radius', 'pull', 'slow', 'vuln']),
+  lastLine: new Set(['radius', 'max', 'time', 'cooldown']),
   brew: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance']),
   link: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock']),
   // execution shot (path cap): % of the target's current HP, bosses, cap in shots
@@ -324,6 +329,9 @@ const SHORT_ORDER = [
   ['behavior', (m) => `Becomes ${BEHAVIOR_SHORT[m.behavior] || m.behavior}`],
   ['attackType', (m) => `${ATTACK_TYPES[m.attackType]?.name || m.attackType} attacks`],
   ['element', (m) => `${ELEMENTS[m.element]?.name || m.element} element`],
+  ['lab', (m) => (m.lab.rounds ? (m.lab.rounds > 1 ? 'Lab team joins again' : 'Lab team joins') : `Lab weapons ×${round1(m.lab.power || 1)}`)],
+  ['well', (m) => (m.well.every ? `Gravity well every ${round1(m.well.every)}s` : `Wells ${round1(m.well.time || 0)}s${m.well.vuln ? `, +${Math.round(m.well.vuln * 100)}% dmg taken` : ''}`)],
+  ['lastLine', (m) => `Last Line: up to ${m.lastLine.max} enemies`],
   ['aura', (m) => auraShort(m.aura)],
   ['brew', (m) => limitedShort(m.brew, 'Brew')],
   ['link', (m) => limitedShort(m.link, 'Tune-up')],
@@ -364,6 +372,7 @@ const ICON_ORDER = [
   'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'income',
   'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
+  'lab', 'well', 'lastLine', // Tenka (a tier with only these keys shows their icon)
 ];
 const SHORT_MAX = 34;
 
@@ -395,6 +404,9 @@ const ICON_RULES = {
   element: (m) => ({ set: 'element', key: m.element }),
   attackType: (m) => ({ set: 'attack', key: m.attackType }),
   behavior: () => ({ set: 'ui', key: 'sparkle' }),
+  lab: () => ({ set: 'cap', key: 'buff' }),
+  well: () => ({ set: 'status', key: 'slow' }),
+  lastLine: () => ({ set: 'cap', key: 'trap' }),
   aura: (m) => {
     const keys = Object.keys(m.aura || {}).filter((k) => k !== 'range' && present(m.aura[k]));
     if (keys.length === 1 && keys[0] === 'cleanse') return { set: 'cap', key: 'cleanse' };

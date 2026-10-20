@@ -15,12 +15,13 @@ import {
 // The reviewed tag combinations of every path tier (update on purpose when units.js changes).
 // (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
 // gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
+// (Tenka, T0: her lab and Rail Arms tiers read Self, Singularity's slow / wells / Last Line Enemies: +11 self, +4 enemies)
 const COMBOS = {
-  self: 111,
+  self: 122,
   'enemies* + self': 26,
   'enemies + self': 23,
   allies: 23,
-  enemies: 14,
+  enemies: 18,
   coins: 7,
   'allies + self': 6,
   'allies + enemies + self': 6,

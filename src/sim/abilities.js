@@ -31,7 +31,8 @@
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
-//   t.abilMods  a running boost's ModSet (null otherwise; resolved last, src/sim/mods.js `extra`)
+//   t.abilMods  a running boost's ModSet, or a strike's boost tail (`after`: Zero Point); null otherwise
+//               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
 //   sim.abilUses    econ casts per player this wave
 //   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, on? }]
@@ -335,6 +336,38 @@ function strikeOne(sim, t, e, spec, hits, scale, status, step) {
   if (!e.dead) applyStatuses(sim, e, t, status, spec, step);
 }
 
+/**
+ * One struck enemy (strikeOne). With `splash` (any pick but 'poisoned', which detonates instead) the
+ * strike is a blast: every other eligible enemy within `splash` of where the struck one stood takes the
+ * same strikes × splashShare (default 1, the full hit) and the statuses, in grid order. Without it this
+ * is exactly strikeOne.
+ */
+function strikeAt(sim, t, v, spec, hits, scale, e, step) {
+  const r = e.pick !== 'poisoned' && e.splash > 0 ? e.splash : 0;
+  const x = v.x;
+  const y = v.y;
+  strikeOne(sim, t, v, spec, hits, scale, e.status, step);
+  if (!(r > 0)) return;
+  const share = scale * (e.splashShare ?? 1);
+  for (const o of sim.grid.query(x, y, r, [])) {
+    if (o === v || o.dead || !isEligible(o, spec)) continue;
+    strikeOne(sim, t, o, spec, hits, share, e.status, step);
+  }
+  sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType });
+}
+
+/** A strike's boost tail (`after`: Zero Point): its ModSet on her for after.duration s (the cast sets `active`). */
+function boostTail(sim, t, e, fx) {
+  if (e.after?.mods) {
+    t.abilMods = e.after.mods;
+    sim._refreshTower(t);
+  }
+  return fx;
+}
+
+/** Ticks a cast stays active: its duration, or a strike's boost tail when that is longer. */
+const activeTicks = (def) => Math.max(ticks(def.duration), ticks(def.effect?.after?.duration));
+
 /** One area hit (a burst's shell): damage and knockback through _hit, then the statuses. */
 function shellAt(sim, t, def, spec, x, y, r, step) {
   const victims = sim.grid.query(x, y, r, []);
@@ -484,7 +517,7 @@ const KINDS = {
       const fx = { x: t.x, y: t.y, radius: abilityReach(t, def), targets: listed(targets) };
       if (e.pick === 'poisoned') {
         catalyst(sim, t, def, spec, targets, step);
-        return fx;
+        return boostTail(sim, t, e, fx);
       }
       const ramp = t.eff.ramp;
       const scale = e.fullRamp && ramp ? 1 + ramp.max : 1;
@@ -494,9 +527,9 @@ const KINDS = {
         // a telegraph: the reticles now, the shots `delay` later (on the same enemies, if they still stand)
         for (const v of targets) sim._abilQueue.push({ left: delay, src: t.uid, id: def.id, kind: 'hit', target: v, spec, hits, scale });
         sim._emit('abilityWarn', { towerUid: t.uid, id: def.id, x: targets[0].x, y: targets[0].y, radius: 0, delay: e.delay, targets: listed(targets) });
-        return fx;
+        return boostTail(sim, t, e, fx);
       }
-      for (const v of targets) strikeOne(sim, t, v, spec, hits, scale, e.status, step);
+      for (const v of targets) strikeAt(sim, t, v, spec, hits, scale, e, step);
       if (e.keepRamp && ramp && ramp.per > 0) {
         // her focus stays on the enemy she struck, at full ramp (src/sim/towers.js attackDuel)
         const v = targets[0];
@@ -506,7 +539,14 @@ const KINDS = {
           t.rampTarget = v;
         }
       }
-      return fx;
+      return boostTail(sim, t, e, fx);
+    },
+    end(sim, t) {
+      // the boost tail ends (a strike without one has nothing to undo)
+      if (t.abilMods) {
+        t.abilMods = null;
+        sim._refreshTower(t);
+      }
     },
   },
 
@@ -697,7 +737,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   a.cd = a.cdMax;
   if (def.scope === 'map') sim.abilGroups.set(groupKey(t, a.id), { cd: a.cdMax, cdMax: a.cdMax, rate: a.rate });
   a.n++;
-  const dur = ticks(def.duration);
+  const dur = activeTicks(def);
   if (dur > 0) a.active = dur;
   if (def.kind === 'econ') sim.abilUses[t.owner ?? 0] = (sim.abilUses[t.owner ?? 0] || 0) + 1;
   // results (created on the first cast, so a battle without one keeps its result() exactly)
@@ -788,6 +828,9 @@ export function autoWants(sim, t, def) {
 // The step, wave start / end, selling
 // ---------------------------------------------------------------------------
 
+/** An effect with no fields (a queued hit whose ability is gone). */
+const NO_EFFECT = Object.freeze({});
+
 function fireQueued(sim, it, step) {
   const t = sim.getTower(it.src);
   if (!t || t.removed) return;
@@ -798,7 +841,7 @@ function fireQueued(sim, it, step) {
       return;
     }
     const def = abilityDef(t);
-    strikeOne(sim, t, v, it.spec, it.hits, it.scale, def?.effect?.status, step);
+    strikeAt(sim, t, v, it.spec, it.hits, it.scale, def?.effect || NO_EFFECT, step);
     return;
   }
   // a shell: on its spot, or re-aimed at the densest crowd now (Sango's Carpet Bombardment)
@@ -991,7 +1034,7 @@ export function abilityStatus(sim, t) {
     id: a.id, kind: a.kind, scope: a.scope, unlocked: true, ready: !reason, reason, later: false,
     path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
     cooldown: secs(a.cdMax, a.rate), cooldownLeft: Math.max(secs(a.cd, a.rate), g ? secs(g.cd, g.rate) : 0),
-    duration: def?.duration || 0, activeLeft: a.active / R.ticksPerSecond, auto: a.auto, t5: a.t5, uses: a.n,
+    duration: def ? activeTicks(def) / R.ticksPerSecond : 0, activeLeft: a.active / R.ticksPerSecond, auto: a.auto, t5: a.t5, uses: a.n,
     group: a.scope === 'map', charge: a.cdMax > 0 ? 1 - Math.max(a.cd, g?.cd || 0) / a.cdMax : 1,
   };
 }

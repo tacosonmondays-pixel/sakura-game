@@ -204,7 +204,12 @@ describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
     const TIERS = [[0, 0, 0], [5, 0, 2], [2, 5, 0], [0, 2, 5]];
     const out = [];
-    for (const u of REAL_UNITS) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
+    // the 19 girls the hash was taken on: a new girl (Tenka, the returning girls) never moves it, and
+    // every key she brings appears on her own stats only (src/sim/mods.js), so these resolve as before
+    const PINNED = ['hikari', 'luna', 'nami', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro',
+      'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede', 'chika'];
+    expect(PINNED.every((id) => REAL[id])).toBe(true);
+    for (const u of REAL_UNITS.filter((d) => PINNED.includes(d.id))) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
       for (const us of [null, { damageMul: 1.3, rateMul: 1.1, rangeMul: 1.05, critChance: 0.1, awakenPassive: true, potential: 1 }]) {
         out.push(resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us }));
       }

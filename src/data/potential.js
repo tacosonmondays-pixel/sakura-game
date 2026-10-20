@@ -233,6 +233,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Extra Wing', 'kit', { rateMul: 1.08 }, { turret: { max: 1 }, statusAdd: [S.shred(1, 3)] }),
     p6: step('Grand Uplink', 'cap', { damageMul: 1.09 }, { turret: { overclock: { every: 20, rateMul: 1.75 } }, link: { targetsAdd: 1 } }),
   },
+  // Tenka, SSR powerhouse (BUILD_PLAN 6.7; not in the v3 spec, built to its SSR rules): her bolts pierce
+  // armor, crit, resonate on a rhythm (every 10th, then every 8th bolt) and pass through one more enemy
+  tenka: {
+    p2: step('Lab Notes', 'kit', { rateMul: 1.05 }, { armorPen: 1 }),
+    p3: step('Field Equations', 'kit', { damageMul: 1.07 }, { crit: { chance: 0.04 } }),
+    p4: step('Coil Resonance', 'kit', { rateMul: 1.07 }, { proc: { name: 'Coil Resonance', every: 10, damageMul: 2, splash: 0.5 } }),
+    p5: step('Superconductor', 'kit', { damageMul: 1.08 }, { pierce: 1 }),
+    p6: step('Eureka Cascade', 'cap', { rateMul: 1.09 }, { proc: { every: 8, damageMul: 3, status: [S.vulnerable(0.1, 3)] } }),
+  },
   // §5.18 Hikari, SSR hero (P3 and P5 live in her ultimate)
   hikari: {
     p2: step('Sunrise Step', 'kit', { damageMul: 1.05 }, { proc: { name: 'Sunrise', every: 6, damageMul: 1.5 } }),

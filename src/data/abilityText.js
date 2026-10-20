@@ -85,6 +85,10 @@ export const ABILITY_TEXT = Object.freeze({
     'She flashes to the enemy her target mode picks within {reach} tiles and strikes it {hits} times at full ramp: {dmg} damage each. Her ramp stays on it.',
     'a flash of full-ramp strikes on one target',
     'Flash Lunge strikes {hits} times and recharges in {cd}s.'),
+  'tenka.criticalMass': t('Critical Mass', 'blast',
+    'A plasma blast on the strongest enemy within {reach} tiles: {dmg} damage that ignores armor, and every enemy within {splash} tiles of it takes the blast too.',
+    'a plasma blast on the strongest enemy in her range',
+    'Critical Mass hits for {dmgMul}× her hit in a {splash}-tile blast and recharges in {cd}s; after each cast her bolts fire {rateMul}× as fast for {afterDur}s.'),
   'chika.droneSurge': t('Drone Surge', 'summon',
     '{count} extra drones launch for {dur}s, beyond her limit. They follow her flight mode, then dock and vanish.',
     'a surge of extra drones',
@@ -111,7 +115,8 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1);
  * The numbers a template may name, from a merged definition (abilityAtTier / skillAtLevel) and, when
  * given, her stats (resolveStats on the student page, her live stats in battle):
  *   cd, dur                     cooldown and duration (s)
- *   <effect key>                every number of effect, effect.mods and effect.rally (count, radius, …)
+ *   <effect key>                every number of effect, effect.mods, effect.rally and effect.after.mods (count, radius, …)
+ *   afterDur                    a strike's boost tail: how long it lasts (s)
  *   <key>Pct, <key>Share        for each …Mul: the bonus (1.25 → 25) and the share (0.6 → 60) in %
  *   <status>, <status>Pct       each status's seconds and its amount / bonus in %; casterStatus as caster<Type>
  *   reach, radius, dmg          with stats: reachMul × range, radiusMul × range, dmgMul × her hit (× 1 + ramp.max at full ramp)
@@ -145,6 +150,9 @@ export function abilityValues(def, stats = null) {
   flat(e);
   flat(e.mods);
   flat(e.rally);
+  // a strike's boost tail (Zero Point): its ModSet's numbers and how long it lasts
+  flat(e.after?.mods);
+  if (e.after?.duration != null) put('afterDur', e.after.duration);
   statuses(e.status);
   statuses(e.mods?.status);
   statuses(e.casterStatus, 'caster');
