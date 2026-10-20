@@ -228,9 +228,10 @@ Code worth lifting nearly verbatim (three r186-compatible; replace `./vendor/thr
    * Respect `settings.reduceMotion`. Dispose the renderer on close (OLD `dispose()` L379).
    * Effort: M.
 3. **Hero ultimate cut-in**
-   * Port `buildSignature`. Trigger it from the battle UI when the sim emits the hero-ult event; pause the
-     render, not the sim, or play during a sim pause. Add a Settings → Battle toggle "Hero cinematics" (OLD
-     default on).
+   * Port `buildSignature`. Trigger it from the battle UI when the sim emits the hero-ult event and play it
+     as an overlay over the running battle: never pause or slow the sim for it (co-op runs in lockstep);
+     only what is drawn may freeze (hit-stop ≤ 60 ms) or slow, on the renderer's visual clock (docs/VFX.md).
+     Add a Settings → Battle toggle "Hero cinematics" (OLD default on).
    * Effort: M.
 4. **Title screen + "Meet Hikari" tutorial + Captain's Journal**
    * New `#/title` route before `#/lobby` on first boot and after RESET67.
