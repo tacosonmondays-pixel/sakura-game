@@ -334,7 +334,14 @@ try {
     });
     await page.waitForSelector('[data-testid="sst-hotaru"]');
     const pick = await page.evaluate(() => document.querySelector('.sst p')?.textContent);
-    check(/Already in your academy\? She gains \+1 Potential \(up to P6\) and 40 Star Fragments\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    check(/Already in your academy\? She gains \+1 Potential \(up to P6\) and 40 Star Fragments \(at P6: also 5 Akashic Tomes\)\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    // a P6 girl (Kaede): the ticket becomes her past-P6 payout, fragments and Tomes (then cancel)
+    await page.click('[data-testid="sst-kaede"]');
+    await page.waitForSelector('[data-testid="confirm-cancel"]');
+    const confMax = await page.evaluate(() => [...document.querySelectorAll('.modal')].pop()?.textContent.replace(/\s+/g, ' '));
+    check(/Kaede is at P6: the ticket becomes 40 Star Fragments and 5 Akashic Tomes\. Use it\?/.test(confMax || ''), `${tag} select ticket: P6 confirm "${confMax?.slice(0, 120)}"`);
+    await page.click('[data-testid="confirm-cancel"]');
+    await page.waitForTimeout(200);
     await page.click('[data-testid="sst-hotaru"]');
     await page.waitForSelector('[data-testid="confirm-ok"]');
     const conf = await page.evaluate(() => [...document.querySelectorAll('.modal')].pop()?.textContent.replace(/\s+/g, ' '));

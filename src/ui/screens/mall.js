@@ -15,7 +15,7 @@ import { currencyIcon, uiIcon } from '../../art/icons.js';
 import { shopTabs, buyOffer, currencyBalance } from '../../systems/shop.js';
 import { tile, card, showRewardsModal, cssVar, rememberParams } from './stage.js';
 import { applyUrFrame, isUR } from '../rarity.js';
-import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialStepInfo } from '../../systems/potential.js';
+import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialStepInfo, dupePastMaxPay } from '../../systems/potential.js';
 
 /** Her offer portrait wears the rainbow UR frame once she is fully awakened (display only). */
 function urFramed(el, unitId) {
@@ -151,7 +151,7 @@ function startBuy(o, redraw) {
   const body = h('div.ma-buy',
     h('div.ma-buy-head',
       isUnit ? card(o.unitId, { variant: 'square' }) : tile(o.item, o.count > 1 ? o.count : null, { size: 72 }),
-      h('div', h('b', isUnit ? UNIT_MAP[o.unitId].name : item?.name), h('p.muted', isUnit ? (o.owned ? (potentialLevel(store.profile.units[o.unitId]) >= MAX_POTENTIAL ? `Already at P${MAX_POTENTIAL} — converts into Star Fragments.` : `Already in your club — +1 Potential (${nextStepText(o.unitId)}) and Star Fragments.`) : 'Joins your club immediately.') : item?.desc || '')),
+      h('div', h('b', isUnit ? UNIT_MAP[o.unitId].name : item?.name), h('p.muted', isUnit ? (o.owned ? (potentialLevel(store.profile.units[o.unitId]) >= MAX_POTENTIAL ? `Already at P${MAX_POTENTIAL} — gives ${dupePastMaxPay(UNIT_MAP[o.unitId])}.` : `Already in your club — +1 Potential (${nextStepText(o.unitId)}) and Star Fragments.`) : 'Joins your club immediately.') : item?.desc || '')),
     ),
     max > 1 && !isUnit
       ? h('div.ma-qty',
@@ -186,7 +186,7 @@ function startBuy(o, redraw) {
           redraw();
           if (r.unit) {
             const u = UNIT_MAP[r.unit.unitId];
-            showRewardsModal({ title: r.unit.isNew ? `${u.name} joined!` : `${u.name} — duplicate`, rewards: r.rewards, extra: h('div.ma-buy-unit', card(r.unit.unitId, { variant: 'tall' })), note: r.unit.isNew ? 'Find her in Students.' : r.unit.potentialUp ? `Potential ${r.unit.potential} ▲ (${potentialStepInfo(u, r.unit.potential)?.brief || ''}) and Star Fragments.` : `At P${MAX_POTENTIAL}: converted into Star Fragments.` });
+            showRewardsModal({ title: r.unit.isNew ? `${u.name} joined!` : `${u.name} — duplicate`, rewards: r.rewards, extra: h('div.ma-buy-unit', card(r.unit.unitId, { variant: 'tall' })), note: r.unit.isNew ? 'Find her in Students.' : r.unit.potentialUp ? `Potential ${r.unit.potential} ▲ (${potentialStepInfo(u, r.unit.potential)?.brief || ''}) and Star Fragments.` : `At P${MAX_POTENTIAL}: converted into ${dupePastMaxPay(u)}.` });
           } else {
             showRewardsModal({ title: 'Purchased', rewards: r.rewards });
           }
