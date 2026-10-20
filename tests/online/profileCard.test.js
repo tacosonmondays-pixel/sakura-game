@@ -101,8 +101,11 @@ describe('cleanViewedCard', () => {
     equipGear(p, id, gold);
     setSensei(p, { showcase: [id] });
     const card = buildCard(p);
-    // CARD_GEAR_MARKS is off until the SQL paste: no ✦ element is published
-    expect(card.units[0].g.every((g) => (g.x || []).every((x) => x.length < 4))).toBe(true);
+    // CARD_GEAR_MARKS is on (the SQL was pasted): each stitched line publishes its ✦ marks as a 4th element
+    const pub = (slot) => card.units[0].g.find((g) => g.s === slot);
+    expect(pub(p.gear[ur].slot).x[0][3]).toBe(3);
+    expect(pub('shoes').x[2][3]).toBe(p.gear[gold].subs[2].tuned & 3);
+    expect(pub('shoes').x.filter((x) => x.length === 4)).toHaveLength(1);
     const v = cleanViewedCard(card).units[0];
     for (const uid of [ur, gold]) {
       const g = p.gear[uid];

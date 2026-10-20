@@ -769,7 +769,7 @@ places it moved are only line shifts. What shipped differently, and why:
   owner). Their metrics are ready: `ach:urEver`, `ach:urWorn` (counters) and the `gearAwaken` / `gearStitch` events.
 - **Profile card:** UR pieces publish now as `r: 'ur'` with effective values (today's server rules already accept it).
   The ✦ 4th element and the club key `c` need `supabase/migrations/20261020000000_profile_gear.sql` pasted first;
-  until then `CARD_GEAR_MARKS` (`src/online/profileCard.js`) stays `false`. The viewer accepts all of it now.
+  the owner pasted it on Oct 20, so `CARD_GEAR_MARKS` (`src/online/profileCard.js`) is now `true`. The viewer accepts all of it.
 - **Gifts and refunds are paid without a notice line:** the first-bloom Seed shows a toast on the enhance that earns
   it; paid at load (a save that already held a gold +10), and old-tab refunds, are silent.
 - **Not built (cosmetic, left for the condense pass):** Resonance's battle pip and shot glints (the `rainbow` key

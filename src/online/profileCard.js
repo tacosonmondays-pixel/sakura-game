@@ -40,10 +40,10 @@ const clampNum = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? M
 /**
  * Rainbow UR gear on the card (gear-awaken §9.2): `r: 'ur'`, `l` ≤ 12 and EFFECTIVE values, which today's
  * server rules already accept. The ✦ marks (a 4th sub element) and the club (gear key `c`) need the
- * amended rules (supabase/migrations/20261020000000_profile_gear.sql): until those are pasted the card
- * leaves them out, or the server would refuse the whole card. The coordinator flips this after the paste.
+ * amended rules (supabase/migrations/20261020000000_profile_gear.sql), which the owner pasted on Oct 20, so
+ * the card now publishes them. Set it back to false only for a database without that paste.
  */
-export const CARD_GEAR_MARKS = false;
+export const CARD_GEAR_MARKS = true;
 
 function cardGear(p, st, { marks = CARD_GEAR_MARKS } = {}) {
   const out = [];
