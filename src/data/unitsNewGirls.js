@@ -443,7 +443,7 @@ const MARUMI = {
       tier('Big Blast', 320, '+0.3 blast radius; knockback +0.2.', { splash: 0.3, knockback: 0.2 }),
       tier('Concussion', 1100, 'Blasts stun for 0.5s (bosses for a quarter).', { status: [S.stun(0.5)] }),
       tier('Wrecking Ball', 3400, '+30 damage; the ball bowls through the first 3 walkers before it explodes; ×1.5 against barriers.', { damage: 30, ball: { through: 3 }, barrierMul: 1.5 }),
-      tier('Bowling Thunder', 19200, '+120 damage; blasts stun for 1s; knockback 0.8.', { damage: 120, status: [S.stun(1)], knockback: 0.3 }),
+      tier('Bowling Thunder', 19200, '+120 damage; blasts stun for 1s; knockback 0.8, and minibosses take the whole push.', { damage: 120, status: [S.stun(1)], knockback: 0.3, ball: { pushBig: true } }),
     ]),
     path('lane', 'Lane Master', 'Long lanes and pins', [
       tier('Quick Release', 130, '+20% attack speed.', { rateMul: 1.2 }),

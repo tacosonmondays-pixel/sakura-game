@@ -13,8 +13,12 @@
 //     explodes for × ball.sticky (at most ball.stickyStack balls on one enemy).
 //
 // State: t.balls [{ uid, pathIndex, dist, left, through, hit: [uids], stuck: { uid, left } | null }];
-// they end at the wave clear (UNIT_GAPS §7.3). A ball on a stretch shared with another path (a fork's
-// prefix or a join's suffix) only touches walkers on its own path (P-17 is not wired yet).
+// they end at the wave clear (UNIT_GAPS §7.3).
+//
+// Shared stretches (P-17): a ball rolls on one pathIndex, but where that road is shared with another
+// path (a fork's prefix, a join's suffix) it touches the walkers of both: a walker on another path
+// counts when it is within the ball's reach AND its road runs the same way there (unit direction dot
+// > SHARED_DOT). A crossing or an overpass meets at an angle, so the other road's walkers are ignored.
 //
 // Determinism: path distances and pointAt (no trig), squared distances, the fixed step, uid tie-breaks,
 // no rng. Caps: BALLS_PER_GIRL, then BALLS_PER_SIM (her oldest ball goes first; a full sim rolls none).
@@ -27,6 +31,17 @@ import { BALL_RADIUS, BALLS_PER_GIRL, BALLS_PER_SIM, PIN_REACH } from './constan
 const NEAR = [];
 const PT = {};
 const STICKY_TIERS = { elite: true, miniboss: true, boss: true };
+const SHARED_DOT = 0.95;
+
+/** Is walker `e` on the same physical road as a ball on `path` at segment `seg` (P-17)? */
+function sameRoad(sim, e, pathIndex, path, seg) {
+  if (e.pathIndex === pathIndex) return true;
+  const other = sim.pathData[e.pathIndex];
+  if (!other || e.seg == null) return false;
+  const a = path.dirs[seg];
+  const b = other.dirs[e.seg];
+  return !!a && !!b && a[0] * b[0] + a[1] * b[1] > SHARED_DOT;
+}
 
 /** The road point nearest (x, y) on each visible path, nearest first (ties: lower path index). */
 function laneStarts(sim, t) {
@@ -120,7 +135,7 @@ export function rollBall(sim, t) {
 }
 
 /** A blast of hers at (x, y): her hit (× scale) on every eligible enemy within her splash, then the pins. */
-function blast(sim, t, x, y, scale, pathIndex) {
+function blast(sim, t, x, y, scale, pathIndex, seg) {
   const spec = t.blastSpec;
   const r = Math.max(0.3, t.eff.splash);
   NEAR.length = 0;
@@ -130,16 +145,17 @@ function blast(sim, t, x, y, scale, pathIndex) {
   for (const e of victims) if (!e.dead && isEligible(e, spec)) sim._hit(e, t, spec, scale);
   sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType, towerUid: t.uid });
   const b = t.stats.ball;
-  if (b.pins > 0) pins(sim, t, x, y, pathIndex, b);
+  if (b.pins > 0) pins(sim, t, x, y, pathIndex, seg, b);
 }
 
-function pins(sim, t, x, y, pathIndex, b) {
+function pins(sim, t, x, y, pathIndex, seg, b) {
+  const path = sim.pathData[pathIndex];
   const spec = t.pinSpec;
   sim.grid.query(x, y, PIN_REACH, NEAR);
   const list = [];
   for (let i = 0; i < NEAR.length; i++) {
     const e = NEAR[i];
-    if (e.dead || e.pathIndex !== pathIndex || !isEligible(e, spec)) continue;
+    if (e.dead || !isEligible(e, spec) || !sameRoad(sim, e, pathIndex, path, seg)) continue;
     const dx = e.x - x;
     const dy = e.y - y;
     list.push({ e, d2: dx * dx + dy * dy });
@@ -187,7 +203,7 @@ function stepBall(sim, t, b, ball, dt, r2) {
     }
     const x = e ? e.x : s.x;
     const y = e ? e.y : s.y;
-    blast(sim, t, x, y, b.sticky, ball.pathIndex);
+    blast(sim, t, x, y, b.sticky, ball.pathIndex, pointAt(path, ball.dist, PT).seg);
     return false;
   }
   const step = b.speed * dt;
@@ -203,7 +219,7 @@ function stepBall(sim, t, b, ball, dt, r2) {
   let hitD = Infinity;
   for (let i = 0; i < NEAR.length; i++) {
     const e = NEAR[i];
-    if (e.dead || e.pathIndex !== ball.pathIndex || ball.hit.includes(e.uid) || !isEligible(e, t.ballSpec)) continue;
+    if (e.dead || ball.hit.includes(e.uid) || !isEligible(e, t.ballSpec) || !sameRoad(sim, e, ball.pathIndex, path, p.seg)) continue;
     const dx = e.x - p.x;
     const dy = e.y - p.y;
     const d2 = dx * dx + dy * dy;
@@ -231,7 +247,7 @@ function stepBall(sim, t, b, ball, dt, r2) {
       return true;
     }
   }
-  blast(sim, t, hit.x, hit.y, 1, ball.pathIndex);
+  blast(sim, t, hit.x, hit.y, 1, ball.pathIndex, p.seg);
   return false;
 }
 

@@ -230,6 +230,7 @@ function normVine(t = {}) {
  * declares `ball` carries it. Numbers add, flags OR.
  *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · lanes (balls a throw)
  *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin) · lob (Lob)
+ *   pushBig (Bowling Thunder: minibosses take her whole push)
  *   sticky (× of a sticky blast; 0 = none) · stickyStack · stickyTime (s)
  */
 function normBall(t = {}) {
@@ -243,13 +244,14 @@ function normBall(t = {}) {
     pinPierce: t.pinPierce ?? 2,
     hook: !!t.hook,
     lob: !!t.lob,
+    pushBig: !!t.pushBig,
     sticky: t.sticky ?? 0,
     stickyStack: t.stickyStack ?? 1,
     stickyTime: t.stickyTime ?? 2,
   };
 }
 const BALL_ADDS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
-const BALL_FLAGS = ['hook', 'lob'];
+const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
 
 const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];

@@ -118,7 +118,7 @@ const GACHA_GOLDEN = {
   'chigusa:5-4:hard': 'W27/29/96690/1261/10d0209a',
   'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
   'marumi:5-4:hard': 'W27/25/100350/1397/b996453d',
-  'marumi:8-4:hard': 'W30/36/55474/1389/edb2c7fc',
+  'marumi:8-4:hard': 'W30/36/55239/1389/48b82cd6', // (re-pinned when her balls began to touch walkers on shared stretches, P-17)
 };
 
 describe.skipIf(!hasRealData())('the gacha new girls in a bot battle (pinned)', () => {

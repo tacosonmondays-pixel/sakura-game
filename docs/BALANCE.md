@@ -57,9 +57,10 @@ free team plus her): 5-4 Hard 21 → 29 lives, 8-4 Hard 37 → 41. Her Harvest c
 **Marumi** (SR, gacha; Strike Bowler, rolling bombs). Walking-stream bench: 80 / 335 / 1854 at 3/2 /
 4/2 / 5/2 with the spec's numbers unchanged (Akane 94 / 353 / 3738, Sango 79 / 236 / 2303). Her tier 5s
 are in the final-tier window (spec × 1.6); Turkey Strike also adds +40 damage and 9 pins of 16. Bot
-goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Not wired yet: shared
-stretches (P-17: a ball only touches walkers on its own path), and Bowling Thunder's "minibosses are
-pushed too" (KNOCKBACK_RESIST still halves their push).
+goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Shared stretches (P-17):
+a ball and its pins also touch walkers of another path where the two roads run the same way (a fork's
+shared entrance, a join's shared exit), never on a crossing or an overpass. Bowling Thunder: minibosses
+take her whole push (`pushBig`; KNOCKBACK_RESIST halves everyone else's miniboss pushes as before).
 
 
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)

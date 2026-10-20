@@ -234,7 +234,7 @@ function sentryErrors(v, w) {
 
 // The bowler (src/sim/mods.js normBall): numbers add, flags are `true`.
 const BALL_NUMS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
-const BALL_FLAGS = ['hook', 'lob'];
+const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 function ballErrors(v, w) {
   return objErrors(v, [...BALL_NUMS, ...BALL_FLAGS], w, (kk, vv, ww) => (BALL_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }

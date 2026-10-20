@@ -538,7 +538,8 @@ export class Sim {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
-        let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
+        // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
+        let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
         if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);

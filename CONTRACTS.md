@@ -1217,7 +1217,7 @@ new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, c
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
 bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
-lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
+lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
 uses `none`). Roles spiker, ring, manager, builder, council, botanist, bowler. Weapons `strip`, `needle`, `tablet`,
 `banner`, `wateringCan`, `ball`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
 immune; `isHeld`).
@@ -1228,7 +1228,9 @@ rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringT
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
 balls.js:    addBall, rollBall, ballTick, endBallWave                        // t.balls [{ uid, pathIndex, dist, left, through, hit, stuck }]
-  BALLS_PER_GIRL 6 / BALLS_PER_SIM 48 (oldest first); blasts use t.blastSpec (pushLock: true)
+  BALLS_PER_GIRL 6 / BALLS_PER_SIM 48 (oldest first); blasts use t.blastSpec (pushLock: true; pushBig with
+  Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
+  path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
   abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
 vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40

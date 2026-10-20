@@ -140,6 +140,44 @@ describe('rolling balls', () => {
   });
 });
 
+describe('shared stretches (P-17) and Bowling Thunder', () => {
+  const forkMap = { ...MAP, id: 'test-fork', paths: [[[-1, 4], [16, 4]], [[-1, 4], [8, 4], [8, 9]]] };
+  const crossMap = { ...MAP, id: 'test-cross', rows: MAP.rows.map((r) => r.replace(/[~TRX,]/g, '.')), paths: [[[-1, 4], [16, 4]], [[7, -1], [7, 9]]] };
+
+  test('a ball touches a walker of another path on the stretch they share, never one on a crossing road', () => {
+    const fork = setup({ map: forkMap, x: 12.5, y: 6.2 });
+    fork.t.cooldown = 1e9;
+    const shared = park(fork.sim, 'tank', 6, 1); // x = 5 on path 1: still on the shared road
+    const hp = shared.hp;
+    run(fork.sim, STEP);
+    addBall(fork.sim, fork.t, { pathIndex: 0, dist: 9 });
+    run(fork.sim, 1);
+    expect(shared.hp).toBeLessThan(hp);
+    const cross = setup({ map: crossMap, x: 12.5, y: 6.2 });
+    cross.t.cooldown = 1e9;
+    const across = park(cross.sim, 'tank', 5.5, 1); // on the vertical road, right on the crossing
+    const hp2 = across.hp;
+    run(cross.sim, STEP);
+    addBall(cross.sim, cross.t, { pathIndex: 0, dist: 9 });
+    run(cross.sim, 1.2);
+    expect(across.hp).toBe(hp2);
+  });
+
+  test('Bowling Thunder: a miniboss takes her whole push (before it, half)', () => {
+    const t4 = setup({ tiers: [4, 0, 0] });
+    const t5 = setup({ tiers: [5, 0, 0] });
+    const pushOf = ({ sim, t }) => {
+      const mb = park(sim, 'brute', 8);
+      mb.hp = mb.maxHp = 1e7;
+      const d = mb.dist;
+      sim._hit(mb, t, t.blastSpec, 1);
+      return d - mb.dist;
+    };
+    expect(pushOf(t4)).toBeCloseTo(t4.t.blastSpec.knockback * 0.5, 9);
+    expect(pushOf(t5)).toBeCloseTo(0.8, 9);
+  });
+});
+
 describe('Giant Strike (Lane Master tier 3)', () => {
   test('a giant ball rolls back up her lane from the exit end of her reach and hits every walker once', () => {
     const { sim, t } = setup({ tiers: [0, 3, 0] });
