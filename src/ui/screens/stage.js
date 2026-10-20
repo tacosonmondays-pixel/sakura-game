@@ -46,10 +46,10 @@ import { rarityInfo } from '../rarity.js';
 import { modeId } from '../../data/modes.js';
 import { modeText } from '../text/modes.js';
 import {
-  getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES,
+  getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { eventStageStatus, eventPhase, phaseLabel } from '../../systems/events.js';
+import { eventStageStatus, eventPhase, phaseLabel, eventRunGate } from '../../systems/events.js';
 import { eventOfStage } from '../../data/events/index.js';
 import { eventNow } from '../events/clock.js';
 
@@ -610,6 +610,22 @@ function buildPrep(stage, state, { endless, redraw }) {
   const actions = h('div.ma-prep-actions');
   if (!unlocked) {
     actions.appendChild(h('div.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), req));
+    // [events] a battle saved while the operations were open still pays by its start time (EVENT_SPEC
+    // §3.2): after the end its Continue stays (no New game), so the run can be finished
+    const evSave = evStatus ? getBattleSave(profile, slotKey(stage.id, false)) : null;
+    if (evSave && eventRunGate(profile, stage, runStartedAt(evSave)).ok) {
+      const sum = saveSummary(evSave);
+      actions.appendChild(savedLine(evSave));
+      const cont = button(`Continue · Wave ${sum.next}/${sum.of}`, {
+        kind: 'yellow',
+        icon: 'play',
+        testid: 'stage-continue',
+        title: 'This battle started before the operations closed, so it still pays.',
+        onClick: () => navigate('battle', { stage: stage.id, difficulty: evSave.difficulty, resume: evSave.id }),
+      });
+      cont.classList.add('ma-start-btn', 'ma-continue-btn');
+      actions.appendChild(cont);
+    }
     const reqStage = STAGE_MAP[stage.requires];
     if (evStatus) actions.appendChild(button('Back to the event', { kind: 'primary', icon: 'teleport', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: evStatus.reason === 'episode' ? 'story' : 'stages' }) }));
     else if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));

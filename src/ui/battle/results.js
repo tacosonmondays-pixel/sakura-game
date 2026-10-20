@@ -107,7 +107,9 @@ function section(title, ...children) {
 }
 
 /** Practice runs (a deep link to a stage still locked on the map) save nothing. */
-function practiceNote() {
+function practiceNote(out = null) {
+  // a practice result with its own reason (a limited event's gate: out.note says why) is not a locked stage
+  if (out?.note) return null;
   return h('p.muted.bt-practice-note', { 'data-testid': 'practice-note' }, 'Practice run — this stage is still locked on your map, so nothing was saved: no clear, medal, drops or unlocks.');
 }
 
@@ -277,7 +279,7 @@ export function createResults(ctx) {
       ctx.resultLine?.() || null,
       achLine(),
       out.practice || out.coop
-        ? (out.practice ? practiceNote() : null)
+        ? (out.practice ? practiceNote(out) : null)
         : out.mode && out.mode !== 'standard' ? resultRibbonRow(out, sim, store.profile) : h(
           'div.bt-medal-row',
           h(`div.bt-medal${out.newMedal ? '.new' : ''}`, svgEl(medalIcon(sim.difficulty), 'bt-medal-ico'), out.newMedal ? h('span.bt-medal-tag', 'New medal!') : h('span.bt-medal-tag.old', 'Medal owned')),
@@ -307,7 +309,7 @@ export function createResults(ctx) {
       'div.bt-sheet.bt-result.bt-lose',
       h('div.bt-result-ribbon', ctx.endedRun ? 'RUN OVER' : 'DEFEAT'),
       h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
-      out.practice ? practiceNote() : null,
+      out.practice ? practiceNote(out) : null,
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
@@ -332,7 +334,7 @@ export function createResults(ctx) {
     const gems = out.rewards.filter((r) => r.id === 'gems');
     const others = out.rewards.filter((r) => r.id !== 'gems');
     const blocks = [];
-    if (out.practice) blocks.push(practiceNote());
+    if (out.practice && !out.note) blocks.push(practiceNote(out));
     if (out.unlockedUnits.length) blocks.push(section('New student', h('div.bt-unlocks', out.unlockedUnits.map(unlockCard))));
     if (gems.length || out.firstClear) {
       blocks.push(section(

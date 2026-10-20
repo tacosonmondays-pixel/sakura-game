@@ -13,7 +13,7 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
 import { createBattleSim, resumeBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
 import { createBattleSaver } from './battleSaver.js';
-import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
+import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
@@ -206,7 +206,9 @@ export function mountBattle(root, params, hooks) {
     sim,
     stage,
     req,
-    startedAt: eventNow(), // [events] a limited-event battle pays by its start time (EVENT_SPEC §3.2)
+    // [events] a limited-event battle pays by its start time (EVENT_SPEC §3.2): a Continue keeps the
+    // saved run's (src/systems/battleSave.js runStartedAt), never the time it was resumed
+    startedAt: restored ? runStartedAt(saved) : eventNow(),
     profile,
     settings,
     layer,
@@ -241,6 +243,7 @@ export function mountBattle(root, params, hooks) {
       req,
       cfg: made.cfg || null,
       record: restored ? saved : null,
+      startedAt: ctx.startedAt,
       // stage prep's "Saved battles full" sheet: the save the player chose to delete for this one
       evict: !restored && typeof params.evict === 'string' ? params.evict : null,
       isEnded: () => ctx.ended,

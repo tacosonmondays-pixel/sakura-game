@@ -164,6 +164,15 @@ export function agoText(ms, now = Date.now()) {
 }
 
 /**
+ * When a saved run began, for a limited-event stage's reward gate (EVENT_SPEC §3.2): the event-clock
+ * start it was saved with, else (a record from before that field) its createdAt.
+ * @returns {number} epoch ms
+ */
+export function runStartedAt(rec) {
+  return finite(rec?.startedAt) && rec.startedAt > 0 ? rec.startedAt : finite(rec?.createdAt) && rec.createdAt > 0 ? rec.createdAt : Date.now();
+}
+
+/**
  * What prep, the map badges and the lobby show for a save. `next` is always the wave the player
  * fights next; `of` is null for endless runs.
  * @returns {{ next: number, of: number|null, lives: number, difficulty: string, endless: boolean, ago: string }}
@@ -219,10 +228,12 @@ function cleanRecord(slot, r) {
   const hero = cleanEntry(r.hero);
   if (!loadout.length && !hero) return null;
   const updatedAt = finite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0;
-  const { mode, ...rest } = r;
+  const { mode, startedAt, ...rest } = r;
   return {
     ...rest,
     ...(mode && mode !== 'standard' ? { mode } : {}),
+    // when the run began on the limited-event clock (a limited-event stage's reward gate reads it)
+    ...(finite(startedAt) && startedAt > 0 ? { startedAt } : {}),
     loadout,
     hero,
     endless: !!r.endless,
