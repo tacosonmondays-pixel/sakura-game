@@ -36,11 +36,12 @@ import { azami } from './styles/azami.js';
 import { kinu } from './styles/kinu.js';
 import { wakaba } from './styles/wakaba.js';
 import { yuzuha } from './styles/yuzuha.js';
+import { ouka } from './styles/ouka.js';
 
 export const STYLE_BY_UNIT = {
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
   kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
-  azami, kinu, wakaba, yuzuha,
+  azami, kinu, wakaba, yuzuha, ouka,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */

@@ -25,12 +25,14 @@ function freeUnitsBefore(d, stageId, exclude = []) {
 const statsAt = (id, level) => unitBattleStats({ units: { [id]: { level, breakthrough: Math.max(0, Math.ceil((level - 10) / 10)), awaken: 0, gear: {} } }, gear: {} }, id);
 
 /** One bot battle; `options` go to the Sim (mode, rule, autoAbilities), `planOpts` to autoPlan (plus
- *  `exclude`: unit ids left out of the free pool). */
+ *  `exclude`: unit ids left out of the free pool; `extra`: gacha girls added to it, for their goldens). */
 export function botBattle(stageId, difficulty, options = {}, seed = 1, planOpts = {}) {
-  const { exclude = [], ...plan0 } = planOpts;
+  const { exclude = [], extra = [], ...plan0 } = planOpts;
   const d = defaultData();
   const level = LEVEL[Number(stageId.split('-')[0])] ?? 20;
-  const { towers, hero } = freeUnitsBefore(d, stageId, exclude);
+  const free = freeUnitsBefore(d, stageId, exclude);
+  const towers = [...free.towers, ...extra];
+  const { hero } = free;
   const plan = autoPlan(stageId, [...towers, ...(hero ? [hero] : [])], plan0);
   return runHeadless({
     stageId, difficulty, plan, seed, maxTime: 7200, options,

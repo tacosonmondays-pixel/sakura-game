@@ -266,6 +266,48 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings', 'hydrated', 'sentries', 'sentrySpecs']) expect(json, k).toContain(`"${k}"`);
   });
 
+  it('Ouka mid-wave (UNIT_GAPS §5.5): her rules, a banner, coins per kill and Assembly Bell running', () => {
+    const team = ['ouka', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
+    const stats = { costMul: 0.3 };
+    const args = { stageId: '3-3', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3131, options: { autoStart: true, autoAbilities: true } };
+    const sim = fresh(args);
+    const bot = makeAbilityBot('3-3', [...team, 'hikari']);
+    sim.cash += 20000;
+    sim.startNextWave();
+    let planted = false;
+    const busy = (s) => s.wave >= 2 && s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 4
+      && s.towers.some((t) => t.rules) && s._rallies.some((r) => r.map) && planted;
+    for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
+      if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
+      const ou = sim.towers.find((t) => t.unitId === 'ouka');
+      if (ou && k % 60 === 0) {
+        // her Club Budget to tier 2 by hand (the bot buys her ⚡ path); a banner needs Safety Code tier 3,
+        // which the crosspath rule forbids next to her Bell, so it is planted as data on her farthest girl
+        const budget = ou.def.paths.findIndex((p) => p.id === 'budget');
+        while (ou.tiers[budget] < 2 && sim.upgradeTower(ou.uid, budget));
+        if (!planted && ou.abil) {
+          const far = sim.towers.filter((t) => t !== ou).sort((a, b) => Math.hypot(b.x - ou.x, b.y - ou.y) - Math.hypot(a.x - ou.x, a.y - ou.y))[0];
+          if (far) {
+            ou.banners = [{ x: far.x, y: far.y }];
+            sim._buffsDirty = true;
+            planted = true;
+          }
+        }
+        if (ou.abil && sim.state === 'wave' && !sim._rallies.some((r) => r.map)) {
+          ou.abil.cd = 0;
+          sim.castAbility(ou.uid);
+        }
+      }
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(busy(sim)).toBe(true);
+    const r = twin(sim, args, bot, 9000);
+    expect(r.compared).toBeGreaterThan(5);
+    const json = JSON.stringify(r.snap);
+    for (const k of ['rules', 'banners', 'pierceAdd', 'freeTiers']) expect(json, k).toContain(`"${k}"`);
+  });
+
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {
     const stage = coopStage('8-5', { freeplay: 'crimson' });
     const god = { damageMul: 400, rateMul: 1.6, costMul: 0.05 };

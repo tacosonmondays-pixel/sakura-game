@@ -322,9 +322,11 @@ export function applyRallies(sim, t, nb, by) {
   let rangeMul = 1;
   let detection = false;
   let ward = false;
+  let pierceAdd = 0;
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
     if (!rallyReaches(sim, r, t)) continue;
+    if (r.pierceAdd > pierceAdd) pierceAdd = r.pierceAdd;
     if (src < 0) src = r.src;
     if (r.dmgMul > dmgMul) dmgMul = r.dmgMul;
     if (r.rateMul > rateMul) rateMul = r.rateMul;
@@ -338,6 +340,7 @@ export function applyRallies(sim, t, nb, by) {
   nb.rangeMul *= rangeMul;
   if (detection) nb.detection = true;
   if (ward) nb.cleanse = true;
+  if (pierceAdd > 0) nb.pierceAdd = pierceAdd; // (Ouka's Assembly Bell; absent otherwise)
   if (by) by.rally = src;
 }
 
@@ -383,7 +386,8 @@ export function buffSources(sim, uid) {
     const src = sim.getTower(uidSrc);
     if (src) rows.push({ key, value, kind: 'aura', src: uidSrc, unitId: src.unitId, left: null });
   };
-  const au = (u) => sim.getTower(u)?.stats?.aura;
+  // (an aura, or Ouka's office: her hub carries the same key names)
+  const au = (u) => { const s = sim.getTower(u)?.stats; return s?.aura || s?.hub; };
   if (by.dmg >= 0) aura('dmg', by.dmg, (au(by.dmg)?.dmgMul ?? 1) - 1);
   if (by.rate >= 0) aura('rate', by.rate, (au(by.rate)?.rateMul ?? 1) - 1);
   if (by.pen >= 0) aura('pen', by.pen, au(by.pen)?.armorPen ?? 0);

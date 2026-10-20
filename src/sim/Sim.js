@@ -49,6 +49,7 @@ import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
+import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -638,6 +639,7 @@ export class Sim {
     // Potential N7 (Momo's Lucky Pouch): a kill inside her range pays × her bounty aura (1 = none)
     const bm = bountyMulAt(this, e.x, e.y);
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
+    if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (tower && !tower.removed) {
       tower.kills++;
@@ -1075,7 +1077,8 @@ export class Sim {
   }
 
   /** Upgrade cost for the next tier of a path (applies difficulty, profile and cost-cut auras). */
-  _upgradeCost(t, tier) {
+  _upgradeCost(t, tier, index = null) {
+    if (t.rules && isFreeTier(t, index)) return 0; // Ouka's Club Grants (src/sim/hubs.js)
     const us = t.unitStats || DEFAULT_UNIT_STATS;
     const cut = Math.min(0.5, t.buff?.costCut || 0);
     return roundCost((tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
@@ -1101,7 +1104,7 @@ export class Sim {
     const block = crosspathBlock(t.tiers, path, Math.min(5, tiersDef.length));
     const next = tiersDef[tier] || null;
     if (block === 'max' || !next) return { tier, next: null, cost: 0, locked: true, reason: 'max', holder: null };
-    const cost = this._upgradeCost(t, next);
+    const cost = this._upgradeCost(t, next, tier);
     if (block) return { tier, next, cost, locked: true, reason: block, holder: null };
     if (!restoring && !t.isHero && tier + 1 >= finalTierOf(t.def, path)) {
       const holder = findFinalHolder(this.towers, t.unitId, t.owner ?? 0, path, t.uid);
@@ -1133,7 +1136,9 @@ export class Sim {
   /** Coins returned when selling (70% of everything spent on the tower). */
   sellValue(uid) {
     const t = this.getTower(uid);
-    return t ? Math.floor(t.spent * BATTLE.sellRefund) : 0;
+    if (!t) return 0;
+    // Ouka's rules (src/sim/hubs.js) may raise the share for a girl she covers
+    return Math.floor(t.spent * (t.rules?.sellMul > BATTLE.sellRefund ? t.rules.sellMul : BATTLE.sellRefund));
   }
 
   /**
@@ -1224,6 +1229,13 @@ export class Sim {
         ay = t.y + dy * k;
       }
     }
+    if (mode === 'banner') {
+      // Ouka's Rally Banner: a banner there (the oldest moves past her count; src/sim/hubs.js)
+      const b = plantBanner(this, t, ax, ay);
+      recomputeBuffs(this);
+      this._emit('aim', { towerUid: uid, x: b.x, y: b.y, banners: t.banners.map((o) => [o.x, o.y]) });
+      return true;
+    }
     t.aim = { x: ax, y: ay };
     if (mode === 'mirror') updateRelayOrigin(this, t);
     this._emit('aim', { towerUid: uid, x: ax, y: ay });
@@ -1235,6 +1247,10 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost' || !aimMode(t)) return false;
     t.aim = null;
+    if (t.banners) {
+      clearBanners(this, t);
+      recomputeBuffs(this);
+    }
     updateRelayOrigin(this, t);
     this._emit('aim', { towerUid: uid, x: null, y: null });
     return true;

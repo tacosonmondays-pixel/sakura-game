@@ -274,7 +274,70 @@ const YUZUHA = {
   awakenPassive: { name: 'Spare Parts', desc: 'One more sentry at a time.', mods: { sentry: { max: 1 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Ouka — Student Council President (rule-changing campus hub; UNIT_GAPS §5.5, src/sim/hubs.js)
+// ---------------------------------------------------------------------------
+
+const OUKA = {
+  id: 'ouka',
+  name: 'Ouka',
+  title: 'Student Council President',
+  kind: 'tower',
+  rarity: 'SR',
+  adult: false,
+  role: 'council',
+  attackType: 'holy',
+  element: null,
+  placement: 'land',
+  materialFamily: 'charm',
+  capabilities: ['buff'],
+  pathCapabilities: ['detection', 'cleanse', 'income'],
+  acquisition: GACHA_ONLY,
+  palette: {
+    hair: '#f29bb8', hairShade: '#c96d8f', eyes: '#b5485f', skin: '#ffe9de',
+    outfit: '#f6f3ec', outfitShade: '#26315a', accent: '#d9a93c', halo: '#ffe08a', weapon: '#d9a93c',
+  },
+  look: {
+    hairStyle: 'long', bangs: 'hime', accessory: 'ribbon', outfit: 'blazer', weapon: 'banner',
+    halo: 'crown', eyeStyle: 'round', expression: 'calm',
+  },
+  bio: 'The academy\'s Student Council President. A white double-breasted council blazer with gold piping and a sakura-crest armband, a navy pleated skirt, white gloves, black tights and loafers. Long cherry-pink hair with a black bow, a council gavel at her belt and a folding "COUNCIL HQ" banner stand that marks her office.',
+  personality: 'Calm, organised and kind: "Every club does better when it has a good room."',
+  quote: 'Every club does better when it has a good room.',
+  tips: [
+    'She never attacks. Girls inside her office radius follow her rules: their upgrades cost 5% less and they sell for 80% instead of 70%.',
+    'Club Grants (Club Budget tier 3) makes the first tier of every path free for the girls in her radius: place her first, then build around her.',
+    '⚡ Assembly tier 3 teaches Assembly Bell: every girl on the map, both players\', attacks faster and pierces more for a few seconds.',
+    'Rally Banner (Safety Code tier 3): aim her to plant a council banner up to 5 tiles away; girls next to it get her rules too.',
+  ],
+  base: stats({ cost: 550, behavior: 'none', damage: 0, rate: 1, range: 2.6, projectileSpeed: 0, canHitAir: false, hub: { radius: 2.6, costCut: 0.05, sellMul: 0.8 } }),
+  paths: [
+    path('budget', 'Club Budget', 'Prices and coins', [
+      tier('Budget Review', 150, 'Upgrades in her radius cost 10% less.', { hub: { costCut: 0.1 } }),
+      tier('Joint Purchase', 350, 'Upgrades in her radius cost 14% less.', { hub: { costCut: 0.14 } }),
+      tier('Club Grants', 1200, 'Girls in her radius get the first tier of each path free.', { hub: { freeTiers: 1 } }),
+      tier('Sponsorship', 3600, '+2 coins for each kill inside her radius; the first two tiers are free.', { hub: { killBounty: 2, freeTiers: 2 } }),
+      tier('Golden Charter', 19200, '+5 coins per kill; upgrades 20% off; girls in her radius sell for 90%.', { hub: { killBounty: 5, costCut: 0.2, sellMul: 0.9 } }),
+    ]),
+    path('assembly', 'Assembly', 'Club activities', [
+      tier('Morning Bell', 140, 'Girls in her radius attack 10% faster.', { hub: { rateMul: 1.1 } }),
+      tier('Bigger Office', 300, 'Radius 3.2 tiles.', { hub: { radius: 3.2 } }),
+      tier('Club Mentors', 1100, 'Abilities of girls in her radius recharge 15% faster.', { hub: { cdCut: 0.15 } }),
+      tier('Student Body', 3400, 'Radius 3.6 tiles; girls in her radius reach 10% further.', { hub: { radius: 3.6, rangeMul: 1.1 } }),
+      tier('Festival of Clubs', 19200, 'Abilities in her radius recharge 25% faster.', { hub: { cdCut: 0.25 } }),
+    ]),
+    path('safety', 'Safety Code', 'Rules for every threat', [
+      tier('Hall Monitors', 120, 'Girls in her radius gain Veil Sight.', { hub: { detection: true } }),
+      tier('Rooftop Watch', 280, 'Girls in her radius can hit flyers.', { hub: { airGrant: true } }),
+      tier('Rally Banner', 950, 'Aim her to plant a council banner up to 5 tiles away: girls within 1.6 tiles of it follow her rules too. A new aim moves it.', { hub: { banners: 1 } }),
+      tier('Emergency Protocol', 2900, 'Girls in her radius or by a banner are cleansed and cannot be sabotaged.', { hub: { cleanse: true } }),
+      tier('Academy Charter', 16000, 'Two banners (a new aim moves the older one); radius 4.0; girls she covers never deal less than full damage on the type chart and deal 15% more.', { hub: { banners: 2, radius: 4, typeFloor: 1, dmgMul: 1.15 } }),
+    ]),
+  ],
+  awakenPassive: { name: 'Open Door Policy', desc: 'Her office radius is 0.2 tiles wider.', mods: { hub: { radiusAdd: 0.2 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA];
+export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA, OUKA];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);

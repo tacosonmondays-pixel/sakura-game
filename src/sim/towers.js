@@ -26,6 +26,7 @@ import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
+import { hubsOn, applyHubs } from './hubs.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -201,6 +202,14 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
+  if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
+  // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers
+  const ru = t.rules;
+  if (ru) {
+    if (ru.airGrant) t.eff.canHitAir = true;
+    if (ru.typeFloor > 0) t.eff.typeFloor = ru.typeFloor;
+  }
   // Wakaba's drink (src/sim/drinks.js): on top of auras and rallies, while it lasts
   const hy = t.hydrated;
   if (hy) {
@@ -305,6 +314,13 @@ function mergeLists(a, b) {
 export function recomputeBuffs(sim) {
   const towers = sim.towers;
   let changed = false;
+  // Ouka's campus hubs (src/sim/hubs.js): none in a battle without her, so nothing below changes then
+  const hubs = hubsOn(sim);
+  // (a flag for Sim._killEnemy; set only while a hub pays coins per kill)
+  let bounty = false;
+  for (let i = 0; i < hubs.length; i++) if (hubs[i].stats.hub.killBounty > 0) bounty = true;
+  if (bounty) sim._hubBounty = true;
+  else if (sim._hubBounty) delete sim._hubBounty;
   for (const t of towers) {
     const nb = emptyBuff();
     // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
@@ -327,6 +343,7 @@ export function recomputeBuffs(sim) {
       if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
       if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
+    const rulesChanged = hubs.length || t.rules ? applyHubs(t, nb, by, hubs) : false;
     // limited buffs (Midori's brew, Chika's link) multiply on top of the auras, then ability rallies
     // (strongest per key; both players' girls), so a rally's ward clears sabotage below
     applyLimited(sim, t, nb);
@@ -335,7 +352,7 @@ export function recomputeBuffs(sim) {
     const ob = t.buff;
     let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
       || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
-      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance || rulesChanged || ob.pierceAdd !== nb.pierceAdd;
     if (sim.rule) {
       // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
       const env = ruleRangeFor(sim, t);
@@ -357,7 +374,7 @@ export function recomputeBuffs(sim) {
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
       || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0))
-      || !!t.hydrated;
+      || !!t.hydrated || !!t.rules || nb.pierceAdd > 0;
   }
   return changed;
 }
@@ -987,6 +1004,7 @@ export function aimMode(t) {
   if (t.eff?.behavior === 'mortar') return 'mortar';
   if (t.stats?.relay?.kind === 'mirror') return 'mirror';
   if (t.stats?.strip?.aim) return 'checkpoint'; // Azami's Checkpoint mode (src/sim/strips.js)
+  if (t.stats?.hub?.banners > 0) return 'banner'; // Ouka's Rally Banner (src/sim/hubs.js)
   // an aimed hero ult: a nova centred on her aim, or a runner that enters at it
   const ue = t.isHero ? t.def?.hero?.ult?.effect : null;
   if (ue && (ue.center === 'aim' || ue.type === 'runner')) return 'ult';

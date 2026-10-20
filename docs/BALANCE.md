@@ -24,8 +24,27 @@ tiers like turret tiers.
 to the merged base (the modes goldens pin the same as a "base roster" block). 8-5 Easy over seeds 1-9:
 full roster 5 / 9 (seed 1 won), base 6 / 9 — the same near coin flip the roster wave measured.
 
-| Stage | merged base | base roster now | full roster |
-|---|---|---|---|
+**Ouka** (SR, gacha; Student Council President, campus hub). She never attacks, so the damage bench does
+not apply; her value is coins. Six girls inside her office, each built to 4/2 (Aoi, Rei, Yuki, Kage, Shiro,
+Sango: 27,820 coins of upgrades):
+
+| Ouka | team upgrades | saved | Ouka cost | net |
+|---|---|---|---|---|
+| 0-0-0 (5% off) | 26,440 | 1,380 | 550 | +830 |
+| 2-0-0 (14% off) | 23,925 | 3,895 | 1,050 | +2,845 |
+| 3-0-0 (+ first tier free) | 22,705 | 5,115 | 2,250 | +2,865 |
+| 4-0-0 (+ two free, +2 coins a kill) | 19,735 | 8,085 | 5,850 | +2,235 (before kill coins) |
+| 5-0-0 Golden Charter | 18,360 | 9,460 | 25,050 | a prestige buy (+5 a kill, 90% sell) |
+
+She is gacha, so the Easy gate (free roster) never fields her: the gate rows are unchanged (full roster
+40 / 40, identical to wave 1; base roster bit-identical to the merged base). The balance bot fields her
+poorly (it places her last, after the first upgrade round, where she covers two girls: 4-5 Normal over
+seeds 1-2, 178 → 153 lives left; 6-5 184 → 181; 8-5 lost either way): a player places her first and
+builds around her. Rules are "strongest wins" with the auras, so her discount never stacks with Momo's.
+Bot goldens for the gacha girls (`modesGolden` GACHA_GOLDEN, the free team plus her, seed 1): Ouka 5-4
+Hard 21 → 25 lives, 8-4 Hard 37 → 37; Kinu 5-4 Hard 21 → 13, 6-1 Hard 44 → 38. 4-2 Hard (a 4-life win
+for the free team) is lost with any ninth girl the bot adds, either of them: its plan spends on her
+before the second copies it relies on.
 
 
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)

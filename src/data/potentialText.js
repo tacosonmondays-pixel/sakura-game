@@ -240,6 +240,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('PEN+1', '+6% attack speed. Her darts ignore 1 more armor.', 1.08, 'rim'),
     t('DEPLOYED', '+7% damage. 1 more sentry at a time, and her sentries deal 2 more damage.', 1.20, 'rim'),
   ),
+  ouka: row(
+    t('CUT ×1.03', 'Her upgrade discounts are 3% deeper (5% off → 5.15% off).', 1.03, 'rim'),
+    t('CUT+2%', 'Her discounts are 3% deeper, and upgrades in her radius cost 2% less on top.', 1.06, 'rim'),
+    t('OFFICE+', 'Her discounts are 4% deeper, and her office radius is 0.2 tiles wider.', 1.07, 'rim'),
+    t('CUT+2%', 'Her discounts are 4% deeper, and upgrades in her radius cost 2% less on top.', 1.08, 'rim'),
+    t('SEAL', 'Her discounts are 4% deeper, her office radius is 0.3 tiles wider, and upgrades in it cost 3% less on top.', 1.12, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

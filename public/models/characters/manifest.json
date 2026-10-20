@@ -306,6 +306,23 @@
   "lodSize": 219608,
   "lodVertices": 2915
  },
+ "ouka": {
+  "file": "ouka.glb",
+  "size": 405872,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8424,
+  "lod": "ouka.lod.glb",
+  "lodSize": 203988,
+  "lodVertices": 2809
+ },
  "raika": {
   "file": "raika.glb",
   "size": 427556,

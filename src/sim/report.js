@@ -18,7 +18,7 @@ function statusTypes(s) {
 
 /** How a placed tower's effective stats satisfy each capability key. */
 const CAP_TESTS = {
-  detection: (s) => !!s.detection || !!s.drink?.detection,
+  detection: (s) => !!s.detection || !!s.drink?.detection || !!s.hub?.detection,
   reveal: (s, st) => s.reveal > 0 || st.has('reveal') || !!s.sentry?.kits,
   // (spike strips catch flyers only with Tall Barbs: strip.air)
   antiAir: (s) => (s.canHitAir && attacks(s) && s.behavior !== 'trap' && s.behavior !== 'strip') || (s.strip?.air > 0),
@@ -32,10 +32,10 @@ const CAP_TESTS = {
   antiHeal: (s, st) => st.has('poison'),
   priority: (s) => attacks(s) && s.range >= 6,
   trap: (s) => s.behavior === 'trap' || s.behavior === 'strip',
-  cleanse: (s) => !!s.aura?.cleanse || !!s.drink?.cleanse,
+  cleanse: (s) => !!s.aura?.cleanse || !!s.drink?.cleanse || !!s.hub?.cleanse,
   buff: (s) => (!!s.aura && (s.aura.dmgMul > 1 || s.aura.rateMul > 1 || s.aura.rangeMul > 1 || s.aura.armorPen > 0 || s.aura.critChance > 0))
-    || !!s.brew || !!s.link || !!s.drink,
-  income: (s) => !!s.income,
+    || !!s.brew || !!s.link || !!s.drink || !!s.hub,
+  income: (s) => !!s.income || s.hub?.killBounty > 0,
   summon: (s) => (s.turret?.max || 0) > 0 || (s.sentry?.max || 0) > 0,
   grounding: (s, st) => st.has('ground') && attacks(s),
 };

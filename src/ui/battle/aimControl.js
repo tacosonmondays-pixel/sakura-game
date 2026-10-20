@@ -11,6 +11,7 @@ const WHAT = {
   mirror: (n) => `Tap where ${n}'s mirror panel should stand`,
   ult: (n) => `Tap where ${n}'s dragon should enter the road`,
   checkpoint: (n) => `Tap the road where ${n} should set up her checkpoint`,
+  banner: (n) => `Tap where ${n} should plant a council banner (up to 5 tiles away)`,
 };
 
 export function createAimControl(ctx) {

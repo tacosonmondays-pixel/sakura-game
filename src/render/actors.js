@@ -604,6 +604,21 @@ export class Actors {
         gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
       }
     }
+    // Ouka's office (a faint gold dashed ring the size of her radius) and her council banners (a white
+    // pennant marker with the reach of their rules dashed around it), from the sim every frame
+    for (const tw of sim.towers) {
+      const hub = tw.stats?.hub;
+      if (!hub || tw.removed) continue;
+      const off = tw.disabled > 0 ? 0.2 : 0.4;
+      gN.push(tw.x, 0.061, tw.y, hub.radius * 2, hub.radius * 2, R.ringDashed, 0.85, 0.66, 0.24, off, t * 0.05);
+      for (const b of tw.banners || []) {
+        const d = hub.bannerRange * 2;
+        gN.push(b.x, 0.062, b.y, d, d, R.ringDashed, 0.95, 0.6, 0.72, off + 0.1, -t * 0.08);
+        gN.push(b.x, 0.066, b.y, 0.36, 0.36, R.disc, 0.96, 0.95, 0.92, 0.9);
+        gA.push(b.x, 0.07, b.y, 0.44, 0.44, R.ring, 0.85, 0.66, 0.24, 0.75, 0);
+        this.b.overlay.push(b.x, 0.62 + Math.sin(t * 2 + b.x) * 0.03, b.y, 0.26, 0.26, R.star, 0.95, 0.6, 0.72, 1);
+      }
+    }
     // teleport warnings
     for (const [uid, w] of this.teleports) {
       w.t += dt;

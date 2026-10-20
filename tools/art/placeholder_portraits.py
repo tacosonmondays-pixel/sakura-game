@@ -445,6 +445,12 @@ def emblem(weapon, pal, size):
         pen.line([(-0.35, 0.15), (0.1, 0.15)], (127, 224, 255), 0.08)
         pen.line([(0.55, -0.5), (0.75, -0.95)], ink, 0.06)
         pen.ell(0.75, -0.95, 0.08, 0.08, fill=(255, 93, 93))
+    elif weapon == 'banner':  # a council banner on a pole, with a sakura crest
+        pen.line([(-0.55, 0.9), (-0.55, -0.9)], ink, 0.08)
+        pen.ell(-0.55, -0.92, 0.09, 0.09, fill=acc)
+        pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.55, -0.2), (0.75, 0.4), (-0.5, 0.4)], WHITE)
+        pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.72, -0.7), (-0.5, -0.7)], acc)
+        star(pen, 0.1, -0.2, 0.26, (242, 155, 184))
     elif weapon == 'needle':  # a big needle with a loop of thread, over a pincushion
         pen.ell(-0.35, 0.45, 0.42, 0.34, fill=acc)
         pen.ell(-0.35, 0.3, 0.12, 0.08, fill=mix(acc, WHITE, 0.5))

@@ -35,6 +35,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'projScale', 'tempo', 'classMul', 'bossMul', 'ramp.per', 'turret.range',
   // the new girls (UNIT_GAPS §5): Wakaba's drink
   'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
+  // Ouka's office (radius and discount on top of her tiers)
+  'hub.radiusAdd', 'hub.cutAdd',
   // Yuzuha's sentries
   'sentry.max', 'sentry.damage', 'sentry.ttl',
 ]);
@@ -65,7 +67,7 @@ export const POTENTIAL_LADDERS = deepFreeze({
 });
 
 /** The stat track a girl spends (default: her rarity's): Nami's own, the two supports' aura track, Momo's coins. */
-export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura' });
+export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura', ouka: 'coins' });
 
 /** Rows for defs without one (fixtures, dev units only; a test requires every shipped girl's own row). */
 const fixtureRow = (track, kinds) => ({
@@ -361,6 +363,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
     p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
     p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
+  },
+  // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
+  // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)
+  ouka: {
+    p2: step('Office Hours', 'stat', { incomeMul: 1.03 }),
+    p3: step('Bulk Orders', 'kit', { incomeMul: 1.03 }, { hub: { cutAdd: 0.02 } }),
+    p4: step('Open Plan', 'kit', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.2 } }),
+    p5: step('Corridor Notices', 'kit', { incomeMul: 1.04 }, { hub: { cutAdd: 0.02 } }),
+    p6: step('Council Seal', 'cap', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.3, cutAdd: 0.03 } }),
   },
 });
 

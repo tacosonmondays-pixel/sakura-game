@@ -21,7 +21,7 @@ const COMBOS = {
   self: 192, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha)
   'enemies* + self': 35,
   'enemies + self': 45,
-  allies: 43, // (+12: Wakaba, +1: Yuzuha)
+  allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 22,
   coins: 7,
   'allies + self': 10,

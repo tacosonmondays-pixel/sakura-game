@@ -63,10 +63,11 @@ only (`RETURNING_ABILITIES`), for the ability system.
 | Kinu | Pin-Burst Seamstress | R · gacha | Burst Emitter | A ring of straight pins in every direction; heat ring, scissors | Blade Spiral |
 | Wakaba | Track Team Manager | R · free after 6-5 | Team Manager | No attack: sports drinks for the top damage dealer in range | Time Out! |
 | Yuzuha | Security Bureau Technician | SR · free after 4-2 | Field Builder | Taser darts plus timed lane sentries; Capture Nets | Emergency Deploy |
+| Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
 
 Art: placeholder portraits (`tools/art/placeholder_portraits.py`) and Blender battle figures
-(`tools/blender/build_characters.py azami kinu wakaba yuzuha`; their weapons — the strip reel, the
-needle and the tablet — are in `tools/blender/lib/weapon.py`).
+(`tools/blender/build_characters.py azami kinu wakaba yuzuha ouka`; their weapons — the strip reel, the
+needle, the tablet and the council banner — are in `tools/blender/lib/weapon.py`).
 
 ## Upgrade paths at a glance
 

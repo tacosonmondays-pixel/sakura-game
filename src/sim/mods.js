@@ -165,6 +165,43 @@ function normSentry(t = {}) {
   };
 }
 const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
+
+/**
+ * The campus hub (Ouka, UNIT_GAPS §5.5; src/sim/hubs.js): the rules inside her office radius and her
+ * banners. Only a girl whose base declares `hub` carries it. A tier states the new value of a rule
+ * (strongest wins: radius 3.2, costCut 0.14, …), flags OR; radiusAdd / cutAdd add on top afterwards
+ * (awaken passive, Potential).
+ *   radius (tiles) · costCut (upgrades in her radius) · sellMul (their sell value) · freeTiers (free
+ *   first tiers per path) · killBounty (coins a kill inside her radius) · cdCut (faster ability charge)
+ *   rateMul / rangeMul / dmgMul · detection · airGrant (they can hit flyers) · cleanse (and no sabotage)
+ *   typeFloor (type chart floor) · banners (how many) · bannerRange · bannerReach (how far she plants one)
+ */
+function normHub(t = {}) {
+  return {
+    radius: t.radius ?? 2.6,
+    costCut: t.costCut ?? 0,
+    sellMul: t.sellMul ?? 0,
+    freeTiers: t.freeTiers ?? 0,
+    killBounty: t.killBounty ?? 0,
+    cdCut: t.cdCut ?? 0,
+    rateMul: t.rateMul ?? 1,
+    rangeMul: t.rangeMul ?? 1,
+    dmgMul: t.dmgMul ?? 1,
+    detection: !!t.detection,
+    airGrant: !!t.airGrant,
+    cleanse: !!t.cleanse,
+    typeFloor: t.typeFloor ?? 0,
+    banners: t.banners ?? 0,
+    bannerRange: t.bannerRange ?? 1.6,
+    bannerReach: t.bannerReach ?? 5,
+    radiusAdd: t.radiusAdd ?? 0,
+    cutAdd: t.cutAdd ?? 0,
+  };
+}
+const HUB_MAX = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach'];
+const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
+const HUB_ADDS = ['radiusAdd', 'cutAdd'];
+
 const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
 const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
 const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
@@ -262,6 +299,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.ring ? { ring: normRing(b.ring) } : null),
     ...(b.drink ? { drink: normDrink(b.drink) } : null),
     ...(b.sentry ? { sentry: normSentry(b.sentry) } : null),
+    ...(b.hub ? { hub: normHub(b.hub) } : null),
   };
 }
 
@@ -408,6 +446,12 @@ export function applyModSet(s, mods, acc) {
       for (const k of SENTRY_ADDS) if (v[k] != null) s.sentry[k] += v[k];
       for (const k of SENTRY_FLAGS) if (v[k]) s.sentry[k] = true;
       if (v.rate != null) s.sentry.rate *= v.rate;
+    } else if (key === 'hub') {
+      // only a hub girl's rules change (src/sim/hubs.js)
+      if (!s.hub) continue;
+      for (const k of HUB_MAX) if (v[k] != null) s.hub[k] = Math.max(s.hub[k], v[k]);
+      for (const k of HUB_ADDS) if (v[k] != null) s.hub[k] += v[k];
+      for (const k of HUB_FLAGS) if (v[k]) s.hub[k] = true;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -562,6 +606,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
+  if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
   if (pot.level > 1) potentialTail(s, pot, acc);
   s.projectiles = Math.max(1, Math.round(s.projectiles));
   s.pierce = Math.max(1, Math.round(s.pierce));
@@ -569,6 +614,17 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.maxTargets = Math.max(1, Math.round(s.maxTargets));
   if (s.trap) s.trap.max = Math.max(0, Math.round(s.trap.max));
   if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
+  if (s.hub) {
+    // her office: the strongest radius plus its adds; her range is the radius (the ring the board draws)
+    const h = s.hub;
+    h.radius += h.radiusAdd;
+    h.costCut = Math.min(0.5, h.costCut + h.cutAdd);
+    h.radiusAdd = 0;
+    h.cutAdd = 0;
+    h.freeTiers = Math.round(h.freeTiers);
+    h.banners = Math.round(h.banners);
+    s.range = h.radius;
+  }
   if (s.turret) s.turret.max = Math.max(0, Math.round(s.turret.max));
   return s;
 }

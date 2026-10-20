@@ -430,6 +430,17 @@ function weaponParts(ctx, kind) {
       P.push(part(sphere(0.03, 6, 4), { pos: [0.2, 0.56, 0], color: col('#ff5d5d') }));
       break;
     }
+    case 'banner': {
+      // a folding "COUNCIL HQ" banner stand: a pole with a gold finial and a white flag with a pink crest
+      rot = [0.12, 0, 0.1];
+      offset = [0, 0.05, 0];
+      P.push(part(cyl(0.03, 0.03, 1.4, 6), { pos: [0, 0.35, 0], color: dark }));
+      P.push(part(sphere(0.06, 8, 6), { pos: [0, 1.08, 0], color: col('#d9a93c') }));
+      P.push(part(box(0.5, 0.36, 0.02), { pos: [0.27, 0.8, 0], color: col('#f6f3ec') }));
+      P.push(part(box(0.5, 0.05, 0.025), { pos: [0.27, 0.99, 0], color: w }));
+      P.push(part(sphere(0.07, 8, 6), { pos: [0.27, 0.78, 0.02], color: col('#f29bb8') }));
+      break;
+    }
     case 'needle': {
       // an oversized sewing needle twirled like a baton, with a loop of red thread through the eye
       rot = [0.35, 0, 0.15];

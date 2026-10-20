@@ -1203,7 +1203,7 @@ Standard with `options.rule = null` is bit-identical to the pre-modes sim (`test
 ### 3d. The new girls — `src/data/unitsNewGirls.js` (owner: units; UNIT_GAPS §5, wave 1)
 
 ```js
-export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA]; units.js appends them after the returning girls
+export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA]; units.js appends them after the returning girls
 export const NEW_GIRL_IDS   // their ids (goldens pin a "base roster" block with them left out)
 ```
 New BaseStats blocks, each present ONLY on a girl whose base declares it (`mods.js normalizeBase`), so
@@ -1212,21 +1212,35 @@ every other girl resolves bit-identically; ModSets with the same key add numbers
 rainCount; plus `trap.triggerRadius` adds), `ring` (Kinu: travel, turn, heat, double, sparks, scissors,
 scissorDmg, scissorMul ×, spiral, spiralPierce), `drink` (Wakaba: splash, shots, dmg, rate, range, pierce,
 detection, cleanse, permanent, season, towel, towelDmg, life), `sentry` (Yuzuha: max, every, speed, ttl,
-damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss). Behaviours `strip`, `ring`,
-`drink`. Roles spiker, ring, manager, builder. Weapons `strip`, `needle`, `tablet`.
+damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` (Ouka: a tier states the
+new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
+dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
+cutAdd add on top; her `range` is set to the radius). Behaviours `strip`, `ring`, `drink` (Ouka uses
+`none`). Roles spiker, ring, manager, builder, council. Weapons `strip`, `needle`, `tablet`, `banner`.
 
 ```js
 strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
 rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
-aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range)
+hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner, clearBanners          // t.rules, t.banners
+  recomputeBuffs folds a hub's costCut / rateMul / rangeMul / dmgMul / detection / cleanse into t.buff
+  (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,
+  airGrant, typeFloor } (absent on a girl no hub covers); Sim._upgradeCost(t, tier, index) is 0 for a
+  free tier; sellValue uses max(sellRefund, rules.sellMul); _killEnemy pays killBounty to the hub's owner
+  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut));
+  refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
+aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
+  setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
 abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
-  (effect.target 'girl'; rally record `to`); castAbility(sim, t, { aim }) passes the aim to the kind
+  (effect.target 'girl'; rally record `to`) or the whole map (effect.radius 'map', scope 'map'; record
+  `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
+  castAbility(sim, t, { aim }) passes the aim to the kind
 Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
 ```
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
-`nt` nets; everything else of theirs ends at the wave clear (UNIT_GAPS §7.3).
+`nt` nets, `bn` Ouka's banners (replaces `am` for her); everything else of theirs ends at the wave clear
+(UNIT_GAPS §7.3).
 
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 

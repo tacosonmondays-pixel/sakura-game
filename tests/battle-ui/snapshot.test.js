@@ -1059,6 +1059,44 @@ describe('the new girls in a battle save: Yuzuha\'s nets (UNIT_GAPS §7.3)', SLO
   });
 });
 
+/** Ouka with a Rally Banner planted by Rei, after one wave (her rules cover Aoi, the banner Rei). */
+function oukaRun() {
+  const c = { stageId: '3-3', difficulty: 'normal', towers: ['ouka', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 3303 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const ou = sim.towers.find((t) => t.unitId === 'ouka');
+  const safety = ou.def.paths.findIndex((p) => p.id === 'safety');
+  for (let k = 0; k < 3; k++) expect(sim.upgradeTower(ou.uid, safety)).toBe(true);
+  const rei = sim.towers.find((t) => t.unitId === 'rei');
+  expect(sim.setAim(ou.uid, rei.x + 0.3, rei.y)).toBe(true);
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+  }
+  return { c, sim, ou, rei };
+}
+
+describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SLOW, () => {
+  it('her banners stay where they are; the rules they give come back with them', () => {
+    const { c, sim, ou, rei } = oukaRun();
+    expect(ou.banners).toHaveLength(1);
+    expect(rei.rules).toBeTruthy();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'ouka');
+    expect(row.bn).toEqual(ou.banners.map((b) => [b.x, b.y]));
+    expect('am' in row).toBe(false);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bo = back.towers.find((t) => t.unitId === 'ouka');
+    expect(bo.banners).toEqual(ou.banners);
+    expect(back.towers.find((t) => t.unitId === 'rei').rules).toEqual(rei.rules);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)
@@ -1085,6 +1123,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 20 && !mid.towers.some((t) => t.hydrated); i++) mid.update(STEP);
     expect(mid.towers.some((t) => t.hydrated)).toBe(true);
     for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Ouka's banners and the rules she gives)
+    for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

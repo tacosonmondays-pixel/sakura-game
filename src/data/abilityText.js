@@ -107,6 +107,10 @@ export const ABILITY_TEXT = Object.freeze({
     '{count} extra sentries drop at the road\'s edge where you aim, or around the lead enemy in her range, with her current sentry stats. They last {dur}s, beyond her sentry limit.',
     'extra sentries at once, where you need them',
     'Emergency Deploy drops {count} sentries for {dur}s and recharges in {cd}s.'),
+  'ouka.assemblyBell': t('Assembly Bell', 'buff',
+    'Every girl on the map, your ally\'s too, attacks +{rateMulPct}% faster and pierces {pierceAdd} more enemy for {dur}s, on top of auras.',
+    'a short map-wide team rally',
+    'Festival of Clubs: Assembly Bell gives +{rateMulPct}% speed and {pierceAdd} more pierce for {dur}s, and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */

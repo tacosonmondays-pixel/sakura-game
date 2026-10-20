@@ -10,7 +10,7 @@ KIND = dict(bow='bow', katana='slash', sword='slash', rapier='thrust', staff='ca
             cannon='cannon', rifle='rifle', shuriken='throw', flask='throw', coinPurse='throw', trident='thrust', wrench='smash', fan='sweep',
             parasol='sweep', mic='cast', shield='smash', mirror='cast', spear='thrust', mallet='smash', puppet='cast', cards='throw',
             # the new girls (UNIT_GAPS §5)
-            strip='throw', needle='cast', tablet='cast')
+            strip='throw', needle='cast', tablet='cast', banner='cast')
 
 
 def kind_of(weapon):
@@ -648,7 +648,36 @@ def tablet(ctx):
     return parts
 
 
+def banner(ctx):
+    """Ouka: a folding "COUNCIL HQ" banner stand: a pole with a gold finial, a white flag, a gold
+    top bar and a pink sakura crest."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    axis = Vector((0, 0, 1))
+    base = hd - axis * 0.2 + out * 0.03
+    top = hd + axis * 0.34
+    parts = [_rod(ctx, [base, hd, top], 0.008, darken(pal['outfitShade'], 0.1), 'hand_R')]
+    v, f = M.sphere(top + axis * 0.012, (0.016, 0.016, 0.016))
+    fin = M.new_object('finial', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(fin, levels=1)
+    parts.append(fin)
+    c = top - axis * 0.08 + out * 0.1
+    v, f = M.box(c, (0.1, 0.005, 0.07))
+    flag = M.new_object('flag', v, f, color='#f6f3ec', bone='hand_R')
+    M.finish(flag, levels=1)
+    parts.append(flag)
+    v, f = M.box(c + axis * 0.072, (0.102, 0.007, 0.007))
+    bar = M.new_object('flag_bar', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(bar, levels=0)
+    parts.append(bar)
+    v, f = M.sphere(c + fwd * 0.007, (0.026, 0.007, 0.026))
+    crest = M.new_object('crest', v, f, color='#f29bb8', bone='hand_R')
+    M.finish(crest, levels=1)
+    parts.append(crest)
+    return parts
+
+
 WEAPONS = dict(bow=bow, katana=katana, staff=staff, cannon=cannon, rifle=rifle, shuriken=shuriken, tome=tome, bell=bell, wrench=wrench,
                lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword,
                mic=mic, shield=shield, mirror=mirror, spear=spear, mallet=mallet, puppet=puppet, cards=cards,
-               strip=strip, needle=needle, tablet=tablet)
+               strip=strip, needle=needle, tablet=tablet, banner=banner)

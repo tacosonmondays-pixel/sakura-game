@@ -193,6 +193,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   hydrated: 'calm', towelSpec: 'derived',
   // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats
   sentries: 'calm', nets: 'snap', sentrySpecs: 'derived', sentryBurstSpec: 'derived', netSpec: 'derived',
+  // Ouka: her banners stay ('bn', planted again in order through setAim); a covered girl's rules follow
+  // the hubs around her (recomputeBuffs)
+  banners: 'snap', rules: 'derived',
 });
 
 /**
@@ -294,7 +297,8 @@ function packTower(sim, t) {
   if (t.lim) o.lm = packLim(t.lim);
   if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
-  if (t.aim) o.am = [t.aim.x, t.aim.y];
+  if (t.banners?.length) o.bn = t.banners.map((b) => [b.x, b.y]);
+  else if (t.aim) o.am = [t.aim.x, t.aim.y];
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
@@ -452,6 +456,8 @@ export function restoreSim(rec, profile = null) {
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // Ouka's banners, oldest first (setAim keeps at most her count)
+    if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);
     t.kills = r(o.kills);
     t.damageDealt = r(o.dmg);

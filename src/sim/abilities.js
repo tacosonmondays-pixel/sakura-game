@@ -179,6 +179,7 @@ export function syncAbility(sim, t) {
 function rallyRadius(t, e) {
   if (!e) return 0;
   if (e.target === 'girl') return t.eff.range;
+  if (e.radius === 'map') return Infinity; // every girl on the map (Ouka's Assembly Bell)
   return e.inAura ? t.stats?.aura?.range || 0 : e.radius || 0;
 }
 
@@ -421,11 +422,13 @@ function catalyst(sim, t, def, spec, targets, step) {
 
 /** A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). `to`: one girl only. */
 function addRally(sim, t, e, radius, left, to = null) {
+  const map = e.radius === 'map';
   sim._rallies.push({
-    src: t.uid, owner: t.owner ?? 0, r2: radius * radius, map: false,
+    src: t.uid, owner: t.owner ?? 0, r2: map ? 0 : radius * radius, map,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     detection: !!e.detection, ward: !!e.ward, left,
     ...(to != null ? { to } : null),
+    ...(e.pierceAdd > 0 ? { pierceAdd: e.pierceAdd } : null),
   });
 }
 
@@ -564,7 +567,7 @@ const KINDS = {
       if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
       addRally(sim, t, e, r, ticks(def.duration));
       recomputeBuffs(sim);
-      return { x: t.x, y: t.y, radius: r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
+      return { x: t.x, y: t.y, radius: r === Infinity ? 0 : r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
     },
   },
 
@@ -873,7 +876,8 @@ export function tickAbilities(sim) {
   for (const t of sim.towers) {
     const a = t.abil;
     if (!a || !(a.cd > 0)) continue;
-    a.cd = Math.max(0, a.cd - a.rate);
+    // Ouka's Club Mentors (src/sim/hubs.js): girls she covers charge faster (115 points a tick at 15%)
+    a.cd = Math.max(0, a.cd - (t.rules?.cdCut > 0 ? Math.round(a.rate * (1 + t.rules.cdCut)) : a.rate));
     if (a.cd === 0 && !((groupOf(sim, t)?.cd || 0) > 0)) sim._emit('abilityReady', { towerUid: t.uid, id: a.id });
   }
   if (sim.abilGroups.size) {

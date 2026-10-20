@@ -271,6 +271,34 @@ export function createTowerPanel(ctx) {
       if (a.cleanse) bits.push('Cleanse');
       add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide', 'aura');
     }
+    if (st.hub) {
+      // Ouka's office rules (src/sim/hubs.js)
+      const hb = st.hub;
+      const bits = [`-${Math.round(hb.costCut * 100)}% upgrades`, `sell ${Math.round(hb.sellMul * 100)}%`];
+      if (hb.freeTiers > 0) bits.push(`${hb.freeTiers === 1 ? '1st tier' : `first ${hb.freeTiers} tiers`} free`);
+      if (hb.killBounty > 0) bits.push(`+${fmtNum(hb.killBounty, 0)} coins/kill`);
+      if (hb.cdCut > 0) bits.push(`abilities +${Math.round(hb.cdCut * 100)}%`);
+      if (hb.rateMul > 1) bits.push(`+${Math.round((hb.rateMul - 1) * 100)}% speed`);
+      if (hb.rangeMul > 1) bits.push(`+${Math.round((hb.rangeMul - 1) * 100)}% range`);
+      if (hb.dmgMul > 1) bits.push(`+${Math.round((hb.dmgMul - 1) * 100)}% dmg`);
+      if (hb.detection) bits.push('Veil Sight');
+      if (hb.airGrant) bits.push('hit flyers');
+      if (hb.cleanse) bits.push('Cleanse');
+      if (hb.typeFloor > 0) bits.push('type floor ×1');
+      add('Office', `${fmtNum(hb.radius, 1)} tiles · ${bits.join(', ')}`, '.bt-stat-wide', 'aura');
+      if (hb.banners > 0) add('Banners', `${t.banners?.length || 0}/${hb.banners} · ${fmtNum(hb.bannerRange, 1)} tiles`, '.bt-stat-wide2');
+    }
+    if (t.rules) {
+      // a girl inside Ouka's office or by her banner: the rules that are not already shown as buffs
+      const ru = t.rules;
+      const bits = [];
+      if (ru.freeTiers > 0) bits.push(`${ru.freeTiers === 1 ? '1st tier' : `first ${ru.freeTiers} tiers`} free`);
+      if (ru.sellMul > 0) bits.push(`sells for ${Math.round(ru.sellMul * 100)}%`);
+      if (ru.cdCut > 0) bits.push(`ability +${Math.round(ru.cdCut * 100)}% charge`);
+      if (ru.airGrant) bits.push('hits flyers');
+      if (ru.typeFloor > 0) bits.push('type floor ×1');
+      if (bits.length) add('Council rules', bits.join(', '), '.bt-stat-wide');
+    }
     const chips = [];
     const cap = (key, label) => chips.push(h('span.bt-cap', svgEl(capabilityIcon(key), 'bt-cap-ico'), label));
     if (st.detection) cap('detection', 'Veil Sight');

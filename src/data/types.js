@@ -121,6 +121,7 @@ export const ROLES = {
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
   // the new girls (UNIT_GAPS §5)
+  council: { name: 'Council Hub', category: 'support', goodAgainst: 'Saving coins and building a strong core', limitation: 'No attack of her own', desc: 'Changes the rules in her office radius: cheaper upgrades, free tiers, coins per kill.' },
   builder: { name: 'Field Builder', category: 'support', goodAgainst: 'Long roads and mixed threats', limitation: 'Sentries need time and road', desc: 'Sets timed sentries at the road\'s edge and nets on the road.' },
   manager: { name: 'Team Manager', category: 'support', goodAgainst: 'Making the team\'s best girl even better', limitation: 'No attack of her own', desc: 'Throws sports drinks that speed up the girls she picks.' },
   ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },

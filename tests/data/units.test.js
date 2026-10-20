@@ -50,6 +50,7 @@ const ROSTER = [
   ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
   ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
   ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '4-2'],
+  ['ouka', 'tower', 'SR', 'council', 'holy', null, 'land', 'charm', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -67,7 +68,7 @@ const LOOK_ENUMS = {
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip', 'needle', 'tablet'],
+    'strip', 'needle', 'tablet', 'banner'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
@@ -80,7 +81,7 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring', 'drink', 'sentry'];
+  'strip', 'ring', 'drink', 'sentry', 'hub'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -190,6 +191,7 @@ function modSetErrors(mods, where) {
     ring: (k, v, w) => ringErrors(v, w),
     drink: (k, v, w) => drinkErrors(v, w),
     sentry: (k, v, w) => sentryErrors(v, w),
+    hub: (k, v, w) => hubErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -226,6 +228,13 @@ function sentryErrors(v, w) {
   return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The campus hub (src/sim/mods.js normHub).
+const HUB_NUMS = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd'];
+const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
+function hubErrors(v, w) {
+  return objErrors(v, [...HUB_NUMS, ...HUB_FLAGS], w, (kk, vv, ww) => (HUB_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
 function baseErrors(b, where) {
   const errs = [];
   for (const k of BASE_REQUIRED) if (!(k in b)) errs.push(`${where}: missing ${k}`);
@@ -246,6 +255,10 @@ function baseErrors(b, where) {
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
   if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
+  if (b.hub) {
+    errs.push(...hubErrors(b.hub, `${where}.hub`));
+    if (b.behavior !== 'none') errs.push(`${where}: a hub never attacks (behavior none)`);
+  }
   if (b.drink) {
     errs.push(...drinkErrors(b.drink, `${where}.drink`));
     if (b.behavior !== 'drink') errs.push(`${where}: drink needs the drink behavior`);
@@ -312,6 +325,11 @@ function derivedCaps(m, acc = new Set()) {
   // lane sentries are summons; Specialist Kits' flash sentries reveal
   if ((m.sentry?.max ?? 0) > 0) acc.add('summon');
   if (m.sentry?.kits) acc.add('reveal');
+  // the campus hub: her rules are a buff for the girls in her radius; Hall Monitors, Emergency Protocol, Sponsorship
+  if (m.hub && 'radius' in m.hub) acc.add('buff');
+  if (m.hub?.detection) acc.add('detection');
+  if (m.hub?.cleanse) acc.add('cleanse');
+  if ((m.hub?.killBounty ?? 0) > 0) acc.add('income');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');

@@ -174,6 +174,13 @@ function pathScore(def, p, needs, tiersToCount = 5) {
     // the new girls' own blocks, scored like the turret's (only their tiers carry these keys)
     if (m.sentry) s += (m.sentry.max || 0) * 1.5 + (m.sentry.damage || 0) * 0.3 + (m.sentry.kits ? 4 : 0) + (m.sentry.burst || 0) * 0.02;
     if (m.strip) s += (m.strip.hits || 0) * 0.3 + (m.strip.boom || 0) * 0.02;
+    if (m.hub) {
+      // Ouka's rules: for the girls around her
+      const h = m.hub;
+      s += ((h.rateMul || 1) - 1) * 20 + ((h.dmgMul || 1) - 1) * 20 + (h.freeTiers || 0) * 3 + (h.costCut || 0) * 15 + (h.cdCut || 0) * 4;
+      if (h.detection && needs.veiled) s += 6;
+      if (h.airGrant && needs.airborne) s += 6;
+    }
     if (m.status) s += 1;
     if (m.eliteMul) s += (m.eliteMul - 1) * 3;
     if (m.bossMul) s += (m.bossMul - 1) * 2;
@@ -189,7 +196,7 @@ function detectionRoute(def) {
   (def.paths || []).forEach((p, pi) => {
     (p.tiers || []).forEach((t, ti) => {
       const m = t.mods || {};
-      if ((m.detection || m.aura?.detection) && (!best || ti + 1 < best.tier)) best = { path: pi, tier: ti + 1 };
+      if ((m.detection || m.aura?.detection || m.hub?.detection) && (!best || ti + 1 < best.tier)) best = { path: pi, tier: ti + 1 };
     });
   });
   return best;
@@ -198,6 +205,8 @@ function detectionRoute(def) {
 function unitRole(stats) {
   // a buff thrower (Wakaba) is placed for her drinks, never copied as a damage dealer
   if (stats.behavior === 'drink') return 'support';
+  // a campus hub (Ouka) is placed for her rules around the damage dealers
+  if (stats.hub) return 'support';
   if (stats.income && (stats.behavior === 'none' || stats.damage <= 0)) return 'econ';
   if (stats.behavior === 'none') return stats.aura ? 'support' : 'econ';
   // an aura girl whose own attack is a token chime (Noa: 1 damage every 2 s) is placed for her aura,
@@ -321,10 +330,11 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {
-        const ar = info.stats.aura?.range || (info.stats.drink ? info.stats.range : 2);
+        const ar = info.stats.aura?.range || (info.stats.drink ? info.stats.range : info.stats.hub ? info.stats.hub.radius : 2);
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
-        // a buff thrower (Wakaba) stands where her drinks reach the girl this plan will push as its carry
-        const carry = info.stats.drink ? carryNow() : null;
+        // a buff thrower (Wakaba) stands where her drinks reach the girl this plan will push as its carry;
+        // a campus hub (Ouka) where her office covers that girl (her deep upgrades get the discount)
+        const carry = info.stats.drink || info.stats.hub ? carryNow() : null;
         if (carry && Math.hypot(carry.x - c.x, carry.y - c.y) <= ar) s += 1000;
       } else {
         // roaming drones (Chika) fight up to roam + gun range from her

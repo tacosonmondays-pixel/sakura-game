@@ -254,6 +254,13 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 5 },
     t5: { cooldown: 30, duration: 25, effect: { count: 6 } },
   }],
+  ouka: [{
+    // a map rally: every girl on the map, both players' (never Ouka herself); +pierce rides on t.buff
+    path: 'assembly', unlockTier: 3, id: 'ouka.assemblyBell', kind: 'rally', scope: 'map', cooldown: 45, duration: 10,
+    effect: { radius: 'map', rateMul: 1.3, pierceAdd: 1 },
+    auto: { when: 'enemies', min: 10 },
+    t5: { cooldown: 40, duration: 15, effect: { rateMul: 1.5, pierceAdd: 2 } },
+  }],
 });
 
 /**

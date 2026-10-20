@@ -10,8 +10,8 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral']);
 /** Keys whose numbers are fractions read as percent or points (× 100). */
 const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
-  // Wakaba's drink bonuses (drink.dmg 0.03 = 3%)
-  'dmg', 'rate']);
+  // Wakaba's drink bonuses (drink.dmg 0.03 = 3%); Ouka's extra discount (hub.cutAdd 0.02 = 2%)
+  'dmg', 'rate', 'cutAdd']);
 /** Context keys whose value is not player-facing on its own. */
 const SKIP_KEYS = new Set(['name', 'type', 'of', 'kind', 'volley']);
 const WORDS = { 0.5: ['half'], 1: ['one', 'once'], 2: ['twice', 'two'], 3: ['three'] };
