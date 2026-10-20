@@ -91,7 +91,7 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 ## Stand-ins for the returning girls
 
 The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
-(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures"; Fuu has a temporary Blender chibi, see "Temporary Blender chibis") are drawn by
+(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures"; Fuu and Iroha have temporary Blender chibis, see "Temporary Blender chibis") are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -140,6 +140,7 @@ for id in fuu iroha ena kanna yoriko seiran; do python3 tools/blender/build_char
 | girl | full / LOD | at battle zoom (Hikari 66 px) | look (from her portrait) | known |
 |---|---|---|---|---|
 | Fuu | 478,116 / 238,008 B (10,324 / 3,647 verts) | 50 px | milk-chocolate twintails set high with mint ribbon bows, a gold leaf clip, an open mint track jacket with gold piping over a white sailor blouse, a mint pleated skirt, pine-green leggings, white high-tops, a big folding fan with three glowing turbines; chin-up 12° | mid-sweep the fan turns edge-on to the camera |
+| Iroha | 469,720 / 221,356 B (10,192 / 3,284 verts) | 56 px | a plum-black bob with two high buns and a silver mirror ornament on the left one, a blunt fringe, a charcoal sailor top and plum scarf under a long open plum cardigan, black tights, loafers, her hand mirror; round lilac eyes; chin-up 14° (neck / head 60 / 40, `chinSplit`) | from the front her brows read a little serious |
 
 ## Adding a character
 
