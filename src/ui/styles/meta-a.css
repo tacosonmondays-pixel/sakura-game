@@ -1176,6 +1176,9 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .ma-seg { display: inline-flex; background: #e6eef8; border-radius: 10px; padding: 3px; gap: 2px; }
 .ma-seg-btn { border: none; background: transparent; padding: 7px 14px; border-radius: 8px; font-weight: 900; font-style: italic; color: var(--muted); min-height: 36px; transition: background var(--ma-small), color var(--ma-small); }
 .ma-seg-btn.active { background: #fff; color: var(--blue-deep); box-shadow: 0 2px 6px rgba(29,78,137,0.15); }
+/* Settings → Loading screen: a live preview (the loader's own background + a mini Mochi), then the two choices */
+.ma-ld-look { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.ma-ld-preview { width: 54px; height: 40px; flex: none; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 5px 4px 0; border-radius: 9px; border: 2px solid #fff; background: var(--ld-bg, #050608); box-shadow: var(--shadow); overflow: hidden; }
 .ma-slider-wrap { display: flex; align-items: center; gap: 10px; min-width: 220px; }
 .ma-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--blue) var(--fill, 50%), #d6e2f1 var(--fill, 50%)); outline: none; }
 .ma-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid var(--blue); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }

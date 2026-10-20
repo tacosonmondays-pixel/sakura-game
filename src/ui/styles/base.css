@@ -35,11 +35,12 @@
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --gutter: 16px;
-  /* Motion system (CONTRACTS §12): press 80–120 ms, panels/tabs 180–260 ms, screens 300–450 ms. */
+  /* Motion system (CONTRACTS §12): press 80–120 ms, panels/tabs 180–260 ms, screens 180–320 ms
+     (screen changes themselves: src/ui/transitions, styles/transitions.css). */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --t-press: 100ms;
   --t-panel: 220ms;
-  --t-screen: 380ms;
+  --t-screen: 280ms;
   color-scheme: light;
 
   /* ---- UI condense tokens (docs/specs/UI_DIRECTION.md §4). Additive: nothing above is renamed or removed. ---- */
@@ -191,8 +192,6 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .svg-icon svg, .btn-icon svg { width: 100%; height: 100%; }
 
 #app { position: fixed; inset: 0; overflow: hidden; }
-.screen-enter { animation: screen-in var(--t-screen) var(--ease); }
-@keyframes screen-in { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: none; } }
 
 /* ---------- Screen scaffold ---------- */
 .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
@@ -329,7 +328,11 @@ p { margin: 0 0 8px; line-height: 1.45; }
 
 /* ---------- Modal & toast ---------- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(20,35,60,0.5); display: grid; place-items: center; z-index: 100; padding: 16px; animation: fade-in var(--t-panel) var(--ease); backdrop-filter: blur(2px); }
-.modal-overlay.closing { animation: fade-out 160ms forwards; }
+/* closing: the dialog drops and fades (140 ms) with its overlay (160 ms), and taps go through to the
+   screen from the first frame of closing */
+.modal-overlay.closing { animation: fade-out 160ms ease-in forwards; pointer-events: none; }
+.modal-overlay.closing > .modal { animation: modal-out 140ms ease-in forwards; }
+@keyframes modal-out { to { opacity: 0; transform: translateY(6px) scale(0.985); } }
 .modal {
   background: #fff; border-radius: 16px; box-shadow: var(--shadow-strong); width: min(440px, 100%); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
   animation: modal-in var(--t-panel) var(--ease);
@@ -484,19 +487,12 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .tag-kicker { display: inline-block; background: var(--yellow); color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 2px 10px; border-radius: 4px; transform: skewX(var(--skew)); white-space: nowrap; }
 .tag-kicker > span { display: inline-block; transform: skewX(calc(var(--skew) * -1)); }
 
-/* Boot splash */
-.boot { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; font-family: var(--font-head); color: #fff; font-weight: 900; font-style: italic; font-size: 1.6rem; pointer-events: none; transition: opacity 0.3s; }
-.boot::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); background: rgba(207,232,255,0.25); }
-.boot > span { position: relative; animation: boot-pulse 1.4s ease-in-out infinite; }
-@keyframes boot-pulse { 50% { opacity: 0.55; } }
-.boot.boot-out { opacity: 0; }
-
 /* ---------- Reduced motion (system preference or the in-game setting) ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .screen-enter, .panel, .modal, .toast, .rotate-phone { animation: none !important; }
+  .panel, .modal, .toast, .rotate-phone { animation: none !important; }
   .btn, .tab, .icon-btn, .unit-card, .item-tile { transition: none !important; }
 }
-html[data-reduce-motion] .screen-enter, html[data-reduce-motion] .panel, html[data-reduce-motion] .modal, html[data-reduce-motion] .toast, html[data-reduce-motion] .rotate-phone { animation: none !important; }
+html[data-reduce-motion] .panel, html[data-reduce-motion] .modal, html[data-reduce-motion] .toast, html[data-reduce-motion] .rotate-phone { animation: none !important; }
 /* (iteration count 1 as well: an infinite animation squeezed to 1 ms lands on a random phase every
    frame — a strobe — instead of standing still) */
 html[data-reduce-motion] *, html[data-reduce-motion] *::before, html[data-reduce-motion] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }

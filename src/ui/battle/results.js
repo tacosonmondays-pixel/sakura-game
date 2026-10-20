@@ -4,6 +4,7 @@
 // Co-op freeplay past the goal gets a third sheet (FREEPLAY OVER / FREEPLAY COMPLETE): the big
 // overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
 // goal) and the freeplay bonus. A Sandbox run gets one line and the way back (nothing earned or saved).
+import { resultBand } from '../transitions/index.js';
 import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
 import { svgEl, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
@@ -486,7 +487,6 @@ export function createResults(ctx) {
     if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
     const m = mvp();
     if (m) blocks.push(section('Top damage', m));
-    for (const f of out.fused || []) toast(f.id === 'crown_rainbow' ? 'A Rainbow Crown! Gate 9 or 10 can open.' : `${getItem(f.id)?.name || f.id} fused!`, 'good', 4200);
     const card = h(
       `div.bt-sheet.bt-result.bt-titan${notch?.id === 'victory' ? '.bt-win' : ''}`,
       { 'data-testid': 'titan-result', 'data-notch': notch?.id || (out.practice ? 'practice' : 'none') },
@@ -501,17 +501,34 @@ export function createResults(ctx) {
       !out.practice ? h('p.muted.tt-keys', `Trial Keys left: ${out.keysLeft}${out.meter != null && t.tier === 'mayhem' ? ` · Rainbow Meter ${out.meter}/${RAINBOW_METER}` : ''}`) : null,
       actions(!!read.victory),
     );
-    open(card);
+    // [transitions] the fused-crown toasts wait for the VICTORY band, like the rest of this sheet
+    open(card).then(() => {
+      for (const f of out.fused || []) toast(f.id === 'crown_rainbow' ? 'A Rainbow Crown! Gate 9 or 10 can open.' : `${getItem(f.id)?.name || f.id} fused!`, 'good', 4200);
+    });
   }
 
   function open(card, extra = null) {
+    const first = el.hidden;
     el.replaceChildren(...[extra, card].filter(Boolean));
     // a victory stand takes the left side: the sheet moves right so it never covers her or her bubble
     el.classList.toggle('has-girl', !!extra?.classList?.contains('bt-win-girl'));
     el.hidden = false;
-    el.classList.remove('bt-in');
+    el.classList.remove('bt-in', 'bt-banded');
+    // the end of a battle: a slanted band with VICTORY / DEFEAT sweeps across first (it starts once
+    // this sheet's build has had its frames), then the sheet rises as the band's exit ends; the band
+    // never catches taps, the sheet takes them from its first visible frame
+    const word = !first ? null : card.classList.contains('bt-win') ? 'VICTORY' : card.classList.contains('bt-lose') ? (ctx.endedRun ? 'RUN OVER' : 'DEFEAT') : null;
+    const band = word ? resultBand(el, word, { tone: card.classList.contains('bt-win') ? 'win' : 'lose' }) : null;
+    if (band) {
+      el.classList.add('bt-banded');
+      band.then(() => {
+        if (card.parentNode === el) el.classList.remove('bt-banded');
+      });
+    }
     void el.offsetWidth;
     el.classList.add('bt-in');
+    /** resolves once the sheet is up (after the band, when one plays) */
+    return Promise.resolve(band).catch(() => {});
   }
 
   return {

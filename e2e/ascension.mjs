@@ -168,6 +168,23 @@ try {
     await page.waitForFunction(() => window.__battle?.sim?.stage?.titan?.id === 'wyrm', null, { timeout: 120000 });
     await page.waitForTimeout(1200);
     await shot(page, `${tag}-3c-titan-battle`);
+    // [transitions] the end of a titan win: the VICTORY band sweeps across first, the sheet (her tier,
+    // the notch bar, the Victory Chest, the keys / Rainbow Meter line) waits under it (.bt-banded). A
+    // recorder in the page notes both as they are added (a busy machine cannot miss the 0.9 s band)
+    await page.evaluate(() => {
+      window.__ttBand = { sheetHeld: null, word: null };
+      new MutationObserver((ms, obs) => {
+        for (const m of ms) for (const n of m.addedNodes) {
+          if (!(n instanceof Element)) continue;
+          const r = n.matches('[data-testid="titan-result"]') ? n : n.querySelector('[data-testid="titan-result"]');
+          if (r && window.__ttBand.sheetHeld == null) window.__ttBand.sheetHeld = !!r.closest('.bt-result-overlay')?.classList.contains('bt-banded');
+          if (n.matches('.tx-band-clip')) {
+            window.__ttBand.word = n.textContent;
+            obs.disconnect();
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
     // play it out fast: the test drives the waves and lands the final blows through the sim
     await page.evaluate(async () => {
       const { sim } = window.__battle;
@@ -190,6 +207,9 @@ try {
     await page.waitForTimeout(600);
     await shot(page, `${tag}-3d-titan-result`);
     check(notch === 'victory', `${tag} the titan fell: result sheet notch "${notch}"`);
+    const band = await page.waitForFunction(() => window.__ttBand?.word, null, { timeout: 30000 }).catch(() => null)
+      .then(() => page.evaluate(() => window.__ttBand));
+    check(band?.word === 'VICTORY' && band.sheetHeld, `${tag} the VICTORY band plays before the titan sheet rises (${JSON.stringify(band)})`);
     const resText = await res.textContent();
     check(/Victory Chest/.test(resText) && /First clear/.test(resText), `${tag} result: Victory Chest and first clear shown`);
     const after = await prof(page, () => {

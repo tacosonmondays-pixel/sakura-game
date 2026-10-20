@@ -5,6 +5,7 @@
 import { h, svgEl, toast } from '../components.js';
 import { navigate } from '../router.js';
 import { ensureOnline, avatar, levelChip, clock, showError, localNotice, CHAT_GLYPH } from './common.js';
+import { inlineLoader } from '../loading/loader.js';
 import { formatRetry } from '../../online/limits.js';
 import { toOnlineError } from '../../online/errors.js';
 import { bodyError } from '../../online/socialRules.js';
@@ -124,7 +125,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   }
 
   async function load() {
-    list.replaceChildren(h('div.ol-chat-empty', 'Loading…'));
+    list.replaceChildren(h('div.ol-chat-empty', inlineLoader('Loading')));
     shown = new Set();
     unsub();
     try {

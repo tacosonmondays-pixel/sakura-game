@@ -104,7 +104,7 @@ const tap = async (page, sel) => {
 /** Where the page is: the hash, the screen the router drew, and whether a battle is mounted. */
 const where = (page) => page.evaluate(() => ({ hash: location.hash, screen: document.querySelector('#app')?.dataset.screen || null, battle: !!window.__battle })).catch(() => ({ hash: '?', screen: null, battle: false }));
 /** Waits until the router has drawn `name` (and its hash starts with `prefix`, default #/name). */
-const onScreen = (page, name, prefix = `#/${name}`, timeout = 30000) => page.waitForFunction(([n, p]) => document.querySelector('#app')?.dataset.screen === n && location.hash.startsWith(p) && (n === 'battle' || !window.__battle), [name, prefix], { timeout, polling: 100 }).then(() => true).catch(() => false);
+const onScreen = (page, name, prefix = `#/${name}`, timeout = 30000) => page.waitForFunction(([n, p]) => document.querySelector('#app')?.dataset.screen === n && location.hash.startsWith(p) && (n === 'battle' ? !document.documentElement.dataset.tx : !window.__battle), [name, prefix], { timeout, polling: 100 }).then(() => true).catch(() => false);
 /** The top-left back arrow of the screen's top bar. */
 const arrow = (page) => tap(page, '#app .topbar [data-testid="back"]');
 
@@ -160,7 +160,7 @@ function chapters(from, to, diffs = ['easy']) {
 const checked = (page, testid) => page.locator(`#app [data-testid="${testid}"][aria-checked="true"]`).count().then((n) => n > 0).catch(() => false);
 
 /** Waits for the battle to be playable. */
-const battleReady = (page) => page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle', null, { timeout: 90000, polling: 200 }).then(() => true).catch(() => false);
+const battleReady = (page) => page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 90000, polling: 200 }).then(() => true).catch(() => false);
 
 /** Ends the running battle as a defeat: one life left, then fast-forward the Sim until a leak. */
 async function loseBattle(page) {

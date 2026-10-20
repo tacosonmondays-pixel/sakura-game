@@ -32,9 +32,9 @@ let scenesPromise = null;
 const loadScenes = () => (scenesPromise ||= import('../../data/story/index.js'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Something else owns the screen right now: a modal, or the title hand-off still fading out. */
+/** Something else owns the screen right now: a modal, or a screen change still covering / sliding. */
 function screenBusy() {
-  return !!document.querySelector('.modal-overlay, .tt.tt-handoff, .sp');
+  return !!document.querySelector('.modal-overlay, .sp, html[data-tx]');
 }
 
 /** @returns {Promise<boolean>} false when a modal stayed open for 10 s (the next screen change retries) */
