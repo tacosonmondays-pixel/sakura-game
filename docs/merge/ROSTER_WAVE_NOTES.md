@@ -68,6 +68,7 @@ Golden and balance moves from the merge are in §4.
 - Looks: school uniforms with tech gear; heroes in staff / officer coats; look guard test.
 - Art: placeholder portraits (`tools/art/placeholder_portraits.py`), procedural stand-ins (`src/models/standins.js`). No image or 3D generator was called.
   - Art wave (v0.1.39): all nine now ship their painted portrait sets (`public/art/portraits/<id>-*.webp`, `PORTRAIT_DATA` lines measured on the shipped crops; Ena's stand fades its bottom edge because her painting ends at the shin). Ruri's `PORTRAIT_DATA` line follows with her chibi import.
+  - `tools/art/placeholder_portraits.py` now draws coming-soon signboards (her chibi in a hard hat painting her portrait on an easel, ART IN PROGRESS / COMING SOON) for any roster girl without art: no ids = every girl with no portrait files, explicit ids are refused when she already has files unless `--force` (or `--out` elsewhere). Vector shapes with Pillow, no generator, no third-party images. Fonts: Barlow Condensed from `src/ui/styles/fonts` when the branch has it, otherwise DejaVu Sans Bold with a warning.
 
 ## 4. Measurements
 

@@ -1,6 +1,9 @@
 // Drawn portraits (first impressions): every roster girl has a painted illustration, so menus
 // show real art instead of the procedural SVG doll (cardArtSVG stays only as a fallback for a
-// girl with no files, e.g. a future unit added before her art).
+// girl with no files, e.g. a future unit added before her art). A new girl whose painting is not
+// ready yet can ship with a coming-soon signboard set instead: tools/art/placeholder_portraits.py
+// <id> draws the six files (her chibi in a hard hat painting her portrait on an easel, ART IN
+// PROGRESS) and prints her PORTRAIT_DATA line; it never overwrites a girl who already has files.
 //
 // Files live in public/art/portraits/ (copied from the art producer's set, all .webp):
 //   <id>-full.webp   768×1024  3:4 illustration (student detail, SSR splash, join splash)

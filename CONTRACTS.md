@@ -347,7 +347,8 @@ Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, statu
 `runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
-`isStandIn`); placeholder portraits: `tools/art/placeholder_portraits.py`. Every returning student wears a
+`isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
+`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files). Every returning student wears a
 school uniform with tech gear (look guard in `tests/data/units.test.js`).
 
 ## 4. World — enemies, maps, stages (owner: world)
