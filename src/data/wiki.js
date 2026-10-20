@@ -691,7 +691,7 @@ function returningArticle() {
   const girls = EXPANSION_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   return article('returning', 'Returning Girls', 'students', 'wiki', 'Nine girls from the older build are back in academy uniforms with tech gear, with their own tricks: aimed shots, familiars, mirrors, grounding, gusts and curses.', ['returning', 'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena', 'aim', 'mirror', 'familiar', 'curse', 'hex', 'ground', 'grounded', 'push', 'gather'], [
     sec('Who is back',
-      p('Kanna, Yoriko and Seiran are adult staff heroes; Fuu, Hana, Ruri, Noa, Iroha and Ena are students. Noa joins free after 6-2 and Hana after 7-5; the others come from recruiting. Their art is a placeholder until the real portraits and chibis are drawn.'),
+      p('Kanna, Yoriko and Seiran are adult staff heroes; Fuu, Hana, Ruri, Noa, Iroha and Ena are students. Noa joins free after 6-2 and Hana after 7-5; the others come from recruiting. All nine have their painted portraits; Noa, Hana and Ruri have their finished 3D chibis, and the other six have simpler temporary ones until theirs are ready.'),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
         { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
       ]))),
