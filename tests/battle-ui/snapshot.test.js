@@ -833,6 +833,25 @@ const gearRun = () => (gearPlayed ??= (() => {
   potWaves(sim, 4, () => {});
   return sim;
 })());
+/** An Archery trap girl (Follow-Through on her traps: trapFtN) beside Aoi. */
+const FT_TRAP = { ...GEAR, towers: ['suzu', 'aoi'], hero: null, per: { suzu: { pierceK: 30, club: 'archery', clubN: 3 }, aoi: GEAR.per.aoi } };
+function ftTrapBuild() {
+  const sim = makeSim(FT_TRAP);
+  sim.cash = 5e6;
+  const at = nearPath(sim, FT_TRAP.towers);
+  const placed = {};
+  for (const u of FT_TRAP.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
+  for (const id of FT_TRAP.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+  sim.cash = 4000;
+  wrapWaves(sim, FT_TRAP.seed);
+  return sim;
+}
+let ftTrapPlayed = null;
+const ftTrapRun = () => (ftTrapPlayed ??= (() => {
+  const sim = ftTrapBuild();
+  potWaves(sim, 3, () => {});
+  return sim;
+})());
 
 describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)', SLOW, () => {
   it('every gear counter comes back exactly, and a split run plays on like the straight one', () => {
@@ -861,15 +880,8 @@ describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)'
   });
 
   it('an Archery trap girl\'s Follow-Through count (trapFtN) comes back, and the split run plays on the same', () => {
-    const c = { ...GEAR, towers: ['suzu', 'aoi'], hero: null, per: { suzu: { pierceK: 30, club: 'archery', clubN: 3 }, aoi: GEAR.per.aoi } };
-    const sim = makeSim(c);
-    sim.cash = 5e6;
-    const at = nearPath(sim, c.towers);
-    const placed = {};
-    for (const u of c.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
-    for (const id of c.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
-    sim.cash = 4000;
-    wrapWaves(sim, c.seed);
+    const c = FT_TRAP;
+    const sim = ftTrapBuild();
     let seen = 0;
     potWaves(sim, 3, () => {
       const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
@@ -1003,6 +1015,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of potRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and an Archery trap girl: Follow-Through's trap count)
+    for (const t of ftTrapRun().towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 
