@@ -116,8 +116,9 @@ Doodle Notes 100 · Study Guide 500 · Academy Textbook 2,000 · Sage's Codex 8,
 | Duplicates past P6 | SR ×1, SSR ×5 | duplicates |
 | Total Assault: Ashwing Matriarch (Hard) | 6 % a run (unchanged) | runs |
 
-None is sold for gems. Older builds clamp a level above 60 back to 60 when they load; `lv:<id>` in
-`missions.counters` restores it (never above the cap) on the next load of this build.
+None is sold for gems. Older builds clamp a level above 60 back to 60 when they load (a Potential-v3 build, to
+its own cap, rewriting `lv:` down); `lv:<id>` and Ascension's `lvA:<id>` in `missions.counters` restore it by max
+(never above the cap) on the next load of this build.
 
 ### Breakthrough (cap 10 → 60 in steps of 10, then gates 6–10 to 85; unit's own material family)
 

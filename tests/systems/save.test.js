@@ -7,7 +7,8 @@ import { writeGearMarks } from '../../src/systems/gearMarks.js';
 import { createRng } from '../../src/core/rng.js';
 import { potentialState } from '../../src/systems/potential.js';
 import { mirrorUnit } from '../../src/systems/ascensionSave.js';
-import { raisePotential, essenceBalance } from '../../src/systems/essence.js';
+import { raisePotential, essenceBalance, addChosenEssence } from '../../src/systems/essence.js';
+import { gatesForLevel, POTENTIAL_LEVEL_CAPS } from '../../src/systems/progression.js';
 import { addItems } from '../../src/systems/inventory.js';
 import { ASCENSION_ITEM_IDS } from '../../src/data/items.js';
 import { BASE_STAT_KEYS } from '../../src/data/gearStats.js';
@@ -307,6 +308,7 @@ describe('levels above 60 (Potential v3 §4.6, gates 6–10: ASCENSION.md §B.1,
     delete bare.missions.counters['pl:aoi'];
     delete bare.missions.counters['bt:aoi'];
     delete bare.missions.counters['lv:aoi'];
+    delete bare.missions.counters['lvA:aoi'];
     const m = migrateProfile(JSON.parse(JSON.stringify(bare)));
     expect(m.units.aoi.dupes).toBe(3);
     expect(m.units.aoi).toMatchObject({ level: 60, exp: 0, breakthrough: 5 });
@@ -316,6 +318,19 @@ describe('levels above 60 (Potential v3 §4.6, gates 6–10: ASCENSION.md §B.1,
     gated.units.aoi.breakthrough = 3;
     gated.units.aoi.level = 85;
     expect(migrateProfile(gated).units.aoi.level).toBe(40);
+  });
+
+  it("'lvA:' records only a settled level: a girl above her cap at the first Essence switch leaves none behind", () => {
+    // a save from before Ascension (no 'ess:mig') with a P1 girl at gate 5 above her L60 cap: the switch's
+    // mirrorUnit runs before settleLevels clamps her, so a mirror written there would hold L72 and a later
+    // Raise Potential + gate would lift her to it on the next load, for free
+    const raw = createProfile();
+    delete raw.missions.counters['ess:mig'];
+    Object.assign(raw.units.aoi, { level: 72, exp: 0, breakthrough: 5, dupes: 0 });
+    const m = migrateProfile(JSON.parse(JSON.stringify(raw)));
+    expect(m.units.aoi).toMatchObject({ level: 60, breakthrough: 5, pl: 1 });
+    expect(m.missions.counters['lvA:aoi']).toBeUndefined();
+    expect(m.missions.counters['lv:aoi']).toBeUndefined();
   });
 
   it("an older build's clamp to 60 is restored from 'lv:<id>'", () => {
@@ -335,6 +350,9 @@ describe('levels above 60 (Potential v3 §4.6, gates 6–10: ASCENSION.md §B.1,
     raw.missions.counters['lv:rei'] = 85;
     raw.missions.counters['lv:nobody'] = 85;
     raw.missions.counters['lv:hikari'] = Number.NaN;
+    raw.missions.counters['lvA:aoi'] = 1e9;
+    raw.missions.counters['lvA:rei'] = 85;
+    raw.missions.counters['lvA:hikari'] = -5;
     const m = migrateProfile(raw);
     expect(m.units.aoi.level).toBe(63);
     expect(m.units.rei.level).toBe(1);
@@ -370,6 +388,26 @@ describe('one save with UR gear and Ascension together (the merged migrateProfil
       g.subs = g.subs.filter((s) => BASE_STAT_KEYS.includes(s.stat)).map(({ tuned, ...s }) => s);
     }
     for (const id of [...ASCENSION_ITEM_IDS, ...MIRRORED_ITEMS]) delete q.items[id];
+    return q;
+  };
+
+  /** A Potential-v3 build (v0.1.37, v0.1.38) loads and saves it. It knows `dupes` and the 'lv:' shadow but not
+   *  `pl`, gates past 5, 'lvA:', UR gear or the Ascension items: its cleanUnit drops `pl` and clamps the gates to 5,
+   *  and its settleLevels clamps her level to ITS cap, P = min(6, 1 + dupes), then rewrites 'lv:' to that clamped
+   *  level when it is above 60 (its shadowLevel). Gear and items as the older build above. */
+  const potentialV3Build = (raw) => {
+    const q = olderBuild(raw);
+    const c = q.missions.counters;
+    for (const [id, u] of Object.entries(q.units)) {
+      const src = raw.units[id];
+      const bt = Math.min(5, src.breakthrough);
+      const cap = bt < 5 ? 10 + 10 * bt : POTENTIAL_LEVEL_CAPS[Math.min(6, 1 + (src.dupes || 0)) - 1];
+      const shadow = Math.floor(Number(c[`lv:${id}`]) || 0);
+      let level = Math.min(src.level, bt < 5 ? cap : 85);
+      if (shadow > level && level >= 60) level = Math.min(shadow, cap);
+      Object.assign(u, { breakthrough: bt, level: Math.min(level, cap), exp: level > cap ? 0 : src.exp });
+      if (u.level > 60) c[`lv:${id}`] = u.level;
+    }
     return q;
   };
 
@@ -440,5 +478,43 @@ describe('one save with UR gear and Ascension together (the merged migrateProfil
     expect(reload(back)).toEqual(back);
     const twice = JSON.parse(JSON.stringify(migrateProfile(olderBuild(back))));
     expect({ ...twice, units: p1(twice.units) }).toEqual({ ...back, units: p1(back.units) });
+  });
+
+  it("a Potential-v3 tab that clamps a girl to its own cap and rewrites 'lv:' down loses no level ('lvA:')", () => {
+    // Aoi with `dupes` duplicates, `kindred` Kindred steps and `chosen` Chosen Essence, at `level` with the gates it needs
+    const girl = ({ dupes, kindred = 0, chosen = 0, level }) => {
+      const p = createProfile();
+      p.currencies.coins = 5e7;
+      if (kindred) addItems(p, [{ id: 'kindred_r', count: kindred }]);
+      p.units.aoi.dupes = dupes;
+      for (let i = 0; i < chosen; i++) expect(addChosenEssence(p, 'aoi')).toBe(true);
+      for (let i = 0; i < dupes + chosen; i++) expect(raisePotential(p, 'aoi', 'own').ok).toBe(true);
+      for (let i = 0; i < kindred; i++) expect(raisePotential(p, 'aoi', 'kindred_r').ok).toBe(true);
+      Object.assign(p.units.aoi, { breakthrough: gatesForLevel(level, p.units.aoi.pl), level, exp: 0 });
+      mirrorUnit(p, 'aoi');
+      return reload(p);
+    };
+    for (const [setup, v3Level] of [
+      [{ dupes: 2, kindred: 1, level: 72 }, 67], // P4, the v3 tab sees P3
+      [{ dupes: 1, kindred: 4, level: 85 }, 63], // P6, the v3 tab sees P2: 22 levels
+      [{ dupes: 1, chosen: 2, level: 72 }, 63], // P4 from Chosen Essence
+      [{ dupes: 3, kindred: 2, level: 85 }, 72],
+      [{ dupes: 3, level: 72 }, 72], // P from duplicates only: the v3 tab keeps her level
+    ]) {
+      const want = girl(setup);
+      const a = want.units.aoi;
+      expect(want.missions.counters['lvA:aoi']).toBe(a.level);
+      const stale = potentialV3Build(want);
+      expect(stale.units.aoi.level).toBe(v3Level);
+      expect(stale.missions.counters['lv:aoi']).toBe(v3Level);
+      expect(stale.missions.counters['lvA:aoi']).toBe(a.level);
+      const back = JSON.parse(JSON.stringify(migrateProfile(stale)));
+      expect(back.units.aoi).toMatchObject({ level: a.level, pl: a.pl, breakthrough: a.breakthrough });
+      expect(back.missions.counters['lv:aoi']).toBe(a.level);
+      expect(back.missions.counters).toEqual(want.missions.counters);
+      expect(reload(back)).toEqual(back);
+      // and another v3 trip after it changes nothing either
+      expect(JSON.parse(JSON.stringify(migrateProfile(potentialV3Build(back)))).units.aoi).toEqual(back.units.aoi);
+    }
   });
 });

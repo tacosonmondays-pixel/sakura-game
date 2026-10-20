@@ -947,6 +947,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 |---|---|---|---|
 | Bought Potential | `units[id].pl` 1–6 | `pl:<id>` | drops `pl` → restored from the mirror |
 | Gates 6–10 | `units[id].breakthrough` 0–10 | `bt:<id>` (written when > 5) + P3's `lv:<id>` | clamps to 5 and L60 → restored, then re-clamped to `levelCap` |
+| Level above 60 | `units[id].level` | P3's `lv:<id>` + Ascension's own `lvA:<id>` (both written by `shadowLevel` when > 60, at every level-up and every load); `settleLevels` lifts a girl at L60 or above to max(`lv:`, `lvA:`), never above `levelCap` | a pre-P3 build clamps her to L60 and keeps both. A P3 build (v0.1.37, v0.1.38) does not know `pl`: it clamps her to its cap at P = min(6, 1 + dupes) and rewrites `lv:` down to that, but never writes `lvA:` → restored from `lvA:` (a girl whose bought P is above 1 + dupes, from Kindred or Chosen Essence, would otherwise lose the levels above the old cap) |
 | Essence history | `units[id].dupes` (existing, allowlisted `:185`) | `pot:<id>` (existing) | keeps counting duplicates (and pays its old fragments: a small gift) |
 | Steps paid with Kindred | counter `essU:<id>` | itself | kept |
 | Kindred released for a spare payout | counter `kinX:<rarity>` | itself | kept |
@@ -966,12 +967,12 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | Weekly Wonder counted this week | `missions.weekly['wd:done']` (`WEEKLY_DONE_MARK`, `src/systems/missions.js:18`): 1 once this week's `weeklyDone` has counted (`claimMission`, `:136-138`), so a row that opens mid-week (Club Day, Rainbow Hunt) cannot count the week twice | wiped weekly with `missions.weekly` (`onAppStart`, `src/systems/missions.js:46-51`) | kept; an older tab that claims the last weekly writes no mark, so this build may count that week once more (one achievement step) |
 | 16 new item ids (§F.3) | `profile.items` | `inv:<id>` (GA R16's helper in `setCount`, `src/systems/inventory.js:37`) | dropped, load lossy → restored from `inv:` (a spent item mirrors 0) |
 
-Prefixes checked against those in use and planned (RS §7: `pot:`, `fpm:`, `pg:`, `pfs:`, `story:new`, `lv:`, `fpTome:`,
+Prefixes checked against those in use and planned (RS §7: `pot:`, `fpm:`, `pg:`, `pfs:`, `story:new`, `lv:`, `lvA:`, `fpTome:`,
 `gur:`, `gtn:`, `inv:`, `ga:gift`, `fpu:`, `pity:cel`; ACH's `ach:`): no collision.
 
 ### F.2 Load order (`migrateProfile`; idempotent)
 
-`creditPotential` (today) → restore `pl:` / `bt:` / `lv:` by max → restore `inv:` items and `gbx:` flags → migration
+`creditPotential` (today) → restore `pl:` / `bt:` / `lv:` / `lvA:` by max → restore `inv:` items and `gbx:` flags → migration
 A.7 once (`ess:mig`) → re-clamp `level` to `levelCap` (exp 0 if clamped, P3 §4.6) → convert any Essence above `6 − pl`
 to spares (`essX`). **That load-time conversion only raises `essX`; it pays nothing** (no Mementos, Moonpearls or
 points): such Essence comes from a duplicate an older build already handled, and that build paid its fragments and its

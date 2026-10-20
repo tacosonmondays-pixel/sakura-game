@@ -17,7 +17,7 @@ import { BATTLE_CAPS } from '../data/gearStats.js';
 export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
-import { mirrorUnit } from './ascensionSave.js';
+import { mirrorUnit, LEVEL_MIRROR_PREFIX } from './ascensionSave.js';
 
 /** Breakthrough gates: 1–5 to level 60, then gates 6–10 (Ascension) to 85. */
 export const MAX_BREAKTHROUGH = 10;
@@ -159,22 +159,33 @@ function coinsFor(unit, toLevel, toExp, applied) {
  * before the level cap rose clamps a girl's level to 60 when it loads and saves (its cleanUnit), but
  * keeps `missions.counters` word for word; migrateProfile (src/systems/save.js) lifts her back to
  * min(shadow, levelCap). At most the EXP inside one level is lost that way.
+ * Ascension writes the same level to its own mirror, 'lvA:<id>' (ascensionSave.js LEVEL_MIRROR_PREFIX):
+ * a Potential-v3 build (v0.1.37, v0.1.38) does not know `pl`, clamps a girl whose bought P is above
+ * 1 + dupes to its lower cap and rewrites 'lv:' down to that clamped level, but never writes 'lvA:'.
  */
 export const LEVEL_SHADOW_PREFIX = 'lv:';
 
-/** Write her level shadow when her level is above 60 (levelUp calls it; so does every load). */
+/** Write her level shadows ('lv:' and 'lvA:') when her level is above 60 (levelUp calls it; so does every load). */
 export function shadowLevel(profile, unitId) {
   const level = profile?.units?.[unitId]?.level;
   if (!(level > BREAKTHROUGH_LEVEL_CAP)) return;
   const c = ((profile.missions ||= {}).counters ||= {});
   if (c[LEVEL_SHADOW_PREFIX + unitId] !== level) c[LEVEL_SHADOW_PREFIX + unitId] = level;
+  if (c[LEVEL_MIRROR_PREFIX + unitId] !== level) c[LEVEL_MIRROR_PREFIX + unitId] = level;
+}
+
+/** The level her shadows hold: the higher of 'lv:<id>' and 'lvA:<id>' (0 when neither is set). */
+export function shadowedLevel(counters, unitId) {
+  const read = (k) => Math.max(0, Math.floor(Number(counters?.[k]) || 0));
+  return Math.max(read(LEVEL_SHADOW_PREFIX + unitId), read(LEVEL_MIRROR_PREFIX + unitId));
 }
 
 /**
  * After a load (the sanitizer let levels up to MAX_LEVEL through before her duplicates were known):
- * restore a level an older build clamped to 60 from her shadow, never above levelCap, then clamp
- * her to levelCap (EXP 0 when clamped or at the cap, as a level-up at the cap leaves it) and rewrite
- * the shadow. A hostile shadow never lifts a girl above her cap. Idempotent.
+ * restore a level an older build clamped (to 60, or to a Potential-v3 cap) from her shadows
+ * (max of 'lv:' and 'lvA:'), never above levelCap, then clamp her to levelCap (EXP 0 when clamped or
+ * at the cap, as a level-up at the cap leaves it) and rewrite both shadows. A hostile shadow never
+ * lifts a girl above her cap. Idempotent.
  * @param {object} profile
  * @returns {string[]} ids whose level changed
  */
@@ -184,7 +195,7 @@ export function settleLevels(profile) {
   for (const [id, u] of Object.entries(profile?.units || {})) {
     const cap = levelCap(u);
     const before = u.level;
-    const shadow = Math.floor(Number(c[LEVEL_SHADOW_PREFIX + id]) || 0);
+    const shadow = shadowedLevel(c, id);
     // only a girl at 60 or above (where an older build's clamp leaves her) is lifted
     if (shadow > u.level && u.level >= BREAKTHROUGH_LEVEL_CAP) {
       u.level = Math.min(shadow, cap);

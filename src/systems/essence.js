@@ -24,7 +24,7 @@
 import { UNITS, UNIT_MAP } from '../data/units.js';
 import { addItems, consumeItems, itemCount, missingItems } from './inventory.js';
 import { mirrorUnit } from './ascensionSave.js';
-import { gatesForLevel, BASE_GATES } from './progression.js';
+import { gatesForLevel, BASE_GATES, shadowedLevel } from './progression.js';
 import { track } from './missions.js';
 
 export const MAX_P = 6;
@@ -267,9 +267,9 @@ export function migrateEssence(profile) {
     const dupes = whole(st.dupes);
     st.pl = Math.max(boughtP(st), Math.min(MAX_P, 1 + dupes));
     // no level ever drops (§I): with gate 5 open, Potential v3 set her cap; count the gates past 5
-    // up to her level as broken, free (her level, or the 'lv:' shadow of one an older build clamped)
+    // up to her level as broken, free (her level, or the 'lv:' / 'lvA:' shadow of one an older build clamped)
     if (whole(st.breakthrough) >= BASE_GATES) {
-      const level = Math.max(whole(st.level), whole(c[`lv:${id}`]));
+      const level = Math.max(whole(st.level), shadowedLevel(c, id));
       st.breakthrough = Math.max(whole(st.breakthrough), gatesForLevel(level, st.pl));
     }
     const past = Math.max(0, dupes - (MAX_P - 1));

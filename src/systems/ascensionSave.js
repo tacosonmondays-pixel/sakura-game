@@ -7,8 +7,13 @@
 //   pl:<id>   her bought Potential (1–6), written whenever it changes
 //   bt:<id>   her gates when above 5
 //   inv:<id>  the count of each of the 16 Ascension items (0 once spent; inventory.js setCount)
+//   lvA:<id>  her level when above 60, beside P3's 'lv:' shadow (both written by progression.js shadowLevel,
+//             at every level-up and every load, so only from a settled level)
 // migrateProfile restores them by max (items: only when the item is missing from the save).
-// Levels above 60 already come back from P3's 'lv:' shadow (progression.js settleLevels).
+// Levels above 60 come back by max('lv:', 'lvA:') (progression.js settleLevels). 'lv:' alone is not
+// enough: a Potential-v3 build (v0.1.37, v0.1.38) knows 'lv:' but not `pl`, so it clamps a girl whose
+// bought P is above 1 + dupes to its own, lower cap and rewrites 'lv:' down to that. No build before
+// Ascension writes 'lvA:', so it keeps her real level.
 //
 // Pure functions; save.js, inventory.js and essence.js call them.
 
@@ -17,6 +22,8 @@ import { ASCENSION_ITEM_IDS } from '../data/items.js';
 export const PL_PREFIX = 'pl:';
 export const BT_PREFIX = 'bt:';
 export const INV_PREFIX = 'inv:';
+/** Ascension's own level mirror (no older build writes it; progression.js reads it with 'lv:'). */
+export const LEVEL_MIRROR_PREFIX = 'lvA:';
 /** Most gates any girl can hold (gate 10 opens level 85). */
 export const GATES_MAX = 10;
 /** Highest bought Potential. */
