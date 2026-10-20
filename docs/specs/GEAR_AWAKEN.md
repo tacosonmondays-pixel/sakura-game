@@ -781,3 +781,18 @@ Files: `src/data/gearAwaken.js`, `src/systems/gear.js` (UR reads, awaken, stitch
 `src/systems/save.js`, `src/systems/rewards.js` (Celestial counter, `assaultClear`), `src/online/coop/rewards.js` (Freeplay
 Needle and milestone items), `src/ui/gearUr.js`, `src/ui/styles/gear-ur.css`. Tests: `tests/systems/gearAwaken.test.js`,
 `tests/systems/gearStats.test.js` (mirrors), e2e `e2e/ur-gear.mjs`.
+
+### Measured (2026-10-20, `tools/gearGuard.mjs`, team build, Normal, seeds 7 / 11: the wave each run fell at)
+
+| Stage · tier | MAXED | LATE | UR_LATE | LATE + clubs | UR_LATE + clubs |
+|---|---|---|---|---|---|
+| 4-5 Blossom | 154 / 154 | 160 / 155 | 185 / 185 | 165 / 165 | 195 / 195 |
+| 4-5 Crimson Moon | 100 / 100 | 140 / 140 | 154 / 154 | 145 / 145 | 150 / 150 |
+| 1-5 Blossom | 187 / 187 | 200 / 200 | 214 / 214 | 200 / 200 | 214 / 214 |
+| 1-5 Crimson Moon | 160 / 160 | 160 / 160 | 180 / 180 | 171 / 170 | 187 / 187 |
+
+40 runs, **none beat the Eclipse Wyrm** (wave 250). UR_LATE sits 14–30 waves above LATE on Crimson Moon (the spec's
+10–30 band). On this branch's Freeplay the 1-5 Blossom UR runs pass the Matriarch (200) and fall at 214. The club presets are
+the fixed-preset approximation of gear-stats §D.4 (×1.06 / ×1.065 fill, the `clubs` lineup); the co-op PC8 pair and the
+crowd gates stay with the coordinator's combined balance pass. Perf: the 60-girl wave-200 board in UR gear with Pierce at
+its cap and Pyrotechnics on every girl runs 0.33 ms a step (budget 2 ms; `tests/sim/perf.freeplay.test.js`).
