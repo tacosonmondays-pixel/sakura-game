@@ -107,7 +107,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       label('Picture', 'Any girl you own'),
       girlGrid('avatar', 'edit-picture-grid'),
       h('div.ep-sec', label('Frame', 'Earned frames'),
-        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...FRAME_IDS].map((f) => {
+        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...FRAME_IDS.filter((f) => !FRAMES[f].event || frames.has(f))].map((f) => { // event frames: owners only
           const ok = f === null || frames.has(f);
           return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
             svgEl(frameChipSVG(f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? FRAMES[f].name : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));

@@ -55,6 +55,7 @@ import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } fro
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
+import { eventNow } from '../events/clock.js'; // [events]
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -205,6 +206,7 @@ export function mountBattle(root, params, hooks) {
     sim,
     stage,
     req,
+    startedAt: eventNow(), // [events] a limited-event battle pays by its start time (EVENT_SPEC §3.2)
     profile,
     settings,
     layer,
@@ -960,7 +962,7 @@ export function mountBattle(root, params, hooks) {
       ? paySoloFreeplay(soloLedger, p, result, rng)
       // a normal run (Keep going not taken yet) pays as results.apply() does without a ledger: a
       // saved run gets the event bonus of the week it started in
-      : applyBattleResult(p, result, rng, { now: new Date(), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null }));
+      : applyBattleResult(p, result, rng, { now: new Date(eventNow()), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null, startedAt: ctx.startedAt ?? null }));
     // Finish: solo ends the run at once (the pause menu and the clear card's pill)
     ctx.voteFinish = (v) => fpBattle?.vote(v);
     ctx.myFinishVote = () => false;

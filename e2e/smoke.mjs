@@ -76,6 +76,7 @@ const ROUTES = [
   ['missions', '#/missions'],
   ['campaign', '#/campaign'],
   ['stage 1-1', '#/stage/1-1'],
+  ['event halloween', '#/event/halloween-2026'],
   ['students', '#/students'],
   ['student aoi info', '#/student/aoi?tab=info'],
   ['student aoi level', '#/student/aoi?tab=level'],

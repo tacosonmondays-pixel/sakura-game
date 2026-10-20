@@ -49,6 +49,9 @@ import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES,
 } from '../../systems/battleSave.js';
 import { portraitHTML } from '../../art/portraits.js';
+import { eventStageStatus, eventPhase, phaseLabel } from '../../systems/events.js';
+import { eventOfStage } from '../../data/events/index.js';
+import { eventNow } from '../events/clock.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -65,7 +68,7 @@ export function cssVar(el, name, value) {
   return el;
 }
 
-const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge' };
+const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', event: 'Event' };
 
 /** tile() with its rarity colour applied (custom properties need setProperty). */
 export function tile(itemId, count = null, opts = {}) {
@@ -173,6 +176,10 @@ export function savedBadge(profile, stageId, endless = false) {
 /** "Clear 1-4 first" style requirement text (null when unlocked). */
 export function requirementText(profile, stageId) {
   const stage = STAGE_MAP[stageId];
+  if (stage?.kind === 'event') {
+    const st = eventStageStatus(profile, stageId, eventNow());
+    return st.ok ? null : st.text;
+  }
   if (!stage || isStageUnlocked(profile, stageId)) return null;
   const req = STAGE_MAP[stage.requires];
   return req ? `Clear ${req.kind === 'campaign' ? req.id : req.name} first` : 'Locked';
@@ -181,8 +188,9 @@ export function requirementText(profile, stageId) {
 /** Row of the four difficulty medals (earned ones in colour). */
 export function medalRow(profile, stageId, { size = 22, cls = '' } = {}) {
   const m = stageMedals(profile, stageId);
-  const row = h(`div.ma-medals${cls ? `.${cls}` : ''}`, { title: DIFFICULTY_ORDER.map((d) => `${DIFFICULTIES[d].name}: ${m[d] ? 'cleared' : '—'}`).join(' · ') });
-  for (const d of DIFFICULTY_ORDER) {
+  const order = STAGE_MAP[stageId]?.difficulties || DIFFICULTY_ORDER; // [events] only the stage's own
+  const row = h(`div.ma-medals${cls ? `.${cls}` : ''}`, { title: order.map((d) => `${DIFFICULTIES[d].name}: ${m[d] ? 'cleared' : '—'}`).join(' · ') });
+  for (const d of order) {
     const span = svgEl(medalIcon(d, { earned: m[d] }), `ma-medal${m[d] ? '.on' : ''}`);
     span.style.width = `${size}px`;
     span.style.height = `${size}px`;
@@ -439,6 +447,8 @@ export function render(root, params = {}) {
     freeplay: fpOk ? freeplayTier(params.freeplay) || (endless ? lastSoloTier() : null) : null,
   };
   if (endless || stage.kind === 'challenge') state.difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  // [events] an event stage offers only its own difficulties (one for operations, Normal / Hard for the boss)
+  if (stage.difficulties && !stage.difficulties.includes(state.difficulty)) state.difficulty = defaultDifficulty(store.profile, stage);
   // a saved battle here: the picker starts on its difficulty (it only changes the New game run).
   // One slot per stage: freeplay runs are never saved, and endless=1 on a campaign map is
   // Tactical Challenge's freeplay prep (the old endless runs there are freeplay now)
@@ -483,6 +493,7 @@ const oneColumn = () => typeof matchMedia === 'function' && matchMedia(ONE_COLUM
 function defaultDifficulty(profile, stage) {
   if (stage.kind === 'challenge') return 'normal';
   const m = stageMedals(profile, stage.id);
+  if (stage.difficulties) return stage.difficulties.find((d) => !m[d]) || stage.difficulties[0];
   if (!m.normal) return 'normal';
   if (!m.hard) return 'hard';
   if (!m.nightmare) return 'nightmare';
@@ -492,7 +503,8 @@ function defaultDifficulty(profile, stage) {
 function buildPrep(stage, state, { endless, redraw }) {
   const profile = store.profile;
   const map = safeMap(stage.mapId);
-  const unlocked = isStageUnlocked(profile, stage.id);
+  const evStatus = stage.kind === 'event' ? eventStageStatus(profile, stage.id, eventNow()) : null;
+  const unlocked = evStatus ? evStatus.ok : isStageUnlocked(profile, stage.id);
   const req = requirementText(profile, stage.id);
   const event = currentEvent();
   const dropMul = event.stageIds.includes(stage.id) ? event.dropMul : 1;
@@ -528,7 +540,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   );
   left.appendChild(hero);
 
-  const chapter = stage.chapter ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
+  const chapter = stage.chapter && stage.kind === 'campaign' ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
   left.appendChild(panel(
     stageLabel(stage),
     h('p.ma-stage-desc', stage.desc),
@@ -560,6 +572,7 @@ function buildPrep(stage, state, { endless, redraw }) {
 
   // ----- Right: difficulty, counters, formation, drops, actions ------------------
   const right = h('div.ma-prep-col.right');
+  if (evStatus) right.appendChild(eventPrepPanel(stage, state));
 
   const rec = unlocked ? getBattleSave(profile, slotKey(stage.id, isEndless)) : null;
   // with a saved battle the picker only sets a new run's difficulty: the save's card says "Saved"
@@ -598,7 +611,8 @@ function buildPrep(stage, state, { endless, redraw }) {
   if (!unlocked) {
     actions.appendChild(h('div.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), req));
     const reqStage = STAGE_MAP[stage.requires];
-    if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
+    if (evStatus) actions.appendChild(button('Back to the event', { kind: 'primary', icon: 'teleport', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: evStatus.reason === 'episode' ? 'story' : 'stages' }) }));
+    else if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
     if (rec) actions.appendChild(savedLine(rec));
     // (the "Sweep unlocks after a Hard clear" note waits while a saved battle needs the room)
@@ -784,7 +798,7 @@ function fact(label, value) {
 
 function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) {
   const row = h('div.ma-diffs', { role: 'radiogroup' });
-  for (const d of DIFFICULTY_ORDER) {
+  for (const d of stage.difficulties || DIFFICULTY_ORDER) {
     const def = DIFFICULTIES[d];
     const b = h(
       `button.ma-diff.diff-${d}${state.difficulty === d ? '.active' : ''}`,
@@ -900,21 +914,40 @@ function firstClearPanel(stage, medals, mode = 'standard') {
   );
 }
 
+/** [events] The event line above the difficulty: which event, its countdown, the candy per win. */
+function eventPrepPanel(stage, state) {
+  const ev = eventOfStage(stage.id);
+  const now = eventNow();
+  const phase = eventPhase(ev, now, store.profile);
+  const per = dropEntries(stage, state.difficulty).filter((e) => e.active && e.item === ev.currency.id).reduce((a, e) => a + e.min, 0);
+  return h('section.panel.ev-prep', { 'data-testid': 'event-prep' },
+    h('div.ev-prep-row',
+      h('span.ev-chip', 'Event'),
+      h('b.ev-prep-name', ev.name),
+      h('span.ev-prep-time', phaseLabel(ev, phase, now)),
+    ),
+    phase === 'active'
+      ? h('div.ev-prep-row', tile(ev.currency.id, null, { size: 32 }), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
+      : h('p.muted', 'This event\'s operations have ended — your rewards are yours to keep.'),
+  );
+}
+
 function sweepControls(stage, state) {
   const profile = store.profile;
-  const allowed = canSweep(profile, stage.id);
+  const allowed = canSweep(profile, stage.id, eventNow());
   const medals = stageMedals(profile, stage.id);
   const best = Math.max(...DIFFICULTY_ORDER.map((d, i) => (medals[d] ? i : -1)));
   const okDiff = DIFFICULTY_ORDER.indexOf(state.difficulty) <= best;
   const box = h('div.ma-sweep');
   if (!allowed) {
-    box.appendChild(h('div.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), 'Sweep unlocks after a Hard clear'));
+    const lockText = stage.kind !== 'event' ? 'Sweep unlocks after a Hard clear' : stage.boss ? 'The boss cannot be swept' : 'Sweep unlocks after the first clear';
+    box.appendChild(h('div.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), lockText));
     return box;
   }
   const doSweep = (times) => {
-    const r = sweep(profile, stage.id, state.difficulty, times, uiRng());
+    const r = sweep(profile, stage.id, state.difficulty, times, uiRng(), { now: new Date(eventNow()) });
     if (!r.ok) {
-      toast(r.error === 'difficulty' ? `Clear ${DIFFICULTIES[state.difficulty].name} first to sweep it` : 'Sweep is locked', 'bad');
+      toast(r.error === 'event' ? 'The event operations are closed' : r.error === 'difficulty' ? `Clear ${DIFFICULTIES[state.difficulty].name} first to sweep it` : 'Sweep is locked', 'bad');
       return;
     }
     store.commit('sweep');

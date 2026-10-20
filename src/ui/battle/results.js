@@ -27,6 +27,8 @@ import { newlyReadyIds } from '../achToast.js';
 import { ribbonArt } from '../honorFx.js';
 import { HONOR_MAP } from '../../data/honors.js';
 import { navigate } from '../router.js';
+import { eventNow } from '../events/clock.js';
+import { eventOfStage } from '../../data/events/index.js';
 
 /** Item tile with the rarity frame applied (falls back to a soft grey for unknown items). */
 function rewardTile(id, count, size = 64) {
@@ -171,7 +173,7 @@ export function createResults(ctx) {
       // co-op / clan boss battles bring their own reward rules (ctx.applyResult)
       outcome = ctx.applyResult
         ? ctx.applyResult(store.profile, result, rng)
-        : applyBattleResult(store.profile, result, rng, { now: new Date(), eventAt: saver ? new Date(saver.createdAt) : null });
+        : applyBattleResult(store.profile, result, rng, { now: new Date(eventNow()), eventAt: saver ? new Date(saver.createdAt) : null, startedAt: ctx.startedAt ?? null });
     } catch (e) {
       console.error('[battle] applyBattleResult failed', e);
       outcome = { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, error: true };
@@ -351,6 +353,11 @@ export function createResults(ctx) {
     if (m) blocks.push(section('Top damage', m));
     if (out.gear.length) blocks.push(section('Gear', h('div.bt-gears', out.gear.map(gearCard))));
     if (out.discovered.length) blocks.push(section('Bestiary updated', discoveredRow(out.discovered)));
+    // [events] a first clear that opened an event episode says so
+    if (out.event?.newEpisodes?.length) {
+      const ev = eventOfStage(stage.id);
+      blocks.push(section('Event story', h('div.bt-event-eps', { 'data-testid': 'result-episodes' }, out.event.newEpisodes.map((id) => h('p', `New episode unlocked: ${ev?.episodes.find((e) => e.id === id)?.title || id}`)))));
+    }
     const card = h(
       'div.bt-sheet.bt-result.bt-rewards',
       { 'data-testid': 'rewards' },

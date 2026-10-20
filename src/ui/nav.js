@@ -61,6 +61,7 @@ export function mapRouteFor(stage, { endless = false } = {}) {
     case 'resource': return { name: 'bounty', params: {} };
     case 'boss': return { name: 'assault', params: {} };
     case 'challenge': return { name: 'challenge', params: {} };
+    case 'event': return { name: 'event', params: { id: stage.event, tab: 'stages' } }; // [events] back to its event page
     default: return { name: 'campaign', params: stage?.chapter != null ? { chapter: String(stage.chapter) } : {} };
   }
 }
