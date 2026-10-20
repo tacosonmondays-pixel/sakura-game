@@ -208,7 +208,7 @@ function buildItems() {
   add({ id: 'kindred_ssr', name: 'Kindred Essence (SSR)', category: 'fragment', rarity: 'legendary', kindred: 'SSR', desc: 'The rarest Essence: raises the Potential of any girl who has none of her own.', sort: 3112 });
   add({ id: 'kindred_shard_ssr', name: 'Kindred Shard (SSR)', category: 'fragment', rarity: 'mythic', desc: '10 shards fuse into a Kindred Essence (SSR) on their own.', sort: 3113 });
 
-  add({ id: 'star_fragment', name: 'Star Fragment', category: 'fragment', rarity: 'superRare', desc: 'Crystallised wishes. Earned from duplicate recruits (R ×2, SR ×10, SSR ×40) and used for every awakening.', sort: 3100 });
+  add({ id: 'star_fragment', name: 'Star Fragment', category: 'fragment', rarity: 'superRare', desc: 'Crystallised wishes. Earned in Titan Trials, exchanges and commissions, and used for every awakening.', sort: 3100 });
 
   // The Rainbow Gear Box (ASCENSION.md §C.8): outside the five-rarity loop. Never opened by the plain
   // Open / Open all (src/systems/gear.js openGearBox refuses it): it opens through a slot picker into
@@ -230,9 +230,9 @@ function buildItems() {
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });
-  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she converts into 40 Star Fragments. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
+  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she gains 1 Essence. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
 
-  add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses and Total Assault bosses. Spend it in the Mall\'s Boss Exchange for crowns and dice.', sort: 7000 });
+  add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses, Total Assault bosses and the Titan Trials titans. Spend it in the Mall\'s Boss Exchange, Titan shelf included.', sort: 7000 });
   add({ id: 'memento', name: 'Memento', category: 'token', rarity: 'superRare', desc: 'A keepsake from a spare R or SR duplicate. Spend it in the Mall\'s Memento Exchange on simple supplies and a Recruit Ticket.', sort: 7002 });
   add({ id: 'moonpearl', name: 'Moonpearl', category: 'token', rarity: 'legendary', desc: 'A pearl from a spare SR or SSR duplicate. Spend it in the Mall\'s Memento Exchange on rare items, a 10× Recruit Ticket or a chosen SSR\'s Essence.', sort: 7003 });
   add({ id: 'token_bounty', name: 'Bounty Token', category: 'token', rarity: 'common', desc: 'Earned in Bounty arenas and the Tactical Challenge. Spend it in the Mall\'s Bounty Exchange for gear boxes and dice.', sort: 7001 });

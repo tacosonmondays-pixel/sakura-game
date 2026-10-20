@@ -1,7 +1,8 @@
-// The four Akashic Tome sources for the levels above 60 (docs/specs/POTENTIAL.md v3 §4.4): Library
+// The Akashic Tome sources for the levels above 60 (docs/specs/POTENTIAL.md v3 §4.4): Library
 // Courtyard III on Nightmare 20 %, a Tome per freeplay cache (at most 2 a week per account, solo and
-// co-op together), the Bounty Exchange row (40 Bounty Tokens, 2 a week) and duplicates past P6
-// (SR 1, SSR 5, R none).
+// co-op together) and the Bounty Exchange row (40 Bounty Tokens, 2 a week). Duplicates past P6 no
+// longer pay Tomes (docs/specs/ASCENSION.md §A.3): they are spares that convert into Mementos,
+// Moonpearls and recruit points.
 import { describe, it, expect } from 'vitest';
 import { createProfile, migrateProfile } from '../../src/systems/save.js';
 import { createRng } from '../../src/core/rng.js';
@@ -12,7 +13,8 @@ import { SHOP_OFFER_MAP } from '../../src/data/shop.js';
 import { buyOffer } from '../../src/systems/shop.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { pull, spark, POOL } from '../../src/systems/gacha.js';
-import { DUPE_PAST_MAX_TOMES, dupePastMaxTomes, potentialDupesRule } from '../../src/systems/potential.js';
+import { potentialLevel } from '../../src/systems/potential.js';
+import { raisePotential, essenceBalance, SPARE_PAY } from '../../src/systems/essence.js';
 import { LEVEL_PAST_GATES } from '../../src/systems/progression.js';
 import { applyCoopFreeplayEnd, freeplayCacheTomes, freeplayTomeLine, FREEPLAY_REWARDS, FP_TOME_PREFIX } from '../../src/online/coop/rewards.js';
 import { applySoloFreeplayEnd } from '../../src/systems/freeplayRewards.js';
@@ -132,56 +134,77 @@ describe('freeplay caches', () => {
   });
 });
 
-describe('duplicates past P6', () => {
-  it('pay SR 1 / SSR 5 Akashic Tomes besides Star Fragments; R none; never below P6', () => {
-    expect(DUPE_PAST_MAX_TOMES).toEqual({ R: 0, SR: 1, SSR: 5 });
+describe('duplicates past P6 (spares, no Tomes)', () => {
+  /** Grant her, five duplicates (Essence), then Raise Potential to P6 with them. */
+  const toP6 = (p, id) => {
+    if (!p.units[id]) grantUnit(p, id);
+    for (let i = 0; i < 5; i++) expect(grantUnit(p, id)).toMatchObject({ essence: 1, spare: null });
+    for (let i = 0; i < 5; i++) expect(raisePotential(p, id).ok).toBe(true);
+    expect(potentialLevel(p.units[id])).toBe(6);
+    expect(essenceBalance(p, id)).toBe(0);
+  };
+
+  it('pay no Akashic Tomes and no Star Fragments: SR 6 Mementos + 1 Moonpearl + 1 point, SSR 10 Moonpearls + 5 points, R 2 Mementos + ⅕ point', () => {
+    expect(SPARE_PAY).toEqual({ R: { memento: 2, moonpearl: 0, fifths: 1 }, SR: { memento: 6, moonpearl: 1, fifths: 5 }, SSR: { memento: 0, moonpearl: 10, fifths: 25 } });
     const p = createProfile();
-    for (const id of ['kage', 'kaede', 'momo']) grantUnit(p, id);
-    // five duplicates take her to P6 and pay no Tome
-    for (const id of ['kage', 'kaede', 'momo', 'aoi']) for (let i = 0; i < 5; i++) expect(grantUnit(p, id).tomes).toBe(0);
+    p.currencies.coins = 10_000_000;
+    for (const id of ['kage', 'kaede', 'momo', 'aoi']) toP6(p, id);
+    // below P6 every duplicate was her Essence: no Tome, no fragment, no spare
     expect(itemCount(p, TOME)).toBe(0);
+    const frag = itemCount(p, 'star_fragment');
+    const points = p.gacha.recruitPoints;
     const sr = grantUnit(p, 'kage');
-    expect(sr).toMatchObject({ isNew: false, fragments: 10, tomes: 1, potential: 6, potentialUp: false });
-    const ssr = grantUnit(p, 'kaede');
-    expect(ssr).toMatchObject({ fragments: 40, tomes: 5 });
-    expect(grantUnit(p, 'momo')).toMatchObject({ fragments: 2, tomes: 0 });
-    expect(grantUnit(p, 'aoi')).toMatchObject({ fragments: 2, tomes: 0 });
-    expect(itemCount(p, TOME)).toBe(6);
+    expect(sr).toEqual({ isNew: false, essence: 0, spare: { mementos: 6, moonpearls: 1, points: 1, fifths: 5 }, potential: 6, essenceHeld: 0, readyStep: null, potentialUp: false });
+    expect(grantUnit(p, 'kaede')).toMatchObject({ essence: 0, spare: { mementos: 0, moonpearls: 10, points: 5 } });
+    expect(grantUnit(p, 'momo')).toMatchObject({ essence: 0, spare: { mementos: 2, moonpearls: 0, points: 0, fifths: 1 } });
+    expect(grantUnit(p, 'aoi')).toMatchObject({ essence: 0, spare: { mementos: 2, moonpearls: 0, points: 0, fifths: 1 } });
+    expect(itemCount(p, TOME)).toBe(0);
+    expect(itemCount(p, 'star_fragment')).toBe(frag);
+    expect(itemCount(p, 'memento')).toBe(6 + 2 + 2);
+    expect(itemCount(p, 'moonpearl')).toBe(1 + 10);
+    expect(p.gacha.recruitPoints).toBe(points + 1 + 5);
+    expect(p.missions.counters['spk:r']).toBe(2);
     // heroes by their rarity (Luna SSR, Nami SR)
-    expect(dupePastMaxTomes(UNIT_MAP.luna, 6)).toBe(5);
-    expect(dupePastMaxTomes(UNIT_MAP.nami, 6)).toBe(1);
-    expect(dupePastMaxTomes(UNIT_MAP.luna, 5)).toBe(0);
+    expect(SPARE_PAY[UNIT_MAP.luna.rarity].moonpearl).toBe(10);
+    expect(SPARE_PAY[UNIT_MAP.nami.rarity].memento).toBe(6);
   });
 
-  it('recruits, sparks and the Mall spark report them', () => {
+  it('recruits, sparks and the Mall spark convert them the same way', () => {
     const p = createProfile();
     p.currencies.gems = 100000;
+    p.currencies.coins = 10_000_000;
     const ssr = POOL.SSR.find((id) => !p.units[id]);
-    grantUnit(p, ssr);
-    for (let i = 0; i < 5; i++) grantUnit(p, ssr);
+    toP6(p, ssr);
     const fixed = { next: () => 0.001, pick: (arr) => arr[Math.max(0, arr.indexOf(ssr))], int: (a) => a, range: (a) => a, chance: () => false };
+    const before = p.gacha.recruitPoints;
     const r = pull(p, 1, fixed);
-    expect(r.results[0]).toMatchObject({ unitId: ssr, tomes: 5 });
+    expect(r.results[0]).toMatchObject({ unitId: ssr, isNew: false, potential: 6 });
+    // the recruit's own point + the spare's 5
+    expect(p.gacha.recruitPoints).toBe(before + 1 + 5);
+    expect(itemCount(p, 'moonpearl')).toBe(10);
     p.gacha.recruitPoints = 200;
-    expect(spark(p, ssr)).toMatchObject({ ok: true, tomes: 5 });
-    expect(itemCount(p, TOME)).toBe(10);
+    expect(spark(p, ssr)).toMatchObject({ ok: true, isNew: false, essence: 0, spare: { moonpearls: 10, points: 5 }, potential: 6 });
+    expect(p.gacha.recruitPoints).toBe(5); // a spark on a P6 SSR returns 5 of its 200 points
     p.gacha.recruitPoints = 200;
     const mall = buyOffer(p, `spark_${ssr}`);
-    expect(mall.rewards).toEqual([{ id: 'star_fragment', count: 40 }, { id: TOME, count: 5 }]);
-    expect(mall.unit).toMatchObject({ tomes: 5 });
-    expect(itemCount(p, TOME)).toBe(15);
-    expect(potentialDupesRule()).toMatch(/Akashic Tomes for her levels above 60 \(SR ×1, SSR ×5\)/);
+    expect(mall).toMatchObject({ ok: true, unit: { unitId: ssr, isNew: false, essence: 0, spare: { moonpearls: 10, points: 5 }, potential: 6 } });
+    // the Mall's rewards list shows the spare's payout, never Tomes or fragments
+    expect(mall.rewards).toEqual([{ id: 'moonpearl', count: 10 }]);
+    expect(itemCount(p, 'moonpearl')).toBe(30);
+    expect(itemCount(p, TOME)).toBe(0);
+    expect(p.missions.counters[`essX:${ssr}`]).toBe(3);
   });
 });
 
 describe('where to find Akashic Tomes', () => {
-  it('item info lists all four sources', () => {
+  it('item info lists its sources: the stage, the Bounty Exchange, freeplay caches and the titans; no longer duplicates', () => {
     const src = itemSources(TOME);
     const labels = src.map((s) => s.label);
     expect(labels.some((l) => /Library Courtyard III/.test(l))).toBe(true);
     expect(labels.some((l) => /Bounty Exchange/.test(l))).toBe(true);
     expect(labels).toContain('Freeplay caches');
-    expect(labels).toContain('Recruit duplicates past P6');
+    expect(labels).toContain('Titan Trials');
+    expect(labels.some((l) => /duplicate/i.test(l))).toBe(false);
     expect(LEVEL_PAST_GATES.book).toBe(TOME);
   });
 });

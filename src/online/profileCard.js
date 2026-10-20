@@ -7,7 +7,7 @@ import { STAGE_MAP } from '../data/stages.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
 import { GEAR_SLOTS, GEAR_STATS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES } from '../data/types.js';
 import { BANNER_MAP, DEFAULT_BANNER, FRAME_IDS, TITLES } from '../data/profileArt.js';
-import { levelCapAt, MAX_AWAKEN } from '../systems/progression.js';
+import { levelCapAt, potentialLevelCap, gatesForLevel, MAX_AWAKEN, MAX_BREAKTHROUGH } from '../systems/progression.js';
 import { potentialLevel, potentialState, MAX_POTENTIAL } from '../systems/potential.js';
 import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax } from '../systems/gear.js';
 import { autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, STAGE_COUNT, UNIT_COUNT } from '../systems/profileTrophies.js';
@@ -23,6 +23,8 @@ const SLOTS = Object.keys(GEAR_SLOTS);
  * (gate k needs P(k − 4)), so 5 gates + her P give a viewer her real cap (levelCapAt(5, p)).
  */
 export const CARD_GATES = 5;
+/** A viewer's cap for a card entry: at 5 gates her Potential's cap (the card never says more than 5). */
+const cardCap = (bt, p) => (bt < CARD_GATES ? levelCapAt(bt, p) : potentialLevelCap(p));
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const r4 = (v) => Math.round(v * 10000) / 10000;
 const whole = (v, lo, hi, def = lo) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : def);
@@ -126,7 +128,7 @@ function viewUnits(list) {
     const bt = whole(u.bt, 0, CARD_GATES, 0);
     const p = whole(u.p, 1, MAX_POTENTIAL, 1);
     // her cap from her gates and her Potential (P6 = 85); an older viewer clamps to 60 (display only)
-    const v = { id: u.id, bt, aw: whole(u.aw, 0, MAX_AWAKEN, 0), lv: whole(u.lv, 1, levelCapAt(bt, p), 1), p };
+    const v = { id: u.id, bt, aw: whole(u.aw, 0, MAX_AWAKEN, 0), lv: whole(u.lv, 1, cardCap(bt, p), 1), p };
     // outfits: no skins table in this build yet, so an outfit id is never shown (dropped)
     const g = viewGear(u.g, v.lv);
     if (g.length) v.g = g;
@@ -193,7 +195,8 @@ export function snapshotToMiniProfile(u) {
   return {
     units: {
       [u.id]: {
-        level: u.lv, exp: 0, breakthrough: u.bt, awaken: u.aw, ...potentialState(u.p), skin: u.sk || null, gear: slots, favorite: false, obtainedAt: 0,
+        // a card says at most 5 gates: her real count is the fewest that allow her level at her P
+        level: u.lv, exp: 0, breakthrough: u.bt >= CARD_GATES ? gatesForLevel(u.lv, u.p) : u.bt, awaken: u.aw, ...potentialState(u.p), skin: u.sk || null, gear: slots, favorite: false, obtainedAt: 0,
       },
     },
     gear,
@@ -202,7 +205,7 @@ export function snapshotToMiniProfile(u) {
 
 /** A co-op ally's loadout entry ({ level, breakthrough, awaken, … }) → the same shape, no gear. */
 export function loadoutToMiniProfile(id, stats = {}) {
-  const bt = whole(stats.breakthrough, 0, CARD_GATES, 0);
+  const bt = whole(stats.breakthrough, 0, MAX_BREAKTHROUGH, 0);
   const p = whole(stats.potential, 1, MAX_POTENTIAL, 1);
   return snapshotToMiniProfile({ id, bt, aw: whole(stats.awaken, 0, MAX_AWAKEN, 0), lv: whole(stats.level, 1, levelCapAt(bt, p), 1), p });
 }

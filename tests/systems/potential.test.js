@@ -4,6 +4,7 @@ import {
   POOL_SIZE_V0125, RARITY_SHARE, MAX_POTENTIAL, BACKFILL_MARKER, SHADOW_AT,
 } from '../../src/systems/potential.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
+import { essenceBalance, raisePotential, POTENTIAL_STEP_COINS } from '../../src/systems/essence.js';
 import { pull, spark, redeemSelectTicket, SSR_SELECT_TICKET, POOL } from '../../src/systems/gacha.js';
 import { buyOffer } from '../../src/systems/shop.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, newUnitState, SAVE_VERSION } from '../../src/systems/save.js';
@@ -30,57 +31,89 @@ function asPreM0Save(profile) {
 }
 
 describe('potentialLevel', () => {
-  it('is 1 + dupes, capped at 6, and 1 for anything odd', () => {
+  it('is her bought Potential `pl` (1–6), never read from dupes; 1 for anything odd', () => {
     expect(MAX_POTENTIAL).toBe(6);
     expect(potentialLevel(undefined)).toBe(1);
     // potentialState is its inverse (the cards and co-op allies that know only her P build her state from it)
     for (let p = 1; p <= 6; p++) expect(potentialLevel(potentialState(p))).toBe(p);
     expect([potentialState(0), potentialState(NaN), potentialState(9)]).toEqual([{ dupes: 0, pl: 1 }, { dupes: 0, pl: 1 }, { dupes: 5, pl: 6 }]);
     expect(potentialLevel({})).toBe(1);
-    expect(potentialLevel({ dupes: null })).toBe(1);
-    expect(potentialLevel({ dupes: NaN })).toBe(1);
-    expect(potentialLevel({ dupes: -3 })).toBe(1);
-    expect(potentialLevel({ dupes: 0 })).toBe(1);
-    expect(potentialLevel({ dupes: 2.9 })).toBe(3);
-    expect(potentialLevel({ dupes: 5 })).toBe(6);
-    expect(potentialLevel({ dupes: 99 })).toBe(6);
+    expect(potentialLevel({ pl: null })).toBe(1);
+    expect(potentialLevel({ pl: NaN })).toBe(1);
+    expect(potentialLevel({ pl: -3 })).toBe(1);
+    expect(potentialLevel({ pl: 0 })).toBe(1);
+    expect(potentialLevel({ pl: 'x' })).toBe(1);
+    expect(potentialLevel({ pl: 3.9 })).toBe(3);
+    expect(potentialLevel({ pl: 6 })).toBe(6);
+    expect(potentialLevel({ pl: 99 })).toBe(6);
+    // duplicates are Essence, not Potential: dupes alone never raise P
+    expect(potentialLevel({ dupes: 5 })).toBe(1);
+    expect(potentialLevel({ dupes: 99 })).toBe(1);
+    expect(potentialLevel({ dupes: 0, pl: 4 })).toBe(4);
   });
 });
 
 describe('grantUnit counts duplicates', () => {
   it('new girl: dupes 0, P1, shadow written', () => {
     const p = createProfile();
-    expect(grantUnit(p, 'kaede', 5000)).toEqual({ isNew: true, fragments: 0, tomes: 0, potential: 1, potentialUp: false });
+    expect(grantUnit(p, 'kaede', 5000)).toEqual({ isNew: true, essence: 0, spare: null, potential: 1, essenceHeld: 0, readyStep: null, potentialUp: false });
     expect(p.units.kaede.dupes).toBe(0);
+    expect(p.units.kaede.pl).toBe(1);
     expect(p.missions.counters['pot:kaede']).toBe(0);
     expect(p.missions.counters[SHADOW_AT]).toBe(5000);
   });
 
-  it('dupes 1…5 → P2…P6 with the same fragments as before; 6+ → fragments plus Akashic Tomes, dupes keeps counting', () => {
+  it('dupes 1…5 → 1 Essence each (P stays 1, held up to 6 − P); the 6th is a spare; Raise Potential spends it; dupes keeps counting', () => {
     const p = createProfile();
     grantUnit(p, 'kaede');
+    const points0 = p.gacha.recruitPoints;
     for (let n = 1; n <= 5; n++) {
       const r = grantUnit(p, 'kaede', 1000 + n);
-      expect(r).toEqual({ isNew: false, fragments: 40, tomes: 0, potential: n + 1, potentialUp: true });
+      expect(r).toEqual({ isNew: false, essence: 1, spare: null, potential: 1, essenceHeld: n, readyStep: 2, potentialUp: false });
       expect(p.units.kaede.dupes).toBe(n);
+      expect(p.units.kaede.pl).toBe(1);
       expect(p.missions.counters['pot:kaede']).toBe(n);
       expect(p.missions.counters[SHADOW_AT]).toBe(1000 + n);
     }
-    expect(grantUnit(p, 'kaede')).toEqual({ isNew: false, fragments: 40, tomes: 5, potential: 6, potentialUp: false });
+    // at P1 she holds 5: the 6th copy converts (SSR spare: 10 Moonpearls + 5 recruit points)
+    expect(grantUnit(p, 'kaede')).toEqual({ isNew: false, essence: 0, spare: { mementos: 0, moonpearls: 10, points: 5, fifths: 25 }, potential: 1, essenceHeld: 5, readyStep: 2, potentialUp: false });
     expect(p.units.kaede.dupes).toBe(6);
-    expect(p.items.star_fragment).toBe(40 * 6);
-    expect(p.items.book_legendary).toBe(5);
+    expect(p.gacha.recruitPoints).toBe(points0 + 5);
+    // duplicates pay no Star Fragments and no Akashic Tomes any more
+    expect(p.items.star_fragment || 0).toBe(0);
+    expect(p.items.book_legendary || 0).toBe(0);
+    // Raise Potential: 1 Essence + coins per step (SSR 10k/20k/40k/70k/100k) → P6
+    p.currencies.coins = 240000;
+    for (let to = 2; to <= 6; to++) expect(raisePotential(p, 'kaede')).toMatchObject({ ok: true, from: to - 1, to, coins: POTENTIAL_STEP_COINS.SSR[to - 2], use: 'own' });
+    expect(potentialLevel(p.units.kaede)).toBe(6);
+    expect(p.currencies.coins).toBe(0);
+    expect(essenceBalance(p, 'kaede')).toBe(0);
+    expect(raisePotential(p, 'kaede')).toMatchObject({ ok: false, error: 'max' });
+    // at P6 she holds none: every further copy is a spare
+    expect(grantUnit(p, 'kaede')).toMatchObject({ isNew: false, essence: 0, spare: { moonpearls: 10, points: 5 }, potential: 6, essenceHeld: 0, readyStep: null });
+    expect(p.units.kaede.dupes).toBe(7);
   });
 
-  it('fragments per rarity are unchanged (R 2, SR 10, SSR 40)', () => {
+  it('no Star Fragments at any rarity; spares by rarity (R 2 Mementos + ⅕ point, SR 6 Mementos + 1 Moonpearl + 1 point, SSR 10 Moonpearls + 5 points)', () => {
     const p = createProfile();
-    expect(grantUnit(p, 'aoi').fragments).toBe(2);
-    grantUnit(p, 'kage');
-    expect(grantUnit(p, 'kage').fragments).toBe(10);
-    expect(grantUnit(p, 'hikari').fragments).toBe(40);
-    expect(p.units.aoi.dupes).toBe(1);
-    expect(p.units.kage.dupes).toBe(1);
-    expect(p.units.hikari.dupes).toBe(1);
+    for (const id of ['aoi', 'kage', 'hikari']) {
+      grantUnit(p, id);
+      Object.assign(p.units[id], potentialState(6));
+    }
+    const r = grantUnit(p, 'aoi');
+    expect(r).toMatchObject({ isNew: false, essence: 0, spare: { mementos: 2, moonpearls: 0, points: 0, fifths: 1 } });
+    expect(p.missions.counters['spk:r']).toBe(1);
+    // the fifth R spare completes a recruit point
+    const pts = p.gacha.recruitPoints;
+    for (let i = 0; i < 3; i++) expect(grantUnit(p, 'aoi').spare.points).toBe(0);
+    expect(grantUnit(p, 'aoi').spare.points).toBe(1);
+    expect(p.gacha.recruitPoints).toBe(pts + 1);
+    expect(grantUnit(p, 'kage').spare).toEqual({ mementos: 6, moonpearls: 1, points: 1, fifths: 5 });
+    expect(grantUnit(p, 'hikari').spare).toEqual({ mementos: 0, moonpearls: 10, points: 5, fifths: 25 });
+    expect(p.items.star_fragment || 0).toBe(0);
+    expect(p.units.aoi.dupes).toBe(10);
+    expect(p.units.kage.dupes).toBe(6);
+    expect(p.units.hikari.dupes).toBe(6);
   });
 });
 
@@ -95,7 +128,12 @@ describe('every duplicate source counts', () => {
     const sr = POOL.SR[0];
     expect(p.units[sr].dupes).toBe(0);
     expect(p.missions.counters['pot:aoi']).toBe(9);
-    expect(p.items.star_fragment).toBe(9 * 2);
+    // five become her Essence (hold cap 5 at P1), four are R spares (2 Mementos + ⅕ point each)
+    expect(p.units.aoi.pl).toBe(1);
+    expect(essenceBalance(p, 'aoi')).toBe(5);
+    expect(p.missions.counters['essX:aoi']).toBe(4);
+    expect(p.missions.counters['spk:r']).toBe(4);
+    expect(p.items.star_fragment || 0).toBe(0);
   });
 
   it('a single pull of an owned girl adds 1', () => {
@@ -117,7 +155,7 @@ describe('every duplicate source counts', () => {
     const p = createProfile();
     p.gacha.recruitPoints = 400;
     expect(spark(p, 'kaede')).toMatchObject({ ok: true, isNew: true, potential: 1, potentialUp: false });
-    expect(spark(p, 'kaede')).toMatchObject({ ok: true, isNew: false, fragments: 40, potential: 2, potentialUp: true });
+    expect(spark(p, 'kaede')).toMatchObject({ ok: true, isNew: false, essence: 1, spare: null, potential: 1, essenceHeld: 1, readyStep: 2, potentialUp: false });
     expect(p.units.kaede.dupes).toBe(1);
     // grant and history share one timestamp
     expect(p.gacha.history.at(-1).at).toBe(p.missions.counters[SHADOW_AT]);
@@ -126,7 +164,7 @@ describe('every duplicate source counts', () => {
   it('an SSR Select Ticket on an owned SSR adds 1', () => {
     const p = createProfile();
     p.items[SSR_SELECT_TICKET] = 2;
-    expect(redeemSelectTicket(p, 'hikari')).toMatchObject({ ok: true, isNew: false, fragments: 40, potential: 2, potentialUp: true });
+    expect(redeemSelectTicket(p, 'hikari')).toMatchObject({ ok: true, isNew: false, essence: 1, spare: null, potential: 1, essenceHeld: 1, readyStep: 2, potentialUp: false });
     expect(p.units.hikari.dupes).toBe(1);
     expect(redeemSelectTicket(p, 'luna')).toMatchObject({ ok: true, isNew: true });
     expect(p.units.luna.dupes).toBe(0);
@@ -137,8 +175,10 @@ describe('every duplicate source counts', () => {
     const p = createProfile();
     p.gacha.recruitPoints = 200;
     const r = buyOffer(p, 'spark_hikari');
-    expect(r).toMatchObject({ ok: true, unit: { unitId: 'hikari', isNew: false, fragments: 40 } });
+    expect(r).toMatchObject({ ok: true, rewards: [], unit: { unitId: 'hikari', isNew: false, essence: 1, spare: null, potential: 1, essenceHeld: 1, readyStep: 2 } });
     expect(p.units.hikari.dupes).toBe(1);
+    expect(essenceBalance(p, 'hikari')).toBe(1);
+    expect(p.items.star_fragment || 0).toBe(0);
   });
 
   it('a stage clear never produces a duplicate (free girls only join once)', () => {
@@ -413,9 +453,11 @@ describe('M1: unitBattleStats().potential and unitPower', () => {
     const p = createProfile();
     expect(unitBattleStats(p, 'aoi').potential).toBe(1);
     expect(unitBattleStats(p, 'kaede').potential).toBe(1);
-    p.units.aoi.dupes = 3;
+    p.units.aoi.pl = 4;
     expect(unitBattleStats(p, 'aoi').potential).toBe(4);
-    p.units.aoi.dupes = 40;
+    p.units.aoi.dupes = 40; // Essence, not Potential
+    expect(unitBattleStats(p, 'aoi').potential).toBe(4);
+    p.units.aoi.pl = 40;
     expect(unitBattleStats(p, 'aoi').potential).toBe(6);
     expect(unitBattleStats(null, 'aoi').potential).toBe(1);
   });
@@ -426,7 +468,7 @@ describe('M1: unitBattleStats().potential and unitPower', () => {
       p.units[u.id] ||= newUnitState(0);
       let prev = unitPower(p, u.id);
       for (let d = 1; d <= 5; d++) {
-        p.units[u.id].dupes = d;
+        Object.assign(p.units[u.id], potentialState(d + 1));
         const cur = unitPower(p, u.id);
         expect(cur, `${u.id} P${d + 1}`).toBeGreaterThan(prev);
         prev = cur;
@@ -444,23 +486,25 @@ describe('M1: unitBattleStats().potential and unitPower', () => {
 });
 
 describe('M1: pull() result fields', () => {
-  it('a 10-pull of an owned R girl reports P and ▲ per result, fragments unchanged', () => {
+  it('a 10-pull of an owned R girl reports P per result and never ▲ (Potential is bought), no fragments', () => {
     const p = createProfile();
     p.items.ticket_recruit10 = 1;
     const r = pull(p, 10, rngFor(R_ROLL, 'aoi'));
     expect(r.ok).toBe(true);
     // nine Aoi, then the ten-pull guarantee's SR (a new girl)
     const aoi = r.results.slice(0, 9);
-    expect(aoi.map((x) => x.potential)).toEqual([2, 3, 4, 5, 6, 6, 6, 6, 6]);
-    expect(aoi.map((x) => x.potentialUp)).toEqual([true, true, true, true, true, false, false, false, false]);
-    expect(aoi.every((x) => x.fragments === 2)).toBe(true);
+    expect(aoi.map((x) => x.potential)).toEqual(Array(9).fill(1));
+    expect(aoi.map((x) => x.potentialUp)).toEqual(Array(9).fill(false));
+    expect(aoi.every((x) => !x.isNew && !x.fragments && !x.tomes)).toBe(true);
+    expect(p.items.star_fragment || 0).toBe(0);
     expect(r.results[9]).toMatchObject({ isNew: true, potential: 1, potentialUp: false });
   });
   it('a new girl is P1 without ▲', () => {
     const p = createProfile();
     p.items.gems = 100000;
     const r = pull(p, 1, rngFor(SSR_ROLL, 'kaede'));
-    expect(r.results[0]).toMatchObject({ unitId: 'kaede', isNew: true, potential: 1, potentialUp: false, fragments: 0 });
+    expect(r.results[0]).toMatchObject({ unitId: 'kaede', isNew: true, potential: 1, potentialUp: false });
+    expect(r.results[0].fragments || 0).toBe(0);
   });
 });
 
@@ -500,7 +544,7 @@ describe('the describer (v3: src/data/potentialText.js)', () => {
     expect(stat('hikari')).toEqual(['+5% DMG', '+7% DMG', '+7% SPD', '+8% DMG', '+9% SPD']);
   });
   it('view: six named nodes, active up to P, next one marked; unowned shows none active', () => {
-    const v = potentialView(UNIT_MAP.aoi, { dupes: 2 });
+    const v = potentialView(UNIT_MAP.aoi, potentialState(3));
     expect(v.map((n) => n.step)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(v.map((n) => n.active)).toEqual([true, true, true, false, false, false]);
     expect(v.map((n) => n.next)).toEqual([false, false, false, true, false, false]);
@@ -509,9 +553,10 @@ describe('the describer (v3: src/data/potentialText.js)', () => {
     expect(potentialView(UNIT_MAP.aoi, null).some((n) => n.active)).toBe(false);
     expect(potentialSummary(UNIT_MAP.aoi, 4)).toBe('Dawn Practice, Through-Shot, Keen Fletching');
     expect(potentialSummary(UNIT_MAP.aoi, 1)).toBe('');
-    expect(dupesToNext({ dupes: 2 })).toBe(1);
-    expect(dupesToNext({ dupes: 9 })).toBe(0);
-    expect(dupesToMax({ dupes: 2 })).toBe(3);
+    expect(dupesToNext({ pl: 3 })).toBe(1);
+    expect(dupesToNext({ pl: 6 })).toBe(0);
+    expect(dupesToNext({ dupes: 9 })).toBe(1); // dupes alone is P1
+    expect(dupesToMax({ pl: 3 })).toBe(3);
   });
   it('Power: the product of her steps\' sizes (Kage P6 ≈ ×1.9, the B1 bench)', () => {
     expect(potentialPowerFactor(UNIT_MAP.kage, 1)).toBe(1);
@@ -550,14 +595,15 @@ describe('v3 UI model', () => {
   });
 
   it('the next step and the pill title', () => {
-    expect(potentialNext(UNIT_MAP.kage, { dupes: 3 })).toMatchObject({ step: 5, brief: '✦ Moonpiercer', dupes: 1 });
-    expect(potentialNext(UNIT_MAP.kage, { dupes: 5 })).toBeNull();
+    expect(potentialNext(UNIT_MAP.kage, potentialState(4))).toMatchObject({ step: 5, brief: '✦ Moonpiercer', dupes: 1 });
+    expect(potentialNext(UNIT_MAP.kage, potentialState(6))).toBeNull();
     expect(potentialNext(UNIT_MAP.kage, null)).toBeNull();
     expect(potentialPillTitle(UNIT_MAP.kage, 5)).toBe('Potential 5 of 6 — Moonpiercer');
     expect(potentialPillTitle(UNIT_MAP.kage, 1)).toBe('Potential 1 of 6');
     expect(potentialPillTitle(UNIT_MAP.kage, 9)).toBe('Potential 6 of 6 — Shuriken Storm');
-    expect(moreDupes(1)).toBe('1 more duplicate');
-    expect(moreDupes(3)).toBe('3 more duplicates');
+    // a duplicate gives 1 Essence (ASCENSION.md §A): the screens count Essence
+    expect(moreDupes(1)).toBe('1 more Essence');
+    expect(moreDupes(3)).toBe('3 more Essence');
   });
 
   it('who a step reaches: auras and team buffs → Allies, statuses on foes → Enemies, coins → Coins', () => {
@@ -593,8 +639,9 @@ describe('v3 UI model', () => {
   });
 
   it('potentialLevelCap asks the level rule with every gate open (P1 = the gate-5 cap)', () => {
-    for (let p = 1; p <= 6; p++) expect(potentialLevelCap(p)).toBe(levelCap({ breakthrough: MAX_BREAKTHROUGH, dupes: p - 1 }));
+    for (let p = 1; p <= 6; p++) expect(potentialLevelCap(p)).toBe(levelCap({ breakthrough: MAX_BREAKTHROUGH, ...potentialState(p) }));
     expect(potentialLevelCap(1)).toBe(60);
+    expect(potentialLevelCap(6)).toBe(85);
     expect(potentialLevelCap(0)).toBe(potentialLevelCap(1));
     expect(potentialLevelCap(99)).toBe(potentialLevelCap(6));
   });
@@ -634,8 +681,9 @@ describe('v3 UI model', () => {
 
   it('the duplicates rule (one sentence, one place)', () => {
     const t = potentialDupesRule();
-    expect(t).toMatch(/^\+1 Potential \(P1 → P6: every step makes her stronger/);
-    expect(t).toContain('R ×2, SR ×10, SSR ×40');
+    expect(t).toMatch(/^\+1 Essence of her\. Raise her Potential \(P1 → P6\) with 1 Essence and coins/);
+    expect(t).toContain('Mementos and Moonpearls');
+    expect(t).not.toMatch(/Star Fragments/);
     expect(t).not.toMatch(/small passive/);
   });
 });

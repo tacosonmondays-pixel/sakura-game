@@ -14,8 +14,9 @@ describe('buildModel', () => {
     const unit = UNIT_MAP[u.id];
     const live = buildModel(unit, p);
     const snap = buildModel(unit, snapshotToMiniProfile(u));
-    expect(snap.level).toBe(60);
-    // P6 with every gate open: her level cap is 85 (live and snapshot alike)
+    expect(snap.level).toBe(85);
+    // P6 with every gate open: her level cap is 85 (live and snapshot alike; the card says 5 gates, the snapshot rebuilds 10)
+    expect(u.bt).toBe(5);
     expect(snap.cap).toBe(85);
     expect(live.cap).toBe(85);
     expect(snap.potential).toBe(6);
@@ -25,6 +26,18 @@ describe('buildModel', () => {
     expect(snap.totals).toEqual(live.totals);
     expect(snap.stats).toEqual(live.stats);
     expect(Math.abs(snap.power - live.power)).toBeLessThanOrEqual(2);
+  });
+
+  it('a P6 girl at gate 5 (L60) reads cap 60 live and from the snapshot', () => {
+    const p = lateSave();
+    const card0 = cleanViewedCard(buildCard(p));
+    const id = card0.units[0].id;
+    Object.assign(p.units[id], { level: 60, breakthrough: 5 });
+    const u = cleanViewedCard(buildCard(p)).units.find((x) => x.id === id);
+    const live = buildModel(UNIT_MAP[id], p);
+    const snap = buildModel(UNIT_MAP[id], snapshotToMiniProfile(u));
+    expect([live.level, live.cap, snap.level, snap.cap]).toEqual([60, 60, 60, 60]);
+    expect(snap.stats).toEqual(live.stats);
   });
 
   it('never carries a gear name', () => {

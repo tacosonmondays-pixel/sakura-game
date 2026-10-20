@@ -118,10 +118,18 @@ describe('snapshots', () => {
   it('levels above 60 follow her Potential: the viewer and the co-op ally clamp to levelCapAt(bt, p)', () => {
     const v = cleanViewedCard({ v: 1, units: [{ id: 'aoi', lv: 72, bt: 5, aw: 5, p: 4 }, { id: 'rei', lv: 72, bt: 5, aw: 5, p: 1 }, { id: 'kage', lv: 99, bt: 5, aw: 5, p: 6 }, { id: 'yuki', lv: 85, bt: 3, aw: 0, p: 6 }] });
     expect(v.units.map((u) => [u.id, u.lv])).toEqual([['aoi', 72], ['rei', 60], ['kage', 85], ['yuki', 40]]);
-    expect(snapshotToMiniProfile(v.units[0]).units.aoi).toMatchObject({ level: 72, dupes: 3 });
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 6 }).units.aoi.level).toBe(85);
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 2 }).units.aoi.level).toBe(63);
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5 }).units.aoi.level).toBe(60);
+    // a card says at most 5 gates: the snapshot rebuilds the fewest gates that allow her level at her P (P4, L72 → gate 8)
+    expect(snapshotToMiniProfile(v.units[0]).units.aoi).toMatchObject({ level: 72, dupes: 3, pl: 4, breakthrough: 8 });
+    expect(snapshotToMiniProfile(v.units[2]).units.kage).toMatchObject({ level: 85, pl: 6, breakthrough: 10 });
+    expect(snapshotToMiniProfile({ id: 'aoi', lv: 60, bt: 5, aw: 0, p: 6 }).units.aoi.breakthrough).toBe(5);
+    expect(snapshotToMiniProfile({ id: 'aoi', lv: 40, bt: 4, aw: 0, p: 6 }).units.aoi.breakthrough).toBe(4);
+    // a co-op loadout carries her real gates (0–10)
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5, potential: 6 }).units.aoi).toMatchObject({ level: 85, breakthrough: 10, pl: 6 });
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5, potential: 2 }).units.aoi.level).toBe(63);
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5 }).units.aoi.level).toBe(60);
+    // gate 5 is 60 whatever her Potential; gates past 10 count as 10
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 6 }).units.aoi.level).toBe(60);
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 99, awaken: 5, potential: 6 }).units.aoi).toMatchObject({ level: 85, breakthrough: 10 });
   });
 });
 

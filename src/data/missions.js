@@ -6,12 +6,12 @@
 // (see src/systems/achievementMetrics.js).
 
 /** Events the game reports through track(). 'dailyDone' is internal (all dailies claimed). */
-export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone'];
+export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone', 'potentialUp', 'titanWin'];
 
 /** Daily commissions: 120 gems per day in total. */
 export const DAILY_MISSIONS = [
   { id: 'd_login', name: 'Morning Roll Call', desc: 'Open the game today.', events: ['login'], goal: 1, rewards: [{ id: 'gems', count: 20 }, { id: 'coins', count: 3000 }] },
-  { id: 'd_win3', name: 'Patrol Duty', desc: 'Win 3 battles (sweeps count).', events: ['battleWin', 'sweep'], goal: 3, rewards: [{ id: 'gems', count: 30 }, { id: 'book_rare', count: 2 }] },
+  { id: 'd_win3', name: 'Patrol Duty', desc: 'Win 3 battles (sweeps and Titan Trials wins count).', events: ['battleWin', 'sweep'], goal: 3, rewards: [{ id: 'gems', count: 30 }, { id: 'book_rare', count: 2 }, { id: 'star_fragment', count: 2 }] },
   { id: 'd_kill300', name: 'Pest Control', desc: 'Defeat 300 enemies.', events: ['kill'], goal: 300, rewards: [{ id: 'gems', count: 20 }, { id: 'coins', count: 5000 }] },
   { id: 'd_level', name: 'Study Session', desc: 'Level up any student once.', events: ['levelUp'], goal: 1, rewards: [{ id: 'gems', count: 15 }, { id: 'book_common', count: 5 }] },
   { id: 'd_spend', name: 'Shopping Trip', desc: 'Spend 10,000 coins.', events: ['spendCoins'], goal: 10000, rewards: [{ id: 'gems', count: 15 }, { id: 'token_bounty', count: 2 }] },
@@ -22,7 +22,7 @@ export const DAILY_MISSIONS = [
 export const WEEKLY_MISSIONS = [
   { id: 'w_win20', name: 'Weekly Patrols', desc: 'Win 20 battles (sweeps count).', events: ['battleWin', 'sweep'], goal: 20, rewards: [{ id: 'gems', count: 150 }, { id: 'book_superRare', count: 2 }] },
   { id: 'w_kill3000', name: 'Monster Census', desc: 'Defeat 3,000 enemies.', events: ['kill'], goal: 3000, rewards: [{ id: 'gems', count: 100 }, { id: 'coins', count: 30000 }] },
-  { id: 'w_boss3', name: 'Crown Hunter', desc: 'Defeat 3 minibosses or bosses.', events: ['bossKill'], goal: 3, rewards: [{ id: 'gems', count: 150 }, { id: 'token_boss', count: 10 }] },
+  { id: 'w_boss3', name: 'Crown Hunter', desc: 'Defeat 3 minibosses, bosses or titans.', events: ['bossKill'], goal: 3, rewards: [{ id: 'gems', count: 150 }, { id: 'token_boss', count: 10 }, { id: 'star_fragment', count: 10 }] },
   { id: 'w_reroll3', name: 'Tinkerer', desc: 'Reroll gear 3 times.', events: ['gearReroll'], goal: 3, rewards: [{ id: 'gems', count: 50 }, { id: 'dice_reroll', count: 2 }] },
   { id: 'w_dailies5', name: 'Model Student', desc: 'Finish every daily commission on 5 days.', events: ['dailyDone'], goal: 5, rewards: [{ id: 'gems', count: 150 }, { id: 'ticket_recruit', count: 1 }] },
 ];

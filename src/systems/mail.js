@@ -14,7 +14,7 @@ import { materialId, bookId } from '../data/items.js';
 import { MATERIAL_FAMILIES } from '../data/types.js';
 import { UNITS } from '../data/units.js';
 import { potentialLevel, potentialStepInfo, BACKFILL_MARKER, MAX_POTENTIAL, V3_MARKER, NEW_PREFIX } from './potential.js';
-import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, MAX_LEVEL, BREAKTHROUGH_LEVEL_CAP } from './progression.js';
+import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, MAX_LEVEL, BREAKTHROUGH_LEVEL_CAP, BASE_GATES } from './progression.js';
 import { FREEPLAY_REWARDS } from '../online/coop/rewards.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
@@ -208,7 +208,8 @@ const POTENTIAL_LETTER_NAMES = 12;
 export function potentialLetterLine(def, p, unitState = null) {
   const info = p >= 2 ? potentialStepInfo(def, p) : null;
   const gates = unitState ? Math.max(0, Math.floor(Number(unitState.breakthrough) || 0)) : MAX_BREAKTHROUGH;
-  const cap = gates >= MAX_BREAKTHROUGH ? levelCapAt(gates, p) : null;
+  // her cap once she is past gate 5 (gates 6–10 raise it with her Potential, ASCENSION.md §B)
+  const cap = gates >= BASE_GATES ? levelCapAt(gates, p) : null;
   const step = info ? (info.kit ? ` ${info.brief}` : ` (${info.brief})`) : '';
   return `${def.name} P${p}${step}${cap != null && cap > potentialLevelCap(1) ? ` · level cap ${cap}` : ''}`;
 }
@@ -231,14 +232,14 @@ export function potentialLetter(profile) {
     id: POTENTIAL_V3_LETTER_ID,
     from: 'Sakura Academy Staff',
     title: 'Potential grew!',
-    body: `Every duplicate recruit still raises a girl's Potential by 1, from P1 up to P${MAX_POTENTIAL}, and from today every step makes her `
+    body: `Every duplicate gives a girl Essence to raise her Potential by 1, from P1 up to P${MAX_POTENTIAL}, and from today every step makes her `
       + 'much stronger: a stat boost at every step and, from P3 (from P2 for SSR girls and heroes), a new trick built on what she '
       + `does best, up to her capstone at P${MAX_POTENTIAL}. Your girls keep their Potential and have every step they earned, right away: `
       + `${names.join(', ')}${more > 0 ? `, and ${more} more` : ''}. `
       + (estimated ? 'We counted the duplicates in your recruit history; for recruits older than your last 100 we estimated (average luck for R and SR girls, a cautious guess for SSR girls). ' : '')
-      + `Every step also raises her level cap once all five breakthrough gates are open, up to level ${MAX_LEVEL} at P${MAX_POTENTIAL}; `
+      + `Every step also opens a new level gate past ${BREAKTHROUGH_LEVEL_CAP}, up to level ${MAX_LEVEL} at P${MAX_POTENTIAL}; `
       + `each level above ${BREAKTHROUGH_LEVEL_CAP} uses one Akashic Tome (from Library Courtyard III on Nightmare, Freeplay caches (up to ${FREEPLAY_REWARDS.cacheTome.weeklyCap} a week), `
-      + `the Bounty Exchange, and duplicates past P${MAX_POTENTIAL}). `
+      + 'the Bounty Exchange and Titan Trials). '
       + 'Nothing got weaker: P1 is exactly the girl you know. You can see each girl\'s steps on her Info tab.',
     rewards: [],
     expiresAt: null,
@@ -272,4 +273,30 @@ export function ensurePotentialLetter(profile, now = Date.now()) {
     if (st && potentialLevel(st) >= 2 && !seen.includes(NEW_PREFIX + u.id)) seen.push(NEW_PREFIX + u.id);
   }
   return deliverMail(profile, letter, now);
+}
+
+/** Ascension's switch-over letter (docs/specs/ASCENSION.md §A.7): no rewards (the pouch was paid into the Backpack). */
+export const ESSENCE_LETTER_ID = 'essence-arrived-1';
+
+/**
+ * Once, to a save the Essence migration ran on (missions.counters 'ess:pouch' > 0): explains the
+ * switch and the welcome pouch it already paid. A fresh save is born on Essence (no pouch, no letter).
+ * @returns {object|null} the delivered letter
+ */
+export function ensureEssenceLetter(profile, now = Date.now()) {
+  const pouch = Math.floor(Number(profile?.missions?.counters?.['ess:pouch']) || 0);
+  if (!pouch || box(profile).delivered.includes(ESSENCE_LETTER_ID)) return null;
+  const mementos = Math.floor(pouch / 1000);
+  const moonpearls = pouch % 1000;
+  return deliverMail(profile, {
+    id: ESSENCE_LETTER_ID,
+    from: 'Sakura Academy Staff',
+    title: 'Duplicates are now Essence!',
+    body: 'From today every duplicate gives that girl 1 Essence. Use Essence and coins to raise her Potential on her page, '
+      + 'then break her new level gates (up to level 85) with materials from the new Titan Trials. '
+      + 'Every Potential step your girls had already earned is unlocked for free, and extra copies became Mementos and Moonpearls '
+      + `for the new Memento Exchange in the Mall: ${mementos} Mementos and ${moonpearls} Moonpearls are already in your Backpack.`,
+    rewards: [],
+    expiresAt: null,
+  }, now);
 }
