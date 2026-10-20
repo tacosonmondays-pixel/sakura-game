@@ -272,6 +272,24 @@
   "lodSize": 219608,
   "lodVertices": 2915
  },
+ "noa": {
+  "file": "noa.glb",
+  "size": 1227088,
+  "animations": [
+   "attack_smash",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 18459,
+  "triangles": 19996,
+  "source": "meshy",
+  "lod": "noa.lod.glb",
+  "lodSize": 570508,
+  "lodVertices": 9341,
+  "lodTriangles": 8995
+ },
  "raika": {
   "file": "raika.glb",
   "size": 427556,

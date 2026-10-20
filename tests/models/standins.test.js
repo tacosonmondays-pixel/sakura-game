@@ -7,7 +7,8 @@ import { buildChibi, disposeObject, STANDIN_UNITS, isStandIn } from '../../src/m
 import { UNITS, getUnit } from '../../src/data/units.js';
 import { SKINS } from '../../src/data/skins.js';
 
-const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
+// the returning girls still drawn procedurally (noa has her painted art + GLB since the art wave)
+const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'iroha', 'ena'];
 
 function vertexCount(group) {
   let n = 0;
@@ -25,7 +26,7 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the nine returning girls, all roster units', () => {
+  it('is exactly the returning girls without art yet, all roster units', () => {
     expect([...STANDIN_UNITS]).toEqual(RETURNING);
     for (const id of RETURNING) {
       expect(getUnit(id).id).toBe(id);
@@ -36,7 +37,7 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !RETURNING.includes(u.id));
-    expect(others).toHaveLength(19);
+    expect(others).toHaveLength(20);
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });

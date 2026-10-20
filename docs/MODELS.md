@@ -90,8 +90,8 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 
 ## Stand-ins for the returning girls
 
-The nine returning girls of the roster wave (`kanna yoriko seiran fuu hana ruri noa iroha ena`,
-`src/data/unitsExpansion.js`) have **no GLB yet**: until the owner approves their real art they are drawn by
+The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
+(`STANDIN_UNITS`; Noa has her imported Meshy figure since the art wave, see "Imported Meshy figures") are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -101,9 +101,9 @@ view and in the formation / lobby. The list lives in `src/models/standins.js` (`
   `userData.standIn = true` and no GLB upgrade hook.
 * Every look value they use has a real procedural piece (horns, cat ears, hairpin, flower; coat, hoodie,
   blazer, sailor; mallet, puppet, spear, fan, bow, tome, shield, mirror, cards).
-* Tests: `tests/models/standins.test.js` (exactly these nine, procedural at every quality, their weapon and
+* Tests: `tests/models/standins.test.js` (exactly the listed girls, procedural at every quality, their weapon and
   accessory are dedicated pieces, nothing fetched in a stubbed browser); `tests/models/glb.test.js` checks
-  the other 19 girls' GLBs as before (with a count guard) and requires the stand-ins to have **no**
+  every other girl's GLB as before (with a count guard) and requires the stand-ins to have **no**
   manifest entry or file; `tests/data/skins.test.js` accepts a stand-in default row without a manifest model.
 * Real art landing: build / import her GLB (manifest entry + `<id>.glb` + `<id>.lod.glb`), remove her id from
   `STANDIN_UNITS` and from the test's list, and bump the GLB count in `glb.test.js`. The glb test fails while a
@@ -190,6 +190,18 @@ owner's lighting study:
   ~3× the screen area of a cage girl plus PBR + environment map, 20 instances cost ≈ 3.6× (full) /
   2.7× (LOD) the frame time of 20 Aoi in SwiftShader. Before moving more of the roster to this
   pipeline, consider medium (LOD, no normal map) as the default on touch devices or a DPR cap.
+
+### Noa (art wave, Oct 2026)
+
+Her art-wave Meshy model, imported with the same pipeline and her own profile (scratch build, no Meshy job):
+`noa.glb` 1.23 MB (20.0k tris) / `noa.lod.glb` 0.57 MB (9.0k tris), one 25-joint skeleton, clips `idle`, `walk`,
+`attack_smash` (her "ward push"), `cheer`, `hurt`; Hikari's battle height (1.224). Her folded Ward Shield is part of
+the body mesh on `forearm_L` (every clip keeps that wrist straight), so she has no prop and no `sword` node
+(`glb.test.js` requires a sword only for `weaponKind: 'slash'`). Every clip carries a 13° chin-up so her eyes clear
+her straight bangs at the 48° camera. `asset.extras.eyes.hairGuard` (`{ hue: [deg, deg], sat, val }` in linear-RGB
+HSV) tells the closed-eye shader which texels are her honey-brown bangs (kept as painted); without it the shader
+keeps Hikari's pink-hair rule, so Hikari is unchanged (`figGuard` uniform in `figurine.js`). Known: no secondary
+motion on her buns or skirt (humanoid rig); thin hull slivers by the loafers at ≥ 4× zoom, as on Hikari's boots.
 
 ## Judging quality
 
