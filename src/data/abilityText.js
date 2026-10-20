@@ -103,6 +103,10 @@ export const ABILITY_TEXT = Object.freeze({
     'One girl gets {rateMul}× attack speed and +{rangeMulPct}% range for {dur}s: the one you aim at, or the girl in her range who has dealt the most damage. A partner\'s girl may be chosen.',
     'a big, short power-up on one girl you pick',
     'Time Out! also gives +{dmgMulPct}% damage, lasts {dur}s and recharges in {cd}s.'),
+  'yuzuha.emergencyDeploy': t('Emergency Deploy', 'summon',
+    '{count} extra sentries drop at the road\'s edge where you aim, or around the lead enemy in her range, with her current sentry stats. They last {dur}s, beyond her sentry limit.',
+    'extra sentries at once, where you need them',
+    'Emergency Deploy drops {count} sentries for {dur}s and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */

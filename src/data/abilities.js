@@ -246,6 +246,14 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
   }],
+  yuzuha: [{
+    // extra sentries with her current sentry stats at the edge spots nearest her aim point or the lead
+    // enemy in her range; they live `duration` beyond her cap (src/sim/sentries.js)
+    path: 'ops', unlockTier: 3, id: 'yuzuha.emergencyDeploy', kind: 'deploy', scope: 'local', cooldown: 40, duration: 20,
+    effect: { deploy: 'sentries', count: 3 },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 30, duration: 25, effect: { count: 6 } },
+  }],
 });
 
 /**

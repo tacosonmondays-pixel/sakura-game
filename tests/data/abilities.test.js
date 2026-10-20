@@ -38,7 +38,7 @@ const LIGHTNING = {
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls (UNIT_GAPS §5)
-  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550],
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -49,7 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
-  azami: 'deploy', kinu: 'boost', wakaba: 'rally',
+  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -187,6 +187,12 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
   },
+  yuzuha: {
+    path: 'ops', id: 'yuzuha.emergencyDeploy', kind: 'deploy', scope: 'local', cooldown: 40, duration: 20,
+    effect: { deploy: 'sentries', count: 3 },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 30, duration: 25, effect: { count: 6 } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -316,7 +322,7 @@ function defErrors(d, where) {
     if (d.duration < (e.delay ?? 0) + (e.shells - 1) * e.every - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the last shell`);
   }
   if (d.kind === 'econ' && d.scope !== 'player') errs.push(`${where}: econ abilities are per player`);
-  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
+  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips', 'sentries'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
   // time fields in whole ticks; the cooldown in whole charge points
   for (const k of TIME_KEYS) {
     if (k in d && !isWholeTicks(d[k])) errs.push(`${where}: ${k} ${d[k]} is not a whole number of ticks`);

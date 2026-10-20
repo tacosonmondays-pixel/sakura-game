@@ -438,6 +438,13 @@ def emblem(weapon, pal, size):
         for k in range(4):
             x = 0.15 + k * 0.22
             pen.poly([(x - 0.08, 0.42), (x + 0.08, 0.42), (x, 0.2)], mix(rgb(pal['weapon']), WHITE, 0.3))
+    elif weapon == 'tablet':  # a rugged tablet with an antenna
+        pen.poly([(-0.7, -0.5), (0.7, -0.5), (0.7, 0.6), (-0.7, 0.6)], acc)
+        pen.poly([(-0.55, -0.38), (0.55, -0.38), (0.55, 0.48), (-0.55, 0.48)], ink)
+        pen.line([(-0.35, -0.1), (0.35, -0.1)], (127, 224, 255), 0.08)
+        pen.line([(-0.35, 0.15), (0.1, 0.15)], (127, 224, 255), 0.08)
+        pen.line([(0.55, -0.5), (0.75, -0.95)], ink, 0.06)
+        pen.ell(0.75, -0.95, 0.08, 0.08, fill=(255, 93, 93))
     elif weapon == 'needle':  # a big needle with a loop of thread, over a pincushion
         pen.ell(-0.35, 0.45, 0.42, 0.34, fill=acc)
         pen.ell(-0.35, 0.3, 0.12, 0.08, fill=mix(acc, WHITE, 0.5))

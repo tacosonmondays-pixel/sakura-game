@@ -269,6 +269,13 @@ export function createAttackFx(o) {
               rec.sy = tu.y;
             }
           }
+          // Yuzuha's lane sentries (src/sim/sentries.js) fire from their own spot too
+          for (const s of t.sentries || []) {
+            if (s.uid === rec.turretUid) {
+              rec.sx = s.x;
+              rec.sy = s.y;
+            }
+          }
         }
       }
       rec.mx = rec.sx;

@@ -591,6 +591,19 @@ export class Actors {
         }
       }
     }
+    // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
+    const SENTRY_COL = { plain: [1, 0.55, 0.16], net: [0.5, 0.85, 1], flash: [1, 1, 0.75], heavy: [1, 0.35, 0.3], flak: [0.75, 0.6, 1] };
+    for (const tw of sim.towers) {
+      if (!tw.sentries) continue;
+      for (const sn of tw.sentries) {
+        const c = SENTRY_COL[sn.type] || SENTRY_COL.plain;
+        gN.push(sn.x, 0.066, sn.y, 0.34, 0.34, R.disc, 0.18, 0.2, 0.28, 0.85);
+        gA.push(sn.x, 0.07, sn.y, 0.42, 0.42, R.ring, c[0], c[1], c[2], 0.55 + 0.35 * Math.min(1, sn.ttl / 3), 0);
+      }
+      for (const n of tw.nets || []) {
+        gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
+      }
+    }
     // teleport warnings
     for (const [uid, w] of this.teleports) {
       w.t += dt;

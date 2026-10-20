@@ -41,6 +41,7 @@ import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs }
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
 import { spikeRain } from './strips.js';
+import { emergencyDeploy } from './sentries.js';
 
 const R = ABILITY_RULES;
 
@@ -607,6 +608,18 @@ export const ABILITY_KINDS_LIVE = Object.freeze(Object.keys(KINDS));
  * is not here stays locked (Kage's doubles, Suzu's traps and Chika's drones still wait for A4).
  */
 const DEPLOYS = {
+  // Yuzuha's Emergency Deploy (src/sim/sentries.js): extra sentries at the edge spots nearest her aim
+  // point, or nearest the lead enemy in her range; they live the ability's duration beyond her cap
+  sentries: {
+    cast(sim, t, def, step, aim) {
+      const reach = abilityReach(t, def);
+      const lead = topTargets(sim, t.x, t.y, reach, abilitySpec(t, def), 'first', 1, [], [])[0] || null;
+      if (!lead) return null;
+      const placed = emergencyDeploy(sim, t, { count: def.effect.count, ttl: def.duration }, aim, lead);
+      if (!placed.length) return null;
+      return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
   // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
   // living the ability's duration; refused (nothing spent) with no ground enemy in reach
   strips: {

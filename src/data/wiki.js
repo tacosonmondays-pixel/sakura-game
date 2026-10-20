@@ -78,6 +78,7 @@ export const ROLE_SUBCLASS = {
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
   // the new girls (UNIT_GAPS §5)
+  builder: { label: 'Sentry Builder', desc: 'Timed sentries at the road\'s edge, typed for the threat.' },
   manager: { label: 'Buff Thrower', desc: 'Drinks for the hardest-working girl and everyone next to her.' },
   ring: { label: 'Ring Burst', desc: 'Pins in every direction at once; best where the road wraps around her.' },
   spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
@@ -676,7 +677,7 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out', 'yuzuha', 'sentry', 'sentries', 'net', 'deploy'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
@@ -692,6 +693,9 @@ function newGirlsArticle() {
     sec('Sports drinks (Wakaba)',
       p('Wakaba never attacks. Every few seconds she throws a sports drink at the girl in her range who has dealt the most damage (with Big Bottles it also splashes onto the girls next to her). A Hydrated girl attacks faster and reaches further for her next few attacks; drinks stack with auras and end when the wave is cleared.'),
       tip('Time Out! (Game Plan tier 3) powers up one girl: select Wakaba\'s ability and aim at the girl, or let her pick her top damage dealer.', 'info')),
+    sec('Sentries and nets (Yuzuha)',
+      p('Yuzuha shoots taser darts herself, and while a wave runs she sets a sentry at the road\'s edge in her range every few seconds. Sentries fire on their own and fold up after 20 seconds or when the wave is cleared. With Specialist Kits each new sentry is typed for the threat: flash for veiled enemies, flak for flyers, heavy for elites and nets for the rest.'),
+      tip('Capture Net (tier 3) catches weak ground enemies outright out of a hit-point budget that refills every wave; caught enemies pay extra coins. Emergency Deploy (Field Ops tier 3) drops extra sentries at once.', 'info')),
   ]);
 }
 

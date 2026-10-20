@@ -239,3 +239,14 @@ export const TOWEL_EVERY = 1;
 export const MAX_LIVES_RESTORED = 10;
 /** Molten Hem: spark bursts per sim step at most (the rest of that step's kills throw none). */
 export const SPARKS_PER_STEP = 8;
+/** Yuzuha's sentries (src/sim/sentries.js): road-edge spots every SENTRY_SPOT_STEP tiles, SENTRY_OFFSET off
+ *  the centreline, SENTRY_SPACING apart; per player and per sim caps. */
+export const SENTRY_SPOT_STEP = 0.5;
+export const SENTRY_OFFSET = 0.7;
+export const SENTRY_SPACING = 0.6;
+export const SENTRIES_PER_PLAYER = 24;
+export const SENTRIES_PER_SIM = 40;
+/** Capture Net: catch radius, nets at least this far apart, extra coins for a caught enemy (+50%). */
+export const NET_RADIUS = 0.5;
+export const NET_SPACING = 1.0;
+export const NET_COIN_BONUS = 0.5;

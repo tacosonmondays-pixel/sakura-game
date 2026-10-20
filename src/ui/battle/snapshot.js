@@ -191,6 +191,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
   // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
   hydrated: 'calm', towelSpec: 'derived',
+  // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats
+  sentries: 'calm', nets: 'snap', sentrySpecs: 'derived', sentryBurstSpec: 'derived', netSpec: 'derived',
 });
 
 /**
@@ -286,6 +288,7 @@ function packTower(sim, t) {
   if (traps.length) o.tr = traps.map((tr) => (tr.strip ? [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft, tr.hits, tr.ttl] : [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]));
   if (t.stripCursor) o.sc = t.stripCursor;
   if (t.ringTurn) o.rg = t.ringTurn;
+  if (t.nets?.length) o.nt = t.nets.map((n) => [n.x, n.y, n.left, n.wave]);
   // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
   if (t.buffPick >= 0) o.pk = t.buffPick;
   if (t.lim) o.lm = packLim(t.lim);
@@ -527,6 +530,9 @@ export function restoreSim(rec, profile = null) {
     }
     if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
     if (Number.isInteger(o.rg) && o.rg > 0 && o.rg < 16) t.ringTurn = o.rg;
+    if (Array.isArray(o.nt) && t.nets) {
+      for (const n of o.nt.slice(0, t.stats.sentry?.nets ?? 0)) t.nets.push({ x: r(n[0]), y: r(n[1]), left: r(n[2]), wave: Math.floor(r(n[3])) });
+    }
   }
   sim.traps.sort((a, b) => a.uid - b.uid); // the order they were laid in (uids only grow)
   // limited buffs (path cap), once every girl is back (they name each other by uid): a uid of a girl

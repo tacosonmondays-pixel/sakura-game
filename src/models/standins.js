@@ -18,7 +18,7 @@
 export const STANDIN_UNITS = Object.freeze([
   'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena',
   // the new girls (UNIT_GAPS §5) until their Blender figures land
-  'azami', 'kinu', 'wakaba',
+  'azami', 'kinu', 'wakaba', 'yuzuha',
 ]);
 
 const STANDIN_SET = new Set(STANDIN_UNITS);

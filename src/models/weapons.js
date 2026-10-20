@@ -83,7 +83,7 @@ const WEAPON_STYLE = {
   coinPurse: 'toss', staff: 'cast', lantern: 'cast', tome: 'book', bell: 'shake',
   mic: 'cast', shield: 'slash', mirror: 'cast', spear: 'spear', mallet: 'slash', puppet: 'cast', cards: 'throw',
   // the new girls (UNIT_GAPS §5)
-  strip: 'toss', needle: 'cast',
+  strip: 'toss', needle: 'cast', tablet: 'cast',
 };
 
 /** Attack style descriptor for a weapon key. */
@@ -416,6 +416,18 @@ function weaponParts(ctx, kind) {
       P.push(part(box(0.14, 0.04, 0.5), { pos: [0, -0.02, 0.22], color: w }));
       for (let i = 0; i < 4; i++) P.push(part(cone(0.03, 0.09, 4), { pos: [0, 0.04, 0.04 + i * 0.12], color: col('#e8ecf2') }));
       P.push(part(cyl(0.035, 0.035, 0.28, 6), { pos: [0, 0.05, -0.05], color: dark }));
+      break;
+    }
+    case 'tablet': {
+      // a rugged tablet controller with an orange bumper and a little antenna
+      rot = [0.9, 0, 0.1];
+      offset = [0, 0.1, 0.12];
+      P.push(part(box(0.5, 0.36, 0.05), { pos: [0, 0.2, 0], color: col('#f28a2e') }));
+      P.push(part(box(0.42, 0.28, 0.02), { pos: [0, 0.2, 0.03], color: col('#2e3a52') }));
+      P.push(part(box(0.3, 0.04, 0.01), { pos: [0, 0.26, 0.045], color: col('#7fe0ff') }));
+      P.push(part(box(0.18, 0.04, 0.01), { pos: [-0.06, 0.18, 0.045], color: col('#7fe0ff') }));
+      P.push(part(cyl(0.012, 0.012, 0.18, 5), { pos: [0.2, 0.46, 0], color: dark }));
+      P.push(part(sphere(0.03, 6, 4), { pos: [0.2, 0.56, 0], color: col('#ff5d5d') }));
       break;
     }
     case 'needle': {

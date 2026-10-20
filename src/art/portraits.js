@@ -78,6 +78,7 @@ export const PORTRAIT_DATA = {
   azami: { face: [50, 25], cut: 0.476 },
   kinu: { face: [50, 25], cut: 0.385 },
   wakaba: { face: [50, 25], cut: 0.385 },
+  yuzuha: { face: [50, 25], cut: 0.385 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

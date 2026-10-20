@@ -139,6 +139,33 @@ function normDrink(t = {}) {
   };
 }
 const DRINK_FLAGS = ['detection', 'cleanse', 'permanent', 'towel', 'life'];
+
+/**
+ * The sentry builder (Yuzuha, UNIT_GAPS §5.2; src/sim/sentries.js): her lane sentries and nets. Only a
+ * girl whose base declares `sentry` carries it. Numbers add (rate multiplies), flags OR.
+ *   max · every (s per sentry) · speed (deploys faster: every / (1 + speed)) · ttl (s)
+ *   damage · rate (shots/s, ×) · range · burst (damage when one runs out) · kits (Specialist Kits)
+ *   nets · netBudget (HP a wave) · netElite · netBoss (what a net may catch)
+ */
+function normSentry(t = {}) {
+  return {
+    max: t.max ?? 2,
+    every: t.every ?? 6,
+    speed: t.speed ?? 0,
+    ttl: t.ttl ?? 20,
+    damage: t.damage ?? 3,
+    rate: t.rate ?? 1.2,
+    range: t.range ?? 2,
+    burst: t.burst ?? 0,
+    kits: !!t.kits,
+    nets: t.nets ?? 0,
+    netBudget: t.netBudget ?? 0,
+    netElite: !!t.netElite,
+    netBoss: !!t.netBoss,
+  };
+}
+const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
+const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
 const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
 const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
 const STRIP_ADDS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
@@ -234,6 +261,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.strip ? { strip: normStrip(b.strip) } : null),
     ...(b.ring ? { ring: normRing(b.ring) } : null),
     ...(b.drink ? { drink: normDrink(b.drink) } : null),
+    ...(b.sentry ? { sentry: normSentry(b.sentry) } : null),
   };
 }
 
@@ -374,6 +402,12 @@ export function applyModSet(s, mods, acc) {
       if (!s.drink) continue;
       for (const k of DRINK_ADDS) if (v[k] != null) s.drink[k] += v[k];
       for (const k of DRINK_FLAGS) if (v[k]) s.drink[k] = true;
+    } else if (key === 'sentry') {
+      // only a sentry girl's sentries change (src/sim/sentries.js)
+      if (!s.sentry) continue;
+      for (const k of SENTRY_ADDS) if (v[k] != null) s.sentry[k] += v[k];
+      for (const k of SENTRY_FLAGS) if (v[k]) s.sentry[k] = true;
+      if (v.rate != null) s.sentry.rate *= v.rate;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -471,6 +505,11 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   if (s.trap) s.trap.damage *= u.damageMul;
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.drink) s.drink.towelDmg *= u.damageMul;
+  if (s.sentry) {
+    s.sentry.damage *= u.damageMul;
+    s.sentry.burst *= u.damageMul;
+    s.sentry.rate *= u.rateMul;
+  }
   if (s.turret) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;
@@ -529,6 +568,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.chain = Math.max(0, Math.round(s.chain));
   s.maxTargets = Math.max(1, Math.round(s.maxTargets));
   if (s.trap) s.trap.max = Math.max(0, Math.round(s.trap.max));
+  if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
   if (s.turret) s.turret.max = Math.max(0, Math.round(s.turret.max));
   return s;
 }

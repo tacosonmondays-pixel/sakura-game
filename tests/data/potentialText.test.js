@@ -29,7 +29,7 @@ function candidates(key, v, parent, parentKey) {
   const out = new Set();
   const words = [];
   // ramp.max and tempo.max: fraction (focus cap points, tempo %); trap.max / turret.max: a count
-  const fractional = FRACTION_KEYS.has(key) && !(key === 'max' && (parentKey === 'trap' || parentKey === 'turret'));
+  const fractional = FRACTION_KEYS.has(key) && !(key === 'max' && (parentKey === 'trap' || parentKey === 'turret' || parentKey === 'sentry'));
   if (key === 'amount' && parent?.type === 'slow') out.add(fmt(v * 100));
   else if (key === 'amount') out.add(fmt(v));
   else if (key === 'rateMul' && parentKey === 'overclock') out.add(fmt((v - 1) * 100));

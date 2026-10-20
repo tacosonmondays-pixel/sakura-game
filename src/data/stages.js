@@ -443,6 +443,7 @@ const CAMPAIGN = [
     ],
     fixed: [F(2, 'beast_wolf', 6, 0.5)],
     introduces: ['beast_wolf', 'orc_berserker', 'beast_bear', 'enrage'], recommended: ['armorPen', 'slow'],
+    unlocks: ['yuzuha'],
     fam: ['feather', 'rime'],
     scenery: { props: ['ropeBridge', 'pines', 'wolfDens', 'snowdrifts'], weather: 'snow' },
   }),

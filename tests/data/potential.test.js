@@ -89,7 +89,7 @@ function kitFields(s) {
     proc: s.proc, ult: s.ult, bountyAura: s.bountyAura, harvest: s.harvest, dotSpread: s.dotSpread, keepRamp: s.keepRamp,
     projScale: s.projScale, tempo: s.tempo, classMul: s.classMul,
     // the new girls' own blocks (UNIT_GAPS §5)
-    strip: s.strip, ring: s.ring, drink: s.drink,
+    strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry,
   };
   return JSON.stringify(f);
 }

@@ -39,7 +39,7 @@ const SCEN = {
   // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
   // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
   // the new girls (UNIT_GAPS §5): Azami's strips (Spread / Near exit through the random target modes)
-  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'wakaba', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu', 'wakaba'] },
+  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'wakaba', 'yuzuha', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu', 'wakaba', 'yuzuha'] },
   '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 
@@ -1030,6 +1030,31 @@ describe('the new girls in a battle save (UNIT_GAPS §5, §7.3)', SLOW, () => {
     const baz = back.towers.find((t) => t.unitId === 'azami');
     expect(baz.trapCount).toBe(az.trapCount);
     expect(baz.stripCursor).toBe(az.stripCursor);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+  });
+});
+
+describe('the new girls in a battle save: Yuzuha\'s nets (UNIT_GAPS §7.3)', SLOW, () => {
+  it('her Capture Net stays at the calm point with its budget and wave; her sentries end', () => {
+    const c = { stageId: '4-2', difficulty: 'normal', towers: ['yuzuha', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 4242 };
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const yz = sim.towers.find((t) => t.unitId === 'yuzuha');
+    const net = yz.def.paths.findIndex((p) => p.id === 'net');
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(yz.uid, net)).toBe(true);
+    sim.startNextWave();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(yz.nets.length).toBe(1);
+    expect(yz.sentries).toEqual([]);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    expect(snap.towers.find((t) => t.u === 'yuzuha').nt).toHaveLength(1);
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    expect(back.towers.find((t) => t.unitId === 'yuzuha').nets).toEqual(yz.nets);
     expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
   });
 });

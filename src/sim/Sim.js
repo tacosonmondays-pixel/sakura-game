@@ -48,6 +48,7 @@ import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
+import { endSentryWave } from './sentries.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -797,6 +798,8 @@ export class Sim {
     endRingWave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
+    // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
+    endSentryWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });

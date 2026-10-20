@@ -59,6 +59,8 @@ export const MOD_TAGS = {
   strip: 'traps', ring: 'self',
   // Wakaba's drink makes the girls she picks stronger
   drink: 'limited',
+  // Yuzuha's lane sentries are her summons
+  sentry: 'drones',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -76,6 +78,7 @@ const SUB_KEYS = {
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
   relay: new Set(['reach']),
+  sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),

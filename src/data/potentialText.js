@@ -233,6 +233,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('DMG+3%', '+4% throwing speed. Hydrated girls deal 3% more damage.', 1.08, 'rim'),
     t('CAPTAIN', '+5% throwing speed. Hydrated girls attack 5% faster, and her drinks last 2 more attacks.', 1.14, 'rim'),
   ),
+  yuzuha: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('TTL+4s', '+5% attack speed. Her sentries last 4 s longer.', 1.10, 'rim'),
+    t('SENTRY+1', '+5% damage. Her sentries deal 1 more damage.', 1.10, 'rim'),
+    t('PEN+1', '+6% attack speed. Her darts ignore 1 more armor.', 1.08, 'rim'),
+    t('DEPLOYED', '+7% damage. 1 more sentry at a time, and her sentries deal 2 more damage.', 1.20, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

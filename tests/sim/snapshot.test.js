@@ -237,7 +237,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
   it('the new girls mid-wave (UNIT_GAPS §5): strips on the road, Spike Rain, pins in flight, on Auto', () => {
     // every girl buys her ⚡ path to tier 3 and casts on Auto; the snapshot is taken with Azami's
     // strips (her own and her Spike Rain's) on the road and Kinu's pins in the air
-    const team = ['azami', 'kinu', 'wakaba', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
+    const team = ['azami', 'kinu', 'wakaba', 'yuzuha', 'aoi', 'rei', 'yuki', 'shiro'];
     const stats = { costMul: 0.3 };
     const args = { stageId: '3-3', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 5151, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
@@ -246,7 +246,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     sim.startNextWave();
     const busy = (s) => s.wave >= 3 && s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 6
       && s.traps.some((tr) => tr.strip && !tr.extra) && s.traps.some((tr) => tr.extra)
-      && s.projectiles.some((p) => p.straight) && s.towers.some((t) => t.hydrated);
+      && s.projectiles.some((p) => p.straight) && s.towers.some((t) => t.hydrated) && s.towers.some((t) => t.sentries?.length);
     for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
       if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
       // (Spike Rain nudged every 5 s so the checkpoint holds rain strips)
@@ -263,7 +263,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     const r = twin(sim, args, bot, 9000);
     expect(r.compared).toBeGreaterThan(5);
     const json = JSON.stringify(r.snap);
-    for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings', 'hydrated']) expect(json, k).toContain(`"${k}"`);
+    for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings', 'hydrated', 'sentries', 'sentrySpecs']) expect(json, k).toContain(`"${k}"`);
   });
 
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {

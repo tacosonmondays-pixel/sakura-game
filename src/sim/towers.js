@@ -25,6 +25,7 @@ import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
+import { sentryTick } from './sentries.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -32,7 +33,7 @@ const WEAPON_KIND = {
   trident: 'orb', rapier: 'needle', katana: 'shuriken', sword: 'shuriken', coinPurse: 'bullet',
   mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt', mallet: 'shuriken', puppet: 'needle', cards: 'shuriken',
   // the new girls (UNIT_GAPS §5)
-  strip: 'arrow', needle: 'needle',
+  strip: 'arrow', needle: 'needle', tablet: 'bolt',
 };
 const TYPE_KIND = { blast: 'shell', pierce: 'arrow', slash: 'shuriken', mystic: 'orb', holy: 'spark' };
 const ARC_KINDS = { shell: true, fireball: true, flask: true };
@@ -257,6 +258,27 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }) : null;
   // Towel Snap (src/sim/drinks.js): a light flick that slows (her own hit is no drink at all)
   if (s.drink) t.towelSpec = s.drink.towel ? { ...t.eff, damage: s.drink.towelDmg * dmgMul, critChance: 0, status: [{ type: 'slow', amount: 0.3, duration: 1.5 }] } : null;
+  // Yuzuha's sentries (src/sim/sentries.js): their guns follow her buffs; one spec per Specialist Kit
+  if (s.sentry) {
+    if (!t.sentries) {
+      t.sentries = [];
+      t.nets = [];
+    }
+    const se = s.sentry;
+    const plain = {
+      ...t.eff, damage: se.damage * dmgMul, rate: se.rate * b.rateMul * globalRateMul, range: se.range * b.rangeMul,
+      pierce: 1, splash: 0, chain: 0, canHitAir: false, critChance: 0, knockback: 0, gather: 0, status: [], mark: null,
+    };
+    t.sentrySpecs = {
+      plain,
+      net: { ...plain, status: [{ type: 'slow', amount: 0.35, duration: 1 }] },
+      flash: { ...plain, detection: true, reveal: 2, silence: 0.5 },
+      heavy: { ...plain, damage: plain.damage * 3, rate: plain.rate * 0.5, eliteMul: plain.eliteMul * 1.3 },
+      flak: { ...plain, canHitAir: true },
+    };
+    t.sentryBurstSpec = se.burst > 0 ? { ...plain, damage: se.burst * dmgMul } : null;
+    t.netSpec = se.nets > 0 ? { ...t.eff, canHitAir: false, detection: false } : null;
+  }
   // Orbit Scissors (src/sim/rings.js): their cuts follow her buffs like her pins
   if (s.ring && !t.rings) {
     t.rings = []; // her heat rings in flight (src/sim/rings.js)
@@ -485,7 +507,7 @@ export function explode(sim, tower, spec, x, y, radius) {
   sim._emit('explode', { x, y, radius, element: spec.element || null, attackType: spec.attackType });
 }
 
-function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
+export function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
   const speed = opts.speed ?? spec.projectileSpeed;
   let dx = target.x - fromX;
   let dy = target.y - fromY;
@@ -1531,6 +1553,7 @@ export function updateTower(sim, t, dt) {
   if (s.strip) stripTick(sim, t, dt);
   if (s.ring) ringTick(sim, t, dt);
   if (s.drink) drinkTick(sim, t);
+  if (s.sentry) sentryTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];

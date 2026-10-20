@@ -35,6 +35,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'projScale', 'tempo', 'classMul', 'bossMul', 'ramp.per', 'turret.range',
   // the new girls (UNIT_GAPS §5): Wakaba's drink
   'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
+  // Yuzuha's sentries
+  'sentry.max', 'sentry.damage', 'sentry.ttl',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -351,6 +353,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Wide Toss', 'kit', { rateMul: 1.04 }, { drink: { splash: 0.2 } }),
     p5: step('Honey Lemon', 'kit', { rateMul: 1.04 }, { drink: { dmg: 0.03 } }),
     p6: step('Team Captain', 'cap', { rateMul: 1.05 }, { drink: { rate: 0.05, shots: 2 } }),
+  },
+  // Yuzuha, SR sentry builder: longer-lived, harder-hitting sentries, armor pen on her darts, one more sentry
+  yuzuha: {
+    p2: step('Morning Checklist', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Batteries', 'kit', { rateMul: 1.05 }, { sentry: { ttl: 4 } }),
+    p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
+    p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
+    p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
   },
 });
 

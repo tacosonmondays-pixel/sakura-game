@@ -208,7 +208,73 @@ const WAKABA = {
   awakenPassive: { name: 'Cheer Squad', desc: 'Drinks last 2 more attacks and splash 0.1 tiles wider.', mods: { drink: { shots: 2, splash: 0.1 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Yuzuha — Security Bureau Technician (sentry builder; UNIT_GAPS §5.2, src/sim/sentries.js)
+// ---------------------------------------------------------------------------
+
+const YUZUHA = {
+  id: 'yuzuha',
+  name: 'Yuzuha',
+  title: 'Security Bureau Technician',
+  kind: 'tower',
+  rarity: 'SR',
+  adult: false,
+  role: 'builder',
+  attackType: 'pierce',
+  element: 'lightning',
+  placement: 'land',
+  materialFamily: 'cog',
+  capabilities: ['antiAir', 'summon'],
+  pathCapabilities: ['slow', 'stun', 'buff', 'reveal'],
+  acquisition: free('4-2', 'Joins after 4-2: the Campus Security Bureau sends its technician, her tablet and a case of fold-out sentries.'),
+  palette: {
+    hair: '#8f7f73', hairShade: '#665850', eyes: '#e08a3c', skin: '#ffe4d4',
+    outfit: '#2a3c66', outfitShade: '#182440', accent: '#ff8a2a', halo: '#ffd29a', weapon: '#3a4256',
+  },
+  look: {
+    hairStyle: 'bob', bangs: 'straight', accessory: 'cap', outfit: 'blazer', weapon: 'tablet',
+    halo: 'gear', eyeStyle: 'sleepy', expression: 'calm',
+  },
+  bio: 'The Campus Security Bureau\'s equipment technician. A navy bureau blazer with a reflective armband over a school tactical vest full of tool pouches, a pleated skirt over black tights, work gloves and a safety-orange headset with a cap brim. Ash-brown bob, a pencil behind her ear, a tablet controller in her hand and a fold-out sentry case on her back.',
+  personality: 'Methodical and a little sleepy. She says "deploying" the way other girls say "good morning".',
+  quote: 'Deploying. …Good morning, by the way.',
+  tips: [
+    'While a wave runs she sets sentries at the road\'s edge in her range: each lives 20 seconds and fires on its own.',
+    'Specialist Kits (Sentry Lab tier 3) give each new sentry the type the threat needs: net, flash, heavy or flak.',
+    '⚡ Field Ops tier 3 teaches Emergency Deploy: extra sentries at once, where you aim or around the lead enemy.',
+    'Capture Net (tier 3) catches weak ground enemies outright, out of a budget of hit points each wave, for extra coins.',
+  ],
+  base: stats({
+    cost: 420, damage: 2, rate: 1.0, range: 2.6, projectileSpeed: 16, canHitAir: true,
+    sentry: { max: 2, every: 6, ttl: 20, damage: 3, rate: 1.2, range: 2 },
+  }),
+  paths: [
+    path('lab', 'Sentry Lab', 'Better sentries', [
+      tier('Spare Tripods', 140, 'One more sentry at a time.', { sentry: { max: 1 } }),
+      tier('Longer Batteries', 320, 'Sentries last 30s; +1 sentry damage.', { sentry: { ttl: 10, damage: 1 } }),
+      tier('Specialist Kits', 1100, 'Each new sentry gets the type the threat in her range needs: flash for veiled enemies, flak for flyers, heavy for elites, nets for the rest.', { sentry: { kits: true } }),
+      tier('Burst Cells', 3400, 'Sentries +6 damage; each one bursts for 30 within 1 tile when it runs out.', { sentry: { damage: 6, burst: 30 } }),
+      tier('Full Perimeter', 19200, '6 sentries, 45s each, +20 damage; bursts deal 150.', { sentry: { max: 3, ttl: 15, damage: 20, burst: 120 } }),
+    ]),
+    path('ops', 'Field Ops', 'Deployment and support', [
+      tier('Quick Deploy', 120, 'Sets sentries 25% faster.', { sentry: { speed: 0.25 } }),
+      tier('Wide Survey', 300, '+0.6 range.', { range: 0.6 }),
+      tier('Tune-Up Kit', 950, 'Girls within 2.4 tiles attack 8% faster.', { aura: { range: 2.4, rateMul: 1.08 } }),
+      tier('Field Workshop', 3000, 'Sentries +4 damage and fire 20% faster; Tune-Up reaches 3 tiles.', { sentry: { damage: 4, rate: 1.2 }, aura: { range: 3 } }),
+      tier('Rapid Response', 17600, 'Tune-Up rises to +15% attack speed; sentries +6 damage.', { aura: { rateMul: 1.065 }, sentry: { damage: 6 } }),
+    ]),
+    path('net', 'Capture Net', 'Catch and hold', [
+      tier('Net Launcher', 110, 'Darts slow 20% for 1s.', { status: [S.slow(0.2, 1)] }),
+      tier('Stun Baton', 260, 'Darts have a 15% chance to stun for 0.2s.', { status: [S.stun(0.2, 0.15)] }),
+      tier('Capture Net', 900, 'A net on the road catches ordinary ground enemies outright, up to 300 HP in all each wave. Caught enemies count as defeated and pay +50% coins.', { sentry: { nets: 1, netBudget: 300 } }),
+      tier('Big Net', 2800, 'The net catches up to 1,500 HP a wave, elites too.', { sentry: { netBudget: 1200, netElite: true } }),
+      tier('Containment Grid', 16000, 'Two nets, 5,000 HP a wave each; they catch minibosses too.', { sentry: { nets: 1, netBudget: 3500, netBoss: true } }),
+    ]),
+  ],
+  awakenPassive: { name: 'Spare Parts', desc: 'One more sentry at a time.', mods: { sentry: { max: 1 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI, KINU, WAKABA];
+export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);

@@ -49,6 +49,7 @@ const ROSTER = [
   ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '2-2'],
   ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
   ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
+  ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '4-2'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -66,7 +67,7 @@ const LOOK_ENUMS = {
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip', 'needle'],
+    'strip', 'needle', 'tablet'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
@@ -79,7 +80,7 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring', 'drink'];
+  'strip', 'ring', 'drink', 'sentry'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -188,6 +189,7 @@ function modSetErrors(mods, where) {
     strip: (k, v, w) => stripErrors(v, w),
     ring: (k, v, w) => ringErrors(v, w),
     drink: (k, v, w) => drinkErrors(v, w),
+    sentry: (k, v, w) => sentryErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -217,6 +219,13 @@ function drinkErrors(v, w) {
   return objErrors(v, [...DRINK_NUMS, ...DRINK_FLAGS], w, (kk, vv, ww) => (DRINK_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The sentry builder (src/sim/mods.js normSentry).
+const SENTRY_NUMS = ['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'nets', 'netBudget'];
+const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
+function sentryErrors(v, w) {
+  return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
 function baseErrors(b, where) {
   const errs = [];
   for (const k of BASE_REQUIRED) if (!(k in b)) errs.push(`${where}: missing ${k}`);
@@ -236,6 +245,7 @@ function baseErrors(b, where) {
     if (!isPos(b.aura.range)) errs.push(`${where}: aura needs a range`);
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
+  if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
   if (b.drink) {
     errs.push(...drinkErrors(b.drink, `${where}.drink`));
     if (b.behavior !== 'drink') errs.push(`${where}: drink needs the drink behavior`);
@@ -299,6 +309,9 @@ function derivedCaps(m, acc = new Set()) {
   if (m.drink?.detection) acc.add('detection');
   if (m.drink?.cleanse) acc.add('cleanse');
   if (m.drink?.towel) acc.add('slow');
+  // lane sentries are summons; Specialist Kits' flash sentries reveal
+  if ((m.sentry?.max ?? 0) > 0) acc.add('summon');
+  if (m.sentry?.kits) acc.add('reveal');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');
@@ -773,7 +786,7 @@ describe('helpers', () => {
 
   it('freeUnlocksByStage maps stages to free recruits', () => {
     expect(freeUnlocksByStage()).toEqual({
-      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-2': ['azami'], '2-5': ['kage'], '3-2': ['umeko'],
+      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-2': ['azami'], '2-5': ['kage'], '3-2': ['umeko'], '4-2': ['yuzuha'],
       '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '6-5': ['wakaba'], '7-5': ['hana'],
     });
   });
