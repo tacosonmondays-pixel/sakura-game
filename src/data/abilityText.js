@@ -46,7 +46,7 @@ export const ABILITY_TEXT = Object.freeze({
     'a firework barrage on the thickest crowd',
     'Starmine Barrage fires {shells} shells at {dmgMul}× her hit that also strike flyers, and recharges in {cd}s.'),
   'sango.tidebreaker': t('Tidebreaker Shell', 'blast',
-    'One heavy shell on the densest crowd within {reach} tiles: {dmg} damage in a {radius}-tile blast, a {knockback}-tile knockback (bosses stand firm) and a {stun}s stun.',
+    'A heavy shell lands on the densest crowd within {reach} tiles: {dmg} damage in a {radius}-tile blast, a {knockback}-tile knockback (bosses stand firm) and a {stun}s stun.',
     'a heavy shell that blasts a crowd back up the road',
     'Tidebreaker Shell fires {shells} shells {every}s apart, each aimed at the crowd anew, and recharges in {cd}s.'),
   'kage.doubles': t('Shadow Doubles', 'skirmisher',

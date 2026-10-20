@@ -1272,7 +1272,7 @@ const CHIKA = {
   personality: 'Fast-talking and endlessly inventive; names every drone and grieves each one dramatically.',
   quote: 'Give me ten seconds and a wrench!',
   tips: [
-    '⚡ Sentry Works tier 3 teaches Drone Surge: extra drones for a few seconds. Tap any drone to see its stats.',
+    '⚡ Sentry Works tier 3 teaches Drone Surge: extra drones for a few seconds. Her drones hunt up to 4 tiles out; tap one to see its stats.',
     'Flight modes: Hover near her, Hold a point, Patrol between two points, or Pursuit anywhere on the map.',
     'Repair Bay tier 3 cleanses sabotage for every girl in her aura.',
     'Tesla Tower (tier 4) turns her wrench bolt into a chain-lightning coil; her drones keep flying.',

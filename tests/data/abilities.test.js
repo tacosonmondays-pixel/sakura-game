@@ -45,6 +45,147 @@ const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'de
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
 const MULTI_PATH = {};
 
+// ABILITIES_SPEC §5.1, copied row by row: each tower's tier-3 entry with its tier-5 override, and each
+// hero's Lv 7 skill with its Lv 17 rank, exactly as the data must hold them. A1 builds on these numbers,
+// so any drift from the spec fails here. Statuses are written out, not taken from the data's builders.
+// Values marked "(not in the spec)" are A0's own choices for what the spec leaves open (NOTES.md, A0).
+const stun = (duration) => ({ type: 'stun', duration });
+const freeze = (duration) => ({ type: 'freeze', duration });
+const slow = (amount, duration) => ({ type: 'slow', amount, duration });
+const shock = (duration) => ({ type: 'shock', duration });
+const soak = (duration) => ({ type: 'soak', duration });
+const mark = (bonus, duration) => ({ type: 'mark', bonus, duration });
+const silence = (duration) => ({ type: 'silence', duration });
+const reveal = (duration) => ({ type: 'reveal', duration });
+const SPEC_TOWERS = {
+  aoi: {
+    path: 'volley', id: 'aoi.skyfall', kind: 'strike', scope: 'local', cooldown: 35, duration: 0,
+    effect: { pick: 'mode', count: 6, reachMul: 1.5, dmgMul: 6, status: [stun(0.5)] },
+    auto: { when: 'enemies', min: 4, orElite: true },
+    t5: { cooldown: 28, effect: { count: 12, dmgMul: 8 } },
+  },
+  rei: {
+    path: 'whirlwind', id: 'rei.hurricane', kind: 'boost', scope: 'local', cooldown: 30, duration: 4,
+    effect: { mods: { rateMul: 2.5, range: 0.6, maxTargets: 99 } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 25, duration: 6, effect: { mods: { rateMul: 3, range: 1, maxTargets: 99 } } },
+  },
+  yuki: {
+    path: 'deepfreeze', id: 'yuki.whiteout', kind: 'burst', scope: 'local', cooldown: 40, duration: 0,
+    effect: { at: 'self', radiusMul: 1.5, status: [freeze(2), slow(0.4, 5)] },
+    auto: { when: 'enemies', min: 6, orLeak: 0.7 },
+    t5: { cooldown: 30, effect: { radiusMul: 2, status: [freeze(3), slow(0.5, 6)] } },
+  },
+  momo: {
+    path: 'orchard', id: 'momo.marketDay', kind: 'econ', scope: 'player', cooldown: 45, duration: 0,
+    effect: { coins: 100 },
+    auto: { when: 'ready' },
+    t5: { cooldown: 40, effect: { coins: 400 } },
+  },
+  akane: {
+    path: 'bigbang', id: 'akane.starmine', kind: 'burst', scope: 'local', cooldown: 40, duration: 2,
+    effect: { at: 'densest', reachMul: 1.5, shells: 6, delay: 0.5, every: 0.25, radius: 1.2, dmgMul: 3, knockback: 0.3 },
+    auto: { when: 'enemies', min: 6 },
+    // duration 3.5 (not in the spec): the tier-3 rule, until 0.25 s after the last of 12 shells
+    t5: { cooldown: 32, duration: 3.5, effect: { shells: 12, dmgMul: 4, hitsAir: true } },
+  },
+  sango: {
+    path: 'frag', id: 'sango.tidebreaker', kind: 'burst', scope: 'local', cooldown: 40, duration: 0,
+    effect: { at: 'densest', reachMul: 2, shells: 1, radius: 1.5, dmgMul: 4, knockback: 1.2, status: [stun(0.6)] },
+    auto: { when: 'enemies', min: 5 },
+    // duration 1.25 (not in the spec): until 0.25 s after the last of 3 shells 0.5 s apart
+    t5: { cooldown: 35, duration: 1.25, effect: { shells: 3, every: 0.5, reaim: true } },
+  },
+  kage: {
+    path: 'steel', id: 'kage.doubles', kind: 'deploy', scope: 'local', cooldown: 40, duration: 8,
+    effect: { deploy: 'double', count: 2, spacing: 1.5, dmgMul: 0.6 },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 35, duration: 10, effect: { count: 3, dmgMul: 0.75 } },
+  },
+  umeko: {
+    path: 'lighthouse', id: 'umeko.flare', kind: 'debuff', scope: 'map', cooldown: 40, duration: 8,
+    effect: { pick: 'veiled', status: [reveal(8)], rally: { inAura: true, detection: true, rangeMul: 1.15 } },
+    auto: { when: 'veiled' },
+    // the spec raises only the reveal to 12 s; the rally rider keeps the 8 s duration (not in the spec)
+    t5: { cooldown: 32, effect: { status: [reveal(12)], rally: { inAura: true, detection: true, rangeMul: 1.25, dmgMul: 1.1 } } },
+  },
+  shiro: {
+    // duration 1 (not in the spec as a duration): the 1 s reticle telegraph before the shots land
+    path: 'execution', id: 'shiro.verdict', kind: 'strike', scope: 'map', cooldown: 45, duration: 1,
+    effect: { pick: 'priority', count: 2, reach: 'map', delay: 1, dmgMul: 5, armorPen: 99 },
+    auto: { when: 'elite', orCaster: true },
+    t5: { cooldown: 35, effect: { count: 4, dmgMul: 6 } },
+  },
+  midori: {
+    path: 'toxicology', id: 'midori.catalyst', kind: 'strike', scope: 'local', cooldown: 30, duration: 0,
+    effect: { pick: 'poisoned', reachMul: 1.5, poisonMul: 2, splash: 0.8, splashShare: 0.5 },
+    auto: { when: 'poisoned', min: 4 },
+    t5: { cooldown: 25, effect: { poisonMul: 2.5, spreadPoison: 3 } },
+  },
+  suzu: {
+    path: 'mines', id: 'suzu.bellCarpet', kind: 'deploy', scope: 'local', cooldown: 45, duration: 15,
+    effect: { deploy: 'trap', count: 6, arm: 0.3 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 20, effect: { count: 12 } },
+  },
+  raika: {
+    path: 'rhythm', id: 'raika.drumstorm', kind: 'boost', scope: 'local', cooldown: 35, duration: 5,
+    effect: { mods: { rateMul: 1.6, chain: 2, status: [shock(0.25)] } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 30, duration: 7, effect: { mods: { rateMul: 2, chain: 4, status: [shock(0.25)] } } },
+  },
+  miko: {
+    path: 'blessing', id: 'miko.chorus', kind: 'rally', scope: 'local', cooldown: 45, duration: 8,
+    effect: { radius: 4, dmgMul: 1.25, rateMul: 1.15 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 40, duration: 10, effect: { radius: 5, dmgMul: 1.35, rateMul: 1.25 } },
+  },
+  hotaru: {
+    path: 'prayer', id: 'hotaru.hush', kind: 'debuff', scope: 'map', cooldown: 45, duration: 3,
+    effect: { pick: 'all', status: [silence(3), reveal(6)], casterStatus: [stun(1)] },
+    auto: { when: 'caster', orVeiled: true },
+    t5: { cooldown: 40, duration: 5, effect: { status: [silence(5), reveal(6), slow(0.4, 3)] } },
+  },
+  kaede: {
+    path: 'flowing', id: 'kaede.flashLunge', kind: 'strike', scope: 'local', cooldown: 25, duration: 0,
+    effect: { pick: 'mode', count: 1, reachMul: 2.5, hits: 5, dmgMul: 1, fullRamp: true, keepRamp: true },
+    auto: { when: 'enemies', min: 3, orElite: true },
+    t5: { cooldown: 20, effect: { hits: 8 } },
+  },
+  chika: {
+    path: 'sentry', id: 'chika.droneSurge', kind: 'deploy', scope: 'local', cooldown: 45, duration: 12,
+    effect: { deploy: 'drone', count: 4 },
+    auto: { when: 'enemies', min: 5, reach: 'leash' },
+    t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
+  },
+};
+const SPEC_HEROES = {
+  hikari: {
+    id: 'hikari.rally', kind: 'rally', scope: 'local', cooldown: 35, duration: 6,
+    effect: { radius: 3, rateMul: 1.2, cleanse: true, ward: true },
+    auto: { when: 'enemies', min: 4 }, // from the build plan, not the spec table
+    ranks: [{ level: 17, cooldown: 30, duration: 8, effect: { radius: 4, rateMul: 1.3 } }],
+  },
+  luna: {
+    // duration 8 (not in the spec as a duration): how long the marks last
+    id: 'luna.moonbrand', kind: 'debuff', scope: 'map', cooldown: 30, duration: 8,
+    effect: { pick: 'strong', count: 5, status: [mark(0.2, 8)] },
+    auto: { when: 'enemies', min: 5, orElite: true }, // not in the spec
+    ranks: [{ level: 17, cooldown: 25, effect: { count: 8, status: [mark(0.25, 8)] } }],
+  },
+  nami: {
+    id: 'nami.frostNet', kind: 'burst', scope: 'local', cooldown: 25, duration: 0,
+    effect: { at: 'densest', reachMul: 1, radius: 1.6, status: [freeze(1.2), soak(5)] },
+    auto: { when: 'enemies', min: 5 }, // not in the spec
+    ranks: [{ level: 17, cooldown: 21, effect: { radius: 2, status: [freeze(1.6), soak(5)] } }],
+  },
+};
+
+/** The spec's upgrade column applied to its base row: named values replace, the rest carry over. */
+function specUpgraded(base, { level, effect = {}, ...scalars }) {
+  return { ...base, ...scalars, effect: { ...base.effect, ...effect } };
+}
+
 // The effect fields each kind may use (a typo in the data fails here, not silently in the sim).
 const STATUS_LIST = ['status'];
 const EFFECT_KEYS = {
@@ -64,8 +205,16 @@ const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles'
 const TIME_KEYS = ['duration', 'delay', 'every', 'arm', 'spreadPoison'];
 const TICKS = ABILITY_RULES.ticksPerSecond;
 
-/** Other games' names never appear in our data or text (kept in sync with the content rule). */
-const FOREIGN = /\b(bloons?|btd\d*|monkeys?|genshin|zenless|zzz|blue archive|kivotos|schale|arknights|azur lane|honkai|nikke|kancolle|kantai|hoyoverse|ba-style)\b/i;
+/**
+ * Other games' names never appear in our data or text (kept in sync with the content rule). The list is
+ * stored base64-encoded so this file never spells them out itself: decoded, it is the `|`-separated
+ * alternatives of one case-insensitive whole-word RegExp.
+ */
+const FOREIGN_WORDS = atob(
+  'Ymxvb25zP3xidGRcZCp8bW9ua2V5cz98Z2Vuc2hpbnx6ZW5sZXNzfHp6enxibHVlIGFyY2hpdmV8a2l2b3Rvc3xzY2hhbGV8'
+  + 'YXJrbmlnaHRzfGF6dXIgbGFuZXxob25rYWl8bmlra2V8a2FuY29sbGV8a2FudGFpfGhveW92ZXJzZXxiYS1zdHlsZQ==',
+).split('|');
+const FOREIGN = new RegExp(`\\b(${FOREIGN_WORDS.join('|')})\\b`, 'i');
 
 const pathIndex = (u, id) => u.paths.findIndex((p) => p.id === id);
 const tiersAt = (u, pathId, tier) => { const t = [0, 0, 0]; t[pathIndex(u, pathId)] = tier; return t; };
@@ -280,22 +429,28 @@ describe('numbers', () => {
     for (let i = 1; i < st.length; i++) expect(st[i][1].cooldown, st[i][0]).toBeLessThanOrEqual(st[i - 1][1].cooldown);
   });
 
-  test('the spec numbers (§5.1), spot checks', () => {
-    const a = (id) => ABILITIES[id][0];
-    expect(a('aoi')).toMatchObject({ cooldown: 35, duration: 0, effect: { pick: 'mode', count: 6, reachMul: 1.5, dmgMul: 6, status: [{ type: 'stun', duration: 0.5 }] }, auto: { when: 'enemies', min: 4, orElite: true } });
-    expect(abilityAtTier(a('aoi'), 5)).toMatchObject({ cooldown: 28, effect: { count: 12, dmgMul: 8, reachMul: 1.5 } });
-    expect(a('rei')).toMatchObject({ cooldown: 30, duration: 4, effect: { mods: { rateMul: 2.5, range: 0.6, maxTargets: 99 } } });
-    expect(a('momo')).toMatchObject({ scope: 'player', cooldown: 45, effect: { coins: 100 }, auto: { when: 'ready' } });
-    expect(abilityAtTier(a('momo'), 5)).toMatchObject({ cooldown: 40, effect: { coins: 400 } });
-    expect(a('shiro')).toMatchObject({ scope: 'map', cooldown: 45, effect: { pick: 'priority', count: 2, reach: 'map', delay: 1, dmgMul: 5, armorPen: 99 } });
-    expect(a('hotaru')).toMatchObject({ scope: 'map', cooldown: 45, duration: 3 });
-    expect(a('umeko')).toMatchObject({ scope: 'map', cooldown: 40, duration: 8 });
-    expect(a('miko')).toMatchObject({ cooldown: 45, duration: 8, effect: { radius: 4, dmgMul: 1.25, rateMul: 1.15 } });
-    expect(abilityAtTier(a('akane'), 5).effect).toMatchObject({ shells: 12, dmgMul: 4, hitsAir: true, every: 0.25 });
-    expect(skillAtLevel(ABILITIES.hikari.skill, 17)).toMatchObject({ cooldown: 30, duration: 8, effect: { radius: 4, rateMul: 1.3, cleanse: true, ward: true } });
-    expect(skillAtLevel(ABILITIES.luna.skill, 7).effect).toMatchObject({ pick: 'strong', count: 5, status: [{ type: 'mark', bonus: 0.2, duration: 8 }] });
-    expect(skillAtLevel(ABILITIES.nami.skill, 17)).toMatchObject({ cooldown: 21, effect: { radius: 2, status: [{ type: 'freeze', duration: 1.6 }, { type: 'soak', duration: 5 }] } });
-    // map-scope abilities: Umeko, Shiro, Hotaru (one cooldown per player) and Luna's skill
+  test('the spec table covers every girl with an ability, and nobody else', () => {
+    expect(Object.keys(SPEC_TOWERS).sort()).toEqual(towers().map((u) => u.id).sort());
+    expect(Object.keys(SPEC_HEROES).sort()).toEqual(heroes().map((u) => u.id).sort());
+    expect(Object.keys(ABILITIES).sort()).toEqual([...Object.keys(SPEC_TOWERS), ...Object.keys(SPEC_HEROES)].sort());
+  });
+
+  test.each(Object.keys(SPEC_TOWERS))('%s: the spec numbers (§5.1) at tier 3 and tier 5', (id) => {
+    const base = { unlockTier: 3, ...SPEC_TOWERS[id] };
+    expect(ABILITIES[id]).toEqual([base]);
+    expect(abilityAtTier(ABILITIES[id][0], 3)).toEqual(base);
+    expect(abilityAtTier(ABILITIES[id][0], 5)).toEqual(specUpgraded(base, base.t5));
+  });
+
+  test.each(Object.keys(SPEC_HEROES))('%s: the spec numbers (§5.1 heroes) at Lv 7 and Lv 17', (id) => {
+    const base = { unlockLevel: 7, ...SPEC_HEROES[id] };
+    expect(ABILITIES[id]).toEqual({ skill: base });
+    expect(skillAtLevel(ABILITIES[id].skill, 7)).toEqual(base);
+    expect(skillAtLevel(ABILITIES[id].skill, 17)).toEqual(specUpgraded(base, base.ranks[0]));
+    expect(skillAtLevel(ABILITIES[id].skill, 25)).toEqual(specUpgraded(base, base.ranks[0]));
+  });
+
+  test('map-scope abilities: Umeko, Shiro, Hotaru (one cooldown per player) and Luna\'s skill', () => {
     const map = UNITS.flatMap((u) => (u.kind === 'hero' ? [u.hero.skill] : u.paths.filter((p) => p.ability).map((p) => p.ability))).filter((d) => d.scope === 'map').map((d) => d.id.split('.')[0]);
     expect(map.sort()).toEqual(['hotaru', 'luna', 'shiro', 'umeko']);
   });
@@ -420,6 +575,26 @@ describe('names', () => {
     for (const n of names) expect(taken.has(n.toLowerCase()), `${n} is taken`).toBe(false);
   });
 
+  test('path and tier names are unique across girls (spec §13, r2)', () => {
+    // a name may repeat within one girl (a path named after its own tier); never across two girls
+    const owner = new Map();
+    const clashes = [];
+    let count = 0;
+    for (const u of UNITS) {
+      for (const p of u.paths) {
+        for (const n of [p.name, ...p.tiers.map((t) => t.name)]) {
+          count++;
+          const key = n.trim().toLowerCase();
+          const was = owner.get(key);
+          if (was && was !== u.id) clashes.push(`"${n}": ${was} and ${u.id}`);
+          else owner.set(key, u.id);
+        }
+      }
+    }
+    expect(count).toBeGreaterThan(250); // every tower's 3 paths × (1 + 5 tiers)
+    expect(clashes).toEqual([]);
+  });
+
   test('our own words only: abilities.js, abilityText.js and every tip', () => {
     for (const f of ['src/data/abilities.js', 'src/data/abilityText.js']) {
       const src = readFileSync(join(ROOT, f), 'utf8');
@@ -427,7 +602,19 @@ describe('names', () => {
       expect(hit, `${f}: ${hit}`).toBeUndefined();
     }
     for (const u of UNITS) for (const tip of u.tips) expect(FOREIGN.test(tip), `${u.id}: ${tip}`).toBe(false);
-    expect(FOREIGN.test('Monkey')).toBe(true); // the list itself works
+  });
+
+  test('the encoded word list decodes and matches each of its own entries', () => {
+    expect(FOREIGN_WORDS.length).toBe(17);
+    // an entry's plain form (its optional plural `?` and digits `\d*` dropped) is caught, in any case
+    for (const w of FOREIGN_WORDS) {
+      const plain = w.replace(/\\d\*|\?/g, '');
+      expect(FOREIGN.test(plain), plain).toBe(true);
+      expect(FOREIGN.test(`A ${plain.toUpperCase()} tip.`), plain).toBe(true);
+    }
+    // whole words only, and our own names pass
+    expect(FOREIGN.test(`${FOREIGN_WORDS[3]}x`)).toBe(false);
+    expect(FOREIGN.test('Skyfall Volley, Drone Surge and Market Day')).toBe(false);
   });
 });
 
