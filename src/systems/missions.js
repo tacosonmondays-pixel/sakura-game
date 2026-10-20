@@ -99,11 +99,18 @@ function describeMission(m, mission, kind) {
 }
 
 /** @returns {{ daily: object[], weekly: object[] }} */
+/** A commission row is open once its `requires` stage is cleared (any difficulty). */
+export function missionOpen(profile, mission) {
+  if (!mission.requires) return true;
+  const e = profile?.progress?.stages?.[mission.requires];
+  return !!e && DIFFICULTY_ORDER.some((d) => e[d]);
+}
+
 export function missionList(profile) {
   const m = ensure(profile);
   return {
-    daily: DAILY_MISSIONS.map((x) => describeMission(m, x, 'daily')),
-    weekly: WEEKLY_MISSIONS.map((x) => describeMission(m, x, 'weekly')),
+    daily: DAILY_MISSIONS.filter((x) => missionOpen(profile, x)).map((x) => describeMission(m, x, 'daily')),
+    weekly: WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).map((x) => describeMission(m, x, 'weekly')),
   };
 }
 
@@ -116,13 +123,14 @@ export function claimMission(profile, kind, id) {
   const m = ensure(profile);
   const list = MISSION_SETS[kind];
   const mission = list?.find((x) => x.id === id);
-  if (!mission) return { ok: false, error: 'unknown', rewards: [] };
+  if (!mission || !missionOpen(profile, mission)) return { ok: false, error: 'unknown', rewards: [] };
   if (m[`${kind}Claimed`].includes(id)) return { ok: false, error: 'claimed', rewards: [] };
   if ((m[kind][id] || 0) < mission.goal) return { ok: false, error: 'incomplete', rewards: [] };
   m[`${kind}Claimed`].push(id);
   const rewards = addItems(profile, mission.rewards);
   if (kind === 'daily' && DAILY_MISSIONS.every((x) => m.dailyClaimed.includes(x.id))) track(profile, 'dailyDone', 1);
-  if (kind === 'weekly' && WEEKLY_MISSIONS.every((x) => m.weeklyClaimed.includes(x.id))) track(profile, 'weeklyDone', 1);
+  // every weekly that is open now (a row still behind its stage does not hold "all claimed" back)
+  if (kind === 'weekly' && WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).every((x) => m.weeklyClaimed.includes(x.id))) track(profile, 'weeklyDone', 1);
   return { ok: true, rewards };
 }
 

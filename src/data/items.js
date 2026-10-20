@@ -4,7 +4,7 @@
 //   materials  mat_<family>_<rarity>   (7 families × 5 rarities)
 //   books      book_<rarity>           (xp 100 / 500 / 2000 / 8000 / 30000)
 //   crowns     crown_slime|iron|cog|oni|dragon (awakening, boss drops)
-//   dice       dice_reroll, dice_prism, lock_pin
+//   dice       dice_reroll, dice_prism, lock_pin, seed_rainbow, needle_star, club_band ("Gear Tool")
 //   gear boxes gearbox_<rarity>        (resolved into real gear when opened / dropped)
 //   misc       star_fragment, ticket_recruit, ticket_recruit10, ticket_ssr_select, token_boss, token_bounty
 //   currency   coins, gems             (pseudo-items so reward lists can carry them)
@@ -29,7 +29,7 @@ export const ITEM_CATEGORIES = {
   book: { name: 'Book', tab: 'enhancement', order: 0 },
   crown: { name: 'Crown', tab: 'awakening', order: 2 },
   fragment: { name: 'Fragment', tab: 'awakening', order: 3 },
-  dice: { name: 'Reroll Item', tab: 'equipment', order: 5 },
+  dice: { name: 'Gear Tool', tab: 'equipment', order: 5 },
   gearbox: { name: 'Gear Box', tab: 'equipment', order: 4 },
   ticket: { name: 'Ticket', tab: 'tickets', order: 6 },
   token: { name: 'Token', tab: 'tokens', order: 7 },
@@ -175,7 +175,11 @@ function buildItems() {
 
   add({ id: 'dice_reroll', name: 'Fortune Dice', category: 'dice', rarity: 'rare', desc: 'Rerolls every substat on a piece of gear. Pair it with a Lock Pin to keep your favourite one.', sort: 5000 });
   add({ id: 'lock_pin', name: 'Lock Pin', category: 'dice', rarity: 'superRare', desc: 'Locks one substat in place during a Fortune Dice reroll.', sort: 5001 });
-  add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Rerolls the main stat of a piece of gear into a different stat for its slot.', sort: 5002 });
+  add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Changes the main stat of a piece of gear into another stat for its slot. You choose which one.', sort: 5002 });
+  // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §4) and the Academy Clubs (GEAR_STATS.md §C.4); never sold for gems
+  add({ id: 'seed_rainbow', name: 'Rainbow Seed', category: 'dice', rarity: 'legendary', display: 'ur', usable: 'gearAwaken', desc: 'A seven-colour sakura seed. Plant it in a +10 gold piece and it blooms into rainbow UR gear.', sort: 5003 });
+  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, even on the same line.', sort: 5004 });
+  add({ id: 'club_band', name: 'Club Armband', category: 'dice', rarity: 'mythic', usable: 'gearClub', desc: 'Tie it on a Mythic, Legendary or UR piece: it joins the club you pick. Its stats don\'t change.', sort: 5005 });
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });

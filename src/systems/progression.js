@@ -11,7 +11,10 @@ import { UNIT_MAP, getUnit } from '../data/units.js';
 import { ITEMS, materialId, bookId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
-import { gearStatTotals } from './gear.js';
+import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
+import { BATTLE_CAPS } from '../data/gearStats.js';
+
+export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
 
@@ -390,28 +393,50 @@ export function awaken(profile, unitId) {
 // Battle stats
 // ---------------------------------------------------------------------------
 
+/** Most a girl's burns and poisons grow from her gear ATK (half of it reaches them, gear-stats §B.3). */
+export const GEAR_DOT_CAP = 1.25;
+
 /**
  * Multipliers fed into the sim (CONTRACTS §5 / INTEGRATION_NOTES [sim]).
  * Unowned units get neutral level-1 stats so previews still work.
  * `potential` (1…6) is her Potential (src/systems/potential.js); the sim adds its steps.
- * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive, level, awaken, breakthrough, potential }}
+ * Gear (docs/specs/GEAR_STATS.md, GEAR_AWAKEN.md): every total is capped here (BATTLE_CAPS, the MAX tags),
+ * Every Line Counts adds its fill-in to the gear ATK part (Umeko / Miko: to Aura Power and aura radius),
+ * and the club set travels as `club` / `clubN` for the sim's tricks. `pierceK` is her Pierce in whole
+ * hundredths (the sim never handles the fraction); `rainbow` (UR pieces worn) is for the renderer only.
+ * This is the one place gear reaches a tower's battle stats.
+ * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN, rainbow, awakenPassive, level, awaken, breakthrough, potential }}
  */
 export function unitBattleStats(profile, unitId) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
-  const g = gearStatTotals(profile || { units: {}, gear: {} }, unitId);
+  const prof = profile || { units: {}, gear: {} };
+  const g = gearStatTotals(prof, unitId);
+  const fill = gearFillIn(prof, unitId);
+  const set = gearSetInfo(prof, unitId);
+  const atkFill = fill.target === 'atk' ? fill.total : 0;
+  const auraFill = fill.target === 'aura' ? fill.total : 0;
+  const gearAtk = g.atkPct + atkFill;
   const level = unit.level || 1;
   const stars = unit.awaken || 0;
   const gates = unit.breakthrough || 0;
   const r4 = (v) => Math.round(v * 10000) / 10000;
+  const C = BATTLE_CAPS;
   return {
-    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + g.atkPct)),
+    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + gearAtk)),
     rateMul: r4((1 + PER_LEVEL_RATE * (level - 1)) * (1 + g.ratePct)),
-    rangeMul: r4(1 + g.rangePct),
-    critChance: r4(Math.min(0.75, g.critChance)),
-    critMul: r4(1 + g.critDmg),
+    rangeMul: r4(1 + Math.min(C.rangePct, g.rangePct)),
+    critChance: r4(Math.min(C.critChance, g.critChance)),
+    critMul: r4(1 + Math.min(C.critDmg, g.critDmg)),
     armorPen: Math.round(g.armorPen * 10) / 10,
-    costMul: r4(Math.max(0.75, 1 - g.costCut)),
-    ultHaste: r4(Math.min(0.5, g.ultHaste)),
+    costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
+    ultHaste: r4(Math.min(C.ultHaste, g.ultHaste)),
+    pierceK: Math.round(100 * Math.min(C.piercePct, g.piercePct)),
+    auraPct: r4(Math.min(C.auraPct, g.auraPct) + auraFill),
+    auraRangeMul: r4(1 + auraFill),
+    dotMul: r4(Math.min(GEAR_DOT_CAP, 1 + 0.5 * gearAtk)),
+    club: set.club,
+    clubN: set.clubN,
+    rainbow: set.ur,
     awakenPassive: stars >= 3,
     level,
     awaken: stars,

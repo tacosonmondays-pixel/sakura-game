@@ -12,7 +12,7 @@ import { n, lighten, darken, linGrad, starPoints, blossom, slug } from './svgUti
 import { GLYPHS, glyphSVG } from './icons/glyphs.js';
 import {
   icon64, materialBody, bookBody, crownBody, diceBody, starFragmentBody, gearboxBody, ticketBody,
-  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody,
+  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody,
 } from './icons/items.js';
 import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
 
@@ -25,6 +25,9 @@ const SPECIAL_ITEMS = {
   dice_reroll: () => diceBody('dice_reroll'),
   dice_prism: () => diceBody('dice_prism'),
   lock_pin: () => diceBody('lock_pin'),
+  seed_rainbow: rainbowSeedBody,
+  needle_star: needleBody,
+  club_band: armbandBody,
   star_fragment: starFragmentBody,
   ticket_recruit: () => ticketBody('ticket_recruit'),
   ticket_recruit10: () => ticketBody('ticket_recruit10'),
@@ -68,11 +71,11 @@ export function itemIcon(itemId) {
   return icon64(itemBody(itemId) ?? FALLBACK_ITEM);
 }
 
-/** Gear piece icon (charm pendant, ribbon, shoes) tinted + glowing by rarity. */
-export function gearIcon(slot, rarity = 'common') {
+/** Gear piece icon (charm pendant, ribbon, shoes) tinted + glowing by rarity; `ur` = the rainbow UR art. */
+export function gearIcon(slot, rarity = 'common', { ur = false } = {}) {
   const s = GEAR_SLOTS[slot] ? slot : 'charm';
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
-  return icon64(gearBody(s, r));
+  return icon64(ur && r === 'legendary' ? gearBodyUR(s) : gearBody(s, r));
 }
 
 /** Currency icon: 'coins' | 'gems' (sakura crystal) | 'recruitPoints' | 'token_boss' | 'token_bounty'. */

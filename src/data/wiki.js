@@ -22,10 +22,12 @@
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, STATUSES, ROLES, ROLE_CATEGORIES, CAPABILITIES, TRAITS,
   PLACEMENT, TARGET_MODES, DIFFICULTIES, DIFFICULTY_ORDER, MAP_TIERS, UNIT_RARITIES, ITEM_RARITIES,
-  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SLOTS, GEAR_STATS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY,
+  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SLOTS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY,
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { UNITS } from './units.js';
+import { statName, BASE_STAT_KEYS } from './gearStats.js';
+import { CLUBS, LIVE_CLUBS } from './clubs.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -345,20 +347,33 @@ function levelingArticle() {
 function gearArticle() {
   return article('gear', 'Gear & Rerolls', 'progress', 'dice', 'Charms, ribbons and shoes: main stats, substats, enhancing, rerolling and locking.', ['gear', 'equipment', 'charm', 'ribbon', 'shoes', 'substat', 'main stat', 'reroll', 'lock', 'enhance', 'salvage', 'dice', 'prism'], [
     sec('Slots and main stats',
-      table(['Slot', 'Role', 'Main stat options'], Object.entries(GEAR_SLOTS).map(([id, s]) => [{ text: s.name, strong: true }, s.desc, GEAR_MAIN_STATS[id].map((k) => GEAR_STATS[k].name).join(' / ')]))),
+      table(['Slot', 'Role', 'Main stat options'], Object.entries(GEAR_SLOTS).map(([id, s]) => [{ text: s.name, strong: true }, s.desc, GEAR_MAIN_STATS[id].map((k) => statName(k)).join(' / ')]))),
     sec('Substats by rarity',
       table(['Rarity', 'Substats'], ITEM_RARITY_ORDER.map((r) => [{ text: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color, strong: true }, String(GEAR_SUBSTATS_BY_RARITY[r])])),
-      p(`Possible stats: ${Object.values(GEAR_STATS).map((s) => s.name).join(', ')}. A substat never repeats the main stat.`)),
+      p(`Possible stats: ${BASE_STAT_KEYS.map((k) => statName(k)).join(', ')}. A substat never repeats the main stat. Club pieces can also roll Pierce (ribbons: hits more enemies) or Aura Power (shoes: a stronger aura).`),
+      p('Every Line Counts: a line her kit can\'t use, or the part of a stat past its MAX, still helps: it turns into ATK (Umeko and Miko: into their aura). Each extra one adds a little less, up to +12%. Skill Haste (it was called Ult Haste) speeds up hero ults, and every girl\'s ⚡ ability at half strength.')),
     sec('Enhancing',
       list(['Each enhancement (+1, max +10) costs coins and grows the main stat.', 'Every 3rd level (+3, +6, +9) the least-upgraded substat grows too.'])),
     sec('Rerolling',
       list([
         `Substat reroll — ${itemName('dice_reroll')} (+coins): all substats are rolled again; earned enhancement upgrades are kept and redistributed.`,
         `Lock — add one ${itemName('lock_pin')} to keep one chosen substat while the others reroll.`,
-        `Main stat reroll — ${itemName('dice_prism')} (+coins): changes the main stat to another option for that slot.`,
+        `Main stat change — ${itemName('dice_prism')} (+coins): you choose the new main stat from that slot's options; its value rolls fresh.`,
       ]),
       { type: 'items', ids: ['dice_reroll', 'lock_pin', 'dice_prism'] },
       tip('The Equipment tab shows the before / after of every reroll so you can see exactly what changed.', 'good')),
+    sec('Rainbow Bloom (UR gear)',
+      list([
+        `A gold (Legendary) piece at +10 can awaken: 1 ${itemName('seed_rainbow')} + 80,000 coins. It always works.`,
+        'It becomes rainbow UR gear: every number +14% (Armor Pierce +10%), it levels up to +12, and it locks itself.',
+        `${itemName('needle_star')}: Stitch a ✦ onto the substat you choose (one growth step). Gold +10 gear takes one, rainbow gear two (a gold ✦ and a rainbow ✦, even on the same line). Take a stitch back for 10,000 coins and the Needle returns. Rerolls never touch a ✦ line.`,
+        'Salvaging rainbow gear gives back its Seed and every Needle. Crit DMG from gear stops at +200% and Range at +50% (MAX).',
+        'Rainbow Resonance: 2 rainbow pieces on one girl give +5% Range, 3 give +10%.',
+      ]),
+      { type: 'items', ids: ['seed_rainbow', 'needle_star'] }),
+    sec('Academy Clubs',
+      p(`Mythic, Legendary and rainbow pieces belong to a club. 2 pieces of one club on a girl give a stat; all 3 add a club trick. A ${itemName('club_band')} moves any piece into the club you pick (its stats stay).`),
+      table(['Club', '2 pieces', '3 pieces'], LIVE_CLUBS.map((id) => [{ text: CLUBS[id].name, strong: true }, `+${Math.round(CLUBS[id].two.value * 100)}% ${statName(CLUBS[id].two.stat)}`, `${CLUBS[id].trick.name}: ${CLUBS[id].trick.text}`]))),
     sec('Salvage',
       p('Unwanted gear can be salvaged for coins (half of the enhancement spent) and, for Super Rare or better, Fortune Dice. Locked or equipped gear cannot be salvaged.')),
   ]);

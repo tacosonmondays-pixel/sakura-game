@@ -7,7 +7,6 @@ import '../styles/journal.css'; // [story] feature locks
 import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
-import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT,
@@ -22,14 +21,14 @@ import {
   levelCapInfo, POTENTIAL_LEVEL_CAPS, BREAKTHROUGH_LEVEL_CAP, LEVEL_PAST_GATES,
 } from '../../systems/progression.js';
 import {
-  gearList, equipGear, unequipGear, enhanceCost, enhanceGear, rerollCost, rerollSubstats, mainRerollCost, rerollMainStat,
-  salvageGear, salvageRewards, setGearLocked, gearStatTotals, describeStat, MAX_GEAR_LEVEL,
+  gearList, equipGear, unequipGear, salvageGear, salvageRewards, describeStat, gearLines, isUrGear, awakenReady,
 } from '../../systems/gear.js';
-import { itemCount, hasItems } from '../../systems/inventory.js';
+import { gearActions, gearTotals, fillMeter, clubStrip } from '../gearUr.js';
+import { itemCount } from '../../systems/inventory.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
-import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { tierTags, tierNote } from '../upgradeTags.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
@@ -648,65 +647,6 @@ function showAscension(unit) {
 
 // ----- Equipment -----------------------------------------------------------
 
-function gearTotalsLine(unitId) {
-  const t = gearStatTotals(store.profile, unitId);
-  const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => describeStat(k, v));
-  return parts.length ? h('div.mb-chip-row', parts.map((p) => h('span.chip', p))) : h('p.muted', 'No gear bonuses yet.');
-}
-
-function changedSubs(before, after) {
-  return after.subs.map((s, i) => (before.subs[i]?.stat !== s.stat || before.subs[i]?.value !== s.value ? i : -1)).filter((i) => i >= 0);
-}
-
-function rerollModal(gear, kind, onDone) {
-  const profile = store.profile;
-  let lockIndex = null;
-  let result = null;
-  const bodyEl = h('div.mb-reroll');
-  const rng = createRng(Date.now() ^ Math.floor(performance.now() * 1000));
-  const draw = () => {
-    clear(bodyEl);
-    const g = profile.gear[gear.uid];
-    const cost = kind === 'main' ? mainRerollCost(g) : rerollCost(g, { lockIndex });
-    const affordable = hasItems(profile, cost);
-    put(bodyEl,
-      h('p.muted.mb-reroll-desc', kind === 'main'
-        ? 'Changes the main stat to another option for this slot. Substats stay (a clashing substat is rerolled).'
-        : 'Rerolls every substat. Enhancement upgrades are kept and spread over the new substats. Lock one substat with a Lock Pin to keep it.'),
-      kind === 'subs' && g.subs.length >= 2
-        ? h('div.mb-lock-pick',
-          h('div.mb-sub-title', 'Lock a substat (optional · costs a Lock Pin)'),
-          h('div.mb-chips', [
-            h(`button.mb-chip${lockIndex == null ? '.on' : ''}`, { onclick: () => { lockIndex = null; draw(); } }, 'No lock'),
-            ...g.subs.map((s, i) => h(`button.mb-chip${lockIndex === i ? '.on' : ''}`, { 'data-testid': `lock-${i}`, onclick: () => { lockIndex = i; draw(); } }, svgEl(uiIcon('lock'), 'mb-chip-icon'), describeStat(s.stat, s.value))),
-          ]))
-        : null,
-      result
-        ? h('div.mb-compare.mb-fade',
-          h('div', h('div.mb-sub-title', 'Before'), gearCard(result.before, { compact: true })),
-          h('div.mb-compare-arrow', '→'),
-          h('div', h('div.mb-sub-title', 'After'), gearCard(result.after, { compact: true, highlightSubs: changedSubs(result.before, result.after) })))
-        : gearCard(g, { highlightSubs: lockIndex != null ? [lockIndex] : [] }),
-      h('div.mb-reroll-foot',
-        h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost per reroll'), costChips(cost)),
-        button(result ? 'Reroll again' : 'Reroll', {
-          kind: 'yellow', icon: 'dice', testid: 'do-reroll', disabled: !affordable,
-          onClick: () => {
-            const res = kind === 'main' ? rerollMainStat(profile, g.uid, rng) : rerollSubstats(profile, g.uid, rng, { lockIndex });
-            if (!res.ok) { toast(res.error === 'missing' ? 'Not enough dice or coins.' : 'Cannot reroll this gear.', 'bad'); return; }
-            store.commit('gear-reroll');
-            result = res;
-            draw();
-            bodyEl.closest('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
-            onDone();
-          },
-        })),
-    );
-  };
-  draw();
-  modal({ title: kind === 'main' ? 'Reroll main stat' : 'Reroll substats', body: bodyEl, wide: true, actions: [{ label: 'Done', kind: 'ghost' }] });
-}
-
 function gearTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -718,37 +658,24 @@ function gearTab(unit, ctx) {
 
   const slots = h('div.mb-slots', Object.entries(GEAR_SLOTS).map(([id, s]) => {
     const g = st.gear[id] && profile.gear[st.gear[id]];
-    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
-      svgEl(gearIcon(id, g?.rarity || 'common'), `mb-slot-icon${g ? '' : '.empty'}`),
-      h('div.mb-slot-name', s.name),
-      h('div.mb-slot-sub', g ? `${describeStat(g.main.stat, g.main.value)} · +${g.level}` : 'Empty'));
+    const ur = isUrGear(g);
+    const L = g ? gearLines(g) : null;
+    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}${ur ? '.is-ur' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
+      svgEl(gearIcon(id, g?.rarity || 'common', { ur }), `mb-slot-icon${g ? '' : '.empty'}`),
+      h('div.mb-slot-name', s.name, ur ? urBadge('gu-slot-ur') : null, awakenReady(g) ? h('span.gu-slot-dot', { title: 'Can awaken' }, '✦') : null),
+      h('div.mb-slot-sub', g ? `${describeStat(L.main.stat, L.main.value)} · +${g.level}` : 'Empty'));
   }));
-  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotalsLine(unit.id)));
+  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotals(unit.id), fillMeter(unit.id), clubStrip(unit.id)));
 
   const equipped = st.gear[slot] && profile.gear[st.gear[slot]];
   if (equipped) {
-    const cost = enhanceCost(equipped);
-    const coins = itemCount(profile, 'coins');
-    const nextSub = equipped.level < MAX_GEAR_LEVEL ? 3 - (equipped.level % 3) : null;
+    const onChange = () => { ctx.refreshShowcase(); rerender(); };
     put(wrap, section(`Equipped ${GEAR_SLOTS[slot].name}`,
-      gearCard(equipped),
-      h('div.mb-gear-actions',
-        button(cost == null ? 'Max +10' : `Enhance +1 · ${formatNumber(cost)}`, {
-          kind: 'yellow', icon: 'upgrade', small: true, testid: 'enhance', disabled: cost == null || coins < cost,
-          onClick: () => {
-            const res = enhanceGear(profile, equipped.uid);
-            if (!res.ok) { toast('Not enough coins.', 'bad'); return; }
-            store.commit('gear-enhance');
-            toast(res.grewSub != null ? `+${res.level}! A substat grew.` : `+${res.level}`, 'good');
-            ctx.refreshShowcase();
-            rerender();
-          },
-        }),
-        button('Reroll subs', { kind: 'primary', icon: 'dice', small: true, testid: 'reroll-subs', disabled: !equipped.subs.length, onClick: () => rerollModal(equipped, 'subs', () => { ctx.refreshShowcase(); rerender(); }) }),
-        button('Reroll main', { kind: 'pink', icon: 'dice', small: true, onClick: () => rerollModal(equipped, 'main', () => { ctx.refreshShowcase(); rerender(); }) }),
-        button(equipped.locked ? 'Unlock' : 'Lock', { kind: 'ghost', icon: 'lock', small: true, onClick: () => { setGearLocked(profile, equipped.uid, !equipped.locked); store.commit('gear-lock'); rerender(); } }),
-        button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); ctx.refreshShowcase(); rerender(); } })),
-      nextSub ? h('p.muted', `Main stat grows every level. Next substat growth in ${nextSub} level${nextSub > 1 ? 's' : ''}.`) : null));
+      gearCard(equipped, { forUnit: unit.id }),
+      gearActions(equipped, {
+        unitId: unit.id, onChange,
+        extra: [button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); onChange(); } })],
+      })));
   }
 
   const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
@@ -758,6 +685,7 @@ function gearTab(unit, ctx) {
     allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
     others.length
       ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
+        forUnit: unit.id,
         actions: h('div.mb-gear-card-acts',
           button(g.equippedBy ? `Take from ${UNIT_MAP[g.equippedBy]?.name}` : 'Equip', {
             kind: 'primary', small: true,
@@ -786,6 +714,14 @@ function gearTab(unit, ctx) {
       : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
         h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
   return wrap;
+}
+
+/** One of her pieces is a gold +10 and a Seed is in the backpack. */
+function gearCanAwakenNow(unitId) {
+  const p = store.profile;
+  const st = p.units[unitId];
+  if (!st || !itemCount(p, 'seed_rainbow')) return false;
+  return Object.values(st.gear || {}).some((uid) => uid && awakenReady(p.gear[uid]));
 }
 
 // ----- Tree ----------------------------------------------------------------
@@ -881,7 +817,9 @@ export function render(root, params = {}) {
           renderTabs();
           renderTab(true);
         },
-      }, locked ? svgEl(uiIcon('lock'), 'mb-tab-lock') : null, t.label));
+      }, locked ? svgEl(uiIcon('lock'), 'mb-tab-lock') : null, t.label,
+      // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
+      t.id === 'gear' && !locked && gearCanAwakenNow(unit.id) ? h('span.ur-dot', { title: 'A piece can awaken', 'aria-label': 'A piece can awaken' }) : null));
     }
     const active = tabBar.querySelector('.mb-tab.active');
     requestAnimationFrame(() => active?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' }));

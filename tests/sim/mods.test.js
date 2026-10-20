@@ -218,7 +218,9 @@ describe('Potential in resolveStats', () => {
     // computed on the train head before the Potential merge (train/battle-2 049dd9b: hero rework,
     // Chika rework and path cap; same script, same 456 resolutions; landing plan §10 #9). Was
     // '456:9c7c19b9' on the commit before Potential M1, before those three changed the data.
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:30217027');
+    // '456:30217027' before gear's reach (docs/specs/GEAR_STATS.md §B.3): gear Range (rangeMul 1.05 here)
+    // now also widens an aura's radius; nothing else in these resolutions moved
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:055ce472');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

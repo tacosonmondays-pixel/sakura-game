@@ -750,3 +750,49 @@ Do 5 and 6 next. Leave 8–13 for later.
 - `ui/shots/`, `ui/ur-gear.css`, `ui/tools/icons.mjs`: the design-pass mocks, CSS and prototype art (§10).
 - `mock/gear.html`, `mock/shots/`, `mock/css/gear-ur.css`: the final mock that matches this spec (§10); `mock/tools/shoot.mjs`
   re-shoots it, `mock/tools/anim.mjs` + `webp.py` rebuild the animation.
+
+---
+
+## Build notes (track 2, `feature/ur-gear`, 2026-10-20)
+
+Built on `specs/next-wave` (Potential v3 inside). Every file:line above was re-checked against that branch; the
+places it moved are only line shifts. What shipped differently, and why:
+
+- **One branch, reader and writer together.** R1 and R2 are one track here; the coordinator decides how to stage the
+  releases. Old builds stay safe either way: every new field is mirrored in `missions.counters` and restored by
+  `src/systems/gearMarks.js` (`restoreGearMarks` runs in `migrateProfile` right after `creditPotential`).
+- **The co-op id changes** — not because of UR (UR still travels as numbers) but because gear-stats M1 (Pierce, Aura
+  Power, the club tricks) rides the same branch. `COOP_PROTOCOL` is left for the coordinator.
+- **`inv:` mirrors** are rewritten on every save (`src/core/store.js` `saveText` → `writeGearMarks`), not inside
+  `setCount`; an item never held has no mirror, a spent one keeps 0.
+- **Achievement rows §6.3 are not added** (the achievements catalogue and its gem-cap tests belong to that spec's
+  owner). Their metrics are ready: `ach:urEver`, `ach:urWorn` (counters) and the `gearAwaken` / `gearStitch` events.
+- **Profile card:** UR pieces publish now as `r: 'ur'` with effective values (today's server rules already accept it).
+  The ✦ 4th element and the club key `c` need `supabase/migrations/20261020000000_profile_gear.sql` pasted first;
+  until then `CARD_GEAR_MARKS` (`src/online/profileCard.js`) stays `false`. The viewer accepts all of it now.
+- **Gifts and refunds are paid without a notice line:** the first-bloom Seed shows a toast on the enhance that earns
+  it; paid at load (a save that already held a gold +10), and old-tab refunds, are silent.
+- **Not built (cosmetic, left for the condense pass):** Resonance's battle pip and shot glints (the `rainbow` key
+  travels for the renderer), the Seed's rainbow item tile, the Unit Sheet's rainbow build-sheet styling (its model
+  carries `ur`, `club` and `tuned`), the Backpack's own rarity chips (the UR chip is in the gear filter bar).
+- "Awakened to UR!" closes on **Wonderful!** (as the girls' ascension does), not on any tap.
+
+Files: `src/data/gearAwaken.js`, `src/systems/gear.js` (UR reads, awaken, stitch, rerolls, salvage), `src/systems/gearMarks.js`,
+`src/systems/save.js`, `src/systems/rewards.js` (Celestial counter, `assaultClear`), `src/online/coop/rewards.js` (Freeplay
+Needle and milestone items), `src/ui/gearUr.js`, `src/ui/styles/gear-ur.css`. Tests: `tests/systems/gearAwaken.test.js`,
+`tests/systems/gearStats.test.js` (mirrors), e2e `e2e/ur-gear.mjs`.
+
+### Measured (2026-10-20, `tools/gearGuard.mjs`, team build, Normal, seeds 7 / 11: the wave each run fell at)
+
+| Stage · tier | MAXED | LATE | UR_LATE | LATE + clubs | UR_LATE + clubs |
+|---|---|---|---|---|---|
+| 4-5 Blossom | 154 / 154 | 160 / 155 | 185 / 185 | 165 / 165 | 195 / 195 |
+| 4-5 Crimson Moon | 100 / 100 | 140 / 140 | 154 / 154 | 145 / 145 | 150 / 150 |
+| 1-5 Blossom | 187 / 187 | 200 / 200 | 214 / 214 | 200 / 200 | 214 / 214 |
+| 1-5 Crimson Moon | 160 / 160 | 160 / 160 | 180 / 180 | 171 / 170 | 187 / 187 |
+
+40 runs, **none beat the Eclipse Wyrm** (wave 250). UR_LATE sits 14–30 waves above LATE on Crimson Moon (the spec's
+10–30 band). On this branch's Freeplay the 1-5 Blossom UR runs pass the Matriarch (200) and fall at 214. The club presets are
+the fixed-preset approximation of gear-stats §D.4 (×1.06 / ×1.065 fill, the `clubs` lineup); the co-op PC8 pair and the
+crowd gates stay with the coordinator's combined balance pass. Perf: the 60-girl wave-200 board in UR gear with Pierce at
+its cap and Pyrotechnics on every girl runs 0.33 ms a step (budget 2 ms; `tests/sim/perf.freeplay.test.js`).

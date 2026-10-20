@@ -5,9 +5,10 @@
 // viewer's client.
 import './styles/unit-build.css';
 import { h, svgEl, stars } from './components.js';
-import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_SLOTS, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { levelCap, unitBattleStats, unitPower, MAX_BREAKTHROUGH, MAX_AWAKEN } from '../systems/progression.js';
-import { gearStatTotals } from '../systems/gear.js';
+import { gearStatTotals, gearLines, isUrLook } from '../systems/gear.js';
 import { potentialLevel, MAX_POTENTIAL } from '../systems/potential.js';
 import { gearIcon, uiIcon } from '../art/icons.js';
 import { displayRarity, urBadge } from './rarity.js';
@@ -17,7 +18,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 /** '+24.2%' for a fraction stat, '+2' for a flat one. */
 export function statText(stat, value) {
-  return GEAR_STATS[stat]?.pct ? `+${r1(value * 100).toFixed(1)}%` : `+${r1(value)}`;
+  return GEAR_STAT_DEFS[stat]?.pct ? `+${r1(value * 100).toFixed(1)}%` : `+${r1(value)}`;
 }
 
 const pctDelta = (mul) => {
@@ -36,13 +37,14 @@ export function buildModel(unit, prof) {
   const gear = Object.keys(GEAR_SLOTS).map((slot) => {
     const g = st.gear?.[slot] && prof.gear?.[st.gear[slot]];
     if (!g || g.slot !== slot) return { slot, slotName: GEAR_SLOTS[slot].name, empty: true };
+    const L = gearLines(g);
     return {
-      slot, slotName: GEAR_SLOTS[slot].name, rarity: g.rarity, rarityName: ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
-      main: { name: GEAR_STATS[g.main.stat]?.name || g.main.stat, text: statText(g.main.stat, g.main.value) },
-      subs: (g.subs || []).map((s) => ({ name: GEAR_STATS[s.stat]?.name || s.stat, text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0) })),
+      slot, slotName: GEAR_SLOTS[slot].name, rarity: g.rarity, ur: isUrLook(g), club: g.club || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
+      main: { name: statName(g.main.stat), text: statText(g.main.stat, L.main.value) },
+      subs: L.subs.map((s) => ({ name: statName(s.stat), text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0), tuned: s.tuned || 0 })),
     };
   });
-  const totals = Object.entries(gearStatTotals(prof, unit.id)).filter(([, v]) => v > 0).map(([stat, v]) => ({ name: GEAR_STATS[stat].name, text: statText(stat, v) }));
+  const totals = Object.entries(gearStatTotals(prof, unit.id)).filter(([, v]) => v > 0).map(([stat, v]) => ({ name: statName(stat), text: statText(stat, v) }));
   const s = unitBattleStats(prof, unit.id);
   const b = unit.base;
   const critMul = (b.crit?.mul || 1.5) * s.critMul;
@@ -80,7 +82,7 @@ function gearCard(g, emptyText) {
   }
   const el = h('div.ub-gc', { 'data-testid': 'build-gear', 'data-slot': g.slot },
     h('div.ub-gc-head',
-      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity))),
+      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur }))),
       h('span.ub-gc-slot', g.slotName, h('span.ub-gc-rar', g.rarityName), h('span.ub-gc-lv', `+${g.level}`))),
     h('div.ub-gc-main', h('span', g.main.name), h('b', g.main.text)),
     g.subs.length ? h('ul.ub-gc-subs', g.subs.map((s) => h('li', h('span', s.name), h('b', s.text), s.ups ? h('em', { title: `Upgraded ${s.ups}×` }, '▲'.repeat(s.ups)) : null))) : null);
