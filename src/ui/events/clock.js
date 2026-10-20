@@ -1,7 +1,7 @@
 // The clock the event screens use. In production it is exactly Date.now(). In dev builds only
 // (import.meta.env.DEV, stripped from the production bundle), a preview instant can be set so the
-// event can be played before it opens:
-//   localStorage['sakura-dev-now'] = '2026-10-24T18:00:00Z'   (then reload)
+// an event can be played at any point of its window (before it opens, in its exchange days, after):
+//   localStorage['sakura-dev-now'] = '2026-10-20T18:00:00Z'   (then reload; Halloween opens at ship)
 // Time keeps running from that instant. e2e/halloween.mjs uses this; players can never reach it.
 const KEY = 'sakura-dev-now';
 

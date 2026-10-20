@@ -5,9 +5,12 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
 
 ## Deadline
 
-- The window is `EVENT_SPEC.md` E1 / §3.2: opens game day **2026-10-24** (Fri Oct 23, 7 PM Central), last game day
-  **2026-11-01** (ends Sun Nov 1, 7 PM Central), exchange until **2026-11-08**.
-- It must be merged and live **before Fri Oct 23, 7 PM Central** (the spec's recommended merge date is Wed Oct 21).
+- **Open at ship (owner, Oct 20: "Open the event as soon it ships pls").** The window opens game day **2026-10-20**
+  (Mon Oct 19, 7 PM Central), a day that is already past when v0.1.38 deploys (Oct 20–21 UTC), so the event is open
+  the moment the build is live. Last game day **2026-11-01** (ends Sun Nov 1, 7 PM Central) and exchange until
+  **2026-11-08** are unchanged. This replaces `EVENT_SPEC.md` E1 / §3.2's Halloween row (opens 2026-10-24, Fri Oct 23
+  7 PM Central). The event now runs 13 game days instead of 9.
+- It must be live **before Fri Oct 23, 7 PM Central** at the latest (the original opening).
   If the full content can't make it, ship the framework plus a smaller event on time rather than a late full one, and say
   what was cut.
 
@@ -47,9 +50,17 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
 **What shipped.** The framework (`src/data/events/{build,index,wire}.js`, `src/systems/events.js`,
 `src/ui/screens/event.js`, `src/ui/events/*`) and **Pumpkin Lantern Night · Trick-or-Treat Patrol**
 (`src/data/events/halloween.js`, `scenes/halloween.js`):
-- Window (EVENT_SPEC E1), as `src/core/reset.js` computes it: tease `2026-10-21T00:00Z` (Tue Oct 20 7 PM CDT),
-  start `2026-10-24T00:00Z` (Fri Oct 23 7 PM CDT), end `2026-11-02T01:00Z` (Sun Nov 1 7 PM CST), exchange end
-  `2026-11-09T01:00Z` (Sun Nov 8 7 PM CST). Tested in `tests/core/resetBounds.test.js` and `tests/systems/events.test.js`.
+- Window, as `src/core/reset.js` computes it: start `2026-10-20T00:00Z` (Mon Oct 19 7 PM CDT, open at ship), end
+  `2026-11-02T01:00Z` (Sun Nov 1 7 PM CST), exchange end `2026-11-09T01:00Z` (Sun Nov 8 7 PM CST). The 3 tease days
+  (`2026-10-17T00:00Z` on) are before the ship, so no player sees the "upcoming" phase. Tested in
+  `tests/core/resetBounds.test.js` and `tests/systems/events.test.js`. (Built for `2026-10-24`, Fri Oct 23 7 PM CDT.)
+- 13 days, not 9: nothing counts "day N of the event". Episodes and operations unlock by the story chain, dailies roll
+  on the game day, and login gifts are the nth gift on the nth day the player visits (nine in all; the ninth letter
+  says it is the last, days 10–13 still count the daily Roll Call). Candy: 2,990 once (episodes 150, first clears
+  1,040, one-time missions 1,250, login gifts 550) plus 120 a day from dailies; the limited stock costs 7,550. With no
+  energy, operations sweep free (10 a tap, Op 4 = 900 candy a tap), so a farmer can empty the stock on the first day
+  either way; a player who only does the three daily wins reaches it around day 12 of 13 (it was out of reach in 9).
+  The unlimited Doodle Notes offer is the sink.
 - 3 episodes, 8 spoken lines each (the story lint's minimum; the brief said 4–8), Hikari leads with Aoi, Yuki,
   Sango; read = +50 candy (episode 3 also +50 gems). Unlock chain: Ep 1 → Op 1 → Op 2 → Ep 2 → Op 3 → Op 4 → boss → Ep 3.
 - 4 operations (Normal only, free, sweepable once cleared) + the Gourdlight Golem (Normal / Hard) on existing maps

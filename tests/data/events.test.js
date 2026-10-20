@@ -131,7 +131,7 @@ describe('Halloween episodes (story limits)', () => {
       expect(tokenProblems(intro), ev.id).toEqual([]);
       expect(resolveText(intro)).not.toMatch(/[{}]/);
       // plain-text copy the UI shows as is: no story tokens at all ({n} / {coins} are mail fill-ins)
-      const plain = [ev.name, ev.subtitle, ...(ev.notice?.body || []), ...Object.values(ev.mail || {}).flatMap((m) => (typeof m === 'object' ? [m.title, m.body, m.lateBody] : [])),
+      const plain = [ev.name, ev.subtitle, ...(ev.notice?.body || []), ...Object.values(ev.mail || {}).flatMap((m) => (typeof m === 'object' ? [m.title, m.body, m.lateBody, m.lastBody] : [])),
         ...[...(ev.missions?.daily || []), ...(ev.missions?.total || [])].flatMap((m) => [m.name, m.desc])].filter(Boolean);
       for (const t of plain) expect(t.match(TOKEN_RE), t).toBe(null);
     }

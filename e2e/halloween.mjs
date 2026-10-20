@@ -1,10 +1,11 @@
 // Halloween 2026 (Pumpkin Lantern Night) end to end, on the dev preview clock (localStorage
 // 'sakura-dev-now', dev builds only: src/ui/events/clock.js). A save that has cleared 1-5 at
-// Sat Oct 24 2026, 1 PM CDT: the lobby EVENT card and decor → the daily login gift in the Mailbox →
-// Episode 1 (skipped = read) → claim the login mission → Operation 1 played for real to victory
-// (candy earned, night look with costumed monsters) → buy in the Candy Exchange → the Gourdlight
-// Golem beaten on Normal for real → the exchange phase (operations closed) → the event ends: the
-// leftover candy comes back as coins by mail, and the page shows the summary.
+// Tue Oct 20 2026, 1 PM CDT (the event opens at ship: game day 2026-10-20): the lobby EVENT card
+// and decor → the daily login gift in the Mailbox → Episode 1 (skipped = read) → claim the login
+// mission → Operation 1 played for real to victory (candy earned, night look with costumed
+// monsters) → buy in the Candy Exchange → the Gourdlight Golem beaten on Normal for real → the
+// exchange phase (operations closed) → the event ends: the leftover candy comes back as coins by
+// mail, and the page shows the summary.
 //
 //   node e2e/halloween.mjs                         # 844x390 and 1280x720
 //   node e2e/halloween.mjs --viewport 844x390 --shots /tmp/hw
@@ -29,7 +30,7 @@ const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) 
 const T = 60000;
 const EV = 'halloween-2026';
 const CANDY = 'evt_halloween_candy';
-const OPEN_DAY = '2026-10-24T18:00:00Z'; // Sat Oct 24, 1 PM CDT
+const OPEN_DAY = '2026-10-20T18:00:00Z'; // Tue Oct 20, 1 PM CDT (open at ship)
 const EXCHANGE = '2026-11-02T18:00:00Z'; // Mon Nov 2, noon CST: operations closed, exchange open
 const ENDED = '2026-11-09T18:00:00Z'; // Mon Nov 9: the exchange has closed
 
@@ -71,7 +72,7 @@ async function openGame() {
   if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 15000 }).catch(() => {}); }
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });
   const clock = await page.evaluate(async () => new Date((await import('/src/ui/events/clock.js')).eventNow()).toISOString());
-  check(clock.startsWith('2026-10-24'), `dev clock on (${clock})`);
+  check(clock.startsWith(OPEN_DAY.slice(0, 10)), `dev clock on (${clock})`);
   // a player through chapter 1 (the event's unlock), with a level-45 team
   await page.evaluate(async () => {
     const { store } = window.__sakura;

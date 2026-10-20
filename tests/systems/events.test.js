@@ -15,7 +15,7 @@ import { itemCount } from '../../src/systems/inventory.js';
 const EV = EVENT_MAP['halloween-2026'];
 const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
-const OPEN = T('2026-10-24T00:00:00Z');
+const OPEN = T('2026-10-20T00:00:00Z'); // opens at ship (owner, Oct 20): game day 2026-10-20, Mon Oct 19 7 PM CDT
 const END = T('2026-11-02T01:00:00Z');
 const XEND = T('2026-11-09T01:00:00Z');
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT
@@ -32,10 +32,12 @@ const play = (p, stageId, at, opts = {}) => applyBattleResult(p, win(stageId, op
 describe('window and phases (ES-1, ES-2)', () => {
   it('the window instants on the 7 PM Central clock', () => {
     const w = eventWindow(EV);
-    expect(new Date(w.startAt).toISOString()).toBe('2026-10-24T00:00:00.000Z');
+    expect(new Date(w.startAt).toISOString()).toBe('2026-10-20T00:00:00.000Z');
     expect(new Date(w.endAt).toISOString()).toBe('2026-11-02T01:00:00.000Z');
     expect(new Date(w.exchangeEndAt).toISOString()).toBe('2026-11-09T01:00:00.000Z');
-    expect(new Date(w.teaseAt).toISOString()).toBe('2026-10-21T00:00:00.000Z');
+    // the tease days lie before the ship: nobody sees 'upcoming' (the earliest ship is Oct 20)
+    expect(new Date(w.teaseAt).toISOString()).toBe('2026-10-17T00:00:00.000Z');
+    expect(w.startAt).toBeLessThanOrEqual(T('2026-10-20T13:00:00Z'));
   });
 
   it('phases at every boundary ±1 ms', () => {
@@ -54,7 +56,8 @@ describe('window and phases (ES-1, ES-2)', () => {
 
   it('featuredEvent picks the active event', () => {
     expect(featuredEvent(createProfile(), MID)?.ev.id).toBe('halloween-2026');
-    expect(featuredEvent(createProfile(), T('2026-10-20T00:00:00Z'))).toBe(null);
+    expect(featuredEvent(createProfile(), T('2026-10-19T23:59:59.999Z'))).toBe(null);
+    expect(featuredEvent(createProfile(), OPEN)?.ev.id).toBe('halloween-2026');
   });
 });
 
@@ -187,6 +190,25 @@ describe('missions, login gifts, exchange, episodes (ES-8, ES-9)', () => {
     expect(l2.id).toBe('ev:halloween-2026:1:login:2');
     expect(l2.expiresAt).toBe(XEND);
     expect(loginRows(p, EV).filter((r) => r.got).length).toBe(2);
+  });
+
+  it('a 13-day window (open at ship): nine gifts, the last one says so, later days still count the Roll Call', () => {
+    const p = joined();
+    const DAY = 24 * 3600000;
+    const days = Math.round((END - OPEN) / DAY);
+    expect(days).toBe(13); // Oct 20 … Nov 1 game days (the extra hour is the CST change)
+    const sent = [];
+    for (let d = 0; d < days; d++) {
+      const at = OPEN + d * DAY + 18 * 3600000; // 1 PM Central-ish every game day
+      expect(eventPhase(EV, at)).toBe('active');
+      sent.push(...markEventLogin(p, at).letters);
+      expect(missionRows(p, EV, at).daily.find((m) => m.id === 'hw_d_login').done, `day ${d + 1}`).toBe(true);
+    }
+    expect(sent.map((l) => l.id)).toEqual(EV.login.map((_, i) => `ev:halloween-2026:1:login:${i + 1}`));
+    expect(sent.slice(0, -1).every((l) => /Come back tomorrow/.test(l.body))).toBe(true);
+    expect(sent.at(-1).body).toBe(EV.mail.login.lastBody);
+    expect(sent.at(-1).body).not.toMatch(/tomorrow/i);
+    expect(markEventLogin(p, END + DAY).letters).toEqual([]); // the exchange phase sends none
   });
 
   it('ES-9 the exchange: stock, funds checked first, cosmetics once, closed after the exchange', () => {

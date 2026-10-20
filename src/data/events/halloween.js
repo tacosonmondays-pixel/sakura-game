@@ -17,7 +17,10 @@ export default {
   subtitle: 'Trick-or-Treat Patrol',
   tagline: 'The academy\'s autumn lantern festival',
   draft: false,
-  window: { opens: '2026-10-24', lastDay: '2026-11-01', exchangeLastDay: '2026-11-08' },
+  // Open at ship (owner, Oct 20: "Open the event as soon it ships pls"): any game day already past when
+  // v0.1.38 deploys works; it was '2026-10-24' (Fri Oct 23, 7 PM Central). The tease days before it are
+  // in the past at ship, so no player ever sees the 'upcoming' phase.
+  window: { opens: '2026-10-20', lastDay: '2026-11-01', exchangeLastDay: '2026-11-08' },
   teaseDays: 3,
   unlock: { stage: '1-5' },
   theme: { color: '#f28c28', accent: '#9d4edd', fallbackArt: 'academy.webp', fallbackTint: 'night', hosts: ['hikari', 'aoi', 'yuki'] },
@@ -163,7 +166,8 @@ export default {
     offer({ id: 'hw_notes', item: 'book_common', count: 5, price: 30, limit: null }),
   ],
 
-  // One gift per game day of the event, sent to the Mailbox on the first visit that day.
+  // One gift per game day the player visits (the nth gift on the nth visiting day), sent to the Mailbox on
+  // the first visit that day. Nine gifts in a 13-day event, so a few missed days cost nothing.
   login: [
     [{ id: CANDY, count: 100 }, { id: 'gems', count: 50 }],
     [{ id: CANDY, count: 50 }, { id: 'book_rare', count: 3 }],
@@ -179,9 +183,9 @@ export default {
   notice: {
     title: 'Pumpkin Lantern Night',
     body: [
-      'The academy\'s autumn lantern festival is here — and the monsters have shown up in costumes! Join the Trick-or-Treat Patrol from Oct 23 to Nov 1 (7 PM Central).',
+      'The academy\'s autumn lantern festival is here — and the monsters have shown up in costumes! Join the Trick-or-Treat Patrol until Nov 1 (7 PM Central).',
       'Read three short episodes, clear four night operations for Pumpkin Candy, and calm the Gourdlight Golem on Normal or Hard.',
-      'Spend candy in the Candy Exchange until Nov 8 on a title, a frame, an avatar, gear boxes, books and tickets. A small gift arrives in your Mailbox every day of the festival. Nothing here costs real money.',
+      'Spend candy in the Candy Exchange until Nov 8 on a title, a frame, gear boxes, books and tickets. A small gift arrives in your Mailbox on each day you visit, nine in all. Nothing here costs real money.',
     ],
     cta: 'Go to the festival',
   },
@@ -191,7 +195,12 @@ export default {
   },
   mail: {
     from: 'Festival Committee',
-    login: { title: 'Festival gift · day {n}', body: 'Happy Pumpkin Lantern Night, Sensei! Here is today\'s festival gift. Come back tomorrow for another one.' },
+    login: {
+      title: 'Festival gift · day {n}',
+      body: 'Happy Pumpkin Lantern Night, Sensei! Here is today\'s festival gift. Come back tomorrow for another one.',
+      // the ninth and last gift (the event runs longer than nine days, so "tomorrow" would promise one more)
+      lastBody: 'Happy Pumpkin Lantern Night, Sensei! This is the ninth and last festival gift. Thank you for coming by so often!',
+    },
     unclaimed: {
       title: 'You left these at the candy table!',
       body: 'The operations are over, but some finished missions still had rewards waiting. Here they are. The Exchange stays open until Nov 8, 7 PM Central.',

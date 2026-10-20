@@ -433,7 +433,7 @@ function loginLetter(ev, st, i, now) {
     id: loginId(ev.id, st.run, i + 1),
     from: ev.mail?.from || ev.name,
     title: tpl.title.replace('{n}', String(i + 1)),
-    body: tpl.body,
+    body: i === ev.login.length - 1 && tpl.lastBody ? tpl.lastBody : tpl.body,
     rewards: ev.login[i],
     expiresAt: w.exchangeEndAt,
   };
