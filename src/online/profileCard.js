@@ -126,25 +126,43 @@ function viewGear(list, lv) {
     const clubId = club && CLUB_RARITIES.includes(rarity) ? clubAt(club) : null;
     if (clubId && CLUB_IDS.includes(clubId)) piece.c = clubId;
     const used = new Set([mainStat]);
-    const x = [];
+    const lines = [];
     const maxUps = Math.floor(l / SUB_GROWTH_EVERY);
+    const goldOk = ur || (rarity === 'legendary' && l >= MAX_GEAR_LEVEL);
     let gold = false;
     let rainbow = false;
     for (const sub of Array.isArray(g.x) ? g.x : []) {
-      if (x.length >= GEAR_SUBSTATS_BY_RARITY[rarity]) break;
+      if (lines.length >= GEAR_SUBSTATS_BY_RARITY[rarity]) break;
       if (!Array.isArray(sub) || !GEAR_STAT_DEFS[sub[0]] || used.has(sub[0])) continue;
       if (NEW_STAT_SLOT[sub[0]] && NEW_STAT_SLOT[sub[0]] !== g.s) continue;
       used.add(sub[0]);
       const ups = whole(sub[2], 0, maxUps, 0);
       // ✦ marks: ≤ 1 gold per piece (Legendary at +10 or UR), ≤ 1 rainbow per piece (UR only)
       let t = whole(sub[3], 0, 3, 0);
-      if (t & TUNE_GOLD && (gold || !(ur || (rarity === 'legendary' && l >= MAX_GEAR_LEVEL)))) t &= ~TUNE_GOLD;
+      if (t & TUNE_GOLD && (gold || !goldOk)) t &= ~TUNE_GOLD;
       if (t & TUNE_RAINBOW && (rainbow || !ur)) t &= ~TUNE_RAINBOW;
       if (t & TUNE_GOLD) gold = true;
       if (t & TUNE_RAINBOW) rainbow = true;
-      const val = clampNum(sub[1], 0, substatMax(sub[0], scale, ups + tuneCount(t)));
-      x.push(t ? [sub[0], val, ups, t] : [sub[0], val, ups]);
+      lines.push({ stat: sub[0], raw: sub[1], ups, t });
     }
+    // A card published without marks (CARD_GEAR_MARKS off, or an older build) still carries a ✦ line's
+    // full effective value: an unmarked line over its plain ceiling may use the piece's ✦ steps the
+    // marked lines left free (gold first, then rainbow; each at most once per piece). Display only.
+    const x = lines.map(({ stat, raw, ups, t }) => {
+      let steps = tuneCount(t);
+      if (!t && typeof raw === 'number' && raw > substatMax(stat, scale, ups)) {
+        if (!gold && goldOk) {
+          gold = true;
+          steps += 1;
+        }
+        if (!rainbow && ur && raw > substatMax(stat, scale, ups + steps)) {
+          rainbow = true;
+          steps += 1;
+        }
+      }
+      const val = clampNum(raw, 0, substatMax(stat, scale, ups + steps));
+      return t ? [stat, val, ups, t] : [stat, val, ups];
+    });
     if (x.length) piece.x = x;
     seenSlots.add(g.s);
     out.push(piece);

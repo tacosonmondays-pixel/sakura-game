@@ -4,7 +4,9 @@ import { buildCard, cleanViewedCard, snapshotToMiniProfile, loadoutToMiniProfile
 import { CARD_JSON_BUDGET } from '../../src/online/profileRules.js';
 import { setSensei } from '../../src/systems/senseiSave.js';
 import { unitBattleStats, unitPower } from '../../src/systems/progression.js';
-import { gearStatTotals } from '../../src/systems/gear.js';
+import { gearStatTotals, addGear, rollGear, stitchSub, awakenGear, equipGear, gearLines, substatMax } from '../../src/systems/gear.js';
+import { createProfile } from '../../src/systems/save.js';
+import { createRng } from '../../src/core/rng.js';
 import { freshSave, lateSave } from '../systems/profileFixtures.js';
 
 describe('buildCard', () => {
@@ -80,6 +82,38 @@ describe('cleanViewedCard', () => {
     expect(charm.x).toHaveLength(1); // a rare piece has 1 substat
     expect(charm.x[0][2]).toBe(3); // upgrades ≤ level / 3
     expect(shoes.x.map((x) => x[0])).toEqual(['atkPct', 'critDmg', 'rangePct', 'costCut']);
+  });
+
+  it('a ✦ line published without its marks shows the owner\'s value, not a value clamped below it (F4)', () => {
+    const p = createProfile();
+    p.currencies.coins = 5e7;
+    Object.assign(p.items, { seed_rainbow: 5, needle_star: 10 });
+    // a UR +10 charm with ✦✦ on one line, and a Legendary +10 shoe with a gold ✦
+    const ur = addGear(p, rollGear(createRng(3), { slot: 'charm', rarity: 'legendary', level: 10 }));
+    expect(stitchSub(p, ur, 0).ok).toBe(true);
+    expect(awakenGear(p, ur).ok).toBe(true);
+    expect(stitchSub(p, ur, 0).ok).toBe(true);
+    expect(p.gear[ur].subs[0].tuned).toBe(3);
+    const gold = addGear(p, rollGear(createRng(9), { slot: 'shoes', rarity: 'legendary', level: 10 }));
+    expect(stitchSub(p, gold, 2).ok).toBe(true);
+    const id = Object.keys(p.units)[0];
+    equipGear(p, id, ur);
+    equipGear(p, id, gold);
+    setSensei(p, { showcase: [id] });
+    const card = buildCard(p);
+    // CARD_GEAR_MARKS is off until the SQL paste: no ✦ element is published
+    expect(card.units[0].g.every((g) => (g.x || []).every((x) => x.length < 4))).toBe(true);
+    const v = cleanViewedCard(card).units[0];
+    for (const uid of [ur, gold]) {
+      const g = p.gear[uid];
+      const own = gearLines(g).subs;
+      const seen = v.g.find((x) => x.s === g.slot).x;
+      own.forEach((s, i) => expect(seen[i][1], `${g.slot} ${s.stat}`).toBeCloseTo(s.value, 3));
+    }
+    // a forged card cannot give two unmarked lines a gold step each: a Legendary +10 has one
+    const forged = cleanViewedCard({ units: [{ id, lv: 1, bt: 0, aw: 0, g: [{ s: 'shoes', r: 'legendary', l: 10, m: ['ratePct', 0.1], x: [['critDmg', 9, 0], ['atkPct', 9, 0]] }] }] }).units[0].g[0].x;
+    expect(forged[0][1]).toBeCloseTo(substatMax('critDmg', 'legendary', 1), 6);
+    expect(forged[1][1]).toBeCloseTo(substatMax('atkPct', 'legendary', 0), 6);
   });
 
   it('reads field by field: an unknown key never blanks the card; st.h is clamped', () => {
