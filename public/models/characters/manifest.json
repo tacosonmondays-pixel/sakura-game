@@ -410,6 +410,24 @@
   "lodSize": 199872,
   "lodVertices": 2881
  },
+ "ruri": {
+  "file": "ruri.glb",
+  "size": 1345620,
+  "animations": [
+   "attack_book",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 18209,
+  "triangles": 19997,
+  "source": "meshy",
+  "lod": "ruri.lod.glb",
+  "lodSize": 615660,
+  "lodVertices": 9087,
+  "lodTriangles": 8997
+ },
  "sango": {
   "file": "sango.glb",
   "size": 428092,

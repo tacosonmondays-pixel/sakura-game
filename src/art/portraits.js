@@ -67,18 +67,16 @@ export const PORTRAIT_DATA = {
   midori: { face: [46, 21], cut: 0.552 },
   momo: { face: [46, 22], cut: 0.579 },
   // the returning girls' painted art (art wave, Oct 2026); face / cut measured on the shipped crops.
-  // Ena's painting ends at her standing shin, so her stand fades its bottom edge.
+  // Ena's and Ruri's paintings end at the shin, so their stands fade the bottom edge.
   ena: { face: [48, 18], cut: 0.681, edges: 'b' },
   fuu: { face: [48, 19], cut: 0.658 },
   hana: { face: [49, 19], cut: 0.596 },
   iroha: { face: [51, 20], cut: 0.541 },
   kanna: { face: [45, 19], cut: 0.723 },
   noa: { face: [50, 17], cut: 0.482 },
+  ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
-  // Ruri's painted files are in public/art/portraits; her face / cut / edges line lands with her
-  // chibi import (still the placeholder layout's values until then).
-  ruri: { face: [50, 25], cut: 0.385 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

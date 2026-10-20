@@ -91,7 +91,7 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 ## Stand-ins for the returning girls
 
 The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
-(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures"; Fuu, Iroha, Ena, Kanna, Yoriko and Seiran have temporary Blender chibis, see "Temporary Blender chibis") are drawn by
+(`STANDIN_UNITS`, empty since the art wave: Noa, Hana and Ruri have their imported Meshy figures, see "Imported Meshy figures"; Fuu, Iroha, Ena, Kanna, Yoriko and Seiran have temporary Blender chibis, see "Temporary Blender chibis"; the path stays for a future girl who lands before her model) are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -250,6 +250,24 @@ to her right fist, so the string bends into a V and snaps straight on release. K
 body mesh on her right shoulder and bobs on his own `kaze` bone. Every clip carries a 16° chin-up; her
 `extras.eyes.hairGuard` keeps her auburn bangs painted during a blink. Not on the chibi: the quiver and archery case
 from her portrait. A separate circling Kaze (the falconer mechanic) would need his own model.
+
+### Ruri (art wave, Oct 2026)
+
+Same pipeline with her own profile (her art-wave model's first full pass; scratch build, no Meshy job):
+`ruri.glb` 1.35 MB (20.0k tris) / `ruri.lod.glb` 0.62 MB (9.0k tris), about 2.5 % over Hikari's sizes
+(`--webp-quality 88` would bring both under). One 28-joint skeleton: the renamed humanoid plus `root`, `kon`,
+`hair_back` and `hair_tip`. Clips `idle`, `walk`, `attack_book` (taps the grimoire, points, Kon hops), `cheer`,
+`hurt`; Hikari's battle height, `weaponKind 'book'`, 2 draw calls per instance (no separate prop mesh). Kon, her
+holo fox, is part of the body mesh on her left shoulder and rides his own `kon` bone; the grimoire is skinned to the
+hips (0.7) and her left thigh (0.3), so it stays at her hip. Meshy's rig was repaired: the right wrist and knee
+joints mirror the left ones, the long back hair follows its own `hair_back` → `hair_tip` chain instead of the right
+arm, the blazer follows the spine and the skirt blends hips and thighs. Every clip carries a 14° chin-up. Her eye
+patch normals are refitted to a mirror-symmetric face surface (`fit_eye_normals`, so both closed lids shade alike),
+and her `extras.eyes.hairGuard` (`{ hue: [223, 245], sat 0.85, val 0.06 }`, measured by hand: her navy iris sits
+just below her hair's hue) keeps her navy bangs painted during a blink. Known: the battle still draws the procedural
+relay Kon (`src/render/rosterFx.js`), so two foxes show while her relay is away from her spot (a modelled roaming
+Kon, or hiding the shoulder Kon while the relay is out, is a later display-only job); her left arm stays near rest
+in most clips (it holds the grimoire under Kon); no secondary motion on the blazer or skirt.
 
 ## Judging quality
 

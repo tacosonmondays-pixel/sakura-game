@@ -67,7 +67,7 @@ describe('drawn portraits', () => {
   });
 
   // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut)
-  const FRAME_CUT = { ena: 'b' };
+  const FRAME_CUT = { ena: 'b', ruri: 'b' };
 
   it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
     for (const u of UNITS) {
