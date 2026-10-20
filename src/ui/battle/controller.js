@@ -43,6 +43,7 @@ import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
+import { createAimControl } from './aimControl.js';
 import { sampleDroneRates } from './chikaPanel.js';
 import { createRateMeter } from './util.js';
 import { createModesBattle } from './modes.js';
@@ -396,6 +397,9 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
+    // aim mode (roster B3): a mortar / mirror girl's or Seiran's aim point, one board tap
+    ctx.aim = createAimControl(ctx);
+    modules.push(ctx.aim);
 
     // ---- pick mode: choose who Midori brews / Chika tunes up first (spec §4.4) ------------
     ctx.picking = null;
@@ -617,7 +621,7 @@ export function mountBattle(root, params, hooks) {
         else if (tapped === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
         return;
       }
-      if (ctx.flight.handleTap(p) || placement.handleTap(p)) return;
+      if (ctx.aim.handleTap(p) || ctx.flight.handleTap(p) || placement.handleTap(p)) return;
       ctx.select(tapped, { drone: drone ? p.droneUid : null });
     }));
     const onCanvasMove = (e) => {
@@ -630,6 +634,7 @@ export function mountBattle(root, params, hooks) {
       if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
         if (ctx.picking != null) ctx.cancelPick();
+        else if (ctx.aim.active) ctx.aim.cancel();
         else if (ctx.flight.active) ctx.flight.cancel();
         else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);

@@ -346,3 +346,20 @@ describe('Potential in resolveStats', () => {
     expect(resolveStats(REAL.aoi, { unitStats: { potential: '6' } })).toEqual(resolveStats(REAL.aoi));
   });
 });
+
+// Roster B3 keys (ROSTER_SPEC §6.2): airMul multiplies, gather adds, relay reach adds (only for a relay
+// girl), and the neutral defaults.
+describe('roster B3 mod keys', () => {
+  test('defaults, airMul (mul), gather (add), relay reach (add, relay girls only), both', () => {
+    const s = normalizeBase({});
+    expect([s.airMul, s.gather, s.relay]).toEqual([1, 0, null]);
+    const r = normalizeBase({ airMul: 2, relay: { kind: 'mirror', reach: 3, both: true } });
+    applyModSet(r, { airMul: 1.5, gather: 0.2, relay: { reach: 0.5 } }, { damageAdd: 0, damageMul: 1 });
+    expect(r.airMul).toBe(3);
+    expect(r.gather).toBeCloseTo(0.2, 12);
+    expect(r.relay).toEqual({ kind: 'mirror', reach: 3.5, both: true });
+    const n = normalizeBase({});
+    applyModSet(n, { relay: { reach: 1 } }, { damageAdd: 0, damageMul: 1 });
+    expect(n.relay).toBe(null);
+  });
+});

@@ -489,15 +489,20 @@ export class Sim {
       if (e.phasing) endPhasing(this, e);
       if (e.traits.field) this._applyStatusEvent(e, { type: 'silence', duration: HOLY_SILENCE }, ctx);
     }
-    // push lock: an enemy moves at most once per lock window (pushers cannot stall a lane); a hero's
-    // own push-back locks for the shorter HERO_PUSH_LOCK (hero rework), any other pusher for PUSH_LOCK
-    if (spec.knockback > 0 && !(e.pushLock > 0)) {
-      let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
-      if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
-      if (amt > 0) {
-        e.dist = Math.max(0, e.dist - amt);
-        placeOnPath(e, this.pathData[e.pathIndex]);
-        e.pushLock = tower?.isHero ? HERO_PUSH_LOCK : (PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal);
+    // push lock (roster B3): a girl's push moves an enemy at most once per PUSH_LOCK window; a hero's
+    // own push-back has its own shorter lock (HERO_PUSH_LOCK, hero rework), so the two never block
+    // each other (pushers still cannot stall a lane)
+    if (spec.knockback > 0) {
+      const hero = !!tower?.isHero;
+      if (!(hero ? e.heroPushLock > this.time : e.pushLock > 0)) {
+        let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
+        if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+        if (amt > 0) {
+          e.dist = Math.max(0, e.dist - amt);
+          placeOnPath(e, this.pathData[e.pathIndex]);
+          if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
+          else e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+        }
       }
     }
     if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);

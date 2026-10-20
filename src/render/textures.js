@@ -529,6 +529,50 @@ export function createAtlas(extra = []) {
     ctx.arc(w / 2, h / 2, w * 0.1, 0, Math.PI * 2);
     ctx.fill();
   });
+  // roster B3: curse = a hex sigil (six-point star in a ring), hex = a spiral, ground = arrow onto a line
+  icon('st_curse', (ctx, w, h) => {
+    ctx.lineWidth = 2.5;
+    for (let k = 0; k < 2; k++) {
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = -Math.PI / 2 + k * Math.PI + (i / 3) * Math.PI * 2;
+        const x = w / 2 + Math.cos(a) * w * 0.27;
+        const y = h / 2 + Math.sin(a) * h * 0.27;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  icon('st_hex', (ctx, w, h) => {
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40;
+      const a = t * Math.PI * 3.2;
+      const r = w * (0.04 + 0.24 * t);
+      const x = w / 2 + Math.cos(a) * r;
+      const y = h / 2 + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+  icon('st_ground', (ctx, w, h) => {
+    ctx.beginPath();
+    ctx.moveTo(w / 2, h * 0.2);
+    ctx.lineTo(w / 2, h * 0.58);
+    ctx.moveTo(w * 0.34, h * 0.44);
+    ctx.lineTo(w / 2, h * 0.6);
+    ctx.lineTo(w * 0.66, h * 0.44);
+    ctx.moveTo(w * 0.24, h * 0.76);
+    ctx.lineTo(w * 0.76, h * 0.76);
+    ctx.stroke();
+  });
 
   // Buff icons (src/render/buffIcons.js): white glyphs on transparent, drawn on a dark plate with a
   // rim in the source girl's tint; rims sized for 13–16 px icons; badges white with a dark outline.

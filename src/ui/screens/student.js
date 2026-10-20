@@ -55,7 +55,7 @@ const TABS = [
   { id: 'gear', label: 'Equipment' },
   { id: 'tree', label: 'Tree' },
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', none: 'Support' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 const view = { mode: 'card', gearSlot: 'charm', skin: null };
 /** seenIntro key: the Outfit pill shows a NEW dot until the outfit sheet was opened once. */
@@ -78,6 +78,9 @@ export function describeStatus(s) {
     case 'burn': case 'poison': core = `${name} ${n1(s.dps)}/s for ${n1(s.duration)}s`; break;
     case 'shred': core = `Armor −${n1(s.amount)} for ${n1(s.duration)}s (stacks ×3)`; break;
     case 'mark': case 'vulnerable': core = `${name}: +${Math.round(s.bonus * 100)}% damage taken for ${n1(s.duration)}s`; break;
+    case 'curse': core = `Curse: bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
+    case 'hex': core = `Hex ${n1(s.pct * 100)}% max HP/s for ${n1(s.duration)}s, no regen`; break;
+    case 'ground': core = `Grounds flyers for ${n1(s.duration)}s`; break;
     default: core = `${name} ${n1(s.duration)}s`;
   }
   return chancePrefix(s) + core;
@@ -111,6 +114,10 @@ export function describeMods(mods = {}) {
   add(mods.eliteMul && mods.eliteMul !== 1, `+${pctOf(mods.eliteMul)} vs elites`);
   add(mods.bossMul && mods.bossMul !== 1, `+${pctOf(mods.bossMul)} vs bosses`);
   add(mods.barrierMul && mods.barrierMul !== 1, `+${pctOf(mods.barrierMul)} vs barriers`);
+  // roster B3
+  add(mods.airMul && mods.airMul !== 1, `×${n1(mods.airMul)} vs flyers`);
+  add(mods.gather, 'Pulls the enemies ahead back together');
+  add(mods.relay?.reach, `${mods.relay?.kind === 'mirror' ? 'Mirror' : 'Familiar'} reach +${n1(mods.relay?.reach || 0)}`);
   if (mods.aura) {
     const a = mods.aura;
     const parts = [];
@@ -219,6 +226,8 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   dual('Crit chance', b.crit.chance, y.crit.chance, (v) => formatPct(v));
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
+  if (b.airMul && b.airMul !== 1) rows.push(['Vs flyers', `×${n1(b.airMul)}`, null]);
+  if (b.relay) rows.push([b.relay.kind === 'mirror' ? 'Mirror panel' : 'Familiar', `reach ${n1(b.relay.reach)} tiles${b.relay.both ? ' · fires from both' : ''}`, null]);
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
   for (const k of ['aura', 'income', 'trap', 'turret', 'ramp', 'mark']) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);

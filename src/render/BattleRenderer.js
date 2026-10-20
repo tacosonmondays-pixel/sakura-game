@@ -29,16 +29,18 @@ import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
+import { RosterFx } from './rosterFx.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
   medium: { pixelRatio: 1.5, shadows: false, bloom: false },
   low: { pixelRatio: 1, shadows: false, bloom: false },
 };
-const ULT_COLORS = { nova: '#fff3b0', timeWarp: '#c9a8ff', tide: '#8fe8ff' };
+const ULT_COLORS = { nova: '#fff3b0', timeWarp: '#c9a8ff', tide: '#8fe8ff', strike: '#f589a0', runner: '#9fd8ff' };
 const STATUS_FX = {
   freeze: '#bff0ff', burn: '#ff8a4a', poison: '#7be08a', shock: '#ffe45c', stun: '#ffd84d',
   silence: '#c4a6ff', reveal: '#ffe066', shred: '#d0d6e2', mark: '#ff6b8b', vulnerable: '#9fd8ff', slow: '#8fe3ff', soak: '#4cc9f0',
+  curse: '#b46cff', hex: '#d77bff', ground: '#d8c8a0',
 };
 const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;
@@ -187,6 +189,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return false;
     }
   }
+  // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
+  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
 
@@ -252,6 +256,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
+    roster.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
     resize();
@@ -310,6 +315,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
+      if (roster.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -527,8 +533,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'ult': {
           const col = ULT_COLORS[ev.effect] || '#ffffff';
-          screenFlash(col, 0.85, 1.8);
-          shake(0.09);
+          // one struck enemy / the sky dragon: drawn by rosterFx, no map-wide ring or flash on everyone
+          const local = ev.effect === 'strike' || ev.effect === 'runner';
+          screenFlash(col, local ? 0.45 : 0.85, local ? 2.4 : 1.8);
+          shake(local ? 0.06 : 0.09);
+          if (local) break;
           const x = ev.x ?? map.width / 2;
           const z = ev.y ?? map.height / 2;
           fx.ring(x, z, 0.3, Math.max(map.width, map.height) * 0.7, 1.1, col);
@@ -586,6 +595,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
+    roster.update(d);
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -821,6 +831,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       selectedUid = uid ?? null;
       overlays.setSelected(uid ?? null, droneUid ?? null);
       attackFx?.setSelected(uid ?? null);
+      roster.setSelected(uid ?? null);
       buffIcons.setSelected(uid ?? null);
     },
     /** Flight points being picked: { uid, mode, a } (her signal ring and the points so far), or null. */
@@ -944,6 +955,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       longCbs.length = 0;
       overlays.dispose();
       attackFx?.dispose();
+      roster.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {

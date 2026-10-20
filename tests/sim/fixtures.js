@@ -259,6 +259,31 @@ export const UNITS = {
       },
     },
   }),
+  dragoner: unit('dragoner', {
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'stormrider', attackType: 'mystic',
+    base: { cost: 500, behavior: 'chain', damage: 4, rate: 1, range: 3, chain: 2, projectileSpeed: 0 },
+    hero: {
+      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
+      levels: [],
+      ult: {
+        name: 'Sky Dragon', desc: 'runner', unlockLevel: 1, cooldown: 20,
+        effect: { type: 'runner', runner: 'dragon', center: 'aim', damage: 100, length: 10, time: 2, segments: 4, gap: 0.6, attackType: 'mystic', status: [{ type: 'mark', bonus: 0.2, duration: 5 }] },
+      },
+    },
+  }),
+  hexer: unit('hexer', {
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'puppeteer', attackType: 'mystic',
+    base: { cost: 500, damage: 1, rate: 1, range: 3 },
+    hero: {
+      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
+      levels: [],
+      ult: { name: 'Detour', desc: 'tide + hex', unlockLevel: 1, cooldown: 20, effect: { type: 'tide', damage: 1, pushback: 2, slow: 0.5, duration: 3, status: [{ type: 'hex', pct: 0.02, duration: 5 }] } },
+    },
+  }),
+  twinmirror: unit('twinmirror', {
+    attackType: 'mystic', role: 'mirror', look: { weapon: 'mirror' },
+    base: { damage: 10, rate: 1, range: 2.3, projectileSpeed: 0, relay: { kind: 'mirror', reach: 3.7, both: true } },
+  }),
   buffer: unit('buffer', {
     kind: 'hero', rarity: 'SSR', adult: true, role: 'mystic', attackType: 'mystic',
     base: { cost: 500, damage: 10, rate: 1, range: 3 },
@@ -271,7 +296,7 @@ export const UNITS = {
 };
 
 /** Fixture towers for the roster-merge mechanics (not in the default loadout). */
-export const MECH_TOWER_IDS = ['mortarer', 'familiar', 'mirrorer', 'falcon', 'pusher', 'gatherer', 'curser', 'prismer'];
+export const MECH_TOWER_IDS = ['mortarer', 'familiar', 'mirrorer', 'falcon', 'pusher', 'gatherer', 'curser', 'prismer', 'twinmirror'];
 
 function enemy(id, extra = {}) {
   return {

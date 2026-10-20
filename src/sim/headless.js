@@ -183,6 +183,9 @@ function detectionRoute(def) {
 function unitRole(stats) {
   if (stats.income && (stats.behavior === 'none' || stats.damage <= 0)) return 'econ';
   if (stats.behavior === 'none') return stats.aura ? 'support' : 'econ';
+  // an aura girl whose own attack is a token chime (Noa: 1 damage every 2 s) is placed for her aura,
+  // never copied as a damage dealer (roster wave)
+  if (stats.aura && stats.damage * stats.rate <= 0.5) return 'support';
   return 'dps';
 }
 
@@ -302,6 +305,9 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
         const tu = info.stats.turret;
         s = coverage(c, tu && tu.leash > 0 ? Math.max(info.stats.range, tu.leash + tu.range) : info.stats.range);
       }
+      // an amphibious girl takes a water spot when one covers as well (within 15%), so the land
+      // spots stay free for the girls who need them (her tip says the same; roster wave)
+      if (c.water && placement(info.def) === 'amphibious') s = s >= 0 ? s * 1.15 : s * 0.85;
       if (s > bestS) {
         bestS = s;
         best = c;

@@ -27,6 +27,7 @@ import {
 } from './types.js';
 import { UNITS } from './units.js';
 import { LEGACY, LEGACY_IDS } from './legacy.js';
+import { EXPANSION_IDS } from './unitsExpansion.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -645,9 +646,31 @@ function codexArticle() {
   ]);
 }
 
+function returningArticle() {
+  const girls = EXPANSION_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  return article('returning', 'Returning Girls', 'students', 'wiki', 'Nine girls from the older build are back in academy uniforms with tech gear, with their own tricks: aimed shots, familiars, mirrors, grounding, gusts and curses.', ['returning', 'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena', 'aim', 'mirror', 'familiar', 'curse', 'hex', 'ground', 'grounded', 'push', 'gather'], [
+    sec('Who is back',
+      p('Kanna, Yoriko and Seiran are adult staff heroes; Fuu, Hana, Ruri, Noa, Iroha and Ena are students. Noa joins free after 6-2 and Hana after 7-5; the others come from recruiting. Their art is a placeholder until the real portraits and chibis are drawn.'),
+      table(['Girl', 'Role', 'What she does'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
+      ]))),
+    sec('Aim points',
+      p('Some girls have an aim point: Iroha\'s mirror panel and Seiran\'s Dragonflight. Select her and tap Set aim, then tap the map; Auto lets her choose again. In co-op only her owner can aim her.'),
+      tip('Without an aim, the mirror goes to the nearest lane edge and the dragon enters at the exit end of the busiest path.', 'info')),
+    sec('Familiars and mirrors',
+      p('Ruri attacks from Kon, a holo fox who stands at the edge of the nearest lane; her range ring is centred on Kon. Iroha fires from her own spot and from her mirror panel at once.')),
+    sec('Flyers and grounding',
+      p('Grounded flyers drop out of the sky for a moment, and ground-only girls such as Rei, Akane and Sango can hit them. Hana, Fuu (Grounding Breeze), Ruri (Star Falcon) and Seiran ground flyers. Bosses stay down a quarter as long. The Air target mode shoots flyers first.')),
+    sec('Push-back and gathering',
+      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so pushers cannot stall a lane forever. Bosses never move. A hero\'s own push-back has its own shorter lock.')),
+    sec('Curses and hexes',
+      p('Ena\'s curses burst when the enemy falls: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
