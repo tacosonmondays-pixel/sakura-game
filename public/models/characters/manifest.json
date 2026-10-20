@@ -118,6 +118,23 @@
   "lodSize": 199092,
   "lodVertices": 2854
  },
+ "fuu": {
+  "file": "fuu.glb",
+  "size": 478116,
+  "animations": [
+   "attack_sweep",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10324,
+  "lod": "fuu.lod.glb",
+  "lodSize": 238008,
+  "lodVertices": 3647
+ },
  "hana": {
   "file": "hana.glb",
   "size": 1236888,

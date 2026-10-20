@@ -33,7 +33,7 @@ const MESHY_BONES = [
 
 // every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
 const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
-const GLB_UNIT_COUNT = 21; // + noa, hana (painted art wave)
+const GLB_UNIT_COUNT = 22; // + noa, hana (Meshy, art wave), fuu (temporary Blender chibis)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
