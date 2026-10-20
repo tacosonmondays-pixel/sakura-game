@@ -47,6 +47,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
+import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
 
 /**
@@ -351,6 +352,9 @@ export function restoreSim(rec, profile = null) {
   const stage = STAGE_MAP[rec?.stageId];
   if (!stage) throw new StaleSaveError(`unknown stage ${rec?.stageId}`);
   if (!s || !(rec.v <= RECORD_V) || !(s.v <= SNAP_V)) throw new StaleSaveError('save format from a newer build');
+  // [events] a difficulty with its own waves (the Golem's Nightmare) restores on that stage, as
+  // createBattleSim built it (src/ui/battle/setup.js), so the wave tables match after Continue
+  const evStage = eventBattleStage(rec.stageId, rec.difficulty);
   let sim;
   try {
     sim = new Sim({
@@ -362,6 +366,7 @@ export function restoreSim(rec, profile = null) {
       // never options.freeplay: freeplay runs (co-op or solo) are never saved; the run's own battle
       // mode (a record without one: Standard)
       options: { endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode) },
+      ...(evStage ? { data: { stage: evStage } } : {}),
     });
   } catch (e) {
     throw new StaleSaveError(`stage cannot be built: ${e.message}`);

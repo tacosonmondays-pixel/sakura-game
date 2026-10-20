@@ -41,18 +41,22 @@ function atTheBoss() {
 }
 
 describe('HW-1 an event stage plays and pays only on its own difficulties', () => {
-  it('the stage data: operations Normal only, the boss Normal / Hard', () => {
-    expect(STAGE_MAP['ev-halloween-1'].difficulties).toEqual(['normal']);
-    expect(STAGE_MAP['ev-halloween-boss'].difficulties).toEqual(['normal', 'hard']);
+  it('the stage data: operations Normal / Nightmare, the boss Normal / Hard / Nightmare', () => {
+    for (const n of [1, 2, 3, 4]) expect(STAGE_MAP[`ev-halloween-${n}`].difficulties).toEqual(['normal', 'nightmare']);
+    expect(STAGE_MAP['ev-halloween-boss'].difficulties).toEqual(['normal', 'hard', 'nightmare']);
   });
 
   it('parseBattleParams turns any other difficulty in a battle link into the stage\'s first', () => {
     const p = atTheBoss();
     expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'easy' }, p).difficulty).toBe('normal');
-    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, p).difficulty).toBe('normal');
+    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, p).difficulty).toBe('nightmare');
     expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'hard' }, p).difficulty).toBe('hard');
-    expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'nightmare' }, p).difficulty).toBe('normal');
+    expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'nightmare' }, p).difficulty).toBe('nightmare');
+    expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'hard' }, p).difficulty).toBe('normal');
     expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'easy' }, p).difficulty).toBe('normal');
+    // a Nightmare still locked there plays as practice (the boss's opens after its Hard medal)
+    expect(parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, p).practice).toBe(true);
+    expect(parseBattleParams({ stage: 'ev-halloween-1', difficulty: 'nightmare' }, p).practice).toBe(false);
     // campaign stages keep all four
     expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }, p).difficulty).toBe('easy');
   });
@@ -76,11 +80,11 @@ describe('HW-1 an event stage plays and pays only on its own difficulties', () =
     expect(n.event.newEpisodes).toEqual(['ev.halloween.03']);
   });
 
-  it('Easy / Hard / Nightmare on a Normal-only operation pay no medal gems', () => {
+  it('Easy / Hard on an operation (Normal / Nightmare only) pay no medal gems', () => {
     const p = atTheBoss();
     const gems = p.currencies.gems;
     const progress = { ...eventState(p, EV.id).total.progress };
-    for (const d of ['easy', 'hard', 'nightmare']) {
+    for (const d of ['easy', 'hard']) {
       const r = play(p, 'ev-halloween-1', d);
       expect(r.practice).toBe(true);
       expect(r.newMedal).toBe(false);

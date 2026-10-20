@@ -10,6 +10,8 @@ import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
 import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
+import { eventBattleStage } from '../../data/events/wire.js';
+import { eventDifficultyStatus } from '../../systems/events.js';
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -72,7 +74,8 @@ export function parseBattleParams(params = {}, profile = null) {
   const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
-  const practice = !!profile && isPracticeRun(profile, stageId);
+  // [events] so does a difficulty still locked on an event stage (Nightmare before its medal gate)
+  const practice = !!profile && (isPracticeRun(profile, stageId) || !eventDifficultyStatus(profile, stageId, difficulty).ok);
   const resume = typeof params.resume === 'string' && params.resume ? params.resume : null;
   const tutorial = String(params.tutorial ?? '') === '1';
   const fpStage = hasSoloFreeplay(stageId) && !practice && !tutorial;
@@ -97,8 +100,10 @@ export function createBattleSim(profile, req) {
   const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
-  // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js)
+  // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js); [events] a
+  // difficulty with its own waves (the Golem's Nightmare): that stage (src/data/events/wire.js)
   const fpStage = req.freeplay ? soloFreeplayStage(req.stageId, req.freeplay) : null;
+  const evStage = fpStage ? null : eventBattleStage(req.stageId, req.difficulty);
   const sim = new Sim({
     stageId: req.stageId,
     difficulty: req.difficulty,
@@ -106,7 +111,7 @@ export function createBattleSim(profile, req) {
     hero: heroEntry,
     seed,
     options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}) },
-    ...(fpStage ? { data: { stage: fpStage } } : {}),
+    ...(fpStage || evStage ? { data: { stage: fpStage || evStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
 }

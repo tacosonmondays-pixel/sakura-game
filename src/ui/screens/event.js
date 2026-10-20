@@ -219,7 +219,7 @@ function stagesTab(ev, phase) {
       st.ok ? null : h('div.ev-op-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), st.text),
     )));
   }
-  return panel('Night operations', grid, h('p.muted.ma-hint', 'Operations are free to play. Cleared operations can be swept from their prep screen.'));
+  return panel('Night operations', grid, h('p.muted.ma-hint', { 'data-testid': 'event-ops-hint' }, 'Operations are free to play. Cleared operations can be swept from their prep screen. Nightmare opens after an operation\'s Normal clear (the Golem\'s after Hard) and pays more candy.'));
 }
 
 // ---------------------------------------------------------------------------

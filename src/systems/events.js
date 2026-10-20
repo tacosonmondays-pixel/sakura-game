@@ -15,15 +15,19 @@
 // claimed, 'evp:<eventId>:<run>:<missionId>' = one-time mission progress. The login gifts sent are
 // read back from mail.delivered ('ev:<eventId>:<run>:login:<n>'). The run's 'evb:' / 'evm:' / 'evp:'
 // marks are removed once it is settled (the block is pruned then and 'evs:' keeps it final).
+// Nightmare (Halloween 2026, Oct 20): its medals are progress.stages[id].nightmare, which every build's migrate keeps;
+// its one-time missions are shadowed like the others, so a v0.1.38 tab that drops their ids from the block never
+// makes them pay twice. Missions added mid-event are one-time only (daily claims have no shadow).
 
 import '../data/events/wire.js';
 import { ALL_EVENTS, EVENTS, EVENT_MAP, eventById, eventOfStage } from '../data/events/index.js';
 import { STAGE_MAP } from '../data/stages.js';
 import { getItem } from '../data/items.js';
+import { DIFFICULTIES } from '../data/types.js';
 import { gameDay, gameDayStart, gameDayEnd, isNewPeriod, formatCountdown } from '../core/reset.js';
 import { addItems, consumeItems, itemCount, normalizeList } from './inventory.js';
 import { deliverMail } from './mail.js';
-import { isStageCleared } from './unlocks.js';
+import { isStageCleared, stageMedals } from './unlocks.js';
 
 const DAY = 24 * 3600 * 1000;
 const ms = (t) => (t instanceof Date ? t.getTime() : Number(t));
@@ -306,6 +310,24 @@ export function eventStageStatus(profile, stageId, now = Date.now(), opts = {}) 
 }
 
 /**
+ * Does this event stage offer `difficulty` to this save now? Event stages play only their own
+ * `difficulties`, and a stage's `unlockAfter` names the medal a difficulty waits for: an operation's
+ * Nightmare opens after its Normal medal, the Golem's after its Hard medal. Every other stage: ok.
+ * @returns {{ ok: boolean, reason: null|'difficulty'|'medal', needs: string|null, text: string }}
+ *   text: "Clear Hard first" (the stage-prep picker's line)
+ */
+export function eventDifficultyStatus(profile, stageId, difficulty) {
+  const stage = STAGE_MAP[stageId];
+  if (stage?.kind !== 'event') return { ok: true, reason: null, needs: null, text: '' };
+  if (Array.isArray(stage.difficulties) && !stage.difficulties.includes(difficulty)) {
+    return { ok: false, reason: 'difficulty', needs: null, text: `${DIFFICULTIES[difficulty]?.name || difficulty} isn't offered here` };
+  }
+  const needs = stage.unlockAfter?.[difficulty] || null;
+  if (needs && !stageMedals(profile, stageId)[needs]) return { ok: false, reason: 'medal', needs, text: `Clear ${DIFFICULTIES[needs].name} first` };
+  return { ok: true, reason: null, needs: null, text: '' };
+}
+
+/**
  * The reward gate of a finished event battle: the stage's status at the battle's START time, so a
  * battle begun before the end still pays (EVENT_SPEC §3.2).
  * @returns {{ ok: boolean, text: string }}
@@ -321,16 +343,18 @@ export function eventRunGate(profile, stage, startedAt = Date.now()) {
 
 /**
  * Event missions + episode unlocks after an event battle (called by applyBattleResult just before
- * it adds the rewards). Only ever counts while the event is active.
+ * it adds the rewards). Only ever counts while the event is active. `eventStage` counts a stage's
+ * first clear and each new medal on it (with its difficulty: "Clear Hayride on Nightmare");
+ * `eventClear` and `eventBoss` carry the difficulty too.
  * @returns {{ event?: { id: string, newEpisodes: string[] } }}
  */
-export function eventAfterBattle(profile, stage, { won, firstClear, difficulty, totalKills = 0, now = Date.now() } = {}) {
+export function eventAfterBattle(profile, stage, { won, firstClear, newMedal = false, difficulty, totalKills = 0, now = Date.now() } = {}) {
   const ev = stage?.kind === 'event' ? eventOfStage(stage.id) : null;
   if (!ev) return {};
   if (won) {
-    trackEvent(profile, ev.id, 'eventClear', 1, { now });
+    trackEvent(profile, ev.id, 'eventClear', 1, { now, difficulty });
     if (stage.boss) trackEvent(profile, ev.id, 'eventBoss', 1, { now, difficulty });
-    if (firstClear) trackEvent(profile, ev.id, 'eventStage', 1, { now, stageId: stage.id });
+    if (firstClear || newMedal) trackEvent(profile, ev.id, 'eventStage', 1, { now, stageId: stage.id, difficulty });
   }
   if (totalKills > 0) trackEvent(profile, ev.id, 'eventKill', totalKills, { now });
   // episodes this first clear opened (their stage gate is this stage)

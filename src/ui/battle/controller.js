@@ -191,7 +191,8 @@ export function mountBattle(root, params, hooks) {
   function stageFamilies() {
     const fams = new Set();
     try {
-      for (const x of stageEnemies(stage) || []) {
+      // (the stage the Sim runs: an event difficulty with its own waves brings its own enemies)
+      for (const x of stageEnemies(sim?.stage || stage) || []) {
         const def = typeof x === 'string' ? ENEMY_MAP[x] : x;
         if (def) fams.add(def.model?.base || def.family);
       }
