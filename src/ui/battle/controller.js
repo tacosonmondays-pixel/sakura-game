@@ -929,6 +929,7 @@ export function mountBattle(root, params, hooks) {
         const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtCoins(x.refunded)} coins` : '';
         feed.push(`Heroes changed: ${name} keeps Lv ${x.level}${coins}.`, 'info', { key: 'save-hero', ms: 8000, sticky: true });
       }
+      if (restored.potentialNew) feed.push('This run continues with Potential\'s new effects.', 'info', { key: 'save-potential', ms: 6000, sticky: true });
       feed.push(`Welcome back! Wave ${sim.wave + 1} is next. Tap Start when you're ready.`, 'good', { key: 'welcome-back', ms: 4200, sticky: true });
     }
 

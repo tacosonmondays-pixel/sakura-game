@@ -170,7 +170,8 @@ export function createDronePanel(ctx, { rerender }) {
     const tu = st.turret;
     // today's grid (her damage, rate, range, crit, aura, …) between the totals and the drone lines
     const fly = tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles (+${fmtNum(tu.range, 1)} gun)`;
-    return h('div', { 'data-testid': 'stats-overall' }, h('div.bt-stats-grid',
+    // her Potential rows (the drones' overclock) first, so they tick in view
+    return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
       cell('DPS', `${fmtNum(st.own.dps + wing, 1)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
       cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
@@ -202,7 +203,7 @@ export function createDronePanel(ctx, { rerender }) {
     if (cells.aura) rows.push(cells.aura);
     const behaviour = st.behavior === 'chain' ? 'Her Tesla coil chains lightning on its own.' : 'Her wrench bolt fires on its own. Tesla Engineering turns it into a lightning coil.';
     // who buffs her and whom she buffs (her Repair Bay tune-up and its Pick control): path cap §4.4
-    return h('div', { 'data-testid': 'stats-chika' }, h('div.bt-stats-grid', rows), cells.ownCaps, h('p.bt-dr-note', behaviour), cells.buffs?.() || null);
+    return h('div', { 'data-testid': 'stats-chika' }, cells.pot || null, h('div.bt-stats-grid', rows), cells.ownCaps, h('p.bt-dr-note', behaviour), cells.buffs?.() || null);
   }
 
   function dronesTab(t, st) {
@@ -320,8 +321,9 @@ export function createDronePanel(ctx, { rerender }) {
 
   /**
    * Builds the sections for girl `t`. `parts` come from the panel: the upgrade paths, today's
-   * stat cells (without DPS and the drone line), the Aura cell, the capability chips and `buffs()`
-   * (her "Buffed by" / "Buffing" sections, built only when her own tab shows).
+   * stat cells (without DPS and the drone line), the Aura cell, the capability chips, her Potential
+   * rows (`pot`, on top of the Overall or Chika tab, whichever shows) and `buffs()` (her "Buffed by" /
+   * "Buffing" sections, built only when her own tab shows).
    */
   function sections(t, st, parts, { mine, affordable }) {
     live = [];

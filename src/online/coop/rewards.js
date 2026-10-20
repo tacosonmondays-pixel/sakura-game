@@ -7,8 +7,9 @@
 //      co-op win, saved at once, so leaving or falling later never loses it;
 //   2. the run, when it ends (defeat, the Finish vote, or leaving after the goal:
 //      applyCoopFreeplayEnd): coins per freeplay wave × the tier's multiplier, a freeplay cache
-//      every 25 freeplay waves, Assault Tokens for boss-rank kills (capped), the per-tier best
-//      wave, one-time milestones, and only the kills / sightings made since the bank.
+//      every 25 freeplay waves (plus one Akashic Tome per cache, at most 2 a week per account, solo
+//      and co-op together), Assault Tokens for boss-rank kills (capped), the per-tier best wave,
+//      one-time milestones, and only the kills / sightings made since the bank.
 // Freeplay is played for the record and the bosses, not the farm. Measured (bot runs at 3×, coins
 // per real minute): the waves pay 125–210 (Blossom), 185–300 (Tempest), 230–370 (Crimson Moon); a
 // cache every 25 waves adds about 170–450 more (it carries the stage's own coin drop) — together
@@ -22,6 +23,7 @@ import { STAGE_MAP } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { getItem } from '../../data/items.js';
 import { freeplayTable } from '../../data/freeplay.js';
+import { weekKey } from '../../core/util.js';
 
 /** Freeplay payout tuning (outside the co-op id). */
 export const FREEPLAY_REWARDS = Object.freeze({
@@ -29,6 +31,12 @@ export const FREEPLAY_REWARDS = Object.freeze({
   coinsPerWave: 40,
   /** one freeplay cache (a stage drop roll without gear, crowns or tokens) per this many freeplay waves */
   cacheEvery: 25,
+  /**
+   * Each cache also holds `perCache` Akashic Tomes (one level above 60 each, Potential v3 §4.4), at
+   * most `weeklyCap` a week per account, solo and co-op together (counter `fpTome:<week>` in
+   * missions.counters, the shop's week). Uncapped, Freeplay would be the best EXP farm in the game.
+   */
+  cacheTome: Object.freeze({ item: 'book_legendary', perCache: 1, weeklyCap: 2 }),
   /** Assault Tokens: one per boss-rank kill (bosses, titans, the Matriarch, the Wyrm), at most this many a run */
   tokenCap: 10,
   /** once per account and tier: [id, what unlocks it, gems, title?, frame?] */
@@ -221,6 +229,44 @@ export function rollFreeplayCache(stageId, difficulty, rng) {
   });
 }
 
+/** missions.counters key prefix of the Akashic Tomes freeplay caches paid this week ('fpTome:' + weekKey). */
+export const FP_TOME_PREFIX = 'fpTome:';
+
+/**
+ * Akashic Tomes `caches` freeplay caches add for this account now: `perCache` each until the week's
+ * `weeklyCap` (solo and co-op share the counter). Counts them in `fpTome:<week>`; writing a week's
+ * key deletes older weeks' keys, so a new week starts again at 0.
+ * @returns {number} Tomes to add
+ */
+export function freeplayCacheTomes(profile, caches, now = new Date()) {
+  const T = FREEPLAY_REWARDS.cacheTome;
+  const want = count(caches) * T.perCache;
+  if (!want) return 0;
+  const counters = ((profile.missions ||= {}).counters ||= {});
+  const key = FP_TOME_PREFIX + weekKey(now);
+  for (const k of Object.keys(counters)) if (k.startsWith(FP_TOME_PREFIX) && k !== key) delete counters[k];
+  const got = count(counters[key]);
+  const n = Math.max(0, Math.min(want, T.weeklyCap - got));
+  if (n > 0) counters[key] = got + n;
+  return n;
+}
+
+/**
+ * The freeplay results line for the caches' Akashic Tomes (read after the run was applied): "+1
+ * Akashic Tome (2 of 2 this week)" when the caches paid some, "Akashic Tomes: weekly limit reached (2
+ * a week, back next week)" when caches came but the week's Tomes were already paid, null without
+ * a cache. `fp` is applyCoopFreeplayEnd's `freeplay` ({ caches, tomes }).
+ * @returns {string|null}
+ */
+export function freeplayTomeLine(profile, fp, now = new Date()) {
+  const T = FREEPLAY_REWARDS.cacheTome;
+  if (!count(fp?.caches)) return null;
+  const tomes = count(fp?.tomes);
+  if (!tomes) return `Akashic Tomes: weekly limit reached (${T.weeklyCap} a week, back next week)`;
+  const used = Math.min(T.weeklyCap, Math.max(tomes, count(profile?.missions?.counters?.[FP_TOME_PREFIX + weekKey(now)])));
+  return `+${tomes} Akashic Tome${tomes === 1 ? '' : 's'} (${used} of ${T.weeklyCap} this week)`;
+}
+
 /** This account's freeplay records: { done: ['blossom:w100', …], titles: [...], frames: [...] }. */
 export function freeplayRecords(profile) {
   const p = (profile.progress ||= { stages: {} });
@@ -257,10 +303,10 @@ export function coopBestWaves(profile, stageId) {
  *   bestKey: the stage-entry field holding the per-tier best (co-op `coopBestWave`; solo freeplay,
  *   src/systems/freeplayRewards.js, uses `freeplayBest` with these same payouts); waveCoins: coins per
  *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage)
- * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tokens,
+ * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tomes, tokens,
  *   best, prevBest, newBest, milestones: [{ id, label, gems, title?, frame? }] }`
  */
-export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null } = {}) {
+export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null, now = new Date() } = {}) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
@@ -282,6 +328,9 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   if (coins > 0) rewards.push({ id: 'coins', count: coins });
   const caches = Math.floor(waves / R.cacheEvery);
   for (let i = 0; i < caches; i++) rewards.push(...rollFreeplayCache(stage.id, result.difficulty, rng));
+  // after the cache rolls, so the rng stream (and every drop) is what it was before the Tomes
+  const tomes = freeplayCacheTomes(profile, caches, now);
+  if (tomes > 0) rewards.push({ id: R.cacheTome.item, count: tomes });
   let bossKills = 0;
   for (const [id, n] of Object.entries(kills)) if (ENEMY_MAP[id]?.tier === 'boss') bossKills += n;
   const tokens = Math.min(R.tokenCap, bossKills);
@@ -313,6 +362,6 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
 
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
-  out.freeplay = { tier: table.id, tierName: table.name, goal, cleared, waves, coins, caches, tokens, best: Math.max(prevBest, cleared), prevBest, newBest, milestones };
+  out.freeplay = { tier: table.id, tierName: table.name, goal, cleared, waves, coins, caches, tomes, tokens, best: Math.max(prevBest, cleared), prevBest, newBest, milestones };
   return out;
 }

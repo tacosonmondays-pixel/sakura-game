@@ -3,8 +3,9 @@
 //
 // Scaling is deliberately modest (heroes used to be overpowered):
 //   damage +1.8% per level after 1, +2% per breakthrough gate, +5% per awaken star (additive)
-//   → level 60 / 5 gates / ★5 ≈ ×2.41 damage before gear.
+//   → level 60 / 5 gates / ★5 ≈ ×2.41 damage before gear (level 85 at P6: ×2.86).
 //   attack rate +0.4% per level after 1.
+// Levels above 60 (Potential raises the cap, LEVEL_PAST_GATES) continue the same curve.
 
 import { UNIT_MAP, getUnit } from '../data/units.js';
 import { ITEMS, materialId, bookId } from '../data/items.js';
@@ -14,26 +15,156 @@ import { gearStatTotals } from './gear.js';
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
 
-export const MAX_LEVEL = 60;
 export const MAX_BREAKTHROUGH = 5;
 export const MAX_AWAKEN = 5;
-/** Coins charged per point of EXP applied. */
+/** Coins charged per point of EXP applied (up to level 60; LEVEL_PAST_GATES prices the levels above). */
 export const COINS_PER_EXP = 0.4;
+
+/**
+ * The levels past the breakthrough cap, in ONE table (docs/specs/POTENTIAL.md v3 §4; owner: level
+ * 85 at P6, Akashic Tomes for the EXP). Once breakthrough gate 5 is open, her level cap is
+ * `caps[P − 1]` (P = her Potential, src/systems/potential.js potentialLevel); every level above
+ * `from` costs `exp` EXP (one `book`, an Akashic Tome) and `coins`. A later ascension (level gates
+ * paid with family materials and a crown) replaces or extends this table and levelCap below; the
+ * Potential ladders (src/data/potential.js) never change for it. Not co-op hashed: a girl's level
+ * travels as a number.
+ */
+export const LEVEL_PAST_GATES = Object.freeze({
+  /** the cap breakthrough gate 5 opens; the levels above it are Potential's */
+  from: 60,
+  /** her level cap at P1…P6 with every gate open (+3, +4, +5, +6, +7 per step) */
+  caps: Object.freeze([60, 63, 67, 72, 78, 85]),
+  /** EXP for each level above `from`: one Akashic Tome */
+  exp: 30000,
+  /** coins for each level above `from` (charged per EXP applied, like the levels below) */
+  coins: 12000,
+  /** the book the screens price a level in */
+  book: bookId('legendary'),
+});
+/** What breakthrough gate 5 opens (60). */
+export const BREAKTHROUGH_LEVEL_CAP = LEVEL_PAST_GATES.from;
+/** Her level cap at P1…P6 once gate 5 is open. */
+export const POTENTIAL_LEVEL_CAPS = LEVEL_PAST_GATES.caps;
+export const EXP_PER_LEVEL_ABOVE_60 = LEVEL_PAST_GATES.exp;
+export const COINS_PER_LEVEL_ABOVE_60 = LEVEL_PAST_GATES.coins;
+/** The highest level any girl reaches (85, at P6). */
+export const MAX_LEVEL = POTENTIAL_LEVEL_CAPS[POTENTIAL_LEVEL_CAPS.length - 1];
 
 const PER_LEVEL_DAMAGE = 0.018;
 const PER_GATE_DAMAGE = 0.02;
 const PER_STAR_DAMAGE = 0.05;
 const PER_LEVEL_RATE = 0.004;
 
-/** Level cap for a unit state: 10 + 10 × breakthrough (max 60). */
-export function levelCap(unitState) {
-  return Math.min(MAX_LEVEL, 10 + 10 * (unitState?.breakthrough || 0));
+/**
+ * The level-cap rule with her gates and her Potential given: 10 + 10 × gates below gate 5; with
+ * every gate open, her Potential's cap (P1 60 · P2 63 · P3 67 · P4 72 · P5 78 · P6 85). A P6 girl at
+ * gate 3 is capped at 40: the gates come first, and there is no gate 6 (the duplicate is the gate).
+ * Callers that already know her P (a profile card, a co-op loadout, the Potential screens) pass it
+ * here, so nothing outside src/systems/potential.js potentialLevel says where P comes from.
+ * @param {number} gates breakthrough gates open (0…5)
+ * @param {number} p her Potential (1…6)
+ */
+export function levelCapAt(gates, p) {
+  const g = Math.max(0, Math.floor(Number(gates) || 0));
+  if (g < MAX_BREAKTHROUGH) return 10 + 10 * g;
+  const i = Math.max(1, Math.min(POTENTIAL_LEVEL_CAPS.length, Math.floor(Number(p) || 1))) - 1;
+  return POTENTIAL_LEVEL_CAPS[i];
 }
 
-/** EXP to go from `level` to `level + 1` (Infinity at max). */
+/** Level cap for a unit state: levelCapAt(her gates, potentialLevel(her state)). */
+export function levelCap(unitState) {
+  return levelCapAt(unitState?.breakthrough, potentialLevel(unitState));
+}
+
+/**
+ * Her level cap and what raises it next, for the screens. Below gate 5: the next breakthrough
+ * gate (+10). With every gate open: her next Potential step (`next` at `nextP`, one duplicate
+ * away), or `full` at P6.
+ * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate?: number, nextP?: number|null, full: boolean }}
+ */
+export function levelCapInfo(unitState) {
+  const cap = levelCap(unitState);
+  const gates = Math.max(0, Math.floor(Number(unitState?.breakthrough) || 0));
+  const p = potentialLevel(unitState);
+  if (gates < MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: cap + 10, nextGate: gates + 1, full: false };
+  const full = p >= POTENTIAL_LEVEL_CAPS.length;
+  return { cap, max: MAX_LEVEL, p, by: 'potential', next: full ? null : POTENTIAL_LEVEL_CAPS[p], nextP: full ? null : p + 1, full };
+}
+
+/**
+ * Her level cap at Potential `p` once every breakthrough gate is open: what the Potential screens
+ * show next to each step ("+4% SPD · 67"; they show it only where it rises above the P1 cap). It
+ * asks levelCapAt, so the screens follow whatever the level rule says (and an ascension that moves
+ * the caps moves them here too).
+ * @param {number} p 1…6
+ */
+export function potentialLevelCap(p) {
+  return levelCapAt(MAX_BREAKTHROUGH, p);
+}
+
+/** EXP to go from `level` to `level + 1` (Infinity at max; one Akashic Tome per level from 60). */
 export function expForLevel(level) {
   if (level >= MAX_LEVEL) return Infinity;
+  if (level >= BREAKTHROUGH_LEVEL_CAP) return EXP_PER_LEVEL_ABOVE_60;
   return Math.round((40 * level ** 1.75 + 60) / 10) * 10;
+}
+
+/** EXP a state holds in the levels above 60 (0 below 60). */
+const expAbove60 = (level, exp) => (level >= BREAKTHROUGH_LEVEL_CAP ? (level - BREAKTHROUGH_LEVEL_CAP) * EXP_PER_LEVEL_ABOVE_60 + exp : 0);
+
+/**
+ * Coins for `applied` EXP that took a girl from (level, exp) to (toLevel, toExp): COINS_PER_EXP up to
+ * level 60, LEVEL_PAST_GATES' coins per level above it (12,000 per 30,000 EXP).
+ */
+function coinsFor(unit, toLevel, toExp, applied) {
+  const above = Math.max(0, Math.min(applied, expAbove60(toLevel, toExp) - expAbove60(unit.level, unit.exp)));
+  return Math.ceil((applied - above) * COINS_PER_EXP + (above * COINS_PER_LEVEL_ABOVE_60) / EXP_PER_LEVEL_ABOVE_60);
+}
+
+/**
+ * The level shadow: `missions.counters['lv:<id>']` = her level once it is above 60. A build from
+ * before the level cap rose clamps a girl's level to 60 when it loads and saves (its cleanUnit), but
+ * keeps `missions.counters` word for word; migrateProfile (src/systems/save.js) lifts her back to
+ * min(shadow, levelCap). At most the EXP inside one level is lost that way.
+ */
+export const LEVEL_SHADOW_PREFIX = 'lv:';
+
+/** Write her level shadow when her level is above 60 (levelUp calls it; so does every load). */
+export function shadowLevel(profile, unitId) {
+  const level = profile?.units?.[unitId]?.level;
+  if (!(level > BREAKTHROUGH_LEVEL_CAP)) return;
+  const c = ((profile.missions ||= {}).counters ||= {});
+  if (c[LEVEL_SHADOW_PREFIX + unitId] !== level) c[LEVEL_SHADOW_PREFIX + unitId] = level;
+}
+
+/**
+ * After a load (the sanitizer let levels up to MAX_LEVEL through before her duplicates were known):
+ * restore a level an older build clamped to 60 from her shadow, never above levelCap, then clamp
+ * her to levelCap (EXP 0 when clamped or at the cap, as a level-up at the cap leaves it) and rewrite
+ * the shadow. A hostile shadow never lifts a girl above her cap. Idempotent.
+ * @param {object} profile
+ * @returns {string[]} ids whose level changed
+ */
+export function settleLevels(profile) {
+  const changed = [];
+  const c = profile?.missions?.counters || {};
+  for (const [id, u] of Object.entries(profile?.units || {})) {
+    const cap = levelCap(u);
+    const before = u.level;
+    const shadow = Math.floor(Number(c[LEVEL_SHADOW_PREFIX + id]) || 0);
+    // only a girl at 60 or above (where an older build's clamp leaves her) is lifted
+    if (shadow > u.level && u.level >= BREAKTHROUGH_LEVEL_CAP) {
+      u.level = Math.min(shadow, cap);
+      if (u.level >= cap) u.exp = 0;
+    }
+    if (u.level > cap) {
+      u.level = cap;
+      u.exp = 0;
+    }
+    if (u.level !== before) changed.push(id);
+    shadowLevel(profile, id);
+  }
+  return changed;
 }
 
 /** Total EXP from level 1 to `level`. */
@@ -88,7 +219,7 @@ export function previewLevelUp(profile, unitId, books) {
     toLevel: sim.level,
     exp,
     expAfter: sim.exp,
-    coinCost: Math.ceil(sim.applied * COINS_PER_EXP),
+    coinCost: coinsFor(unit, sim.level, sim.exp, sim.applied),
     capped: sim.capped,
     wasted: exp - sim.applied,
     cap: levelCap(unit),
@@ -111,6 +242,7 @@ export function levelUp(profile, unitId, books) {
   if (!consumeItems(profile, costs)) return { ok: false, error: 'missing', missing: missingItems(profile, costs), fromLevel, toLevel: fromLevel };
   unit.level = preview.toLevel;
   unit.exp = preview.expAfter;
+  shadowLevel(profile, unitId);
   if (preview.toLevel > fromLevel) track(profile, 'levelUp', preview.toLevel - fromLevel);
   track(profile, 'spendCoins', preview.coinCost);
   return { ok: true, fromLevel, toLevel: unit.level, coinCost: preview.coinCost };

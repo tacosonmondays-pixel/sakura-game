@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.37', version: '0.1.37', date: '2026-10-20', title: 'Bigger Potential & level 85',
+    added: [
+      'Potential got much bigger: every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly stronger.',
+      'From P3 (P2 for SSR girls and heroes) each step also teaches her a new trick built on what she does best, up to a capstone at P6 with a Full Potential crown. Her Info tab shows every step.',
+      'Higher level cap: once all five breakthrough gates are open, every Potential step raises her level cap, up to level 85 at P6. Each level above 60 uses one Akashic Tome.',
+      'More Akashic Tomes: Library Courtyard III on Nightmare drops them more often, Freeplay caches give one (up to 2 a week), the Bounty Exchange sells them, and duplicates past P6 give them too.',
+    ],
+    changed: [
+      'Your girls keep their Potential and get every step they have earned right away. Nothing got weaker: P1 is exactly the girl you know.',
+      'Co-op: both players need this update to play together.',
+    ],
+  },
+  {
     id: 'v0.1.36', version: '0.1.36', date: '2026-10-16', title: 'Drone fix & profiles for everyone',
     fixed: [
       'Fixed a giant Chika drone that could appear and cover the map at 3x speed.',

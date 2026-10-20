@@ -14,6 +14,7 @@ import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js
 import { itemSources, itemCount } from '../systems/inventory.js';
 import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
+import { hasPotentialNew } from '../systems/potential.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -473,7 +474,9 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
     shown === 'UR' ? h('div.unit-card-rarity.unit-card-ur', urBadge()) : h('div.unit-card-rarity', r.name),
     level != null ? h('div.unit-card-level', h('span.unit-card-lv', 'Lv.'), String(level)) : null,
     awaken ? h('div.unit-card-stars', '★'.repeat(awaken)) : null,
-    pot >= 2 ? h('div.unit-card-pot', { 'data-testid': 'card-pot' }, potPill(pot)) : null,
+    pot >= 2 ? h('div.unit-card-pot', { 'data-testid': 'card-pot' }, potPill(pot, { def: u })) : null,
+    // one-time NEW: a girl who was P2+ when Potential v3 arrived, until her Info tab is opened
+    pot >= 2 && owned && profile === store.profile && hasPotentialNew(profile, unitId) ? h('div.unit-card-potnew', { 'data-testid': 'card-potnew', title: 'New Potential steps — see her Info tab' }, 'NEW') : null,
     h('div.unit-card-name', u.name),
     owned ? null : h('div.unit-card-lock', svgEl(uiIcon('lock'))),
   );

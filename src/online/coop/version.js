@@ -29,7 +29,10 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    Freeplay smoothing / elites / bosses every 5), Potential (its tables in the data hash) and
 //    battle modes (room, hello, ready and start carry `mode`; map rules ride on the StageDef).
 //    Nobody bumps it twice.
-export const COOP_PROTOCOL = 4;
+// 5: Potential v3 (co-op update #2, set once for it): every step P2…P6 is a stat buff plus a kit
+//    buff with new sim mechanics (rhythms, echoes, tempo, overclock, …; src/sim/potential.js), and a
+//    girl's level travels up to 85; a client on 4 resolves the same loadout to different battles.
+export const COOP_PROTOCOL = 5;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

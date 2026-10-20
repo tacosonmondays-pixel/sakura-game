@@ -20,7 +20,7 @@ import { STAGE_MAP } from '../../src/data/stages.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
-import { RECORD_V, SNAP_V, slotKey } from '../../src/systems/battleSave.js';
+import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
 import { xpToReach } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import {
@@ -36,6 +36,9 @@ const SCEN = {
   '4-2 hard reverse (Rear Ambush)': { stageId: '4-2', difficulty: 'hard', mode: 'reverse', towers: ['aoi', 'rei', 'akane', 'kaede', 'chika'], hero: 'hikari', stats: { damageMul: 3, rateMul: 1.2 }, seed: 4202, forks: [5, 8] },
   '6-1 normal ironclad (pads)': { stageId: '6-1', difficulty: 'normal', mode: 'ironclad', towers: ['aoi', 'rei', 'akane', 'sango', 'yuki'], hero: 'luna', stats: { damageMul: 3, rateMul: 1.2 }, seed: 6102, forks: [4, 9] },
   'colosseum to wave 30': { stageId: 'challenge', difficulty: 'normal', endless: true, towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'hikari', stats: { damageMul: 6, rateMul: 1.4 }, seed: 4242, maxCopies: 4, maxWave: 30, forks: [10, 22] },
+  // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
+  // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
+  '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 
 /** The frozen team of a scenario, as createBattleSim builds it (full unitBattleStats + boosts). */
@@ -251,11 +254,13 @@ function play(c, { stopAt = Infinity } = {}) {
         sold = true;
         issue('sell', sim.towers[sim.towers.length - 1].uid);
       }
-      if (!autoOn && sim.wave >= 4 && sim.state === 'between') {
+      // (a wave can end with shots still flying at the last enemy's spot; this player taps Start, or
+      // turns Auto on, once they have landed: the calm point the snapshot is defined for)
+      if (!autoOn && sim.wave >= 4 && sim.state === 'between' && !sim.projectiles.length) {
         issue('auto', true);
         autoOn = true;
       }
-      if ((sim.state === 'prep' || sim.state === 'between') && !sim.options.autoStart && ++wait > 25) {
+      if ((sim.state === 'prep' || sim.state === 'between') && !sim.options.autoStart && ++wait > 25 && !sim.projectiles.length) {
         wait = 0;
         issue('wave');
       }
@@ -435,10 +440,26 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     for (const t of mine) {
       const p1 = ref.towers.find((x) => x.uid === t.uid);
       expect(t.unitStats.potential).toBe(6);
-      expect(t.stats.damage).toBeCloseTo(p1.stats.damage * 1.02 * 1.03, 9);
-      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.03, 9);
+      // Aoi's v3 ladder: damage ×1.04×1.04×1.05, +3 % and +6 % crit, her rhythm
+      expect(t.stats.damage).toBeCloseTo(p1.stats.damage * 1.04 * 1.04 * 1.05, 9);
+      expect(t.stats.crit.chance).toBeCloseTo(p1.stats.crit.chance + 0.03 + 0.06, 9);
+      expect(t.stats.proc?.name).toBe('Twin Fletch');
     }
     for (const t of sim.towers.filter((x) => x.def.id !== 'aoi')) expect(t.stats).toEqual(ref.towers.find((x) => x.uid === t.uid).stats);
+  });
+
+  it('a save from before Potential v3 with a girl at P2+ says so on Continue (potentialNew); none otherwise', () => {
+    const at = (v, pot) => {
+      const snap = cpAt(4);
+      snap.v = v;
+      const rec = recordOf(c, snap);
+      const aoi = rec.loadout.find((e) => e.unitId === 'aoi');
+      aoi.stats = { ...aoi.stats, potential: pot };
+      return restoreSim(rec).potentialNew;
+    };
+    expect(at(2, 4)).toBe(true);
+    expect(at(SNAP_V, 4)).toBe(false); // saved by a v3 build: her steps were already the v3 ones
+    expect(at(2, 1)).toBe(false); // nobody at P2+: nothing changed for this run
   });
 
   it('a long endless run with hundreds of leaks stays small and keeps the defeat debrief exact', () => {
@@ -525,7 +546,7 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
   });
 
   it(`a format-1 save (before the hero rework): her old level, tiers ignored, never dropped, all she cost refunded (now ${SNAP_V})`, () => {
-    expect(SNAP_V).toBe(2);
+    expect(SNAP_V).toBe(3); // 3: Potential v3 (a format-2 save restores the same way, its heroes on the new track)
     const snap = cpAt(10);
     snap.v = 1;
     const h = snap.towers.find((t) => t.xp != null);
@@ -550,8 +571,28 @@ describe('battle save restore: stale saves and refunds', SLOW, () => {
     expect(sim.drainEvents()).toEqual([]);
     // the others come back exactly as saved
     for (const t of sim.towers.filter((x) => !x.isHero)) expect(t.spent).toBe(snap.towers.find((x) => x.uid === t.uid).spent);
-    // and the next snapshot is format 2
-    expect(snapshotSim(sim).v).toBe(SNAP_V);
+    // and the next snapshot is the current format for an all-P1 team (format 2: see below)
+    expect(snapshotSim(sim).v).toBe(SNAP_V_P1);
+  });
+
+  it('an all-P1 run is written as format 2, which a build from before Potential v3 continues; a girl at P2+ makes it format 3', () => {
+    // v0.1.35's rule (its battleSave.js cleanRecord): a snapshot newer than its SNAP_V 2 is dropped on load
+    const keptByOlderBuild = (snap) => snap.v <= 2;
+    const fresh = (edit = () => {}) => {
+      const rec = recordOf(c, cpAt(4));
+      edit(rec);
+      return JSON.parse(JSON.stringify(snapshotSim(restoreSim(rec).sim)));
+    };
+    const p1 = fresh();
+    expect([SNAP_V_P1, p1.v, keptByOlderBuild(p1)]).toEqual([2, 2, true]);
+    // and this build continues its own format-2 save exactly as it was
+    const again = restoreSim(recordOf(c, p1)).sim;
+    expect(JSON.stringify(snapshotSim(again))).toBe(JSON.stringify(p1));
+    // a girl at P2+ in the loadout (placed or not) or as the hero: format 3, which an older build drops
+    const p2 = fresh((rec) => { rec.loadout.find((e) => e.unitId === 'kaede').stats.potential = 2; });
+    expect([p2.v, keptByOlderBuild(p2)]).toEqual([SNAP_V, false]);
+    expect(fresh((rec) => { rec.hero.stats.potential = 3; }).v).toBe(SNAP_V);
+    expect(fresh((rec) => { rec.loadout.forEach((e) => { e.stats.potential = 1; }); }).v).toBe(SNAP_V_P1);
   });
 });
 
@@ -715,6 +756,146 @@ describe('battle save and the path cap (one final tier per path, brews, tune-up 
   });
 });
 
+/** Free spots nearest the path, 1.6 apart (so every girl of a test team meets the waves). */
+function nearPath(sim, units) {
+  const cands = [];
+  for (let y = 0.55; y < sim.map.height; y += 0.35) {
+    for (let x = 0.55; x < sim.map.width; x += 0.35) if (!sim.placementReason(units[0], x, y)) cands.push([x, y, sim.placement.pathDistance(x, y)]);
+  }
+  cands.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+  const out = {};
+  for (const u of units) {
+    const c = cands.find(([x, y]) => !Object.values(out).some(([tx, ty]) => Math.hypot(tx - x, ty - y) < 1.6) && !sim.placementReason(u, x, y));
+    if (c) out[u] = [c[0], c[1]];
+  }
+  return out;
+}
+
+/** Potential v3 test team: every girl at P6 by the path on 4-5 Hard (a blizzard rule, a kept focus). */
+const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6 }, seed: 4545 };
+/** The team on spots by the path, tier 2 on path 0, the waves' own streams (as the controller). */
+function potBuild() {
+  const sim = makeSim(POT);
+  sim.cash = 5e6;
+  const placed = {};
+  for (const [u, [x, y]] of Object.entries(nearPath(sim, [...POT.towers, POT.hero]))) placed[u] = sim.placeTower(u, x, y);
+  for (const id of POT.towers) for (let k = 0; k < 2; k++) expect(sim.upgradeTower(placed[id].uid, 0), id).toBe(true);
+  sim.cash = 4000;
+  wrapWaves(sim, POT.seed);
+  return { sim, placed };
+}
+/** Plays wave by wave; at each wave's end (shots landed), `onCalm(sim)`. */
+function potWaves(sim, n, onCalm) {
+  for (let w = 0; w < n && sim.state !== 'lost' && sim.state !== 'won'; w++) {
+    sim.startNextWave();
+    for (let i = 0; i < 60 * 300 && sim.state === 'wave'; i++) {
+      sim.update(STEP);
+      if (sim.hero && sim.heroUltStatus().ready) sim.activateUlt();
+      sim.drainEvents();
+    }
+    // the controller saves at the next wave's start; a quick Start comes right after the last shot
+    for (let i = 0; i < 60 * 5 && sim.state === 'between' && sim.projectiles.length; i++) sim.update(STEP);
+    // (and one more step: a level-up on the last kill refreshes the auras at the next step, which
+    // a restore does at once; the controller's Start tap never lands inside the step)
+    if (sim.state === 'between') sim.update(STEP);
+    sim.drainEvents();
+    onCalm(sim);
+  }
+}
+let potPlayed = null;
+/** The Potential team after a few waves (for the field guard below). */
+const potRun = () => (potPlayed ??= (() => {
+  const { sim } = potBuild();
+  potWaves(sim, 4, () => {});
+  return sim;
+})());
+
+describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry, kept focus, overclock)', SLOW, () => {
+  const c = POT;
+  const build = potBuild;
+  const waves = potWaves;
+
+  it('every counter and timer comes back exactly, and a split run plays on like the straight one', () => {
+    const { sim, placed } = build();
+    const seen = { midTempo: 0, carry: 0, fallen: 0, kept: 0, rhythm: 0, overclock: 0, forkFallen: 0, forkTempo: 0 };
+    waves(sim, 10, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      expect(snap.v).toBe(3);
+      const row = (u) => snap.towers.find((t) => t.u === u);
+      const kage = row('kage');
+      // Kage between throws: tempo stacks still up (idle < 1 s) and a part-way shuriken carry
+      if (kage.tp?.[1] > 0 && kage.tp[0] < 60) seen.midTempo++;
+      if (kage.pj > 0 && kage.pj < 100) seen.carry++;
+      // Kaede's last target fell and her next swing has not yet carried her focus over
+      if (row('kaede').rt?.[0] === 1 && row('kaede').rt[1] > 0) seen.fallen++;
+      if (row('kaede').rk > 0) seen.kept++;
+      seen.rhythm += snap.towers.filter((t) => t.pc > 0).length;
+      if (row('chika').oc) seen.overclock++;
+      // a P1-style girl carries none of it (Luna's steps have no counter)
+      for (const k of ['pc', 'tp', 'pj', 'rk', 'rt', 'ab', 'oc']) expect(row('luna')).not.toHaveProperty(k);
+      const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      expect(diffPaths(digest(sim, { calm: true }), digest(back, { calm: true })), `wave ${sim.wave}`).toEqual([]);
+      expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+      // split here when it is interesting: the restored run and the straight one play two waves alike
+      const midTempo = kage.tp?.[1] > 0 && kage.tp[0] < 60;
+      const fallen = row('kaede').rt?.[0] === 1;
+      if ((fallen && seen.forkFallen < 2) || (midTempo && seen.forkTempo < 2)) {
+        if (fallen) seen.forkFallen++;
+        if (midTempo) seen.forkTempo++;
+        wrapWaves(back, c.seed);
+        autoplay(sim, sim.wave + 2);
+        autoplay(back, back.wave + 2);
+        expect(diffPaths(digest(sim), digest(back)), `split at wave ${snap.wave}`).toEqual([]);
+        expect(hashSim(back)).toBe(hashSim(sim));
+        expect(back.getTower(placed.kage.uid).tempoStacks).toBe(placed.kage.tempoStacks);
+        expect(back.getTower(placed.kage.uid).projCarry).toBe(placed.kage.projCarry);
+        expect(back.getTower(placed.kaede.uid).rampKeep).toBe(placed.kaede.rampKeep);
+      }
+    });
+    for (const k of ['midTempo', 'carry', 'fallen', 'kept', 'rhythm', 'overclock', 'forkFallen', 'forkTempo']) expect(seen[k], k).toBeGreaterThan(0);
+  });
+
+  it('a format-2 save (before Potential v3) restores with every counter at its start and plays on', () => {
+    const { sim } = build();
+    let snap = null;
+    waves(sim, 3, () => {
+      snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    });
+    expect(snap.towers.some((t) => t.pc > 0)).toBe(true);
+    snap.v = 2;
+    for (const t of snap.towers) for (const k of ['pc', 'tp', 'pj', 'rk', 'rt', 'ab', 'oc']) delete t[k];
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    for (const t of back.towers) for (const k of ['potCount', 'tempoStacks', 'tempoIdle', 'projCarry', 'rampKeep', 'auraBoostLeft', 'potOc']) expect(t[k], `${t.unitId} ${k}`).toBeUndefined();
+    // her rhythm specs are derived: there at once
+    expect(back.towers.find((t) => t.unitId === 'kage').effProc).toBeTruthy();
+    expect(back.towers.find((t) => t.unitId === 'rei').effEcho.damage).toBeCloseTo(back.towers.find((t) => t.unitId === 'rei').effProc.damage * 0.3, 9);
+    expect(back.towers.find((t) => t.unitId === 'suzu').trapSpecProc).toBeTruthy();
+    wrapWaves(back, c.seed);
+    autoplay(back, back.wave + 2);
+    expect(back.state).not.toBe('lost');
+    expect(back.towers.filter((t) => t.potCount > 0).length).toBeGreaterThan(0);
+    expect(snapshotSim(back).v).toBe(SNAP_V);
+  });
+
+  it('a hand-edited Potential row cannot put non-numbers or negative counts into the sim', () => {
+    const { sim } = build();
+    let snap = null;
+    waves(sim, 2, () => {
+      snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    });
+    for (const t of snap.towers) Object.assign(t, { pc: 'x', tp: [null, -4], pj: {}, rk: -9, ab: 'soon', oc: ['a', null] });
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of back.towers) {
+      for (const k of ['potCount', 'tempoStacks', 'projCarry', 'rampKeep', 'auraBoostLeft']) expect(Number.isFinite(t[k]) && t[k] >= 0, `${t.unitId} ${k}=${t[k]}`).toBe(true);
+      expect(Number.isFinite(t.potOc.cd) && Number.isFinite(t.potOc.left)).toBe(true);
+    }
+    autoplay(back, back.wave + 1);
+    expect(['between', 'won', 'lost']).toContain(back.state);
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)
@@ -731,6 +912,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
   it('every own field of a placed girl is classified in KNOWN_TOWER_KEYS', () => {
     const keys = new Set();
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the Potential team: Suzu's trap rhythm, Kage's tempo and carry, Kaede's kept focus …)
+    for (const t of potRun().towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

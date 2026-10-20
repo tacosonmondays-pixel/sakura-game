@@ -6,7 +6,8 @@
 // The bot also switches Chika's flight mode every 10 s (Hold / Patrol / Pursuit / Hover).
 // Three moments: a campaign stage between waves, the middle of a crowded wave (enemies with
 // statuses, projectiles in flight, traps and drones out), and a deep co-op freeplay wave (the
-// Ashwing Matriarch at wave 200 with her summons, visitors with affixes, Resolve budgets).
+// Ashwing Matriarch at wave 200 with her summons, visitors with affixes, Resolve budgets), plus a
+// P6 team mid-wave (Potential v3: rhythm counts, tempo, the shuriken carry, overclock timers).
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -150,6 +151,29 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     expect(busy(sim)).toBe(true);
     const r = twin(sim, args, bot);
     expect(r.snap.o.length).toBeGreaterThan(100);
+  });
+
+  it('Potential v3 at P6 mid-wave: rhythms, echoes, tempo, the shuriken carry, a kept focus, overclock, Brittle and burn leaps', () => {
+    // every girl at P6 (src/sim/potential.js): Kage's tempo stacks and carry, Rei's duel echo, Akane's
+    // leaping burns, Miko's Brittle aura and aura boost, Suzu's trap rhythm, Chika's overclock,
+    // Kaede's kept focus, Hotaru's ×spectral, Luna's Moonfall with its Brittle; spectral ghosts on 3-4
+    const team = ['kage', 'rei', 'akane', 'miko', 'suzu', 'chika', 'kaede', 'hotaru'];
+    const stats = { potential: 6, costMul: 0.4 };
+    const args = { stageId: '3-4', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'luna', stats }, seed: 3535, options: { autoStart: true } };
+    const sim = fresh(args);
+    const bot = makeBot('3-4', [...team, 'luna']);
+    sim.cash += 9000;
+    sim.startNextWave();
+    const of = (s, id) => s.towers.find((t) => t.unitId === id);
+    const busy = (s) => s.wave >= 6 && s.state === 'wave' && s.enemies.length >= 8 && s.projectiles.length >= 3
+      && of(s, 'kage')?.tempoStacks > 0 && of(s, 'kage').projCarry > 0 && s.towers.filter((t) => t.potCount > 0).length >= 4;
+    play(sim, bot, busy, 60 * 60 * 25);
+    expect(busy(sim)).toBe(true);
+    const r = twin(sim, args, bot, 12000);
+    expect(r.compared).toBeGreaterThan(5);
+    // the Potential state rode in the checkpoint (the generic serializer stores every tower field)
+    const json = JSON.stringify(r.snap);
+    for (const k of ['tempoStacks', 'tempoIdle', 'projCarry', 'potCount', 'potOc', 'effProc', 'effEcho', 'trapSpecProc']) expect(json, k).toContain(`"${k}"`);
   });
 
   it('deep co-op freeplay: wave 200, the Ashwing Matriarch and her summons mid-fight (Crimson Moon on 8-5)', () => {

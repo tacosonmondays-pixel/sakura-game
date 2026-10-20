@@ -114,10 +114,11 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 4 (battle train C, battle modes included; freeplay was 3): protocol-2 and -3 builds are refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(4);
+  it('protocol 5 (Potential v3; battle train C was 4, freeplay 3): protocol-2, -3 and -4 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(5);
     const v = coopVersion();
-    expect(v.proto).toBe(4);
+    expect(v.proto).toBe(5);
+    expect(sameVersion(v, { ...v, proto: 4 })).toBe(false);
     expect(sameVersion(v, { ...v, proto: 3 })).toBe(false);
     expect(sameVersion(v, { ...v, proto: 2 })).toBe(false);
     expect(sameVersion({ ...v, proto: 2 }, v)).toBe(false);

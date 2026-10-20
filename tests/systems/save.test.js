@@ -241,3 +241,83 @@ describe('achievements: old-build safety', () => {
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');
   });
 });
+
+describe('levels above 60 (Potential v3 §4.6)', () => {
+  // a girl with every gate open and `p` Potential at `level`
+  const save = (level, p, exp = 0) => {
+    const s = createProfile();
+    Object.assign(s.units.aoi, { level, exp, breakthrough: 5, awaken: 2, dupes: p - 1 });
+    return JSON.parse(JSON.stringify(migrateProfile(JSON.parse(JSON.stringify(s)))));
+  };
+  // what a build from before the level cap rose does to a save on load (its cleanUnit): level ≤ min(60, 10 + 10·gates)
+  const olderBuildLoad = (raw) => {
+    const out = JSON.parse(JSON.stringify(raw));
+    for (const u of Object.values(out.units)) u.level = Math.min(u.level, Math.min(60, 10 + 10 * u.breakthrough));
+    return out;
+  };
+
+  it('an L60 P1 save is unchanged, with no level shadow', () => {
+    const raw = save(60, 1);
+    const m = migrateProfile(JSON.parse(JSON.stringify(raw)));
+    expect(m.units.aoi).toMatchObject({ level: 60, exp: 0, breakthrough: 5 });
+    expect(m).toEqual(migrateProfile(JSON.parse(JSON.stringify(m))));
+    expect(Object.keys(m.missions.counters).some((k) => k.startsWith('lv:'))).toBe(false);
+  });
+
+  it('an L72 P4 save round-trips and carries its shadow', () => {
+    const raw = save(72, 4, 12000);
+    expect(raw.units.aoi).toMatchObject({ level: 72, exp: 12000, dupes: 3 });
+    expect(raw.missions.counters['lv:aoi']).toBe(72);
+    const back = deserializeProfile(serializeProfile(raw));
+    expect(back.units.aoi).toMatchObject({ level: 72, exp: 12000 });
+    expect(migrateProfile(JSON.parse(JSON.stringify(back)))).toEqual(back);
+  });
+
+  it('the sanitizer keeps L72 while her duplicates are unknown, then migrate re-clamps to her cap', () => {
+    // `dupes` dropped (an older build's allowlist) but restored from the pot: shadow → P4 → cap 72
+    const raw = save(72, 4, 500);
+    delete raw.units.aoi.dupes;
+    expect(migrateProfile(JSON.parse(JSON.stringify(raw))).units.aoi).toMatchObject({ level: 72, exp: 500, dupes: 3 });
+    // no shadow and no history: she is credited P1 → clamped to 60, EXP 0
+    const bare = save(72, 4, 500);
+    delete bare.units.aoi.dupes;
+    delete bare.missions.counters['pot:aoi'];
+    delete bare.missions.counters['lv:aoi'];
+    const m = migrateProfile(JSON.parse(JSON.stringify(bare)));
+    expect(m.units.aoi.dupes).toBe(0);
+    expect(m.units.aoi).toMatchObject({ level: 60, exp: 0 });
+    // gates still cap first: a P6 girl at gate 3 stays capped at 40
+    const gated = save(40, 6);
+    gated.units.aoi.breakthrough = 3;
+    gated.units.aoi.level = 85;
+    expect(migrateProfile(gated).units.aoi.level).toBe(40);
+  });
+
+  it("an older build's clamp to 60 is restored from 'lv:<id>'", () => {
+    const raw = save(78, 5, 9000);
+    const old = olderBuildLoad(raw);
+    expect(old.units.aoi.level).toBe(60);
+    expect(old.missions.counters['lv:aoi']).toBe(78);
+    const m = migrateProfile(old);
+    expect(m.units.aoi).toMatchObject({ level: 78, exp: 0 });
+    const p4 = olderBuildLoad(save(70, 6, 9000));
+    expect(migrateProfile(p4).units.aoi).toMatchObject({ level: 70, exp: 9000 });
+  });
+
+  it("a hostile 'lv:' shadow never lifts a girl above her levelCap", () => {
+    const raw = save(60, 2);
+    raw.missions.counters['lv:aoi'] = 1e9;
+    raw.missions.counters['lv:rei'] = 85;
+    raw.missions.counters['lv:nobody'] = 85;
+    raw.missions.counters['lv:hikari'] = Number.NaN;
+    const m = migrateProfile(raw);
+    expect(m.units.aoi.level).toBe(63);
+    expect(m.units.rei.level).toBe(1);
+    expect(m.units.hikari.level).toBe(1);
+    expect(m.units.nobody).toBeUndefined();
+    // and a hand-edited level above the cap is clamped
+    const edited = save(60, 3);
+    edited.units.aoi.level = 99;
+    expect(migrateProfile(edited).units.aoi).toMatchObject({ level: 67, exp: 0 });
+  });
+});

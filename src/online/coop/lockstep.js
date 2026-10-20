@@ -47,6 +47,8 @@
 //   - The idle saver (Supabase rooms): see COOP_NET in src/data/coop.js.
 import { COOP } from '../../data/coop.js';
 import { createCoopSim, compareCmds, isValidCmd } from './commands.js';
+import { clampStart } from './statLimits.js';
+import { towerResolvedStats, refreshEffective } from '../../sim/towers.js';
 
 const MAX_CATCHUP = 12; // ticks per advance() call beyond the frame's own share
 const FATAL_WINDOW_MS = 30000;
@@ -101,6 +103,35 @@ const BIG = new Set(['resync', 'rejoin']);
 const realNow = typeof performance !== 'undefined' && typeof performance.now === 'function' ? () => performance.now() : () => Date.now();
 const cmdKey = (c) => `${c.p}:${c.s}`;
 
+/**
+ * After a checkpoint from the host is restored: every girl's unitStats points at THIS side's loadout
+ * entry again (the snapshot stores it as a reference into the start message), but her resolved stats
+ * and effective stats travel in it as numbers. A girl whose stored stats are not what that entry
+ * gives, or whose effective stats are not what those stats and her buffs give (a hand-edited host
+ * sent a start or a checkpoint past the plausibility clamp), is rebuilt from it — stats, effective
+ * stats, rhythm specs, and her buffs next step — so the clamp holds through a resync or a rejoin;
+ * the hash check then catches the desync. (Her buffs themselves are recomputed from the auras every
+ * buff refresh.) An honest checkpoint matches for every girl and is left exactly as it is (no buff
+ * refresh), so the replay stays in lockstep.
+ * @returns {number} girls rebuilt
+ */
+export function rederiveStats(sim) {
+  let n = 0;
+  for (const t of sim.towers) {
+    if (JSON.stringify(towerResolvedStats(t)) === JSON.stringify(t.stats) && effMatches(t, sim.globalRateMul)) continue;
+    sim._refreshTower(t);
+    n++;
+  }
+  return n;
+}
+
+/** Her stored effective stats are what her stored stats and buffs give (checked on a shallow copy: she is not touched). */
+function effMatches(t, globalRateMul) {
+  const c = { ...t };
+  refreshEffective(c, globalRateMul);
+  return JSON.stringify(c.eff) === JSON.stringify(t.eff) && JSON.stringify(c.turretSpec) === JSON.stringify(t.turretSpec) && JSON.stringify(c.trapSpec) === JSON.stringify(t.trapSpec);
+}
+
 export class Lockstep {
   /**
    * @param {{ start: object, mySlot: number, send: (msg: object) => void, now?: () => number,
@@ -111,12 +142,16 @@ export class Lockstep {
    *   50 ms; Supabase 30 ticks / at most every 250 ms, and only once a second while nothing
    *   changes (Realtime bills every message). maxDelay: the adaptive delay's ceiling (3×).
    *   idle*: the idle saver (0 = off); maxMessageBytes: split bigger messages (COOP_NET).
+   *   clampStarts: every start a rebuild reads (the host's, in a resync or a rejoin) goes through
+   *   the plausibility clamp (statLimits.js clampStart), as the lobby's start did. The lobby
+   *   (session.js) sets it; test harnesses that run deliberately superhuman stats leave it off.
    */
   constructor({
     start, mySlot, send, now = () => Date.now(), delay = COOP.inputDelay, heartbeatMs = COOP.heartbeatMs, keepaliveMs = heartbeatMs, maxDelay = delay * 3,
-    idleAfterMs = 0, idleLeadTicks = 0, idleKeepaliveMs = 0, maxMessageBytes = Infinity, hooks = {},
+    idleAfterMs = 0, idleLeadTicks = 0, idleKeepaliveMs = 0, maxMessageBytes = Infinity, hooks = {}, clampStarts = false,
   }) {
-    this.start = start;
+    this.clampStarts = !!clampStarts;
+    this.start = this.clampStarts ? clampStart(start) : start;
     this.mySlot = mySlot;
     this.sendRaw = send;
     this.now = now;
@@ -137,7 +172,7 @@ export class Lockstep {
     this.hashOut = []; // my last hashes [[t, h]] for the next beats
     this.sent = 0; // packets sent (the HUD / tests watch the message budget)
     this.hooks = hooks;
-    this.coop = createCoopSim(start, { mySlot });
+    this.coop = createCoopSim(this.start, { mySlot });
     this.seq = 0;
     this.promised = -1;
     this.acc = 0;
@@ -598,15 +633,20 @@ export class Lockstep {
   startRebuild(kind, start, cmds, T, ck, w, onDone, { quiet = false } = {}) {
     const t0 = realNow();
     const target = Number.isInteger(T) && T >= 0 ? T : 0;
-    let coop = createCoopSim(start || this.start, { mySlot: this.mySlot });
+    // the host's start (a resync / rejoin) gets the same clamp the lobby gave ours (idempotent)
+    const base = start || this.start;
+    const startMsg = this.clampStarts ? clampStart(base) : base;
+    let coop = createCoopSim(startMsg, { mySlot: this.mySlot });
     let from = 0;
     if (ck && ck.snap && Number.isInteger(ck.t) && ck.t >= 0 && ck.t <= target) {
       try {
         coop.restore(ck.snap);
         from = ck.t;
+        const rebuilt = rederiveStats(coop.sim);
+        if (rebuilt) this.note('rederived', { kind, girls: rebuilt });
       } catch (e) {
         console.warn('[lockstep] the checkpoint did not restore; replaying from the start', e);
-        coop = createCoopSim(start || this.start, { mySlot: this.mySlot });
+        coop = createCoopSim(startMsg, { mySlot: this.mySlot });
       }
     }
     const restoreMs = realNow() - t0; // (building the CoopSim + restoring the checkpoint: one block)
