@@ -131,7 +131,7 @@ function loadingLookRow(s, redraw) {
     applyLoadingLook(s);
     redraw();
   };
-  const preview = h('div.ma-ld-preview', { 'aria-hidden': 'true', 'data-testid': 'set-loading-preview' }, miniMochi({ dark: true, size: 26 }));
+  const preview = h('div.ma-ld-preview', { 'aria-hidden': 'true', 'data-testid': 'set-loading-preview' }, miniMochi({ dark: true, size: 24 }));
   return row('Loading screen', 'The little slime in the corner and the screen behind it.',
     h('div.ma-ld-look',
       preview,
