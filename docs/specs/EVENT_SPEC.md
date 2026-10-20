@@ -341,7 +341,7 @@ so it gets a name plate and no portrait.
 **Playing.** The event screen calls `playStoryScene(scene, { host, scenes: eventEpisodes })` from
 `src/ui/story/play.js`. That marks the scene seen in `profile.story.seen` and grants `STORY_REWARDS.event` (already
 `[]`, so nothing). Then the event screen calls `readEpisode(profile, eventId, episodeId, now)`, which grants the event's
-first-read reward (40 Shell Tickets), Marina on Episode 1, and counts `eventRead`. **Skipping counts as reading** (BA
+first-read reward (40 Shell Tickets), Marina on Episode 1, and counts `eventRead`. **Skipping counts as reading** (genre
 convention, as in STORY_SPEC §1.3). Replays grant nothing. One small edit in the story player:
 `titleCardText` returns `{ kicker: 'Event Story', title, sub: 'Episode n' }` for `scene.kind === 'event'` (today it
 would say "Opening" because the chapter is 0).
@@ -491,7 +491,7 @@ Old data (`summer-content.js` `SUMMER_UNITS`, `BEACH_SKINS`; `characters.md` §6
 * Identity: `name: 'Marina'`, `title: 'Seaglass Lifeguard'`, third-year, captain of the academy's **Coast Watch Club**
   (lifeguards who patrol Seaglass Bay every summer). Cheerful, loud, very responsible underneath; her rescue buoy is
   named Donut.
-* Outfit (non-swimwear, BA school style): a white short-sleeve **summer sailor uniform** with a teal collar and coral
+* Outfit (non-swimwear, academy school style): a white short-sleeve **summer sailor uniform** with a teal collar and coral
   scarf, a knee-length navy pleated skirt over **teal sports tights**, a zipped **red-orange lifeguard windbreaker**
   tied open with a life-ring emblem (no medical cross), a whistle on a lanyard, white sneakers, a teal headband in peach
   short hair, a life-ring-shaped halo. Modest: high neckline, no bare midriff, no bare thighs.
@@ -912,7 +912,7 @@ story (Builder 2 WIP), roster (Builder 3 running), balance r3 (running), kit sty
 | roster | `src/data/units.js` (one append line each), `tests/data/units.test.js` (roster rewrites it), `tests/systems/first-impressions.test.js`, `src/systems/gacha.js`, `src/data/shop.js`, `src/data/wiki.js`, `src/data/skins.js` | Event girls live in `unitsEvent.js`; the test edits are additive rows + one filter. Whoever merges second re-applies: "count non-event units; keep the marina/amane rows; event units skip gacha/spark/banners". Amane's look uses `cap` only after roster merges. |
 | balance r3 | `src/data/stages.js` (hpScale, first clears, `CHAPTER_TUNED_LEVEL`), `stage.js` (`overLevelNote`), `tests/data/world.test.js` | We add an import and change the `STAGE_MAP` line only; `tuneLike` follows their numbers. Event prep shows `overLevelNote` using `CHAPTER_TUNED_LEVEL[STAGE_MAP[tuneLike].chapter]` once balance is in. |
 | kit styles | none | — |
-| academy direction (parallel) | Marina/Amane designs; event text | The event avoids the chapter-2 merge entirely; designs follow the school/BA direction. |
+| academy direction (parallel) | Marina/Amane designs; event text | The event avoids the chapter-2 merge entirely; designs follow the school/academy direction. |
 
 ---
 

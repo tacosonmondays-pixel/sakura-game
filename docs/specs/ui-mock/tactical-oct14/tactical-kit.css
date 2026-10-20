@@ -19,7 +19,7 @@
   --tx-accent: #4cd6ff;        /* cyan, 10.2:1 */
   --tx-accent-ink: #0b7fb0;    /* the same cyan for light surfaces, 4.5:1 on white */
   --tx-pink: var(--pink, #ff7aa8);  /* sakura: selection, hero, co-op partner (7.1:1) */
-  --tx-warn: #ffd23f;          /* hazard yellow = BA CTA yellow family (12:1) */
+  --tx-warn: #ffd23f;          /* hazard yellow = academy CTA yellow family (12:1) */
   --tx-danger: #ff4d6d;        /* 5.4:1 */
   --tx-good: #3ee8a0;
   /* shape */
