@@ -146,7 +146,8 @@ so every girl keeps her P and fights with the v3 steps of it at once.
   towersPerPlayer + 1 girls a player; `session.js` `begin()` clamps the start message on both clients, and the
   lockstep (`clampStarts`) clamps the host's start again in a resync or rejoin and rebuilds any girl whose
   checkpointed stats (or effective stats) are not what her clamped entry gives (`rederiveStats`). Honest L85 P6 loadouts and honest
-  checkpoints pass through unchanged.
+  checkpoints pass through unchanged. (With the effective-stats check the co-op sim id is `37b5428d7657`,
+  `COOP_PROTOCOL` still 5.)
 - **Tests**: `tests/systems/progression.test.js` (the table, `levelCap` gates 0–4 × P1–P6 and gate 5 × P1–P6,
   `expForLevel(59)` 50,300 / 60…84 30,000 / 85 ∞, `totalExpToLevel(85)` 1,856,630, 12,000 coins a level, the band
   split across 60, overflow at the cap, Auto Select to 85, L85 stats, the shadow, `settleLevels`, `levelCapInfo`),
@@ -157,13 +158,12 @@ so every girl keeps her P and fights with the v3 steps of it at once.
   (the `lv:` / `fpTome:` prefixes), `e2e/potential.mjs` (the cap line, both cap cards, a level-up past 60 with a Tome,
   the "Level cap 63 → 67" card line).
 
-**Patch note draft (train C; the shipping stage adds it to `src/data/patchNotes.js` under the deploy's number):**
-"Potential got much bigger! Every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly
-stronger: a stat boost at every step and, from P3 (P2 for SSR girls and heroes), a new trick built on what she does
-best, up to a capstone at P6 with a Full Potential crown. Your girls keep their Potential and get every step they
-have earned right away. Every step also raises her level cap, up to level 85 at P6. Levels above 60 use Akashic
-Tomes, now found more often in Library Courtyard III on Nightmare, in Freeplay caches (up to 2 a week), in the Bounty
-Exchange, and from duplicates past P6. Nothing got weaker: P1 is exactly the girl you know."
+**Patch note** (`src/data/patchNotes.js`, `v0.1.37`, the version after v0.1.36, which this branch has merged; the
+shipping stage sets the deploy day and re-numbers it only if another release ships first): "Bigger Potential & level
+85" — Potential got much bigger, every step stronger; from P3 (P2 for SSR girls and heroes) a new trick per step up to
+a P6 capstone with a Full Potential crown, every step on her Info tab; once all five breakthrough gates are open,
+every Potential step raises her level cap, up to 85 at P6, each level above 60 one Akashic Tome; the four Tome
+sources; girls keep their Potential and nothing got weaker; co-op needs the update on both sides.
 
 **Tests.** `tests/integration/potential.balance.test.js` (B6 and the campaign, opt-in), `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
 rising cap rule, `potentialLevelCap`, recruit rises, the duplicates rule), `tests/systems/mail.test.js` (a v1 save,
