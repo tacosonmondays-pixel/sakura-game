@@ -8,9 +8,7 @@ import { UNITS, getUnit } from '../../src/data/units.js';
 import { SKINS } from '../../src/data/skins.js';
 
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
-// the new girls drawn procedurally until their Blender figures land (UNIT_GAPS §5)
-const NEW_ART = ['azami', 'kinu', 'wakaba', 'yuzuha'];
-const STANDINS = [...RETURNING, ...NEW_ART];
+const STANDINS = RETURNING;
 
 function vertexCount(group) {
   let n = 0;
@@ -28,7 +26,7 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the nine returning girls and the new girls still waiting for art, all roster units', () => {
+  it('is exactly the nine returning girls, all roster units', () => {
     expect([...STANDIN_UNITS]).toEqual(STANDINS);
     for (const id of STANDINS) {
       expect(getUnit(id).id).toBe(id);
@@ -39,7 +37,7 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !STANDINS.includes(u.id));
-    expect(others).toHaveLength(19);
+    expect(others).toHaveLength(23);
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });

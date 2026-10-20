@@ -33,6 +33,23 @@
   "lodSize": 198944,
   "lodVertices": 2682
  },
+ "azami": {
+  "file": "azami.glb",
+  "size": 390376,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8078,
+  "lod": "azami.lod.glb",
+  "lodSize": 198228,
+  "lodVertices": 2734
+ },
  "chika": {
   "file": "chika.glb",
   "size": 374744,
@@ -186,6 +203,23 @@
   "lod": "kage.lod.glb",
   "lodSize": 196364,
   "lodVertices": 2784
+ },
+ "kinu": {
+  "file": "kinu.glb",
+  "size": 396540,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8259,
+  "lod": "kinu.lod.glb",
+  "lodSize": 201852,
+  "lodVertices": 2844
  },
  "luna": {
   "file": "luna.glb",
@@ -629,6 +663,23 @@
   "lodSize": 205616,
   "lodVertices": 2877
  },
+ "wakaba": {
+  "file": "wakaba.glb",
+  "size": 425304,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9070,
+  "lod": "wakaba.lod.glb",
+  "lodSize": 205100,
+  "lodVertices": 2946
+ },
  "yuki": {
   "file": "yuki.glb",
   "size": 422356,
@@ -645,5 +696,22 @@
   "lod": "yuki.lod.glb",
   "lodSize": 206000,
   "lodVertices": 2957
+ },
+ "yuzuha": {
+  "file": "yuzuha.glb",
+  "size": 419336,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8916,
+  "lod": "yuzuha.lod.glb",
+  "lodSize": 205724,
+  "lodVertices": 2975
  }
 }
