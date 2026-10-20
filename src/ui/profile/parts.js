@@ -14,7 +14,7 @@ import { themeBackdropSVG } from '../../art/backdrops.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, uiIcon, modeIcon } from '../../art/icons.js';
 import { modeText } from '../text/modes.js';
-import { eclipseFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.js';
+import { eclipseFrameSVG, pumpkinFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.js';
 import { levelCap, MAX_AWAKEN } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/profileTrophies.js';
@@ -54,6 +54,7 @@ export function avatarEl(unitId, frame, { onEdit = null, cls = '' } = {}) {
   const el = h(`div.pf-ava${cls ? `.${cls}` : ''}`, { 'data-frame': frame || 'default', 'data-testid': 'profile-avatar' },
     h('div.pf-ava-img', svgEl(portraitHTML(u, 'thumb', { alt: '', eager: true }), 'pf-ava-pic')));
   if (frame === 'eclipse') el.append(svgEl(eclipseFrameSVG(), 'pf-ava-frame-wrap'));
+  else if (frame === 'pumpkin') el.append(svgEl(pumpkinFrameSVG(), 'pf-ava-frame-wrap'));
   else if (frame === 'ur') el.append(h('div.pf-ava-ur', urRing()));
   if (onEdit) el.append(h('button.pf-ava-edit', { type: 'button', title: 'Picture and frame', 'aria-label': 'Change picture and frame', 'data-testid': 'profile-avatar-edit', onclick: onEdit }, ico('edit', 'pf-ico-fill')));
   return el;

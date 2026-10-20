@@ -43,7 +43,7 @@ export function autoDelay(text) {
 export function titleCardText(scene, episode = 0) {
   const ch = CHAPTERS.find((c) => c.id === scene.chapter);
   if (scene.kind === 'lesson') return { kicker: "Captain's Journal", title: resolveText(scene.title), sub: '' };
-  const kicker = scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
+  const kicker = scene.kind === 'event' ? 'Event Story' : scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
   return { kicker, title: resolveText(scene.title), sub: episode ? `Episode ${episode}` : '' };
 }
 
