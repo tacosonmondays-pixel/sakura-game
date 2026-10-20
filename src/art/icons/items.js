@@ -400,3 +400,27 @@ export function gearBody(slot, rarity) {
   return s + rarityFront(rarity);
 }
 
+
+// --- limited-event currencies ---------------------------------------------------------------
+
+/**
+ * An event currency coin with a shape on it (EVENT_ICON_SHAPES in src/data/events/build.js).
+ * Only `candy` has its own drawing so far; the others fall back to a star on the coin.
+ */
+export function eventCurrencyBody(shape, color = '#f28c28', accent = '#9d4edd') {
+  const g = `ec_${shape}`;
+  const coin = `<defs>${radGrad(g, [[0, lighten(accent, 0.45)], [0.7, accent], [1, darken(accent, 0.45)]], { cx: 0.4, cy: 0.35, r: 0.75 })}</defs>`
+    + `<circle cx="32" cy="35" r="23" fill="${darken(accent, 0.6)}"/><circle cx="32" cy="32" r="23" fill="url(#${g})" stroke="${darken(accent, 0.6)}" stroke-width="2.4"/>`;
+  if (shape === 'candy') {
+    // a wrapped pumpkin candy: round orange sweet, twisted wrapper ends, a little carved smile
+    const dark = darken(color, 0.5);
+    return coin
+      + `<path d="M17 32l-8-7v14zM47 32l8-7v14z" fill="${lighten(color, 0.35)}" stroke="${dark}" stroke-width="1.8"/>`
+      + `<ellipse cx="32" cy="32" rx="14" ry="12" fill="${color}" stroke="${dark}" stroke-width="2.2"/>`
+      + `<path d="M27 21c-2 6-2 16 0 22M37 21c2 6 2 16 0 22" fill="none" stroke="${dark}" stroke-width="1.4" opacity="0.55"/>`
+      + `<path d="M31 20c0-3 1-5 4-6" fill="none" stroke="#2d6a4f" stroke-width="2.4"/>`
+      + `<path d="M25 29l3-3 3 3zM33 29l3-3 3 3z" fill="${dark}"/><path d="M25 35c3 4 11 4 14 0" fill="none" stroke="${dark}" stroke-width="2"/>`
+      + '<ellipse cx="26" cy="26" rx="3" ry="1.6" fill="#fff" opacity="0.6"/>';
+  }
+  return coin + `<polygon points="${starPoints(32, 32, 12, 5.5)}" fill="${color}" stroke="${darken(color, 0.5)}" stroke-width="2"/>`;
+}
