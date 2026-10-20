@@ -449,17 +449,39 @@ try {
     // her rhythm (Twin Fletch) comes at P5: every 12th volley, every 10th from P6; below P5 no row
     const aoiRow = await page.evaluate(() => { const e = document.querySelector('[data-testid="tower-panel"] [data-testid="pot-rhythm"]'); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length } : null; });
     check(aoiP >= 5 ? aoiRow?.name === 'Twin Fletch' && aoiRow.pips === (aoiP >= 6 ? 10 : 12) : aoiRow === null, `${tag} battle: Aoi P${aoiP} rhythm row ${JSON.stringify(aoiRow)}`);
-    // Kage P6: start the wave, let her throw, open her panel
-    await page.evaluate((uid) => { const { sim, ui } = window.__battle; ui.select(uid); if (sim.state !== 'wave') sim.startNextWave(); }, placed.kage);
-    await page.waitForFunction((uid) => (window.__battle.sim.towers.find((x) => x.uid === uid)?.potCount || 0) >= 2, placed.kage, { timeout: 60000 }).catch(() => {});
-    await page.waitForTimeout(300);
+    // Kage P6: start the wave and step the battle until she has thrown twice. The battle is paused
+    // (the frame loop stops stepping it but keeps painting the panel) and stepped here in game time,
+    // so the panel and the sim are read from one state: no real-time wait on software GL
+    const thrown = await page.evaluate((uid) => {
+      const { sim, ui } = window.__battle;
+      ui.paused = true;
+      if (sim.state !== 'wave') sim.startNextWave();
+      const t = sim.towers.find((x) => x.uid === uid);
+      for (let i = 0; i < 60 * 180 && (t.potCount || 0) < 2 && sim.state !== 'won' && sim.state !== 'lost'; i++) {
+        if (sim.state !== 'wave') sim.startNextWave();
+        sim.update(1 / 60);
+      }
+      // open her panel now, as a player would mid-wave
+      ui.select(null);
+      ui.select(uid);
+      return t.potCount || 0;
+    }, placed.kage);
+    check(thrown >= 2, `${tag} battle: Kage threw at least twice within three minutes of game time (${thrown})`);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const kp = await page.evaluate((uid) => {
       const p = document.querySelector('[data-testid="tower-panel"]');
       const row = (k) => { const e = p.querySelector(`[data-testid="pot-${k}"]`); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length, on: e.querySelectorAll('.bt-pot-pip.on').length, text: e.querySelector('small')?.textContent, fits: e.scrollWidth <= e.clientWidth + 1 } : null; };
       const t = window.__battle.sim.towers.find((x) => x.uid === uid);
       const nm = p.querySelector('.bt-panel-nm');
-      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: t.potCount % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1 };
+      // her Potential rows sit inside the panel's visible scroll area as it opens (not below the paths)
+      const sc = p.querySelector('.bt-panel-scroll');
+      const pb = p.querySelector('[data-testid="panel-potential"]');
+      const sr = sc?.getBoundingClientRect();
+      const br = pb?.getBoundingClientRect();
+      const potInView = !!(sr && br && br.height > 0 && br.top >= sr.top - 0.5 && br.bottom <= sr.bottom + 0.5 && sc.scrollTop === 0);
+      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: (t.potCount ?? 0) % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1, potInView, potAt: br && sr ? [Math.round(br.top - sr.top), Math.round(br.bottom - sr.top), Math.round(sr.height)] : null };
     }, placed.kage);
+    check(kp.potInView, `${tag} battle: Kage's Potential rows are in view when her panel opens (top/bottom/visible ${kp.potAt?.join(' / ')})`);
     check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 8 && kp.rhythm.text === 'every 8th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
     check(kp.tempo?.name === 'Shadow Tempo' && kp.tempo.pips === 6 && kp.tempo.on === kp.stacks && kp.tempo.text === `+${kp.stacks}%`, `${tag} battle: Kage's tempo pips ${JSON.stringify(kp.tempo)} (stacks ${kp.stacks})`);
     check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.08).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);
@@ -481,7 +503,7 @@ try {
     const wide = await page.evaluate(() => { const n = document.querySelector('[data-testid="tower-panel"] .bt-panel-name'); const pill = n.querySelector('.pot-pill'); const r = n.getBoundingClientRect(); const pr = pill?.getBoundingClientRect(); return { overflow: n.scrollWidth > n.clientWidth + 1, pillIn: pr && pr.right <= r.right + 0.5, text: n.textContent }; });
     check(!wide.overflow && wide.pillIn, `${tag} battle: "${wide.text}" fits the name line, the P6 pill inside`);
     await shot(page, `battle-longname-${tag}`);
-    await page.evaluate(() => { window.__sakura.store.profile.units.kaede.awaken = 0; });
+    await page.evaluate(() => { window.__sakura.store.profile.units.kaede.awaken = 0; window.__battle.ui.paused = false; });
 
     // 7b. levels above 60 (v3 §4): the cap line, the Potential cap card at gate 5, a level-up past 60 with an Akashic Tome
     const keep = await page.evaluate(() => {

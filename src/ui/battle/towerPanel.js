@@ -243,10 +243,11 @@ export function createTowerPanel(ctx) {
     for (const s of st.status || []) chips.push(h('span.bt-cap.bt-cap-status', statusLabel(s)));
     if (st.disabled > 0) chips.push(h('span.bt-cap.bt-cap-bad', `Disabled ${fmtNum(st.disabled, 1)}s`));
     const stats = h('div.bt-stats-grid', rows);
-    const capsRow = chips.length ? h('div.bt-caps', chips) : null;
-    // Potential (v3 §11): her rhythm and tempo pips, shuriken per throw, her drones' overclock (live)
+    const caps = chips.length ? h('div.bt-caps', chips) : null;
+    // Potential (v3 §11): her rhythm and tempo pips, shuriken per throw, her drones' overclock (live).
+    // Mounted right under the head (a drone owner: at the top of her Overall / Chika tab), so the pips
+    // tick in view when the panel opens instead of below three upgrade paths
     const potBlock = potentialBlock(t, st);
-    const caps = potBlock ? h('div.bt-caps-wrap', capsRow, potBlock) : capsRow;
 
     // ---- upgrade paths (heroes have none: they level along their track)
     const paths = def.paths.length ? h('div.bt-paths', def.paths.map((p, i) => pathRow(t, p, i, pathNames, st.aura?.range || 0))) : null;
@@ -287,13 +288,14 @@ export function createTowerPanel(ctx) {
       if (st.canHitAir) own.push(h('span.bt-cap', svgEl(capabilityIcon('antiAir'), 'bt-cap-ico'), 'Hits air'));
       const affordable = [0, 1, 2].some((p) => !sim.upgradeStatus(t.uid, p).locked);
       const buffs = () => [buffedBy(t), buffing(t, ally)];
-      const dv = drones.sections(t, st, { paths, rest, caps, aura: keyed.aura?.cloneNode(true) || null, ownCaps: own.length ? h('div.bt-caps', own) : null, buffs }, { mine: !ally, affordable });
+      const dv = drones.sections(t, st, { paths, rest, caps, pot: potBlock, aura: keyed.aura?.cloneNode(true) || null, ownCaps: own.length ? h('div.bt-caps', own) : null, buffs }, { mine: !ally, affordable });
       scroll = h('div.bt-panel-scroll', head, dv.split, allyNote, heroBlock, target, dv.flight, dv.tabs, dv.content);
       toTop = dv.toTop;
     } else {
       scroll = h(
         'div.bt-panel-scroll',
         head,
+        potBlock,
         allyNote,
         heroBlock,
         target,
