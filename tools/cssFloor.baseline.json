@@ -1,6 +1,6 @@
 {
   "floorPx": 12,
-  "note": "Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update",
+  "note": "Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update (a new file is never added; a pre-M0 screen only with --admit <path>)",
   "files": {
     "src/ui/styles/achievements.css": 51,
     "src/ui/styles/base.css": 10,

@@ -50,7 +50,7 @@ Spec: `docs/specs/UI_DIRECTION.md` §7 M0, built from §2–§5 and the appendix
 6. **The CSS floor lint** (`tools/cssFloor.mjs`, with the baseline in `tools/cssFloor.baseline.json`):
    - It counts `font-size` and `font:` declarations under 12 px, outside `.deco` rules, in every stylesheet under `src/`.
    - px counts as is, rem and em at 16 px, and pt × 4/3; `clamp()`, `min()` and `max()` count by their smallest fixed size.
-   - `--update` can only lower a file's number.
+   - `--update` can only lower a file's number, and never adds a file: a new stylesheet stays at 0, so any declaration under 12 px in it fails. A screen built before M0 (UI_DIRECTION §7 rule 2) comes in only with `--update --admit <path>`, named in the commit (train v0.1.38: `src/ui/styles/events.css` at 13).
    - `tests/tools/cssFloor.test.js` runs the ratchet inside the suite and checks that `components.css` has none.
 7. **The contrast table** (`tools/contrast.mjs`, `tests/ui/contrast.test.js`). It reads the real token values from `base.css` and composites translucent backgrounds over the surface they sit on, using the worst case where it varies.
 8. **`e2e/ui-shots.mjs`** seeds a fixed save (every girl, Aoi Lv 48, 6 gear rolls from fixed seeds, 284,650 coins and 16,570 gems, no auto-start). It shoots the six screens at both sizes, so later milestones can reuse it.

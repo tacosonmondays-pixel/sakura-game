@@ -1,7 +1,7 @@
 // The CSS floor lint (tools/cssFloor.mjs, docs/specs/UI_DIRECTION.md §8): font sizes under 12 px outside .deco,
 // counted per file against a baseline that may only go down.
-import { describe, it, expect } from 'vitest';
-import { scanCss, scanAll, readBaseline, compare } from '../../tools/cssFloor.mjs';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { scanCss, scanAll, readBaseline, compare, nextBaseline } from '../../tools/cssFloor.mjs';
 
 describe('CSS floor lint: the counter', () => {
   it('counts font-size and the size inside a font: shorthand', () => {
@@ -21,11 +21,34 @@ describe('CSS floor lint: the counter', () => {
   });
 });
 
+describe('CSS floor lint: line numbers', () => {
+  it('a declaration reports the line it starts on, in a big file too', () => {
+    const css = `${'.x { color: red; }\n'.repeat(5000)}.a {\n  font-size: 9px;\n}\n/* x\ny */ .b { font-size: 10px; }`;
+    expect(scanCss(css).map((d) => d.line)).toEqual([5002, 5005]);
+  });
+});
+
+describe('CSS floor lint: --update never raises a count or adds a file (M0-1)', () => {
+  const scan = { 'a.css': [1, 2, 3], 'b.css': [1], 'new.css': [1, 2], 'clean.css': [] };
+  it('lowers to today\'s count, keeps lower baselines, leaves a new file out (it still fails)', () => {
+    const base = { 'a.css': 5, 'b.css': 0, 'gone.css': 4 };
+    expect(nextBaseline(scan, base)).toEqual({ 'a.css': 3 });
+    expect(compare(scan, nextBaseline(scan, base)).map((r) => r.file)).toEqual(['b.css', 'new.css']);
+  });
+  it('--admit takes a named file in at today\'s count, and only that one', () => {
+    expect(nextBaseline(scan, { 'a.css': 5 }, ['new.css'])).toEqual({ 'a.css': 3, 'new.css': 2 });
+  });
+});
+
 describe('CSS floor lint: the ratchet', () => {
+  let scan;
+  beforeAll(() => {
+    scan = scanAll(); // one scan of every stylesheet for both checks
+  });
   it('no stylesheet has more declarations under 12 px than its baseline (run node tools/cssFloor.mjs --list)', () => {
-    expect(compare(scanAll(), readBaseline())).toEqual([]);
+    expect(compare(scan, readBaseline())).toEqual([]);
   });
   it('the new component stylesheet has none', () => {
-    expect(scanAll()['src/ui/styles/components.css']).toEqual([]);
+    expect(scan['src/ui/styles/components.css']).toEqual([]);
   });
 });

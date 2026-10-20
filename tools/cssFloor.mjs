@@ -5,7 +5,10 @@
 //
 //   node tools/cssFloor.mjs            # report + check against the baseline (exit 1 on a rise)
 //   node tools/cssFloor.mjs --list     # also print every offending declaration
-//   node tools/cssFloor.mjs --update   # lower the baseline to today's counts (never raises one)
+//   node tools/cssFloor.mjs --update   # lower the baseline to today's counts (never raises one, never adds a file)
+//   node tools/cssFloor.mjs --update --admit src/ui/styles/x.css
+//                                      # also take x.css in at today's count: only for a screen built before M0
+//                                      # (§7 rule 2: swept in M5); name the file and the reason in the commit
 //
 // Sizes: px as is, rem and em at 16 px (the root size; em is a floor estimate), pt × 4/3. clamp() / min() / max()
 // count by their smallest fixed size. var(), %, keywords (small, smaller, inherit) and calc() with no fixed size
@@ -50,7 +53,19 @@ export function scanCss(css) {
   const found = [];
   // blank out comments but keep line numbers
   const text = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
-  const lineAt = (idx) => text.slice(0, idx).split('\n').length;
+  // line numbers by binary search over the newline offsets (one pass per file, not one per declaration)
+  const breaks = [];
+  for (let i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) breaks.push(i);
+  const lineAt = (idx) => {
+    let lo = 0;
+    let hi = breaks.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (breaks[mid] < idx) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo + 1;
+  };
   const stack = [];
   let buf = '';
   let start = -1; // index of the first non-space character of the current chunk
@@ -106,6 +121,24 @@ export function compare(scan, baseline) {
   return rises;
 }
 
+/**
+ * The baseline `--update` writes: every file at the lower of its baseline and today's count. A file missing from the
+ * baseline counts as 0 there (as in compare), so it never comes in, unless it is named in `admit` (taken in at
+ * today's count).
+ * @param {Record<string, object[]>} scan
+ * @param {Record<string, number>} baseline
+ * @param {string[]} [admit] repo-relative paths
+ * @returns {Record<string, number>} sorted by path, zeros left out
+ */
+export function nextBaseline(scan, baseline, admit = []) {
+  const next = {};
+  for (const [file, list] of Object.entries(scan)) {
+    const n = admit.includes(file) ? list.length : Math.min(baseline[file] ?? 0, list.length);
+    if (n) next[file] = n;
+  }
+  return Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b)));
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const args = process.argv.slice(2);
   const scan = scanAll();
@@ -121,18 +154,25 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   }
   const baseTotal = Object.values(baseline).reduce((a, b) => a + b, 0);
   console.log(`total ${total} declarations under ${FLOOR_PX}px outside .deco (baseline ${baseTotal})`);
-  if (args.includes('--update')) {
-    const next = {};
-    for (const [file, list] of Object.entries(scan)) {
-      const base = baseline[file];
-      const n = base == null ? list.length : Math.min(base, list.length);
-      if (n) next[file] = n;
+  const admit = args.flatMap((a, i) => (a === '--admit' && args[i + 1] ? [args[i + 1].split('\\').join('/').replace(/^\.\//, '')] : []));
+  for (const f of admit) {
+    if (!scan[f]) {
+      console.log(`--admit ${f}: no such stylesheet under src/`);
+      process.exit(1);
     }
-    const sorted = Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b)));
-    writeFileSync(BASELINE, `${JSON.stringify({ floorPx: FLOOR_PX, note: 'Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update', files: sorted }, null, 2)}\n`);
-    console.log(`baseline written: ${Object.values(sorted).reduce((a, b) => a + b, 0)}`);
   }
-  const rises = compare(scan, baseline);
+  let check = baseline;
+  if (args.includes('--update')) {
+    const sorted = nextBaseline(scan, baseline, admit);
+    for (const f of admit) console.log(`admitted ${f} at ${sorted[f] ?? 0} (was ${baseline[f] ?? 'not in the baseline'})`);
+    writeFileSync(BASELINE, `${JSON.stringify({ floorPx: FLOOR_PX, note: 'Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update (a new file is never added; a pre-M0 screen only with --admit <path>)', files: sorted }, null, 2)}\n`);
+    console.log(`baseline written: ${Object.values(sorted).reduce((a, b) => a + b, 0)}`);
+    check = sorted;
+  } else if (admit.length) {
+    console.log('--admit only works with --update');
+    process.exit(1);
+  }
+  const rises = compare(scan, check);
   for (const r of rises) console.log(`FAIL ${r.file}: ${r.count} declarations under ${FLOOR_PX}px (baseline ${r.baseline})`);
   process.exit(rises.length ? 1 : 0);
 }
