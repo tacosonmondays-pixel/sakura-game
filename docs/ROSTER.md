@@ -41,6 +41,20 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 | **Kaede** — Crimson Fencer | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
 | **Chika** — Clockwork Mechanic | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | A weak wrench bolt plus a wing of **roaming drones** (2 at base) that fly out up to 4 tiles to hunt; flight modes Hover · Hold · Patrol · Pursuit (map-wide); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil (her bolt becomes the coil; drones keep flying). | Sabotage waves, bosses walking a long lane (Pursuit), lanes out of reach (Hold) | Sappers jam drones far from the team; her own bolt is weak |
 
+| **Kanna** — Drum Club Advisor | Hero · SSR | Champion | Slash | – | Land | Gacha | Melee drum strikes that build focus and crack armor; flyers from Lv 6. Ult *Festival Drumfall*: 260 armor-ignoring damage on the strongest enemy anywhere, shred + stagger, 30 % splash. | Elites, armored bosses | Flyers early; wide swarms |
+| **Yoriko** — Drama Club Director | Hero · SSR | Puppeteer | Mystic | – | Land | Gacha | Two slowing marionette threads, stage aura from Lv 5. Ult *Dream Detour*: pushes every enemy back 5 tiles, 50 % slow and a **hex** (1 % max HP/s, no regen). | Fast waves, regenerators, leaks | Raw damage |
+| **Seiran** — Sky Patrol Instructor | Hero · SSR | Storm Rider | Mystic | Lightning | **Land + water** | Gacha | Chain lightning that prefers flyers (×1.25). Ult *Dragonflight*: a **sky dragon** flies back along the road from her aim point, 140 damage to each enemy once, grounds flyers, marks +18 %. | Flyers, spread-out waves | Warded oni and fae |
+| **Fuu** — Dance Club Turbine Dancer | Tower · R | Displacer | Mystic | – | Land | Gacha | Three gusts that push enemies back (push lock 1.5 s); paths: stronger push, **gather** the wave together, ground flyers. | Rushes, leaks near the exit | Bosses (never move) |
+| **Hana** — Wildlife Club Drone Falconer | Tower · R | Aerial Hunter | Pierce | – | Land | **Free after 7-5** | Arrows ×2 vs flyers that **ground** them (Air targeting by default); paths: falconry, Hunter's Mark, volleys. | Flyers (wyverns), elites with the mark | Ground crowds |
+| **Ruri** — Library Club Holo-Summoner | Tower · SR | Summoner | Mystic | – | Land | Gacha | Her bolts leave **Kon**, a holo fox at the edge of the nearest lane (range ring on Kon); paths: Moonhound, Star Falcon, Tide Otter. | Lanes she cannot stand next to | Short reach of the familiar |
+| **Noa** — Health Committee Medic | Tower · SR | Purifier | Holy | – | Land | **Free after 6-2** | **Cleanse aura** (no sabotage, no volatile stuns) + 5 % damage; tiny holy chimes that silence fields. | Sappers, volatile slimes, field oni | Almost no damage |
+| **Iroha** — Art Club Mirror Technician | Tower · SSR | Mirror Caster | Mystic | – | Land | Gacha | Fires from **two points**: herself and a mirror panel she aims beside a far lane. | A second lane or a far bend | Needs a good panel spot |
+| **Ena** — Occult Club Fortune Hacker | Tower · SSR | Hex Caster | Mystic | – | Land | Gacha | Her hits **curse**: a cursed enemy bursts on death for a share of the hit and passes a weaker curse (2 more times; ≤ 32 bursts a step). | Dense waves that fall together | Lone bosses |
+
+The nine returning girls (track 5, `src/data/unitsExpansion.js`) wear academy school uniforms with tech gear; their portraits and
+chibis are placeholders until the owner approves real art (`docs/merge/ROSTER_WAVE_NOTES.md`). Their activated abilities are data
+only (`RETURNING_ABILITIES`), for the ability system.
+
 ## Upgrade paths at a glance
 
 Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 000–16 000 coins).

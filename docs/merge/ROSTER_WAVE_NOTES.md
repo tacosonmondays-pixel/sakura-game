@@ -23,7 +23,7 @@ mechanics), so all three come in; what today's systems replaced is dropped or re
 | `src/main.js` | Today's imports (`ensurePotentialLetter`, rng) + `formationSkins` for the model preload; the restore modal is dropped. |
 | `src/sim/mods.js` | Both: Potential's keys and the B3 `relay` reach key. |
 | `src/sim/status.js` | B3's curse refresh rule, then today's key list (with Potential's `pct`). |
-| `src/sim/Sim.js` | `addGlobalRateBuff` keeps today's caster `src` and gains B3's `kind: 'rate'`; `addGlobalDamageBuff` also takes a caster `src`. **Knockback**: one push lock. B3 counts `e.pushLock` down in seconds (`updateEnemy`); today's hero rework stored an absolute time for heroes only (`HERO_PUSH_LOCK` 0.5 s). Now any push needs `pushLock <= 0`; a hero's push locks for `HERO_PUSH_LOCK`, everything else for `PUSH_LOCK[tier]` (1.5 s, 3.0 s minibosses), and freeplay's Resolve `kbLeft` cap still applies. `placeTower` keeps today's hero slots (`heroIndex`, `heroes`) and passes `globalDmgMul`. `_relocate` (a hero's Move) keeps today's body and also updates the attack origin (`updateRelayOrigin`); B3's `setAim` / `clearAim` sit after it. `setRouteOrientation` clears `_relaySamples` to `null` (was `delete`: the battle save compares fields). |
+| `src/sim/Sim.js` | `addGlobalRateBuff` keeps today's caster `src` and gains B3's `kind: 'rate'`; `addGlobalDamageBuff` also takes a caster `src`. **Knockback**: two locks that never block each other. A girl's push or gather uses B3's countdown `e.pushLock` (`PUSH_LOCK[tier]`: 1.5 s, 3.0 s minibosses; `updateEnemy` counts it down); a hero's own push-back keeps today's hero-rework lock, now in its own field `e.heroPushLock` (absolute time, `HERO_PUSH_LOCK` 0.5 s), so Nami plays exactly as on live. Freeplay's Resolve `kbLeft` cap still applies to both. (A first version shared one field; it changed hero battles, so it was split.) `placeTower` keeps today's hero slots (`heroIndex`, `heroes`) and passes `globalDmgMul`. `_relocate` (a hero's Move) keeps today's body and also updates the attack origin (`updateRelayOrigin`); B3's `setAim` / `clearAim` sit after it. `setRouteOrientation` clears `_relaySamples` to `null` (was `delete`: the battle save compares fields). |
 | `src/sim/hero.js` | Today's header plus one line on the ult shapes; both import sets; the `'ult'` event carries B3's `x, y` (where it lands) and `fromX, fromY` plus today's `rank`. |
 | `src/sim/towers.js` | Both constant import lists; `pointAt` added to today's path import; `refreshTowerStats` resolves through today's `towerResolvedStats` (Potential) and passes `globalDmgMul`; `hitSpecFrom` passes today's `classMul` and B3's `airMul` / `gather`; `refreshEffective` keeps today's map-rule range and multiplies damage by `buff.dmgMul × globalDmgMul`; `recomputeBuffs` keeps today's rule range inputs and also refreshes on a `globalDmgMul` change; today's `topTargets` / echo state stay; the projectile and duel attacks keep today's logic (echo fan, Potential `keepRamp`) but measure from the origin `t.ox, t.oy`. Relay samples come from `sim._pathsFwd ?? sim.pathData` (CODEX_MODES §6.3 asked whichever branch lands second to do it). |
 | `src/online/coop/lockstep.js` | (no conflict) `effMatches` passes `globalDmgMul`, or a resync would rebuild every girl while a team damage buff runs. |
@@ -45,12 +45,33 @@ Golden and balance moves from the merge are in §4.
 
 ## 2. Roster B3 finish (CU-3)
 
-(written as the build goes; see below)
+| Piece | Where | Notes |
+|---|---|---|
+| Aim points | `Sim.setAim / clearAim`, `towers.js aimMode` | Mortar, mirror, and aimed hero ults (nova `center: 'aim'` or a runner ult). Battle save keeps `aim` (`am`). |
+| Mortar shells | `towers.js attackMortar / updateShells` | Fixed scatter table, fire-time spec snapshot; shells end at the wave clear. No returning girl uses it (Tsubaki is track 1's duo). |
+| Relay origins | `towers.js relayOrigin / updateRelayOrigin` | Samples from `_pathsFwd`; `relay.both` (Iroha) fires from the panel and from her spot. A hero's Move updates the origin. |
+| Grounding, flyer bonus, Air | `status.js`, `combat.js`, `enemies.js`, `towers.js targetScore('air')` | Air button only for girls who hit flyers. |
+| Push lock + gather | `Sim._onHitEffects / _gather` | See §1 (girls' lock and the hero's own lock). |
+| Curse spread + budget | `Sim._killEnemy / _flushCurses` | `CURSE_BURSTS_PER_TICK` 32, FIFO spill to the next step, queue dropped at the wave clear. |
+| Hex (P-15) | `status.js`, `enemies.js`, `Sim._hex` | pct × max HP × tier factor per second, ≤ 10 % per application on minibosses / bosses, no regen. |
+| Beam ramp | `towers.js attackBeam` | (no returning girl uses it: Kohaku is track 1's) |
+| Hero ults | `hero.js` | `strike` (Kanna), hexing `tide` (Yoriko), `runner` sky dragon (Seiran, `src/sim/runners.js`), `dmgBuff`. |
+| Co-op `aim` | `src/online/coop/commands.js` | One `case 'aim'` block + the `KINDS` entry; owner only; `[uid, null]` clears. |
+| UI | `src/ui/battle/aimControl.js`, `towerPanel.js`, `student.js` | Set aim / Auto (one board tap, banner, Esc cancels); student stat lines. |
+| Renderer | `src/render/rosterFx.js`, nine attack styles, status icons | Mortar ring, holo fox and mirror panel with tethers, aim reticle, curse bursts, drum shockwave, sky dragon. |
+| Tests | `tests/sim/mechanics-merge.test.js`, `tests/online/coopAim.test.js`, `tests/sim/mods.test.js`, `tests/data/units.test.js` | Determinism with `Math.random` / `Date.now` unusable; engines scenario `runRosterBattle` (V8 and JavaScriptCore agree). |
 
 ## 3. Builder 4 (CU-4)
 
-(written as the build goes; see below)
+- Data: `src/data/unitKit.js`, `src/data/unitsExpansion.js` (nine kits, `RETURNING_ABILITIES`), `src/data/heroTracksReturning.js` (25-level tracks; counters early by `also`), Potential rows + text, wiki "Returning Girls", tips, roles.
+- Obtaining: Noa free after 6-2, Hana free after 7-5 (stage `unlocks`), everyone else gacha (they join the pools automatically).
+- UNIT_GAPS §4.1 upgrades that need only B3: Iroha fires from both origins; Ena's burst budget, hex mark and chain counter FX; Hana's paths renamed (Falconry, Hunter's Mark); Seiran's sky dragon and Yoriko's hexing Dream Detour. Not done (need later primitives): Ruri's roaming pet (P-6), Hana's circling falcon (P-6), Iroha's Infinite Reflection split (A6), Yoriko's Puppet Hex skill (ability system).
+- Looks: school uniforms with tech gear; heroes in staff / officer coats; look guard test.
+- Art: placeholder portraits (`tools/art/placeholder_portraits.py`), procedural stand-ins (`src/models/standins.js`). No image or 3D generator was called.
 
 ## 4. Measurements
 
-(balance tables, goldens, engines, co-op id)
+- Balance: `docs/BALANCE.md` "Roster wave" (tables per girl, the 8-5 known flip).
+- Goldens: `tests/sim/modesGolden.test.js` re-pinned (3-3 … 8-5 move with the girls' push lock and the bot's water preference).
+- Engines: `BUN=/root/.bun/bin/bun node e2e/engines.mjs` OK (V8 + JavaScriptCore, with the returning-girls battle).
+- Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump.

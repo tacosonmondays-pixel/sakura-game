@@ -331,6 +331,25 @@ export const LEGACY /* unitId -> LegacyKit, the 19 shared ids */, LEGACY_IDS; ex
 The student Info tab shows the trait and the old upgrade names as a "Codex kit" line; the wiki has a "Codex Kits"
 article. `tests/data/legacy.test.js` checks all 19 have one and that no current path was renamed to a Codex name.
 
+### 3c. The returning girls — `src/data/unitsExpansion.js`, `src/data/unitKit.js`, `src/data/heroTracksReturning.js` (owner: units; track 5)
+
+```js
+export const EXPANSION_UNITS  // [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA]; units.js appends them to UNITS
+export const EXPANSION_IDS    // their ids (the 19 originals are everything else)
+export const RETURNING_ABILITIES // { [id]: AbilityData[] } towers, { [id]: { skill } } heroes — ABILITIES.md §6.1 shape, data only
+unitKit.js: S (+ ground, curse, mark, hex), stats, tier, path, free, STARTER, GACHA_ONLY   // copies of units.js's builders
+heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }                     // HERO_TRACKS spreads them in
+```
+New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gather` (0; add), `relay`
+(`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
+Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
+Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
+hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
+`isStandIn`); placeholder portraits: `tools/art/placeholder_portraits.py`. Every returning student wears a
+school uniform with tech gear (look guard in `tests/data/units.test.js`).
+
 ## 4. World — enemies, maps, stages (owner: world)
 
 ### `src/data/enemies.js`
@@ -1115,6 +1134,22 @@ a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebu
 come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
 Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
 
+### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
+
+```js
+sim.setAim(uid, x, y) / sim.clearAim(uid)   // -> boolean; 1/1024 grid, clamped to the map (a mirror to her reach); 'aim' event
+aimMode(t)                                   // towers.js: 'mortar' | 'mirror' | 'ult' (nova center 'aim' or a runner ult) | null
+relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
+sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
+sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
+sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
+PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // girls' pushes and gathers; a hero's own push keeps HERO_PUSH_LOCK (0.5 s, separate)
+HEX_TIER_MUL, HEX_BOSS_CAP                   // hex: pct × maxHp × tier factor per second, ≤ 10% per application on minibosses / bosses, no regen
+```
+Battle UI: `src/ui/battle/aimControl.js` (Set aim / Auto in the panel, one board tap); `ctx.act.aim(uid, x, y)`
+(x null clears). Renderer: `src/render/rosterFx.js`. Co-op: `aim[uid, qx, qy]` / `aim[uid, null]` (owner only).
+
 ## 7. Models — `src/models/**` (owner: models)
 
 ```js
@@ -1624,7 +1659,8 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `createCoopSim` / `Lockstep` directly pass their own stats.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
-  fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid]` (`fly`: a drone wing's flight mode, owner only like
+  fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid] aim[uid,qx,qy]|aim[uid,null]` (`aim`: a mortar /
+  mirror girl's or an aimed hero ult's aim point, owner only, whole 1/1024 tiles, null clears; roster B3) (`fly`: a drone wing's flight mode, owner only like
   `tgt`, up to 6 arguments; `flyArgs()` builds it), positions quantized to 1/1024 tile,
   `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
   with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never

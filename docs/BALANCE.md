@@ -1,5 +1,57 @@
 # Balance notes
 
+## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
+
+First pass for the nine returning girls; the owner's balance pass comes later. Method: the hero-rework
+bench (`tools/balance/bench.js`: stage 4-5's map, a column of 10 stationary ground enemies, 20 s,
+default stats, best main/cross split) plus a **stream** bench in `tools/balance/rosterWave.js`
+(finite-HP enemies replaced as they fall, so kills and curse bursts count; and a flyer column).
+Run: `BALANCE=roster BALANCE_OUT=/tmp/t.md npx vitest run tests/integration/rosterWave.balance.test.js`.
+A girl is "in band" when at least one of her stream measures sits inside her rarity's live min × 0.85 …
+max × 1.15. Supports (Noa, like Umeko and Miko) are not banded.
+
+| Girl | Rarity | Crowd 3/2 | Crowd 5/2 | Single 5/2 | Stream 3/2 (400 HP) | Stream 5/2 (4,000 HP) | Flyers 3/2 | vs her rarity median: crowd 5/2 · stream 3/2 · stream 5/2 · flyers | In band? |
+|---|---|---|---|---|---|---|---|---|---|
+| Fuu | R | 54 | 834 | 131 | 54 | 834 | 54 | 0.42× · 0.59× · 0.42× · 0.88× | yes |
+| Hana | R | 49 | 696 | 371 | 49 | 696 | 107 | 0.35× · 0.53× · 0.35× · 1.74×! | yes |
+| Ruri | SR | 84 | 1191 | 157 | 84 | 1191 | 84 | 0.52× · 0.65× · 0.52× · 0.88× | yes |
+| Noa | SR | 10 | 128 | 13 | 10 | 128 | 10 | 0.06×! · 0.07×! · 0.06×! · 0.10×! | support (aura; not banded) |
+| Iroha | SSR | 156 | 1449 | 309 | 156 | 1449 | 156 | 1.56× · 3.12×! · 1.68× · 3.11×! | yes |
+| Ena | SSR | 42 | 383 | 385 | 42 | 383 | 42 | 0.41×! · 0.85× · 0.44×! · 0.84× | yes |
+
+Bands: the live girls of her rarity, damage dealers only (min … max; "!" = outside min × 0.85 … max × 1.15). Akane and Midori are left out of the 1e9-HP crowd band (their % of max HP burns read the bench's 1e9 HP).
+- R: c52 791 · 1999 · 2009 | st32 32 · 91 · 131 | st52 791 · 1989 · 1993 | air32 32 · 62 · 91
+- SR: c52 1287 · 2288 · 6877 | st32 61 · 130 · 210 | st52 854 · 2286 · 7006 | air32 42 · 95 · 210
+- SSR: c52 864 · 929 · 1902 | st32 45 · 50 · 123 | st52 622 · 864 · 1902 | air32 42 · 50 · 123
+
+Live girls (crowd 5/2 / stream 3/2 / stream 5/2 / flyers 3/2): Aoi 1999/91/1993/91 · Rei 2009/131/1989/0 · Yuki 791/32/791/32 · Momo 1515/53/1504/53 · Akane 29800770/162/3397/0 · Sango 2288/140/2286/0 · Kage 6877/210/7006/210 · Umeko 180/14/180/14 · Shiro 3420/61/3357/61 · Midori 24834025/89/854/42 · Suzu 1860/72/1860/0 · Raika 1287/130/1287/130 · Miko 861/4/861/4 · Hotaru 1902/123/1902/123 · Kaede 929/45/622/42 · Chika 864/50/864/50
+
+| Hero | Lv 1 | Lv 5 | Lv 10 | Lv 15 | Lv 20 | Lv 25 crowd | Lv 25 single | Guards |
+|---|---|---|---|---|---|---|---|---|
+| Hikari | 18 | 33 | 74 | 167 | 876 | 3960 | 389 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Luna | 29 | 48 | 91 | 210 | 983 | 4587 | 127 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Nami | 20 | 31 | 74 | 154 | 378 | 1198 | 106 | crowd ≤ 1.4× best · single ≤ best · Lv25 < 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Kanna | 16 | 24 | 59 | 142 | 786 | 6531 | 1847 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Yoriko | 11 | 14 | 32 | 54 | 498 | 2775 | 992 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 < ½ 3/2 median |
+| Seiran | 16 | 29 | 52 | 87 | 631 | 4305 | 215 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+
+Tower references: 3/2 median 92 · 4/2 median 360 · 5/2 median 1902 · best 5/2 crowd 6877 · best 5/2 single 2354.
+
+Tuning done to get here (data only): Iroha 5 → 4 damage and 0.8 → 0.7 rate (her two firing points made
+her 3/2 the SSR top); Ena 5 → 12 damage, 1.0 rate and bigger tier 4-5 damage (her curses could not
+burst when nothing died); Fuu, Hana and Ruri more tier 4-5 damage; Yoriko 4 → 6 and Seiran 4 → 5 base
+damage (hero Lv 10 guard). Yoriko still misses the Lv 10 guard (32 < 46): a control hero, like Nami's
+Lv 25 miss; left for the owner's pass.
+
+**The campaign (Easy gate, `tests/integration/balance.test.js`).** 39 / 40 stages win. **8-5 now loses
+for the bot** (the Ashwing Matriarch's final flight leaks with ~10 % HP) and is listed in
+`KNOWN_EASY_FLIPS`. Measured causes: with the old free team (Aoi, Yuki) it loses only because of the
+girls' 1.5 s push lock (ROSTER_SPEC §1.2 #10; with no girl lock it wins 144 / 150 exactly as before);
+with Noa and Hana in the free team (the bot takes the 8 most recent free girls) it loses even without
+the lock. Not changed: 8-5's stage-HP pass (1.0 instead of 1.1 does not save it), Hana's numbers (×3
+against flyers does not save it either). Bot fixes kept: a token-damage aura girl is a support (no more
+three Noas), and amphibious girls take a water spot when it covers as well. Modes goldens re-pinned.
+
 ## Hero rework (2026-10-14, `feature/hero-rework`; spec `docs/specs/HERO_REWORK.md`)
 
 Heroes deploy for free and level 1–25 inside each battle. Measured on this branch against the live
