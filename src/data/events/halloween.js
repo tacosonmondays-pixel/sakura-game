@@ -191,21 +191,24 @@ export default {
   },
 
   // Candy Exchange. Cosmetics are owned in profile.events (src/systems/events.js eventCosmetics).
+  // Prices raised mid-event (owner, Oct 20: "increase how much it costs to buy items in the event shop to make grinding
+  // worth it"): the limited stock went from 7,550 to 15,800 candy (v0.1.38 prices in the comments). Stock limits are
+  // unchanged: they are shared with v0.1.38 tabs and earlier buyers through `bought` and the 'evb:' marks.
   shop: [
-    offer({ id: 'hw_title', cosmetic: { kind: 'title', id: 'ev_halloween_2026', name: 'Pumpkin Patroller' }, price: 300, limit: 1 }),
-    offer({ id: 'hw_frame', cosmetic: { kind: 'frame', id: 'pumpkin', name: 'Pumpkin Lantern' }, price: 600, limit: 1 }),
-    offer({ id: 'hw_ticket', item: 'ticket_recruit', count: 1, price: 500, limit: 2 }),
-    offer({ id: 'hw_gems', item: 'gems', count: 100, price: 300, limit: 2 }),
-    offer({ id: 'hw_box_my', item: 'gearbox_mythic', count: 1, price: 450, limit: 1 }),
-    offer({ id: 'hw_box_sr', item: 'gearbox_superRare', count: 1, price: 150, limit: 4 }),
-    offer({ id: 'hw_book_my', item: 'book_mythic', count: 1, price: 300, limit: 2 }),
-    offer({ id: 'hw_book_sr', item: 'book_superRare', count: 1, price: 80, limit: 8 }),
-    offer({ id: 'hw_book_r', item: 'book_rare', count: 5, price: 40, limit: 10 }),
-    offer({ id: 'hw_charm_sr', item: 'mat_charm_superRare', count: 2, price: 120, limit: 4 }),
-    offer({ id: 'hw_rune_sr', item: 'mat_rune_superRare', count: 2, price: 120, limit: 4 }),
-    offer({ id: 'hw_frag', item: 'star_fragment', count: 10, price: 150, limit: 4 }),
-    offer({ id: 'hw_coins', item: 'coins', count: 10000, price: 40, limit: 20 }),
-    offer({ id: 'hw_notes', item: 'book_common', count: 5, price: 30, limit: null }),
+    offer({ id: 'hw_title', cosmetic: { kind: 'title', id: 'ev_halloween_2026', name: 'Pumpkin Patroller' }, price: 900, limit: 1 }), // was 300
+    offer({ id: 'hw_frame', cosmetic: { kind: 'frame', id: 'pumpkin', name: 'Pumpkin Lantern' }, price: 1500, limit: 1 }), // was 600
+    offer({ id: 'hw_ticket', item: 'ticket_recruit', count: 1, price: 1100, limit: 2 }), // was 500
+    offer({ id: 'hw_gems', item: 'gems', count: 100, price: 700, limit: 2 }), // was 300
+    offer({ id: 'hw_box_my', item: 'gearbox_mythic', count: 1, price: 1000, limit: 1 }), // was 450
+    offer({ id: 'hw_box_sr', item: 'gearbox_superRare', count: 1, price: 300, limit: 4 }), // was 150
+    offer({ id: 'hw_book_my', item: 'book_mythic', count: 1, price: 650, limit: 2 }), // was 300
+    offer({ id: 'hw_book_sr', item: 'book_superRare', count: 1, price: 160, limit: 8 }), // was 80
+    offer({ id: 'hw_book_r', item: 'book_rare', count: 5, price: 70, limit: 10 }), // was 40
+    offer({ id: 'hw_charm_sr', item: 'mat_charm_superRare', count: 2, price: 240, limit: 4 }), // was 120
+    offer({ id: 'hw_rune_sr', item: 'mat_rune_superRare', count: 2, price: 240, limit: 4 }), // was 120
+    offer({ id: 'hw_frag', item: 'star_fragment', count: 10, price: 300, limit: 4 }), // was 150
+    offer({ id: 'hw_coins', item: 'coins', count: 10000, price: 60, limit: 20 }), // was 40
+    offer({ id: 'hw_notes', item: 'book_common', count: 5, price: 40, limit: null }), // was 30
   ],
 
   // One gift per game day the player visits (the nth gift on the nth visiting day), sent to the Mailbox on
