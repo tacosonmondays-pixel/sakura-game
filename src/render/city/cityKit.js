@@ -53,6 +53,8 @@ export function buildCity(o) {
   const surge = variant === 'surge' || !!look.city?.crystals;
   // war-torn surge: broken towers, wrecks, small fires and smoke (look.city.war)
   const war = !!look.city?.war;
+  // modern era (an ordinary present-day home town): utility poles, houses, a railway
+  const town = variant === 'town';
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
   const outsideDist = (x, z) => Math.hypot(Math.max(0, -x, x - W), Math.max(0, -z, z - H));
@@ -266,9 +268,12 @@ export function buildCity(o) {
     furniture.push([x, z]);
     place('trafficLight', x, SW_Y, z, Math.atan2(-c.ox, -c.oz), 1, 0);
   }
+  const poleRuns = [];
   for (const r of plan.roads) {
     let acc2 = 1.2;
     let side = 1;
+    let run = [];
+    poleRuns.push(run);
     for (let i = 1; i < r.pts.length - 1; i++) {
       acc2 += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
       if (acc2 < 2.9) continue;
@@ -280,18 +285,57 @@ export function buildCity(o) {
       const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       const nx = -(b[1] - a[1]) / l;
       const nz = (b[0] - a[0]) / l;
-      side = -side;
-      for (const sd of [side, -side]) {
+      if (!town) side = -side;
+      for (const sd of town ? [side] : [side, -side]) {
         const px = x + nx * sd * 0.72;
         const pz = z + nz * sd * 0.72;
         if (!walkOk(r, i, sd) || nearGate(px, pz, 1.6) || nearCrossing(px, pz, 1.3) || !freeSpot(px, pz, 1.0)) continue;
         if (zebra.some(([zx, zz]) => Math.hypot(zx - px, zz - pz) < 0.8)) continue;
         furniture.push([px, pz]);
-        place('streetLight', px, SW_Y, pz, Math.atan2(-nx * sd, -nz * sd), 1, 0);
+        const ry = Math.atan2(-nx * sd, -nz * sd);
+        if (town) {
+          // the run of poles breaks where one is skipped (corners, crossings)
+          const last = run[run.length - 1];
+          if (last && Math.hypot(last[0] - px, last[1] - pz) > 4.2) {
+            run = [];
+            poleRuns.push(run);
+          }
+          run.push([px, pz, ry]);
+          place('utilityPole', px, SW_Y, pz, ry, 1, 0);
+        } else place('streetLight', px, SW_Y, pz, ry, 1, 0);
         acc2 = 0;
         break;
       }
     }
+  }
+
+  // ----- overhead wires between the utility poles (modern era) ------------------------------
+  if (town) {
+    const cWire = C('#3d3a40');
+    for (const run of poleRuns) {
+      for (let k = 1; k < run.length; k++) {
+        const [ax, az, ar] = run[k - 1];
+        const [bx, bz, br] = run[k];
+        for (const off of [-0.22, 0, 0.22]) {
+          const a = [ax + Math.cos(ar) * off, SW_Y + 1.46, az - Math.sin(ar) * off];
+          const b = [bx + Math.cos(br) * off, SW_Y + 1.46, bz - Math.sin(br) * off];
+          const m = [(a[0] + b[0]) / 2, a[1] - 0.12, (a[2] + b[2]) / 2];
+          for (const [p, q] of [[a, m], [m, b]]) wire(p, q, cWire);
+        }
+      }
+    }
+  }
+  function wire(p, q, col) {
+    // a thin dark strip (two crossed quads so it reads from any angle)
+    const dx = q[0] - p[0];
+    const dz = q[2] - p[2];
+    const l = Math.hypot(dx, dz) || 1;
+    const nx = (-dz / l) * 0.012;
+    const nz = (dx / l) * 0.012;
+    const t = 0.012;
+    acc.quad([p[0] - nx, p[1], p[2] - nz], [q[0] - nx, q[1], q[2] - nz], [q[0] + nx, q[1], q[2] + nz], [p[0] + nx, p[1], p[2] + nz], col);
+    acc.quad([p[0], p[1] - t, p[2]], [q[0], q[1] - t, q[2]], [q[0], q[1] + t, q[2]], [p[0], p[1] + t, p[2]], col);
+    acc.quad([p[0], p[1] + t, p[2]], [q[0], q[1] + t, q[2]], [q[0], q[1] - t, q[2]], [p[0], p[1] - t, p[2]], col);
   }
 
   // ----- buildings on the board ----------------------------------------------------------
@@ -334,7 +378,7 @@ export function buildCity(o) {
     }
     buildBuilding(acc, spec, ex, rand);
     // a hologram on the street face of tall glass towers / offices on the board
-    if (!war && (b.kind === 'glassTower' || b.kind === 'office') && (b.floors || 0) >= 6 && spec.front !== '-z') {
+    if (!war && !town && (b.kind === 'glassTower' || b.kind === 'office') && (b.floors || 0) >= 6 && spec.front !== '-z') {
       const ry = { z: 0, x: Math.PI / 2, '-x': -Math.PI / 2 }[spec.front] ?? 0;
       const fd = spec.front === 'x' || spec.front === '-x' ? spec.w : spec.d;
       const cs = Math.cos(ry);
@@ -369,6 +413,18 @@ export function buildCity(o) {
     const front = cz > H;
     const w = 1.45 + ((h >>> 4) % 40) / 100;
     const d = 1.45 + ((h >>> 8) % 40) / 100;
+    if (town) {
+      // home town: houses and small apartment blocks all round, cherry trees in the gaps
+      if (front && r01 > 0.5) {
+        place('sakura', cx, 0, cz, r01 * 6, 1.2, h % 4);
+        return;
+      }
+      const kind = front ? 'house' : (h % 3 === 0 ? 'apartment' : 'house');
+      const floors = kind === 'apartment' ? 3 + (h % 3) : 2;
+      buildBuilding(acc, { cx, cz, w: w * (kind === 'house' ? 0.8 : 1), d: d * (kind === 'house' ? 0.75 : 1), kind, floors, front: 'z', seed: h % 9 }, ex, rand);
+      if (h % 4 === 1) place('sakura', cx + w * 0.45, 0, cz + d * 0.4, r01 * 6, 1.0, h % 4);
+      return;
+    }
     if (front) {
       // in front of the board (near the camera): low shops and little green squares only
       if (war && r01 >= 0.55) {
@@ -401,6 +457,51 @@ export function buildCity(o) {
     if (d.type !== 'holoSign') continue;
     const k = hash(map.id, 'holo', d.x, d.y);
     holoPanel(d.x + 0.5, 0.56, d.y + 0.5, 0.62, 0.48, d.rot ?? 0, k % 8, HOLO_COLS[k % 4], (k % 100) / 30);
+  }
+
+  // ----- railway at street level with a level crossing (modern era) -----------------------
+  let train2 = null;
+  if (cfg.railway) {
+    const rz = cfg.railway.z;
+    const x0 = -10;
+    const x1 = W + 10;
+    acc.box((x0 + x1) / 2, 0, rz, x1 - x0, 0.03, 0.72, { color: C('#a49d93') });
+    // where a road crosses the line (the rails run over the road, no sleepers there)
+    const cross = [];
+    for (const r of plan.roads) {
+      for (let i = 1; i < r.pts.length; i++) {
+        const [ax, az] = r.pts[i - 1];
+        const [bx, bz] = r.pts[i];
+        if ((az - rz) * (bz - rz) <= 0 && az !== bz) cross.push(ax + ((rz - az) / (bz - az)) * (bx - ax));
+      }
+    }
+    const onRoad = (x) => cross.some((c) => Math.abs(c - x) < 0.62);
+    for (let x = x0 + 0.1; x < x1; x += 0.24) if (!onRoad(x)) acc.box(x, 0.03, rz, 0.08, 0.025, 0.6, { color: C('#8a6e58') });
+    for (const s of [-1, 1]) acc.box((x0 + x1) / 2, 0.055, rz + s * 0.19, x1 - x0, 0.03, 0.035, { color: C('#c7ccd2') });
+    for (const cx of cross) {
+      // crossing deck, gates on both sides, the warning posts facing the road
+      acc.box(cx, PATH_H, rz, 1.0, 0.012, 0.66, { color: C('#7f7a75') });
+      place('crossingGate', cx - 0.72, SW_Y - 0.03, rz - 0.5, 0, 1, 0);
+      place('crossingGate', cx + 0.72, SW_Y - 0.03, rz + 0.5, Math.PI, 1, 0);
+    }
+    // a cream-and-green commuter train
+    const t = new CityAcc();
+    const carL = 1.3;
+    for (let k = 0; k < 4; k++) {
+      const cx = (k - 1.5) * (carL + 0.05);
+      t.box(cx, 0, 0, carL, 0.36, 0.42, { color: C('#f3efe2'), side: FK.office, v0: 0.12 });
+      t.box(cx, 0.06, 0, carL + 0.004, 0.06, 0.424, { color: C('#4fae6a') });
+      t.box(cx, 0.24, 0, carL + 0.004, 0.02, 0.424, { color: C('#e8a23a') });
+      t.box(cx, 0.36, 0, carL - 0.06, 0.04, 0.38, { color: C('#c9c4b8') });
+      t.box(cx + carL * 0.25, 0.4, 0, 0.3, 0.05, 0.16, { color: C('#8f8a80') });
+    }
+    const geo = t.build();
+    disposables.push(geo);
+    train2 = new THREE.Mesh(geo, getFacade());
+    train2.name = 'cityTrain';
+    train2.position.set(x0, 0.09, rz);
+    train2.userData = { x0: x0 - 4, x1: x1 + 4, period: 16, cast: true };
+    meshes.push(train2);
   }
 
   // ----- maglev ------------------------------------------------------------------------
@@ -627,7 +728,7 @@ export function buildCity(o) {
   }
 
   // ----- drones -----------------------------------------------------------------------
-  const nDrones = war ? 0 : quality === 'high' ? 7 : quality === 'medium' ? 4 : 2;
+  const nDrones = war || town ? 0 : quality === 'high' ? 7 : quality === 'medium' ? 4 : 2;
   let drones = null;
   let droneShadows = null;
   const flights = [];
@@ -739,13 +840,14 @@ export function buildCity(o) {
     if (facadeMat) facadeMat.userData.uniforms.uTime.value = time;
     if (holoMat) holoMat.userData.uniforms.uTime.value = time;
     portalMat.uniforms.uTime.value = time;
-    if (train) {
-      const u = train.userData;
+    for (const tr of [train, train2]) {
+      if (!tr) continue;
+      const u = tr.userData;
       const k = (time % u.period) / u.period;
       // glide across in 70 % of the period, then wait off screen
       const t = Math.min(1, k / 0.7);
       const e = t * t * (3 - 2 * t) * 0.35 + t * 0.65;
-      train.position.x = u.x0 + (u.x1 - u.x0) * e;
+      tr.position.x = u.x0 + (u.x1 - u.x0) * e;
     }
     if (drones) {
       flights.forEach((f, i) => {

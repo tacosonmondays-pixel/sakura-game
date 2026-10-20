@@ -298,6 +298,35 @@ export const CITY_BUILDERS = {
   },
 
 
+
+  // ----- modern era: an ordinary present-day home town ----------------------------------
+  utilityPole(c) {
+    // concrete pole, a cross-arm with insulators and a transformer can (wires: city kit)
+    c.solid.cyl(0.035, 0.05, 1.55, 8, { color: '#c9c2b6' });
+    c.solid.box(0.5, 0.04, 0.05, { y: 1.42, color: '#8f887c' });
+    for (const x of [-0.22, 0, 0.22]) c.solid.cyl(0.018, 0.018, 0.05, 6, { x, y: 1.46, color: '#ffffff' });
+    c.solid.cyl(0.07, 0.07, 0.18, 10, { x: 0.08, y: 1.08, color: '#9aa29a' });
+    c.solid.box(0.06, 0.12, 0.012, { y: 0.55, z: 0.04, color: '#ffd84d' });
+  },
+  townLamp(c) {
+    c.solid.cyl(0.022, 0.03, 1.05, 6, { color: '#a7a99f' });
+    c.solid.box(0.02, 0.02, 0.26, { y: 1.04, z: 0.12, color: '#a7a99f' });
+    c.solid.box(0.1, 0.04, 0.14, { y: 1.0, z: 0.24, color: '#8f918a' });
+    c.glow.box(0.08, 0.012, 0.11, { y: 0.99, z: 0.24, color: '#fff1cf' });
+    glowPoint(c, 0, 0.98, 0.24, '#ffe8b8', 0.5, 0.05);
+  },
+  crossingGate(c) {
+    // level crossing: a striped post with twin red lamps, a crossbuck, a lowered barrier arm (+x)
+    c.solid.box(0.12, 0.08, 0.12, { color: '#6f6f6f' });
+    for (let i = 0; i < 5; i++) c.solid.box(0.05, 0.2, 0.05, { y: 0.08 + i * 0.2, color: i % 2 ? '#2b2b2b' : '#ffd84d' });
+    c.solid.box(0.36, 0.04, 0.02, { y: 1.0, rz: 0.6, z: 0.03, color: '#ffffff' });
+    c.solid.box(0.36, 0.04, 0.02, { y: 1.0, rz: -0.6, z: 0.03, color: '#ffffff' });
+    c.solid.box(0.3, 0.1, 0.04, { y: 0.78, z: 0.03, color: '#2b2b2b' });
+    for (const x of [-0.09, 0.09]) c.glow.cyl(0.035, 0.035, 0.02, 10, { x, y: 0.83, z: 0.05, rx: Math.PI / 2, color: '#ff4d5e' });
+    glowPoint(c, 0, 0.83, 0.07, '#ff4d5e', 0.6, 0.5);
+    for (let i = 0; i < 6; i++) c.solid.box(0.16, 0.035, 0.035, { x: 0.12 + i * 0.16, y: 0.42, color: i % 2 ? '#e84a4a' : '#ffffff' });
+  },
+
   // ----- the war-torn surge (no people, no gore: the ruin and the light carry it) ------
   wreckVan(c) {
     // a burnt-out van tipped on its side, dented panels, a crumpled bonnet

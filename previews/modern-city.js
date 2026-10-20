@@ -1,7 +1,7 @@
 // PROTOTYPE preview for the "modern city" theme kit (src/render/city/, src/proto/modernCityMaps.js).
 // Runs the real Sim + BattleRenderer on the three proto maps (they are not in MAPS / STAGES).
 // Query params:
-//   ?map=downtown|campus|surge   which variant (default downtown)
+//   ?map=downtown|campus|surge|town   which variant (default downtown)
 //   ?stage=1-1                   a real campaign stage instead (baseline for the perf numbers)
 //   &quality=high|medium|low     renderer quality (default high)
 //   &t=12                        fast-forward this many seconds of game time first
@@ -32,6 +32,7 @@ if (params.get('clean') === '1') document.body.classList.add('clean');
 const GIRLS = {
   downtown: [['aoi', 6, 5], ['akane', 10, 3], ['yuki', 13, 6], ['sango', 17, 7], ['rei', 10, 8], ['hotaru', 6, 8]],
   campus: [['aoi', 4, 2], ['akane', 9, 2], ['yuki', 6, 6], ['sango', 14, 8], ['rei', 10, 11], ['hotaru', 13, 5]],
+  town: [['aoi', 5, 4], ['akane', 10, 1], ['yuki', 9, 5], ['sango', 12, 8], ['rei', 16, 6], ['hotaru', 2, 10]],
   surge: [['aoi', 6, 3], ['akane', 9, 6], ['yuki', 14, 5], ['sango', 5, 10], ['rei', 14, 10], ['hotaru', 18, 4]],
 };
 // a spread of monsters along the route (path distance), drawn from existing families

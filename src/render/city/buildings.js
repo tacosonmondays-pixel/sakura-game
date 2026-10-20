@@ -133,6 +133,59 @@ function shopFront(acc, b, ex, rand, ry, h) {
 }
 
 const KINDS = {
+  // ----- modern era (present-day home town): warm, lived-in, low-rise ----------------------
+  house(acc, b, ex, rand) {
+    // a two-storey family house: plaster walls, a pitched tile roof, a little porch roof
+    const walls = ['#fbf1e2', '#f6ece6', '#eef3ea', '#fdf6dc'];
+    const roofs = ['#6f8fb8', '#c46a52', '#6f9a78', '#8a7fa8', '#b8644e'];
+    const col = C(b.tint || walls[b.seed % walls.length]);
+    const H = (b.floors || 2) * 0.36;
+    acc.box(b.cx, 0, b.cz, b.w, 0.06, b.d, { color: C('#d9cfc0') });
+    acc.box(b.cx, 0.06, b.cz, b.w - 0.08, H - 0.06, b.d - 0.08, { color: col, side: FK.flats, v0: 0.2 });
+    const along = b.w >= b.d;
+    gable(acc, b.cx, H, b.cz, b.w + 0.14, b.d + 0.14, 0.66, C(roofs[(b.seed * 3 + 1) % roofs.length]), along ? 0 : Math.PI / 2);
+    const ry = frontInfo(b);
+    const P = L(b, ry);
+    const fd = (b.front === 'x' || b.front === '-x') ? b.w : b.d;
+    const [px, pz] = P(b.w * 0.18, fd / 2 + 0.1);
+    acc.box(px, 0.36, pz, 0.4, 0.03, 0.22, { ry, color: C('#e6dccd') });
+    const [dx, dz] = P(b.w * 0.18, fd / 2 - 0.035);
+    acc.box(dx, 0.06, dz, 0.16, 0.28, 0.02, { ry, color: C('#9a6e4c') });
+    // an air-con unit and a potted plant
+    const [ax, az] = P(-b.w * 0.3, fd / 2 - 0.02);
+    acc.box(ax, 0.06, az + 0.04 * Math.cos(ry), 0.18, 0.13, 0.08, { ry, color: C('#f2f2ee') });
+    if (b.seed % 2) ex.prop('lawnShrub', b.cx - b.w * 0.42, 0.02, b.cz + b.d * 0.42, rand() * 6, 0.55, 1);
+  },
+  apartment(acc, b, ex, rand) {
+    // an ordinary low apartment block: beige tiles, balconies with laundry rails, stair core
+    const H = (b.floors || 3) * 0.34;
+    const col = C(b.tint || ['#efe4d2', '#e9e2d8', '#f1e8dc'][b.seed % 3]);
+    acc.box(b.cx, 0, b.cz, b.w, H, b.d, { color: col, side: FK.flats });
+    acc.box(b.cx, H, b.cz, b.w + 0.04, 0.05, b.d + 0.04, { color: C('#d8ccba') });
+    acc.box(b.cx + b.w / 2 - 0.12, 0, b.cz + b.d / 2 + 0.02, 0.24, H + 0.15, 0.2, { color: C('#e2d6c4') });
+    for (let k = 1; k < (b.floors || 3); k++) acc.box(b.cx - 0.12, k * 0.34 - 0.02, b.cz + b.d / 2 + 0.05, b.w - 0.34, 0.03, 0.12, { color: C('#ffffff') });
+    roof(acc, { ...b, roof: 'ac' }, H + 0.05, ex, rand);
+  },
+  cornerStore(acc, b, ex, rand) {
+    // a neighbourhood convenience store: glass front, a bright stripe band, a lit sign
+    const h = 0.48;
+    const ry = frontInfo(b);
+    acc.box(b.cx, 0, b.cz, b.w - 0.06, h, b.d - 0.06, { color: C('#ffffff'), side: FK.shop });
+    acc.box(b.cx, h, b.cz, b.w, 0.06, b.d, { color: C('#f4f6f2') });
+    const P = L(b, ry);
+    const fd = (b.front === 'x' || b.front === '-x') ? b.w : b.d;
+    const wf = (b.front === 'x' || b.front === '-x') ? b.d : b.w;
+    const stripes = [['#5fbf7a', '#ff9a4a'], ['#4f8fd8', '#ffd24a'], ['#e86a6a', '#ffffff']][b.seed % 3];
+    for (let k = 0; k < 2; k++) {
+      const [x, z] = P(0, fd / 2 - 0.02);
+      acc.box(x, h - 0.12 + k * 0.05, z, wf - 0.04, 0.045, 0.02, { ry, color: C(stripes[k]) });
+    }
+    const [sx, sz] = P(0, fd / 2 + 0.005);
+    ex.glowBox(sx, h + 0.07, sz, wf * 0.5, 0.11, 0.02, '#fff8e6', ry);
+    const [vx, vz] = P(wf / 2 - 0.12, fd / 2 + 0.2);
+    ex.prop('vending', vx, 0, vz, ry, 0.75, 1);
+    roof(acc, { ...b, roof: 'ac' }, h + 0.06, ex, rand);
+  },
   glassTower(acc, b, ex, rand) {
     const H = Math.max(2, b.floors || 10) * FLOOR;
     const lob = 0.36;
@@ -318,4 +371,27 @@ function clockFace(acc, ex, x, y, z, r, ry) {
   prim(acc, new THREE.BoxGeometry(0.018, r * 0.78, 0.012), { ...at(r * 0.24, r * 0.22, 0.04), ry, rz: -0.75 }, C('#34405e'));
   const c = at(0, 0, 0.05);
   ex.glowBox(c.x, c.y - 0.02, c.z, 0.04, 0.04, 0.02, '#ff9cc2', ry);
+}
+
+/** Gable roof: ridge along local x (yaw ry), eaves w × d, ridge height h, standing on y. */
+function gable(acc, cx, y, cz, w, d, h, color, ry = 0) {
+  const cs = Math.cos(ry);
+  const sn = Math.sin(ry);
+  const P = (lx, ly, lz) => [cx + lx * cs + lz * sn, y + ly, cz - lx * sn + lz * cs];
+  const hw = w / 2;
+  const hd = d / 2;
+  const dark = color.clone().multiplyScalar(0.7);
+  acc.quad(P(-hw, 0, hd), P(hw, 0, hd), P(hw, h, 0), P(-hw, h, 0), color.clone().multiplyScalar(1.08));
+  // tile courses across the front slope
+  const tile = color.clone().multiplyScalar(0.86);
+  for (let k = 1; k < 4; k++) {
+    const t = k / 4;
+    acc.quad(P(-hw, h * t, hd * (1 - t) + 0.004), P(hw, h * t, hd * (1 - t) + 0.004), P(hw, h * t + 0.02, hd * (1 - t) - 0.03), P(-hw, h * t + 0.02, hd * (1 - t) - 0.03), tile);
+  }
+  acc.quad(P(hw, 0, -hd), P(-hw, 0, -hd), P(-hw, h, 0), P(hw, h, 0), dark);
+  const wall = C('#f3eadb');
+  acc.tri(P(-hw + 0.07, 0, -hd + 0.07), P(-hw + 0.07, 0, hd - 0.07), P(-hw + 0.07, h - 0.04, 0), wall);
+  acc.tri(P(hw - 0.07, 0, hd - 0.07), P(hw - 0.07, 0, -hd + 0.07), P(hw - 0.07, h - 0.04, 0), wall);
+  // ridge cap
+  acc.box(cx, y + h - 0.02, cz, w * Math.abs(cs) + 0.04 * Math.abs(sn), 0.04, w * Math.abs(sn) + 0.04 * Math.abs(cs), { color: dark });
 }

@@ -274,11 +274,62 @@ const surge = defineProtoMap({
   },
 });
 
-export const PROTO_CITY_MAPS = [downtown, campus, surge];
+// ---------------------------------------------------------------------------
+// (d) Modern era: Sensei's home town
+// ---------------------------------------------------------------------------
+const town = defineProtoMap({
+  id: 'proto_city_town', name: 'Blossom Hill Block', theme: 'town',
+  desc: 'An ordinary afternoon in Sensei\'s home town: down past the houses, along the shops, round the school sports ground, under the station underpass, over the bridge and out across the railway crossing.',
+  concept: 'Home-town blocks: down past the houses, east along the shops, round the school ground, over the bridge, out over the level crossing',
+  rows: [
+    'HHHHHHH.THHHHHHH..HH',
+    'HHHHHHH..HHHHHHH..HH',
+    '..,...T.........T...',
+    'HH................HH',
+    'HH................HH',
+    '....,.........T...HH',
+    '..............T...HH',
+    'HH......HH....HH....',
+    'HH......HH....HH..T.',
+    'HH..................',
+    '..T..HH.....T...,...',
+    'HHHHHHHHHHHHHHHHHHHH',
+  ],
+  paths: [
+    street([[3.5, -1.6], [3.5, 6.5], [13.5, 6.5], [13.5, 2.5], [7.5, 2.5], [7.5, 9.5], [17.5, 9.5], [17.5, 13.6]], { tunnel: [[10.0, 9.5], [13.4, 9.5]] }),
+  ],
+  decor: [
+    { type: 'vending', x: 5, y: 5, rot: 0 },
+    { type: 'bikeRack', x: 16, y: 5 },
+    { type: 'cityBench', x: 11, y: 8 },
+    { type: 'busStop', x: 5, y: 7, rot: Math.PI },
+  ],
+  city: {
+    variant: 'town',
+    blocks: [
+      { x: 0, y: 0, w: 2, h: 2, kind: 'house' },
+      { x: 5, y: 0, w: 2, h: 2, kind: 'house' },
+      { x: 9, y: 0, w: 7, h: 2, kind: 'school', floors: 3, clock: true },
+      { x: 18, y: 0, w: 2, h: 2, kind: 'house' },
+      { x: 0, y: 3, w: 2, h: 2, kind: 'house' },
+      { x: 18, y: 3, w: 2, h: 4, kind: 'apartment', floors: 3 },
+      { x: 0, y: 7, w: 2, h: 3, kind: 'apartment', floors: 3 },
+      { x: 8, y: 7, w: 2, h: 2, kind: 'cornerStore' },
+      { x: 14, y: 7, w: 2, h: 2, kind: 'house' },
+      { x: 5, y: 10, w: 2, h: 1, kind: 'house' },
+    ],
+    railway: { z: 11.5 },
+    areas: [
+      { type: 'field', x: 8.4, y: 3.4, w: 4.2, h: 2.2 },
+    ],
+  },
+});
+
+export const PROTO_CITY_MAPS = [downtown, campus, surge, town];
 export const PROTO_CITY_MAP = Object.fromEntries(PROTO_CITY_MAPS.map((m) => [m.id, m]));
 
 /** Variant key (preview URL) → map. */
-export const PROTO_CITY_VARIANTS = { downtown, campus, surge };
+export const PROTO_CITY_VARIANTS = { downtown, campus, surge, town };
 
 /**
  * A stage to run a proto map in the real Sim (`new Sim({ data: { stage, map } })`): an existing

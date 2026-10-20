@@ -30,7 +30,7 @@ async function open(query, viewport = { width: 1280, height: 720 }) {
 
 try {
   if (mode === 'perf') {
-    const proto = ['downtown', 'campus', 'surge'].map((m) => ({ label: `proto:${m}`, theme: m, q: `map=${m}` }));
+    const proto = ['downtown', 'campus', 'surge', 'town'].map((m) => ({ label: `proto:${m}`, theme: m, q: `map=${m}` }));
     const ids = rest.length ? rest : CAMPAIGN_IDS;
     const real = ids.map((id) => ({ label: id, theme: STAGE_MAP[id]?.mapId || id, q: `stage=${id}` }));
     const rows = [];
@@ -62,7 +62,7 @@ try {
     const out = rest[0] || 'shots';
     mkdirSync(out, { recursive: true });
     const sizes = [[844, 390], [1280, 720]];
-    for (const v of ['downtown', 'campus', 'surge']) {
+    for (const v of ['downtown', 'campus', 'surge', 'town']) {
       for (const [w, h] of sizes) {
         const { page, errors } = await open(`map=${v}&clean=1&quality=high&t=12`, { width: w, height: h });
         await page.waitForTimeout(3500);
