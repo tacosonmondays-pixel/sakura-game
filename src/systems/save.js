@@ -247,7 +247,8 @@ function cleanGear(raw, uid) {
     equippedBy: str(raw.equippedBy),
     name: str(raw.name, `${ITEM_RARITIES[raw.rarity].name} ${GEAR_SLOTS[raw.slot].name}`),
   };
-  // rainbow UR gear (gear-awaken §8.1): only a Legendary at +10 or more
+  // rainbow UR gear (gear-awaken §8.1): only a Legendary at +10 or more; a box-born piece below +10 (the
+  // Rainbow Gear Box, ASCENSION.md §C.8) gets `ur` back from its `gbx:` mirror (gearMarks.js restoreGearMarks)
   if (ur && out.level >= 10) out.ur = 1;
   if (club) out.club = club;
   return out;

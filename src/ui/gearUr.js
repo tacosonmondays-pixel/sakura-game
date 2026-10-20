@@ -19,7 +19,7 @@ import {
   describeStat, gearLines, isUrGear, isUrLook, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
   maxGearLevel, stitchSlots, canStitch, stitchSub, takeBackStitch, stitchCost, tuneCount, rerollCost, mainRerollCost, rerollSubstats,
   rerollMainStat, mainStatChoices, canLockPin, tunedIndices, setGearLocked, armbandCost, tieArmband, gearFillIn, gearSetInfo,
-  gearStatTotals, nextGrowthIndex, subGrowth, effectiveValue, urMul, SUB_GROWTH_EVERY,
+  gearStatTotals, nextGrowthIndex, subGrowth, effectiveValue, urMul, SUB_GROWTH_EVERY, openRainbowBox, GEAR_BAG_MAX,
 } from '../systems/gear.js';
 import { unitPower } from '../systems/progression.js';
 import { gearIcon, uiIcon, itemIcon } from '../art/icons.js';
@@ -344,7 +344,7 @@ export function awakenModal(uid, { unitId = null, onDone = () => {} } = {}) {
 }
 
 /** "Awakened to UR!": the gear twin of a girl's ascension, about 2.4 s; any tap skips; reduced motion shows the end. */
-export function showGearAscension(g) {
+export function showGearAscension(g, { boxed = false } = {}) {
   modal({
     title: '',
     cls: 'ur-ascend-modal gu-ascend-modal',
@@ -355,7 +355,9 @@ export function showGearAscension(g) {
         h('span.gu-seed', { 'aria-hidden': 'true' }, svgEl(itemIcon(SEED_ID))),
         h('div.ur-ascend-card.gu-ascend-card', svgEl(gearIcon(g.slot, 'legendary', { ur: true }), 'gu-ascend-icon'), urRing())),
       h('h2.ur-ascend-title', h('span.ur-text', 'Awakened to UR!')),
-      h('p.ur-ascend-text', `${g.name} bloomed into rainbow gear: every number +14%, up to +12, and a rainbow ✦ slot.`)),
+      h('p.ur-ascend-text', boxed
+        ? `${g.name} came out of the Rainbow Gear Box: rainbow gear at +0, up to +12, with a rainbow ✦ slot.`
+        : `${g.name} bloomed into rainbow gear: every number +14%, up to +12, and a rainbow ✦ slot.`)),
     actions: [{ label: 'Wonderful!', kind: 'yellow', testid: 'gear-ascend-ok' }],
   });
 }
@@ -464,6 +466,39 @@ export function armbandModal(uid, { onDone = () => {} } = {}) {
   };
   draw();
   modal({ title: 'Academy Clubs', body: bodyEl, wide: true, actions: [{ label: 'Done', kind: 'ghost', testid: 'armband-done' }] });
+}
+
+/**
+ * The Rainbow Gear Box's slot picker (docs/specs/ASCENSION.md §C.8): charm, ribbon or shoes → one Legendary
+ * piece already rainbow UR, +0, four substats (systems/gear.js openRainbowBox), then the "Awakened to UR!" moment.
+ */
+export function rainbowBoxModal(onDone = () => {}) {
+  const profile = store.profile;
+  let busy = 0;
+  const m = modal({
+    title: getItem('gearbox_rainbow')?.name || 'Rainbow Gear Box',
+    wide: true,
+    body: h('div.gu-rainbow-box', { 'data-testid': 'rainbow-box-modal' },
+      h('p.muted', 'Pick a slot: the box opens into one Legendary piece already awakened to rainbow UR, at +0 with four substats.'),
+      h('div.row', Object.entries(GEAR_SLOTS).map(([slot, def]) => button(def.name, {
+        kind: 'primary', testid: `rainbow-box-${slot}`, icon: null,
+        onClick: () => {
+          if (Date.now() - busy < 600) return; // double-tap guard
+          busy = Date.now();
+          const res = openRainbowBox(profile, slot, freshRng());
+          if (!res.ok) {
+            toast(res.error === 'bagFull' ? `Your gear bag is full (${GEAR_BAG_MAX} pieces). Salvage some gear first.` : 'Could not open the box.', res.error === 'bagFull' ? 'info' : 'bad');
+            return;
+          }
+          store.commit('gearbox-rainbow');
+          m.close();
+          onDone();
+          showGearAscension(res.gear, { boxed: true });
+        },
+      })))),
+    actions: [{ label: 'Not now', kind: 'ghost' }],
+  });
+  return m;
 }
 
 /** A piece the player picks for a Seed / Needle / Armband from the Backpack (eligible first). */

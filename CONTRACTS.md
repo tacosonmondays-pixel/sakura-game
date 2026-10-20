@@ -539,8 +539,11 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
                  locked: boolean, equippedBy: unitId|null, name, ur? /*1 = rainbow UR (rarity stays 'legendary')*/, club? /*'archery'|'fencing'|'taiko'|'pyro'|'tea'|'bell'*/ }
   // Values are STORED in Legendary form; a UR piece reads ×urMul(stat) (×8/7, Armor Pierce ×1.105) through
   // gearLines / effectiveValue only. Pierce ('piercePct', ribbons) and Aura Power ('auraPct', shoes) are substats
-  // of club pieces only, never mains. Old-build mirrors live in missions.counters (gur:, gtn:, gcl:, gnx:, gnf:,
+  // of club pieces only, never mains. Old-build mirrors live in missions.counters (gur:, gbx:, gtn:, gcl:, gnx:, gnf:,
   // inv:seed_rainbow|needle_star|club_band, ga:gift, gc:gift, fpu:, pity:cel), restored by src/systems/gearMarks.js.
+  // Box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): openRainbowBox(profile, slot, rng) makes a Legendary
+  // piece with ur: 1 at +0 (four substats, locked, joins a club); gbx:<uid> = slot index × 100 + main-stat index + 1
+  // brings `ur` back at any level (gur: keeps its +10 rule); salvage pays the Seed and writes gbx: 0.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)
@@ -632,7 +635,8 @@ asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate op
   `sweepTitan`, `refreshKeys` (12 a week + 6 carried, game week), `tierOpen`, `titanOfWeek`, `setTargetFamily`,
   `payTogetherChest`, `coopTierAllowed`. Counters: `tk:left`, `tk:week`, `tbest:`, `tfc:`, `ttgt:`, `tkill:`, `tatt`,
   `pity:rain`. Drops roll from `titanDropSeed` (outside the sim). `grantGearBox(profile, rarity, rng)` is the one gear-box
-  seam (the Rainbow box goes to the Backpack; UR gear joins it from track 2).
+  seam: ordinary boxes open at once (a Mythic+ piece joins a random club), the Rainbow box goes to the Backpack, whose
+  slot picker opens it with UR gear's `openRainbowBox` (`src/systems/gear.js`) into a rainbow UR piece at +0.
 - Battle: `#/battle?titan=<id>&tier=<tier>[&rank=n][&practice=1]` (`setup.js parseTitanParams`); never battle-saved.
 - Hub: `#/titans[?id=]` (`src/ui/screens/titans.js`).
 

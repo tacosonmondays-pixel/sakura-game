@@ -264,7 +264,7 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
     track(profile, 'battleWin', 1);
     track(profile, 'bossKill', 1);
     if (tierIndex(tier) >= tierIndex('hard')) track(profile, 'battleWinHard', 1);
-    // one weekly boss loop: the rainbow gear mission also counts titan wins (track 2 joins it at merge)
+    // one weekly boss loop: the Rainbow Hunt mission (src/data/missions.js w_rainbow) also counts titan wins
     track(profile, 'titanWin', 1);
   }
   const killed = Object.values(r.kills || {}).reduce((a, n) => a + (whole(n) || 0), 0);

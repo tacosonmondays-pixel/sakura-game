@@ -9,7 +9,7 @@
 import { materialId, zenithId, gearBoxId, getItem } from '../data/items.js';
 import { TITAN_MAP, tierLabel } from '../data/titans.js';
 import { hashString } from '../core/rng.js';
-import { rollGear, addGear } from './gear.js';
+import { rollGear, addGear, RAINBOW_BOX_ID } from './gear.js';
 import { addItems } from './inventory.js';
 
 /** Damage notches: the share of her HP reached → the share of the damage table paid (§C.5). */
@@ -96,23 +96,23 @@ function rollAmount(rng, x) {
 
 /**
  * The gear-box grant (one seam for every box Titan Trials pays). Ordinary boxes open at once into
- * real gear (as battle drops do, src/systems/rewards.js); the Rainbow Gear Box goes to the Backpack,
- * where only its slot picker opens it.
- * TODO(track 2, feature/ur-gear): the Rainbow Gear Box's slot picker and the UR piece it makes
- * (ASCENSION.md §C.8: Legendary, `ur: 1`, +0, four substats, `gbx:<uid>` mirror) belong to UR gear;
- * the coordinator joins that writer here at merge.
+ * real gear (as battle drops do, src/systems/rewards.js), a fresh Mythic+ piece joining a random Academy
+ * Club like every other drop (GEAR_STATS.md §K.2's Club Focus is not built yet). The Rainbow Gear Box
+ * goes to the Backpack, where only its slot picker opens it: UR gear's `openRainbowBox`
+ * (src/systems/gear.js) turns it into a Legendary piece already rainbow UR, +0, four substats, with the
+ * `gbx:<uid>` mirror (ASCENSION.md §C.8).
  * @param {'rare'|'superRare'|'mythic'|'legendary'|'rainbow'} rarity
  * @returns {{ item: { id: string, count: number }|null, gear: object|null }}
  */
 export function grantGearBox(profile, rarity, rng) {
   if (rarity === 'rainbow') {
-    addItems(profile, [{ id: 'gearbox_rainbow', count: 1 }]);
-    return { item: { id: 'gearbox_rainbow', count: 1 }, gear: null };
+    addItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }]);
+    return { item: { id: RAINBOW_BOX_ID, count: 1 }, gear: null };
   }
   const id = gearBoxId(rarity);
   if (!getItem(id)) return { item: null, gear: null };
   const g = rollGear(rng, { rarity });
-  const uid = addGear(profile, g);
+  const uid = addGear(profile, g, { club: 'random' });
   return { item: null, gear: profile.gear[uid] };
 }
 

@@ -28,8 +28,9 @@ export const WEEKLY_MISSIONS = [
   { id: 'w_boss3', name: 'Crown Hunter', desc: 'Defeat 3 minibosses, bosses or titans.', events: ['bossKill'], goal: 3, rewards: [{ id: 'gems', count: 150 }, { id: 'token_boss', count: 10 }, { id: 'star_fragment', count: 10 }] },
   { id: 'w_reroll3', name: 'Tinkerer', desc: 'Reroll gear 3 times.', events: ['gearReroll'], goal: 3, rewards: [{ id: 'gems', count: 50 }, { id: 'dice_reroll', count: 2 }] },
   { id: 'w_dailies5', name: 'Model Student', desc: 'Finish every daily commission on 5 days.', events: ['dailyDone'], goal: 5, rewards: [{ id: 'gems', count: 150 }, { id: 'ticket_recruit', count: 1 }] },
-  // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §6.1): the steady Seed, Total Assault opens after 5-5
-  { id: 'w_rainbow', name: 'Rainbow Hunt', desc: 'Clear Total Assault 3 times (sweeps count).', events: ['assaultClear'], goal: 3, requires: '5-5', rewards: [{ id: 'seed_rainbow', count: 1 }, { id: 'needle_star', count: 1 }] },
+  // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §6.1): the steady Seed, Total Assault opens after 5-5; Titan Trials
+  // wins and sweeps count too (one weekly boss loop, ASCENSION.md build notes: 'titanWin')
+  { id: 'w_rainbow', name: 'Rainbow Hunt', desc: 'Clear Total Assault or win a Titan Trial 3 times (sweeps count).', events: ['assaultClear', 'titanWin'], goal: 3, requires: '5-5', rewards: [{ id: 'seed_rainbow', count: 1 }, { id: 'needle_star', count: 1 }] },
   // Academy Clubs (docs/specs/GEAR_STATS.md §C.4): a weekly Club Armband once gear is open (2-5)
   { id: 'w_club', name: 'Club Day', desc: 'Win 10 battles (sweeps count).', events: ['battleWin', 'sweep'], goal: 10, requires: '2-5', rewards: [{ id: 'club_band', count: 1 }, { id: 'coins', count: 10000 }] },
 ];

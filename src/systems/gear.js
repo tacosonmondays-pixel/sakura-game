@@ -321,6 +321,43 @@ export function openGearBox(profile, itemId, rng, count = 1, { club = null } = {
   return { ok: true, gear, opened: n, wanted };
 }
 
+// ---------------------------------------------------------------------------
+// The Rainbow Gear Box (docs/specs/ASCENSION.md §C.8): Titan Trials' UR box, opened through a slot picker
+// ---------------------------------------------------------------------------
+
+export const RAINBOW_BOX_ID = 'gearbox_rainbow';
+
+/** `gbx:` value of a box-born UR piece: slot index × 100 + main-stat index + 1 (0 = none / salvaged). */
+export function boxMark(g) {
+  const s = Object.keys(GEAR_SLOTS).indexOf(g?.slot);
+  const m = s >= 0 ? (GEAR_MAIN_STATS[g.slot] || []).indexOf(g.main?.stat) : -1;
+  return s >= 0 && m >= 0 ? s * 100 + m + 1 : 0;
+}
+
+/**
+ * Open one Rainbow Gear Box into the slot the player picked: one Legendary piece already rainbow UR
+ * (`ur: 1`), +0, four substats, locked like an awakened piece. A fresh piece joins a club like every box
+ * piece (`club`: 'random' until Titan Trials' Club Focus exists). Writes the `gbx:<uid>` mirror so an
+ * older build that drops `ur` below +10 gives it back (gearMarks.js restoreGearMarks).
+ * @param {'charm'|'ribbon'|'shoes'} slot
+ * @returns {{ ok: boolean, error?: 'slot'|'bagFull'|'missing', gear: object|null }}
+ */
+export function openRainbowBox(profile, slot, rng, { club = 'random' } = {}) {
+  if (!GEAR_SLOTS[slot]) return { ok: false, error: 'slot', gear: null };
+  if (gearRoom(profile) <= 0) return { ok: false, error: 'bagFull', gear: null };
+  if (!consumeItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }])) return { ok: false, error: 'missing', gear: null };
+  const g = rollGear(rng, { slot, rarity: 'legendary', level: 0 });
+  g.ur = 1;
+  g.locked = true;
+  g.name = urName(g.name);
+  const uid = addGear(profile, g, { club });
+  const piece = profile.gear[uid];
+  const c = (profile.missions ||= {}).counters ||= {};
+  c[MARK.box + uid] = boxMark(piece);
+  c[MARK.urEver] = (c[MARK.urEver] || 0) + 1;
+  return { ok: true, gear: piece };
+}
+
 /**
  * Equip gear on a unit. Swaps out the unit's previous piece in that slot and removes the
  * gear from its previous owner.
@@ -562,6 +599,8 @@ function dropMarks(profile, uid) {
   const c = profile.missions?.counters;
   if (!c) return;
   for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp]) delete c[p + uid];
+  // a box-born piece's mark stays as 0: its Seed was paid with the salvage (ASCENSION.md §C.8)
+  if (MARK.box + uid in c) c[MARK.box + uid] = 0;
 }
 
 // ---------------------------------------------------------------------------

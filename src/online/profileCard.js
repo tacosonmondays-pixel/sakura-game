@@ -118,7 +118,8 @@ function viewGear(list, lv) {
     if (!Array.isArray(g.m) || !GEAR_MAIN_STATS[g.s].includes(g.m[0])) continue;
     const rarity = ur ? 'legendary' : g.r;
     const scale = ur ? 'ur' : g.r;
-    const l = ur ? whole(g.l, MAX_GEAR_LEVEL, UR_MAX_LEVEL, MAX_GEAR_LEVEL) : whole(g.l, 0, MAX_GEAR_LEVEL);
+    // a box-born UR piece (the Rainbow Gear Box, ASCENSION.md §C.8) starts at +0: any level up to +12
+    const l = ur ? whole(g.l, 0, UR_MAX_LEVEL, MAX_GEAR_LEVEL) : whole(g.l, 0, MAX_GEAR_LEVEL);
     const mainStat = g.m[0];
     const piece = { s: g.s, r: g.r, l, m: [mainStat, clampNum(g.m[1], 0, mainStatMax(mainStat, scale, l))] };
     const club = whole(g.c, 0, 15, 0);

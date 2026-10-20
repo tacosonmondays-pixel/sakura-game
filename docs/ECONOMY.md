@@ -221,7 +221,7 @@ cost cut ≤ 25%, ult haste ≤ 50%).
   12,000, main 1 Prism + 30,000). A finished UR piece costs about 310,000 coins.
 * **Starlight Needle:** 1 Needle + 20,000 coins per stitch (+1 growth step on the line chosen); gold +10 takes 1, UR 2
   (both may sit on one line). **Take back:** 10,000 coins, the Needle returns. Salvage returns the Seed and every Needle.
-* **Seeds (never sold for gems, never random):** Rainbow Hunt weekly (3 Total Assault clears, after 5-5) 1; first gold
+* **Seeds (never sold for gems, never random):** Rainbow Hunt weekly (3 Total Assault clears or Titan Trials wins, after 5-5) 1; first gold
   +10 gift 1; Freeplay "Ashwing Matriarch defeated" 1 per tier (3 in all; paid once on load to saves that passed it).
   About **1 a week** for an everyday late-game player.
 * **Needles (never sold for gems):** Rainbow Hunt 1, Bounty Exchange 1 (30 Bounty Tokens, weekly), the week's first
@@ -266,7 +266,8 @@ two material families (tap the one you need). Normal after 3-5, Hard after 6-5 +
 a key is used only at Bronze or better. Bronze / Silver / Gold (25 / 50 / 75 % of her HP) pay 35 / 60 / 85 % of the
 damage table; a Victory pays all of it and the **Victory Chest** (legendary, Zenith and Crown Shard chances, one
 gear box: Rainbow 0.5 % Nightmare / 4 % Mayhem (+0.25 % a rank, 6 % at most), Celestial 3 / 25 / 45 %, Radiant
-25 / 59.5 / 51 %). The **Rainbow Meter** guarantees a Rainbow Gear Box by the 40th Mayhem win. First clears pay
+25 / 59.5 / 51 %). The **Rainbow Meter** guarantees a Rainbow Gear Box by the 40th Mayhem win; the box opens in the Backpack
+into one rainbow UR piece at +0 in the slot the player picks (salvage returns a Rainbow Seed). First clears pay
 3,600 gems in all (once per titan per tier, solo only). Sweeps (a key) pay a Victory at the best tier won solo.
 
 Weekly stores (game week): the Boss Exchange's **Titan shelf** (Crown Shard 40, Zenith 60, legendary 25 ×4, mythic
