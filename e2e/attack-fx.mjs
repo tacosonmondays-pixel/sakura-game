@@ -12,7 +12,7 @@
 //   3. launch + sell: a new drone starts in LAUNCH at her backpack; selling removes them at once
 //   4. every girl × every build (gallery) at high and low: no console errors, quads within the
 //      budget, no extra draw calls vs FX off, no default pulse rings left for styled pulse girls
-//   5. stress: 19 girls at max builds + 3 extra Chikas at 3×: attack-FX CPU time
+//   5. stress: 19 girls at max builds + 6 extra Chikas (39 drones) at 3×: attack-FX CPU time
 //   6. screenshots (gallery, Chika focus, Akane / Hotaru on the phone)
 // Exit code 1 on any failure.
 import { createServer } from 'vite';
@@ -221,9 +221,12 @@ async function runViewport(vp) {
     }
   }
 
-  // 5. stress: 19 maxed girls + 3 extra Chikas (≈ 40 drones) at 3×
+  // 5. stress: 19 maxed girls + 6 extra Chikas (≈ 40 drones) at 3×. One final tier per path per girl
+  // type: the roster Chika holds 5-2-0 (9 drones) and every extra stops at 4-2-0 (5 drones), so the
+  // scene needs six extras (two rows; previews/attacks.js EXTRA_SPOTS) for 9 + 6 × 5 = 39 drones.
   if (matrix) {
-    const page = await open(ctxB, 'mode=gallery&build=max&extra=3&quality=high&seed=3&speed=3&preroll=40&tiny=1', errors);
+    const EXTRA = 6;
+    const page = await open(ctxB, `mode=gallery&build=max&extra=${EXTRA}&quality=high&seed=3&speed=3&preroll=40&tiny=1`, errors);
     const r = await page.evaluate((n) => {
       const ms = [];
       let total = 0;
@@ -239,11 +242,21 @@ async function runViewport(vp) {
       }
       ms.sort((a, b) => a - b);
       const avg = ms.reduce((s, x) => s + x, 0) / ms.length;
-      return { avg, p95: ms[Math.floor(ms.length * 0.95)], frame: total / n, drones, projectiles: window.__sim.projectiles.length };
+      // what the sim built: live drones, and the most the Chikas' (path-capped) builds allow
+      const chikas = window.__placed.filter((p) => p.id === 'chika');
+      const turrets = window.__sim.towers.reduce((s, t) => s + (t.turrets?.length || 0), 0);
+      const capacity = chikas.reduce((s, p) => s + (p.t.stats.turret?.max || 0), 0);
+      return {
+        avg, p95: ms[Math.floor(ms.length * 0.95)], frame: total / n, drones, turrets, capacity, projectiles: window.__sim.projectiles.length,
+        chikas: chikas.map((p) => p.t.tiers.join('-')).join(' '),
+      };
     }, quick ? 120 : 300);
     const share = r.avg / Math.max(1e-6, r.frame);
-    log(`  stress: ${r.drones} drones, ${r.projectiles} projectiles, attack FX ${r.avg.toFixed(3)} ms avg / ${r.p95.toFixed(3)} ms p95 of a ${r.frame.toFixed(2)} ms sim+render frame (${(share * 100).toFixed(1)} %)`);
-    check(r.drones >= 30, `stress: ${r.drones} drones in flight`);
+    log(`  stress: ${r.drones} drones (Chikas ${r.chikas}), ${r.projectiles} projectiles, attack FX ${r.avg.toFixed(3)} ms avg / ${r.p95.toFixed(3)} ms p95 of a ${r.frame.toFixed(2)} ms sim+render frame (${(share * 100).toFixed(1)} %)`);
+    check(r.chikas.split(' ').length === 1 + EXTRA, `stress: roster Chika + ${EXTRA} extras placed (${r.chikas})`);
+    check(r.drones === r.turrets && r.turrets === r.capacity, `stress: drones drawn ${r.drones} = sim drones ${r.turrets} = the builds' ${r.capacity}`);
+    // the load the CPU budget below was set on: 36 drones (9 + 3 extras × 9 before the path cap)
+    check(r.drones >= 36, `stress: ${r.drones} drones in flight (≥ 36)`);
     // absolute budget on an idle machine; on a shared / throttled one the share of the frame is what counts
     check(r.avg <= 1.5 || share <= 0.2, `stress: attack-FX CPU ${r.avg.toFixed(3)} ms avg ≤ 1.5 ms (headless) or ≤ 20 % of the frame (${(share * 100).toFixed(1)} %)`);
     await page.close();

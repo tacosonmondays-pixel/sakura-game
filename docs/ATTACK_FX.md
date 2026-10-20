@@ -167,7 +167,7 @@ tiles), maxBlendResidual, impacts, matched, defaultPulses, styled }`.
 - `previews/attacks.html?mode=gallery|focus&unit=chika&build=base|p0|p1|p2|max|5-2-0&quality=…&speed=…&fx=on|off`
   — all 19 girls on a purpose-built serpentine lane (water girls stand in little ponds), or one girl
   up close. `manual=1` exposes `__advance(n, dt)`, `__frame()`, `__fxProbe()`, `__setup(id, build)`
-  (swap the focus girl in place), `__setSpeed(s)`. `clean=1` hides the HUD, `extra=3` adds Chikas,
+  (swap the focus girl in place), `__setSpeed(s)`. `clean=1` hides the HUD, `extra=6` adds up to 6 Chikas,
   `bloom=0`, `hp=600`, `preroll=40`.
 - `node e2e/attack-fx.mjs [--viewport 844x390|1280x720] [--shots dir] [--quick]` — sim id gate,
   Chika truth at 1× / 3×, launch + sell, every girl × every build at high / low (errors, quads,
