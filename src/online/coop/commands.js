@@ -8,10 +8,12 @@
 // Wallets: each command runs with that player's cash, loadout and hero swapped into the Sim,
 // then swapped back. Each tick starts from the players' combined cash (tower interest reads
 // it), and whatever the tick earned is split evenly between the players still connected
-// (odd coins take turns). Owner-credited coins (an econ ability, auto or manual: sim.ownerCash,
-// GAPS P-16) are never pooled: after every command and every step they move into their owner's
-// wallet. At rest the Sim shows the local player's view
-// (their cash, their cards), so the single-player HUD, tower bar and panels work unchanged.
+// (odd coins take turns). So are the kill rewards of a manual ability cast, which kills inside
+// its `abil` command: the same split as when Auto fires it inside a step (spec §7.1).
+// Owner-credited coins (an econ ability, auto or manual: sim.ownerCash, GAPS P-16) are never
+// pooled: after every command and every step they move into their owner's wallet. At rest the
+// Sim shows the local player's view (their cash, their cards), so the single-player HUD, tower
+// bar and panels work unchanged.
 // Every Sim call here runs inside withDetMath() (detMath.js): bit-identical trig and hypot on
 // every JS engine, so an iPhone and an Android phone stay in lockstep too.
 import { modeId } from '../../data/modes.js';
@@ -166,6 +168,20 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     return owners.get(uid) === slot;
   }
 
+  /**
+   * Pooled coins (kill rewards, wave income) split evenly between the players still connected
+   * (everyone gone: this client's player); an odd coin takes turns.
+   */
+  function splitIncome(income) {
+    if (!(income > 0)) return;
+    const alive = players.map((_, i) => i).filter((i) => !gone.has(i));
+    const to = alive.length ? alive : [viewSlot];
+    const share = Math.floor(income / to.length);
+    let rest = income - share * to.length;
+    for (const i of to) wallets[i] += share;
+    for (; rest > 0; rest--) wallets[to[oddTurn++ % to.length]] += 1;
+  }
+
   /** Owner-credited coins (sim.ownerCash) into their owners' wallets: after every command and step. */
   function flushOwnerCash() {
     const oc = sim.ownerCash;
@@ -196,6 +212,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     }
     view(slot);
     let res = { ok: false, reason: 'invalid' };
+    let pool = null; // a cast's cash before it fired: what it earned on top is pooled (splitIncome)
     try {
       const a = cmd.a;
       switch (cmd.k) {
@@ -302,6 +319,9 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
             || !((qx === -1 && qy === -1) || (qx >= 0 && qy >= 0))) res = { ok: false, reason: 'invalid' };
           else if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
           else {
+            // an instant strike or burst kills inside the command: those bounties are the team's, split as a
+            // step splits them (an auto-cast's), never the caster's alone; econ coins go through ownerCash
+            pool = sim.cash;
             const r = sim.castAbility(uid, { group: group === 1, aim: qx >= 0 ? [qx / Q, qy / Q] : null, owner: slot });
             res = r.ok ? { ok: true, casterUid: r.casterUid } : { ok: false, reason: r.reason, casterUid: r.casterUid };
           }
@@ -324,7 +344,9 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
           break;
       }
     } finally {
-      wallets[slot] = sim.cash;
+      const won = pool != null && sim.cash > pool ? sim.cash - pool : 0;
+      wallets[slot] = sim.cash - won;
+      splitIncome(won);
       flushOwnerCash();
       view(viewSlot);
     }
@@ -341,15 +363,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     for (const w of wallets) total += w;
     sim.cash = total;
     sim.update(STEP);
-    const income = sim.cash - total;
-    if (income > 0) {
-      const alive = players.map((_, i) => i).filter((i) => !gone.has(i));
-      const to = alive.length ? alive : [viewSlot];
-      const share = Math.floor(income / to.length);
-      let rest = income - share * to.length;
-      for (const i of to) wallets[i] += share;
-      for (; rest > 0; rest--) wallets[to[oddTurn++ % to.length]] += 1;
-    }
+    splitIncome(sim.cash - total);
     // what the step paid to an owner (an auto-cast Market Day) is hers alone, never part of the split
     flushOwnerCash();
     tick++;

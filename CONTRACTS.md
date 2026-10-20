@@ -1616,7 +1616,9 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   her Auto switch (`uid` 0: every girl she owns and her default, `sim.setAbilityAutoAll`); `start.players[i].autoAbil`
   (only `true`; the lobby sends it only when on) is her Auto-cast setting from tick 0; owner-credited coins
   (`sim.ownerCash`, an econ cast auto or manual) go into their owner's wallet after every command and step, never
-  into the pooled split; `hashSim` folds a girl's ability (cd, active, auto, casts) only once she cast or is on Auto,
+  into the pooled split; the kill coins of a manual cast (an instant strike or burst kills inside the `abil`
+  command) are pooled and split evenly like a step's (`splitIncome`, the odd coin taking turns), as an auto-cast's
+  are, never the caster's alone (spec §7.1); `hashSim` folds a girl's ability (cd, active, auto, casts) only once she cast or is on Auto,
   and `abilGroups`, rallies / queued shots, the Auto defaults and the econ counts only while non-empty, so battles
   that never cast keep their hash. `COOP_PROTOCOL` stays 5: the sim id and the data hash already keep apart builds
   that differ;

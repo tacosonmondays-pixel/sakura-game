@@ -1,13 +1,14 @@
 // Abilities in co-op (ABILITIES_SPEC §7, BUILD_PLAN §4): the `abil` and `acast` commands (owner only,
 // the girl-target rule, late commands refused safely), owner-credited coins flushed into the right
-// wallet after every command and step, the start message's `autoAbil`, the hash folding ability state
+// wallet after every command and step, a manual cast's kill coins pooled and split like an auto-cast's
+// (spec §7.1), the start message's `autoAbil`, the hash folding ability state
 // only once an ability was cast or switched to Auto, and both views computing the same battle.
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd, KINDS, quantize, abilArgs } from '../../src/online/coop/commands.js';
 import { hashSim, createHasher } from '../../src/online/coop/simHash.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
-import { abilityPathOf } from '../../src/sim/abilities.js';
+import { abilityPathOf, abilityReach, abilityDef } from '../../src/sim/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
 const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
@@ -361,6 +362,51 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
     expect(cs[0].wallets[0]).toBe(frozen);
     for (const r of gone) expect(r.d[0]).toBe(0);
     expect(cs[0].hash()).toBe(cs[1].hash());
+  }, 120000);
+
+  it('a manual cast\'s kill coins are pooled and split evenly, as an auto-cast\'s are; with the other player gone, the caster\'s', () => {
+    const cs = views(start(), { coins: 20000 });
+    const aoi = [upAbil(cs, 0, place(cs, 0, 'aoi')), upAbil(cs, 1, place(cs, 1, 'aoi'))];
+    all(cs, cmd(0, 'auto', [true]));
+    all(cs, cmd(0, 'wave'));
+    /** One manual Skyfall from `slot` on a road at 1 HP: `d` the wallet changes, `bounty` what its kills paid. */
+    const cast = (slot) => {
+      const uid = aoi[slot];
+      const near = (c) => {
+        const t = tower(c, uid);
+        const r = abilityReach(t, abilityDef(t));
+        return c.sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length;
+      };
+      stepUntil(cs, (c) => c.sim.abilityStatus(uid).ready && near(c) >= 2);
+      // the same edit on both views: her volley kills inside the abil command
+      for (const c of cs) {
+        for (const e of c.sim.enemies) e.hp = 1;
+        c.sim.events.length = 0;
+      }
+      const w0 = cs[0].wallets;
+      expect(all(cs, cmd(slot, 'abil', abilArgs(uid)))).toEqual({ ok: true, casterUid: uid });
+      const w1 = cs[0].wallets;
+      expect(cs[1].wallets).toEqual(w1);
+      for (const c of cs) {
+        expect(c.sim.ownerCash).toEqual([0, 0]);
+        expect(c.sim.cash).toBe(w1[c.mySlot]); // each view shows its own wallet again
+        expect(c.sim.events.some((e) => e.type === 'cash' && e.reason === 'ability')).toBe(false);
+      }
+      expect(cs[0].hash()).toBe(cs[1].hash());
+      const bounty = cs[0].sim.events.filter((e) => e.type === 'death').reduce((a, e) => a + e.bounty, 0);
+      expect(bounty).toBeGreaterThan(0);
+      return { d: [w1[0] - w0[0], w1[1] - w0[1]], bounty };
+    };
+    for (const slot of [0, 0, 1, 1]) {
+      const { d, bounty } = cast(slot);
+      // every coin of the cast is paid out, half each (an odd coin takes its turn), whoever tapped
+      expect(d[0] + d[1]).toBe(bounty);
+      expect(Math.abs(d[0] - d[1]), `slot ${slot}: ${d}`).toBeLessThanOrEqual(1);
+    }
+    // the guest is gone: the host's own cast pays the host alone, the guest's wallet stays
+    all(cs, { t: 0, p: 1, s: seq++, k: 'gone', a: [] });
+    const { d, bounty } = cast(0);
+    expect(d).toEqual([bounty, 0]);
   }, 120000);
 
   it('his own Market Day while he is gone stays his (owner-credited, kept for his rejoin)', () => {

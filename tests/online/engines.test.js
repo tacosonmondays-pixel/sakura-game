@@ -130,9 +130,12 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runAbilitiesBattle().final).toBe(r.final);
     // pinned when the scenario landed (A2; V8, JSC and SpiderMonkey gave these): change only with a
-    // deliberate sim / data / ability change, and say why
+    // deliberate sim / data / ability change, and say why. Re-pinned by the A2 review fixes (was 40227 /
+    // '636/487' / 2145385076 / '5726405e', 46 casts): a manual cast's kill coins are pooled and split like
+    // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
+    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 40227, state: 'between', wallets: '636/487', final: 2145385076, hashes: '5726405e', casts: 46, byKind: 'boost 2 · burst 18 · debuff 12 · econ 2 · rally 5 · strike 7' });
+      .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

@@ -774,9 +774,12 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 // Abilities (src/sim/abilities.js; ABILITIES_SPEC §7.4, BUILD_PLAN §4.5): every live kind in one battle
 // ---------------------------------------------------------------------------
 
-// cheap girls (every one reaches her ⚡ tier 3 early) at half damage (so crowds form and Auto's rules hold)
+// cheap girls (every one reaches her ⚡ tier 3 early) at half damage (so crowds form and Auto's rules hold);
+// the guest's also carry Skill Haste 0.3 (gear ultHaste: her abilities charge faster, a rounded division
+// in chargeRate, and her hero's ult cooldown is shorter), so the haste path runs on every engine too
 const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
-const abilLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: ABIL_STATS }));
+const ABIL_STATS_HASTE = { ...ABIL_STATS, ultHaste: 0.3 };
+const abilLoadout = (ids, stats = ABIL_STATS) => ids.map((unitId) => ({ unitId, stats }));
 /** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
 export const ABILITIES_START = Object.freeze({
   seed: 454545,
@@ -784,7 +787,7 @@ export const ABILITIES_START = Object.freeze({
   difficulty: 'normal',
   players: [
     { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro']), hero: { unitId: 'nami', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
@@ -796,7 +799,7 @@ const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget',
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
  * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
- * (Lv 7, Frost Net; she and Sango stand on the water) with `acast[0, 1]` (everything on Auto), taps one
+ * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
  * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
  * the seeded fake network; every state hash collected (they fold the ability state once cast or on
  * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
