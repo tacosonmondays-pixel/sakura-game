@@ -175,19 +175,52 @@ cost cut ≤ 25%, ult haste ≤ 50%).
 ## 6. Gear
 
 * Slots: charm (main ATK% / Crit DMG), ribbon (Crit Rate / Range / Armor Pierce), shoes (Attack Speed /
-  Cost Reduction / Ult Haste).
+  Cost Reduction / Skill Haste).
 * Rarity scales every roll: common ×1 · rare ×1.35 · super rare ×1.75 · mythic ×2.2 · legendary ×2.8
   (Armor Pierce scales at half rate). Main stats roll 1.2× a substat range and grow +6%/level (+4% for
   Armor Pierce) up to +10. Substats: 0/1/2/3/4 by rarity, never duplicating the main stat or each other;
   every 3rd enhancement level grows the least-upgraded substat.
 * **Reroll substats:** Fortune Dice (1 / 1 / 1 / 2 / 3 by rarity) + coins; add a **Lock Pin** to keep one
   substat exactly as it is. Earned enhancement growth is kept.
-* **Reroll main stat:** one Prism Dice + coins → a different main stat for the slot.
+* **Change main stat:** one Prism Dice + coins → the main stat the player picks from the slot's options.
 * **Enhance:** (800 + 400·level) × (rarity order + 1) coins per level.
 * **Salvage:** coins (+50% of enhance coins back) and Fortune Dice for super rare+ (legendary also gives a
   Lock Pin). Equipped or locked gear cannot be salvaged.
 * Gear boxes (`gearbox_<rarity>`) dropped in battle open immediately into real gear; boxes bought in the
   Mall stay in the backpack until opened (`openGearBox`).
+* **Ult Haste is called Skill Haste** (same key `ultHaste`, same numbers). **Every Line Counts:** a line her kit can't
+  use (`GEAR_FIT`, `src/data/gearStats.js`), or the part of a stat past its MAX, turns into ATK at half an ATK line's
+  worth, with the soft limit `12% × f / (f + 12%)` (Umeko and Miko: into Aura Power and aura radius, up to +5%).
+  Caps: crit 75%, cost cut 25%, Skill Haste 50%, Crit DMG +200%, Range +50%, Pierce +150%, Aura Power +15%.
+
+### Rainbow UR gear (`docs/specs/GEAR_AWAKEN.md`)
+
+* **Rainbow Bloom:** a Legendary at +10 → UR for **1 Rainbow Seed + 80,000 coins** (always works, auto-locks). Every
+  number ×8/7 (Armor Pierce ×1.105), max **+12**; +11 / +12 cost 28,800 / 31,200 coins (tier-6 prices: rerolls 3 dice +
+  12,000, main 1 Prism + 30,000). A finished UR piece costs about 310,000 coins.
+* **Starlight Needle:** 1 Needle + 20,000 coins per stitch (+1 growth step on the line chosen); gold +10 takes 1, UR 2
+  (both may sit on one line). **Take back:** 10,000 coins, the Needle returns. Salvage returns the Seed and every Needle.
+* **Seeds (never sold for gems, never random):** Rainbow Hunt weekly (3 Total Assault clears, after 5-5) 1; first gold
+  +10 gift 1; Freeplay "Ashwing Matriarch defeated" 1 per tier (3 in all; paid once on load to saves that passed it).
+  About **1 a week** for an everyday late-game player.
+* **Needles (never sold for gems):** Rainbow Hunt 1, Bounty Exchange 1 (30 Bounty Tokens, weekly), the week's first
+  Freeplay cache 1 → **3 a week**; Freeplay "Reached wave 150" 2 per tier once.
+* **Rainbow Resonance:** 2 UR pieces on one girl +5% Range, 3 +10%.
+* **Celestial bad-luck counter (`pity:cel`):** 40 solo Total Assault Hard+ / Workshop Yard III Nightmare runs (sweeps
+  count) without a Legendary piece → the next one adds a Celestial piece. Any Legendary resets it.
+
+### Academy Clubs (`docs/specs/GEAR_STATS.md`)
+
+* Mythic, Legendary and UR pieces belong to a club. 2 pieces: Archery +30% Pierce · Fencing +3% Crit Rate · Taiko +5%
+  Attack Speed · Pyrotechnics +5% ATK · Tea +6% Aura Power. 3 pieces add a trick (Follow-Through, Finishing Thrust,
+  Big Beat, Finale Pop, Second Cup). Bell (+8% Skill Haste, First Bell) comes with the tower abilities.
+* Every new Mythic+ drop joins a random club; club pieces roll their club's 3 favourite substats at ×2 weight and
+  can roll **Pierce** (ribbons) / **Aura Power** (shoes). Pieces without a club keep today's odds exactly.
+* **Club Armband:** 1 band + 2,000 × (tier + 1) coins (Mythic 8,000 · Legendary 10,000 · UR 12,000) moves a piece into
+  the club picked; stats unchanged. Sources (never gems): 9 as a welcome gift with the first Mythic+ piece, Club Day
+  weekly (10 wins, after 2-5) 1 + 10,000 coins, Bounty Exchange 2 a week (10 tokens each) → about 3 a week.
+* **Prism Dice:** the player chooses the new main stat (price unchanged).
+* Weekly gem income is unchanged (the new weekly rows pay no gems).
 
 ## 7. Mall
 
