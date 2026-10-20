@@ -78,11 +78,12 @@ LOOK_OVERRIDES = dict(
     ena=dict(hairStyle='sideBraid', accessory='rose', outfit='blazerCardigan', weapon='roseCards', eyeStyle='round', softFace=True,
              halo='crescent', **BATTLE_FACE, bangRaise=8,
              chinUp=20, holdPose={'upper_arm_R': (-32, 0, -16), 'forearm_R': (-52, 0, 0)}, cardLean=36, cardSplay=-14),
-    # Kanna (portrait, Oct 20): high coral-rose twin-tails with gold ring cuffs, two tall ivory oni horns, crimson staff
+    # Kanna (portrait, Oct 20): high coral twin-tails flaring out (set higher and wider in critic round 3; they hung
+    # at her sides) with gold ring cuffs, two tall ivory oni horns, crimson staff
     # track jacket zipped up (black side panels, gold piping, black shirt + ivory tie), black slacks, crimson
     # high-tops, carbon bachi with glowing tips, her festival taiko on a stand beside her (EXTRA_PARTS)
-    kanna=dict(outfit='staffTrack', weapon='bachi', tailEl=42, tailAz=86, tailLen=0.95, tailR=0.046, tailOut=0.12,
-               tailCurl=0.05, tailDroop=0.3, tieT=0.35, tieLen=0.008, bangRaise=12, chinUp=20, eyeStyle='round', browTone=0.55,
+    kanna=dict(outfit='staffTrack', weapon='bachi', tailEl=46, tailAz=86, tailLen=1.05, tailR=0.046, tailOut=0.17,
+               tailCurl=0.05, tailDroop=0.15, tieT=0.35, tieLen=0.008, bangRaise=12, chinUp=20, eyeStyle='round', browTone=0.55,
                **BATTLE_FACE),
     # Yoriko (portrait, Oct 20): lilac high ponytail falling on her right, blunt bangs, a navy cat-ear stage headset
     # with glowing inner ears + mic, an indigo-navy stage frock coat open over a lilac waistcoat (lilac lapels, white
