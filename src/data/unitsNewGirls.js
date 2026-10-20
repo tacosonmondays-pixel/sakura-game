@@ -245,23 +245,23 @@ const YUZUHA = {
     'Capture Net (tier 3) catches weak ground enemies outright, out of a budget of hit points each wave, for extra coins.',
   ],
   base: stats({
-    cost: 420, damage: 2, rate: 1.0, range: 2.6, projectileSpeed: 16, canHitAir: true,
-    sentry: { max: 2, every: 6, ttl: 20, damage: 3, rate: 1.2, range: 2 },
+    cost: 420, damage: 4, rate: 1.0, range: 2.6, projectileSpeed: 16, canHitAir: true,
+    sentry: { max: 2, every: 6, ttl: 20, damage: 12, rate: 1.5, range: 2 },
   }),
   paths: [
     path('lab', 'Sentry Lab', 'Better sentries', [
       tier('Spare Tripods', 140, 'One more sentry at a time.', { sentry: { max: 1 } }),
-      tier('Longer Batteries', 320, 'Sentries last 30s; +1 sentry damage.', { sentry: { ttl: 10, damage: 1 } }),
+      tier('Longer Batteries', 320, 'Sentries last 30s; +4 sentry damage.', { sentry: { ttl: 10, damage: 4 } }),
       tier('Specialist Kits', 1100, 'Each new sentry gets the type the threat in her range needs: flash for veiled enemies, flak for flyers, heavy for elites, nets for the rest.', { sentry: { kits: true } }),
-      tier('Burst Cells', 3400, 'Sentries +6 damage; each one bursts for 30 within 1 tile when it runs out.', { sentry: { damage: 6, burst: 30 } }),
-      tier('Full Perimeter', 19200, '6 sentries, 45s each, +20 damage; bursts deal 150.', { sentry: { max: 3, ttl: 15, damage: 20, burst: 120 } }),
+      tier('Burst Cells', 3400, 'Sentries +30 damage; each one bursts for 120 within 1 tile when it runs out.', { sentry: { damage: 30, burst: 120 } }),
+      tier('Full Perimeter', 19200, '6 sentries, 45s each, +150 damage; bursts deal 800.', { sentry: { max: 3, ttl: 15, damage: 150, burst: 680 } }),
     ]),
     path('ops', 'Field Ops', 'Deployment and support', [
       tier('Quick Deploy', 120, 'Sets sentries 25% faster.', { sentry: { speed: 0.25 } }),
       tier('Wide Survey', 300, '+0.6 range.', { range: 0.6 }),
       tier('Tune-Up Kit', 950, 'Girls within 2.4 tiles attack 8% faster.', { aura: { range: 2.4, rateMul: 1.08 } }),
-      tier('Field Workshop', 3000, 'Sentries +4 damage and fire 20% faster; Tune-Up reaches 3 tiles.', { sentry: { damage: 4, rate: 1.2 }, aura: { range: 3 } }),
-      tier('Rapid Response', 17600, 'Tune-Up rises to +15% attack speed; sentries +6 damage.', { aura: { rateMul: 1.065 }, sentry: { damage: 6 } }),
+      tier('Field Workshop', 3000, 'Sentries +18 damage and fire 20% faster; Tune-Up reaches 3 tiles.', { sentry: { damage: 18, rate: 1.2 }, aura: { range: 3 } }),
+      tier('Rapid Response', 17600, 'Tune-Up rises to +15% attack speed; sentries +70 damage.', { aura: { rateMul: 1.065 }, sentry: { damage: 70 } }),
     ]),
     path('net', 'Capture Net', 'Catch and hold', [
       tier('Net Launcher', 110, 'Darts slow 20% for 1s.', { status: [S.slow(0.2, 1)] }),

@@ -1200,6 +1200,34 @@ a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebu
 come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
 Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
 
+### 3d. The new girls — `src/data/unitsNewGirls.js` (owner: units; UNIT_GAPS §5, wave 1)
+
+```js
+export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA]; units.js appends them after the returning girls
+export const NEW_GIRL_IDS   // their ids (goldens pin a "base roster" block with them left out)
+```
+New BaseStats blocks, each present ONLY on a girl whose base declares it (`mods.js normalizeBase`), so
+every other girl resolves bit-identically; ModSets with the same key add numbers, OR flags:
+`strip` (Azami: hits, ttl, forever, carry, boom/boomR/boomStun, air, aim, opening, lanes, pair, rain,
+rainCount; plus `trap.triggerRadius` adds), `ring` (Kinu: travel, turn, heat, double, sparks, scissors,
+scissorDmg, scissorMul ×, spiral, spiralPierce), `drink` (Wakaba: splash, shots, dmg, rate, range, pierce,
+detection, cleanse, permanent, season, towel, towelDmg, life), `sentry` (Yuzuha: max, every, speed, ttl,
+damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss). Behaviours `strip`, `ring`,
+`drink`. Roles spiker, ring, manager, builder. Weapons `strip`, `needle`, `tablet`.
+
+```js
+strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
+rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
+drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
+sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
+aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range)
+abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
+  (effect.target 'girl'; rally record `to`); castAbility(sim, t, { aim }) passes the aim to the kind
+Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
+```
+Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
+`nt` nets; everything else of theirs ends at the wave clear (UNIT_GAPS §7.3).
+
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
 ```js

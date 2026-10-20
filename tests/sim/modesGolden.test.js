@@ -7,8 +7,9 @@
 // pass's to look at, not the modes'. Roster wave (track 5): 1-1 … 6-1 are unchanged; from 6-3 on the bot's F2P team
 // includes Noa (free after 6-2) and Hana (free after 7-5), so those eight are re-pinned (the 19 live
 // girls alone still give the old digests: docs/merge/ROSTER_WAVE_NOTES.md §5).
-// New girls (UNIT_GAPS §5): from 2-3 on the free team has Azami (free after 2-2), so those rows are
-// re-pinned; BASE_GOLDEN keeps the merged base's digests with the new girls left out.
+// New girls (UNIT_GAPS §5): from 2-3 on the free team has Azami (free after 2-2), Yuzuha (4-2) and
+// Wakaba (6-5), so those rows are re-pinned; BASE_GOLDEN keeps the merged base's digests with the new
+// girls left out (bit-identical).
 import { describe, it, expect } from 'vitest';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
@@ -27,18 +28,18 @@ const GOLDEN = {
   '3-3:hard': 'L22/0/109099/1087/3cbe8538',
   '4-2:easy': 'W25/144/70352/462/eb7b14b',
   '4-2:hard': 'W25/4/86836/405/1c214cc4',
-  '5-4:easy': 'W27/141/73817/4086/c4a6446f',
-  '5-4:hard': 'W27/21/94884/1553/67038c0f',
-  '6-1:easy': 'W26/150/56376/5582/10efa51f',
-  '6-1:hard': 'W26/46/66268/1299/752b2553',
-  '6-3:easy': 'W27/145/36157/687/46037621',
-  '6-3:hard': 'W27/22/53061/648/ae215f5',
-  '7-3:easy': 'W29/141/90474/19572/40de30',
-  '7-3:hard': 'L14/0/48352/197/70a782fb',
-  '8-4:easy': 'W30/150/46184/14845/e51f99d7',
-  '8-4:hard': 'W30/37/53645/4036/9aa0f77',
-  '8-5:easy': 'L30/0/39711/14938/edef824b',
-  '8-5:hard': 'L30/0/46057/3519/c0818363',
+  '5-4:easy': 'W27/140/76162/2953/7f5928f4',
+  '5-4:hard': 'W27/21/95428/474/7a74fadb',
+  '6-1:easy': 'W26/150/60925/4197/9df80a04',
+  '6-1:hard': 'W26/44/69052/1567/37bbe597',
+  '6-3:easy': 'W27/145/35925/857/b5861b64',
+  '6-3:hard': 'W27/14/53756/645/8fb24af9',
+  '7-3:easy': 'W29/138/89954/20132/e24ed9f3',
+  '7-3:hard': 'L15/0/52357/342/f5eb7b58',
+  '8-4:easy': 'W30/150/44957/14820/ab26977',
+  '8-4:hard': 'W30/37/54248/4166/e1be1c2f',
+  '8-5:easy': 'W30/150/36609/26463/3f98e797',
+  '8-5:hard': 'L30/0/41968/4246/9155713e',
 };
 
 // The same stages with the new girls (UNIT_GAPS §5) left out of the free pool: the digests the merged

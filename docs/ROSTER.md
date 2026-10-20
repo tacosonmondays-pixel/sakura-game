@@ -55,6 +55,18 @@ The nine returning girls (track 5, `src/data/unitsExpansion.js`) wear academy sc
 chibis are placeholders until the owner approves real art (`docs/merge/ROSTER_WAVE_NOTES.md`). Their activated abilities are data
 only (`RETURNING_ABILITIES`), for the ability system.
 
+### New girls, wave 1 (UNIT_GAPS §5; `src/data/unitsNewGirls.js`)
+
+| Girl | Title | Rarity · how | Role | What she does | ⚡ |
+|---|---|---|---|---|---|
+| Azami | Checkpoint Prefect | R · free after 2-2 | Spike Layer | Spike strips on the road: each hits every ground enemy once until its hits run out | Spike Rain |
+| Kinu | Pin-Burst Seamstress | R · gacha | Burst Emitter | A ring of straight pins in every direction; heat ring, scissors | Blade Spiral |
+| Wakaba | Track Team Manager | R · free after 6-5 | Team Manager | No attack: sports drinks for the top damage dealer in range | Time Out! |
+| Yuzuha | Security Bureau Technician | SR · free after 4-2 | Field Builder | Taser darts plus timed lane sentries; Capture Nets | Emergency Deploy |
+
+Art: placeholder portraits (`tools/art/placeholder_portraits.py`) and procedural stand-ins until their
+figures are approved.
+
 ## Upgrade paths at a glance
 
 Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 000–16 000 coins).

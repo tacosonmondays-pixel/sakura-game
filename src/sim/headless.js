@@ -171,6 +171,9 @@ function pathScore(def, p, needs, tiersToCount = 5) {
     if (m.income) s += (m.income.perWave || 0) / 40 + (m.income.interest || 0) * 20;
     if (m.trap) s += (m.trap.max || 0) * 0.5 + ((m.trap.damage || 0) / Math.max(1, base.trap?.damage || baseDmg)) * 4;
     if (m.turret) s += (m.turret.max || 0) * 1.5 + (m.turret.damage || 0) * 0.3;
+    // the new girls' own blocks, scored like the turret's (only their tiers carry these keys)
+    if (m.sentry) s += (m.sentry.max || 0) * 1.5 + (m.sentry.damage || 0) * 0.3 + (m.sentry.kits ? 4 : 0) + (m.sentry.burst || 0) * 0.02;
+    if (m.strip) s += (m.strip.hits || 0) * 0.3 + (m.strip.boom || 0) * 0.02;
     if (m.status) s += 1;
     if (m.eliteMul) s += (m.eliteMul - 1) * 3;
     if (m.bossMul) s += (m.bossMul - 1) * 2;
@@ -320,6 +323,9 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       else if (info.role === 'support') {
         const ar = info.stats.aura?.range || (info.stats.drink ? info.stats.range : 2);
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
+        // a buff thrower (Wakaba) stands where her drinks reach the girl this plan will push as its carry
+        const carry = info.stats.drink ? carryNow() : null;
+        if (carry && Math.hypot(carry.x - c.x, carry.y - c.y) <= ar) s += 1000;
       } else {
         // roaming drones (Chika) fight up to roam + gun range from her
         const tu = info.stats.turret;
@@ -328,6 +334,21 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       if (s > bestS) {
         bestS = s;
         best = c;
+      }
+    }
+    return best;
+  };
+
+  // the damage dealer placed so far that the focus step will push deep (carryScore below, same formula)
+  const carryNow = () => {
+    let best = null;
+    let bestS = -Infinity;
+    for (const p of placed) {
+      if (p.role !== 'dps') continue;
+      const sc = pathScore(p.def, p.main, needs) * (1 + 0.3 * (p.def.base?.bossMul || 1)) * (p.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
+      if (sc > bestS) {
+        bestS = sc;
+        best = p;
       }
     }
     return best;

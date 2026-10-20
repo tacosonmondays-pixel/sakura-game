@@ -1,5 +1,33 @@
 # Balance notes
 
+## New girls, wave 1 (2026-10-20, `feature/new-girls-w1`; UNIT_GAPS §5)
+
+Azami (R, free after 2-2), Kinu (R, gacha), Wakaba (R, free after 6-5), Yuzuha (SR, free after 4-2).
+Bench: a **walking stream** on 4-5 (one 3000-HP slime every 0.5 s along the road, 60 s, the girl on the
+bot's own spot for her, best main/cross split) — the stationary bench cannot judge a strip layer.
+
+| Girl | 3/2 | 4/2 | 5/2 | Band (same bench) |
+|---|---|---|---|---|
+| Azami | 46 | 139 | 998 | R: Aoi 56 / 173 / 1269, Rei 57 / 181 / 1072, Yuki 24 / 159 / 1273 |
+| Kinu | 46 | 244 | 1125 | R (as above) |
+| Yuzuha | 67 | 213 | 1672 | SR: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150, Suzu 107 / 331 / 2805 |
+
+Moves from the spec's first numbers: Azami strip damage 2 → 3 (Shredder +4, Detonation +16); Yuzuha's
+sentries ×4 (base 12 dmg at 1.5/s, darts 4; tier 4-5 damage and bursts raised) — the spec's sentries
+sat at a fifth of the SR band. Tier 5s are in the live 12,000-36,000 window (spec × ~1.6).
+
+Bot (`src/sim/headless.js`, keys only the new girls carry, so base-roster plans are unchanged): a buff
+thrower is a support placed where her drinks reach the planned carry; `pathScore` reads sentry and strip
+tiers like turret tiers.
+
+**Easy gate: 40 / 40** with the full roster; with the four new girls left out every row is bit-identical
+to the merged base (the modes goldens pin the same as a "base roster" block). 8-5 Easy over seeds 1-9:
+full roster 5 / 9 (seed 1 won), base 6 / 9 — the same near coin flip the roster wave measured.
+
+| Stage | merged base | base roster now | full roster |
+|---|---|---|---|
+
+
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
 
 First pass for the nine returning girls; the owner's balance pass comes later. Method: the hero-rework
