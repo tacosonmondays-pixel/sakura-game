@@ -341,7 +341,7 @@ export function potentialNext(def, unitState) {
 export function potentialDupesRule() {
   const f = (r) => UNIT_RARITIES[r].fragmentsOnDupe;
   const t = (r) => DUPE_PAST_MAX_TOMES[r];
-  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger and raises her level cap, and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments plus Akashic Tomes for her levels above 60 (SR ×${t('SR')}, SSR ×${t('SSR')}).`;
+  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger (and, once all five breakthrough gates are open, raises her level cap), and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments plus Akashic Tomes for her levels above 60 (SR ×${t('SR')}, SSR ×${t('SSR')}).`;
 }
 
 /** "1 more duplicate" / "2 more duplicates". */
@@ -356,8 +356,9 @@ export function potentialPillTitle(def, p) {
 
 /**
  * The six nodes for the UI (P1 = her base). `capAt(p)` (optional, src/systems/progression.js
- * potentialLevelCap) is her level cap at P: a node shows it under its stat (`+4% SPD · 67`) only
- * when Potential raises it above her P1 cap, so the line reads the level rule as it is.
+ * potentialLevelCap) is her level cap at P: a node shows it beside its stat ("+4% SPD" "Lv 67",
+ * src/ui/potential.js nodeLine) only when Potential raises it above her P1 cap, so the line reads
+ * the level rule as it is. `line` is the same as one string (`+4% SPD · 67`).
  * @param {object} def
  * @param {object|null} unitState
  * @param {{ capAt?: (p: number) => number }} [o]

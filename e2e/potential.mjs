@@ -193,6 +193,8 @@ try {
     await page.click('[data-testid="show-potential"]');
     await page.waitForSelector('[data-testid="potential-section"]', { timeout: T });
     await page.waitForTimeout(900);
+    // measure with the real fonts in (a fallback font is narrower and hides a cut-off cap)
+    await page.evaluate(() => document.fonts.ready);
     const sec = await page.evaluate(() => {
       const s = document.querySelector('[data-testid="potential-section"]');
       const r = s.getBoundingClientRect();
@@ -205,9 +207,12 @@ try {
         on: nodes.map((n) => n?.classList.contains('on')),
         next: nodes.map((n) => n?.classList.contains('next')),
         labels: nodes.map((n) => n?.querySelector('.pot-node-label')?.textContent),
-        lines: nodes.map((n) => n?.querySelector('.pot-node-line')?.textContent || ''),
+        lines: nodes.map((n) => [n?.querySelector('.pot-node-stat')?.textContent || '', n?.querySelector('.pot-node-cap')?.textContent || ''].filter(Boolean).join(' + ')),
+        // the cap span sits whole inside its node, and the stat beside it is not cut short
+        capsInside: nodes.every((n) => { const c = n?.querySelector('.pot-node-cap'); if (!c) return true; const a = c.getBoundingClientRect(); const b = n.getBoundingClientRect(); return a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && c.scrollWidth <= c.clientWidth + 1; }),
+        rule: document.querySelector('.pot-rule.muted')?.textContent,
         kit: nodes.map((n) => !!n?.querySelector('.pot-node-kit')),
-        nodeFits: nodes.every((n) => { const l = n?.querySelector('.pot-node-line'); return !l || l.scrollWidth <= l.clientWidth + 1; }),
+        nodeFits: nodes.every((n) => { const l = n?.querySelector('.pot-node-stat'); return !l || l.scrollWidth <= l.clientWidth + 1; }),
         crownNode: !!nodes[5]?.querySelector('.pot-node-crown svg'),
         steps: [2, 3, 4, 5, 6].map((k) => { const e = document.querySelector(`[data-testid="potential-step-${k}"]`); return e ? { cls: e.className, mark: e.querySelector('.pot-step-mark')?.textContent, name: e.querySelector('.pot-step-name')?.textContent, long: e.querySelector('.pot-step-long')?.textContent, crown: !!e.querySelector('.pot-step-crown svg'), cap: e.querySelector('.pot-step-cap')?.textContent || null } : null; }),
         nextTags: [...document.querySelectorAll('[data-testid="potential-next"]')].map((e) => ({ text: e.textContent, step: e.closest('[data-testid^="potential-step-"]')?.dataset.testid })),
@@ -221,17 +226,20 @@ try {
     // Potential v3 (docs/specs/POTENTIAL.md v3 §5.2): her node labels and capstone
     check(sec.labels.join('|') === 'Base|+4% DMG|PEN+CRIT|CRIT+6%|TWIN 1/12|HAWK', `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
     check(sec.kit.join() === 'false,false,true,true,true,true' && sec.crownNode, `${tag} Aoi's page: ✦ on her kit nodes (P3–P6), the crown on P6`);
-    // the stat line under each node: her R track (and her level cap, once Potential raises it)
+    // the stat line under each node: her R track and her level cap at that P (two spans: the cap
+    // wraps under the stat on a narrow node instead of hiding behind an ellipsis)
     const caps = await page.evaluate(async () => { const m = await import('/src/systems/progression.js'); return [1, 2, 3, 4, 5, 6].map((p) => m.potentialLevelCap(p)); });
     const stat = ['', '+4% DMG', '+4% SPD', '+4% DMG', '+4% SPD', '+5% DMG'];
-    // (P2 is a stat step: its label is her stat, so its line only adds the cap)
-    const wantLines = stat.map((x, i) => (i === 0 ? '' : caps[i] > caps[0] ? `${x} · ${caps[i]}` : i === 1 ? '' : x));
-    check(sec.lines.join('|') === wantLines.join('|') && sec.nodeFits, `${tag} Aoi's page: the line under each node "${sec.lines.join(' | ')}" (caps ${caps.join('/')}), fits its node`);
+    // (P2 is a stat step: its label is her stat, so its line shows only the cap)
+    const wantLines = stat.map((x, i) => [i === 1 ? '' : x, i > 0 && caps[i] > caps[0] ? `Lv ${caps[i]}` : ''].filter(Boolean).join(' + '));
+    check(sec.lines.join('|') === wantLines.join('|') && sec.nodeFits && sec.capsInside, `${tag} Aoi's page: the line under each node "${sec.lines.join(' | ')}" (caps ${caps.join('/')}), the cap whole inside its node`);
+    check(/Once all 5 breakthrough gates are open, every step also raises her level cap \(up to 85 at P6\)/.test(sec.rule || ''), `${tag} Aoi's page: the rule ties the level cap to the breakthrough gates "${sec.rule}"`);
     check(sec.steps.every(Boolean) && sec.steps.slice(0, 3).every((x) => /\bon\b/.test(x.cls) && x.mark === '✓') && /\bnext\b/.test(sec.steps[3].cls) && /\blater\b/.test(sec.steps[4].cls), `${tag} Aoi's page: steps P2–P4 ✓, P5 next, P6 later`);
     check(sec.nextTags.length === 1 && sec.nextTags[0].text === 'NEXT · 1 more duplicate' && sec.nextTags[0].step === 'potential-step-5', `${tag} Aoi's page: one NEXT tag, on P5 (${JSON.stringify(sec.nextTags)})`);
     check(sec.steps[4].name === '✦ Hawk Companion' && sec.steps[4].crown && /^\+5% damage\. Twin Fletch comes every 10th volley/.test(sec.steps[4].long), `${tag} Aoi's page: the P6 capstone row "${sec.steps[4].name}" with the crown`);
     check(sec.steps[0].name === 'Dawn Practice' && sec.steps[0].long === '+4% damage.', `${tag} Aoi's page: her P2 stat step "${sec.steps[0].name}: ${sec.steps[0].long}"`);
-    check(sec.steps.every((x, i) => (caps[i + 1] > caps[0] ? x.cap === `Level cap ${caps[i + 1]}` : x.cap === null)), `${tag} Aoi's page: each step's level-cap line follows the level rule`);
+    // (Aoi is at gate 0: each step's cap is what that P opens after her breakthroughs)
+    check(sec.steps.every((x, i) => (caps[i + 1] > caps[0] ? x.cap === `Level cap ${caps[i + 1]} after all 5 breakthroughs` : x.cap === null)), `${tag} Aoi's page: each step's level-cap line follows the level rule for a gate-0 girl (${sec.steps.map((x) => x.cap).join(' | ')})`);
     check(!sec.oldSig, `${tag} Aoi's page: the step list replaces v1's signature box`);
     check(sec.footer === 'Duplicates so far: 3 · Next: P5 ✦ Twin Fletch with 1 more duplicate', `${tag} Aoi's page: footer "${sec.footer}"`);
     check(sec.yours?.[1] === '4' && sec.yours?.[2] === '4.33', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.04 × 1.04 (${sec.yours?.join(' / ')})`);
@@ -339,8 +347,9 @@ try {
     await shot(page, `select-ticket-${tag}`);
     await page.click('[data-testid="sst-ok"]', { force: true });
 
-    // a spark of the P2 Hotaru, played out: the "Potential up!" card before the results
-    await page.evaluate(() => { const p = window.__sakura.store.profile; p.gacha.recruitPoints = 200; window.__sakura.store.commit('test'); });
+    // a spark of the P2 Hotaru, played out: the "Potential up!" card before the results (her five
+    // breakthrough gates open, so her own cap rises with the step)
+    await page.evaluate(() => { const p = window.__sakura.store.profile; p.gacha.recruitPoints = 200; p.units.hotaru.breakthrough = 5; window.__sakura.store.commit('test'); });
     await go(page, '#/recruit', '[data-testid="spark"]');
     await page.click('[data-testid="spark"]');
     await page.waitForSelector('[data-testid="spark-hotaru"]');

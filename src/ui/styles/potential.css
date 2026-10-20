@@ -54,8 +54,14 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 .pot-node-p { display: inline-flex; align-items: center; gap: 1px; font: 900 0.8rem/1 var(--font-head); }
 .pot-node-kit { color: var(--pink); font-size: 0.7rem; }
 .pot-node-label { font-size: 0.62rem; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
-/* the stat line under each node: her stat at that step (and her level cap once Potential raises it) */
-.pot-node-line { margin-top: auto; font-size: 0.56rem; font-weight: 800; line-height: 1.1; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* the stat line under each node: her stat at that step and her level cap at that P, two spans that
+   wrap onto two rows on a narrow node instead of cutting the cap off */
+.pot-node-line { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 3px; font-size: 0.56rem; font-weight: 800; line-height: 1.1; opacity: 0.9; max-width: 100%; }
+.pot-node-stat, .pot-node-cap { white-space: nowrap; }
+.pot-node-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pot-node-cap { flex: none; }
+.pot-node-cap.later { opacity: 0.7; }
+.pot-step-cap.later { color: var(--muted); }
 .pot-node.on { background: var(--pot-plum); border-color: var(--pot-plum); color: #fff; }
 .pot-node.on .pot-node-kit { color: var(--pot-sakura-b); }
 .pot-node.on.sig { background: linear-gradient(135deg, var(--pot-sakura-a), var(--pot-sakura-b)); color: var(--pot-plum); box-shadow: inset 0 0 0 1px #fff; }

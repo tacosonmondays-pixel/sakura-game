@@ -3,7 +3,8 @@
 // node and its five-step list, the reveal tags and ribbons, and the "Potential up!" cards after a
 // recruit. Display only; the steps and their text come from src/data/potential.js and
 // src/data/potentialText.js through the one describer in src/systems/potential.js, and the level
-// cap beside each step from src/systems/progression.js potentialLevelCap. Styles:
+// cap beside each step from src/systems/progression.js (potentialLevelCap: her cap at P once all
+// five breakthrough gates are open; levelCapAt for an owned girl's real cap). Styles:
 // src/ui/styles/potential.css (tokens; our own pill, track, crown and ✦ glyph, never rainbow:
 // rainbow is UR).
 import './styles/potential.css';
@@ -12,7 +13,7 @@ import {
   MAX_POTENTIAL, potentialLevel, potentialView, dupesToMax, potentialNext, potentialPillTitle, moreDupes, potentialStepInfo,
   DUPE_PAST_MAX_TOMES, dupePastMaxPay,
 } from '../systems/potential.js';
-import { potentialLevelCap } from '../systems/progression.js';
+import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH } from '../systems/progression.js';
 import { UNIT_RARITIES } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { portraitHTML } from '../art/portraits.js';
@@ -61,8 +62,24 @@ export function nextLine(def, unitState) {
   return `Next: P${n.step} unlocks ${n.brief} (${moreDupes(n.dupes)})`;
 }
 
-/** The line under a node: `stat · cap`; a stat step whose label is that stat shows it only with a cap. */
-export const nodeLine = (n) => (n.short === n.stat && n.cap == null ? '' : n.line);
+/**
+ * The line under a node: her stat at that step and, where Potential raises it, her level cap at
+ * that P ("+4% SPD" "Lv 67"), as two spans so the cap never hides behind an ellipsis (on a narrow
+ * node it wraps under the stat). A stat step whose label already is that stat shows only the cap.
+ * `gatesOpen` false (an owned girl below gate 5): the cap reads as what that P opens later.
+ * @returns {HTMLElement|null}
+ */
+export function nodeLine(n, { gatesOpen = true } = {}) {
+  const stat = n.short === n.stat ? '' : n.stat;
+  if (!stat && n.cap == null) return null;
+  const capTitle = n.cap == null ? null : gatesOpen ? `Level cap ${n.cap} at P${n.step}` : `Level cap ${n.cap} at P${n.step}, once all ${MAX_BREAKTHROUGH} breakthrough gates are open`;
+  return h('span.pot-node-line', { 'data-testid': `potential-line-${n.step}`, title: [stat, capTitle].filter(Boolean).join(' · ') },
+    stat ? h('span.pot-node-stat', stat) : null,
+    n.cap != null ? h(`span.pot-node-cap${gatesOpen ? '' : '.later'}`, { 'data-testid': `potential-cap-${n.step}` }, `Lv ${n.cap}`) : null);
+}
+
+/** Her breakthrough gates (0…5) from her unit state; a girl not owned previews every gate open. */
+const gatesOf = (unitState) => (unitState ? Math.max(0, Math.floor(Number(unitState.breakthrough) || 0)) : MAX_BREAKTHROUGH);
 
 const TAG_WORD = { allies: 'Allies', enemies: 'Enemies', coins: 'Coins' };
 const tagChips = (tags) => tags.map((t) => h(`span.pot-chip.${t}`, TAG_WORD[t]));
@@ -90,12 +107,14 @@ export function potentialSection(def, unitState) {
   }
   else footer = `Duplicates so far: ${dupes} · Next: ${stepPhrase(next)} with ${moreDupes(next.dupes)}`;
   const firstKit = nodes.find((n) => n.kit)?.step ?? 3;
+  // her caps follow Potential only once all five breakthrough gates are open (the level rule)
+  const gatesOpen = gatesOf(unitState) >= MAX_BREAKTHROUGH;
   const track = h('ol.pot-track', nodes.map((n) => h(`li.pot-node${n.active ? '.on' : ''}${n.next ? '.next' : ''}${n.kit ? '.kit' : ''}${n.step === MAX_POTENTIAL ? '.sig' : ''}`,
     { 'data-testid': `potential-node-${n.step}`, title: n.step === 1 ? n.long : `P${n.step} ${n.name || ''}: ${n.long}` },
     h('span.pot-node-p', n.step === MAX_POTENTIAL ? crown('pot-node-crown') : null, `P${n.step}`, n.kit ? h('span.pot-node-kit', '✦') : null),
     h('span.pot-node-label', n.step === 1 ? 'Base' : n.short),
     // (a stat step's label already is her stat: its line only adds the cap, once there is one)
-    nodeLine(n) ? h('span.pot-node-line', { 'data-testid': `potential-line-${n.step}` }, nodeLine(n)) : null)));
+    nodeLine(n, { gatesOpen }))));
   const steps = h('ol.pot-steps', { 'data-testid': 'potential-steps' }, nodes.slice(1).map((n) => h(
     `li.pot-step${n.active ? '.on' : ''}${n.next ? '.next' : ''}${!n.active && !n.next ? '.later' : ''}${n.kit ? '.kit' : ''}${n.step === MAX_POTENTIAL ? '.sig' : ''}`,
     { 'data-testid': `potential-step-${n.step}` },
@@ -107,12 +126,12 @@ export function potentialSection(def, unitState) {
       tagChips(n.tags),
       n.next ? h('span.pot-step-next', { 'data-testid': 'potential-next' }, `NEXT · ${moreDupes(next?.dupes ?? 1)}`) : null),
     h('div.pot-step-long', n.long),
-    n.cap != null ? h('div.pot-step-cap', `Level cap ${n.cap}`) : null)));
+    n.cap != null ? h(`div.pot-step-cap${gatesOpen ? '' : '.later'}`, gatesOpen ? `Level cap ${n.cap}` : `Level cap ${n.cap} after all ${MAX_BREAKTHROUGH} breakthroughs`) : null)));
   // the student page's card look (section.mb-card + h3.mb-card-title, meta-b.css)
   return h('section.mb-card.pot-section', { 'data-testid': 'potential-section', id: 'potential' },
     h('h3.mb-card-title', owned ? `Potential · P${p} / ${MAX_POTENTIAL}` : 'Potential'),
     h('p.pot-rule', 'Each duplicate recruit raises her Potential by 1 and still gives Star Fragments.'),
-    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone, and every step raises her level cap. At P${MAX_POTENTIAL}, duplicates give ${dupePastMaxPay(def)}.`),
+    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone. Once all ${MAX_BREAKTHROUGH} breakthrough gates are open, every step also raises her level cap (up to ${potentialLevelCap(MAX_POTENTIAL)} at P${MAX_POTENTIAL}). At P${MAX_POTENTIAL}, duplicates give ${dupePastMaxPay(def)}.`),
     track,
     steps,
     h('p.pot-footer.muted', { 'data-testid': 'potential-footer' }, footer),
@@ -147,12 +166,14 @@ export const POT_UP_CARDS = 3;
  * "Potential up!" cards (v2 §7.4, v3 §11): one per girl who reached a kit step, highest rarity first,
  * at most POT_UP_CARDS, then one "and N more" card; stat-step rises are one "Also:" line on the last
  * card. Tap (or Next) for the next card, Skip all to close. Mounted in `host` (the reveal overlay).
+ * `gatesOf(unitId)` gives her breakthrough gates: the "Level cap 63 → 67" line shows only when her
+ * own cap rises (all five gates open; below that her cap is her gates', whatever her P).
  * @param {HTMLElement} host
  * @param {ReturnType<typeof import('../systems/potential.js').potentialRises>} rises
- * @param {{ reduce?: boolean, onDone?: Function }} [o]
+ * @param {{ reduce?: boolean, onDone?: Function, gatesOf?: (unitId: string) => number }} [o]
  * @returns {HTMLElement|null} the layer (null: no card to show)
  */
-export function showPotentialUp(host, rises, { reduce = false, onDone = null } = {}) {
+export function showPotentialUp(host, rises, { reduce = false, onDone = null, gatesOf: gatesFor = null } = {}) {
   if (!rises?.cards?.length) return null;
   const shown = rises.cards.slice(0, POT_UP_CARDS);
   const rest = rises.cards.slice(POT_UP_CARDS);
@@ -170,8 +191,9 @@ export function showPotentialUp(host, rises, { reduce = false, onDone = null } =
     else draw();
   };
   const capLine = (g) => {
-    const a = potentialLevelCap(g.from);
-    const b = potentialLevelCap(g.to);
+    const gates = gatesFor ? Math.max(0, Math.floor(Number(gatesFor(g.unitId)) || 0)) : MAX_BREAKTHROUGH;
+    const a = levelCapAt(gates, g.from);
+    const b = levelCapAt(gates, g.to);
     return b > a ? h('div.pot-up-cap', { 'data-testid': 'pot-up-cap' }, `Level cap ${a} → ${b}`) : null;
   };
   const card = (g, last) => {

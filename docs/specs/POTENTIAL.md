@@ -34,16 +34,20 @@ stat steps are attack speed, 8 % more shuriken per throw and 1 more armor ignore
 - **Info tab** (`potentialSection`): the six-node track with ✦ on kit nodes, the crown on P6 and the stat line under
   each node (`+4% SPD`); the step list replaces v1's signature box (owned ✓, the next one with "NEXT · 1 more
   duplicate", later ones muted, Allies / Enemies / Coins chips, the capstone with the crown); the footer names the
-  next step ("Next: P5 ✦ Moonpiercer with 1 more duplicate") and the capstone. The cap part of each line (`· 67`)
-  and each row's "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open)
-  and show only where Potential raises the cap above P1's, so today (cap 60 at every P) they are hidden and L0
-  turns them on without touching the UI.
+  next step ("Next: P5 ✦ Moonpiercer with 1 more duplicate") and the capstone. Each node's line is two spans, her
+  stat and her cap at that P ("+4% SPD" "Lv 67"; a stat step whose label already is the stat shows only "Lv 63"):
+  on a narrow node the cap wraps under the stat instead of hiding behind an ellipsis. The caps and each row's
+  "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`) and show only where
+  Potential raises the cap above P1's; for an owned girl below gate 5 the row reads "Level cap 72 after all 5
+  breakthroughs" (her real cap is her gates'), and the rule says "Once all 5 breakthrough gates are open, every
+  step also raises her level cap (up to 85 at P6)".
 - **Previews**: spark grid ("Owned · P4 → P5 ✦ Moonpiercer"), SSR Select Ticket confirm ("P1 → P2: ✦ Firefly
   Lamps") and its result card (the unlocked step and what it does), Mall Recruit Exchange ("Owned → P5 ✦ Maple
   Gale & fragments"), the reveal's duplicate card (a ribbon under her name: "✦ Moonpiercer", title "P5 unlocked: …").
 - **"Potential up!" cards** (`showPotentialUp`, from `potentialRises`): after a reveal plays out, one card per
   girl who reached a kit step (highest rarity first, at most 3, then "And N more"): her art, "Kage · P5", the
-  trick and its text, other tricks reached in the same recruit, "Level cap 72 → 78" once caps rise, "Next: P6 ✦
+  trick and its text, other tricks reached in the same recruit, "Level cap 72 → 78" when her own cap rises (all five
+  gates open: `levelCapAt(her gates, P)`, so a gate-0 girl gets no cap line), "Next: P6 ✦
   Shuriken Storm — 1 more duplicate" or the crown and "Full Potential!", and stat-only rises as one "Also:" line.
   Next / Done, Skip all. **Skip** on the reveal goes straight to the results (no cards); the summary's "▲ N
   Potential (✦ N new tricks)" chip opens them again. The first-gain tip and the recruit rules / wiki rule

@@ -378,7 +378,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     const rises = potentialRises(results);
     // "Potential up!" cards (one per girl who reached a kit step): after the reveal plays out, not
     // after Skip; the summary's Potential chip opens them again either way
-    const openCards = () => showPotentialUp(overlay, rises, { reduce });
+    const openCards = () => showPotentialUp(overlay, rises, { reduce, gatesOf: (id) => store.profile.units?.[id]?.breakthrough });
     const tricks = rises.tricks ? h('span.pot-hide-phone', ` (✦ ${rises.tricks} new trick${rises.tricks === 1 ? '' : 's'})`) : null;
     clear(footer);
     footer.append(
