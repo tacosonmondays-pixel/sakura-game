@@ -307,6 +307,11 @@ def brows(d, S, by, dx, ew, lash_color, kind, width=0.085):
             inner, outer = -0.03, -0.03
         elif kind == 'happy':
             inner, outer = -0.02, 0.0
+        elif kind == 'soft':
+            # opt-in (look.brows='soft'): the inner ends raised a little more than 'happy'. From the 48 deg battle camera
+            # the curved head bends level brows down towards the nose (a scowl); this reads friendly there and gentle
+            # from the front
+            inner, outer = -0.045, 0.012
         pts = _bez((cx - side * ew * 0.42, y + inner * S), (cx - side * ew * 0.1, y - ew * 0.12 + (inner + outer) * 0.5 * S), (cx + side * ew * 0.2, y - ew * 0.10 + outer * S), (cx + side * ew * 0.5, y + outer * S + ew * 0.04))
         _stroke(d, pts, lash_color, ew * width, taper=True)
 

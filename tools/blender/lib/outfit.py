@@ -488,9 +488,10 @@ def outfit_sailor_cardigan(ctx, P, pal, S):
     z = P['torso_top'] - 0.01
     w = P['torso_w'][0] / 2 * 1.25
     d = P['torso_d'][0] / 2
-    parts.append(_trim_line([(w * 0.84, -0.066), (w * 0.4, -0.078), (0, -0.082), (-w * 0.4, -0.078), (-w * 0.84, -0.066)], trim, d * 0.95 + 0.009))
+    # the piping points are (x, drop below the collar line z): add z, else the lines sit at her feet
+    parts.append(_trim_line([(w * 0.84, z - 0.066), (w * 0.4, z - 0.078), (0, z - 0.082), (-w * 0.4, z - 0.078), (-w * 0.84, z - 0.066)], trim, d * 0.95 + 0.009))
     for s in (1, -1):
-        parts.append(_trim_line([(s * w * 0.62, -0.02), (s * w * 0.32, -0.045), (s * 0.022, -0.066)], trim, -d * 0.98 - 0.009))
+        parts.append(_trim_line([(s * w * 0.62, z - 0.02), (s * w * 0.32, z - 0.045), (s * 0.022, z - 0.066)], trim, -d * 0.98 - 0.009))
     parts += bow((0, -d * 1.08, P['torso_top'] - 0.07), pal['accent'], size=0.034)
     parts += skirt(P, S['skirt'], length=S.get('skirt_len', 1.0), stripe=trim, waistband=S['skirt'])
     parts += sleeve_cuffs(P, rib, where=0.9, r_mul=1.22)

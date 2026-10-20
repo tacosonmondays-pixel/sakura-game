@@ -117,28 +117,44 @@ def moon(c, col, ctx):
 
 
 def crescent(c, col, ctx):
-    """The moon halo's crescent with outward normals recalculated after the cage is built: M.plate orients faces by
-    the centroid, which lies outside a concave outline, so the shared `moon` comes out with mixed winding and reads as
-    its dark outline from the battle camera. Same outline points as `moon`."""
+    """A crescent moon halo built as a quad band between an outer arc and an offset inner arc (both 288 deg), so the
+    bite stays open after subdivision. The shared `moon` is one concave n-gon per side: Catmull-Clark fans it from a
+    centre point inside the bite, so it renders as a filled disc with mixed winding (it reads as a blob or a cap from
+    the battle camera). Normals are recalculated on the closed band. Critic rebuild, Oct 20 (Yoriko, Ena)."""
     import bmesh
-    pts = []
-    n = 14
+    n, t = 14, 0.014
+    outer, inner = [], []
     for i in range(n + 1):
         a = -math.pi * 0.3 + i / n * math.pi * 1.6
-        pts.append((math.cos(a) * 0.085, math.sin(a) * 0.085))
-    for i in range(n, -1, -1):
-        a = -math.pi * 0.3 + i / n * math.pi * 1.6
-        pts.append((math.cos(a) * 0.055 + 0.028, math.sin(a) * 0.058))
-    v, f = M.plate(pts, 0.014, center=(c.x, c.y, c.z), plane='xy')
-    o = M.new_object('crescent', v, f, color=col, bone='halo')
+        outer.append((math.cos(a) * 0.085, math.sin(a) * 0.085))
+        inner.append((math.cos(a) * 0.066 + 0.016, math.sin(a) * 0.07))
+    k = n + 1
+    verts = []
+    for z in (-t / 2, t / 2):
+        for x, y in outer + inner:
+            verts.append((c.x + x, c.y + y, c.z + z))
+    o_ = lambda layer, i: layer * 2 * k + i
+    in_ = lambda layer, i: layer * 2 * k + k + i
+    faces = []
+    for i in range(n):
+        faces.append((o_(1, i), o_(1, i + 1), in_(1, i + 1), in_(1, i)))      # top
+        faces.append((o_(0, i), in_(0, i), in_(0, i + 1), o_(0, i + 1)))      # bottom
+        faces.append((o_(0, i), o_(0, i + 1), o_(1, i + 1), o_(1, i)))        # outer wall
+        faces.append((in_(0, i), in_(1, i), in_(1, i + 1), in_(0, i + 1)))    # inner wall
+    faces.append((o_(0, 0), o_(1, 0), in_(1, 0), in_(0, 0)))                  # tip caps
+    faces.append((o_(0, n), in_(0, n), in_(1, n), o_(1, n)))
+    o = M.new_object('crescent', verts, faces, color=col, bone='halo')
     bm = bmesh.new()
     bm.from_mesh(o.data)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(o.data)
     bm.free()
     o.data.update()
-    k = len(pts)
-    M.crease(o, [(i, (i + 1) % k) for i in range(k)] + [(k + i, k + (i + 1) % k) for i in range(k)], 1.0)
+    edges = []
+    for layer in (0, 1):
+        edges += [(o_(layer, i), o_(layer, i + 1)) for i in range(n)] + [(in_(layer, i), in_(layer, i + 1)) for i in range(n)]
+        edges += [(o_(layer, 0), in_(layer, 0)), (o_(layer, n), in_(layer, n))]
+    M.crease(o, edges, 1.0)
     M.finish(o, levels=1)
     return [o]
 
