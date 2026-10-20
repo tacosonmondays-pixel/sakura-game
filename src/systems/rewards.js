@@ -25,6 +25,11 @@ export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nig
 
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
 
+/** [events] An event stage pays only on its own `difficulties`; every other stage on all four. */
+export function eventDifficultyOk(stage, difficulty) {
+  return stage?.kind !== 'event' || !Array.isArray(stage.difficulties) || stage.difficulties.includes(difficulty);
+}
+
 /**
  * The difficulty a win pays at: Standard pays the selected one; a battle mode pays at most your
  * best Standard medal on that stage (docs/specs/CODEX_MODES.md §7.1), so no mode is a cheaper road
@@ -158,6 +163,9 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   const gate = eventRunGate(profile, stage, startedAt ?? eventAt?.getTime?.() ?? now.getTime());
   if (!gate.ok) return { ...out, practice: true, note: gate.text };
   const difficulty = DIFFICULTIES[result.difficulty] ? result.difficulty : 'normal';
+  // [events] and only on its own difficulties (an operation is Normal only, the boss Normal / Hard):
+  // a hand-edited battle link on any other one is practice, never a medal or a first clear
+  if (!eventDifficultyOk(stage, difficulty)) return { ...out, practice: true, note: `${DIFFICULTIES[difficulty].name} isn't offered on this event stage — this run was practice, no rewards.` };
   const won = !!result.won;
   const encountered = [...new Set([...(result.encountered || []), ...Object.keys(result.kills || {})])];
   const kills = result.kills || {};
@@ -282,6 +290,7 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   if (evStage && !canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'event', runs: [], rewards: [], gear: [] };
   if (!canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'locked', runs: [], rewards: [], gear: [] };
   const d = DIFFICULTIES[difficulty] ? difficulty : 'hard';
+  if (!eventDifficultyOk(STAGE_MAP[stageId], d)) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
   const m = stageMedals(profile, stageId);
   const best = Math.max(...DIFFICULTY_ORDER.map((x, i) => (m[x] ? i : -1)));
   if (diffIndex(d) > best) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };

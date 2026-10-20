@@ -59,7 +59,10 @@ export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
   if (!stage) return { stageId, difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
-  const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  let difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  // [events] an event stage plays only its own difficulties (stage prep offers no others; a link
+  // with another one plays the stage's first, and applyBattleResult would pay nothing for it anyway)
+  if (stage.kind === 'event' && Array.isArray(stage.difficulties) && stage.difficulties.length && !stage.difficulties.includes(difficulty)) difficulty = stage.difficulties[0];
   if (params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true') {
     if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
     const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
