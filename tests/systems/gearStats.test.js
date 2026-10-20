@@ -280,6 +280,56 @@ describe('old builds: mirrors and repair (GEAR_AWAKEN §8.3, GEAR_STATS §E.3)',
     expect(back.gear[uid]).toEqual(s.gear[uid]);
   });
 
+  /** An Archery Legendary +10 ribbon whose Pierce line carries a gold ✦ (20 Needles → 19), saved. */
+  const piercedStar = () => {
+    const p = rich();
+    let uid = null;
+    for (let i = 0; i < 50 && !uid; i++) {
+      const u = addGear(p, rollGear(createRng(500 + i), { slot: 'ribbon', rarity: 'legendary', level: 10, club: 'archery' }));
+      if (p.gear[u].subs.some((s) => s.stat === 'piercePct')) uid = u;
+    }
+    const i = p.gear[uid].subs.findIndex((s) => s.stat === 'piercePct');
+    expect(stitchSub(p, uid, i).ok).toBe(true);
+    expect(p.items.needle_star).toBe(19);
+    return { s: saved(p), uid };
+  };
+
+  it('a ✦ Pierce line an old build deleted and then rerolled around pays its Needle back (F1)', () => {
+    const { s, uid } = piercedStar();
+    const raw = oldBuild(s);
+    raw.items.needle_star = s.items.needle_star;
+    // the old build's reroll keeps the line count and redraws every base: the fingerprint no longer matches
+    for (const x of raw.gear[uid].subs) x.base = x.value = Math.round((x.base + 0.0137) * 1e4) / 1e4;
+    const back = migrateProfile(raw);
+    expect(back.items.needle_star).toBe(20);
+    expect(back.gear[uid].subs).toHaveLength(4);
+    expect(back.gear[uid].subs.some((x) => x.tuned)).toBe(false);
+    // once: the next load pays nothing more
+    expect(migrateProfile(JSON.parse(JSON.stringify(back)))).toEqual(back);
+  });
+
+  it('a ✦ Pierce line that cannot come back (no room on the piece) pays its Needle back (F1)', () => {
+    const { s, uid } = piercedStar();
+    const raw = oldBuild(s);
+    raw.items.needle_star = s.items.needle_star;
+    const g = raw.gear[uid];
+    const free = BASE_STAT_KEYS.find((k) => k !== g.main.stat && !g.subs.some((x) => x.stat === k));
+    g.subs.push({ stat: free, value: 0.05, base: 0.05, upgrades: 0 });
+    const back = migrateProfile(raw);
+    expect(back.items.needle_star).toBe(20);
+    expect(back.gear[uid].subs.some((x) => x.stat === 'piercePct' || x.tuned)).toBe(false);
+    expect(migrateProfile(JSON.parse(JSON.stringify(back)))).toEqual(back);
+  });
+
+  it('a ✦ Pierce line an old build only deleted comes back with its ✦ and pays nothing (F1 control)', () => {
+    const { s, uid } = piercedStar();
+    const raw = oldBuild(s);
+    raw.items.needle_star = s.items.needle_star;
+    const back = migrateProfile(raw);
+    expect(back.items.needle_star).toBe(19);
+    expect(back.gear[uid]).toEqual(s.gear[uid]);
+  });
+
   it('hostile counters never throw; restores are capped', () => {
     const p = createProfile();
     Object.assign(p.missions.counters, { 'gur:g9': Number.NaN, 'gtn:g9': -5, 'gcl:g2': 1e9, 'gnx:g3': 1e12, 'inv:seed_rainbow': 1e9 });

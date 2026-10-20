@@ -153,14 +153,19 @@ export function restoreGearMarks(p) {
     delete c[MARK.tuned + uid];
   }
   // 3. ✦ marks on lines whose stat is present; a mark whose stat is gone (an old reroll) refunds its Needle
+  const held = {}; // uid → ✦ bits of a Pierce / Aura Power line held over for step 5
   for (const key of Object.keys(c).filter((k) => k.startsWith(MARK.tuned))) {
     const uid = key.slice(MARK.tuned.length);
     const g = p.gear[uid];
     const marks = decodeTuned(c[key]);
     for (const [stat, bits] of Object.entries(marks)) {
       const sub = ok(g) ? g.subs.find((s) => s.stat === stat) : null;
-      // a Pierce / Aura Power line may come back in step 5: keep its marks for that
-      if (!sub && ok(g) && NEW_STATS.includes(stat) && c[MARK.newLine + uid]) continue;
+      // a Pierce / Aura Power line may come back in step 5: keep its marks for that (step 5 refunds them
+      // when the line does not come back in place)
+      if (!sub && ok(g) && NEW_STATS.includes(stat) && c[MARK.newLine + uid]) {
+        held[uid] = { stat, bits };
+        continue;
+      }
       if (sub) sub.tuned = (sub.tuned | 0) | bits;
       else refund(NEEDLE_ID, tuneCount(bits));
     }
@@ -172,20 +177,27 @@ export function restoreGearMarks(p) {
     if (g && !g.club && club && CLUB_IDS.includes(club) && CLUB_RARITIES.includes(g.rarity)) g.club = club;
   }
   // 5. a Pierce / Aura Power line an older build deleted: back in place when the other subs are untouched,
-  //    else (the piece was rerolled meanwhile) one fresh line refills the piece's count
+  //    else (the piece was rerolled meanwhile) one fresh line refills the piece's count. A ✦ on a line that
+  //    does not come back in place pays its Needles back (nothing earned is ever lost). Its ✦ bits are the
+  //    ones step 3 held over; on a piece step 3 could not hold them for (not a Legendary +10 / UR), step 3
+  //    already refunded them, so they are neither put back nor paid twice.
   for (const key of Object.keys(c).filter((k) => k.startsWith(MARK.newLine))) {
     const uid = key.slice(MARK.newLine.length);
     const g = p.gear[uid];
     const line = decodeNewLine(c[key]);
     if (!g || !line || g.subs.some((s) => s.stat === line.stat)) continue;
+    const stars = ok(g) ? (line.tuned | (held[uid]?.stat === line.stat ? held[uid].bits : 0)) & 3 : 0;
     const room = (GEAR_SUBSTATS_BY_RARITY[g.rarity] || 0) - g.subs.length;
-    if (room <= 0 || NEW_STAT_SLOT[line.stat] !== g.slot) continue;
+    if (room <= 0 || NEW_STAT_SLOT[line.stat] !== g.slot) {
+      refund(NEEDLE_ID, tuneCount(stars));
+      continue;
+    }
     if (subsFingerprint(g, line.stat) === whole(c[MARK.newFp + uid])) {
-      const marks = decodeTuned(c[MARK.tuned + uid])[line.stat] || 0;
       const sub = { stat: line.stat, value: line.base, base: line.base, upgrades: line.upgrades };
-      if (line.tuned | marks) sub.tuned = line.tuned | marks;
+      if (stars) sub.tuned = stars;
       g.subs.splice(Math.min(line.index, g.subs.length), 0, sub);
     } else {
+      refund(NEEDLE_ID, tuneCount(stars));
       const sub = rollFreshSub(createRng(`gnx|${p.createdAt || 0}|${uid}`), g);
       if (sub) g.subs.push(sub);
     }
