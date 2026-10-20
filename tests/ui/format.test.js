@@ -1,0 +1,133 @@
+// fmtNum, the one number style (docs/specs/UI_DIRECTION.md §2): the short form, money kept exact longer, the
+// rounding direction per kind (balances down, prices up, stats nearest), signs and units.
+import { describe, it, expect } from 'vitest';
+import { fmtNum, MINUS } from '../../src/ui/format.js';
+
+describe('fmtNum: counts, rewards, damage, HP', () => {
+  it('exact with separators below 10,000', () => {
+    expect(fmtNum(0)).toBe('0');
+    expect(fmtNum(2600)).toBe('2,600');
+    expect(fmtNum(9999)).toBe('9,999');
+    expect(fmtNum(11.8)).toBe('12');
+  });
+  it('short from 10,000: lowercase k, uppercase M and B, one decimal, no trailing .0', () => {
+    expect(fmtNum(10000)).toBe('10k');
+    expect(fmtNum(12000)).toBe('12k');
+    expect(fmtNum(12345)).toBe('12.3k');
+    expect(fmtNum(300000)).toBe('300k');
+    expect(fmtNum(1234567)).toBe('1.2M');
+    expect(fmtNum(1.2e9)).toBe('1.2B');
+    expect(fmtNum(25310)).toBe('25.3k');
+  });
+  it('stats, damage and HP round to the nearest value', () => {
+    expect(fmtNum(34687)).toBe('34.7k');
+    expect(fmtNum(9999.6)).toBe('10k');
+  });
+  it('a value that rounds up to the next unit moves to it', () => {
+    expect(fmtNum(999950)).toBe('1M');
+    expect(fmtNum(999949)).toBe('999.9k');
+  });
+  it('round: down never promises more than is true', () => {
+    expect(fmtNum(42350, 'count', { round: 'down' })).toBe('42.3k');
+    expect(fmtNum(999999, 'count', { round: 'down' })).toBe('999.9k');
+    expect(fmtNum(9999.9, 'count', { round: 'down' })).toBe('9,999');
+  });
+  it('Details: exact with separators', () => {
+    expect(fmtNum(34687, 'count', { detail: true })).toBe('34,687');
+    expect(fmtNum(1234567, 'count', { detail: true })).toBe('1,234,567');
+  });
+  it('negative values use the real minus sign', () => {
+    expect(fmtNum(-12345)).toBe(`${MINUS}12.3k`);
+  });
+  it('a missing or non-finite value reads "–"', () => {
+    expect(fmtNum(null)).toBe('–');
+    expect(fmtNum(undefined)).toBe('–');
+    expect(fmtNum(NaN)).toBe('–');
+    expect(fmtNum(Infinity)).toBe('–');
+  });
+});
+
+describe('fmtNum: item stacks', () => {
+  it('×n in the count corner, rounded down', () => {
+    expect(fmtNum(42, 'stack')).toBe('×42');
+    expect(fmtNum(42350, 'stack')).toBe('×42.3k');
+    expect(fmtNum(300000, 'stack')).toBe('×300k');
+    expect(fmtNum(42350, 'stack', { detail: true })).toBe('×42,350');
+  });
+});
+
+describe('fmtNum: money the player spends', () => {
+  it('a balance stays exact up to 999,999, then shortens rounding down', () => {
+    expect(fmtNum(284650, 'money')).toBe('284,650');
+    expect(fmtNum(16570, 'money')).toBe('16,570');
+    expect(fmtNum(999999, 'money')).toBe('999,999');
+    expect(fmtNum(1284650, 'money')).toBe('1.2M');
+    expect(fmtNum(1999999, 'money')).toBe('1.9M');
+    expect(fmtNum(2.5e9, 'money')).toBe('2.5B');
+  });
+  it('a price or requirement rounds up', () => {
+    expect(fmtNum(1250000, 'money', { round: 'up' })).toBe('1.3M');
+    expect(fmtNum(999999.5, 'money', { round: 'up' })).toBe('1M');
+    expect(fmtNum(564.2, 'money', { round: 'up' })).toBe('565');
+    expect(fmtNum(565, 'money', { round: 'up' })).toBe('565');
+  });
+  it('Details: exact', () => {
+    expect(fmtNum(1284650, 'money', { detail: true })).toBe('1,284,650');
+  });
+});
+
+describe('fmtNum: bonuses, rates, multipliers, ranges', () => {
+  it('percent: integer with a sign; Details one decimal', () => {
+    expect(fmtNum(0.224, 'pct')).toBe('+22%');
+    expect(fmtNum(0.224, 'pct', { detail: true })).toBe('+22.4%');
+    expect(fmtNum(-0.1, 'pct')).toBe(`${MINUS}10%`);
+    expect(fmtNum(0.2, 'pct', { detail: true })).toBe('+20%');
+  });
+  it('flat: one decimal at most, always signed', () => {
+    expect(fmtNum(4, 'flat')).toBe('+4');
+    expect(fmtNum(10, 'flat')).toBe('+10');
+    expect(fmtNum(2.14, 'flat')).toBe('+2.1');
+    expect(fmtNum(-3, 'flat')).toBe(`${MINUS}3`);
+  });
+  it('rate: 1.9/s; Details 1.92/s', () => {
+    expect(fmtNum(1.923, 'rate')).toBe('1.9/s');
+    expect(fmtNum(1.923, 'rate', { detail: true })).toBe('1.92/s');
+    expect(fmtNum(2, 'rate')).toBe('2/s');
+  });
+  it('multiplier: the × sign, not the letter x', () => {
+    expect(fmtNum(1.5, 'mul')).toBe('×1.5');
+    expect(fmtNum(1.25, 'mul', { detail: true })).toBe('×1.25');
+    expect(fmtNum(2, 'mul')).toBe('×2');
+  });
+  it('range: 4.3 on Glance, 4.30 tiles in Details', () => {
+    expect(fmtNum(4.3, 'range')).toBe('4.3');
+    expect(fmtNum(4.3, 'range', { detail: true })).toBe('4.30 tiles');
+  });
+});
+
+describe('fmtNum: time, level, progress', () => {
+  it('time rounds up and never shows 0s while something still runs', () => {
+    expect(fmtNum(0.5, 'time')).toBe('0.5s');
+    expect(fmtNum(0.01, 'time')).toBe('0.1s');
+    expect(fmtNum(12, 'time')).toBe('12s');
+    expect(fmtNum(11.2, 'time')).toBe('12s');
+    expect(fmtNum(65, 'time')).toBe('1:05');
+    expect(fmtNum(59.5, 'time')).toBe('1:00');
+    expect(fmtNum(0, 'time')).toBe('0s');
+  });
+  it('cooldowns in whole seconds', () => {
+    expect(fmtNum(0.3, 'time', { whole: true })).toBe('1s');
+    expect(fmtNum(4.01, 'time', { whole: true })).toBe('5s');
+  });
+  it('level: LV 48, or LV 48/50 where the cap matters', () => {
+    expect(fmtNum(48, 'level')).toBe('LV 48');
+    expect(fmtNum(48, 'level', { cap: 50 })).toBe('LV 48/50');
+  });
+  it('progress: 3/5 with no spaces, rounded down', () => {
+    expect(fmtNum(3, 'progress', { of: 5 })).toBe('3/5');
+    expect(fmtNum(2.9, 'progress', { of: 5 })).toBe('2/5');
+  });
+  it('an unknown kind throws', () => {
+    expect(() => fmtNum(1, 'nope')).toThrow(/unknown kind/);
+  });
+});

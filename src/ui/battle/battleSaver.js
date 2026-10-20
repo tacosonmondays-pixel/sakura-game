@@ -30,14 +30,17 @@ const calm = (sim) => sim.state === 'prep' || sim.state === 'between';
 
 /**
  * @param {{ sim: object, req: { stageId: string, endless?: boolean }, cfg?: { seed: number, loadout: object[], hero: object|null },
- *   record?: object|null, evict?: string|null, mountedAt?: number, onCreate?: (rec: object) => void,
+ *   record?: object|null, evict?: string|null, mountedAt?: number, startedAt?: number|null, onCreate?: (rec: object) => void,
  *   onStorageFull?: (reason: 'quota'|'held') => boolean|void, onFull?: () => void, isEnded?: () => boolean }} o
  *   cfg: a New game's frozen team and seed (setup.js createBattleSim); record: the save a Continue restored;
  *   evict: the run id of the save the player chose to delete to make room (stage prep);
+ *   startedAt: when a New game began on the limited-event clock (src/ui/events/clock.js eventNow; the
+ *   same as mountedAt in production), kept in the record so a Continue keeps the start time the
+ *   event reward gate reads (EVENT_SPEC §3.2);
  *   onStorageFull: a write failed (return true once the player has been told); onFull: the saved
  *   battles are full and this battle is not being saved
  */
-export function createBattleSaver({ sim, req, cfg = null, record = null, evict = null, mountedAt = Date.now(), onCreate = null, onStorageFull = null, onFull = null, isEnded = () => false }) {
+export function createBattleSaver({ sim, req, cfg = null, record = null, evict = null, mountedAt = Date.now(), startedAt = null, onCreate = null, onStorageFull = null, onFull = null, isEnded = () => false }) {
   const slot = slotKey(req.stageId, !!req.endless);
   const seed = (record ? record.seed : cfg?.seed ?? sim.seed) >>> 0;
   let rec = record;
@@ -111,6 +114,8 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, evict =
         loadout: cfg?.loadout || [],
         hero: cfg?.hero || null,
         createdAt: mountedAt,
+        // the event clock's start time (Continue's reward gate for a limited-event stage)
+        ...(Number.isFinite(startedAt) && startedAt > 0 ? { startedAt } : {}),
         updatedAt: now,
         build: { app: APP_VERSION, sim: SIM_ID },
         resumes: 0,

@@ -9,6 +9,7 @@ import { SHOP_OFFERS, SHOP_TABS } from '../data/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS } from '../data/missions.js';
 import { achievementLive } from '../data/achievements.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, ITEM_RARITIES } from '../data/types.js';
+import { EVENT_CURRENCIES } from '../data/events/index.js';
 
 /** Merge duplicate ids and drop non-positive counts. */
 export function normalizeList(list) {
@@ -178,6 +179,10 @@ function buildSourceIndex() {
     push(`gearbox_${r}`, { kind: 'other', label: 'Bounty · Gear arena', route: 'bounty', params: {}, note: 'Gear boxes open into real gear the moment they drop.' });
   }
   push('ticket_ssr_select', { kind: 'other', label: 'Mail · Beta Tester Thank-You', route: 'lobby', params: {}, note: 'One per account created on or before Nov 7, 2026' });
+  // limited-event currencies (EVENT_SPEC §3.4): their own event page, never a campaign stage
+  for (const c of EVENT_CURRENCIES) {
+    push(c.id, { kind: 'other', label: 'Event', route: 'event', params: { id: c.event }, note: 'Event operations, missions, episodes and daily gifts' });
+  }
   push('coins', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Salvaging gear refunds coins.' });
   push('dice_reroll', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Super Rare or better gear salvages into Fortune Dice.' });
 

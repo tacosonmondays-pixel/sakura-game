@@ -15,6 +15,7 @@ import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
 import { newSocial, cleanSocial } from '../online/socialSave.js';
+import { newEvents, cleanEvents } from './events.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /** v1 = pre-release stub profile, v2 = full systems profile. */
@@ -128,6 +129,8 @@ export function createProfile() {
     sensei: newSensei(), // [profile] Sensei Profile picks (src/systems/senseiSave.js)
     // [social] clan donation / collect ledgers (src/online/donateLedger.js)
     social: newSocial(),
+    // [events] limited events: currency lives in items, this block keeps progress (src/systems/events.js)
+    events: newEvents(),
   };
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   return p;
@@ -500,6 +503,9 @@ export function migrateProfile(raw) {
   // (`lost`, PROFILE.md §2.4). Cosmetic drops inside it never count as lossy (migrationDropsData).
   restoreSensei(raw.sensei, p);
   p.social = cleanSocial(raw.social);
+  // [events] limited events (EVENT_SPEC §3.5): additive; the counters' shadows keep settles final,
+  // stock limits and one-time claims, and the Mailbox's delivered list keeps the login gifts sent
+  p.events = cleanEvents(raw.events, p.missions.counters, p.mail);
   p.version = SAVE_VERSION;
   return p;
 }

@@ -261,3 +261,23 @@ describe('a run the page never paid (reload, closed tab, a phone that threw the 
     expect(loaded.progress.freeplayPending['3'].kills).toEqual({ goblin_runner: 2 });
   });
 });
+
+describe('event stages never pay in co-op (EVENT_SPEC E11)', () => {
+  it('a hand-edited room on an event stage pays nothing, win or freeplay', async () => {
+    await import('../../src/data/events/wire.js');
+    const { STAGE_MAP } = await import('../../src/data/stages.js');
+    const evId = Object.keys(STAGE_MAP).find((id) => STAGE_MAP[id].kind === 'event');
+    expect(evId).toBeTruthy();
+    const p = createProfile();
+    const coinsBefore = p.currencies.coins;
+    const win = applyCoopResult(p, { stageId: evId, difficulty: 'hard', won: true, wavesCleared: 20, encountered: [], kills: {} }, createRng(3));
+    expect(win.rewards).toEqual([]);
+    const clear = applyCoopClear(p, { stageId: evId, difficulty: 'normal', goal: 15, wavesCleared: 15, encountered: [], kills: {} }, createRng(3));
+    expect(clear.rewards).toEqual([]);
+    const end = applyCoopFreeplayEnd(p, fpResult({ stageId: evId }), createRng(3));
+    expect(end.rewards || []).toEqual([]);
+    expect(p.currencies.coins).toBe(coinsBefore);
+    // a campaign stage still pays as before
+    expect(applyCoopResult(createProfile(), { stageId: '1-3', difficulty: 'normal', won: true, wavesCleared: 15, encountered: [], kills: {} }, createRng(3)).rewards.length).toBeGreaterThan(0);
+  });
+});

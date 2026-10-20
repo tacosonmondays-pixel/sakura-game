@@ -1,9 +1,12 @@
 import './ui/styles/base.css';
+import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
 import { registerRoute, startRouter, currentRoute } from './ui/router.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift, ensurePotentialLetter } from './systems/mail.js';
 import { createRng, hashString } from './core/rng.js';
+import { settleEvents, markEventLogin } from './systems/events.js';
+import { eventNow } from './ui/events/clock.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -25,6 +28,7 @@ registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test 
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
 registerRoute('rewards', () => import('./ui/screens/rewards.js'));
+registerRoute('event', () => import('./ui/screens/event.js')); // [events] limited event page: #/event/<id>?tab=…
 registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
@@ -48,6 +52,8 @@ try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
   ensurePotentialLetter(store.profile); // "Potential grew!" once, to a save from an older build with a girl at P2+ (Potential v3)
+  settleEvents(store.profile, eventNow()); // [events] ended events: unclaimed rewards + leftover currency → coins by mail (once)
+  markEventLogin(store.profile, eventNow()); // [events] the day's event visit: login mission + the daily gift letter
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);

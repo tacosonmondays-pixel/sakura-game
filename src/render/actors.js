@@ -6,6 +6,7 @@ import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
+import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -24,6 +25,7 @@ const STATUS_ORDER = ['freeze', 'stun', 'shock', 'burn', 'poison', 'slow', 'shre
 const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
 const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
+const _box = new THREE.Box3();
 const colorCache = new Map();
 /** Cached THREE.Color for a hex string (hot paths). */
 function cachedColor(hex) {
@@ -83,10 +85,12 @@ const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: t
 
 export class Actors {
   /**
-   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain }} o
+   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain, costumes?: boolean }} o
+   *   costumes: dress ordinary monsters in Halloween costumes (StageDef.look.costumes)
    */
-  constructor({ sim, scene, fx, batches, atlas, quality, terrain }) {
+  constructor({ sim, scene, fx, batches, atlas, quality, terrain, costumes = false }) {
     this.sim = sim;
+    this.costumes = !!costumes;
     this.scene = scene;
     this.fx = fx;
     this.b = batches;
@@ -327,11 +331,38 @@ export class Actors {
       height: (model.userData.height || 0.6 * (e.def.size || 1)) * ENEMY_SCALE, size: e.def.size || 1, color: e.def.color || '#ffffff', spawnT: 0,
       bob: (e.uid * 1.37) % TAU, airborne: !!e.airborne, veiled: null, phasing: null, barrier: -1,
     };
+    v.costume = this._dress(model, e);
+    if (v.costume) {
+      // HP bar / status icons sit above a hat or a pumpkin head, not across it
+      model.updateMatrixWorld(true);
+      const top = _box.setFromObject(v.costume).max.y;
+      if (Number.isFinite(top)) v.height = Math.max(v.height, top * ENEMY_SCALE);
+    }
     model.position.set(e.x, v.y, e.y);
     model.rotation.y = v.facing;
     this.root.add(model);
     this.enemies.set(e.uid, v);
     return v;
+  }
+
+  /**
+   * Render-only dressing: the enemy's own extra (e.g. the Gourdlight Golem's pumpkin head),
+   * else an event costume picked from its uid (never on bosses / minibosses). Returns the
+   * attached object or null. The sim is never read beyond the def / tier / uid.
+   */
+  _dress(model, e) {
+    const attach = model.userData.attach;
+    if (!attach) return null;
+    const extra = enemyExtraFor(e.def);
+    let kind = extra;
+    let variant = 0;
+    if (!kind && this.costumes && e.tier !== 'boss' && e.tier !== 'miniboss') {
+      const c = costumeFor(e.def, e.uid);
+      if (c) ({ kind, variant } = c);
+    }
+    if (!kind) return null;
+    const obj = buildCostume(kind, variant, { quality: this.quality });
+    return attach(obj, COSTUME_SLOT[kind] || 'head') ? obj : null;
   }
 
   _updateEnemy(v, e, dt) {
@@ -369,10 +400,12 @@ export class Actors {
     if (veiled !== v.veiled) {
       v.veiled = veiled;
       ud.setVeiled?.(veiled);
+      if (v.costume) v.costume.visible = !v.veiled && !v.phasing;
     }
     if (!!e.phasing !== v.phasing) {
       v.phasing = !!e.phasing;
       ud.setPhasing?.(v.phasing);
+      if (v.costume) v.costume.visible = !v.veiled && !v.phasing;
     }
     const bar = e.maxBarrier > 0 ? Math.max(0, e.barrier) / e.maxBarrier : 0;
     if (Math.abs(bar - v.barrier) > 0.01) {

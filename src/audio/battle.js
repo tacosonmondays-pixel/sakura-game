@@ -269,7 +269,8 @@ const MUSIC_EVENTS = new Set(['waveStart', 'waveEnd', 'spawn', 'death', 'leak', 
  */
 export function attachBattleAudio(ctx) {
   const sim = ctx.sim;
-  const theme = sim?.map?.theme || 'sakura';
+  // [events] limited-event stages play the lantern (spooky) battle track whatever their map's theme
+  const theme = sim?.stage?.kind === 'event' ? 'shrine' : sim?.map?.theme || 'sakura';
   let ms = initialBattleMusic({ theme });
   const timers = new Map();
   const restore = [];

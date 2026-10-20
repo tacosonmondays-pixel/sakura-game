@@ -13,7 +13,7 @@
   --blue-deep: #1d4e89;
   --navy: #22385c;
   --ink: #1f2a44;
-  --muted: #6b7a99;
+  --muted: #56647f; /* UI condense M0: was #6b7a99 (4.31:1 on white); now 4.5:1+ on every light surface */
   --panel: rgba(255, 255, 255, 0.9);
   --panel-solid: #ffffff;
   --panel-border: rgba(255, 255, 255, 0.95);
@@ -41,6 +41,133 @@
   --t-panel: 220ms;
   --t-screen: 380ms;
   color-scheme: light;
+
+  /* ---- UI condense tokens (docs/specs/UI_DIRECTION.md §4). Additive: nothing above is renamed or removed. ---- */
+  /* text-safe colours (--blue, --pink, --good, --bad stay as fills) */
+  --muted-line: #6b7a99; /* the old --muted, for borders and icons only (not text) */
+  --blue-text: #1459c0;
+  --pink-text: #b0174f;
+  --good-text: #166f47;
+  --bad-text: #b81d3b;
+
+  /* ink plate (the Street half) */
+  --plate: #0e1930;
+  --plate-glass: rgba(14, 25, 48, 0.9);
+  --on-plate: #ffffff;
+  --on-plate-dim: #a9bcdc;
+  --plate-accent: var(--yellow);
+  --plate-line: rgba(255, 255, 255, 0.14);
+  --good-on-plate: #5fe39a;
+  --bad-on-plate: #ff8095;
+  --blue-on-plate: #7cc4ff;
+
+  /* type (desktop defaults; phone values in the max-height: 480px block below) */
+  --font-num: 'Barlow Condensed', 'Arial Narrow', 'Nunito', system-ui, sans-serif;
+  --fs-label: 13px;
+  --fs-body: 15px;
+  --fs-name: 19px;
+  --fs-num-s: 19px;
+  --fs-num: 28px;
+  --fs-title: 36px;
+  --fs-display: 56px;
+  --lh-tight: 1.1;
+  --lh-body: 1.35;
+  --track-label: 0.06em;
+
+  /* space and size */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --tap: 48px;
+  --tap-dense: 44px;
+  --icon-s: 24px;
+  --icon: 28px;
+  --chip-h: 32px;
+  --strip-h: 68px;
+  --tab-h: 40px;
+  --topbar-h: 48px;
+  --art-band-w: 30%;
+  --drawer-w: 340px;
+  --sheet-max-h: 60dvh;
+  --hud-top-h: 52px;
+  --hud-ability-h: 0px; /* reserved for the battle ability bar: it sets this; drawers, toasts and banners keep clear */
+
+  /* shape */
+  --radius-plate: 4px;
+  --radius-chip: 6px;
+  --cut: 14px;
+  --sticker-tilt: -4deg;
+  --sticker-line: 2px solid var(--plate);
+  --sticker-drop: 0 2px 0 var(--plate);
+  --scrim: rgba(14, 25, 48, 0.35);
+
+  /* motion */
+  --t-sticker: 240ms;
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-count: 400ms;
+  --t-banner: 1200ms;
+
+  /* rarity: mirrors src/data/types.js and src/ui/rarity.js (tests/ui/rarityTokens.test.js keeps them equal) */
+  --rar-r: #7aa7d9;
+  --rar-sr: #ffc94d;
+  --rar-ssr: #ff7ad9;
+  --rar-ur: #b78bff;
+  --gear-common: #9aa5b1;
+  --gear-rare: #4a90e2;
+  --gear-super: #a86bff;
+  --gear-mythic: #ff5a7a;
+  --gear-legendary: #ffb627;
+  --frame-w: 2px;
+  --frame-w-strong: 3px;
+  /* LR Nightglass: LR units and the Nightglass avatar frame only, nothing else */
+  --rar-lr: #ffd27a;
+  --lr-edge: var(--plate);
+  --lr-gold: #ffd27a;
+  --lr-comet: 6s;
+}
+
+/* Landscape phones (the breakpoint the stylesheets already use): the phone half of the type and size scale. */
+@media (max-height: 480px) {
+  :root {
+    --fs-label: 12px;
+    --fs-body: 13px;
+    --fs-name: 16px;
+    --fs-num-s: 16px;
+    --fs-num: 22px;
+    --fs-title: 28px;
+    --fs-display: 40px;
+    --tap: 44px;
+    --tap-dense: 40px;
+    --icon-s: 20px;
+    --icon: 24px;
+    --chip-h: 28px;
+    --strip-h: 56px;
+    --tab-h: 36px;
+    --topbar-h: 40px;
+    --art-band-w: 28%;
+    --drawer-w: 288px;
+    --hud-top-h: 44px;
+    --cut: 12px;
+  }
+}
+
+/* Barlow Condensed 600/700 (SIL Open Font License, fonts/OFL.txt): numbers and caps labels only. */
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(./fonts/BarlowCondensed-600.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(./fonts/BarlowCondensed-700.woff2) format('woff2');
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }

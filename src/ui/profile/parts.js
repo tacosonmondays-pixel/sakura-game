@@ -14,22 +14,16 @@ import { themeBackdropSVG } from '../../art/backdrops.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, uiIcon, modeIcon } from '../../art/icons.js';
 import { modeText } from '../text/modes.js';
-import { eclipseFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.js';
+import { eclipseFrameSVG, pumpkinFrameSVG, frameChipSVG, trophySVG } from '../../art/profileArt.js';
 import { levelCap, MAX_AWAKEN } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/profileTrophies.js';
+import { fmtNum } from '../format.js';
 import { ribbonArt, titlePlate as honorPlate } from '../honorFx.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles } from '../rarity.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS, RING_DELAY_MS } from '../hold.js';
 
 export const ico = (name, cls = 'pf-ico') => svgEl(glyph(name), cls);
-
-/** 25310 → '25.3k', 1250000 → '1.3M'. */
-export function shortNumber(n) {
-  if (n >= 1e6) return `${Math.round(n / 1e5) / 10}M`;
-  if (n >= 1e4) return `${Math.round(n / 100) / 10}k`;
-  return Math.round(n).toLocaleString('en-US');
-}
 
 // ---------------------------------------------------------------------------
 // Banner, picture, title
@@ -54,6 +48,7 @@ export function avatarEl(unitId, frame, { onEdit = null, cls = '' } = {}) {
   const el = h(`div.pf-ava${cls ? `.${cls}` : ''}`, { 'data-frame': frame || 'default', 'data-testid': 'profile-avatar' },
     h('div.pf-ava-img', svgEl(portraitHTML(u, 'thumb', { alt: '', eager: true }), 'pf-ava-pic')));
   if (frame === 'eclipse') el.append(svgEl(eclipseFrameSVG(), 'pf-ava-frame-wrap'));
+  else if (frame === 'pumpkin') el.append(svgEl(pumpkinFrameSVG(), 'pf-ava-frame-wrap'));
   else if (frame === 'ur') el.append(h('div.pf-ava-ur', urRing()));
   if (onEdit) el.append(h('button.pf-ava-edit', { type: 'button', title: 'Picture and frame', 'aria-label': 'Change picture and frame', 'data-testid': 'profile-avatar-edit', onclick: onEdit }, ico('edit', 'pf-ico-fill')));
   return el;
@@ -195,7 +190,7 @@ export function statTiles(st) {
     tile('students', '#2b7fff', String(st.u), String(UNIT_COUNT), 'Students', 'u'),
     tile('map', '#2bb673', String(st.s), String(STAGE_COUNT), 'Stages cleared', 's'),
     tile('bestiary', '#ff9f1c', `${st.b}%`, '', 'Bestiary', 'b'),
-    tile('sword', '#ff7aa8', shortNumber(st.k), '', 'Enemies defeated', 'k'),
+    tile('sword', '#ff7aa8', fmtNum(st.k, 'count', { round: 'down' }), '', 'Enemies defeated', 'k'),
   ];
 }
 
