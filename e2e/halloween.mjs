@@ -3,9 +3,12 @@
 // Tue Oct 20 2026, 1 PM CDT (the event opens at ship: game day 2026-10-20): the lobby EVENT card
 // and decor → the daily login gift in the Mailbox → Episode 1 (skipped = read) → claim the login
 // mission → Operation 1 played for real to victory (candy earned, night look with costumed
-// monsters) → buy in the Candy Exchange → the Gourdlight Golem beaten on Normal for real → the
-// exchange phase (operations closed) → the event ends: the leftover candy comes back as coins by
-// mail, and the page shows the summary.
+// monsters; its Nightmare locked until then) → buy in the Candy Exchange, then the Pumpkin
+// Patroller title and the Pumpkin Lantern frame, equipped and shown on the profile and in Preview →
+// the Gourdlight Golem beaten on Normal for real (its Nightmare locked until Hard) → Nightmare: the
+// Golem's own 20-wave stage in prep, an operation's Nightmare sweep → the exchange phase
+// (operations closed) → the event ends: the leftover candy comes back as coins by mail, and the
+// page shows the summary.
 //
 //   node e2e/halloween.mjs                         # 844x390 and 1280x720
 //   node e2e/halloween.mjs --viewport 844x390 --shots /tmp/hw
@@ -218,8 +221,9 @@ try {
     await shot('event-operations');
     await page.locator('[data-testid="event-op-ev-halloween-1"]').click();
     await page.waitForSelector('[data-testid="event-prep"]', { timeout: T });
-    const diffs = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="diff-"]')].map((b) => b.dataset.testid));
-    check(diffs.join(',') === 'diff-normal', `stage prep: operations offer one difficulty (${diffs.join(',')})`);
+    const diffs = await page.evaluate(() => [...document.querySelectorAll('.ma-diff[data-testid^="diff-"]')].map((b) => b.dataset.testid));
+    check(diffs.join(',') === 'diff-normal,diff-nightmare', `stage prep: operations offer Normal and Nightmare (${diffs.join(',')})`);
+    check(/Clear Normal first/.test((await page.textContent('[data-testid="diff-lock-nightmare"]').catch(() => '')) || ''), 'stage prep: Nightmare is locked until the Normal clear ("Clear Normal first")');
     check(await noOverflow(), 'stage prep: no horizontal overflow');
     await page.waitForTimeout(1200); // the prep page fades in
     await shot('stage-prep');
@@ -237,10 +241,45 @@ try {
     await page.locator('[data-testid="event-buy-hw_book_r"]').click();
     await page.locator('[data-testid="event-buy-confirm"]').click();
     await page.waitForTimeout(500);
-    check(c3 - (await candy()) === 40, `exchange: 5 Study Guides for 40 candy (−${c3 - (await candy())})`);
+    check(c3 - (await candy()) === 70, `exchange: 5 Study Guides for 70 candy (−${c3 - (await candy())})`);
     check(/9\/10/.test(await page.textContent('[data-testid="event-offer-hw_book_r"]')), 'exchange: stock 9/10');
     check(await noOverflow(), 'exchange: no horizontal overflow');
     await shot('event-exchange');
+
+    // ---- 6b. the Pumpkin Patroller title + Pumpkin Lantern frame: bought, equipped, shown ---------
+    await page.evaluate(async (id) => {
+      const inv = await import('/src/systems/inventory.js');
+      inv.addItems(window.__sakura.store.profile, [{ id, count: 2400 }]);
+      window.__sakura.store.commit('test');
+    }, CANDY);
+    await go(`#/event/${EV}?tab=exchange`, '[data-testid="event-offer-hw_title"]');
+    const c4 = await candy();
+    for (const id of ['hw_title', 'hw_frame']) {
+      await page.locator(`[data-testid="event-buy-${id}"]`).click();
+      await page.locator('[data-testid="event-buy-confirm"]').click();
+      await page.waitForTimeout(500);
+    }
+    check(c4 - (await candy()) === 2400, `exchange: the title (900) and the frame (1,500) bought (−${c4 - (await candy())})`);
+    await go('#/profile', '[data-testid="profile"]');
+    await page.locator('[data-testid="profile-edit"]').click();
+    await page.waitForSelector('[data-testid="edit-profile"]', { timeout: 10000 });
+    await page.locator('[data-testid="edit-tab-title"]').click();
+    await page.locator('[data-testid="edit-titles"] button[data-title="ev_halloween_2026"]').click();
+    await page.locator('[data-testid="edit-tab-picture"]').click();
+    await page.locator('[data-testid="edit-frames"] button[data-frame="pumpkin"]').click();
+    await page.locator('[data-testid="edit-profile-save"]').click();
+    await page.waitForSelector('[data-testid="edit-profile"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    const plate = (scope) => page.evaluate((sel) => { const el = document.querySelector(`${sel} [data-testid="profile-title"]`); return el ? `${el.textContent.trim()}|${el.classList.contains('tp-gold') ? 'gold' : 'other'}` : null; }, scope);
+    check((await plate('[data-testid="profile"]')) === '★ Pumpkin Patroller|gold', `profile: the plate under the name reads "${await plate('[data-testid="profile"]')}"`);
+    check((await page.getAttribute('[data-testid="profile"] [data-testid="profile-avatar"]', 'data-frame')) === 'pumpkin', 'profile: the Pumpkin Lantern frame');
+    await shot('profile-title');
+    await page.locator('[data-testid="profile-preview"]').click();
+    await page.waitForSelector('[data-testid="profile-preview-view"]', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    check((await plate('[data-testid="profile-preview-view"]')) === '★ Pumpkin Patroller|gold', 'Preview (the visitor layout): the title plate reads "★ Pumpkin Patroller"');
+    check((await page.getAttribute('[data-testid="profile-preview-view"] [data-testid="profile-avatar"]', 'data-frame').catch(() => null)) === 'pumpkin', 'Preview: the frame');
+    await page.locator('[data-testid="profile-preview-close"]').click().catch(() => {});
 
     // ---- 7. the boss on Normal, for real (operations 2–4 and Episode 2 done through the systems)
     await page.evaluate(async (id) => {
@@ -253,9 +292,15 @@ try {
       store.commit('test');
     }, EV);
     await go('#/stage/ev-halloween-boss', '[data-testid="event-prep"]');
-    const bdiffs = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="diff-"]')].map((b) => b.dataset.testid));
-    check(bdiffs.join(',') === 'diff-normal,diff-hard', `boss prep: Normal and Hard (${bdiffs.join(',')})`);
+    const bdiffs = await page.evaluate(() => [...document.querySelectorAll('.ma-diff[data-testid^="diff-"]')].map((b) => b.dataset.testid));
+    check(bdiffs.join(',') === 'diff-normal,diff-hard,diff-nightmare', `boss prep: Normal, Hard and Nightmare (${bdiffs.join(',')})`);
+    check(/Clear Hard first/.test((await page.textContent('[data-testid="diff-lock-nightmare"]').catch(() => '')) || ''), 'boss prep: Nightmare is locked until the Hard clear');
+    await page.locator('[data-testid="diff-nightmare"]').click();
+    await page.waitForTimeout(400);
+    check(await page.isDisabled('[data-testid="stage-start"]'), 'boss prep: a locked Nightmare can be looked at but not started');
+    check(!!(await page.$('[data-testid="diff-locked-note"]')), 'boss prep: the lock note sits by Start');
     await page.locator('[data-testid="diff-normal"]').click();
+    await page.waitForTimeout(300);
     await page.locator('[data-testid="stage-start"]').click();
     const st2 = await playBattle({ onBoss: async (b) => { console.log(`  info boss on the field: ${b.id} ${Math.round(b.hp)}/${Math.round(b.max)}`); await shot('boss'); } });
     check(st2 === 'won', `boss: the Gourdlight Golem beaten on Normal (${st2})`);
@@ -274,6 +319,47 @@ try {
       check(/New episode unlocked/.test((await page.textContent('[data-testid="result-episodes"]').catch(() => '')) || ''), 'boss: results say Episode 3 unlocked');
       await shot('boss-rewards');
     }
+
+    // ---- 7b. Nightmare: the Golem's own stage once Hard is cleared; an operation's Nightmare sweep -
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.progress.stages['ev-halloween-boss'].hard = true;
+      store.commit('test');
+    });
+    await go('#/stage/ev-halloween-boss?difficulty=nightmare', '[data-testid="event-prep"]');
+    await page.waitForSelector('[data-testid="event-variant"]', { timeout: 10000 }).catch(() => null);
+    const nmPrep = await page.evaluate(() => ({
+      variant: document.querySelector('[data-testid="event-variant"]')?.textContent || '',
+      waves: [...document.querySelectorAll('.ma-fact')].find((f) => /Waves/.test(f.textContent))?.querySelector('.ma-fact-value')?.textContent,
+      candy: document.querySelector('[data-testid="event-prep"]')?.textContent || '',
+      start: document.querySelector('[data-testid="stage-start"]')?.disabled,
+      golem: !!document.querySelector('.ma-enemy[data-enemy="construct_gourdlight"]'),
+      knight: !!document.querySelector('.ma-enemy[data-enemy="ghost_hollowknight"]'),
+    }));
+    check(/Lantern Night Never Ends/.test(nmPrep.variant), `boss Nightmare prep: "${nmPrep.variant.slice(0, 60)}…"`);
+    check(nmPrep.waves === '20', `boss Nightmare prep: 20 waves (${nmPrep.waves})`);
+    check(/×500 per win/.test(nmPrep.candy), 'boss Nightmare prep: Pumpkin Candy ×500 per win');
+    check(nmPrep.start === false && nmPrep.golem && nmPrep.knight, 'boss Nightmare prep: Start open, its own enemies scouted (Golem, hollow knights)');
+    check(await noOverflow(), 'boss Nightmare prep: no horizontal overflow');
+    await page.waitForTimeout(800);
+    await shot('boss-nightmare-prep');
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.progress.stages['ev-halloween-1'].nightmare = true;
+      store.commit('test');
+    });
+    await go('#/stage/ev-halloween-1?difficulty=nightmare', '[data-testid="sweep-10"]');
+    const c5 = await candy();
+    await page.locator('[data-testid="sweep-10"]').click();
+    await page.waitForTimeout(600);
+    check((await candy()) - c5 === 1200, `Op 1 Nightmare: Sweep ×10 pays 1,200 candy (+${(await candy()) - c5})`);
+    const sleepless = await page.evaluate(async (id) => {
+      const ev = await import('/src/systems/events.js');
+      const { EVENT_MAP } = await import('/src/data/events/index.js');
+      return ev.missionRows(window.__sakura.store.profile, EVENT_MAP[id], Date.parse(localStorage.getItem('sakura-dev-now'))).total.find((m) => m.id === 'hw_t_nm_clear15').progress;
+    }, EV);
+    check(sleepless === 10, `Op 1 Nightmare: the sweeps count for Sleepless Patrol (${sleepless}/15)`);
+    await page.keyboard.press('Escape').catch(() => {});
 
     // ---- 8. the exchange phase ---------------------------------------------------------------
     await reloadAt(EXCHANGE, `#/event/${EV}?tab=stages`);
