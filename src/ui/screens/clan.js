@@ -9,6 +9,7 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
+import { inlineLoader, holdInline } from '../loading/loader.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { createSupplyBot } from '../online/supplyBot.js';
 import {
@@ -390,7 +391,9 @@ function requestsTab(backend, clan, pane) {
 
 function bossTab(backend, clan, pane) {
   let alive = true;
-  pane.replaceChildren(h('div.ol-empty', 'Loading the boss…'));
+  const wait = h('div.ol-empty', inlineLoader('Loading the boss'));
+  pane.replaceChildren(wait);
+  holdInline(pane, wait);
   let timer = 0;
   (async () => {
     try {

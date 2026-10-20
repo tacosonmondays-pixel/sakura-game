@@ -21,7 +21,7 @@ import { potentialLevel } from '../../systems/potential.js';
 import { itemCount } from '../../systems/inventory.js';
 import { keyState, titanSummary, setTargetFamily, suggestedTitan, titansUnlocked, tierOpen, tierLock, sweepTitan, canSweepTitan, titanOfWeek, autoTarget, TIER_STAGE } from '../../systems/titans.js';
 import { chestOdds, firstClearTable, RAINBOW_METER } from '../../systems/titanRewards.js';
-import { showRewardsModal } from './stage.js';
+import { showRewardsModal, warmBattle } from './stage.js';
 
 /** "2 Kindred Essence (R)", "20 Star Fragments", "1 Legendary box", "2 Zenith". */
 function fcLine(id, n) {
@@ -36,6 +36,7 @@ const big = (n) => (n >= 1e6 ? `${Math.round(n / 1e5) / 10}M` : n >= 1e3 ? `${Ma
 export function render(root, params = {}) {
   const { el, body } = screen('Titan Trials', { cls: 'tt-screen' });
   root.appendChild(el);
+  warmBattle(); // [transitions] Fight / Practice then cut to a battle whose code is already here, like stage prep
   const profile = () => store.profile;
   let selected = TITAN_MAP[params.id] ? params.id : suggestedTitan(profile()).titanId;
   const pick = {}; // titanId → { tier, rank }

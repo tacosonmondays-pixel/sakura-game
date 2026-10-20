@@ -426,8 +426,19 @@ const DIFF_SUMMARY = {
   nightmare: '+75% HP, 1 life, no income',
 };
 
+/**
+ * The battle screen's code, downloaded in idle time once stage prep is open (Start then has it at once).
+ * Titan Trials (its own battle prep) calls it too.
+ */
+export function warmBattle() {
+  const run = () => import('./battle.js').catch(() => {});
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2000 });
+  else setTimeout(run, 600);
+}
+
 export function render(root, params = {}) {
   const stage = STAGE_MAP[params.id];
+  if (stage) warmBattle();
   if (!stage) {
     const { el, body } = screen('Stage');
     body.appendChild(h('div.empty', 'This stage does not exist. ', button('Back to the map', { kind: 'primary', onClick: () => navigate('campaign') })));

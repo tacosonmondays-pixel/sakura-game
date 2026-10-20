@@ -1613,6 +1613,44 @@ in-game result, relevant tests, and evidence against the original request."
   locked / insufficient-materials states (never a plain alert). Character detail keeps the character
   presentation stable while tabs change. Gacha reveal: anticipation → reveal → readable results;
   skippable; results never lost or double-charged.
+* **Transitions + loading screens (owner, Oct 20: "cleaner and animated menu transitions, loading
+  screens, like black with a cute something like slime in the corner and loading").** Every screen
+  change goes through `src/ui/transitions` (the router calls `beginScreenChange(transitionFor(…))`),
+  and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
+  a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
+  cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
+  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
+  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
+  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
+  staggered cards) jump to their end when a slide brings it in. Loaders (owner: "just black or
+  colored ... it saying loading is enough"): the full loader (`#ld`, in index.html from the first
+  byte: "Loading" with its jumping dots + Mochi bottom-right and no other text: no tips, no
+  destination line; a 2 px progress line only while a load really counts something: the battle's
+  models, the title's preload), the corner chip (a menu screen's code still downloading) and the
+  inline Mochi inside fetching panels. One rule for all of them (`src/ui/loading/gate.js`): shown
+  only when a load passes 150 ms, then at least 450 ms. Everything animates transform / opacity
+  only; reduced motion (system or setting) turns slides into a fade through (opacity only, 60 ms
+  out, 120 ms in) and the cut into a fade through black, and stills Mochi. The outgoing screen is inert from the tap that starts
+  the change, and its `cleanup.stop()` (timers, listeners) runs then; its cleanup itself runs once it
+  is off screen; the new one takes taps from its first frame; the cut panel never catches taps and the
+  loader only while its load is still running. A screen holds the cut / boot loader with
+  `holdLoader(promise, { progress })` (the battle until its first frame, the title until its
+  preload) or by firing its ready event (`READY_SIGNALS`: lobby, scene). **Mochi**, the loading
+  slime (`src/ui/loading/mochi.js`; the name is for code and docs only, the game never shows it), is
+  our own design: a jelly mochi from the slime family with big highlighted eyes and blush, never a
+  blue teardrop with dot eyes. Two looks for the owner to compare (owner: "try both!! We'll pick the
+  loading screen after"), same shape and hop, only the colours: `mint` (mint jelly + sakura petal,
+  the default) and `sakura` (sakura-pink jelly + mint leaf), everywhere Mochi appears (boot loader,
+  battle loader, corner chip, panels). Two backgrounds: `black` (the default) and `colour` (the
+  game's night navy `#0b1630` with a very soft sakura glow behind Mochi and a mint one top-left; the
+  cut panel and the chip follow it). Picked in Settings → Graphics → "Loading screen" (slime Mint /
+  Pink, background Black / Colour), kept in `profile.settings.loadingMochi` / `loadingBg`
+  (additive: no save version bump, not in the co-op sim id), put on `<html>` as `data-mochi` /
+  `data-loader-bg` (the CSS keys off them; `applyLoadingLook()`), and read by a tiny inline script
+  in index.html before any module script (storage wrapped in try/catch; anything unknown or blocked
+  gives mint on black). Covers stack above every toast: the cut 360, the chip 365, the loader 370;
+  the journal toast 350 (it was 9000), toasts 200, social pop-ups 210, the update pill 190.
 * **Chibis v2 (models):** Hikari is the approval character — get her excellent first (front, side, 3/4,
   in-game distance), then apply the method to everyone. Judge by construction: head depth & cheeks,
   coherent neck/shoulder/torso, shaped hands/feet, clean face placement, broad deliberately curved hair
