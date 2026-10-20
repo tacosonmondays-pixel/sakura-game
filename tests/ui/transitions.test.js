@@ -910,3 +910,28 @@ describe('the boot loader reads the saved look before any module script', () => 
   });
 });
 
+// ---- covers over toasts ---------------------------------------------------------------------------------
+describe('a screen change\'s cover sits above every toast', () => {
+  const z = (css, sel) => Number((stripComments(css).match(new RegExp(`${sel.replace(/[.[\]"=]/g, '\\$&')}\\s*\\{[^}]*?z-index:\\s*(\\d+)`)) || [])[1]);
+  it('the cut, the chip and the loader are above the journal toast, toasts, social pop-ups and the update pill', () => {
+    const cut = z(TX_CSS, '.tx-cut');
+    const chip = z(TX_CSS, '.ld-chip');
+    const loader = z(INLINE_CSS, '.ld');
+    expect(cut).toBe(360);
+    expect(chip).toBeGreaterThan(cut);
+    expect(loader).toBeGreaterThan(chip);
+    const toasts = [
+      ['src/ui/styles/journal.css', '.jn-toast'], // the journal pill (was 9000: drawn on the black loader)
+      ['src/ui/styles/base.css', '.toast-host'], // toasts + the achievement unlock toasts
+      ['src/ui/styles/social.css', '.sc-toast-host'], // DM / friend / invite pop-ups
+      ['src/ui/styles/update.css', '.upd-bar'], // "New version ready"
+    ];
+    for (const [file, sel] of toasts) {
+      const v = z(read(file), sel);
+      expect(Number.isFinite(v), `${sel} has a z-index (${file})`).toBe(true);
+      expect(v, `${sel} (${file})`).toBeLessThan(cut);
+    }
+    // and while a cut or the boot is under way it lets taps through (the cut panel never catches them)
+    expect(stripComments(read('src/ui/styles/journal.css'))).toMatch(/html\[data-tx="cut"\] \.jn-toast, html\[data-tx="boot"\] \.jn-toast \{ pointer-events: none; \}/);
+  });
+});

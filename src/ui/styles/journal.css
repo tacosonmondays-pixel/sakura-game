@@ -103,9 +103,13 @@
   .jn-card { min-width: 200px; }
 }
 
-/* journal toast pill (toast.js) */
+/* journal toast pill (toast.js): over every menu screen, modal and toast (the story player is 300), but
+   under a screen change's cover (the cut 360, the corner chip 365, the loader 370: transitions.css), so it
+   is never drawn on the loading screen; the rotate reminder (400) and the special fanfare (900) cover it
+   too, like every other toast. While a cut or the boot is under way it lets taps through (the cut panel
+   never catches them), so a tap meant for the next screen can't open the journal. */
 .jn-toast {
-  position: fixed; left: 50%; top: calc(64px + var(--safe-top, 0px)); z-index: 9000; transform: translateX(-50%);
+  position: fixed; left: 50%; top: calc(64px + var(--safe-top, 0px)); z-index: 350; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 5px 16px 5px 5px; border: 2px solid #fff; border-radius: 999px;
   background: linear-gradient(90deg, #fff 0%, #ffeef6 100%); color: var(--navy); font-weight: 900; font-size: 0.86rem; text-align: left;
   box-shadow: 0 0 0 2px #ff9cc2, 0 8px 22px rgba(10, 30, 60, 0.3); animation: jn-toast-in 260ms var(--ease) both;
@@ -116,6 +120,7 @@
 .jn-toast-text { min-width: 0; line-height: 1.25; }
 @keyframes jn-toast-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 html[data-reduce-motion] .jn-toast { animation: none; }
+html[data-tx="cut"] .jn-toast, html[data-tx="boot"] .jn-toast { pointer-events: none; }
 
 /* student Equipment / Awakening lock on new saves (student.js storyLockedTab) */
 .mb-empty.story-lock .mb-empty-art { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #ffd1e4; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(10, 30, 60, 0.25); line-height: 0; }
