@@ -66,10 +66,14 @@ describe('drawn portraits', () => {
     expect(fallback).toMatch(/<svg/);
   });
 
-  it('gives every roster girl a full-figure stand (no frame-cut edges to fade)', () => {
+  // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut)
+  const FRAME_CUT = { ena: 'b' };
+
+  it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
     for (const u of UNITS) {
-      expect(portraitEdges(u.id)).toBe('');
-      expect(portraitHTML(u, 'cut')).not.toContain('pt-edge');
+      expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
+      if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
+      else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');
       expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.3);
       expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
     }

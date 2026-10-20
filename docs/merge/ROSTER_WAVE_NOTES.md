@@ -67,6 +67,7 @@ Golden and balance moves from the merge are in §4.
 - UNIT_GAPS §4.1 upgrades that need only B3: Iroha fires from both origins; Ena's burst budget, hex mark and chain counter FX; Hana's paths renamed (Falconry, Hunter's Mark); Seiran's sky dragon and Yoriko's hexing Dream Detour. Not done (need later primitives): Ruri's roaming pet (P-6), Hana's circling falcon (P-6), Iroha's Infinite Reflection split (A6), Yoriko's Puppet Hex skill (ability system).
 - Looks: school uniforms with tech gear; heroes in staff / officer coats; look guard test.
 - Art: placeholder portraits (`tools/art/placeholder_portraits.py`), procedural stand-ins (`src/models/standins.js`). No image or 3D generator was called.
+  - Art wave (v0.1.39): all nine now ship their painted portrait sets (`public/art/portraits/<id>-*.webp`, `PORTRAIT_DATA` lines measured on the shipped crops; Ena's stand fades its bottom edge because her painting ends at the shin). Ruri's `PORTRAIT_DATA` line follows with her chibi import.
 
 ## 4. Measurements
 
