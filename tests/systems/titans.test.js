@@ -373,6 +373,33 @@ describe('co-op titans (M2 rules, §C.11)', () => {
     expect(bestStep(p, 'wyrm')).toBe(1); // co-op never raises it
   });
 
+  it('the Together Chest cap runs on the game week, forward only (like the Trial Keys), not the local weekly wipe', async () => {
+    const { payTogetherChest, TOGETHER_WEEKLY } = await import('../../src/systems/titans.js');
+    const { onAppStart } = await import('../../src/systems/missions.js');
+    const p = ready();
+    const rng = createRng(3);
+    const week = gameWeekNumber(T0);
+    for (let i = 0; i < TOGETHER_WEEKLY; i++) expect(payTogetherChest(p, 'normal', rng, T0)).not.toBeNull();
+    expect(payTogetherChest(p, 'normal', rng, T0)).toBeNull();
+    expect(p.missions.counters).toMatchObject({ 'tk:tog': TOGETHER_WEEKLY, 'tk:togwk': week });
+    expect(p.missions.weekly?.['tk:tog']).toBeUndefined();
+    // the local week's wipe (local Monday midnight, or a clock set back) leaves the cap alone
+    const DAY = 864e5;
+    onAppStart(p, new Date(T0 + 6 * DAY));
+    expect(gameWeekNumber(T0 + 6 * DAY)).toBe(week + 1); // Tuesday after: a new game week…
+    const back = T0 - 9 * DAY; // …and a clock set back a week before it
+    expect(gameWeekNumber(back)).toBe(week - 1);
+    onAppStart(p, new Date(back));
+    expect(payTogetherChest(p, 'normal', rng, back)).toBeNull();
+    expect(payTogetherChest(p, 'normal', rng, T0)).toBeNull();
+    // the next game week (Sunday 7 PM Central) refills it once; going back again does not refill it twice
+    const next = T0 + 6 * DAY;
+    for (let i = 0; i < TOGETHER_WEEKLY; i++) expect(payTogetherChest(p, 'normal', rng, next)).not.toBeNull();
+    expect(payTogetherChest(p, 'normal', rng, next)).toBeNull();
+    expect(payTogetherChest(p, 'normal', rng, T0)).toBeNull();
+    expect(p.missions.counters['tk:togwk']).toBe(week + 1);
+  });
+
   it('a guest may join at most one step above their own solo best; the host only what is open solo', async () => {
     const { coopTierAllowed } = await import('../../src/systems/titans.js');
     const p = ready();

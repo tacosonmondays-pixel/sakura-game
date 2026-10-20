@@ -775,7 +775,8 @@ sets it. S1 covers it.
   it a spender could carry a friend through every first clear (3,600 gems, 4 crowns, 8 Zenith, boxes) and leave them a
   permanent Mayhem +3 sweep; with it, a carry is worth one tier step of loot for the runs played together.
   `tests/online/coopTitan.test.js` asserts all three, and refuses a guest above solo best + 1.
-- **Together Chest** (each player, each co-op Victory, at most 3 a week, `missions.weekly['tk:tog']`): 10 Assault
+- **Together Chest** (each player, each co-op Victory, at most 3 a game week: counters `tk:tog` for the game week in
+  `tk:togwk`, forward only like the Trial Keys; not `missions.weekly`, whose local-week wipe a clock set back repeats): 10 Assault
   Tokens, 5 Star Fragments, 50 % a Rainbow Crown Shard (Hard+).
 - **Clan titan board:** each member's best damage on the Titan of the Week, summed for the clan and ranked inside it.
   New table + RPC `submit_titan_best(week, titan, tier, rank, damage, seconds)` beside `submit_boss_damage`
@@ -965,7 +966,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | Box-born UR levels paid at UR prices | counter `gbl:<uid>`: bit L = +L → +L+1 (below +10) cost UR prices; removed at salvage | itself | kept; a level it sells writes no bit (salvage counts it at the Legendary price); its salvage of the piece gets the missing UR half of those levels on the next load, once (§C.8) |
 | New shop offers + `group` stock | `profile.shop.bought` | `shopwk:asc` (game week as a number) | an older tab rolling the week first keeps their counts → M1 clears its own ids and group keys when `shopwk:asc` ≠ this week (§C.10) |
 | Welcome pouch | `profile.items` (`memento`, `moonpearl`), paid during migration | `inv:` | dropped → restored from `inv:`; never sent by mail (§A.7) |
-| Together Chests (M2) | `missions.weekly['tk:tog']` | wiped weekly (`src/systems/missions.js:46-50`) | — |
+| Together Chests (M2) | counters `tk:tog` (opened this game week) + `tk:togwk` (that game week) | itself; reset to 0 only when the game week moves past `tk:togwk` (`payTogetherChest`, as `refreshKeys`), so the cap rolls with the rest of Titan Trials and a clock set back never refills it | kept |
 | Weekly Wonder counted this week | `missions.weekly['wd:done']` (`WEEKLY_DONE_MARK`, `src/systems/missions.js:18`): 1 once this week's `weeklyDone` has counted (`claimMission`, `:136-138`), so a row that opens mid-week (Club Day, Rainbow Hunt) cannot count the week twice | wiped weekly with `missions.weekly` (`onAppStart`, `src/systems/missions.js:46-51`) | kept; an older tab that claims the last weekly writes no mark, so this build may count that week once more (one achievement step) |
 | 16 new item ids (§F.3) | `profile.items` | `inv:<id>` (GA R16's helper in `setCount`, `src/systems/inventory.js:37`) | dropped, load lossy → restored from `inv:` (a spent item mirrors 0) |
 
@@ -1308,7 +1309,7 @@ rules). Co-op id unchanged by every commit: `37b5428d7657`.
 **Save keys added** (all in `missions.counters` unless noted): unit field `pl`; `pl:<id>`, `bt:<id>`, `inv:<id>`;
 `essU:<id>`, `essX:<id>`, `essB:<id>`, `kinX:<rarity>`, `spk:r`, `ess:mig`, `ess:pouch`; `tk:left`, `tk:week`,
 `tbest:<titan>`, `tfc:<titan>:<step>`, `ttgt:<titan>`, `tkill:<titan>`, `tatt`, `pity:rain`; `craft:wk`,
-`craft:<kind>:<tier>`; `shopwk:asc`; `missions.weekly['tk:tog']`; shop `bought['group:<id>']`. No `SAVE_VERSION`
+`craft:<kind>:<tier>`; `shopwk:asc`; `tk:tog` / `tk:togwk`; shop `bought['group:<id>']`. No `SAVE_VERSION`
 bump.
 
 **SQL**: `supabase/migrations/20261021000000_titan_board.sql` (owner-run after the social file; safe to run twice;

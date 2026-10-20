@@ -12,6 +12,7 @@
 //                      so Freeplay achievements still need Freeplay)
 //   tatt               attempt counter: the drop seed of each spent key or sweep
 //   pity:rain          the Rainbow Meter (Mayhem Victory Chests since the last Rainbow Gear Box)
+//   tk:tog, tk:togwk   Together Chests opened (co-op, 3 a week) and the game week they count for
 // The week is the game week (src/core/reset.js gameWeekNumber: Sunday 7 PM Central).
 
 import { TITANS, TITAN_MAP, TITAN_ROTATION, TITAN_TIERS, tierStep, stepTier, tierLabel, tierIndex, titanBattle, MAX_RANK } from '../data/titans.js';
@@ -257,7 +258,7 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
     }
     // co-op (M2): the Together Chest, at most 3 a week
     if (r.coop) {
-      const tog = payTogetherChest(profile, tier, rng);
+      const tog = payTogetherChest(profile, tier, rng, now);
       if (tog) {
         items.push(...tog);
         out.together = tog;
@@ -287,17 +288,25 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
 // Co-op titans (M2, §C.11): the rules that need no battle wiring
 // ---------------------------------------------------------------------------
 
-/** Together Chests a player can open a week (missions.weekly['tk:tog'], wiped with the weekly commissions). */
+/** Together Chests a player can open a game week (counters 'tk:tog', for the game week in 'tk:togwk'). */
 export const TOGETHER_WEEKLY = 3;
 
 /**
  * The Together Chest of a co-op Victory: 10 Assault Tokens, 5 Star Fragments and, from Hard, a Rainbow
- * Crown Shard half the time; at most 3 a week. Returns the rolled items (not added) or null.
+ * Crown Shard half the time; at most 3 a game week. Returns the rolled items (not added) or null.
+ * The cap runs on the game week (Sunday 7 PM Central), forward only, like the Trial Keys (refreshKeys):
+ * not missions.weekly, which onAppStart wipes on the local week and again when the clock is set back.
  */
-export function payTogetherChest(profile, tier, rng) {
-  const w = ((profile.missions ||= {}).weekly ||= {});
-  if (whole(w['tk:tog']) >= TOGETHER_WEEKLY) return null;
-  w['tk:tog'] = whole(w['tk:tog']) + 1;
+export function payTogetherChest(profile, tier, rng, now = Date.now()) {
+  const c = counters(profile);
+  const week = gameWeekNumber(+now);
+  // a clock moved backwards never refills the cap (the week only moves forward)
+  if (!('tk:togwk' in c) || week > c['tk:togwk']) {
+    c['tk:tog'] = 0;
+    c['tk:togwk'] = week;
+  }
+  if (whole(c['tk:tog']) >= TOGETHER_WEEKLY) return null;
+  c['tk:tog'] = whole(c['tk:tog']) + 1;
   const items = [{ id: 'token_boss', count: 10 }, { id: 'star_fragment', count: 5 }];
   if (tierIndex(tier) >= tierIndex('hard') && rng.next() < 0.5) items.push({ id: 'crown_rainbow_shard', count: 1 });
   return items;
