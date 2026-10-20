@@ -3,6 +3,8 @@
 **Status:** approved by the owner on Oct 20 ("all defaults looks good for now!"). Build starts with M0.
 
 **Owner answers (Oct 20):**
+- **Hosts on hub screens:** yes, up to 35% of the width on hub and list screens only (5.10 E1).
+- **Left section rail:** yes, on list screens with 2-5 sections (5.10 E3).
 - **Headline stats:** chosen by role. Shooters DMG · RATE · RANGE; supports BUFF · RANGE · AFFECTS; income COINS/WAVE · RANGE ·
   COST; heroes DMG · RATE · ULT.
 - **Damage numbers:** on, big hits only (crits, super-effective hits, +coins, leaks). Settings gets a switch: All, Big hits, Off.
@@ -449,6 +451,43 @@ One ladder of frame treatments for girls and gear. Each step must read as "highe
 
 ---
 
+### 5.9 Countdown chip
+- One component for every timer: events, mail expiry, shop restock, banners and seasons.
+- A `--plate` pill with a clock icon and the time from `fmtNum(…, 'time')` ("6d 4h", "11h", "12:05"). Under 24 h the time turns
+  `--bad-on-plate`. No other way of writing "time left" is allowed on Glance surfaces.
+
+### 5.10 Hub extensions (owner-approved Oct 20, from the reference study)
+The owner approved E1 (hosts at 35%) and E3 (the left section rail) on Oct 20. The rest are additive and follow the existing rules.
+- **E1 Screen hosts (approved).** A host girl with a speech bubble on **hub and list screens only**: Missions, Commissions, Mall,
+  Bounty, Total Assault and Titan Trials, Happening Now, Attendance and the Mailroom.
+  - Her art may take up to **35%** of the width there. Detail screens (her page, stage prep) keep `--art-band-w` 28%.
+  - The bubble is white glass, radius 24 px, with a tail. It holds one line of at most 60 characters in `--fs-body` 700 and
+    sits over her lower third, never over the list.
+  - The line comes from a small table per screen, picked by state ("3 ready", "Event ends tomorrow", "Nothing to claim, nice
+    work"). Reduced motion: no bounce. Hosts stay cute and in uniform (P9).
+- **E2 Plate header band on list panels.** A list panel gets a `--plate` slanted strip as its title bar with the title in white
+  display italics. Glass panels with the yellow underline stay for content panels.
+- **E3 Left section rail (approved).** List screens with **2-5 sections** (Mailroom, Mall, Happening Now, Workbench) put their tabs
+  in a vertical rail on the left edge: active = a `--plate` slab with yellow italic text and the −8° slant; inactive = white glass
+  with `--ink` text; red dots only; at least 44 px tall. Hub category tabs stay on the bottom edge (5.3).
+- **E4 Countdown chip.** See 5.9.
+- **E5 Item tile frame (for the item-icon redo).** The 5.7 tile with a soft 10° slant on the top-right corner; the field is a
+  diagonal gradient from white to the item's rarity colour (4.8 tokens) at 12-18% with 2-3 faint facet triangles. Rarity reads from
+  the field and the frame, never from text (5.6) and never from glows painted into the item art. The count sits in the 5.7
+  bottom-right ink pill. Selected = a 3 px `--yellow` ring. LR Nightglass stays exclusive (5.6).
+- **E6 A painted location per hub.** A blurred, dimmed academy location behind the glass panels: Mall = the shop counter,
+  Commissions = the staff room, Backpack = the locker room, Recruit = the admissions hall, Mailroom = the post room, Workbench = the
+  club lab. Text always sits on a panel or a plate, never on the painting (P6).
+- **E7 Chapter slate and the loading corner.** A chapter title slate counts as the screen's one Street punctuation (P8) and holds
+  for at most `--t-banner`. The loading chip never covers a primary button or the bottom-right corner cluster.
+- **E8 Keyboard hints on desktop.** A small `--plate` chip ("Space") under the primary button and "Esc" on close buttons; 12 px;
+  hidden on touch (`@media (hover: none)`).
+- **E9 Off-season and idle states.** Seasonal modes between seasons: full-bleed location art, one `--plate` band with one sentence
+  and the next date.
+- **E10 3D girls in Formation and Quick Pick.** The squad stands as our 3D chibis (still, not animated, in grids).
+- **Badge vocabulary (adds to P7):** red dot = claim, yellow dot = new, pink slanted "In Progress", navy "New" tab, yellow "Open!"
+  sticker for a newly available mode.
+
 ## 6. Condense plan for the six most cluttered screens
 
 Ranked by the Oct 20 audit at 844x390. **Numbers** means visible text elements that contain a digit, counted the way the audit
@@ -825,6 +864,7 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - co-op runs unchanged (display only).
 
 ### M3: gear and the backpack
+- **Item tiles:** every item and gear tile uses the 5.10 E5 frame, together with the item-icon redo.
 - **Scope:** the Backpack Equipment tab (toolbar, Supplies sheet, Filter sheet, the gear grid with M1b tiles, the item sheet with
   hold-to-compare), the one-word category rail, and the All, Enhance and Awaken tabs moved to the same tile.
 - **Coordination:** the UR gear work's new rarity and set icons go into the tile's corners (5.7) and the ladder (5.6). Gear set
@@ -851,6 +891,8 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - Formation, the girls list, the lobby (fold the top-left buttons into one tray), Bounty, Recruit (pity once), the Mall (the
     balance once), Settings (descriptions behind "i"), Commissions, Pause, the wave banner and toasts;
   - a sweep of any screens the other tracks built with the old tokens.
+  - the hub extensions in 5.10: hosts with speech bubbles, plate header bands, the left section rail, the countdown chip
+    everywhere, a painted location per hub, off-season states and the badge vocabulary.
 - **Done when:** the CSS floor lint reports **zero** declarations under 12 px outside `.deco`, and every main screen passes the
   section 8 probe.
 
