@@ -55,6 +55,7 @@ import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } fro
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
+import { formationSkins } from '../../systems/skins.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -258,7 +259,8 @@ export function mountBattle(root, params, hooks) {
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
     const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
-    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
+    ctx.skins = formationSkins(profile, ids);
+    await settle(Promise.all([preloadModels(ids, { detail, skins: ctx.skins }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
     if (destroyed) return;
     build();
     loading.classList.add('out');
@@ -333,7 +335,7 @@ export function mountBattle(root, params, hooks) {
     try {
       // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
       renderer = createBattleRenderer(stageEl, sim, {
-        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId,
+        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId, skins: ctx.skins,
         // how far between two sim steps this frame is (drones are drawn between their positions)
         renderAlpha: () => (ls ? Math.min(1, ls.acc) : Math.min(1, sim._acc / STEP)),
       });

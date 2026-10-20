@@ -297,14 +297,15 @@ describe('Resolve: control buys time but cannot pin a wave forever', { timeout: 
     const sim = fpSim();
     const e = sim.spawnEnemy('slime_green', { dist: 10 });
     applyPressure(e, { armor: 0, bossArmor: 0, cc: 3, bossCc: 30, kb: 2 });
-    for (let i = 0; i < 5; i++) sim._onHitEffects(e, null, { knockback: 0.75, attackType: 'blast' });
+    // (the push lock is cleared between hits: as if each hit came after the lock window)
+    for (let i = 0; i < 5; i++) { e.pushLock = 0; sim._onHitEffects(e, null, { knockback: 0.75, attackType: 'blast' }); }
     expect(e.dist).toBeCloseTo(8, 12);
     expect(e.kbLeft).toBe(0);
     // a campaign enemy (no Resolve fields) is pushed as before
     const c = sim.spawnEnemy('slime_green', { dist: 10 });
     sim._fp = null;
     delete c.kbLeft;
-    for (let i = 0; i < 4; i++) sim._onHitEffects(c, null, { knockback: 0.75, attackType: 'blast' });
+    for (let i = 0; i < 4; i++) { c.pushLock = 0; sim._onHitEffects(c, null, { knockback: 0.75, attackType: 'blast' }); }
     expect(c.dist).toBeCloseTo(7, 12);
   });
 

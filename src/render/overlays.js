@@ -169,7 +169,7 @@ export class Overlays {
       let model = null;
       const mats = [];
       if (def) {
-        model = buildChibi(def, { quality: this.quality === 'high' ? 'medium' : this.quality });
+        model = buildChibi(def, { quality: this.quality === 'high' ? 'medium' : this.quality, skin: this.actors?.skins?.[unitId] });
         model.traverse((o) => {
           if (!o.isMesh) return;
           const src = o.material;

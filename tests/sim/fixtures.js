@@ -192,7 +192,86 @@ export const UNITS = {
       ult: { name: 'Tidal Wave', desc: 'tide', unlockLevel: 1, cooldown: 20, effect: { type: 'tide', damage: 5, pushback: 3, slow: 0.3, duration: 2 } },
     },
   }),
+
+  // --- roster merge mechanics (ROSTER_SPEC §6; tests/sim/mechanics-merge.test.js) -------------
+  // Kept out of TOWER_IDS so the default makeSim loadout (and every older test) is unchanged.
+  mortarer: unit('mortarer', {
+    attackType: 'blast', role: 'mortar', look: { weapon: 'cannon' },
+    paths: [
+      path('m', [tier('m1', 100, { projectiles: 2 }), tier('m2', 100, {}), tier('m3', 100, {}), tier('m4', 100, {}), tier('m5', 100, {})]),
+      ...flatPaths().slice(1),
+    ],
+    base: { behavior: 'mortar', damage: 20, rate: 1, range: 30, splash: 1, projectileSpeed: 0, canHitAir: false },
+  }),
+  familiar: unit('familiar', {
+    attackType: 'mystic', role: 'summoner', look: { weapon: 'tome' },
+    paths: [
+      path('reach', [tier('r1', 100, { relay: { reach: 1 } }), tier('r2', 100, {}), tier('r3', 100, {}), tier('r4', 100, {}), tier('r5', 100, {})]),
+      ...flatPaths().slice(1),
+    ],
+    base: { damage: 10, rate: 1, range: 2.4, projectileSpeed: 14, relay: { kind: 'familiar', reach: 2 } },
+  }),
+  mirrorer: unit('mirrorer', {
+    attackType: 'mystic', role: 'mirror', look: { weapon: 'mirror' },
+    base: { damage: 10, rate: 1, range: 2.3, projectileSpeed: 0, relay: { kind: 'mirror', reach: 3.7 } },
+  }),
+  falcon: unit('falcon', {
+    role: 'falconer', look: { weapon: 'bow' },
+    base: { damage: 10, rate: 1, range: 4, projectileSpeed: 0, airMul: 2, status: [{ type: 'ground', duration: 1.2 }] },
+  }),
+  pusher: unit('pusher', {
+    attackType: 'mystic', role: 'displacement', look: { weapon: 'fan' },
+    base: { damage: 1, rate: 4, range: 3, projectileSpeed: 0, knockback: 1 },
+  }),
+  gatherer: unit('gatherer', {
+    attackType: 'mystic', role: 'displacement', look: { weapon: 'fan' },
+    base: { damage: 1, rate: 4, range: 3, projectileSpeed: 0, gather: 0.5 },
+  }),
+  curser: unit('curser', {
+    attackType: 'mystic', role: 'hexer', look: { weapon: 'cards' },
+    base: { damage: 5, rate: 1, range: 3, projectileSpeed: 0, status: [{ type: 'curse', burstMul: 0.8, radius: 1.1, duration: 4 }] },
+  }),
+  prismer: unit('prismer', {
+    attackType: 'mystic', role: 'prism',
+    base: { behavior: 'beam', damage: 10, rate: 1, range: 6, pierce: 4, projectileSpeed: 0, ramp: { per: 0.1, max: 0.5 } },
+  }),
+  striker: unit('striker', {
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'champion', attackType: 'slash',
+    base: { cost: 500, behavior: 'duel', damage: 10, rate: 1, range: 2, canHitAir: false },
+    hero: {
+      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
+      levels: [],
+      ult: {
+        name: 'Drumfall', desc: 'strike', unlockLevel: 1, cooldown: 20,
+        effect: { type: 'strike', target: 'strongest', damage: 100, armorPen: 99, splash: 1.5, splashMul: 0.3, status: [{ type: 'shred', amount: 4, duration: 8 }, { type: 'stun', duration: 1 }] },
+      },
+    },
+  }),
+  stormer: unit('stormer', {
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'stormrider', attackType: 'mystic', element: 'lightning', placement: 'amphibious',
+    base: { cost: 500, behavior: 'chain', damage: 4, rate: 1, range: 3, chain: 2, projectileSpeed: 0 },
+    hero: {
+      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
+      levels: [],
+      ult: {
+        name: 'Dragonflight', desc: 'aimed nova', unlockLevel: 1, cooldown: 20,
+        effect: { type: 'nova', center: 'aim', damage: 50, radius: 2, attackType: 'mystic', status: [{ type: 'ground', duration: 5 }, { type: 'mark', bonus: 0.18, duration: 5 }] },
+      },
+    },
+  }),
+  buffer: unit('buffer', {
+    kind: 'hero', rarity: 'SSR', adult: true, role: 'mystic', attackType: 'mystic',
+    base: { cost: 500, damage: 10, rate: 1, range: 3 },
+    hero: {
+      levelXp: [10, 10, 10, 10, 10, 10, 10, 10, 10],
+      levels: [],
+      ult: { name: 'Ninefold', desc: 'warp + dmg', unlockLevel: 1, cooldown: 20, effect: { type: 'timeWarp', slow: 0.5, duration: 5, rateBuff: 1.3, buffDuration: 8, dmgBuff: 1.5, dmgBuffDuration: 4 } },
+    },
+  }),
 };
+
+/** Fixture towers for the roster-merge mechanics (not in the default loadout). */
+export const MECH_TOWER_IDS = ['mortarer', 'familiar', 'mirrorer', 'falcon', 'pusher', 'gatherer', 'curser', 'prismer'];
 
 function enemy(id, extra = {}) {
   return {
@@ -218,6 +297,10 @@ export const ENEMIES = {
   guard: enemy('guard', { family: 'orc', hp: 200, speed: 0.0001, armorClass: 'heavy', traits: { guardian: { radius: 2, reduction: 0.5 } } }),
   pod: enemy('pod', { family: 'plant', hp: 10, traits: { brood: { spawn: 'slime', count: 3 } } }),
   wyvern: enemy('wyvern', { family: 'dragon', hp: 30, armorClass: 'scaled', traits: { airborne: true } }),
+  bat: enemy('bat', { family: 'dragon', hp: 1000, speed: 0.0001, armorClass: 'light', traits: { airborne: true } }),
+  brute: enemy('brute', { family: 'orc', tier: 'miniboss', hp: 5000, speed: 0.0001, threat: 50, leak: 25 }),
+  bigboss: enemy('bigboss', { family: 'orc', tier: 'boss', hp: 50000, speed: 0.0001, threat: 100, leak: 9999 }),
+  bigbat: enemy('bigbat', { family: 'dragon', tier: 'boss', hp: 50000, speed: 0.0001, threat: 100, leak: 9999, traits: { airborne: true } }),
   bomb: enemy('bomb', { hp: 5, traits: { volatile: { radius: 2, stun: 2 } } }),
   sapper: enemy('sapper', { family: 'goblin', hp: 1000, speed: 0.5, traits: { sabotage: { radius: 2, duration: 3, cooldown: 5 } } }),
   lizard: enemy('lizard', { family: 'lizard', hp: 100, speed: 0.0001, armorClass: 'scaled', traits: { regen: { pct: 0.1, delay: 0.5 }, ward: 'fire' } }),
@@ -260,7 +343,7 @@ export const STAGE = {
   tier: 'beginner',
 };
 
-export const TOWER_IDS = Object.keys(UNITS).filter((id) => UNITS[id].kind === 'tower');
+export const TOWER_IDS = Object.keys(UNITS).filter((id) => UNITS[id].kind === 'tower' && !MECH_TOWER_IDS.includes(id));
 
 /** Data override object for new Sim({ data }). */
 export function testData(extra = {}) {

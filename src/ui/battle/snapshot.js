@@ -135,6 +135,11 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   mode: 'config', incomeMul: 'config', _modeArmor: 'config', _ruleGoal: 'config', _bountyAdd: 'config',
   _pathsFwd: 'config', _pathsRev: 'config', rule: 'config', routeReversed: 'snap',
   _ruleMul: 'derived', _ruleMove: 'derived', _ruleRange: 'derived', _rulePortal: 'derived', _waveTick: 'calm',
+  // roster B3 (aim, mortar, relay, curse, team damage buff): shells end at the wave clear, the curse
+  // queue is flushed inside the step, the relay samples are a cache of the forward paths, and the
+  // team damage multiplier follows the saved buffs ('db')
+  shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
+  _relaySamples: 'scratch', globalDmgMul: 'derived',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -164,6 +169,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the rhythm's specs follow her stats and buffs (refreshEffective)
   potCount: 'snap', tempoStacks: 'snap', tempoIdle: 'snap', projCarry: 'snap', rampKeep: 'snap', auraBoostLeft: 'snap', potOc: 'snap',
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
+  // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
+  // origin follows from it and her spot (updateRelayOrigin)
+  aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
 });
 
 /**
@@ -221,7 +229,9 @@ export function snapshotSim(sim) {
     carry: sim._cashCarry,
     lives: sim.lives,
     uid: sim._uid,
-    buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left, b.src ?? -1]),
+    buffs: sim._globalBuffs.filter((b) => b.left > 0 && b.kind !== 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]),
+    // team damage buffs in their own key (a build from before them ignores it, never reads it as haste)
+    ...(sim._globalBuffs.some((b) => b.left > 0 && b.kind === 'dmg') ? { db: sim._globalBuffs.filter((b) => b.left > 0 && b.kind === 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]) } : {}),
     dps: sim._dpsTimer,
     towers,
     kills: { ...sim.kills },
@@ -257,6 +267,7 @@ function packTower(sim, t) {
   if (t.lim) o.lm = packLim(t.lim);
   if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
+  if (t.aim) o.am = [t.aim.x, t.aim.y];
   packPotential(t, o);
   return o;
 }
@@ -375,6 +386,7 @@ export function restoreSim(rec, profile = null) {
   sim.cash = Number.MAX_SAFE_INTEGER; // costs do not matter while rebuilding: `spent` comes back below
   // (who cast it: an older save has no caster, as the restore had none placed yet)
   for (const b of s.buffs || []) if (b?.[1] > 0) sim.addGlobalRateBuff(b[0], b[1], Number.isInteger(b[2]) ? b[2] : -1);
+  for (const b of Array.isArray(s.db) ? s.db : []) if (b?.[1] > 0) sim.addGlobalDamageBuff(r(b[0]), r(b[1]), Number.isInteger(b[2]) ? b[2] : -1);
   const drop = (o) => {
     dropped.push(o.u);
     // (a hero's levels bought with coins come back too: her placement was free)
@@ -407,6 +419,7 @@ export function restoreSim(rec, profile = null) {
       }
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
+    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
     t.spent = r(o.spent);
     t.kills = r(o.kills);
     t.damageDealt = r(o.dmg);

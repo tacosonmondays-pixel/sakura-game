@@ -7,6 +7,9 @@ import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
 } from './constants.js';
+import {
+  AIM_QUANT, PUSH_LOCK, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH,
+} from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
 import { createPlacementRules, footprintRadius, footprintAt, isTileCall } from './placement.js';
@@ -26,6 +29,7 @@ import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones,
 } from './towers.js';
+import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
   damageXp, heroLevelStatus, buyHeroLevel, canMoveHero, moveHero, ultRank,
@@ -145,6 +149,9 @@ export class Sim {
     };
     this.warnings = [];
     this.globalRateMul = 1;
+    // roster merge mechanics (ROSTER_SPEC §6): mortar shells in flight, the team damage buff
+    this.shells = [];
+    this.globalDmgMul = 1;
 
     this.events = [];
     this._uid = 1;
@@ -166,7 +173,12 @@ export class Sim {
     this._scratch2 = [];
     this._hitOut = {};
     this._dotOut = {};
-    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null };
+    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._curseQueue = [];
+    this._flushingCurses = false;
+    this._scratch3 = [];
+    this._relaySamples = null;
     this.grid = new SpatialGrid(-3, -3, (this.map.width || 20) + 3, (this.map.height || 12) + 3, 2);
     if (this.rule) {
       this._waveTick = 0;
@@ -241,6 +253,7 @@ export class Sim {
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
+    updateShells(this, dt);
     this._removeDead();
     tickHero(this, dt);
     this._checkWaveEnd();
@@ -263,14 +276,18 @@ export class Sim {
   _updateBuffs(dt) {
     updateLimited(this, dt);
     if (this._globalBuffs.length) {
-      let mul = 1;
+      let rate = 1;
+      let dmg = 1;
       for (const b of this._globalBuffs) {
         b.left -= dt;
-        if (b.left > 0) mul = Math.max(mul, b.mul);
+        if (b.left <= 0) continue;
+        if (b.kind === 'dmg') dmg = Math.max(dmg, b.mul);
+        else rate = Math.max(rate, b.mul);
       }
       this._globalBuffs = this._globalBuffs.filter((b) => b.left > 0);
-      if (mul !== this.globalRateMul) {
-        this.globalRateMul = mul;
+      if (rate !== this.globalRateMul || dmg !== this.globalDmgMul) {
+        this.globalRateMul = rate;
+        this.globalDmgMul = dmg;
         this._buffsDirty = true;
       }
     }
@@ -290,8 +307,19 @@ export class Sim {
    * default from the view getter `sim.hero`: in co-op both players' heroes can cast it.
    */
   addGlobalRateBuff(mul, duration, src = -1) {
-    this._globalBuffs.push({ mul, left: duration, src });
+    this._globalBuffs.push({ kind: 'rate', mul, left: duration, src });
     this.globalRateMul = Math.max(this.globalRateMul, mul);
+    this._buffsDirty = true;
+  }
+
+  /**
+   * Multiplies every girl's damage (incl. traps/turrets) for `duration` seconds (strongest active
+   * wins). `src` = the caster's uid (the buff icons), -1 = nobody.
+   */
+  addGlobalDamageBuff(mul, duration, src = -1) {
+    if (!(mul > 1) || !(duration > 0)) return;
+    this._globalBuffs.push({ kind: 'dmg', mul, left: duration, src });
+    this.globalDmgMul = Math.max(this.globalDmgMul, mul);
     this._buffsDirty = true;
   }
 
@@ -438,6 +466,8 @@ export class Sim {
     ctx.element = spec.element || null;
     ctx.attackType = spec.attackType;
     ctx.sourceUid = tower ? tower.uid : null;
+    ctx.hitDamage = spec.damage || 0; // curse burst = burstMul × this hit (after buffs, before crit/ramp)
+    ctx.curseDepth = 0;
     const list = spec.status;
     if (list) for (let i = 0; i < list.length; i++) this._applyStatusEvent(e, list[i], ctx);
     // a Potential rhythm's own statuses (src/sim/potential.js N3): after hers and never merged into
@@ -451,20 +481,41 @@ export class Sim {
       if (e.phasing) endPhasing(this, e);
       if (e.traits.field) this._applyStatusEvent(e, { type: 'silence', duration: HOLY_SILENCE }, ctx);
     }
-    if (spec.knockback > 0) {
+    // push lock: an enemy moves at most once per lock window (pushers cannot stall a lane); a hero's
+    // own push-back locks for the shorter HERO_PUSH_LOCK (hero rework), any other pusher for PUSH_LOCK
+    if (spec.knockback > 0 && !(e.pushLock > 0)) {
       let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
       if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
-      // a hero's push-back holds off for HERO_PUSH_LOCK seconds per enemy, so she cannot pin a lane
-      if (tower?.isHero && amt > 0) {
-        if (e.pushLock > this.time) amt = 0;
-        else e.pushLock = this.time + HERO_PUSH_LOCK;
-      }
       if (amt > 0) {
         e.dist = Math.max(0, e.dist - amt);
         placeOnPath(e, this.pathData[e.pathIndex]);
+        e.pushLock = tower?.isHero ? HERO_PUSH_LOCK : (PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal);
       }
     }
+    if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);
     syncStatusFlags(e);
+  }
+
+  /**
+   * Gather: enemies AHEAD of `e` on its path within GATHER_RADIUS are pulled back toward it by
+   * `amount` of the gap (max GATHER_MAX). Never minibosses/bosses, never past `e`, push lock respected.
+   */
+  _gather(e, amount) {
+    const f = Math.min(GATHER_MAX, amount);
+    const path = this.pathData[e.pathIndex];
+    const near = this._scratch3;
+    near.length = 0;
+    this.grid.query(e.x, e.y, GATHER_RADIUS, near);
+    for (let i = 0; i < near.length; i++) {
+      const q = near[i];
+      if (q === e || q.dead || q.hidden || q.pathIndex !== e.pathIndex) continue;
+      if (q.tier === 'miniboss' || q.tier === 'boss') continue;
+      if (q.dist <= e.dist || q.pushLock > 0) continue;
+      q.dist -= (q.dist - e.dist) * f;
+      placeOnPath(q, path);
+      q.pushLock = PUSH_LOCK[q.tier] ?? PUSH_LOCK.normal;
+    }
+    near.length = 0;
   }
 
   /** Burn/poison tick. */
@@ -526,6 +577,47 @@ export class Sim {
     // Potential N9 (Akane's Ember Leap): her burn leaps on to the nearest enemy
     if (e.statuses.burn || e.statuses.poison) spreadDot(this, e);
     onEnemyDeath(this, e);
+    const c = e.statuses.curse;
+    if (c && c.burst > 0) {
+      this._curseQueue.push({
+        x: e.x, y: e.y, burst: c.burst, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
+      });
+      if (!this._flushingCurses) this._flushCurses();
+    }
+  }
+
+  /**
+   * Curse bursts, FIFO: each entry hits every living, visible enemy within its radius for its
+   * burst (mystic, ignores veils/air) and survivors catch a CURSE_DECAY-weaker curse while the
+   * generation stays ≤ CURSE_MAX_DEPTH. Kills inside the loop only enqueue (no recursion).
+   */
+  _flushCurses() {
+    this._flushingCurses = true;
+    const queue = this._curseQueue;
+    const ctx = this._curseCtx;
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      const src = c.sourceUid != null ? this._towerByUid.get(c.sourceUid) || null : null;
+      const spec = {
+        damage: c.burst, attackType: 'mystic', element: null, critChance: 0, critMul: 1, armorPen: 0,
+        eliteMul: 1, bossMul: 1, barrierMul: 1, detection: true, canHitAir: true, status: [], mark: null,
+        silence: 0, reveal: 0, knockback: 0, gather: 0, airMul: 1,
+      };
+      const spread = c.depth + 1 <= CURSE_MAX_DEPTH;
+      this._emit('curseBurst', { x: c.x, y: c.y, radius: c.radius, depth: c.depth, towerUid: c.sourceUid });
+      const victims = this.grid.query(c.x, c.y, c.radius, []);
+      for (let j = 0; j < victims.length; j++) {
+        const q = victims[j];
+        if (q.dead || q.hidden) continue;
+        this._hit(q, src, spec, 1);
+        if (!spread || q.dead) continue;
+        ctx.sourceUid = c.sourceUid;
+        ctx.curseDepth = c.depth + 1;
+        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
+      }
+    }
+    queue.length = 0;
+    this._flushingCurses = false;
   }
 
   _leak(e) {
@@ -617,6 +709,8 @@ export class Sim {
     // every placed hero (both players' in co-op), never the view-dependent sim.hero
     const k = heroPace(this);
     for (const h of this.heroes) if (h && !h.removed) gainHeroXp(this, h, waveClearXp(this.wave, k), 'wave');
+    // shells still falling would land on an empty road: they end with the wave (GAPS §7.3)
+    this.shells.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
@@ -779,7 +873,7 @@ export class Sim {
       t.heroIndex = this._heroConfig.index;
       this.heroes[t.heroIndex] = t;
     }
-    refreshTowerStats(t, this.globalRateMul);
+    refreshTowerStats(t, this.globalRateMul, this.globalDmgMul);
     this.towers.push(t);
     this._towerByUid.set(t.uid, t);
     if (this.rule) assignPads(this);
@@ -788,6 +882,7 @@ export class Sim {
     this.stats.towersPlaced++;
     this.stats.towerUnits[t.uid] = unitId;
     this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
+    updateRelayOrigin(this, t);
     return t;
   }
 
@@ -798,7 +893,8 @@ export class Sim {
 
   /** Re-resolves stats (upgrades / hero levels) and keeps buffs consistent. */
   _refreshTower(t) {
-    refreshTowerStats(t, this.globalRateMul);
+    refreshTowerStats(t, this.globalRateMul, this.globalDmgMul);
+    updateRelayOrigin(this, t); // relay reach may have grown
     this._buffsDirty = true;
   }
 
@@ -968,6 +1064,7 @@ export class Sim {
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
+    this.shells = this.shells.filter((sh) => sh.ownerUid !== uid); // pending shells never land
     t.turrets = [];
     if (this.rule) assignPads(this);
     this._buffsDirty = true;
@@ -1000,6 +1097,49 @@ export class Sim {
     if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
+    // her attack origin (and a familiar / mirror spot) is position-derived too (roster B3)
+    updateRelayOrigin(this, t);
+  }
+
+  /**
+   * Sets a tower's aim point (mortar centre, mirror spot, aimed hero ult). Quantised to the
+   * co-op grid (1/1024), clamped into the map; a mirror is clamped to its reach circle.
+   * @returns {boolean} false for unknown towers, towers without an aim mode, a finished battle or bad numbers
+   */
+  setAim(uid, x, y) {
+    const t = this.getTower(uid);
+    if (!t || this.state === 'won' || this.state === 'lost') return false;
+    const mode = aimMode(t);
+    if (!mode || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    let ax = Math.round(x * AIM_QUANT) / AIM_QUANT;
+    let ay = Math.round(y * AIM_QUANT) / AIM_QUANT;
+    ax = Math.min(this.map.width || 0, Math.max(0, ax));
+    ay = Math.min(this.map.height || 0, Math.max(0, ay));
+    if (mode === 'mirror') {
+      const reach = t.stats.relay.reach;
+      const dx = ax - t.x;
+      const dy = ay - t.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > reach * reach) {
+        const k = reach / Math.sqrt(d2);
+        ax = t.x + dx * k;
+        ay = t.y + dy * k;
+      }
+    }
+    t.aim = { x: ax, y: ay };
+    if (mode === 'mirror') updateRelayOrigin(this, t);
+    this._emit('aim', { towerUid: uid, x: ax, y: ay });
+    return true;
+  }
+
+  /** Back to automatic aim (mortar leads its target, mirror goes to the nearest lane edge, ult picks the leader). */
+  clearAim(uid) {
+    const t = this.getTower(uid);
+    if (!t || this.state === 'won' || this.state === 'lost' || !aimMode(t)) return false;
+    t.aim = null;
+    updateRelayOrigin(this, t);
+    this._emit('aim', { towerUid: uid, x: null, y: null });
+    return true;
   }
 
   setTargetMode(uid, mode) {
@@ -1142,7 +1282,13 @@ export class Sim {
       silence: e.silence,
       reveal: e.reveal,
       knockback: e.knockback,
-      buff: { ...t.buff, globalRateMul: this.globalRateMul },
+      airMul: e.airMul,
+      gather: e.gather,
+      relay: e.relay ? { ...e.relay } : null,
+      aim: t.aim ? { ...t.aim } : null,
+      aimMode: aimMode(t),
+      origin: t.origin ? { ...t.origin } : null,
+      buff: { ...t.buff, globalRateMul: this.globalRateMul, globalDmgMul: this.globalDmgMul },
       buffed: t.buffed,
       disabled: t.disabled,
       kills: t.kills,
@@ -1208,7 +1354,7 @@ export class Sim {
         t.trapSpots = null;
         t.trapSpotsRange = -1;
       }
-      delete this._relaySamples;
+      this._relaySamples = null; // (a backstop: the samples come from the forward paths)
     }
   }
 

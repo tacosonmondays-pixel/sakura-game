@@ -26,6 +26,7 @@ import {
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { UNITS } from './units.js';
+import { LEGACY, LEGACY_IDS } from './legacy.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -63,6 +64,17 @@ export const ROLE_SUBCLASS = {
   support: { label: 'Utility Aura', desc: 'Detection and range aura (water).' },
   trapper: { label: 'Traps', desc: 'Rune traps near the exit.' },
   engineer: { label: 'Builder', desc: 'Sentries and cleanse vs sabotage.' },
+  displacement: { label: 'Push-back', desc: 'Pushes enemies back and gathers them into clumps.' },
+  falconer: { label: 'Anti-Air', desc: 'Hunts flyers first and grounds them for the team.' },
+  summoner: { label: 'Familiar', desc: 'A familiar fights from the edge of the nearest lane.' },
+  purifier: { label: 'Cleanser', desc: 'Sanctuary that stops sabotage and volatile stuns.' },
+  mortar: { label: 'Aimed Bombardment', desc: 'Map-wide shells that land 1 s after a warning ring.' },
+  prism: { label: 'Line Pierce', desc: 'Prism beams pierce a whole line and build focus.' },
+  mirror: { label: 'Relay Caster', desc: 'Bolts fire from a mirror placed beside a far lane.' },
+  hexer: { label: 'Chain Curse', desc: 'Cursed enemies burst on death and pass the curse on.' },
+  champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
+  puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
+  stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
 };
 
 /**
@@ -165,7 +177,7 @@ function controls() {
         ['Move hero', 'Move in her panel', 'Move in her panel'],
       ]),
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
-      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first.`)),
+      p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first; "Air" shoots flyers first (then the leader).`)),
     sec('Menus',
       list([
         'The back arrow (top left) returns to the previous screen; the house icon goes to the lobby.',
@@ -473,7 +485,7 @@ function mapsArticle() {
       ])),
     sec('Placement',
       table(['Placement', 'Rule'], Object.values(PLACEMENT).map((x) => [{ text: x.name, strong: true }, x.desc])),
-      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Water girls' }),
+      { type: 'units', ids: UNITS.filter((u) => u.placement !== 'land').map((u) => u.id), caption: 'Girls who can stand on water' }),
   ]);
 }
 
@@ -613,9 +625,29 @@ function buffsArticle() {
   ]);
 }
 
+function codexArticle() {
+  const girls = LEGACY_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
+  const towersOnly = girls.filter((u) => u.kind === 'tower');
+  return article('codex', 'Codex Kits', 'students', 'wiki', 'The original Sakura Sentinels Codex: every returning girl\'s old title, trait and upgrades.', ['codex', 'legacy', 'classic', 'old', 'original', 'trait', 'upgrade', 'amphibious'], [
+    sec('Returning girls',
+      p('The nineteen original Sentinels came back with their Codex looks and titles. Their old one-line trait and their three old upgrades are shown as the "Codex kit" line on each Info tab. Their upgrade paths and numbers are today\'s academy kits.'),
+      table(['Girl', 'Codex title', 'Codex kit'], girls.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].title, LEGACY[u.id].trait,
+      ]))),
+    sec('Codex upgrades',
+      table(['Girl', 'Codex upgrades', 'Today\'s paths'], towersOnly.map((u) => [
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, LEGACY[u.id].upgrades.join(' · '), u.paths.map((path) => path.name).join(' · '),
+      ])),
+      tip('Heroes levelled up automatically in the Codex and had no upgrades.', 'info')),
+    sec('Land and water',
+      p('Girls who fought from land and water in the Codex are amphibious again: they deploy on open ground or on water.'),
+      { type: 'units', ids: girls.filter((u) => u.placement === 'amphibious').map((u) => u.id), caption: 'Amphibious girls' }),
+  ]);
+}
+
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

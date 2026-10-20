@@ -5,7 +5,8 @@
 // the camera in either mode (policy: src/render/cameraPolicy.js; pointer input:
 // src/render/boardInput.js).
 //
-//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing });
+//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing, skins });
+//   (skins: { unitId: skinId } outfits to dress the girls in, from systems/skins.js formationSkins)
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -162,7 +163,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
-  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
+  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
   const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
@@ -924,6 +925,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: attack-FX snapshot for previews / e2e (allocates; dev tooling only). */
     attackFxProbe() {
       return attackFx?.probe() ?? null;
+    },
+
+    /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
+    towerSkin(uid) {
+      return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {

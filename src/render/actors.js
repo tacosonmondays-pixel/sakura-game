@@ -83,10 +83,12 @@ const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: t
 
 export class Actors {
   /**
-   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain }} o
+   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain, skins?: Object<string, string> }} o
+   *   skins: outfit per unit id (skin ids, src/data/skins.js); missing = her default
    */
-  constructor({ sim, scene, fx, batches, atlas, quality, terrain }) {
+  constructor({ sim, scene, fx, batches, atlas, quality, terrain, skins = {} }) {
     this.sim = sim;
+    this.skins = skins || {};
     this.scene = scene;
     this.fx = fx;
     this.b = batches;
@@ -269,7 +271,7 @@ export class Actors {
   }
 
   _createTower(t) {
-    const model = buildChibi(t.def, { quality: this.quality });
+    const model = buildChibi(t.def, { quality: this.quality, skin: this.skins[t.unitId] });
     model.traverse((o) => {
       if (o.isMesh && !o.userData.isOutline) o.castShadow = this.shadows;
     });

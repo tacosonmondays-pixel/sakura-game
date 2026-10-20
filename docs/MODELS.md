@@ -33,8 +33,9 @@ Each unit takes ≈1.5 s. The roster (palette + look) is read straight from `src
 | `face.py` | PIL face **atlas** (3×3 cells: idle, blink, attack, happy, hurt, dizzy, wink, shy, surprised): big glossy eyes with dark upper-lid stroke, iris gradient, lid shadow, two highlights, lashes, thin brows in the hair colour, tiny mouth, blush; styles `round/sharp/sleepy/sparkle/closed`, expressions `smile/smug/calm/determined/shy/cheerful`. 256² cells for girls, 341² for heroes; quantised to a palette PNG (≈50–70 KB) |
 | `hair.py` | cap shell over the cranium (shrink-wrapped onto the real head mesh with a fixed gap, then thickened outwards, inner shell in `hairShade`), **bangs** (`straight/swept/split/hime/messy`), side locks, back curtains, tails and buns per `hairStyle` (`long/hime/wavy/bob/short/twintails/ponytail/side/braid/buns`). Every lock is one broad tapered tube with a creased pointed tip. Tails / long back hair get their own bones (`tail_L`, `tail_R`, `hair_back`) |
 | `outfit.py` | colour plan per `look.outfit` (`spec()`) + extra cages: sailor collar, ribbons/bows, pleated skirts, cuffs, puff/wide sleeves, belts, breastplate + pauldrons + cape (armor), hood, apron, obi, pockets… |
-| `accessory.py` | ribbon, bunny/cat/fox ears, hairpin, beret, witch hat (raises the halo), horns, flower, goggles, hood, headband, crown — all placed above the hair surface (`HAIR_TOP`) |
-| `weapon.py` | one cage model per `look.weapon`, weighted to `hand_R` (bow/tome to `hand_L`); `kind_of()` maps weapons to attack kinds |
+| `accessory.py` | ribbon, bunny/cat/fox ears, hairpin, beret, witch hat (raises the halo), horns (default oni horns; `ctx.horn_shape` `curl` = ram horns, `dragon` = long swept-back horns), flower, goggles, hood, headband, crown, **cap** (peaked captain's cap: accent crown, dark band and visor, gold badge; raises the halo) — all placed above the hair surface (`HAIR_TOP`) |
+| `weapon.py` | one cage model per `look.weapon`, weighted to `hand_R` (bow/tome/shield to `hand_L`, mallet in both hands); `kind_of()` maps weapons to attack kinds. Roster merge added `mic` (cast), `shield` (smash), `mirror` (cast, glowing glass on the halo material), `spear` (thrust), `mallet` (taiko bachi, smash), `puppet` (control bar + strings + tiny marionette, cast), `cards` (fan of four cards, throw) |
+| `extras.py` | per-unit extra parts from the tools-only tables `EXTRA_PARTS` / `HORN_SHAPE` in `build_characters.py` (keyed by unit id, no schema change): `foxTail` (Luna), `falcon` + `quiver` (Hana), `foxFamiliar` (Ruri), `taikoDrum` (Kanna), `mortarTube` (Tsubaki), `monocle` (Kohaku). They are ordinary vertex-coloured cages joined into the **body** mesh and weighted to hips/chest/head, so every GLB keeps exactly three primitives |
 | `halo.py` | ring/star/petal/gear/moon/flame/wave/crown/snow/bolt/leaf/eye, emissive `halo` material, bone `halo` |
 | `rig.py` | armature: `root, hips, spine, chest, neck, head, halo, shoulder/upper_arm/forearm/hand _L/_R, thigh/shin/foot _L/_R` (+ hair bones). No dots in bone names so three.js keeps them verbatim in track names |
 | `anim.py` | actions authored as a few keyframes at 24 fps in armature space (`Poser.key(frame, {bone: (pitch, roll, yaw)})`), bezier → exported as CUBICSPLINE. Clips: `idle` (personality per expression, breathing, halo float), `walk`, `attack_<kind>` with anticipation → strike → recovery (`slash, thrust, bow, rifle, cannon, cast, throw, smash, sweep`), `cheer`, `victory` (weapon-specific pose), `hurt`, `pickup` (wriggle) |
@@ -70,6 +71,22 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
   compiles its highlight program on the first tap. It replaced a blue wash (`#4d6dff` × 0.35) that
   turned Chika's brown hair and orange suit purple / lavender; `tests/models/highlight.test.js` guards
   the hue.
+
+## Roster merge stand-ins (2026-10-13)
+
+The 18 shared girls (everyone but Hikari, whose battle model is the owner's Meshy figure) were rebuilt from
+their old Codex designs (`src/data/units.js` palette + look, ROSTER_SPEC §4.2). These are **temporary
+stand-ins** until real chibis exist; the V2 looks they replaced live on as the Sentinel Style outfits
+(`sentinel-<id>.glb`) and the four Coming Soon units (`future-<id>.glb`), byte copies that the builder never
+touches. Rebuild only the girls you changed and never pass `hikari`:
+
+```
+python3 tools/blender/build_characters.py luna nami aoi rei yuki momo akane sango kage umeko shiro midori suzu raika miko hotaru kaede chika
+```
+
+Look-dev for girls who are not in `UNITS` yet: write their palette/look to a JSON file and build into a scratch
+folder (`--units new.json --out /tmp/glb`), copy the files under `public/models/characters/_lookdev/` (never
+commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/kanna,_lookdev/fuu&dist=3.6`.
 
 ## Adding a character
 

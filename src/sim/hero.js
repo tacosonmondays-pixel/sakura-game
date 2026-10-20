@@ -7,6 +7,8 @@
 // follow the viewing / commanding player); tickHero and the wave-clear XP loop over sim.heroes.
 // Only the command functions below (heroLevelStatus, buyHeroLevel, canMoveHero, moveHero,
 // heroUltStatus, activateUlt) take the active hero, through their Sim wrappers.
+// Ult shapes: nova (centred on the hero or on her aim point) / timeWarp / tide / strike; any
+// ult may add a team damage buff (dmgBuff, roster B3).
 
 import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
@@ -15,6 +17,8 @@ import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
 import { ultWithPotential } from './potential.js';
+import { isEligible } from './combat.js';
+import { targetScore } from './towers.js';
 
 /** XP for each level-up 2..25 (a hero's own `levelXp`, else the shared table). */
 export function heroSteps(heroDef) {
@@ -340,8 +344,24 @@ function pushBack(e, tiles, path) {
   placeOnPath(e, path);
 }
 
+/** Best eligible victim by a target mode (ties: earlier in sim.enemies), or null. */
+function bestVictim(victims, spec, mode, x, y) {
+  let best = null;
+  let bestS = -Infinity;
+  for (const e of victims) {
+    if (!isEligible(e, spec)) continue;
+    const s = targetScore(mode, x, y, e);
+    if (s > bestS) {
+      bestS = s;
+      best = e;
+    }
+  }
+  return best;
+}
+
 /**
- * Fires the hero ultimate if unlocked and charged.
+ * Fires the hero ultimate if unlocked and charged. Shapes that need a target (strike, aimed
+ * nova without an aim) return false without spending the cooldown when there is none.
  * @returns {boolean}
  */
 export function activateUlt(sim) {
@@ -353,12 +373,29 @@ export function activateUlt(sim) {
   const scale = ultDamageScale(h);
   const ctx = { rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType, sourceUid: h.uid };
   const victims = sim.enemies.filter((e) => !e.dead && !e.hidden); // tunnels shelter enemies from ults too
+  let ux = h.x; // where the ult lands (event position)
+  let uy = h.y;
 
   if (effect.type === 'nova') {
     const r = effect.radius || 0;
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
+    let cx = h.x;
+    let cy = h.y;
+    if (effect.center === 'aim') {
+      if (h.aim) {
+        cx = h.aim.x;
+        cy = h.aim.y;
+      } else {
+        const lead = bestVictim(victims, spec, 'first', h.x, h.y);
+        if (!lead) return false;
+        cx = lead.x;
+        cy = lead.y;
+      }
+      ux = cx;
+      uy = cy;
+    }
     for (const e of victims) {
-      if (r > 0 && Math.hypot(e.x - h.x, e.y - h.y) > r) continue;
+      if (r > 0 && Math.hypot(e.x - cx, e.y - cy) > r) continue;
       if (effect.reveal) applyStatus(e, { type: 'reveal', duration: effect.reveal }, ctx);
       syncStatusFlags(e);
       sim._hit(e, h, spec, 1);
@@ -380,9 +417,30 @@ export function activateUlt(sim) {
       if (effect.pushback) pushBack(e, effect.pushback, sim.pathData[e.pathIndex]);
       if (effect.slow) applyStatus(e, { type: 'slow', amount: effect.slow, duration: effect.duration ?? 3 }, ctx);
     }
+  } else if (effect.type === 'strike') {
+    // one huge blow on the strongest (or first) enemy anywhere, splashing its neighbours
+    const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
+    spec.armorPen = effect.armorPen ?? h.eff.armorPen;
+    const target = bestVictim(victims, spec, effect.target === 'first' ? 'first' : 'strong', h.x, h.y);
+    if (!target) return false;
+    ux = target.x;
+    uy = target.y;
+    sim._hit(target, h, spec, 1); // applies effect.status through the usual on-hit path
+    const splash = effect.splash || 0;
+    if (splash > 0) {
+      const splashSpec = { ...spec, damage: spec.damage * (effect.splashMul ?? 0.3), status: [] };
+      const r2 = splash * splash;
+      for (const e of victims) {
+        if (e === target || e.dead) continue;
+        const dx = e.x - ux;
+        const dy = e.y - uy;
+        if (dx * dx + dy * dy <= r2) sim._hit(e, h, splashSpec, 1);
+      }
+    }
   }
+  if (effect.dmgBuff > 1) sim.addGlobalDamageBuff(effect.dmgBuff, effect.dmgBuffDuration ?? 4, h.uid);
   h.ultCooldown = ultCooldown(h);
   sim.stats.ultsUsed = (sim.stats.ultsUsed || 0) + 1;
-  sim._emit('ult', { name: ult.name || 'Ultimate', effect: effect.type, x: h.x, y: h.y, towerUid: h.uid, rank: ultRank(h) });
+  sim._emit('ult', { name: ult.name || 'Ultimate', effect: effect.type, x: ux, y: uy, fromX: h.x, fromY: h.y, towerUid: h.uid, rank: ultRank(h) });
   return true;
 }

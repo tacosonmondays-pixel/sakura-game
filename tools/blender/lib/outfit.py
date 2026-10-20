@@ -8,6 +8,7 @@ from . import mesh as M
 from .colors import mix, darken, lighten
 
 WHITE = '#f7f7fb'
+APRON_CREAM = '#f7f0dc'
 NAVY = '#2f3a5c'
 SOCK = '#f4f4f8'
 LOAFER = '#4a3238'
@@ -36,7 +37,8 @@ def spec(look, pal):
     elif o == 'coat':
         S.update(top=main, sleeve=main, sleeve_len=1.0, skirt=main, skirt_len=1.25, legwear=darken(shade, 0.4), sock=None, shoe=BOOT)
     elif o == 'apron':
-        S.update(top=acc, sleeve=acc, sleeve_len=0.4, skirt=acc, skirt_len=1.1, sock=SOCK, sock_len=0.5, shoe='#5a3a3a')
+        # dress in the outfit colour under a cream apron (accent is free for goggles/hairpins)
+        S.update(top=main, sleeve=main, sleeve_len=0.4, skirt=main, skirt_len=1.1, sock=SOCK, sock_len=0.5, shoe='#5a3a3a')
     elif o == 'jumpsuit':
         S.update(top=main, sleeve=main, sleeve_len=1.0, skirt=None, legwear=main, sock=None, shoe=darken(shade, 0.3), glove=shade)
     elif o == 'robe':
@@ -453,10 +455,10 @@ def outfit_coat(ctx, P, pal, S):
 
 
 def outfit_apron(ctx, P, pal, S):
-    parts = puff_sleeves(P, pal['accent'])
-    parts += skirt(P, pal['accent'], length=1.05, flare=1.4, pleats=False, shade=darken(pal['accent'], 0.2))
-    parts += apron(P, WHITE)
-    parts += bow((0, P['torso_d'][2] / 2 * 1.1, P['waist_z'] + 0.01), WHITE, size=0.04)
+    parts = puff_sleeves(P, pal['outfit'])
+    parts += skirt(P, pal['outfit'], length=1.05, flare=1.4, pleats=False, shade=pal['outfitShade'])
+    parts += apron(P, APRON_CREAM)
+    parts += bow((0, P['torso_d'][2] / 2 * 1.1, P['waist_z'] + 0.01), APRON_CREAM, size=0.04)
     return parts
 
 

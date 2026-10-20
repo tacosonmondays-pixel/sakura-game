@@ -22,28 +22,30 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 | Girl | Kind · Rarity | Role | Type | Element | Placement | How to obtain | What she does | Best against | Weak against |
 |---|---|---|---|---|---|---|---|---|---|
 | **Hikari** — Dawnblade Captain | Hero · SSR | Vanguard | Holy | – | Land | Starter | Melee holy cleaves (3 targets) with **Veil Sight from the start**. Ult *Celestial Bloom*: 160 holy nova, stun, reveals veils 8 s. | Spirits, veiled waves, mixed crowds on corners | Flyers (until Lightbringer 3), scaled lizards (holy ×0.75) |
-| **Luna** — Moonlit Archmage | Hero · SSR | Mystic | Mystic | – | Land | Gacha | Three piercing moon beams. Ult *Moonfall*: slows every enemy 50 % and speeds every girl +30 %. | Armored & scaled columns on long straights | Warded fae/oni (mystic ×0.5), lone fast targets |
-| **Nami** — Tideguard Commodore | Hero · SR | Tideguard | Mystic | Frost | **Water** | Free after 1-5 | Frost strikes from the water that splash and slow. Ult *Tidal Wave*: 70 damage, pushes the wave back 5 tiles. | Runners near lakes, leaks, crowd pushback | Maps with no water, warded foes |
-| **Aoi** — Sky Archer | Tower · R | Marksman | Pierce | – | Land | Starter | Cheap, fast arrows. Paths: pierce/armor, multi-shot + Veil Sight, elite marking. | Ordinary enemies, runners, **crystal shells**, flyers, scaled | Heavy plate (pierce ×0.75, small hits vs armor) |
-| **Rei** — Crescent Cleaver | Tower · R | Cleaver | Slash | – | Land | Starter | Melee sweep hitting 3+ enemies; Duelist Stance (T4) turns her into a ramping single-target fighter. | Light swarms at corners, splitters, decoys | Plate (slash ×0.6), spirits, **cannot hit flyers** |
-| **Yuki** — Snowdrift Mage | Tower · R | Controller | Mystic | Frost | Land | Free after 1-2 | Splashing snowballs that slow 30 %; paths add freezes, Brittle (+damage taken) or long-lasting slows. | Hasty goblins, blinkers, pack-fury wolves, leaks | Bosses (resist freezes), warded foes; low damage |
-| **Momo** — Peach Merchant | Tower · R | Economy | Pierce | – | Land | Gacha | +30 coins every wave; paths add big income, interest + upgrade discounts, or a real coin-toss attack. | Funding a stronger late game | Early pressure — she barely defends |
-| **Akane** — Firework Demolitionist | Tower · SR | Bombardment | Blast | Fire | Land | Gacha | Fireballs with 1-tile explosions and burns. | Dense swarms, broods, splitters, guarded formations | Fire-warded lizards/dragons, spirits, flyers (until T4/T5) |
-| **Sango** — Coral Battery | Tower · SR | Artillery | Blast | Water | **Water** | Free after 1-5 | Long-range shells (4.2 tiles) that soak, hit barriers ×1.25 and (path 1) **shred armor for everyone**. | Armored formations, barriers, guardians | Scattered runners, spirits (blast ×0.5), flyers (until flak T4) |
-| **Kage** — Shadow Courier | Tower · SR | Skirmisher | Pierce | – | Land | Free after 2-5 | Two shuriken at a time, very fast, **innate Veil Sight**; paths reveal/mark for the team or pierce armor. | Veiled, fast or scattered enemies, crystal, decoys | Heavy armor (tiny hits) |
-| **Umeko** — Lantern-Float Lookout | Tower · SR | Support | Mystic | Water | **Water** | Free after 3-2 | **Veil Sight aura** for every girl within 2.6 tiles; weak soaking pulse. Paths: team reveal, buffs, water control. | Veiled waves (makes the whole team see) | Can't defend alone; needs water near the action |
-| **Shiro** — Silent Overwatch | Tower · SR | Sniper | Pierce | – | Land | Free after 3-5 | Map-wide (10 tiles) hitscan rifle that **ignores 3 armor**, ×1.25 vs elites. | Casters, siphoners, field oni, elites, bosses, armor | Swarms (one target per shot), slow fire rate |
-| **Midori** — Verdant Apothecary | Tower · SR | Alchemist | Mystic | Poison | Land | Free after 4-5 | Splashing flasks of poison that ignore armor and **stop regen & siphon healing**; paths add acid shred or mist. | Regenerators, siphoning ghouls, high-HP tanks | Burst-needed moments, flyers (until Field Kit 3) |
-| **Suzu** — Bell Seal Trapper | Tower · SR | Trapper | Blast | – | Land | Free after 5-5 | Places up to 4 rune traps on the path in range; paths: big mines, binding roots, holy reveal/silence seals. | Leakers near the exit, **sappers**, hasty runners | Flyers (traps are on the ground), needs set-up time |
-| **Raika** — Thunderdrum Prodigy | Tower · SR | Chain | Mystic | Lightning | Land | Gacha | Lightning that jumps to 3 extra enemies with shock; paths: more jumps, a piercing lance, or tempo + silence. | Spread-out groups, decoys, soaked enemies | Lone targets, warded foes |
-| **Miko** — Shrine Blessing Keeper | Tower · SR | Enchanter | Holy | – | Land | Gacha | **+10 % damage aura**; paths: stronger aura, silencing talismans/holy beam, Veil Sight + cleanse aura. | Making a cluster of girls stronger | Defending alone |
-| **Hotaru** — Firefly Exorcist | Tower · SSR | Exorcist | Holy | – | Land | Gacha | Holy pulses (8 targets) that **reveal veils and silence** fields, siphons, blinks and phasing. | Ghosts, wraiths, veils, oni field casters | Scaled lizards (holy ×0.75); specialist, not a carry |
-| **Kaede** — Crimson Maple Duelist | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
-| **Chika** — Gadget Prodigy | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | A weak wrench bolt plus a wing of **roaming drones** (2 at base) that fly out up to 4 tiles to hunt; flight modes Hover · Hold · Patrol · Pursuit (map-wide); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil (her bolt becomes the coil; drones keep flying). | Sabotage waves, bosses walking a long lane (Pursuit), lanes out of reach (Hold) | Sappers jam drones far from the team; her own bolt is weak |
+| **Luna** — Moonfox Oracle | Hero · SSR | Mystic | Mystic | – | Land | Gacha | Three piercing moon beams. Ult *Moonfall*: slows every enemy 50 % and speeds every girl +30 %. | Armored & scaled columns on long straights | Warded fae/oni (mystic ×0.5), lone fast targets |
+| **Nami** — Tide Admiral | Hero · SR | Tideguard | Mystic | Frost | **Land + water** | Free after 1-5 | Frost strikes from the water that splash and slow. Ult *Tidal Wave*: 70 damage, pushes the wave back 5 tiles. | Runners near lakes, leaks, crowd pushback | Maps with no water, warded foes |
+| **Aoi** — Wind Ranger | Tower · R | Marksman | Pierce | – | Land | Starter | Cheap, fast arrows. Paths: pierce/armor, multi-shot + Veil Sight, elite marking. | Ordinary enemies, runners, **crystal shells**, flyers, scaled | Heavy plate (pierce ×0.75, small hits vs armor) |
+| **Rei** — Sakura Samurai | Tower · R | Cleaver | Slash | – | Land | Starter | Melee sweep hitting 3+ enemies; Duelist Stance (T4) turns her into a ramping single-target fighter. | Light swarms at corners, splitters, decoys | Plate (slash ×0.6), spirits, **cannot hit flyers** |
+| **Yuki** — Frost Mage | Tower · R | Controller | Mystic | Frost | Land | Free after 1-2 | Splashing snowballs that slow 30 %; paths add freezes, Brittle (+damage taken) or long-lasting slows. | Hasty goblins, blinkers, pack-fury wolves, leaks | Bosses (resist freezes), warded foes; low damage |
+| **Momo** — Starlight Idol | Tower · R | Economy | Pierce | – | Land | Gacha | +30 coins every wave; paths add big income, interest + upgrade discounts, or a real coin-toss attack. | Funding a stronger late game | Early pressure — she barely defends |
+| **Akane** — Flame Witch | Tower · SR | Bombardment | Blast | Fire | Land | Gacha | Fireballs with 1-tile explosions and burns. | Dense swarms, broods, splitters, guarded formations | Fire-warded lizards/dragons, spirits, flyers (until T4/T5) |
+| **Sango** — Coral Corsair | Tower · SR | Artillery | Blast | Water | **Land + water** | Free after 1-5 | Long-range shells (4.2 tiles) that soak, hit barriers ×1.25 and (path 1) **shred armor for everyone**. | Armored formations, barriers, guardians | Scattered runners, spirits (blast ×0.5), flyers (until flak T4) |
+| **Kage** — Shadow Ninja | Tower · SR | Skirmisher | Pierce | – | Land | Free after 2-5 | Two shuriken at a time, very fast, **innate Veil Sight**; paths reveal/mark for the team or pierce armor. | Veiled, fast or scattered enemies, crystal, decoys | Heavy armor (tiny hits) |
+| **Umeko** — Pearl Warden | Tower · SR | Support | Mystic | Water | **Land + water** | Free after 3-2 | **Veil Sight aura** for every girl within 2.6 tiles; weak soaking pulse. Paths: team reveal, buffs, water control. | Veiled waves (makes the whole team see) | Can't defend alone; needs water near the action |
+| **Shiro** — Moon Sniper | Tower · SR | Sniper | Pierce | – | Land | Free after 3-5 | Map-wide (10 tiles) hitscan rifle that **ignores 3 armor**, ×1.25 vs elites. | Casters, siphoners, field oni, elites, bosses, armor | Swarms (one target per shot), slow fire rate |
+| **Midori** — Potion Alchemist | Tower · SR | Alchemist | Mystic | Poison | Land | Free after 4-5 | Splashing flasks of poison that ignore armor and **stop regen & siphon healing**; paths add acid shred or mist. | Regenerators, siphoning ghouls, high-HP tanks | Burst-needed moments, flyers (until Field Kit 3) |
+| **Suzu** — Bell Trapper | Tower · SR | Trapper | Blast | – | Land | Free after 5-5 | Places up to 4 rune traps on the path in range; paths: big mines, binding roots, holy reveal/silence seals. | Leakers near the exit, **sappers**, hasty runners | Flyers (traps are on the ground), needs set-up time |
+| **Raika** — Storm Caller | Tower · SR | Chain | Mystic | Lightning | Land | Gacha | Lightning that jumps to 3 extra enemies with shock; paths: more jumps, a piercing lance, or tempo + silence. | Spread-out groups, decoys, soaked enemies | Lone targets, warded foes |
+| **Miko** — Shrine Keeper | Tower · SR | Enchanter | Holy | – | Land | Gacha | **+10 % damage aura**; paths: stronger aura, silencing talismans/holy beam, Veil Sight + cleanse aura. | Making a cluster of girls stronger | Defending alone |
+| **Hotaru** — Lantern Keeper | Tower · SSR | Exorcist | Holy | – | Land | Gacha | Holy pulses (8 targets) that **reveal veils and silence** fields, siphons, blinks and phasing. | Ghosts, wraiths, veils, oni field casters | Scaled lizards (holy ×0.75); specialist, not a carry |
+| **Kaede** — Crimson Fencer | Tower · SSR | Duelist | Slash | – | Land | Gacha | Rapier duel: +10 % damage per consecutive hit on one target (up to +80 % base). | One tough enemy: elites, minibosses, bosses | Swarms, plate (slash ×0.6), flyers (until Flowing Blade 3) |
+| **Chika** — Clockwork Mechanic | Tower · SSR | Engineer | Pierce | Lightning | Land | Gacha | A weak wrench bolt plus a wing of **roaming drones** (2 at base) that fly out up to 4 tiles to hunt; flight modes Hover · Hold · Patrol · Pursuit (map-wide); paths: drone army, **cleanse + Veil Sight aura**, or a Tesla coil (her bolt becomes the coil; drones keep flying). | Sabotage waves, bosses walking a long lane (Pursuit), lanes out of reach (Hold) | Sappers jam drones far from the team; her own bolt is weak |
 
 ## Upgrade paths at a glance
 
 Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 000–16 000 coins).
+The old Codex upgrade names are kept for a later Fantasy kit (`src/data/legacy.js`, shown as the "Codex kit" line);
+Momo's paths carry idol names, and her tier names change after the balance merge.
 
 | Girl | Path 1 → T5 | Path 2 → T5 | Path 3 → T5 |
 |---|---|---|---|
@@ -53,7 +55,7 @@ Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 0
 | Aoi | Piercing Arrows → *Skyline Breaker* (armor pen, pierce 17) | Rapid Volley → *Thousand Feathers* (6 targets, Veil Sight) | Sky Hunter → *Apex Huntress* (mark, elite/boss hunter) |
 | Rei | Whirlwind → *Thousand Petal Storm* (hit everything) | Duelist Stance → *Final Crescent* (becomes `duel`) | Counter Form → *Kenshi's Answer* (silence, stun, shred) |
 | Yuki | Deep Freeze → *Eternal Winter* (becomes a blizzard `pulse`) | Frostbite → *Diamond Dust* (Brittle +35 %) | Permafrost → *Frozen Time* (long slows, silence) |
-| Momo | Peach Orchard → *Golden Peach Bank* (+1 390/wave total) | Savings Pact → *Golden Ledger* (interest, 25 % discount aura) | Coin Toss → *Fortune's Favourite* (coin storm) |
+| Momo | Fan Club → *Golden Peach Bank* (+1 390/wave total) | Merch Table → *Golden Ledger* (interest, 25 % discount aura) | Encore Toss → *Fortune's Favourite* (coin storm) |
 | Akane | Big Bang → *Hanabi Sky Festival* (5 shells, anti-air) | Wildfire → *Inferno Queen* (25/s burns) | Rocket Science → *Skybreaker Missile* (armor/boss/barrier) |
 | Sango | Armor-Breaker Shells → *Fortress Fall* (shred −5, Brittle) | Wide Fragmentation → *Carpet Bombardment* (flak, 4 shells) | Concentrated Siege → *Leviathan Cannon* (boss shells, knockback) |
 | Kage | Storm of Steel → *Thousand Shadows* (13 targets) | Shadow Mark → *Night Sovereign* (team reveal + mark) | Kunai Craft → *Black Lotus* (armor pen, stun) |
@@ -73,25 +75,29 @@ Every girl differs in hair colour and in her hairstyle + accessory combination (
 
 | Girl | Hair | Hairstyle · bangs | Accessory | Outfit | Weapon | Halo | Eyes · expression |
 |---|---|---|---|---|---|---|---|
-| Hikari | sunlit gold | long · swept | golden circlet (crown) | white-gold knight's greatcoat over half-plate | longsword | crown | sharp · smile |
-| Luna | lavender silver | hime · hime | wide star-stitched witch hat | flowing midnight gown-robe with constellations | floating grimoire | moon | sleepy (half-lidded) · smug |
-| Nami | teal | wavy · split | sea-blossom | fitted navy greatcoat, gold epaulettes | gilded trident | wave | sharp · calm |
-| Aoi | sky blue | ponytail · swept | feather hairpin | sailor uniform, pink scarf | bow | ring | round · cheerful |
-| Rei | ink navy | short · messy | red hachimaki | blazer, rolled sleeves | oversized nodachi (katana) | star | sharp · determined |
-| Yuki | icy pale blue | bob · straight | fluffy hood | hooded winter dress | snow staff | snow | sleepy · shy |
-| Momo | peach pink | buns · straight | bunny-ear headband | frilly shop apron | coin purse | star | sparkle · cheerful |
-| Akane | scarlet | twintails · swept | little ember horns | orange demolition jumpsuit | steel war-fan | flame | sharp · smug |
-| Sango | coral | side ponytail · swept | diving goggles | navy-trimmed sailor uniform | shoulder cannon | wave | round · determined |
-| Kage | charcoal violet | short · messy | cat-ear hood | oversized dark hoodie | shuriken | moon | sharp · smug |
-| Umeko | plum | side ponytail · hime | plum blossoms | pale-blue summer dress | lantern parasol | petal | sleepy · smile |
-| Shiro | silver white | long · straight | navy beret | military-cut blazer | long rifle | eye (scope) | sleepy · calm |
-| Midori | mint green | braids · split | brass lab goggles | stained alchemist apron | flask | leaf | round · smug |
-| Suzu | fox orange | twintails · straight | fox ears with bells | red-and-white kimono | bell | ring | sparkle · cheerful |
-| Raika | electric yellow | buns · messy | bolt hairpin | dark hoodie, glowing trim | lightning-rod staff | bolt | sparkle · cheerful |
-| Miko | black | hime · hime | big red-and-white ribbon | miko robes | gohei | petal | closed · calm |
-| Hotaru | midnight blue, glowing tips | wavy · split | sheer veil-hood | white ceremonial robe | firefly lantern | ring | round · calm |
-| Kaede | burgundy | high ponytail · split | maple-orange ribbon | long black duelist's coat | rapier | leaf (maple) | sharp · determined |
-| Chika | chestnut | bob · messy | workshop goggles | sunflower-yellow jumpsuit | giant wrench | gear | sparkle · smile |
+| Hikari | sakura pink | long · swept | golden circlet (crown) | white-and-gold knight's coat over navy, teal bow | star-guard sword | crown | sharp · smile |
+| Luna | lavender | hime · hime | tall fox ears (+ a fluffy fox tail on the stand-in) | midnight-navy gown, lavender skirt | crescent moon staff | moon | sleepy · smile |
+| Nami | teal waves | wavy · split | white captain's cap with gold badge | navy-and-gold admiral's coat | gilded trident | wave | sharp · cheerful |
+| Aoi | forest green | ponytail · swept | leaf hairpin | green ranger tunic under a hooded cape | wooden longbow | leaf | round · cheerful |
+| Rei | navy black | bob · straight | small dark bow, gold star pin | indigo uniform jacket, lilac ribbon | katana with a pink silk bow | petal | sharp · calm |
+| Yuki | silver white | bob · straight | snowflake hairpin | white fur capelet over a pale-blue dress | ice-crystal staff | snow | round · shy |
+| Momo | pink | twintails · straight | magenta bows | frilly magenta-and-white idol dress | sparkly microphone | star | sparkle · cheerful |
+| Akane | orange red | long · swept | huge plum witch's hat | red-and-plum dress, gold bow | crystal staff | flame | sharp · smug |
+| Sango | coral pink | side braid · swept | navy beret with shell badge | white-and-pink sailor coat | brass telescope-cannon | wave | round · determined |
+| Kage | purple | bob · messy | dark headband (crescent plate in her portrait) | purple short-kimono jacket, long scarf | shuriken | moon | sharp · smug |
+| Umeko | white → seafoam | long · hime | gold shell hairpin | white-and-teal shrine robe | pearl shell-fan staff | wave | sleepy · smile |
+| Shiro | silver white | short · straight | navy beret | navy-and-slate uniform, gold buttons | dark scoped rifle | eye (scope) | sleepy · calm |
+| Midori | mint green | bob · split | round gold goggles | green dress under a cream apron | star-stopper potion | leaf | round · cheerful |
+| Suzu | golden blonde | side curl · straight | teal ribbons | white-and-teal kimono, golden bells | bell | ring | sparkle · cheerful |
+| Raika | golden | long · messy | curled ram horns | periwinkle-and-indigo dress | gold star staff | bolt | sparkle · cheerful |
+| Miko | black | hime · hime | big red bow | white haori, red hakama | gohei | petal | closed · calm |
+| Hotaru | honey orange | bob · swept | teal beret with gold star | teal haori over a cream dress | paper lantern | ring | round · calm |
+| Kaede | crimson | side · split | maple-leaf ornament | red-and-gold fencing coat | gold-guard rapier | leaf (maple) | sharp · determined |
+| Chika | orange | short · messy | teal goggles | mustard shirt, navy overalls | giant wrench | gear | sparkle · smile |
+
+These are the old Codex designs (the drawn portraits show them too). The 3D stand-ins approximate them with the
+Blender library until real chibis exist; the earlier V2 looks live on as Sentinel Style outfits (15 girls) and as
+the four Coming Soon units.
 
 ## Coverage — every enemy mechanic and its counters
 
