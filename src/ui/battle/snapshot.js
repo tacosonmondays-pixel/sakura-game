@@ -167,9 +167,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the rhythm's specs follow her stats and buffs (refreshEffective)
   potCount: 'snap', tempoStacks: 'snap', tempoIdle: 'snap', projCarry: 'snap', rampKeep: 'snap', auraBoostLeft: 'snap', potOc: 'snap',
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
-  // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, and Big
-  // Beat's trap / drone counts — only on a girl whose gear uses them
-  pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap',
+  // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
+  // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
+  pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
 });
 
 /**
@@ -321,7 +321,8 @@ function unpackPotential(t, o) {
 }
 
 /** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
-const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN'];
+// index-coded in the save (`gr`): append only, never reorder
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
 function packGear(t, o) {
   const gr = [];
   GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });

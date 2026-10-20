@@ -17,7 +17,7 @@ import { segDistSq, projectOnSegment, samplePath } from './path.js';
 import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
-import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax } from './gearRules.js';
+import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -431,6 +431,9 @@ let procBase = null;
 // Module state like `echoing`: set and cleared inside one synchronous attack. An echo takes neither.
 let gearK = 0;
 let gearTrick = null;
+// Whether this attack is a Follow-Through (Archery's 5th): a blast takes the trick's +100 % Pierce as a
+// wider radius (blastRadius), the way her shots take it as gearK.
+let gearFt = false;
 /** Fan offset (rad) of an echo's projectiles, alternating sides. */
 const ECHO_FAN = 0.18;
 
@@ -438,6 +441,11 @@ const ECHO_FAN = 0.18;
 function gearSpec(spec) {
   if (!gearTrick || echoing) return spec;
   return { ...spec, damage: spec.damage * gearTrick.mul, ...(gearTrick.pen ? { armorPen: (spec.armorPen || 0) + gearTrick.pen } : null) };
+}
+
+/** Her blast radius this attack: a Follow-Through widens it (none on an echo), else her usual splash. */
+function blastRadius(t, splash) {
+  return gearFt && !echoing ? splash * followThroughBlast(t.unitStats) : splash;
 }
 
 /** Extra targets from gear Pierce for one shot / beam / chain of this attack (none on an echo). */
@@ -452,6 +460,7 @@ function shotPierce(t) {
 function beginGear(t) {
   gearTrick = null;
   gearK = 0;
+  gearFt = false;
   // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce
   if (t.eff.behavior === 'trap') return 0;
   const club = trickClub(t.unitStats);
@@ -464,6 +473,7 @@ function beginGear(t) {
     else if (club === TRICK.bigBeat.club && n % TRICK.bigBeat.every === 0) gearTrick = { mul: TRICK.bigBeat.mul, pen: 0, kind: 'bigBeat' };
   }
   gearK = t.eff.behavior === 'duel' ? 0 : pierceK(t, ft);
+  gearFt = ft && t.eff.behavior !== 'duel';
   return n;
 }
 
@@ -476,6 +486,7 @@ function endGear(sim, t, n, ok) {
   }
   gearK = 0;
   gearTrick = null;
+  gearFt = false;
 }
 
 function face(t, e) {
@@ -595,7 +606,7 @@ function attackProjectile(sim, t) {
     if (spec.projectileSpeed <= 0) {
       if (tgt.dead) continue;
       const pierce = spec.splash > 0 ? spec.pierce : spec.pierce + shotPierce(t);
-      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, spec.splash);
+      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, blastRadius(t, spec.splash));
       else if (pierce > 1) {
         const { hits } = linePierce(sim, t, spec, tgt, spec.range + 1, LINE_HALF_WIDTH, pierce);
         for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
@@ -604,7 +615,9 @@ function attackProjectile(sim, t) {
       let spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
       if (echoing) spread += i % 2 ? -ECHO_FAN : ECHO_FAN;
       const extra = spec.splash > 0 ? 0 : shotPierce(t);
-      spawnProjectile(sim, t, spec, tgt, t.x, t.y, extra ? { spread, pierce: spec.pierce + extra } : { spread });
+      const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
+      const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
+      spawnProjectile(sim, t, spec, tgt, t.x, t.y, opts);
     }
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: t.projKind });
@@ -1579,7 +1592,16 @@ export function updateTraps(sim, dt) {
         sim._emit('clubTrick', { towerUid: owner.uid, kind: 'bigBeat' });
       }
     }
-    explode(sim, owner, boom, tr.x, tr.y, Math.max(boom.splash, boom.triggerRadius));
+    // Archery's Follow-Through on traps: every 5th of her traps that goes off blasts as with +100 % Pierce
+    let splash = boom.splash;
+    if (trickClub(owner.unitStats) === TRICK.followThrough.club) {
+      owner.trapFtN = ((owner.trapFtN || 0) + 1) % TRICK.followThrough.every;
+      if (owner.trapFtN === 0) {
+        splash *= followThroughBlast(owner.unitStats);
+        sim._emit('clubTrick', { towerUid: owner.uid, kind: 'followThrough' });
+      }
+    }
+    explode(sim, owner, boom, tr.x, tr.y, Math.max(splash, boom.triggerRadius));
   }
   if (removedAny) {
     let n = 0;

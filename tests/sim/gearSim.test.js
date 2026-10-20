@@ -10,6 +10,7 @@ import { UNIT_MAP } from '../../src/data/units.js';
 import { CLUB_IDS } from '../../src/data/clubs.js';
 import {
   SIM_CLUB_IDS, pierceCarry, pierceK, abilityHaste, abilityChargePerTick, firstBellCharge, trickClub, NOT_HASTED_KINDS, POP_BUDGET_MAX,
+  followThroughBlast,
 } from '../../src/sim/gearRules.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
 
@@ -105,7 +106,7 @@ describe('club tricks in a battle', () => {
       return null;
     })();
     const t = sim.placeTower(unitId, spot[0], spot[1]);
-    const ev = { attack: 0, tricks: {} };
+    const ev = { attack: 0, tricks: {}, explode: [], traps: 0 };
     for (let w = 0; w < 4 && steps > 0; w++) {
       sim.startNextWave();
       for (; steps > 0 && sim.state === 'wave'; steps--) {
@@ -113,6 +114,8 @@ describe('club tricks in a battle', () => {
         for (const e of sim.drainEvents()) {
           if (e.type === 'attack' && e.towerUid === t.uid && !e.turretUid) ev.attack++;
           if (e.type === 'clubTrick') ev.tricks[e.kind] = (ev.tricks[e.kind] || 0) + 1;
+          if (e.type === 'explode') ev.explode.push(e.radius);
+          if (e.type === 'trapTriggered') ev.traps++;
         }
       }
     }
@@ -132,6 +135,40 @@ describe('club tricks in a battle', () => {
     expect(f.tricks.thrust ?? 0).toBe(Math.floor(f.attack / 25));
     const a = run('aoi', { club: 'archery', clubN: 3 }).ev;
     expect(a.tricks.followThrough).toBe(Math.floor(a.attack / 5));
+  });
+
+  test('Follow-Through widens a blast kit\'s 5th blast and a trap girl\'s 5th trap: ×(1 + 0.2 × (Pierce + 1)) over ×(1 + 0.2 × Pierce)', () => {
+    expect(followThroughBlast({})).toBeCloseTo(1.2, 12);
+    expect(followThroughBlast({ pierceK: 150 })).toBeCloseTo(1.5 / 1.3, 12);
+    expect(followThroughBlast({ pierceK: 999 })).toBeCloseTo(1.5 / 1.3, 12);
+    const radii = (ev, r) => {
+      const wide = ev.explode.filter((x) => Math.abs(x - r.wide) < 1e-9).length;
+      const plain = ev.explode.filter((x) => Math.abs(x - r.plain) < 1e-9).length;
+      expect(wide + plain, 'every blast is her plain or her Follow-Through radius').toBe(ev.explode.length);
+      return wide;
+    };
+    // Akane (a travelling shell) and Yuki (a blast kit) shoot: every 5th attack's blast is the wide one
+    for (const [id, pk] of [['akane', 0], ['akane', 150], ['yuki', 46]]) {
+      const { t, ev } = run(id, { club: 'archery', clubN: 3, pierceK: pk });
+      const plain = t.eff.splash;
+      const wide = radii(ev, { plain, wide: plain * followThroughBlast({ pierceK: pk }) });
+      expect(ev.tricks.followThrough, id).toBe(Math.floor(ev.attack / 5));
+      expect(wide, `${id} +${pk}`).toBeGreaterThan(0);
+      expect(wide, `${id} +${pk}`).toBeLessThanOrEqual(ev.tricks.followThrough * t.eff.projectiles);
+      // 2 pieces: no trick, no wide blast
+      const two = run(id, { club: 'archery', clubN: 2, pierceK: pk });
+      expect(two.ev.tricks.followThrough).toBeUndefined();
+      expect(two.ev.explode.every((x) => Math.abs(x - plain) < 1e-9)).toBe(true);
+    }
+    // Suzu: her traps count, every 5th that goes off blasts wider (her placements do not count)
+    const s = run('suzu', { club: 'archery', clubN: 3 });
+    const plain = Math.max(s.t.trapSpec.splash, s.t.trapSpec.triggerRadius);
+    const wide = radii(s.ev, { plain, wide: Math.max(s.t.trapSpec.splash * followThroughBlast({}), s.t.trapSpec.triggerRadius) });
+    expect(s.ev.traps).toBeGreaterThan(9);
+    expect(s.ev.tricks.followThrough).toBe(Math.floor(s.ev.traps / 5));
+    expect(wide).toBe(s.ev.tricks.followThrough);
+    expect(s.t.trapFtN).toBe(s.ev.traps % 5);
+    expect(run('suzu', { club: 'archery', clubN: 2 }).ev.tricks.followThrough).toBeUndefined();
   });
 
   test('Finale Pop spends the shared budget and never runs it below zero', () => {

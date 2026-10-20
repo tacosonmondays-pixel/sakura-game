@@ -485,7 +485,7 @@ Miko).
 
 | Trick | Code site | State (battle save, `src/ui/battle/snapshot.js:72`, `:98`) | Random draws |
 |---|---|---|---|
-| Follow-Through | each `attack*` after the "no target" return (`towers.js:379+`, `:404`, `:450`, `:467`), like P3's `potCount`: `t.ftN++`; at 5 the attack carries the +100 of §A.3 and `ftN = 0`. Echo throws, doubles' volleys, drones and pops do not advance it. | `ftN` (tower, snap) | none |
+| Follow-Through | each `attack*` after the "no target" return (`towers.js:379+`, `:404`, `:450`, `:467`), like P3's `potCount`: `t.ftN++`; at 5 the attack carries the +100 of §A.3 and `ftN = 0`. Echo throws, doubles' volleys, drones and pops do not advance it. A blast kit's 5th attack blasts at ×(1 + 0.2 × (Pierce + 1)) instead of ×(1 + 0.2 × Pierce) (`followThroughBlast`); a trap girl counts the traps that go off (`trapFtN`, like Big Beat's `trapBeatN`) and every 5th blasts that wide. | `trickN`, `trapFtN` (tower, snap) | none |
 | Finishing Thrust | same sites: `t.thrustN++`; at 25 that attack's hits carry `hit.thrust = true` → `computeHit` (`src/sim/combat.js:73`) doubles `scale` and skips armor; `thrustN = 0` | `thrustN` (tower, snap) | none |
 | Big Beat | same sites (traps: in the lay; drones: per drone shot on the owner tower): `t.beatN++`; at 10 the attack's damage ×1.5; `beatN = 0` | `beatN` (tower, snap) | none |
 | Finale Pop | `_killEnemy(e, tower)` (`src/sim/Sim.js:406`): `explode(sim, tower, popSpec, e.x, e.y, 0.9)` (`towers.js:305`) with damage 0.25 × her current hit and `noPop: true`. **One budget for the whole sim**: `sim.popBudget` +1 every 2 steps, at most 6 banked, so at most 30 pops a sim second however many girls wear Pyrotechnics. | `popBudget` (sim, snap) | none |

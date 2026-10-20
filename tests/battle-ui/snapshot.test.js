@@ -845,7 +845,7 @@ describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)'
       expect(dropped).toEqual([]);
       for (const t of sim.towers) {
         const b = back.towers.find((x) => x.uid === t.uid);
-        for (const k of ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN']) expect(b[k], `${t.unitId}.${k}`).toBe(t[k]);
+        for (const k of ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN']) expect(b[k], `${t.unitId}.${k}`).toBe(t[k]);
       }
       expect(back.popBudget).toBe(sim.popBudget);
     });
@@ -855,6 +855,34 @@ describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)'
     const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
     const { sim: back } = restoreSim(recordOf(GEAR, snap), { settings: { autoStart: false } });
     wrapWaves(back, GEAR.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('an Archery trap girl\'s Follow-Through count (trapFtN) comes back, and the split run plays on the same', () => {
+    const c = { ...GEAR, towers: ['suzu', 'aoi'], hero: null, per: { suzu: { pierceK: 30, club: 'archery', clubN: 3 }, aoi: GEAR.per.aoi } };
+    const sim = makeSim(c);
+    sim.cash = 5e6;
+    const at = nearPath(sim, c.towers);
+    const placed = {};
+    for (const u of c.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
+    for (const id of c.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+    sim.cash = 4000;
+    wrapWaves(sim, c.seed);
+    let seen = 0;
+    potWaves(sim, 3, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      const t = sim.towers.find((x) => x.unitId === 'suzu');
+      if (t.trapFtN != null) seen++;
+      expect(back.towers.find((x) => x.uid === t.uid).trapFtN).toBe(t.trapFtN);
+    });
+    expect(seen).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+    wrapWaves(back, c.seed);
     potWaves(sim, 2, () => {});
     potWaves(back, 2, () => {});
     expect(hashSim(back)).toBe(hashSim(sim));

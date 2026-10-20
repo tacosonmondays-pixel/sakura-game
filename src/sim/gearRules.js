@@ -57,6 +57,17 @@ export function pierceK(t, followThrough = false) {
 /** Most extra targets her shots get. */
 export const pierceMax = (t) => (PIERCE_HALF[t.unitId] ? 1 : PIERCE_MAX_EXTRA);
 
+/**
+ * Follow-Through on a blast or a trap (§A.3, §C.2): her radius on that attack over her usual one. Her blast
+ * is already × (1 + 0.2 × Pierce) (mods.js applyGearReach); the trick's +100 % sits after the cap, so the
+ * attack blasts at × (1 + 0.2 × (Pierce + 1)): (100 + 0.2 × (k + 100)) / (100 + 0.2 × k), k her capped
+ * `pierceK`. 1.2 with no gear Pierce, about 1.15 at the cap. One division, no engine maths.
+ */
+export function followThroughBlast(unitStats) {
+  const k = Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(unitStats?.pierceK || 0)));
+  return (100 + BLAST_PER_PIERCE * (k + TRICK.followThrough.pierceK)) / (100 + BLAST_PER_PIERCE * k);
+}
+
 // ---------------------------------------------------------------------------
 // Skill Haste on tower abilities (§B.4; the ⚡ abilities themselves are built by the abilities track)
 // ---------------------------------------------------------------------------
