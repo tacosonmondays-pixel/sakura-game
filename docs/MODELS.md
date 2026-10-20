@@ -88,6 +88,27 @@ Look-dev for girls who are not in `UNITS` yet: write their palette/look to a JSO
 folder (`--units new.json --out /tmp/glb`), copy the files under `public/models/characters/_lookdev/` (never
 commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/kanna,_lookdev/fuu&dist=3.6`.
 
+## Stand-ins for the returning girls
+
+The nine returning girls of the roster wave (`kanna yoriko seiran fuu hana ruri noa iroha ena`,
+`src/data/unitsExpansion.js`) have **no GLB yet**: until the owner approves their real art they are drawn by
+the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
+view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
+`isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
+
+* `preloadModels` drops stand-in ids and `loadCharacter` / `preloadCharacters` resolve `null` for them
+  without a request, so there are no `.glb` 404s; `buildChibi` returns the procedural figure with
+  `userData.standIn = true` and no GLB upgrade hook.
+* Every look value they use has a real procedural piece (horns, cat ears, hairpin, flower; coat, hoodie,
+  blazer, sailor; mallet, puppet, spear, fan, bow, tome, shield, mirror, cards).
+* Tests: `tests/models/standins.test.js` (exactly these nine, procedural at every quality, their weapon and
+  accessory are dedicated pieces, nothing fetched in a stubbed browser); `tests/models/glb.test.js` checks
+  the other 19 girls' GLBs as before (with a count guard) and requires the stand-ins to have **no**
+  manifest entry or file; `tests/data/skins.test.js` accepts a stand-in default row without a manifest model.
+* Real art landing: build / import her GLB (manifest entry + `<id>.glb` + `<id>.lod.glb`), remove her id from
+  `STANDIN_UNITS` and from the test's list, and bump the GLB count in `glb.test.js`. The glb test fails while a
+  stand-in id has a manifest entry, so the list cannot go stale.
+
 ## Adding a character
 
 1. Add the unit to `src/data/units.js` with `palette` + `look` (any combination of the existing

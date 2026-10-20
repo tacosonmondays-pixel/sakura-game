@@ -3,7 +3,8 @@
 //
 // A skin changes only the girl's 3D chibi (battle, student showcase, lobby secretary): her drawn
 // portraits always show her main design. Every unit has a generated default row
-// ('<unitId>_default', asset '<unitId>', the model public/models/characters/<unitId>.glb).
+// ('<unitId>_default', asset '<unitId>', the model public/models/characters/<unitId>.glb; the
+// returning girls in src/models/standins.js have no GLB yet and are drawn procedurally).
 // "Sentinel Style" rows keep the V2 looks the 15 girls wore before the roster merge: their GLBs
 // are byte copies of those models (sentinel-<unitId>.glb) and their palette/look below are frozen
 // from commit 05adb2a so the procedural placeholder (before the GLB arrives, node tests) and the

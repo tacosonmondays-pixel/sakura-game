@@ -35,7 +35,18 @@ const ROSTER = [
   ['hotaru', 'tower', 'SSR', 'exorcist', 'holy', null, 'land', 'charm', 'gacha'],
   ['kaede', 'tower', 'SSR', 'duelist', 'slash', null, 'land', 'blade', 'gacha'],
   ['chika', 'tower', 'SSR', 'engineer', 'pierce', 'lightning', 'land', 'cog', 'gacha'],
+  // the returning girls (roster wave, src/data/unitsExpansion.js)
+  ['kanna', 'hero', 'SSR', 'champion', 'slash', null, 'land', 'blade', 'gacha'],
+  ['yoriko', 'hero', 'SSR', 'puppeteer', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['seiran', 'hero', 'SSR', 'stormrider', 'mystic', 'lightning', 'amphibious', 'feather', 'gacha'],
+  ['fuu', 'tower', 'R', 'displacement', 'mystic', null, 'land', 'rime', 'gacha'],
+  ['hana', 'tower', 'R', 'falconer', 'pierce', null, 'land', 'feather', '7-5'],
+  ['ruri', 'tower', 'SR', 'summoner', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['noa', 'tower', 'SR', 'purifier', 'holy', null, 'land', 'charm', '6-2'],
+  ['iroha', 'tower', 'SSR', 'mirror', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['ena', 'tower', 'SSR', 'hexer', 'mystic', null, 'land', 'rune', 'gacha'],
 ];
+const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
 const UNIT_KEYS = [
   'id', 'name', 'title', 'kind', 'rarity', 'adult', 'role', 'attackType', 'element', 'placement',
@@ -54,12 +65,13 @@ const LOOK_ENUMS = {
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'none'];
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'none'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
 ];
-const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback'];
+// roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
+const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -92,6 +104,10 @@ const STATUS_FIELDS = {
   shred: ['amount', 'duration'],
   mark: ['bonus', 'duration'],
   vulnerable: ['bonus', 'duration'],
+  // roster B3
+  ground: ['duration'],
+  curse: ['burstMul', 'radius', 'duration'],
+  hex: ['pct', 'duration'],
 };
 
 /** Returns a list of problems with a StatusSpec array. */
@@ -156,6 +172,10 @@ function modSetErrors(mods, where) {
     brew: (k, v, w) => objErrors(v, LIMITED_KEYS.filter((x) => x !== 'overclock'), w, numCheck),
     link: (k, v, w) => objErrors(v, LIMITED_KEYS, w, (kk, vv, ww) => (kk === 'overclock' ? objErrors(vv, ['every', 'time', 'rateMul'], ww, numCheck) : numCheck(kk, vv, ww))),
     hpPct: (k, v, w) => objErrors(v, ['pct', 'boss', 'cap'], w, numCheck),
+    // roster B3
+    airMul: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
+    gather: numCheck,
+    relay: (k, v, w) => objErrors(v, ['reach'], w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -197,6 +217,15 @@ function baseErrors(b, where) {
   }
   if (b.ramp) errs.push(...objErrors(b.ramp, ['per', 'max'], `${where}.ramp`, numCheck));
   if (b.mark) errs.push(...objErrors(b.mark, ['bonus', 'duration'], `${where}.mark`, numCheck));
+  if ('airMul' in b && !isPos(b.airMul)) errs.push(`${where}: airMul must be > 0`);
+  if ('gather' in b && !(isNum(b.gather) && b.gather >= 0)) errs.push(`${where}: gather must be >= 0`);
+  if (b.relay) {
+    errs.push(...objErrors(b.relay, ['kind', 'reach', 'both'], `${where}.relay`, (k, v, w) => {
+      if (k === 'kind') return ['familiar', 'mirror'].includes(v) ? [] : [`${w} must be familiar or mirror`];
+      if (k === 'both') return v === true ? [] : [`${w} must be true`];
+      return isPos(v) ? [] : [`${w} must be > 0`];
+    }));
+  }
   return errs;
 }
 
@@ -225,6 +254,7 @@ function derivedCaps(m, acc = new Set()) {
     if (s.type === 'poison') acc.add('antiHeal');
     if (s.type === 'silence') acc.add('silence');
     if (s.type === 'reveal') acc.add('reveal');
+    if (s.type === 'ground') acc.add('grounding');
   }
   return acc;
 }
@@ -237,10 +267,10 @@ const allTiers = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ ...
 // ---------------------------------------------------------------------------
 
 describe('roster matches the contract table', () => {
-  it('has exactly the 19 contract ids in order', () => {
+  it('has exactly the 28 contract ids in order (19 + the nine returning girls)', () => {
     expect(UNITS.map((u) => u.id)).toEqual(ROSTER.map((r) => r[0]));
     expect(UNIT_IDS).toEqual(ROSTER.map((r) => r[0]));
-    expect(new Set(UNIT_IDS).size).toBe(19);
+    expect(new Set(UNIT_IDS).size).toBe(28);
   });
 
   it.each(ROSTER)('%s matches kind/rarity/role/type/element/placement/family/acquisition', (id, kind, rarity, role, attackType, element, placement, family, acq) => {
@@ -385,6 +415,7 @@ describe('upgrade paths', () => {
           if (t.mods.trap) expect(!!u.base.trap, `${where} trap mods need a trap unit`).toBe(true);
           if (t.mods.turret) expect(!!u.base.turret, `${where} turret mods need a turret unit`).toBe(true);
           if (t.mods.income) expect(!!u.base.income, `${where} income mods need an income unit`).toBe(true);
+          if (t.mods.relay) expect(!!u.base.relay, `${where} relay mods need a familiar / mirror unit`).toBe(true);
         }
       }
     }
@@ -433,7 +464,7 @@ describe('design requirements', () => {
 
   it('melee girls cannot hit air at base', () => {
     for (const u of UNITS) {
-      const melee = ['pulse', 'duel'].includes(u.base.behavior) && ['cleaver', 'duelist', 'vanguard'].includes(u.role);
+      const melee = ['pulse', 'duel'].includes(u.base.behavior) && ['cleaver', 'duelist', 'vanguard', 'champion'].includes(u.role);
       if (melee) expect(u.base.canHitAir, u.id).toBe(false);
     }
     for (const id of ['rei', 'kaede', 'hikari']) {
@@ -488,9 +519,24 @@ describe('design requirements', () => {
     expect(first.level).toBeLessThanOrEqual(10);
   });
 
-  it('water units exist: two towers and a hero (amphibious again, as in the Codex)', () => {
+  it('water units exist: two towers and two heroes (amphibious again, as in the Codex)', () => {
     const water = UNITS.filter((u) => u.placement === 'water' || u.placement === 'amphibious');
-    expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'umeko']);
+    expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'seiran', 'umeko']);
+  });
+
+  // Owner, Oct 14 / Oct 20: new girls wear academy school uniforms with modern tech gear, never fantasy
+  // or traditional outfits; adult staff wear staff / officer coats. Live girls and skins keep theirs.
+  it('look guard: the returning girls use no fantasy or traditional looks', () => {
+    const BANNED = { outfit: ['miko', 'kimono', 'robe', 'armor', 'dress'], accessory: ['witchHat'] };
+    const SCHOOL = ['sailor', 'blazer', 'hoodie', 'coat', 'jumpsuit'];
+    for (const id of RETURNING) {
+      const u = getUnit(id);
+      for (const [k, banned] of Object.entries(BANNED)) expect(banned, `${id}.look.${k}`).not.toContain(u.look[k]);
+      expect(SCHOOL, `${id} wears a school / staff uniform`).toContain(u.look.outfit);
+      expect(u.bio, `${id} bio names her uniform`).toMatch(/uniform|blazer|jacket|coat|cardigan/i);
+      expect(u.bio, `${id} bio has no fantasy outfit words`).not.toMatch(/kimono|hanfu|robe|armou?red|witch|habit|miko/i);
+    }
+    for (const id of ['kanna', 'yoriko', 'seiran']) expect(getUnit(id).bio, `${id} is staff`).toMatch(/adult/);
   });
 
   it('respects the balance anchors', () => {
@@ -523,12 +569,15 @@ describe('design requirements', () => {
 });
 
 describe('hero definitions', () => {
-  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide' };
+  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide', kanna: 'strike', yoriko: 'tide', seiran: 'runner' };
   // Every old upgrade tier and level milestone, frozen: the 25-level track must carry each exactly once.
   const OLD_REFS = {
     hikari: ['radiant', 'sanctuary', 'lightbringer'],
     luna: ['lances', 'gravity', 'court'],
     nami: ['frostbrand', 'undertow', 'harbor'],
+    kanna: ['rhythm', 'oni', 'dance'],
+    yoriko: ['threads', 'theatre', 'nightmare'],
+    seiran: ['tempest', 'skyguard', 'rain'],
   };
   // Live (pre-rework) price of the cheapest path source of each capability (tiers 1..n summed);
   // 'T5' = only a tier 5 granted it (exempt from rule 5, it stays on its tier-5 level).
@@ -536,6 +585,10 @@ describe('hero definitions', () => {
     hikari: { armorPen: 1420, reveal: 4740, silence: 1540, buff: 140, cleanse: 4740, antiAir: 1400, stun: 'T5' },
     luna: { armorPen: 1600, slow: 140, stun: 4840, buff: 150, detection: 1670 },
     nami: { armorPen: 1380, stun: 460, buff: 120 },
+    // the returning heroes: their roster-spec paths (ROSTER_SPEC §5.2), never live as paths
+    kanna: { stun: 1470, armorPen: 140, barrierBreak: 1540, antiAir: 1400, reveal: 4300, slow: 'T5' },
+    yoriko: { stun: 1380, buff: 140, silence: 1440, armorPen: 1400 },
+    seiran: { stun: 1570, grounding: 1440, armorPen: 'T5', buff: 420, slow: 1420 },
   };
   const priceTo = (level) => HERO_LEVEL_PRICES.slice(0, level - 1).reduce((a, b) => a + b, 0);
 
@@ -595,6 +648,12 @@ describe('hero definitions', () => {
         expect(isPos(e.damage) && isNum(e.radius) && e.radius >= 0 && !!ATTACK_TYPES[e.attackType]).toBe(true);
       } else if (e.type === 'timeWarp') {
         expect(e.slow > 0 && e.slow < 1 && isPos(e.duration) && e.rateBuff > 1 && isPos(e.buffDuration)).toBe(true);
+      } else if (e.type === 'strike') {
+        expect(isPos(e.damage) && ['strongest', 'first'].includes(e.target) && (e.splash ?? 0) >= 0).toBe(true);
+        if (e.splash) expect(e.splashMul > 0 && e.splashMul <= 1).toBe(true);
+      } else if (e.type === 'runner') {
+        expect(isPos(e.damage) && isPos(e.length) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        expect(e.center === undefined || e.center === 'aim').toBe(true);
       } else {
         expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
       }
@@ -643,22 +702,22 @@ describe('helpers', () => {
   });
 
   it('towers() and heroes() split the roster', () => {
-    expect(towers()).toHaveLength(16);
-    expect(heroes().map((u) => u.id)).toEqual(['hikari', 'luna', 'nami']);
+    expect(towers()).toHaveLength(22);
+    expect(heroes().map((u) => u.id)).toEqual(['hikari', 'luna', 'nami', 'kanna', 'yoriko', 'seiran']);
   });
 
   it('unitsByRarity builds the gacha pools', () => {
-    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo']);
-    expect(unitsByRarity('SSR').map((u) => u.id)).toEqual(['hikari', 'luna', 'hotaru', 'kaede', 'chika']);
-    expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toEqual(['hotaru', 'kaede', 'chika']);
+    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana']);
+    expect(unitsByRarity('SSR').map((u) => u.id)).toEqual(['hikari', 'luna', 'hotaru', 'kaede', 'chika', 'kanna', 'yoriko', 'seiran', 'iroha', 'ena']);
+    expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toEqual(['hotaru', 'kaede', 'chika', 'iroha', 'ena']);
     const total = ['R', 'SR', 'SSR'].reduce((n, r) => n + unitsByRarity(r).length, 0);
-    expect(total).toBe(19);
+    expect(total).toBe(28);
   });
 
   it('freeUnlocksByStage maps stages to free recruits', () => {
     expect(freeUnlocksByStage()).toEqual({
       '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-5': ['kage'], '3-2': ['umeko'],
-      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'],
+      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '7-5': ['hana'],
     });
   });
 
@@ -671,7 +730,7 @@ describe('helpers', () => {
     // base owners first
     const firstPathOnly = det.findIndex((id) => !getUnit(id).capabilities.includes('detection'));
     expect(det.slice(firstPathOnly).every((id) => !getUnit(id).capabilities.includes('detection'))).toBe(true);
-    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori']);
+    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori', 'ena']);
   });
 
   it('tier cost helpers add up', () => {

@@ -16,6 +16,7 @@
 //   track (src/data/heroTracks.js). Their `paths` is empty and `hero.levels` holds all 25 levels.
 
 import { HERO_TRACKS } from './heroTracks.js';
+import { EXPANSION_UNITS } from './unitsExpansion.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -1307,6 +1308,8 @@ const CHIKA = {
 export const UNITS = [
   HIKARI, LUNA, NAMI,
   AOI, REI, YUKI, MOMO, AKANE, SANGO, KAGE, UMEKO, SHIRO, MIDORI, SUZU, RAIKA, MIKO, HOTARU, KAEDE, CHIKA,
+  // the returning girls (roster wave): src/data/unitsExpansion.js
+  ...EXPANSION_UNITS,
 ];
 
 /** id -> UnitDef */

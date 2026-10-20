@@ -147,6 +147,70 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('TIDELOCK', '+8% damage. Moonfall recharges a further 10%, its slow lasts 2 s longer, and it leaves every enemy Brittle +15% for 8 s.', 1.08, 'luna.tidelock'),
     t('ECLIPSE', '+9% attack speed. Moonfall\'s haste is 5 points stronger again (+50%), and girls within 3 tiles of her get +8% damage and attack speed at every level.', 1.09, 'luna.eclipse'),
   ),
+  // Roster wave (track 5): the nine returning girls (paper sizes until the B1 bench re-measures them)
+  fuu: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('PIERCE+1', '+4% attack speed. Every gust passes through 1 more enemy.', 1.06, 'rim'),
+    t('KICK 1/6', '+4% damage. Every 6th sweep is a Turbine Kick: 30% harder with 0.3 more splash.', 1.08, 'rim'),
+    t('CRIT+5%', '+4% attack speed; +5% crit chance.', 1.06, 'rim'),
+    t('FINALE', '+5% damage. Turbine Kick every 4th sweep, 50% harder, with a sure 0.3 s stun.', 1.12, 'rim'),
+  ),
+  hana: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('PEN+CRIT', '+4% attack speed. Her arrows ignore 1 more armor and crit 3% more often.', 1.06, 'rim'),
+    t('KAZE 1/8', '+4% damage. Every 8th arrow, Kaze dives with it: twice as hard.', 1.10, 'rim'),
+    t('CRIT+5%', '+4% attack speed; +5% crit chance.', 1.06, 'rim'),
+    t('FALCON', '+5% damage. Kaze dives every 6th arrow, 2.5× as hard.', 1.10, 'rim'),
+  ),
+  ruri: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('PIERCE+1', '+5% attack speed. Every bolt passes through 1 more enemy.', 1.08, 'rim'),
+    t('POUNCE', '+5% damage. Every 6th bolt Kon pounces with it: 60% harder with 0.3 splash.', 1.12, 'rim'),
+    t('PEN+1', '+6% attack speed. Her bolts ignore 1 more armor.', 1.08, 'rim'),
+    t('LIBRARY', '+7% damage. Kon pounces every 4th bolt, twice as hard.', 1.16, 'rim'),
+  ),
+  noa: row(
+    t('+3% AURA', 'Girls in her sanctuary attack 3% faster.', 1.03, 'rim'),
+    t('WIDE AURA', 'Aura +3% attack speed and 0.4 tiles wider.', 1.06, 'rim'),
+    t('CRIT AURA', 'Aura +3% attack speed; girls in it get +4% crit chance.', 1.05, 'rim'),
+    t('AURA PEN', 'Aura +3% attack speed; girls in it ignore 1 more armor.', 1.05, 'rim'),
+    t('PULSE 1/3', 'Aura +3% attack speed. Every 3rd chime, girls in her sanctuary attack a further 10% faster for 3 s.', 1.10, 'rim'),
+  ),
+  iroha: row(
+    t('PIERCE+1', '+5% damage. Every bolt passes through 1 more enemy.', 1.10, 'rim'),
+    t('PEN+1', '+7% attack speed. Her bolts ignore 1 more armor.', 1.09, 'rim'),
+    t('GLEAM 1/6', '+7% damage. Every 6th volley gleams: 50% harder.', 1.10, 'rim'),
+    t('CRIT+6%', '+8% attack speed; +6% crit chance.', 1.12, 'rim'),
+    t('HALL', '+9% damage. Twin Gleam every 4th volley, twice as hard.', 1.18, 'rim'),
+  ),
+  ena: row(
+    t('CURSE+1s', '+5% damage. Her curses last 1 s longer.', 1.08, 'rim'),
+    t('CRIT+5%', '+7% attack speed; +5% crit chance.', 1.10, 'rim'),
+    t('OMEN 1/5', '+7% damage. Every 5th card is a Bad Omen: 60% harder.', 1.12, 'rim'),
+    t('PEN+1', '+8% attack speed. Her cards ignore 1 more armor.', 1.09, 'rim'),
+    t('FULLHOUSE', '+9% damage. Bad Omen every 4th card, twice as hard, leaving the target Brittle +10% for 3 s.', 1.20, 'rim'),
+  ),
+  kanna: row(
+    t('BIG BEAT', '+5% damage. Every 6th strike is a Big Beat: 50% harder.', 1.14, 'rim'),
+    t('DRUM+10%', '+7% damage; Festival Drumfall recharges 10% faster.', 1.07, 'rim'),
+    t('BEAT 1/5', '+7% attack speed. Big Beat every 5th strike, 75% harder.', 1.14, 'rim'),
+    t('ENCORE', '+8% damage. Festival Drumfall hits 50% harder and leaves its target Brittle +12% for 6 s.', 1.08, 'rim'),
+    t('MATSURI', '+9% attack speed; Drumfall recharges a further 10%. Big Beat every 4th strike, twice as hard, with a sure 0.3 s stun.', 1.19, 'rim'),
+  ),
+  yoriko: row(
+    t('SLOW+5', '+5% damage. Her slows are 5 points stronger.', 1.06, 'rim'),
+    t('CUE+10%', '+7% attack speed; Dream Detour recharges 10% faster.', 1.07, 'rim'),
+    t('HEX+', '+7% damage. Dream Detour\'s hex takes 0.5% more of max HP a second.', 1.08, 'rim'),
+    t('CURTAIN', '+8% attack speed. Every 5th volley is a Curtain Rise: 50% harder with a sure 0.3 s stun.', 1.14, 'rim'),
+    t('ENCORE', '+9% damage; Dream Detour recharges a further 10%. Curtain Rise every 4th volley, 80% harder.', 1.16, 'rim'),
+  ),
+  seiran: row(
+    t('JUMP+1', '+5% damage. Her lightning jumps to 1 more enemy.', 1.12, 'rim'),
+    t('FLIGHT', '+7% damage; Dragonflight recharges 10% faster.', 1.07, 'rim'),
+    t('LANCE 1/6', '+7% attack speed. Every 6th bolt is a Thunder Lance: a burst 0.8 tiles wide for 30% of the hit.', 1.12, 'rim'),
+    t('WAKE', '+8% damage. Dragonflight hits 50% harder and its mark is 5 points stronger.', 1.08, 'rim'),
+    t('CROWN', '+9% attack speed; one more jump; Dragonflight recharges a further 10%.', 1.14, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

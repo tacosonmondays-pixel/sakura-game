@@ -8,6 +8,7 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { SKINS, SKIN_MAP, SKIN_ACQUISITION, defaultSkinId, skinsForUnit, getSkin, resolveSkin } from '../../src/data/skins.js';
 import { FUTURE_UNITS, FUTURE_MAP, futureThumb } from '../../src/data/future.js';
 import { ROLES } from '../../src/data/types.js';
+import { isStandIn } from '../../src/models/standins.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pub = path.join(here, '..', '..', 'public');
@@ -70,8 +71,14 @@ describe('skins data', () => {
     }
   });
 
-  it('every row has a model in the character manifest and every outfit a thumbnail file', () => {
+  it('every row has a model in the character manifest (or is a procedural stand-in) and every outfit a thumbnail file', () => {
     for (const s of SKINS) {
+      if (isStandIn(s.asset)) {
+        // the returning girls' default rows: drawn procedurally until real art (src/models/standins.js)
+        expect(s.kind, s.id).toBe('default');
+        expect(manifest[s.asset], `${s.id} -> ${s.asset}`).toBeUndefined();
+        continue;
+      }
       expect(manifest[s.asset], `${s.id} -> ${s.asset}`).toBeTruthy();
       expect(manifest[s.asset].file).toBe(`${s.asset}.glb`);
       if (s.kind === 'default') continue;
