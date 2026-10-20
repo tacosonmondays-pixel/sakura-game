@@ -1404,6 +1404,25 @@ in-game result, relevant tests, and evidence against the original request."
   locked / insufficient-materials states (never a plain alert). Character detail keeps the character
   presentation stable while tabs change. Gacha reveal: anticipation → reveal → readable results;
   skippable; results never lost or double-charged.
+* **Transitions + loading screens (owner, Oct 20: "cleaner and animated menu transitions, loading
+  screens, like black with a cute something like slime in the corner and loading").** Every screen
+  change goes through `src/ui/transitions` (the router calls `beginScreenChange(transitionFor(…))`),
+  and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
+  a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
+  cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu (280 ms, the top bar stays) and
+  **slide-back** for the arrow, the back gesture, Home and parents, a **crossfade** for the same screen
+  with new params (160 ms), and the **boot** hold on the first screen. Loaders: the full black loader
+  (`#ld`, in index.html from the first byte: "Loading" + the slime bottom-right, destination + tip
+  bottom-left, a 2 px progress line), the corner chip (a menu screen's code still downloading) and
+  the inline slime inside fetching panels. One rule for all of them (`src/ui/loading/gate.js`): shown
+  only when a load passes 150 ms, then at least 450 ms. Everything animates transform / opacity
+  only; reduced motion (system or setting) turns slides into a 120 ms crossfade and the cut into a
+  fade through black, and stills the slime. The outgoing screen is inert from the tap that starts
+  the change; the new one takes taps from its first frame; the cut panel never catches taps and the
+  loader only while its load is still running. A screen holds the cut / boot loader with
+  `holdLoader(promise, { kicker, title, progress })` (the battle until its first frame, the title
+  until its preload) or by firing its ready event (`READY_SIGNALS`: lobby, scene). The slime is our
+  own design: a mint-jelly mochi from the slime family with a sakura petal on its head.
 * **Chibis v2 (models):** Hikari is the approval character — get her excellent first (front, side, 3/4,
   in-game distance), then apply the method to everyone. Judge by construction: head depth & cheeks,
   coherent neck/shoulder/torso, shaped hands/feet, clean face placement, broad deliberately curved hair
