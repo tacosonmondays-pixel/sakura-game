@@ -118,6 +118,24 @@
   "lodSize": 199092,
   "lodVertices": 2854
  },
+ "hana": {
+  "file": "hana.glb",
+  "size": 1236888,
+  "animations": [
+   "attack_bow",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 18876,
+  "triangles": 20467,
+  "source": "meshy",
+  "lod": "hana.lod.glb",
+  "lodSize": 568100,
+  "lodVertices": 9505,
+  "lodTriangles": 9467
+ },
  "hikari": {
   "file": "hikari.glb",
   "size": 1312464,

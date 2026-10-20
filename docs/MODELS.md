@@ -91,7 +91,7 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 ## Stand-ins for the returning girls
 
 The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
-(`STANDIN_UNITS`; Noa has her imported Meshy figure since the art wave, see "Imported Meshy figures") are drawn by
+(`STANDIN_UNITS`; Noa and Hana have their imported Meshy figures since the art wave, see "Imported Meshy figures") are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -202,6 +202,17 @@ her straight bangs at the 48° camera. `asset.extras.eyes.hairGuard` (`{ hue: [d
 HSV) tells the closed-eye shader which texels are her honey-brown bangs (kept as painted); without it the shader
 keeps Hikari's pink-hair rule, so Hikari is unchanged (`figGuard` uniform in `figurine.js`). Known: no secondary
 motion on her buns or skirt (humanoid rig); thin hull slivers by the loafers at ≥ 4× zoom, as on Hikari's boots.
+
+### Hana (art wave, Oct 2026)
+
+Same pipeline with her own profile: `hana.glb` 1.24 MB (20.5k tris incl. bow) / `hana.lod.glb` 0.57 MB (9.5k tris),
+a 30-joint skeleton (the renamed humanoid plus `root`, `braid1..3`, `kaze` and `bow_nock`), clips `idle`, `walk`,
+`attack_bow`, `cheer`, `hurt`, Hikari's battle height, `weaponKind 'bow'`. Her folding compound bow (468 tris,
+vertex colours, built locally) is skinned to `hand_L`; the string also rides `bow_nock`, which the attack draws back
+to her right fist, so the string bends into a V and snaps straight on release. Kaze, her drone falcon, is part of the
+body mesh on her right shoulder and bobs on his own `kaze` bone. Every clip carries a 16° chin-up; her
+`extras.eyes.hairGuard` keeps her auburn bangs painted during a blink. Not on the chibi: the quiver and archery case
+from her portrait. A separate circling Kaze (the falconer mechanic) would need his own model.
 
 ## Judging quality
 
