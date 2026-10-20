@@ -205,7 +205,7 @@ function openGearModal(gear, rerender) {
     put(bodyEl,
       gearCard(g),
       gearActions(g, { onChange: () => { draw(); rerender(); } }),
-      g.equippedBy ? null : h('div.mb-salvage-preview', h('div.mb-sub-title', 'Salvage returns'), h('div.reward-row', salvageRewards(g).map((r) => rarityTile(r.id, r.count, { size: 48 })))));
+      g.equippedBy ? null : h('div.mb-salvage-preview', h('div.mb-sub-title', 'Salvage returns'), h('div.reward-row', salvageRewards(g, profile).map((r) => rarityTile(r.id, r.count, { size: 48 })))));
   };
   draw();
   const actions = [];

@@ -517,12 +517,34 @@ export function enhanceCost(gear) {
   return levelCoins(gearTier(gear), gear.level);
 }
 
-/** Total coins spent enhancing a piece to its current level (+11 / +12 of a UR piece at its tier). */
-export function enhanceInvested(gear) {
+/** Bits 0–9 of `gbl:`: the levels below +10 a box-born UR piece paid at UR prices (0 without a profile). */
+const BOX_PAID_LEVELS = (1 << MAX_GEAR_LEVEL) - 1;
+export function boxPaidBits(profile, uid) {
+  const v = profile?.missions?.counters?.[MARK.boxPaid + uid];
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) & BOX_PAID_LEVELS : 0;
+}
+
+/**
+ * Total coins spent enhancing a piece to its current level. +11 / +12 of a UR piece cost its UR tier. Below +10 a
+ * piece paid its rarity's price, except the levels in `urPaid` (`gbl:` bits, boxPaidBits): a box-born UR piece pays
+ * UR prices from +0. A level without its bit (paid in an older build that saw a Legendary, or no profile at hand)
+ * counts at the Legendary price, so a refund never passes what was spent.
+ */
+export function enhanceInvested(gear, urPaid = 0) {
   let total = 0;
   const base = rarityOrder(gear.rarity);
-  for (let l = 0; l < gear.level; l++) total += levelCoins(l >= MAX_GEAR_LEVEL ? gearTier(gear) : base, l);
+  const tier = gearTier(gear);
+  for (let l = 0; l < gear.level; l++) total += levelCoins(l >= MAX_GEAR_LEVEL || (urPaid >> l) & 1 ? tier : base, l);
   return total;
+}
+
+/** Coins an older build's salvage of a box-born piece missed: half the UR-over-Legendary price of each `gbl:` level. */
+export function boxPaidShortfall(bits) {
+  const ur = gearTier({ rarity: 'legendary', ur: 1 });
+  const leg = rarityOrder('legendary');
+  let n = 0;
+  for (let l = 0; l < MAX_GEAR_LEVEL; l++) if ((bits >> l) & 1) n += (levelCoins(ur, l) - levelCoins(leg, l)) / 2;
+  return n;
 }
 
 /** The line that grows at the next ▲ (least-upgraded, ties → first; ✦ never count). */
@@ -544,6 +566,11 @@ export function enhanceGear(profile, uid) {
   const cost = enhanceCost(gear);
   if (cost == null) return { ok: false, error: 'max' };
   if (!consumeItems(profile, [{ id: 'coins', count: cost }])) return { ok: false, error: 'missing', missing: [{ id: 'coins', need: cost, have: itemCount(profile, 'coins') }] };
+  // a UR piece below +10 is box-born (awakening needs +10): note that this level was paid at UR prices
+  if (isUrGear(gear) && gear.level < MAX_GEAR_LEVEL) {
+    const c = (profile.missions ||= {}).counters ||= {};
+    c[MARK.boxPaid + uid] = boxPaidBits(profile, uid) | (1 << gear.level);
+  }
   gear.level += 1;
   applyMainLevel(gear.main, gear.level);
   if (gear.level === MAX_GEAR_LEVEL) track(profile, `gear10:${gear.rarity}`, 1); // achievements: pieces ever at +10
@@ -568,10 +595,13 @@ export function firstBloomGift(profile) {
   return addItems(profile, [{ id: SEED_ID, count: 1 }]);
 }
 
-/** Rewards salvaging would give (preview): a UR or stitched piece also returns its Seed and every Needle. */
-export function salvageRewards(gear) {
+/**
+ * Rewards salvaging would give (preview): a UR or stitched piece also returns its Seed and every Needle. Coins are
+ * half of what enhancing actually cost; pass the profile so a box-born UR piece's UR-priced levels count (`gbl:`).
+ */
+export function salvageRewards(gear, profile = null) {
   const o = rarityOrder(gear.rarity);
-  const rewards = [{ id: 'coins', count: 300 * (o + 1) * (o + 1) + Math.floor(enhanceInvested(gear) * 0.5) }];
+  const rewards = [{ id: 'coins', count: 300 * (o + 1) * (o + 1) + Math.floor(enhanceInvested(gear, isUrGear(gear) ? boxPaidBits(profile, gear.uid) : 0) * 0.5) }];
   const dice = [0, 0, 1, 2, 3][o];
   if (dice) rewards.push({ id: 'dice_reroll', count: dice });
   if (gear.rarity === 'legendary') rewards.push({ id: 'lock_pin', count: 1 });
@@ -591,7 +621,7 @@ export function salvageGear(profile, uid) {
   if (!gear) return { ok: false, error: 'noGear', rewards: [] };
   if (gear.locked) return { ok: false, error: 'locked', rewards: [] };
   if (gear.equippedBy) return { ok: false, error: 'equipped', rewards: [] };
-  const rewards = salvageRewards(gear);
+  const rewards = salvageRewards(gear, profile);
   delete profile.gear[uid];
   dropMarks(profile, uid);
   addItems(profile, rewards);
@@ -603,7 +633,7 @@ export function salvageGear(profile, uid) {
 function dropMarks(profile, uid) {
   const c = profile.missions?.counters;
   if (!c) return;
-  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp]) delete c[p + uid];
+  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid]) delete c[p + uid];
   // a box-born piece's mark stays as 0: its Seed was paid with the salvage (ASCENSION.md §C.8)
   if (MARK.box + uid in c) c[MARK.box + uid] = 0;
 }

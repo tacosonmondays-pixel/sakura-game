@@ -6,6 +6,7 @@
 // Mirrors (missions.counters):
 //   gur:<uid>  UR level 10–12            gtn:<uid>  ✦ bits, 2 per stat in TUNE_BITS order
 //   gbx:<uid>  box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): slot × 100 + main stat + 1, 0 after salvage
+//   gbl:<uid>  box-born UR: bit L = its +L → +L+1 (below +10) was paid at UR prices (salvage refunds by it)
 //   gcl:<uid>  club index (1…)           gnx:<uid>  a Pierce / Aura Power line   gnf:<uid>  fingerprint of the other subs
 //   inv:<id>   item count (0 included) for the Seed, the Needle and the Armband
 //   ga:gift / gc:gift  the one-time Seed and Armband gifts
@@ -14,7 +15,7 @@ import { NEW_STAT_SLOT } from '../data/gearStats.js';
 import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
 import { TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL, MILESTONE_ITEMS, MILESTONE_MARK, MILESTONE_ITEMS_MARK } from '../data/gearAwaken.js';
 import { createRng } from '../core/rng.js';
-import { armbandWelcome, isUrGear, urName, recomputeGear, rollFreshSub, tuneCount, boxMark, SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex } from './gear.js';
+import { armbandWelcome, isUrGear, urName, recomputeGear, rollFreshSub, tuneCount, boxMark, boxPaidBits, boxPaidShortfall, SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex } from './gear.js';
 
 const ITEM_MAX = 9999;
 const NEW_STATS = ['piercePct', 'auraPct'];
@@ -122,7 +123,8 @@ export function restoreGearMarks(p) {
   }
   // 1b. box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): `ur` back at any level when that uid, slot and
   //     main stat are present. A missing piece was salvaged by an older build: its Seed (step 2 pays it
-  //     instead when the piece also had a `gur:` mark), and the mark becomes 0
+  //     instead when the piece also had a `gur:` mark), the coins that build's Legendary-priced refund missed
+  //     on its UR-priced levels (`gbl:`), and the mark becomes 0
   for (const key of Object.keys(c).filter((k) => k.startsWith(MARK.box))) {
     const v = whole(c[key]);
     if (v <= 0) continue;
@@ -133,6 +135,8 @@ export function restoreGearMarks(p) {
       continue;
     }
     if (!(MARK.ur + uid in c)) refund(SEED_ID, 1);
+    refund('coins', boxPaidShortfall(boxPaidBits(p, uid)));
+    delete c[MARK.boxPaid + uid];
     c[key] = 0;
   }
   // 2. UR flags and levels; a missing piece was salvaged by an older build: pay what it could not

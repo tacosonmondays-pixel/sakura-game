@@ -30,6 +30,7 @@ export const UR_SUFFIX = 'of the Rainbow Sakura';
 export const MARK = Object.freeze({
   ur: 'gur:', // UR level 10–12
   box: 'gbx:', // box-born UR (Rainbow Gear Box, ASCENSION.md §C.8): slot index × 100 + main-stat index + 1; 0 after salvage
+  boxPaid: 'gbl:', // box-born UR: bit L set when its +L → +L+1 (below +10) was paid at UR prices; gone after salvage
   tuned: 'gtn:', // ✦ bits by TUNE_BITS
   club: 'gcl:', // club index
   newLine: 'gnx:', // a Pierce / Aura Power line

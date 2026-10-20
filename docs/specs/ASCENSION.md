@@ -677,7 +677,9 @@ free player wins Mayhem +1 … +3 like Whale A (§C.3) and earns close to the sp
   `src/data/items.js:167-174`). **Open → choose charm, ribbon or shoes → one Legendary piece already UR** (`rarity:
   'legendary'`, `ur: 1`, GA R1), **+0, four substats**. It enhances to +12 at GA's tier-6 prices (GA R12: (800 + 400·L)
   × 6, 216,000 coins for +0 → +12, computed) and takes two Needle stitches like any UR piece (GA R7). Salvage: Legendary
-  payout + 1 Rainbow Seed (GA R11's rule, so a box-born UR can be re-bloomed elsewhere).
+  payout + 1 Rainbow Seed (GA R11's rule, so a box-born UR can be re-bloomed elsewhere). Its coins are half of what its
+  levels really cost: each level below +10 it paid at UR prices sets a bit in `gbl:<uid>` and counts at that price; a
+  level an older tab sold (it sees a Legendary) has no bit and counts at the Legendary price.
 - **Where it drops:** Mayhem Victory Chests 4 % (+0.25 % a rank, cap 6 %) and Nightmare Victory Chests 0.5 %. **Never
   from first clears**, never for gems.
 - **Only the slot picker opens it.** `openGearBox` (`src/systems/gear.js:161-171`) opens any `gearbox` item as a plain
@@ -957,6 +959,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | Titan progress | `tbest:<titan>` (solo only; tier × 100 + rank), `tfc:<titan>:<tier>` (solo only), `ttgt:<titan>`, `tkill:<titan>`, `tatt` (attempt counter for the drop seed) | itself | kept |
 | Rainbow Meter / owed box | `pity:rain`, `rbx:owed` | itself | kept |
 | Box-born UR flag | gear `ur: 1` | `gbx:<uid>` = slot index × 100 + main-stat index + 1 (0 after salvage) | drops `ur` → restored when that uid, slot and main stat are present, at any level (§C.8) |
+| Box-born UR levels paid at UR prices | counter `gbl:<uid>`: bit L = +L → +L+1 (below +10) cost UR prices; removed at salvage | itself | kept; a level it sells writes no bit (salvage counts it at the Legendary price); its salvage of the piece gets the missing UR half of those levels on the next load, once (§C.8) |
 | New shop offers + `group` stock | `profile.shop.bought` | `shopwk:asc` (game week as a number) | an older tab rolling the week first keeps their counts → M1 clears its own ids and group keys when `shopwk:asc` ≠ this week (§C.10) |
 | Welcome pouch | `profile.items` (`memento`, `moonpearl`), paid during migration | `inv:` | dropped → restored from `inv:`; never sent by mail (§A.7) |
 | Together Chests (M2) | `missions.weekly['tk:tog']` | wiped weekly (`src/systems/missions.js:46-50`) | — |

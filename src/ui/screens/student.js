@@ -708,7 +708,7 @@ function gearTab(unit, ctx) {
           g.equippedBy ? null : button('Salvage', {
             kind: 'ghost', small: true, disabled: g.locked,
             onClick: async () => {
-              const rewards = salvageRewards(g).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
+              const rewards = salvageRewards(g, profile).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
               if (!(await confirmDialog(`Salvage ${g.name} for ${rewards}?`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
               const res = salvageGear(profile, g.uid);
               if (!res.ok) { toast('Cannot salvage this gear.', 'bad'); return; }

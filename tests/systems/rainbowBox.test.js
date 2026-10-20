@@ -9,8 +9,8 @@ import { createRng } from '../../src/core/rng.js';
 import { GEAR_SLOTS, GEAR_MAIN_STATS } from '../../src/data/types.js';
 import { MARK, SEED_ID, UR_MAX_LEVEL } from '../../src/data/gearAwaken.js';
 import {
-  openGearBox, openRainbowBox, boxMark, isUrGear, gearLines, enhanceGear, enhanceCost, salvageGear, setGearLocked, rerollMainStat,
-  stitchSlots, RAINBOW_BOX_ID, MAX_GEAR_LEVEL,
+  openGearBox, openRainbowBox, boxMark, isUrGear, gearLines, enhanceGear, enhanceCost, salvageGear, salvageRewards, setGearLocked, rerollMainStat,
+  stitchSlots, enhanceInvested, RAINBOW_BOX_ID, MAX_GEAR_LEVEL,
 } from '../../src/systems/gear.js';
 import { writeGearMarks } from '../../src/systems/gearMarks.js';
 import { grantGearBox } from '../../src/systems/titanRewards.js';
@@ -177,5 +177,95 @@ describe('box-born UR survives saves (gbx: mirror)', () => {
     expect(itemCount(back, SEED_ID)).toBe(seeds + 2);
     expect(back.missions.counters[`${MARK.box}${b.uid}`]).toBe(0);
     expect(itemCount(migrateProfile(JSON.parse(JSON.stringify(back))), SEED_ID)).toBe(seeds + 2);
+  });
+});
+
+describe('box-born UR salvage refunds what its levels really cost (gbl:)', () => {
+  const PAYOUT = 300 * 25; // the Legendary base payout
+  const coinsOf = (rewards) => rewards.find((r) => r.id === 'coins')?.count || 0;
+  /** Enhance to `to`, returning the coins it took. */
+  const enhanceTo = (p, uid, to) => {
+    const before = itemCount(p, 'coins');
+    while (p.gear[uid].level < to) expect(enhanceGear(p, uid).ok).toBe(true);
+    return before - itemCount(p, 'coins');
+  };
+
+  it('a box piece taken +0 → +10 → +12 at UR prices salvages for half of all of it (was 13,000 short)', () => {
+    const p = ready();
+    addItems(p, [{ id: RAINBOW_BOX_ID, count: 1 }]);
+    const { gear } = openRainbowBox(p, 'charm', createRng(11));
+    const uid = gear.uid;
+    const to10 = enhanceTo(p, uid, MAX_GEAR_LEVEL);
+    expect(to10).toBe(156000);
+    expect(p.missions.counters[`${MARK.boxPaid}${uid}`]).toBe(1023);
+    setGearLocked(p, uid, false);
+    expect(coinsOf(salvageRewards(p.gear[uid], p))).toBe(PAYOUT + to10 / 2);
+    // without the profile the preview stays at the Legendary price (never above what was spent)
+    expect(coinsOf(salvageRewards(p.gear[uid]))).toBe(PAYOUT + 65000);
+    const spent = to10 + enhanceTo(p, uid, UR_MAX_LEVEL);
+    expect(spent).toBe(216000);
+    // the mark survives a store write + reload
+    const q = reload(p);
+    expect(q.missions.counters[`${MARK.boxPaid}${uid}`]).toBe(1023);
+    const before = itemCount(q, 'coins');
+    const r = salvageGear(q, uid);
+    expect(r.ok).toBe(true);
+    expect(coinsOf(r.rewards)).toBe(PAYOUT + spent / 2);
+    expect(itemCount(q, 'coins') - before).toBe(PAYOUT + spent / 2);
+    expect(q.missions.counters[`${MARK.boxPaid}${uid}`]).toBeUndefined();
+    expect(q.missions.counters[`${MARK.box}${uid}`]).toBe(0);
+    // nothing more on the next load
+    expect(itemCount(reload(q), 'coins')).toBe(itemCount(q, 'coins'));
+  });
+
+  it('levels an older build sold at Legendary prices refund at Legendary prices: never more than was spent', () => {
+    const p = ready();
+    addItems(p, [{ id: RAINBOW_BOX_ID, count: 1 }]);
+    const { gear } = openRainbowBox(p, 'ribbon', createRng(12));
+    const uid = gear.uid;
+    let spent = enhanceTo(p, uid, 3); // UR prices
+    writeGearMarks(p);
+    // an older build sees a Legendary +3 and sells +3 → +7 at Legendary prices (it writes no gbl: bits)
+    const old = olderBuild(p);
+    expect(isUrGear(old.gear[uid])).toBe(false);
+    spent += enhanceTo(old, uid, 7);
+    expect(old.missions.counters[`${MARK.boxPaid}${uid}`]).toBe(0b111);
+    const back = reload(old);
+    expect(back.gear[uid]).toMatchObject({ ur: 1, level: 7 });
+    spent += enhanceTo(back, uid, UR_MAX_LEVEL); // UR prices again
+    expect(back.missions.counters[`${MARK.boxPaid}${uid}`]).toBe(0b1110000111);
+    setGearLocked(back, uid, false);
+    const refund = coinsOf(salvageRewards(back.gear[uid], back));
+    expect(refund).toBe(PAYOUT + Math.floor(spent / 2));
+    // the old tab's four levels do not count at UR prices: less than a box piece paid at UR prices all the way
+    expect(refund).toBeLessThan(PAYOUT + 216000 / 2);
+    expect(coinsOf(salvageGear(back, uid).rewards)).toBe(refund);
+  });
+
+  it('an older build\'s salvage of a +12 box piece is made whole on the next load, once', () => {
+    const p = ready();
+    addItems(p, [{ id: RAINBOW_BOX_ID, count: 1 }]);
+    const { gear } = openRainbowBox(p, 'shoes', createRng(13));
+    const uid = gear.uid;
+    const spent = enhanceTo(p, uid, UR_MAX_LEVEL);
+    setGearLocked(p, uid, false);
+    writeGearMarks(p);
+    const seeds = itemCount(p, SEED_ID);
+    // the older build sees a Legendary +10 and pays its Legendary salvage, then keeps the counters word for word
+    const old = olderBuild(p);
+    const oldPay = PAYOUT + Math.floor(enhanceInvested(old.gear[uid]) / 2);
+    expect(oldPay).toBe(PAYOUT + 65000);
+    const start = itemCount(old, 'coins');
+    old.currencies.coins += oldPay;
+    delete old.gear[uid];
+    const back = migrateProfile(old);
+    // + the +11 / +12 refund (gur:) + the UR-over-Legendary half of +0 … +9 (gbl:) = half of all 216,000
+    expect(itemCount(back, 'coins') - start).toBe(PAYOUT + spent / 2);
+    expect(itemCount(back, SEED_ID)).toBe(seeds + 1);
+    expect(back.missions.counters[`${MARK.boxPaid}${uid}`]).toBeUndefined();
+    expect(back.missions.counters[`${MARK.box}${uid}`]).toBe(0);
+    const again = migrateProfile(JSON.parse(JSON.stringify(back)));
+    expect(itemCount(again, 'coins')).toBe(itemCount(back, 'coins'));
+    expect(itemCount(again, SEED_ID)).toBe(seeds + 1);
   });
 });
