@@ -52,7 +52,7 @@ export default {
     eventStage(EV, {
       id: 'ev-halloween-2', name: 'Candle Lane Costume Walk', mapId: 'festival_street', tuneLike: '2-3', chapter: 2, tier: 'intermediate',
       desc: 'Two lanes of costumed runners race between the stalls. Cover both lanes before the dashers reach the candy table.',
-      waves: 15, budget: [7, 220], groups: 3,
+      waves: 15, budget: [7, 180], groups: 3,
       pool: [P('goblin_runner', 3), P('goblin_dasher', 3, 2), P('slime_pearl', 2, 3), P('lizard_skink', 3), P('slime_gold', 2), P('orc_grunt', 2, 6)],
       fixed: [F(15, 'slime_courtier', 2, 2)],
       recommended: ['slow', 'multiHit'],
@@ -89,12 +89,12 @@ export default {
       look: LOOK,
     }),
     eventStage(EV, {
-      id: 'ev-halloween-boss', name: 'The Gourdlight Golem', mapId: 'arena_runegarden', tuneLike: '3-5', chapter: 3, tier: 'advanced', boss: true,
+      id: 'ev-halloween-boss', name: 'The Gourdlight Golem', mapId: 'shrine_sanctum', tuneLike: '3-5', chapter: 3, tier: 'advanced', boss: true,
       difficulties: ['normal', 'hard'],
       desc: 'The festival\'s giant pumpkin lantern woke up and wants to join the parade. Armor pierce cracks its shell; keep splash for the candle wisps it spills.',
-      waves: 15, budget: [7, 200], groups: 3,
+      waves: 15, budget: [6, 140], groups: 3,
       pool: [P('slime_green', 3), P('ghost_wisp', 3), P('goblin_dasher', 2), P('orc_grunt', 2, 3), P('ghoul_bonewalker', 2, 5), P('ghost_veilwraith', 1, 9)],
-      fixed: [F(8, 'ghost_lanternbearer', 1), F(15, HALLOWEEN_BOSS, 1, 2, 6)],
+      fixed: [F(10, 'ghost_lanternbearer', 1), F(15, HALLOWEEN_BOSS, 1, 2, 6)],
       introduces: [HALLOWEEN_BOSS],
       recommended: ['armorPen', 'multiHit', 'detection'],
       requires: 'ev-halloween-4',
@@ -111,13 +111,13 @@ export default {
   enemies: [
     eventEnemy({
       id: HALLOWEEN_BOSS, name: 'Gourdlight Golem', family: 'construct', tier: 'boss',
-      hp: 4200, speed: 0.4, armorClass: 'heavy', armor: 3, bounty: 1500, threat: 300, size: 3,
+      hp: 1200, speed: 0.32, armorClass: 'heavy', armor: 1, bounty: 1500, threat: 300, size: 3,
       color: '#f28c28', accent: '#9d4edd', variant: 'colossus', props: ['gears'],
       traits: {},
       phases: [
         {
           atHp: 0.5, announce: 'Its pumpkin shell cracks open — candle wisps spill out and the Golem hurries along!',
-          set: { armor: 1, speed: 0.55, traits: { summoner: { spawn: 'ghost_wisp', count: 3, every: 6 } } },
+          set: { armor: 0, speed: 0.42, traits: { summoner: { spawn: 'ghost_wisp', count: 3, every: 6 } } },
         },
       ],
       lore: 'The festival\'s biggest pumpkin lantern, stacked on a clockwork frame by the craft club. One night a year it wakes up and wants to see the parade.',
