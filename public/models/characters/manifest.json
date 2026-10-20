@@ -427,6 +427,23 @@
   "lodSize": 209008,
   "lodVertices": 2973
  },
+ "seiran": {
+  "file": "seiran.glb",
+  "size": 436508,
+  "animations": [
+   "attack_thrust",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8888,
+  "lod": "seiran.lod.glb",
+  "lodSize": 227096,
+  "lodVertices": 3059
+ },
  "sentinel-akane": {
   "file": "sentinel-akane.glb",
   "size": 389304,
