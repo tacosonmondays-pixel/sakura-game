@@ -337,6 +337,7 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-lv-arrow { color: var(--good); font-size: 1.4rem; margin-left: 6px; }
 .mb-lv-cap { font-weight: 900; color: var(--blue-deep); }
 .mb-lv-exp { margin-top: 4px; }
+.mb-lv-tome { margin-top: 2px; font-size: 0.8rem; font-weight: 800; color: var(--blue-deep); }
 .mb-exp { position: relative; height: 12px; border-radius: 999px; background: #e1eaf6; overflow: hidden; margin-top: 8px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1); }
 .mb-exp-fill, .mb-exp-preview { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; transition: width var(--mb-panel) var(--mb-ease); }
 .mb-exp-fill { background: linear-gradient(90deg, var(--blue), #6fd3ff); }
@@ -359,6 +360,10 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-bt-gates { display: flex; gap: 6px; margin-bottom: 8px; }
 .mb-gate { flex: 1; text-align: center; font-weight: 900; font-size: 0.75rem; padding: 4px 0; border-radius: 4px; background: #e1eaf6; color: var(--muted); transform: skewX(var(--skew)); }
 .mb-gate.on { background: linear-gradient(90deg, var(--blue-deep), var(--blue)); color: #fff; }
+/* the Potential cap card (gate 5 passed): her six caps P1…P6 */
+.mb-potcap-line { margin: 0 0 8px; }
+.mb-potcap-steps { flex-wrap: wrap; }
+.mb-potcap-steps .mb-gate { min-width: 52px; white-space: nowrap; }
 
 /* Awakening */
 .mb-aw-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }

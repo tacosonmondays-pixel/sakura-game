@@ -194,6 +194,7 @@ TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 | ramp: {per, max (add)} | |
 | mark: {bonus (max), duration (max)} | |
 | silence, reveal, knockback (add) | |
+| Potential only (src/data/potential.js POTENTIAL_MOD_KEYS; on the stats only when a step sets them): statusAdd, proc, ult, aura.rangeAdd, aura.foeVuln, turret.overclock, brew/link.targetsAdd, bountyAura, harvest, dotSpread, keepRamp, projScale, tempo, classMul | see **Potential steps (v3)** below and src/sim/potential.js (N1–N17) |
 
 Upgrade rules (crosspathing): at most two paths may have tiers > 0, and only one path may go above
 tier 2. Tier N requires tier N-1 in that path. Heroes have no paths (`paths: []`). **One final tier per
@@ -224,26 +225,53 @@ time in a wave, wave clears and damage dealt (in the enemy's base HP), all scale
 +1 % per 2,000 XP (≤ +25 %). Players buy the rest of a level with battle coins. One hero per player
 (co-op: two). Heroes cannot be sold; they can be moved.
 
-**Potential steps** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
-spec `docs/specs/POTENTIAL.md` §3). A duplicate raises a girl's Potential by 1 (P1 → P6); each step P2…P6 is
-one small passive:
+**Potential steps (v3)** — `src/data/potential.js` (owner: systems; in the co-op graph and the co-op data hash;
+spec `docs/specs/POTENTIAL.md`, v3 §3, §5, §7). A duplicate raises a girl's Potential by 1 (P1 → P6); each step
+P2…P6 is a stat buff on her rarity's climbing stat track plus, from P3 (from P2 for SSRs and heroes), a kit buff
+that amplifies what she is good at:
 
 ```js
-Step = { girl?: { damageMul?, rateMul?, rangeMul?, incomeMul? },   // whole-girl: multiply into unitStats like level and gear
-         mods?: ModSet /* only 'crit.chance','eliteMul','bossMul','aura.dmgMul','aura.rateMul','silence','ramp.max' */ }
-POTENTIAL_LADDERS = { dps, frag, hero, control, support, economy }  // P2..P5 by ROLES[role].category (heroes: 'hero')
-POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p6: { name, ...Step }, p2?..p5?: Step } }  // a row for EVERY unit (test)
-POTENTIAL_SIGNATURE_DEFAULT   // fixtures / dev only
-potentialSteps(def)           // [{ step: 2..6, name|null, girl|null, mods|null }]; def.potential (fixtures) wins
-potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+Step = { name, kind: 'stat'|'kit'|'cap',
+         girl: { damageMul?, rateMul?, rangeMul?, incomeMul?, dotMul? } | null,   // whole-girl: multiply into unitStats like level and gear
+         mods: ModSet | null /* only POTENTIAL_MOD_KEYS (below) */ }
+POTENTIAL_LADDERS = { kinds: { R, SR, SSR }, statTrack: { R, SR, SSR, nami, aura, coins }, stepSlot: { R, SR, SSR } }
+POTENTIAL_GIRLS   = { [id | 'id@kitStyle']: { p2..p6: Step } }   // a full row for EVERY unit (test)
+POTENTIAL_SIGNATURE_DEFAULT = { R, SR, SSR }                      // fixtures / dev only: the stat track as damageMul
+POTENTIAL_GIRL_ONLY = { projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] }
+POTENTIAL_TRACK_OF  = { nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins' }   // else her rarity's track
+potentialSteps(def)           // [{ step: 2..6, name, kind, girl|null, mods|null }]; def.potential (fixtures) wins
+potentialFold(def, p)         // { level, damageMul, rateMul, rangeMul, incomeMul, dotMul, sets }; p not a number / < 2 → neutral; > 6 → 6
+potentialRarity(def), potentialTrack(def)
 ```
 
-Rules: every step is relative (no flat range, trap damage, coins or armor ignore: they are huge on a young girl
-and nothing at endgame); `splash`, status lists, `aura.range`, `crit.mul`, `projectiles`, `pierce`, `chain`,
-`maxTargets`, `trap.max`, `turret.max` are banned (a test enforces the allowlist); aura steps are +1 % team-wide;
-each step must change a stat her behaviour reads (effectiveness test); budget Π damage × Π speed ≤ 1.105,
-Π range ≤ 1.075, Π coins ≤ 1.06, crit Σ ≤ 0.05, elite / boss ≤ ×1.05, aura ≤ ×1.0201, silence ≤ 0.1 s,
-focus cap ≤ 0.05. A new girl (roster) adds her row in the same PR.
+`POTENTIAL_MOD_KEYS`: `pierce`, `chain`, `maxTargets`, `armorPen`, `canHitAir`, `silence`, `crit.chance`,
+`ramp.max`, `ramp.per`, `trap.max`, `turret.max`, `turret.range`, `turret.overclock`, `aura.range`, `aura.dmgMul`,
+`aura.rateMul`, `aura.rangeAdd`, `aura.armorPen`, `aura.critChance`, `aura.foeVuln`, `brew.targetsAdd`,
+`link.targetsAdd`, `statusAdd`, `proc`, `ult`, `bountyAura`, `harvest`, `dotSpread`, `keepRamp`, `projScale`,
+`tempo`, `classMul`, `bossMul`. Their battle meaning (N1–N17) is in `src/sim/potential.js`; `mods.js` puts them
+on a girl's stats only when a step sets them, so P1 resolves bit-identically to a girl without Potential:
+
+```js
+statusAdd: StatusSpec[]          // ADDS onto a status she has (her list, traps', drones'), else appends; mark → s.mark
+proc: { name, every, of?: 'attack'|'trap', damageMul?, dotMul?, splash?, pierce?, maxTargets?, range?, silence?,
+        echo?: true | share<1, nova?: { radius, share, volley? }, auraBoost?: { time, dmgMul?, rateMul? }, status?: StatusSpec[] }
+                                 // her rhythm: every Nth successful attack (or trap explosion); steps merge, later fields replace
+ult: { haste, radius, duration, buffDuration, rateBuff, damageMul, status[], statusAdd[] }  // a hero's ultimate (hero.js ultEffect)
+turret.overclock: { every, time, rateMul }   // her own drones, a fixed timer from placement
+bountyAura: m, harvest: { every, share }, dotSpread: { type, radius, depth }, keepRamp: f,
+projScale: f /* integer carry */, tempo: { per, max, idle }, classMul: { [armorClass]: m }
+```
+
+Rules (tests/data/potential.test.js): names unique and unused anywhere else; kinds by rarity (heroes SSR); the
+allowlist and the bans (`behavior`, `attackType`, `element`, `knockback`, `costCut`, `hpPct`, flat `damage`,
+`range`, `projectiles`, `income`, top-level `splash` and `status`, `eliteMul`; `bossMul` Kaede only); every girl
+spends exactly her stat track, one key a step, never shrinking; ceilings per girl (stat product R ≤ 1.23, SR ≤ 1.31,
+SSR ≤ 1.42; pen ≤ +3 / +4; aura pen ≤ +1; Brittle + mark ≤ 15 / 20 points; income, DoT ≤ ×1.20; aura ≤ ×1.16;
+shred ≤ 2; DoT ≤ 0.15 % max HP/s; repeats ≤ 1/4 of her attacks; projScale ≤ 0.35; tempo ≤ +10 %; ult haste ≤ 0.20;
++1 brewed / linked girl, brews ≤ 4; hard CC only on a rhythm, ≥ 0.3 s); one rhythm per girl; echo only on
+projectile / beam / chain / pulse (a duel only at a share < 1, never traps); every step changes her stats and
+every kit part a field her behaviour reads on every reference build. Player text, node labels, Power and FX
+cues: `src/data/potentialText.js` (UI only, not hashed). A new girl (roster) adds both rows in the same PR.
 
 ## 4. World — enemies, maps, stages (owner: world)
 
@@ -491,7 +519,7 @@ Profile = {
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -500,7 +528,9 @@ Profile = {
   bond: { [girlId]: 0..10 },               // affection; 0 for now — the future City dating / gift system raises it
   mail: { letters: Letter[], delivered: string[], legacy: boolean }, // src/systems/mail.js; legacy = save predates the mailbox (beta player)
   stats: { battles, wins, kills, pulls, gemsEarned },
-  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save
+  seenIntro: string[],                     // also 'potential-backfilled': the one-time Potential backfill ran on this save;
+                                           // 'potential-v3': the save met Potential v3 (createProfile writes it; an older build's save gets
+                                           // it with the "Potential grew!" letter); 'pot3-new:<unitId>': her one-time NEW badge (cleared by her Info tab)
   battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
   patchGifts: { [noteId]: true },          // claimed patch-note gifts (src/systems/patchGifts.js); also marked 'pg:<noteId>' in missions.counters
   story: StoryBlock,                       // src/systems/story.js (newStory / legacyStory / restoreStory): no block and no 'story:new' mark = legacy save
@@ -537,20 +567,38 @@ ignores it: no whole-save backup).
 
 ```js
 export const MAX_POTENTIAL = 6, POOL_SIZE_V0125 = { R: 4, SR: 10, SSR: 5 } /*pinned*/, RARITY_SHARE, BACKFILL_MARKER = 'potential-backfilled'
+export const V3_MARKER = 'potential-v3', NEW_PREFIX = 'pot3-new:'   // seenIntro marks (v3 migration, the NEW badge)
 export { potentialSteps, potentialFold } from '../data/potential.js'
 export function potentialLevel(unitState)                 // 1..6 = min(6, 1 + dupes)
 export function dupesToNext(unitState), dupesToMax(unitState)
 export function shadowPotential(profile, unitId, now?)    // missions.counters['pot:<id>'] = dupes, 'pot:at' = now
 export function backfillDupes(units, gacha, { createdAt, now }) // { [id]: dupes } for units with dupes null: history + estimate (R/SR floor λ, SSR Poisson 25th pct)
 export function restoreFromShadow(units, counters, history)     // { [id]: dupes }: shadow + history after 'pot:at'; never lowers
-export function describePotentialStep(step, def?)         // [{ short /*≤ 9 chars*/, long, who: 'self'|'allies'|'enemies' }] — THE describer
-export function potentialView(def, unitState)             // six nodes for the UI: [{ step, name, parts, short, long, active, next }]
-export function potentialSummary(def, p)                  // "+2% damage, +2% attack speed, +3% range" (active steps)
-export function potentialPowerFactor(def, p)              // Π damageMul × Π rateMul × √Π rangeMul (unitPower)
+export function describePotentialStep(step, def?)         // [{ short /*node label ≤ 9 chars*/, long, who: 'self'|'allies' }] — THE describer (potentialText.js)
+export function potentialStatLabel(step, def?)            // the stat line under a node: "+4% SPD", "+3% AURA", "+3% COIN"
+export function potentialView(def, unitState, { capAt? }) // six nodes for the UI: [{ step, name, kind, kit, parts, short, long, stat,
+  // cap /*her level cap at that P when capAt (progression potentialLevelCap) raises it above P1's, else null*/,
+  // line /*"+4% SPD" or "+4% SPD · 67"*/, tags, active, next }]
+export function potentialStepInfo(def, p)                 // { step, name, kind, kit, crown, node, long, brief /*"✦ Moonpiercer" | "+4% attack speed"*/, stat, tags }
+export function potentialNext(def, unitState)             // the step her next duplicate unlocks (+ dupes), null at P6 / not owned
+export function potentialPillTitle(def, p)                // "Potential 5 of 6 — Moonpiercer"
+export function potentialStepTags(step)                   // ['allies'|'enemies'|'coins'] (the Info tab's chips)
+export function potentialRises(results)                   // a recruit's rises per girl: { girls, cards /*kit steps, rarity first*/, statOnly, steps, tricks }
+export function potentialDupesRule()                      // the duplicates rule in one sentence (recruit rates, wiki)
+export function isKitStep(step), moreDupes(n)
+export function hasPotentialNew(profile, unitId), clearPotentialNew(profile, unitId) // the one-time NEW badge
+export function potentialSummary(def, p)                  // "Night Drills, Shadow Edge" (active steps' names)
+export function potentialPowerFactor(def, p)              // Π of her active steps' `power` (potentialText.js; unitPower)
 ```
+`potentialLevel` is the one place that says where Potential comes from (duplicates today): a later source
+(ascension's Essence) swaps in there without touching the ladders.
 Not in the co-op graph (the sim reads `src/data/potential.js` through `mods.js`). Every screen, the wiki and the
-letter take their text from `describePotentialStep`. UI: `src/ui/potential.js` (`potPill`, `potentialSection`,
-`revealTag`) + `src/ui/styles/potential.css`.
+letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `src/ui/potential.js` (`potPill`
+(P6: the five-petal crown), `potentialSection` (six nodes with the `stat · cap` line, the five-step list),
+`revealTag`, `revealRibbon`, `showPotentialUp` (the "Potential up!" cards after a recruit), `nextLine`,
+`stepPhrase`) + `src/ui/styles/potential.css`; the battle panel's live rows (rhythm and tempo pips, shuriken per
+throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
+asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open), never stored here.
 
 ### `src/systems/mail.js` (first impressions)
 
@@ -564,8 +612,13 @@ export function claimAllMail(profile, now?), unclaimedMailCount(profile, now?)
 export function isBetaEligible(profile, now?)    // mail.legacy || createdAt < BETA_DEADLINE
 export function ensureBetaGift(profile, now?)    // main.js on app start: deliver the Beta Tester Thank-You once
 export function pendingBetaGift(profile, now?)
-export function ensurePotentialLetter(profile, now?) // main.js + lobby: 'potential-arrived-1' once, only when seenIntro has
-  // 'potential-backfilled' and some girl is P2+; no rewards; lists every P2+ girl (12 names, then "and N more")
+export const POTENTIAL_LETTER_ID = 'potential-arrived-1' // v1's letter (v0.1.34): not sent any more; old saves list it in delivered
+export const POTENTIAL_V3_LETTER_ID = 'potential-v3-1'
+export function ensurePotentialLetter(profile, now?) // main.js + lobby: once per save without seenIntro 'potential-v3' (an older
+  // build's save): marks it, and when some girl is P2+ delivers "Potential grew!" (no rewards; every P2+ girl with her newest
+  // step and her level cap, 12 names then "and N more"; how duplicates were counted when the save was backfilled and never
+  // got v1's letter) and gives each of those girls 'pot3-new:<id>'
+export function potentialLetter(profile), potentialLetterLine(def, p) // "Kage P5 ✦ Moonpiercer · level cap 78" 
 // src/systems/gacha.js
 export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { ok, error?: 'notSSR'|'noTicket', unitId, isNew, fragments, potential, potentialUp }; an owned SSR counts as a duplicate
 ```
@@ -573,12 +626,22 @@ export function redeemSelectTicket(profile, unitId) // SSR Select Ticket → { o
 ### `src/systems/progression.js`
 
 ```js
-export const MAX_LEVEL = 60;
-export function levelCap(unitState)              // 10 + 10*breakthrough (max 60)
-export function expForLevel(level)               // exp to go from level to level+1
+export const LEVEL_PAST_GATES = { from: 60, caps: [60, 63, 67, 72, 78, 85], exp: 30000, coins: 12000, book: 'book_legendary' }
+  // the ONE table for the levels past gate 5 (Potential v3 §4): her cap per Potential, and each level above 60 = one
+  // Akashic Tome + 12,000 coins; a later ascension (level gates) replaces or extends it and levelCap, never the ladders
+export const BREAKTHROUGH_LEVEL_CAP = 60, POTENTIAL_LEVEL_CAPS, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60
+export const MAX_LEVEL = 85;                     // P6's cap (was 60)
+export function levelCapAt(gates, p)             // the rule with her P given: gates < 5: 10 + 10*gates; gate 5: POTENTIAL_LEVEL_CAPS[p - 1] (P1 60 … P6 85)
+export function levelCap(unitState)              // levelCapAt(her gates, potentialLevel(unitState))
+export function levelCapInfo(unitState)          // -> { cap, max, p, by: 'gate'|'potential', next, nextGate?, nextP?, full } (the screens' cap copy)
+export function potentialLevelCap(p)             // levelCapAt(5, p): every gate open at Potential p (the Potential screens' "· 67")
+export function expForLevel(level)               // exp to go from level to level+1 (30,000 from 60; Infinity at 85)
 export function bookExpTotal(books)              // {itemId:count} -> exp
-export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped }
-export function levelUp(profile, unitId, books)  // consumes books+coins; -> { ok, error?, fromLevel, toLevel }
+export function previewLevelUp(profile, unitId, books) // -> { fromLevel, toLevel, exp, coinCost, capped, wasted, cap }; coins 0.4/EXP (12,000 a level above 60)
+export function levelUp(profile, unitId, books)  // consumes books+coins; -> { ok, error?, fromLevel, toLevel }; writes the level shadow above 60
+export const LEVEL_SHADOW_PREFIX = 'lv:'         // missions.counters['lv:<id>'] = her level once above 60 (an older build clamps to 60)
+export function shadowLevel(profile, unitId)
+export function settleLevels(profile)            // migrateProfile, after creditPotential: lift a 60-clamped girl back to min(shadow, levelCap), clamp all to levelCap
 export function autoSelectBooks(profile, unitId) // books to reach cap or as far as owned -> {itemId:count}
 export function breakthroughCost(unitId, gate)   // gate 1..5 -> [{id,count}] (unit's material family + coins)
 export function canBreakthrough(profile, unitId) // -> { ok, missing: [{id,need,have}] }
@@ -593,7 +656,8 @@ export function unitPower(profile, unitId)       // single number for sorting/UI
 ```
 
 Scaling is deliberately modest (heroes were too strong before): damage +1.8% per level after 1,
-+5% per awaken star, rate +0.4% per level; gear adds on top. Level 60 ★5 ≈ ×2.4 damage.
++5% per awaken star, rate +0.4% per level; gear adds on top. Level 60 ★5 ≈ ×2.4 damage; level 85 (P6) ≈ ×2.86
+damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at their P1 cap (60).
 
 ### `src/systems/gear.js`
 
@@ -663,7 +727,8 @@ export function canSweep(profile, stageId)
 ```js
 export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
-export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments
+export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, tomes, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments;
+  // past P6 it also pays Akashic Tomes (SR 1, SSR 5; potential.js DUPE_PAST_MAX_TOMES / dupePastMaxTomes, next to potentialLevel)
 export function isStageUnlocked(profile, stageId)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
@@ -1452,6 +1517,18 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
 * `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).
+* `statLimits.js` — the plausibility clamp (gear-awaken §9.1 + Potential v3 §2.2): `UNIT_STAT_LIMITS` (one rule
+  per unit-stat key: `damageMul` 0–10, `rateMul` 0–5, `rangeMul` 0–3, `critChance` 0–0.75, `critMul` 1–6,
+  `armorPen` 0–50, `costMul` 0.75–1, `ultHaste` 0–0.5, `awakenPassive` bool, `level` int 1–99, `awaken` 0–5,
+  `breakthrough` 0–10, `potential` int 1–6), `clampUnitStats(stats)` (same keys and order, non-numbers →
+  `DEFAULT_UNIT_STATS`, unknown keys dropped; the identity for an honest loadout), `clampPlayer(p)` (at most
+  `LOADOUT_MAX` = towersPerPlayer + 1 girls), `clampStart(start)` (idempotent). `session.js` `begin()` clamps
+  every start message on both clients (the host's own and the guest's received one) before the Lockstep is
+  built, and passes `clampStarts: true`: the Lockstep clamps every start a resync or rejoin rebuilds from,
+  and after restoring the host's checkpoint `rederiveStats(sim)` rebuilds any girl whose stored stats are not
+  what her clamped loadout entry gives, or whose effective stats (eff, drone and trap specs) are not what those
+  stats and her buffs give (an honest checkpoint matches and is left as it is); harnesses calling
+  `createCoopSim` / `Lockstep` directly pass their own stats.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
   fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid]` (`fly`: a drone wing's flight mode, owner only like
@@ -1487,8 +1564,12 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   Sim steps (checked across V8, JavaScriptCore and SpiderMonkey by `node e2e/engines.mjs`).
 * `simHash.js` (`hashSim`), `version.js`, `loadout.js`, `rewards.js` (`applyCoopResult`; freeplay:
   `applyCoopClear` banks the normal co-op win at the goal, `applyCoopFreeplayEnd(profile, result, rng,
-  { banked })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
-  gear / crowns / tokens, ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
+  { banked, now? })` pays the run — 40 coins × freeplay waves × tier `rewardMul`, a cache per 25 waves without
+  gear / crowns / tokens plus one Akashic Tome per cache (`freeplayCacheTomes`: at most
+  `FREEPLAY_REWARDS.cacheTome.weeklyCap` = 2 a week per account, solo and co-op sharing `fpTome:<weekKey>`; added
+  after the cache rolls, so the rng stream is unchanged; `out.freeplay.tomes`; `freeplayTomeLine(profile,
+  out.freeplay)` is the results sheet's line: "+1 Akashic Tome (2 of 2 this week)" or "Akashic Tomes: weekly
+  limit reached (2 a week, back next week)"), ≤ 10 Assault Tokens for boss-rank kills, kills since the bank only,
   `progress.stages[id].coopBestWave[tier]`, one-time milestones in `progress.freeplay`; `freeplayLedger(
   session, seed)` + `bankFreeplayClear` / `payFreeplayEnd` keep both once per battle across remounts).
 Co-op is data (`hpScale`) plus command routing; the Sim only gained `snapshot()` / `restore()`.

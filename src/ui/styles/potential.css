@@ -49,24 +49,58 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 .pot-track { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
 .pot-node {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
-  min-height: 50px; padding: 5px 2px; border-radius: 9px; background: #fff; border: 1px solid var(--line); color: var(--muted); text-align: center;
+  min-height: 58px; padding: 5px 2px 4px; border-radius: 9px; background: #fff; border: 1px solid var(--line); color: var(--muted); text-align: center;
 }
-.pot-node-p { font: 900 0.8rem/1 var(--font-head); }
+.pot-node-p { display: inline-flex; align-items: center; gap: 1px; font: 900 0.8rem/1 var(--font-head); }
+.pot-node-kit { color: var(--pink); font-size: 0.7rem; }
 .pot-node-label { font-size: 0.62rem; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+/* the stat line under each node: her stat at that step and her level cap at that P, two spans that
+   wrap onto two rows on a narrow node instead of cutting the cap off */
+.pot-node-line { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 3px; font-size: 0.56rem; font-weight: 800; line-height: 1.1; opacity: 0.9; max-width: 100%; }
+.pot-node-stat, .pot-node-cap { white-space: nowrap; }
+.pot-node-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pot-node-cap { flex: none; }
+.pot-node-cap.later { opacity: 0.7; }
+.pot-step-cap.later { color: var(--muted); }
 .pot-node.on { background: var(--pot-plum); border-color: var(--pot-plum); color: #fff; }
+.pot-node.on .pot-node-kit { color: var(--pot-sakura-b); }
 .pot-node.on.sig { background: linear-gradient(135deg, var(--pot-sakura-a), var(--pot-sakura-b)); color: var(--pot-plum); box-shadow: inset 0 0 0 1px #fff; }
+.pot-node.on.sig .pot-node-kit { color: var(--pot-plum); }
 .pot-node.next { border: 2px dashed var(--pink); color: var(--ink); }
-.pot-chip { font-size: 0.55rem; font-weight: 900; padding: 0 4px; border-radius: 999px; background: #80ed99; color: #14432a; }
-.pot-sig { margin-top: 4px; padding: 6px 10px; border-left: 3px solid var(--pink); border-radius: 0 8px 8px 0; background: rgba(255, 122, 168, 0.08); font-size: 0.8rem; }
-.pot-sig.on { background: rgba(255, 122, 168, 0.18); }
-.pot-sig-name { font-weight: 900; color: var(--pot-plum); }
+.pot-crown, .pot-node-crown, .pot-step-crown, .pot-pill-crown, .pot-up-crown { display: inline-flex; flex: none; }
+.pot-crown svg, .pot-node-crown svg, .pot-step-crown svg, .pot-pill-crown svg, .pot-up-crown svg { width: 100%; height: 100%; }
+.pot-node-crown { width: 11px; height: 11px; margin-right: 1px; color: var(--pot-sakura-a); }
+.pot-node.on.sig .pot-node-crown { color: var(--pot-plum); }
+.pot-chip { font-size: 0.55rem; font-weight: 900; padding: 0 5px; border-radius: 999px; background: #ebfbee; color: #2b8a3e; border: 1px solid #8ce99a; line-height: 1.4; white-space: nowrap; }
+.pot-chip.enemies { background: #fff5f5; color: #c92a2a; border-color: #ffa8a8; }
+.pot-chip.coins { background: #fff9db; color: #8a4b00; border-color: #fcc419; }
+/* the five steps (replaces v1's signature box) */
+.pot-steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pot-step { padding: 5px 8px 6px; border-radius: 8px; border: 1px solid var(--line); background: #fff; font-size: 0.76rem; }
+.pot-step.on { border-color: rgba(59, 35, 80, 0.35); background: rgba(59, 35, 80, 0.05); }
+.pot-step.next { border: 2px solid var(--pink); background: rgba(255, 122, 168, 0.08); }
+.pot-step.later { color: var(--muted); }
+.pot-step.later .pot-step-name { color: var(--muted); }
+.pot-step.on.sig { background: rgba(255, 122, 168, 0.16); border-color: var(--pot-sakura-a); }
+.pot-step-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+.pot-step-mark { width: 10px; flex: none; color: var(--pot-plum); font-weight: 900; }
+.pot-step.next .pot-step-mark { color: var(--pink); }
+.pot-step-p { font: 900 0.78rem/1 var(--font-head); color: var(--pot-plum); }
+.pot-step-name { font-weight: 900; color: var(--pot-plum); min-width: 0; }
+.pot-step-crown { width: 13px; height: 13px; color: var(--pot-sakura-a); }
+.pot-step-next { margin-left: auto; font-size: 0.6rem; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: var(--pink); color: #fff; white-space: nowrap; }
+.pot-step-long { margin: 2px 0 0 16px; line-height: 1.3; }
+.pot-step-cap { margin: 2px 0 0 16px; font-size: 0.66rem; font-weight: 800; color: var(--pot-plum); }
 .pot-glyph { color: var(--pink); }
-.pot-sig-meta { color: var(--muted); font-size: 0.72rem; margin-top: 2px; }
 .pot-footer { margin: 6px 0 0; font-size: 0.72rem; }
+.pot-footer-sig { margin-top: 2px; }
 @media (min-width: 1000px) and (min-height: 600px) {
-  .pot-node { min-height: 64px; padding: 8px 4px; }
+  .pot-node { min-height: 72px; padding: 8px 4px 6px; }
   .pot-node-p { font-size: 0.95rem; }
   .pot-node-label { font-size: 0.72rem; }
+  .pot-node-line { font-size: 0.64rem; }
+  .pot-node-crown { width: 13px; height: 13px; }
+  .pot-step { font-size: 0.8rem; }
 }
 
 /* ---------- recruit reveal / results ---------- */
@@ -90,7 +124,96 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 .bt-panel-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bt-panel-name .pot-pill { align-self: center; }
 .bt-panel-name > .ur-badge, .bt-panel-name > .bt-panel-tiers { flex: none; }
+/* the P6 pill's crown must not cost her name its letters: a tighter row and a smaller crown here */
+.bt-panel-name:has(.pot-pill) { gap: 5px; }
+.bt-panel-name .pot-pill.p6 { padding: 0 4px; }
+.bt-panel-name .pot-pill-crown { width: 9px; height: 9px; margin-right: 1px; }
 
 /* formation squad slots: the × owns the top-right corner, the pill sits under it */
 .mb-fslot-pot { position: absolute; right: 3px; top: 26px; z-index: 3; line-height: 0; }
 .mb-fslot-pot .pot-pill.compact { height: 13px; min-width: 18px; padding: 0 3px; font-size: 0.62rem; }
+
+/* ---------- the pill's crown (P6) ---------- */
+.pot-pill-crown { width: 10px; height: 10px; margin-right: 2px; color: var(--pot-plum); }
+.pot-pill.compact .pot-pill-crown, .ma-fslot .pot-pill-crown { display: none; }
+
+/* ---------- reveal: the duplicate card's ribbon under her name ---------- */
+.ma-gc-potstep {
+  display: block; margin-top: 1px; font-size: 0.6rem; font-weight: 800; color: var(--pot-sakura-b);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 560px), (max-height: 500px) { .ma-gc-potstep { font-size: 0.5rem; } }
+button.ma-sum-pot { border: 0; font: inherit; color: inherit; cursor: pointer; }
+
+/* ---------- "Potential up!" cards (after a recruit, before its results) ---------- */
+.pot-up-layer {
+  position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 12px; box-sizing: border-box; background: rgba(12, 18, 36, 0.78); animation: pot-up-in 0.22s ease-out both;
+}
+.pot-up-layer.still, .pot-up-layer.still * { animation: none !important; }
+.pot-up-stage { width: min(560px, 100%); cursor: pointer; }
+.pot-up-card {
+  display: flex; gap: 14px; align-items: stretch; padding: 12px; border-radius: 14px; background: #fff; color: var(--ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 2px var(--pot-plum); animation: pot-up-card 0.28s ease-out both;
+}
+.pot-up-card.full { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 2px var(--pot-sakura-a); background: linear-gradient(160deg, #fff 55%, #ffe3ee); }
+.pot-up-art { flex: none; width: 128px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: #22385c; }
+.pot-up-art svg, .pot-up-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.pot-up-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pot-up-kicker { font: 900 0.72rem/1 var(--font-head); letter-spacing: 0.5px; text-transform: uppercase; color: var(--pink); }
+.pot-up-who { display: flex; align-items: center; gap: 4px; font-size: 1rem; }
+.pot-up-trick { font: 900 1.15rem/1.15 var(--font-head); color: var(--pot-plum); }
+.pot-up-glyph { display: inline-block; color: var(--pink); animation: pot-up-glow 1.6s ease-in-out infinite; }
+.pot-up-long { margin: 0; font-size: 0.8rem; line-height: 1.35; }
+.pot-up-more, .pot-up-also { font-size: 0.72rem; color: var(--muted); }
+.pot-up-cap { font-size: 0.76rem; font-weight: 900; color: var(--pot-plum); }
+.pot-up-next { margin-top: auto; font-size: 0.74rem; font-weight: 800; color: var(--pot-plum); }
+.pot-up-full { margin-top: auto; display: flex; align-items: center; gap: 6px; font: 900 1rem/1 var(--font-head); color: #c2255c; }
+.pot-up-crown { width: 22px; height: 22px; color: var(--pot-sakura-a); }
+.pot-up-list { margin: 4px 0 0; padding-left: 18px; font-size: 0.8rem; line-height: 1.5; }
+.pot-up-list .pot-up-crown { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; }
+.pot-up-card.list { min-height: 120px; }
+.pot-up-foot { display: flex; align-items: center; gap: 8px; width: min(560px, 100%); justify-content: flex-end; }
+.pot-up-count { margin-right: auto; color: #dfe9ff; font-size: 0.75rem; font-weight: 800; }
+.pot-up-btn {
+  border: 0; border-radius: 999px; padding: 7px 16px; font: 900 0.8rem/1 var(--font-head); cursor: pointer;
+  background: #ffd43b; color: #3b2350; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+.pot-up-btn.ghost { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: none; }
+.pot-up-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-height: 500px) {
+  .pot-up-layer { gap: 6px; padding: 8px; }
+  .pot-up-card { padding: 8px; gap: 10px; }
+  .pot-up-art { width: 92px; }
+  .pot-up-trick { font-size: 1rem; }
+  .pot-up-long { font-size: 0.72rem; line-height: 1.3; }
+  .pot-up-btn { padding: 6px 14px; }
+}
+@keyframes pot-up-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pot-up-card { from { transform: translateY(10px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pot-up-glow { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.25) rotate(18deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pot-up-layer, .pot-up-layer * { animation: none !important; } }
+
+/* ---------- students grid: the one-time NEW badge (her v3 steps not looked at yet) ---------- */
+.unit-card-potnew {
+  position: absolute; left: 4px; top: 24px; z-index: 3; padding: 0 5px; border-radius: 999px;
+  background: var(--pink); color: #fff; font: 900 0.55rem/1.5 var(--font-head); letter-spacing: 0.3px; pointer-events: none;
+}
+
+/* ---------- battle panel: Potential rows (rhythm pips, tempo pips, shuriken per throw, overclock) ---------- */
+.bt-pot { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 2px; }
+.bt-pot-row { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; min-width: 0; }
+.bt-pot-row > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bt-pot-pips { display: inline-flex; gap: 2px; flex: none; }
+.bt-pot-pip { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--pot-sakura-a); box-sizing: border-box; }
+.bt-pot-pip.on { background: var(--pot-sakura-a); }
+.bt-pot-row.tempo .bt-pot-pip { border-color: #9775fa; }
+.bt-pot-row.tempo .bt-pot-pip.on { background: #9775fa; }
+.bt-pot-pips.many .bt-pot-pip { width: 5px; height: 5px; }
+.bt-pot-row small { opacity: 0.75; white-space: nowrap; }
+
+/* ---------- SSR Select Ticket: the step a duplicate just unlocked ---------- */
+.sst-joined-step { display: flex; flex-direction: column; gap: 2px; padding: 5px 8px; border-left: 3px solid var(--pink); border-radius: 0 8px 8px 0; background: rgba(255, 122, 168, 0.1); font-size: 0.78rem; }
+.sst-joined-step b { color: var(--pot-plum); }
+/* the ~40 px stage-prep slots have no room for it (the Students grid shows it) */
+.ma-fslot .unit-card-potnew { display: none; }

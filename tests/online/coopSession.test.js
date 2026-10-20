@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { openSession, LOBBY } from '../../src/online/coop/session.js';
 import { coopVersion } from '../../src/online/coop/version.js';
 import { openSocialSession } from '../../src/online/coop/socialRoom.js';
+import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
+import { clampStart } from '../../src/online/coop/statLimits.js';
 
 function world({ latency = 60 } = {}) {
   const clock = { t: 1_000_000 };
@@ -612,6 +614,117 @@ describe('co-op lobby handshake', () => {
   });
 });
 
+describe('co-op lobby: the start message is clamped on both clients (statLimits.js)', () => {
+  it('a guest whose hello carries absurd stats fights at the clamp; both build the same battle', () => {
+    const W = world();
+    const host = open(W, true);
+    const cheat = { damageMul: 1000, rateMul: 99, costMul: 0.001, level: 1e9, potential: 99, awakenPassive: true };
+    const guest = open(W, false, { me: { uid: GUEST, name: 'Bea', level: 5, avatar: 'aoi', loadout: [{ unitId: 'yuki', stats: cheat }, { unitId: 'rei', stats: { potential: 6, level: 85 } }], hero: null } });
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4242)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    expect(guest.lockstep.start).toEqual(host.lockstep.start);
+    const g = host.lockstep.start.players.find((p) => p.uid === GUEST);
+    expect(g.loadout[0].stats).toEqual({ damageMul: 10, rateMul: 5, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
+    // an honest L85 P6 girl passes through as she is
+    expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
+    expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
+    host.close();
+    guest.close();
+  });
+
+  it('a resync from a hand-edited host fights at the clamp too: its start is clamped again and its checkpoint stats re-derived', () => {
+    const W = world();
+    const host = open(W, true);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4242)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    // the hand-edited host's own battle: its first girl at damageMul 1000, placed, a few seconds in
+    const hostile = JSON.parse(JSON.stringify(host.lockstep.start));
+    const hp = hostile.players.find((p) => p.slot === 0);
+    hp.loadout[0].stats = { ...hp.loadout[0].stats, damageMul: 1000, rateMul: 99 };
+    const unitId = hp.loadout[0].unitId;
+    const C = createCoopSim(hostile, { mySlot: 0 });
+    let spot = null;
+    for (let y = 0.55; y < C.sim.map.height && !spot; y += 0.35) {
+      for (let x = 0.55; x < C.sim.map.width && !spot; x += 0.35) if (!C.sim.placementReason(unitId, x, y)) spot = quantize(x, y);
+    }
+    const cmds = [{ t: 0, p: 0, s: 0, k: 'place', a: [unitId, ...spot] }, { t: 1, p: 0, s: 1, k: 'wave', a: [] }];
+    for (const c of cmds) {
+      while (C.tick < c.t) C.step();
+      expect(C.apply(c).ok).toBe(true);
+    }
+    for (let i = 0; i < 120; i++) C.step();
+    const cheat = C.sim.towers[0];
+    expect(cheat.unitStats.damageMul).toBe(1000);
+    // the guest rebuilds from that start and that checkpoint (applyResync, as a 'resync' message does)
+    const ls = guest.lockstep;
+    ls.applyResync({ start: hostile, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
+    while (ls.job) ls.runJob(Infinity);
+    const t = ls.coop.sim.getTower(cheat.uid);
+    expect(t.unitStats).toMatchObject({ damageMul: 10, rateMul: 5 });
+    // her stats and effective stats come from the clamped entry, not from the checkpoint's numbers
+    const honest = createCoopSim(clampStart(hostile), { mySlot: 1 });
+    for (const c of cmds) {
+      while (honest.tick < c.t) honest.step();
+      honest.apply(c);
+    }
+    const h = honest.sim.towers[0];
+    expect(t.stats.damage).toBe(h.stats.damage);
+    expect(t.stats.rate).toBe(h.stats.rate);
+    expect(t.stats.damage).toBeLessThan(cheat.stats.damage / 50);
+    expect(t.eff.damage).toBeLessThan(cheat.eff.damage / 50);
+    host.close();
+    guest.close();
+  });
+
+  it('a resync whose checkpoint keeps her stats honest but edits her effective stats is rebuilt too', () => {
+    const W = world();
+    const host = open(W, true);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4243)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    const start = host.lockstep.start;
+    const unitId = start.players.find((p) => p.slot === 0).loadout[0].unitId;
+    const C = createCoopSim(start, { mySlot: 0 });
+    let spot = null;
+    for (let y = 0.55; y < C.sim.map.height && !spot; y += 0.35) {
+      for (let x = 0.55; x < C.sim.map.width && !spot; x += 0.35) if (!C.sim.placementReason(unitId, x, y)) spot = quantize(x, y);
+    }
+    const cmds = [{ t: 0, p: 0, s: 0, k: 'place', a: [unitId, ...spot] }, { t: 1, p: 0, s: 1, k: 'wave', a: [] }];
+    for (const c of cmds) {
+      while (C.tick < c.t) C.step();
+      expect(C.apply(c).ok).toBe(true);
+    }
+    for (let i = 0; i < 120; i++) C.step();
+    const honestEff = C.sim.towers[0].eff.damage;
+    // the hand-edited checkpoint: her stats as her loadout gives them, her effective damage × 1000
+    C.sim.towers[0].eff = { ...C.sim.towers[0].eff, damage: honestEff * 1000, rate: C.sim.towers[0].eff.rate * 99 };
+    const ls = guest.lockstep;
+    ls.applyResync({ start, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
+    while (ls.job) ls.runJob(Infinity);
+    const t = ls.coop.sim.getTower(C.sim.towers[0].uid);
+    expect(t.eff.damage).toBe(honestEff);
+    expect(t.eff.rate).toBeLessThan(C.sim.towers[0].eff.rate / 50);
+    host.close();
+    guest.close();
+  });
+});
+
 // "When you lose and go back to coop make it so the room stays and you can rejoin the room"
 // (owner, Oct 14). Each battle runs to its end the way the game ends one: both clients' battle
 // screens advance their own lockstep (Nightmare: one life, no girls placed, so the first enemy
@@ -1044,14 +1157,14 @@ describe('co-op freeplay: the room setting', () => {
     guest.close();
   });
 
-  it('protocol 4: a hello or a start message from a protocol-3 build is refused (the version banner)', () => {
+  it('protocol 5: a hello or a start message from a protocol-4 build is refused (the version banner)', () => {
     const W = world();
     const { host, guest } = paired(W, { freeplay: 'tempest' });
     const v = coopVersion();
-    expect(v.proto).toBe(4);
-    const old = { ...v, proto: 3 };
+    expect(v.proto).toBe(5);
+    const old = { ...v, proto: 4 };
     host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
-    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 3 } });
+    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 4 } });
     expect(host.peer.uid).toBe(GUEST);
     // a start message from an old host never becomes a battle
     const players = [{ slot: 0, uid: HOST, name: 'Aiko', loadout: [], hero: null }, { slot: 1, uid: GUEST, name: 'Bea', loadout: [], hero: null }];

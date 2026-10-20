@@ -47,7 +47,7 @@ window.__sakura = { store };
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
-  ensurePotentialLetter(store.profile); // "New: Potential!" once, to saves whose duplicates were counted from history
+  ensurePotentialLetter(store.profile); // "Potential grew!" once, to a save from an older build with a girl at P2+ (Potential v3)
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);

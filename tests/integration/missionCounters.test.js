@@ -21,6 +21,9 @@ import {
 } from '../../src/systems/story.js';
 import { markSeen } from '../../src/systems/storyTriggers.js';
 import { claimAllMail } from '../../src/systems/mail.js';
+import { LEVEL_SHADOW_PREFIX } from '../../src/systems/progression.js';
+import { FP_TOME_PREFIX } from '../../src/online/coop/rewards.js';
+import { TRACK_EVENTS } from '../../src/data/missions.js';
 
 /**
  * An older build (before patch notes and the story; it keeps missions.counters word for word, as
@@ -84,8 +87,10 @@ describe('missions.counters namespaces: Potential shadows vs freeplay milestone 
 
 describe('missions.counters marks: patch gifts and the story outlive an older build', () => {
   it('the new prefixes are disjoint from each other and from pot: / fpm:', () => {
-    const all = [SHADOW_PREFIX, MILESTONE_MARK, PATCH_MARK, LESSON_MARK, SEEN_MARK, STORY_NEW_MARK, STORY_ANNOUNCED_MARK];
+    // (v3: the level shadow 'lv:<id>' and the freeplay cache Tome counter 'fpTome:<week>' too)
+    const all = [SHADOW_PREFIX, MILESTONE_MARK, PATCH_MARK, LESSON_MARK, SEEN_MARK, STORY_NEW_MARK, STORY_ANNOUNCED_MARK, LEVEL_SHADOW_PREFIX, FP_TOME_PREFIX];
     for (const a of all) for (const b of all) if (a !== b) expect(a.startsWith(b)).toBe(false);
+    for (const e of TRACK_EVENTS || []) for (const a of all) expect(String(e).startsWith(a)).toBe(false);
     // a fresh profile carries the story mark (and nothing else new)
     const p = createProfile();
     expect(p.missions.counters[STORY_NEW_MARK]).toBe(1);

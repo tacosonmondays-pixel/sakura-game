@@ -8,7 +8,7 @@ import { UNIT_MAP, UNITS } from '../data/units.js';
 import { STAGES, CAMPAIGN_IDS } from '../data/stages.js';
 import { MAPS } from '../data/maps.js';
 import { BATTLE } from '../data/types.js';
-import { unitBattleStats, MAX_LEVEL, MAX_AWAKEN, MAX_BREAKTHROUGH } from './progression.js';
+import { unitBattleStats, BREAKTHROUGH_LEVEL_CAP, MAX_AWAKEN, MAX_BREAKTHROUGH } from './progression.js';
 import { isStageCleared } from './unlocks.js';
 
 /** Campaign stages cleared (any difficulty) before Sandbox opens. */
@@ -54,9 +54,12 @@ export function sandboxStageFor(mapId) {
   return STAGES.find((s) => s.mapId === mapId)?.id || null;
 }
 
-/** A girl at her best: max level, every breakthrough gate, full awakening (no gear). */
+/**
+ * A girl at her best at P1: her P1 level cap (60), every breakthrough gate, full awakening (no
+ * gear, no Potential: the levels above 60 come with Potential).
+ */
 export function sandboxUnitStats(unitId) {
-  const profile = { units: { [unitId]: { level: MAX_LEVEL, awaken: MAX_AWAKEN, breakthrough: MAX_BREAKTHROUGH, gear: {} } }, gear: {} };
+  const profile = { units: { [unitId]: { level: BREAKTHROUGH_LEVEL_CAP, awaken: MAX_AWAKEN, breakthrough: MAX_BREAKTHROUGH, gear: {} } }, gear: {} };
   return unitBattleStats(profile, unitId);
 }
 

@@ -127,6 +127,8 @@ export const BUFF_REFRESH = 0.2;
 export const BREW_EVERY = 6;
 export const BREW_TIME = 6.5;
 export const BREW_DROP = 0.5;
+/** Most girls one brew reaches (path cap's widest brew; Potential's +1 brewed girl stops here). */
+export const BREW_TARGETS_MAX = 4;
 /** Window (s) of a girl's recent DPS (what the limited buffs pick by). */
 export const DPS_WINDOW = 2;
 /** How often a Chika with a free link slot looks for a girl to link (s). */

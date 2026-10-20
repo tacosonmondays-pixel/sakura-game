@@ -14,7 +14,7 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { uiIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isOwned } from '../../systems/unlocks.js';
-import { MAX_LEVEL, MAX_AWAKEN } from '../../systems/progression.js';
+import { BREAKTHROUGH_LEVEL_CAP as SANDBOX_LEVEL, MAX_AWAKEN } from '../../systems/progression.js';
 import {
   isSandboxUnlocked, sandboxLockText, sandboxMaps, sandboxFormation, sandboxRoster, sandboxBattleParams,
   campaignClears, SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS,
@@ -144,7 +144,7 @@ function teamStep(choice, redraw) {
       svgEl(portraitHTML(UNIT_MAP[id], 'card'), 'unit-card-art'),
       h('span.mb-fslot-x', '×'),
       isOwned(profile, id) ? null : h('span.sbx-trial', 'Trial'),
-      h('div.mb-fslot-name', UNIT_MAP[id].name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${MAX_LEVEL}`)))
+      h('div.mb-fslot-name', UNIT_MAP[id].name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${SANDBOX_LEVEL}`)))
     : h('button.mb-fslot', { onclick: () => { pick.kind = kind; redraw(); } }, '+'));
   const start = () => {
     const f = sandboxFormation(choice.towers, choice.hero);
@@ -177,9 +177,9 @@ function teamStep(choice, redraw) {
   const picker = h('section.mb-card.sbx-pick',
     h('div.mb-section-head',
       h('div.mb-seg', [['tower', 'Students'], ['hero', 'Heroes']].map(([k, label]) => h(`button.mb-seg-btn${pick.kind === k ? '.on' : ''}`, { 'data-testid': `sandbox-kind-${k}`, onclick: () => { pick.kind = k; redraw(); } }, label))),
-      h('span.muted', `Every girl joins at Lv ${MAX_LEVEL} with ${MAX_AWAKEN}★ awakening — owned or not.`)),
+      h('span.muted', `Every girl joins at Lv ${SANDBOX_LEVEL} with ${MAX_AWAKEN}★ awakening — owned or not.`)),
     h('div.mb-pick-grid', { 'data-testid': 'sandbox-roster' }, list.map((u) => {
-      const card = unitCard(u.id, { variant: 'tall', level: MAX_LEVEL, awaken: MAX_AWAKEN, owned: true, onClick: () => toggle(u.id) });
+      const card = unitCard(u.id, { variant: 'tall', level: SANDBOX_LEVEL, awaken: MAX_AWAKEN, owned: true, onClick: () => toggle(u.id) });
       card.dataset.testid = `sandbox-unit-${u.id}`;
       return h(`div.mb-pick${team.includes(u.id) ? '.in' : ''}`,
         card,

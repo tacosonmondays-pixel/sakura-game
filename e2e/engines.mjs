@@ -2,7 +2,8 @@
 // every JS engine computes the battle to the same bit, so this runs ONE scripted co-op battle
 // (e2e/engines/scriptedBattle.js: two Lockstep clients, both players' commands, to the end) and
 // ONE scripted co-op POTENTIAL battle (POTENTIAL_START: every kind of Potential step, the same girl
-// at P1 and P6) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
+// at P1 and P6, Kage's tempo and shuriken carry) and ONE against a spectral boss (POTENTIAL_BOSS_START:
+// Hotaru's ×spectral, Kaede's ×boss, Rei's duel echo) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
 // ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
 // at 250, every enemy's bits) in every engine it can find and compares the results:
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
@@ -116,20 +117,41 @@ if (ref.checkpoints < 20) failures.push(`only ${ref.checkpoints} hash checkpoint
 
 // Potential: every kind of step, and the same girl at P1 (host) and P6 (guest), in one battle
 const POT_KEYS = ['ticks', 'state', 'wave', 'towers', 'wallets', 'ults', 'aoi', 'final', 'hashes', 'checkpoints'];
-log('\nScripted co-op POTENTIAL battle (stage 1-3 Hard, POTENTIAL_START: drones, traps, aura, coins, silence, crit, elites, host Aoi P1 + guest Aoi P6):');
+log('\nScripted co-op POTENTIAL battle (stage 1-3 Hard, POTENTIAL_START: drones + overclock, traps + trap rhythm, aura + Brittle, coins + harvest, Moonfall, Kage tempo + carry + storm, Rei duel, host Aoi P1 + guest Aoi P6):');
 for (const { name, r } of results) {
   const p = r.potential;
   log(`  ${name.padEnd(46)} ticks ${p.ticks} · ${p.state} · wave ${p.wave} · ults ${p.ults} · coins ${p.wallets} · final ${p.final} · ${p.checkpoints} hash checkpoints → ${p.hashes} · ${p.ms} ms`);
   if (!p.agree) failures.push(`${name}: its own two Potential clients disagreed`);
   if (p.failed) failures.push(`${name}: ${p.failed} Potential command(s) refused: ${p.refused}`);
   for (const k of POT_KEYS) if (p[k] !== ref.potential[k]) failures.push(`${name}: potential ${k} ${p[k]} ≠ ${ref.potential[k]} (${results[0].name})`);
+  if (JSON.stringify(p.mech) !== JSON.stringify(ref.potential.mech)) failures.push(`${name}: potential mechanics ${JSON.stringify(p.mech)} ≠ ${JSON.stringify(ref.potential.mech)} (${results[0].name})`);
 }
 {
   const p = ref.potential;
-  log(`  towers: ${p.towers}\n  Aoi damage/rate/range/crit (guest P6 | host P1): ${p.aoi}`);
+  log(`  towers: ${p.towers}\n  Aoi damage/rate/range/crit (guest P6 | host P1): ${p.aoi}\n  v3 mechanics (host's client): ${JSON.stringify(p.mech)}`);
   if (p.state !== 'won' && p.state !== 'lost') failures.push(`the Potential battle did not finish (state ${p.state})`);
   if (!p.aoi || p.aoi.split(' | ')[0] === p.aoi.split(' | ')[1]) failures.push('the Potential battle: the two Aois resolved to the same stats');
   if ((p.towers.match(/:P/g) || []).length < 10) failures.push(`the Potential battle placed only: ${p.towers}`);
+  if (!(p.mech.tempo > 0 && p.mech.carry > 0 && p.mech.proc > 0)) failures.push(`the Potential battle: Kage's tempo / carry or a rhythm never fired (${JSON.stringify(p.mech)})`);
+}
+// Potential against a spectral boss: Hotaru ×spectral, Kaede ×boss, Rei's duel echo
+log('\nScripted co-op POTENTIAL boss battle (Total Assault: Grave Lych, POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Lych, Rei duel echo, Akane echo share, Hikari P6):');
+for (const { name, r } of results) {
+  const p = r.potentialBoss;
+  log(`  ${name.padEnd(46)} ticks ${p.ticks} · ${p.state} · wave ${p.wave} · ults ${p.ults} · coins ${p.wallets} · final ${p.final} · ${p.checkpoints} hash checkpoints → ${p.hashes} · ${p.ms} ms`);
+  if (!p.agree) failures.push(`${name}: its own two Potential boss clients disagreed`);
+  if (p.failed) failures.push(`${name}: ${p.failed} Potential boss command(s) refused: ${p.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'mech']) {
+    const a = k === 'mech' ? JSON.stringify(p.mech) : p[k];
+    const b = k === 'mech' ? JSON.stringify(ref.potentialBoss.mech) : ref.potentialBoss[k];
+    if (a !== b) failures.push(`${name}: potential boss ${k} ${a} ≠ ${b} (${results[0].name})`);
+  }
+}
+{
+  const p = ref.potentialBoss;
+  log(`  towers: ${p.towers}\n  v3 mechanics (host's client): ${JSON.stringify(p.mech)}`);
+  if (p.state !== 'won' && p.state !== 'lost') failures.push(`the Potential boss battle did not finish (state ${p.state})`);
+  if (!(p.mech.spectral > 0 && p.mech.boss > 0 && p.mech.echo > 0)) failures.push(`the Potential boss battle: ×spectral, ×boss or the duel echo never fired (${JSON.stringify(p.mech)})`);
 }
 
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
@@ -227,4 +249,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battle, the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical two-hero battle, the identical drones battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

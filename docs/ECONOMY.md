@@ -20,9 +20,11 @@ Owner: systems. Source of truth is the data (`src/data/items.js`, `src/data/shop
 * Rates: **SSR 1.5% · SR 18.5% · R 80%**. Every unit (free recruits and heroes included) is in its rarity's pool.
 * **Pity:** the 90th recruit without an SSR is an SSR. Consolidated SSR rate ≈ **2.02%** (1 SSR per ≈ 49.6 recruits on average).
 * **10× guarantee:** at least one SR or better in every 10×.
-* Duplicates → **+1 Potential** (P1 → P6, a small passive per step) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
-  At P6 a duplicate gives the fragments only. Sparks and SSR Select Tickets on an owned girl count as duplicates.
-  Potential adds no currency, item, price, reward or drop (§5, Potential).
+* Duplicates → **+1 Potential** (P1 → P6; v3: every step a stat boost, and from P3 (P2 for SSRs and heroes) a new
+  trick, up to a P6 capstone; `docs/specs/POTENTIAL.md`) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
+  At P6 a duplicate gives the fragments plus Akashic Tomes (SR ×1, SSR ×5; R none). Sparks and SSR Select Tickets
+  on an owned girl count as duplicates. Potential adds no currency or price; it raises the level cap past 60, and
+  levels above 60 are paid in Akashic Tomes (§5, Levels).
 * **Spark:** 200 recruit points → any SSR (Recruit Exchange or `spark()`).
 * Tickets are always spent before gems (`ticket_recruit10` for a 10×, then single tickets, then gems).
 
@@ -88,15 +90,31 @@ The action code `RESET 67` (reset progress) grants nothing and is left out of th
 
 ### Levels (books + coins)
 
-`expForLevel(L) ≈ 40·L^1.75 + 60` (rounded to 10). Books: Doodle Notes 100 · Study Guide 500 ·
-Academy Textbook 2,000 · Sage's Codex 8,000 · Akashic Tome 30,000 EXP. Coins: 0.4 per EXP applied
-(overflow past the cap is wasted and not charged).
+`expForLevel(L) ≈ 40·L^1.75 + 60` (rounded to 10) up to 60; **from 60, one Akashic Tome per level** (30,000 EXP and
+12,000 coins; `LEVEL_PAST_GATES` in `src/systems/progression.js`, the one table a later ascension replaces). Books:
+Doodle Notes 100 · Study Guide 500 · Academy Textbook 2,000 · Sage's Codex 8,000 · Akashic Tome 30,000 EXP. Coins:
+0.4 per EXP applied at every level (overflow past the cap is wasted and not charged).
 
-| Reach level | 10 | 20 | 30 | 40 | 50 | 60 |
-|---|---:|---:|---:|---:|---:|---:|
-| Total EXP | 7,610 | 52,410 | 161,900 | 359,830 | 667,950 | 1,106,630 |
+| Reach level | 10 | 20 | 30 | 40 | 50 | 60 | 63 | 67 | 72 | 78 | 85 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Total EXP | 7,610 | 52,410 | 161,900 | 359,830 | 667,950 | 1,106,630 | 1,196,630 | 1,316,630 | 1,466,630 | 1,646,630 | 1,856,630 |
 
-### Breakthrough (cap 10 → 60 in steps of 10; unit's own material family)
+**Level cap past 60 (Potential v3).** With all five breakthrough gates open her cap is her Potential's: P1 60 · P2 63
+· P3 67 · P4 72 · P5 78 · P6 85 (a P6 girl below gate 5 keeps the gate cap). 60 → 85 is 25 Tomes (750,000 EXP) and
+300,000 coins a girl; her growth continues unchanged (L85 ≈ ×1.28 her L60 damage per second). Akashic Tome sources:
+
+| Source | Amount | Cap |
+|---|---|---|
+| Library Courtyard III, Nightmare | 20 % a run (was 5 %) | energy / runs |
+| Freeplay caches (every 25 freeplay waves) | +1 per cache | 2 a week per account, solo and co-op together (`fpTome:<week>` in `missions.counters`) |
+| Bounty Exchange | 40 Bounty Tokens each | 2 a week |
+| Duplicates past P6 | SR ×1, SSR ×5 | duplicates |
+| Total Assault: Ashwing Matriarch (Hard) | 6 % a run (unchanged) | runs |
+
+None is sold for gems. Older builds clamp a level above 60 back to 60 when they load; `lv:<id>` in
+`missions.counters` restores it (never above the cap) on the next load of this build.
+
+### Breakthrough (cap 10 → 60 in steps of 10; unit's own material family; past gate 5 Potential raises it)
 
 | Gate | Materials | Coins |
 |---|---|---:|
@@ -124,10 +142,10 @@ Names run e.g. Sparrow Feather → Swallow Plume → Hawk Quill → Phoenix Plum
 
 ### Potential (P1–P6, from duplicates; `docs/specs/POTENTIAL.md`)
 
-Every duplicate raises a girl's Potential by 1, up to P6, and still pays its fragments. The five steps are small and
-relative (+2–3 % damage, attack speed, range or coins, a +1 % aura, or a signature: crit, vs elites, vs bosses,
-silence, focus cap); together a damage girl's P6 is ×1.072–×1.104 paper DPS (≈ +9 % real damage on crowds at every
-level), well below the awakening's ≈ +20–25 %. All eight of a team at P6 ≈ +8–12 % team damage.
+Every duplicate raises a girl's Potential by 1, up to P6, and still pays its fragments. v3 (train C): every step is
+bigger than the one before, a stat boost plus (from P3, from P2 for SSRs and heroes) a kit step; a damage girl's P6
+is about R ×1.59 · SR ×1.83 · SSR ×2.28 over P1 on paper (the v3 design spec), and with level 85 (her cap at P6)
+×2.04 / ×2.35 / ×2.93. Each step also raises her level cap (§5, Levels). (v1, live in v0.1.34, was ×1.07–1.10.)
 
 How fast free players get there (revision 1's Monte Carlo, `exp/gacha-mc.mjs`, 3,000 players; the duplicate rules
 are unchanged):

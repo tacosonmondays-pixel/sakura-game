@@ -9,7 +9,8 @@ import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
-import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
+import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
+import { settleLevels, MAX_LEVEL, MAX_BREAKTHROUGH } from './progression.js';
 import { newStory, restoreStory, markStory, STORY_NEW_MARK } from './story.js';
 import { cleanPatchGifts, markPatchGifts } from './patchGifts.js';
 import { newSensei, restoreSensei, markSensei } from './senseiSave.js';
@@ -118,7 +119,8 @@ export function createProfile() {
     mail: emptyMail(),
     patchGifts: {},
     stats: { battles: 0, wins: 0, kills: 0, pulls: 0, gemsEarned: 0 },
-    seenIntro: [],
+    // born on Potential v3: no "Potential grew!" letter (src/systems/mail.js ensurePotentialLetter)
+    seenIntro: [POT_V3_MARKER],
     seq: { gear: 0 },
     /** Unfinished battles kept by Save & quit, by slot (src/systems/battleSave.js). */
     battleSaves: {},
@@ -173,8 +175,10 @@ function cleanNumberMap(obj) {
 function cleanUnit(raw, now) {
   const base = newUnitState(now);
   if (!isObj(raw)) return base;
-  const breakthrough = int(raw.breakthrough, 0, 0, 5);
-  const cap = Math.min(60, 10 + 10 * breakthrough);
+  const breakthrough = int(raw.breakthrough, 0, 0, MAX_BREAKTHROUGH);
+  // her duplicates may not be known yet (`dupes` null until creditPotential restores it), so a girl
+  // past gate 5 keeps any level up to MAX_LEVEL here; migrateProfile re-clamps to levelCap after
+  const cap = breakthrough < MAX_BREAKTHROUGH ? 10 + 10 * breakthrough : MAX_LEVEL;
   const gear = { charm: null, ribbon: null, shoes: null };
   if (isObj(raw.gear)) for (const s of SLOTS) gear[s] = str(raw.gear[s]);
   return {
@@ -483,6 +487,9 @@ export function migrateProfile(raw) {
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   creditPotential(p, now);
+  // levels above 60 (Potential's cap): only now that her duplicates are known — restore what an
+  // older build clamped to 60 from the 'lv:' shadow, then clamp every girl to levelCap
+  settleLevels(p);
   // [story] no block = a save from before the story (legacy), unless missions.counters marks it as
   // created with the story (an older build dropped the block): claimed lessons and read scenes come
   // back from their marks too, and the block's state is marked again

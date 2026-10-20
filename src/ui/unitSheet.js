@@ -18,7 +18,7 @@ import { tagLegend, tagChips, TAG_GLYPHS } from './tagChips.js';
 import { buildTreeModel } from './treeModel.js';
 import { upgradeGrid, tierDetail } from './upgradeGrid.js';
 import { buildTab } from './unitBuild.js';
-import { potentialLevel } from '../systems/potential.js';
+import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../systems/potential.js';
 
 let studentMod = null;
 const loadStudent = () => (studentMod ||= import('./screens/student.js').catch((e) => {
@@ -80,7 +80,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     meta.append(
       h('span.us-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.us-muted', ` / ${levelCap(st)}`)),
       stars(st.awaken || 0, MAX_AWAKEN),
-      pot > 1 ? h(`span.us-pot${pot >= 6 ? '.p6' : ''}`, { title: `Potential ${pot}` }, `P${pot}`) : null,
+      pot > 1 ? h(`span.us-pot${pot >= 6 ? '.p6' : ''}`, { title: potentialPillTitle(unit, pot) }, `P${pot}`) : null,
       h('span.us-power', svgEl(uiIcon('sword'), 'us-power-ico'), fmt(unitPower(prof, unit.id))));
   } else if (!owner) {
     meta.append(h('span.us-locked', svgEl(uiIcon('lock'), 'us-lock-ico'), howShort(unit)));
@@ -155,6 +155,8 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     const fill = () => loadStudent().then((m) => {
       if (closed) return;
       box.replaceChildren(m.infoTab(unit, { profile: prof, label: owner ? 'theirs' : 'yours' }));
+      // your own girl's steps are on screen: her one-time Potential NEW badge goes
+      if (!owner && !profile && clearPotentialNew(store.profile, unit.id)) store.commit('potential-seen', { quiet: true });
     }).catch((e) => {
       console.warn('[unitSheet] student page unavailable', e);
       box.replaceChildren(failBox(() => {

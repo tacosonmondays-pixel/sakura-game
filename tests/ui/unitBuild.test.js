@@ -15,7 +15,9 @@ describe('buildModel', () => {
     const live = buildModel(unit, p);
     const snap = buildModel(unit, snapshotToMiniProfile(u));
     expect(snap.level).toBe(60);
-    expect(snap.cap).toBe(60);
+    // P6 with every gate open: her level cap is 85 (live and snapshot alike)
+    expect(snap.cap).toBe(85);
+    expect(live.cap).toBe(85);
     expect(snap.potential).toBe(6);
     expect(snap.equipped).toBe(3);
     expect(snap.gear.map((g) => g.main.text)).toEqual(live.gear.map((g) => g.main.text));

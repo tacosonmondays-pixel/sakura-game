@@ -1,4 +1,234 @@
-# Potential: duplicate recruits raise a girl to P6 (build spec, revision 2)
+# Potential: duplicate recruits raise a girl to P6 (build spec, revision 2; v3 on top)
+
+> **v3 is what ships in train C** (the section right below). Revision 2 and its M0–M3 notes further down
+> describe v1, the "small passives" ladder that went live in v0.1.34; everything they say about counting
+> duplicates, the backfill and the shadow still holds, while v1's step table (§3.3), its signature box (§7.3)
+> and its letter (§7.8) are replaced. The full v3 design (sizes, every ladder, mechanics N1–N17, the level cap
+> and the DPS ladder) is the v3 spec in the design folder (`scratchpad/potential3/SPEC.md`), a delta on v2.
+
+## v3 build notes (branch `feature/potential-v3`, from `origin/release/next` `c4f2220`, v0.1.35)
+
+**What changes for players.** Every duplicate still adds 1 to a girl's Potential (P1 → P6, `potentialLevel`, the
+one place that says where Potential comes from). Each step is now bigger than the one before: a stat boost on her
+rarity's climbing track (R +4/+4/+4/+4/+5 %, SR +4/+5/+5/+6/+7 %, SSR and heroes +5/+7/+7/+8/+9 %; the two supports
+spend an aura track, Momo a coins track, Nami her own), spent on her own axis, and from P3 (from P2 for SSR girls
+and the three heroes) a kit step (✦) that amplifies what she is good at, up to a capstone at P6. Kage: all five
+stat steps are attack speed, 8 % more shuriken per throw and 1 more armor ignored (P3, Shadow Edge), Shadow Tempo
+(P4), +1 pierce (P5, Moonpiercer) and the Shuriken Storm every 8th throw (P6). P1 is bit-identical to before (the P1 `resolveStats` hash `456:30217027`,
+`START`, every campaign golden).
+
+**Stages (each committed on the branch).**
+
+| Stage | What | Notes |
+|---|---|---|
+| V0 | Sim mechanics N1–N17 (`src/sim/potential.js`, hooks in `mods.js`, `towers.js`, `Sim.js`, `hero.js`, `combat.js`) | every key absent at P1; brews ≤ 4 girls |
+| V1 | Data v3: the 19 rows (`src/data/potential.js`), the text table (`src/data/potentialText.js`: node label, long text, paper size, FX cue), Power | data, text and sim tests (§13.2) |
+| V2 | Battle saves format 3 (`SNAP_V` 3: `pc`, `tp`, `pj`, `rk`, `rt`, `ab`, `oc`), `POTENTIAL_START` on the v3 line-up and `POTENTIAL_BOSS_START` (Grave Lych), co-op test | `COOP_PROTOCOL` 5, sim id `ff25094d81d8`; Node, Bun, Chromium and Firefox agree |
+| V3–V5 | UI, migration from v1, the letter, docs | below |
+| L0–L2 | Level cap 85 with Akashic Tomes, the Tome sources, the level-cap screens, the co-op plausibility clamp with its `potential` rule | below ("Level cap"); co-op sim id `132be3774582`, `COOP_PROTOCOL` still 5, `SNAP_V` still 3 |
+
+**UI (v3 §11, v2 §7).**
+- **Pills** (`src/ui/potential.js potPill`): P6 wears the five-petal Full-Potential crown (our own SVG); the title
+  names her newest step ("Potential 5 of 6 — Moonpiercer") on cards, the unit sheet and the student page, whose
+  showcase pill adds the next step ("Next: P5 unlocks ✦ Moonpiercer (1 more duplicate)").
+- **Info tab** (`potentialSection`): the six-node track with ✦ on kit nodes, the crown on P6 and the stat line under
+  each node (`+4% SPD`); the step list replaces v1's signature box (owned ✓, the next one with "NEXT · 1 more
+  duplicate", later ones muted, Allies / Enemies / Coins chips, the capstone with the crown); the footer names the
+  next step ("Next: P5 ✦ Moonpiercer with 1 more duplicate") and the capstone. Each node's line is two spans, her
+  stat and her cap at that P ("+4% SPD" "Lv 67"; a stat step whose label already is the stat shows only "Lv 63"):
+  on a narrow node the cap wraps under the stat instead of hiding behind an ellipsis. The caps and each row's
+  "Level cap 72" come from `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`) and show only where
+  Potential raises the cap above P1's; for an owned girl below gate 5 the row reads "Level cap 72 after all 5
+  breakthroughs" (her real cap is her gates'), and the rule says "Once all 5 breakthrough gates are open, every
+  step also raises her level cap (up to 85 at P6)".
+- **Previews**: spark grid ("Owned · P4 → P5 ✦ Moonpiercer"), SSR Select Ticket confirm ("P1 → P2: ✦ Firefly
+  Lamps") and its result card (the unlocked step and what it does), Mall Recruit Exchange ("Owned → P5 ✦ Maple
+  Gale & fragments"), the reveal's duplicate card (a ribbon under her name: "✦ Moonpiercer", title "P5 unlocked: …").
+- **"Potential up!" cards** (`showPotentialUp`, from `potentialRises`): after a reveal plays out, one card per
+  girl who reached a kit step (highest rarity first, at most 3, then "And N more"): her art, "Kage · P5", the
+  trick and its text, other tricks reached in the same recruit, "Level cap 72 → 78" when her own cap rises (all five
+  gates open: `levelCapAt(her gates, P)`, so a gate-0 girl gets no cap line), "Next: P6 ✦
+  Shuriken Storm — 1 more duplicate" or the crown and "Full Potential!", and stat-only rises as one "Also:" line.
+  Next / Done, Skip all. **Skip** on the reveal goes straight to the results (no cards); the summary's "▲ N
+  Potential (✦ N new tricks)" chip opens them again. The first-gain tip and the recruit rules / wiki rule
+  (`potentialDupesRule`, one place) drop "small passives".
+- **Battle panel** (`src/ui/battle/potentialRows.js`, drawn by `towerPanel.js`, refreshed every frame): the rhythm
+  pips ("Shuriken Storm ●●●○○○○○ every 8th"; a trap rhythm "every 4th trap"), Kage's tempo pips (6, "+4%"), her
+  shuriken per throw ("2 → 2.16 / throw"; Thousand Shadows "13 → 14.04") and Chika's drone overclock ("Throttle
+  Up in 14 s", "+75% · 4 s left"). An ally's girl shows her owner's counts; a P1 girl has no rows.
+
+**Gates B1 / B5 (measured, `tools/potentialBench.mjs`, seeds 9 / 21).** One girl on 4-5's best-covered spot,
+strong stats, P1…P6 on the seven reference builds (0-0-0; x-0-2, 2-x-0, 2-0-x at 4 and at 5), against a crowd (an
+immortal Orc Grunt every 0.1 s) and a held elite; E = √(crowd × held), the median over her builds. Six ladders sat
+above their band or had a spike, mostly pierce and splash that multiplied every shot in a crowd. They are re-priced
+with spec §9.4's knobs, and every step's `power` (`potentialText`) is now the bench's median step:
+
+| Girl | E P6/P1 before → after (band) | What changed |
+|---|---|---|
+| Shiro | ×3.29 → ×1.84 (1.72–1.95) | Silver Line (P5): 2 more armor ignored on every shot, +2 pierce only on every 5th (a Silver Line round); White Heron (P6): every 4th shot, 50 % harder, no extra pierce |
+| Kaede | ×4.63 → ×2.25 (2.1–2.45) | Maple Gale (P5) cuts within 0.1 tiles (was 0.6), at her plain damage: One Foe's +50 % lands on her target only (`towers.js` `procBase`) |
+| Kage | ×2.45 → ×1.93 (1.72–1.95) | P3 8 % more shuriken + 1 armor (was +1 pierce), P5 +1 pierce (was pierce + 12 % shuriken), the Storm every 8th throw (was 6th, with +2 pierce) |
+| Raika | ×2.29 → ×1.90 (1.72–1.95) | P3 1 armor instead of the lance's pierce; the column 25 % (was 35 %), Thunderhead 40 % within 0.8 tiles (was 70 % within 1) |
+| Hotaru | ×2.11 → ×2.02 (1.85–2.15) | Firefly Parade +1 target (was +4, the P3 spike); Midnight Lanterns 80 % harder (was 60 %) |
+| Aoi | ×1.57 → ×1.52 (1.5–1.68) | Through-Shot (P3): +3 % crit instead of the pierce (the P3 spike) |
+
+B5 for the six: Power against the bench Shiro 0 %, Aoi −1 %, Kaede +8 %, Kage −1 %, Raika −4 %, Hotaru +2 % (±10 %).
+Left as measured (bench limits, not ladder faults): Kaede's and Hotaru's P2 (a kept focus and an aura for others,
+which one girl against immortal targets cannot show), Shiro's P4 on the Execution builds (their crit is already
+high), Akane P3, Sango P3 / P5 and Chika P3 / P6 just outside ±30 % of the slot while in band, Rei's spread 1.36,
+Yuki (frost is control), Suzu (trap placement) and Midori (%-HP poison on immortal targets). B6 re-measured for the
+six: v3 ≥ v1 on every row (lowest ×1.016); the campaign is unchanged (P1 Easy 40/40, Normal 39/40; F2P and P6 win
+every stage P1 wins). Kage's battle panel at P6 L85 inside Miko 5 + Umeko 5, full tempo: MAXED 53.0k, best gold
+69.3k, UR 83.9k (spec §8.1's 57.0 / 74.6 / 90.3k were the old ladder). Co-op sim id `bfd51a8d8cc4`,
+`COOP_PROTOCOL` still 5; `POTENTIAL_START` and `POTENTIAL_BOSS_START` re-pinned (the scripted player now waits for
+a placement in flight before it queues an upgrade). Bench: `node --import ./tools/simLoader.mjs
+tools/potentialBench.mjs --girls kage,shiro --out b1.jsonl`, then `node tools/potentialBench.mjs --report b1.jsonl`.
+
+**Gates K1 / F1 (measured after the B1 trims, `tools/killcap.mjs` and `tools/capBot.mjs --profile`).** Kill
+capacity is the biggest lone boss-rank dummy a board kills on every path before it walks off (armor 4 neutral, 6
+heavy, 3 spectral, 4 scaled): capBot builds Build A on Blossom to wave 150 at P1 (seed 7), then every girl on that
+same board takes each profile's stats. These numbers replace the design spec's §8.4 / §8.5 model; F2P-late was
++31 to +35 % over the model before the B1 trims and is +18 to +26 % now (P1 reproduces the spec's measurement).
+
+| Board, 4-5 solo | neutral | heavy | spectral | scaled | team DPS (neutral / scaled) | vs the model |
+|---|---:|---:|---:|---:|---:|---|
+| P1, L60, MAXED | 35.2M | 28.4M | 17.8M | 50.5M | 0.54 / 0.79M/s | the spec measured 34.0 / 28.4 / 17.2 / 50.5 |
+| F2P-steady (R/SR P6, SSR P2, Nami 6, Hikari 3, Luna 2; L75, MAXED) | 93.1M | 75.0M | 47.0M | 138.2M | 1.44 / 2.19M/s | +29 / +25 / +31 / +29 % |
+| F2P-late (the same, L85, best gold) | 154.0M | 124.1M | 77.7M | 228.8M | 2.77 / 4.06M/s | +18 / +22 / +18 / +26 % |
+| Whale A (Build A all P6, L85, UR) | 339.8M | 264.2M | 159.6M | 469.8M | 5.33 / 7.78M/s | +26 / +22 / +22 / +27 % |
+
+| Board | neutral | heavy | spectral | scaled |
+|---|---:|---:|---:|---:|
+| 8-5 solo: P1 / F2P-steady / F2P-late / whale A | 43.7 / 100.0 / 184.3 / 378.6M | 35.2 / 86.6 / 154.0 / 327.8M | 22.1 / 52.3 / 96.5 / 205.4M | 60.4 / 138.2 / 273.8 / 542.5M |
+| 4-5 co-op, two bots: F2P-steady / F2P-late / whale A | 165.5 / 283.9 / 582.9M | 128.6 / 228.8 / 437.1M | 75.0 / 148.6 / 283.9M | 237.1 / 437.1 / 866.0M |
+| 8-5 co-op, two bots: F2P-steady / F2P-late / whale A | 198.1 / 352.3 / 649.4M | 154.0 / 264.2 / 504.8M | 96.5 / 171.5 / 327.8M | 273.8 / 504.8 / 964.7M |
+
+The ladder these give (capacity against the boss's HP; ✓ the margin, ✗ the multiplier still missing):
+
+| Boss | P1 | F2P-steady | F2P-late | Whale A |
+|---|---|---|---|---|
+| 4-5 solo 190 Grave Lych 31.1M | ✗ ×1.75 | ✓ ×1.5 | ✓ ×2.5 | ✓ ×5.1 |
+| 4-5 solo 200 Ashwing Matriarch 154M | ✗ ×3.0 | ✗ ×1.11 (month 3) | ✓ ×1.49 (about 38 s) | ✓ ×3.05 (about 20 s) |
+| 4-5 solo 210 Gloom Regent 239M | — | — | ✗ ×3.1 | ✗ ×1.5 |
+| 4-5 solo 250 Eclipse Wyrm 28.9B | — | — | — | ✗ ×61 |
+| 4-5 co-op 190 Lych 49.8M (+ Oni 17.7M) / 200 Matriarch 246M | — | ✓ ×1.5 / ✗ ×1.04 | ✓ / ✓ ×1.78 | ✓ / ✓ ×3.5 |
+| 4-5 co-op 210 Gloom Regent 383M | — | — | ✗ ×2.6 | ✗ ×1.35 |
+| 8-5 solo 170 Lych 34.4M / 190 Lych 75.4M / 200 Matriarch 372M | ✗ ×1.56 / — / — | ✓ ×1.5 / ✗ ×1.44 / ✗ ×2.7 | ✓ / ✓ ×1.28 / ✗ ×1.36 | ✓ / ✓ / ✓ ×1.46 |
+
+Freeplay fall waves (capBot Build A, Blossom; seeds 7 / 11 where two are given):
+
+| Profile | 4-5 | 1-5 | 8-5 | Band |
+|---|---|---|---|---|
+| P1 | 170 / 170 | 190 | 174 | PC1 floor ≥ 170 ✓ |
+| F2P-steady | 190 / 190 | 214 / 214 | 195 | 4-5 185–200 ✓; PC2 1-5 +24 over 4-5 ✗ (±20), 8-5 +5 ✓, one run past 200 and one before ✓ |
+| F2P-late | 205 / 205 | 218 | 200 (falls to the Matriarch) | PC6 195–210 ✓; beats the Matriarch on 2 of the 3 ✓ |
+| Whale A | 212 / 213 | 225 | 210 | ≤ 225 on 4-5 ✓; whale − F2P-late +7.5 on 4-5, +7 on 1-5, +10 on 8-5 (PC7 is Build W's: not run) |
+
+Free players beat the solo 4-5 Matriarch at F2P-late (month 6) and are ×1.11 short at month 3; wave 250 stays out of
+reach (the whale is ×61 short of the Wyrm). **Open:** PC2's 1-5 spread at F2P-steady. P1 already sits at the band's
+edge (1-5 190 against 4-5 170, +20): 1-5 runs past wave 200 while 4-5 stops at its elite wall, and the gap is +13 at
+F2P-late and +12.5 for the whale, so a Potential trim (which moves both stages) does not close it; it is 1-5's own
+curve, path-cap's band (M7b), for the owner or the path-cap tuner. Not run: K1's Build W row and PC7 (capBot has no
+Build W yet). Runs: `node --import ./tools/simLoader.mjs tools/killcap.mjs --stage 4-5 --tier blossom --seed 7
+[--coop 2 --blocks f2p-steady,f2p-late,whale]`, `node --import ./tools/simLoader.mjs tools/capBot.mjs --build A
+--tier blossom --stage 4-5 --seed 7 --profile f2p-steady`.
+
+**Migration from v1 (v3 §12, v2 §8).** No `SAVE_VERSION` bump; `dupes`, the shadow and the backfill are untouched,
+so every girl keeps her P and fights with the v3 steps of it at once.
+- **Nothing got weaker (gate B6, measured).** `BALANCE=potential` (`tests/integration/potential.balance.test.js`)
+  runs every girl with her v3 steps and with her v1 steps (`tests/fixtures/potentialV1.js`, the v0.1.35 table) at
+  P2…P6, strong build, 4-5: crowd 40 s and held target 60 s, seeds 9 / 21. v3 ≥ v1 everywhere; the lowest is Suzu's
+  held-target row at P5 (×0.975 over 8 seeds and 120 s: traps against one held enemy are placement luck, and v1's
+  +3 % range only moves where they land; its tolerance is 5 %, every other row's 1 %). Most rows climb from about
+  ×1.02 at P2 to ×1.4–3.8 at P6 (Midori's %-HP poison makes her rows huge against the bench's immortal targets).
+  Aoi inside Miko's / Umeko's aura ×1.01–1.32, Momo's wave income ×1.03–1.14 at every tier. Campaign (balance bot,
+  seed 1): P1 Easy 40/40, Normal 39/40; F2P Potential and P6 win every stage P1 wins (40 / 40 on both). v1's
+  "every step stays small" bands are gone from that file with v1.
+- **The letter.** v1's `potential-arrived-1` already reached v0.1.34 players, so v3 writes its own letter,
+  `potential-v3-1` "Potential grew!", once (`ensurePotentialLetter`, app start and lobby): every save without the
+  seenIntro mark `potential-v3` is an older build's; it is marked, and if some girl is at P2+ the letter lists every
+  such girl highest first with her newest step ("Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4%
+  damage)", 12 names then "and N more", " · level cap 78" for a girl whose five gates are open), says the cap rises
+  with Potential once all five gates are open (up to 85 at P6) and that each level above 60 uses one Akashic Tome
+  (the four sources), says nothing got weaker and points to the Info tab. A save that was backfilled and never got
+  v1's letter also reads how its duplicates were counted. New saves are born with the mark (`createProfile`), so
+  they never get it. v1's letter is not sent any more: a backfilled save gets `potential-arrived-1` in
+  `mail.delivered` (marked, never sent), so an older build's tab does not mail its outdated text either.
+- **NEW badge.** Each girl at P2+ when the letter came gets `pot3-new:<id>` in seenIntro: a NEW badge on her card
+  until her Info tab (student page or unit sheet) is opened.
+- **Battle saves** from before v3 (format 1–2) restore with the v3 steps of the saved P (their counters at 0);
+  when a girl in one is at P2+, Continue says "This run continues with Potential's new effects."
+
+**Level cap (L0–L2, v3 §4).**
+- **The rule** (`src/systems/progression.js`): `LEVEL_PAST_GATES` is the one table for the levels past gate 5 — her
+  cap at P1…P6 (60 · 63 · 67 · 72 · 78 · 85) and the price of each level above 60 (30,000 EXP, i.e. one Akashic
+  Tome, and 12,000 coins). `levelCap` = 10 + 10 × gates below gate 5, else her Potential's cap (a P6 girl at gate 3
+  stays at 40; there is no gate 6: the duplicate is the gate). `expForLevel` is 30,000 from 60 to 84; `MAX_LEVEL`
+  85. Her growth continues (L85 ★5 gate 5: damage ×2.862, rate ×1.336; ×1.283 her L60 DPS). Coins are charged per
+  band (0.4 per EXP up to 60, 12,000 per 30,000 EXP above). A later ascension (level gates paid with family
+  materials and a crown) replaces or extends this table and `levelCapAt` (the rule, with her P passed in;
+  `levelCap(state)` = `levelCapAt(gates, potentialLevel(state))`); the duplicate → Potential source stays
+  `potentialLevel`, with its inverse `potentialState(p)` and the duplicate-past-P6 payout `DUPE_PAST_MAX_TOMES` next
+  to it, so no other code says P = 1 + duplicates. Not co-op hashed.
+- **Saves** (no `SAVE_VERSION` bump): `cleanUnit` lets a girl past gate 5 keep any level up to 85 (her duplicates
+  may not be known yet); `migrateProfile` runs `settleLevels` after `creditPotential`: it lifts a girl an older
+  build clamped to 60 back to `min(lv:<id>, levelCap)` (the level shadow in `missions.counters`, written by
+  `levelUp` above 60) and clamps every girl to `levelCap` (EXP 0 when clamped). A hostile shadow never lifts above
+  the cap, and only a girl at 60+ is lifted. The profile card viewer and the co-op ally mini profile clamp to
+  `levelCapAt(breakthrough, p)`. Sandbox girls fight at their P1 cap (60).
+- **Akashic Tome sources** (none sold for gems): Library Courtyard III on Nightmare 5 % → 20 % (`STAGES`: the co-op
+  data id changes); a freeplay cache adds one Tome, at most 2 a week per account, solo and co-op sharing
+  `fpTome:<weekKey>` (added after the cache rolls, so every other drop is unchanged; a new week's key deletes the
+  old; the freeplay results sheet says "+1 Akashic Tome (2 of 2 this week)", or "Akashic Tomes: weekly limit
+  reached (2 a week, back next week)" when caches came without one); the Bounty Exchange row `bty_book_tome` (40 Bounty Tokens, 2 a week); duplicates past P6 pay SR 1 / SSR 5
+  Tomes (R none) besides their fragments. Item info lists all four.
+- **Screens**: the Level Up tab's "Cap 72 · P4 · max 85", at the cap "P5 raises it to 78 (1 more duplicate)", above 60
+  "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"; at gate 5 the breakthrough card is the Potential cap
+  card ("Level cap 72 · Next: 78 at P5 (1 more duplicate)", "Level cap 85 · Full Potential", the six caps); gate 5's
+  text names the cap her Potential opens. The Info tab's `stat · cap` lines, each step's "Level cap 72", the "Level
+  cap 72 → 78" line on a "Potential up!" card and the letter's " · level cap 78" light up from the rule. Recruit
+  summary "+5 Akashic Tomes", spark / select-ticket / P6 footer copy ("Star Fragments (+40 each) and 5 Akashic
+  Tomes"), the wiki (Leveling: the table to 85 and "Above 60: one Akashic Tome per level"; Potential: the level-cap
+  row and the four sources).
+- **Co-op** (`src/online/coop/statLimits.js`, hashed): the plausibility clamp with gear's ceilings (`damageMul` ≤ 10,
+  `rateMul` ≤ 5, `level` 1–99, …) and the `potential` rule (integer 1–6), one rule per unit-stat key, at most
+  towersPerPlayer + 1 girls a player; `session.js` `begin()` clamps the start message on both clients, and the
+  lockstep (`clampStarts`) clamps the host's start again in a resync or rejoin and rebuilds any girl whose
+  checkpointed stats (or effective stats) are not what her clamped entry gives (`rederiveStats`). Honest L85 P6 loadouts and honest
+  checkpoints pass through unchanged. (With the effective-stats check the co-op sim id is `37b5428d7657`,
+  `COOP_PROTOCOL` still 5.)
+- **Tests**: `tests/systems/progression.test.js` (the table, `levelCap` gates 0–4 × P1–P6 and gate 5 × P1–P6,
+  `expForLevel(59)` 50,300 / 60…84 30,000 / 85 ∞, `totalExpToLevel(85)` 1,856,630, 12,000 coins a level, the band
+  split across 60, overflow at the cap, Auto Select to 85, L85 stats, the shadow, `settleLevels`, `levelCapInfo`),
+  `tests/systems/save.test.js` (L60 P1 unchanged, L72 P4 round trip, `dupes: null` kept then re-clamped, an older
+  build's clamp restored, hostile shadows), `tests/systems/levelTomes.test.js` (the four sources, the weekly cap
+  shared by solo and co-op, the rng stream), `tests/online/coopStatLimits.test.js` and the lobby case in
+  `tests/online/coopSession.test.js`, `tests/online/profileCard.test.js`, `tests/integration/missionCounters.test.js`
+  (the `lv:` / `fpTome:` prefixes), `e2e/potential.mjs` (the cap line, both cap cards, a level-up past 60 with a Tome,
+  the "Level cap 63 → 67" card line).
+
+**Patch note** (`src/data/patchNotes.js`, `v0.1.37`, the version after v0.1.36, which this branch has merged; the
+shipping stage sets the deploy day and re-numbers it only if another release ships first): "Bigger Potential & level
+85" — Potential got much bigger, every step stronger; from P3 (P2 for SSR girls and heroes) a new trick per step up to
+a P6 capstone with a Full Potential crown, every step on her Info tab; once all five breakthrough gates are open,
+every Potential step raises her level cap, up to 85 at P6, each level above 60 one Akashic Tome; the four Tome
+sources; girls keep their Potential and nothing got weaker; co-op needs the update on both sides.
+
+**Tests.** `tests/integration/potential.balance.test.js` (B6 and the campaign, opt-in), `tests/systems/potential.test.js` (step info, next step, pill title, chips, the `stat · cap` line with a
+rising cap rule, `potentialLevelCap`, recruit rises, the duplicates rule), `tests/systems/mail.test.js` (a v1 save,
+a pre-M0 save, a v3-born save, an all-P1 save, the 12-name list, the cap phrase, the NEW badge round trip),
+`tests/battle-ui/potentialPanel.test.js` (Kage's storm and tempo pips and shuriken line, Chika's overclock, ordinals,
+a P1 girl without rows, in a real battle), `tests/battle-ui/snapshot.test.js` (`potentialNew` on a format-2 save),
+`e2e/potential.mjs` at 844×390 touch and 1280×720 (every screen above, the letter, the badges, no sideways scroll).
+
+**Not built here (next stages):** the clan-boss constant (gate CB: needs P6 L85 UR rows, UR gear is the next
+build); attack FX for v3's events (`proc`, `nova`, `tempo`, `dotSpread`, echo
+volleys) and the crown ring on the field (render, v2 §7.8); the Sandbox P1–P6 picker (v2 §7.7); the §13.1
+measurement gates not run above (B2–B4, B7, B8, T1, H1, C1, F2–F6 beyond the Build A falls, K1 Build W, P1, CB, E1) on the integrated train C tree.
+
+---
+
+## Revision 2 (v1, live in v0.1.34)
 
 Sakura Sentinels. Live branch read-only at `ffc4d23` (v0.1.25 + the UR awakening merge; the sim is unchanged since
 `9bede1e`). Written 2026-10-14; revision 2 answers every issue in `CRITIC.md` (§15). Roadmap task #165.
@@ -81,7 +311,7 @@ POTENTIAL_START and both freeplay battles; Firefox and WebKit are not installed 
 `--require-all` could not run here), `e2e/potential.mjs` at 844×390 and 1280×720, `smoke`, `coop-freeplay`,
 `ur-awaken`, `stat-display`, `potential-m0`, `BALANCE=potential`, the freeplay rows below.
 
-**`POTENTIAL_START`** (1-3 **Hard**, seed 616161): host Aoi P1, Chika P6, Suzu P6, Miko P6, Kaede P5, hero Luna P6; guest
+**`POTENTIAL_START`** (v1; superseded by the v3 line-up, see the v3 build notes) (1-3 **Hard**, seed 616161): host Aoi P1, Chika P6, Suzu P6, Miko P6, Kaede P5, hero Luna P6; guest
 Aoi P6 (×1.1 gear), Momo P6, Hotaru P6, Shiro P4, **Yuki P6** (Umeko needs water, 1-3 has none; her aura-speed step is
 covered by `tests/sim/mods.test.js`). Each player places her girls as her own coins allow and upgrades a few. Won,
 28,390 ticks, final `471369358`, 64 checkpoints → `7d947497` (pinned in `tests/online/engines.test.js`); the guest's Aoi

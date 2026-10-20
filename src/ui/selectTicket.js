@@ -11,7 +11,10 @@ import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
 import { isUR, urBadge, applyUrFrame } from './rarity.js';
-import { MAX_POTENTIAL, potentialLevel } from '../systems/potential.js';
+import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialStepInfo, DUPE_PAST_MAX_TOMES } from '../systems/potential.js';
+
+/** What a duplicate past P6 pays besides its fragments: "5 Akashic Tomes" for an SSR (src/systems/potential.js). */
+const tomesPastMax = (n = DUPE_PAST_MAX_TOMES.SSR) => (n ? `${n} Akashic Tome${n === 1 ? '' : 's'}` : '');
 
 /**
  * After a claim: "Choose your SSR now?"
@@ -37,7 +40,7 @@ export function openSelectTicket() {
     title: 'SSR Select Ticket',
     wide: true,
     cls: 'sst-modal',
-    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments.`), grid),
+    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments${tomesPastMax() ? ` (at P${MAX_POTENTIAL}: also ${tomesPastMax()})` : ''}.`), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
   for (const id of POOL.SSR) {
@@ -49,8 +52,8 @@ export function openSelectTicket() {
         const frag = UNIT_RARITIES.SSR.fragmentsOnDupe;
         const p = owned ? potentialLevel(store.profile.units[id]) : 0;
         const text = !owned ? `Recruit ${u.name}, ${u.title}?`
-          : p >= MAX_POTENTIAL ? `${u.name} is at P${MAX_POTENTIAL}: the ticket becomes ${frag} Star Fragments. Use it?`
-            : `${u.name} is already in your academy: she gains +1 Potential (P${p} → P${p + 1}) and ${frag} Star Fragments. Use it?`;
+          : p >= MAX_POTENTIAL ? `${u.name} is at P${MAX_POTENTIAL}: the ticket becomes ${frag} Star Fragments${tomesPastMax(DUPE_PAST_MAX_TOMES[u.rarity] || 0) ? ` and ${tomesPastMax(DUPE_PAST_MAX_TOMES[u.rarity] || 0)}` : ''}. Use it?`
+            : `${u.name} is already in your academy: she gains +1 Potential (P${p} → P${p + 1}: ${potentialNext(u, store.profile.units[id])?.brief || ''}) and ${frag} Star Fragments. Use it?`;
         const ok = await confirmDialog(text, { title: 'Use SSR Select Ticket', ok: !owned ? `Choose ${u.name}` : p >= MAX_POTENTIAL ? 'Convert' : 'Use ticket', okKind: 'yellow' });
         if (!ok) return;
         const r = redeemSelectTicket(store.profile, id);
@@ -73,6 +76,16 @@ export function openSelectTicket() {
   return m;
 }
 
+/** "P2 unlocked: ✦ Firefly Lamps" and what it does, after a duplicate. */
+function stepLine(u, r) {
+  if (r.isNew || !r.potentialUp) return null;
+  const info = potentialStepInfo(u, r.potential);
+  if (!info) return null;
+  return h('div.sst-joined-step', { 'data-testid': 'sst-joined-step' },
+    h('b', `P${info.step} unlocked: ${info.brief}`),
+    info.kit ? h('span', info.long) : null);
+}
+
 function showJoined(u, r) {
   modal({
     title: '',
@@ -85,7 +98,9 @@ function showJoined(u, r) {
         h('span.sst-joined-title', u.title),
         h('p', { 'data-testid': 'sst-joined-text' }, r.isNew ? `${u.name} joined the academy!`
           : r.potentialUp ? `${u.name} was already here — Potential ${r.potential} ▲ and +${r.fragments} Star Fragments.`
-            : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments.`),
+            : `${u.name} is at P${MAX_POTENTIAL} — +${r.fragments} Star Fragments${r.tomes ? ` and ${r.tomes} Akashic Tome${r.tomes === 1 ? '' : 's'}` : ''}.`),
+        // the step she just reached (the "Potential up!" card's content, inside this card)
+        stepLine(u, r),
         u.quote ? h('q', u.quote) : null,
       ),
     ),

@@ -170,6 +170,10 @@ function buildSourceIndex() {
 
   // Special sources not in any table.
   push('star_fragment', { kind: 'other', label: 'Recruit duplicates', route: 'recruit', params: {}, note: 'Duplicate R ×2 · SR ×10 · SSR ×40 fragments' });
+  // Akashic Tomes pay the levels above 60 (Potential v3 §4.4): besides Library Courtyard III on
+  // Nightmare and the Bounty Exchange (both in the tables above)
+  push('book_legendary', { kind: 'other', label: 'Freeplay caches', route: 'campaign', params: {}, note: 'One per freeplay cache (every 25 freeplay waves), up to 2 a week, solo and co-op together' });
+  push('book_legendary', { kind: 'other', label: 'Recruit duplicates past P6', route: 'recruit', params: {}, note: 'A duplicate of a girl already at P6: SR ×1 · SSR ×5' });
   for (const r of Object.keys(ITEM_RARITIES)) {
     push(`gearbox_${r}`, { kind: 'other', label: 'Bounty · Gear arena', route: 'bounty', params: {}, note: 'Gear boxes open into real gear the moment they drop.' });
   }

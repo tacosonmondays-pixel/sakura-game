@@ -78,7 +78,7 @@ export function pullCost(profile, count, { useTickets = true } = {}) {
 /**
  * Recruit 1 or 10 times. Payment is taken atomically before rolling; results are written to
  * the profile (new units, fragments for duplicates, history, stats, missions).
- * @returns {{ ok: boolean, error?: string, results: {unitId, rarity, isNew, fragments, pity, potential, potentialUp}[], spent: { gems: number, tickets: number, items: object[] } }}
+ * @returns {{ ok: boolean, error?: string, results: {unitId, rarity, isNew, fragments, tomes, pity, potential, potentialUp}[], spent: { gems: number, tickets: number, items: object[] } }}
  */
 export function pull(profile, count, rng, { useTickets = true } = {}) {
   const n = count === 10 ? 10 : count === 1 ? 1 : 0;
@@ -95,7 +95,7 @@ export function pull(profile, count, rng, { useTickets = true } = {}) {
     const needSR = n === 10 && GACHA.tenPullGuaranteeSR && i === n - 1 && results.every((r) => r.rarity === 'R');
     const roll = rollOnce(state, rng, { minRarity: needSR ? 'SR' : null });
     const grant = grantUnit(profile, roll.unitId, now);
-    results.push({ unitId: roll.unitId, rarity: roll.rarity, isNew: grant.isNew, fragments: grant.fragments, pity: roll.pity, potential: grant.potential, potentialUp: grant.potentialUp });
+    results.push({ unitId: roll.unitId, rarity: roll.rarity, isNew: grant.isNew, fragments: grant.fragments, tomes: grant.tomes, pity: roll.pity, potential: grant.potential, potentialUp: grant.potentialUp });
     state.history.push({ unitId: roll.unitId, rarity: roll.rarity, at: now });
   }
   if (state.history.length > HISTORY_LIMIT) state.history.splice(0, state.history.length - HISTORY_LIMIT);
