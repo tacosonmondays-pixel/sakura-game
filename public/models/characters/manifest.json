@@ -52,7 +52,7 @@
  },
  "ena": {
   "file": "ena.glb",
-  "size": 486856,
+  "size": 489108,
   "animations": [
    "attack_throw",
    "cheer",
@@ -64,7 +64,7 @@
   ],
   "vertices": 10602,
   "lod": "ena.lod.glb",
-  "lodSize": 239976,
+  "lodSize": 242228,
   "lodVertices": 3737
  },
  "future-hiiro": {
@@ -137,7 +137,7 @@
  },
  "fuu": {
   "file": "fuu.glb",
-  "size": 476264,
+  "size": 479448,
   "animations": [
    "attack_sweep",
    "cheer",
@@ -149,7 +149,7 @@
   ],
   "vertices": 10324,
   "lod": "fuu.lod.glb",
-  "lodSize": 236156,
+  "lodSize": 239340,
   "lodVertices": 3647
  },
  "hana": {
@@ -207,7 +207,7 @@
  },
  "iroha": {
   "file": "iroha.glb",
-  "size": 467132,
+  "size": 469796,
   "animations": [
    "attack_cast",
    "cheer",
@@ -219,7 +219,7 @@
   ],
   "vertices": 10192,
   "lod": "iroha.lod.glb",
-  "lodSize": 218768,
+  "lodSize": 221432,
   "lodVertices": 3284
  },
  "kaede": {
@@ -258,7 +258,7 @@
  },
  "kanna": {
   "file": "kanna.glb",
-  "size": 459748,
+  "size": 463572,
   "animations": [
    "attack_smash",
    "cheer",
@@ -270,7 +270,7 @@
   ],
   "vertices": 9494,
   "lod": "kanna.lod.glb",
-  "lodSize": 232084,
+  "lodSize": 235908,
   "lodVertices": 3146
  },
  "luna": {
@@ -447,7 +447,7 @@
  },
  "seiran": {
   "file": "seiran.glb",
-  "size": 436020,
+  "size": 439068,
   "animations": [
    "attack_thrust",
    "cheer",
@@ -459,7 +459,7 @@
   ],
   "vertices": 8888,
   "lod": "seiran.lod.glb",
-  "lodSize": 226608,
+  "lodSize": 229656,
   "lodVertices": 3059
  },
  "sentinel-akane": {
@@ -770,7 +770,7 @@
  },
  "yoriko": {
   "file": "yoriko.glb",
-  "size": 442316,
+  "size": 445584,
   "animations": [
    "attack_cast",
    "cheer",
@@ -782,7 +782,7 @@
   ],
   "vertices": 8992,
   "lod": "yoriko.lod.glb",
-  "lodSize": 229416,
+  "lodSize": 232684,
   "lodVertices": 3061
  },
  "yuki": {

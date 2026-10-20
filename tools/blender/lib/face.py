@@ -30,15 +30,16 @@ def build_atlas(unit, cell_px=256, eye_v=0.40):
                 hairShade=pal.get('hairShade', '#5a4038'), adult=adult, eye_v=eye_v, soft_face=bool(look.get('softFace')),
                 # opt-in battle-camera tuning (tools-only look overrides; None = the shared default): lidDip / lidLift
                 # set the upper lash line's inner-end drop and outer-end lift (eye-height fractions), lidShade scales
-                # the lid shadow, browWidth the brow stroke (eye-width fraction), browTone the brow colour (a hair mid tone)
+                # the lid shadow, browWidth the brow stroke (eye-width fraction), browTone the brow colour (a hair mid tone),
+                # eyeTilt turns each eye about its centre, inner corner up (degrees; see draw_cell)
                 lid_dip=look.get('lidDip'), lid_lift=look.get('lidLift'), lid_shade=look.get('lidShade'),
-                brow_width=look.get('browWidth'), brow_tone=look.get('browTone'))
+                brow_width=look.get('browWidth'), brow_tone=look.get('browTone'), eye_tilt=look.get('eyeTilt'))
     brow = look.get('brows') or expr  # optional brow shape for the resting cells (default: the expression's)
     cells = {
-        'idle': dict(eyes='closed' if base_eyes == 'closed' else base_eyes, mouth=expr, blush=expr, brows=brow),
-        'blink': dict(eyes='blink', mouth=expr, blush=expr, brows=brow),
+        'idle': dict(eyes='closed' if base_eyes == 'closed' else base_eyes, mouth=expr, blush=expr, brows=brow, tilt=True),
+        'blink': dict(eyes='blink', mouth=expr, blush=expr, brows=brow, tilt=True),
         'attack': dict(eyes='sharp' if base_eyes != 'closed' else 'closed', mouth='determined', blush='none',
-                       brows=look.get('attackBrows') or 'determined', focus=True),
+                       brows=look.get('attackBrows') or 'determined', focus=True, tilt=True),
         'happy': dict(eyes='happy', mouth='cheer', blush='cheerful', brows='happy'),
         'hurt': dict(eyes='hurt', mouth='wobble', blush='shy', brows='shy'),
         'dizzy': dict(eyes='dizzy', mouth='wobble', blush='none', brows='shy'),
@@ -73,7 +74,25 @@ def draw_cell(px, spec, cell):
             kind = cell.get('base', 'round') if side < 0 else 'happy'
             if kind == 'closed':
                 kind = 'closed'
-        if kind in ('round', 'sharp', 'sleepy', 'sparkle'):
+        tilt = spec.get('eye_tilt') if cell.get('tilt') else None
+        if tilt and kind in ('round', 'sharp', 'sleepy', 'sparkle', 'blink', 'closed'):
+            # look.eyeTilt (opt-in, degrees; the cells marked tilt: resting, blink, attack): the eye is drawn on its
+            # own layer and turned about its centre so its inner corner sits higher. From the 48 deg battle camera the
+            # curved head drops the inner ends of both eyes (a level eye, even with no brows, reads as a glare); the
+            # tilt cancels that, and from the front (student page) the eyes read gently drooped
+            layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            ld = ImageDraw.Draw(layer)
+            if kind == 'blink':
+                arc_eye(ld, cx, cy + eh * 0.1, ew, lash, 'down', S)
+            elif kind == 'closed':
+                arc_eye(ld, cx, cy + eh * 0.05, ew, lash, 'down', S, lashes=True, side=side)
+            else:
+                eye(layer, cx, cy, ew, eh, side, spec['eyes'], lash, kind, adult, small=cell.get('small_iris', False),
+                    focus=cell.get('focus', False), gentle=spec.get('soft_face', False),
+                    lid=(spec.get('lid_dip'), spec.get('lid_lift'), spec.get('lid_shade')))
+            img.alpha_composite(layer.rotate(-side * float(tilt), resample=Image.BICUBIC, center=(cx, cy)))
+            d = ImageDraw.Draw(img)
+        elif kind in ('round', 'sharp', 'sleepy', 'sparkle'):
             eye(img, cx, cy, ew, eh, side, spec['eyes'], lash, kind, adult, small=cell.get('small_iris', False), focus=cell.get('focus', False),
                 gentle=spec.get('soft_face', False), lid=(spec.get('lid_dip'), spec.get('lid_lift'), spec.get('lid_shade')))
         elif kind == 'blink':

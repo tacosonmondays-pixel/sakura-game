@@ -56,7 +56,10 @@ HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
 # cells that keep them; a chin-up of 20-22 deg and bangs ending higher; Kanna and Yoriko get round eyes (their unit
 # looks say 'sharp' / 'sleepy', which glared or looked bored from above), and the girls whose brows used the dark lash
 # mix get them in a hair mid tone (browTone).
-BATTLE_FACE = dict(brows='none', attackBrows='none', lidDip=0.0, lidLift=-0.08, lidShade=0.5, browWidth=0.05)
+# Critic round 3: with no brows the upper lash lines still bent into a V at 48 deg (inner ends dropped towards the
+# nose), so the girls read stern or bored next to the imported chibis. Each eye is now turned 9 deg inner corner up
+# (eyeTilt; a level lash line at 48 deg, gently drooped from the front) and the lid shadow is lighter again (0.3).
+BATTLE_FACE = dict(brows='none', attackBrows='none', lidDip=0.0, lidLift=-0.08, lidShade=0.3, browWidth=0.05, eyeTilt=9)
 LOOK_OVERRIDES = dict(
     # Fuu (portrait, Oct 20): milk-chocolate twintails set high with mint ribbon bows, a gold leaf clip, an open mint
     # hooded track jacket with gold piping over a white sailor blouse, a big turbine fan
@@ -105,9 +108,10 @@ PALETTE_OVERRIDES = dict(
     iroha=dict(eyes='#9a86d4'),
     # Ena: a little lighter so the hair reads rose-pink under battle light; pinker eyes than the unit's lilac-grey
     ena=dict(hair='#d38c9a', hairShade='#a15b70', eyes='#de5f97'),
-    # Kanna: hair a touch more coral than the unit's #df6b82, amber eyes (the unit's #efc562 rendered olive), carbon
-    # sticks; tie = the twin-tail ring cuffs, trim = gold piping / zip / crest / stand fittings
-    kanna=dict(hair='#e6727c', hairShade='#b4475a', eyes='#ffad33', weapon='#2a2430', tie='#e2b552', trim='#e2b552'),
+    # Kanna: coral hair (her portrait's hue is about +6 deg, orange of red; the first #e6727c rendered pink-red, about
+    # -5 deg), amber eyes (the unit's #efc562 rendered olive), carbon sticks; tie = the twin-tail ring cuffs, trim =
+    # gold piping / zip / crest / stand fittings
+    kanna=dict(hair='#e8705f', hairShade='#b04a40', eyes='#ffad33', weapon='#2a2430', tie='#e2b552', trim='#e2b552'),
     # Yoriko: hair a touch pinker and lighter than the unit's #ad94cb, violet eyes (the unit's pale #c6b8f1 reads
     # grey), a deeper indigo-navy coat; vest / lapel / lining / necktie lilacs, gold trim, silver ponytail cuff (tie),
     # an orchid halo colour for every glowing bit (the runtime saturates it)
