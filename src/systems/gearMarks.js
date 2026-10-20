@@ -11,7 +11,7 @@
 import { GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
 import { NEW_STAT_SLOT } from '../data/gearStats.js';
 import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
-import { TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL } from '../data/gearAwaken.js';
+import { TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL, MILESTONE_ITEMS, MILESTONE_MARK, MILESTONE_ITEMS_MARK } from '../data/gearAwaken.js';
 import { createRng } from '../core/rng.js';
 import { armbandWelcome, isUrGear, urName, recomputeGear, rollFreshSub, tuneCount, SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex } from './gear.js';
 
@@ -210,6 +210,15 @@ export function restoreGearMarks(p) {
     give(p, SEED_ID, 1);
   }
   armbandWelcome(p);
+  // freeplay milestones paid before they carried items: their Seed / Needles once
+  for (const k of Object.keys(c)) {
+    if (!k.startsWith(MILESTONE_MARK) || !c[k]) continue;
+    const key = k.slice(MILESTONE_MARK.length);
+    const items = MILESTONE_ITEMS[key.split(':').pop()];
+    if (!items || c[MILESTONE_ITEMS_MARK + key]) continue;
+    c[MILESTONE_ITEMS_MARK + key] = 1;
+    for (const r of items) give(p, r.id, r.count);
+  }
   writeGearMarks(p);
   return { refunds: Object.entries(refunds).map(([id, count]) => ({ id, count })) };
 }

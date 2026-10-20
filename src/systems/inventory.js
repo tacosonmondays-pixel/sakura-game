@@ -178,6 +178,13 @@ function buildSourceIndex() {
     push(`gearbox_${r}`, { kind: 'other', label: 'Bounty · Gear arena', route: 'bounty', params: {}, note: 'Gear boxes open into real gear the moment they drop.' });
   }
   push('ticket_ssr_select', { kind: 'other', label: 'Mail · Beta Tester Thank-You', route: 'lobby', params: {}, note: 'One per account created on or before Nov 7, 2026' });
+  // rainbow UR gear and the Academy Clubs (gear-awaken §6, gear-stats §C.4): never sold for gems
+  push('seed_rainbow', { kind: 'other', label: 'First rainbow gift', route: 'backpack', params: { tab: 'equipment' }, note: 'One Seed the first time a gold piece reaches +10' });
+  push('seed_rainbow', { kind: 'other', label: 'Freeplay · Ashwing Matriarch', route: 'campaign', params: {}, note: 'One Seed per freeplay tier, the first time she is defeated' });
+  push('needle_star', { kind: 'other', label: 'Freeplay caches', route: 'campaign', params: {}, note: 'The first freeplay cache of each week holds one' });
+  push('needle_star', { kind: 'other', label: 'Freeplay · Reached wave 150', route: 'campaign', params: {}, note: 'Two Needles per freeplay tier, once' });
+  push('needle_star', { kind: 'other', label: 'Take back / salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Taking back a stitch or salvaging the piece returns its Needles' });
+  push('club_band', { kind: 'other', label: 'Welcome gift', route: 'backpack', params: { tab: 'equipment' }, note: '9 Armbands with your first Mythic or better piece' });
   push('coins', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Salvaging gear refunds coins.' });
   push('dice_reroll', { kind: 'other', label: 'Gear salvage', route: 'backpack', params: { tab: 'equipment' }, note: 'Super Rare or better gear salvages into Fortune Dice.' });
 

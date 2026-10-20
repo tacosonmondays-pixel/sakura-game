@@ -58,6 +58,9 @@ export const SHOP_OFFERS = [
   o('bty_gearbox_mythic', 'bounty', 'gearbox_mythic', 1, 80, 1, 'weekly'),
   o('bty_gearbox_legendary', 'bounty', 'gearbox_legendary', 1, 200, 1, 'weekly'),
   o('bty_lock', 'bounty', 'lock_pin', 1, 20, 3, 'weekly'),
+  // rainbow UR gear and the Academy Clubs: tokens only, never gems (gear-awaken §6.2, gear-stats §C.4)
+  o('bty_needle', 'bounty', 'needle_star', 1, 30, 1, 'weekly'),
+  o('bty_club_band', 'bounty', 'club_band', 1, 10, 2, 'weekly'),
   o('bty_book_sr', 'bounty', 'book_superRare', 1, 10, 5, 'weekly'),
   // an Akashic Tome is one level above 60 (Potential v3 §4.4)
   o('bty_book_tome', 'bounty', 'book_legendary', 1, 40, 2, 'weekly'),

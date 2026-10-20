@@ -11,7 +11,7 @@ import { grantUnit, isOwned, stageMedals, isPracticeRun, bestDifficulty, modesUn
 import { modeId } from '../data/modes.js';
 import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
-import { hashString } from '../core/rng.js';
+import { hashString, createRng } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
@@ -77,6 +77,35 @@ export function rollStageDrops(stageId, difficulty, rng, { dropMul = 1 } = {}) {
 function stageEntry(profile, stageId) {
   const stages = (profile.progress ||= { stages: {} }).stages ||= {};
   return (stages[stageId] ||= { easy: false, normal: false, hard: false, nightmare: false, clears: 0 });
+}
+
+/**
+ * Celestial bad-luck counter (gear-awaken R15, §6.4): each solo Total Assault run on Hard or Nightmare and
+ * each Workshop Yard III run on Nightmare (sweeps too) that drops no Legendary piece adds 1 to `pity:cel`;
+ * once it reached 40, the next such run adds a Celestial (Legendary) piece and the count starts over. Any
+ * Legendary piece resets it. Its own rng (`cel|<createdAt>|<n>`), so no reward draw shifts.
+ */
+export const CELESTIAL_PITY = 40;
+export const CELESTIAL_MARK = 'pity:cel';
+export function celestialRun(profile, stageId, difficulty, gear) {
+  const stage = STAGE_MAP[stageId];
+  const d = diffIndex(difficulty);
+  const counts = (stage?.kind === 'boss' && d >= diffIndex('hard')) || (stageId === 'res-gear-3' && difficulty === 'nightmare');
+  if (!counts) return null;
+  const c = ((profile.missions ||= {}).counters ||= {});
+  if (gear.some((g) => g.rarity === 'legendary')) {
+    c[CELESTIAL_MARK] = 0;
+    return null;
+  }
+  const n = Math.max(0, Math.floor(c[CELESTIAL_MARK] || 0));
+  if (n < CELESTIAL_PITY) {
+    c[CELESTIAL_MARK] = n + 1;
+    return null;
+  }
+  c[CELESTIAL_MARK] = 0;
+  const seq = ((profile.seq ||= { gear: 0 }).gear || 0) + 1;
+  const g = rollGear(createRng(`cel|${profile.createdAt || 0}|${seq}`), { rarity: 'legendary' });
+  return profile.gear[addGear(profile, g, { club: 'random' })];
 }
 
 function splitDrops(profile, drops) {
@@ -207,9 +236,11 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     out.eventBonus = mul > 1;
     const split = splitDrops(profile, rollStageDrops(stage.id, payAt, rng, { dropMul: mul }));
     rewards.push(...split.items);
-    out.gear = split.gear;
+    const pity = celestialRun(profile, stage.id, payAt, split.gear);
+    out.gear = pity ? [...split.gear, pity] : split.gear;
     track(profile, 'battleWin', 1);
     if (diffIndex(payAt) >= diffIndex('hard')) track(profile, 'battleWinHard', 1);
+    if (stage.kind === 'boss') track(profile, 'assaultClear', 1);
   } else if (won) {
     out.rewardDifficulty = difficulty;
     const wasCleared = DIFFICULTY_ORDER.some((d) => entry[d]);
@@ -237,9 +268,11 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     const drops = rollStageDrops(stage.id, difficulty, rng, { dropMul: mul });
     const split = splitDrops(profile, drops);
     rewards.push(...split.items);
-    out.gear = split.gear;
+    const pity = celestialRun(profile, stage.id, difficulty, split.gear);
+    out.gear = pity ? [...split.gear, pity] : split.gear;
     track(profile, 'battleWin', 1);
     if (diffIndex(difficulty) >= diffIndex('hard')) track(profile, 'battleWinHard', 1);
+    if (stage.kind === 'boss') track(profile, 'assaultClear', 1); // Rainbow Hunt (gear-awaken §6.1)
   } else if (wavesCleared > 0) {
     rewards.push({ id: 'coins', count: 40 * wavesCleared });
   }
@@ -282,6 +315,8 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const allGear = [];
   for (let i = 0; i < n; i++) {
     const split = splitDrops(profile, rollStageDrops(stageId, d, rng, { dropMul: mul }));
+    const pity = celestialRun(profile, stageId, d, split.gear);
+    if (pity) split.gear.push(pity);
     runs.push([...split.items, ...split.gear.map((g) => ({ id: `gearbox_${g.rarity}`, count: 1, gearUid: g.uid }))]);
     allItems.push(...split.items);
     allGear.push(...split.gear);
@@ -290,5 +325,6 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const entry = stageEntry(profile, stageId);
   entry.clears += n;
   track(profile, 'sweep', n);
+  if (STAGE_MAP[stageId].kind === 'boss') track(profile, 'assaultClear', n);
   return { ok: true, runs, rewards, gear: allGear };
 }

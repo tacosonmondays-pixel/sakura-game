@@ -42,3 +42,12 @@ export const MARK = Object.freeze({
 });
 /** Items mirrored in `inv:` (an older build drops unknown item ids). */
 export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID]);
+
+/** Freeplay milestone items, once per tier (gear-awaken §6.1, §6.2): the Matriarch a Seed, wave 150 two Needles. */
+export const MILESTONE_ITEMS = Object.freeze({
+  w150: Object.freeze([Object.freeze({ id: NEEDLE_ID, count: 2 })]),
+  matriarch: Object.freeze([Object.freeze({ id: SEED_ID, count: 1 })]),
+});
+/** missions.counters prefixes: a paid freeplay milestone ('fpm:tier:id') and its items paid ('fpu:tier:id'). */
+export const MILESTONE_MARK = 'fpm:';
+export const MILESTONE_ITEMS_MARK = 'fpu:';

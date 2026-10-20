@@ -230,3 +230,87 @@ describe('rerolls and salvage with ✦ lines', () => {
     expect(a).not.toBe(b);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sources (gear-awaken §6, gear-stats §C.4)
+// ---------------------------------------------------------------------------
+import { missionList, claimMission, track as trackEvent } from '../../src/systems/missions.js';
+import { SHOP_OFFERS } from '../../src/data/shop.js';
+import { itemSources } from '../../src/systems/inventory.js';
+import { applyCoopFreeplayEnd, freeplayWeekNeedle } from '../../src/online/coop/rewards.js';
+import { migrateProfile } from '../../src/systems/save.js';
+
+describe('Rainbow Hunt, Club Day and the shop', () => {
+  it('Rainbow Hunt is hidden before 5-5, counts Total Assault clears (sweeps too) and pays a Seed + a Needle, no gems', () => {
+    const p = createProfile();
+    expect(missionList(p).weekly.some((m) => m.id === 'w_rainbow')).toBe(false);
+    p.progress.stages['5-5'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
+    expect(missionList(p).weekly.some((m) => m.id === 'w_rainbow')).toBe(true);
+    trackEvent(p, 'assaultClear', 3);
+    const r = claimMission(p, 'weekly', 'w_rainbow');
+    expect(r.ok).toBe(true);
+    expect(r.rewards).toEqual([{ id: 'seed_rainbow', count: 1 }, { id: 'needle_star', count: 1 }]);
+  });
+
+  it('a row still behind its stage never holds "every weekly claimed" back', () => {
+    const p = createProfile();
+    for (const m of missionList(p).weekly) trackEvent(p, m.id === 'w_dailies5' ? 'dailyDone' : 'battleWin', 0);
+    expect(missionList(p).weekly.every((m) => !m.id.startsWith('w_rainbow'))).toBe(true);
+  });
+
+  it('the Bounty Exchange sells one Needle (30 tokens) and two Armbands (10) a week; nothing for gems', () => {
+    const needle = SHOP_OFFERS.find((o) => o.id === 'bty_needle');
+    expect([needle.currency, needle.price, needle.stock, needle.resets]).toEqual(['token_bounty', 30, 1, 'weekly']);
+    const band = SHOP_OFFERS.find((o) => o.id === 'bty_club_band');
+    expect([band.price, band.stock]).toEqual([10, 2]);
+    for (const id of ['seed_rainbow', 'needle_star', 'club_band']) {
+      expect(SHOP_OFFERS.some((o) => o.item === id && o.currency === 'gems')).toBe(false);
+      expect(itemSources(id).length, id).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('Freeplay: the weekly Needle and the milestone items', () => {
+  it('the first cache of the week holds a Needle, once a week', () => {
+    const p = createProfile();
+    expect(freeplayWeekNeedle(p)).toBe(1);
+    expect(freeplayWeekNeedle(p)).toBe(0);
+  });
+
+  it('wave 150 pays 2 Needles and the Matriarch a Seed once per tier; a save that had them before gets the items once on load', () => {
+    const p = createProfile();
+    const res = { stageId: '4-5', difficulty: 'normal', freeplay: 'blossom', goal: 30, wavesCleared: 160, kills: { dragon_ashwing: 1 }, encountered: [] };
+    const out = applyCoopFreeplayEnd(p, res, createRng(1));
+    const got = Object.fromEntries(out.rewards.map((r) => [r.id, r.count]));
+    expect(got.seed_rainbow).toBe(1);
+    expect(got.needle_star).toBe(2 + 1); // + the week's first cache Needle
+    const again = applyCoopFreeplayEnd(p, res, createRng(2));
+    expect(again.rewards.some((r) => r.id === 'seed_rainbow')).toBe(false);
+    // retro: an older save with the marks but no items paid
+    const q = createProfile();
+    q.missions.counters['fpm:tempest:matriarch'] = 1;
+    q.missions.counters['fpm:tempest:w150'] = 1;
+    const back = migrateProfile(JSON.parse(JSON.stringify(q)));
+    expect(back.items.seed_rainbow).toBe(1);
+    expect(back.items.needle_star).toBe(2);
+    expect(migrateProfile(JSON.parse(JSON.stringify(back))).items).toEqual(back.items);
+  });
+});
+
+import { celestialRun, CELESTIAL_PITY } from '../../src/systems/rewards.js';
+
+describe('Celestial bad-luck counter', () => {
+  it('40 Hard Total Assault runs without a Legendary: the next one adds a Celestial piece; any Legendary resets; Normal never counts', () => {
+    const p = createProfile();
+    expect(celestialRun(p, 'boss-lych', 'normal', [])).toBeNull();
+    expect(p.missions.counters['pity:cel']).toBeUndefined();
+    for (let i = 0; i < CELESTIAL_PITY; i++) expect(celestialRun(p, 'boss-lych', 'hard', [])).toBeNull();
+    const g = celestialRun(p, 'boss-lych', 'hard', []);
+    expect(g.rarity).toBe('legendary');
+    expect(p.missions.counters['pity:cel']).toBe(0);
+    celestialRun(p, 'res-gear-3', 'nightmare', []);
+    expect(p.missions.counters['pity:cel']).toBe(1);
+    celestialRun(p, 'res-gear-3', 'nightmare', [{ rarity: 'legendary' }]);
+    expect(p.missions.counters['pity:cel']).toBe(0);
+  });
+});
