@@ -49,12 +49,14 @@ HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
 # their Meshy figures replace them. PALETTE_OVERRIDES may also set the extra colour keys a library part reads
 # (legwear, trim, tie, horn, skirt, vest...). A unit without an entry builds exactly as before.
 # Face at 48 deg (critic round 2): from the battle camera the curved head bends level brows and lash lines into a V,
-# so all six read stern with the shared face. They share BATTLE_FACE (lib/face.py opt-ins: brows 'tare' with inner
-# ends well up, a lash line whose inner end does not dip and whose outer end sits a touch low, a lighter lid shadow,
-# thinner brows), a chin-up of 20-22 deg and bangs ending higher; Kanna and Yoriko get round eyes (their unit looks
-# say 'sharp' / 'sleepy', which glared or looked bored from above), and the girls whose brows used the dark lash mix
-# get them in a hair mid tone (browTone).
-BATTLE_FACE = dict(brows='tare', lidDip=0.0, lidLift=-0.08, lidShade=0.5, browWidth=0.05)
+# so all six read stern with the shared face. They share BATTLE_FACE (lib/face.py opt-ins): no brows on the resting,
+# blink and attack cells (brows / attackBrows 'none', as the imported chibis keep theirs under the fringe; even
+# inner-raised 'tare' brows still bent into a scowl at battle size and read worried from the front), a lash line whose
+# inner end does not dip and whose outer end sits a touch low, a lighter lid shadow, thinner brows on the cheer / hurt
+# cells that keep them; a chin-up of 20-22 deg and bangs ending higher; Kanna and Yoriko get round eyes (their unit
+# looks say 'sharp' / 'sleepy', which glared or looked bored from above), and the girls whose brows used the dark lash
+# mix get them in a hair mid tone (browTone).
+BATTLE_FACE = dict(brows='none', attackBrows='none', lidDip=0.0, lidLift=-0.08, lidShade=0.5, browWidth=0.05)
 LOOK_OVERRIDES = dict(
     # Fuu (portrait, Oct 20): milk-chocolate twintails set high with mint ribbon bows, a gold leaf clip, an open mint
     # hooded track jacket with gold piping over a white sailor blouse, a big turbine fan

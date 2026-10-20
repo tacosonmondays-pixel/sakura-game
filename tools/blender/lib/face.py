@@ -37,7 +37,8 @@ def build_atlas(unit, cell_px=256, eye_v=0.40):
     cells = {
         'idle': dict(eyes='closed' if base_eyes == 'closed' else base_eyes, mouth=expr, blush=expr, brows=brow),
         'blink': dict(eyes='blink', mouth=expr, blush=expr, brows=brow),
-        'attack': dict(eyes='sharp' if base_eyes != 'closed' else 'closed', mouth='determined', blush='none', brows='determined', focus=True),
+        'attack': dict(eyes='sharp' if base_eyes != 'closed' else 'closed', mouth='determined', blush='none',
+                       brows=look.get('attackBrows') or 'determined', focus=True),
         'happy': dict(eyes='happy', mouth='cheer', blush='cheerful', brows='happy'),
         'hurt': dict(eyes='hurt', mouth='wobble', blush='shy', brows='shy'),
         'dizzy': dict(eyes='dizzy', mouth='wobble', blush='none', brows='shy'),
@@ -310,6 +311,10 @@ def swirl(d, cx, cy, r, lash, S):
 
 
 def brows(d, S, by, dx, ew, lash_color, kind, width=0.085):
+    if kind == 'none':
+        # opt-in (look.brows / look.attackBrows = 'none'): no brow strokes, the way the imported chibis keep them under
+        # the fringe. From the 48 deg battle camera the curved head bends any painted brow pair into a V (a scowl)
+        return
     for side in (-1, 1):
         cx = (0.5 + side * dx) * S
         y = by * S
