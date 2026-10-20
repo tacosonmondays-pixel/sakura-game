@@ -39,9 +39,79 @@ DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit=
 
 # Per-unit extra parts and horn shapes (tools-only, keyed by unit id — no unit schema change). Every extra is
 # joined into the vertex-coloured body mesh, so a GLB keeps exactly three primitives (lib/extras.py).
-EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoDrum'],
-                   tsubaki=['mortarTube'], kohaku=['monocle'])
-HORN_SHAPE = dict(raika='curl', seiran='dragon')
+EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoStand'],
+                   tsubaki=['mortarTube'], kohaku=['monocle'], fuu=['tailBows'], ena=['cardDealer'], seiran=['flightHeadset'])
+HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
+
+# Tools-only look / palette / body-colour overrides keyed by unit id, merged in _build_unit() over the unit's own
+# look and palette and over outfit.spec(). Display only: src/data stays untouched, so the co-op sim id does not
+# change. They hold the temporary cage chibis of the six returning girls, matched to their painted portraits, until
+# their Meshy figures replace them. PALETTE_OVERRIDES may also set the extra colour keys a library part reads
+# (legwear, trim, tie, horn, skirt, vest...). A unit without an entry builds exactly as before.
+LOOK_OVERRIDES = dict(
+    # Fuu (portrait, Oct 20): milk-chocolate twintails set high with mint ribbon bows, a gold leaf clip, an open mint
+    # hooded track jacket with gold piping over a white sailor blouse, a big turbine fan
+    fuu=dict(accessory='leafClip', outfit='trackJacket', weapon='turbineFan',
+             tailEl=36, tailAz=106, tailLen=0.82, tailR=0.044, tailOut=0.11, tailCurl=0.045,
+             bangRaise=3, chinUp=12, softFace=True),
+    # Iroha (portrait): plum-black bob with two high buns + a round silver ornament on the left bun, blunt fringe,
+    # charcoal sailor top + plum scarf under a long open dusky-plum cardigan, black tights, loafers
+    iroha=dict(hairStyle='bunsBob', bangs='blunt', accessory='mirrorOrnament', outfit='sailorCardigan', eyeStyle='round', brows='happy',
+               chinUp=14, chinSplit=(0.6, 0.4)),
+    # Ena (portrait): dusty rose-pink layers + ONE thick braid over her left shoulder with a crimson rose and ribbon,
+    # black blazer piped in crimson over a long black cardigan, crimson tie, red tartan skirt, black tights,
+    # loafers; a fan of pearl holo cards in her right hand, one card + a wrist dealer and red threads on the left
+    ena=dict(hairStyle='sideBraid', accessory='rose', outfit='blazerCardigan', weapon='roseCards', eyeStyle='round', softFace=True,
+             chinUp=12, holdPose={'upper_arm_R': (-32, 0, -16), 'forearm_R': (-52, 0, 0)}, cardLean=36, cardSplay=-14),
+    # Kanna (portrait, Oct 20): high coral-rose twin-tails with gold ring cuffs, two tall ivory oni horns, crimson staff
+    # track jacket zipped up (black side panels, gold piping, black shirt + ivory tie), black slacks, crimson
+    # high-tops, carbon bachi with glowing tips, her festival taiko on a stand beside her (EXTRA_PARTS)
+    kanna=dict(outfit='staffTrack', weapon='bachi', tailEl=42, tailAz=86, tailLen=0.95, tailR=0.046, tailOut=0.12,
+               tailCurl=0.05, tailDroop=0.3, tieT=0.35, tieLen=0.008, bangRaise=5, chinUp=16),
+    # Yoriko (portrait, Oct 20): lilac high ponytail falling on her right, blunt bangs, a navy cat-ear stage headset
+    # with glowing inner ears + mic, an indigo-navy stage frock coat open over a lilac waistcoat (lilac lapels, white
+    # shirt, lilac tie, gold edging, long open tails with a lilac lining), navy gloves, trousers and ankle boots, and
+    # the marionette rig raised in her left hand: an X control bar, glowing threads and a tiny doll in a school uniform
+    yoriko=dict(accessory='catHeadset', outfit='stageCoat', weapon='marionette', bangRaise=8, chinUp=20,
+                halo='crescent', ponyS=-1, ponyAz=112, ponyEl=38, ponyLen=1.25, ponyR=0.05, ponyOut=0.18, ponyCurl=0.04, ponyDroop=1.0,
+                sideLen=1.0, sideFlare=0.015, sideWave=0.006,
+                pin=dict(upper_arm_L=(-15, -95, 0), forearm_L=(0, -40, 0))),
+    # Seiran (portrait, Oct 20): long pale sky-blue waves, two pale-gold crescent horns (HORN_SHAPE), white flight
+    # headset (EXTRA_PARTS), light-blue flight jacket (gold piping, buttons and shoulder boards) over a white shirt +
+    # teal tie, steel-blue pleated skirt, blue-grey tights, white flight boots, white storm spear with a glowing
+    # ice-cyan blade; laughing grin
+    seiran=dict(outfit='flightJacket', weapon='stormSpear', expression='cheerful', hairLen=1.12, bangRaise=13, chinUp=22),
+)
+PALETTE_OVERRIDES = dict(
+    # Fuu: jade eyes, mint jacket + ribbons, mint pleated skirt, pine-green leggings, white high-tops
+    fuu=dict(hair='#7f5240', hairShade='#4e3128', eyes='#2fae84', outfit='#95d4b3', outfitShade='#5e9e83',
+             accent='#86e0be', weapon='#f6fcf8', trim='#e2b552', legwear='#2e5c49'),
+    # Iroha: a touch more lavender than the unit's #c8bfe1, so the iris reads lilac, not grey
+    iroha=dict(eyes='#b9abe0'),
+    # Ena: a little lighter so the hair reads rose-pink under battle light; pinker eyes than the unit's lilac-grey
+    ena=dict(hair='#d38c9a', hairShade='#a15b70', eyes='#de5f97'),
+    # Kanna: hair a touch more coral than the unit's #df6b82, amber eyes (the unit's #efc562 rendered olive), carbon
+    # sticks; tie = the twin-tail ring cuffs, trim = gold piping / zip / crest / stand fittings
+    kanna=dict(hair='#e6727c', hairShade='#b4475a', eyes='#ffad33', weapon='#2a2430', tie='#e2b552', trim='#e2b552'),
+    # Yoriko: hair a touch pinker and lighter than the unit's #ad94cb, violet eyes (the unit's pale #c6b8f1 reads
+    # grey), a deeper indigo-navy coat; vest / lapel / lining / necktie lilacs, gold trim, silver ponytail cuff (tie),
+    # an orchid halo colour for every glowing bit (the runtime saturates it)
+    yoriko=dict(hair='#b49ad0', hairShade='#7d64a6', eyes='#9a72d0', outfit='#3a3474', outfitShade='#28235a', accent='#c4a6ea',
+                halo='#e8dcf4', vest='#9a74c0', lapel='#b597dc', lining='#8d6cbf', necktie='#c9a8ea', trim='#e3bd62',
+                tie='#d9d2ea', headset='#2b275d', bar='#3a3170'),
+    # Seiran: hair paler than the unit's #80b9e4 (the portrait reads almost ice-blue), teal-cyan eyes (the unit's pale
+    # #c0e9f2 vanishes on the white of the eye), a lighter sky-blue jacket; horn = the crescent horns, trim = gold
+    # piping / buttons / boards, skirt = the steel-blue pleats, weapon = the white spear shaft
+    seiran=dict(hair='#bde0f5', hairShade='#7ba8d3', eyes='#46b4cc', outfit='#8cbce2', outfitShade='#4d78a8',
+                horn='#e8cf86', trim='#e2b552', skirt='#4a79aa', weapon='#eef2f7'),
+)
+SPEC_OVERRIDES = dict(
+    iroha=dict(cardigan='#7a4b6c', legwear='#2a2530', collar='#2c2d36', turtleneck='#2a2630'),
+    ena=dict(skirt='#b8293f', tartan='#6a1626', tartanLine='#1c1418', legwear='#2e2329', cardigan='#30272e'),
+    kanna=dict(legwear='#262027', shoe='#a8263b', sole='#f3b257'),
+    yoriko=dict(legwear='#2d2f5e', shoe='#2a2650', sole='#1c1938', glove='#2e2a62'),
+    seiran=dict(legwear='#56739a', shoe='#f2f5f9', sole='#5d7398'),
+)
 
 
 def load_units(path=None):
@@ -78,11 +148,12 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     t0 = time.time()
     reset_scene()
     M.LEVEL_DROP[0] = 1 if lod else 0
-    pal = {**DEFAULT_PALETTE, **(unit.get('palette') or {})}
-    look = {**DEFAULT_LOOK, **(unit.get('look') or {})}
+    uid = unit['id']
+    pal = {**DEFAULT_PALETTE, **(unit.get('palette') or {}), **PALETTE_OVERRIDES.get(uid, {})}
+    look = {**DEFAULT_LOOK, **(unit.get('look') or {}), **LOOK_OVERRIDES.get(uid, {})}
     adult = bool(unit.get('adult') or unit.get('kind') == 'hero')
     P = proportions(adult)
-    spec = outfit.spec(look, pal)
+    spec = {**outfit.spec(look, pal), **SPEC_OVERRIDES.get(uid, {})}
     ctx = dict(unit=unit, pal=pal, look=look, P=P, spec=spec, parts=[], hair_bones=[], H=Head(P), adult=adult,
                weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']))
 

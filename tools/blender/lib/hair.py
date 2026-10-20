@@ -42,6 +42,9 @@ def build(ctx):
     shade = pal['hairShade']
     style = look.get('hairStyle', 'bob')
     bangs = look.get('bangs', 'straight')
+    # optional per-girl tweak (tools-only look override): bang tips end this many degrees higher, so the eyes
+    # stay visible from the 48 deg battle camera. 0 (the default) leaves every other girl unchanged.
+    BANG_RAISE[0] = float(look.get('bangRaise', 0) or 0)
     parts = []
     parts.append(cap(H, hair, shade, style, head_obj=ctx.get('head_obj')))
     parts += BANGS.get(bangs, bangs_straight)(H, hair, shade, ctx)
@@ -162,11 +165,12 @@ def lock(name, path, widths, thicks, color, bone='head', sides=6, tip=True, up=N
 
 
 BANG_END = 9.0  # elevation (deg) where bang tips end: between the brows and the top of the eyes
+BANG_RAISE = [0.0]  # per-girl offset (deg) added to BANG_END, set by build() from look.bangRaise
 
 
 def bang(H, az, el_end, sweep, width, hair, lift=0.105, el_start=50, thick=0.034, name='bang', curl=0.0):
     """One bang lock from the hairline down over the forehead. el_end is relative to BANG_END."""
-    el_end = BANG_END + el_end
+    el_end = BANG_END + BANG_RAISE[0] + el_end
     pts = []
     for i, (fe, fl) in enumerate(((0.0, 0.8), (0.3, 1.0), (0.65, 1.0), (1.0, 0.9))):
         a = az + sweep * fe
@@ -233,7 +237,7 @@ def back_locks(H, ctx, count, length, width, hair, shade, az_span=(95, 265), el_
     return out
 
 
-def tail(H, ctx, s, az, el, length, radius, hair, shade, bone, curl=0.03, out=0.07, tie=None, name='tail', droop=1.0):
+def tail(H, ctx, s, az, el, length, radius, hair, shade, bone, curl=0.03, out=0.07, tie=None, name='tail', droop=1.0, tie_len=0.012, tie_t=1.0):
     """Ponytail / twintail: a thick tapered tube from a tie point, swinging out then down."""
     start = H.surf(s * az, el, 0.05)
     n = H.normal(s * az, el)
@@ -253,7 +257,10 @@ def tail(H, ctx, s, az, el, length, radius, hair, shade, bone, curl=0.03, out=0.
     o = lock(name, pts, widths, thicks, hair, sides=8, up=Vector((0, 0, 1)), squash=0.0, bones=bones, blend=0.05)
     parts = [o]
     if tie:
-        v, f, r = M.tube([pts[1] - n * 0.012, pts[1] + n * 0.012], radius * 1.25, sides=8)
+        # tie_t < 1 slides the tie from pts[1] back towards the head (a cuff at the root of the tail), scaled to the
+        # lock's width there; the default 1.0 is the original scrunchie at pts[1]
+        tp = start.lerp(pts[1], tie_t)
+        v, f, r = M.tube([tp - n * tie_len, tp + n * tie_len], radius * 1.25 * (0.65 + 0.35 * tie_t), sides=8)
         t = M.new_object('tie', v, f, color=tie, bone='head')
         M.finish(t, levels=1)
         parts.append(t)
@@ -334,7 +341,8 @@ def style_hime(H, hair, shade, ctx):
 
 def style_wavy(H, hair, shade, ctx):
     P = ctx['P']
-    L = (H.c.z - P['torso_bottom']) * 0.9
+    # look.hairLen (tools-only override, default 1): longer waves, e.g. to mid-thigh
+    L = (H.c.z - P['torso_bottom']) * 0.9 * float(ctx['look'].get('hairLen', 1.0) or 1.0)
     out = back_locks(H, ctx, 6, L, 0.085, hair, shade, flare=0.04, wave=0.02)
     for s in (1, -1):
         out.append(side_lock(H, s, (H.c.z - P['torso_bottom']) * 0.55, 0.06, hair, flare=0.015, wave=0.012, name=f'side{s}'))
@@ -360,21 +368,44 @@ def style_short(H, hair, shade, ctx):
 
 def style_twintails(H, hair, shade, ctx):
     P = ctx['P']
-    L = (H.c.z - P['torso_bottom']) * 0.85
+    look = ctx['look']
+    # optional tools-only look overrides (defaults = the shared twintails): tie azimuth/elevation, length
+    # (fraction of head centre -> torso bottom), radius, outward swing and end curl
+    az, el = look.get('tailAz', 92), look.get('tailEl', 22)
+    L = (H.c.z - P['torso_bottom']) * look.get('tailLen', 0.85)
+    r, swing, curl = look.get('tailR', 0.034), look.get('tailOut', 0.08), look.get('tailCurl', 0.025)
+    # the tie takes the palette's optional 'tie' colour (Kanna's gold ring cuffs), else the accent as before;
+    # look.tieLen (half length along the tail, default 0.012) makes it a thinner ring, look.tieT (default 1) slides
+    # it towards the head and look.tailDroop (default 1) lowers the tail's first bend (less of a peak above the tie)
+    tie_col = ctx['pal'].get('tie', ctx['pal'].get('accent'))
     out = back_locks(H, ctx, 5, H.R.z * 0.75, 0.07, hair, shade, az_span=(110, 250), el_start=-20, flare=0.03, bone='head', thick=0.04)
+    ctx.setdefault('tail_ties', [])
     for s, bone in ((1, 'tail_L'), (-1, 'tail_R')):
-        out += tail(H, ctx, s, 92, 22, L, 0.034, hair, shade, bone, tie=ctx['pal'].get('accent'), name=f'tail{s}', out=0.08, curl=0.025)
+        out += tail(H, ctx, s, az, el, L, r, hair, shade, bone, tie=tie_col, name=f'tail{s}', out=swing, curl=curl,
+                    droop=look.get('tailDroop', 1.0), tie_len=look.get('tieLen', 0.012), tie_t=look.get('tieT', 1.0))
         out.append(side_lock(H, s, H.R.z * 0.7, 0.05, hair, az=58, flare=0.01, name=f'side{s}'))
+        # where the tie sits (extras such as tailBows dress it); geometry is unchanged
+        n = H.normal(s * az, el)
+        ctx['tail_ties'].append((s, H.surf(s * az, el, 0.05) + n * swing * 0.6 + Vector((0, 0, 0.02)), n, r))
     return out
 
 
 def style_ponytail(H, hair, shade, ctx):
     P = ctx['P']
-    L = (H.c.z - P['torso_bottom']) * 0.95
+    look = ctx['look']
+    # optional tools-only look overrides (defaults = the shared ponytail): the side the tie leans to (ponyS = +1 her
+    # left, -1 her right) and its azimuth / elevation, length (fraction of head centre -> torso bottom), radius,
+    # outward swing, end curl and droop; sideLen / sideFlare / sideWave shape the two face-framing locks. The tie takes
+    # the palette's optional 'tie' colour, else the accent as before.
+    L = (H.c.z - P['torso_bottom']) * look.get('ponyLen', 0.95)
+    tie_col = ctx['pal'].get('tie', ctx['pal'].get('accent'))
     out = back_locks(H, ctx, 5, H.R.z * 0.6, 0.07, hair, shade, az_span=(110, 250), el_start=-22, flare=0.02, bone='head', thick=0.04)
-    out += tail(H, ctx, 1, 180, 38, L, 0.040, hair, shade, 'hair_back', tie=ctx['pal'].get('accent'), name='pony', out=0.10, curl=0.0, droop=1.5)
+    out += tail(H, ctx, look.get('ponyS', 1), look.get('ponyAz', 180), look.get('ponyEl', 38), L, look.get('ponyR', 0.040), hair, shade,
+                'hair_back', tie=tie_col, name='pony', out=look.get('ponyOut', 0.10), curl=look.get('ponyCurl', 0.0),
+                droop=look.get('ponyDroop', 1.5))
     for s in (1, -1):
-        out.append(side_lock(H, s, H.R.z * 0.8, 0.055, hair, flare=0.01, name=f'side{s}'))
+        out.append(side_lock(H, s, H.R.z * look.get('sideLen', 0.8), 0.055, hair, flare=look.get('sideFlare', 0.01),
+                             wave=look.get('sideWave', 0.0), name=f'side{s}'))
     return out
 
 
@@ -442,5 +473,127 @@ def style_buns(H, hair, shade, ctx):
     return out
 
 
+def style_buns_bob(H, hair, shade, ctx):
+    """Bob with two high round buns (Iroha): a soft curtain over the nape, chin-length side locks that
+    curl in, and two big buns high on the back of the head, untied (an accessory such as
+    'mirrorOrnament' decorates one). The bun centres and radii are left in ctx['buns']."""
+    # eight slightly broader locks than 'bob' so no scalp shows between them at the nape
+    out = back_locks(H, ctx, 8, H.R.z * 0.95, 0.088, hair, shade, az_span=(80, 280), el_start=-18, flare=0.022, curl_in=0.03, bone='head')
+    ctx['buns'] = []
+    for s in (1, -1):
+        c = H.surf(s * 100, 50, 0.24)
+        r = (0.068, 0.066, 0.064)
+        v, f = M.sphere(c, r)
+        b = M.new_object(f'bun{s}', v, f, color=hair, bone='head')
+        M.finish(b, levels=1)
+        out.append(b)
+        ctx['buns'].append((s, c, r))
+        out.append(side_lock(H, s, H.R.z * 0.9, 0.058, hair, az=60, flare=0.008, curl_in=0.45, name=f'side{s}'))
+    # the halo floats a little higher so it clears the buns
+    ctx['halo_lift'] = max(ctx.get('halo_lift', 0.0), 0.035)
+    return out
+
+
+def bangs_blunt(H, hair, shade, ctx):
+    """A straight blunt fringe cut at the brows (five locks, tips a touch higher than 'straight'), so the
+    eyes stay clear under the 48 degree battle camera."""
+    out = []
+    for i, az in enumerate((-30, -15, 0, 15, 30)):
+        out.append(bang(H, az, 5 + abs(az) * 0.06, 0.0, 0.07, hair, name=f'bang{i}', el_start=50))
+    return out
+
+
+BANGS['blunt'] = bangs_blunt
+
+def braid_puffs(name, path, r0, r1, color, bones, face=None, tilt=28.0, length_mul=0.62, levels=1, blend=0.05):
+    """Classic chibi braid: a chain of overlapping puffs along `path` that lean left and right in turn
+    (the woven look), tapering from r0 to r1. One object, weighted along `bones`. `face` is the direction
+    the braid shows to the viewer (default -Y)."""
+    pts = [Vector(p) for p in path]
+    face = Vector(face) if face is not None else Vector((0, -1, 0))
+    verts, faces = [], []
+    n = len(pts) - 1
+    for i in range(n):
+        a, b = pts[i], pts[i + 1]
+        t = (b - a)
+        seg = t.length
+        t.normalize()
+        f = (face - t * face.dot(t)).normalized()
+        side = f.cross(t).normalized()  # (side, f, t) is right-handed, so the puffs stay outward-facing
+        k = i / max(1, n - 1)
+        r = r0 + (r1 - r0) * k
+        lean = math.radians(tilt if i % 2 else -tilt)
+        # puff axes: along the braid (leaning), across, and depth (toward the viewer)
+        ax = (t * math.cos(lean) + side * math.sin(lean)).normalized()
+        sx = (side * math.cos(lean) - t * math.sin(lean)).normalized()
+        c = (a + b) * 0.5
+        sv, sf = M.sphere((0, 0, 0), (r, r * 0.82, max(r, seg * length_mul)))
+        base = len(verts)
+        for x, y, z in sv:
+            verts.append(tuple(c + sx * x + f * y + ax * z))
+        faces += [tuple(base + j for j in q) for q in sf]
+    o = M.new_object(name, verts, faces, color=color)
+    M.weight_by_bones(o, bones, blend=blend)
+    M.finish(o, levels=levels)
+    return o
+
+
+def style_side_braid(H, hair, shade, ctx):
+    """Ena: loose shoulder-length layers, long face-framing locks, and ONE thick braid that starts behind
+    her left ear and hangs over the front of her left shoulder to the waist, where a ribbon ties it.
+    The braid has its own bone (tail_L), so it sways in every clip. Where the braid starts and ends is
+    left in ctx['side_braid'] (an accessory such as 'rose' sits on top of it)."""
+    P = ctx['P']
+    acc = ctx['pal'].get('accent')
+    # shoulder-length curtain round the back, leaving her left side free for the braid root
+    L = H.R.z * 0.95
+    out = back_locks(H, ctx, 6, L, 0.09, hair, shade, az_span=(118, 286), el_start=-18, flare=0.028, curl_in=0.012, thick=0.05)
+    nape = Vector((0, H.c.y + H.R.y * 0.6, H.c.z - H.R.z * 0.4))
+    ctx['hair_bones'].append(('hair_back', nape, nape + Vector((0, 0, -L)), 'head'))
+    # face-framing locks: a long one on her right, a shorter one in front of the braid on her left
+    out.append(side_lock(H, -1, H.R.z * 1.05, 0.062, hair, az=58, flare=0.014, curl_in=0.2, name='side-1'))
+    out.append(side_lock(H, 1, H.R.z * 0.78, 0.055, hair, az=56, flare=0.01, curl_in=0.3, name='side1'))
+    # the braid: behind the left ear -> past the cheek -> in front of the left shoulder -> down to the waist
+    root = H.surf(98, -10, 0.07)
+    z_end = P['waist_z'] - 0.012
+    d = P['torso_d'][0] / 2
+    ctrl = [root,
+            Vector((0.2, -0.01, 0.58)),
+            Vector((0.138, -d - 0.035, 0.49)),
+            Vector((0.104, -d - 0.044, 0.43)),
+            Vector((0.09, -d - 0.046, z_end + 0.03)),
+            Vector((0.088, -d - 0.044, z_end))]
+    path = M.smooth_path(ctrl, count=9)
+    bone_head, bone_tail = Vector(path[0]), Vector(path[-1])
+    ctx['hair_bones'].append(('tail_L', bone_head, bone_tail, 'head'))
+    bones = [('head', Vector((0, 0, H.c.z - H.R.z)), Vector((0, 0, H.c.z + H.R.z))), ('tail_L', bone_head, bone_tail)]
+    # a smooth hair lock covers the root, the plaits start under it
+    out.append(lock('braid_root', [H.surf(92, 8, 0.1), H.surf(96, -4, 0.11), root + Vector((0.004, -0.004, -0.02))],
+                    [0.06, 0.07, 0.06], [0.05, 0.055, 0.05], hair, tip=False, bones=bones))
+    out.append(braid_puffs('side_braid', path[1:], 0.036, 0.024, hair, bones, face=Vector((0.2, -1, 0.5))))
+    # a little loose tuft below the tie
+    tie = Vector(path[-1])
+    tdir = (Vector(path[-1]) - Vector(path[-2])).normalized()
+    out.append(lock('braid_tuft', [tie - tdir * 0.004, tie + tdir * 0.028 + Vector((0.004, -0.004, 0)), tie + tdir * 0.05 + Vector((0.01, -0.006, 0))],
+                    [0.04, 0.042, 0], [0.032, 0.034, 0], mix(hair, shade, 0.2), bones=bones))
+    # ribbon tie: a band + two loops in the accent colour
+    if acc:
+        v, f, r = M.tube([tie - tdir * 0.006, tie + tdir * 0.006], 0.022, sides=8)
+        band = M.new_object('braid_tie', v, f, color=acc)
+        M.weight_by_bones(band, bones[1:])
+        M.finish(band, levels=1)
+        out.append(band)
+        fwd = Vector((0, -1, 0))
+        for s in (1, -1):
+            c = tie + Vector((s * 0.022, -0.012, 0.004))
+            v, f = M.sphere(c, (0.018, 0.008, 0.012))
+            lo = M.new_object('braid_bow', v, f, color=acc)
+            M.weight_by_bones(lo, bones[1:])
+            M.finish(lo, levels=1)
+            out.append(lo)
+    ctx['side_braid'] = (root, tie)
+    return out
+
+
 STYLES = dict(long=style_long, hime=style_hime, wavy=style_wavy, bob=style_bob, short=style_short, twintails=style_twintails,
-              ponytail=style_ponytail, side=style_side, braid=style_braid, buns=style_buns)
+              ponytail=style_ponytail, side=style_side, braid=style_braid, buns=style_buns, bunsBob=style_buns_bob, sideBraid=style_side_braid)

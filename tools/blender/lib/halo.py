@@ -116,6 +116,33 @@ def moon(c, col, ctx):
     return [_plate(c, pts, 0.014, col, name='moon')]
 
 
+def crescent(c, col, ctx):
+    """The moon halo's crescent with outward normals recalculated after the cage is built: M.plate orients faces by
+    the centroid, which lies outside a concave outline, so the shared `moon` comes out with mixed winding and reads as
+    its dark outline from the battle camera. Same outline points as `moon`."""
+    import bmesh
+    pts = []
+    n = 14
+    for i in range(n + 1):
+        a = -math.pi * 0.3 + i / n * math.pi * 1.6
+        pts.append((math.cos(a) * 0.085, math.sin(a) * 0.085))
+    for i in range(n, -1, -1):
+        a = -math.pi * 0.3 + i / n * math.pi * 1.6
+        pts.append((math.cos(a) * 0.055 + 0.028, math.sin(a) * 0.058))
+    v, f = M.plate(pts, 0.014, center=(c.x, c.y, c.z), plane='xy')
+    o = M.new_object('crescent', v, f, color=col, bone='halo')
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
+    k = len(pts)
+    M.crease(o, [(i, (i + 1) % k) for i in range(k)] + [(k + i, k + (i + 1) % k) for i in range(k)], 1.0)
+    M.finish(o, levels=1)
+    return [o]
+
+
 def flame(c, col, ctx):
     parts = [_ring(c, 0.075, 0.009, col)]
     for i in range(6):
@@ -209,4 +236,5 @@ def eye(c, col, ctx):
     return [o, iris]
 
 
-HALOS = dict(ring=ring, star=star, petal=petal, gear=gear, moon=moon, flame=flame, wave=wave, crown=crown, snow=snow, bolt=bolt, leaf=leaf, eye=eye)
+HALOS = dict(ring=ring, star=star, petal=petal, gear=gear, moon=moon, flame=flame, wave=wave, crown=crown, snow=snow, bolt=bolt, leaf=leaf, eye=eye,
+             crescent=crescent)

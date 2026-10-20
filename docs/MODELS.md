@@ -30,15 +30,15 @@ Each unit takes ≈1.5 s. The roster (palette + look) is read straight from `src
 | `mesh.py` | cage primitives (`box`, `sphere` = 26-vertex rounded cube, `tube` along a path with elliptic cross-sections and pointed creased tips, `lathe`, `plate`), `finish()` = subsurf (+ mirror / solidify) baked into the mesh, `crease()`, vertex colours (`Col` attribute, linear RGB), bone vertex groups, `weight_by_bones()` (smooth nearest-two-segments weights for continuous limbs), `join()` |
 | `proportions.py` | world-unit landmarks: girls 0.9 tall / head ≈45 %, heroes 0.98 tall / head ≈38 %, stubby limbs, big shoes, eye line |
 | `body.py` | head (26-vertex cage shaped before subdivision: flat face plane, cheeks, narrow chin, round cranium; level 3), ears, neck, soft tapered torso, arms + mitten hands, legs with socks/tights, shoes + soles. The head gets **planar front-projection UVs** (u across the head, v chin→top); back-facing polygons collapse onto a skin-only texel so the face never wraps around |
-| `face.py` | PIL face **atlas** (3×3 cells: idle, blink, attack, happy, hurt, dizzy, wink, shy, surprised): big glossy eyes with dark upper-lid stroke, iris gradient, lid shadow, two highlights, lashes, thin brows in the hair colour, tiny mouth, blush; styles `round/sharp/sleepy/sparkle/closed`, expressions `smile/smug/calm/determined/shy/cheerful`. 256² cells for girls, 341² for heroes; quantised to a palette PNG (≈50–70 KB) |
-| `hair.py` | cap shell over the cranium (shrink-wrapped onto the real head mesh with a fixed gap, then thickened outwards, inner shell in `hairShade`), **bangs** (`straight/swept/split/hime/messy`), side locks, back curtains, tails and buns per `hairStyle` (`long/hime/wavy/bob/short/twintails/ponytail/side/braid/buns`). Every lock is one broad tapered tube with a creased pointed tip. Tails / long back hair get their own bones (`tail_L`, `tail_R`, `hair_back`) |
-| `outfit.py` | colour plan per `look.outfit` (`spec()`) + extra cages: sailor collar, ribbons/bows, pleated skirts, cuffs, puff/wide sleeves, belts, breastplate + pauldrons + cape (armor), hood, apron, obi, pockets… |
-| `accessory.py` | ribbon, bunny/cat/fox ears, hairpin, beret, witch hat (raises the halo), horns (default oni horns; `ctx.horn_shape` `curl` = ram horns, `dragon` = long swept-back horns), flower, goggles, hood, headband, crown, **cap** (peaked captain's cap: accent crown, dark band and visor, gold badge; raises the halo) — all placed above the hair surface (`HAIR_TOP`) |
-| `weapon.py` | one cage model per `look.weapon`, weighted to `hand_R` (bow/tome/shield to `hand_L`, mallet in both hands); `kind_of()` maps weapons to attack kinds. Roster merge added `mic` (cast), `shield` (smash), `mirror` (cast, glowing glass on the halo material), `spear` (thrust), `mallet` (taiko bachi, smash), `puppet` (control bar + strings + tiny marionette, cast), `cards` (fan of four cards, throw) |
-| `extras.py` | per-unit extra parts from the tools-only tables `EXTRA_PARTS` / `HORN_SHAPE` in `build_characters.py` (keyed by unit id, no schema change): `foxTail` (Luna), `falcon` + `quiver` (Hana), `foxFamiliar` (Ruri), `taikoDrum` (Kanna), `mortarTube` (Tsubaki), `monocle` (Kohaku). They are ordinary vertex-coloured cages joined into the **body** mesh and weighted to hips/chest/head, so every GLB keeps exactly three primitives |
-| `halo.py` | ring/star/petal/gear/moon/flame/wave/crown/snow/bolt/leaf/eye, emissive `halo` material, bone `halo` |
+| `face.py` | PIL face **atlas** (3×3 cells: idle, blink, attack, happy, hurt, dizzy, wink, shy, surprised): big glossy eyes with dark upper-lid stroke, iris gradient, lid shadow, two highlights, lashes, thin brows in the hair colour, tiny mouth, blush; styles `round/sharp/sleepy/sparkle/closed`, expressions `smile/smug/calm/determined/shy/cheerful`. 256² cells for girls, 341² for heroes; quantised to a palette PNG (≈50–70 KB). Opt-in look keys: `softFace` (thinner mid-tone brows, gentler upper lids), `brows` (brow shape of the resting cells) |
+| `hair.py` | cap shell over the cranium (shrink-wrapped onto the real head mesh with a fixed gap, then thickened outwards, inner shell in `hairShade`), **bangs** (`straight/swept/split/hime/messy`), side locks, back curtains, tails and buns per `hairStyle` (`long/hime/wavy/bob/short/twintails/ponytail/side/braid/buns`). Every lock is one broad tapered tube with a creased pointed tip. Tails / long back hair get their own bones (`tail_L`, `tail_R`, `hair_back`). Added for the temporary chibis: styles `bunsBob` (Iroha), `sideBraid` (Ena, a puffed side braid on `tail_L`), bangs `blunt`; opt-in look keys `bangRaise` (bang tips N° higher), twin-tail `tailAz tailEl tailLen tailR tailOut tailCurl tailDroop tieT tieLen`, ponytail `ponyS ponyAz ponyEl ponyLen ponyR ponyOut ponyCurl ponyDroop sideLen sideFlare sideWave`, wavy `hairLen`; tail ties take `palette.tie` (else the accent) |
+| `outfit.py` | colour plan per `look.outfit` (`spec()`) + extra cages: sailor collar, ribbons/bows, pleated skirts, cuffs, puff/wide sleeves, belts, breastplate + pauldrons + cape (armor), hood, apron, obi, pockets…; the temporary chibis added `trackJacket` (Fuu), `sailorCardigan` (Iroha), `blazerCardigan` (Ena, tartan skirt + open cardigan hem), `staffTrack` (Kanna), `stageCoat` (Yoriko), `flightJacket` (Seiran) and an optional hem `stripe` on the shared `skirt()` |
+| `accessory.py` | ribbon, bunny/cat/fox ears, hairpin, beret, witch hat (raises the halo), horns (default oni horns; `ctx.horn_shape` `curl` = ram horns, `dragon` = long swept-back horns), flower, goggles, hood, headband, crown, **cap** (peaked captain's cap: accent crown, dark band and visor, gold badge; raises the halo), `leafClip` (Fuu), `mirrorOrnament` (Iroha), `rose` (Ena), `catHeadset` (Yoriko), horn shapes `oni` (Kanna) and `crescent` (Seiran, `palette.horn`) — all placed above the hair surface (`HAIR_TOP`) |
+| `weapon.py` | one cage model per `look.weapon`, weighted to `hand_R` (bow/tome/shield to `hand_L`, mallet in both hands); `kind_of()` maps weapons to attack kinds. Roster merge added `mic` (cast), `shield` (smash), `mirror` (cast, glowing glass on the halo material), `spear` (thrust), `mallet` (taiko bachi, smash), `puppet` (control bar + strings + tiny marionette, cast), `cards` (fan of four cards, throw); the temporary chibis added `turbineFan` (sweep), `roseCards` (throw), `bachi` (smash), `marionette` (cast, left hand) and `stormSpear` (thrust) |
+| `extras.py` | per-unit extra parts from the tools-only tables `EXTRA_PARTS` / `HORN_SHAPE` in `build_characters.py` (keyed by unit id, no schema change): `foxTail` (Luna), `falcon` + `quiver` (Hana), `foxFamiliar` (Ruri), `taikoStand` (Kanna's taiko on a stand, weighted to `root`; the old hip `taikoDrum` stays in the library), `tailBows` (Fuu), `cardDealer` (Ena), `flightHeadset` (Seiran), `mortarTube` (Tsubaki), `monocle` (Kohaku). They are ordinary vertex-coloured cages joined into the **body** mesh and weighted to hips/chest/head, so every GLB keeps exactly three primitives |
+| `halo.py` | ring/star/petal/gear/moon/flame/wave/crown/snow/bolt/leaf/eye/crescent (the moon outline with its face normals recalculated), emissive `halo` material, bone `halo` |
 | `rig.py` | armature: `root, hips, spine, chest, neck, head, halo, shoulder/upper_arm/forearm/hand _L/_R, thigh/shin/foot _L/_R` (+ hair bones). No dots in bone names so three.js keeps them verbatim in track names |
-| `anim.py` | actions authored as a few keyframes at 24 fps in armature space (`Poser.key(frame, {bone: (pitch, roll, yaw)})`), bezier → exported as CUBICSPLINE. Clips: `idle` (personality per expression, breathing, halo float), `walk`, `attack_<kind>` with anticipation → strike → recovery (`slash, thrust, bow, rifle, cannon, cast, throw, smash, sweep`), `cheer`, `victory` (weapon-specific pose), `hurt`, `pickup` (wriggle) |
+| `anim.py` | actions authored as a few keyframes at 24 fps in armature space (`Poser.key(frame, {bone: (pitch, roll, yaw)})`), bezier → exported as CUBICSPLINE. Clips: `idle` (personality per expression, breathing, halo float), `walk`, `attack_<kind>` with anticipation → strike → recovery (`slash, thrust, bow, rifle, cannon, cast, throw, smash, sweep`), `cheer`, `victory` (weapon-specific pose), `hurt`, `pickup` (wriggle). Opt-in look keys: `chinUp` (degrees added to neck + head in every key, split by `chinSplit`, default 45 / 55 %), `holdPose` (merged into the idle weapon hold), `pin` + `pinFollow` (an arm held in a fixed pose in every clip, keeping a share of the clip's own motion) |
 | `export.py` | materials (`body` = vertex colours, `head` = face atlas, `halo` = emissive), glTF export (actions, no sampling, vertex colours), GLB re-packing (swap in the optimised PNG, write extras) |
 | `optimize.py` | KHR_mesh_quantization post-pass: int16 positions, int8 normals, uint8 colours/joints/weights, uint16 UVs (head only), uint16 indices — about half the size, read natively by three.js |
 
@@ -108,6 +108,34 @@ view and in the formation / lobby. The list lives in `src/models/standins.js` (`
 * Real art landing: build / import her GLB (manifest entry + `<id>.glb` + `<id>.lod.glb`), remove her id from
   `STANDIN_UNITS` and from the test's list, and bump the GLB count in `glb.test.js`. The glb test fails while a
   stand-in id has a manifest entry, so the list cannot go stale.
+
+## Temporary Blender chibis for six returning girls (Oct 2026)
+
+Fuu, Iroha, Ena, Kanna, Yoriko and Seiran get **temporary cage chibis** from this pipeline, matched to their
+painted portraits, until their Meshy figures replace them after the monthly Meshy credit reset (Noa, Hana and Ruri
+get Meshy figures now). No generator was used for them: everything is built locally with bpy.
+
+* **Looks come from tools-only tables**, not from the unit data. Their portrait looks differ from the placeholder
+  `palette` / `look` in `src/data/unitsExpansion.js`, which is in the co-op sim hash, so `build_characters.py`
+  carries per-id `LOOK_OVERRIDES`, `PALETTE_OVERRIDES` (which may also set the colour keys a part reads: `legwear`,
+  `trim`, `tie`, `horn`, `skirt`, `vest`…) and `SPEC_OVERRIDES` (over `outfit.spec()`: `legwear`, `shoe`, `sole`,
+  `glove`, `cardigan`…), merged in `_build_unit()`. A unit without an entry builds exactly as before, and every new
+  library option defaults to the old behaviour (the other girls rebuild byte-identical).
+* **Display only.** The GLB carries the look; the sim, saves and co-op never read it. Anything that reads
+  `palette.*` from the unit data still shows the placeholder colours: the procedural chibi drawn while her GLB loads,
+  the 2D card doll fallback and the wiki text (Fuu's data still says mint hair, for example).
+* **Face at 48°.** Every clip carries a chin-up (`chinUp`, 12–22°), as Hikari's clips do, and the bangs end higher
+  (`bangRaise`), so the eyes clear the bangs under the battle camera.
+* **Rebuild one girl per process.** The bytes of a girl depend on the girls built before her in the same process,
+  and the bpy module segfaults at interpreter exit (rc 139) after the files and the manifest are written (check for
+  the `[build] manifest:` line). Each build is deterministic:
+
+```
+for id in fuu iroha ena kanna yoriko seiran; do python3 tools/blender/build_characters.py $id; done
+```
+
+* **Meshy later.** `tools/meshy/build_meshy_chibi.py` writes her `<id>.glb` / `.lod.glb` with `source: 'meshy'`;
+  from then on the builder keeps her files, and her override entries can go.
 
 ## Adding a character
 

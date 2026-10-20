@@ -1,5 +1,5 @@
 """Per-unit extra parts (ROSTER_SPEC §4.5): a fox tail, a falcon on the shoulder, a quiver, a fox
-familiar, a taiko drum at the hip, a mortar tube on the back and a monocle.
+familiar, a taiko drum at the hip, a mortar tube on the back, a monocle and ribbon bows on twintail ties.
 
 They are plain vertex-coloured cages like every other part, so `build_characters.py` joins them into
 the single `body` mesh (the GLB keeps exactly three primitives: head, body, halo) and weights each one
@@ -252,5 +252,193 @@ def monocle(ctx):
     return parts
 
 
-EXTRAS = dict(foxTail=fox_tail, falcon=falcon, quiver=quiver, foxFamiliar=fox_familiar, taikoDrum=taiko_drum,
-              mortarTube=mortar_tube, monocle=monocle)
+# ---------------------------------------------------------------------------
+# Tail bows (Fuu): a ribbon bow on each twintail tie, in the accent colour. hair.style_twintails records the
+# tie points in ctx['tail_ties']; the bow faces mostly forward (turned a little outwards) so it reads from
+# the front and from the 48 deg battle camera. Weighted to the head like the ties themselves.
+# ---------------------------------------------------------------------------
+
+def tail_bows(ctx):
+    from .outfit import bow
+    col = ctx['pal'].get('ribbon', ctx['pal']['accent'])
+    parts = []
+    for s, tie, n, r in ctx.get('tail_ties', []):
+        face = Vector((n.x * 0.75, -0.9, 0.0)).normalized()
+        theta = math.atan2(face.x, -face.y)
+        place = Matrix.Translation(tie + Vector((n.x, n.y, 0)).normalized() * r * 0.35 + face * r * 0.9 + Vector((0, 0, 0.012))) @ Matrix.Rotation(theta, 4, 'Z')
+        for o in bow((0, 0, 0), col, size=0.042, bone='head', tails=True, tail_levels=1, knot_levels=0):
+            o.data.transform(place)
+            o.data.update()
+            parts.append(o)
+    return parts
+
+
+# ---------------------------------------------------------------------------
+# Festival taiko on a stand (Kanna's portrait): a big red-brown barrel drum at her front-left on a black
+# X-stand, its ivory head tilted up towards the 48 deg battle camera and turned a little towards her, gold
+# studs round the front rim, a flat gold sakura crest on the head and a black amplifier collar with glowing
+# vents (halo material). It stands on the ground beside her, so it is weighted to the root bone: the clips
+# move her body but leave the drum where it is.
+# ---------------------------------------------------------------------------
+
+def _flower(r_in, r_out, lobes=5, per=5, phase=math.pi / 2):
+    """Outline of a flat flower: `lobes` round petals, `per` points each, starting on a petal tip."""
+    pts = []
+    n = lobes * per
+    for k in range(n):
+        a = phase + k / n * math.pi * 2
+        w = abs(math.cos(lobes * (a - phase) / 2)) ** 0.8
+        r = r_in + (r_out - r_in) * w
+        pts.append((math.cos(a) * r, math.sin(a) * r))
+    return pts
+
+
+def _slab(points2d, z, t):
+    """Thin flat slab of a CCW outline in the local xy plane, centred on height z, wound explicitly (top face +z):
+    M.plate's winding check can flip a concave outline such as a flower."""
+    n = len(points2d)
+    verts = [(a, b, z - t / 2) for a, b in points2d] + [(a, b, z + t / 2) for a, b in points2d]
+    faces = [tuple(reversed(range(n))), tuple(range(n, 2 * n))]
+    faces += [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    return verts, faces
+
+
+def taiko_stand(ctx):
+    pal = ctx['pal']
+    gold = pal.get('trim', '#e9c24a')
+    wood, hide, rim, black = '#9c3a22', '#f6ead0', '#e2cda0', '#231c22'
+    lod = M.LEVEL_DROP[0] > 0                  # the LOD (medium/low quality) drops the sub-pixel studs, feet and the back rim
+    seg = 10 if lod else 14
+    R, hl = 0.124, 0.088                       # barrel radius at the heads, half length
+    C = Vector((0.318, -0.232, 0.215))         # front-left of her, clear of her left hand and stick in every clip
+    tilt, yaw = math.radians(40), math.radians(-16)
+    X = Matrix.Translation(C) @ Matrix.Rotation(yaw, 4, 'Z') @ Matrix.Rotation(tilt, 4, 'X')
+    Y = Matrix.Translation(C) @ Matrix.Rotation(yaw, 4, 'Z')
+
+    def put(vf, M4):
+        v, f = vf[0], vf[1]
+        return [tuple(M4 @ Vector(p)) for p in v], f
+
+    def dot(name, p, size, color, M4=X):
+        return _obj(name, put(M.box(p, size), M4), color, 'root', levels=0)
+
+    parts = []
+    v, f, r = M.lathe([(R * 0.98, -hl), (R * 1.08, -hl * 0.5), (R * 1.12, 0.0), (R * 1.08, hl * 0.5), (R * 0.98, hl)], segments=seg)
+    parts.append(_obj('taiko_barrel', put((v, f), X), wood, 'root'))
+    for sgn in (1, -1):
+        # the back head and rim face away from the battle camera: no subdivision there, and no back rim in the LOD
+        lv = 1 if sgn > 0 else 0
+        v, f, r = M.lathe([(R * 0.99, 0.0), (R * 0.99, 0.008)], segments=seg, center=(0, 0, sgn * (hl - 0.002) - (0.008 if sgn < 0 else 0.0)))
+        parts.append(_obj('taiko_head', put((v, f), X), hide, 'root', levels=lv))
+        if sgn > 0 or not lod:
+            v, f, r = M.tube([Vector((0, 0, sgn * (hl - 0.014))), Vector((0, 0, sgn * (hl + 0.002)))], R * 1.03, sides=seg)
+            parts.append(_obj('taiko_rim', put((v, f), X), rim, 'root', levels=lv))
+    # gold studs round the front rim (the back one is hidden from the battle camera)
+    for k in range(0 if lod else 12):
+        a = k / 12 * math.pi * 2
+        parts.append(dot('taiko_stud', (math.cos(a) * R * 1.06, math.sin(a) * R * 1.06, hl - 0.024), (0.011, 0.011, 0.011), gold))
+    # crest on the front head (the Drum Club sakura): one flat five-petal gold flower round a small pale-gold centre
+    top = hl + 0.008
+    v, f = _slab(_flower(0.016, 0.05), top, 0.003)
+    parts.append(_obj('taiko_crest', put((v, f), X), gold, 'root', levels=0))
+    v, f = _slab(_flower(0.008, 0.011, lobes=5, per=1), top + 0.002, 0.003)
+    parts.append(_obj('taiko_crest', put((v, f), X), mix(gold, hide, 0.55), 'root', levels=0))
+    # amplifier collar round the middle with four glowing vents
+    v, f, r = M.tube([Vector((0, 0, -0.021)), Vector((0, 0, 0.021))], R * 1.15, sides=seg)
+    parts.append(_obj('taiko_amp', put((v, f), X), black, 'root'))
+    for k in range(4):
+        a = math.pi * (0.25 + k * 0.5)
+        g = dot('taiko_vent', (math.cos(a) * R * 1.17, math.sin(a) * R * 1.17, 0.0), (0.024, 0.024, 0.024), pal['halo'])
+        g['material'] = 'halo'
+        parts.append(g)
+    # X-stand: a pair of crossed black legs under each side of the barrel, gold feet
+    fz = -C.z + 0.006
+    for sx in (-1, 1):
+        x = sx * R * 0.8
+        for (y0, y1, z1) in ((-0.108, 0.06, 0.0), (0.108, -0.06, -0.014)):
+            a, b = Vector((x, y0, fz)), Vector((x, y1, z1))
+            v, f, r = M.tube([a, b], 0.0105, sides=4, roll=math.pi / 4)
+            parts.append(_obj('taiko_leg', put((v, f), Y), black, 'root', levels=0))
+            if not lod:
+                parts.append(dot('taiko_foot', a + Vector((0, 0, 0.005)), (0.026, 0.026, 0.017), gold, Y))
+    v, f, r = M.tube([Vector((-R * 0.8, 0.078, fz + 0.036)), Vector((R * 0.8, 0.078, fz + 0.036))], 0.009, sides=4, roll=math.pi / 4)
+    parts.append(_obj('taiko_rail', put((v, f), Y), black, 'root', levels=0))
+    return parts
+
+
+# ---------------------------------------------------------------------------
+# Card dealer (Ena): the wrist launcher from her bio, a black cuff with silver rims and a glowing crimson slit on
+# her left wrist, plus a crimson thread wound round each wrist (her red threads of fate).
+# ---------------------------------------------------------------------------
+
+def card_dealer(ctx):
+    P = ctx['P']
+    pal = ctx['pal']
+    red = pal['accent']
+    parts = []
+    for side, s in (('L', 1), ('R', -1)):
+        el = Vector((P['elbow'].x * s, P['elbow'].y, P['elbow'].z))
+        wr = Vector((P['wrist'].x * s, P['wrist'].y, P['wrist'].z))
+        d = (wr - el).normalized()
+        r = P['forearm_r']
+        bones = [(f'forearm_{side}', el, wr)]
+        if side == 'L':
+            c = el.lerp(wr, 0.72)
+            v, f, rings = M.tube([c - d * 0.02, c + d * 0.02], r * 1.42, sides=8)
+            parts.append(_obj('dealer', (v, f), '#25222a', f'forearm_{side}'))
+            for e in (-1, 1):
+                v, f, rings = M.tube([c + d * (e * 0.019 - 0.003), c + d * (e * 0.019 + 0.003)], r * 1.5, sides=8)
+                parts.append(_obj('dealer_rim', (v, f), '#bfbcc8', f'forearm_{side}'))
+            # the slit on the outer face, where the cards come out
+            o = Vector((s, -0.35, 0.25)).normalized()
+            v, f = M.box(c + o * r * 1.42, (0.012, 0.012, 0.03))
+            parts.append(_obj('dealer_slit', (v, f), mix(red, '#ff5a70', 0.4), f'forearm_{side}', levels=0))
+        # the thread: a thin crimson ring just below the cuff
+        p = el.lerp(wr, 0.97)
+        v, f, rings = M.tube([p - d * 0.003, p + d * 0.003], r * 1.08, sides=8)
+        parts.append(_obj('thread', (v, f), red, f'forearm_{side}', levels=0))
+    return parts
+
+
+# ---------------------------------------------------------------------------
+# Flight headset (Seiran): a white ear cup with a gold rim and a teal light over her left ear, a small swept
+# white fin rising from it, and a dark mic boom curving to the corner of her mouth. The band runs behind the
+# head under the hair (not modelled, so it never fights the horns). Weighted to the head.
+# ---------------------------------------------------------------------------
+
+def flight_headset(ctx):
+    from .hair import HAIR_TOP
+    H, pal, P = ctx['H'], ctx['pal'], ctx['P']
+    gold = pal.get('trim', '#e2b552')
+    shell = '#f4f6fa'
+    dark = '#566075'
+    light = mix(pal['accent'], '#bff4ff', 0.35)
+    c = H.surf(88, -4, HAIR_TOP + 0.05)  # out past the side locks so the cup shows from the front
+    n = H.normal(88, -4)
+    parts = []
+    # ear cup: a short fat disc along the side normal, a gold rim ring and a glowing-teal dot on the outside
+    v, f, r = M.tube([c - n * 0.012, c + n * 0.012, c + n * 0.02], [(0.038, 0.044), (0.038, 0.044), (0.026, 0.03)], sides=10)
+    parts.append(_obj('headset_cup', (v, f), shell, 'head', levels=1))
+    v, f, r = M.tube([c + n * 0.002, c + n * 0.014], [(0.041, 0.047), (0.041, 0.047)], sides=10)
+    parts.append(_obj('headset_rim', (v, f), gold, 'head', levels=0))
+    if not M.LEVEL_DROP[0]:  # sub-pixel at medium/low quality
+        v, f = M.sphere(c + n * 0.024, (0.008, 0.008, 0.008))
+        parts.append(_obj('headset_light', (v, f), light, 'head', levels=0))
+    # a small white fin swept up and back from the cup (her headset's antenna)
+    fin = [c + n * 0.008 + Vector((0, 0.008, 0.03)), c + n * 0.008 + Vector((0, 0.022, 0.066)), c + n * 0.006 + Vector((0, 0.04, 0.1))]
+    v, f, r = M.tube(fin, [(0.004, 0.011), (0.003, 0.008), (0.001, 0.001)], sides=4, tip_end=True, up=n)
+    parts.append(_obj('headset_fin', (v, f), shell, 'head', levels=1, tip_rings=r))
+    # mic boom from the front of the cup round the cheek to the corner of her mouth
+    hc, R = P['head_center'], P['head_radii']
+    # a short boom: from the cup forward round the jaw, ending beside the cheek (not across the face)
+    mouth = Vector((0.132, hc.y - R.y * 0.9, hc.z - R.z * 0.64))
+    boom = [c + n * 0.004 + Vector((0, -0.03, -0.016)), Vector((c.x * 0.84, hc.y - R.y * 0.58, hc.z - R.z * 0.52)), mouth]
+    v, f, r = M.tube(boom, 0.0036, sides=5)
+    parts.append(_obj('headset_boom', (v, f), dark, 'head', levels=1))
+    v, f = M.sphere(mouth, (0.0095, 0.008, 0.008))
+    parts.append(_obj('headset_mic', (v, f), dark, 'head', levels=1))
+    return parts
+
+
+EXTRAS = dict(tailBows=tail_bows, taikoStand=taiko_stand, cardDealer=card_dealer, flightHeadset=flight_headset, foxTail=fox_tail,
+              falcon=falcon, quiver=quiver, foxFamiliar=fox_familiar, taikoDrum=taiko_drum, mortarTube=mortar_tube, monocle=monocle)

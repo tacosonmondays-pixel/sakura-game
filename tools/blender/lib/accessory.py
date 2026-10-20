@@ -1,6 +1,6 @@
 """Head accessories per look.accessory."""
 import math
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 from . import mesh as M
 from .colors import mix, darken, lighten
@@ -92,6 +92,36 @@ def hairpin(ctx):
     return [o, p]
 
 
+def leaf_clip(ctx):
+    """Gold leaf hair clip (Fuu): a sprig of two pointed leaves and a bead, lying on the hair above her
+    left eye. Gold comes from the palette's 'trim' key (falls back to a warm gold)."""
+    from mathutils import Matrix
+    H = ctx['H']
+    gold = ctx['pal'].get('trim', '#e2b552')
+    az, el = 44, 32
+    base = H.surf(az, el, HAIR_TOP - 0.01)
+    place = Matrix.Translation(base) @ Matrix.Rotation(math.radians(az), 4, 'Z') @ Matrix.Rotation(math.radians(-el), 4, 'X')
+    L, w = 0.052, 0.016
+    outline = [(0, 0), (w * 0.8, L * 0.25), (w, L * 0.5), (w * 0.6, L * 0.78), (0, L), (-w * 0.6, L * 0.78), (-w, L * 0.5), (-w * 0.8, L * 0.25)]
+    parts = []
+    n = len(outline)
+    for i, spin in enumerate((38, -22)):
+        v, f = M.plate(outline, 0.006, center=(0, 0, 0), plane='xz')
+        o = M.new_object(f'leafclip{i}', v, f, color=gold, bone='head')
+        M.crease(o, [(k, (k + 1) % n) for k in range(n)] + [(n + k, n + (k + 1) % n) for k in range(n)], 1.0)
+        M.finish(o, levels=1)
+        o.data.transform(place @ Matrix.Rotation(math.radians(spin), 4, 'Y') @ Matrix.Scale(1.0 if i == 0 else 0.82, 4))
+        o.data.update()
+        parts.append(o)
+    v, f = M.sphere((0, 0, 0), (0.008, 0.006, 0.008))
+    b = M.new_object('leafclip_bead', v, f, color=lighten(gold, 0.25), bone='head')
+    M.finish(b, levels=0)
+    b.data.transform(place)
+    b.data.update()
+    parts.append(b)
+    return parts
+
+
 def beret(ctx):
     from mathutils import Matrix
     H = ctx['H']
@@ -149,6 +179,10 @@ def horns(ctx):
         return _curl_horns(ctx)
     if shape == 'dragon':
         return _dragon_horns(ctx)
+    if shape == 'oni':
+        return _oni_horns(ctx)
+    if shape == 'crescent':
+        return _crescent_horns(ctx)
     H = ctx['H']
     parts = []
     col = mix(ctx['pal']['accent'], '#ffffff', 0.15)
@@ -161,6 +195,37 @@ def horns(ctx):
         M.crease(h, M.tip_edges(r), 1.0)
         M.finish(h, levels=2)
         parts.append(h)
+    return parts
+
+
+def _oni_horns(ctx):
+    """Tall oni horns (Kanna): two ivory cones that rise almost straight up from the top-front of the head,
+    their tips leaning in a little, each seated in a gold ring cuff (palette 'trim', else a warm gold; not in the LOD). Taller
+    than the default horns so they read above the twin-tails from the 48 deg battle camera; the halo is lifted
+    to clear the tips."""
+    H = ctx['H']
+    col = mix(ctx['pal']['accent'], '#ffffff', 0.12)
+    gold = ctx['pal'].get('trim', '#e2b552')
+    ctx['halo_lift'] = max(ctx.get('halo_lift', 0.0), 0.06)
+    parts = []
+    for s in (1, -1):
+        base = H.surf(s * 27, 60, HAIR_TOP - 0.06)
+        n = H.normal(s * 27, 60)
+        p1 = base + n * 0.02
+        pts = [base - n * 0.012, p1, p1 + Vector((s * 0.01, 0.0, 0.036)), p1 + Vector((s * 0.01, 0.008, 0.07)),
+               p1 + Vector((0.0, 0.02, 0.1))]
+        v, f, r = M.tube(pts, [0.026, 0.025, 0.019, 0.011, 0.001], sides=6, tip_end=True)
+        h = M.new_object(f'onihorn{s}', v, f, color=col, bone='head')
+        M.crease(h, M.tip_edges(r), 1.0)
+        M.finish(h, levels=1)
+        parts.append(h)
+        if M.LEVEL_DROP[0]:  # the LOD leaves the sub-pixel gold cuffs out
+            continue
+        d = (pts[2] - p1).normalized()
+        v, f, r = M.tube([p1 - d * 0.006, p1 + d * 0.01], 0.029, sides=8)
+        c = M.new_object(f'horncuff{s}', v, f, color=gold, bone='head')
+        M.finish(c, levels=1)
+        parts.append(c)
     return parts
 
 
@@ -205,6 +270,30 @@ def _dragon_horns(ctx):
         h = M.new_object(f'dragonhorn{s}', v, f, color=col, bone='head')
         M.crease(h, M.tip_edges(r), 1.0)
         M.finish(h, levels=2)
+        parts.append(h)
+    return parts
+
+
+def _crescent_horns(ctx):
+    """Crescent horns (Seiran): two slim, smooth horns rising from the top of the head, bowing outwards and
+    curving back in, tips up and a little back. Colour from the palette's 'horn' key (else the accent), a
+    shade deeper at the root. The halo is lifted to float above the tips."""
+    H = ctx['H']
+    col = ctx['pal'].get('horn', mix(ctx['pal']['accent'], '#ffffff', 0.1))
+    root = darken(col, 0.16)
+    ctx['halo_lift'] = max(ctx.get('halo_lift', 0.0), 0.075)
+    parts = []
+    for s in (1, -1):
+        base = H.surf(s * 40, 52, HAIR_TOP - 0.05)
+        n = H.normal(s * 40, 52)
+        pts = [base - n * 0.014, base + n * 0.022, base + n * 0.03 + Vector((s * 0.03, 0.012, 0.045)),
+               base + n * 0.03 + Vector((s * 0.034, 0.024, 0.088)), base + n * 0.03 + Vector((s * 0.014, 0.03, 0.12))]
+        v, f, r = M.tube(pts, [0.021, 0.019, 0.015, 0.009, 0.001], sides=8, tip_end=True)
+        h = M.new_object(f'crescenthorn{s}', v, f, color=col, bone='head')
+        M.crease(h, M.tip_edges(r), 1.0)
+        M.finish(h, levels=1)
+        z0 = base.z + 0.012
+        M.set_color(h, col, lambda co, _z=z0: root if co.z < _z else col)
         parts.append(h)
     return parts
 
@@ -370,5 +459,178 @@ def crown(ctx):
     return parts
 
 
+SILVER = '#e2deec'
+
+
+def mirror_ornament(ctx):
+    """Round silver mirror-disc ornament with a sunburst rim and a small lilac star in the middle (Iroha),
+    on the front-outer side of her left bun (ctx['buns'] from hair 'bunsBob'; else above the left temple)."""
+    H = ctx['H']
+    buns = [b for b in ctx.get('buns', []) if b[0] == 1]
+    if buns:
+        _, bc, br = buns[0]
+        out = Vector((bc.x - H.c.x, bc.y - H.c.y, bc.z - H.c.z)).normalized()
+        n = (out + Vector((0, -1.1, 0.15))).normalized()
+        c = bc + Vector((n.x * br[0], n.y * br[1], n.z * br[2])) * 0.92
+    else:
+        n = H.normal(60, 40)
+        c = H.surf(60, 40, HAIR_TOP)
+    R = Vector((0, 0, 1)).rotation_difference(n).to_matrix()
+    place = lambda vs, lift=0.0: [tuple(c + R @ (Vector(p) + Vector((0, 0, lift)))) for p in vs]
+    parts = []
+    # sunburst rim: an 8-point star plate behind the disc
+    pts = []
+    for i in range(16):
+        a = i / 16 * math.pi * 2
+        rr = 0.036 if i % 2 == 0 else 0.026
+        pts.append((math.cos(a) * rr, math.sin(a) * rr))
+    v, f = M.plate(pts, 0.006, plane='xy')
+    o = M.new_object('ornament_rays', place(v), f, color=darken(SILVER, 0.12), bone='head')
+    M.finish(o, levels=1)
+    parts.append(o)
+    # the mirror disc
+    v, f = M.sphere((0, 0, 0), (0.024, 0.024, 0.008))
+    o = M.new_object('ornament_disc', place(v, 0.005), f, color=SILVER, bone='head')
+    M.finish(o, levels=1)
+    parts.append(o)
+    # lilac star in the middle
+    pts = []
+    for i in range(10):
+        a = math.pi / 2 + i / 10 * math.pi * 2
+        rr = 0.014 if i % 2 == 0 else 0.0065
+        pts.append((math.cos(a) * rr, math.sin(a) * rr))
+    v, f = M.plate(pts, 0.005, plane='xy')
+    o = M.new_object('ornament_star', place(v, 0.012), f, color=mix(ctx['pal'].get('halo', '#e6dcff'), '#a98be0', 0.55), bone='head')
+    M.finish(o, levels=1)
+    parts.append(o)
+    return parts
+
+
+def rose(ctx):
+    """A crimson rose ornament (Ena): five cupped outer petals round a tighter inner cup and a dark bud,
+    seated on the hair at her left temple (just above the braid root when the hair style left one in
+    ctx['side_braid']), with two short crimson cords ending in tassels."""
+    H = ctx['H']
+    col = ctx['pal']['accent']
+    dark = darken(col, 0.4)
+    az, el = 70, 24
+    c = H.surf(az, el, HAIR_TOP - 0.01)
+    n = H.normal(az, el)
+    t1 = n.cross(Vector((0, 0, 1))).normalized()
+    t2 = n.cross(t1).normalized()
+    parts = []
+
+    def petal(name, pc, r, flat, color, levels=1):
+        v, f = M.sphere(pc, (r, r, r))
+        # flatten along the normal and cup the rim outward, like the flower petals
+        out = []
+        for p in v:
+            q = Vector(p) - pc
+            h = q.dot(n)
+            q = q - n * h * (1 - flat)
+            q = q + n * (0.35 * q.length - 0.006)
+            out.append(tuple(pc + q))
+        o = M.new_object(name, out, f, color=color, bone='head')
+        M.finish(o, levels=levels)
+        return o
+
+    for i in range(5):
+        a = i / 5 * math.pi * 2
+        d = t1 * math.cos(a) + t2 * math.sin(a)
+        parts.append(petal(f'rose_petal{i}', c + d * 0.025, 0.023, 0.5, col))
+    parts.append(petal('rose_cup', c + n * 0.011, 0.022, 0.75, mix(col, dark, 0.35)))
+    v, f = M.sphere(c + n * 0.023, (0.011, 0.011, 0.011))
+    bud = M.new_object('rose_bud', v, f, color=dark, bone='head')
+    M.finish(bud, levels=1)
+    parts.append(bud)
+    # two short cords with tassels hanging from under the rose
+    for k, (dx, ln) in enumerate(((-0.008, 0.055), (0.01, 0.042))):
+        top = c - t2 * 0.016 + t1 * dx - n * 0.004
+        pts = [top, top + Vector((0, -0.004, -ln * 0.5)) + n * 0.006, top + Vector((0, -0.006, -ln)) + n * 0.01]
+        v, f, r = M.tube(pts, 0.0035, sides=4)
+        cord = M.new_object(f'rose_cord{k}', v, f, color=col, bone='head')
+        M.finish(cord, levels=0)
+        parts.append(cord)
+        e = pts[-1]
+        v, f, r = M.tube([e, e + Vector((0, 0, -0.016))], [(0.006, 0.006), (0.0085, 0.0085)], sides=6)
+        tas = M.new_object(f'rose_tassel{k}', v, f, color=darken(col, 0.15), bone='head')
+        M.finish(tas, levels=1)
+        parts.append(tas)
+    return parts
+
+
+HEADSET_NAVY = '#2b275d'
+
+
+def cat_headset(ctx):
+    """Stage headset with cat-ear shells (Yoriko): a slim band over the hair, two shells in the headset colour with
+    glowing inner panels, round ear cups with a glowing ring, and a thin mic boom from the cup on her right to beside
+    the mouth with a glowing tip. The glowing bits use the halo material (palette 'headset' = shell/band colour)."""
+    H, pal = ctx['H'], ctx['pal']
+    dark = pal.get('headset', HEADSET_NAVY)
+    c, R = H.c, H.R
+    parts = []
+    # cat-ear shells: flat triangular shells standing on the band, leaning back a little so the battle camera sees the
+    # glowing inner panel on their front face
+    for s in (1, -1):
+        base = H.surf(s * 44, 54, HAIR_TOP - 0.03)
+        f = Vector((s * 0.3, -1.0, 0.38)).normalized()        # the way the shell's front faces
+        u = (Vector((s * 0.12, 0, 1)) - f * Vector((s * 0.12, 0, 1)).dot(f)).normalized()
+        a = (-f).cross(u)
+        X = Matrix((a, -f, u)).transposed()                   # plate space (x across, -y front, z up) -> head space
+        for name, pts, t, dy, col in (('headset_ear', [(-0.056, 0.0), (0.056, 0.0), (s * 0.02, 0.11)], 0.026, 0.0, dark),
+                                      ('headset_earglow', [(-0.034, 0.016), (0.034, 0.016), (s * 0.013, 0.08)], 0.008, -0.014, None)):
+            v, fc = M.plate(pts, t, center=(0, dy, 0), plane='xz')
+            v = [tuple(base + X @ Vector(q)) for q in v]
+            e = M.new_object(name, v, fc, color=col or pal['accent'], bone='head')
+            if col is None:
+                e['material'] = 'halo'
+            M.finish(e, levels=0)  # crisp flat shells, like a headset's moulded plastic
+            parts.append(e)
+
+    def at(d, lift):
+        return Vector((c.x + d.x * R.x * (1 + lift), c.y + d.y * R.y * (1 + lift), c.z + d.z * R.z * (1 + lift)))
+
+    # band: a great circle through both ears, tilted 25 deg forward so it runs under the ear shells
+    tilt = math.radians(25)
+    pts = []
+    for t in (-80, -55, -28, 0, 28, 55, 80):
+        a = math.radians(t)
+        pts.append(at(Vector((math.sin(a), -math.sin(tilt) * math.cos(a), math.cos(tilt) * math.cos(a))), HAIR_TOP - 0.012))
+    v, f, r = M.tube(pts, (0.013, 0.007), sides=6, up=Vector((0, -1, 0)))
+    band = M.new_object('headset_band', v, f, color=dark, bone='head')
+    M.finish(band, levels=1)
+    parts.append(band)
+    # ear cups on both sides (over the ears), each with a glowing ring and a dark centre
+    cup_z = -0.07
+    for s in (1, -1):
+        d = Vector((s, 0.0, cup_z)).normalized()
+        o = at(d, 0.17)
+        n = Vector((s, 0, 0))
+        for name, r0, a0, a1, col in (('headset_cup', 0.044, -0.02, 0.016, dark), ('headset_glow', 0.032, 0.012, 0.022, None),
+                                      ('headset_hub', 0.017, 0.018, 0.028, dark))[:2 if M.LEVEL_DROP[0] else 3]:
+            v, f, rr = M.tube([o + n * a0, o + n * a1], (r0, r0), sides=8)
+            cp = M.new_object(name, v, f, color=col or dark, bone='head')
+            if col is None:
+                cp['material'] = 'halo'
+            M.finish(cp, levels=1)
+            parts.append(cp)
+    # mic boom from the cup on her right, hugging the cheek, ending beside the mouth
+    boom = [H.surf(-92, -9, 0.25), H.surf(-74, -22, 0.17), H.surf(-52, -32, 0.12), H.surf(-36, -36, 0.10)]
+    v, f, r = M.tube(boom, 0.0055, sides=5)
+    b = M.new_object('headset_mic', v, f, color=dark, bone='head')
+    M.finish(b, levels=1)
+    parts.append(b)
+    v, f = M.sphere(tuple(boom[-1]), (0.011, 0.011, 0.011)) if not M.LEVEL_DROP[0] else M.box(tuple(boom[-1]), (0.02, 0.02, 0.02))
+    tip = M.new_object('headset_mictip', v, f, color=pal['accent'], bone='head')
+    tip['material'] = 'halo'
+    M.finish(tip, levels=0)
+    parts.append(tip)
+    # the moon halo floats a little higher so it clears the ear shells
+    ctx['halo_lift'] = max(ctx.get('halo_lift', 0.0), 0.08)
+    return parts
+
+
 ACCESSORIES = dict(ribbon=ribbon, bunnyEars=bunny_ears, catEars=cat_ears, foxEars=fox_ears, hairpin=hairpin, beret=beret, witchHat=witch_hat,
-                   horns=horns, flower=flower, goggles=goggles, hood=hood, headband=headband, crown=crown, cap=cap)
+                   horns=horns, flower=flower, goggles=goggles, hood=hood, headband=headband, crown=crown, cap=cap,
+                   leafClip=leaf_clip, mirrorOrnament=mirror_ornament, rose=rose, catHeadset=cat_headset)
