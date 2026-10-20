@@ -232,7 +232,10 @@ describe('saves written by the live game (before the story)', () => {
       const { profile: p, backup } = loadSaveText(JSON.stringify(rawJson));
       expect(backup).toBeNull();
       const before = { items: { ...p.items }, currencies: { ...p.currencies }, units: Object.keys(p.units), stages: Object.keys(p.progress.stages) };
-      expect(before.items).toEqual(rawJson.items);
+      // the one designed grant: Ascension's welcome pouch for the switch to Essence (ASCENSION.md §A.7)
+      const { memento, moonpearl, ...rest } = before.items;
+      expect(rest).toEqual(rawJson.items);
+      expect([memento, moonpearl]).toEqual([60, 15]);
       expect(before.currencies).toEqual(rawJson.currencies);
       expect(before.stages).toEqual(Object.keys(rawJson.progress.stages));
 

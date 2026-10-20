@@ -46,7 +46,7 @@ do $$
 begin
   for i in 1..600 loop
     begin
-      lock table public.clans, public.profiles in share row exclusive mode nowait;
+      lock table public.clans, public.profiles in access exclusive mode nowait;
       return;
     exception when lock_not_available then
       perform pg_sleep(0.05);

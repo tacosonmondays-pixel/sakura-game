@@ -12,7 +12,10 @@ Owner: systems. Source of truth is the data (`src/data/items.js`, `src/data/shop
 | Coins | `profile.currencies.coins` | every stage drop (×0.8 Easy … ×1.5 Nightmare), Coin Bounty, commissions, salvage | level ups (0.4 coin / EXP), breakthroughs, awakenings, gear enhance & rerolls, General shop |
 | Sakura Gems | `profile.currencies.gems` | first clears per difficulty, chapter finales, commissions, login, achievements, codes | recruits (120 / 1200 for 10×), Gem Shop |
 | Recruit Points | `profile.gacha.recruitPoints` | +1 per recruit | spark any SSR (200), Star Fragments |
-| Assault Tokens (`token_boss`) | items | minibosses (x-5 stages), Total Assault | Boss Exchange: crowns, dice, Lock Pins, fragments, 1 ticket / week |
+| Assault Tokens (`token_boss`) | items | minibosses (x-5 stages), Total Assault, **Titan Trials** (every fight; the Titan of the Week +50 %) | Boss Exchange: crowns, dice, Lock Pins, fragments, 1 ticket / week, and the weekly **Titan shelf** |
+| Mementos (`memento`) | items | spare duplicates (a copy past her Essence cap): R ×2, SR ×6 | Memento Exchange (lower shelf): Recruit Ticket, fragments, Tomes, materials, dice, coins |
+| Moonpearls (`moonpearl`) | items | spare duplicates: SR ×1, SSR ×10 | Memento Exchange (higher shelf): 10× ticket, Chosen SSR Essence, Crown Shards, Zenith, legendary, Celestial box |
+| Trial Keys | `missions.counters['tk:left']` | 12 a week (Sunday 7 PM Central), up to 6 unused carry over | one per Titan Trials fight or sweep that reaches Bronze; never sold |
 | Bounty Tokens (`token_bounty`) | items | Bounty arenas, Tactical Challenge, commissions | Bounty Exchange: gear boxes, dice, Lock Pins, books |
 
 ## 2. Recruitment (gacha)
@@ -20,11 +23,13 @@ Owner: systems. Source of truth is the data (`src/data/items.js`, `src/data/shop
 * Rates: **SSR 1.5% · SR 18.5% · R 80%**. Every unit (free recruits and heroes included) is in its rarity's pool.
 * **Pity:** the 90th recruit without an SSR is an SSR. Consolidated SSR rate ≈ **2.02%** (1 SSR per ≈ 49.6 recruits on average).
 * **10× guarantee:** at least one SR or better in every 10×.
-* Duplicates → **+1 Potential** (P1 → P6; v3: every step a stat boost, and from P3 (P2 for SSRs and heroes) a new
-  trick, up to a P6 capstone; `docs/specs/POTENTIAL.md`) **and** Star Fragments: R ×2, SR ×10, SSR ×40.
-  At P6 a duplicate gives the fragments plus Akashic Tomes (SR ×1, SSR ×5; R none). Sparks and SSR Select Tickets
-  on an owned girl count as duplicates. Potential adds no currency or price; it raises the level cap past 60, and
-  levels above 60 are paid in Akashic Tomes (§5, Levels).
+* Duplicates → **+1 Essence of her** and nothing else (Ascension, `docs/specs/ASCENSION.md` §A; no Star
+  Fragments, no Tomes). **Raise Potential** on her page: 1 Essence + coins per step (R 2k/4k/6k/10k/15k,
+  SR 5k/10k/15k/25k/40k, SSR 10k/20k/40k/70k/100k: 37k / 95k / 240k for P1 → P6). She holds at most 6 − P
+  Essence; a copy past that is a **spare**: R 2 Mementos + ⅕ recruit point · SR 6 Mementos + 1 Moonpearl +
+  1 point · SSR 10 Moonpearls + 5 points. Sparks and SSR Select Tickets on an owned girl count as duplicates.
+  **Kindred Essence** (R, SR; SSR only as shards, 10 → 1) stands in for her own on a girl of its rarity or
+  lower with none of her own. Each P step opens her next level gate past 60 (§5, Breakthrough).
 * **Spark:** 200 recruit points → any SSR (Recruit Exchange or `spark()`).
 * Tickets are always spent before gems (`ticket_recruit10` for a 10×, then single tickets, then gems).
 
@@ -114,7 +119,7 @@ Doodle Notes 100 · Study Guide 500 · Academy Textbook 2,000 · Sage's Codex 8,
 None is sold for gems. Older builds clamp a level above 60 back to 60 when they load; `lv:<id>` in
 `missions.counters` restores it (never above the cap) on the next load of this build.
 
-### Breakthrough (cap 10 → 60 in steps of 10; unit's own material family; past gate 5 Potential raises it)
+### Breakthrough (cap 10 → 60 in steps of 10, then gates 6–10 to 85; unit's own material family)
 
 | Gate | Materials | Coins |
 |---|---|---:|
@@ -123,6 +128,21 @@ None is sold for gems. Older builds clamp a level above 60 back to 60 when they 
 | 3 (cap 40) | 10 rare + 4 super rare | 40,000 |
 | 4 (cap 50) | 10 super rare + 3 mythic | 100,000 |
 | 5 (cap 60) | 8 mythic + 2 legendary | 250,000 |
+| 6 (cap 63, needs P2) | 8 mythic + 2 legendary | 150,000 |
+| 7 (cap 67, P3) | 10 mythic + 3 legendary + 1 Zenith | 200,000 |
+| 8 (cap 72, P4) | 4 legendary + 2 Zenith | 300,000 |
+| 9 (cap 78, P5) | 5 legendary + 3 Zenith + 1 Rainbow Crown | 450,000 |
+| 10 (cap 85, P6) | 6 legendary + 4 Zenith + 1 Rainbow Crown | 800,000 |
+
+Gates 6–10 (Ascension): 18 mythic, 20 legendary, 10 Zenith, 2 Rainbow Crowns and 1.9M coins a girl, plus the 25
+Akashic Tomes and 300k coins of the levels in between: **2.2M coins a girl from 60 to 85**. +2 % damage per gate
+continues (×1.035 at L85 ★5 against gate 5). **Zenith** is the seventh tier of every family (Zenith Plume, Edge,
+Flame, Frost, Omamori, Sigil, Cog), from Titan Trials, the Titan shelf and the Craft Room. The **Rainbow Crown**
+(10 Rainbow Crown Shards fuse into one) comes only from Titan Trials and their shelves, never for gems.
+
+**Craft Room** (any family material's sheet): 3 → 1 of the next tier for 5k / 15k / 40k / 100k / 150k coins (into
+rare … Zenith), 2 → 1 into another family for half the combine fee into that tier; weekly caps: legendary 10,
+Zenith 3 (combine), legendary 5, Zenith 2 (swap).
 
 Families: feather (Aoi, Kage, Shiro), blade (Rei, Kaede), ember (Akane, Sango), rime (Yuki, Nami),
 charm (Hikari, Umeko, Miko, Hotaru), rune (Luna, Midori, Raika), cog (Momo, Suzu, Chika).
@@ -140,9 +160,10 @@ Names run e.g. Sparrow Feather → Swallow Plume → Hawk Quill → Phoenix Plum
 
 ★3 unlocks the unit's awaken passive. Crowns also rotate in the Boss Exchange (weekly stock).
 
-### Potential (P1–P6, from duplicates; `docs/specs/POTENTIAL.md`)
+### Potential (P1–P6, bought with Essence; `docs/specs/POTENTIAL.md`, `docs/specs/ASCENSION.md` §A)
 
-Every duplicate raises a girl's Potential by 1, up to P6, and still pays its fragments. v3 (train C): every step is
+Every duplicate gives a girl 1 Essence; 1 Essence and coins raise her Potential by 1, up to P6 (one Essence per
+step, so the pace below is unchanged). v3 (train C): every step is
 bigger than the one before, a stat boost plus (from P3, from P2 for SSRs and heroes) a kit step; a damage girl's P6
 is about R ×1.59 · SR ×1.83 · SSR ×2.28 over P1 on paper (the v3 design spec), and with level 85 (her cap at P6)
 ×2.04 / ×2.35 / ×2.93. Each step also raises her level cap (§5, Levels). (v1, live in v0.1.34, was ×1.07–1.10.)
@@ -203,3 +224,21 @@ cost cut ≤ 25%, ult haste ≤ 50%).
 
 A stage cleared on **Hard or Nightmare** can be swept up to 10× per tap at any difficulty already
 cleared: drops only (no medals, first clears or bestiary changes); sweeps count for "win" commissions.
+
+## 9. Titan Trials, the weekly bosses (`docs/specs/ASCENSION.md` §C)
+
+Four titans (Foundry Titan, Gloom Regent, Hyakki Daimyo, Eclipse Wyrm), each weak to one attack type and dropping
+two material families (tap the one you need). Normal after 3-5, Hard after 6-5 + a Normal win, Nightmare after
+8-5 + a Hard win, Mayhem after a Nightmare win, Mayhem +n after +(n − 1). 12 Trial Keys a week (6 carry over);
+a key is used only at Bronze or better. Bronze / Silver / Gold (25 / 50 / 75 % of her HP) pay 35 / 60 / 85 % of the
+damage table; a Victory pays all of it and the **Victory Chest** (legendary, Zenith and Crown Shard chances, one
+gear box: Rainbow 0.5 % Nightmare / 4 % Mayhem (+0.25 % a rank, 6 % at most), Celestial 3 / 25 / 45 %, Radiant
+25 / 59.5 / 51 %). The **Rainbow Meter** guarantees a Rainbow Gear Box by the 40th Mayhem win. First clears pay
+3,600 gems in all (once per titan per tier, solo only). Sweeps (a key) pay a Victory at the best tier won solo.
+
+Weekly stores (game week): the Boss Exchange's **Titan shelf** (Crown Shard 40, Zenith 60, legendary 25 ×4, mythic
+8 ×6, Tome 30 ×2, Kindred R 15 ×2, Kindred SR 60, SSR Kindred Shard 50 every other week from a Nightmare win,
+Celestial box 120), the Gem Shop's Titan shelf (Zenith 250 ×2, SSR Kindred Shard 1,500 ×1; never crowns, keys or
+boxes) and the **Memento Exchange** (tab of its own, two wallets). Measured pace (`tools/ascensionPace.mjs`, the
+built tables): a free player's four carries reach L85 in week 22 and eight girls in week 30; Star Fragments a week
+122 → 134 → 143 (free), 206 (spender); the Rainbow Meter averages 20 Mayhem wins and never passes 40.

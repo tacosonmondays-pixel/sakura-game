@@ -461,7 +461,9 @@ export function createResults(ctx) {
       [25, 50, 75].map((at) => h(`span.tt-notch${pct >= at ? '.hit' : ''}`, { style: { left: `${at}%` } })),
       h('b.tt-hppct', `${pct}%`));
     const chestIds = new Set((out.chest?.items || []).map((x) => x.id));
-    const tableTiles = out.rewards.filter((r) => !chestIds.has(r.id) && r.id !== 'gearbox_rainbow');
+    // first-clear-only items (gems, Kindred, a whole crown) show under First clear, not again here
+    const fcOnly = new Set((out.firstClear?.items || []).map((x) => x.id).filter((id) => !['star_fragment', 'token_boss', 'crown_rainbow_shard'].includes(id) && !/^mat_/.test(id)));
+    const tableTiles = out.rewards.filter((r) => !chestIds.has(r.id) && !fcOnly.has(r.id) && r.id !== 'gearbox_rainbow');
     const chestTiles = out.rewards.filter((r) => chestIds.has(r.id) || r.id === 'gearbox_rainbow');
     const blocks = [];
     if (out.firstClear) blocks.push(section('First clear', h('div.bt-tiles', [...out.firstClear.items].map((r) => rewardTile(r.id, r.count, 56)))));

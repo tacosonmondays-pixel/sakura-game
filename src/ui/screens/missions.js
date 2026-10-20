@@ -78,7 +78,7 @@ function build() {
     tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
-    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly bosses', short: 'Weekly', lockText: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`, onClick: () => navigate('titans') }),
+    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`, onClick: () => navigate('titans') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     // [online] 2-player real-time co-op on any unlocked campaign stage
     tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
