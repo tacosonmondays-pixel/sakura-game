@@ -294,6 +294,25 @@ describe('weekly stores (§A.5, §C.10)', () => {
     expect([a.away, b.away].sort()).toEqual([false, true]);
   });
 
+  it('the SSR Kindred Shard rows hide once no owned girl can use Kindred SSR (all P6; ASC-3)', () => {
+    const p = ready();
+    p.missions.counters['tbest:regent'] = 3; // a Nightmare clear
+    p.currencies.gems = 1e5;
+    const w0 = [T0, T0 + 7 * DAY].find((t) => gameWeekNumber(t) % 2 === 0); // the shard rows' on-week
+    const shown = () => shopTabs(p, new Date(w0)).flatMap((t) => t.offers).filter((o) => o.item === 'kindred_shard_ssr').map((o) => o.id).sort();
+    expect(shown()).toEqual(['gts_kindred_shard', 'ts_kindred_shard']);
+    for (const st of Object.values(p.units)) st.pl = 6;
+    expect(shown()).toEqual([]);
+    const gems = p.currencies.gems;
+    expect(buyOffer(p, 'gts_kindred_shard', 1, new Date(w0))).toMatchObject({ ok: false, error: 'hidden' });
+    expect(p.currencies.gems).toBe(gems);
+    // the Crown Shard row (the other fusing shard) is not a Kindred row: it still shows
+    expect(shopTabs(p, new Date(w0)).flatMap((t) => t.offers).some((o) => o.id === 'ts_crown_shard')).toBe(true);
+    // a new girl below P6 brings both rows back
+    grantUnit(p, 'kaede');
+    expect(shown()).toEqual(['gts_kindred_shard', 'ts_kindred_shard']);
+  });
+
   it('Chosen SSR Essence: one Essence of the SSR you pick, refused at her hold cap', () => {
     const p = ready();
     grantUnit(p, 'kaede');

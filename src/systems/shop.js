@@ -15,7 +15,7 @@ import { addItems, consumeItems, itemCount } from './inventory.js';
 import { isOwned, ownedUnits } from './unlocks.js';
 import { spark } from './gacha.js';
 import { track } from './missions.js';
-import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap } from './essence.js';
+import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap, KINDRED, SHARD_FUSION } from './essence.js';
 
 /** missions.counters key: the game week Ascension's rows were last reset for. */
 export const ASC_SHOP_MARK = 'shopwk:asc';
@@ -58,6 +58,10 @@ export function chosenEssenceTargets(profile, rarity = 'SSR') {
 
 /** Does a row show at all? (§A.4 "no dead rows") */
 function rowShows(profile, o) {
+  // a Kindred shard row (Titan shelf, Gem Titan shelf) also needs a girl who can use the Kindred its
+  // shards fuse into, whatever else it needs
+  const whole = SHARD_FUSION[o.item];
+  if (whole && KINDRED[whole] && !kindredUseful(profile, whole)) return false;
   if (!o.needs) return true;
   if (o.needs.startsWith('kindred:')) return kindredUseful(profile, o.needs.slice(8));
   if (o.needs === 'nightmareClear') return Object.entries(profile.missions?.counters || {}).some(([k, v]) => k.startsWith('tbest:') && v >= 3);
