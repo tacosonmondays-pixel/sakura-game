@@ -503,8 +503,9 @@ export function migrateProfile(raw) {
   // (`lost`, PROFILE.md §2.4). Cosmetic drops inside it never count as lossy (migrationDropsData).
   restoreSensei(raw.sensei, p);
   p.social = cleanSocial(raw.social);
-  // [events] limited events (EVENT_SPEC §3.5): additive; the counters' shadows keep settles final
-  p.events = cleanEvents(raw.events, p.missions.counters);
+  // [events] limited events (EVENT_SPEC §3.5): additive; the counters' shadows keep settles final,
+  // stock limits and one-time claims, and the Mailbox's delivered list keeps the login gifts sent
+  p.events = cleanEvents(raw.events, p.missions.counters, p.mail);
   p.version = SAVE_VERSION;
   return p;
 }

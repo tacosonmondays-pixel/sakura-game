@@ -9,8 +9,12 @@
 //                  total: { progress, claimed }, bought: { offerId: n }, owned: ['title:<id>', …],
 //                  login: { days, last }, settled: null | { at, currency, coins } }
 // Shadows in profile.missions.counters (an older build that drops the block keeps them, so settling
-// stays final and bought cosmetics stay owned): 'evs:<eventId>:<run>' settled, 'evo:<kind>:<id>'
-// owned cosmetic, 'evr:<episodeId>' episode read.
+// stays final, bought cosmetics stay owned, stock limits and one-time claims hold and nothing pays
+// twice): 'evs:<eventId>:<run>' settled, 'evo:<kind>:<id>' owned cosmetic, 'evr:<episodeId>' episode
+// read, 'evb:<eventId>:<run>:<offerId>' = bought n, 'evm:<eventId>:<run>:<missionId>' one-time mission
+// claimed, 'evp:<eventId>:<run>:<missionId>' = one-time mission progress. The login gifts sent are
+// read back from mail.delivered ('ev:<eventId>:<run>:login:<n>'). The run's 'evb:' / 'evm:' / 'evp:'
+// marks are removed once it is settled (the block is pruned then and 'evs:' keeps it final).
 
 import '../data/events/wire.js';
 import { ALL_EVENTS, EVENTS, EVENT_MAP, eventById, eventOfStage } from '../data/events/index.js';
@@ -29,6 +33,21 @@ const intOf = (v, min = 0) => (Number.isFinite(Number(v)) ? Math.max(min, Math.f
 export const SETTLE_MARK = 'evs:';
 export const OWNED_MARK = 'evo:';
 export const READ_MARK = 'evr:';
+export const BOUGHT_MARK = 'evb:';
+export const CLAIM_MARK = 'evm:';
+export const PROGRESS_MARK = 'evp:';
+
+const runKey = (mark, eventId, run, id) => `${mark}${eventId}:${run}:${id}`;
+const loginId = (eventId, run, n) => `ev:${eventId}:${run}:login:${n}`;
+
+/** How many login gifts of this event run the Mailbox ever delivered (the highest n in `delivered`). */
+function loginsDelivered(ev, run, delivered) {
+  if (!Array.isArray(delivered) || !delivered.length) return 0;
+  const sent = new Set(delivered);
+  let n = 0;
+  for (let i = 1; i <= (ev.login || []).length; i++) if (sent.has(loginId(ev.id, run, i))) n = i;
+  return n;
+}
 
 // ---------------------------------------------------------------------------
 // Save block
@@ -70,19 +89,28 @@ function cosmeticKeys(ev) {
 
 /**
  * Sanitize a stored profile.events (unknown events, missions and offers dropped, numbers ≥ 0,
- * `settled` kept). `counters` (profile.missions.counters) restores the shadows.
+ * `settled` kept). `counters` (profile.missions.counters) restores the shadows, and `mail`
+ * (profile.mail, already cleaned) the login gifts sent: each part comes back as the larger of the
+ * block and its shadow, so a block an older build dropped never reopens a stock limit or a claim.
  * @returns {{ v: 1, byId: object }}
  */
-export function cleanEvents(raw, counters = {}) {
+export function cleanEvents(raw, counters = {}, mail = null) {
   const out = newEvents();
   const src = isObj(raw) && isObj(raw.byId) ? raw.byId : {};
+  const c = isObj(counters) ? counters : {};
   for (const ev of ALL_EVENTS) {
     const r = src[ev.id];
     const run = isObj(r) ? Math.max(1, intOf(r.run, 1)) : 1;
-    const markedSettled = counters?.[`${SETTLE_MARK}${ev.id}:${run}`] > 0;
-    const ownedMarks = cosmeticKeys(ev).filter((k) => counters?.[`${OWNED_MARK}${k}`] > 0);
-    const readMarks = (ev.episodes || []).map((e) => e.id).filter((id) => counters?.[`${READ_MARK}${id}`] > 0);
-    if (!isObj(r) && !markedSettled && !ownedMarks.length && !readMarks.length) continue;
+    const markedSettled = c[`${SETTLE_MARK}${ev.id}:${run}`] > 0;
+    const ownedMarks = cosmeticKeys(ev).filter((k) => c[`${OWNED_MARK}${k}`] > 0);
+    const readMarks = (ev.episodes || []).map((e) => e.id).filter((id) => c[`${READ_MARK}${id}`] > 0);
+    const totalMissions = ev.missions?.total || [];
+    const boughtMarks = (ev.shop || []).map((o) => [o.id, intOf(c[runKey(BOUGHT_MARK, ev.id, run, o.id)])]).filter(([, n]) => n > 0);
+    const claimMarks = totalMissions.map((m) => m.id).filter((id) => c[runKey(CLAIM_MARK, ev.id, run, id)] > 0);
+    const progressMarks = totalMissions.map((m) => [m.id, Math.min(m.goal, intOf(c[runKey(PROGRESS_MARK, ev.id, run, m.id)]))]).filter(([, n]) => n > 0);
+    const loginsSent = loginsDelivered(ev, run, mail?.delivered);
+    const shadowed = markedSettled || ownedMarks.length || readMarks.length || boughtMarks.length || claimMarks.length || progressMarks.length || loginsSent;
+    if (!isObj(r) && !shadowed) continue;
     const st = newState();
     st.run = run;
     const rr = isObj(r) ? r : {};
@@ -100,11 +128,14 @@ export function cleanEvents(raw, counters = {}) {
       claimed: ids(d.claimed, (x) => dailyIds.has(x)),
     };
     const t = isObj(rr.total) ? rr.total : {};
-    st.total = { progress: counts(t.progress, (k) => totalIds.has(k)), claimed: ids(t.claimed, (x) => totalIds.has(x)) };
+    st.total = { progress: counts(t.progress, (k) => totalIds.has(k)), claimed: ids([...(Array.isArray(t.claimed) ? t.claimed : []), ...claimMarks], (x) => totalIds.has(x)) };
+    for (const [id, n] of progressMarks) st.total.progress[id] = Math.max(st.total.progress[id] || 0, n);
     st.bought = counts(rr.bought, (k) => offerIds.has(k));
+    for (const [id, n] of boughtMarks) st.bought[id] = Math.max(st.bought[id] || 0, n);
     st.owned = ids([...(Array.isArray(rr.owned) ? rr.owned : []), ...ownedMarks], (x) => keys.has(x));
     const l = isObj(rr.login) ? rr.login : {};
-    st.login = { days: Math.min(intOf(l.days), (ev.login || []).length), last: typeof l.last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(l.last) ? l.last : null };
+    const last = typeof l.last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(l.last) ? l.last : null;
+    st.login = { days: Math.min(Math.max(intOf(l.days), loginsSent), (ev.login || []).length), last: last ?? lastLoginDay(ev, run, mail) };
     if (isObj(rr.settled)) st.settled = { at: Math.max(0, Number(rr.settled.at) || 0), currency: intOf(rr.settled.currency), coins: intOf(rr.settled.coins) };
     else if (markedSettled) st.settled = { at: 0, currency: 0, coins: 0 };
     if (st.settled) pruneSettled(st);
@@ -136,9 +167,25 @@ export function peekState(profile, eventId) {
   return profile?.events?.byId?.[eventId] || null;
 }
 
-function mark(profile, key) {
+function mark(profile, key, n = 1) {
   const c = ((profile.missions ||= {}).counters ||= {});
-  c[key] = 1;
+  if (!(c[key] >= n)) c[key] = n;
+}
+
+/** The game day the newest login gift of this run was sent (a dropped block's `login.last`), or null. */
+function lastLoginDay(ev, run, mail) {
+  const n = loginsDelivered(ev, run, mail?.delivered);
+  if (!n) return null;
+  const letter = (Array.isArray(mail?.letters) ? mail.letters : []).find((x) => x?.id === loginId(ev.id, run, n));
+  return letter && Number(letter.sentAt) > 0 ? gameDay(Number(letter.sentAt)) : null;
+}
+
+/** Drops a settled run's 'evb:' / 'evm:' / 'evp:' shadows (the 'evs:' mark keeps the settle final). */
+function dropRunShadows(profile, eventId, run) {
+  const c = profile.missions?.counters;
+  if (!isObj(c)) return;
+  const heads = [BOUGHT_MARK, CLAIM_MARK, PROGRESS_MARK].map((m) => `${m}${eventId}:${run}:`);
+  for (const k of Object.keys(c)) if (heads.some((h) => k.startsWith(h))) delete c[k];
 }
 
 // ---------------------------------------------------------------------------
@@ -311,13 +358,16 @@ export function trackEvent(profile, eventId, on, n = 1, { now = Date.now(), stag
   const st = eventState(profile, ev.id);
   const daily = rollDaily(st, now);
   const add = (bucket, m) => {
-    if (m.on !== on) return;
-    if (m.stage && m.stage !== stageId) return;
-    if (m.difficulty && m.difficulty !== difficulty) return;
+    if (m.on !== on) return false;
+    if (m.stage && m.stage !== stageId) return false;
+    if (m.difficulty && m.difficulty !== difficulty) return false;
     bucket.progress[m.id] = Math.min(m.goal, (bucket.progress[m.id] || 0) + n);
+    return true;
   };
   for (const m of ev.missions?.daily || []) add(daily, m);
-  for (const m of ev.missions?.total || []) add(st.total, m);
+  for (const m of ev.missions?.total || []) {
+    if (add(st.total, m)) mark(profile, runKey(PROGRESS_MARK, ev.id, st.run, m.id), st.total.progress[m.id]);
+  }
   return true;
 }
 
@@ -353,6 +403,7 @@ export function claimEventMission(profile, eventId, missionId, now = Date.now())
   if (bucket.claimed.includes(m.id)) return { ok: false, error: 'claimed', rewards: [] };
   if ((bucket.progress[m.id] || 0) < m.goal) return { ok: false, error: 'notDone', rewards: [] };
   bucket.claimed.push(m.id);
+  if (!isDaily) mark(profile, runKey(CLAIM_MARK, ev.id, st.run, m.id));
   return { ok: true, rewards: addItems(profile, m.rewards) };
 }
 
@@ -379,7 +430,7 @@ function loginLetter(ev, st, i, now) {
   const w = eventWindow(ev);
   const tpl = ev.mail?.login || { title: 'Event gift · day {n}', body: '' };
   return {
-    id: `ev:${ev.id}:${st.run}:login:${i + 1}`,
+    id: loginId(ev.id, st.run, i + 1),
     from: ev.mail?.from || ev.name,
     title: tpl.title.replace('{n}', String(i + 1)),
     body: tpl.body,
@@ -403,6 +454,8 @@ export function markEventLogin(profile, now = Date.now()) {
     const today = gameDay(ms(now));
     if (!isNewPeriod(st.login.last, today)) continue;
     st.login.last = today;
+    // gifts already in the Mailbox count as sent (a block an older build dropped restarts at 0)
+    st.login.days = Math.min((ev.login || []).length, Math.max(st.login.days, loginsDelivered(ev, st.run, profile.mail?.delivered)));
     trackEvent(profile, ev.id, 'eventLogin', 1, { now });
     if (st.login.days < (ev.login || []).length) {
       const letter = deliverMail(profile, loginLetter(ev, st, st.login.days, now), ms(now));
@@ -460,6 +513,7 @@ export function buyEventOffer(profile, eventId, offerId, qty = 1, now = Date.now
   const cost = [{ id: ev.currency.id, count: o.price * n }];
   if (!consumeItems(profile, cost)) return { ok: false, error: 'funds', rewards: [] };
   st.bought[o.id] = bought + n;
+  mark(profile, runKey(BOUGHT_MARK, ev.id, st.run, o.id), st.bought[o.id]);
   if (key) {
     st.owned.push(key);
     mark(profile, `${OWNED_MARK}${key}`);
@@ -571,7 +625,10 @@ export function settleEvents(profile, now = Date.now()) {
         }, t);
         if (l) {
           letters.push(l);
-          for (const m of list) bucketOf(m).claimed.push(m.id);
+          for (const m of list) {
+            bucketOf(m).claimed.push(m.id);
+            if (m.kind !== 'daily') mark(profile, runKey(CLAIM_MARK, ev.id, st.run, m.id));
+          }
         }
       }
     }
@@ -596,6 +653,7 @@ export function settleEvents(profile, now = Date.now()) {
       state.settled = { at: t, currency: n, coins };
       pruneSettled(state);
       mark(profile, `${SETTLE_MARK}${ev.id}:${state.run}`);
+      dropRunShadows(profile, ev.id, state.run);
       settled.push(ev.id);
     }
   }
