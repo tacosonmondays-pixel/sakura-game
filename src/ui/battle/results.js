@@ -4,6 +4,7 @@
 // Co-op freeplay past the goal gets a third sheet (FREEPLAY OVER / FREEPLAY COMPLETE): the big
 // overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
 // goal) and the freeplay bonus. A Sandbox run gets one line and the way back (nothing earned or saved).
+import { resultBand } from '../transitions/index.js';
 import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
 import { svgEl, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
@@ -437,11 +438,16 @@ export function createResults(ctx) {
   }
 
   function open(card, extra = null) {
+    const first = el.hidden;
     el.replaceChildren(...[extra, card].filter(Boolean));
     // a victory stand takes the left side: the sheet moves right so it never covers her or her bubble
     el.classList.toggle('has-girl', !!extra?.classList?.contains('bt-win-girl'));
     el.hidden = false;
-    el.classList.remove('bt-in');
+    el.classList.remove('bt-in', 'bt-banded');
+    // the end of a battle: a slanted band with VICTORY / DEFEAT sweeps across first, then the sheet
+    // rises (its buttons take taps all along: the band never catches them)
+    const word = !first ? null : card.classList.contains('bt-win') ? 'VICTORY' : card.classList.contains('bt-lose') ? (ctx.endedRun ? 'RUN OVER' : 'DEFEAT') : null;
+    if (word && resultBand(el, word, { tone: card.classList.contains('bt-win') ? 'win' : 'lose' })) el.classList.add('bt-banded');
     void el.offsetWidth;
     el.classList.add('bt-in');
   }

@@ -55,6 +55,7 @@ import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } fro
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
+import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -62,6 +63,15 @@ const MODEL_TIMEOUT_MS = 5000;
 /** Resolves after `promise` or `ms`, whichever comes first (never rejects). */
 function settle(promise, ms) {
   return Promise.race([Promise.resolve(promise).catch(() => false), new Promise((r) => setTimeout(() => r(false), ms))]);
+}
+
+/** Runs `fn` over `items`, at most `limit` at a time (the same concurrency the model loaders use). */
+function pool(items, limit, fn) {
+  const queue = [...items];
+  const worker = async () => {
+    while (queue.length) await fn(queue.shift());
+  };
+  return Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
 }
 
 /**
@@ -151,8 +161,21 @@ export function mountBattle(root, params, hooks) {
 
   const stageEl = h('div.bt-canvas');
   const layer = h('div.bt-layer');
-  const loading = h('div.bt-loading', h('div.bt-loading-card', h('div.bt-loading-petal'), h('b', restored ? `Resuming wave ${restored.sim.wave + 1}…` : 'Deploying sentinels…'), h('span', stage.name)));
-  shell.append(stageEl, layer, loading);
+  shell.append(stageEl, layer);
+  // the black loading screen (src/ui/transitions): up until this battle's first frame is drawn
+  // (behind the cut from stage prep, the lobby or a co-op room; on its own for a restart or a co-op
+  // rebuild in place), its progress line counting the girls' and enemies' models
+  let markShown = () => {};
+  const shown = new Promise((r) => {
+    markShown = r;
+  });
+  const stageLabel = `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name}`;
+  const loader = holdLoader(shown, {
+    kicker: restored ? 'Resuming' : ls ? 'Co-op' : 'Deploying',
+    title: restored ? `${stageLabel} · wave ${restored.sim.wave + 1}` : stageLabel,
+    progress: 0,
+    immediate: true,
+  });
 
   let destroyed = false;
   let raf = 0;
@@ -256,14 +279,34 @@ export function mountBattle(root, params, hooks) {
   const ready = (async () => {
     // chibis-v2: only the formation (+ hero) at the detail this quality needs (phones get the
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
+    // One model per call (same concurrency as one batch call) so the loader can count them.
     const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
-    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
+    const fams = stageFamilies();
+    const total = ids.length + fams.length + 1; // + building the scene
+    let loaded = 0;
+    const tick = () => {
+      loaded++;
+      if (!destroyed) setLoaderProgress(loaded / total);
+    };
+    await settle((async () => {
+      await preloadModels([], { detail }); // (the loaders and the manifest, once)
+      await Promise.all([
+        pool(ids, 6, (id) => preloadModels([id], { detail }).catch(() => false).finally(tick)),
+        pool(fams, 4, (f) => preloadEnemies([f]).catch(() => false).finally(tick)),
+      ]);
+    })(), MODEL_TIMEOUT_MS);
+    if (destroyed) return;
+    setLoaderProgress((total - 1) / total);
+    // let the loader (and its progress line) draw before the long synchronous scene build
+    await frames(2);
     if (destroyed) return;
     build();
-    loading.classList.add('out');
-    later(() => loading.remove(), 400);
   })();
+  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go
+  ready.catch(() => {}).then(() => {
+    if (!ctx.renderer || destroyed) markShown();
+  });
 
   // [story] the coached first battle (#/battle?…&tutorial=1, STORY_SPEC §2.3): Hikari's tips over this UI
   if (params.tutorial === '1') {
@@ -340,6 +383,7 @@ export function mountBattle(root, params, hooks) {
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
+      markShown();
       return;
     }
     ctx.renderer = renderer;
@@ -851,6 +895,12 @@ export function mountBattle(root, params, hooks) {
 
     // ---- main loop ----------------------------------------------------------------------
     let lastT = performance.now();
+    /** The first frame is drawn: the loading screen may go (its progress line is full). */
+    let firstFrame = () => {
+      firstFrame = null;
+      setLoaderProgress(1);
+      markShown();
+    };
     function frame(now) {
       raf = requestAnimationFrame(frame);
       // a finished Sim whose 'won' / 'lost' event never reached handle() (a render or handler
@@ -874,13 +924,14 @@ export function mountBattle(root, params, hooks) {
       }
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
-      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return; // [unit-info] solo tree: frozen frame
+      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return firstFrame?.(); // [unit-info] solo tree: frozen frame
       try {
         renderer.setTimeScale?.(ctx.speed); // [attackFx] drones keep pace at 2×/3× (co-op: shared speed)
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
         console.error('[battle] render failed', e);
       }
+      firstFrame?.();
       ctx.audio?.events(events); // [audio]
       handle(events);
       fpBattle?.update();
@@ -1227,6 +1278,7 @@ export function mountBattle(root, params, hooks) {
         }
       }
       destroyed = true;
+      loader.release();
       cancelAnimationFrame(raf);
       for (const id of timers) clearTimeout(id);
       timers.clear();
