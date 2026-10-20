@@ -686,6 +686,43 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     host.close();
     guest.close();
   });
+
+  it('a resync whose checkpoint keeps her stats honest but edits her effective stats is rebuilt too', () => {
+    const W = world();
+    const host = open(W, true);
+    const guest = open(W, false);
+    W.connect(host.room);
+    W.connect(guest.room);
+    W.until(() => host.paired && guest.paired);
+    guest.setReady(true);
+    W.until(() => host.canStart);
+    expect(host.startBattle(4243)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    const start = host.lockstep.start;
+    const unitId = start.players.find((p) => p.slot === 0).loadout[0].unitId;
+    const C = createCoopSim(start, { mySlot: 0 });
+    let spot = null;
+    for (let y = 0.55; y < C.sim.map.height && !spot; y += 0.35) {
+      for (let x = 0.55; x < C.sim.map.width && !spot; x += 0.35) if (!C.sim.placementReason(unitId, x, y)) spot = quantize(x, y);
+    }
+    const cmds = [{ t: 0, p: 0, s: 0, k: 'place', a: [unitId, ...spot] }, { t: 1, p: 0, s: 1, k: 'wave', a: [] }];
+    for (const c of cmds) {
+      while (C.tick < c.t) C.step();
+      expect(C.apply(c).ok).toBe(true);
+    }
+    for (let i = 0; i < 120; i++) C.step();
+    const honestEff = C.sim.towers[0].eff.damage;
+    // the hand-edited checkpoint: her stats as her loadout gives them, her effective damage × 1000
+    C.sim.towers[0].eff = { ...C.sim.towers[0].eff, damage: honestEff * 1000, rate: C.sim.towers[0].eff.rate * 99 };
+    const ls = guest.lockstep;
+    ls.applyResync({ start, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
+    while (ls.job) ls.runJob(Infinity);
+    const t = ls.coop.sim.getTower(C.sim.towers[0].uid);
+    expect(t.eff.damage).toBe(honestEff);
+    expect(t.eff.rate).toBeLessThan(C.sim.towers[0].eff.rate / 50);
+    host.close();
+    guest.close();
+  });
 });
 
 // "When you lose and go back to coop make it so the room stays and you can rejoin the room"

@@ -1526,7 +1526,8 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   every start message on both clients (the host's own and the guest's received one) before the Lockstep is
   built, and passes `clampStarts: true`: the Lockstep clamps every start a resync or rejoin rebuilds from,
   and after restoring the host's checkpoint `rederiveStats(sim)` rebuilds any girl whose stored stats are not
-  what her clamped loadout entry gives (an honest checkpoint matches and is left as it is); harnesses calling
+  what her clamped loadout entry gives, or whose effective stats (eff, drone and trap specs) are not what those
+  stats and her buffs give (an honest checkpoint matches and is left as it is); harnesses calling
   `createCoopSim` / `Lockstep` directly pass their own stats.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]

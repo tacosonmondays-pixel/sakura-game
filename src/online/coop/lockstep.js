@@ -48,7 +48,7 @@
 import { COOP } from '../../data/coop.js';
 import { createCoopSim, compareCmds, isValidCmd } from './commands.js';
 import { clampStart } from './statLimits.js';
-import { towerResolvedStats } from '../../sim/towers.js';
+import { towerResolvedStats, refreshEffective } from '../../sim/towers.js';
 
 const MAX_CATCHUP = 12; // ticks per advance() call beyond the frame's own share
 const FATAL_WINDOW_MS = 30000;
@@ -107,20 +107,29 @@ const cmdKey = (c) => `${c.p}:${c.s}`;
  * After a checkpoint from the host is restored: every girl's unitStats points at THIS side's loadout
  * entry again (the snapshot stores it as a reference into the start message), but her resolved stats
  * and effective stats travel in it as numbers. A girl whose stored stats are not what that entry
- * gives (a hand-edited host sent a start or a checkpoint past the plausibility clamp) is rebuilt from
- * it — stats, effective stats, rhythm specs, and her buffs next step — so the clamp holds through a
- * resync or a rejoin; the hash check then catches the desync. An honest checkpoint matches for every
- * girl and is left exactly as it is (no buff refresh), so the replay stays in lockstep.
+ * gives, or whose effective stats are not what those stats and her buffs give (a hand-edited host
+ * sent a start or a checkpoint past the plausibility clamp), is rebuilt from it — stats, effective
+ * stats, rhythm specs, and her buffs next step — so the clamp holds through a resync or a rejoin;
+ * the hash check then catches the desync. (Her buffs themselves are recomputed from the auras every
+ * buff refresh.) An honest checkpoint matches for every girl and is left exactly as it is (no buff
+ * refresh), so the replay stays in lockstep.
  * @returns {number} girls rebuilt
  */
 export function rederiveStats(sim) {
   let n = 0;
   for (const t of sim.towers) {
-    if (JSON.stringify(towerResolvedStats(t)) === JSON.stringify(t.stats)) continue;
+    if (JSON.stringify(towerResolvedStats(t)) === JSON.stringify(t.stats) && effMatches(t, sim.globalRateMul)) continue;
     sim._refreshTower(t);
     n++;
   }
   return n;
+}
+
+/** Her stored effective stats are what her stored stats and buffs give (checked on a shallow copy: she is not touched). */
+function effMatches(t, globalRateMul) {
+  const c = { ...t };
+  refreshEffective(c, globalRateMul);
+  return JSON.stringify(c.eff) === JSON.stringify(t.eff) && JSON.stringify(c.turretSpec) === JSON.stringify(t.turretSpec) && JSON.stringify(c.trapSpec) === JSON.stringify(t.trapSpec);
 }
 
 export class Lockstep {
