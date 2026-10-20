@@ -163,10 +163,16 @@ export function render(root) {
     }
   })();
   // under the loading screen (the boot loader, or the cut into the title) it holds until the preload
-  // and the painting are done, and the title's own bar is not needed
+  // and the painting are done, and the title's own bar is not needed. The girls, logo and buttons
+  // take their places under the loader as soon as the painting is up (no entrance of their own
+  // there), so the loader lifts off a composed title; only TAP TO START comes alive after it
   const hold = holdLoader(Promise.all([preload, artReady]), { progress: 0 });
-  if (hold.attached) el.classList.add('tt-held');
-  else artReady.then(() => el.classList.add('tt-art-in'));
+  if (hold.attached) {
+    el.classList.add('tt-held');
+    artReady.then(() => {
+      if (!disposed) el.classList.add('tt-art-in');
+    });
+  } else artReady.then(() => el.classList.add('tt-art-in'));
   (async () => {
     await preload;
     if (hold.attached) await hold.revealed;

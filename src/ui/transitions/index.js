@@ -1,21 +1,22 @@
 // Screen transitions (owner: "cleaner and animated menu transitions"). The router asks for one per
 // screen change (src/ui/router.js); the kind comes from ./kind.js:
 //   cut         a slanted black panel sweeps in from the right with a sakura + mint edge, the
-//               screens swap under it (the full loader shows there once the load passes 150 ms),
+//               screens swap under it (the full loader shows there once the black lasts 150 ms),
 //               then it sweeps out to the left while the new screen drifts in 14 px
-//   slide       shared-axis slide: the old body fades out fast (100 ms) as it starts to move,
-//               the new body moves the whole 280 ms and fades in from 90 ms, the top bar stays
+//   slide       shared axis, out then in, all in place (no copy of the old screen): the old body
+//               fades out as it starts to move (90 ms), the screens swap, the new body slides in
+//               (220 ms). The top bar stays put; only its title crossfades
 //   slide-back  mirrored
-//   crossfade   opacity only (the same screen with new params)
+//   crossfade   opacity only, out then in (the same screen with new params)
 //   boot        the boot loader of index.html holds until the first screen is really drawn
 // Input: the outgoing screen goes inert on the tap that starts the change (no double taps), the
 // new one takes taps from its first frame; the cut panel never catches taps, the loader only
 // while the load is still running. Reduced motion (system or in-game setting): slides become a
-// 120 ms crossfade, the cut a fade through black; the 150 / 450 ms loader rule still applies.
-// Without a DOM (node tests) every change is an instant swap (nullTx), as before.
+// fade through (opacity only), the cut a fade through black; the 150 / 450 ms loader rule still
+// applies. Without a DOM (node tests) every change is an instant swap (nullTx), as before.
 import '../styles/transitions.css';
 import { clear } from '../dom.js';
-import { MOTION, readySignalFor } from './kind.js';
+import { MOTION, readySignalFor, loaderInfoFor, BARLESS_SCREENS } from './kind.js';
 import {
   armLoader, armChip, releaseLoaderInput, setLoaderInfo, setLoaderProgress, loaderState, bootLoaderStart,
 } from '../loading/loader.js';
@@ -53,6 +54,22 @@ export function frames(n = 2) {
       } else requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
+  });
+}
+/**
+ * Resolves in a task of its own. An animation's `finished` resolves inside the frame that ends it;
+ * rendering the next screen right there would put the render and that frame's style, layout and
+ * paint into one long task, so the swap waits for the next task.
+ */
+export function nextTask() {
+  if (typeof MessageChannel !== 'function') return new Promise((r) => setTimeout(r, 0));
+  return new Promise((resolve) => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => {
+      ch.port1.close();
+      resolve();
+    };
+    ch.port2.postMessage(0);
   });
 }
 const anim = (el, kf, o) => {
@@ -126,11 +143,12 @@ function baseTx(kind, info) {
 }
 
 /**
- * Starts a screen change. The router then: `mod = await tx.load(loader())`, `await tx.covered`,
- * runs the old screen's cleanup, `tx.swap(root, name)`, renders, `tx.enter(root)`.
+ * Starts a screen change. The router then: `mod = await tx.load(loader())`, `await tx.covered`
+ * (a cut: the screen is black; a slide: the old body has faded out in place), runs the old
+ * screen's cleanup, `tx.swap(root, name)`, renders, `tx.enter(root)`.
  * @param {'boot'|'cut'|'slide'|'slide-back'|'crossfade'|'none'} kind
  * @param {HTMLElement} root
- * @param {{ from?: string|null, to?: string }} [info]
+ * @param {{ from?: string|null, to?: string, params?: object }} [info]
  */
 export function beginScreenChange(kind, root, info = {}) {
   if (!domOk() || !root || typeof root.animate !== 'function') return nullTx(kind);
@@ -162,14 +180,21 @@ function coverTx(kind, root, prev, info) {
   const tx = baseTx(kind, info);
   const R = reducedMotion();
   root.inert = true;
-  // phase 1: the module download, in parallel with the cover
-  const bootAt = kind === 'boot' ? bootLoaderStart() : null;
-  const t1 = armLoader(kind === 'boot' ? { startAt: bootAt ?? undefined } : { bare: true });
-  let t1End = null;
-  tx.coverOn = kind === 'cut' || (kind === 'boot' && bootAt != null) || loaderState() !== 'idle';
-  if (kind === 'cut') {
+  // where it is going ("Deploying · 1-1 · First Petals"): on the loader from its first frame
+  const dest = loaderInfoFor(info?.to, info?.params) || {};
+  // ONE loader ticket per change, from the moment the screen is black (the boot: from the first
+  // paint) until the reveal: a slow download, a long render and a held reveal all count towards the
+  // same 150 ms, so the black never sits there without the slime, and the slime never blinks
+  let ticket = null;
+  if (kind === 'boot') {
+    const bootAt = bootLoaderStart();
+    ticket = armLoader({ startAt: bootAt ?? undefined, info: dest });
+    tx.coverOn = bootAt != null || loaderState() !== 'idle';
+    tx.coverDone = Promise.resolve();
+  } else {
+    tx.coverOn = true;
     const p = cutPanel();
-    if (prev?.coverOn && !prev.revealing && prev.covered) tx.covered = prev.covered;
+    if (prev?.coverOn && !prev.revealing && prev.coverDone) tx.coverDone = prev.coverDone;
     else {
       stopPanel();
       p.classList.remove('covered');
@@ -180,20 +205,24 @@ function coverTx(kind, root, prev, info) {
       // covered for sure from here on, even when the frames are slow and the cap (twice the
       // cover's length) ends the wait first (a busy phone, a background tab): the panel snaps to
       // covered, so the old screen never leaves before the black is up, and never lingers either
-      tx.covered = (a ? finished([a], (R ? MOTION.reducedCutCover : MOTION.cutCover) * 2) : Promise.resolve()).then(() => {
-        if (tx.superseded && active?.covered !== tx.covered) return;
+      const done = (a ? finished([a], (R ? MOTION.reducedCutCover : MOTION.cutCover) * 2) : Promise.resolve()).then(() => {
+        if (tx.superseded && active?.coverDone !== done) return;
         p.classList.add('covered');
         stopPanel();
       });
+      tx.coverDone = done;
     }
-  } else tx.covered = Promise.resolve();
-
-  tx.load = (p) => Promise.resolve(p).then((mod) => {
-    // a quick download never shows the loader during the cover (the hold after the swap
-    // starts its own 150 ms); a slow one keeps it up straight through to the reveal
-    if (kind !== 'boot' && !tx.superseded && loaderState() === 'armed') t1End = t1.end();
-    return mod;
+  }
+  tx.covered = tx.coverDone.then(() => {
+    if (kind !== 'cut') return undefined;
+    if (!tx.superseded) ticket = armLoader({ bare: true, info: { kicker: '', title: '', ...dest } });
+    // one frame draws the armed loader before the swap: its CSS entrance (the 150 ms delay, run by
+    // the compositor) starts with that frame, so a long render right after cannot hold it back and
+    // the gate's clock is the slime's own clock (no shorter showing than the 450 ms it counts)
+    return frames(1).then(nextTask);
   });
+
+  tx.load = (p) => p;
 
   tx.swap = (r, name) => {
     clear(r);
@@ -209,32 +238,33 @@ function coverTx(kind, root, prev, info) {
     if (tx.superseded) return;
     run(r).catch((e) => {
       console.warn('[transitions] reveal failed', e);
+      ticket?.end();
       cleanupCover(r);
       tx.finish();
     });
   };
 
   async function run(r) {
-    let ticket = t1End ? null : t1;
     if (tx.superseded) return;
-    if (tx.holds.length) {
-      ticket = armLoader(kind === 'cut' ? { bare: true, info: tx.info } : { info: tx.info });
-      for (let n = -1; n !== tx.holds.length;) {
-        n = tx.holds.length;
-        await Promise.all(tx.holds);
-        if (tx.superseded) return;
-      }
+    for (let n = -1; n !== tx.holds.length;) {
+      n = tx.holds.length;
+      await Promise.all(tx.holds);
+      if (tx.superseded) return;
     }
     tx.collecting = false;
-    if (tx.superseded) return;
     releaseLoaderInput();
-    const res = ticket ? await ticket.end() : await t1End;
-    if (res?.shown) tx.rec.loader = true;
+    // a loader on show serves its minimum; then the new screen draws two frames still under the
+    // loader (a slow first frame, e.g. a shader compile, shows the slime, never bare black) …
+    if (ticket) await ticket.served();
     if (tx.superseded) return;
-    // the new screen has drawn a frame before anything uncovers it
     await frames(2);
     if (tx.superseded) return;
+    if (ticket) await ticket.served(); // (one that turned visible meanwhile serves its minimum too)
+    if (tx.superseded) return;
+    // … and only then the loader leaves, in the same frame as the panel starts to move
     tx.revealing = true;
+    if (ticket?.visible) tx.rec.loader = true;
+    const gone = ticket ? ticket.end() : Promise.resolve();
     if (kind === 'cut' && panel) {
       const RR = reducedMotion();
       stopPanel();
@@ -251,7 +281,7 @@ function coverTx(kind, root, prev, info) {
       await finished([a, drift], 900);
       if (tx.superseded) return;
       drift?.cancel();
-    }
+    } else await gone; // the boot: the loader's own fade is the reveal
     cleanupCover(r);
     tx.finish();
   }
@@ -283,101 +313,138 @@ function readySignal(name) {
 // ---------------------------------------------------------------------------------------------
 // slide / slide-back / crossfade
 // ---------------------------------------------------------------------------------------------
-/** The top bar of a screen built with components.screen(), and everything else (the body). */
+/**
+ * The top bar of a screen built with components.screen() (and its title text), and everything else
+ * (the body): the few layers a slide moves. Nothing is copied or moved in the DOM.
+ */
 function layersOf(container) {
   const scr = container.querySelector(':scope > .screen');
   const bar = scr?.querySelector(':scope > .topbar') || null;
+  const title = bar?.querySelector(':scope > .topbar-title') || null;
   const body = [];
   for (const c of container.children) {
     if (c === scr && bar) for (const k of scr.children) { if (k !== bar) body.push(k); }
     else body.push(c);
   }
-  return { bar, body };
+  return { bar, title, body };
 }
 
-/** The outgoing screen, moved out of #app for the length of its exit: no taps, no test ids, no canvases. */
-function makeGhost(root) {
-  const g = document.createElement('div');
-  g.className = 'tx-ghost';
-  g.setAttribute('aria-hidden', 'true');
-  g.inert = true;
-  while (root.firstChild) g.append(root.firstChild);
-  for (const el of g.querySelectorAll('[data-testid]')) el.removeAttribute('data-testid');
-  for (const el of g.querySelectorAll('[id]')) {
-    // (ids of SVG paint servers stay: the ghost's own gradients would vanish without them)
-    if (!el.closest('svg')) el.removeAttribute('id');
+/**
+ * The screens' own entrance animations (panels rising, cards popping in turn) jump to their end
+ * when a slide brings the screen in: the slide is the one motion, no second wave after it. Run at
+ * the start of the frame that first draws the screen, so they never show a first step.
+ */
+const ENTRANCES = new Set(['panel-in', 'ma-rise', 'ma-pop', 'mb-pop', 'mb-fade-in', 'ma-from-left', 'ma-from-right', 'ma-from-top', 'ma-from-bottom', 'sa-card-in', 'ol-msg-in', 'fade-in']);
+function quietEntrances(r) {
+  let list = [];
+  try {
+    list = r.getAnimations({ subtree: true });
+  } catch {
+    return;
   }
-  for (const c of g.querySelectorAll('canvas, video')) c.style.visibility = 'hidden';
-  // after #app in the page (getElementById finds the new screen first), painted under it (z-index -1)
-  root.after(g);
-  return g;
+  for (const a of list) {
+    if (typeof CSSAnimation === 'undefined' || !(a instanceof CSSAnimation) || !ENTRANCES.has(a.animationName)) continue;
+    try {
+      a.finish();
+    } catch {
+      /* an infinite one: not an entrance */
+    }
+  }
+}
+
+/** Ends animations on a change that is handed on mid-way, keeping what is on screen (the next one starts from there). */
+function settleAnims(list) {
+  for (const a of list) {
+    if (!a) continue;
+    try {
+      if (a.playState !== 'finished') a.commitStyles();
+    } catch {
+      /* the element left the page */
+    }
+    a.cancel();
+  }
+  list.length = 0;
 }
 
 function slideTx(kind, root, info) {
   const tx = baseTx(kind, info);
   root.inert = true;
-  tx.covered = Promise.resolve();
-  let ghost = null;
+  const R = reducedMotion();
+  const dir = kind === 'slide-back' ? -1 : 1;
+  const shift = kind === 'crossfade' || R ? 0 : MOTION.slideShift * dir;
   const anims = [];
+  const add = (el, kf, o) => {
+    if (el) anims.push(anim(el, kf, o));
+  };
+  let hadBar = false;
+  let loaded = () => {};
+  const loadedP = new Promise((r) => {
+    loaded = r;
+  });
 
-  tx.load = async (p) => {
+  // the code download: the corner chip after 150 ms. The screen goes on the moment its code is
+  // here; the chip (fixed, never catching taps) serves its own 450 ms over the new screen
+  tx.load = (p) => {
     const t = armChip();
-    try {
-      return await p;
-    } finally {
-      const res = await t.end();
-      if (res?.shown) tx.rec.chip = true;
-    }
+    const done = () => {
+      if (t.visible) tx.rec.chip = true;
+      t.end();
+      loaded();
+    };
+    return Promise.resolve(p).then((m) => {
+      done();
+      return m;
+    }, (e) => {
+      done();
+      throw e;
+    });
   };
 
+  // out: the old body fades out where it is (no copy, no move in the DOM: only its few layers'
+  // opacity / transform animate, on the compositor); its cleanup runs once it is invisible
+  tx.covered = loadedP.then(async () => {
+    if (tx.superseded) return;
+    const L = layersOf(root);
+    hadBar = !!L.bar;
+    // into a screen without the top bar (the lobby): the bar leaves with the body
+    const dropBar = !!L.bar && BARLESS_SCREENS.has(info?.to);
+    const T = R ? MOTION.reducedOut : kind === 'crossfade' ? MOTION.crossfadeOut : MOTION.slideOut;
+    // (to-only keyframes: each layer fades from what it shows now, e.g. after a change handed on)
+    const out = shift ? { opacity: 0, transform: `translateX(${Math.round(-shift * 0.6)}px)` } : { opacity: 0 };
+    for (const el of dropBar ? [L.bar, ...L.body] : L.body) add(el, [out], { duration: T, easing: EASE_IN, fill: 'forwards' });
+    if (L.title && !dropBar) add(L.title, [{ opacity: 0 }], { duration: Math.min(T, MOTION.titleOut), easing: EASE_IN, fill: 'forwards' });
+    await finished(anims, T * 3 + 120);
+    await nextTask();
+  });
+
   tx.swap = (r) => {
-    ghost = makeGhost(r);
+    // (the old layers and their animations go with the old DOM)
+    anims.length = 0;
+    clear(r);
     r.inert = false;
   };
 
-  tx.stop = () => {
-    for (const a of anims) a?.cancel();
-    ghost?.remove();
-    ghost = null;
-  };
+  // a newer change takes over mid-way: what is on screen stays as it is, and it goes on from there
+  tx.stop = () => settleAnims(anims);
 
+  // in: the new body slides in from the side (fading in fast), the bar stays and its title fades in
   tx.enter = (r) => {
-    if (tx.superseded) return tx.stop();
-    const R = reducedMotion();
-    const dir = kind === 'slide-back' ? -1 : 1;
-    const shift = kind === 'crossfade' ? 0 : MOTION.slideShift * dir;
-    const old = ghost ? layersOf(ghost) : { bar: null, body: [] };
-    const neu = layersOf(r);
-    const add = (el, kf, o) => {
-      if (!el) return;
-      anims.push(anim(el, kf, o));
-    };
-    if (R) {
-      const T = MOTION.reducedFade;
-      if (ghost) add(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: T, easing: 'ease-out', fill: 'forwards' });
-      for (const el of [neu.bar, ...neu.body]) add(el, [{ opacity: 0 }, { opacity: 1 }], { duration: T, easing: 'ease-out', fill: 'backwards' });
-    } else if (kind === 'crossfade') {
-      const T = MOTION.crossfade;
-      for (const el of old.body) add(el, [{ opacity: 1 }, { opacity: 0 }], { duration: T, easing: 'ease-out', fill: 'forwards' });
-      if (old.bar) add(old.bar, [{ opacity: 1 }, { opacity: 0 }], neu.bar ? { duration: 60, delay: MOTION.barFade, fill: 'forwards' } : { duration: T, fill: 'forwards' });
-      if (neu.bar) add(neu.bar, [{ opacity: 0 }, { opacity: 1 }], { duration: MOTION.barFade, easing: 'ease-out', fill: 'backwards' });
-      for (const el of neu.body) add(el, [{ opacity: 0 }, { opacity: 1 }], { duration: T, easing: 'ease-out', fill: 'backwards' });
-    } else {
-      for (const el of old.body) {
-        add(el, [{ opacity: 1 }, { opacity: 0 }], { duration: MOTION.slideFadeOut, easing: EASE_IN, fill: 'forwards' });
-        add(el, [{ transform: 'none' }, { transform: `translateX(${-shift}px)` }], { duration: MOTION.slide, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' });
-      }
-      // the top bar never dips: the new one fades in over the old, which goes once it is covered
-      if (old.bar) add(old.bar, [{ opacity: 1 }, { opacity: 0 }], neu.bar ? { duration: 80, delay: MOTION.barFade, fill: 'forwards' } : { duration: MOTION.slideFadeOut, easing: EASE_IN, fill: 'forwards' });
-      if (neu.bar) add(neu.bar, [{ opacity: 0 }, { opacity: 1 }], { duration: MOTION.barFade, easing: 'ease-out', fill: 'backwards' });
-      for (const el of neu.body) {
-        add(el, [{ transform: `translateX(${shift}px)` }, { transform: 'none' }], { duration: MOTION.slide, easing: EASE_OUT, fill: 'backwards' });
-        add(el, [{ opacity: 0 }, { opacity: 1 }], { duration: MOTION.slideFadeIn, delay: MOTION.slideFadeInDelay, easing: 'ease-out', fill: 'backwards' });
-      }
+    if (tx.superseded) return;
+    // (in the frame that draws the new screen, where its styles are worked out anyway: asking for
+    // its animations in the render's own task would force that work early and make one long task)
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => quietEntrances(r));
+    const L = layersOf(r);
+    const T = R ? MOTION.reducedFade : kind === 'crossfade' ? MOTION.crossfade : MOTION.slide;
+    const fadeIn = R || kind === 'crossfade' ? T : MOTION.slideFadeIn;
+    for (const el of L.body) {
+      if (shift) add(el, [{ transform: `translateX(${shift}px)` }, { transform: 'none' }], { duration: T, easing: EASE_OUT });
+      add(el, [{ opacity: 0, offset: 0 }], { duration: fadeIn, easing: 'ease-out' });
     }
-    finished(anims, 700).then(() => {
+    if (L.bar && !hadBar) add(L.bar, [{ opacity: 0, offset: 0 }], { duration: fadeIn, easing: 'ease-out' }); // a bar that was not there before
+    else if (L.title) add(L.title, [{ opacity: 0, offset: 0 }], { duration: R ? T : MOTION.titleIn, easing: 'ease-out' });
+    finished(anims, T + 400).then(() => {
       if (tx.superseded) return;
-      tx.stop();
+      for (const a of anims) a?.cancel();
       anims.length = 0;
       tx.finish();
     });
@@ -445,31 +512,35 @@ export function whenSettled() {
 // battle → results: a slanted band carrying VICTORY / DEFEAT sweeps across, then the sheet rises
 // ---------------------------------------------------------------------------------------------
 /**
+ * The band starts once the results' own synchronous work (the sheet's build and first layout) has
+ * had its frames, so it never stalls behind them; the sheet rises when the band's exit has ended.
  * @param {HTMLElement} host the results overlay (the band sits over its sheet, never catching taps)
  * @param {string} text  'VICTORY' | 'DEFEAT' | …
  * @param {{ tone?: 'win'|'lose' }} [o]
- * @returns {number} ms until the band is gone (0: none, reduced motion)
+ * @returns {Promise<void>|null} resolves once the band has passed (null: no band, reduced motion)
  */
 export function resultBand(host, text, { tone = 'win' } = {}) {
-  if (!domOk() || !host || reducedMotion()) return 0;
+  if (!domOk() || !host || reducedMotion()) return null;
   host.querySelector(':scope > .tx-band-clip')?.remove();
-  // (a clipping frame: the sweeping band never makes the scrollable overlay scroll)
-  const clip = document.createElement('div');
-  clip.className = 'tx-band-clip';
-  clip.setAttribute('aria-hidden', 'true');
-  const band = document.createElement('div');
-  band.className = `tx-band ${tone}`;
-  const word = document.createElement('b');
-  word.textContent = text;
-  band.append(word);
-  clip.append(band);
-  host.prepend(clip);
   const IN = MOTION.band;
   const HOLD = 380;
-  anim(band, [{ transform: `translateX(110%) ${SKEW}` }, { transform: `translateX(0) ${SKEW}` }], { duration: IN, easing: EASE_OUT, fill: 'backwards' });
-  anim(word, [{ transform: 'translateX(60px) skewX(12deg)', opacity: 0 }, { transform: 'skewX(12deg)', opacity: 1 }], { duration: IN, delay: 60, easing: EASE_OUT, fill: 'backwards' });
-  const out = anim(band, [{ transform: `translateX(0) ${SKEW}` }, { transform: `translateX(-110%) ${SKEW}` }], { duration: IN, delay: IN + HOLD, easing: EASE_IN, fill: 'forwards' });
   const total = IN * 2 + HOLD;
-  (out ? finished([out], total + 400) : sleep(total)).then(() => clip.remove());
-  return total;
+  return frames(2).then(() => {
+    if (!host.isConnected || host.hidden) return undefined;
+    // (a clipping frame: the sweeping band never makes the scrollable overlay scroll)
+    const clip = document.createElement('div');
+    clip.className = 'tx-band-clip';
+    clip.setAttribute('aria-hidden', 'true');
+    const band = document.createElement('div');
+    band.className = `tx-band ${tone}`;
+    const word = document.createElement('b');
+    word.textContent = text;
+    band.append(word);
+    clip.append(band);
+    host.prepend(clip);
+    anim(band, [{ transform: `translateX(110%) ${SKEW}` }, { transform: `translateX(0) ${SKEW}` }], { duration: IN, easing: EASE_OUT, fill: 'backwards' });
+    anim(word, [{ transform: 'translateX(60px) skewX(12deg)', opacity: 0 }, { transform: 'skewX(12deg)', opacity: 1 }], { duration: IN, delay: 60, easing: EASE_OUT, fill: 'backwards' });
+    const out = anim(band, [{ transform: `translateX(0) ${SKEW}` }, { transform: `translateX(-110%) ${SKEW}` }], { duration: IN, delay: IN + HOLD, easing: EASE_IN, fill: 'forwards' });
+    return (out ? finished([out], total + 600) : sleep(total)).then(() => clip.remove());
+  });
 }

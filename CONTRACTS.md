@@ -1409,16 +1409,20 @@ in-game result, relevant tests, and evidence against the original request."
   change goes through `src/ui/transitions` (the router calls `beginScreenChange(transitionFor(…))`),
   and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
   a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
-  cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu (280 ms, the top bar stays) and
-  **slide-back** for the arrow, the back gesture, Home and parents, a **crossfade** for the same screen
-  with new params (160 ms), and the **boot** hold on the first screen. Loaders: the full black loader
+  cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
+  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
+  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
+  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
+  staggered cards) jump to their end when a slide brings it in. Loaders: the full black loader
   (`#ld`, in index.html from the first byte: "Loading" + the slime bottom-right, destination + tip
   bottom-left, a 2 px progress line), the corner chip (a menu screen's code still downloading) and
   the inline slime inside fetching panels. One rule for all of them (`src/ui/loading/gate.js`): shown
   only when a load passes 150 ms, then at least 450 ms. Everything animates transform / opacity
-  only; reduced motion (system or setting) turns slides into a 120 ms crossfade and the cut into a
-  fade through black, and stills the slime. The outgoing screen is inert from the tap that starts
-  the change; the new one takes taps from its first frame; the cut panel never catches taps and the
+  only; reduced motion (system or setting) turns slides into a fade through (opacity only, 60 ms
+  out, 120 ms in) and the cut into a fade through black, and stills the slime. The outgoing screen is inert from the tap that starts
+  the change, and its `cleanup.stop()` (timers, listeners) runs then; its cleanup itself runs once it
+  is off screen; the new one takes taps from its first frame; the cut panel never catches taps and the
   loader only while its load is still running. A screen holds the cut / boot loader with
   `holdLoader(promise, { kicker, title, progress })` (the battle until its first frame, the title
   until its preload) or by firing its ready event (`READY_SIGNALS`: lobby, scene). The slime is our

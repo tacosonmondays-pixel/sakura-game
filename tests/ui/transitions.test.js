@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { transitionFor, CUT_SCREENS, READY_SIGNALS, readySignalFor, MOTION } from '../../src/ui/transitions/kind.js';
+import { transitionFor, CUT_SCREENS, READY_SIGNALS, readySignalFor, MOTION, loaderInfoFor, battleLoaderTitle, BARLESS_SCREENS } from '../../src/ui/transitions/kind.js';
+import { STAGE_MAP } from '../../src/data/stages.js';
 import { createGate, clampProgress, SHOW_AFTER_MS, MIN_SHOWN_MS } from '../../src/ui/loading/gate.js';
 import { SLIME_DEFS, SLIME_INNER, slimeMarkup, SLIME_SIZES } from '../../src/ui/loading/slime.js';
 import { loaderMarkup } from '../../src/ui/loading/loader.js';
@@ -71,6 +72,33 @@ describe('transitionFor: which transition a screen change gets', () => {
       expect(MOTION[k], k).toBeLessThanOrEqual(320);
     }
     for (const [k, v] of Object.entries(MOTION)) expect(v, k).toBeLessThanOrEqual(320);
+    // out then in, in place: the whole change stays within 180–320 ms
+    for (const [out, inn] of [['slideOut', 'slide'], ['crossfadeOut', 'crossfade'], ['reducedOut', 'reducedFade']]) {
+      expect(MOTION[out] + MOTION[inn], `${out} + ${inn}`).toBeGreaterThanOrEqual(180);
+      expect(MOTION[out] + MOTION[inn], `${out} + ${inn}`).toBeLessThanOrEqual(320);
+    }
+    // the title text crossfades without both being up at once for long: old out first, new in after
+    expect(MOTION.titleOut).toBeLessThanOrEqual(MOTION.slideOut);
+    expect(MOTION.titleIn).toBeLessThanOrEqual(160);
+  });
+
+  it('the loading screen names a battle from its route, before the battle mounts', () => {
+    const s = STAGE_MAP['1-1'];
+    expect(battleLoaderTitle(s)).toBe(`1-1 · ${s.name}`);
+    expect(loaderInfoFor('battle', { stage: '1-1', difficulty: 'easy' })).toEqual({ kicker: 'Deploying', title: `1-1 · ${s.name}`, progress: 0 });
+    expect(loaderInfoFor('battle', { stage: '1-1', resume: 'r123' }).kicker).toBe('Resuming');
+    expect(loaderInfoFor('battle', { coop: 'ABCD' })).toEqual({ kicker: 'Co-op', title: '', progress: 0 });
+    expect(loaderInfoFor('battle', { stage: 'nope' }).title).toBe('');
+    expect(loaderInfoFor('stage', { id: '1-1' })).toBeNull();
+    expect(loaderInfoFor('lobby')).toBeNull();
+    // the battle itself uses the same words
+    expect(read('src/ui/battle/controller.js')).toMatch(/battleLoaderTitle\(stage\)/);
+  });
+
+  it('screens without the top bar (a slide into them takes the old bar along)', () => {
+    expect(BARLESS_SCREENS.has('lobby')).toBe(true);
+    for (const n of CUT_SCREENS) expect(BARLESS_SCREENS.has(n)).toBe(true);
+    expect(BARLESS_SCREENS.has('students')).toBe(false);
   });
 });
 
@@ -232,6 +260,59 @@ describe('the loader gate: visible only after 150 ms, then at least 450 ms', () 
     g.reset();
     expect(g.state).toBe('idle');
     expect(g.visibleAt).toBeNull();
+  });
+
+  it('served(): at once while not visible, else once its minimum is served (then end() hides at once)', async () => {
+    let c = clock();
+    let gw = gateWith(c);
+    let t = gw.g.begin();
+    await c.to(100);
+    expect(t.visible).toBe(false);
+    let served = false;
+    t.served().then(() => {
+      served = true;
+    });
+    await c.to(101);
+    expect(served).toBe(true); // ending now just cancels it: no wait
+    expect(await t.end()).toEqual({ shown: false });
+
+    c = clock();
+    gw = gateWith(c);
+    t = gw.g.begin();
+    await c.to(200);
+    expect(t.visible).toBe(true);
+    served = false;
+    t.served().then(() => {
+      served = true;
+    });
+    await c.to(599);
+    expect(served).toBe(false);
+    await c.to(600);
+    expect(served).toBe(true);
+    expect(gw.kinds()).not.toContain('hide'); // served() never hides by itself
+    const p = t.end();
+    expect(gw.ev.find((e) => e[0] === 'hide')[1]).toBe(600); // hidden in the same moment
+    expect(await p).toEqual({ shown: true });
+    expect(t.visible).toBe(false);
+    expect(await t.served()).toBeUndefined(); // ended: nothing to wait for
+
+    // handed on: the old ticket's wait ends at once, the new one carries the clock
+    c = clock();
+    gw = gateWith(c);
+    const a = gw.g.begin();
+    await c.to(300);
+    const b = gw.g.begin();
+    expect(a.visible).toBe(false);
+    expect(b.visible).toBe(true);
+    await a.served();
+    served = false;
+    b.served().then(() => {
+      served = true;
+    });
+    await c.to(599);
+    expect(served).toBe(false);
+    await c.to(600);
+    expect(served).toBe(true);
   });
 
   it('progress clamps to 0..1; unknown progress hides the line (null), never a fake bar', () => {
@@ -423,6 +504,27 @@ describe('router → transitions: the hook', () => {
     expect(log.filter((l) => l.startsWith('render'))).toHaveLength(1);
   });
 
+  it('a leaving screen stops at once (cleanup.stop) and is cleaned up only when the next one takes its place', async () => {
+    await boot('#/lobby', { slow: { students: true } });
+    // the lobby's render returned a cleanup with a stop(): swap in one that records both
+    log.length = 0;
+    router.registerRoute('missions', () => Promise.resolve({
+      render: () => Object.assign(() => log.push('cleanup missions'), { stop: () => log.push('stop missions') }),
+    }));
+    await go('missions');
+    log.length = 0;
+    router.navigate('students');
+    await settle();
+    expect(log).toEqual(['stop missions']); // timers / listeners off on the tap; its DOM still up
+    gates.students();
+    await settle();
+    expect(log).toEqual(['stop missions', 'cleanup missions', 'swap students', 'render #/students', 'enter students']);
+    // a stop runs once, even when the change is handed on
+    router.navigate('settings');
+    await settle();
+    expect(log.filter((l) => l.startsWith('stop'))).toHaveLength(1);
+  });
+
   it('the browser back gesture slides back too', async () => {
     await boot('#/lobby');
     await go('missions');
@@ -505,6 +607,23 @@ describe('the transition and loader styles', () => {
       expect(TX_CSS.split('@media (prefers-reduced-motion: reduce)')[1], sel).toContain(sel);
       expect(TX_CSS, sel).toContain(`html[data-reduce-motion] ${sel}`);
     }
+  });
+
+  it('a slide never copies or restyles the whole old screen (no ghost, no universal rule over a screen)', () => {
+    const css = stripComments(TX_CSS);
+    expect(css).not.toMatch(/tx-ghost/);
+    // a universal selector only inside the loaders' own small elements or the results sheet, never over a screen
+    for (const m of css.matchAll(/([^{}]*\*[^{}]*)\{/g)) {
+      for (const sel of m[1].split(',')) if (sel.includes('*')) expect(sel.trim(), sel).toMatch(/^(html\[data-reduce-motion\] )?(\.ld-[\w-]+(:not\(\.on\))?( >)? |\.bt-result-overlay\.bt-banded > \.bt-(sheet|win-girl) )/);
+    }
+    const driver = read('src/ui/transitions/index.js');
+    expect(driver).not.toMatch(/makeGhost|removeAttribute\('data-testid'\)|removeAttribute\('id'\)/);
+    // the exit animates the old layers where they are; the new screen's entrances are finished in its first frame
+    expect(driver).toMatch(/requestAnimationFrame\(\(\) => quietEntrances\(r\)\)/);
+    // a closing modal is inert and keeps its test ids (no per-element loop)
+    const comp = read('src/ui/components.js');
+    expect(comp).not.toMatch(/removeAttribute\('data-testid'\)/);
+    expect(comp).toMatch(/overlay\.inert = true/);
   });
 
   it('the old screen-enter animation and the painted boot splash are gone', () => {

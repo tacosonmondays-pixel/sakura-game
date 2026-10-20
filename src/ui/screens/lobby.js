@@ -277,7 +277,9 @@ export function render(root) {
   };
   const betaTimer = setTimeout(betaGift, reduceMotion ? 50 : 700);
 
-  return () => {
+  // leaving: the timers and listeners stop at once (no gift pop-up, redraw or carousel turn while
+  // the lobby fades out); her art stays up until the lobby is off screen (router: cleanup.stop)
+  const stop = () => {
     clearTimeout(betaTimer);
     off();
     clearTimeout(staticTimer);
@@ -287,8 +289,11 @@ export function render(root) {
     el.removeEventListener('pointerleave', onLeave);
     window.removeEventListener('deviceorientation', onTilt);
     carousel.dispose();
-    stage.dispose();
   };
+  return Object.assign(() => {
+    stop();
+    stage.dispose();
+  }, { stop });
 }
 
 // ---------------------------------------------------------------------------------------------

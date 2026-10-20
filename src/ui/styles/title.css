@@ -80,8 +80,11 @@
 .tt-petal.p12 { left: 36%; animation-delay: -11s; transform: scale(0.7); } .tt-petal.p13 { left: 68%; animation-delay: -3.5s; transform: scale(0.8); }
 @keyframes tt-fall { 0% { transform: translate(0, 0) rotate(0); } 50% { transform: translate(-40px, 55vh) rotate(200deg); } 100% { transform: translate(20px, 112vh) rotate(420deg); } }
 
-/* under the loading screen its progress line stands in for the title's own bar */
+/* under the loading screen its progress line stands in for the title's own bar, and the painting,
+   girls and logo are simply in place when the loader lifts (no second entrance after it) */
 .tt-held .tt-load { visibility: hidden; }
+.tt-held .tt-art-img { transition: none; }
+.tt-held.tt-art-in .tt-girl, .tt-held.tt-art-in .tt-logo { animation: none; }
 
 .tt-code { display: flex; flex-direction: column; gap: 8px; min-width: min(360px, 70vw); }
 .tt-code-input { width: 100%; font-size: 1.05rem; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); text-transform: uppercase; }

@@ -113,10 +113,12 @@ export function armLoader({ bare = false, immediate = false, startAt, info = nul
     style = { bare, boot: el.classList.contains('boot') && startAt != null };
     if (!style.boot) {
       el.style.setProperty('--ld-delay', immediate ? '0ms' : `${SHOW_AFTER_MS}ms`);
-      // restart the entrance + loops from rest
+      // restart the entrance + loops from rest (a reflow only when it is still on: a hidden loader's
+      // animations start fresh on their own, and a forced layout of the page would cost a frame)
+      const was = el.classList.contains('on');
       el.classList.remove('on', 'boot', 'stay');
       el.classList.toggle('bare', bare);
-      void el.offsetWidth;
+      if (was) void el.offsetWidth;
       el.classList.add('on');
       setTip(el, pickTip(`${t}`));
       setInfo(el, { kicker: '', title: '', progress: null, ...(info || {}) });
@@ -213,8 +215,11 @@ function chipEl() {
 const chipGate = createGate({
   onArm: () => {
     const el = chipEl();
-    el.classList.remove('on', 'out');
-    void el.offsetWidth;
+    // (a reflow to restart it only when it is still on: never a forced layout on a plain tap)
+    if (el.classList.contains('on')) {
+      el.classList.remove('on', 'out');
+      void el.offsetWidth;
+    }
     el.classList.add('on');
   },
   onCancel: () => chip?.classList.remove('on', 'out'),

@@ -15,10 +15,7 @@
 .tx-cut::before { left: -26px; background: linear-gradient(90deg, #7be3a4 0 4px, transparent 4px 9px, #ff7aa8 9px 26px); }
 .tx-cut::after { right: -26px; background: linear-gradient(90deg, #ff7aa8 0 17px, transparent 17px 22px, #7be3a4 22px 26px); }
 
-/* ---------- slide: the outgoing screen for the length of its exit ---------- */
-.tx-ghost { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-/* moving nodes restarts their CSS animations: the ghost shows them as they were, no replays */
-.tx-ghost *, .tx-ghost *::before, .tx-ghost *::after { animation: none !important; transition: none !important; }
+/* (slides need no styles of their own: they animate a screen's few layers in place, from JS) */
 
 /* ---------- corner chip: a menu screen's code still on its way (the old screen stays) ---------- */
 .ld-chip {
@@ -61,16 +58,20 @@
 .tx-band.lose::before, .tx-band.lose::after { background: linear-gradient(90deg, #ff4d6d 0 50%, transparent 50% 52%, #8d97ab 52% 100%); }
 .tx-band > b { display: block; transform: skewX(12deg); font: italic 900 clamp(2.1rem, 7vw, 4rem)/1 var(--font-head, 'Nunito', sans-serif); letter-spacing: 0.16em; text-shadow: 0 0 22px rgba(123, 227, 164, 0.35); }
 .tx-band.lose > b { text-shadow: 0 0 22px rgba(255, 77, 109, 0.35); }
-/* the sheet (and the MVP stand) rise once the band has passed */
-.bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 620ms !important; animation-fill-mode: both !important; }
+/* the sheet (and the MVP stand) wait at their first frame, hidden and out of the way of taps, until
+   the band has passed: results.js takes .bt-banded off when the band's exit has ended, and they rise */
+.bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { opacity: 0; pointer-events: none; }
+.bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-sheet *, .bt-result-overlay.bt-banded > .bt-win-girl, .bt-result-overlay.bt-banded > .bt-win-girl * { animation-play-state: paused !important; }
 
 /* ---------- reduced motion (system or the in-game setting) ---------- */
 @media (prefers-reduced-motion: reduce) {
   .ld-chip.on { animation: ld-fade-in 1ms linear 150ms both; }
   .ld-inline { animation: ld-fade-in 1ms linear 150ms both; }
-  .bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 0ms !important; }
+  .bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-win-girl { opacity: 1; pointer-events: auto; }
+  .bt-result-overlay.bt-banded > .bt-sheet, .bt-result-overlay.bt-banded > .bt-sheet *, .bt-result-overlay.bt-banded > .bt-win-girl, .bt-result-overlay.bt-banded > .bt-win-girl * { animation-play-state: running !important; }
 }
 html[data-reduce-motion] .ld-chip.on { animation: ld-fade-in 1ms linear 150ms both; }
 html[data-reduce-motion] .ld-inline { animation: ld-fade-in 1ms linear 150ms both; }
-html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-sheet, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-win-girl { animation-delay: 0ms !important; }
+html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-sheet, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-win-girl { opacity: 1; pointer-events: auto; }
+html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-sheet, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-sheet *, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-win-girl, html[data-reduce-motion] .bt-result-overlay.bt-banded > .bt-win-girl * { animation-play-state: running !important; }
 @keyframes ld-fade-in { from { opacity: 0; } to { opacity: 1; } }

@@ -444,10 +444,17 @@ export function createResults(ctx) {
     el.classList.toggle('has-girl', !!extra?.classList?.contains('bt-win-girl'));
     el.hidden = false;
     el.classList.remove('bt-in', 'bt-banded');
-    // the end of a battle: a slanted band with VICTORY / DEFEAT sweeps across first, then the sheet
-    // rises (its buttons take taps all along: the band never catches them)
+    // the end of a battle: a slanted band with VICTORY / DEFEAT sweeps across first (it starts once
+    // this sheet's build has had its frames), then the sheet rises as the band's exit ends; the band
+    // never catches taps, the sheet takes them from its first visible frame
     const word = !first ? null : card.classList.contains('bt-win') ? 'VICTORY' : card.classList.contains('bt-lose') ? (ctx.endedRun ? 'RUN OVER' : 'DEFEAT') : null;
-    if (word && resultBand(el, word, { tone: card.classList.contains('bt-win') ? 'win' : 'lose' })) el.classList.add('bt-banded');
+    const band = word ? resultBand(el, word, { tone: card.classList.contains('bt-win') ? 'win' : 'lose' }) : null;
+    if (band) {
+      el.classList.add('bt-banded');
+      band.then(() => {
+        if (card.parentNode === el) el.classList.remove('bt-banded');
+      });
+    }
     void el.offsetWidth;
     el.classList.add('bt-in');
   }

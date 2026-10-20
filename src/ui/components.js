@@ -281,10 +281,12 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
   const close = () => {
     if (closed) return;
     closed = true;
-    // it fades out for 160 ms, but taps go through at once (.closing: pointer-events none) and its
-    // test ids go now, so nothing finds a second copy of a button that is on its way out
+    // it fades out for 160 ms, but taps go through at once (.closing: pointer-events none), and it
+    // is inert and hidden from assistive tech from its first frame of closing (tests skip a
+    // .modal-overlay.closing: its buttons are on their way out)
     overlay.classList.add('closing');
-    for (const el of overlay.querySelectorAll('[data-testid]')) el.removeAttribute('data-testid');
+    overlay.inert = true;
+    overlay.setAttribute('aria-hidden', 'true');
     setTimeout(() => overlay.remove(), 160);
     modalStack = modalStack.filter((m) => m !== overlay);
     modalClosers.delete(overlay);

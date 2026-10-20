@@ -99,6 +99,22 @@ export function createGate(o = {}) {
       get superseded() {
         return superseded;
       },
+      /** Its loader is on screen now (past the 150 ms, not ended or handed on yet). */
+      get visible() {
+        return !superseded && period === p && now() - p.startAt >= showAfter;
+      },
+      /**
+       * Resolves once end() would not have to wait: at once while the loader is not visible yet
+       * (ending then cancels it, nothing flashes), else when it has served its minimum. The caller
+       * can then reveal and end() in the same frame, so the loader leaves together with its cover.
+       */
+      served() {
+        if (superseded || ended || period !== p) return Promise.resolve();
+        const t = now();
+        if (t - p.startAt < showAfter) return Promise.resolve();
+        const left = p.startAt + showAfter + minShown - t;
+        return left > 0 ? new Promise((resolve) => setTimer(resolve, left)) : Promise.resolve();
+      },
       _supersede() {
         if (superseded) return;
         superseded = true;

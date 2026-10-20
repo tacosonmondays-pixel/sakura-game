@@ -56,6 +56,7 @@ import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
+import { battleLoaderTitle } from '../transitions/kind.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -169,7 +170,8 @@ export function mountBattle(root, params, hooks) {
   const shown = new Promise((r) => {
     markShown = r;
   });
-  const stageLabel = `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name}`;
+  // (the cut into the battle already shows the same line from the route: transitions/kind.js loaderInfoFor)
+  const stageLabel = battleLoaderTitle(stage);
   const loader = holdLoader(shown, {
     kicker: restored ? 'Resuming' : ls ? 'Co-op' : 'Deploying',
     title: restored ? `${stageLabel} · wave ${restored.sim.wave + 1}` : stageLabel,

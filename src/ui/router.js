@@ -1,5 +1,8 @@
 // Hash router. Screens are modules exporting `render(root, params) => cleanup?`.
 // Routes look like #/student/aoi or #/stage/3-2?difficulty=hard
+// A cleanup may carry `cleanup.stop()`: it runs the moment the screen starts to leave (its timers,
+// store listeners: nothing fires while it is on its way out); the cleanup itself runs once the
+// screen is off screen (faded out, or under the cut's cover).
 //
 // History. The router mirrors the browser's session history: every entry it opens carries its
 // position in history.state (`navIdx`), so it knows which screens sit below the current one.
@@ -19,9 +22,10 @@
 //
 // Transitions (src/ui/transitions/): every screen change goes through beginScreenChange() with the
 // kind transitionFor() picks (cut / slide / slide-back / crossfade / boot). The old screen goes
-// inert on the tap that starts the change and is cleaned up only when the new one is ready to
-// take its place (under the cut's cover, or as the slide's outgoing ghost); a newer change
-// supersedes one in flight, so nothing is mounted twice and no screen is left half-faded.
+// inert on the tap that starts the change (and its stop() runs), and is cleaned up only when the
+// new one is ready to take its place (under the cut's cover, or once a slide has faded it out in
+// place); a newer change supersedes one in flight, so nothing is mounted twice and no screen is
+// left half-faded.
 // Without a DOM (the node tests) a change is an instant swap, exactly as before.
 import { clear } from './dom.js';
 import { recoverFromStaleBuild } from '../core/updates.js';
@@ -291,6 +295,18 @@ function onPopState() {
   show(name, params, dir);
 }
 
+/** The screen on show starts to leave: its stop() (timers, listeners), once. */
+function pause() {
+  const fn = liveCleanup;
+  if (!fn || typeof fn.stop !== 'function' || fn.stopped) return;
+  fn.stopped = true;
+  try {
+    fn.stop();
+  } catch (e) {
+    console.error('[router] stop failed', e);
+  }
+}
+
 /** Runs the cleanup of the screen on show, once. */
 function retire() {
   const fn = liveCleanup;
@@ -306,8 +322,9 @@ async function show(name, params, dir = 0) {
   const loader = routes.get(name) || routes.get('lobby');
   const target = { name, params };
   current = target;
+  pause();
   const kind = transitionFor(drawn, target, { dir, first: !drawn });
-  const tx = beginScreenChange(kind, root, { from: drawn?.name || null, to: name });
+  const tx = beginScreenChange(kind, root, { from: drawn?.name || null, to: name, params });
   let mod;
   try {
     mod = await tx.load(loader());
@@ -328,7 +345,7 @@ async function show(name, params, dir = 0) {
     return;
   }
   if (current !== target) return; // superseded
-  await tx.covered; // a cut: the old screen leaves under the cover
+  await tx.covered; // a cut: the old screen leaves under the cover; a slide: it has faded out in place
   if (current !== target) return;
   retire();
   tx.swap(root, name);

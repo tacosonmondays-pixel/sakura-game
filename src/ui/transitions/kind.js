@@ -3,16 +3,22 @@
 //   cut        big moves (into or out of a battle or a story scene, out of the title): a slanted
 //              black wipe covers, the screen swaps under it (the full loader shows there when the
 //              load passes 150 ms), then it wipes away
-//   slide      menu → submenu: shared-axis slide, the top bar stays put
+//   slide      menu → submenu: shared-axis, out then in: the old body fades out in place (90 ms),
+//              then the new one slides in (220 ms); the top bar stays, only its title crossfades
 //   slide-back the same, mirrored: the back arrow, the back gesture, Home, a parent screen
 //   crossfade  the same screen with new params (the next girl, a co-op room of the hub, a tab)
-// Reduced motion turns the slides into crossfades and the cut into a fade through black.
+// Reduced motion turns the slides into a fade through (opacity only) and the cut into a fade
+// through black.
 import { menuAncestors, sameScreen } from '../nav.js';
+import { STAGE_MAP } from '../../data/stages.js';
 
 export const TRANSITION_KINDS = Object.freeze(['boot', 'cut', 'slide', 'slide-back', 'crossfade', 'none']);
 
 /** Screens that always come and go behind the cut (heavy, full-screen, or the title). */
 export const CUT_SCREENS = new Set(['battle', 'scene', 'title']);
+
+/** Screens drawn without the common top bar: a slide into one fades the old bar out with the body. */
+export const BARLESS_SCREENS = new Set(['lobby', ...CUT_SCREENS]);
 
 /**
  * @param {{name: string, params?: object}|null} from  the screen on show now (null: nothing yet)
@@ -46,18 +52,41 @@ export function readySignalFor(name) {
   return READY_SIGNALS[name] || null;
 }
 
-/** Motion timings (ms). Every animated duration is within 120–320 ms (CONTRACTS §12). */
+/** A battle's name on the loading screen: "1-1 · First Petals" (campaign), else the stage's name. */
+export function battleLoaderTitle(stage) {
+  if (!stage) return '';
+  return `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name}`;
+}
+
+/**
+ * What the loading screen says about where a cut is going, from the route alone, so the line is
+ * there from the loader's first frame (the battle then confirms it while it mounts).
+ * @returns {{ kicker: string, title: string, progress: number }|null}
+ */
+export function loaderInfoFor(name, params = {}) {
+  if (name !== 'battle') return null;
+  const p = params || {};
+  const kicker = p.resume ? 'Resuming' : p.coop ? 'Co-op' : 'Deploying';
+  return { kicker, title: battleLoaderTitle(STAGE_MAP[p.stage || p.id]), progress: 0 };
+}
+
+/**
+ * Motion timings (ms). Every screen-level animation is within 120–320 ms in all (CONTRACTS §12):
+ * a slide is its 90 ms exit plus its 220 ms entrance (310 ms), a crossfade 70 + 150 ms.
+ */
 export const MOTION = Object.freeze({
-  slide: 280,
-  slideFadeOut: 100,
-  slideFadeInDelay: 90,
-  slideFadeIn: 190,
-  barFade: 140,
+  slide: 220,
+  slideOut: 90,
+  slideFadeIn: 170,
   slideShift: 24,
+  titleOut: 80,
+  titleIn: 110,
+  crossfadeOut: 70,
   cutCover: 200,
   cutReveal: 260,
   cutDrift: 14,
-  crossfade: 160,
+  crossfade: 150,
+  reducedOut: 60,
   reducedFade: 120,
   reducedCutCover: 140,
   reducedCutReveal: 160,
