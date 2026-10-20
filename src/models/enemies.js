@@ -17,7 +17,9 @@ export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visi
  * @param {{quality?: 'high'|'medium'|'low'}} [opts]
  * @returns {THREE.Group} feet at y=0, faces +z, height 0.6 × size. userData: animate(time, dt, {moving, speed}),
  *   hitFlash(), setVeiled(b), setBarrier(frac), setPhasing(b), setStatus(map), playDeath() -> seconds,
- *   playSpecial() -> seconds, setCasting(b), height, enemyId, family, glb (true for the V2 model)
+ *   playSpecial() -> seconds, setCasting(b), attach(obj, 'head'|'back') -> bool (render-side
+ *   extras riding a head / chest slot; kept when the placeholder upgrades), height, enemyId,
+ *   family, glb (true for the V2 model)
  */
 export function buildEnemy(def = {}, opts = {}) {
   const family = def.model?.base || def.family || 'slime';
@@ -44,8 +46,15 @@ function upgradeInPlace(group, asset, def, opts) {
   let shadows = false;
   group.traverse((o) => { if (o.isMesh && o.castShadow) shadows = true; });
   const oldDispose = group.userData.dispose;
+  // render-side attachments (event costumes, boss extras) move over to the new body
+  const attachments = group.userData.attachments || [];
+  group.userData.attachments = [];
   for (const c of [...group.children]) group.remove(c);
   instantiateEnemy(asset, def, opts, group);
+  for (const a of attachments) {
+    a.obj.removeFromParent();
+    group.userData.attach?.(a.obj, a.slot);
+  }
   if (!shadows) group.traverse((o) => { if (o.isMesh) o.castShadow = false; });
   try { oldDispose?.(); } catch { /* ignore */ }
   group.userData.disposed = false;

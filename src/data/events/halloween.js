@@ -112,7 +112,7 @@ export default {
     eventEnemy({
       id: HALLOWEEN_BOSS, name: 'Gourdlight Golem', family: 'construct', tier: 'boss',
       hp: 4200, speed: 0.4, armorClass: 'heavy', armor: 3, bounty: 1500, threat: 300, size: 3,
-      color: '#f28c28', accent: '#9d4edd', variant: 'colossus', props: ['gears', 'chimney'],
+      color: '#f28c28', accent: '#9d4edd', variant: 'colossus', props: ['gears'],
       traits: {},
       phases: [
         {
