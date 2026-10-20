@@ -13,10 +13,12 @@ import { SCENERY } from '../../src/render/terrain.js';
 import { hasItemIcon } from '../../src/art/icons.js';
 import { itemSources } from '../../src/systems/inventory.js';
 import { HALLOWEEN_SCENES } from '../../src/data/events/scenes/halloween.js';
-import { LIMITS, FACE_IDS } from '../../src/data/story/format.js';
+import { LIMITS, FACE_IDS, TOKEN_RE } from '../../src/data/story/format.js';
+import { resolveText, tokenProblems } from '../../src/data/story/tokens.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
 const MAP_IDS = new Set(MAPS.map((m) => m.id));
+const EVENT_MAP_INTRO = () => ALL_EVENTS.find((e) => e.id === 'halloween-2026').intro.body;
 const manifest = JSON.parse(readFileSync(new URL('../../public/models/enemies/manifest.json', import.meta.url), 'utf8'));
 
 describe('event data (EV-1…EV-7)', () => {
@@ -122,4 +124,20 @@ describe('Halloween episodes (story limits)', () => {
       }
     }
   });
+
+  it('HW-5 copy shown outside the scene player: story tokens resolve, and the event page resolves the intro', () => {
+    for (const ev of ALL_EVENTS) {
+      const intro = ev.intro?.body || '';
+      expect(tokenProblems(intro), ev.id).toEqual([]);
+      expect(resolveText(intro)).not.toMatch(/[{}]/);
+      // plain-text copy the UI shows as is: no story tokens at all ({n} / {coins} are mail fill-ins)
+      const plain = [ev.name, ev.subtitle, ...(ev.notice?.body || []), ...Object.values(ev.mail || {}).flatMap((m) => (typeof m === 'object' ? [m.title, m.body, m.lateBody] : [])),
+        ...[...(ev.missions?.daily || []), ...(ev.missions?.total || [])].flatMap((m) => [m.name, m.desc])].filter(Boolean);
+      for (const t of plain) expect(t.match(TOKEN_RE), t).toBe(null);
+    }
+    expect(resolveText(EVENT_MAP_INTRO())).toContain(UNIT_MAP.hikari.name);
+    const screen = readFileSync(new URL('../../src/ui/screens/event.js', import.meta.url), 'utf8');
+    expect(screen).toMatch(/resolveText\(ev\.intro\?\.body/);
+  });
 });
+

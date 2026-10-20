@@ -32,6 +32,7 @@ import { eventNow, devClock } from '../events/clock.js';
 import { loadEventScenes } from '../events/scenes.js';
 import { cosmeticArt } from '../events/cosmetics.js';
 import { lanternString } from '../events/art.js';
+import { resolveText } from '../../data/story/tokens.js';
 
 const TABS = [
   { id: 'story', label: 'Story' },
@@ -108,7 +109,8 @@ export function render(root, params = {}) {
     const now = eventNow();
     const phase = eventPhase(ev, now, store.profile);
     if (phase === 'upcoming') {
-      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens in ${formatCountdown(eventWindow(ev).startAt - now)}.`), h('p.muted', ev.intro?.body || '')));
+      // the intro is story copy ({name:hikari} tokens): resolved here, outside the scene player
+      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens in ${formatCountdown(eventWindow(ev).startAt - now)}.`), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
       return;
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
