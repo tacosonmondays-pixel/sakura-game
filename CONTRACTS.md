@@ -585,9 +585,6 @@ export function migrateProfile(raw)        // fills missing fields, upgrades old
 export function migrationDropsData(raw)    // true when migrateProfile would leave unknown units/items/gear (or a stub save) out
 export function loadSaveText(text)         // -> { profile, backup: null|'corrupt'|'newer'|'lossy', version, droppedBattles? }; newer/corrupt load fresh
 export function backupNotice(reason, kept) // player-facing sentence for store.takeNotice()
-export function recoverableBackup(list, profile) // v3: newest BACKUP_KEY entry a stale older tab left ('newer', this version,
-                                           // readable, more battles than `profile`, not yet offered) -> { index, entry, profile } | null
-export function restoreNotice(found)       // the one-time "Restore your progress from before the update?" text
 export function serializeProfile(p)        // compact string (base64 JSON) for export
 export function deserializeProfile(text)   // throws Error('Invalid save') on garbage, Error('Newer save') for a newer build's save
 Profile = {
@@ -741,13 +738,13 @@ her level, her formation / secretary place. A girl in the save is never changed 
 `craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
 coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
 
+### `src/systems/skins.js` (roster merge)
+
 Outfits (roster merge): `units[id].skin` + `skins` are **additive v2 fields** (no version bump; an older build
 drops them, which only loses a cosmetic choice). A save from before them loads with every skin `null` and `skins: []`
 (nothing lost, no backup). `cleanUnit` keeps `skin` only when it names one of *that* girl's non-default outfits
 (her default is stored as `null`); `migrateProfile` keeps only known shop/event ids in `skins` and un-equips
 outfits the player does not own. Unknown skin ids make `migrationDropsData` true (backup 'lossy').
-
-### `src/systems/skins.js` (roster merge)
 
 Pure functions over the profile; the UI calls `setSkin`, then `store.commit('skin')`.
 
