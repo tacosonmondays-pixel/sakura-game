@@ -256,6 +256,23 @@
   "lodSize": 196364,
   "lodVertices": 2784
  },
+ "kanna": {
+  "file": "kanna.glb",
+  "size": 460552,
+  "animations": [
+   "attack_smash",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9494,
+  "lod": "kanna.lod.glb",
+  "lodSize": 232888,
+  "lodVertices": 3146
+ },
  "luna": {
   "file": "luna.glb",
   "size": 454356,
