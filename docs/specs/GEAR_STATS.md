@@ -962,3 +962,30 @@ clamp-identity test runs on the L85 + P6 + UR_MAX + fill + Pyrotechnics profile.
 - `SPEC.pre-critic.md`, `OWNER_NOTE.pre-critic.md`: the first draft.
 - PD's `depth-*.mjs` / `.txt`, PC-L's `clarity-budget.mjs` / `cb-*.txt`, RS's `statbench`, `candbench`, `deadlines`,
   `units-dump.txt`: inputs cited above.
+
+---
+
+## Build notes (track 2, `feature/ur-gear`, 2026-10-20)
+
+M0 and M1 are built on one branch with GEAR_AWAKEN; M2 is the read the abilities track calls. The one place gear reaches a
+tower's battle stats is `unitBattleStats` (`src/systems/progression.js`); the sim side is `src/sim/gearRules.js` plus the
+reads in `src/sim/mods.js` (`applyGearReach`) and `src/sim/towers.js` (per attack). Deviations:
+
+- **Fresh drops roll their substats from the club pool.** `addGear` gives a fresh Mythic+ drop its club from its own rng
+  (`club|<createdAt>|<uid>`) as specified, and then re-draws its substats from that club's pool with the same rng (same
+  count, same ▲), so new drops can carry Pierce / Aura Power and their club's favourites. No reward draw shifts (a test pins
+  the box rng). The call sites opt in (`{ club: 'random' }` in `splitDrops` and `openGearBox`; an id = Titan Trials' Club
+  Focus, the seam track 3 calls).
+- **Armband welcome gift:** 9 when the save first holds a Mythic+ piece (on a drop, or at load), not unconditionally.
+- **Club Day** opens after 2-5 (gear opens at 2-1).
+- **Drone Pierce:** drone bullets stay guided; an extra target is the nearest enemy within 0.6 tiles behind the one it hit.
+- **Sweeps:** a pulse's carry runs on 2k with up to 4 extra targets a sweep.
+- **M2:** `abilityHaste(unitStats, kind)`, `abilityChargePerTick(unitStats, kind)` (round(100 / (1 − ½·min(0.5, haste))), 100
+  for kinds `rally` / `debuff`) and `firstBellCharge` are exported and tested; wiring them into the ability charge is the
+  abilities track's. Bell is in the data but not in `LIVE_CLUBS` until then.
+- **Not built:** the "Best on" portraits and the "Wants" strip, the trick progress ring and club FX in battle (the sim
+  emits `clubTrick` events), club / Has Pierce filter chips (the filter has "In a club" and Pierce / Aura Power in Has
+  substat), the 10,000-profile never-weaker guard (the new Crit DMG and Range caps can trim a theoretical max set, which the
+  spec accepts; over-cap parts fill in as ATK).
+- **Engines:** `GEAR_START` is pinned in `e2e/engines/scriptedBattle.js` (every trick, Pierce on every kit) and plays bit for
+  bit the same on V8 and JavaScriptCore.
