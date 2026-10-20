@@ -51,6 +51,7 @@ import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
 import { onVineKill, endVineWave } from './vines.js';
+import { endBallWave } from './balls.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -806,6 +807,8 @@ export class Sim {
     endSentryWave(this);
     // Chigusa's thorn beds and holds end; her harvest gives lives back (src/sim/vines.js)
     endVineWave(this);
+    // Marumi's balls end (src/sim/balls.js)
+    endBallWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });

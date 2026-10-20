@@ -7,6 +7,7 @@ import { GeoBuilder, lerpAngle } from './geo.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
+import { pointAt } from '../sim/path.js';
 import { STEP } from '../sim/constants.js';
 
 const TAU = Math.PI * 2;
@@ -604,6 +605,17 @@ export class Actors {
       }
       for (const n of tw.nets || []) {
         gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
+      }
+    }
+    // Marumi's bowling balls (src/sim/balls.js): a dark ball rolling up the road, a fuse spark on top
+    for (const tw of sim.towers) {
+      if (!tw.balls) continue;
+      for (const bl of tw.balls) {
+        const path = sim.pathData[bl.pathIndex];
+        if (!path) continue;
+        const p = bl.stuck ? bl.stuck : pointAt(path, bl.dist, this._ballPt || (this._ballPt = {}));
+        gN.push(p.x, 0.066, p.y, 0.42, 0.42, R.disc, 0.2, 0.22, 0.32, 0.95, 0);
+        gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, bl.stuck ? 0.6 + 0.4 * Math.sin(t * 20) : 0.5, 0);
       }
     }
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out

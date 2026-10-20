@@ -107,7 +107,7 @@ describe.skipIf(!hasRealData())('the base roster plays exactly as before the new
   }, 120000);
 });
 
-// The gacha new girls (Kinu, Ouka, Chigusa) never join the free pool, so the goldens above never field them:
+// The gacha new girls (Kinu, Ouka, Chigusa, Marumi) never join the free pool, so the goldens above never field them:
 // each gets her own pinned battles, the free team plus her (seed 1). (4-2 Hard, a 4-life win for the
 // free team, is lost by the bot with any ninth girl it adds, Kinu or Ouka: its plan, not theirs.)
 const GACHA_GOLDEN = {
@@ -117,6 +117,8 @@ const GACHA_GOLDEN = {
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
   'chigusa:5-4:hard': 'W27/29/96690/1261/10d0209a',
   'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
+  'marumi:5-4:hard': 'W27/25/100350/1397/b996453d',
+  'marumi:8-4:hard': 'W30/36/55474/1389/edb2c7fc',
 };
 
 describe.skipIf(!hasRealData())('the gacha new girls in a bot battle (pinned)', () => {

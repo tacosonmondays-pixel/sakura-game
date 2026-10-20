@@ -199,6 +199,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // Chigusa: her vine timer starts over, her held enemy, thorn beds and Bloom Rush end at the wave clear;
   // the vine and bed specs follow her stats
   vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
+  balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
 });
 
 /**

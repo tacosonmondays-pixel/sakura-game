@@ -39,6 +39,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'hub.radiusAdd', 'hub.cutAdd',
   // Chigusa's vine and thorns
   'vine.hold', 'vine.bedDmg', 'vine.every',
+  // Marumi's balls
+  'ball.travel', 'ball.pinDmg', 'ball.speed',
   // Yuzuha's sentries
   'sentry.max', 'sentry.damage', 'sentry.ttl',
 ]);
@@ -365,6 +367,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
     p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
     p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
+  },
+  // Marumi, SR bowler: heavier balls, longer lanes, bigger blasts
+  marumi: {
+    p2: step('Lane Warm-up', 'stat', { damageMul: 1.04 }),
+    p3: step('Polished Ball', 'kit', { rateMul: 1.05 }, { ball: { travel: 1 } }),
+    p4: step('Heavy Grip', 'kit', { damageMul: 1.05 }, { ball: { speed: 1 } }),
+    p5: step('Spare Pins', 'kit', { rateMul: 1.06 }, { ball: { pinDmg: 2 } }),
+    p6: step('Perfect Strike', 'cap', { damageMul: 1.07 }, { ball: { travel: 1, pinDmg: 2 } }),
   },
   // Chigusa, SR nature caster: her seeds, her vine and her thorns
   chigusa: {

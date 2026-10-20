@@ -48,8 +48,9 @@ export function runnerEntry(sim, aim) {
  * the hit spec (its statuses skip bosses: they take the damage only).
  * @returns {object|null} the runner, or null when there is nowhere to run
  */
-export function startRunner(sim, owner, effect, spec, aim = null) {
-  const entry = runnerEntry(sim, aim);
+export function startRunner(sim, owner, effect, spec, aim = null, at = null) {
+  // `at`: an entry the caller picked ({ pathIndex, dist }; Marumi's Giant Strike), else by aim / crowd
+  const entry = at || runnerEntry(sim, aim);
   if (!entry) return null;
   const time = Math.max(0.1, effect.time || 3);
   const r = {

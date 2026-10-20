@@ -225,6 +225,31 @@ function normVine(t = {}) {
     livesCap: t.livesCap ?? 30,
   };
 }
+/**
+ * The bowler (Marumi, UNIT_GAPS §5.9; src/sim/balls.js): her rolling bomb balls. Only a girl whose base
+ * declares `ball` carries it. Numbers add, flags OR.
+ *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · lanes (balls a throw)
+ *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin) · lob (Lob)
+ *   sticky (× of a sticky blast; 0 = none) · stickyStack · stickyTime (s)
+ */
+function normBall(t = {}) {
+  return {
+    travel: t.travel ?? 4,
+    speed: t.speed ?? 4,
+    through: t.through ?? 0,
+    lanes: t.lanes ?? 1,
+    pins: t.pins ?? 0,
+    pinDmg: t.pinDmg ?? 4,
+    pinPierce: t.pinPierce ?? 2,
+    hook: !!t.hook,
+    lob: !!t.lob,
+    sticky: t.sticky ?? 0,
+    stickyStack: t.stickyStack ?? 1,
+    stickyTime: t.stickyTime ?? 2,
+  };
+}
+const BALL_ADDS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_FLAGS = ['hook', 'lob'];
 const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
 
 const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
@@ -326,6 +351,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.sentry ? { sentry: normSentry(b.sentry) } : null),
     ...(b.hub ? { hub: normHub(b.hub) } : null),
     ...(b.vine ? { vine: normVine(b.vine) } : null),
+    ...(b.ball ? { ball: normBall(b.ball) } : null),
   };
 }
 
@@ -472,6 +498,11 @@ export function applyModSet(s, mods, acc) {
       for (const k of SENTRY_ADDS) if (v[k] != null) s.sentry[k] += v[k];
       for (const k of SENTRY_FLAGS) if (v[k]) s.sentry[k] = true;
       if (v.rate != null) s.sentry.rate *= v.rate;
+    } else if (key === 'ball') {
+      // only a bowler's balls change (src/sim/balls.js)
+      if (!s.ball) continue;
+      for (const k of BALL_ADDS) if (v[k] != null) s.ball[k] += v[k];
+      for (const k of BALL_FLAGS) if (v[k]) s.ball[k] = true;
     } else if (key === 'vine') {
       // only a vine girl's vines change (src/sim/vines.js)
       if (!s.vine) continue;
@@ -579,6 +610,7 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   if (s.trap) s.trap.damage *= u.damageMul;
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.drink) s.drink.towelDmg *= u.damageMul;
+  if (s.ball) s.ball.pinDmg *= u.damageMul;
   if (s.vine) {
     s.vine.dps *= u.damageMul;
     s.vine.bedDmg *= u.damageMul;
@@ -648,6 +680,12 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   s.maxTargets = Math.max(1, Math.round(s.maxTargets));
   if (s.trap) s.trap.max = Math.max(0, Math.round(s.trap.max));
   if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
+  if (s.ball) {
+    s.ball.through = Math.max(0, Math.round(s.ball.through));
+    s.ball.lanes = Math.max(1, Math.round(s.ball.lanes));
+    s.ball.pins = Math.max(0, Math.round(s.ball.pins));
+    s.ball.stickyStack = Math.max(1, Math.round(s.ball.stickyStack));
+  }
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);
     s.vine.beds = Math.max(0, Math.round(s.vine.beds));

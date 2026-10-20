@@ -54,6 +54,13 @@ band: base damage 3, Fresh Seeds +2, Bloom Rush +3, Full Bloom +6, Season of Ple
 free team plus her): 5-4 Hard 21 → 29 lives, 8-4 Hard 37 → 41. Her Harvest coins use the existing
 `income` (pooled like Momo's wave income); her lives respect healing, income and the 30-a-battle cap.
 
+**Marumi** (SR, gacha; Strike Bowler, rolling bombs). Walking-stream bench: 80 / 335 / 1854 at 3/2 /
+4/2 / 5/2 with the spec's numbers unchanged (Akane 94 / 353 / 3738, Sango 79 / 236 / 2303). Her tier 5s
+are in the final-tier window (spec × 1.6); Turkey Strike also adds +40 damage and 9 pins of 16. Bot
+goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Not wired yet: shared
+stretches (P-17: a ball only touches walkers on its own path), and Bowling Thunder's "minibosses are
+pushed too" (KNOCKBACK_RESIST still halves their push).
+
 
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
 

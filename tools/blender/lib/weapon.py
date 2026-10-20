@@ -10,7 +10,7 @@ KIND = dict(bow='bow', katana='slash', sword='slash', rapier='thrust', staff='ca
             cannon='cannon', rifle='rifle', shuriken='throw', flask='throw', coinPurse='throw', trident='thrust', wrench='smash', fan='sweep',
             parasol='sweep', mic='cast', shield='smash', mirror='cast', spear='thrust', mallet='smash', puppet='cast', cards='throw',
             # the new girls (UNIT_GAPS §5)
-            strip='throw', needle='cast', tablet='cast', banner='cast', wateringCan='cast')
+            strip='throw', needle='cast', tablet='cast', banner='cast', wateringCan='cast', ball='throw')
 
 
 def kind_of(weapon):
@@ -677,6 +677,31 @@ def banner(ctx):
     return parts
 
 
+def ball(ctx):
+    """Marumi: a polished bowling-ball bomb held low in one hand, three finger holes and a fuse."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + down * 0.035 + fwd * 0.01
+    v, f = M.sphere(c, (0.045, 0.045, 0.045))
+    body = M.new_object('ball', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(body, levels=1)
+    parts = [body]
+    for k, (a, b) in enumerate(((-0.012, 0.018), (0.012, 0.02), (0.0, 0.0))):
+        p = c + fwd * 0.042 + out * a + Vector((0, 0, b))
+        v, f = M.sphere(p, (0.007, 0.004, 0.007))
+        hole = M.new_object(f'ball_hole{k}', v, f, color='#1c1e2c', bone='hand_R')
+        M.finish(hole, levels=0)
+        parts.append(hole)
+    top = c + Vector((0, 0, 0.045))
+    parts.append(_rod(ctx, [top, top + Vector((0.008, 0, 0.022))], 0.004, '#f6efe0', 'hand_R', sides=5, levels=0))
+    v, f = M.sphere(top + Vector((0.01, 0, 0.026)), (0.007, 0.007, 0.007))
+    spark = M.new_object('ball_spark', v, f, color='#ffc46b', bone='hand_R')
+    M.finish(spark, levels=0)
+    spark['material'] = 'halo'
+    parts.append(spark)
+    return parts
+
+
 def watering_can(ctx):
     """Chigusa: a watering can held at the side, with a long spout and a rose on the end."""
     pal = ctx['pal']
@@ -701,4 +726,4 @@ def watering_can(ctx):
 WEAPONS = dict(bow=bow, katana=katana, staff=staff, cannon=cannon, rifle=rifle, shuriken=shuriken, tome=tome, bell=bell, wrench=wrench,
                lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword,
                mic=mic, shield=shield, mirror=mirror, spear=spear, mallet=mallet, puppet=puppet, cards=cards,
-               strip=strip, needle=needle, tablet=tablet, banner=banner, wateringCan=watering_can)
+               strip=strip, needle=needle, tablet=tablet, banner=banner, wateringCan=watering_can, ball=ball)

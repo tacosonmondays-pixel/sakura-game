@@ -38,11 +38,12 @@ import { wakaba } from './styles/wakaba.js';
 import { yuzuha } from './styles/yuzuha.js';
 import { ouka } from './styles/ouka.js';
 import { chigusa } from './styles/chigusa.js';
+import { marumi } from './styles/marumi.js';
 
 export const STYLE_BY_UNIT = {
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
   kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
-  azami, kinu, wakaba, yuzuha, ouka, chigusa,
+  azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */
@@ -56,6 +57,7 @@ export const BEHAVIOR_DEFAULT = {
   strip: generic,
   ring: generic,
   drink: generic,
+  roll: generic,
   turret: chika,
 };
 

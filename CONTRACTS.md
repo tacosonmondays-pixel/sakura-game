@@ -1203,7 +1203,7 @@ Standard with `options.rule = null` is bit-identical to the pre-modes sim (`test
 ### 3d. The new girls — `src/data/unitsNewGirls.js` (owner: units; UNIT_GAPS §5, wave 1)
 
 ```js
-export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA]; units.js appends them after the returning girls
+export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA, MARUMI]; units.js appends them after the returning girls
 export const NEW_GIRL_IDS   // their ids (goldens pin a "base roster" block with them left out)
 ```
 New BaseStats blocks, each present ONLY on a girl whose base declares it (`mods.js normalizeBase`), so
@@ -1216,9 +1216,10 @@ damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` 
 new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
-bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add). Behaviours `strip`, `ring`, `drink` (Ouka uses
-`none`). Roles spiker, ring, manager, builder, council, botanist. Weapons `strip`, `needle`, `tablet`, `banner`,
-`wateringCan`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
+bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
+lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
+uses `none`). Roles spiker, ring, manager, builder, council, botanist, bowler. Weapons `strip`, `needle`, `tablet`,
+`banner`, `wateringCan`, `ball`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
 immune; `isHeld`).
 
 ```js
@@ -1226,6 +1227,9 @@ strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, end
 rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
+balls.js:    addBall, rollBall, ballTick, endBallWave                        // t.balls [{ uid, pathIndex, dist, left, through, hit, stuck }]
+  BALLS_PER_GIRL 6 / BALLS_PER_SIM 48 (oldest first); blasts use t.blastSpec (pushLock: true)
+  abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
 vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
   (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)

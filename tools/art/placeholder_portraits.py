@@ -451,6 +451,12 @@ def emblem(weapon, pal, size):
         pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.55, -0.2), (0.75, 0.4), (-0.5, 0.4)], WHITE)
         pen.poly([(-0.5, -0.8), (0.75, -0.8), (0.72, -0.7), (-0.5, -0.7)], acc)
         star(pen, 0.1, -0.2, 0.26, (242, 155, 184))
+    elif weapon == 'ball':  # a bowling-ball bomb with a cartoon fuse
+        pen.ell(-0.1, 0.15, 0.62, 0.62, fill=rgb(pal['weapon']))
+        for (fx, fy) in ((-0.3, -0.05), (-0.05, -0.15), (-0.18, 0.12)):
+            pen.ell(fx, fy, 0.08, 0.08, fill=ink)
+        pen.line([(0.3, -0.3), (0.55, -0.65)], acc, 0.07)
+        star(pen, 0.6, -0.72, 0.16, (255, 196, 107))
     elif weapon == 'wateringCan':  # a watering can with a long spout and a sprout
         pen.ell(-0.15, 0.25, 0.55, 0.45, fill=acc)
         pen.poly([(0.3, 0.2), (0.85, -0.45), (0.95, -0.35), (0.42, 0.38)], acc)

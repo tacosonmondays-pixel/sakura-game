@@ -18,11 +18,11 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 195, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa)
+  self: 207, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi)
   'enemies* + self': 35,
-  'enemies + self': 48,
+  'enemies + self': 50,
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
-  enemies: 28,
+  enemies: 29,
   coins: 8,
   'coins + enemies': 1,
   'allies + coins + enemies': 1,

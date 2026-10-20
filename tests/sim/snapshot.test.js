@@ -267,6 +267,34 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings', 'hydrated', 'sentries', 'sentrySpecs']) expect(json, k).toContain(`"${k}"`);
   });
 
+  it('Marumi mid-wave (UNIT_GAPS §5.9): balls on the road, a sticky ball, a Giant Strike rolling', () => {
+    const team = ['marumi', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
+    const stats = { costMul: 0.3 };
+    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3333, options: { autoStart: true, autoAbilities: true } };
+    const sim = fresh(args);
+    const bot = makeAbilityBot('1-5', [...team, 'hikari']);
+    sim.cash += 20000;
+    sim.startNextWave();
+    const busy = (s) => s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 3
+      && s.towers.some((t) => t.balls?.length) && s.runners.length > 0;
+    for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
+      if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
+      const mb = sim.towers.find((t) => t.unitId === 'marumi');
+      // (Giant Strike nudged every 3 s once she has it, so a runner is on the road with her balls)
+      if (mb?.abil && sim.state === 'wave' && k % 180 === 0) {
+        mb.abil.cd = 0;
+        sim.castAbility(mb.uid);
+      }
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(busy(sim)).toBe(true);
+    const r = twin(sim, args, bot, 9000);
+    expect(r.compared).toBeGreaterThan(5);
+    const json = JSON.stringify(r.snap);
+    for (const k of ['balls', 'ballSpec', 'blastSpec', 'pinSpec', 'runners']) expect(json, k).toContain(`"${k}"`);
+  });
+
   it('Chigusa mid-wave (UNIT_GAPS §5.7): a vine hold, thorn beds, Bloom Rush and Overgrowth running', () => {
     const team = ['chigusa', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
     const stats = { costMul: 0.3 };

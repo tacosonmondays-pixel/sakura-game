@@ -430,6 +430,16 @@ function weaponParts(ctx, kind) {
       P.push(part(sphere(0.03, 6, 4), { pos: [0.2, 0.56, 0], color: col('#ff5d5d') }));
       break;
     }
+    case 'ball': {
+      // a polished bowling-ball bomb with three finger holes and a cartoon fuse
+      rot = [0, 0, 0];
+      offset = [0, -0.05, 0.08];
+      P.push(part(sphere(0.2, 12, 10), { pos: [0, 0.12, 0], color: w }));
+      for (const [hx, hy] of [[-0.06, 0.22], [0.04, 0.24], [-0.01, 0.16]]) P.push(part(sphere(0.03, 6, 4), { pos: [hx, hy, 0.17], color: dark }));
+      P.push(part(cyl(0.02, 0.02, 0.12, 5), { pos: [0.1, 0.33, 0], rot: [0, 0, -0.5], color: col('#f6efe0') }));
+      P.push(part(sphere(0.035, 6, 4), { pos: [0.14, 0.39, 0], color: col('#ffc46b') }));
+      break;
+    }
     case 'wateringCan': {
       // a watering can with a long spout and a rose on the end
       rot = [0.2, 0, 0.3];

@@ -81,6 +81,7 @@ export const PORTRAIT_DATA = {
   yuzuha: { face: [50, 25], cut: 0.385 },
   ouka: { face: [50, 25], cut: 0.385 },
   chigusa: { face: [50, 25], cut: 0.432 },
+  marumi: { face: [50, 25], cut: 0.385 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

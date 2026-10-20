@@ -255,6 +255,23 @@
   "lodSize": 226668,
   "lodVertices": 3048
  },
+ "marumi": {
+  "file": "marumi.glb",
+  "size": 412704,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8660,
+  "lod": "marumi.lod.glb",
+  "lodSize": 206756,
+  "lodVertices": 2932
+ },
  "midori": {
   "file": "midori.glb",
   "size": 452416,

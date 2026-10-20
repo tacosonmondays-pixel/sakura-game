@@ -400,7 +400,70 @@ const CHIGUSA = {
   awakenPassive: { name: 'Green Thumb', desc: 'Her vine comes 0.5s sooner.', mods: { vine: { every: -0.5 } } },
 };
 
+// ---------------------------------------------------------------------------
+// Marumi — Strike Bowler (bombs that roll up the road; UNIT_GAPS §5.9, src/sim/balls.js)
+// ---------------------------------------------------------------------------
+
+const MARUMI = {
+  id: 'marumi',
+  name: 'Marumi',
+  title: 'Strike Bowler',
+  kind: 'tower',
+  rarity: 'SR',
+  adult: false,
+  role: 'bowler',
+  attackType: 'blast',
+  element: null,
+  placement: 'land',
+  materialFamily: 'cog',
+  capabilities: ['multiHit'],
+  pathCapabilities: ['stun', 'barrierBreak', 'antiAir'],
+  acquisition: GACHA_ONLY,
+  palette: {
+    hair: '#f28a3c', hairShade: '#c4612a', eyes: '#3e7bd6', skin: '#ffe4d2',
+    outfit: '#d9434f', outfitShade: '#2d3150', accent: '#f6efe0', halo: '#ffc46b', weapon: '#3a3f5c',
+  },
+  look: {
+    hairStyle: 'side', bangs: 'messy', accessory: 'headband', outfit: 'hoodie', weapon: 'ball',
+    halo: 'flame', eyeStyle: 'sparkle', expression: 'determined',
+  },
+  bio: 'The bowling club\'s loudest member. A two-tone retro club jacket with a pin emblem over her school blouse, sleeves pushed up, a pleated skirt, knee socks and two-tone bowling shoes. An orange side-swept bob under a headband, a wrist guard, and a polished bowling-ball bomb with a cartoon fuse.',
+  personality: 'Competitive and loud. She yells "STRIKE!" at every explosion.',
+  quote: 'Lane\'s open — STRIKE!',
+  tips: [
+    'Every 2 seconds she rolls a bomb ball up the road from the spot nearest her, against the enemies: it blows up on the first walker it meets and pushes the crowd back.',
+    'Place her where the road runs straight toward the spawn in front of her: the lane is her weapon. Balls never touch flyers.',
+    '⚡ Lane Master tier 3 teaches Giant Strike: a giant ball rolls back up her road and hits every walker once.',
+    'Sticky Ball (Spin Shot tier 3) sticks to elites and bosses and explodes three times as hard.',
+  ],
+  base: stats({ cost: 480, behavior: 'roll', damage: 10, rate: 0.5, range: 3, splash: 0.9, knockback: 0.3, projectileSpeed: 9, canHitAir: false, ball: { travel: 4, speed: 4 } }),
+  paths: [
+    path('heavy', 'Heavy Ball', 'Blast and stun', [
+      tier('Heavier Core', 140, '+3 damage.', { damage: 3 }),
+      tier('Big Blast', 320, '+0.3 blast radius; knockback +0.2.', { splash: 0.3, knockback: 0.2 }),
+      tier('Concussion', 1100, 'Blasts stun for 0.5s (bosses for a quarter).', { status: [S.stun(0.5)] }),
+      tier('Wrecking Ball', 3400, '+30 damage; the ball bowls through the first 3 walkers before it explodes; ×1.5 against barriers.', { damage: 30, ball: { through: 3 }, barrierMul: 1.5 }),
+      tier('Bowling Thunder', 19200, '+120 damage; blasts stun for 1s; knockback 0.8.', { damage: 120, status: [S.stun(1)], knockback: 0.3 }),
+    ]),
+    path('lane', 'Lane Master', 'Long lanes and pins', [
+      tier('Quick Release', 130, '+20% attack speed.', { rateMul: 1.2 }),
+      tier('Long Lane', 300, '+0.6 range; balls roll 6 tiles.', { range: 0.6, ball: { travel: 2 } }),
+      tier('Split Pins', 1000, 'Each blast throws 6 pins along the road: each hits a walker within 2 tiles for 4 damage (at most 2 on one walker).', { ball: { pins: 6 } }),
+      tier('Perfect Game', 3200, '+20 damage; balls roll 8 tiles; pins +4 damage.', { damage: 20, ball: { travel: 2, pinDmg: 4 } }),
+      tier('Turkey Strike', 18400, '+40 damage; 9 pins of 16.', { damage: 40, ball: { pins: 3, pinDmg: 8 } }),
+    ]),
+    path('spin', 'Spin Shot', 'Lanes, lobs and sticky balls', [
+      tier('Hook Spin', 120, 'If her own lane has no walker in range, the ball hops to the nearest lane that has one.', { ball: { hook: true } }),
+      tier('Lob', 280, 'When only flyers are in range, she lobs an arcing bomb that can hit them.', { ball: { lob: true } }),
+      tier('Sticky Ball', 950, 'A ball that meets an elite, miniboss or boss sticks to it for 2s, then explodes for ×3.', { ball: { sticky: 3 } }),
+      tier('Split Lane', 2800, 'A second ball each throw, on the next lane with a walker in range.', { ball: { lanes: 1 } }),
+      tier('Spare Maker', 16000, 'Sticky balls explode for ×6 and up to 3 stick to one enemy; +60 damage.', { ball: { sticky: 3, stickyStack: 2 }, damage: 60 }),
+    ]),
+  ],
+  awakenPassive: { name: 'Lucky Shoes', desc: 'Her balls roll 1 tile further.', mods: { ball: { travel: 1 } } },
+};
+
 /** The new girls, in roster order. */
-export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA];
+export const NEW_GIRLS = [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA, MARUMI];
 /** Their ids. */
 export const NEW_GIRL_IDS = NEW_GIRLS.map((u) => u.id);

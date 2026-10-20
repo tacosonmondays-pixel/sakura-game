@@ -1135,6 +1135,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !(ch.vineHold && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
     expect(!!(ch.vineHold && ch.beds?.length && ch.bloomT > 0)).toBe(true);
     for (const t of cg.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Marumi mid-wave: balls on the road, Lob on, so every spec of hers exists)
+    const mr = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 13 });
+    mr.cash = 1e6;
+    for (const a of autoPlan('1-1', ['marumi', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') mr.placeTower(a.unitId, a.x, a.y);
+    const mb = mr.towers.find((t) => t.unitId === 'marumi');
+    for (let k = 0; k < 2; k++) expect(mr.upgradeTower(mb.uid, 2)).toBe(true);
+    mr.startNextWave();
+    for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
+    expect(mb.balls?.length > 0).toBe(true);
+    for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

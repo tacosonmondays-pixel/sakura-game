@@ -52,6 +52,7 @@ const ROSTER = [
   ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '4-2'],
   ['ouka', 'tower', 'SR', 'council', 'holy', null, 'land', 'charm', 'gacha'],
   ['chigusa', 'tower', 'SR', 'botanist', 'pierce', null, 'land', 'feather', 'gacha'],
+  ['marumi', 'tower', 'SR', 'bowler', 'blast', null, 'land', 'cog', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -69,12 +70,12 @@ const LOOK_ENUMS = {
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip', 'needle', 'tablet', 'banner', 'wateringCan'],
+    'strip', 'needle', 'tablet', 'banner', 'wateringCan', 'ball'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'none'];
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -82,7 +83,7 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine'];
+  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine', 'ball'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -194,6 +195,7 @@ function modSetErrors(mods, where) {
     sentry: (k, v, w) => sentryErrors(v, w),
     hub: (k, v, w) => hubErrors(v, w),
     vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
+    ball: (k, v, w) => ballErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -230,6 +232,13 @@ function sentryErrors(v, w) {
   return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The bowler (src/sim/mods.js normBall): numbers add, flags are `true`.
+const BALL_NUMS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_FLAGS = ['hook', 'lob'];
+function ballErrors(v, w) {
+  return objErrors(v, [...BALL_NUMS, ...BALL_FLAGS], w, (kk, vv, ww) => (BALL_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
 // The nature caster (src/sim/mods.js normVine): numbers add.
 const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
 
@@ -261,6 +270,10 @@ function baseErrors(b, where) {
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
   if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
   if (b.vine) errs.push(...objErrors(b.vine, VINE_NUMS, `${where}.vine`, numCheck));
+  if (b.ball) {
+    errs.push(...ballErrors(b.ball, `${where}.ball`));
+    if (b.behavior !== 'roll') errs.push(`${where}: ball needs the roll behavior`);
+  }
   if (b.hub) {
     errs.push(...hubErrors(b.hub, `${where}.hub`));
     if (b.behavior !== 'none') errs.push(`${where}: a hub never attacks (behavior none)`);
@@ -336,6 +349,8 @@ function derivedCaps(m, acc = new Set()) {
   if (m.hub?.detection) acc.add('detection');
   if (m.hub?.cleanse) acc.add('cleanse');
   if ((m.hub?.killBounty ?? 0) > 0) acc.add('income');
+  // Lob (Spin Shot tier 2) throws her blast at flyers
+  if (m.ball?.lob) acc.add('antiAir');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');

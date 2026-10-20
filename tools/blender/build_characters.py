@@ -45,7 +45,7 @@ HORN_SHAPE = dict(raika='curl', seiran='dragon')
 # Per-unit figure options (tools-only, keyed by unit id). head_pitch: degrees added to the head's pitch in
 # every clip (negative = chin up) so the face, not just the bangs, reads at the 48 degree battle camera.
 # A unit not listed builds exactly as before (byte-identical GLBs).
-FIGURE_OPTIONS = {uid: dict(head_pitch=-12.0) for uid in ('azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa')}
+FIGURE_OPTIONS = {uid: dict(head_pitch=-12.0) for uid in ('azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa', 'marumi')}
 # halo_lift: her halo floats this much higher (Chigusa's halo sits above her sun hat)
 FIGURE_OPTIONS['chigusa']['halo_lift'] = 0.1
 

@@ -42,6 +42,8 @@ import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
+import { startRunner } from './runners.js';
+import { samplePath } from './path.js';
 
 const R = ABILITY_RULES;
 
@@ -643,10 +645,52 @@ const DEPLOYS = {
   },
 };
 
+/**
+ * The runner kind (ABILITIES_SPEC §4, A6) one runner type at a time, by `effect.runner`; a type that is
+ * not here stays locked. Marumi's Giant Strike: a giant ball rolls from the road point nearest the exit
+ * inside her range back toward the spawn on her nearest lane (Turkey Strike: every lane in her range,
+ * all the way to the spawn), hitting every walker once (src/sim/runners.js).
+ */
+const RUNNERS = {
+  giantBall: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = t.eff.range;
+      const spec = { ...abilitySpec(t, def), canHitAir: false, pushLock: true };
+      if (!gatherTargets(sim, t.x, t.y, reach, spec, []).length) return null;
+      // per lane: the visible road point inside her reach nearest the exit, and the lane's nearest point to her
+      const lanes = [];
+      const r2 = reach * reach;
+      for (const path of sim.pathData) {
+        let entry = null;
+        let near = Infinity;
+        for (const s of samplePath(path, 0.25)) {
+          if (s.hidden) continue;
+          const dx = s.x - t.x;
+          const dy = s.y - t.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < near) near = d2;
+          if (d2 <= r2 && (!entry || s.d > entry.dist)) entry = { pathIndex: path.index, dist: s.d };
+        }
+        if (entry) lanes.push({ entry, near });
+      }
+      if (!lanes.length) return null;
+      lanes.sort((a, b) => a.near - b.near || a.entry.pathIndex - b.entry.pathIndex);
+      const use = e.allPaths ? lanes : lanes.slice(0, 1);
+      for (const l of use) {
+        const length = e.toSpawn ? l.entry.dist : Math.min(e.length, l.entry.dist);
+        startRunner(sim, t, { length, time: Math.max(0.1, length / e.speed), segments: e.segments, gap: e.gap, runner: 'giantBall' }, spec, null, l.entry);
+      }
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: use.length };
+    },
+  },
+};
+
 /** The code that runs an ability (null: this build does not run it yet). */
 function handlerOf(def) {
   if (!def) return null;
   if (def.kind === 'deploy') return DEPLOYS[def.effect?.deploy] || null;
+  if (def.kind === 'runner') return RUNNERS[def.effect?.runner] || null;
   return KINDS[def.kind] || null;
 }
 

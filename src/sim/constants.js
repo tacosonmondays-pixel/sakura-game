@@ -256,3 +256,9 @@ export const BEDS_PER_GIRL = 6;
 export const BEDS_PER_SIM = 40;
 /** Chigusa's vines: a held enemy takes the vine's damage once a second (the first at the grab). */
 export const VINE_TICK = 1;
+/** Marumi's bowling balls (src/sim/balls.js): contact radius, caps (oldest first), how far along the
+ *  road a blast's pins look for walkers. */
+export const BALL_RADIUS = 0.45;
+export const BALLS_PER_GIRL = 6;
+export const BALLS_PER_SIM = 48;
+export const PIN_REACH = 2;

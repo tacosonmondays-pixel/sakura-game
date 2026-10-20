@@ -78,6 +78,7 @@ export const ROLE_SUBCLASS = {
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
   // the new girls (UNIT_GAPS §5)
+  bowler: { label: 'Rolling Bombs', desc: 'Bomb balls rolled up the road: blasts, knockback, pins and sticky balls.' },
   botanist: { label: 'Vines and Harvest', desc: 'Vines hold walkers; thorn beds on the road; coins and lives from the harvest.' },
   council: { label: 'Rules Hub', desc: 'Cheaper upgrades, free tiers and better sell value inside her office; banners carry her rules.' },
   builder: { label: 'Sentry Builder', desc: 'Timed sentries at the road\'s edge, typed for the threat.' },
@@ -679,7 +680,7 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out', 'yuzuha', 'sentry', 'sentries', 'net', 'deploy', 'ouka', 'council', 'office', 'banner', 'free tier', 'assembly bell', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'overgrowth'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out', 'yuzuha', 'sentry', 'sentries', 'net', 'deploy', 'ouka', 'council', 'office', 'banner', 'free tier', 'assembly bell', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'overgrowth', 'marumi', 'bowling', 'ball', 'pins', 'sticky', 'giant strike'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
@@ -701,6 +702,9 @@ function newGirlsArticle() {
     sec('Vines and thorns (Chigusa)',
       p('Chigusa throws a fan of thorn seeds. Every few seconds a vine holds the lead walker in her range: it cannot move until the vine lets go. Minibosses slip free sooner, and bosses and flyers shrug vines off. Thorn Beds leaves thorns where her seeds finish a walker; Bloom Rush makes her faster the longer she keeps attacking.'),
       tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (at most 30 a battle, never above your starting lives). Overgrowth (Greenhouse tier 3) holds a whole group of walkers at once.', 'info')),
+    sec('Rolling bombs (Marumi)',
+      p('Marumi rolls bomb balls up the road from the spot nearest her, against the flow of enemies. A ball blows up on the first walker it meets: a blast that hurts everyone around it and pushes them back up the road. Balls never touch flyers; Lob (Spin Shot tier 2) throws an arcing bomb at them instead.'),
+      tip('Place her where the road runs toward the spawn in front of her. Giant Strike (Lane Master tier 3) rolls a giant ball back up her road that hits every walker once; Sticky Ball (Spin Shot tier 3) sticks to elites and bosses and explodes three times as hard.', 'info')),
     sec('The council office (Ouka)',
       p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly speeds them up and recharges their abilities faster; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
       tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too. Assembly Bell (Assembly tier 3) speeds up every girl on the map for a few seconds.', 'info')),

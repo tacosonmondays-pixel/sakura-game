@@ -38,7 +38,7 @@ const LIGHTNING = {
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls (UNIT_GAPS §5)
-  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970],
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970], marumi: ['lane', 1910],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -49,7 +49,7 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
-  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff',
+  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff', marumi: 'runner',
 };
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
@@ -205,6 +205,12 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [{ type: 'hold', duration: 4 }] } },
   },
+  marumi: {
+    path: 'lane', id: 'marumi.giantStrike', kind: 'runner', scope: 'local', cooldown: 40, duration: 2,
+    effect: { runner: 'giantBall', length: 12, speed: 6, segments: 3, gap: 0.5, dmgMul: 8, knockback: 0.6 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -243,6 +249,8 @@ const EFFECT_KEYS = {
   debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', ...STATUS_LIST],
   econ: ['coins'],
   deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
+  // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push)
+  runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn'],
 };
 const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong', 'ground'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];

@@ -269,6 +269,14 @@ export const ABILITIES = deepFreeze({
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [S.hold(4)] } },
   }],
+  marumi: [{
+    // a giant ball rolls back up her nearest lane from the road point nearest the exit in her range,
+    // hitting every walker once (a runner, src/sim/runners.js); Turkey Strike: every lane, to the spawn
+    path: 'lane', unlockTier: 3, id: 'marumi.giantStrike', kind: 'runner', scope: 'local', cooldown: 40, duration: 2,
+    effect: { runner: 'giantBall', length: 12, speed: 6, segments: 3, gap: 0.5, dmgMul: 8, knockback: 0.6 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
+  }],
 });
 
 /**

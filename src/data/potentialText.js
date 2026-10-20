@@ -240,6 +240,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('PEN+1', '+6% attack speed. Her darts ignore 1 more armor.', 1.08, 'rim'),
     t('DEPLOYED', '+7% damage. 1 more sentry at a time, and her sentries deal 2 more damage.', 1.20, 'rim'),
   ),
+  marumi: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('LANE+1', '+5% attack speed. Her balls roll 1 tile further.', 1.10, 'rim'),
+    t('SPEED+1', '+5% damage. Her balls roll 1 tile a second faster.', 1.10, 'rim'),
+    t('PINS+2', '+6% attack speed. Her pins deal 2 more damage.', 1.10, 'rim'),
+    t('STRIKE', '+7% damage. Her balls roll 1 tile further and her pins deal 2 more damage.', 1.18, 'rim'),
+  ),
   chigusa: row(
     t('+4% DMG', '+4% damage.', 1.04, 'rim'),
     t('HOLD+0.2', '+5% attack speed. Her vine holds 0.2 s longer.', 1.10, 'rim'),
