@@ -963,6 +963,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | New shop offers + `group` stock | `profile.shop.bought` | `shopwk:asc` (game week as a number) | an older tab rolling the week first keeps their counts → M1 clears its own ids and group keys when `shopwk:asc` ≠ this week (§C.10) |
 | Welcome pouch | `profile.items` (`memento`, `moonpearl`), paid during migration | `inv:` | dropped → restored from `inv:`; never sent by mail (§A.7) |
 | Together Chests (M2) | `missions.weekly['tk:tog']` | wiped weekly (`src/systems/missions.js:46-50`) | — |
+| Weekly Wonder counted this week | `missions.weekly['wd:done']` (`WEEKLY_DONE_MARK`, `src/systems/missions.js:18`): 1 once this week's `weeklyDone` has counted (`claimMission`, `:136-138`), so a row that opens mid-week (Club Day, Rainbow Hunt) cannot count the week twice | wiped weekly with `missions.weekly` (`onAppStart`, `src/systems/missions.js:46-51`) | kept; an older tab that claims the last weekly writes no mark, so this build may count that week once more (one achievement step) |
 | 16 new item ids (§F.3) | `profile.items` | `inv:<id>` (GA R16's helper in `setCount`, `src/systems/inventory.js:37`) | dropped, load lossy → restored from `inv:` (a spent item mirrors 0) |
 
 Prefixes checked against those in use and planned (RS §7: `pot:`, `fpm:`, `pg:`, `pfs:`, `story:new`, `lv:`, `fpTome:`,
