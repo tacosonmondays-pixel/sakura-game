@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 
@@ -105,6 +106,8 @@ export class Actors {
     this.selectedUid = null;
     this.teleports = new Map();
     this.victory = false;
+    /** seeded render-only randomness (the renderer hands its own fork: src/render/vfx/random.js) */
+    this.rand = createVisualRandom(visualSeed('actors'));
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
@@ -276,7 +279,7 @@ export class Actors {
     const water = this.terrain.isWater(t.tx, t.ty);
     const v = {
       uid: t.uid, model, facing: t.facing || 0, pop: 0, water, hero: t.isHero, state: 'idle',
-      scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: Math.random() * 3,
+      scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: this.rand() * 3,
     };
     model.position.set(t.x, water ? WATER_Y + 0.03 : 0.05, t.y);
     model.rotation.y = v.facing;
@@ -474,13 +477,13 @@ export class Actors {
       mesh.setColorAt(i, col);
       const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
       if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
-      if (kind === 'fireball' && Math.random() < dt * 30) {
+      if (kind === 'fireball' && this.rand() < dt * 30) {
         this.fx.spawn({ batch: 'bbA', uv: this.R.glow, x: px, y: z, z: py, vy: 0.3, s0: 0.22, s1: 0.04, life: 0.3, color: '#ff8a3d' });
       }
-      if (kind === 'shell' && Math.random() < dt * 20) {
+      if (kind === 'shell' && this.rand() < dt * 20) {
         this.fx.spawn({ batch: 'bbN', uv: this.R.smoke, x: px, y: z, z: py, vy: 0.2, s0: 0.1, s1: 0.3, life: 0.5, color: '#d8d4d0', a0: 0.5 });
       }
-      if (kind === 'flask' && Math.random() < dt * 15) {
+      if (kind === 'flask' && this.rand() < dt * 15) {
         this.fx.spawn({ batch: 'bbA', uv: this.R.bubble, x: px, y: z, z: py, vy: 0.2, s0: 0.08, s1: 0.02, life: 0.4, color: '#7be08a' });
       }
     }
@@ -586,8 +589,8 @@ export class Actors {
       if (ring) {
         const c = this._c.set(ring);
         gA.push(tw.x, y + 0.004, tw.y, 0.86, 0.86, R.ring, c.r, c.g, c.b, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
-        if (maxTier >= 5 && Math.random() < 0.05) {
-          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (Math.random() - 0.5) * 0.6, y: 0.2, z: tw.y + (Math.random() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
+        if (maxTier >= 5 && this.rand() < 0.05) {
+          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (this.rand() - 0.5) * 0.6, y: 0.2, z: tw.y + (this.rand() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
         }
       }
       if (tw.buffed) {
@@ -599,7 +602,7 @@ export class Actors {
           const a = t * 4 + (i / 3) * TAU;
           this.b.bbA.push(tw.x + Math.cos(a) * 0.22, 1.05, tw.y + Math.sin(a) * 0.22, 0.13, 0.13, R.star, 1, 0.85, 0.3, 0.9);
         }
-        if (Math.random() < 0.08) this.fx.spawn({ batch: 'bbN', uv: R.smoke, x: tw.x, y: 0.7, z: tw.y, vy: 0.5, s0: 0.15, s1: 0.45, life: 0.9, color: '#4a4a55', a0: 0.5 });
+        if (this.rand() < 0.08) this.fx.spawn({ batch: 'bbN', uv: R.smoke, x: tw.x, y: 0.7, z: tw.y, vy: 0.5, s0: 0.15, s1: 0.45, life: 0.9, color: '#4a4a55', a0: 0.5 });
       }
     }
     // enemy shadows + boss aura

@@ -7,6 +7,11 @@
 //
 //   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing });
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
+//
+// Time and randomness (docs/VFX.md): every animation and effect drawn here runs on the one visual
+// clock (src/render/vfx/clock.js; a hit-stop holds it, the sim never does) and draws its random
+// numbers from seeded render-only streams (src/render/vfx/random.js), never from Math.random or
+// the sim's rng — the same battle on the same frames gives the same picture.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -28,6 +33,8 @@ import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
+import { VisualClock } from './vfx/clock.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -50,15 +57,19 @@ const PANEL_SLIDE_DELAY_MS = 260;
  * Creates the battle renderer.
  * @param {HTMLElement} container element the canvas fills (should have a size)
  * @param {import('../sim/Sim.js').Sim} sim running simulation
- * @param {{ quality?: 'high'|'medium'|'low', settings?: object, insets?: {top,right,bottom,left}, isPlacing?: () => boolean }} [opts]
+ * @param {{ quality?: 'high'|'medium'|'low', settings?: object, insets?: {top,right,bottom,left}, isPlacing?: () => boolean, visualSeed?: number }} [opts]
  *   settings.camera: 'locked' (default) | 'free'; isPlacing: the UI is placing a girl (the
- *   camera then holds still even in 'free' mode — a visible placement ghost counts too)
+ *   camera then holds still even in 'free' mode — a visible placement ghost counts too);
+ *   visualSeed: seed of the visual random streams (default: from the map and stage)
  */
 export function createBattleRenderer(container, sim, opts = {}) {
   liveRenderers++;
   const settings = opts.settings || {};
   let quality = QUALITY[opts.quality] ? opts.quality : (QUALITY[settings.quality] ? settings.quality : 'medium');
   const reduceMotion = !!settings.reduceMotion;
+  // the one visual clock (hit-stop holds it, never the sim) and the seeded visual randomness
+  const clock = new VisualClock({ reduceMotion });
+  const vrand = createVisualRandom(opts.visualSeed ?? visualSeed('battle', sim.map?.id, sim.stage?.id));
 
   // ----- renderer -----------------------------------------------------------------------
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -165,8 +176,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
-  const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
+  const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion, rand: vrand.fork('attackFx') });
   actors.fxHook = attackFx;
+  // one seeded stream per layer (the ambient layer seeds its own from the map)
+  fx.rand = vrand.fork('fx');
+  actors.rand = vrand.fork('actors');
+  const evRand = vrand.fork('events');
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -210,14 +225,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   };
 
   // ----- state -----------------------------------------------------------------------------
-  let time = 0;
   let insets = { top: 0, right: 0, bottom: 0, left: 0, ...(opts.insets || {}) };
   // the selected girl and the screen the info panel covers (CSS px): the view slides so her
   // range ring stays clear of the panel (keepSelectedInView)
   let selectedUid = null;
   let selectedAtMs = 0;
   let panelCover = { right: 0, bottom: 0 };
-  let lastFrameMs = 0;
   let flash = { a: 0, decay: 3 };
   let bossVignette = 0;
   let disposed = false;
@@ -341,7 +354,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
             if (p) {
               const ramp = ev.ramp || 0;
               const col = towerColor(ev.towerUid);
-              fx.slash(p.x, p.z, (Math.random() - 0.5) * 1.4, col, 0.8 + Math.min(0.6, ramp * 0.05));
+              fx.slash(p.x, p.z, evRand.signed() * 1.4, col, 0.8 + Math.min(0.6, ramp * 0.05));
               if (ramp >= 6) fx.flash(p.x, p.y + 0.4, p.z, col, 0.5, 0.12);
             }
           } else if (ev.kind === 'trap' || ev.kind === 'build') {
@@ -548,9 +561,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const cols = ['#ff6b8b', '#ffd43b', '#4cc9f0', '#b197fc', '#7bd389', '#ffffff'];
           for (let i = 0; i < 160; i++) {
             fx.spawn({
-              batch: 'bbN', uv: atlas.regions.petal, x: Math.random() * map.width, y: 3 + Math.random() * 2, z: Math.random() * map.height,
-              vx: (Math.random() - 0.5) * 0.6, vy: -0.7 - Math.random() * 0.6, s0: 0.14, s1: 0.12, life: 4 + Math.random() * 2,
-              color: cols[i % cols.length], a0: 1, a1: 0.6, rot: Math.random() * 6, vrot: (Math.random() - 0.5) * 6,
+              batch: 'bbN', uv: atlas.regions.petal, x: evRand() * map.width, y: 3 + evRand() * 2, z: evRand() * map.height,
+              vx: evRand.signed() * 0.6, vy: -0.7 - evRand() * 0.6, s0: 0.14, s1: 0.12, life: 4 + evRand() * 2,
+              color: cols[i % cols.length], a0: 1, a1: 0.6, rot: evRand() * 6, vrot: evRand.signed() * 6,
             });
           }
           screenFlash('#fff3b0', 0.4, 1.5);
@@ -569,8 +582,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // (entrance / exit markers are drawn by the ambient layer, AmbientSystem.drawGates)
   function update(dt) {
     if (disposed) return [];
-    const d = Math.min(0.1, Math.max(0, dt || 0));
-    time += d;
+    // the panel slide runs on real time (a girl can be inspected while the game is paused)
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    clock.tick(dt, nowMs);
+    const d = clock.dt; // visual time: effects, bodies, shake, shaders (0 during a hit-stop)
+    const fd = clock.frameDt; // the frame's own time: board feedback (ghost, rings, buff icons)
+    const time = clock.t;
     const events = sim.drainEvents();
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
@@ -584,22 +601,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.sync(d);
     terrain.update(time);
     actors.drawGround(d);
-    if (attackFx) fxSafe(() => attackFx.update(d));
+    if (attackFx) fxSafe(() => attackFx.update(d, fd));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
     ruleDecals?.update(d, time);
-    overlays.update(d);
+    overlays.update(fd);
     actors.drawOverlay();
-    // the panel slide runs on real time (a girl can be inspected while the game is paused)
-    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const realDt = lastFrameMs ? Math.min(0.1, Math.max(0, (nowMs - lastFrameMs) / 1000)) : 0;
-    lastFrameMs = nowMs;
     keepSelectedInView(nowMs);
-    buffIcons.update(d, { worldPerPx: rig.scale, shortSide: Math.min(rig.viewW || 800, rig.viewH || 800) });
+    buffIcons.update(fd, { worldPerPx: rig.scale, shortSide: Math.min(rig.viewW || 800, rig.viewH || 800) });
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
-    rig.apply(d, realDt);
+    rig.apply(d, clock.realDt);
     fx.update(d);
     for (const b of batchList) b.end();
 
@@ -847,6 +860,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
+    },
+    /**
+     * Extra: hit-stop — holds everything drawn for up to 60 ms of frame time (the battle keeps
+     * running; Reduce Motion: ignored). @returns {number} the freeze left (0 = refused)
+     */
+    hitStop(seconds) {
+      return clock.hitStop(seconds);
+    },
+    /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
+    get visualClock() {
+      return clock.snapshot();
     },
     /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
     setBuffIcons(mode) {

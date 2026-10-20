@@ -5,15 +5,17 @@
 // fireworks) and the bouncing arrows + glowing discs at the spawn / goal gates.
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 
 const TAU = Math.PI * 2;
 const BUTTERFLY_COLORS = ['#ffffff', '#ffe066', '#9fd8ff', '#ffb3cf', '#c4a6ff', '#ffa94d'];
 
 export class AmbientSystem {
   /**
-   * @param {{ map, look, terrain, fx: import('./fx.js').FxSystem, batches, atlas }} o
+   * @param {{ map, look, terrain, fx: import('./fx.js').FxSystem, batches, atlas, rand?: () => number }} o
+   *   rand: the renderer's seeded visual random stream for this layer (default: seeded by the map)
    */
-  constructor({ map, look, terrain, fx, batches, atlas }) {
+  constructor({ map, look, terrain, fx, batches, atlas, rand = null }) {
     this.map = map;
     this.look = look;
     this.terrain = terrain;
@@ -23,7 +25,8 @@ export class AmbientSystem {
     this.time = 0;
     this.density = 1;
     this.enabled = true;
-    this.rand = Math.random;
+    // seeded render-only randomness (src/render/vfx/random.js): the same map gives the same weather
+    this.rand = rand || createVisualRandom(visualSeed('ambient', map.id));
     this.vol = { x0: -2, x1: map.width + 2, z0: -2, z1: map.height + 2 };
     this.weather = look.weather || null;
     this.life = look.life || {};

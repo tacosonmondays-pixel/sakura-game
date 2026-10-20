@@ -25,7 +25,7 @@ export const sango = {
       const p = ctx.spr(ctx.b.bbN, k ? DECOR : CORE, ctx.R.smoke, h.x, h.h + 0.1, h.y, 0.2, 0.5, 0.5, ctx.col('#e8eef2'), 0.75);
       if (p) {
         p.vy = 0.5 + k * 0.2;
-        p.vx = (Math.random() - 0.5) * 0.4;
+        p.vx = (ctx.rand() - 0.5) * 0.4;
         p.vrot = 1;
       }
     }
@@ -49,7 +49,7 @@ export const sango = {
     const r = Math.max(0.4, radius);
     doubleRing(ctx, x, y, r, ctx.col('#e6f6ff'), ctx.col('#1d4e89'));
     waterCrown(ctx, x, y, ctx.quality === 'low' ? 3 : 5, ctx.col('#bfefff'), r * 0.6);
-    if (lookAt(lk, 0) >= 3) decal(ctx, ctx.R.crack, x, y, r * 1.2, r * 1.4, 0.8, ctx.col('#3a3530'), 0.55, Math.random() * 6);
+    if (lookAt(lk, 0) >= 3) decal(ctx, ctx.R.crack, x, y, r * 1.2, r * 1.4, 0.8, ctx.col('#3a3530'), 0.55, ctx.rand() * 6);
     if (lookAt(lk, 1) >= 3) sparks(ctx, x, 0.35, y, 6, ctx.col('#ffd166'), 1.6 + r, CORE);
   },
 };

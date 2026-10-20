@@ -51,7 +51,7 @@ export const kaede = {
     const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, e.x, h, e.z, size * 0.8, size * 1.2, 0.16, c, 1);
     if (p) {
       p.asp = 2;
-      p.rot = (Math.random() - 0.5) * 1.4;
+      p.rot = (ctx.rand() - 0.5) * 1.4;
       p.r = ORANGE[0] + (CRIMSON[0] - ORANGE[0]) * k;
       p.gc = ORANGE[1] + (CRIMSON[1] - ORANGE[1]) * k;
       p.bc = ORANGE[2] + (CRIMSON[2] - ORANGE[2]) * k;

@@ -3,6 +3,7 @@
 // over the renderer's actor views. Nothing here touches the sim.
 import * as THREE from 'three';
 import { QuadPool } from './quadPool.js';
+import { createVisualRandom, visualSeed } from '../vfx/random.js';
 
 /** Quad shed classes (§6 shed order: decor first, then familiars, then motes; core never). */
 export const CORE = 0;
@@ -30,7 +31,8 @@ const PART = {
 };
 
 /**
- * @param {{ sim, actors, fx, batches, atlas, camera, rig, quality, reduceMotion }} o
+ * @param {{ sim, actors, fx, batches, atlas, camera, rig, quality, reduceMotion, rand? }} o
+ *   rand: the renderer's seeded visual random stream for attack FX (src/render/vfx/random.js)
  */
 export function createContext(o) {
   const colors = new Map();
@@ -46,6 +48,8 @@ export function createContext(o) {
     quality: 'medium',
     q: KNOBS.medium,
     reduceMotion: !!o.reduceMotion,
+    /** seeded render-only random numbers [0, 1) — never Math.random, never the sim's rng */
+    rand: o.rand || createVisualRandom(visualSeed('attackFx')),
     /** game seconds since creation (drives every attack-FX motion) */
     time: 0,
     /** real seconds since creation (clip throttle) */

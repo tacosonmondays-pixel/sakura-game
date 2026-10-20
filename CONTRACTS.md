@@ -1134,7 +1134,16 @@ r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
+r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
+r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
 ```
+
+Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
+visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times
+any slow motion; board feedback (ghost, rings, buff icons) runs on the frame's own time and the panel
+slide on wall time. Render code draws its random numbers from seeded render-only streams
+(`src/render/vfx/random.js`, one fork per layer, seeded from the map and stage), never from
+Math.random and never from `sim.rng`, so the same battle on the same frames gives the same picture.
 
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls

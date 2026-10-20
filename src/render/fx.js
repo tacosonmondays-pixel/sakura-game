@@ -2,6 +2,7 @@
 // slashes, death puffs, coin pops, floating numbers, upgrade sparkles. Everything is drawn
 // through the shared quad batches (a handful of draw calls in total).
 import * as THREE from 'three';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
@@ -14,9 +15,10 @@ const SPIN_X = 2; // coin flip: width oscillates
 
 export class FxSystem {
   /**
-   * @param {{ atlas, batches: { groundN, groundA, bbN, bbA, overlay }, camera: THREE.Camera }} o
+   * @param {{ atlas, batches: { groundN, groundA, bbN, bbA, overlay }, camera: THREE.Camera, rand?: () => number }} o
+   *   rand: the renderer's seeded visual random stream for effects (src/render/vfx/random.js)
    */
-  constructor({ atlas, batches, camera }) {
+  constructor({ atlas, batches, camera, rand = null }) {
     this.atlas = atlas;
     this.R = atlas.regions;
     this.b = batches;
@@ -29,7 +31,7 @@ export class FxSystem {
     this.segments = []; // beams / lightning segments
     this.texts = [];
     this.maxTexts = 70;
-    this.rand = Math.random;
+    this.rand = rand || createVisualRandom(visualSeed('fx'));
   }
 
   setQuality(q) {

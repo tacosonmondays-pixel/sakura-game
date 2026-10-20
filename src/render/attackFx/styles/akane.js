@@ -61,7 +61,7 @@ export const akane = {
         const s = ctx.spr(ctx.b.bbA, DECOR, ctx.R.glow, v.x, v.z, v.y, 0.14, 0.03, 0.35, ctx.col('#ff7a3a'), 0.9);
         if (s) {
           s.vy = -0.3;
-          s.vx = (Math.random() - 0.5) * 0.3;
+          s.vx = (ctx.rand() - 0.5) * 0.3;
         }
       }
     }
@@ -78,8 +78,8 @@ export const akane = {
     chrysanthemum(ctx, x, 0.5, y, n, cols, 0.16, 1.4 + radius);
     if (lookAt(lk, 0) >= 3) {
       for (let k = 0; k < 3; k++) {
-        const a = (k / 3) * Math.PI * 2 + Math.random();
-        const r = radius * 0.6 * Math.random();
+        const a = (k / 3) * Math.PI * 2 + ctx.rand();
+        const r = radius * 0.6 * ctx.rand();
         const p = flash(ctx, x + Math.sin(a) * r, 0.4, y + Math.cos(a) * r, 0.5, cols[k], 0.14);
         if (p) p.delay = 0.04 * (k + 1);
       }
