@@ -87,6 +87,22 @@ const idHash = (id) => hashString(String(id)) || 1;
  */
 export const TAG_TITLE_MARK = 'tagt:';
 
+/**
+ * missions.counters 'evt:<titleId>' = 1 while the equipped title is a limited-event exchange title (Pumpkin
+ * Patroller). A build from before that event (v0.1.37 and older) doesn't know the title: like the tag titles above, its
+ * clean-up takes it off and rewrites the 'pfs:title' shadow, but it never touches this prefix, so restoreSensei puts
+ * the title back on (it stays owned through its 'evo:' mark, src/systems/events.js).
+ */
+export const EVENT_TITLE_MARK = 'evt:';
+
+/** The event title the 'evt:' shadow says was equipped, or null. */
+export function shadowedEventTitle(p) {
+  const c = p?.missions?.counters;
+  if (!isObj(c)) return null;
+  const key = Object.keys(c).find((k) => k.startsWith(EVENT_TITLE_MARK) && Number(c[k]) > 0 && TITLES[k.slice(EVENT_TITLE_MARK.length)]?.event);
+  return key ? key.slice(EVENT_TITLE_MARK.length) : null;
+}
+
 /** The tag title the 'tagt:' shadow says was equipped, or null. */
 export function shadowedTagTitle(p) {
   const c = p?.missions?.counters;
@@ -99,10 +115,11 @@ export function shadowedTagTitle(p) {
 export function markSensei(p) {
   if (!isObj(p?.sensei)) return;
   const c = ((p.missions ||= {}).counters ||= {});
-  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK) || k.startsWith(TAG_TITLE_MARK)) delete c[k];
+  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK) || k.startsWith(TAG_TITLE_MARK) || k.startsWith(EVENT_TITLE_MARK)) delete c[k];
   c[`${SENSEI_MARK}v`] = 1;
   const tagKind = TAG_OF_TITLE[p.sensei.title];
   if (tagKind) c[TAG_TITLE_MARK + tagKind] = 1;
+  if (TITLES[p.sensei.title]?.event) c[EVENT_TITLE_MARK + p.sensei.title] = 1;
   for (const k of ONE) if (typeof p.sensei[k] === 'string') c[SENSEI_MARK + k] = idHash(p.sensei[k]);
   for (const [k, [pre]] of Object.entries(LISTS)) {
     (Array.isArray(p.sensei[k]) ? p.sensei[k] : []).forEach((id, i) => { c[`${SENSEI_MARK}${pre}${i}`] = idHash(id); });
@@ -139,15 +156,16 @@ export function senseiFromMarks(p) {
 /**
  * The save's block on load (migrateProfile): the stored block cleaned, else the shadows, else an
  * empty block marked `lost` (M2 restores it from the server card). Writes the shadows again. A tag
- * title an older build took off (no title now, the 'tagt:' shadow still set, the title still owned)
- * is put back on. (Taking it off on purpose in an older build looks the same, and comes back too.)
+ * title or an event title an older build took off (no title now, the 'tagt:' / 'evt:' shadow still
+ * set, the title still owned) is put back on. (Taking it off on purpose in an older build looks the
+ * same, and comes back too.)
  */
 export function restoreSensei(raw, p) {
-  const wornTag = shadowedTagTitle(p);
+  const worn = [shadowedTagTitle(p), shadowedEventTitle(p)].find((id) => id && titleKeepable(p, id)) || null;
   let s;
   if (isObj(raw)) s = cleanSensei(raw, p);
   else s = senseiFromMarks(p) || { ...newSensei(), lost: true };
-  if (s.title == null && wornTag && titleKeepable(p, wornTag)) s.title = wornTag;
+  if (s.title == null && worn) s.title = worn;
   p.sensei = s;
   if (!s.lost || isObj(raw)) markSensei(p);
   return s;
