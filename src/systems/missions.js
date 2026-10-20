@@ -14,6 +14,8 @@ import { hashString } from '../core/rng.js';
 import { addItems, normalizeList } from './inventory.js';
 
 const MISSION_SETS = { daily: DAILY_MISSIONS, weekly: WEEKLY_MISSIONS };
+/** missions.weekly key (wiped with the weekly commissions): this week's 'weeklyDone' was counted. */
+export const WEEKLY_DONE_MARK = 'wd:done';
 
 /** Make sure profile.missions has every field (cheap; called by every entry point). */
 function ensure(profile) {
@@ -129,8 +131,12 @@ export function claimMission(profile, kind, id) {
   m[`${kind}Claimed`].push(id);
   const rewards = addItems(profile, mission.rewards);
   if (kind === 'daily' && DAILY_MISSIONS.every((x) => m.dailyClaimed.includes(x.id))) track(profile, 'dailyDone', 1);
-  // every weekly that is open now (a row still behind its stage does not hold "all claimed" back)
-  if (kind === 'weekly' && WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).every((x) => m.weeklyClaimed.includes(x.id))) track(profile, 'weeklyDone', 1);
+  // every weekly that is open now (a row still behind its stage does not hold "all claimed" back); once a
+  // week: a row that opens mid-week (Club Day after 2-5, Rainbow Hunt after 5-5) never counts the week twice
+  if (kind === 'weekly' && !m.weekly[WEEKLY_DONE_MARK] && WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).every((x) => m.weeklyClaimed.includes(x.id))) {
+    m.weekly[WEEKLY_DONE_MARK] = 1;
+    track(profile, 'weeklyDone', 1);
+  }
   return { ok: true, rewards };
 }
 
