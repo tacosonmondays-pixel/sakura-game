@@ -406,12 +406,17 @@ export function setGearLocked(profile, uid, locked) {
 /** Indices of ✦ lines (kept in place by every substat reroll, a free lock). */
 export const tunedIndices = (g) => (g.subs || []).map((s, i) => (s.tuned ? i : -1)).filter((i) => i >= 0);
 
-/** A Lock Pin is offered only while at least 2 lines still reroll. */
+/**
+ * A Lock Pin on a piece without ✦ works as before ✦ existed (any piece with 2+ lines, Super Rare
+ * included); on a piece with ✦ lines it is offered only while at least 2 lines still reroll.
+ */
 export function canLockPin(g, lockIndex) {
   if (lockIndex == null) return true;
   if (!Number.isInteger(lockIndex) || lockIndex < 0 || lockIndex >= (g.subs?.length || 0)) return false;
   if (g.subs[lockIndex].tuned) return false; // already kept for free
-  return g.subs.length - tunedIndices(g).length - 1 >= 2;
+  const tuned = tunedIndices(g).length;
+  if (!tuned) return g.subs.length >= 2;
+  return g.subs.length - tuned - 1 >= 2;
 }
 
 /**

@@ -166,6 +166,25 @@ describe('rerolls and salvage with ✦ lines', () => {
     expect(new Set(g.subs.map((s) => s.stat)).size).toBe(4);
   });
 
+  it('a Lock Pin still works on a piece without ✦ lines, Super Rare (2 lines) included (F2)', () => {
+    const p = rich();
+    const uid = addGear(p, rollGear(createRng(12), { slot: 'charm', rarity: 'superRare', level: 6 }));
+    const g = p.gear[uid];
+    expect(g.subs).toHaveLength(2);
+    expect(canLockPin(g, 0)).toBe(true);
+    const kept = JSON.stringify(g.subs[0]);
+    const pins = p.items.lock_pin;
+    const r = rerollSubstats(p, uid, createRng(78), { lockIndex: 0 });
+    expect(r.ok).toBe(true);
+    expect(JSON.stringify(g.subs[0])).toBe(kept);
+    expect(p.items.lock_pin).toBe(pins - 1);
+    // a Legendary +10 with one ✦ keeps 3 rerolling lines: a pin on another line leaves 2, still fine
+    const leg = gold10(p, 'shoes', 14);
+    stitchSub(p, leg, 0);
+    expect(canLockPin(p.gear[leg], 1)).toBe(true);
+    expect(canLockPin(p.gear[leg], 0)).toBe(false); // the ✦ line is already kept for free
+  });
+
   it('a main-stat reroll: the player picks the stat; a clashing ✦ line keeps its ▲ and ✦; the name stays Rainbow', () => {
     const p = rich();
     const uid = gold10(p, 'ribbon', 21);
