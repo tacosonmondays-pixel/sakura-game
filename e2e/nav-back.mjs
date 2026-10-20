@@ -15,6 +15,8 @@
 //      arrow lands on that tab
 //   6. shortcuts: Commissions / Tasks / Bounty / Total Assault / Co-op opened straight from the
 //      lobby arrow back to the lobby (opened from Missions: to Missions)
+//   (While a limited event runs, its card takes the event strip's place: then the card opens the
+//   event page, and Bounty on this week's arena comes from the Notice's weekly event, "Go to Bounty".)
 //   7. difficulty: stage prep keeps the difficulty picked there after Quit, the back gesture
 //      mid-battle, and a defeat → Retry → Quit
 //   8. endless: an endless run's Map button and the endless prep's arrow both go to Tactical
@@ -161,6 +163,30 @@ const checked = (page, testid) => page.locator(`#app [data-testid="${testid}"][a
 
 /** Waits for the battle to be playable. */
 const battleReady = (page) => page.waitForFunction(() => window.__battle?.ui?.placement && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 90000, polling: 200 }).then(() => true).catch(() => false);
+
+/**
+ * The lobby's bottom-left EVENT card: the weekly Bounty strip, or, while a limited event runs
+ * (Halloween: Oct 20 – Nov 8), that event's card in its place (src/ui/events/lobby.js). Which one is
+ * there: 'event-strip', 'event-card' or null.
+ */
+const eventEntry = (page) => page.waitForSelector('#app [data-testid="event-strip"], #app [data-testid="event-card"]', { timeout: 20000 })
+  .then((el) => el.getAttribute('data-testid')).catch(() => null);
+
+/**
+ * Opens Bounty on this week's arena from the lobby: the event strip, or (a limited event's card in
+ * its place) the Notice's weekly event article, whose "Go to Bounty" makes the same navigate().
+ * Returns how it got there (for the check messages).
+ */
+async function weeklyBounty(page) {
+  if ((await eventEntry(page)) === 'event-strip') {
+    await tap(page, '#app [data-testid="event-strip"]');
+    return 'the event strip';
+  }
+  await tap(page, '[data-testid="shortcut-notice"]');
+  await tap(page, '.lb-notice-modal [data-testid="notice-event"]');
+  await tap(page, '.lb-notice-modal:not(.closing) .lb-notice-cta button');
+  return 'the Notice\'s weekly event';
+}
 
 /** Ends the running battle as a defeat: one life left, then fast-forward the Sim until a leak. */
 async function loseBattle(page) {
@@ -433,8 +459,8 @@ async function inPlaceFlow() {
   check(await onScreen(P, 'lobby'), `inplace: arrows climb Missions → the lobby (now ${(await where(P)).hash})`);
 
   // bounty: the event strip opens this week's arena; pick another, Prepare, arrow
-  await tap(P, '[data-testid="event-strip"]');
-  check(await onScreen(P, 'bounty', '#/bounty?arena='), `inplace: the event strip opens Bounty on this week's arena (now ${(await where(P)).hash})`);
+  const via = await weeklyBounty(P);
+  check(await onScreen(P, 'bounty', '#/bounty?arena='), `inplace: ${via} opens Bounty on this week's arena (now ${(await where(P)).hash})`);
   const eventArena = new URLSearchParams((await where(P)).hash.split('?')[1]).get('arena');
   const other = await P.evaluate((ev) => [...document.querySelectorAll('#app [data-testid^="arena-"]')].map((b) => b.dataset.testid).find((t) => t !== `arena-${ev}`), eventArena);
   if (check(!!other, `inplace: another arena to pick than ${eventArena}`)) {
@@ -452,7 +478,7 @@ async function inPlaceFlow() {
   }
   // … and Bounty, opened from the lobby, arrows back to the lobby
   await arrow(P);
-  check(await onScreen(P, 'lobby'), `inplace: the arrow on Bounty (opened from the event strip) goes to the lobby (now ${(await where(P)).hash})`);
+  check(await onScreen(P, 'lobby'), `inplace: the arrow on Bounty (opened from ${via}) goes to the lobby (now ${(await where(P)).hash})`);
 
   // mall: the gems shortcut opens the Gem Shop; pick the Recruit Exchange, open a girl, arrow
   await tap(P, '[data-testid="shortcut-gems"]');
@@ -485,7 +511,11 @@ async function shortcutsFlow() {
   };
   await fromLobby('the Commissions dock button', () => tap(S, '[data-testid="dock-commissions"]'), 'commissions');
   await fromLobby('the Tasks shortcut', () => tap(S, '[data-testid="shortcut-tasks"]'), 'commissions');
-  await fromLobby('the event strip', () => tap(S, '[data-testid="event-strip"]'), 'bounty');
+  // the event strip (or, while a limited event runs, its card in the strip's place, and Bounty from the Notice)
+  if ((await eventEntry(S)) === 'event-card') {
+    await fromLobby('the limited event card', () => tap(S, '#app [data-testid="event-card"]'), 'event');
+    await fromLobby('the Notice\'s weekly event', () => weeklyBounty(S), 'bounty');
+  } else await fromLobby('the event strip', () => tap(S, '#app [data-testid="event-strip"]'), 'bounty');
   await fromLobby('the Total Assault shortcut', () => tap(S, '[data-testid="shortcut-assault"]'), 'assault');
   await fromLobby('Menu → Co-op', async () => {
     await tap(S, '[data-testid="top-menu"]');
