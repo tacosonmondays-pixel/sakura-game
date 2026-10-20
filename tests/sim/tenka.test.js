@@ -8,7 +8,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { UNITS as FX, ENEMIES, STAGE, testData } from './fixtures.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { towerResolvedStats } from '../../src/sim/towers.js';
-import { resolveStats } from '../../src/sim/mods.js';
+import { resolveStats, normalizeBase, applyModSet } from '../../src/sim/mods.js';
 import { abilityDef, endAbilityWave } from '../../src/sim/abilities.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -27,15 +27,30 @@ const XE = {
   // the same body as the tank, with heavy plate: Critical Mass ignores it
   plated: { ...ENEMIES.tank, id: 'plated', armor: 50 },
   bigElite: { ...ENEMIES.tank, id: 'bigElite', tier: 'elite' },
+  // the same body again, veiled
+  veilTank: { ...ENEMIES.tank, id: 'veilTank', traits: { veiled: true } },
 };
+const flat = (id) => ({ id, name: id, focus: id, tiers: [1, 2, 3, 4, 5].map((k) => ({ name: `${id}${k}`, cost: 100, desc: id, mods: {} })) });
+/** A fixture girl (the fixture archer: no Veil Sight) whose ⚡ strike is `effect`, unlocked on placement. */
+function blaster(id, effect) {
+  const paths = [flat(`${id}A`), flat(`${id}B`), flat(`${id}C`)];
+  paths[0] = { ...paths[0], ability: { id: `${id}.blast`, path: paths[0].id, kind: 'strike', scope: 'local', unlockTier: 0, cooldown: 30, duration: 0, effect, auto: { when: 'elite' } } };
+  return { ...FX.archer, id, name: id, paths };
+}
+// a 10× blast of 2 tiles on the strongest enemy in range that also slows: at once, and telegraphed
+// (Shiro's queued path). (A hit's damage refuses an enemy it cannot reach by itself, computeHit; the
+// statuses do not, so they show whether the blast itself skipped it.)
+const SLOW = [{ type: 'slow', amount: 0.5, duration: 2 }];
+XU.blaster = blaster('blaster', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, splash: 2, armorPen: 99, status: SLOW });
+XU.lobber = blaster('lobber', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, splash: 2, armorPen: 99, status: SLOW, delay: 0.5 });
 const QUIET = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
 // the test map's road runs along y = 4.5 from x = -1: an enemy at path distance d stands at x = d - 1
 const AT = [8.5, 3.4];
 
-function mk({ options = {}, seed = 5 } = {}) {
+function mk({ options = {}, seed = 5, more = [] } = {}) {
   const sim = new Sim({
     stageId: QUIET.id, difficulty: 'normal', seed, options,
-    loadout: [{ unitId: 'tenka' }, { unitId: 'archer' }],
+    loadout: [{ unitId: 'tenka' }, { unitId: 'archer' }, ...more.map((unitId) => ({ unitId }))],
     data: testData({ stage: QUIET, units: XU, enemies: XE }),
   });
   sim.cash = 1e9;
@@ -60,6 +75,13 @@ function park(sim, id, x, o = {}) {
   const e = sim.spawnEnemy(id, { dist: x + 1, ...o });
   e.baseSpeed = 0;
   e.speed = 0;
+  return e;
+}
+/** An enemy standing still inside a short tunnel on the road at x (hidden: nothing can see or reach it). */
+function inTunnel(sim, id, x) {
+  sim.pathData[0].tunnels = [[x + 1 - 0.2, x + 1 + 0.2]];
+  const e = park(sim, id, x);
+  expect(e.hidden).toBe(true);
   return e;
 }
 const steps = (sim, n) => { for (let i = 0; i < n; i++) sim.update(1 / 60); };
@@ -147,6 +169,90 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     expect(t.abilMods).toBe(null);
   });
 
+  test('the blast hits only what her spec can reach: an enemy in a tunnel beside the struck one keeps its HP; a veiled one is hit (Veil Sight)', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 3, 0]);
+    expect(t.eff.detection).toBe(true);
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    const tunnel = inTunnel(sim, 'tank', 9.5); // 1 tile from it (the enemy grid keeps hidden enemies)
+    const veiled = park(sim, 'veilTank', 7.5); // 1 tile from it, veiled
+    t.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    expect(sim.grid.query(strong.x, strong.y, 2, [])).toContain(tunnel);
+    const hp = [tunnel.hp, veiled.hp];
+    const struckUids = [];
+    const hit = sim._hit;
+    sim._hit = function spy(e, tower, spec, scale) {
+      if (tower === t) struckUids.push(e.uid);
+      return hit.call(this, e, tower, spec, scale);
+    };
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    sim._hit = hit;
+    // the blast never reaches into the tunnel (not even a refused hit)
+    expect(struckUids.sort()).toEqual([strong.uid, veiled.uid].sort());
+    const struck = strong.maxHp - strong.hp;
+    expect(struck).toBeGreaterThanOrEqual(40 * t.eff.damage);
+    expect(tunnel.hp).toBe(hp[0]);
+    expect(hp[1] - veiled.hp).toBe(struck);
+  });
+
+  test('without Veil Sight the blast leaves a veiled enemy alone (a fixture strike with splash, no detection)', () => {
+    const sim = mk({ more: ['blaster'] });
+    const g = sim.placeTower('blaster', ...AT);
+    expect(g.abil).toMatchObject({ id: 'blaster.blast' });
+    expect(g.eff.detection).toBe(false);
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    const veiled = park(sim, 'veilTank', 9.5); // 1 tile from it
+    const near = park(sim, 'tank', 7.5); // 1 tile from it, plain
+    const tunnel = inTunnel(sim, 'tank', 9.0);
+    g.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    const hp = [veiled.hp, near.hp, tunnel.hp];
+    expect(sim.castAbility(g.uid).ok).toBe(true);
+    const struck = strong.maxHp - strong.hp;
+    expect(struck).toBeGreaterThanOrEqual(10 * g.eff.damage);
+    expect(hp[1] - near.hp).toBe(struck);
+    expect([veiled.hp, tunnel.hp]).toEqual([hp[0], hp[2]]);
+    // the blast's slow lands on the struck enemy and its plain neighbour only
+    expect([strong, near, veiled, tunnel].map((e) => e.statuses.slow?.amount ?? 0)).toEqual([0.5, 0.5, 0, 0]);
+  });
+
+  test('a telegraphed strike (delay) with splash blasts when it lands: the queued path is the same blast', () => {
+    const sim = mk({ more: ['lobber'] });
+    const g = sim.placeTower('lobber', ...AT);
+    expect(g.abil).toMatchObject({ id: 'lobber.blast' });
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    const near = park(sim, 'tank', 9.7); // 1.2 tiles from it
+    const tunnel = inTunnel(sim, 'tank', 7.5); // 1 tile from it
+    const out = park(sim, 'tank', 11.2); // in her range, 2.7 tiles from it
+    g.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    const dmg = 10 * g.eff.damage;
+    const calls = [];
+    const hit = sim._hit;
+    sim._hit = function spy(e, tower, spec, scale) {
+      if (tower === g && spec.damage === dmg) calls.push([e.uid, spec.armorPen, scale]);
+      return hit.call(this, e, tower, spec, scale);
+    };
+    expect(sim.castAbility(g.uid).ok).toBe(true);
+    let ev = sim.drainEvents();
+    expect(ev.find((x) => x.type === 'abilityWarn')).toMatchObject({ towerUid: g.uid, delay: 0.5, targets: [strong.uid] });
+    expect(calls).toEqual([]);
+    steps(sim, 45);
+    sim._hit = hit;
+    ev = sim.drainEvents();
+    // the struck enemy first, then its blast; never the one in the tunnel or the one outside it
+    expect(calls[0]).toEqual([strong.uid, g.eff.armorPen + 99, 1]);
+    expect(calls.map((c) => c[0]).sort()).toEqual([strong.uid, near.uid].sort());
+    for (const c of calls) expect([c[1], c[2]]).toEqual([g.eff.armorPen + 99, 1]);
+    expect(ev.some((x) => x.type === 'explode' && x.radius === 2 && x.x === strong.x)).toBe(true);
+    expect([tunnel.hidden, tunnel.hp]).toEqual([true, tunnel.maxHp]);
+    expect([strong, near, tunnel, out].map((e) => (e.statuses.slow ? 1 : 0))).toEqual([1, 1, 0, 0]);
+  });
+
   test('nothing in her range: refused noTarget and nothing spent', () => {
     const sim = mk();
     const t = tenkaAt(sim, [0, 3, 0]);
@@ -228,8 +334,11 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
     wave(sim);
     t.abil.cd = 0;
     expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(t.abilMods).toEqual({ rateMul: 2 });
     expect(sim.sellTower(t.uid)).toBeTruthy();
     expect(sim.towers.includes(t)).toBe(false);
+    // the sale ends the cast and drops the tail ModSet on the spot (clearAbilityEffects)
+    expect([t.abil.active, t.abilMods, sim._abilOn]).toEqual([0, null, 0]);
     steps(sim, 400);
   });
 });
@@ -247,6 +356,29 @@ describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour
     steps(sim, 120);
     expect(sim.towers.includes(archer)).toBe(true);
     expect(t.damageDealt).toBeGreaterThan(0);
+  });
+
+  test('every Joint Research and Singularity tier resolves its key, the strongest value per field (T1 and T2 read these)', () => {
+    const at = (tiers) => resolveStats(TENKA, { tiers });
+    expect('lab' in at([2, 2, 0])).toBe(false);
+    expect(at([3, 2, 0]).lab).toEqual({ rounds: 1, power: 1 });
+    expect(at([4, 2, 0]).lab).toEqual({ rounds: 1, power: 1.5 }); // Grand Lab keeps Joint Research's round
+    expect(at([5, 2, 0]).lab).toEqual({ rounds: 2, power: 3 });
+    expect('well' in at([0, 2, 2])).toBe(false);
+    expect(at([0, 2, 3]).well).toEqual({ every: 8, time: 4, radius: 1.5, pull: 1.2, slow: 0.3, vuln: 0 });
+    expect(at([0, 2, 4]).well).toEqual({ every: 8, time: 6, radius: 2, pull: 1.2, slow: 0.3, vuln: 0.2 }); // Deep Well keeps the cadence, pull and slow
+    expect('lastLine' in at([0, 2, 4])).toBe(false);
+    expect(at([0, 2, 5]).well).toEqual(at([0, 2, 4]).well);
+    expect(at([0, 2, 5]).lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
+    // the rule itself, on ModSets in a falling order (none of her tiers does that today): max per field, not last-wins
+    const acc = { damageAdd: 0, damageMul: 1 };
+    const s = normalizeBase({ lab: { rounds: 1 }, well: { every: 8, time: 6, radius: 2 } });
+    expect(s.lab).toEqual({ rounds: 1, power: 1 });
+    expect(s.well).toEqual({ every: 8, time: 6, radius: 2, pull: 0, slow: 0, vuln: 0 });
+    applyModSet(s, { lab: { rounds: 2, power: 3 }, well: { time: 8, pull: 1, vuln: 0.3 } }, acc);
+    applyModSet(s, { lab: { power: 1.5 }, well: { every: 4, time: 4, radius: 1, vuln: 0.1 } }, acc);
+    expect(s.lab).toEqual({ rounds: 2, power: 3 });
+    expect(s.well).toEqual({ every: 8, time: 8, radius: 2, pull: 1, slow: 0, vuln: 0.3 });
   });
 
   test('Singularity carries its well and Last Line numbers and opens nothing: the run is the same as without them', () => {

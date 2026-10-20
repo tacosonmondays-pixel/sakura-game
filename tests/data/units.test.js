@@ -403,15 +403,22 @@ describe('upgrade paths', () => {
 
   it('every tier 3+ changes behaviour, not just numbers', () => {
     const PLAIN = ['damage', 'damageMul', 'rateMul', 'range', 'projectileSpeed'];
+    const viaAbility = [];
     for (const u of UNITS) {
       for (const t of allTiers(u)) {
         if (t.tierNumber < 3) continue;
-        // the ⚡ path's tier 5 upgrades her ability (⚡+): that is its behaviour change (Tenka's Zero Point)
-        if (t.tierNumber === 5 && u.paths[t.pathIndex].ability?.t5) continue;
         const keys = Object.keys(t.mods);
-        expect(keys.some((k) => !PLAIN.includes(k)), `${u.id}.${t.pathId} t${t.tierNumber} only tweaks numbers`).toBe(true);
+        if (keys.some((k) => !PLAIN.includes(k))) continue;
+        // a plain-numbers tier passes only as the ⚡ path's tier 5 whose ⚡+ brings an effect field her
+        // ability did not have (a new mechanic, not bigger numbers): Tenka's Zero Point boost tail
+        const a = u.paths[t.pathIndex].ability;
+        const added = t.tierNumber === 5 && a?.t5 ? Object.keys(a.t5.effect || {}).filter((k) => !(k in (a.effect || {}))) : [];
+        expect(added.length > 0, `${u.id}.${t.pathId} t${t.tierNumber} only tweaks numbers`).toBe(true);
+        viaAbility.push(`${u.id}.${t.pathId}`);
       }
     }
+    // and only where it was agreed (BUILD_PLAN 6.1): another girl's plain tier 5 needs a deliberate entry here
+    expect(viaAbility).toEqual(['tenka.rails']);
   });
 
   it('objects introduced by upgrades arrive complete (aura range, ramp per+max, mark bonus+duration)', () => {
