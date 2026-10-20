@@ -82,7 +82,7 @@ function stageEntry(profile, stageId) {
 function splitDrops(profile, drops) {
   const items = drops.filter((d) => !d.gear);
   const gear = drops.filter((d) => d.gear).map((d) => {
-    const uid = addGear(profile, d.gear);
+    const uid = addGear(profile, d.gear, { club: 'random' }); // a Mythic+ drop joins a random Academy Club
     return profile.gear[uid];
   });
   return { items, gear };

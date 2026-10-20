@@ -85,7 +85,7 @@ const onlyKeys = (o, keys) => Object.keys(o).every((k) => keys.includes(k));
 const num = (v, lo, hi, whole) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi && (!whole || Number.isInteger(v));
 const optId = (v, re) => v === undefined || v === null || (typeof v === 'string' && re.test(v));
 /** SQL profile_stat_ok(p, p_ups): [stat, value] — or [stat, value, upgrades 0–9] for a substat. */
-const statOk = (s, ups = false) => Array.isArray(s) && (s.length === 2 || (ups && s.length === 3)) && (s.length === 2 || num(s[2], 0, 9, true))
+const statOk = (s, ups = false) => Array.isArray(s) && (s.length === 2 || (ups && (s.length === 3 || s.length === 4))) && (s.length === 2 || num(s[2], 0, 9, true)) && (s.length < 4 || num(s[3], 0, 3, true))
   && typeof s[0] === 'string' && STAT_RE.test(s[0]) && num(s[1], 0, 100000, false);
 const subOk = (s) => statOk(s, true);
 /** SQL profile_counts_ok. */
@@ -105,7 +105,7 @@ export function validCard(c) {
       if (u.g !== undefined) {
         if (!Array.isArray(u.g) || u.g.length > GEAR_MAX || !distinct(u.g.map((g) => g?.s))) return false;
         for (const g of u.g) {
-          if (!isObj(g) || !onlyKeys(g, ['s', 'r', 'l', 'm', 'x']) || typeof g.s !== 'string' || !/^[a-z]{1,12}$/.test(g.s)) return false;
+          if (!isObj(g) || !onlyKeys(g, ['s', 'r', 'l', 'm', 'x', 'c']) || ('c' in g && !num(g.c, 0, 15, true)) || typeof g.s !== 'string' || !/^[a-z]{1,12}$/.test(g.s)) return false;
           if (typeof g.r !== 'string' || !/^[a-zA-Z]{1,12}$/.test(g.r) || !num(g.l, 0, 99, true) || !statOk(g.m)) return false;
           if (g.x !== undefined && (!Array.isArray(g.x) || g.x.length > SUBS_MAX || !g.x.every(subOk))) return false;
         }

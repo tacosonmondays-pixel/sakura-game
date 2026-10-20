@@ -9,7 +9,10 @@ import { GEAR_SLOTS, GEAR_STATS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, ITEM_
 import { BANNER_MAP, DEFAULT_BANNER, FRAME_IDS, TITLES } from '../data/profileArt.js';
 import { levelCapAt, MAX_BREAKTHROUGH, MAX_AWAKEN } from '../systems/progression.js';
 import { potentialLevel, potentialState, MAX_POTENTIAL } from '../systems/potential.js';
-import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax } from '../systems/gear.js';
+import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax, isUrGear, gearLines, tuneCount } from '../systems/gear.js';
+import { GEAR_STAT_DEFS, NEW_STAT_SLOT } from '../data/gearStats.js';
+import { UR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW } from '../data/gearAwaken.js';
+import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
 import { autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, STAGE_COUNT, UNIT_COUNT } from '../systems/profileTrophies.js';
 import { setSensei, cleanShowcase } from '../systems/senseiSave.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX, GEAR_MAX } from './profileRules.js';
@@ -27,14 +30,28 @@ const clampNum = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? M
 // Publishing
 // ---------------------------------------------------------------------------
 
-function cardGear(p, st) {
+/**
+ * Rainbow UR gear on the card (gear-awaken §9.2): `r: 'ur'`, `l` ≤ 12 and EFFECTIVE values, which today's
+ * server rules already accept. The ✦ marks (a 4th sub element) and the club (gear key `c`) need the
+ * amended rules (supabase/migrations/20261020000000_profile_gear.sql): until those are pasted the card
+ * leaves them out, or the server would refuse the whole card. The coordinator flips this after the paste.
+ */
+export const CARD_GEAR_MARKS = false;
+
+function cardGear(p, st, { marks = CARD_GEAR_MARKS } = {}) {
   const out = [];
   for (const s of SLOTS) {
     const g = st.gear?.[s] && p.gear?.[st.gear[s]];
     if (!g || g.slot !== s || !g.main) continue;
-    const piece = { s, r: g.rarity, l: g.level || 0, m: [g.main.stat, r4(g.main.value)] };
-    const x = (g.subs || []).map((sub) => (sub.upgrades > 0 ? [sub.stat, r4(sub.value), sub.upgrades] : [sub.stat, r4(sub.value)]));
+    const L = gearLines(g);
+    const piece = { s, r: isUrGear(g) ? 'ur' : g.rarity, l: g.level || 0, m: [g.main.stat, r4(L.main.value)] };
+    const x = L.subs.map((sub) => {
+      const t = marks ? (sub.tuned | 0) & 3 : 0;
+      if (t) return [sub.stat, r4(sub.value), sub.upgrades || 0, t];
+      return sub.upgrades > 0 ? [sub.stat, r4(sub.value), sub.upgrades] : [sub.stat, r4(sub.value)];
+    });
     if (x.length) piece.x = x;
+    if (marks && g.club && CLUB_RARITIES.includes(g.rarity)) piece.c = clubIndex(g.club);
     out.push(piece);
   }
   return out;
@@ -86,20 +103,37 @@ function viewGear(list, lv) {
   const out = [];
   const seenSlots = new Set();
   for (const g of list.slice(0, GEAR_MAX)) {
-    if (!isObj(g) || !GEAR_SLOTS[g.s] || seenSlots.has(g.s) || !ITEM_RARITIES[g.r]) continue;
+    // 'ur' is card-only (a UR piece is a Legendary with the `ur` flag in a save)
+    const ur = g?.r === 'ur';
+    if (!isObj(g) || !GEAR_SLOTS[g.s] || seenSlots.has(g.s) || !(ITEM_RARITIES[g.r] || ur)) continue;
     if (!Array.isArray(g.m) || !GEAR_MAIN_STATS[g.s].includes(g.m[0])) continue;
-    const l = whole(g.l, 0, MAX_GEAR_LEVEL);
+    const rarity = ur ? 'legendary' : g.r;
+    const scale = ur ? 'ur' : g.r;
+    const l = ur ? whole(g.l, MAX_GEAR_LEVEL, UR_MAX_LEVEL, MAX_GEAR_LEVEL) : whole(g.l, 0, MAX_GEAR_LEVEL);
     const mainStat = g.m[0];
-    const piece = { s: g.s, r: g.r, l, m: [mainStat, clampNum(g.m[1], 0, mainStatMax(mainStat, g.r, l))] };
+    const piece = { s: g.s, r: g.r, l, m: [mainStat, clampNum(g.m[1], 0, mainStatMax(mainStat, scale, l))] };
+    const club = whole(g.c, 0, 15, 0);
+    const clubId = club && CLUB_RARITIES.includes(rarity) ? clubAt(club) : null;
+    if (clubId && CLUB_IDS.includes(clubId)) piece.c = clubId;
     const used = new Set([mainStat]);
     const x = [];
     const maxUps = Math.floor(l / SUB_GROWTH_EVERY);
+    let gold = false;
+    let rainbow = false;
     for (const sub of Array.isArray(g.x) ? g.x : []) {
-      if (x.length >= GEAR_SUBSTATS_BY_RARITY[g.r]) break;
-      if (!Array.isArray(sub) || !GEAR_STATS[sub[0]] || used.has(sub[0])) continue;
+      if (x.length >= GEAR_SUBSTATS_BY_RARITY[rarity]) break;
+      if (!Array.isArray(sub) || !GEAR_STAT_DEFS[sub[0]] || used.has(sub[0])) continue;
+      if (NEW_STAT_SLOT[sub[0]] && NEW_STAT_SLOT[sub[0]] !== g.s) continue;
       used.add(sub[0]);
       const ups = whole(sub[2], 0, maxUps, 0);
-      x.push([sub[0], clampNum(sub[1], 0, substatMax(sub[0], g.r, ups)), ups]);
+      // ✦ marks: ≤ 1 gold per piece (Legendary at +10 or UR), ≤ 1 rainbow per piece (UR only)
+      let t = whole(sub[3], 0, 3, 0);
+      if (t & TUNE_GOLD && (gold || !(ur || (rarity === 'legendary' && l >= MAX_GEAR_LEVEL)))) t &= ~TUNE_GOLD;
+      if (t & TUNE_RAINBOW && (rainbow || !ur)) t &= ~TUNE_RAINBOW;
+      if (t & TUNE_GOLD) gold = true;
+      if (t & TUNE_RAINBOW) rainbow = true;
+      const val = clampNum(sub[1], 0, substatMax(sub[0], scale, ups + tuneCount(t)));
+      x.push(t ? [sub[0], val, ups, t] : [sub[0], val, ups]);
     }
     if (x.length) piece.x = x;
     seenSlots.add(g.s);
@@ -178,9 +212,12 @@ export function snapshotToMiniProfile(u) {
   for (const g of u.g || []) {
     const uid = `snap:${u.id}:${g.s}`;
     slots[g.s] = uid;
+    // card values are already effective: a UR card piece is `urCard` (never `ur`, which would read ×8/7 twice)
     gear[uid] = {
-      uid, slot: g.s, rarity: g.r, level: g.l, main: { stat: g.m[0], value: g.m[1] },
-      subs: (g.x || []).map(([stat, value, ups = 0]) => ({ stat, value, upgrades: ups })), locked: false, equippedBy: u.id, name: '',
+      uid, slot: g.s, rarity: g.r === 'ur' ? 'legendary' : g.r, level: g.l, main: { stat: g.m[0], value: g.m[1] },
+      subs: (g.x || []).map(([stat, value, ups = 0, tuned = 0]) => ({ stat, value, upgrades: ups, ...(tuned ? { tuned } : {}) })), locked: false, equippedBy: u.id, name: '',
+      ...(g.r === 'ur' ? { urCard: true } : {}),
+      ...(g.c ? { club: g.c } : {}),
     };
   }
   return {
