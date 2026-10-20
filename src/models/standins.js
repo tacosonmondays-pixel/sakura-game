@@ -15,7 +15,7 @@
 // Plain data, no three.js import (tests/data can read it cheaply).
 
 /** Unit ids (= model asset keys) that are deliberately procedural stand-ins. */
-export const STANDIN_UNITS = Object.freeze(['kanna', 'yoriko', 'seiran', 'ruri', 'ena']);
+export const STANDIN_UNITS = Object.freeze(['kanna', 'yoriko', 'seiran', 'ruri']);
 
 const STANDIN_SET = new Set(STANDIN_UNITS);
 

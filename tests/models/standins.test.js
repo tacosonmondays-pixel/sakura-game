@@ -9,7 +9,7 @@ import { SKINS } from '../../src/data/skins.js';
 
 // the returning girls still drawn procedurally (noa and hana have their Meshy GLB since the art wave; the girls with
 // a temporary Blender chibi have theirs from tools/blender, docs/MODELS.md)
-const RETURNING = ['kanna', 'yoriko', 'seiran', 'ruri', 'ena'];
+const RETURNING = ['kanna', 'yoriko', 'seiran', 'ruri'];
 
 function vertexCount(group) {
   let n = 0;
@@ -38,7 +38,7 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !RETURNING.includes(u.id));
-    expect(others).toHaveLength(23);
+    expect(others).toHaveLength(24);
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });

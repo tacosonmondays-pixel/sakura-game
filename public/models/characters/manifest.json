@@ -50,6 +50,23 @@
   "lodSize": 192944,
   "lodVertices": 2624
  },
+ "ena": {
+  "file": "ena.glb",
+  "size": 485084,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10550,
+  "lod": "ena.lod.glb",
+  "lodSize": 240076,
+  "lodVertices": 3737
+ },
  "future-hiiro": {
   "file": "future-hiiro.glb",
   "size": 410736,
