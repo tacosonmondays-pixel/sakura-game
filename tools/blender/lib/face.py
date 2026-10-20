@@ -27,7 +27,12 @@ def build_atlas(unit, cell_px=256, eye_v=0.40):
     base_eyes = look.get('eyeStyle', 'round')
     expr = look.get('expression', 'smile')
     spec = dict(eyes=pal.get('eyes', '#4a7fd0'), skin=pal.get('skin', '#ffe4d6'), hair=pal.get('hair', '#8a6a5a'),
-                hairShade=pal.get('hairShade', '#5a4038'), adult=adult, eye_v=eye_v, soft_face=bool(look.get('softFace')))
+                hairShade=pal.get('hairShade', '#5a4038'), adult=adult, eye_v=eye_v, soft_face=bool(look.get('softFace')),
+                # opt-in battle-camera tuning (tools-only look overrides; None = the shared default): lidDip / lidLift
+                # set the upper lash line's inner-end drop and outer-end lift (eye-height fractions), lidShade scales
+                # the lid shadow, browWidth the brow stroke (eye-width fraction), browTone the brow colour (a hair mid tone)
+                lid_dip=look.get('lidDip'), lid_lift=look.get('lidLift'), lid_shade=look.get('lidShade'),
+                brow_width=look.get('browWidth'), brow_tone=look.get('browTone'))
     brow = look.get('brows') or expr  # optional brow shape for the resting cells (default: the expression's)
     cells = {
         'idle': dict(eyes='closed' if base_eyes == 'closed' else base_eyes, mouth=expr, blush=expr, brows=brow),
@@ -69,7 +74,7 @@ def draw_cell(px, spec, cell):
                 kind = 'closed'
         if kind in ('round', 'sharp', 'sleepy', 'sparkle'):
             eye(img, cx, cy, ew, eh, side, spec['eyes'], lash, kind, adult, small=cell.get('small_iris', False), focus=cell.get('focus', False),
-                gentle=spec.get('soft_face', False))
+                gentle=spec.get('soft_face', False), lid=(spec.get('lid_dip'), spec.get('lid_lift'), spec.get('lid_shade')))
         elif kind == 'blink':
             arc_eye(d, cx, cy + eh * 0.1, ew, lash, 'down', S)
         elif kind == 'closed':
@@ -83,9 +88,13 @@ def draw_cell(px, spec, cell):
     if spec.get('soft_face'):
         # look.softFace (tools-only override): thinner brows in a mid hair tone, a touch higher, for a girl whose
         # bangs are raised so the brows show (the default dark stroke reads stern at chibi size); see eye() too
-        brows(d, S, eye_cy - 0.212, eye_dx, ew, lash_color=mix(spec['hair'], spec['hairShade'], 0.55), kind=cell.get('brows', 'smile'), width=0.058)
+        brows(d, S, eye_cy - 0.212, eye_dx, ew, lash_color=mix(spec['hair'], spec['hairShade'], 0.55), kind=cell.get('brows', 'smile'),
+              width=spec.get('brow_width') or 0.058)
     else:
-        brows(d, S, eye_cy - 0.20, eye_dx, ew, lash_color=mix(spec['hairShade'], lash, 0.45), kind=cell.get('brows', 'smile'))
+        # look.browTone (opt-in): brows in a hair mid tone (mix of hair and hairShade) instead of the dark lash mix
+        tone = spec.get('brow_tone')
+        bc = mix(spec['hairShade'], lash, 0.45) if tone is None else mix(spec['hair'], spec['hairShade'], float(tone))
+        brows(d, S, eye_cy - 0.20, eye_dx, ew, lash_color=bc, kind=cell.get('brows', 'smile'), width=spec.get('brow_width') or 0.085)
     mouth(d, S, 0.5, eye_cy + 0.185, cell['mouth'], mix(lash, '#b03a4a', 0.5), adult)
     return img.resize((px, px), Image.LANCZOS)
 
@@ -124,7 +133,7 @@ def _vgrad(size, y0, y1, c0, c1):
     return Image.fromarray(np.dstack([arr, np.full((size, size), 255, np.uint8)]), 'RGBA')
 
 
-def eye(img, cx, cy, w, h, side, color, lash, style, adult, small=False, focus=False, gentle=False):
+def eye(img, cx, cy, w, h, side, color, lash, style, adult, small=False, focus=False, gentle=False, lid=(None, None, None)):
     S = img.size[0]
     o = side
     sharp = style == 'sharp' or focus
@@ -137,6 +146,14 @@ def eye(img, cx, cy, w, h, side, color, lash, style, adult, small=False, focus=F
     if gentle and not sharp:
         # softFace: the outer corner sits a little lower and the inner end of the lash line dips less (rounder, kinder)
         lift, dip = -hh * 0.06, 0.11
+    lid_dip, lid_lift, lid_shade = lid
+    if not sharp:
+        # look.lidDip / lidLift (opt-in): seen from the 48 deg battle camera the curved head drops the inner end of
+        # each lash line towards the nose, so a level line reads as a glare there; a girl can raise it here
+        if lid_dip is not None:
+            dip = float(lid_dip)
+        if lid_lift is not None:
+            lift = hh * float(lid_lift)
     # eye white shape (rounder bottom, flatter top), outer corner = +o side
     outline = (_bez((cx - w * 0.5 * o, top + hh * 0.22), (cx - w * 0.25 * o, top + hh * 0.04), (cx + w * 0.25 * o, top + hh * 0.02 - lift), (cx + w * 0.5 * o, top + hh * 0.14 - lift))
                + _bez((cx + w * 0.5 * o, top + hh * 0.12 - lift), (cx + w * 0.62 * o, cy + hh * 0.25), (cx + w * 0.3 * o, bot + hh * 0.02), (cx, bot))
@@ -170,7 +187,7 @@ def eye(img, cx, cy, w, h, side, color, lash, style, adult, small=False, focus=F
     shd = ImageDraw.Draw(sh)
     steps = 48
     for i in range(steps):
-        a = int(150 * (1 - i / steps) ** 1.5)
+        a = int(150 * (1.0 if lid_shade is None else float(lid_shade)) * (1 - i / steps) ** 1.5)
         shd.rectangle((cx - w, top + hh * 0.42 * i / steps, cx + w, top + hh * 0.42 * (i + 1) / steps + 1), fill=a)
     sh = Image.fromarray(np.minimum(np.array(sh), np.array(white)))
     img.paste(Image.new('RGBA', (S, S), (40, 24, 56, 255)), (0, 0), sh)
@@ -312,6 +329,11 @@ def brows(d, S, by, dx, ew, lash_color, kind, width=0.085):
             # the curved head bends level brows down towards the nose (a scowl); this reads friendly there and gentle
             # from the front
             inner, outer = -0.045, 0.012
+        elif kind == 'tare':
+            # opt-in (look.brows='tare'): inner ends well up, outer ends a touch down. From the front it reads gentle
+            # (a little worried); from the 48 deg battle camera, where the head's curve bends brows into a V, it reads
+            # about level
+            inner, outer = -0.09, 0.028
         pts = _bez((cx - side * ew * 0.42, y + inner * S), (cx - side * ew * 0.1, y - ew * 0.12 + (inner + outer) * 0.5 * S), (cx + side * ew * 0.2, y - ew * 0.10 + outer * S), (cx + side * ew * 0.5, y + outer * S + ew * 0.04))
         _stroke(d, pts, lash_color, ew * width, taper=True)
 

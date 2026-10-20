@@ -48,35 +48,42 @@ HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
 # change. They hold the temporary cage chibis of the six returning girls, matched to their painted portraits, until
 # their Meshy figures replace them. PALETTE_OVERRIDES may also set the extra colour keys a library part reads
 # (legwear, trim, tie, horn, skirt, vest...). A unit without an entry builds exactly as before.
-# brows='soft' (lib/face.py) raises the inner brow ends: from the 48 deg battle camera the curved head bends level
-# brows into a V, so all six read stern without it.
+# Face at 48 deg (critic round 2): from the battle camera the curved head bends level brows and lash lines into a V,
+# so all six read stern with the shared face. They share BATTLE_FACE (lib/face.py opt-ins: brows 'tare' with inner
+# ends well up, a lash line whose inner end does not dip and whose outer end sits a touch low, a lighter lid shadow,
+# thinner brows), a chin-up of 20-22 deg and bangs ending higher; Kanna and Yoriko get round eyes (their unit looks
+# say 'sharp' / 'sleepy', which glared or looked bored from above), and the girls whose brows used the dark lash mix
+# get them in a hair mid tone (browTone).
+BATTLE_FACE = dict(brows='tare', lidDip=0.0, lidLift=-0.08, lidShade=0.5, browWidth=0.05)
 LOOK_OVERRIDES = dict(
     # Fuu (portrait, Oct 20): milk-chocolate twintails set high with mint ribbon bows, a gold leaf clip, an open mint
     # hooded track jacket with gold piping over a white sailor blouse, a big turbine fan
     fuu=dict(accessory='leafClip', outfit='trackJacket', weapon='turbineFan',
              tailEl=36, tailAz=106, tailLen=0.82, tailR=0.044, tailOut=0.11, tailCurl=0.045,
-             bangRaise=3, chinUp=12, softFace=True, brows='soft'),
+             bangRaise=10, chinUp=20, softFace=True, **BATTLE_FACE),
     # Iroha (portrait): plum-black bob with two high buns + a round silver ornament on the left bun, blunt fringe,
     # charcoal sailor top + plum scarf under a long open dusky-plum cardigan, black tights, loafers
-    iroha=dict(hairStyle='bunsBob', bangs='blunt', accessory='mirrorOrnament', outfit='sailorCardigan', eyeStyle='round', brows='soft',
-               chinUp=14, chinSplit=(0.6, 0.4)),
+    iroha=dict(hairStyle='bunsBob', bangs='blunt', accessory='mirrorOrnament', outfit='sailorCardigan', eyeStyle='round', **BATTLE_FACE,
+               bangRaise=8, browTone=0.55, chinUp=20, chinSplit=(0.6, 0.4)),
     # Ena (portrait): dusty rose-pink layers + ONE thick braid over her left shoulder with a crimson rose and ribbon,
     # black blazer piped in crimson over a long black cardigan, crimson tie, red tartan skirt, black tights,
     # loafers; a fan of pearl holo cards in her right hand, one card + a wrist dealer and red threads on the left;
     # halo 'crescent' (the quad-band moon): the unit's shared 'moon' renders as a magenta blob on her crown at 48 deg
     ena=dict(hairStyle='sideBraid', accessory='rose', outfit='blazerCardigan', weapon='roseCards', eyeStyle='round', softFace=True,
-             halo='crescent', brows='soft',
-             chinUp=12, holdPose={'upper_arm_R': (-32, 0, -16), 'forearm_R': (-52, 0, 0)}, cardLean=36, cardSplay=-14),
+             halo='crescent', **BATTLE_FACE, bangRaise=8,
+             chinUp=20, holdPose={'upper_arm_R': (-32, 0, -16), 'forearm_R': (-52, 0, 0)}, cardLean=36, cardSplay=-14),
     # Kanna (portrait, Oct 20): high coral-rose twin-tails with gold ring cuffs, two tall ivory oni horns, crimson staff
     # track jacket zipped up (black side panels, gold piping, black shirt + ivory tie), black slacks, crimson
     # high-tops, carbon bachi with glowing tips, her festival taiko on a stand beside her (EXTRA_PARTS)
     kanna=dict(outfit='staffTrack', weapon='bachi', tailEl=42, tailAz=86, tailLen=0.95, tailR=0.046, tailOut=0.12,
-               tailCurl=0.05, tailDroop=0.3, tieT=0.35, tieLen=0.008, bangRaise=5, chinUp=16, brows='soft'),
+               tailCurl=0.05, tailDroop=0.3, tieT=0.35, tieLen=0.008, bangRaise=12, chinUp=20, eyeStyle='round', browTone=0.55,
+               **BATTLE_FACE),
     # Yoriko (portrait, Oct 20): lilac high ponytail falling on her right, blunt bangs, a navy cat-ear stage headset
     # with glowing inner ears + mic, an indigo-navy stage frock coat open over a lilac waistcoat (lilac lapels, white
     # shirt, lilac tie, gold edging, long open tails with a lilac lining), navy gloves, trousers and ankle boots, and
     # the marionette rig raised in her left hand: an X control bar, glowing threads and a tiny doll in a school uniform
-    yoriko=dict(accessory='catHeadset', outfit='stageCoat', weapon='marionette', bangRaise=8, chinUp=20, brows='soft',
+    yoriko=dict(accessory='catHeadset', outfit='stageCoat', weapon='marionette', bangRaise=12, chinUp=22, eyeStyle='round',
+                browTone=0.55, **BATTLE_FACE,
                 halo='crescent', ponyS=-1, ponyAz=112, ponyEl=38, ponyLen=1.25, ponyR=0.05, ponyOut=0.18, ponyCurl=0.04, ponyDroop=0.4,
                 sideLen=1.0, sideFlare=0.015, sideWave=0.006,
                 pin=dict(upper_arm_L=(-15, -95, 0), forearm_L=(0, -40, 0))),
@@ -84,8 +91,8 @@ LOOK_OVERRIDES = dict(
     # headset (EXTRA_PARTS), light-blue flight jacket (gold piping, buttons and shoulder boards) over a white shirt +
     # teal tie, steel-blue pleated skirt, blue-grey tights, white flight boots, white storm spear with a glowing
     # ice-cyan blade; laughing grin
-    seiran=dict(outfit='flightJacket', weapon='stormSpear', expression='cheerful', eyeStyle='round', brows='soft',
-                hairLen=1.12, bangRaise=13, chinUp=22),
+    seiran=dict(outfit='flightJacket', weapon='stormSpear', expression='cheerful', eyeStyle='round', **BATTLE_FACE,
+                browTone=0.55, hairLen=1.12, bangRaise=13, chinUp=22),
 )
 PALETTE_OVERRIDES = dict(
     # Fuu: jade eyes, mint jacket + ribbons, mint pleated skirt, pine-green leggings, white high-tops
