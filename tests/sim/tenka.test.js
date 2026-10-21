@@ -31,10 +31,10 @@ const XE = {
   veilTank: { ...ENEMIES.tank, id: 'veilTank', traits: { veiled: true } },
 };
 const flat = (id) => ({ id, name: id, focus: id, tiers: [1, 2, 3, 4, 5].map((k) => ({ name: `${id}${k}`, cost: 100, desc: id, mods: {} })) });
-/** A fixture girl (the fixture archer: no Veil Sight) whose ⚡ strike is `effect`, unlocked on placement. */
-function blaster(id, effect) {
+/** A fixture girl (the fixture archer: no Veil Sight) whose ⚡ strike is `effect` (lasting `duration` s), unlocked on placement. */
+function blaster(id, effect, duration = 0) {
   const paths = [flat(`${id}A`), flat(`${id}B`), flat(`${id}C`)];
-  paths[0] = { ...paths[0], ability: { id: `${id}.blast`, path: paths[0].id, kind: 'strike', scope: 'local', unlockTier: 0, cooldown: 30, duration: 0, effect, auto: { when: 'elite' } } };
+  paths[0] = { ...paths[0], ability: { id: `${id}.blast`, path: paths[0].id, kind: 'strike', scope: 'local', unlockTier: 0, cooldown: 30, duration, effect, auto: { when: 'elite' } } };
   return { ...FX.archer, id, name: id, paths };
 }
 // a 10× blast of 2 tiles on the strongest enemy in range that also slows: at once, and telegraphed
@@ -58,8 +58,15 @@ XU.rampBlaster = {
 };
 // a Catalyst-pick strike (pick 'poisoned') with a 2 s boost tail: no live girl has both
 XU.fizzer = blaster('fizzer', { pick: 'poisoned', reachMul: 1, poisonMul: 1, after: { mods: { rateMul: 2 }, duration: 2 } });
+// strikes with a duration of their own AND a boost tail (no live girl has both): the cast stays active for
+// the longer of the two, not their sum, and the tail rides until `active` runs out
+XU.longTail = blaster('longTail', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, armorPen: 99, after: { mods: { rateMul: 2 }, duration: 6 } }, 2);
+XU.shortTail = blaster('shortTail', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, armorPen: 99, after: { mods: { rateMul: 2 }, duration: 2 } }, 6);
+// a fire blast (the fixture archer as a fire blaster): its explode carries that element and attack type
+XU.flarer = { ...blaster('flarer', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, splash: 2, armorPen: 99 }), element: 'fire', attackType: 'blast' };
 const QUIET = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
-// the test map's road runs along y = 4.5 from x = -1: an enemy at path distance d stands at x = d - 1
+// the test map's road runs along y = 4.5 from x = -0.5: an enemy at path distance d stands at x = d - 0.5
+// (so park(sim, id, x) below stands it at x + 0.5; the distances between parked enemies are as written)
 const AT = [8.5, 3.4];
 
 /** The Sim's arguments (a co-op checkpoint restores into a fresh Sim built from the same ones). */
@@ -87,7 +94,7 @@ function wave(sim) {
   sim._spawnQueue = [];
   sim._spawnIndex = 0;
 }
-/** An enemy standing still at road x (path distance x + 1). */
+/** An enemy standing still on the road at path distance x + 1 (it stands at x + 0.5, see AT). */
 function park(sim, id, x, o = {}) {
   const e = sim.spawnEnemy(id, { dist: x + 1, ...o });
   e.baseSpeed = 0;
@@ -184,7 +191,10 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     const ev = sim.drainEvents();
     const cast = ev.find((x) => x.type === 'ability');
     expect(cast).toMatchObject({ towerUid: t.uid, id: 'tenka.criticalMass', kind: 'strike', targets: [strong.uid] });
-    expect(ev.some((x) => x.type === 'explode' && x.radius === 2 && x.x === strong.x)).toBe(true);
+    // one explode, its whole payload: the FX colours it by element and attack type (BattleRenderer's
+    // fxColor(ev.element, ev.attackType || 'blast')), so her blast draws mystic, not the generic blast colour
+    expect([t.eff.element, t.eff.attackType]).toEqual([null, 'mystic']);
+    expect(ev.filter((x) => x.type === 'explode')).toStrictEqual([{ type: 'explode', x: strong.x, y: strong.y, radius: 2, element: null, attackType: 'mystic' }]);
     expect(t.abil.cd).toBe(t.abil.cdMax);
     expect(t.abil.active).toBe(0); // instant: nothing lasts at tier 3
     expect(t.abilMods).toBe(null);
@@ -236,7 +246,59 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     sim._hit = hit;
     expect(struck).toEqual([lone.uid]);
     expect(tunnel.hp).toBe(tunnel.maxHp);
-    expect(sim.drainEvents().filter((ev) => ev.type === 'explode')).toMatchObject([{ x: lone.x, y: lone.y, radius: 2 }]);
+    expect(sim.drainEvents().filter((ev) => ev.type === 'explode')).toStrictEqual([{ type: 'explode', x: lone.x, y: lone.y, radius: 2, element: null, attackType: 'mystic' }]);
+  });
+
+  test("the explode carries the strike's own element and attack type: a fire blaster's says fire / blast (a fixture)", () => {
+    const sim = mk({ more: ['flarer'] });
+    const g = sim.placeTower('flarer', ...AT);
+    expect([g.eff.element, g.eff.attackType]).toEqual(['fire', 'blast']);
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    g.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    sim.drainEvents();
+    expect(sim.castAbility(g.uid).ok).toBe(true);
+    expect(sim.drainEvents().filter((ev) => ev.type === 'explode')).toStrictEqual([{ type: 'explode', x: strong.x, y: strong.y, radius: 2, element: 'fire', attackType: 'blast' }]);
+  });
+
+  test('the blast reaches past her range: struck near its edge, a neighbour outside her range but inside the blast is hit (0-3-0 and Zero Point 2-5-0)', () => {
+    // [tiers, blast radius, park x of the struck enemy (near the edge of her range: it stands at 11.6 / 12.2),
+    // of the neighbour (out of her range, inside the blast) and of the far one (beyond the blast)]
+    for (const [tiers, r, sx, nx, fx] of [[[0, 3, 0], 2, 11.1, 12.7, 13.3], [[2, 5, 0], 3, 11.7, 14.4, 14.9]]) {
+      const sim = mk();
+      const t = tenkaAt(sim, tiers);
+      wave(sim);
+      const strong = park(sim, 'tank', sx, { hpMul: 3 });
+      const near = park(sim, 'tank', nx);
+      const far = park(sim, 'tank', fx);
+      const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+      const range2 = t.eff.range ** 2;
+      expect(t.eff.range).toBe(tiers[LAB] === 2 ? 4 : 3.4);
+      // the struck one is inside her range, close to its edge; the neighbour is well outside it (more than
+      // a tile past it) and inside the blast; the far one is past the blast
+      expect(d2(strong, t)).toBeLessThan(range2);
+      expect(d2(strong, t)).toBeGreaterThan((t.eff.range - 0.5) ** 2);
+      expect(d2(near, t)).toBeGreaterThan((t.eff.range + 1) ** 2);
+      expect(d2(near, strong)).toBeLessThan(r * r);
+      expect(d2(far, strong)).toBeGreaterThan(r * r);
+      t.abil.cd = 0;
+      sim.grid.rebuild(sim.enemies);
+      const struck = [];
+      const hit = sim._hit;
+      sim._hit = function spy(e, tower, spec, scale) {
+        if (tower === t) struck.push(e.uid);
+        return hit.call(this, e, tower, spec, scale);
+      };
+      sim.drainEvents();
+      expect(sim.castAbility(t.uid).ok).toBe(true);
+      sim._hit = hit;
+      expect(struck, tiers.join('-')).toEqual([strong.uid, near.uid]);
+      expect(lost(strong)).toBe(abilityDef(t).effect.dmgMul * t.eff.damage);
+      expect(lost(near)).toBe(lost(strong));
+      expect(far.hp).toBe(far.maxHp);
+      expect(sim.drainEvents().filter((ev) => ev.type === 'explode')).toStrictEqual([{ type: 'explode', x: strong.x, y: strong.y, radius: r, element: null, attackType: 'mystic' }]);
+    }
   });
 
   test('the blast hits only what her spec can reach: an enemy in a tunnel beside the struck one keeps its HP; a veiled one is hit (Veil Sight)', () => {
@@ -355,7 +417,8 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     expect(calls[0]).toEqual([strong.uid, g.eff.armorPen + 99, 1]);
     expect(calls.map((c) => c[0])).toEqual([strong.uid, near.uid]);
     for (const c of calls) expect([c[1], c[2]]).toEqual([g.eff.armorPen + 99, 1]);
-    expect(ev.some((x) => x.type === 'explode' && x.radius === 2 && x.x === strong.x)).toBe(true);
+    // the queued blast's explode has the same payload as an instant one (the fixture archer shoots pierce)
+    expect(ev.filter((x) => x.type === 'explode')).toStrictEqual([{ type: 'explode', x: strong.x, y: strong.y, radius: 2, element: null, attackType: 'pierce' }]);
     expect([tunnel.hidden, tunnel.hp]).toEqual([true, tunnel.maxHp]);
     expect([strong, near, tunnel, out].map((e) => (e.statuses.slow ? 1 : 0))).toEqual([1, 1, 0, 0]);
   });
@@ -433,7 +496,9 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
     sim.grid.rebuild(sim.enemies);
     const rate = t.eff.rate;
     const hp = far.hp;
+    sim.drainEvents();
     expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(sim.drainEvents().filter((x) => x.type === 'explode')).toStrictEqual([{ type: 'explode', x: strong.x, y: strong.y, radius: 3, element: null, attackType: 'mystic' }]);
     // the same body takes the same blast as the struck one (120 × her 63 damage)
     expect(hp - far.hp).toBe(strong.maxHp - strong.hp);
     expect(hp - far.hp).toBeGreaterThan(0);
@@ -515,6 +580,36 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
     expect(c.eff.rate).toBe(t.eff.rate);
     expect(rederiveStats(copy)).toBe(0);
     expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
+  });
+
+  test('a strike with a duration of its own and a tail stays active for the longer of the two, not their sum, and the tail rides until then (fixtures 2 s + 6 s tail, 6 s + 2 s tail)', () => {
+    for (const [id, own, tail] of [['longTail', 2, 6], ['shortTail', 6, 2]]) {
+      const sim = mk({ more: [id] });
+      const g = sim.placeTower(id, ...AT);
+      const def = abilityDef(g);
+      expect([def.kind, def.duration, def.effect.after.duration]).toEqual(['strike', own, tail]);
+      wave(sim);
+      park(sim, 'tank', 8.5, { hpMul: 3 });
+      g.abil.cd = 0;
+      sim.grid.rebuild(sim.enemies);
+      const rate = g.eff.rate;
+      expect(sim.castAbility(g.uid).ok).toBe(true);
+      // max(2, 6) = 6 s either way (360 steps), never 2 + 6 = 8 s
+      expect(g.abil.active, id).toBe(360);
+      expect(sim.abilityStatus(g.uid)).toMatchObject({ duration: 6, activeLeft: 6 });
+      expect(g.abilMods).toEqual({ rateMul: 2 });
+      expect(rederiveStats(sim)).toBe(0);
+      steps(sim, 359);
+      // shortTail: still on after its own 2 s, because the cast is still active
+      expect(g.abilMods, id).toEqual({ rateMul: 2 });
+      expect(g.eff.rate).toBeCloseTo(rate * 2, 9);
+      sim.drainEvents();
+      steps(sim, 1);
+      expect([g.abil.active, g.abilMods], id).toEqual([0, null]);
+      expect(g.eff.rate).toBeCloseTo(rate, 9);
+      expect(sim.drainEvents().filter((x) => x.type === 'abilityEnd' && x.towerUid === g.uid)).toHaveLength(1);
+      expect(rederiveStats(sim)).toBe(0);
+    }
   });
 
   test("a Catalyst-pick strike's tail starts with the cast as well (a fixture: pick 'poisoned' with `after`)", () => {
@@ -612,6 +707,9 @@ describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour
     expect('lastLine' in at([0, 2, 4])).toBe(false);
     expect(at([0, 2, 5]).well).toEqual(at([0, 2, 4]).well);
     expect(at([0, 2, 5]).lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
+    // her own copy, never the tier's ModSet object (UNITS data is not frozen; T1's zones read this)
+    expect(TENKA.paths[SING].tiers[4].mods.lastLine).toBeTruthy();
+    expect(at([0, 2, 5]).lastLine).not.toBe(TENKA.paths[SING].tiers[4].mods.lastLine);
     // the rule itself, on ModSets in a falling order (none of her tiers does that today): lab and well keep
     // the max per field, not last-wins; lastLine is replaced whole (one Last Line: the later tier's, even
     // where its numbers are smaller; neither the max nor the min per field)

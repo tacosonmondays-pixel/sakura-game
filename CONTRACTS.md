@@ -1039,11 +1039,13 @@ the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `mo
 (econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
 (`sim.abilGroups`, key "owner|id"). A strike with `effect.splash` (any pick but `poisoned`, which detonates
 instead) is a blast: every eligible enemy within `splash` of where the struck one stood (also when the hit
-kills it) takes the same hit (with `fullRamp`, at 1 + ramp.max) × `splashShare` (default 1), in grid order (row
-by row, cell by cell, spawn order inside a cell), and one `explode` event marks it (also when no neighbour was
-there to hit); `effect.after: { mods, duration }` is a boost tail (Tenka's Zero Point; any strike pick, Catalyst's
-too): that ModSet rides on her (`abilMods`) for `duration` s after each cast (`active` counts it down; the wave
-clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
+kills it, and also outside her own range) takes the same hit (with `fullRamp`, at 1 + ramp.max) × `splashShare`
+(default 1), in grid order (row by row, cell by cell, spawn order inside a cell), and one `explode` event marks it
+(`{ x, y, radius: splash, element, attackType }`, the strike's element (or null) and attack type, which the FX
+colours it by; also when no neighbour was there to hit); `effect.after: { mods, duration }` is a boost tail
+(Tenka's Zero Point; any strike pick, Catalyst's too): that ModSet rides on her (`abilMods`) for `duration` s
+after each cast (`active` counts it down: the longer of the ability's own `duration` and the tail's, never their
+sum, and the tail rides until it runs out; the wave clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
 cast, not when its shots land. Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a

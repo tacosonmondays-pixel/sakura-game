@@ -379,6 +379,9 @@ describe('upgrade paths', () => {
   it('named price bands (CONTRACTS §5b): only the powerhouse role has one, and only a girl priced outside the live windows needs it', () => {
     expect(Object.keys(PRICE_BANDS)).toEqual(['powerhouse']);
     for (const role of Object.keys(PRICE_BANDS)) expect(ROLES[role], role).toBeTruthy();
+    // the powerhouse is a damage dealer (CONTRACTS §3, T0): the Students role filter, the role badge colour
+    // and the card theme all read this category
+    expect(ROLES.powerhouse).toMatchObject({ name: 'Powerhouse', category: 'dps' });
     for (const u of towers()) {
       const live = u.base.cost >= LIVE_BASE_COST[0] && u.base.cost <= LIVE_BASE_COST[1]
         && u.paths.every((p) => p.tiers.every((t, i) => t.cost >= TIER_COST[i][0] && t.cost <= TIER_COST[i][1]));
