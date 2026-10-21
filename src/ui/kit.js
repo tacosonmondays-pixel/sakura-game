@@ -23,6 +23,12 @@ export const KIT_SVG = {
     + '</g><circle cx="12" cy="12" r="2.4" fill="#ffd23f"/></svg>',
 };
 
+/** Replaces an element's children, skipping null / false (a plain replaceChildren() would print "null"). */
+export function fillIn(el, ...kids) {
+  el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false && k !== true));
+  return el;
+}
+
 /** A tabular number (`.num`); `size` 's' (chip / button) or 'l' (headline). */
 export const num = (text, size = '') => h(`span.num${size ? `.${size}` : ''}`, String(text));
 /** A caps label (`.lbl`). */
@@ -57,6 +63,7 @@ export function moreSticker(onClick, { testid = null, label = 'More details' } =
 /**
  * The ink strip (§5.2): exactly 3 headline stats + MORE. Only the first number takes the plate accent.
  * @param {{ label: string, value: string, unit?: string|null, title?: string|null, delta?: string|null }[]} cells
+ *   delta: an upgrade preview under the number ("▲ +3%"; a "▼ …" one takes the down colour)
  * @param {{ onMore?: Function|null, testid?: string|null, moreTestid?: string|null }} [o]
  */
 export function statStrip(cells, { onMore = null, testid = null, moreTestid = null } = {}) {
@@ -64,7 +71,7 @@ export function statStrip(cells, { onMore = null, testid = null, moreTestid = nu
     cells.slice(0, 3).map((c, i) => h('div.ui-cell', { title: c.title || null },
       lbl(c.label),
       h(`span.num${i === 0 ? '.acc' : ''}`, c.value, c.unit ? h('small', c.unit) : null),
-      c.delta ? h('span.ui-delta', c.delta) : null)),
+      c.delta ? h(`span.ui-delta${String(c.delta).startsWith('▼') ? '.dn' : ''}`, c.delta) : null)),
     onMore ? h('div.ui-strip-more', moreSticker(onMore, { testid: moreTestid })) : null);
 }
 
