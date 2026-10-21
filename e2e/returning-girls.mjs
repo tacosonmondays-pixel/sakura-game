@@ -4,6 +4,8 @@
 //      and bought to tier 3 with her panel's buy button; Iroha is aimed through aim mode (Set aim →
 //      a tap on the map → her mirror panel moves), then Auto; Seiran levels to 3 and is aimed too.
 //   3. One battle each with Kanna and Yoriko as the hero, levelled to 3 with their ult fired.
+//   4. Catch-up joins: a save that cleared 6-2 and 7-5 before Noa and Hana existed gets both on its
+//      first load (a letter each, one lobby toast); two reloads grant, mail and toast nothing again.
 // Screenshots (girls list, every new girl's page, a battle with several of them) at 844×390 and
 // 1280×720 go to --shots <dir>.
 //
@@ -252,6 +254,58 @@ try {
   }
 
   check(errors.length === 0, `no console errors${errors.length ? `:\n    ${errors.slice(0, 8).join('\n    ')}` : ''}`);
+
+  // 4. Catch-up joins (src/systems/catchUpJoins.js): a save that cleared 6-2 and 7-5 before Noa and
+  //    Hana existed gets both on its first load, with a letter each and one toast on the lobby; the
+  //    reloads after it grant nothing again.
+  log('\n--- catch-up joins: 6-2 and 7-5 cleared before Noa and Hana ---');
+  const { CAMPAIGN_IDS } = await server.ssrLoadModule('/src/data/stages.js');
+  const old = save.createProfile();
+  for (const id of CAMPAIGN_IDS.slice(0, CAMPAIGN_IDS.indexOf('7-5') + 1)) old.progress.stages[id] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+  old.settings = { ...old.settings, autoStart: false };
+  const cuContext = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1 });
+  await cuContext.addInitScript(([key, text]) => {
+    if (!sessionStorage.getItem('cu-e2e-seeded')) {
+      localStorage.setItem(key, text);
+      sessionStorage.setItem('cu-e2e-seeded', '1');
+    }
+    // (the beta-gift celebration is not part of this check)
+    try { sessionStorage.setItem('sakura-beta-gift-shown', '1'); } catch { /* no storage */ }
+  }, [save.SAVE_KEY, JSON.stringify(old)]);
+  const cu = await cuContext.newPage();
+  const cuErrors = [];
+  cu.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) cuErrors.push(`[console] ${m.text()}`); });
+  cu.on('pageerror', (e) => cuErrors.push(`[pageerror] ${e.message}`));
+  const state = () => cu.evaluate(() => {
+    const p = window.__sakura.store.profile;
+    const c = p.missions.counters;
+    return {
+      noa: !!p.units.noa, hana: !!p.units.hana, dupes: (p.units.noa?.dupes || 0) + (p.units.hana?.dupes || 0),
+      marks: [c['join:noa'], c['join:hana']], own: [c['own:noa'], c['own:hana']],
+      letters: p.mail.letters.filter((l) => /^joined-/.test(l.id)).map((l) => l.title),
+    };
+  });
+  await cu.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
+  await cu.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 90000 });
+  const toast = await cu.waitForFunction(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => /joined your academy/.test(t)) || null, null, { timeout: 30000 })
+    .then((hnd) => hnd.jsonValue(), () => null);
+  check(/Noa and Hana joined your academy!/.test(toast || ''), `the lobby toasts their arrival once ("${toast}")`);
+  let s1 = await state();
+  check(s1.noa && s1.hana && s1.dupes === 0, `both joined, no duplicate (${JSON.stringify(s1)})`);
+  check(s1.marks.every((m) => m === 1) && s1.own.every((m) => m >= 1000), `their 'join:' and 'own:' marks are written (${JSON.stringify({ marks: s1.marks, own: s1.own })})`);
+  check(s1.letters.length === 2 && s1.letters.includes('Noa joined your academy!') && s1.letters.includes('Hana joined your academy!'), `a letter each (${s1.letters.join(' | ')})`);
+  await cu.evaluate(() => window.__sakura.store.saveNow());
+  for (let i = 0; i < 2; i++) {
+    await cu.reload({ waitUntil: 'load', timeout: 90000 });
+    await cu.waitForFunction(() => window.__sakura?.store?.profile && document.querySelector('#app')?.dataset.screen === 'lobby', null, { timeout: 90000 });
+    await cu.waitForTimeout(1500);
+    const again = await cu.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /joined your academy/.test(t.textContent)));
+    s1 = await state();
+    check(!again && s1.letters.length === 2 && s1.dupes === 0 && s1.noa && s1.hana, `reload ${i + 1}: nothing granted, toasted or mailed again (${JSON.stringify(s1)})`);
+  }
+  if (shotsDir) await cu.screenshot({ path: `${shotsDir}/catch-up-lobby-844x390.png` }).catch(() => {});
+  check(cuErrors.length === 0, `catch-up: no console errors${cuErrors.length ? `:\n    ${cuErrors.slice(0, 8).join('\n    ')}` : ''}`);
+  await cuContext.close();
 } catch (e) {
   failures.push(`crashed: ${e.stack || e.message}`);
   log(`  FAIL crashed: ${e.stack || e.message}`);
