@@ -209,7 +209,7 @@ Doubles' volleys, drones and pops do not count as her attacks and take no gear P
 | `chain` | +1 jump (carry) | 1 | `attackChain` (`towers.js:467+`) | Raika, Chika's Tesla path |
 | `trap` | trap blast ×(1 + 0.2 × Pierce) | — | trap spec splash (`mods.js:152`) | Suzu |
 | `turret` (drones) | +1 drone pierce (carry `droneCarry` on the owner tower) | 1 | the drone **fire site**, which hard-codes `pierce: 1` (`towers.js:590`; `towers.js:704` on `feature/chika-rework`) and wins over `turretSpec` (`towers.js:161`, `opts.pierce ?? spec.pierce` at `:346`) | Chika |
-| `duel` | nothing: **fills in** (§B) | — | — | Kaede |
+| `duel` | Kaede's blade arts (her AoE rework): +2 targets on every shape of the attack (cleave, crescents, storm, shockwave, maple splash), carry on 2k, at most +4; her strike itself takes none | 1 | `bladeArts` (`src/sim/towers.js`) | Kaede |
 | hero ult, ⚡ abilities | nothing (abilities choose their targets, AB §3) | — | — | — |
 
 - **Cap:** gear Pierce ≤ +150 % in total, club 2-piece included; the part above fills in (§B). Follow-Through sits
@@ -350,7 +350,7 @@ stream" is a situation and gets no fill-in). The card can therefore show the res
 | Sango | Skill Haste (+ ⚡), Armor Pierce, Aura Power | ATK | 14-damage hits + own pen 2: +0–1 % (RS §1.7) |
 | Shiro | Skill Haste (+ ⚡), Range (+ Overwatch aura radius), Armor Pierce, Aura Power (+ Overwatch T5 aura) | ATK | range 10 covers the map; big hits (RS §1.7: Range 0 %, AP ≤ +2 %); T5 Overwatch Network aura `rangeMul 1.1` (`src/data/units.js:917`) |
 | Suzu | Skill Haste (+ ⚡), Crit Rate, Crit DMG, Armor Pierce, Aura Power | ATK | traps never crit (`towers.js:145`); 12+ trap hits (RS §1.7) |
-| Kaede | Skill Haste (+ ⚡), Armor Pierce, Pierce, Aura Power | ATK | duel (§A.3); 10-damage ramping hits (RS §1.7: +1–6 %) |
+| Kaede | Skill Haste (+ ⚡), Armor Pierce, Aura Power | ATK | 10-damage ramping hits (RS §1.7: +1–6 %); Pierce is real since her AoE rework (§A.3 `duel` row) |
 | Chika | Skill Haste (+ ⚡), Aura Power (+ Repair Bay T4+) | ATK | no aura on the base kit |
 | Hotaru | Skill Haste (Firefly Hush is not hasted, §B.4), Aura Power until P2 (+ Guiding Lights) | ATK | P2 Firefly Lamps gives an aura on every path (P3:722) |
 | Miko (aura girl) | ATK, Attack Speed, Crit Rate, Crit DMG, Armor Pierce, Pierce (+ Purification), Skill Haste (Shrine Chorus is not hasted) | aura (M1) | her own shots deal 2 damage; the partner's DPS was identical under every gear variant (RS §1.7 note) |

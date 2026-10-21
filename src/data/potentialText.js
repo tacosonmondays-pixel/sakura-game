@@ -123,8 +123,8 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('LEAF MEM', '+5% damage. When her target falls she keeps half her focus for the next one; switching targets by choice still resets it.', 1.13, 'kaede.memory'),
     t('FOCUS+2%', '+7% attack speed. Her focus builds 2% faster per strike (12 → 14% per hit with her awakening).', 1.09, 'kaede.breeze'),
     t('SCARLET', '+7% damage. Her focus cap rises 30 points (+100 → +130% at tier 0; Crimson Eternity +320 → +350%), and +5% crit chance.', 1.17, 'kaede.scarlet'),
-    t('MAPLEGALE', '+8% attack speed. Every 4th strike also cuts the enemies right beside her target (within 0.1 tiles; an unfocused hit at her plain damage, like her duel splash).', 1.28, 'kaede.gale'),
-    t('ONE FOE', '+9% damage. She deals 20% more to bosses and minibosses (Crimson Eternity ×1.5 → ×1.8). Maple Gale comes every 3rd strike, and the Gale strike on her target hits 50% harder (her focus still counts; the cut beside it stays at her plain damage).', 1.31, 'kaede.onefoe'),
+    t('MAPLEGALE', '+8% attack speed. Her blade arts cut +10% harder: the Maple Cleave, her wind crescents and maple storm, her shockwave and her full-focus maple leaves.', 1.12, 'kaede.gale'),
+    t('ONE FOE', '+9% damage. She deals 20% more to bosses and minibosses (Crimson Eternity ×1.6 → ×1.92). Every 3rd strike is a One Blade strike on her target that hits 50% harder (her focus still counts; her blade arts stay at her plain damage).', 1.31, 'kaede.onefoe'),
   ),
   chika: row(
     t('THROTTLE', '+5% damage (drones and bolt). Every 30 s from when she is placed, her drones fire 50% faster for 4 s.', 1.12, 'chika.throttle'),

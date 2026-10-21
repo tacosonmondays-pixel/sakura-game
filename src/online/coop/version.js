@@ -41,7 +41,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    drinks,sentries,hubs,vines,balls}.js) and the ability core in the sim (castAbility; auto-cast off and
 //    no command casts yet); a client on 6 resolves the same loadout to different battles (or does not
 //    know the girl at all).
-export const COOP_PROTOCOL = 7;
+// 8: v0.1.41 (co-op update #5, set once for it): Marumi's rework (the ricochet Spin Shot path, the lob at
+//    flyers on every path, her damage band, her own lane on a shared road) and Kaede's maple blade arts
+//    (cleave, crescents, storm, shockwave; Pierce on her blade arts); a client on 7 resolves the same
+//    loadout to different battles.
+export const COOP_PROTOCOL = 8;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

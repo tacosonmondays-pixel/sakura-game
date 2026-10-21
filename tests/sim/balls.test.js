@@ -1,11 +1,14 @@
 // Marumi's bowling balls (src/sim/balls.js, UNIT_GAPS §5.9) and her ⚡ Giant Strike (a runner,
-// ABILITIES §5.3): the roll up the road, the blast and its push, travel, Wrecking Ball, Split Pins,
-// Sticky Ball, Lob, Hook Spin and Split Lane, the caps, the wave clear, Giant Strike and determinism.
+// ABILITIES §5.3): the roll up the road, the blast (full on the walker it meets, a share on the rest)
+// and its push, travel, Wrecking Ball, Split Pins, the lob at flyers on every path, Hook Spin, her own
+// lane on a shared stretch, the ricochet (Spin Shot: target choice, bounces per tier, never a flyer or
+// a walker in a tunnel, a blast per hit, the Glow Bowl finale), the panel DPS, the caps, the wave
+// clear, a co-op checkpoint mid-bounce, Giant Strike and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP, BALLS_PER_GIRL } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
-import { addBall, endBallWave } from '../../src/sim/balls.js';
+import { addBall, endBallWave, nextWalker } from '../../src/sim/balls.js';
 import { MAP, MAP2, STAGE, ENEMIES } from './fixtures.js';
 
 const units = defaultData().units;
@@ -76,7 +79,7 @@ describe('rolling balls', () => {
     run(sim, STEP);
     const ball = t.balls[0];
     run(sim, 1.2);
-    expect(ball.hit).toHaveLength(3);
+    expect(ball.hit).toHaveLength(4); // 3 bowled through, the 4th it blew up on
     expect(walkers.every((w, i) => w.hp < hp[i])).toBe(true);
     expect(t.balls).toHaveLength(0);
   });
@@ -92,30 +95,28 @@ describe('rolling balls', () => {
     expect(hp - near.hp).toBeCloseTo(t.pinSpec.damage * 2, 6); // at most 2 pins on one walker
   });
 
-  test('Sticky Ball: an elite carries the ball for 2 s, then it explodes for ×3', () => {
-    const { sim, t } = setup({ tiers: [0, 0, 3] });
-    const el = park(sim, 'elite', 8);
-    el.hp = el.maxHp = 1e6;
-    run(sim, 0.8);
-    const stuck = t.balls.find((b) => b.stuck);
-    expect(stuck?.stuck.uid).toBe(el.uid);
-    t.cooldown = 1e9;
-    const hp = el.hp;
-    run(sim, 2.1);
-    expect(t.balls.some((b) => b === stuck)).toBe(false);
-    expect(hp - el.hp).toBeGreaterThan(t.blastSpec.damage * 2.5);
-  });
-
-  test('Lob: only flyers in range, an arcing bomb that can hit them', () => {
-    const { sim, t } = setup({ tiers: [0, 0, 2] });
+  test('the lob at flyers is her base kit: on every path, half her blast, never while a walker is in reach', () => {
+    for (const tiers of [[0, 0, 0], [5, 0, 2], [2, 5, 0], [2, 0, 5]]) {
+      const { sim, t } = setup({ tiers });
+      expect(t.stats.ball.lob, `${tiers}`).toBe(true);
+      expect(t.lobSpec.damage).toBeCloseTo(t.eff.damage * 0.5, 9);
+      const bat = park(sim, 'bat', 9);
+      bat.hp = bat.maxHp = 1e9;
+      run(sim, 2);
+      expect(bat.hp, `${tiers}`).toBeLessThan(1e9);
+      expect(t.balls ?? []).toHaveLength(0);
+    }
+    // a walker in reach on her lane: she rolls, no lob
+    const { sim, t } = setup();
     const bat = park(sim, 'bat', 9);
+    park(sim, 'tank', 8);
     const hp = bat.hp;
-    run(sim, 2);
-    expect(bat.hp).toBeLessThan(hp);
-    expect(t.balls ?? []).toHaveLength(0);
+    run(sim, STEP);
+    expect(t.balls).toHaveLength(1);
+    expect(bat.hp).toBe(hp);
   });
 
-  test('Hook Spin: an empty own lane sends the ball to the nearest lane with a walker; Split Lane: both lanes', () => {
+  test('Hook Spin: an empty own lane sends the ball to the nearest lane with a walker', () => {
     const plain = setup({ map: MAP2, x: 6.5, y: 4.3 });
     park(plain.sim, 'tank', 6, 1); // only on the far lane (row 6)
     run(plain.sim, 1);
@@ -124,11 +125,41 @@ describe('rolling balls', () => {
     park(hook.sim, 'tank', 6, 1);
     run(hook.sim, STEP);
     expect(hook.t.balls.map((b) => b.pathIndex)).toEqual([1]);
-    const split = setup({ map: MAP2, x: 6.5, y: 4.3, tiers: [0, 0, 4] });
-    park(split.sim, 'tank', 6, 0);
-    park(split.sim, 'tank', 6, 1);
-    run(split.sim, STEP);
-    expect(split.t.balls.map((b) => b.pathIndex).sort()).toEqual([0, 1]);
+  });
+
+  test('the lob is flyers only: a walker on a far lane (no Hook Spin, no flyer) gets no lob', () => {
+    const { sim, t } = setup({ map: MAP2, x: 6.5, y: 4.3 });
+    const e = park(sim, 'tank', 6, 1); // only on the far lane (row 6), in her range
+    const hp = e.hp;
+    let lobs = 0;
+    for (let i = 0; i < Math.round(2 / STEP); i++) {
+      sim._step(STEP);
+      for (const ev of sim.drainEvents()) if (ev.type === 'attack' && ev.towerUid === t.uid) lobs++;
+    }
+    expect(lobs).toBe(0);
+    expect(t.balls ?? []).toHaveLength(0);
+    expect(e.hp).toBe(hp);
+  });
+
+  test('her own lane on a shared stretch: a walker on the other path that shares her road lets her roll (no Hook Spin needed)', () => {
+    const forkMap = { ...MAP, id: 'test-fork-own', paths: [[[-1, 4], [16, 4]], [[-1, 4], [12, 4], [12, 9]]] };
+    const { sim, t } = setup({ map: forkMap, x: 7.5, y: 6.2 });
+    const e = park(sim, 'tank', 7, 1); // path 1, on the shared entrance, up the road from her
+    const hp = e.hp;
+    run(sim, STEP);
+    expect(t.balls?.length).toBe(1);
+    expect(t.balls[0].pathIndex).toBe(1);
+    run(sim, 1.5);
+    expect(e.hp).toBeLessThan(hp);
+  });
+
+  test('the walker the ball meets takes the whole blast, the others in it half', () => {
+    const { sim, t } = setup();
+    t.critChance = 0;
+    const a = park(sim, 'tank', 8);
+    const b = park(sim, 'tank', 7.6);
+    run(sim, 1);
+    expect(a.maxHp - a.hp).toBeCloseTo(2 * (b.maxHp - b.hp), 6);
   });
 
   test('caps: her oldest ball goes first; every ball ends at the wave clear', () => {
@@ -137,6 +168,161 @@ describe('rolling balls', () => {
     expect(t.balls).toHaveLength(BALLS_PER_GIRL);
     endBallWave(sim);
     expect('balls' in t).toBe(false);
+  });
+});
+
+describe('ricochet (Spin Shot)', () => {
+  /** Walkers that never fall, every `gap` tiles up the road from `from`; her blast pushes nothing. */
+  function line(sim, t, n, from = 9.8, gap = 1) {
+    t.blastSpec.knockback = 0;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const e = park(sim, 'tank', from - i * gap);
+      e.hp = e.maxHp = 1e12;
+      out.push(e);
+    }
+    return out;
+  }
+  /** One ball of hers, run until it is gone: its blasts ('ballPop') and her explosions, in order. */
+  function oneBall(sim, t, s = 4) {
+    const pops = [];
+    let explodes = 0;
+    run(sim, STEP);
+    t.cooldown = 1e9;
+    const uid = t.balls[0].uid;
+    for (let i = 0; i < Math.round(s / STEP) && t.balls?.length; i++) {
+      sim._step(STEP);
+      for (const ev of sim.drainEvents()) {
+        if (ev.type === 'ballPop' && ev.uid === uid) pops.push(ev);
+        if (ev.type === 'explode' && ev.towerUid === t.uid) explodes++;
+      }
+    }
+    return { pops, explodes };
+  }
+
+  test('bounces per tier: Hook Spin none, then 1 / 3 / 5 / 8; the finale only at Glow Bowl', () => {
+    const want = [0, 0, 1, 3, 5, 8];
+    for (let k = 0; k <= 5; k++) {
+      const { t } = setup({ tiers: [0, 0, k] });
+      expect(t.stats.ball.bounce, `Spin Shot ${k}`).toBe(want[k]);
+      expect(t.stats.ball.finish > 0, `Spin Shot ${k}`).toBe(k === 5);
+    }
+  });
+
+  test('a ball blasts each walker it meets and bounces on: one explosion per hit, every walker hurt once', () => {
+    for (const k of [2, 3, 4, 5]) {
+      const { sim, t } = setup({ tiers: [0, 0, k] });
+      const ws = line(sim, t, 12);
+      const { pops, explodes } = oneBall(sim, t);
+      expect(pops, `Spin Shot ${k}`).toHaveLength(1 + t.stats.ball.bounce);
+      expect(explodes).toBe(pops.length);
+      const hurt = ws.filter((w) => w.hp < w.maxHp);
+      expect(hurt.length).toBeGreaterThanOrEqual(pops.length);
+      expect(new Set(pops.map((p) => `${p.x},${p.y}`)).size).toBe(pops.length); // never the same walker twice
+      expect(pops.slice(0, -1).every((p) => p.tx != null)).toBe(true); // each pop names where the ball goes next
+      expect(pops.at(-1).fin).toBe(k === 5);
+    }
+  });
+
+  test('the Glow Bowl finale: ×3 her blast on a radius 1.5 × hers', () => {
+    const { sim, t } = setup({ tiers: [0, 0, 5] });
+    t.critChance = 0;
+    const ws = line(sim, t, 12);
+    run(sim, STEP);
+    t.cooldown = 1e9;
+    let fin = null;
+    let r = null;
+    for (let i = 0; i < 400 && t.balls?.length; i++) {
+      sim._step(STEP);
+      for (const ev of sim.drainEvents()) {
+        if (ev.type === 'ballPop' && ev.fin) fin = ev;
+        if (ev.type === 'explode' && ev.towerUid === t.uid) r = ev.radius;
+      }
+    }
+    expect(fin).toBeTruthy();
+    expect(r).toBeCloseTo(t.eff.splash * 1.5, 9);
+    const last = ws.find((w) => w.x === fin.x && w.y === fin.y);
+    const first = ws[0];
+    expect(last.maxHp - last.hp).toBeGreaterThan(2.5 * (first.maxHp - first.hp));
+  });
+
+  test('target choice: the nearest other walker in reach, lower uid on a tie; never a flyer, a walker in a tunnel or one already hit', () => {
+    const { sim, t } = setup({ tiers: [0, 0, 2] });
+    const a = park(sim, 'tank', 6);
+    const b = park(sim, 'tank', 7.5); // 1.5 up the road from a
+    const c = park(sim, 'tank', 4.5); // 1.5 down: a tie with b, b has the lower uid
+    const bat = park(sim, 'bat', 6.6); // a flyer right next to a
+    const tunnel = park(sim, 'tank', 5.4);
+    run(sim, STEP);
+    t.balls = [];
+    tunnel.hidden = true; // in a tunnel
+    expect(nextWalker(sim, t, a.x, a.y, 2, [a.uid])).toBe(b);
+    expect(nextWalker(sim, t, a.x, a.y, 2, [a.uid, b.uid])).toBe(c);
+    expect(nextWalker(sim, t, a.x, a.y, 2, [a.uid, b.uid, c.uid])).toBe(null);
+    expect(nextWalker(sim, t, a.x, a.y, 1, [a.uid])).toBe(null); // out of reach
+    tunnel.hidden = false;
+    expect(nextWalker(sim, t, a.x, a.y, 2, [a.uid])).toBe(tunnel);
+    expect(bat.airborne).toBe(true);
+  });
+
+  test('no walker to bounce to (only a flyer near): the ball blasts once and is gone', () => {
+    const { sim, t } = setup({ tiers: [0, 0, 5] });
+    t.blastSpec.knockback = 0;
+    const a = park(sim, 'tank', 8);
+    a.hp = a.maxHp = 1e12;
+    const bat = park(sim, 'bat', 7);
+    const hp = bat.hp;
+    const { pops } = oneBall(sim, t);
+    expect(pops).toHaveLength(1);
+    expect(pops[0].tx).toBe(null);
+    expect(bat.hp).toBe(hp);
+  });
+
+  test('the ball visibly changes direction: off the road it flies straight at its next walker', () => {
+    const { sim, t } = setup({ tiers: [0, 0, 3] });
+    line(sim, t, 6, 9.8, 1.6);
+    run(sim, STEP);
+    t.cooldown = 1e9;
+    let seen = null;
+    for (let i = 0; i < 300 && !seen; i++) {
+      run(sim, STEP);
+      const b = t.balls?.[0];
+      if (b?.fly) seen = { x: b.fly.x, y: b.fly.y, uid: b.fly.uid };
+    }
+    expect(seen).toBeTruthy();
+    const e = sim.enemies.find((o) => o.uid === seen.uid);
+    const d0 = (e.x - seen.x) ** 2 + (e.y - seen.y) ** 2;
+    run(sim, STEP);
+    const f = t.balls?.[0]?.fly;
+    if (f && f.uid === seen.uid) expect((e.x - f.x) ** 2 + (e.y - f.y) ** 2).toBeLessThan(d0);
+  });
+
+  test('her panel DPS counts every blast of a ball and its pins', () => {
+    const spin = setup({ tiers: [2, 0, 5] });
+    const s = spin.sim.towerStats(spin.t.uid);
+    expect(s.dps).toBeCloseTo(spin.t.eff.damage * spin.t.eff.rate * (1 + 8 + 2), 6);
+    const lane = setup({ tiers: [2, 5, 0] });
+    const l = lane.sim.towerStats(lane.t.uid);
+    expect(l.dps).toBeCloseTo(lane.t.eff.rate * (lane.t.eff.damage + 9 * lane.t.pinSpec.damage), 6);
+  });
+
+  test('a co-op checkpoint taken mid-bounce restores the ball exactly and both copies play on alike', () => {
+    const make = () => setup({ tiers: [0, 0, 5] });
+    const { sim, t } = make();
+    line(sim, t, 12, 9.8, 1.2);
+    for (let i = 0; i < 600 && !t.balls?.some((b) => b.fly); i++) run(sim, STEP);
+    expect(t.balls.some((b) => b.fly)).toBe(true);
+    const snap = JSON.parse(JSON.stringify(sim.snapshot()));
+    const copy = make().sim.restore(snap);
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(snap));
+    for (let i = 0; i < 120; i++) {
+      sim._step(STEP);
+      copy._step(STEP);
+      const ea = sim.drainEvents().filter((e) => e.type === 'ballPop').length;
+      const eb = copy.drainEvents().filter((e) => e.type === 'ballPop').length;
+      expect(eb).toBe(ea);
+    }
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
   });
 });
 
@@ -201,10 +387,10 @@ describe('Giant Strike (Lane Master tier 3)', () => {
 });
 
 describe('determinism', () => {
-  test('two copies of a battle with balls, pins, sticky balls and Giant Strike stay identical', () => {
+  test('two copies of a battle with balls, pins, ricochets and Giant Strike stay identical', () => {
     const play = () => {
       const a = setup({ tiers: [2, 3, 0] });
-      const b = setup({ tiers: [0, 2, 3] });
+      const b = setup({ tiers: [2, 0, 5] }); // ricochets and the Glow Bowl finale
       for (const s of [a, b]) {
         for (let k = 0; k < 80; k++) {
           if (k % 3 === 0) {
