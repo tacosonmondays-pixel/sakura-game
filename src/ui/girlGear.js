@@ -81,7 +81,10 @@ function slotCard(unit, slot, onChange) {
     : h('span.gk-equip', 'Equip'));
 }
 
-/** Her club set at a glance: the emblem, its name and three pips (no digits); tap: the set in Details. */
+/**
+ * Her club set at a glance: the emblem, its name, three pips and the bonus that is on (the 2-piece stat, or the
+ * 3-piece trick's name); tap: both lines and Rainbow Resonance in Details.
+ */
 function setChip(set, unit) {
   if (!set.club) {
     return h('button.gk-set.on', { type: 'button', 'data-testid': 'gear-set', title: set.resonance.text, onclick: () => openGearTotals(unit, { focus: 'set' }) },
@@ -95,7 +98,8 @@ function setChip(set, unit) {
   },
   h('span.gk-set-dot', { 'aria-hidden': 'true' }), h('span', c.short),
   h('span.gk-pips', { 'aria-hidden': 'true' }, [1, 2, 3].map((i) => h(`i${i <= c.pieces ? '.on' : ''}`))),
-  set.trick.on ? ico('check', 'ui-ico.gk-set-ok') : null);
+  set.trick.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.trick.name)
+    : set.two.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.two.short) : null);
 }
 
 // ---------------------------------------------------------------------------

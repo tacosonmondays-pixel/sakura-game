@@ -144,7 +144,7 @@ export function setView(profile, unitId) {
   const c = CLUBS[id];
   return {
     club: { id, name: c.name, short: c.name.replace(' Club', ''), color: c.color, emblem: c.emblem, pieces: n },
-    two: { on: n >= 2, stat: c.two.stat, text: statFact(c.two.stat, c.two.value) },
+    two: { on: n >= 2, stat: c.two.stat, text: statFact(c.two.stat, c.two.value), short: `${STAT_SHORT[c.two.stat] || statName(c.two.stat)} ${statValue(c.two.stat, c.two.value)}` },
     trick: { on: n >= 3, name: c.trick.name, text: c.trick.text },
     resonance: res,
   };

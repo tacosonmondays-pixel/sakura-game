@@ -315,7 +315,7 @@
 .gk-pips { display: inline-flex; gap: 3px; }
 .gk-pips i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--club, var(--muted-line)); }
 .gk-pips i.on { background: var(--club, var(--muted-line)); }
-.gk-set-ok { width: 14px; height: 14px; color: var(--good-text); }
+.gk-set-on { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
 
 /* ---------- Sheets: the slot sheet, a piece's Details, the gear totals ---------- */
 .ui-sheet.gk-sheet { width: min(100%, 960px); background: #fbfdff; }

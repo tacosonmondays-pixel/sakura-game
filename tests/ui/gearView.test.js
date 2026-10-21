@@ -108,6 +108,7 @@ describe('setView', () => {
     wear(q, 'aoi', 'ribbon', { rarity: 'mythic', level: 2, club: 'taiko' });
     let s = setView(q, 'aoi');
     expect([s.club.id, s.club.pieces, s.two.on, s.trick.on]).toEqual(['taiko', 2, true, false]);
+    expect(s.two.short).toBe('RATE +5%');
     wear(q, 'aoi', 'shoes', { rarity: 'mythic', level: 2, club: 'taiko' });
     s = setView(q, 'aoi');
     expect([s.club.pieces, s.trick.on, s.trick.name]).toEqual([3, true, 'Big Beat']);
