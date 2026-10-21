@@ -94,7 +94,7 @@ export function createAttackFx(o) {
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
-    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
+    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0, halos: 0,
     quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
   };
   let frame = 1;
@@ -440,6 +440,7 @@ export function createAttackFx(o) {
     stats.blended = blended;
     stats.segments = ctx.segs.count;
     stats.quads = ctx.quads;
+    stats.halos = ctx.halos;
     stats.quadBudget = ctx.q.quadBudget;
     stats.shed = ctx.shed;
     stats.styled = twList.length;
@@ -464,6 +465,10 @@ export function createAttackFx(o) {
     update,
     setQuality(q) {
       ctx.setQuality(q);
+    },
+    /** Fake glow: halo quads under bright sprites when the tier has no bloom (src/render/vfx/halo.js). */
+    setGlow(tier, bloom) {
+      ctx.setGlow(tier, bloom);
     },
     setSelected(uid) {
       ctx.selectedUid = uid ?? null;

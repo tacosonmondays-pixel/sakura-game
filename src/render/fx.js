@@ -3,6 +3,7 @@
 // through the shared quad batches (a handful of draw calls in total).
 import * as THREE from 'three';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
+import { createHaloRules } from './vfx/halo.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
@@ -32,6 +33,11 @@ export class FxSystem {
     this.texts = [];
     this.maxTexts = 70;
     this.rand = rand || createVisualRandom(visualSeed('fx'));
+    // fake glow without bloom (src/render/vfx/halo.js): halo quads under bright additive
+    // particles, inside the particle limit
+    this.halo = createHaloRules(this.R);
+    this.halos = 0; // halos drawn last frame
+    this._h = { w: 0, h: 0, uv: null, a: 0 };
   }
 
   setQuality(q) {
@@ -39,6 +45,11 @@ export class FxSystem {
     this.density = q === 'high' ? 1 : q === 'medium' ? 0.65 : 0.32;
     this.numbers = q !== 'low';
     this.maxTexts = q === 'high' ? 70 : 40;
+  }
+
+  /** Bloom on (high): no halos; off (medium, low, high without bloom): halos for this tier. */
+  setGlow(tier, bloom) {
+    this.halo.set(tier, bloom);
   }
 
   /** Low-level particle spawn. Colours are THREE.Color or hex. */
@@ -272,6 +283,11 @@ export class FxSystem {
   update(dt) {
     const parts = this.parts;
     let n = 0;
+    // halos: at most the tier's count, and particles + halos never past the particle limit
+    const hc = this.halo.cfg;
+    let haloLeft = hc ? Math.max(0, Math.min(hc.max, this.max - parts.length)) : 0;
+    const h = this._h;
+    this.halos = 0;
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
       p.t += dt;
@@ -303,18 +319,24 @@ export class FxSystem {
       if (p.fadeIn && p.t < p.fadeIn) a *= p.t / p.fadeIn;
       let w = s * p.asp;
       if (p.flags & SPIN_X) w *= Math.abs(Math.cos(p.t * 9));
-      this.b[p.batch].push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot);
+      const B = this.b[p.batch];
+      if (haloLeft > 0 && p.batch === 'bbA' && this.halo.of(p.uv, w, s, a, h) && B.push(p.x, p.y, p.z, h.w, h.h, h.uv, p.r, p.gc, p.bc, h.a, p.rot)) {
+        haloLeft--;
+        this.halos++;
+      }
+      B.push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot);
     }
     parts.length = n;
-    this._drawSegments(dt);
+    this._drawSegments(dt, haloLeft);
     this._drawTexts(dt);
   }
 
-  _drawSegments(dt) {
+  _drawSegments(dt, haloLeft = 0) {
     const segs = this.segments;
     if (!segs.length) return;
     const view = this.camera.matrixWorldInverse;
     const R = this.R;
+    const h = this._h;
     let n = 0;
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
@@ -333,7 +355,13 @@ export class FxSystem {
       const mx = (s.ax + s.bx) / 2;
       const my = (s.ay + s.by) / 2;
       const mz = (s.az + s.bz) / 2;
-      this.b.bbA.push(mx, my, mz, len + s.w * 0.5, s.w * (0.6 + 0.4 * k), R.beam, s.color.r, s.color.g, s.color.b, k * fl, ang);
+      const bw = len + s.w * 0.5;
+      const bh = s.w * (0.6 + 0.4 * k);
+      if (haloLeft > 0 && this.halo.of(R.beam, bw, bh, k * fl, h) && this.b.bbA.push(mx, my, mz, h.w, h.h, h.uv, s.color.r, s.color.g, s.color.b, h.a, ang)) {
+        haloLeft--;
+        this.halos++;
+      }
+      this.b.bbA.push(mx, my, mz, bw, bh, R.beam, s.color.r, s.color.g, s.color.b, k * fl, ang);
       if (s.core) this.b.bbA.push(mx, my, mz, len, s.w * 0.35 * (0.5 + 0.5 * k), R.beam, 1, 1, 1, k * fl, ang);
     }
     segs.length = n;

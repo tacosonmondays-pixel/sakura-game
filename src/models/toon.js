@@ -76,6 +76,22 @@ export function basicMaterial(opts = {}) {
   return m;
 }
 
+let impactFill = null;
+
+/**
+ * The impact-frame material (src/render/vfx/impact.js): one flat, unlit colour for every toon
+ * figure while an impact frame is on screen (the renderer sets its colour per frame — white
+ * silhouettes on the ink screen, ink ones on the ult's colour). Shared: never disposed with a model.
+ */
+export function impactMaterial() {
+  if (!impactFill) {
+    impactFill = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, fog: false });
+    impactFill.name = 'impactFill';
+    impactFill.userData.shared = true;
+  }
+  return impactFill;
+}
+
 /**
  * Inverted-hull outline material: back faces pushed out along the vertex normal.
  * Uses the vertex colours multiplied by a dark tint, so outlines are a deep shade of the

@@ -9,7 +9,10 @@
 //   node tools/vfx/capture.mjs --reduce-motion                   # Settings → Reduce motion on
 //   node tools/vfx/capture.mjs --repeat                          # also stage the first config twice
 //                                                                #   and check the pictures match
+//   node tools/vfx/capture.mjs --events ult@150,bosskill@210     # big moments, shot as they land
 //   options: --map <id> (default sakura_court) --frames 120,180 (moments shot, in 60 fps frames)
+//            --events <kind>@<frame>,… (ult: the hero's ultimate fires; bosskill: the boss falls) —
+//            each one is shot on the frame it lands and --event-shots frames after (default 0,2,6,16)
 //            --dpr-phone 3 --dpr-desktop 1 --skip-perf --prod (test dist/; run `npm run build` first)
 //            --repeat-config 1280x720:high (which config --repeat stages again; default the first)
 //            --resume (keep the configs an earlier run into the same --out finished; redo the rest)
@@ -50,6 +53,15 @@ const VIEWPORTS = opt('viewports', '844x390,1280x720').split(',').filter(Boolean
 const QUALITIES = opt('qualities', 'high,medium,low').split(',').filter(Boolean);
 const MAP_ID = opt('map', 'sakura_court');
 const MOMENTS = opt('frames', '120,180').split(',').map(Number).filter((n) => n > 0).sort((a, b) => a - b);
+// big moments: [kind, frame it lands on] — ult (the hero's ultimate) or bosskill (the boss falls)
+const EVENTS = opt('events', '').split(',').filter(Boolean).map((e) => {
+  const [kind, at] = e.split('@');
+  return { kind, at: Number(at) };
+}).filter((e) => (e.kind === 'ult' || e.kind === 'bosskill') && e.at > 1).sort((a, b) => a.at - b.at);
+const EVENT_SHOTS = opt('event-shots', '0,2,6,16').split(',').map(Number).filter((n) => n >= 0);
+/** Every frame shot: [frame, label] (label = the event it shows, or ''). */
+const SHOTS = [...MOMENTS.map((f) => [f, '']), ...EVENTS.flatMap((e) => EVENT_SHOTS.map((o) => [e.at + o, e.kind]))]
+  .sort((a, b) => a[0] - b[0]).filter((x, i, a) => i === 0 || x[0] !== a[i - 1][0] || x[1] !== a[i - 1][1]);
 const PERF_SECONDS = Number(opt('seconds', '10'));
 const DPR_PHONE = Number(opt('dpr-phone', '3'));
 const DPR_DESKTOP = Number(opt('dpr-desktop', '1'));
@@ -344,36 +356,61 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
     let done = 0;
     const stepMs = [];
     const stepLoad0 = loadavg()[0];
-    for (const moment of MOMENTS) {
-      while (done < moment) {
-        const n = Math.min(30, moment - done);
+    // stops: every shot, and the frame before each event (the event is set off there, so the
+    // frame it lands on is the next one stepped)
+    const stops = [...new Set([...SHOTS.map((x) => x[0]), ...EVENTS.map((e) => e.at - 1)])].sort((a, b) => a - b);
+    result.events = [];
+    for (const stop of stops) {
+      while (done < stop) {
+        const n = Math.min(30, stop - done);
         stepMs.push(...(await page.evaluate((k) => window.__vfxCap.step(k), n)));
         done += n;
       }
-      say(tag, `frame ${done} (stepped ${r1(percentile(stepMs, 50))} ms median)`);
-      const name = `${tag}-f${moment}`;
-      await page.evaluate(() => {
-        window.__vfxCap.pass = true;
-      });
-      const full = await page.screenshot({ path: join(OUT, `${name}.png`), scale: 'css', animations: 'disabled', timeout: SHOT_T });
-      const canvas = await page.locator('canvas').first().screenshot({ path: join(OUT, `${name}-canvas.png`), timeout: SHOT_T });
-      const shot = { frame: moment, file: `${name}.png`, sha: sha(full), canvasFile: `${name}-canvas.png`, canvasSha: sha(canvas) };
-      if (dpr > 1) {
-        await page.screenshot({ path: join(OUT, `${name}-dpr${dpr}.png`), scale: 'device', animations: 'disabled', timeout: SHOT_T });
-        shot.deviceFile = `${name}-dpr${dpr}.png`;
+      for (const ev of EVENTS.filter((e) => e.at - 1 === stop)) {
+        const r = await page.evaluate((kind) => {
+          const { sim } = window.__battle;
+          if (kind === 'ult') {
+            const h = sim.hero;
+            if (!h) return { ok: false, why: 'no hero' };
+            h.ultUnlocked = true;
+            h.ultCooldown = 0;
+            return { ok: !!sim.activateUlt(), effect: h.def?.hero?.ult?.name ?? null };
+          }
+          const boss = sim.enemies.find((e) => !e.dead && e.tier === 'boss');
+          if (!boss) return { ok: false, why: 'no boss' };
+          sim._killEnemy(boss, null);
+          return { ok: true, id: boss.id };
+        }, ev.kind);
+        result.events.push({ ...ev, ...r });
+        say(tag, `event ${ev.kind} @${ev.at}: ${JSON.stringify(r)}`);
       }
-      await page.evaluate(() => {
-        window.__vfxCap.pass = false;
-      });
-      shot.state = await page.evaluate(() => {
-        const { sim, renderer } = window.__battle;
-        const fx = renderer.info.attackFx || {};
-        return {
-          simTime: Math.round(sim.time * 1000) / 1000, enemies: sim.enemies.length, towers: sim.towers.length, projectiles: sim.projectiles.length,
-          calls: renderer.info.calls, triangles: renderer.info.triangles, fxQuads: fx.quads, fxQuadBudget: fx.quadBudget, fxShed: fx.shed, clock: renderer.visualClock,
-        };
-      });
-      result.shots.push(shot);
+      for (const [moment, label] of SHOTS.filter((x) => x[0] === stop)) {
+        say(tag, `frame ${done} (stepped ${r1(percentile(stepMs, 50))} ms median)`);
+        const name = label ? `${tag}-${label}-f${moment}` : `${tag}-f${moment}`;
+        await page.evaluate(() => {
+          window.__vfxCap.pass = true;
+        });
+        const full = await page.screenshot({ path: join(OUT, `${name}.png`), scale: 'css', animations: 'disabled', timeout: SHOT_T });
+        const canvas = await page.locator('canvas').first().screenshot({ path: join(OUT, `${name}-canvas.png`), timeout: SHOT_T });
+        const shot = { frame: moment, event: label || null, file: `${name}.png`, sha: sha(full), canvasFile: `${name}-canvas.png`, canvasSha: sha(canvas) };
+        if (dpr > 1) {
+          await page.screenshot({ path: join(OUT, `${name}-dpr${dpr}.png`), scale: 'device', animations: 'disabled', timeout: SHOT_T });
+          shot.deviceFile = `${name}-dpr${dpr}.png`;
+        }
+        await page.evaluate(() => {
+          window.__vfxCap.pass = false;
+        });
+        shot.state = await page.evaluate(() => {
+          const { sim, renderer } = window.__battle;
+          const fx = renderer.info.attackFx || {};
+          return {
+            simTime: Math.round(sim.time * 1000) / 1000, enemies: sim.enemies.length, towers: sim.towers.length, projectiles: sim.projectiles.length,
+            calls: renderer.info.calls, triangles: renderer.info.triangles, fxQuads: fx.quads, fxQuadBudget: fx.quadBudget, fxShed: fx.shed, fxHalos: fx.halos ?? null, clock: renderer.visualClock,
+            vfx: renderer.vfx ?? null,
+          };
+        });
+        result.shots.push(shot);
+      }
     }
     // the stepped frames are the same work every run (same scene, same frames): their cost, GPU
     // included, compares builds more steadily than real-time play does
@@ -515,15 +552,15 @@ async function captureSafe(opts) {
   }
   return r;
 }
-console.log(`vfx capture "${LABEL}" → ${OUT}\n  ${browserLabel}, sim id ${id}, map ${MAP_ID}, frames ${MOMENTS.join('/')}${REDUCE_MOTION ? ', reduce motion' : ''}`);
+console.log(`vfx capture "${LABEL}" → ${OUT}\n  ${browserLabel}, sim id ${id}, map ${MAP_ID}, frames ${MOMENTS.join('/')}${EVENTS.length ? `, events ${EVENTS.map((e) => `${e.kind}@${e.at}`).join('/')}` : ''}${REDUCE_MOTION ? ', reduce motion' : ''}`);
 
 const results = [];
 let kept = [];
 if (RESUME && existsSync(join(OUT, 'capture.json'))) {
   const { readFileSync } = await import('node:fs');
   const prev = JSON.parse(readFileSync(join(OUT, 'capture.json'), 'utf8'));
-  if (prev.simId === id && JSON.stringify(prev.scene) === JSON.stringify(SCENE) && JSON.stringify(prev.moments) === JSON.stringify(MOMENTS)) {
-    kept = (prev.results || []).filter((r) => !r.errors?.length && r.shots?.length === MOMENTS.length && (SKIP_PERF || r.perf));
+  if (prev.simId === id && JSON.stringify(prev.scene) === JSON.stringify(SCENE) && JSON.stringify(prev.moments) === JSON.stringify(MOMENTS) && JSON.stringify(prev.events || []) === JSON.stringify(EVENTS)) {
+    kept = (prev.results || []).filter((r) => !r.errors?.length && r.shots?.length === SHOTS.length && (SKIP_PERF || r.perf));
     console.log(`  resuming: keeping ${kept.map((r) => `${r.viewport}-${r.quality}`).join(', ') || 'nothing'}`);
   } else {
     console.log('  resume: the earlier run staged something else (sim id, scene or moments); starting over');
@@ -532,7 +569,7 @@ if (RESUME && existsSync(join(OUT, 'capture.json'))) {
 /** capture.json, rewritten after every config (a stopped run keeps what it measured). */
 const writeReport = (extra = {}) => {
   const report = {
-    label: LABEL, startedAt, finishedAt: new Date().toISOString(), simId: id, browser: browserLabel, prod: PROD, scene: SCENE, moments: MOMENTS,
+    label: LABEL, startedAt, finishedAt: new Date().toISOString(), simId: id, browser: browserLabel, prod: PROD, scene: SCENE, moments: MOMENTS, events: EVENTS, eventShots: EVENT_SHOTS,
     perfSeconds: SKIP_PERF ? 0 : PERF_SECONDS, dpr: { phone: DPR_PHONE, desktop: DPR_DESKTOP }, reduceMotion: REDUCE_MOTION,
     note: 'Headless Chromium with SwiftShader (WebGL on the CPU): numbers compare builds on this machine, not a real phone.',
     results, repeat: null, partial: true, ...extra,
@@ -568,7 +605,7 @@ if (REPEAT && VIEWPORTS.length && QUALITIES.length) {
   const { readFileSync } = await import('node:fs');
   repeat = { viewport: vp, quality, shots: [], errors: again.errors };
   for (const s of again.shots) {
-    const f = first?.shots.find((x) => x.frame === s.frame);
+    const f = first?.shots.find((x) => x.frame === s.frame && x.event === s.event);
     if (!f) continue;
     const canvas = await pixelDiff(await liveBrowser(), readFileSync(join(OUT, f.canvasFile)), readFileSync(join(OUT, s.canvasFile)));
     repeat.shots.push({ frame: s.frame, canvasSameBytes: f.canvasSha === s.canvasSha, fullSameBytes: f.sha === s.sha, canvas });
@@ -584,5 +621,5 @@ if (server.httpServer && !PROD) server.httpServer.close?.();
 
 writeReport({ repeat, partial: false });
 console.log(`  wrote ${join(OUT, 'capture.json')}`);
-const bad = results.filter((r) => r.errors.length || r.shots.length !== MOMENTS.length);
+const bad = results.filter((r) => r.errors.length || r.shots.length !== SHOTS.length);
 if (bad.length || (repeat && !repeat.same)) process.exitCode = 1;

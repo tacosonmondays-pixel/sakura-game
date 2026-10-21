@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { QuadPool } from './quadPool.js';
 import { createVisualRandom, visualSeed } from '../vfx/random.js';
+import { createHaloRules } from '../vfx/halo.js';
 
 /** Quad shed classes (§6 shed order: decor first, then familiars, then motes; core never). */
 export const CORE = 0;
@@ -24,6 +25,7 @@ export const CAPS = { muzzle: 24, tracer: 16, impact: 16, sweep: 8, launch: 8 };
 
 const _la = new THREE.Vector3();
 const _lb = new THREE.Vector3();
+const _halo = { w: 0, h: 0, uv: null, a: 0 };
 
 const PART = {
   batch: 'bbA', uv: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, life: 0.3, s0: 0.2, s1: 0.2,
@@ -65,6 +67,10 @@ export function createContext(o) {
     /** scratch arrays for victim lookups (reused) */
     victims: [],
     vpos: [],
+    /** fake glow without bloom (src/render/vfx/halo.js): halo quads count as decoration */
+    halo: createHaloRules(o.atlas.regions),
+    halosLeft: 0,
+    halos: 0,
     CORE, DECOR, FAMILIAR, MOTE,
 
     setQuality(q) {
@@ -85,7 +91,14 @@ export function createContext(o) {
     /** Starts a renderer frame: resets the budget counters and event caps. */
     beginFrame() {
       ctx.quads = 0;
+      ctx.halos = 0;
+      ctx.halosLeft = ctx.halo.cfg ? ctx.halo.cfg.max : 0;
       for (const k in CAPS) capsLeft[k] = CAPS[k];
+    },
+
+    /** Bloom on: no halos; off: this tier's halos (BattleRenderer calls it with the quality). */
+    setGlow(tier, bloom) {
+      ctx.halo.set(tier, bloom);
     },
 
     /** Takes one unit of a per-frame cap; false once it is spent. */
@@ -105,6 +118,13 @@ export function createContext(o) {
       if (cls !== CORE && ctx.quads >= ctx.q.quadBudget * SHED_AT[cls]) {
         ctx.shed++;
         return false;
+      }
+      // a soft halo under a bright additive sprite (no bloom on this tier): decoration, shed first
+      if (ctx.halosLeft > 0 && B === ctx.b.bbA && ctx.quads < ctx.q.quadBudget * SHED_AT[DECOR] && ctx.halo.of(uv, w, hh, a, _halo)
+        && B.push(x, h, y, _halo.w, _halo.h, _halo.uv, r, g, b, _halo.a, rot, ox, oy)) {
+        ctx.quads++;
+        ctx.halos++;
+        ctx.halosLeft--;
       }
       if (B.push(x, h, y, w, hh, uv, r, g, b, a, rot, ox, oy)) {
         ctx.quads++;

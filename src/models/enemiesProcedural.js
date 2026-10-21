@@ -1268,6 +1268,7 @@ function instantiate(asset, def, quality) {
   };
   const baseColor = new THREE.Color('#ffffff');
   const tmp = new THREE.Color();
+  const flashColor = new THREE.Color('#ffffff'); // the last hit's flash colour (hitFlash)
 
   const applyLook = (time) => {
     let opacity = baseOpacity;
@@ -1288,7 +1289,7 @@ function instantiate(asset, def, quality) {
       mat.emissive.copy(tmp.set(st.tint)).multiplyScalar(0.18 * pulse);
     }
     if (st.phasing) mat.emissive.add(tmp.set('#5c7cfa').multiplyScalar(0.25));
-    if (st.flash > 0) mat.emissive.add(tmp.setRGB(1, 1, 1).multiplyScalar(st.flash * 0.9));
+    if (st.flash > 0) mat.emissive.add(tmp.copy(flashColor).multiplyScalar(st.flash * 0.9));
     if (st.barrier > 0) {
       bubble.visible = true;
       bubbleMat.opacity = 0.12 + 0.22 * st.barrier + 0.05 * Math.sin(time * 4);
@@ -1314,7 +1315,11 @@ function instantiate(asset, def, quality) {
     else model.rotation.z = 0;
     applyLook(time);
   };
-  group.userData.hitFlash = () => { st.flash = 1; };
+  group.userData.hitFlash = (color = null, strength = 1) => {
+    if (color) flashColor.set(color);
+    else flashColor.setRGB(1, 1, 1);
+    st.flash = Math.max(st.flash, Math.min(1, strength ?? 1));
+  };
   group.userData.setVeiled = (on) => { st.veiled = !!on; };
   group.userData.setPhasing = (on) => { st.phasing = !!on; };
   group.userData.setBarrier = (frac) => { st.barrier = Math.max(0, Math.min(1, Number(frac) || 0)); };

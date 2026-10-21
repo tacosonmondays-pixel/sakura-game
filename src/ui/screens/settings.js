@@ -1,5 +1,5 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion), audio, battle defaults (placement range, auto start, default speed, camera
+// motion, hit effects), audio, battle defaults (placement range, auto start, default speed, camera
 // locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
@@ -62,7 +62,9 @@ function build(redraw) {
       segmented(['high', 'medium', 'low'], s.quality, (v) => { s.quality = v; save(); redraw(); }, { high: 'High', medium: 'Medium', low: 'Low' }, 'quality')),
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
-    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); }, 'reduceMotion')),
+    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); redraw(); }, 'reduceMotion')),
+    row('Hit effects', s.reduceMotion ? 'Off while Reduce motion is on.' : 'A split-second freeze on heavy hits and ink impact frames on ultimates and boss kills.',
+      toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); }, 'hitEffects', !!s.reduceMotion)),
   ));
 
   const preview = h('div.ma-light-preview', { html: themeBackdropSVG('sakura'), title: 'Preview' });

@@ -12,11 +12,18 @@
 // clock (src/render/vfx/clock.js; a hit-stop holds it, the sim never does) and draws its random
 // numbers from seeded render-only streams (src/render/vfx/random.js), never from Math.random or
 // the sim's rng — the same battle on the same frames gives the same picture.
+//
+// Hits that land (docs/VFX.md §M1): effect cores burn above white so the bloom catches them, a
+// tone curve + per-theme grade end the high chain (no extra pass), medium / low get halo sprites
+// instead of bloom, hit-stop on heavy hits and boss kills (the visual clock, never the battle),
+// impact frames on hero ults and boss kills, struck monsters squash and flash, a camera shake sized
+// in screen pixels and a zoom punch. Reduce Motion: no shake, punch, hit-stop or impact frames, and
+// softer flashes; Settings → Graphics → Hit effects off: no hit-stop or impact frames. The flash
+// guard (src/render/vfx/flashGuard.js) keeps every full-screen flash to ≤ 3 a second, never white.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
 import { attachBoardInput } from './boardInput.js';
@@ -35,6 +42,11 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { VisualClock } from './vfx/clock.js';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
+import { FlashGuard } from './vfx/flashGuard.js';
+import { HitStopDirector, hitKind } from './vfx/hitStop.js';
+import { ImpactFrames } from './vfx/impact.js';
+import { GradePass, gradeFor } from './vfx/grade.js';
+import { createHitFeel } from './vfx/feel.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -48,6 +60,29 @@ const STATUS_FX = {
 };
 const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;
+/**
+ * Bloom on high (docs/VFX.md §M1). Effect cores are pushed above white (HDR_ADD / HDR_GROUND: the
+ * extra brightness of a fully covered additive sprite, src/render/batch.js), so the threshold can
+ * sit just above the lit scene: a soft knee (THRESHOLD … THRESHOLD + KNEE) lets light fade into
+ * the glow instead of popping, and the white of a lit dress or the road never blooms.
+ */
+const BLOOM = {
+  day: { strength: 0.5, radius: 0.5, threshold: 0.96, knee: 0.4 },
+  night: { strength: 0.62, radius: 0.55, threshold: 0.84, knee: 0.36 },
+};
+const HDR_ADD = 1.7;
+const HDR_GROUND = 0.9;
+/** Hit flash colours: a crit flashes gold, a hit the enemy is weak to in the attack's colour. */
+const CRIT_FLASH = new THREE.Color('#ffc36b');
+const WHITE_FLASH = new THREE.Color('#ffffff');
+/** Camera trauma (0..1, src/render/camera.js kick) per moment. */
+const TRAUMA = {
+  explodeMin: 1.6, // explosions smaller than this radius do not shake
+  explode: 0.26, bigHit: 0.3, eliteKill: 0.28, minibossKill: 0.55, bossKill: 0.9,
+  bossSpawn: 0.6, minibossSpawn: 0.42, bossPhase: 0.5, leak: 0.45, ult: 0.72, tier5: 0.32,
+};
+/** Zoom punch (share of the view, seconds). */
+const PUNCH = { ult: [0.07, 0.38], bossKill: [0.05, 0.32] };
 
 let liveRenderers = 0;
 /** The info panel slides in first (0.22 s); the board follows once it stands. */
@@ -70,6 +105,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // the one visual clock (hit-stop holds it, never the sim) and the seeded visual randomness
   const clock = new VisualClock({ reduceMotion });
   const vrand = createVisualRandom(opts.visualSeed ?? visualSeed('battle', sim.map?.id, sim.stage?.id));
+  // hits that land: Settings → Graphics → Hit effects (hit-stop + impact frames; read live)
+  const hitEffectsOn = () => settings.hitEffects !== false;
+  const flashGuard = new FlashGuard({ reduceMotion });
+  const director = new HitStopDirector(clock, { enabled: hitEffectsOn });
 
   // ----- renderer -----------------------------------------------------------------------
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -203,25 +242,47 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
+  // impact frames: the toon figures become silhouettes over an ink screen layer; the additive
+  // effect batches keep burning on top, everything else is not drawn for those frames
+  const impact = new ImpactFrames({ scene, figures: () => [actors.root], keep: () => [batches.bbA.mesh, batches.groundA.mesh] });
+  // shake / punch / hit-stop / impact / flash decisions (Reduce Motion, Hit effects, placing, budget)
+  const feel = createHitFeel({
+    reduceMotion, hitEffects: hitEffectsOn, placing: () => placingNow(), now: () => clock.realT,
+    guard: flashGuard, director, rig, impact, tint: (c, a, d) => tint(c, a, d),
+  });
 
   // ----- post-processing -------------------------------------------------------------------
+  // high: scene → bloom → grade (tone curve + this theme's grade, in place of the output pass)
   let composer = null;
   let bloomPass = null;
+  let gradePass = null;
+  const grade = gradeFor(look);
   const setupComposer = (on) => {
     if (composer) {
       composer.dispose();
       bloomPass?.dispose();
+      gradePass?.dispose();
       composer = null;
       bloomPass = null;
+      gradePass = null;
     }
-    if (!on) return;
-    const size = renderer.getSize(new THREE.Vector2());
-    const rt = new THREE.WebGLRenderTarget(size.x * renderer.getPixelRatio(), size.y * renderer.getPixelRatio(), { type: THREE.HalfFloatType, samples: 4 });
-    composer = new EffectComposer(renderer, rt);
-    composer.addPass(new RenderPass(scene, camera));
-    bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), look.night ? 0.55 : 0.3, 0.42, look.night ? 0.84 : 0.95);
-    composer.addPass(bloomPass);
-    composer.addPass(new OutputPass());
+    if (on) {
+      const size = renderer.getSize(new THREE.Vector2());
+      const rt = new THREE.WebGLRenderTarget(size.x * renderer.getPixelRatio(), size.y * renderer.getPixelRatio(), { type: THREE.HalfFloatType, samples: 4 });
+      composer = new EffectComposer(renderer, rt);
+      composer.addPass(new RenderPass(scene, camera));
+      const b = look.night ? BLOOM.night : BLOOM.day;
+      bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), b.strength, b.radius, b.threshold);
+      bloomPass.highPassUniforms.smoothWidth.value = b.knee;
+      composer.addPass(bloomPass);
+      gradePass = new GradePass(grade);
+      composer.addPass(gradePass);
+    }
+    // glow: bloom catches the over-white cores; without it, halo sprites fake the glow
+    batches.bbA.setHdr(on ? HDR_ADD : 0);
+    batches.groundA.setHdr(on ? HDR_GROUND : 0);
+    fx.setGlow(quality, on);
+    attackFx?.setGlow?.(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -239,6 +300,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let lighting = { exposure: 1, warmth: 0, ...(settings.lighting || {}) };
 
   function applyQuality(q) {
+    impact.cancel();
     quality = q;
     const preset = QUALITY[q];
     const dpr = window.devicePixelRatio || 1;
@@ -299,16 +361,21 @@ export function createBattleRenderer(container, sim, opts = {}) {
     return fxColor(s.element ?? t?.def?.element, s.attackType ?? t?.def?.attackType, '#ffffff');
   }
 
-  function screenFlash(color, strength = 0.75, decay = 2.5) {
-    if (reduceMotion) strength *= 0.35;
+  /** Draws the screen tint (no flash budget: callers go through screenFlash or an impact). */
+  function tint(color, strength, decay) {
+    if (!(strength > 0)) return;
     flashEl.style.background = `radial-gradient(ellipse at center, ${color} 0%, ${color}cc 45%, ${color}55 100%)`;
     flash = { a: Math.max(flash.a, strength), decay };
   }
 
-  function shake(a) {
-    // placing a girl: the camera holds still, impact shakes included (the drop point stays put)
-    if (!reduceMotion && !placingNow()) rig.shake(a);
-  }
+  /** A full-screen flash: through the flash guard (≤ 3 a second, capped, soft with Reduce Motion). */
+  const screenFlash = (color, strength, decay) => feel.flash(color, strength, decay);
+  /** Camera shake (trauma 0..1, sized in screen pixels; none with Reduce Motion or while placing). */
+  const shake = (trauma) => feel.shake(trauma);
+  /** Zoom punch [amount, seconds] (none with Reduce Motion or while placing). */
+  const punch = (p) => feel.punch(p);
+  /** Impact frames + hit-stop for a hero ult or a boss kill, or a soft tint (feel.impact). */
+  const impactMoment = (color) => feel.impact(color);
 
   function fmt(n) {
     if (n >= 100000) return `${Math.round(n / 1000)}K`;
@@ -319,12 +386,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
+    let hits = 0;
+    for (let i = 0; i < events.length; i++) if (events[i].type === 'hit') hits++;
+    director.noteHits(hits); // busy fights: fewer freezes
+    const squashK = reduceMotion ? 0.5 : 1;
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       switch (ev.type) {
         case 'hit': {
-          actors.hitFlash(ev.uid);
+          // the struck monster flashes (gold on a crit, the attack's colour on a weak spot) and squashes
+          const view = actors.enemies.get(ev.uid) || null;
+          const kind = hitKind(ev, view);
+          const strong = (ev.effective ?? 1) > 1;
+          const flashCol = ev.crit ? CRIT_FLASH : strong ? fxCol(fxColor(null, ev.attackType, '#ffffff')) : WHITE_FLASH;
+          actors.hitFlash(ev.uid, flashCol, 1, (kind ? 1 : ev.crit ? 0.8 : strong ? 0.6 : 0.45) * squashK);
+          if (kind) {
+            feel.hitStop(kind);
+            if (kind === 'big') shake(TRAUMA.bigHit);
+          }
           if (hitFx++ > MAX_HIT_FX_PER_FRAME) break;
           const p = actors.enemyPos(ev.uid);
           const x = p ? p.x : ev.x;
@@ -368,7 +448,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'explode':
           fx.explosion(ev.x, ev.y, ev.radius, ev.volatile ? '#ff5a4a' : fxColor(ev.element, ev.attackType || 'blast'), { volatile: ev.volatile });
-          if (ev.radius >= 1.4) shake(0.035 + Math.min(0.05, ev.radius * 0.012));
+          if (ev.radius >= TRAUMA.explodeMin) shake(TRAUMA.explode + Math.min(0.2, (ev.radius - TRAUMA.explodeMin) * 0.1));
           break;
         case 'pulse':
           fx.pulse(ev.x, ev.y, ev.radius, fxColor(ev.element, ev.attackType));
@@ -384,6 +464,21 @@ export function createBattleRenderer(container, sim, opts = {}) {
           actors.markDying(ev.uid);
           fx.death(p.x, p.y, p.z, p.size, p.color);
           if (ev.bounty > 0) fx.coin(p.x, p.y, p.z, ev.bounty);
+          const tier = actors.enemies.get(ev.uid)?.tier ?? enemyTier(ev.id);
+          if (tier === 'boss') {
+            // a boss falls: hit-stop, impact frames, a big jolt and a zoom punch
+            feel.hitStop('boss');
+            impactMoment('#ffe6b0');
+            shake(TRAUMA.bossKill);
+            punch(PUNCH.bossKill);
+            fx.ring(p.x, p.z, 0.3, 3.6, 0.7, '#ffe6b0');
+            fx.flash(p.x, p.y + 0.6, p.z, '#fff3d6', 2.6, 0.4);
+          } else if (tier === 'miniboss') {
+            feel.hitStop('big');
+            shake(TRAUMA.minibossKill);
+          } else if (tier === 'elite') {
+            shake(TRAUMA.eliteKill);
+          }
           break;
         }
         case 'leak': {
@@ -394,7 +489,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
             if (fx.numbers) fx.text(`-${ev.lives}`, p.x, 0.9, p.z, '#ff4d6d', 0.26, 1, 0.6);
           }
           if (ev.lives >= 5) {
-            shake(0.06);
+            shake(TRAUMA.leak);
             screenFlash('#ff4d6d', 0.35, 3);
           }
           break;
@@ -402,7 +497,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         case 'spawn': {
           const def = sim.data?.enemy?.(ev.id);
           if (def && (def.tier === 'boss' || def.tier === 'miniboss')) {
-            shake(def.tier === 'boss' ? 0.12 : 0.07);
+            shake(def.tier === 'boss' ? TRAUMA.bossSpawn : TRAUMA.minibossSpawn);
             fx.ring(ev.x, ev.y, 0.3, 2.4, 0.8, '#ff4d6d');
             fx.puff(ev.x, 0.3, ev.y, '#5a3a5a', 12, 0.8, 0.8);
             bossVignette = Math.max(bossVignette, 1.2);
@@ -416,7 +511,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
             fx.flash(p.x, p.y + 0.8, p.z, '#ffd0d8', 2.2, 0.35);
           }
           actors.playSpecial(ev.uid);
-          shake(0.1);
+          shake(TRAUMA.bossPhase);
           screenFlash('#ff6b8b', 0.4, 2.2);
           bossVignette = 1.4;
           break;
@@ -503,7 +598,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           fx.sparkle(t.x, t.y, col, { count: 10 + ev.tier * 4, height: 0.8 + ev.tier * 0.2 });
           if (ev.tier >= 3) fx.flash(t.x, 0.6, t.y, col, 1.4 + ev.tier * 0.2, 0.3);
           if (ev.tier >= 5) {
-            shake(0.05);
+            shake(TRAUMA.tier5);
             screenFlash(col, 0.25, 3);
           }
           break;
@@ -539,8 +634,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'ult': {
           const col = ULT_COLORS[ev.effect] || '#ffffff';
-          screenFlash(col, 0.85, 1.8);
-          shake(0.09);
+          // impact frames (or a soft tint), a jolt and a zoom punch
+          impactMoment(col);
+          shake(TRAUMA.ult);
+          punch(PUNCH.ult);
           const x = ev.x ?? map.width / 2;
           const z = ev.y ?? map.height / 2;
           fx.ring(x, z, 0.3, Math.max(map.width, map.height) * 0.7, 1.1, col);
@@ -612,20 +709,37 @@ export function createBattleRenderer(container, sim, opts = {}) {
     buffIcons.update(fd, { worldPerPx: rig.scale, shortSide: Math.min(rig.viewW || 800, rig.viewH || 800) });
     // placing a girl: a shake already running stops too, and so does a free-mode reset glide
     if (placingNow()) rig.holdStill();
-    rig.apply(d, clock.realDt);
+    // the shake and zoom punch run on frame time: the camera jolts through a hit-stop
+    rig.apply(d, clock.realDt, clock.frameDt);
     fx.update(d);
     for (const b of batchList) b.end();
 
-    flash.a = Math.max(0, flash.a - d * flash.decay);
-    flashEl.style.opacity = flash.a.toFixed(3);
+    // the screen tint waits out the impact frames (the ink frame is never tinted), then fades
+    if (!impact.active) flash.a = Math.max(0, flash.a - d * flash.decay);
+    flashEl.style.opacity = impact.active ? '0' : flash.a.toFixed(3);
     const bossAlive = sim.enemies.some((e) => e.tier === 'boss' || e.tier === 'miniboss');
     bossVignette = Math.max(bossAlive ? 0.2 + 0.08 * Math.sin(time * 2.4) : 0, bossVignette - d * 0.8);
     vignetteEl.style.opacity = (reduceMotion ? bossVignette * 0.5 : bossVignette).toFixed(3);
 
     renderer.info.reset();
+    impact.begin();
     if (composer) composer.render(d);
     else renderer.render(scene, camera);
+    if (impact.active) {
+      impact.end();
+      const glow = impact.active ? null : feel.takeAfterglow();
+      if (glow) tint(glow.color, glow.a, glow.decay);
+    }
     return events;
+  }
+
+  /** Enemy tier from its id (a 'death' whose view is already gone). */
+  function enemyTier(id) {
+    try {
+      return sim.data?.enemy?.(id)?.tier || null;
+    } catch {
+      return null;
+    }
   }
 
   // ----- picking -------------------------------------------------------------------------
@@ -872,6 +986,24 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get visualClock() {
       return clock.snapshot();
     },
+    /**
+     * Extra: what the hit-effect layer did (read-only copy; e2e, captures, debugging): freezes
+     * granted / refused, impact frames played / refused, flashes the guard turned down, halos drawn
+     * last frame, the shake (CSS px) and zoom punch on screen now, the bloom / grade in use.
+     */
+    get vfx() {
+      return {
+        hitEffects: hitEffectsOn(), reduceMotion, glow: composer ? 'bloom' : 'halo',
+        hitStops: director.granted, hitStopsRefused: director.refused, busy: director.busy,
+        impacts: feel.stats.impacts, impactsRefused: feel.stats.impactsRefused, impactActive: impact.active, softTints: feel.stats.softTints,
+        shakes: feel.stats.shakes, punches: feel.stats.punches,
+        flashesRefused: flashGuard.refused, flashOpacity: Math.round(flash.a * 1000) / 1000,
+        halos: fx.halos + (attackFx?.stats().halos || 0),
+        shakePx: Math.round(Math.hypot(rig.shakePx.x, rig.shakePx.y) * 100) / 100, trauma: Math.round(rig.trauma * 1000) / 1000, punchZoom: Math.round(rig.punchZoom * 10000) / 10000,
+        bloom: bloomPass ? { strength: bloomPass.strength, radius: bloomPass.radius, threshold: bloomPass.threshold, knee: bloomPass.highPassUniforms.smoothWidth.value, hdr: batches.bbA.hdr } : null,
+        grade: composer ? look.theme + (look.night ? '+night' : '') + (look.fog ? '+fog' : '') : null,
+      };
+    },
     /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
     setBuffIcons(mode) {
       buffIcons.setMode(mode);
@@ -949,6 +1081,43 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFxProbe() {
       return attackFx?.probe() ?? null;
     },
+    /**
+     * Extra (dev tooling, allocates): the linear brightness of this frame before bloom, drawn into a
+     * small float target — the share of pixels whose luminance passes each level, the 99th
+     * percentile and the peak. `effects: false` leaves the effect batches out (the lit scene alone):
+     * how the bloom threshold is chosen (docs/VFX.md §M1).
+     */
+    hdrProbe({ effects = true, levels = [0.84, 0.96, 1, 1.36, 2] } = {}) {
+      const w = 320;
+      const h = Math.max(1, Math.round((w * (rig.viewH || 1)) / (rig.viewW || 1)));
+      const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: true });
+      const hidden = [];
+      if (!effects) for (const b of batchList) if (b.material.blending === THREE.CustomBlending && b.mesh.visible) { b.mesh.visible = false; hidden.push(b.mesh); }
+      const prev = renderer.getRenderTarget();
+      try {
+        renderer.setRenderTarget(rt);
+        renderer.clear();
+        renderer.render(scene, camera);
+        const buf = new Uint16Array(w * h * 4);
+        renderer.readRenderTargetPixels(rt, 0, 0, w, h, buf);
+        const half = (u) => {
+          const e = (u >> 10) & 31;
+          const m = u & 1023;
+          const v = e === 0 ? m * 2 ** -24 : e === 31 ? Infinity : (1 + m / 1024) * 2 ** (e - 15);
+          return u & 0x8000 ? -v : v;
+        };
+        const lum = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++) lum[i] = 0.2126 * half(buf[i * 4]) + 0.7152 * half(buf[i * 4 + 1]) + 0.0722 * half(buf[i * 4 + 2]);
+        const sorted = Array.from(lum).sort((a, b) => a - b);
+        const over = {};
+        for (const l of levels) over[l] = Math.round((sorted.filter((v) => v > l).length / sorted.length) * 1e5) / 1e5;
+        return { pixels: sorted.length, effects, over, p99: sorted[Math.floor(sorted.length * 0.99)], p999: sorted[Math.floor(sorted.length * 0.999)], max: sorted[sorted.length - 1] };
+      } finally {
+        renderer.setRenderTarget(prev);
+        for (const m of hidden) m.visible = true;
+        rt.dispose();
+      }
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
       return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
@@ -969,9 +1138,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
         b.dispose();
       }
       atlas.texture.dispose();
+      impact.cancel();
       if (composer) {
         composer.dispose();
         bloomPass?.dispose();
+        gradePass?.dispose();
       }
       key.shadow.map?.dispose();
       renderer.dispose();
@@ -985,4 +1156,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
 function mixHex(a, b, t) {
   return `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
+}
+
+const fxColCache = new Map();
+/** Cached hit-flash colour for an effect colour: half way to white (bright, but still its hue). */
+function fxCol(hex) {
+  let c = fxColCache.get(hex);
+  if (!c) {
+    c = new THREE.Color(hex).lerp(WHITE_FLASH, 0.35);
+    fxColCache.set(hex, c);
+  }
+  return c;
 }

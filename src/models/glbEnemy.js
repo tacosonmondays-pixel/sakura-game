@@ -388,6 +388,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   };
   const tmp = new THREE.Color();
   const white = new THREE.Color('#ffffff');
+  const flashColor = new THREE.Color('#ffffff'); // the last hit's flash colour (hitFlash)
 
   const applyLook = (time) => {
     let opacity = baseOpacity;
@@ -409,7 +410,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
       bodyMat.emissive.copy(tmp.set(st.tint)).multiplyScalar(0.18 * pulse);
     }
     if (st.phasing) bodyMat.emissive.add(tmp.set('#5c7cfa').multiplyScalar(0.25));
-    if (st.flash > 0) bodyMat.emissive.add(tmp.setRGB(1, 1, 1).multiplyScalar(st.flash * 0.9));
+    if (st.flash > 0) bodyMat.emissive.add(tmp.copy(flashColor).multiplyScalar(st.flash * 0.9));
     if (st.barrier > 0) {
       bubble.visible = true;
       bubbleMat.opacity = 0.12 + 0.22 * st.barrier + 0.05 * Math.sin(time * 4);
@@ -433,8 +434,11 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     anim.update(time, dt, { moving, speed, frozen, stunned: !!st.statuses.stun && !st.frozen, hit: st.hitFace > 0, dead: st.dead });
     applyLook(time);
   };
-  group.userData.hitFlash = () => {
-    st.flash = 1;
+  /** A hit: the body flashes (white, or `color` — a THREE.Color or hex), the hit face and clip play. */
+  group.userData.hitFlash = (color = null, strength = 1) => {
+    if (color) flashColor.set(color);
+    else flashColor.copy(white);
+    st.flash = Math.max(st.flash, Math.min(1, strength ?? 1));
     st.hitFace = 0.28;
     if (!st.dead) anim.playOnce('hit', 0.2);
   };

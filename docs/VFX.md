@@ -1,8 +1,9 @@
-# VFX groundwork: one visual clock, seeded visual randomness, baseline captures
+# VFX: the visual clock, seeded randomness, captures (M0) and glow + hits that land (M1)
 
 The battle effects upgrade (glow, hits that land, flipbooks, slashes, ult cut-ins) is built in
-milestones. This page covers M0, the groundwork every later milestone stands on. Nothing here
-changes what a player sees; it makes hit-stop possible and every before/after comparison honest.
+milestones. M0 is the groundwork every later milestone stands on: nothing in it changes what a
+player sees; it makes hit-stop possible and every before/after comparison honest. M1 (at the end of
+this page) adds glow, the colour grade, hit-stop, impact frames, hit squash and the new camera shake.
 
 Ground rules for all VFX work (they hold for every milestone):
 
@@ -26,8 +27,8 @@ from `performance.now()` or a clock of its own. It keeps three timelines (second
 
 | Timeline | What it is | Who runs on it |
 |---|---|---|
-| `dt` / `t` (visual) | the frame's time minus any hit-stop, times any slow motion | particles (`fx.js`), attack FX, girls' and monsters' bodies (`actors.js` → model `animate`), ambient life, rule decals, terrain shaders (`uTime`), camera shake, screen flash and boss vignette |
-| `frameDt` / `frameT` | the time the battle handed the renderer (0 while paused) | board feedback that must not wait out a freeze: placement ghost, range and selection rings (`overlays.js`), buff icons |
+| `dt` / `t` (visual) | the frame's time minus any hit-stop, times any slow motion | particles (`fx.js`), attack FX, girls' and monsters' bodies (`actors.js` → model `animate`, hit squash), ambient life, rule decals, terrain shaders (`uTime`), screen flash and boss vignette |
+| `frameDt` / `frameT` | the time the battle handed the renderer (0 while paused) | board feedback that must not wait out a freeze: placement ghost, range and selection rings (`overlays.js`), buff icons; the camera shake and zoom punch (M1: they jolt through a hit-stop); the hit-stop director's rate limits |
 | `realDt` / `realT` | wall time; runs while paused too | the info-panel slide (`rig.apply` focus) |
 
 Without a hit-stop or slow motion the visual and frame timelines are identical, so M0 draws
@@ -102,3 +103,58 @@ the machine is doing, so `capture.json` records the load average next to them.
 The frame times are headless Chromium drawing WebGL on the CPU (SwiftShader): good for comparing two
 builds on the same machine, not a stand-in for a real phone (the plan's FPS check on a real
 mid-range phone still applies).
+
+## M1: glow, colour grade, and hits that land
+
+Everything in M1 is render only (the sim id does not change) and costs phones nothing new: medium
+and low get no full-screen pass and no new draw call; high swaps three's output pass for one that
+also tone maps and grades, so its chain has the same three passes as before (scene, bloom, output).
+
+### Glow
+
+| Tier | How effects glow |
+|---|---|
+| high (Bloom on) | Additive sprites push their hot core above white (`QuadBatch.setHdr`: `colour × (1 + hdr × coverage²)`, `hdr` 1.7 for billboards, 0.9 for ground rings; coverage = texture alpha × the sprite's own fade, so soft edges and fading sprites stay below the threshold). The bloom threshold sits just above the lit scene with a soft knee (`BLOOM` in `BattleRenderer.js`: day 0.96 → 1.36, night 0.84 → 1.2) so light fades into the glow instead of popping, and the white of a dress or the road never blooms. |
+| medium, low (and high with Bloom off) | No bloom pass: bright additive sprites (glow, soft, spark, star, beam, slash, ray) get a soft halo sprite under them in the same additive batch (`src/render/vfx/halo.js`). Halos count inside the limits: particles + halos ≤ the particle limit (900 / 380), attack-FX halos are decoration in the 500 / 250 quad budgets (dropped first, never past 60 % of the budget), at most 160 / 70 a frame per layer. With `hdr` 0 the batch shader draws exactly the old colour. |
+
+`renderer.hdrProbe({ effects })` (dev tooling) draws the frame into a small float target and returns
+the share of pixels above each luminance level: with the effects left out it shows how much of the
+lit scene a threshold would catch, which is how the threshold was chosen (build notes).
+
+### Tone mapping and grade (high)
+
+`src/render/vfx/grade.js` `GradePass` replaces the OutputPass at the end of the high chain:
+
+- **Tone curve**: exact below 0.82 (the scene looks as before), then a hue-keeping soft shoulder to 1;
+  very hot values (the over-white effect cores) bleach towards white like film.
+- **Grade** (display space): split toning (a tint in the shadows and one in the highlights), contrast,
+  saturation, lift / gain — one gentle grade per map theme (`GRADES`), night stages lean blue in the
+  shadows, fog lowers the contrast. `tests/render/vfx-m1.test.js` checks every theme keeps the road /
+  ground and health bar / road contrast at ≥ 90 % of the ungraded picture.
+
+### Hits that land
+
+| What | When | Rules |
+|---|---|---|
+| Hit-stop (`src/render/vfx/hitStop.js`) | a crit on a heavy enemy (elite, miniboss, boss) or worth ≥ 30 % of any enemy's HP: 40 ms; a hit worth ≥ 12 % of a heavy enemy's HP, a miniboss kill: 50 ms; a boss kill, an impact frame: 60 ms | the visual clock holds, the battle never does; ≤ 60 ms per freeze; crits ≥ 1.2 s apart and none in a busy fight (> 25 hits a second), big hits ≥ 0.6 s apart (1.2 s when busy), the low kinds ≤ 0.1 s of freeze per 2 s; ordinary hits on ordinary enemies never freeze |
+| Impact frames (`src/render/vfx/impact.js`) | hero ults, boss kills | 3 rendered frames: the board drops away to an ink screen layer and every girl, monster, drone and shot turns into a flat silhouette (white, then ink on a deep shade of the moment's colour) through one shared toon impact material (`src/models/toon.js` `impactMaterial`); the additive effects keep burning on top; then everything is put back and the board returns under a short tint. Never a bright frame. |
+| Hit flash + squash (`actors.hitFlash(uid, color, strength, squash)`) | every hit | the body flashes white, gold on a crit, the attack's colour where the enemy is weak; it squashes (24 % down, 16 % out) and springs back over 0.32 s of visual time — a hit-stop holds it at its most squashed; big monsters squash less; a new hit restarts it only after 0.09 s; plain numbers on the view, nothing allocated |
+| Camera shake (`CameraRig.kick(trauma)`) | big explosions, big hits, heavy kills, boss spawns / phases, big leaks, ults, tier 5 | trauma 0..1, the shake is trauma² × 3.4 % of the short side of the view (9–24 CSS px), two detuned sines per axis and a hint of roll, gone in ≈ 0.65 s; it runs on frame time, so it keeps jolting through a hit-stop |
+| Zoom punch (`CameraRig.punch(amount, s)`) | ults 7 %, boss kills 5 % | a quick swell and an eased return to exactly the framing; the locked camera's zoom is never touched |
+
+All of it is decided in one place, `src/render/vfx/feel.js`:
+
+- **Reduce Motion**: no shake, no zoom punch, no hit-stop, no impact frames (they become a soft tint);
+  every flash ≤ 0.2 opacity and slower.
+- **Settings → Graphics → Hit effects** (`settings.hitEffects`, default on; also in the battle's pause
+  menu; read live): off = no hit-stop, no impact frames (a soft tint instead). The shake stays.
+- **Placing a girl**: the camera holds still (no shake, no punch), as before.
+- **Flash safety** (`src/render/vfx/flashGuard.js`): at most 3 flashes in any second of wall time, an
+  impact frame counts as 2 and waits 1.2 s after the last one, the screen-flash layer never passes
+  0.55 opacity (it is a radial tint: no frame is ever full white). Past the budget a flash becomes a
+  faint tint (≤ 0.08) that does not count.
+
+`renderer.vfx` reports what the layer did (freezes granted / refused, impacts, flashes the guard
+turned down, halos last frame, shake px, zoom punch, bloom and grade in use); the capture tool
+records it with every shot. `node tools/vfx/capture.mjs --events ult@150,bosskill@210` also shoots
+those moments as they land (the frame they land on and 2, 6 and 16 frames later).

@@ -15,6 +15,16 @@ const MAX_DRONES = 256;
 const TOWER_SCALE = 1.22;
 const HERO_SCALE = 1.36;
 const ENEMY_SCALE = 1.12;
+/**
+ * Hit squash (docs/VFX.md §M1): a struck monster squashes down and springs back (a damped wobble,
+ * ≈ 0.3 s of visual time — so a hit-stop holds it at its most squashed). Amplitude at full power,
+ * smaller for big monsters; a new hit restarts it only after SQUASH_RETRIGGER (no jitter from
+ * rapid fire). Plain numbers on the view: nothing is allocated per hit.
+ */
+const SQUASH_Y = 0.24;
+const SQUASH_XZ = 0.16;
+const SQUASH_LEN = 0.32;
+const SQUASH_RETRIGGER = 0.09;
 
 const STATUS_ICONS = {
   burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
@@ -329,6 +339,7 @@ export class Actors {
       uid: e.uid, model, x: e.x, z: e.y, y: e.alt || 0, facing: e.facing || 0, statusKey: '', boss: e.tier === 'boss' || e.tier === 'miniboss',
       height: (model.userData.height || 0.6 * (e.def.size || 1)) * ENEMY_SCALE, size: e.def.size || 1, color: e.def.color || '#ffffff', spawnT: 0,
       bob: (e.uid * 1.37) % TAU, airborne: !!e.airborne, veiled: null, phasing: null, barrier: -1,
+      tier: e.tier || e.def.tier || null, maxHp: e.maxHp || 0, sqA: 0, sqT: 1,
     };
     model.position.set(e.x, v.y, e.y);
     model.rotation.y = v.facing;
@@ -366,7 +377,21 @@ export class Actors {
     v.facing = lerpAngle(v.facing, e.facing || 0, Math.min(1, dt * 10));
     m.rotation.y = v.facing;
     v.spawnT = Math.min(1, v.spawnT + dt * 4);
-    m.scale.setScalar((0.4 + 0.6 * v.spawnT) * ENEMY_SCALE);
+    v.maxHp = e.maxHp || v.maxHp;
+    const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
+    if (v.sqA > 0) {
+      // hit squash: a damped wobble, most squashed on the hit frame
+      v.sqT += dt;
+      if (v.sqT >= SQUASH_LEN) {
+        v.sqA = 0;
+        m.scale.setScalar(base);
+      } else {
+        const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
+        m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+      }
+    } else {
+      m.scale.setScalar(base);
+    }
     const ud = m.userData;
     const veiled = !!(e.veiled && !e.revealed);
     if (veiled !== v.veiled) {
@@ -417,8 +442,18 @@ export class Actors {
     this.releaseDecor(v.decorKey);
   }
 
-  hitFlash(uid) {
-    this.enemies.get(uid)?.model.userData.hitFlash?.();
+  /**
+   * A monster was hit: her body flashes (`color`: THREE.Color / hex, default white) and squashes
+   * (`squash` 0..1 power; 0 = none). Big monsters squash less.
+   */
+  hitFlash(uid, color = null, strength = 1, squash = 0) {
+    const v = this.enemies.get(uid);
+    if (!v) return;
+    v.model.userData.hitFlash?.(color, strength);
+    if (squash > 0 && (v.sqT >= SQUASH_RETRIGGER || squash > v.sqA * 1.25)) {
+      v.sqA = Math.min(1, squash) / Math.sqrt(Math.max(1, v.size || 1));
+      v.sqT = 0;
+    }
   }
 
   playAttack(uid) {

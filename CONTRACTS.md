@@ -1136,7 +1136,16 @@ r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (dron
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
 r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
+r.vfx                            // read-only hit-effect stats { hitStops, impacts, flashesRefused, halos, shakePx, punchZoom, bloom, grade, … }
+r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 ```
+
+Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
+`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no hit-stop and
+no impact frames; Settings → Graphics → Hit effects and the pause menu), `camera`, `buffIcons`,
+`attackFx`. Hit feel (docs/VFX.md §M1): hit-stop, impact frames, hit squash, camera shake in screen
+pixels and the zoom punch all change only what is drawn; the flash guard keeps full-screen flashes to
+≤ 3 a second and never white.
 
 Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
 visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times
