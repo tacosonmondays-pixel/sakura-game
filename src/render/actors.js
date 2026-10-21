@@ -640,15 +640,30 @@ export class Actors {
         gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
       }
     }
-    // Marumi's bowling balls (src/sim/balls.js): a dark ball rolling up the road, a fuse spark on top
+    // Marumi's bowling balls (src/sim/balls.js): a dark ball rolling up the road, a fuse spark on top. A
+    // bouncing ball (Spin Shot) flies off the road straight at its next walker: drawn a little higher with
+    // a bright rim and two fading ghosts behind it, so the turn toward the new walker reads at a glance.
     for (const tw of sim.towers) {
       if (!tw.balls) continue;
       for (const bl of tw.balls) {
+        const f = bl.fly;
+        if (f) {
+          const e = sim.enemies.find((o) => o.uid === f.uid);
+          const dx = e ? e.x - f.x : 0;
+          const dy = e ? e.y - f.y : 0;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const ux = d > 1e-6 ? dx / d : 0;
+          const uy = d > 1e-6 ? dy / d : 0;
+          for (let k = 2; k >= 1; k--) gA.push(f.x - ux * 0.22 * k, 0.09, f.y - uy * 0.22 * k, 0.4 - 0.08 * k, 0.4 - 0.08 * k, R.disc, 1, 0.77, 0.42, 0.42 - 0.14 * k, 0);
+          gN.push(f.x, 0.1, f.y, 0.42, 0.42, R.disc, 0.2, 0.22, 0.32, 0.95, 0);
+          gA.push(f.x, 0.104, f.y, 0.52, 0.52, R.ring, 1, 0.85, 0.5, 0.75 + 0.25 * Math.sin(t * 24), 0);
+          continue;
+        }
         const path = sim.pathData[bl.pathIndex];
         if (!path) continue;
-        const p = bl.stuck ? bl.stuck : pointAt(path, bl.dist, this._ballPt || (this._ballPt = {}));
+        const p = pointAt(path, bl.dist, this._ballPt || (this._ballPt = {}));
         gN.push(p.x, 0.066, p.y, 0.42, 0.42, R.disc, 0.2, 0.22, 0.32, 0.95, 0);
-        gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, bl.stuck ? 0.6 + 0.4 * Math.sin(t * 20) : 0.5, 0);
+        gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, 0.5, 0);
       }
     }
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out

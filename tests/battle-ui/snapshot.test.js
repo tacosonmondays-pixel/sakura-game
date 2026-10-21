@@ -1363,3 +1363,38 @@ describe('battle save and co-op freeplay: a solo save never carries freeplay sta
     expect(sim.wave).toBeLessThanOrEqual(sim.totalWaves);
   });
 });
+
+describe('Marumi\'s ricochet and the battle save', () => {
+  it('a ball mid-bounce ends at the wave clear: the save round-trips with no ball and replays no blast', () => {
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 2110 };
+    const sim = makeSim(c);
+    sim.cash = 1e6;
+    for (const a of autoPlan('1-1', c.towers, { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const mb = sim.towers.find((t) => t.unitId === 'marumi');
+    for (const [p, n] of [[2, 5], [0, 2]]) for (let k = 0; k < n; k++) expect(sim.upgradeTower(mb.uid, p)).toBe(true);
+    let flying = false;
+    for (let w = 0; w < 6 && !flying; w++) {
+      sim.startNextWave();
+      for (let i = 0; i < 60 * 240 && sim.state === 'wave' && !flying; i++) {
+        sim.update(STEP);
+        sim.drainEvents();
+        flying = !!mb.balls?.some((b) => b.fly);
+      }
+    }
+    expect(flying, 'a ball off the road, bouncing').toBe(true);
+    for (let i = 0; i < 60 * 600 && sim.state === 'wave'; i++) {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(sim.state).not.toBe('wave');
+    expect(mb.balls).toBeUndefined();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    const mb2 = back.towers.find((t) => t.unitId === 'marumi');
+    expect(mb2.tiers).toEqual(mb.tiers);
+    expect(mb2.balls ?? []).toHaveLength(0);
+    back.update(STEP);
+    expect(back.drainEvents().filter((e) => e.type === 'ballPop' || e.type === 'explode')).toEqual([]);
+  });
+});

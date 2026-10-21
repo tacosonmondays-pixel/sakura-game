@@ -229,29 +229,33 @@ function normVine(t = {}) {
 /**
  * The bowler (Marumi, UNIT_GAPS §5.9; src/sim/balls.js): her rolling bomb balls. Only a girl whose base
  * declares `ball` carries it. Numbers add, flags OR.
- *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · lanes (balls a throw)
- *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin) · lob (Lob)
+ *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · share (× of a blast on
+ *   the others in it; the walker the ball meets takes it all) · lob (her lob at flyers, base kit) ·
+ *   lobMul (× of her blast a lob carries)
+ *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin)
  *   pushBig (Bowling Thunder: minibosses take her whole push)
- *   sticky (× of a sticky blast; 0 = none) · stickyStack · stickyTime (s)
+ *   bounce (ricochets after a blast; 0 = none) · reach (tiles to the next walker) · finish (× of the
+ *   Glow Bowl finale after the last bounce; 0 = none)
  */
 function normBall(t = {}) {
   return {
     travel: t.travel ?? 4,
     speed: t.speed ?? 4,
     through: t.through ?? 0,
-    lanes: t.lanes ?? 1,
+    share: t.share ?? 0.5,
+    lobMul: t.lobMul ?? 0.5,
     pins: t.pins ?? 0,
     pinDmg: t.pinDmg ?? 4,
     pinPierce: t.pinPierce ?? 2,
     hook: !!t.hook,
     lob: !!t.lob,
     pushBig: !!t.pushBig,
-    sticky: t.sticky ?? 0,
-    stickyStack: t.stickyStack ?? 1,
-    stickyTime: t.stickyTime ?? 2,
+    bounce: t.bounce ?? 0,
+    reach: t.reach ?? 2,
+    finish: t.finish ?? 0,
   };
 }
-const BALL_ADDS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
 
@@ -718,9 +722,10 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
   if (s.ball) {
     s.ball.through = Math.max(0, Math.round(s.ball.through));
-    s.ball.lanes = Math.max(1, Math.round(s.ball.lanes));
     s.ball.pins = Math.max(0, Math.round(s.ball.pins));
-    s.ball.stickyStack = Math.max(1, Math.round(s.ball.stickyStack));
+    s.ball.bounce = Math.max(0, Math.round(s.ball.bounce));
+    s.ball.reach = Math.max(0, s.ball.reach);
+    s.ball.share = Math.min(1, Math.max(0, s.ball.share));
   }
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);

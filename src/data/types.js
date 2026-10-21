@@ -122,7 +122,7 @@ export const ROLES = {
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
   // the new girls (UNIT_GAPS §5)
-  bowler: { name: 'Demolition Bowler', category: 'dps', goodAgainst: 'Walking crowds coming straight at her', limitation: 'Balls never touch flyers', desc: 'Rolls bomb balls up the road against the enemies: blasts that push the crowd back.' },
+  bowler: { name: 'Demolition Bowler', category: 'dps', goodAgainst: 'Walking crowds coming straight at her', limitation: 'Flyers only get her lighter lob', desc: 'Rolls bomb balls up the road against the enemies: blasts that push the crowd back and ricochet from walker to walker.' },
   botanist: { name: 'Botanist', category: 'control', goodAgainst: 'Walking crowds and long games', limitation: 'Vines never hold bosses or flyers', desc: 'Throws thorn seeds; her vines hold walkers in place and her harvest grows coins and lives.' },
   council: { name: 'Council Hub', category: 'support', goodAgainst: 'Saving coins and building a strong core', limitation: 'No attack of her own', desc: 'Changes the rules in her office radius: cheaper upgrades, free tiers, coins per kill.' },
   builder: { name: 'Field Builder', category: 'support', goodAgainst: 'Long roads and mixed threats', limitation: 'Sentries need time and road', desc: 'Sets timed sentries at the road\'s edge and nets on the road.' },

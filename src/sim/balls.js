@@ -1,37 +1,48 @@
 // The bowler (Marumi, Strike Bowler; docs/specs/UNIT_GAPS.md §5.9, P-5): she rolls bomb balls UP the
 // road, against the flow of enemies, from the road point nearest her. A ball travels ball.speed tiles a
 // second for up to ball.travel tiles toward the spawn and explodes on the first walker it touches: her
-// hit as a blast (splash, knockback along the path with the push lock, her statuses). Flyers are never
-// touched by a ball (Lob, Spin Shot tier 2, throws an arcing bomb at them instead).
+// hit as a blast (splash, knockback along the path with the push lock, her statuses). The walker the
+// ball meets takes the full blast, the others in it ball.share of it. Flyers are never touched by a
+// ball: when only flyers are in her range she lobs an arcing bomb at the lead one for ball.lobMul of
+// her blast (her base kit, every path).
 //   - Wrecking Ball: the ball bowls through ball.through walkers (a hit each) before it explodes.
 //   - Split Pins: a blast throws ball.pins pins along the road: each hits a walker on that road within
 //     PIN_REACH tiles of the blast (nearest first, again round the list while pins are left; at most
 //     ball.pinPierce pins on one walker) for ball.pinDmg.
 //   - Hook Spin: a lane with no walker in her range sends the ball to the nearest lane that has one.
-//     Split Lane: a second ball on the next lane with a walker.
-//   - Sticky Ball: a ball that meets an elite, miniboss or boss sticks to it for ball.stickyTime s, then
-//     explodes for × ball.sticky (at most ball.stickyStack balls on one enemy).
+//   - Ricochet (Spin Shot): after a blast the ball bounces ball.bounce times: it flies BOUNCE_SPEED
+//     tiles a second straight at the nearest OTHER walker within ball.reach tiles of the blast (squared
+//     distance, uid tie-break; never a flyer, a walker in a tunnel or a veiled one she cannot see, never
+//     one this ball already hit) and explodes on it. A target that falls or slips out of reach on the
+//     way is swapped for the nearest one from where the ball is; none, or a leg longer than
+//     BOUNCE_MAX_T, and the ball is gone. Glow Bowl: the blast after the last bounce of a full run is a
+//     finale, × ball.finish and FINALE_RADIUS × the radius.
 //
-// State: t.balls [{ uid, pathIndex, dist, left, through, hit: [uids], stuck: { uid, left } | null }];
-// they end at the wave clear (UNIT_GAPS §7.3).
+// State: t.balls [{ uid, pathIndex, dist, left, through, bounce, hit: [uids], fly: { uid, x, y, t } | null }]
+// (fly: a bouncing ball off the road, its target, where it is and how long this leg has flown);
+// they end at the wave clear (UNIT_GAPS §7.3), so a battle save (always at a calm point) holds none.
 //
 // Shared stretches (P-17): a ball rolls on one pathIndex, but where that road is shared with another
 // path (a fork's prefix, a join's suffix) it touches the walkers of both: a walker on another path
 // counts when it is within the ball's reach AND its road runs the same way there (unit direction dot
 // > SHARED_DOT). A crossing or an overpass meets at an angle, so the other road's walkers are ignored.
+// Her own lane is every path whose nearest road point is her lane's (a shared stretch at her spot):
+// a walker on any of them lets her roll, on the path that walker is on.
 //
-// Determinism: path distances and pointAt (no trig), squared distances, the fixed step, uid tie-breaks,
-// no rng. Caps: BALLS_PER_GIRL, then BALLS_PER_SIM (her oldest ball goes first; a full sim rolls none).
+// Determinism: path distances and pointAt (no trig), squared distances and Math.sqrt, the fixed step,
+// uid tie-breaks, no rng. Caps: BALLS_PER_GIRL, then BALLS_PER_SIM (her oldest ball goes first; a full
+// sim rolls none).
 
 import { pointAt, samplePath } from './path.js';
 import { isEligible } from './combat.js';
 import { gatherTargets, spawnProjectile } from './towers.js';
-import { BALL_RADIUS, BALLS_PER_GIRL, BALLS_PER_SIM, PIN_REACH } from './constants.js';
+import { BALL_RADIUS, BALLS_PER_GIRL, BALLS_PER_SIM, PIN_REACH, BOUNCE_SPEED, BOUNCE_MAX_T, FINALE_RADIUS } from './constants.js';
 
 const NEAR = [];
 const PT = {};
-const STICKY_TIERS = { elite: true, miniboss: true, boss: true };
 const SHARED_DOT = 0.95;
+/** Two lanes start on the same road when their nearest points are this close (squared tiles). */
+const SAME_SPOT2 = 0.3 * 0.3;
 
 /** Is walker `e` on the same physical road as a ball on `path` at segment `seg` (P-17)? */
 function sameRoad(sim, e, pathIndex, path, seg) {
@@ -53,7 +64,7 @@ function laneStarts(sim, t) {
       const dx = s.x - t.x;
       const dy = s.y - t.y;
       const d2 = dx * dx + dy * dy;
-      if (!best || d2 < best.d2) best = { pathIndex: path.index, dist: s.d, d2 };
+      if (!best || d2 < best.d2) best = { pathIndex: path.index, dist: s.d, d2, x: s.x, y: s.y };
     }
     if (best) out.push(best);
   }
@@ -71,6 +82,12 @@ function lanesOf(sim, t) {
   return list;
 }
 
+function sameSpot(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy <= SAME_SPOT2;
+}
+
 /** One ball of hers on `lane` (her cap, then the sim's). */
 export function addBall(sim, t, lane) {
   const b = t.stats.ball;
@@ -82,7 +99,7 @@ export function addBall(sim, t, lane) {
     if (!balls.length) return null;
     balls.shift();
   }
-  const ball = { uid: sim._nextUid(), pathIndex: lane.pathIndex, dist: lane.dist, left: b.travel, through: b.through, hit: [], stuck: null };
+  const ball = { uid: sim._nextUid(), pathIndex: lane.pathIndex, dist: lane.dist, left: b.travel, through: b.through, bounce: b.bounce, hit: [], fly: null };
   balls.push(ball);
   sim._emit('ball', { towerUid: t.uid, uid: ball.uid, pathIndex: ball.pathIndex, dist: ball.dist });
   return ball;
@@ -90,7 +107,7 @@ export function addBall(sim, t, lane) {
 
 /**
  * The 'roll' behaviour: a ball on her lane when a walker is in her range there (Hook Spin: on the
- * nearest lane that has one; Split Lane: a second lane too); else a Lob at a flyer; else no attack.
+ * nearest lane that has one); else a lob at the lead flyer; else no attack.
  */
 export function rollBall(sim, t) {
   if (sim.state !== 'wave') return false;
@@ -99,26 +116,23 @@ export function rollBall(sim, t) {
   const laneHas = new Set();
   for (let i = 0; i < walkers.length; i++) laneHas.add(walkers[i].pathIndex);
   NEAR.length = 0;
-  // her own lane (the nearest) when a walker is on it; with Hook Spin every lane with one, nearest first
+  // her own lane (the nearest, with any path sharing its road there) when a walker is on it; with
+  // Hook Spin the nearest lane that has one
   const lanes = lanesOf(sim, t);
-  let rolled = 0;
-  let first = null;
-  for (let i = 0; i < lanes.length && rolled < b.lanes; i++) {
-    if (i > 0 && !b.hook) break;
+  let rolled = null;
+  for (let i = 0; i < lanes.length && !rolled; i++) {
     const lane = lanes[i];
+    if (i > 0 && !b.hook && !sameSpot(lane, lanes[0])) continue;
     if (!laneHas.has(lane.pathIndex)) continue;
-    if (addBall(sim, t, lane)) {
-      rolled++;
-      if (!first) first = lane;
-    }
+    if (addBall(sim, t, lane)) rolled = lane;
   }
   if (rolled) {
-    const p = pointAt(sim.pathData[first.pathIndex], first.dist, PT);
+    const p = pointAt(sim.pathData[rolled.pathIndex], rolled.dist, PT);
     t.facing = Math.atan2(p.x - t.x, p.y - t.y);
-    sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'roll', n: rolled });
+    sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'roll', n: 1 });
     return true;
   }
-  // Lob (Spin Shot tier 2): only flyers in range, an arcing bomb at the lead one
+  // the lob (her base kit): only flyers in range, an arcing bomb at the lead one
   if (b.lob && t.lobSpec) {
     const air = gatherTargets(sim, t.x, t.y, t.eff.range, t.lobSpec, NEAR);
     let best = null;
@@ -134,22 +148,29 @@ export function rollBall(sim, t) {
   return false;
 }
 
-/** A blast of hers at (x, y): her hit (× scale) on every eligible enemy within her splash, then the pins. */
-function blast(sim, t, x, y, scale, pathIndex, seg) {
+/**
+ * A blast of hers on walker `e` (× scale, radius × rMul): the full hit on `e`, ball.share of it on
+ * every other eligible enemy within her splash, then the pins.
+ */
+function blast(sim, t, e, scale, rMul) {
   const spec = t.blastSpec;
-  const r = Math.max(0.3, t.eff.splash);
+  const b = t.stats.ball;
+  const x = e.x;
+  const y = e.y;
+  const r = Math.max(0.3, t.eff.splash) * rMul;
   NEAR.length = 0;
   sim.grid.query(x, y, r, NEAR);
   const victims = NEAR.slice();
   NEAR.length = 0;
-  for (const e of victims) if (!e.dead && isEligible(e, spec)) sim._hit(e, t, spec, scale);
+  if (!e.dead && isEligible(e, spec)) sim._hit(e, t, spec, scale);
+  for (const o of victims) if (o !== e && !o.dead && isEligible(o, spec)) sim._hit(o, t, spec, scale * b.share);
   sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType, towerUid: t.uid });
-  const b = t.stats.ball;
-  if (b.pins > 0) pins(sim, t, x, y, pathIndex, seg, b);
+  if (b.pins > 0) pins(sim, t, x, y, e.pathIndex, e.seg ?? 0, b);
 }
 
 function pins(sim, t, x, y, pathIndex, seg, b) {
   const path = sim.pathData[pathIndex];
+  if (!path) return;
   const spec = t.pinSpec;
   sim.grid.query(x, y, PIN_REACH, NEAR);
   const list = [];
@@ -174,7 +195,59 @@ function pins(sim, t, x, y, pathIndex, seg, b) {
   sim._emit('pins', { towerUid: t.uid, x, y, n: b.pins - left });
 }
 
-/** One step of her balls (updateTower): roll, touch, bowl through, stick, explode. */
+/**
+ * The walker a bouncing ball goes for from (x, y): the nearest eligible walker within `reach` that
+ * the ball has not hit yet (squared distance, then the lower uid), or null.
+ */
+export function nextWalker(sim, t, x, y, reach, hit) {
+  sim.grid.query(x, y, reach, NEAR);
+  const r2 = reach * reach;
+  let best = null;
+  let bestD = Infinity;
+  for (let i = 0; i < NEAR.length; i++) {
+    const e = NEAR[i];
+    if (e.dead || hit.includes(e.uid) || !isEligible(e, t.ballSpec)) continue;
+    const dx = e.x - x;
+    const dy = e.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r2) continue;
+    if (d2 < bestD || (d2 === bestD && e.uid < best.uid)) {
+      best = e;
+      bestD = d2;
+    }
+  }
+  NEAR.length = 0;
+  return best;
+}
+
+/**
+ * The ball meets walker `e`: it explodes (a Glow Bowl finale after the last bounce of a full run),
+ * then bounces on to the next walker while it has bounces left.
+ * @returns {boolean} the ball is still around
+ */
+function strike(sim, t, b, ball, e) {
+  ball.hit.push(e.uid);
+  const fin = !!ball.fly && ball.bounce <= 0 && b.finish > 0;
+  const n = ball.hit.length;
+  blast(sim, t, e, fin ? b.finish : 1, fin ? FINALE_RADIUS : 1);
+  const x = e.x;
+  const y = e.y;
+  const next = ball.bounce > 0 ? nextWalker(sim, t, x, y, b.reach, ball.hit) : null;
+  sim._emit('ballPop', { towerUid: t.uid, uid: ball.uid, x, y, n, fin, tx: next ? next.x : null, ty: next ? next.y : null });
+  if (!next) return false;
+  ball.bounce--;
+  if (ball.fly) {
+    ball.fly.uid = next.uid;
+    ball.fly.x = x;
+    ball.fly.y = y;
+    ball.fly.t = 0;
+  } else {
+    ball.fly = { uid: next.uid, x, y, t: 0 };
+  }
+  return true;
+}
+
+/** One step of her balls (updateTower): roll, touch, bowl through, explode, bounce. */
 export function ballTick(sim, t, dt) {
   const list = t.balls;
   if (!list?.length) return;
@@ -190,22 +263,9 @@ export function ballTick(sim, t, dt) {
 
 /** @returns {boolean} the ball is still around */
 function stepBall(sim, t, b, ball, dt, r2) {
+  if (ball.fly) return flyBall(sim, t, b, ball, dt);
   const path = sim.pathData[ball.pathIndex];
   if (!path) return false;
-  if (ball.stuck) {
-    const s = ball.stuck;
-    const e = sim.enemies.find((o) => o.uid === s.uid);
-    s.left -= dt;
-    if (e && !e.dead) {
-      s.x = e.x;
-      s.y = e.y;
-      if (s.left > 1e-9) return true;
-    }
-    const x = e ? e.x : s.x;
-    const y = e ? e.y : s.y;
-    blast(sim, t, x, y, b.sticky, ball.pathIndex, pointAt(path, ball.dist, PT).seg);
-    return false;
-  }
   const step = b.speed * dt;
   ball.dist -= step;
   ball.left -= step;
@@ -238,17 +298,42 @@ function stepBall(sim, t, b, ball, dt, r2) {
     sim._hit(hit, t, t.blastSpec, 1);
     return true;
   }
-  if (b.sticky > 0 && STICKY_TIERS[hit.tier]) {
-    let on = 0;
-    for (const o of t.balls) if (o.stuck && o.stuck.uid === hit.uid) on++;
-    if (on < b.stickyStack) {
-      ball.stuck = { uid: hit.uid, left: b.stickyTime, x: hit.x, y: hit.y };
-      sim._emit('ballStick', { towerUid: t.uid, uid: ball.uid, targetUid: hit.uid });
-      return true;
+  return strike(sim, t, b, ball, hit);
+}
+
+/** A bouncing ball off the road: straight at its walker, BOUNCE_SPEED tiles a second. */
+function flyBall(sim, t, b, ball, dt) {
+  const f = ball.fly;
+  f.t += dt;
+  let e = null;
+  for (const o of sim.enemies) {
+    if (o.uid === f.uid) {
+      e = o;
+      break;
     }
   }
-  blast(sim, t, hit.x, hit.y, 1, ball.pathIndex, p.seg);
-  return false;
+  if (!e || e.dead || !isEligible(e, t.ballSpec)) {
+    e = nextWalker(sim, t, f.x, f.y, b.reach, ball.hit);
+    if (e) f.uid = e.uid;
+  }
+  if (!e || f.t > BOUNCE_MAX_T) {
+    sim._emit('ballEnd', { towerUid: t.uid, uid: ball.uid });
+    return false;
+  }
+  const dx = e.x - f.x;
+  const dy = e.y - f.y;
+  const d2 = dx * dx + dy * dy;
+  const step = BOUNCE_SPEED * dt;
+  const reach = step + BALL_RADIUS;
+  if (d2 <= reach * reach) {
+    f.x = e.x;
+    f.y = e.y;
+    return strike(sim, t, b, ball, e);
+  }
+  const d = Math.sqrt(d2);
+  f.x += (dx / d) * step;
+  f.y += (dy / d) * step;
+  return true;
 }
 
 /** Wave clear (Sim._checkWaveEnd): every ball ends. */

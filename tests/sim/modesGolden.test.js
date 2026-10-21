@@ -119,8 +119,10 @@ const GACHA_GOLDEN = {
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
   'chigusa:5-4:hard': 'W27/36/90183/930/cf2018c6',
   'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
-  'marumi:5-4:hard': 'W27/37/92444/878/cf90e6cb',
-  'marumi:8-4:hard': 'W30/36/55239/1389/48b82cd6', // (re-pinned when her balls began to touch walkers on shared stretches, P-17)
+  // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
+  // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives)
+  'marumi:5-4:hard': 'W27/38/100632/1471/ac3188a3',
+  'marumi:8-4:hard': 'W30/40/53939/1579/6c70e78',
 };
 
 describe.skipIf(!hasRealData())('the gacha new girls in a bot battle (pinned)', () => {

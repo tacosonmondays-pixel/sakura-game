@@ -1,5 +1,50 @@
 # Balance notes
 
+## Marumi rework (2026-10-21, `feature/marumi-rework`)
+
+Owner request (Oct 21): a bowling-ball ricochet that bounces from walker to walker. Player feedback: her
+best path showed about 1k DPS on the panel where regular girls show 4-5k, and she could not touch flyers
+without Lob. Measured the way players see it: the battle panel's **DPS** cell (`Sim.towerStats().dps`,
+damage × attacks a second × blasts) with `tools/bench.mjs` (strong preset: L60, 3 awakenings, gear ×1.45,
+25% crit; stage 4-5, seed 9, best-covered spot, an un-upgraded Aoi beside her), next to the bench's real
+damage on the crowd stream (Orc Grunts that never fall) and the walking boss. Builds pNtM: path N to tier
+M with a tier-2 crosspath (Heavy x-0-2, Lane 2-x-0, Spin 2-0-x). Azami's and Yuzuha's panels show only
+their own shot (their strips and sentries do the work), so read their real columns.
+
+| Girl / path | coins 3/2 · 4/2 · 5/2 | panel DPS 3/2 · 4/2 · 5/2 | crowd DPS | boss DPS |
+|---|---|---|---|---|
+| marumi (before) p1 | 2440 · 5840 · 25040 | 32 · 107 · 405 | 4.6k · 16k · 93k | 8 · 28 · 135 |
+| marumi (before) p2 | 2370 · 5570 · 23970 | 39 · 98 · 218 | 0 · 0 · 0 | 0 · 0 · 0 |
+| marumi (before) p3 | 2290 · 5090 · 21090 | 32 · 32 · 181 | 2.7k · 2.7k · 15k | 14 · 14 · 255 |
+| marumi (after) p1 | 2440 · 5840 · 25040 | 398 · 875 · 4.9k | 55k · 129k · 260k | 53 · 118 · 809 |
+| marumi (after) p2 | 2370 · 5570 · 23970 | 388 · 990 · 5.0k | 4.3k · 12k · 70k | 38 · 108 · 603 |
+| marumi (after) p3 | 2290 · 5090 · 21090 | 477 · 955 · 4.4k | 24k · 47k · 241k | 29 · 39 · 99 |
+| kinu p1 | 2070 · 5070 · 22670 | 403 · 2.2k · 5.8k | 1.1k · 5.9k · 30k | 11 · 67 · 349 |
+| kinu p2 | 1940 · 4340 · 19540 | 247 · 516 · 1.2k | 217 · 580 · 1.8k | 8 · 19 · 43 |
+| kinu p3 | 2020 · 4820 · 20820 | 233 · 233 · 686 | 78 · 683 · 1.4k | 8 · 16 · 37 |
+| azami p1 | 1900 · 4500 · 19500 | 6 · 6 · 6 | 175 · 723 · 7.9k | 9 · 10 · 38 |
+| azami p2 | 1790 · 4190 · 18690 | 7 · 7 · 7 | 103 · 112 · 130 | 3 · 3 · 4 |
+| azami p3 | 1950 · 4750 · 20750 | 6 · 6 · 6 | 88 · 88 · 239 | 4 · 4 · 4 |
+| yuzuha p1 | 2350 · 5750 · 24950 | 20 · 20 · 20 | 279 · 1.4k · 6.4k | 235 · 668 · 4.7k |
+| yuzuha p2 | 2250 · 5250 · 22850 | 20 · 20 · 20 | 298 · 730 · 2.2k | 157 · 396 · 1.2k |
+| yuzuha p3 | 2150 · 4950 · 20950 | 20 · 20 · 20 | 280 · 280 · 280 | 173 · 173 · 173 |
+
+- Her panel now counts every blast of a ball (the first, one per bounce, the Glow Bowl finale × 3) and
+  her pins, like a volley's projectiles. Best path at 5/2: Heavy 4.9k, Lane 5.0k, Spin 4.4k (Kinu's best
+  5.8k at 22,670 coins). Damage is back-loaded (base 20 at 0.8/s; T5s +500 / +200 / +60) so tier 3/2
+  sits at Kinu's 3/2 (~400).
+- Real crowd at 5/2 is in the blast band (Akane 324k, Sango 235k on the same bench); the walker a ball
+  meets takes the whole blast and the others in it half (`ball.share` 0.5), which keeps the crowd pile
+  from running away. Heavy 3/2 and 4/2 (55k / 129k) sit above Akane's (6k / 24k) on this pile bench:
+  the Spin 2 crosspath's bounce and her push keep the immortal crowd bunched in her blast.
+- Lane Master read **0** before: on 4-5 her nearest road point lies on a shared stretch of two paths and
+  a walker on the other path never counted as "on her lane" without Hook Spin. Her own lane is now every
+  path whose nearest point is hers (`sameSpot`), and she rolls on the walker's path.
+- Anti-air: the lob is her base kit (every path): when only flyers are in her range she lobs half her
+  blast at the lead one (`ball.lobMul` 0.5). Lob panel at 5/2: Heavy ~1.2k, Lane ~1.2k, Spin ~0.2k.
+- Bot goldens (the free team plus her, seed 1): 5-4 Hard 37 → 38 lives, 8-4 Hard 36 → 40. Easy gate
+  unchanged (she is gacha, never in the free pool).
+
 ## New girls, wave 1 (2026-10-20, `feature/new-girls-w1`; UNIT_GAPS §5)
 
 Azami (R, free after 2-2), Kinu (R, gacha), Wakaba (R, free after 6-5), Yuzuha (SR, free after 4-2).
@@ -72,7 +117,8 @@ are in the final-tier window (spec × 1.6); Turkey Strike also adds +40 damage a
 goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Shared stretches (P-17):
 a ball and its pins also touch walkers of another path where the two roads run the same way (a fork's
 shared entrance, a join's shared exit), never on a crossing or an overpass. Bowling Thunder: minibosses
-take her whole push (`pushBig`; KNOCKBACK_RESIST halves everyone else's miniboss pushes as before).
+take her whole push (`pushBig`; KNOCKBACK_RESIST halves everyone else's miniboss pushes as before). (Reworked
+Oct 21: see "Marumi rework" above.)
 
 
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)

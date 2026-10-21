@@ -269,12 +269,12 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     splash: 0,
   }) : null;
   // Marumi's balls (src/sim/balls.js): they touch walkers only; the blast pushes with the push lock; pins
-  // are plain light hits; Lob throws her blast at flyers
+  // are plain light hits; her lob throws a lighter blast (× ball.lobMul) at flyers
   if (s.ball) {
     t.ballSpec = { ...t.eff, canHitAir: false };
     t.blastSpec = { ...t.eff, canHitAir: false, splash: 0, pierce: 1, pushLock: true, ...(s.ball.pushBig ? { pushBig: true } : null) };
     t.pinSpec = { ...t.eff, damage: s.ball.pinDmg * dmgMul, canHitAir: false, splash: 0, pierce: 1, knockback: 0, status: [], critChance: 0, mark: null };
-    t.lobSpec = s.ball.lob ? { ...t.eff, canHitAir: true, pierce: 1, knockback: 0 } : null;
+    t.lobSpec = s.ball.lob ? { ...t.eff, damage: t.eff.damage * s.ball.lobMul, canHitAir: true, pierce: 1, knockback: 0 } : null;
   }
   // Chigusa's vine and thorn beds (src/sim/vines.js): ground-only hits from her stats, no crits or statuses
   if (s.vine) {

@@ -270,3 +270,8 @@ export const BALL_RADIUS = 0.45;
 export const BALLS_PER_GIRL = 6;
 export const BALLS_PER_SIM = 48;
 export const PIN_REACH = 2;
+/** Her ricochet (Spin Shot): a bouncing ball flies BOUNCE_SPEED tiles a second toward its next walker
+ *  and gives up after BOUNCE_MAX_T s on one leg; a Glow Bowl finale blast is FINALE_RADIUS × her splash. */
+export const BOUNCE_SPEED = 9;
+export const BOUNCE_MAX_T = 1;
+export const FINALE_RADIUS = 1.5;
