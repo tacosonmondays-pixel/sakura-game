@@ -5,7 +5,8 @@ import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP } from
 
 const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
 // Statuses whose duration bosses/minibosses resist (CC_RESIST). 'ground' is not immobilising.
-const CC_TYPES = { freeze: true, stun: true, shock: true, ground: true };
+// 'hold' (Chigusa's vines, UNIT_GAPS P-10): the enemy cannot move; bosses and flyers are immune.
+const CC_TYPES = { freeze: true, stun: true, shock: true, ground: true, hold: true };
 
 /** Element a status belongs to (for ward immunity). Slow/vulnerable are frost only when the source is frost. */
 export function statusElement(type, sourceElement) {
@@ -24,6 +25,7 @@ export function statusElement(type, sourceElement) {
 export function applyStatus(enemy, spec, ctx = {}) {
   if (!spec || !spec.type || enemy.dead) return null;
   if (spec.type === 'ground' && !enemy.airborne) return null; // only flyers can be grounded
+  if (spec.type === 'hold' && (enemy.airborne || enemy.tier === 'boss')) return null; // vines hold walkers, never a boss
   if (spec.chance !== undefined && spec.chance < 1) {
     const roll = ctx.rng ? ctx.rng.next() : 0;
     if (!(roll < spec.chance)) return null;
@@ -132,6 +134,11 @@ export function tickStatusDurations(enemy, dt) {
 export function isImmobile(enemy) {
   const st = enemy.statuses;
   return !!(st.freeze || st.stun || st.shock);
+}
+
+/** Held by a vine (Chigusa): cannot move, but keeps its abilities (unlike a stun). */
+export function isHeld(enemy) {
+  return !!enemy.statuses.hold;
 }
 
 /** Current slow fraction (0 = none). */

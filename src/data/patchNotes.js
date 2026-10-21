@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.40', version: '0.1.40', date: '2026-10-21', title: 'New Faces at the Academy',
+    added: [
+      'Seven new academy girls! Azami lays spike strips on the road, Kinu fires a ring of pins in every direction, Wakaba tosses sports drinks that speed up the girl doing the most damage, and Yuzuha sets fold-out sentries along the road.',
+      'Ouka, the Student Council President, makes upgrades cheaper for the girls near her office. Chigusa’s vines hold walking enemies in place for a moment, and Marumi rolls bomb bowling balls up the road.',
+      'Azami joins after 2-2, Yuzuha after 4-2 and Wakaba after 6-5, each with a short new episode in Story. Kinu, Ouka, Chigusa and Marumi are waiting in Recruit.',
+      'All seven already have their 3D figures. Their painted portraits come later; until then they show a temporary card.',
+    ],
+    changed: [
+      'Cleared their stage before? Azami (2-2), Yuzuha (4-2), Noa (6-2), Wakaba (6-5) and Hana (7-5) now join on their own when you open the game, each with a letter in your Mailbox. No replay needed.',
+      'Co-op: both players need this update to play together.',
+    ],
+  },
+  {
     id: 'v0.1.39', version: '0.1.39', date: '2026-10-20', title: 'Welcome Back, Everyone',
     added: [
       'Nine girls are back! Kanna, Yoriko and Seiran join as staff heroes, and Iroha, Ena, Fuu, Noa, Hana and Ruri as students, each with a painted portrait and a 3D figure (six figures are temporary and get their finished look later).',

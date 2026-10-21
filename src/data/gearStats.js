@@ -94,6 +94,16 @@ export const GEAR_FIT = Object.freeze({
   noa: { fill: ['ultHaste'] },
   iroha: { fill: DEAD_TOWER },
   ena: { fill: DEAD_TOWER },
+  // the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js): the attacking students as the live towers; Wakaba
+  // (drinks) and Ouka (office rules) deal no damage, so the damage lines fill in too (her speed still counts for
+  // Wakaba's throws; nothing else reaches Ouka's rules)
+  azami: { fill: DEAD_TOWER },
+  kinu: { fill: DEAD_TOWER },
+  wakaba: { fill: ['ultHaste', 'auraPct', 'atkPct', 'critChance', 'critDmg', 'armorPen', 'piercePct'] },
+  yuzuha: { fill: DEAD_TOWER },
+  ouka: { fill: ['ultHaste', 'auraPct', 'atkPct', 'ratePct', 'critChance', 'critDmg', 'armorPen', 'piercePct', 'rangePct'] },
+  chigusa: { fill: DEAD_TOWER },
+  marumi: { fill: DEAD_TOWER },
 });
 
 /**

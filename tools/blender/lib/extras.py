@@ -440,5 +440,30 @@ def flight_headset(ctx):
     return parts
 
 
-EXTRAS = dict(tailBows=tail_bows, taikoStand=taiko_stand, cardDealer=card_dealer, flightHeadset=flight_headset, foxTail=fox_tail,
+# ---------------------------------------------------------------------------
+# Straw sun hat (Chigusa): a wide soft brim and a low rounded crown in straw, with a green band and a
+# little sprout leaf. Pairs with LOOK_OVERRIDES haloLift (ctx halo_lift) so her halo floats above it.
+# ---------------------------------------------------------------------------
+
+def sun_hat(ctx):
+    from .accessory import HAIR_TOP
+    H = ctx['H']
+    straw = '#e8c872'
+    top = H.surf(0, 90, HAIR_TOP - 0.02)
+    base = Vector((top.x, top.y + 0.012, top.z - 0.03))
+    v, f, r = M.lathe([(H.R.x * 1.55, -0.012), (H.R.x * 1.25, 0.0), (H.R.x * 0.95, 0.012)], segments=16, close_top=True, close_bottom=True,
+                      center=(base.x, base.y, base.z), scale_xy=(1.0, 1.05))
+    parts = [_obj('sunhat_brim', (v, f), straw, 'head', levels=2)]
+    v, f = M.sphere((base.x, base.y, base.z + 0.01), (H.R.x * 0.9, H.R.y * 0.92, 0.07))
+    v = [(x, y, z if z >= base.z + 0.01 else base.z + 0.01) for x, y, z in v]
+    parts.append(_obj('sunhat_crown', (v, f), straw, 'head', levels=1))
+    v, f, r = M.tube([base + Vector((0, 0, 0.008)), base + Vector((0, 0, 0.026))], (H.R.x * 0.92, H.R.y * 0.95), sides=12)
+    parts.append(_obj('sunhat_band', (v, f), '#5f8f3a', 'head', levels=1))
+    leaf = base + Vector((H.R.x * 0.7, -H.R.y * 0.5, 0.03))
+    v, f = M.sphere(leaf, (0.03, 0.012, 0.018))
+    parts.append(_obj('sunhat_leaf', (v, f), '#6fcf5e', 'head', levels=1))
+    return parts
+
+
+EXTRAS = dict(sunHat=sun_hat, tailBows=tail_bows, taikoStand=taiko_stand, cardDealer=card_dealer, flightHeadset=flight_headset, foxTail=fox_tail,
               falcon=falcon, quiver=quiver, foxFamiliar=fox_familiar, taikoDrum=taiko_drum, mortarTube=mortar_tube, monocle=monocle)

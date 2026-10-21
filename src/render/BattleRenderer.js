@@ -41,7 +41,7 @@ const ULT_COLORS = { nova: '#fff3b0', timeWarp: '#c9a8ff', tide: '#8fe8ff', stri
 const STATUS_FX = {
   freeze: '#bff0ff', burn: '#ff8a4a', poison: '#7be08a', shock: '#ffe45c', stun: '#ffd84d',
   silence: '#c4a6ff', reveal: '#ffe066', shred: '#d0d6e2', mark: '#ff6b8b', vulnerable: '#9fd8ff', slow: '#8fe3ff', soak: '#4cc9f0',
-  curse: '#b46cff', hex: '#d77bff', ground: '#d8c8a0',
+  curse: '#b46cff', hex: '#d77bff', ground: '#d8c8a0', hold: '#6fcf5e',
 };
 const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;

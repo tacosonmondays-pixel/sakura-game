@@ -33,6 +33,40 @@
   "lodSize": 198944,
   "lodVertices": 2682
  },
+ "azami": {
+  "file": "azami.glb",
+  "size": 393488,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8078,
+  "lod": "azami.lod.glb",
+  "lodSize": 201344,
+  "lodVertices": 2734
+ },
+ "chigusa": {
+  "file": "chigusa.glb",
+  "size": 478228,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10335,
+  "lod": "chigusa.lod.glb",
+  "lodSize": 226784,
+  "lodVertices": 3343
+ },
  "chika": {
   "file": "chika.glb",
   "size": 374744,
@@ -273,6 +307,23 @@
   "lodSize": 235908,
   "lodVertices": 3146
  },
+ "kinu": {
+  "file": "kinu.glb",
+  "size": 399652,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8259,
+  "lod": "kinu.lod.glb",
+  "lodSize": 204968,
+  "lodVertices": 2844
+ },
  "luna": {
   "file": "luna.glb",
   "size": 454356,
@@ -289,6 +340,23 @@
   "lod": "luna.lod.glb",
   "lodSize": 226668,
   "lodVertices": 3048
+ },
+ "marumi": {
+  "file": "marumi.glb",
+  "size": 415772,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8660,
+  "lod": "marumi.lod.glb",
+  "lodSize": 209824,
+  "lodVertices": 2932
  },
  "midori": {
   "file": "midori.glb",
@@ -375,6 +443,23 @@
   "lodSize": 570536,
   "lodVertices": 9341,
   "lodTriangles": 8995
+ },
+ "ouka": {
+  "file": "ouka.glb",
+  "size": 408976,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8424,
+  "lod": "ouka.lod.glb",
+  "lodSize": 207088,
+  "lodVertices": 2809
  },
  "raika": {
   "file": "raika.glb",
@@ -768,6 +853,23 @@
   "lodSize": 205616,
   "lodVertices": 2877
  },
+ "wakaba": {
+  "file": "wakaba.glb",
+  "size": 428404,
+  "animations": [
+   "attack_throw",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9070,
+  "lod": "wakaba.lod.glb",
+  "lodSize": 208200,
+  "lodVertices": 2946
+ },
  "yoriko": {
   "file": "yoriko.glb",
   "size": 445584,
@@ -801,5 +903,22 @@
   "lod": "yuki.lod.glb",
   "lodSize": 206000,
   "lodVertices": 2957
+ },
+ "yuzuha": {
+  "file": "yuzuha.glb",
+  "size": 422452,
+  "animations": [
+   "attack_cast",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 8916,
+  "lod": "yuzuha.lod.glb",
+  "lodSize": 208836,
+  "lodVertices": 2975
  }
 }

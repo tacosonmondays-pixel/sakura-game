@@ -48,6 +48,7 @@ import { resolveText } from '../../data/story/tokens.js';
 import { resolveStats } from '../../sim/mods.js';
 import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../systems/potential.js';
 import { potPill, potentialSection, nextLine } from '../potential.js';
+import { shownTips } from '../../data/unitTips.js';
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -497,7 +498,7 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
       h('p', unit.bio),
       h('p.muted', unit.personality),
       st ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
-    section('Tips', h('ul.mb-tips', unit.tips.map((t) => h('li', t)))),
+    section('Tips', h('ul.mb-tips', shownTips(unit).map((t) => h('li', t)))), // (no ⚡ tips until the ability bar ships)
     section('Base stats', statsTable(unit, battle, { owned: !!st, label })),
     section('Awakening passive',
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,

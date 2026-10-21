@@ -77,6 +77,15 @@ export const PORTRAIT_DATA = {
   ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
+  // the new girls (UNIT_GAPS §5): construction-sign placeholders (tools/art/placeholder_portraits.py) until
+  // their art is drawn
+  azami: { face: [49, 31], cut: 0.621 },
+  kinu: { face: [49, 31], cut: 0.621 },
+  wakaba: { face: [49, 31], cut: 0.621 },
+  yuzuha: { face: [49, 31], cut: 0.621 },
+  ouka: { face: [49, 31], cut: 0.621 },
+  chigusa: { face: [49, 31], cut: 0.621 },
+  marumi: { face: [49, 31], cut: 0.621 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

@@ -72,7 +72,8 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       sim._spawnQueue = [];
       for (let k = 0; k < 6; k++) {
         const e = sim.spawnEnemy(k % 2 ? 'orc' : 'tank', { dist: 4 + k * 0.6 });
-        e.baseSpeed = 0;
+        // (a strip layer lays on the road nearest the exit: her enemies walk onto it)
+        if (def.base.behavior !== 'strip') e.baseSpeed = 0;
       }
       if (isHero) {
         t.ultCooldown = 0;
@@ -82,7 +83,8 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       for (let k = 0; k < 8 * 60; k++) sim.update(1 / 60);
       expect(finiteDeep(t.eff), `${id} p${p}`).toBe(null);
       const st = sim.towerStats(t.uid);
-      if (st.behavior !== 'none') expect(t.damageDealt, `${id} path ${p} dealt damage`).toBeGreaterThan(0);
+      // (a buff thrower never attacks: her drinks go to girls; Towel Snap is her only hit)
+      if (st.behavior !== 'none' && (st.behavior !== 'drink' || def.base.drink?.towel)) expect(t.damageDealt, `${id} path ${p} dealt damage`).toBeGreaterThan(0);
       for (const e of sim.enemies) expect(Number.isFinite(e.hp)).toBe(true);
     }
   });

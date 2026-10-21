@@ -1,5 +1,5 @@
 // Chapter 6: Clockwork Foundry — the Foundry Heart (docs/story/BIBLE.md §7, Chapter 6).
-// Join: Noa (6-2) once the roster merge adds her (scene-level ifUnit). Laugh: the spoon, the scarf, the honk.
+// Join: Noa (6-2) once the roster merge adds her (scene-level ifUnit); Wakaba (6-5). Laugh: the spoon, the scarf, the honk.
 // Heart: the "villains" were only cold, and Chika builds them heaters.
 // Clue: the goblins left their frozen burrows; scale #6, the warmest yet.
 
@@ -61,6 +61,23 @@ export default [
       { text: 'Who knitted the scarf?', lines: [say('goblin_chief', 'Me. Took all winter.')] },
     ]),
     say('hikari', "Sentinels, let's turn off the world's grumpiest heater!", { face: 'determined' }),
+  ]),
+
+  scene('ch6.wakaba', {
+    title: 'Water Break!', chapter: 6, kind: 'join', trigger: { after: '6-5' }, bg: 'stage:6-5', music: 'calm',
+  }, [
+    narrate('Before the dust settles, someone jogs into the hangar with a crate of bottles.'),
+    say('wakaba', 'Water break! Everyone, hydrate! You too, Sensei. Especially you.', { at: 'right', fx: 'slide-in', face: 'joy' }),
+    say('hikari', "This is {name:wakaba}, the athletics club's manager. She has never once walked anywhere.", { at: 'center', face: 'laugh' }),
+    say('chika', 'She timed my repair work with a stopwatch. And said I was "a solid B".', { at: 'left', face: 'pout' }),
+    say('wakaba', 'B-plus, with a drink! Whoever works hardest gets the first bottle. That is the rule.'),
+    choice([
+      { text: 'Will you manage our team?', lines: [say('wakaba', "Already am! I made a schedule. It says 'win'.")] },
+      { text: 'Is there a bottle for me?', lines: [say('wakaba', 'Honey lemon, extra cold. Drink it slowly!', { face: 'smile' })] },
+    ]),
+    say('hikari', 'Sensei, I think we just got a manager. And a schedule.', { face: 'smile' }),
+    say('chika', '…Does a B-plus get honey lemon too?'),
+    say('wakaba', 'Everyone gets honey lemon. Now stretch, Sentinels. The festival is a long run!'),
   ]),
 
   scene('ch6.epi', {

@@ -33,6 +33,16 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'statusAdd', 'proc', 'ult', 'bountyAura', 'harvest', 'dotSpread', 'keepRamp',
   // v3
   'projScale', 'tempo', 'classMul', 'bossMul', 'ramp.per', 'turret.range',
+  // the new girls (UNIT_GAPS §5): Wakaba's drink
+  'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
+  // Ouka's office (radius and discount on top of her tiers)
+  'hub.radiusAdd', 'hub.cutAdd',
+  // Chigusa's vine and thorns
+  'vine.hold', 'vine.bedDmg', 'vine.every',
+  // Marumi's balls
+  'ball.travel', 'ball.pinDmg', 'ball.speed',
+  // Yuzuha's sentries
+  'sentry.max', 'sentry.damage', 'sentry.ttl',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -61,7 +71,7 @@ export const POTENTIAL_LADDERS = deepFreeze({
 });
 
 /** The stat track a girl spends (default: her rarity's): Nami's own, the two supports' aura track, Momo's coins. */
-export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura' });
+export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura', ouka: 'coins' });
 
 /** Rows for defs without one (fixtures, dev units only; a test requires every shipped girl's own row). */
 const fixtureRow = (track, kinds) => ({
@@ -323,6 +333,65 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Thunder Lance', 'kit', { rateMul: 1.07 }, { proc: { name: 'Thunder Lance', every: 6, nova: { radius: 0.8, share: 0.3 } } }),
     p5: step('Dragon Wake', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [{ type: 'mark', bonus: 0.05 }] } }),
     p6: step('Storm Crown', 'cap', { rateMul: 1.09 }, { chain: 1, ult: { haste: 0.1 } }),
+  },
+  // The new girls (UNIT_GAPS §5). First-pass rows on safe kit keys, inside the §3.4 ceilings.
+  // Azami, R spike layer: more strips on the road, armor cracking and armor pen on every strip
+  azami: {
+    p2: step('Roll Call', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Reel', 'kit', { damageMul: 1.04 }, { trap: { max: 1 } }),
+    p4: step('Hall Patrol', 'kit', { damageMul: 1.04 }, { statusAdd: [S.shred(1, 2)] }),
+    p5: step('Hardened Barbs', 'kit', { damageMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Zero Tolerance', 'cap', { damageMul: 1.05 }, { trap: { max: 2 }, statusAdd: [S.vulnerable(0.08, 2)] }),
+  },
+  // Kinu, R ring shooter: pierce, crits and armor pen on every pin
+  kinu: {
+    p2: step('Thread Count', 'stat', { damageMul: 1.04 }),
+    p3: step('Sharp Points', 'kit', { rateMul: 1.04 }, { pierce: 1 }),
+    p4: step('Even Hem', 'kit', { damageMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p5: step('Steel Thimble', 'kit', { rateMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Final Fitting', 'cap', { damageMul: 1.05 }, { pierce: 1, statusAdd: [S.vulnerable(0.06, 2)] }),
+  },
+  // Wakaba, R buff thrower (she deals no damage of her own: her stat steps are attack speed, so her
+  // drinks fly sooner; her kit steps make the drink last longer, splash wider and hit harder)
+  wakaba: {
+    p2: step('Warm-up Laps', 'stat', { rateMul: 1.04 }),
+    p3: step('Spare Bottles', 'kit', { rateMul: 1.04 }, { drink: { shots: 2 } }),
+    p4: step('Wide Toss', 'kit', { rateMul: 1.04 }, { drink: { splash: 0.2 } }),
+    p5: step('Honey Lemon', 'kit', { rateMul: 1.04 }, { drink: { dmg: 0.03 } }),
+    p6: step('Team Captain', 'cap', { rateMul: 1.05 }, { drink: { rate: 0.05, shots: 2 } }),
+  },
+  // Yuzuha, SR sentry builder: longer-lived, harder-hitting sentries, armor pen on her darts, one more sentry
+  yuzuha: {
+    p2: step('Morning Checklist', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Batteries', 'kit', { rateMul: 1.05 }, { sentry: { ttl: 4 } }),
+    p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
+    p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
+    p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
+  },
+  // Marumi, SR bowler: heavier balls, longer lanes, bigger blasts
+  marumi: {
+    p2: step('Lane Warm-up', 'stat', { damageMul: 1.04 }),
+    p3: step('Polished Ball', 'kit', { rateMul: 1.05 }, { ball: { travel: 1 } }),
+    p4: step('Heavy Grip', 'kit', { damageMul: 1.05 }, { ball: { speed: 1 } }),
+    p5: step('Spare Pins', 'kit', { rateMul: 1.06 }, { ball: { pinDmg: 2 } }),
+    p6: step('Perfect Strike', 'cap', { damageMul: 1.07 }, { ball: { travel: 1, pinDmg: 2 } }),
+  },
+  // Chigusa, SR nature caster: her seeds, her vine and her thorns
+  chigusa: {
+    p2: step('Morning Watering', 'stat', { damageMul: 1.04 }),
+    p3: step('Deep Roots', 'kit', { rateMul: 1.05 }, { vine: { hold: 0.2 } }),
+    p4: step('Sharp Thorns', 'kit', { damageMul: 1.05 }, { vine: { bedDmg: 1 } }),
+    p5: step('Quick Sprouts', 'kit', { rateMul: 1.06 }, { vine: { every: -0.5 } }),
+    p6: step('Evergreen', 'cap', { damageMul: 1.07 }, { pierce: 1, vine: { hold: 0.3, every: -0.5 } }),
+  },
+  // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
+  // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)
+  ouka: {
+    p2: step('Office Hours', 'stat', { incomeMul: 1.03 }),
+    p3: step('Bulk Orders', 'kit', { incomeMul: 1.03 }, { hub: { cutAdd: 0.02 } }),
+    p4: step('Open Plan', 'kit', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.2 } }),
+    p5: step('Corridor Notices', 'kit', { incomeMul: 1.04 }, { hub: { cutAdd: 0.02 } }),
+    p6: step('Council Seal', 'cap', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.3, cutAdd: 0.03 } }),
   },
 });
 

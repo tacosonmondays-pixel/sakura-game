@@ -27,6 +27,7 @@ import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
+import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
 import { nextStage, ownedUnits, chapterProgress, isStageUnlocked } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
@@ -40,6 +41,7 @@ import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, R
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
+import { shownTips } from '../../data/unitTips.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -277,6 +279,7 @@ export function render(root) {
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
   if (ensurePotentialLetter(store.profile)) store.commit('mail');
+  if (ensureCatchUpJoins(store.profile).length) store.commit('mail'); // the catch-up girls after a reset or an import too
   // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
   const betaGift = () => {
     if (!el.isConnected) return;
@@ -333,7 +336,7 @@ export function secretaryLines(profile) {
   lines.push(u.quote);
   if (next) lines.push(`Next mission: ${next} ${STAGE_MAP[next].name}. Shall we go?`);
   lines.push(`This week is ${event.name}! ${event.arenaName} Bounty drops are doubled.`);
-  if (u.tips?.length) lines.push(...u.tips.slice(0, 2));
+  lines.push(...shownTips(u).slice(0, 2)); // (no ⚡ tips until the ability bar ships)
   return lines;
 }
 

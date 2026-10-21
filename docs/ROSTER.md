@@ -55,6 +55,23 @@ The nine returning girls (track 5, `src/data/unitsExpansion.js`) wear academy sc
 chibis are placeholders until the owner approves real art (`docs/merge/ROSTER_WAVE_NOTES.md`). Their activated abilities are data
 only (`RETURNING_ABILITIES`), for the ability system.
 
+### New girls, wave 1 (UNIT_GAPS §5; `src/data/unitsNewGirls.js`)
+
+| Girl | Title | Rarity · how | Role | What she does | ⚡ |
+|---|---|---|---|---|---|
+| Azami | Checkpoint Prefect | R · free after 2-2 | Spike Layer | Spike strips on the road: each hits every ground enemy once until its hits run out | Spike Rain |
+| Kinu | Pin-Burst Seamstress | R · gacha | Burst Emitter | A ring of straight pins in every direction; heat ring, scissors | Blade Spiral |
+| Wakaba | Track Team Manager | R · free after 6-5 | Team Manager | No attack: sports drinks for the top damage dealer in range | Time Out! |
+| Yuzuha | Security Bureau Technician | SR · free after 4-2 | Field Builder | Taser darts plus timed lane sentries; Capture Nets | Emergency Deploy |
+| Chigusa | Greenhouse Gardener | SR · gacha | Botanist | A fan of thorn seeds; a vine that holds the lead walker; thorn beds, Bloom Rush, harvest coins and lives | Overgrowth |
+| Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, sticky balls | Giant Strike |
+| Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
+
+Art: placeholder portraits (`tools/art/placeholder_portraits.py`) and Blender battle figures
+(`tools/blender/build_characters.py azami kinu wakaba yuzuha ouka chigusa marumi`; their weapons — the strip
+reel, the needle, the tablet, the council banner, the watering can and the bowling ball — are in `tools/blender/lib/weapon.py`;
+Chigusa's straw sun hat is a tools-only extra part, `lib/extras.py` sunHat).
+
 ## Upgrade paths at a glance
 
 Tier 3 is where a path changes how she plays; tier 5 is the dramatic finale (7 000–16 000 coins).

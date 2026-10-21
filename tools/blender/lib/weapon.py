@@ -9,7 +9,9 @@ from .colors import mix, darken, lighten
 KIND = dict(bow='bow', katana='slash', sword='slash', rapier='thrust', staff='cast', tome='cast', bell='cast', gohei='cast', lantern='cast',
             cannon='cannon', rifle='rifle', shuriken='throw', flask='throw', coinPurse='throw', trident='thrust', wrench='smash', fan='sweep',
             parasol='sweep', turbineFan='sweep', mic='cast', shield='smash', mirror='cast', spear='thrust', mallet='smash', bachi='smash', puppet='cast',
-            cards='throw', roseCards='throw', marionette='cast', stormSpear='thrust')
+            cards='throw', roseCards='throw', marionette='cast', stormSpear='thrust',
+            # the new girls (UNIT_GAPS §5)
+            strip='throw', needle='cast', tablet='cast', banner='cast', wateringCan='cast', ball='throw')
 
 
 def kind_of(weapon):
@@ -897,7 +899,159 @@ def marionette(ctx):
     return parts
 
 
+# ---------------------------------------------------------------------------------------------
+# the new girls (UNIT_GAPS §5)
+
+def strip(ctx):
+    """Azami: a reel of folding spike strips at her hip-height hand, a short length unrolled with barbs."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + fwd * 0.02 + Vector((0, 0, -0.01))
+    v, f, r = M.tube([c - out * 0.022, c + out * 0.022], 0.05, sides=14)
+    reel = M.new_object('strip_reel', v, f, color=pal['accent'], bone='hand_R')
+    M.finish(reel, levels=1)
+    v, f = M.sphere(c + out * 0.024, (0.016, 0.016, 0.016))
+    hub = M.new_object('strip_hub', v, f, color=darken(pal['outfitShade'], 0.2), bone='hand_R')
+    M.finish(hub, levels=1)
+    base = c + Vector((0, 0, -0.05))
+    v, f = M.box(base + fwd * 0.05, (0.018, 0.07, 0.006))
+    band = M.new_object('strip_band', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(band, levels=1)
+    parts = [reel, hub, band]
+    for k in range(4):
+        tip = base + fwd * (0.0 + k * 0.032) + Vector((0, 0, 0.022))
+        v, f, r = M.tube([tip - Vector((0, 0, 0.018)), tip], [0.006, 0.001], sides=4, tip_end=True)
+        b = M.new_object('barb', v, f, color=lighten(pal['weapon'], 0.35), bone='hand_R')
+        M.finish(b, levels=0)
+        parts.append(b)
+    return parts
+
+
+def needle(ctx):
+    """Kinu: an oversized sewing needle twirled like a baton, a loop of thread through its eye."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    axis = (Vector((0, 0, 1)) * 0.85 + out * 0.3 + fwd * 0.2).normalized()
+    a = hd - axis * 0.06
+    b = hd + axis * 0.26
+    parts = [_rod(ctx, [a, hd, b], [0.006, 0.009, 0.0035], pal['weapon'], 'hand_R', sides=6, levels=1, tip=False)]
+    v, f, r = M.tube([a, a - axis * 0.03], [0.006, 0.0008], sides=6, tip_end=True)
+    tip = M.new_object('needle_tip', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(tip, levels=0)
+    parts.append(tip)
+    eye = b + axis * 0.012
+    loop = [eye + out * 0.012, eye + axis * 0.02, eye - out * 0.012, eye - axis * 0.005]
+    v, f, r = M.tube(M.smooth_path(loop + [loop[0]], 12), 0.0035, sides=5)
+    ring = M.new_object('needle_eye', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(ring, levels=0)
+    parts.append(ring)
+    thread = M.smooth_path([eye, eye - out * 0.04 - axis * 0.03, eye - out * 0.06 - axis * 0.1, eye - out * 0.03 - axis * 0.17], 10)
+    v, f, r = M.tube(thread, 0.0025, sides=4)
+    th = M.new_object('thread', v, f, color=pal['accent'], bone='hand_R')
+    M.finish(th, levels=0)
+    parts.append(th)
+    return parts
+
+
+def tablet(ctx):
+    """Yuzuha: a rugged tablet controller with a safety-orange bumper, a lit screen and an antenna."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx, 'L')
+    c = hd + fwd * 0.05 + Vector((0, 0, 0.03))
+    v, f = M.box(c, (0.075, 0.012, 0.055))
+    body = M.new_object('tablet', v, f, color=pal['accent'], bone='hand_L')
+    M.crease(body, [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4)], 0.9)
+    M.finish(body, levels=2)
+    v, f = M.box(c + fwd * 0.008, (0.062, 0.006, 0.043))
+    screen = M.new_object('tablet_screen', v, f, color='#7fe0ff', bone='hand_L')
+    M.finish(screen, levels=1)
+    screen['material'] = 'halo'
+    ant = c + Vector((0.06, 0, 0.05))
+    parts = [body, screen, _rod(ctx, [ant - Vector((0, 0, 0.02)), ant + Vector((0, 0, 0.05))], 0.003, darken(pal['weapon'], 0.2), 'hand_L', sides=5, levels=0)]
+    v, f = M.sphere(ant + Vector((0, 0, 0.055)), (0.008, 0.008, 0.008))
+    led = M.new_object('tablet_led', v, f, color='#ff5d5d', bone='hand_L')
+    M.finish(led, levels=0)
+    parts.append(led)
+    return parts
+
+
+def banner(ctx):
+    """Ouka: a folding "COUNCIL HQ" banner stand: a pole with a gold finial, a white flag, a gold
+    top bar and a pink sakura crest."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    axis = Vector((0, 0, 1))
+    base = hd - axis * 0.2 + out * 0.03
+    top = hd + axis * 0.34
+    parts = [_rod(ctx, [base, hd, top], 0.008, darken(pal['outfitShade'], 0.1), 'hand_R')]
+    v, f = M.sphere(top + axis * 0.012, (0.016, 0.016, 0.016))
+    fin = M.new_object('finial', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(fin, levels=1)
+    parts.append(fin)
+    c = top - axis * 0.08 + out * 0.1
+    v, f = M.box(c, (0.1, 0.005, 0.07))
+    flag = M.new_object('flag', v, f, color='#f6f3ec', bone='hand_R')
+    M.finish(flag, levels=1)
+    parts.append(flag)
+    v, f = M.box(c + axis * 0.072, (0.102, 0.007, 0.007))
+    bar = M.new_object('flag_bar', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(bar, levels=0)
+    parts.append(bar)
+    v, f = M.sphere(c + fwd * 0.007, (0.026, 0.007, 0.026))
+    crest = M.new_object('crest', v, f, color='#f29bb8', bone='hand_R')
+    M.finish(crest, levels=1)
+    parts.append(crest)
+    return parts
+
+
+def ball(ctx):
+    """Marumi: a polished bowling-ball bomb held low in one hand, three finger holes and a fuse."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + down * 0.035 + fwd * 0.01
+    v, f = M.sphere(c, (0.045, 0.045, 0.045))
+    body = M.new_object('ball', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(body, levels=1)
+    parts = [body]
+    for k, (a, b) in enumerate(((-0.012, 0.018), (0.012, 0.02), (0.0, 0.0))):
+        p = c + fwd * 0.042 + out * a + Vector((0, 0, b))
+        v, f = M.sphere(p, (0.007, 0.004, 0.007))
+        hole = M.new_object(f'ball_hole{k}', v, f, color='#1c1e2c', bone='hand_R')
+        M.finish(hole, levels=0)
+        parts.append(hole)
+    top = c + Vector((0, 0, 0.045))
+    parts.append(_rod(ctx, [top, top + Vector((0.008, 0, 0.022))], 0.004, '#f6efe0', 'hand_R', sides=5, levels=0))
+    v, f = M.sphere(top + Vector((0.01, 0, 0.026)), (0.007, 0.007, 0.007))
+    spark = M.new_object('ball_spark', v, f, color='#ffc46b', bone='hand_R')
+    M.finish(spark, levels=0)
+    spark['material'] = 'halo'
+    parts.append(spark)
+    return parts
+
+
+def watering_can(ctx):
+    """Chigusa: a watering can held at the side, with a long spout and a rose on the end."""
+    pal = ctx['pal']
+    hd, down, fwd, out = hand_frame(ctx)
+    c = hd + down * 0.05 + out * 0.01
+    v, f, r = M.tube([c + down * 0.035, c - down * 0.035], [0.042, 0.038], sides=12)
+    body = M.new_object('can', v, f, color=pal['weapon'], bone='hand_R')
+    M.finish(body, levels=1)
+    parts = [body]
+    handle = [c - down * 0.035 - fwd * 0.03, c - down * 0.07, c - down * 0.035 + fwd * 0.03]
+    parts.append(_rod(ctx, handle, 0.005, darken(pal['weapon'], 0.3), 'hand_R', sides=5, levels=0))
+    s0 = c + fwd * 0.035 + down * 0.01
+    s1 = s0 + fwd * 0.07 - down * 0.05
+    parts.append(_rod(ctx, [s0, s1], [0.008, 0.006], pal['weapon'], 'hand_R', sides=6, levels=0))
+    v, f = M.sphere(s1 + fwd * 0.006 - down * 0.004, (0.012, 0.012, 0.012))
+    rose = M.new_object('rose', v, f, color='#d9e6f2', bone='hand_R')
+    M.finish(rose, levels=0)
+    parts.append(rose)
+    return parts
+
+
 WEAPONS = dict(turbineFan=turbine_fan, bow=bow, katana=katana, staff=staff, cannon=cannon, rifle=rifle, shuriken=shuriken, tome=tome, bell=bell, wrench=wrench,
                lantern=lantern, flask=flask, parasol=parasol, trident=trident, fan=fan, rapier=rapier, gohei=gohei, coinPurse=coin_purse, sword=sword,
                mic=mic, shield=shield, mirror=mirror, spear=spear, mallet=mallet, bachi=bachi, puppet=puppet, cards=cards, roseCards=rose_cards,
-               marionette=marionette, stormSpear=storm_spear)
+               marionette=marionette, stormSpear=storm_spear,
+               strip=strip, needle=needle, tablet=tablet, banner=banner, wateringCan=watering_can, ball=ball)

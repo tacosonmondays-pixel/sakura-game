@@ -121,8 +121,9 @@ describe('story registry', () => {
   it('has unique ids, every archive episode and the lesson mini-scenes', () => {
     expect(new Set(ALL.map((s) => s.id)).size).toBe(ALL.length);
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
-    // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster
-    expect(SCENE_LIST.length).toBe(29);
+    // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
+    // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5)
+    expect(SCENE_LIST.length).toBe(32);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });

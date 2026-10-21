@@ -176,9 +176,31 @@ export function createTowerPanel(ctx) {
       );
     }
 
-    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    // ---- spike strips (Azami, src/sim/strips.js): where she lays them. Near exit and Spread are her
+    // target modes First and Last (the co-op `tgt` command); Checkpoint, from Checkpoint tier 3, is
+    // her aim point (the `aim` command). Picking a mode clears a checkpoint.
     const am = aimMode(t);
-    if (am) {
+    if (st.behavior === 'strip') {
+      const aiming = ctx.aim?.uid === t.uid;
+      const checkpoint = !!t.aim || aiming;
+      const mode = (k) => () => {
+        if (t.aim || aiming) ctx.aim?.clear(t.uid);
+        (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k));
+        sig = '';
+        update(true);
+      };
+      target = h(
+        'div.bt-target',
+        h('span.bt-section-label', icon('trap', 'bt-ico-sm'), 'Strips'),
+        h('div.bt-seg',
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode !== 'last' ? '.on' : ''}`, { 'data-mode': 'first', 'data-testid': 'strip-exit', title: 'On the free road spot nearest the exit', onclick: mode('first') }, 'Near exit'),
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode === 'last' ? '.on' : ''}`, { 'data-mode': 'last', 'data-testid': 'strip-spread', title: 'Spread along the road', onclick: mode('last') }, 'Spread'),
+          am === 'checkpoint' ? h(`button.bt-seg-btn${checkpoint ? '.on' : ''}`, { 'data-testid': 'aim-set', title: 'Tap the road: her strips land around that point', onclick: () => { ctx.aim?.start(t.uid); sig = ''; update(true); } }, aiming ? 'Tap map…' : 'Checkpoint') : null),
+      );
+    }
+
+    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    if (am && am !== 'checkpoint') {
       const aiming = ctx.aim?.uid === t.uid;
       const aimRow = h(
         'div.bt-target.bt-aim',
@@ -255,6 +277,34 @@ export function createTowerPanel(ctx) {
       if (a.detection) bits.push('Veil Sight');
       if (a.cleanse) bits.push('Cleanse');
       add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide', 'aura');
+    }
+    if (st.hub) {
+      // Ouka's office rules (src/sim/hubs.js)
+      const hb = st.hub;
+      const bits = [`-${Math.round(hb.costCut * 100)}% upgrades`, `sell ${Math.round(hb.sellMul * 100)}%`];
+      if (hb.freeTiers > 0) bits.push(`${hb.freeTiers === 1 ? '1st tier' : `first ${hb.freeTiers} tiers`} free`);
+      if (hb.killBounty > 0) bits.push(`+${fmtNum(hb.killBounty, 0)} coins/kill`);
+      if (hb.cdCut > 0) bits.push(`abilities +${Math.round(hb.cdCut * 100)}%`);
+      if (hb.rateMul > 1) bits.push(`+${Math.round((hb.rateMul - 1) * 100)}% speed`);
+      if (hb.rangeMul > 1) bits.push(`+${Math.round((hb.rangeMul - 1) * 100)}% range`);
+      if (hb.dmgMul > 1) bits.push(`+${Math.round((hb.dmgMul - 1) * 100)}% dmg`);
+      if (hb.detection) bits.push('Veil Sight');
+      if (hb.airGrant) bits.push('hit flyers');
+      if (hb.cleanse) bits.push('Cleanse');
+      if (hb.typeFloor > 0) bits.push('type floor ×1');
+      add('Office', `${fmtNum(hb.radius, 1)} tiles · ${bits.join(', ')}`, '.bt-stat-wide', 'aura');
+      if (hb.banners > 0) add('Banners', `${t.banners?.length || 0}/${hb.banners} · ${fmtNum(hb.bannerRange, 1)} tiles`, '.bt-stat-wide2');
+    }
+    if (t.rules) {
+      // a girl inside Ouka's office or by her banner: the rules that are not already shown as buffs
+      const ru = t.rules;
+      const bits = [];
+      if (ru.freeTiers > 0) bits.push(`${ru.freeTiers === 1 ? '1st tier' : `first ${ru.freeTiers} tiers`} free`);
+      if (ru.sellMul > 0) bits.push(`sells for ${Math.round(ru.sellMul * 100)}%`);
+      if (ru.cdCut > 0) bits.push(`ability +${Math.round(ru.cdCut * 100)}% charge`);
+      if (ru.airGrant) bits.push('hits flyers');
+      if (ru.typeFloor > 0) bits.push('type floor ×1');
+      if (bits.length) add('Council rules', bits.join(', '), '.bt-stat-wide');
     }
     const chips = [];
     const cap = (key, label) => chips.push(h('span.bt-cap', svgEl(capabilityIcon(key), 'bt-cap-ico'), label));

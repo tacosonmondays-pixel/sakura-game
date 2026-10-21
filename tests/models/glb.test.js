@@ -33,7 +33,7 @@ const MESHY_BONES = [
 
 // every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
 const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
-const GLB_UNIT_COUNT = 28; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis)
+const GLB_UNIT_COUNT = 35; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 

@@ -553,5 +553,5 @@ export class RosterFx {
 }
 
 function aimColor(mode) {
-  return mode === 'mortar' ? COL.aimMortar : mode === 'mirror' ? COL.aimMirror : COL.aimUlt;
+  return mode === 'mortar' || mode === 'checkpoint' ? COL.aimMortar : mode === 'mirror' ? COL.aimMirror : COL.aimUlt;
 }

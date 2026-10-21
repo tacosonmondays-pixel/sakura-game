@@ -19,9 +19,16 @@ import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
 import { segDistSq, projectOnSegment, samplePath, pointAt } from './path.js';
-import { applyBuffExtras, applyLimited, emptyBuffBy } from './buffs.js';
+import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
+import { layStrip, stripStep, stripTick } from './strips.js';
+import { attackRing, ringTick } from './rings.js';
+import { throwDrink, drinkTick, useDrink } from './drinks.js';
+import { sentryTick } from './sentries.js';
+import { hubsOn, applyHubs } from './hubs.js';
+import { vineTick } from './vines.js';
+import { rollBall, ballTick } from './balls.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -29,6 +36,8 @@ const WEAPON_KIND = {
   staff: 'orb', tome: 'orb', lantern: 'spark', bell: 'spark', gohei: 'spark', fan: 'needle', parasol: 'needle',
   trident: 'orb', rapier: 'needle', katana: 'shuriken', sword: 'shuriken', coinPurse: 'bullet',
   mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt', mallet: 'shuriken', puppet: 'needle', cards: 'shuriken',
+  // the new girls (UNIT_GAPS §5)
+  strip: 'arrow', needle: 'needle', tablet: 'bolt',
 };
 const TYPE_KIND = { blast: 'shell', pierce: 'arrow', slash: 'shuriken', mystic: 'orb', holy: 'spark' };
 const ARC_KINDS = { shell: true, fireball: true, flask: true };
@@ -131,11 +140,14 @@ export function createTower(def, o) {
 }
 
 /**
- * Her stats as her def, tiers, hero level / mastery and unitStats (her player's loadout entry) give
- * them (pure; no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
+ * Her stats as her def, tiers, hero level / mastery, unitStats (her player's loadout entry) and a
+ * running ability boost (`abilMods`, src/sim/abilities.js; null at every calm point) give them (pure;
+ * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  return resolveStats(t.def, { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0 });
+  return resolveStats(t.def, {
+    tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null,
+  });
 }
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
@@ -193,6 +205,23 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
+  if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
+  // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers
+  const ru = t.rules;
+  if (ru) {
+    if (ru.airGrant) t.eff.canHitAir = true;
+    if (ru.typeFloor > 0) t.eff.typeFloor = ru.typeFloor;
+  }
+  // Wakaba's drink (src/sim/drinks.js): on top of auras and rallies, while it lasts
+  const hy = t.hydrated;
+  if (hy) {
+    t.eff.damage *= hy.dmgMul;
+    t.eff.rate *= hy.rateMul;
+    t.eff.range *= hy.rangeMul;
+    t.eff.pierce += hy.pierce;
+    if (hy.detection) t.eff.detection = true;
+  }
   const trapStatus = s.trap ? mergeLists(s.trap.status, s.status) : null;
   t.trapSpec = s.trap ? hitSpecFrom(s, {
     damage: s.trap.damage * dmgMul,
@@ -207,6 +236,16 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     splash: s.trap.splash,
     armTime: s.trap.armTime,
   }) : null;
+  if (s.strip) {
+    // spike strips (src/sim/strips.js): Tall Barbs' flyer spec (the share is the hit's scale) and the
+    // Charged Strips blast (its stun on top of the strip statuses)
+    t.stripAirSpec = s.strip.air > 0 ? { ...t.trapSpec, canHitAir: true } : null;
+    t.stripBoomSpec = s.strip.boom > 0 ? {
+      ...t.trapSpec,
+      damage: s.strip.boom * dmgMul,
+      status: s.strip.boomStun > 0 ? mergeLists([{ type: 'stun', duration: s.strip.boomStun }], trapStatus) : trapStatus,
+    } : null;
+  }
   t.turretSpec = s.turret ? hitSpecFrom(s, {
     damage: s.turret.damage * dmgMul,
     rate: s.turret.rate * b.rateMul * (b.tea || 1) * globalRateMul,
@@ -229,6 +268,49 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     pierce: 1,
     splash: 0,
   }) : null;
+  // Marumi's balls (src/sim/balls.js): they touch walkers only; the blast pushes with the push lock; pins
+  // are plain light hits; Lob throws her blast at flyers
+  if (s.ball) {
+    t.ballSpec = { ...t.eff, canHitAir: false };
+    t.blastSpec = { ...t.eff, canHitAir: false, splash: 0, pierce: 1, pushLock: true, ...(s.ball.pushBig ? { pushBig: true } : null) };
+    t.pinSpec = { ...t.eff, damage: s.ball.pinDmg * dmgMul, canHitAir: false, splash: 0, pierce: 1, knockback: 0, status: [], critChance: 0, mark: null };
+    t.lobSpec = s.ball.lob ? { ...t.eff, canHitAir: true, pierce: 1, knockback: 0 } : null;
+  }
+  // Chigusa's vine and thorn beds (src/sim/vines.js): ground-only hits from her stats, no crits or statuses
+  if (s.vine) {
+    const plain = { critChance: 0, canHitAir: false, status: [], splash: 0, knockback: 0, gather: 0, pierce: 1, mark: null, silence: 0, reveal: 0 };
+    t.vineSpec = { ...t.eff, ...plain, damage: s.vine.dps * dmgMul };
+    t.bedSpec = { ...t.eff, ...plain, damage: s.vine.bedDmg * dmgMul };
+  }
+  // Towel Snap (src/sim/drinks.js): a light flick that slows (her own hit is no drink at all)
+  if (s.drink) t.towelSpec = s.drink.towel ? { ...t.eff, damage: s.drink.towelDmg * dmgMul, critChance: 0, status: [{ type: 'slow', amount: 0.3, duration: 1.5 }] } : null;
+  // Yuzuha's sentries (src/sim/sentries.js): their guns follow her buffs; one spec per Specialist Kit
+  if (s.sentry) {
+    if (!t.sentries) {
+      t.sentries = [];
+      t.nets = [];
+    }
+    const se = s.sentry;
+    const plain = {
+      ...t.eff, damage: se.damage * dmgMul, rate: se.rate * b.rateMul * globalRateMul, range: se.range * b.rangeMul,
+      pierce: 1, splash: 0, chain: 0, canHitAir: false, critChance: 0, knockback: 0, gather: 0, status: [], mark: null,
+    };
+    t.sentrySpecs = {
+      plain,
+      net: { ...plain, status: [{ type: 'slow', amount: 0.35, duration: 1 }] },
+      flash: { ...plain, detection: true, reveal: 2, silence: 0.5 },
+      heavy: { ...plain, damage: plain.damage * 3, rate: plain.rate * 0.5, eliteMul: plain.eliteMul * 1.3 },
+      flak: { ...plain, canHitAir: true },
+    };
+    t.sentryBurstSpec = se.burst > 0 ? { ...plain, damage: se.burst * dmgMul } : null;
+    t.netSpec = se.nets > 0 ? { ...t.eff, canHitAir: false, detection: false } : null;
+  }
+  // Orbit Scissors (src/sim/rings.js): their cuts follow her buffs like her pins
+  if (s.ring && !t.rings) {
+    t.rings = []; // her heat rings in flight (src/sim/rings.js)
+    t.ringTurn = 0; // Twin Spools: sixteenths turned
+  }
+  if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -249,6 +331,13 @@ function mergeLists(a, b) {
 export function recomputeBuffs(sim) {
   const towers = sim.towers;
   let changed = false;
+  // Ouka's campus hubs (src/sim/hubs.js): none in a battle without her, so nothing below changes then
+  const hubs = hubsOn(sim);
+  // (a flag for Sim._killEnemy; set only while a hub pays coins per kill)
+  let bounty = false;
+  for (let i = 0; i < hubs.length; i++) if (hubs[i].stats.hub.killBounty > 0) bounty = true;
+  if (bounty) sim._hubBounty = true;
+  else if (sim._hubBounty) delete sim._hubBounty;
   const tea = secondCupTargets(towers);
   for (const t of towers) {
     const nb = emptyBuff();
@@ -256,7 +345,7 @@ export function recomputeBuffs(sim) {
     // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
     // girl placed first
     const by = t.buffBy || (t.buffBy = emptyBuffBy());
-    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = -1;
+    by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = by.rally = -1;
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
       // (a Potential rhythm's aura boost runs: her aura numbers × the boost, src/sim/potential.js)
@@ -273,13 +362,16 @@ export function recomputeBuffs(sim) {
       if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
       if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
-    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras
+    const rulesChanged = hubs.length || t.rules ? applyHubs(t, nb, by, hubs) : false;
+    // limited buffs (Midori's brew, Chika's link) multiply on top of the auras, then ability rallies
+    // (strongest per key; both players' girls), so a rally's ward clears sabotage below
     applyLimited(sim, t, nb);
+    if (sim._rallies?.length) applyRallies(sim, t, nb, by);
     if (nb.cleanse && t.disabled > 0) t.disabled = 0;
     const ob = t.buff;
     let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
       || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
-      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance || (ob.tea || 1) !== nb.tea;
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance || (ob.tea || 1) !== nb.tea || rulesChanged || ob.pierceAdd !== nb.pierceAdd;
     if (sim.rule) {
       // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
       const env = ruleRangeFor(sim, t);
@@ -300,7 +392,8 @@ export function recomputeBuffs(sim) {
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || nb.armorPen > 0 || nb.critChance > 0 || nb.tea > 1 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
+      || nb.armorPen > 0 || nb.critChance > 0 || nb.tea > 1 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0))
+      || !!t.hydrated || !!t.rules || nb.pierceAdd > 0;
   }
   return changed;
 }
@@ -534,7 +627,7 @@ export function explode(sim, tower, spec, x, y, radius) {
   sim._emit('explode', { x, y, radius, element: spec.element || null, attackType: spec.attackType });
 }
 
-function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
+export function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
   const speed = opts.speed ?? spec.projectileSpeed;
   let dx = target.x - fromX;
   let dy = target.y - fromY;
@@ -1020,6 +1113,8 @@ export function aimMode(t) {
   if (!t) return null;
   if (t.eff?.behavior === 'mortar') return 'mortar';
   if (t.stats?.relay?.kind === 'mirror') return 'mirror';
+  if (t.stats?.strip?.aim) return 'checkpoint'; // Azami's Checkpoint mode (src/sim/strips.js)
+  if (t.stats?.hub?.banners > 0) return 'banner'; // Ouka's Rally Banner (src/sim/hubs.js)
   // an aimed hero ult: a nova centred on her aim, or a runner that enters at it
   const ue = t.isHero ? t.def?.hero?.ult?.effect : null;
   if (ue && (ue.center === 'aim' || ue.type === 'runner')) return 'ult';
@@ -1102,6 +1197,10 @@ const BEHAVIORS = {
   trap: placeTrap,
   turret: attackTurret,
   mortar: attackMortar,
+  strip: layStrip,
+  ring: attackRing,
+  drink: throwDrink,
+  roll: rollBall,
 };
 
 /**
@@ -1593,6 +1692,12 @@ export function updateTower(sim, t, dt) {
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
+  if (s.strip) stripTick(sim, t, dt);
+  if (s.ring) ringTick(sim, t, dt);
+  if (s.drink) drinkTick(sim, t);
+  if (s.sentry) sentryTick(sim, t, dt);
+  if (s.vine) vineTick(sim, t, dt);
+  if (s.ball) ballTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -1610,7 +1715,11 @@ export function updateTower(sim, t, dt) {
       break;
     }
     if (tempo) tempoStack(sim, t, tempo);
-    t.cooldown += 1 / Math.max(0.05, tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate);
+    if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
+    // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
+    const bloom = s.vine?.bloom > 0 ? 1 + Math.min(s.vine.bloom, s.vine.bloomPer * (t.bloomT || 0)) : 1;
+    if (s.vine?.bloom > 0) t.bloomIdle = 0;
+    t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
 }
 
@@ -1773,6 +1882,14 @@ export function updateTraps(sim, dt) {
   let removedAny = false;
   for (let i = 0; i < list.length; i++) {
     const tr = list[i];
+    if (tr.strip) {
+      if (stripStep(sim, tr, dt)) {
+        tr.dead = true;
+        removedAny = true;
+        if (!tr.extra) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+      }
+      continue;
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;

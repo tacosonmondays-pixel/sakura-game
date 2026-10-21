@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UNITS } from '../../src/data/units.js';
 import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { createProfile, migrateProfile, loadSaveText, SAVE_KEY } from '../../src/systems/save.js';
 import { createStore, saveText } from '../../src/core/store.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
@@ -225,5 +226,35 @@ describe('two tabs on one save: a v0.1.38 tab left open across the deploy (store
     expect(reloaded.profile.units.kanna).toBeTruthy();
     expect(reloaded.profile.currencies.gems).toBe(3800);
     expect(reloaded.profile.items.book_rare).toBe(tab.profile.items.book_rare + 1);
+  });
+});
+
+describe('the new girls (UNIT_GAPS §5) survive a v0.1.39 tab', () => {
+  it('a tab that does not know the seven drops them; their own: marks bring each back on the next load', () => {
+    const NEW = NEW_GIRL_IDS;
+    expect(NEW).toEqual(['azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa', 'marumi']);
+    const p = createProfile();
+    p.currencies.coins = 5e7;
+    for (const [i, id] of NEW.entries()) {
+      grantUnit(p, id, NOW);
+      p.units[id].level = 10 + i;
+      p.units[id].breakthrough = 1;
+    }
+    const before = migrateProfile(clone(p));
+    for (const id of NEW) expect(before.missions.counters[OWN_PREFIX + id]).toBe(rosterMarkValue(before.units[id]));
+    // v0.1.39 keeps only the girls it knows (every girl but the seven); counters stay word for word
+    const known = new Set(UNITS.map((u) => u.id).filter((id) => !NEW.includes(id)));
+    const raw = clone(before);
+    for (const id of Object.keys(raw.units)) if (!known.has(id)) {
+      delete raw.units[id];
+      delete raw.bond?.[id];
+    }
+    raw.formation.towers = raw.formation.towers.filter((id) => raw.units[id]);
+    const back = migrateProfile(raw);
+    for (const id of NEW) {
+      expect(back.units[id], id).toBeTruthy();
+      expect(back.units[id].level).toBe(before.units[id].level);
+      expect(back.units[id].breakthrough).toBe(before.units[id].breakthrough);
+    }
   });
 });
