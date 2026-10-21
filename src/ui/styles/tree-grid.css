@@ -1,0 +1,101 @@
+/* The shared 3 × 5 upgrade tree grid and its tier panel (src/ui/treeGrid.js; docs/specs/UI_DIRECTION.md §6.1, §6.2).
+   The girl page and the menu hold sheet use it without prices; the battle tree (M2) adds the cost buttons.
+   Sizes come from the type and space tokens only (nothing under --fs-label, 12 px). */
+
+.ug { --ug-ring: 42px; --ug-ico: 26px; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+@media (min-height: 481px) { .ug { --ug-ring: 60px; --ug-ico: 36px; gap: var(--sp-3); } }
+
+/* path colours: fills only (bars, rings, track); words stay ink */
+.ug-row, .ugp { --pc: #ff5d73; }
+.ug-row.p1, .ugp.p1 { --pc: #2b7fff; }
+.ug-row.p2, .ugp.p2 { --pc: #a86bff; }
+
+.ug-row { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ug-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; min-width: 0; flex-wrap: wrap; row-gap: 2px; }
+.ug-bar { width: 6px; height: 18px; flex: none; border-radius: 2px; background: var(--pc); transform: skewX(var(--skew)); }
+.ug-pname { font: italic 900 var(--fs-name)/var(--lh-tight) var(--font-head); color: var(--navy); white-space: nowrap; }
+/* the path's one tag: the chip shape with an icon and one word (§5.1) */
+.ug-head .ui-chip.tag { height: 24px; padding: 2px 8px; gap: 4px; }
+.ug-head .ui-chip.tag > .ui-ico { width: 16px; height: 16px; }
+.ug-head .ui-chip.t-self { color: #1864ab; }
+.ug-head .ui-chip.t-allies { color: var(--good-text); }
+.ug-head .ui-chip.t-enemies { color: var(--bad-text); }
+.ug-head .ui-chip.t-coins { color: #8a5a00; }
+.ug-cap, .ug-lock { display: inline-flex; align-items: center; gap: var(--sp-1); font: 700 var(--fs-label)/1.1 var(--font); color: var(--muted); }
+.ug-cap[hidden], .ug-lock[hidden] { display: none; }
+.ug-lock .ui-ico { width: 16px; height: 16px; }
+.ug-why { width: 28px; height: 28px; position: relative; display: inline-grid; place-items: center; border: 0; border-radius: 50%; background: var(--sky-1); color: var(--blue-text); padding: 0; }
+.ug-why::before { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+.ug-why .ui-ico { width: 16px; height: 16px; }
+
+.ug-cells { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
+.ug-track { position: absolute; left: 10%; right: 10%; top: calc(var(--ug-ring) / 2 - 2px); height: 4px; border-radius: 2px; background: #d9e6f5; pointer-events: none; }
+.ug-track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--pc); }
+.ug-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.ug-hit {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: var(--tap-dense); min-height: var(--tap-dense); max-width: 100%;
+  padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer;
+}
+.ug-ring {
+  position: relative; width: var(--ug-ring); height: var(--ug-ring); flex: none;
+  display: grid; place-items: center; border-radius: 50%;
+  background: #fff; color: var(--pc);
+  box-shadow: 0 0 0 3px #dbe7f5, 0 2px 6px rgba(29, 78, 137, 0.18);
+  transition: box-shadow var(--t-press) var(--ease);
+}
+.ug-ico { width: var(--ug-ico); height: var(--ug-ico); display: grid; place-items: center; }
+.ug-ico svg { width: 100%; height: 100%; }
+.ug-badge { display: none; }
+/* the tier name under its icon: desktop only (§6.1 "At 1280x720") */
+.ug-name { display: none; font: 700 var(--fs-label)/1.15 var(--font); color: var(--ink); text-align: center; max-width: 100%; overflow-wrap: anywhere; }
+@media (min-height: 481px) { .ug-name { display: block; } }
+
+/* states: owned (filled ring + check), next (highlighted), later (plain), locked (lock-tinted) */
+.ug-cell.s-owned .ug-ring { background: color-mix(in srgb, var(--pc) 14%, #fff); box-shadow: 0 0 0 3px var(--pc), 0 2px 6px rgba(29, 78, 137, 0.2); }
+.ug-cell.s-owned .ug-badge {
+  display: grid; place-items: center; position: absolute; right: -5px; top: -5px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--good); color: #fff; box-shadow: 0 0 0 2px #fff;
+}
+.ug-cell.s-owned .ug-badge svg { width: 12px; height: 12px; }
+.ug-cell.s-next .ug-ring { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--yellow), 0 0 12px rgba(255, 207, 31, 0.7); }
+.ug-cell.s-blocked .ug-ring { background: #eef2f7; color: #8794a8; box-shadow: 0 0 0 3px #d3dce8; }
+.ug-cell.s-blocked .ug-ring::after {
+  content: ''; position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--muted) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='11' width='12' height='9' rx='2'/%3E%3Cpath d='M8.5 11V8.5a3.5 3.5 0 0 1 7 0V11'/%3E%3C/svg%3E") center/12px no-repeat;
+  box-shadow: 0 0 0 2px #fff;
+}
+.ug-row.locked .ug-pname { color: var(--muted); }
+/* the capstone frame (the fifth column) */
+.ug-cell.capstone .ug-ring, .ugp-ring.capstone { background: radial-gradient(circle, #fffbe6, #fff 70%); box-shadow: 0 0 0 3px #fff, 0 0 0 5px #e9b10c, 0 2px 8px rgba(233, 177, 12, 0.5); }
+.ug-cell.capstone.s-next .ug-ring { box-shadow: 0 0 0 3px #fff, 0 0 0 5px #e9b10c, 0 0 0 8px var(--yellow), 0 0 12px rgba(255, 207, 31, 0.7); }
+.ug-cell.capstone.s-blocked .ug-ring { background: #eef2f7; box-shadow: 0 0 0 3px #d3dce8, 0 0 0 5px #b8c4d4; }
+/* the tapped cell: a pink ring (selection is pink, P8) */
+.ug-cell.sel .ug-ring { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--pink), 0 0 14px rgba(255, 122, 168, 0.75); }
+.ug-hit:focus-visible { outline: none; }
+.ug-hit:focus-visible .ug-ring { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--blue-text); }
+/* a price under each next cell (battle tree only) */
+.ug-price { margin-top: 2px; }
+.ug-price[hidden] { display: none; }
+
+/* ---------- the tier panel ---------- */
+.ugp { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ugp-head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ugp-ring { --ug-ring: 40px; --ug-ico: 24px; }
+@media (min-height: 481px) { .ugp-ring { --ug-ring: 52px; --ug-ico: 30px; } }
+.ugp-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ugp-name { font: italic 900 var(--fs-name)/var(--lh-tight) var(--font-head); color: var(--navy); }
+.ugp-title .lbl { color: var(--muted); }
+.ugp-close { color: var(--ink); width: 40px; height: 40px; }
+.ugp-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ugp-line { margin: 0; font: 700 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink); }
+.ugp-chip { font: 700 var(--fs-body)/1 var(--font); height: auto; min-height: var(--chip-h); white-space: normal; }
+.ugp-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; margin-top: auto; }
+.ugp-price { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink); }
+.ugp-price .lbl { color: var(--muted); }
+.ugp-price .ui-ico { width: 18px; height: 18px; }
+.ugp-price.poor .num { color: var(--bad-text); }
+.ugp-state { display: inline-flex; align-items: center; gap: var(--sp-1); font: 700 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
+.ugp-state.owned { color: var(--good-text); }
+.ugp-state .ui-ico { width: 18px; height: 18px; }
+.ugp-actions { display: flex; gap: var(--sp-2); }

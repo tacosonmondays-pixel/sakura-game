@@ -420,6 +420,24 @@ export function shortEffect(mods = {}) {
   return parts[0].length <= SHORT_MAX ? parts[0] : `${parts[0].slice(0, SHORT_MAX - 1)}…`;
 }
 
+/**
+ * A tier's effects as short chip phrases, most important first ("+5 dmg", "+25% dmg", "+4 pierce"): the
+ * same words as shortEffect(), whole (never cut), at most `max` of them (the tier panel shows 3, §6.1).
+ * @param {object} mods
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function effectParts(mods = {}, max = 3) {
+  const parts = [];
+  for (const [k, fn] of SHORT_ORDER) {
+    if (parts.length >= max) break;
+    if (!present(mods?.[k])) continue;
+    if ((k === 'damageMul' || k === 'rateMul') && mods[k] === 1) continue;
+    parts.push(fn(mods));
+  }
+  return parts;
+}
+
 /** Icon rule per primary key → { set, key } for the view (ui / cap / status / attack / element). */
 const ICON_RULES = {
   element: (m) => ({ set: 'element', key: m.element }),
