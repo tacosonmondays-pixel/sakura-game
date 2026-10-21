@@ -1,8 +1,10 @@
 // UR gear (docs/specs/GEAR_AWAKEN.md §12.2, GEAR_STATS.md §I): seeds Aoi with a gold +10 charm and two
-// Taiko Club pieces, a Rainbow Seed, Starlight Needles and a Club Armband, then on her Equipment tab:
-// the rainbow dot and the Awaken button, the Awaken modal (before → after, Power), "Awakened to UR!",
-// the rainbow card and slot; a gold ✦ and a rainbow ✦ stitched on one line, then one taken back; the
-// Armband moves the charm into the Taiko Club and the strip lights the 2-piece stat and the trick. In
+// Taiko Club pieces, a Rainbow Seed, Starlight Needles and a Club Armband, then on her Equipment tab (the
+// condensed girl page, UI_DIRECTION.md §6.2 M1b: slot cards, the slot sheet, Details): the rainbow dot, the
+// slot tile's ✦ and the Awaken button in the charm's slot sheet, the Awaken modal over the sheet (before →
+// after, Power), "Awakened to UR!", the rainbow tile, tag and slot; a gold ✦ and a rainbow ✦ stitched on one
+// line, then one taken back; the set chip, and the Armband moves the charm into the Taiko Club so the gear
+// totals' set lights the 2-piece stat and the trick. In
 // the Backpack a spare gold +10 can awaken from its modal, and a Rainbow Gear Box opens through its slot
 // picker (rainbow-box-open → rainbow-box-<slot>, ASCENSION.md §C.8) into rainbow UR gear at +0 with four
 // substats. No horizontal overflow; every modal fits.
@@ -104,21 +106,38 @@ try {
     page.on('pageerror', (e) => errs.push(e.message));
     const ids = await openGame(page);
 
-    // ---- her Equipment tab: the rainbow dot and the Awaken button
+    // ---- her Equipment tab: the rainbow dot, the slot tile's ✦, and Awaken in the charm's slot sheet
     await go(page, '#/student/aoi?tab=gear', '[data-testid="slot-charm"]');
-    await tap(page, '[data-testid="slot-charm"]');
-    await page.waitForTimeout(300);
     check(await page.locator('[data-testid="tab-gear"] .ur-dot').count() === 1, `${tag} the Equipment tab shows the rainbow dot (a piece can awaken)`);
-    check(await page.locator('[data-testid="gear-awaken"]').count() === 1, `${tag} a gold +10 shows Awaken where "Max +10" was`);
-    check((await page.locator('.mb-gear .gu-can').count()) >= 1, `${tag} its card says "✦ Can awaken"`);
+    check(await page.locator('[data-testid="slot-charm"] .k-ready').count() === 1, `${tag} the charm's slot tile shows the rainbow ✦ (it can awaken)`);
+    check(await page.locator('[data-testid="gear-set"]').count() === 1, `${tag} two Taiko pieces: the set chip shows on the Glance`);
+    const setOn = await page.locator('[data-testid="gear-set-on"]').innerText().catch(() => '');
+    check(/^RATE \+5%$/.test(setOn.trim()), `${tag} the set chip names the 2-piece bonus that is on ("${setOn}")`);
+    await tap(page, '[data-testid="slot-charm"]');
+    await page.waitForSelector('[data-testid="gear-sheet"]');
+    await page.waitForTimeout(300);
+    check(await page.locator('[data-testid="gear-sheet"] [data-testid="gear-awaken"]').count() === 1, `${tag} a gold +10 shows Awaken where "Max +10" was`);
+    await tap(page, '[data-testid="gear-item-more"]');
+    await page.waitForSelector('[data-testid="gear-details"]');
+    check((await page.locator('[data-testid="gear-details"] .gk-flag.ready').count()) >= 1, `${tag} its Details say "✦ Can awaken"`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-details"]', { state: 'detached' });
     await shot(page, `${tag}-equipment-gold`);
 
-    // ---- awaken
+    // ---- awaken (the modal sits above the sheet)
     await tap(page, '[data-testid="gear-awaken"]');
     await page.waitForSelector('[data-testid="gear-awaken-modal"]');
     const am = await page.evaluate(() => ({ cards: document.querySelectorAll('[data-testid="gear-awaken-modal"] .mb-gear').length, power: !!document.querySelector('.gu-power'), gains: document.querySelectorAll('.gu-gain').length }));
     check(am.cards === 2 && am.power && am.gains >= 4, `${tag} the Awaken modal shows before → after, the gains and Power (${JSON.stringify(am)})`);
     check((await layout(page)).fits, `${tag} the Awaken modal fits the screen`);
+    await page.waitForTimeout(400); // the modal's pop-in
+    const onTop = await page.evaluate(() => {
+      // the middle of the modal: a passing toast at the top of the screen may sit over its title
+      const m = document.querySelector('[data-testid="gear-awaken-modal"]').getBoundingClientRect();
+      const hit = document.elementFromPoint(m.left + m.width / 2, m.top + m.height / 2);
+      return !!hit?.closest('.modal') && !hit?.closest('.ui-sheet');
+    });
+    check(onTop, `${tag} the Awaken modal is above the slot sheet`);
     await shot(page, `${tag}-awaken-modal`);
     await tap(page, '[data-testid="gear-awaken-go"]');
     await page.waitForSelector('[data-testid="gear-ascend"]');
@@ -129,11 +148,11 @@ try {
     await page.waitForSelector('[data-testid="gear-ascend"]', { state: 'detached' });
     await page.waitForTimeout(300);
     const ur = await page.evaluate((uid) => {
-      const card = document.querySelector(`.mb-gear[data-gear="${uid}"]`);
+      const item = document.querySelector(`[data-testid="gear-item"][data-gear="${uid}"]`);
       const p = window.__sakura.store.profile;
-      return { card: !!card?.classList.contains('is-ur'), ring: !!card?.querySelector(':scope > .ur-ring'), pill: !!card?.querySelector('.ur-badge'), slot: !!document.querySelector('[data-testid="slot-charm"].is-ur'), saved: p.gear[uid].ur === 1 && p.gear[uid].locked, seeds: p.items.seed_rainbow || 0 };
+      return { tile: !!item?.querySelector('.ui-gtile.is-ur > .ur-ring'), tag: !!item?.querySelector('.ui-rtag.is-ur .ur-ring'), slot: !!document.querySelector('[data-testid="slot-charm"].is-ur .ui-gtile.is-ur'), saved: p.gear[uid].ur === 1 && p.gear[uid].locked, seeds: p.items.seed_rainbow || 0 };
     }, ids.charm);
-    check(ur.card && ur.ring && ur.pill && ur.slot, `${tag} the card is rainbow (ring + UR pill) and so is her charm slot (${JSON.stringify(ur)})`);
+    check(ur.tile && ur.tag && ur.slot, `${tag} the tile is rainbow (step 5) with the UR tag, and so is her charm slot (${JSON.stringify(ur)})`);
     check(ur.saved && ur.seeds === 1, `${tag} saved as UR, locked, one Seed spent`);
 
     // ---- Starlight Needle: gold then rainbow on the same line, then take one back
@@ -162,9 +181,17 @@ try {
     await page.waitForTimeout(300);
     const v1 = await page.evaluate((uid) => window.__sakura.store.profile.gear[uid].subs[0].value, ids.charm);
     check(v1 > v0, `${tag} the stitched line grew (${v0} → ${v1})`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-sheet"]', { state: 'detached' });
 
-    // ---- Club Armband: the charm joins Taiko, the strip lights the 2-piece stat and the trick
+    // ---- Club Armband: the charm joins Taiko, the gear totals' set lights the 2-piece stat and the trick
+    await tap(page, '[data-testid="gear-more"]');
+    await page.waitForSelector('[data-testid="gear-totals-sheet"]');
     check(await page.locator('[data-testid="club-bonus-on"]').count() === 1 && await page.locator('[data-testid="club-trick-on"]').count() === 0, `${tag} 2 Taiko pieces: the 2-piece line is lit, the trick is not`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-totals-sheet"]', { state: 'detached' });
+    await tap(page, '[data-testid="slot-charm"]');
+    await page.waitForSelector('[data-testid="gear-sheet"]');
     await tap(page, '[data-testid="gear-club"]');
     await page.waitForSelector('[data-testid="armband-modal"]');
     await tap(page, '[data-testid="club-taiko"]');
@@ -174,6 +201,10 @@ try {
     await page.waitForTimeout(300);
     await tap(page, '[data-testid="armband-done"]');
     await page.waitForTimeout(400);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-sheet"]', { state: 'detached' });
+    await tap(page, '[data-testid="gear-more"]');
+    await page.waitForSelector('[data-testid="gear-totals-sheet"]');
     const set = await page.evaluate(async () => {
       const prog = await import('/src/systems/progression.js');
       const s = prog.unitBattleStats(window.__sakura.store.profile, 'aoi');
@@ -183,6 +214,8 @@ try {
     await page.evaluate(() => document.querySelector('[data-testid="club-strip"]')?.scrollIntoView({ block: 'center' }));
     await page.waitForTimeout(250);
     await shot(page, `${tag}-equipment-ur`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-totals-sheet"]', { state: 'detached' });
     const lay = await layout(page);
     check(lay.over <= 1, `${tag} no horizontal overflow on her Equipment tab (${lay.over}px)`);
 
@@ -238,7 +271,7 @@ try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await go(page, '#/student/aoi?tab=gear', '[data-testid="slot-charm"]');
     const anim = await page.evaluate(() => {
-      const ring = document.querySelector('.mb-gear.is-ur > .ur-ring');
+      const ring = document.querySelector('[data-testid="slot-charm"] .ui-gtile.is-ur > .ur-ring');
       return ring ? getComputedStyle(ring, '::before').animationName : 'none';
     });
     check(anim === 'none', `${tag} reduced motion: the gear ring holds still (${anim})`);

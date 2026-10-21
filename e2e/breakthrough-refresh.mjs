@@ -38,6 +38,7 @@ const tap = async (sel) => {
   const el = page.locator(sel).first();
   await (touch ? el.tap({ timeout: 20000 }) : el.click({ timeout: 20000 }));
 };
+// innerText follows the caps style of the cap line ("CAP 10"): the checks ignore case
 const headText = () => page.evaluate(() => document.querySelector('.mb-lv-head')?.parentElement?.innerText || '');
 
 try {
@@ -67,13 +68,13 @@ try {
   await page.evaluate((id) => { location.hash = `#/student/${id}?tab=level`; }, unitId);
   await page.waitForSelector('[data-testid="breakthrough"]', { timeout: 20000 });
   const before = await headText();
-  check(/Cap 10/.test(before) && /Level cap reached/.test(before), `at the cap: "${before.replace(/\s+/g, ' ').slice(0, 90)}"`);
+  check(/Cap 10/i.test(before) && /Level cap reached/.test(before), `at the cap: "${before.replace(/\s+/g, ' ').slice(0, 90)}"`);
   check((await page.locator('[data-testid="level-up"]').count()) === 0, 'at the cap: no Level Up button (books paused)');
 
   await tap('[data-testid="breakthrough"]');
   await page.waitForFunction(() => /Cap 20/.test(document.querySelector('.mb-lv-head')?.textContent || ''), null, { timeout: 5000 }).catch(() => {});
   const after = await headText();
-  check(/Cap 20/.test(after) && !/Level cap reached/.test(after), `same tab after the breakthrough: "${after.replace(/\s+/g, ' ').slice(0, 90)}"`);
+  check(/Cap 20/i.test(after) && !/Level cap reached/.test(after), `same tab after the breakthrough: "${after.replace(/\s+/g, ' ').slice(0, 90)}"`);
   check((await page.locator('[data-testid="level-up"]').count()) === 1, 'the books + Level Up button are back without switching tabs');
   if (shotsDir) await page.screenshot({ path: `${shotsDir}/breakthrough-after-${W}x${H}.png` });
 

@@ -572,21 +572,24 @@ try {
         title: document.querySelector('[data-testid="gate-card"] .mb-card-title')?.textContent,
         lock: document.querySelector('[data-testid="gate-lock"]')?.textContent || null,
         price: document.querySelector('[data-testid="level-tome-price"]')?.textContent,
-        steps: [...document.querySelectorAll('[data-testid="gate-card"] .mb-bt-gates .mb-gate')].map((e) => `${e.textContent}${e.classList.contains('on') ? '*' : ''}`),
+        steps: [...document.querySelectorAll('[data-testid="gate-card"] .mb-bt-gates .mb-gate')].map((e) => `${e.dataset.cap}${e.classList.contains('on') ? '*' : ''}`),
         fits: card.left >= 0 && card.right <= window.innerWidth + 1,
       };
     });
     check(lv.cap === 'Cap 72 · P4 · max 85', `${tag} levels: Aoi P4 with gate 8 broken "${lv.cap}"`);
-    check(lv.title === 'Gate 9 · Level cap 72 → 78' && lv.lock === 'Opens at P5 (Info tab: 1 Essence + coins per step).', `${tag} levels: the gate 9 card "${lv.title}" waits on P5 ("${lv.lock}")`);
+    check(lv.title === 'Gate 9 · Level cap 72 → 78' && lv.lock === 'Opens at P5 · 1 Essence + coins per step', `${tag} levels: the gate 9 card "${lv.title}" waits on P5 ("${lv.lock}")`);
     check(lv.steps.join('|') === '20*|30*|40*|50*|60*|63*|67*|72*|78|85' && lv.fits, `${tag} levels: the card's ten gates ${lv.steps.join(' | ')}`);
     check(lv.price === 'Lv 60 → 61 · 30,000 EXP (1 Akashic Tome) · 12,000 coins', `${tag} levels: the price of a level above 60 "${lv.price}"`);
+    // the per-book steppers sit behind Manual (UI_DIRECTION.md §6.2)
+    if (await page.locator('[data-testid="level-manual"][aria-expanded="false"]').count()) await page.click('[data-testid="level-manual"]');
+    await page.waitForSelector('[data-testid="level-books"]');
     await page.evaluate(() => {
       const row = [...document.querySelectorAll('.mb-book')].find((r) => r.querySelector('.mb-book-name')?.textContent === 'Akashic Tome');
       row.querySelectorAll('.mb-step')[1].click();
     });
     await page.waitForTimeout(150);
-    const pv = await page.evaluate(() => [...document.querySelectorAll('.mb-pv-line b')].map((b) => b.textContent));
-    check(pv[1] === '60 → 61' && pv[2] === '12,000', `${tag} levels: one Tome previews "${pv.join(' / ')}"`);
+    const pv = await page.evaluate(() => [document.querySelector('[data-testid="level-preview"]')?.textContent || '', document.querySelector('[data-testid="level-up"]')?.textContent || '']);
+    check(/LV 60 → 61/.test(pv[0]) && /Level up · 12,000/.test(pv[1]), `${tag} levels: one Tome previews "${pv.join(' / ')}"`);
     await page.click('[data-testid="level-up"]');
     await page.waitForTimeout(400);
     const lvUp = await page.evaluate(() => {
