@@ -101,9 +101,9 @@ describe('companion figures', () => {
       expect(m.battleScale, id).toBeLessThanOrEqual(2.5);
     }
     expect(manifest.kaze.battleScale).toBeCloseTo(1.3, 5);
-    // owner (Oct 21): Kon was too tiny, so he is drawn 2x in battle and on Ruri's page
-    expect(manifest.kon.battleScale).toBeCloseTo(2, 5);
-    expect(manifest.kon.pageScale).toBeCloseTo(2, 5);
+    // owner (Oct 21): Kon was too tiny, so he is drawn 2.4x in battle and on Ruri's page
+    expect(manifest.kon.battleScale).toBeCloseTo(2.4, 5);
+    expect(manifest.kon.pageScale).toBeCloseTo(2.4, 5);
     for (const [id, m] of Object.entries(manifest)) if (m.pageScale != null) expect(m.pageScale, id).toBeGreaterThanOrEqual(1);
   });
 

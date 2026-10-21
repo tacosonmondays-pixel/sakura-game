@@ -22,7 +22,7 @@ export const PATCH_NOTES = [
   {
     id: 'v0.1.43', version: '0.1.43', date: '2026-10-21', title: 'A Bigger Kon',
     changed: [
-      'Kon is twice as big, in battle and next to Ruri on her page, so you can actually see him run to his spot.',
+      'Kon is much bigger (about 2.4 times), in battle and next to Ruri on her page, so you can actually see him run to his spot.',
       'Co-op still works with players on v0.1.41 and v0.1.42. Battles play the same.',
     ],
   },
