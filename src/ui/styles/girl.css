@@ -87,6 +87,8 @@
 .gp-rail { margin: 0 0 6px 6px; }
 @media (min-height: 481px) { .gp-rail { margin-bottom: var(--sp-3); } }
 .gp-rail .ui-tab { padding: 0 var(--sp-2); }
+/* the Gear tab's dot is the UR rainbow (a piece can awaken now) */
+.ui-tab > .ui-dot.ur-dot { margin: 0; background: conic-gradient(var(--ur-rainbow)); }
 .gp-host { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 4px var(--sp-3) 2px; }
 .screen.gp-screen .gp-host { padding-bottom: calc(var(--sp-3) + var(--safe-bottom)); }
 .gp-host > .mb-tab-body { margin: 0; }

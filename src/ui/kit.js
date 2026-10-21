@@ -93,9 +93,9 @@ export function rail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sec
   for (const t of tabs) {
     const b = h(`button.ui-tab${t.locked ? '.locked' : ''}`, {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
-      'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ' (new)' : ''}`,
+      'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ` (${t.dotTitle || 'new'})` : ''}`,
       onclick: () => onPick(t.id),
-    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label), t.dot ? h('i.ui-dot', { 'aria-hidden': 'true', title: t.dotTitle || null }) : null);
+    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label), t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null);
     btns.set(t.id, b);
     el.append(b);
   }

@@ -1075,9 +1075,9 @@ export function render(root, params = {}) {
   const tabDefs = () => TABS.map((t) => {
     const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
       || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
-    // a red dot only when something waits: a piece that can awaken now (a Seed in the backpack)
+    // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
     const dot = t.id === 'gear' && !locked && gearCanAwakenNow(unit.id);
-    return { ...t, locked, dot, dotTitle: dot ? 'A piece can awaken' : null };
+    return { ...t, locked, dot, dotCls: dot ? 'ur-dot' : null, dotTitle: dot ? 'A piece can awaken' : null };
   });
   let tabBar = null;
   const buildRail = () => {
