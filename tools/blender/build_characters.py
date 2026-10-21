@@ -39,7 +39,9 @@ DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit=
 
 # Per-unit extra parts and horn shapes (tools-only, keyed by unit id — no unit schema change). Every extra is
 # joined into the vertex-coloured body mesh, so a GLB keeps exactly three primitives (lib/extras.py).
-EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoStand'],
+# Companions are separate figures, never baked into their girl: Hana's falcon Kaze and Ruri's holo fox Kon are no
+# longer listed here (the parts 'falcon' / 'foxFamiliar' stay in lib/extras.py), and Yoriko's doll left 'marionette'.
+EXTRA_PARTS = dict(luna=['foxTail'], hana=['quiver'], kanna=['taikoStand'],
                    tsubaki=['mortarTube'], kohaku=['monocle'], fuu=['tailBows'], ena=['cardDealer'], seiran=['flightHeadset'],
                    chigusa=['sunHat'])
 HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
@@ -89,7 +91,7 @@ LOOK_OVERRIDES = dict(
     # Yoriko (portrait, Oct 20): lilac high ponytail falling on her right, blunt bangs, a navy cat-ear stage headset
     # with glowing inner ears + mic, an indigo-navy stage frock coat open over a lilac waistcoat (lilac lapels, white
     # shirt, lilac tie, gold edging, long open tails with a lilac lining), navy gloves, trousers and ankle boots, and
-    # the marionette rig raised in her left hand: an X control bar, glowing threads and a tiny doll in a school uniform
+    # the marionette control bar raised in her left hand (her doll and its threads are a separate figure)
     yoriko=dict(accessory='catHeadset', outfit='stageCoat', weapon='marionette', bangRaise=12, chinUp=22, eyeStyle='round',
                 browTone=0.55, **BATTLE_FACE,
                 halo='crescent', ponyS=-1, ponyAz=112, ponyEl=38, ponyLen=1.25, ponyR=0.05, ponyOut=0.18, ponyCurl=0.04, ponyDroop=0.4,
