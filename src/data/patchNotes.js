@@ -28,7 +28,7 @@ export const PATCH_NOTES = [
     changed: [
       'The girl page is cleaner: her key stats sit on one strip, and more is one tap away.',
       'Her upgrades are a tidy grid with no sideways scrolling, Gear, Level Up and Awakening are simpler, and the text is bigger on phones.',
-      'Hold a girl’s card to open a quick summary sheet.',
+      'Holding a girl’s card now opens a shorter, tidier summary sheet.',
       'Co-op still works with players on v0.1.41. Battles play the same.',
     ],
   },
