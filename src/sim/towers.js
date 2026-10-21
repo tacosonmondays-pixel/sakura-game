@@ -664,8 +664,8 @@ function attackChain(sim, t) {
   return true;
 }
 
-/** Path sample points within range, nearest-to-exit first (trap candidate spots). */
-function trapSpots(sim, t) {
+/** Path sample points within range, nearest-to-exit first (trap candidate spots; Gravity Well spots, src/sim/zones.js). */
+export function trapSpots(sim, t) {
   const range = t.eff.range;
   if (t.trapSpots && t.trapSpotsRange === range) return t.trapSpots;
   const spots = [];

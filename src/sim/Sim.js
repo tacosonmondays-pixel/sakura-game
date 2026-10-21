@@ -39,6 +39,7 @@ import {
   setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
 } from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
+import { syncZones, updateZones, endZoneWave, clearZones, nearExit } from './zones.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
@@ -260,6 +261,8 @@ export class Sim {
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
+    // zones (Tenka's wells and Last Line, src/sim/zones.js): only once a girl with one was placed
+    if (this.zones) updateZones(this, dt);
     this._removeDead();
     tickHero(this, dt);
     this._checkWaveEnd();
@@ -563,6 +566,11 @@ export class Sim {
     onEnemyDeath(this, e);
   }
 
+  /** The near-exit hook (GAPS P-14; src/sim/enemies.js, only while _nearExitOn): Last Line listens. */
+  _nearExit(e) {
+    nearExit(this, e);
+  }
+
   _leak(e) {
     if (e.dead) return;
     e.dead = true;
@@ -664,6 +672,7 @@ export class Sim {
     }
     // every lasting ability effect ends with the wave (the calm point holds none)
     endAbilityWave(this);
+    if (this.zones) endZoneWave(this);
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -830,6 +839,7 @@ export class Sim {
     this.stats.towerUnits[t.uid] = unitId;
     this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
     syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
+    syncZones(this, t);
     return t;
   }
 
@@ -844,6 +854,8 @@ export class Sim {
     this._buffsDirty = true;
     // an upgrade or a hero level: her ability unlocks (tier 3 / Lv 7) or upgrades (tier 5 / Lv 17)
     syncAbility(this, t);
+    // a well or Last Line (Singularity tier 3 / 5): the zone list and the near-exit hook
+    syncZones(this, t);
   }
 
   /**
@@ -1013,6 +1025,7 @@ export class Sim {
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
+    if (this.zones) clearZones(this, t);
     t.turrets = [];
     if (this.rule) assignPads(this);
     this._buffsDirty = true;

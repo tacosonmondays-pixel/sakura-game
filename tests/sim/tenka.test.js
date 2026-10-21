@@ -1,17 +1,21 @@
-// Tenka in the sim, milestone T0 (BUILD_PLAN 6.1, 6.2, 6.9): her base coil bolts, Rail Arms and its ⚡
-// Critical Mass (a strike whose hit is a blast) with Zero Point's boost tail at tier 5, auto-cast on an
-// elite, the stats a battle-save / checkpoint re-derives, determinism, and the sandbox. Joint Research,
-// Gravity Well and Last Line resolve onto her stats but do nothing yet (T1 wells and Last Line, T2 the
-// lab team): this file pins that too, so their milestones start from a known floor.
+// Tenka in the sim, milestones T0 and T1 (BUILD_PLAN 6.1, 6.2, 6.4, 6.9): her base coil bolts, Rail Arms
+// and its ⚡ Critical Mass (a strike whose hit is a blast) with Zero Point's boost tail at tier 5, auto-cast
+// on an elite, the stats a battle-save / checkpoint re-derives, determinism, and the sandbox (T0); the
+// Singularity path's zones (T1, src/sim/zones.js): Gravity Well (the spot, the pull by path distance, the
+// slow and Brittle, the caps, the wave clear and a sale) and Last Line (the gated near-exit hook, swallows
+// in uid order that are her kills). Joint Research resolves onto her stats but does nothing yet (T2).
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { UNITS as FX, ENEMIES, STAGE, testData } from './fixtures.js';
+import { UNITS as FX, ENEMIES, STAGE, MAP, testData } from './fixtures.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { towerResolvedStats } from '../../src/sim/towers.js';
 import { resolveStats, normalizeBase, applyModSet } from '../../src/sim/mods.js';
 import { abilityDef, endAbilityWave } from '../../src/sim/abilities.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
+import {
+  KNOCKBACK_RESIST, SLOW_RESIST, ZONE_CAP_PLAYER, ZONE_CAP_SIM, ZONE_STATUS_TIME, LAST_LINE_EVERY, NEAR_EXIT,
+} from '../../src/sim/constants.js';
 import { parseBattleParams, createBattleSim } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
@@ -29,6 +33,11 @@ const XE = {
   bigElite: { ...ENEMIES.tank, id: 'bigElite', tier: 'elite' },
   // the same body again, veiled
   veilTank: { ...ENEMIES.tank, id: 'veilTank', traits: { veiled: true } },
+  // and as a miniboss and a boss (wells pull them at KNOCKBACK_RESIST, Last Line never swallows them)
+  bigMini: { ...ENEMIES.tank, id: 'bigMini', tier: 'miniboss' },
+  bigBoss: { ...ENEMIES.tank, id: 'bigBoss', tier: 'boss', leak: 9999 },
+  // a walking miniboss (one life if it leaks): it passes the exit check and Last Line lets it be
+  miniWalker: { ...ENEMIES.slime, id: 'miniWalker', tier: 'miniboss' },
 };
 const flat = (id) => ({ id, name: id, focus: id, tiers: [1, 2, 3, 4, 5].map((k) => ({ name: `${id}${k}`, cost: 100, desc: id, mods: {} })) });
 /** A fixture girl (the fixture archer: no Veil Sight) whose ⚡ strike is `effect` (lasting `duration` s), unlocked on placement. */
@@ -680,7 +689,7 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
   });
 });
 
-describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour yet (T0)', () => {
+describe('Joint Research (T2) and the Singularity keys on her stats', () => {
   test('her lab path still shoots (Focus Lens: one more enemy per bolt) and nobody joins a lab', () => {
     const sim = mk();
     const archer = sim.placeTower('archer', 9.5, 3.4);
@@ -710,42 +719,477 @@ describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour
     // her own copy, never the tier's ModSet object (UNITS data is not frozen; T1's zones read this)
     expect(TENKA.paths[SING].tiers[4].mods.lastLine).toBeTruthy();
     expect(at([0, 2, 5]).lastLine).not.toBe(TENKA.paths[SING].tiers[4].mods.lastLine);
-    // the rule itself, on ModSets in a falling order (none of her tiers does that today): lab and well keep
-    // the max per field, not last-wins; lastLine is replaced whole (one Last Line: the later tier's, even
-    // where its numbers are smaller; neither the max nor the min per field)
+    // the rule itself, on ModSets in a weakening order (none of her tiers does that today): lab and well
+    // keep the strongest value per field, not last-wins (the max; `every` is a period, so its strongest is
+    // the shortest); lastLine is replaced whole (one Last Line: the later tier's, even where its numbers are
+    // smaller; neither the max nor the min per field)
     const acc = { damageAdd: 0, damageMul: 1 };
     const s = normalizeBase({ lab: { rounds: 1 }, well: { every: 8, time: 6, radius: 2 }, lastLine: { radius: 1 } });
     expect(s.lab).toEqual({ rounds: 1, power: 1 });
     expect(s.well).toEqual({ every: 8, time: 6, radius: 2, pull: 0, slow: 0, vuln: 0 });
     expect(s.lastLine).toEqual({ radius: 1, max: 0, time: 0, cooldown: 0 });
-    // every lab and well field falls in the second ModSet (rounds 2 → 1, pull 1.2 → 0.5, slow 0.3 → 0.1, ...)
+    // every lab and well field weakens in the second ModSet (rounds 2 → 1, pull 1.2 → 0.5, slow 0.3 → 0.1,
+    // every 8 → 12 s, ...)
     applyModSet(s, { lab: { rounds: 2, power: 3 }, well: { time: 8, pull: 1.2, slow: 0.3, vuln: 0.3 }, lastLine: { radius: 1.5, max: 30, time: 8, cooldown: 120 } }, acc);
-    applyModSet(s, { lab: { rounds: 1, power: 1.5 }, well: { every: 4, time: 4, radius: 1, pull: 0.5, slow: 0.1, vuln: 0.1 }, lastLine: { radius: 2, max: 20, time: 10, cooldown: 90 } }, acc);
+    applyModSet(s, { lab: { rounds: 1, power: 1.5 }, well: { every: 12, time: 4, radius: 1, pull: 0.5, slow: 0.1, vuln: 0.1 }, lastLine: { radius: 2, max: 20, time: 10, cooldown: 90 } }, acc);
     expect(s.lab).toEqual({ rounds: 2, power: 3 });
     expect(s.well).toEqual({ every: 8, time: 8, radius: 2, pull: 1.2, slow: 0.3, vuln: 0.3 });
     expect(s.lastLine).toEqual({ radius: 2, max: 20, time: 10, cooldown: 90 });
+    // a shorter period is stronger: it wins (the max would keep 8 s); and the first `every` a ModSet gives a
+    // well without one is taken as it is (not the min against the unset 0)
+    applyModSet(s, { well: { every: 5 } }, acc);
+    expect(s.well.every).toBe(5);
+    applyModSet(s, { well: { every: 6 } }, acc);
+    expect(s.well.every).toBe(5);
+    const fresh = normalizeBase({});
+    applyModSet(fresh, { well: { time: 4, radius: 1.5 } }, acc);
+    expect(fresh.well.every).toBe(0);
+    applyModSet(fresh, { well: { every: 9 } }, acc);
+    expect(fresh.well).toEqual({ every: 9, time: 4, radius: 1.5, pull: 0, slow: 0, vuln: 0 });
   });
 
-  test('Singularity carries its well and Last Line numbers and opens nothing: the run is the same as without them', () => {
-    const run = (tiers) => {
-      const sim = mk();
-      const t = tenkaAt(sim, tiers);
-      wave(sim);
-      for (let x = 2; x < 15; x += 1.5) {
-        const e = sim.spawnEnemy('slime', { dist: x + 1 });
-        e.hp = e.maxHp = 1e6;
-      }
-      steps(sim, 600);
-      return { t, sim, dist: sim.enemies.map((e) => Math.round(e.dist * 1e6)) };
+  test('a girl without a well or Last Line leaves the battle as it was: no zone list, no exit check (2-0-2)', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [2, 0, 2]);
+    expect('well' in t.stats || 'lastLine' in t.stats).toBe(false);
+    wave(sim);
+    const walkers = [];
+    for (let x = 2; x < 15; x += 1.5) {
+      const e = sim.spawnEnemy('slime', { dist: x + 1 });
+      e.hp = e.maxHp = 1e6;
+      walkers.push(e);
+    }
+    steps(sim, 600);
+    expect(walkers.some((e) => e.leaked)).toBe(true); // they walked past the exit check point
+    expect('zones' in sim || '_nearExitOn' in sim).toBe(false);
+    expect(walkers.some((e) => 'nearExit' in e)).toBe(false);
+    expect('wellCd' in t || 'lastLineCd' in t).toBe(false);
+  });
+});
+
+// The test road: path distance d stands at x = d - 0.5 on y = 4.5 (it runs 17 tiles, from -0.5 to 16.5).
+const ROAD = 17;
+/** An enemy standing still at path distance d. */
+function road(sim, id, d, o = {}) {
+  const e = sim.spawnEnemy(id, { dist: d, ...o });
+  e.baseSpeed = 0;
+  e.speed = 0;
+  return e;
+}
+const of = (ev, type) => ev.filter((x) => x.type === type);
+/** A second Tenka below the road (player `owner`), bought to `tiers`. */
+function tenkaBelow(sim, tiers, owner = 0) {
+  const t = sim.placeTower('tenka', 8.5, 5.6, { owner });
+  expect(t).toBeTruthy();
+  for (const p of [0, 1, 2].sort((a, b) => tiers[b] - tiers[a])) for (let i = 0; i < tiers[p]; i++) expect(sim.upgradeTower(t.uid, p)).toBe(true);
+  return t;
+}
+
+/** A battle on its own roads (a 16 × 9 field of grass) with a Deep Well Tenka (0-2-4, range 3.8) at (8.5, 0.6): her range reaches y = 3.5, never y = 4.5. */
+function onRoads(paths) {
+  const map = { ...MAP, id: 'zone-roads', rows: Array.from({ length: 9 }, () => '.'.repeat(16)), paths };
+  const sim = new Sim({ ...simArgs(), data: testData({ stage: QUIET, units: XU, enemies: XE, map }) });
+  sim.cash = 1e9;
+  const t = sim.placeTower('tenka', 8.5, 0.6);
+  expect(t).toBeTruthy();
+  for (const p of [SING, SING, SING, SING, RAILS, RAILS]) expect(sim.upgradeTower(t.uid, p)).toBe(true);
+  expect(t.eff.range).toBeCloseTo(3.8, 9);
+  return { sim, t };
+}
+
+describe('Gravity Well (Singularity tier 3-4, P-4 zones)', () => {
+  test('every 8 s of wave time a 4 s well opens on the road spot in her range with the most enemies (ties: the one nearest the exit)', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 2, 3]);
+    expect(t.stats.well).toEqual({ every: 8, time: 4, radius: 1.5, pull: 1.2, slow: 0.3, vuln: 0 });
+    expect(sim.zones).toEqual([]); // the list comes with her well
+    expect('_nearExitOn' in sim).toBe(false); // no Last Line: the enemy step never checks the exit
+    wave(sim);
+    // three at d 6.6-7.4 (x 6.1-6.9) and a lone one at d 11: every spot from d 6 to d 8 holds the three,
+    // and d 8 (x 7.5) is the nearest the exit
+    for (const d of [6.6, 7.0, 7.4, 11]) road(sim, 'tank', d);
+    steps(sim, 1);
+    expect(sim.zones).toHaveLength(1);
+    const z = sim.zones[0];
+    expect(z).toMatchObject({
+      kind: 'well', src: t.uid, owner: 0, x: 7.5, y: 4.5, r: 1.5, r2: 2.25, left: 239, pull: 1.2, slow: 0.3, vuln: 0,
+      anchors: [{ pathIndex: 0, dist: 8 }],
+    });
+    expect(t.wellCd).toBe(480);
+    let ev = sim.drainEvents();
+    expect(of(ev, 'zoneOpen')).toEqual([{ type: 'zoneOpen', uid: z.uid, kind: 'well', towerUid: t.uid, owner: 0, x: 7.5, y: 4.5, radius: 1.5, time: 4 }]);
+    steps(sim, 238);
+    expect(sim.zones).toHaveLength(1);
+    steps(sim, 1); // its 240th step
+    expect(sim.zones).toEqual([]);
+    ev = sim.drainEvents();
+    expect(of(ev, 'zoneEnd')).toEqual([{ type: 'zoneEnd', uid: z.uid, kind: 'well', towerUid: t.uid, reason: 'time' }]);
+    steps(sim, 240);
+    expect(sim.zones).toEqual([]);
+    steps(sim, 1); // 480 ticks after the first
+    expect(sim.zones).toHaveLength(1);
+    expect(sim.stats.wells).toBe(2);
+    expect('lastLines' in sim.stats || 'swallowed' in sim.stats).toBe(false);
+  });
+
+  test('no enemy near any spot in her range: no well, and she looks again 15 ticks later', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 2, 3]);
+    wave(sim);
+    road(sim, 'tank', 15); // on the road, outside her range
+    steps(sim, 1);
+    expect([sim.zones.length, t.wellCd]).toEqual([0, 15]);
+    road(sim, 'tank', 9);
+    steps(sim, 14);
+    expect(sim.zones).toHaveLength(0);
+    steps(sim, 1);
+    expect(sim.zones).toHaveLength(1);
+  });
+
+  test('it pulls by path distance toward its centre from both sides, never past it: minibosses at half, bosses stand firm, nothing in a tunnel', () => {
+    const sim = mk();
+    tenkaAt(sim, [0, 2, 3]);
+    wave(sim);
+    road(sim, 'tank', 9); // the well opens on it: spots d 7.5-10.5 all hold it, d 10.5 (x 10) is nearest the exit
+    steps(sim, 1);
+    const z = sim.zones[0];
+    const A = z.anchors[0].dist;
+    expect([A, z.x]).toEqual([10.5, 10]);
+    const ahead = road(sim, 'tank', A + 1);
+    const behind = road(sim, 'tank', A - 1);
+    const mini = road(sim, 'bigMini', A + 1.2);
+    const boss = road(sim, 'bigBoss', A + 0.8);
+    const close = road(sim, 'tank', A + 0.01);
+    sim.pathData[0].tunnels = [[A + 1.35, A + 1.48]];
+    const hid = road(sim, 'tank', A + 1.42);
+    expect(hid.hidden).toBe(true);
+    steps(sim, 1);
+    expect(close.dist).toBe(A); // stops at the centre, not past it
+    steps(sim, 9);
+    const step = 1.2 / 60; // tiles a step
+    expect(ahead.dist).toBeCloseTo(A + 1 - 10 * step, 9);
+    expect(behind.dist).toBeCloseTo(A - 1 + 10 * step, 9);
+    expect(mini.dist).toBeCloseTo(A + 1.2 - 10 * step * KNOCKBACK_RESIST.miniboss, 9);
+    expect(boss.dist).toBe(A + 0.8);
+    expect(close.dist).toBe(A);
+    expect(hid.dist).toBe(A + 1.42);
+    // it moved on the road (placeOnPath): x follows the path distance
+    expect(ahead.x).toBeCloseTo(ahead.dist - 0.5, 9);
+    steps(sim, 5); // the well's next status refresh (every 15 ticks) reaches the newcomers
+    // the slow (bosses resist it), no Brittle below Deep Well, nothing inside a tunnel
+    expect(ahead.statuses.slow).toMatchObject({ amount: 0.3, sourceUid: z.src });
+    expect(boss.statuses.slow.amount).toBeCloseTo(0.3 * SLOW_RESIST.boss, 9);
+    expect(ahead.statuses.vulnerable).toBeUndefined();
+    expect(hid.statuses).toEqual({});
+  });
+
+  test('a pull back toward the start spends the freeplay knockback budget (kbLeft), a pull forward does not', () => {
+    const sim = mk();
+    tenkaAt(sim, [0, 2, 3]);
+    wave(sim);
+    road(sim, 'tank', 9);
+    steps(sim, 1);
+    const A = sim.zones[0].anchors[0].dist;
+    const ahead = road(sim, 'tank', A + 1);
+    const behind = road(sim, 'tank', A - 1);
+    ahead.kbLeft = 0.05;
+    behind.kbLeft = 0.05;
+    steps(sim, 10);
+    expect(ahead.kbLeft).toBe(0);
+    expect(ahead.dist).toBeCloseTo(A + 1 - 0.05, 9);
+    expect(behind.kbLeft).toBe(0.05);
+    expect(behind.dist).toBeCloseTo(A - 1 + 10 * (1.2 / 60), 9);
+  });
+
+  test('the pull follows the road: a stretch of the same road that bends back inside the well (a hairpin) is far along it, so it is not pulled', () => {
+    // right along y = 3.5 (d = x + 0.5), down at x = 12.5, back left along y = 4.5 (d = 26.5 - x); her
+    // range reaches only the first stretch
+    const { sim } = onRoads([[[-1, 3], [12, 3], [12, 4], [-1, 4]]]);
+    wave(sim);
+    const bait = road(sim, 'tank', 9.25); // (8.75, 3.5)
+    const near = road(sim, 'tank', 9.75); // (9.25, 3.5)
+    const back = road(sim, 'tank', 17.75); // (8.75, 4.5): one tile from the bait, 8.5 tiles on along the road
+    steps(sim, 1);
+    // spots x 7.5-10 hold all three (x 10.5 misses `back`): x 10 is the nearest the exit
+    const z = sim.zones[0];
+    expect([z.x, z.y]).toEqual([expect.closeTo(10, 9), expect.closeTo(3.5, 9)]);
+    expect(z.anchors).toEqual([{ pathIndex: 0, dist: 10.5 }]);
+    steps(sim, 9);
+    expect(bait.dist).toBeCloseTo(9.25 + 10 * (1.2 / 60), 9);
+    expect(near.dist).toBeCloseTo(9.75 + 10 * (1.2 / 60), 9);
+    expect(back.dist).toBe(17.75); // 7.25 tiles past the centre along the road: more than 2 × its radius
+    expect(back.statuses.slow).toMatchObject({ amount: 0.3 }); // inside it all the same
+  });
+
+  test('a well over two roads pulls each enemy toward the anchor on its own road', () => {
+    // two lanes: y = 3.5 (d = x + 0.5) and y = 4.5, which starts 2 tiles further back (d = x + 2.5)
+    const { sim } = onRoads([[[-1, 3], [16, 3]], [[-3, 4], [16, 4]]]);
+    wave(sim);
+    const bait = road(sim, 'tank', 9.25); // lane 1, x 8.75
+    const other = road(sim, 'tank', 12.25, { pathIndex: 1 }); // lane 2, x 9.75
+    steps(sim, 1);
+    // spots x 8.5-10.5 on lane 1 hold both: x 10.5; lane 2's anchor is the sample right below it
+    const z = sim.zones[0];
+    expect(z.x).toBeCloseTo(10.5, 9);
+    expect(z.anchors).toEqual([{ pathIndex: 0, dist: 11 }, { pathIndex: 1, dist: 13 }]);
+    steps(sim, 59);
+    expect(other.dist).toBe(13); // forward to its own anchor (x 10.5), not back toward lane 1's d 11
+    expect(other.x).toBeCloseTo(10.5, 9);
+    expect(bait.dist).toBeCloseTo(9.25 + 60 * (1.2 / 60), 9);
+  });
+
+  test('Deep Well: 6 s wells of 2 tiles; slow and +20% damage taken on everything inside, kept while inside, gone soon after', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 2, 4]);
+    expect(t.stats.well).toEqual({ every: 8, time: 6, radius: 2, pull: 1.2, slow: 0.3, vuln: 0.2 });
+    wave(sim);
+    road(sim, 'tank', 9);
+    steps(sim, 1);
+    const z = sim.zones[0];
+    expect([z.left, z.r, z.vuln]).toEqual([359, 2, 0.2]);
+    const A = z.anchors[0].dist;
+    const inside = road(sim, 'tank', A + 1.9);
+    const boss = road(sim, 'bigBoss', A - 1.5);
+    const out = road(sim, 'tank', A + 2.6);
+    steps(sim, 15); // the next refresh (every 15 ticks) reaches the newcomers
+    expect(inside.statuses.slow).toMatchObject({ amount: 0.3 });
+    expect(inside.statuses.vulnerable).toMatchObject({ bonus: 0.2, sourceUid: t.uid });
+    expect(boss.statuses.vulnerable).toMatchObject({ bonus: 0.2 });
+    expect(boss.dist).toBe(A - 1.5);
+    expect(out.statuses).toEqual({});
+    // refreshed while inside: still there well past one status lifetime
+    steps(sim, 120);
+    expect(inside.statuses.vulnerable.left).toBeGreaterThan(ZONE_STATUS_TIME - 15 / 60 - 1e-9);
+    steps(sim, 360 - 136);
+    expect(sim.zones).toEqual([]);
+    steps(sim, Math.ceil(ZONE_STATUS_TIME * 60) + 1);
+    expect(inside.statuses.vulnerable).toBeUndefined();
+  });
+
+  test('wells end at the wave clear and with her sale (only hers); her well timer runs on wave time only', () => {
+    const sim = mk();
+    const a = tenkaAt(sim, [0, 2, 3]);
+    const b = tenkaBelow(sim, [0, 2, 3]);
+    wave(sim);
+    road(sim, 'tank', 9);
+    steps(sim, 1);
+    expect(sim.zones.map((z) => z.src)).toEqual([a.uid, b.uid]);
+    const [za, zb] = sim.zones;
+    sim.drainEvents();
+    expect(sim.sellTower(b.uid)).toBeGreaterThan(0);
+    expect(sim.zones).toEqual([za]);
+    expect(of(sim.drainEvents(), 'zoneEnd')).toEqual([{ type: 'zoneEnd', uid: zb.uid, kind: 'well', towerUid: b.uid, reason: 'sold' }]);
+    for (const e of sim.enemies) sim._killEnemy(e, null);
+    steps(sim, 1);
+    expect(sim.state).toBe('between');
+    expect(sim.zones).toEqual([]);
+    expect(of(sim.drainEvents(), 'zoneEnd')).toEqual([{ type: 'zoneEnd', uid: za.uid, kind: 'well', towerUid: a.uid, reason: 'wave' }]);
+    expect(a.wellCd).toBe(479);
+    steps(sim, 600);
+    expect(a.wellCd).toBe(479);
+  });
+
+  test(`caps: ${ZONE_CAP_PLAYER} open zones per player and ${ZONE_CAP_SIM} per sim; a new one closes the oldest of its player's, then the oldest of all`, () => {
+    const sim = mk();
+    const spots = [];
+    for (const y of [3.4, 5.6]) for (let x = 0.5; x < 16; x += 1) if (sim.canPlace('tenka', x, y).ok) spots.push([x, y]);
+    expect(spots.length).toBeGreaterThanOrEqual(26);
+    // 12 of player 1, 13 of player 0, 1 of a third player (the planned 4-player co-op): all open at once
+    const owners = [...Array(12).fill(1), ...Array(13).fill(0), 2];
+    const girls = owners.map((owner, i) => {
+      const t = sim.placeTower('tenka', ...spots[i], { owner });
+      for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, RAILS);
+      for (let k = 0; k < 3; k++) sim.upgradeTower(t.uid, SING);
+      expect(t.stats.well).toBeTruthy();
+      return t;
+    });
+    wave(sim);
+    for (let d = 0.5; d < ROAD; d += 0.5) road(sim, 'tank', d);
+    sim.drainEvents();
+    steps(sim, 1);
+    const ev = sim.drainEvents();
+    expect(of(ev, 'zoneOpen')).toHaveLength(26);
+    // the 13th of player 0 closes player 0's first (not the oldest of all); the third player's (24 open)
+    // closes the oldest of all, player 1's first
+    expect(of(ev, 'zoneEnd').map((x) => [x.towerUid, x.reason])).toEqual([[girls[12].uid, 'cap'], [girls[0].uid, 'cap']]);
+    expect(sim.zones).toHaveLength(ZONE_CAP_SIM);
+    expect([0, 1, 2].map((o) => sim.zones.filter((z) => z.owner === o).length)).toEqual([12, 11, 1]);
+    expect(sim.zones.map((z) => z.src)).toEqual(girls.filter((t, i) => i !== 0 && i !== 12).map((t) => t.uid));
+    const uids = sim.zones.map((z) => z.uid);
+    expect([...uids].sort((x, y) => x - y)).toEqual(uids);
+  });
+});
+
+describe('Last Line (Singularity tier 5, the P-14 near-exit hook)', () => {
+  test('the near-exit hook runs only while a girl with Last Line is placed, once per enemy, NEAR_EXIT tiles before the exit', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 2, 4]);
+    expect('_nearExitOn' in sim).toBe(false);
+    expect(sim.upgradeTower(t.uid, SING)).toBe(true);
+    expect(sim._nearExitOn).toBe(1);
+    const calls = [];
+    const real = sim._nearExit;
+    sim._nearExit = function spy(e) {
+      calls.push([e.uid, e.dist]);
+      return real.call(this, e);
     };
-    const a = run([2, 0, 5]);
-    expect(a.t.stats.well).toEqual({ every: 8, time: 6, radius: 2, pull: 1.2, slow: 0.3, vuln: 0.2 });
-    expect(a.t.stats.lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
-    // tiers 3-5 of Singularity add only those keys: the battle is exactly the 2-0-2 one (no well pulls)
-    const b = run([2, 0, 2]);
-    expect('well' in b.t.stats || 'lastLine' in b.t.stats).toBe(false);
-    expect(a.dist).toEqual(b.dist);
-    expect('zones' in a.sim).toBe(false);
+    wave(sim);
+    road(sim, 'tank', 1); // keeps the wave going
+    // a miniboss: Last Line never swallows it, so it walks on past the line to the exit
+    const e = sim.spawnEnemy('miniWalker', { dist: ROAD - NEAR_EXIT - 0.03 });
+    steps(sim, 1);
+    expect([calls.length, 'nearExit' in e]).toEqual([0, false]);
+    steps(sim, 2);
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe(e.uid);
+    expect(calls[0][1]).toBeGreaterThanOrEqual(ROAD - NEAR_EXIT);
+    expect(e.nearExit).toBe(true);
+    expect(sim.zones).toEqual([]); // a miniboss sets nothing off
+    steps(sim, 30);
+    expect([e.dead, calls.length]).toEqual([false, 1]);
+    // her sale switches the hook off
+    expect(sim.sellTower(t.uid)).toBeGreaterThan(0);
+    expect(sim._nearExitOn).toBe(0);
+    const f = sim.spawnEnemy('slime', { dist: ROAD - NEAR_EXIT - 0.03 });
+    steps(sim, 10);
+    expect([calls.length, 'nearExit' in f]).toEqual([1, false]);
+  });
+
+  test('the first enemy near the exit opens a well there: one normal or elite enemy swallowed every 16 ticks in uid order, up to 30, as her kills (bounty paid, no life lost)', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 2, 5]);
+    expect(t.stats.lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
+    wave(sim);
+    // the lowest uid: it walks over the line at once and is the first one swallowed
+    const walker = sim.spawnEnemy('slime', { dist: ROAD - NEAR_EXIT - 0.01 });
+    // a miniboss and a boss next in uid order: never swallowed
+    const mini = road(sim, 'bigMini', ROAD - 0.5);
+    const boss = road(sim, 'bigBoss', ROAD - 0.3);
+    const inside = [];
+    for (let i = 0; i < 34; i++) inside.push(road(sim, i % 5 === 4 ? 'bigElite' : 'tank', ROAD - 1.4 + i * 0.04));
+    const cash = sim.cash;
+    const lives = sim.lives;
+    const swallows = [];
+    let open = null;
+    let end = null;
+    let bounty = 0;
+    for (let i = 1; i <= 600; i++) {
+      sim.update(1 / 60);
+      for (const x of sim.drainEvents()) {
+        if (x.type === 'zoneOpen') open = { ...x, step: i };
+        if (x.type === 'swallow') swallows.push({ uid: x.uid, step: i, towerUid: x.towerUid });
+        if (x.type === 'death') bounty += x.bounty;
+        if (x.type === 'zoneEnd') end = { ...x, step: i };
+      }
+    }
+    expect(open).toMatchObject({ kind: 'lastLine', towerUid: t.uid, owner: 0, x: 16.5, y: 4.5, radius: 1.5, time: 8, step: 1 });
+    expect(swallows).toHaveLength(30);
+    expect(swallows.map((x) => x.uid)).toEqual([walker, ...inside].slice(0, 30).map((e) => e.uid));
+    expect(swallows[0].step).toBe(1);
+    for (let i = 1; i < 30; i++) expect(swallows[i].step - swallows[i - 1].step).toBe(LAST_LINE_EVERY);
+    expect(end).toMatchObject({ kind: 'lastLine', towerUid: t.uid, reason: 'full', step: 1 + 29 * LAST_LINE_EVERY });
+    expect(sim.zones).toEqual([]);
+    expect([walker.dead, walker.leaked]).toEqual([true, false]);
+    expect([mini.dead, boss.dead, inside[30].dead]).toEqual([false, false, false]);
+    expect(t.kills).toBe(30);
+    expect(sim.lives).toBe(lives);
+    expect(bounty).toBeGreaterThanOrEqual(30);
+    expect(sim.cash - cash).toBe(bounty);
+    expect(sim.stats).toMatchObject({ lastLines: 1, swallowed: 30 });
+    // her rest: 120 s of wave time from the opening step
+    expect(t.lastLineCd).toBe(120 * 60 - 600);
+  });
+
+  test('it closes after 8 s with fewer to swallow; a boss near the exit sets nothing off; one inside an open Last Line opens no second; the next girl in uid order (not sabotaged) takes the next; the rest runs on wave time only', () => {
+    const sim = mk();
+    const a = tenkaAt(sim, [0, 2, 5]);
+    const b = tenkaBelow(sim, [0, 2, 5], 1); // player 2's own final tier
+    expect(sim._nearExitOn).toBe(2);
+    wave(sim);
+    road(sim, 'tank', 1); // keeps the wave going, out of everyone's reach
+    const boss = sim.spawnEnemy('boss', { dist: ROAD - NEAR_EXIT - 0.005 });
+    steps(sim, 1);
+    expect(boss.nearExit).toBe(true);
+    expect(sim.zones).toEqual([]);
+    sim._killEnemy(boss, null);
+    a.disabled = 30; // sabotaged: b takes the first
+    sim.spawnEnemy('slime', { dist: ROAD - NEAR_EXIT - 0.01 });
+    steps(sim, 1);
+    expect(sim.zones.map((z) => [z.kind, z.src])).toEqual([['lastLine', b.uid]]);
+    expect([a.lastLineCd ?? 0, b.lastLineCd]).toEqual([0, 120 * 60 - 1]);
+    a.disabled = 0;
+    const w2 = sim.spawnEnemy('slime', { dist: ROAD - NEAR_EXIT - 0.01 });
+    steps(sim, 1);
+    expect(sim.zones).toHaveLength(1); // w2 is inside b's: a stays ready
+    expect(w2.nearExit).toBe(true);
+    expect(a.lastLineCd ?? 0).toBe(0);
+    sim.drainEvents();
+    steps(sim, 480 - 2);
+    const ev = sim.drainEvents();
+    expect(of(ev, 'swallow')).toHaveLength(1); // w2, 16 ticks after the first
+    expect(of(ev, 'zoneEnd')).toEqual([expect.objectContaining({ towerUid: b.uid, reason: 'time' })]);
+    expect(sim.zones).toEqual([]);
+    sim.spawnEnemy('slime', { dist: ROAD - NEAR_EXIT - 0.01 });
+    steps(sim, 1);
+    expect(sim.zones.map((z) => [z.kind, z.src])).toEqual([['lastLine', a.uid]]);
+    const left = b.lastLineCd;
+    sim.state = 'between';
+    steps(sim, 300);
+    expect(b.lastLineCd).toBe(left);
+  });
+});
+
+describe('zones: determinism and checkpoints', () => {
+  /** Two Tenkas (Last Line and Deep Well) and a walking crowd of 24 (5e4 HP each); the front three walk past her wells' reach to the exit. */
+  function crowd() {
+    const sim = mk();
+    tenkaAt(sim, [0, 2, 5]);
+    tenkaBelow(sim, [0, 2, 4], 1);
+    wave(sim);
+    for (let i = 0; i < 24; i++) {
+      const e = sim.spawnEnemy(i % 4 ? 'slime' : 'orc', { dist: i * 0.7 });
+      e.hp = e.maxHp = 5e4;
+    }
+    return sim;
+  }
+  const both = (sim) => sim.zones.some((z) => z.kind === 'well') && sim.zones.some((z) => z.kind === 'lastLine');
+
+  test('the same battle twice is the same: hash, zones and swallows', () => {
+    const go = () => {
+      const sim = crowd();
+      let seen = false;
+      for (let i = 0; i < 1800; i++) {
+        sim.update(1 / 60);
+        sim.drainEvents();
+        if (both(sim)) seen = true;
+      }
+      return { seen, hash: hashSim(sim), stats: [sim.stats.wells, sim.stats.lastLines, sim.stats.swallowed], dist: sim.enemies.map((e) => e.dist), lives: sim.lives };
+    };
+    const a = go();
+    expect(a.seen).toBe(true);
+    expect(a.stats[2]).toBeGreaterThan(0);
+    expect(go()).toEqual(a);
+  });
+
+  test('a mid-wave checkpoint with an open well and an open Last Line plays on identically (the generic snapshot)', () => {
+    const sim = crowd();
+    for (let i = 0; i < 1200 && !both(sim); i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    expect(both(sim)).toBe(true);
+    const snap = JSON.parse(JSON.stringify(sim.snapshot()));
+    const copy = mk().restore(snap);
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(snap));
+    for (let i = 0; i < 900; i++) {
+      sim.update(1 / 60);
+      copy.update(1 / 60);
+      sim.drainEvents();
+      copy.drainEvents();
+    }
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
+    expect(hashSim(copy)).toBe(hashSim(sim));
+    expect(copy.stats.swallowed).toBe(sim.stats.swallowed);
   });
 });
 

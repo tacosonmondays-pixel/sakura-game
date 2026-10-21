@@ -146,8 +146,8 @@ BaseStats = {
   link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
   hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
   // Tenka (BUILD_PLAN 6.1). On the stats only once a tier sets them (no null default: every other girl
-  // resolves as before). They parse, normalise and validate from T0; their behaviour lands in T1 (well,
-  // lastLine) and T2 (lab), so until then the sim reads none of them.
+  // resolves as before). well and lastLine run in src/sim/zones.js (T1, §6 Zones); lab lands in T2, so
+  // until then the sim reads none of it.
   lab?: { rounds, power },     // Joint Research: absorbs `rounds` times (on purchase), lab weapons × power
   well?: { every, time, radius, pull, slow, vuln },  // Gravity Well: every s a well for `time` s (P-4 zones)
   lastLine?: { radius, max, time, cooldown },        // Last Line: a near-exit well that swallows up to `max` (P-14)
@@ -225,8 +225,8 @@ her ⚡ path and her ability.
 | brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
 | hpPct: {pct, boss, cap} (max) | % of current HP per hit |
 | lab: {rounds (max), power (max)} | Tenka's Joint Research (behaviour in T2; on the stats from T0) |
-| well: {every, time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (behaviour in T1) |
-| lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (behaviour in T1) |
+| well: {every (min: a period), time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (§6 Zones) |
+| lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (§6 Zones) |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
 | turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
@@ -1074,6 +1074,31 @@ sim.result().stats       // + abilitiesUsed, abilityByTower {uid: n} — created
 Headless: `runHeadless({ …, autoAbilities })`, plan action `{ action: 'ability', uid | x, y, group? }` (waits on a
 refusal a later moment can lift), `autoPlan(stageId, units, { ability: true })` (every girl's main path = her ⚡ path).
 Bench: `tools/abilityBench.mjs` (spec §11).
+
+**Zones** (`src/sim/zones.js`; GAPS P-4 zones and P-14 the near-exit hook; Tenka's Singularity, BUILD_PLAN 6.4).
+Road patches with a radius, a lifetime in ticks and an effect every step, run right after `updateTraps`. Lazy:
+`sim.zones` and `sim._nearExitOn` exist only once a girl with `well` / `lastLine` was placed or upgraded, so
+other battles run as before. **Gravity Well**: every `well.every` s of wave time (`t.wellCd`, ticks) she opens
+one for `time` s at the trap spot in her range with the most enemies within `radius` (ties: nearest the exit;
+none: she looks again after `WELL_RETRY_TICKS`); it pulls the enemies inside toward its centre by path distance
+(`pull` tiles/s × `KNOCKBACK_RESIST[tier]`: bosses stand firm, never past the centre, only within
+`WELL_PULL_REACH` × radius of it along the road; a pull back spends the freeplay `kbLeft` budget) and refreshes a
+`slow` and a Brittle (`vulnerable`, `vuln`) status every `ZONE_STATUS_TICKS` for `ZONE_STATUS_TIME` s. **Last
+Line**: `updateEnemy` calls `sim._nearExit(e)` once per enemy (`e.nearExit`) when it comes within `NEAR_EXIT`
+tiles (path distance) of its exit, only while `sim._nearExitOn` (placed girls with Last Line) > 0. A normal or
+elite enemy outside any open Last Line sets it off: the lowest-uid girl whose Last Line is ready and who is not
+sabotaged opens a zone at that exit and rests `cooldown` s of wave time (`t.lastLineCd`, ticks). The zone
+swallows the lowest-uid normal / elite enemy inside it every `LAST_LINE_EVERY` ticks (the first at once), up to
+`max`, for `time` s; a swallow is her kill through `_killEnemy` (bounty paid, no life lost). Zones touch every
+live enemy outside tunnels (no sight needed). Caps: `ZONE_CAP_PLAYER` (12) per player, `ZONE_CAP_SIM` (24) per
+sim, the oldest (lowest uid) first. Every zone ends at the wave clear and on her sale.
+```js
+sim.zones          // [{ uid, src, owner, kind: 'well'|'lastLine', x, y, r, r2, left /*ticks*/, anchors: [{ pathIndex, dist }],
+                   //    pull, slow, vuln, max, eaten, next }]   (absent in a battle without a well / Last Line girl)
+// events: zoneOpen { uid, kind, towerUid, owner, x, y, radius, time }, zoneEnd { uid, kind, towerUid,
+//   reason: 'time'|'full'|'cap'|'wave'|'sold' }, swallow { zoneUid, towerUid, uid, id, x, y } (then the death)
+sim.result().stats // + wells, lastLines, swallowed — created by the first one
+```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
 checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is

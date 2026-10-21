@@ -126,6 +126,25 @@ export const ABILITY_SCATTER = Object.freeze([
   [-0.54, -0.31], [0.7, 0.35], [-0.7, 0.35], [0, -0.78], [0.36, 0.7], [-0.36, -0.7],
 ].map((p) => Object.freeze(p)));
 
+/**
+ * Zones (src/sim/zones.js; GAPS P-4, caps GAPS 7.2): most open at once per player and per sim (a new one
+ * closes the oldest first). A well refreshes its slow and Brittle on everything inside every
+ * ZONE_STATUS_TICKS ticks, for ZONE_STATUS_TIME s (so they hold while an enemy stays inside); with no
+ * enemy near any spot in her range she looks again after WELL_RETRY_TICKS. Its pull reaches enemies
+ * within WELL_PULL_REACH × its radius of the centre by path distance; anchors are path samples every
+ * ZONE_ANCHOR_STEP tiles.
+ */
+export const ZONE_CAP_PLAYER = 12;
+export const ZONE_CAP_SIM = 24;
+export const ZONE_STATUS_TICKS = 15;
+export const ZONE_STATUS_TIME = 0.3;
+export const WELL_RETRY_TICKS = 15;
+export const WELL_PULL_REACH = 2;
+export const ZONE_ANCHOR_STEP = 0.25;
+/** Last Line (GAPS P-14): the near-exit hook fires NEAR_EXIT tiles (path distance) before the exit; one swallow per LAST_LINE_EVERY ticks. */
+export const NEAR_EXIT = 1;
+export const LAST_LINE_EVERY = 16;
+
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */

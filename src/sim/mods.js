@@ -69,10 +69,9 @@ function normTurret(t = {}) {
   };
 }
 
-// Tenka's paths (BUILD_PLAN 6.1; GAPS 5.10). The keys parse, normalise and validate now; what they
-// do arrives with their milestones (Joint Research T2, Gravity Well and Last Line T1), so in T0 they
-// sit on her stats and no sim code reads them. Like the Potential keys they appear on the stats ONLY
-// when a tier sets them: every other girl resolves exactly as before.
+// Tenka's paths (BUILD_PLAN 6.1; GAPS 5.10). Gravity Well and Last Line play in src/sim/zones.js (T1);
+// Joint Research's lab arrives in T2, so until then no sim code reads it. Like the Potential keys they
+// appear on the stats ONLY when a tier sets them: every other girl resolves exactly as before.
 /** Joint Research (P-13): how many times she absorbs (on purchase) and the weapons' strength multiplier. */
 function normLab(l = {}) {
   return { rounds: l.rounds ?? 0, power: l.power ?? 1 };
@@ -328,9 +327,12 @@ export function applyModSet(s, mods, acc) {
       l.rounds = Math.max(l.rounds, v.rounds ?? 0);
       l.power = Math.max(l.power, v.power ?? 1);
     } else if (key === 'well') {
-      // Gravity Well: every field keeps the strongest value (Deep Well: 6 s, radius 2, +20% damage taken)
+      // Gravity Well: every field keeps the strongest value (Deep Well: 6 s, radius 2, +20% damage taken).
+      // `every` is a period, so the strongest is the shortest (0 = not set yet: the first one sets it);
+      // the other fields keep the max
       const w = s.well || (s.well = normWell());
-      for (const f of ['every', 'time', 'radius', 'pull', 'slow', 'vuln']) if (v[f] != null) w[f] = Math.max(w[f], v[f]);
+      if (v.every > 0) w.every = w.every > 0 ? Math.min(w.every, v.every) : v.every;
+      for (const f of ['time', 'radius', 'pull', 'slow', 'vuln']) if (v[f] != null) w[f] = Math.max(w[f], v[f]);
     } else if (key === 'lastLine') {
       s.lastLine = normLastLine(v); // replace: one Last Line
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);

@@ -9,7 +9,7 @@
 
 import {
   AIR_ALT, BLINK_WARN, BLINK_INTERRUPTS, BARRIER_REGEN_RATE, ENRAGE_RADIUS, DEFAULT_LEAK, DOT_PCT_BOSS_MUL,
-  FREEPLAY_ARMOR_FLOOR,
+  FREEPLAY_ARMOR_FLOOR, NEAR_EXIT,
 } from './constants.js';
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import { ruleMoveMul, ruleRift } from './rules.js';
@@ -516,6 +516,12 @@ export function updateEnemy(sim, e, dt) {
   if (sim._ruleMove) mul *= ruleMoveMul(sim._ruleMove, e);
   e.speed = e.baseSpeed * mul;
   e.dist += e.speed * dt;
+  // Last Line (src/sim/zones.js, GAPS P-14): the first time an enemy comes within NEAR_EXIT tiles of its
+  // exit, before it can leak. Only while a girl with Last Line is placed: other battles never check.
+  if (sim._nearExitOn && !e.nearExit && e.dist >= path.length - NEAR_EXIT) {
+    e.nearExit = true;
+    sim._nearExit(e);
+  }
   if (e.dist >= path.length) {
     sim._leak(e);
     return;

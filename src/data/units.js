@@ -1379,7 +1379,7 @@ const TENKA = {
       tier('Field Coils', 650, '+0.4 range.', { range: 0.4 }),
       tier('Gravity Well', 2800, 'Every 8s a well opens on the road in her range for 4s: it pulls enemies within 1.5 tiles toward its centre along the road (bosses stand firm) and slows them 30%.', { well: { every: 8, time: 4, radius: 1.5, pull: 1.2, slow: 0.3 } }),
       tier('Deep Well', 8500, 'Wells last 6s and reach 2 tiles; enemies inside take +20% damage.', { well: { time: 6, radius: 2, vuln: 0.2 } }),
-      tier('Last Line', 26000, 'When an enemy nears the exit, a well opens there and swallows up to 30 enemies (not bosses) over 8s, counting as her kills; then it rests for 120s of wave time.', { lastLine: { radius: 1.5, max: 30, time: 8, cooldown: 120 } }),
+      tier('Last Line', 26000, 'When an enemy nears the exit, a well opens there and swallows up to 30 enemies (not minibosses or bosses) over 8s, counting as her kills; then it rests for 120s of wave time.', { lastLine: { radius: 1.5, max: 30, time: 8, cooldown: 120 } }),
     ]),
   ],
   awakenPassive: {
